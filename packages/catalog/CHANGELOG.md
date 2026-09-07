@@ -8,6 +8,10 @@
 - Added the explicit `emoji` owned tool-calling dialect identity.
 - Added Claude Fable 5.1 to the bundled first-party Anthropic catalog with its 1M context window, 128K output limit, adaptive five-tier reasoning, and cache pricing.
 
+### Changed
+
+- Updated the shared OpenAI Codex client compatibility version from `0.153.0` to `0.153.4` for discovery and request headers.
+
 ## [17.3.3] - 2026-08-27
 
 ### Added

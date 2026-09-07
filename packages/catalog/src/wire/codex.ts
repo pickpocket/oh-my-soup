@@ -11,7 +11,7 @@ export const CODEX_BASE_URL = "https://chatgpt.com/backend-api";
  * `/models?client_version=` and `/responses` (`gpt-6-astra` requires ≥ 0.153.0);
  * an older pin silently hides newer SKUs from discovery.
  */
-export const CODEX_CLIENT_VERSION = "0.153.0";
+export const CODEX_CLIENT_VERSION = "0.153.4";
 
 export const OPENAI_HEADERS = {
 	BETA: "OpenAI-Beta",

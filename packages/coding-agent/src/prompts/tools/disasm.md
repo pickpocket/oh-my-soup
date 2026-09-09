@@ -12,3 +12,5 @@ Use the backend-neutral model:
 `backend` defaults to `ida`. Names are case-insensitive.
 
 For IDA/Ghidra/Binary Ninja, `open` resolves installations and launches headless workers. Configure `disasm.*.installDir` and language interpreters in settings. Raw binaries use temp DBs; use `output_db` to persist. Prefer bounded SQL queries; broad scans can decompile entire databases. SQL writes mutate files. Before Binary Ninja work, read `oms://tools/disasm-binaryninja.md` for schema/recipes.
+
+**Query Tables:** `names`, `strings`, `xrefs`, `funcs`, `imports`, `segments`, `pseudocode`, `bin_search`. Use `PRAGMA table_info(table)` to inspect schemas.

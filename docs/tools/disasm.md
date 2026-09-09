@@ -154,3 +154,21 @@ Drop to backend-native execution only when SQL is insufficient:
 - `formatQuery` outputs row count only (not full JSON) to reduce token usage.
 - `formatTargets` outputs compact target metadata on single lines.
 - Results are capped by `enforceInlineByteCap` when output exceeds limits.
+
+## SQL Tables
+
+Common tables available for queries:
+
+| Table | Purpose |
+|-------|---------|
+| `names` | Symbol and function names |
+| `strings` | String literals |
+| `xrefs` | Cross-references (code/data) |
+| `funcs` | Function metadata and bounds |
+| `imports` | Imported library symbols |
+| `segments` | Binary segment info |
+| `pseudocode` | Decompiled code (IDA only) |
+| `bin_search` | Binary search results |
+
+Use `PRAGMA table_info(table)` to inspect column schemas for your target.
+

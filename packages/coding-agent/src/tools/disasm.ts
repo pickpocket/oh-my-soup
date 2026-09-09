@@ -483,7 +483,7 @@ function formatTargets(backend: string, targets: DisassemblerTarget[]): string {
 }
 
 function formatQuery(query: DisassemblerQueryResult): string {
-	return `${query.rows.length} row${query.rows.length === 1 ? "" : "s"}\n${stringifyUnknown(query)}`;
+	return `${query.rows.length} row${query.rows.length === 1 ? "" : "s"}`;
 }
 
 function formatExecution(execution: DisassemblerExecutionResult): string {

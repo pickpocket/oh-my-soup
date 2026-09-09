@@ -148,3 +148,9 @@ Drop to backend-native execution only when SQL is insufficient:
 - Prefer bounded SQL. Broad analysis scans can decompile or walk an entire database; Binary Ninja documents accepted bounds in `sql_tables.required_bounds`.
 - Multiple targets may stay open at once; each has its own worker.
 - `close` retires the worker, saves persistent projects/databases according to backend semantics, and deletes temporary databases.
+
+## Token Usage
+
+- `formatQuery` outputs row count only (not full JSON) to reduce token usage.
+- `formatTargets` outputs compact target metadata on single lines.
+- Results are capped by `enforceInlineByteCap` when output exceeds limits.

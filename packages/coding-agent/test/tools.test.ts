@@ -2,6 +2,8 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "bun:
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
+import { Readable } from "node:stream";
+import { pipeline } from "node:stream/promises";
 import * as url from "node:url";
 import * as zlib from "node:zlib";
 import type { AgentToolContext } from "@oh-my-soup/pi-agent-core";
@@ -15,7 +17,7 @@ import { wrapToolWithMetaNotice } from "@oh-my-soup/pi-coding-agent/tools/output
 import { ReadTool } from "@oh-my-soup/pi-coding-agent/tools/read";
 import * as toolTimeouts from "@oh-my-soup/pi-coding-agent/tools/tool-timeouts";
 import { WriteTool } from "@oh-my-soup/pi-coding-agent/tools/write";
-import { openArchive, readArchiveEntries, unzip } from "@oh-my-soup/pi-coding-agent/utils/zip";
+import { extractTarGzArchive, openArchive, readArchiveEntries, unzip } from "@oh-my-soup/pi-coding-agent/utils/zip";
 import { $which, removeSyncWithRetries, Snowflake } from "@oh-my-soup/pi-utils";
 import { GlobTool } from "../src/tools/glob";
 import { DEFAULT_FILE_LIMIT, GrepTool, MULTI_FILE_PER_FILE_MATCHES } from "../src/tools/grep";
@@ -477,6 +479,394 @@ function createTestToolContext(toolNames: string[]): AgentToolContext {
 		toolNames,
 	} as AgentToolContext;
 }
+
+describe("streaming tar.gz extraction", () => {
+	let testDir: string;
+	let source: string;
+	let destination: string;
+	const limits = {
+		maxArchiveBytes: 8 * 1024 * 1024,
+		maxMemberBytes: 2 * 1024 * 1024,
+		maxExtractedBytes: 4 * 1024 * 1024,
+	};
+
+	beforeEach(async () => {
+		testDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), "tar-extract-"));
+		source = path.join(testDir, "bundle.tar.gz");
+		destination = path.join(testDir, "staging");
+	});
+
+	afterEach(() => {
+		vi.restoreAllMocks();
+		removeSyncWithRetries(testDir);
+	});
+
+	it("extracts a selected member above 64 MiB from an inflated archive above 256 MiB", async () => {
+		const member = "bundle/lib/rustlib/target/lib/libLLVM.so";
+		const selectedSize = 65 * 1024 * 1024 + 13;
+		const skippedSize = 192 * 1024 * 1024;
+		function* fixture(): Generator<Buffer> {
+			const bytes = Buffer.alloc(64 * 1024, 0x61);
+			for (const [name, size] of [
+				[member, selectedSize],
+				["bundle/unselected", skippedSize],
+			] as const) {
+				yield createTarHeader(name, size, "0");
+				for (let remaining = size; remaining > 0; remaining -= bytes.byteLength) {
+					yield bytes.subarray(0, Math.min(remaining, bytes.byteLength));
+				}
+				if (size % 512) yield Buffer.alloc(512 - (size % 512));
+			}
+			yield Buffer.alloc(1024);
+		}
+		await pipeline(
+			Readable.from(fixture(), { objectMode: false }),
+			zlib.createGzip({ level: 1 }),
+			fs.createWriteStream(source),
+		);
+		expect(
+			await extractTarGzArchive(source, destination, {
+				select: name => name === member,
+				maxArchiveBytes: 260 * 1024 * 1024,
+				maxMemberBytes: skippedSize,
+				maxExtractedBytes: selectedSize,
+			}),
+		).toBe(1);
+		const output = Bun.file(path.join(destination, member));
+		expect(output.size).toBe(selectedSize);
+		expect(await output.slice(0, 16).text()).toBe("a".repeat(16));
+		expect(await output.slice(selectedSize - 16).text()).toBe("a".repeat(16));
+		expect(await Bun.file(path.join(destination, "bundle/unselected")).exists()).toBe(false);
+	}, 30_000);
+
+	it("shares GNU longname, base-256 and PAX precedence while excluding directories from selection", async () => {
+		const longPath = `./pkg//lib/${"segment/".repeat(16)}runtime.so`;
+		const longData = Buffer.from(`${longPath}\0`);
+		const binaryHeader = createTarHeader("placeholder", 0, "0", { oldGnu: true });
+		writeTarBase256(binaryHeader, 124, 12, 3n);
+		writeTarOctal(binaryHeader, 100, 8, 0o4755);
+		tarChecksum(binaryHeader);
+		const tar = Buffer.concat([
+			createTarHeader("./pkg/", 0, "5"),
+			tarRecord(createTarHeader("././@LongLink", longData.length, "L", { oldGnu: true }), longData),
+			tarRecord(binaryHeader, Buffer.from("abc")),
+			createPaxHeader("g", paxRecord("size", "3")),
+			createPaxHeader("x", paxRecord("path", "./pkg//lib/pax.so")),
+			tarRecord(createTarHeader("ignored-name", 0, "0"), Buffer.from("xyz")),
+			createPaxHeader("g", paxRecord("size", "")),
+			tarRecord(createTarHeader("unselected", 4, "0"), Buffer.from("skip")),
+			Buffer.alloc(1024),
+		]);
+		await Bun.write(source, zlib.gzipSync(tar));
+		const selected: string[] = [];
+		expect(
+			await extractTarGzArchive(source, destination, {
+				...limits,
+				select: name => {
+					selected.push(name);
+					return name.startsWith("pkg/lib/");
+				},
+			}),
+		).toBe(2);
+		const normalizedLongPath = longPath.replace("./pkg//", "pkg/");
+		expect(selected).toEqual([normalizedLongPath, "pkg/lib/pax.so", "unselected"]);
+		expect(await Bun.file(path.join(destination, normalizedLongPath)).text()).toBe("abc");
+		expect(await Bun.file(path.join(destination, "pkg/lib/pax.so")).text()).toBe("xyz");
+		if (process.platform !== "win32") {
+			expect((await fs.promises.stat(path.join(destination, normalizedLongPath))).mode & 0o7777).toBe(0o755);
+		}
+	});
+
+	it.each([
+		["absolute", "/outside"],
+		["traversal", "pkg/../outside"],
+		["Windows drive", "C:\\outside"],
+		["UNC", "\\\\host\\share\\outside"],
+		["alternate data stream", "pkg/file:stream"],
+		["Windows device", "pkg/NUL.dll"],
+		["Windows trailing-dot alias", "pkg/file."],
+	])("rejects %s paths before invoking selection", async (_kind, member) => {
+		await Bun.write(source, zlib.gzipSync(createTarArchive([{ path: member, content: "" }])));
+		const select = vi.fn(() => false);
+		await expect(extractTarGzArchive(source, destination, { ...limits, select })).rejects.toThrow(/unsafe/i);
+		expect(select).not.toHaveBeenCalled();
+	});
+
+	it("rejects unsafe original and overwritten metadata paths even when the effective path is safe", async () => {
+		const variants = [
+			Buffer.concat([
+				createPaxHeader("x", paxRecord("path", "safe")),
+				createTarHeader("../unsafe", 0, "0"),
+				Buffer.alloc(1024),
+			]),
+			Buffer.concat([
+				createPaxHeader("x", Buffer.concat([paxRecord("path", "../unsafe"), paxRecord("path", "safe")])),
+				createTarHeader("safe", 0, "0"),
+				Buffer.alloc(1024),
+			]),
+			Buffer.concat([
+				tarRecord(createTarHeader("././@LongLink", 10, "L"), Buffer.from("../unsafe\0")),
+				createTarHeader("safe", 0, "0"),
+				Buffer.alloc(1024),
+			]),
+		];
+		for (const tar of variants) {
+			await Bun.write(source, zlib.gzipSync(tar));
+			const select = vi.fn(() => false);
+			await expect(extractTarGzArchive(source, destination, { ...limits, select })).rejects.toThrow(/unsafe/i);
+			expect(select).not.toHaveBeenCalled();
+		}
+	});
+
+	it.each([
+		["normalized duplicate", ["pkg/file", "./pkg//file"]],
+		["case alias", ["pkg/File", "pkg/file"]],
+		["file used as parent", ["pkg", "pkg/file"]],
+		["parent replacing subtree", ["pkg/file", "pkg"]],
+	] as const)("rejects %s even for unselected entries", async (_kind, names) => {
+		await Bun.write(source, zlib.gzipSync(createTarArchive(names.map(name => ({ path: name, content: "" })))));
+		await expect(
+			extractTarGzArchive(source, destination, {
+				...limits,
+				select: () => false,
+			}),
+		).rejects.toThrow(/colliding|duplicate/i);
+	});
+
+	it("does not overwrite existing files or follow symlink parents or roots", async () => {
+		await Bun.write(source, zlib.gzipSync(createTarArchive([{ path: "lib/tool", content: "new" }])));
+		await Bun.write(path.join(destination, "lib/tool"), "original");
+		await expect(extractTarGzArchive(source, destination, { ...limits, select: () => true })).rejects.toThrow();
+		expect(await Bun.file(path.join(destination, "lib/tool")).text()).toBe("original");
+
+		const outside = path.join(testDir, "outside");
+		await fs.promises.mkdir(outside);
+		const linkedDestination = path.join(testDir, "linked-staging");
+		await fs.promises.mkdir(linkedDestination);
+		await fs.promises.symlink(
+			outside,
+			path.join(linkedDestination, "lib"),
+			process.platform === "win32" ? "junction" : "dir",
+		);
+		await expect(
+			extractTarGzArchive(source, linkedDestination, {
+				...limits,
+				select: () => true,
+			}),
+		).rejects.toThrow(/real directory/);
+		const linkedRoot = path.join(testDir, "linked-root");
+		await fs.promises.symlink(outside, linkedRoot, process.platform === "win32" ? "junction" : "dir");
+		await expect(
+			extractTarGzArchive(source, linkedRoot, {
+				...limits,
+				select: () => true,
+			}),
+		).rejects.toThrow(/real directory/);
+		expect(await fs.promises.readdir(outside)).toEqual([]);
+	});
+
+	it.each(["1", "2", "6", "S"])("rejects selected non-regular type %s", async type => {
+		await Bun.write(
+			source,
+			zlib.gzipSync(
+				Buffer.concat([createTarHeader("lib/tool", 0, type, { linkName: "target" }), Buffer.alloc(1024)]),
+			),
+		);
+		await expect(
+			extractTarGzArchive(source, destination, {
+				...limits,
+				select: () => true,
+			}),
+		).rejects.toThrow(/unsupported.*type/i);
+	});
+
+	it("rejects selected GNU and SCHILY PAX sparse files rather than writing stored extents", async () => {
+		for (const tar of [
+			createSparsePaxTarArchive("lib/tool", 1024, Buffer.from("extent")),
+			Buffer.concat([
+				createPaxHeader("x", paxRecord("SCHILY.realsize", "1024")),
+				tarRecord(createTarHeader("lib/tool", 6, "0"), Buffer.from("extent")),
+				Buffer.alloc(1024),
+			]),
+		]) {
+			await Bun.write(source, zlib.gzipSync(tar));
+			await expect(
+				extractTarGzArchive(source, destination, {
+					...limits,
+					select: name => name === "lib/tool",
+				}),
+			).rejects.toThrow(/unsupported.*type/i);
+			expect(await Bun.file(path.join(destination, "lib/tool")).exists()).toBe(false);
+		}
+	});
+
+	it("skips unselected old-GNU sparse continuation blocks without shifting the following file", async () => {
+		await Bun.write(source, zlib.gzipSync(createOldGnuSparseTarArchive()));
+		expect(
+			await extractTarGzArchive(source, destination, {
+				...limits,
+				select: name => name === "data/after.txt",
+			}),
+		).toBe(1);
+		expect(await Bun.file(path.join(destination, "data/after.txt")).text()).toBe("after sparse\n");
+		expect(await Bun.file(path.join(destination, "data/real-sparse.bin")).exists()).toBe(false);
+	});
+
+	it("rejects malformed numeric fields even when the header checksum is valid", async () => {
+		const header = createTarHeader("file", 0, "0");
+		header[124] = 0x39;
+		tarChecksum(header);
+		await Bun.write(source, zlib.gzipSync(Buffer.concat([header, Buffer.alloc(1024)])));
+		const select = vi.fn(() => true);
+		await expect(extractTarGzArchive(source, destination, { ...limits, select })).rejects.toThrow(/numeric field/);
+		expect(select).not.toHaveBeenCalled();
+	});
+
+	it("enforces inflated, unselected-member and aggregate selected-byte caps", async () => {
+		const tar = createTarArchive([
+			{ path: "one", content: "1234" },
+			{ path: "two", content: "5678" },
+		]);
+		await Bun.write(source, zlib.gzipSync(tar));
+		for (const [cap, value, select, error] of [
+			["maxArchiveBytes", tar.length - 1, false, /inflated archive byte limit/],
+			["maxMemberBytes", 3, false, /member byte limit/],
+			["maxExtractedBytes", 7, true, /selected byte limit/],
+		] as const) {
+			await expect(
+				extractTarGzArchive(source, path.join(testDir, cap), {
+					...limits,
+					[cap]: value,
+					select: () => select,
+				}),
+			).rejects.toThrow(error);
+		}
+	});
+
+	it("bounds metadata payload allocation and extended path length before selection", async () => {
+		for (const tar of [
+			createTarHeader("metadata", 1024 * 1024 + 1, "x"),
+			createPaxPathTarArchive("x".repeat(4097)),
+		]) {
+			await Bun.write(source, zlib.gzipSync(tar));
+			const select = vi.fn(() => false);
+			await expect(extractTarGzArchive(source, destination, { ...limits, select })).rejects.toThrow(
+				/metadata byte limit|4096 bytes/,
+			);
+			expect(select).not.toHaveBeenCalled();
+		}
+	});
+
+	it("rejects truncated members, missing terminators, corrupt headers, and nonzero or partial tails", async () => {
+		const complete = createTarArchive([{ path: "file", content: "data" }]);
+		const corrupt = Buffer.from(complete);
+		corrupt[0] = corrupt[0]! ^ 1;
+		for (const [index, tar] of [
+			Buffer.concat([createTarHeader("file", 1024, "0"), Buffer.alloc(12)]),
+			complete.subarray(0, complete.length - 1024),
+			complete.subarray(0, complete.length - 512),
+			corrupt,
+			Buffer.concat([complete, Buffer.from("not padding")]),
+			Buffer.concat([complete, Buffer.alloc(1)]),
+		].entries()) {
+			await Bun.write(source, zlib.gzipSync(tar));
+			await expect(
+				extractTarGzArchive(source, path.join(testDir, `invalid-${index}`), {
+					...limits,
+					select: () => true,
+				}),
+			).rejects.toThrow(/truncat|terminat|corrupt/i);
+		}
+	});
+
+	it("reads past the tar terminator to reject corrupt CRCs and truncated gzip trailers", async () => {
+		const compressed = zlib.gzipSync(createTarArchive([{ path: "file", content: "data" }]));
+		const corrupt = Buffer.from(compressed);
+		corrupt[corrupt.length - 8] = corrupt[corrupt.length - 8]! ^ 1;
+		for (const [index, gzip] of [corrupt, compressed.subarray(0, compressed.length - 4)].entries()) {
+			await Bun.write(source, gzip);
+			await expect(
+				extractTarGzArchive(source, path.join(testDir, `gzip-${index}`), {
+					...limits,
+					select: () => true,
+				}),
+			).rejects.toThrow();
+		}
+	});
+
+	it("honors pre-abort and cancellation from selection before creating a selected file", async () => {
+		const reason = new Error("cancel extraction");
+		const before = new AbortController();
+		before.abort(reason);
+		await expect(
+			extractTarGzArchive(source, destination, {
+				...limits,
+				select: () => true,
+				signal: before.signal,
+			}),
+		).rejects.toBe(reason);
+		await expect(fs.promises.lstat(destination)).rejects.toMatchObject({ code: "ENOENT" });
+		await Bun.write(source, zlib.gzipSync(createTarArchive([{ path: "file", content: "data" }])));
+		const during = new AbortController();
+		await expect(
+			extractTarGzArchive(source, destination, {
+				...limits,
+				signal: during.signal,
+				select: () => {
+					during.abort(reason);
+					return true;
+				},
+			}),
+		).rejects.toBe(reason);
+		expect(await Bun.file(path.join(destination, "file")).exists()).toBe(false);
+	});
+
+	it("rejects cancellation without waiting for a stalled source read", async () => {
+		await Bun.write(source, "");
+		const stalled = Promise.withResolvers<void>();
+		const closed = Promise.withResolvers<void>();
+		let finishRead: (() => void) | undefined;
+		const stream = fs.createReadStream(source, {
+			fs: {
+				open: fs.open,
+				close: fs.close,
+				read: (
+					_fd: number,
+					buffer: Buffer,
+					_offset: number,
+					_length: number,
+					_position: number,
+					callback: (error: NodeJS.ErrnoException | null, bytesRead: number, data: Buffer) => void,
+				) => {
+					finishRead = () => callback(null, 0, buffer);
+					stalled.resolve();
+				},
+			},
+		});
+		stream.once("close", () => closed.resolve());
+		vi.spyOn(fs, "createReadStream").mockReturnValueOnce(stream);
+		const controller = new AbortController();
+		const reason = new Error("cancel stalled read");
+		const outcome = extractTarGzArchive(source, destination, {
+			...limits,
+			select: () => true,
+			signal: controller.signal,
+		}).then(
+			() => ({ status: "success" }),
+			error => ({ status: "error", error }),
+		);
+		try {
+			await stalled.promise;
+			controller.abort(reason);
+			expect(await outcome).toEqual({ status: "error", error: reason });
+		} finally {
+			finishRead?.();
+			stream.destroy();
+			await closed.promise;
+			await outcome;
+		}
+	});
+});
 
 describe("Coding Agent Tools", () => {
 	let testDir: string;

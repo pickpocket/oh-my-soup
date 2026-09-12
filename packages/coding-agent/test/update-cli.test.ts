@@ -13,7 +13,6 @@ import {
 	buildMiseUpgradeArgs,
 	buildNpmInstallArgs,
 	downloadVerifiedBinary,
-	isMuslLinuxForTest,
 	parseUpdateArgs,
 	pruneBunInstallCache,
 	replaceBinaryForUpdate,
@@ -27,6 +26,7 @@ import {
 import Update from "@oh-my-soup/pi-coding-agent/commands/update";
 import { getThemeByName } from "@oh-my-soup/pi-coding-agent/modes/theme/loader";
 import { setThemeInstance } from "@oh-my-soup/pi-coding-agent/modes/theme/theme";
+import { isMuslLinux } from "@oh-my-soup/pi-coding-agent/utils/platform";
 import * as piUtils from "@oh-my-soup/pi-utils";
 import { removeWithRetries } from "@oh-my-soup/pi-utils";
 import type { CliConfig } from "@oh-my-soup/pi-utils/cli";
@@ -83,7 +83,7 @@ describe("parseUpdateArgs", () => {
 describe("update-cli libc detection", () => {
 	it("does not mistake an installed musl loader for a glibc host", () => {
 		expect(
-			isMuslLinuxForTest({
+			isMuslLinux({
 				platform: "linux",
 				alpineRelease: false,
 				lddOutput: "ldd (Ubuntu GLIBC 2.39-0ubuntu8.7) 2.39",
@@ -93,7 +93,7 @@ describe("update-cli libc detection", () => {
 
 	it("recognizes a musl host from ldd output", () => {
 		expect(
-			isMuslLinuxForTest({
+			isMuslLinux({
 				platform: "linux",
 				alpineRelease: false,
 				lddOutput: "musl libc (x86_64)",

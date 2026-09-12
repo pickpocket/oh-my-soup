@@ -22,6 +22,7 @@ import {
 	withTimeoutSignal,
 } from "../utils/fetch-timeout";
 import { fetchLatestRelease, RELEASE_REPO as REPO } from "../utils/latest-release";
+import { isMuslLinux } from "../utils/platform";
 
 const PACKAGE = "@oh-my-soup/pi-coding-agent";
 const HOMEBREW_FORMULA = "pickpocket/tap/oms";
@@ -851,38 +852,6 @@ async function pruneBunCacheAfterGlobalInstall(): Promise<BunInstallCachePruneRe
 		: new Set<string>();
 	if (packageNames.size === 0 && !path.basename(cacheDir).toLowerCase().includes("oms")) return undefined;
 	return await pruneBunInstallCache(cacheDir, packageNames.size === 0 ? undefined : packageNames);
-}
-
-/**
- * Detect a musl-libc Linux host (Alpine, Void-musl) so self-update replaces a
- * musl binary with the musl release asset instead of the glibc build, which
- * would fail to start on the next run. The loader file alone is not sufficient:
- * glibc hosts may have musl installed for cross-compilation.
- */
-interface MuslDetectionOptions {
-	platform?: NodeJS.Platform;
-	alpineRelease?: boolean;
-	lddOutput?: string;
-}
-
-function detectLddOutput(): string | undefined {
-	try {
-		const result = Bun.spawnSync(["ldd", "--version"], { stdout: "pipe", stderr: "pipe" });
-		return `${result.stdout.toString("utf-8")}\n${result.stderr.toString("utf-8")}`;
-	} catch {
-		return undefined;
-	}
-}
-
-function isMuslLinux(options: MuslDetectionOptions = {}): boolean {
-	if ((options.platform ?? process.platform) !== "linux") return false;
-	if (options.alpineRelease ?? fs.existsSync("/etc/alpine-release")) return true;
-	return /\bmusl\b/i.test(options.lddOutput ?? detectLddOutput() ?? "");
-}
-
-/** Test seam for libc detection. */
-export function isMuslLinuxForTest(options: Required<MuslDetectionOptions>): boolean {
-	return isMuslLinux(options);
 }
 
 /**

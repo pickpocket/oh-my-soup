@@ -2,7 +2,7 @@ import * as fs from "node:fs/promises";
 import { type } from "@oh-my-soup/omstype";
 import type { AgentTool, AgentToolResult, RenderResultOptions } from "@oh-my-soup/pi-agent-core";
 import { type Component, Text } from "@oh-my-soup/pi-tui";
-import { logger, prompt, ptree, sanitizeText } from "@oh-my-soup/pi-utils";
+import { logger, prompt, ptree, sanitizeText, TempDir } from "@oh-my-soup/pi-utils";
 import type { Theme } from "../modes/theme/theme";
 import objdumpDescription from "../prompts/tools/objdump.md" with { type: "text" };
 import { OutputSink } from "../session/streaming-output";
@@ -35,8 +35,9 @@ const objdumpSchema = type({
 	"stop_address?": type("string").describe(
 		"exclusive unsigned hexadecimal or decimal address; must exceed start_address",
 	),
-	"architecture?": type("string").describe("disassemble only: GNU architecture, for example i386 or i386:x86-64"),
-	"target?": type("string").describe("GNU BFD input format, including binary for raw bytes"),
+	"architecture?": type("string").describe("LLVM architecture name for disassembly; required for every raw action"),
+	"triple?": type("string").describe("LLVM target triple for disassembly or raw input; must match raw architecture"),
+	"raw?": type("boolean").describe("wrap raw bytes in a temporary ELF object; requires explicit architecture"),
 	"syntax?": type.enumerated("intel", "att").describe("disassemble only: x86 instruction syntax"),
 	"demangle?": type("boolean").describe(
 		"symbols, disassemble, relocations; defaults true for symbols and disassemble",
@@ -55,6 +56,7 @@ export interface ObjdumpToolDetails {
 	executable: string;
 	exitCode: number | null;
 	durationMs: number;
+	raw?: { architecture: string; format: string; section: string; executable: string };
 	meta?: OutputMeta;
 }
 
@@ -65,15 +67,16 @@ const ACTION_ARGS: Record<ObjdumpAction, readonly string[]> = {
 	disassemble: ["-d"],
 	relocations: ["-r"],
 	contents: ["-s"],
-	info: ["-i"],
+	info: ["--version"],
 };
 
 const OPTION_ACTIONS: Record<string, readonly ObjdumpAction[]> = {
 	section: ["sections", "disassemble", "relocations", "contents"],
 	start_address: ["disassemble", "relocations", "contents"],
 	stop_address: ["disassemble", "relocations", "contents"],
-	architecture: ["disassemble"],
-	target: ["headers", "sections", "symbols", "disassemble", "relocations", "contents"],
+	architecture: ["headers", "sections", "symbols", "disassemble", "relocations", "contents"],
+	triple: ["headers", "sections", "symbols", "disassemble", "relocations", "contents"],
+	raw: ["headers", "sections", "symbols", "disassemble", "relocations", "contents"],
 	syntax: ["disassemble"],
 	demangle: ["symbols", "disassemble", "relocations"],
 	all_sections: ["disassemble"],
@@ -110,13 +113,23 @@ function buildArgs(params: ObjdumpParams): string[] {
 		if (key !== "file" && (!Object.hasOwn(OPTION_ACTIONS, key) || !OPTION_ACTIONS[key]?.includes(params.action))) {
 			throw new ToolError(`${key} is not supported for action ${params.action}`);
 		}
-		if (key === "demangle" || key === "all_sections" || key === "dynamic") {
+		if (key === "demangle" || key === "all_sections" || key === "dynamic" || key === "raw") {
 			if (typeof value !== "boolean") throw new ToolError(`${key} must be a boolean`);
 		} else {
 			requireString(value, key);
 		}
 	}
 	if (params.action !== "info") requireString(params.file, "file");
+	if (
+		!params.raw &&
+		params.action !== "disassemble" &&
+		(params.architecture !== undefined || params.triple !== undefined)
+	) {
+		throw new ToolError("architecture and triple require disassemble or raw: true");
+	}
+	if (params.architecture !== undefined && !/^[a-zA-Z0-9_-]+$/.test(params.architecture)) {
+		throw new ToolError("architecture must be an LLVM architecture name, not a GNU BFD architecture");
+	}
 	if (params.syntax !== undefined && params.syntax !== "intel" && params.syntax !== "att") {
 		throw new ToolError("syntax must be intel or att");
 	}
@@ -130,23 +143,76 @@ function buildArgs(params: ObjdumpParams): string[] {
 	}
 	const args = [...ACTION_ARGS[params.action]];
 	if (params.dynamic) args[0] = params.action === "symbols" ? "-T" : "-R";
-	if (params.all_sections) args[0] = "-D";
+	if (params.all_sections ?? (params.raw && params.action === "disassemble")) args[0] = "-D";
 	if (params.section !== undefined) args.push(`--section=${params.section}`);
-	// Canonical hex avoids GNU's leading-zero octal interpretation of decimal strings.
+	else if (params.raw && (params.action === "disassemble" || params.action === "contents"))
+		args.push("--section=.data");
+	// Canonical hex keeps leading-zero decimal strings decimal in the native parser.
 	if (start !== undefined) args.push(`--start-address=0x${start.toString(16)}`);
 	if (stop !== undefined) args.push(`--stop-address=0x${stop.toString(16)}`);
-	if (params.architecture !== undefined) args.push(`--architecture=${params.architecture}`);
-	if (params.target !== undefined) args.push(`--target=${params.target}`);
+	if (params.architecture !== undefined && params.action === "disassemble")
+		args.push(`--arch-name=${params.architecture}`);
+	if (params.triple !== undefined && params.action === "disassemble") args.push(`--triple=${params.triple}`);
 	if (params.syntax !== undefined) args.push("-M", params.syntax);
 	if (params.demangle ?? (params.action === "symbols" || params.action === "disassemble")) args.push("-C");
 	return args;
+}
+
+// LLVM objcopy selects the ELF machine and endianness from -O; its -B is ignored.
+// Keep this allowlist narrower than objdump's registered disassemblers.
+const RAW_FORMATS: Record<string, { format: string; tripleArchitecture: string }> = {
+	"x86-64": { format: "elf64-x86-64", tripleArchitecture: "x86_64" },
+	x86: { format: "elf32-i386", tripleArchitecture: "i386" },
+	aarch64: { format: "elf64-littleaarch64", tripleArchitecture: "aarch64" },
+	arm: { format: "elf32-littlearm", tripleArchitecture: "arm" },
+};
+
+function rawFormat(params: ObjdumpParams): string | undefined {
+	if (!params.raw) return undefined;
+	if (!params.architecture || !Object.hasOwn(RAW_FORMATS, params.architecture)) {
+		throw new ToolError(
+			`raw requires an explicit supported LLVM architecture: ${Object.keys(RAW_FORMATS).join(", ")}`,
+		);
+	}
+	const target = RAW_FORMATS[params.architecture]!;
+	if (params.triple !== undefined && params.triple.split("-")[0] !== target.tripleArchitecture) {
+		throw new ToolError(
+			`raw triple architecture must be ${target.tripleArchitecture} to match architecture ${params.architecture}`,
+		);
+	}
+	return target.format;
+}
+
+async function hasMachOHeader(file: string): Promise<boolean> {
+	// Match LLVM's bounded file classification, including the FAT/Java-class overlap.
+	const prefix = await Bun.file(file).slice(0, 32).arrayBuffer();
+	if (prefix.byteLength < 4) return false;
+	const header = new DataView(prefix);
+	const magic = header.getUint32(0, false);
+	switch (magic) {
+		case 0xcafebabe: // FAT_MAGIC / FAT_MAGIC_64 (LLVM does not recognize swapped FAT)
+		case 0xcafebabf:
+			return prefix.byteLength >= 8 && header.getUint8(7) < 43;
+		case 0xfeedface: // MH_MAGIC / MH_CIGAM
+		case 0xcefaedfe:
+			if (prefix.byteLength < 28) return false;
+			break;
+		case 0xfeedfacf: // MH_MAGIC_64 / MH_CIGAM_64
+		case 0xcffaedfe:
+			if (prefix.byteLength < 32) return false;
+			break;
+		default:
+			return false;
+	}
+	const fileType = header.getUint32(12, magic === 0xcefaedfe || magic === 0xcffaedfe);
+	return fileType >= 1 && fileType <= 12;
 }
 
 export class ObjdumpTool implements AgentTool<typeof objdumpSchema, ObjdumpToolDetails> {
 	readonly name = "objdump";
 	readonly approval = "read";
 	readonly summary =
-		"Inspect local binary headers, sections, symbols, instructions, relocations, and bytes with GNU objdump";
+		"Inspect local binary headers, sections, symbols, instructions, relocations, and bytes with LLVM objdump";
 	readonly loadMode = "discoverable";
 	readonly label = "Objdump";
 	readonly description = prompt.render(objdumpDescription);
@@ -165,11 +231,18 @@ export class ObjdumpTool implements AgentTool<typeof objdumpSchema, ObjdumpToolD
 		signal?: AbortSignal,
 	): Promise<AgentToolResult<ObjdumpToolDetails>> {
 		throwIfAborted(signal);
-		const args = buildArgs(params);
+		let args = buildArgs(params);
+		const format = rawFormat(params);
 		const executable = getToolPath("objdump");
 		if (!executable) {
 			throw new ToolError(
-				"GNU objdump is unavailable. Run `oms setup objdump` to install a local copy, then retry.",
+				"LLVM objdump is unavailable. Run `oms setup objdump` to install the LLVM tools, then retry.",
+			);
+		}
+		const objcopy = format ? getToolPath("objcopy") : undefined;
+		if (format && !objcopy) {
+			throw new ToolError(
+				"LLVM objcopy is required for raw input. Run `oms setup objdump` to install the LLVM tools, then retry.",
 			);
 		}
 		let file: string | undefined;
@@ -183,13 +256,15 @@ export class ObjdumpTool implements AgentTool<typeof objdumpSchema, ObjdumpToolD
 			file = resolveToCwd(params.file, this.session.cwd);
 			try {
 				if (!(await fs.stat(file)).isFile()) throw new ToolError(`file is not a regular file: ${file}`);
+				if (params.action === "headers" && !params.raw && (await hasMachOHeader(file))) {
+					// Generic -f rejects Mach-O; select all universal slices rather than only the host architecture.
+					args = ["--macho", "--private-headers", "--universal-headers", "--arch=all"];
+				}
 			} catch (error) {
 				throwIfAborted(signal);
 				if (error instanceof ToolError) throw error;
 				throw new ToolError(`Cannot inspect file ${file}: ${renderError(error)}`);
 			}
-			// Absolute final operand also prevents GNU response-file expansion of @names.
-			args.push("--", file);
 		}
 		const timeout = clampTimeout("objdump", params.timeout, this.session.settings.get("tools.maxTimeout"));
 		let artifact: { id?: string; path?: string } | undefined;
@@ -210,63 +285,107 @@ export class ObjdumpTool implements AgentTool<typeof objdumpSchema, ObjdumpToolD
 			maxColumns: resolveOutputMaxColumns(this.session.settings),
 		});
 		const started = performance.now();
-		let child: ptree.ChildProcess<"ignore"> | undefined;
-		try {
-			try {
-				child = ptree.spawn([executable, ...args], {
-					cwd: this.session.cwd,
-					stdin: "ignore",
-					timeout: timeout * 1000,
-					signal,
-				});
-			} catch (error) {
-				throwIfAborted(signal);
-				throw new ToolError(
-					`Cannot start GNU objdump (${executable}): ${renderError(error)}. Check this executable or rerun \`oms setup objdump\`.`,
-				);
+		const deadline = started + timeout * 1000;
+		const run = async (
+			program: string,
+			argv: string[],
+			label: string,
+		): Promise<{ exitCode: number | null; failed: boolean }> => {
+			throwIfAborted(signal);
+			const remaining = Math.ceil(deadline - performance.now());
+			if (remaining <= 0) {
+				sink.push(`\n${label} timed out after ${timeout}s (shared inspection deadline)\n`);
+				return { exitCode: null, failed: true };
 			}
-			const output = child.stdout.pipeTo(sink.createInput());
-			const exited = child.nothrow().exitedCleanly;
-			let exitCode: number | null = null;
-			let failure: string | undefined;
+			let child: ptree.ChildProcess<"ignore"> | undefined;
 			try {
-				[, exitCode] = await Promise.all([output, exited]);
-			} catch (error) {
-				child.kill();
-				await Promise.allSettled([output, exited]);
+				try {
+					child = ptree.spawn([program, ...argv], {
+						cwd: this.session.cwd,
+						stdin: "ignore",
+						timeout: remaining,
+						signal,
+					});
+				} catch (error) {
+					throwIfAborted(signal);
+					throw new ToolError(
+						`Cannot start ${label} (${program}): ${renderError(error)}. Check this executable or rerun \`oms setup objdump\`.`,
+					);
+				}
+				const exited = child.nothrow().exitedCleanly;
+				let output: Promise<void> | undefined;
+				let exitCode: number | null = null;
+				let failure: string | undefined;
+				try {
+					output = child.stdout.pipeTo(sink.createInput());
+					[, exitCode] = await Promise.all([output, exited]);
+				} catch (error) {
+					child.kill();
+					await Promise.allSettled([output, exited]);
+					throwIfAborted(signal);
+					if (error instanceof ptree.TimeoutError || child.exitReason instanceof ptree.TimeoutError) {
+						failure = `${label} timed out after ${timeout}s (shared inspection deadline)`;
+					} else if (error instanceof ptree.AbortError) {
+						throw new ToolAbortError(undefined, { cause: error });
+					} else {
+						failure = `${label} failed: ${renderError(error)}`;
+					}
+				}
 				throwIfAborted(signal);
-				if (error instanceof ptree.TimeoutError || child.exitReason instanceof ptree.TimeoutError) {
-					failure = `GNU objdump timed out after ${timeout}s`;
-				} else if (error instanceof ptree.AbortError) {
-					throw new ToolAbortError(undefined, { cause: error });
-				} else {
-					failure = `GNU objdump failed: ${renderError(error)}`;
+				const stderr = child.peekStderr();
+				if (stderr) sink.push(`\n[${label} stderr (bounded tail)]\n${stderr}`);
+				if (failure) sink.push(`\n${failure}\n`);
+				else if (exitCode !== 0) sink.push(`\n${label} exited with code ${exitCode}\n`);
+				return { exitCode, failed: failure !== undefined || exitCode !== 0 };
+			} finally {
+				if (child) {
+					if (child.exitCode === null) {
+						child.kill();
+						await child.nothrow().exitedCleanly.catch(() => {});
+					}
+					if (!child.stdout.locked) await child.stdout.cancel().catch(() => {});
 				}
 			}
-			throwIfAborted(signal);
-			const stderr = child.peekStderr();
-			if (stderr) sink.push(`\n[GNU objdump stderr (bounded tail)]\n${stderr}`);
-			if (failure) sink.push(`\n${failure}\n`);
-			else if (exitCode !== 0) sink.push(`\nGNU objdump exited with code ${exitCode}\n`);
+		};
+		let temporary: TempDir | undefined;
+		try {
+			let inspectedFile = file;
+			let conversion: { exitCode: number | null; failed: boolean } | undefined;
+			if (format && objcopy && file) {
+				temporary = await TempDir.create("@oms-objdump-");
+				inspectedFile = temporary.join("raw.o");
+				sink.push(
+					`[Raw input: ${file}; LLVM objcopy synthetic ${format} wrapper, .data at address 0. ` +
+						"Headers, sections, and symbols below describe the wrapper, not original object metadata. Original bytes are unchanged.]\n",
+				);
+				conversion = await run(objcopy, ["-I", "binary", "-O", format, "--", file, inspectedFile], "LLVM objcopy");
+			}
+			// LLVM objdump does not accept "--"; an absolute operand cannot be an option or @response file.
+			if (inspectedFile !== undefined) args.push(inspectedFile);
+			const result = conversion?.failed ? conversion : await run(executable, args, "LLVM objdump");
 			const summary = await sink.dump();
 			throwIfAborted(signal);
 			return toolResult<ObjdumpToolDetails>({
 				action: params.action,
 				file,
 				executable,
-				exitCode,
+				exitCode: result.exitCode,
 				durationMs: Math.round(performance.now() - started),
+				raw:
+					format && objcopy
+						? { architecture: params.architecture!, format, section: ".data", executable: objcopy }
+						: undefined,
 			})
 				.text(summary.output)
 				.truncationFromSummary(summary, { direction: "tail" })
-				.error(failure !== undefined || exitCode !== 0)
+				.error(result.failed)
 				.done();
 		} finally {
-			if (child && child.exitCode === null) {
-				child.kill();
-				await child.nothrow().exitedCleanly.catch(() => {});
+			try {
+				await temporary?.remove();
+			} finally {
+				await sink.dispose();
 			}
-			await sink.dispose();
 		}
 	}
 }

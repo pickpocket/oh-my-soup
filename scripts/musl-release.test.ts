@@ -141,7 +141,7 @@ esac`,
 		expect(result.exitCode, result.stderr).toBe(0);
 		expect(result.stdout).toContain("Downloading oms-darwin-arm64...");
 		expect(await Bun.file(fixture.callsPath).text()).toBe("--version\nsetup --help\n");
-		expect(result.stdout).toContain("does not support managed GNU objdump");
+		expect(result.stdout).toContain("does not support managed LLVM objdump");
 		expect(result.stdout).toContain("Installed oms to");
 		expect(await Bun.file(path.join(fixture.installDir, "oms")).exists()).toBe(true);
 	});

@@ -132,7 +132,7 @@ describe("read and write route xd:// device URLs", () => {
 			const result = await write.execute("objdump-info", args);
 			expect(result.isError).toBeUndefined();
 			expect(result.details?.xdev).toMatchObject({ tool: "objdump", mode: "execute", tier: "read" });
-			expect(result.content.find(part => part.type === "text")?.text).toContain("BFD");
+			expect(result.content.find(part => part.type === "text")?.text).toContain("Registered Targets");
 		} finally {
 			await removeWithRetries(tempDir);
 		}

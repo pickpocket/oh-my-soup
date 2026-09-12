@@ -1,13 +1,15 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { $which, getToolsDir, logger, ptree, TempDir, USER_AGENT } from "@oh-my-soup/pi-utils";
-import { extractArchive } from "./zip";
+import { $which, getToolsDir, isEnoent, logger, ptree, TempDir, USER_AGENT } from "@oh-my-soup/pi-utils";
+import { isMuslLinux } from "./platform";
+import { extractArchive, extractTarGzArchive } from "./zip";
 
 const TOOL_DOWNLOAD_TIMEOUT_MS = 120_000;
 const TOOL_METADATA_TIMEOUT_MS = 5000;
 
-type BodyReadResult = Bun.ReadableStreamDefaultReadResult<Uint8Array>;
+// Fetch and subprocess readers differ in whether their final result may carry a value.
+type BodyReadResult = { done: false; value: Uint8Array } | { done: true; value?: Uint8Array };
 type BodyReader = {
 	read(): Promise<BodyReadResult>;
 	cancel(reason?: unknown): Promise<void>;
@@ -35,24 +37,43 @@ async function readBodyChunk(reader: BodyReader, signal: AbortSignal | undefined
 	}
 }
 
+interface DownloadIntegrity {
+	sha256: string;
+	maxBytes: number;
+}
+
 async function writeResponseBody(
 	dest: string,
 	body: NonNullable<Response["body"]>,
 	signal?: AbortSignal,
+	integrity?: DownloadIntegrity,
 ): Promise<void> {
 	const reader = body.getReader();
 	const sink = Bun.file(dest).writer();
 	let completed = false;
+	const hasher = integrity ? new Bun.CryptoHasher("sha256") : undefined;
+	let size = 0;
 
 	try {
 		while (true) {
 			const { done, value } = await readBodyChunk(reader, signal);
 			if (done) break;
 			if (value) {
+				size += value.byteLength;
+				if (integrity && size > integrity.maxBytes) {
+					throw new Error(`Download exceeds ${integrity.maxBytes} bytes`);
+				}
+				hasher?.update(value);
 				await sink.write(value);
 			}
 		}
 		await sink.end();
+		if (hasher && integrity) {
+			const actualHash = hasher.digest("hex");
+			if (actualHash !== integrity.sha256) {
+				throw new Error(`SHA256 mismatch: expected ${integrity.sha256}, got ${actualHash}`);
+			}
+		}
 		completed = true;
 	} finally {
 		if (!completed) {
@@ -69,36 +90,10 @@ interface ToolConfig {
 	binaryName: string; // Name of the binary inside the archive
 	tagPrefix: string; // Prefix for tags (e.g., "v" for v1.0.0, "" for 1.0.0)
 	isDirectBinary?: boolean; // If true, asset is a direct binary (not an archive)
-	pinnedVersion?: string;
-	rawZstdSha256?: Readonly<Record<string, string>>; // SHA256 of each compressed standalone executable
-	minimumDarwinMajor?: number;
 	getAssetName: (version: string, plat: string, architecture: string) => string | null;
 }
 
 const TOOLS: Record<string, ToolConfig> = {
-	objdump: {
-		name: "GNU objdump",
-		repo: "unpins/binutils",
-		binaryName: "objdump",
-		tagPrefix: "v",
-		pinnedVersion: "2.46-1",
-		minimumDarwinMajor: 23, // macOS 14
-		rawZstdSha256: {
-			"binutils-2.46-1-x86_64-windows.exe.zst": "dbe80c41711c128a6e200762d455b3f4d95701bdb7a821b4391a04db79716fd4",
-			"binutils-2.46-1-x86_64-linux.zst": "5143c0d27af8c2088fe93ca705f6d16a093cd9c962fc019b9b94aba10b64b9ba",
-			"binutils-2.46-1-aarch64-linux.zst": "8a03ca4b7fbfc5bb7bddd0bdf3044e7495bc1dfcad07d28496909430548c4af7",
-			"binutils-2.46-1-x86_64-darwin.zst": "a92cb77e637e25490bb7392040e0687f0aec980b4152e232fdeb65b64554170e",
-			"binutils-2.46-1-aarch64-darwin.zst": "bb121a8cc7e8ff2a91800945fde740a0a751c6e9e124145e28e69432d5e8790b",
-		},
-		getAssetName: (version, plat, architecture) => {
-			if (architecture !== "x64" && architecture !== "arm64") return null;
-			if (plat !== "win32" && plat !== "linux" && plat !== "darwin") return null;
-			// Windows arm64 uses the standalone x64 executable through emulation.
-			const archStr = architecture === "arm64" && plat !== "win32" ? "aarch64" : "x86_64";
-			const platformStr = plat === "win32" ? "windows.exe" : plat;
-			return `binutils-${version}-${archStr}-${platformStr}.zst`;
-		},
-	},
 	sd: {
 		name: "sd",
 		repo: "chmln/sd",
@@ -171,10 +166,284 @@ const PYTHON_TOOLS: Record<string, PythonPackageToolConfig> = {
 	},
 };
 
-export type ToolName = "sd" | "sg" | "yt-dlp" | "trafilatura" | "objdump";
+const LLVM_TOOLS_VERSION = "1.98.1";
+const LLVM_TOOLS_DIST = "https://static.rust-lang.org/dist/2026-09-03";
+// Official Rust 1.98.1 channel manifest and matching tar.gz.sha256 sidecars.
+const LLVM_ASSETS: Readonly<Record<string, { sha256: string; maxBytes: number }>> = {
+	"x86_64-unknown-linux-gnu": {
+		sha256: "b2f9fe780c870b7615a493a2cb4a38eac319a226f2c611ecb143be492d29da69",
+		maxBytes: 66_016_763,
+	},
+	"aarch64-unknown-linux-gnu": {
+		sha256: "13dccef9bd9d86830533fb8880caa0c8e5486e7884f6e963b82859f342322f82",
+		maxBytes: 51_036_626,
+	},
+	"x86_64-unknown-linux-musl": {
+		sha256: "7181340c1b61e9433601b389510f80ffbdda2e4a0da03b6c49ddd4608d44f501",
+		maxBytes: 187_144_702,
+	},
+	"aarch64-unknown-linux-musl": {
+		sha256: "e69c0426089a78ed3a519a1f23219eab08ad3e2c85bd780c934816e4d3e0c65b",
+		maxBytes: 183_285_850,
+	},
+	"x86_64-apple-darwin": {
+		sha256: "0daa860666209a06024039824b0dbe6115d39b19bff7d23e013090c1759d178e",
+		maxBytes: 43_717_668,
+	},
+	"aarch64-apple-darwin": {
+		sha256: "5742de7a64f3140425716de60230793a33130bb845708da9bde077f30746b8b6",
+		maxBytes: 42_281_992,
+	},
+	"x86_64-pc-windows-msvc": {
+		sha256: "f06d6255eafdf753ae030713db6dff400f0950492db168b4d68041690f7a586b",
+		maxBytes: 105_428_373,
+	},
+	"aarch64-pc-windows-msvc": {
+		sha256: "a1d2669e56b8b1f9f659a36b5ebd2b9f4d65b73e3b0c10a50cabc4c2b292f7c2",
+		maxBytes: 104_044_966,
+	},
+};
+
+interface LlvmAsset extends DownloadIntegrity {
+	triple: string;
+	directory: string;
+	rustlib: string;
+	extension: string;
+	sharedLlvm: boolean;
+}
+
+function llvmHostAsset(): LlvmAsset | null {
+	const platform = os.platform();
+	const architecture = os.arch();
+	if (architecture !== "x64" && architecture !== "arm64") return null;
+	const arch = architecture === "arm64" ? "aarch64" : "x86_64";
+	let target: string;
+	if (platform === "linux") {
+		target = `unknown-linux-${isMuslLinux() ? "musl" : "gnu"}`;
+	} else if (platform === "darwin") {
+		const darwinMajor = Number.parseInt(os.release(), 10);
+		if (!Number.isFinite(darwinMajor) || darwinMajor < 23) return null;
+		target = "apple-darwin";
+	} else if (platform === "win32") {
+		target = "pc-windows-msvc";
+	} else {
+		return null;
+	}
+	const triple = `${arch}-${target}`;
+	const pin = LLVM_ASSETS[triple];
+	if (!pin) return null;
+	return {
+		...pin,
+		triple,
+		directory: `llvm-tools-${LLVM_TOOLS_VERSION}-${triple}`,
+		rustlib: `lib/rustlib/${triple}`,
+		extension: platform === "win32" ? ".exe" : "",
+		sharedLlvm: target === "apple-darwin" || target === "unknown-linux-gnu",
+	};
+}
+
+function llvmBinaryPath(tool: "objdump" | "objcopy", asset: LlvmAsset): string {
+	return `${asset.rustlib}/bin/llvm-${tool}${asset.extension}`;
+}
+
+function isLlvmBundleFile(file: string, asset: LlvmAsset): boolean {
+	if (file === "LICENSE.TXT") return true;
+	if (file === llvmBinaryPath("objdump", asset) || file === llvmBinaryPath("objcopy", asset)) return true;
+	return (
+		file.startsWith(`${asset.rustlib}/lib/`) &&
+		file.split("/").every(part => /^[\w.+-]+$/.test(part) && part !== "." && part !== "..")
+	);
+}
+
+interface LlvmManifest {
+	sha256: string;
+	files: { path: string; size: number }[];
+}
+
+/** A manifest is published with the directory, never before its runtime files. */
+function managedLlvmPath(tool: "objdump" | "objcopy", asset: LlvmAsset): string | null {
+	const directory = path.join(getToolsDir(), asset.directory);
+	try {
+		const manifestPath = path.join(directory, "manifest.json");
+		const stat = fs.lstatSync(manifestPath);
+		if (!stat.isFile() || stat.size > 64 * 1024) return null;
+		const manifest: unknown = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+		if (typeof manifest !== "object" || manifest === null || !("sha256" in manifest) || !("files" in manifest)) {
+			return null;
+		}
+		if (manifest.sha256 !== asset.sha256 || !Array.isArray(manifest.files)) return null;
+		const files = new Set<string>();
+		let hasRuntime = false;
+		for (const file of manifest.files as unknown[]) {
+			if (
+				typeof file !== "object" ||
+				file === null ||
+				!("path" in file) ||
+				!("size" in file) ||
+				typeof file.path !== "string" ||
+				!isLlvmBundleFile(file.path, asset) ||
+				typeof file.size !== "number" ||
+				!Number.isSafeInteger(file.size) ||
+				file.size <= 0 ||
+				files.has(file.path)
+			) {
+				return null;
+			}
+			const entry = fs.lstatSync(path.join(directory, file.path));
+			if (!entry.isFile() || entry.size !== file.size) return null;
+			files.add(file.path);
+			if (file.path.startsWith(`${asset.rustlib}/lib/`)) hasRuntime = true;
+		}
+		if (
+			!files.has("LICENSE.TXT") ||
+			!files.has(llvmBinaryPath("objdump", asset)) ||
+			!files.has(llvmBinaryPath("objcopy", asset))
+		)
+			return null;
+		if (asset.sharedLlvm && !hasRuntime) return null;
+		return path.join(directory, llvmBinaryPath(tool, asset));
+	} catch {
+		return null;
+	}
+}
+
+/** Probe the tools themselves, never an input binary, before advertising an install. */
+async function verifyLlvmTools(executables: readonly string[], signal?: AbortSignal): Promise<void> {
+	for (const executable of executables) {
+		signal?.throwIfAborted();
+		const probeSignal = ptree.combineSignals(signal, 10_000);
+		using child = ptree.spawn([executable, "--version"], { signal: probeSignal });
+		const reader = child.stdout.getReader();
+		const exited = child.exitedCleanly;
+		let bytes = 0;
+		try {
+			await Promise.all([
+				exited,
+				(async () => {
+					while (true) {
+						const chunk = await readBodyChunk(reader, probeSignal);
+						if (chunk.done) break;
+						bytes += chunk.value?.byteLength ?? 0;
+						if (bytes > 64 * 1024) throw new Error("LLVM version probe exceeded its output limit");
+					}
+				})(),
+			]);
+		} catch (error) {
+			throw new Error(
+				`Cannot run ${path.basename(executable)}: ${error instanceof Error ? error.message : String(error)}`,
+			);
+		} finally {
+			if (child.exitCode === null) child.kill();
+			await exited.catch(() => {});
+			await reader.cancel().catch(() => {});
+		}
+	}
+}
+
+async function downloadLlvmTools(tool: "objdump" | "objcopy", signal?: AbortSignal): Promise<string> {
+	signal?.throwIfAborted();
+	const asset = llvmHostAsset();
+	if (!asset) throw new Error(`Unsupported LLVM host: ${os.platform()}/${os.arch()} (macOS requires 14 or newer)`);
+	const toolsDir = getToolsDir();
+	await fs.promises.mkdir(toolsDir, { recursive: true });
+	const staging = await TempDir.create(path.join(toolsDir, ".llvm-tools-"));
+	const destination = path.join(toolsDir, asset.directory);
+	const previous = staging.join("previous");
+	let previousMoved = false;
+	let published = false;
+	try {
+		const archive = `${asset.directory}.tar.gz`;
+		const archivePath = staging.join(archive);
+		await downloadFile(`${LLVM_TOOLS_DIST}/${archive}`, archivePath, signal, asset);
+		signal?.throwIfAborted();
+		const prefix = `${asset.directory}/llvm-tools-preview/`;
+		const license = `${asset.directory}/LICENSE.TXT`;
+		const selected: string[] = [];
+		await extractTarGzArchive(archivePath, staging.join("extracted"), {
+			select: member => {
+				if (member === license) {
+					selected.push("LICENSE.TXT");
+					return true;
+				}
+				if (!member.startsWith(prefix)) return false;
+				const relative = member.slice(prefix.length);
+				if (!isLlvmBundleFile(relative, asset)) return false;
+				selected.push(relative);
+				return true;
+			},
+			// Largest verified payload: 546,092,544 inflated bytes (musl x64),
+			// 199,557,488-byte member and 201,312,730 selected bytes (GNU x64).
+			maxArchiveBytes: 640 * 1024 * 1024,
+			maxMemberBytes: 256 * 1024 * 1024,
+			maxExtractedBytes: 256 * 1024 * 1024,
+			signal,
+		});
+		const candidate = staging.join("extracted", asset.directory, "llvm-tools-preview");
+		if (!selected.includes("LICENSE.TXT")) throw new Error("LLVM bundle is missing its license");
+		await fs.promises.rename(
+			staging.join("extracted", asset.directory, "LICENSE.TXT"),
+			path.join(candidate, "LICENSE.TXT"),
+		);
+		const manifest: LlvmManifest = { sha256: asset.sha256, files: [] };
+		for (const relative of selected) {
+			signal?.throwIfAborted();
+			const file = path.join(candidate, relative);
+			const stat = await fs.promises.lstat(file);
+			if (!stat.isFile() || stat.size <= 0) throw new Error(`Missing LLVM bundle file: ${relative}`);
+			manifest.files.push({ path: relative, size: stat.size });
+			if (!asset.extension && relative.startsWith(`${asset.rustlib}/bin/`)) {
+				await fs.promises.chmod(file, 0o755);
+			}
+		}
+		for (const binary of ["objdump", "objcopy"] as const) {
+			if (!selected.includes(llvmBinaryPath(binary, asset)))
+				throw new Error(`LLVM bundle is missing llvm-${binary}`);
+		}
+		if (asset.sharedLlvm && !selected.some(file => file.startsWith(`${asset.rustlib}/lib/`))) {
+			throw new Error("LLVM bundle is missing its runtime libraries");
+		}
+		await verifyLlvmTools(
+			[
+				path.join(candidate, llvmBinaryPath("objdump", asset)),
+				path.join(candidate, llvmBinaryPath("objcopy", asset)),
+			],
+			signal,
+		);
+		await Bun.write(path.join(candidate, "manifest.json"), JSON.stringify(manifest));
+		signal?.throwIfAborted();
+		try {
+			await fs.promises.rename(destination, previous);
+			previousMoved = true;
+		} catch (error) {
+			if (!isEnoent(error)) throw error;
+		}
+		try {
+			signal?.throwIfAborted();
+			await fs.promises.rename(candidate, destination);
+			published = true;
+		} catch (error) {
+			if (previousMoved) {
+				await fs.promises.rename(previous, destination);
+				previousMoved = false;
+			}
+			throw error;
+		}
+		return path.join(destination, llvmBinaryPath(tool, asset));
+	} finally {
+		// If restoration itself failed, retain the previous installation for recovery.
+		if (!previousMoved || published) await staging.remove();
+	}
+}
+
+export type ToolName = "sd" | "sg" | "yt-dlp" | "trafilatura" | "objdump" | "objcopy";
 
 // Resolve a managed executable first, optionally falling back to system PATH.
 export function getToolPath(tool: ToolName, options?: { localOnly?: boolean }): string | null {
+	if (tool === "objdump" || tool === "objcopy") {
+		const asset = llvmHostAsset();
+		const managed = asset ? managedLlvmPath(tool, asset) : null;
+		return managed ?? (options?.localOnly ? null : $which(`llvm-${tool}`));
+	}
 	// Check uv/pip-installed CLI packages first
 	const pythonConfig = PYTHON_TOOLS[tool];
 	if (pythonConfig) {
@@ -218,7 +487,12 @@ async function getLatestVersion(repo: string, signal?: AbortSignal): Promise<str
 }
 
 /** Download a tool asset without handing the streaming Response to Bun.write. */
-export async function downloadFile(url: string, dest: string, signal?: AbortSignal): Promise<void> {
+export async function downloadFile(
+	url: string,
+	dest: string,
+	signal?: AbortSignal,
+	integrity?: DownloadIntegrity,
+): Promise<void> {
 	const downloadSignal = ptree.combineSignals(signal, TOOL_DOWNLOAD_TIMEOUT_MS);
 	let response: Response;
 	try {
@@ -230,7 +504,7 @@ export async function downloadFile(url: string, dest: string, signal?: AbortSign
 		} else if (!response.body) {
 			throw new Error("No response body");
 		}
-		await writeResponseBody(dest, response.body, downloadSignal);
+		await writeResponseBody(dest, response.body, downloadSignal, integrity);
 	} catch (err) {
 		if (isAbortLikeError(err)) {
 			throw new Error(`Download timed out: ${url}`);
@@ -248,15 +522,7 @@ async function downloadTool(tool: ToolName, signal?: AbortSignal): Promise<strin
 	const architecture = os.arch();
 
 	signal?.throwIfAborted();
-	if (plat === "darwin" && config.minimumDarwinMajor !== undefined) {
-		const release = os.release();
-		const darwinMajor = Number.parseInt(release, 10);
-		if (!Number.isFinite(darwinMajor) || darwinMajor < config.minimumDarwinMajor) {
-			throw new Error(`${config.name} requires Darwin ${config.minimumDarwinMajor} or newer (host: ${release})`);
-		}
-	}
-
-	const version = config.pinnedVersion ?? (await getLatestVersion(config.repo, signal));
+	const version = await getLatestVersion(config.repo, signal);
 
 	// Get asset name for this platform
 	const assetName = config.getAssetName(version, plat, architecture);
@@ -271,35 +537,6 @@ async function downloadTool(tool: ToolName, signal?: AbortSignal): Promise<strin
 	const downloadUrl = `https://github.com/${config.repo}/releases/download/${config.tagPrefix}${version}/${assetName}`;
 	const binaryExt = plat === "win32" ? ".exe" : "";
 	const binaryPath = path.join(toolsDir, config.binaryName + binaryExt);
-
-	if (config.rawZstdSha256) {
-		const expectedHash = config.rawZstdSha256[assetName];
-		if (!expectedHash) throw new Error(`Missing SHA256 for ${assetName}`);
-		// Stage on the destination filesystem: only a completed executable is ever published.
-		const staging = await TempDir.create(path.join(toolsDir, `.${config.binaryName}-`));
-		try {
-			const archivePath = staging.join(assetName);
-			const stagedBinary = staging.join(config.binaryName + binaryExt);
-			await downloadFile(downloadUrl, archivePath, signal);
-			const compressed = await Bun.file(archivePath).arrayBuffer();
-			signal?.throwIfAborted();
-			const actualHash = Bun.CryptoHasher.hash("sha256", compressed, "hex");
-			if (actualHash !== expectedHash) {
-				throw new Error(`SHA256 mismatch for ${assetName}: expected ${expectedHash}, got ${actualHash}`);
-			}
-			const executable = await Bun.zstdDecompress(compressed);
-			signal?.throwIfAborted();
-			await Bun.write(stagedBinary, executable);
-			if (plat !== "win32") {
-				await fs.promises.chmod(stagedBinary, 0o755);
-			}
-			signal?.throwIfAborted();
-			await fs.promises.rename(stagedBinary, binaryPath);
-			return binaryPath;
-		} finally {
-			await staging.remove();
-		}
-	}
 
 	// Handle direct binary downloads (no archive extraction needed)
 	if (config.isDirectBinary) {
@@ -411,9 +648,23 @@ type EnsureToolOptions = {
 export async function ensureTool(tool: ToolName, silentOrOptions?: EnsureToolOptions): Promise<string | undefined> {
 	const { signal, silent = false, notify, localOnly = false } = silentOrOptions ?? {};
 	const existingPath = getToolPath(tool, silentOrOptions);
-	if (existingPath) {
-		return existingPath;
+	if (tool === "objdump" || tool === "objcopy") {
+		try {
+			const companionPath = getToolPath(tool === "objdump" ? "objcopy" : "objdump", silentOrOptions);
+			if (existingPath && companionPath) {
+				await verifyLlvmTools([existingPath, companionPath], signal);
+				return existingPath;
+			}
+			notify?.("Downloading LLVM objdump and objcopy…");
+			return await downloadLlvmTools(tool, signal);
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error);
+			notify?.(`LLVM inspection setup failed: ${message}`);
+			if (!silent) logger.warn("Failed to install LLVM inspection tools", { error: message });
+			return undefined;
+		}
 	}
+	if (existingPath) return existingPath;
 
 	// On Android/Termux, Linux binaries don't work due to Bionic libc incompatibility.
 	// Users must install via pkg.

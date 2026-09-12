@@ -273,7 +273,7 @@ describe("PowerShell installation", () => {
 						expect(steps).toContain("setup help diagnostic");
 						expect(steps).not.toContain("skipping objdump installation");
 					} else {
-						expect(steps).toContain("does not support managed GNU objdump setup");
+						expect(steps).toContain("does not support managed LLVM objdump setup");
 						expect(steps).toContain("skipping objdump installation");
 					}
 				}

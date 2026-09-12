@@ -8,9 +8,10 @@
 // build ZIP/tar, or call `Bun.Archive`, anywhere else. Tar *reads* deliberately
 // avoid libarchive: its internal allocation-failure path aborts the whole
 // process (#4774).
+import * as fs from "node:fs";
 import * as path from "node:path";
 import * as zlib from "node:zlib";
-import { formatBytes } from "@oh-my-soup/pi-utils";
+import { formatBytes, isEexist } from "@oh-my-soup/pi-utils";
 import { ToolError } from "../tools/tool-errors";
 
 /** A ZIP archive decoded to a `path → bytes` map of its file members. */
@@ -53,7 +54,7 @@ export function unzip(bytes: Uint8Array): Unzipped {
  */
 const MAX_TAR_ARCHIVE_BYTES = 256 * 1024 * 1024;
 /**
- * Reject a tar input before materializing it. Tar parsing always retains the
+ * Reject a tar input before materializing it. Tar indexing retains the
  * complete decoded stream, unlike ZIP's ranged central-directory reader.
  */
 function assertTarArchiveSize(size: number): void {
@@ -828,7 +829,10 @@ const PAX_SPARSE_MARKER = "GNU.sparse.";
  * header packed with millions of unique records — including `GNU.sparse.*`
  * junk — cannot amplify into heap.
  */
-function parsePaxRecords(data: Uint8Array): Map<string, string> {
+function parsePaxRecords(
+	data: Uint8Array,
+	onRecord?: (key: Uint8Array, value: Uint8Array) => void,
+): Map<string, string> {
 	const attrs = new Map<string, string>();
 	let pos = 0;
 	while (pos < data.length) {
@@ -858,6 +862,7 @@ function parsePaxRecords(data: Uint8Array): Map<string, string> {
 		if (eq >= 0) {
 			const key = record.subarray(0, eq);
 			const value = record.subarray(eq + 1);
+			onRecord?.(key, value);
 			if (bytesMatchAscii(key, 0, PAX_SPARSE_MARKER)) {
 				attrs.set(PAX_SPARSE_MARKER, value.byteLength === 0 ? "" : "1");
 				if (tarBytesEqualAscii(key, "GNU.sparse.name")) {
@@ -1687,6 +1692,361 @@ export async function extractArchive(source: ArchiveSource, destDir: string): Pr
 		count++;
 	}
 	return count;
+}
+
+const TAR_EXTRACT_CHUNK_BYTES = 64 * 1024;
+const TAR_EXTRACT_MAX_METADATA_BYTES = 1024 * 1024;
+const TAR_EXTRACT_MAX_TOTAL_METADATA_BYTES = 16 * 1024 * 1024;
+const TAR_EXTRACT_MAX_HEADERS = 100_000;
+const TAR_EXTRACT_MAX_PATH_BYTES = 16 * 1024 * 1024;
+const TAR_EXTRACT_MAX_PATH_NODES = 100_000;
+const TAR_EXTRACT_MAX_PATH_DEPTH = 128;
+
+/** Keep the legacy reader's tolerant numeric behavior out of filesystem extraction. */
+function assertTarExtractionNumericField(header: Uint8Array, offset: number, length: number): void {
+	if ((header[offset]! & 0x80) !== 0) return;
+	let digits = false;
+	let padding = false;
+	for (let index = offset; index < offset + length; index++) {
+		const byte = header[index]!;
+		if (byte >= 0x30 && byte <= 0x37 && !padding) {
+			digits = true;
+		} else if (byte === 0 || byte === 0x20) {
+			if (digits || byte === 0) padding = true;
+		} else {
+			throw new ToolError("Invalid tar numeric field");
+		}
+	}
+}
+
+/** Validate the original spelling before the shared archive normalizer removes separators. */
+function normalizeTarExtractionPath(rawPath: string, allowRoot = false): string {
+	assertTarPathString(rawPath, "member path");
+	const portable = rawPath.replace(/\\/g, "/");
+	if (portable.startsWith("/") || portable.split("/").includes("..")) {
+		throw new ToolError(`Unsafe tar extraction path: ${formatTarPathForError(rawPath)}`);
+	}
+	const normalized = normalizeArchiveEntryPath(rawPath);
+	if (!normalized) {
+		if (allowRoot && portable.length > 0) return "";
+		throw new ToolError("Invalid empty tar extraction path");
+	}
+	const parts = normalized.split("/");
+	if (
+		parts.length > TAR_EXTRACT_MAX_PATH_DEPTH ||
+		parts.some(
+			part =>
+				/[<>:"|?*\x00-\x1f]/.test(part) ||
+				/[. ]$/.test(part) ||
+				/^(?:con|prn|aux|nul|com[1-9¹²³]|lpt[1-9¹²³])(?:\.|$)/i.test(part),
+		)
+	) {
+		throw new ToolError(`Unsafe tar extraction path: ${formatTarPathForError(rawPath)}`);
+	}
+	return normalized;
+}
+
+/**
+ * Stream selected regular files from a gzip-compressed tar into a private staging
+ * directory. Returns the file count, not bytes. The selector sees normalized
+ * non-directory paths, including unsupported types (which throw when selected).
+ * Limits count inflated bytes, every member's declared size, and selected bytes.
+ * Unlike the read/index APIs, neither the archive nor regular members are buffered.
+ *
+ * Existing files are never overwritten; symlink parents are never followed inside
+ * the extraction root. The caller must exclude concurrent filesystem mutation and
+ * discard the staging directory on failure. Tar ownership, times and special mode
+ * bits are not restored. GNU rename records are unsupported; two zero terminator
+ * blocks and an all-zero, block-aligned tail are required.
+ */
+export async function extractTarGzArchive(
+	sourcePath: string,
+	destDir: string,
+	options: {
+		select: (entryPath: string) => boolean;
+		maxArchiveBytes: number;
+		maxMemberBytes: number;
+		maxExtractedBytes: number;
+		signal?: AbortSignal;
+	},
+): Promise<number> {
+	const { select, maxArchiveBytes, maxMemberBytes, maxExtractedBytes, signal } = options;
+	for (const limit of [maxArchiveBytes, maxMemberBytes, maxExtractedBytes]) {
+		if (!Number.isSafeInteger(limit) || limit < 0) {
+			throw new ToolError("Tar extraction limits must be nonnegative safe integers");
+		}
+	}
+	signal?.throwIfAborted();
+	await fs.promises.mkdir(destDir, { recursive: true, mode: 0o700 });
+	const rootStat = await fs.promises.lstat(destDir);
+	if (rootStat.isSymbolicLink() || !rootStat.isDirectory()) {
+		throw new ToolError("Tar extraction root must be a real directory");
+	}
+	// Canonicalize caller-owned ancestors (e.g. macOS /var) once. All archive
+	// components below this root are checked individually, without recursive mkdir.
+	const root = await fs.promises.realpath(destDir);
+	signal?.throwIfAborted();
+	const input = fs.createReadStream(sourcePath, { highWaterMark: TAR_EXTRACT_CHUNK_BYTES });
+	const inflated = zlib.createGunzip({ chunkSize: TAR_EXTRACT_CHUNK_BYTES });
+	input.on("error", error => inflated.destroy(error));
+	inflated.on("error", () => input.destroy());
+	const abort = (): void => {
+		const reason = signal?.reason;
+		const error = reason instanceof Error ? reason : new DOMException("Tar extraction aborted", "AbortError");
+		input.destroy(error);
+		inflated.destroy(error);
+	};
+	signal?.addEventListener("abort", abort, { once: true });
+	input.pipe(inflated);
+	const iterator = inflated[Symbol.asyncIterator]();
+	let chunk: Uint8Array = new Uint8Array(0);
+	let chunkOffset = 0;
+	let inflatedBytes = 0;
+	let consumedBytes = 0;
+	const pull = async (): Promise<boolean> => {
+		signal?.throwIfAborted();
+		if (chunkOffset < chunk.byteLength) return true;
+		const next = await iterator.next();
+		signal?.throwIfAborted();
+		if (next.done) return false;
+		if (!(next.value instanceof Uint8Array)) throw new ToolError("Invalid gzip stream chunk");
+		chunk = next.value;
+		chunkOffset = 0;
+		if (chunk.byteLength > maxArchiveBytes - inflatedBytes) {
+			throw new ToolError("Tar extraction exceeds inflated archive byte limit");
+		}
+		inflatedBytes += chunk.byteLength;
+		return true;
+	};
+	const consume = async (size: number, write?: (bytes: Uint8Array) => void | Promise<void>): Promise<void> => {
+		if (size > maxArchiveBytes - consumedBytes) {
+			throw new ToolError("Tar extraction exceeds inflated archive byte limit");
+		}
+		while (size > 0) {
+			if (!(await pull())) throw new ToolError("Truncated tar data or missing terminating zero blocks");
+			const length = Math.min(size, chunk.byteLength - chunkOffset, TAR_EXTRACT_CHUNK_BYTES);
+			if (write) await write(chunk.subarray(chunkOffset, chunkOffset + length));
+			chunkOffset += length;
+			consumedBytes += length;
+			size -= length;
+		}
+	};
+	const read = async (size: number): Promise<Uint8Array> => {
+		const bytes = new Uint8Array(size);
+		let offset = 0;
+		await consume(size, part => {
+			bytes.set(part, offset);
+			offset += part.byteLength;
+		});
+		return bytes;
+	};
+	let headers = 0;
+	let metadataBytes = 0;
+	let pathBytes = 0;
+	let extractedBytes = 0;
+	let count = 0;
+	const paths = new Map<string, { directory: boolean; explicit: boolean; spelling: string }>();
+	const rememberPath = (name: string, directory: boolean): void => {
+		if (!name) return;
+		const parts = name.split("/");
+		let prefix = "";
+		for (let index = 0; index < parts.length; index++) {
+			prefix = prefix ? `${prefix}/${parts[index]}` : parts[index]!;
+			const explicit = index === parts.length - 1;
+			const isDirectory = !explicit || directory;
+			// Reject case aliases even on case-sensitive hosts, so extraction has
+			// the same collision semantics on Windows and default macOS volumes.
+			const key = prefix.toLowerCase();
+			const previous = paths.get(key);
+			if (previous) {
+				if (
+					previous.spelling !== prefix ||
+					!previous.directory ||
+					!isDirectory ||
+					(explicit && previous.explicit)
+				) {
+					throw new ToolError(`Duplicate or colliding tar path: ${formatTarPathForError(name)}`);
+				}
+				if (explicit) previous.explicit = true;
+			} else {
+				pathBytes += Buffer.byteLength(prefix, "utf-8");
+				if (paths.size >= TAR_EXTRACT_MAX_PATH_NODES || pathBytes > TAR_EXTRACT_MAX_PATH_BYTES) {
+					throw new ToolError("Tar extraction path metadata limit exceeded");
+				}
+				paths.set(key, { directory: isDirectory, explicit, spelling: prefix });
+			}
+		}
+	};
+	const countHeader = (): void => {
+		if (++headers > TAR_EXTRACT_MAX_HEADERS) throw new ToolError("Tar extraction header limit exceeded");
+	};
+	const checkMemberSize = (size: number): void => {
+		if (size > maxMemberBytes) throw new ToolError("Tar extraction exceeds member byte limit");
+	};
+	let longName: string | undefined;
+	let pendingMetadata = false;
+	let localPax: Map<string, string> | undefined;
+	const globalPax = new Map<string, string>();
+	try {
+		signal?.throwIfAborted();
+		while (true) {
+			const header = await read(TAR_BLOCK_SIZE);
+			if (isTarZeroBlock(header, 0)) {
+				if (!isTarZeroBlock(await read(TAR_BLOCK_SIZE), 0)) {
+					throw new ToolError("Invalid tar terminating zero blocks");
+				}
+				if (pendingMetadata) throw new ToolError("Tar metadata has no following member");
+				// Drain through gzip EOF: stopping at tar EOF would miss bad CRCs,
+				// truncated gzip trailers, concatenated tar data and tail bombs.
+				while (await pull()) {
+					const tail = chunk.subarray(chunkOffset);
+					if (tail.some(byte => byte !== 0)) throw new ToolError("Invalid data after tar terminator");
+					consumedBytes += tail.byteLength;
+					chunkOffset = chunk.byteLength;
+				}
+				if (consumedBytes % TAR_BLOCK_SIZE !== 0) throw new ToolError("Truncated tar padding");
+				signal?.throwIfAborted();
+				return count;
+			}
+			countHeader();
+			assertTarExtractionNumericField(header, TAR_CHECKSUM_OFFSET, TAR_CHECKSUM_LENGTH);
+			assertTarExtractionNumericField(header, TAR_SIZE_OFFSET, TAR_SIZE_LENGTH);
+			assertTarExtractionNumericField(header, 100, 8);
+			const mode = readTarNumeric(header, 100, 8);
+			if (!Number.isSafeInteger(mode) || mode < 0) throw new ToolError("Invalid tar file mode");
+			if (!tarChecksumMatches(header, 0)) throw new ToolError("Invalid or corrupt tar archive header");
+			const type = String.fromCharCode(header[TAR_TYPEFLAG_OFFSET] || 0x30);
+			let size = readTarSize(header, TAR_SIZE_OFFSET);
+			checkMemberSize(size);
+			let name = readTarString(header, TAR_NAME_OFFSET, TAR_NAME_LENGTH);
+			if (isUstarHeader(header, 0)) {
+				const prefix = readTarString(header, TAR_PREFIX_OFFSET, TAR_PREFIX_LENGTH);
+				if (prefix) name = `${prefix}/${name}`;
+			}
+			// Validate even a header path later hidden by PAX or GNU longname.
+			normalizeTarExtractionPath(name, type === "5" || (type === "0" && isArchiveDirectoryName(name)));
+			if (type === "N") throw new ToolError("GNU tar rename records are unsupported for extraction");
+			if (type === "L" || type === "K" || type === "x" || type === "X" || type === "g") {
+				if (size > TAR_EXTRACT_MAX_METADATA_BYTES || size > TAR_EXTRACT_MAX_TOTAL_METADATA_BYTES - metadataBytes) {
+					throw new ToolError("Tar extraction metadata byte limit exceeded");
+				}
+				metadataBytes += size;
+				const data = await read(size);
+				await consume(tarPaddedSize(size) - size);
+				if (type === "L") {
+					longName = readTarMetadataPath(data, "GNU long path");
+					normalizeTarExtractionPath(longName, true);
+				} else if (type === "K") {
+					readTarMetadataPath(data, "GNU long link target");
+				} else {
+					let sparse = false;
+					const attrs = parsePaxRecords(data, (key, value) => {
+						if (tarBytesEqualAscii(key, "path") || tarBytesEqualAscii(key, "GNU.sparse.name")) {
+							if (value.byteLength > 0) normalizeTarExtractionPath(readPaxPath(value, "PAX path"), true);
+						}
+						if (
+							bytesMatchAscii(key, 0, PAX_SPARSE_MARKER) ||
+							tarBytesEqualAscii(key, "SCHILY.realsize") ||
+							tarBytesEqualAscii(key, "SCHILY.holesdata") ||
+							(tarBytesEqualAscii(key, "SCHILY.filetype") && tarBytesEqualAscii(value, "sparse"))
+						) {
+							sparse = true;
+						}
+					});
+					if (sparse) attrs.set(PAX_SPARSE_MARKER, "1");
+					if (type === "g") applyGlobalPax(globalPax, attrs);
+					else localPax = attrs;
+				}
+				if (type !== "g") pendingMetadata = true;
+				continue;
+			}
+			name =
+				paxAttribute(globalPax, localPax, "GNU.sparse.name") ||
+				paxAttribute(globalPax, localPax, "path") ||
+				longName ||
+				name;
+			const paxSize = paxAttribute(globalPax, localPax, "size");
+			if (paxSize) size = parsePaxSize(paxSize, "member size");
+			checkMemberSize(size);
+			const realSize = paxAttribute(globalPax, localPax, "GNU.sparse.realsize");
+			if (realSize) checkMemberSize(parsePaxSize(realSize, "sparse real size"));
+			const sparse = type === "S" || paxDeclaresSparse(globalPax, localPax);
+			const directory = type === "5" || (type === "0" && isArchiveDirectoryName(name));
+			const normalized = normalizeTarExtractionPath(name, directory);
+			rememberPath(normalized, directory);
+			longName = undefined;
+			localPax = undefined;
+			pendingMetadata = false;
+			const selected = !directory && select(normalized);
+			signal?.throwIfAborted();
+			if (selected && (type !== "0" || sparse)) {
+				throw new ToolError(`Unsupported tar member type for extraction: ${formatTarPathForError(normalized)}`);
+			}
+			if (directory && size !== 0) throw new ToolError("Invalid nonempty tar directory member");
+			if (type === "S" && header[TAR_GNU_SPARSE_ISEXTENDED_OFFSET] === 1) {
+				let extended = true;
+				while (extended) {
+					countHeader();
+					extended = (await read(TAR_BLOCK_SIZE))[TAR_GNU_SPARSE_CONT_ISEXTENDED_OFFSET] === 1;
+				}
+			}
+			if (selected) {
+				if (size > maxExtractedBytes - extractedBytes) {
+					throw new ToolError("Tar extraction exceeds selected byte limit");
+				}
+				extractedBytes += size;
+				let parent = root;
+				// Check the root again and every preexisting parent for every file.
+				for (const component of ["", ...normalized.split("/").slice(0, -1)]) {
+					if (component) {
+						parent = path.join(parent, component);
+						try {
+							await fs.promises.mkdir(parent, { mode: 0o700 });
+						} catch (error) {
+							if (!isEexist(error)) throw error;
+						}
+					}
+					const stat = await fs.promises.lstat(parent);
+					if (stat.isSymbolicLink() || !stat.isDirectory()) {
+						throw new ToolError("Tar extraction parent is not a real directory");
+					}
+					signal?.throwIfAborted();
+				}
+				const file = await fs.promises.open(
+					path.join(root, normalized),
+					fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_EXCL | (fs.constants.O_NOFOLLOW ?? 0),
+					0o600,
+				);
+				try {
+					signal?.throwIfAborted();
+					await consume(size, async bytes => {
+						let offset = 0;
+						while (offset < bytes.byteLength) {
+							signal?.throwIfAborted();
+							const { bytesWritten } = await file.write(bytes, offset, bytes.byteLength - offset);
+							if (bytesWritten === 0) throw new ToolError("Tar extraction file write made no progress");
+							offset += bytesWritten;
+						}
+					});
+					await file.chmod(mode & 0o777);
+				} finally {
+					await file.close();
+				}
+				count++;
+			} else {
+				await consume(size);
+			}
+			await consume(tarPaddedSize(size) - size);
+		}
+	} catch (error) {
+		signal?.throwIfAborted();
+		throw error;
+	} finally {
+		signal?.removeEventListener("abort", abort);
+		input.unpipe(inflated);
+		input.destroy();
+		inflated.destroy();
+	}
 }
 
 function writeUInt16LE(buf: Uint8Array, offset: number, value: number): void {

@@ -32,7 +32,7 @@ if "$global_bin/oms" setup objdump; then
 	:
 else
 	setup_status=$?
-	echo "link-oms: linked oms, but GNU objdump setup failed." >&2
+	echo "link-oms: linked oms, but LLVM objdump setup failed." >&2
 	echo "Check the error above, then retry: \"$global_bin/oms\" setup objdump" >&2
 	exit "$setup_status"
 fi

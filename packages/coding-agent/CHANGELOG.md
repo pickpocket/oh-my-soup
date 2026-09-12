@@ -5,8 +5,8 @@
 ### Added
 
 - Added session-scoped `notes` for exact working state that survives compaction, resume, and handoff, with keyed updates, atomic persistence, isolated branches, proactive system guidance gated on tool availability, and an early context-pressure reminder to preserve important information.
-- Added the read-only `objdump` tool/device for GNU binutils-backed binary headers, sections, symbols, disassembly, relocations, and contents, with bounded streaming output, recoverable artifacts, and process cancellation.
-- OMS shell, PowerShell, source-link, and published package installations now provision a pinned, checksum-verified local GNU objdump through `oms setup objdump`; the tool prefers this managed copy over PATH without downloading during inspection.
+- Added the read-only `objdump` tool/device for LLVM-backed binary headers, sections, symbols, disassembly, relocations, and contents, including x86-64 ELF, PE/COFF, Mach-O, and raw bytes, with bounded streaming output, recoverable artifacts, and process cancellation.
+- OMS shell, PowerShell, source-link, and published package installations now provision pinned, checksum-verified LLVM objdump/objcopy and bundled LLVM libraries through `oms setup objdump`; installation preserves loader-relative paths and probes both tools before reporting success.
 - Added optional Discord task-completion notifications via credential-masked `task.discordWebhookUrl`, with metadata-only payloads, nonblocking bounded delivery, and session-owned shutdown draining.
 - Added `tools.format=emoji` as a compact line-based tool-calling mode.
 - Added a bounded peer IRC transcript to Agent Hub: `c` opens selected-agent chat and `a` switches to all-agent traffic.
@@ -23,6 +23,7 @@
 
 - Restored `tools.format=auto` as the default so models use their provider-native tool channel when available; the compact `emoji` dialect remains available as an explicit experimental option.
 - Peer message bodies are capped at 8000 UTF-16 units before delivery; automatic replies include their truncation marker within the same cap.
+- Object inspection now uses LLVM architecture names and target triples; raw input uses `raw: true` with an explicit architecture instead of the GNU-specific `target: "binary"` option.
 
 ### Fixed
 

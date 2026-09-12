@@ -10,7 +10,7 @@
     back to the baseline build when the release predates the modern asset or
     the CPU cannot launch it. The binary's own smoke test is the capability
     probe - no CPUID guessing. The script then moves the binary into the
-    install directory, installs its local GNU objdump dependency, adds that
+    install directory, installs its local LLVM objdump dependency, adds that
     directory to the user PATH, and points oms at a bash shell when one exists.
 
     The release tag comes from the releases/latest HTTP redirect, not the GitHub
@@ -520,17 +520,17 @@ function Install-Oms {
     }
     # The public installer can be newer than the downloaded release.
     if (($SetupHelp.Output -join "`n") -cmatch '(^|[\s|()])objdump($|[\s|()])') {
-        Write-OmsStep -Message 'Installing local GNU objdump...'
+        Write-OmsStep -Message 'Installing local LLVM objdump...'
         $Setup = Invoke-OmsBinary -ExePath $TargetPath -Arguments @('setup', 'objdump')
         foreach ($Line in $Setup.Output) {
             Write-OmsStep -Message $Line
         }
         if ($Setup.ExitCode -ne 0) {
             $Detail = ($Setup.Output -join '; ')
-            throw "oms was installed, but GNU objdump setup failed (exit $($Setup.ExitCode)): $Detail. Check the error above, then retry: & `"$TargetPath`" setup objdump"
+            throw "oms was installed, but LLVM objdump setup failed (exit $($Setup.ExitCode)): $Detail. Check the error above, then retry: & `"$TargetPath`" setup objdump"
         }
     } else {
-        Write-OmsStep -Message "Release $Tag does not support managed GNU objdump setup; skipping objdump installation." -Color Cyan
+        Write-OmsStep -Message "Release $Tag does not support managed LLVM objdump setup; skipping objdump installation." -Color Cyan
     }
     Write-OmsStep -Message ''
     Write-OmsStep -Message "[OK] Installed oms $($Smoke.Output -join ' ') ($Variant) to $TargetPath" -Color Green

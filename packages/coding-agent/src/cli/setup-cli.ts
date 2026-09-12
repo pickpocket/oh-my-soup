@@ -129,13 +129,13 @@ async function handleObjdumpSetup(flags: { json?: boolean; check?: boolean }): P
 	if (flags.json) {
 		console.log(JSON.stringify({ available: Boolean(executable), path: executable ?? null }, null, 2));
 	} else if (executable) {
-		console.log(chalk.green(`${theme.status.success} GNU objdump ready: ${executable}`));
+		console.log(chalk.green(`${theme.status.success} LLVM objdump ready: ${executable}`));
 	} else {
 		console.error(
 			chalk.red(
 				checkOnly
-					? "Local GNU objdump is not installed. Run `oms setup objdump`."
-					: "GNU objdump installation failed. Check the OMS logs for details, then retry `oms setup objdump`.",
+					? "Local LLVM objdump is not installed. Run `oms setup objdump`."
+					: "LLVM objdump installation failed. Check the OMS logs for details, then retry `oms setup objdump`.",
 			),
 		);
 	}
@@ -325,7 +325,7 @@ ${chalk.bold("Usage:")}
 ${chalk.bold("Components:")}
   python    Verify a Python 3 interpreter is reachable for code execution
   speech    Pick and download speech-to-text and text-to-speech models
-  objdump   Install the managed local GNU binary inspection tool
+  objdump   Install managed LLVM binary inspection tools and runtime libraries
 
 ${chalk.bold("Options:")}
   -c, --check   Check if dependencies are installed without installing
@@ -335,7 +335,7 @@ ${chalk.bold("Examples:")}
   ${APP_NAME} setup                  Run the onboarding wizard
   ${APP_NAME} setup python           Check Python execution dependencies
   ${APP_NAME} setup speech           Pick and download the STT and TTS models
-  ${APP_NAME} setup objdump          Install local GNU objdump without changing PATH
+  ${APP_NAME} setup objdump          Install local LLVM objdump without changing PATH
   ${APP_NAME} setup speech --check   Check if speech dependencies are available
   ${APP_NAME} setup python --check   Check if Python execution is available
 `);

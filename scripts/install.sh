@@ -8,7 +8,7 @@ set -e
 #   --ref <tag>    Install a specific release tag instead of the latest
 #   -r <tag>       Shorthand for --ref
 #
-# Installs the prebuilt single-file binary and its local GNU objdump dependency.
+# Installs the prebuilt single-file binary and its local LLVM objdump dependency.
 
 REPO="pickpocket/oh-my-soup"
 INSTALL_DIR="${PI_INSTALL_DIR:-$HOME/.local/bin}"
@@ -156,17 +156,17 @@ install_binary() {
         exit "$SETUP_STATUS"
     fi
     if printf '%s\n' "$SETUP_HELP" | grep -Eq '(^|[[:space:]|()])objdump($|[[:space:]|()])'; then
-        echo "Installing local GNU objdump..."
+        echo "Installing local LLVM objdump..."
         if "${INSTALL_DIR}/oms" setup objdump; then
             :
         else
             SETUP_STATUS=$?
-            echo "oms was installed, but GNU objdump setup failed." >&2
+            echo "oms was installed, but LLVM objdump setup failed." >&2
             echo "Check the error above, then retry: \"${INSTALL_DIR}/oms\" setup objdump" >&2
             exit "$SETUP_STATUS"
         fi
     else
-        echo "Release $LATEST does not support managed GNU objdump setup; skipping objdump installation."
+        echo "Release $LATEST does not support managed LLVM objdump setup; skipping objdump installation."
     fi
 
     echo ""

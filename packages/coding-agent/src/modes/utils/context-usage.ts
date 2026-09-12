@@ -247,7 +247,11 @@ export function computeContextBreakdown(
 		systemPromptTokens = breakdown.systemPromptTokens;
 		usedTokens = breakdown.usedTokens;
 	} else {
-		messagesTokens = tokenizer.countMessages(session.messages ?? []);
+		messagesTokens =
+			tokenizer.countMessages(session.messages ?? []) +
+			(typeof session.getImportantNotesReferenceTokens === "function"
+				? session.getImportantNotesReferenceTokens()
+				: 0);
 		const nonMessage = computeNonMessageBreakdown(session, tokenizer);
 		skillsTokens = nonMessage.skillsTokens;
 		toolsTokens = nonMessage.toolsTokens;

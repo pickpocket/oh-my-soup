@@ -49,6 +49,7 @@ console.log(`\nTOOLS TOTAL tokens: ${totalTok}\n`);
 const built = await buildSystemPrompt({
 	tools: toolsMap as never,
 	toolNames: tools.map(t => t.name),
+	importantNotesTool: toolsMap.has("notes") ? "notes" : undefined,
 	inlineToolDescriptors: false,
 	nativeTools: true,
 	cwd: process.cwd(),

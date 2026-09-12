@@ -15,7 +15,7 @@ import type { ToolNamespacesInfo } from "../src/session/code-mode";
 import { buildToolNamespacesInfo, resolveCodeMode } from "../src/session/code-mode";
 import { SessionManager } from "../src/session/session-manager";
 
-const ENABLED = ["eval", "ask", "todo", "yield", "think", "read", "bash", "edit", "mcp__gmail__search"];
+const ENABLED = ["eval", "ask", "todo", "notes", "yield", "think", "read", "bash", "edit", "mcp__gmail__search"];
 
 describe("resolveCodeMode", () => {
 	test("off: inactive regardless of catalog flag", () => {
@@ -36,7 +36,7 @@ describe("resolveCodeMode", () => {
 			enabledToolNames: ENABLED,
 		});
 		expect(r.active).toBe(true);
-		expect([...r.directToolNames].sort()).toEqual(["ask", "eval", "think", "todo", "yield"]);
+		expect([...r.directToolNames].sort()).toEqual(["ask", "eval", "notes", "think", "todo", "yield"]);
 	});
 	test("auto without flag: inactive", () => {
 		expect(resolveCodeMode({ provider: "openai-codex", setting: "auto", enabledToolNames: ENABLED }).active).toBe(
@@ -140,7 +140,7 @@ describe("Code Mode session reconciliation", () => {
 	function createSession(settings: Settings): { session: AgentSession; directModel: Model; codeModel: Model } {
 		const codeModel = model("openai-codex", "code_mode_only");
 		const directModel = model("openai");
-		const tools = [tool("eval"), tool("read")];
+		const tools = [tool("eval"), tool("notes"), tool("read")];
 		const session = new AgentSession({
 			agent: new Agent({ initialState: { model: codeModel, systemPrompt: [], tools } }),
 			sessionManager: SessionManager.inMemory(),
@@ -162,15 +162,15 @@ describe("Code Mode session reconciliation", () => {
 		const { session, directModel, codeModel } = createSession(
 			Settings.isolated({ "providers.openai-codex.codeMode": "auto" }),
 		);
-		await session.setActiveToolsByName(["eval", "read"]);
-		expect(session.agent.state.tools.map(value => value.name)).toEqual(["eval"]);
-		expect(session.getEnabledToolNames()).toEqual(["eval", "read"]);
+		await session.setActiveToolsByName(["eval", "notes", "read"]);
+		expect(session.agent.state.tools.map(value => value.name)).toEqual(["eval", "notes"]);
+		expect(session.getEnabledToolNames()).toEqual(["eval", "notes", "read"]);
 
 		await session.setModel(directModel);
-		expect(session.agent.state.tools.map(value => value.name)).toEqual(["eval", "read"]);
+		expect(session.agent.state.tools.map(value => value.name)).toEqual(["eval", "notes", "read"]);
 
 		await session.setModel(codeModel);
-		expect(session.agent.state.tools.map(value => value.name)).toEqual(["eval"]);
+		expect(session.agent.state.tools.map(value => value.name)).toEqual(["eval", "notes"]);
 	});
 
 	test("runtime setting changes immediately reconcile the Code Mode surface", async () => {

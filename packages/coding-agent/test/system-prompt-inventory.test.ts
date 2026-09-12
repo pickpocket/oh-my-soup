@@ -748,4 +748,111 @@ describe("system prompt tool inventory", () => {
 		);
 		expect(withTodo).toContain("Todo calls NEVER alone");
 	});
+
+	it("requires builtin notes provenance and a granted route while preserving custom prompt precedence", async () => {
+		const tools = new Map(TOOLS);
+		tools.set("notes", {
+			label: "Notes",
+			wireName: "save_session_notes",
+			description: "Store session reference facts.",
+			parameters: { type: "object", properties: {} },
+		});
+		const opts = {
+			cwd: tempDir,
+			contextFiles: [],
+			skills: [],
+			rules: [],
+			workspaceTree: { ...EMPTY_TREE, rootPath: tempDir },
+			tools,
+			importantNotesTool: "notes" as const,
+		};
+		const hidden = await buildSystemPrompt({ ...opts, toolNames: ["read"] });
+		expect(hidden.systemPrompt.some(block => block.includes("<important-notes-guidance>"))).toBe(false);
+		const override = await buildSystemPrompt({
+			...opts,
+			toolNames: ["read", "notes"],
+			importantNotesTool: undefined,
+		});
+		expect(override.systemPrompt.some(block => block.includes("<important-notes-guidance>"))).toBe(false);
+
+		const granted = await buildSystemPrompt({ ...opts, toolNames: ["read", "notes"] });
+		const guidance = granted.systemPrompt.filter(block => block.includes("<important-notes-guidance>"));
+		expect(guidance).toHaveLength(1);
+		expect(guidance[0]).toContain("`save_session_notes`");
+		expect(guidance[0]).not.toContain("xd://notes");
+
+		const custom = await buildSystemPrompt({
+			...opts,
+			toolNames: ["notes"],
+			resolvedCustomPrompt: "Specialized reviewer instructions.",
+		});
+		expect(custom.systemPrompt[0]).toBe("Specialized reviewer instructions.");
+		expect(custom.systemPrompt.filter(block => block.includes("<important-notes-guidance>"))).toEqual(guidance);
+	});
+
+	it("routes proactive notes guidance through the mounted device instead of an unavailable direct tool", async () => {
+		const { systemPrompt } = await buildSystemPrompt({
+			cwd: tempDir,
+			contextFiles: [],
+			skills: [],
+			rules: [],
+			workspaceTree: { ...EMPTY_TREE, rootPath: tempDir },
+			toolNames: ["read", "write"],
+			importantNotesTool: "xd",
+			xdevTools: [{ name: "notes", summary: "Store session reference facts." }],
+			resolvedCustomPrompt: "Specialized agent instructions.",
+		});
+		const guidance = systemPrompt.filter(block => block.includes("<important-notes-guidance>"));
+		expect(guidance).toHaveLength(1);
+		expect(guidance[0]).toContain("`write` with JSON content to `xd://notes`");
+		expect(guidance[0]).not.toContain("Use `notes`");
+	});
+
+	it("omits preservation guidance when a builtin device has no callable transport", async () => {
+		const { systemPrompt } = await buildSystemPrompt({
+			cwd: tempDir,
+			contextFiles: [],
+			skills: [],
+			rules: [],
+			workspaceTree: { ...EMPTY_TREE, rootPath: tempDir },
+			toolNames: ["read"],
+			importantNotesTool: "xd",
+			xdevTools: [{ name: "notes", summary: "Store session reference facts." }],
+		});
+		expect(systemPrompt.some(block => block.includes("<important-notes-guidance>"))).toBe(false);
+	});
+
+	it("routes builtin notes through the renamed eval bridge without advertising a direct call", async () => {
+		const { systemPrompt } = await buildSystemPrompt({
+			cwd: tempDir,
+			contextFiles: [],
+			skills: [],
+			rules: [],
+			workspaceTree: { ...EMPTY_TREE, rootPath: tempDir },
+			toolNames: ["eval"],
+			tools: new Map([["eval", { ...DIRECT_WEB_SEARCH, wireName: "run_code" }]]),
+			importantNotesTool: "eval",
+			resolvedCustomPrompt: "Specialized Code Mode instructions.",
+		});
+		const guidance = systemPrompt.filter(block => block.includes("<important-notes-guidance>"));
+		expect(guidance).toHaveLength(1);
+		expect(guidance[0]).toContain("`run_code` with `tool.notes(");
+		expect(guidance[0]).not.toContain("Use `notes`");
+		expect(guidance[0]).not.toContain("xd://notes");
+	});
+
+	it("requires explicit builtin capability in the public SDK prompt builder", async () => {
+		const opts = {
+			cwd: tempDir,
+			contextFiles: [],
+			skills: [],
+			tools: [{ ...SDK_TOOL, name: "notes", customWireName: "save_session_notes" }],
+		};
+		const custom = await buildSdkSystemPrompt(opts);
+		expect(custom.systemPrompt.some(block => block.includes("<important-notes-guidance>"))).toBe(false);
+		const builtin = await buildSdkSystemPrompt({ ...opts, importantNotesTool: "notes" });
+		const guidance = builtin.systemPrompt.filter(block => block.includes("<important-notes-guidance>"));
+		expect(guidance).toHaveLength(1);
+		expect(guidance[0]).toContain("`save_session_notes`");
+	});
 });

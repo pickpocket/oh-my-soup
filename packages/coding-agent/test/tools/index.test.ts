@@ -63,6 +63,7 @@ describe("createTools", () => {
 		expect(names).toContain("lsp");
 		expect(names).toContain("task");
 		expect(names).toContain("todo");
+		expect(names).toContain("notes");
 		expect(names).toContain("web_search");
 		expect(names).not.toContain("fetch");
 		expect(names).not.toContain("vim");
@@ -190,6 +191,7 @@ describe("createTools", () => {
 		const names = tools.map(t => t.name);
 
 		expect(names).toContain("yield");
+		expect(names).toContain("notes");
 	});
 	it("excludes todo from yield sessions unless prewalk is armed", async () => {
 		// Subagents (requireYieldTool) never get todo — except when the spawn is

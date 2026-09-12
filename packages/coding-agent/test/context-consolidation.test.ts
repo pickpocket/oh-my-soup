@@ -7,9 +7,13 @@ import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry
 import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
 import { StatusLineComponent } from "@oh-my-soup/pi-coding-agent/modes/components/status-line";
 import { initTheme } from "@oh-my-soup/pi-coding-agent/modes/theme/theme";
-import { computeContextBreakdown } from "@oh-my-soup/pi-coding-agent/modes/utils/context-usage";
+import {
+	computeContextBreakdown,
+	computeNonMessageTokens,
+} from "@oh-my-soup/pi-coding-agent/modes/utils/context-usage";
 import { AgentSession } from "@oh-my-soup/pi-coding-agent/session/agent-session";
 import { AuthStorage } from "@oh-my-soup/pi-coding-agent/session/auth-storage";
+import { IMPORTANT_NOTES_CUSTOM_TYPE } from "@oh-my-soup/pi-coding-agent/session/important-notes";
 import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
 import { TempDir } from "@oh-my-soup/pi-utils";
 
@@ -103,6 +107,97 @@ describe("Context usage consolidation", () => {
 		const sessionContext = session.buildDisplaySessionContext();
 		agent.replaceMessages(sessionContext.messages);
 	}
+
+	it("replaces billed note tokens through growth, shrink and clear without counting the snapshot twice", async () => {
+		using tempDir = TempDir.createSync("@notes-context-delta-");
+		const { session, sessionManager, agent } = createSession(tempDir);
+		try {
+			const emptyUsage = session.getContextUsage()!.tokens!;
+			const setNotes = (text?: string) =>
+				sessionManager.appendCustomEntry(IMPORTANT_NOTES_CUSTOM_TYPE, {
+					version: 1,
+					notes: text === undefined ? [] : [{ key: "evidence", text }],
+				});
+			setNotes("saved evidence");
+			const billedNotesTokens = session.getImportantNotesReferenceTokens();
+			expect(session.getContextUsage()?.tokens).toBe(emptyUsage + billedNotesTokens);
+			sessionManager.appendMessage({
+				role: "assistant",
+				content: [{ type: "text", text: "reviewed" }],
+				api: mockModel.api,
+				provider: mockModel.provider,
+				model: mockModel.id,
+				stopReason: "stop",
+				usage: {
+					input: 10_000,
+					output: 1,
+					cacheRead: 0,
+					cacheWrite: 0,
+					totalTokens: 10_001,
+					cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+				},
+				contextSnapshot: {
+					promptTokens: 10_000,
+					nonMessageTokens: computeNonMessageTokens(session, tokenizer),
+					importantNotesTokens: billedNotesTokens,
+				},
+				timestamp: 1,
+			});
+			syncSession(session, agent);
+			expect(session.getContextUsage()?.tokens).toBe(10_000);
+			for (const text of ["expanded evidence ".repeat(100), "short", undefined]) {
+				setNotes(text);
+				const expected = 10_000 + session.getImportantNotesReferenceTokens() - billedNotesTokens;
+				expect(session.getContextUsage()?.tokens).toBe(expected);
+				const panel = computeContextBreakdown(session);
+				expect(panel.usedTokens).toBe(expected);
+				expect(panel.categories.reduce((sum, category) => sum + category.tokens, 0)).toBe(expected);
+			}
+		} finally {
+			await session.dispose();
+		}
+	});
+
+	it("keeps unknown billed note snapshots conservative and discards the anchor on a different model", async () => {
+		using tempDir = TempDir.createSync("@notes-context-legacy-");
+		const { session, sessionManager, agent } = createSession(tempDir);
+		try {
+			sessionManager.appendCustomEntry(IMPORTANT_NOTES_CUSTOM_TYPE, {
+				version: 1,
+				notes: [{ key: "evidence", text: "old snapshot".repeat(100) }],
+			});
+			sessionManager.appendMessage({
+				role: "assistant",
+				content: [{ type: "text", text: "reviewed" }],
+				api: mockModel.api,
+				provider: mockModel.provider,
+				model: mockModel.id,
+				stopReason: "stop",
+				usage: {
+					input: 9000,
+					output: 1,
+					cacheRead: 0,
+					cacheWrite: 0,
+					totalTokens: 9001,
+					cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+				},
+				contextSnapshot: { promptTokens: 9000, nonMessageTokens: computeNonMessageTokens(session, tokenizer) },
+				timestamp: 1,
+			});
+			syncSession(session, agent);
+			expect(session.getContextUsage()?.tokens).toBe(9000 + session.getImportantNotesReferenceTokens());
+			agent.setModel({ ...mockModel, id: "smaller-model", contextWindow: 4096 });
+			const breakdown = session.getContextBreakdown();
+			expect(breakdown?.anchored).toBe(false);
+			expect(breakdown?.usedTokens).toBe(
+				computeNonMessageTokens(session, tokenizer) +
+					tokenizer.countMessages(agent.state.messages) +
+					session.getImportantNotesReferenceTokens(),
+			);
+		} finally {
+			await session.dispose();
+		}
+	});
 
 	it("keeps branch-local anchors safe from sibling branches", async () => {
 		const tempDir = TempDir.createSync("@branch-local-");

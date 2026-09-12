@@ -358,6 +358,7 @@ export type ReadonlySessionManager = Pick<
 	| "getCwd"
 	| "getSessionDir"
 	| "getSessionId"
+	| "getBranchGeneration"
 	| "getSessionFile"
 	| "getSessionName"
 	| "getArtifactsDir"
@@ -462,6 +463,7 @@ export class SessionManager {
 	readonly #blobs: BlobStore;
 
 	#sessionId = "";
+	#branchGeneration = 0;
 	#sessionName: string | undefined;
 	#titleSource: SessionTitleSource | undefined;
 	#sessionFile: string | undefined;
@@ -1325,6 +1327,7 @@ export class SessionManager {
 	}
 
 	restoreState(snapshot: SessionManagerStateSnapshot): void {
+		if (this.#atomicEntryBatch) throw new Error("Cannot restore session state during an atomic journal update.");
 		this.#closeWriterEventually();
 		this.#diskTail = Promise.resolve();
 		this.#clearDiskError();
@@ -1347,11 +1350,15 @@ export class SessionManager {
 		this.#adoptedArtifactManager = null;
 
 		if (this.#sessionFile) this.#rememberBreadcrumb(this.#cwd, this.#sessionFile);
+		this.#branchGeneration++;
 	}
 
 	/** Switch to a different session file (resume / branch). */
 	async setSessionFile(sessionFile: string): Promise<void> {
-		await this.#setSessionFile(sessionFile);
+		await this.#withAtomicPersistenceLock(async () => {
+			await this.#setSessionFile(sessionFile);
+			this.#branchGeneration++;
+		});
 	}
 
 	async #setSessionFile(sessionFile: string, loadedSession?: SessionLoadResult): Promise<void> {
@@ -1406,10 +1413,25 @@ export class SessionManager {
 		if (this.sanitizeLoadedOpenAIResponsesReplayMetadata()) this.#rewriteRequired = true;
 	}
 
-	/** Start a new session. Drains and closes any existing writer first. */
-	async newSession(options?: NewSessionOptions): Promise<string | undefined> {
-		await this.#drainAndCloseWriter();
-		return this.#resetToNewSession(options);
+	/**
+	 * Start a new session after settling atomic journal updates and the existing writer.
+	 * An optional synchronous initializer receives the committed outgoing branch and
+	 * durably publishes the replacement's initial entries before this method returns.
+	 */
+	async newSession(
+		options?: NewSessionOptions,
+		initialize?: (previousBranch: readonly SessionEntry[]) => void,
+	): Promise<string | undefined> {
+		return this.#withAtomicPersistenceLock(async () => {
+			await this.#drainAndCloseWriter();
+			const previousBranch = initialize ? this.getBranch() : undefined;
+			const sessionFile = this.#resetToNewSession(options);
+			this.#branchGeneration++;
+			if (initialize && previousBranch) {
+				await this.#appendEntriesAtomicallyLocked(() => initialize(previousBranch));
+			}
+			return sessionFile;
+		});
 	}
 
 	/** Delete a session file and its artifact directory. ENOENT is treated as success. */
@@ -1427,6 +1449,10 @@ export class SessionManager {
 	 * @returns the old and new session file paths, or undefined when not persisting.
 	 */
 	async fork(): Promise<{ oldSessionFile: string; newSessionFile: string } | undefined> {
+		return this.#withAtomicPersistenceLock(() => this.#forkLocked());
+	}
+
+	async #forkLocked(): Promise<{ oldSessionFile: string; newSessionFile: string } | undefined> {
 		if (!this.#persist || !this.#sessionFile) return undefined;
 
 		const oldSessionFile = this.#sessionFile;
@@ -1462,6 +1488,7 @@ export class SessionManager {
 		this.#rememberBreadcrumb(this.#cwd, this.#sessionFile);
 
 		await this.#rewriteAtomically();
+		this.#branchGeneration++;
 		return { oldSessionFile, newSessionFile: this.#sessionFile };
 	}
 
@@ -1639,13 +1666,23 @@ export class SessionManager {
 	 * entries, preserves/reparents entries appended concurrently, restores the
 	 * prior durable file view, and clears the failed writer latch for retry.
 	 *
-	 * The callback MUST be synchronous.
+	 * Callbacks MUST be synchronous. Optional validation runs under the lock before
+	 * staging and after publication; a post-publication rejection rolls back the batch.
 	 */
-	appendEntriesAtomically<T>(append: () => T): Promise<T> {
-		return this.#withAtomicPersistenceLock(() => this.#appendEntriesAtomicallyLocked(append));
+	appendEntriesAtomically<T>(append: () => T, validate?: () => void): Promise<T> {
+		return this.#withAtomicPersistenceLock(() => this.#appendEntriesAtomicallyLocked(append, validate));
 	}
 
-	async #appendEntriesAtomicallyLocked<T>(append: () => T): Promise<T> {
+	/**
+	 * Read journal state after any staged atomic batch has committed or rolled back.
+	 * The callback MUST be synchronous and read-only; this barrier does not write disk.
+	 */
+	readEntriesAtomically<T>(read: () => T): Promise<T> {
+		return this.#withAtomicPersistenceLock(async () => read());
+	}
+
+	async #appendEntriesAtomicallyLocked<T>(append: () => T, validate?: () => void): Promise<T> {
+		validate?.();
 		if (!this.#persist || !this.#sessionFile) return append();
 		if (this.#atomicEntryBatch) throw new Error("Atomic persistence lock ownership was violated.");
 		try {
@@ -1657,6 +1694,7 @@ export class SessionManager {
 			this.#notifyDurableEntries();
 			throw error;
 		}
+		validate?.();
 
 		const batch: AtomicEntryBatch = {
 			collecting: true,
@@ -1674,7 +1712,8 @@ export class SessionManager {
 			} finally {
 				batch.collecting = false;
 			}
-			await this.#rewriteAtomically();
+			if (batch.entryIds.size > 0) await this.#rewriteAtomically();
+			validate?.();
 			if (!this.#fileIsCurrent || this.#rewriteRequired) {
 				throw new Error("Atomic session batch was superseded before commit.");
 			}
@@ -1950,6 +1989,11 @@ export class SessionManager {
 
 	getSessionId(): string {
 		return this.#sessionId;
+	}
+
+	/** Explicit branch/session replacements; ordinary journal appends leave this unchanged. */
+	getBranchGeneration(): number {
+		return this.#branchGeneration;
 	}
 
 	getSessionFile(): string | undefined {
@@ -2488,11 +2532,13 @@ export class SessionManager {
 	branch(branchFromId: string): void {
 		if (!this.#index.has(branchFromId)) throw new Error(`Entry ${branchFromId} not found`);
 		this.#setLeaf(branchFromId);
+		this.#branchGeneration++;
 	}
 
 	/** Reset the leaf to null so the next append creates a new root entry. */
 	resetLeaf(): void {
 		this.#setLeaf(null);
+		this.#branchGeneration++;
 	}
 
 	/** Like branch(), but also records a branch_summary of the abandoned path. */
@@ -2511,6 +2557,7 @@ export class SessionManager {
 			fromExtension,
 		};
 		this.#recordEntry(entry);
+		this.#branchGeneration++;
 		return entry.id;
 	}
 
@@ -2519,6 +2566,7 @@ export class SessionManager {
 	 * Returns the new file path, or undefined when not persisting.
 	 */
 	createBranchedSession(leafId: string): string | undefined {
+		if (this.#atomicEntryBatch) throw new Error("Cannot create a branched session during an atomic journal update.");
 		const sourceSessionFile = this.#sessionFile;
 		const branchPath = this.getBranch(leafId);
 		if (branchPath.length === 0) throw new Error(`Entry ${leafId} not found`);
@@ -2577,12 +2625,14 @@ export class SessionManager {
 			this.#sessionFile = undefined;
 			this.#fileIsCurrent = false;
 			this.#rewriteRequired = false;
+			this.#branchGeneration++;
 			return undefined;
 		}
 
 		this.#sessionFile = newSessionFile;
 		this.#rewriteSynchronously();
 		this.#rememberBreadcrumb(this.#cwd, newSessionFile);
+		this.#branchGeneration++;
 		return newSessionFile;
 	}
 

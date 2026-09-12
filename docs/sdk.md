@@ -144,6 +144,12 @@ const listed = await SessionManager.list(process.cwd());
 const opened = listed[0] ? await SessionManager.open(listed[0].path) : null;
 ```
 
+### Important notes
+
+The built-in `notes` tool stores keyed reference facts in the session journal, outside compacted conversation history. `createAgentSession()` restores the latest active-branch snapshot into each model request as reference data and emits an early context-pressure reminder when the tool is available. File-backed notes survive compaction, resume, forks, and handoff; in-memory notes survive only while their session manager is alive. Fresh sessions are independent. Explicit `toolNames` restrictions must include `notes` to allow updates.
+
+See [notes](./tools/notes.md) for operations, capacity limits, trust boundaries, and reminder behavior.
+
 ## Model and auth wiring
 
 `createAgentSession()` uses `ModelRegistry` + `AuthStorage` for model selection and API key resolution.

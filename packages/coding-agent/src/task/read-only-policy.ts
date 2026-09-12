@@ -13,6 +13,7 @@ export const READ_ONLY_TOOL_NAMES: ReadonlySet<string> = new Set([
 	"hub",
 	"ask",
 	"todo",
+	"notes",
 	"recall",
 	"reflect",
 	"retain",

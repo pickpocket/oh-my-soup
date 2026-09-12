@@ -278,6 +278,7 @@ import {
 	TOOL_EXECUTION_START_CUSTOM_TYPE,
 	type ToolExecutionStartData,
 } from "./exit-diagnostics";
+import { countImportantNotesReferenceTokens } from "./important-notes-context";
 import { IrcBridge, type IrcBridgeHost } from "./irc-bridge";
 import {
 	buildLaunchCompletionBatchMessage,
@@ -663,6 +664,7 @@ export class AgentSession {
 	#sessionStopContinuationCount = 0;
 	#sessionStopHookActive = false;
 	#obfuscator: SecretObfuscator | undefined;
+	#requestImportantNotesTokens = 0;
 	/** Session-start value of `inlineToolDescriptors`; drives handoff tool pruning. */
 	#pruneToolDescriptions = false;
 	#checkpointState: CheckpointState | undefined = undefined;
@@ -1165,6 +1167,7 @@ export class AgentSession {
 			}
 		});
 		this.#detachUsageBeforeModelCall = this.agent.addBeforeModelCallHook(async signal => {
+			this.#requestImportantNotesTokens = this.getImportantNotesReferenceTokens();
 			if (!this.settings.get("retry.usageAwareFallback")) return;
 			if (this.#usagePreflightReadyForNextModelCall) {
 				const checkedModel = this.#usagePreflightReadyModel;
@@ -1184,6 +1187,7 @@ export class AgentSession {
 			modelRegistry: this.#modelRegistry,
 			model: () => this.model,
 			sessionId: () => this.sessionId,
+			importantNotesReferenceTokens: () => this.getImportantNotesReferenceTokens(),
 		};
 		this.#stats = new SessionStatsTracker(statsHost);
 		const memoryHost: SessionMemoryHost = {
@@ -1575,6 +1579,7 @@ export class AgentSession {
 			goalModeState: () => this.#goalModeState,
 			planReferencePath: () => this.#planReferencePath,
 			nonMessageTokenSource: () => this,
+			importantNotesReferenceTokens: () => this.getImportantNotesReferenceTokens(),
 			memoryBackendSession: () => this,
 			emitSessionEvent: (event, options) => this.#emitSessionEvent(event, options),
 			emitNotice: (level, message, source) => this.emitNotice(level, message, source),
@@ -2413,6 +2418,16 @@ export class AgentSession {
 		return entryId;
 	}
 
+	#captureAssistantContextSnapshot(message: AssistantMessage): void {
+		if (message.stopReason === "aborted" || message.stopReason === "error" || !message.usage) return;
+		message.contextSnapshot = {
+			promptTokens: calculatePromptTokens(message.usage),
+			nonMessageTokens: this.#stats.pendingNonMessageTokens ?? computeNonMessageTokens(this, this.agent.tokenizer),
+			importantNotesTokens: this.#requestImportantNotesTokens,
+			compactionEpoch: this.#stats.compactionEpoch,
+		};
+	}
+
 	#persistSessionMessageIfMissing(message: AgentMessage): void {
 		if (
 			message.role !== "user" &&
@@ -2428,13 +2443,8 @@ export class AgentSession {
 			const assistantMsg = message as AssistantMessage;
 			if (this.#recovery.isClassifierRefusal(assistantMsg)) return;
 			if (isEmptyErrorTurn(assistantMsg)) return;
-			if (assistantMsg.stopReason !== "aborted" && assistantMsg.stopReason !== "error" && assistantMsg.usage) {
-				assistantMsg.contextSnapshot = {
-					promptTokens: calculatePromptTokens(assistantMsg.usage),
-					nonMessageTokens:
-						this.#stats.pendingNonMessageTokens ?? computeNonMessageTokens(this, this.agent.tokenizer),
-					compactionEpoch: this.#stats.compactionEpoch,
-				};
+			if (assistantMsg.contextSnapshot?.importantNotesTokens === undefined) {
+				this.#captureAssistantContextSnapshot(assistantMsg);
 			}
 		}
 		const skipPersistedRewindResult =
@@ -2569,6 +2579,9 @@ export class AgentSession {
 		// toolUse) assistant message and skipping settle-only work.
 		if (event.type === "message_end" && event.message.role === "assistant") {
 			this.#lastAssistantMessage = event.message;
+			// Capture before awaited listeners or tool execution can change the note
+			// snapshot; mid-turn maintenance must replace the cost this request saw.
+			this.#captureAssistantContextSnapshot(event.message);
 		}
 		// Plan-mode internal transition: stamp `SILENT_ABORT_MARKER` on the
 		// persisted message BEFORE the obfuscator's display-side copy below.
@@ -5815,16 +5828,19 @@ export class AgentSession {
 
 			const agentPromptOptions = options?.toolChoice ? { toolChoice: options.toolChoice } : undefined;
 			const nonMessageTokens = computeNonMessageTokens(this, this.agent.tokenizer);
+			const importantNotesTokens = this.getImportantNotesReferenceTokens();
 			const contextWindow = this.model?.contextWindow ?? 0;
 			const breakdown = this.getContextBreakdown({ contextWindow, pendingMessages: messages });
 			const promptTokens =
 				breakdown?.usedTokens ??
 				nonMessageTokens +
+					importantNotesTokens +
 					this.agent.tokenizer.countMessages(this.messages) +
 					this.agent.tokenizer.countMessages(messages);
 			this.#stats.setPendingSnapshot({
 				promptTokens,
 				nonMessageTokens,
+				importantNotesTokens,
 				cutoffCount: this.messages.length + messages.length,
 			});
 			// Commit the plan-reference delivery flag only now that the message is
@@ -8831,6 +8847,20 @@ export class AgentSession {
 	 */
 	getSessionStats(): SessionStats {
 		return this.#stats.getSessionStats();
+	}
+
+	/** Tokens in the latest request-only note snapshot, using the outbound rendering policy. */
+	getImportantNotesReferenceTokens(): number {
+		return countImportantNotesReferenceTokens(
+			this.sessionManager.getBranch(),
+			this.agent.tokenizer,
+			this.#obfuscator,
+		);
+	}
+
+	/** Capture the reference selected by the final primary request projection. */
+	recordImportantNotesReferenceTokens(tokens: number): void {
+		this.#requestImportantNotesTokens = tokens;
 	}
 
 	/**

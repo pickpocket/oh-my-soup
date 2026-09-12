@@ -28,6 +28,7 @@ import { grepToolRenderer } from "./grep";
 import { hubToolRenderer } from "./hub";
 import { inspectImageToolRenderer } from "./inspect-image-renderer";
 import { recallToolRenderer, reflectToolRenderer, retainToolRenderer } from "./memory-render";
+import { notesToolRenderer } from "./notes";
 import { objdumpToolRenderer } from "./objdump";
 import { readToolRenderer } from "./read";
 import { resolveRenderer } from "./resolve";
@@ -126,6 +127,7 @@ export const toolRenderers: Record<string, ToolRenderer> = {
 	},
 	think: thinkToolRenderer as ToolRenderer,
 	todo: todoToolRenderer as ToolRenderer,
+	notes: notesToolRenderer as ToolRenderer,
 	github: githubToolRenderer as ToolRenderer,
 	goal: goalToolRenderer as ToolRenderer,
 	web_search: webSearchToolRenderer as ToolRenderer,

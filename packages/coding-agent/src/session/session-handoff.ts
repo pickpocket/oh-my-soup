@@ -19,6 +19,7 @@ import { obfuscateProviderContext } from "../secrets/message-transform";
 import type { SecretObfuscator } from "../secrets/obfuscator";
 import type { HandoffResult, SessionHandoffOptions } from "./agent-session-types";
 import type { BashSessionTransition } from "./bash-runner";
+import { getImportantNotesFromEntries, IMPORTANT_NOTES_CUSTOM_TYPE } from "./important-notes";
 import type { SessionContext } from "./session-context";
 import type { SessionManager } from "./session-manager";
 
@@ -274,11 +275,31 @@ export class SessionHandoff {
 				getSessionId: () => this.#host.sessionManager.getSessionId(),
 			};
 			const previousLocalRoot = resolveLocalUrlToPath("local://", localProtocolOptions);
+			const previousSessionId = this.#host.sessionManager.getSessionId();
+			const handoffContent = createHandoffContext(handoffText);
 			const bashTransition = this.#host.beginBashSessionTransition();
 			this.#host.cancelOwnAsyncJobs();
 			try {
 				await this.#host.sessionManager.newSession(
 					previousSessionFile ? { parentSession: previousSessionFile } : undefined,
+					previousBranch => {
+						// Capture after pending saves settle, and publish continuity data
+						// before any fallible post-switch hook can interrupt the handoff.
+						const importantNotes = getImportantNotesFromEntries(previousBranch);
+						this.#host.sessionManager.appendCustomMessageEntry(
+							"handoff",
+							handoffContent,
+							true,
+							undefined,
+							"agent",
+						);
+						if (importantNotes.length > 0) {
+							this.#host.sessionManager.appendCustomEntry(IMPORTANT_NOTES_CUSTOM_TYPE, {
+								version: 1,
+								notes: importantNotes,
+							});
+						}
+					},
 				);
 				this.#host.markBashSessionTransition(bashTransition);
 				// The handoff opens a fresh conversation, so the spend of the one it
@@ -287,6 +308,7 @@ export class SessionHandoff {
 				this.#host.clearAdvisorCost();
 				sessionTransitioned = true;
 			} finally {
+				sessionTransitioned = this.#host.sessionManager.getSessionId() !== previousSessionId;
 				this.#host.finishBashSessionTransition(bashTransition, sessionTransitioned);
 			}
 
@@ -322,10 +344,6 @@ export class SessionHandoff {
 				});
 			}
 
-			// Inject the handoff document as a custom message
-			const handoffContent = createHandoffContext(handoffText);
-			this.#host.sessionManager.appendCustomMessageEntry("handoff", handoffContent, true, undefined, "agent");
-			await this.#host.sessionManager.ensureOnDisk();
 			let savedPath: string | undefined;
 			if (options?.autoTriggered && this.#host.settings.get("compaction.handoffSaveToDisk")) {
 				const artifactsDir = this.#host.sessionManager.getArtifactsDir();

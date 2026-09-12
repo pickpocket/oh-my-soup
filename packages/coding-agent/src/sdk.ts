@@ -131,6 +131,7 @@ import { MCP_CONNECTION_STATUS_EVENT_CHANNEL, type McpConnectionStatusEvent } fr
 import { createSessionMemoryRuntimeContext, resolveMemoryBackend } from "./memory-backend";
 import { MEMORY_BACKEND_TOOL_NAMES } from "./memory-backend/tool-names";
 import type { MnemopiSessionState } from "./mnemopi/state";
+import { computeNonMessageTokens } from "./modes/utils/context-usage";
 import mcpXdevGuidanceTemplate from "./prompts/system/mcp-xdev-guidance.md" with { type: "text" };
 import lateDiagnosticTemplate from "./prompts/tools/lsp-late-diagnostic.md" with { type: "text" };
 import { AgentLifecycleManager } from "./registry/agent-lifecycle";
@@ -147,6 +148,12 @@ import { AgentSession, type InitialRetryFallbackState, type PlanYolo, type Prewa
 import { discoverAuthStorage as discoverAuthStorageFromConfig } from "./session/auth-broker-config";
 import type { AuthStorage } from "./session/auth-storage";
 import { createInterruptedTurnAbortMessage } from "./session/exit-diagnostics";
+import {
+	assertImportantNotesFit,
+	countImportantNotesReferenceTokens,
+	ImportantNotesContext,
+	type ImportantNotesProjection,
+} from "./session/important-notes-context";
 import {
 	type CustomMessage,
 	convertToLlm,
@@ -856,6 +863,8 @@ export async function discoverMCPServers(cwd?: string): Promise<MCPToolsLoadResu
 
 export interface BuildSystemPromptOptions {
 	tools?: Tool[];
+	/** Source-verified builtin important-notes route. Omit when the builtin is unavailable. */
+	importantNotesTool?: "notes" | "xd" | "eval";
 	skills?: Skill[];
 	contextFiles?: Array<{ path: string; content: string }>;
 	cwd?: string;
@@ -892,6 +901,7 @@ export async function buildSystemPrompt(options: BuildSystemPromptOptions = {}):
 		includeWorkspaceTree: options.includeWorkspaceTree,
 		securityEnabled: options.securityEnabled,
 		toolNames,
+		importantNotesTool: options.importantNotesTool,
 		tools: promptTools,
 	});
 }
@@ -2868,6 +2878,21 @@ async function createAgentSessionScoped(options: CreateAgentSessionOptions): Pro
 		const eagerTasksAlways = settings.get("task.eager") === "always";
 		const intentField = $flag("PI_INTENT_TRACING", settings.get("tools.intentTracing")) ? INTENT_FIELD : undefined;
 		const includeWorkspaceTree = settings.get("includeWorkspaceTree") ?? false;
+		const resolveImportantNotesTool = (toolNames: readonly string[]): "notes" | "xd" | "eval" | undefined => {
+			const hasBuiltInNotes = hasSession ? session.hasBuiltInTool("notes") : builtInRegistryToolNames.has("notes");
+			if (!hasBuiltInNotes) return undefined;
+			if (toolNames.includes("notes")) return "notes";
+			if (
+				toolNames.includes("read") &&
+				toolNames.includes("write") &&
+				toolSession.xdev?.mountedNames.has("notes") &&
+				resolveMountedXdevExecutable(toolSession.xdev, "notes")
+			) {
+				return "xd";
+			}
+			if (hasSession && toolNames.includes("eval") && session.getToolForEvalBridge("notes")) return "eval";
+			return undefined;
+		};
 		const rebuildSystemPrompt = async (
 			toolNames: string[],
 			tools: Map<string, AgentTool>,
@@ -2963,6 +2988,7 @@ async function createAgentSessionScoped(options: CreateAgentSessionOptions): Pro
 				contextFiles,
 				tools: promptTools,
 				toolNames,
+				importantNotesTool: resolveImportantNotesTool(toolNames),
 				rules: rulebookRules,
 				alwaysApplyRules,
 				resolvedAppendSystemPrompt: appendPrompt,
@@ -3166,9 +3192,50 @@ async function createAgentSessionScoped(options: CreateAgentSessionOptions): Pro
 			return obfuscateMessages(obfuscator, converted);
 		};
 
-		const transformContext = async (messages: AgentMessage[], _signal?: AbortSignal) => {
+		const importantNotesContext = new ImportantNotesContext();
+		let pendingNotesProjection: ImportantNotesProjection | undefined;
+		const transformContext = async (messages: AgentMessage[], signal?: AbortSignal, primary = false) => {
+			if (primary) pendingNotesProjection = undefined;
 			const withContext = await extensionRunner.emitContext(messages);
-			return wrapSteeringForModel(withContext);
+			signal?.throwIfAborted();
+			const wrapped = wrapSteeringForModel(withContext);
+			const activeModel = agent.state.model;
+			if (!activeModel) return wrapped;
+			const notesTool = resolveImportantNotesTool(session.getActiveToolNames());
+			const notesToolName = notesTool === "xd" ? "write" : notesTool;
+			const branch = sessionManager.getBranch();
+			const compaction = settings.getGroup("compaction");
+			const nonMessageTokens = computeNonMessageTokens(session, agent.tokenizer);
+			const projection = importantNotesContext.transform(wrapped, {
+				sessionId: sessionManager.getSessionId(),
+				branchGeneration: sessionManager.getBranchGeneration(),
+				branch,
+				model: activeModel,
+				compaction,
+				tokenizer: agent.tokenizer,
+				nonMessageTokens,
+				contextUsageTokens: session.getContextUsage()?.tokens ?? undefined,
+				storedMessagesTokens: agent.tokenizer.countMessages(agent.state.messages, {
+					excludeEncryptedReasoning: true,
+				}),
+				notesTool,
+				notesToolName: notesToolName
+					? (toolRegistry.get(notesToolName)?.customWireName ?? notesToolName)
+					: undefined,
+				obfuscator,
+			});
+			const referenceTokens = countImportantNotesReferenceTokens(branch, agent.tokenizer, obfuscator);
+			assertImportantNotesFit(
+				nonMessageTokens + agent.tokenizer.countMessages(projection.messages, { excludeEncryptedReasoning: true }),
+				referenceTokens,
+				activeModel,
+				compaction,
+			);
+			if (primary) {
+				session.recordImportantNotesReferenceTokens(referenceTokens);
+				pendingNotesProjection = projection;
+			}
+			return projection.messages;
 		};
 		// Per-request provider-context transforms. Obfuscate FIRST so secrets are
 		// redacted from text before snapcompact rasterizes it into PNG frames. Clamp
@@ -3286,7 +3353,7 @@ async function createAgentSessionScoped(options: CreateAgentSessionOptions): Pro
 			sessionId: providerSessionId,
 			promptCacheKey: providerPromptCacheKey,
 			deadline: options.deadline,
-			transformContext,
+			transformContext: (messages, signal) => transformContext(messages, signal, true),
 			transformProviderContext,
 			steeringMode: settings.get("steeringMode") ?? "one-at-a-time",
 			followUpMode: settings.get("followUpMode") ?? "one-at-a-time",
@@ -3347,6 +3414,19 @@ async function createAgentSessionScoped(options: CreateAgentSessionOptions): Pro
 		});
 
 		cursorEventEmitter = event => agent.emitExternalEvent(event);
+		disposeCallbacks.add(
+			agent.subscribe(event => {
+				if (event.type === "message_end" && event.message.role === "assistant") {
+					const projection = pendingNotesProjection;
+					pendingNotesProjection = undefined;
+					if (event.message.stopReason !== "error" && event.message.stopReason !== "aborted") {
+						projection?.acknowledgeDelivery();
+					}
+				} else if (event.type === "agent_end") {
+					pendingNotesProjection = undefined;
+				}
+			}),
+		);
 
 		// Restore messages if session has existing data
 		if (hasExistingSession) {

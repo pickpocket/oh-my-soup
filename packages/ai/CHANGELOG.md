@@ -4,6 +4,7 @@
 
 ### Added
 
+- Added optional note-reference token accounting to assistant context snapshots so session consumers can adjust provider-usage estimates when saved notes change.
 - Added the compact `emoji` owned tool-calling dialect: line-anchored `🔧` JSON calls, fenced/example-safe streaming parsing, and collision-free `📦` result blocks.
 
 ### Fixed

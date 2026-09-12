@@ -9,6 +9,7 @@ export const CODE_MODE_KEEP_TOOLS: Record<string, true> = {
 	eval: true,
 	ask: true,
 	todo: true,
+	notes: true,
 	yield: true,
 	think: true,
 };

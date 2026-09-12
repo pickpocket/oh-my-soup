@@ -67,6 +67,7 @@ import type { ConfiguredThinkingLevel } from "../thinking";
 import type { AgentSessionEvent } from "./agent-session-events";
 import type { ContextUsageBreakdown, HandoffResult, SessionHandoffOptions } from "./agent-session-types";
 import { findCompactMode } from "./compact-modes";
+import { assertImportantNotesFit } from "./important-notes-context";
 import { convertToLlm, stripImagesFromMessage } from "./messages";
 import { isTerminalTextAssistantAnswer } from "./queued-messages";
 import {
@@ -214,6 +215,7 @@ export interface SessionMaintenanceHost {
 	goalModeState(): GoalModeState | undefined;
 	planReferencePath(): string;
 	nonMessageTokenSource(): NonMessageTokenSource;
+	importantNotesReferenceTokens(): number;
 	memoryBackendSession(): MemoryBackendOperationContext["session"];
 	emitSessionEvent(event: AgentSessionEvent, options?: { detachExtensions?: boolean }): Promise<void>;
 	emitNotice(level: "info" | "warning" | "error", message: string, source?: string): void;
@@ -1086,6 +1088,25 @@ export class SessionMaintenance {
 		await this.runAutoCompaction("idle", false, true);
 	}
 
+	/** Persistent prompt overhead that compaction cannot remove. */
+	#fixedContextTokens(): number {
+		return (
+			computeNonMessageTokens(this.#host.nonMessageTokenSource(), this.#tokenizer) +
+			this.#host.importantNotesReferenceTokens()
+		);
+	}
+
+	#assertImportantNotesFit(contextTokens: number): void {
+		const model = this.#model;
+		if (!model) return;
+		assertImportantNotesFit(
+			contextTokens,
+			this.#host.importantNotesReferenceTokens(),
+			model,
+			this.#host.settings.getGroup("compaction"),
+		);
+	}
+
 	/**
 	 * Local token estimate of the stored conversation (plus any pending messages),
 	 * independent of provider-reported usage. A `before_provider_request` hook
@@ -1104,7 +1125,7 @@ export class SessionMaintenance {
 		// (the other arm of compactionContextTokens) already accounts for it.
 		const opts = { excludeEncryptedReasoning: true } as const;
 		return (
-			computeNonMessageTokens(this.#host.nonMessageTokenSource(), this.#tokenizer) +
+			this.#fixedContextTokens() +
 			this.#tokenizer.countMessages(this.#host.messages(), opts) +
 			this.#tokenizer.countMessages(pendingMessages, opts)
 		);
@@ -1128,7 +1149,10 @@ export class SessionMaintenance {
 		const contextTokens = this.#estimatePrePromptContextTokens(messages, contextWindow);
 		const pendingMidTurnDeadEnd = this.#midTurnDeadEndPendingPrePrompt;
 		this.#midTurnDeadEndPendingPrePrompt = false;
-		if (!shouldCompact(contextTokens, contextWindow, compactionSettings)) return;
+		if (!shouldCompact(contextTokens, contextWindow, compactionSettings)) {
+			this.#assertImportantNotesFit(contextTokens);
+			return;
+		}
 		if (
 			pendingMidTurnDeadEnd &&
 			prepareCompaction(this.#host.sessionManager.getBranch(), compactionSettings, model, this.#tokenizer) ===
@@ -1137,6 +1161,7 @@ export class SessionMaintenance {
 			// The prior tool loop already attempted the rescue and warned for this
 			// persisted oversized turn. Only a later persisted cut point makes a
 			// pre-prompt retry useful; the new agent loop may warn for its own turn.
+			this.#assertImportantNotesFit(contextTokens);
 			return;
 		}
 
@@ -1150,8 +1175,13 @@ export class SessionMaintenance {
 				contextWindow,
 				model: `${model.provider}/${model.id}`,
 			});
+			this.#assertImportantNotesFit(this.#estimatePrePromptContextTokens(messages, this.#model?.contextWindow ?? 0));
 			return;
 		}
+
+		// The note reference survives every compaction. Fail before a futile rewrite
+		// when even an empty history could not accommodate it.
+		this.#assertImportantNotesFit(this.#fixedContextTokens());
 
 		logger.debug("Pre-prompt context maintenance triggered by pending prompt size", {
 			contextTokens,
@@ -1163,6 +1193,7 @@ export class SessionMaintenance {
 			triggerContextTokens: contextTokens,
 			phase: "pre_turn",
 		});
+		this.#assertImportantNotesFit(this.#estimatePrePromptContextTokens(messages, this.#model?.contextWindow ?? 0));
 	}
 
 	/**
@@ -1213,7 +1244,10 @@ export class SessionMaintenance {
 		// will actually rewrite history; awaiting it on every ordinary tool turn lets
 		// a slow message_end listener leave the TUI "generating" with no provider
 		// request or tool running.
-		const billedContextTokens = calculateContextTokens(lastAssistant.usage);
+		const billedContextTokens =
+			calculateContextTokens(lastAssistant.usage) +
+			this.#host.importantNotesReferenceTokens() -
+			(lastAssistant.contextSnapshot?.importantNotesTokens ?? 0);
 		const storedContextTokens = this.#estimateStoredContextTokens();
 		const contextTokens = compactionContextTokens(billedContextTokens, storedContextTokens);
 		if (!shouldCompact(contextTokens, contextWindow, compactionSettings)) return;
@@ -1255,6 +1289,7 @@ export class SessionMaintenance {
 			return;
 		}
 
+		this.#assertImportantNotesFit(this.#fixedContextTokens());
 		const messagesBefore = activeMessages.length;
 		const result = await this.runAutoCompaction("threshold", false, false, false, {
 			autoContinue: false,
@@ -1519,7 +1554,9 @@ export class SessionMaintenance {
 		// (the floor applied below) drive the decision instead.
 		const assistantUsageContextTokens = assistantPredatesCompaction
 			? 0
-			: calculateContextTokens(assistantMessage.usage);
+			: calculateContextTokens(assistantMessage.usage) +
+				this.#host.importantNotesReferenceTokens() -
+				(assistantMessage.contextSnapshot?.importantNotesTokens ?? 0);
 		const storedContextTokens = this.#estimateStoredContextTokens();
 		// Pruning frees bytes for the NEXT prompt; it does not change the size of
 		// the prompt the LLM just billed for. Earlier revisions subtracted the
@@ -1868,7 +1905,7 @@ export class SessionMaintenance {
 		const ctxWindow = this.#model?.contextWindow ?? 0;
 		if (ctxWindow <= 0) return Math.min(snapcompact.MAX_FRAMES_DEFAULT, snapcompact.maxFramesForDataBudget());
 		const reserve = effectiveReserveTokens(ctxWindow, settings);
-		let baseTokens = computeNonMessageTokens(this.#host.nonMessageTokenSource(), this.#tokenizer);
+		let baseTokens = this.#fixedContextTokens();
 		baseTokens += this.#tokenizer.countMessages(preparation.recentMessages);
 		const totalBudget = ctxWindow - reserve;
 		// Skip iff there is no headroom whatsoever; a text-only archive costs
@@ -1937,9 +1974,7 @@ export class SessionMaintenance {
 			undefined,
 			blocks,
 		);
-		let tokens =
-			computeNonMessageTokens(this.#host.nonMessageTokenSource(), this.#tokenizer) +
-			this.#tokenizer.countMessage(summaryMessage);
+		let tokens = this.#fixedContextTokens() + this.#tokenizer.countMessage(summaryMessage);
 		tokens += this.#tokenizer.countMessages(preparation.recentMessages);
 		return tokens;
 	}
@@ -2147,7 +2182,7 @@ export class SessionMaintenance {
 		if (ctxWindow <= 0) return Math.min(snapcompact.MAX_FRAMES_DEFAULT, snapcompact.maxFramesForDataBudget());
 		const thresholdTokens = resolveThresholdTokens(ctxWindow, settings);
 		const recoveryBandTokens = Math.floor(thresholdTokens * COMPACTION_RECOVERY_BAND);
-		const baseTokens = computeNonMessageTokens(this.#host.nonMessageTokenSource(), this.#tokenizer);
+		const baseTokens = this.#fixedContextTokens();
 		const shape = snapcompact.resolveShape(this.#model, this.#host.settings.get("snapcompact.shape"));
 		const edgeCap = snapcompact.geometry(shape).capacity;
 		const textEdgeTokens = Math.ceil((2 * edgeCap * 1.15) / 4);

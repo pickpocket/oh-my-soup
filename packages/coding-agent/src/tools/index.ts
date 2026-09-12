@@ -61,6 +61,7 @@ import { MemoryEditTool } from "./memory-edit";
 import { MemoryRecallTool } from "./memory-recall";
 import { MemoryReflectTool } from "./memory-reflect";
 import { MemoryRetainTool } from "./memory-retain";
+import { NotesTool } from "./notes";
 import { ObjdumpTool } from "./objdump";
 import { wrapToolWithMetaNotice } from "./output-meta";
 import { ReadTool } from "./read";
@@ -106,6 +107,7 @@ export * from "./memory-edit";
 export * from "./memory-recall";
 export * from "./memory-reflect";
 export * from "./memory-retain";
+export * from "./notes";
 export * from "./objdump";
 export * from "./read";
 export * from "./report-tool-issue";
@@ -243,7 +245,18 @@ export interface ToolSession {
 	/** Get session file */
 	getSessionFile: () => string | null;
 	/** Parent session journal used by tools that persist runtime lifecycle state. */
-	sessionManager?: Pick<SessionManager, "appendCustomEntry" | "ensureOnDisk" | "flush" | "getBranch" | "getEntries">;
+	sessionManager?: Pick<
+		SessionManager,
+		| "appendCustomEntry"
+		| "appendEntriesAtomically"
+		| "readEntriesAtomically"
+		| "ensureOnDisk"
+		| "flush"
+		| "getBranch"
+		| "getEntries"
+		| "getSessionId"
+		| "getBranchGeneration"
+	>;
 	/** Get eval kernel owner ID for session-scoped retained-kernel cleanup. */
 	getEvalKernelOwnerId?: () => string | null;
 	/** Reject new eval work once session disposal has started. */
@@ -470,6 +483,7 @@ export const BUILTIN_TOOLS: Record<BuiltinToolName, ToolFactory> = {
 	task: s => TaskTool.create(s),
 	hub: s => new HubTool(s),
 	todo: s => new TodoTool(s),
+	notes: s => new NotesTool(s),
 	web_search: s => new WebSearchTool(s),
 	write: s => new WriteTool(s),
 	memory_edit: MemoryEditTool.createIf,

@@ -18,7 +18,12 @@ import { resolveLocalUrlToPath } from "@oh-my-soup/pi-coding-agent/internal-urls
 import { SecretObfuscator } from "@oh-my-soup/pi-coding-agent/secrets";
 import { AgentSession, type AgentSessionEvent } from "@oh-my-soup/pi-coding-agent/session/agent-session";
 import { AuthStorage } from "@oh-my-soup/pi-coding-agent/session/auth-storage";
+import {
+	getImportantNotesFromEntries,
+	IMPORTANT_NOTES_CUSTOM_TYPE,
+} from "@oh-my-soup/pi-coding-agent/session/important-notes";
 import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
+import { SessionMemory } from "@oh-my-soup/pi-coding-agent/session/session-memory";
 import { EventBus } from "@oh-my-soup/pi-coding-agent/utils/event-bus";
 import { TempDir } from "@oh-my-soup/pi-utils";
 import * as snapcompact from "@oh-my-soup/snapcompact";
@@ -206,6 +211,90 @@ describe("AgentSession handoff", () => {
 		);
 		// The source session's artifacts remain untouched on disk.
 		expect(await Bun.file(oldPlanPath).text()).toBe("# Plan\n\nbody\n");
+	});
+
+	it("preserves exact important notes through automatic handoff and disk resume", async () => {
+		const notes = [
+			{ key: "server", text: "cwd=/repo/web; bun run dev --port 5173" },
+			{ key: "re-addresses", text: "image base 0x140000000; dispatch RVA 0x1A2B0" },
+		];
+		sessionManager.appendCustomEntry(IMPORTANT_NOTES_CUSTOM_TYPE, { version: 1, notes });
+		const previousSessionFile = session.sessionFile;
+		// Deliberately omit the notes from the generated document: exact data
+		// must survive independently of what the summarizer chooses to keep.
+		vi.spyOn(compactionModule, "generateHandoffFromContext").mockResolvedValue("Continue the investigation.");
+
+		await session.handoff(undefined, { autoTriggered: true });
+
+		expect(session.sessionFile).not.toBe(previousSessionFile);
+		expect(getImportantNotesFromEntries(sessionManager.getBranch())).toEqual(notes);
+		const sessionFile = session.sessionFile;
+		if (!sessionFile) throw new Error("Expected a persisted handoff session");
+		await session.dispose();
+		const reopened = await SessionManager.open(sessionFile, tempDir.path());
+		try {
+			expect(getImportantNotesFromEntries(reopened.getBranch())).toEqual(notes);
+		} finally {
+			await reopened.close();
+		}
+	});
+
+	it("durably preserves handoff and exact notes when the post-switch memory reset fails", async () => {
+		const notes = [{ key: "server", text: "  C:\\work\\web\n\tbun run dev --port 5173  " }];
+		sessionManager.appendCustomEntry(IMPORTANT_NOTES_CUSTOM_TYPE, { version: 1, notes });
+		const previousSessionFile = session.sessionFile;
+		const handoffText = "Continue without regenerating the command.";
+		vi.spyOn(compactionModule, "generateHandoffFromContext").mockResolvedValue(handoffText);
+		vi.spyOn(SessionMemory.prototype, "resetContextForNewTranscript").mockRejectedValueOnce(
+			new Error("memory reset failed"),
+		);
+
+		await expect(session.handoff()).rejects.toThrow("memory reset failed");
+
+		const replacementFile = session.sessionFile;
+		if (!replacementFile) throw new Error("Expected a persisted replacement session");
+		expect(replacementFile).not.toBe(previousSessionFile);
+		expect(getImportantNotesFromEntries(sessionManager.getBranch())).toEqual(notes);
+		// Open the actual file before disposal can flush anything: continuity must
+		// already be durable when the first post-switch hook fails.
+		const reopened = await SessionManager.open(replacementFile, tempDir.path());
+		try {
+			expect(getImportantNotesFromEntries(reopened.getBranch())).toEqual(notes);
+			const handoff = reopened
+				.getBranch()
+				.find(entry => entry.type === "custom_message" && entry.customType === "handoff");
+			expect(handoff).toMatchObject({ content: expect.stringContaining(handoffText) });
+		} finally {
+			await reopened.close();
+		}
+	});
+
+	it("carries a successful save that completes immediately before the handoff transition", async () => {
+		sessionManager.appendCustomEntry(IMPORTANT_NOTES_CUSTOM_TYPE, {
+			version: 1,
+			notes: [{ key: "server", text: "old command" }],
+		});
+		vi.spyOn(compactionModule, "generateHandoffFromContext").mockResolvedValue("Continue.");
+		const replace = sessionManager.newSession.bind(sessionManager);
+		const notes = [{ key: "server", text: "new command" }];
+		vi.spyOn(sessionManager, "newSession").mockImplementationOnce(async (options, initialize) => {
+			await sessionManager.appendEntriesAtomically(() => {
+				sessionManager.appendCustomEntry(IMPORTANT_NOTES_CUSTOM_TYPE, { version: 1, notes });
+			});
+			return replace(options, initialize);
+		});
+
+		await session.handoff();
+
+		expect(getImportantNotesFromEntries(sessionManager.getBranch())).toEqual(notes);
+		const replacementFile = session.sessionFile;
+		if (!replacementFile) throw new Error("Expected a persisted replacement session");
+		const reopened = await SessionManager.open(replacementFile, tempDir.path());
+		try {
+			expect(getImportantNotesFromEntries(reopened.getBranch())).toEqual(notes);
+		} finally {
+			await reopened.close();
+		}
 	});
 
 	it("emits handoff lifecycle hooks on the outgoing and replacement sessions", async () => {

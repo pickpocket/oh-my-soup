@@ -4,6 +4,7 @@
 
 ### Added
 
+- Added session-scoped `notes` for exact working state that survives compaction, resume, and handoff, with keyed updates, atomic persistence, isolated branches, proactive system guidance gated on tool availability, and an early context-pressure reminder to preserve important information.
 - Added the read-only `objdump` tool/device for GNU binutils-backed binary headers, sections, symbols, disassembly, relocations, and contents, with bounded streaming output, recoverable artifacts, and process cancellation.
 - OMS shell, PowerShell, source-link, and published package installations now provision a pinned, checksum-verified local GNU objdump through `oms setup objdump`; the tool prefers this managed copy over PATH without downloading during inspection.
 - Added optional Discord task-completion notifications via credential-masked `task.discordWebhookUrl`, with metadata-only payloads, nonblocking bounded delivery, and session-owned shutdown draining.
@@ -25,6 +26,9 @@
 
 ### Fixed
 
+- Hardened session notes against concurrent saves and reads, session/branch switches, mutable tool results, and post-transition handoff failures.
+- Included restored note references in context and compaction budgets; references that cannot fit fail before model dispatch without changing saved notes.
+- Made notes reminders primary-delivery-aware, rearmed them on explicit branch switches, preserved provider request attribution, and required built-in notes provenance for guidance and reminders.
 - Fixed shell and PowerShell installers failing when the downloaded release predates `setup objdump`; installers now check supported components while preserving dependency-setup failures on supported releases.
 - Fixed Nix flake evaluation rejecting the exported overlay's argument names.
 - Fixed Windows standalone updates and script-launcher takeovers failing their start check: staged downloads now retain an executable `.exe` suffix, and abandoned staging files are cleaned up without deleting in-progress downloads.

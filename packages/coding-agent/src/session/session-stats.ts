@@ -20,6 +20,7 @@ import type { SessionManager } from "./session-manager";
 interface PendingContextSnapshot {
 	promptTokens: number;
 	nonMessageTokens: number;
+	importantNotesTokens: number;
 	cutoffCount: number;
 	/**
 	 * Compaction epoch at rebase time. Distinguishes a genuinely fresh in-turn
@@ -37,6 +38,7 @@ export interface SessionStatsTrackerHost {
 	modelRegistry: ModelRegistry;
 	model(): Model | undefined;
 	sessionId(): string;
+	importantNotesReferenceTokens(): number;
 }
 
 function correctedPromptTokens(assistant: AssistantMessage): number {
@@ -135,10 +137,12 @@ export class SessionStatsTracker {
 		const categoryNonMessageTokens = skillsTokens + toolsTokens + systemContextTokens + systemPromptTokens;
 		const currentNonMessageTokens = computeNonMessageTokens(this.#host.session, this.#tokenizer);
 		const branchEntries = this.#host.sessionManager.getBranch();
+		const importantNotesTokens = this.#host.importantNotesReferenceTokens();
 		const latestCompaction = getLatestCompactionEntry(branchEntries);
 		const compactionIndex = latestCompaction ? branchEntries.lastIndexOf(latestCompaction) : -1;
 		let usedTokens = 0;
 		let anchored = false;
+		let anchoredImportantNotesTokens: number | undefined;
 		const pendingMessages = options?.pendingMessages ?? [];
 		const pending = this.#pendingContextSnapshot;
 
@@ -175,6 +179,9 @@ export class SessionStatsTracker {
 		const anchorEpoch = anchorAssistant?.contextSnapshot?.compactionEpoch ?? 0;
 		const useAnchor =
 			anchorAssistant !== undefined &&
+			(importantNotesTokens === 0 ||
+				(anchorAssistant.provider === this.#host.model()?.provider &&
+					anchorAssistant.model === this.#host.model()?.id)) &&
 			anchorIndex !== -1 &&
 			(!pending || (anchorIndex >= pending.cutoffCount && anchorEpoch >= pending.epoch));
 		if (useAnchor && anchorAssistant) {
@@ -183,6 +190,7 @@ export class SessionStatsTracker {
 				anchorAssistant.contextSnapshot?.nonMessageTokens ??
 				computeNonMessageTokens(this.#host.session, this.#tokenizer);
 			anchored = true;
+			anchoredImportantNotesTokens = anchorAssistant.contextSnapshot?.importantNotesTokens;
 			let tailTokens = 0;
 			for (let index = anchorIndex + 1; index < activeMessages.length; index++) {
 				tailTokens += this.#tokenizer.countMessage(activeMessages[index]);
@@ -194,6 +202,7 @@ export class SessionStatsTracker {
 				pendingMessages.reduce((sum, message) => sum + this.#tokenizer.countMessage(message), 0);
 		} else if (pending) {
 			anchored = true;
+			anchoredImportantNotesTokens = pending.importantNotesTokens;
 			let tailTokens = 0;
 			for (let index = pending.cutoffCount; index < activeMessages.length; index++) {
 				tailTokens += this.#tokenizer.countMessage(activeMessages[index]);
@@ -240,7 +249,22 @@ export class SessionStatsTracker {
 			usedTokens =
 				currentNonMessageTokens +
 				messagesTokens +
+				importantNotesTokens +
 				pendingMessages.reduce((sum, message) => sum + this.#tokenizer.countMessage(message), 0);
+		}
+		if (anchored) {
+			// Older snapshots cannot prove what note cost was billed. Never subtract
+			// an unknown reference from the provider anchor.
+			usedTokens = Math.max(0, usedTokens + importantNotesTokens - (anchoredImportantNotesTokens ?? 0));
+			if (importantNotesTokens > 0 && anchoredImportantNotesTokens === undefined) {
+				usedTokens = Math.max(
+					usedTokens,
+					currentNonMessageTokens +
+						importantNotesTokens +
+						this.#tokenizer.countMessages(activeMessages, { excludeEncryptedReasoning: true }) +
+						this.#tokenizer.countMessages(pendingMessages, { excludeEncryptedReasoning: true }),
+				);
+			}
 		}
 		return {
 			contextWindow,
@@ -337,11 +361,15 @@ export class SessionStatsTracker {
 		this.#compactionEpoch++;
 		if (!this.#pendingContextSnapshot) return;
 		const nonMessageTokens = computeNonMessageTokens(this.#host.session, this.#tokenizer);
+		const importantNotesTokens = this.#host.importantNotesReferenceTokens();
 		const messages = this.#host.agent.state.messages;
 		this.setPendingSnapshot({
 			promptTokens:
-				nonMessageTokens + messages.reduce((sum, message) => sum + this.#tokenizer.countMessage(message), 0),
+				nonMessageTokens +
+				importantNotesTokens +
+				messages.reduce((sum, message) => sum + this.#tokenizer.countMessage(message), 0),
 			nonMessageTokens,
+			importantNotesTokens,
 			cutoffCount: messages.length,
 		});
 	}

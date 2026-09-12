@@ -19,6 +19,7 @@ import { hasObsidian } from "./internal-urls/vault-protocol";
 import activeRepoContextTemplate from "./prompts/system/active-repo-context.md" with { type: "text" };
 import computerSafetyPrompt from "./prompts/system/computer-safety.md" with { type: "text" };
 import customSystemPromptTemplate from "./prompts/system/custom-system-prompt.md" with { type: "text" };
+import importantNotesGuidance from "./prompts/system/important-notes-guidance.md" with { type: "text" };
 import defaultPersonality from "./prompts/system/personalities/default.md" with { type: "text" };
 import friendlyPersonality from "./prompts/system/personalities/friendly.md" with { type: "text" };
 import pragmaticPersonality from "./prompts/system/personalities/pragmatic.md" with { type: "text" };
@@ -538,6 +539,8 @@ export interface BuildSystemPromptOptions {
 	tools?: Map<string, SystemPromptToolMetadata>;
 	/** Tool names to include in prompt. */
 	toolNames?: string[];
+	/** Source-verified builtin important-notes route. Omit when the builtin is unavailable. */
+	importantNotesTool?: "notes" | "xd" | "eval";
 	/** Text to append to system prompt. */
 	appendSystemPrompt?: string;
 	/** Already-loaded append prompt text; bypasses path resolution. */
@@ -638,6 +641,7 @@ export async function buildSystemPrompt(options: BuildSystemPromptOptions = {}):
 		nativeTools = true,
 		skillsSettings,
 		toolNames: providedToolNames,
+		importantNotesTool,
 		cwd,
 		additionalWorkspaceRoots = [],
 		contextFiles: providedContextFiles,
@@ -947,6 +951,23 @@ export async function buildSystemPrompt(options: BuildSystemPromptOptions = {}):
 	};
 	const rendered = prompt.render(resolvedCustomPrompt ? customSystemPromptTemplate : systemPromptTemplate, data);
 	const systemPrompt = [rendered];
+	if (
+		(importantNotesTool === "notes" && inventoryToolNames.includes("notes")) ||
+		(importantNotesTool === "xd" && xdevToolNames.has("notes") && inventoryToolNames.includes("write")) ||
+		(importantNotesTool === "eval" && inventoryToolNames.includes("eval"))
+	) {
+		// Runtime guidance also applies to custom/subagent prompts without
+		// changing the caller-owned first block.
+		systemPrompt.push(
+			prompt.render(importantNotesGuidance, {
+				notesTool: toolRefs.notes,
+				writeTool: toolRefs.write,
+				evalTool: toolRefs.eval,
+				mounted: importantNotesTool === "xd",
+				viaEval: importantNotesTool === "eval",
+			}),
+		);
+	}
 	if (toolNames.includes("computer")) {
 		systemPrompt.push(computerSafetyPrompt.trim());
 	}

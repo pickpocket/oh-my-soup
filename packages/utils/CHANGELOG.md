@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [17.5.0] - 2026-09-12
+
 ### Fixed
 
 - String truncation no longer splits UTF-16 surrogate pairs at the cut boundary, keeping capped text and its suffix well-formed.

@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [17.5.0] - 2026-09-12
+
 ### Added
 
 - Added Z.AI `glm-5.3-flash` with native image input, a 1M-token context window, 128K output, promotional pay-as-you-go pricing, and its mandatory `low`/`high`/`max` reasoning-effort ladder.
@@ -12,23 +14,6 @@
 
 - Updated the shared OpenAI Codex client compatibility version from `0.153.0` to `0.153.4` for discovery and request headers.
 
-## [17.3.3] - 2026-08-27
-
-### Added
-
-- Models now materialize an optional `tokenizer` family in the catalog (`claude-v3`/`v47`/`v5`, Qwen 3.5+, DeepSeek V3/V4/R1, Kimi K2/K3, and GLM-5+). The field follows `requestModelId`, applies to bundled, discovered, and custom models, and can be explicitly overridden in model configuration.
-- Added Z.AI `glm-5.3` with its documented 1M context window, 128K output limit, pay-as-you-go pricing, and forced `low`/`high`/`max` reasoning effort surface.
-
-## [17.3.2] - 2026-08-16
-### Changed
-### Added
-
-- Added GPT-6 Astra to the OpenAI Codex model catalog, including support for configuration updates and requests using the freeform `apply_patch` tool.
-
-### Fixed
-
-- Fixed `omp models refresh` so revoked ChatGPT account tokens no longer prevent the remaining OpenAI Codex models from being discovered.
-
 ## [18.1.6] - 2026-09-03
 
 ### Added
@@ -38,6 +23,23 @@
 ### Changed
 
 - The bundled model catalog loads lazily per provider: `gen:models` now also emits per-provider chunks (`src/models/*.json.txt` + a generated static import map) and a light `models-index.json`, and the runtime parses a provider's chunk on first access instead of materializing all ~4800 models at module evaluation. Catalog data eval at boot drops ~87% (38ms → 5ms measured on the bundled form); full-catalog walkers pay a one-time memoized parse. Public API unchanged; new additive `getBundledModelIds(provider)` serves id-only consumers (shell completion) from the index without loading bodies.
+
+## [17.3.3] - 2026-08-27
+
+### Added
+
+- Models now materialize an optional `tokenizer` family in the catalog (`claude-v3`/`v47`/`v5`, Qwen 3.5+, DeepSeek V3/V4/R1, Kimi K2/K3, and GLM-5+). The field follows `requestModelId`, applies to bundled, discovered, and custom models, and can be explicitly overridden in model configuration.
+- Added Z.AI `glm-5.3` with its documented 1M context window, 128K output limit, pay-as-you-go pricing, and forced `low`/`high`/`max` reasoning effort surface.
+
+## [17.3.2] - 2026-08-16
+
+### Added
+
+- Added GPT-6 Astra to the OpenAI Codex model catalog, including support for configuration updates and requests using the freeform `apply_patch` tool.
+
+### Fixed
+
+- Fixed `omp models refresh` so revoked ChatGPT account tokens no longer prevent the remaining OpenAI Codex models from being discovered.
 
 ## [17.3.1] - 2026-08-14
 

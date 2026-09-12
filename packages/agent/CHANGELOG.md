@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [17.5.0] - 2026-09-12
+
 ### Added
 
 - Added end-to-end owned-tool support for the `emoji` dialect, including `PI_DIALECT=emoji`.

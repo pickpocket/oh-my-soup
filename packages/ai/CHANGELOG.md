@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [17.5.0] - 2026-09-12
+
 ### Added
 
 - Added optional note-reference token accounting to assistant context snapshots so session consumers can adjust provider-usage estimates when saved notes change.
@@ -11,21 +13,6 @@
 
 - Fixed owned-mode native passthrough accepting unadvertised tool names and reusing empty or duplicate provider call IDs.
 - Fixed Claude Fable 5.1 OAuth requests being rejected as an outdated Claude Code client by aligning the Anthropic fingerprint with the 2.1.257 CLI signature.
-
-## [17.3.3] - 2026-08-27
-
-### Added
-
-- Added `retryTransientCompletion` for bounded, replay-safe oneshot LLM retries. It handles resolved `stopReason: "error"` messages and thrown transient failures, honors provider retry hints, preserves final failures unchanged, and never changes side-effecting streaming-turn recovery.
-
-## [17.3.1] - 2026-08-14
-### Added
-
-- Added GPT-6 Astra support for preserving prompt caching when changing the thinking level during a conversation across the OpenAI and OpenAI Codex providers.
-
-### Changed
-
-- Updated OpenAI Codex requests to improve routing by communicating the selected model and service tier across Responses, WebSocket, and remote-compaction requests.
 
 ## [18.1.7] - 2026-09-03
 
@@ -43,6 +30,22 @@
 ### Added
 
 - Session-sticky OAuth records now distinguish explicit user pins from implicit "last served" routing: `pinSessionOAuthAccount` accepts `options.explicit` (default `true`), the flag round-trips through the persistent sticky cache and survives same-credential re-records, `getSessionOAuthStickyInfo` reads a session's sticky without refreshing, and `inheritPinnedSessionOAuthAccount` copies an explicit pin onto a child session without clobbering existing stickies — so task subagents can follow `/rotateaccount`.
+
+## [17.3.3] - 2026-08-27
+
+### Added
+
+- Added `retryTransientCompletion` for bounded, replay-safe oneshot LLM retries. It handles resolved `stopReason: "error"` messages and thrown transient failures, honors provider retry hints, preserves final failures unchanged, and never changes side-effecting streaming-turn recovery.
+
+## [17.3.1] - 2026-08-14
+
+### Added
+
+- Added GPT-6 Astra support for preserving prompt caching when changing the thinking level during a conversation across the OpenAI and OpenAI Codex providers.
+
+### Changed
+
+- Updated OpenAI Codex requests to improve routing by communicating the selected model and service tier across Responses, WebSocket, and remote-compaction requests.
 
 ## [17.3.0] - 2026-08-13
 

@@ -145,14 +145,28 @@ install_binary() {
         exit 1
     fi
 
-    echo "Installing local GNU objdump..."
-    if "${INSTALL_DIR}/oms" setup objdump; then
+    # The installer can come from main while the binary is an older release.
+    # Probe the downloaded CLI rather than assuming it has main's components.
+    if SETUP_HELP="$("${INSTALL_DIR}/oms" setup --help 2>&1)"; then
         :
     else
         SETUP_STATUS=$?
-        echo "oms was installed, but GNU objdump setup failed." >&2
-        echo "Check the error above, then retry: \"${INSTALL_DIR}/oms\" setup objdump" >&2
+        echo "Could not determine the installed release's setup components:" >&2
+        printf '%s\n' "$SETUP_HELP" >&2
         exit "$SETUP_STATUS"
+    fi
+    if printf '%s\n' "$SETUP_HELP" | grep -Eq '(^|[[:space:]|()])objdump($|[[:space:]|()])'; then
+        echo "Installing local GNU objdump..."
+        if "${INSTALL_DIR}/oms" setup objdump; then
+            :
+        else
+            SETUP_STATUS=$?
+            echo "oms was installed, but GNU objdump setup failed." >&2
+            echo "Check the error above, then retry: \"${INSTALL_DIR}/oms\" setup objdump" >&2
+            exit "$SETUP_STATUS"
+        fi
+    else
+        echo "Release $LATEST does not support managed GNU objdump setup; skipping objdump installation."
     fi
 
     echo ""

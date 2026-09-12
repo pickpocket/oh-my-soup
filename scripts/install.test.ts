@@ -163,11 +163,32 @@ describe("PowerShell installation", () => {
 		const shell = process.platform === "win32" ? Bun.which(executable) : null;
 		const windowsShell = test.skipIf(!shell);
 		for (const scenario of [
-			{ name: "modern build", variant: "modern", setupExit: 0, whatIf: false },
-			{ name: "missing modern asset fallback", variant: "missing-modern", setupExit: 0, whatIf: false },
-			{ name: "modern native crash fallback", variant: "crashed-modern", setupExit: 0, whatIf: false },
-			{ name: "dependency failure", variant: "modern", setupExit: 23, whatIf: false },
-			{ name: "WhatIf without download or setup", variant: "modern", setupExit: 0, whatIf: true },
+			{ name: "modern build", variant: "modern", help: "supported", setupExit: 0, whatIf: false },
+			{
+				name: "missing modern asset fallback",
+				variant: "missing-modern",
+				help: "supported",
+				setupExit: 0,
+				whatIf: false,
+			},
+			{
+				name: "modern native crash fallback",
+				variant: "crashed-modern",
+				help: "supported",
+				setupExit: 0,
+				whatIf: false,
+			},
+			{ name: "legacy release without objdump", variant: "modern", help: "legacy", setupExit: 0, whatIf: false },
+			{
+				name: "objdump substring is not a component",
+				variant: "modern",
+				help: "false-token",
+				setupExit: 0,
+				whatIf: false,
+			},
+			{ name: "capability detection failure", variant: "modern", help: "failed", setupExit: 0, whatIf: false },
+			{ name: "dependency failure", variant: "modern", help: "supported", setupExit: 23, whatIf: false },
+			{ name: "WhatIf without download or setup", variant: "modern", help: "supported", setupExit: 0, whatIf: true },
 		]) {
 			windowsShell(`${executable}: ${scenario.name} preserves the installer output and setup contract`, async () => {
 				if (!shell) throw new Error("PowerShell unavailable");
@@ -180,7 +201,25 @@ describe("PowerShell installation", () => {
 				await Bun.write(driverPath, powershellDriver);
 				await Bun.write(
 					nativeFixture,
-					'@echo off\r\nif "%~1"=="--version" (\r\n  echo 1.0.0\r\n  exit /b 0\r\n)\r\nif not "%~1 %~2"=="setup objdump" exit /b 99\r\necho objdump setup diagnostic 1>&2\r\nexit /b %OMS_TEST_SETUP_EXIT%\r\n',
+					[
+						"@echo off",
+						'if "%~1"=="--version" (',
+						"  echo 1.0.0",
+						"  exit /b 0",
+						")",
+						'if "%~1 %~2"=="setup --help" goto setup_help',
+						'if not "%~1 %~2"=="setup objdump" exit /b 99',
+						"echo objdump setup diagnostic 1>&2",
+						"exit /b %OMS_TEST_SETUP_EXIT%",
+						":setup_help",
+						"echo setup help diagnostic 1>&2",
+						'if "%OMS_TEST_SETUP_HELP%"=="failed" exit /b 29',
+						'if "%OMS_TEST_SETUP_HELP%"=="supported" echo COMPONENT   Optional component to install (python^|speech^|objdump)',
+						'if "%OMS_TEST_SETUP_HELP%"=="legacy" echo COMPONENT   Optional component to install (python^|speech)',
+						'if "%OMS_TEST_SETUP_HELP%"=="false-token" echo COMPONENT   Optional component to install (python^|speech^|myobjdump^|objdump-helper)',
+						"exit /b 0",
+						"",
+					].join("\r\n"),
 				);
 				const result = await run(
 					[shell, "-NoLogo", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", driverPath],
@@ -192,6 +231,7 @@ describe("PowerShell installation", () => {
 						OMS_TEST_NATIVE_FIXTURE: nativeFixture,
 						OMS_TEST_RESULT: resultPath,
 						OMS_TEST_VARIANT: scenario.variant,
+						OMS_TEST_SETUP_HELP: scenario.help,
 						OMS_TEST_SETUP_EXIT: String(scenario.setupExit),
 						OMS_TEST_WHATIF: scenario.whatIf ? "1" : "0",
 					},
@@ -208,21 +248,45 @@ describe("PowerShell installation", () => {
 				}
 
 				const expectedSmokeCount = scenario.variant === "crashed-modern" ? 2 : 1;
+				const supportsObjdump = scenario.help === "supported";
 				expect(observed.Invocations.map(call => call.Arguments)).toEqual([
 					...Array.from({ length: expectedSmokeCount }, () => ["--version"]),
-					["setup", "objdump"],
+					["setup", "--help"],
+					...(supportsObjdump ? [["setup", "objdump"]] : []),
 				]);
-				expect(observed.Invocations.at(-1)?.Path).toBe(path.join(installDir, "oms.exe"));
+				for (const call of observed.Invocations.slice(expectedSmokeCount)) {
+					expect(call.Path).toBe(path.join(installDir, "oms.exe"));
+				}
 				expect(observed.Downloads.map(url => path.posix.basename(url))).toEqual(
 					scenario.variant === "modern"
 						? ["oms-windows-x64-modern.exe"]
 						: ["oms-windows-x64-modern.exe", "oms-windows-x64.exe"],
 				);
 				expect(observed.Installed).toBe(true);
-				expect(observed.Steps.join("\n")).toContain("objdump setup diagnostic");
-				if (scenario.setupExit === 0) {
+				const steps = observed.Steps.join("\n");
+				if (supportsObjdump) {
+					expect(steps).toContain("objdump setup diagnostic");
+					expect(steps).not.toContain("skipping objdump installation");
+				} else {
+					expect(steps).not.toContain("objdump setup diagnostic");
+					if (scenario.help === "failed") {
+						expect(steps).toContain("setup help diagnostic");
+						expect(steps).not.toContain("skipping objdump installation");
+					} else {
+						expect(steps).toContain("does not support managed GNU objdump setup");
+						expect(steps).toContain("skipping objdump installation");
+					}
+				}
+				if (scenario.help === "failed") {
+					expect(observed.Failure).toContain("exit 29");
+					expect(observed.Failure).toContain("setup help diagnostic");
+					expect(
+						observed.Steps.some(step => step.startsWith("[OK] Installed") || step.startsWith("Done in")),
+					).toBe(false);
+				} else if (scenario.setupExit === 0) {
 					expect(observed.Failure).toBeNull();
 					expect(observed.Steps.some(step => step.startsWith("[OK] Installed"))).toBe(true);
+					expect(observed.Steps.some(step => step.startsWith("Done in"))).toBe(true);
 				} else {
 					expect(observed.Failure).toContain("exit 23");
 					expect(observed.Failure).toContain("objdump setup diagnostic");

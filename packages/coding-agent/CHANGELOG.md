@@ -25,6 +25,7 @@
 
 ### Fixed
 
+- Fixed shell and PowerShell installers failing when the downloaded release predates `setup objdump`; installers now check supported components while preserving dependency-setup failures on supported releases.
 - Fixed Nix flake evaluation rejecting the exported overlay's argument names.
 - Fixed Windows standalone updates and script-launcher takeovers failing their start check: staged downloads now retain an executable `.exe` suffix, and abandoned staging files are cleaned up without deleting in-progress downloads.
 - Awaited peer sends now stop when the recipient finishes a running turn without replying, while preserving early replies and idle plan-mode auto-replies. Main-agent activity is synchronized with actual session run state.

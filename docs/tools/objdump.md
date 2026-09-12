@@ -15,6 +15,8 @@ Read-only inspection of regular local object files, libraries, executables, and 
 
 The official shell and PowerShell installers, development source-link setup, and published package postinstall provision a local GNU `objdump`. It lives in the active profile's managed tools directory (normally `~/.oms/agent/tools/objdump`, or `objdump.exe` on Windows), honoring the usual agent-directory overrides. Installation does not change system binutils or require administrator privileges.
 
+The shell and PowerShell installers can be newer than the release they download. They check `oms setup --help` before provisioning: releases without the `objdump` component install successfully with an explicit notice that objdump setup was omitted. Upgrade to a release that supports the component before using the commands below. Capability-probe errors and dependency-installation failures on supported releases remain fatal.
+
 Run `oms setup objdump` to install it explicitly or retry a failed installation. Repeating setup reuses the managed copy, even offline. `oms setup objdump --check` and `--json` are read-only status checks; they exit nonzero when the managed copy is absent. An existing executable on PATH does not suppress managed installation.
 
 Homebrew, mise, direct-binary downloads, and installs with lifecycle scripts disabled do not run these installer hooks; run `oms setup objdump` afterward. Bun package consumers must trust the coding-agent lifecycle (`--trust` or `trustedDependencies`) for automatic postinstall execution.

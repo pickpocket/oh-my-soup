@@ -34,7 +34,10 @@ async function writeExecutable(directory: string, name: string, content: string)
 	await fs.chmod(file, 0o755);
 }
 
-async function installerFixture(binaryScript: string): Promise<{
+async function installerFixture(
+	binaryScript: string,
+	platform: "Linux" | "Darwin" = "Linux",
+): Promise<{
 	env: NodeJS.ProcessEnv;
 	callsPath: string;
 	installDir: string;
@@ -45,7 +48,8 @@ async function installerFixture(binaryScript: string): Promise<{
 	const installDir = path.join(dir, "install with spaces");
 	const callsPath = path.join(dir, "calls");
 	await fs.mkdir(binDir);
-	await writeExecutable(binDir, "uname", '#!/bin/sh\n[ "$1" = "-s" ] && echo Linux || echo x86_64\n');
+	await writeExecutable(binDir, "uname", `#!/bin/sh\n[ "$1" = "-s" ] && echo ${platform} || echo x86_64\n`);
+	await writeExecutable(binDir, "sysctl", "#!/bin/sh\necho 1\n");
 	await writeExecutable(binDir, "ldd", "#!/bin/sh\necho 'musl libc (x86_64)'\n");
 	await writeExecutable(
 		binDir,
@@ -79,7 +83,7 @@ esac
 	};
 }
 
-describe("musl release artifacts", () => {
+describe("release artifacts and shell installation", () => {
 	test("builds the requested x64 and arm64 musl asset names with Bun's musl targets", async () => {
 		const result = await run([
 			"bun",
@@ -106,6 +110,7 @@ describe("musl release artifacts", () => {
 		const fixture = await installerFixture(`
 case "$*" in
   --version) echo 1.0.0 ;;
+  "setup --help") echo "COMPONENT Optional component to install (python|speech|objdump)" ;;
   "setup objdump") echo "dependency setup complete" ;;
   *) exit 99 ;;
 esac`);
@@ -113,11 +118,47 @@ esac`);
 
 		expect(result.exitCode, result.stderr).toBe(0);
 		expect(result.stdout).toContain("Downloading oms-linux-musl-x64...");
-		expect(await Bun.file(fixture.callsPath).text()).toBe("--version\nsetup objdump\n");
+		expect(await Bun.file(fixture.callsPath).text()).toBe("--version\nsetup --help\nsetup objdump\n");
 		expect(result.stdout.indexOf("dependency setup complete")).toBeLessThan(
 			result.stdout.indexOf("✓ Installed oms to"),
 		);
 		expect(await Bun.file(path.join(fixture.installDir, "oms")).exists()).toBe(true);
+	});
+
+	posixOnly("installs a macOS release that predates objdump setup", async () => {
+		const fixture = await installerFixture(
+			`
+case "$*" in
+  --version) echo 17.3.3 ;;
+  "setup --help") echo "COMPONENT Optional component to install (python|speech)" ;;
+  "setup objdump") echo 'Expected component to be one of: python, speech; got "objdump"' >&2; exit 1 ;;
+  *) exit 99 ;;
+esac`,
+			"Darwin",
+		);
+		const result = await run(["sh", "scripts/install.sh"], fixture.env);
+
+		expect(result.exitCode, result.stderr).toBe(0);
+		expect(result.stdout).toContain("Downloading oms-darwin-arm64...");
+		expect(await Bun.file(fixture.callsPath).text()).toBe("--version\nsetup --help\n");
+		expect(result.stdout).toContain("does not support managed GNU objdump");
+		expect(result.stdout).toContain("Installed oms to");
+		expect(await Bun.file(path.join(fixture.installDir, "oms")).exists()).toBe(true);
+	});
+
+	posixOnly("propagates a failed setup capability probe instead of treating it as an older release", async () => {
+		const fixture = await installerFixture(`
+case "$*" in
+  --version) echo 1.0.0 ;;
+  "setup --help") echo "setup command failed to load" >&2; exit 24 ;;
+  *) exit 99 ;;
+esac`);
+		const result = await run(["sh", "scripts/install.sh"], fixture.env);
+
+		expect(result.exitCode).toBe(24);
+		expect(await Bun.file(fixture.callsPath).text()).toBe("--version\nsetup --help\n");
+		expect(result.stderr).toContain("setup command failed to load");
+		expect(result.stdout).not.toContain("Installed oms to");
 	});
 
 	posixOnly("fails without dependency setup when the downloaded binary cannot start", async () => {
@@ -134,13 +175,14 @@ esac`);
 		const fixture = await installerFixture(`
 case "$*" in
   --version) echo 1.0.0 ;;
+  "setup --help") echo "COMPONENT Optional component to install (python|speech|objdump)" ;;
   "setup objdump") echo "checksum mismatch" >&2; exit 23 ;;
   *) exit 99 ;;
 esac`);
 		const result = await run(["sh", "scripts/install.sh", "-r", "v1.0.0"], fixture.env);
 
 		expect(result.exitCode).toBe(23);
-		expect(await Bun.file(fixture.callsPath).text()).toBe("--version\nsetup objdump\n");
+		expect(await Bun.file(fixture.callsPath).text()).toBe("--version\nsetup --help\nsetup objdump\n");
 		expect(result.stdout).not.toContain("✓ Installed");
 		expect(result.stderr).toContain("checksum mismatch");
 		expect(result.stderr).toContain(`"${fixture.installDir}/oms" setup objdump`);

@@ -91,7 +91,7 @@ mise use -g github:pickpocket/oh-my-soup
 
 Every method installs the same self-contained binary for macOS, Linux, and Windows, x64 and arm64. Nothing is fetched from a package registry at runtime.
 
-The shell and PowerShell installers also install GNU `objdump` into OMS's local tools directory; development source setup and trusted package postinstall do the same. Homebrew, mise, direct-binary, or lifecycle-disabled installs need `oms setup objdump` afterward. Managed downloads support Linux x64/arm64, macOS 14+ x64/arm64, and Windows x64/ARM64 emulation. See [objdump installation](docs/tools/objdump.md#availability-and-invocation) for status checks and Bun lifecycle trust.
+For releases that support `oms setup objdump`, the shell and PowerShell installers also install GNU `objdump` into OMS's local tools directory; development source setup and trusted package postinstall do the same. The release installers check the downloaded binary's supported components and omit objdump setup for older releases. On supported releases, Homebrew, mise, direct-binary, or lifecycle-disabled installs need `oms setup objdump` afterward. Managed downloads support Linux x64/arm64, macOS 14+ x64/arm64, and Windows x64/ARM64 emulation. See [objdump installation](docs/tools/objdump.md#availability-and-invocation) for status checks and Bun lifecycle trust.
 
 > **Alpine / musl:** the prebuilt musl binary links `libstdc++`/`libgcc` dynamically. Install them first: `apk add libstdc++ libgcc`.
 

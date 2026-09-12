@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- Added a non-blocking Discord invitation beneath the interactive welcome banner; quiet startup and scripted output remain unchanged.
+
 ## [17.5.0] - 2026-09-12
 
 ### Added

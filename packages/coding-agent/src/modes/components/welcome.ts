@@ -404,6 +404,11 @@ export class WelcomeComponent implements Component {
 		// Randomly picked tip, rendered directly beneath the box.
 		lines.push(...this.#renderTip(boxWidth));
 
+		const discordUrl = "https://discord.gg/Q8CnpEgmgz";
+		for (const line of wrapTextWithAnsi(`Join our Discord: ${discordUrl}`, boxWidth - 1)) {
+			lines.push(` ${urlHyperlinkAlways(discordUrl, theme.fg("muted", line))}`);
+		}
+
 		return lines;
 	}
 

@@ -940,7 +940,8 @@ describe("AgentSession message pipeline", () => {
 			reasoning: false,
 			input: ["text"],
 			cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-			contextWindow: 4096,
+			// Exercise prefix rewriting without unrelated context-headroom reminders.
+			contextWindow: 128_000,
 			maxTokens: 1024,
 		} as ModelSpec<Api>) as Model<Api>;
 		const rewritePriorAssistant: ExtensionFactory = pi => {

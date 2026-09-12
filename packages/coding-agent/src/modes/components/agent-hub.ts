@@ -206,6 +206,10 @@ export class AgentHubOverlayComponent extends Container implements SelectListMou
 	#detailScrollOffset = 0;
 	#detailAgentId: string | undefined;
 
+	/** Bounded, in-memory IRC traffic; undefined scope shows all agents. */
+	#chatOpen = false;
+	#chatAgentId: string | undefined;
+
 	// Transcript-viewer launch deps (passed through to AgentTranscriptViewer).
 	#ui: TUI;
 	#getTool: ((name: string) => AgentTool | undefined) | undefined;
@@ -252,6 +256,7 @@ export class AgentHubOverlayComponent extends Container implements SelectListMou
 
 		this.#unsubscribers.push(this.#registry.onChange(() => this.#scheduleDataChange()));
 		this.#unsubscribers.push(this.#observers.onChange(() => this.#scheduleDataChange()));
+		this.#unsubscribers.push(this.#irc.onChange(() => this.#scheduleDataChange()));
 		this.#ageTimer = setInterval(() => {
 			if (this.#hasFallbackLiveSessions) {
 				this.#refreshAggregate(true);
@@ -305,7 +310,8 @@ export class AgentHubOverlayComponent extends Container implements SelectListMou
 
 	override render(width: number): readonly string[] {
 		const termHeight = this.#ui.terminal?.rows || process.stdout.rows || 40;
-		const frame = this.#renderTable(width, termHeight).map(line => clampHubLine(line, width));
+		const lines = this.#chatOpen ? this.#renderIrcChat(width, termHeight) : this.#renderTable(width, termHeight);
+		const frame = lines.map(line => clampHubLine(line, width));
 		if (frame.length <= termHeight) return frame;
 
 		// A tiny terminal can leave less room than the fixed chrome needs. Keep
@@ -318,6 +324,7 @@ export class AgentHubOverlayComponent extends Container implements SelectListMou
 	handleInput(keyData: string): void {
 		if (
 			routeSgrMouseInput(keyData, event => {
+				if (this.#chatOpen) return true;
 				const split = this.#lastSplitRosterWidth;
 				if (split !== undefined && event.wheel === null && event.col > split + 2) return false;
 				return routeSelectListMouse(this, event, event.row);
@@ -332,6 +339,25 @@ export class AgentHubOverlayComponent extends Container implements SelectListMou
 				this.#onDone();
 				return;
 			}
+		}
+		if (keyData === "c") {
+			this.#chatOpen = !this.#chatOpen;
+			this.#chatAgentId = this.#rows[this.#selectedRow]?.id;
+			this.#hoveredRow = null;
+			this.#lastLeftTap = 0;
+			this.#requestRender();
+			return;
+		}
+		if (this.#chatOpen) {
+			if (keyData === "a") {
+				this.#chatAgentId = this.#chatAgentId === undefined ? this.#rows[this.#selectedRow]?.id : undefined;
+				this.#requestRender();
+			} else if (matchesKey(keyData, "escape") || matchesKey(keyData, "left")) {
+				this.#chatOpen = false;
+				this.#lastLeftTap = 0;
+				this.#requestRender();
+			}
+			return;
 		}
 		this.#handleTableInput(keyData);
 	}
@@ -501,6 +527,35 @@ export class AgentHubOverlayComponent extends Container implements SelectListMou
 	// Table view
 	// ========================================================================
 
+	#renderIrcChat(width: number, termHeight: number): string[] {
+		this.#hitRows.length = 0;
+		this.#lastSplitRosterWidth = undefined;
+		const innerWidth = Math.max(1, width - 4);
+		const budget = Math.max(1, termHeight - 4);
+		const scope = this.#chatAgentId === undefined ? "all agents" : sanitizeLine(this.#chatAgentId, innerWidth);
+		const lines = [topBorder(width, `Agent IRC · ${scope}`)];
+		const messages = this.#irc.log({ agent: this.#chatAgentId, limit: budget });
+		const now = Date.now();
+		if (messages.length === 0) {
+			lines.push(row(theme.fg("dim", "No peer messages recorded in this session."), width));
+		} else {
+			for (const message of messages) {
+				const age = formatAge(Math.max(1, Math.round((now - message.ts) / 1000)));
+				const from = theme.bold(sanitizeLine(message.from, innerWidth));
+				const to = theme.bold(sanitizeLine(message.to, innerWidth));
+				const reply = message.replyTo ? theme.fg("dim", ` ↩${sanitizeDisplayText(message.replyTo).slice(-8)}`) : "";
+				const body = theme.fg("muted", sanitizeLine(message.body, innerWidth));
+				lines.push(row(`${theme.fg("dim", age)} ${from} ${theme.fg("dim", "→")} ${to}${reply}: ${body}`, width));
+			}
+		}
+		while (lines.length <= budget) lines.push(row("", width));
+		lines.push(divider(width));
+		const scopeHint = this.#chatAgentId === undefined ? "a:selected" : "a:all";
+		lines.push(row(theme.fg("dim", `c:roster  ${scopeHint}  Esc/←:roster · latest messages`), width));
+		lines.push(bottomBorder(width));
+		return lines;
+	}
+
 	#renderTable(width: number, termHeight: number): string[] {
 		this.#hitRows.length = 0;
 		const contentRows = Math.max(1, termHeight - 4);
@@ -556,14 +611,14 @@ export class AgentHubOverlayComponent extends Container implements SelectListMou
 	#footer(showingNarrowDetails: boolean, availableWidth: number): string {
 		const nextView = this.#viewMode === "roster" ? "by parent" : "flat";
 		if (showingNarrowDetails) {
-			return theme.fg("dim", `Tab:roster  PgUp/PgDn:scroll  Enter:open  t:${nextView}  Esc:roster`);
+			return theme.fg("dim", `Tab:roster  c:IRC  PgUp/PgDn:scroll  Enter:open  t:${nextView}  Esc:roster`);
 		}
 		if (availableWidth < 96) {
-			return theme.fg("dim", `j/k:select  Enter:open  t:${nextView}  Tab:details  r/x:manage  Esc:close`);
+			return theme.fg("dim", `j/k:select  Enter:open  c:IRC  t:${nextView}  Tab:details  r/x:manage  Esc:close`);
 		}
 		return theme.fg(
 			"dim",
-			`j/k/wheel:select  PgUp/PgDn:details  Enter/click:open  t:${nextView}  r:revive  x:kill  Esc:close`,
+			`j/k/wheel:select  Enter/click:open  c:IRC  PgUp/PgDn:details  t:${nextView}  r:revive  x:kill  Esc:close`,
 		);
 	}
 

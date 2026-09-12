@@ -28,4 +28,12 @@ fi
 
 mkdir -p "$global_bin"
 ln -sfn "$target" "$global_bin/oms"
+if "$global_bin/oms" setup objdump; then
+	:
+else
+	setup_status=$?
+	echo "link-oms: linked oms, but GNU objdump setup failed." >&2
+	echo "Check the error above, then retry: \"$global_bin/oms\" setup objdump" >&2
+	exit "$setup_status"
+fi
 echo "link-oms: linked $global_bin/oms -> $target"

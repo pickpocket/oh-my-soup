@@ -12,7 +12,7 @@ Merged from the former `irc`, `job`, and `launch` tools; each op family keeps it
 - Shared types: `packages/coding-agent/src/tools/hub/types.ts`
 - Model-facing prompt: `packages/coding-agent/src/prompts/tools/hub.md`
 - Key collaborators:
-  - `packages/coding-agent/src/irc/bus.ts` — process-global `IrcBus`: per-agent mailboxes, delivery, waiter matching.
+  - `packages/coding-agent/src/irc/bus.ts` — process-global `IrcBus`: per-agent mailboxes, delivery, waiter matching, and a bounded in-memory transcript.
   - `packages/coding-agent/src/registry/agent-registry.ts` — process-global agent directory and status.
   - `packages/coding-agent/src/registry/agent-lifecycle.ts` — revival of parked recipients on direct send.
   - `packages/coding-agent/src/session/agent-session.ts` — `deliverIrcMessage(...)`: recipient-side injection and wake turns.
@@ -26,9 +26,9 @@ Merged from the former `irc`, `job`, and `launch` tools; each op family keeps it
 | --- | --- | --- | --- |
 | `op` | `"send" \| "wait" \| "inbox" \| "list" \| "jobs" \| "cancel" \| "start" \| "ps" \| "logs" \| "stop" \| "restart" \| "describe"` | Yes | Operation. |
 | `to` | `string` | `send` (peer) | Recipient agent id, or `"all"` for broadcast. Mutually exclusive with `name`. |
-| `message` | `string` | `send` (peer) | Message body. Empty-after-trim is rejected. |
-| `replyTo` | `string` | No | `send`: message id being answered. |
-| `await` | `boolean` | No | Peer `send`: after delivery, block until the next message from that peer arrives. Invalid with `to: "all"`. |
+| `message` | `string` | `send` (peer) | Message body. Empty-after-trim or over 8000 UTF-16 units is rejected before any delivery. |
+| `replyTo` | `string` | No | `send`: message id being answered. Incoming messages include a bounded quote when that id belongs to the same peer pair and remains in the transcript. |
+| `await` | `boolean` | No | Peer `send`: wait for a reply, timeout, or the recipient finishing a running turn without replying. Invalid with `to: "all"`. |
 | `from` | `string` | No | `wait`: only accept a message from this agent id (pure message wait). |
 | `ids` | `string[]` | No | `wait`: job ids to watch (omit = all running jobs); `cancel`: job ids to kill (required). |
 | `timeoutMs` | `number` | No | Peer `send` with `await`, and message/job `wait`: milliseconds; `0` waits indefinitely. Defaults to `irc.timeoutMs` for a reply/pure-message wait and to the poll window when jobs are watched. |
@@ -41,7 +41,7 @@ Merged from the former `irc`, `job`, and `launch` tools; each op family keeps it
 | `timeout` | `number` | No | `logs`/`stop`/`wait`-with-`name`: seconds; default 30 (stop: 5). |
 
 ## Op families and dispatch
-- **Messaging** — `send` (with `to`), `inbox`, `list`, and `wait` with `from`. Fire-and-forget sends return delivery receipts (`injected`/`woken`/`revived`/`failed`); direct sends can revive parked agents, while broadcasts target visible live peers without reviving every parked agent. `await: true` waits for one reply after delivery. A busy recipient with async execution disabled may auto-reply rather than strand an awaiting sender.
+- **Messaging** — `send` (with `to`), `inbox`, `list`, and `wait` with `from`. Fire-and-forget sends return delivery receipts (`injected`/`woken`/`revived`/`failed`) with the original message id; direct sends can revive parked agents, while broadcasts target visible live peers without reviving every parked agent. `await: true` prearms a reply waiter before delivery, preserving replies that arrive during the hand-off. It also returns when a recipient finishes a running turn without replying. A busy recipient with async execution disabled, or an idle recipient in plan mode, may generate an ephemeral auto-reply without starting a foreground turn.
 - **Jobs** — `wait` (bare or with `ids`), `cancel`, `jobs`. Owner-scoped visibility, watch/unwatch delivery suppression, `acknowledgeDeliveries` on returned completions, 500 ms `onUpdate` snapshots while waiting, and the `async.pollWaitDuration` fixed/smart wait window. `jobs` is the former job-list snapshot plus the roster of running subagents with no running job entry.
 - **Processes** — `start`, `ps`, `logs`, `stop`, `restart`, `describe`, plus `send`/`wait` when they carry `name`. Exact behavior of the former `launch` tool; `ps` is the broker's `list`. See the launch sections below.
 
@@ -64,7 +64,7 @@ Outcomes:
 Smart-ladder bookkeeping (`recordPollWaitEnd`) runs only when the smart window was actually used (no explicit `timeoutMs`).
 
 ## Outputs
-- Messaging and job results: single text block plus `details: CoordinationDetails` — `{ op, from?, to?, receipts?, waited?, inbox?, peers?, jobs?, cancelled?, agents? }`. Shapes are unchanged from the former tools except that job-op details now carry `op` (`"wait" | "cancel" | "jobs"`).
+- Messaging and job results: single text block plus `details: CoordinationDetails` — `{ op, from?, to?, receipts?, waited?, inbox?, peers?, jobs?, cancelled?, agents? }`. Each receipt is `{ id, to, outcome, error? }`, including failed sends. `waited: null` means timeout or completion without a reply; accompanying text distinguishes them. The roster's wire field `unread` counts buffered messages addressed **to** that peer, displayed as `undelivered`.
 - Process results: `details: LaunchToolDetails` — `{ op, daemon?, daemons?, cursor?, timedOut?, state?, terminalRows?, matched?, spec? }`, unchanged from the former `launch` tool (internally `ps` stores the broker op `list`).
 - Streaming: job-watching waits emit `onUpdate` every 500 ms with fresh snapshots; everything else is single-shot.
 
@@ -108,6 +108,8 @@ Unchanged from the former `launch` tool: the first process op starts a detached 
 
 ## Limits & Caps
 - Mailboxes: 100 messages per agent (`MAILBOX_CAP`); oldest dropped beyond the cap.
+- Peer bodies: 8000 UTF-16 units (`IRC_MAX_BODY_CHARS`), enforced before delivery or broadcast fan-out. Oversized automatic replies are truncated with a visible marker included within the cap.
+- IRC transcript: 500 newest delivered or buffered messages, in memory only. Agent Hub `c` opens the transcript; `a` switches selected-peer/all-agent scope. It is not persisted or replayed into model context.
 - `irc.timeoutMs` default `120_000`; `0` disables; negative/non-finite fall back to the default.
 - Poll window: `async.pollWaitDuration` — `5s`/`10s`/`30s`/`1m`/`5m`/`smart` (default); smart ladder `[5s..5m]` climbing per back-to-back wait, resetting after 60 s without waiting.
 - Job retention 5 min; manager max-running fallback 15; `async.maxJobs` clamped 1..100.
@@ -120,7 +122,7 @@ Unchanged from the former `launch` tool: the first process op starts a detached 
 - Per-recipient delivery failures surface as `failed` receipts; `send` is `isError` only when nothing was delivered.
 
 ## Notes
-- The IRC bus, agent registry, job manager, and launch broker are unchanged subsystems; only the tool surface merged.
-- A running recipient still gets messages injected as non-interrupting asides (`irc:incoming` custom messages, `prompts/system/irc-incoming.md`); replies are real turns.
+- All IRC, including messages from the recipient's parent, is queued as an informational aside for the next safe boundary. It does not cancel or skip ordinary tool calls or abort their cooperative steering signal. Interruptible waits still wake for incoming IRC. Explicit user steering and aborts remain interrupting.
+- Incoming messages expose their original id and reply context. Reply quotes are limited to 200 UTF-16 units and only reference retained messages between the same two peers.
 - Messaging a parked agent revives it — the only resume primitive; the task tool has no `resume` parameter.
-- TUI rendering is preserved per family: messaging cards (`IRC ➤ / ⟵` headers), job waiting frames (displaceable, shimmering rows), and launch frames render byte-identically to the pre-merge tools; the `hub` renderer only dispatches.
+- TUI rendering remains dispatched per family: messaging cards, displaceable job waiting frames, and process frames. IRC observations and later transcript replay are deduplicated by original message id, so different messages sharing a timestamp remain visible.

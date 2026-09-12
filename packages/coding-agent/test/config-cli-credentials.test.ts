@@ -25,7 +25,7 @@ describe("credential settings", () => {
 	it("classifies UI-visible credentials through the same marker", () => {
 		// One field, not two: there is no separate UI-only masking flag that could
 		// drift away from this classification.
-		for (const path of ["mnemopi.embeddingApiKey", "mnemopi.llmApiKey"] as const) {
+		for (const path of ["mnemopi.embeddingApiKey", "mnemopi.llmApiKey", "task.discordWebhookUrl"] as const) {
 			expect(isCredential(path)).toBe(true);
 		}
 	});
@@ -50,7 +50,12 @@ describe("credential masking reaches every surface", () => {
 		// The panel derives masking from the same classification the CLI uses, so
 		// a credential cannot render as plain text on one surface and dots on the
 		// other.
-		for (const path of ["hindsight.apiToken", "mnemopi.embeddingApiKey", "mnemopi.llmApiKey"] as const) {
+		for (const path of [
+			"hindsight.apiToken",
+			"mnemopi.embeddingApiKey",
+			"mnemopi.llmApiKey",
+			"task.discordWebhookUrl",
+		] as const) {
 			const def = getSettingDef(path);
 			expect(def?.type).toBe("text");
 			expect(def && "secret" in def ? def.secret : undefined).toBe(true);
@@ -141,6 +146,20 @@ describe("config list output", () => {
 		expect(raw).not.toContain("********");
 		expect(parsed["searxng.token"]).toMatchObject({ redacted: true });
 		expect(parsed["searxng.token"]).not.toHaveProperty("value");
+	});
+
+	it("hides the configured Discord webhook in human and JSON output", async () => {
+		const webhook = `https://discord.example.test/api/webhooks/123/${SECRET}?thread_id=456`;
+		await runConfigCommand({ action: "set", key: "task.discordWebhookUrl", value: webhook, flags: { json: true } });
+		const human = await humanList();
+		expect(human).toContain("task.discordWebhookUrl = ********");
+		expect(human).not.toContain(webhook);
+		expect(human).not.toContain(SECRET);
+		const { raw, parsed } = await jsonList();
+		expect(raw).not.toContain(webhook);
+		expect(raw).not.toContain(SECRET);
+		expect(parsed["task.discordWebhookUrl"]).toMatchObject({ redacted: true });
+		expect(parsed["task.discordWebhookUrl"]).not.toHaveProperty("value");
 	});
 
 	it("does not report an unset credential as configured", async () => {

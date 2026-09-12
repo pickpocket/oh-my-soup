@@ -124,7 +124,7 @@ describe.skipIf(!supportsReftable)("git reftable support", () => {
 	});
 
 	test("head.resolveSync treats Bun's timeout marker as a failed symbolic-ref even with exit code zero", () => {
-		const baseResult = Bun.spawnSync(["true"], { stdout: "pipe", stderr: "pipe" });
+		const baseResult = Bun.spawnSync([process.execPath, "-e", ""], { stdout: "pipe", stderr: "pipe" });
 		const timedOutSymbolicRef = {
 			...baseResult,
 			exitCode: 0,

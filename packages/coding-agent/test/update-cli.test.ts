@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, spyOn, vi } from "bun:test";
+import { afterAll, afterEach, beforeAll, describe, expect, it, spyOn, vi } from "bun:test";
 import { createHash } from "node:crypto";
 import * as nodeFs from "node:fs";
 import * as fs from "node:fs/promises";
@@ -22,10 +22,12 @@ import {
 	resolveUpdateMethodForTest,
 	sweepStaleUpdateArtifacts,
 	updateViaBinaryAt,
+	updateViaShimTakeover,
 } from "@oh-my-soup/pi-coding-agent/cli/update-cli";
 import Update from "@oh-my-soup/pi-coding-agent/commands/update";
 import { getThemeByName } from "@oh-my-soup/pi-coding-agent/modes/theme/loader";
 import { setThemeInstance } from "@oh-my-soup/pi-coding-agent/modes/theme/theme";
+import * as piUtils from "@oh-my-soup/pi-utils";
 import { removeWithRetries } from "@oh-my-soup/pi-utils";
 import type { CliConfig } from "@oh-my-soup/pi-utils/cli";
 
@@ -613,7 +615,7 @@ describe("update-cli release binary integrity", () => {
 			expect(metadataAuthorizations).toEqual(["Bearer test-token"]);
 			expect(await Bun.file(targetPath).text()).toBe(installed);
 			if (process.platform !== "win32") expect((await fs.stat(targetPath)).mode & 0o777).toBe(0o755);
-			expect((await fs.readdir(dir)).filter(name => name.endsWith(".new"))).toEqual([]);
+			expect((await fs.readdir(dir)).filter(name => /\.new(?:\.exe)?$/.test(name))).toEqual([]);
 		} finally {
 			if (previousGitHubToken === undefined) delete Bun.env.GITHUB_TOKEN;
 			else Bun.env.GITHUB_TOKEN = previousGitHubToken;
@@ -635,6 +637,90 @@ describe("update-cli release binary integrity", () => {
 		expect(await Bun.file(targetPath).exists()).toBe(false);
 	});
 });
+
+describe.skipIf(process.platform !== "win32")("update-cli native Windows staging", () => {
+	const version = "99.0.0";
+	const binaryName = "oms-windows-x64.exe";
+	const metadataUrl = `https://api.github.com/repos/pickpocket/oh-my-soup/releases/tags/v${version}`;
+	const assetUrl = `https://github.com/pickpocket/oh-my-soup/releases/download/v${version}/${binaryName}`;
+	let fixtureDir: string | undefined;
+	let payload: Blob;
+	let digest: string;
+
+	beforeAll(async () => {
+		fixtureDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-update-native-fixture-"));
+		const entrypoint = path.join(fixtureDir, "version.ts");
+		const executable = path.join(fixtureDir, "version.exe");
+		await Bun.write(
+			entrypoint,
+			`if (process.argv[2] !== "--version") process.exit(1);\nconsole.log("oms/${version}");\n`,
+		);
+		// Compile in a fresh Bun process to avoid leaking Windows bundler resolver state.
+		const build = Bun.spawn(
+			[process.execPath, "build", "--compile", "--target=bun", `--outfile=${executable}`, entrypoint],
+			{ cwd: fixtureDir, stdout: "ignore", stderr: "pipe", timeout: 45_000 },
+		);
+		const [exitCode, stderr] = await Promise.all([build.exited, new Response(build.stderr).text()]);
+		expect(exitCode, stderr).toBe(0);
+		payload = Bun.file(executable);
+		digest = `sha256:${createHash("sha256")
+			.update(new Uint8Array(await payload.arrayBuffer()))
+			.digest("hex")}`;
+		const loadedTheme = await getThemeByName("dark");
+		if (!loadedTheme) throw new Error("theme unavailable");
+		setThemeInstance(loadedTheme);
+	}, 60_000);
+
+	afterAll(async () => {
+		if (fixtureDir) await removeWithRetries(fixtureDir);
+	});
+
+	const fetchImpl = async (input: string | URL | Request): Promise<Response> => {
+		const url = String(input);
+		if (url === metadataUrl) {
+			return Response.json({
+				tag_name: `v${version}`,
+				draft: false,
+				prerelease: false,
+				assets: [
+					{ name: binaryName, state: "uploaded", size: payload.size, digest, browser_download_url: assetUrl },
+				],
+			});
+		}
+		if (url === assetUrl) return new Response(payload);
+		throw new Error(`Unexpected request: ${url}`);
+	};
+
+	it.each(["binary", "shim"] as const)(
+		"executes the staged and installed %s update",
+		async route => {
+			const dir = await makeTempDir();
+			const targetPath = path.join(dir, "oms.exe");
+			vi.spyOn(console, "log").mockImplementation(() => {});
+			if (route === "binary") {
+				await Bun.write(targetPath, "previous binary");
+				const which = piUtils.$which;
+				vi.spyOn(piUtils, "$which").mockImplementation((name, options) =>
+					name === piUtils.APP_NAME ? targetPath : which(name, options),
+				);
+				await updateViaBinaryAt(targetPath, version, { binaryName, fetchImpl, githubToken: "" });
+			} else {
+				for (const ext of ["", ".cmd", ".ps1", ".bat"]) {
+					await Bun.write(path.join(dir, `oms${ext}`), "previous launcher");
+				}
+				await updateViaShimTakeover(path.join(dir, "oms.cmd"), version, { binaryName, fetchImpl, githubToken: "" });
+			}
+			expect(
+				`sha256:${createHash("sha256")
+					.update(await Bun.file(targetPath).bytes())
+					.digest("hex")}`,
+			).toBe(digest);
+			expect(await fs.readdir(dir)).toEqual(["oms.exe"]);
+		},
+		30_000,
+	);
+});
+
 describe("update-cli windows variant fallback", () => {
 	const tag = "v17.1.2";
 	const modernName = "oms-windows-x64-modern.exe";
@@ -803,10 +889,17 @@ describe("update-cli stale update artifact sweep", () => {
 		await fs.utimes(`${targetPath}.new`, stale, stale);
 		await Bun.write(`${targetPath}.1700000000000.4242.new`, "timestamped temp");
 		await fs.utimes(`${targetPath}.1700000000000.4242.new`, stale, stale);
+		await Bun.write(`${targetPath}.1700000000000.4242.0.new.exe`, "Windows timestamped temp");
+		await fs.utimes(`${targetPath}.1700000000000.4242.0.new.exe`, stale, stale);
 		await Bun.write(`${targetPath}.9999999999999.7.new`, "in-progress temp");
+		await Bun.write(`${targetPath}.9999999999999.7.0.new.exe`, "Windows in-progress temp");
 		await Bun.write(path.join(dir, "notes.bak"), "keep me");
 		await Bun.write(`${targetPath}.config.bak`, "keep me too");
 		await Bun.write(`${targetPath}.config.new`, "keep me three");
+		await Bun.write(`${targetPath}.config.new.exe`, "keep me four");
+		await fs.utimes(`${targetPath}.config.new.exe`, stale, stale);
+		await Bun.write(path.join(dir, "another.exe.1700000000000.4242.0.new.exe"), "keep me five");
+		await fs.utimes(path.join(dir, "another.exe.1700000000000.4242.0.new.exe"), stale, stale);
 
 		await sweepStaleUpdateArtifacts(targetPath);
 
@@ -816,10 +909,14 @@ describe("update-cli stale update artifact sweep", () => {
 		expect(await Bun.file(`${targetPath}.1800000000000.99.bak`).exists()).toBe(false);
 		expect(await Bun.file(`${targetPath}.new`).exists()).toBe(false);
 		expect(await Bun.file(`${targetPath}.1700000000000.4242.new`).exists()).toBe(false);
+		expect(await Bun.file(`${targetPath}.1700000000000.4242.0.new.exe`).exists()).toBe(false);
 		expect(await Bun.file(`${targetPath}.9999999999999.7.new`).exists()).toBe(true);
+		expect(await Bun.file(`${targetPath}.9999999999999.7.0.new.exe`).exists()).toBe(true);
 		expect(await Bun.file(path.join(dir, "notes.bak")).exists()).toBe(true);
 		expect(await Bun.file(`${targetPath}.config.bak`).exists()).toBe(true);
 		expect(await Bun.file(`${targetPath}.config.new`).exists()).toBe(true);
+		expect(await Bun.file(`${targetPath}.config.new.exe`).exists()).toBe(true);
+		expect(await Bun.file(path.join(dir, "another.exe.1700000000000.4242.0.new.exe")).exists()).toBe(true);
 	});
 });
 
@@ -899,7 +996,7 @@ describe("update-cli concurrent binary updates", () => {
 		await slowRun;
 
 		expect(await Bun.file(targetPath).bytes()).toEqual(new Uint8Array(payload));
-		expect((await fs.readdir(dir)).filter(name => name.endsWith(".new"))).toEqual([]);
+		expect((await fs.readdir(dir)).filter(name => /\.new(?:\.exe)?$/.test(name))).toEqual([]);
 	});
 
 	it("rolls back its backup when verification fails while another update runs", async () => {
@@ -930,6 +1027,6 @@ describe("update-cli concurrent binary updates", () => {
 		await successfulRun;
 
 		expect(await Bun.file(targetPath).bytes()).toEqual(new Uint8Array(payload));
-		expect((await fs.readdir(dir)).filter(name => name.endsWith(".bak") || name.endsWith(".new"))).toEqual([]);
+		expect((await fs.readdir(dir)).filter(name => /\.(?:bak|new(?:\.exe)?)$/.test(name))).toEqual([]);
 	});
 });

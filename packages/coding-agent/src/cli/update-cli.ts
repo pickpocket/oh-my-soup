@@ -1082,11 +1082,11 @@ async function removeBackupBestEffort(filePath: string): Promise<boolean> {
 /**
  * Best-effort removal of binary-update leftovers from earlier runs.
  *
- * Each self-update writes to `<binary>.<timestamp>.<pid>.<sequence>.new` and
- * moves the previous executable to a matching `.bak` path before swapping the
- * new one in. On Windows a backup cannot be deleted while the updating process
- * is alive, so it is left for a later run to reclaim. A `.new` temp file only
- * survives a hard kill mid-download; it is reaped once older than the download
+ * Each self-update writes to `<binary>.<timestamp>.<pid>.<sequence>.new`
+ * (`.new.exe` on Windows) and moves the previous executable to a matching
+ * `.bak` path before swapping the new one in. On Windows a backup cannot be
+ * deleted while the updating process is alive, so it is left for a later run
+ * to reclaim. A staged temp surviving a hard kill is reaped once older than the download
  * timeout so a concurrent run's in-progress temp is never deleted. Legacy
  * fixed `<binary>.bak` and `<binary>.new` names are matched too.
  */
@@ -1102,12 +1102,18 @@ export async function sweepStaleUpdateArtifacts(targetPath: string): Promise<voi
 	const now = Date.now();
 	for (const entry of entries) {
 		if (!entry.startsWith(`${base}.`)) continue;
-		const suffix = entry.endsWith(".bak") ? ".bak" : entry.endsWith(".new") ? ".new" : undefined;
+		const suffix = entry.endsWith(".bak")
+			? ".bak"
+			: entry.endsWith(".new.exe")
+				? ".new.exe"
+				: entry.endsWith(".new")
+					? ".new"
+					: undefined;
 		if (!suffix) continue;
 		const middle = entry.slice(base.length + 1, entry.length - suffix.length);
 		if (middle.length > 0 && !/^\d+(\.\d+)*$/.test(middle)) continue;
 		const artifactPath = path.join(dir, entry);
-		if (suffix === ".new") {
+		if (suffix !== ".bak") {
 			let mtimeMs: number;
 			try {
 				mtimeMs = (await fs.promises.stat(artifactPath)).mtimeMs;
@@ -1437,7 +1443,8 @@ export async function updateViaBinaryAt(
 	} = {},
 ): Promise<void> {
 	const attempt = `${Date.now()}.${process.pid}.${updateAttemptSeq++}`;
-	const tempPath = `${targetPath}.${attempt}.new`;
+	// Bun Shell requires a terminal .exe suffix to launch the Windows start check.
+	const tempPath = `${targetPath}.${attempt}.new${process.platform === "win32" ? ".exe" : ""}`;
 	const backupPath = `${targetPath}.${attempt}.bak`;
 	await stageVerifiedBinary(expectedVersion, tempPath, options);
 
@@ -1501,7 +1508,7 @@ export async function updateViaShimTakeover(
 	const launcherDir = path.dirname(shimPath);
 	const exePath = path.join(launcherDir, `${APP_NAME}.exe`);
 	const attempt = `${Date.now()}.${process.pid}.${updateAttemptSeq++}`;
-	const tempPath = `${exePath}.${attempt}.new`;
+	const tempPath = `${exePath}.${attempt}.new.exe`;
 	await stageVerifiedBinary(expectedVersion, tempPath, options);
 
 	const forwarded: Array<{ launcher: string; original: string }> = [];

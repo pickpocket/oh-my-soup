@@ -45,6 +45,7 @@ import "../tools/review";
 import type { AsyncJobManager } from "../async";
 import { hasResolvableTranscript } from "../internal-urls/registry-helpers";
 import { AgentRegistry } from "../registry/agent-registry";
+import { notifyTaskCompletion } from "./discord-notification";
 import { type DiscoveryResult, discoverAgents } from "./discovery";
 import { generateTaskName } from "./name-generator";
 import { AgentOutputManager } from "./output-manager";
@@ -57,6 +58,16 @@ function renderSubagentUserPrompt(assignment: string): string {
 	return prompt.render(subagentUserPromptTemplate, {
 		assignment: assignment.trim(),
 	});
+}
+
+function formatTaskResultStatus(result: SingleResult): string {
+	return result.aborted
+		? "cancelled"
+		: result.exitCode === 0 && result.error
+			? "merge failed"
+			: result.exitCode === 0
+				? "completed"
+				: `failed (exit ${result.exitCode})`;
 }
 
 function createUsageTotals(): Usage {
@@ -1517,13 +1528,26 @@ export class TaskTool implements AgentTool<TaskToolSchemaInstance, TaskToolDetai
 					});
 				},
 			});
-			return this.#buildResultPayload(
+			const payload = this.#buildResultPayload(
 				execution.result,
 				execution.policy.discovery.projectAgentsDir,
 				Date.now() - startTime,
 				execution.mergeSummary,
 			);
+			notifyTaskCompletion(this.session, {
+				id: execution.result.id,
+				agent: execution.result.agent,
+				status: formatTaskResultStatus(execution.result),
+				durationMs: Date.now() - startTime,
+			});
+			return payload;
 		} catch (error) {
+			notifyTaskCompletion(this.session, {
+				id: preAllocatedId ?? latestProgress?.id ?? params.name?.trim(),
+				agent: latestProgress?.agent ?? params.agent ?? "task",
+				status: signal?.aborted ? "cancelled" : "failed",
+				durationMs: Date.now() - startTime,
+			});
 			const message = error instanceof StructuredSubagentError ? error.message : String(error);
 			return {
 				content: [{ type: "text", text: `Task execution failed: ${message}` }],
@@ -1544,13 +1568,7 @@ export class TaskTool implements AgentTool<TaskToolSchemaInstance, TaskToolDetai
 		totalDurationMs: number,
 		mergeSummary: string,
 	): AgentToolResult<TaskToolDetails> {
-		const status = result.aborted
-			? "cancelled"
-			: result.exitCode === 0 && result.error
-				? "merge failed"
-				: result.exitCode === 0
-					? "completed"
-					: `failed (exit ${result.exitCode})`;
+		const status = formatTaskResultStatus(result);
 		const output = formatResultOutputFallback(result);
 		const outputCharCount = result.outputMeta?.charCount ?? output.length;
 		const fullOutputThreshold = 5000;

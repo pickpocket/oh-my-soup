@@ -34,6 +34,7 @@ export interface HubPeerInfo {
 	kind: string;
 	status: string;
 	parentId?: string;
+	/** Buffered messages not yet delivered to this peer, not messages from it. */
 	unread: number;
 	lastActivity: number;
 	activity?: string;
@@ -97,7 +98,7 @@ export interface CoordinationDetails {
 	from?: string;
 	to?: string;
 	receipts?: IrcDeliveryReceipt[];
-	/** Message consumed by `wait` / `send await:true`; null when the wait timed out. */
+	/** Consumed reply/message; null when timeout or recipient completion ended the wait without one. */
 	waited?: IrcMessage | null;
 	inbox?: IrcMessage[];
 	peers?: HubPeerInfo[];

@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- String truncation no longer splits UTF-16 surrogate pairs at the cut boundary, keeping capped text and its suffix well-formed.
+
 ## [17.3.3] - 2026-08-27
 
 ### Changed

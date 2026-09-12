@@ -170,7 +170,7 @@ export const agenticFixtures: Record<string, GalleryFixture> = {
 				op: "send",
 				from: "Main",
 				to: "AuthLoader",
-				receipts: [{ to: "AuthLoader", outcome: "revived" }],
+				receipts: [{ id: "7181122334455667788", to: "AuthLoader", outcome: "revived" }],
 				waited: {
 					id: "7181122334455667789",
 					from: "AuthLoader",
@@ -193,7 +193,14 @@ export const agenticFixtures: Record<string, GalleryFixture> = {
 				op: "send",
 				from: "Main",
 				to: "RateLimiter",
-				receipts: [{ to: "RateLimiter", outcome: "failed", error: 'unknown agent "RateLimiter"' }],
+				receipts: [
+					{
+						id: "7181122334455667787",
+						to: "RateLimiter",
+						outcome: "failed",
+						error: 'unknown agent "RateLimiter"',
+					},
+				],
 			} satisfies HubDetails,
 		},
 	},

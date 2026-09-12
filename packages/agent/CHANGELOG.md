@@ -6,6 +6,10 @@
 
 - Added end-to-end owned-tool support for the `emoji` dialect, including `PI_DIALECT=emoji`.
 
+### Fixed
+
+- Peer IRC no longer aborts the cooperative steering signal of foreground tools; ordinary tool calls continue while interruptible waits still wake for messages.
+
 ## [17.3.3] - 2026-08-27
 
 ### Added

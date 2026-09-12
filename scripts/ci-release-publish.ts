@@ -13,15 +13,15 @@
  *   2. Rewrite `package.json` in place — every `types`/`exports[*].types`
  *      that points at `./src/*.ts(x)` is repointed to `./dist/types/*.d.ts`,
  *      `dist/types` (plus `dist/client` for `stats`) is added to `files`,
- *      and packages with a `publishBin` override get their `bin` swapped to
- *      the prepack bundle (coding-agent: `src/cli.ts` → `dist/cli.js`).
+ *      and packages with published runtime overrides get their `bin` swapped
+ *      to the prepack bundle and their consumer-only lifecycle hooks added.
  *      Packages flagged `publishJs` (omstype) additionally emit transpiled
  *      per-module JS into `dist/js/` and get their runtime entries (`main`,
  *      `exports[*]` import paths) repointed there, with a `bun` condition
  *      keeping TS-source resolution for Bun consumers — so the published
  *      package runs on plain Node. The on-repo manifest keeps pointing at
- *      source so local dev and source installs (`bun link`,
- *      `install.sh --source`) work without a build.
+ *      source so local dev links work without a bundle or install-time native
+ *      boot before `build:native`.
  *   3. Pack with `bun pm pack` (resolves the `catalog:`/`workspace:`
  *      protocols npm cannot, and runs each package's `prepack` lifecycle),
  *      then publish the resolved tarball with `npm publish` — see
@@ -59,10 +59,12 @@ export interface PublishPackage {
 	publishJs?: boolean;
 	/**
 	 * `bin` map for the published manifest. The on-repo manifest points `bin`
-	 * at TS source so source installs (`bun link`, `install.sh --source`) work
-	 * without a build; publish swaps in the `prepack` bundle.
+	 * at TS source so development links work without a bundle; publish swaps
+	 * in the `prepack` bundle.
 	 */
 	publishBin?: Readonly<Record<string, string>>;
+	/** Consumer-only hook: workspace installation precedes the native build. */
+	publishPostinstall?: string;
 }
 
 type JsonValue = string | number | boolean | null | JsonObject | JsonValue[];
@@ -76,6 +78,7 @@ interface PackageManifest {
 	private?: boolean;
 	files?: JsonValue[];
 	optionalDependencies?: JsonObject;
+	scripts?: JsonObject;
 }
 
 const repoRoot = path.join(import.meta.dir, "..");
@@ -114,7 +117,12 @@ export const packages: PublishPackage[] = [
 		extraTypeConfigs: ["tsconfig.publish.client.json"],
 	},
 	{ dir: "packages/agent", kind: "typescript" },
-	{ dir: "packages/coding-agent", kind: "typescript", publishBin: { oms: "dist/cli.js" } },
+	{
+		dir: "packages/coding-agent",
+		kind: "typescript",
+		publishBin: { oms: "dist/cli.js" },
+		publishPostinstall: "bun dist/cli.js setup objdump",
+	},
 ];
 
 function rewriteSrcToTypes(value: string): string {
@@ -165,11 +173,18 @@ function rewriteExports(exports: JsonValue, publishJs: boolean): JsonValue {
 	return out;
 }
 
+function applyRuntimeOverrides(manifest: PackageManifest, pkg: PublishPackage): void {
+	if (pkg.publishBin) manifest.bin = { ...pkg.publishBin };
+	if (pkg.publishPostinstall) {
+		manifest.scripts = { ...manifest.scripts, postinstall: pkg.publishPostinstall };
+	}
+}
+
 /** Compute (and optionally write) the published manifest for a package. */
 export async function rewriteManifest(pkg: PublishPackage, write: boolean): Promise<PackageManifest> {
 	const manifestPath = path.join(repoRoot, pkg.dir, "package.json");
 	const manifest = (await Bun.file(manifestPath).json()) as PackageManifest;
-	if (pkg.publishBin) manifest.bin = { ...pkg.publishBin };
+	applyRuntimeOverrides(manifest, pkg);
 	if (typeof manifest.types === "string" && manifest.types.startsWith("./src/")) {
 		manifest.types = rewriteSrcToTypes(manifest.types);
 	}
@@ -212,17 +227,19 @@ async function preparePackage(pkg: PublishPackage): Promise<PackageManifest> {
 }
 
 /**
- * Apply only the published `bin` rewrite to a package's working-tree
- * manifest. Used by `scripts/install-tests/run-ci.sh` to pack the coding
- * agent with its published topology (bin → prepack bundle) without running
- * the type-emission steps; the caller backs up and restores the manifest.
+ * Apply published runtime overrides to a package's working-tree manifest.
+ * Install smoke packaging uses the same bundle and consumer lifecycle as
+ * release without running type emission; callers back up and restore the
+ * manifest.
  */
-export async function applyPublishBin(pkgRelDir: string, write: boolean): Promise<PackageManifest> {
+export async function applyPublishRuntime(pkgRelDir: string, write: boolean): Promise<PackageManifest> {
 	const pkg = packages.find(entry => entry.dir === pkgRelDir);
-	if (!pkg?.publishBin) throw new Error(`No publishBin override declared for ${pkgRelDir}`);
+	if (!pkg || (!pkg.publishBin && !pkg.publishPostinstall)) {
+		throw new Error(`No published runtime overrides declared for ${pkgRelDir}`);
+	}
 	const manifestPath = path.join(repoRoot, pkgRelDir, "package.json");
 	const manifest = (await Bun.file(manifestPath).json()) as PackageManifest;
-	manifest.bin = { ...pkg.publishBin };
+	applyRuntimeOverrides(manifest, pkg);
 	if (write) await Bun.write(manifestPath, `${JSON.stringify(manifest, null, "\t")}\n`);
 	return manifest;
 }

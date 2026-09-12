@@ -1,5 +1,5 @@
 <irc>
-Incoming IRC message [{{id}}] from agent `{{from}}`{{#if replyTo}} (replying to {{replyTo}}){{/if}}:
+Incoming IRC message [{{id}}] from agent `{{from}}` (your parent){{#if replyTo}} (replying to {{replyTo}}){{/if}}:
 {{#if quoted}}
 > {{quoted}}
 {{/if}}

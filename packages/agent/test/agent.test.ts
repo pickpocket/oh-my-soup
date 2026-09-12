@@ -79,6 +79,11 @@ describe("Agent", () => {
 		expect(skippedContent.text).toContain("After the steering message is handled on the next step");
 		expect(skippedContent.text).not.toContain("pending system advisory");
 		expect(skippedContent.text).not.toContain("queued user message");
+		expect(skipped?.result.details).toMatchObject({
+			__synthetic: true,
+			source: "interrupt_skipped",
+			executed: false,
+		});
 	});
 
 	it("classifies user-attributed custom steering as a queued user message", async () => {

@@ -62,6 +62,25 @@ const IDLE_RECAP_MAX_SECONDS = 3600;
 
 const RAW_PARTIAL_JSON_RENDERERS: Record<string, true> = { bash: true, edit: true, apply_patch: true };
 
+/** Stable identity shared by live IRC cards and their later stream replay. */
+function customMessageSignature(message: {
+	role: string;
+	customType: string;
+	timestamp: number;
+	details?: unknown;
+}): string {
+	if (
+		message.customType === "irc:incoming" ||
+		message.customType === "irc:autoreply" ||
+		message.customType === "irc:relay"
+	) {
+		const details = message.details;
+		const id = details && typeof details === "object" ? Reflect.get(details, "id") : undefined;
+		if (typeof id === "string" && id.length > 0) return `irc:${id}`;
+	}
+	return `${message.role}:${message.customType}:${message.timestamp}`;
+}
+
 function exposesRawPartialJson(toolName: string, rawInput: boolean, tool: unknown): boolean {
 	if (rawInput) return true;
 	if (RAW_PARTIAL_JSON_RENDERERS[toolName]) return true;
@@ -765,7 +784,7 @@ export class EventController {
 	async #handleMessageStart(event: Extract<AgentSessionEvent, { type: "message_start" }>): Promise<void> {
 		this.#ensureWorkingLoaderWhileStreaming();
 		if (event.message.role === "hookMessage" || event.message.role === "custom") {
-			const signature = `${event.message.role}:${event.message.customType}:${event.message.timestamp}`;
+			const signature = customMessageSignature(event.message);
 			if (this.#renderedCustomMessages.has(signature)) {
 				return;
 			}
@@ -859,7 +878,7 @@ export class EventController {
 	}
 
 	async #handleIrcMessage(event: Extract<AgentSessionEvent, { type: "irc_message" }>): Promise<void> {
-		const signature = `${event.message.role}:${event.message.customType}:${event.message.timestamp}`;
+		const signature = customMessageSignature(event.message);
 		if (this.#renderedCustomMessages.has(signature)) {
 			return;
 		}

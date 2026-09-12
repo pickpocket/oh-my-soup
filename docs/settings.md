@@ -753,6 +753,14 @@ searxng:
 
 Provider credentials and custom model definitions are configured separately — see [Providers](./providers.md) and [Models](./models.md).
 
+### Task completion notifications
+
+| Setting | Type | Default | Meaning |
+| ------- | ---- | ------- | ------- |
+| `task.discordWebhookUrl` | string | _(unset)_ | Optional Discord webhook for foreground/background task completion metadata. Blank disables delivery. Credential field; configure under Tasks → Subagents → Discord Webhook. |
+
+Notifications contain task ID, agent type, status, and duration—not prompts or output. Delivery is nonblocking and best effort, with a five-second timeout and no retries. See [Discord task notifications](./tools/task.md#discord-completion-notifications) for privacy, shutdown, and endpoint details.
+
 ### Other groups
 
 `oms config list` exposes many more grouped settings, including: `task.*` (subagent concurrency, isolation, model overrides), `skills.*` and `commands.*` (discovery toggles), `mcp.*`, `github.*`, `async.*`, `goal.*`, `loop.*`, `todo.*`, `magicKeywords.*`, `ttsr.*` (time-traveling stream rules), `display.*`, `startup.*`, `share.*`, `collab.*`, `stt.*`/`tts.*`, `memories.*`/`hindsight.*`/`mnemopi.*` (memory backends), and `bashInterceptor.*`. Each follows the same type/default rules shown above.

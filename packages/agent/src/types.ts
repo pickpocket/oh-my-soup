@@ -272,9 +272,9 @@ export interface AgentLoopConfig extends SimpleStreamOptions {
 	/**
 	 * Peeks whether IRC messages should interrupt an interruptible waiting tool.
 	 *
-	 * Uses the same delivery rules as steering: the poll is non-consuming, only
-	 * runs for interruptible tools, and is ignored when interruptMode is "wait".
-	 * The host owns message injection at the next boundary.
+	 * The poll is non-consuming and ignored when interruptMode is "wait".
+	 * IRC wakes deliberate waits only: ordinary tool calls and their cooperative
+	 * steering signals are unaffected. The host injects messages at the next boundary.
 	 */
 	hasIrcInterrupts?: () => boolean | Promise<boolean>;
 
@@ -550,8 +550,8 @@ export interface ToolCallContext {
 	/** Provider-native metadata for the current call, when present. */
 	providerMetadata?: ToolCallProviderMetadata;
 	/**
-	 * Cooperative steering signal: aborted when a queued user/steering message
-	 * (or an interrupting peer IRC) is detected while this tool batch runs.
+	 * Cooperative steering signal: aborted when explicit queued steering is
+	 * detected while this tool batch runs. Incoming IRC never aborts it.
 	 * Unlike the hard abort signal it NEVER kills the tool — long-running
 	 * tools MAY observe it (via `ctx.toolCall.steeringSignal`) to finish early
 	 * or background themselves so the message injects promptly; ignoring it is

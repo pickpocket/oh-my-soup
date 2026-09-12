@@ -142,7 +142,7 @@ describe("oms setup without a component", () => {
 			expect(result.exitCode).not.toBe(0);
 			expect(result.error).toBe("");
 			expect(JSON.parse(result.output)).toEqual({
-				error: "setup --check/--json requires a COMPONENT (python|speech)",
+				error: "setup --check/--json requires a COMPONENT (python|speech|objdump)",
 			});
 		});
 	}

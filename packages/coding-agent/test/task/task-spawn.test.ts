@@ -17,6 +17,7 @@ import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
 import { AgentLifecycleManager } from "@oh-my-soup/pi-coding-agent/registry/agent-lifecycle";
 import { AgentRegistry } from "@oh-my-soup/pi-coding-agent/registry/agent-registry";
 import { TaskTool } from "@oh-my-soup/pi-coding-agent/task";
+import * as notificationModule from "@oh-my-soup/pi-coding-agent/task/discord-notification";
 import * as discoveryModule from "@oh-my-soup/pi-coding-agent/task/discovery";
 import * as executorModule from "@oh-my-soup/pi-coding-agent/task/executor";
 import type { AgentDefinition, SingleResult, TaskParams } from "@oh-my-soup/pi-coding-agent/task/types";
@@ -442,4 +443,58 @@ describe("task spawn routing", () => {
 		gates.get("Fifth")!.resolve();
 		await Promise.all(jobs.map(job => job.promise));
 	});
+
+	for (const background of [false, true]) {
+		for (const outcome of [
+			{ status: "completed", result: {} },
+			{ status: "failed (exit 2)", result: { exitCode: 2 } },
+			{ status: "cancelled", result: { exitCode: 1, aborted: true } },
+			{ status: "merge failed", result: { error: "private merge error" } },
+		]) {
+			it(`notifies once after ${background ? "background" : "foreground"} task ${outcome.status}`, async () => {
+				vi.spyOn(discoveryModule, "discoverAgents").mockResolvedValue({
+					agents: [taskAgent],
+					projectAgentsDir: null,
+				});
+				const notification = vi.spyOn(notificationModule, "notifyTaskCompletion").mockImplementation(() => {});
+				const started = deferred();
+				const release = deferred();
+				vi.spyOn(executorModule, "runSubprocess").mockImplementation(async options => {
+					started.resolve();
+					await release.promise;
+					return makeResult(options.id ?? "?", {
+						...outcome.result,
+						output: "private result",
+						stderr: "private stderr",
+					});
+				});
+				const manager = background ? createManager() : undefined;
+				const session = createSession({ manager, settings: { "async.enabled": background } });
+				const tool = await TaskTool.create(session);
+				const execution = tool.execute("tc-discord", {
+					agent: "task",
+					name: "DiscordWorker",
+					task: "private assignment",
+				} as TaskParams);
+				try {
+					await started.promise;
+					expect(notification).not.toHaveBeenCalled();
+				} finally {
+					release.resolve();
+				}
+				const result = await execution;
+				if (manager) await manager.getJob(result.details!.async!.jobId)!.promise;
+				expect(notification).toHaveBeenCalledTimes(1);
+				expect(notification.mock.calls[0]).toEqual([
+					session,
+					{
+						id: "DiscordWorker",
+						agent: "task",
+						status: outcome.status,
+						durationMs: expect.any(Number),
+					},
+				]);
+			});
+		}
+	}
 });

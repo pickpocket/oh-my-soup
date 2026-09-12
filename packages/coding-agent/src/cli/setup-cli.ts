@@ -12,9 +12,10 @@ import { theme } from "../modes/theme/theme";
 import { downloadSttModel, isSttModelCached } from "../stt/downloader";
 import { isSttModelKey, STT_MODEL_OPTIONS } from "../stt/models";
 import { downloadTtsModel, isTtsLocalModelKey, isTtsModelCached, TTS_LOCAL_MODEL_OPTIONS } from "../tts";
+import { ensureTool, getToolPath } from "../utils/tools-manager";
 import { selectSetupModel } from "./setup-model-picker";
 
-export type SetupComponent = "python" | "speech";
+export type SetupComponent = "python" | "speech" | "objdump";
 
 export interface SetupCommandArgs {
 	component: SetupComponent;
@@ -24,7 +25,7 @@ export interface SetupCommandArgs {
 	};
 }
 
-const VALID_COMPONENTS: SetupComponent[] = ["python", "speech"];
+const VALID_COMPONENTS: SetupComponent[] = ["python", "speech", "objdump"];
 
 const MANAGED_PYTHON_ENV = getPythonEnvDir();
 
@@ -111,7 +112,34 @@ export async function runSetupCommand(cmd: SetupCommandArgs): Promise<void> {
 		case "speech":
 			await handleSpeechSetup(cmd.flags);
 			break;
+		case "objdump":
+			await handleObjdumpSetup(cmd.flags);
+			break;
 	}
+}
+
+async function handleObjdumpSetup(flags: { json?: boolean; check?: boolean }): Promise<void> {
+	const checkOnly = flags.check || flags.json;
+	const executable = checkOnly
+		? getToolPath("objdump", { localOnly: true })
+		: await ensureTool("objdump", {
+				localOnly: true,
+				notify: message => console.log(chalk.dim(message)),
+			});
+	if (flags.json) {
+		console.log(JSON.stringify({ available: Boolean(executable), path: executable ?? null }, null, 2));
+	} else if (executable) {
+		console.log(chalk.green(`${theme.status.success} GNU objdump ready: ${executable}`));
+	} else {
+		console.error(
+			chalk.red(
+				checkOnly
+					? "Local GNU objdump is not installed. Run `oms setup objdump`."
+					: "GNU objdump installation failed. Check the OMS logs for details, then retry `oms setup objdump`.",
+			),
+		);
+	}
+	if (!executable) process.exitCode = 1;
 }
 
 async function handlePythonSetup(flags: { json?: boolean; check?: boolean }): Promise<void> {
@@ -297,6 +325,7 @@ ${chalk.bold("Usage:")}
 ${chalk.bold("Components:")}
   python    Verify a Python 3 interpreter is reachable for code execution
   speech    Pick and download speech-to-text and text-to-speech models
+  objdump   Install the managed local GNU binary inspection tool
 
 ${chalk.bold("Options:")}
   -c, --check   Check if dependencies are installed without installing
@@ -306,6 +335,7 @@ ${chalk.bold("Examples:")}
   ${APP_NAME} setup                  Run the onboarding wizard
   ${APP_NAME} setup python           Check Python execution dependencies
   ${APP_NAME} setup speech           Pick and download the STT and TTS models
+  ${APP_NAME} setup objdump          Install local GNU objdump without changing PATH
   ${APP_NAME} setup speech --check   Check if speech dependencies are available
   ${APP_NAME} setup python --check   Check if Python execution is available
 `);

@@ -287,6 +287,8 @@ jobs:
               bun test \
                 scripts/release.test.ts \
                 scripts/musl-release.test.ts \
+                scripts/install.test.ts \
+                scripts/ci-release-publish.test.ts \
                 scripts/bazel-crate-features.test.ts
 
    test_coding_agent_singleton:

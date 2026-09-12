@@ -12,6 +12,7 @@ import { IrcBus } from "@oh-my-soup/pi-coding-agent/irc/bus";
 import { type AgentHubDeps, AgentHubOverlayComponent } from "@oh-my-soup/pi-coding-agent/modes/components/agent-hub";
 import { SessionObserverRegistry } from "@oh-my-soup/pi-coding-agent/modes/session-observer-registry";
 import { initTheme, theme } from "@oh-my-soup/pi-coding-agent/modes/theme/theme";
+import { AgentLifecycleManager } from "@oh-my-soup/pi-coding-agent/registry/agent-lifecycle";
 import { AgentRegistry } from "@oh-my-soup/pi-coding-agent/registry/agent-registry";
 import type { AgentSession } from "@oh-my-soup/pi-coding-agent/session/agent-session";
 import { visibleWidth } from "@oh-my-soup/pi-tui/utils";
@@ -54,6 +55,18 @@ function makeHub(agents: AgentRegistry, overrides: Partial<AgentHubDeps> = {}) {
 		focusAgent: async () => {},
 		...overrides,
 	});
+}
+
+function makeIrcHub(ids: string[], overrides: Partial<AgentHubDeps> = {}) {
+	const agents = new AgentRegistry();
+	const lifecycle = new AgentLifecycleManager(agents);
+	for (const id of ids) {
+		const session = { deliverIrcMessage: async () => "injected" as const } as unknown as AgentSession;
+		agents.register({ id, displayName: id, kind: "sub", session });
+	}
+	const irc = new IrcBus(agents, lifecycle);
+	const hub = makeHub(agents, { irc, lifecycle, ...overrides });
+	return { hub, irc, lifecycle };
 }
 
 interface RenderedAgentRow {
@@ -1019,6 +1032,137 @@ describe("Agent hub row ordering", () => {
 			expect(Bun.stripANSI(hub.render(80).join("\n"))).toContain("Roster");
 		} finally {
 			hub.dispose();
+		}
+	});
+
+	it("toggles scoped and all-agent IRC traffic without changing roster selection or activation", async () => {
+		vi.useFakeTimers();
+		geometry = stubStdoutGeometry(120);
+		setSystemTime(new Date("2026-09-01T12:00:00Z"));
+		const onDone = vi.fn();
+		const focusAgent = vi.fn(async () => {});
+		const { hub, irc, lifecycle } = makeIrcHub(["A", "B", "C"], { onDone, focusAgent, hubKeys: ["alt+a"] });
+		try {
+			await hub.persistedSubagentsReady;
+			await irc.send({ from: "A", to: "B", body: "Outgoing from selected" });
+			await irc.send({ from: "B", to: "A", body: "Incoming to selected" });
+			await irc.send({ from: "B", to: "C", body: "Other pair only" });
+			expect(selectedAgentId(hub)).toBe("A");
+
+			hub.handleInput("c");
+			const scoped = Bun.stripANSI(hub.render(120).join("\n"));
+			expect(scoped).toContain("Agent IRC · A");
+			expect(scoped).toContain("Outgoing from selected");
+			expect(scoped).toContain("Incoming to selected");
+			expect(scoped).not.toContain("Other pair only");
+			hub.handleInput(wheel("down"));
+			hub.handleInput(leftClick(4));
+			hub.handleInput("\r");
+			expect(focusAgent).not.toHaveBeenCalled();
+			expect(onDone).not.toHaveBeenCalled();
+
+			hub.handleInput("a");
+			expect(Bun.stripANSI(hub.render(120).join("\n"))).toContain("Other pair only");
+			hub.handleInput("a");
+			expect(Bun.stripANSI(hub.render(120).join("\n"))).not.toContain("Other pair only");
+			hub.handleInput("c");
+			expect(selectedAgentId(hub)).toBe("A");
+			hub.handleInput("j");
+			hub.handleInput("c");
+			expect(Bun.stripANSI(hub.render(120).join("\n"))).toContain("Agent IRC · B");
+			hub.handleInput("\x1b[D");
+			expect(selectedAgentId(hub)).toBe("B");
+			expect(onDone).not.toHaveBeenCalled();
+			hub.handleInput("c");
+			hub.handleInput("\x1b");
+			expect(selectedAgentId(hub)).toBe("B");
+			hub.handleInput("c");
+			hub.handleInput("\x1ba");
+			expect(onDone).toHaveBeenCalledTimes(1);
+		} finally {
+			hub.dispose();
+			await lifecycle.dispose();
+		}
+	});
+
+	it("renders only the newest scoped messages in chronological order within the terminal height", async () => {
+		geometry = stubStdoutGeometry(120);
+		geometry.setRows(8);
+		const { hub, irc, lifecycle } = makeIrcHub(["A"]);
+		try {
+			for (let i = 0; i < 10; i++) {
+				await irc.send({ from: "B", to: "A", body: `message-${i}` });
+			}
+			hub.handleInput("c");
+			const frame = hub.render(80);
+			const text = Bun.stripANSI(frame.join("\n"));
+			expect(frame).toHaveLength(8);
+			expect(text).not.toContain("message-5");
+			expect(text.indexOf("message-6")).toBeGreaterThanOrEqual(0);
+			expect(text.indexOf("message-6")).toBeLessThan(text.indexOf("message-7"));
+			expect(text.indexOf("message-7")).toBeLessThan(text.indexOf("message-8"));
+			expect(text.indexOf("message-8")).toBeLessThan(text.indexOf("message-9"));
+		} finally {
+			hub.dispose();
+			await lifecycle.dispose();
+		}
+	});
+
+	it("sanitizes hostile IRC fields and fits the actual render width even on tiny terminals", async () => {
+		geometry = stubStdoutGeometry(160);
+		geometry.setRows(8);
+		const agentId = "A\t\n\x1b[2J";
+		const { hub, irc, lifecycle } = makeIrcHub([agentId]);
+		try {
+			await irc.send({
+				from: "B\t\r\n\x1b]0;hostile-title\x07",
+				to: agentId,
+				body: `first\tline\nsecond\rline\x07\x1b[2J ${"界".repeat(200)}`,
+				replyTo: "reply\t\n\x1b[2J",
+			});
+			hub.handleInput("c");
+			const wide = Bun.stripANSI(hub.render(160).join("\n"));
+			expect(wide).toContain("first");
+			expect(wide).toContain("second");
+			for (const width of [1, 16, 40, 80, 160]) {
+				const frame = hub.render(width);
+				expect(frame.length).toBeLessThanOrEqual(8);
+				for (const line of frame) {
+					expect(visibleWidth(line)).toBeLessThanOrEqual(width);
+					expect(line).not.toContain("\x1b[2J");
+					expect(line).not.toContain("hostile-title");
+					expect(Bun.stripANSI(line)).not.toMatch(/[\t\r\n\x07]/);
+				}
+			}
+		} finally {
+			hub.dispose();
+			await lifecycle.dispose();
+		}
+	});
+
+	it("refreshes an empty IRC view on bus delivery and stops rendering after disposal", async () => {
+		vi.useFakeTimers();
+		geometry = stubStdoutGeometry(120);
+		const requestRender = vi.fn();
+		const { hub, irc, lifecycle } = makeIrcHub(["A"], { requestRender });
+		try {
+			await hub.persistedSubagentsReady;
+			hub.handleInput("c");
+			expect(Bun.stripANSI(hub.render(120).join("\n"))).toContain("No peer messages recorded");
+			requestRender.mockClear();
+			await irc.send({ from: "B", to: "A", body: "Live bus update" });
+			vi.advanceTimersByTime(100);
+			expect(requestRender).toHaveBeenCalledTimes(1);
+			expect(Bun.stripANSI(hub.render(120).join("\n"))).toContain("Live bus update");
+
+			hub.dispose();
+			requestRender.mockClear();
+			await irc.send({ from: "B", to: "A", body: "After disposal" });
+			vi.advanceTimersByTime(10_000);
+			expect(requestRender).not.toHaveBeenCalled();
+		} finally {
+			hub.dispose();
+			await lifecycle.dispose();
 		}
 	});
 });

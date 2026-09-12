@@ -4,7 +4,6 @@ import * as path from "node:path";
 import { $which, getToolsDir, logger, ptree, TempDir, USER_AGENT } from "@oh-my-soup/pi-utils";
 import { extractArchive } from "./zip";
 
-const TOOLS_DIR = getToolsDir();
 const TOOL_DOWNLOAD_TIMEOUT_MS = 120_000;
 const TOOL_METADATA_TIMEOUT_MS = 5000;
 
@@ -70,10 +69,36 @@ interface ToolConfig {
 	binaryName: string; // Name of the binary inside the archive
 	tagPrefix: string; // Prefix for tags (e.g., "v" for v1.0.0, "" for 1.0.0)
 	isDirectBinary?: boolean; // If true, asset is a direct binary (not an archive)
+	pinnedVersion?: string;
+	rawZstdSha256?: Readonly<Record<string, string>>; // SHA256 of each compressed standalone executable
+	minimumDarwinMajor?: number;
 	getAssetName: (version: string, plat: string, architecture: string) => string | null;
 }
 
 const TOOLS: Record<string, ToolConfig> = {
+	objdump: {
+		name: "GNU objdump",
+		repo: "unpins/binutils",
+		binaryName: "objdump",
+		tagPrefix: "v",
+		pinnedVersion: "2.46-1",
+		minimumDarwinMajor: 23, // macOS 14
+		rawZstdSha256: {
+			"binutils-2.46-1-x86_64-windows.exe.zst": "dbe80c41711c128a6e200762d455b3f4d95701bdb7a821b4391a04db79716fd4",
+			"binutils-2.46-1-x86_64-linux.zst": "5143c0d27af8c2088fe93ca705f6d16a093cd9c962fc019b9b94aba10b64b9ba",
+			"binutils-2.46-1-aarch64-linux.zst": "8a03ca4b7fbfc5bb7bddd0bdf3044e7495bc1dfcad07d28496909430548c4af7",
+			"binutils-2.46-1-x86_64-darwin.zst": "a92cb77e637e25490bb7392040e0687f0aec980b4152e232fdeb65b64554170e",
+			"binutils-2.46-1-aarch64-darwin.zst": "bb121a8cc7e8ff2a91800945fde740a0a751c6e9e124145e28e69432d5e8790b",
+		},
+		getAssetName: (version, plat, architecture) => {
+			if (architecture !== "x64" && architecture !== "arm64") return null;
+			if (plat !== "win32" && plat !== "linux" && plat !== "darwin") return null;
+			// Windows arm64 uses the standalone x64 executable through emulation.
+			const archStr = architecture === "arm64" && plat !== "win32" ? "aarch64" : "x86_64";
+			const platformStr = plat === "win32" ? "windows.exe" : plat;
+			return `binutils-${version}-${archStr}-${platformStr}.zst`;
+		},
+	},
 	sd: {
 		name: "sd",
 		repo: "chmln/sd",
@@ -146,27 +171,27 @@ const PYTHON_TOOLS: Record<string, PythonPackageToolConfig> = {
 	},
 };
 
-export type ToolName = "sd" | "sg" | "yt-dlp" | "trafilatura";
+export type ToolName = "sd" | "sg" | "yt-dlp" | "trafilatura" | "objdump";
 
-// Get the path to a tool (system-wide or in our tools dir)
-export function getToolPath(tool: ToolName): string | null {
+// Resolve a managed executable first, optionally falling back to system PATH.
+export function getToolPath(tool: ToolName, options?: { localOnly?: boolean }): string | null {
 	// Check uv/pip-installed CLI packages first
 	const pythonConfig = PYTHON_TOOLS[tool];
 	if (pythonConfig) {
-		return $which(pythonConfig.binaryName);
+		return options?.localOnly ? null : $which(pythonConfig.binaryName);
 	}
 
 	const config = TOOLS[tool];
 	if (!config) return null;
 
 	// Check our tools directory first
-	const localPath = path.join(TOOLS_DIR, config.binaryName + (os.platform() === "win32" ? ".exe" : ""));
+	const localPath = path.join(getToolsDir(), config.binaryName + (os.platform() === "win32" ? ".exe" : ""));
 	if (fs.existsSync(localPath)) {
 		return localPath;
 	}
 
 	// Check system PATH
-	return $which(config.binaryName);
+	return options?.localOnly ? null : $which(config.binaryName);
 }
 
 // Fetch latest release version from GitHub
@@ -222,8 +247,16 @@ async function downloadTool(tool: ToolName, signal?: AbortSignal): Promise<strin
 	const plat = os.platform();
 	const architecture = os.arch();
 
-	// Get latest version
-	const version = await getLatestVersion(config.repo, signal);
+	signal?.throwIfAborted();
+	if (plat === "darwin" && config.minimumDarwinMajor !== undefined) {
+		const release = os.release();
+		const darwinMajor = Number.parseInt(release, 10);
+		if (!Number.isFinite(darwinMajor) || darwinMajor < config.minimumDarwinMajor) {
+			throw new Error(`${config.name} requires Darwin ${config.minimumDarwinMajor} or newer (host: ${release})`);
+		}
+	}
+
+	const version = config.pinnedVersion ?? (await getLatestVersion(config.repo, signal));
 
 	// Get asset name for this platform
 	const assetName = config.getAssetName(version, plat, architecture);
@@ -232,11 +265,41 @@ async function downloadTool(tool: ToolName, signal?: AbortSignal): Promise<strin
 	}
 
 	// Create tools directory
-	await fs.promises.mkdir(TOOLS_DIR, { recursive: true });
+	const toolsDir = getToolsDir();
+	await fs.promises.mkdir(toolsDir, { recursive: true });
 
 	const downloadUrl = `https://github.com/${config.repo}/releases/download/${config.tagPrefix}${version}/${assetName}`;
 	const binaryExt = plat === "win32" ? ".exe" : "";
-	const binaryPath = path.join(TOOLS_DIR, config.binaryName + binaryExt);
+	const binaryPath = path.join(toolsDir, config.binaryName + binaryExt);
+
+	if (config.rawZstdSha256) {
+		const expectedHash = config.rawZstdSha256[assetName];
+		if (!expectedHash) throw new Error(`Missing SHA256 for ${assetName}`);
+		// Stage on the destination filesystem: only a completed executable is ever published.
+		const staging = await TempDir.create(path.join(toolsDir, `.${config.binaryName}-`));
+		try {
+			const archivePath = staging.join(assetName);
+			const stagedBinary = staging.join(config.binaryName + binaryExt);
+			await downloadFile(downloadUrl, archivePath, signal);
+			const compressed = await Bun.file(archivePath).arrayBuffer();
+			signal?.throwIfAborted();
+			const actualHash = Bun.CryptoHasher.hash("sha256", compressed, "hex");
+			if (actualHash !== expectedHash) {
+				throw new Error(`SHA256 mismatch for ${assetName}: expected ${expectedHash}, got ${actualHash}`);
+			}
+			const executable = await Bun.zstdDecompress(compressed);
+			signal?.throwIfAborted();
+			await Bun.write(stagedBinary, executable);
+			if (plat !== "win32") {
+				await fs.promises.chmod(stagedBinary, 0o755);
+			}
+			signal?.throwIfAborted();
+			await fs.promises.rename(stagedBinary, binaryPath);
+			return binaryPath;
+		} finally {
+			await staging.remove();
+		}
+	}
 
 	// Handle direct binary downloads (no archive extraction needed)
 	if (config.isDirectBinary) {
@@ -248,7 +311,7 @@ async function downloadTool(tool: ToolName, signal?: AbortSignal): Promise<strin
 	}
 
 	// Download archive
-	const archivePath = path.join(TOOLS_DIR, assetName);
+	const archivePath = path.join(toolsDir, assetName);
 	await downloadFile(downloadUrl, archivePath, signal);
 
 	// Extract
@@ -337,16 +400,17 @@ const TERMUX_PACKAGES: Partial<Record<ToolName, string>> = {
 };
 
 // Ensure a tool is available, downloading if necessary
-// Returns the path to the tool, or null if unavailable
+// Returns the path to the tool, or undefined if unavailable.
 type EnsureToolOptions = {
 	signal?: AbortSignal;
 	silent?: boolean;
+	localOnly?: boolean;
 	notify?: (message: string) => void;
 };
 
 export async function ensureTool(tool: ToolName, silentOrOptions?: EnsureToolOptions): Promise<string | undefined> {
-	const { signal, silent = false, notify } = silentOrOptions ?? {};
-	const existingPath = getToolPath(tool);
+	const { signal, silent = false, notify, localOnly = false } = silentOrOptions ?? {};
+	const existingPath = getToolPath(tool, silentOrOptions);
 	if (existingPath) {
 		return existingPath;
 	}
@@ -364,6 +428,8 @@ export async function ensureTool(tool: ToolName, silentOrOptions?: EnsureToolOpt
 	// Handle uv/pip-installed CLI packages
 	const pythonConfig = PYTHON_TOOLS[tool];
 	if (pythonConfig) {
+		// uv/pip install outside the managed tools directory; they cannot satisfy localOnly.
+		if (localOnly) return undefined;
 		if (!silent) {
 			logger.debug(`${pythonConfig.name} not found. Installing via uv/pip...`);
 		}

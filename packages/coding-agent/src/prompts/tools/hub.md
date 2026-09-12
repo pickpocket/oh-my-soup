@@ -5,9 +5,10 @@ Use `op: "list"` to discover live peers. Default is running+idle plus running/id
 
 Background jobs auto-deliver when they finish. You NEVER need to poll; if `jobs`/`wait` observes a settled job first, that snapshot is the delivery and suppresses duplicate `async-result`.
 
-- **`send`** (with `to`): fire-and-forget, NEVER blocks. Delivery receipts (`delivered`/`failed`) immediate; `failed` → peer gone, don't retry.
-  Sending wakes `idle`/`parked` peers. Answering: lead with answer, NEVER quote, set `replyTo`.
-- **Format**: plain prose ONLY. No JSON status objects. Share paths via `local://`/`artifact://` URLs, not pasted blobs.
+- **`send`** (with `to`, without `await`): fire-and-forget. Receipts (`injected`/`woken`/`revived`/`failed`) include the message `[id]`; the recipient sees that same id. Use it as `replyTo`.
+  `failed` means not delivered now; a failed live hand-off may still be buffered for the recipient, so check state before retrying. Sending wakes `idle`/`parked` peers. `await: true` waits for a reply, timeout, or the recipient finishing a running turn without replying. Answering: lead with answer, NEVER repeat the quoted message, set `replyTo`.
+- **Format**: plain prose ONLY. No JSON status objects. Bodies over 8000 UTF-16 units are rejected unsent. Share paths via `local://`/`artifact://` URLs, not pasted blobs. Roster `undelivered` counts are buffered messages **to** that peer.
+- Incoming IRC, including parent messages, is an aside: finish the current tool call before acting on it. Ordinary tool calls continue; interruptible waits can still wake for the message.
 - **`wait`**: use ONLY when completely blocked with no other work. Returns on the FIRST of: an incoming message, a watched job finishing, the wait window elapsing, or a steering interrupt — NOT when all jobs finish; re-issue to keep waiting.
   - Bare `wait` watches every running job AND incoming messages. NEVER pass an array of every running ID; `ids` narrows to specific jobs, `from` to one peer (or use `await: true` on send).
 - **`inbox`**: drain queued messages without blocking.

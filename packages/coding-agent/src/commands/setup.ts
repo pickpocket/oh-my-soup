@@ -9,7 +9,7 @@ import { runSetupCommand, type SetupCommandArgs, type SetupComponent } from "../
 import { runRootCommand } from "../main";
 import { initTheme } from "../modes/theme/theme";
 
-const COMPONENTS: SetupComponent[] = ["python", "speech"];
+const COMPONENTS: SetupComponent[] = ["python", "speech", "objdump"];
 
 export interface OnboardingSetupDependencies {
 	runRoot?: typeof runRootCommand;
@@ -49,7 +49,7 @@ export default class Setup extends Command {
 		const { args, flags } = await this.parse(Setup);
 		if (!args.component) {
 			if (flags.check || flags.json) {
-				const message = "setup --check/--json requires a COMPONENT (python|speech)";
+				const message = "setup --check/--json requires a COMPONENT (python|speech|objdump)";
 				if (flags.json) {
 					process.stdout.write(`${JSON.stringify({ error: message })}\n`);
 					process.exitCode = 1;

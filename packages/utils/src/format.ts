@@ -59,12 +59,17 @@ export function formatBytes(bytes: number): string {
 }
 
 /**
- * Truncate a string to maxLen characters, appending an ellipsis if truncated.
+ * Truncate by UTF-16 units, preserving surrogate pairs at the cut boundary.
  * For display-width-aware truncation (terminals), use truncateToWidth from @oh-my-soup/pi-tui.
  */
 export function truncate(str: string, maxLen: number, ellipsis = "…"): string {
 	if (str.length <= maxLen) return str;
-	const sliceLen = Math.max(0, maxLen - ellipsis.length);
+	let sliceLen = Math.max(0, maxLen - ellipsis.length);
+	const last = str.charCodeAt(sliceLen - 1);
+	if (last >= 0xd800 && last <= 0xdbff) {
+		const next = str.charCodeAt(sliceLen);
+		if (next >= 0xdc00 && next <= 0xdfff) sliceLen--;
+	}
 	return `${str.slice(0, sliceLen)}${ellipsis}`;
 }
 

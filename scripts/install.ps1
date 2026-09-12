@@ -10,8 +10,8 @@
     back to the baseline build when the release predates the modern asset or
     the CPU cannot launch it. The binary's own smoke test is the capability
     probe - no CPUID guessing. The script then moves the binary into the
-    install directory, adds that directory to the user PATH, and points oms
-    at a bash shell when one exists.
+    install directory, installs its local GNU objdump dependency, adds that
+    directory to the user PATH, and points oms at a bash shell when one exists.
 
     The release tag comes from the releases/latest HTTP redirect, not the GitHub
     REST API, so the script is immune to the API's 60-requests-per-hour
@@ -210,21 +210,24 @@ function Save-OmsAsset {
     }
 }
 
-function Test-OmsBinary {
+function Invoke-OmsBinary {
     [OutputType([pscustomobject])]
     param(
         [Parameter(Mandatory)]
-        [string]$ExePath
+        [string]$ExePath,
+
+        [Parameter(Mandatory)]
+        [string[]]$Arguments
     )
 
-    # Native smoke test. EAP stays 'Continue' in this scope: under 'Stop',
+    # Native command. EAP stays 'Continue' in this scope: under 'Stop',
     # Windows PowerShell 5.1 turns any stderr byte of a redirected native
     # command into a terminating NativeCommandError, failing installs whose
     # binary works. The exit code is the only authority here. A binary that
     # cannot launch at all reports exit -1 with the launch error as output.
     $ErrorActionPreference = 'Continue'
     try {
-        $Lines = & $ExePath --version 2>&1
+        $Lines = & $ExePath @Arguments 2>&1
         $ExitCode = $LASTEXITCODE
     } catch {
         return [pscustomobject]@{
@@ -484,7 +487,7 @@ function Install-Oms {
 
             # Smoke-test the download BEFORE it replaces a working install: a bad
             # asset must never take out the binary the user already has.
-            $Smoke = Test-OmsBinary -ExePath $TempPath
+            $Smoke = Invoke-OmsBinary -ExePath $TempPath -Arguments '--version'
         } catch {
             Remove-Item -LiteralPath $TempPath -ErrorAction SilentlyContinue
             throw
@@ -507,6 +510,15 @@ function Install-Oms {
     }
 
     Install-OmsBinary -TempPath $TempPath -TargetPath $TargetPath
+    Write-OmsStep -Message 'Installing local GNU objdump...'
+    $Setup = Invoke-OmsBinary -ExePath $TargetPath -Arguments @('setup', 'objdump')
+    foreach ($Line in $Setup.Output) {
+        Write-OmsStep -Message $Line
+    }
+    if ($Setup.ExitCode -ne 0) {
+        $Detail = ($Setup.Output -join '; ')
+        throw "oms was installed, but GNU objdump setup failed (exit $($Setup.ExitCode)): $Detail. Check the error above, then retry: & `"$TargetPath`" setup objdump"
+    }
     Write-OmsStep -Message ''
     Write-OmsStep -Message "[OK] Installed oms $($Smoke.Output -join ' ') ($Variant) to $TargetPath" -Color Green
 

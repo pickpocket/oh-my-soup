@@ -2023,11 +2023,12 @@ describe("agentLoop with AgentMessage", () => {
 		).toBe(true);
 	});
 
-	it("does not abort a non-interruptible foreground tool when only IRC is queued", async () => {
+	it("does not abort foreground or cooperative steering signals when only peer IRC is queued", async () => {
 		const toolSchema = type({});
 		let ircReady = false;
 		let ircDrained = false;
 		let bgSignalAborted = true;
+		let bgSteeringSignal: AbortSignal | undefined;
 		let bgCompleted = false;
 		let waitObservedAbort = false;
 		const bgStarted = Promise.withResolvers<void>();
@@ -2039,7 +2040,10 @@ describe("agentLoop with AgentMessage", () => {
 			label: "Bg",
 			description: "Foreground non-interruptible work (mimics bash)",
 			parameters: toolSchema,
-			async execute(_toolCallId, _params, signal) {
+			async execute(_toolCallId, _params, signal, _onUpdate, ctx) {
+				// This test's getToolContext supplies the loop-owned batch context.
+				const toolContext = ctx as AgentToolContext & { toolCall?: ToolCallContext };
+				bgSteeringSignal = toolContext.toolCall?.steeringSignal;
 				bgStarted.resolve();
 				// Hold until the interruptible wait sibling has observed the IRC abort,
 				// then finish normally. Reads `signal.aborted` at completion so the
@@ -2061,16 +2065,19 @@ describe("agentLoop with AgentMessage", () => {
 				await bgStarted.promise;
 				ircReady = true;
 				const { promise, resolve } = Promise.withResolvers<void>();
-				const timer = setTimeout(resolve, 2000);
-				signal?.addEventListener(
-					"abort",
-					() => {
-						clearTimeout(timer);
-						waitObservedAbort = true;
-						resolve();
-					},
-					{ once: true },
-				);
+				if (signal?.aborted) {
+					waitObservedAbort = true;
+					resolve();
+				} else {
+					signal?.addEventListener(
+						"abort",
+						() => {
+							waitObservedAbort = true;
+							resolve();
+						},
+						{ once: true },
+					);
+				}
 				await promise;
 				waitFinished.resolve();
 				return { content: [{ type: "text", text: "waited" }], details: {} };
@@ -2093,6 +2100,7 @@ describe("agentLoop with AgentMessage", () => {
 			model: mock.model,
 			convertToLlm: identityConverter,
 			interruptMode: "immediate",
+			getToolContext: toolCall => ({ toolCall }) as AgentToolContext,
 			hasIrcInterrupts: () => ircReady && !ircDrained,
 			getAsideMessages: async () => {
 				if (ircReady && !ircDrained) {
@@ -2111,6 +2119,7 @@ describe("agentLoop with AgentMessage", () => {
 		expect(waitObservedAbort).toBe(true);
 		expect(bgCompleted).toBe(true);
 		expect(bgSignalAborted).toBe(false);
+		expect(bgSteeringSignal?.aborted).toBe(false);
 		expect(ircDrained).toBe(true);
 		const bgEnd = events.find(
 			(e): e is Extract<AgentEvent, { type: "tool_execution_end" }> =>
@@ -2122,7 +2131,7 @@ describe("agentLoop with AgentMessage", () => {
 		}
 	});
 
-	it("runs a queued non-interruptible tool after an IRC interrupt aborts an earlier wait (#7493)", async () => {
+	it("runs queued foreground work but skips later waits after an IRC interrupt (#7493)", async () => {
 		// Reproduces the reporter's orchestration flow: a batch pairs an
 		// interruptible `hub wait` with a non-interruptible `todo` update queued
 		// behind it (todo is `concurrency: "exclusive"`). A peer subagent message
@@ -2135,6 +2144,7 @@ describe("agentLoop with AgentMessage", () => {
 		let ircReady = false;
 		let ircDrained = false;
 		let todoExecuted = false;
+		const executed: string[] = [];
 		const ircMessage = createUserMessage("peer irc");
 
 		const wait: AgentTool<typeof toolSchema, Record<string, never>> = {
@@ -2144,6 +2154,7 @@ describe("agentLoop with AgentMessage", () => {
 			parameters: toolSchema,
 			interruptible: true,
 			async execute(_toolCallId, _params, signal) {
+				executed.push("wait");
 				ircReady = true;
 				// Resolve strictly on the IRC abort under test — no wall-clock timer.
 				// If the interrupt never fired the loop would hang, which is itself
@@ -2163,6 +2174,7 @@ describe("agentLoop with AgentMessage", () => {
 			parameters: toolSchema,
 			concurrency: "exclusive",
 			async execute() {
+				executed.push("todo");
 				todoExecuted = true;
 				return { content: [{ type: "text", text: "todo updated" }], details: {} };
 			},
@@ -2175,6 +2187,7 @@ describe("agentLoop with AgentMessage", () => {
 					content: [
 						{ type: "toolCall", id: "call-wait", name: "wait", arguments: {} },
 						{ type: "toolCall", id: "call-todo", name: "todo", arguments: {} },
+						{ type: "toolCall", id: "call-later-wait", name: "wait", arguments: {} },
 					],
 				},
 				{ content: ["done"] },
@@ -2201,6 +2214,7 @@ describe("agentLoop with AgentMessage", () => {
 
 		expect(ircDrained).toBe(true);
 		expect(todoExecuted).toBe(true);
+		expect(executed).toEqual(["wait", "todo"]);
 		const todoEnd = events.find(
 			(e): e is Extract<AgentEvent, { type: "tool_execution_end" }> =>
 				e.type === "tool_execution_end" && e.toolCallId === "call-todo",
@@ -2209,6 +2223,16 @@ describe("agentLoop with AgentMessage", () => {
 		if (todoEnd?.result.content[0]?.type === "text") {
 			expect(todoEnd.result.content[0].text).toContain("todo updated");
 		}
+		const skippedWait = events.find(
+			(e): e is Extract<AgentEvent, { type: "tool_execution_end" }> =>
+				e.type === "tool_execution_end" && e.toolCallId === "call-later-wait",
+		);
+		expect(skippedWait?.isError).toBe(true);
+		expect(skippedWait?.result.details).toMatchObject({
+			__synthetic: true,
+			source: "interrupt_skipped",
+			executed: false,
+		});
 	});
 
 	it("does not abort a tool when its interruptibility resolver rejects the call", async () => {

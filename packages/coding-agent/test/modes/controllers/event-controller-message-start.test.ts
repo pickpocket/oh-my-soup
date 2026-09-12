@@ -8,8 +8,8 @@ import { UiHelpers } from "@oh-my-soup/pi-coding-agent/modes/utils/ui-helpers";
 import type { CustomMessage } from "@oh-my-soup/pi-coding-agent/session/messages";
 import type { Component } from "@oh-my-soup/pi-tui";
 
-beforeAll(() => {
-	initTheme();
+beforeAll(async () => {
+	await initTheme();
 });
 
 function createUserMessage(text: string): UserMessage {
@@ -169,13 +169,16 @@ describe("EventController message_start (user role)", () => {
 	});
 });
 
-function createIrcMessage(timestamp: number): CustomMessage<{ from: string; message: string }> {
+function createIrcMessage(
+	timestamp: number,
+	id = `irc-${timestamp}`,
+): CustomMessage<{ id: string; from: string; message: string }> {
 	return {
 		role: "custom",
 		customType: "irc:incoming",
 		content: "Ready",
 		display: true,
-		details: { from: "0-Main", message: `Ready ${timestamp}` },
+		details: { id, from: "Main", message: `Ready ${id}` },
 		timestamp,
 	};
 }
@@ -199,6 +202,7 @@ function createIrcContext(options: { liveBlockAbove?: boolean } = {}) {
 		ui: { requestRender },
 		chatContainer,
 		session: {},
+		viewSession: { isStreaming: false },
 	} as unknown as InteractiveModeContext;
 	const helpers = new UiHelpers(ctx);
 	const addMessageToChat: InteractiveModeContext["addMessageToChat"] = vi.fn((message, options) =>
@@ -286,6 +290,83 @@ describe("EventController IRC expiry", () => {
 		expect(chatContainer.children).toHaveLength(2);
 		vi.advanceTimersByTime(10_000);
 		expect(chatContainer.children).toHaveLength(1);
+	});
+
+	it("keeps distinct same-millisecond IRC cards and deduplicates their later stream replay by ID", async () => {
+		vi.useFakeTimers();
+		const first = createIrcMessage(42, "first-message");
+		const second = createIrcMessage(42, "second-message");
+		const { ctx, chatContainer, addMessageToChat } = createIrcContext({ liveBlockAbove: true });
+		const controller = new EventController(ctx);
+		try {
+			await controller.handleEvent({ type: "irc_message", message: first });
+			await controller.handleEvent({ type: "irc_message", message: second });
+			const replay = { ...first, timestamp: 43, customType: "irc:relay" };
+			await controller.handleEvent({ type: "irc_message", message: replay });
+			await controller.handleEvent({ type: "message_start", message: replay });
+			await controller.handleEvent({ type: "message_end", message: replay });
+
+			expect(addMessageToChat).toHaveBeenCalledTimes(2);
+			const rendered = Bun.stripANSI(chatContainer.render(100).join("\n"));
+			expect(rendered).toContain("Ready first-message");
+			expect(rendered).toContain("Ready second-message");
+			expect(chatContainer.children).toHaveLength(3);
+
+			vi.advanceTimersByTime(10_000);
+			expect(chatContainer.children).toHaveLength(1);
+			await controller.handleEvent({ type: "message_start", message: replay });
+			await controller.handleEvent({ type: "message_end", message: replay });
+			expect(chatContainer.children).toHaveLength(1);
+			expect(addMessageToChat).toHaveBeenCalledTimes(2);
+		} finally {
+			controller.dispose();
+		}
+	});
+
+	it("uses timestamps for non-IRC custom records even when their details share an ID", async () => {
+		const { ctx, addMessageToChat } = createContext({ editorText: "" });
+		const controller = new EventController(ctx);
+		const first: CustomMessage<{ id: string }> = {
+			role: "custom",
+			customType: "progress",
+			content: "First update",
+			display: true,
+			details: { id: "one-task" },
+			timestamp: 1,
+		};
+		const second = { ...first, content: "Second update", timestamp: 2 };
+		try {
+			await controller.handleEvent({ type: "message_start", message: first });
+			await controller.handleEvent({ type: "message_start", message: second });
+			await controller.handleEvent({ type: "message_start", message: { ...first } });
+			await controller.handleEvent({ type: "message_end", message: first });
+			await controller.handleEvent({ type: "message_end", message: second });
+			expect(addMessageToChat.mock.calls.map(([message]) => message.content)).toEqual([
+				"First update",
+				"Second update",
+			]);
+		} finally {
+			controller.dispose();
+		}
+	});
+
+	it("deduplicates legacy IRC records without IDs by timestamp", async () => {
+		vi.useFakeTimers();
+		const message: CustomMessage<{ from: string; message: string }> = {
+			...createIrcMessage(43),
+			details: { from: "Main", message: "Legacy message" },
+		};
+		const { ctx, chatContainer, addMessageToChat } = createIrcContext();
+		const controller = new EventController(ctx);
+		try {
+			await controller.handleEvent({ type: "irc_message", message });
+			await controller.handleEvent({ type: "message_start", message: { ...message } });
+			await controller.handleEvent({ type: "message_end", message });
+			expect(addMessageToChat).toHaveBeenCalledTimes(1);
+			expect(Bun.stripANSI(chatContainer.render(100).join("\n"))).toContain("Legacy message");
+		} finally {
+			controller.dispose();
+		}
 	});
 
 	it("clears pending IRC expiry timers on dispose", async () => {

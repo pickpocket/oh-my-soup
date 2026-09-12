@@ -48,6 +48,7 @@ Metrics depend on the progress or persisted usage data available for that agent.
 | `j` / `k`, `↑` / `↓`, wheel | Select an agent.                                                             |
 | `Enter` or click            | Open the selected agent.                                                     |
 | `t`                         | Toggle flat and parent/child views.                                          |
+| `c`                         | Open IRC messages involving the selected agent, or all messages when the roster is empty. |
 | `Tab`                       | Toggle the inspector on narrow terminals.                                    |
 | `PageUp` / `PageDown`       | Scroll an open inspector.                                                    |
 | `r`                         | Revive the selected parked agent.                                            |
@@ -55,6 +56,16 @@ Metrics depend on the progress or persisted usage data available for that agent.
 | `Esc`                       | Close the inspector first on narrow terminals, then close the Hub.           |
 
 Only `parked` agents can be revived. `x` is immediate; use it only when you intend to discard that agent instance.
+
+## Peer IRC transcript
+
+Press `c` in the roster to open peer chat without focusing or reviving an agent. The view shows the newest messages involving the selected peer in chronological order, including sender, recipient, and a reply marker when present.
+
+- `a` switches between selected-peer and all-agent messages.
+- `c`, `Esc`, or `←` returns to the roster with its selection preserved.
+- The configured Hub shortcut closes the overlay from either view.
+
+The transcript retains the newest 500 delivered or buffered messages in the current process. It updates live, outlives the transient IRC cards, and is not saved or replayed into model context. On small terminals only the newest lines that fit are shown. Roster undelivered counts describe buffered messages addressed **to** each peer, not messages from that peer awaiting your attention.
 
 ## Read and steer a subagent
 

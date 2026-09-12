@@ -328,6 +328,8 @@ describe("SessionManager legacy session migration persistence", () => {
 				}),
 			].join("\n")}\n`,
 		);
+		// A historical mtime keeps rewrite checks independent of wall-clock adjustments.
+		fs.utimesSync(sessionFile, 1, 1);
 		const initialMtimeMs = fs.statSync(sessionFile).mtimeMs;
 
 		const session = await SessionManager.open(sessionFile, tempDir);
@@ -373,6 +375,7 @@ describe("SessionManager legacy session migration persistence", () => {
 				}),
 			].join("\n")}\n`,
 		);
+		fs.utimesSync(sessionFile, 1, 1);
 		const initialMtimeMs = fs.statSync(sessionFile).mtimeMs;
 
 		const session = await SessionManager.open(sessionFile, tempDir);
@@ -405,6 +408,7 @@ describe("SessionManager legacy session migration persistence", () => {
 				}),
 			].join("\n")}\n`,
 		);
+		fs.utimesSync(sessionFile, 1, 1);
 		const initialMtimeMs = fs.statSync(sessionFile).mtimeMs;
 
 		const session = await SessionManager.open(sessionFile, tempDir);

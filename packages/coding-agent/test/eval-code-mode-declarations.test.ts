@@ -66,7 +66,7 @@ test("EvalTool advertises only tools authorized for its bridge", () => {
 		getSessionFile: () => null,
 		settings: Settings.isolated({ "providers.openai-codex.codeMode": "auto" }),
 		getActiveModel: () => ({ provider: "openai-codex", toolMode: "code_mode_only" }),
-		toolRegistry: new Map([
+		toolRegistry: new Map<string, typeof read | typeof write>([
 			["read", read],
 			["write", write],
 		]),

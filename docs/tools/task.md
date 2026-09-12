@@ -117,6 +117,16 @@ Artifacts and side channels:
 - Prewalk: agent frontmatter `prewalk` or `task.agentPrewalk[agentName]` can start on the normal model and hand off to a cheaper resolved model at the first edit/write. `task.prewalk` (default off) arms this behavior for the bundled generic `task` agent. Missing/unconfigured targets and exact model+effort no-ops skip the handoff rather than failing the spawn.
 - Advisor: agent frontmatter `advisor` or `task.agentAdvisor[agentName]` (`"on"` / `"off"` / model pattern) pairs the child session with an advisor; an explicit pattern lands on the child's `modelRoles.advisor`. Subagents default to no advisor.
 
+## Discord completion notifications
+
+Set `task.discordWebhookUrl` in `/settings` → Tasks → Subagents → Discord Webhook to opt in. An unset or blank value disables delivery. This is a credential field: the settings UI and `oms config list` mask it; an explicit `oms config get task.discordWebhookUrl` returns the URL unmasked. Keep it out of committed project configuration.
+
+- One notification is queued when a foreground or background task execution finishes, after isolation/merge processing. Status distinguishes completion, failure, cancellation, and merge failure. Progress events, rendering, and later IRC wake-ups do not send notifications.
+- The payload contains only task ID (when available), agent type, status, and elapsed duration. It excludes assignments, prompts, results, paths, and error details. Content is bounded to 2,000 UTF-16 units; Discord mentions are disabled.
+- Delivery is a single best-effort HTTP POST with a five-second timeout, independent of task cancellation. It does not delay task completion or change its result. HTTP errors, including rate limits, are logged without the URL or response body; there are no retries.
+- Normal session disposal awaits that session's pending deliveries after task producers settle. Late notifications after disposal are ignored; hard process termination can still lose a notification.
+- URLs must use HTTPS, except HTTP loopback URLs for local testing. URL credentials and fragments are rejected, redirects are not followed, and existing query parameters (including `thread_id`) are preserved while `wait=true` requests server acknowledgement.
+
 ## Side Effects
 - Filesystem
   - Writes `<id>.jsonl` and `<id>.md` under the session artifacts dir or a temp task dir; isolated patch mode writes `<id>.patch`.
@@ -124,6 +134,7 @@ Artifacts and side channels:
 - Network
   - Child sessions may use whichever networked tools/models their active tool set permits.
   - MCP proxy tools can call existing parent MCP connections with a 60_000 ms timeout.
+  - If `task.discordWebhookUrl` is configured, terminal task executions enqueue a metadata-only webhook POST as described above.
 - Subprocesses / native bindings
   - Isolation backends run through the `pi-natives` PAL (`crates/pi-iso`): kernel `overlay` with `fuse-overlayfs`/`fusermount[3]` fallback on Linux, APFS/Btrfs/ZFS/reflink clones, ProjFS on Windows, recursive copy as last resort.
   - Git operations for baseline capture, patch apply, worktrees, branches, stash, cherry-pick, commits.

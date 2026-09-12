@@ -8,6 +8,7 @@ export const BUILTIN_TOOL_NAMES = [
 	"beads",
 	"debug",
 	"disasm",
+	"objdump",
 	"eval",
 	"frida",
 	"github",

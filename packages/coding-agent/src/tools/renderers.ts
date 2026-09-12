@@ -28,6 +28,7 @@ import { grepToolRenderer } from "./grep";
 import { hubToolRenderer } from "./hub";
 import { inspectImageToolRenderer } from "./inspect-image-renderer";
 import { recallToolRenderer, reflectToolRenderer, retainToolRenderer } from "./memory-render";
+import { objdumpToolRenderer } from "./objdump";
 import { readToolRenderer } from "./read";
 import { resolveRenderer } from "./resolve";
 import { thinkToolRenderer } from "./think";
@@ -91,6 +92,7 @@ export const toolRenderers: Record<string, ToolRenderer> = {
 	computer: computerToolRenderer as ToolRenderer,
 	debug: debugToolRenderer as ToolRenderer,
 	disasm: disasmToolRenderer as ToolRenderer,
+	objdump: objdumpToolRenderer as ToolRenderer,
 	eval: evalToolRenderer as ToolRenderer,
 	frida: fridaToolRenderer as ToolRenderer,
 	edit: editToolRenderer as ToolRenderer,

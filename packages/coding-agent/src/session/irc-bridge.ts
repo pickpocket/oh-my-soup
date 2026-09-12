@@ -1,14 +1,33 @@
 import type { Agent } from "@oh-my-soup/pi-agent-core";
-import { logger, prompt } from "@oh-my-soup/pi-utils";
+import { logger, prompt, truncate } from "@oh-my-soup/pi-utils";
 import type { Settings } from "../config/settings";
-import { IrcBus, type IrcMessage } from "../irc/bus";
-import parentIrcSteerTemplate from "../prompts/steering/parent-irc.md" with { type: "text" };
+import { IRC_MAX_BODY_CHARS, IrcBus, type IrcMessage } from "../irc/bus";
 import ircAutoReplyTemplate from "../prompts/system/irc-autoreply.md" with { type: "text" };
 import ircIncomingTemplate from "../prompts/system/irc-incoming.md" with { type: "text" };
+import parentIrcIncomingTemplate from "../prompts/system/parent-irc.md" with { type: "text" };
 import { AgentRegistry } from "../registry/agent-registry";
 import type { AgentSessionEvent } from "./agent-session-events";
 import type { CustomMessage } from "./messages";
 import type { SessionManager } from "./session-manager";
+
+/** Maximum UTF-16 length of a one-line reply excerpt, including its ellipsis. */
+const QUOTED_BODY_CHARS = 200;
+
+function quoteRepliedBody(msg: IrcMessage): string {
+	if (!msg.replyTo) return "";
+	const original = IrcBus.global().find(msg.replyTo);
+	if (
+		!original ||
+		!(
+			(original.from === msg.from && original.to === msg.to) ||
+			(original.from === msg.to && original.to === msg.from)
+		)
+	) {
+		return "";
+	}
+	const oneLine = original.body.replace(/\s+/g, " ").trim();
+	return truncate(oneLine, QUOTED_BODY_CHARS);
+}
 
 /** Capabilities the IRC bridge borrows from its owning session. */
 export interface IrcBridgeHost {
@@ -33,7 +52,7 @@ export class IrcBridge {
 		this.#host = host;
 	}
 
-	/** Whether an incoming peer message can interrupt a wait. */
+	/** Whether incoming IRC can wake a deliberate wait without disrupting ordinary tools. */
 	hasInterrupts(): boolean {
 		return this.#interrupts.length > 0;
 	}
@@ -109,16 +128,19 @@ export class IrcBridge {
 		const planModeIdle = !streaming && this.#host.planModeEnabled();
 		const autoReply =
 			(opts?.expectsReply ?? false) && ((streaming && !this.#host.settings.get("async.enabled")) || planModeIdle);
+		const fromParent = AgentRegistry.global().get(msg.to)?.parentId === msg.from;
+		const promptContext = {
+			id: msg.id,
+			from: msg.from,
+			message: msg.body,
+			replyTo: msg.replyTo ?? "",
+			quoted: quoteRepliedBody(msg),
+			autoReplied: autoReply,
+		};
 		const record: CustomMessage = {
 			role: "custom",
 			customType: "irc:incoming",
-			content: prompt.render(ircIncomingTemplate, {
-				from: msg.from,
-				message: msg.body,
-				replyTo: msg.replyTo ?? "",
-				autoReplied: autoReply,
-				interrupting: streaming,
-			}),
+			content: prompt.render(fromParent ? parentIrcIncomingTemplate : ircIncomingTemplate, promptContext),
 			display: true,
 			details: { id: msg.id, from: msg.from, message: msg.body, ...(msg.replyTo ? { replyTo: msg.replyTo } : {}) },
 			attribution: "agent",
@@ -126,18 +148,7 @@ export class IrcBridge {
 		};
 		void this.#host.emitSessionEvent({ type: "irc_message", message: record });
 		if (streaming) {
-			const recipientParentId = AgentRegistry.global().get(msg.to)?.parentId;
-			if (recipientParentId === msg.from) {
-				this.#host.agent.steer({
-					role: "user",
-					content: prompt.render(parentIrcSteerTemplate, { from: msg.from, message: msg.body }),
-					attribution: "agent",
-					timestamp: msg.ts,
-					steering: true,
-				});
-			} else {
-				this.#interrupts.push(record);
-			}
+			this.#interrupts.push(record);
 			if (autoReply) void this.#runAutoReply(msg);
 			return "injected";
 		}
@@ -179,20 +190,22 @@ export class IrcBridge {
 					replyTo: msg.replyTo ?? "",
 				}),
 			});
-			const body = replyText.trim();
-			if (!body || this.#host.isDisposed()) return;
+			const replyBody = replyText.trim();
+			if (!replyBody || this.#host.isDisposed()) return;
+			const body = truncate(replyBody, IRC_MAX_BODY_CHARS, " …[truncated]");
+			const receipt = await IrcBus.global().send({ from: msg.to, to: msg.from, body, replyTo: msg.id });
+			if (this.#host.isDisposed()) return;
 			const record: CustomMessage = {
 				role: "custom",
 				customType: "irc:autoreply",
 				content: `[IRC you → \`${msg.from}\` (auto)]\n\n${body}`,
 				display: true,
-				details: { to: msg.from, body, replyTo: msg.id },
+				details: { id: receipt.id, to: msg.from, body, replyTo: msg.id },
 				attribution: "agent",
 				timestamp: Date.now(),
 			};
 			void this.#host.emitSessionEvent({ type: "irc_message", message: record });
 			this.#asides.push(record);
-			const receipt = await IrcBus.global().send({ from: msg.to, to: msg.from, body, replyTo: msg.id });
 			if (receipt.outcome === "failed") {
 				logger.warn("IRC auto-reply delivery failed", { to: msg.from, error: receipt.error });
 			}

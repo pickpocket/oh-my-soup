@@ -1681,7 +1681,9 @@ async function createAgentSessionScoped(options: CreateAgentSessionOptions): Pro
 		// entries capture it at fetch time and are dropped at injection if a newer
 		// mutation (any tool) bumped it in the meantime.
 		const fileMutationVersions = new Map<string, number>();
-		const disposeCallbacks = new Set<() => void>();
+		const disposeCallbacks = new Set<() => void | Promise<void>>();
+		let disposeCallbacksComplete = false;
+		let disposeCallbacksPromise: Promise<void> | undefined;
 		const activeToolNames = new Set<string>();
 		const toolRegistry = new Map<string, Tool>();
 		const setActiveToolNames = (names: Iterable<string>): void => {
@@ -1784,6 +1786,12 @@ async function createAgentSessionScoped(options: CreateAgentSessionOptions): Pro
 				session?.queueLaunchCompletion(notification) ??
 				Promise.reject(new Error("Session unavailable for launch completion delivery")),
 			registerDisposeCallback: callback => {
+				if (disposeCallbacksComplete) {
+					void Promise.try(callback).catch(error => {
+						logger.warn("Late tool disposal callback failed", { error: String(error) });
+					});
+					return;
+				}
 				disposeCallbacks.add(callback);
 				return () => disposeCallbacks.delete(callback);
 			},
@@ -3686,11 +3694,21 @@ async function createAgentSessionScoped(options: CreateAgentSessionOptions): Pro
 				sessionManager.getSessionFile() ?? null,
 				registeredAgentRef,
 			) ||
-			!agentRegistry.setStatus(resolvedAgentId, "running", registeredAgentRef)
+			!agentRegistry.setStatus(
+				resolvedAgentId,
+				agentKind === "main" && !session.isStreaming ? "idle" : "running",
+				registeredAgentRef,
+			)
 		) {
 			throw new Error(`Agent "${resolvedAgentId}" was replaced during session initialization.`);
 		}
 		hasRegistered = true;
+		if (agentKind === "main") {
+			// Use the authoritative agent_start/agent_end run-state subscription,
+			// not deferred public events. The helper guards session ownership so an
+			// older SDK session cannot update a replacement Main generation.
+			disposeCallbacks.add(agentRegistry.syncSessionStatus(resolvedAgentId, session));
+		}
 		// MCP notification bridge cleanup — assigned when the bridge is wired below,
 		// invoked from the dispose wrapper AND registered as a postmortem so both
 		// explicit-dispose (SDK embedders that reuse the process across sessions) and
@@ -3737,8 +3755,13 @@ async function createAgentSessionScoped(options: CreateAgentSessionOptions): Pro
 					queueSearchBrowserRelease(releaseSearchBrowserLease);
 					releaseSearchBrowserLease = undefined;
 					await searchBrowserReleaseTail;
-					for (const callback of disposeCallbacks) callback();
-					disposeCallbacks.clear();
+					// Concurrent dispose calls share the drain; each callback runs once.
+					disposeCallbacksPromise ??= (async () => {
+						for (const callback of disposeCallbacks) await callback();
+						disposeCallbacks.clear();
+						disposeCallbacksComplete = true;
+					})();
+					await disposeCallbacksPromise;
 					if (ownsAuthStorage) authStorage.close();
 					// Drop refs so the process-global postmortem list doesn't retain
 					// the bridge closure past explicit dispose.

@@ -4894,6 +4894,19 @@ export const SETTINGS_SCHEMA = {
 		},
 	},
 
+	"task.discordWebhookUrl": {
+		type: "string",
+		default: undefined,
+		credential: true,
+		ui: {
+			tab: "tasks",
+			group: "Subagents",
+			label: "Discord Webhook",
+			description:
+				"Opt in to one Discord notification per completed subagent task, containing only task ID, agent, status, and duration. Blank disables notifications.",
+		},
+	},
+
 	"task.enableEffort": {
 		type: "boolean",
 		default: false,

@@ -61,6 +61,7 @@ import { MemoryEditTool } from "./memory-edit";
 import { MemoryRecallTool } from "./memory-recall";
 import { MemoryReflectTool } from "./memory-reflect";
 import { MemoryRetainTool } from "./memory-retain";
+import { ObjdumpTool } from "./objdump";
 import { wrapToolWithMetaNotice } from "./output-meta";
 import { ReadTool } from "./read";
 import type { PlanProposalHandler } from "./resolve";
@@ -105,6 +106,7 @@ export * from "./memory-edit";
 export * from "./memory-recall";
 export * from "./memory-reflect";
 export * from "./memory-retain";
+export * from "./objdump";
 export * from "./read";
 export * from "./report-tool-issue";
 export * from "./resolve";
@@ -416,8 +418,8 @@ export interface ToolSession {
 	queueDeferredMessage?(message: CustomMessage): void;
 	/** Queue a broker supervised-process completion for the owning session. */
 	queueLaunchCompletion?(notification: DaemonCompletionNotification): Promise<void>;
-	/** Register cleanup that runs when this session is disposed; returns a handle that removes the cleanup. */
-	registerDisposeCallback?(callback: () => void): (() => void) | void;
+	/** Cleanup awaited after session work settles; late registrations run immediately. Returns a removal handle. */
+	registerDisposeCallback?(callback: () => void | Promise<void>): (() => void) | void;
 	/** Register cleanup that runs when this ToolSession adopts a different session ID. */
 	registerSessionChangeCallback?(callback: () => void): (() => void) | void;
 	/** Queue late LSP diagnostics (arrived after an edit/write returned) to be shown
@@ -453,6 +455,7 @@ export const BUILTIN_TOOLS: Record<BuiltinToolName, ToolFactory> = {
 	beads: BeadsTool.createIf,
 	debug: DebugTool.createIf,
 	disasm: DisasmTool.createIf,
+	objdump: ObjdumpTool.createIf,
 	frida: FridaTool.createIf,
 	eval: s => new EvalTool(s),
 	github: GithubTool.createIf,

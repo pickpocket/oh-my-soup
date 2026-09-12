@@ -2,21 +2,27 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, spyOn, vi } from 
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
+import { setImmediate as nextEventLoopTurn } from "node:timers/promises";
 import type { AssistantMessage } from "@oh-my-soup/pi-ai";
 import { getBundledModel } from "@oh-my-soup/pi-catalog/models";
 import type { Rule } from "@oh-my-soup/pi-coding-agent/capability/rule";
 import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
 import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
 import { LocalProtocolHandler } from "@oh-my-soup/pi-coding-agent/internal-urls/local-protocol";
+import { IrcBus } from "@oh-my-soup/pi-coding-agent/irc/bus";
 import { AgentLifecycleManager } from "@oh-my-soup/pi-coding-agent/registry/agent-lifecycle";
 import { AgentRegistry } from "@oh-my-soup/pi-coding-agent/registry/agent-registry";
 import { createAgentSession } from "@oh-my-soup/pi-coding-agent/sdk";
 import * as secrets from "@oh-my-soup/pi-coding-agent/secrets";
 import { AuthStorage } from "@oh-my-soup/pi-coding-agent/session/auth-storage";
 import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
+import { TaskTool } from "@oh-my-soup/pi-coding-agent/task";
+import { notifyTaskCompletion } from "@oh-my-soup/pi-coding-agent/task/discord-notification";
+import type { ToolSession } from "@oh-my-soup/pi-coding-agent/tools";
 import { VibeSessionRegistry } from "@oh-my-soup/pi-coding-agent/vibe/runtime";
 import { getSessionsDir, removeSyncWithRetries, Snowflake } from "@oh-my-soup/pi-utils";
 import { getActiveProfile, getConfigRootDir, setProfile } from "@oh-my-soup/pi-utils/dirs";
+import { asGlobalFetch } from "./helpers/fetch-mock";
 
 function createTtsrRule(name: string): Rule {
 	return {
@@ -115,6 +121,84 @@ describe("createAgentSession session storage isolation", () => {
 			removeSyncWithRetries(tempDir);
 		}
 	});
+
+	for (const lateAdmission of [false, true]) {
+		it(
+			lateAdmission
+				? "rejects first task notification after SDK disposal"
+				: "awaits pending task webhooks before SDK session disposal resolves",
+			async () => {
+				const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), `pi-sdk-webhook-${Snowflake.next()}-`));
+				tempDirs.push(tempDir);
+				const createTaskTool = TaskTool.create;
+				let owner: ToolSession | undefined;
+				vi.spyOn(TaskTool, "create").mockImplementation(async toolSession => {
+					owner = toolSession;
+					return createTaskTool(toolSession);
+				});
+				const { session } = await createAgentSession({
+					cwd: tempDir,
+					agentDir: path.join(tempDir, "agent"),
+					modelRegistry: sharedModelRegistry,
+					settings: Settings.isolated({
+						"task.discordWebhookUrl": "https://discord.com/api/webhooks/123/test-token",
+					}),
+					disableExtensionDiscovery: true,
+					skills: [],
+					contextFiles: [],
+					promptTemplates: [],
+					slashCommands: [],
+					toolNames: ["task"],
+					enableMCP: false,
+					enableLsp: false,
+				});
+				const response = Promise.withResolvers<Response>();
+				const requestStarted = Promise.withResolvers<void>();
+				const disposalReached = Promise.withResolvers<void>();
+				try {
+					if (!owner) throw new Error("Task tool was not created");
+					const cleanup = vi.fn(() => disposalReached.resolve());
+					owner.registerDisposeCallback?.(cleanup);
+					const fetch = vi.spyOn(globalThis, "fetch").mockImplementation(
+						asGlobalFetch(() => {
+							requestStarted.resolve();
+							return response.promise;
+						}),
+					);
+					if (lateAdmission) {
+						await session.dispose();
+						notifyTaskCompletion(owner, { id: "LateWorker", agent: "task", status: "completed", durationMs: 5 });
+						await nextEventLoopTurn();
+						expect(fetch).not.toHaveBeenCalled();
+						return;
+					}
+					notifyTaskCompletion(owner, { id: "FinishedWorker", agent: "task", status: "completed", durationMs: 5 });
+					await requestStarted.promise;
+					let disposed = false;
+					const disposal = session.dispose().then(() => {
+						disposed = true;
+					});
+					await disposalReached.promise;
+					let concurrentDisposed = false;
+					const concurrentDisposal = session.dispose().then(() => {
+						concurrentDisposed = true;
+					});
+					// Teardown reached tool callbacks; a pending HTTP response must keep
+					// disposal unresolved even after the event loop advances.
+					await nextEventLoopTurn();
+					expect(disposed).toBe(false);
+					expect(concurrentDisposed).toBe(false);
+					response.resolve(new Response(null, { status: 204 }));
+					await Promise.all([disposal, concurrentDisposal]);
+					expect(cleanup).toHaveBeenCalledTimes(1);
+					expect(disposed).toBe(true);
+				} finally {
+					response.resolve(new Response(null, { status: 204 }));
+					await session.dispose();
+				}
+			},
+		);
+	}
 
 	it("uses the provided agentDir for the default persistent session root", async () => {
 		const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), `pi-sdk-session-isolation-${Snowflake.next()}-`));
@@ -232,6 +316,86 @@ describe("createAgentSession session storage isolation", () => {
 		expect(registry.get("shared-worker")).toBe(replacement);
 		expect(replacement).toMatchObject({ status: "idle", session: null });
 	});
+
+	it("tracks Main idle and real turns without allowing an old session to change its replacement", async () => {
+		const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), `oms-sdk-main-liveness-${Snowflake.next()}-`));
+		tempDirs.push(tempDir);
+		const cwd = path.join(tempDir, "project");
+		fs.mkdirSync(cwd, { recursive: true });
+		const registry = new AgentRegistry();
+		const { session } = await createAgentSession({
+			cwd,
+			agentDir: path.join(tempDir, "agent"),
+			modelRegistry: sharedModelRegistry,
+			model: getBundledModel("openai", "gpt-4o-mini"),
+			settings: Settings.isolated({ "retry.enabled": false, "compaction.enabled": false }),
+			disableExtensionDiscovery: true,
+			skills: [],
+			contextFiles: [],
+			promptTemplates: [],
+			slashCommands: [],
+			toolNames: [],
+			enableMCP: false,
+			enableLsp: false,
+			agentRegistry: registry,
+		});
+		const bus = new IrcBus(registry);
+		try {
+			expect(registry.get("Main")?.status).toBe("idle");
+			await expect(
+				bus.wait("Peer", { from: "Main" }, 1000, undefined, { liveness: { registry, senderId: "Peer" } }),
+			).rejects.toThrow('agent "Main" is not running');
+			session.agent.getApiKey = () => "test-key";
+			for (const replaced of [false, true]) {
+				if (replaced)
+					registry.register({
+						id: "Main",
+						displayName: "replacement",
+						kind: "main",
+						session: null,
+						status: "idle",
+					});
+				const entered = Promise.withResolvers<void>();
+				const release = Promise.withResolvers<void>();
+				const ended = Promise.withResolvers<void>();
+				const unsubscribe = session.subscribe(event => {
+					if (event.type === "agent_end") ended.resolve();
+				});
+				session.agent.streamFn = async () => {
+					entered.resolve();
+					await release.promise;
+					throw new Error("controlled provider completion");
+				};
+				const turn = session.agent.prompt("exercise Main run-state");
+				try {
+					await entered.promise;
+					expect(registry.get("Main")?.status).toBe(replaced ? "idle" : "running");
+					const waiting = replaced
+						? undefined
+						: bus
+								.wait("Peer", { from: "Main" }, 1000, undefined, {
+									liveness: { registry, senderId: "Peer" },
+								})
+								.then(
+									() => "unexpected reply",
+									error => (error as Error).message,
+								);
+					release.resolve();
+					await turn;
+					await ended.promise;
+					expect(registry.get("Main")?.status).toBe("idle");
+					if (waiting) expect(await waiting).toContain('agent "Main" is not running');
+				} finally {
+					release.resolve();
+					await turn;
+					unsubscribe();
+				}
+			}
+		} finally {
+			await session.dispose();
+		}
+		expect(registry.get("Main")?.displayName).toBe("replacement");
+	}, 30_000);
 
 	it("reuses the exact parked ref authorized for revival", async () => {
 		const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), `pi-sdk-generation-revive-${Snowflake.next()}-`));

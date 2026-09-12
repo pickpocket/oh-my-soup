@@ -23,6 +23,7 @@ import {
 	xdevDocsAll,
 	xdevEntries,
 } from "@oh-my-soup/pi-coding-agent/tools/xdev";
+import { getToolPath } from "@oh-my-soup/pi-coding-agent/utils/tools-manager";
 import { removeWithRetries } from "@oh-my-soup/pi-utils";
 
 // xdev mounting is default-on: discoverable tools like ast_edit unmount into
@@ -108,6 +109,30 @@ describe("read and write route xd:// device URLs", () => {
 			expect(invoker).toBeDefined();
 			await invoker!({ action: "apply", reason: "apply xdev ast edit" });
 			expect(await Bun.file(filePath).text()).toContain("modernWrap(x, value)");
+		} finally {
+			await removeWithRetries(tempDir);
+		}
+	});
+
+	it.skipIf(!getToolPath("objdump"))("dispatches native objdump capabilities as a read-only device", async () => {
+		const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "objdump-xdev-"));
+		try {
+			const tools = await createTools(xdevSession(tempDir));
+			const read = tools.find(tool => tool.name === "read");
+			const write = tools.find(tool => tool.name === "write");
+			if (!read || !write) throw new Error("Device transports were not registered");
+			expect(tools.some(tool => tool.name === "objdump")).toBe(false);
+			const listing = await read.execute("objdump-list", { path: "xd://" });
+			expect(listing.content.find(part => part.type === "text")?.text).toContain("xd://objdump");
+			const docs = await read.execute("objdump-docs", { path: "xd://objdump" });
+			expect(docs.content.find(part => part.type === "text")?.text).toContain("start_address");
+			const args = { path: "xd://objdump", content: JSON.stringify({ action: "info" }) };
+			if (typeof write.approval !== "function") throw new Error("Expected device approval routing");
+			expect(write.approval(args)).toEqual({ tier: "read", policyKey: "objdump" });
+			const result = await write.execute("objdump-info", args);
+			expect(result.isError).toBeUndefined();
+			expect(result.details?.xdev).toMatchObject({ tool: "objdump", mode: "execute", tier: "read" });
+			expect(result.content.find(part => part.type === "text")?.text).toContain("BFD");
 		} finally {
 			await removeWithRetries(tempDir);
 		}

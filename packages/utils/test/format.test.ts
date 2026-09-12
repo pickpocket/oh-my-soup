@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { formatDuration } from "@oh-my-soup/pi-utils/format";
+import { formatDuration, truncate } from "@oh-my-soup/pi-utils/format";
 
 describe("formatDuration", () => {
 	// Codex's wham/usage endpoint returns the prior window's reset_at until the
@@ -22,5 +22,19 @@ describe("formatDuration", () => {
 		expect(formatDuration(3_600_000)).toBe("1h");
 		expect(formatDuration(3_660_000)).toBe("1h1m");
 		expect(formatDuration(2 * 86_400_000 + 3_600_000)).toBe("2d1h");
+	});
+});
+
+describe("truncate", () => {
+	it("preserves ASCII limits and marker placement", () => {
+		expect(truncate("abcdef", 4)).toBe("abc…");
+		expect(truncate("abcdef", 4, "..")).toBe("ab..");
+		expect(truncate("abcdef", 6)).toBe("abcdef");
+	});
+
+	it("backs off a split surrogate pair without dropping complete pairs", () => {
+		const text = "a\uD800\uDC00bc";
+		expect(truncate(text, 3)).toBe("a…");
+		expect(truncate(text, 4)).toBe("a\uD800\uDC00…");
 	});
 });

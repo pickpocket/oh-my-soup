@@ -2319,17 +2319,14 @@ async function executeToolCalls(
 	const shouldInterruptImmediately = interruptMode !== "wait";
 	const steeringAbortController = new AbortController();
 	const ircAbortController = new AbortController();
-	// Cooperative channel: aborted when queued steering (or an interrupting
-	// peer IRC) is detected mid-batch. Tools receive it via tool context
-	// (`ctx.steeringSignal`) and MAY react — e.g. an auto-backgroundable bash
-	// backgrounds itself so the message injects promptly — but it never kills
-	// anything; ignoring it is always safe.
+	// Cooperative channel: aborted only for explicit queued steering, never
+	// IRC. Tools MAY observe it via `ctx.toolCall.steeringSignal` to finish
+	// early or background themselves; ignoring it is always safe.
 	const steeringSoftController = new AbortController();
 	// Interruptible tools (pure waits: hub wait, vibe) observe steering +
 	// external + IRC aborts. Every other tool sees ONLY the external signal:
-	// neither queued steering nor a peer IRC ever hard-kills a partially
-	// side-effecting foreground tool (e.g. `bash`) — those get the cooperative
-	// `steeringSignal` above, and the message injects at the next boundary.
+	// queued steering can cooperatively signal foreground work, while IRC
+	// leaves active and queued ordinary tools entirely untouched.
 	const nonInterruptibleSignal: AbortSignal = signal ?? new AbortController().signal;
 	const interruptibleSignal: AbortSignal = signal
 		? AbortSignal.any([signal, steeringAbortController.signal, ircAbortController.signal])
@@ -2383,17 +2380,15 @@ async function executeToolCalls(
 	});
 
 	const checkIrcInterrupts = async (): Promise<void> => {
-		// IRC only fires once: a peer interrupt already recorded on interruptState
+		// IRC only fires once: an interrupt already recorded on interruptState
 		// must not re-abort, and (unlike steering) never re-consumes a queue.
 		if (!shouldInterruptImmediately || signal?.aborted || interruptState.triggered) return;
 		if (hasIrcInterrupts && (await hasIrcInterrupts())) {
-			// Peer IRC hard-aborts interruptible waits only; foreground tools keep
-			// running (no partial side effects) but get the cooperative soft
-			// signal so backgroundable work can step aside for the peer message.
+			// IRC wakes deliberate waits only. Do not signal foreground tools
+			// to stop or background themselves for an informational aside.
 			interruptState.triggered = true;
 			interruptState.source = "irc";
 			ircAbortController.abort();
-			steeringSoftController.abort();
 		}
 	};
 
@@ -2480,11 +2475,10 @@ async function executeToolCalls(
 
 	const runTool = async (record: (typeof records)[number], index: number): Promise<void> => {
 		// A pending interrupt preempts not-yet-started tools so the message
-		// injects promptly. A peer-IRC interrupt is the exception: it aborts
+		// injects promptly. An IRC interrupt is the exception: it aborts
 		// interruptible waits only and leaves non-interruptible foreground work
-		// untouched (see the emit branch below and the `does not abort a
-		// non-interruptible foreground tool` case). That guarantee must hold for
-		// work still queued behind the aborted wait too — otherwise a batched
+		// untouched, including work still queued behind the aborted wait.
+		// Otherwise a batched
 		// `todo`/`write` gets dropped as "Skipped due to pending peer interrupt"
 		// purely for being ordered after the wait (#7493). User/system steering
 		// still preempts everything queued.
@@ -2701,12 +2695,11 @@ async function executeToolCalls(
 	let sharedTasks: Promise<void>[] = [];
 	const tasks: Promise<void>[] = [];
 
-	// While tool calls are in flight, queued steering or interrupting IRC would
-	// otherwise wait out the tools' own window. Poll only non-consuming queues:
-	// detection hard-aborts interruptible waits, soft-signals cooperative tools
-	// (auto-background bash), and skips not-yet-started tools, so the boundary
-	// dequeue below injects the message promptly. Gated on immediate-interrupt
-	// mode; checkSteering is idempotent (no-op once triggered).
+	// While tool calls are in flight, poll only non-consuming queues.
+	// Explicit steering wakes waits, soft-signals cooperative tools, and skips
+	// not-yet-started work. IRC only wakes deliberate waits; ordinary tools
+	// run to completion before the next boundary delivers the aside.
+	// Gated on immediate-interrupt mode; checkSteering is idempotent.
 	const watchSteeringWhileRunning =
 		shouldInterruptImmediately && (hasSteeringMessages !== undefined || hasIrcInterrupts !== undefined);
 	const eventDrivenSteeringWatch =

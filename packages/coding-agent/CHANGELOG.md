@@ -4,7 +4,12 @@
 
 ### Added
 
+- Added the read-only `objdump` tool/device for GNU binutils-backed binary headers, sections, symbols, disassembly, relocations, and contents, with bounded streaming output, recoverable artifacts, and process cancellation.
+- OMS shell, PowerShell, source-link, and published package installations now provision a pinned, checksum-verified local GNU objdump through `oms setup objdump`; the tool prefers this managed copy over PATH without downloading during inspection.
+- Added optional Discord task-completion notifications via credential-masked `task.discordWebhookUrl`, with metadata-only payloads, nonblocking bounded delivery, and session-owned shutdown draining.
 - Added `tools.format=emoji` as a compact line-based tool-calling mode.
+- Added a bounded peer IRC transcript to Agent Hub: `c` opens selected-agent chat and `a` switches to all-agent traffic.
+- Peer delivery receipts and incoming messages now expose stable message IDs, with bounded reply-context quotes restricted to the same peer pair.
 - Fixed `disasm open` appearing to hang or timing out on large existing IDA databases: managed IDALib workers now advertise loaded `.i64`/`.idb` targets without first draining the database's entire pending auto-analysis queue; raw input imports still wait for initial analysis.
 - Improved background task results with structured output schemas: parsed results are now available through the `agent://<id>` resource, while large or invalid inline JSON is replaced with a reliable pointer to the complete result.
 - Background task artifacts are retained long enough for follow-up turns to read them, including failed tasks that lack valid structured output, and are cleaned up without blocking shutdown or leaking resources.
@@ -16,6 +21,16 @@
 ### Changed
 
 - Restored `tools.format=auto` as the default so models use their provider-native tool channel when available; the compact `emoji` dialect remains available as an explicit experimental option.
+- Peer message bodies are capped at 8000 UTF-16 units before delivery; automatic replies include their truncation marker within the same cap.
+
+### Fixed
+
+- Fixed Nix flake evaluation rejecting the exported overlay's argument names.
+- Fixed Windows standalone updates and script-launcher takeovers failing their start check: staged downloads now retain an executable `.exe` suffix, and abandoned staging files are cleaned up without deleting in-progress downloads.
+- Awaited peer sends now stop when the recipient finishes a running turn without replying, while preserving early replies and idle plan-mode auto-replies. Main-agent activity is synchronized with actual session run state.
+- IRC cards now deduplicate by message ID instead of timestamps, preserving simultaneous distinct messages without duplicating later replay.
+- Parent and peer IRC messages now arrive as informational asides without cancelling or skipping ordinary tool calls; deliberate waits still wake for IRC, while explicit user steering and aborts retain their behavior.
+- Transcript observers can no longer cancel a matched message before its waiter receives it. Automatic replies preserve Unicode boundaries and do not update a disposed sender bridge after delivery.
 
 ## [17.3.3] - 2026-08-27
 

@@ -6,6 +6,17 @@ afterEach(() => {
 	vi.restoreAllMocks();
 });
 
+/** Claim and immediately release a port, so each flow can pin a known-free one. */
+function freeLoopbackPort(): number {
+	const probe = Bun.serve({ hostname: "127.0.0.1", port: 0, fetch: () => new Response("probe") });
+	const port = probe.port;
+	probe.stop(true);
+	if (typeof port !== "number") {
+		throw new Error("Bun.serve({ port: 0 }) did not assign a numeric port");
+	}
+	return port;
+}
+
 function mockProviderTokenEndpoint(onBody: (body: string) => void): FetchImpl {
 	return async (input, init) => {
 		const url = String(input);
@@ -188,6 +199,7 @@ describe("mcp oauth flow", () => {
 	});
 
 	it("uses configured callbackPath for the local redirect URI", async () => {
+		const callbackPort = freeLoopbackPort();
 		let observedRedirectUri = "";
 		let tokenRequestBody = "";
 
@@ -196,7 +208,7 @@ describe("mcp oauth flow", () => {
 				authorizationUrl: "https://provider.example/authorize",
 				tokenUrl: "https://provider.example/token",
 				clientId: "client-id",
-				callbackPort: 14567,
+				callbackPort,
 				callbackPath: "slack/oauth_redirect",
 				fetch: mockProviderTokenEndpoint(body => {
 					tokenRequestBody = body;
@@ -220,6 +232,7 @@ describe("mcp oauth flow", () => {
 		const tokenParams = new URLSearchParams(tokenRequestBody);
 
 		expect(redirectUrl.pathname).toBe("/slack/oauth_redirect");
+		expect(observedRedirectUri).toBe(`http://localhost:${callbackPort}/slack/oauth_redirect`);
 		expect(tokenParams.get("redirect_uri")).toBe(observedRedirectUri);
 		expect(credentials).toMatchObject({
 			access: "access-token",
@@ -227,6 +240,7 @@ describe("mcp oauth flow", () => {
 		});
 	});
 	it("sends MCP resource indicator in authorization and token requests", async () => {
+		const callbackPort = freeLoopbackPort();
 		let authResource = "";
 		let tokenRequestBody = "";
 
@@ -236,7 +250,7 @@ describe("mcp oauth flow", () => {
 				tokenUrl: "https://provider.example/token",
 				clientId: "client-id",
 				resource: "https://mcp.example.com/mcp",
-				callbackPort: 14572,
+				callbackPort,
 				fetch: mockProviderTokenEndpoint(body => {
 					tokenRequestBody = body;
 				}),
@@ -262,6 +276,7 @@ describe("mcp oauth flow", () => {
 		expect(tokenParams.get("resource")).toBe("https://mcp.example.com/mcp");
 	});
 	it("uses an authorization URL resource for the matching token request", async () => {
+		const callbackPort = freeLoopbackPort();
 		let authResource = "";
 		let tokenRequestBody = "";
 
@@ -272,7 +287,7 @@ describe("mcp oauth flow", () => {
 				tokenUrl: "https://provider.example/token",
 				clientId: "client-id",
 				resource: "https://config-resource.example/mcp",
-				callbackPort: 14573,
+				callbackPort,
 				fetch: mockProviderTokenEndpoint(body => {
 					tokenRequestBody = body;
 				}),
@@ -299,6 +314,7 @@ describe("mcp oauth flow", () => {
 	});
 
 	it("uses exact redirectUri and clientSecret for provider requests", async () => {
+		const callbackPort = freeLoopbackPort();
 		let observedRedirectUri = "";
 		let tokenRequestBody = "";
 
@@ -309,7 +325,7 @@ describe("mcp oauth flow", () => {
 				clientId: "client-id",
 				clientSecret: "client-secret",
 				redirectUri: "https://public.example/slack/oauth_redirect",
-				callbackPort: 14568,
+				callbackPort,
 				callbackPath: "slack/oauth_redirect",
 				fetch: mockProviderTokenEndpoint(body => {
 					tokenRequestBody = body;
@@ -322,7 +338,7 @@ describe("mcp oauth flow", () => {
 					const state = authUrl.searchParams.get("state") ?? "";
 					queueMicrotask(() => {
 						void completeLocalOAuthCallback(
-							`http://localhost:14568/slack/oauth_redirect?code=test-code&state=${state}`,
+							`http://localhost:${callbackPort}/slack/oauth_redirect?code=test-code&state=${state}`,
 						);
 					});
 				},
@@ -343,6 +359,7 @@ describe("mcp oauth flow", () => {
 	});
 
 	it("rejects an HTTP-200 token response that carries no access token", async () => {
+		const callbackPort = freeLoopbackPort();
 		let observedRedirectUri = "";
 		const flow = new MCPOAuthFlow(
 			{
@@ -350,7 +367,7 @@ describe("mcp oauth flow", () => {
 				tokenUrl: "https://provider.example/token",
 				clientId: "client-id",
 				clientSecret: "client-secret",
-				callbackPort: 14569,
+				callbackPort,
 				fetch: async input => {
 					const url = String(input);
 					if (url === "https://provider.example/token") {
@@ -381,6 +398,7 @@ describe("mcp oauth flow", () => {
 	});
 
 	it("preserves root redirectUri values without adding a trailing slash", async () => {
+		const callbackPort = freeLoopbackPort();
 		let observedRedirectUri = "";
 		let tokenRequestBody = "";
 
@@ -390,7 +408,7 @@ describe("mcp oauth flow", () => {
 				tokenUrl: "https://provider.example/token",
 				clientId: "client-id",
 				redirectUri: "https://public.example",
-				callbackPort: 14571,
+				callbackPort,
 				fetch: mockProviderTokenEndpoint(body => {
 					tokenRequestBody = body;
 				}),
@@ -401,7 +419,7 @@ describe("mcp oauth flow", () => {
 					observedRedirectUri = authUrl.searchParams.get("redirect_uri") ?? "";
 					const state = authUrl.searchParams.get("state") ?? "";
 					queueMicrotask(() => {
-						void completeLocalOAuthCallback(`http://localhost:14571/?code=test-code&state=${state}`);
+						void completeLocalOAuthCallback(`http://localhost:${callbackPort}/?code=test-code&state=${state}`);
 					});
 				},
 				signal: AbortSignal.timeout(1_000),
@@ -420,6 +438,7 @@ describe("mcp oauth flow", () => {
 	});
 
 	it("supports https loopback redirectUri values behind a separate local callback port", async () => {
+		const callbackPort = freeLoopbackPort();
 		let observedRedirectUri = "";
 		let tokenRequestBody = "";
 
@@ -428,7 +447,7 @@ describe("mcp oauth flow", () => {
 				authorizationUrl: "https://provider.example/authorize",
 				tokenUrl: "https://provider.example/token",
 				redirectUri: "https://localhost:3443/slack/oauth_redirect",
-				callbackPort: 14570,
+				callbackPort,
 				fetch: mockProviderTokenEndpoint(body => {
 					tokenRequestBody = body;
 				}),
@@ -440,7 +459,7 @@ describe("mcp oauth flow", () => {
 					const state = authUrl.searchParams.get("state") ?? "";
 					queueMicrotask(() => {
 						void completeLocalOAuthCallback(
-							`http://localhost:14570/slack/oauth_redirect?code=test-code&state=${state}`,
+							`http://localhost:${callbackPort}/slack/oauth_redirect?code=test-code&state=${state}`,
 						);
 					});
 				},
@@ -797,6 +816,7 @@ describe("mcp oauth flow", () => {
 	});
 
 	it("accepts pasted redirect URLs through manual input", async () => {
+		const callbackPort = freeLoopbackPort();
 		let tokenRequestBody = "";
 		let manualAuthUrl = "";
 
@@ -805,7 +825,7 @@ describe("mcp oauth flow", () => {
 				authorizationUrl: "https://provider.example/authorize",
 				tokenUrl: "https://provider.example/token",
 				clientId: "client-id",
-				callbackPort: 14570,
+				callbackPort,
 				fetch: mockProviderTokenEndpoint(body => {
 					tokenRequestBody = body;
 				}),

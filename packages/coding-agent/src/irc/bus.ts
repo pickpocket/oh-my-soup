@@ -33,6 +33,8 @@ export interface IrcMessage {
 }
 
 export interface IrcDeliveryReceipt {
+	/** Id of the attempted message, including failed deliveries. */
+	id: string;
 	to: string;
 	outcome: "injected" | "woken" | "revived" | "failed";
 	error?: string;
@@ -46,6 +48,21 @@ interface IrcWaiter {
 
 /** Mailbox cap per agent; oldest messages are dropped beyond it. */
 const MAILBOX_CAP = 100;
+
+/** Maximum IRC body length, measured in UTF-16 String.length units. */
+export const IRC_MAX_BODY_CHARS = 8_000;
+
+/** In-memory only: transcript history must never re-enter context on reload. */
+const IRC_LOG_CAP = 500;
+
+export interface IrcLogFilter {
+	/** Include messages sent or received by this agent. */
+	agent?: string;
+	/** Include messages with ts >= since. */
+	since?: number;
+	/** Return the newest N matches in chronological order. */
+	limit?: number;
+}
 
 export class IrcBus {
 	static #global: IrcBus | undefined;
@@ -66,6 +83,8 @@ export class IrcBus {
 	readonly #lifecycle: () => AgentLifecycleManager;
 	readonly #mailboxes = new Map<string, IrcMessage[]>();
 	readonly #waiters = new Map<string, IrcWaiter[]>();
+	readonly #log: IrcMessage[] = [];
+	readonly #logListeners = new Set<() => void>();
 
 	constructor(registry: AgentRegistry = AgentRegistry.global(), lifecycle?: AgentLifecycleManager) {
 		this.#registry = registry;
@@ -103,9 +122,18 @@ export class IrcBus {
 		opts?: { expectsReply?: boolean; suppressRelay?: boolean },
 	): Promise<IrcDeliveryReceipt> {
 		const message: IrcMessage = { ...msg, id: Snowflake.next(), ts: Date.now() };
+		if (message.body.length > IRC_MAX_BODY_CHARS) {
+			return {
+				id: message.id,
+				to: message.to,
+				outcome: "failed",
+				error: `Message is ${message.body.length} characters; the cap is ${IRC_MAX_BODY_CHARS}. Nothing was sent. Send a local:// or artifact:// path instead.`,
+			};
+		}
 		const ref = this.#registry.get(message.to);
 		if (!ref) {
 			return {
+				id: message.id,
 				to: message.to,
 				outcome: "failed",
 				error: `Unknown agent "${message.to}" — check \`irc list\` for live peers.`,
@@ -113,6 +141,7 @@ export class IrcBus {
 		}
 		if (ref.status === "aborted") {
 			return {
+				id: message.id,
 				to: message.to,
 				outcome: "failed",
 				error: `Agent "${message.to}" was hard-aborted and cannot be messaged or revived. Its transcript remains readable at history://${message.to}.`,
@@ -121,6 +150,7 @@ export class IrcBus {
 		// Advisor refs are observability-only transcripts, never messageable peers.
 		if (ref.kind === "advisor") {
 			return {
+				id: message.id,
 				to: message.to,
 				outcome: "failed",
 				error: `Agent "${message.to}" is a read-only advisor transcript and cannot be messaged.`,
@@ -153,6 +183,7 @@ export class IrcBus {
 				// Not revivable / released / revive failed. Do not buffer: a permanent
 				// failure must not inflate unread counts or pretend delivery is pending.
 				return {
+					id: message.id,
 					to: message.to,
 					outcome: "failed",
 					error: error instanceof Error ? error.message : String(error),
@@ -165,20 +196,31 @@ export class IrcBus {
 		// the session injection path.
 		const waiter = this.#takeMatchingWaiter(message.to, message.from);
 		if (waiter) {
+			// Complete the hand-off before synchronous observers can cancel it.
 			waiter.resolve(message);
+			this.#appendToLog(message);
 			if (!opts?.suppressRelay) this.#relayToMainUi(message);
-			return { to: message.to, outcome: revived ? "revived" : "injected" };
+			return { id: message.id, to: message.to, outcome: revived ? "revived" : "injected" };
 		}
 
 		const session = this.#registry.get(message.to)?.session;
 		if (!session) {
-			return { to: message.to, outcome: "failed", error: `Agent "${message.to}" has no live session.` };
+			return {
+				id: message.id,
+				to: message.to,
+				outcome: "failed",
+				error: `Agent "${message.to}" has no live session.`,
+			};
 		}
 
+		// Log before handing off: a synchronous reply can already quote this id.
+		// Every path below delivers or buffers; permanent pre-delivery failures
+		// above neither enter the transcript nor inflate unread counts.
+		this.#appendToLog(message);
 		try {
 			const delivery = await session.deliverIrcMessage(message, opts);
 			if (!opts?.suppressRelay) this.#relayToMainUi(message);
-			return { to: message.to, outcome: revived ? "revived" : delivery };
+			return { id: message.id, to: message.to, outcome: revived ? "revived" : delivery };
 		} catch (error) {
 			// Live hand-off failed (e.g. recipient disposed mid-shutdown): buffer
 			// the message so a later `wait`/`inbox` from the recipient can still
@@ -186,6 +228,7 @@ export class IrcBus {
 			// seen it.
 			this.#enqueue(message);
 			return {
+				id: message.id,
 				to: message.to,
 				outcome: "failed",
 				error: error instanceof Error ? error.message : String(error),
@@ -221,6 +264,7 @@ export class IrcBus {
 		let timer: NodeJS.Timeout | undefined;
 		let onAbort: (() => void) | undefined;
 		let unsubscribeLiveness: (() => void) | undefined;
+		let settled = false;
 
 		const liveness = options?.liveness;
 		const livenessReason = filter.from
@@ -230,6 +274,8 @@ export class IrcBus {
 		const settle = (
 			outcome: { kind: "message"; msg: IrcMessage } | { kind: "timeout" } | { kind: "abort"; error: Error },
 		): void => {
+			if (settled) return;
+			settled = true;
 			cleanup();
 			if (outcome.kind === "message") {
 				resolve(outcome.msg);
@@ -263,7 +309,6 @@ export class IrcBus {
 		}
 		if (timeoutMs > 0) {
 			timer = setTimeout(() => settle({ kind: "timeout" }), timeoutMs);
-			timer.unref?.();
 		}
 
 		let waiters = this.#waiters.get(agentId);
@@ -312,8 +357,56 @@ export class IrcBus {
 		return this.#takeFromMailbox(agentId, from);
 	}
 
+	/** Pending mailbox messages only, not delivered messages in the transcript. */
 	unreadCount(agentId: string): number {
 		return this.#mailboxes.get(agentId)?.length ?? 0;
+	}
+
+	/** Chronological transcript copy, optionally scoped to an agent or time. */
+	log(filter?: IrcLogFilter): IrcMessage[] {
+		const { agent, since, limit } = filter ?? {};
+		let matches = this.#log;
+		if (agent !== undefined || since !== undefined) {
+			matches = matches.filter(
+				msg =>
+					(agent === undefined || msg.from === agent || msg.to === agent) &&
+					(since === undefined || msg.ts >= since),
+			);
+		}
+		if (limit !== undefined && limit >= 0 && matches.length > limit) {
+			return matches.slice(matches.length - Math.floor(limit));
+		}
+		return matches === this.#log ? [...matches] : matches;
+	}
+
+	/** Find recent reply context without draining the recipient's mailbox. */
+	find(id: string): IrcMessage | undefined {
+		for (let index = this.#log.length - 1; index >= 0; index--) {
+			const message = this.#log[index];
+			if (message.id === id) return message;
+		}
+		return undefined;
+	}
+
+	onChange(listener: () => void): () => void {
+		this.#logListeners.add(listener);
+		return () => this.#logListeners.delete(listener);
+	}
+
+	#appendToLog(message: IrcMessage): void {
+		// Revival can delay an older send behind a newer live delivery.
+		let index = this.#log.length;
+		while (index > 0 && this.#log[index - 1].ts > message.ts) index--;
+		this.#log.splice(index, 0, message);
+		if (this.#log.length > IRC_LOG_CAP) this.#log.shift();
+		for (const listener of this.#logListeners) {
+			try {
+				listener();
+			} catch (error) {
+				// Display observers must never change delivery semantics.
+				logger.debug("IrcBus: transcript listener failed", { error: String(error) });
+			}
+		}
 	}
 
 	#enqueue(message: IrcMessage): void {
@@ -378,7 +471,7 @@ export class IrcBus {
 			customType: "irc:relay",
 			content: `[IRC \`${message.from}\` → \`${message.to}\`]\n\n${message.body}`,
 			display: true,
-			details: { from: message.from, to: message.to, body: message.body },
+			details: { id: message.id, from: message.from, to: message.to, body: message.body },
 			attribution: "agent",
 			timestamp: message.ts,
 		};

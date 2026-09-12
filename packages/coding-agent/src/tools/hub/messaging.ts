@@ -14,7 +14,7 @@ import { type Component, Text } from "@oh-my-soup/pi-tui";
 import { formatAge, formatDuration } from "@oh-my-soup/pi-utils";
 import type { Settings } from "../../config/settings";
 import type { RenderResultOptions } from "../../extensibility/custom-tools/types";
-import { IrcBus, type IrcDeliveryReceipt, type IrcMessage } from "../../irc/bus";
+import { IRC_MAX_BODY_CHARS, IrcBus, type IrcDeliveryReceipt, type IrcMessage } from "../../irc/bus";
 import type { Theme } from "../../modes/theme/theme";
 import { type AgentRef, type AgentRegistry, MAIN_AGENT_ID } from "../../registry/agent-registry";
 import { ensurePersistedRoster, isAgentRefInSessionRoot } from "../../registry/persisted-agents";
@@ -176,7 +176,7 @@ export async function executeList(
 	for (const peer of peers) {
 		const extras = [
 			peer.activity || undefined,
-			peer.unread > 0 ? `unread ${peer.unread}` : undefined,
+			peer.unread > 0 ? `${peer.unread} undelivered to it` : undefined,
 			peer.parentId ? `parent ${peer.parentId}` : undefined,
 			`active ${formatDuration(Date.now() - peer.lastActivity)} ago`,
 		].filter(Boolean);
@@ -218,6 +218,12 @@ export async function executeSend(
 	if (!message) {
 		return hubErrorResult('`message` is required for op="send".', { op: "send", from: senderId });
 	}
+	if (message.length > IRC_MAX_BODY_CHARS) {
+		return hubErrorResult(
+			`\`message\` is ${message.length} characters; the cap is ${IRC_MAX_BODY_CHARS} characters. Nothing was sent. Write the payload to \`local://<name>.md\` (or reference an \`artifact://\` id) and send the path instead.`,
+			{ op: "send", from: senderId, to },
+		);
+	}
 	if (to === senderId) {
 		return hubErrorResult("Cannot send a message to yourself.", { op: "send", from: senderId, to });
 	}
@@ -235,7 +241,22 @@ export async function executeSend(
 	const timeoutMs = params.await ? resolveMessageTimeoutMs(settings, params.timeoutMs) : undefined;
 	const awaitAbort = params.await ? new AbortController() : undefined;
 	const awaitCancelled = new Error("IRC await cancelled");
+	const recipientFinished = new Error("IRC recipient finished without replying");
 	let removeAwaitAbortListener: (() => void) | undefined;
+	let removeRecipientStatusListener: (() => void) | undefined;
+	let deliverySucceeded = false;
+	let sawRunning = false;
+	let recipientStopped = false;
+	const observeRecipient = (): void => {
+		const ref = registry.get(to);
+		if (ref && registry.isRunning(ref)) {
+			sawRunning = true;
+			recipientStopped = false;
+		} else if (sawRunning || !ref || ref.status === "aborted") {
+			recipientStopped = true;
+		}
+		if (deliverySucceeded && recipientStopped) awaitAbort?.abort(recipientFinished);
+	};
 	const waiting = params.await
 		? bus
 				.wait(senderId, { from: to }, timeoutMs ?? DEFAULT_IRC_TIMEOUT_MS, awaitAbort?.signal, {
@@ -248,6 +269,10 @@ export async function executeSend(
 						error: error === awaitCancelled ? null : error instanceof Error ? error : new Error(String(error)),
 					}),
 				)
+				.finally(() => {
+					removeAwaitAbortListener?.();
+					removeRecipientStatusListener?.();
+				})
 		: undefined;
 	if (params.await && signal && awaitAbort) {
 		if (signal.aborted) {
@@ -259,6 +284,15 @@ export async function executeSend(
 			signal.addEventListener("abort", onAbort, { once: true });
 			removeAwaitAbortListener = () => signal.removeEventListener("abort", onAbort);
 		}
+	}
+	if (params.await) {
+		// Observe before sending: wake/revival may run and finish while delivery
+		// is still resolving. Do not cancel an initially idle peer; plan mode
+		// can answer through a side turn without ever entering running.
+		observeRecipient();
+		removeRecipientStatusListener = registry.onChange(event => {
+			if (event.ref.id === to) observeRecipient();
+		});
 	}
 
 	try {
@@ -284,6 +318,10 @@ export async function executeSend(
 
 		const lines: string[] = [];
 		const delivered = receipts.filter(receipt => receipt.outcome !== "failed");
+		if (params.await && delivered.length > 0) {
+			deliverySucceeded = true;
+			observeRecipient();
+		}
 		if (targets.length === 0) {
 			lines.push("No live peers to broadcast to.");
 		} else if (delivered.length === 0) {
@@ -294,8 +332,8 @@ export async function executeSend(
 		for (const receipt of receipts) {
 			lines.push(
 				receipt.outcome === "failed"
-					? `- ${receipt.to}: failed — ${receipt.error ?? "unknown error"}`
-					: `- ${receipt.to}: ${receipt.outcome}`,
+					? `- ${receipt.to}: failed [${receipt.id}] — ${receipt.error ?? "unknown error"}`
+					: `- ${receipt.to}: ${receipt.outcome} [${receipt.id}]`,
 			);
 		}
 
@@ -303,7 +341,12 @@ export async function executeSend(
 			lines.push("");
 			if (delivered.length > 0) {
 				const reply = await waiting;
-				if (reply.error) {
+				if (reply.error === recipientFinished) {
+					waited = null;
+					lines.push(
+						`${to} finished its turn without replying — any later answer arrives as an incoming message; do not resend.`,
+					);
+				} else if (reply.error) {
 					// The send already succeeded; if the wait was interrupted by our
 					// caller signal (steering / messaging), preserve the delivery receipt
 					// so the agent loop keeps this tool as "sent" instead of marking it
@@ -319,7 +362,7 @@ export async function executeSend(
 				} else {
 					waited = reply.message;
 					if (waited) {
-						lines.push(`Reply from ${waited.from}:`);
+						lines.push(`Reply from ${waited.from} [${waited.id}]:`);
 						lines.push(waited.body);
 					} else {
 						lines.push(
@@ -349,6 +392,7 @@ export async function executeSend(
 	} finally {
 		awaitAbort?.abort(awaitCancelled);
 		removeAwaitAbortListener?.();
+		removeRecipientStatusListener?.();
 	}
 }
 
@@ -599,6 +643,7 @@ function renderSendResult(
 	if (receipts.length === 1) {
 		const receipt = receipts[0]!;
 		meta.push(theme.fg(outcomeColor(receipt.outcome), receipt.outcome));
+		meta.push(theme.fg("dim", `[${receipt.id}]`));
 	} else {
 		if (delivered.length > 0) meta.push(theme.fg("success", `${delivered.length} delivered`));
 		if (failedCount > 0) meta.push(theme.fg("error", `${failedCount} failed`));
@@ -629,7 +674,7 @@ function renderSendResult(
 							receipt.outcome === "failed" && receipt.error
 								? ` ${theme.fg("error", `${theme.format.dash} ${receipt.error}`)}`
 								: "";
-						return `${theme.fg("toolOutput", receipt.to)} ${badge}${error}`;
+						return `${theme.fg("toolOutput", receipt.to)} ${badge} ${theme.fg("dim", `[${receipt.id}]`)}${error}`;
 					},
 				},
 				theme,
@@ -735,7 +780,7 @@ function renderListResult(details: Partial<CoordinationDetails>, expanded: boole
 			]
 		: [...counts].map(([status, count]) => `${count} ${status}`);
 	const unreadTotal = peers.reduce((sum, peer) => sum + peer.unread, 0);
-	if (unreadTotal > 0) meta.push(theme.fg("warning", `${unreadTotal} unread`));
+	if (unreadTotal > 0) meta.push(theme.fg("warning", `${unreadTotal} undelivered`));
 	const header = renderStatusLine({ iconOverride: ircGlyph(theme), title: "IRC peers", meta }, theme);
 	const items = renderTreeList(
 		{
@@ -745,7 +790,7 @@ function renderListResult(details: Partial<CoordinationDetails>, expanded: boole
 			itemType: "peer",
 			renderItem: peer => {
 				const kindText = peer.parentId ? `${peer.kind}${theme.sep.dot}of ${peer.parentId}` : peer.kind;
-				const unread = peer.unread > 0 ? ` ${formatBadge(`${peer.unread} unread`, "warning", theme)}` : "";
+				const unread = peer.unread > 0 ? ` ${formatBadge(`${peer.unread} undelivered`, "warning", theme)}` : "";
 				const age = messageAge(peer.lastActivity);
 				const activity = peer.activity ? ` ${theme.fg("dim", replaceTabs(peer.activity))}` : "";
 				const name = theme.fg("dim", replaceTabs(peer.displayName));

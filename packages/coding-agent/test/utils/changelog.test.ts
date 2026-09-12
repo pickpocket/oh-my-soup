@@ -239,7 +239,21 @@ describe("parseChangelog", () => {
 		expect(previous).toBeDefined();
 
 		const previousVersion = `${previous?.major}.${previous?.minor}.${previous?.patch}`;
-		expect(getNewEntries(entries, previousVersion)).toEqual([latest]);
+		const newEntries = getNewEntries(entries, previousVersion);
+		expect(newEntries).toContainEqual(latest);
+		expect(newEntries).not.toContainEqual(previous);
+	});
+});
+
+describe("getNewEntries", () => {
+	test("keeps every strictly newer release even after older sections or repeated versions", () => {
+		const current = release(17, 3, 3, "### Added\n\n- Current release.");
+		const previous = release(17, 3, 2, "### Fixed\n\n- Already seen.");
+		const older = release(17, 3, 1, "### Fixed\n\n- Older release.");
+		const later = release(17, 3, 4, "### Added\n\n- Newer release further down the source.");
+		const repeated = release(17, 3, 3, "### Fixed\n\n- Separate notes for the current version.");
+
+		expect(getNewEntries([current, previous, older, later, repeated], "17.3.2")).toEqual([current, later, repeated]);
 	});
 });
 

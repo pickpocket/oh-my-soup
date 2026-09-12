@@ -174,8 +174,8 @@
 
       formatter = forAllSystems (system: (pkgsFor system).nixfmt);
 
-      overlays.default = _final: previous: {
-        oms = self.packages.${previous.stdenv.hostPlatform.system}.default;
+      overlays.default = _final: prev: {
+        oms = self.packages.${prev.stdenv.hostPlatform.system}.default;
       };
 
       homeManagerModules.default = import ./nix/home-manager.nix { inherit self; };

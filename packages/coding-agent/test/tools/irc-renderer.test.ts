@@ -33,7 +33,7 @@ describe("hubToolRenderer send", () => {
 						op: "send",
 						from: "Main",
 						to: "AuthLoader",
-						receipts: [{ to: "AuthLoader", outcome: "revived" }],
+						receipts: [{ id: "send-1", to: "AuthLoader", outcome: "revived" }],
 						waited: msg({ body: "go ahead, auth.ts is yours." }),
 					} satisfies CoordinationDetails,
 				},
@@ -59,8 +59,8 @@ describe("hubToolRenderer send", () => {
 						from: "Main",
 						to: "all",
 						receipts: [
-							{ to: "AuthLoader", outcome: "woken" },
-							{ to: "RateLimiter", outcome: "failed", error: 'unknown agent "RateLimiter"' },
+							{ id: "send-1", to: "AuthLoader", outcome: "woken" },
+							{ id: "send-2", to: "RateLimiter", outcome: "failed", error: 'unknown agent "RateLimiter"' },
 						],
 					} satisfies CoordinationDetails,
 				},
@@ -88,7 +88,7 @@ describe("hubToolRenderer send", () => {
 						op: "send",
 						from: "Main",
 						to: "AuthLoader",
-						receipts: [{ to: "AuthLoader", outcome: "injected" }],
+						receipts: [{ id: "send-1", to: "AuthLoader", outcome: "injected" }],
 						waited: null,
 					} satisfies CoordinationDetails,
 				},
@@ -185,7 +185,7 @@ describe("hubToolRenderer inbox", () => {
 });
 
 describe("hubToolRenderer list", () => {
-	it("summarizes status counts and flags unread peers", async () => {
+	it("summarizes status counts and identifies peers with undelivered messages", async () => {
 		const uiTheme = await theme();
 		const rendered = lines(
 			hubToolRenderer.renderResult(
@@ -223,13 +223,14 @@ describe("hubToolRenderer list", () => {
 		);
 		expect(rendered[0]).toContain("1 running");
 		expect(rendered[0]).toContain("1 parked");
-		expect(rendered[0]).toContain("2 unread");
+		expect(rendered[0]).toContain("2 undelivered");
 		// Running peers sort above parked ones regardless of input order.
 		const authIndex = rendered.findIndex(line => line.includes("AuthLoader"));
 		const rateIndex = rendered.findIndex(line => line.includes("RateLimiter"));
 		expect(authIndex).toBeGreaterThan(0);
 		expect(authIndex).toBeLessThan(rateIndex);
-		expect(rendered.some(line => line.includes("RateLimiter") && line.includes("2 unread"))).toBe(true);
+		expect(rendered[rateIndex]).toContain("2 undelivered");
+		expect(rendered[authIndex]).not.toContain("undelivered");
 	});
 
 	it("renders a peer's role displayName and current activity in the row", async () => {

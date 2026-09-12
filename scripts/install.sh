@@ -8,8 +8,7 @@ set -e
 #   --ref <tag>    Install a specific release tag instead of the latest
 #   -r <tag>       Shorthand for --ref
 #
-# Installs the prebuilt single-file binary from the GitHub release. oms is not
-# published to any package registry; the binary is the distribution.
+# Installs the prebuilt single-file binary and its local GNU objdump dependency.
 
 REPO="pickpocket/oh-my-soup"
 INSTALL_DIR="${PI_INSTALL_DIR:-$HOME/.local/bin}"
@@ -144,6 +143,16 @@ install_binary() {
             fi
         fi
         exit 1
+    fi
+
+    echo "Installing local GNU objdump..."
+    if "${INSTALL_DIR}/oms" setup objdump; then
+        :
+    else
+        SETUP_STATUS=$?
+        echo "oms was installed, but GNU objdump setup failed." >&2
+        echo "Check the error above, then retry: \"${INSTALL_DIR}/oms\" setup objdump" >&2
+        exit "$SETUP_STATUS"
     fi
 
     echo ""

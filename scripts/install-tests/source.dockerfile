@@ -1,4 +1,4 @@
-# Test --source install from local repo
+# Test development source-link installation from the local repo
 FROM debian:bookworm-slim
 
 RUN apt-get update && apt-get install -y curl ca-certificates unzip build-essential && rm -rf /var/lib/apt/lists/*
@@ -18,7 +18,7 @@ COPY . .
 # Install dependencies, build native addon, and link globally
 RUN bun install --frozen-lockfile
 RUN bun --cwd=packages/natives run build
-RUN cd packages/coding-agent && bun link
+RUN bun --cwd=packages/coding-agent link && sh scripts/link-oms.sh
 
 # Verify
-RUN oms --version
+RUN oms --version && oms setup objdump --check

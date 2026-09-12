@@ -27,6 +27,7 @@
 
 ### Fixed
 
+- Fixed release preparation rejecting already-updated version fields and native sentinels after an interrupted run; missing required metadata still fails.
 - Hardened session notes against concurrent saves and reads, session/branch switches, mutable tool results, and post-transition handoff failures.
 - Included restored note references in context and compaction budgets; references that cannot fit fail before model dispatch without changing saved notes.
 - Made notes reminders primary-delivery-aware, rearmed them on explicit branch switches, preserved provider request attribution, and required built-in notes provenance for guidance and reminders.

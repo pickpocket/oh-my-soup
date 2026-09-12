@@ -1,5 +1,8 @@
-import { describe, expect, test } from "bun:test";
-import { validateExplicitVersion } from "./release";
+import { afterEach, describe, expect, test } from "bun:test";
+import * as fs from "node:fs/promises";
+import * as os from "node:os";
+import * as path from "node:path";
+import { replaceRequiredInFiles, validateExplicitVersion } from "./release";
 
 describe("validateExplicitVersion", () => {
 	test("rejects malformed versions", () => {
@@ -41,5 +44,57 @@ describe("validateExplicitVersion", () => {
 	test("accepts leading v prefix and normalizes to the bare version", () => {
 		expect(validateExplicitVersion("v17.2.8")).toBe("17.2.8");
 		expect(validateExplicitVersion("V17.2.8")).toBe(null);
+	});
+});
+
+describe("release metadata replacement", () => {
+	const directories: string[] = [];
+
+	afterEach(async () => {
+		await Promise.all(directories.splice(0).map(directory => fs.rm(directory, { recursive: true, force: true })));
+	});
+
+	async function files(contents: string[]): Promise<string[]> {
+		const directory = await fs.mkdtemp(path.join(os.tmpdir(), "oms-release-metadata-"));
+		directories.push(directory);
+		return Promise.all(
+			contents.map(async (content, index) => {
+				const file = path.join(directory, String(index));
+				await Bun.write(file, content);
+				return file;
+			}),
+		);
+	}
+
+	test("resumes a mixed version bump and accepts already prepared metadata", async () => {
+		const paths = await files([
+			'{"version": "17.3.3", "description": "keep this"}',
+			'{"version": "17.5.0", "description": "keep this"}',
+		]);
+		const pattern = /"version": "[^"]+"/;
+		await replaceRequiredInFiles(paths, pattern, '"version": "17.5.0"');
+		await replaceRequiredInFiles(paths, pattern, '"version": "17.5.0"');
+		for (const file of paths) {
+			expect(await Bun.file(file).json()).toEqual({ version: "17.5.0", description: "keep this" });
+		}
+	});
+
+	test("still rejects a missing required field without rewriting it", async () => {
+		const source = '{"description": "17.5.0"}';
+		const [file] = await files([source]);
+		await expect(replaceRequiredInFiles([file], /"version": "[^"]+"/, '"version": "17.5.0"')).rejects.toThrow(
+			`Release replacement did not match ${file}`,
+		);
+		expect(await Bun.file(file).text()).toBe(source);
+	});
+
+	test("updates every native sentinel and permits repeated global replacements", async () => {
+		const paths = await files(["__piNativesV17_5_0 __piNativesV17_5_0", "__piNativesV17_3_3 __piNativesV17_5_0"]);
+		const pattern = /__piNativesV[A-Za-z0-9_]+/g;
+		await replaceRequiredInFiles(paths, pattern, "__piNativesV17_5_0");
+		await replaceRequiredInFiles(paths, pattern, "__piNativesV17_5_0");
+		for (const file of paths) {
+			expect(await Bun.file(file).text()).toBe("__piNativesV17_5_0 __piNativesV17_5_0");
+		}
 	});
 });

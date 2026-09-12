@@ -39,7 +39,7 @@ function git(args: readonly string[]) {
 	return $`git -c core.fsmonitor=false -c core.untrackedCache=false -c fetch.pruneTags=false ${args}`;
 }
 
-async function replaceRequiredInFiles(
+export async function replaceRequiredInFiles(
 	filePaths: readonly string[],
 	pattern: RegExp,
 	replacement: string,
@@ -47,7 +47,10 @@ async function replaceRequiredInFiles(
 	for (const filePath of filePaths) {
 		const source = await Bun.file(filePath).text();
 		const updated = source.replace(pattern, replacement);
-		if (updated === source) throw new Error(`Release replacement did not match ${filePath}`);
+		if (updated === source) {
+			if (source.search(pattern) < 0) throw new Error(`Release replacement did not match ${filePath}`);
+			continue;
+		}
 		await Bun.write(filePath, updated);
 	}
 }

@@ -1,6 +1,6 @@
 {
   "name": "@oh-my-soup/pi-natives",
-  "version": "17.3.3",
+  "version": "17.5.0",
   "description": "Native Rust bindings for audio, WebRTC, grep, clipboard, image processing, syntax highlighting, PTY, and shell operations via N-API",
   "type": "module",
   "homepage": "https://github.com/pickpocket/oh-my-soup",

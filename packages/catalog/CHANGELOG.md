@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+## [18.1.6] - 2026-09-03
+
+### Added
+
+- Added catalog-delivered model intelligence scores and estimated output throughput to help compare model capabilities and performance.
+
+### Changed
+
+- The bundled model catalog loads lazily per provider: `gen:models` now also emits per-provider chunks (`src/models/*.json.txt` + a generated static import map) and a light `models-index.json`, and the runtime parses a provider's chunk on first access instead of materializing all ~4800 models at module evaluation. Catalog data eval at boot drops ~87% (38ms → 5ms measured on the bundled form); full-catalog walkers pay a one-time memoized parse. Public API unchanged; new additive `getBundledModelIds(provider)` serves id-only consumers (shell completion) from the index without loading bodies.
+
 ## [17.5.0] - 2026-09-12
 
 ### Added
@@ -13,16 +23,6 @@
 ### Changed
 
 - Updated the shared OpenAI Codex client compatibility version from `0.153.0` to `0.153.4` for discovery and request headers.
-
-## [18.1.6] - 2026-09-03
-
-### Added
-
-- Added catalog-delivered model intelligence scores and estimated output throughput to help compare model capabilities and performance.
-
-### Changed
-
-- The bundled model catalog loads lazily per provider: `gen:models` now also emits per-provider chunks (`src/models/*.json.txt` + a generated static import map) and a light `models-index.json`, and the runtime parses a provider's chunk on first access instead of materializing all ~4800 models at module evaluation. Catalog data eval at boot drops ~87% (38ms → 5ms measured on the bundled form); full-catalog walkers pay a one-time memoized parse. Public API unchanged; new additive `getBundledModelIds(provider)` serves id-only consumers (shell completion) from the index without loading bodies.
 
 ## [17.3.3] - 2026-08-27
 

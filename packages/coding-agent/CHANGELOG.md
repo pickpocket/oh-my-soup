@@ -2,47 +2,11 @@
 
 ## [Unreleased]
 
+## [17.5.1] - 2026-09-12
+
 ### Added
 
 - Added a non-blocking Discord invitation beneath the interactive welcome banner; quiet startup and scripted output remain unchanged.
-
-## [17.5.0] - 2026-09-12
-
-### Added
-
-- Added session-scoped `notes` for exact working state that survives compaction, resume, and handoff, with keyed updates, atomic persistence, isolated branches, proactive system guidance gated on tool availability, and an early context-pressure reminder to preserve important information.
-- Added the read-only `objdump` tool/device for LLVM-backed binary headers, sections, symbols, disassembly, relocations, and contents, including x86-64 ELF, PE/COFF, Mach-O, and raw bytes, with bounded streaming output, recoverable artifacts, and process cancellation.
-- OMS shell, PowerShell, source-link, and published package installations now provision pinned, checksum-verified LLVM objdump/objcopy and bundled LLVM libraries through `oms setup objdump`; installation preserves loader-relative paths and probes both tools before reporting success.
-- Added optional Discord task-completion notifications via credential-masked `task.discordWebhookUrl`, with metadata-only payloads, nonblocking bounded delivery, and session-owned shutdown draining.
-- Added `tools.format=emoji` as a compact line-based tool-calling mode.
-- Added a bounded peer IRC transcript to Agent Hub: `c` opens selected-agent chat and `a` switches to all-agent traffic.
-- Peer delivery receipts and incoming messages now expose stable message IDs, with bounded reply-context quotes restricted to the same peer pair.
-- Improved background task results with structured output schemas: parsed results are now available through the `agent://<id>` resource, while large or invalid inline JSON is replaced with a reliable pointer to the complete result.
-- Background task artifacts are retained long enough for follow-up turns to read them, including failed tasks that lack valid structured output, and are cleaned up without blocking shutdown or leaking resources.
-- Fixed context compaction incorrectly accepting archived history that was larger because of opaque reasoning data, allowing the next compaction strategy to run instead.
-- Fixed the Model Hub sidebar jumping to the top when provider refreshes rebuild the list; the focused model, or its nearest remaining entry, is now preserved.
-- Fixed the `inspect_image` status hint showing the wrong model after switching between image-capable model roles.
-- Fixed multi-minute TUI freezes during subagent activity and batch execution.
-
-### Changed
-
-- Restored `tools.format=auto` as the default so models use their provider-native tool channel when available; the compact `emoji` dialect remains available as an explicit experimental option.
-- Peer message bodies are capped at 8000 UTF-16 units before delivery; automatic replies include their truncation marker within the same cap.
-- Object inspection now uses LLVM architecture names and target triples; raw input uses `raw: true` with an explicit architecture instead of the GNU-specific `target: "binary"` option.
-
-### Fixed
-
-- Fixed release preparation rejecting already-updated version fields and native sentinels after an interrupted run; missing required metadata still fails.
-- Hardened session notes against concurrent saves and reads, session/branch switches, mutable tool results, and post-transition handoff failures.
-- Included restored note references in context and compaction budgets; references that cannot fit fail before model dispatch without changing saved notes.
-- Made notes reminders primary-delivery-aware, rearmed them on explicit branch switches, preserved provider request attribution, and required built-in notes provenance for guidance and reminders.
-- Fixed shell and PowerShell installers failing when the downloaded release predates `setup objdump`; installers now check supported components while preserving dependency-setup failures on supported releases.
-- Fixed Nix flake evaluation rejecting the exported overlay's argument names.
-- Fixed Windows standalone updates and script-launcher takeovers failing their start check: staged downloads now retain an executable `.exe` suffix, and abandoned staging files are cleaned up without deleting in-progress downloads.
-- Awaited peer sends now stop when the recipient finishes a running turn without replying, while preserving early replies and idle plan-mode auto-replies. Main-agent activity is synchronized with actual session run state.
-- IRC cards now deduplicate by message ID instead of timestamps, preserving simultaneous distinct messages without duplicating later replay.
-- Parent and peer IRC messages now arrive as informational asides without cancelling or skipping ordinary tool calls; deliberate waits still wake for IRC, while explicit user steering and aborts retain their behavior.
-- Transcript observers can no longer cancel a matched message before its waiter receives it. Automatic replies preserve Unicode boundaries and do not update a disposed sender bridge after delivery.
 
 ## [18.1.5] - 2026-09-03
 
@@ -687,6 +651,44 @@
 - Fixed accurate benchmark input token counts on providers with automatic prompt caching.
 - Fixed C# files incorrectly displaying D3.js icons in edit results ([#9323](https://github.com/can1357/oh-my-pi/issues/9323)).
 - Fixed incorrect token delta reporting in expanded context compaction summaries when pre-compaction usage was omitted by the provider ([#9293](https://github.com/can1357/oh-my-pi/issues/9293)).
+
+## [17.5.0] - 2026-09-12
+
+### Added
+
+- Added session-scoped `notes` for exact working state that survives compaction, resume, and handoff, with keyed updates, atomic persistence, isolated branches, proactive system guidance gated on tool availability, and an early context-pressure reminder to preserve important information.
+- Added the read-only `objdump` tool/device for LLVM-backed binary headers, sections, symbols, disassembly, relocations, and contents, including x86-64 ELF, PE/COFF, Mach-O, and raw bytes, with bounded streaming output, recoverable artifacts, and process cancellation.
+- OMS shell, PowerShell, source-link, and published package installations now provision pinned, checksum-verified LLVM objdump/objcopy and bundled LLVM libraries through `oms setup objdump`; installation preserves loader-relative paths and probes both tools before reporting success.
+- Added optional Discord task-completion notifications via credential-masked `task.discordWebhookUrl`, with metadata-only payloads, nonblocking bounded delivery, and session-owned shutdown draining.
+- Added `tools.format=emoji` as a compact line-based tool-calling mode.
+- Added a bounded peer IRC transcript to Agent Hub: `c` opens selected-agent chat and `a` switches to all-agent traffic.
+- Peer delivery receipts and incoming messages now expose stable message IDs, with bounded reply-context quotes restricted to the same peer pair.
+- Improved background task results with structured output schemas: parsed results are now available through the `agent://<id>` resource, while large or invalid inline JSON is replaced with a reliable pointer to the complete result.
+- Background task artifacts are retained long enough for follow-up turns to read them, including failed tasks that lack valid structured output, and are cleaned up without blocking shutdown or leaking resources.
+- Fixed context compaction incorrectly accepting archived history that was larger because of opaque reasoning data, allowing the next compaction strategy to run instead.
+- Fixed the Model Hub sidebar jumping to the top when provider refreshes rebuild the list; the focused model, or its nearest remaining entry, is now preserved.
+- Fixed the `inspect_image` status hint showing the wrong model after switching between image-capable model roles.
+- Fixed multi-minute TUI freezes during subagent activity and batch execution.
+
+### Changed
+
+- Restored `tools.format=auto` as the default so models use their provider-native tool channel when available; the compact `emoji` dialect remains available as an explicit experimental option.
+- Peer message bodies are capped at 8000 UTF-16 units before delivery; automatic replies include their truncation marker within the same cap.
+- Object inspection now uses LLVM architecture names and target triples; raw input uses `raw: true` with an explicit architecture instead of the GNU-specific `target: "binary"` option.
+
+### Fixed
+
+- Fixed release preparation rejecting already-updated version fields and native sentinels after an interrupted run; missing required metadata still fails.
+- Hardened session notes against concurrent saves and reads, session/branch switches, mutable tool results, and post-transition handoff failures.
+- Included restored note references in context and compaction budgets; references that cannot fit fail before model dispatch without changing saved notes.
+- Made notes reminders primary-delivery-aware, rearmed them on explicit branch switches, preserved provider request attribution, and required built-in notes provenance for guidance and reminders.
+- Fixed shell and PowerShell installers failing when the downloaded release predates `setup objdump`; installers now check supported components while preserving dependency-setup failures on supported releases.
+- Fixed Nix flake evaluation rejecting the exported overlay's argument names.
+- Fixed Windows standalone updates and script-launcher takeovers failing their start check: staged downloads now retain an executable `.exe` suffix, and abandoned staging files are cleaned up without deleting in-progress downloads.
+- Awaited peer sends now stop when the recipient finishes a running turn without replying, while preserving early replies and idle plan-mode auto-replies. Main-agent activity is synchronized with actual session run state.
+- IRC cards now deduplicate by message ID instead of timestamps, preserving simultaneous distinct messages without duplicating later replay.
+- Parent and peer IRC messages now arrive as informational asides without cancelling or skipping ordinary tool calls; deliberate waits still wake for IRC, while explicit user steering and aborts retain their behavior.
+- Transcript observers can no longer cancel a matched message before its waiter receives it. Automatic replies preserve Unicode boundaries and do not update a disposed sender bridge after delivery.
 
 ## [17.4.4] - 2026-08-22
 

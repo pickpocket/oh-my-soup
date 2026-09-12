@@ -1,7 +1,7 @@
 {
   "type": "module",
   "name": "@oh-my-soup/pi-utils",
-  "version": "17.5.0",
+  "version": "17.5.1",
   "description": "Shared utilities for pi packages",
   "homepage": "https://github.com/pickpocket/oh-my-soup",
   "author": "Can Boluk",

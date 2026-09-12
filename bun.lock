@@ -22,7 +22,7 @@
     },
     "packages/agent": {
       "name": "@oh-my-soup/pi-agent-core",
-      "version": "17.5.0",
+      "version": "17.5.1",
       "dependencies": {
         "@oh-my-soup/pi-ai": "catalog:",
         "@oh-my-soup/pi-catalog": "catalog:",
@@ -41,7 +41,7 @@
     },
     "packages/ai": {
       "name": "@oh-my-soup/pi-ai",
-      "version": "17.5.0",
+      "version": "17.5.1",
       "dependencies": {
         "@bufbuild/protobuf": "catalog:",
         "@oh-my-soup/omstype": "catalog:",
@@ -64,7 +64,7 @@
     },
     "packages/catalog": {
       "name": "@oh-my-soup/pi-catalog",
-      "version": "17.5.0",
+      "version": "17.5.1",
       "dependencies": {
         "@bufbuild/protobuf": "catalog:",
         "@oh-my-soup/omstype": "catalog:",
@@ -77,7 +77,7 @@
     },
     "packages/coding-agent": {
       "name": "@oh-my-soup/pi-coding-agent",
-      "version": "17.5.0",
+      "version": "17.5.1",
       "bin": {
         "oms": "src/cli.ts",
       },
@@ -137,7 +137,7 @@
     },
     "packages/hashline": {
       "name": "@oh-my-soup/hashline",
-      "version": "17.5.0",
+      "version": "17.5.1",
       "dependencies": {
         "@oh-my-soup/pi-natives": "catalog:",
         "@oh-my-soup/pi-utils": "catalog:",
@@ -181,7 +181,7 @@
     },
     "packages/mnemopi": {
       "name": "@oh-my-soup/pi-mnemopi",
-      "version": "17.5.0",
+      "version": "17.5.1",
       "bin": {
         "mnemopi": "src/cli.ts",
       },
@@ -207,7 +207,7 @@
     },
     "packages/natives": {
       "name": "@oh-my-soup/pi-natives",
-      "version": "17.5.0",
+      "version": "17.5.1",
       "devDependencies": {
         "@napi-rs/cli": "catalog:",
         "@types/bun": "catalog:",
@@ -215,7 +215,7 @@
     },
     "packages/omstype": {
       "name": "@oh-my-soup/omstype",
-      "version": "17.5.0",
+      "version": "17.5.1",
       "devDependencies": {
         "@ark/attest": "0.56.3",
         "@ark/schema": "0.56.2",
@@ -228,7 +228,7 @@
     },
     "packages/snapcompact": {
       "name": "@oh-my-soup/snapcompact",
-      "version": "17.5.0",
+      "version": "17.5.1",
       "dependencies": {
         "@oh-my-soup/pi-ai": "catalog:",
         "@oh-my-soup/pi-catalog": "catalog:",
@@ -242,7 +242,7 @@
     },
     "packages/stats": {
       "name": "@oh-my-soup/oms-stats",
-      "version": "17.5.0",
+      "version": "17.5.1",
       "bin": {
         "oms-stats": "./src/index.ts",
       },
@@ -267,7 +267,7 @@
     },
     "packages/tui": {
       "name": "@oh-my-soup/pi-tui",
-      "version": "17.5.0",
+      "version": "17.5.1",
       "dependencies": {
         "@oh-my-soup/pi-natives": "catalog:",
         "@oh-my-soup/pi-utils": "catalog:",
@@ -303,7 +303,7 @@
     },
     "packages/utils": {
       "name": "@oh-my-soup/pi-utils",
-      "version": "17.5.0",
+      "version": "17.5.1",
       "dependencies": {
         "@oh-my-soup/pi-natives": "catalog:",
       },
@@ -313,7 +313,7 @@
     },
     "packages/wire": {
       "name": "@oh-my-soup/pi-wire",
-      "version": "17.5.0",
+      "version": "17.5.1",
       "devDependencies": {
         "@types/bun": "catalog:",
       },
@@ -352,19 +352,19 @@
     "@bufbuild/protoc-gen-es": "^2.12.1",
     "@huggingface/transformers": "^4.2.0",
     "@napi-rs/cli": "3.7.2",
-    "@oh-my-soup/hashline": "17.5.0",
-    "@oh-my-soup/oms-stats": "17.5.0",
-    "@oh-my-soup/omstype": "17.5.0",
-    "@oh-my-soup/pi-agent-core": "17.5.0",
-    "@oh-my-soup/pi-ai": "17.5.0",
-    "@oh-my-soup/pi-catalog": "17.5.0",
-    "@oh-my-soup/pi-coding-agent": "17.5.0",
-    "@oh-my-soup/pi-mnemopi": "17.5.0",
-    "@oh-my-soup/pi-natives": "17.5.0",
-    "@oh-my-soup/pi-tui": "17.5.0",
-    "@oh-my-soup/pi-utils": "17.5.0",
-    "@oh-my-soup/pi-wire": "17.5.0",
-    "@oh-my-soup/snapcompact": "17.5.0",
+    "@oh-my-soup/hashline": "17.5.1",
+    "@oh-my-soup/oms-stats": "17.5.1",
+    "@oh-my-soup/omstype": "17.5.1",
+    "@oh-my-soup/pi-agent-core": "17.5.1",
+    "@oh-my-soup/pi-ai": "17.5.1",
+    "@oh-my-soup/pi-catalog": "17.5.1",
+    "@oh-my-soup/pi-coding-agent": "17.5.1",
+    "@oh-my-soup/pi-mnemopi": "17.5.1",
+    "@oh-my-soup/pi-natives": "17.5.1",
+    "@oh-my-soup/pi-tui": "17.5.1",
+    "@oh-my-soup/pi-utils": "17.5.1",
+    "@oh-my-soup/pi-wire": "17.5.1",
+    "@oh-my-soup/snapcompact": "17.5.1",
     "@opentelemetry/api": "^1.9.1",
     "@opentelemetry/api-logs": "^0.220.0",
     "@opentelemetry/context-async-hooks": "^2.9.0",
@@ -1560,8 +1560,6 @@
 
     "babel-plugin-jsx-dom-expressions/@babel/helper-module-imports": ["@babel/helper-module-imports@7.18.6", "", { "dependencies": { "@babel/types": "^7.18.6" } }, "sha512-0NFvs3VkuSYbFi1x2Vd6tKrywq+z/cLeYC/RJNFrIX/30Bf5aiGYbtvGXolEktzJH8o5E5KJ3tT+nkxuuZFVlA=="],
 
-    "bun-types/@types/node": ["@types/node@22.20.2", "", { "dependencies": { "undici-types": "~6.21.0" } }, "sha512-xlvWf4Vs9n1PEVYwP1n4vvG07M6y8WgvJ2t0vbrWTmijsIHp1cS+uJ2kMIRdY3nHZK0nCYKrPeD171+SzF4/zw=="],
-
     "cliui/string-width": ["string-width@7.2.0", "", { "dependencies": { "emoji-regex": "^10.3.0", "get-east-asian-width": "^1.0.0", "strip-ansi": "^7.1.0" } }, "sha512-tsaTIkKW9b4N+AEj+SVA+WhJzV7/zMhcSu78mLKWSk7cXMOSHsBKFWUs0fWwq8QyK3MgJBQRX6Gbi4kYbdvGkQ=="],
 
     "cliui/strip-ansi": ["strip-ansi@7.2.0", "", { "dependencies": { "ansi-regex": "^6.2.2" } }, "sha512-yDPMNjp4WyfYBkHnjIRLfca1i6KMyGCtsVgoKe/z1+6vukgaENdgGBZt+ZmKPc4gavvEZ5OgHfHdrazhgNyG7w=="],
@@ -1575,8 +1573,6 @@
     "onnxruntime-node/adm-zip": ["adm-zip@0.5.18", "", {}, "sha512-ufJnssQGbxzLNS1Ho9bCtX4rQKCCvoVuDLHoJyc3F9dOGDB4BkWs2Ci0kv53lqocAEQ/Cbi+I2XCsNYGqVYqng=="],
 
     "onnxruntime-web/onnxruntime-common": ["onnxruntime-common@1.24.0-dev.20251116-b39e144322", "", {}, "sha512-BOoomdHYmNRL5r4iQ4bMvsl2t0/hzVQ3OM3PHD0gxeXu1PmggqBv3puZicEUVOA3AtHHYmqZtjMj9FOfGrATTw=="],
-
-    "protobufjs/@types/node": ["@types/node@22.20.2", "", { "dependencies": { "undici-types": "~6.21.0" } }, "sha512-xlvWf4Vs9n1PEVYwP1n4vvG07M6y8WgvJ2t0vbrWTmijsIHp1cS+uJ2kMIRdY3nHZK0nCYKrPeD171+SzF4/zw=="],
 
     "puppeteer-core/chromium-bidi": ["chromium-bidi@16.0.1", "", { "dependencies": { "mitt": "^3.0.1", "zod": "^3.24.1" }, "peerDependencies": { "devtools-protocol": "*" } }, "sha512-J63PGu/9PpeCwLIcKYyzWP6yaVL5pxuBc0shlYCYM8BaAkmlwiQboXO1iNbOgSDbVklEyYFfNEcHD8oOAWacUA=="],
 
@@ -1612,8 +1608,6 @@
 
     "@typescript/analyze-trace/yargs/yargs-parser": ["yargs-parser@20.2.9", "", {}, "sha512-y11nGElTIV+CT3Zv9t7VKl+Q3hTQoT9a1Qzezhhl6Rp21gJ/IVTW7Z3y9EWXhuUBC2Shnf+DX0antecpAwSP8w=="],
 
-    "bun-types/@types/node/undici-types": ["undici-types@6.21.0", "", {}, "sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ=="],
-
     "cliui/string-width/emoji-regex": ["emoji-regex@10.6.0", "", {}, "sha512-toUI84YS5YmxW219erniWD0CIVOo46xGKColeNQRgOzDorgBi1v4D71/OFzgD9GO2UGKIv1C3Sp8DAn0+j5w7A=="],
 
     "cliui/strip-ansi/ansi-regex": ["ansi-regex@6.3.0", "", {}, "sha512-WpDfL7NO6j7tH88IDBNVdUJxDh9nmCteAVW9dsep846XdwF4naCBK+/tGLX3KJgcpgMRXCFlTM2hKGoK9FsdrQ=="],
@@ -1623,8 +1617,6 @@
     "fastembed/onnxruntime-node/onnxruntime-common": ["onnxruntime-common@1.21.0", "", {}, "sha512-Q632iLLrtCAVOTO65dh2+mNbQir/QNTVBG3h/QdZBpns7mZ0RYbLRBgGABPbpU9351AgYy7SJf1WaeVwMrBFPQ=="],
 
     "fastembed/onnxruntime-node/tar": ["tar@7.5.22", "", { "dependencies": { "@isaacs/fs-minipass": "^4.0.0", "chownr": "^3.0.0", "minipass": "^7.1.2", "minizlib": "^3.1.0", "yallist": "^5.0.0" } }, "sha512-MFO/QzvtAOmJbkhOaCTvbGcFN9L9b+JunIsDwaKljSOdcLMea3NJ1k9Usz/rjdfSXTq4dfzfeS7W4p4YOAAHeA=="],
-
-    "protobufjs/@types/node/undici-types": ["undici-types@6.21.0", "", {}, "sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ=="],
 
     "vite/lightningcss/lightningcss-android-arm64": ["lightningcss-android-arm64@1.33.0", "", { "os": "android", "cpu": "arm64" }, "sha512-gEpRTalKdosp4Bb8qWtc2iOgE5SeIHlpS1up9bFq2wAyYhl1UdTObYiHe98zEM9SQvSoqQZ1IQD0JNpg3Ml5pg=="],
 

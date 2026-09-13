@@ -87,6 +87,16 @@ needs to know whether the user has scrolled away from the tail.
 
 ## 2. The frame pipeline (what you are editing)
 
+Before composing a frame, the renderer checks the terminal's optional
+`outputBackpressured` capability. `ProcessTerminal` reports its existing stdout
+backlog state and notifies `onOutputDrain` listeners after resetting it. While
+blocked, full, component, direct-animation, forced, and resize paint requests
+retain their pending intent without composing or advancing the cursor/history
+ledger. Input handling continues. Drain resumes the latest pending state; an
+already-started frame is always written completely, never dropped halfway.
+The TUI unsubscribes on stop and subscribes again on start. Custom terminals
+without these optional capabilities retain the existing eager behavior.
+
 `#doRender` per frame:
 
 1. Compose the frame, collecting the first root child's
@@ -168,6 +178,11 @@ constructs that can re-layout asynchronously (for example Mermaid) defer
 settling. Pinning is propagated from the first live block; tool execution uses
 it for replacing preview/dashboard states.
 
+`AnchoredLiveContainer` marks transient HUD/status rows live at row zero and
+pins them independently of the transcript's earlier live seam. The seam alone
+does not prevent snapshots from entering history: the pin keeps these
+replaceable rows viewport-only when a panel grows beyond the screen or collapses.
+
 Transcript assembly also reports `RenderStablePrefix`: unchanged component
 array references at unchanged offsets let the engine skip work over the
 byte-identical prefix. Components that discard or lock committed material must
@@ -239,6 +254,10 @@ contract, not a terminal-specific optimization.
   multiplexers and under `PI_NO_DECCARA`.
 - `supportsScreenToScrollback` → kitty's ED22 (used once, on the initial
   paint, to preserve the pre-existing shell screen).
+- Inline images require a recognized terminal profile, a successful existing
+  runtime probe, or `PI_FORCE_IMAGE_PROTOCOL`. A bare `screen*`/`tmux*` TERM is
+  not evidence of Kitty support; unknown terminals keep the text fallback.
+  Explicit protocol overrides, including `off`, retain precedence.
 
 The old ED3-risk classifier (`eagerEraseScrollbackRisk`, `PI_TUI_ED3_SAFE`,
 `submitPinsViewportToTail`) is gone: behavior no longer depends on which

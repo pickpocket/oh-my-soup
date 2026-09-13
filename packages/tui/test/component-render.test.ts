@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import {
 	type Component,
 	Container,
@@ -91,6 +91,32 @@ class RenderCountingTUI extends TUI {
 	override render(width: number): readonly string[] {
 		this.renders++;
 		return super.render(width);
+	}
+}
+
+class PressureVirtualTerminal extends VirtualTerminal {
+	outputBackpressured = false;
+	pressureOnNextWrite = false;
+	readonly drainListeners = new Set<() => void>();
+
+	onOutputDrain(listener: () => void): () => void {
+		this.drainListeners.add(listener);
+		return () => {
+			this.drainListeners.delete(listener);
+		};
+	}
+
+	drainOutput(): void {
+		this.outputBackpressured = false;
+		for (const listener of this.drainListeners) listener();
+	}
+
+	override write(data: string): void {
+		super.write(data);
+		if (this.pressureOnNextWrite) {
+			this.pressureOnNextWrite = false;
+			this.outputBackpressured = true;
+		}
 	}
 }
 
@@ -633,6 +659,341 @@ describe("TUI.requestDirectWrite", () => {
 			expect(visible(term)).toEqual(["modal", "spin-1", "footer"]);
 			expect(tui.renders).toBeGreaterThan(tuiRenders);
 			expect(transcript.renders).toBeGreaterThan(transcriptRenders);
+		} finally {
+			tui.stop();
+			await term.flush();
+		}
+	});
+});
+
+describe("TUI output pressure", () => {
+	const envKeys = [
+		"TMUX",
+		"STY",
+		"ZELLIJ",
+		"TERM_PROGRAM",
+		"CMUX_WORKSPACE_ID",
+		"CMUX_SURFACE_ID",
+		"CMUX_REMOTE_TRANSPORT",
+		"PI_TUI_RESIZE_IN_PLACE",
+	];
+	let savedEnv: Record<string, string | undefined>;
+
+	beforeEach(() => {
+		savedEnv = {};
+		for (const key of envKeys) {
+			savedEnv[key] = Bun.env[key];
+			delete Bun.env[key];
+		}
+	});
+
+	afterEach(() => {
+		vi.restoreAllMocks();
+		for (const key of envKeys) {
+			const value = savedEnv[key];
+			if (value === undefined) delete Bun.env[key];
+			else Bun.env[key] = value;
+		}
+	});
+
+	it("coalesces stalled appends without paint churn or delaying cancellation, then resumes an exact history and diff", async () => {
+		const term = new PressureVirtualTerminal(40, 5, 1_000);
+		const scheduler = new StressRenderScheduler();
+		const tui = new RenderCountingTUI(term, undefined, { renderScheduler: scheduler });
+		const markers = Array.from({ length: 6 }, (_row, index) => `ROW-${String(index).padStart(3, "0")}`);
+		const transcript = new LiveHead([...markers, "streaming"]);
+		transcript.setSeam(markers.length);
+		const status = new CountingLines(["running"]);
+		const cancel = vi.fn(() => status.set(["cancelled"]));
+		const input: Component & Focusable = {
+			focused: false,
+			invalidate() {},
+			render: () => ["input"],
+			handleInput(data) {
+				if (data === "\x03") cancel();
+			},
+		};
+		tui.addChild(transcript);
+		tui.addChild(status);
+		tui.addChild(input);
+		tui.setFocus(input);
+
+		try {
+			tui.start();
+			await scheduler.drain(term);
+			const baselineScreen = visible(term);
+			const baselineCursor = term.getCursor();
+			const baselineRenders = [tui.renders, transcript.renders, status.renders];
+			// This already-queued callback must also gate before composition.
+			tui.requestRender();
+			term.outputBackpressured = true;
+			const writes = vi.spyOn(term, "write");
+			const immediates = vi.spyOn(scheduler, "scheduleImmediate");
+			const timers = vi.spyOn(scheduler, "scheduleRender");
+			await scheduler.drain(term);
+			for (let tick = 0; tick < 24; tick++) {
+				markers.push(`ROW-${String(markers.length).padStart(3, "0")}`);
+				transcript.set([...markers, "streaming"]);
+				transcript.setSeam(markers.length);
+				tui.requestRender();
+				status.set([`running-${tick}`]);
+				tui.requestComponentRender(status);
+				await scheduler.drain(term);
+			}
+			term.sendInput("\x03");
+			expect(cancel).toHaveBeenCalledTimes(1);
+			await scheduler.drain(term);
+
+			expect(writes).not.toHaveBeenCalled();
+			expect(immediates).not.toHaveBeenCalled();
+			expect(timers).not.toHaveBeenCalled();
+			expect([tui.renders, transcript.renders, status.renders]).toEqual(baselineRenders);
+			expect(visible(term)).toEqual(baselineScreen);
+			expect(term.getCursor()).toEqual(baselineCursor);
+
+			term.drainOutput();
+			await scheduler.drain(term);
+			const latest = [...markers, "streaming", "cancelled", "input"];
+			expect(visible(term)).toEqual(latest.slice(-term.rows));
+			expect(strip(term.getScrollBuffer()).filter(Boolean)).toEqual(latest);
+
+			markers.push("ROW-030");
+			transcript.set([...markers, "complete"]);
+			transcript.setSeam(markers.length);
+			status.set(["idle"]);
+			tui.requestRender();
+			await scheduler.drain(term);
+			const next = [...markers, "complete", "idle", "input"];
+			expect(visible(term)).toEqual(next.slice(-term.rows));
+			expect(strip(term.getScrollBuffer()).filter(Boolean)).toEqual(next);
+		} finally {
+			tui.stop();
+			await term.flush();
+		}
+	});
+
+	for (const fullFirst of [true, false]) {
+		it(`preserves full-render precedence while blocked with the full request ${fullFirst ? "first" : "last"}`, async () => {
+			const term = new PressureVirtualTerminal(40, 5, 1_000);
+			const scheduler = new StressRenderScheduler();
+			const tui = new TUI(term, undefined, { renderScheduler: scheduler });
+			const transcript = new CountingLines(["before"]);
+			const spinner = new CountingLines(["spin-0"]);
+			tui.addChild(transcript);
+			tui.addChild(spinner);
+
+			try {
+				tui.start();
+				await scheduler.drain(term);
+				const baselineRenders = [transcript.renders, spinner.renders];
+				const writes = vi.spyOn(term, "write");
+				const immediates = vi.spyOn(scheduler, "scheduleImmediate");
+				const timers = vi.spyOn(scheduler, "scheduleRender");
+				term.outputBackpressured = true;
+				transcript.set(["after"]);
+				spinner.set(["spin-1"]);
+				if (fullFirst) tui.requestRender();
+				tui.requestComponentRender(spinner);
+				if (!fullFirst) tui.requestRender();
+				await scheduler.drain(term);
+
+				expect(writes).not.toHaveBeenCalled();
+				expect(immediates).not.toHaveBeenCalled();
+				expect(timers).not.toHaveBeenCalled();
+				expect([transcript.renders, spinner.renders]).toEqual(baselineRenders);
+				expect(visible(term)).toEqual(["before", "spin-0"]);
+				term.drainOutput();
+				await scheduler.drain(term);
+				expect(visible(term)).toEqual(["after", "spin-1"]);
+				expect(transcript.renders).toBeGreaterThan(baselineRenders[0]!);
+			} finally {
+				tui.stop();
+				await term.flush();
+			}
+		});
+	}
+
+	it("defers quiet direct writes and retains every scoped component without composing unrelated history", async () => {
+		const term = new PressureVirtualTerminal(40, 5, 1_000);
+		const scheduler = new StressRenderScheduler();
+		const tui = new RenderCountingTUI(term, undefined, { renderScheduler: scheduler });
+		const transcript = new CountingLines(["history"]);
+		const spinner = new CountingLines(["spin-0"]);
+		const footer = new CountingLines(["footer-0"]);
+		tui.addChild(transcript);
+		tui.addChild(spinner);
+		tui.addChild(footer);
+
+		try {
+			tui.start();
+			await scheduler.drain(term);
+			const baselineRenders = [tui.renders, transcript.renders, spinner.renders, footer.renders];
+			const writes = vi.spyOn(term, "write");
+			const immediates = vi.spyOn(scheduler, "scheduleImmediate");
+			const timers = vi.spyOn(scheduler, "scheduleRender");
+			term.outputBackpressured = true;
+			spinner.set(["spin-1"]);
+			tui.requestDirectWrite(spinner);
+			footer.set(["footer-1"]);
+			tui.requestDirectWrite(footer);
+			spinner.set(["spin-2"]);
+			tui.requestComponentRender(spinner);
+			await scheduler.drain(term);
+
+			expect(writes).not.toHaveBeenCalled();
+			expect(immediates).not.toHaveBeenCalled();
+			expect(timers).not.toHaveBeenCalled();
+			expect([tui.renders, transcript.renders, spinner.renders, footer.renders]).toEqual(baselineRenders);
+			expect(visible(term)).toEqual(["history", "spin-0", "footer-0"]);
+			term.drainOutput();
+			await scheduler.drain(term);
+			expect(visible(term)).toEqual(["history", "spin-2", "footer-1"]);
+			expect(transcript.renders).toBe(baselineRenders[1]!);
+		} finally {
+			tui.stop();
+			await term.flush();
+		}
+	});
+
+	it("retains resetDisplay and forced scrollback clearing through later false and component requests while blocked", async () => {
+		const term = new PressureVirtualTerminal(40, 4, 1_000);
+		term.write("external-old\r\n".repeat(8));
+		const scheduler = new StressRenderScheduler();
+		const tui = new TUI(term, undefined, { renderScheduler: scheduler });
+		const transcript = new CountingLines(["current-0", "current-1", "current-2", "current-3", "current-4"]);
+		const status = new CountingLines(["status-0"]);
+		tui.addChild(transcript);
+		tui.addChild(status);
+
+		try {
+			tui.start();
+			await scheduler.drain(term);
+			expect(strip(term.getScrollBuffer())).toContain("external-old");
+			const baselineRenders = [transcript.renders, status.renders];
+			const writes = vi.spyOn(term, "write");
+			const immediates = vi.spyOn(scheduler, "scheduleImmediate");
+			const timers = vi.spyOn(scheduler, "scheduleRender");
+			term.outputBackpressured = true;
+			tui.requestRender(true, { clearScrollback: true });
+			tui.resetDisplay();
+			tui.requestRender(true, { clearScrollback: false });
+			status.set(["status-1"]);
+			tui.requestComponentRender(status);
+			await scheduler.drain(term);
+
+			expect(writes).not.toHaveBeenCalled();
+			expect(immediates).not.toHaveBeenCalled();
+			expect(timers).not.toHaveBeenCalled();
+			expect([transcript.renders, status.renders]).toEqual(baselineRenders);
+			term.drainOutput();
+			await scheduler.drain(term);
+			const latest = ["current-0", "current-1", "current-2", "current-3", "current-4", "status-1"];
+			expect(visible(term)).toEqual(latest.slice(-term.rows));
+			expect(strip(term.getScrollBuffer()).filter(Boolean)).toEqual(latest);
+			expect(writes.mock.calls.filter(([data]) => data.includes("\x1b[3J"))).toHaveLength(1);
+		} finally {
+			tui.stop();
+			await term.flush();
+		}
+	});
+
+	it("unsubscribes on a blocked stop and restarts without stale force intent erasing external output", async () => {
+		const term = new PressureVirtualTerminal(40, 4, 1_000);
+		const scheduler = new StressRenderScheduler();
+		const tui = new TUI(term, undefined, { renderScheduler: scheduler });
+		const transcript = new CountingLines(["initial"]);
+		tui.addChild(transcript);
+		const start = term.start.bind(term);
+		const starts = vi.spyOn(term, "start").mockImplementation((onInput, onResize) => {
+			expect(term.drainListeners.size).toBe(1);
+			start(onInput, onResize);
+		});
+
+		try {
+			tui.start();
+			await scheduler.drain(term);
+			term.outputBackpressured = true;
+			transcript.set(["stopped-update"]);
+			tui.requestComponentRender(transcript);
+			tui.requestRender(true, { clearScrollback: true });
+			tui.stop();
+			expect(term.drainListeners.size).toBe(0);
+			const renders = transcript.renders;
+			const writes = vi.spyOn(term, "write");
+			const immediates = vi.spyOn(scheduler, "scheduleImmediate");
+			const timers = vi.spyOn(scheduler, "scheduleRender");
+			term.drainOutput();
+			await scheduler.drain(term);
+			expect(writes).not.toHaveBeenCalled();
+			expect(immediates).not.toHaveBeenCalled();
+			expect(timers).not.toHaveBeenCalled();
+			expect(transcript.renders).toBe(renders);
+
+			transcript.set(["restarted-newest"]);
+			term.outputBackpressured = true;
+			term.write(`\r\nexternal-editor${"\r\n".repeat(term.rows + 1)}`);
+			expect(strip(term.getScrollBuffer())).toContain("external-editor");
+			writes.mockClear();
+			tui.start();
+			await scheduler.drain(term);
+			expect(starts).toHaveBeenCalledTimes(2);
+			expect(transcript.renders).toBe(renders);
+			expect(immediates).not.toHaveBeenCalled();
+			expect(timers).not.toHaveBeenCalled();
+			term.drainOutput();
+			await scheduler.drain(term);
+			expect(visible(term)).toEqual(["restarted-newest"]);
+			expect(term.drainListeners.size).toBe(1);
+			expect(strip(term.getScrollBuffer())).toContain("external-editor");
+			expect(writes.mock.calls.some(([data]) => data.includes("\x1b[3J"))).toBe(false);
+		} finally {
+			tui.stop();
+			await term.flush();
+		}
+	});
+
+	it("finishes the fullscreen frame when its first write starts pressure, then defers the next frame", async () => {
+		const term = new PressureVirtualTerminal(40, 4, 1_000);
+		const scheduler = new StressRenderScheduler();
+		const tui = new TUI(term, undefined, { renderScheduler: scheduler });
+		const transcript = new CountingLines(["normal"]);
+		const modal = new CountingLines(["modal-0", "modal-1", "modal-2", "modal-3"]);
+		tui.addChild(transcript);
+
+		try {
+			tui.start();
+			await scheduler.drain(term);
+			const writes = vi.spyOn(term, "write");
+			term.pressureOnNextWrite = true;
+			const overlay = tui.showOverlay(modal, {
+				fullscreen: true,
+				mouseTracking: false,
+				width: 40,
+				anchor: "top-left",
+			});
+			await scheduler.drain(term);
+			expect(term.outputBackpressured).toBe(true);
+			expect(writes.mock.calls[0]![0]).toContain("\x1b[?1049h");
+			expect(writes.mock.calls.slice(1).some(([data]) => data.includes("modal-3"))).toBe(true);
+			expect(visible(term)).toEqual(["modal-0", "modal-1", "modal-2", "modal-3"]);
+
+			writes.mockClear();
+			const immediates = vi.spyOn(scheduler, "scheduleImmediate");
+			const timers = vi.spyOn(scheduler, "scheduleRender");
+			const modalRenders = modal.renders;
+			modal.set(["new-modal-0", "modal-1", "modal-2", "new-modal-3"]);
+			tui.requestComponentRender(modal);
+			await scheduler.drain(term);
+			expect(writes).not.toHaveBeenCalled();
+			expect(immediates).not.toHaveBeenCalled();
+			expect(timers).not.toHaveBeenCalled();
+			expect(modal.renders).toBe(modalRenders);
+			term.drainOutput();
+			await scheduler.drain(term);
+			expect(visible(term)).toEqual(["new-modal-0", "modal-1", "modal-2", "new-modal-3"]);
+			overlay.hide();
+			await scheduler.drain(term);
+			expect(visible(term)).toEqual(["normal"]);
 		} finally {
 			tui.stop();
 			await term.flush();

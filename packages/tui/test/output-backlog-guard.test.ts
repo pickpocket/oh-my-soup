@@ -82,3 +82,95 @@ it("stops writing when the real terminal path crosses the backlog cap", () => {
 		setTerminalHeadless(previousHeadless);
 	}
 });
+
+it("clears output pressure before drain subscribers resume writing and supports unsubscribe", () => {
+	const previousHeadless = setTerminalHeadless(false);
+	const isTTY = Object.getOwnPropertyDescriptor(process.stdout, "isTTY");
+	const setRawMode = Object.getOwnPropertyDescriptor(process.stdin, "setRawMode");
+	const wslDistro = Bun.env.WSL_DISTRO_NAME;
+	const writes: string[] = [];
+	let refuseNextWrite = false;
+	const stdout = vi.spyOn(process.stdout, "write").mockImplementation(chunk => {
+		writes.push(typeof chunk === "string" ? chunk : chunk.toString());
+		if (!refuseNextWrite) return true;
+		refuseNextWrite = false;
+		return false;
+	});
+	const pause = vi.spyOn(process.stdin, "pause").mockImplementation(() => process.stdin);
+	const terminal = new ProcessTerminal();
+	const pressureAtDrain: boolean[] = [];
+	let restallOnDrain = true;
+	const unsubscribe = terminal.onOutputDrain(() => {
+		pressureAtDrain.push(terminal.outputBackpressured);
+		if (!restallOnDrain) return;
+		refuseNextWrite = true;
+		terminal.write("resumed frame");
+	});
+
+	try {
+		Object.defineProperty(process.stdout, "isTTY", { value: true, configurable: true });
+		Object.defineProperty(process.stdin, "setRawMode", { value: vi.fn(), configurable: true });
+		// Exercise ConPTY chunking on Windows and Linux/WSL without changing
+		// process.platform or touching the real terminal's input configuration.
+		Bun.env.WSL_DISTRO_NAME = "output-pressure-test";
+		terminal.write("healthy frame");
+		process.stdout.emit("drain");
+		expect(pressureAtDrain).toEqual([]);
+		expect(terminal.outputBackpressured).toBe(false);
+		writes.length = 0;
+
+		// The first chunk refuses, later chunks accept. Every byte must still
+		// reach stdout, and that earlier refusal must remain visible until drain.
+		const frame = "x".repeat(32 * 1024 + 1);
+		refuseNextWrite = true;
+		terminal.write(frame);
+		expect(writes.join("")).toBe(frame);
+		expect(terminal.outputBackpressured).toBe(true);
+		terminal.write("accepted trailer");
+		expect(terminal.outputBackpressured).toBe(true);
+
+		process.stdout.emit("drain");
+		expect(pressureAtDrain).toEqual([false]);
+		expect(terminal.outputBackpressured).toBe(true);
+		// A write from the subscriber starts a new drain cycle, not a lost or
+		// duplicate notification from the event currently being dispatched.
+		restallOnDrain = false;
+		process.stdout.emit("drain");
+		expect(pressureAtDrain).toEqual([false, false]);
+		expect(terminal.outputBackpressured).toBe(false);
+
+		unsubscribe();
+		unsubscribe();
+		refuseNextWrite = true;
+		terminal.write("unsubscribed frame");
+		process.stdout.emit("drain");
+		expect(pressureAtDrain).toEqual([false, false]);
+		expect(terminal.outputBackpressured).toBe(false);
+
+		const unsubscribeAfterStop = terminal.onOutputDrain(() => {
+			pressureAtDrain.push(terminal.outputBackpressured);
+		});
+		refuseNextWrite = true;
+		terminal.write("last frame");
+		terminal.stop();
+		process.stdout.emit("drain");
+		expect(pressureAtDrain).toEqual([false, false]);
+		expect(terminal.outputBackpressured).toBe(false);
+		unsubscribeAfterStop();
+	} finally {
+		unsubscribe();
+		try {
+			terminal.stop();
+		} finally {
+			stdout.mockRestore();
+			pause.mockRestore();
+			if (isTTY) Object.defineProperty(process.stdout, "isTTY", isTTY);
+			else Reflect.deleteProperty(process.stdout, "isTTY");
+			if (setRawMode) Object.defineProperty(process.stdin, "setRawMode", setRawMode);
+			else Reflect.deleteProperty(process.stdin, "setRawMode");
+			if (wslDistro === undefined) delete Bun.env.WSL_DISTRO_NAME;
+			else Bun.env.WSL_DISTRO_NAME = wslDistro;
+			setTerminalHeadless(previousHeadless);
+		}
+	}
+});

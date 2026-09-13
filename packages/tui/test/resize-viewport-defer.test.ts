@@ -3,6 +3,7 @@ import {
 	type Component,
 	type RenderScheduler,
 	type RenderTimer,
+	Text,
 	TUI,
 	type ViewportTailProvider,
 } from "@oh-my-soup/pi-tui";
@@ -133,6 +134,23 @@ class DeferScheduler implements RenderScheduler {
 			for (const entry of renders) entry.run();
 		}
 		await term.flush();
+	}
+}
+
+class PressureVirtualTerminal extends VirtualTerminal {
+	outputBackpressured = false;
+	readonly drainListeners = new Set<() => void>();
+
+	onOutputDrain(listener: () => void): () => void {
+		this.drainListeners.add(listener);
+		return () => {
+			this.drainListeners.delete(listener);
+		};
+	}
+
+	drainOutput(): void {
+		this.outputBackpressured = false;
+		for (const listener of this.drainListeners) listener();
 	}
 }
 
@@ -658,6 +676,271 @@ describe("resize repaints in place on sensitive terminal hosts", () => {
 				expect(eraseScrollbackCount(writes)).toBe(0);
 			} finally {
 				tui.stop();
+			}
+		});
+	});
+});
+
+describe("resize under output pressure", () => {
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
+	it("settles a blocked resize without painting and drains the latest geometry, forced replay, and history", async () => {
+		await withEnvPatch(NO_MULTIPLEXER_ENV, async () => {
+			const term = new PressureVirtualTerminal(40, 6, 1_000);
+			const scheduler = new DeferScheduler();
+			const tui = new TUI(term, undefined, { renderScheduler: scheduler });
+			const rows = Array.from({ length: 12 }, (_row, index) => `row-${index}-width-sensitive`);
+			const blocks = rows.map(row => new CountingBlock([row]));
+			const transcript = new TailTranscript(blocks);
+			tui.addChild(transcript);
+
+			try {
+				tui.start();
+				await scheduler.flushAll(term);
+				const baselineRenders = blocks.map(block => block.renderCount);
+				const baselineFull = tui.fullRedraws;
+				const writes = captureWrites(term);
+				const immediates = vi.spyOn(scheduler, "scheduleImmediate");
+				const timers = vi.spyOn(scheduler, "scheduleRender");
+				term.outputBackpressured = true;
+				term.resize(24, 5);
+				rows.push("row-12-before-settle");
+				blocks.push(new CountingBlock([rows.at(-1)!]));
+				tui.requestRender(true, { clearScrollback: true });
+				term.resize(18, 6);
+				tui.requestRender(true, { clearScrollback: false });
+				tui.requestComponentRender(transcript);
+				await scheduler.flushAll(term);
+
+				expect(tui.resizeViewportActive).toBe(false);
+				expect(scheduler.pendingRenders).toBe(0);
+				rows.push("row-13-after-settle");
+				blocks.push(new CountingBlock([rows.at(-1)!]));
+				tui.requestComponentRender(transcript);
+				await scheduler.flushAll(term);
+				expect(writes).toEqual([]);
+				expect(immediates).not.toHaveBeenCalled();
+				// Only the two resize quiet timers are allowed, never repaint retries.
+				expect(timers).toHaveBeenCalledTimes(2);
+				expect(blocks.slice(0, 12).map(block => block.renderCount)).toEqual(baselineRenders);
+				expect(blocks.slice(12).map(block => block.renderCount)).toEqual([0, 0]);
+				expect(tui.resizeViewportPaints).toBe(0);
+				expect(tui.fullRedraws).toBe(baselineFull);
+
+				term.drainOutput();
+				await scheduler.flushAll(term);
+				const latest = rows.map(row => row.slice(0, 18));
+				expect(visible(term)).toEqual(latest.slice(-6));
+				expect(
+					term
+						.getScrollBuffer()
+						.map(row => row.trimEnd())
+						.filter(Boolean),
+				).toEqual(latest);
+				expect(eraseScrollbackCount(writes)).toBe(1);
+				expect(tui.fullRedraws).toBe(baselineFull + 1);
+				expect(writes.join("")).not.toContain(ALT_SCREEN_ENTER);
+			} finally {
+				tui.stop();
+				await term.flush();
+			}
+		});
+	});
+
+	it("finishes an already-active resize only after drain without losing or duplicating normal-screen history", async () => {
+		await withEnvPatch(NO_MULTIPLEXER_ENV, async () => {
+			const term = new PressureVirtualTerminal(40, 6, 1_000);
+			const scheduler = new DeferScheduler();
+			const tui = new TUI(term, undefined, { renderScheduler: scheduler });
+			const rows = Array.from({ length: 12 }, (_row, index) => `row-${index}-width-sensitive`);
+			const blocks = rows.map(row => new CountingBlock([row]));
+			const transcript = new TailTranscript(blocks);
+			tui.addChild(transcript);
+
+			try {
+				tui.start();
+				await scheduler.flushAll(term);
+				const writes = captureWrites(term);
+				term.resize(24, 6);
+				await scheduler.flushOrdinaryRenders(term);
+				expect(tui.resizeViewportActive).toBe(true);
+				expect(writes.join("")).toContain(ALT_SCREEN_ENTER);
+				const baselineRenders = blocks.map(block => block.renderCount);
+				const baselinePaints = tui.resizeViewportPaints;
+				const baselineFull = tui.fullRedraws;
+				writes.length = 0;
+				const immediates = vi.spyOn(scheduler, "scheduleImmediate");
+				const timers = vi.spyOn(scheduler, "scheduleRender");
+				term.outputBackpressured = true;
+				rows.push("row-12-live-append");
+				blocks.push(new CountingBlock([rows.at(-1)!]));
+				term.resize(18, 5);
+				tui.requestComponentRender(transcript);
+				tui.requestRender(true, { clearScrollback: true });
+				tui.requestRender(true, { clearScrollback: false });
+				await scheduler.flushAll(term);
+
+				expect(tui.resizeViewportActive).toBe(false);
+				expect(scheduler.pendingRenders).toBe(0);
+				expect(writes).toEqual([]);
+				expect(immediates).not.toHaveBeenCalled();
+				expect(timers).toHaveBeenCalledTimes(1);
+				expect(blocks.slice(0, 12).map(block => block.renderCount)).toEqual(baselineRenders);
+				expect(blocks.at(-1)!.renderCount).toBe(0);
+				expect(tui.resizeViewportPaints).toBe(baselinePaints);
+				expect(tui.fullRedraws).toBe(baselineFull);
+
+				term.drainOutput();
+				await scheduler.flushAll(term);
+				const latest = rows.map(row => row.slice(0, 18));
+				expect(visible(term)).toEqual(latest.slice(-5));
+				expect(
+					term
+						.getScrollBuffer()
+						.map(row => row.trimEnd())
+						.filter(Boolean),
+				).toEqual(latest);
+				expect(writes.join("")).toContain(ALT_SCREEN_EXIT);
+				expect(writes.join("")).not.toContain(ALT_SCREEN_ENTER);
+				expect(eraseScrollbackCount(writes)).toBe(1);
+				expect(tui.fullRedraws).toBe(baselineFull + 1);
+			} finally {
+				tui.stop();
+				await term.flush();
+			}
+		});
+	});
+
+	for (const growthTiming of [
+		"before resize",
+		"after settle",
+		"after settle with only force",
+		"after settle with only resetDisplay",
+	] as const) {
+		const growthAfterSettle = growthTiming !== "before resize";
+		it(`preserves unpaid growth ${growthTiming} when an in-place resize drains`, async () => {
+			await withEnvPatch(
+				{
+					...NO_MULTIPLEXER_ENV,
+					PI_TUI_RESIZE_IN_PLACE: "1",
+					// resetDisplay must use the non-destructive mux path so an ED3
+					// full replay cannot mask lost pending width-epoch growth.
+					TMUX: growthTiming === "after settle with only resetDisplay" ? "/tmp/pressure-mux" : undefined,
+				},
+				async () => {
+					const term = new PressureVirtualTerminal(40, 6, 1_000);
+					const scheduler = new DeferScheduler();
+					const tui = new TUI(term, undefined, { renderScheduler: scheduler });
+					const rows = Array.from({ length: 12 }, (_row, index) => `row-${index}`);
+					const blocks = rows.map(row => new CountingBlock([row]));
+					const transcript = new TailTranscript(blocks);
+					tui.addChild(transcript);
+
+					try {
+						tui.start();
+						await scheduler.flushAll(term);
+						const baselineRenders = blocks.map(block => block.renderCount);
+						const writes = captureWrites(term);
+						const immediates = vi.spyOn(scheduler, "scheduleImmediate");
+						const timers = vi.spyOn(scheduler, "scheduleRender");
+						term.outputBackpressured = true;
+						if (growthAfterSettle) {
+							term.resize(60, 6);
+							await scheduler.flushAll(term);
+							expect(scheduler.pendingRenders).toBe(0);
+						}
+						rows.push("row-12", "row-13");
+						blocks.push(new CountingBlock(["row-12", "row-13"]));
+						if (growthTiming === "after settle with only force") {
+							tui.requestRender(true, { clearScrollback: false });
+						} else if (growthTiming === "after settle with only resetDisplay") {
+							tui.resetDisplay();
+						} else {
+							tui.requestRender();
+							tui.requestComponentRender(transcript);
+						}
+						if (!growthAfterSettle) term.resize(60, 6);
+						await scheduler.flushAll(term);
+
+						expect(writes).toEqual([]);
+						expect(immediates).not.toHaveBeenCalled();
+						expect(timers).toHaveBeenCalledTimes(1);
+						expect(scheduler.pendingRenders).toBe(0);
+						expect(blocks.slice(0, 12).map(block => block.renderCount)).toEqual(baselineRenders);
+						expect(blocks.at(-1)!.renderCount).toBe(0);
+						term.drainOutput();
+						await scheduler.flushAll(term);
+
+						expect(visible(term)).toEqual(rows.slice(-6));
+						expect(
+							term
+								.getScrollBuffer()
+								.map(row => row.trimEnd())
+								.filter(Boolean),
+						).toEqual(rows);
+						expect(writes.join("")).not.toContain(ALT_SCREEN_ENTER);
+						expect(eraseScrollbackCount(writes)).toBe(0);
+					} finally {
+						tui.stop();
+						await term.flush();
+					}
+				},
+			);
+		});
+	}
+
+	it("does not duplicate reflowed history when a blocked in-place width resize has no content changes", async () => {
+		await withEnvPatch({ ...NO_MULTIPLEXER_ENV, PI_TUI_RESIZE_IN_PLACE: "1" }, async () => {
+			const term = new PressureVirtualTerminal(40, 4, 1_000);
+			const scheduler = new DeferScheduler();
+			const tui = new TUI(term, undefined, { renderScheduler: scheduler });
+			const rows = Array.from({ length: 12 }, (_row, index) =>
+				`ROW-${String(index).padStart(2, "0")}-`.padEnd(20, String.fromCharCode(65 + index)),
+			);
+			// Text wraps with geometry but has no width-epoch boundary provider.
+			const transcript = new Text(rows.join(""), 0, 0);
+			tui.addChild(transcript);
+
+			try {
+				tui.start();
+				await scheduler.flushAll(term);
+				const initialRows = Array.from({ length: 6 }, (_row, index) => rows[index * 2]! + rows[index * 2 + 1]!);
+				expect(
+					term
+						.getScrollBuffer()
+						.map(row => row.trimEnd())
+						.filter(Boolean),
+				).toEqual(initialRows);
+				const renders = vi.spyOn(transcript, "render");
+				const writes = captureWrites(term);
+				const immediates = vi.spyOn(scheduler, "scheduleImmediate");
+				const timers = vi.spyOn(scheduler, "scheduleRender");
+				term.outputBackpressured = true;
+				term.resize(20, 4);
+				await scheduler.flushAll(term);
+
+				expect(scheduler.pendingRenders).toBe(0);
+				expect(renders).not.toHaveBeenCalled();
+				expect(writes).toEqual([]);
+				expect(immediates).not.toHaveBeenCalled();
+				expect(timers).toHaveBeenCalledTimes(1);
+				// No explicit content request: only the resize's internal force and drain run.
+				term.drainOutput();
+				await scheduler.flushAll(term);
+				expect(visible(term)).toEqual(rows.slice(-4));
+				expect(
+					term
+						.getScrollBuffer()
+						.map(row => row.trimEnd())
+						.filter(Boolean),
+				).toEqual(rows);
+				expect(writes.join("")).not.toContain(ALT_SCREEN_ENTER);
+				expect(eraseScrollbackCount(writes)).toBe(0);
+			} finally {
+				tui.stop();
+				await term.flush();
 			}
 		});
 	});

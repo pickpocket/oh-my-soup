@@ -1,4 +1,8 @@
 import { describe, expect, it } from "bun:test";
+import * as fs from "node:fs/promises";
+import * as os from "node:os";
+import * as path from "node:path";
+import { pathToFileURL } from "node:url";
 import {
 	detectTerminalId,
 	getTerminalInfo,
@@ -10,6 +14,171 @@ import {
 	shouldEnableSynchronizedOutputByDefault,
 	synchronizedOutputUserOverride,
 } from "@oh-my-soup/pi-tui/terminal-capabilities";
+
+interface ImageCapabilityResult {
+	id: string;
+	imageProtocol: string | null;
+	forced: boolean;
+	rendered: string;
+}
+
+async function renderTerminalImage(overrides: NodeJS.ProcessEnv): Promise<ImageCapabilityResult> {
+	const env: NodeJS.ProcessEnv = { ...Bun.env };
+	const controlledEnvKeys = [
+		"PI_FORCE_IMAGE_PROTOCOL",
+		"PI_KITTY_PLACEHOLDERS",
+		"PI_NO_KITTY_PLACEHOLDERS",
+		"TERM",
+		"TERM_PROGRAM",
+		"COLORTERM",
+		"TMUX",
+		"STY",
+		"SSH_CONNECTION",
+		"SSH_CLIENT",
+		"SSH_TTY",
+		"WSL_DISTRO_NAME",
+		"WSL_INTEROP",
+		"KITTY_WINDOW_ID",
+		"GHOSTTY_RESOURCES_DIR",
+		"WEZTERM_PANE",
+		"ITERM_SESSION_ID",
+		"VSCODE_PID",
+		"ALACRITTY_WINDOW_ID",
+	];
+	for (const key of controlledEnvKeys) {
+		delete env[key];
+	}
+	Object.assign(env, overrides);
+
+	const directory = await fs.mkdtemp(path.join(os.tmpdir(), "tui-image-capability-"));
+	try {
+		// Set TTY state before static imports initialize TERMINAL. Piped stdout
+		// alone would hide the old screen/tmux fallback and miss the regression.
+		const preload = path.join(directory, "tty.ts");
+		// Clear capability markers after the env loader runs, too: a developer's
+		// .env must not silently restore a protocol or terminal identity.
+		const envModule = pathToFileURL(Bun.resolveSync("@oh-my-soup/pi-utils/env", import.meta.dir)).href;
+		await Bun.write(
+			preload,
+			`import ${JSON.stringify(envModule)};
+Object.defineProperty(process.stdout, "isTTY", { value: true });
+for (const key of ${JSON.stringify(controlledEnvKeys)}) delete Bun.env[key];
+Object.assign(Bun.env, ${JSON.stringify(overrides)});
+`,
+		);
+		const proc = Bun.spawn({
+			cmd: [
+				process.execPath,
+				"--preload",
+				preload,
+				"--eval",
+				`import { Image } from "@oh-my-soup/pi-tui/components/image";
+import { isImageProtocolForced, TERMINAL, TERMINAL_ID } from "@oh-my-soup/pi-tui/terminal-capabilities";
+const image = new Image(
+	"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAAAAAA6fptVAAAACklEQVR4nGNgAAAAAgABSK+kcQAAAABJRU5ErkJggg==",
+	"image/png",
+	{ fallbackColor: text => text },
+	{ maxWidthCells: 10, maxHeightCells: 2 },
+	{ widthPx: 100, heightPx: 100 },
+);
+console.log(JSON.stringify({
+	id: TERMINAL_ID,
+	imageProtocol: TERMINAL.imageProtocol,
+	forced: isImageProtocolForced(),
+	rendered: image.render(20).join(""),
+}));`,
+			],
+			env,
+			stdout: "pipe",
+			stderr: "pipe",
+		});
+		const [stdout, stderr, exitCode] = await Promise.all([
+			new Response(proc.stdout).text(),
+			new Response(proc.stderr).text(),
+			proc.exited,
+		]);
+		expect(stderr).toBe("");
+		expect(exitCode).toBe(0);
+		return JSON.parse(stdout) as ImageCapabilityResult;
+	} finally {
+		await fs.rm(directory, { recursive: true, force: true });
+	}
+}
+
+describe("terminal image protocol selection", () => {
+	it.each([
+		{ TERM: "screen-256color" },
+		{ TERM: "tmux-256color", TMUX: "/tmp/tmux-1000/default,1,0", COLORTERM: "truecolor" },
+		{ TERM: "xterm-256color" },
+	])("renders text without graphics escapes for an unknown SSH terminal: %j", async terminalEnv => {
+		const result = await renderTerminalImage({ ...terminalEnv, SSH_CONNECTION: "192.0.2.1 50000 192.0.2.2 22" });
+
+		expect(result.imageProtocol).toBeNull();
+		expect(result.forced).toBe(false);
+		expect(result.rendered).toContain("[Image:");
+		expect(result.rendered).not.toContain("\x1b");
+	});
+
+	it.each([
+		{ env: { KITTY_WINDOW_ID: "1" }, id: "kitty", protocol: ImageProtocol.Kitty },
+		{ env: { TERM: "xterm-ghostty" }, id: "ghostty", protocol: ImageProtocol.Kitty },
+		{ env: { TERM_PROGRAM: "WezTerm" }, id: "wezterm", protocol: ImageProtocol.Kitty },
+		{ env: { ITERM_SESSION_ID: "session" }, id: "iterm2", protocol: ImageProtocol.Iterm2 },
+	])("preserves advertised image support over SSH: $id", async ({ env, id, protocol }) => {
+		const result = await renderTerminalImage({ ...env, SSH_TTY: "/dev/pts/3" });
+
+		expect(result.id).toBe(id);
+		expect(result.imageProtocol).toBe(protocol);
+		expect(result.rendered).toContain(protocol);
+		expect(result.rendered).not.toContain("[Image:");
+	});
+
+	it("preserves known outer-terminal evidence through a multiplexer", async () => {
+		const result = await renderTerminalImage({
+			TERM: "screen-256color",
+			TMUX: "/tmp/tmux-1000/default,1,0",
+			KITTY_WINDOW_ID: "1",
+			SSH_TTY: "/dev/pts/3",
+		});
+
+		expect(result.imageProtocol).toBe(ImageProtocol.Kitty);
+		expect(result.rendered).toContain(ImageProtocol.Kitty);
+	});
+
+	it.each([
+		{ override: "kitty", protocol: ImageProtocol.Kitty, prefix: ImageProtocol.Kitty },
+		{ override: "iterm2", protocol: ImageProtocol.Iterm2, prefix: ImageProtocol.Iterm2 },
+		{ override: "sixel", protocol: ImageProtocol.Sixel, prefix: "\x1bP" },
+	])(
+		"honors an explicit protocol on an unknown SSH multiplexer: $override",
+		async ({ override, protocol, prefix }) => {
+			const result = await renderTerminalImage({
+				TERM: "tmux-256color",
+				TMUX: "/tmp/tmux-1000/default,1,0",
+				SSH_TTY: "/dev/pts/3",
+				PI_FORCE_IMAGE_PROTOCOL: override,
+			});
+
+			expect(result.forced).toBe(true);
+			expect(result.imageProtocol).toBe(protocol);
+			expect(result.rendered).toContain(prefix);
+			expect(result.rendered).not.toContain("[Image:");
+		},
+	);
+
+	it("keeps graphics off when explicitly disabled on a supported SSH terminal", async () => {
+		const result = await renderTerminalImage({
+			KITTY_WINDOW_ID: "1",
+			SSH_TTY: "/dev/pts/3",
+			PI_FORCE_IMAGE_PROTOCOL: "off",
+		});
+
+		expect(result.forced).toBe(true);
+		expect(result.imageProtocol).toBeNull();
+		expect(result.rendered).toContain("[Image:");
+		expect(result.rendered).not.toContain("\x1b");
+	});
+});
 
 describe("detectTerminalId", () => {
 	it("recognizes Warp before the true-color fallback", () => {
@@ -119,48 +288,13 @@ describe("Warp terminal capabilities", () => {
 	});
 
 	it("resolves the process-wide Warp terminal id and image protocol from TERM_PROGRAM", async () => {
-		const env: Record<string, string | undefined> = {
-			...Bun.env,
+		const resolved = await renderTerminalImage({
 			TERM_PROGRAM: "WarpTerminal",
 			COLORTERM: "truecolor",
-		};
-		for (const key of [
-			"PI_FORCE_IMAGE_PROTOCOL",
-			"WSL_DISTRO_NAME",
-			"WSL_INTEROP",
-			"KITTY_WINDOW_ID",
-			"GHOSTTY_RESOURCES_DIR",
-			"WEZTERM_PANE",
-			"ITERM_SESSION_ID",
-			"VSCODE_PID",
-			"ALACRITTY_WINDOW_ID",
-		]) {
-			delete env[key];
-		}
-
-		const proc = Bun.spawn({
-			cmd: [
-				process.execPath,
-				"--eval",
-				`import { ImageProtocol, TERMINAL, TERMINAL_ID } from "@oh-my-soup/pi-tui/terminal-capabilities";
-console.log(JSON.stringify({ id: TERMINAL_ID, imageProtocol: TERMINAL.imageProtocol, expected: ImageProtocol.Kitty }));`,
-			],
-			env,
-			stdout: "pipe",
-			stderr: "pipe",
 		});
-		const [stdout, stderr, exitCode] = await Promise.all([
-			new Response(proc.stdout).text(),
-			new Response(proc.stderr).text(),
-			proc.exited,
-		]);
-
-		expect(stderr).toBe("");
-		expect(exitCode).toBe(0);
-		const resolved = JSON.parse(stdout) as { id: string; imageProtocol: string | null; expected: string };
 		expect(resolved.id).toBe("warp");
 		// Warp for Windows lacks Kitty graphics support.
-		expect(resolved.imageProtocol).toBe(process.platform === "win32" ? null : resolved.expected);
+		expect(resolved.imageProtocol).toBe(process.platform === "win32" ? null : ImageProtocol.Kitty);
 	});
 
 	it("is Kitty-capable with true color but no OSC 8 hyperlinks", () => {

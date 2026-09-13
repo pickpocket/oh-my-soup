@@ -20,9 +20,9 @@ describe("buildTerminalTitleWithState", () => {
 		expect(buildTerminalTitleWithState(LABEL, "attention", 0, true)).toBe(`🍜 ! ${LABEL}`);
 	});
 
-	it("animates spinner frames in the separator slot while working outside Windows", () => {
-		const frame0 = buildTerminalTitleWithState(LABEL, "working", 0, true, "linux");
-		const frame1 = buildTerminalTitleWithState(LABEL, "working", 1, true, "linux");
+	it("animates spinner frames in the separator slot when animation is available", () => {
+		const frame0 = buildTerminalTitleWithState(LABEL, "working", 0, true, true);
+		const frame1 = buildTerminalTitleWithState(LABEL, "working", 1, true, true);
 		// The brand stays a bare `🍜`; only the separator between brand and label
 		// carries the spinner glyph, and it advances per frame.
 		expect(frame0).toBe(`🍜 ⠋ ${LABEL}`);
@@ -30,22 +30,22 @@ describe("buildTerminalTitleWithState", () => {
 		expect(frame1).not.toBe(frame0);
 		// The frame index is taken modulo the frame count, so it never throws or
 		// produces an "undefined" separator for a large counter.
-		const wrapped = buildTerminalTitleWithState(LABEL, "working", 9999, true, "linux");
+		const wrapped = buildTerminalTitleWithState(LABEL, "working", 9999, true, true);
 		expect(wrapped.startsWith("🍜 ")).toBe(true);
 		expect(wrapped.endsWith(` ${LABEL}`)).toBe(true);
 		expect(wrapped).not.toContain("undefined");
 	});
 
-	it("uses a static colon while working on Windows", () => {
-		expect(buildTerminalTitleWithState(LABEL, "working", 0, true, "win32")).toBe(`🍜 : ${LABEL}`);
-		expect(buildTerminalTitleWithState(LABEL, "working", 1, true, "win32")).toBe(`🍜 : ${LABEL}`);
-		expect(buildTerminalTitleWithState(undefined, "working", 1, true, "win32")).toBe("🍜 :");
+	it("uses a static colon when animation is unavailable", () => {
+		expect(buildTerminalTitleWithState(LABEL, "working", 0, true, false)).toBe(`🍜 : ${LABEL}`);
+		expect(buildTerminalTitleWithState(LABEL, "working", 1, true, false)).toBe(`🍜 : ${LABEL}`);
+		expect(buildTerminalTitleWithState(undefined, "working", 1, true, false)).toBe("🍜 :");
 	});
 
 	it("keeps the state visible as a trailing separator when there is no label", () => {
 		expect(buildTerminalTitleWithState(undefined, "idle", 0, true)).toBe("🍜 >");
 		expect(buildTerminalTitleWithState(undefined, "attention", 0, true)).toBe("🍜 !");
-		expect(buildTerminalTitleWithState(undefined, "working", 0, true, "linux")).toBe("🍜 ⠋");
+		expect(buildTerminalTitleWithState(undefined, "working", 0, true, true)).toBe("🍜 ⠋");
 	});
 
 	it("renders the pre-state `🍜: label` layout when disabled, regardless of state", () => {
@@ -83,9 +83,12 @@ describe("disposeTerminalTitleState", () => {
 	let prevHeadless = false;
 	let ttyDescriptor: PropertyDescriptor | undefined;
 	let windowsTitleMock: WindowsConsoleTitleMock | undefined;
+	let sshEnvironment: Array<[string, string | undefined]> = [];
 
 	beforeEach(() => {
 		vi.useFakeTimers();
+		sshEnvironment = ["SSH_CONNECTION", "SSH_TTY", "SSH_CLIENT"].map(key => [key, process.env[key]]);
+		for (const [key] of sshEnvironment) delete process.env[key];
 
 		prevHeadless = setTerminalHeadless(false);
 		ttyDescriptor = Object.getOwnPropertyDescriptor(process.stdout, "isTTY");
@@ -115,6 +118,10 @@ describe("disposeTerminalTitleState", () => {
 		if (ttyDescriptor) Object.defineProperty(process.stdout, "isTTY", ttyDescriptor);
 		else Reflect.deleteProperty(process.stdout, "isTTY");
 		setTerminalHeadless(prevHeadless);
+		for (const [key, value] of sshEnvironment) {
+			if (value === undefined) delete process.env[key];
+			else process.env[key] = value;
+		}
 		vi.useRealTimers();
 	});
 

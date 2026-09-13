@@ -23,8 +23,10 @@ import { SILENT_ABORT_MARKER, USER_INTERRUPT_LABEL } from "@oh-my-soup/pi-coding
 import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
 import { AUTO_THINKING } from "@oh-my-soup/pi-coding-agent/thinking";
 import * as clipboard from "@oh-my-soup/pi-coding-agent/utils/clipboard";
-import { type OverlayHandle, type OverlayOptions, setKeybindings, Text } from "@oh-my-soup/pi-tui";
+import { CURSOR_MARKER, type OverlayHandle, type OverlayOptions, setKeybindings, Text, TUI } from "@oh-my-soup/pi-tui";
 import { formatNumber, TempDir } from "@oh-my-soup/pi-utils";
+import { StressRenderScheduler } from "../../tui/test/render-stress-scheduler";
+import { VirtualTerminal } from "../../tui/test/virtual-terminal";
 
 /**
  * Matches the plan-approved synthetic-prompt dispatch. `#approvePlan` calls
@@ -144,6 +146,56 @@ describe("InteractiveMode plan review rendering", () => {
 		expect(liveRegion.getNativeScrollbackLiveRegionStart?.()).toBeUndefined();
 		mode.pendingMessagesContainer.addChild(new Text("Queued: follow-up"));
 		expect(liveRegion.getNativeScrollbackLiveRegionStart?.()).toBe(0);
+	});
+
+	it.each([
+		"pendingMessagesContainer",
+		"statusContainer",
+		"todoContainer",
+		"subagentContainer",
+		"btwContainer",
+		"omfgContainer",
+		"errorBannerContainer",
+		"modelCycleContainer",
+		"deferredCommandContainer",
+	] as const)("keeps %s updates out of history without duplicating the transcript", async containerName => {
+		const terminal = new VirtualTerminal(32, 4, 1_000);
+		const scheduler = new StressRenderScheduler();
+		mode.ui = new TUI(terminal, undefined, { renderScheduler: scheduler });
+		mode.ui.setScrollbackRebuild(false);
+		const anchored = mode[containerName];
+		mode.ui.addChild(new Text("history-0\nhistory-1", 0, 0));
+		mode.ui.addChild(anchored);
+		mode.ui.addChild({
+			render: () => [`prompt${CURSOR_MARKER}`],
+			invalidate() {},
+		});
+		mode.ui.start();
+		await scheduler.drain(terminal);
+
+		for (let cycle = 0; cycle < 3; cycle++) {
+			for (const height of [4, 6, 5]) {
+				anchored.disposeChildren();
+				anchored.addChild(
+					new Text(
+						Array.from({ length: height }, (_, row) => `status-${cycle}-${height}-${row}`).join("\n"),
+						0,
+						0,
+					),
+				);
+				mode.ui.requestComponentRender(anchored);
+				await scheduler.drain(terminal);
+			}
+			anchored.disposeChildren();
+			mode.ui.requestRender();
+			await scheduler.drain(terminal);
+
+			const transcript = terminal
+				.getScrollBuffer()
+				.map(line => line.trimEnd())
+				.filter(Boolean);
+			expect(transcript).toEqual(["history-0", "history-1", "prompt"]);
+		}
 	});
 
 	it("exits empty plan mode without confirmation", async () => {

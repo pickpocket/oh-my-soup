@@ -1174,6 +1174,7 @@ export class TUI extends Container {
 	onDebug?: () => void;
 	#renderRequested = false;
 	#renderTimer: RenderTimer | undefined;
+	#outputDrainUnsubscribe?: () => void;
 	#renderScheduler: RenderScheduler;
 	#lastRenderAt = 0;
 	/**
@@ -2040,6 +2041,16 @@ export class TUI extends Container {
 
 	start(options?: TUIStartOptions): void {
 		this.#stopped = false;
+		this.#outputDrainUnsubscribe?.();
+		this.#outputDrainUnsubscribe = this.terminal.onOutputDrain?.(() => {
+			if (this.#stopped || !this.#renderRequested) return;
+			if (this.#forceViewportRepaintOnNextRender) {
+				this.#requestForcedRender(false);
+			} else {
+				this.#renderRequested = false;
+				this.#requestOrdinaryRender();
+			}
+		});
 		this.#watchdog.start();
 		this.#ghosttyInitialImageDelayDone = false;
 		this.#ghosttyImageReadyAtMs = this.#renderScheduler.now() + TUI.#GHOSTTY_INITIAL_IMAGE_DELAY_MS;
@@ -2287,6 +2298,8 @@ export class TUI extends Container {
 	}
 
 	stop(): void {
+		this.#outputDrainUnsubscribe?.();
+		this.#outputDrainUnsubscribe = undefined;
 		// Leave the resize alt buffer first so the teardown cursor math below runs
 		// against the restored normal screen (which #previousLines still describes).
 		if (this.#resizeAltActive) {
@@ -2305,6 +2318,15 @@ export class TUI extends Container {
 		this.#purgeInlineImages();
 		this.#clearSixelProbeState();
 		this.#stopped = true;
+		this.#renderRequested = false;
+		this.#pendingRenderComponentsOnly = false;
+		this.#componentRenderTargets.clear();
+		// A stopped renderer relinquishes unpainted reset requests: replaying
+		// their ED3 after restart could erase output written by an external editor.
+		// Keep geometry/width-epoch facts, which still describe the emitted ledger.
+		this.#clearScrollbackOnNextRender = false;
+		this.#forceViewportRepaintOnNextRender = false;
+		this.#unboundedConptyPaintRequested = false;
 		this.#watchdog.stop();
 		if (this.#renderTimer) {
 			this.#renderTimer.cancel();
@@ -2367,6 +2389,7 @@ export class TUI extends Container {
 	 */
 	resetDisplay(): void {
 		if (this.#stopped) return;
+		this.#multiplexerResizeHasPendingRender ||= this.#multiplexerWidthEpochPending;
 		// This is a user-driven redraw of the current transcript; it must replay
 		// every row, so opt the next full paint out of the ConPTY resume bound.
 		// Set before the multiplexer early-return so it survives a deferred paint.
@@ -2376,53 +2399,58 @@ export class TUI extends Container {
 		// paint mid-reflow and re-introduce the flash race (issue #2088).
 		// Fold it into the in-flight debounce instead; the settled paint runs
 		// the same `#prepareForcedRender(!isMultiplexerSession())` path via
-		// `requestRender(true)`, so the clear-scrollback intent is preserved.
+		// `#requestForcedRender()`, so the clear-scrollback intent is preserved.
 		if (this.#multiplexerResizeTimer) {
 			this.#armMultiplexerResizeTimer({ clearScrollback: !isMultiplexerSession(), hasPendingRender: true });
 			return;
 		}
 		this.#prepareForcedRender(!isMultiplexerSession());
+		this.#pendingRenderComponentsOnly = false;
 		this.#resizeEventPending = true;
 		this.#renderRequested = false;
 		this.#executeRender();
 	}
 
 	requestRender(force = false, options?: RenderRequestOptions): void {
+		if (this.#stopped) return;
 		// Any non-component-scoped request makes the pending frame a full one.
 		this.#pendingRenderComponentsOnly = false;
 		if (force) {
-			// Forced repaints landing inside the multiplexer resize debounce
-			// (e.g. `#finishSixelProbe`, image-budget eviction, a programmatic
-			// `requestRender(true)`) would paint into a still-reflowing pane
-			// and reintroduce the flash race. Fold them into the in-flight
-			// debounce while preserving the caller's `clearScrollback` intent
-			// for the settled paint. The timer's own callback clears
-			// `#multiplexerResizeTimer` before re-entering `requestRender(true)`,
-			// so this guard only catches external callers — the deferred render
-			// itself proceeds straight to `#prepareForcedRender`.
-			if (this.#multiplexerResizeTimer) {
-				this.#armMultiplexerResizeTimer({
-					clearScrollback: options?.clearScrollback === true,
-					hasPendingRender: true,
-				});
-				return;
-			}
-			// A forced render preempts the post-full-paint ConPTY settle: it owns
-			// the next paint and is going to redraw the buffer anyway, so the
-			// trailing coalesced render queued by the settle would only race it.
-			this.#clearPostFullPaintSettle();
-			this.#prepareForcedRender(options?.clearScrollback === true);
-			this.#renderRequested = true;
-			this.#renderScheduler.scheduleImmediate(() => {
-				if (this.#stopped || !this.#renderRequested) {
-					return;
-				}
-				this.#renderRequested = false;
-				this.#executeRender();
-			});
+			this.#multiplexerResizeHasPendingRender ||= this.#multiplexerWidthEpochPending;
+			this.#requestForcedRender(options?.clearScrollback === true);
 			return;
 		}
 		this.#requestOrdinaryRender();
+	}
+
+	/**
+	 * Schedule existing forced intent without declaring another content change.
+	 * Resize settlement and output drain use this path: a pure width reflow must
+	 * not become pending source growth just because its paint was deferred.
+	 */
+	#requestForcedRender(clearScrollback: boolean): void {
+		this.#pendingRenderComponentsOnly = false;
+		// Forced repaints landing inside the multiplexer resize debounce would
+		// paint into a still-reflowing pane. The settle callback clears its timer
+		// before returning here, preserving clear-scrollback intent throughout.
+		if (this.#multiplexerResizeTimer) {
+			this.#armMultiplexerResizeTimer({ clearScrollback, hasPendingRender: true });
+			return;
+		}
+		if (this.#deferRenderForOutputPressure()) {
+			this.#prepareForcedRender(clearScrollback);
+			this.#clearPostFullPaintSettle();
+			return;
+		}
+		// A forced render owns the next paint, superseding any ConPTY trailing diff.
+		this.#clearPostFullPaintSettle();
+		this.#prepareForcedRender(clearScrollback);
+		this.#renderRequested = true;
+		this.#renderScheduler.scheduleImmediate(() => {
+			if (this.#stopped || !this.#renderRequested) return;
+			this.#renderRequested = false;
+			this.#executeRender();
+		});
 	}
 
 	/**
@@ -2475,6 +2503,7 @@ export class TUI extends Container {
 	requestDirectWrite(component: Component): void {
 		if (this.#stopped) return;
 		if (
+			this.terminal.outputBackpressured ||
 			this.#renderRequested ||
 			this.#postFullPaintSettleTimer !== undefined ||
 			this.#postFullPaintSettleDelay() > 0
@@ -2634,10 +2663,13 @@ export class TUI extends Container {
 
 	/** Ordinary (non-forced) scheduling shared by full and component-scoped requests. */
 	#requestOrdinaryRender(): void {
-		if (this.#multiplexerResizeTimer) {
+		if (this.#stopped) return;
+		// Content can change after the resize debounce settled but before stdout
+		// drains. The width-epoch fallback must not adopt those unpaid rows.
+		if (this.#multiplexerResizeTimer || this.#multiplexerWidthEpochPending) {
 			this.#multiplexerResizeHasPendingRender = true;
-			return;
 		}
+		if (this.#deferRenderForOutputPressure() || this.#multiplexerResizeTimer) return;
 		// Coalesce non-forced renders inside the post-full-paint ConPTY settle
 		// window into one trailing render. Spinner/blink/streaming components
 		// otherwise fire `requestRender(false)` at 30 Hz while the host is still
@@ -2719,7 +2751,7 @@ export class TUI extends Container {
 	 * timer, supersedes any queued throttled render (otherwise it would race
 	 * tmux's mid-reflow paint), and OR's the caller's `clearScrollback`
 	 * intent into `#deferredForcedClearScrollback` — the timer's callback
-	 * consumes that flag exactly once when it re-enters `requestRender(true)`.
+	 * consumes that flag exactly once when it re-enters `#requestForcedRender()`.
 	 */
 	#armMultiplexerResizeTimer(options: { clearScrollback: boolean; hasPendingRender?: boolean }): void {
 		this.#deferredForcedClearScrollback ||= options.clearScrollback;
@@ -2740,7 +2772,7 @@ export class TUI extends Container {
 			}
 			const deferredClearScrollback = this.#deferredForcedClearScrollback;
 			this.#deferredForcedClearScrollback = false;
-			this.requestRender(true, { clearScrollback: deferredClearScrollback });
+			this.#requestForcedRender(deferredClearScrollback);
 		}, TUI.#MULTIPLEXER_RESIZE_DEBOUNCE_MS);
 	}
 
@@ -2781,6 +2813,7 @@ export class TUI extends Container {
 			this.#postFullPaintSettleTimer = undefined;
 		}
 		if (hadPendingRender) {
+			if (this.#deferRenderForOutputPressure()) return;
 			// Replay the absorbed request via the trailing settle timer so the
 			// caller's render still happens — just deferred to the end of the
 			// window. Subsequent `requestRender(false)` calls during the
@@ -2839,6 +2872,7 @@ export class TUI extends Container {
 		if (this.#stopped || this.#renderTimer || !this.#renderRequested) {
 			return;
 		}
+		if (this.#deferRenderForOutputPressure()) return;
 		// Defer any new throttled render scheduled inside the multiplexer
 		// resize settle window: it would race tmux's mid-reflow pane repaint.
 		// `#renderRequested` stays set so the eventual forced render — armed
@@ -2873,11 +2907,28 @@ export class TUI extends Container {
 	}
 
 	/**
+	 * Keep render intent, not composed frames, while stdout is stalled. Only
+	 * drain schedules the next attempt; input and resize settlement remain live.
+	 * Never call this inside an emitting frame: all of that frame's writes and
+	 * its matching cursor/history commit must complete together.
+	 */
+	#deferRenderForOutputPressure(): boolean {
+		if (!this.terminal.outputBackpressured) return false;
+		this.#renderRequested = true;
+		this.#renderTimer?.cancel();
+		this.#renderTimer = undefined;
+		this.#postFullPaintSettleTimer?.cancel();
+		this.#postFullPaintSettleTimer = undefined;
+		return true;
+	}
+
+	/**
 	 * Wrap `#doRender()` so every path records the wall-clock frame cost that
 	 * feeds adaptive backpressure. Set `#lastRenderAt` first (some render code
 	 * reads it re-entrantly) and compute the cost once the paint returns.
 	 */
 	#executeRender(): void {
+		if (this.#stopped || this.#deferRenderForOutputPressure()) return;
 		const start = this.#renderScheduler.now();
 		this.#lastRenderAt = start;
 		this.#doRender();

@@ -440,15 +440,6 @@ export function shouldEnableHyperlinksByDefault(
 	return true;
 }
 
-function getFallbackImageProtocol(terminalId: TerminalId): ImageProtocol | null {
-	if (!process.stdout.isTTY) return null;
-	if (terminalId === "vscode" || terminalId === "alacritty") return null;
-	const term = Bun.env.TERM?.toLowerCase() ?? "";
-	if (term.includes("screen") || term.includes("tmux") || term.includes("ghostty")) {
-		return ImageProtocol.Kitty;
-	}
-	return null;
-}
 /**
  * Warp implements the Kitty graphics protocol only on macOS/Linux; its Windows
  * build (including Warp-hosted WSL shells) renders the same APC sequences as
@@ -558,17 +549,13 @@ export interface RuntimeTerminal extends TerminalInfo {
 }
 
 export const TERMINAL: RuntimeTerminal = (() => {
+	// Only a recognized terminal profile or an explicit override establishes an
+	// image protocol. TERM=screen*/tmux* identifies a mux, not its outer renderer.
 	const resolved = getTerminalInfo(TERMINAL_ID).clone();
 
 	const forcedImageProtocol = getForcedImageProtocol();
 	if (forcedImageProtocol !== undefined) {
 		resolved.imageProtocol = forcedImageProtocol;
-	} else if (resolved.id === "warp") {
-		// Warp advertises Kitty graphics on macOS/Linux only; drop it on win32.
-		resolved.imageProtocol = resolveWarpImageProtocol();
-	} else if (!resolved.imageProtocol) {
-		const fallbackImageProtocol = getFallbackImageProtocol(resolved.id);
-		if (fallbackImageProtocol) resolved.imageProtocol = fallbackImageProtocol;
 	}
 	// Hyperlink (OSC 8) capability. The static per-terminal flag lives on
 	// KNOWN_TERMINALS; shouldEnableHyperlinksByDefault folds in runtime context —
@@ -588,7 +575,7 @@ export const TERMINAL: RuntimeTerminal = (() => {
 
 // Seed Kitty Unicode placeholder support from the resolved terminal id. Only
 // kitty/ghostty are known to honor `U=1` placement; other Kitty-protocol paths
-// (wezterm, tmux/screen fallback) treat the placeholder cells as literal PUA
+// (wezterm, explicitly forced unknown terminals) treat the placeholder cells as literal PUA
 // glyphs, which is the "ASCII artifact + laggy scrolling" reported in #1877.
 setKittyGraphics({ unicodePlaceholders: detectKittyUnicodePlaceholdersSupport(TERMINAL.id, Bun.env) });
 

@@ -9,6 +9,7 @@ import {
 	setSessionTerminalTitle,
 	setTerminalTitle,
 	setTerminalTitleState,
+	setTerminalTitleStateEnabled,
 } from "@oh-my-soup/pi-coding-agent/utils/title-generator";
 import { logger, setTerminalHeadless } from "@oh-my-soup/pi-utils";
 import { mockWindowsConsoleTitle, type WindowsConsoleTitleMock } from "./terminal-title-test-utils";
@@ -634,6 +635,7 @@ describe("terminal title runtime", () => {
 		// settle the run state to idle.
 		setSessionTerminalTitle(undefined);
 		setTerminalTitleState("idle");
+		setTerminalTitleStateEnabled(true);
 
 		// Discard the reset's own emissions; each test asserts only its own writes.
 		writes.length = 0;
@@ -641,6 +643,8 @@ describe("terminal title runtime", () => {
 
 	afterEach(() => {
 		// Stop any spinner timer started during a test before tearing spies down.
+		setTerminalTitleState("idle");
+		setTerminalTitleStateEnabled(true);
 		disposeTerminalTitleState();
 		windowsTitleMock?.restore();
 		windowsTitleMock = undefined;
@@ -710,6 +714,138 @@ describe("terminal title runtime", () => {
 
 		expect(emittedTitles()).toEqual(["direct title"]);
 		expect(writes).toHaveLength(1);
+	});
+
+	describe("local and SSH title traffic", () => {
+		const environmentKeys = ["SSH_CONNECTION", "SSH_TTY", "SSH_CLIENT", "WSL_DISTRO_NAME", "WSL_INTEROP"];
+		let environment: Array<[string, string | undefined]> = [];
+		let platformDescriptor: PropertyDescriptor | undefined;
+
+		beforeEach(() => {
+			environment = environmentKeys.map(key => [key, process.env[key]]);
+			for (const key of environmentKeys) delete process.env[key];
+			platformDescriptor = Object.getOwnPropertyDescriptor(process, "platform");
+			Object.defineProperty(process, "platform", { value: "linux", configurable: true });
+		});
+
+		afterEach(() => {
+			for (const [key, value] of environment) {
+				if (value === undefined) delete process.env[key];
+				else process.env[key] = value;
+			}
+			if (platformDescriptor) Object.defineProperty(process, "platform", platformDescriptor);
+		});
+
+		it.each(["SSH_CONNECTION", "SSH_TTY", "SSH_CLIENT"])(
+			"keeps SSH working titles static without a timer when only %s identifies the connection",
+			marker => {
+				process.env[marker] = "remote";
+				const baselineTimers = vi.getTimerCount();
+				setSessionTerminalTitle("remote-project");
+				setTerminalTitleState("working");
+
+				expect(emittedTitles()).toEqual(["🍜 > remote-project", "🍜 : remote-project"]);
+				expect(vi.getTimerCount()).toBe(baselineTimers);
+
+				writes.length = 0;
+				vi.advanceTimersByTime(400);
+				setTerminalTitleState("working");
+				expect(writes).toEqual([]);
+				expect(vi.getTimerCount()).toBe(baselineTimers);
+			},
+		);
+
+		it("updates SSH state and session names immediately while sanitizing and deduplicating titles", () => {
+			process.env.SSH_CONNECTION = "remote";
+			setSessionTerminalTitle("remote\u0000-project\u0007");
+			setTerminalTitleState("working");
+			setTerminalTitleState("attention");
+			setSessionTerminalTitle("renamed\u0007");
+			setTerminalTitleState("working");
+			setSessionTerminalTitle("latest");
+			setTerminalTitleState("idle");
+			setSessionTerminalTitle("latest");
+
+			expect(emittedTitles()).toEqual([
+				"🍜 > remote-project",
+				"🍜 : remote-project",
+				"🍜 ! remote-project",
+				"🍜 ! renamed",
+				"🍜 : renamed",
+				"🍜 : latest",
+				"🍜 > latest",
+			]);
+			expect(writes.every(payload => /^\x1b\]0;[^\u0000-\u001f\u007f-\u009f]*\x07$/.test(payload))).toBe(true);
+		});
+
+		it("honors disabled state indicators and extension ownership over SSH until the session title changes", () => {
+			process.env.SSH_TTY = "/dev/pts/1";
+			const baselineTimers = vi.getTimerCount();
+			setSessionTerminalTitle("remote-project");
+			setTerminalTitleState("working");
+			setTerminalTitleStateEnabled(false);
+			writes.length = 0;
+
+			setTerminalTitleState("attention");
+			setTerminalTitleState("idle");
+			vi.advanceTimersByTime(400);
+			expect(writes).toEqual([]);
+			setSessionTerminalTitle("renamed");
+			expect(emittedTitles()).toEqual(["🍜: renamed"]);
+
+			setExtensionTerminalTitle("Extension\u0007 title");
+			expect(emittedTitles().at(-1)).toBe("Extension title");
+			writes.length = 0;
+			setTerminalTitleState("working");
+			setTerminalTitleStateEnabled(true);
+			setTerminalTitleState("attention");
+			vi.advanceTimersByTime(400);
+			expect(writes).toEqual([]);
+			expect(vi.getTimerCount()).toBe(baselineTimers);
+
+			setSessionTerminalTitle("authoritative");
+			expect(emittedTitles()).toEqual(["🍜 ! authoritative"]);
+			setTerminalTitleState("working");
+			expect(emittedTitles().at(-1)).toBe("🍜 : authoritative");
+			expect(vi.getTimerCount()).toBe(baselineTimers);
+		});
+
+		it("animates local POSIX titles and stops or resumes the timer with state and enablement changes", () => {
+			const baselineTimers = vi.getTimerCount();
+			setSessionTerminalTitle("local-project");
+			setTerminalTitleState("working");
+			const firstTitle = emittedTitles().at(-1);
+			expect(SPINNER_FRAMES.some(frame => firstTitle === `🍜 ${frame} local-project`)).toBe(true);
+			expect(vi.getTimerCount()).toBe(baselineTimers + 1);
+
+			writes.length = 0;
+			vi.advanceTimersByTime(80);
+			expect(emittedTitles()).toHaveLength(1);
+			expect(emittedTitles()[0]).not.toBe(firstTitle);
+			setTerminalTitleState("attention");
+			expect(emittedTitles().at(-1)).toBe("🍜 ! local-project");
+			expect(vi.getTimerCount()).toBe(baselineTimers);
+			writes.length = 0;
+			vi.advanceTimersByTime(400);
+			expect(writes).toEqual([]);
+
+			setTerminalTitleState("working");
+			setTerminalTitleStateEnabled(false);
+			expect(emittedTitles().at(-1)).toBe("🍜: local-project");
+			expect(vi.getTimerCount()).toBe(baselineTimers);
+			writes.length = 0;
+			vi.advanceTimersByTime(400);
+			expect(writes).toEqual([]);
+
+			setTerminalTitleStateEnabled(true);
+			expect(vi.getTimerCount()).toBe(baselineTimers + 1);
+			writes.length = 0;
+			vi.advanceTimersByTime(80);
+			expect(emittedTitles()).toHaveLength(1);
+			setTerminalTitleState("idle");
+			expect(emittedTitles().at(-1)).toBe("🍜 > local-project");
+			expect(vi.getTimerCount()).toBe(baselineTimers);
+		});
 	});
 
 	it("keeps the working title static with ':' on Windows", () => {

@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- Coalesced pending terminal paints while stdout is backpressured, keeping input responsive and preserving the latest frame, forced redraws, and resize state until output drains.
+- Stopped assuming Kitty graphics support from `TERM=screen*` or `TERM=tmux*`; unknown terminals use text image fallbacks unless a recognized terminal profile or explicit protocol override provides support.
+
 ## [17.3.2] - 2026-08-16
 
 ### Changed

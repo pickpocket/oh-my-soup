@@ -397,6 +397,11 @@ export interface Terminal {
 	// Write output to terminal
 	write(data: string): void;
 
+	/** Output is queued awaiting drain. Renderers may defer new frames, never partial writes. */
+	readonly outputBackpressured?: boolean;
+	/** Paired with outputBackpressured; fires after pressure clears. Returns an unsubscribe callback. */
+	onOutputDrain?(listener: () => void): () => void;
+
 	// Get terminal dimensions
 	get columns(): number;
 	get rows(): number;
@@ -579,9 +584,11 @@ export class ProcessTerminal implements Terminal {
 	// See OutputBacklogGuard and #6854.
 	#stdoutBacklog = new OutputBacklogGuard();
 	#stdoutDrainArmed = false;
+	#outputDrainListeners = new Set<() => void>();
 	#stdoutDrainHandler = () => {
 		this.#stdoutDrainArmed = false;
 		this.#stdoutBacklog.reset();
+		for (const listener of this.#outputDrainListeners) listener();
 	};
 
 	#windowsVTInputRestore?: () => void;
@@ -616,6 +623,17 @@ export class ProcessTerminal implements Terminal {
 	#mode2031DebounceTimer?: Timer;
 	#windowsTerminalAppearancePollTimer?: Timer;
 	#progressTimer?: Timer;
+
+	get outputBackpressured(): boolean {
+		return this.#stdoutBacklog.tracking;
+	}
+
+	onOutputDrain(listener: () => void): () => void {
+		this.#outputDrainListeners.add(listener);
+		return () => {
+			this.#outputDrainListeners.delete(listener);
+		};
+	}
 
 	get kittyProtocolActive(): boolean {
 		return this.#kittyProtocolActive;
@@ -1747,7 +1765,8 @@ export class ProcessTerminal implements Terminal {
 				accepted = true;
 				for (const chunk of chunkForConPTY(data, MAX_CONPTY_WRITE_CHUNK_BYTES)) {
 					if (this.#dead) break;
-					accepted = process.stdout.write(chunk);
+					// Keep an earlier refusal even if the final chunk is accepted.
+					if (!process.stdout.write(chunk)) accepted = false;
 				}
 			} else {
 				accepted = process.stdout.write(data);

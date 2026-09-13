@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixed transient HUD/status panels leaking into scrollback and duplicating transcript lines when rapid updates grow or collapse panels beyond the viewport.
+- Stopped terminal-title spinner traffic over SSH while preserving immediate working, idle, attention, and session-title updates.
+
 ## [17.5.1] - 2026-09-12
 
 ### Added

@@ -479,8 +479,8 @@ export function setExtensionTerminalTitle(title: string): void {
 
 export type TerminalTitleState = "idle" | "working" | "attention";
 
-/** Windows uses a static working separator instead of scheduling title animation. */
-const WINDOWS_TITLE_WORKING_SEPARATOR = ":";
+/** Windows/ConPTY and SSH use a static separator instead of title animation. */
+const TITLE_WORKING_SEPARATOR = ":";
 const TITLE_SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 const TITLE_SPINNER_INTERVAL_MS = 80;
 /** The user's turn: the title reads like a shell prompt awaiting input. */
@@ -508,11 +508,16 @@ const terminalTitleRuntime: {
 	extensionOverride: undefined,
 };
 
+function canAnimateTerminalTitle(): boolean {
+	const env = process.env;
+	return !isConPTYHosted() && !env.SSH_CONNECTION && !env.SSH_TTY && !env.SSH_CLIENT;
+}
+
 /**
  * Compose the terminal title from the `🍜` brand, a state-carrying separator, and
  * the session label. Pure (no I/O) so the state→separator contract is testable:
  *   - `idle` (user's turn):  `🍜 > label`;
- *   - `working`:             `🍜 ⠋ label` (`🍜 : label` on Windows);
+ *   - `working`:             `🍜 ⠋ label` (`🍜 : label` without animation);
  *   - `attention`:           `🍜 ! label`;
  *   - disabled:              `🍜: label`.
  * Without a label the separator trails the brand (`🍜 >`) so the state stays visible.
@@ -522,14 +527,14 @@ export function buildTerminalTitleWithState(
 	state: TerminalTitleState,
 	frame: number,
 	enabled: boolean,
-	platform: NodeJS.Platform = process.platform,
+	animateWorking: boolean = canAnimateTerminalTitle(),
 ): string {
 	if (!enabled) return label ? `${DEFAULT_TERMINAL_TITLE}: ${label}` : DEFAULT_TERMINAL_TITLE;
 	const separator =
 		state === "working"
-			? platform === "win32"
-				? WINDOWS_TITLE_WORKING_SEPARATOR
-				: TITLE_SPINNER_FRAMES[frame % TITLE_SPINNER_FRAMES.length]
+			? animateWorking
+				? TITLE_SPINNER_FRAMES[frame % TITLE_SPINNER_FRAMES.length]
+				: TITLE_WORKING_SEPARATOR
 			: state === "attention"
 				? TITLE_ATTENTION_SEPARATOR
 				: TITLE_IDLE_SEPARATOR;
@@ -546,7 +551,6 @@ function emitTerminalTitle(): void {
 			terminalTitleRuntime.state,
 			terminalTitleRuntime.frame,
 			terminalTitleRuntime.enabled,
-			isConPTYHosted() ? "win32" : process.platform,
 		);
 	setTerminalTitle(next);
 }
@@ -557,7 +561,7 @@ function stopTerminalTitleSpinner(): void {
 }
 
 function startTerminalTitleSpinner(): void {
-	if (isConPTYHosted() || terminalTitleRuntime.timer || !process.stdout.isTTY) return;
+	if (!canAnimateTerminalTitle() || terminalTitleRuntime.timer || !process.stdout.isTTY) return;
 	terminalTitleRuntime.timer = setInterval(() => {
 		terminalTitleRuntime.frame = (terminalTitleRuntime.frame + 1) % TITLE_SPINNER_FRAMES.length;
 		emitTerminalTitle();
@@ -568,9 +572,9 @@ function startTerminalTitleSpinner(): void {
 
 /**
  * Reflect the agent run state in the terminal title's separator: `working`
- * animates outside Windows and stays `:` on Windows, `idle` shows `>` (your
- * turn), and `attention` shows `!` (agent blocked on you). Gated off by
- * `tui.titleState`.
+ * animates on local POSIX terminals and stays `:` on Windows/ConPTY or SSH,
+ * `idle` shows `>` (your turn), and `attention` shows `!` (agent blocked on you).
+ * Gated off by `tui.titleState`.
  */
 export function setTerminalTitleState(state: TerminalTitleState): void {
 	terminalTitleRuntime.state = state;

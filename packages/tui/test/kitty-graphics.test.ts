@@ -101,8 +101,7 @@ describe("detectKittyUnicodePlaceholdersSupport", () => {
 	it("disables for wezterm and other Kitty-protocol paths that treat placeholders as literal PUA glyphs (#1877)", () => {
 		expect(detectKittyUnicodePlaceholdersSupport("wezterm", env())).toBe(false);
 		expect(detectKittyUnicodePlaceholdersSupport("warp", env())).toBe(false);
-		// Tmux/screen fallback: base terminal id with Kitty protocol forced on by
-		// `getFallbackImageProtocol`. The outer terminal need not understand U=1.
+		// A forced Kitty protocol on an unknown direct terminal does not imply U=1 support.
 		expect(detectKittyUnicodePlaceholdersSupport("base", env())).toBe(false);
 		expect(detectKittyUnicodePlaceholdersSupport("iterm2", env())).toBe(false);
 		expect(detectKittyUnicodePlaceholdersSupport("alacritty", env())).toBe(false);

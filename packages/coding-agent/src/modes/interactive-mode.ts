@@ -378,15 +378,18 @@ export interface InteractiveModeOptions {
 /**
  * Anchored live-region container for the HUD/status rows between the transcript
  * and the editor (working loader, todo + subagent HUDs, transient notification
- * panels). While it has content every row is live: it reports a seam at 0 so the
- * engine never commits these anchored, rebuilt-in-place rows to native
- * scrollback — otherwise stale duplicates pile up above the live copy on short
- * terminals once the loader sits below a tall HUD. The transcript's own seam,
- * when present, sits higher and wins (topmost-seam merge in TUI.render).
+ * panels). A row-zero seam marks them as live; pinning keeps them out of native
+ * scrollback even when a tall HUD pushes the loader offscreen. The transcript
+ * can keep its earlier, unpinned live seam: this region's pin independently caps
+ * commits before the transient rows.
  */
 class AnchoredLiveContainer extends Container implements NativeScrollbackLiveRegion {
 	getNativeScrollbackLiveRegionStart(): number | undefined {
 		return this.children.length > 0 ? 0 : undefined;
+	}
+
+	isNativeScrollbackLiveRegionPinned(): boolean {
+		return true;
 	}
 }
 

@@ -286,11 +286,13 @@ describe.skipIf(!CAMOUFOX_AVAILABLE)("browser tab evaluation", () => {
 					name,
 					timeout: 2,
 					code: `
+						// Stay active until rejection or timeout aborts the run, regardless of browser latency.
+						const runEnded = Promise.withResolvers();
+						tab.signal.addEventListener("abort", () => runEnded.resolve(), { once: true });
 						void tab.title().then(() => {
 							throw new Error("continuation failed");
 						});
-						await Bun.sleep(50);
-						return "incorrect success";
+						await runEnded.promise;
 					`,
 				});
 			} catch (error) {
@@ -305,11 +307,12 @@ describe.skipIf(!CAMOUFOX_AVAILABLE)("browser tab evaluation", () => {
 					name,
 					timeout: 2,
 					code: `
+						const runEnded = Promise.withResolvers();
+						tab.signal.addEventListener("abort", () => runEnded.resolve(), { once: true });
 						void tab.waitForResponse("/never", { timeout: 10 }).catch(reason => {
 							throw reason;
 						});
-						await Bun.sleep(50);
-						return "incorrect success";
+						await runEnded.promise;
 					`,
 				});
 			} catch (error) {
@@ -347,13 +350,14 @@ describe.skipIf(!CAMOUFOX_AVAILABLE)("browser tab evaluation", () => {
 					name,
 					timeout: 2,
 					code: `
+						const runEnded = Promise.withResolvers();
+						tab.signal.addEventListener("abort", () => runEnded.resolve(), { once: true });
 						void Promise.all([
 							tab.waitForResponse("/never", { timeout: 10 }),
 						]).catch(reason => {
 							throw reason;
 						});
-						await Bun.sleep(50);
-						return "incorrect success";
+						await runEnded.promise;
 					`,
 				});
 			} catch (error) {

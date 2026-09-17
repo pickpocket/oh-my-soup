@@ -7,7 +7,7 @@ import * as path from "node:path";
 // cross the same package boundary as an installed user's extension.
 const cli = process.argv.slice(2).map(arg => (arg.includes("/") ? path.resolve(arg) : arg));
 assert(cli.length > 0, "Usage: bun scripts/install-tests/settings-session.ts <cli> [cli entrypoint]");
-const work = await fs.mkdtemp(path.join(os.tmpdir(), "omp-settings-session-"));
+const work = await fs.mkdtemp(path.join(os.tmpdir(), "oms-settings-session-"));
 const cwd = path.join(work, "project");
 const agentDir = path.join(work, "agent");
 const extensionPath = path.join(work, "probe.mjs");
@@ -61,7 +61,7 @@ try {
 			String.raw`
 import assert from "node:assert/strict";
 import { SettingsManager } from "@mariozechner/pi-coding-agent";
-import { hasMatch } from "@oh-my-pi/pi-natives";
+import { hasMatch } from "@oh-my-soup/pi-natives";
 
 function registerFixtureProvider(api) {
 	// Same registration shape as sdk-default-role-extension-provider.test.ts.

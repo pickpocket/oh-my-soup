@@ -45,18 +45,18 @@ CustomTool.execute(toolCallId, params, onUpdate, ctx, signal)
 `discoverAndLoadCustomTools(configuredPaths, cwd, builtInToolNames)` merges:
 
 1. Capability providers (`toolCapability`), including:
-   - Native OMP config (`~/.omp/agent/tools`, `.omp/tools`)
+   - Native OMS config (`~/.oms/agent/tools`, `.oms/tools`)
    - Claude config (`~/.claude/tools`, `.claude/tools`)
    - Codex config (`~/.codex/tools`, `.codex/tools`)
    - Claude marketplace plugin cache provider
-2. Installed plugin manifests (`~/.omp/plugins/node_modules/*` via plugin loader)
+2. Installed plugin manifests (`~/.oms/plugins/node_modules/*` via plugin loader)
 3. Explicit configured paths passed to the loader
 
 ### Important behavior
 
 - Duplicate resolved paths are deduplicated.
 - Tool name conflicts are rejected against built-ins and already-loaded custom tools.
-- Automatic tool-directory scans discover `.ts` and `.js` modules; native OMP discovery also checks immediate subdirectories for `index.ts`. Executable discovery excludes `.d.ts` and filters out metadata and scripts before tool-name deduplication. Declarative metadata such as `.md` and `.json` remains available to capability consumers but is not loaded as executable tools.
+- Automatic tool-directory scans discover `.ts` and `.js` modules; native OMS discovery also checks immediate subdirectories for `index.ts`. Executable discovery excludes `.d.ts` and filters out metadata and scripts before tool-name deduplication. Declarative metadata such as `.md` and `.json` remains available to capability consumers but is not loaded as executable tools.
 - `.mjs` and `.cjs` modules can be loaded through explicitly configured paths or declared plugin tool entries, but the tool-directory scans above do not discover them automatically. Explicitly configured `.md` or `.json` paths still produce a load error.
 - Relative configured paths are resolved from `cwd`; `~` is expanded.
 
@@ -65,7 +65,7 @@ CustomTool.execute(toolCallId, params, onUpdate, ctx, signal)
 A custom tool module must export a function (default export preferred):
 
 ```ts
-import type { CustomToolFactory } from "@oh-my-pi/pi-coding-agent";
+import type { CustomToolFactory } from "@oh-my-soup/pi-coding-agent";
 
 const factory: CustomToolFactory = (pi) => ({
   name: "repo_stats",
@@ -110,7 +110,7 @@ const factory: CustomToolFactory = (pi) => ({
 export default factory;
 ```
 
-Parameter schemas may use the Zod-compatible omptype builder (`pi.zod`), native omptype builder (`pi.arktype`), or legacy-compatible TypeBox shim (`pi.typebox`) and flow through the shared validation/wire pipeline.
+Parameter schemas may use the Zod-compatible omstype builder (`pi.zod`), native omstype builder (`pi.arktype`), or legacy-compatible TypeBox shim (`pi.typebox`) and flow through the shared validation/wire pipeline.
 
 Factory return type:
 
@@ -127,9 +127,9 @@ From `types.ts` and `loader.ts`:
 - `ui`: UI context (can be no-op in headless modes)
 - `hasUI`: `false` in non-interactive flows
 - `logger`: shared file logger
-- `arktype`: injected omptype `type(...)` builder
+- `arktype`: injected omstype `type(...)` builder
 - `typebox`: compatibility shim for legacy TypeBox-style schemas
-- `pi`: injected `@oh-my-pi/pi-coding-agent` exports
+- `pi`: injected `@oh-my-soup/pi-coding-agent` exports
 - `pushPendingAction(action)`: stage a preview action that is finalized by writing a plain-text reason to `xd://resolve` or `xd://reject`
 
 The loader starts with a no-op UI context and requires host code to call `setUIContext(...)` when real UI is ready. If the runtime did not provide a pending-action store, calling `pushPendingAction` throws `Pending action store unavailable for custom tools in this runtime.`
@@ -142,7 +142,7 @@ The loader starts with a no-op UI context and requires host code to call `setUIC
 execute(toolCallId, params, onUpdate, ctx, signal);
 ```
 
-- `params` is statically typed from its omptype or TypeBox schema via `Static<TParams>`.
+- `params` is statically typed from its omstype or TypeBox schema via `Static<TParams>`.
 - Runtime argument validation happens before execution in the agent loop.
 - `onUpdate` emits partial results for UI streaming.
 - `ctx` includes `sessionManager`, `modelRegistry`, current `model`, `isIdle()`, `hasQueuedMessages()`, `abort()`, and optional `settings`, `fetch`, `localProtocolOptions`, and `autoApprove`.

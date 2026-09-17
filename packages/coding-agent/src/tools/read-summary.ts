@@ -1,12 +1,12 @@
 import * as path from "node:path";
-import { type SummaryResult, summarizeCode } from "@oh-my-pi/pi-natives";
-import { LRUCache } from "@oh-my-pi/pi-utils/lru";
-import { isMarkdownPath } from "@oh-my-pi/pi-tui/theme";
+import { type SummaryResult, summarizeCode } from "@oh-my-soup/pi-natives";
+import { LRUCache } from "@oh-my-soup/pi-utils/lru";
+import { isMarkdownPath } from "@oh-my-soup/pi-tui/theme";
 import type { ClientBridge } from "../session/client-bridge";
 import type { ToolSession } from "../sdk";
 import { resolveFileDisplayMode } from "../utils/file-display-mode";
 import { countTextLines } from "./read-format";
-import { formatReadSummary } from "@oh-my-pi/pi-tui/tools/read";
+import { formatReadSummary } from "@oh-my-soup/pi-tui/tools/read";
 import { throwIfAborted } from "./tool-errors";
 
 // Per-session memo for tree-sitter summaries. `summarizeCode` is a pure function

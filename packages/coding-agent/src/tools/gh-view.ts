@@ -1,8 +1,8 @@
-import type { AgentToolResult } from "@oh-my-pi/pi-agent-core";
+import type { AgentToolResult } from "@oh-my-soup/pi-agent-core";
 import type { Settings } from "../config/settings";
 import { type GhCommandOptions, github } from "../utils/github";
 import type { ToolSession } from ".";
-import type { GhToolDetails } from "@oh-my-pi/pi-tui/tools/github";
+import type { GhToolDetails } from "@oh-my-soup/pi-tui/tools/github";
 import {
 	appendRepoFlag,
 	buildTextResult,
@@ -17,8 +17,8 @@ import {
 	requireNonEmpty,
 	resolveDefaultRepoMemoized,
 } from "./gh-common";
-import { pushLine } from "@oh-my-pi/pi-tui/tools/gh-format";
-import { formatShortSha } from "@oh-my-pi/pi-tui/tools/gh-format";
+import { pushLine } from "@oh-my-soup/pi-tui/tools/gh-format";
+import { formatShortSha } from "@oh-my-soup/pi-tui/tools/gh-format";
 import { FILE_PREVIEW_LIMIT } from "./gh-search";
 import type {
 	GhComment,
@@ -32,7 +32,7 @@ import type {
 	GithubInput,
 } from "./gh-types";
 import { type CacheStatus, getOrFetchView, resolveGithubCacheAuthKey } from "./github-cache";
-import { ToolError } from "@oh-my-pi/pi-tui/tools/tool-errors";
+import { ToolError } from "@oh-my-soup/pi-tui/tools/tool-errors";
 
 export const GH_REPO_FIELDS = [
 	"nameWithOwner",

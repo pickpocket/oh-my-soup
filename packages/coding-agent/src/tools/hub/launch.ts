@@ -4,7 +4,7 @@ import {
 	TERMINAL_STATES,
 	readyPendingSummary,
 	waitPendingSummary,
-} from "@oh-my-pi/pi-tui/tools/hub";
+} from "@oh-my-soup/pi-tui/tools/hub";
 /**
  * Hub launch half — supervision of project-scoped long-running processes
  * (dev servers, watchers, debuggers, REPLs) through the shared daemon broker.
@@ -12,20 +12,20 @@ import {
  * `list`, and `send`/`wait` route here when they carry a process `name`.
  */
 
-import type { AgentToolResult } from "@oh-my-pi/pi-agent-core";
+import type { AgentToolResult } from "@oh-my-soup/pi-agent-core";
 
-import { sanitizeText } from "@oh-my-pi/pi-utils";
+import { sanitizeText } from "@oh-my-soup/pi-utils";
 
 import { type DaemonBrokerClient, DaemonBrokerRejectedError, daemonClientForProject } from "../../launch/client";
 import type { DaemonOperation, DaemonRpcResult } from "../../launch/protocol";
-import type { DaemonSnapshot, DaemonSpec } from "@oh-my-pi/pi-tui/tools/hub";
+import type { DaemonSnapshot, DaemonSpec } from "@oh-my-soup/pi-tui/tools/hub";
 import { renderTerminalOutputIsolated } from "../../launch/terminal-output-worker-client";
 
 import type { ToolSession } from "..";
 import { resolveToCwd } from "../path-utils";
-import { formatDuration, replaceTabs, shortenPath } from "@oh-my-pi/pi-tui/render/render-utils";
+import { formatDuration, replaceTabs, shortenPath } from "@oh-my-soup/pi-tui/render/render-utils";
 
-import { ToolError } from "@oh-my-pi/pi-tui/tools/tool-errors";
+import { ToolError } from "@oh-my-soup/pi-tui/tools/tool-errors";
 
 interface CompletionRegistration {
 	inFlight: number;

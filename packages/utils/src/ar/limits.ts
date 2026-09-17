@@ -6,7 +6,7 @@ import { formatArchivePathForError } from "./paths";
  * Resource ceilings enforced before archive metadata can drive expensive
  * work. All sizes are attacker-controlled inputs until proven otherwise, so
  * every allocation-driving field is checked against these before use.
- * Mirrors `Limits` in the Rust `omp-ar` crate.
+ * Mirrors `Limits` in the Rust `oms-ar` crate.
  */
 export interface ArchiveLimits {
 	/** Max indexed entries per archive. */

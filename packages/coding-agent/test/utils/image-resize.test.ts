@@ -1,7 +1,7 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "bun:test";
 import * as os from "node:os";
 import * as path from "node:path";
-import { formatScreenshot, resizeImage } from "@oh-my-pi/pi-coding-agent/utils/image-resize";
+import { formatScreenshot, resizeImage } from "@oh-my-soup/pi-coding-agent/utils/image-resize";
 
 describe("formatScreenshot", () => {
 	function fakeResized(
@@ -62,7 +62,7 @@ describe("formatScreenshot", () => {
 	});
 
 	it("formats non-home path without tilde", () => {
-		const filePath = path.join(path.parse(os.homedir()).root, "omp-render-utils", "capture.png");
+		const filePath = path.join(path.parse(os.homedir()).root, "oms-render-utils", "capture.png");
 		const resized = fakeResized({ mimeType: "image/webp", buffer: new Uint8Array(1024) });
 
 		expect(
@@ -88,7 +88,7 @@ describe("formatScreenshot", () => {
 				saveFullRes: false,
 				savedMimeType: "image/webp",
 				savedByteLength: 3072,
-				dest: path.join(os.tmpdir(), "omp-sshots-123.png"),
+				dest: path.join(os.tmpdir(), "oms-sshots-123.png"),
 				resized,
 			}),
 		).toEqual(["Screenshot captured", "Format: image/webp (3.00 KB)", "Dimensions: 800x600"]);
@@ -102,7 +102,7 @@ describe("formatScreenshot", () => {
 				saveFullRes: false,
 				savedMimeType: "image/png",
 				savedByteLength: 4096,
-				dest: path.join(os.tmpdir(), "omp-sshots-123.png"),
+				dest: path.join(os.tmpdir(), "oms-sshots-123.png"),
 				resized,
 			}),
 		).toContain("Resize: image decoder failed; using original image bytes");
@@ -347,31 +347,31 @@ describe("resizeImage minimum dimension", () => {
 });
 
 describe("resizeImage env wiring", () => {
-	const prior = Bun.env.OMP_NO_WEBP;
+	const prior = Bun.env.OMS_NO_WEBP;
 
 	beforeEach(() => {
-		delete (Bun.env as Record<string, string | undefined>).OMP_NO_WEBP;
+		delete (Bun.env as Record<string, string | undefined>).OMS_NO_WEBP;
 	});
 
 	afterEach(() => {
-		if (prior === undefined) delete (Bun.env as Record<string, string | undefined>).OMP_NO_WEBP;
-		else Bun.env.OMP_NO_WEBP = prior;
+		if (prior === undefined) delete (Bun.env as Record<string, string | undefined>).OMS_NO_WEBP;
+		else Bun.env.OMS_NO_WEBP = prior;
 	});
 
-	it("treats OMP_NO_WEBP=1 set at call time as exclusion (not baked at module load)", async () => {
-		Bun.env.OMP_NO_WEBP = "1";
+	it("treats OMS_NO_WEBP=1 set at call time as exclusion (not baked at module load)", async () => {
+		Bun.env.OMS_NO_WEBP = "1";
 
 		const result = await resizeImage({ type: "image", data: smallWebp, mimeType: "image/webp" });
 
 		expect(result.mimeType).not.toBe("image/webp");
 	});
 
-	it("treats OMP_NO_WEBP='' / '0' as NOT excluded", async () => {
-		Bun.env.OMP_NO_WEBP = "";
+	it("treats OMS_NO_WEBP='' / '0' as NOT excluded", async () => {
+		Bun.env.OMS_NO_WEBP = "";
 		const empty = await resizeImage({ type: "image", data: smallWebp, mimeType: "image/webp" });
 		expect(empty.mimeType).toBe("image/webp");
 
-		Bun.env.OMP_NO_WEBP = "0";
+		Bun.env.OMS_NO_WEBP = "0";
 		const zero = await resizeImage({ type: "image", data: smallWebp, mimeType: "image/webp" });
 		expect(zero.mimeType).toBe("image/webp");
 	});

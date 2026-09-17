@@ -1,19 +1,19 @@
-import { repairCollapsedScheme, tryExtractEmbeddedUrlSelector } from "@oh-my-pi/pi-tui/tools/fetch";
-import type { ReadUrlToolDetails } from "@oh-my-pi/pi-tui/tools/fetch";
+import { repairCollapsedScheme, tryExtractEmbeddedUrlSelector } from "@oh-my-soup/pi-tui/tools/fetch";
+import type { ReadUrlToolDetails } from "@oh-my-soup/pi-tui/tools/fetch";
 import type { Database } from "bun:sqlite";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { AgentToolResult } from "@oh-my-pi/pi-agent-core";
-import { type FetchImpl, getEnvApiKey, type ImageContent, type TextContent } from "@oh-my-pi/pi-ai";
-import { htmlToMarkdown, notebookToEditableText } from "@oh-my-pi/pi-natives";
-import { $which, ptree } from "@oh-my-pi/pi-utils";
-import { type ArchiveFormat, listArchiveRoot, sniffArchiveFormat } from "@oh-my-pi/pi-utils/ar";
+import type { AgentToolResult } from "@oh-my-soup/pi-agent-core";
+import { type FetchImpl, getEnvApiKey, type ImageContent, type TextContent } from "@oh-my-soup/pi-ai";
+import { htmlToMarkdown, notebookToEditableText } from "@oh-my-soup/pi-natives";
+import { $which, ptree } from "@oh-my-soup/pi-utils";
+import { type ArchiveFormat, listArchiveRoot, sniffArchiveFormat } from "@oh-my-soup/pi-utils/ar";
 import type { Settings } from "../config/settings";
 import type { ToolSession } from "../sdk";
 import type { AgentStorage } from "../session/agent-storage";
-import { DEFAULT_MAX_BYTES, truncateHead } from "@oh-my-pi/pi-tui/tools/streaming-output";
-import { webpExclusionForModel } from "@oh-my-pi/pi-tui/chat/image-loading";
+import { DEFAULT_MAX_BYTES, truncateHead } from "@oh-my-soup/pi-tui/tools/streaming-output";
+import { webpExclusionForModel } from "@oh-my-soup/pi-tui/chat/image-loading";
 import { formatDimensionNote, resizeImage } from "../utils/image-resize";
 import { CONVERTIBLE_EXTENSIONS } from "../utils/markit";
 import { ensureTool } from "../utils/tools-manager";
@@ -23,15 +23,15 @@ import type { RenderResult, SpecialHandler } from "../web/scrapers/types";
 import { finalizeOutput, loadPage, looksLikeHtml, MAX_BYTES, MAX_OUTPUT_CHARS } from "../web/scrapers/types";
 import { convertWithMarkit, fetchBinary } from "../web/scrapers/utils";
 import { findCredential } from "../web/search/providers/utils";
-import { applyListLimit } from "@oh-my-pi/pi-tui/tools/list-limit";
+import { applyListLimit } from "@oh-my-soup/pi-tui/tools/list-limit";
 import { parseTailCount } from "./path-utils";
-import { type LineRange, parseLineRanges } from "@oh-my-pi/pi-tui/tools/line-ranges";
-import { isReadableUrlPath } from "@oh-my-pi/pi-tui/tools/read";
+import { type LineRange, parseLineRanges } from "@oh-my-soup/pi-tui/tools/line-ranges";
+import { isReadableUrlPath } from "@oh-my-soup/pi-tui/tools/read";
 import type { ParsedSelector } from "./read-selector";
-import { formatBytes } from "@oh-my-pi/pi-tui/render/render-utils";
+import { formatBytes } from "@oh-my-soup/pi-tui/render/render-utils";
 import { listTables, looksLikeSqlite, openSqliteReadConnection, renderTableList } from "./sqlite-reader";
 import { ToolAbortError } from "./tool-errors";
-import { ToolError } from "@oh-my-pi/pi-tui/tools/tool-errors";
+import { ToolError } from "@oh-my-soup/pi-tui/tools/tool-errors";
 import { toolResult } from "./tool-result";
 import { clampTimeout } from "./tool-timeouts";
 
@@ -466,7 +466,7 @@ function cleanFeedText(text: string): string {
  * Parse RSS/Atom feed to markdown
  */
 async function parseFeedToMarkdown(content: string, maxItems = 10): Promise<string> {
-	const { parseHTML } = await import("@oh-my-pi/pi-utils/dom");
+	const { parseHTML } = await import("@oh-my-soup/pi-utils/dom");
 	try {
 		const doc = parseHTML(content).document;
 
@@ -841,13 +841,13 @@ async function withTempBinaryFile<T>(
 }
 
 async function renderNotebookPayload(bytes: Uint8Array, displayUrl: string): Promise<string> {
-	return withTempBinaryFile("omp-url-notebook-", ".ipynb", bytes, async tempPath =>
+	return withTempBinaryFile("oms-url-notebook-", ".ipynb", bytes, async tempPath =>
 		notebookToEditableText(await Bun.file(tempPath).text(), displayUrl),
 	);
 }
 
 async function renderSqlitePayload(bytes: Uint8Array): Promise<string> {
-	return withTempBinaryFile("omp-url-sqlite-", ".sqlite", bytes, async tempPath => {
+	return withTempBinaryFile("oms-url-sqlite-", ".sqlite", bytes, async tempPath => {
 		let db: Database | null = null;
 		try {
 			db = await openSqliteReadConnection(tempPath);

@@ -20,7 +20,7 @@ import { SplitPane, type SplitPaneHit } from "../../components/layout/split-pane
 import { Stack } from "../../components/layout/stack";
 import { ScrollView } from "../../components/scroll-view";
 import { TabBar, type Tab } from "../../components/tab-bar";
-import { logger } from "@oh-my-pi/pi-utils";
+import { logger } from "@oh-my-soup/pi-utils";
 import { getTabBarTheme } from "../../chrome/shared";
 import { theme } from "../../theme";
 import {
@@ -385,7 +385,7 @@ export class ExtensionDashboard implements Component {
 
 	#handleExtensionToggle(extensionId: string, enabled: boolean): void {
 		// MCP toggles route through the canonical denylist in
-		// `~/.omp/agent/mcp.json` so `/mcp list`, the MCP runtime, and this
+		// `~/.oms/agent/mcp.json` so `/mcp list`, the MCP runtime, and this
 		// dashboard agree on every server's enabled state (issue #3827).
 		if (extensionId.startsWith("mcp:")) {
 			void this.#toggleMcpExtension(extensionId, enabled);

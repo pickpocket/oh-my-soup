@@ -4,9 +4,9 @@
  * transcript rows from persisted message entries; holding the row construction
  * here keeps the two byte-for-byte identical.
  */
-import type { AgentMessage } from "@oh-my-pi/pi-agent-core";
+import type { AgentMessage } from "@oh-my-soup/pi-agent-core";
 import { type Component } from "../tui";
-import { formatBytes, formatDuration } from "@oh-my-pi/pi-utils";
+import { formatBytes, formatDuration } from "@oh-my-soup/pi-utils";
 import type { JobSnapshot } from "../tools/hub";
 import type { DaemonSnapshot } from "../tools/hub";
 import { type CustomMessage, type FileMentionMessage, resolveAbortLabel, shouldRenderAbortReason } from "./messages";

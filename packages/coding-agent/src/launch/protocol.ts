@@ -4,7 +4,7 @@ import {
 	type DaemonReadySpec,
 	type DaemonSpec,
 	type DaemonSnapshot,
-} from "@oh-my-pi/pi-tui/tools/hub";
+} from "@oh-my-soup/pi-tui/tools/hub";
 /**
  * Cross-process daemon broker protocol shared by the tool, client, and broker.
  */
@@ -15,13 +15,13 @@ export const DAEMON_PTY_COLUMNS = 120;
 export const DAEMON_PTY_ROWS = 40;
 
 /** Environment key carrying the broker's canonical project or synthetic global scope directory. */
-export const DAEMON_PROJECT_DIR_ENV = "OMP_DAEMON_PROJECT_DIR";
+export const DAEMON_PROJECT_DIR_ENV = "OMS_DAEMON_PROJECT_DIR";
 
 /** Environment key carrying the broker's private runtime directory. */
-export const DAEMON_RUNTIME_DIR_ENV = "OMP_DAEMON_RUNTIME_DIR";
+export const DAEMON_RUNTIME_DIR_ENV = "OMS_DAEMON_RUNTIME_DIR";
 
 /** Optional environment key overriding last-client shutdown grace. */
-export const DAEMON_IDLE_GRACE_ENV = "OMP_DAEMON_IDLE_GRACE_MS";
+export const DAEMON_IDLE_GRACE_ENV = "OMS_DAEMON_IDLE_GRACE_MS";
 
 /** Signals accepted by daemon input operations. */
 export type DaemonSignal = "SIGINT" | "SIGTERM" | "SIGHUP" | "SIGQUIT" | "SIGKILL";

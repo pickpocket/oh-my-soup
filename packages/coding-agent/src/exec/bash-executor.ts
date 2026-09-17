@@ -3,13 +3,13 @@
  *
  * Uses brush-core via native bindings for shell execution.
  */
-import { ExponentialYield } from "@oh-my-pi/pi-agent-core/utils/yield";
-import type { ImageContent } from "@oh-my-pi/pi-ai";
-import { type MinimizerOptions, PtySession, Shell, type ShellRunResult } from "@oh-my-pi/pi-natives";
-import { $env } from "@oh-my-pi/pi-utils/env";
-import { isCmdShell, isExecutable, type ShellConfig } from "@oh-my-pi/pi-utils/procmgr";
+import { ExponentialYield } from "@oh-my-soup/pi-agent-core/utils/yield";
+import type { ImageContent } from "@oh-my-soup/pi-ai";
+import { type MinimizerOptions, PtySession, Shell, type ShellRunResult } from "@oh-my-soup/pi-natives";
+import { $env } from "@oh-my-soup/pi-utils/env";
+import { isCmdShell, isExecutable, type ShellConfig } from "@oh-my-soup/pi-utils/procmgr";
 import { Settings, type ShellMinimizerSettings } from "../config/settings";
-import { type OutputArtifactError, OutputSink, type OutputSummary } from "@oh-my-pi/pi-tui/tools/streaming-output";
+import { type OutputArtifactError, OutputSink, type OutputSummary } from "@oh-my-soup/pi-tui/tools/streaming-output";
 import { resolveOutputMaxColumns, resolveOutputSinkHeadBytes } from "../tools/output-meta";
 import { getOrCreateSnapshot } from "../utils/shell-snapshot";
 import { TerminalGraphicsDecoder } from "../utils/terminal-graphics";

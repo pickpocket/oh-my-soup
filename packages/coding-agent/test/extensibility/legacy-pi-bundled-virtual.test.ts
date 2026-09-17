@@ -1,15 +1,15 @@
 import { describe, expect, it } from "bun:test";
-import { ptree, TempDir } from "@oh-my-pi/pi-utils";
+import { ptree, TempDir } from "@oh-my-soup/pi-utils";
 
 describe("bundled extension modules", () => {
 	it("observes active host theme changes and native default/named exports", async () => {
-		using dir = TempDir.createSync("omp-bundled-extension-");
+		using dir = TempDir.createSync("oms-bundled-extension-");
 		const entry = dir.join("extension.ts");
 		await Bun.write(
 			entry,
 			[
-				'import { theme } from "@oh-my-pi/pi-tui/theme";',
-				'import format, { double } from "@oh-my-pi/pi-utils/virtual-fixture";',
+				'import { theme } from "@oh-my-soup/pi-tui/theme";',
+				'import format, { double } from "@oh-my-soup/pi-utils/virtual-fixture";',
 				"export { theme };",
 				'export function render() { return theme.fg("accent", "extension"); }',
 				"export function describe(value) { return format(double(value)); }",
@@ -29,12 +29,12 @@ import { installLegacyPiSpecifierShim, loadLegacyPiModule } from ${JSON.stringif
 Bun.plugin({
 	name: "bundled-extension-fixture",
 	setup(build) {
-		build.module("omp-legacy-pi-modules", () => ({
+		build.module("oms-legacy-pi-modules", () => ({
 			loader: "object",
 			exports: {
 				BUNDLED_PI_MODULE_LOADERS: {
-					"@oh-my-pi/pi-tui/theme": async () => host,
-					"@oh-my-pi/pi-utils/virtual-fixture": async () => ({
+					"@oh-my-soup/pi-tui/theme": async () => host,
+					"@oh-my-soup/pi-utils/virtual-fixture": async () => ({
 						default: value => "value=" + value,
 						double: value => value * 2,
 					}),

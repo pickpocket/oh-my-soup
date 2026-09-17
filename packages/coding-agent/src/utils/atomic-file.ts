@@ -1,5 +1,5 @@
 import * as fs from "node:fs/promises";
-import { hasFsCode, isEexist, isEnoent, logger, toError } from "@oh-my-pi/pi-utils";
+import { hasFsCode, isEexist, isEnoent, logger, toError } from "@oh-my-soup/pi-utils";
 
 /**
  * Publish a staged sibling file atomically, preserving an existing destination

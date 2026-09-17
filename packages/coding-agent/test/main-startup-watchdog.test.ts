@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "bun:test";
-import { parseArgs } from "@oh-my-pi/pi-coding-agent/cli/args";
-import { runRootCommand } from "@oh-my-pi/pi-coding-agent/main";
+import { parseArgs } from "@oh-my-soup/pi-coding-agent/cli/args";
+import { runRootCommand } from "@oh-my-soup/pi-coding-agent/main";
 
 describe("startup watchdog under test runner", () => {
 	afterEach(() => {

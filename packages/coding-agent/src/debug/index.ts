@@ -5,7 +5,7 @@
  */
 import * as fs from "node:fs/promises";
 import * as url from "node:url";
-import { getWorkProfile } from "@oh-my-pi/pi-natives";
+import { getWorkProfile } from "@oh-my-soup/pi-natives";
 import {
 	isNotificationSuppressed,
 	Loader,
@@ -16,25 +16,25 @@ import {
 	TERMINAL,
 	type TerminalNotification,
 	Text,
-} from "@oh-my-pi/pi-tui";
-import { getSessionsDir } from "@oh-my-pi/pi-utils";
-import { DynamicBorder } from "@oh-my-pi/pi-tui/chrome/dynamic-border";
-import { OverlayPanel } from "@oh-my-pi/pi-tui/chrome/overlay-box";
-import { TranscriptBlock } from "@oh-my-pi/pi-tui/chrome/transcript-container";
-import { getSelectListTheme, getSymbolTheme, theme } from "@oh-my-pi/pi-tui/theme";
+} from "@oh-my-soup/pi-tui";
+import { getSessionsDir } from "@oh-my-soup/pi-utils";
+import { DynamicBorder } from "@oh-my-soup/pi-tui/chrome/dynamic-border";
+import { OverlayPanel } from "@oh-my-soup/pi-tui/chrome/overlay-box";
+import { TranscriptBlock } from "@oh-my-soup/pi-tui/chrome/transcript-container";
+import { getSelectListTheme, getSymbolTheme, theme } from "@oh-my-soup/pi-tui/theme";
 import type { InteractiveModeContext } from "../modes/types";
-import { formatBytes } from "@oh-my-pi/pi-tui/render/render-utils";
+import { formatBytes } from "@oh-my-soup/pi-tui/render/render-utils";
 import { openPath } from "../utils/open";
 import { copyToClipboard } from "../utils/clipboard";
-import { DebugLogViewerComponent } from "@oh-my-pi/pi-tui/apps/debug/log-viewer";
+import { DebugLogViewerComponent } from "@oh-my-soup/pi-tui/apps/debug/log-viewer";
 import { collectMemoryStats, type ProfilerSession, startCpuProfile } from "./profiler";
-import { buildSampleImage, ProtocolProbeComponent } from "@oh-my-pi/pi-tui/apps/debug/protocol-probe";
-import { RawSseViewerComponent } from "@oh-my-pi/pi-tui/apps/debug/raw-sse";
-import { resolveRawSseDebugBuffer } from "@oh-my-pi/pi-tui/apps/debug/raw-sse-buffer";
+import { buildSampleImage, ProtocolProbeComponent } from "@oh-my-soup/pi-tui/apps/debug/protocol-probe";
+import { RawSseViewerComponent } from "@oh-my-soup/pi-tui/apps/debug/raw-sse";
+import { resolveRawSseDebugBuffer } from "@oh-my-soup/pi-tui/apps/debug/raw-sse-buffer";
 import { getRemoteDebugger, type RemoteDebuggerInfo, startRemoteDebuggerServer } from "./remote-debugger";
 import { clearArtifactCache, createDebugLogSource, createReportBundle, getArtifactCacheStats } from "./report-bundle";
 import { collectSystemInfo, formatSystemInfo } from "./system-info";
-import { collectTerminalState, formatTerminalState } from "@oh-my-pi/pi-tui/apps/debug/terminal-info";
+import { collectTerminalState, formatTerminalState } from "@oh-my-soup/pi-tui/apps/debug/terminal-info";
 
 /** Debug menu options */
 const DEBUG_MENU_ITEMS: SelectItem[] = [
@@ -471,7 +471,7 @@ export class DebugSelectorComponent extends OverlayPanel {
 		if (!suppressed) {
 			const sessionName = this.ctx.sessionManager.getSessionName();
 			const notification: TerminalNotification = {
-				title: sessionName || "Oh My Pi",
+				title: sessionName || "Oh My Soup",
 				body: "Terminal protocol test",
 				type: "test",
 				actions: "focus",

@@ -1,4 +1,4 @@
-import { resolveUsedFraction, type UsageLimit } from "@oh-my-pi/pi-ai/usage";
+import { resolveUsedFraction, type UsageLimit } from "@oh-my-soup/pi-ai/usage";
 
 /**
  * Formatting for usage limits that carry an absolute amount but no fraction,

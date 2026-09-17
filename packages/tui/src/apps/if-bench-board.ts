@@ -1,5 +1,5 @@
 /**
- * Live board and scoreboard for `omp if-bench`.
+ * Live board and scoreboard for `oms if-bench`.
  *
  * Interactive terminals get one repainted row per model — a turn ladder that
  * fills as turns pass, the in-flight turn as a spinner cell, and the live
@@ -10,7 +10,7 @@
 
 import { replaceTabs, truncateToWidth } from "../utils";
 import { renderTableRow, type TableColumn } from "../components/table";
-import { formatDuration, formatNumber } from "@oh-my-pi/pi-utils";
+import { formatDuration, formatNumber } from "@oh-my-soup/pi-utils";
 import { fgOrPlain, theme } from "../theme/theme";
 import { createLiveBoard, type LiveBoardOutput } from "../chrome/live-board";
 
@@ -68,7 +68,7 @@ const FAILURE_TEXT: Record<IfBenchFailure, string> = {
 	provider: "provider error",
 };
 
-/** Rendering surface for one `omp if-bench` run. */
+/** Rendering surface for one `oms if-bench` run. */
 export interface IfBenchBoard extends IfBenchObserver {
 	readonly interactive: boolean;
 	/** Print a permanent line above the live rows (plain write when non-TTY). */

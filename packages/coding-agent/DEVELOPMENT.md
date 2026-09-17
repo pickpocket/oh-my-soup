@@ -1,6 +1,6 @@
-# Developing `@oh-my-pi/pi-coding-agent`
+# Developing `@oh-my-soup/pi-coding-agent`
 
-This package is the `omp` CLI. This file is a **developer's map**: where things live
+This package is the `oms` CLI. This file is a **developer's map**: where things live
 in `src/`, how to run the local loops, and — for each subsystem — which document in
 the repo [`docs/`](../../docs/) tree is the authoritative reference.
 
@@ -20,7 +20,7 @@ Run from `packages/coding-agent/` (or add `--cwd=packages/coding-agent`):
 | Lint only | `bun run lint` |
 | Tests | `bun run test` |
 | Autofix: lint + format prompts | `bun run fix` |
-| Build the `dist/omp` binary | `bun run build` |
+| Build the `dist/oms` binary | `bun run build` |
 
 Never invoke `tsc`/`npx tsc` directly — `bun run check` is the typecheck gate. After
 changing the React tool renderers under `collab-web/src/tool-render/`, rebuild them
@@ -49,7 +49,7 @@ createAgentSession(...)        ── src/sdk.ts → AgentSession
 ```
 
 `cli.ts` doubles as the worker host: it declares itself via `declareWorkerHostEntry()`
-and dispatches the hidden `__omp_worker_*` argv selectors before loading the command
+and dispatches the hidden `__oms_worker_*` argv selectors before loading the command
 registry (see `AGENTS.md` → *Worker scripts*).
 
 ## Source layout (`src/`)
@@ -146,7 +146,7 @@ Top-level entry modules: `cli.ts`, `main.ts`, `sdk.ts`, `index.ts` (SDK barrel),
 - [macos-signing-notarization.md](../../docs/macos-signing-notarization.md)
 - [porting-from-pi-mono.md](../../docs/porting-from-pi-mono.md)
 
-## Extending omp
+## Extending oms
 
 | To add… | Start here |
 |---|---|

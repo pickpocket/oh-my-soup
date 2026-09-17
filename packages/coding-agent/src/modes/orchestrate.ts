@@ -1,4 +1,4 @@
-import { prompt } from "@oh-my-pi/pi-utils";
+import { prompt } from "@oh-my-soup/pi-utils";
 import orchestrateNotice from "../prompts/system/orchestrate-notice.md" with { type: "text" };
 
 /** Hidden system notice appended after a user message that mentions "orchestrate". */

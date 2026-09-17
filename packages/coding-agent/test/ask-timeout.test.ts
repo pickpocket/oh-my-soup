@@ -1,12 +1,12 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from "bun:test";
-import type { AgentToolContext, AgentToolResult } from "@oh-my-pi/pi-agent-core";
-import type { TUI } from "@oh-my-pi/pi-tui";
+import type { AgentToolContext, AgentToolResult } from "@oh-my-soup/pi-agent-core";
+import type { TUI } from "@oh-my-soup/pi-tui";
 import type { ExtensionUIDialogOptions, ExtensionUISelectItem } from "../src/extensibility/extensions";
-import { HookSelectorComponent } from "@oh-my-pi/pi-tui/overlays/hook-selector";
-import { getThemeByName, setThemeInstance } from "@oh-my-pi/pi-tui/theme";
+import { HookSelectorComponent } from "@oh-my-soup/pi-tui/overlays/hook-selector";
+import { getThemeByName, setThemeInstance } from "@oh-my-soup/pi-tui/theme";
 import type { ToolSession } from "../src/tools";
 import { AskTool } from "../src/tools/ask";
-import { type AskToolDetails } from "@oh-my-pi/pi-tui/tools/ask";
+import { type AskToolDetails } from "@oh-my-soup/pi-tui/tools/ask";
 
 type AskExecutionResult = AgentToolResult<AskToolDetails>;
 type AskSelect = (

@@ -4,10 +4,10 @@
  * cancel-then-dismiss (mirroring the `/omfg` panel).
  */
 import { runCleanse } from "../../cleanse";
-import { CleanseBoardModel } from "@oh-my-pi/pi-tui/apps/cleanse-board";
+import { CleanseBoardModel } from "@oh-my-soup/pi-tui/apps/cleanse-board";
 import type { CleanseCheckerDescriptor } from "../../cleanse/checkers";
-import type { CleanseTargetChoice } from "@oh-my-pi/pi-tui/apps/cleanse-picker";
-import { CleansePanelComponent } from "@oh-my-pi/pi-tui/overlays/cleanse-panel";
+import type { CleanseTargetChoice } from "@oh-my-soup/pi-tui/apps/cleanse-picker";
+import { CleansePanelComponent } from "@oh-my-soup/pi-tui/overlays/cleanse-panel";
 import type { InteractiveModeContext } from "../types";
 
 interface CleanseRun {
@@ -146,7 +146,7 @@ export class CleanseCommandController {
 	}
 }
 
-/** Parse `/cleanse` arguments; flag names mirror the `omp cleanse` CLI. */
+/** Parse `/cleanse` arguments; flag names mirror the `oms cleanse` CLI. */
 function parseCleanseArgs(args: string): ParsedCleanseArgs {
 	const tokens = args.split(/\s+/).filter(Boolean);
 	const requestParts: string[] = [];

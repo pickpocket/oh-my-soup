@@ -5,7 +5,7 @@
  * The agent loop catches and renders them appropriately.
  */
 
-import { ToolError } from "@oh-my-pi/pi-tui/tools/tool-errors";
+import { ToolError } from "@oh-my-soup/pi-tui/tools/tool-errors";
 
 /**
  * Error thrown when a tool operation is aborted (e.g., via AbortSignal).

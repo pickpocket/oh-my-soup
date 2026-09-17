@@ -3,8 +3,8 @@
 import {
 	type CompactionSettings as EngineCompactionSettings,
 	shouldUseProviderNativeCompaction,
-} from "@oh-my-pi/pi-agent-core/compaction";
-import type { Model } from "@oh-my-pi/pi-ai";
+} from "@oh-my-soup/pi-agent-core/compaction";
+import type { Model } from "@oh-my-soup/pi-ai";
 import type { CompactionSettings } from "../config/settings-schema";
 
 /** Choices presented by the ordered compaction-method setting. */

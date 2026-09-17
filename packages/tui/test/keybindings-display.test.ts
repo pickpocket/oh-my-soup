@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { getDefaultPasteImageKeys, KeybindingsManager, setKeyHintPlatform } from "@oh-my-pi/pi-tui/app-keybindings";
+import { getDefaultPasteImageKeys, KeybindingsManager, setKeyHintPlatform } from "@oh-my-soup/pi-tui/app-keybindings";
 
 describe("KeybindingsManager.getDisplayString", () => {
 	beforeEach(() => setKeyHintPlatform("linux"));

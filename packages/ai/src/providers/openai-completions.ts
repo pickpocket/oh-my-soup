@@ -1,9 +1,9 @@
-import type { Effort } from "@oh-my-pi/pi-catalog/effort";
-import { resolveWireModelId } from "@oh-my-pi/pi-catalog/model-thinking";
-import { calculateCost } from "@oh-my-pi/pi-catalog/models";
-import type { ResolvedOpenAICompat } from "@oh-my-pi/pi-catalog/types";
-import { clinePassClientHeaders } from "@oh-my-pi/pi-catalog/wire/cline-pass";
-import { $env, logger, parseStreamingJson, parseStreamingJsonThrottled } from "@oh-my-pi/pi-utils";
+import type { Effort } from "@oh-my-soup/pi-catalog/effort";
+import { resolveWireModelId } from "@oh-my-soup/pi-catalog/model-thinking";
+import { calculateCost } from "@oh-my-soup/pi-catalog/models";
+import type { ResolvedOpenAICompat } from "@oh-my-soup/pi-catalog/types";
+import { clinePassClientHeaders } from "@oh-my-soup/pi-catalog/wire/cline-pass";
+import { $env, logger, parseStreamingJson, parseStreamingJsonThrottled } from "@oh-my-soup/pi-utils";
 import { renderDemotedThinking } from "../dialect/demotion";
 import * as AIError from "../error";
 import { getKimiCommonHeaders } from "../registry/oauth/kimi";

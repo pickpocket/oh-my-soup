@@ -1,11 +1,11 @@
-import type { DesktopCapabilities } from "@oh-my-pi/pi-natives";
-import { withTimeout } from "@oh-my-pi/pi-utils/async";
-import * as logger from "@oh-my-pi/pi-utils/logger";
-import { Snowflake } from "@oh-my-pi/pi-utils/snowflake";
-import { workerHostEntry } from "@oh-my-pi/pi-utils/worker-host";
+import type { DesktopCapabilities } from "@oh-my-soup/pi-natives";
+import { withTimeout } from "@oh-my-soup/pi-utils/async";
+import * as logger from "@oh-my-soup/pi-utils/logger";
+import { Snowflake } from "@oh-my-soup/pi-utils/snowflake";
+import { workerHostEntry } from "@oh-my-soup/pi-utils/worker-host";
 import type { ToolSession } from "../index";
 import { ToolAbortError } from "../tool-errors";
-import { ToolError } from "@oh-my-pi/pi-tui/tools/tool-errors";
+import { ToolError } from "@oh-my-soup/pi-tui/tools/tool-errors";
 import {
 	COMPUTER_WORKER_ARG,
 	type ComputerRunOk,

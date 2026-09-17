@@ -7,7 +7,7 @@ import { loadTasks, resolveDataset } from "../src/tb/dataset";
 const cleanupDirs: string[] = [];
 
 async function makeFixture(): Promise<{ root: string; tasksDir: string }> {
-	const root = await fs.mkdtemp(path.join(os.tmpdir(), "omp-tb-dataset-"));
+	const root = await fs.mkdtemp(path.join(os.tmpdir(), "oms-tb-dataset-"));
 	cleanupDirs.push(root);
 	const tasksDir = path.join(root, "tasks");
 	const validDir = path.join(tasksDir, "alpha-task");

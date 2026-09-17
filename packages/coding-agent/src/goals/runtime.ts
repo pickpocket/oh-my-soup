@@ -1,8 +1,8 @@
-import { escapeXmlText, prompt, Snowflake } from "@oh-my-pi/pi-utils";
+import { escapeXmlText, prompt, Snowflake } from "@oh-my-soup/pi-utils";
 import goalBudgetLimitPrompt from "../prompts/goals/goal-budget-limit.md" with { type: "text" };
 import goalContinuationPrompt from "../prompts/goals/goal-continuation.md" with { type: "text" };
 import goalModeActivePrompt from "../prompts/goals/goal-mode-active.md" with { type: "text" };
-import type { Goal } from "@oh-my-pi/pi-tui/tools/goal";
+import type { Goal } from "@oh-my-soup/pi-tui/tools/goal";
 import type { GoalBudgetSteering, GoalModeState, GoalRuntimeEvent, GoalTokenUsage } from "./state";
 
 export interface GoalRuntimeHost {

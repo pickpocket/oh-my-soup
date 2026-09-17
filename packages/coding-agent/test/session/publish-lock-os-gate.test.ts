@@ -19,8 +19,8 @@ import * as fs from "node:fs";
 import * as fsp from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { FileLock as NativeFileLock } from "@oh-my-pi/pi-natives";
-import { FileSessionStorage, SessionLockError } from "@oh-my-pi/pi-coding-agent/session/session-storage";
+import { FileLock as NativeFileLock } from "@oh-my-soup/pi-natives";
+import { FileSessionStorage, SessionLockError } from "@oh-my-soup/pi-coding-agent/session/session-storage";
 
 /** Mirrors the OS-gate sidecar derived in `#withPublishLock`. */
 function osGatePath(lockPath: string): string {
@@ -31,7 +31,7 @@ describe("publish lock OS gate", () => {
 	let tempDir: string;
 
 	beforeEach(async () => {
-		tempDir = await fsp.mkdtemp(path.join(os.tmpdir(), "omp-publish-gate-"));
+		tempDir = await fsp.mkdtemp(path.join(os.tmpdir(), "oms-publish-gate-"));
 	});
 
 	afterEach(async () => {

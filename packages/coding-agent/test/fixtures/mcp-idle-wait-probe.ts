@@ -23,8 +23,8 @@
  *
  * Prints one JSON line as the whole of its protocol with the parent.
  */
-import { HttpTransport } from "@oh-my-pi/pi-coding-agent/mcp/transports/http";
-import { LegacySseTransport } from "@oh-my-pi/pi-coding-agent/mcp/transports/sse";
+import { HttpTransport } from "@oh-my-soup/pi-coding-agent/mcp/transports/http";
+import { LegacySseTransport } from "@oh-my-soup/pi-coding-agent/mcp/transports/sse";
 
 /** Fixed, and comfortably past the shortened idle default plus its wheel granularity. */
 const STALL_MS = 7_000;

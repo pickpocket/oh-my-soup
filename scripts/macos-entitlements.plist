@@ -4,12 +4,12 @@
 <dict>
 	<!--
 	  Entitlements for the hardened-runtime Developer ID signature applied to the
-	  compiled `omp` macOS binary (see scripts/ci-macos-sign.sh).
+	  compiled `oms` macOS binary (see scripts/ci-macos-sign.sh).
 
 	  These are NOT optional. The binary is a Bun single-file executable, and:
 	    * allow-jit / allow-unsigned-executable-memory — JavaScriptCore JITs at
 	      runtime; the hardened runtime kills JIT (MAP_JIT) pages without these.
-	    * disable-library-validation — omp extracts its native addon
+	    * disable-library-validation — oms extracts its native addon
 	      (pi_natives.<triple>.node) and other optional dylibs to a runtime cache
 	      and dlopen()s them. Those dylibs do not share the main binary's Team ID,
 	      so without this entitlement the hardened runtime refuses to map them

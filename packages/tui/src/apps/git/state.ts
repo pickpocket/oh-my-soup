@@ -1,4 +1,4 @@
-import type { DiffStreamProgress, DiffStreamResult } from "@oh-my-pi/pi-natives";
+import type { DiffStreamProgress, DiffStreamResult } from "@oh-my-soup/pi-natives";
 
 /** Context lines retained around each exact streamed hunk. */
 export const DIFF_CONTEXT_LINES = 3;

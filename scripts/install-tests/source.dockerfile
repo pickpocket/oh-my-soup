@@ -22,4 +22,4 @@ RUN bun --cwd=packages/natives run build
 RUN cd packages/coding-agent && bun link
 
 # Verify
-RUN omp --version
+RUN oms --version

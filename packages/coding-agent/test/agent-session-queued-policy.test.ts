@@ -1,34 +1,34 @@
 import { afterEach, describe, expect, it, vi } from "bun:test";
 import { setImmediate } from "node:timers/promises";
-import { Type } from "@oh-my-pi/omptype/typebox";
-import { Agent, type AgentMessage, type AgentTool } from "@oh-my-pi/pi-agent-core";
-import type { Context, ImageContent } from "@oh-my-pi/pi-ai";
-import { createMockModel, type MockResponseSource } from "@oh-my-pi/pi-ai/providers/mock";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
-import type { ModelRegistry } from "@oh-my-pi/pi-coding-agent/config/model-registry";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { ExtensionRuntime } from "@oh-my-pi/pi-coding-agent/extensibility/extensions/loader";
-import { ExtensionRunner } from "@oh-my-pi/pi-coding-agent/extensibility/extensions/runner";
-import type { BeforeAgentStartEvent, Extension } from "@oh-my-pi/pi-coding-agent/extensibility/extensions/types";
-import { HindsightApi } from "@oh-my-pi/pi-coding-agent/hindsight/client";
-import { loadHindsightConfig } from "@oh-my-pi/pi-coding-agent/hindsight/config";
-import { HindsightSessionState } from "@oh-my-pi/pi-coding-agent/hindsight/state";
-import * as memoryBackend from "@oh-my-pi/pi-coding-agent/memory-backend";
-import type { MemoryBackend } from "@oh-my-pi/pi-coding-agent/memory-backend/types";
-import { loadMnemopiConfig } from "@oh-my-pi/pi-coding-agent/mnemopi/config";
+import { Type } from "@oh-my-soup/omstype/typebox";
+import { Agent, type AgentMessage, type AgentTool } from "@oh-my-soup/pi-agent-core";
+import type { Context, ImageContent } from "@oh-my-soup/pi-ai";
+import { createMockModel, type MockResponseSource } from "@oh-my-soup/pi-ai/providers/mock";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
+import type { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { ExtensionRuntime } from "@oh-my-soup/pi-coding-agent/extensibility/extensions/loader";
+import { ExtensionRunner } from "@oh-my-soup/pi-coding-agent/extensibility/extensions/runner";
+import type { BeforeAgentStartEvent, Extension } from "@oh-my-soup/pi-coding-agent/extensibility/extensions/types";
+import { HindsightApi } from "@oh-my-soup/pi-coding-agent/hindsight/client";
+import { loadHindsightConfig } from "@oh-my-soup/pi-coding-agent/hindsight/config";
+import { HindsightSessionState } from "@oh-my-soup/pi-coding-agent/hindsight/state";
+import * as memoryBackend from "@oh-my-soup/pi-coding-agent/memory-backend";
+import type { MemoryBackend } from "@oh-my-soup/pi-coding-agent/memory-backend/types";
+import { loadMnemopiConfig } from "@oh-my-soup/pi-coding-agent/mnemopi/config";
 import {
 	getMnemopiSessionState,
 	loadMnemopi,
 	loadMnemopiCore,
 	MnemopiSessionState,
 	setMnemopiSessionState,
-} from "@oh-my-pi/pi-coding-agent/mnemopi/state";
-import { AgentSession } from "@oh-my-pi/pi-coding-agent/session/agent-session";
-import type { AgentSessionConfig } from "@oh-my-pi/pi-coding-agent/session/agent-session-types";
-import { convertToLlm } from "@oh-my-pi/pi-coding-agent/session/messages";
-import { SessionManager } from "@oh-my-pi/pi-coding-agent/session/session-manager";
-import { SessionProviderBoundary } from "@oh-my-pi/pi-coding-agent/session/session-provider-boundary";
-import { TempDir } from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-coding-agent/mnemopi/state";
+import { AgentSession } from "@oh-my-soup/pi-coding-agent/session/agent-session";
+import type { AgentSessionConfig } from "@oh-my-soup/pi-coding-agent/session/agent-session-types";
+import { convertToLlm } from "@oh-my-soup/pi-coding-agent/session/messages";
+import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
+import { SessionProviderBoundary } from "@oh-my-soup/pi-coding-agent/session/session-provider-boundary";
+import { TempDir } from "@oh-my-soup/pi-utils";
 import { createAssistantMessage } from "./helpers/agent-session-setup";
 
 const BASE = ["base identity", "base tools"];

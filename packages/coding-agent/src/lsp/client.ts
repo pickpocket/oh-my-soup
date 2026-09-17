@@ -1,5 +1,5 @@
 import * as path from "node:path";
-import { isEnoent, logger, postmortem, ptree, stableStringifyJson, untilAborted } from "@oh-my-pi/pi-utils";
+import { isEnoent, logger, postmortem, ptree, stableStringifyJson, untilAborted } from "@oh-my-soup/pi-utils";
 import { MessageFramer } from "../jsonrpc/message-framing";
 import { ToolAbortError, throwIfAborted } from "../tools/tool-errors";
 import { getConfig } from "./config";
@@ -36,7 +36,7 @@ const invalidatedClientKeys = new Set<string>();
 const clientReloadBarriers = new Map<string, Promise<unknown>>();
 const fileOperationLocks = new Map<string, Promise<void>>();
 /**
- * URIs whose server overlay OMP has intentionally advanced ahead of the on-disk
+ * URIs whose server overlay OMS has intentionally advanced ahead of the on-disk
  * file for an in-flight write/edit: the writethrough syncs the new (and possibly
  * formatted) text to the language server before committing it to disk, so while
  * a write is pending the file on disk is *older* than the overlay. Refcounted by
@@ -56,7 +56,7 @@ let idleCheckInterval: NodeJS.Timeout | null = null;
 const IDLE_CHECK_INTERVAL_MS = 60 * 1000;
 
 // Broker-shared server mode (one language server per project shared by every
-// omp instance through the LSP mux daemon). Off by default so embedders and
+// oms instance through the LSP mux daemon). Off by default so embedders and
 // tests that drive getOrCreateClient directly never touch the daemon broker;
 // the SDK turns it on from the `lsp.shared` setting at session creation.
 let sharedLspEnabled = false;
@@ -1242,7 +1242,7 @@ function documentSignature(content: string): number | bigint {
 }
 
 /**
- * Mark a file whose server overlay OMP has advanced ahead of disk for an in-flight
+ * Mark a file whose server overlay OMS has advanced ahead of disk for an in-flight
  * write. While marked, {@link reconcileFileFromDisk} skips reading disk back into
  * the server, because the on-disk file is the *stale* side until the write commits.
  * Every call MUST be balanced by {@link endPendingDiskWrite}.
@@ -1334,7 +1334,7 @@ export async function ensureFileOpen(client: LspClient, filePath: string, signal
  * Reconcile an already-open document with current disk contents before a semantic query.
  *
  * {@link ensureFileOpen} opens an untracked file but no-ops when the URI is already
- * open, so an external edit — one not routed through OMP's write/edit tools, which
+ * open, so an external edit — one not routed through OMS's write/edit tools, which
  * announce their changes via {@link notifyWorkspaceWatchedFiles}/{@link refreshFile} —
  * leaves the server holding the pre-edit document while callers compute query
  * positions from disk. This reads the file and, when its contents diverge from the
@@ -1343,7 +1343,7 @@ export async function ensureFileOpen(client: LspClient, filePath: string, signal
  * {@link ensureFileOpen}; unchanged files send nothing.
  * Returns `true` only when a `didChange` was pushed for a reconciled overlay — the
  * caller can then wait for fresh diagnostics, since the stale ones were dropped.
- * A file with an in-flight OMP write ({@link beginPendingDiskWrite}) is skipped
+ * A file with an in-flight OMS write ({@link beginPendingDiskWrite}) is skipped
  * entirely: its overlay leads disk, so reading disk back would revert the server
  * to pre-write content.
  */
@@ -1359,7 +1359,7 @@ export async function reconcileFileFromDisk(
 		return false;
 	}
 
-	// An in-flight OMP write has already synced newer (possibly formatted) text to
+	// An in-flight OMS write has already synced newer (possibly formatted) text to
 	// the server ahead of committing it to disk; the on-disk file is the stale side,
 	// so reconciling from it would clobber the overlay. Leave it to the write.
 	if (pendingDiskWrites.has(uri)) {

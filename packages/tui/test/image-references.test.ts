@@ -11,7 +11,7 @@ import {
 	renderPlaceholders,
 	shiftImageMarkers,
 	skillChipLabel,
-} from "@oh-my-pi/pi-tui/prompt/composer-attachments";
+} from "@oh-my-soup/pi-tui/prompt/composer-attachments";
 
 function capture(
 	text: string,

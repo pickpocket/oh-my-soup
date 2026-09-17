@@ -7,7 +7,7 @@ import {
 	isEnoent,
 	logger,
 	stringifyYamlConfig,
-} from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-utils";
 import { JSONC, YAML } from "bun";
 import {
 	type Keybinding,

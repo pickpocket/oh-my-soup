@@ -1,18 +1,18 @@
-import type { WriteToolDetails } from "@oh-my-pi/pi-tui/tools/write";
+import type { WriteToolDetails } from "@oh-my-soup/pi-tui/tools/write";
 import { Database } from "bun:sqlite";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 
-import { type } from "@oh-my-pi/omptype";
+import { type } from "@oh-my-soup/omstype";
 import type {
 	AgentTool,
 	AgentToolContext,
 	AgentToolResult,
 	AgentToolUpdateCallback,
 	ToolApprovalDecision,
-} from "@oh-my-pi/pi-agent-core";
+} from "@oh-my-soup/pi-agent-core";
 
-import { isEnoent, isRecord, prompt, untilAborted } from "@oh-my-pi/pi-utils";
+import { isEnoent, isRecord, prompt, untilAborted } from "@oh-my-soup/pi-utils";
 import {
 	type ArchiveMemberContent,
 	archiveFormatFromPath,
@@ -20,13 +20,13 @@ import {
 	parseArchivePathCandidates,
 	readArchiveEntries,
 	writeArchive,
-} from "@oh-my-pi/pi-utils/ar";
+} from "@oh-my-soup/pi-utils/ar";
 import { getEditStore } from "../edit/store";
 import { normalizeToLF } from "../edit/normalize";
 
 import { InternalUrlRouter } from "../internal-urls";
 import { parseInternalUrl } from "../internal-urls/parse";
-import { parseXdUrl } from "@oh-my-pi/pi-tui/tools/xd-url";
+import { parseXdUrl } from "@oh-my-soup/pi-tui/tools/xd-url";
 import { createLspWritethrough, type WritethroughCallback, writethroughNoop } from "../lsp";
 
 import { DeferredDiagnostics } from "../lsp/deferred-diagnostics";
@@ -46,8 +46,8 @@ import {
 	isReadTruncationNotice,
 	splitAddressableFileLines,
 	stripHashlinePrefixes,
-} from "@oh-my-pi/pi-tui/tools/hashline-format";
-import { type ConflictEntry } from "@oh-my-pi/pi-tui/tools/conflict-detect";
+} from "@oh-my-soup/pi-tui/tools/hashline-format";
+import { type ConflictEntry } from "@oh-my-soup/pi-tui/tools/conflict-detect";
 import {
 	conflictRegionPresent,
 	conflictRegionsEqual,
@@ -66,7 +66,7 @@ import {
 	probeLiteralPathExists,
 	resolveFileWriteApprovalTier,
 } from "./path-utils";
-import { splitPathAndSel } from "@oh-my-pi/pi-tui/tools/read";
+import { splitPathAndSel } from "@oh-my-soup/pi-tui/tools/read";
 import {
 	enforcePlanModeWrite,
 	resolvePlanPath,
@@ -75,12 +75,12 @@ import {
 } from "./plan-mode-guard";
 import { decodeUtf8Text } from "./read-format";
 import { routeReadThroughBridge } from "./read-summary";
-import { shortenPath } from "@oh-my-pi/pi-tui/render/render-utils";
+import { shortenPath } from "@oh-my-soup/pi-tui/render/render-utils";
 
 import { dispatchReportIssueDevice } from "./report-tool-issue";
-import { REPORT_ISSUE_DEVICE_NAME } from "@oh-my-pi/pi-tui/tools/report-tool-issue";
+import { REPORT_ISSUE_DEVICE_NAME } from "@oh-my-soup/pi-tui/tools/report-tool-issue";
 import { dispatchResolutionDevice } from "./resolve";
-import { isResolutionDeviceName } from "@oh-my-pi/pi-tui/tools/resolve";
+import { isResolutionDeviceName } from "@oh-my-soup/pi-tui/tools/resolve";
 import {
 	deleteRowByKey,
 	deleteRowByRowId,
@@ -91,7 +91,7 @@ import {
 	updateRowByKey,
 	updateRowByRowId,
 } from "./sqlite-reader";
-import { ToolError } from "@oh-my-pi/pi-tui/tools/tool-errors";
+import { ToolError } from "@oh-my-soup/pi-tui/tools/tool-errors";
 import { toolResult } from "./tool-result";
 import { dispatchXdevTool, resolveXdevTool, xdevListing } from "./xdev";
 
@@ -401,7 +401,7 @@ function assertNotShorterReadProjection(
 	const payloadLength = writeContent === rawContent ? rawPayloadLength : normalizeToLF(writeContent).length;
 	if (payloadLength >= normalizeToLF(currentContent).length) return;
 	throw new ToolError(
-		`Refusing to overwrite '${displayPath}' with an incomplete read projection: the content ends with an omp read truncation notice and covers less than the current source, so it would discard unseen content. Re-read the omitted ranges and write the complete file, or use edit for a partial change.`,
+		`Refusing to overwrite '${displayPath}' with an incomplete read projection: the content ends with an oms read truncation notice and covers less than the current source, so it would discard unseen content. Re-read the omitted ranges and write the complete file, or use edit for a partial change.`,
 	);
 }
 
@@ -1375,7 +1375,7 @@ export class WriteTool implements AgentTool<typeof writeSchema, WriteToolDetails
 			emitWriteProgress(onUpdate, cleanContent, displayPath, absolutePath);
 
 			// Try ACP bridge first for editor-visible filesystem paths. Internal
-			// artifacts such as local:// plans are owned by OMP, not the editor.
+			// artifacts such as local:// plans are owned by OMS, not the editor.
 			const bridgeWrite = await routeWriteThroughBridge(this.session, path, absolutePath, cleanContent, signal);
 			if (bridgeWrite) {
 				// `write` always replaces the whole file, so (unlike hashline's

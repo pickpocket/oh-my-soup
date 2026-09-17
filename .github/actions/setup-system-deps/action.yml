@@ -1,7 +1,7 @@
 name: Setup system deps
 description: >-
    Install the canvas/native runtime deps CI needs (cairo/pango stack, fd,
-   ripgrep, imagemagick). No-op on the preloaded omp-kata runner image, which
+   ripgrep, imagemagick). No-op on the preloaded oms-kata runner image, which
    already ships them; self-heals on a stock runner by installing via apt.
 
 runs:
@@ -10,7 +10,7 @@ runs:
       - name: Install system deps (skip when preloaded)
         shell: bash
         run: |
-           # The preloaded omp-kata runner image bakes these in. Detect that
+           # The preloaded oms-kata runner image bakes these in. Detect that
            # and skip the apt round-trip; otherwise install the exact same set so
            # stock runners (and any future host) still work.
            if command -v fd >/dev/null 2>&1 \

@@ -14,10 +14,10 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { clearCache as clearFsCache } from "@oh-my-pi/pi-coding-agent/capability/fs";
-import { loadAllMCPConfigs } from "@oh-my-pi/pi-coding-agent/mcp/config";
-import { getConfigRootDir, removeWithRetries, setAgentDir } from "@oh-my-pi/pi-utils";
-import "@oh-my-pi/pi-coding-agent/discovery";
+import { clearCache as clearFsCache } from "@oh-my-soup/pi-coding-agent/capability/fs";
+import { loadAllMCPConfigs } from "@oh-my-soup/pi-coding-agent/mcp/config";
+import { getConfigRootDir, removeWithRetries, setAgentDir } from "@oh-my-soup/pi-utils";
+import "@oh-my-soup/pi-coding-agent/discovery";
 
 const originalAgentDirEnv = process.env.PI_CODING_AGENT_DIR;
 const fallbackAgentDir = path.join(getConfigRootDir(), "agent");
@@ -36,15 +36,15 @@ describe("MCP scope filtering precedes connection-equivalence deduplication", ()
 
 	beforeEach(async () => {
 		originalHome = process.env.HOME;
-		tempHome = await fs.mkdtemp(path.join(os.tmpdir(), "omp-mcp-scope-home-"));
-		projectDir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-mcp-scope-project-"));
-		userAgentDir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-mcp-scope-agent-"));
+		tempHome = await fs.mkdtemp(path.join(os.tmpdir(), "oms-mcp-scope-home-"));
+		projectDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-mcp-scope-project-"));
+		userAgentDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-mcp-scope-agent-"));
 		process.env.HOME = tempHome;
 		vi.spyOn(os, "homedir").mockReturnValue(tempHome);
 		setAgentDir(userAgentDir);
 		clearFsCache();
 		// Same connection identity under two distinct names, one per scope.
-		await writeMcpJson(path.join(projectDir, ".omp"), { projcontext: CONNECTION });
+		await writeMcpJson(path.join(projectDir, ".oms"), { projcontext: CONNECTION });
 		await writeMcpJson(userAgentDir, { usercontext: CONNECTION });
 	});
 
@@ -79,7 +79,7 @@ describe("MCP scope filtering precedes connection-equivalence deduplication", ()
 	test("keeps the enabled alias when an equivalent higher-priority server is disabled", async () => {
 		// Higher-priority project server disabled via `enabled: false`; a differently
 		// named but connection-equivalent user server stays enabled and must survive.
-		await writeMcpJson(path.join(projectDir, ".omp"), { projcontext: { ...CONNECTION, enabled: false } });
+		await writeMcpJson(path.join(projectDir, ".oms"), { projcontext: { ...CONNECTION, enabled: false } });
 		const result = await loadAllMCPConfigs(projectDir, { enableProjectConfig: true, filterExa: false });
 		expect(Object.keys(result.configs)).toEqual(["usercontext"]);
 		expect(result.sources.usercontext?.level).toBe("user");
@@ -90,7 +90,7 @@ describe("MCP scope filtering precedes connection-equivalence deduplication", ()
 		// key even while disabled, so the enabled user entry must NOT survive
 		// and connect. An equivalent user server under a DIFFERENT name is not
 		// starved by the disabled owner and still survives.
-		await writeMcpJson(path.join(projectDir, ".omp"), { shared: { ...CONNECTION, enabled: false } });
+		await writeMcpJson(path.join(projectDir, ".oms"), { shared: { ...CONNECTION, enabled: false } });
 		await writeMcpJson(userAgentDir, { shared: CONNECTION, usercontext: CONNECTION });
 		const result = await loadAllMCPConfigs(projectDir, { enableProjectConfig: true, filterExa: false });
 		expect(Object.keys(result.configs)).toEqual(["usercontext"]);
@@ -100,7 +100,7 @@ describe("MCP scope filtering precedes connection-equivalence deduplication", ()
 	test("same-named user server survives when project config is scope-disabled", async () => {
 		// Scope exclusion removes the project entry entirely — unlike a disabled
 		// entry, it must not claim the key and shadow the user server.
-		await writeMcpJson(path.join(projectDir, ".omp"), { shared: { ...CONNECTION, enabled: false } });
+		await writeMcpJson(path.join(projectDir, ".oms"), { shared: { ...CONNECTION, enabled: false } });
 		await writeMcpJson(userAgentDir, { shared: CONNECTION });
 		const result = await loadAllMCPConfigs(projectDir, { enableProjectConfig: false, filterExa: false });
 		expect(Object.keys(result.configs)).toEqual(["shared"]);
@@ -108,7 +108,7 @@ describe("MCP scope filtering precedes connection-equivalence deduplication", ()
 	});
 
 	test("effective extension roots survive scopeless MCP rediscovery", async () => {
-		const extensionDir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-mcp-extension-"));
+		const extensionDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-mcp-extension-"));
 		try {
 			await fs.writeFile(
 				path.join(extensionDir, ".mcp.json"),

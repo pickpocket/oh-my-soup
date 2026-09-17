@@ -4,8 +4,8 @@
  * Calls Brave's web search REST API and maps results into the unified
  * SearchResponse shape used by the web search tool.
  */
-import { type ApiKey, type AuthStorage, type FetchImpl, getEnvApiKey, withAuth } from "@oh-my-pi/pi-ai";
-import type { SearchResponse, SearchSource } from "@oh-my-pi/pi-tui/tools/web-search";
+import { type ApiKey, type AuthStorage, type FetchImpl, getEnvApiKey, withAuth } from "@oh-my-soup/pi-ai";
+import type { SearchResponse, SearchSource } from "@oh-my-soup/pi-tui/tools/web-search";
 import { SearchProviderError } from "../../../web/search/types";
 import type { QuerySyntax, StructuredQuery } from "../query";
 import { formatQuery, GOOGLE_QUERY_SYNTAX, parseSearchQuery } from "../query";

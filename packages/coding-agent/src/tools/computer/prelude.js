@@ -14,8 +14,8 @@
 		return source;
 	};
 	const encodeArg = (label, value) => {
-		if (typeof value === "function") return { __omp_fn: serializeFunction(label, value) };
-		if (value instanceof RegExp) return { __omp_re: { source: value.source, flags: value.flags } };
+		if (typeof value === "function") return { __oms_fn: serializeFunction(label, value) };
+		if (value instanceof RegExp) return { __oms_re: { source: value.source, flags: value.flags } };
 		return value;
 	};
 	const encodeArgs = (label, args) => {
@@ -24,9 +24,9 @@
 		return trimmed.map(value => encodeArg(label, value));
 	};
 	const invoke = async (action, options) => {
-		const response = await globalThis.__omp_prelude__("computer", { ...options, action });
+		const response = await globalThis.__oms_prelude__("computer", { ...options, action });
 		if (response && typeof response.text === "string" && response.text.length > 0) {
-			globalThis.__omp_display__(response.text);
+			globalThis.__oms_display__(response.text);
 		}
 		return response && typeof response.details === "object" && response.details !== null ? response.details : {};
 	};

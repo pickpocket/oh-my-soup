@@ -16,7 +16,7 @@
 #   CI_HOST                ssh target of the CI host                     (required)
 #   KATA_CONFIG_REMOTE     remote Kata config file                       [/opt/kata/share/defaults/kata-containers/configuration-qemu.toml]
 #   KUBECONFIG_REMOTE      kubeconfig path on the host                   [/etc/rancher/k3s/k3s.yaml]
-#   ARC_RELEASE            runner scale set name                         [omp-kata]
+#   ARC_RELEASE            runner scale set name                         [oms-kata]
 #   ARC_NAMESPACE          runner namespace                              [arc-runners]
 #   BOOT_VCPUS             Kata default_vcpus                            [2]
 #   BOOT_MEMORY_MIB        Kata default_memory (MiB)                     [4096]
@@ -27,7 +27,7 @@ set -euo pipefail
 : "${CI_HOST:?set CI_HOST to the ssh target of your CI host, e.g. CI_HOST=my-ci-host}"
 KATA_CONFIG_REMOTE="${KATA_CONFIG_REMOTE:-/opt/kata/share/defaults/kata-containers/configuration-qemu.toml}"
 KUBECONFIG_REMOTE="${KUBECONFIG_REMOTE:-/etc/rancher/k3s/k3s.yaml}"
-ARC_RELEASE="${ARC_RELEASE:-omp-kata}"
+ARC_RELEASE="${ARC_RELEASE:-oms-kata}"
 ARC_NAMESPACE="${ARC_NAMESPACE:-arc-runners}"
 BOOT_VCPUS="${BOOT_VCPUS:-2}"
 BOOT_MEMORY_MIB="${BOOT_MEMORY_MIB:-4096}"

@@ -6,7 +6,7 @@ import {
 	levenshteinDistance,
 	REGEX_EXTRACTION_MAX_INPUT_CHARS,
 	similarity,
-} from "@oh-my-pi/pi-mnemopi/core/entities";
+} from "@oh-my-soup/pi-mnemopi/core/entities";
 
 describe("entity utilities", () => {
 	it("computes edit distance with empty and unicode strings", () => {

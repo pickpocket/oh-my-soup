@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { cosineSimilarityPairs, mmrRerankIndices, vectorIndexTopK } from "@oh-my-pi/pi-natives";
+import { cosineSimilarityPairs, mmrRerankIndices, vectorIndexTopK } from "@oh-my-soup/pi-natives";
 import { jaccardSimilarity, mmrRerank } from "../src/core/mmr";
 import { buildExactVectorIndex, searchExactVectorIndex } from "../src/core/vector-index";
 import { cosineSimilarity } from "../src/core/vector-math";

@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import type { Tool as AiTool } from "@oh-my-pi/pi-ai";
-import { toolWireSchema } from "@oh-my-pi/pi-ai/utils/schema";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import type { EvalPreludeDefinition } from "@oh-my-pi/pi-coding-agent/eval/preludes";
-import type { ToolSession } from "@oh-my-pi/pi-coding-agent/tools";
-import { EvalTool, getEvalToolDescription } from "@oh-my-pi/pi-coding-agent/tools/eval";
+import type { Tool as AiTool } from "@oh-my-soup/pi-ai";
+import { toolWireSchema } from "@oh-my-soup/pi-ai/utils/schema";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import type { EvalPreludeDefinition } from "@oh-my-soup/pi-coding-agent/eval/preludes";
+import type { ToolSession } from "@oh-my-soup/pi-coding-agent/tools";
+import { EvalTool, getEvalToolDescription } from "@oh-my-soup/pi-coding-agent/tools/eval";
 
 function makeSession(opts: {
 	spawns?: string | null;

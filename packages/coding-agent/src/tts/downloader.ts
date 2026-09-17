@@ -1,6 +1,6 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { getTinyModelsCacheDir } from "@oh-my-pi/pi-utils";
+import { getTinyModelsCacheDir } from "@oh-my-soup/pi-utils";
 import { getTtsLocalModelSpec } from "./models";
 import { isTtsRuntimeCached } from "./runtime";
 import { ttsClient } from "./tts-client";

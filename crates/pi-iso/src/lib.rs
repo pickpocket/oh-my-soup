@@ -14,7 +14,7 @@
 //!
 //! Every backend also knows how to surface the changes the workload made.
 //! When `merged` is a git repository — true for every git-backed task in
-//! omp regardless of which lifecycle backend was used —
+//! oms regardless of which lifecycle backend was used —
 //! [`IsolationBackend::diff`] delegates to `git diff` so the output is
 //! byte-identical to what `git apply` consumes downstream. For non-git trees
 //! (only reachable via `Rcopy`) it walks both trees, using `(size, mtime)` as a

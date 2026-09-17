@@ -1,6 +1,6 @@
 import * as path from "node:path";
 import * as readline from "node:readline";
-import { RpcClient } from "@oh-my-pi/pi-coding-agent/modes/rpc/rpc-client";
+import { RpcClient } from "@oh-my-soup/pi-coding-agent/modes/rpc/rpc-client";
 
 /**
  * Interactive example of using coding-agent via RpcClient.

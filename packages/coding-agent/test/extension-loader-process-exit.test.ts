@@ -1,24 +1,24 @@
 /**
  * Regression test for #3680: third-party extension / hook modules that call
- * `process.exit()` at the top level must not terminate the host OMP process.
+ * `process.exit()` at the top level must not terminate the host OMS process.
  *
  * The harness intercepts the load via `withHostGuard`; this test pins that the
- * intercepted error surfaces as a per-module load failure (so OMP keeps going)
+ * intercepted error surfaces as a per-module load failure (so OMS keeps going)
  * instead of crashing the test runner.
  */
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { loadExtensions } from "@oh-my-pi/pi-coding-agent/extensibility/extensions/loader";
-import { loadHooks } from "@oh-my-pi/pi-coding-agent/extensibility/hooks/loader";
-import { ExtensionExitError, withHostGuard } from "@oh-my-pi/pi-coding-agent/extensibility/utils";
-import { TempDir } from "@oh-my-pi/pi-utils";
+import { loadExtensions } from "@oh-my-soup/pi-coding-agent/extensibility/extensions/loader";
+import { loadHooks } from "@oh-my-soup/pi-coding-agent/extensibility/hooks/loader";
+import { ExtensionExitError, withHostGuard } from "@oh-my-soup/pi-coding-agent/extensibility/utils";
+import { TempDir } from "@oh-my-soup/pi-utils";
 
 describe("extension/hook loader process.exit guard (#3680)", () => {
 	let project: TempDir | undefined;
 
 	beforeEach(() => {
-		project = TempDir.createSync("@omp-exit-guard-");
+		project = TempDir.createSync("@oms-exit-guard-");
 	});
 
 	afterEach(() => {
@@ -66,8 +66,8 @@ describe("extension/hook loader process.exit guard (#3680)", () => {
 				? 'process.kill(process.pid, "SIGINT");'
 				: 'void Promise.reject(new Error("probe fatal"));';
 		return runProbe(`
-import { postmortem } from "@oh-my-pi/pi-utils";
-import { withHostGuard } from "@oh-my-pi/pi-coding-agent/extensibility/utils";
+import { postmortem } from "@oh-my-soup/pi-utils";
+import { withHostGuard } from "@oh-my-soup/pi-coding-agent/extensibility/utils";
 
 postmortem.register("probe-cleanup", reason => {
 	process.stdout.write(\`cleanup:\${reason}\\n\`);
@@ -151,8 +151,8 @@ void withHostGuard(async () => {
 
 	it("keeps postmortem.quit behind the extension exit guard", async () => {
 		const { exitCode, stdout, stderr } = await runProbe(`
-import { postmortem } from "@oh-my-pi/pi-utils";
-import { withHostGuard } from "@oh-my-pi/pi-coding-agent/extensibility/utils";
+import { postmortem } from "@oh-my-soup/pi-utils";
+import { withHostGuard } from "@oh-my-soup/pi-coding-agent/extensibility/utils";
 
 try {
 	await withHostGuard(() => postmortem.quit(37));
@@ -200,7 +200,7 @@ try {
 		);
 		const { exitCode, stdout, stderr } = await runProbe(
 			`
-import { postmortem } from "@oh-my-pi/pi-utils";
+import { postmortem } from "@oh-my-soup/pi-utils";
 postmortem.register("probe", reason => process.stdout.write(\`cleanup:\${reason}\\n\`));
 process.reallyExit = globalThis.__ompNativeReallyExit;
 process.stdout.write("armed\\n");

@@ -14,11 +14,11 @@
  *   against `bun:sqlite`.
  *
  * Tool artifacts and image blobs are out of scope: `ArtifactManager` /
- * `BlobStore` keep writing to `~/.omp/agent/...`. Reach for object storage
+ * `BlobStore` keep writing to `~/.oms/agent/...`. Reach for object storage
  * if you need those off-host too.
  */
 
-import { createAgentSession, SessionManager, SqlSessionStorage } from "@oh-my-pi/pi-coding-agent";
+import { createAgentSession, SessionManager, SqlSessionStorage } from "@oh-my-soup/pi-coding-agent";
 import { SQL } from "bun";
 
 // Pick one — Bun.SQL auto-detects the dialect from the URL scheme.
@@ -33,7 +33,7 @@ const client = new SQL(process.env.SESSIONS_DB_URL ?? "sqlite::memory:");
 // dialect) and warms the in-memory mirror with every existing row.
 const storage = await SqlSessionStorage.create({
 	client,
-	table: "omp_session_files", // optional, this is the default
+	table: "oms_session_files", // optional, this is the default
 	// createTable: false,       // set if migrations are owned elsewhere
 });
 

@@ -17,8 +17,8 @@
  * https://docs.aws.amazon.com/bedrock/latest/userguide/model-card-qwen-qwen3-coder-next.html
  */
 import { describe, expect, test } from "bun:test";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
-import type { ModelSpec } from "@oh-my-pi/pi-catalog/types";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
+import type { ModelSpec } from "@oh-my-soup/pi-catalog/types";
 
 /** The shape upstream hands down: maxTokens equal to the context window. */
 function upstreamSpec(id: string, contextWindow: number): ModelSpec<"bedrock-converse-stream"> {

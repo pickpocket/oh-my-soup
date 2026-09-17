@@ -13,16 +13,16 @@
  *    live region with a spinner that can never resolve.
  */
 import { afterEach, beforeAll, describe, expect, it, vi } from "bun:test";
-import type { AgentMessage } from "@oh-my-pi/pi-agent-core";
-import type { AssistantMessage, ToolResultMessage } from "@oh-my-pi/pi-ai";
-import { resetSettingsForTest, Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { ToolExecutionComponent } from "@oh-my-pi/pi-tui/chat/tool-execution";
-import { TranscriptContainer } from "@oh-my-pi/pi-tui/chrome/transcript-container";
-import { EventController } from "@oh-my-pi/pi-coding-agent/modes/controllers/event-controller";
-import { initTheme } from "@oh-my-pi/pi-tui/theme";
-import { UiHelpers } from "@oh-my-pi/pi-coding-agent/modes/utils/ui-helpers";
-import type { SessionContext } from "@oh-my-pi/pi-coding-agent/session/session-context";
-import { TERMINAL } from "@oh-my-pi/pi-tui";
+import type { AgentMessage } from "@oh-my-soup/pi-agent-core";
+import type { AssistantMessage, ToolResultMessage } from "@oh-my-soup/pi-ai";
+import { resetSettingsForTest, Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { ToolExecutionComponent } from "@oh-my-soup/pi-tui/chat/tool-execution";
+import { TranscriptContainer } from "@oh-my-soup/pi-tui/chrome/transcript-container";
+import { EventController } from "@oh-my-soup/pi-coding-agent/modes/controllers/event-controller";
+import { initTheme } from "@oh-my-soup/pi-tui/theme";
+import { UiHelpers } from "@oh-my-soup/pi-coding-agent/modes/utils/ui-helpers";
+import type { SessionContext } from "@oh-my-soup/pi-coding-agent/session/session-context";
+import { TERMINAL } from "@oh-my-soup/pi-tui";
 import { createInteractiveModeContext } from "./helpers/interactive-mode-context";
 
 const usage = {

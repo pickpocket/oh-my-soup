@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { dedupeContainedContextFiles } from "@oh-my-pi/pi-coding-agent/system-prompt";
+import { dedupeContainedContextFiles } from "@oh-my-soup/pi-coding-agent/system-prompt";
 
 interface ContextFile {
 	path: string;
@@ -118,9 +118,9 @@ describe("dedupeContainedContextFiles", () => {
 	it("treats files without a depth as less authoritative than project files", () => {
 		const user = "Shared rule.\n\nUser-only rule.";
 		const project = "Shared rule.";
-		const files = [file("/project/AGENTS.md", project, 0), file("/home/user/.omp/AGENTS.md", user)];
+		const files = [file("/project/AGENTS.md", project, 0), file("/home/user/.oms/AGENTS.md", user)];
 
-		expect(paths(dedupeContainedContextFiles(files))).toEqual(["/home/user/.omp/AGENTS.md", "/project/AGENTS.md"]);
+		expect(paths(dedupeContainedContextFiles(files))).toEqual(["/home/user/.oms/AGENTS.md", "/project/AGENTS.md"]);
 	});
 
 	it("does not treat text inside a fenced code block as a contained instruction", () => {

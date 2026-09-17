@@ -6,9 +6,9 @@
  * the event loop alive until the threshold expires; the fix clears it, so the
  * process must exit promptly. The parent test measures wall-clock exit time.
  */
-import { AsyncJobManager } from "@oh-my-pi/pi-coding-agent/async";
-import type { ToolSession } from "@oh-my-pi/pi-coding-agent/tools";
-import { BashTool } from "@oh-my-pi/pi-coding-agent/tools/bash";
+import { AsyncJobManager } from "@oh-my-soup/pi-coding-agent/async";
+import type { ToolSession } from "@oh-my-soup/pi-coding-agent/tools";
+import { BashTool } from "@oh-my-soup/pi-coding-agent/tools/bash";
 
 const THRESHOLD_MS = 30_000;
 

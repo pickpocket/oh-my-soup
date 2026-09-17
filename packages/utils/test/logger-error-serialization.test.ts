@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { logger } from "@oh-my-pi/pi-utils";
+import { logger } from "@oh-my-soup/pi-utils";
 
 /**
  * Regression: Errors logged via `logger.error("msg", { err })` previously
@@ -16,20 +16,20 @@ let prevAgentDir: string | undefined;
 
 beforeAll(() => {
 	tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "pi-logger-error-"));
-	// `getLogsDir()` honors OMP_AGENT_DIR / HOME for its base; pin to our tmp.
+	// `getLogsDir()` honors OMS_AGENT_DIR / HOME for its base; pin to our tmp.
 	// Restore only this key on teardown — reassigning `process.env` wholesale
 	// would replace the live binding with a plain object, diverging it from
 	// `Bun.env` and poisoning every env-reading test that runs afterwards.
-	prevAgentDir = process.env.OMP_AGENT_DIR;
-	process.env.OMP_AGENT_DIR = tempDir;
+	prevAgentDir = process.env.OMS_AGENT_DIR;
+	process.env.OMS_AGENT_DIR = tempDir;
 	logger.setTransports({ file: tempDir, console: false });
 });
 
 afterAll(() => {
 	if (prevAgentDir === undefined) {
-		delete process.env.OMP_AGENT_DIR;
+		delete process.env.OMS_AGENT_DIR;
 	} else {
-		process.env.OMP_AGENT_DIR = prevAgentDir;
+		process.env.OMS_AGENT_DIR = prevAgentDir;
 	}
 	logger.setTransports({ file: false, console: false });
 	fs.rmSync(tempDir, { force: true, recursive: true });
@@ -42,7 +42,7 @@ afterAll(() => {
  */
 async function waitForLogEntry(targetMessage: string): Promise<Record<string, unknown>> {
 	for (let i = 0; i < 40; i++) {
-		const files = fs.readdirSync(tempDir).filter(f => f.startsWith("omp.") && f.endsWith(".log"));
+		const files = fs.readdirSync(tempDir).filter(f => f.startsWith("oms.") && f.endsWith(".log"));
 		for (const f of files) {
 			const text = fs.readFileSync(path.join(tempDir, f), "utf8");
 			for (const line of text.split("\n")) {

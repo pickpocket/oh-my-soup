@@ -1,9 +1,9 @@
 import { describe, expect, it } from "bun:test";
-import type { IrcMessage } from "@oh-my-pi/pi-tui/tools/hub";
-import { getThemeByName } from "@oh-my-pi/pi-tui/theme";
-import { type CoordinationDetails } from "@oh-my-pi/pi-tui/tools/hub";
-import { hubToolRenderer } from "@oh-my-pi/pi-tui/tools/hub";
-import { sanitizeText } from "@oh-my-pi/pi-utils";
+import type { IrcMessage } from "@oh-my-soup/pi-tui/tools/hub";
+import { getThemeByName } from "@oh-my-soup/pi-tui/theme";
+import { type CoordinationDetails } from "@oh-my-soup/pi-tui/tools/hub";
+import { hubToolRenderer } from "@oh-my-soup/pi-tui/tools/hub";
+import { sanitizeText } from "@oh-my-soup/pi-utils";
 
 async function theme() {
 	const t = await getThemeByName("dark");

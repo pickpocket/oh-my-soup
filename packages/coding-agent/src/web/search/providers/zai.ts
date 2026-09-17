@@ -4,9 +4,9 @@
  * Calls Z.AI's remote MCP server (`webSearchPrime`) and adapts results into
  * the unified SearchResponse shape used by the web search tool.
  */
-import { type ApiKey, type AuthStorage, type FetchImpl, getEnvApiKey, withAuth } from "@oh-my-pi/pi-ai";
-import { isRecord } from "@oh-my-pi/pi-utils";
-import type { SearchResponse, SearchSource } from "@oh-my-pi/pi-tui/tools/web-search";
+import { type ApiKey, type AuthStorage, type FetchImpl, getEnvApiKey, withAuth } from "@oh-my-soup/pi-ai";
+import { isRecord } from "@oh-my-soup/pi-utils";
+import type { SearchResponse, SearchSource } from "@oh-my-soup/pi-tui/tools/web-search";
 import { SearchProviderError } from "../../../web/search/types";
 import { formatQuery, parseSearchQuery, type QuerySyntax } from "../query";
 import { dateToAgeSeconds } from "../utils";
@@ -79,7 +79,7 @@ interface ZaiMcpPostResult {
 
 const ZAI_MCP_PROTOCOL_VERSION = "2025-03-26";
 const ZAI_MCP_CLIENT_INFO = {
-	name: "omp-coding-agent",
+	name: "oms-coding-agent",
 	version: "1.0.0",
 };
 
@@ -417,7 +417,7 @@ export async function searchZai(params: ZaiSearchParams): Promise<SearchResponse
 
 	const rawResult = await withAuth(keyOrResolver, key => callZaiSearch(key, params), {
 		signal: params.signal,
-		missingKeyMessage: "Z.AI credentials not found. Set ZAI_API_KEY or login with 'omp /login zai'.",
+		missingKeyMessage: "Z.AI credentials not found. Set ZAI_API_KEY or login with 'oms /login zai'.",
 	});
 	const payload = parseSearchPayload(rawResult);
 	let sources = toSources(payload.results);

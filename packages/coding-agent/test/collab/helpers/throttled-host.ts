@@ -7,9 +7,9 @@
  * the first frame past the 64 KB high-water mark and the test decides when it
  * moves again by zeroing the field.
  */
-import type { InteractiveModeContext } from "@oh-my-pi/pi-coding-agent/modes/types";
-import { unpackEnvelope } from "@oh-my-pi/pi-coding-agent/collab/protocol";
-import type { SessionEntry } from "@oh-my-pi/pi-coding-agent/session/session-entries";
+import type { InteractiveModeContext } from "@oh-my-soup/pi-coding-agent/modes/types";
+import { unpackEnvelope } from "@oh-my-soup/pi-coding-agent/collab/protocol";
+import type { SessionEntry } from "@oh-my-soup/pi-coding-agent/session/session-entries";
 import type { FakeWebSocket, InMemoryRelay } from "./in-memory-relay";
 
 export const HIGH_WATER_MARK = 64 * 1024;

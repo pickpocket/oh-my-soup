@@ -1,12 +1,12 @@
-import { type CompactionSettings, resolveThresholdTokens } from "@oh-my-pi/pi-agent-core/compaction";
-import type { Model } from "@oh-my-pi/pi-ai";
+import { type CompactionSettings, resolveThresholdTokens } from "@oh-my-soup/pi-agent-core/compaction";
+import type { Model } from "@oh-my-soup/pi-ai";
 import {
 	computeCompactionBoundaries,
 	computeContextBreakdown,
 	type CompactionBoundaries,
 	type ContextBreakdown,
 	type ContextSavingsEstimate,
-} from "@oh-my-pi/pi-tui/status-line/context-usage";
+} from "@oh-my-soup/pi-tui/status-line/context-usage";
 import type { Settings } from "../config/settings";
 import type { AgentSession } from "./agent-session";
 import { resolveSpeculationMethod } from "./compaction-methods";

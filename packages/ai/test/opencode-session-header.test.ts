@@ -1,11 +1,11 @@
 import { describe, expect, it } from "bun:test";
-import { completeSimple, stream } from "@oh-my-pi/pi-ai";
-import { buildAnthropicClientOptions } from "@oh-my-pi/pi-ai/providers/anthropic";
-import { resolveOpenAIRequestSetup } from "@oh-my-pi/pi-ai/providers/openai-shared";
-import type { Model } from "@oh-my-pi/pi-ai/types";
-import { opencodeGoUsageProvider } from "@oh-my-pi/pi-ai/usage/opencode-go";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
-import { USER_AGENT } from "@oh-my-pi/pi-utils";
+import { completeSimple, stream } from "@oh-my-soup/pi-ai";
+import { buildAnthropicClientOptions } from "@oh-my-soup/pi-ai/providers/anthropic";
+import { resolveOpenAIRequestSetup } from "@oh-my-soup/pi-ai/providers/openai-shared";
+import type { Model } from "@oh-my-soup/pi-ai/types";
+import { opencodeGoUsageProvider } from "@oh-my-soup/pi-ai/usage/opencode-go";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
+import { USER_AGENT } from "@oh-my-soup/pi-utils";
 
 const OPENCODE_SESSION_HEADER = "x-opencode-session";
 
@@ -162,7 +162,7 @@ describe("opencode and gpt session header on OpenAI transports", () => {
 		expect(setup.headers[OPENCODE_SESSION_HEADER]).toBeUndefined();
 	});
 
-	it("applies omp's common User-Agent as the global inference default", async () => {
+	it("applies oms's common User-Agent as the global inference default", async () => {
 		const userAgents: Array<string | null> = [];
 		const fetchMock = async (_input: string | URL | Request, init?: RequestInit) => {
 			userAgents.push(new Headers(init?.headers).get("User-Agent"));
@@ -337,7 +337,7 @@ describe("usage fetch carries attribution headers", () => {
 		expect(report?.provider).toBe("opencode-go");
 		expect(seen).toHaveLength(1);
 		// Background poll outside any conversation: stable install id keeps
-		// OpenCode attribution working (required from 09/06), and omp's UA
+		// OpenCode attribution working (required from 09/06), and oms's UA
 		// replaces Bun's default.
 		expect(seen[0]?.["user-agent"]).toBe(USER_AGENT);
 		expect(typeof seen[0]?.[OPENCODE_SESSION_HEADER]).toBe("string");

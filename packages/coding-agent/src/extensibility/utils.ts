@@ -1,6 +1,6 @@
 import * as path from "node:path";
-import { postmortem } from "@oh-my-pi/pi-utils";
-import { theme } from "@oh-my-pi/pi-tui/theme";
+import { postmortem } from "@oh-my-soup/pi-utils";
+import { theme } from "@oh-my-soup/pi-tui/theme";
 import { expandPath, normalizeLocalScheme } from "../tools/path-utils";
 import type { HookUIContext } from "./hooks/types";
 
@@ -58,7 +58,7 @@ export class ExtensionExitError extends Error {
 	) {
 		super(
 			`Module called ${alias}(${code === undefined ? "" : String(code)}) during guarded extension/hook loading; ` +
-				`OMP extension/hook modules must not terminate the host process.`,
+				`OMS extension/hook modules must not terminate the host process.`,
 		);
 		this.name = "ExtensionExitError";
 		this.code = code;
@@ -90,12 +90,12 @@ let hostGuardStdinWasRaw = false;
  * Run `fn` with host-owned process state fenced off from third-party module
  * evaluation, restored in `finally`. Guards the dynamic-import and
  * factory-invocation sites that load extension / hook / tool / plugin modules
- * from user directories (including Claude Code's `~/.claude/tools`, which OMP
+ * from user directories (including Claude Code's `~/.claude/tools`, which OMS
  * slurps wholesale). Two hazards are neutralized:
  *
  * - **Hard exit.** `process.exit(0)` / `process.reallyExit(0)` in a stranger's
  *   script (e.g. a CLI-shaped module with `main()` at the bottom) would kill
- *   OMP during startup with no error surface, since `try/catch` cannot
+ *   OMS during startup with no error surface, since `try/catch` cannot
  *   intercept a synchronous exit. Both are patched to throw
  *   {@link ExtensionExitError} instead.
  * - **stdin hijack.** A module that attaches a stdin consumer at evaluation

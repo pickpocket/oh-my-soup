@@ -10,7 +10,7 @@ let temporaryRoot = "";
 let repositoryRoot = "";
 
 beforeEach(async () => {
-	temporaryRoot = await fs.mkdtemp(path.join(os.tmpdir(), "omp-security-store-"));
+	temporaryRoot = await fs.mkdtemp(path.join(os.tmpdir(), "oms-security-store-"));
 	repositoryRoot = path.join(temporaryRoot, "repo");
 	await fs.mkdir(repositoryRoot);
 });

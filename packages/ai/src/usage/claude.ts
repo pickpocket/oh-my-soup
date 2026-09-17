@@ -1,6 +1,6 @@
 import { scheduler } from "node:timers/promises";
-import { classifyModel } from "@oh-my-pi/pi-catalog/compat/taxonomy";
-import { toNumber } from "@oh-my-pi/pi-catalog/utils";
+import { classifyModel } from "@oh-my-soup/pi-catalog/compat/taxonomy";
+import { toNumber } from "@oh-my-soup/pi-catalog/utils";
 import * as AIError from "../error";
 import { claudeCodeVersion } from "../providers/claude-code-fingerprint";
 import {
@@ -172,7 +172,7 @@ function getApiLimitDisplayName(scope: unknown): string | undefined {
  * binding limit active (an account pinned at a 100% Fable cap reports its 77%
  * shared weekly row as `is_active: false`), so it signals severity ranking,
  * not bucket existence. Filtering on it hid real utilization — a scoped row
- * at 5% with a live reset rendered as `not reported` in `omp usage`.
+ * at 5% with a live reset rendered as `not reported` in `oms usage`.
  */
 function parseApiLimitEntries(raw: unknown): ParsedApiLimitEntry[] {
 	if (!Array.isArray(raw)) return [];

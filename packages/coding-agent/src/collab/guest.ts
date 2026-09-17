@@ -16,15 +16,15 @@
  * transcript behavior are native by construction.
  */
 import * as path from "node:path";
-import type { ThinkingLevel } from "@oh-my-pi/pi-agent-core";
-import type { ImageContent } from "@oh-my-pi/pi-ai";
-import { getConfigRootDir, logger } from "@oh-my-pi/pi-utils";
-import type { AgentHubRemote, AgentHubRemoteTranscript } from "@oh-my-pi/pi-tui/overlays/agent-hub";
+import type { ThinkingLevel } from "@oh-my-soup/pi-agent-core";
+import type { ImageContent } from "@oh-my-soup/pi-ai";
+import { getConfigRootDir, logger } from "@oh-my-soup/pi-utils";
+import type { AgentHubRemote, AgentHubRemoteTranscript } from "@oh-my-soup/pi-tui/overlays/agent-hub";
 import type { InteractiveModeContext } from "../modes/types";
 import { AgentRegistry } from "../registry/agent-registry";
 import type { AgentSessionEvent } from "../session/agent-session";
 import type { SessionEntry } from "../session/session-entries";
-import { shouldDisableReasoning, toReasoningEffort } from "@oh-my-pi/pi-tui/thinking";
+import { shouldDisableReasoning, toReasoningEffort } from "@oh-my-soup/pi-tui/thinking";
 import { emitSubagentFrame } from "../utils/event-bus";
 import { setSessionTerminalTitle } from "../utils/title-generator";
 import { importRoomKey } from "./crypto";

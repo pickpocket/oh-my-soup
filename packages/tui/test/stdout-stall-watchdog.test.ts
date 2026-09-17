@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { StdoutStallWatchdog } from "@oh-my-pi/pi-tui/terminal";
+import { StdoutStallWatchdog } from "@oh-my-soup/pi-tui/terminal";
 
 // The TUI must bound a never-draining stdout consumer (#6854) without killing a
 // single large-but-draining frame — a `--resume` transcript repaint of many

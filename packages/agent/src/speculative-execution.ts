@@ -1,5 +1,5 @@
 import * as path from "node:path";
-import { type AssistantMessage, validateToolArguments } from "@oh-my-pi/pi-ai";
+import { type AssistantMessage, validateToolArguments } from "@oh-my-soup/pi-ai";
 import type {
 	AgentContext,
 	AgentLoopConfig,

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import { IncomingDoc, IncomingJsonError } from "@oh-my-pi/pi-utils/incoming-json";
-import { parseJsonWithRepair } from "@oh-my-pi/pi-utils/json-parse";
+import { IncomingDoc, IncomingJsonError } from "@oh-my-soup/pi-utils/incoming-json";
+import { parseJsonWithRepair } from "@oh-my-soup/pi-utils/json-parse";
 
 /** Whether `promise` is still unsettled after the microtask queue and one macrotask drain. */
 async function pending(promise: Promise<unknown>): Promise<boolean> {

@@ -14,7 +14,7 @@
  *   captured response body for the strict-tools fallback and the responses
  *   chain-state detectors, which regex over `error.message`.
  */
-import { fetchWithRetry, readSseJsonOrText, type SseEventObserver } from "@oh-my-pi/pi-utils";
+import { fetchWithRetry, readSseJsonOrText, type SseEventObserver } from "@oh-my-soup/pi-utils";
 import * as AIError from "../error";
 import { OpenAIHttpError } from "../error";
 

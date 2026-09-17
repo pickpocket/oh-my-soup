@@ -1,11 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { stripVTControlCharacters } from "node:util";
-import type { AsyncJobType } from "@oh-my-pi/pi-coding-agent/async";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { StatusLineComponent } from "@oh-my-pi/pi-tui/status-line";
-import { statusLineHost } from "@oh-my-pi/pi-coding-agent/modes/status-line-host";
-import { initTheme, theme } from "@oh-my-pi/pi-tui/theme";
-import type { AsyncJobSnapshotItem } from "@oh-my-pi/pi-coding-agent/session/agent-session";
+import type { AsyncJobType } from "@oh-my-soup/pi-coding-agent/async";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { StatusLineComponent } from "@oh-my-soup/pi-tui/status-line";
+import { statusLineHost } from "@oh-my-soup/pi-coding-agent/modes/status-line-host";
+import { initTheme, theme } from "@oh-my-soup/pi-tui/theme";
+import type { AsyncJobSnapshotItem } from "@oh-my-soup/pi-coding-agent/session/agent-session";
 import { beginSettingsTest, restoreSettingsTestState, type SettingsTestState } from "./helpers/settings-test-state";
 import { StatusLineTestComponents } from "./helpers/status-line";
 

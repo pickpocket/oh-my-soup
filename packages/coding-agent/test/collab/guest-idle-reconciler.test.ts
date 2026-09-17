@@ -18,10 +18,10 @@ import {
 	type GuestSnapshotActivityReconcilerCtx,
 	reconcileGuestIdleHostState,
 	reconcileGuestSnapshotHostState,
-} from "@oh-my-pi/pi-coding-agent/collab/guest";
-import { resetSettingsForTest, Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { StatusLineComponent } from "@oh-my-pi/pi-tui/status-line";
-import { statusLineHost } from "@oh-my-pi/pi-coding-agent/modes/status-line-host";
+} from "@oh-my-soup/pi-coding-agent/collab/guest";
+import { resetSettingsForTest, Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { StatusLineComponent } from "@oh-my-soup/pi-tui/status-line";
+import { statusLineHost } from "@oh-my-soup/pi-coding-agent/modes/status-line-host";
 import { StatusLineTestComponents } from "../helpers/status-line";
 
 const statusLines = new StatusLineTestComponents();

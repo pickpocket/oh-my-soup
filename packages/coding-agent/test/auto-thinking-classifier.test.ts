@@ -1,11 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "bun:test";
-import { ThinkingLevel } from "@oh-my-pi/pi-agent-core";
-import * as ai from "@oh-my-pi/pi-ai";
-import { Effort, type Model } from "@oh-my-pi/pi-ai";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
-import { getBundledModel } from "@oh-my-pi/pi-catalog/models";
-import { classifyDifficulty } from "@oh-my-pi/pi-coding-agent/auto-thinking/classifier";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
+import { ThinkingLevel } from "@oh-my-soup/pi-agent-core";
+import * as ai from "@oh-my-soup/pi-ai";
+import { Effort, type Model } from "@oh-my-soup/pi-ai";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
+import { getBundledModel } from "@oh-my-soup/pi-catalog/models";
+import { classifyDifficulty } from "@oh-my-soup/pi-coding-agent/auto-thinking/classifier";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
 import {
 	AUTO_THINKING,
 	clampAutoThinkingEffort,
@@ -15,9 +15,9 @@ import {
 	parseThinkingLevel,
 	resolveProvisionalAutoLevel,
 	resolveTaskEffortLevel,
-} from "@oh-my-pi/pi-tui/thinking";
-import type { TinyMemoryLocalModelKey } from "@oh-my-pi/pi-coding-agent/tiny/models";
-import { tinyModelClient } from "@oh-my-pi/pi-coding-agent/tiny/title-client";
+} from "@oh-my-soup/pi-tui/thinking";
+import type { TinyMemoryLocalModelKey } from "@oh-my-soup/pi-coding-agent/tiny/models";
+import { tinyModelClient } from "@oh-my-soup/pi-coding-agent/tiny/title-client";
 import { asGlobalFetch } from "./helpers/fetch-mock";
 
 describe("auto thinking classifier helpers", () => {

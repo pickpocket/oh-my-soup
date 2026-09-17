@@ -1,6 +1,6 @@
 # macOS signing & notarization
 
-The compiled macOS `omp` binaries shipped on GitHub Releases can be signed with a
+The compiled macOS `oms` binaries shipped on GitHub Releases can be signed with a
 **Developer ID Application** certificate and **notarized** by Apple. This makes
 them Gatekeeper-acceptable and is the prerequisite for an official Homebrew
 submission (see [#776](https://github.com/can1357/oh-my-pi/issues/776)).
@@ -33,7 +33,7 @@ The binary is a Bun single-file executable, so the hardened runtime needs:
 | -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `com.apple.security.cs.allow-jit`                        | JavaScriptCore JITs at runtime.                                                                                                                                                                                                                                                                                               |
 | `com.apple.security.cs.allow-unsigned-executable-memory` | JSC executable memory pages.                                                                                                                                                                                                                                                                                                  |
-| `com.apple.security.cs.disable-library-validation`       | omp extracts its native addon (`pi_natives.<triple>.node`) and other optional dylibs to a runtime cache and `dlopen()`s them. They do not share the main binary's Team ID, so without this the hardened runtime aborts with _"mapping process and mapped file have different Team IDs"_ — breaking effectively every command. |
+| `com.apple.security.cs.disable-library-validation`       | oms extracts its native addon (`pi_natives.<triple>.node`) and other optional dylibs to a runtime cache and `dlopen()`s them. They do not share the main binary's Team ID, so without this the hardened runtime aborts with _"mapping process and mapped file have different Team IDs"_ — breaking effectively every command. |
 
 Without `disable-library-validation`, a signed+notarized binary signs and
 notarizes fine but **fails at first real use**. `scripts/ci-macos-sign.sh` runs
@@ -78,7 +78,7 @@ signing to engage.
 
 ### Producing the credential files
 
-Drop these into a working directory (default `~/omp-signing`):
+Drop these into a working directory (default `~/oms-signing`):
 
 | File                 | How                                                                                                                                                                                                                                     |
 | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -99,9 +99,9 @@ your password, sanity-checks the `.p8`) and pipes each value to `gh secret set`
 over stdin — no secret is ever printed to the terminal, argv, or shell history:
 
 ```sh
-scripts/ci-macos-upload-secrets.sh ~/omp-signing --dry-run   # validate first
-scripts/ci-macos-upload-secrets.sh ~/omp-signing             # upload all five
-gh secret list --repo can1357/oh-my-pi                       # confirm
+scripts/ci-macos-upload-secrets.sh ~/oms-signing --dry-run   # validate first
+scripts/ci-macos-upload-secrets.sh ~/oms-signing             # upload all five
+gh secret list --repo pickpocket/oh-my-soup                       # confirm
 ```
 
 Re-run it whenever the certificate is renewed.
@@ -125,5 +125,5 @@ exporting the five env vars and running:
 RELEASE_TARGETS=darwin-arm64 bun run ci:release:build-binaries
 APPLE_CERTIFICATE_P12=… APPLE_CERTIFICATE_PASSWORD=… \
 APPLE_API_KEY_ID=… APPLE_API_ISSUER_ID=… APPLE_API_KEY=… \
-  bash scripts/ci-macos-sign.sh packages/coding-agent/binaries/omp-darwin-arm64
+  bash scripts/ci-macos-sign.sh packages/coding-agent/binaries/oms-darwin-arm64
 ```

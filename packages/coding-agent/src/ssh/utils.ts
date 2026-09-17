@@ -39,7 +39,7 @@ export function quotePosixPath(value: string): string {
  * OpenSSH passes our snippets to `<login-shell> -c`, so a remote whose
  * login shell is fish/csh/tcsh (or cmd/powershell on Windows compat)
  * can't parse `if [ … ]; then …`. Wrapping forces parsing under the
- * shell OMP actually verified can run the snippet.
+ * shell OMS actually verified can run the snippet.
  *
  * `-c` (not `-lc`): the transfer snippets only call absolute POSIX
  * builtins (`head`/`cat`/`mv`/`test`/`ls`/`mkdir`/`rm`/`dirname`) and

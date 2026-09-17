@@ -1,4 +1,4 @@
-import { SEARCH_PROVIDER_OPTIONS, type SearchProviderId } from "@oh-my-pi/pi-tui/tools/web-search";
+import { SEARCH_PROVIDER_OPTIONS, type SearchProviderId } from "@oh-my-soup/pi-tui/tools/web-search";
 
 /** Default hard timeout for each web-search provider transport. */
 export const DEFAULT_WEB_SEARCH_TIMEOUT_SECONDS = 60;

@@ -21,7 +21,7 @@ let binDir: string;
 let originalPath: string | undefined;
 
 beforeAll(async () => {
-	binDir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-ssh-timeout-"));
+	binDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-ssh-timeout-"));
 	// Fake `ssh` that traps SIGTERM and sleeps far past any test bound.
 	// Simulates a wedged control-master / unreachable host.
 	const fake = path.join(binDir, "ssh");

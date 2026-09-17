@@ -2,24 +2,24 @@ import { describe, expect, test } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
-import { sendsImageInputOnWire } from "@oh-my-pi/pi-ai/providers/vision-guard";
-import { resolveModelPolicy } from "@oh-my-pi/pi-catalog/compat/resolve";
-import { Effort } from "@oh-my-pi/pi-catalog/effort";
-import { readModelCache, writeModelCache } from "@oh-my-pi/pi-catalog/model-cache";
-import { resolveProviderModels } from "@oh-my-pi/pi-catalog/model-manager";
-import { getSupportedEfforts } from "@oh-my-pi/pi-catalog/model-thinking";
-import { getBundledModels } from "@oh-my-pi/pi-catalog/models";
-import { PROVIDER_DESCRIPTORS } from "@oh-my-pi/pi-catalog/provider-models/descriptors";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
+import { sendsImageInputOnWire } from "@oh-my-soup/pi-ai/providers/vision-guard";
+import { resolveModelPolicy } from "@oh-my-soup/pi-catalog/compat/resolve";
+import { Effort } from "@oh-my-soup/pi-catalog/effort";
+import { readModelCache, writeModelCache } from "@oh-my-soup/pi-catalog/model-cache";
+import { resolveProviderModels } from "@oh-my-soup/pi-catalog/model-manager";
+import { getSupportedEfforts } from "@oh-my-soup/pi-catalog/model-thinking";
+import { getBundledModels } from "@oh-my-soup/pi-catalog/models";
+import { PROVIDER_DESCRIPTORS } from "@oh-my-soup/pi-catalog/provider-models/descriptors";
 import {
 	fetchWellKnownModels,
 	MODELS_DEV_PROVIDER_DESCRIPTORS,
 	modelsDevCatalogFallback,
 	opencodeGoModelManagerOptions,
 	opencodeZenModelManagerOptions,
-} from "@oh-my-pi/pi-catalog/provider-models/openai-compat";
-import type { ModelSpec } from "@oh-my-pi/pi-catalog/types";
-import { USER_AGENT, type FetchImpl } from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-catalog/provider-models/openai-compat";
+import type { ModelSpec } from "@oh-my-soup/pi-catalog/types";
+import { USER_AGENT, type FetchImpl } from "@oh-my-soup/pi-utils";
 import { mergePreviousSnapshotModels } from "../scripts/generate-models";
 
 const LIVE_FREE_MODEL_IDS = [
@@ -718,7 +718,7 @@ describe("OpenCode provider discovery", () => {
 
 	test("sends attribution headers on live gateway discovery", async () => {
 		// The gateway requires x-opencode-session from 09/06 and uses it for
-		// optimization; without omp's UA the request arrives as "Bun fetch".
+		// optimization; without oms's UA the request arrives as "Bun fetch".
 		for (const makeOptions of [opencodeGoModelManagerOptions, opencodeZenModelManagerOptions]) {
 			const seen: Array<Record<string, string>> = [];
 			const options = makeOptions({

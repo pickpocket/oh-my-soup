@@ -1,6 +1,6 @@
-# Build context for the pi-root `Dockerfile` (oh-my-pi/pi:dev). Shadows
-# .dockerignore for this file only. Robomp uses Dockerfile.robomp +
-# Dockerfile.robomp.dockerignore alongside.
+# Build context for the pi-root `Dockerfile` (oh-my-soup/pi:dev). Shadows
+# .dockerignore for this file only. Roboms uses Dockerfile.roboms +
+# Dockerfile.roboms.dockerignore alongside.
 
 # Heavy build outputs — must never reach the build context. Patterns are
 # depth-agnostic (`**/`) to match .gitignore semantics: dockerignore anchors
@@ -24,7 +24,7 @@ packages/snapcompact/research/results/
 .wt/
 .opencode/
 .pi_config/
-.omp/plugins/
+.oms/plugins/
 
 # VCS, editors, IDEs — irrelevant to the build, churn on every IDE keystroke.
 .git/
@@ -63,11 +63,11 @@ packages/natives/native/.build/
 # (Also drops the ~760 MB of dev addons a working checkout accumulates.)
 **/*.node
 packages/ai/test/.temp-images/
-python/omp-rpc/src/omp_rpc.egg-info/
-python/robomp/data/
-python/robomp/.cache/
-python/robomp/src/robomp/static/
-python/robomp/web/dist/
+python/oms-rpc/src/oms_rpc.egg-info/
+python/roboms/data/
+python/roboms/.cache/
+python/roboms/src/roboms/static/
+python/roboms/web/dist/
 
 # Scratch files the repo creates ad-hoc.
 syntax.jsonl
@@ -79,5 +79,5 @@ pi-*.html
 **/.venv/
 
 # Secrets. Should never be in the image regardless. Depth-agnostic: a bare
-# `.env` misses `python/robomp/.env`, which `COPY . /pi/` would bake in.
+# `.env` misses `python/roboms/.env`, which `COPY . /pi/` would bake in.
 **/.env

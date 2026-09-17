@@ -4,9 +4,9 @@
 // contract matches anthropic / openai-responses / google: await the hook,
 // and use its non-undefined return as the request body.
 import { describe, expect, it } from "bun:test";
-import { streamOpenAICompletions } from "@oh-my-pi/pi-ai/providers/openai-completions";
-import type { Context, FetchImpl, Model } from "@oh-my-pi/pi-ai/types";
-import { getBundledModel } from "@oh-my-pi/pi-catalog/models";
+import { streamOpenAICompletions } from "@oh-my-soup/pi-ai/providers/openai-completions";
+import type { Context, FetchImpl, Model } from "@oh-my-soup/pi-ai/types";
+import { getBundledModel } from "@oh-my-soup/pi-catalog/models";
 
 const completionsModel = {
 	...(getBundledModel("openai", "gpt-4o-mini") as Model<"openai-completions">),

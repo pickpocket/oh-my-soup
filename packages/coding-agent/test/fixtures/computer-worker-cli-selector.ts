@@ -1,6 +1,6 @@
 const worker = new Worker(new URL("../../src/cli.ts", import.meta.url).href, {
 	type: "module",
-	argv: ["__omp_worker_computer"],
+	argv: ["__oms_worker_computer"],
 });
 const response = Promise.withResolvers<unknown>();
 worker.addEventListener("message", event => {

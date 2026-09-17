@@ -3,11 +3,11 @@
 // backend (Kokoro-82M via kokoro-js on the shared ONNX worker) is layered on behind
 // the `providers.tts` switch.
 
-import { type } from "@oh-my-pi/omptype";
-import type { AgentToolResult } from "@oh-my-pi/pi-agent-core";
-import { type ApiKey, type FetchImpl, withAuth } from "@oh-my-pi/pi-ai";
-import { ProviderHttpError } from "@oh-my-pi/pi-ai/error";
-import { prompt, USER_AGENT } from "@oh-my-pi/pi-utils";
+import { type } from "@oh-my-soup/omstype";
+import type { AgentToolResult } from "@oh-my-soup/pi-agent-core";
+import { type ApiKey, type FetchImpl, withAuth } from "@oh-my-soup/pi-ai";
+import { ProviderHttpError } from "@oh-my-soup/pi-ai/error";
+import { prompt, USER_AGENT } from "@oh-my-soup/pi-utils";
 import { settings } from "../config/settings";
 import type { CustomTool, CustomToolContext } from "../extensibility/custom-tools/types";
 import { resolveXAIHttpCredentials } from "../lib/xai-http";

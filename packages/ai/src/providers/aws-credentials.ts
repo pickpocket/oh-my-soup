@@ -18,7 +18,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { $env, isEnoent, logger } from "@oh-my-pi/pi-utils";
+import { $env, isEnoent, logger } from "@oh-my-soup/pi-utils";
 import * as AIError from "../error";
 import type { FetchImpl } from "../types";
 import { raceWithSignal } from "../utils/abort";
@@ -369,7 +369,7 @@ async function stsAssumeRole(
 		Action: "AssumeRole",
 		Version: "2011-06-15",
 		RoleArn: roleArn,
-		RoleSessionName: opts.sessionName || `omp-${process.pid}`,
+		RoleSessionName: opts.sessionName || `oms-${process.pid}`,
 	});
 	if (opts.durationSeconds) body.set("DurationSeconds", opts.durationSeconds);
 	if (opts.externalId) body.set("ExternalId", opts.externalId);
@@ -778,7 +778,7 @@ async function assumeRoleWithWebIdentity(
 		Action: "AssumeRoleWithWebIdentity",
 		Version: "2011-06-15",
 		RoleArn: params.roleArn,
-		RoleSessionName: params.sessionName || `omp-${process.pid}`,
+		RoleSessionName: params.sessionName || `oms-${process.pid}`,
 		WebIdentityToken: token,
 	});
 	const response = await fetchImpl(stsEndpoint(region), {

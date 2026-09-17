@@ -1,21 +1,21 @@
 import { describe, expect, test } from "bun:test";
-import type { Api, Context, Model } from "@oh-my-pi/pi-ai";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
+import type { Api, Context, Model } from "@oh-my-soup/pi-ai";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
 import {
 	hashProviderFileContent,
 	ProviderFileCache,
 	type ProviderFileClient,
 	type ProviderFileHandle,
-} from "@oh-my-pi/pi-coding-agent/blob-broker/provider-file-types";
+} from "@oh-my-soup/pi-coding-agent/blob-broker/provider-file-types";
 import {
 	type ProviderFileClientFactory,
 	ProviderFileManager,
-} from "@oh-my-pi/pi-coding-agent/blob-broker/provider-files";
-import { createAnthropicFileClient } from "@oh-my-pi/pi-coding-agent/blob-broker/provider-files-anthropic";
-import { createGeminiProviderFileClient } from "@oh-my-pi/pi-coding-agent/blob-broker/provider-files-gemini";
-import { createOpenAIFileClient } from "@oh-my-pi/pi-coding-agent/blob-broker/provider-files-openai";
-import type { FetchImpl } from "@oh-my-pi/pi-coding-agent/blob-broker/uploader-runtime";
-import { TempDir } from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-coding-agent/blob-broker/provider-files";
+import { createAnthropicFileClient } from "@oh-my-soup/pi-coding-agent/blob-broker/provider-files-anthropic";
+import { createGeminiProviderFileClient } from "@oh-my-soup/pi-coding-agent/blob-broker/provider-files-gemini";
+import { createOpenAIFileClient } from "@oh-my-soup/pi-coding-agent/blob-broker/provider-files-openai";
+import type { FetchImpl } from "@oh-my-soup/pi-coding-agent/blob-broker/uploader-runtime";
+import { TempDir } from "@oh-my-soup/pi-utils";
 
 interface RecordedRequest {
 	readonly url: string;
@@ -304,7 +304,7 @@ describe("provider-native file clients", () => {
 
 describe("ProviderFileCache", () => {
 	test("persists sanitized handles by account and drops only the account whose handle expires", async () => {
-		using tempDir = TempDir.createSync("@omp-provider-file-cache-");
+		using tempDir = TempDir.createSync("@oms-provider-file-cache-");
 		const indexPath = tempDir.join("provider-files.json");
 		const bytes = new Uint8Array([1, 3, 3, 7]);
 		const contentHash = hashProviderFileContent(bytes);
@@ -393,7 +393,7 @@ describe("ProviderFileManager", () => {
 	}
 
 	test("deduplicates concurrent uploads, decorates every image-bearing input transiently, and reuses the cache", async () => {
-		using tempDir = TempDir.createSync("@omp-provider-file-manager-");
+		using tempDir = TempDir.createSync("@oms-provider-file-manager-");
 		const cache = new ProviderFileCache(tempDir.join("provider-files.json"), { saveDebounceMs: 60_000 });
 		const started = deferred<void>();
 		const release = deferred<void>();
@@ -493,7 +493,7 @@ describe("ProviderFileManager", () => {
 	});
 
 	test("replaces a mismatched reference, leaves unsupported models inline, and invalidates rejected handles", async () => {
-		using tempDir = TempDir.createSync("@omp-provider-file-manager-invalidation-");
+		using tempDir = TempDir.createSync("@oms-provider-file-manager-invalidation-");
 		const cache = new ProviderFileCache(tempDir.join("provider-files.json"), { saveDebounceMs: 60_000 });
 		let uploadCount = 0;
 		const deleted: string[] = [];

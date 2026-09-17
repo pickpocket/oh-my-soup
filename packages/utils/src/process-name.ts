@@ -1,10 +1,10 @@
 /**
- * Set the OS-visible process name (`/proc/self/comm`) so `omp` shows up as
- * `omp` — not `bun` — in `ps`, `pgrep`, `killall`, `top`, `htop`, and systemd.
+ * Set the OS-visible process name (`/proc/self/comm`) so `oms` shows up as
+ * `oms` — not `bun` — in `ps`, `pgrep`, `killall`, `top`, `htop`, and systemd.
  *
  * Bun's `process.title` setter only stores the value on the JS side; unlike
  * Node/libuv it never calls `prctl(PR_SET_NAME)`, so the kernel's `comm` stays
- * `bun` and process-name-based tooling can't target omp (and `pkill bun` becomes
+ * `bun` and process-name-based tooling can't target oms (and `pkill bun` becomes
  * a footgun that kills every Bun process on the machine). We keep the
  * `process.title` assignment (correct getter, future-proof if Bun ever fixes the
  * setter) and additionally drive `prctl` via `bun:ffi` on Linux, mirroring the

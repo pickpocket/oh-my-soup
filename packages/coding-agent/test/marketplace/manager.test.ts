@@ -3,18 +3,18 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 
-import { listOmpExtensionRoots } from "@oh-my-pi/pi-coding-agent/discovery/omp-extension-roots";
-import { getEnabledPlugins } from "@oh-my-pi/pi-coding-agent/extensibility/plugins/loader";
-import { PluginManager } from "@oh-my-pi/pi-coding-agent/extensibility/plugins/manager";
+import { listOmsExtensionRoots } from "@oh-my-soup/pi-coding-agent/discovery/oms-extension-roots";
+import { getEnabledPlugins } from "@oh-my-soup/pi-coding-agent/extensibility/plugins/loader";
+import { PluginManager } from "@oh-my-soup/pi-coding-agent/extensibility/plugins/manager";
 import {
 	getCachedPluginPath,
 	MarketplaceManager,
 	readInstalledPluginsRegistry,
 	readMarketplacesRegistry,
 	writeMarketplacesRegistry,
-} from "@oh-my-pi/pi-coding-agent/extensibility/plugins/marketplace";
-import * as piUtils from "@oh-my-pi/pi-utils";
-import { removeSyncWithRetries } from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-coding-agent/extensibility/plugins/marketplace";
+import * as piUtils from "@oh-my-soup/pi-utils";
+import { removeSyncWithRetries } from "@oh-my-soup/pi-utils";
 
 // Minimal marketplace fixture, built once into a temp dir (see beforeAll). It carries only
 // what these tests assert — one plugin entry plus a plugin.json for the version-fallback path —
@@ -22,7 +22,7 @@ import { removeSyncWithRetries } from "@oh-my-pi/pi-utils";
 let FIXTURE_DIR: string;
 
 function buildMinimalFixture(): string {
-	const root = fs.mkdtempSync(path.join(os.tmpdir(), "omp-mgr-fixture-"));
+	const root = fs.mkdtempSync(path.join(os.tmpdir(), "oms-mgr-fixture-"));
 	const pluginDir = path.join(root, "plugins", "hello-plugin");
 	fs.mkdirSync(path.join(pluginDir, ".claude-plugin"), { recursive: true });
 	fs.mkdirSync(path.join(root, ".claude-plugin"), { recursive: true });
@@ -53,7 +53,7 @@ function buildMinimalFixture(): string {
 		JSON.stringify({
 			name: "hello-plugin",
 			version: "1.0.0",
-			omp: { extensions: ["./extensions"] },
+			oms: { extensions: ["./extensions"] },
 		}),
 	);
 	fs.writeFileSync(path.join(pluginDir, "extensions", "index.ts"), "export default {};\n");
@@ -90,12 +90,12 @@ interface TestContext {
 }
 
 function createTestContext(): TestContext {
-	const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "omp-mgr-test-"));
+	const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "oms-mgr-test-"));
 
 	const dirs = {
 		mktRegistry: path.join(tmpDir, "marketplaces.json"),
 		instRegistry: path.join(tmpDir, "installed_plugins.json"),
-		// Distinct runtime root from user scope, mirroring production (~/.omp/plugins vs <project>/.omp/plugins).
+		// Distinct runtime root from user scope, mirroring production (~/.oms/plugins vs <project>/.oms/plugins).
 		projectInstRegistry: path.join(tmpDir, "project", "installed_plugins.json"),
 		mktCache: path.join(tmpDir, "cache", "marketplaces"),
 		plugCache: path.join(tmpDir, "cache", "plugins"),
@@ -122,7 +122,7 @@ function mockPluginManagerPaths(root: string) {
 		spyOn(piUtils, "getPluginsDir").mockReturnValue(root),
 		spyOn(piUtils, "getPluginsNodeModules").mockReturnValue(path.join(root, "node_modules")),
 		spyOn(piUtils, "getPluginsPackageJson").mockReturnValue(path.join(root, "package.json")),
-		spyOn(piUtils, "getPluginsLockfile").mockReturnValue(path.join(root, "omp-plugins.lock.json")),
+		spyOn(piUtils, "getPluginsLockfile").mockReturnValue(path.join(root, "oms-plugins.lock.json")),
 		spyOn(piUtils, "getProjectPluginOverridesPath").mockReturnValue(path.join(root, "plugin-overrides.json")),
 	];
 }
@@ -226,7 +226,7 @@ describe("MarketplaceManager", () => {
 
 		try {
 			const added = await ctx.manager.addMarketplace(FIXTURE_DIR);
-			const catalogPath = "~/.omp/plugins/cache/marketplaces/test-marketplace/marketplace.json";
+			const catalogPath = "~/.oms/plugins/cache/marketplaces/test-marketplace/marketplace.json";
 			const registry = await readMarketplacesRegistry(registryPath);
 			await writeMarketplacesRegistry(registryPath, {
 				...registry,
@@ -277,7 +277,7 @@ describe("MarketplaceManager", () => {
 		const linkPath = path.join(ctx.tmpDir, "node_modules", "hello-plugin");
 		expect(fs.realpathSync(linkPath)).toBe(fs.realpathSync(instEntry.installPath));
 
-		const runtimeConfig = await Bun.file(path.join(ctx.tmpDir, "omp-plugins.lock.json")).json();
+		const runtimeConfig = await Bun.file(path.join(ctx.tmpDir, "oms-plugins.lock.json")).json();
 		expect(runtimeConfig.plugins["hello-plugin"]).toEqual({
 			version: "1.0.0",
 			enabledFeatures: null,
@@ -325,7 +325,7 @@ describe("MarketplaceManager", () => {
 		expect(fs.realpathSync(path.join(ctx.tmpDir, "node_modules", "Manifest-Name"))).toBe(
 			fs.realpathSync(manifest.installPath),
 		);
-		const runtimeConfig = await Bun.file(path.join(ctx.tmpDir, "omp-plugins.lock.json")).json();
+		const runtimeConfig = await Bun.file(path.join(ctx.tmpDir, "oms-plugins.lock.json")).json();
 		expect(Object.keys(runtimeConfig.plugins).sort()).toEqual(["Manifest-Name", "No-Manifest"]);
 		const installed = await ctx.manager.listInstalledPlugins();
 		expect(installed.map(plugin => plugin.id).sort()).toEqual([
@@ -357,7 +357,7 @@ describe("MarketplaceManager", () => {
 			'Runtime package name "foo" conflicts with installed plugin "Foo@upper-market"',
 		);
 		expect(fs.realpathSync(linkPath)).toBe(installedRealpath);
-		const runtimeConfig = await Bun.file(path.join(ctx.tmpDir, "omp-plugins.lock.json")).json();
+		const runtimeConfig = await Bun.file(path.join(ctx.tmpDir, "oms-plugins.lock.json")).json();
 		expect(Object.keys(runtimeConfig.plugins)).toEqual(["Foo"]);
 		expect((await ctx.manager.listInstalledPlugins()).map(plugin => plugin.id)).toEqual(["Foo@upper-market"]);
 		expect(fs.existsSync(path.join(ctx.tmpDir, "cache", "plugins", "lower-market___foo___1.0.0"))).toBe(false);
@@ -423,7 +423,7 @@ describe("MarketplaceManager", () => {
 			"first-plugin@first-market",
 			"second-plugin@second-market",
 		]);
-		const runtimeConfig = await Bun.file(path.join(ctx.tmpDir, "omp-plugins.lock.json")).json();
+		const runtimeConfig = await Bun.file(path.join(ctx.tmpDir, "oms-plugins.lock.json")).json();
 		expect(Object.keys(runtimeConfig.plugins).sort()).toEqual(["original-runtime", "taken-runtime"]);
 	});
 
@@ -437,7 +437,7 @@ describe("MarketplaceManager", () => {
 		fs.mkdirSync(path.dirname(linkedLink), { recursive: true });
 		fs.symlinkSync(linkedPackage, linkedLink, "dir");
 		fs.writeFileSync(
-			path.join(ctx.tmpDir, "omp-plugins.lock.json"),
+			path.join(ctx.tmpDir, "oms-plugins.lock.json"),
 			JSON.stringify({ plugins: { foo: { version: "1.2.3", enabledFeatures: null, enabled: true } }, settings: {} }),
 		);
 
@@ -471,7 +471,7 @@ describe("MarketplaceManager", () => {
 		expect(hasExactEntry(path.join(ctx.tmpDir, "node_modules"), "widget")).toBe(true);
 		// The stale mixed-case link and lockfile key are removed, not left stranded.
 		expect(hasExactEntry(path.join(ctx.tmpDir, "node_modules"), "Widget")).toBe(false);
-		const runtimeConfig = await Bun.file(path.join(ctx.tmpDir, "omp-plugins.lock.json")).json();
+		const runtimeConfig = await Bun.file(path.join(ctx.tmpDir, "oms-plugins.lock.json")).json();
 		expect(Object.keys(runtimeConfig.plugins)).toEqual(["widget"]);
 		expect((await ctx.manager.listInstalledPlugins()).map(plugin => plugin.id)).toEqual(["widget@rename-market"]);
 	});
@@ -495,7 +495,7 @@ describe("MarketplaceManager", () => {
 		fs.mkdirSync(path.dirname(linkedLink), { recursive: true });
 		fs.symlinkSync(linkedPackage, linkedLink, "dir");
 		fs.writeFileSync(
-			path.join(projectRoot, "omp-plugins.lock.json"),
+			path.join(projectRoot, "oms-plugins.lock.json"),
 			JSON.stringify({
 				plugins: { shared: { version: "9.9.9", enabledFeatures: null, enabled: true } },
 				settings: {},
@@ -535,9 +535,9 @@ describe("MarketplaceManager", () => {
 		expect(hasExactEntry(path.join(ctx.tmpDir, "node_modules"), "Gadget")).toBe(false);
 		expect(hasExactEntry(path.join(projectRoot, "node_modules"), "gadget")).toBe(true);
 		expect(hasExactEntry(path.join(projectRoot, "node_modules"), "Gadget")).toBe(false);
-		const userConfig = await Bun.file(path.join(ctx.tmpDir, "omp-plugins.lock.json")).json();
+		const userConfig = await Bun.file(path.join(ctx.tmpDir, "oms-plugins.lock.json")).json();
 		expect(Object.keys(userConfig.plugins)).toEqual(["gadget"]);
-		const projectConfig = await Bun.file(path.join(projectRoot, "omp-plugins.lock.json")).json();
+		const projectConfig = await Bun.file(path.join(projectRoot, "oms-plugins.lock.json")).json();
 		expect(Object.keys(projectConfig.plugins)).toEqual(["gadget"]);
 	});
 
@@ -585,7 +585,7 @@ describe("MarketplaceManager", () => {
 		await ctx.manager.installPlugin("widget", "cfg-market");
 
 		// The user has selected features, disabled the plugin, and set settings under the current key.
-		const lockPath = path.join(ctx.tmpDir, "omp-plugins.lock.json");
+		const lockPath = path.join(ctx.tmpDir, "oms-plugins.lock.json");
 		const lock = await Bun.file(lockPath).json();
 		lock.plugins.Widget.enabledFeatures = ["alpha"];
 		lock.plugins.Widget.enabled = false;
@@ -636,11 +636,11 @@ describe("MarketplaceManager", () => {
 	});
 
 	it("installPlugin exposes marketplace package to the runtime loader", async () => {
-		const tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), "omp-mgr-home-"));
+		const tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), "oms-mgr-home-"));
 		try {
-			const pluginsDir = path.join(tmpHome, ".omp", "plugins");
+			const pluginsDir = path.join(tmpHome, ".oms", "plugins");
 			const manager = new MarketplaceManager({
-				marketplacesRegistryPath: path.join(tmpHome, ".omp", "marketplaces.json"),
+				marketplacesRegistryPath: path.join(tmpHome, ".oms", "marketplaces.json"),
 				installedRegistryPath: path.join(pluginsDir, "installed_plugins.json"),
 				marketplacesCacheDir: path.join(pluginsDir, "cache", "marketplaces"),
 				pluginsCacheDir: path.join(pluginsDir, "cache", "plugins"),
@@ -709,7 +709,7 @@ describe("MarketplaceManager", () => {
 			`${JSON.stringify({
 				name: "hello-plugin",
 				version: "9.9.9",
-				omp: { tools: "tools" },
+				oms: { tools: "tools" },
 			})}\n`,
 		);
 		fs.mkdirSync(path.join(localPlugin, "tools"), { recursive: true });
@@ -734,12 +734,12 @@ describe("MarketplaceManager", () => {
 		}
 	});
 
-	it("installPlugin keeps marketplace packages out of OMP extension roots", async () => {
-		const tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), "omp-mgr-home-"));
+	it("installPlugin keeps marketplace packages out of OMS extension roots", async () => {
+		const tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), "oms-mgr-home-"));
 		try {
-			const pluginsDir = path.join(tmpHome, ".omp", "plugins");
+			const pluginsDir = path.join(tmpHome, ".oms", "plugins");
 			const manager = new MarketplaceManager({
-				marketplacesRegistryPath: path.join(tmpHome, ".omp", "marketplaces.json"),
+				marketplacesRegistryPath: path.join(tmpHome, ".oms", "marketplaces.json"),
 				installedRegistryPath: path.join(pluginsDir, "installed_plugins.json"),
 				marketplacesCacheDir: path.join(pluginsDir, "cache", "marketplaces"),
 				pluginsCacheDir: path.join(pluginsDir, "cache", "plugins"),
@@ -748,7 +748,7 @@ describe("MarketplaceManager", () => {
 			await manager.addMarketplace(FIXTURE_DIR);
 			await manager.installPlugin("hello-plugin", "test-marketplace");
 
-			const roots = await listOmpExtensionRoots({ cwd: tmpHome, home: tmpHome, repoRoot: null });
+			const roots = await listOmsExtensionRoots({ cwd: tmpHome, home: tmpHome, repoRoot: null });
 			expect(roots.map(root => root.name)).toEqual([]);
 		} finally {
 			fs.rmSync(tmpHome, { recursive: true, force: true });
@@ -756,14 +756,14 @@ describe("MarketplaceManager", () => {
 	});
 
 	it("installPlugin with scope:project exposes the marketplace package to the runtime loader", async () => {
-		const tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), "omp-mgr-home-"));
-		const projectAnchor = fs.mkdtempSync(path.join(os.tmpdir(), "omp-mgr-project-"));
+		const tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), "oms-mgr-home-"));
+		const projectAnchor = fs.mkdtempSync(path.join(os.tmpdir(), "oms-mgr-project-"));
 		try {
-			const userPluginsDir = path.join(tmpHome, ".omp", "plugins");
-			const projectPluginsDir = path.join(projectAnchor, ".omp", "plugins");
+			const userPluginsDir = path.join(tmpHome, ".oms", "plugins");
+			const projectPluginsDir = path.join(projectAnchor, ".oms", "plugins");
 			fs.mkdirSync(projectPluginsDir, { recursive: true });
 			const manager = new MarketplaceManager({
-				marketplacesRegistryPath: path.join(tmpHome, ".omp", "marketplaces.json"),
+				marketplacesRegistryPath: path.join(tmpHome, ".oms", "marketplaces.json"),
 				installedRegistryPath: path.join(userPluginsDir, "installed_plugins.json"),
 				projectInstalledRegistryPath: path.join(projectPluginsDir, "installed_plugins.json"),
 				marketplacesCacheDir: path.join(userPluginsDir, "cache", "marketplaces"),
@@ -783,7 +783,7 @@ describe("MarketplaceManager", () => {
 			expect(fs.realpathSync(projectLink)).toBe(
 				fs.realpathSync(path.join(userPluginsDir, "cache", "plugins", "test-marketplace___hello-plugin___1.0.0")),
 			);
-			const projectLock = await Bun.file(path.join(projectPluginsDir, "omp-plugins.lock.json")).json();
+			const projectLock = await Bun.file(path.join(projectPluginsDir, "oms-plugins.lock.json")).json();
 			expect(projectLock.plugins["hello-plugin"]).toEqual({
 				version: "1.0.0",
 				enabledFeatures: null,
@@ -792,7 +792,7 @@ describe("MarketplaceManager", () => {
 
 			// User-scope tree stays untouched.
 			expect(fs.existsSync(path.join(userPluginsDir, "node_modules", "hello-plugin"))).toBe(false);
-			expect(fs.existsSync(path.join(userPluginsDir, "omp-plugins.lock.json"))).toBe(false);
+			expect(fs.existsSync(path.join(userPluginsDir, "oms-plugins.lock.json"))).toBe(false);
 		} finally {
 			fs.rmSync(tmpHome, { recursive: true, force: true });
 			fs.rmSync(projectAnchor, { recursive: true, force: true });
@@ -1004,7 +1004,7 @@ describe("MarketplaceManager", () => {
 		expect(second.installPath).toBe(first.installPath);
 		expect(fs.existsSync(second.installPath)).toBe(true);
 
-		const runtimeConfig = await Bun.file(path.join(ctx.tmpDir, "omp-plugins.lock.json")).json();
+		const runtimeConfig = await Bun.file(path.join(ctx.tmpDir, "oms-plugins.lock.json")).json();
 		expect(runtimeConfig.plugins["hello-plugin"].enabled).toBe(false);
 
 		const installed = await ctx.manager.listInstalledPlugins();
@@ -1035,7 +1035,7 @@ describe("MarketplaceManager", () => {
 		expect(fs.existsSync(instEntry.installPath)).toBe(false);
 		expect(fs.existsSync(path.join(ctx.tmpDir, "node_modules", "hello-plugin"))).toBe(false);
 
-		const runtimeConfig = await Bun.file(path.join(ctx.tmpDir, "omp-plugins.lock.json")).json();
+		const runtimeConfig = await Bun.file(path.join(ctx.tmpDir, "oms-plugins.lock.json")).json();
 		expect(runtimeConfig.plugins["hello-plugin"]).toBeUndefined();
 
 		const installed = await ctx.manager.listInstalledPlugins();
@@ -1060,12 +1060,12 @@ describe("MarketplaceManager", () => {
 
 		const installed = await ctx.manager.listInstalledPlugins();
 		expect(installed[0].entries[0].enabled).toBe(false);
-		let runtimeConfig = await Bun.file(path.join(ctx.tmpDir, "omp-plugins.lock.json")).json();
+		let runtimeConfig = await Bun.file(path.join(ctx.tmpDir, "oms-plugins.lock.json")).json();
 		expect(runtimeConfig.plugins["hello-plugin"].enabled).toBe(false);
 
 		await ctx.manager.setPluginEnabled("hello-plugin@test-marketplace", true);
 		const updated = await ctx.manager.listInstalledPlugins();
-		runtimeConfig = await Bun.file(path.join(ctx.tmpDir, "omp-plugins.lock.json")).json();
+		runtimeConfig = await Bun.file(path.join(ctx.tmpDir, "oms-plugins.lock.json")).json();
 		expect(runtimeConfig.plugins["hello-plugin"].enabled).toBe(true);
 		expect(updated[0].entries[0].enabled).toBe(true);
 	});
@@ -1098,7 +1098,7 @@ describe("MarketplaceManager", () => {
 	// ── Scope feature ────────────────────────────────────────────────────────
 
 	it("installPlugin scope:project when no projectInstalledRegistryPath → throws", async () => {
-		const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "omp-mgr-noproj-"));
+		const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "oms-mgr-noproj-"));
 		try {
 			const noProjectManager = new MarketplaceManager({
 				marketplacesRegistryPath: path.join(tmp, "marketplaces.json"),

@@ -1,4 +1,4 @@
-import type { TextContent } from "@oh-my-pi/pi-ai";
+import type { TextContent } from "@oh-my-soup/pi-ai";
 import { Container } from "../tui";
 import { Markdown } from "../components/markdown";
 import { Text } from "../components/text";

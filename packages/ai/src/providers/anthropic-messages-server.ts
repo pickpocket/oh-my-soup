@@ -1,6 +1,6 @@
-import { type } from "@oh-my-pi/omptype";
-import { Effort } from "@oh-my-pi/pi-catalog/effort";
-import { logger } from "@oh-my-pi/pi-utils";
+import { type } from "@oh-my-soup/omstype";
+import { Effort } from "@oh-my-soup/pi-catalog/effort";
+import { logger } from "@oh-my-soup/pi-utils";
 import { captureRequestHeaders, resolvePromptCacheKey } from "../auth-gateway/http";
 import * as AIError from "../error";
 import type {
@@ -34,8 +34,8 @@ import { isAnthropicServerToolHistoryBlock, THINKING_BINDING_CONTROLS_BETA } fro
 
 /**
  * Anthropic Messages API (https://docs.anthropic.com/en/api/messages) ↔ pi-ai
- * gateway translation. Inbound: foreign HTTP body → omp Context. Outbound:
- * omp AssistantMessage[Stream] → Anthropic-shaped JSON / SSE.
+ * gateway translation. Inbound: foreign HTTP body → oms Context. Outbound:
+ * oms AssistantMessage[Stream] → Anthropic-shaped JSON / SSE.
  */
 
 import type { AuthGatewayStreamControl, AuthGatewayParsedRequest as ParsedRequest } from "../auth-gateway/types";
@@ -225,7 +225,7 @@ function walkAssistantContent(
 					// verbatim, so retain each opaque block instead of flattening it.
 					out.push({ type: "anthropicServerTool", block: { ...block } });
 				} else {
-					// Other server tools use distinct result block types that omp
+					// Other server tools use distinct result block types that oms
 					// cannot yet replay atomically. Flatten both sides rather than
 					// persisting a lone server_tool_use without its matching result.
 					const unknown = block as { type: string };

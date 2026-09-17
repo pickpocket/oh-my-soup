@@ -21,7 +21,7 @@ describe("native addon embedding", () => {
 					outputPath,
 					version: "18.1.1",
 				}),
-			).rejects.toThrow("does not contain the @oh-my-pi/pi-natives@18.1.1 version sentinel `__piNativesV18_1_1`");
+			).rejects.toThrow("does not contain the @oh-my-soup/pi-natives@18.1.1 version sentinel `__piNativesV18_1_1`");
 			expect(await Bun.file(outputPath).exists()).toBe(false);
 			expect(await Bun.file(path.join(nativeDir, "embedded-addons.win32-arm64.tar.gz")).exists()).toBe(false);
 		} finally {

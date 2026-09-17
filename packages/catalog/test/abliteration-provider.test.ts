@@ -1,12 +1,12 @@
 import { describe, expect, test, vi } from "bun:test";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
-import { Effort } from "@oh-my-pi/pi-catalog/effort";
-import { clampThinkingLevelForModel } from "@oh-my-pi/pi-catalog/model-thinking";
-import { getBundledModels } from "@oh-my-pi/pi-catalog/models";
-import { seedModels } from "@oh-my-pi/pi-catalog/compat/providers";
-import { DEFAULT_MODEL_PER_PROVIDER, PROVIDER_DESCRIPTORS } from "@oh-my-pi/pi-catalog/provider-models/descriptors";
-import { abliterationModelManagerOptions } from "@oh-my-pi/pi-catalog/provider-models/openai-compat";
-import type { FetchImpl, Model } from "@oh-my-pi/pi-catalog/types";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
+import { Effort } from "@oh-my-soup/pi-catalog/effort";
+import { clampThinkingLevelForModel } from "@oh-my-soup/pi-catalog/model-thinking";
+import { getBundledModels } from "@oh-my-soup/pi-catalog/models";
+import { seedModels } from "@oh-my-soup/pi-catalog/compat/providers";
+import { DEFAULT_MODEL_PER_PROVIDER, PROVIDER_DESCRIPTORS } from "@oh-my-soup/pi-catalog/provider-models/descriptors";
+import { abliterationModelManagerOptions } from "@oh-my-soup/pi-catalog/provider-models/openai-compat";
+import type { FetchImpl, Model } from "@oh-my-soup/pi-catalog/types";
 
 function seed(id: string): Model<"openai-responses"> {
 	const spec = seedModels<"openai-responses">("abliteration").find(model => model.id === id);

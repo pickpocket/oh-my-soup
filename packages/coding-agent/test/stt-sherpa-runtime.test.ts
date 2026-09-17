@@ -2,8 +2,8 @@ import { afterEach, describe, expect, it } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { loadSourceSherpaRuntime } from "@oh-my-pi/pi-coding-agent/stt/sherpa-runtime";
-import { removeWithRetries } from "@oh-my-pi/pi-utils";
+import { loadSourceSherpaRuntime } from "@oh-my-soup/pi-coding-agent/stt/sherpa-runtime";
+import { removeWithRetries } from "@oh-my-soup/pi-utils";
 
 const PLATFORM_PACKAGE = `sherpa-onnx-${os.platform() === "win32" ? "win" : os.platform()}-${os.arch()}`;
 
@@ -21,7 +21,7 @@ describe("sherpa source runtime resolution", () => {
 	});
 
 	it("loads the wrapper colocated with a workspace-hoisted platform addon", async () => {
-		tmp = await fs.mkdtemp(path.join(os.tmpdir(), "omp-sherpa-source-"));
+		tmp = await fs.mkdtemp(path.join(os.tmpdir(), "oms-sherpa-source-"));
 		const rootNodeModules = path.join(tmp, "node_modules");
 		const packageNodeModules = path.join(tmp, "packages", "coding-agent", "node_modules");
 		await writePackage(
@@ -43,7 +43,7 @@ describe("sherpa source runtime resolution", () => {
 	});
 
 	it("prefers the nearest wrapper when its nested platform addon is loadable", async () => {
-		tmp = await fs.mkdtemp(path.join(os.tmpdir(), "omp-sherpa-source-"));
+		tmp = await fs.mkdtemp(path.join(os.tmpdir(), "oms-sherpa-source-"));
 		const rootNodeModules = path.join(tmp, "node_modules");
 		const packageNodeModules = path.join(tmp, "packages", "coding-agent", "node_modules");
 		await writePackage(

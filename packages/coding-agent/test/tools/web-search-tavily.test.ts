@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
-import type { AuthStorage } from "@oh-my-pi/pi-ai";
-import { searchTavily } from "@oh-my-pi/pi-coding-agent/web/search/providers/tavily";
-import type { SearchProviderError } from "@oh-my-pi/pi-coding-agent/web/search/types";
+import type { AuthStorage } from "@oh-my-soup/pi-ai";
+import { searchTavily } from "@oh-my-soup/pi-coding-agent/web/search/providers/tavily";
+import type { SearchProviderError } from "@oh-my-soup/pi-coding-agent/web/search/types";
 
 describe("Tavily web search provider", () => {
 	beforeEach(() => {
@@ -130,7 +130,7 @@ describe("Tavily web search provider", () => {
 		};
 
 		const response = await searchTavily({
-			...makeParams("Oh My Pi omp latest release notes advisor"),
+			...makeParams("Oh My Soup oms latest release notes advisor"),
 			numSearchResults: 5,
 			recency: "month",
 			fetch: fetchMock,
@@ -138,12 +138,12 @@ describe("Tavily web search provider", () => {
 
 		expect(requestBodies).toHaveLength(2);
 		expect(requestBodies[0]).toMatchObject({
-			query: "Oh My Pi omp latest release notes advisor",
+			query: "Oh My Soup oms latest release notes advisor",
 			max_results: 5,
 			time_range: "month",
 		});
 		expect(requestBodies[1]).toMatchObject({
-			query: "Oh My Pi omp latest release notes advisor",
+			query: "Oh My Soup oms latest release notes advisor",
 			max_results: 5,
 		});
 		expect(requestBodies[1]).not.toHaveProperty("time_range");

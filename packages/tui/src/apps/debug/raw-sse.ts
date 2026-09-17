@@ -2,7 +2,7 @@ import type { Component } from "../../tui";
 import { matchesKey } from "../../keys";
 import { routeSgrMouseInput, type SgrMouseEvent } from "../../mouse";
 import { replaceTabs, truncateToWidth } from "../../utils";
-import { sanitizeText } from "@oh-my-pi/pi-utils";
+import { sanitizeText } from "@oh-my-soup/pi-utils";
 import { theme } from "../../theme/theme";
 import { DebugViewerFrame } from "./viewer-frame";
 import {
@@ -210,7 +210,7 @@ export class RawSseViewerComponent implements Component {
 			lines.push(
 				theme.fg(
 					"warning",
-					`: omp-debug-dropped records=${snapshot.droppedRecords} chars=${snapshot.droppedChars}`,
+					`: oms-debug-dropped records=${snapshot.droppedRecords} chars=${snapshot.droppedChars}`,
 				),
 			);
 			lines.push("");
@@ -221,7 +221,7 @@ export class RawSseViewerComponent implements Component {
 				lines.push(sanitizeFrameLine(line, innerWidth));
 			}
 			if (record.kind === "event" && record.truncated) {
-				lines.push(theme.fg("warning", `: omp-debug-event-truncated originalChars=${record.originalChars}`));
+				lines.push(theme.fg("warning", `: oms-debug-event-truncated originalChars=${record.originalChars}`));
 			}
 			lines.push("");
 		}

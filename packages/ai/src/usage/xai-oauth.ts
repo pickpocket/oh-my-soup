@@ -9,7 +9,7 @@
  * product and must never be sent here.
  */
 
-import { toNumber } from "@oh-my-pi/pi-catalog/utils";
+import { toNumber } from "@oh-my-soup/pi-catalog/utils";
 import {
 	buildXAICliBillingUrl,
 	extractXAIAccessTokenSubject,

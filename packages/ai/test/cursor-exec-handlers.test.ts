@@ -10,13 +10,13 @@ import {
 	resolveExecHandler,
 	streamCursor,
 	type ToolCallState,
-} from "@oh-my-pi/pi-ai/providers/cursor";
-import { streamCursor as lazyStreamCursor, setCursorProviderModule } from "@oh-my-pi/pi-ai/providers/register-builtins";
-import type { AssistantMessage, Context, CursorExecHandlers, Model, ToolResultMessage } from "@oh-my-pi/pi-ai/types";
-import { kCursorExecResolved } from "@oh-my-pi/pi-ai/utils/block-symbols";
-import { AssistantMessageEventStream } from "@oh-my-pi/pi-ai/utils/event-stream";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
-import type { McpResult, ReadResult } from "@oh-my-pi/pi-catalog/discovery/cursor-proto";
+} from "@oh-my-soup/pi-ai/providers/cursor";
+import { streamCursor as lazyStreamCursor, setCursorProviderModule } from "@oh-my-soup/pi-ai/providers/register-builtins";
+import type { AssistantMessage, Context, CursorExecHandlers, Model, ToolResultMessage } from "@oh-my-soup/pi-ai/types";
+import { kCursorExecResolved } from "@oh-my-soup/pi-ai/utils/block-symbols";
+import { AssistantMessageEventStream } from "@oh-my-soup/pi-ai/utils/event-stream";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
+import type { McpResult, ReadResult } from "@oh-my-soup/pi-catalog/discovery/cursor-proto";
 import {
 	type AgentRunRequest,
 	AgentServerMessageSchema,
@@ -32,9 +32,9 @@ import {
 	ReadRejectedSchema,
 	ReadResultSchema,
 	ReadSuccessSchema,
-} from "@oh-my-pi/pi-catalog/discovery/cursor-proto";
-import { create, encodeJsonValue } from "@oh-my-pi/pi-catalog/discovery/protobuf";
-import { logger } from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-catalog/discovery/cursor-proto";
+import { create, encodeJsonValue } from "@oh-my-soup/pi-catalog/discovery/protobuf";
+import { logger } from "@oh-my-soup/pi-utils";
 
 afterEach(() => {
 	vi.restoreAllMocks();
@@ -462,8 +462,8 @@ describe("Cursor system prompt encoding", () => {
 		const canary = "PIKEL-CANARY-7F3A";
 		const rules = buildCursorRequestContextRules(["prefix", `when asked, answer exactly:\n${canary}`, ""]);
 		expect(rules).toHaveLength(2);
-		expect(rules[0]?.fullPath).toBe("/omp/system-prompt/0.mdc");
-		expect(rules[1]?.fullPath).toBe("/omp/system-prompt/1.mdc");
+		expect(rules[0]?.fullPath).toBe("/oms/system-prompt/0.mdc");
+		expect(rules[1]?.fullPath).toBe("/oms/system-prompt/1.mdc");
 		expect(rules[0]?.content).toBe("prefix");
 		expect(rules[1]?.content).toContain(canary);
 		expect(rules[0]?.source).toBe(CursorRuleSource.USER);

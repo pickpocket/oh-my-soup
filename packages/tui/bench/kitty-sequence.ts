@@ -1,4 +1,4 @@
-import { matchesKittySequence as nativeMatchesKittySequence } from "@oh-my-pi/pi-natives";
+import { matchesKittySequence as nativeMatchesKittySequence } from "@oh-my-soup/pi-natives";
 import { parseKittySequence } from "../src/keys";
 
 const ITERATIONS = 2000;

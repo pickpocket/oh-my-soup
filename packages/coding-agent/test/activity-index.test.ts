@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { TempDir } from "@oh-my-pi/pi-utils";
+import { TempDir } from "@oh-my-soup/pi-utils";
 import { AgentActivityIndex, activityRowsFromProgress } from "../src/activity";
 
 function messageEntry(id: string, timestamp: number, message: Record<string, unknown>): string {

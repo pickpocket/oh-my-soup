@@ -643,7 +643,7 @@ impl SessionCore {
 		let selector = self.selector.clone();
 		let caps = Arc::clone(&self.capabilities);
 		let join = thread::Builder::new()
-			.name("omp-desktop-session".into())
+			.name("oms-desktop-session".into())
 			.spawn(move || {
 				let mut worker = Worker::new(selector, caps);
 				while let Ok(request) = rx.recv() {

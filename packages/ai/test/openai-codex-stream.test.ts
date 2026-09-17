@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import { scheduler } from "node:timers/promises";
-import { completeSimple, streamSimple } from "@oh-my-pi/pi-ai";
-import * as AIError from "@oh-my-pi/pi-ai/error";
+import { completeSimple, streamSimple } from "@oh-my-soup/pi-ai";
+import * as AIError from "@oh-my-soup/pi-ai/error";
 import {
 	buildTransformedCodexRequestBody,
 	createOpenAICodexCompatibilityMetadata,
@@ -11,7 +11,7 @@ import {
 	prewarmOpenAICodexResponses,
 	resetOpenAICodexHistoryAfterCompaction,
 	streamOpenAICodexResponses,
-} from "@oh-my-pi/pi-ai/providers/openai-codex-responses";
+} from "@oh-my-soup/pi-ai/providers/openai-codex-responses";
 import type {
 	CodexCompactionRequestContext,
 	Context,
@@ -19,11 +19,11 @@ import type {
 	Model,
 	ModelSpec,
 	ProviderSessionState,
-} from "@oh-my-pi/pi-ai/types";
-import { __resetProxyCache } from "@oh-my-pi/pi-ai/utils/proxy";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
-import { Effort } from "@oh-my-pi/pi-catalog/effort";
-import * as piUtils from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-ai/types";
+import { __resetProxyCache } from "@oh-my-soup/pi-ai/utils/proxy";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
+import { Effort } from "@oh-my-soup/pi-catalog/effort";
+import * as piUtils from "@oh-my-soup/pi-utils";
 import { withEnv } from "./helpers";
 
 const { getAgentDir, setAgentDir, TempDir } = piUtils;
@@ -409,7 +409,7 @@ describe("openai-codex streaming", () => {
 		expect(requestHeaders?.get("Authorization")).toBe("Bearer opaque-proxy-key");
 		expect(requestHeaders?.has("chatgpt-account-id")).toBe(false);
 		expect(requestHeaders?.get("OpenAI-Beta")).toBe("responses=experimental");
-		expect(requestHeaders?.get("originator")).toBe("omp");
+		expect(requestHeaders?.get("originator")).toBe("oms");
 		// An opaque proxy key is not a JWT, so no residency claim to declare.
 		expect(requestHeaders?.has("x-openai-internal-codex-residency")).toBe(false);
 	});
@@ -531,7 +531,7 @@ describe("openai-codex streaming", () => {
 		expect(capturedHeaders?.authorization).toBe("Bearer opaque-proxy-key");
 		expect(capturedHeaders?.["chatgpt-account-id"]).toBeUndefined();
 		expect(capturedHeaders?.["openai-beta"]).toBe("responses_websockets=2026-02-06");
-		expect(capturedHeaders?.originator).toBe("omp");
+		expect(capturedHeaders?.originator).toBe("oms");
 		expect(capturedHeaders?.["x-openai-internal-codex-residency"]).toBeUndefined();
 	});
 
@@ -1836,7 +1836,7 @@ describe("openai-codex streaming", () => {
 		expect(metadata.parent_turn_id).toBe("turn_parent-1");
 		expect(turnMetadata.parent_turn_id).toBe("turn_parent-1");
 		// `code_mode_tool_names` is likewise reserved (codex-rs
-		// CODE_MODE_TOOL_NAMES_KEY, #35271): OMP never emits it, and caller extras
+		// CODE_MODE_TOOL_NAMES_KEY, #35271): OMS never emits it, and caller extras
 		// cannot smuggle it into either projection.
 		expect(metadata.code_mode_tool_names).toBeUndefined();
 		expect(turnMetadata.code_mode_tool_names).toBeUndefined();
@@ -1918,7 +1918,7 @@ describe("openai-codex streaming", () => {
 				expect(headers?.get("Authorization")).toBe(`Bearer ${token}`);
 				expect(headers?.get("chatgpt-account-id")).toBe("acc_test");
 				expect(headers?.get("OpenAI-Beta")).toBe("responses=experimental");
-				expect(headers?.get("originator")).toBe("omp");
+				expect(headers?.get("originator")).toBe("oms");
 				expect(headers?.get("accept")).toBe("text/event-stream");
 				expect(headers?.has("x-api-key")).toBe(false);
 				return new Response(stream, {

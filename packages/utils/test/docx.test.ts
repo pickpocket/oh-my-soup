@@ -3,7 +3,7 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import * as zlib from "node:zlib";
-import { convertToHtml, type DocxResult, images } from "@oh-my-pi/pi-utils/docx";
+import { convertToHtml, type DocxResult, images } from "@oh-my-soup/pi-utils/docx";
 
 const WML = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
 const OFFICE_RELATIONSHIPS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";

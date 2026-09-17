@@ -5,8 +5,8 @@
  * model-browser pick) persisting to the per-agent settings records.
  */
 import { beforeAll, describe, expect, test } from "bun:test";
-import { Effort } from "@oh-my-pi/pi-ai";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
+import { Effort } from "@oh-my-soup/pi-ai";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
 import { AgentsHubComponent, type HubAgent } from "../src/overlays/agents-hub";
 import { initTheme } from "../src/theme";
 import type { TUI } from "../src/index";

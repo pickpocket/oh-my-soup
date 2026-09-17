@@ -12,8 +12,8 @@ import {
 	getProfileRootDir,
 	getSecretPlaceholderKeyPath,
 	setAgentDir,
-} from "@oh-my-pi/pi-utils/dirs";
-import { Snowflake } from "@oh-my-pi/pi-utils/snowflake";
+} from "@oh-my-soup/pi-utils/dirs";
+import { Snowflake } from "@oh-my-soup/pi-utils/snowflake";
 
 function restoreEnv(key: string, value: string | undefined): void {
 	if (value === undefined) {
@@ -26,13 +26,13 @@ function restoreEnv(key: string, value: string | undefined): void {
 describe("document conversion cache directory", () => {
 	let tempRoot = "";
 	let originalPiCodingAgentDir: string | undefined;
-	let originalOmpProfile: string | undefined;
+	let originalOmsProfile: string | undefined;
 	let originalPiProfile: string | undefined;
 	let originalXdgCacheHome: string | undefined;
 
 	beforeEach(async () => {
 		originalPiCodingAgentDir = process.env.PI_CODING_AGENT_DIR;
-		originalOmpProfile = process.env.OMP_PROFILE;
+		originalOmsProfile = process.env.OMS_PROFILE;
 		originalPiProfile = process.env.PI_PROFILE;
 		originalXdgCacheHome = process.env.XDG_CACHE_HOME;
 		tempRoot = path.join(os.tmpdir(), "pi-utils-document-cache", Snowflake.next());
@@ -41,37 +41,37 @@ describe("document conversion cache directory", () => {
 
 	afterEach(async () => {
 		restoreEnv("PI_CODING_AGENT_DIR", originalPiCodingAgentDir);
-		restoreEnv("OMP_PROFILE", originalOmpProfile);
+		restoreEnv("OMS_PROFILE", originalOmsProfile);
 		restoreEnv("PI_PROFILE", originalPiProfile);
 		restoreEnv("XDG_CACHE_HOME", originalXdgCacheHome);
 		__resetDirsFromEnvForTests();
 		await fs.rm(tempRoot, { recursive: true, force: true });
 	});
 
-	it("uses XDG_CACHE_HOME for the default agent dir when $XDG_CACHE_HOME/omp exists", async () => {
+	it("uses XDG_CACHE_HOME for the default agent dir when $XDG_CACHE_HOME/oms exists", async () => {
 		if (process.platform === "win32") return;
 
 		process.env.XDG_CACHE_HOME = path.join(tempRoot, "cache");
-		await fs.mkdir(path.join(process.env.XDG_CACHE_HOME, "omp"), { recursive: true });
+		await fs.mkdir(path.join(process.env.XDG_CACHE_HOME, "oms"), { recursive: true });
 
 		const defaultAgentDir = path.join(os.homedir(), getConfigDirName(), "agent");
 		setAgentDir(defaultAgentDir);
 
 		expect(getDocumentConversionCacheDir()).toBe(
-			path.join(process.env.XDG_CACHE_HOME, "omp", "cache", "document-conversions"),
+			path.join(process.env.XDG_CACHE_HOME, "oms", "cache", "document-conversions"),
 		);
 	});
 
-	it("routes getComposerCacheDir to $XDG_CACHE_HOME/omp/cache/composer", async () => {
+	it("routes getComposerCacheDir to $XDG_CACHE_HOME/oms/cache/composer", async () => {
 		if (process.platform === "win32") return;
 
 		process.env.XDG_CACHE_HOME = path.join(tempRoot, "cache");
-		await fs.mkdir(path.join(process.env.XDG_CACHE_HOME, "omp"), { recursive: true });
+		await fs.mkdir(path.join(process.env.XDG_CACHE_HOME, "oms"), { recursive: true });
 
 		const defaultAgentDir = path.join(os.homedir(), getConfigDirName(), "agent");
 		setAgentDir(defaultAgentDir);
 
-		expect(getComposerCacheDir()).toBe(path.join(process.env.XDG_CACHE_HOME, "omp", "cache", "composer"));
+		expect(getComposerCacheDir()).toBe(path.join(process.env.XDG_CACHE_HOME, "oms", "cache", "composer"));
 	});
 
 	it("stays under a custom PI_CODING_AGENT_DIR", () => {
@@ -86,11 +86,11 @@ describe("document conversion cache directory", () => {
 describe("test directory state cleanup", () => {
 	it("restores the active profile from the current env after setAgentDir mutations", () => {
 		const originalPiCodingAgentDir = process.env.PI_CODING_AGENT_DIR;
-		const originalOmpProfile = process.env.OMP_PROFILE;
+		const originalOmsProfile = process.env.OMS_PROFILE;
 		const originalPiProfile = process.env.PI_PROFILE;
 		const originalXdgCacheHome = process.env.XDG_CACHE_HOME;
 		try {
-			process.env.OMP_PROFILE = "cache-profile";
+			process.env.OMS_PROFILE = "cache-profile";
 			delete process.env.PI_PROFILE;
 			delete process.env.PI_CODING_AGENT_DIR;
 			delete process.env.XDG_CACHE_HOME;
@@ -99,7 +99,7 @@ describe("test directory state cleanup", () => {
 			setAgentDir(path.join(os.tmpdir(), "pi-utils-document-cache", Snowflake.next(), "agent"));
 			expect(getActiveProfile()).toBeUndefined();
 
-			process.env.OMP_PROFILE = "cache-profile";
+			process.env.OMS_PROFILE = "cache-profile";
 			delete process.env.PI_PROFILE;
 			delete process.env.PI_CODING_AGENT_DIR;
 			__resetDirsFromEnvForTests();
@@ -110,7 +110,7 @@ describe("test directory state cleanup", () => {
 			);
 		} finally {
 			restoreEnv("PI_CODING_AGENT_DIR", originalPiCodingAgentDir);
-			restoreEnv("OMP_PROFILE", originalOmpProfile);
+			restoreEnv("OMS_PROFILE", originalOmsProfile);
 			restoreEnv("PI_PROFILE", originalPiProfile);
 			restoreEnv("XDG_CACHE_HOME", originalXdgCacheHome);
 			__resetDirsFromEnvForTests();
@@ -121,7 +121,7 @@ describe("test directory state cleanup", () => {
 describe("legacy file adoption on XDG paths", () => {
 	let tempRoot = "";
 	let originalPiCodingAgentDir: string | undefined;
-	let originalOmpProfile: string | undefined;
+	let originalOmsProfile: string | undefined;
 	let originalPiProfile: string | undefined;
 	let originalXdgStateHome: string | undefined;
 	let originalXdgDataHome: string | undefined;
@@ -129,7 +129,7 @@ describe("legacy file adoption on XDG paths", () => {
 
 	beforeEach(async () => {
 		originalPiCodingAgentDir = process.env.PI_CODING_AGENT_DIR;
-		originalOmpProfile = process.env.OMP_PROFILE;
+		originalOmsProfile = process.env.OMS_PROFILE;
 		originalPiProfile = process.env.PI_PROFILE;
 		originalXdgStateHome = process.env.XDG_STATE_HOME;
 		originalXdgDataHome = process.env.XDG_DATA_HOME;
@@ -141,7 +141,7 @@ describe("legacy file adoption on XDG paths", () => {
 		homedirSpy?.mockRestore();
 		homedirSpy = undefined;
 		restoreEnv("PI_CODING_AGENT_DIR", originalPiCodingAgentDir);
-		restoreEnv("OMP_PROFILE", originalOmpProfile);
+		restoreEnv("OMS_PROFILE", originalOmsProfile);
 		restoreEnv("PI_PROFILE", originalPiProfile);
 		restoreEnv("XDG_STATE_HOME", originalXdgStateHome);
 		restoreEnv("XDG_DATA_HOME", originalXdgDataHome);
@@ -153,7 +153,7 @@ describe("legacy file adoption on XDG paths", () => {
 	function activateTempHome(xdgEnv: Record<string, string>): void {
 		homedirSpy = spyOn(os, "homedir").mockReturnValue(tempRoot);
 		delete process.env.PI_CODING_AGENT_DIR;
-		delete process.env.OMP_PROFILE;
+		delete process.env.OMS_PROFILE;
 		delete process.env.PI_PROFILE;
 		delete process.env.XDG_STATE_HOME;
 		delete process.env.XDG_DATA_HOME;
@@ -167,20 +167,20 @@ describe("legacy file adoption on XDG paths", () => {
 		if (process.platform === "win32") return;
 		const xdgState = path.join(tempRoot, "xdg-state");
 		const xdgData = path.join(tempRoot, "xdg-data");
-		await fs.mkdir(path.join(xdgState, "omp"), { recursive: true });
-		await fs.mkdir(path.join(xdgData, "omp"), { recursive: true });
-		// Legacy layout: key under ~/.omp/agent, registry under ~/.omp.
-		await fs.mkdir(path.join(tempRoot, ".omp", "agent"), { recursive: true });
-		await fs.writeFile(path.join(tempRoot, ".omp", "agent", "secret-placeholder.key"), "legacy-key");
-		await fs.writeFile(path.join(tempRoot, ".omp", "marketplaces.json"), '{"legacy":true}');
+		await fs.mkdir(path.join(xdgState, "oms"), { recursive: true });
+		await fs.mkdir(path.join(xdgData, "oms"), { recursive: true });
+		// Legacy layout: key under ~/.oms/agent, registry under ~/.oms.
+		await fs.mkdir(path.join(tempRoot, ".oms", "agent"), { recursive: true });
+		await fs.writeFile(path.join(tempRoot, ".oms", "agent", "secret-placeholder.key"), "legacy-key");
+		await fs.writeFile(path.join(tempRoot, ".oms", "marketplaces.json"), '{"legacy":true}');
 		// The XDG registry is already populated: adoption must not overwrite it.
-		await fs.writeFile(path.join(xdgData, "omp", "marketplaces.json"), '{"xdg":true}');
+		await fs.writeFile(path.join(xdgData, "oms", "marketplaces.json"), '{"xdg":true}');
 		activateTempHome({ XDG_STATE_HOME: xdgState, XDG_DATA_HOME: xdgData });
 
 		const key = getSecretPlaceholderKeyPath();
 		const registry = getMarketplacesRegistryPath();
-		expect(key).toBe(path.join(xdgState, "omp", "secret-placeholder.key"));
-		expect(registry).toBe(path.join(xdgData, "omp", "marketplaces.json"));
+		expect(key).toBe(path.join(xdgState, "oms", "secret-placeholder.key"));
+		expect(registry).toBe(path.join(xdgData, "oms", "marketplaces.json"));
 		expect(await fs.readFile(key, "utf8")).toBe("legacy-key");
 		expect(await fs.readFile(registry, "utf8")).toBe('{"xdg":true}');
 	});
@@ -188,7 +188,7 @@ describe("legacy file adoption on XDG paths", () => {
 	it("keeps the legacy paths canonical when XDG is inactive", async () => {
 		if (process.platform === "win32") return;
 		activateTempHome({});
-		expect(getSecretPlaceholderKeyPath()).toBe(path.join(tempRoot, ".omp", "agent", "secret-placeholder.key"));
-		expect(getMarketplacesRegistryPath()).toBe(path.join(tempRoot, ".omp", "marketplaces.json"));
+		expect(getSecretPlaceholderKeyPath()).toBe(path.join(tempRoot, ".oms", "agent", "secret-placeholder.key"));
+		expect(getMarketplacesRegistryPath()).toBe(path.join(tempRoot, ".oms", "marketplaces.json"));
 	});
 });

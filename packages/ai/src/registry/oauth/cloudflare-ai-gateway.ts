@@ -1,4 +1,4 @@
-import { serializeCloudflareAiGatewayCredential } from "@oh-my-pi/pi-catalog/wire/cloudflare-ai-gateway";
+import { serializeCloudflareAiGatewayCredential } from "@oh-my-soup/pi-catalog/wire/cloudflare-ai-gateway";
 import * as AIError from "../../error";
 import type { OAuthController } from "./types";
 

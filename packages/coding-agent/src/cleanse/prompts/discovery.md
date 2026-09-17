@@ -6,7 +6,7 @@
 
 # Checker Discovery
 
-User requested `omp cleanse` detect and repair: **{{request}}**
+User requested `oms cleanse` detect and repair: **{{request}}**
 
 Identify project command(s) surfacing exactly these diagnostics for orchestrator execution, output parsing, and repair-agent dispatch.
 

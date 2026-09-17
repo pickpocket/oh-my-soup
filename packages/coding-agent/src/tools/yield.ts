@@ -3,16 +3,16 @@
  *
  * Subagents can call this tool incrementally or terminally depending on `type`.
  */
-import type { AgentTool, AgentToolContext, AgentToolResult, AgentToolUpdateCallback } from "@oh-my-pi/pi-agent-core";
-import type { TSchema } from "@oh-my-pi/pi-ai/types";
+import type { AgentTool, AgentToolContext, AgentToolResult, AgentToolUpdateCallback } from "@oh-my-soup/pi-agent-core";
+import type { TSchema } from "@oh-my-soup/pi-ai/types";
 import {
 	dereferenceJsonSchema,
 	isValidJsonSchema,
 	type JsonSchemaValidationResult,
 	sanitizeSchemaForStrictMode,
 	tryEnforceStrictSchema,
-} from "@oh-my-pi/pi-ai/utils/schema";
-import { prompt } from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-ai/utils/schema";
+import { prompt } from "@oh-my-soup/pi-utils";
 import yieldDescription from "../prompts/tools/yield.md" with { type: "text" };
 import { subprocessToolRegistry } from "../task/subprocess-tool-registry";
 import type { WorkPoolYieldItem } from "../task/workpool-yield";

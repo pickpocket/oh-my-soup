@@ -4,7 +4,7 @@
  * Hooks intercept agent events for logging, blocking, or modification.
  * Note: "hooks" is now called "extensions" in the API.
  */
-import { createAgentSession, type ExtensionFactory, SessionManager } from "@oh-my-pi/pi-coding-agent";
+import { createAgentSession, type ExtensionFactory, SessionManager } from "@oh-my-soup/pi-coding-agent";
 
 // Logging hook (now called extension)
 const loggingHook: ExtensionFactory = api => {

@@ -16,7 +16,7 @@ class DemoChoices implements Component {
 }
 
 const tui = new TUI(new ProcessTerminal());
-const title = new Text("OMP TUI debug demo", 0, 0);
+const title = new Text("OMS TUI debug demo", 0, 0);
 const debugTitle: Component = title;
 debugTitle.debugId = "title";
 const input = new Input();

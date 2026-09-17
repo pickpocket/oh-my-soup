@@ -27,7 +27,7 @@ describe("published legal payloads", () => {
 	});
 
 	it("stages missing legal files without replacing package-local text", async () => {
-		const root = await fs.mkdtemp(path.join(os.tmpdir(), "omp-publish-legal-"));
+		const root = await fs.mkdtemp(path.join(os.tmpdir(), "oms-publish-legal-"));
 		const pkgDir = path.join(root, "package");
 		await fs.mkdir(pkgDir);
 		try {
@@ -47,12 +47,12 @@ describe("published legal payloads", () => {
 	});
 
 	it("lists every legal file explicitly in the native core package", async () => {
-		const pkgDir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-native-core-"));
+		const pkgDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-native-core-"));
 		try {
 			await Bun.write(
 				path.join(pkgDir, "package.json"),
 				JSON.stringify({
-					name: "@oh-my-pi/pi-natives",
+					name: "@oh-my-soup/pi-natives",
 					version: "15.5.15",
 					license: "MIT",
 				}),
@@ -85,9 +85,9 @@ describe("published legal payloads", () => {
 });
 
 describe("published manifest topology", () => {
-	it("repoints omptype runtime entries to dist/js with a bun source condition", async () => {
-		const pkg = packages.find(entry => entry.dir === "packages/omptype");
-		if (!pkg) throw new Error("omptype missing from publish set");
+	it("repoints omstype runtime entries to dist/js with a bun source condition", async () => {
+		const pkg = packages.find(entry => entry.dir === "packages/omstype");
+		if (!pkg) throw new Error("omstype missing from publish set");
 		expect(pkg.publishJs).toBe(true);
 
 		const manifest = await rewriteManifest(pkg, false);

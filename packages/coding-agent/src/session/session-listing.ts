@@ -1,12 +1,12 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { Message } from "@oh-my-pi/pi-ai";
-import { getSessionsDir } from "@oh-my-pi/pi-utils/dirs";
-import * as logger from "@oh-my-pi/pi-utils/logger";
-import { LRUCache } from "@oh-my-pi/pi-utils/lru";
-import { parseJsonlLenient } from "@oh-my-pi/pi-utils/stream";
-import { toError } from "@oh-my-pi/pi-utils/type-guards";
+import type { Message } from "@oh-my-soup/pi-ai";
+import { getSessionsDir } from "@oh-my-soup/pi-utils/dirs";
+import * as logger from "@oh-my-soup/pi-utils/logger";
+import { LRUCache } from "@oh-my-soup/pi-utils/lru";
+import { parseJsonlLenient } from "@oh-my-soup/pi-utils/stream";
+import { toError } from "@oh-my-soup/pi-utils/type-guards";
 import { computeDefaultSessionDir } from "./session-paths";
 import { FileSessionStorage, type SessionStorage, type SessionStorageStat } from "./session-storage";
 import { lookupSessionTitle, recordSessionTitle } from "./title-index";

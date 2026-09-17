@@ -2,7 +2,7 @@ import { Database } from "bun:sqlite";
 import { afterEach, expect, test } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { TempDir } from "@oh-my-pi/pi-utils";
+import { TempDir } from "@oh-my-soup/pi-utils";
 
 const probePath = path.resolve(import.meta.dir, "fixtures", "legacy-pi-extension-cache-probe.ts");
 const healthProbePath = path.resolve(import.meta.dir, "fixtures", "legacy-pi-extension-cache-health-probe.ts");
@@ -10,7 +10,7 @@ const tempDirs: TempDir[] = [];
 
 async function runProbe(cacheRoot: string, script: string = probePath, args: string[] = []): Promise<string> {
 	const env: Record<string, string | undefined> = { ...process.env, XDG_CACHE_HOME: cacheRoot };
-	for (const key of ["PI_CODING_AGENT_DIR", "OMP_PROFILE", "PI_PROFILE", "PI_CONFIG_DIR"]) {
+	for (const key of ["PI_CODING_AGENT_DIR", "OMS_PROFILE", "PI_PROFILE", "PI_CONFIG_DIR"]) {
 		delete env[key];
 	}
 	const proc = Bun.spawn([process.execPath, script, ...args], {
@@ -36,7 +36,7 @@ test("warm extension analysis preserves import rewriting without reparsing", asy
 	const tempDir = TempDir.createSync("@legacy-pi-extension-cache-");
 	tempDirs.push(tempDir);
 	const cacheRoot = tempDir.path();
-	await fs.mkdir(path.join(cacheRoot, "omp"), { recursive: true });
+	await fs.mkdir(path.join(cacheRoot, "oms"), { recursive: true });
 
 	expect(await runProbe(cacheRoot)).toBe('import value from "./dependency.js?mtime=7";\n');
 
@@ -49,7 +49,7 @@ test("legacy extension parse cache drops obsolete CommonJS export-analysis colum
 	const tempDir = TempDir.createSync("@legacy-pi-extension-cache-schema-");
 	tempDirs.push(tempDir);
 	const cacheRoot = tempDir.path();
-	const cachePath = path.join(cacheRoot, "omp", "cache", "legacy-pi-extension-cache.db");
+	const cachePath = path.join(cacheRoot, "oms", "cache", "legacy-pi-extension-cache.db");
 	await fs.mkdir(path.dirname(cachePath), { recursive: true });
 
 	const seed = new Database(cachePath, { create: true });
@@ -79,15 +79,15 @@ test("legacy extension parse cache opens in WAL mode (#9549)", async () => {
 	const tempDir = TempDir.createSync("@legacy-pi-extension-cache-wal-");
 	tempDirs.push(tempDir);
 	const cacheRoot = tempDir.path();
-	await fs.mkdir(path.join(cacheRoot, "omp"), { recursive: true });
+	await fs.mkdir(path.join(cacheRoot, "oms"), { recursive: true });
 
 	await runProbe(cacheRoot);
 
 	// WAL is persisted in the db header, so a fresh connection reports it. The
 	// default delete-journal mode serialized cache writes behind per-entry
 	// journal create/delete + fsync and blocked startup for ~20s under
-	// concurrent omp processes.
-	const cachePath = path.join(cacheRoot, "omp", "cache", "legacy-pi-extension-cache.db");
+	// concurrent oms processes.
+	const cachePath = path.join(cacheRoot, "oms", "cache", "legacy-pi-extension-cache.db");
 	const db = new Database(cachePath);
 	try {
 		const mode = db.query<{ journal_mode: string }, []>("PRAGMA journal_mode").get()?.journal_mode;
@@ -101,7 +101,7 @@ test("oversized-cache eviction keeps the parse cache usable when a concurrent pr
 	const tempDir = TempDir.createSync("@legacy-pi-extension-cache-evict-");
 	tempDirs.push(tempDir);
 	const cacheRoot = tempDir.path();
-	const cachePath = path.join(cacheRoot, "omp", "cache", "legacy-pi-extension-cache.db");
+	const cachePath = path.join(cacheRoot, "oms", "cache", "legacy-pi-extension-cache.db");
 	await fs.mkdir(path.dirname(cachePath), { recursive: true });
 
 	// Seed a cache whose main db file exceeds the 8 MiB eviction cap.
@@ -113,8 +113,8 @@ test("oversized-cache eviction keeps the parse cache usable when a concurrent pr
 	seed.run("INSERT INTO extension_parse_cache VALUES ('big', 'module', ?)", ["x".repeat(9 * 1024 * 1024)]);
 	seed.close();
 
-	// A concurrent omp process holds the cache open in WAL mode with
-	// uncheckpointed frames in its `-wal` (as a concurrently-starting omp does
+	// A concurrent oms process holds the cache open in WAL mode with
+	// uncheckpointed frames in its `-wal` (as a concurrently-starting oms does
 	// while writing its own parse-cache entries).
 	const concurrent = new Database(cachePath, { create: true });
 	try {

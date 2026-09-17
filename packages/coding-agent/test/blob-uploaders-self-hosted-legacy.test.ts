@@ -76,7 +76,7 @@ describe("self-hosted uploader wire contracts", () => {
 	});
 
 	it("does not corrupt FTP command stdin or mis-map the remote path to its public URL", async () => {
-		const temp = fs.mkdtempSync(path.join(os.tmpdir(), "omp-ftp-uploader-"));
+		const temp = fs.mkdtempSync(path.join(os.tmpdir(), "oms-ftp-uploader-"));
 		try {
 			const executable = path.join(temp, "fake-curl");
 			const argsFile = path.join(temp, "args");
@@ -124,7 +124,7 @@ describe("self-hosted uploader wire contracts", () => {
 	});
 
 	it("does not mis-map an encoded shared-folder path or write outside its configured subtree", async () => {
-		const root = fs.mkdtempSync(path.join(os.tmpdir(), "omp-shared-uploader-"));
+		const root = fs.mkdtempSync(path.join(os.tmpdir(), "oms-shared-uploader-"));
 		try {
 			const uploader = requiredUploader(
 				createSelfHostedUploader(
@@ -339,7 +339,7 @@ describe("legacy uploader wire contracts", () => {
 			expect(init?.method).toBe("POST");
 			const form = formOf(init);
 			expect(form.get("k")).toBe("puush-key");
-			expect(form.get("z")).toBe("oh-my-pi");
+			expect(form.get("z")).toBe("oh-my-soup");
 			await expectFile(form, "f");
 			return new Response("0,https://cdn.test/puush.png,p-42");
 		};

@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { AuthStorage } from "@oh-my-pi/pi-ai";
-import { getBundledModels } from "@oh-my-pi/pi-catalog/models";
-import { TempDir } from "@oh-my-pi/pi-utils";
+import { AuthStorage } from "@oh-my-soup/pi-ai";
+import { getBundledModels } from "@oh-my-soup/pi-catalog/models";
+import { TempDir } from "@oh-my-soup/pi-utils";
 import { createSerializedRebuilder, indexModelsByRequestId } from "../../src/cli/auth-gateway-cli";
 import { ModelRegistry } from "../../src/config/model-registry";
 
@@ -19,7 +19,7 @@ afterEach(() => {
 
 describe("indexModelsByRequestId (auth-gateway catalog)", () => {
 	test("resolves a discovery-only model absent from the bundled catalog", async () => {
-		using tempDir = TempDir.createSync("@omp-auth-gateway-catalog-");
+		using tempDir = TempDir.createSync("@oms-auth-gateway-catalog-");
 		const registry = new ModelRegistry(await createAuthStorage(), tempDir.join("models.yml"));
 		// Simulate a model reached via provider discovery but not compiled into
 		// the bundle (e.g. a post-release id). registerProvider merges it into
@@ -51,7 +51,7 @@ describe("indexModelsByRequestId (auth-gateway catalog)", () => {
 	});
 
 	test("gateway registry ignores local models.yml credential and routing overrides", async () => {
-		using tempDir = TempDir.createSync("@omp-auth-gateway-catalog-");
+		using tempDir = TempDir.createSync("@oms-auth-gateway-catalog-");
 		const modelsPath = tempDir.join("models.yml");
 		// anthropic: a plain credential/baseUrl override (no transport) — the
 		// reviewer's leak. openai: a pi-native gateway route — the self-routing loop.
@@ -98,7 +98,7 @@ describe("indexModelsByRequestId (auth-gateway catalog)", () => {
 	});
 
 	test("scopes the catalog to providers with credentials", async () => {
-		using tempDir = TempDir.createSync("@omp-auth-gateway-catalog-");
+		using tempDir = TempDir.createSync("@oms-auth-gateway-catalog-");
 		const registry = new ModelRegistry(await createAuthStorage(), tempDir.join("models.yml"));
 		const all = registry.getAll();
 		const anthropicModel = all.find(m => m.provider === "anthropic");

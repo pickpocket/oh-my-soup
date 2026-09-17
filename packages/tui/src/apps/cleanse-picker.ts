@@ -1,5 +1,5 @@
 /**
- * Standalone TUI pickers for `omp cleanse`.
+ * Standalone TUI pickers for `oms cleanse`.
  *
  * One-shot {@link selectStandaloneItem} and {@link promptStandaloneText}
  * prompts, resolved on select/submit/cancel so the command can keep writing

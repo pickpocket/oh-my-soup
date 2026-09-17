@@ -13,10 +13,10 @@ saveTextLockfile = true
 ".lark" = "text"
 
 [test]
-# bun test does NOT honor .gitignore; prune robomp's repo clones and
+# bun test does NOT honor .gitignore; prune roboms's repo clones and
 # scratch dirs so a root-level `bun test` doesn't walk into them.
 #
-# `bazel-*` are Bazel's convenience symlinks, and `bazel-oh-my-pi` points at
+# `bazel-*` are Bazel's convenience symlinks, and `bazel-oh-my-soup` points at
 # the workspace root itself: without this the scanner recurses through that
 # loop, exhausts file descriptors, and every test that pipes a child process's
 # stdio fails with empty output or EPIPE.
@@ -28,7 +28,7 @@ pathIgnorePatterns = [
   "python/**",
   "docs/**",
   "runs/**",
-  "python/robomp/data/**",
+  "python/roboms/data/**",
   ".wt/**",
   ".worktrees/**",
   "bazel-*/**",

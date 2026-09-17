@@ -2,8 +2,8 @@
  * `login "api-key"` engine: open the provider's key page, prompt for a paste,
  * optionally validate the key against a declared probe, return the key.
  */
-import type { CompiledApiKeyLogin, CompiledAuthValidation } from "@oh-my-pi/pi-catalog/compat/types";
-import { $env } from "@oh-my-pi/pi-utils";
+import type { CompiledApiKeyLogin, CompiledAuthValidation } from "@oh-my-soup/pi-catalog/compat/types";
+import { $env } from "@oh-my-soup/pi-utils";
 import * as AIError from "../../error";
 import {
 	validateAnthropicCompatibleApiKey,

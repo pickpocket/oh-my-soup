@@ -1,4 +1,4 @@
-import { tryParseJson } from "@oh-my-pi/pi-utils";
+import { tryParseJson } from "@oh-my-soup/pi-utils";
 import { buildResult, formatNumber, loadPage, type RenderResult, type SpecialHandler } from "./types";
 
 /**

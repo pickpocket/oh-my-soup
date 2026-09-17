@@ -9,9 +9,9 @@
  */
 
 import * as path from "node:path";
-import type { Context, ImageContent, Model } from "@oh-my-pi/pi-ai";
-import { getBlobsDir, logger } from "@oh-my-pi/pi-utils";
-import * as snapcompact from "@oh-my-pi/snapcompact";
+import type { Context, ImageContent, Model } from "@oh-my-soup/pi-ai";
+import { getBlobsDir, logger } from "@oh-my-soup/pi-utils";
+import * as snapcompact from "@oh-my-soup/snapcompact";
 import type { Settings } from "../config/settings";
 import { type BlobBackend, LocalBlobBackend } from "./broker";
 import {

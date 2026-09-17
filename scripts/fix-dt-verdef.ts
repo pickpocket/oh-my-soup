@@ -4,7 +4,7 @@
  * `bun build --compile` output defines its own symbol versions
  * (`DT_VERDEFNUM 2`), so the dynamic loader reads `DT_VERDEF` at startup. When
  * `patchelf` has to grow `.dynamic` — setting an RPATH or adding a `DT_NEEDED`,
- * both of which omp's nix fixup chain does — it relocates the dynamic-section
+ * both of which oms's nix fixup chain does — it relocates the dynamic-section
  * cluster and rewrites `DT_SYMTAB`, `DT_STRTAB`, `DT_VERSYM` and `DT_VERNEED`,
  * but leaves `DT_VERDEF` holding the pre-relocation address. glibc follows the
  * stale pointer in `_dl_check_map_versions` and the binary SIGSEGVs in the
@@ -12,7 +12,7 @@
  *
  * This restores the invariant after the fixup chain has finished patching, by
  * pointing `DT_VERDEF` back at the section-header address of `.gnu.version_d`.
- * ELF64 little-endian only — the only shape omp's Linux outputs take. Binaries
+ * ELF64 little-endian only — the only shape oms's Linux outputs take. Binaries
  * without a `.gnu.version_d` (ordinary Rust/C objects) are a no-op.
  */
 

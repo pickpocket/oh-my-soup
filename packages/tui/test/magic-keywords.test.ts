@@ -2,10 +2,10 @@ import { beforeAll, describe, expect, it } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { hasMagicKeyword, highlightMagicKeywords } from "@oh-my-pi/pi-tui/prompt/magic-keywords";
-import { initTheme } from "@oh-my-pi/pi-tui/theme";
+import { hasMagicKeyword, highlightMagicKeywords } from "@oh-my-soup/pi-tui/prompt/magic-keywords";
+import { initTheme } from "@oh-my-soup/pi-tui/theme";
 
-const magicKeywordsPath = Bun.resolveSync("@oh-my-pi/pi-tui/prompt/magic-keywords", import.meta.dir);
+const magicKeywordsPath = Bun.resolveSync("@oh-my-soup/pi-tui/prompt/magic-keywords", import.meta.dir);
 
 beforeAll(async () => {
 	// Gradient palettes read the active theme's color mode.
@@ -14,7 +14,7 @@ beforeAll(async () => {
 
 describe("highlightMagicKeywords", () => {
 	it("paints keywords when the module-level theme is uninitialized", async () => {
-		const dir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-magic-keywords-"));
+		const dir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-magic-keywords-"));
 		try {
 			const script = [
 				`import { highlightMagicKeywords } from ${JSON.stringify(magicKeywordsPath)};`,

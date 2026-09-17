@@ -1,11 +1,11 @@
-import { type } from "@oh-my-pi/omptype";
+import { type } from "@oh-my-soup/omstype";
 import type {
 	AgentTool,
 	AgentToolContext,
 	AgentToolResult,
 	AgentToolUpdateCallback,
 	ToolApprovalDecision,
-} from "@oh-my-pi/pi-agent-core";
+} from "@oh-my-soup/pi-agent-core";
 import {
 	CONTEXT_NOTES_ENTRY_TYPE,
 	getContextNotes,
@@ -16,7 +16,7 @@ import contextNotesDescription from "../prompts/tools/context-notes.md" with { t
 import newContextDescription from "../prompts/tools/new-context.md" with { type: "text" };
 import type { ToolSession } from ".";
 import { throwIfAborted } from "./tool-errors";
-import { ToolError } from "@oh-my-pi/pi-tui/tools/tool-errors";
+import { ToolError } from "@oh-my-soup/pi-tui/tools/tool-errors";
 
 const contextNotesSchema = type({
 	"text?": type("string").describe("Entire replacement notebook text. Omit to read; use an empty string to clear."),

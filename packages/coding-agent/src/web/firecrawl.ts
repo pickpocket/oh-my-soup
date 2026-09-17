@@ -8,8 +8,8 @@
  *
  * See https://docs.firecrawl.dev/api-reference/endpoint/scrape.
  */
-import { type FetchImpl, getEnvApiKey } from "@oh-my-pi/pi-ai";
-import { fetchWithRetry } from "@oh-my-pi/pi-utils";
+import { type FetchImpl, getEnvApiKey } from "@oh-my-soup/pi-ai";
+import { fetchWithRetry } from "@oh-my-soup/pi-utils";
 import type { AgentStorage } from "../session/agent-storage";
 import { findCredential, withHardTimeout } from "./search/providers/utils";
 

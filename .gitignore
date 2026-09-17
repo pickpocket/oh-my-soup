@@ -44,8 +44,8 @@ coverage/
 packages/ai/test/.temp-images/
 
 # Project specific
-!.omp/
-.omp/plugins/
+!.oms/
+.oms/plugins/
 .pi_config/
 .opencode/
 .worktrees/
@@ -65,21 +65,21 @@ pi-*.html
 packages/coding-agent/src/export/html/tool-views.generated.js
 packages/natives/npm/
 /runs/
-python/omp-rpc/src/omp_rpc.egg-info/
-python/omp-rpc/build/
+python/oms-rpc/src/oms_rpc.egg-info/
+python/oms-rpc/build/
 # parallel-agent worktrees
 .wt/
 CPU*.md
 packages/coding-agent/binaries/
 
-# robomp runtime state
-python/robomp/data/
-python/robomp/.cache/
-python/robomp/src/robomp/static/
-python/robomp/web/dist/
-python/robomp/web/verify-out/
+# roboms runtime state
+python/roboms/data/
+python/roboms/.cache/
+python/roboms/src/roboms/static/
+python/roboms/web/dist/
+python/roboms/web/verify-out/
 /verify-out/
-python/robomp/.env
+python/roboms/.env
 
 # Local, machine-specific boot perf baseline (see packages/coding-agent/scripts/bench-guard.ts)
 packages/coding-agent/bench/boot-baseline.json
@@ -89,7 +89,7 @@ packages/coding-agent/bench/boot-baseline.json
 /bazel-out
 /bazel-testlogs
 /bazel-pi
-/bazel-oh-my-pi
+/bazel-oh-my-soup
 /.bazelrc.user
 
 .parity/

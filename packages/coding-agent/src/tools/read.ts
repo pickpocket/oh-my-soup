@@ -1,9 +1,9 @@
-import type { ReadToolDetails } from "@oh-my-pi/pi-tui/tools/read";
+import type { ReadToolDetails } from "@oh-my-soup/pi-tui/tools/read";
 import { tryResolveInternalUrlSync } from "../internal-urls/hyperlink-targets";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { type EditStore, notebookToEditableText } from "@oh-my-pi/pi-natives";
-import { type } from "@oh-my-pi/omptype";
+import { type EditStore, notebookToEditableText } from "@oh-my-soup/pi-natives";
+import { type } from "@oh-my-soup/omstype";
 import type {
 	AgentTool,
 	AgentToolContext,
@@ -15,8 +15,8 @@ import type {
 	ToolSpeculationDiscardContext,
 	ToolSpeculationExecutionContext,
 	ToolTier,
-} from "@oh-my-pi/pi-agent-core";
-import { completeSimple, type ImageContent, type TextContent } from "@oh-my-pi/pi-ai";
+} from "@oh-my-soup/pi-agent-core";
+import { completeSimple, type ImageContent, type TextContent } from "@oh-my-soup/pi-ai";
 import {
 	BINARY_SNIFF_BYTES,
 	type ImageMetadata,
@@ -28,7 +28,7 @@ import {
 	parseImageMetadata,
 	prompt,
 	readImageMetadata,
-} from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-utils";
 import { normalizeToLF } from "../edit/normalize";
 import { getEditStore } from "../edit/store";
 import { InternalUrlRouter, resolveLocalUrlToFile, resolveLocalUrlToPath } from "../internal-urls";
@@ -45,7 +45,7 @@ import {
 	truncateHead,
 	truncateHeadBytes,
 	truncateLine,
-} from "@oh-my-pi/pi-tui/tools/streaming-output";
+} from "@oh-my-soup/pi-tui/tools/streaming-output";
 import { buildLineEntriesWithBlockContext, lineEntriesToPlainText } from "../utils/block-context";
 import { isCpuProfilePath, renderCpuProfile } from "../utils/cpuprofile";
 import { resolveFileDisplayMode } from "../utils/file-display-mode";
@@ -55,12 +55,12 @@ import {
 	InvalidImageDataError,
 	MAX_IMAGE_INPUT_BYTES,
 	webpExclusionForModel,
-} from "@oh-my-pi/pi-tui/chat/image-loading";
+} from "@oh-my-soup/pi-tui/chat/image-loading";
 import { askImageQuestion, resolveImageQuestionModel } from "../utils/image-question";
 import { CONVERTIBLE_EXTENSIONS, convertFileWithMarkit } from "../utils/markit";
 import { isSampleProfilePath, renderSampleProfile } from "../utils/sample-profile";
 import { buildDirectoryTree, type DirectoryTree } from "../workspace-tree";
-import { type ConflictEntry, type ConflictScope, renderConflictRegion } from "@oh-my-pi/pi-tui/tools/conflict-detect";
+import { type ConflictEntry, type ConflictScope, renderConflictRegion } from "@oh-my-soup/pi-tui/tools/conflict-detect";
 import {
 	formatConflictSummary,
 	formatConflictWarning,
@@ -80,8 +80,8 @@ import {
 	splitDelimitedPathEntry,
 	splitPathAndSelPreferringLiteral,
 } from "./path-utils";
-import { type LineRange } from "@oh-my-pi/pi-tui/tools/line-ranges";
-import { splitInternalUrlSel, splitPathAndSel } from "@oh-my-pi/pi-tui/tools/read";
+import { type LineRange } from "@oh-my-soup/pi-tui/tools/line-ranges";
+import { splitInternalUrlSel, splitPathAndSel } from "@oh-my-soup/pi-tui/tools/read";
 import { readArchive, resolveArchiveReadPath } from "./read-archive";
 import {
 	BRACKET_CONTEXT_ELLIPSIS,
@@ -127,7 +127,7 @@ import {
 	type VideoMetadata,
 	type VideoPng,
 } from "../utils/video";
-import { isVideoPath } from "@oh-my-pi/pi-tui/prompt/video";
+import { isVideoPath } from "@oh-my-soup/pi-tui/prompt/video";
 import {
 	isMultiRange,
 	isRawSelector,
@@ -137,7 +137,7 @@ import {
 	resolveTailSelector,
 	selToOffsetLimit,
 } from "./read-selector";
-import { splitAddressableFileLines } from "@oh-my-pi/pi-tui/tools/hashline-format";
+import { splitAddressableFileLines } from "@oh-my-soup/pi-tui/tools/hashline-format";
 import { readSqlite, resolveSqliteReadPath } from "./read-sqlite";
 import {
 	getReadTextFileBridge,
@@ -147,13 +147,13 @@ import {
 	trySummarize,
 } from "./read-summary";
 import { parseSqlitePathCandidates } from "./sqlite-reader";
-import { formatBytes, shortenPath } from "@oh-my-pi/pi-tui/render/render-utils";
-import { REPORT_ISSUE_DEVICE_NAME } from "@oh-my-pi/pi-tui/tools/report-tool-issue";
+import { formatBytes, shortenPath } from "@oh-my-soup/pi-tui/render/render-utils";
+import { REPORT_ISSUE_DEVICE_NAME } from "@oh-my-soup/pi-tui/tools/report-tool-issue";
 import { reportIssueDeviceUsage } from "./report-tool-issue";
-import { isResolutionDeviceName } from "@oh-my-pi/pi-tui/tools/resolve";
+import { isResolutionDeviceName } from "@oh-my-soup/pi-tui/tools/resolve";
 import { resolutionDeviceUsage } from "./resolve";
 import { ToolAbortError, throwIfAborted } from "./tool-errors";
-import { ToolError } from "@oh-my-pi/pi-tui/tools/tool-errors";
+import { ToolError } from "@oh-my-soup/pi-tui/tools/tool-errors";
 import { toolResult } from "./tool-result";
 import { xdevDocs, xdevListing } from "./xdev";
 
@@ -1585,7 +1585,7 @@ export class ReadTool implements AgentTool<typeof readSchema, ReadToolDetails> {
 			return executeReadUrl(this.session, { path: parsedUrlTarget.path, raw: urlRaw }, signal);
 		}
 
-		// Handle native OMP URLs and custom-scheme resources advertised by MCP servers.
+		// Handle native OMS URLs and custom-scheme resources advertised by MCP servers.
 		const internalRouter = InternalUrlRouter.instance();
 		const delimitedInternalResult = internalRouter.canResolve(readPath)
 			? await this.#tryReadDelimitedPaths(readPath, signal, entry => internalRouter.canResolve(entry))

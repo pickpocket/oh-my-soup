@@ -35,7 +35,7 @@ The session-scoped wire schema advertises only enabled runtimes ("py" and "js").
 
 ## Kernel lifecycle
 
-Each Python kernel is a single subprocess: `<resolved-python> -u <runner.py>`. The runner is bundled with the host binary (Bun text import), written to an `omp-python-runner` cache under the OS temp directory once per script hash, and reused by subsequent spawns.
+Each Python kernel is a single subprocess: `<resolved-python> -u <runner.py>`. The runner is bundled with the host binary (Bun text import), written to an `oms-python-runner` cache under the OS temp directory once per script hash, and reused by subsequent spawns.
 
 Kernel startup sequence:
 
@@ -73,7 +73,7 @@ Runner → host:
 {"type": "done",     "id": "<reqId>", "status": "ok"|"error", "executionCount": N, "cancelled": false}
 ```
 
-Status events the prelude emits (e.g. `_emit_status("find", count=…)`) ship inside display bundles under `application/x-omp-status` so the existing TUI status renderer keeps working.
+Status events the prelude emits (e.g. `_emit_status("find", count=…)`) ship inside display bundles under `application/x-oms-status` so the existing TUI status renderer keeps working.
 
 ## Magics
 
@@ -133,7 +133,7 @@ Environment is filtered before launching the runner:
 Runtime selection order (skipped entirely when the `python.interpreter` setting names an explicit executable):
 
 1. Active/located venv (`VIRTUAL_ENV`, then `CONDA_PREFIX`, then `<cwd>/.venv`, `<cwd>/venv`)
-2. Managed venv at `~/.omp/python-env`
+2. Managed venv at `~/.oms/python-env`
 3. `python` or `python3` on PATH
 
 When a venv is selected, its bin/Scripts path is prepended to `PATH`.
@@ -148,7 +148,7 @@ The tool's session-scoped schema lists only enabled runtimes. If Python prefligh
 
 Python prelude helpers include `agent(prompt, *, agent=None, label=None, schema=None, schema_mode=None, isolated=None, apply=None, merge=None, tools=None)`, which registers a background subagent job and returns an `AgentHandle` (`.id`, `.handle` = `agent://<id>`, `.status`, `.done()`, `.wait(timeout=None)`, `.send()`, `.cancel()`, `.output()`, awaitable). `completion(...)` likewise returns a `CompletionHandle`. `wait(handles, timeout=None, raise_errors=True)` barriers over handles in input order. `workpool(...)` returns a `WorkPool` (`push`, `status`, `peek`, `close`); its name is the aggregate async-job id used with `hub wait`. `tool.<name>(args)` is a coroutine (`await tool.read({...})`); `@tool` registers a kernel-local function as a tool for subagents (schema inferred from type hints) when `eval.tools.enabled` is on.
 
-The runner accepts a `{"type": "tool", "id", "op": "describe"|"call", ...}` request alongside cell requests. It is served on a dedicated daemon thread (POSIX; between cells on Windows) against the kernel's `__omp_tools__` registry, replies with an `application/json` display bundle (`{ok, tools, missing}` or `{ok, value}`), and reports a raising tool as an `error` frame without touching the running cell. See `docs/tools/eval.md` for the caller-facing contract.
+The runner accepts a `{"type": "tool", "id", "op": "describe"|"call", ...}` request alongside cell requests. It is served on a dedicated daemon thread (POSIX; between cells on Windows) against the kernel's `__oms_tools__` registry, replies with an `application/json` display bundle (`{ok, tools, missing}` or `{ok, value}`), and reports a raising tool as an `error` frame without touching the running cell. See `docs/tools/eval.md` for the caller-facing contract.
 
 ## Execution flow and cancellation/timeout
 
@@ -182,7 +182,7 @@ From runner frames:
 - `stdout` / `stderr` → plain text chunks
 - `display` / `result` → rich display handling (MIME bundle)
 - `error` → traceback text
-- `application/x-omp-status` MIME inside `display` → structured status events
+- `application/x-oms-status` MIME inside `display` → structured status events
 
 Display MIME precedence:
 
@@ -194,7 +194,7 @@ Additionally captured as structured outputs:
 
 - `application/json` → JSON tree data
 - `image/png` / `image/jpeg` → image payloads
-- `application/x-omp-status` → status events
+- `application/x-oms-status` → status events
 
 ### Matplotlib
 
@@ -219,7 +219,7 @@ Output is streamed through `OutputSink` and may be persisted to artifact storage
 ## Operational troubleshooting
 
 - **Python backend not available** — Check `eval.py`, `PI_PY`, and that `python`/`python3` is on PATH. If another backend is enabled, use its advertised language token.
-- **No Python on PATH** — Install a system Python 3.10+ or place a compatible venv at `~/.omp/python-env`. `omp setup python --check` reports the resolved interpreter.
+- **No Python on PATH** — Install a system Python 3.10+ or place a compatible venv at `~/.oms/python-env`. `oms setup python --check` reports the resolved interpreter.
 - **Execution hangs then times out** — Increase `timeout` for legitimate work or set it to `0` to disable the watchdog. For stuck native code, cancellation sends `SIGINT` first and then escalates; session mode recreates the kernel on the next request if it had to be killed.
 - **stdin/input prompts in Python code** — `input()` is not supported; pass data programmatically.
 - **Working directory errors** — Python runs in the session cwd. Use `%cd` or `os.chdir()` inside the retained kernel to change it.

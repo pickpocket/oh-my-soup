@@ -15,9 +15,9 @@ import {
 	IndexedSessionStorage,
 	type SessionStorageBackend,
 	type SessionStorageIndexEntry,
-} from "@oh-my-pi/pi-coding-agent/session/indexed-session-storage";
-import { SessionManager } from "@oh-my-pi/pi-coding-agent/session/session-manager";
-import { SessionWriteConflictError } from "@oh-my-pi/pi-coding-agent/session/session-storage";
+} from "@oh-my-soup/pi-coding-agent/session/indexed-session-storage";
+import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
+import { SessionWriteConflictError } from "@oh-my-soup/pi-coding-agent/session/session-storage";
 
 class FakeBackend implements SessionStorageBackend {
 	readonly files = new Map<string, string>();

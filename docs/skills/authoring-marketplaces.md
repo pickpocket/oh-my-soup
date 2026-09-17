@@ -1,11 +1,11 @@
 ---
 name: authoring-marketplaces
-description: Use when creating a new omp marketplace. Covers marketplace.json schema, source types, install commands, and publishing.
+description: Use when creating a new oms marketplace. Covers marketplace.json schema, source types, install commands, and publishing.
 ---
 
 # Authoring Marketplaces
 
-A marketplace is a Git repository (or local directory) that contains a catalog file at either `.omp-plugin/marketplace.json` (preferred for omp-specific catalogs) or `.claude-plugin/marketplace.json` (Claude Code-compatible; used as the fallback). Anyone can author one. Users add it with `/marketplace add owner/repo` and then install individual plugins from it.
+A marketplace is a Git repository (or local directory) that contains a catalog file at either `.oms-plugin/marketplace.json` (preferred for oms-specific catalogs) or `.claude-plugin/marketplace.json` (Claude Code-compatible; used as the fallback). Anyone can author one. Users add it with `/marketplace add owner/repo` and then install individual plugins from it.
 
 ## Minimum viable marketplace
 
@@ -43,7 +43,7 @@ Push to GitHub. Users install with:
 
 ## marketplace.json schema
 
-The catalog file lives at either `.omp-plugin/marketplace.json` or `.claude-plugin/marketplace.json` in the repository root. omp prefers the `.omp-plugin/` path and falls back to the Claude path; a repository may publish both to expose tool-specific catalogs from a single source tree.
+The catalog file lives at either `.oms-plugin/marketplace.json` or `.claude-plugin/marketplace.json` in the repository root. oms prefers the `.oms-plugin/` path and falls back to the Claude path; a repository may publish both to expose tool-specific catalogs from a single source tree.
 
 ### Top-level fields
 
@@ -89,7 +89,7 @@ The catalog file lives at either `.omp-plugin/marketplace.json` or `.claude-plug
     "email": "plugins@acme.example"
   },
   "metadata": {
-    "description": "Official Acme plugins for oh-my-pi"
+    "description": "Official Acme plugins for oh-my-soup"
   },
   "plugins": [
     {
@@ -104,7 +104,7 @@ The catalog file lives at either `.omp-plugin/marketplace.json` or `.claude-plug
       "category": "devops",
       "source": {
         "source": "github",
-        "repo": "acme-corp/omp-deploy-plugin",
+        "repo": "acme-corp/oms-deploy-plugin",
         "ref": "main"
       }
     }
@@ -185,7 +185,7 @@ Declares the plugin as an npm package. `version` is optional:
 ```json
 "source": {
   "source": "npm",
-  "package": "@acme/omp-plugin",
+  "package": "@acme/oms-plugin",
   "version": "1.2.0"
 }
 ```
@@ -205,13 +205,13 @@ my-plugin/
   tools/                         ← custom tools
   .mcp.json                      ← MCP server definitions (default location)
   .claude-plugin/plugin.json     ← optional paths for skills/commands and other manifest metadata
-  package.json                   ← optional version and `omp.extensions`
+  package.json                   ← optional version and `oms.extensions`
   README.md                      ← recommended: description + usage
 ```
 
-> Note: MCP servers may instead be declared by the manifest's `mcpServers` field — either an inline server map or a path to a config file inside the plugin root (`{ "mcpServers": "./mcp-omp.json" }`). omp reads `.omp-plugin/plugin.json` first, then `.claude-plugin/plugin.json`; a manifest declaration replaces the default `.mcp.json` rather than merging with it, so one published tree can carry a per-harness MCP config.
+> Note: MCP servers may instead be declared by the manifest's `mcpServers` field — either an inline server map or a path to a config file inside the plugin root (`{ "mcpServers": "./mcp-oms.json" }`). oms reads `.oms-plugin/plugin.json` first, then `.claude-plugin/plugin.json`; a manifest declaration replaces the default `.mcp.json` rather than merging with it, so one published tree can carry a per-harness MCP config.
 
-> Note: extension modules declared via `package.json` `omp.extensions` **are** loaded from marketplace installs — installation symlinks the cached plugin into the scope's `node_modules` and records it in `omp-plugins.lock.json`, the same runtime surfaces used by npm-installed and `omp plugin link`ed plugins.
+> Note: extension modules declared via `package.json` `oms.extensions` **are** loaded from marketplace installs — installation symlinks the cached plugin into the scope's `node_modules` and records it in `oms-plugins.lock.json`, the same runtime surfaces used by npm-installed and `oms plugin link`ed plugins.
 
 ## Install command
 
@@ -224,14 +224,14 @@ my-plugin/
 CLI equivalent:
 
 ```
-omp plugin marketplace add owner/repo
-omp plugin install name@marketplace-name
+oms plugin marketplace add owner/repo
+oms plugin install name@marketplace-name
 ```
 
 Scope behavior:
 
-- **user** (default) — installed in the user plugins data root's `installed_plugins.json` (`~/.omp/plugins/installed_plugins.json` by default), available in all projects. On Linux and macOS, `omp config init-xdg` creates (but does not migrate data into) the XDG roots; once the relevant roots exist and the XDG variables are set, new user state uses `$XDG_DATA_HOME/omp/plugins/installed_plugins.json`.
-- **project** — installed in `<project>/.omp/plugins/installed_plugins.json`, available only in that project
+- **user** (default) — installed in the user plugins data root's `installed_plugins.json` (`~/.oms/plugins/installed_plugins.json` by default), available in all projects. On Linux and macOS, `oms config init-xdg` creates (but does not migrate data into) the XDG roots; once the relevant roots exist and the XDG variables are set, new user state uses `$XDG_DATA_HOME/oms/plugins/installed_plugins.json`.
+- **project** — installed in `<project>/.oms/plugins/installed_plugins.json`, available only in that project
 
 An enabled project-scoped install shadows an enabled user-scoped install of the same `name@marketplace` ID. A disabled project copy leaves the user copy active.
 
@@ -256,7 +256,7 @@ Invalid: `-bad-start`, `bad-end-`, `.dot-start`, `Under_score`, `HAS_CAPS`
 
 ## Publishing workflow
 
-1. Create `marketplace.json` at `.omp-plugin/marketplace.json` (omp-only) or `.claude-plugin/marketplace.json` (shared with Claude Code) in a new Git repo.
+1. Create `marketplace.json` at `.oms-plugin/marketplace.json` (oms-only) or `.claude-plugin/marketplace.json` (shared with Claude Code) in a new Git repo.
 2. Add plugin entries pointing to subdirectories (or external sources).
 3. Push to GitHub.
 4. Share the `owner/repo` string. Users add it with `/marketplace add owner/repo`.

@@ -6,7 +6,7 @@ import {
 	TINY_MODEL_DTYPE_SETTING_OPTIONS,
 	TINY_MODEL_DTYPE_SETTING_VALUES,
 	tinyModelDtypeSettingToEnv,
-} from "@oh-my-pi/pi-coding-agent/tiny/dtype";
+} from "@oh-my-soup/pi-coding-agent/tiny/dtype";
 
 describe("tiny model dtype selection", () => {
 	it("returns undefined when unset so callers keep the per-model spec dtype", () => {

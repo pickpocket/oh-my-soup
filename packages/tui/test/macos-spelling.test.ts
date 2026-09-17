@@ -3,7 +3,7 @@ import {
 	MacOSSpellingProvider,
 	type SpellingBackend,
 	type SpellingDecorationContext,
-} from "@oh-my-pi/pi-tui/prompt/macos-spelling";
+} from "@oh-my-soup/pi-tui/prompt/macos-spelling";
 
 function backend(overrides: Partial<SpellingBackend>): SpellingBackend {
 	return {

@@ -1,14 +1,14 @@
-import type { ThinkingLevel } from "@oh-my-pi/pi-agent-core";
-import type { Model } from "@oh-my-pi/pi-ai";
+import type { ThinkingLevel } from "@oh-my-soup/pi-agent-core";
+import type { Model } from "@oh-my-soup/pi-ai";
 import type { ModelRegistry } from "../config/model-registry";
-import { formatModelSelectorValue, parseModelString } from "@oh-my-pi/pi-tui/overlays/model-selector";
+import { formatModelSelectorValue, parseModelString } from "@oh-my-soup/pi-tui/overlays/model-selector";
 import { formatModelString, formatModelStringWithRouting } from "../config/model-resolver";
 import type { Settings } from "../config/settings";
 import {
 	type ConfiguredThinkingLevel,
 	concreteThinkingLevel,
 	resolveThinkingLevelForModel,
-} from "@oh-my-pi/pi-tui/thinking";
+} from "@oh-my-soup/pi-tui/thinking";
 
 /** Configured fallback chains keyed by role or model selector. */
 export type RetryFallbackChains = Record<string, string[]>;
@@ -162,7 +162,7 @@ export function getRetryFallbackChains(settings: Settings): RetryFallbackChains 
  *
  * `options.isDiscoveryPending` suppresses "unknown model" warnings for
  * selectors whose config-declared discovery provider has not yet populated the
- * registry (a cold discovery cache after `omp update` bumps the cache
+ * registry (a cold discovery cache after `oms update` bumps the cache
  * namespace, #10048). Such selectors are re-checked once background discovery
  * settles. Logging is the caller's responsibility so a post-discovery re-run
  * does not double-log persistent warnings.

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { composeAppendPrompt, USER_APPEND_HEADING } from "@oh-my-pi/pi-coding-agent/system-prompt";
+import { composeAppendPrompt, USER_APPEND_HEADING } from "@oh-my-soup/pi-coding-agent/system-prompt";
 
 /**
  * The generated blocks that precede a user's append prompt end with the MCP

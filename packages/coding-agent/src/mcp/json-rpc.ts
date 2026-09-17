@@ -4,8 +4,8 @@
  * Lightweight utilities for calling MCP servers directly via HTTP
  * without maintaining persistent connections.
  */
-import type { FetchImpl } from "@oh-my-pi/pi-ai";
-import { isRecord, logger, readSseEvents } from "@oh-my-pi/pi-utils";
+import type { FetchImpl } from "@oh-my-soup/pi-ai";
+import { isRecord, logger, readSseEvents } from "@oh-my-soup/pi-utils";
 import type { JsonRpcResponse } from "./types";
 
 /** Hard ceiling on a single MCP HTTP request when the caller provides no signal. */

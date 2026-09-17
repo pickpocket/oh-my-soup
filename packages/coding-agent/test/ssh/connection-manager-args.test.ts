@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { getRemoteHostDir } from "@oh-my-pi/pi-utils";
+import { getRemoteHostDir } from "@oh-my-soup/pi-utils";
 import {
 	buildRemoteCommand,
 	extractProbePayload,
@@ -66,7 +66,7 @@ describe("ssh host shell classification", () => {
 			["/usr/bin/zsh", "zsh"],
 		];
 		for (const [shellValue, expected] of cases) {
-			const name = `omp-shellclf-${crypto.randomUUID()}`;
+			const name = `oms-shellclf-${crypto.randomUUID()}`;
 			const file = path.join(getRemoteHostDir(), `${sanitizeHostName(name)}.json`);
 			await Bun.write(file, JSON.stringify({ version: 3, os: "linux", shell: shellValue, compatEnabled: false }));
 			try {

@@ -2,10 +2,10 @@
  * Edit tool renderer.
  */
 
-import { editInspect } from "@oh-my-pi/pi-natives";
+import { editInspect } from "@oh-my-soup/pi-natives";
 import type { Component } from "../tui";
 import { sliceWithWidth, visibleWidth, wrapTextWithAnsi } from "../utils";
-import { sanitizeText } from "@oh-my-pi/pi-utils";
+import { sanitizeText } from "@oh-my-soup/pi-utils";
 import type { RenderResultOptions, ToolRenderer } from "./renderer";
 import type { FileDiagnosticsResult } from "./lsp";
 import { renderDiff as renderDiffColored } from "../chrome/diff";

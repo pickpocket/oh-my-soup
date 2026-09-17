@@ -22,22 +22,22 @@ import {
 	type Tool,
 	type Usage,
 	withAuth,
-} from "@oh-my-pi/pi-ai";
-import type { Dialect } from "@oh-my-pi/pi-ai/dialect";
-import * as AIError from "@oh-my-pi/pi-ai/error";
+} from "@oh-my-soup/pi-ai";
+import type { Dialect } from "@oh-my-soup/pi-ai/dialect";
+import * as AIError from "@oh-my-soup/pi-ai/error";
 import {
 	buildTransformedCodexRequestBody,
 	createOpenAICodexCompactionRequestContext,
 	type OpenAICodexCompactionBody,
-} from "@oh-my-pi/pi-ai/providers/openai-codex-responses";
-import type { InputItem as CodexInputItem } from "@oh-my-pi/pi-ai/providers/openai-codex/request-transformer";
-import { convertTools } from "@oh-my-pi/pi-ai/providers/openai-responses";
-import { buildResponsesInput, resolveOpenAICompatPolicy } from "@oh-my-pi/pi-ai/providers/openai-shared";
-import { stripOpenAIResponsesOutputOnlyStatusesForReplay } from "@oh-my-pi/pi-ai/utils";
-import { preferredDialect } from "@oh-my-pi/pi-catalog/identity";
-import { clampThinkingLevelForModel } from "@oh-my-pi/pi-catalog/model-thinking";
-import { isRecord, logger, prompt } from "@oh-my-pi/pi-utils";
-import * as snapcompact from "@oh-my-pi/snapcompact";
+} from "@oh-my-soup/pi-ai/providers/openai-codex-responses";
+import type { InputItem as CodexInputItem } from "@oh-my-soup/pi-ai/providers/openai-codex/request-transformer";
+import { convertTools } from "@oh-my-soup/pi-ai/providers/openai-responses";
+import { buildResponsesInput, resolveOpenAICompatPolicy } from "@oh-my-soup/pi-ai/providers/openai-shared";
+import { stripOpenAIResponsesOutputOnlyStatusesForReplay } from "@oh-my-soup/pi-ai/utils";
+import { preferredDialect } from "@oh-my-soup/pi-catalog/identity";
+import { clampThinkingLevelForModel } from "@oh-my-soup/pi-catalog/model-thinking";
+import { isRecord, logger, prompt } from "@oh-my-soup/pi-utils";
+import * as snapcompact from "@oh-my-soup/snapcompact";
 import { type AgentTelemetry, instrumentedCompleteSimple } from "../telemetry";
 import { ThinkingLevel } from "../thinking";
 import { Tokenizer } from "../tokenizer";

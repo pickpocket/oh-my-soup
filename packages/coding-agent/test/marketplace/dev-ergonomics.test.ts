@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-// Cannot import parseArgs from cli/args.ts (transitively loads @oh-my-pi/pi-natives
+// Cannot import parseArgs from cli/args.ts (transitively loads @oh-my-soup/pi-natives
 // via ../tools). Instead, test the flag parsing logic by reimplementing the relevant
 // subset. The actual integration is verified by bun check:ts (Args.pluginDirs exists
 // and parseArgs populates it).

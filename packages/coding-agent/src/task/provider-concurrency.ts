@@ -11,7 +11,7 @@
  * [#3749](https://github.com/can1357/oh-my-pi/issues/3749)).
  */
 
-import type { StreamFn } from "@oh-my-pi/pi-agent-core";
+import type { StreamFn } from "@oh-my-soup/pi-agent-core";
 import type { Settings } from "../config/settings";
 import type { SettingPath } from "../config/settings-schema";
 import { Semaphore } from "./parallel";

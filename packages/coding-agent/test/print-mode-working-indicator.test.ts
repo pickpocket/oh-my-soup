@@ -1,13 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
-import type { AssistantMessage } from "@oh-my-pi/pi-ai";
+import type { AssistantMessage } from "@oh-my-soup/pi-ai";
 import {
 	PRINT_MODE_ADVISOR_DRAIN_TIMEOUT_MS,
 	PRINT_MODE_ERROR_ADVISOR_DRAIN_TIMEOUT_MS,
 	runPrintMode,
-} from "@oh-my-pi/pi-coding-agent/modes/print-mode";
-import type { PlanModeState } from "@oh-my-pi/pi-coding-agent/plan-mode/state";
-import type { AgentSession, AgentSessionEvent } from "@oh-my-pi/pi-coding-agent/session/agent-session";
-import type { PlanProposalHandler } from "@oh-my-pi/pi-coding-agent/tools/resolve";
+} from "@oh-my-soup/pi-coding-agent/modes/print-mode";
+import type { PlanModeState } from "@oh-my-soup/pi-coding-agent/plan-mode/state";
+import type { AgentSession, AgentSessionEvent } from "@oh-my-soup/pi-coding-agent/session/agent-session";
+import type { PlanProposalHandler } from "@oh-my-soup/pi-coding-agent/tools/resolve";
 
 function makeAssistantMessage(text: string): AssistantMessage {
 	const timestamp = Date.now();

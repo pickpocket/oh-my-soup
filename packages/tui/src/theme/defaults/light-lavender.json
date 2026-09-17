@@ -1,5 +1,5 @@
 {
-	"$schema": "https://raw.githubusercontent.com/can1357/oh-my-pi/main/packages/coding-agent/theme-schema.json",
+	"$schema": "https://raw.githubusercontent.com/pickpocket/oh-my-soup/main/packages/coding-agent/theme-schema.json",
 	"name": "light-lavender",
 	"vars": {
 		"cyan": "#00acc1",

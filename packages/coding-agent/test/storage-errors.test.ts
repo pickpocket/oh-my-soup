@@ -2,10 +2,10 @@ import { Database } from "bun:sqlite";
 import { expect, test } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { SqliteAuthCredentialStore } from "@oh-my-pi/pi-ai";
-import { AgentStorage } from "@oh-my-pi/pi-coding-agent/session/agent-storage";
-import { HistoryStorage } from "@oh-my-pi/pi-coding-agent/session/history-storage";
-import { TempDir } from "@oh-my-pi/pi-utils";
+import { SqliteAuthCredentialStore } from "@oh-my-soup/pi-ai";
+import { AgentStorage } from "@oh-my-soup/pi-coding-agent/session/agent-storage";
+import { HistoryStorage } from "@oh-my-soup/pi-coding-agent/session/history-storage";
+import { TempDir } from "@oh-my-soup/pi-utils";
 
 async function corruptDatabase(dbPath: string): Promise<Uint8Array<ArrayBuffer>> {
 	const db = new Database(dbPath);
@@ -32,7 +32,7 @@ async function expectQuarantinedDamage(dbPath: string, damaged: Uint8Array<Array
 }
 
 test("agent startup quarantines corruption and persists new usage", async () => {
-	await using tempDir = await TempDir.create("@omp-storage-errors-");
+	await using tempDir = await TempDir.create("@oms-storage-errors-");
 	const dbPath = tempDir.join("agent.db");
 
 	AgentStorage.close();
@@ -59,7 +59,7 @@ test("agent startup quarantines corruption and persists new usage", async () => 
 });
 
 test("history startup quarantines corruption and persists searchable prompts", async () => {
-	await using tempDir = await TempDir.create("@omp-storage-errors-");
+	await using tempDir = await TempDir.create("@oms-storage-errors-");
 	const dbPath = tempDir.join("history.db");
 
 	HistoryStorage.close();
@@ -92,7 +92,7 @@ test("history startup quarantines corruption and persists searchable prompts", a
 });
 
 test("auth startup quarantines corruption and persists new credentials", async () => {
-	await using tempDir = await TempDir.create("@omp-storage-errors-");
+	await using tempDir = await TempDir.create("@oms-storage-errors-");
 	const dbPath = tempDir.join("auth.db");
 
 	const original = await SqliteAuthCredentialStore.open(dbPath);
@@ -119,7 +119,7 @@ test("auth startup quarantines corruption and persists new credentials", async (
 });
 
 test("concurrent agent and auth startup share one private recovered database", async () => {
-	await using tempDir = await TempDir.create("@omp-storage-errors-");
+	await using tempDir = await TempDir.create("@oms-storage-errors-");
 	const dbPath = tempDir.join("agent.db");
 	const damaged = await corruptDatabase(dbPath);
 

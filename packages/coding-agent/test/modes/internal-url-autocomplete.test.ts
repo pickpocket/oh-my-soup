@@ -1,19 +1,19 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
-import * as capability from "@oh-my-pi/pi-coding-agent/capability";
-import type { Rule } from "@oh-my-pi/pi-coding-agent/capability/rule";
-import { resetActiveRulesForTests, setActiveRules } from "@oh-my-pi/pi-coding-agent/capability/rule";
-import type { SSHHost } from "@oh-my-pi/pi-coding-agent/capability/ssh";
-import type { CapabilityResult } from "@oh-my-pi/pi-coding-agent/capability/types";
-import type { Skill } from "@oh-my-pi/pi-coding-agent/extensibility/skills";
-import { resetActiveSkillsForTests, setActiveSkills } from "@oh-my-pi/pi-coding-agent/extensibility/skills";
-import { InternalUrlRouter } from "@oh-my-pi/pi-coding-agent/internal-urls/router";
+import * as capability from "@oh-my-soup/pi-coding-agent/capability";
+import type { Rule } from "@oh-my-soup/pi-coding-agent/capability/rule";
+import { resetActiveRulesForTests, setActiveRules } from "@oh-my-soup/pi-coding-agent/capability/rule";
+import type { SSHHost } from "@oh-my-soup/pi-coding-agent/capability/ssh";
+import type { CapabilityResult } from "@oh-my-soup/pi-coding-agent/capability/types";
+import type { Skill } from "@oh-my-soup/pi-coding-agent/extensibility/skills";
+import { resetActiveSkillsForTests, setActiveSkills } from "@oh-my-soup/pi-coding-agent/extensibility/skills";
+import { InternalUrlRouter } from "@oh-my-soup/pi-coding-agent/internal-urls/router";
 import {
 	applyInternalUrlCompletion,
 	extractInternalUrlContext,
 	getInternalUrlSuggestions,
 	isInternalUrlPrefix,
-} from "@oh-my-pi/pi-tui/prompt/internal-url-autocomplete";
-import { PromptActionAutocompleteProvider } from "@oh-my-pi/pi-tui/prompt/prompt-action-autocomplete";
+} from "@oh-my-soup/pi-tui/prompt/internal-url-autocomplete";
+import { PromptActionAutocompleteProvider } from "@oh-my-soup/pi-tui/prompt/prompt-action-autocomplete";
 
 function skill(name: string, description = ""): Skill {
 	return { name, description, filePath: `/skills/${name}/SKILL.md`, baseDir: `/skills/${name}`, source: "test" };
@@ -32,7 +32,7 @@ function rule(name: string, description?: string): Rule {
 describe("internal-url-autocomplete", () => {
 	beforeEach(() => {
 		setActiveSkills([skill("humanizer", "Remove AI tells"), skill("react", "React UI"), skill("tla", "TLA+ specs")]);
-		setActiveRules([rule("python", "robomp rules"), rule("style")]);
+		setActiveRules([rule("python", "roboms rules"), rule("style")]);
 	});
 
 	afterEach(() => {
@@ -154,7 +154,7 @@ describe("internal-url-autocomplete", () => {
 				"history",
 				"local",
 				"memory",
-				"omp",
+				"oms",
 				"rule",
 				"security",
 				"skill",

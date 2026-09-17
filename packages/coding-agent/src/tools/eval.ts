@@ -1,15 +1,15 @@
-import { type } from "@oh-my-pi/omptype";
+import { type } from "@oh-my-soup/omstype";
 import type {
 	AgentTool,
 	AgentToolContext,
 	AgentToolResult,
 	AgentToolUpdateCallback,
 	ToolSpeculationPolicy,
-} from "@oh-my-pi/pi-agent-core";
-import type { ImageContent, ToolExample } from "@oh-my-pi/pi-ai";
-import { formatBackgroundNotice } from "@oh-my-pi/pi-tui/tools/bash";
-import { parseConfiguredThinkingLevel } from "@oh-my-pi/pi-tui/thinking";
-import { prompt } from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-agent-core";
+import type { ImageContent, ToolExample } from "@oh-my-soup/pi-ai";
+import { formatBackgroundNotice } from "@oh-my-soup/pi-tui/tools/bash";
+import { parseConfiguredThinkingLevel } from "@oh-my-soup/pi-tui/thinking";
+import { prompt } from "@oh-my-soup/pi-utils";
 import { DEFAULT_AUTO_BACKGROUND_THRESHOLD_MS, raceJobSettlement, resolveAutoBackgroundWaitMs } from "../async";
 import { jsBackend, pythonBackend } from "../eval";
 import type { ExecutorBackend, ExecutorBackendResult } from "../eval/backend";
@@ -20,7 +20,7 @@ import type { BackendProbeOptions } from "../eval/probe";
 import { defaultEvalSessionId } from "../eval/session-id";
 import { EvalShadowCellSession } from "../eval/speculation/cell-session";
 import { runWithEvalShadowCell } from "../eval/speculation/runtime-context";
-import type { EvalCellResult, EvalLanguage, EvalStatusEvent, EvalToolDetails } from "@oh-my-pi/pi-tui/tools/eval";
+import type { EvalCellResult, EvalLanguage, EvalStatusEvent, EvalToolDetails } from "@oh-my-soup/pi-tui/tools/eval";
 import evalDescription from "../prompts/tools/eval.md" with { type: "text" };
 import evalCodeModeDescription from "../prompts/tools/eval-code-mode.md" with { type: "text" };
 import {
@@ -29,21 +29,21 @@ import {
 	type OutputSummary,
 	TailBuffer,
 	truncateHeadBytes,
-} from "@oh-my-pi/pi-tui/tools/streaming-output";
+} from "@oh-my-soup/pi-tui/tools/streaming-output";
 import { sessionDelegationBias } from "../task/prompt-policy";
 import { resolveSpawnPolicy } from "../task/spawn-policy";
 import { canSpawnAtDepth } from "../task/types";
-import { webpExclusionForModel } from "@oh-my-pi/pi-tui/chat/image-loading";
+import { webpExclusionForModel } from "@oh-my-soup/pi-tui/chat/image-loading";
 import { formatDimensionNote, resizeImage } from "../utils/image-resize";
 import type { ToolSession } from ".";
 import { truncateForPrompt } from "./approval";
 import { type EvalBackendsAllowance, resolveEvalBackends } from "./eval-backends";
-import { generateCodeModeDeclarations } from "@oh-my-pi/pi-tui/tools/eval-format/code-mode-declarations";
-import { upsertStatusEvent } from "@oh-my-pi/pi-tui/tools/eval";
-import { formatOutputNotice } from "@oh-my-pi/pi-tui/tools/output-meta";
+import { generateCodeModeDeclarations } from "@oh-my-soup/pi-tui/tools/eval-format/code-mode-declarations";
+import { upsertStatusEvent } from "@oh-my-soup/pi-tui/tools/eval";
+import { formatOutputNotice } from "@oh-my-soup/pi-tui/tools/output-meta";
 import { resolveOutputMaxColumns, resolveOutputSinkHeadBytes } from "./output-meta";
 import { ToolAbortError, throwIfAborted } from "./tool-errors";
-import { ToolError } from "@oh-my-pi/pi-tui/tools/tool-errors";
+import { ToolError } from "@oh-my-soup/pi-tui/tools/tool-errors";
 import { toolResult } from "./tool-result";
 import { clampTimeout } from "./tool-timeouts";
 

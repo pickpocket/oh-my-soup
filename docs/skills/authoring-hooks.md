@@ -1,6 +1,6 @@
 ---
 name: authoring-hooks
-description: Use when creating a new omp hook. Covers HookAPI, event catalog, blocking/overriding tool calls, and context modification.
+description: Use when creating a new oms hook. Covers HookAPI, event catalog, blocking/overriding tool calls, and context modification.
 ---
 
 # Authoring Hooks
@@ -12,10 +12,10 @@ Hooks are event-driven interceptors that run alongside the agent loop. They are 
 ## Factory signature
 
 ```ts
-import type { HookAPI } from "@oh-my-pi/pi-coding-agent/extensibility/hooks";
+import type { HookAPI } from "@oh-my-soup/pi-coding-agent/extensibility/hooks";
 
-export default function myHook(omp: HookAPI): void {
-  omp.on("tool_call", async (event, ctx) => {
+export default function myHook(oms: HookAPI): void {
+  oms.on("tool_call", async (event, ctx) => {
     // intercept every tool call
   });
 }
@@ -26,7 +26,7 @@ The default export must be a function (not a class). It receives a `HookAPI` ins
 Alternatively, using `ExtensionAPI` (preferred):
 
 ```ts
-import type { ExtensionAPI } from "@oh-my-pi/pi-coding-agent";
+import type { ExtensionAPI } from "@oh-my-soup/pi-coding-agent";
 
 export default function myExtension(pi: ExtensionAPI): void {
   pi.on("tool_call", async (event, ctx) => { /* ... */ });
@@ -82,7 +82,7 @@ Extension-only events such as `tool_execution_start`, `tool_execution_update`, `
 Return `{ block: true, reason: "..." }` from a `tool_call` handler to prevent execution:
 
 ```ts
-omp.on("tool_call", async (event, ctx) => {
+oms.on("tool_call", async (event, ctx) => {
   if (event.toolName === "bash") {
     const cmd = String(event.input.command ?? "");
     if (/\brm\s+-rf\s+\//.test(cmd)) {
@@ -106,7 +106,7 @@ Contract:
 Return `{ content, details, isError }` from a `tool_result` handler to patch what the LLM sees:
 
 ```ts
-omp.on("tool_result", async (event, ctx) => {
+oms.on("tool_result", async (event, ctx) => {
   if (event.toolName === "read" && !event.isError) {
     const redacted = event.content.map(chunk => {
       if (chunk.type !== "text") return chunk;
@@ -133,7 +133,7 @@ Contract:
 Return `{ messages: [...] }` from a `context` handler to rewrite the message list before each LLM API call:
 
 ```ts
-omp.on("context", async (event, ctx) => {
+oms.on("context", async (event, ctx) => {
   // Remove debug-only custom messages from LLM context
   const filtered = event.messages.filter(
     msg => !(msg.role === "custom" && msg.customType === "debug-only")
@@ -153,10 +153,10 @@ Contract:
 ### 1. rm-rf blocker
 
 ```ts
-import type { HookAPI } from "@oh-my-pi/pi-coding-agent/extensibility/hooks";
+import type { HookAPI } from "@oh-my-soup/pi-coding-agent/extensibility/hooks";
 
-export default function rmRfBlocker(omp: HookAPI): void {
-  omp.on("tool_call", async (event, ctx) => {
+export default function rmRfBlocker(oms: HookAPI): void {
+  oms.on("tool_call", async (event, ctx) => {
     if (event.toolName !== "bash") return;
 
     const cmd = String(event.input.command ?? "");
@@ -179,7 +179,7 @@ export default function rmRfBlocker(omp: HookAPI): void {
 ### 2. API-key redactor
 
 ```ts
-import type { HookAPI } from "@oh-my-pi/pi-coding-agent/extensibility/hooks";
+import type { HookAPI } from "@oh-my-soup/pi-coding-agent/extensibility/hooks";
 
 // Common API-key shapes. Not exhaustive — providers using bespoke formats
 // (Anthropic `sk-ant-…`, JWT-style bearers, gateway-specific prefixes, etc.)
@@ -193,8 +193,8 @@ const SECRET_PATTERNS = [
   /\b[a-zA-Z0-9_-]{20,}\s*=\s*["']?[a-zA-Z0-9._/+=-]{20,}["']?/g,
 ];
 
-export default function apiKeyRedactor(omp: HookAPI): void {
-  omp.on("tool_result", async (event) => {
+export default function apiKeyRedactor(oms: HookAPI): void {
+  oms.on("tool_result", async (event) => {
     if (event.isError) return;
 
     let changed = false;
@@ -216,10 +216,10 @@ export default function apiKeyRedactor(omp: HookAPI): void {
 ### 3. Context filter
 
 ```ts
-import type { HookAPI } from "@oh-my-pi/pi-coding-agent/extensibility/hooks";
+import type { HookAPI } from "@oh-my-soup/pi-coding-agent/extensibility/hooks";
 
-export default function contextFilter(omp: HookAPI): void {
-  omp.on("context", async (event) => {
+export default function contextFilter(oms: HookAPI): void {
+  oms.on("context", async (event) => {
     const MAX_TOOL_OUTPUT_CHARS = 8_000;
 
     const trimmed = event.messages.map(msg => {

@@ -1,20 +1,20 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "bun:test";
-import type { Model } from "@oh-my-pi/pi-ai";
-import { Agent } from "@oh-my-pi/pi-agent-core";
-import { createMockModel } from "@oh-my-pi/pi-ai/providers/mock";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
-import { ModelRegistry } from "@oh-my-pi/pi-coding-agent/config/model-registry";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { AgentSession } from "@oh-my-pi/pi-coding-agent/session/agent-session";
-import { AuthStorage } from "@oh-my-pi/pi-coding-agent/session/auth-storage";
-import { expandModelMentionTags } from "@oh-my-pi/pi-tui/prompt/model-mention-syntax";
+import type { Model } from "@oh-my-soup/pi-ai";
+import { Agent } from "@oh-my-soup/pi-agent-core";
+import { createMockModel } from "@oh-my-soup/pi-ai/providers/mock";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
+import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { AgentSession } from "@oh-my-soup/pi-coding-agent/session/agent-session";
+import { AuthStorage } from "@oh-my-soup/pi-coding-agent/session/auth-storage";
+import { expandModelMentionTags } from "@oh-my-soup/pi-tui/prompt/model-mention-syntax";
 import {
 	MODEL_MENTION_ENTRY_TYPE,
 	ModelMentionRegistry,
 	readModelMentions,
-} from "@oh-my-pi/pi-coding-agent/session/model-mentions";
-import { SessionManager } from "@oh-my-pi/pi-coding-agent/session/session-manager";
-import { getBundledAgent } from "@oh-my-pi/pi-coding-agent/task/agents";
+} from "@oh-my-soup/pi-coding-agent/session/model-mentions";
+import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
+import { getBundledAgent } from "@oh-my-soup/pi-coding-agent/task/agents";
 
 function model(provider: string, id: string, name: string): Model {
 	return buildModel({

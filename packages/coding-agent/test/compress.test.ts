@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import * as path from "node:path";
-import { resolveCliArgv } from "@oh-my-pi/pi-coding-agent/cli-commands";
-import { resolveCompressTargets, runCompressCommand } from "@oh-my-pi/pi-coding-agent/compress/index";
-import { CompressProtocol } from "@oh-my-pi/pi-coding-agent/compress/protocol";
+import { resolveCliArgv } from "@oh-my-soup/pi-coding-agent/cli-commands";
+import { resolveCompressTargets, runCompressCommand } from "@oh-my-soup/pi-coding-agent/compress/index";
+import { CompressProtocol } from "@oh-my-soup/pi-coding-agent/compress/protocol";
 
 const SOURCE = "The timeout parameter defaults to thirty seconds when no value is supplied by the caller.";
 const PACKAGE_ROOT = path.join(import.meta.dir, "..");

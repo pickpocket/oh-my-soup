@@ -2,13 +2,13 @@
  * Shared contracts for the Harbor-free Terminal-Bench 2.x runner.
  *
  * Each task's published OCI image runs as a hardware-isolated Vibemon microVM;
- * omp runs inside that guest over raw RPC stdio carried by the Vibemon SDK's
+ * oms runs inside that guest over raw RPC stdio carried by the Vibemon SDK's
  * streaming exec transport.
  *
  * Module map:
  * - `dataset.ts` — task acquisition + `task.toml` parsing → {@link TbTask}
  * - `vmon.ts` — Vibemon SDK lifecycle and raw exec transport
- * - `agent.ts` — omp Linux binary build + guest install
+ * - `agent.ts` — oms Linux binary build + guest install
  * - `trial.ts` — one trial: agent run → verifier → {@link TrialResult}
  * - `store.ts` — SQLite trial/epoch persistence
  * - `cli.ts` — scheduler, continuous epochs, report
@@ -44,7 +44,7 @@ export interface TbTask {
 	category: string;
 }
 
-/** Guest CPU architecture, normalized to omp binary naming. */
+/** Guest CPU architecture, normalized to oms binary naming. */
 export type GuestArch = "x64" | "arm64";
 
 /** Remote vmond connection and guest architecture configuration. */
@@ -88,14 +88,14 @@ export interface TrialResult {
 	error?: string;
 }
 
-/** OpenRouter request-routing suffix applied by omp. */
+/** OpenRouter request-routing suffix applied by oms. */
 export type OpenRouterVariant = "default" | "nitro" | "floor" | "online" | "exacto";
 
 /** Host auth-gateway routing written into each guest's models.yml. */
 export interface GatewayConfig {
 	/** Local gateway URL; each trial rewrites it to its guest-visible tunnel endpoint. */
 	url: string;
-	/** Gateway bearer (`omp auth-gateway token`); `"no-auth"` when the gateway runs open. */
+	/** Gateway bearer (`oms auth-gateway token`); `"no-auth"` when the gateway runs open. */
 	token: string;
 	/** Provider ids routed through the gateway (derived from the model pool). */
 	providers: string[];
@@ -103,11 +103,11 @@ export interface GatewayConfig {
 	openrouterVariant: OpenRouterVariant;
 }
 
-/** Host paths of self-contained omp Linux binaries, keyed by guest architecture. */
+/** Host paths of self-contained oms Linux binaries, keyed by guest architecture. */
 export interface AgentBinaries {
 	x64?: string;
 	arm64?: string;
-	/** omp package version the binaries were built from (for run provenance). */
+	/** oms package version the binaries were built from (for run provenance). */
 	version: string;
 }
 

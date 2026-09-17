@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "bun:test";
-import { parseHTML } from "@oh-my-pi/pi-utils/dom";
+import { parseHTML } from "@oh-my-soup/pi-utils/dom";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { ErrorsRoute } from "../src/client/routes/ErrorsRoute";

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { setProcessName, TempDir } from "@oh-my-pi/pi-utils";
+import { setProcessName, TempDir } from "@oh-my-soup/pi-utils";
 import { startDaemonBrokerFromEnvironment } from "../../src/launch/broker";
 import { createDaemonBrokerClient } from "../../src/launch/client";
 import {
@@ -34,7 +34,7 @@ function startBroker(projectDir: string, runtimeDir: string): Promise<void> {
 
 describe("daemon broker log snapshots", () => {
 	it("returns the cursor captured with the PTY bytes rendered in the response", async () => {
-		using tempDir = TempDir.createSync("@omp-launch-cursor-");
+		using tempDir = TempDir.createSync("@oms-launch-cursor-");
 		const projectDir = path.join(tempDir.path(), "project");
 		const runtimeDir = path.join(tempDir.path(), "runtime");
 		await fs.mkdir(projectDir);
@@ -135,7 +135,7 @@ process.stdin.on("data", () => process.stdout.write("AFTER-SNAPSHOT\\n"));
 	// own timeout. The broker now replies, and the reply bytes reach the program's
 	// stdin without being echoed back into the captured log.
 	it("answers terminal queries emitted by a supervised PTY", async () => {
-		using tempDir = TempDir.createSync("@omp-launch-terminal-query-");
+		using tempDir = TempDir.createSync("@oms-launch-terminal-query-");
 		const projectDir = path.join(tempDir.path(), "project");
 		const runtimeDir = path.join(tempDir.path(), "runtime");
 		await fs.mkdir(projectDir);

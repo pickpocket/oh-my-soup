@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { gzipSync } from "node:zlib";
-import { decodeDocsIndex } from "@oh-my-pi/pi-coding-agent/internal-urls/docs-index";
+import { decodeDocsIndex } from "@oh-my-soup/pi-coding-agent/internal-urls/docs-index";
 import { buildDocsIndexPayload } from "../../scripts/generate-docs-index";
 
 function embed(files: readonly string[], bodies: readonly string[]): string {
@@ -13,7 +13,7 @@ const embedPayload = embed(files, bodies);
 
 // The embed path only runs in compiled binaries / the npm bundle; dev tests
 // otherwise exercise the disk fallback (empty placeholder), so a regression in
-// the two-line `<filenames>\n<gzip bodies>` parsing would ship broken `omp://`
+// the two-line `<filenames>\n<gzip bodies>` parsing would ship broken `oms://`
 // docs undetected. These cover the populated-embed decode directly.
 describe("decodeDocsIndex (embedded docs path)", () => {
 	it("lists filenames from the first line without inflating the blob", () => {

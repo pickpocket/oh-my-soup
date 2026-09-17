@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it } from "bun:test";
-import type { FetchImpl } from "@oh-my-pi/pi-ai";
-import { extractFacts } from "@oh-my-pi/pi-mnemopi/core/extraction";
-import { type ChatMessage, ExtractionClient } from "@oh-my-pi/pi-mnemopi/core/extraction/client";
-import { getExtractionStats, resetExtractionStats } from "@oh-my-pi/pi-mnemopi/core/extraction/diagnostics";
-import { resetHostLlmBackendForTests } from "@oh-my-pi/pi-mnemopi/core/llm-backends";
+import type { FetchImpl } from "@oh-my-soup/pi-ai";
+import { extractFacts } from "@oh-my-soup/pi-mnemopi/core/extraction";
+import { type ChatMessage, ExtractionClient } from "@oh-my-soup/pi-mnemopi/core/extraction/client";
+import { getExtractionStats, resetExtractionStats } from "@oh-my-soup/pi-mnemopi/core/extraction/diagnostics";
+import { resetHostLlmBackendForTests } from "@oh-my-soup/pi-mnemopi/core/llm-backends";
 
 const OLD_ENV = { ...process.env };
 

@@ -10,8 +10,8 @@ import type {
 	ToolCall,
 	ToolResultMessage,
 	UserMessage,
-} from "@oh-my-pi/pi-ai";
-import { isRecord } from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-ai";
+import { isRecord } from "@oh-my-soup/pi-utils";
 import { readForeignJsonRecords } from "./foreign-session-jsonl";
 import type { ForeignSessionInfo, ForeignSessionStore } from "./foreign-session-store";
 import type { CompactionEntry, ModelChangeEntry, SessionEntry, SessionMessageEntry } from "./session-entries";
@@ -453,7 +453,7 @@ function rollback(records: ConvertedRecord[], turns: number): void {
 	}
 }
 
-/** Imports locally stored OpenAI Codex sessions into OMP's in-memory session format. */
+/** Imports locally stored OpenAI Codex sessions into OMS's in-memory session format. */
 export class CodexSessionStore implements ForeignSessionStore {
 	/** Foreign-session source discriminator. */
 	readonly source = "codex";
@@ -539,7 +539,7 @@ export class CodexSessionStore implements ForeignSessionStore {
 		return sessions;
 	}
 
-	/** Converts one Codex rollout into a non-persistent OMP session. */
+	/** Converts one Codex rollout into a non-persistent OMS session. */
 	async load(info: ForeignSessionInfo): Promise<SessionManager> {
 		if (info.source !== "codex") throw new Error(`Cannot load ${info.source} session with CodexSessionStore`);
 		let records: Record<string, unknown>[];

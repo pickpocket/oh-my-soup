@@ -1,6 +1,6 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import * as vcs from "@oh-my-pi/pi-natives/vcs";
+import * as vcs from "@oh-my-soup/pi-natives/vcs";
 import type {
 	SecurityAccountRef,
 	SecurityAuthRef,
@@ -175,7 +175,7 @@ async function digestWorkingTree(
 	}
 	const head = (await adapter.headSha(repositoryRoot, signal)) ?? "unborn";
 	hasher.update(head);
-	return `omp-security-tree/v1:sha256:${hasher.digest("hex")}`;
+	return `oms-security-tree/v1:sha256:${hasher.digest("hex")}`;
 }
 
 async function normalizeTarget(
@@ -206,7 +206,7 @@ async function normalizeTarget(
 			headRevision,
 			includePaths,
 			excludePaths,
-			treeDigest: `omp-security-diff/v1:sha256:${Bun.SHA256.hash(
+			treeDigest: `oms-security-diff/v1:sha256:${Bun.SHA256.hash(
 				canonicalSecurityJson({ baseRevision, headRevision, includePaths, excludePaths, rawDiff }),
 				"hex",
 			)}`,
@@ -350,7 +350,7 @@ async function buildPlanMaterial(
 		output,
 		model,
 		account,
-		configFingerprint: `omp-security-config/v1:sha256:${Bun.SHA256.hash(canonicalSecurityJson(request.config), "hex")}`,
+		configFingerprint: `oms-security-config/v1:sha256:${Bun.SHA256.hash(canonicalSecurityJson(request.config), "hex")}`,
 		workflowFingerprint: request.workflowFingerprint,
 	};
 }
@@ -360,9 +360,9 @@ export async function createSecurityScanPlan(
 	adapter: SecurityGitAdapter = DEFAULT_SECURITY_GIT_ADAPTER,
 ): Promise<SecurityScanPlan> {
 	const material = await buildPlanMaterial(request, adapter);
-	const fingerprint = `omp-security-plan/v1:sha256:${Bun.SHA256.hash(canonicalSecurityJson(material), "hex")}`;
+	const fingerprint = `oms-security-plan/v1:sha256:${Bun.SHA256.hash(canonicalSecurityJson(material), "hex")}`;
 	return parseSecurityScanPlan({
-		documentType: "omp-security.scan-plan",
+		documentType: "oms-security.scan-plan",
 		schemaVersion: "1.0",
 		id: createSecurityPlanId(fingerprint),
 		createdAt: request.createdAt ?? new Date().toISOString(),

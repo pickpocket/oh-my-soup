@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { type MuxConnectParams, muxServerKey } from "@oh-my-pi/pi-coding-agent/lsp/mux/protocol";
+import { type MuxConnectParams, muxServerKey } from "@oh-my-soup/pi-coding-agent/lsp/mux/protocol";
 
 const base: MuxConnectParams = {
 	command: "typescript-language-server",

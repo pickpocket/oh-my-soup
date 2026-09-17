@@ -1,5 +1,5 @@
 /**
- * Standalone TUI model picker used by `omp setup speech`.
+ * Standalone TUI model picker used by `oms setup speech`.
  *
  * One-shot {@link selectStandaloneItem} prompt: resolve on select/cancel and
  * let the adapter tear the UI down. The standalone TUI auto-renders on input,

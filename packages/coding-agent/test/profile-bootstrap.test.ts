@@ -18,7 +18,7 @@ describe("extractProfileFlags", () => {
 	});
 
 	it("does not eat the value of known string-valued flags", () => {
-		// `omp --system-prompt --profile foo` must pass the literal `--profile`
+		// `oms --system-prompt --profile foo` must pass the literal `--profile`
 		// through to the launch parser (it's the system prompt) and `foo` is the
 		// positional message. The previous implementation would silently activate
 		// profile `foo` here, dropping the user's prompt.
@@ -29,7 +29,7 @@ describe("extractProfileFlags", () => {
 	it("does not eat the value of --approval-mode", () => {
 		// `--approval-mode` is a string-valued flag in args.ts (`args[++i]` with
 		// no `-` check). The pre-parser must mirror that contract or
-		// `omp --approval-mode --profile foo` silently activates profile `foo`
+		// `oms --approval-mode --profile foo` silently activates profile `foo`
 		// instead of letting the launch parser surface the invalid mode value.
 		const result = extractProfileFlags(["--approval-mode", "--profile", "foo", "bar"]);
 		expect(result.profile).toBeUndefined();
@@ -54,7 +54,7 @@ describe("extractProfileFlags", () => {
 		// Same argv as above, but the plan-mode extension is NOT loaded, so `--plan`
 		// is the built-in string flag (planning model). It must not consume the
 		// bootstrap's internal boundary sentinel as its value — otherwise plan would
-		// become "--omp-profile-boundary" and the user's message would be dropped.
+		// become "--oms-profile-boundary" and the user's message would be dropped.
 		const extracted = extractProfileFlags(["--plan", "--profile", "work", "follow up"]);
 		expect(extracted.argv).toEqual(["--plan", PROFILE_BOOTSTRAP_BOUNDARY_ARG, "follow up"]);
 
@@ -145,7 +145,7 @@ describe("extractProfileFlags", () => {
 	});
 
 	it("stops extracting global flags at a subcommand boundary", () => {
-		// `omp grep --profile <path>` must reach the grep subcommand intact; the
+		// `oms grep --profile <path>` must reach the grep subcommand intact; the
 		// bootstrap must not treat `--profile <path>` as a profile selection.
 		const result = extractProfileFlags(["grep", "--profile", "packages/coding-agent/src/cli.ts"]);
 		expect(result.profile).toBeUndefined();
@@ -159,10 +159,10 @@ describe("extractProfileFlags", () => {
 	});
 
 	it("treats explicit launch as the default command and keeps extracting globals", () => {
-		expect(extractProfileFlags(["launch", "--profile", "work", "--alias", "omp-work"])).toEqual({
+		expect(extractProfileFlags(["launch", "--profile", "work", "--alias", "oms-work"])).toEqual({
 			argv: ["launch"],
 			profile: "work",
-			aliasName: "omp-work",
+			aliasName: "oms-work",
 		});
 	});
 
@@ -206,7 +206,7 @@ describe("extractProfileFlags", () => {
 
 	it("exempts known value-less launch flags so a trailing profile still activates", () => {
 		// Boolean launch flags (--print, --yolo, --no-tools, -p) take no value, so
-		// the token after them is a fresh argument: `omp --print --profile work`
+		// the token after them is a fresh argument: `oms --print --profile work`
 		// must still select the profile.
 		expect(extractProfileFlags(["--print", "--profile", "work"])).toEqual({
 			argv: ["--print"],
@@ -251,7 +251,7 @@ describe("extractProfileFlags", () => {
 	it("does not hide a global --profile/--alias behind an unknown flag with a flag-looking successor", () => {
 		// `parseArgs` never hands a flag-looking successor to an extension flag:
 		// boolean extension flags consume nothing, and string extension flags only
-		// consume value-like (non-`-`) successors. So `omp --some-ext-flag --profile
+		// consume value-like (non-`-`) successors. So `oms --some-ext-flag --profile
 		// work` must still select profile `work`; the prior bootstrap forwarded
 		// `--profile` as a protected successor and silently fell back to default.
 		expect(extractProfileFlags(["--some-ext-flag", "--profile", "work"])).toEqual({
@@ -259,10 +259,10 @@ describe("extractProfileFlags", () => {
 			profile: "work",
 			aliasName: undefined,
 		});
-		expect(extractProfileFlags(["--some-ext-flag", "--alias", "omp-work"])).toEqual({
+		expect(extractProfileFlags(["--some-ext-flag", "--alias", "oms-work"])).toEqual({
 			argv: ["--some-ext-flag"],
 			profile: undefined,
-			aliasName: "omp-work",
+			aliasName: "oms-work",
 		});
 	});
 

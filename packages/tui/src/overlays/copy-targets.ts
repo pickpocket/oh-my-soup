@@ -1,5 +1,5 @@
-import type { AgentMessage } from "@oh-my-pi/pi-agent-core";
-import type { ToolCall } from "@oh-my-pi/pi-ai";
+import type { AgentMessage } from "@oh-my-soup/pi-agent-core";
+import type { ToolCall } from "@oh-my-soup/pi-ai";
 import { extractMarkdownLinks } from "../index";
 
 /** A fenced code block extracted from assistant markdown. */

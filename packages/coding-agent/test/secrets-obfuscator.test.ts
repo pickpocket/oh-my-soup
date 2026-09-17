@@ -7,20 +7,20 @@ import * as crypto from "node:crypto";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { type } from "@oh-my-pi/omptype";
-import type { AgentMessage } from "@oh-my-pi/pi-agent-core";
-import { buildOpenAiNativeHistory } from "@oh-my-pi/pi-agent-core/compaction";
-import type { AssistantMessage, Context, Message, TextContent } from "@oh-my-pi/pi-ai";
-import { buildParams } from "@oh-my-pi/pi-ai/providers/openai-responses";
+import { type } from "@oh-my-soup/omstype";
+import type { AgentMessage } from "@oh-my-soup/pi-agent-core";
+import { buildOpenAiNativeHistory } from "@oh-my-soup/pi-agent-core/compaction";
+import type { AssistantMessage, Context, Message, TextContent } from "@oh-my-soup/pi-ai";
+import { buildParams } from "@oh-my-soup/pi-ai/providers/openai-responses";
 import type {
 	ResponseFileSearchToolCall,
 	ResponseFunctionWebSearch,
 	ResponseInputItem,
 	ResponseToolSearchOutputItemParam,
-} from "@oh-my-pi/pi-ai/providers/openai-responses-wire";
-import { buildResponsesInput } from "@oh-my-pi/pi-ai/providers/openai-shared";
-import { isJsonSchemaValueValid } from "@oh-my-pi/pi-ai/utils/schema/json-schema-validator";
-import { getBundledModel } from "@oh-my-pi/pi-catalog/models";
+} from "@oh-my-soup/pi-ai/providers/openai-responses-wire";
+import { buildResponsesInput } from "@oh-my-soup/pi-ai/providers/openai-shared";
+import { isJsonSchemaValueValid } from "@oh-my-soup/pi-ai/utils/schema/json-schema-validator";
+import { getBundledModel } from "@oh-my-soup/pi-catalog/models";
 import {
 	builtinCredentialSecretEntries,
 	collectEnvSecrets,
@@ -28,7 +28,7 @@ import {
 	getSecretPlaceholderKey,
 	getSecretPlaceholderKeySync,
 	loadSecrets,
-} from "@oh-my-pi/pi-coding-agent/secrets";
+} from "@oh-my-soup/pi-coding-agent/secrets";
 import {
 	collectNativeReplayRegexSecretValues,
 	deobfuscateAgentMessages,
@@ -37,16 +37,16 @@ import {
 	obfuscateNativeReplay,
 	obfuscateProviderContext,
 	obfuscateToolArguments,
-} from "@oh-my-pi/pi-coding-agent/secrets/message-transform";
-import { type SecretEntry, SecretObfuscator } from "@oh-my-pi/pi-coding-agent/secrets/obfuscator";
+} from "@oh-my-soup/pi-coding-agent/secrets/message-transform";
+import { type SecretEntry, SecretObfuscator } from "@oh-my-soup/pi-coding-agent/secrets/obfuscator";
 import {
 	sanitizeSecretFriendlyName,
 	secretEntriesNeedPlaceholderKey,
 	secretEntryNeedsPlaceholderKey,
 	stripPendingSecretPlaceholderSuffix,
-} from "@oh-my-pi/pi-coding-agent/secrets/placeholder";
-import { compileSecretRegex } from "@oh-my-pi/pi-coding-agent/secrets/regex";
-import { getActiveProfile, getAgentDir, setProfile } from "@oh-my-pi/pi-utils/dirs";
+} from "@oh-my-soup/pi-coding-agent/secrets/placeholder";
+import { compileSecretRegex } from "@oh-my-soup/pi-coding-agent/secrets/regex";
+import { getActiveProfile, getAgentDir, setProfile } from "@oh-my-soup/pi-utils/dirs";
 
 describe("compileSecretRegex", () => {
 	it("adds global flag when not provided", () => {
@@ -175,7 +175,7 @@ describe("builtinCredentialSecretEntries", () => {
 
 describe("collectEnvSecrets connection URLs", () => {
 	it("registers the password from a DSN env var that does not match secret-name patterns", () => {
-		const name = "OMP_TEST_CONNURL_DSN";
+		const name = "OMS_TEST_CONNURL_DSN";
 		const scheme = "postgres";
 		const user = "app";
 		const pw = `pw${"0123456789ab".slice(0, 12)}`;
@@ -193,7 +193,7 @@ describe("collectEnvSecrets connection URLs", () => {
 	});
 
 	it("registers both raw and decoded forms of a percent-encoded password", () => {
-		const name = "OMP_TEST_CONNURL_ENCODED";
+		const name = "OMS_TEST_CONNURL_ENCODED";
 		const pwRaw = `p%40ss${"12345678"}%3Ax`;
 		const pwDecoded = decodeURIComponent(pwRaw);
 		const url = `postgres://app:${pwRaw}@db.internal:5432/shop`;
@@ -208,7 +208,7 @@ describe("collectEnvSecrets connection URLs", () => {
 	});
 
 	it("registers the password from a userless connection URL", () => {
-		const name = "OMP_TEST_CONNURL_NOUSER";
+		const name = "OMS_TEST_CONNURL_NOUSER";
 		const pw = `pw${"0123456789ab".slice(0, 12)}`;
 		const url = `redis://:${pw}@redis.internal:6379/0`;
 		process.env[name] = url;
@@ -221,7 +221,7 @@ describe("collectEnvSecrets connection URLs", () => {
 	});
 
 	it("registers the full password when it contains an unescaped at sign", () => {
-		const name = "OMP_TEST_CONNURL_RAW_AT";
+		const name = "OMS_TEST_CONNURL_RAW_AT";
 		const pw = "passwrd1@correcthorse";
 		const url = `postgres://app:${pw}@db.internal/shop`;
 		process.env[name] = url;
@@ -235,7 +235,7 @@ describe("collectEnvSecrets connection URLs", () => {
 	});
 
 	it("skips connection-URL passwords shorter than the minimum length", () => {
-		const name = "OMP_TEST_CONNURL_SHORT";
+		const name = "OMS_TEST_CONNURL_SHORT";
 		const url = "postgres://app:pw@db.internal:5432/shop";
 		process.env[name] = url;
 		try {
@@ -247,7 +247,7 @@ describe("collectEnvSecrets connection URLs", () => {
 	});
 
 	it("ignores non-URL values on non-secret variable names", () => {
-		const name = "OMP_TEST_CONNURL_PLAIN";
+		const name = "OMS_TEST_CONNURL_PLAIN";
 		const value = "hello-world-value-123";
 		process.env[name] = value;
 		try {
@@ -296,7 +296,7 @@ describe("lazy placeholder key", () => {
 	});
 
 	it("getSecretPlaceholderKeySync creates the key file on demand and shares it with the async readers", async () => {
-		const dir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-lazy-placeholder-key-"));
+		const dir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-lazy-placeholder-key-"));
 		try {
 			expect(await getExistingSecretPlaceholderKey(dir)).toBeUndefined();
 			const key = getSecretPlaceholderKeySync(dir);
@@ -515,7 +515,7 @@ describe("getSecretPlaceholderKey", () => {
 	async function withTempAgentHome(run: () => Promise<void>): Promise<void> {
 		const originalProfile = getActiveProfile();
 		const originalHome = process.env.HOME;
-		const tempHomeDir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-secret-key-"));
+		const tempHomeDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-secret-key-"));
 		process.env.HOME = tempHomeDir;
 		const homedirSpy = spyOn(os, "homedir").mockReturnValue(tempHomeDir);
 		try {
@@ -3162,14 +3162,14 @@ describe("SecretObfuscator friendlyName placeholders", () => {
 	});
 
 	it("omits invalid friendlyName metadata without dropping the secret", async () => {
-		const root = await fs.mkdtemp(path.join(os.tmpdir(), "omp-secret-friendly-"));
+		const root = await fs.mkdtemp(path.join(os.tmpdir(), "oms-secret-friendly-"));
 		try {
 			const project = path.join(root, "project");
 			const agentDir = path.join(root, "agent");
-			await fs.mkdir(path.join(project, ".omp"), { recursive: true });
+			await fs.mkdir(path.join(project, ".oms"), { recursive: true });
 			await fs.mkdir(agentDir, { recursive: true });
 			await fs.writeFile(
-				path.join(project, ".omp", "secrets.yml"),
+				path.join(project, ".oms", "secrets.yml"),
 				"- type: plain\n  content: invalid-friendly-secret\n  friendlyName: '***'\n",
 			);
 
@@ -3188,14 +3188,14 @@ describe("SecretObfuscator friendlyName placeholders", () => {
 	});
 
 	it("omits non-string friendlyName metadata without dropping the secret", async () => {
-		const root = await fs.mkdtemp(path.join(os.tmpdir(), "omp-secret-friendly-"));
+		const root = await fs.mkdtemp(path.join(os.tmpdir(), "oms-secret-friendly-"));
 		try {
 			const project = path.join(root, "project");
 			const agentDir = path.join(root, "agent");
-			await fs.mkdir(path.join(project, ".omp"), { recursive: true });
+			await fs.mkdir(path.join(project, ".oms"), { recursive: true });
 			await fs.mkdir(agentDir, { recursive: true });
 			await fs.writeFile(
-				path.join(project, ".omp", "secrets.yml"),
+				path.join(project, ".oms", "secrets.yml"),
 				"- type: plain\n  content: non-string-friendly-secret\n  friendlyName: 123\n",
 			);
 
@@ -3214,14 +3214,14 @@ describe("SecretObfuscator friendlyName placeholders", () => {
 	});
 
 	it("rejects a secrets.yml replace regex entry that can never redact a 1-2 char match distinctly from itself", async () => {
-		const root = await fs.mkdtemp(path.join(os.tmpdir(), "omp-secret-friendly-"));
+		const root = await fs.mkdtemp(path.join(os.tmpdir(), "oms-secret-friendly-"));
 		try {
 			const project = path.join(root, "project");
 			const agentDir = path.join(root, "agent");
-			await fs.mkdir(path.join(project, ".omp"), { recursive: true });
+			await fs.mkdir(path.join(project, ".oms"), { recursive: true });
 			await fs.mkdir(agentDir, { recursive: true });
 			await fs.writeFile(
-				path.join(project, ".omp", "secrets.yml"),
+				path.join(project, ".oms", "secrets.yml"),
 				'- type: regex\n  mode: replace\n  content: "."\n',
 			);
 
@@ -3243,14 +3243,14 @@ describe("SecretObfuscator friendlyName placeholders", () => {
 		// case-sensitive/punctuated pattern like `tok_[a-z0-9]+` can never match
 		// an already-uppercased, separator-stripped rendering of itself. The fix
 		// still validates the friendlyName but returns it unsanitized.
-		const root = await fs.mkdtemp(path.join(os.tmpdir(), "omp-secret-friendly-"));
+		const root = await fs.mkdtemp(path.join(os.tmpdir(), "oms-secret-friendly-"));
 		try {
 			const project = path.join(root, "project");
 			const agentDir = path.join(root, "agent");
-			await fs.mkdir(path.join(project, ".omp"), { recursive: true });
+			await fs.mkdir(path.join(project, ".oms"), { recursive: true });
 			await fs.mkdir(agentDir, { recursive: true });
 			await fs.writeFile(
-				path.join(project, ".omp", "secrets.yml"),
+				path.join(project, ".oms", "secrets.yml"),
 				'- type: regex\n  content: "tok_[a-z0-9]+"\n  friendlyName: "tok_abc123"\n',
 			);
 

@@ -60,7 +60,7 @@ export function formatBytes(bytes: number): string {
 
 /**
  * Truncate a string to maxLen characters, appending an ellipsis if truncated.
- * For display-width-aware truncation (terminals), use truncateToWidth from @oh-my-pi/pi-tui.
+ * For display-width-aware truncation (terminals), use truncateToWidth from @oh-my-soup/pi-tui.
  */
 export function truncate(str: string, maxLen: number, ellipsis = "…"): string {
 	if (str.length <= maxLen) return str;

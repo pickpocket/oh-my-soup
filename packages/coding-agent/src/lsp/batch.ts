@@ -1,4 +1,4 @@
-import type { ToolCallContext } from "@oh-my-pi/pi-agent-core";
+import type { ToolCallContext } from "@oh-my-soup/pi-agent-core";
 
 const LSP_BATCH_TOOLS = new Set(["edit", "write"]);
 

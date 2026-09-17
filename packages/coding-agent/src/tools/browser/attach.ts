@@ -1,12 +1,12 @@
 import * as fs from "node:fs/promises";
 import * as net from "node:net";
 import * as path from "node:path";
-import { Process, ProcessStatus } from "@oh-my-pi/pi-natives";
-import { getBrowserProfilesDir } from "@oh-my-pi/pi-utils";
+import { Process, ProcessStatus } from "@oh-my-soup/pi-natives";
+import { getBrowserProfilesDir } from "@oh-my-soup/pi-utils";
 import type { Socket } from "bun";
 import type { Browser, Page } from "puppeteer-core";
 import { throwIfAborted } from "../tool-errors";
-import { ToolError } from "@oh-my-pi/pi-tui/tools/tool-errors";
+import { ToolError } from "@oh-my-soup/pi-tui/tools/tool-errors";
 
 const ATTACH_TARGET_SKIP_PATTERN =
 	/request[\s_-]?handler|devtools|background[\s_-]?(?:page|host)|service[\s_-]?worker/i;
@@ -180,13 +180,13 @@ const CHROMIUM_FLATPAK_IDS: Record<string, true> = {
  * Launch argv for a spawned executable. Chrome 136+ silently ignores
  * `--remote-debugging-port` when the default user-data-dir is in use: the
  * browser opens as usual, nothing listens, and attach waits out its timeout.
- * Chromium-family browsers therefore get a stable omp-owned profile under
- * `~/.omp/browser-profiles/<exe slug>` unless the caller already picked one.
+ * Chromium-family browsers therefore get a stable oms-owned profile under
+ * `~/.oms/browser-profiles/<exe slug>` unless the caller already picked one.
  * That profile is also what lets a second instance start beside the user's
  * running default-profile browser instead of handing off to it. Electron apps
  * are left untouched: `--user-data-dir` would relocate their app data.
  *
- * An omp-owned profile also bypasses the OS keystore (`--use-mock-keychain`,
+ * An oms-owned profile also bypasses the OS keystore (`--use-mock-keychain`,
  * `--password-store=basic`, the same pair puppeteer's launcher sets): Chromium
  * otherwise derives its cookie-encryption key from the login keychain and
  * macOS blocks on a "wants to use your confidential information" dialog for

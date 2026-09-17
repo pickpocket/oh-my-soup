@@ -1,9 +1,9 @@
 import { expect, it } from "bun:test";
-import type { ResponseInput } from "@oh-my-pi/pi-ai/providers/openai-responses-wire";
-import { buildResponsesInput } from "@oh-my-pi/pi-ai/providers/openai-shared";
-import type { AssistantMessage, Context, ToolResultMessage } from "@oh-my-pi/pi-ai/types";
-import { createOpenAIResponsesHistoryPayload } from "@oh-my-pi/pi-ai/utils";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
+import type { ResponseInput } from "@oh-my-soup/pi-ai/providers/openai-responses-wire";
+import { buildResponsesInput } from "@oh-my-soup/pi-ai/providers/openai-shared";
+import type { AssistantMessage, Context, ToolResultMessage } from "@oh-my-soup/pi-ai/types";
+import { createOpenAIResponsesHistoryPayload } from "@oh-my-soup/pi-ai/utils";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
 
 // DeepSeek via openai-responses (#11473): its validator pairs tool calls by
 // turn, so an assistant `message` wedged between a `function_call` and its
@@ -49,7 +49,7 @@ function toolResult(callId: string, toolName: string, text: string, isError = fa
 
 it("does not wedge a repaired orphan-output note between a call and its output (#11473)", () => {
 	// One turn: model issued parallel `todo` (call_00) + `bash` (call_01). `todo`
-	// failed omp-side arg validation, so the native-replay snapshot (dt:false)
+	// failed oms-side arg validation, so the native-replay snapshot (dt:false)
 	// carries only the landed `bash` call; `todo` survives as an orphan result.
 	const assistant: AssistantMessage = {
 		role: "assistant",

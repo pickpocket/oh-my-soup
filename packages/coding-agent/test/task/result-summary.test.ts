@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import { formatTaskResultSummary } from "@oh-my-pi/pi-coding-agent/task/result-summary";
-import type { SingleResult } from "@oh-my-pi/pi-tui/tools/task";
+import { formatTaskResultSummary } from "@oh-my-soup/pi-coding-agent/task/result-summary";
+import type { SingleResult } from "@oh-my-soup/pi-tui/tools/task";
 
 function settledResult(output: string): SingleResult {
 	return {

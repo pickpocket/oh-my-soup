@@ -2,12 +2,12 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { resetSettingsForTest, Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { EditTool, getEditStore, type PatchParams } from "@oh-my-pi/pi-coding-agent/edit";
-import { formatHashlineHeader } from "@oh-my-pi/pi-tui/tools/hashline-format";
-import type { ToolSession } from "@oh-my-pi/pi-coding-agent/tools";
-import type { EditMode } from "@oh-my-pi/pi-tui/tools/edit";
-import { removeWithRetries } from "@oh-my-pi/pi-utils";
+import { resetSettingsForTest, Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { EditTool, getEditStore, type PatchParams } from "@oh-my-soup/pi-coding-agent/edit";
+import { formatHashlineHeader } from "@oh-my-soup/pi-tui/tools/hashline-format";
+import type { ToolSession } from "@oh-my-soup/pi-coding-agent/tools";
+import type { EditMode } from "@oh-my-soup/pi-tui/tools/edit";
+import { removeWithRetries } from "@oh-my-soup/pi-utils";
 
 const MODEL = "openai/gpt-5.6";
 const SOURCE = "export function value(): number {\n\treturn 1;\n}\n";
@@ -35,7 +35,7 @@ let session: ToolSession;
 
 beforeEach(async () => {
 	resetSettingsForTest();
-	tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-edit-blackbox-"));
+	tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-edit-blackbox-"));
 	agentDir = path.join(tempDir, "agent");
 	logPath = path.join(agentDir, "edit-blackbox.jsonl");
 	await fs.mkdir(agentDir, { recursive: true });

@@ -1,5 +1,5 @@
-import type { ImageContent } from "@oh-my-pi/pi-ai";
-import { logger } from "@oh-my-pi/pi-utils";
+import type { ImageContent } from "@oh-my-soup/pi-ai";
+import { logger } from "@oh-my-soup/pi-utils";
 import { blobExtensionForImageMimeType } from "./image-format";
 
 /** Materialized image destination returned by the host blob writer. */
@@ -10,7 +10,7 @@ import { fileHyperlink } from "../render/hyperlink";
 
 /** Probed pixel dimensions riding on the draft image object itself; `null` records a failed
  *  probe so the chips band never re-decodes a corrupt header every frame. */
-const kImageDims = Symbol("omp.imageDimensions");
+const kImageDims = Symbol("oms.imageDimensions");
 
 interface ImageContentWithDims extends ImageContent {
 	[kImageDims]?: { width: number; height: number } | null;

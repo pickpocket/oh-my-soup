@@ -3,7 +3,7 @@
  *
  * `ExtensionRunner.emit({ type: "session_shutdown" })` uses the generic
  * 30s extension handler timeout, so a single hung handler (in the wild:
- * `omp-discord-presence` waiting on a Discord IPC pipe that never replied)
+ * `oms-discord-presence` waiting on a Discord IPC pipe that never replied)
  * holds Ctrl+C teardown hostage for the full window. `session_shutdown` is
  * fire-and-forget by contract — extensions can't observe the result — so it
  * MUST run on a tight, dedicated budget so dispose() returns quickly.
@@ -18,18 +18,18 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "bun:test";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { ModelRegistry } from "@oh-my-pi/pi-coding-agent/config/model-registry";
-import { discoverAndLoadExtensions } from "@oh-my-pi/pi-coding-agent/extensibility/extensions/loader";
+import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
+import { discoverAndLoadExtensions } from "@oh-my-soup/pi-coding-agent/extensibility/extensions/loader";
 import {
 	EXTENSION_HANDLER_TIMEOUT_MS,
 	ExtensionRunner,
 	SESSION_SHUTDOWN_HANDLER_TIMEOUT_MS,
 	testSetExtensionHandlerTimeoutMs,
 	testSetSessionShutdownHandlerTimeoutMs,
-} from "@oh-my-pi/pi-coding-agent/extensibility/extensions/runner";
-import { AuthStorage } from "@oh-my-pi/pi-coding-agent/session/auth-storage";
-import { SessionManager } from "@oh-my-pi/pi-coding-agent/session/session-manager";
-import { getProjectAgentDir, logger, TempDir } from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-coding-agent/extensibility/extensions/runner";
+import { AuthStorage } from "@oh-my-soup/pi-coding-agent/session/auth-storage";
+import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
+import { getProjectAgentDir, logger, TempDir } from "@oh-my-soup/pi-utils";
 
 const HANG_EXTENSION_SRC = `
 	export default function(pi) {

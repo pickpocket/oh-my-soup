@@ -1,15 +1,15 @@
-OMP THIRD-PARTY NOTICES
+OMS THIRD-PARTY NOTICES
 =======================
 
-This generated, self-contained aggregate accompanies OMP release artifacts.
+This generated, self-contained aggregate accompanies OMS release artifacts.
 It does not replace package-level license files. First-party licensing grants
 no rights in third-party code, fonts, data, or marks identified below.
 
 PYTHON DEPENDENCY DISTRIBUTION ROLE
 ===================================
 
-omp-rpc has no third-party runtime dependencies. robomp declares FastAPI,
-Uvicorn, HTTPX, Pydantic, pydantic-settings, python-dotenv, Click, and omp-rpc
+oms-rpc has no third-party runtime dependencies. roboms declares FastAPI,
+Uvicorn, HTTPX, Pydantic, pydantic-settings, python-dotenv, Click, and oms-rpc
 as ordinary installer-resolved dependencies. The Python wheels do not vendor
 those projects; each dependency remains a separately installed distribution
 carrying its own license metadata and files. Container/system assemblers must
@@ -293,7 +293,7 @@ MIT License
 Copyright (c) 2026 Sander Land
   (measured tokenizer vocabulary data, reconstruction model, and reference
   implementation: https://github.com/sanderland/ctok)
-Copyright (c) 2026 Can Bölük and the Oh My Pi contributors
+Copyright (c) 2026 Can Bölük and the Oh My Soup contributors
 Copyright (c) 2026 Stencil Labs, Inc.
   (Rust implementation and the compact binary vocabulary encoding in
   crates/pi-natives/src/utok/claude)
@@ -1083,7 +1083,7 @@ These packages participate only in generation/web build tooling and are not ship
 
 SCOPED NON-PERMISSIVE PACKAGES
 ------------------------------
-The exact @img/sharp-libvips-* 1.2.4 all-target family is LGPL-3.0-or-later. It is not distributed in OMP npm bundles or standalone assets: @huggingface/transformers is always external, installed into a user-side versioned runtime on demand, and sharp is stubbed for speech/text. The dynamically loaded native library remains replaceable. Corresponding source is available from https://github.com/lovell/sharp-libvips.git and upstream libvips sources.
+The exact @img/sharp-libvips-* 1.2.4 all-target family is LGPL-3.0-or-later. It is not distributed in OMS npm bundles or standalone assets: @huggingface/transformers is always external, installed into a user-side versioned runtime on demand, and sharp is stubbed for speech/text. The dynamically loaded native library remains replaceable. Corresponding source is available from https://github.com/lovell/sharp-libvips.git and upstream libvips sources.
 
 lightningcss 1.32.0 and its exact target leaves are MPL-2.0 build-only dependencies. MPL is not globally allowed and these packages are absent from runtime artifacts.
 

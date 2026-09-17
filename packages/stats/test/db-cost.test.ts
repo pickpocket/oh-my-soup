@@ -10,10 +10,10 @@ import {
 	getStatsByProvider,
 	initDb,
 	insertMessageStats,
-} from "@oh-my-pi/omp-stats/db";
-import type { MessageStats } from "@oh-my-pi/omp-stats/types";
-import { getBundledModel, getBundledModels } from "@oh-my-pi/pi-catalog/models";
-import { getStatsDbPath } from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/oms-stats/db";
+import type { MessageStats } from "@oh-my-soup/oms-stats/types";
+import { getBundledModel, getBundledModels } from "@oh-my-soup/pi-catalog/models";
+import { getStatsDbPath } from "@oh-my-soup/pi-utils";
 import { installStatsTestIsolation } from "./helpers/temp-agent";
 
 installStatsTestIsolation("@pi-stats-db-");

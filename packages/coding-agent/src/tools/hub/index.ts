@@ -15,17 +15,17 @@
  * when the agent has nothing else to do.
  */
 
-import { type } from "@oh-my-pi/omptype";
+import { type } from "@oh-my-soup/omstype";
 import type {
 	AgentTool,
 	AgentToolContext,
 	AgentToolResult,
 	AgentToolUpdateCallback,
 	ToolApprovalDecision,
-} from "@oh-my-pi/pi-agent-core";
-import type { ToolExample } from "@oh-my-pi/pi-ai";
+} from "@oh-my-soup/pi-agent-core";
+import type { ToolExample } from "@oh-my-soup/pi-ai";
 
-import { prompt } from "@oh-my-pi/pi-utils";
+import { prompt } from "@oh-my-soup/pi-utils";
 import { POLL_WAIT_LADDER_MS } from "../../async/job-manager";
 
 import { IrcBus } from "../../irc/bus";
@@ -45,7 +45,7 @@ import {
 } from "./jobs";
 
 import { executeLaunch } from "./launch";
-import { type LaunchParams } from "@oh-my-pi/pi-tui/tools/hub";
+import { type LaunchParams } from "@oh-my-soup/pi-tui/tools/hub";
 import {
 	drainPendingInbox,
 	executeInbox,
@@ -55,10 +55,10 @@ import {
 	messageResult,
 } from "./messaging";
 
-import { DEFAULT_HUB_LIST_LIMIT, type HubDetails, MAX_HUB_LIST_LIMIT } from "@oh-my-pi/pi-tui/tools/hub";
+import { DEFAULT_HUB_LIST_LIMIT, type HubDetails, MAX_HUB_LIST_LIMIT } from "@oh-my-soup/pi-tui/tools/hub";
 import { hubErrorResult } from "./types";
 
-export type { LaunchParams, LaunchToolDetails } from "@oh-my-pi/pi-tui/tools/hub";
+export type { LaunchParams, LaunchToolDetails } from "@oh-my-soup/pi-tui/tools/hub";
 export { isIrcEnabled } from "./messaging";
 export * from "./types";
 
@@ -90,9 +90,9 @@ const hubSchema = type({
 		"timeout?": type("number > 0").describe("seconds to wait; default 30"),
 	}).describe("start: readiness conditions; all supplied conditions must pass"),
 	"restart?": type("'no' | 'on-failure' | 'always'").describe("start: restart policy; default no"),
-	"persist?": type("boolean").describe("start: survive the last omp client exiting; default false"),
+	"persist?": type("boolean").describe("start: survive the last oms client exiting; default false"),
 	"detached?": type("boolean").describe(
-		"start: survive every omp and broker exit; implies persist and disables PTY input",
+		"start: survive every oms and broker exit; implies persist and disables PTY input",
 	),
 	"lines?": type("number > 0").describe("logs: output lines; default 100, max 1000"),
 	"head?": type("boolean").describe("logs: read from the beginning instead of the tail"),

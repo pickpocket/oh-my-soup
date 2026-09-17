@@ -1,4 +1,4 @@
-import { type Goal } from "@oh-my-pi/pi-tui/tools/goal";
+import { type Goal } from "@oh-my-soup/pi-tui/tools/goal";
 import type { UsageStatistics } from "../session/session-entries";
 
 export interface GoalModeState {

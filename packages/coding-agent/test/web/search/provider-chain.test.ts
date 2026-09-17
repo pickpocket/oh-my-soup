@@ -1,13 +1,13 @@
 import { afterEach, describe, expect, it } from "bun:test";
-import type { AuthStorage } from "@oh-my-pi/pi-ai";
-import { SelectorController } from "@oh-my-pi/pi-coding-agent/modes/controllers/selector-controller";
+import type { AuthStorage } from "@oh-my-soup/pi-ai";
+import { SelectorController } from "@oh-my-soup/pi-coding-agent/modes/controllers/selector-controller";
 import {
 	resolveProviderCandidates,
 	resolveProviderChain,
 	setExcludedSearchProviders,
 	setSearchProviderOrder,
-} from "@oh-my-pi/pi-coding-agent/web/search/provider";
-import { SEARCH_PROVIDER_ORDER } from "@oh-my-pi/pi-coding-agent/web/search/types";
+} from "@oh-my-soup/pi-coding-agent/web/search/provider";
+import { SEARCH_PROVIDER_ORDER } from "@oh-my-soup/pi-coding-agent/web/search/types";
 
 const authStorage = {
 	hasAuth(provider: string): boolean {

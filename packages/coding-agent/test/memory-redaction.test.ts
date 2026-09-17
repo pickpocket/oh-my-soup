@@ -3,7 +3,7 @@ import {
 	redactMemorySecrets,
 	redactMemoryTextFields,
 	redactRememberWrite,
-} from "@oh-my-pi/pi-coding-agent/memory-backend/redact";
+} from "@oh-my-soup/pi-coding-agent/memory-backend/redact";
 
 const NPM_TOKEN = `npm_${"a1B2c3D4e5F6g7H8i9J0kLmNoPqRsTuVwXy".slice(0, 36)}`;
 const AWS_KEY = "AKIAIOSFODNN7EXAMPLE";

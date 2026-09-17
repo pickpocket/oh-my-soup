@@ -1,5 +1,5 @@
 import { parentPort } from "node:worker_threads";
-import { installWorkerInbox } from "@oh-my-pi/pi-utils/worker-host";
+import { installWorkerInbox } from "@oh-my-soup/pi-utils/worker-host";
 import { COMPUTER_WORKER_ARG } from "../../src/tools/computer/protocol";
 import { startComputerWorker } from "../../src/tools/computer/worker-entry";
 

@@ -59,7 +59,7 @@ export function exportSecurityBundleToSarif(bundle: SecurityScanBundle): Record<
 							},
 						})),
 					),
-					fingerprints: { "omp-security/v1": finding.fingerprint },
+					fingerprints: { "oms-security/v1": finding.fingerprint },
 					properties: {
 						findingId: finding.id,
 						confidence: finding.confidence.level,

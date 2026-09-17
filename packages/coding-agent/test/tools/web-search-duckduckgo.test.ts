@@ -1,9 +1,9 @@
 import { Database } from "bun:sqlite";
 import { afterAll, describe, expect, it } from "bun:test";
-import { AuthStorage, type FetchImpl, SqliteAuthCredentialStore } from "@oh-my-pi/pi-ai";
-import type { SearchParams } from "@oh-my-pi/pi-coding-agent/web/search/providers/base";
-import { searchDuckDuckGo } from "@oh-my-pi/pi-coding-agent/web/search/providers/duckduckgo";
-import { applyQueryConstraints, parseSearchQuery } from "@oh-my-pi/pi-coding-agent/web/search/query";
+import { AuthStorage, type FetchImpl, SqliteAuthCredentialStore } from "@oh-my-soup/pi-ai";
+import type { SearchParams } from "@oh-my-soup/pi-coding-agent/web/search/providers/base";
+import { searchDuckDuckGo } from "@oh-my-soup/pi-coding-agent/web/search/providers/duckduckgo";
+import { applyQueryConstraints, parseSearchQuery } from "@oh-my-soup/pi-coding-agent/web/search/query";
 
 function duckResult(index: number): string {
 	return `<div class="result results_links"><a class="result__a" href="https://example.com/${index}">Result ${index}</a><a class="result__snippet">Snippet ${index}</a></div>`;

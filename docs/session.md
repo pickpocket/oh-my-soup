@@ -37,7 +37,7 @@ Does not cover `/tree` UI rendering behavior beyond semantics that affect sessio
 Default file-session location:
 
 ```text
-~/.omp/agent/sessions/<encoded-cwd>/<timestamp>_<sessionId>.jsonl
+~/.oms/agent/sessions/<encoded-cwd>/<timestamp>_<sessionId>.jsonl
 ```
 
 `<encoded-cwd>` is derived from the canonicalized cwd (so symlink aliases share a bucket): `-<relative>` for directories under home, `-tmp-<relative>` for directories under the temp root, and `--<encoded-absolute>--` for anything else, with path separators replaced by `-`.
@@ -47,13 +47,13 @@ On access, buckets written by the short-lived hashed scheme (`<scope>-<project-b
 Blob store location:
 
 ```text
-~/.omp/agent/blobs/<sha256>
+~/.oms/agent/blobs/<sha256>
 ```
 
 Terminal breadcrumb files are written under:
 
 ```text
-~/.omp/agent/terminal-sessions/<terminal-id>
+~/.oms/agent/terminal-sessions/<terminal-id>
 ```
 
 Breadcrumb content is original cwd and session file path, plus an optional third line `fresh`. A fresh breadcrumb preserves a `/new` boundary whose lazily-created JSONL file does not exist yet, preventing `continueRecent()` from reopening the previous session. Writes are synchronous, ordered, and best-effort.
@@ -527,7 +527,7 @@ Implementations and adapters:
 
 ### Manual storage maintenance
 
-`omp gc` previews maintenance by default; `--apply` is required to sweep unreferenced blobs, archive eligible cold sessions, or checkpoint database WALs. Storage maintenance is separate from model-context compaction.
+`oms gc` previews maintenance by default; `--apply` is required to sweep unreferenced blobs, archive eligible cold sessions, or checkpoint database WALs. Storage maintenance is separate from model-context compaction.
 
 Journal payload I/O is streamed during blob-reference scans, archive history/stats reconciliation, gzip creation, and rollback. Active `.jsonl`, recoverable `.jsonl.*.bak`, and archived `.jsonl.gz` records all participate in reference discovery, including references in malformed JSON text. Compressed scans drain and validate the complete stream before their results can authorize deletion. Archives retain the original JSONL bytes when decompressed, and artifact trees keep their existing layout.
 
@@ -550,7 +550,7 @@ Recent/most-recent scans read only a 4 KiB prefix. Full lists read that prefix p
 
 `HistoryStorage` (`history-storage.ts`) is a separate SQLite subsystem for prompt recall/search, not session replay.
 
-- DB: `~/.omp/agent/history.db`
+- DB: `~/.oms/agent/history.db`
 - Table: `history(id, prompt, created_at, cwd, session_id)`
 - FTS5 index: `history_fts` with trigger-maintained sync
 - Deduplicates consecutive identical prompts using in-memory last-prompt cache

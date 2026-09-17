@@ -6,16 +6,16 @@ import type {
 	AgentToolResult,
 	AgentToolUpdateCallback,
 	ToolApprovalDecision,
-} from "@oh-my-pi/pi-agent-core";
-import { isEnoent, isFsError, logger, prompt, untilAborted } from "@oh-my-pi/pi-utils";
-import { type Theme, theme } from "@oh-my-pi/pi-tui/theme";
+} from "@oh-my-soup/pi-agent-core";
+import { isEnoent, isFsError, logger, prompt, untilAborted } from "@oh-my-soup/pi-utils";
+import { type Theme, theme } from "@oh-my-soup/pi-tui/theme";
 import lspDescription from "../prompts/tools/lsp.md" with { type: "text" };
 import type { ToolSession } from "../tools";
 import { truncateForPrompt } from "../tools/approval";
 import { formatPathRelativeToCwd, resolveToCwd } from "../tools/path-utils";
-import { replaceTabs, shortenPath } from "@oh-my-pi/pi-tui/render/render-utils";
+import { replaceTabs, shortenPath } from "@oh-my-soup/pi-tui/render/render-utils";
 import { ToolAbortError, throwIfAborted } from "../tools/tool-errors";
-import { ToolError } from "@oh-my-pi/pi-tui/tools/tool-errors";
+import { ToolError } from "@oh-my-soup/pi-tui/tools/tool-errors";
 import { clampTimeout } from "../tools/tool-timeouts";
 import {
 	applyWorkspaceEditWithLsp,
@@ -83,7 +83,7 @@ import {
 	type TextEdit,
 	type WorkspaceEdit,
 } from "./types";
-import { type LspParams, type LspToolDetails } from "@oh-my-pi/pi-tui/tools/lsp";
+import { type LspParams, type LspToolDetails } from "@oh-my-soup/pi-tui/tools/lsp";
 import {
 	applyCodeAction,
 	dedupeWorkspaceSymbols,
@@ -103,7 +103,7 @@ import {
 	symbolKindToIcon,
 	uriToFile,
 } from "./utils";
-import { formatGroupedDiagnosticMessages } from "@oh-my-pi/pi-tui/tools/output-meta";
+import { formatGroupedDiagnosticMessages } from "@oh-my-soup/pi-tui/tools/output-meta";
 import { runWorkspaceDiagnostics } from "./workspace-diagnostics";
 
 const MAX_RENAME_PAIRS = 1000;
@@ -1087,7 +1087,7 @@ export class LspTool implements AgentTool<typeof lspSchema, LspToolDetails, Them
 
 		if (action === "reload" && (isWorkspace || !resolvedFile)) {
 			// `reload *` is the user's explicit request to re-read config from
-			// disk. Drop the per-cwd cache entry so `.omp/lsp.json`, root markers,
+			// disk. Drop the per-cwd cache entry so `.oms/lsp.json`, root markers,
 			// and plugin configs added after the first LSP call become visible —
 			// otherwise `getConfig` returns the first observation for the rest of
 			// the process lifetime (#3546).

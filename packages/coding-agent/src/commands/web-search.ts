@@ -2,7 +2,7 @@
  * Test web search providers.
  */
 
-import { Args, Command, Flags } from "@oh-my-pi/pi-utils/cli";
+import { Args, Command, Flags } from "@oh-my-soup/pi-utils/cli";
 import { searchHelp as commandHelp } from "../cli/command-help";
 import { runSearchCommand, type SearchCommandArgs } from "../cli/web-search-cli";
 import { SEARCH_PROVIDER_ORDER } from "../web/search/provider";

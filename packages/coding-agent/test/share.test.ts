@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import * as path from "node:path";
-import { TempDir } from "@oh-my-pi/pi-utils";
+import { TempDir } from "@oh-my-soup/pi-utils";
 import type { SessionData } from "../src/export/html";
 import {
 	buildShareSnapshot,
@@ -597,7 +597,7 @@ describe("shareSession", () => {
 
 describe("share command", () => {
 	test("rejects a missing path without creating or uploading a session", async () => {
-		using tempDir = TempDir.createSync("@omp-share-missing-");
+		using tempDir = TempDir.createSync("@oms-share-missing-");
 		const sessionArg = "./ghost.jsonl";
 		const missingSession = path.join(tempDir.path(), "ghost.jsonl");
 		const proc = Bun.spawn([process.execPath, CLI_ENTRY, "share", sessionArg], {

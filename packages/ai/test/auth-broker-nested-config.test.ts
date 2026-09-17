@@ -2,13 +2,13 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { resolveAuthBrokerConfig } from "@oh-my-pi/pi-ai/auth-broker";
+import { resolveAuthBrokerConfig } from "@oh-my-soup/pi-ai/auth-broker";
 import { removeWithRetries } from "../../utils/src/temp";
 import { withEnv } from "./helpers";
 
 const CLEAR_BROKER_ENV = {
-	OMP_AUTH_BROKER_URL: undefined,
-	OMP_AUTH_BROKER_TOKEN: undefined,
+	OMS_AUTH_BROKER_URL: undefined,
+	OMS_AUTH_BROKER_TOKEN: undefined,
 } as const;
 
 describe("auth-broker config.yml key resolution", () => {

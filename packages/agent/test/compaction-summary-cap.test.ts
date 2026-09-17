@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test, vi } from "bun:test";
-import type { AgentMessage } from "@oh-my-pi/pi-agent-core";
+import type { AgentMessage } from "@oh-my-soup/pi-agent-core";
 import {
 	type CompactionPreparation,
 	compact,
@@ -7,10 +7,10 @@ import {
 	DEFAULT_COMPACTION_SETTINGS,
 	generateSummary,
 	MAX_SUMMARY_TOKENS,
-} from "@oh-my-pi/pi-agent-core/compaction";
-import type { AssistantMessage, Model } from "@oh-my-pi/pi-ai";
-import * as ai from "@oh-my-pi/pi-ai";
-import { getBundledModel } from "@oh-my-pi/pi-catalog/models";
+} from "@oh-my-soup/pi-agent-core/compaction";
+import type { AssistantMessage, Model } from "@oh-my-soup/pi-ai";
+import * as ai from "@oh-my-soup/pi-ai";
+import { getBundledModel } from "@oh-my-soup/pi-catalog/models";
 
 function createAssistantMessage(text: string): AssistantMessage {
 	return {

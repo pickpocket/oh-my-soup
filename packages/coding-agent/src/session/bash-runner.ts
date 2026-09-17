@@ -1,6 +1,6 @@
 import * as path from "node:path";
-import type { Agent } from "@oh-my-pi/pi-agent-core";
-import { logger } from "@oh-my-pi/pi-utils";
+import type { Agent } from "@oh-my-soup/pi-agent-core";
+import { logger } from "@oh-my-soup/pi-utils";
 import type { Settings } from "../config/settings";
 import { type BashPtyOptions, type BashResult, executeBash as executeBashCommand } from "../exec/bash-executor";
 import type { ExtensionRunner } from "../extensibility/extensions";

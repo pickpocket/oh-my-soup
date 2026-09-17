@@ -1,13 +1,13 @@
 import { describe, expect, it, vi } from "bun:test";
-import { type } from "@oh-my-pi/omptype";
-import { Agent } from "@oh-my-pi/pi-agent-core";
+import { type } from "@oh-my-soup/omstype";
+import { Agent } from "@oh-my-soup/pi-agent-core";
 import {
 	agentLoop,
 	agentLoopContinue,
 	agentLoopDetailed,
 	TERMINAL_TOOL_RESULT_ABORT_REASON,
-} from "@oh-my-pi/pi-agent-core/agent-loop";
-import { SpeculativeOperationCoordinator } from "@oh-my-pi/pi-agent-core/speculative-execution";
+} from "@oh-my-soup/pi-agent-core/agent-loop";
+import { SpeculativeOperationCoordinator } from "@oh-my-soup/pi-agent-core/speculative-execution";
 import type {
 	AgentContext,
 	AgentEvent,
@@ -17,16 +17,16 @@ import type {
 	AgentToolContext,
 	SpeculativePhysicalOutcome,
 	ToolCallContext,
-} from "@oh-my-pi/pi-agent-core/types";
-import { ASIDE_MESSAGE_COMMIT, ASIDE_MESSAGE_DISCARD, SPECULATIVE_STREAM_SESSION } from "@oh-my-pi/pi-agent-core/types";
-import type { AssistantMessage, AssistantMessageEvent, Context, Message, ToolResultMessage } from "@oh-my-pi/pi-ai";
-import { createMockModel, type MockResponse } from "@oh-my-pi/pi-ai/providers/mock";
-import { kCursorExecResolved, setStreamingPartialJson } from "@oh-my-pi/pi-ai/utils/block-symbols";
-import { AssistantMessageEventStream } from "@oh-my-pi/pi-ai/utils/event-stream";
-import { INTENT_FIELD } from "@oh-my-pi/pi-wire";
+} from "@oh-my-soup/pi-agent-core/types";
+import { ASIDE_MESSAGE_COMMIT, ASIDE_MESSAGE_DISCARD, SPECULATIVE_STREAM_SESSION } from "@oh-my-soup/pi-agent-core/types";
+import type { AssistantMessage, AssistantMessageEvent, Context, Message, ToolResultMessage } from "@oh-my-soup/pi-ai";
+import { createMockModel, type MockResponse } from "@oh-my-soup/pi-ai/providers/mock";
+import { kCursorExecResolved, setStreamingPartialJson } from "@oh-my-soup/pi-ai/utils/block-symbols";
+import { AssistantMessageEventStream } from "@oh-my-soup/pi-ai/utils/event-stream";
+import { INTENT_FIELD } from "@oh-my-soup/pi-wire";
 import { createAssistantMessage, createHarmonyMitigationModel, createUserMessage } from "./helpers";
 
-declare module "@oh-my-pi/pi-agent-core/types" {
+declare module "@oh-my-soup/pi-agent-core/types" {
 	interface CustomAgentMessages {
 		advisor: {
 			role: "custom";
@@ -5455,7 +5455,7 @@ describe("agentLoop streaming snapshots", () => {
 
 describe("agentLoop kCursorExecResolved (issue #4348)", () => {
 	it("skips execute for a toolCall block marked as already run by Cursor's exec channel", async () => {
-		const { kCursorExecResolved } = await import("@oh-my-pi/pi-ai/utils/block-symbols");
+		const { kCursorExecResolved } = await import("@oh-my-soup/pi-ai/utils/block-symbols");
 
 		const toolSchema = type({ command: "string" });
 		let executeCalls = 0;
@@ -5546,7 +5546,7 @@ describe("agentLoop kCursorExecResolved (issue #4348)", () => {
 	it("still runs a normal, unmarked toolCall block in the same turn", async () => {
 		// Guards against the filter over-matching: a mixed turn where only
 		// SOME blocks are Cursor-resolved must still execute the unmarked one.
-		const { kCursorExecResolved } = await import("@oh-my-pi/pi-ai/utils/block-symbols");
+		const { kCursorExecResolved } = await import("@oh-my-soup/pi-ai/utils/block-symbols");
 
 		const toolSchema = type({ value: "string" });
 		const executed: string[] = [];

@@ -1,5 +1,5 @@
 import * as fs from "node:fs";
-import { parseToolFileHeader } from "@oh-my-pi/pi-tui/overlays/extensions/inspector-model";
+import { parseToolFileHeader } from "@oh-my-soup/pi-tui/overlays/extensions/inspector-model";
 
 const TOOL_HEADER_BYTES = 4096;
 const toolHeaderCache = new Map<string, { mtimeMs: number; description: string | undefined }>();

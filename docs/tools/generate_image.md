@@ -56,7 +56,7 @@ The custom tool is registered only when `generate_image.enabled=true` (default `
 - Provider selection: set `provider` to prefer one backend for a request; fallback still follows the remaining configured/session/built-in order after credentialed HTTP failures.
 
 ## Side Effects
-- Filesystem: reads local input images and writes generated output images to `omp-image-<snowflake>.<ext>` files under the OS temporary directory.
+- Filesystem: reads local input images and writes generated output images to `oms-image-<snowflake>.<ext>` files under the OS temporary directory.
 - Network: sends prompts and optional images to the selected image provider. OpenRouter/xAI image URLs in responses are downloaded before saving.
 - Session state: reads active model, session id, cwd, credentials, `providers.imageOrder`, Antigravity endpoint settings, and optional injected `fetch`.
 - Background work / cancellation: provider calls use the caller abort signal combined with a 3 minute timeout.

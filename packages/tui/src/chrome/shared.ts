@@ -1,5 +1,5 @@
 import type { TabBarTheme } from "../components/tab-bar";
-import { sanitizeText } from "@oh-my-pi/pi-utils";
+import { sanitizeText } from "@oh-my-soup/pi-utils";
 import { theme } from "../theme/index";
 // ═══════════════════════════════════════════════════════════════════════════
 // Text Sanitization

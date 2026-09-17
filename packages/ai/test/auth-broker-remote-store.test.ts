@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { AuthStorage, REMOTE_REFRESH_SENTINEL, SqliteAuthCredentialStore } from "@oh-my-pi/pi-ai";
+import { AuthStorage, REMOTE_REFRESH_SENTINEL, SqliteAuthCredentialStore } from "@oh-my-soup/pi-ai";
 import {
 	AuthBrokerClient,
 	type AuthBrokerServerHandle,
@@ -11,7 +11,7 @@ import {
 	RemoteAuthCredentialStore,
 	type SnapshotResponse,
 	startAuthBroker,
-} from "@oh-my-pi/pi-ai/auth-broker";
+} from "@oh-my-soup/pi-ai/auth-broker";
 import { removeWithRetries } from "../../utils/src/temp";
 import { withEnv } from "./helpers";
 
@@ -282,7 +282,7 @@ describe("RemoteAuthCredentialStore SSE integration", () => {
 		expect(reported.hostname).toBe(os.hostname());
 		// Default identity carries the app label so broker-side attribution can
 		// answer "what did app X use" even for broker-direct installs.
-		expect(reported.providers.every(p => p.app === "omp")).toBe(true);
+		expect(reported.providers.every(p => p.app === "oms")).toBe(true);
 
 		const anthropic = reported.providers.find(p => p.provider === "anthropic");
 		expect(anthropic).toMatchObject({
@@ -328,14 +328,14 @@ describe("RemoteAuthCredentialStore SSE integration", () => {
 					costUsd: 0.05,
 				},
 			],
-			{ installId: "robomp-install", hostname: "robomp-box", app: "robomp" },
+			{ installId: "roboms-install", hostname: "roboms-box", app: "roboms" },
 		);
 		await waitUntil(() => storage!.getClientUsageSummary(0).clients.length === 2);
-		const attributed = storage!.getClientUsageSummary(0).clients.find(c => c.installId === "robomp-install");
-		expect(attributed?.hostname).toBe("robomp-box");
+		const attributed = storage!.getClientUsageSummary(0).clients.find(c => c.installId === "roboms-install");
+		expect(attributed?.hostname).toBe("roboms-box");
 		expect(attributed?.providers).toEqual([
 			{
-				app: "robomp",
+				app: "roboms",
 				provider: "anthropic",
 				requests: 1,
 				inputTokens: 7,
@@ -477,9 +477,9 @@ describe("RemoteAuthCredentialStore SSE integration", () => {
 
 		await withEnv(
 			{
-				OMP_AUTH_BROKER_URL: handle!.url,
-				OMP_AUTH_BROKER_TOKEN: token,
-				OMP_AUTH_BROKER_ACCOUNT_POOL_FILE: poolPath,
+				OMS_AUTH_BROKER_URL: handle!.url,
+				OMS_AUTH_BROKER_TOKEN: token,
+				OMS_AUTH_BROKER_ACCOUNT_POOL_FILE: poolPath,
 			},
 			async () => {
 				const discovered = await discoverAuthStorage({
@@ -506,9 +506,9 @@ describe("RemoteAuthCredentialStore SSE integration", () => {
 	test("prefers a programmatic SDK account pool over the environment file", async () => {
 		await withEnv(
 			{
-				OMP_AUTH_BROKER_URL: handle!.url,
-				OMP_AUTH_BROKER_TOKEN: token,
-				OMP_AUTH_BROKER_ACCOUNT_POOL_FILE: path.join(tempDir, "missing-account-pool.json"),
+				OMS_AUTH_BROKER_URL: handle!.url,
+				OMS_AUTH_BROKER_TOKEN: token,
+				OMS_AUTH_BROKER_ACCOUNT_POOL_FILE: path.join(tempDir, "missing-account-pool.json"),
 			},
 			async () => {
 				const discovered = await discoverAuthStorage({

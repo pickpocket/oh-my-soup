@@ -1,6 +1,6 @@
 import * as fs from "node:fs";
 import type { Writable } from "node:stream";
-import { logger, TempDir } from "@oh-my-pi/pi-utils";
+import { logger, TempDir } from "@oh-my-soup/pi-utils";
 import type { BunFile } from "bun";
 
 const READ_BYTES = 64 * 1024;
@@ -69,7 +69,7 @@ export class RpcOutputWriter {
 
 	#append(line: string): void {
 		if (!this.#spool) {
-			const dir = TempDir.createSync("@omp-rpc-output-");
+			const dir = TempDir.createSync("@oms-rpc-output-");
 			try {
 				const file = dir.join("output");
 				const handle = Bun.file(file);

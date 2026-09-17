@@ -1,7 +1,7 @@
 import * as path from "node:path";
-import type { AgentMessage } from "@oh-my-pi/pi-agent-core";
-import { isInsideTmux, wrapTmuxPassthrough } from "@oh-my-pi/pi-tui/terminal-capabilities";
-import { VERSION } from "@oh-my-pi/pi-utils/dirs";
+import type { AgentMessage } from "@oh-my-soup/pi-agent-core";
+import { isInsideTmux, wrapTmuxPassthrough } from "@oh-my-soup/pi-tui/terminal-capabilities";
+import { VERSION } from "@oh-my-soup/pi-utils/dirs";
 import type { ExtensionContext, ExtensionFactory } from "../extensibility/extensions/types";
 import { isSilentAbort, isUserInterruptAbort, SKILL_PROMPT_MESSAGE_TYPE } from "../session/messages";
 
@@ -56,8 +56,8 @@ export function createWarpEventEmitter(options: WarpEventEmitterOptions): WarpEv
 			const body = {
 				...event,
 				v: WARP_CLI_AGENT_PROTOCOL_VERSION,
-				// Warp resolves this via CLIAgent.command_prefix(); OhMyPi is "omp".
-				agent: "omp",
+				// Warp resolves this via CLIAgent.command_prefix(); OhMyPi is "oms".
+				agent: "oms",
 				session_id: options.sessionId,
 				cwd,
 				project: path.basename(cwd),
@@ -198,7 +198,7 @@ export function createWarpEventBridgeExtension(): ExtensionFactory {
 			emitter?.emit({
 				event: "permission_request",
 				tool_name: event.toolName,
-				summary: `omp wants to run ${event.toolName}`,
+				summary: `oms wants to run ${event.toolName}`,
 			});
 		});
 

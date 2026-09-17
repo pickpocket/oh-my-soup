@@ -14,10 +14,10 @@
  */
 import * as fs from "node:fs";
 import { performance } from "node:perf_hooks";
-import { getDebugLogPath } from "@oh-my-pi/pi-utils/dirs";
-import { $flag } from "@oh-my-pi/pi-utils/env";
-import * as logger from "@oh-my-pi/pi-utils/logger";
-import * as postmortem from "@oh-my-pi/pi-utils/postmortem";
+import { getDebugLogPath } from "@oh-my-soup/pi-utils/dirs";
+import { $flag } from "@oh-my-soup/pi-utils/env";
+import * as logger from "@oh-my-soup/pi-utils/logger";
+import * as postmortem from "@oh-my-soup/pi-utils/postmortem";
 import { DEFAULT_MAX_INLINE_IMAGES, ImageBudget } from "./components/image";
 import { TuiDebugServer } from "./debug-server";
 import { isKeyRelease, matchesKey } from "./keys";
@@ -1207,7 +1207,7 @@ export class TUI extends Container {
 		this.#debugPaint = undefined;
 		this.#debugServer?.stop();
 		this.#debugServer = undefined;
-		const debugPath = process.env.OMP_TUI_DEBUG;
+		const debugPath = process.env.OMS_TUI_DEBUG;
 		if (debugPath !== undefined && debugPath.length > 0) {
 			this.#debugServer = new TuiDebugServer(this, debugPath);
 			this.#debugServer.start();

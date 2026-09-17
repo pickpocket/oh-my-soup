@@ -8,7 +8,7 @@
  * the construction lives in one place rather than being repeated per callsite.
  */
 
-import type { AgentTool } from "@oh-my-pi/pi-agent-core";
+import type { AgentTool } from "@oh-my-soup/pi-agent-core";
 import { EditTool } from "./edit";
 import type { ExtensionRunner } from "./extensibility/extensions";
 import { ExtensionToolWrapper } from "./extensibility/extensions";
@@ -81,7 +81,7 @@ export function bridgeToolMap(
 }
 
 /**
- * Server-injected Cursor CLI edit names that are not in the OMP registry.
+ * Server-injected Cursor CLI edit names that are not in the OMS registry.
  *
  * Native Ultra edits arrive as `editToolCall`. If that frame is absent, the
  * model still follows the injected instructions and calls these as MCP — which

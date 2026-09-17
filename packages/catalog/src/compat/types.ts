@@ -340,7 +340,7 @@ export interface CompiledBehavior {
 /**
  * A string setting from `auth/*.kdl` that may be overridden by environment
  * variables (consulted in order before `value`), stored obfuscated, or
- * resolved at runtime by a named `@oh-my-pi/pi-ai` hook.
+ * resolved at runtime by a named `@oh-my-soup/pi-ai` hook.
  */
 export interface CompiledAuthValue {
 	value?: string;

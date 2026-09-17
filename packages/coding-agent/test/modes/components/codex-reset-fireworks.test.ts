@@ -1,12 +1,12 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "bun:test";
 import { stripVTControlCharacters } from "node:util";
-import type { Component, OverlayHandle, OverlayOptions } from "@oh-my-pi/pi-tui";
+import type { Component, OverlayHandle, OverlayOptions } from "@oh-my-soup/pi-tui";
 import { Settings } from "../../../src/config/settings";
 import {
 	CodexResetFireworksController,
 	detectCodexResetFireworks,
-} from "@oh-my-pi/pi-tui/overlays/codex-reset-fireworks";
-import { getThemeByName, setThemeInstance, type Theme, theme } from "@oh-my-pi/pi-tui/theme";
+} from "@oh-my-soup/pi-tui/overlays/codex-reset-fireworks";
+import { getThemeByName, setThemeInstance, type Theme, theme } from "@oh-my-soup/pi-tui/theme";
 
 type CodexResetFireworksHost = ConstructorParameters<typeof CodexResetFireworksController>[0];
 

@@ -12,13 +12,13 @@
  * Throws on any failure (no judge, no key, unparseable output, abort/timeout);
  * the caller falls back to a concrete level and continues the turn.
  */
-import { type ChoiceQuestion, Effort, type Model } from "@oh-my-pi/pi-ai";
-import { getSupportedEfforts } from "@oh-my-pi/pi-catalog/model-thinking";
+import { type ChoiceQuestion, Effort, type Model } from "@oh-my-soup/pi-ai";
+import { getSupportedEfforts } from "@oh-my-soup/pi-catalog/model-thinking";
 import type { ModelRegistry } from "../config/model-registry";
 import bucketQuestionInstructions from "../prompts/system/auto-thinking-bucket-question.md" with { type: "text" };
 import type { Settings } from "../config/settings";
 import { type JudgmentUsage, resolveJudge } from "../judgment";
-import { clampAutoThinkingEffort } from "@oh-my-pi/pi-tui/thinking";
+import { clampAutoThinkingEffort } from "@oh-my-soup/pi-tui/thinking";
 import { preprocessTinyMessage } from "../tiny/message-preproc";
 
 type Level = "low" | "medium" | "high" | "xhigh" | "max";

@@ -1,40 +1,40 @@
 import * as path from "node:path";
-import { ThinkingLevel } from "@oh-my-pi/pi-agent-core";
-import type { ImageContent } from "@oh-my-pi/pi-ai";
+import { ThinkingLevel } from "@oh-my-soup/pi-agent-core";
+import type { ImageContent } from "@oh-my-soup/pi-ai";
 import {
 	type AutocompleteProvider,
 	matchesKey,
 	parseSgrMouse,
 	type PasteOptions,
 	type SlashCommand,
-} from "@oh-my-pi/pi-tui";
-import { isEnoent, logger, postmortem, sanitizeText } from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-tui";
+import { isEnoent, logger, postmortem, sanitizeText } from "@oh-my-soup/pi-utils";
 import { isSettingsInitialized, settings } from "../../config/settings";
 import { resolveLocalRoot } from "../../internal-urls";
-import { AskDialogComponent } from "@oh-my-pi/pi-tui/overlays/ask-dialog";
-import { AssistantMessageComponent } from "@oh-my-pi/pi-tui/chat/assistant-message";
-import { extractImagePathFromText } from "@oh-my-pi/pi-tui/prompt/custom-editor";
-import { HistorySearchComponent } from "@oh-my-pi/pi-tui/overlays/history-search";
-import { HookEditorComponent } from "@oh-my-pi/pi-tui/overlays/hook-editor";
-import { ReadToolGroupComponent } from "@oh-my-pi/pi-tui/chat/read-tool-group";
-import { renderSegmentTrack } from "@oh-my-pi/pi-tui/chrome/segment-track";
-import { TinyTitleDownloadProgressComponent } from "@oh-my-pi/pi-tui/overlays/tiny-title-download-progress";
-import { ToolExecutionComponent } from "@oh-my-pi/pi-tui/chat/tool-execution";
-import { TreeSelectorComponent } from "@oh-my-pi/pi-tui/overlays/tree-selector";
-import { chipLabel, compactImageMarkers, shiftImageMarkers } from "@oh-my-pi/pi-tui/prompt/composer-attachments";
-import { expandEmoticons } from "@oh-my-pi/pi-tui/prompt/emoji-autocomplete";
-import { materializeImageReferenceLinks, setCachedImageDimensions } from "@oh-my-pi/pi-tui/prompt/image-references";
-import { createPromptActionAutocompleteProvider } from "@oh-my-pi/pi-tui/prompt/prompt-action-autocomplete";
-import { createModelMentionSource } from "@oh-my-pi/pi-tui/prompt/model-mention-autocomplete";
+import { AskDialogComponent } from "@oh-my-soup/pi-tui/overlays/ask-dialog";
+import { AssistantMessageComponent } from "@oh-my-soup/pi-tui/chat/assistant-message";
+import { extractImagePathFromText } from "@oh-my-soup/pi-tui/prompt/custom-editor";
+import { HistorySearchComponent } from "@oh-my-soup/pi-tui/overlays/history-search";
+import { HookEditorComponent } from "@oh-my-soup/pi-tui/overlays/hook-editor";
+import { ReadToolGroupComponent } from "@oh-my-soup/pi-tui/chat/read-tool-group";
+import { renderSegmentTrack } from "@oh-my-soup/pi-tui/chrome/segment-track";
+import { TinyTitleDownloadProgressComponent } from "@oh-my-soup/pi-tui/overlays/tiny-title-download-progress";
+import { ToolExecutionComponent } from "@oh-my-soup/pi-tui/chat/tool-execution";
+import { TreeSelectorComponent } from "@oh-my-soup/pi-tui/overlays/tree-selector";
+import { chipLabel, compactImageMarkers, shiftImageMarkers } from "@oh-my-soup/pi-tui/prompt/composer-attachments";
+import { expandEmoticons } from "@oh-my-soup/pi-tui/prompt/emoji-autocomplete";
+import { materializeImageReferenceLinks, setCachedImageDimensions } from "@oh-my-soup/pi-tui/prompt/image-references";
+import { createPromptActionAutocompleteProvider } from "@oh-my-soup/pi-tui/prompt/prompt-action-autocomplete";
+import { createModelMentionSource } from "@oh-my-soup/pi-tui/prompt/model-mention-autocomplete";
 import { createModelBrowserSource } from "../model-browser-source";
-import { parseQueueShorthand, splitQueuedMessages } from "@oh-my-pi/pi-tui/prompt/queue-input";
+import { parseQueueShorthand, splitQueuedMessages } from "@oh-my-soup/pi-tui/prompt/queue-input";
 import { invokeSkillCommandFromText, isKnownSkillCommand } from "../../modes/skill-command";
 import type { InteractiveModeContext } from "../../modes/types";
 import manualContinuePrompt from "../../prompts/system/manual-continue.md" with { type: "text" };
 import { AgentRegistry } from "../../registry/agent-registry";
 import type { RestoredQueuedMessage } from "../../session/agent-session-types";
 import { USER_INTERRUPT_LABEL } from "../../session/messages";
-import { PINNED_HUD_TOGGLE_ID } from "@oh-my-pi/pi-tui/prompt/composer";
+import { PINNED_HUD_TOGGLE_ID } from "@oh-my-soup/pi-tui/prompt/composer";
 import { pickRecentFocusableAgentId } from "./session-focus-controller";
 import { executeBuiltinSlashCommand, lookupBuiltinSlashCommand } from "../../slash-commands/builtin-registry";
 import { parseSlashCommand } from "../../slash-commands/helpers/parse";
@@ -42,7 +42,7 @@ import { getTinyTitleModelSpec, isTinyTitleLocalModelKey } from "../../tiny/mode
 import { tinyTitleClient } from "../../tiny/title-client";
 import type { TinyTitleProgressEvent } from "../../tiny/title-protocol";
 import { resolveReadPath } from "../../tools/path-utils";
-import { shortenPath, TRUNCATE_LENGTHS, truncateToWidth } from "@oh-my-pi/pi-tui/render/render-utils";
+import { shortenPath, TRUNCATE_LENGTHS, truncateToWidth } from "@oh-my-soup/pi-tui/render/render-utils";
 import { vocalizer } from "../../tts/vocalizer";
 import {
 	copyToClipboard,
@@ -54,9 +54,9 @@ import { getSlashCommandUsage, loadSlashCommandUsage, recordSlashCommandUsage } 
 import { EnhancedPasteController } from "../../utils/enhanced-paste";
 import { getEditorCommand, openInEditor } from "../../utils/external-editor";
 import { loadImageInput } from "../../utils/image-loading";
-import { ensureSupportedImageInput, ImageInputTooLargeError } from "@oh-my-pi/pi-tui/chat/image-loading";
+import { ensureSupportedImageInput, ImageInputTooLargeError } from "@oh-my-soup/pi-tui/chat/image-loading";
 import { VideoError, buildVideoContactSheetPng, probeVideo } from "../../utils/video";
-import { createVideoPreviewImage, isVideoPath } from "@oh-my-pi/pi-tui/prompt/video";
+import { createVideoPreviewImage, isVideoPath } from "@oh-my-soup/pi-tui/prompt/video";
 import { resizeImage } from "../../utils/image-resize";
 
 /**
@@ -114,14 +114,14 @@ function hasPasteText(value: unknown): value is PasteTarget {
 const SHELL_PROMPT_COMMAND_RE =
 	/^(?:\.{0,2}\/|~\/|cd(?:\s|$)|sudo(?:\s|$)|git(?:\s|$)|bun(?:\s|$)|npm(?:\s|$)|pnpm(?:\s|$)|yarn(?:\s|$)|node(?:\s|$)|python\d*(?:\s|$)|cargo(?:\s|$)|go(?:\s|$)|make(?:\s|$)|docker(?:\s|$)|kubectl(?:\s|$))/;
 const SHELL_PROMPT_OPERATOR_RE = /(?:^|\s)(?:&&|\|\||\||2>&1|[<>]{1,2})(?:\s|$)/;
-const OMP_STATUS_LINE_RE = /^\s*in:\s+\d+\s+out:\s+\d+(?:\s+cache\s+\S+)?\s+t:\s+\S+\s+tok\/s:\s+\S+/m;
+const OMS_STATUS_LINE_RE = /^\s*in:\s+\d+\s+out:\s+\d+(?:\s+cache\s+\S+)?\s+t:\s+\S+\s+tok\/s:\s+\S+/m;
 
 function looksLikePastedShellPrompt(code: string): boolean {
 	const firstLine = code.split("\n", 1)[0]?.trimStart() ?? "";
 	return (
 		SHELL_PROMPT_COMMAND_RE.test(firstLine) ||
 		SHELL_PROMPT_OPERATOR_RE.test(firstLine) ||
-		OMP_STATUS_LINE_RE.test(code)
+		OMS_STATUS_LINE_RE.test(code)
 	);
 }
 
@@ -1389,15 +1389,15 @@ export class InputController {
 			// for a given SignalKind permanently replaces the kernel-default
 			// handler for the lifetime of the process. So once the user has
 			// issued even one bash command — e.g. `/usr/bin/true` — SIGTSTP no
-			// longer stops omp: tokio swallows it and the TUI ends up torn down
+			// longer stops oms: tokio swallows it and the TUI ends up torn down
 			// while the process keeps running with no live terminal (issue
 			// [#3461]). SIGSTOP cannot be caught, blocked, or ignored, so the
 			// kernel stops the process regardless of installed handlers.
 			//
-			// pid=0 (foreground process group, not just our PID): omp is not
+			// pid=0 (foreground process group, not just our PID): oms is not
 			// always the shell's direct child. Package-manager launchers (`npx`,
 			// `pnpm exec`, `bunx`, …) wait on the real CLI from a parent shim
-			// that shares omp's process group, and a `omp … | tee log` style
+			// that shares oms's process group, and a `oms … | tee log` style
 			// pipeline puts a sibling foreground job member in the same group
 			// too. The shell sees the job as stopped only when its direct
 			// child / pipeline leader is stopped, so suspending only our PID
@@ -2431,7 +2431,7 @@ export class InputController {
 
 		try {
 			this.ctx.ui.stop();
-			const result = await openInEditor(editorCmd, currentText, { extension: ".omp.md" });
+			const result = await openInEditor(editorCmd, currentText, { extension: ".oms.md" });
 			if (result !== null) {
 				this.ctx.editor.setText(result);
 			}

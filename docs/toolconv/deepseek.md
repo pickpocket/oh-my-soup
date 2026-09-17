@@ -368,7 +368,7 @@ reuse the same fullwidth pipe (`｜`, U+FF5C), but the body is an Anthropic-styl
   structured `tool_calls`; a parser must heal it back into tool calls and strip the markers from
   user-visible text.
 
-## omp / pi converter behavior
+## oms / pi converter behavior
 
 The repository's `deepseek` dialect is an **owned in-band converter**, not a
 vLLM parser wrapper. Select it with `PI_DIALECT=deepseek` (or the equivalent
@@ -383,7 +383,7 @@ The current scanner accepts all three forms described above:
 - legacy `function<｜tool▁sep｜>name` plus a fenced JSON body; and
 - fullwidth or ASCII DSML `invoke` / `parameter` blocks.
 
-For V3.1 and legacy calls, omp emits `toolStart` after the header is complete
+For V3.1 and legacy calls, oms emits `toolStart` after the header is complete
 but buffers arguments until `<｜tool▁call▁end｜>`; it then uses the shared
 repairing JSON parser. A missing/invalid completed argument object becomes
 `{}`. Flush emits no `toolEnd` for an unfinished call and only clears the

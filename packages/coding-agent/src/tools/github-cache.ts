@@ -20,7 +20,7 @@ import { Database } from "bun:sqlite";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { getGithubCacheDbPath, logger } from "@oh-my-pi/pi-utils";
+import { getGithubCacheDbPath, logger } from "@oh-my-soup/pi-utils";
 import type { Settings } from "../config/settings";
 import { defaultGhHost, parseRepoRef } from "./gh-common";
 import { ToolAbortError } from "./tool-errors";

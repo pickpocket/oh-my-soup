@@ -1,9 +1,9 @@
 /**
  * ONNX tiny-model worker: one process per local model, owning the model's
- * socket (see `title-protocol.ts`), serving every omp process on the machine,
+ * socket (see `title-protocol.ts`), serving every oms process on the machine,
  * and exiting on its own once idle. Entered from `cli.ts` via
  * {@link TINY_WORKER_ARG} with the socket/model/tag env set by
- * `title-client.ts`. Runs `onnxruntime-node` outside every omp process so its
+ * `title-client.ts`. Runs `onnxruntime-node` outside every oms process so its
  * NAPI finalizer never runs in a shared address space.
  */
 import * as path from "node:path";
@@ -13,7 +13,7 @@ import type {
 	TextGenerationStringOutput,
 	StoppingCriteria as TransformersStoppingCriteria,
 } from "@huggingface/transformers";
-import { getTinyModelsCacheDir, logger, setProcessName } from "@oh-my-pi/pi-utils";
+import { getTinyModelsCacheDir, logger, setProcessName } from "@oh-my-soup/pi-utils";
 import {
 	errorMessage,
 	errorText,
@@ -260,7 +260,7 @@ export async function startTinyWorkerFromEnvironment(): Promise<void> {
 	if (!isTinyLocalModelKey(modelKey)) throw new Error(`Unknown tiny local model: ${modelKey}`);
 	const spec = getTinyLocalModelSpec(modelKey);
 	if (!spec) throw new Error(`Unknown tiny local model: ${modelKey}`);
-	setProcessName(`omp tiny ${modelKey}`);
+	setProcessName(`oms tiny ${modelKey}`);
 	const model = new OnnxModel(modelKey, spec, resolveTinyModelDevicePreference(), resolveTinyModelDtypeOverride());
 	const server = new TinyWorkerServer({
 		tag,

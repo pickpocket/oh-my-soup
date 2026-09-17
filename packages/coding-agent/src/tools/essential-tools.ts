@@ -14,7 +14,7 @@
  * {@link defaultLoadModeForToolName} pins these names to `"essential"` when the
  * definition omits `loadMode`, so re-registering a built-in never demotes it.
  */
-import type { ToolLoadMode } from "@oh-my-pi/pi-agent-core";
+import type { ToolLoadMode } from "@oh-my-soup/pi-agent-core";
 
 /**
  * Built-in tool names whose classes declare `loadMode = "essential"`. Kept in

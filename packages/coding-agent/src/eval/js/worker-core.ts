@@ -1,4 +1,4 @@
-import { ToolError } from "@oh-my-pi/pi-tui/tools/tool-errors";
+import { ToolError } from "@oh-my-soup/pi-tui/tools/tool-errors";
 import { JsRuntime, type RuntimeCallIdentity, type RuntimeHooks, shadowSnapshotDigest } from "./shared/runtime";
 import type {
 	RunErrorPayload,
@@ -398,7 +398,7 @@ export class WorkerCore {
 		try {
 			const runtime = this.#runtime;
 			if (!runtime) throw new ToolError("JavaScript kernel is not running");
-			const rawRegistry = runtime.getGlobal("__omp_tools__");
+			const rawRegistry = runtime.getGlobal("__oms_tools__");
 			const tools = new Map<string, KernelToolSpec>();
 			if (rawRegistry instanceof Map) {
 				for (const [name, value] of rawRegistry) {

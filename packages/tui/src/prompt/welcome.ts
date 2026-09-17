@@ -1,7 +1,7 @@
 import { TERMINAL } from "../terminal-capabilities";
 import type { Component } from "../tui";
 import { padding, replaceTabs, truncateToWidth, visibleWidth, wrapTextWithAnsi } from "../utils";
-import { APP_NAME } from "@oh-my-pi/pi-utils/dirs";
+import { APP_NAME } from "@oh-my-soup/pi-utils/dirs";
 import { theme } from "../theme/theme";
 import tipsText from "./tips.txt" with { type: "text" };
 
@@ -130,7 +130,7 @@ export interface LspServerInfo {
 }
 
 /**
- * Premium welcome screen with block-based OMP logo and two-column layout.
+ * Premium welcome screen with block-based OMS logo and two-column layout.
  */
 export class WelcomeComponent implements Component {
 	#animStart: number | null = null;

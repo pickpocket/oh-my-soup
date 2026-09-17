@@ -1,15 +1,15 @@
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { AgentToolResult } from "@oh-my-pi/pi-agent-core";
-import type { IsoBackendKind, VcsGitRepo, VcsWorktreeEntry } from "@oh-my-pi/pi-natives";
-import * as vcs from "@oh-my-pi/pi-natives/vcs";
-import { getWorktreeDir, hashPath, isEnoent, logger } from "@oh-my-pi/pi-utils";
+import type { AgentToolResult } from "@oh-my-soup/pi-agent-core";
+import type { IsoBackendKind, VcsGitRepo, VcsWorktreeEntry } from "@oh-my-soup/pi-natives";
+import * as vcs from "@oh-my-soup/pi-natives/vcs";
+import { getWorktreeDir, hashPath, isEnoent, logger } from "@oh-my-soup/pi-utils";
 import { github } from "../utils/github";
 import { formatIsolationBackend, parseIsolationBackend } from "../task/worktree";
 import { withRepoLock } from "../utils/repo-lock";
 import type { ToolSession } from ".";
-import type { GhPrCheckoutSummary, GhToolDetails } from "@oh-my-pi/pi-tui/tools/github";
+import type { GhPrCheckoutSummary, GhToolDetails } from "@oh-my-soup/pi-tui/tools/github";
 import {
 	appendRepoFlag,
 	buildTextResult,
@@ -24,13 +24,13 @@ import {
 	requireCurrentGitBranch,
 	requireNonEmpty,
 } from "./gh-common";
-import { pushLine } from "@oh-my-pi/pi-tui/tools/gh-format";
-import { formatShortSha } from "@oh-my-pi/pi-tui/tools/gh-format";
+import { pushLine } from "@oh-my-soup/pi-tui/tools/gh-format";
+import { formatShortSha } from "@oh-my-soup/pi-tui/tools/gh-format";
 import type { GhPrViewData, GhRepoViewData, GithubInput } from "./gh-types";
 import { GH_PR_FIELDS_NO_COMMENTS } from "./gh-view";
 import { invalidateAllForNumber } from "./github-cache";
 import { throwIfAborted } from "./tool-errors";
-import { ToolError } from "@oh-my-pi/pi-tui/tools/tool-errors";
+import { ToolError } from "@oh-my-soup/pi-tui/tools/tool-errors";
 
 export const GH_REPO_CLONE_FIELDS = ["nameWithOwner", "sshUrl", "url"];
 export const GH_PR_CHECKOUT_FIELDS = [

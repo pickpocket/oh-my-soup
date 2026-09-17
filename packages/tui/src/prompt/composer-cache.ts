@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import "@oh-my-pi/pi-utils/env";
-import { getComposerCacheDir } from "@oh-my-pi/pi-utils/dirs";
+import "@oh-my-soup/pi-utils/env";
+import { getComposerCacheDir } from "@oh-my-soup/pi-utils/dirs";
 import type { LspServerInfo, RecentSession } from "./welcome";
 import type { ComposerPreferences, ComposerStatusSnapshot } from "./composer";
 import type { SymbolPreset } from "../theme/theme";

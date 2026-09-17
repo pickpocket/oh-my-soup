@@ -8,12 +8,12 @@
  * sibling SQLite store and never POSTs the broker sentinel to a Google token
  * endpoint.
  */
-import { type AuthStorage, type FetchImpl, type OAuthAccess, withOAuthAccess } from "@oh-my-pi/pi-ai";
-import { parseCloudflareAiGatewayCredential } from "@oh-my-pi/pi-catalog/wire/cloudflare-ai-gateway";
-import { getAntigravityUserAgent, getGeminiCliHeaders } from "@oh-my-pi/pi-catalog/wire/gemini-headers";
-import { fetchWithRetry, USER_AGENT } from "@oh-my-pi/pi-utils";
+import { type AuthStorage, type FetchImpl, type OAuthAccess, withOAuthAccess } from "@oh-my-soup/pi-ai";
+import { parseCloudflareAiGatewayCredential } from "@oh-my-soup/pi-catalog/wire/cloudflare-ai-gateway";
+import { getAntigravityUserAgent, getGeminiCliHeaders } from "@oh-my-soup/pi-catalog/wire/gemini-headers";
+import { fetchWithRetry, USER_AGENT } from "@oh-my-soup/pi-utils";
 
-import type { SearchCitation, SearchResponse, SearchSource } from "@oh-my-pi/pi-tui/tools/web-search";
+import type { SearchCitation, SearchResponse, SearchSource } from "@oh-my-soup/pi-tui/tools/web-search";
 import { SearchProviderError } from "../../../web/search/types";
 import { formatQuery, GOOGLE_QUERY_SYNTAX, parseSearchQuery, type StructuredQuery } from "../query";
 import type { SearchParams } from "./base";
@@ -434,7 +434,7 @@ async function callGeminiSearch(
 			}
 		: {
 				userAgent: USER_AGENT,
-				requestId: `omp-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
+				requestId: `oms-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
 			};
 
 	const normalizedSystemPrompt = systemPrompt?.toWellFormed();
@@ -667,7 +667,7 @@ export async function searchGemini(params: GeminiSearchParams): Promise<SearchRe
 			throw new Error(
 				endpoint.isCloudflareGateway
 					? 'No Cloudflare AI Gateway credential found. Configure provider "cloudflare-ai-gateway" or set CLOUDFLARE_AI_GATEWAY_API_KEY.'
-					: "No Gemini credentials found. Set GEMINI_API_KEY, configure an API key for provider \"google\", or login with 'omp /login google-gemini-cli' / 'omp /login google-antigravity' to enable Gemini web search.",
+					: "No Gemini credentials found. Set GEMINI_API_KEY, configure an API key for provider \"google\", or login with 'oms /login google-gemini-cli' / 'oms /login google-antigravity' to enable Gemini web search.",
 			);
 		}
 		result = await callGeminiDeveloperSearch(

@@ -11,7 +11,7 @@ let repositoryRoot = "";
 let store: SecurityStore;
 
 beforeEach(async () => {
-	temporaryRoot = await fs.mkdtemp(path.join(os.tmpdir(), "omp-security-history-"));
+	temporaryRoot = await fs.mkdtemp(path.join(os.tmpdir(), "oms-security-history-"));
 	repositoryRoot = path.join(temporaryRoot, "repo");
 	await fs.mkdir(repositoryRoot);
 	store = await SecurityStore.open(repositoryRoot, { stateRoot: path.join(temporaryRoot, "state") });

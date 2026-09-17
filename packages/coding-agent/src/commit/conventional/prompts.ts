@@ -1,4 +1,4 @@
-import { prompt } from "@oh-my-pi/pi-utils";
+import { prompt } from "@oh-my-soup/pi-utils";
 import analysisPrompt from "./prompts/analysis.md" with { type: "text" };
 import fastPrompt from "./prompts/fast.md" with { type: "text" };
 import mapPrompt from "./prompts/map.md" with { type: "text" };

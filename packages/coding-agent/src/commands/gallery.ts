@@ -2,7 +2,7 @@
  * Render every built-in tool's renderer across its lifecycle states.
  */
 
-import { Command, Flags } from "@oh-my-pi/pi-utils/cli";
+import { Command, Flags } from "@oh-my-soup/pi-utils/cli";
 import { galleryHelp as commandHelp } from "../cli/command-help";
 import {
 	GALLERY_STATE_TOKENS,

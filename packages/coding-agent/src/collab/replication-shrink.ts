@@ -42,7 +42,7 @@
  *   state and never reaches the model.
  */
 
-import type { SessionEntry as WireSessionEntry } from "@oh-my-pi/pi-wire";
+import type { SessionEntry as WireSessionEntry } from "@oh-my-soup/pi-wire";
 import type { AgentSessionEvent } from "../session/agent-session";
 import type { SessionEntry } from "../session/session-entries";
 

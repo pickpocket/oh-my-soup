@@ -1,5 +1,5 @@
-import type { Model } from "@oh-my-pi/pi-ai";
-import { isRecord, prompt } from "@oh-my-pi/pi-utils";
+import type { Model } from "@oh-my-soup/pi-ai";
+import { isRecord, prompt } from "@oh-my-soup/pi-utils";
 import type { ModelRegistry } from "../config/model-registry";
 import { formatModelString } from "../config/model-resolver";
 import modelMentionDescription from "../prompts/agents/model-mention.md" with { type: "text" };
@@ -10,7 +10,7 @@ import {
 	type ModelMention,
 	modelMentionDisplayName,
 	modelMentionTag,
-} from "@oh-my-pi/pi-tui/prompt/model-mention-syntax";
+} from "@oh-my-soup/pi-tui/prompt/model-mention-syntax";
 import type { SessionEntry } from "./session-entries";
 import type { SessionManager } from "./session-manager";
 

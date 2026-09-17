@@ -15,7 +15,7 @@ const roots: string[] = [];
 
 /** Build a throwaway workspace root containing exactly the given marker files. */
 function makeRoot(...markers: string[]): string {
-	const root = fs.mkdtempSync(path.join(os.tmpdir(), "omp-workspace-diagnostics-"));
+	const root = fs.mkdtempSync(path.join(os.tmpdir(), "oms-workspace-diagnostics-"));
 	roots.push(root);
 	for (const marker of markers) {
 		fs.writeFileSync(path.join(root, marker), "");

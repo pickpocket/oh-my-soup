@@ -1,17 +1,17 @@
 import { beforeAll, describe, expect, it } from "bun:test";
 import * as path from "node:path";
-import { type } from "@oh-my-pi/omptype";
-import { toolWireSchema } from "@oh-my-pi/pi-ai";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { initTheme, theme } from "@oh-my-pi/pi-tui/theme";
-import type { ToolSession } from "@oh-my-pi/pi-coding-agent/tools";
+import { type } from "@oh-my-soup/omstype";
+import { toolWireSchema } from "@oh-my-soup/pi-ai";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { initTheme, theme } from "@oh-my-soup/pi-tui/theme";
+import type { ToolSession } from "@oh-my-soup/pi-coding-agent/tools";
 import {
 	markdownToPhases,
 	nextActionableTask,
 	phasesToMarkdown,
 	resolveTodoMarkdownPath,
 	TodoTool,
-} from "@oh-my-pi/pi-coding-agent/tools";
+} from "@oh-my-soup/pi-coding-agent/tools";
 import {
 	selectCollapsedTodos,
 	TODO_STRIKE_HOLD_FRAMES,
@@ -20,8 +20,8 @@ import {
 	type TodoPhase,
 	todoMatchesAnyDescription,
 	todoToolRenderer,
-} from "@oh-my-pi/pi-tui/tools/todo";
-import type { Component } from "@oh-my-pi/pi-tui";
+} from "@oh-my-soup/pi-tui/tools/todo";
+import type { Component } from "@oh-my-soup/pi-tui";
 
 function createSession(initialPhases: TodoPhase[] = []): ToolSession {
 	let phases = initialPhases;
@@ -866,7 +866,7 @@ describe("todoToolRenderer.renderCall malformed-args regression (#2005)", () => 
 	it("renders op summary metadata for a well-formed flat call", () => {
 		const args = { op: "init", items: ["a", "b", "c"] };
 		const component = todoToolRenderer.renderCall(args, renderOptions, theme);
-		// `Text(text, 0, 0)` from `@oh-my-pi/pi-tui` exposes the content via .render().
+		// `Text(text, 0, 0)` from `@oh-my-soup/pi-tui` exposes the content via .render().
 		const rendered = Bun.stripANSI(component.render(120).join("\n"));
 		expect(rendered).toContain("init");
 		expect(rendered).toContain("3 items");

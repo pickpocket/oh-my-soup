@@ -5,23 +5,23 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, expectTypeOf, it, vi } from "bun:test";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { Type } from "@oh-my-pi/omptype/typebox";
-import type { AgentMessage, AgentTool } from "@oh-my-pi/pi-agent-core";
-import { streamAnthropic } from "@oh-my-pi/pi-ai/providers/anthropic";
-import type { MessageCreateParams } from "@oh-my-pi/pi-ai/providers/anthropic-wire";
-import type { ImageContent, TextContent } from "@oh-my-pi/pi-ai";
-import { getBundledModel } from "@oh-my-pi/pi-catalog/models";
-import { convertToLlm, wrapSteeringForModel } from "@oh-my-pi/pi-coding-agent/session/messages";
-import { ModelRegistry } from "@oh-my-pi/pi-coding-agent/config/model-registry";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { ExtensionRuntime, loadExtensions } from "@oh-my-pi/pi-coding-agent/extensibility/extensions/loader";
+import { Type } from "@oh-my-soup/omstype/typebox";
+import type { AgentMessage, AgentTool } from "@oh-my-soup/pi-agent-core";
+import { streamAnthropic } from "@oh-my-soup/pi-ai/providers/anthropic";
+import type { MessageCreateParams } from "@oh-my-soup/pi-ai/providers/anthropic-wire";
+import type { ImageContent, TextContent } from "@oh-my-soup/pi-ai";
+import { getBundledModel } from "@oh-my-soup/pi-catalog/models";
+import { convertToLlm, wrapSteeringForModel } from "@oh-my-soup/pi-coding-agent/session/messages";
+import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { ExtensionRuntime, loadExtensions } from "@oh-my-soup/pi-coding-agent/extensibility/extensions/loader";
 import {
 	EXTENSION_HANDLER_TIMEOUT_MS,
 	ExtensionRunner,
 	SESSION_SHUTDOWN_HANDLER_TIMEOUT_MS,
 	testSetExtensionHandlerTimeoutMs,
 	testSetSessionShutdownHandlerTimeoutMs,
-} from "@oh-my-pi/pi-coding-agent/extensibility/extensions/runner";
+} from "@oh-my-soup/pi-coding-agent/extensibility/extensions/runner";
 import type {
 	Extension,
 	ExtensionError,
@@ -30,11 +30,11 @@ import type {
 	InputEvent,
 	InputEventResult,
 	ProviderModelConfig,
-} from "@oh-my-pi/pi-coding-agent/extensibility/extensions/types";
-import { ExtensionToolWrapper } from "@oh-my-pi/pi-coding-agent/extensibility/extensions/wrapper";
-import { AuthStorage } from "@oh-my-pi/pi-coding-agent/session/auth-storage";
-import { SessionManager } from "@oh-my-pi/pi-coding-agent/session/session-manager";
-import { getProjectAgentDir, logger, TempDir } from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-coding-agent/extensibility/extensions/types";
+import { ExtensionToolWrapper } from "@oh-my-soup/pi-coding-agent/extensibility/extensions/wrapper";
+import { AuthStorage } from "@oh-my-soup/pi-coding-agent/session/auth-storage";
+import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
+import { getProjectAgentDir, logger, TempDir } from "@oh-my-soup/pi-utils";
 
 describe("ExtensionRunner", () => {
 	let tempDir: TempDir;

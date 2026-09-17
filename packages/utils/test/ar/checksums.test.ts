@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { crc16Arc, crc32, crc64 } from "@oh-my-pi/pi-utils/ar/checksums";
+import { crc16Arc, crc32, crc64 } from "@oh-my-soup/pi-utils/ar/checksums";
 
 // Containers store these exact values on the wire; if any of them drifts
 // (e.g. Bun.hash.crc32 seed semantics stop matching zlib chaining), every

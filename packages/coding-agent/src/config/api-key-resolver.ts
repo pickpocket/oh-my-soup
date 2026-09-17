@@ -1,8 +1,8 @@
-import type { ApiKeyResolver } from "@oh-my-pi/pi-ai/auth-retry";
-import * as AIError from "@oh-my-pi/pi-ai/error";
-import { isUsageLimitOutcome } from "@oh-my-pi/pi-ai/error/rate-limit";
-import type { AuthStorage } from "@oh-my-pi/pi-ai/auth-storage";
-import type { Api, Model } from "@oh-my-pi/pi-ai/types";
+import type { ApiKeyResolver } from "@oh-my-soup/pi-ai/auth-retry";
+import * as AIError from "@oh-my-soup/pi-ai/error";
+import { isUsageLimitOutcome } from "@oh-my-soup/pi-ai/error/rate-limit";
+import type { AuthStorage } from "@oh-my-soup/pi-ai/auth-storage";
+import type { Api, Model } from "@oh-my-soup/pi-ai/types";
 
 /** Model slice accepted by the model-form `resolver(model, sessionId)` overload. */
 export type ApiKeyResolverModel = Pick<Model<Api>, "provider" | "baseUrl" | "id">;

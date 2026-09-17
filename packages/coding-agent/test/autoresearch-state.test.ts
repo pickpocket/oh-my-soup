@@ -1,22 +1,22 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
-import { createAutoresearchExtension } from "@oh-my-pi/pi-coding-agent/autoresearch";
+import { createAutoresearchExtension } from "@oh-my-soup/pi-coding-agent/autoresearch";
 import {
 	buildExperimentState,
 	computeConfidence,
 	findBestKeptMetric,
 	reconstructControlState,
-} from "@oh-my-pi/pi-coding-agent/autoresearch/state";
-import { AutoresearchStorage, closeAllAutoresearchStorages } from "@oh-my-pi/pi-coding-agent/autoresearch/storage";
-import type { ExperimentResult } from "@oh-my-pi/pi-tui/tools/autoresearch";
-import { findBaselineMetric, findBaselineRunNumber } from "@oh-my-pi/pi-tui/apps/autoresearch-data";
+} from "@oh-my-soup/pi-coding-agent/autoresearch/state";
+import { AutoresearchStorage, closeAllAutoresearchStorages } from "@oh-my-soup/pi-coding-agent/autoresearch/storage";
+import type { ExperimentResult } from "@oh-my-soup/pi-tui/tools/autoresearch";
+import { findBaselineMetric, findBaselineRunNumber } from "@oh-my-soup/pi-tui/apps/autoresearch-data";
 import type {
 	ExtensionAPI,
 	ExtensionCommandContext,
 	RegisteredCommand,
-} from "@oh-my-pi/pi-coding-agent/extensibility/extensions";
-import type { VcsGitRepo, VcsGitRepoInfo } from "@oh-my-pi/pi-natives";
-import * as vcs from "@oh-my-pi/pi-natives/vcs";
-import { TempDir } from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-coding-agent/extensibility/extensions";
+import type { VcsGitRepo, VcsGitRepoInfo } from "@oh-my-soup/pi-natives";
+import * as vcs from "@oh-my-soup/pi-natives/vcs";
+import { TempDir } from "@oh-my-soup/pi-utils";
 
 afterEach(() => {
 	vi.restoreAllMocks();
@@ -522,12 +522,12 @@ describe("autoresearch slash command", () => {
 
 	beforeEach(() => {
 		dbOverride = TempDir.createSync("@pi-autoresearch-cmd-");
-		process.env.OMP_AUTORESEARCH_DB_DIR = dbOverride.path();
+		process.env.OMS_AUTORESEARCH_DB_DIR = dbOverride.path();
 		cleanups.push(dbOverride);
 	});
 
 	afterEach(() => {
-		delete process.env.OMP_AUTORESEARCH_DB_DIR;
+		delete process.env.OMS_AUTORESEARCH_DB_DIR;
 		closeAllAutoresearchStorages();
 		for (const dir of cleanups.splice(0)) {
 			dir.removeSync();
@@ -589,12 +589,12 @@ describe("autoresearch tool-call hook", () => {
 
 	beforeEach(() => {
 		dbOverride = TempDir.createSync("@pi-autoresearch-hook-");
-		process.env.OMP_AUTORESEARCH_DB_DIR = dbOverride.path();
+		process.env.OMS_AUTORESEARCH_DB_DIR = dbOverride.path();
 		cleanups.push(dbOverride);
 	});
 
 	afterEach(() => {
-		delete process.env.OMP_AUTORESEARCH_DB_DIR;
+		delete process.env.OMS_AUTORESEARCH_DB_DIR;
 		closeAllAutoresearchStorages();
 		for (const dir of cleanups.splice(0)) {
 			dir.removeSync();

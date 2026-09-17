@@ -13,12 +13,12 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { loadCapability } from "@oh-my-pi/pi-coding-agent/capability";
-import { clearCache } from "@oh-my-pi/pi-coding-agent/capability/fs";
-import type { Skill } from "@oh-my-pi/pi-coding-agent/capability/skill";
-import { removeSyncWithRetries } from "@oh-my-pi/pi-utils";
-import "@oh-my-pi/pi-coding-agent/capability/skill";
-import "@oh-my-pi/pi-coding-agent/discovery/github";
+import { loadCapability } from "@oh-my-soup/pi-coding-agent/capability";
+import { clearCache } from "@oh-my-soup/pi-coding-agent/capability/fs";
+import type { Skill } from "@oh-my-soup/pi-coding-agent/capability/skill";
+import { removeSyncWithRetries } from "@oh-my-soup/pi-utils";
+import "@oh-my-soup/pi-coding-agent/capability/skill";
+import "@oh-my-soup/pi-coding-agent/discovery/github";
 
 function writeSkill(root: string, name: string, description: string | null): void {
 	const skillDir = path.join(root, name);

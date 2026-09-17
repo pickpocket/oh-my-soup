@@ -1,6 +1,6 @@
 # Natives Architecture
 
-`@oh-my-pi/pi-natives` combines a JavaScript ESM loader with a Rust Node-API addon:
+`@oh-my-soup/pi-natives` combines a JavaScript ESM loader with a Rust Node-API addon:
 
 1. **Package/loader layer** selects, loads, and validates the correct `.node` addon, then exposes generated named ESM exports.
 2. **Rust N-API layer** implements those exports and supplies napi-rs-generated TypeScript declarations.
@@ -26,9 +26,9 @@ The package exports three entrypoints:
 
 | Import                           | Runtime               | Types                   | Load behavior                                                                           |
 | -------------------------------- | --------------------- | ----------------------- | --------------------------------------------------------------------------------------- |
-| `@oh-my-pi/pi-natives`           | `native/index.js`     | `native/index.d.ts`     | Loads the addon immediately, then binds every generated class/function and enum object. |
-| `@oh-my-pi/pi-natives/desktop`   | `native/desktop.js`   | `native/desktop.d.ts`   | Exposes `createDesktopSession(options)` and defers addon loading until it is called.    |
-| `@oh-my-pi/pi-natives/clipboard` | `native/clipboard.js` | `native/clipboard.d.ts` | Exposes lazy `copyToClipboard` and `readImageFromClipboard` wrappers.                   |
+| `@oh-my-soup/pi-natives`           | `native/index.js`     | `native/index.d.ts`     | Loads the addon immediately, then binds every generated class/function and enum object. |
+| `@oh-my-soup/pi-natives/desktop`   | `native/desktop.js`   | `native/desktop.d.ts`   | Exposes `createDesktopSession(options)` and defers addon loading until it is called.    |
+| `@oh-my-soup/pi-natives/clipboard` | `native/clipboard.js` | `native/clipboard.d.ts` | Exposes lazy `copyToClipboard` and `readImageFromClipboard` wrappers.                   |
 
 There is no `packages/natives/src` wrapper layer. Root consumers call generated N-API exports directly. The lazy subpaths exist so workers can import their JS wrapper without loading the large addon before the relevant operation initializes.
 
@@ -58,13 +58,13 @@ Filename fallback is:
 - baseline x64: `-baseline.node`, then unsuffixed `.node`;
 - non-x64: unsuffixed `.node` only.
 
-The published core package contains loader JS, declarations, and metadata but no `.node` files. Release publishing generates `@oh-my-pi/pi-natives-<platform>-<arch>` optional-dependency leaf packages and injects them at the same version into the core manifest. `LEAF_TARGETS` in `gen-npm-packages.ts` is the authoritative publish target list.
+The published core package contains loader JS, declarations, and metadata but no `.node` files. Release publishing generates `@oh-my-soup/pi-natives-<platform>-<arch>` optional-dependency leaf packages and injects them at the same version into the core manifest. `LEAF_TARGETS` in `gen-npm-packages.ts` is the authoritative publish target list.
 
 ### Candidate ownership and order
 
 For a normal installed package, the platform leaf is probed before the core package's `native/` directory and `process.execPath` directory. Workspace development skips leaf resolution so local artifacts win.
 
-Compiled mode is detected by a populated embedded manifest, `PI_COMPILED`, or a Bun embedded marker in `import.meta.url`. It probes the versioned cache and legacy user-data directory before package/executable locations. `getNativesDir()` is `$XDG_DATA_HOME/omp/natives` only when `$XDG_DATA_HOME/omp` already exists; otherwise it is `~/.omp/natives`.
+Compiled mode is detected by a populated embedded manifest, `PI_COMPILED`, or a Bun embedded marker in `import.meta.url`. It probes the versioned cache and legacy user-data directory before package/executable locations. `getNativesDir()` is `$XDG_DATA_HOME/oms/natives` only when `$XDG_DATA_HOME/oms` already exists; otherwise it is `~/.oms/natives`.
 
 A populated manifest references `embedded-addons.<tag>.tar.gz`. Extraction allows only manifest-listed basename-only regular files, writes atomically into `<getNativesDir()>/<version>`, and validates file size. On Windows `node_modules` installs, the loader instead stages a leaf/core addon in that versioned directory so a running process does not lock the copy Bun must replace during an update.
 

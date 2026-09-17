@@ -11,13 +11,13 @@
  * are stubbed.
  */
 import { afterAll, afterEach, beforeAll, describe, expect, it, spyOn } from "bun:test";
-import { importRoomKey } from "@oh-my-pi/pi-coding-agent/collab/crypto";
-import { CollabGuestLink } from "@oh-my-pi/pi-coding-agent/collab/guest";
-import { CollabHost } from "@oh-my-pi/pi-coding-agent/collab/host";
-import { COLLAB_PROTO, type CollabFrame, parseCollabLink } from "@oh-my-pi/pi-coding-agent/collab/protocol";
-import { CollabSocket } from "@oh-my-pi/pi-coding-agent/collab/relay-client";
-import type { InteractiveModeContext } from "@oh-my-pi/pi-coding-agent/modes/types";
-import type { SessionEntry } from "@oh-my-pi/pi-coding-agent/session/session-entries";
+import { importRoomKey } from "@oh-my-soup/pi-coding-agent/collab/crypto";
+import { CollabGuestLink } from "@oh-my-soup/pi-coding-agent/collab/guest";
+import { CollabHost } from "@oh-my-soup/pi-coding-agent/collab/host";
+import { COLLAB_PROTO, type CollabFrame, parseCollabLink } from "@oh-my-soup/pi-coding-agent/collab/protocol";
+import { CollabSocket } from "@oh-my-soup/pi-coding-agent/collab/relay-client";
+import type { InteractiveModeContext } from "@oh-my-soup/pi-coding-agent/modes/types";
+import type { SessionEntry } from "@oh-my-soup/pi-coding-agent/session/session-entries";
 import { installInMemoryRelay, uninstallInMemoryRelay } from "./helpers/in-memory-relay";
 
 // In-memory transport: shared FakeWebSocket + InMemoryRelay harness (see

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { expandCommand, type WorkflowCommand } from "@oh-my-pi/pi-coding-agent/task/commands";
+import { expandCommand, type WorkflowCommand } from "@oh-my-soup/pi-coding-agent/task/commands";
 
 function makeCommand(instructions: string): WorkflowCommand {
 	return { name: "test", description: "test", instructions, source: "project", filePath: "test.md" };

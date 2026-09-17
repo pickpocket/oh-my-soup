@@ -166,7 +166,7 @@ export type SnapshotStreamEvent = SnapshotStreamSnapshotEvent | SnapshotStreamEn
 export const AUTH_BROKER_API_PREFIX = "/v1";
 
 /** Request header used by clients to advertise optional auth-broker protocol features. */
-export const AUTH_BROKER_CAPABILITIES_HEADER = "OMP-Auth-Broker-Capabilities";
+export const AUTH_BROKER_CAPABILITIES_HEADER = "OMS-Auth-Broker-Capabilities";
 
 /** Client understands independent Codex `chat` and `spark` credential-block scopes. */
 export const AUTH_BROKER_CAPABILITY_CODEX_METER_BLOCK_SCOPES = "codex-meter-block-scopes";

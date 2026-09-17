@@ -1,7 +1,7 @@
-import type { ThinkingLevel } from "@oh-my-pi/pi-agent-core";
-import type { Api, ApiKey, AssistantMessage, AuthStorage, Model } from "@oh-my-pi/pi-ai";
-import { completeSimple } from "@oh-my-pi/pi-ai";
-import { toReasoningEffort } from "@oh-my-pi/pi-tui/thinking";
+import type { ThinkingLevel } from "@oh-my-soup/pi-agent-core";
+import type { Api, ApiKey, AssistantMessage, AuthStorage, Model } from "@oh-my-soup/pi-ai";
+import { completeSimple } from "@oh-my-soup/pi-ai";
+import { toReasoningEffort } from "@oh-my-soup/pi-tui/thinking";
 import type { ResolvedCommitModel } from "../model-selection";
 import { type CommitInferenceCache, computeCommitCacheKey } from "./cache";
 import type { ConventionalGenerationConfig } from "./config";
@@ -42,8 +42,8 @@ interface InferenceTarget {
 	thinkingLevel?: ThinkingLevel;
 }
 
-/** Omp's model/provider adapter for llm-git's parser-aware one-shot algorithm. */
-export class OmpCommitInference implements CommitInference {
+/** Oms's model/provider adapter for llm-git's parser-aware one-shot algorithm. */
+export class OmsCommitInference implements CommitInference {
 	readonly #targets: Record<CommitInferenceRole, InferenceTarget>;
 	readonly #config: ConventionalGenerationConfig;
 	readonly #cache: CommitInferenceCache | null;

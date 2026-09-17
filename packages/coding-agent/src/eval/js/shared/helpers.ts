@@ -1,6 +1,6 @@
 import * as path from "node:path";
 
-import { ToolError } from "@oh-my-pi/pi-tui/tools/tool-errors";
+import { ToolError } from "@oh-my-soup/pi-tui/tools/tool-errors";
 import type { JsStatusEvent } from "./types";
 
 export interface HelperOptions {
@@ -26,7 +26,7 @@ export interface HelperContext {
 }
 
 /**
- * The set of functions exposed to user code via `globalThis.__omp_helpers__`. The JS
+ * The set of functions exposed to user code via `globalThis.__oms_helpers__`. The JS
  * prelude reads from this bag and attaches short aliases (`read`, `write`, `env`, ...)
  * onto the global scope.
  */

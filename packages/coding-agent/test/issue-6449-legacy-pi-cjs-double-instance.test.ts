@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { ensureGraphCommonJsRequireRegistered } from "@oh-my-pi/pi-coding-agent/extensibility/plugins/legacy-pi-compat";
+import { ensureGraphCommonJsRequireRegistered } from "@oh-my-soup/pi-coding-agent/extensibility/plugins/legacy-pi-compat";
 
 // The global key the host bundle and every re-instantiated shim copy share to
 // hand graph-owned CommonJS modules to whichever instance owns the populated

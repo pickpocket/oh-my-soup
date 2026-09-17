@@ -28,7 +28,7 @@ function processGroupExists(pid: number): boolean {
 
 describe("isSignalableProcessGroup", () => {
 	test("rejects the degenerate kill(2) group targets", () => {
-		// `-0` would signal omp's own process group and `-1` would signal every
+		// `-0` would signal oms's own process group and `-1` would signal every
 		// process the user can reach; both must never be negated into a kill.
 		expect(isSignalableProcessGroup(0)).toBe(false);
 		expect(isSignalableProcessGroup(1)).toBe(false);
@@ -103,7 +103,7 @@ describe("BaseKernel shutdown", () => {
 	test.skipIf(!POSIX).each(["graceful", "timeout"] as const)(
 		"kills TERM-resistant descendants after a %s leader exit",
 		async exitMode => {
-			const pidFile = `/tmp/omp-kernel-process-group-${process.pid}-${Date.now()}`;
+			const pidFile = `/tmp/oms-kernel-process-group-${process.pid}-${Date.now()}`;
 			const child = `sh -c 'trap "" TERM; echo ready > "$1"; exec sleep 30' sh '${pidFile}' &`;
 			const command =
 				exitMode === "graceful"

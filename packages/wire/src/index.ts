@@ -1,7 +1,7 @@
 /**
- * Shared wire types for the omp collab live-session protocol.
+ * Shared wire types for the oms collab live-session protocol.
  *
- * Dependency-free JSON shapes produced by `@oh-my-pi/pi-coding-agent`
+ * Dependency-free JSON shapes produced by `@oh-my-soup/pi-coding-agent`
  * (`src/collab/protocol.ts` and friends). Browser and test clients import this
  * package instead of depending on the coding-agent runtime; conformance is
  * asserted type-only in `packages/coding-agent/test/collab/web-wire.types.ts`.

@@ -2,7 +2,7 @@
  * Inspect and control daemon-broker supervised processes from outside the harness.
  */
 
-import { Args, Command, Flags } from "@oh-my-pi/pi-utils/cli";
+import { Args, Command, Flags } from "@oh-my-soup/pi-utils/cli";
 import { psHelp as commandHelp } from "../cli/command-help";
 import { type PsAction, type PsCommandArgs, runPsCommand } from "../cli/ps-cli";
 
@@ -37,12 +37,12 @@ export default class Ps extends Command {
 	};
 
 	static examples = [
-		"omp ps",
-		"omp ps --all",
-		"omp ps logs web --follow",
-		"omp ps stop web",
-		"omp ps kill web",
-		"omp ps info relay --global browser-relay",
+		"oms ps",
+		"oms ps --all",
+		"oms ps logs web --follow",
+		"oms ps stop web",
+		"oms ps kill web",
+		"oms ps info relay --global browser-relay",
 	];
 
 	async run(): Promise<void> {

@@ -1,11 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from "bun:test";
-import type { ImageContent } from "@oh-my-pi/pi-ai";
-import { resetSettingsForTest, Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { InputController } from "@oh-my-pi/pi-coding-agent/modes/controllers/input-controller";
-import type { InteractiveModeContext, SubmittedUserInput } from "@oh-my-pi/pi-coding-agent/modes/types";
-import { USER_INTERRUPT_LABEL } from "@oh-my-pi/pi-coding-agent/session/messages";
-import { vocalizer } from "@oh-my-pi/pi-coding-agent/tts/vocalizer";
-import * as logger from "@oh-my-pi/pi-utils/logger";
+import type { ImageContent } from "@oh-my-soup/pi-ai";
+import { resetSettingsForTest, Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { InputController } from "@oh-my-soup/pi-coding-agent/modes/controllers/input-controller";
+import type { InteractiveModeContext, SubmittedUserInput } from "@oh-my-soup/pi-coding-agent/modes/types";
+import { USER_INTERRUPT_LABEL } from "@oh-my-soup/pi-coding-agent/session/messages";
+import { vocalizer } from "@oh-my-soup/pi-coding-agent/tts/vocalizer";
+import * as logger from "@oh-my-soup/pi-utils/logger";
 
 type Spy = Mock<(...args: unknown[]) => unknown>;
 type StartPendingSubmissionSpy = Mock<InteractiveModeContext["startPendingSubmission"]>;

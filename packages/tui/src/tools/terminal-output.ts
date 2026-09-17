@@ -1,13 +1,13 @@
-import { sanitizeText } from "@oh-my-pi/pi-utils";
-import type { Terminal as XtermTerminal } from "@oh-my-pi/pi-utils/vterm";
-import type * as XtermModule from "@oh-my-pi/pi-utils/vterm";
+import { sanitizeText } from "@oh-my-soup/pi-utils";
+import type { Terminal as XtermTerminal } from "@oh-my-soup/pi-utils/vterm";
+import type * as XtermModule from "@oh-my-soup/pi-utils/vterm";
 
 let xtermTerminalCtor: typeof XtermModule.Terminal | undefined;
 
 /** Lazily load the headless terminal shared by PTY display paths. */
 export async function loadXtermTerminal(): Promise<typeof XtermModule.Terminal> {
 	if (!xtermTerminalCtor) {
-		const mod = (await import("@oh-my-pi/pi-utils/vterm")) as typeof XtermModule & { default?: typeof XtermModule };
+		const mod = (await import("@oh-my-soup/pi-utils/vterm")) as typeof XtermModule & { default?: typeof XtermModule };
 		xtermTerminalCtor = (mod.default ?? mod).Terminal;
 	}
 	return xtermTerminalCtor;

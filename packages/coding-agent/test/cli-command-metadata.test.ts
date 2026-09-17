@@ -5,7 +5,7 @@ import {
 	type CommandMetadata,
 	renderCommandHelp,
 	renderRootHelp,
-} from "@oh-my-pi/pi-utils/cli";
+} from "@oh-my-soup/pi-utils/cli";
 import { commands } from "../src/cli-commands";
 
 function captureStdout(render: () => void): string {
@@ -33,7 +33,7 @@ describe("CLI command help metadata", () => {
 			constructors.set(entry.name, await entry.load());
 		}
 
-		const base = { bin: "omp", version: "test" };
+		const base = { bin: "oms", version: "test" };
 		const metadataConfig: CliConfig<CommandMetadata> = { ...base, commands: metadata };
 		const constructorConfig: CliConfig = { ...base, commands: constructors };
 		const metadataRoot = captureStdout(() => renderRootHelp(metadataConfig));
@@ -45,7 +45,7 @@ describe("CLI command help metadata", () => {
 		for (const name of visibleNames) {
 			const Command = constructors.get(name);
 			if (!Command) throw new Error(`Missing loaded command: ${name}`);
-			const commandOutput = captureStdout(() => renderCommandHelp("omp", name, Command));
+			const commandOutput = captureStdout(() => renderCommandHelp("oms", name, Command));
 			const description = commandOutput.split("\n", 1)[0];
 			expect(metadataRoot).toContain(`  ${name.padEnd(maxNameLength + 2)}${description}`);
 		}

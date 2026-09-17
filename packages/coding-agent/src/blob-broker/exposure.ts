@@ -10,7 +10,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { $which, getSafeProjectCwd, logger } from "@oh-my-pi/pi-utils";
+import { $which, getSafeProjectCwd, logger } from "@oh-my-soup/pi-utils";
 import { credentialString, type DestinationRuntimeConfig, optionString } from "./uploader-runtime";
 
 /** User-selectable exposure strategy. */
@@ -58,7 +58,7 @@ export interface ActiveExposure {
 }
 
 const READY_TIMEOUT_MS = 30_000;
-const HEALTH_PATH = "/.well-known/omp-blob-health";
+const HEALTH_PATH = "/.well-known/oms-blob-health";
 const DEFAULT_HEALTH_ATTEMPTS = 5;
 const MAX_HEALTH_ATTEMPTS = 10;
 const DEFAULT_HEALTH_BACKOFF_MS = 250;
@@ -238,7 +238,7 @@ async function spawnUrlTunnel(
 	extract: (line: string) => string | null,
 	readyPattern?: RegExp,
 ): Promise<{ proc: Bun.Subprocess; baseUrl: string }> {
-	const logPath = path.join(os.tmpdir(), `omp-blob-tunnel-${Date.now().toString(36)}-${process.pid}.log`);
+	const logPath = path.join(os.tmpdir(), `oms-blob-tunnel-${Date.now().toString(36)}-${process.pid}.log`);
 	const fd = fs.openSync(logPath, "w");
 	let proc: Bun.Subprocess;
 	try {

@@ -1,5 +1,5 @@
 /**
- * Lightweight protobuf (.proto) parser and TypeScript code generator for @oh-my-pi/pi-catalog.
+ * Lightweight protobuf (.proto) parser and TypeScript code generator for @oh-my-soup/pi-catalog.
  *
  * Generates type-safe schema definitions and message types using the discovery/protobuf runtime codecs.
  */
@@ -1443,7 +1443,7 @@ export function generateProtoTs(
 		lines.push(options.headerComment);
 	} else {
 		lines.push("/**");
-		lines.push(` * ${pkgPrefix} protocol declarations used by Oh My Pi.`);
+		lines.push(` * ${pkgPrefix} protocol declarations used by Oh My Soup.`);
 		lines.push(" *");
 		lines.push(" * Each declaration retains only fields consumed by the client or its protocol tests.");
 		lines.push(" */");

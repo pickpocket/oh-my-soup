@@ -1,31 +1,31 @@
-import type { GrepToolDetails } from "@oh-my-pi/pi-tui/tools/grep";
+import type { GrepToolDetails } from "@oh-my-soup/pi-tui/tools/grep";
 import { mkdtemp, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import * as path from "node:path";
-import { type } from "@oh-my-pi/omptype";
+import { type } from "@oh-my-soup/omstype";
 import type {
 	AgentTool,
 	AgentToolContext,
 	AgentToolResult,
 	AgentToolUpdateCallback,
 	ToolTier,
-} from "@oh-my-pi/pi-agent-core";
-import { type GrepMatch, GrepOutputMode, type GrepResult, grep } from "@oh-my-pi/pi-natives";
-import { prompt, untilAborted } from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-agent-core";
+import { type GrepMatch, GrepOutputMode, type GrepResult, grep } from "@oh-my-soup/pi-natives";
+import { prompt, untilAborted } from "@oh-my-soup/pi-utils";
 import {
 	type ArchiveReader,
 	type ExtractedArchiveFile,
 	openArchive,
 	parseArchivePathCandidates,
-} from "@oh-my-pi/pi-utils/ar";
+} from "@oh-my-soup/pi-utils/ar";
 import { getEditStore } from "../edit/store";
-import { formatHashlineHeader } from "@oh-my-pi/pi-tui/tools/hashline-format";
+import { formatHashlineHeader } from "@oh-my-soup/pi-tui/tools/hashline-format";
 import type { LocalProtocolOptions } from "../internal-urls/local-protocol";
 import { InternalUrlRouter } from "../internal-urls/router";
 import { tryResolveInternalUrlSync } from "../internal-urls/hyperlink-targets";
 import type { InternalResource, ResolveContext } from "../internal-urls/types";
 import grepDescription from "../prompts/tools/grep.md" with { type: "text" };
-import { DEFAULT_MAX_COLUMN, truncateHead, truncateLineBytes } from "@oh-my-pi/pi-tui/tools/streaming-output";
+import { DEFAULT_MAX_COLUMN, truncateHead, truncateLineBytes } from "@oh-my-soup/pi-tui/tools/streaming-output";
 import { sessionDelegationBias } from "../task/prompt-policy";
 import { isScoutSpawnable } from "../task/spawn-policy";
 import { resolveFileDisplayMode } from "../utils/file-display-mode";
@@ -33,8 +33,8 @@ import type { ToolSession } from ".";
 import { getExperimentalContextSession } from "./context-notes";
 import { materializeReadUrlToFile, parseReadUrlTarget } from "./fetch";
 import { createFileRecorder, formatResultPath } from "./file-recorder";
-import { formatGroupedFiles } from "@oh-my-pi/pi-tui/tools/grouped-file-output";
-import { formatMatchLine } from "@oh-my-pi/pi-tui/tools/match-line-format";
+import { formatGroupedFiles } from "@oh-my-soup/pi-tui/tools/grouped-file-output";
+import { formatMatchLine } from "@oh-my-soup/pi-tui/tools/match-line-format";
 import {
 	expandDelimitedPathEntries,
 	hasGlobPathChars,
@@ -46,12 +46,12 @@ import {
 	resolveToolSearchScope,
 	splitPathAndSelPreferringLiteral,
 } from "./path-utils";
-import { type LineRange, parseLineRanges, selectorLineRanges } from "@oh-my-pi/pi-tui/tools/line-ranges";
-import { splitInternalUrlSel, splitPathAndSel } from "@oh-my-pi/pi-tui/tools/read";
-import { toPathList } from "@oh-my-pi/pi-tui/render/render-utils";
+import { type LineRange, parseLineRanges, selectorLineRanges } from "@oh-my-soup/pi-tui/tools/line-ranges";
+import { splitInternalUrlSel, splitPathAndSel } from "@oh-my-soup/pi-tui/tools/read";
+import { toPathList } from "@oh-my-soup/pi-tui/render/render-utils";
 import { isRawSelector } from "./read-selector";
-import { formatCodeFrameLine } from "@oh-my-pi/pi-tui/render/render-utils";
-import { ToolError } from "@oh-my-pi/pi-tui/tools/tool-errors";
+import { formatCodeFrameLine } from "@oh-my-soup/pi-tui/render/render-utils";
+import { ToolError } from "@oh-my-soup/pi-tui/tools/tool-errors";
 import { toolResult } from "./tool-result";
 
 const searchPathEntry = type("string").describe(
@@ -275,7 +275,7 @@ async function resolveArchiveSearchPaths(
 		}
 
 		if (!tempDir) {
-			tempDir = await mkdtemp(path.join(tmpdir(), "omp-search-archive-"));
+			tempDir = await mkdtemp(path.join(tmpdir(), "oms-search-archive-"));
 		}
 		// Per-entry filename keeps the scratch path unique even when two selectors
 		// resolve to members with the same basename.
@@ -325,7 +325,7 @@ interface IndexedContentLines {
 	starts: number[];
 }
 
-const OMP_ROOT_URL_RE = /^omp:\/\/(?:\/?|docs\/?)$/i;
+const OMS_ROOT_URL_RE = /^oms:\/\/(?:\/?|docs\/?)$/i;
 
 function normalizeSearchLine(line: string): string {
 	return line.endsWith("\r") ? line.slice(0, -1) : line;
@@ -630,7 +630,7 @@ async function searchVirtualResources(
 	// `[[:digit:]]`) behaves identically on virtual/remote resources. The JS helpers
 	// below then rebuild the exact forward-only, range-trimmed context windows the
 	// virtual-search contract requires.
-	const dir = await mkdtemp(path.join(tmpdir(), "omp-search-virtual-"));
+	const dir = await mkdtemp(path.join(tmpdir(), "oms-search-virtual-"));
 	try {
 		for (let idx = 0; idx < resources.length; idx++) {
 			const resource = resources[idx];
@@ -725,15 +725,15 @@ async function expandVirtualInternalResource(
 	context: ResolveContext,
 	ranges: readonly LineRange[] | undefined,
 ): Promise<VirtualSearchResource[]> {
-	if (OMP_ROOT_URL_RE.test(rawPath)) {
-		const completions = await internalRouter.complete("omp", "");
+	if (OMS_ROOT_URL_RE.test(rawPath)) {
+		const completions = await internalRouter.complete("oms", "");
 		if (completions && completions.length > 0) {
 			const resources: VirtualSearchResource[] = [];
 			const seen = new Set<string>();
 			for (const completion of completions) {
 				if (seen.has(completion.value)) continue;
 				seen.add(completion.value);
-				const docUrl = `omp://${completion.value}`;
+				const docUrl = `oms://${completion.value}`;
 				const doc = await internalRouter.resolve(docUrl, context);
 				if (!doc.sourcePath) {
 					resources.push({ path: docUrl, content: doc.content, ranges });

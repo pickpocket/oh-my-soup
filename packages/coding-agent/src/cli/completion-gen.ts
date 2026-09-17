@@ -14,7 +14,7 @@
  * — see `commands/complete.ts`. The flag→source mapping below is the only manual
  * knob and is keyed by flag name so it stays stable as flags are added.
  */
-import type { ArgDescriptor, CliConfig, CommandMetadata, FlagDescriptor } from "@oh-my-pi/pi-utils/cli";
+import type { ArgDescriptor, CliConfig, CommandMetadata, FlagDescriptor } from "@oh-my-soup/pi-utils/cli";
 import { BUILTIN_TOOL_NAMES } from "../tools/builtin-names";
 
 export type Shell = "bash" | "zsh" | "fish";
@@ -188,10 +188,10 @@ function bashValueBranch(bin: string, v: ValueSource): string {
 		case "enum":
 			return `COMPREPLY=( $(compgen -W "${bashWords(v.values)}" -- "$cur") ); return 0`;
 		case "list":
-			return `_omp_comma "${bashWords(v.values)}"; return 0`;
+			return `_oms_comma "${bashWords(v.values)}"; return 0`;
 		case "models":
 			return v.multiple
-				? `_omp_comma "$(command ${bin} __complete models 2>/dev/null | cut -f1)"; return 0`
+				? `_oms_comma "$(command ${bin} __complete models 2>/dev/null | cut -f1)"; return 0`
 				: `COMPREPLY=( $(compgen -W "$(command ${bin} __complete models -- "$cur" 2>/dev/null | cut -f1)" -- "$cur") ); return 0`;
 		case "sessions":
 			return `COMPREPLY=( $(compgen -W "$(command ${bin} __complete sessions -- "$cur" 2>/dev/null | cut -f1)" -- "$cur") ); return 0`;
@@ -229,7 +229,7 @@ function generateBash(spec: CompletionSpec): string {
 	parts.push("");
 
 	// Comma-aware static/dynamic list completion helper.
-	parts.push(`_omp_comma() {
+	parts.push(`_oms_comma() {
 	local words="$1" realcur prefix
 	realcur="\${cur##*,}"
 	prefix="\${cur%"$realcur"}"
@@ -244,7 +244,7 @@ function generateBash(spec: CompletionSpec): string {
 
 	// Root handler: top-level flags + subcommand names.
 	const subTokens = spec.commands.flatMap(commandTokens).sort();
-	parts.push(`_omp_root() {
+	parts.push(`_oms_root() {
 	case "$prev" in
 ${bashFlagCase(bin, spec.root.flags)}
 	esac
@@ -266,7 +266,7 @@ ${bashFlagCase(bin, spec.root.flags)}
 			: fileArg
 				? `COMPREPLY=( $(compgen -f -- "$cur") ); compopt -o filenames`
 				: ":";
-		parts.push(`_omp_cmd_${bashFn(c.name)}() {
+		parts.push(`_oms_cmd_${bashFn(c.name)}() {
 	case "$prev" in
 ${bashFlagCase(bin, c.flags)}
 	esac
@@ -282,7 +282,7 @@ ${bashFlagCase(bin, c.flags)}
 	// Dispatcher.
 	const dispatch: string[] = [];
 	for (const c of spec.commands) {
-		dispatch.push(`\t\t${commandTokens(c).join("|")})\n\t\t\t_omp_cmd_${bashFn(c.name)}\n\t\t\t;;`);
+		dispatch.push(`\t\t${commandTokens(c).join("|")})\n\t\t\t_oms_cmd_${bashFn(c.name)}\n\t\t\t;;`);
 	}
 	parts.push(`_omp() {
 	local cur prev cmd i
@@ -297,7 +297,7 @@ ${bashFlagCase(bin, c.flags)}
 	done
 	case "$cmd" in
 ${dispatch.join("\n")}
-		*) _omp_root ;;
+		*) _oms_root ;;
 	esac
 }
 complete -F _omp ${bin}`);
@@ -331,11 +331,11 @@ function zshAction(v: ValueSource): string {
 		case "enum":
 			return `:value:(${v.values.join(" ")})`;
 		case "list":
-			return ":value:_omp_tools";
+			return ":value:_oms_tools";
 		case "models":
-			return v.multiple ? ":models:_omp_models_list" : ":model:_omp_call models";
+			return v.multiple ? ":models:_oms_models_list" : ":model:_oms_call models";
 		case "sessions":
-			return ":session:_omp_call sessions";
+			return ":session:_oms_call sessions";
 		case "file":
 			return ":file:_files";
 		case "dir":
@@ -362,7 +362,7 @@ function zshArgSpec(f: CompletionArg): string {
 
 function generateZsh(spec: CompletionSpec): string {
 	const { bin } = spec;
-	// The `:value:_omp_tools` action references this helper; bake its candidates
+	// The `:value:_oms_tools` action references this helper; bake its candidates
 	// from the spec's `list` flag so the generator stays a pure function of its
 	// input (bash/fish read `v.values` inline for the same reason).
 	const listFlag = [...spec.root.flags, ...spec.commands.flatMap(c => c.flags)].find(f => f.value.kind === "list");
@@ -373,7 +373,7 @@ function generateZsh(spec: CompletionSpec): string {
 	parts.push("");
 
 	// Dynamic helpers (single source: `<bin> __complete <kind>` → value<TAB>desc).
-	parts.push(`_omp_call() {
+	parts.push(`_oms_call() {
 	# zsh's _arguments invokes an action function with the compadd options it
 	# computed prepended ($subopts, then $expl — _arguments:465), so $1 is
 	# "-J" in a stock setup and the kind arrives last. Read it from the end:
@@ -387,7 +387,7 @@ function generateZsh(spec: CompletionSpec): string {
 	done
 	_describe -t "$kind" "$kind" items
 }
-_omp_models_list() {
+_oms_models_list() {
 	local -a items
 	local line
 	for line in "\${(@f)$(command ${bin} __complete models 2>/dev/null)}"; do
@@ -396,12 +396,12 @@ _omp_models_list() {
 	done
 	_values -s , 'models' $items
 }
-_omp_tools() { _values -s , 'tools' ${toolNames} }`);
+_oms_tools() { _values -s , 'tools' ${toolNames} }`);
 	parts.push("");
 
 	// Subcommand description table.
 	const cmdRows = spec.commands.map(c => `\t\t'${c.name}:${zshDesc(c.description)}'`).join("\n");
-	parts.push(`_omp_commands() {
+	parts.push(`_oms_commands() {
 	local -a commands
 	commands=(
 ${cmdRows}
@@ -413,7 +413,7 @@ ${cmdRows}
 	// Per-subcommand argument functions.
 	for (const c of spec.commands) {
 		const specs = ["'(-h --help)'{-h,--help}'[Show help]'", ...c.flags.map(zshFlagSpec), ...c.args.map(zshArgSpec)];
-		parts.push(`_omp_cmd_${bashFn(c.name)}() {
+		parts.push(`_oms_cmd_${bashFn(c.name)}() {
 	_arguments -s \\
 		${specs.join(" \\\n\t\t")}
 }`);
@@ -422,13 +422,13 @@ ${cmdRows}
 
 	// Top-level dispatch.
 	const aliasArms = spec.commands
-		.map(c => `\t\t\t${commandTokens(c).join("|")}) _omp_cmd_${bashFn(c.name)} ;;`)
+		.map(c => `\t\t\t${commandTokens(c).join("|")}) _oms_cmd_${bashFn(c.name)} ;;`)
 		.join("\n");
 	const rootSpecs = [
 		"'(-h --help)'{-h,--help}'[Show help]'",
 		"'(-v --version)'{-v,--version}'[Show version]'",
 		...spec.root.flags.map(zshFlagSpec),
-		"'1: :_omp_commands'",
+		"'1: :_oms_commands'",
 		"'*::arg:->args'",
 	];
 	parts.push(`_omp() {
@@ -502,7 +502,7 @@ function generateFish(spec: CompletionSpec): string {
 	lines.push("");
 
 	const allTokens = spec.commands.flatMap(commandTokens);
-	lines.push(`function __fish_omp_no_subcommand`);
+	lines.push(`function __fish_oms_no_subcommand`);
 	lines.push(`\tfor i in (commandline -opc)`);
 	lines.push(`\t\tif contains -- $i ${allTokens.join(" ")}`);
 	lines.push(`\t\t\treturn 1`);
@@ -512,7 +512,7 @@ function generateFish(spec: CompletionSpec): string {
 	lines.push(`end`);
 	lines.push("");
 
-	const rootCond = "__fish_omp_no_subcommand";
+	const rootCond = "__fish_oms_no_subcommand";
 
 	// Subcommand names.
 	for (const c of spec.commands) {

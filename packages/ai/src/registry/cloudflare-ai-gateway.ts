@@ -1,13 +1,13 @@
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
-import { apiRouteFor } from "@oh-my-pi/pi-catalog/compat/behavior";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
+import { apiRouteFor } from "@oh-my-soup/pi-catalog/compat/behavior";
 import {
 	CLOUDFLARE_AI_GATEWAY_ANTHROPIC_BASE_URL,
 	CLOUDFLARE_AI_GATEWAY_BASE_URL,
 	CLOUDFLARE_AI_GATEWAY_COMPAT_BASE_URL,
 	CLOUDFLARE_AI_GATEWAY_OPENAI_BASE_URL,
 	parseCloudflareAiGatewayCredential,
-} from "@oh-my-pi/pi-catalog/wire/cloudflare-ai-gateway";
-import { $env } from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-catalog/wire/cloudflare-ai-gateway";
+import { $env } from "@oh-my-soup/pi-utils";
 import * as AIError from "../error";
 import { NO_AUTH_SENTINEL } from "../providers/openai-shared";
 import type { ProviderTransport } from "./build";

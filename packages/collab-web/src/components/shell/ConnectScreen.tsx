@@ -32,7 +32,7 @@ export function ConnectScreen({ defaultName, error, onConnect }: ConnectScreenPr
 				<div className="sh-connect-head">
 					<div className="sh-lockup">
 						<span className="sh-lockup-mark" aria-hidden="true" />
-						<span className="sh-lockup-pi">π</span> omp collab
+						<span className="sh-lockup-pi">π</span> oms collab
 					</div>
 					<ThemeToggle />
 				</div>
@@ -49,7 +49,7 @@ export function ConnectScreen({ defaultName, error, onConnect }: ConnectScreenPr
 						autoComplete="off"
 						autoFocus
 					/>
-					<span className="sh-field-hint">paste a /collab link from any omp session</span>
+					<span className="sh-field-hint">paste a /collab link from any oms session</span>
 				</label>
 				<label className="sh-field">
 					<span className="sh-field-label">display name</span>

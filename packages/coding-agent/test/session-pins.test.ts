@@ -2,18 +2,18 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { SessionInfo } from "@oh-my-pi/pi-coding-agent/session/session-listing";
+import type { SessionInfo } from "@oh-my-soup/pi-coding-agent/session/session-listing";
 import {
 	loadPinnedSessionIds,
 	sortPinnedFirst,
 	toggleSessionPin,
-} from "@oh-my-pi/pi-coding-agent/session/session-pins";
+} from "@oh-my-soup/pi-coding-agent/session/session-pins";
 
 describe("session-pins", () => {
 	let tempDir: string;
 
 	beforeEach(async () => {
-		tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-session-pins-test-"));
+		tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-session-pins-test-"));
 	});
 
 	afterEach(async () => {
@@ -121,7 +121,7 @@ describe("session-pins", () => {
 
 	it("keeps every pin when many toggles race concurrently", async () => {
 		// Regression: toggleSessionPin used to load-modify-write without a lock,
-		// so overlapping toggles from multiple omp instances (CLI picker,
+		// so overlapping toggles from multiple oms instances (CLI picker,
 		// interactive mode, collab guest) interleaved load-load-write-write and
 		// silently dropped each other's pins.
 		const ids = Array.from({ length: 24 }, (_, i) => `session-race-${i}`);

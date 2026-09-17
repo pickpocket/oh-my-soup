@@ -1,4 +1,4 @@
-import { sanitizeText } from "@oh-my-pi/pi-utils";
+import { sanitizeText } from "@oh-my-soup/pi-utils";
 import { replaceTabs, truncateToWidth, wrapTextWithAnsi } from "../../render/render-utils";
 
 /** Sanitize and fit a collapsed log entry to the available width. */

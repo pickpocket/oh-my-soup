@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { AuthStorage, REMOTE_REFRESH_SENTINEL, SqliteAuthCredentialStore } from "@oh-my-pi/pi-ai";
+import { AuthStorage, REMOTE_REFRESH_SENTINEL, SqliteAuthCredentialStore } from "@oh-my-soup/pi-ai";
 import {
 	AUTH_BROKER_CAPABILITIES_HEADER,
 	AUTH_BROKER_CAPABILITY_CODEX_METER_BLOCK_SCOPES,
@@ -14,8 +14,8 @@ import {
 	type SnapshotResponse,
 	type SnapshotStreamEvent,
 	startAuthBroker,
-} from "@oh-my-pi/pi-ai/auth-broker";
-import * as oauthUtils from "@oh-my-pi/pi-ai/registry/oauth";
+} from "@oh-my-soup/pi-ai/auth-broker";
+import * as oauthUtils from "@oh-my-soup/pi-ai/registry/oauth";
 import { removeWithRetries } from "../../utils/src/temp";
 
 const ANTHROPIC_ENV = ["ANTHROPIC_API_KEY", "ANTHROPIC_OAUTH_TOKEN"] as const;
@@ -579,16 +579,16 @@ describe("auth-broker wire surface", () => {
 		expect(second?.providers[0]).toMatchObject({ provider: "openai-codex", requests: 1 });
 
 		// App-labeled usage lands in its own (install, app, provider) aggregate
-		// row — "what did robomp spend" must not fold into the unlabeled bucket.
+		// row — "what did roboms spend" must not fold into the unlabeled bucket.
 		await client.reportClientUsage({
 			installId: "install-2",
-			app: "robomp",
+			app: "roboms",
 			entries: [{ ...entry, provider: "openai-codex", model: "gpt-y", requests: 4, costUsd: 1.5 }],
 		});
 		const withApps = await client.fetchClientUsageSummary();
 		const labeled = withApps.clients.find(c => c.installId === "install-2");
 		expect(labeled?.providers).toHaveLength(2);
-		expect(labeled?.providers.find(p => p.app === "robomp")).toMatchObject({
+		expect(labeled?.providers.find(p => p.app === "roboms")).toMatchObject({
 			provider: "openai-codex",
 			requests: 4,
 			costUsd: 1.5,
@@ -952,7 +952,7 @@ describe("client_usage app column migration", () => {
 		try {
 			migrated.recordClientUsage({
 				installId: "legacy-install",
-				app: "robomp",
+				app: "roboms",
 				entries: [
 					{
 						at: now,
@@ -974,7 +974,7 @@ describe("client_usage app column migration", () => {
 				requests: 5,
 				inputTokens: 100,
 			});
-			expect(client?.providers.find(p => p.app === "robomp")).toMatchObject({
+			expect(client?.providers.find(p => p.app === "roboms")).toMatchObject({
 				provider: "anthropic",
 				requests: 1,
 				inputTokens: 10,

@@ -1,5 +1,5 @@
-import { USER_AGENT, getInstallId } from "@oh-my-pi/pi-utils";
-import * as logger from "@oh-my-pi/pi-utils/logger";
+import { USER_AGENT, getInstallId } from "@oh-my-soup/pi-utils";
+import * as logger from "@oh-my-soup/pi-utils/logger";
 import { toClinePassPublicModelId } from "../cline-pass-model-id";
 import {
 	apiRouteExactModelIds,
@@ -244,7 +244,7 @@ async function fetchCatalogPayload(
 /**
  * The wire effort tiers the catalog publishes for a model, in canonical order.
  * Undefined when the row has no effort-addressed thinking, or names no tier
- * omp knows.
+ * oms knows.
  */
 function publishedEffortLadder(model: ModelsDevModel): Effort[] | undefined {
 	const values = model.reasoning_options?.find(option => option?.type === "effort")?.values;
@@ -342,8 +342,8 @@ async function loadPublishedEffortLadders(fetchImpl?: FetchImpl): Promise<Publis
 
 /**
  * The catalog provider keys this endpoint publishes under. A provider whose
- * catalog identity differs from its omp id (`moonshot` → `moonshotai`) is
- * resolved through its descriptors; the omp id stays as a candidate for
+ * catalog identity differs from its oms id (`moonshot` → `moonshotai`) is
+ * resolved through its descriptors; the oms id stays as a candidate for
  * providers the descriptors do not cover.
  */
 function catalogProviderKeys(providerId: string): readonly string[] {
@@ -364,7 +364,7 @@ function catalogProviderKeys(providerId: string): readonly string[] {
  * holds it only while every publishing host agrees that it takes an effort
  * dial and on which tiers. A host serving the id that published it without a
  * dial is this deployment's own answer and outranks any other host's ladder,
- * so it vetoes the candidate here; a dialless host omp cannot recognize as the
+ * so it vetoes the candidate here; a dialless host oms cannot recognize as the
  * server already kept the id out of `byId` when the index was built.
  */
 function lookupPublishedEffortLadder(
@@ -392,7 +392,7 @@ function lookupPublishedEffortLadder(
 }
 
 /**
- * Fill the effort ladder of discovered reasoning models whose tiers omp would
+ * Fill the effort ladder of discovered reasoning models whose tiers oms would
  * otherwise guess from the neutral wire or provider-wide unknown-class default.
  *
  * Source precedence is unchanged: a provider that reports its own thinking
@@ -605,7 +605,7 @@ async function fetchOllamaNativeModels(
  * Ollama's cloud catalog reports for stock models.
  */
 const OLLAMA_FALLBACK_CONTEXT_WINDOW = 128_000;
-/** Cap max output tokens at a value that matches OMP's other openai-responses defaults. */
+/** Cap max output tokens at a value that matches OMS's other openai-responses defaults. */
 const OLLAMA_DEFAULT_MAX_TOKENS = 8192;
 
 interface OllamaResolvedMetadata {
@@ -1347,12 +1347,12 @@ export function novitaModelManagerOptions(
 export const DEEPINFRA_BASE_URL = "https://api.deepinfra.com/v1/openai";
 /**
  * `filter=with_meta` attaches per-model `metadata` (limits, pricing, tags);
- * `sort_by=omp` asks DeepInfra to return models in omp-priority order
+ * `sort_by=oms` asks DeepInfra to return models in oms-priority order
  * (earlier = better). The mapper does not stamp `priority` yet — see
  * `mapDeepinfraModel` — but the params are sent so discovery picks the
  * ordering up as soon as the server honors it.
  */
-const DEEPINFRA_MODELS_QUERY = "?filter=with_meta&sort_by=omp";
+const DEEPINFRA_MODELS_QUERY = "?filter=with_meta&sort_by=oms";
 const DEEPINFRA_EFFORTS = [Effort.Low, Effort.Medium, Effort.High] as const;
 
 /** DeepInfra OpenAI-compatible discovery configuration. */
@@ -1376,7 +1376,7 @@ function deepinfraTags(metadata: Record<string, unknown>): readonly string[] {
  * Map one DeepInfra catalog entry to a chat model spec. Non-`chat` entries
  * (`tts`, `stt`, `embed`, `image-gen`, `video-gen`) are dropped — those
  * surfaces are served by dedicated tool backends, not the chat catalog.
- * DeepInfra reports token prices in USD per 1M tokens — omp's `ModelCost`
+ * DeepInfra reports token prices in USD per 1M tokens — oms's `ModelCost`
  * unit, used verbatim. A bundled reference (when the generated catalog has
  * one) is spread first so compat/tooling metadata can contribute, but the
  * live metadata always wins for limits, pricing, and modalities.
@@ -1459,7 +1459,7 @@ function mapDeepinfraModel(
  * Bespoke fetch instead of `fetchOpenAICompatibleModels`: the shared helper
  * cannot carry the `filter`/`sort_by` query params and re-sorts results by id,
  * which would destroy DeepInfra's priority ordering once the server honors
- * `sort_by=omp`. Response order is preserved (dedupe keeps the first, i.e.
+ * `sort_by=oms`. Response order is preserved (dedupe keeps the first, i.e.
  * highest-priority, occurrence).
  */
 async function fetchDeepinfraModels(options: {
@@ -3021,7 +3021,7 @@ function openCodeModelManagerOptions(
 					apiKey,
 					// Live discovery hits the OpenCode gateway outside any
 					// conversation: attribute with the stable install id
-					// (x-opencode-session required from 09/06) and omp's UA
+					// (x-opencode-session required from 09/06) and oms's UA
 					// instead of Bun's default.
 					headers: { "User-Agent": USER_AGENT, "x-opencode-session": getInstallId() },
 					mapModel: (entry, defaults) => {
@@ -3870,7 +3870,7 @@ function toSyntheticStringList(value: unknown): readonly string[] {
 
 /**
  * Translate Synthetic's per-model `reasoning_effort` vocabulary into an effort
- * ladder. Every advertised value that names an OMP tier maps verbatim; `none`
+ * ladder. Every advertised value that names an OMS tier maps verbatim; `none`
  * is the thinking-off state rather than a tier of its own, so it backs the
  * `minimal` selector through the wire map (same shape as the Fireworks
  * `minimal → none` map) and gives these routes a real no-thinking tier.
@@ -4072,9 +4072,9 @@ export interface BasetenModelManagerConfig {
 	fetch?: FetchImpl;
 }
 
-// A previous version of OMP shipped these models without reasoning levels.
+// A previous version of OMS shipped these models without reasoning levels.
 // We've since fixed that (V4-generation whitelist). This const lets us bust
-// the cache so that users on that version of OMP pick up the reasoning levels
+// the cache so that users on that version of OMS pick up the reasoning levels
 // immediately.
 const BASETEN_CACHE_MIGRATION_MODEL_IDS = [
 	"zai-org/GLM-5.3",
@@ -4104,10 +4104,10 @@ export function basetenModelManagerOptions(
 			const features = Array.isArray(raw.supported_features) ? raw.supported_features : [];
 			const modalities = Array.isArray(raw.input_modalities) ? raw.input_modalities : [];
 
-			// Baseten's discovery flags are not enough to enable OMP reasoning for every
+			// Baseten's discovery flags are not enough to enable OMS reasoning for every
 			// model. Only models with a verified Baseten reasoning policy are enabled
 			// here; an unknown model may use a different reasoning wire shape or effort
-			// vocabulary, which OMP must not guess.
+			// vocabulary, which OMS must not guess.
 			const identity = classifyModel("baseten", defaults.id, { lenient: true });
 			const isSupportedBasetenReasoningModel =
 				(identity.class === "kimi" && identity.family === "k3") ||

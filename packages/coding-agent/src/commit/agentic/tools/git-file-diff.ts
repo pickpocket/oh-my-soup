@@ -1,5 +1,5 @@
-import { type } from "@oh-my-pi/omptype";
-import * as vcs from "@oh-my-pi/pi-natives/vcs";
+import { type } from "@oh-my-soup/omstype";
+import * as vcs from "@oh-my-soup/pi-natives/vcs";
 import type { CommitAgentState } from "../../../commit/agentic/state";
 import type { CustomTool } from "../../../extensibility/custom-tools/types";
 

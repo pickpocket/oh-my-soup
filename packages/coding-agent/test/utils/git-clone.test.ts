@@ -3,8 +3,8 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import * as url from "node:url";
-import * as vcs from "@oh-my-pi/pi-natives/vcs";
-import { removeWithRetries } from "@oh-my-pi/pi-utils";
+import * as vcs from "@oh-my-soup/pi-natives/vcs";
+import { removeWithRetries } from "@oh-my-soup/pi-utils";
 
 // Regression coverage for #1589: `git.clone({ sha })` used to hardcode
 // `--depth 1`, producing a shallow clone whose object store never contained
@@ -47,7 +47,7 @@ describe("git.clone with options.sha", () => {
 	let tipSha: string;
 
 	beforeAll(async () => {
-		tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), "omp-git-clone-test-"));
+		tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), "oms-git-clone-test-"));
 		const upstream = path.join(tmpRoot, "upstream");
 		await fs.mkdir(upstream, { recursive: true });
 

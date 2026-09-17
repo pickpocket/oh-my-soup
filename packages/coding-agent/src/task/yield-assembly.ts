@@ -1,6 +1,6 @@
 /** Discovers array-valued output-schema labels for incremental yield assembly. */
-import { dereferenceJsonSchema } from "@oh-my-pi/pi-ai/utils/schema";
-import { isRecord } from "@oh-my-pi/pi-utils";
+import { dereferenceJsonSchema } from "@oh-my-soup/pi-ai/utils/schema";
+import { isRecord } from "@oh-my-soup/pi-utils";
 import { buildOutputValidator } from "../tools/output-schema-validator";
 
 /** True when `value` is a JSON-schema node whose instances are arrays. */

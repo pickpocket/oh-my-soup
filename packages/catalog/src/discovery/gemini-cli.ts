@@ -1,5 +1,5 @@
-import { type } from "@oh-my-pi/omptype";
-import type { FetchImpl } from "@oh-my-pi/pi-utils";
+import { type } from "@oh-my-soup/omstype";
+import type { FetchImpl } from "@oh-my-soup/pi-utils";
 import { collapseVariants, type VariantCollapseTable } from "../compat/collapse";
 import { compareRevision, parseRevision } from "../compat/revision";
 import { classifyModel } from "../compat/taxonomy";

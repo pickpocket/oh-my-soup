@@ -6,7 +6,7 @@
  * - Trigger subprocess termination on completion
  * - Provide custom rendering for realtime/final display
  */
-import { registerSubprocessToolRenderer, type SubprocessToolRenderer } from "@oh-my-pi/pi-tui/tools/subprocess";
+import { registerSubprocessToolRenderer, type SubprocessToolRenderer } from "@oh-my-soup/pi-tui/tools/subprocess";
 
 /** Event from subprocess tool execution (parsed from JSONL) */
 export interface SubprocessToolEvent {

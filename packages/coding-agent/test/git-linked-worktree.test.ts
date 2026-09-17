@@ -3,7 +3,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 
-import * as vcs from "@oh-my-pi/pi-natives/vcs";
+import * as vcs from "@oh-my-soup/pi-natives/vcs";
 
 // Builds the on-disk shape of a linked git worktree without invoking git:
 //   <project>/.git/                      ← shared common dir (basename ".git")
@@ -24,7 +24,7 @@ describe("git linked worktree resolution", () => {
 	let tempRoot: string;
 
 	beforeEach(() => {
-		tempRoot = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), "omp-linked-worktree-")));
+		tempRoot = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), "oms-linked-worktree-")));
 	});
 
 	afterEach(() => {

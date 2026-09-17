@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import { Tokenizer } from "@oh-my-pi/pi-agent-core";
-import type { Usage } from "@oh-my-pi/pi-ai";
+import { Tokenizer } from "@oh-my-soup/pi-agent-core";
+import type { Usage } from "@oh-my-soup/pi-ai";
 import {
 	calculateContextTokens,
 	compact,
@@ -9,7 +9,7 @@ import {
 	type SessionEntry,
 	sessionEntryToContextMessages,
 	serializeConversation,
-} from "@oh-my-pi/pi-coding-agent/extensibility/legacy-pi-coding-agent-shim";
+} from "@oh-my-soup/pi-coding-agent/extensibility/legacy-pi-coding-agent-shim";
 
 // Issue #6583: pi extensions import `estimateTokens` from
 // `@earendil-works/pi-coding-agent`, which aliases to this shim. Legacy pi
@@ -18,7 +18,7 @@ import {
 // `Tokenizer.countMessage`, so the shim now defines a compat wrapper that keeps
 // the legacy export surface — a named import must not throw Bun's static
 // "Export named X not found" during plugin validation (e.g.
-// `omp plugin install pi-blackhole`). This pins the export through the public
+// `oms plugin install pi-blackhole`). This pins the export through the public
 // package specifier.
 describe("legacy shim compaction helpers", () => {
 	it("exports estimateTokens as a callable token estimator", () => {
@@ -32,9 +32,9 @@ describe("legacy shim compaction helpers", () => {
 		expect(tokens).toBeGreaterThan(0);
 	});
 
-	// Issue #7174: `compact` (same `@oh-my-pi/pi-agent-core/compaction` module as
+	// Issue #7174: `compact` (same `@oh-my-soup/pi-agent-core/compaction` module as
 	// `estimateTokens`) was likewise absent from the shim surface, so
-	// `omp plugin install npm:pi-claude-bridge` failed with "Export named
+	// `oms plugin install npm:pi-claude-bridge` failed with "Export named
 	// 'compact' not found". Pin the callable re-export.
 	it("re-exports compact as a callable function", () => {
 		expect(typeof compact).toBe("function");
@@ -48,8 +48,8 @@ describe("legacy shim compaction helpers", () => {
 	});
 
 	// Issue #10278: `calculateContextTokens` is another package-root compaction
-	// helper (same `@oh-my-pi/pi-agent-core/compaction` module) used by
-	// pi-blackhole. Its absence made `omp plugin install pi-blackhole` fail Bun's
+	// helper (same `@oh-my-soup/pi-agent-core/compaction` module) used by
+	// pi-blackhole. Its absence made `oms plugin install pi-blackhole` fail Bun's
 	// static "Export named 'calculateContextTokens' not found" check.
 	it("re-exports calculateContextTokens with its usage-sizing behavior", () => {
 		expect(typeof calculateContextTokens).toBe("function");
@@ -65,8 +65,8 @@ describe("legacy shim compaction helpers", () => {
 	});
 });
 
-// Issue #11796: `omp install git:github.com/NVlabs/SoL-Pi` failed Bun's static
-// export check because the shim never forwarded `findCutPoint`. omp's canonical
+// Issue #11796: `oms install git:github.com/NVlabs/SoL-Pi` failed Bun's static
+// export check because the shim never forwarded `findCutPoint`. oms's canonical
 // `findCutPoint` also grew a required `Tokenizer` parameter, so the shim exposes
 // an upstream-signature (tokenizer-less, 4-arg) wrapper backed by the shared
 // model-agnostic tokenizer — a raw re-export would misread `startIndex` as the
@@ -100,7 +100,7 @@ describe("legacy shim findCutPoint", () => {
 });
 
 // Issue #11796: SoL-Pi's online-context-compact also imports
-// `sessionEntryToContextMessages`, absent from omp entirely, so it would fail the
+// `sessionEntryToContextMessages`, absent from oms entirely, so it would fail the
 // same static check right after `findCutPoint`. The shim ports upstream Pi's
 // per-entry projector.
 describe("legacy shim sessionEntryToContextMessages", () => {

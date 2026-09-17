@@ -1,6 +1,6 @@
 /**
  * Compatibility shim for legacy extensions importing the package root of
- * `@oh-my-pi/pi-coding-agent` (or one of its aliased scopes like
+ * `@oh-my-soup/pi-coding-agent` (or one of its aliased scopes like
  * `@earendil-works/pi-coding-agent` or `@mariozechner/pi-coding-agent`).
  *
  * The coding-agent package's own barrel (`./src/index.ts`) cannot be listed
@@ -9,7 +9,7 @@
  * Routing legacy plugin imports through this sibling shim sidesteps that
  * conflict: bun bundles a distinct entry whose path differs from the CLI
  * entry, while still re-exporting the canonical surface so plugins observe
- * the same module identity as a direct `@oh-my-pi/pi-coding-agent` import.
+ * the same module identity as a direct `@oh-my-soup/pi-coding-agent` import.
  */
 
 import { Database } from "bun:sqlite";
@@ -21,26 +21,26 @@ import {
 	type AgentToolUpdateCallback,
 	type MessageCountOptions,
 	Tokenizer,
-} from "@oh-my-pi/pi-agent-core";
-import { findCutPoint as computeCutPoint, type CutPointResult } from "@oh-my-pi/pi-agent-core/compaction";
-import type { SessionEntry as CompactionSessionEntry } from "@oh-my-pi/pi-agent-core/compaction/entries";
+} from "@oh-my-soup/pi-agent-core";
+import { findCutPoint as computeCutPoint, type CutPointResult } from "@oh-my-soup/pi-agent-core/compaction";
+import type { SessionEntry as CompactionSessionEntry } from "@oh-my-soup/pi-agent-core/compaction/entries";
 import {
 	createBranchSummaryMessage,
 	createCompactionSummaryMessage,
 	createCustomMessage,
-} from "@oh-my-pi/pi-agent-core/compaction/messages";
-import { type AuthCredential, SqliteAuthCredentialStore, type TSchema } from "@oh-my-pi/pi-ai";
-import { piEscapeRegexLiteral, piJoinPath } from "@oh-my-pi/pi-ai/providers/cursor-pi-args";
-import { getKeybindings, type Keybinding, Text } from "@oh-my-pi/pi-tui";
+} from "@oh-my-soup/pi-agent-core/compaction/messages";
+import { type AuthCredential, SqliteAuthCredentialStore, type TSchema } from "@oh-my-soup/pi-ai";
+import { piEscapeRegexLiteral, piJoinPath } from "@oh-my-soup/pi-ai/providers/cursor-pi-args";
+import { getKeybindings, type Keybinding, Text } from "@oh-my-soup/pi-tui";
 import {
 	getAgentDbPath,
 	getAgentDir,
 	getProjectDir,
 	isCompiledBinary,
-	parseFrontmatter as parseOmpFrontmatter,
-} from "@oh-my-pi/pi-utils";
-import { getPackageDir as getOmpPackageDir } from "../config";
-import { formatKeyHints } from "@oh-my-pi/pi-tui/app-keybindings";
+	parseFrontmatter as parseOmsFrontmatter,
+} from "@oh-my-soup/pi-utils";
+import { getPackageDir as getOmsPackageDir } from "../config";
+import { formatKeyHints } from "@oh-my-soup/pi-tui/app-keybindings";
 import type { PromptTemplate } from "../config/prompt-templates";
 import { findScopedSettings, type SettingPath, Settings } from "../config/settings";
 import { EditTool } from "../edit";
@@ -58,17 +58,17 @@ import {
 	type TruncationResult,
 	truncateHead,
 	truncateTail,
-} from "@oh-my-pi/pi-tui/tools/streaming-output";
+} from "@oh-my-soup/pi-tui/tools/streaming-output";
 import type { SessionEntry } from "../session/session-entries";
 import type { Tool, ToolSession } from "../tools";
 import { BashTool } from "../tools/bash";
 import { GlobTool } from "../tools/glob";
 import { GrepTool } from "../tools/grep";
 import { ReadTool } from "../tools/read";
-import { formatBytes } from "@oh-my-pi/pi-tui/render/render-utils";
+import { formatBytes } from "@oh-my-soup/pi-tui/render/render-utils";
 import { WriteTool } from "../tools/write";
 import { EventBus } from "../utils/event-bus";
-import { convertImageToPng } from "@oh-my-pi/pi-tui/chat/image-loading";
+import { convertImageToPng } from "@oh-my-soup/pi-tui/chat/image-loading";
 import { discoverExtensionPaths, loadExtensionFromFactory, loadExtensions } from "./extensions";
 import { ExtensionRuntime } from "./extensions/loader";
 import type {
@@ -442,7 +442,7 @@ export interface ParsedFrontmatter<T extends Record<string, unknown> = Record<st
 export function parseFrontmatter<T extends Record<string, unknown> = Record<string, unknown>>(
 	content: string,
 ): ParsedFrontmatter<T> {
-	const { frontmatter, body } = parseOmpFrontmatter(content, { level: "fatal" });
+	const { frontmatter, body } = parseOmsFrontmatter(content, { level: "fatal" });
 	return { frontmatter: frontmatter as T, body };
 }
 
@@ -720,7 +720,7 @@ export function createLsTool(cwd: string, options?: LsToolOptions): ToolDefiniti
 export function createEditToolDefinition(cwd: string, options?: EditToolOptions): ToolDefinition {
 	if (options?.operations) {
 		throw new Error(
-			"Legacy EditToolOptions.operations is not supported: OMP's built-in edit tool writes the local " +
+			"Legacy EditToolOptions.operations is not supported: OMS's built-in edit tool writes the local " +
 				"filesystem natively and exposes no pluggable operations seam. Register a custom edit tool via " +
 				"defineTool() instead of passing operations to createEditTool()/createEditToolDefinition().",
 		);
@@ -737,7 +737,7 @@ export function createEditTool(cwd: string, options?: EditToolOptions): ToolDefi
 export function createWriteToolDefinition(cwd: string, options?: WriteToolOptions): ToolDefinition {
 	if (options?.operations) {
 		throw new Error(
-			"Legacy WriteToolOptions.operations is not supported: OMP's built-in write tool writes the local " +
+			"Legacy WriteToolOptions.operations is not supported: OMS's built-in write tool writes the local " +
 				"filesystem natively and exposes no pluggable operations seam. Register a custom write tool via " +
 				"defineTool() instead of passing operations to createWriteTool()/createWriteToolDefinition().",
 		);
@@ -770,7 +770,7 @@ export function createReadOnlyTools(cwd: string): ToolDefinition[] {
  *
  * Upstream Pi's `SettingsManager.create(cwd)` is **synchronous** and returns a
  * manager exposing `getGlobalSettings()`/`getProjectSettings()` (plus the typed
- * `get(path)`). OMP's `Settings` is that manager, so the shim resolves the
+ * `get(path)`). OMS's `Settings` is that manager, so the shim resolves the
  * active extension session's instance first, then falls back to a live instance
  * matching the requested `cwd`/`agentDir`, or an isolated instance when nothing
  * matches. Returning the promise from `Settings.init()` here broke every pi
@@ -825,7 +825,7 @@ export interface DefaultPackageManagerOptions {
 }
 
 /**
- * Enumerates the extensions OMP would load through the historical package
+ * Enumerates the extensions OMS would load through the historical package
  * manager surface used by legacy extensions.
  */
 export class DefaultPackageManager {
@@ -839,7 +839,7 @@ export class DefaultPackageManager {
 		this.#settingsManager = options.settingsManager;
 	}
 
-	/** Resolve enabled extension paths with their OMP plugin provenance. */
+	/** Resolve enabled extension paths with their OMS plugin provenance. */
 	async resolve(_onMissing?: (source: string) => Promise<MissingSourceAction>): Promise<ResolvedPaths> {
 		const settings = await this.#settingsManager;
 		const configuredPaths = settings.get("extensions") ?? [];
@@ -893,18 +893,18 @@ export class DefaultPackageManager {
  * import the class at module scope; a missing export takes the whole
  * extension down at parse time (issue #4567).
  *
- * OMP does the same discovery inline inside `createAgentSession()`, so this
+ * OMS does the same discovery inline inside `createAgentSession()`, so this
  * shim intentionally does NOT re-implement pi's ResourceLoader plumbing.
  * Instead the loader captures the caller's intent (`no*` flags, `*Override`
  * callbacks, `additional*Paths`, `extensionFactories`, `settingsManager`,
  * `eventBus`) plus the discovery results, and the sibling `createAgentSession`
- * override below translates them into OMP's native session options
+ * override below translates them into OMS's native session options
  * (`disableExtensionDiscovery`, prepared/path extension preloads, `extensions`,
  * `skills`, `promptTemplates`, `contextFiles`, `settings`, `eventBus`,
  * `systemPrompt`) before delegating to `../sdk`.
  *
  * The pi surface it emulates is the intersection actually used by real
- * extensions in the wild — themes are silently dropped (OMP has no
+ * extensions in the wild — themes are silently dropped (OMS has no
  * session-level themes surface); `extendResources`, `loadProjectTrustExtensions`,
  * and provider-trust hooks are omitted.
  */
@@ -1334,15 +1334,15 @@ export class DefaultResourceLoader implements ResourceLoader {
 }
 
 /**
- * Legacy pi extensions call `createAgentSession({ resourceLoader })`. OMP's
+ * Legacy pi extensions call `createAgentSession({ resourceLoader })`. OMS's
  * native option surface has no such field — extension / skill / prompt /
  * context-file discovery are configured directly on the session options — so
  * an untranslated call would silently ignore the loader (including its
- * `noExtensions`/`noSkills` opt-outs), re-run OMP's own discovery, and
+ * `noExtensions`/`noSkills` opt-outs), re-run OMS's own discovery, and
  * happily re-load the calling extension into the subagent. That's exactly
  * the recursion the caller passed the loader to prevent.
  *
- * Translate the loader's captured state into OMP's option fields, then
+ * Translate the loader's captured state into OMS's option fields, then
  * delegate to the underlying SDK. Explicit fields on `options` override the
  * loader (matches upstream pi semantics — a caller can partially override a
  * shared loader).
@@ -1432,7 +1432,7 @@ export async function createAgentSession(
 /**
  * Synchronous auth storage surface retained for legacy extensions.
  *
- * Modern OMP auth storage is asynchronous, while older provider extensions
+ * Modern OMS auth storage is asynchronous, while older provider extensions
  * call `AuthStorage.create().get()` during module initialization.
  */
 export class AuthStorage {
@@ -1470,17 +1470,17 @@ export function readStoredCredential(provider: string): AuthCredential | undefin
 }
 
 // Pi SDK path helpers. `export * from "../index"` above only forwards
-// `getAgentDir`; `getProjectDir` (a `@oh-my-pi/pi-utils` helper) and
+// `getAgentDir`; `getProjectDir` (a `@oh-my-soup/pi-utils` helper) and
 // `getPackageDir` are absent from that barrel, so legacy extensions importing
 // either fail Bun's static export check during validation (issue #5968).
-export { getProjectDir } from "@oh-my-pi/pi-utils";
+export { getProjectDir } from "@oh-my-soup/pi-utils";
 
 /**
  * Coding-agent package install directory, matching pi's string-valued
  * `getPackageDir()` contract (extensions do `path.join(getPackageDir(), ...)`
  * to auto-allow bundled docs/resources).
  *
- * omp's canonical `getPackageDir()` (`../config`) returns `undefined` inside a
+ * oms's canonical `getPackageDir()` (`../config`) returns `undefined` inside a
  * `bun --compile` binary — `import.meta.dir` is `/$bunfs/root` and no owning
  * `package.json` exists (issue #1423). Returning `undefined` there would crash
  * every legacy `path.join(getPackageDir(), ...)` at runtime in the shipped
@@ -1490,16 +1490,16 @@ export { getProjectDir } from "@oh-my-pi/pi-utils";
  * canonical helper.
  */
 export function getPackageDir(): string {
-	return getOmpPackageDir() ?? (isCompiledBinary() ? path.dirname(process.execPath) : process.cwd());
+	return getOmsPackageDir() ?? (isCompiledBinary() ? path.dirname(process.execPath) : process.cwd());
 }
 
 // Legacy pi's `@earendil-works/pi-coding-agent` re-exported `estimateTokens`,
 // `compact`, `serializeConversation`, and `calculateContextTokens` from its
-// package root (via `./core/compaction/index.ts`). In omp these live in
-// `@oh-my-pi/pi-agent-core/compaction`, and the coding-agent barrel below does
+// package root (via `./core/compaction/index.ts`). In oms these live in
+// `@oh-my-soup/pi-agent-core/compaction`, and the coding-agent barrel below does
 // not forward them, so legacy extensions importing them fail Bun's static
 // export check during validation (issues #6583, #7174, #7403, #10278).
-export { calculateContextTokens, compact, serializeConversation } from "@oh-my-pi/pi-agent-core/compaction";
+export { calculateContextTokens, compact, serializeConversation } from "@oh-my-soup/pi-agent-core/compaction";
 
 const legacyTokenizer = new Tokenizer();
 
@@ -1516,7 +1516,7 @@ export function estimateTokens(message: AgentMessage, tokenizer?: Tokenizer, opt
 
 // Legacy pi's `@earendil-works/pi-coding-agent` also exported `findCutPoint` and
 // `sessionEntryToContextMessages` from its package root (upstream Pi 0.84.2
-// public API). In omp `findCutPoint` moved to `@oh-my-pi/pi-agent-core/compaction`
+// public API). In oms `findCutPoint` moved to `@oh-my-soup/pi-agent-core/compaction`
 // AND grew a required `Tokenizer` parameter, and `sessionEntryToContextMessages`
 // has no canonical equivalent, so neither reaches the barrel below and legacy
 // extensions importing them (e.g. NVlabs/SoL-Pi's online-context-compact) fail
@@ -1544,7 +1544,7 @@ export function findCutPoint(
 /**
  * Legacy `sessionEntryToContextMessages(entry)` export: project one session entry
  * into its LLM/runtime messages. Plain custom/state entries do not participate in
- * context and yield `[]`. omp's `buildSessionContext` only projects whole branches,
+ * context and yield `[]`. oms's `buildSessionContext` only projects whole branches,
  * so this ports upstream Pi's per-entry mapper.
  */
 export function sessionEntryToContextMessages(entry: SessionEntry): AgentMessage[] {
@@ -1583,26 +1583,26 @@ export function sessionEntryToContextMessages(entry: SessionEntry): AgentMessage
 }
 
 // Same barrel gap for two more legacy package-root exports: pi re-exported the
-// `CONFIG_DIR_NAME` constant and the CLI parser `parseArgs`. In omp
-// `CONFIG_DIR_NAME` lives in `@oh-my-pi/pi-utils` and `parseArgs` in
+// `CONFIG_DIR_NAME` constant and the CLI parser `parseArgs`. In oms
+// `CONFIG_DIR_NAME` lives in `@oh-my-soup/pi-utils` and `parseArgs` in
 // `../cli/args`, neither of which the barrel below forwards, so legacy
 // extensions importing either fail Bun's static export check during validation.
-export { CONFIG_DIR_NAME } from "@oh-my-pi/pi-utils";
+export { CONFIG_DIR_NAME } from "@oh-my-soup/pi-utils";
 export { parseArgs } from "../cli/args";
 
 export * from "../index";
-export { formatBytes as formatSize } from "@oh-my-pi/pi-tui/render/render-utils";
+export { formatBytes as formatSize } from "@oh-my-soup/pi-tui/render/render-utils";
 export { copyToClipboard } from "../utils/clipboard";
 export { Type } from "./legacy-typebox";
 
 // Legacy pi's `@earendil-works/pi-coding-agent` root exported an `is<Tool>ToolResult`
 // family of type guards that narrow a `tool_result` event (`ToolResultEvent`) by
-// tool name. omp removed them from the public API in 10.2.3, and the barrel above
+// tool name. oms removed them from the public API in 10.2.3, and the barrel above
 // does not forward them, so legacy extensions importing them (e.g.
 // `pi-lean-ctx@3.9.18`, which uses `isEditToolResult`/`isWriteToolResult` to
 // invalidate its read cache after a native edit/write) fail Bun's static export
 // check during validation (issue #8161). Restore the full guard family; legacy
-// `find`/`ls` tool results arrive through omp's custom-event branch, so those
+// `find`/`ls` tool results arrive through oms's custom-event branch, so those
 // guards narrow the tool name while leaving their details unknown.
 
 /** Narrow a `tool_result` event to the `bash` tool. */
@@ -1630,7 +1630,7 @@ export function isGrepToolResult(e: ToolResultEvent): e is GrepToolResultEvent {
 	return e.toolName === "grep";
 }
 
-/** Legacy `find` result event represented by omp's custom-event branch. */
+/** Legacy `find` result event represented by oms's custom-event branch. */
 export type FindToolResultEvent = ToolResultEvent & { toolName: "find" };
 
 /** Narrow a `tool_result` event to the legacy `find` tool. */
@@ -1638,7 +1638,7 @@ export function isFindToolResult(e: ToolResultEvent): e is FindToolResultEvent {
 	return e.toolName === "find";
 }
 
-/** Legacy `ls` result event represented by omp's custom-event branch. */
+/** Legacy `ls` result event represented by oms's custom-event branch. */
 export type LsToolResultEvent = ToolResultEvent & { toolName: "ls" };
 
 /** Narrow a `tool_result` event to the legacy `ls` tool. */

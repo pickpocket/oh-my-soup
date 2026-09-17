@@ -21,13 +21,13 @@ import {
 	convertAnthropicMessages,
 	streamAnthropic,
 	supportsAnthropicCompaction,
-} from "@oh-my-pi/pi-ai/providers/anthropic";
-import type { AnthropicMessageParam } from "@oh-my-pi/pi-ai/providers/anthropic";
-import { AnthropicMessages } from "@oh-my-pi/pi-ai/providers/anthropic-client";
-import { configureCredentialRedaction } from "@oh-my-pi/pi-ai/providers/transform-messages";
-import type { AssistantMessage, Context, Model, ModelSpec, UserMessage } from "@oh-my-pi/pi-ai/types";
-import { type ConversationalUserCarrier, kConversationalUser } from "@oh-my-pi/pi-ai/utils/block-symbols";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
+} from "@oh-my-soup/pi-ai/providers/anthropic";
+import type { AnthropicMessageParam } from "@oh-my-soup/pi-ai/providers/anthropic";
+import { AnthropicMessages } from "@oh-my-soup/pi-ai/providers/anthropic-client";
+import { configureCredentialRedaction } from "@oh-my-soup/pi-ai/providers/transform-messages";
+import type { AssistantMessage, Context, Model, ModelSpec, UserMessage } from "@oh-my-soup/pi-ai/types";
+import { type ConversationalUserCarrier, kConversationalUser } from "@oh-my-soup/pi-ai/utils/block-symbols";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
 import { withEnv, withOfficialAnthropicEndpoint } from "./helpers";
 
 const fableSpec: ModelSpec<"anthropic-messages"> = {

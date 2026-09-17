@@ -5,8 +5,8 @@
  */
 import { afterEach, describe, expect, it, spyOn } from "bun:test";
 import * as fs from "node:fs";
-import type { AssistantMessage } from "@oh-my-pi/pi-ai";
-import { isRecord, TempDir } from "@oh-my-pi/pi-utils";
+import type { AssistantMessage } from "@oh-my-soup/pi-ai";
+import { isRecord, TempDir } from "@oh-my-soup/pi-utils";
 import { disposeSessionQuietly } from "../../src/main";
 import { runPrintMode } from "../../src/modes/print-mode";
 import { formatPersistenceFailure } from "../../src/modes/persistence-failure";

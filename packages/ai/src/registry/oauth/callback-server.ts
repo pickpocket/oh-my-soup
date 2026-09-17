@@ -11,7 +11,7 @@
  * - exchangeToken(): Exchange authorization code for tokens
  */
 import * as os from "node:os";
-import { logger } from "@oh-my-pi/pi-utils";
+import { logger } from "@oh-my-soup/pi-utils";
 import * as AIError from "../../error";
 import * as nativeSchemeCallback from "./native-scheme-callback";
 import type { NativeSchemeCallbackReceiver } from "./native-scheme-callback";
@@ -532,7 +532,7 @@ export abstract class OAuthCallbackFlow {
 	 * - {@link LAUNCH_PATH} (`/launch`) — 302 to the pending authorization URL so
 	 *   viewport-safe copy targets can survive TUI truncation.
 	 *
-	 * `callbackPath` wins any collision: an OMP config that pins the provider
+	 * `callbackPath` wins any collision: an OMS config that pins the provider
 	 * redirect at `/launch` (via `oauth.callbackPath` or a loopback
 	 * `oauth.redirectUri`) must resolve the callback normally rather than
 	 * self-redirect. `#startCallbackServer` also suppresses `launchUrl` in that

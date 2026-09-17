@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "bun:test";
-import { TUI } from "@oh-my-pi/pi-tui";
-import { LoopWatchdog } from "@oh-my-pi/pi-tui/loop-watchdog";
+import { TUI } from "@oh-my-soup/pi-tui";
+import { LoopWatchdog } from "@oh-my-soup/pi-tui/loop-watchdog";
 import { VirtualTerminal } from "./virtual-terminal";
 
 /**

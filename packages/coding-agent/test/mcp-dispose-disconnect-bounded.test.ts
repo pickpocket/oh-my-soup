@@ -5,7 +5,7 @@
  * subprocesses are reaped instead of orphaned. That disconnect MUST be
  * BOUNDED: an owned manager may hold an HTTP/SSE server whose
  * session-termination DELETE blocks up to the MCP request timeout (30s
- * default, unbounded when `OMP_MCP_TIMEOUT_MS=0`). `dispose()` wraps the
+ * default, unbounded when `OMS_MCP_TIMEOUT_MS=0`). `dispose()` wraps the
  * disconnect in `withTimeout(...)`; this test proves that when the underlying
  * `MCPManager.disconnectAll()` stalls on a stuck transport close, the bound
  * returns promptly so `/exit` and print-mode shutdown are never gated on a
@@ -23,7 +23,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { removeSyncWithRetries, withTimeout } from "@oh-my-pi/pi-utils";
+import { removeSyncWithRetries, withTimeout } from "@oh-my-soup/pi-utils";
 import { MCPManager } from "../src/mcp/manager";
 import type { MCPStdioServerConfig } from "../src/mcp/types";
 
@@ -34,7 +34,7 @@ describe("owned-manager dispose disconnect is bounded (PR #2839)", () => {
 	let workDir: string;
 
 	beforeEach(() => {
-		workDir = fs.mkdtempSync(path.join(os.tmpdir(), "omp-mcp-dispose-"));
+		workDir = fs.mkdtempSync(path.join(os.tmpdir(), "oms-mcp-dispose-"));
 	});
 
 	afterEach(() => {

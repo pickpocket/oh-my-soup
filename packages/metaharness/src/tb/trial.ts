@@ -1,7 +1,7 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 
-import { RpcClient } from "@oh-my-pi/pi-coding-agent/modes/rpc/rpc-client";
+import { RpcClient } from "@oh-my-soup/pi-coding-agent/modes/rpc/rpc-client";
 
 import { installAgent } from "./agent";
 import type { AgentBinaries, GatewayConfig, TbTask, TrialResult, TrialUsage, VmonConfig } from "./types";

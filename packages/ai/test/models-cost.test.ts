@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import type { Usage } from "@oh-my-pi/pi-ai/types";
-import { calculateCost, getBundledModel, getBundledModels } from "@oh-my-pi/pi-catalog/models";
+import type { Usage } from "@oh-my-soup/pi-ai/types";
+import { calculateCost, getBundledModel, getBundledModels } from "@oh-my-soup/pi-catalog/models";
 
 describe("calculateCost", () => {
 	it("keeps token-based calculation for GitHub Copilot models", () => {

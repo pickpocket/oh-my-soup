@@ -9,13 +9,13 @@
  */
 
 import { describe, expect, it } from "bun:test";
-import type { Usage } from "@oh-my-pi/pi-ai";
+import type { Usage } from "@oh-my-soup/pi-ai";
 import {
 	RedisSessionStorage,
 	type RedisSessionStorageClient,
-} from "@oh-my-pi/pi-coding-agent/session/redis-session-storage";
-import { SessionManager } from "@oh-my-pi/pi-coding-agent/session/session-manager";
-import { SessionWriteConflictError } from "@oh-my-pi/pi-coding-agent/session/session-storage";
+} from "@oh-my-soup/pi-coding-agent/session/redis-session-storage";
+import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
+import { SessionWriteConflictError } from "@oh-my-soup/pi-coding-agent/session/session-storage";
 
 interface FakeRedis extends RedisSessionStorageClient {
 	strings: Map<string, string>;
@@ -44,7 +44,7 @@ function createFakeRedis(): FakeRedis {
 			const keyCount = Number(args[1] ?? "0");
 			const keys = args.slice(2, 2 + keyCount);
 			const argv = args.slice(2 + keyCount);
-			if (script.includes("OMP_WRITE_FULL")) {
+			if (script.includes("OMS_WRITE_FULL")) {
 				const [fileKey, metaKey, titleKey] = keys;
 				const [content, filePath, mtimeMs, hasTitle, title, expectedSize] = argv;
 				const current = strings.get(fileKey);
@@ -56,7 +56,7 @@ function createFakeRedis(): FakeRedis {
 				else getHash(titleKey).delete(filePath);
 				return [1, Buffer.byteLength(content, "utf8")];
 			}
-			if (script.includes("OMP_APPEND")) {
+			if (script.includes("OMS_APPEND")) {
 				const [fileKey, metaKey] = keys;
 				const [line, filePath, mtimeMs] = argv;
 				const next = (strings.get(fileKey) ?? "") + line;
@@ -64,7 +64,7 @@ function createFakeRedis(): FakeRedis {
 				getHash(metaKey).set(filePath, mtimeMs);
 				return Buffer.byteLength(next, "utf-8");
 			}
-			if (script.includes("OMP_UPDATE_TITLE")) {
+			if (script.includes("OMS_UPDATE_TITLE")) {
 				const [metaKey, titleKey] = keys;
 				const [filePath, mtimeMs, title] = argv;
 				getHash(metaKey).set(filePath, mtimeMs);
@@ -186,7 +186,7 @@ describe("SessionManager + RedisSessionStorage", () => {
 		await manager.close();
 
 		// Redis now contains the JSONL — title slot + header + one message entry.
-		const stored = redis.strings.get(`omp:sessions:file:${sessionFilePath}`);
+		const stored = redis.strings.get(`oms:sessions:file:${sessionFilePath}`);
 		expect(stored).toBeDefined();
 		const lines = (stored as string).trim().split("\n");
 		expect(lines.length).toBeGreaterThanOrEqual(3);
@@ -267,6 +267,6 @@ describe("SessionManager + RedisSessionStorage", () => {
 		await second.close();
 
 		await expect(first.rewriteEntries()).rejects.toBeInstanceOf(SessionWriteConflictError);
-		expect(redis.strings.get(`omp:sessions:file:${sessionFile}`)).toContain("durable Redis peer turn");
+		expect(redis.strings.get(`oms:sessions:file:${sessionFile}`)).toContain("durable Redis peer turn");
 	});
 });

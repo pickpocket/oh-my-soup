@@ -1,9 +1,9 @@
-import { blobExtensionForImageMimeType, normalizeBlobExtension } from "@oh-my-pi/pi-tui/prompt/image-format";
+import { blobExtensionForImageMimeType, normalizeBlobExtension } from "@oh-my-soup/pi-tui/prompt/image-format";
 import * as fs from "node:fs";
 import * as fsp from "node:fs/promises";
 import * as path from "node:path";
-import { isEnoent, logger } from "@oh-my-pi/pi-utils";
-import type { LazyFrameData } from "@oh-my-pi/snapcompact";
+import { isEnoent, logger } from "@oh-my-soup/pi-utils";
+import type { LazyFrameData } from "@oh-my-soup/snapcompact";
 
 const BLOB_PREFIX = "blob:sha256:";
 

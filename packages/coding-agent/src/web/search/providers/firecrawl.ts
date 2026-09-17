@@ -11,8 +11,8 @@ import {
 	resolveApiKeyOnce,
 	seedApiKeyResolver,
 	withAuth,
-} from "@oh-my-pi/pi-ai";
-import type { SearchResponse, SearchSource } from "@oh-my-pi/pi-tui/tools/web-search";
+} from "@oh-my-soup/pi-ai";
+import type { SearchResponse, SearchSource } from "@oh-my-soup/pi-tui/tools/web-search";
 import { SearchProviderError } from "../../../web/search/types";
 import { resolveFirecrawlUrl } from "../../firecrawl";
 import { formatQuery, GOOGLE_QUERY_SYNTAX, parseSearchQuery, type StructuredQuery } from "../query";

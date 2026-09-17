@@ -16,20 +16,20 @@ fallback is used when that role is unset.
 - **Non-FHS distros (NixOS, and any host without `libstdc++.so.6` on the loader path)**: the
   on-demand `onnxruntime-node` / `sherpa-onnx-node` / `sharp` addons are prebuilt binaries that
   `dlopen` `libstdc++.so.6` and `libgcc_s.so.1`, and they carry their own `DT_RUNPATH`, so nothing in
-  the omp executable's own RPATH can resolve them. Set `OMP_NATIVE_LIBRARY_PATH` to the
-  colon-separated directories holding those libraries; omp appends it to `LD_LIBRARY_PATH` for the
+  the oms executable's own RPATH can resolve them. Set `OMS_NATIVE_LIBRARY_PATH` to the
+  colon-separated directories holding those libraries; oms appends it to `LD_LIBRARY_PATH` for the
   inference worker subprocesses only (never for shell/eval/daemon children). The Nix package
   (`nix/package.nix`) sets this by default.
 - **One worker per model, keep-alive not persistent**: every local model is served by exactly one
-  worker process on the machine that owns the socket `~/.omp/run/tiny/<model>-<backend>.sock`
-  (Windows: a named pipe). The first omp process that needs the model spawns the worker detached
-  (log next to the socket, `*.sock.log`); every other omp process just connects, so the model is
+  worker process on the machine that owns the socket `~/.oms/run/tiny/<model>-<backend>.sock`
+  (Windows: a named pipe). The first oms process that needs the model spawns the worker detached
+  (log next to the socket, `*.sock.log`); every other oms process just connects, so the model is
   resident once rather than once per instance. Nothing supervises it: the worker exits on its own
-  after 15 minutes without a request (`OMP_TINY_WORKER_IDLE_MS` overrides the window for tests),
-  unlinks its socket, and the next request from any omp process spawns a fresh one. Concurrent
+  after 15 minutes without a request (`OMS_TINY_WORKER_IDLE_MS` overrides the window for tests),
+  unlinks its socket, and the next request from any oms process spawns a fresh one. Concurrent
   spawns race on a `.bind.lock` file lock: the loser sees a live socket and exits while its parent
-  adopts the winner. `ping` returns a launch tag (`<omp version>|onnx|<device>|<dtype>` or
-  `mlx|<mlx-lm version>|<script crc>`), so an omp upgrade or a changed
+  adopts the winner. `ping` returns a launch tag (`<oms version>|onnx|<device>|<dtype>` or
+  `mlx|<mlx-lm version>|<script crc>`), so an oms upgrade or a changed
   `providers.tinyModelDevice`/`Dtype` tells the running worker to shut down and respawns it.
   Two concurrent instances with *conflicting* device settings would keep replacing each other's
   worker, so agree on one. The protocol is message-level (`load`, `chat` with messages / prefill /
@@ -50,15 +50,15 @@ fallback is used when that role is unset.
     default.
 - **MLX backend (Apple silicon)**: `PI_TINY_DEVICE=mlx` (or `metal`) swaps the worker itself, not
   the ONNX provider: the per-model worker is `mlx-server.py` running from a pinned `mlx-lm` venv
-  that omp installs under `~/.omp/agent/cache/tiny-mlx-runtime/` on first use (via `uv`, else
+  that oms installs under `~/.oms/agent/cache/tiny-mlx-runtime/` on first use (via `uv`, else
   `python3 -m venv` with Python ≥ 3.10). It downloads the model's pre-quantized 4-bit MLX export
-  (`mlxRepo` in the registry) into `~/.omp/agent/cache/tiny-models/mlx/` with per-byte progress,
+  (`mlxRepo` in the registry) into `~/.oms/agent/cache/tiny-models/mlx/` with per-byte progress,
   loads it with `mlx_lm.load`, and speaks the exact protocol the ONNX worker speaks, so titles,
   memory completions, and the `auto` thinking classifier all work unchanged and the Python process
   is the only process involved. `PI_TINY_DTYPE` is ignored. If the venv bootstrap fails (no Python,
-  install error, non-Apple host) omp logs a warning and uses the ONNX CPU worker for the rest of
+  install error, non-Apple host) oms logs a warning and uses the ONNX CPU worker for the rest of
   the process. Measured on an M4 Max: cold venv install + LFM2.5-230M download + load 15.7s; a
-  second omp instance attaches to a running worker in well under a second; titles 15–60ms after
+  second oms instance attaches to a running worker in well under a second; titles 15–60ms after
   warmup; Qwen3-1.7B (blocked on onnxruntime-node) downloads 984MB and answers a memory
   extraction in ~200ms.
 - **Quantization: q4 is the sweet spot** — smaller on disk, faster to load, and fast at inference.
@@ -111,7 +111,7 @@ fallback is used when that role is unset.
 | LFM2.5-350M        | 292MB |     166 / 266ms |        4/30 | Aggressively terse, often a one-word label       |
 
 **Shipped local options**: `lfm2.5-230m`, `lfm2.5-350m`, `falcon-h1-90m`.
-**Default setting**: `online`. The default local download for `omp tiny-models` is `lfm2.5-230m`.
+**Default setting**: `online`. The default local download for `oms tiny-models` is `lfm2.5-230m`.
 
 ## Task 2: Mnemopi memory (`providers.memoryModel`)
 

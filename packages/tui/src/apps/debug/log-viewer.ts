@@ -2,7 +2,7 @@ import type { Component } from "../../tui";
 import { extractPrintableText, matchesKey } from "../../keys";
 import { routeSgrMouseInput, type SgrMouseEvent } from "../../mouse";
 import { padding, replaceTabs, truncateToWidth, visibleWidth } from "../../utils";
-import { sanitizeText } from "@oh-my-pi/pi-utils";
+import { sanitizeText } from "@oh-my-soup/pi-utils";
 import { theme } from "../../theme/theme";
 import { DebugViewerFrame, type DebugViewerFrameContent, type DebugViewerFrameContext } from "./viewer-frame";
 import {

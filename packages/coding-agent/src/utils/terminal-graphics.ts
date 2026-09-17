@@ -1,7 +1,7 @@
 import { deflateSync, inflateSync } from "node:zlib";
-import type { ImageContent } from "@oh-my-pi/pi-ai";
-import { decodeSixelToPng } from "@oh-my-pi/pi-natives";
-import { MAX_IMAGE_INPUT_BYTES, convertImageToPng } from "@oh-my-pi/pi-tui/chat/image-loading";
+import type { ImageContent } from "@oh-my-soup/pi-ai";
+import { decodeSixelToPng } from "@oh-my-soup/pi-natives";
+import { MAX_IMAGE_INPUT_BYTES, convertImageToPng } from "@oh-my-soup/pi-tui/chat/image-loading";
 
 const ESC = "\x1b";
 const KITTY_CHUNK_BYTES = 3072;

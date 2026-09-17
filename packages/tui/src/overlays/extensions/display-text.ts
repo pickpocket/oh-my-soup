@@ -7,7 +7,7 @@
  * stripped *before* SGR is applied.
  */
 import { replaceTabs } from "../../utils";
-import { sanitizeText } from "@oh-my-pi/pi-utils";
+import { sanitizeText } from "@oh-my-soup/pi-utils";
 
 /** Strip ANSI/C0/C1/malformed unicode, then expand tabs. Call before theming. */
 export function sanitizeDisplayText(text: string): string {

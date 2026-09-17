@@ -1,4 +1,4 @@
-import { $which } from "@oh-my-pi/pi-utils";
+import { $which } from "@oh-my-soup/pi-utils";
 
 /** Portable command that rejects credential prompts without assuming an FHS layout. */
 export const REJECT_PROMPT_COMMAND = $which("false") ?? "false";

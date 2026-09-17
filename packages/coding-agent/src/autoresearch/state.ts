@@ -1,6 +1,6 @@
 import type { SessionEntry } from "../session/session-entries";
 import { inferMetricUnitFromName } from "./helpers";
-import { currentResults, findBaselineMetric, isBetter } from "@oh-my-pi/pi-tui/apps/autoresearch-data";
+import { currentResults, findBaselineMetric, isBetter } from "@oh-my-soup/pi-tui/apps/autoresearch-data";
 import type { RunRow, SessionRow } from "./storage";
 import type {
 	AutoresearchControlEntryData,
@@ -14,7 +14,7 @@ import type {
 	MetricDef,
 	MetricDirection,
 	NumericMetricMap,
-} from "@oh-my-pi/pi-tui/tools/autoresearch";
+} from "@oh-my-soup/pi-tui/tools/autoresearch";
 
 export function createExperimentState(): ExperimentState {
 	return {

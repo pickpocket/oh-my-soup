@@ -4,7 +4,7 @@ import {
 	hashlineFormatNumberedLines,
 	hashlineIsReadTruncationNotice,
 	hashlineStripPrefixes,
-} from "@oh-my-pi/pi-natives";
+} from "@oh-my-soup/pi-natives";
 
 /** Opening delimiter of a hashline file header. */
 export const HL_FILE_PREFIX = "[";

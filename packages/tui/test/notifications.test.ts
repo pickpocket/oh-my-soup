@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
-import * as desktopNotify from "@oh-my-pi/pi-tui/desktop-notify";
-import { ProcessTerminal } from "@oh-my-pi/pi-tui/terminal";
+import * as desktopNotify from "@oh-my-soup/pi-tui/desktop-notify";
+import { ProcessTerminal } from "@oh-my-soup/pi-tui/terminal";
 import {
 	getTerminalInfo,
 	isInsideTmux,
@@ -10,8 +10,8 @@ import {
 	setOsc99Supported,
 	TERMINAL,
 	wrapTmuxPassthrough,
-} from "@oh-my-pi/pi-tui/terminal-capabilities";
-import { setTerminalHeadless } from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-tui/terminal-capabilities";
+import { setTerminalHeadless } from "@oh-my-soup/pi-utils";
 
 const stdinIsTtyDescriptor = Object.getOwnPropertyDescriptor(process.stdin, "isTTY");
 const stdoutIsTtyDescriptor = Object.getOwnPropertyDescriptor(process.stdout, "isTTY");
@@ -166,7 +166,7 @@ describe("terminal notifications", () => {
 		mutableTerminal.notifyProtocol = NotifyProtocol.Osc99;
 		const { terminal, writes, received } = setupProcessTerminal();
 		try {
-			const query = writes.find(w => w.startsWith("\x1b]99;i=omp-probe-") && w.endsWith("\x1b\\\x1b[c"));
+			const query = writes.find(w => w.startsWith("\x1b]99;i=oms-probe-") && w.endsWith("\x1b\\\x1b[c"));
 			expect(query).toBeDefined();
 			const id = query!.match(/i=([^:;]+):p=\?/u)?.[1];
 			expect(id).toBeDefined();
@@ -304,7 +304,7 @@ describe("terminal notifications", () => {
 		TERMINAL.sendNotification({ title: "-x session", body: "Complete", type: "completion" });
 
 		const titles = spawn.mock.calls.map(call => (call[0] as unknown as { cmd: string[] }).cmd[3]);
-		expect(titles).toEqual(["Oh My Pi", "-x session"]);
+		expect(titles).toEqual(["Oh My Soup", "-x session"]);
 	});
 
 	it("keeps the OSC fallback when the Herdr pane id is absent", () => {
@@ -543,7 +543,7 @@ describe("terminal notifications", () => {
 			// tmux forwards the passthrough probe to the outer terminal but cannot
 			// route the `p=?` reply back to the sending pane, so the reply would
 			// leak into the pane as text (#5582). The probe must not fire at all.
-			const probe = writes.find(w => w.includes("]99;i=omp-probe-") && w.includes(":p=?"));
+			const probe = writes.find(w => w.includes("]99;i=oms-probe-") && w.includes(":p=?"));
 			expect(probe).toBeUndefined();
 			expect(isOsc99Supported()).toBe(false);
 		} finally {

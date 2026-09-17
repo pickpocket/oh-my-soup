@@ -7,8 +7,8 @@
 import type { Database, Statement } from "bun:sqlite";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { parseAlibabaTokenPlanCredential } from "@oh-my-pi/pi-catalog/wire/alibaba-token-plan";
-import { parseCloudflareAiGatewayCredential } from "@oh-my-pi/pi-catalog/wire/cloudflare-ai-gateway";
+import { parseAlibabaTokenPlanCredential } from "@oh-my-soup/pi-catalog/wire/alibaba-token-plan";
+import { parseCloudflareAiGatewayCredential } from "@oh-my-soup/pi-catalog/wire/cloudflare-ai-gateway";
 import {
 	getAgentDbPath,
 	getDbBusyTimeoutMs,
@@ -16,7 +16,7 @@ import {
 	isSqliteCorruptionError,
 	logger,
 	openSqliteDatabase,
-} from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-utils";
 import type {
 	AuthCredential,
 	AuthCredentialStore,
@@ -96,7 +96,7 @@ const CODEX_METER_BLOCK_SCOPES = ["chat", "spark"] as const;
 
 // SQLite error classifiers live in pi-utils so the credential store and the
 // model cache share one implementation; re-exported here to preserve the
-// pre-existing `@oh-my-pi/pi-ai/auth-storage` surface.
+// pre-existing `@oh-my-soup/pi-ai/auth-storage` surface.
 export { isSqliteBusyError, isSqliteCorruptionError };
 
 function normalizeStoredAccountId(accountId: string | null | undefined): string | null {
@@ -551,7 +551,7 @@ export class SqliteAuthCredentialStore implements AuthCredentialStore {
 	 * Install the per-connection busy handler so lock-taking statements wait for
 	 * a contended writer instead of failing immediately (Bun defaults
 	 * `busy_timeout` to 0). MUST run before the first lock-taking statement on
-	 * the connection: concurrent omp startups race WAL recovery and the leases
+	 * the connection: concurrent oms startups race WAL recovery and the leases
 	 * DDL. Uses the centralized timeout so headless hosts keep their bounded
 	 * busy wait instead of the interactive 5s value. See issues #2421, #7298.
 	 */
@@ -562,7 +562,7 @@ export class SqliteAuthCredentialStore implements AuthCredentialStore {
 	#initializeSchema(): void {
 		// Install the busy handler BEFORE any lock-taking statement (incl.
 		// `PRAGMA journal_mode=WAL`, which acquires an exclusive lock during WAL
-		// recovery). Without this, concurrent omp startups can crash here with
+		// recovery). Without this, concurrent oms startups can crash here with
 		// `SQLITE_BUSY` / `SQLITE_BUSY_RECOVERY`. Re-setting when opened via
 		// `open()` (which already installed it) is idempotent. See issue #2421.
 		SqliteAuthCredentialStore.#installBusyTimeout(this.#db);

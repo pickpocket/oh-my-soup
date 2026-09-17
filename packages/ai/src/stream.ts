@@ -3,19 +3,19 @@ import * as fsSync from "node:fs";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { scheduler } from "node:timers/promises";
-import { isOfficialAnthropicApiUrl } from "@oh-my-pi/pi-catalog/compat/anthropic";
-import type { Effort } from "@oh-my-pi/pi-catalog/effort";
-import { isVertexExpressOpenAIUrl, isVertexRawPredictUrl, resolveVertexEndpointHost } from "@oh-my-pi/pi-catalog/hosts";
+import { isOfficialAnthropicApiUrl } from "@oh-my-soup/pi-catalog/compat/anthropic";
+import type { Effort } from "@oh-my-soup/pi-catalog/effort";
+import { isVertexExpressOpenAIUrl, isVertexRawPredictUrl, resolveVertexEndpointHost } from "@oh-my-soup/pi-catalog/hosts";
 import {
 	defaultSupportedEffort,
 	mapEffortToAnthropicAdaptiveEffort,
 	mapEffortToGoogleThinkingLevel,
 	requireSupportedEffort,
 	resolveWireModelId,
-} from "@oh-my-pi/pi-catalog/model-thinking";
-import { providerEntries } from "@oh-my-pi/pi-catalog/compat/providers";
-import { CODEX_BASE_URL } from "@oh-my-pi/pi-catalog/wire/codex";
-import { $env, $pickenv, getProviderInFlightRoot, isEnoent, logger, untilAborted } from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-catalog/model-thinking";
+import { providerEntries } from "@oh-my-soup/pi-catalog/compat/providers";
+import { CODEX_BASE_URL } from "@oh-my-soup/pi-catalog/wire/codex";
+import { $env, $pickenv, getProviderInFlightRoot, isEnoent, logger, untilAborted } from "@oh-my-soup/pi-utils";
 import { getCustomApi } from "./api-registry";
 import { createAuthRetryKeyState, isApiKeyResolver, resolveNextAuthRetryKey } from "./auth-retry";
 import * as AIError from "./error";
@@ -882,7 +882,7 @@ export function getEnvApiKeyName(provider: string): string | undefined {
 
 /**
  * Enumerate every provider that has an env-var fallback for `getEnvApiKey`.
- * Used by `omp auth-broker migrate --include-env` to discover env-sourced keys
+ * Used by `oms auth-broker migrate --include-env` to discover env-sourced keys
  * that should be uploaded to the broker.
  */
 export function listProvidersWithEnvKey(): string[] {
@@ -1515,7 +1515,7 @@ export function streamSimple<TApi extends Api>(
  * Forward a model-configured `User-Agent` override across the pi-native wire.
  * The model itself never crosses the wire — the client sends only `modelId`
  * and the gateway resolves its own model — so without this the gateway's
- * resolved Bedrock model always sends the default `omp/<version>` UA even
+ * resolved Bedrock model always sends the default `oms/<version>` UA even
  * when the client's local model config set an override. Only the single
  * header is forwarded, not the rest of `model.headers` (which may carry
  * unrelated local config), and only when the caller hasn't already set their

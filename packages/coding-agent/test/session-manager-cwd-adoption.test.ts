@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it } from "bun:test";
 import * as path from "node:path";
-import { SessionManager } from "@oh-my-pi/pi-coding-agent/session/session-manager";
-import { FileSessionStorage } from "@oh-my-pi/pi-coding-agent/session/session-storage";
-import { removeWithRetries, TempDir } from "@oh-my-pi/pi-utils";
+import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
+import { FileSessionStorage } from "@oh-my-soup/pi-coding-agent/session/session-storage";
+import { removeWithRetries, TempDir } from "@oh-my-soup/pi-utils";
 
 const tempDirs: TempDir[] = [];
 
@@ -123,7 +123,7 @@ describe("SessionManager cwd adoption on resume", () => {
 		const launch = makeTempDir("@pi-cwd-launch-");
 		const store = makeTempDir("@pi-cwd-store-");
 		const goneProject = makeTempDir("@pi-cwd-gone-");
-		// The session file survives in `store` (like ~/.omp), but its header cwd
+		// The session file survives in `store` (like ~/.oms), but its header cwd
 		// points at a project directory that we then delete.
 		const file = await writeSession(goneProject, store);
 		await removeWithRetries(goneProject);

@@ -1,11 +1,11 @@
-import type { AgentMessage } from "@oh-my-pi/pi-agent-core";
-import type { CompactionOutcome } from "@oh-my-pi/pi-agent-core/compaction";
-import type { AssistantMessage, ImageContent, Message, Model, Usage, UsageReport } from "@oh-my-pi/pi-ai";
-import type { Component, Container, EditorTheme, Loader, Spacer, Text, TUI } from "@oh-my-pi/pi-tui";
+import type { AgentMessage } from "@oh-my-soup/pi-agent-core";
+import type { CompactionOutcome } from "@oh-my-soup/pi-agent-core/compaction";
+import type { AssistantMessage, ImageContent, Message, Model, Usage, UsageReport } from "@oh-my-soup/pi-ai";
+import type { Component, Container, EditorTheme, Loader, Spacer, Text, TUI } from "@oh-my-soup/pi-tui";
 import type { CollabController } from "../collab/controller";
 import type { CollabGuestLink } from "../collab/guest";
 import type { CollabHost } from "../collab/host";
-import type { KeybindingsManager } from "@oh-my-pi/pi-tui/app-keybindings";
+import type { KeybindingsManager } from "@oh-my-soup/pi-tui/app-keybindings";
 import type { Settings } from "../config/settings";
 import type {
 	AutocompleteProviderFactory,
@@ -27,26 +27,26 @@ import type { HistoryStorage } from "../session/history-storage";
 import type { SessionContext } from "../session/session-context";
 import type { SessionManager } from "../session/session-manager";
 import type { ShakeMode } from "../session/shake-types";
-import type { ConfiguredThinkingLevel } from "@oh-my-pi/pi-tui/thinking";
+import type { ConfiguredThinkingLevel } from "@oh-my-soup/pi-tui/thinking";
 import type { LspStartupServerInfo } from "../tools";
 import type { EventBus } from "../utils/event-bus";
 import type { TokenRateMeter } from "../utils/token-rate";
-import type { AssistantMessageComponent } from "@oh-my-pi/pi-tui/chat/assistant-message";
-import type { BashExecutionComponent } from "@oh-my-pi/pi-tui/chat/bash-execution";
-import type { CustomEditor } from "@oh-my-pi/pi-tui/prompt/custom-editor";
-import type { EvalExecutionComponent } from "@oh-my-pi/pi-tui/chat/eval-execution";
-import type { HookEditorComponent } from "@oh-my-pi/pi-tui/overlays/hook-editor";
-import type { HookInputComponent } from "@oh-my-pi/pi-tui/overlays/hook-input";
-import type { HookSelectorComponent, HookSelectorOptions } from "@oh-my-pi/pi-tui/overlays/hook-selector";
-import type { ServedModelTracker } from "@oh-my-pi/pi-tui/chat/served-model-marker";
-import type { StatusLineComponent } from "@oh-my-pi/pi-tui/status-line";
-import type { ToolExecutionHandle } from "@oh-my-pi/pi-tui/chat/tool-execution";
-import type { TranscriptContainer } from "@oh-my-pi/pi-tui/chrome/transcript-container";
-import type { RecentSession } from "@oh-my-pi/pi-tui/prompt/welcome";
+import type { AssistantMessageComponent } from "@oh-my-soup/pi-tui/chat/assistant-message";
+import type { BashExecutionComponent } from "@oh-my-soup/pi-tui/chat/bash-execution";
+import type { CustomEditor } from "@oh-my-soup/pi-tui/prompt/custom-editor";
+import type { EvalExecutionComponent } from "@oh-my-soup/pi-tui/chat/eval-execution";
+import type { HookEditorComponent } from "@oh-my-soup/pi-tui/overlays/hook-editor";
+import type { HookInputComponent } from "@oh-my-soup/pi-tui/overlays/hook-input";
+import type { HookSelectorComponent, HookSelectorOptions } from "@oh-my-soup/pi-tui/overlays/hook-selector";
+import type { ServedModelTracker } from "@oh-my-soup/pi-tui/chat/served-model-marker";
+import type { StatusLineComponent } from "@oh-my-soup/pi-tui/status-line";
+import type { ToolExecutionHandle } from "@oh-my-soup/pi-tui/chat/tool-execution";
+import type { TranscriptContainer } from "@oh-my-soup/pi-tui/chrome/transcript-container";
+import type { RecentSession } from "@oh-my-soup/pi-tui/prompt/welcome";
 import type { EventController } from "./controllers/event-controller";
-import type { LoopConditionConfig, LoopLimitRuntime } from "@oh-my-pi/pi-tui/status-line/loop";
+import type { LoopConditionConfig, LoopLimitRuntime } from "@oh-my-soup/pi-tui/status-line/loop";
 import type { OAuthManualInputManager } from "./oauth-manual-input";
-import type { Theme } from "@oh-my-pi/pi-tui/theme";
+import type { Theme } from "@oh-my-soup/pi-tui/theme";
 
 export type CompactionQueuedMessage = {
 	text: string;

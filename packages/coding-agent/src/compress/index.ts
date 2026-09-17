@@ -1,5 +1,5 @@
 /**
- * `omp compress` — rewrite text files into the dense prompt register.
+ * `oms compress` — rewrite text files into the dense prompt register.
  *
  * One agent per file, two tools each. The agent submits a draft with `rewrite`; the
  * command answers with that draft, its measured size, and the losses the agent declared,
@@ -12,11 +12,11 @@
 import { randomUUID } from "node:crypto";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { getProjectDir, prompt, sanitizeText } from "@oh-my-pi/pi-utils";
+import { getProjectDir, prompt, sanitizeText } from "@oh-my-soup/pi-utils";
 import { createProgressReporter } from "../cli/progress-reporter";
 import type { AgentSession } from "../session/agent-session";
 import { mapWithConcurrencyLimitAllSettled } from "../task/parallel";
-import { shortenPath } from "@oh-my-pi/pi-tui/render/render-utils";
+import { shortenPath } from "@oh-my-soup/pi-tui/render/render-utils";
 import requestPrompt from "./prompts/request.md" with { type: "text" };
 import reviewPrompt from "./prompts/review.md" with { type: "text" };
 import { CompressProtocol } from "./protocol";
@@ -27,7 +27,7 @@ const DEFAULT_MAX_ROUNDS = 3;
 const DEFAULT_CONCURRENCY = 4;
 const LOSS_PREVIEW = 200;
 
-/** User-facing options for `omp compress`. */
+/** User-facing options for `oms compress`. */
 export interface CompressCommandOptions {
 	/** Files and glob patterns to compress. */
 	files: string[];
@@ -55,7 +55,7 @@ export async function resolveCompressTargets(patterns: readonly string[], cwd: s
 	const found = new Set<string>();
 	for (const pattern of patterns) {
 		if (/[*?[\]{}]/.test(pattern)) {
-			// `dot: true` — prompt corpora live under dot directories such as `.omp/commands`.
+			// `dot: true` — prompt corpora live under dot directories such as `.oms/commands`.
 			const matches = new Bun.Glob(pattern).scanSync({ cwd, absolute: true, onlyFiles: true, dot: true });
 			let matched = 0;
 			for (const match of matches) {
@@ -268,7 +268,7 @@ function renderReview(input: {
 
 /**
  * Print one file's outcome and declared losses on stderr, so the approved text can own
- * stdout for a single-file run (`omp compress f.md > out.md`).
+ * stdout for a single-file run (`oms compress f.md > out.md`).
  */
 function reportFile(file: CompressFileResult, emitToStdout: boolean): void {
 	const label = shortenPath(file.path);

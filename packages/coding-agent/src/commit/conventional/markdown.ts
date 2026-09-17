@@ -1,4 +1,4 @@
-import { isRecord } from "@oh-my-pi/pi-utils";
+import { isRecord } from "@oh-my-soup/pi-utils";
 import type { CommitType, ConventionalAnalysis, ConventionalCommit, ConventionalDetail } from "../types";
 import { canonicalCommitType, coerceCommitType, conventionalAnalysis, conventionalCommit } from "./commit-types";
 import { codePointLength, sliceCodePoints } from "./text";

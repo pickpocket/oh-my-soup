@@ -98,7 +98,7 @@ export type SymbolKey =
 	| "icon.advisor"
 	| "icon.advisorClosed"
 	| "icon.time"
-	| "icon.omp"
+	| "icon.oms"
 	| "icon.esc"
 	| "icon.ghost"
 	| "icon.agents"
@@ -458,7 +458,7 @@ const UNICODE_SYMBOLS: SymbolMap = {
 	"icon.advisor": "👁",
 	"icon.advisorClosed": "🙈",
 	"icon.time": "⏱",
-	"icon.omp": "π",
+	"icon.oms": "π",
 	"icon.esc": "⎋",
 	"icon.ghost": "👻",
 	"icon.agents": "👥",
@@ -821,7 +821,7 @@ const NERD_SYMBOLS: SymbolMap = {
 	// INTENTIONAL: U+F0D57 is the chosen glyph here. It has been "fixed" to
 	// U+F03FF before (2ec52b8bdd) and reverted because it renders the wrong glyph;
 	// do not swap it again.
-	"icon.omp": "\u{f0d57}",
+	"icon.oms": "\u{f0d57}",
 	// pick: 󱊷 (nf-md-keyboard_esc) | alt: ⎋
 	"icon.esc": "\u{f12b7}",
 	// pick: 󰊠 (nf-md-ghost) | alt: 👻
@@ -1191,7 +1191,7 @@ const ASCII_SYMBOLS: SymbolMap = {
 	"icon.advisor": "(adv)",
 	"icon.advisorClosed": "(adv)",
 	"icon.time": "t:",
-	"icon.omp": "pi",
+	"icon.oms": "pi",
 	"icon.esc": "esc",
 	"icon.ghost": "@",
 	"icon.agents": "AG",

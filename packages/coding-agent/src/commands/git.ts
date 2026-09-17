@@ -3,12 +3,12 @@
  * staging sidebar, and generated or manual commit composer.
  */
 
-import { getProjectDir } from "@oh-my-pi/pi-utils";
-import { Args, Command, Flags } from "@oh-my-pi/pi-utils/cli";
+import { getProjectDir } from "@oh-my-soup/pi-utils";
+import { Args, Command, Flags } from "@oh-my-soup/pi-utils/cli";
 import { gitHelp as commandHelp } from "../cli/command-help";
 import { runGitTui } from "../cli/git-tui";
 import { Settings, settings } from "../config/settings";
-import { initTheme } from "@oh-my-pi/pi-tui/theme";
+import { initTheme } from "@oh-my-soup/pi-tui/theme";
 
 export default class Git extends Command {
 	static description = commandHelp.description;
@@ -24,12 +24,12 @@ export default class Git extends Command {
 		dir: Flags.string({ char: "C", description: "Run in another directory instead of the current one" }),
 	};
 
-	static examples = ["omp git", "omp git HEAD~2", "omp git -C ~/projects/app"];
+	static examples = ["oms git", "oms git HEAD~2", "oms git -C ~/projects/app"];
 
 	async run(): Promise<void> {
 		const { args, flags } = await this.parse(Git);
 		if (process.stdout.isTTY !== true || process.stdin.isTTY !== true) {
-			console.error("omp git is interactive and requires a TTY");
+			console.error("oms git is interactive and requires a TTY");
 			process.exit(1);
 		}
 		// Load settings first so the user's configured theme/symbol preset apply

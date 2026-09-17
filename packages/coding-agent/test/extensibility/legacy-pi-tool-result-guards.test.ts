@@ -8,13 +8,13 @@ import {
 	isReadToolResult,
 	isWriteToolResult,
 	type ToolResultEvent,
-} from "@oh-my-pi/pi-coding-agent/extensibility/legacy-pi-coding-agent-shim";
+} from "@oh-my-soup/pi-coding-agent/extensibility/legacy-pi-coding-agent-shim";
 
 // Issue #8161: pi-lean-ctx@3.9.18 imports `isEditToolResult`/`isWriteToolResult`
 // from `@earendil-works/pi-coding-agent`, which aliases to this shim. The shim's
 // `export * from "../index"` never forwarded the `is<Tool>ToolResult` guard
 // family (dropped from the public API in 10.2.3), so a named import threw Bun's
-// static "Export named X not found" error and aborted `omp install`.
+// static "Export named X not found" error and aborted `oms install`.
 
 function resultEvent(toolName: string): ToolResultEvent {
 	return {

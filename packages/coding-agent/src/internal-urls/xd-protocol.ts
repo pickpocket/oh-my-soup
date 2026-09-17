@@ -1,4 +1,4 @@
-import { parseXdUrl } from "@oh-my-pi/pi-tui/tools/xd-url";
+import { parseXdUrl } from "@oh-my-soup/pi-tui/tools/xd-url";
 import type { InternalResource, InternalUrl, ProtocolHandler, ResolveContext, WriteContext } from "./types";
 
 /** Routes session-bound virtual tool devices through `xd://` URLs. */

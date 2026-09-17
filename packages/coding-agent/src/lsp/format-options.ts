@@ -14,7 +14,7 @@
  *      `3` default was an unusual stride that actively damaged every file with
  *      a 2/4-space convention.
  */
-import { getEditorConfigFormatting } from "@oh-my-pi/pi-utils";
+import { getEditorConfigFormatting } from "@oh-my-soup/pi-utils";
 
 /** Subset of the LSP `FormattingOptions` we send. */
 export interface LspFormattingOptions {

@@ -9,10 +9,10 @@ Prewalk is off by default. Its default target is the model assigned to the `@smo
 Enable prewalk persistently in the global config:
 
 ```bash
-omp config set prewalk.enabled true
+oms config set prewalk.enabled true
 ```
 
-The equivalent YAML in `~/.omp/agent/config.yml` or a project `.omp/config.yml` is:
+The equivalent YAML in `~/.oms/agent/config.yml` or a project `.oms/config.yml` is:
 
 ```yaml
 prewalk:
@@ -30,16 +30,16 @@ Session flags override the configured value:
 For example:
 
 ```bash
-omp --prewalk
-omp --prewalk-into @smol
-omp --prewalk-into openai/gpt-5-mini
+oms --prewalk
+oms --prewalk-into @smol
+oms --prewalk-into openai/gpt-5-mini
 ```
 
-At startup, OMP resolves the target with the normal model-role and model-matching rules. If the target cannot be resolved or has no configured credentials, OMP prints a warning and starts with prewalk unarmed.
+At startup, OMS resolves the target with the normal model-role and model-matching rules. If the target cannot be resolved or has no configured credentials, OMS prints a warning and starts with prewalk unarmed.
 
 ## Handoff trigger
 
-An armed prewalk injects a planning nudge. When the `todo` tool is active, any successful `todo` call—including the read-only `view` operation—opens the handoff gate. OMP then switches models after the first completed `edit` or `write` call.
+An armed prewalk injects a planning nudge. When the `todo` tool is active, any successful `todo` call—including the read-only `view` operation—opens the handoff gate. OMS then switches models after the first completed `edit` or `write` call.
 
 Calls to other tools do not trigger the handoff. A read-only `xd://` device request routed through `write`, such as LSP navigation, also does not count; only device operations classified as workspace writes or execution count.
 
@@ -47,7 +47,7 @@ The switch is one-shot: after the handoff, prewalk disarms itself. The target mo
 
 ## Arm from an active session
 
-Run either slash command without restarting OMP:
+Run either slash command without restarting OMS:
 
 ```text
 /prewalk

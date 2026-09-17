@@ -4,9 +4,9 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { gunzipSync, gzipSync } from "node:zlib";
-import { withStatsSyncLock } from "@oh-my-pi/omp-stats/aggregator";
-import { type GcResult, runGcCommand } from "@oh-my-pi/pi-coding-agent/cli/gc-cli";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
+import { withStatsSyncLock } from "@oh-my-soup/oms-stats/aggregator";
+import { type GcResult, runGcCommand } from "@oh-my-soup/pi-coding-agent/cli/gc-cli";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
 import {
 	getAgentDir,
 	getBlobsDir,
@@ -16,7 +16,7 @@ import {
 	getTerminalSessionsDir,
 	setAgentDir,
 	setProjectDir,
-} from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-utils";
 import { runCli } from "../src/cli";
 import { beginSettingsTest, restoreSettingsTestState, type SettingsTestState } from "./helpers/settings-test-state";
 
@@ -30,7 +30,7 @@ const originalExitCode = process.exitCode;
 
 beforeEach(async () => {
 	settingsState = beginSettingsTest();
-	root = await fs.mkdtemp(path.join(os.tmpdir(), "omp-gc-"));
+	root = await fs.mkdtemp(path.join(os.tmpdir(), "oms-gc-"));
 	writes = [];
 	stderrWrites = [];
 	process.exitCode = 0;
@@ -113,7 +113,7 @@ async function writeConfig(agentDir: string, body: string): Promise<void> {
 }
 
 async function writeProjectConfig(projectDir: string, body: string): Promise<void> {
-	const configDir = path.join(projectDir, ".omp");
+	const configDir = path.join(projectDir, ".oms");
 	await fs.mkdir(configDir, { recursive: true });
 	await Bun.write(path.join(configDir, "config.yml"), body);
 }
@@ -208,7 +208,7 @@ describe("runGcCommand blob sweep", () => {
 
 		// A relative --session-dir transcript stored outside the managed roots.
 		const projectDir = path.join(root, "project");
-		const externalDir = path.join(projectDir, ".omp-sessions");
+		const externalDir = path.join(projectDir, ".oms-sessions");
 		await fs.mkdir(externalDir, { recursive: true });
 		const externalFile = path.join(externalDir, "work.jsonl");
 		await Bun.write(
@@ -223,7 +223,7 @@ describe("runGcCommand blob sweep", () => {
 		// would miss this transcript and delete its blob.
 		const crumbDir = getTerminalSessionsDir(root);
 		await fs.mkdir(crumbDir, { recursive: true });
-		await Bun.write(path.join(crumbDir, "tty-1"), `${projectDir}\n.omp-sessions/work.jsonl\n`);
+		await Bun.write(path.join(crumbDir, "tty-1"), `${projectDir}\n.oms-sessions/work.jsonl\n`);
 
 		const result = await runGcCommand({ flags: { agentDir: root, blobs: true, apply: true } });
 

@@ -1,7 +1,7 @@
 // Command Code Provider API deployment contract. Model capabilities and effort
 // ladders follow command-code@1.44.0: the thinking-efforts below reproduce the
 // bundle's 36-id effort registry 1:1 (verified against its effort map), plus
-// the 5 Muse Spark lineage ids whose ladder OMP's classes/meta.kdl carries and
+// the 5 Muse Spark lineage ids whose ladder OMS's classes/meta.kdl carries and
 // `deepseek/deepseek-v4.1-flash`, which postdates that bundle (see its rule).
 // Every id the 1.44.0 census serves without an effort dial keeps a missing
 // ladder here as a deliberate absence, not a gap (`modelSupportsReasoning-

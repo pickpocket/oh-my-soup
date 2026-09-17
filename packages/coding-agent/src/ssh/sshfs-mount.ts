@@ -1,6 +1,6 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { $which, getRemoteDir, postmortem } from "@oh-my-pi/pi-utils";
+import { $which, getRemoteDir, postmortem } from "@oh-my-soup/pi-utils";
 import { $ } from "bun";
 import {
 	ensureSshControlDir,

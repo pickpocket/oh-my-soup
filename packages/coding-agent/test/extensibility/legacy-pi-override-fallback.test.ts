@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test";
 import {
 	__resolveTypeBoxShimPath,
 	__validateLegacyPiPackageRootOverrides,
-} from "@oh-my-pi/pi-coding-agent/extensibility/plugins/legacy-pi-compat";
+} from "@oh-my-soup/pi-coding-agent/extensibility/plugins/legacy-pi-compat";
 
 // Regression for issue #2168: in compiled-binary mode the package-root
 // override branch of `resolveCanonicalPiSpecifier` returned a bunfs path
@@ -16,14 +16,14 @@ import {
 //
 // Follow-up (issue #3423): on Bun 1.3.14 the compiled binary's
 // `/$bunfs/...` paths are unreachable via every filesystem API, so
-// compiled-binary mode now routes through `omp-legacy-pi-bundled:` virtual
+// compiled-binary mode now routes through `oms-legacy-pi-bundled:` virtual
 // specifiers instead. Those entries must always pass validation because
 // the bundled registry — not the filesystem — is the source of truth.
 describe("legacy pi compat package-root override validation (issue #2168)", () => {
 	it("keeps overrides whose filesystem targets exist", () => {
 		const candidates = {
-			"@oh-my-pi/pi-ai": "/tmp/exists-ai.js",
-			"@oh-my-pi/pi-utils": "/tmp/exists-utils.js",
+			"@oh-my-soup/pi-ai": "/tmp/exists-ai.js",
+			"@oh-my-soup/pi-utils": "/tmp/exists-utils.js",
 		};
 		const result = __validateLegacyPiPackageRootOverrides(candidates, () => true);
 		expect(result).toEqual(candidates);
@@ -31,47 +31,47 @@ describe("legacy pi compat package-root override validation (issue #2168)", () =
 
 	it("drops overrides whose filesystem targets are missing on disk", () => {
 		const candidates = {
-			"@oh-my-pi/pi-ai": "/tmp/exists-ai.js",
-			"@oh-my-pi/pi-coding-agent": "/tmp/exists-shim.js",
-			"@oh-my-pi/pi-utils": "/$bunfs/root/packages/utils/src/index.js",
-			"@oh-my-pi/pi-tui": "/$bunfs/root/packages/tui/src/index.js",
+			"@oh-my-soup/pi-ai": "/tmp/exists-ai.js",
+			"@oh-my-soup/pi-coding-agent": "/tmp/exists-shim.js",
+			"@oh-my-soup/pi-utils": "/$bunfs/root/packages/utils/src/index.js",
+			"@oh-my-soup/pi-tui": "/$bunfs/root/packages/tui/src/index.js",
 		};
 		const missing = new Set(["/$bunfs/root/packages/utils/src/index.js", "/$bunfs/root/packages/tui/src/index.js"]);
 		const result = __validateLegacyPiPackageRootOverrides(candidates, p => !missing.has(p));
 		expect(result).toEqual({
-			"@oh-my-pi/pi-ai": "/tmp/exists-ai.js",
-			"@oh-my-pi/pi-coding-agent": "/tmp/exists-shim.js",
+			"@oh-my-soup/pi-ai": "/tmp/exists-ai.js",
+			"@oh-my-soup/pi-coding-agent": "/tmp/exists-shim.js",
 		});
 		// `pi-utils` and `pi-tui` are absent so the resolver falls through to
 		// `getResolvedSpecifier` (which throws under bunfs), which triggers
 		// the catch in `rewriteLegacyPiImports` that leaves the specifier
 		// unchanged for native `node_modules` resolution.
-		expect(result).not.toHaveProperty("@oh-my-pi/pi-utils");
-		expect(result).not.toHaveProperty("@oh-my-pi/pi-tui");
+		expect(result).not.toHaveProperty("@oh-my-soup/pi-utils");
+		expect(result).not.toHaveProperty("@oh-my-soup/pi-tui");
 	});
 
 	it("drops every override when none of the filesystem targets exist", () => {
 		const candidates = {
-			"@oh-my-pi/pi-utils": "/$bunfs/root/packages/utils/src/index.js",
-			"@oh-my-pi/pi-tui": "/$bunfs/root/packages/tui/src/index.js",
+			"@oh-my-soup/pi-utils": "/$bunfs/root/packages/utils/src/index.js",
+			"@oh-my-soup/pi-tui": "/$bunfs/root/packages/tui/src/index.js",
 		};
 		const result = __validateLegacyPiPackageRootOverrides(candidates, () => false);
 		expect(result).toEqual({});
 	});
 
-	it("keeps virtual omp-legacy-pi-bundled: entries without touching the filesystem (issue #3423)", () => {
+	it("keeps virtual oms-legacy-pi-bundled: entries without touching the filesystem (issue #3423)", () => {
 		// Bun 1.3.14 `fs.existsSync` returns false for every bunfs path, so the
 		// pre-#3423 fix dropped every override in compiled mode. The new
 		// virtual scheme is the source of truth in compiled-binary mode; the
 		// validator MUST short-circuit before any filesystem probe.
 		let probed = false;
 		const candidates = {
-			"@oh-my-pi/pi-ai": "omp-legacy-pi-bundled:@oh-my-pi/pi-ai",
-			"@oh-my-pi/pi-coding-agent": "omp-legacy-pi-bundled:@oh-my-pi/pi-coding-agent",
-			"@oh-my-pi/pi-agent-core": "omp-legacy-pi-bundled:@oh-my-pi/pi-agent-core",
-			"@oh-my-pi/pi-natives": "omp-legacy-pi-bundled:@oh-my-pi/pi-natives",
-			"@oh-my-pi/pi-tui": "omp-legacy-pi-bundled:@oh-my-pi/pi-tui",
-			"@oh-my-pi/pi-utils": "omp-legacy-pi-bundled:@oh-my-pi/pi-utils",
+			"@oh-my-soup/pi-ai": "oms-legacy-pi-bundled:@oh-my-soup/pi-ai",
+			"@oh-my-soup/pi-coding-agent": "oms-legacy-pi-bundled:@oh-my-soup/pi-coding-agent",
+			"@oh-my-soup/pi-agent-core": "oms-legacy-pi-bundled:@oh-my-soup/pi-agent-core",
+			"@oh-my-soup/pi-natives": "oms-legacy-pi-bundled:@oh-my-soup/pi-natives",
+			"@oh-my-soup/pi-tui": "oms-legacy-pi-bundled:@oh-my-soup/pi-tui",
+			"@oh-my-soup/pi-utils": "oms-legacy-pi-bundled:@oh-my-soup/pi-utils",
 		};
 		const result = __validateLegacyPiPackageRootOverrides(candidates, () => {
 			probed = true;
@@ -83,15 +83,15 @@ describe("legacy pi compat package-root override validation (issue #2168)", () =
 
 	it("mixes virtual and filesystem entries: virtuals always pass, filesystems gated", () => {
 		const candidates = {
-			"@oh-my-pi/pi-ai": "omp-legacy-pi-bundled:@oh-my-pi/pi-ai",
-			"@oh-my-pi/pi-coding-agent": "/dev/source/legacy-pi-coding-agent-shim.ts",
-			"@oh-my-pi/pi-tui": "/missing/path.ts",
+			"@oh-my-soup/pi-ai": "oms-legacy-pi-bundled:@oh-my-soup/pi-ai",
+			"@oh-my-soup/pi-coding-agent": "/dev/source/legacy-pi-coding-agent-shim.ts",
+			"@oh-my-soup/pi-tui": "/missing/path.ts",
 		};
 		const missing = new Set(["/missing/path.ts"]);
 		const result = __validateLegacyPiPackageRootOverrides(candidates, p => !missing.has(p));
 		expect(result).toEqual({
-			"@oh-my-pi/pi-ai": "omp-legacy-pi-bundled:@oh-my-pi/pi-ai",
-			"@oh-my-pi/pi-coding-agent": "/dev/source/legacy-pi-coding-agent-shim.ts",
+			"@oh-my-soup/pi-ai": "oms-legacy-pi-bundled:@oh-my-soup/pi-ai",
+			"@oh-my-soup/pi-coding-agent": "/dev/source/legacy-pi-coding-agent-shim.ts",
 		});
 	});
 });
@@ -109,7 +109,7 @@ describe("legacy pi compat typebox shim path resolution (issues #3414, #3423)", 
 			probed = true;
 			return false;
 		});
-		expect(result).toBe("omp-legacy-pi-bundled:typebox");
+		expect(result).toBe("oms-legacy-pi-bundled:typebox");
 		expect(probed).toBe(false);
 	});
 

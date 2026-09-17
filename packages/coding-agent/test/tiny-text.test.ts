@@ -5,8 +5,8 @@ import {
 	MAX_TINY_MESSAGE_CHARS,
 	preprocessTinyMessage,
 	stripCodeBlocks,
-} from "@oh-my-pi/pi-coding-agent/tiny/message-preproc";
-import { isLowSignalTitleInput, NO_TITLE_SENTINEL, normalizeGeneratedTitle } from "@oh-my-pi/pi-coding-agent/tiny/text";
+} from "@oh-my-soup/pi-coding-agent/tiny/message-preproc";
+import { isLowSignalTitleInput, NO_TITLE_SENTINEL, normalizeGeneratedTitle } from "@oh-my-soup/pi-coding-agent/tiny/text";
 
 describe("stripCodeBlocks", () => {
 	it("drops fenced code blocks but keeps the surrounding prose", () => {

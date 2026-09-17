@@ -63,7 +63,7 @@ The tool returns a single text block in `content[0].text` plus structured `detai
    - readable external URLs (`http(s)://`, collapsed `http(s):/host`, `www.` spellings when no local path exists) are fetched and materialized to immutable local files; `ftp`/`ws`/`wss` and declined fetches fail with an explicit error;
    - resources with `sourcePath` are searched through their backing file;
    - resources without `sourcePath` are searched in memory with JavaScript `RegExp`;
-   - `omp://` expands to every embedded documentation file via URL completion;
+   - `oms://` expands to every embedded documentation file via URL completion;
    - immutable sources are tracked so output can suppress editable hashline numbered output per file.
 5. For multi-path calls, `partitionExistingPaths()` skips only ENOENT entries. If every filesystem entry is missing and no virtual internal resources remain, the tool errors.
 6. Path resolution branches:
@@ -71,7 +71,7 @@ The tool returns a single text block in `content[0].text` plus structured `detai
    - multiple entries: `resolveExplicitSearchPaths()` (via `resolveToolSearchScope()`) computes a common base directory, brace-union glob, exact-file list, or per-entry target list. Targets fan out when the common ancestor is not itself a requested scope, or when a plain-file entry would otherwise be demoted into a directory walk's glob union (`fanOutFileTargets`).
 7. Line-range selectors are validated after path/archive/internal resolution. They are allowed only for single files, archive members, or virtual resources; glob/directory line-range selectors error.
 8. `grep.ts` stats the resolved base path to decide file vs directory behavior.
-9. It calls native `grep()` from `@oh-my-pi/pi-natives` with:
+9. It calls native `grep()` from `@oh-my-soup/pi-natives` with:
    - `pattern`, `ignoreCase`, `multiline`, `gitignore`;
    - `hidden: true`;
    - `contextBefore` / `contextAfter` from settings;
@@ -115,7 +115,7 @@ The tool returns a single text block in `content[0].text` plus structured `detai
 5. **Internal URL paths**
    - Filesystem-backed resources search their resolved `sourcePath`.
    - Virtual resources without `sourcePath` search their resolved content in memory.
-   - `omp://` expands to all embedded documentation files so it can be used as a docs search root.
+   - `oms://` expands to all embedded documentation files so it can be used as a docs search root.
    - No internal-URL globbing.
    - Immutable and virtual sources suppress editable hashline anchors.
 

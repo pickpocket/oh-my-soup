@@ -1,9 +1,9 @@
-import type { AgentMessage, Tokenizer } from "@oh-my-pi/pi-agent-core";
-import type { CompactionSettings } from "@oh-my-pi/pi-agent-core/compaction";
-import { effectiveReserveTokens, resolveThresholdTokens } from "@oh-my-pi/pi-agent-core/compaction";
-import type { Tool as AiTool, Model } from "@oh-my-pi/pi-ai";
-import { toolWireSchema } from "@oh-my-pi/pi-ai/utils/schema";
-import { formatNumber } from "@oh-my-pi/pi-utils";
+import type { AgentMessage, Tokenizer } from "@oh-my-soup/pi-agent-core";
+import type { CompactionSettings } from "@oh-my-soup/pi-agent-core/compaction";
+import { effectiveReserveTokens, resolveThresholdTokens } from "@oh-my-soup/pi-agent-core/compaction";
+import type { Tool as AiTool, Model } from "@oh-my-soup/pi-ai";
+import { toolWireSchema } from "@oh-my-soup/pi-ai/utils/schema";
+import { formatNumber } from "@oh-my-soup/pi-utils";
 import type { Theme } from "../theme";
 
 interface ContextSkill {

@@ -1,6 +1,6 @@
 # Native Crates
 
-Contributor map for Rust workspace members under `crates/`. They are implementation details behind `@oh-my-pi/pi-natives` and its embedded shell; package consumers use JavaScript entrypoints, not these crate APIs.
+Contributor map for Rust workspace members under `crates/`. They are implementation details behind `@oh-my-soup/pi-natives` and its embedded shell; package consumers use JavaScript entrypoints, not these crate APIs.
 
 The root `Cargo.toml` lists every crate under `crates/` explicitly in `workspace.members` — add new crates there. It also patches crates.io `brush-core` to the vendored copy.
 
@@ -28,7 +28,7 @@ The root `Cargo.toml` lists every crate under `crates/` explicitly in `workspace
 ## Boundary map
 
 ```text
-@oh-my-pi/pi-natives JS entrypoints
+@oh-my-soup/pi-natives JS entrypoints
   -> pi-natives (N-API conversion, platform bindings, task boundaries)
        -> pi-ast / pi-iso / pi-vcs / pi-voice / pi-walker
        -> pi-shell
@@ -53,4 +53,4 @@ Subsystem details live in:
 
 ## Documentation policy
 
-These crates remain contributor-facing implementation details. Promote one to standalone user-facing documentation only when it gains a public API or executable consumed independently of `@oh-my-pi/pi-natives`; see [`user-facing-packages.md`](./user-facing-packages.md).
+These crates remain contributor-facing implementation details. Promote one to standalone user-facing documentation only when it gains a public API or executable consumed independently of `@oh-my-soup/pi-natives`; see [`user-facing-packages.md`](./user-facing-packages.md).

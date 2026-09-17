@@ -2,8 +2,8 @@ import { afterEach, describe, expect, it } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { toolWireSchema } from "@oh-my-pi/pi-ai/utils/schema";
-import { validateToolArguments } from "@oh-my-pi/pi-ai/utils/validation";
+import { toolWireSchema } from "@oh-my-soup/pi-ai/utils/schema";
+import { validateToolArguments } from "@oh-my-soup/pi-ai/utils/validation";
 import { loadCustomTools, type ToolPathWithSource } from "../../src/extensibility/custom-tools/loader";
 
 let tempRoot: string | undefined;
@@ -16,7 +16,7 @@ afterEach(async () => {
 });
 
 async function writeTool(name: string, source: string): Promise<string> {
-	tempRoot ??= await fs.mkdtemp(path.join(os.tmpdir(), "omp-custom-tool-loader-"));
+	tempRoot ??= await fs.mkdtemp(path.join(os.tmpdir(), "oms-custom-tool-loader-"));
 	const filePath = path.join(tempRoot, name);
 	await Bun.write(filePath, source);
 	return filePath;
@@ -73,7 +73,7 @@ const MISSING_NAME_SOURCE = [
 ].join("\n");
 
 describe("custom tool loader", () => {
-	it("injects callable omptype-backed zod schemas through validation and wire emission", async () => {
+	it("injects callable omstype-backed zod schemas through validation and wire emission", async () => {
 		const toolPath = await writeTool(
 			"zod-wire.js",
 			[

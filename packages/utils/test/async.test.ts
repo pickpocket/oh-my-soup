@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "bun:test";
 import { scheduler } from "node:timers/promises";
-import { MAX_TIMER_DELAY_MS, sleepLong } from "@oh-my-pi/pi-utils/async";
+import { MAX_TIMER_DELAY_MS, sleepLong } from "@oh-my-soup/pi-utils/async";
 
 function mockMonotonicScheduler(elapsedForWait: (delayMs: number) => number = delayMs => delayMs) {
 	const startedAt = 10_000;

@@ -71,7 +71,7 @@
 
 ### Added
 
-- Added `getBrowserProfilesDir()` (`~/.omp/browser-profiles`; XDG: `$XDG_STATE_HOME/omp/browser-profiles`) for profiles of Chromium browsers spawned by the browser tool.
+- Added `getBrowserProfilesDir()` (`~/.oms/browser-profiles`; XDG: `$XDG_STATE_HOME/oms/browser-profiles`) for profiles of Chromium browsers spawned by the browser tool.
 
 ### Fixed
 
@@ -98,7 +98,7 @@
 
 ### Fixed
 
-- Fixed `filterChildShellEnv` applying the omp process's own launch-environment provenance (the pre-dotenv `NODE_ENV` and launcher-owned names read from `/proc/self/environ`) to caller-supplied environment objects; launch provenance now only applies when filtering the live `process.env`/`Bun.env`, and an explicit env resolves its dotenv mode from its own `NODE_ENV`.
+- Fixed `filterChildShellEnv` applying the oms process's own launch-environment provenance (the pre-dotenv `NODE_ENV` and launcher-owned names read from `/proc/self/environ`) to caller-supplied environment objects; launch provenance now only applies when filtering the live `process.env`/`Bun.env`, and an explicit env resolves its dotenv mode from its own `NODE_ENV`.
 
 ## [18.1.11] - 2026-09-05
 
@@ -110,7 +110,7 @@
 
 ### Added
 
-- Added the public `getTinyWorkerRuntimeDir()` utility, which returns the standard `~/.omp/run/tiny` directory for tiny-worker runtime data.
+- Added the public `getTinyWorkerRuntimeDir()` utility, which returns the standard `~/.oms/run/tiny` directory for tiny-worker runtime data.
 
 ### Fixed
 
@@ -120,7 +120,7 @@
 
 ### Added
 
-- Added `IncomingDoc` (`@oh-my-pi/pi-utils/incoming-json`) for incrementally reading path-addressed JSON data as text arrives, including string chunks and lines, array elements, and keyed object values, with structured errors for missing, incomplete, aborted, malformed, or mismatched data.
+- Added `IncomingDoc` (`@oh-my-soup/pi-utils/incoming-json`) for incrementally reading path-addressed JSON data as text arrives, including string chunks and lines, array elements, and keyed object values, with structured errors for missing, incomplete, aborted, malformed, or mismatched data.
 - Added `Serial` for running asynchronous operations sequentially in call order.
 
 ### Fixed
@@ -131,7 +131,7 @@
 
 ### Added
 
-- Added `TerminalQueryResponder` to `@oh-my-pi/pi-utils/vterm`, enabling headless PTY consumers to answer common terminal queries for cursor position, device status and attributes, and foreground/background colors without maintaining a screen buffer.
+- Added `TerminalQueryResponder` to `@oh-my-soup/pi-utils/vterm`, enabling headless PTY consumers to answer common terminal queries for cursor position, device status and attributes, and foreground/background colors without maintaining a screen buffer.
 
 ## [18.1.3] - 2026-09-02
 
@@ -198,7 +198,7 @@
 
 ### Fixed
 
-- Fixed OMP sessions unexpectedly exiting during socket cleanup or optional-worker communication on Bun.
+- Fixed OMS sessions unexpectedly exiting during socket cleanup or optional-worker communication on Bun.
 
 ## [18.0.6] - 2026-08-26
 
@@ -239,7 +239,7 @@
 
 ### Added
 
-- New unified archive API `@oh-my-pi/pi-utils/ar`, providing an `openArchive`/`ArchiveReader` interface across formats (including ZIP/ZIP64, tar with gz/bz2/xz/zst compression, ASAR, RAR 4/5, 7z, ISO 9660, CAB, cpio, RPM, Unix ar, Debian packages, LZH, ARJ, and single-stream compressed files) with lazy ranged reads for local files or HTTP range requests via `httpByteSource`, size limits, symlink-safe extraction, and deterministic archive creation for zip, tar, tar.gz, tar.zst, and asar.
+- New unified archive API `@oh-my-soup/pi-utils/ar`, providing an `openArchive`/`ArchiveReader` interface across formats (including ZIP/ZIP64, tar with gz/bz2/xz/zst compression, ASAR, RAR 4/5, 7z, ISO 9660, CAB, cpio, RPM, Unix ar, Debian packages, LZH, ARJ, and single-stream compressed files) with lazy ranged reads for local files or HTTP range requests via `httpByteSource`, size limits, symlink-safe extraction, and deterministic archive creation for zip, tar, tar.gz, tar.zst, and asar.
 
 ## [17.3.8] - 2026-08-19
 
@@ -277,7 +277,7 @@
 ### Changed
 
 - Changed stale process-log retention from the newest five files globally to one newest file per completed process and day within the current and previous four local calendar days. This preserves bounded daily diagnostic coverage while continuing to remove one-use audit files.
-- Changed outbound User-Agent consumers to share the versioned `USER_AGENT` constant (`omp/<version>`).
+- Changed outbound User-Agent consumers to share the versioned `USER_AGENT` constant (`oms/<version>`).
 
 ### Fixed
 
@@ -297,7 +297,7 @@
 
 ### Added
 
-- Introduced zero-dependency in-house modules replacing external packages, importable via `@oh-my-pi/pi-utils/<module>`: `acp` (Agent Client Protocol), `browsers` (Chrome for Testing discovery/install), `chalk` (ANSI styling), `dates` (date formatting), `dom` (HTML parser, WHATWG DOM subset, and CSS selectors), `docx` (DOCX to HTML), `headers` (browser header generation), `lru` (LRU cache), `marked` (GFM markdown lexer/parser), `readability` (article extraction), `template` (Handlebars-compatible templating), `turndown` (HTML to Markdown), `vterm` (headless terminal emulator), and `xml` (XML parser).
+- Introduced zero-dependency in-house modules replacing external packages, importable via `@oh-my-soup/pi-utils/<module>`: `acp` (Agent Client Protocol), `browsers` (Chrome for Testing discovery/install), `chalk` (ANSI styling), `dates` (date formatting), `dom` (HTML parser, WHATWG DOM subset, and CSS selectors), `docx` (DOCX to HTML), `headers` (browser header generation), `lru` (LRU cache), `marked` (GFM markdown lexer/parser), `readability` (article extraction), `template` (Handlebars-compatible templating), `turndown` (HTML to Markdown), `vterm` (headless terminal emulator), and `xml` (XML parser).
 - Added postmortem fatal recovery hint providers to allow applications to print actionable recovery commands before cleanup starts.
 
 ### Changed
@@ -318,7 +318,7 @@
 
 ### Added
 
-- Added a public `compareVersions` utility (`@oh-my-pi/pi-utils`) that compares two version strings with SemVer-2.0 prerelease ordering, build-metadata stripping, and numeric segment comparison without float overflow; never throws.
+- Added a public `compareVersions` utility (`@oh-my-soup/pi-utils`) that compares two version strings with SemVer-2.0 prerelease ordering, build-metadata stripping, and numeric segment comparison without float overflow; never throws.
 
 ### Fixed
 
@@ -346,7 +346,7 @@
 ### Added
 
 - Added `getSecretPlaceholderKeyPath()`, `getDaemonRuntimeDir()`, `getProviderInFlightRoot()`, and `getMarketplacesRegistryPath()` to resolve secret key, daemon runtime, provider in-flight, and marketplace registry paths under their respective XDG categories (state, data) instead of the config root.
-- Existing installs enabling XDG keep their data: a legacy `~/.omp/agent/secret-placeholder.key` or `~/.omp/marketplaces.json` is copied to its XDG location on first resolution, so persisted transcripts still deobfuscate and added marketplaces survive the move.
+- Existing installs enabling XDG keep their data: a legacy `~/.oms/agent/secret-placeholder.key` or `~/.oms/marketplaces.json` is copied to its XDG location on first resolution, so persisted transcripts still deobfuscate and added marketplaces survive the move.
 
 ### Changed
 
@@ -361,7 +361,7 @@
 ### Added
 
 - Added a `postmortem.quit` configuration option to safely handle shutdown paths when the terminal output has already disconnected.
-- Added project-keyed OMP security-state directory helpers under the user state root.
+- Added project-keyed OMS security-state directory helpers under the user state root.
 
 ## [17.1.8] - 2026-07-28
 
@@ -466,7 +466,7 @@
 
 ### Fixed
 
-- Fixed child shell environment filtering to drop launch-directory `.env.local` values that Bun auto-loaded before OMP starts command shells. ([#4723](https://github.com/can1357/oh-my-pi/issues/4723))
+- Fixed child shell environment filtering to drop launch-directory `.env.local` values that Bun auto-loaded before OMS starts command shells. ([#4723](https://github.com/can1357/oh-my-pi/issues/4723))
 
 ## [16.3.10] - 2026-07-06
 
@@ -566,7 +566,7 @@
 
 ### Removed
 
-- Removed the public `createAbortableStream` API from `@oh-my-pi/pi-utils`. Consumers should use the lighter, direct-reader `abortableSource` async generator inside `@oh-my-pi/pi-utils/stream` to avoid the extra ReadableStream wrapper layer and per-chunk enqueue overhead.
+- Removed the public `createAbortableStream` API from `@oh-my-soup/pi-utils`. Consumers should use the lighter, direct-reader `abortableSource` async generator inside `@oh-my-soup/pi-utils/stream` to avoid the extra ReadableStream wrapper layer and per-chunk enqueue overhead.
 
 ## [16.0.11] - 2026-06-19
 
@@ -595,18 +595,18 @@
 
 ### Added
 
-- Added `installWorkerInbox(port)` / `consumeWorkerInbox()` to `@oh-my-pi/pi-utils/worker-host`. A self-dispatching CLI host that imports a Bun worker module dynamically attaches the worker's real `message` listener after Bun flushes the messages the parent posted before spawn, dropping a synchronously-posted `init`. The host installs this buffering inbox synchronously in the entry's sync prefix so a listener exists at flush time; the worker module consumes it and binds the real handler, replaying anything buffered.
+- Added `installWorkerInbox(port)` / `consumeWorkerInbox()` to `@oh-my-soup/pi-utils/worker-host`. A self-dispatching CLI host that imports a Bun worker module dynamically attaches the worker's real `message` listener after Bun flushes the messages the parent posted before spawn, dropping a synchronously-posted `init`. The host installs this buffering inbox synchronously in the entry's sync prefix so a listener exists at flush time; the worker module consumes it and binds the real handler, replaying anything buffered.
 
 ## [15.13.1] - 2026-06-15
 
 ### Added
 
 - Added profile-aware directory helpers and isolated profile state roots, while keeping the install ID shared across profiles.
-- Added a named-profile API to the `dirs` module — `setProfile()`, `getActiveProfile()`, `getProfileRootDir()`, and `normalizeProfileName()` — plus `resolveProfileEnv()`, which selects the active profile from `OMP_PROFILE` (canonical; takes precedence) then `PI_PROFILE` (legacy fallback, consulted only when `OMP_PROFILE` is unset).
+- Added a named-profile API to the `dirs` module — `setProfile()`, `getActiveProfile()`, `getProfileRootDir()`, and `normalizeProfileName()` — plus `resolveProfileEnv()`, which selects the active profile from `OMS_PROFILE` (canonical; takes precedence) then `PI_PROFILE` (legacy fallback, consulted only when `OMS_PROFILE` is unset).
 - Added support for a runtime `overrides` map in `RuntimeInstallSpec`, which is now written into generated runtime `package.json` manifests to force dependency pins (including transitive ones) across the runtime tree
 - Added a lightweight loop-phase breadcrumb stack (`pushLoopPhase`/`popLoopPhase`/`currentLoopPhase`, plus `takeRecentLoopPhase` which returns the live phase or the most recently popped one and clears it) so the TUI event-loop watchdog can attribute a main-thread block to the phase that caused it — including a synchronous phase already popped before the watchdog's delayed tick runs ([#2485](https://github.com/can1357/oh-my-pi/issues/2485))
 - Added `FetchWithRetryOptions.timeout` (forwarded to the underlying `fetch` call). `false` disables Bun's native ~300s pre-response timeout; a positive number overrides the ceiling. Bare browser/Node fetch ignores it ([#2422](https://github.com/can1357/oh-my-pi/issues/2422))
-- Added the side-effect-free `@oh-my-pi/pi-utils/worker-host` module (`declareWorkerHostEntry()` / `workerHostEntry()`), extracted from `env` (still re-exported there) so worker spawn sites can resolve the self-dispatching CLI host entry without importing `env`'s side-effecting module graph.
+- Added the side-effect-free `@oh-my-soup/pi-utils/worker-host` module (`declareWorkerHostEntry()` / `workerHostEntry()`), extracted from `env` (still re-exported there) so worker spawn sites can resolve the self-dispatching CLI host entry without importing `env`'s side-effecting module graph.
 
 ### Fixed
 
@@ -625,7 +625,7 @@
 ### Added
 
 - Added `runtime-install`: shared on-demand runtime dependency support — `ensureRuntimeInstalled()` (locked, idempotent `bun install` of a pinned dependency set into a cache dir) and a multi-root `installRuntimeModuleResolver()`/`resolveRuntimeModule()` for loading those graphs inside compiled binaries (Bun #1763). Extracted from the coding-agent tiny-model worker; now also backs Mnemopi's on-demand fastembed runtime ([#2389](https://github.com/can1357/oh-my-pi/issues/2389))
-- Added `getFastembedRuntimeDir()` (~/.omp/cache/fastembed-runtime) alongside `getFastembedCacheDir()`
+- Added `getFastembedRuntimeDir()` (~/.oms/cache/fastembed-runtime) alongside `getFastembedCacheDir()`
 
 ## [15.11.4] - 2026-06-12
 
@@ -674,7 +674,7 @@
 
 - Fixed `prompt.format()` so ASCII symbol replacements such as `-->` and `!=` still run on lines containing a closing HTML comment token when not inside a comment
 - `isCompiledBinary()` now also honors a define-folded `process.env.PI_COMPILED` (only `Bun.env` was checked), so builds that constant-fold `process.env` keep compiled-binary detection without relying on `import.meta.url` bunfs markers
-- `omp <cmd> --help` now loads only the requested command module instead of the entire command table, so an unrelated command whose import graph hangs or crashes can no longer take down every per-command help invocation.
+- `oms <cmd> --help` now loads only the requested command module instead of the entire command table, so an unrelated command whose import graph hangs or crashes can no longer take down every per-command help invocation.
 
 ## [15.10.8] - 2026-06-09
 
@@ -693,7 +693,7 @@
 
 ### Added
 
-- Added `getAuthBrokerSnapshotCachePath()` with `OMP_AUTH_BROKER_SNAPSHOT_CACHE` override support for isolating the encrypted broker snapshot cache.
+- Added `getAuthBrokerSnapshotCachePath()` with `OMS_AUTH_BROKER_SNAPSHOT_CACHE` override support for isolating the encrypted broker snapshot cache.
 
 ## [15.9.1] - 2026-06-04
 
@@ -714,7 +714,7 @@
 
 ### Added
 
-- Added `getFastembedCacheDir` to return the FastEmbed model cache directory under ~/.omp/cache/fastembed
+- Added `getFastembedCacheDir` to return the FastEmbed model cache directory under ~/.oms/cache/fastembed
 
 ### Fixed
 

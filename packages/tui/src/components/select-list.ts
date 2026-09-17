@@ -1,4 +1,4 @@
-import { popLoopPhase, pushLoopPhase } from "@oh-my-pi/pi-utils";
+import { popLoopPhase, pushLoopPhase } from "@oh-my-soup/pi-utils";
 import { getMenuWindow, MenuSelection } from "./menu-selection";
 import { getKeybindings } from "../keybindings";
 import { extractPrintableText, matchesKey } from "../keys";

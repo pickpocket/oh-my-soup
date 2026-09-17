@@ -15,12 +15,12 @@
  * work, which is the failure mode this whole feature exists to avoid.
  */
 
-import { logger } from "@oh-my-pi/pi-utils";
-import type { LoopConditionConfig } from "@oh-my-pi/pi-tui/status-line/loop";
+import { logger } from "@oh-my-soup/pi-utils";
+import type { LoopConditionConfig } from "@oh-my-soup/pi-tui/status-line/loop";
 import type { BashResult } from "../exec/bash-executor";
 import { executeBash } from "../exec/bash-executor";
-import { TRUNCATE_LENGTHS, truncateToWidth } from "@oh-my-pi/pi-tui/render/render-utils";
-import { sanitizeStatusText } from "@oh-my-pi/pi-tui/chrome/shared";
+import { TRUNCATE_LENGTHS, truncateToWidth } from "@oh-my-soup/pi-tui/render/render-utils";
+import { sanitizeStatusText } from "@oh-my-soup/pi-tui/chrome/shared";
 
 export type LoopConditionVerdict =
 	/** The condition says run another iteration. */

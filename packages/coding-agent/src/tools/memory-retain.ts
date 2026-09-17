@@ -1,6 +1,6 @@
-import type { MemoryRetainDetails } from "@oh-my-pi/pi-tui/tools/memory";
-import { type } from "@oh-my-pi/omptype";
-import type { AgentTool, AgentToolResult } from "@oh-my-pi/pi-agent-core";
+import type { MemoryRetainDetails } from "@oh-my-soup/pi-tui/tools/memory";
+import { type } from "@oh-my-soup/omstype";
+import type { AgentTool, AgentToolResult } from "@oh-my-soup/pi-agent-core";
 import { isHindsightConfigured, loadHindsightConfig } from "../hindsight/config";
 import retainDescription from "../prompts/tools/retain.md" with { type: "text" };
 import type { ToolSession } from ".";

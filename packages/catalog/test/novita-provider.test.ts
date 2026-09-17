@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { DEFAULT_MODEL_PER_PROVIDER, PROVIDER_DESCRIPTORS } from "@oh-my-pi/pi-catalog/provider-models/descriptors";
-import { novitaModelManagerOptions } from "@oh-my-pi/pi-catalog/provider-models/openai-compat";
+import { DEFAULT_MODEL_PER_PROVIDER, PROVIDER_DESCRIPTORS } from "@oh-my-soup/pi-catalog/provider-models/descriptors";
+import { novitaModelManagerOptions } from "@oh-my-soup/pi-catalog/provider-models/openai-compat";
 
 describe("Novita built-in provider", () => {
 	test("registers catalog descriptor with NOVITA_API_KEY env discovery", () => {

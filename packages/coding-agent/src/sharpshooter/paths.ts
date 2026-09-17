@@ -11,7 +11,7 @@
  */
 
 import * as path from "node:path";
-import { getMemoriesDir } from "@oh-my-pi/pi-utils";
+import { getMemoriesDir } from "@oh-my-soup/pi-utils";
 import { projectBankSegment } from "../mnemopi/config";
 import type { SharpshooterState } from "./types";
 

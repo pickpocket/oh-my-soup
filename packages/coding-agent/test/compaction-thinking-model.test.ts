@@ -12,7 +12,7 @@ import { afterEach, beforeEach, describe } from "bun:test";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { removeSyncWithRetries, Snowflake } from "@oh-my-pi/pi-utils";
+import { removeSyncWithRetries, Snowflake } from "@oh-my-soup/pi-utils";
 import { e2eApiKey } from "./utilities";
 
 // Check for auth

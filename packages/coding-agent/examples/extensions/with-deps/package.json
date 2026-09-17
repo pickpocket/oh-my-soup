@@ -1,9 +1,9 @@
 {
 	"name": "pi-extension-with-deps",
 	"version": "1.0.0",
-	"homepage": "https://omp.sh",
+	"homepage": "https://github.com/pickpocket/oh-my-soup",
 	"type": "module",
-	"omp": {
+	"oms": {
 		"extensions": [
 			"./index.ts"
 		]

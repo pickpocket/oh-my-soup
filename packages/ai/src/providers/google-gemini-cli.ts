@@ -5,14 +5,14 @@
  */
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { scheduler } from "node:timers/promises";
-import { type } from "@oh-my-pi/omptype";
-import { calculateCost } from "@oh-my-pi/pi-catalog/models";
+import { type } from "@oh-my-soup/omstype";
+import { calculateCost } from "@oh-my-soup/pi-catalog/models";
 import {
 	getAntigravityModelWireProfile,
 	getAntigravityUserAgent,
 	getGeminiCliHeaders,
-} from "@oh-my-pi/pi-catalog/wire/gemini-headers";
-import { extractHttpStatusFromError, fetchWithRetry, readSseJson } from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-catalog/wire/gemini-headers";
+import { extractHttpStatusFromError, fetchWithRetry, readSseJson } from "@oh-my-soup/pi-utils";
 import * as AIError from "../error";
 import type {
 	Api,
@@ -100,10 +100,10 @@ function isPlanningLeakObject(parsed: unknown, toolNames: Set<string>): boolean 
 	if (!parsed || typeof parsed !== "object") return false;
 	const record = parsed as Record<string, unknown>;
 	const hasThought = typeof record.thought === "string";
-	const isOmpTool = typeof record.call === "string" && toolNames.has(record.call);
+	const isOmsTool = typeof record.call === "string" && toolNames.has(record.call);
 	const hasToolSignature =
 		"_i" in record || "paths" in record || "command" in record || ("path" in record && "content" in record);
-	return hasThought || isOmpTool || hasToolSignature;
+	return hasThought || isOmsTool || hasToolSignature;
 }
 
 function splitLeadingJsonObject(text: string): { prefixLength: number; jsonText: string; rest: string } | undefined {

@@ -5,22 +5,22 @@
  * and on an autonomous IRC wake turn.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
-import type { AssistantMessage } from "@oh-my-pi/pi-ai";
-import { AsyncJobManager } from "@oh-my-pi/pi-coding-agent/async/job-manager";
-import type { LoadExtensionsResult } from "@oh-my-pi/pi-coding-agent/extensibility/extensions/types";
-import { AgentLifecycleManager } from "@oh-my-pi/pi-coding-agent/registry/agent-lifecycle";
-import { AgentRegistry } from "@oh-my-pi/pi-coding-agent/registry/agent-registry";
-import type { CreateAgentSessionResult } from "@oh-my-pi/pi-coding-agent/sdk";
-import * as sdkModule from "@oh-my-pi/pi-coding-agent/sdk";
-import type { AgentMessage } from "@oh-my-pi/pi-agent-core";
-import type { AgentSession, AgentSessionEvent } from "@oh-my-pi/pi-coding-agent/session/agent-session";
+import type { AssistantMessage } from "@oh-my-soup/pi-ai";
+import { AsyncJobManager } from "@oh-my-soup/pi-coding-agent/async/job-manager";
+import type { LoadExtensionsResult } from "@oh-my-soup/pi-coding-agent/extensibility/extensions/types";
+import { AgentLifecycleManager } from "@oh-my-soup/pi-coding-agent/registry/agent-lifecycle";
+import { AgentRegistry } from "@oh-my-soup/pi-coding-agent/registry/agent-registry";
+import type { CreateAgentSessionResult } from "@oh-my-soup/pi-coding-agent/sdk";
+import * as sdkModule from "@oh-my-soup/pi-coding-agent/sdk";
+import type { AgentMessage } from "@oh-my-soup/pi-agent-core";
+import type { AgentSession, AgentSessionEvent } from "@oh-my-soup/pi-coding-agent/session/agent-session";
 import {
 	attachIrcWakeTurnMonitor,
 	runSubagentFollowUpTurn,
 	runSubprocess,
-} from "@oh-my-pi/pi-coding-agent/task/executor";
-import type { AgentDefinition } from "@oh-my-pi/pi-coding-agent/task/types";
-import { EventBus } from "@oh-my-pi/pi-coding-agent/utils/event-bus";
+} from "@oh-my-soup/pi-coding-agent/task/executor";
+import type { AgentDefinition } from "@oh-my-soup/pi-coding-agent/task/types";
+import { EventBus } from "@oh-my-soup/pi-coding-agent/utils/event-bus";
 
 const AGENT_ID = "accepted-result";
 

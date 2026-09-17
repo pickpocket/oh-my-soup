@@ -43,13 +43,13 @@ Upstream uses different package scopes. Replace them consistently.
 
 - Replace old scopes with the local scope used here.
 - Examples (adjust to match the actual packages you are porting):
-  - `@mariozechner/pi-coding-agent` → `@oh-my-pi/pi-coding-agent`
-  - `@mariozechner/pi-agent-core` → `@oh-my-pi/pi-agent-core`
-  - `@mariozechner/pi-tui` → `@oh-my-pi/pi-tui`
-  - `@mariozechner/pi-ai` → `@oh-my-pi/pi-ai`
-  - `@mariozechner/pi-utils` → `@oh-my-pi/pi-utils`
-- Some upstream packages publish under the `@earendil-works/*` scope instead of `@mariozechner/*`. Map it the same way (`@earendil-works/pi-coding-agent` → `@oh-my-pi/pi-coding-agent`, and so on).
-- The bare `typebox` package is not an `@oh-my-pi/*` scope; do not rewrite it as one. See the Extensions divergence in section 15 for how tool-parameter schemas map.
+  - `@mariozechner/pi-coding-agent` → `@oh-my-soup/pi-coding-agent`
+  - `@mariozechner/pi-agent-core` → `@oh-my-soup/pi-agent-core`
+  - `@mariozechner/pi-tui` → `@oh-my-soup/pi-tui`
+  - `@mariozechner/pi-ai` → `@oh-my-soup/pi-ai`
+  - `@mariozechner/pi-utils` → `@oh-my-soup/pi-utils`
+- Some upstream packages publish under the `@earendil-works/*` scope instead of `@mariozechner/*`. Map it the same way (`@earendil-works/pi-coding-agent` → `@oh-my-soup/pi-coding-agent`, and so on).
+- The bare `typebox` package is not an `@oh-my-soup/*` scope; do not rewrite it as one. See the Extensions divergence in section 15 for how tool-parameter schemas map.
 
 ## 4) Use Bun APIs where they improve on Node
 
@@ -129,7 +129,7 @@ Treat `package.json` as a contract. Merge intentionally.
 - Do not introduce `any` unless required.
 - Avoid dynamic imports unless they are required for optional dependencies, startup cost, or runtime-only modules; prefer top-level imports otherwise.
 - Never build prompts in code; prompts are static `.md` files rendered with Handlebars.
-- In `packages/coding-agent`, use `logger` from `@oh-my-pi/pi-utils` for internal/runtime logging; CLI command files may use `console.*` for intentional user-facing output.
+- In `packages/coding-agent`, use `logger` from `@oh-my-soup/pi-utils` for internal/runtime logging; CLI command files may use `console.*` for intentional user-facing output.
 - Use `Promise.withResolvers()` instead of `new Promise((resolve, reject) => ...)`.
 - Prefer ES `#` private fields for new encapsulated state. Constructor parameter properties already exist in current code and are acceptable; do not churn unrelated access modifiers while porting.
 - Prefer existing helpers and utilities over new ad-hoc code.
@@ -139,7 +139,7 @@ Treat `package.json` as a contract. Merge intentionally.
   - Heavy Node APIs should not be introduced casually; current source still uses selected Node APIs (`node:crypto`, `node:readline`, synchronous `node:fs`, and `child_process`) where they fit provider, CLI, or process-control semantics.
   - Lightweight Node APIs (`os.homedir`, `os.tmpdir`, `fs.mkdtempSync`, `path.*`) are kept.
   - CLI shebangs use `bun` (not `node`, not `tsx`).
-  - TypeScript packages generally use source files directly; `@oh-my-pi/pi-natives` exports generated native bindings from `packages/natives/native`.
+  - TypeScript packages generally use source files directly; `@oh-my-soup/pi-natives` exports generated native bindings from `packages/natives/native`.
   - CI workflows run Bun for install/check/test.
 
 ## 8) Remove old compatibility layers
@@ -309,7 +309,7 @@ Our fork has architectural decisions that differ from upstream. **Do not port th
 | `FooterDataProvider` class                  | `StatusLineComponent`                                               | Simpler, integrated status line                                                                                                                |
 | `ctx.ui.setHeader()` / `ctx.ui.setFooter()` | No-op stubs in current extension contexts                           | Not currently wired to replace the TUI status/header UI                                                                                        |
 | `ctx.ui.setEditorComponent()`               | Wired in interactive mode; no-op stubs in ACP/RPC/headless contexts | Custom editor replacement works in the interactive TUI; non-TUI runtimes keep stubs                                                            |
-| `ctx.ui.addAutocompleteProvider()`          | Wired in interactive mode; no-op stubs in ACP/RPC/headless contexts | Factory wrapping matches upstream; omp's editor has no custom `triggerCharacters`, so wrapped providers surface at the built-in trigger points |
+| `ctx.ui.addAutocompleteProvider()`          | Wired in interactive mode; no-op stubs in ACP/RPC/headless contexts | Factory wrapping matches upstream; oms's editor has no custom `triggerCharacters`, so wrapped providers surface at the built-in trigger points |
 | `InteractiveModeOptions` options object     | Positional constructor args (options type still exported)           | Keep constructor signature; update the type when upstream adds fields                                                                          |
 
 ### Component Naming
@@ -333,7 +333,7 @@ Our fork has architectural decisions that differ from upstream. **Do not port th
 
 | Upstream                                           | Our Fork                                                  | Reason                                        |
 | -------------------------------------------------- | --------------------------------------------------------- | --------------------------------------------- |
-| `clipboard.ts` + `clipboard-image.ts` (tool files) | `src/utils/clipboard.ts` backed by `@oh-my-pi/pi-natives` | Native implementation with a small TS wrapper |
+| `clipboard.ts` + `clipboard-image.ts` (tool files) | `src/utils/clipboard.ts` backed by `@oh-my-soup/pi-natives` | Native implementation with a small TS wrapper |
 
 ### Test Framework
 
@@ -362,9 +362,9 @@ Our fork has architectural decisions that differ from upstream. **Do not port th
 | Upstream                                                               | Our Fork                                                                                                                                                                                                                                                                                     |
 | ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `jiti` for TypeScript loading                                          | Native Bun `import()`                                                                                                                                                                                                                                                                        |
-| `pkg.pi` manifest field                                                | `pkg.omp` preferred; fallback to `pkg.pi` remains                                                                                                                                                                                                                                            |
+| `pkg.pi` manifest field                                                | `pkg.oms` preferred; fallback to `pkg.pi` remains                                                                                                                                                                                                                                            |
 | `StringEnum` from `pi-ai`                                              | `Type.Enum` from `pi.typebox`, or `pi.arktype.enumerated(...)`; `pi-ai` no longer exports `StringEnum`                                                                                                                                                                                       |
-| `formatSize` from `pi-coding-agent`                                    | `formatBytes` from `@oh-my-pi/pi-utils`                                                                                                                                                                                                                                                      |
+| `formatSize` from `pi-coding-agent`                                    | `formatBytes` from `@oh-my-soup/pi-utils`                                                                                                                                                                                                                                                      |
 | Upstream resource/package/settings managers as the native architecture | Capability-based discovery (`loadCapability(...)`), the `Settings` singleton, and `EventBus`; legacy extension imports of `DefaultResourceLoader`, `DefaultPackageManager`, and `SettingsManager` are compatibility shims in `legacy-pi-coding-agent-shim.ts`, not the native implementation |
 | `SettingsManager.create(cwd)` returns a synchronous manager with `getGlobalSettings()`/`getProjectSettings()` | The shim's `SettingsManager.create()` is synchronous and resolves the active extension session's `Settings`, then a live instance matching `cwd`/`agentDir`, or an isolated fallback; `Settings` exposes `getGlobalSettings()`/`getProjectSettings()` that deep-clone the raw global/project layers so extensions can read their own namespaced keys (#10397) |
 
@@ -373,7 +373,7 @@ Our fork has architectural decisions that differ from upstream. **Do not port th
 When porting, **skip** these files/features entirely:
 
 - `footer-data-provider.ts` — we use StatusLineComponent
-- `clipboard-image.ts` — image clipboard support is exposed through `src/utils/clipboard.ts` backed by `@oh-my-pi/pi-natives`
+- `clipboard-image.ts` — image clipboard support is exposed through `src/utils/clipboard.ts` backed by `@oh-my-soup/pi-natives`
 - GitHub workflow files — we have our own CI
 - `models.generated.ts` — auto-generated, regenerate locally (as models.json instead)
 

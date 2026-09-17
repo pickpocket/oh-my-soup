@@ -33,7 +33,7 @@ afterEach(async () => {
 });
 
 async function makeTempDir(): Promise<string> {
-	const dir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-biome-client-test-"));
+	const dir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-biome-client-test-"));
 	tempDirs.push(dir);
 	return dir;
 }

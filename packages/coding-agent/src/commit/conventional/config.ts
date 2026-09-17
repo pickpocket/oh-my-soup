@@ -63,7 +63,7 @@ const LOW_PRIORITY_EXTENSIONS: readonly string[] = [
 	".bak",
 ];
 
-/** Default llm-git thresholds before omp's explicit commit settings are applied. */
+/** Default llm-git thresholds before oms's explicit commit settings are applied. */
 export const DEFAULT_CONVENTIONAL_GENERATION_CONFIG: ConventionalGenerationConfig = {
 	summaryGuideline: 72,
 	summarySoftLimit: 96,
@@ -84,7 +84,7 @@ export const DEFAULT_CONVENTIONAL_GENERATION_CONFIG: ConventionalGenerationConfi
 	cacheEnabled: true,
 	cacheTtlDays: 14,
 };
-/** Build generation configuration from exact defaults plus omp settings. */
+/** Build generation configuration from exact defaults plus oms settings. */
 export function conventionalGenerationConfig(settings: CommitSettings): ConventionalGenerationConfig {
 	return {
 		...DEFAULT_CONVENTIONAL_GENERATION_CONFIG,

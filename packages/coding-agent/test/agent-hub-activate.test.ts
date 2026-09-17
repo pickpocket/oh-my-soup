@@ -1,4 +1,4 @@
-import { createAgentHubRuntime } from "@oh-my-pi/pi-coding-agent/modes/agent-hub-runtime";
+import { createAgentHubRuntime } from "@oh-my-soup/pi-coding-agent/modes/agent-hub-runtime";
 /**
  * Hub Enter contract: activating a non-remote agent row delegates to the
  * `focusAgent` dep (session focus proxy) and closes the hub on success; a
@@ -7,19 +7,19 @@ import { createAgentHubRuntime } from "@oh-my-pi/pi-coding-agent/modes/agent-hub
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { resetSettingsForTest, Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { IrcBus } from "@oh-my-pi/pi-coding-agent/irc/bus";
-import { AgentHubOverlayComponent } from "@oh-my-pi/pi-tui/overlays/agent-hub";
-import { SelectorController } from "@oh-my-pi/pi-coding-agent/modes/controllers/selector-controller";
-import { SessionObserverRegistry } from "@oh-my-pi/pi-tui/overlays/session-observer-registry";
-import { initTheme } from "@oh-my-pi/pi-tui/theme";
-import type { InteractiveModeContext } from "@oh-my-pi/pi-coding-agent/modes/types";
-import { AgentRegistry } from "@oh-my-pi/pi-coding-agent/registry/agent-registry";
-import type { AgentSession } from "@oh-my-pi/pi-coding-agent/session/agent-session";
-import { visitEntriesFromFileStream } from "@oh-my-pi/pi-coding-agent/session/session-loader";
-import { SessionManager } from "@oh-my-pi/pi-coding-agent/session/session-manager";
-import { getBundledAgent } from "@oh-my-pi/pi-coding-agent/task/agents";
-import { TempDir } from "@oh-my-pi/pi-utils";
+import { resetSettingsForTest, Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { IrcBus } from "@oh-my-soup/pi-coding-agent/irc/bus";
+import { AgentHubOverlayComponent } from "@oh-my-soup/pi-tui/overlays/agent-hub";
+import { SelectorController } from "@oh-my-soup/pi-coding-agent/modes/controllers/selector-controller";
+import { SessionObserverRegistry } from "@oh-my-soup/pi-tui/overlays/session-observer-registry";
+import { initTheme } from "@oh-my-soup/pi-tui/theme";
+import type { InteractiveModeContext } from "@oh-my-soup/pi-coding-agent/modes/types";
+import { AgentRegistry } from "@oh-my-soup/pi-coding-agent/registry/agent-registry";
+import type { AgentSession } from "@oh-my-soup/pi-coding-agent/session/agent-session";
+import { visitEntriesFromFileStream } from "@oh-my-soup/pi-coding-agent/session/session-loader";
+import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
+import { getBundledAgent } from "@oh-my-soup/pi-coding-agent/task/agents";
+import { TempDir } from "@oh-my-soup/pi-utils";
 
 const AGENT_ID = "Worker";
 const TEST_CWD = path.resolve("agent-hub-cwd");
@@ -199,7 +199,7 @@ describe("Agent hub Enter activation", () => {
 	});
 
 	it("lists persisted subagent session files after restart", async () => {
-		using tempDir = TempDir.createSync("@omp-agent-hub-persisted-");
+		using tempDir = TempDir.createSync("@oms-agent-hub-persisted-");
 		const sessionFile = path.join(tempDir.path(), "main.jsonl");
 		const workerSessionFile = path.join(tempDir.path(), "main", "Worker.jsonl");
 		await Bun.write(sessionFile, "");
@@ -225,7 +225,7 @@ describe("Agent hub Enter activation", () => {
 	});
 
 	it("ranks restored subagents by recency rather than readdir order", async () => {
-		using tempDir = TempDir.createSync("@omp-agent-hub-persisted-order-");
+		using tempDir = TempDir.createSync("@oms-agent-hub-persisted-order-");
 		const sessionFile = path.join(tempDir.path(), "main.jsonl");
 		await Bun.write(sessionFile, "");
 		// Alphabetical readdir order (Aaa, Bbb, Ccc) is the reverse of recency:
@@ -260,7 +260,7 @@ describe("Agent hub Enter activation", () => {
 	});
 
 	it("stops persisted discovery when the Hub is disposed", async () => {
-		using tempDir = TempDir.createSync("@omp-agent-hub-disposed-scan-");
+		using tempDir = TempDir.createSync("@oms-agent-hub-disposed-scan-");
 		const sessionFile = path.join(tempDir.path(), "main.jsonl");
 		await Bun.write(sessionFile, "");
 		await Bun.write(path.join(tempDir.path(), "main", "Worker.jsonl"), "");
@@ -282,7 +282,7 @@ describe("Agent hub Enter activation", () => {
 		expect(agents.get("Worker")).toBeUndefined();
 	});
 	it("restores nested parent lineage after restart", async () => {
-		using tempDir = TempDir.createSync("@omp-agent-hub-persisted-tree-");
+		using tempDir = TempDir.createSync("@oms-agent-hub-persisted-tree-");
 		const sessionFile = path.join(tempDir.path(), "main.jsonl");
 		const parentSessionFile = path.join(tempDir.path(), "main", "Parent.jsonl");
 		const childSessionFile = path.join(tempDir.path(), "main", "Parent", "Child.jsonl");
@@ -310,7 +310,7 @@ describe("Agent hub Enter activation", () => {
 	});
 
 	it("restores saved task metadata and timestamps for completed agents", async () => {
-		using tempDir = TempDir.createSync("@omp-agent-hub-persisted-metadata-");
+		using tempDir = TempDir.createSync("@oms-agent-hub-persisted-metadata-");
 		const sessionFile = path.join(tempDir.path(), "main.jsonl");
 		const workerSessionFile = path.join(tempDir.path(), "main", "Worker.jsonl");
 		const createdAt = "2026-07-30T01:13:37.835Z";
@@ -359,7 +359,7 @@ describe("Agent hub Enter activation", () => {
 	});
 
 	it("restores persisted model role, usage, spend, and tool totals", async () => {
-		using tempDir = TempDir.createSync("@omp-agent-hub-persisted-usage-");
+		using tempDir = TempDir.createSync("@oms-agent-hub-persisted-usage-");
 		const sessionFile = path.join(tempDir.path(), "main.jsonl");
 		const workerSessionFile = path.join(tempDir.path(), "main", "Worker.jsonl");
 		const createdAt = "2026-07-30T01:13:30.000Z";
@@ -436,7 +436,7 @@ describe("Agent hub Enter activation", () => {
 	});
 	it("yields to a macrotask at the configured streaming threshold", async () => {
 		vi.useFakeTimers();
-		using tempDir = TempDir.createSync("@omp-agent-hub-responsive-");
+		using tempDir = TempDir.createSync("@oms-agent-hub-responsive-");
 		const sessionFile = path.join(tempDir.path(), "session.jsonl");
 		const entry = JSON.stringify({
 			type: "message",
@@ -476,7 +476,7 @@ describe("Agent hub Enter activation", () => {
 	});
 
 	it("does not generically revive active or tombstoned Vibe children copied by a post-exit fork", async () => {
-		using tempDir = TempDir.createSync("@omp-agent-hub-vibe-fork-");
+		using tempDir = TempDir.createSync("@oms-agent-hub-vibe-fork-");
 		const manager = SessionManager.create(tempDir.path(), tempDir.path());
 		manager.appendModeChange("vibe");
 		const parentSessionId = manager.getSessionId();
@@ -697,7 +697,7 @@ describe("Agent hub double-← gating", () => {
 	});
 
 	it("requireContent opens the hub after persisted subagents load", async () => {
-		using tempDir = TempDir.createSync("@omp-agent-hub-require-content-");
+		using tempDir = TempDir.createSync("@oms-agent-hub-require-content-");
 		const sessionFile = path.join(tempDir.path(), "main.jsonl");
 		const workerSessionFile = path.join(tempDir.path(), "main", "Worker.jsonl");
 		await Bun.write(sessionFile, "");
@@ -714,7 +714,7 @@ describe("Agent hub double-← gating", () => {
 	});
 
 	it("the explicit hub opens fullscreen before persisted subagents load", async () => {
-		using tempDir = TempDir.createSync("@omp-agent-hub-explicit-");
+		using tempDir = TempDir.createSync("@oms-agent-hub-explicit-");
 		const sessionFile = path.join(tempDir.path(), "main.jsonl");
 		await Bun.write(sessionFile, "");
 		await Bun.write(path.join(tempDir.path(), "main", "Worker.jsonl"), persistedChildJsonl("worker"));

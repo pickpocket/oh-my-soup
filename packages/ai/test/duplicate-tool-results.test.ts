@@ -3,9 +3,9 @@ import type {
 	ChatCompletionAssistantMessageParam,
 	ChatCompletionMessageParam,
 	ChatCompletionToolMessageParam,
-} from "@oh-my-pi/pi-ai/providers/openai-chat-wire";
-import { convertMessages } from "@oh-my-pi/pi-ai/providers/openai-completions";
-import { transformMessages } from "@oh-my-pi/pi-ai/providers/transform-messages";
+} from "@oh-my-soup/pi-ai/providers/openai-chat-wire";
+import { convertMessages } from "@oh-my-soup/pi-ai/providers/openai-completions";
+import { transformMessages } from "@oh-my-soup/pi-ai/providers/transform-messages";
 import type {
 	Api,
 	AssistantMessage,
@@ -16,9 +16,9 @@ import type {
 	ToolCall,
 	ToolResultMessage,
 	UserMessage,
-} from "@oh-my-pi/pi-ai/types";
-import { normalizeToolCallId } from "@oh-my-pi/pi-ai/utils";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
+} from "@oh-my-soup/pi-ai/types";
+import { normalizeToolCallId } from "@oh-my-soup/pi-ai/utils";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
 
 /**
  * Regression test for: "each tool_use must have a single result. Found multiple tool_result blocks with id"
@@ -646,7 +646,7 @@ describe("Duplicate Tool Results Regression", () => {
  */
 describe("Composite Tool-Call Id Pairing", () => {
 	// The deployed gateway path is a SAME-MODEL Codex (openai-responses) replay:
-	// omp re-encodes Codex history back to a Codex target, so `isSameModel` holds
+	// oms re-encodes Codex history back to a Codex target, so `isSameModel` holds
 	// and composite tool-call ids pass through untouched to the pairing logic
 	// (the cross-provider / anthropic-target id normalization at :598-613 does
 	// NOT fire). Model the tests on that path so composite ids reach the fix.
@@ -1209,7 +1209,7 @@ describe("Opaque Chat Completions ids are not canonicalized (#10284)", () => {
  * `tool_result` blocks ... Each `tool_result` block must have a corresponding
  * `tool_use` block in the previous message."
  *
- * Reproduces the shape captured in `~/.omp/logs/http-400-requests/*.json` after
+ * Reproduces the shape captured in `~/.oms/logs/http-400-requests/*.json` after
  * handoff/compaction folds an assistant `tool_use` into the handoff summary string
  * while leaving the matching user-side `tool_result` message untouched. The orphan
  * `tool_result` then sits next to the handoff-context user message, gets merged by

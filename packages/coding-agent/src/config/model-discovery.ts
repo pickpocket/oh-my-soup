@@ -5,15 +5,15 @@
  * `discoverModelsByProviderType` with a `DiscoveryContext`; built-in provider
  * discovery lives in pi-catalog's provider-models.
  */
-import { type ApiKey, withAuth } from "@oh-my-pi/pi-ai/auth-retry";
-import type { Api, FetchImpl, Model, RemoteCompactionConfig } from "@oh-my-pi/pi-ai/types";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
+import { type ApiKey, withAuth } from "@oh-my-soup/pi-ai/auth-retry";
+import type { Api, FetchImpl, Model, RemoteCompactionConfig } from "@oh-my-soup/pi-ai/types";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
 import {
 	getBundledModelReferenceIndex,
 	inheritReferenceThinking,
 	resolveModelReference,
 	stripBracketedModelIdAffixes,
-} from "@oh-my-pi/pi-catalog/identity";
+} from "@oh-my-soup/pi-catalog/identity";
 import {
 	fetchLiteLLMRichModels,
 	fetchLmStudioNativeModelMetadata,
@@ -21,9 +21,9 @@ import {
 	OPENAI_COMPAT_DISCOVERY_DEFAULT_CONTEXT_WINDOW,
 	OPENAI_COMPAT_DISCOVERY_DEFAULT_MAX_TOKENS,
 	resolveLiteLLMApi,
-} from "@oh-my-pi/pi-catalog/provider-models/openai-compat";
-import type { ModelSpec, OpenAICompat } from "@oh-my-pi/pi-catalog/types";
-import { isRecord } from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-catalog/provider-models/openai-compat";
+import type { ModelSpec, OpenAICompat } from "@oh-my-soup/pi-catalog/types";
+import { isRecord } from "@oh-my-soup/pi-utils";
 import type { ProviderDiscovery } from "./models-config-schema";
 
 // Default cap on `max_tokens` for auto-discovered models that do not advertise
@@ -567,7 +567,7 @@ function isBonsaiQwenGguf(id: string): boolean {
  * turned off. Qwen ids and the Qwen3.6-based PrismLM Ternary Bonsai GGUFs are
  * routed through chat-completions (the implicit llama.cpp provider defaults to
  * `openai-responses`, whose disable path has no Qwen encoding) with the
- * `qwen-template-false` dialect; omp emits `preserve_thinking` inside
+ * `qwen-template-false` dialect; oms emits `preserve_thinking` inside
  * `chat_template_kwargs` for Qwen, so the toggle rides there too and history
  * `<think>` blocks survive (`qwenPreserveThinking`). The runtime base URL gets a
  * `/v1` suffix because the chat-completions request would otherwise POST to the

@@ -1,4 +1,4 @@
-import type { AgentMessage } from "@oh-my-pi/pi-agent-core";
+import type { AgentMessage } from "@oh-my-soup/pi-agent-core";
 
 // Single-slot-per-mode memo for formatThinkingForDisplay. During a streaming
 // tick the same growing thinking text is formatted up to three times (reveal

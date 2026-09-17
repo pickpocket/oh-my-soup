@@ -1,5 +1,5 @@
-import { Input, ProcessTerminal, Text, TUI } from "@oh-my-pi/pi-tui";
-import { fatal } from "@oh-my-pi/pi-utils/postmortem";
+import { Input, ProcessTerminal, Text, TUI } from "@oh-my-soup/pi-tui";
+import { fatal } from "@oh-my-soup/pi-utils/postmortem";
 
 const tui = new TUI(new ProcessTerminal(), false);
 const input = new Input();

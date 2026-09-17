@@ -10,9 +10,9 @@ use serde::{Deserialize, Serialize};
 use super::context::{Context, atomic_write};
 
 const SNAPSHOT_VERSION: u32 = 1;
-const BUNDLE_PREFIX: &str = "dev.omp.oauth-callback.";
-const APP_PREFIX: &str = "omp OAuth Callback ";
-const STAGING_APP_NAME: &str = "OMP OAuth Callback.app";
+const BUNDLE_PREFIX: &str = "dev.oms.oauth-callback.";
+const APP_PREFIX: &str = "oms OAuth Callback ";
+const STAGING_APP_NAME: &str = "OMS OAuth Callback.app";
 const EXECUTABLE_NAME: &str = "darwin-helper";
 const LEGACY_RECOVERY_FILE: &str = "darwin-url-callback.json";
 const LSREGISTER: &str = "/System/Library/Frameworks/CoreServices.framework/Frameworks/\
@@ -202,7 +202,7 @@ fn info_plist(context: &Context) -> String {
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>omp OAuth Callback</string>
+	<string>oms OAuth Callback</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -215,7 +215,7 @@ fn info_plist(context: &Context) -> String {
 			<key>CFBundleTypeRole</key>
 			<string>Viewer</string>
 			<key>CFBundleURLName</key>
-			<string>omp OAuth Callback</string>
+			<string>oms OAuth Callback</string>
 			<key>CFBundleURLSchemes</key>
 			<array><string>{}</string></array>
 		</dict>
@@ -424,11 +424,11 @@ fn remove_own_registration(
 		 &after,
 		 ApplicationState::Found { bundle_id, .. } if bundle_id == &snapshot.bundle_id
 	) {
-		bail!("macOS still resolves {} URLs to the temporary omp application", context.scheme);
+		bail!("macOS still resolves {} URLs to the temporary oms application", context.scheme);
 	}
 	if !same_application(&after, expected_handler) {
 		bail!(
-			"the external {} URL handler changed while removing the omp application",
+			"the external {} URL handler changed while removing the oms application",
 			context.scheme
 		);
 	}
@@ -441,7 +441,7 @@ fn legacy_recovery_path(context: &Context) -> PathBuf {
 		.get("PI_CONFIG_DIR")
 		.map(|value| value.trim())
 		.filter(|value| !value.is_empty())
-		.unwrap_or(".omp");
+		.unwrap_or(".oms");
 	context
 		.home
 		.join(config_directory)
@@ -538,7 +538,7 @@ fn recover_legacy_registration(context: &Context) -> Result<()> {
 	let expected_after = match &before {
 		ApplicationState::Found { app_path, bundle_id } if bundle_id == &record.bundle_id => {
 			if app_path != &record.app_path {
-				bail!("legacy omp callback bundle resolves to an unexpected application path");
+				bail!("legacy oms callback bundle resolves to an unexpected application path");
 			}
 			if record.previous_handler.is_empty() {
 				unregister_application(context, &record.app_path)?;
@@ -547,7 +547,7 @@ fn recover_legacy_registration(context: &Context) -> Result<()> {
 					 &after,
 					 ApplicationState::Found { bundle_id, .. } if bundle_id == &record.bundle_id
 				) {
-					bail!("macOS still uses the legacy omp callback application");
+					bail!("macOS still uses the legacy oms callback application");
 				}
 				after
 			} else {
@@ -569,13 +569,13 @@ fn recover_legacy_registration(context: &Context) -> Result<()> {
 				unregister_application(context, &record.app_path)?;
 				let after = query_scheme(context, &record.scheme)?;
 				if !same_application(&after, &restored) {
-					bail!("legacy URL handler changed while unregistering the omp application");
+					bail!("legacy URL handler changed while unregistering the oms application");
 				}
 				after
 			}
 		},
 		ApplicationState::Found { bundle_id, .. } if bundle_id.starts_with(BUNDLE_PREFIX) => {
-			bail!("an unrelated omp callback application owns the legacy URL scheme")
+			bail!("an unrelated oms callback application owns the legacy URL scheme")
 		},
 		ApplicationState::Absent | ApplicationState::Found { .. } => {
 			unregister_application(context, &record.app_path)?;
@@ -592,7 +592,7 @@ fn recover_legacy_registration(context: &Context) -> Result<()> {
 		 &expected_after,
 		 ApplicationState::Found { bundle_id, .. } if bundle_id == &record.bundle_id
 	) {
-		bail!("macOS still resolves the legacy omp callback application");
+		bail!("macOS still resolves the legacy oms callback application");
 	}
 	match fs::remove_dir_all(&record.app_path) {
 		Ok(()) => {},
@@ -626,7 +626,7 @@ pub(super) fn prepare(context: &Context) -> Result<Snapshot> {
 			&& bundle_id.starts_with(BUNDLE_PREFIX)
 		{
 			bail!(
-				"stale omp callback handler {bundle_id} has no recovery journal; remove it and retry"
+				"stale oms callback handler {bundle_id} has no recovery journal; remove it and retry"
 			);
 		}
 		Ok(Snapshot {
@@ -678,7 +678,7 @@ pub(super) fn restore(context: &Context, snapshot: &Snapshot) -> Result<()> {
 	let own_active = match &active {
 		ApplicationState::Found { app_path, bundle_id } if bundle_id == &snapshot.bundle_id => {
 			if app_path != &snapshot.app_path {
-				bail!("active omp callback bundle has an unexpected application path");
+				bail!("active oms callback bundle has an unexpected application path");
 			}
 			true
 		},
@@ -728,7 +728,7 @@ pub(super) fn restore(context: &Context, snapshot: &Snapshot) -> Result<()> {
 					 &after,
 					 ApplicationState::Found { bundle_id, .. } if bundle_id == &snapshot.bundle_id
 				) {
-					bail!("macOS still resolves URLs to the temporary omp application");
+					bail!("macOS still resolves URLs to the temporary oms application");
 				}
 				remove_transaction_applications(context, snapshot)
 			},
@@ -802,7 +802,7 @@ mod tests {
 		let mut context = Context::new(
 			home,
 			directory,
-			"omp-auth".to_owned(),
+			"oms-auth".to_owned(),
 			"0123456789abcdef0123456789abcdef".to_owned(),
 			BTreeMap::new(),
 			CancelToken::default(),
@@ -876,7 +876,7 @@ mod tests {
 		assert_eq!(fs::read(&staging_executable).unwrap(), b"precompiled helper");
 		let plist = fs::read_to_string(staging_path.join("Contents/Info.plist")).unwrap();
 		assert!(plist.contains(&snapshot.bundle_id));
-		assert!(plist.contains("<string>omp-auth</string>"));
+		assert!(plist.contains("<string>oms-auth</string>"));
 		assert!(plist.contains(&context.callback_path.to_string_lossy().into_owned()));
 		assert!(!snapshot.app_path.exists());
 		#[cfg(unix)]
@@ -1016,9 +1016,9 @@ mod tests {
 		let root = TempDir::new();
 		let legacy_app = root
 			.0
-			.join("home/Applications/omp OAuth Callback abandoned.app");
+			.join("home/Applications/oms OAuth Callback abandoned.app");
 		fs::create_dir_all(&legacy_app).unwrap();
-		let legacy_bundle = "dev.omp.oauth-callback.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+		let legacy_bundle = "dev.oms.oauth-callback.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 		let (context, state) = context(&root, found(&legacy_app, legacy_bundle));
 		let previous = found(root.0.join("Browser.app"), "com.example.browser");
 		let mut state_guard = state.lock();
@@ -1038,7 +1038,7 @@ mod tests {
 				 "bundleId": legacy_bundle,
 				 "pid": i32::MAX,
 				 "previousHandler": "com.example.browser",
-				 "scheme": "omp-auth"
+				 "scheme": "oms-auth"
 			}))
 			.unwrap(),
 		)
@@ -1059,7 +1059,7 @@ mod tests {
 		fs::create_dir_all(recovery_path.parent().unwrap()).unwrap();
 		fs::write(
             &recovery_path,
-            br#"{"appPath":"/tmp/unowned.app","bundleId":"dev.omp.oauth-callback.bad","pid":999999,"previousHandler":"","scheme":"omp-auth"}"#,
+            br#"{"appPath":"/tmp/unowned.app","bundleId":"dev.oms.oauth-callback.bad","pid":999999,"previousHandler":"","scheme":"oms-auth"}"#,
         )
         .unwrap();
 
@@ -1072,7 +1072,7 @@ mod tests {
 	#[test]
 	fn live_legacy_owner_is_not_recovered() {
 		let root = TempDir::new();
-		let legacy_app = root.0.join("home/Applications/omp OAuth Callback live.app");
+		let legacy_app = root.0.join("home/Applications/oms OAuth Callback live.app");
 		fs::create_dir_all(&legacy_app).unwrap();
 		let (context, _) = context(&root, ApplicationState::Absent);
 		let recovery_path = legacy_recovery_path(&context);
@@ -1081,10 +1081,10 @@ mod tests {
 			&recovery_path,
 			serde_json::to_vec(&json!({
 				 "appPath": legacy_app,
-				 "bundleId": "dev.omp.oauth-callback.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+				 "bundleId": "dev.oms.oauth-callback.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 				 "pid": std::process::id(),
 				 "previousHandler": "",
-				 "scheme": "omp-auth"
+				 "scheme": "oms-auth"
 			}))
 			.unwrap(),
 		)

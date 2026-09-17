@@ -1,5 +1,5 @@
-import type { RepeatedToolCallDetection } from "@oh-my-pi/pi-ai/utils/tool-call-loop-guard";
-import { prompt } from "@oh-my-pi/pi-utils";
+import type { RepeatedToolCallDetection } from "@oh-my-soup/pi-ai/utils/tool-call-loop-guard";
+import { prompt } from "@oh-my-soup/pi-utils";
 import toolCallLoopRedirectTemplate from "../prompts/system/tool-call-loop-redirect.md" with { type: "text" };
 
 export const TOOL_CALL_LOOP_REDIRECT_TYPE = "tool-call-loop-redirect";

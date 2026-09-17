@@ -2,19 +2,19 @@ import { afterEach, describe, expect, it, vi } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { AgentToolContext } from "@oh-my-pi/pi-agent-core";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import * as evalIndex from "@oh-my-pi/pi-coding-agent/eval";
-import type { EvalToolDetails } from "@oh-my-pi/pi-tui/tools/eval";
-import { getThemeByName } from "@oh-my-pi/pi-tui/theme";
-import { SessionManager } from "@oh-my-pi/pi-coding-agent/session/session-manager";
-import type { ToolSession } from "@oh-my-pi/pi-coding-agent/tools";
-import { EvalTool } from "@oh-my-pi/pi-coding-agent/tools/eval";
-import { evalToolRenderer } from "@oh-my-pi/pi-tui/tools/eval";
-import { stripOutputNotice } from "@oh-my-pi/pi-tui/tools/output-meta";
-import { formatOutputNotice } from "@oh-my-pi/pi-tui/tools/output-meta";
-import { wrapToolWithMetaNotice } from "@oh-my-pi/pi-coding-agent/tools/output-meta";
-import { removeWithRetries, sanitizeText } from "@oh-my-pi/pi-utils";
+import type { AgentToolContext } from "@oh-my-soup/pi-agent-core";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import * as evalIndex from "@oh-my-soup/pi-coding-agent/eval";
+import type { EvalToolDetails } from "@oh-my-soup/pi-tui/tools/eval";
+import { getThemeByName } from "@oh-my-soup/pi-tui/theme";
+import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
+import type { ToolSession } from "@oh-my-soup/pi-coding-agent/tools";
+import { EvalTool } from "@oh-my-soup/pi-coding-agent/tools/eval";
+import { evalToolRenderer } from "@oh-my-soup/pi-tui/tools/eval";
+import { stripOutputNotice } from "@oh-my-soup/pi-tui/tools/output-meta";
+import { formatOutputNotice } from "@oh-my-soup/pi-tui/tools/output-meta";
+import { wrapToolWithMetaNotice } from "@oh-my-soup/pi-coding-agent/tools/output-meta";
+import { removeWithRetries, sanitizeText } from "@oh-my-soup/pi-utils";
 
 function makeSession(settings = Settings.isolated()): ToolSession {
 	return {

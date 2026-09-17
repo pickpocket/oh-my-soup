@@ -1,7 +1,7 @@
 # MLX tiny-model worker: one process per local model, owning that model's
 # socket and speaking the same JSON-lines protocol as the ONNX worker
 # (`title-protocol.ts`). Started by `title-client.ts` from the mlx-lm venv;
-# serves every omp process on the machine; exits on its own once idle.
+# serves every oms process on the machine; exits on its own once idle.
 #
 # Requests (one object per line):
 #   {"type": "ping", "id"}                        -> pong (with the launch tag)
@@ -49,7 +49,7 @@ DOWNLOAD_PATTERNS = (
     "*.safetensors.index.json",
     "*.tiktoken",
 )
-COMPLETE_MARKER = ".omp-complete.json"
+COMPLETE_MARKER = ".oms-complete.json"
 PROGRESS_INTERVAL_S = 0.1
 CHUNK_BYTES = 1 << 20
 IDLE_POLL_S = 5.0
@@ -64,7 +64,7 @@ def log(message):
 
 
 def _request(url):
-    headers = {"User-Agent": "omp-tiny-mlx"}
+    headers = {"User-Agent": "oms-tiny-mlx"}
     if HF_TOKEN:
         headers["Authorization"] = f"Bearer {HF_TOKEN}"
     return urllib.request.Request(url, headers=headers)
@@ -318,7 +318,7 @@ class Server:
         self.socket_path = socket_path
         server = self._bind(socket_path)
         threading.Thread(target=self._idle_watchdog, daemon=True).start()
-        sys.stdout.write(f"omp tiny worker listening on {socket_path}\n")
+        sys.stdout.write(f"oms tiny worker listening on {socket_path}\n")
         sys.stdout.flush()
         while True:
             conn, _ = server.accept()

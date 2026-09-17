@@ -7,7 +7,7 @@ import type { HeadersHook, Lazy, LoginHook } from "./types";
 
 export const API_KEY_HEADERS_HOOKS: Record<string, Lazy<HeadersHook>> = {
 	"coreweave-project": () => import("../oauth/coreweave").then(m => m.requireCoreWeaveProjectHeaders),
-	"cline-pass-client": () => import("@oh-my-pi/pi-catalog/wire/cline-pass").then(m => m.clinePassClientHeaders),
+	"cline-pass-client": () => import("@oh-my-soup/pi-catalog/wire/cline-pass").then(m => m.clinePassClientHeaders),
 };
 
 export const API_KEY_LOGIN_HOOKS: Record<string, Lazy<LoginHook>> = {

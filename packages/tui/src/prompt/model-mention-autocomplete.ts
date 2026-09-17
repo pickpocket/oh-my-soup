@@ -1,4 +1,4 @@
-import type { Model } from "@oh-my-pi/pi-ai";
+import type { Model } from "@oh-my-soup/pi-ai";
 import type { AutocompleteItem } from "../index";
 import type { ModelBrowserRegistry, ModelBrowserSource } from "../overlays/model-browser";
 import { modelMentionDisplayName } from "./model-mention-syntax";

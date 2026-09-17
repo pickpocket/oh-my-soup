@@ -1,5 +1,5 @@
 /**
- * Prompt construction and scoring for `omp if-bench`.
+ * Prompt construction and scoring for `oms if-bench`.
  *
  * Each turn scores two independent contracts from a single reply: the working
  * memory one (the array inside `<...>` must equal the locally computed result)
@@ -7,7 +7,7 @@
  * The cat directive rotates through the start, middle, and end of the user turn
  * so a model cannot succeed by only attending to the prompt's edges.
  */
-import { prompt } from "@oh-my-pi/pi-utils";
+import { prompt } from "@oh-my-soup/pi-utils";
 import type { Action } from "./actions";
 import { encodeAction } from "./actions";
 import catDirectiveTemplate from "./prompts/cat-directive.md" with { type: "text" };

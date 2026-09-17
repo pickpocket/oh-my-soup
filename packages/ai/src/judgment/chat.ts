@@ -2,7 +2,7 @@
  * {@link TextBackend} over a chat model: the bridge that lets any smol/tiny
  * LLM serve {@link TextJudge} when no native judgment provider is configured.
  */
-import { type } from "@oh-my-pi/omptype";
+import { type } from "@oh-my-soup/omstype";
 import * as AIError from "../error";
 import { retryTransientCompletion } from "../oneshot-retry";
 import { completeSimple } from "../stream";

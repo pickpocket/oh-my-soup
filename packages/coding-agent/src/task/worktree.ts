@@ -1,12 +1,12 @@
-import { type NestedRepoPatch } from "@oh-my-pi/pi-tui/tools/task";
+import { type NestedRepoPatch } from "@oh-my-soup/pi-tui/tools/task";
 import type { Dirent } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { VcsCommitAuthor, VcsGitRepo } from "@oh-my-pi/pi-natives";
-import * as natives from "@oh-my-pi/pi-natives";
-import * as vcs from "@oh-my-pi/pi-natives/vcs";
-import { formatBytes, getWorktreeDir, logger, Snowflake } from "@oh-my-pi/pi-utils";
+import type { VcsCommitAuthor, VcsGitRepo } from "@oh-my-soup/pi-natives";
+import * as natives from "@oh-my-soup/pi-natives";
+import * as vcs from "@oh-my-soup/pi-natives/vcs";
+import { formatBytes, getWorktreeDir, logger, Snowflake } from "@oh-my-soup/pi-utils";
 import type { SettingValue } from "../config/settings-schema";
 import { withRepoLock } from "../utils/repo-lock";
 import { writeIsolationOwner } from "./isolation-ownership";
@@ -247,7 +247,7 @@ async function writeSyntheticTree(
 	patches: readonly string[],
 	options: SyntheticTreeOptions = {},
 ): Promise<string> {
-	const tempIndex = path.join(os.tmpdir(), `omp-task-index-${Snowflake.next()}`);
+	const tempIndex = path.join(os.tmpdir(), `oms-task-index-${Snowflake.next()}`);
 	const repo = vcs.requireGit(repoDir);
 	try {
 		await repo.readTree(baseTreeish, tempIndex);
@@ -417,7 +417,7 @@ export async function applyNestedPatches(
 		// Preserve any pre-existing dirty state (tracked + untracked) so we
 		// commit only the agent delta, not the user's in-flight work.
 		const stashed = (await repository.isDirty())
-			? await repository.stashPush(`omp-isolation-${Snowflake.next()}`)
+			? await repository.stashPush(`oms-isolation-${Snowflake.next()}`)
 			: false;
 		try {
 			for (const { patch } of repoPatches) {
@@ -551,7 +551,7 @@ export async function ensureIsolation(
 		// Claim ownership before the backend materialises `m`. Backends only
 		// create/replace `mergedDir` (and overlay upper/work), never the base
 		// dir, so the marker survives `isoStart` — and a concurrent
-		// `omp worktree clear` never sees this sandbox without a live owner,
+		// `oms worktree clear` never sees this sandbox without a live owner,
 		// even while a large clone is still in progress.
 		await fs.mkdir(baseDir, { recursive: true });
 		await writeIsolationOwner(baseDir, id);
@@ -784,7 +784,7 @@ async function replayFilteredAgentCommits(opts: FilteredAgentReplayOptions): Pro
 	const isolationRepo = vcs.requireGit(opts.isolationDir);
 	await repo.createBranch(opts.branchName, baselineSha, false);
 
-	const tmpDir = path.join(os.tmpdir(), `omp-branch-${Snowflake.next()}`);
+	const tmpDir = path.join(os.tmpdir(), `oms-branch-${Snowflake.next()}`);
 	try {
 		await repo.worktreeAdd(tmpDir, opts.branchName, { detach: false, clone: false });
 		const agentCommits = await isolationRepo.revListRange(baselineSha, opts.isolationHead);
@@ -850,7 +850,7 @@ async function replayFilteredAgentCommits(opts: FilteredAgentReplayOptions): Pro
 
 /**
  * Capture task-only changes from the isolation worktree onto a parent-repo
- * branch named `omp/task/${taskId}`. Only root-repo changes go on the branch;
+ * branch named `oms/task/${taskId}`. Only root-repo changes go on the branch;
  * nested-repo patches are returned separately because the parent git can't
  * track files inside gitlinks.
  *
@@ -886,7 +886,7 @@ export async function commitToBranch(
 
 	const repoRoot = baseline.root.repoRoot;
 	const repo = vcs.requireGit(repoRoot);
-	const branchName = `omp/task/${taskId}`;
+	const branchName = `oms/task/${taskId}`;
 	const fallbackMessage = description || taskId;
 
 	let branchCreated = false;
@@ -923,7 +923,7 @@ export async function commitToBranch(
 				untrackedPatch: "",
 			});
 			if (leftoverPatch.trim()) {
-				const tmpDir = path.join(os.tmpdir(), `omp-branch-${Snowflake.next()}`);
+				const tmpDir = path.join(os.tmpdir(), `oms-branch-${Snowflake.next()}`);
 				try {
 					await repo.worktreeAdd(tmpDir, branchName, { detach: false, clone: false });
 					const msg = (commitMessage && (await commitMessage(leftoverPatch))) || fallbackMessage;
@@ -938,7 +938,7 @@ export async function commitToBranch(
 	} else if (rootPatch.trim()) {
 		await repo.createBranch(branchName, baselineSha, false);
 		branchCreated = true;
-		const tmpDir = path.join(os.tmpdir(), `omp-branch-${Snowflake.next()}`);
+		const tmpDir = path.join(os.tmpdir(), `oms-branch-${Snowflake.next()}`);
 		try {
 			await repo.worktreeAdd(tmpDir, branchName, { detach: false, clone: false });
 
@@ -989,7 +989,7 @@ export async function mergeTaskBranches(
 
 		// Stash dirty working tree so cherry-pick can operate on a clean HEAD.
 		// Without this, cherry-pick refuses to run when uncommitted changes exist.
-		const didStash = await repo.stashPush("omp-task-merge");
+		const didStash = await repo.stashPush("oms-task-merge");
 
 		let conflictResult: MergeBranchResult | undefined;
 

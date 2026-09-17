@@ -20,11 +20,11 @@ import type {
 	NoulQuestion,
 	Question,
 	ScoreQuestion,
-} from "@oh-my-pi/pi-ai";
-import { isRecord } from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-ai";
+import { isRecord } from "@oh-my-soup/pi-utils";
 import { resolveJudge } from "../judgment";
 import { ONLINE_MEMORY_MODEL_KEY } from "../tiny/models";
-import { ToolError } from "@oh-my-pi/pi-tui/tools/tool-errors";
+import { ToolError } from "@oh-my-soup/pi-tui/tools/tool-errors";
 import {
 	type EvalCompletionBridgeOptions,
 	type EvalCompletionHandleResult,

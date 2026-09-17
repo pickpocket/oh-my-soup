@@ -2,16 +2,16 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { ModelRegistry } from "@oh-my-pi/pi-coding-agent/config/model-registry";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { getActiveSkills } from "@oh-my-pi/pi-coding-agent/extensibility/skills";
-import type { Skill } from "@oh-my-pi/pi-coding-agent/sdk";
-import { createAgentSession } from "@oh-my-pi/pi-coding-agent/sdk";
-import type { AgentSession } from "@oh-my-pi/pi-coding-agent/session/agent-session";
-import { AuthStorage } from "@oh-my-pi/pi-coding-agent/session/auth-storage";
-import { SessionManager } from "@oh-my-pi/pi-coding-agent/session/session-manager";
-import { removeSyncWithRetries } from "@oh-my-pi/pi-utils";
-import { getAgentDir, setAgentDir } from "@oh-my-pi/pi-utils/dirs";
+import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { getActiveSkills } from "@oh-my-soup/pi-coding-agent/extensibility/skills";
+import type { Skill } from "@oh-my-soup/pi-coding-agent/sdk";
+import { createAgentSession } from "@oh-my-soup/pi-coding-agent/sdk";
+import type { AgentSession } from "@oh-my-soup/pi-coding-agent/session/agent-session";
+import { AuthStorage } from "@oh-my-soup/pi-coding-agent/session/auth-storage";
+import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
+import { removeSyncWithRetries } from "@oh-my-soup/pi-utils";
+import { getAgentDir, setAgentDir } from "@oh-my-soup/pi-utils/dirs";
 import { cleanupTempHome } from "./helpers/temp-home-cleanup";
 
 function createIsolatedSkillsSettings(extensions: string[] = []): Settings {
@@ -30,7 +30,7 @@ function createExtensionSkill(packageDir: string, skillName: string): void {
 	fs.mkdirSync(path.join(packageDir, "skills", skillName), { recursive: true });
 	fs.writeFileSync(
 		path.join(packageDir, "package.json"),
-		JSON.stringify({ name: path.basename(packageDir), omp: { extensions: ["./extension.ts"] } }),
+		JSON.stringify({ name: path.basename(packageDir), oms: { extensions: ["./extension.ts"] } }),
 	);
 	fs.writeFileSync(path.join(packageDir, "extension.ts"), "export default function extension() {}\n");
 	fs.writeFileSync(
@@ -66,13 +66,13 @@ describe("createAgentSession skills option", () => {
 
 	beforeEach(() => {
 		tempDir = path.join(os.tmpdir(), `pi-sdk-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
-		// Create skill in .omp/skills/ for native project-level discovery
-		skillsDir = path.join(tempDir, ".omp", "skills", "test-skill");
+		// Create skill in .oms/skills/ for native project-level discovery
+		skillsDir = path.join(tempDir, ".oms", "skills", "test-skill");
 		fs.mkdirSync(skillsDir, { recursive: true });
 		originalHome = process.env.HOME;
 		tempHomeDir = fs.mkdtempSync(path.join(os.tmpdir(), "pi-sdk-home-"));
 		process.env.HOME = tempHomeDir;
-		const nativeUserSkillsDir = path.join(tempHomeDir, ".omp", "agent", "skills");
+		const nativeUserSkillsDir = path.join(tempHomeDir, ".oms", "agent", "skills");
 		fs.mkdirSync(nativeUserSkillsDir, { recursive: true });
 
 		// Create a test skill in the pi skills directory
@@ -125,21 +125,21 @@ Loaded via symbolic link.
 	it("SDK invocation root scope isolates disabled discovery and merges normal discovery", async () => {
 		const explicitPackage = path.join(tempDir, "sdk-explicit-extension");
 		const settingsPackage = path.join(tempDir, "sdk-settings-extension");
-		const installedPackage = path.join(tempHomeDir, ".omp", "plugins", "node_modules", "sdk-installed-extension");
+		const installedPackage = path.join(tempHomeDir, ".oms", "plugins", "node_modules", "sdk-installed-extension");
 		createExtensionSkill(explicitPackage, "sdk-explicit-skill");
 		createExtensionSkill(settingsPackage, "sdk-settings-skill");
 		createExtensionSkill(installedPackage, "sdk-installed-skill");
-		fs.mkdirSync(path.join(tempHomeDir, ".omp", "plugins"), { recursive: true });
+		fs.mkdirSync(path.join(tempHomeDir, ".oms", "plugins"), { recursive: true });
 		fs.writeFileSync(
-			path.join(tempHomeDir, ".omp", "plugins", "package.json"),
-			JSON.stringify({ name: "omp-plugins", dependencies: { "sdk-installed-extension": "1.0.0" } }),
+			path.join(tempHomeDir, ".oms", "plugins", "package.json"),
+			JSON.stringify({ name: "oms-plugins", dependencies: { "sdk-installed-extension": "1.0.0" } }),
 		);
 
 		const previousAgentDir = getAgentDir();
-		setAgentDir(path.join(tempHomeDir, ".omp", "agent"));
+		setAgentDir(path.join(tempHomeDir, ".oms", "agent"));
 		const baseSessionOptions = {
 			cwd: tempDir,
-			agentDir: path.join(tempHomeDir, ".omp", "agent"),
+			agentDir: path.join(tempHomeDir, ".oms", "agent"),
 			modelRegistry: sharedModelRegistry,
 			additionalExtensionPaths: [explicitPackage],
 			enableMCP: false,
@@ -191,7 +191,7 @@ Loaded via symbolic link.
 	});
 
 	it("should still discover project skills when user skills directory is missing", async () => {
-		const userAgentDir = path.join(tempHomeDir, ".omp", "agent");
+		const userAgentDir = path.join(tempHomeDir, ".oms", "agent");
 		removeSyncWithRetries(path.join(userAgentDir, "skills"));
 		fs.writeFileSync(path.join(userAgentDir, "placeholder.txt"), "placeholder");
 
@@ -217,7 +217,7 @@ Loaded via symbolic link.
 
 		expect(session.skills.some((s: Skill) => s.name === "runtime-added-skill")).toBe(false);
 
-		const runtimeSkillDir = path.join(tempDir, ".omp", "skills", "runtime-added-skill");
+		const runtimeSkillDir = path.join(tempDir, ".oms", "skills", "runtime-added-skill");
 		fs.mkdirSync(runtimeSkillDir, { recursive: true });
 		fs.writeFileSync(
 			path.join(runtimeSkillDir, "SKILL.md"),
@@ -245,7 +245,7 @@ This skill is added after session creation.
 
 	it("manage_skill hot-registers managed skills in the active session", async () => {
 		const originalAgentDir = getAgentDir();
-		const managedAgentDir = path.join(tempHomeDir, ".omp", "agent");
+		const managedAgentDir = path.join(tempHomeDir, ".oms", "agent");
 		setAgentDir(managedAgentDir);
 		const settings = createIsolatedSkillsSettings();
 		settings.set("autolearn.enabled", true);

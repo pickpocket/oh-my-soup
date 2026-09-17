@@ -1,5 +1,5 @@
 import { afterEach, expect, test, vi } from "bun:test";
-import { loginOpenAICodexDevice, openAICodexProfileHook } from "@oh-my-pi/pi-ai/oauth/openai-codex";
+import { loginOpenAICodexDevice, openAICodexProfileHook } from "@oh-my-soup/pi-ai/oauth/openai-codex";
 
 afterEach(() => {
 	vi.restoreAllMocks();

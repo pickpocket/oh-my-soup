@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "bun:test";
-import { getProviderDefinition } from "@oh-my-pi/pi-ai/registry";
-import { AuthStorage } from "@oh-my-pi/pi-ai/auth-storage";
-import { LoginCancelledError, OAuthError, ProviderHttpError } from "@oh-my-pi/pi-ai/error";
-import type { OAuthCredentials, OAuthController } from "@oh-my-pi/pi-ai/registry/oauth/types";
-import type { FetchImpl } from "@oh-my-pi/pi-ai/types";
+import { getProviderDefinition } from "@oh-my-soup/pi-ai/registry";
+import { AuthStorage } from "@oh-my-soup/pi-ai/auth-storage";
+import { LoginCancelledError, OAuthError, ProviderHttpError } from "@oh-my-soup/pi-ai/error";
+import type { OAuthCredentials, OAuthController } from "@oh-my-soup/pi-ai/registry/oauth/types";
+import type { FetchImpl } from "@oh-my-soup/pi-ai/types";
 import { withEnv } from "./helpers";
 
 type CapturedRequest = {

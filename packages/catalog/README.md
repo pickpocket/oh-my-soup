@@ -1,6 +1,6 @@
-# @oh-my-pi/pi-catalog
+# @oh-my-soup/pi-catalog
 
-Model catalog for [oh-my-pi](https://github.com/can1357/oh-my-pi): bundled model database, provider discovery, model identity, classification, and equivalence.
+Model catalog for [oh-my-soup](https://github.com/pickpocket/oh-my-soup): bundled model database, provider discovery, model identity, classification, and equivalence.
 
 ## What's inside
 
@@ -17,7 +17,7 @@ Model catalog for [oh-my-pi](https://github.com/can1357/oh-my-pi): bundled model
 | `wire`                          | Wire-level helpers: Codex, Gemini headers, GitHub Copilot                                                   |
 | `effort`                        | Reasoning-effort level definitions                                                                          |
 
-Import from subpaths (`@oh-my-pi/pi-catalog/<module>`) or the root barrel.
+Import from subpaths (`@oh-my-soup/pi-catalog/<module>`) or the root barrel.
 
 ## models.json and rules.json are generated
 
@@ -33,7 +33,7 @@ Model- or provider-conditional policy (identity, effort ladders, wire quirks, mo
 ## Install
 
 ```sh
-bun add @oh-my-pi/pi-catalog
+bun add @oh-my-soup/pi-catalog
 ```
 
 Ships TypeScript source directly (no build step); requires Bun ≥ 1.3.14.
@@ -54,11 +54,11 @@ Timestamps are Unix milliseconds; omitted timestamps use the current time for sc
 
 `ModelCost.timeBased` is optional typed metadata (`TimeBasedCost`): `offPeakMultiplier`, `peakWindows` (UTC `weekdays`, Sunday = 0, and start-inclusive/end-exclusive `startMinute`/`endMinute`), and optional `effectiveRates`. Each effective rate is a complete `TokenCost` with an `effectiveFrom` Unix-millisecond timestamp and optional `longContext` tier, replacing the base card from that instant.
 
-Pass the request-start timestamp when estimating request usage, then preserve the resulting monetary amounts rather than repricing history at display time. OMP does this using the assistant message timestamp; it is an estimation convention, not a claim about server billing across boundaries. Prefer monetary costs reported by a provider when available.
+Pass the request-start timestamp when estimating request usage, then preserve the resulting monetary amounts rather than repricing history at display time. OMS does this using the assistant message timestamp; it is an estimation convention, not a claim about server billing across boundaries. Prefer monetary costs reported by a provider when available.
 
 Schedules are materialized from the [`time-based-cost` KDL axis](src/compat/rules/README.md#time-based-pricing); this does not add a `timeBased` input field to the coding agent's `models.yml`. See [user-facing pricing behavior](../../docs/models.md#usage-costs-and-time-based-pricing) for DeepSeek rates, dates, and footer indicators.
 
 ## References
 
-- [Monorepo README](https://github.com/can1357/oh-my-pi#readme)
+- [Monorepo README](https://github.com/pickpocket/oh-my-soup#readme)
 - [CHANGELOG](./CHANGELOG.md)

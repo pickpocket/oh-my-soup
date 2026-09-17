@@ -1,6 +1,6 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { getTinyModelsCacheDir } from "@oh-my-pi/pi-utils";
+import { getTinyModelsCacheDir } from "@oh-my-soup/pi-utils";
 import { sttClient } from "./asr-client";
 import type { SttProgressStatus } from "./asr-protocol";
 import { resolveSttModelSpec } from "./models";

@@ -5,8 +5,8 @@
  * SearchResponse shape used by the web search tool.
  * Endpoint: POST https://ollama.com/api/web_search
  */
-import { type ApiKey, type AuthStorage, type FetchImpl, withAuth } from "@oh-my-pi/pi-ai";
-import type { SearchResponse, SearchSource } from "@oh-my-pi/pi-tui/tools/web-search";
+import { type ApiKey, type AuthStorage, type FetchImpl, withAuth } from "@oh-my-soup/pi-ai";
+import type { SearchResponse, SearchSource } from "@oh-my-soup/pi-tui/tools/web-search";
 import { SearchProviderError } from "../types";
 import { formatQuery, parseSearchQuery } from "../query";
 import { clampNumResults } from "../utils";

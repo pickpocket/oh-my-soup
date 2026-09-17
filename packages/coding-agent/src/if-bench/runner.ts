@@ -1,5 +1,5 @@
 /**
- * Turn engine for `omp if-bench`.
+ * Turn engine for `oms if-bench`.
  *
  * One model = one growing conversation: the system prompt and every earlier
  * turn stay byte-identical, so the whole prefix is cacheable and turn N only
@@ -16,12 +16,12 @@ import type {
 	Message,
 	Model,
 	ProviderSessionState,
-} from "@oh-my-pi/pi-ai";
-import { logger } from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-ai";
+import { logger } from "@oh-my-soup/pi-utils";
 import type { BenchRuntime, BenchTarget, StreamSimpleFn } from "../cli/bench-runtime";
-import { formatModelSelectorValue } from "@oh-my-pi/pi-tui/overlays/model-selector";
+import { formatModelSelectorValue } from "@oh-my-soup/pi-tui/overlays/model-selector";
 import { formatModelString } from "../config/model-resolver";
-import { shouldDisableReasoning, toReasoningEffort } from "@oh-my-pi/pi-tui/thinking";
+import { shouldDisableReasoning, toReasoningEffort } from "@oh-my-soup/pi-tui/thinking";
 import type { Action } from "./actions";
 import { applyActions, initialArray, makeActions } from "./actions";
 import type { CatPlacement, IfBenchFailure } from "./protocol";
@@ -187,7 +187,7 @@ async function runTarget(target: BenchTarget, options: IfBenchRunOptions): Promi
 		report.failure = {
 			turn: 0,
 			kind: "provider",
-			detail: `No credentials for provider "${model.provider}". Run \`omp\` and use /login, or set the provider API key.`,
+			detail: `No credentials for provider "${model.provider}". Run \`oms\` and use /login, or set the provider API key.`,
 		};
 		options.observer?.modelFinished?.(report);
 		return report;

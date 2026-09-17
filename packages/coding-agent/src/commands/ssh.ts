@@ -2,10 +2,10 @@
  * Manage SSH host configurations.
  */
 
-import { Args, Command, Flags } from "@oh-my-pi/pi-utils/cli";
+import { Args, Command, Flags } from "@oh-my-soup/pi-utils/cli";
 import { sshHelp as commandHelp } from "../cli/command-help";
 import { runSSHCommand, type SSHAction, type SSHCommandArgs } from "../cli/ssh-cli";
-import { initTheme } from "@oh-my-pi/pi-tui/theme";
+import { initTheme } from "@oh-my-soup/pi-tui/theme";
 
 const ACTIONS: SSHAction[] = ["add", "remove", "list"];
 

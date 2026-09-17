@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { shouldInlineToolDescriptors } from "@oh-my-pi/pi-coding-agent/config/inline-tool-descriptors-mode";
+import { shouldInlineToolDescriptors } from "@oh-my-soup/pi-coding-agent/config/inline-tool-descriptors-mode";
 
 describe("shouldInlineToolDescriptors", () => {
 	test("honors explicit on and off regardless of model", () => {

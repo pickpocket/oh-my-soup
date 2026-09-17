@@ -4,7 +4,7 @@ description: >
    exposes the backend through step outputs before any action condition
    uses it.
 
-   omp-kata jobs use the cluster remote cache. GitHub-hosted jobs use an
+   oms-kata jobs use the cluster remote cache. GitHub-hosted jobs use an
    actions/cache-backed disk cache seeded by the bazel-cache-warm workflow
    on the same runner image — cross-host action keys never hit, so the disk
    cache is hosted-only and its key carries a schema version (v1 was
@@ -83,8 +83,8 @@ runs:
            # repo half, every hosted job re-downloaded and re-extracted the
            # rust/LLVM/zig toolchains. Save sites must list the same paths.
            path: |
-              ~/.cache/omp-bazel-disk
-              ~/.cache/omp-bazel-repo
+              ~/.cache/oms-bazel-disk
+              ~/.cache/oms-bazel-repo
            key: ${{ steps.backend.outputs.cache-key }}
            # Order matters: exact key, same-config prefix, then any archive for
            # this scope+os+arch. The bare fallback is what keeps release version
@@ -124,7 +124,7 @@ runs:
                echo "startup --output_user_root=$RUNNER_TEMP/bazel-root"
                echo "common --config=ci"
                echo "common --repository_cache=/opt/bazel-repo-cache"
-               echo "common --repo_env=OMP_XWIN_CACHE_DIR=/opt/bazel-repo-cache/xwin"
+               echo "common --repo_env=OMS_XWIN_CACHE_DIR=/opt/bazel-repo-cache/xwin"
                echo "common --config=cache-rw"
                echo "common --remote_cache=grpcs://bazel-remote.bazel-cache.svc.cluster.local:9092"
                echo "common --tls_certificate=infra/bazel-remote/ca.crt"
@@ -132,23 +132,23 @@ runs:
                echo "common --remote_download_toplevel"
              } > "$rc"
            else
-             mkdir -p "$HOME/.cache/omp-bazel-disk" "$HOME/.cache/omp-bazel-repo"
+             mkdir -p "$HOME/.cache/oms-bazel-disk" "$HOME/.cache/oms-bazel-repo"
              # Seeding from stale archives means entries dead source
              # generations wrote would otherwise ride along forever; drop
              # anything untouched for 14 days (tar preserves mtimes across
              # the actions/cache round trip, so age survives restores).
-             # DISK CACHE ONLY: never prune omp-bazel-repo file-by-file —
+             # DISK CACHE ONLY: never prune oms-bazel-repo file-by-file —
              # extracted repo contents keep upstream-archive mtimes (often
              # months old), so an mtime sweep guts contents-cache entries
              # while bazel still trusts their recorded_inputs, materializing
              # hollow external repos ("BUILD file not found" — v17.2.0
              # release run 30519253683). The repo cache is bounded by the
              # GitHub cache TTL/LRU at the archive level instead.
-             find "$HOME/.cache/omp-bazel-disk" -type f -mtime +14 -delete 2>/dev/null || true
+             find "$HOME/.cache/oms-bazel-disk" -type f -mtime +14 -delete 2>/dev/null || true
              {
                echo "common --config=ci"
-               echo "common --disk_cache=$HOME/.cache/omp-bazel-disk"
-               echo "common --repository_cache=$HOME/.cache/omp-bazel-repo"
+               echo "common --disk_cache=$HOME/.cache/oms-bazel-disk"
+               echo "common --repository_cache=$HOME/.cache/oms-bazel-repo"
              } > "$rc"
            fi
 

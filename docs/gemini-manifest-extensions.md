@@ -2,7 +2,7 @@
 
 This document covers how the coding-agent discovers and parses Gemini-style manifest extensions (`gemini-extension.json`) into the `extensions` capability.
 
-It does **not** cover TypeScript/JavaScript extension module loading (`extensions/*.ts`, `index.ts`, `package.json omp.extensions`), which is documented in [Extension Loading](./extension-loading.md).
+It does **not** cover TypeScript/JavaScript extension module loading (`extensions/*.ts`, `index.ts`, `package.json oms.extensions`), which is documented in [Extension Loading](./extension-loading.md).
 
 ## Implementation files
 
@@ -177,7 +177,7 @@ does **not** identify a runnable TS/JS entry point.
 
 The Gemini provider separately populates the `extension-module` capability by
 scanning the same two extension roots for direct `.ts`/`.js` files,
-`<name>/index.ts` / `index.js`, and `package.json` `omp`/`pi` extension entries.
+`<name>/index.ts` / `index.js`, and `package.json` `oms`/`pi` extension entries.
 Those module records are independent of `gemini-extension.json`.
 
 The ambient startup path in `discoverExtensionPaths()` currently requests only

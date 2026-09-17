@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import type { Api } from "@oh-my-pi/pi-ai/types";
+import type { Api } from "@oh-my-soup/pi-ai/types";
 import {
 	coerceServiceTierByFamily,
 	getPriorityPremiumRequests,
@@ -7,8 +7,8 @@ import {
 	resolveModelServiceTier,
 	serviceTierFamily,
 	shouldSendServiceTier,
-} from "@oh-my-pi/pi-ai/types";
-import { classifyModel } from "@oh-my-pi/pi-catalog/compat/taxonomy";
+} from "@oh-my-soup/pi-ai/types";
+import { classifyModel } from "@oh-my-soup/pi-catalog/compat/taxonomy";
 
 const m = (provider: string, api: Api, id: string) => ({
 	provider,

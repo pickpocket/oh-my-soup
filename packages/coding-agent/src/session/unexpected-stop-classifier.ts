@@ -4,8 +4,8 @@
  * from {@link resolveJudge} — TypeSafe, the tiny/smol chat chain, or the local
  * model named by `providers.unexpectedStopModel`.
  */
-import type { AssistantMessage, Model, NoulQuestion } from "@oh-my-pi/pi-ai";
-import { logger } from "@oh-my-pi/pi-utils";
+import type { AssistantMessage, Model, NoulQuestion } from "@oh-my-soup/pi-ai";
+import { logger } from "@oh-my-soup/pi-utils";
 import type { ModelRegistry } from "../config/model-registry";
 import type { Settings } from "../config/settings";
 import { resolveJudge } from "../judgment";

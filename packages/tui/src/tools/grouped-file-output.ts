@@ -1,6 +1,6 @@
 import * as path from "node:path";
 
-import { buildPathTree, isUrlLikePath, type PathTreeInput, walkPathTree } from "@oh-my-pi/pi-utils";
+import { buildPathTree, isUrlLikePath, type PathTreeInput, walkPathTree } from "@oh-my-soup/pi-utils";
 
 // =============================================================================
 // Grouped file output (grep / ast-grep / ast-edit / lsp diagnostics)

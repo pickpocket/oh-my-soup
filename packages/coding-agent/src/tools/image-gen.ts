@@ -1,7 +1,7 @@
 import * as os from "node:os";
 import * as path from "node:path";
-import { type } from "@oh-my-pi/omptype";
-import type { AgentToolResult } from "@oh-my-pi/pi-agent-core";
+import { type } from "@oh-my-soup/omstype";
+import type { AgentToolResult } from "@oh-my-soup/pi-agent-core";
 import {
 	type ApiKey,
 	type FetchImpl,
@@ -10,9 +10,9 @@ import {
 	isOfficialCodexApiUrl,
 	type Model,
 	withAuth,
-} from "@oh-my-pi/pi-ai";
-import { ProviderHttpError } from "@oh-my-pi/pi-ai/error";
-import { fetchAntigravityImageModel } from "@oh-my-pi/pi-catalog/discovery/antigravity";
+} from "@oh-my-soup/pi-ai";
+import { ProviderHttpError } from "@oh-my-soup/pi-ai/error";
+import { fetchAntigravityImageModel } from "@oh-my-soup/pi-catalog/discovery/antigravity";
 import {
 	applyCodexResidencyHeader,
 	CODEX_BASE_URL,
@@ -20,8 +20,8 @@ import {
 	OPENAI_HEADER_VALUES,
 	OPENAI_HEADERS,
 	URL_PATHS,
-} from "@oh-my-pi/pi-catalog/wire/codex";
-import { getAntigravityUserAgent } from "@oh-my-pi/pi-catalog/wire/gemini-headers";
+} from "@oh-my-soup/pi-catalog/wire/codex";
+import { getAntigravityUserAgent } from "@oh-my-soup/pi-catalog/wire/gemini-headers";
 import {
 	$env,
 	isEnoent,
@@ -32,7 +32,7 @@ import {
 	Snowflake,
 	USER_AGENT,
 	untilAborted,
-} from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-utils";
 import { isAuthenticated, type ModelRegistry } from "../config/model-registry";
 import { settings } from "../config/settings";
 import type { CustomTool } from "../extensibility/custom-tools/types";
@@ -909,7 +909,7 @@ function getExtensionForMime(mimeType: string): string {
 
 async function saveImageToTemp(image: InlineImageData): Promise<string> {
 	const ext = getExtensionForMime(image.mimeType);
-	const filename = `omp-image-${Snowflake.next()}.${ext}`;
+	const filename = `oms-image-${Snowflake.next()}.${ext}`;
 	const filepath = path.join(os.tmpdir(), filename);
 	await Bun.write(filepath, Buffer.from(image.data, "base64"));
 	return filepath;

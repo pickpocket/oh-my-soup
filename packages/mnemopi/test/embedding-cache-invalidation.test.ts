@@ -7,11 +7,11 @@
  * short or empty matrix inserts nothing, changes no ranking, and must not discard a valid cache.
  */
 import { describe, expect, it } from "bun:test";
-import { initBeam } from "@oh-my-pi/pi-mnemopi/core/beam/schema";
-import { remember } from "@oh-my-pi/pi-mnemopi/core/beam/store";
-import type { BeamEvent, BeamMemoryState } from "@oh-my-pi/pi-mnemopi/core/beam/types";
-import { resetEmbeddingProviderForTests, setEmbeddingProviderForTests } from "@oh-my-pi/pi-mnemopi/core/embeddings";
-import { openDatabase } from "@oh-my-pi/pi-mnemopi/db";
+import { initBeam } from "@oh-my-soup/pi-mnemopi/core/beam/schema";
+import { remember } from "@oh-my-soup/pi-mnemopi/core/beam/store";
+import type { BeamEvent, BeamMemoryState } from "@oh-my-soup/pi-mnemopi/core/beam/types";
+import { resetEmbeddingProviderForTests, setEmbeddingProviderForTests } from "@oh-my-soup/pi-mnemopi/core/embeddings";
+import { openDatabase } from "@oh-my-soup/pi-mnemopi/db";
 
 function makeState(sessionId = "session-a", events: BeamEvent[] = []): BeamMemoryState {
 	const db = openDatabase(":memory:");

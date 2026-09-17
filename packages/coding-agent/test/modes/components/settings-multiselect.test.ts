@@ -1,10 +1,10 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "bun:test";
-import { resetSettingsForTest, Settings, settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { SettingsSelectorComponent } from "@oh-my-pi/pi-tui/overlays/settings-selector";
-import { createSettingsHost } from "@oh-my-pi/pi-coding-agent/config/settings-ui";
-import { createPluginSettingsHost } from "@oh-my-pi/pi-coding-agent/extensibility/plugins/settings-host";
-import { initTheme } from "@oh-my-pi/pi-tui/theme";
-import { SEARCH_PROVIDER_CHOICES } from "@oh-my-pi/pi-coding-agent/web/search/types";
+import { resetSettingsForTest, Settings, settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { SettingsSelectorComponent } from "@oh-my-soup/pi-tui/overlays/settings-selector";
+import { createSettingsHost } from "@oh-my-soup/pi-coding-agent/config/settings-ui";
+import { createPluginSettingsHost } from "@oh-my-soup/pi-coding-agent/extensibility/plugins/settings-host";
+import { initTheme } from "@oh-my-soup/pi-tui/theme";
+import { SEARCH_PROVIDER_CHOICES } from "@oh-my-soup/pi-coding-agent/web/search/types";
 
 beforeAll(async () => {
 	await initTheme();

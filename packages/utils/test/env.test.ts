@@ -10,7 +10,7 @@ import {
 	parseEnvFile,
 	setInteractiveHost,
 	stripGitRepoLocationEnv,
-} from "@oh-my-pi/pi-utils/env";
+} from "@oh-my-soup/pi-utils/env";
 
 const tempDirs: string[] = [];
 const runtimeProbePath = path.join(import.meta.dir, "fixtures", "test-runtime-probe.ts");
@@ -89,11 +89,11 @@ describe("parseEnvFile", () => {
 		});
 	});
 
-	it("mirrors valid OMP_ variables to PI_ variables", () => {
-		const filePath = writeTempEnv("OMP_FEATURE=enabled\nOMP_BAD=before\0after\n");
+	it("mirrors valid OMS_ variables to PI_ variables", () => {
+		const filePath = writeTempEnv("OMS_FEATURE=enabled\nOMP_BAD=before\0after\n");
 
 		expect(parseEnvFile(filePath)).toEqual({
-			OMP_FEATURE: "enabled",
+			OMS_FEATURE: "enabled",
 			PI_FEATURE: "enabled",
 		});
 	});
@@ -204,19 +204,19 @@ describe("filterChildShellEnv", () => {
 		const cwd = path.dirname(writeTempEnv(""));
 		fs.writeFileSync(
 			path.join(cwd, ".env.development.local"),
-			"OMP_DOTENV_REPRO_MARKER=synthetic-mode-local-value\n",
+			"OMS_DOTENV_REPRO_MARKER=synthetic-mode-local-value\n",
 		);
 		const envModulePath = path.join(import.meta.dir, "..", "src", "env.ts");
 		const script = [
 			`import { filterChildShellEnv } from ${JSON.stringify(envModulePath)};`,
 			"const child = filterChildShellEnv(",
-			'  { OMP_DOTENV_REPRO_MARKER: "synthetic-mode-local-value", UNCHANGED: "parent-value" },',
+			'  { OMS_DOTENV_REPRO_MARKER: "synthetic-mode-local-value", UNCHANGED: "parent-value" },',
 			`  ${JSON.stringify(cwd)},`,
 			");",
 			"process.stdout.write(JSON.stringify(child));",
 		].join("\n");
 		const proc = Bun.spawn([process.execPath, "--no-install", "--eval", script], {
-			env: { ...process.env, NODE_ENV: "test", OMP_DOTENV_REPRO_MARKER: undefined },
+			env: { ...process.env, NODE_ENV: "test", OMS_DOTENV_REPRO_MARKER: undefined },
 			stdout: "pipe",
 			stderr: "pipe",
 		});
@@ -256,21 +256,21 @@ describe("filterChildShellEnv", () => {
 		const cwd = path.dirname(writeTempEnv("NODE_ENV=production\n"));
 		fs.writeFileSync(
 			path.join(cwd, ".env.development.local"),
-			"OMP_DOTENV_REPRO_MARKER=synthetic-mode-local-value\n",
+			"OMS_DOTENV_REPRO_MARKER=synthetic-mode-local-value\n",
 		);
 		const envModulePath = path.join(import.meta.dir, "..", "src", "env.ts");
 		const script = [
 			`import { filterChildShellEnv } from ${JSON.stringify(envModulePath)};`,
 			"const child = filterChildShellEnv(process.env, process.cwd());",
 			"process.stdout.write(JSON.stringify({",
-			"  processValue: process.env.OMP_DOTENV_REPRO_MARKER ?? null,",
-			"  childValue: child.OMP_DOTENV_REPRO_MARKER ?? null,",
+			"  processValue: process.env.OMS_DOTENV_REPRO_MARKER ?? null,",
+			"  childValue: child.OMS_DOTENV_REPRO_MARKER ?? null,",
 			"  nodeEnv: process.env.NODE_ENV ?? null,",
 			"}));",
 		].join("\n");
 		const proc = Bun.spawn([process.execPath, "--no-install", "--eval", script], {
 			cwd,
-			env: { ...process.env, NODE_ENV: undefined, OMP_DOTENV_REPRO_MARKER: undefined },
+			env: { ...process.env, NODE_ENV: undefined, OMS_DOTENV_REPRO_MARKER: undefined },
 			stdout: "pipe",
 			stderr: "pipe",
 		});

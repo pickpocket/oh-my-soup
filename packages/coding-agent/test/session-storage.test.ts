@@ -7,9 +7,9 @@ import {
 	IndexedSessionStorage,
 	type SessionStorageBackend,
 	type SessionStorageIndexEntry,
-} from "@oh-my-pi/pi-coding-agent/session/indexed-session-storage";
-import { FileSessionStorage, SessionLockError } from "@oh-my-pi/pi-coding-agent/session/session-storage";
-import { type SessionTitleUpdate, serializeTitleSlot } from "@oh-my-pi/pi-coding-agent/session/session-title-slot";
+} from "@oh-my-soup/pi-coding-agent/session/indexed-session-storage";
+import { FileSessionStorage, SessionLockError } from "@oh-my-soup/pi-coding-agent/session/session-storage";
+import { type SessionTitleUpdate, serializeTitleSlot } from "@oh-my-soup/pi-coding-agent/session/session-title-slot";
 
 class ControlledTitleUpdateBackend implements SessionStorageBackend {
 	readonly #sessionPath: string;
@@ -92,7 +92,7 @@ describe("FileSessionStorage writer", () => {
 	let storage: FileSessionStorage;
 
 	beforeEach(async () => {
-		tempDir = await fsp.mkdtemp(path.join(os.tmpdir(), "omp-session-writer-"));
+		tempDir = await fsp.mkdtemp(path.join(os.tmpdir(), "oms-session-writer-"));
 		storage = new FileSessionStorage();
 	});
 
@@ -175,7 +175,7 @@ describe("FileSessionStorage.deleteSessionWithArtifacts", () => {
 	let storage: FileSessionStorage;
 
 	beforeEach(async () => {
-		tempDir = await fsp.mkdtemp(path.join(os.tmpdir(), "omp-session-storage-"));
+		tempDir = await fsp.mkdtemp(path.join(os.tmpdir(), "oms-session-storage-"));
 		storage = new FileSessionStorage();
 	});
 
@@ -227,7 +227,7 @@ describe("FileSessionStorage.writeTextSync", () => {
 	let tempDir: string;
 
 	beforeEach(async () => {
-		tempDir = await fsp.mkdtemp(path.join(os.tmpdir(), "omp-session-storage-"));
+		tempDir = await fsp.mkdtemp(path.join(os.tmpdir(), "oms-session-storage-"));
 	});
 
 	afterEach(async () => {
@@ -421,7 +421,7 @@ describe("FileSessionStorage.updateSessionTitle", () => {
 	let storage: FileSessionStorage;
 
 	beforeEach(async () => {
-		tempDir = await fsp.mkdtemp(path.join(os.tmpdir(), "omp-session-storage-"));
+		tempDir = await fsp.mkdtemp(path.join(os.tmpdir(), "oms-session-storage-"));
 		storage = new FileSessionStorage();
 	});
 

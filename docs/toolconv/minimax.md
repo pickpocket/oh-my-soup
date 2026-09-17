@@ -1,21 +1,21 @@
 # MiniMax owned tool-calling format (`<minimax:tool_call>`)
 
-OMP's `minimax` dialect is the prompt-driven, in-band tool protocol for MiniMax-family models. Calls are ordinary assistant text: one `<minimax:tool_call>` envelope contains one or more `<invoke>` elements. OMP executes the parsed calls and returns a `<function_results>` block in the next user turn. The format carries no tool-call ids, so calls and results are correlated by order.
+OMS's `minimax` dialect is the prompt-driven, in-band tool protocol for MiniMax-family models. Calls are ordinary assistant text: one `<minimax:tool_call>` envelope contains one or more `<invoke>` elements. OMS executes the parsed calls and returns a `<function_results>` block in the next user turn. The format carries no tool-call ids, so calls and results are correlated by order.
 
-This reference describes OMP's implemented converter, not MiniMax's provider-native structured tool API. It is verified against `packages/ai/src/dialect/minimax.ts`, the shared XML scanner in `packages/ai/src/dialect/anthropic.ts`, prompt assembly in `packages/ai/src/dialect/catalog.ts`, and the streaming projection in `packages/ai/src/dialect/owned-stream.ts`.
+This reference describes OMS's implemented converter, not MiniMax's provider-native structured tool API. It is verified against `packages/ai/src/dialect/minimax.ts`, the shared XML scanner in `packages/ai/src/dialect/anthropic.ts`, prompt assembly in `packages/ai/src/dialect/catalog.ts`, and the streaming projection in `packages/ai/src/dialect/owned-stream.ts`.
 
 ## Selection and request conversion
 
-Set the format explicitly in `~/.omp/agent/config.yml` or a project/overlay config:
+Set the format explicitly in `~/.oms/agent/config.yml` or a project/overlay config:
 
 ```yaml
 tools:
   format: minimax
 ```
 
-`tools.format: minimax` forces this owned dialect for the session. In `auto` mode, OMP keeps provider-native tool calling unless the selected model explicitly has `supportsTools: false`; for a MiniMax-family model id, that fallback resolves to `minimax`. See [`tools.format`](../settings.md#tools-and-approvals).
+`tools.format: minimax` forces this owned dialect for the session. In `auto` mode, OMS keeps provider-native tool calling unless the selected model explicitly has `supportsTools: false`; for a MiniMax-family model id, that fallback resolves to `minimax`. See [`tools.format`](../settings.md#tools-and-approvals).
 
-When an owned dialect is active, OMP:
+When an owned dialect is active, OMS:
 
 1. removes the native structured `tools` field from the provider request;
 2. appends an in-band tool catalog and the MiniMax format guide to the system prompt;
@@ -77,7 +77,7 @@ The scanner resolves string arguments from the supplied tool schemas. A paramete
 - `string="true"` (and any value except `false`, `0`, or `no`) forces verbatim string handling.
 - `string="false"`, `string="0"`, or `string="no"` forces JSON parsing even for a schema-declared string.
 
-For a non-string parameter, surrounding whitespace is trimmed only for the JSON parse. OMP uses its repair-capable JSON parser; if parsing still fails, the original body is retained as a string rather than dropping the argument. Empty bodies also remain empty strings. A parameter with no usable `name` is ignored.
+For a non-string parameter, surrounding whitespace is trimmed only for the JSON parse. OMS uses its repair-capable JSON parser; if parsing still fails, the original body is retained as a string rather than dropping the argument. Empty bodies also remain empty strings. A parameter with no usable `name` is ignored.
 
 ## Multiple and parallel calls
 
@@ -90,11 +90,11 @@ Parallel calls are sibling `<invoke>` elements inside one envelope, in emitted o
 </minimax:tool_call>
 ```
 
-The scanner mints an internal id for each invoke because the wire format has no id. OMP can dispatch the resulting calls as a batch. Tool results must be returned in the same order; the result protocol has no call id with which to repair reordering.
+The scanner mints an internal id for each invoke because the wire format has no id. OMS can dispatch the resulting calls as a batch. Tool results must be returned in the same order; the result protocol has no call id with which to repair reordering.
 
 ## Tool-result envelope
 
-OMP batches consecutive tool results into one `<function_results>` block. Success and failure use different records:
+OMS batches consecutive tool results into one `<function_results>` block. Success and failure use different records:
 
 ```text
 <function_results>
@@ -117,11 +117,11 @@ For every result:
 - stdout/stderr is inserted verbatim; and
 - there is no call id, so the model reads records in call order.
 
-OMP places this text in a synthesized `user` message. Text blocks from one tool result are concatenated; image result blocks remain image blocks after the rendered text. The model must never emit `<function_results>` or `<tool_response>` itself.
+OMS places this text in a synthesized `user` message. Text blocks from one tool result are concatenated; image result blocks remain image blocks after the rendered text. The model must never emit `<function_results>` or `<tool_response>` itself.
 
 ## Thinking and visible text
 
-OMP renders a preserved reasoning block as:
+OMS renders a preserved reasoning block as:
 
 ```text
 <thinking>
@@ -147,11 +147,11 @@ Important failure behavior:
 - **Missing parameter name:** that parameter is ignored.
 - **Malformed JSON:** falls back to the original parameter text.
 - **Very large parameter:** input is capped at 1,000,000 JavaScript string code units; overflow is replaced by the accepted prefix plus an explicit truncation marker.
-- **Incomplete invoke:** flush resets scanner-local call state and emits no `toolEnd`. However, OMP's stream projector has already materialized a call from `toolStart`; on a normally stopped response it retains that partial call, marks the turn as tool use, and may dispatch it. Already streamed argument text remains uncoerced, and a call with no argument text has `{}`. A provider `length` stop remains `length` rather than becoming runnable tool use.
+- **Incomplete invoke:** flush resets scanner-local call state and emits no `toolEnd`. However, OMS's stream projector has already materialized a call from `toolStart`; on a normally stopped response it retains that partial call, marks the turn as tool use, and may dispatch it. Already streamed argument text remains uncoerced, and a call with no argument text has `{}`. A provider `length` stop remains `length` rather than becoming runnable tool use.
 - **Incomplete wrapper after complete invokes:** already closed invokes remain valid; the wrapper close is not required to emit their `toolEnd` events.
 - **Incomplete thinking:** retained as thinking and logically ended at flush.
 
-OMP also guards against a model fabricating tool output after its call. For this dialect, the first `<function_results>` or `<tool_response>` boundary stops projection. With the default `tools.abortOnFabricatedResult: true`, generation is aborted immediately; when disabled, OMP drains the provider stream but discards the fabricated continuation.
+OMS also guards against a model fabricating tool output after its call. For this dialect, the first `<function_results>` or `<tool_response>` boundary stops projection. With the default `tools.abortOnFabricatedResult: true`, generation is aborted immediately; when disabled, OMS drains the provider stream but discards the fabricated continuation.
 
 ## End-to-end example
 
@@ -173,7 +173,7 @@ I'll check both cities.
 </minimax:tool_call>
 ```
 
-Next user turn produced by OMP:
+Next user turn produced by OMS:
 
 ```text
 <function_results>
@@ -195,7 +195,7 @@ The assistant can then answer normally or emit another complete MiniMax call env
 - **Not real XML.** Do not entity-escape parameter bodies or run them through an XML DOM parser; matching is based on protocol delimiters.
 - **One envelope, many invokes.** Parallelism is sibling calls inside `<minimax:tool_call>`, not JSON `tool_calls` and not one envelope per required batch.
 - **Schema determines strings.** Without the tool schema, even a JavaScript string renderer value is JSON-quoted; supply tool definitions to renderer/scanner APIs for round trips.
-- **No ids on the wire.** OMP-generated ids are internal. Preserve call/result order.
+- **No ids on the wire.** OMS-generated ids are internal. Preserve call/result order.
 - **Errors are first-class records.** Use `<error>/<stderr>`, not a successful `<result>` containing an out-of-band error flag.
 - **Canonical wrapper vs accepted recovery syntax.** The parser accepts bare invokes and `<tool_call>`, but the injected contract requires `<minimax:tool_call>`.
 - **Complete the invoke before stopping.** A natural-language promise to call a tool is not a call; the closing `</invoke>` is what finalizes coercion and the normal lifecycle.

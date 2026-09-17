@@ -21,8 +21,8 @@ const env = (key: string): string | undefined => {
 const BIZ_BASE = env("ZAI_BIZ_BASE") ?? "https://api.z.ai";
 /** Business-login endpoint: exchanges the OAuth access token for a biz token. */
 const BUSINESS_LOGIN_URL = env("ZAI_BUSINESS_LOGIN_URL") ?? "https://api.z.ai/api/auth/z/login";
-/** OMP's own key name so sign-in never mutates ZCode's `zcode-api-key`. */
-const KEY_NAME = "oh-my-pi";
+/** OMS's own key name so sign-in never mutates ZCode's `zcode-api-key`. */
+const KEY_NAME = "oh-my-soup";
 
 /**
  * Z.ai's `{ code, msg, data, success }` envelope. The OAuth token endpoint
@@ -138,7 +138,7 @@ interface ZaiOrganization {
 /**
  * Provision the durable Z.ai API key from a short-lived OAuth access token,
  * mirroring ZCode: business-login → resolve default org/project from
- * `getCustomerInfo` → find/create the OMP-named key → obtain its secret →
+ * `getCustomerInfo` → find/create the OMS-named key → obtain its secret →
  * return `${apiKey}.${secretKey}` (the 49-char durable key).
  */
 async function mintZaiApiKey(oauthAccessToken: string, fetchImpl: FetchImpl): Promise<string> {

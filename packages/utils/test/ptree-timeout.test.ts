@@ -2,8 +2,8 @@ import { describe, expect, it, spyOn } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { Process, ProcessStatus } from "@oh-my-pi/pi-natives";
-import { createLinuxSubreaperScript, exec, NonZeroExitError, spawn, TimeoutError } from "@oh-my-pi/pi-utils/ptree";
+import { Process, ProcessStatus } from "@oh-my-soup/pi-natives";
+import { createLinuxSubreaperScript, exec, NonZeroExitError, spawn, TimeoutError } from "@oh-my-soup/pi-utils/ptree";
 
 async function supportsLinuxMountNamespaces(): Promise<boolean> {
 	if (process.platform !== "linux") return false;
@@ -157,12 +157,12 @@ sleep 30
 	);
 
 	it.skipIf(process.platform !== "linux")("falls back after the first libc soname is unavailable", async () => {
-		const script = createLinuxSubreaperScript(["libc.so.omp-missing", "libc.so.6", "libc.so"]);
+		const script = createLinuxSubreaperScript(["libc.so.oms-missing", "libc.so.6", "libc.so"]);
 		const child = Bun.spawn([process.execPath, "-e", script], {
 			env: {
 				...Bun.env,
 				BUN_BE_BUN: "1",
-				OMP_PTREE_SUBREAPER_COMMAND: JSON.stringify([
+				OMS_PTREE_SUBREAPER_COMMAND: JSON.stringify([
 					process.execPath,
 					"-e",
 					'process.stdout.write("libc-fallback-ok")',
@@ -225,7 +225,7 @@ ${createLinuxSubreaperScript()}
 				env: {
 					...Bun.env,
 					BUN_BE_BUN: "1",
-					OMP_PTREE_SUBREAPER_COMMAND: JSON.stringify(["/bin/sh", "-c", "printf procfs-free-ok"]),
+					OMS_PTREE_SUBREAPER_COMMAND: JSON.stringify(["/bin/sh", "-c", "printf procfs-free-ok"]),
 				},
 				stdin: "ignore",
 				stdout: "pipe",

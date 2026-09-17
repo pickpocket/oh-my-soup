@@ -4,7 +4,7 @@ import {
 	generateThemeVars,
 	getTemplate,
 	parseExportArgs,
-} from "@oh-my-pi/pi-coding-agent/export/html";
+} from "@oh-my-soup/pi-coding-agent/export/html";
 
 describe("HTML export themes", () => {
 	it("bundles dark, light, and auto-following web themes", async () => {

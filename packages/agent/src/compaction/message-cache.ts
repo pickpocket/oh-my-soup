@@ -24,7 +24,7 @@
  *    anywhere; the convert cache lives in another package and subscribes via
  *    {@link registerMessageCacheInvalidator}.
  */
-import type { AssistantMessage } from "@oh-my-pi/pi-ai";
+import type { AssistantMessage } from "@oh-my-soup/pi-ai";
 import type { AgentMessage } from "../types";
 
 /** External cache invalidators (e.g. the coding-agent `convertToLlm` memo). */
@@ -48,7 +48,7 @@ export function registerMessageCacheInvalidator(invalidate: (message: AgentMessa
  * the tag onto derived clones — harmless, because estimate memos key on message
  * *identity* and a fresh clone starts with no memo entries anywhere.
  */
-const kEstimateVersion = Symbol("omp.messageEstimateVersion");
+const kEstimateVersion = Symbol("oms.messageEstimateVersion");
 
 interface VersionedMessage {
 	[kEstimateVersion]?: number;

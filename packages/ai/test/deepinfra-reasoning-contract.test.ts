@@ -1,7 +1,7 @@
 /**
  * Wire-contract tests for DeepInfra's OpenAI-compatible chat endpoint, pinned
  * to the request/response payloads captured against production in
- * oh-my-pi#9522 (`deepseek-ai/DeepSeek-V4-Flash-0731`, representative of the
+ * oh-my-soup#9522 (`deepseek-ai/DeepSeek-V4-Flash-0731`, representative of the
  * whole DeepSeek family DeepInfra hosts):
  *
  *  - The endpoint is plain OpenAI format: the server owns all DeepSeek
@@ -19,11 +19,11 @@
  *    missing reasoning must fall back to the empty string.
  */
 import { describe, expect, it } from "bun:test";
-import { convertMessages, streamOpenAICompletions } from "@oh-my-pi/pi-ai/providers/openai-completions";
-import type { AssistantMessage, Context, FetchImpl, Model, ThinkingContent, ToolCall } from "@oh-my-pi/pi-ai/types";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
-import { Effort } from "@oh-my-pi/pi-catalog/effort";
-import { getBundledModel } from "@oh-my-pi/pi-catalog/models";
+import { convertMessages, streamOpenAICompletions } from "@oh-my-soup/pi-ai/providers/openai-completions";
+import type { AssistantMessage, Context, FetchImpl, Model, ThinkingContent, ToolCall } from "@oh-my-soup/pi-ai/types";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
+import { Effort } from "@oh-my-soup/pi-catalog/effort";
+import { getBundledModel } from "@oh-my-soup/pi-catalog/models";
 
 const DEEPINFRA_BASE_URL = "https://api.deepinfra.com/v1/openai";
 
@@ -137,7 +137,7 @@ function findAssistantWireMessage(messages: readonly unknown[] | undefined): Ass
 	);
 }
 
-describe("DeepInfra reasoning wire contract (oh-my-pi#9522)", () => {
+describe("DeepInfra reasoning wire contract (oh-my-soup#9522)", () => {
 	it("resolves the DeepSeek replay contract on the deepinfra host", () => {
 		const compat = deepinfraDeepseekModel().compat;
 		// Plain OpenAI dialect — the server owns DeepSeek-specific encoding.

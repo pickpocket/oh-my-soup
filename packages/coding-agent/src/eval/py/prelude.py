@@ -1,16 +1,16 @@
 from __future__ import annotations
 
-# OMP prelude helpers (loaded once into the runner namespace)
-if "__omp_prelude_loaded__" not in globals():
-    __omp_prelude_loaded__ = True
+# OMS prelude helpers (loaded once into the runner namespace)
+if "__oms_prelude_loaded__" not in globals():
+    __oms_prelude_loaded__ = True
     from pathlib import Path
     import asyncio, collections.abc, contextvars, inspect, os, json, math, re, types, typing
     from urllib.parse import unquote
 
 
-    # __omp_display is injected by runner.py before the prelude executes; it
+    # __oms_display is injected by runner.py before the prelude executes; it
     # mirrors IPython's display() semantics with the same MIME bundle output.
-    _omp_display = __omp_display  # type: ignore[name-defined]
+    _oms_display = __oms_display  # type: ignore[name-defined]
 
     _PRESENTABLE_REPRS = (
         "_repr_mimebundle_",
@@ -26,20 +26,20 @@ if "__omp_prelude_loaded__" not in globals():
     def display(value):
         """Render a value. Falls back to a JSON+text/plain bundle for plain dict/list/tuple."""
         if any(hasattr(value, attr) for attr in _PRESENTABLE_REPRS):
-            _omp_display(value)
+            _oms_display(value)
             return
         if isinstance(value, (dict, list, tuple)):
             try:
                 bundle = {"application/json": value, "text/plain": repr(value)}
-                _omp_display(bundle, raw=True)
+                _oms_display(bundle, raw=True)
                 return
             except Exception:
                 pass
-        _omp_display(value)
+        _oms_display(value)
 
     def _emit_status(op: str, **data):
         """Emit structured status event for TUI rendering."""
-        _omp_display({"application/x-omp-status": {"op": op, **data}}, raw=True)
+        _oms_display({"application/x-oms-status": {"op": op, **data}}, raw=True)
 
     def env(key: str | None = None, value: str | None = None):
         """Get/set environment variables."""
@@ -78,7 +78,7 @@ if "__omp_prelude_loaded__" not in globals():
             return result["text"]
         return result
 
-    def _resolve_omp_path(path: str | Path) -> Path:
+    def _resolve_oms_path(path: str | Path) -> Path:
         """Map a helper path to a real filesystem Path.
 
         A `scheme://…` whose scheme has an injected on-disk root (e.g.
@@ -122,7 +122,7 @@ if "__omp_prelude_loaded__" not in globals():
             selector = _read_line_selector(offset, limit)
             tool_path = path if selector is None else f"{path}:{selector}"
             return _read_tool_text(tool_path)
-        p = _resolve_omp_path(path)
+        p = _resolve_oms_path(path)
         data = p.read_text(encoding="utf-8")
         lines = data.splitlines(keepends=True)
         if offset > 1 or limit is not None:
@@ -136,7 +136,7 @@ if "__omp_prelude_loaded__" not in globals():
 
     def write(path: str | Path, content: str) -> Path:
         """Write file contents (create parents)."""
-        p = _resolve_omp_path(path)
+        p = _resolve_oms_path(path)
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text(content, encoding="utf-8")
         _emit_status("write", path=str(p), chars=len(content))
@@ -381,13 +381,13 @@ if "__omp_prelude_loaded__" not in globals():
     # host-owned loopback endpoint must always connect directly.
     _BRIDGE_OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 
-    _OMP_CALL_IDENTITY = contextvars.ContextVar("omp_call_identity", default=None)
-    _OMP_CALL_OCCURRENCES = contextvars.ContextVar("omp_call_occurrences", default=None)
+    _OMP_CALL_IDENTITY = contextvars.ContextVar("oms_call_identity", default=None)
+    _OMP_CALL_OCCURRENCES = contextvars.ContextVar("oms_call_occurrences", default=None)
 
-    def __omp_reset_call_occurrences__():
+    def __oms_reset_call_occurrences__():
         _OMP_CALL_OCCURRENCES.set(None)
 
-    async def __omp_with_call_site__(site_id: str, action, args):
+    async def __oms_with_call_site__(site_id: str, action, args):
         occurrences = dict(_OMP_CALL_OCCURRENCES.get() or {})
         occurrence = occurrences.get(site_id, 0)
         occurrences[site_id] = occurrence + 1
@@ -411,11 +411,11 @@ if "__omp_prelude_loaded__" not in globals():
     def _bridge_call(name: str, args: dict):
         """POST one request to the host tool bridge and return its `value`."""
         base, token, session = _tool_proxy_from_env()
-        _run_id_getter = globals().get("__omp_current_run_id__")
+        _run_id_getter = globals().get("__oms_current_run_id__")
         _run_id = (
             _run_id_getter()
             if callable(_run_id_getter)
-            else globals().get("__omp_run_id__")
+            else globals().get("__oms_run_id__")
         )
         payload = {
             "session": session,
@@ -467,7 +467,7 @@ if "__omp_prelude_loaded__" not in globals():
             mime_type = image.get("mimeType")
             if not isinstance(data, str) or not isinstance(mime_type, str):
                 continue
-            _omp_display({mime_type: data}, raw=True)
+            _oms_display({mime_type: data}, raw=True)
             displayed += 1
         if displayed == 0:
             return value
@@ -476,7 +476,7 @@ if "__omp_prelude_loaded__" not in globals():
         surfaced["images"] = f"({displayed} image{suffix} displayed)"
         return surfaced
 
-    async def _omp_prelude(name: str, parameters):
+    async def _oms_prelude(name: str, parameters):
         """Invoke one enabled eval prelude capability through the host bridge."""
         value = await asyncio.to_thread(
             _bridge_call,
@@ -620,8 +620,8 @@ if "__omp_prelude_loaded__" not in globals():
                 "parameters": self.parameters,
             }
 
-    __omp_tools__: dict[str, _EvalTool] = {}
-    globals()["__omp_tools__"] = __omp_tools__
+    __oms_tools__: dict[str, _EvalTool] = {}
+    globals()["__oms_tools__"] = __oms_tools__
     _TOOL_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,63}$")
 
     class _ToolProxy:
@@ -634,7 +634,7 @@ if "__omp_prelude_loaded__" not in globals():
         # speculative reads only when the binding carries this marker.
         # (`__slots__` is empty, so this lives on the class, not the
         # instance; accidental user collision is out of threat model.)
-        __omp_tool_bridge__ = True
+        __oms_tool_bridge__ = True
 
         __slots__ = ()
 
@@ -656,7 +656,7 @@ if "__omp_prelude_loaded__" not in globals():
                 if isinstance(description, str) and description
                 else inspect.getdoc(fn) or f"Python tool {resolved_name}"
             )
-            __omp_tools__[resolved_name] = _EvalTool(
+            __oms_tools__[resolved_name] = _EvalTool(
                 resolved_name,
                 fn,
                 resolved_description,
@@ -670,10 +670,10 @@ if "__omp_prelude_loaded__" not in globals():
             return fn
 
         def defined(self) -> list[str]:
-            return list(__omp_tools__)
+            return list(__oms_tools__)
 
         def undefine(self, name) -> bool:
-            return __omp_tools__.pop(name, None) is not None
+            return __oms_tools__.pop(name, None) is not None
 
         def __getattr__(self, name: str) -> _ToolCallable:
             if name.startswith("_"):
@@ -957,7 +957,7 @@ if "__omp_prelude_loaded__" not in globals():
 
     def phase(title):
         """Record the current readable phase and emit a status ``phase`` event."""
-        globals()["__omp_current_phase__"] = str(title)
+        globals()["__oms_current_phase__"] = str(title)
         _emit_status("phase", title=str(title))
         return None
 

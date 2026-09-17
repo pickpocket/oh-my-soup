@@ -63,7 +63,7 @@ diff --git a/toolchain/defs.bzl b/toolchain/defs.bzl
          )
          repository_ctx.symlink("tools/zig-wrapper{}".format(exe), tool_path)
  
-+    # omp: opt into the repo contents cache — the fetch is deterministic
++    # oms: opt into the repo contents cache — the fetch is deterministic
 +    # given the pinned zig archive and the wrapper source above.
 +    if hasattr(repository_ctx, "repo_metadata"):
 +        return repository_ctx.repo_metadata(reproducible = True)

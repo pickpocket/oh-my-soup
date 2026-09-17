@@ -1,4 +1,4 @@
-import { mathSpanAt } from "@oh-my-pi/pi-utils/math-delimiters";
+import { mathSpanAt } from "@oh-my-soup/pi-utils/math-delimiters";
 import { TERMINAL } from "./terminal-capabilities";
 
 // LaTeX → Unicode/ANSI converter.

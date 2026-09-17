@@ -29,15 +29,15 @@
  * queued/planning until `tool_execution_start`, and only then delegate to the
  * wrapped tool's own renderer with the decoded inner args.
  */
-import type { AgentToolContext, AgentToolResult, AgentToolUpdateCallback, ToolLoadMode } from "@oh-my-pi/pi-agent-core";
-import { type Tool as AiTool, jsonSchemaToTypeScript, toolWireSchema, validateToolArguments } from "@oh-my-pi/pi-ai";
+import type { AgentToolContext, AgentToolResult, AgentToolUpdateCallback, ToolLoadMode } from "@oh-my-soup/pi-agent-core";
+import { type Tool as AiTool, jsonSchemaToTypeScript, toolWireSchema, validateToolArguments } from "@oh-my-soup/pi-ai";
 import { schemaDeclaresIntentField } from "../utils/tool-schema";
-import { stripXdUrlPrefix, XD_URL_PREFIX } from "@oh-my-pi/pi-tui/tools/xd-url";
-import { truncateHeadBytes } from "@oh-my-pi/pi-tui/tools/streaming-output";
+import { stripXdUrlPrefix, XD_URL_PREFIX } from "@oh-my-soup/pi-tui/tools/xd-url";
+import { truncateHeadBytes } from "@oh-my-soup/pi-tui/tools/streaming-output";
 import { resolveToolTier, type ToolTier } from "./approval";
 import type { Tool } from "./index";
 import { renderError, ToolAbortError } from "./tool-errors";
-import { ToolError } from "@oh-my-pi/pi-tui/tools/tool-errors";
+import { ToolError } from "@oh-my-soup/pi-tui/tools/tool-errors";
 
 /**
  * Discoverable built-ins that must stay top-level even when xdev mounting is
@@ -251,7 +251,7 @@ export function resolveMountedXdevTool(state: XdevState, name: string): Tool | u
  * Resolve a mounted tool with its execution-only permission decorator.
  *
  * Mounted-only, matching {@link resolveMountedXdevTool}, and a published export
- * under `@oh-my-pi/pi-coding-agent/tools/xdev`, so its semantics must not
+ * under `@oh-my-soup/pi-coding-agent/tools/xdev`, so its semantics must not
  * drift. `sdk.ts` composes this with the calling agent's advertised tools to
  * recover a Claude Code-spelled MCP name: the union has to be resolved in one
  * pass for the ambiguity rule to hold, so that composition lives with the

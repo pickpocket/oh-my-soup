@@ -6,7 +6,7 @@ import * as path from "node:path";
 import { Writable } from "node:stream";
 import * as util from "node:util";
 
-import * as logger from "@oh-my-pi/pi-utils/logger";
+import * as logger from "@oh-my-soup/pi-utils/logger";
 
 import type { EvalPreludeSource } from "../worker-protocol";
 import { createHelpers, type HelperBundle } from "./helpers";
@@ -67,7 +67,7 @@ export interface RuntimeOptions {
 	initialCwd: string;
 	sessionId: string;
 	/**
-	 * Extra globals installed alongside `__omp_helpers__` / prelude. Use for stable, lifetime-
+	 * Extra globals installed alongside `__oms_helpers__` / prelude. Use for stable, lifetime-
 	 * of-the-worker bindings (e.g. browser's `page`, `browser`). Per-run scope should be set
 	 * via `setRunScope()` instead.
 	 */
@@ -86,8 +86,8 @@ const BASE64_STRICT_RE = /^[A-Za-z0-9+/]+={0,2}$/;
 const DECIMAL_CSV_RE = /^\d{1,3}(?:,\d{1,3})*$/;
 
 const PRELUDE_GLOBAL_KEYS = [
-	"__omp_js_prelude_loaded__",
-	"__omp_tools__",
+	"__oms_js_prelude_loaded__",
+	"__oms_tools__",
 	"console",
 	"print",
 	"display",
@@ -104,7 +104,7 @@ const PRELUDE_GLOBAL_KEYS = [
 	"WorkPool",
 	"log",
 	"phase",
-	"__omp_with_call_site__",
+	"__oms_with_call_site__",
 	"budget",
 	"read",
 	"write",
@@ -134,12 +134,12 @@ export type ShadowInitialGlobals = Readonly<{
 	"Object.prototype.toString"?: boolean;
 	/**
 	 * Whether the prelude tool bridge dispatcher still has its installed
-	 * identity. The proxy resolves `__omp_call_tool__` per call, so the flag
+	 * identity. The proxy resolves `__oms_call_tool__` per call, so the flag
 	 * must track this binding; it also joins the snapshot digest, invalidating
 	 * plans if the installation ever changes under them. Absent only for
 	 * hand-built snapshots, where the bridge is assumed intact.
 	 */
-	__omp_call_tool__?: boolean;
+	__oms_call_tool__?: boolean;
 }>;
 
 export type ShadowSnapshot = Readonly<{
@@ -357,7 +357,7 @@ export class JsRuntime {
 				currentJSON.stringify === this.#initialIntrinsics.stringify,
 			"Array.prototype.join": Array.prototype.join === this.#initialIntrinsics.arrayJoin,
 			"Object.prototype.toString": Object.prototype.toString === this.#initialIntrinsics.objectToString,
-			__omp_call_tool__: (globalThis as Record<string, unknown>).__omp_call_tool__ === this.#installedCallTool,
+			__oms_call_tool__: (globalThis as Record<string, unknown>).__oms_call_tool__ === this.#installedCallTool,
 		};
 		return Object.freeze({
 			revision: this.#namespaceRevision,
@@ -619,51 +619,51 @@ export class JsRuntime {
 		// init-failed instead of corrupting the active run.
 		assertCanUseGlobalOwner(this.#globalOwner, "initialize a JS runtime");
 		const injected: Record<string, unknown> = {
-			__omp_session__: this.#session,
-			__omp_helpers__: this.helpers,
-			__omp_with_call_site__: <T>(siteId: string, action: () => T): T => {
+			__oms_session__: this.#session,
+			__oms_helpers__: this.helpers,
+			__oms_with_call_site__: <T>(siteId: string, action: () => T): T => {
 				const context = this.#als.getStore();
 				if (!context) return action();
 				const occurrence = context.callOccurrences.get(siteId) ?? 0;
 				context.callOccurrences.set(siteId, occurrence + 1);
 				return this.#callSiteAls.run({ siteId, occurrence }, action);
 			},
-			__omp_call_tool__: async (name: string, args: unknown) => {
+			__oms_call_tool__: async (name: string, args: unknown) => {
 				const hooks = this.#activeHooks("tool");
 				if (!hooks) return undefined;
 				return surfaceBridgedToolImages(await hooks.callTool(name, args, this.#callSiteAls.getStore()), hooks);
 			},
-			__omp_prelude__: async (name: string, parameters: unknown) => {
+			__oms_prelude__: async (name: string, parameters: unknown) => {
 				const hooks = this.#activeHooks("prelude");
 				if (!hooks) return undefined;
 				const payload = { name, parameters };
 				return surfaceBridgedToolImages(await hooks.callTool("__prelude__", payload), hooks);
 			},
-			__omp_import__: async (source: string, options?: ImportCallOptions) => {
+			__oms_import__: async (source: string, options?: ImportCallOptions) => {
 				const resolved = await this.#moduleLoader.resolveForRun(this.#activeCwd(), source);
 				if (resolved.mode === "local") return resolved.value;
 				const target = resolved.target;
 				return options !== undefined ? await import(target, options) : await import(target);
 			},
-			__omp_import_from__: async (moduleUrl: string, source: string, options?: ImportCallOptions) => {
+			__oms_import_from__: async (moduleUrl: string, source: string, options?: ImportCallOptions) => {
 				const resolved = await this.#moduleLoader.resolveForModule(moduleUrl, source, this.#activeCwd());
 				if (resolved.mode === "local") return resolved.value;
 				const target = resolved.target;
 				return options !== undefined ? await import(target, options) : await import(target);
 			},
-			__omp_get_require__: (moduleUrl?: string) => this.#activeRequire(moduleUrl),
-			__omp_get_filename__: (moduleUrl?: string) => this.#moduleFilename(moduleUrl),
-			__omp_get_dirname__: (moduleUrl?: string) => this.#moduleDirname(moduleUrl),
-			__omp_emit_status__: (op: string, data: Record<string, unknown> = {}) => {
+			__oms_get_require__: (moduleUrl?: string) => this.#activeRequire(moduleUrl),
+			__oms_get_filename__: (moduleUrl?: string) => this.#moduleFilename(moduleUrl),
+			__oms_get_dirname__: (moduleUrl?: string) => this.#moduleDirname(moduleUrl),
+			__oms_emit_status__: (op: string, data: Record<string, unknown> = {}) => {
 				const event: JsStatusEvent = { op, ...data };
 				this.#activeHooks("emitStatus")?.onDisplay({ type: "status", event });
 			},
-			__omp_log__: (level: string, ...args: unknown[]) => {
+			__oms_log__: (level: string, ...args: unknown[]) => {
 				const prefix = level === "error" ? "[error] " : level === "warn" ? "[warn] " : "";
 				const text = `${prefix}${formatConsoleArgs(args)}`;
 				this.#activeHooks("log")?.onText(text.endsWith("\n") ? text : `${text}\n`);
 			},
-			__omp_table__: (...args: unknown[]) => {
+			__oms_table__: (...args: unknown[]) => {
 				const hooks = this.#activeHooks("table");
 				if (!hooks) return;
 				let buffer = "";
@@ -680,8 +680,8 @@ export class JsRuntime {
 				tableCapable.table(...args);
 				hooks.onText(buffer.endsWith("\n") ? buffer : `${buffer}\n`);
 			},
-			__omp_display__: (value: unknown) => this.displayValue(value),
-			__omp_set_final_expr__: (value: unknown) => {
+			__oms_display__: (value: unknown) => this.displayValue(value),
+			__oms_set_final_expr__: (value: unknown) => {
 				const context = this.#als.getStore();
 				if (!context) {
 					logger.warn("js runtime final expression set outside an active run");
@@ -716,13 +716,13 @@ export class JsRuntime {
 		indirectEval(JAVASCRIPT_PRELUDE_SOURCE);
 		for (const key of allGlobalKeys) recordGlobalValue(key, this.#globalOwner);
 		// Capture the installed bridge dispatcher for the snapshot identity
-		// flag below. The prelude tool proxy resolves `__omp_call_tool__` per
+		// flag below. The prelude tool proxy resolves `__oms_call_tool__` per
 		// call, so the flag must track this binding. (Steady-state retained
 		// replacements self-heal: owned-global activation restores the recorded
 		// value before any observation. The `tool` binding itself needs no
 		// flag: the prelude declares it as a lexical const, which shadows any
 		// `globalThis.tool` replacement for bare references.)
-		this.#installedCallTool = (globalThis as Record<string, unknown>).__omp_call_tool__;
+		this.#installedCallTool = (globalThis as Record<string, unknown>).__oms_call_tool__;
 		RUN_HOOK_RESOLVERS.add(this.#runHookResolver);
 		patchStdioOnce();
 	}

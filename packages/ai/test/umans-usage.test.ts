@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import type { FetchImpl } from "@oh-my-pi/pi-ai/types";
+import type { FetchImpl } from "@oh-my-soup/pi-ai/types";
 import { umansUsageProvider } from "../src/usage/umans";
 
 const DEFAULT_BASE_URL = "https://api.code.umans.ai";

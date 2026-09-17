@@ -2,7 +2,7 @@
  * Regression guard for llama.cpp warm-prefix invalidation on auto-learn
  * capture-at-stop and any other assistant continuation (#3528).
  *
- * `omp-llm-request-15179edfab4dc557.json` plus the rr-session captures from the
+ * `oms-llm-request-15179edfab4dc557.json` plus the rr-session captures from the
  * reporter showed:
  *
  *  - System prompt and tool catalogue were byte-stable across requests 3–12.
@@ -13,7 +13,7 @@
  *    prompt re-processing on llama.cpp.
  *
  * The prior assistant turn had streamed `reasoning_content` deltas (Qwen3
- * thinking output). The OMP-side `Context` preserved those as a
+ * thinking output). The OMS-side `Context` preserved those as a
  * `{ type: "thinking", thinkingSignature: "reasoning_content" }` block on the
  * assistant message, but `convertMessages` dropped the field when re-serializing
  * for the next request because the llama.cpp compat profile carried none of the
@@ -40,14 +40,14 @@
  * This file pins the wire output across the relevant axes.
  */
 import { describe, expect, it } from "bun:test";
-import { renderDemotedThinking } from "@oh-my-pi/pi-ai/dialect";
-import { convertMessages } from "@oh-my-pi/pi-ai/providers/openai-completions";
+import { renderDemotedThinking } from "@oh-my-soup/pi-ai/dialect";
+import { convertMessages } from "@oh-my-soup/pi-ai/providers/openai-completions";
 import {
 	applyChatCompletionsReasoningParams,
 	type OpenAICompletionsParams,
-} from "@oh-my-pi/pi-ai/providers/openai-shared";
-import type { AssistantMessage, Message, Model, ModelSpec, ThinkingContent, UserMessage } from "@oh-my-pi/pi-ai/types";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
+} from "@oh-my-soup/pi-ai/providers/openai-shared";
+import type { AssistantMessage, Message, Model, ModelSpec, ThinkingContent, UserMessage } from "@oh-my-soup/pi-ai/types";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
 	return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -431,7 +431,7 @@ describe("llama.cpp warm-prefix preservation (#3528)", () => {
 
 	it("leaves qwenPreserveThinking off for cloud Qwen hosts", () => {
 		// Alibaba's Dashscope and Qwen Portal own the slot lifecycle on the
-		// cloud side; OMP isn't responsible for KV-cache invalidation there,
+		// cloud side; OMS isn't responsible for KV-cache invalidation there,
 		// and `preserve_thinking` is opt-in per the Alibaba docs. Stay
 		// minimal on the wire unless the user opts in via `compat`.
 		const dashscope = llamaCppQwenModel({

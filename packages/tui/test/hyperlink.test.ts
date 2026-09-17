@@ -1,7 +1,7 @@
 import { afterEach, beforeAll, describe, expect, it } from "bun:test";
 import * as path from "node:path";
 import * as url from "node:url";
-import { getMarkdownTheme, initTheme } from "@oh-my-pi/pi-tui/theme";
+import { getMarkdownTheme, initTheme } from "@oh-my-soup/pi-tui/theme";
 import {
 	applyHyperlinkSetting,
 	fileHyperlink,
@@ -10,8 +10,8 @@ import {
 	uriHyperlink,
 	urlHyperlink,
 	urlHyperlinkAlways,
-} from "@oh-my-pi/pi-tui/render/hyperlink";
-import * as terminalCaps from "@oh-my-pi/pi-tui";
+} from "@oh-my-soup/pi-tui/render/hyperlink";
+import * as terminalCaps from "@oh-my-soup/pi-tui";
 
 // OSC 8 sequence markers
 const OSC = "\x1b]";

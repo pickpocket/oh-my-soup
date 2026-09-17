@@ -2,12 +2,12 @@
  * Generate and optionally push a commit with changelog updates.
  */
 
-import { postmortem } from "@oh-my-pi/pi-utils";
-import { Command, Flags } from "@oh-my-pi/pi-utils/cli";
+import { postmortem } from "@oh-my-soup/pi-utils";
+import { Command, Flags } from "@oh-my-soup/pi-utils/cli";
 import { commitHelp as commandHelp } from "../cli/command-help";
 import { CommitAbortedError, runCommitCommand } from "../commit";
 import type { CommitCommandArgs } from "../commit/types";
-import { initTheme } from "@oh-my-pi/pi-tui/theme";
+import { initTheme } from "@oh-my-soup/pi-tui/theme";
 
 export default class Commit extends Command {
 	static description = commandHelp.description;

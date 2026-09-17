@@ -6,7 +6,7 @@
  */
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { getPluginsDir, getPluginsLockfile, hasFsCode, isEacces, isEnoent, logger } from "@oh-my-pi/pi-utils";
+import { getPluginsDir, getPluginsLockfile, hasFsCode, isEacces, isEnoent, logger } from "@oh-my-soup/pi-utils";
 import { getConfigDirPaths } from "../../config";
 import { registerPluginCacheInvalidator, resolveActiveProjectRegistryPath } from "../../discovery/helpers";
 import { findExtensionDirectoryIndex, resolveExtensionDirectory } from "../extensions/directory-resolution";
@@ -40,7 +40,7 @@ registerPluginCacheInvalidator(clearEnabledPluginsCache);
 /**
  * Load plugin runtime config from lock file.
  *
- * `home` controls which `<plugins>/omp-plugins.lock.json` is read — pass it
+ * `home` controls which `<plugins>/oms-plugins.lock.json` is read — pass it
  * through whenever the caller is loading plugins for a tempdir-rooted
  * scenario (tests, discovery sub-surfaces that need to mirror an alternate
  * `LoadContext.home`).
@@ -56,7 +56,7 @@ async function loadRuntimeConfig(home?: string): Promise<PluginRuntimeConfig> {
 }
 
 /**
- * Load project-local plugin overrides (checks .omp and .pi directories).
+ * Load project-local plugin overrides (checks .oms and .pi directories).
  */
 async function loadProjectOverrides(cwd: string): Promise<ProjectPluginOverrides> {
 	for (const overridesPath of getConfigDirPaths("plugin-overrides.json", { user: false, cwd })) {
@@ -83,7 +83,7 @@ function isUnreadableRoot(err: unknown): boolean {
 
 /**
  * Per-root enumeration of plugins from `<root>/node_modules`,
- * `<root>/package.json#dependencies`, and `<root>/omp-plugins.lock.json#plugins`.
+ * `<root>/package.json#dependencies`, and `<root>/oms-plugins.lock.json#plugins`.
  * Honors `projectOverrides.disabled` and `projectOverrides.features`. Returns an
  * empty array when the root has no `node_modules` yet.
  */
@@ -112,7 +112,7 @@ async function collectPluginsAtRoot(
 		if (!isEnoent(err)) throw err;
 	}
 
-	const lockPath = path.join(root, "omp-plugins.lock.json");
+	const lockPath = path.join(root, "oms-plugins.lock.json");
 	let runtimeConfig: PluginRuntimeConfig;
 	try {
 		runtimeConfig = normalizePluginRuntimeConfig(await Bun.file(lockPath).json());
@@ -148,7 +148,7 @@ async function collectPluginsAtRoot(
 	const plugins: ScopedInstalledPlugin[] = [];
 	for (const name of names) {
 		// When a package manifest exists, a lockfile-only entry is legitimate
-		// only for linked plugins (`omp plugin link`, marketplace runtime
+		// only for linked plugins (`oms plugin link`, marketplace runtime
 		// registration), which are symlinks into node_modules. Without a
 		// manifest, retain the established lockfile-only directory layout.
 		if (hasPackageManifest && !depsKeys.includes(name) && !(await isSymlink(path.join(nodeModulesPath, name)))) {
@@ -159,7 +159,7 @@ async function collectPluginsAtRoot(
 			continue;
 		}
 		const pluginPkgPath = path.join(nodeModulesPath, name, "package.json");
-		let pluginPkg: { version: string; omp?: PluginManifest; pi?: PluginManifest };
+		let pluginPkg: { version: string; oms?: PluginManifest; pi?: PluginManifest };
 		try {
 			pluginPkg = await Bun.file(pluginPkgPath).json();
 		} catch (err) {
@@ -176,9 +176,9 @@ async function collectPluginsAtRoot(
 			throw err;
 		}
 
-		const manifest: PluginManifest | undefined = pluginPkg.omp || pluginPkg.pi;
+		const manifest: PluginManifest | undefined = pluginPkg.oms || pluginPkg.pi;
 		if (!manifest) {
-			// Not an omp plugin, skip
+			// Not an oms plugin, skip
 			continue;
 		}
 		manifest.version = pluginPkg.version;
@@ -215,10 +215,10 @@ async function collectPluginsAtRoot(
  * Get list of enabled plugins with their resolved configurations.
  *
  * Enumerates two plugin roots in order: the user root
- * (`getPluginsDir(home)`) and, when a project anchor (`.omp/` or `.git/`)
+ * (`getPluginsDir(home)`) and, when a project anchor (`.oms/` or `.git/`)
  * exists at or above `cwd`, the project root
- * (`<projectAnchor>/.omp/plugins`). Each root contributes the union of its
- * `package.json#dependencies` and `omp-plugins.lock.json#plugins`. Project
+ * (`<projectAnchor>/.oms/plugins`). Each root contributes the union of its
+ * `package.json#dependencies` and `oms-plugins.lock.json#plugins`. Project
  * entries shadow user entries with the same package name, matching the
  * shadow semantics of `MarketplaceManager.listInstalledPlugins`.
  *
@@ -295,12 +295,12 @@ const PLUGIN_EXTENSION_DIRECTORY_OPTIONS = {
  * - a file entry → that file
  * - a directory:
  *   - when `expandDirectory` (the `extensions` key), resolved by
- *     {@link resolveExtensionDirectory} — its own package.json `omp`/`pi`
+ *     {@link resolveExtensionDirectory} — its own package.json `oms`/`pi`
  *     `extensions`, then a direct index, then a one-level scan of
  *     sub-extensions — matching the pi `extensions/<name>/index.ts` convention
- *     and OMP's configured-directory (`-e`) extension loader
+ *     and OMS's configured-directory (`-e`) extension loader
  *   - otherwise (tools/hooks/commands) only a direct index.{ts,js,mjs,cjs}.
- *     The sub-extension scan and the `omp`/`pi` `extensions` manifest are
+ *     The sub-extension scan and the `oms`/`pi` `extensions` manifest are
  *     extensions-specific and must not hijack a non-extension directory entry
  *     (e.g. a `tools: "."` entry must still resolve `./index.ts`).
  *

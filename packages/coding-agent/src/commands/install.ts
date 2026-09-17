@@ -1,10 +1,10 @@
 /**
- * `omp install <target>` — top-level convenience over `omp plugin install` /
- * `omp plugin link`.
+ * `oms install <target>` — top-level convenience over `oms plugin install` /
+ * `oms plugin link`.
  *
  * The docs (omp.sh/docs/extension-authoring) advertise
  *
- *   omp install ./my-extension
+ *   oms install ./my-extension
  *
  * as a third loading mechanism that "symlinks the directory into the plugin
  * set and watches it for changes". Before this command existed, `install` was
@@ -20,13 +20,13 @@
 
 import { existsSync } from "node:fs";
 import * as path from "node:path";
-import { Args, Command, Flags } from "@oh-my-pi/pi-utils/cli";
+import { Args, Command, Flags } from "@oh-my-soup/pi-utils/cli";
 import { installHelp as commandHelp } from "../cli/command-help";
 import { type PluginAction, type PluginCommandArgs, runPluginCommand } from "../cli/plugin-cli";
-import { initTheme } from "@oh-my-pi/pi-tui/theme";
+import { initTheme } from "@oh-my-soup/pi-tui/theme";
 
 /**
- * Heuristic used to decide whether `omp install <target>` should `link` a
+ * Heuristic used to decide whether `oms install <target>` should `link` a
  * local directory or `install` a remote spec. Exported for tests.
  */
 export function looksLikeLocalPath(target: string, cwd?: string): boolean {
@@ -66,7 +66,7 @@ export default class Install extends Command {
 		const targets = Array.isArray(args.targets) ? args.targets : args.targets ? [args.targets] : [];
 
 		if (targets.length === 0) {
-			process.stderr.write("Usage: omp install <path | npm-spec | name@marketplace> [...]\n");
+			process.stderr.write("Usage: oms install <path | npm-spec | name@marketplace> [...]\n");
 			process.exit(1);
 		}
 

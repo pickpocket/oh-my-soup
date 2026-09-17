@@ -1,9 +1,9 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, spyOn } from "bun:test";
-import type { AssistantMessage } from "@oh-my-pi/pi-ai";
-import { resetSettingsForTest, Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { AssistantMessageComponent, resetThinkingSpeedTracker } from "@oh-my-pi/pi-tui/chat/assistant-message";
-import { initTheme } from "@oh-my-pi/pi-tui/theme";
-import { setTerminalImageProtocol, TERMINAL } from "@oh-my-pi/pi-tui";
+import type { AssistantMessage } from "@oh-my-soup/pi-ai";
+import { resetSettingsForTest, Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { AssistantMessageComponent, resetThinkingSpeedTracker } from "@oh-my-soup/pi-tui/chat/assistant-message";
+import { initTheme } from "@oh-my-soup/pi-tui/theme";
+import { setTerminalImageProtocol, TERMINAL } from "@oh-my-soup/pi-tui";
 
 const originalImageProtocol = TERMINAL.imageProtocol;
 

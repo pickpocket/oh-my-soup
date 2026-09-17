@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "bun:test";
-import type { AuthStorage } from "@oh-my-pi/pi-ai";
-import type { FetchImpl } from "@oh-my-pi/pi-ai/types";
-import { searchOllama } from "@oh-my-pi/pi-coding-agent/web/search/providers/ollama";
-import { parseSearchQuery } from "@oh-my-pi/pi-coding-agent/web/search/query";
+import type { AuthStorage } from "@oh-my-soup/pi-ai";
+import type { FetchImpl } from "@oh-my-soup/pi-ai/types";
+import { searchOllama } from "@oh-my-soup/pi-coding-agent/web/search/providers/ollama";
+import { parseSearchQuery } from "@oh-my-soup/pi-coding-agent/web/search/query";
 
 const OLLAMA_SEARCH_URL = "https://ollama.com/api/web_search";
 

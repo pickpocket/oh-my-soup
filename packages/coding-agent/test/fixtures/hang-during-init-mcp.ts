@@ -4,7 +4,7 @@
  * answers `initialize`. Models a remote endpoint that's reachable at the
  * transport layer but unresponsive at the protocol layer (e.g. the
  * `sbox-superdocs` timeout described in issue #2100) — exactly the shape
- * that used to gate `omp` startup on a 30 s per-server MCP timeout.
+ * that used to gate `oms` startup on a 30 s per-server MCP timeout.
  *
  * Reads stdin to keep the pipe open and ignores every message. The process
  * stays alive until the parent closes stdin or kills it.

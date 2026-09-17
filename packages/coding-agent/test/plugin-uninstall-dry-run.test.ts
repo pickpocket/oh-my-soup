@@ -1,5 +1,5 @@
 /**
- * Regression tests for `omp plugin uninstall <plugin> --dry-run` (#8178).
+ * Regression tests for `oms plugin uninstall <plugin> --dry-run` (#8178).
  *
  * `--dry-run` must be non-mutating: it reports what would be removed and
  * leaves the installed plugin list untouched. Before the fix, `handleUninstall`
@@ -11,11 +11,11 @@
  * rendered success or error output initialize it explicitly.
  */
 import { afterEach, beforeEach, describe, expect, mock, spyOn, test } from "bun:test";
-import { runPluginCommand } from "@oh-my-pi/pi-coding-agent/cli/plugin-cli";
-import { PluginManager } from "@oh-my-pi/pi-coding-agent/extensibility/plugins/manager";
-import type { InstalledPluginSummary } from "@oh-my-pi/pi-coding-agent/extensibility/plugins/marketplace";
-import { MarketplaceManager } from "@oh-my-pi/pi-coding-agent/extensibility/plugins/marketplace";
-import { initTheme } from "@oh-my-pi/pi-tui/theme";
+import { runPluginCommand } from "@oh-my-soup/pi-coding-agent/cli/plugin-cli";
+import { PluginManager } from "@oh-my-soup/pi-coding-agent/extensibility/plugins/manager";
+import type { InstalledPluginSummary } from "@oh-my-soup/pi-coding-agent/extensibility/plugins/marketplace";
+import { MarketplaceManager } from "@oh-my-soup/pi-coding-agent/extensibility/plugins/marketplace";
+import { initTheme } from "@oh-my-soup/pi-tui/theme";
 
 describe("runPluginCommand({ action: 'uninstall', flags: { dryRun } })", () => {
 	beforeEach(async () => {

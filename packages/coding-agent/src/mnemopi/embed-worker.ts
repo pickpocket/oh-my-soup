@@ -1,7 +1,7 @@
 /**
  * Mnemopi local-embeddings worker. Loaded inside the dedicated subprocess
  * spawned by `embed-client.ts` (re-entered through the agent CLI's hidden
- * `__omp_worker_mnemopi_embed` selector). The whole point of this module is
+ * `__oms_worker_mnemopi_embed` selector). The whole point of this module is
  * that `loadFastembed()` — and therefore `onnxruntime-node`'s NAPI
  * constructor + finalizer — only ever runs in this child address space. The
  * parent `SIGKILL`s us on shutdown so the destructor that crashes Bun on
@@ -9,7 +9,7 @@
  * in either process.
  */
 
-import { defaultLocalModelInitializer, type StandardEmbeddingModel } from "@oh-my-pi/pi-mnemopi/core";
+import { defaultLocalModelInitializer, type StandardEmbeddingModel } from "@oh-my-soup/pi-mnemopi/core";
 import type { MnemopiEmbedModelId, MnemopiEmbedTransport, MnemopiEmbedWorkerInbound } from "./embed-protocol";
 
 interface LoadedModel {

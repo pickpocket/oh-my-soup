@@ -18,7 +18,7 @@
  * - `hasContextTokenUsage(usage)`: the report must carry usable context numbers.
  */
 
-import type { AssistantMessage } from "@oh-my-pi/pi-ai";
+import type { AssistantMessage } from "@oh-my-soup/pi-ai";
 import type { MessageCountOptions, Tokenizer } from "../tokenizer";
 import type { AgentMessage } from "../types";
 import { calculateContextTokens, hasContextTokenUsage } from "./compaction";

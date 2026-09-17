@@ -9,13 +9,13 @@ import type {
 	ToolResultMessage,
 	ToolResultProviderMetadata,
 	UserMessage,
-} from "@oh-my-pi/pi-ai";
-import { decodeDataUri } from "@oh-my-pi/pi-ai/providers/openai-data-uri";
-import { isRecord } from "@oh-my-pi/pi-utils";
-import { LRUCache } from "@oh-my-pi/pi-utils/lru";
-import { providerImageBudget } from "@oh-my-pi/snapcompact";
+} from "@oh-my-soup/pi-ai";
+import { decodeDataUri } from "@oh-my-soup/pi-ai/providers/openai-data-uri";
+import { isRecord } from "@oh-my-soup/pi-utils";
+import { LRUCache } from "@oh-my-soup/pi-utils/lru";
+import { providerImageBudget } from "@oh-my-soup/snapcompact";
 import { supportsRemoteImageUrls } from "../blob-broker/context-images";
-import { imageDecodeFailureReason } from "@oh-my-pi/pi-tui/chat/image-loading";
+import { imageDecodeFailureReason } from "@oh-my-soup/pi-tui/chat/image-loading";
 
 const TOOL_RESULT_IMAGE_OMISSION: TextContent = {
 	type: "text",

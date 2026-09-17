@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import * as path from "node:path";
-import { $which } from "@oh-my-pi/pi-utils";
+import { $which } from "@oh-my-soup/pi-utils";
 
 interface RunnerFrame {
 	type?: string;
@@ -142,9 +142,9 @@ describe("Python runner request dispatch", () => {
 				code: [
 					"identities = []",
 					"occurrences = {}",
-					"def __omp_reset_call_occurrences__():",
+					"def __oms_reset_call_occurrences__():",
 					"    occurrences.clear()",
-					"def __omp_with_call_site__(site_id, action, args):",
+					"def __oms_with_call_site__(site_id, action, args):",
 					"    occurrence = occurrences.get(site_id, 0)",
 					"    occurrences[site_id] = occurrence + 1",
 					"    identities.append((site_id, occurrence, args))",
@@ -183,9 +183,9 @@ describe("Python runner request dispatch", () => {
 				code: [
 					"identities = []",
 					"occurrences = {}",
-					"def __omp_reset_call_occurrences__():",
+					"def __oms_reset_call_occurrences__():",
 					"    occurrences.clear()",
-					"def __omp_with_call_site__(site_id, action, args):",
+					"def __oms_with_call_site__(site_id, action, args):",
 					"    occurrence = occurrences.get(site_id, 0)",
 					"    occurrences[site_id] = occurrence + 1",
 					"    identities.append((site_id, occurrence, args))",
@@ -200,7 +200,7 @@ describe("Python runner request dispatch", () => {
 
 			// A retained cell shadows the reserved helper; the cell itself stays
 			// green because instrumentation skips cells that bind the name.
-			runner.send({ id: "pollute", code: "__omp_with_call_site__ = None" });
+			runner.send({ id: "pollute", code: "__oms_with_call_site__ = None" });
 			const [polluted] = await collectDoneOrder(runner, new Set(["pollute"]));
 			expect(polluted.status).toBe("ok");
 
@@ -211,7 +211,7 @@ describe("Python runner request dispatch", () => {
 			expect(read.status).toBe("ok");
 
 			// Deleting the helper must not break later reads either.
-			runner.send({ id: "delete", code: "del __omp_with_call_site__" });
+			runner.send({ id: "delete", code: "del __oms_with_call_site__" });
 			const [deleted] = await collectDoneOrder(runner, new Set(["delete"]));
 			expect(deleted.status).toBe("ok");
 			runner.send({ id: "reread", code: 'tool.read({"path": "note.txt"})' });
@@ -437,13 +437,13 @@ describe("Python runner request dispatch", () => {
 		// omitted from the shadow snapshot exactly like the genuine prelude
 		// bridge, so snapshot absence alone cannot tell them apart. The
 		// planner must consult the namespace directly and admit speculative
-		// reads only for the marker-tagged (`__omp_tool_bridge__`) genuine
+		// reads only for the marker-tagged (`__oms_tool_bridge__`) genuine
 		// bridge: authoritative execution against the shadow raises
 		// AttributeError before any bridge call, while the pre-fix
 		// `"tool" not in snapshot` check plans a phantom physical read.
 		// Contract note: fakes standing in for the production bridge must
 		// carry the marker to be treated as the genuine bridge (mirroring
-		// the `__omp_tool_bridge__` class attribute on the prelude proxy).
+		// the `__oms_tool_bridge__` class attribute on the prelude proxy).
 		const runner = spawnRunner();
 		try {
 			runner.send({ id: "shadow", code: "tool = object()" });
@@ -463,7 +463,7 @@ describe("Python runner request dispatch", () => {
 			// marker (as the production prelude proxy does) still admits.
 			runner.send({
 				id: "retag",
-				code: ["class TaggedTool:", "    __omp_tool_bridge__ = True", "tool = TaggedTool()"].join("\n"),
+				code: ["class TaggedTool:", "    __oms_tool_bridge__ = True", "tool = TaggedTool()"].join("\n"),
 			});
 			const [retagged] = await collectDoneOrder(runner, new Set(["retag"]));
 			expect(retagged.status).toBe("ok");
@@ -491,7 +491,7 @@ describe("Python runner request dispatch", () => {
 		try {
 			runner.send({
 				id: "setup",
-				code: ["class TaggedTool:", "    __omp_tool_bridge__ = True", "tool = TaggedTool()"].join("\n"),
+				code: ["class TaggedTool:", "    __oms_tool_bridge__ = True", "tool = TaggedTool()"].join("\n"),
 			});
 			await collectDoneOrder(runner, new Set(["setup"]));
 
@@ -507,7 +507,7 @@ describe("Python runner request dispatch", () => {
 
 			runner.send({
 				id: "spoof",
-				code: ["class SpoofBridge:", "    __omp_tool_bridge__ = True", "tool = SpoofBridge()"].join("\n"),
+				code: ["class SpoofBridge:", "    __oms_tool_bridge__ = True", "tool = SpoofBridge()"].join("\n"),
 			});
 			await collectDoneOrder(runner, new Set(["spoof"]));
 
@@ -568,7 +568,7 @@ describe("Python runner request dispatch", () => {
 	});
 	it("plans zero operations when the cell binds the reserved call-site helper", async () => {
 		// Runtime `_compile_source` skips instrumentation for the whole cell
-		// when it binds `__omp_with_call_site__` anywhere, so a speculative
+		// when it binds `__oms_with_call_site__` anywhere, so a speculative
 		// read projected from before the binding would never be claimed by
 		// the authoritative call (file read twice). The planner mirrors the
 		// whole-cell skip and fails closed with zero operations plus an
@@ -587,7 +587,7 @@ describe("Python runner request dispatch", () => {
 			runner.send({
 				id: "bound",
 				type: "shadow_plan",
-				code: 'result = await tool.read({"path": "a.txt"})\ndef __omp_with_call_site__(): pass',
+				code: 'result = await tool.read({"path": "a.txt"})\ndef __oms_with_call_site__(): pass',
 			});
 			expect(await runner.nextFrame()).toMatchObject({
 				type: "shadow_plan",

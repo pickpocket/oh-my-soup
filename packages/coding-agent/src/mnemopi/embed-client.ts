@@ -1,4 +1,4 @@
-import { logger } from "@oh-my-pi/pi-utils";
+import { logger } from "@oh-my-soup/pi-utils";
 import {
 	createUnavailableWorker,
 	createWorkerHandle,
@@ -32,13 +32,13 @@ type PendingRequest =
  * Hidden subcommand on the main CLI that boots the mnemopi embeddings worker
  * in the spawned subprocess. Kept in sync with the dispatch in `cli.ts`.
  */
-export const MNEMOPI_EMBED_WORKER_ARG = "__omp_worker_mnemopi_embed";
+export const MNEMOPI_EMBED_WORKER_ARG = "__oms_worker_mnemopi_embed";
 
 /**
  * Spawn the mnemopi embeddings worker as a subprocess. Exported for tests and
  * the smoke probe; production callers go through {@link spawnMnemopiEmbedWorker}.
  * The child inherits the parent env — fastembed honours `HF_HUB_*`,
- * `HTTPS_PROXY`, etc., and our `loadFastembed()` reads the same `OMP_*`
+ * `HTTPS_PROXY`, etc., and our `loadFastembed()` reads the same `OMS_*`
  * runtime-install knobs the parent uses.
  */
 export function createMnemopiEmbedSubprocess(): SpawnedSubprocess<MnemopiEmbedWorkerOutbound> {
@@ -116,7 +116,7 @@ export interface MnemopiSubprocessEmbeddingModel {
  * means a hung native runtime (issue #4792) that would otherwise pin whatever
  * awaits the embed — a turn's memory recall or the headless shutdown
  * consolidation — indefinitely, leaving the process alive with an unreaped
- * `__omp_worker_mnemopi_embed` child (issue #7352). On expiry the embed fails
+ * `__oms_worker_mnemopi_embed` child (issue #7352). On expiry the embed fails
  * and the worker is SIGKILL-reaped so the next request respawns a fresh one.
  */
 const EMBED_REQUEST_TIMEOUT_MS = 120_000;

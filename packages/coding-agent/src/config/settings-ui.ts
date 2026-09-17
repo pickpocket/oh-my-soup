@@ -1,5 +1,5 @@
-import { TERMINAL } from "@oh-my-pi/pi-tui";
-import { SETTING_TABS, type SettingsDisplayEntry, type SettingsHost } from "@oh-my-pi/pi-tui/overlays/settings-defs";
+import { TERMINAL } from "@oh-my-soup/pi-tui";
+import { SETTING_TABS, type SettingsDisplayEntry, type SettingsHost } from "@oh-my-soup/pi-tui/overlays/settings-defs";
 import {
 	normalizeProviderMaxInFlightRequests,
 	Settings,

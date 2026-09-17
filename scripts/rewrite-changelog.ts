@@ -8,7 +8,7 @@
  * the final shipped behavior belongs in release notes.
  *
  * For every non-empty `[Unreleased]` section this script hands the whole section
- * to a small model (default `openai-codex/gpt-5.6-luna` via `@oh-my-pi/pi-ai`),
+ * to a small model (default `openai-codex/gpt-5.6-luna` via `@oh-my-soup/pi-ai`),
  * and asks for a complete replacement grouped by changelog category. The model
  * returns structured sections/items; markdown is rendered locally so only the
  * Unreleased section changes and formatting stays deterministic.
@@ -25,16 +25,16 @@
  *   bun scripts/rewrite-changelog.ts --package coding-agent
  *   bun scripts/rewrite-changelog.ts --model google/gemini-3.5-flash
  *
- * Auth: resolves the provider API key through omp's auth storage
- * (~/.omp/agent/agent.db: stored key, OAuth, or env var fallback).
+ * Auth: resolves the provider API key through oms's auth storage
+ * (~/.oms/agent/agent.db: stored key, OAuth, or env var fallback).
  */
 
 import * as path from "node:path";
 import { parseArgs } from "node:util";
-import { type } from "@oh-my-pi/omptype";
-import { type Api, completeSimple, Effort, type Model, type Tool, type ToolCall } from "@oh-my-pi/pi-ai";
-import { discoverAuthStorage } from "@oh-my-pi/pi-ai/auth-broker";
-import { type GeneratedProvider, getBundledModel } from "@oh-my-pi/pi-catalog/models";
+import { type } from "@oh-my-soup/omstype";
+import { type Api, completeSimple, Effort, type Model, type Tool, type ToolCall } from "@oh-my-soup/pi-ai";
+import { discoverAuthStorage } from "@oh-my-soup/pi-ai/auth-broker";
+import { type GeneratedProvider, getBundledModel } from "@oh-my-soup/pi-catalog/models";
 import {
 	type ChangelogDocument,
 	changelogPaths,
@@ -107,7 +107,7 @@ async function openModel(modelSpec: string): Promise<RewriteModel> {
 		const apiKey = await storage.getApiKey(provider);
 		if (!apiKey) {
 			throw new Error(
-				`no credentials for provider "${provider}" via ${storage.sourceLabel ?? "auth storage"} (check broker or run \`omp login\`)`,
+				`no credentials for provider "${provider}" via ${storage.sourceLabel ?? "auth storage"} (check broker or run \`oms login\`)`,
 			);
 		}
 		return { model, apiKey, spec: modelSpec };

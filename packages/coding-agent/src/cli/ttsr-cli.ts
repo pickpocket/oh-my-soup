@@ -1,23 +1,23 @@
 /**
  * TTSR CLI command handlers.
  *
- * `omp ttsr test` — feed a snippet (inline text, `--file`, or stdin) through the
+ * `oms ttsr test` — feed a snippet (inline text, `--file`, or stdin) through the
  * real TTSR matching pipeline (`TtsrManager.checkSnapshot` for regex conditions,
  * `checkAstSnapshot` for ast-grep conditions) and report which rules would
  * trigger. The match context (`--source`, `--tool`, `--path`) is honored so
  * glob/AST/scope-scoped rules evaluate the same way they do in a live session.
  *
- * `omp ttsr list` — show every TTSR-registered rule the current project/user
+ * `oms ttsr list` — show every TTSR-registered rule the current project/user
  * config would load, with its conditions, scope, and source.
  *
- * `--agent <name>` on `omp ttsr test` evaluates the rule's `agents` frontmatter
- * scoping as that agent (default "main"); `omp ttsr list`/`scan` stay unfiltered.
+ * `--agent <name>` on `oms ttsr test` evaluates the rule's `agents` frontmatter
+ * scoping as that agent (default "main"); `oms ttsr list`/`scan` stay unfiltered.
  */
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { AstMatchStrictness, astMatch, FileType, type GlobMatch, glob } from "@oh-my-pi/pi-natives";
-import chalk from "@oh-my-pi/pi-utils/chalk";
-import { getProjectDir } from "@oh-my-pi/pi-utils/dirs";
+import { AstMatchStrictness, astMatch, FileType, type GlobMatch, glob } from "@oh-my-soup/pi-natives";
+import chalk from "@oh-my-soup/pi-utils/chalk";
+import { getProjectDir } from "@oh-my-soup/pi-utils/dirs";
 import {
 	BUILTIN_DEFAULTS_PROVIDER_ID,
 	compileRuleCondition,
@@ -406,7 +406,7 @@ async function runTest(args: TtsrTestArgs, json: boolean, cwd: string): Promise<
 	if (rules.length === 0) {
 		const msg = args.rule
 			? "Rule registered but produced no TTSR entry."
-			: `No TTSR rules registered for this project as agent "${agent}". Rules scoped to other agents via \`agents\` are excluded — run \`omp ttsr list\` to see every rule, or pass --agent <name>.`;
+			: `No TTSR rules registered for this project as agent "${agent}". Rules scoped to other agents via \`agents\` are excluded — run \`oms ttsr list\` to see every rule, or pass --agent <name>.`;
 		if (json) {
 			process.stdout.write(`${JSON.stringify({ error: msg })}\n`);
 		} else {

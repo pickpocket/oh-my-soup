@@ -158,7 +158,7 @@ export function renderSearchResult(
 		if (renderedAnswer.length === 0) {
 			answerLines = [theme.fg("muted", "No answer text returned")];
 		} else if (args?.maxAnswerLines !== undefined && !expanded) {
-			// CLI compact mode (`omp q`) caps the answer; the TUI passes no cap and shows it in full.
+			// CLI compact mode (`oms q`) caps the answer; the TUI passes no cap and shows it in full.
 			// `renderedAnswer` is the Markdown component's shared cache — slice copies before appending.
 			const capped = renderedAnswer.slice(0, args.maxAnswerLines);
 			const remaining = renderedAnswer.length - capped.length;

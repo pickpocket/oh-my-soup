@@ -1,9 +1,9 @@
 {
   "type": "module",
-  "name": "@oh-my-pi/pi-agent-core",
+  "name": "@oh-my-soup/pi-agent-core",
   "version": "18.2.4",
   "description": "General-purpose agent with transport abstraction, state management, and attachment support",
-  "homepage": "https://omp.sh",
+  "homepage": "https://github.com/pickpocket/oh-my-soup",
   "author": "Stencil Labs, Inc.",
   "contributors": [
     "Mario Zechner"
@@ -11,7 +11,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/can1357/oh-my-pi.git",
+    "url": "git+https://github.com/pickpocket/oh-my-soup.git",
     "directory": "packages/agent"
   },
   "bugs": {
@@ -35,16 +35,16 @@
     "fmt": "oxfmt --no-error-on-unmatched-pattern 'src/**/*.{ts,tsx}' '{test,bench,examples,scripts}/**/*.ts' '*.ts'"
   },
   "dependencies": {
-    "@oh-my-pi/pi-ai": "catalog:",
-    "@oh-my-pi/pi-catalog": "catalog:",
-    "@oh-my-pi/pi-natives": "catalog:",
-    "@oh-my-pi/pi-utils": "catalog:",
-    "@oh-my-pi/pi-wire": "catalog:",
-    "@oh-my-pi/snapcompact": "catalog:",
+    "@oh-my-soup/pi-ai": "catalog:",
+    "@oh-my-soup/pi-catalog": "catalog:",
+    "@oh-my-soup/pi-natives": "catalog:",
+    "@oh-my-soup/pi-utils": "catalog:",
+    "@oh-my-soup/pi-wire": "catalog:",
+    "@oh-my-soup/snapcompact": "catalog:",
     "@opentelemetry/api": "catalog:"
   },
   "devDependencies": {
-    "@oh-my-pi/omptype": "catalog:",
+    "@oh-my-soup/omstype": "catalog:",
     "@opentelemetry/context-async-hooks": "catalog:",
     "@opentelemetry/sdk-trace-base": "catalog:",
     "@types/bun": "catalog:"

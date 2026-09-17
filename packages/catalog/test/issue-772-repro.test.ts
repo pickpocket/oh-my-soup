@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
-import { loginXiaomi } from "@oh-my-pi/pi-ai/registry/oauth/xiaomi";
-import { xiaomiModelManagerOptions } from "@oh-my-pi/pi-catalog/provider-models/openai-compat";
-import type { FetchImpl } from "@oh-my-pi/pi-catalog/types";
+import { loginXiaomi } from "@oh-my-soup/pi-ai/registry/oauth/xiaomi";
+import { xiaomiModelManagerOptions } from "@oh-my-soup/pi-catalog/provider-models/openai-compat";
+import type { FetchImpl } from "@oh-my-soup/pi-catalog/types";
 import modelsJson from "../src/models.json";
 
 const TOKEN_PLAN_SGP_HOST = "token-plan-sgp.xiaomimimo.com";

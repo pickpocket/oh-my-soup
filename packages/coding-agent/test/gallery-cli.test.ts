@@ -7,19 +7,19 @@ import {
 	renderGalleryState,
 	renderGallerySurfaceSections,
 	resolveFixture,
-} from "@oh-my-pi/pi-coding-agent/cli/gallery-cli";
+} from "@oh-my-soup/pi-coding-agent/cli/gallery-cli";
 import {
 	type GalleryFixture,
 	getComposerGalleryEntries,
 	getComposerGalleryInventory,
 	getSegmentGalleryEntries,
 	getSegmentGalleryInventory,
-} from "@oh-my-pi/pi-coding-agent/cli/gallery-fixtures";
-import { resetSettingsForTest, Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { getComposerShapeOptions } from "@oh-my-pi/pi-tui/overlays/composer-shape-registry";
-import { ALL_SEGMENT_IDS } from "@oh-my-pi/pi-tui/status-line/segments";
-import { initTheme, theme } from "@oh-my-pi/pi-tui/theme";
-import { toolRenderers } from "@oh-my-pi/pi-tui/tools";
+} from "@oh-my-soup/pi-coding-agent/cli/gallery-fixtures";
+import { resetSettingsForTest, Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { getComposerShapeOptions } from "@oh-my-soup/pi-tui/overlays/composer-shape-registry";
+import { ALL_SEGMENT_IDS } from "@oh-my-soup/pi-tui/status-line/segments";
+import { initTheme, theme } from "@oh-my-soup/pi-tui/theme";
+import { toolRenderers } from "@oh-my-soup/pi-tui/tools";
 
 beforeAll(async () => {
 	resetSettingsForTest();

@@ -206,7 +206,7 @@ function mouseSequence(x: number, y: number, action: string): string {
 	}
 }
 
-/** NDJSON debug and input server enabled by the `OMP_TUI_DEBUG` socket path. */
+/** NDJSON debug and input server enabled by the `OMS_TUI_DEBUG` socket path. */
 export class TuiDebugServer {
 	readonly #tui: TUI;
 	readonly #path: string;

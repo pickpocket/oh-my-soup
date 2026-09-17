@@ -5,14 +5,14 @@
  *
  * The worktree is created through the clone-first path (`worktree.clone`,
  * `isolation.backend`) and lands under the agent-managed worktree base
- * (`worktree.base`, default `~/.omp/wt`) next to `github pr_checkout` trees,
- * so `omp worktree list|clear` sees it.
+ * (`worktree.base`, default `~/.oms/wt`) next to `github pr_checkout` trees,
+ * so `oms worktree list|clear` sees it.
  */
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import type { IsoBackendKind } from "@oh-my-pi/pi-natives";
-import * as vcs from "@oh-my-pi/pi-natives/vcs";
-import { getWorktreeDir, hashPath, logger } from "@oh-my-pi/pi-utils";
+import type { IsoBackendKind } from "@oh-my-soup/pi-natives";
+import * as vcs from "@oh-my-soup/pi-natives/vcs";
+import { getWorktreeDir, hashPath, logger } from "@oh-my-soup/pi-utils";
 import type { Settings } from "../config/settings";
 import { formatIsolationBackend, parseIsolationBackend } from "../task/worktree";
 import { resolveAvailableWorktreePath } from "../tools/gh-pr-checkout";

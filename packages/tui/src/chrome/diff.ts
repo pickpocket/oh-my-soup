@@ -1,5 +1,5 @@
-import { diffWords } from "@oh-my-pi/pi-natives";
-import { DEFAULT_TAB_WIDTH, sanitizeText } from "@oh-my-pi/pi-utils";
+import { diffWords } from "@oh-my-soup/pi-natives";
+import { DEFAULT_TAB_WIDTH, sanitizeText } from "@oh-my-soup/pi-utils";
 import { theme as activeTheme, getLanguageFromPath, highlightCode, type Theme } from "../theme/index";
 import { type CodeFrameMarker, formatCodeFrameLine, replaceTabs } from "../render/render-utils";
 /** SGR dim on / normal intensity — additive, preserves fg/bg colors. */

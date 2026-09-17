@@ -9,11 +9,11 @@
  * revival) and are only removed on explicit release/teardown.
  */
 
-import { logger } from "@oh-my-pi/pi-utils";
+import { logger } from "@oh-my-soup/pi-utils";
 import type { AgentSession } from "../session/agent-session";
-import { oneLineLabel } from "@oh-my-pi/pi-tui/tools/task";
+import { oneLineLabel } from "@oh-my-soup/pi-tui/tools/task";
 
-import { MAIN_AGENT_ID, type AgentStatus, type AgentMetricsSummary } from "@oh-my-pi/pi-tui/overlays/agent-hub-types";
+import { MAIN_AGENT_ID, type AgentStatus, type AgentMetricsSummary } from "@oh-my-soup/pi-tui/overlays/agent-hub-types";
 export { MAIN_AGENT_ID };
 export type { AgentStatus, AgentMetricsSummary };
 

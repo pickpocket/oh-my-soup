@@ -1,7 +1,7 @@
 /**
  * OTLP telemetry export bootstrap.
  *
- * oh-my-pi's agent core (`@oh-my-pi/pi-agent-core`) emits OpenTelemetry GenAI
+ * oh-my-soup's agent core (`@oh-my-soup/pi-agent-core`) emits OpenTelemetry GenAI
  * spans through the global `@opentelemetry/api` tracer, and exposes run-level
  * callbacks for metrics/log pipelines. This module resolves the standard
  * `OTEL_*` env contract (endpoint, exporter selection, protocol,
@@ -13,8 +13,8 @@
  * `OTEL_EXPORTER_OTLP*_PROTOCOL` of `grpc` or `http/json` declines rather than
  * misrouting protobuf payloads.
  */
-import type { AgentTelemetryConfig } from "@oh-my-pi/pi-agent-core";
-import { logger } from "@oh-my-pi/pi-utils";
+import type { AgentTelemetryConfig } from "@oh-my-soup/pi-agent-core";
+import { logger } from "@oh-my-soup/pi-utils";
 
 /** Per-signal OTLP export toggles resolved from the `OTEL_*` env contract. */
 export interface TelemetrySignalConfig {

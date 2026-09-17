@@ -3,7 +3,7 @@
  * or HTTP email OTP (including authenticator challenges).
  */
 import * as os from "node:os";
-import { $env } from "@oh-my-pi/pi-utils";
+import { $env } from "@oh-my-soup/pi-utils";
 import { $, Cookie, CookieMap } from "bun";
 import * as AIError from "../../error";
 import type { OAuthController, OAuthCredentials } from "./types";

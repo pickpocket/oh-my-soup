@@ -1,14 +1,14 @@
-import type { AstEditToolDetails } from "@oh-my-pi/pi-tui/tools/ast-edit";
+import type { AstEditToolDetails } from "@oh-my-soup/pi-tui/tools/ast-edit";
 import * as path from "node:path";
-import { type } from "@oh-my-pi/omptype";
-import type { AgentTool, AgentToolContext, AgentToolResult, AgentToolUpdateCallback } from "@oh-my-pi/pi-agent-core";
-import type { ToolExample } from "@oh-my-pi/pi-ai";
-import { type AstReplaceChange, type AstReplaceFileChange, astEdit } from "@oh-my-pi/pi-natives";
+import { type } from "@oh-my-soup/omstype";
+import type { AgentTool, AgentToolContext, AgentToolResult, AgentToolUpdateCallback } from "@oh-my-soup/pi-agent-core";
+import type { ToolExample } from "@oh-my-soup/pi-ai";
+import { type AstReplaceChange, type AstReplaceFileChange, astEdit } from "@oh-my-soup/pi-natives";
 
-import { $envpos, prompt, untilAborted } from "@oh-my-pi/pi-utils";
+import { $envpos, prompt, untilAborted } from "@oh-my-soup/pi-utils";
 import { getEditStore } from "../edit/store";
 import { normalizeToLF } from "../edit/normalize";
-import { formatHashlineHeader } from "@oh-my-pi/pi-tui/tools/hashline-format";
+import { formatHashlineHeader } from "@oh-my-soup/pi-tui/tools/hashline-format";
 
 import astEditDescription from "../prompts/tools/ast-edit.md" with { type: "text" };
 
@@ -17,7 +17,7 @@ import type { ToolSession } from ".";
 import { truncateForPrompt } from "./approval";
 import { parseReadUrlTarget } from "./fetch";
 import { createFileRecorder, formatResultPath } from "./file-recorder";
-import { formatGroupedFiles } from "@oh-my-pi/pi-tui/tools/grouped-file-output";
+import { formatGroupedFiles } from "@oh-my-soup/pi-tui/tools/grouped-file-output";
 
 import { isInternalUrlPath, resolveToolSearchScope } from "./path-utils";
 import {
@@ -25,9 +25,9 @@ import {
 	formatCodeFrameLine,
 	formatCount,
 	formatParseErrors,
-} from "@oh-my-pi/pi-tui/render/render-utils";
+} from "@oh-my-soup/pi-tui/render/render-utils";
 import { PREVIEW_PENDING_NOTICE, queueResolveHandler } from "./resolve";
-import { ToolError } from "@oh-my-pi/pi-tui/tools/tool-errors";
+import { ToolError } from "@oh-my-soup/pi-tui/tools/tool-errors";
 import { toolResult } from "./tool-result";
 
 const astEditOpSchema = type({

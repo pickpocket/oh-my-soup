@@ -1,8 +1,8 @@
 import { describe, expect, it } from "bun:test";
 import { createContext, runInContext } from "node:vm";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import type { ToolSession } from "@oh-my-pi/pi-coding-agent/sdk";
-import { createBrowserPrelude } from "@oh-my-pi/pi-coding-agent/tools/browser";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import type { ToolSession } from "@oh-my-soup/pi-coding-agent/sdk";
+import { createBrowserPrelude } from "@oh-my-soup/pi-coding-agent/tools/browser";
 
 function makeSession(settings = Settings.isolated({ "browser.enabled": true })): ToolSession {
 	return {
@@ -67,8 +67,8 @@ describe("browser prelude", () => {
 		const calls: unknown[] = [];
 		const displayed: unknown[] = [];
 		const context = createContext({
-			__omp_display__: (value: unknown) => displayed.push(value),
-			__omp_prelude__: async (name: string, parameters: unknown) => {
+			__oms_display__: (value: unknown) => displayed.push(value),
+			__oms_prelude__: async (name: string, parameters: unknown) => {
 				calls.push({ name, parameters });
 				if (parameters === null || typeof parameters !== "object") return { text: "", details: {} };
 				const action = Reflect.get(parameters, "action");

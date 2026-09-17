@@ -1,5 +1,5 @@
 /**
- * Live status board for `omp cleanse`.
+ * Live status board for `oms cleanse`.
  *
  * Interactive terminals get a transient board repainted in place: a phase
  * spinner (model resolution, checker discovery), one row per running checker,
@@ -10,7 +10,7 @@
  * Non-TTY output keeps the original plain-line protocol
  * (`[start]`/`[done]`/`[fail]`), so scripted callers see unchanged output.
  */
-import { formatDuration, formatNumber, sanitizeText } from "@oh-my-pi/pi-utils";
+import { formatDuration, formatNumber, sanitizeText } from "@oh-my-soup/pi-utils";
 import { renderProgressBar, type ProgressBarStyle } from "../components/progress-bar";
 import { fgOrPlain, theme } from "../theme/theme";
 import { createLiveBoard, type LiveBoardOutput } from "../chrome/live-board";
@@ -53,7 +53,7 @@ const REPAIR_BAR_STYLE: ProgressBarStyle = {
 	styleEmpty: text => fgOrPlain("dim", text),
 };
 
-/** Rendering surface for one `omp cleanse` run. */
+/** Rendering surface for one `oms cleanse` run. */
 export interface CleanseStatusBoard {
 	readonly interactive: boolean;
 	/** Print a permanent line above the live area (plain write when non-TTY). */

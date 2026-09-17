@@ -6,11 +6,11 @@ import { afterEach, describe, expect, it } from "bun:test";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { AgentRegistry, MAIN_AGENT_ID } from "@oh-my-pi/pi-coding-agent/registry/agent-registry";
-import { registerPersistedSubagents } from "@oh-my-pi/pi-coding-agent/registry/persisted-agents";
-import { CURRENT_SESSION_VERSION } from "@oh-my-pi/pi-coding-agent/session/session-entries";
-import { createSubagentSettings } from "@oh-my-pi/pi-coding-agent/task/executor";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { AgentRegistry, MAIN_AGENT_ID } from "@oh-my-soup/pi-coding-agent/registry/agent-registry";
+import { registerPersistedSubagents } from "@oh-my-soup/pi-coding-agent/registry/persisted-agents";
+import { CURRENT_SESSION_VERSION } from "@oh-my-soup/pi-coding-agent/session/session-entries";
+import { createSubagentSettings } from "@oh-my-soup/pi-coding-agent/task/executor";
 
 describe("per-agent settings migrations", () => {
 	let agentDir = "";
@@ -19,7 +19,7 @@ describe("per-agent settings migrations", () => {
 	});
 
 	const load = async (configYml: string): Promise<Settings> => {
-		agentDir = fs.mkdtempSync(path.join(os.tmpdir(), "omp-advisor-migration-"));
+		agentDir = fs.mkdtempSync(path.join(os.tmpdir(), "oms-advisor-migration-"));
 		fs.writeFileSync(path.join(agentDir, "config.yml"), configYml);
 		return await Settings.loadReadOnly({ agentDir, cwd: agentDir });
 	};
@@ -106,7 +106,7 @@ function sessionFixtureJsonl(id: string): string {
 
 describe("subagent advisor transcript discovery", () => {
 	it("registers nested per-subagent __advisor.jsonl transcripts under their owning subagent", async () => {
-		const dir = fs.mkdtempSync(path.join(os.tmpdir(), "omp-subagent-advisor-"));
+		const dir = fs.mkdtempSync(path.join(os.tmpdir(), "oms-subagent-advisor-"));
 		try {
 			// Main session advisor: <session>/__advisor.jsonl. Subagent advisor:
 			// one level deeper, <session>/<SubId>/__advisor.jsonl — the recorder

@@ -12,18 +12,18 @@
  */
 import { afterAll, afterEach, beforeAll, describe, expect, it, type Mock, spyOn } from "bun:test";
 import * as os from "node:os";
-import { Agent } from "@oh-my-pi/pi-agent-core";
-import type { Model } from "@oh-my-pi/pi-ai";
-import { getBundledModel } from "@oh-my-pi/pi-catalog/models";
-import { CollabGuestLink } from "@oh-my-pi/pi-coding-agent/collab/guest";
-import { CollabHost } from "@oh-my-pi/pi-coding-agent/collab/host";
-import { ModelRegistry } from "@oh-my-pi/pi-coding-agent/config/model-registry";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import type { InteractiveModeContext } from "@oh-my-pi/pi-coding-agent/modes/types";
-import { AgentSession } from "@oh-my-pi/pi-coding-agent/session/agent-session";
-import type { AuthStorage } from "@oh-my-pi/pi-coding-agent/session/auth-storage";
-import { SessionManager } from "@oh-my-pi/pi-coding-agent/session/session-manager";
-import { refreshDirsFromEnv, TempDir } from "@oh-my-pi/pi-utils";
+import { Agent } from "@oh-my-soup/pi-agent-core";
+import type { Model } from "@oh-my-soup/pi-ai";
+import { getBundledModel } from "@oh-my-soup/pi-catalog/models";
+import { CollabGuestLink } from "@oh-my-soup/pi-coding-agent/collab/guest";
+import { CollabHost } from "@oh-my-soup/pi-coding-agent/collab/host";
+import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import type { InteractiveModeContext } from "@oh-my-soup/pi-coding-agent/modes/types";
+import { AgentSession } from "@oh-my-soup/pi-coding-agent/session/agent-session";
+import type { AuthStorage } from "@oh-my-soup/pi-coding-agent/session/auth-storage";
+import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
+import { refreshDirsFromEnv, TempDir } from "@oh-my-soup/pi-utils";
 import { createAssistantMessage, createInMemoryAuthStorage } from "../helpers/agent-session-setup";
 import { installInMemoryRelay, uninstallInMemoryRelay } from "./helpers/in-memory-relay";
 
@@ -140,7 +140,7 @@ async function settleFrames(predicate: () => boolean, timeoutMs = 10_000): Promi
 }
 
 // The guest writes its replica under getConfigRootDir(); redirect the config
-// root to a temp HOME so the test never touches the real ~/.omp.
+// root to a temp HOME so the test never touches the real ~/.oms.
 let homedirSpy: Mock<typeof os.homedir> | undefined;
 let homeDir: TempDir | undefined;
 let authStorage: AuthStorage;

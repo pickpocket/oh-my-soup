@@ -104,11 +104,11 @@ def _xwin_sysroot_impl(rctx):
     )
     rctx.report_progress("Splatting MSVC CRT + Windows SDK via xwin (first fetch ~1 GiB from the Microsoft CDN)")
 
-    # OMP_XWIN_CACHE_DIR points at a persistent location (CI: the runner-cache
+    # OMS_XWIN_CACHE_DIR points at a persistent location (CI: the runner-cache
     # PVC via --repo_env) so ephemeral pods reuse the ~1 GiB CDN download the
     # repository cache cannot hold. Unset (dev machines): a repo-local cache,
     # deleted after the --copy splat.
-    cache_dir = rctx.os.environ.get("OMP_XWIN_CACHE_DIR", "")
+    cache_dir = rctx.os.environ.get("OMS_XWIN_CACHE_DIR", "")
     ephemeral_cache = cache_dir == ""
     if ephemeral_cache:
         cache_dir = ".xwin-cache"
@@ -165,7 +165,7 @@ def _xwin_sysroot_impl(rctx):
     # bit-reproducible forever (see the module docstring) — caching freezes a
     # known-good splat, which also keeps remote action keys stable across
     # pods until this file changes or the cache entry ages out (14 d GC).
-    # OMP_XWIN_CACHE_DIR is a predeclared input (environ attr), so kata and
+    # OMS_XWIN_CACHE_DIR is a predeclared input (environ attr), so kata and
     # dev fetches key separate entries.
     return rctx.repo_metadata(reproducible = True)
 
@@ -174,5 +174,5 @@ xwin_sysroot_repository = repository_rule(
     doc = "MSVC CRT + Windows SDK sysroot splatted by a pinned xwin release.",
     # Persistent splat cache location; changing it only changes where the CDN
     # payload lands, not the splat contents, but Bazel still refetches.
-    environ = ["OMP_XWIN_CACHE_DIR"],
+    environ = ["OMS_XWIN_CACHE_DIR"],
 )

@@ -1,9 +1,9 @@
 import { describe, expect, it } from "bun:test";
-import type { ResponseInput } from "@oh-my-pi/pi-ai/providers/openai-responses-wire";
+import type { ResponseInput } from "@oh-my-soup/pi-ai/providers/openai-responses-wire";
 import {
 	repairOrphanResponsesToolCalls,
 	repairOrphanResponsesToolOutputs,
-} from "@oh-my-pi/pi-ai/providers/openai-shared";
+} from "@oh-my-soup/pi-ai/providers/openai-shared";
 
 describe("repairOrphanResponsesToolCalls", () => {
 	it("appends a synthetic function_call_output after a call with no result", () => {

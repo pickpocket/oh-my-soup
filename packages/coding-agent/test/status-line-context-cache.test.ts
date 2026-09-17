@@ -14,14 +14,14 @@
  * redraw — that per-event recompute is what previously froze large sessions.
  */
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
-import { resetSettingsForTest, Settings, settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import type { ContextUsage } from "@oh-my-pi/pi-coding-agent/extensibility/extensions/types";
-import { StatusLineComponent } from "@oh-my-pi/pi-tui/status-line";
-import { statusLineHost } from "@oh-my-pi/pi-coding-agent/modes/status-line-host";
-import { initTheme, setSymbolPreset, theme } from "@oh-my-pi/pi-tui/theme";
-import type { AgentSession } from "@oh-my-pi/pi-coding-agent/session/agent-session";
-import { getSessionAccentAnsi } from "@oh-my-pi/pi-tui/theme/session-color";
-import { adjustHsv } from "@oh-my-pi/pi-utils";
+import { resetSettingsForTest, Settings, settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import type { ContextUsage } from "@oh-my-soup/pi-coding-agent/extensibility/extensions/types";
+import { StatusLineComponent } from "@oh-my-soup/pi-tui/status-line";
+import { statusLineHost } from "@oh-my-soup/pi-coding-agent/modes/status-line-host";
+import { initTheme, setSymbolPreset, theme } from "@oh-my-soup/pi-tui/theme";
+import type { AgentSession } from "@oh-my-soup/pi-coding-agent/session/agent-session";
+import { getSessionAccentAnsi } from "@oh-my-soup/pi-tui/theme/session-color";
+import { adjustHsv } from "@oh-my-soup/pi-utils";
 import { StatusLineTestComponents } from "./helpers/status-line";
 
 const statusLines = new StatusLineTestComponents();

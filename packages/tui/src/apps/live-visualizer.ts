@@ -2,7 +2,7 @@ import type { Component } from "../tui";
 import { OverlayPanel, PanelRows } from "../chrome/overlay-box";
 import { type KeyId, matchesKey } from "../keys";
 import { replaceTabs, sliceWithWidth, truncateToWidth, visibleWidth } from "../utils";
-import { sanitizeText } from "@oh-my-pi/pi-utils";
+import { sanitizeText } from "@oh-my-soup/pi-utils";
 import { type ThemeColor, theme } from "../theme/theme";
 
 /** Distinct states of a realtime call connection. */

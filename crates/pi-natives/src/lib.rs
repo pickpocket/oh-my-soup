@@ -1,4 +1,4 @@
-//! Native utilities exported via N-API for the Oh My Pi toolchain.
+//! Native utilities exported via N-API for the Oh My Soup toolchain.
 //!
 //! # Overview
 //! High-performance primitives for clipboard access, grep, file discovery,
@@ -272,7 +272,7 @@ pub const fn pi_natives_version_sentinel() {}
 /// invoke a panicking or allocating native call. This runs during `.node`
 /// load, while the dynamic-loader lock is held, so it MUST NOT spawn threads —
 /// the Tokio runtime is installed afterwards on Windows by
-/// [`omp_install_tokio_runtime`], which the JS loader calls once `dlopen` has
+/// [`oms_install_tokio_runtime`], which the JS loader calls once `dlopen` has
 /// returned.
 ///
 /// On Windows, the custom Tokio runtime is host-sized to prevent aborts under
@@ -285,7 +285,7 @@ fn install_native_crash_handler() {
 	crash_handler::install();
 }
 
-/// Guards [`omp_install_tokio_runtime`] so the runtime is built at most once
+/// Guards [`oms_install_tokio_runtime`] so the runtime is built at most once
 /// per process even if the loader invokes it more than once.
 #[cfg(target_os = "windows")]
 static TOKIO_RUNTIME_INSTALLED: AtomicBool = AtomicBool::new(false);
@@ -315,7 +315,7 @@ static TOKIO_RUNTIME_INSTALLED: AtomicBool = AtomicBool::new(false);
 /// calls. Idempotent.
 #[napi(js_name = "__ompInstallTokioRuntime")]
 #[allow(clippy::missing_const_for_fn, reason = "napi macro is incompatible with const fn")]
-pub fn omp_install_tokio_runtime() {
+pub fn oms_install_tokio_runtime() {
 	#[cfg(target_os = "windows")]
 	if TOKIO_RUNTIME_INSTALLED.swap(true, Ordering::SeqCst) {
 		return;

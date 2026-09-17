@@ -1,10 +1,10 @@
 import { describe, expect, it } from "bun:test";
-import { ThinkingFenceStripper } from "@oh-my-pi/pi-ai/dialect/thinking-fence-strip";
-import { consumeGoogleStream } from "@oh-my-pi/pi-ai/providers/google-shared";
-import type { GenerateContentResponse, Part } from "@oh-my-pi/pi-ai/providers/google-types";
-import type { AssistantMessage, AssistantMessageEvent, Model } from "@oh-my-pi/pi-ai/types";
-import { AssistantMessageEventStream } from "@oh-my-pi/pi-ai/utils/event-stream";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
+import { ThinkingFenceStripper } from "@oh-my-soup/pi-ai/dialect/thinking-fence-strip";
+import { consumeGoogleStream } from "@oh-my-soup/pi-ai/providers/google-shared";
+import type { GenerateContentResponse, Part } from "@oh-my-soup/pi-ai/providers/google-types";
+import type { AssistantMessage, AssistantMessageEvent, Model } from "@oh-my-soup/pi-ai/types";
+import { AssistantMessageEventStream } from "@oh-my-soup/pi-ai/utils/event-stream";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
 
 // Regression for #8719: Gemini thought summaries occasionally emit a bare
 // ```thinking / ``````thinking opener line as a between-summary delimiter.

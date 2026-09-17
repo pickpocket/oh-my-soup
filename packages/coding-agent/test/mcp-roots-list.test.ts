@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import * as path from "node:path";
 import * as url from "node:url";
-import { toJsonRpcError } from "@oh-my-pi/pi-coding-agent/mcp/types";
+import { toJsonRpcError } from "@oh-my-soup/pi-coding-agent/mcp/types";
 
 describe("toJsonRpcError", () => {
 	it("extracts code from Error with .code property", () => {

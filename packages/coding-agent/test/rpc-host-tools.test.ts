@@ -1,16 +1,16 @@
 import { afterEach, describe, expect, it } from "bun:test";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { AgentEvent } from "@oh-my-pi/pi-agent-core";
-import { defineRpcClientTool, RpcClient } from "@oh-my-pi/pi-coding-agent/modes";
-import { RpcHostToolBridge } from "@oh-my-pi/pi-coding-agent/modes/rpc/host-tools";
+import type { AgentEvent } from "@oh-my-soup/pi-agent-core";
+import { defineRpcClientTool, RpcClient } from "@oh-my-soup/pi-coding-agent/modes";
+import { RpcHostToolBridge } from "@oh-my-soup/pi-coding-agent/modes/rpc/host-tools";
 import type {
 	RpcHostToolCallRequest,
 	RpcHostToolCancelRequest,
 	RpcHostToolUpdate,
-} from "@oh-my-pi/pi-coding-agent/modes/rpc/rpc-types";
-import { toolReadsSkillUris } from "@oh-my-pi/pi-coding-agent/system-prompt";
-import { removeWithRetries } from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-coding-agent/modes/rpc/rpc-types";
+import { toolReadsSkillUris } from "@oh-my-soup/pi-coding-agent/system-prompt";
+import { removeWithRetries } from "@oh-my-soup/pi-utils";
 
 const tempPaths: string[] = [];
 
@@ -132,7 +132,7 @@ describe("RpcHostToolBridge", () => {
 
 describe("RpcClient custom tools", () => {
 	it("registers host custom tools and serves tool calls over the RPC transport", async () => {
-		const scriptPath = path.join(os.tmpdir(), `omp-rpc-host-tools-${Date.now()}.js`);
+		const scriptPath = path.join(os.tmpdir(), `oms-rpc-host-tools-${Date.now()}.js`);
 		tempPaths.push(scriptPath);
 		await Bun.write(
 			scriptPath,
@@ -250,7 +250,7 @@ function handle(frame) {
 		}
 	});
 	it("preserves skill URI readability across the host tool wire frame", async () => {
-		const scriptPath = path.join(os.tmpdir(), `omp-rpc-host-skill-${Date.now()}.js`);
+		const scriptPath = path.join(os.tmpdir(), `oms-rpc-host-skill-${Date.now()}.js`);
 		const capturePath = `${scriptPath}.tools.json`;
 		tempPaths.push(scriptPath, capturePath);
 		await Bun.write(

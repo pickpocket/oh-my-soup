@@ -6,7 +6,7 @@
  * so named exports must be real `export const` declarations instead of CJS
  * assignments that Bun happens to detect.
  *
- * The contract this test pins down: ESM consumers of `@oh-my-pi/pi-natives`
+ * The contract this test pins down: ESM consumers of `@oh-my-soup/pi-natives`
  * resolve to `native/index.js`, and that file declares every public symbol
  * from `native/index.d.ts` as a real ESM named export.
  */

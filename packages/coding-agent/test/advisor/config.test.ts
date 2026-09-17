@@ -19,10 +19,10 @@ describe("discoverAdvisorConfigs", () => {
 	let agentDir: string;
 
 	beforeEach(async () => {
-		tmp = await fsp.mkdtemp(path.join(os.tmpdir(), "omp-advisor-config-"));
+		tmp = await fsp.mkdtemp(path.join(os.tmpdir(), "oms-advisor-config-"));
 		await fsp.mkdir(path.join(tmp, ".git"));
-		// Empty agent dir so the user-level search path can't pick up a real ~/.omp/WATCHDOG.yml.
-		agentDir = await fsp.mkdtemp(path.join(os.tmpdir(), "omp-advisor-agentdir-"));
+		// Empty agent dir so the user-level search path can't pick up a real ~/.oms/WATCHDOG.yml.
+		agentDir = await fsp.mkdtemp(path.join(os.tmpdir(), "oms-advisor-agentdir-"));
 	});
 
 	afterEach(async () => {
@@ -251,7 +251,7 @@ describe("getOrCreateAdvisorProviderSessionId", () => {
 describe("WATCHDOG.yml file round-trip", () => {
 	let tmp: string;
 	beforeEach(async () => {
-		tmp = await fsp.mkdtemp(path.join(os.tmpdir(), "omp-advisor-file-"));
+		tmp = await fsp.mkdtemp(path.join(os.tmpdir(), "oms-advisor-file-"));
 		await fsp.mkdir(path.join(tmp, ".git"));
 	});
 	afterEach(async () => {
@@ -332,11 +332,11 @@ describe("WATCHDOG.yml file round-trip", () => {
 	});
 
 	it("resolves project and user scope paths", () => {
-		expect(advisorConfigFilePath("project", { projectDir: "/repo", agentDir: "/home/.omp" })).toBe(
+		expect(advisorConfigFilePath("project", { projectDir: "/repo", agentDir: "/home/.oms" })).toBe(
 			path.join("/repo", "WATCHDOG.yml"),
 		);
-		expect(advisorConfigFilePath("user", { projectDir: "/repo", agentDir: "/home/.omp" })).toBe(
-			path.join("/home/.omp", "WATCHDOG.yml"),
+		expect(advisorConfigFilePath("user", { projectDir: "/repo", agentDir: "/home/.oms" })).toBe(
+			path.join("/home/.oms", "WATCHDOG.yml"),
 		);
 	});
 });
@@ -344,7 +344,7 @@ describe("WATCHDOG.yml file round-trip", () => {
 describe("resolveAdvisorConfigEditPath", () => {
 	let tmp: string;
 	beforeEach(async () => {
-		tmp = await fsp.mkdtemp(path.join(os.tmpdir(), "omp-advisor-resolve-"));
+		tmp = await fsp.mkdtemp(path.join(os.tmpdir(), "oms-advisor-resolve-"));
 	});
 	afterEach(async () => {
 		await fsp.rm(tmp, { recursive: true, force: true });
@@ -370,7 +370,7 @@ describe("resolveAdvisorConfigEditPath", () => {
 
 describe("per-advisor enabled field", () => {
 	it("preserves explicit true, explicit false, and absence through save and discovery", async () => {
-		const tmp = await fsp.mkdtemp(path.join(os.tmpdir(), "omp-advisor-enabled-"));
+		const tmp = await fsp.mkdtemp(path.join(os.tmpdir(), "oms-advisor-enabled-"));
 		await fsp.mkdir(path.join(tmp, ".git"));
 		try {
 			const doc: WatchdogConfigDoc = {
@@ -409,7 +409,7 @@ describe("per-advisor enabled field", () => {
 
 describe("maxNotesPerUpdate configuration", () => {
 	it("discovers shared and per-advisor maxNotesPerUpdate from WATCHDOG.yml", async () => {
-		const tmp = await fsp.mkdtemp(path.join(os.tmpdir(), "omp-advisor-max-notes-"));
+		const tmp = await fsp.mkdtemp(path.join(os.tmpdir(), "oms-advisor-max-notes-"));
 		await fsp.mkdir(path.join(tmp, ".git"));
 		try {
 			const yaml = [
@@ -432,7 +432,7 @@ describe("maxNotesPerUpdate configuration", () => {
 	});
 
 	it("round-trips maxNotesPerUpdate through save and load", async () => {
-		const tmp = await fsp.mkdtemp(path.join(os.tmpdir(), "omp-advisor-max-notes-roundtrip-"));
+		const tmp = await fsp.mkdtemp(path.join(os.tmpdir(), "oms-advisor-max-notes-roundtrip-"));
 		try {
 			const doc: WatchdogConfigDoc = {
 				maxNotesPerUpdate: 3,

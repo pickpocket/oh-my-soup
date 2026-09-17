@@ -1,4 +1,4 @@
-import type { SummaryResult } from "@oh-my-pi/pi-natives";
+import type { SummaryResult } from "@oh-my-soup/pi-natives";
 import { formatNumberedLine } from "./hashline-format";
 import * as path from "node:path";
 import type { Component } from "../tui";
@@ -90,7 +90,7 @@ const INTERNAL_SCHEMES_WITH_SELECTORS: Record<string, true> = {
 	history: true,
 	local: true,
 	memory: true,
-	omp: true,
+	oms: true,
 	pr: true,
 	rule: true,
 	security: true,

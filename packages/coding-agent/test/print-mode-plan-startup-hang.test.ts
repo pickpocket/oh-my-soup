@@ -2,19 +2,19 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { Agent } from "@oh-my-pi/pi-agent-core";
-import type { Context } from "@oh-my-pi/pi-ai";
-import { createMockModel } from "@oh-my-pi/pi-ai/providers/mock";
-import { ModelRegistry } from "@oh-my-pi/pi-coding-agent/config/model-registry";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { runPrintMode } from "@oh-my-pi/pi-coding-agent/modes/print-mode";
-import { AgentSession } from "@oh-my-pi/pi-coding-agent/session/agent-session";
-import { AuthStorage } from "@oh-my-pi/pi-coding-agent/session/auth-storage";
-import { SessionManager } from "@oh-my-pi/pi-coding-agent/session/session-manager";
-import { createTools, type ToolSession } from "@oh-my-pi/pi-coding-agent/tools";
-import { Snowflake } from "@oh-my-pi/pi-utils";
+import { Agent } from "@oh-my-soup/pi-agent-core";
+import type { Context } from "@oh-my-soup/pi-ai";
+import { createMockModel } from "@oh-my-soup/pi-ai/providers/mock";
+import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { runPrintMode } from "@oh-my-soup/pi-coding-agent/modes/print-mode";
+import { AgentSession } from "@oh-my-soup/pi-coding-agent/session/agent-session";
+import { AuthStorage } from "@oh-my-soup/pi-coding-agent/session/auth-storage";
+import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
+import { createTools, type ToolSession } from "@oh-my-soup/pi-coding-agent/tools";
+import { Snowflake } from "@oh-my-soup/pi-utils";
 
-// Regression for #8272: with plan.defaultOnStartup:true, a headless `omp -p`
+// Regression for #8272: with plan.defaultOnStartup:true, a headless `oms -p`
 // used to arm plan mode before the initial prompt. The only headless plan-exit
 // was a watcher that fires on a successful `xd://propose` execute-dispatch, so a
 // model that never emits exactly that dispatch (the natural plan-mode behavior:
@@ -32,7 +32,7 @@ describe("print mode + plan.defaultOnStartup (#8272)", () => {
 	const holder: { session?: AgentSession } = {};
 
 	beforeEach(async () => {
-		tempDir = path.join(os.tmpdir(), `omp-8272-${Snowflake.next()}`);
+		tempDir = path.join(os.tmpdir(), `oms-8272-${Snowflake.next()}`);
 		fs.mkdirSync(tempDir, { recursive: true });
 		stdoutOutput = [];
 		vi.spyOn(process.stdout, "write").mockImplementation((...args: unknown[]) => {

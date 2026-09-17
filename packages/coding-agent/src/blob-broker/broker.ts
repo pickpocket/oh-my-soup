@@ -4,7 +4,7 @@
  * `LocalBlobBackend` runs everything in-process — either a loopback HTTP
  * server behind a tunnel/direct exposure (serve mode) or a push-once uploader
  * (upload mode). The daemon-shared variant in `daemon.ts` implements the same
- * {@link BlobBackend} contract over the project blob daemon so every omp
+ * {@link BlobBackend} contract over the project blob daemon so every oms
  * process reuses one exposure and one URL per blob.
  *
  * Design invariants:
@@ -22,7 +22,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { logger } from "@oh-my-pi/pi-utils";
+import { logger } from "@oh-my-soup/pi-utils";
 import type { BlobDestinationId } from "./destinations";
 import { type ExposureConfig, type ExposureKind, probeExposureHealth, startExposure } from "./exposure";
 import type {
@@ -128,7 +128,7 @@ export class LocalBlobBackend implements BlobBackend {
 				hostname: this.#config.bindHost,
 				port: 0,
 				fetch: request => {
-					if (new URL(request.url).pathname === "/.well-known/omp-blob-health") {
+					if (new URL(request.url).pathname === "/.well-known/oms-blob-health") {
 						return new Response(null, { status: 204 });
 					}
 					return this.#store.serve(request);

@@ -38,7 +38,7 @@ function writeFixtureJob(jobsDir: string, jobName: string): void {
 		path.join(jobDir, "config.json"),
 		JSON.stringify({
 			dataset: "test-dataset@1.0",
-			agents: [{ name: "omp", model_name: "anthropic/claude-opus-4-8" }],
+			agents: [{ name: "oms", model_name: "anthropic/claude-opus-4-8" }],
 		}),
 	);
 	const mkTrial = (name: string, body: Record<string, unknown> | null) => {
@@ -82,7 +82,7 @@ function writeFixtureJob(jobsDir: string, jobName: string): void {
 			},
 		}),
 	].join("\n");
-	fs.writeFileSync(path.join(jobDir, "alpha__abc", "agent", "omp.txt"), transcript);
+	fs.writeFileSync(path.join(jobDir, "alpha__abc", "agent", "oms.txt"), transcript);
 }
 
 describe("RunStore", () => {
@@ -173,7 +173,7 @@ describe("RunStore", () => {
 			benchmark: "harbor",
 			jobName: "job-b",
 			dataset: "test-dataset@1.0",
-			agent: "omp",
+			agent: "oms",
 			models: ["m"],
 			pid: 999999999, // certainly dead
 		});
@@ -339,7 +339,7 @@ describe("ManagerServer API", () => {
 			benchmark: "harbor",
 			jobName: "job-live",
 			dataset: "terminal-bench@2.0",
-			agent: "omp",
+			agent: "oms",
 			models: ["m/x"],
 			pid: process.pid,
 		});
@@ -348,7 +348,7 @@ describe("ManagerServer API", () => {
 			benchmark: "harbor",
 			jobName: "job-bare",
 			dataset: "terminal-bench@2.0",
-			agent: "omp",
+			agent: "oms",
 			models: ["m/x"],
 			pid: process.pid,
 		});
@@ -379,7 +379,7 @@ describe("ManagerServer API", () => {
 				benchmark: "harbor",
 				jobName,
 				dataset: "terminal-bench@2.0",
-				agent: "omp",
+				agent: "oms",
 				models: ["m/x"],
 				pid: process.pid,
 			});
@@ -389,7 +389,7 @@ describe("ManagerServer API", () => {
 			benchmark: "harbor",
 			jobName: "live-run",
 			dataset: "terminal-bench@2.0",
-			agent: "omp",
+			agent: "oms",
 			models: ["m/x"],
 			pid: process.pid,
 		});
@@ -473,7 +473,7 @@ describe("resolveArmLaunch", () => {
 			benchmark: "harbor",
 			jobName: "exp-base",
 			dataset: "swe-bench/swe-bench-verified",
-			agent: "omp",
+			agent: "oms",
 			models: ["anthropic/claude-opus-4-8"],
 			pid: 4321,
 			role: "baseline",
@@ -512,7 +512,7 @@ describe("resolveArmLaunch", () => {
 			benchmark: "harbor",
 			jobName: "exp-base",
 			dataset: "swe-bench/swe-bench-verified",
-			agent: "omp",
+			agent: "oms",
 			models: ["anthropic/claude-opus-4-8"],
 			pid: 1,
 			config: { include: ["swe-bench/astropy__astropy-1", "swe-bench/django__django-2"] },
@@ -522,7 +522,7 @@ describe("resolveArmLaunch", () => {
 			benchmark: "harbor",
 			jobName: "exp-noinc",
 			dataset: "swe-bench/swe-bench-verified",
-			agent: "omp",
+			agent: "oms",
 			models: ["anthropic/claude-opus-4-8"],
 			pid: 2,
 			config: {},
@@ -540,7 +540,7 @@ describe("resolveArmLaunch", () => {
 			benchmark: "harbor",
 			jobName: "exp-base",
 			dataset: "d",
-			agent: "omp",
+			agent: "oms",
 			models: ["m/x"],
 			pid: 1,
 			config: { include: ["t1"] },

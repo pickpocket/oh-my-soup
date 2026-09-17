@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import * as path from "node:path";
-import { TempDir } from "@oh-my-pi/pi-utils/temp";
+import { TempDir } from "@oh-my-soup/pi-utils/temp";
 import { createHelpers, type HelperContext } from "../../src/eval/js/shared/helpers";
 
 /**

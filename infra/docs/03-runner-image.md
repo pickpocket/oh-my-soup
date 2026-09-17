@@ -62,18 +62,18 @@ forgot to bake.
 
 ## 2. The Dockerfile
 
-Build context lives at `/root/omp-kata-runner-image/`. The Dockerfile below is
+Build context lives at `/root/oms-kata-runner-image/`. The Dockerfile below is
 reproduced verbatim (it contains no secrets or redactable host identifiers; the
 `ARG` pins, the full apt set, and the toolchain steps are real).
 
 > The canonical copy of this Dockerfile is version-controlled at
 > [`infra/runner.Dockerfile`](../runner.Dockerfile);
-> the `/root/omp-kata-runner-image/` copy is overwritten from it by the
+> the `/root/oms-kata-runner-image/` copy is overwritten from it by the
 > repo-driven reload script (see section 3 below).
 
 ```dockerfile
 # syntax=docker/dockerfile:1
-# Preloaded omp-kata runner image.
+# Preloaded oms-kata runner image.
 #
 # Stock GitHub Actions runner (Ubuntu 24.04) with the dependencies CI installs
 # on every job baked in, so each ephemeral Kata microVM boots with them already
@@ -87,7 +87,7 @@ reproduced verbatim (it contains no secrets or redactable host identifiers; the
 #   - rust nightly (pinned) + clippy/rustfmt/rust-analyzer + the rust-toolchain.toml
 #     targets (linux-x64, windows-msvc x64/arm64) and linux-arm64 for zigbuild
 #
-# Rebuild + reimport (see /root/omp-kata-runner.md) after bumping the ARGs below
+# Rebuild + reimport (see /root/oms-kata-runner.md) after bumping the ARGs below
 # or the apt set. Keep the apt set in sync with .github/actions/setup-system-deps.
 FROM ghcr.io/actions/actions-runner:latest
 
@@ -230,30 +230,30 @@ Rust setup steps in CI become no-ops - the warm-start payoff.
 
 ## 3. Build, import, and roll out (`reload.sh`)
 
-`/root/omp-kata-runner-image/reload.sh` does the whole cycle: build, in-image
+`/root/oms-kata-runner-image/reload.sh` does the whole cycle: build, in-image
 smoke test, import into k3s containerd, point ARC at the new tag, and verify the
 rollout. It is idempotent and cache-fast on an unchanged rebuild. Reproduced
 verbatim (no secrets; the `/root` and kubeconfig paths are the real host paths):
 
 ```bash
 #!/usr/bin/env bash
-# Rebuild the preloaded omp-kata runner image, import it into k3s containerd,
+# Rebuild the preloaded oms-kata runner image, import it into k3s containerd,
 # point the ARC runner scale set at it, and roll it out. Idempotent: safe to
 # re-run after editing ./Dockerfile. Docker layer cache makes an unchanged
 # rebuild near-instant.
 #
-#   ./reload.sh              # build tag omp-kata-runner:YYYY-MM-DD-HHMMSS
-#   ./reload.sh 2026-06-20   # build tag omp-kata-runner:2026-06-20
+#   ./reload.sh              # build tag oms-kata-runner:YYYY-MM-DD-HHMMSS
+#   ./reload.sh 2026-06-20   # build tag oms-kata-runner:2026-06-20
 #   ./reload.sh foo:bar      # build an explicit repo:tag
 set -euo pipefail
 export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
 cd "$(dirname "$0")"
 
 arg="${1:-$(date +%Y-%m-%d-%H%M%S)}"
-case "$arg" in *:*) IMAGE="$arg";; *) IMAGE="omp-kata-runner:$arg";; esac
+case "$arg" in *:*) IMAGE="$arg";; *) IMAGE="oms-kata-runner:$arg";; esac
 
 echo "==> [1/5] building $IMAGE"
-DOCKER_BUILDKIT=1 docker build -t "$IMAGE" -t omp-kata-runner:preloaded .
+DOCKER_BUILDKIT=1 docker build -t "$IMAGE" -t oms-kata-runner:preloaded .
 
 echo "==> [2/5] verifying baked tools"
 docker run --rm --entrypoint bash "$IMAGE" -lc '
@@ -268,13 +268,13 @@ echo "==> [3/5] importing into k3s containerd (k8s.io namespace)"
 docker save "$IMAGE" | k3s ctr -n k8s.io images import --platform linux/amd64 -
 
 echo "==> [4/5] pointing ARC runner scale set at $IMAGE"
-sed -i "s#image: omp-kata-runner:.*#image: $IMAGE#" /root/arc-omp-values.yaml
-helm upgrade omp-kata --namespace arc-runners --version 0.14.2 \
-  -f /root/arc-omp-values.yaml \
+sed -i "s#image: oms-kata-runner:.*#image: $IMAGE#" /root/arc-oms-values.yaml
+helm upgrade oms-kata --namespace arc-runners --version 0.14.2 \
+  -f /root/arc-oms-values.yaml \
   oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set >/dev/null
 
 echo "==> [5/5] verifying rollout"
-live="$(kubectl get autoscalingrunnerset omp-kata -n arc-runners -o jsonpath='{.spec.template.spec.containers[0].image}')"
+live="$(kubectl get autoscalingrunnerset oms-kata -n arc-runners -o jsonpath='{.spec.template.spec.containers[0].image}')"
 echo "ARC runner image is now: $live"
 [ "$live" = "$IMAGE" ] && echo "OK: reloaded $IMAGE" || { echo "MISMATCH: expected $IMAGE"; exit 1; }
 ```
@@ -282,7 +282,7 @@ echo "ARC runner image is now: $live"
 Run it with no argument for an auto-dated tag:
 
 ```bash
-cd /root/omp-kata-runner-image
+cd /root/oms-kata-runner-image
 ./reload.sh
 ```
 
@@ -290,12 +290,12 @@ cd /root/omp-kata-runner-image
 
 **Preamble.** `set -euo pipefail` aborts on the first error; `KUBECONFIG` points
 at the k3s admin config; `cd` into the build context. The tag is resolved from
-`$1`: no arg gives a timestamped `omp-kata-runner:YYYY-MM-DD-HHMMSS`; an argument
+`$1`: no arg gives a timestamped `oms-kata-runner:YYYY-MM-DD-HHMMSS`; an argument
 containing a colon (`foo:bar`) is used as an explicit `repo:tag`; anything else
-is treated as a tag suffix on `omp-kata-runner:`.
+is treated as a tag suffix on `oms-kata-runner:`.
 
 **[1/5] build.** `DOCKER_BUILDKIT=1 docker build` tags the result twice: the
-immutable `$IMAGE` (dated) and the moving `omp-kata-runner:preloaded` alias.
+immutable `$IMAGE` (dated) and the moving `oms-kata-runner:preloaded` alias.
 BuildKit + the docker layer cache make an unchanged rebuild near-instant.
 
 **[2/5] verify baked tools.** Runs the freshly built image with a bash entrypoint
@@ -315,7 +315,7 @@ given only the dated `$IMAGE`, so **only the dated tag is imported**; the
 referenced by ARC.
 
 **[4/5] point ARC at the new tag.** `sed -i` rewrites the single
-`image: omp-kata-runner:...` line in `/root/arc-omp-values.yaml` to the new tag,
+`image: oms-kata-runner:...` line in `/root/arc-oms-values.yaml` to the new tag,
 then `helm upgrade` re-renders the runner scale set with the chart pinned to
 `0.14.2`. (That values file is the runner pod template, documented in
 [04-arc-and-caching.md](./04-arc-and-caching.md).)
@@ -356,7 +356,7 @@ secure, and authenticate against, for zero benefit. Instead:
 
 - `docker save | k3s ctr -n k8s.io images import` places the image directly into
   the containerd instance k3s schedules from. containerd normalizes the short
-  reference `omp-kata-runner:<tag>` to `docker.io/library/omp-kata-runner:<tag>`
+  reference `oms-kata-runner:<tag>` to `docker.io/library/oms-kata-runner:<tag>`
   in its store (verified: the imported tags appear under that prefix).
 - The ARC pod template sets `imagePullPolicy: IfNotPresent`. Because the image is
   already present locally, the kubelet **uses the local copy and never attempts a
@@ -374,8 +374,8 @@ next job's microVM starts cold but with warm dependencies from the local store.
 
 | Tag | Mutability | Imported into containerd? | Referenced by ARC? | Purpose |
 | --- | --- | --- | --- | --- |
-| `omp-kata-runner:YYYY-MM-DD-HHMMSS` | immutable | yes | yes | the build of record; what runners actually boot |
-| `omp-kata-runner:preloaded` | moving | no | no | docker-local alias to the most recent build |
+| `oms-kata-runner:YYYY-MM-DD-HHMMSS` | immutable | yes | yes | the build of record; what runners actually boot |
+| `oms-kata-runner:preloaded` | moving | no | no | docker-local alias to the most recent build |
 
 - The default `reload.sh` tag is timestamped (`date +%Y-%m-%d-%H%M%S`). You can
   also pass a date-only tag (`./reload.sh 2026-06-20`) or an explicit `repo:tag`.
@@ -383,8 +383,8 @@ next job's microVM starts cold but with warm dependencies from the local store.
   rollout reproducible and makes rollback trivial: `sed` the image line back to
   the prior dated tag (it is still in the local store) and `helm upgrade`.
 - Live example at time of writing: the scale set references
-  `omp-kata-runner:2026-06-15-002621`, held in containerd as
-  `docker.io/library/omp-kata-runner:2026-06-15-002621`.
+  `oms-kata-runner:2026-06-15-002621`, held in containerd as
+  `docker.io/library/oms-kata-runner:2026-06-15-002621`.
 
 ---
 
@@ -402,7 +402,7 @@ next job's microVM starts cold but with warm dependencies from the local store.
 4. Re-roll:
 
    ```bash
-   cd /root/omp-kata-runner-image
+   cd /root/oms-kata-runner-image
    ./reload.sh
    ```
 
@@ -420,7 +420,7 @@ next job's microVM starts cold but with warm dependencies from the local store.
 standalone:
 
 ```bash
-docker run --rm --entrypoint bash omp-kata-runner:preloaded -lc '
+docker run --rm --entrypoint bash oms-kata-runner:preloaded -lc '
   set -e
   for b in gh fd rg magick bun cargo rustc pkg-config clang lld sccache zig cargo-nextest cargo-zigbuild cargo-xwin; do
     command -v "$b" >/dev/null || { echo "MISSING: $b"; exit 1; }
@@ -434,9 +434,9 @@ Confirm the live ARC reference and that the tag exists in the k3s image store
 
 ```bash
 export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
-kubectl get autoscalingrunnerset omp-kata -n arc-runners \
+kubectl get autoscalingrunnerset oms-kata -n arc-runners \
   -o jsonpath='{.spec.template.spec.containers[0].image}{"\n"}'
-k3s ctr -n k8s.io images ls | grep omp-kata-runner
+k3s ctr -n k8s.io images ls | grep oms-kata-runner
 ```
 
 ### Kata microVM boot check
@@ -450,7 +450,7 @@ throwaway pod with `runtimeClassName: kata-qemu` (the RuntimeClass set up in
 ```bash
 export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
 kubectl run preload-verify -n arc-runners --restart=Never \
-  --image=omp-kata-runner:2026-06-15-002621 \
+  --image=oms-kata-runner:2026-06-15-002621 \
   --overrides='{"spec":{"runtimeClassName":"kata-qemu"}}' \
   --command -- bash -lc 'uname -r; bun --version; rustc --version; magick -version | head -1'
 

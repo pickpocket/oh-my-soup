@@ -1,4 +1,4 @@
-# @oh-my-pi/pi-metaharness
+# @oh-my-soup/pi-metaharness
 
 One manager for repository benchmarks. Harbor, TypeScript edit, and SnapCompact
 runs use the same experiment → run → trace model, SQLite store, REST/SSE API,
@@ -12,15 +12,15 @@ bun run serve --port 4700
 
 ## How Harbor runs execute
 
-1. **Local omp, not npm.** By default the runner bind-mounts the repo
-   read-only into each task container (`--install source`) and runs omp
+1. **Local oms, not npm.** By default the runner bind-mounts the repo
+   read-only into each task container (`--install source`) and runs oms
    straight from `packages/coding-agent/src/cli.ts` — TS edits apply to the
    next trial with no rebuild. A cached linux `node_modules` tree (built once
    per lockfile change inside `oven/bun`, stored in `<jobs-dir>/_bench/_deps/`)
    shadows the host's darwin one, and a linux `bun` binary is mounted at
-   `/opt/omp/bin` — so trial setup needs zero outbound network. Alternatives:
+   `/opt/oms/bin` — so trial setup needs zero outbound network. Alternatives:
    `--install local` (pack a tarball per run) or `--binary` (prebuilt
-   `dist/omp-linux-*` self-contained binaries).
+   `dist/oms-linux-*` self-contained binaries).
 2. **Auth never enters containers.** A generated `models.yml` routes provider
    `baseUrl`s at the host pm2 auth-gateway; the gateway resolves credentials
    host-side.
@@ -82,7 +82,7 @@ stays the source of truth and historical CLI runs are auto-discovered.
 ## Native Terminal-Bench 2.1 runner
 
 `bench:tb` bypasses Harbor and Docker. It boots each task's published OCI
-image as an x86_64 KVM microVM on a Vibemon host, streams omp's `--mode rpc`
+image as an x86_64 KVM microVM on a Vibemon host, streams oms's `--mode rpc`
 protocol through `vmon exec --pipe`, runs the verifier in the same mutated VM,
 and writes resumable epochs plus artifacts under `runs/tb`.
 
@@ -113,7 +113,7 @@ to override it. Repeat `--model provider/id` to replace the pool.
 Defaults target the workstation's `xeon.internal` KVM host and the local
 `/work/vibevmm` checkout. The runner cross-builds and caches a patched `vmon`
 binary when the remote copy lacks raw pipe support, owns a privileged TAP
-broker for its lifetime, and reverse-tunnels the loopback omp auth gateway so
+broker for its lifetime, and reverse-tunnels the loopback oms auth gateway so
 provider credentials never enter task VMs. Trial agents use a lean terminal
 tool allowlist, `edit.mode: replace`, and the same low-cost
 `openrouter/qwen/qwen3.7-flash` vision role; general orchestration tools are
@@ -132,10 +132,10 @@ omitted from the benchmark prompt. Override infrastructure with
 | `-d, --dataset <name>` | `terminal-bench@2.0` | Any Harbor dataset id |
 | `-i/-x, --include/--exclude <glob>` | — | Task filters (repeatable) |
 | `--timeout-multiplier <x>` | — | Scales task agent/verifier timeouts |
-| `--agent-arg <arg>` | — | Extra arg forwarded verbatim to the in-container omp CLI (repeatable) |
-| `--env <KEY[=VALUE]>` | — | Forward env into the omp container (repeatable); `KEY` alone forwards the host value |
-| `--binary <path>` | — | Prebuilt omp binary (repeat for arm64+x64) |
-| `--install <source\|local\|published>` | `source` | `source` = repo bind-mount, `local` = tarball pack, `published` = npm `@oh-my-pi/pi-coding-agent` |
+| `--agent-arg <arg>` | — | Extra arg forwarded verbatim to the in-container oms CLI (repeatable) |
+| `--env <KEY[=VALUE]>` | — | Forward env into the oms container (repeatable); `KEY` alone forwards the host value |
+| `--binary <path>` | — | Prebuilt oms binary (repeat for arm64+x64) |
+| `--install <source\|local\|published>` | `source` | `source` = repo bind-mount, `local` = tarball pack, `published` = npm `@oh-my-soup/pi-coding-agent` |
 | `--environment <docker\|apple-container>` | `docker` | `apple-container` runs trials via Apple's `container` CLI (no Docker); source/deps mounts go through `harbor --mounts` and the gateway is auto-forwarded from `192.168.64.1:4000` to the loopback-bound gateway |
 | `--gateway-url <url>` | `http://host.docker.internal:4000` | `http://192.168.64.1:4000` under `--environment apple-container` |
 | `--no-gateway` | off | Pass host provider keys into containers instead |
@@ -158,7 +158,7 @@ omitted from the benchmark prompt. Override infrastructure with
 notices in place, then a Story Arc and — for failed runs — a failure analysis).
 It map/reduces the normalized trace through two cheap OpenRouter models
 (defaults: `inclusionai/ling-2.6-flash` per turn, `openai/gpt-oss-120b` for the
-arc; ~$0.001 per report). API keys resolve through omp's auth storage.
+arc; ~$0.001 per report). API keys resolve through oms's auth storage.
 
 ```bash
 bun scripts/trace-report.ts <run> <trace> [--focus "reviewer notes"] [--out report.md]

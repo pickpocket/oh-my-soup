@@ -1,5 +1,5 @@
-import { $which } from "@oh-my-pi/pi-utils";
-import { theme } from "@oh-my-pi/pi-tui/theme";
+import { $which } from "@oh-my-soup/pi-utils";
+import { theme } from "@oh-my-soup/pi-tui/theme";
 import type { DoctorCheck } from "./types";
 
 export async function runDoctorChecks(): Promise<DoctorCheck[]> {

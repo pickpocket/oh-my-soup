@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { Editor } from "@oh-my-pi/pi-tui/components/editor";
+import { Editor } from "@oh-my-soup/pi-tui/components/editor";
 import { defaultEditorTheme } from "./test-themes";
 
 const ESC = "\x1b";

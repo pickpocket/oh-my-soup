@@ -1,15 +1,15 @@
 /**
  * Regression: plugin extensions must resolve `pi-*` imports across every scope
  * that has ever been used to publish or alias the internal packages —
- * `@mariozechner` (original), `@earendil-works` (fork), and `@oh-my-pi`
+ * `@mariozechner` (original), `@earendil-works` (fork), and `@oh-my-soup`
  * (canonical). The shim in `legacy-pi-compat.ts` remaps all three to the same
  * in-process bundled copy so that plugins observe a single module registry
  * regardless of which scope name their peerDependencies happened to declare.
  *
  * Reported failures the test covers:
  *   - `@juicesharp/rpiv-ask-user-question` ⇒ `@earendil-works/pi-tui`
- *   - `@plannotator/pi-extension`         ⇒ `@oh-my-pi/pi-agent-core`
- *   - `@runfusion/fusion`                 ⇒ `@oh-my-pi/pi-coding-agent/...`
+ *   - `@plannotator/pi-extension`         ⇒ `@oh-my-soup/pi-agent-core`
+ *   - `@runfusion/fusion`                 ⇒ `@oh-my-soup/pi-coding-agent/...`
  *
  * Plus the two upstream-only surfaces that turned up via real-plugin E2E:
  *   - `Key` runtime helper from `pi-tui` (used by plannotator + rpiv-*).
@@ -18,20 +18,20 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { loadExtensions } from "@oh-my-pi/pi-coding-agent/extensibility/extensions/loader";
-import { TempDir } from "@oh-my-pi/pi-utils";
+import { loadExtensions } from "@oh-my-soup/pi-coding-agent/extensibility/extensions/loader";
+import { TempDir } from "@oh-my-soup/pi-utils";
 
-const canonicalCodingAgent = Bun.resolveSync("@oh-my-pi/pi-coding-agent", import.meta.dir);
+const canonicalCodingAgent = Bun.resolveSync("@oh-my-soup/pi-coding-agent", import.meta.dir);
 const canonicalCodingAgentExtensions = Bun.resolveSync(
-	"@oh-my-pi/pi-coding-agent/extensibility/extensions",
+	"@oh-my-soup/pi-coding-agent/extensibility/extensions",
 	import.meta.dir,
 );
-const canonicalUtils = Bun.resolveSync("@oh-my-pi/pi-utils", import.meta.dir);
-const canonicalTui = Bun.resolveSync("@oh-my-pi/pi-tui", import.meta.dir);
+const canonicalUtils = Bun.resolveSync("@oh-my-soup/pi-utils", import.meta.dir);
+const canonicalTui = Bun.resolveSync("@oh-my-soup/pi-tui", import.meta.dir);
 // Subpath: upstream `pi-ai/oauth` re-exported `utils/oauth/index`; our pi-ai now
-// exposes the same surface at the real `@oh-my-pi/pi-ai/oauth` export, so the
+// exposes the same surface at the real `@oh-my-soup/pi-ai/oauth` export, so the
 // legacy `@mariozechner/pi-ai/oauth` specifier canonicalizes straight to it.
-const canonicalAiOauth = Bun.resolveSync("@oh-my-pi/pi-ai/oauth", import.meta.dir);
+const canonicalAiOauth = Bun.resolveSync("@oh-my-soup/pi-ai/oauth", import.meta.dir);
 
 interface AliasCase {
 	id: string;
@@ -48,12 +48,12 @@ const CASES: readonly AliasCase[] = [
 		canonicalPath: canonicalTui,
 		symbol: "visibleWidth",
 	},
-	// @oh-my-pi self-import — canonical scope must still flow through the shim
+	// @oh-my-soup self-import — canonical scope must still flow through the shim
 	// so a duplicate copy is never dragged in from a plugin's own node_modules.
-	{ id: "ohmypi-utils", aliasSpecifier: "@oh-my-pi/pi-utils", canonicalPath: canonicalUtils, symbol: "logger" },
+	{ id: "ohmypi-utils", aliasSpecifier: "@oh-my-soup/pi-utils", canonicalPath: canonicalUtils, symbol: "logger" },
 	{
 		id: "ohmypi-coding-agent",
-		aliasSpecifier: "@oh-my-pi/pi-coding-agent",
+		aliasSpecifier: "@oh-my-soup/pi-coding-agent",
 		canonicalPath: canonicalCodingAgent,
 		symbol: "isToolCallEventType",
 	},
@@ -64,7 +64,7 @@ const CASES: readonly AliasCase[] = [
 		canonicalPath: canonicalCodingAgentExtensions,
 		symbol: "isToolCallEventType",
 	},
-	// Subpath: legacy `pi-ai/oauth` resolves to the real `@oh-my-pi/pi-ai/oauth`.
+	// Subpath: legacy `pi-ai/oauth` resolves to the real `@oh-my-soup/pi-ai/oauth`.
 	{
 		id: "mariozechner-ai-oauth",
 		aliasSpecifier: "@mariozechner/pi-ai/oauth",

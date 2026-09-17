@@ -1,12 +1,12 @@
 import { rm } from "node:fs/promises";
 import * as path from "node:path";
-import { type ApiKeyResolver, completeSimple, retryTransientCompletion } from "@oh-my-pi/pi-ai";
-import { hostMatchesUrl } from "@oh-my-pi/pi-catalog/hosts";
-import type { Mnemopi } from "@oh-my-pi/pi-mnemopi";
-import type { MnemopiLlmCompleteOptions } from "@oh-my-pi/pi-mnemopi/core/runtime-options";
-import type * as MnemopiDiagnoseNs from "@oh-my-pi/pi-mnemopi/diagnose";
-import type { DiagnosticSummary } from "@oh-my-pi/pi-mnemopi/diagnose";
-import { logger } from "@oh-my-pi/pi-utils";
+import { type ApiKeyResolver, completeSimple, retryTransientCompletion } from "@oh-my-soup/pi-ai";
+import { hostMatchesUrl } from "@oh-my-soup/pi-catalog/hosts";
+import type { Mnemopi } from "@oh-my-soup/pi-mnemopi";
+import type { MnemopiLlmCompleteOptions } from "@oh-my-soup/pi-mnemopi/core/runtime-options";
+import type * as MnemopiDiagnoseNs from "@oh-my-soup/pi-mnemopi/diagnose";
+import type { DiagnosticSummary } from "@oh-my-soup/pi-mnemopi/diagnose";
+import { logger } from "@oh-my-soup/pi-utils";
 import type { ModelRegistry } from "../config/model-registry";
 import { resolveRoleSelection } from "../config/model-resolver";
 import type {
@@ -22,7 +22,7 @@ import memoryExtractionPrompt from "../prompts/system/memory-extraction-system.m
 import type { AgentSession } from "../session/agent-session";
 import { isTinyMemoryLocalModelKey, ONLINE_MEMORY_MODEL_KEY } from "../tiny/models";
 import { tinyModelClient } from "../tiny/title-client";
-import { shortenPath } from "@oh-my-pi/pi-tui/render/render-utils";
+import { shortenPath } from "@oh-my-soup/pi-tui/render/render-utils";
 import {
 	loadMnemopiConfig,
 	type MnemopiBackendConfig,
@@ -47,7 +47,7 @@ let mnemopiDiagnoseMod: typeof MnemopiDiagnoseNs | undefined;
 
 async function loadMnemopiDiagnose(): Promise<typeof MnemopiDiagnoseNs> {
 	if (!mnemopiDiagnoseMod) {
-		mnemopiDiagnoseMod = await import("@oh-my-pi/pi-mnemopi/diagnose");
+		mnemopiDiagnoseMod = await import("@oh-my-soup/pi-mnemopi/diagnose");
 	}
 	return mnemopiDiagnoseMod;
 }

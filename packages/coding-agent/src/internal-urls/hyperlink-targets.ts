@@ -1,8 +1,8 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import * as url from "node:url";
-import { getMarkdownLinkUrls, TERMINAL } from "@oh-my-pi/pi-tui";
-import { fileUriForTerminal } from "@oh-my-pi/pi-tui/render/hyperlink";
+import { getMarkdownLinkUrls, TERMINAL } from "@oh-my-soup/pi-tui";
+import { fileUriForTerminal } from "@oh-my-soup/pi-tui/render/hyperlink";
 import {
 	extractUriScheme,
 	InternalUrlRouter,
@@ -34,7 +34,7 @@ export async function resolveMarkdownLinkTargets(
 			if (
 				!scheme ||
 				scheme === "file" ||
-				(/^(?:agent|artifact|history|local|memory|omp|rule|skill):\/\//i.test(href) && router.canHandle(href))
+				(/^(?:agent|artifact|history|local|memory|oms|rule|skill):\/\//i.test(href) && router.canHandle(href))
 			) {
 				urls.add(href);
 			}
@@ -80,7 +80,7 @@ export async function resolveMarkdownLinkTargets(
  * during the call/streaming phase before a result lands).
  *
  * Async-resolved schemes (`artifact://`, `agent://`, `skill://`, `rule://`,
- * `omp://`) are not handled here — those rely on `details.resolvedPath` set
+ * `oms://`) are not handled here — those rely on `details.resolvedPath` set
  * by the read tool's router resolution.
  */
 export function tryResolveInternalUrlSync(input: string): string | undefined {

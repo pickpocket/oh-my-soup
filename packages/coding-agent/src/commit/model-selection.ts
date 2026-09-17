@@ -1,5 +1,5 @@
-import type { ThinkingLevel } from "@oh-my-pi/pi-agent-core";
-import type { Api, ApiKey, Model } from "@oh-my-pi/pi-ai";
+import type { ThinkingLevel } from "@oh-my-soup/pi-agent-core";
+import type { Api, ApiKey, Model } from "@oh-my-soup/pi-ai";
 import type { ApiKeyResolverRegistry } from "../config/api-key-resolver";
 import {
 	getModelMatchPreferences,
@@ -11,7 +11,7 @@ import {
 import { MODEL_ROLE_IDS } from "../config/model-roles";
 import type { Settings } from "../config/settings";
 import MODEL_PRIO from "../priority.json" with { type: "json" };
-import { concreteThinkingLevel } from "@oh-my-pi/pi-tui/thinking";
+import { concreteThinkingLevel } from "@oh-my-soup/pi-tui/thinking";
 
 export interface ResolvedCommitModel {
 	model: Model<Api>;

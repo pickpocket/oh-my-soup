@@ -1,4 +1,4 @@
-import { type IrcMessage, type IrcDeliveryReceipt } from "@oh-my-pi/pi-tui/tools/hub";
+import { type IrcMessage, type IrcDeliveryReceipt } from "@oh-my-soup/pi-tui/tools/hub";
 /**
  * IrcBus - Process-global mailbox bus for agent-to-agent messaging.
  *
@@ -16,7 +16,7 @@ import { type IrcMessage, type IrcDeliveryReceipt } from "@oh-my-pi/pi-tui/tools
  * generates an ephemeral side-channel auto-reply.
  */
 
-import { logger, Snowflake } from "@oh-my-pi/pi-utils";
+import { logger, Snowflake } from "@oh-my-soup/pi-utils";
 import { AgentLifecycleManager } from "../registry/agent-lifecycle";
 import { AgentRegistry, MAIN_AGENT_ID } from "../registry/agent-registry";
 import type { AgentSession } from "../session/agent-session";

@@ -6,14 +6,14 @@
  * sticky `strictToolsDisabled` / `fastModeDisabled` /
  * `replayUnsignedThinkingDisabled` flags and dropped-thinking-prefix set,
  * OpenAI's strict-tools and reasoning-effort fallbacks, Codex's WebSocket and
- * turn-state sessions. An in-process omp session owns that `Map` for its whole
+ * turn-state sessions. An in-process oms session owns that `Map` for its whole
  * lifetime, so a grammar-too-large 400 or a fast-mode rejection costs one
  * wasted round-trip per session rather than one per turn.
  *
  * The map is deliberately non-serializable — `Set`/`Map` fields, live sockets,
  * a `close()` method — so `pi-native-client` strips it from the wire and
  * `pi-native-server` never accepts it. Gateway clients therefore cannot bring
- * their own, and without a server-side owner every containerized / robomp turn
+ * their own, and without a server-side owner every containerized / roboms turn
  * re-learns every lesson from a fresh upstream rejection.
  *
  * A plain `Map<sessionId, …>` in a long-lived server process is a leak: nothing
@@ -24,7 +24,7 @@
  * state an in-flight stream is still streaming through.
  */
 
-import { logger } from "@oh-my-pi/pi-utils";
+import { logger } from "@oh-my-soup/pi-utils";
 import { resetAccountScopedProviderSessionState } from "../provider-session-state";
 import type { Api, Context, Model, ProviderSessionState } from "../types";
 
@@ -165,7 +165,7 @@ function sessionKeys(request: AuthGatewaySessionStateRequest): string[] {
 	);
 	const keys: string[] = [];
 	for (const message of context.messages) {
-		// Role + content only: omp re-stamps `timestamp` and provider metadata on
+		// Role + content only: oms re-stamps `timestamp` and provider metadata on
 		// every parsed message, so hashing those would break the chain on turn
 		// two of every conversation.
 		hash = Bun.hash(JSON.stringify({ role: message.role, content: message.content }), hash);

@@ -16,9 +16,9 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { MCPManager } from "@oh-my-pi/pi-coding-agent/mcp/manager";
-import type { MCPStdioServerConfig } from "@oh-my-pi/pi-coding-agent/mcp/types";
-import { removeSyncWithRetries } from "@oh-my-pi/pi-utils";
+import { MCPManager } from "@oh-my-soup/pi-coding-agent/mcp/manager";
+import type { MCPStdioServerConfig } from "@oh-my-soup/pi-coding-agent/mcp/types";
+import { removeSyncWithRetries } from "@oh-my-soup/pi-utils";
 
 const FIXTURE_PATH = path.join(import.meta.dir, "fixtures", "crash-after-init-mcp.ts");
 const BUN_EXEC = process.execPath;
@@ -28,7 +28,7 @@ describe("MCP reconnect storm (issue #1592)", () => {
 	let spawnLog: string;
 
 	beforeEach(() => {
-		workDir = fs.mkdtempSync(path.join(os.tmpdir(), "omp-mcp-storm-"));
+		workDir = fs.mkdtempSync(path.join(os.tmpdir(), "oms-mcp-storm-"));
 		spawnLog = path.join(workDir, "spawns.log");
 		fs.writeFileSync(spawnLog, "");
 	});
@@ -48,7 +48,7 @@ describe("MCP reconnect storm (issue #1592)", () => {
 			type: "stdio",
 			command: BUN_EXEC,
 			args: [FIXTURE_PATH],
-			env: { OMP_TEST_SPAWN_LOG: spawnLog },
+			env: { OMS_TEST_SPAWN_LOG: spawnLog },
 		};
 
 		try {

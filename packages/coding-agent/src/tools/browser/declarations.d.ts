@@ -3,11 +3,11 @@ type BrowserWaitUntil = "load" | "domcontentloaded" | "networkidle0" | "networki
 
 /** Browser application or attachment selection. */
 interface BrowserAppOptions {
-	/** Absolute or cwd-relative browser/Electron executable to spawn. Chromium-family browsers launch on an omp-owned profile unless `args` sets `--user-data-dir`. */
+	/** Absolute or cwd-relative browser/Electron executable to spawn. Chromium-family browsers launch on an oms-owned profile unless `args` sets `--user-data-dir`. */
 	path?: string;
 	/** HTTP Chrome DevTools Protocol discovery endpoint to attach to. */
 	cdp_url?: string;
-	/** Drive the user's existing Chrome tabs through the omp Browser Relay. */
+	/** Drive the user's existing Chrome tabs through the oms Browser Relay. */
 	relay?: boolean;
 	/** Extra command-line arguments for a spawned executable. */
 	args?: string[];

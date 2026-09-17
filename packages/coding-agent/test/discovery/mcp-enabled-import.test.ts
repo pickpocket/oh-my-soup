@@ -2,9 +2,9 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { type MCPServer, mcpCapability } from "@oh-my-pi/pi-coding-agent/capability/mcp";
-import { loadCapability } from "@oh-my-pi/pi-coding-agent/discovery";
-import { removeWithRetries } from "@oh-my-pi/pi-utils";
+import { type MCPServer, mcpCapability } from "@oh-my-soup/pi-coding-agent/capability/mcp";
+import { loadCapability } from "@oh-my-soup/pi-coding-agent/discovery";
+import { removeWithRetries } from "@oh-my-soup/pi-utils";
 
 async function loadMcp(cwd: string, provider: string): Promise<MCPServer[]> {
 	const result = await loadCapability<MCPServer>(mcpCapability.id, {
@@ -97,8 +97,8 @@ describe("translated MCP importers propagate enabled: false", () => {
 
 	beforeEach(async () => {
 		originalHome = process.env.HOME;
-		tempCwd = await fs.mkdtemp(path.join(os.tmpdir(), "omp-mcp-enabled-cwd-"));
-		tempHome = await fs.mkdtemp(path.join(os.tmpdir(), "omp-mcp-enabled-home-"));
+		tempCwd = await fs.mkdtemp(path.join(os.tmpdir(), "oms-mcp-enabled-cwd-"));
+		tempHome = await fs.mkdtemp(path.join(os.tmpdir(), "oms-mcp-enabled-home-"));
 		process.env.HOME = tempHome;
 		vi.spyOn(os, "homedir").mockReturnValue(tempHome);
 	});

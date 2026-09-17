@@ -6,13 +6,13 @@
  * their blocks.
  */
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "bun:test";
-import type { AgentMessage } from "@oh-my-pi/pi-agent-core";
-import { KeybindingsManager } from "@oh-my-pi/pi-tui/app-keybindings";
-import { resetSettingsForTest, Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { CopySelectorComponent } from "@oh-my-pi/pi-tui/overlays/copy-selector";
-import { initTheme, theme } from "@oh-my-pi/pi-tui/theme";
-import type { SessionMessageEntry } from "@oh-my-pi/pi-coding-agent/session/session-entries";
-import { setKeybindings, type TUI } from "@oh-my-pi/pi-tui";
+import type { AgentMessage } from "@oh-my-soup/pi-agent-core";
+import { KeybindingsManager } from "@oh-my-soup/pi-tui/app-keybindings";
+import { resetSettingsForTest, Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { CopySelectorComponent } from "@oh-my-soup/pi-tui/overlays/copy-selector";
+import { initTheme, theme } from "@oh-my-soup/pi-tui/theme";
+import type { SessionMessageEntry } from "@oh-my-soup/pi-coding-agent/session/session-entries";
+import { setKeybindings, type TUI } from "@oh-my-soup/pi-tui";
 
 const UP = "\x1b[A";
 const LEFT = "\x1b[D";

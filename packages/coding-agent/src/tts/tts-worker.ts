@@ -1,6 +1,6 @@
 import { createRequire } from "node:module";
 import type { ProgressInfo, RawAudio } from "@huggingface/transformers";
-import { ensureRuntimeInstalled, getTinyModelsCacheDir, resolveRuntimeModule } from "@oh-my-pi/pi-utils";
+import { ensureRuntimeInstalled, getTinyModelsCacheDir, resolveRuntimeModule } from "@oh-my-soup/pi-utils";
 import {
 	errorMessage,
 	errorText,

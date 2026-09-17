@@ -2,13 +2,13 @@ import { afterEach, expect, mock, spyOn, test } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { clearClaudePluginRootsCache } from "@oh-my-pi/pi-coding-agent/discovery/helpers";
+import { clearClaudePluginRootsCache } from "@oh-my-soup/pi-coding-agent/discovery/helpers";
 import {
 	__resetLegacyPiResolutionCache,
 	__rewriteLegacyExtensionSourceForTests,
-} from "@oh-my-pi/pi-coding-agent/extensibility/plugins/legacy-pi-compat";
-import { getEnabledPlugins } from "@oh-my-pi/pi-coding-agent/extensibility/plugins/loader";
-import { removeWithRetries } from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-coding-agent/extensibility/plugins/legacy-pi-compat";
+import { getEnabledPlugins } from "@oh-my-soup/pi-coding-agent/extensibility/plugins/loader";
+import { removeWithRetries } from "@oh-my-soup/pi-utils";
 
 const tempRoots: string[] = [];
 
@@ -26,30 +26,30 @@ async function writeJson(filePath: string, value: unknown): Promise<void> {
 }
 
 test("getEnabledPlugins caches repeated discovery for the same cwd and home until plugin caches clear", async () => {
-	const root = await fs.mkdtemp(path.join(os.tmpdir(), "omp-plugin-cache-"));
+	const root = await fs.mkdtemp(path.join(os.tmpdir(), "oms-plugin-cache-"));
 	tempRoots.push(root);
 	const home = path.join(root, "home");
 	const cwd = path.join(root, "project");
-	const pluginsDir = path.join(home, ".omp", "plugins");
-	const pluginPackageJson = path.join(pluginsDir, "node_modules", "omp-cache-repro", "package.json");
+	const pluginsDir = path.join(home, ".oms", "plugins");
+	const pluginPackageJson = path.join(pluginsDir, "node_modules", "oms-cache-repro", "package.json");
 	await fs.mkdir(path.dirname(pluginPackageJson), { recursive: true });
 	await fs.mkdir(cwd, { recursive: true });
-	await writeJson(path.join(pluginsDir, "package.json"), { dependencies: { "omp-cache-repro": "1.0.0" } });
-	await writeJson(path.join(pluginsDir, "omp-plugins.lock.json"), {
-		plugins: { "omp-cache-repro": { version: "1.0.0", enabled: true, enabledFeatures: null } },
+	await writeJson(path.join(pluginsDir, "package.json"), { dependencies: { "oms-cache-repro": "1.0.0" } });
+	await writeJson(path.join(pluginsDir, "oms-plugins.lock.json"), {
+		plugins: { "oms-cache-repro": { version: "1.0.0", enabled: true, enabledFeatures: null } },
 		settings: {},
 	});
 	await writeJson(pluginPackageJson, {
-		name: "omp-cache-repro",
+		name: "oms-cache-repro",
 		version: "1.0.0",
-		omp: { tools: "tools" },
+		oms: { tools: "tools" },
 	});
 
 	const [firstPlugin] = await getEnabledPlugins(cwd, { home });
 	await writeJson(pluginPackageJson, {
-		name: "omp-cache-repro",
+		name: "oms-cache-repro",
 		version: "2.0.0",
-		omp: { tools: "tools" },
+		oms: { tools: "tools" },
 	});
 	const [cachedPlugin] = await getEnabledPlugins(cwd, { home });
 
@@ -63,7 +63,7 @@ test("getEnabledPlugins caches repeated discovery for the same cwd and home unti
 });
 
 test("legacy bare dependency rewrites cache fallback package resolution until plugin caches clear", async () => {
-	const root = await fs.mkdtemp(path.join(os.tmpdir(), "omp-legacy-cache-"));
+	const root = await fs.mkdtemp(path.join(os.tmpdir(), "oms-legacy-cache-"));
 	tempRoots.push(root);
 	const importer = path.join(root, "extension", "src", "entry.ts");
 	const depRoot = path.join(root, "extension", "node_modules", "left-pad");

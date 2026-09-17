@@ -11,12 +11,12 @@ let store: SecurityStore;
 let plan: SecurityScanPlan;
 
 beforeEach(async () => {
-	temporaryRoot = await fs.mkdtemp(path.join(os.tmpdir(), "omp-security-publication-"));
+	temporaryRoot = await fs.mkdtemp(path.join(os.tmpdir(), "oms-security-publication-"));
 	repositoryRoot = path.join(temporaryRoot, "repo");
 	await fs.mkdir(repositoryRoot);
 	store = await SecurityStore.open(repositoryRoot, { stateRoot: path.join(temporaryRoot, "state") });
 	plan = {
-		documentType: "omp-security.scan-plan",
+		documentType: "oms-security.scan-plan",
 		schemaVersion: "1.0",
 		id: "secplan_fixture",
 		createdAt: "2026-07-29T00:00:00.000Z",

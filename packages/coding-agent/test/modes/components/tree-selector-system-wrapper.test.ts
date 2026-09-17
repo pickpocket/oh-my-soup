@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, it } from "bun:test";
-import { TreeSelectorComponent } from "@oh-my-pi/pi-tui/overlays/tree-selector";
-import * as themeModule from "@oh-my-pi/pi-tui/theme";
-import type { SessionTreeNode } from "@oh-my-pi/pi-coding-agent/session/session-entries";
+import { TreeSelectorComponent } from "@oh-my-soup/pi-tui/overlays/tree-selector";
+import * as themeModule from "@oh-my-soup/pi-tui/theme";
+import type { SessionTreeNode } from "@oh-my-soup/pi-coding-agent/session/session-entries";
 
 function customMessageTree(customType: string, content: string): SessionTreeNode[] {
 	return [

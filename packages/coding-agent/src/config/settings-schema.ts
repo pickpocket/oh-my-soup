@@ -1,8 +1,8 @@
 import { ADVISOR_DEFAULT_BUDGET_PER_UPDATE } from "../advisor/emission-guard";
-import { THINKING_EFFORTS } from "@oh-my-pi/pi-catalog/effort";
-import { DEFAULT_SHARE_URL } from "@oh-my-pi/pi-wire";
-import { TREE_FILTER_MODES } from "@oh-my-pi/pi-tui/overlays/tree-selector";
-import { SHAPE_VARIANT_NAMES } from "@oh-my-pi/snapcompact";
+import { THINKING_EFFORTS } from "@oh-my-soup/pi-catalog/effort";
+import { DEFAULT_SHARE_URL } from "@oh-my-soup/pi-wire";
+import { TREE_FILTER_MODES } from "@oh-my-soup/pi-tui/overlays/tree-selector";
+import { SHAPE_VARIANT_NAMES } from "@oh-my-soup/snapcompact";
 import {
 	type BlobDestinationId,
 	type BlobDestinationMetadata,
@@ -10,7 +10,7 @@ import {
 } from "../blob-broker/destinations";
 import { DEFAULT_RELAY_URL } from "../collab/protocol";
 import { DEFAULT_LIVE_VOICE, LIVE_VOICE_OPTIONS, LIVE_VOICE_VALUES } from "../live/voices";
-import type { AnyUiMetadata, SettingTab, SubmenuOption, UiBase } from "@oh-my-pi/pi-tui/overlays/settings-defs";
+import type { AnyUiMetadata, SettingTab, SubmenuOption, UiBase } from "@oh-my-soup/pi-tui/overlays/settings-defs";
 import {
 	COMPACTION_METHOD_CHOICES,
 	type CompactionMethod,
@@ -18,7 +18,7 @@ import {
 } from "../session/compaction-methods";
 import { DEFAULT_STT_MODEL_KEY, STT_MODEL_OPTIONS, STT_MODEL_VALUES } from "../stt/models";
 import { STT_SUBMIT_TRIGGER_OPTIONS, STT_SUBMIT_TRIGGER_VALUES } from "../stt/submit-trigger";
-import { AUTO_THINKING, getConfiguredThinkingLevelMetadata, getThinkingLevelMetadata } from "@oh-my-pi/pi-tui/thinking";
+import { AUTO_THINKING, getConfiguredThinkingLevelMetadata, getThinkingLevelMetadata } from "@oh-my-soup/pi-tui/thinking";
 import {
 	TINY_MODEL_DEVICE_DEFAULT,
 	TINY_MODEL_DEVICE_SETTING_OPTIONS,
@@ -55,7 +55,7 @@ import {
 	MAX_WEB_SEARCH_TIMEOUT_SECONDS,
 	SEARCH_PROVIDER_CHOICES,
 } from "../web/search/types";
-import { type SearchProviderId } from "@oh-my-pi/pi-tui/tools/web-search";
+import { type SearchProviderId } from "@oh-my-soup/pi-tui/tools/web-search";
 import {
 	SERVICE_TIER_ANTHROPIC_OPTIONS,
 	SERVICE_TIER_ANTHROPIC_VALUES,
@@ -111,7 +111,7 @@ import {
 	type StatusLinePreset,
 	type StatusLineSegmentId,
 	type StatusLineSeparatorStyle,
-} from "@oh-my-pi/pi-tui/status-line/schema";
+} from "@oh-my-soup/pi-tui/status-line/schema";
 export {
 	CONTEXT_LINE_MODE_VALUES,
 	CUSTOM_STATUS_LINE_DEFAULTS,
@@ -120,7 +120,7 @@ export {
 	type StatusLinePreset,
 	type StatusLineSegmentId,
 	type StatusLineSeparatorStyle,
-} from "@oh-my-pi/pi-tui/status-line/schema";
+} from "@oh-my-soup/pi-tui/status-line/schema";
 
 interface UiBoolean extends UiBase {}
 
@@ -289,7 +289,7 @@ export const DEFAULT_BASH_INTERCEPTOR_RULES: BashInterceptorRule[] = [
 			"^\\s*(?:(?:bun|npm|pnpm|yarn)\\s+(?:run\\s+)?(?:dev|start)(?:\\s|$)|(?:vite|next\\s+dev|nuxt\\s+dev|nodemon|lldb|gdb|tail\\s+-f)(?:\\s|$)|docker\\s+compose\\s+up(?!.*(?:\\s-d(?:\\s|$)|--detach))(?:\\s|$))",
 		tool: "hub",
 		message:
-			'Use the `hub` tool (`op:"start"`) for services, watchers, and debuggers so other omp instances can observe and control them.',
+			'Use the `hub` tool (`op:"start"`) for services, watchers, and debuggers so other oms instances can observe and control them.',
 	},
 	{
 		pattern:
@@ -307,9 +307,9 @@ export const SETTINGS_SCHEMA = {
 	// ────────────────────────────────────────────────────────────────────────
 	setupVersion: { type: "number", default: 0 },
 
-	// Auth broker — credentials proxied through a remote `omp auth-broker serve`
+	// Auth broker — credentials proxied through a remote `oms auth-broker serve`
 	// host. Hidden from the UI; populate via env vars or hand-edited config.yml.
-	// Env (`OMP_AUTH_BROKER_URL` / `OMP_AUTH_BROKER_TOKEN`) takes precedence so
+	// Env (`OMS_AUTH_BROKER_URL` / `OMS_AUTH_BROKER_TOKEN`) takes precedence so
 	// per-machine overrides remain trivial.
 	"auth.broker.url": { type: "string", default: undefined },
 	"auth.broker.token": { type: "string", default: undefined, credential: true },
@@ -463,7 +463,7 @@ export const SETTINGS_SCHEMA = {
 			group: "Services",
 			label: "Max In-Flight Requests",
 			description:
-				'Maximum concurrent LLM requests per provider id (for example "openai" or "anthropic"), shared across local OMP processes with this config root. Omitted providers are unlimited.',
+				'Maximum concurrent LLM requests per provider id (for example "openai" or "anthropic"), shared across local OMS processes with this config root. Omitted providers are unlimited.',
 		},
 	},
 
@@ -512,7 +512,7 @@ export const SETTINGS_SCHEMA = {
 				{
 					value: "project",
 					label: "Per-project",
-					description: "Save project role models in .omp/config.yml; missing project roles use global defaults",
+					description: "Save project role models in .oms/config.yml; missing project roles use global defaults",
 				},
 			],
 		},
@@ -2144,7 +2144,7 @@ export const SETTINGS_SCHEMA = {
 			tab: "interaction",
 			group: "Startup & Updates",
 			label: "Check for Updates",
-			description: "Check for omp updates on startup",
+			description: "Check for oms updates on startup",
 		},
 	},
 	"update.channel": {
@@ -2155,7 +2155,7 @@ export const SETTINGS_SCHEMA = {
 			tab: "interaction",
 			group: "Startup & Updates",
 			label: "Update Channel",
-			description: "Update channel used by omp update and the startup update check",
+			description: "Update channel used by oms update and the startup update check",
 			options: [
 				{ value: "stable", label: "Stable" },
 				{ value: "canary", label: "Canary" },
@@ -2381,13 +2381,13 @@ export const SETTINGS_SCHEMA = {
 			group: "Collab",
 			label: "Auto Start",
 			description:
-				"Host every interactive session via collab.relayUrl as it starts and publish it to the local registry (omp collab list); rooms rotate on session switch",
+				"Host every interactive session via collab.relayUrl as it starts and publish it to the local registry (oms collab list); rooms rotate on session switch",
 			options: [
 				{ value: "off", label: "Off", description: "Share only when /collab is run" },
 				{
 					value: "view",
 					label: "View",
-					description: "Auto-host; the registry hands out view-only links (omp collab link --view)",
+					description: "Auto-host; the registry hands out view-only links (oms collab link --view)",
 				},
 				{
 					value: "control",
@@ -3028,7 +3028,7 @@ export const SETTINGS_SCHEMA = {
 	"sharpshooter.injectionTokenLimit": { type: "number", default: 15000 },
 
 	// Auto-Learn (experimental): post-stop nudge to capture lessons to memory
-	// and mint/enhance isolated managed skills under ~/.omp/agent/managed-skills.
+	// and mint/enhance isolated managed skills under ~/.oms/agent/managed-skills.
 	// Master flag is default-off → zero footprint; sub-flags gate behaviour.
 	"autolearn.enabled": {
 		type: "boolean",
@@ -3417,7 +3417,7 @@ export const SETTINGS_SCHEMA = {
 	},
 	"hindsight.retainEveryNTurns": { type: "number", default: 3 },
 	"hindsight.retainOverlapTurns": { type: "number", default: 2 },
-	"hindsight.retainContext": { type: "string", default: "omp" },
+	"hindsight.retainContext": { type: "string", default: "oms" },
 
 	"hindsight.recallBudget": {
 		type: "enum",
@@ -3828,7 +3828,7 @@ export const SETTINGS_SCHEMA = {
 			group: "LSP",
 			label: "Shared Language Servers",
 			description:
-				"Share one language server per project across omp instances via the daemon broker (falls back to private servers when unavailable)",
+				"Share one language server per project across oms instances via the daemon broker (falls back to private servers when unavailable)",
 		},
 	},
 
@@ -4440,7 +4440,7 @@ export const SETTINGS_SCHEMA = {
 			tab: "tools",
 			group: "GitHub",
 			label: "GitHub View Cache",
-			description: "Cache rendered issue/PR view output in ~/.omp/cache/github-cache.db so repeated reads are free",
+			description: "Cache rendered issue/PR view output in ~/.oms/cache/github-cache.db so repeated reads are free",
 		},
 	},
 
@@ -4487,7 +4487,7 @@ export const SETTINGS_SCHEMA = {
 			group: "Available Tools",
 			label: "Security",
 			description:
-				"Enable OMP-native security scan planning, execution, and the read-only security:// resource namespace",
+				"Enable OMS-native security scan planning, execution, and the read-only security:// resource namespace",
 		},
 	},
 
@@ -4533,7 +4533,7 @@ export const SETTINGS_SCHEMA = {
 			group: "Grep & Browser",
 			label: "Browser Relay",
 			description:
-				"Drive your own Chrome tabs through the omp browser relay. Install the extension once (`omp browser-relay install`); the relay server auto-starts when the browser prelude needs it. Takes precedence over Browser CDP URL; set PI_BROWSER_RELAY=0 or PI_BROWSER_RELAY=1 to override.",
+				"Drive your own Chrome tabs through the oms browser relay. Install the extension once (`oms browser-relay install`); the relay server auto-starts when the browser prelude needs it. Takes precedence over Browser CDP URL; set PI_BROWSER_RELAY=0 or PI_BROWSER_RELAY=1 to override.",
 		},
 	},
 
@@ -4544,7 +4544,7 @@ export const SETTINGS_SCHEMA = {
 			tab: "tools",
 			group: "Grep & Browser",
 			label: "Browser Relay URL",
-			description: "omp browser relay endpoint (default http://127.0.0.1:9224).",
+			description: "oms browser relay endpoint (default http://127.0.0.1:9224).",
 		},
 	},
 
@@ -4578,7 +4578,7 @@ export const SETTINGS_SCHEMA = {
 			group: "Grep & Browser",
 			label: "Freeze Browser Tabs On Turn End",
 			description:
-				"Freeze OMP-owned headless browser tabs when a turn settles so animated pages stop burning CPU/GPU while idle. Tabs unfreeze automatically on next use; pass persist:true on open to opt a tab out.",
+				"Freeze OMS-owned headless browser tabs when a turn settles so animated pages stop burning CPU/GPU while idle. Tabs unfreeze automatically on next use; pass persist:true on open to opt a tab out.",
 		},
 	},
 	"browser.idleCloseSec": {
@@ -4589,7 +4589,7 @@ export const SETTINGS_SCHEMA = {
 			group: "Grep & Browser",
 			label: "Browser Idle Close Timeout",
 			description:
-				"Close OMP-owned headless browser tabs idle longer than this many seconds (0 = never; session dispose still reaps). Applies only to OMP-launched headless tabs, never relay/CDP/spawned browsers or other sessions' tabs.",
+				"Close OMS-owned headless browser tabs idle longer than this many seconds (0 = never; session dispose still reaps). Applies only to OMS-launched headless tabs, never relay/CDP/spawned browsers or other sessions' tabs.",
 			options: [
 				{ value: "0", label: "Never" },
 				{ value: "900", label: "15 minutes" },
@@ -4861,7 +4861,7 @@ export const SETTINGS_SCHEMA = {
 			group: "Modes",
 			label: "Autosave Directory",
 			description:
-				"Directory for autosaved plans. Supports ~, absolute, and cwd-relative paths. Empty uses <project>/.omp/plans/.",
+				"Directory for autosaved plans. Supports ~, absolute, and cwd-relative paths. Empty uses <project>/.oms/plans/.",
 			condition: "planAutosaveEnabled",
 		},
 	},
@@ -5033,7 +5033,7 @@ export const SETTINGS_SCHEMA = {
 			group: "Isolation",
 			label: "Worktree Base Directory",
 			description:
-				"Base directory for agent-managed worktrees — task-isolation copies, `github` PR checkouts, and `omp worktree` cleanup all live here. Unset uses ~/.omp/wt. Must be an absolute or ~-relative path; relative paths are ignored. The OMP_WORKTREE_DIR env var overrides this.",
+				"Base directory for agent-managed worktrees — task-isolation copies, `github` PR checkouts, and `oms worktree` cleanup all live here. Unset uses ~/.oms/wt. Must be an absolute or ~-relative path; relative paths are ignored. The OMS_WORKTREE_DIR env var overrides this.",
 		},
 	},
 
@@ -6074,7 +6074,7 @@ export const SETTINGS_SCHEMA = {
 			group: "Extensions",
 			label: "Tool Call Handler Timeout (ms)",
 			description:
-				"Positive finite active-work timeout for extension tool_call handlers; invalid values use 30000ms, and time awaiting OMP-owned dialogs does not count",
+				"Positive finite active-work timeout for extension tool_call handlers; invalid values use 30000ms, and time awaiting OMS-owned dialogs does not count",
 		},
 	},
 
@@ -6238,7 +6238,7 @@ export function getEnumValues(path: SettingPath): readonly string[] | undefined 
 // Derived Types from Schema
 // ═══════════════════════════════════════════════════════════════════════════
 
-export type { TreeFilterMode } from "@oh-my-pi/pi-tui/overlays/tree-selector";
+export type { TreeFilterMode } from "@oh-my-soup/pi-tui/overlays/tree-selector";
 
 /** Personality preset - derived from schema */
 export type Personality = SettingValue<"personality">;

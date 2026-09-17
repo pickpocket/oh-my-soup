@@ -1,7 +1,7 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { gunzipSync } from "node:zlib";
-import { getDocsRsCacheDir, isEnoent, logger, ptree, tryParseJson, USER_AGENT } from "@oh-my-pi/pi-utils";
+import { getDocsRsCacheDir, isEnoent, logger, ptree, tryParseJson, USER_AGENT } from "@oh-my-soup/pi-utils";
 import { ToolAbortError } from "../../tools/tool-errors";
 import type { RenderResult, SpecialHandler } from "./types";
 import { buildResult, MAX_BYTES } from "./types";

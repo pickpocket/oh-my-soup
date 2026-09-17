@@ -67,7 +67,7 @@ function rewriteSegment(text: string, ompCmd: readonly string[]): string | undef
 }
 
 /**
- * Rewrites supported `git worktree add` shell segments through omp so worktree
+ * Rewrites supported `git worktree add` shell segments through oms so worktree
  * creation uses clone-first materialization. Unsupported shell syntax and git
  * flags are deliberately left for git to handle unchanged.
  */

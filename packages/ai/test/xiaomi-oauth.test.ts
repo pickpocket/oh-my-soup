@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "bun:test";
-import { loginXiaomi } from "@oh-my-pi/pi-ai/registry/oauth/xiaomi";
-import type { FetchImpl } from "@oh-my-pi/pi-ai/types";
+import { loginXiaomi } from "@oh-my-soup/pi-ai/registry/oauth/xiaomi";
+import type { FetchImpl } from "@oh-my-soup/pi-ai/types";
 
 describe("xiaomi oauth validation", () => {
 	it("uses a fresh AbortSignal per endpoint so SGP timeout doesn't abort AMS fallback", async () => {

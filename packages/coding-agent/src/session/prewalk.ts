@@ -1,7 +1,7 @@
-import type { Agent, AgentMessage, AgentToolResult, AgentTurnEndContext } from "@oh-my-pi/pi-agent-core";
-import { invalidateMessageCache } from "@oh-my-pi/pi-agent-core/compaction";
-import type { Model, ToolResultMessage } from "@oh-my-pi/pi-ai";
-import { logger, prompt } from "@oh-my-pi/pi-utils";
+import type { Agent, AgentMessage, AgentToolResult, AgentTurnEndContext } from "@oh-my-soup/pi-agent-core";
+import { invalidateMessageCache } from "@oh-my-soup/pi-agent-core/compaction";
+import type { Model, ToolResultMessage } from "@oh-my-soup/pi-ai";
+import { logger, prompt } from "@oh-my-soup/pi-utils";
 import type { Settings } from "../config/settings";
 import type { LocalProtocolOptions } from "../internal-urls";
 import { resolveApprovedPlan } from "../plan-mode/approved-plan";
@@ -12,7 +12,7 @@ import planYoloHandoffPrompt from "../prompts/system/plan-yolo-handoff.md" with 
 import prewalkChecklistPrompt from "../prompts/system/prewalk-checklist.md" with { type: "text" };
 import prewalkContinuePrompt from "../prompts/system/prewalk-continue.md" with { type: "text" };
 import prewalkPlanPrompt from "../prompts/system/prewalk-plan.md" with { type: "text" };
-import { type ConfiguredThinkingLevel, prewalkWouldBeNoop } from "@oh-my-pi/pi-tui/thinking";
+import { type ConfiguredThinkingLevel, prewalkWouldBeNoop } from "@oh-my-soup/pi-tui/thinking";
 import { isMCPToolName } from "../tools/builtin-names";
 import {
 	replaceTabs,
@@ -20,9 +20,9 @@ import {
 	shortenPath,
 	TRUNCATE_LENGTHS,
 	truncateToWidth,
-} from "@oh-my-pi/pi-tui/render/render-utils";
+} from "@oh-my-soup/pi-tui/render/render-utils";
 import type { PlanProposalHandler } from "../tools/resolve";
-import { ToolError } from "@oh-my-pi/pi-tui/tools/tool-errors";
+import { ToolError } from "@oh-my-soup/pi-tui/tools/tool-errors";
 import type { PlanYolo, Prewalk } from "./agent-session-types";
 import { PREWALK_PLAN_MESSAGE_TYPE } from "./messages";
 import type { SessionManager } from "./session-manager";

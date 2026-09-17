@@ -8,8 +8,8 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { processFileArguments } from "@oh-my-pi/pi-coding-agent/cli/file-processor";
-import { $which, removeWithRetries } from "@oh-my-pi/pi-utils";
+import { processFileArguments } from "@oh-my-soup/pi-coding-agent/cli/file-processor";
+import { $which, removeWithRetries } from "@oh-my-soup/pi-utils";
 
 const hasFfmpeg = Boolean($which("ffmpeg") && $which("ffprobe"));
 

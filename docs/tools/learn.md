@@ -53,7 +53,7 @@
 ## Side Effects
 - Filesystem:
   - Local backend writes `<agent-dir>/memories/<encoded-cwd>/learned.md`.
-  - Managed skills write `<agent-dir>/managed-skills/<sanitized-name>/SKILL.md`; the default agent directory is `~/.omp/agent`.
+  - Managed skills write `<agent-dir>/managed-skills/<sanitized-name>/SKILL.md`; the default agent directory is `~/.oms/agent`.
   - Mnemopi writes its scoped SQLite database.
 - Network: Hindsight queue flushes to the configured server later. Mnemopi can schedule configured embedding/fact-extraction provider work after the synchronous row write; local file-backed storage itself is offline.
 - Session state: reads backend state, settings, cwd, and session id. A skill created here is not immediately injected into the active skill list.

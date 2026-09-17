@@ -1,46 +1,46 @@
-import type { AgentMessage } from "@oh-my-pi/pi-agent-core";
-import type { AssistantMessage, ImageContent, Message, Usage } from "@oh-my-pi/pi-ai";
-import { getStreamingPartialJson } from "@oh-my-pi/pi-ai/utils/block-symbols";
-import { type Component, Spacer, Text, TruncatedText } from "@oh-my-pi/pi-tui";
-import { logger } from "@oh-my-pi/pi-utils";
+import type { AgentMessage } from "@oh-my-soup/pi-agent-core";
+import type { AssistantMessage, ImageContent, Message, Usage } from "@oh-my-soup/pi-ai";
+import { getStreamingPartialJson } from "@oh-my-soup/pi-ai/utils/block-symbols";
+import { type Component, Spacer, Text, TruncatedText } from "@oh-my-soup/pi-tui";
+import { logger } from "@oh-my-soup/pi-utils";
 import type { AdvisorMessageDetails } from "../../advisor";
 import { COLLAB_PROMPT_MESSAGE_TYPE, type CollabPromptDetails } from "../../collab/protocol";
 import { settings } from "../../config/settings";
-import { createAdvisorMessageCard } from "@oh-my-pi/pi-tui/chat/advisor-message";
-import { AssistantMessageComponent } from "@oh-my-pi/pi-tui/chat/assistant-message";
-import { createBackgroundTanDispatchBlock } from "@oh-my-pi/pi-tui/chat/background-tan-message";
-import { BashExecutionComponent } from "@oh-my-pi/pi-tui/chat/bash-execution";
-import { detectCacheInvalidation } from "@oh-my-pi/pi-tui/chat/cache-invalidation-marker";
-import { ServedModelTracker } from "@oh-my-pi/pi-tui/chat/served-model-marker";
-import { CollabPromptMessageComponent } from "@oh-my-pi/pi-tui/chat/collab-prompt-message";
+import { createAdvisorMessageCard } from "@oh-my-soup/pi-tui/chat/advisor-message";
+import { AssistantMessageComponent } from "@oh-my-soup/pi-tui/chat/assistant-message";
+import { createBackgroundTanDispatchBlock } from "@oh-my-soup/pi-tui/chat/background-tan-message";
+import { BashExecutionComponent } from "@oh-my-soup/pi-tui/chat/bash-execution";
+import { detectCacheInvalidation } from "@oh-my-soup/pi-tui/chat/cache-invalidation-marker";
+import { ServedModelTracker } from "@oh-my-soup/pi-tui/chat/served-model-marker";
+import { CollabPromptMessageComponent } from "@oh-my-soup/pi-tui/chat/collab-prompt-message";
 import {
 	BranchSummaryMessageComponent,
 	CompactionSummaryMessageComponent,
 	createHandoffSummaryMessageComponent,
-} from "@oh-my-pi/pi-tui/chat/compaction-summary-message";
-import { CustomMessageComponent } from "@oh-my-pi/pi-tui/chat/custom-message";
-import { DynamicBorder } from "@oh-my-pi/pi-tui/chrome/dynamic-border";
-import { EvalExecutionComponent } from "@oh-my-pi/pi-tui/chat/eval-execution";
+} from "@oh-my-soup/pi-tui/chat/compaction-summary-message";
+import { CustomMessageComponent } from "@oh-my-soup/pi-tui/chat/custom-message";
+import { DynamicBorder } from "@oh-my-soup/pi-tui/chrome/dynamic-border";
+import { EvalExecutionComponent } from "@oh-my-soup/pi-tui/chat/eval-execution";
 import {
 	type LateDiagnosticsFile,
 	LateDiagnosticsMessageComponent,
-} from "@oh-my-pi/pi-tui/chat/late-diagnostics-message";
+} from "@oh-my-soup/pi-tui/chat/late-diagnostics-message";
 import {
 	groupedReadUsageCallIds,
 	ReadToolGroupComponent,
 	readArgsCollapseIntoGroup,
-} from "@oh-my-pi/pi-tui/chat/read-tool-group";
-import { SkillMessageComponent } from "@oh-my-pi/pi-tui/chat/skill-message";
-import { StrippedToolCallsPlaceholder } from "@oh-my-pi/pi-tui/chat/stripped-tool-calls-placeholder";
-import { ToolActivityContainer } from "@oh-my-pi/pi-tui/chrome/tool-activity";
-import { ToolExecutionComponent, type ToolExecutionHandle, toolRenderName } from "@oh-my-pi/pi-tui/chat/tool-execution";
-import { TranscriptBlock, TranscriptContainer } from "@oh-my-pi/pi-tui/chrome/transcript-container";
-import { createUsageRowBlock, turnElapsedMs } from "@oh-my-pi/pi-tui/overlays/usage-row";
-import { UserMessageComponent } from "@oh-my-pi/pi-tui/chat/user-message";
+} from "@oh-my-soup/pi-tui/chat/read-tool-group";
+import { SkillMessageComponent } from "@oh-my-soup/pi-tui/chat/skill-message";
+import { StrippedToolCallsPlaceholder } from "@oh-my-soup/pi-tui/chat/stripped-tool-calls-placeholder";
+import { ToolActivityContainer } from "@oh-my-soup/pi-tui/chrome/tool-activity";
+import { ToolExecutionComponent, type ToolExecutionHandle, toolRenderName } from "@oh-my-soup/pi-tui/chat/tool-execution";
+import { TranscriptBlock, TranscriptContainer } from "@oh-my-soup/pi-tui/chrome/transcript-container";
+import { createUsageRowBlock, turnElapsedMs } from "@oh-my-soup/pi-tui/overlays/usage-row";
+import { UserMessageComponent } from "@oh-my-soup/pi-tui/chat/user-message";
 import { decodeStreamedToolArgs, streamingStringKeysForTool } from "../../modes/controllers/tool-args-reveal";
-import { materializeImageReferenceLinksSync } from "@oh-my-pi/pi-tui/prompt/image-references";
-import { videoPreviewSource } from "@oh-my-pi/pi-tui/prompt/video";
-import { theme } from "@oh-my-pi/pi-tui/theme";
+import { materializeImageReferenceLinksSync } from "@oh-my-soup/pi-tui/prompt/image-references";
+import { videoPreviewSource } from "@oh-my-soup/pi-tui/prompt/video";
+import { theme } from "@oh-my-soup/pi-tui/theme";
 import type { CompactionQueuedMessage, InteractiveModeContext, RenderSessionContextOptions } from "../../modes/types";
 import { LAUNCH_COMPLETION_MESSAGE_TYPE } from "../../session/launch-completion";
 import {
@@ -52,13 +52,13 @@ import {
 	type SkillPromptDetails,
 } from "../../session/messages";
 import type { SessionContext, StrippedToolCallsMarker } from "../../session/session-context";
-import { replaceTabs } from "@oh-my-pi/pi-tui/render/render-utils";
+import { replaceTabs } from "@oh-my-soup/pi-tui/render/render-utils";
 import { buildSkillCommandPrompt, invokeSkillCommandFromText, isKnownSkillCommand } from "../skill-command";
 import {
 	createAssistantMessageComponent,
 	getAssistantMessageLinkTargets,
 	refreshAssistantMessageLinkTargets,
-} from "@oh-my-pi/pi-tui/prompt/interactive-context-helpers";
+} from "@oh-my-soup/pi-tui/prompt/interactive-context-helpers";
 import {
 	assistantHasVisibleContent,
 	assistantUsageIsBilled,
@@ -69,7 +69,7 @@ import {
 	normalizeToolArgs,
 	resolveAssistantErrorPresentation,
 	splitAssistantMessageToolTimeline,
-} from "@oh-my-pi/pi-tui/chat/transcript-render-helpers";
+} from "@oh-my-soup/pi-tui/chat/transcript-render-helpers";
 
 type TextBlock = { type: "text"; text: string };
 interface RenderInitialMessagesOptions {
@@ -1070,7 +1070,7 @@ export class UiHelpers {
 		block.addChild(new DynamicBorder(text => theme.fg("warning", text)));
 		const title = "Update Available";
 		const prefix = `New version ${newVersion} is available. Run: `;
-		const command = "omp update";
+		const command = "oms update";
 		block.addChild(
 			new Text(`${title}\n${prefix}${command}`, 1, 0).setStyleFn(
 				() =>

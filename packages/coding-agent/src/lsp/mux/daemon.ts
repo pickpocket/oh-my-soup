@@ -3,8 +3,8 @@
  *
  * `connectSharedLspTransport` ensures the per-project mux daemon is running
  * under the daemon broker (same lifecycle as the shared Chromium: started on
- * first use, stopped when the last omp process in the project exits), dials
- * its socket, performs the `omp/muxConnect` handshake, and returns an
+ * first use, stopped when the last oms process in the project exits), dials
+ * its socket, performs the `oms/muxConnect` handshake, and returns an
  * {@link LspTransport} the ordinary LSP client machinery drives exactly like
  * a locally spawned server. Every failure degrades to `null` so callers fall
  * back to a process-local spawn.
@@ -12,7 +12,7 @@
 import * as net from "node:net";
 import * as os from "node:os";
 import * as path from "node:path";
-import { logger, ptree } from "@oh-my-pi/pi-utils";
+import { logger, ptree } from "@oh-my-soup/pi-utils";
 import { MessageFramer } from "../../jsonrpc/message-framing";
 import { daemonClientForProject } from "../../launch/client";
 import { describeQuietly, stopQuietly, waitReady } from "../../launch/ensure";
@@ -323,8 +323,8 @@ export async function connectSharedLspTransport(opts: {
 export async function smokeTestLspMux(): Promise<void> {
 	const endpoint =
 		process.platform === "win32"
-			? `\\\\.\\pipe\\omp-lsp-mux-smoke-${process.pid.toString(16)}`
-			: path.join(os.tmpdir(), `omp-lsp-mux-smoke-${process.pid.toString(36)}.sock`);
+			? `\\\\.\\pipe\\oms-lsp-mux-smoke-${process.pid.toString(16)}`
+			: path.join(os.tmpdir(), `oms-lsp-mux-smoke-${process.pid.toString(36)}.sock`);
 	const spawn = resolveWorkerSpawnCmd(LSP_MUX_WORKER_ARG);
 	const proc = ptree.spawn(spawn.cmd, {
 		cwd: spawn.cwd,

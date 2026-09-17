@@ -1,21 +1,21 @@
 /**
- * `omp models` — list, search, and refresh available models.
+ * `oms models` — list, search, and refresh available models.
  *
  * Subcommands:
  * - `ls` (default): list every available model grouped by provider.
  * - `find <substring>`: list models whose provider, id, or name contains the substring.
  * - `refresh`: force an online catalog re-fetch (ignoring the model cache TTL),
- *   then list. This is the supported replacement for `rm -rf ~/.omp/models.db`
+ *   then list. This is the supported replacement for `rm -rf ~/.oms/models.db`
  *   when a provider ships a new model that the 24h cache has not picked up yet.
  *
  * `ls`/`find` use the cache when fresh (`online-if-uncached`); only `refresh`
  * forces the network (`online`).
  */
-import type { Api, Effort, Model } from "@oh-my-pi/pi-ai";
-import { sendsImageInputOnWire } from "@oh-my-pi/pi-ai/providers/vision-guard";
-import { getSupportedEfforts } from "@oh-my-pi/pi-catalog/model-thinking";
-import { formatNumber, getProjectDir } from "@oh-my-pi/pi-utils";
-import chalk from "@oh-my-pi/pi-utils/chalk";
+import type { Api, Effort, Model } from "@oh-my-soup/pi-ai";
+import { sendsImageInputOnWire } from "@oh-my-soup/pi-ai/providers/vision-guard";
+import { getSupportedEfforts } from "@oh-my-soup/pi-catalog/model-thinking";
+import { formatNumber, getProjectDir } from "@oh-my-soup/pi-utils";
+import chalk from "@oh-my-soup/pi-utils/chalk";
 import type { ConfigError } from "../config/config-file";
 import { ModelRegistry } from "../config/model-registry";
 import { Settings } from "../config/settings";
@@ -44,7 +44,7 @@ export interface ModelsCommandArgs {
 /**
  * Known action keywords. Any other first token (e.g. `openai-codex`) is treated
  * as a provider/substring filter for the default `ls` view, so every provider
- * name doubles as an `omp models <provider>` shortcut.
+ * name doubles as an `oms models <provider>` shortcut.
  */
 const KNOWN_ACTIONS: Record<string, ModelsAction> = {
 	ls: "ls",
@@ -176,7 +176,7 @@ export interface ModelsListingSource {
 	getError(): ConfigError | undefined;
 }
 
-/** `omp models ls`/`find`: provider-grouped listing (one box table per provider). */
+/** `oms models ls`/`find`: provider-grouped listing (one box table per provider). */
 export function renderProviderModels(
 	source: ModelsListingSource,
 	action: ModelsAction,
@@ -355,7 +355,7 @@ export async function runModelsListing(options: RunModelsListingOptions): Promis
 }
 
 /**
- * Entry point for the standalone `omp models` command: bootstraps auth storage,
+ * Entry point for the standalone `oms models` command: bootstraps auth storage,
  * settings, and the model registry, force/cache-refreshes built-in providers per
  * the chosen action, then delegates to {@link runModelsListing}.
  */
@@ -364,7 +364,7 @@ export async function runModelsCommand(command: ModelsCommandArgs): Promise<void
 	const json = command.flags.json ?? false;
 
 	if (action === "find" && (!pattern || pattern.trim().length === 0)) {
-		process.stderr.write("`omp models find` requires a search substring, e.g. `omp models find minimax`\n");
+		process.stderr.write("`oms models find` requires a search substring, e.g. `oms models find minimax`\n");
 		process.exitCode = 1;
 		return;
 	}

@@ -7,7 +7,7 @@ import {
 	type ActiveRepoContext,
 	resolveActiveRepoContext,
 	resolveActiveRepoContextSync,
-} from "@oh-my-pi/pi-coding-agent/utils/active-repo-context";
+} from "@oh-my-soup/pi-coding-agent/utils/active-repo-context";
 
 const itWithSymlinkPrivilege = process.platform === "win32" ? it.skip : it;
 
@@ -36,7 +36,7 @@ describe("resolveActiveRepoContext", () => {
 	let tempRoot: string;
 
 	beforeEach(() => {
-		tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "omp-active-repo-context-"));
+		tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "oms-active-repo-context-"));
 	});
 
 	afterEach(() => {

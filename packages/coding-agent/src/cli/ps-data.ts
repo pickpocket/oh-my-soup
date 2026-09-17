@@ -1,5 +1,5 @@
 /**
- * Data layer shared by the `omp ps` renderers (plain CLI and interactive TUI):
+ * Data layer shared by the `oms ps` renderers (plain CLI and interactive TUI):
  * broker-scope discovery and daemon snapshot collection.
  *
  * Collection never spawns a broker: live scopes are queried over the broker
@@ -15,11 +15,11 @@ import {
 	getGlobalDaemonRuntimeRoot,
 	getProjectDir,
 	isEnoent,
-} from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-utils";
 import { createDaemonBrokerClient, type DaemonBrokerClient } from "../launch/client";
 import { canonicalProjectDir, daemonRuntimeDir, readDaemonScopeMeta } from "../launch/paths";
 import { readLiveDaemonBrokerPid } from "../launch/presence";
-import type { DaemonSnapshot, DaemonSpec } from "@oh-my-pi/pi-tui/tools/hub";
+import type { DaemonSnapshot, DaemonSpec } from "@oh-my-soup/pi-tui/tools/hub";
 import {
 	formatCommand,
 	TERMINAL_STATES,
@@ -27,7 +27,7 @@ import {
 	type PsDaemonRow,
 	type PsScopeReport,
 	type PsTarget,
-} from "@oh-my-pi/pi-tui/apps/ps-data";
+} from "@oh-my-soup/pi-tui/apps/ps-data";
 import { parseDaemonSnapshot, parseDaemonSpec } from "../launch/protocol";
 
 const PROJECT_SCOPE_KEY = /^[0-9a-f]{16}$/;

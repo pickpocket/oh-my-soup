@@ -37,7 +37,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 
-DB_PATH = Path.home() / ".omp" / "stats.db"
+DB_PATH = Path.home() / ".oms" / "stats.db"
 OUT_DIR = Path(__file__).resolve().parent / "out"
 DEFAULT_SINCE = "2026-05-04"
 

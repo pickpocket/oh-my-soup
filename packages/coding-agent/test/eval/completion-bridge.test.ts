@@ -1,9 +1,9 @@
 import { afterAll, afterEach, describe, expect, it, vi } from "bun:test";
 import * as path from "node:path";
-import type { Api, AssistantMessage, Model } from "@oh-my-pi/pi-ai";
-import * as ai from "@oh-my-pi/pi-ai";
-import { Effort } from "@oh-my-pi/pi-ai";
-import { TempDir } from "@oh-my-pi/pi-utils";
+import type { Api, AssistantMessage, Model } from "@oh-my-soup/pi-ai";
+import * as ai from "@oh-my-soup/pi-ai";
+import { Effort } from "@oh-my-soup/pi-ai";
+import { TempDir } from "@oh-my-soup/pi-utils";
 import { $ } from "bun";
 import type { ModelRegistry } from "../../src/config/model-registry";
 import { Settings } from "../../src/config/settings";
@@ -21,7 +21,7 @@ import { disposeAllVmContexts } from "../../src/eval/js/context-manager";
 import { executeJs } from "../../src/eval/js/executor";
 import { disposeAllKernelSessions, type PythonResult } from "../../src/eval/py/executor";
 import type { ToolSession } from "../../src/tools";
-import { ToolError } from "@oh-my-pi/pi-tui/tools/tool-errors";
+import { ToolError } from "@oh-my-soup/pi-tui/tools/tool-errors";
 
 async function runEvalCompletionAndWait(
 	args: unknown,
@@ -648,7 +648,7 @@ describe("completion() through eval runtimes", () => {
 	});
 
 	it("exposes plain and structured completion() in the JavaScript runtime", async () => {
-		using tempDir = TempDir.createSync("@omp-eval-completion-js-");
+		using tempDir = TempDir.createSync("@oms-eval-completion-js-");
 		const sessionFile = path.join(tempDir.path(), "session.jsonl");
 		const sessionId = `js-completion:${crypto.randomUUID()}`;
 		vi.spyOn(ai, "completeSimple")
@@ -672,7 +672,7 @@ describe("completion() through eval runtimes", () => {
 	});
 
 	it("exposes plain and structured completion() in the Python runtime", async () => {
-		const tempDir = TempDir.createSync("@omp-eval-completion-py-");
+		const tempDir = TempDir.createSync("@oms-eval-completion-py-");
 		try {
 			const result = await runPythonCompletionsInSubprocess(tempDir);
 			expect(result.exitCode).toBe(0);

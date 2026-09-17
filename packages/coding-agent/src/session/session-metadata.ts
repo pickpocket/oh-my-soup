@@ -1,5 +1,5 @@
-import { deriveClaudeDeviceId } from "@oh-my-pi/pi-ai";
-import { getInstallId } from "@oh-my-pi/pi-utils";
+import { deriveClaudeDeviceId } from "@oh-my-soup/pi-ai";
+import { getInstallId } from "@oh-my-soup/pi-utils";
 import type { AuthStorage } from "./auth-storage";
 
 /**
@@ -40,7 +40,7 @@ export function buildSessionMetadata(
 		if (typeof accountUuid === "string" && accountUuid.length > 0) {
 			userId.account_uuid = accountUuid;
 			// Claude Code's `device_id` is a stable 64-hex account-scoped install
-			// identifier. Include both omp's persistent install id and the Claude
+			// identifier. Include both oms's persistent install id and the Claude
 			// account UUID so two accounts on the same install do not share a device.
 			userId.device_id = deriveClaudeDeviceId(getInstallId(), accountUuid);
 		}

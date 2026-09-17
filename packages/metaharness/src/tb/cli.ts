@@ -60,7 +60,7 @@ interface WorkItem {
 	attempt: number;
 }
 
-const HELP = `Terminal-Bench 2.1 runner (local omp, remote Vibemon microVMs)
+const HELP = `Terminal-Bench 2.1 runner (local oms, remote Vibemon microVMs)
 
 Usage: bun src/tb/cli.ts [options]
 
@@ -75,10 +75,10 @@ Options:
       --forever                 Run epochs until interrupted
       --budget <usd>            Stop scheduling in an epoch after this spend
       --jobs-dir <path>         Artifacts directory (default <repo>/runs/tb)
-      --gateway-url <url>       Local omp auth gateway (default http://127.0.0.1:4000)
+      --gateway-url <url>       Local oms auth gateway (default http://127.0.0.1:4000)
       --gateway-token <token>   Gateway token (default no-auth)
       --openrouter-variant <v>  Vendor routing: floor (default), nitro, default, online, exacto
-      --rebuild-agent           Rebuild cached omp binaries
+      --rebuild-agent           Rebuild cached oms binaries
       --vmon-url <url>          vmond gateway URL (default http://xeon.internal:17970)
       --vmon-token <token>      vmond bearer token (default empty)
       --list                    Print resolved task names and exit

@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "bun:test";
 import * as vm from "node:vm";
-import type { Api, AssistantMessage, Model } from "@oh-my-pi/pi-ai";
-import * as ai from "@oh-my-pi/pi-ai";
+import type { Api, AssistantMessage, Model } from "@oh-my-soup/pi-ai";
+import * as ai from "@oh-my-soup/pi-ai";
 import type { ModelRegistry } from "../../src/config/model-registry";
 import { Settings } from "../../src/config/settings";
 import { releaseCompletionHandles } from "../../src/eval/completion-bridge";
@@ -166,7 +166,7 @@ describe("eval js judge() prelude", () => {
 	it("returns a JudgmentHandle whose wait() yields the structured answers", async () => {
 		const calls: Array<{ name: string; args: unknown }> = [];
 		const sandbox: Record<string, unknown> = {
-			__omp_call_tool__: async (name: string, args: unknown) => {
+			__oms_call_tool__: async (name: string, args: unknown) => {
 				calls.push({ name, args });
 				if (name === "__judge__") return { id: "jdg-1" };
 				if (name === "__wait__") {

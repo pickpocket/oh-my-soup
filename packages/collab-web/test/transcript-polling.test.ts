@@ -6,7 +6,7 @@
  * from the same cursor forever.
  */
 import { describe, expect, it, vi } from "bun:test";
-import type { HostFrame, SessionEntry } from "@oh-my-pi/pi-wire";
+import type { HostFrame, SessionEntry } from "@oh-my-soup/pi-wire";
 import { GuestClient } from "../src/lib/client";
 import { encodeBase64Url } from "../src/lib/link";
 import { decideTranscriptPoll } from "../src/lib/transcript-poll";

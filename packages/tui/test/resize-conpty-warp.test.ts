@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { type TerminalFramePlan, type TerminalFrameProvider, TUI, type ViewportSize } from "@oh-my-pi/pi-tui";
+import { type TerminalFramePlan, type TerminalFrameProvider, TUI, type ViewportSize } from "@oh-my-soup/pi-tui";
 import { VirtualTerminal } from "./virtual-terminal";
 
 // Regression coverage for a resize on Warp under Windows ConPTY leaving the
@@ -9,7 +9,7 @@ import { VirtualTerminal } from "./virtual-terminal";
 // The in-place resize path is default-on for Warp: it never borrows the alt
 // buffer, skips the ResizeScrollbackMode replay, and instead anchors one settled
 // repaint on a DSR (CSI 6n) round trip against a parked cursor. Both halves of
-// that contract are false under ConPTY, measured on conhost with omp 18.1.15
+// that contract are false under ConPTY, measured on conhost with oms 18.1.15
 // (`PtySession` at 80x24, cursor parked at row 5 column 20):
 //
 //   - resizing the pseudoconsole makes conhost re-emit its own viewport from

@@ -1,6 +1,6 @@
 import * as fs from "node:fs/promises";
 import * as net from "node:net";
-import { logger, postmortem, withFileLock } from "@oh-my-pi/pi-utils";
+import { logger, postmortem, withFileLock } from "@oh-my-soup/pi-utils";
 import { LineParser, writeJsonLine } from "./jsonl-socket";
 import type { TinyWorkerRequest, TinyWorkerResponse } from "./title-protocol";
 
@@ -53,7 +53,7 @@ export class TinyWorkerServer {
 		}
 		const cancelCleanup = postmortem.register("tiny-worker", () => this.#shutdown());
 		this.#armIdle();
-		process.stdout.write(`omp tiny worker listening on ${endpoint}\n`);
+		process.stdout.write(`oms tiny worker listening on ${endpoint}\n`);
 		try {
 			await this.#stopped.promise;
 		} finally {

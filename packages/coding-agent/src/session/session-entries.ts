@@ -1,4 +1,4 @@
-import type { AgentMessage } from "@oh-my-pi/pi-agent-core";
+import type { AgentMessage } from "@oh-my-soup/pi-agent-core";
 import type {
 	ImageContent,
 	MessageAttribution,
@@ -6,8 +6,8 @@ import type {
 	StopReason,
 	TextContent,
 	Usage,
-} from "@oh-my-pi/pi-ai";
-import type { StructuredSubagentSchemaMode } from "@oh-my-pi/pi-tui/tools/task";
+} from "@oh-my-soup/pi-ai";
+import type { StructuredSubagentSchemaMode } from "@oh-my-soup/pi-tui/tools/task";
 import type { CompactionMethod } from "./compaction-methods";
 
 export const CURRENT_SESSION_VERSION = 3;
@@ -195,7 +195,7 @@ export interface TitleChangeEntry extends SessionEntryBase {
 	trigger?: string;
 }
 
-declare module "@oh-my-pi/pi-agent-core/compaction/entries" {
+declare module "@oh-my-soup/pi-agent-core/compaction/entries" {
 	interface CustomCompactionSessionEntries {
 		titleChange: TitleChangeEntry;
 		credentialPin: CredentialPinEntry;

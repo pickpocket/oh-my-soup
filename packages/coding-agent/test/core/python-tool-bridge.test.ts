@@ -1,15 +1,15 @@
 import { afterAll, describe, expect, it } from "bun:test";
-import type { AgentTool, AgentToolResult } from "@oh-my-pi/pi-agent-core";
-import { PYTHON_PRELUDE } from "@oh-my-pi/pi-coding-agent/eval/py/prelude";
+import type { AgentTool, AgentToolResult } from "@oh-my-soup/pi-agent-core";
+import { PYTHON_PRELUDE } from "@oh-my-soup/pi-coding-agent/eval/py/prelude";
 import {
 	disposePyToolBridge,
 	ensurePyToolBridge,
 	registerPyToolBridge,
-} from "@oh-my-pi/pi-coding-agent/eval/py/tool-bridge";
-import type { EvalShadowCellSession } from "@oh-my-pi/pi-coding-agent/eval/speculation/cell-session";
-import type { ToolSession } from "@oh-my-pi/pi-coding-agent/tools";
-import { $which, isRecord } from "@oh-my-pi/pi-utils";
-import { INTENT_FIELD } from "@oh-my-pi/pi-wire";
+} from "@oh-my-soup/pi-coding-agent/eval/py/tool-bridge";
+import type { EvalShadowCellSession } from "@oh-my-soup/pi-coding-agent/eval/speculation/cell-session";
+import type { ToolSession } from "@oh-my-soup/pi-coding-agent/tools";
+import { $which, isRecord } from "@oh-my-soup/pi-utils";
+import { INTENT_FIELD } from "@oh-my-soup/pi-wire";
 
 interface FakeCall {
 	id: string;
@@ -128,10 +128,10 @@ describe("Python tool bridge HTTP server", () => {
 		try {
 			const prelude = PYTHON_PRELUDE.replace(
 				"from __future__ import annotations",
-				"from __future__ import annotations\n__omp_display = lambda *args, **kwargs: None",
+				"from __future__ import annotations\n__oms_display = lambda *args, **kwargs: None",
 			);
 			const script = `${prelude}
-__omp_run_id__ = "run"
+__oms_run_id__ = "run"
 async def check_intent():
     print(await tool.constrained())
     print(await tool.constrained(i=None))
@@ -326,15 +326,15 @@ asyncio.run(check_intent())
 		try {
 			const prelude = PYTHON_PRELUDE.replace(
 				"from __future__ import annotations",
-				"from __future__ import annotations\n__omp_display = lambda *args, **kwargs: None",
+				"from __future__ import annotations\n__oms_display = lambda *args, **kwargs: None",
 			);
 			// Mirror the runner rewrite shape: `await tool.read({...})` becomes
-			// `await __omp_with_call_site__(siteId, tool.read, {...})`.
+			// `await __oms_with_call_site__(siteId, tool.read, {...})`.
 			const script = `${prelude}
-__omp_run_id__ = "run"
+__oms_run_id__ = "run"
 async def check_identity():
-    print(await __omp_with_call_site__("py:0", tool.read, {"path": "foo.txt"}))
-    print(await __omp_with_call_site__("py:0", tool.read, {"path": "foo.txt"}))
+    print(await __oms_with_call_site__("py:0", tool.read, {"path": "foo.txt"}))
+    print(await __oms_with_call_site__("py:0", tool.read, {"path": "foo.txt"}))
 asyncio.run(check_identity())
 `;
 			const child = Bun.spawn([Bun.env.PYTHON ?? ($which("python3") ? "python3" : "python"), "-"], {

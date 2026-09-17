@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, it } from "bun:test";
-import type { AssistantMessage } from "@oh-my-pi/pi-ai";
-import { AssistantMessageComponent } from "@oh-my-pi/pi-tui/chat/assistant-message";
-import { initTheme } from "@oh-my-pi/pi-tui/theme";
+import type { AssistantMessage } from "@oh-my-soup/pi-ai";
+import { AssistantMessageComponent } from "@oh-my-soup/pi-tui/chat/assistant-message";
+import { initTheme } from "@oh-my-soup/pi-tui/theme";
 
 beforeAll(async () => {
 	await initTheme(false);
@@ -43,7 +43,7 @@ describe("provider error expand", () => {
 				param: "model",
 				type: "invalid_request_error",
 			},
-		})}\nraw-http-request=/home/user/.omp/logs/http-400-requests/1756800000000-abc123.json`;
+		})}\nraw-http-request=/home/user/.oms/logs/http-400-requests/1756800000000-abc123.json`;
 		const component = new AssistantMessageComponent(makeErr(body));
 
 		const rows = Bun.stripANSI(component.render(80).join("\n"))
@@ -53,7 +53,7 @@ describe("provider error expand", () => {
 		for (const row of rows) expect(Bun.stringWidth(row)).toBeLessThanOrEqual(80);
 		const joined = rows.map(row => row.trim()).join("");
 		expect(joined).toContain('"type":"invalid_request_error"}}');
-		expect(joined).toContain("raw-http-request=/home/user/.omp/logs/http-400-requests/1756800000000-abc123.json");
+		expect(joined).toContain("raw-http-request=/home/user/.oms/logs/http-400-requests/1756800000000-abc123.json");
 		expect(joined).not.toContain("more line");
 	});
 

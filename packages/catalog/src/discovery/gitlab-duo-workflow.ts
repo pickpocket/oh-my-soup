@@ -1,6 +1,6 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { type } from "@oh-my-pi/omptype";
+import { type } from "@oh-my-soup/omstype";
 import { seedModels } from "../compat/providers";
 import type { FetchImpl, ModelSpec } from "../types";
 import { discoveryFetch, isRecord } from "../utils";
@@ -15,7 +15,7 @@ const GITLAB_DUO_WORKFLOW_MAX_GROUP_PAGES = 50;
 
 // GitLab Duo Workflow does not expose a context window via the model catalog GraphQL.
 // The Duo Workflow Service streams the real per-agent window in each checkpoint's
-// `agent_context_usage` (claude_opus_4_8 observed at 1_000_000), but OMP's context
+// `agent_context_usage` (claude_opus_4_8 observed at 1_000_000), but OMS's context
 // panel / auto-compaction read `model.contextWindow` from the catalog ModelSpec, which
 // the provider cannot backfill at runtime. Match the model ref to a static window the
 // same way other providers ship static values; DWS' own global fallback is 200_000
@@ -44,7 +44,7 @@ const AI_CHAT_AVAILABLE_MODELS_QUERY = `query lsp_aiChatAvailableModels($rootNam
   }
 }`;
 
-const ProjectRootNamespaceQuery = `query omp_gitlabDuoWorkflowProjectRootNamespace($fullPath: ID!) {
+const ProjectRootNamespaceQuery = `query oms_gitlabDuoWorkflowProjectRootNamespace($fullPath: ID!) {
   project(fullPath: $fullPath) {
     namespace {
       id
@@ -182,7 +182,7 @@ export function buildGitLabDuoWorkflowModelSpec(
 		baseUrl: normalizedBaseUrl,
 		// The Duo Agent Platform path exposes no client-controllable thinking knob
 		// (Anthropic model params are server-fixed; see provider notes), so reasoning
-		// is off — this also hides OMP's thinking-effort selector for these models.
+		// is off — this also hides OMS's thinking-effort selector for these models.
 		reasoning: false,
 		input: ["text"],
 		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },

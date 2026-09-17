@@ -9,15 +9,15 @@ import type {
 	AssistantMessageEventStream,
 	Model,
 	SimpleStreamOptions,
-} from "@oh-my-pi/pi-ai";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
-import type { ModelSpec } from "@oh-my-pi/pi-catalog/types";
-import { writeModelCache } from "@oh-my-pi/pi-catalog/model-cache";
-import { resolveModelCacheProviderId } from "@oh-my-pi/pi-catalog/provider-models";
-import { type BenchSummary, runBenchCommand } from "@oh-my-pi/pi-coding-agent/cli/bench-cli";
-import { type BenchModelRegistry, resolveBenchTargets } from "@oh-my-pi/pi-coding-agent/cli/bench-runtime";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { getModelDbPath, TempDir } from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-ai";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
+import type { ModelSpec } from "@oh-my-soup/pi-catalog/types";
+import { writeModelCache } from "@oh-my-soup/pi-catalog/model-cache";
+import { resolveModelCacheProviderId } from "@oh-my-soup/pi-catalog/provider-models";
+import { type BenchSummary, runBenchCommand } from "@oh-my-soup/pi-coding-agent/cli/bench-cli";
+import { type BenchModelRegistry, resolveBenchTargets } from "@oh-my-soup/pi-coding-agent/cli/bench-runtime";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { getModelDbPath, TempDir } from "@oh-my-soup/pi-utils";
 
 function fakeModel(provider: string, id: string): Model<Api> {
 	return buildModel({
@@ -239,7 +239,7 @@ describe("bench discovery fallback", () => {
 
 describe("default bench runtime", () => {
 	it("hydrates credential-scoped model caches before selector resolution", async () => {
-		const tempDir = TempDir.createSync("@omp-bench-runtime-");
+		const tempDir = TempDir.createSync("@oms-bench-runtime-");
 		const apiKey = "bench-cache-test-key";
 		const modelId = "cached-bench-model";
 		const cacheDbPath = getModelDbPath(tempDir.path());

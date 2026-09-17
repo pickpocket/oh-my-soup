@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "bun:test";
-import * as piNatives from "@oh-my-pi/pi-natives";
+import * as piNatives from "@oh-my-soup/pi-natives";
 import { PdfConverter } from "../src/markit/converters/pdf";
 
 describe("PdfConverter", () => {

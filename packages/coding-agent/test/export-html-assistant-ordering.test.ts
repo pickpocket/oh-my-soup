@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import * as vm from "node:vm";
-import { type Document, Element, parseHTML } from "@oh-my-pi/pi-utils/dom";
-import { Marked } from "@oh-my-pi/pi-utils/marked";
+import { type Document, Element, parseHTML } from "@oh-my-soup/pi-utils/dom";
+import { Marked } from "@oh-my-soup/pi-utils/marked";
 
 const [templateHtml, templateJs] = await Promise.all([
 	Bun.file(new URL("../src/export/html/template.html", import.meta.url)).text(),
@@ -177,7 +177,7 @@ function renderedBlockOrder({ assistant, context }: RenderedSession): string[] {
 			order.push(child.querySelector(".thinking-text")?.textContent?.trim() ?? "");
 		} else if (child.classList.contains("message-images")) {
 			order.push("image");
-		} else if (child.tagName.toLowerCase() === "omp-tool-view") {
+		} else if (child.tagName.toLowerCase() === "oms-tool-view") {
 			order.push(toolName(child, context));
 		} else if (child.classList.contains("error-text")) {
 			order.push(child.textContent?.trim() ?? "");

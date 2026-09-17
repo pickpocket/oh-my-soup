@@ -1,7 +1,7 @@
 /**
  * Tiny-model UI labels for spawned subagents.
  */
-import { logger, prompt } from "@oh-my-pi/pi-utils";
+import { logger, prompt } from "@oh-my-soup/pi-utils";
 import type { ModelRegistry } from "../config/model-registry";
 import type { Settings } from "../config/settings";
 import taskLabelSystemPrompt from "../prompts/system/task-label.md" with { type: "text" };

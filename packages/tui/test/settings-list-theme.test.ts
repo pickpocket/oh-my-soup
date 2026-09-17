@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it } from "bun:test";
-import { getSettingsListTheme, initTheme, theme } from "@oh-my-pi/pi-tui/theme";
+import { getSettingsListTheme, initTheme, theme } from "@oh-my-soup/pi-tui/theme";
 
 beforeAll(async () => {
 	await initTheme();

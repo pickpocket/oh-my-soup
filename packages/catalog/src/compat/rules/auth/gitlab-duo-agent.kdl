@@ -6,7 +6,7 @@ auth "gitlab-duo-agent" {
 		authorize-url "https://gitlab.com/oauth/authorize"
 		scopes "api"
 		pkce #true
-		instructions "Complete GitLab login in your browser. This uses GitLab's official VS Code OAuth application. If the redirect opens VS Code instead of returning to OMP, copy the full vscode://gitlab.gitlab-workflow/authentication?... callback URL from VS Code/browser and paste it back into OMP."
+		instructions "Complete GitLab login in your browser. This uses GitLab's official VS Code OAuth application. If the redirect opens VS Code instead of returning to OMS, copy the full vscode://gitlab.gitlab-workflow/authentication?... callback URL from VS Code/browser and paste it back into OMS."
 		callback port=0 redirect-uri="vscode://gitlab.gitlab-workflow/authentication" manual-only=#true
 		token url="https://gitlab.com/oauth/token" body="form"
 		credential {

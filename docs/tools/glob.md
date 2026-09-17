@@ -58,7 +58,7 @@ The tool returns a single text block plus structured `details`.
    - **Built-in local branch**: the tool stats each target's `searchPath`. Exact-file inputs return immediately. Directory inputs call `natives.glob()` with `hidden`, `maxResults: effectiveLimit`, `sortByMtime: true`, `gitignore: useGitignore`, `recursive: false` (recursion comes from the `**/` prefix `parseFindPattern()` adds), and the combined abort signal; multi-target calls run their globs concurrently.
 9. In the local branch, optional `onMatch` callbacks convert each match to a cwd-relative display path and emit throttled progress updates.
 10. After native glob returns, JS merges per-target results, deduplicates repeated display paths, and sorts the merged list by `mtime` descending before formatting paths.
-11. `buildResult()` applies `applyListLimit()` to cap the array again at `effectiveLimit`, formats paths with `formatGroupedPaths()` (from `@oh-my-pi/pi-utils`), appends notices, then runs `truncateHead()` with `maxLines: Number.MAX_SAFE_INTEGER`. In practice this leaves the 50 KB byte cap in place while disabling the default 3000-line cap.
+11. `buildResult()` applies `applyListLimit()` to cap the array again at `effectiveLimit`, formats paths with `formatGroupedPaths()` (from `@oh-my-soup/pi-utils`), appends notices, then runs `truncateHead()` with `maxLines: Number.MAX_SAFE_INTEGER`. In practice this leaves the 50 KB byte cap in place while disabling the default 3000-line cap.
 12. `toolResult()` packages text plus `details`, and records result-limit / truncation metadata for renderers.
 
 ## Modes / Variants
@@ -75,7 +75,7 @@ The tool returns a single text block plus structured `details`.
   - Stats the resolved base path, and in local multi-path mode stats every candidate base path up front.
   - Does not write files.
 - Subprocesses / native bindings
-  - Built-in local mode calls the native `@oh-my-pi/pi-natives` glob implementation.
+  - Built-in local mode calls the native `@oh-my-soup/pi-natives` glob implementation.
 - Session state (transcript, memory, jobs, checkpoints, registries)
   - Emits structured progress updates when `onUpdate` is provided.
   - Adds truncation / limit metadata to the tool result.

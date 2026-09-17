@@ -1,4 +1,4 @@
-import { prompt } from "@oh-my-pi/pi-utils";
+import { prompt } from "@oh-my-soup/pi-utils";
 import workflowNoticeTemplate from "../prompts/system/workflow-notice.md" with { type: "text" };
 
 /** WORKFLOW_NOTICE is the default hidden notice for sessions with batched task calls enabled. */

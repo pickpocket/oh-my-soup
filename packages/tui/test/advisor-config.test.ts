@@ -68,7 +68,7 @@ describe("advisor config editor warnings and synthetic default row", () => {
 					pendingLoad = Promise.resolve({
 						advisors: [],
 						warnings: [
-							`${path.join(os.homedir(), ".omp", "WATCHDOG.yml")}: advisor "\x1b[31mBad\tName\x1b[0m" dropped — boom`,
+							`${path.join(os.homedir(), ".oms", "WATCHDOG.yml")}: advisor "\x1b[31mBad\tName\x1b[0m" dropped — boom`,
 						],
 					});
 					return pendingLoad;
@@ -91,8 +91,8 @@ describe("advisor config editor warnings and synthetic default row", () => {
 
 		expect(warnings).toHaveLength(1);
 		expect(warnings[0]).toContain('advisor "Bad   Name" dropped');
-		expect(warnings[0]).toContain("~/.omp/WATCHDOG.yml");
-		expect(warnings[0]).not.toContain(path.join(os.homedir(), ".omp", "WATCHDOG.yml"));
+		expect(warnings[0]).toContain("~/.oms/WATCHDOG.yml");
+		expect(warnings[0]).not.toContain(path.join(os.homedir(), ".oms", "WATCHDOG.yml"));
 		// The toast is chat-mounted behind the fullscreen overlay, so the warning
 		// must also render inside the editor itself.
 		const frame = overlay.render(100).join("\n");

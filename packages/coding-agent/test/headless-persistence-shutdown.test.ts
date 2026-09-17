@@ -11,12 +11,12 @@
  */
 import { afterEach, describe, expect, it, spyOn } from "bun:test";
 import * as fs from "node:fs";
-import { parseArgs, type Args } from "@oh-my-pi/pi-coding-agent/cli/args";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { runRootCommand } from "@oh-my-pi/pi-coding-agent/main";
-import type { CreateAgentSessionResult } from "@oh-my-pi/pi-coding-agent/sdk";
-import { AuthStorage } from "@oh-my-pi/pi-coding-agent/session/auth-storage";
-import { TempDir, postmortem } from "@oh-my-pi/pi-utils";
+import { parseArgs, type Args } from "@oh-my-soup/pi-coding-agent/cli/args";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { runRootCommand } from "@oh-my-soup/pi-coding-agent/main";
+import type { CreateAgentSessionResult } from "@oh-my-soup/pi-coding-agent/sdk";
+import { AuthStorage } from "@oh-my-soup/pi-coding-agent/session/auth-storage";
+import { TempDir, postmortem } from "@oh-my-soup/pi-utils";
 import type { AgentSession } from "../src/session/agent-session";
 import { SessionManager } from "../src/session/session-manager";
 
@@ -192,7 +192,7 @@ describe("headless persistence-failure shutdown path", () => {
 		} catch (error) {
 			// `cli.ts` runs `runCli(...).catch(fatal)`, and `fatal()` renders
 			// `Bun.inspect(error)` onto fd 2. Reproduce that here so the stderr
-			// asserted below is the stderr an `omp --print` user would get.
+			// asserted below is the stderr an `oms --print` user would get.
 			escaped = error;
 			process.stderr.write(`${Bun.inspect(error, { colors: false })}\n`);
 		} finally {

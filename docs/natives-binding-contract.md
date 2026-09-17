@@ -1,6 +1,6 @@
 # Natives Binding Contract (JavaScript/TypeScript Side)
 
-This page defines the public JS/TS boundary between `@oh-my-pi/pi-natives` callers and its N-API addon. The authoritative public root surface is `packages/natives/native/index.d.ts` plus the explicit ESM exports in `native/index.js`; Rust internals not present there are not package API.
+This page defines the public JS/TS boundary between `@oh-my-soup/pi-natives` callers and its N-API addon. The authoritative public root surface is `packages/natives/native/index.d.ts` plus the explicit ESM exports in `native/index.js`; Rust internals not present there are not package API.
 
 ## Contract layers
 
@@ -17,9 +17,9 @@ There is no `NativeBindings` declaration-merging lifecycle or `packages/natives/
 
 | Entry                            | Public values                                                                                                                   |
 | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `@oh-my-pi/pi-natives`           | Generated root classes, functions, and enum objects from `native/index.js` / `index.d.ts`. Importing is eager.                  |
-| `@oh-my-pi/pi-natives/desktop`   | `createDesktopSession(options): DesktopSession`; addon load is deferred until invocation.                                       |
-| `@oh-my-pi/pi-natives/clipboard` | `copyToClipboard(text)` and `readImageFromClipboard()` plus the `ClipboardImage` type; addon load is deferred until invocation. |
+| `@oh-my-soup/pi-natives`           | Generated root classes, functions, and enum objects from `native/index.js` / `index.d.ts`. Importing is eager.                  |
+| `@oh-my-soup/pi-natives/desktop`   | `createDesktopSession(options): DesktopSession`; addon load is deferred until invocation.                                       |
+| `@oh-my-soup/pi-natives/clipboard` | `copyToClipboard(text)` and `readImageFromClipboard()` plus the `ClipboardImage` type; addon load is deferred until invocation. |
 
 Do not import unexported `native/*` implementation paths from package consumers.
 

@@ -2,11 +2,11 @@
  * Test grep tool.
  */
 
-import { GrepOutputMode } from "@oh-my-pi/pi-natives";
-import { Args, Command, Flags } from "@oh-my-pi/pi-utils/cli";
+import { GrepOutputMode } from "@oh-my-soup/pi-natives";
+import { Args, Command, Flags } from "@oh-my-soup/pi-utils/cli";
 import { grepHelp as commandHelp } from "../cli/command-help";
 import { type GrepCommandArgs, runGrepCommand } from "../cli/grep-cli";
-import { initTheme } from "@oh-my-pi/pi-tui/theme";
+import { initTheme } from "@oh-my-soup/pi-tui/theme";
 
 export default class Grep extends Command {
 	static description = commandHelp.description;

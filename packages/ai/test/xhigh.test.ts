@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
-import { stream } from "@oh-my-pi/pi-ai/stream";
-import type { Context, Model } from "@oh-my-pi/pi-ai/types";
-import { getBundledModel } from "@oh-my-pi/pi-catalog/models";
+import { stream } from "@oh-my-soup/pi-ai/stream";
+import type { Context, Model } from "@oh-my-soup/pi-ai/types";
+import { getBundledModel } from "@oh-my-soup/pi-catalog/models";
 import { e2eApiKey } from "./oauth";
 
 function makeContext(): Context {

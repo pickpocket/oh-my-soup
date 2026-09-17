@@ -1,5 +1,5 @@
 /**
- * Real package-manager seam for `omp.rename` migrations.
+ * Real package-manager seam for `oms.rename` migrations.
  *
  * The unit tests in test/update-cli.test.ts prove the orchestration order of
  * migrateRenamedInstall with injected steps; these fixtures prove the two
@@ -20,7 +20,7 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { $which, TempDir } from "@oh-my-pi/pi-utils";
+import { $which, TempDir } from "@oh-my-soup/pi-utils";
 import { $ } from "bun";
 import {
 	type InstalledVersionVerification,
@@ -28,10 +28,10 @@ import {
 	type ReleaseInfo,
 	type RenameMigrationSteps,
 } from "../../src/cli/update-cli";
-import { initTheme } from "@oh-my-pi/pi-tui/theme";
+import { initTheme } from "@oh-my-soup/pi-tui/theme";
 
-const OLD_PKG = "omp-rename-fixture-old";
-const NEW_PKG = "omp-rename-fixture-new";
+const OLD_PKG = "oms-rename-fixture-old";
+const NEW_PKG = "oms-rename-fixture-new";
 const OLD_VERSION = "1.0.0";
 const NEW_VERSION = "2.0.0";
 let fixtureDir: TempDir;
@@ -44,7 +44,7 @@ let newDir: string;
 beforeAll(async () => {
 	vi.spyOn(console, "log").mockImplementation(() => {});
 	await initTheme();
-	fixtureDir = await TempDir.create("@omp-rename-itest-");
+	fixtureDir = await TempDir.create("@oms-rename-itest-");
 	({ oldDir, newDir } = await makeFixtures(fixtureDir.path()));
 });
 
@@ -53,13 +53,13 @@ afterAll(async () => {
 	await fixtureDir.remove();
 });
 
-/** Two shared, read-only packages that expose the same `omp` bin. */
+/** Two shared, read-only packages that expose the same `oms` bin. */
 async function makeFixtures(root: string): Promise<{ oldDir: string; newDir: string }> {
 	const mkpkg = async (name: string, version: string): Promise<string> => {
 		const dir = path.join(root, name);
-		await Bun.write(path.join(dir, "package.json"), JSON.stringify({ name, version, bin: { omp: "cli.js" } }));
+		await Bun.write(path.join(dir, "package.json"), JSON.stringify({ name, version, bin: { oms: "cli.js" } }));
 		const cli = path.join(dir, "cli.js");
-		await Bun.write(cli, `#!/usr/bin/env bun\nconsole.log("omp/${version}");\n`);
+		await Bun.write(cli, `#!/usr/bin/env bun\nconsole.log("oms/${version}");\n`);
 		await fs.chmod(cli, 0o755);
 		return dir;
 	};
@@ -68,7 +68,7 @@ async function makeFixtures(root: string): Promise<{ oldDir: string; newDir: str
 
 /** Run the installed launcher and parse its reported version, mirroring verifyBinaryAtPath. */
 async function verifyLauncher(binDir: string, expectedVersion: string): Promise<InstalledVersionVerification> {
-	const launcher = path.join(binDir, "omp");
+	const launcher = path.join(binDir, "oms");
 	const result = await $`${launcher}`.quiet().nothrow();
 	if (result.exitCode !== 0) return { ok: false, path: launcher };
 	const actual = result.text().match(/\/(\d+\.\d+\.\d+)/)?.[1];
@@ -78,7 +78,7 @@ async function verifyLauncher(binDir: string, expectedVersion: string): Promise<
 const RELEASE: ReleaseInfo = {
 	tag: `v${NEW_VERSION}`,
 	version: NEW_VERSION,
-	packages: { pkg: NEW_PKG, natives: "@oh-my-pi/pi-natives" },
+	packages: { pkg: NEW_PKG, natives: "@oh-my-soup/pi-natives" },
 };
 
 describe.skipIf(process.platform === "win32" || !$which("npm"))("rename migration over real npm", () => {

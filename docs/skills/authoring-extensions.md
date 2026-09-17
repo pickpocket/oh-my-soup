@@ -1,16 +1,16 @@
 ---
 name: authoring-extensions
-description: Use when creating a new omp extension. Covers ExtensionAPI, factory signature, tool/command/event registration, and local-dev testing.
+description: Use when creating a new oms extension. Covers ExtensionAPI, factory signature, tool/command/event registration, and local-dev testing.
 ---
 
 # Authoring Extensions
 
-Extensions are the primary way to add capabilities to `oh-my-pi`. A single extension module can register tools the LLM can call, slash commands users can invoke, and event handlers that run throughout the session lifecycle — all from one TypeScript file. Its default factory may initialize synchronously or return a promise.
+Extensions are the primary way to add capabilities to `oh-my-soup`. A single extension module can register tools the LLM can call, slash commands users can invoke, and event handlers that run throughout the session lifecycle — all from one TypeScript file. Its default factory may initialize synchronously or return a promise.
 
 ## Minimum viable extension
 
 ```ts
-import type { ExtensionAPI } from "@oh-my-pi/pi-coding-agent";
+import type { ExtensionAPI } from "@oh-my-soup/pi-coding-agent";
 
 export default function (pi: ExtensionAPI) {
   pi.on("session_start", async (_event, ctx) => {
@@ -19,14 +19,14 @@ export default function (pi: ExtensionAPI) {
 }
 ```
 
-That is a working extension. Drop it into `~/.omp/agent/extensions/hello.ts` and restart omp to see the notification.
+That is a working extension. Drop it into `~/.oms/agent/extensions/hello.ts` and restart oms to see the notification.
 
 ## Full example
 
 The following extension registers a slash command, a tool, and a session-start hook:
 
 ```ts
-import type { ExtensionAPI } from "@oh-my-pi/pi-coding-agent";
+import type { ExtensionAPI } from "@oh-my-soup/pi-coding-agent";
 
 export default function myExtension(pi: ExtensionAPI) {
   const z = pi.zod;
@@ -75,37 +75,37 @@ export default function myExtension(pi: ExtensionAPI) {
 
 ## Discovery paths
 
-omp loads extension modules from these sources:
+oms loads extension modules from these sources:
 
-1. Native `.omp` locations discovered through the capability system:
-   - `<cwd>/.omp/extensions/`
-   - `~/.omp/agent/extensions/`
-   - legacy extension paths listed in `.omp/settings.json#extensions` or `~/.omp/agent/settings.json#extensions`
-2. Enabled installed plugins under `~/.omp/plugins/node_modules` or a project plugin root — including npm, marketplace, and `omp plugin link` installs — via their `omp.extensions`/`pi.extensions` manifests.
-3. Explicit configured paths passed by the CLI (`omp --extension ./my-ext.ts`, also `-e`; `--hook` is treated as an alias) and by the `extensions:` setting in config.
+1. Native `.oms` locations discovered through the capability system:
+   - `<cwd>/.oms/extensions/`
+   - `~/.oms/agent/extensions/`
+   - legacy extension paths listed in `.oms/settings.json#extensions` or `~/.oms/agent/settings.json#extensions`
+2. Enabled installed plugins under `~/.oms/plugins/node_modules` or a project plugin root — including npm, marketplace, and `oms plugin link` installs — via their `oms.extensions`/`pi.extensions` manifests.
+3. Explicit configured paths passed by the CLI (`oms --extension ./my-ext.ts`, also `-e`; `--hook` is treated as an alias) and by the `extensions:` setting in config.
 
 The runtime de-duplicates by resolved absolute path — first seen wins.
 
-The user directory is the active profile's agent directory: the default is `~/.omp/agent`, while `omp --profile <name>` uses `~/.omp/profiles/<name>/agent` (and `PI_CODING_AGENT_DIR` overrides it).
+The user directory is the active profile's agent directory: the default is `~/.oms/agent`, while `oms --profile <name>` uses `~/.oms/profiles/<name>/agent` (and `PI_CODING_AGENT_DIR` overrides it).
 
-When a path points to a directory, omp resolves the entry point in this order:
+When a path points to a directory, oms resolves the entry point in this order:
 
-1. `package.json` with `omp.extensions` (or legacy `pi.extensions`) field
+1. `package.json` with `oms.extensions` (or legacy `pi.extensions`) field
 2. `index.ts`
 3. `index.js`
 
-When scanning an `extensions/` directory, omp also loads direct `*.ts`/`*.js` files and one-level subdirectories that have `index.ts`, `index.js`, or a manifest.
+When scanning an `extensions/` directory, oms also loads direct `*.ts`/`*.js` files and one-level subdirectories that have `index.ts`, `index.js`, or a manifest.
 
-Extension packages can also bundle sibling capability directories. When a package is loaded through `extensions:` or `--extension`/`-e`, the `omp-plugins` provider discovers its `skills/`, `hooks/pre|post/`, `tools/`, `commands/`, `rules/`, `prompts/`, and `.mcp.json`.
+Extension packages can also bundle sibling capability directories. When a package is loaded through `extensions:` or `--extension`/`-e`, the `oms-plugins` provider discovers its `skills/`, `hooks/pre|post/`, `tools/`, `commands/`, `rules/`, `prompts/`, and `.mcp.json`.
 
 ## package.json manifest
 
-To package an extension as an installable plugin, add an `omp` field to `package.json`:
+To package an extension as an installable plugin, add an `oms` field to `package.json`:
 
 ```json
 {
-  "name": "my-omp-extension",
-  "omp": {
+  "name": "my-oms-extension",
+  "oms": {
     "extensions": ["./src/main.ts"]
   }
 }
@@ -125,7 +125,7 @@ Multiple entry points are supported:
 
 ```json
 {
-  "omp": {
+  "oms": {
     "extensions": ["./src/safety.ts", "./src/tools.ts"]
   }
 }
@@ -163,7 +163,7 @@ pi.registerCommand("my-cmd", {
 ## Registering tools
 
 Tools are called by the LLM. Parameter definitions may use the injected
-Zod-compatible omptype builder; `pi.arktype` and the legacy-compatible
+Zod-compatible omstype builder; `pi.arktype` and the legacy-compatible
 `pi.typebox` are also available:
 
 ```ts
@@ -224,7 +224,7 @@ Full event catalog: see [extension authoring guide](../extensions.md).
 |---|---|
 | Tools + commands + events in one module | **Extension** (`ExtensionAPI`) |
 | Pure event interception (policy, redaction) | **Extension** or **Hook** (both work; extension is preferred) |
-| Legacy hook module already exists | **Hook** (`HookAPI` from `@oh-my-pi/pi-coding-agent/extensibility/hooks`) |
+| Legacy hook module already exists | **Hook** (`HookAPI` from `@oh-my-soup/pi-coding-agent/extensibility/hooks`) |
 | Registering a provider, shortcut, or CLI flag | **Extension only** |
 | Shipping as a marketplace plugin | **Extension** (use `package.json` manifest) |
 
@@ -232,10 +232,10 @@ Extensions are a strict superset of hooks. New authoring should use `ExtensionAP
 
 ## Debugging
 
-omp writes structured logs under the active state root's `logs/` directory (by default `~/.omp/logs/`; debug level is always on, and nothing is written to the console because that would corrupt the TUI). Each filename includes the process ID. Tail today's default-profile logs to see extension load diagnostics:
+oms writes structured logs under the active state root's `logs/` directory (by default `~/.oms/logs/`; debug level is always on, and nothing is written to the console because that would corrupt the TUI). Each filename includes the process ID. Tail today's default-profile logs to see extension load diagnostics:
 
 ```
-tail -f ~/.omp/logs/omp.$(date +%F).*.log
+tail -f ~/.oms/logs/oms.$(date +%F).*.log
 ```
 
 Failed extension loads are logged with their path and error. Loaded extensions may also emit their own debug logs via `pi.logger`.
@@ -243,7 +243,7 @@ Failed extension loads are logged with their path and error. Loaded extensions m
 To temporarily disable a specific extension module by name without removing the file:
 
 ```yaml
-# ~/.omp/agent/config.yml
+# ~/.oms/agent/config.yml
 disabledExtensions:
   - extension-module:my-ext
 ```

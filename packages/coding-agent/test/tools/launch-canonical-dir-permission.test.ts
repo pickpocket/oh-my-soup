@@ -23,7 +23,7 @@ describe("canonicalProjectDir permission fallback", () => {
 		["EACCES", -13],
 	] as const) {
 		it(`resolves the normalized absolute path when realpath throws ${code}`, async () => {
-			const projectDir = await fs.mkdtemp(path.join(os.tmpdir(), `omp-${code.toLowerCase()}-fallback-`));
+			const projectDir = await fs.mkdtemp(path.join(os.tmpdir(), `oms-${code.toLowerCase()}-fallback-`));
 			const resolvedProjectDir = path.resolve(projectDir);
 
 			vi.spyOn(fs, "realpath").mockImplementation((async (p: PathLike) => {
@@ -42,8 +42,8 @@ describe("canonicalProjectDir permission fallback", () => {
 	}
 
 	it("still resolves symlinks to their real target when realpath succeeds", async () => {
-		const targetDir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-canonical-target-"));
-		const linkDir = path.join(os.tmpdir(), `omp-canonical-link-${Date.now()}-${process.pid}`);
+		const targetDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-canonical-target-"));
+		const linkDir = path.join(os.tmpdir(), `oms-canonical-link-${Date.now()}-${process.pid}`);
 		await fs.symlink(targetDir, linkDir, "dir");
 
 		try {
@@ -55,7 +55,7 @@ describe("canonicalProjectDir permission fallback", () => {
 	});
 
 	it("rethrows realpath errors that are not missing-path or permission errors", async () => {
-		const projectDir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-eloop-rethrow-"));
+		const projectDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-eloop-rethrow-"));
 		const resolvedProjectDir = path.resolve(projectDir);
 
 		vi.spyOn(fs, "realpath").mockImplementation((async (p: PathLike) => {

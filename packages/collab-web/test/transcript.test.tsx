@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import type { AssistantMessage, SessionEntry } from "@oh-my-pi/pi-wire";
+import type { AssistantMessage, SessionEntry } from "@oh-my-soup/pi-wire";
 import { renderToStaticMarkup } from "react-dom/server";
 import "./transcript-dom-shim";
 import {

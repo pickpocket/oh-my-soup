@@ -1,8 +1,8 @@
-import { truncateToWidth } from "@oh-my-pi/pi-tui";
-import type { StatusLineSegmentId } from "@oh-my-pi/pi-tui/status-line/schema";
-import { ALL_SEGMENT_IDS, renderSegment } from "@oh-my-pi/pi-tui/status-line/segments";
-import type { SegmentContext } from "@oh-my-pi/pi-tui/status-line/types";
-import { theme } from "@oh-my-pi/pi-tui/theme";
+import { truncateToWidth } from "@oh-my-soup/pi-tui";
+import type { StatusLineSegmentId } from "@oh-my-soup/pi-tui/status-line/schema";
+import { ALL_SEGMENT_IDS, renderSegment } from "@oh-my-soup/pi-tui/status-line/segments";
+import type { SegmentContext } from "@oh-my-soup/pi-tui/status-line/types";
+import { theme } from "@oh-my-soup/pi-tui/theme";
 import type { GallerySessionOptions } from "./preview-session";
 import { createGallerySession, GALLERY_CONTEXT_WINDOW } from "./preview-session";
 import type { GalleryPreviewEntry } from "./types";
@@ -28,9 +28,9 @@ export function createGallerySegmentContext(sessionOptions?: GallerySessionOptio
 		hostname: "gallery-host",
 		sessionAccent: false,
 		activeRepo: {
-			cwd: "/workspace/oh-my-pi",
-			repoRoot: "/workspace/oh-my-pi",
-			relativeRepoRoot: "oh-my-pi",
+			cwd: "/workspace/oh-my-soup",
+			repoRoot: "/workspace/oh-my-soup",
+			relativeRepoRoot: "oh-my-soup",
 			source: "single-direct-child-repo",
 		},
 		width: 100,
@@ -159,7 +159,7 @@ function variantsFor(id: StatusLineSegmentId): readonly SegmentVariantSpec[] {
 					label: "linked worktree",
 					context: {
 						options: { path: { stripWorkPrefix: true } },
-						worktree: { projectName: "oh-my-pi", worktreeName: "gallery-reference" },
+						worktree: { projectName: "oh-my-soup", worktreeName: "gallery-reference" },
 						git: { branch: "gallery-reference", status: null, pr: null },
 					},
 				},

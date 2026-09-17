@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { attributeSubagentError } from "@oh-my-pi/pi-coding-agent/task/error-attribution";
+import { attributeSubagentError } from "@oh-my-soup/pi-coding-agent/task/error-attribution";
 
 describe("attributeSubagentError", () => {
 	it("prefixes provider/model so misrouted subagent failures name their transport", () => {

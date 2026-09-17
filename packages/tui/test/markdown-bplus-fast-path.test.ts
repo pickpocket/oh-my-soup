@@ -4,7 +4,7 @@ import {
 	type DefaultTextStyle,
 	fastLineStartHazard,
 	Markdown,
-} from "@oh-my-pi/pi-tui/components/markdown";
+} from "@oh-my-soup/pi-tui/components/markdown";
 import { defaultMarkdownTheme } from "./test-themes.js";
 
 // B+ fast-tail contract: when a transient streaming frame's last content row

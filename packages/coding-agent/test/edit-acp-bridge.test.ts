@@ -2,15 +2,15 @@ import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { hashlineFileHash } from "@oh-my-pi/pi-natives";
-import { resetSettingsForTest, Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { EditTool } from "@oh-my-pi/pi-coding-agent/edit";
-import { type EditToolDetails } from "@oh-my-pi/pi-tui/tools/edit";
-import { resolveLocalUrlToPath } from "@oh-my-pi/pi-coding-agent/internal-urls";
-import type { PlanModeState } from "@oh-my-pi/pi-coding-agent/plan-mode/state";
-import type { ClientBridge } from "@oh-my-pi/pi-coding-agent/session/client-bridge";
-import type { ToolSession } from "@oh-my-pi/pi-coding-agent/tools";
-import { removeWithRetries } from "@oh-my-pi/pi-utils";
+import { hashlineFileHash } from "@oh-my-soup/pi-natives";
+import { resetSettingsForTest, Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { EditTool } from "@oh-my-soup/pi-coding-agent/edit";
+import { type EditToolDetails } from "@oh-my-soup/pi-tui/tools/edit";
+import { resolveLocalUrlToPath } from "@oh-my-soup/pi-coding-agent/internal-urls";
+import type { PlanModeState } from "@oh-my-soup/pi-coding-agent/plan-mode/state";
+import type { ClientBridge } from "@oh-my-soup/pi-coding-agent/session/client-bridge";
+import type { ToolSession } from "@oh-my-soup/pi-coding-agent/tools";
+import { removeWithRetries } from "@oh-my-soup/pi-utils";
 
 interface SessionOptions {
 	bridge?: ClientBridge;
@@ -54,7 +54,7 @@ let tmpDir: string;
 
 beforeEach(async () => {
 	resetSettingsForTest();
-	tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-acp-edit-"));
+	tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-acp-edit-"));
 	await Settings.init({ inMemory: true, cwd: tmpDir });
 });
 

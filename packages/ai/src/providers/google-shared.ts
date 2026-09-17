@@ -3,8 +3,8 @@
  */
 
 import { scheduler } from "node:timers/promises";
-import { calculateCost } from "@oh-my-pi/pi-catalog/models";
-import { readSseJson } from "@oh-my-pi/pi-utils";
+import { calculateCost } from "@oh-my-soup/pi-catalog/models";
+import { readSseJson } from "@oh-my-soup/pi-utils";
 import { renderDemotedThinking } from "../dialect/demotion";
 import { ThinkingFenceStripper } from "../dialect/thinking-fence-strip";
 import * as AIError from "../error";
@@ -92,7 +92,7 @@ export interface GoogleSharedStreamOptions extends StreamOptions {
 	/**
 	 * Caller-owned Google context-cache resource name for GenerateContent.
 	 * Passed through opaquely as the wire `cachedContent` field on
-	 * `google-generative-ai` and `google-vertex` only. OMP does not create,
+	 * `google-generative-ai` and `google-vertex` only. OMS does not create,
 	 * refresh, validate model/project/location compatibility, or delete the
 	 * resource — callers own that lifecycle.
 	 *

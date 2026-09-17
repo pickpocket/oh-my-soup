@@ -51,7 +51,7 @@ export interface SqlSessionStorageOptions {
 	 */
 	adapter?: SqlSessionStorageAdapter;
 	/**
-	 * Table name to use. Default: `omp_session_files`. Must match
+	 * Table name to use. Default: `oms_session_files`. Must match
 	 * `[A-Za-z_][A-Za-z0-9_]{0,62}` — inlined into prepared statements at
 	 * startup, so we accept identifier-safe inputs only (no quoted/dotted
 	 * names).
@@ -109,7 +109,7 @@ interface SliceRow {
 	tail: unknown;
 }
 
-const DEFAULT_TABLE = "omp_session_files";
+const DEFAULT_TABLE = "oms_session_files";
 const IDENT_RE = /^[A-Za-z_][A-Za-z0-9_]{0,62}$/;
 const utf8Decoder = new TextDecoder("utf-8");
 

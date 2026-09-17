@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { $which, TempDir } from "@oh-my-pi/pi-utils";
+import { $which, TempDir } from "@oh-my-soup/pi-utils";
 import { PYTHON_PRELUDE } from "../../../src/eval/py/prelude";
 const pythonPath = Bun.env.PYTHON ?? ($which("python3") ? "python3" : "python");
 
@@ -9,12 +9,12 @@ async function runPrelude(
 ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
 	const prelude = PYTHON_PRELUDE.replace(
 		"from __future__ import annotations",
-		"from __future__ import annotations\n__omp_display = lambda *args, **kwargs: None",
+		"from __future__ import annotations\n__oms_display = lambda *args, **kwargs: None",
 	);
 	const script = `${prelude}\n${code}`;
 	// The full prelude exceeds Windows' ~32k `python -c` command-line limit
 	// (ENAMETOOLONG); a script file behaves identically on every platform.
-	const dir = await TempDir.create("omp-py-prelude-");
+	const dir = await TempDir.create("oms-py-prelude-");
 	try {
 		const scriptPath = dir.join("script.py");
 		await Bun.write(scriptPath, script);
@@ -44,11 +44,11 @@ describe("python prelude", () => {
 				"def word_count(text: Annotated[str, 'Text to split'], sep: Literal[' ', ','] = ' ', limit: Optional[int] = None) -> dict:",
 				'    """Count words in text."""',
 				"    return {'count': len(text.split(sep))}",
-				"first = __omp_tools__['word_count'].describe()",
+				"first = __oms_tools__['word_count'].describe()",
 				"@tool(name='word_count', description='Replacement')",
 				"def replacement(text: str) -> dict:",
 				"    return {'count': 1}",
-				"print(json.dumps({'first': first, 'current': __omp_tools__['word_count'].describe(), 'defined': tool.defined()}, sort_keys=True))",
+				"print(json.dumps({'first': first, 'current': __oms_tools__['word_count'].describe(), 'defined': tool.defined()}, sort_keys=True))",
 				"print(tool.undefine('word_count'), tool.defined())",
 			].join("\n"),
 			{},

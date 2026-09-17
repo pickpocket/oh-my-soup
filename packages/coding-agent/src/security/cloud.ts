@@ -1,5 +1,5 @@
-import { decodeJwt } from "@oh-my-pi/pi-ai/registry/oauth/openai-codex";
-import * as vcs from "@oh-my-pi/pi-natives/vcs";
+import { decodeJwt } from "@oh-my-soup/pi-ai/registry/oauth/openai-codex";
+import * as vcs from "@oh-my-soup/pi-natives/vcs";
 import type { AuthStorage } from "../session/auth-storage";
 import { resolveExactSecurityOAuthAccess } from "./auth";
 import {
@@ -25,7 +25,7 @@ import type { SecurityStore } from "./store";
 /**
  * ChatGPT's Codex Security cloud control plane. This authenticated web-app
  * contract is not a public OpenAI API: keep it isolated here, fail closed on
- * shape changes, and never use it as a fallback for OMP-native inference.
+ * shape changes, and never use it as a fallback for OMS-native inference.
  */
 const DEFAULT_CLOUD_BASE_URL = "https://chatgpt.com/backend-api/aardvark";
 const ALL_FINDING_STATUSES = ["new", "triaged", "in_progress", "fixed", "wontfix", "duplicate", "false_positive"];
@@ -630,7 +630,7 @@ export async function pullCodexSecurityCloudResults(
 	const revision = stats.lastScannedCommit;
 	const bundle: SecurityScanBundle = {
 		scan: {
-			documentType: "omp-security.scan",
+			documentType: "oms-security.scan",
 			schemaVersion: "1.0",
 			id: scanId,
 			projectKey: input.store.projectKey,

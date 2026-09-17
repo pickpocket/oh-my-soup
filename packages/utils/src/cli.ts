@@ -463,7 +463,7 @@ export async function run(opts: RunOptions): Promise<void> {
 	}
 
 	// Per-command help: load only the requested command. Loading the full
-	// command table here would make `omp <cmd> --help` hang or crash whenever
+	// command table here would make `oms <cmd> --help` hang or crash whenever
 	// any *unrelated* command module misbehaves at import time.
 	if (commandArgv.includes("--help") || commandArgv.includes("-h")) {
 		const entry = findEntry(opts.commands, commandId);

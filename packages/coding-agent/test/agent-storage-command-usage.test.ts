@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "bun:test";
 import * as path from "node:path";
-import { AgentStorage } from "@oh-my-pi/pi-coding-agent/session/agent-storage";
-import { TempDir } from "@oh-my-pi/pi-utils";
+import { AgentStorage } from "@oh-my-soup/pi-coding-agent/session/agent-storage";
+import { TempDir } from "@oh-my-soup/pi-utils";
 
 describe("AgentStorage command usage", () => {
 	let tempDir: TempDir | undefined;
@@ -17,7 +17,7 @@ describe("AgentStorage command usage", () => {
 	});
 
 	it("accumulates per-command counts and survives a reopen", async () => {
-		tempDir = TempDir.createSync("@omp-agent-storage-cmd-");
+		tempDir = TempDir.createSync("@oms-agent-storage-cmd-");
 		const dbPath = path.join(tempDir.path(), "agent.db");
 		const storage = await AgentStorage.open(dbPath);
 

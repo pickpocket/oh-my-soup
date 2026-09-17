@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it } from "bun:test";
-import { getThemeByName, highlightCode, setThemeInstance } from "@oh-my-pi/pi-tui/theme";
+import { getThemeByName, highlightCode, setThemeInstance } from "@oh-my-soup/pi-tui/theme";
 
 const unifiedDiffChunks = [
 	[

@@ -1,12 +1,12 @@
 import { describe, expect, test, vi } from "bun:test";
-import { AuthStorage } from "@oh-my-pi/pi-ai";
-import { getBundledModel } from "@oh-my-pi/pi-catalog/models";
-import { ModelRegistry } from "@oh-my-pi/pi-coding-agent/config/model-registry";
+import { AuthStorage } from "@oh-my-soup/pi-ai";
+import { getBundledModel } from "@oh-my-soup/pi-catalog/models";
+import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
 import { Settings } from "../../src/config/settings";
 import { createAgentSession } from "../../src/sdk";
 import { SessionManager } from "../../src/session/session-manager";
 import { createTools, type ToolSession } from "../../src/tools";
-import { TempDir } from "@oh-my-pi/pi-utils";
+import { TempDir } from "@oh-my-soup/pi-utils";
 
 function createSession(enabled: boolean, restricted = false): ToolSession {
 	const settings = Settings.isolated();
@@ -55,7 +55,7 @@ describe("experimental context tool registration", () => {
 		expect(tools.map(tool => tool.name)).not.toContain("new_context");
 	});
 	test("SDK preserves the recovery-capable notes pair in an explicit runtime tool set", async () => {
-		using tempDir = TempDir.createSync("@omp-context-tools-sdk-");
+		using tempDir = TempDir.createSync("@oms-context-tools-sdk-");
 		const authStorage = await AuthStorage.create(tempDir.join("auth.db"));
 		const fetchSpy = vi
 			.spyOn(globalThis, "fetch")

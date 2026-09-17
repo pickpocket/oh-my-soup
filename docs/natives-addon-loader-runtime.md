@@ -17,9 +17,9 @@ A successful call is not memoized by JS. Repeated calls rely on the runtime's `r
 - `platformTag`: `${platform}-${process.arch}`;
 - package version and sentinel name `__piNativesV<version_with_underscores>`;
 - package-local `nativeDir` and the directory of `process.execPath`;
-- `nativesDir`, normally `~/.omp/natives`; it uses `$XDG_DATA_HOME/omp/natives` only when `$XDG_DATA_HOME/omp` exists;
+- `nativesDir`, normally `~/.oms/natives`; it uses `$XDG_DATA_HOME/oms/natives` only when `$XDG_DATA_HOME/oms` exists;
 - `versionedDir`: `<nativesDir>/<packageVersion>`;
-- legacy compiled-binary directory: `%LOCALAPPDATA%/omp` (or `~/AppData/Local/omp`) on Windows, `~/.local/bin` elsewhere;
+- legacy compiled-binary directory: `%LOCALAPPDATA%/oms` (or `~/AppData/Local/oms`) on Windows, `~/.local/bin` elsewhere;
 - workspace/install/compiled mode, optional leaf directory, Windows staging policy, CPU variant, filenames, and ordered candidates.
 
 Compiled mode is true when a populated embedded manifest exists, `PI_COMPILED` is set, or `import.meta.url` contains a Bun embedded marker (`$bunfs`, `~BUN`, or `%7EBUN`). A non-compiled `nativeDir` outside a `node_modules` path is a workspace load. Windows path classification is case-insensitive; other platforms use case-sensitive path matching.
@@ -59,7 +59,7 @@ Detection uses `Bun.spawnSync` when available, then falls back to `node:child_pr
 
 ### Installed, non-compiled package
 
-1. Every selected filename in `@oh-my-pi/pi-natives-<tag>`.
+1. Every selected filename in `@oh-my-soup/pi-natives-<tag>`.
 2. For each filename, package-local `nativeDir`, then the executable directory.
 
 The platform leaf wins over a stale core artifact. Workspace loads deliberately skip leaf resolution.

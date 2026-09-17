@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { currentLoopPhase, popLoopPhase, pushLoopPhase, takeRecentLoopPhase } from "@oh-my-pi/pi-utils";
+import { currentLoopPhase, popLoopPhase, pushLoopPhase, takeRecentLoopPhase } from "@oh-my-soup/pi-utils";
 
 /**
  * Contract: the loop-phase breadcrumb is a LIFO string stack. `currentLoopPhase()`

@@ -1,6 +1,6 @@
 /**
  * Regression tests for issue #10022: the project-shared broker-owned Chromium
- * (`omp.browser.headless`) retains page targets created by omp processes that
+ * (`oms.browser.headless`) retains page targets created by oms processes that
  * ended abnormally, because tab ownership was tracked only in per-process
  * memory. `orphan-registry` records ownership durably and reaps targets whose
  * owning process is gone.
@@ -15,7 +15,7 @@
 import { afterEach, describe, expect, it } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { daemonRuntimeDir } from "@oh-my-pi/pi-coding-agent/launch/paths";
+import { daemonRuntimeDir } from "@oh-my-soup/pi-coding-agent/launch/paths";
 import {
 	collectOrphanTargets,
 	forgetSharedTarget,
@@ -23,14 +23,14 @@ import {
 	recordSharedTarget,
 	resetOrphanRegistryForTest,
 	type SharedTargetScope,
-} from "@oh-my-pi/pi-coding-agent/tools/browser/orphan-registry";
+} from "@oh-my-soup/pi-coding-agent/tools/browser/orphan-registry";
 import type { Browser } from "puppeteer-core";
 
-const DAEMON_NAME = "omp.browser.headless";
+const DAEMON_NAME = "oms.browser.headless";
 
 /** Unique per-test scope so registry dirs never collide across the suite. */
 function makeScope(): SharedTargetScope {
-	const projectDir = path.join("/tmp", `omp-orphan-test-${crypto.randomUUID()}`);
+	const projectDir = path.join("/tmp", `oms-orphan-test-${crypto.randomUUID()}`);
 	return { projectDir, daemonName: DAEMON_NAME };
 }
 

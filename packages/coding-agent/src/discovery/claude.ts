@@ -5,7 +5,7 @@
  * Priority: 80 (tool-specific, below builtin but above shared standards)
  */
 import * as path from "node:path";
-import { hasFsCode, tryParseJson } from "@oh-my-pi/pi-utils";
+import { hasFsCode, tryParseJson } from "@oh-my-soup/pi-utils";
 import { registerProvider } from "../capability";
 import { isUserSourceEnabled } from "../capability";
 import type { ContextFile } from "../capability/context-file";

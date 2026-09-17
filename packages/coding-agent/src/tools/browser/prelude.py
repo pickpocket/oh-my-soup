@@ -17,7 +17,7 @@ def _make_browser():
                 flags += "m"
             if value.flags & re.DOTALL:
                 flags += "s"
-            return {"__omp_re": {"source": value.pattern, "flags": flags}}
+            return {"__oms_re": {"source": value.pattern, "flags": flags}}
         return value
 
     def _arguments(args, kwargs):
@@ -35,7 +35,7 @@ def _make_browser():
         return values
 
     async def _invoke(action, options):
-        response = await _omp_prelude(
+        response = await _oms_prelude(
             "browser",
             {
                 **{

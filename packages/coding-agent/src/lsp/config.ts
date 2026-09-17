@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { $which, isRecord, logger, pathIsWithin, type WhichOptions } from "@oh-my-pi/pi-utils";
+import { $which, isRecord, logger, pathIsWithin, type WhichOptions } from "@oh-my-soup/pi-utils";
 import { YAML } from "bun";
 import { getConfigDirPaths } from "../config";
 import { type ClaudePluginRoot, getPreloadedPluginRoots } from "../discovery/helpers";
@@ -424,7 +424,7 @@ function getConfigSources(cwd: string): ConfigSource[] {
 		sources.push(fileConfigSource(path.join(cwd, filename)));
 	}
 
-	// Project config directories (.omp/, .pi/, .claude/)
+	// Project config directories (.oms/, .pi/, .claude/)
 	const projectDirs = getConfigDirPaths("", { user: false, project: true, cwd });
 	for (const dir of projectDirs) {
 		for (const filename of filenames) {
@@ -432,7 +432,7 @@ function getConfigSources(cwd: string): ConfigSource[] {
 		}
 	}
 
-	// User config directories (~/.omp/agent/, ~/.pi/agent/, ~/.claude/)
+	// User config directories (~/.oms/agent/, ~/.pi/agent/, ~/.claude/)
 	const userDirs = getConfigDirPaths("", { user: true, project: false });
 	for (const dir of userDirs) {
 		for (const filename of filenames) {
@@ -462,8 +462,8 @@ function getConfigSources(cwd: string): ConfigSource[] {
  *
  * Priority (highest to lowest):
  * 1. Project root: lsp.json/.lsp.json/lsp.yml/.lsp.yml/lsp.yaml/.lsp.yaml
- * 2. Project config dirs: .omp/lsp.*, .pi/lsp.*, .claude/lsp.* (+ hidden variants)
- * 3. User config dirs: ~/.omp/agent/lsp.*, ~/.pi/agent/lsp.*, ~/.claude/lsp.* (+ hidden variants)
+ * 2. Project config dirs: .oms/lsp.*, .pi/lsp.*, .claude/lsp.* (+ hidden variants)
+ * 3. User config dirs: ~/.oms/agent/lsp.*, ~/.pi/agent/lsp.*, ~/.claude/lsp.* (+ hidden variants)
  * 4. User home root: ~/lsp.*, ~/.lsp.*
  * 5. Auto-detect from project markers + available binaries
  *

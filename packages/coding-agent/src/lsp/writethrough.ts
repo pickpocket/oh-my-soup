@@ -1,5 +1,5 @@
 import * as fs from "node:fs";
-import { isEnoent, logger, once, untilAborted } from "@oh-my-pi/pi-utils";
+import { isEnoent, logger, once, untilAborted } from "@oh-my-soup/pi-utils";
 import type { BunFile } from "bun";
 import { isPermissionDeniedError, writeFileWithFallback } from "../tools/file-write-fallback";
 import { beginPendingDiskWrite, endPendingDiskWrite, FileChangeType, notifyWorkspaceWatchedFiles } from "./client";
@@ -14,7 +14,7 @@ import {
 	limitDiagnosticMessages,
 	type ServerVersionMap,
 } from "./diagnostics";
-import { type FileDiagnosticsResult, FileFormatResult } from "@oh-my-pi/pi-tui/tools/lsp";
+import { type FileDiagnosticsResult, FileFormatResult } from "@oh-my-soup/pi-tui/tools/lsp";
 import { notifyFileSaved, splitServers, syncFileContent } from "./servers";
 import type { ServerConfig } from "./types";
 import { summarizeDiagnosticMessages } from "./utils";

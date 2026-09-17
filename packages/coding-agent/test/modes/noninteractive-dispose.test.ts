@@ -9,8 +9,8 @@
  */
 import * as path from "node:path";
 import { describe, expect, it, spyOn } from "bun:test";
-import type { AssistantMessage } from "@oh-my-pi/pi-ai";
-import { postmortem, TempDir } from "@oh-my-pi/pi-utils";
+import type { AssistantMessage } from "@oh-my-soup/pi-ai";
+import { postmortem, TempDir } from "@oh-my-soup/pi-utils";
 import { runPrintMode } from "../../src/modes/print-mode";
 import type { AgentSession } from "../../src/session/agent-session";
 import * as telemetryExport from "../../src/telemetry-export";
@@ -76,7 +76,7 @@ describe("print mode disposes the session before terminating", () => {
 	});
 
 	it("disposes an active print session before SIGTERM exits", async () => {
-		using tempDir = TempDir.createSync("@omp-print-signal-");
+		using tempDir = TempDir.createSync("@oms-print-signal-");
 		const marker = tempDir.join("disposed");
 		const fixture = path.join(import.meta.dir, "..", "fixtures", "print-mode-signal.js");
 		const child = Bun.spawn([process.execPath, fixture, marker], {

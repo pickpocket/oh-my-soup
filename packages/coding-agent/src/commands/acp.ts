@@ -1,11 +1,11 @@
 /**
- * Run Oh My Pi as an ACP (Agent Client Protocol) server over stdio.
+ * Run Oh My Soup as an ACP (Agent Client Protocol) server over stdio.
  *
  * Thin wrapper around the launch flow that forces `mode: "acp"` unless the
  * ACP terminal-auth flag asks the same command to open the interactive TUI.
  */
 
-import { Command } from "@oh-my-pi/pi-utils/cli";
+import { Command } from "@oh-my-soup/pi-utils/cli";
 import { type Args as ParsedArgs, parseArgs, reportCliUsageError } from "../cli/args";
 import { acpHelp as commandHelp } from "../cli/command-help";
 import { runRootCommand } from "../main";

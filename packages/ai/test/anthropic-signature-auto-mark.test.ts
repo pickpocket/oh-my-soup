@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "bun:test";
-import { streamAnthropic } from "@oh-my-pi/pi-ai/providers/anthropic";
-import { AnthropicMessages } from "@oh-my-pi/pi-ai/providers/anthropic-client";
+import { streamAnthropic } from "@oh-my-soup/pi-ai/providers/anthropic";
+import { AnthropicMessages } from "@oh-my-soup/pi-ai/providers/anthropic-client";
 import type {
 	AssistantMessage,
 	AssistantMessageEvent,
@@ -8,8 +8,8 @@ import type {
 	Message,
 	Model,
 	ProviderSessionState,
-} from "@oh-my-pi/pi-ai/types";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
+} from "@oh-my-soup/pi-ai/types";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
 
 /**
  * Regression for #4297 — the anthropic-messages transport auto-heals the very

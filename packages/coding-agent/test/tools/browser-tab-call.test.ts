@@ -5,7 +5,7 @@ import {
 	TAB_HANDLE_METHODS,
 	TAB_PRESENCE_METHODS,
 	TAB_VALUE_METHODS,
-} from "@oh-my-pi/pi-coding-agent/tools/browser/tab-call";
+} from "@oh-my-soup/pi-coding-agent/tools/browser/tab-call";
 
 function errorMessage(run: () => unknown): string {
 	try {
@@ -72,7 +72,7 @@ describe("renderTabCall", () => {
 		expect(
 			renderTabCall([
 				{ method: "ref", args: ["e2"] },
-				{ method: "evaluate", args: [{ __omp_fn: "node => node.textContent" }, /not-a-marker/] },
+				{ method: "evaluate", args: [{ __oms_fn: "node => node.textContent" }, /not-a-marker/] },
 			]),
 		).toBe('return await (await tab.ref("e2")).evaluate((node => node.textContent), {});');
 		expect(

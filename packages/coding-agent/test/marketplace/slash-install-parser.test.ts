@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test";
 import {
 	parseMarketplaceInstallArgs,
 	parsePluginScopeArgs,
-} from "@oh-my-pi/pi-coding-agent/slash-commands/marketplace-install-parser";
+} from "@oh-my-soup/pi-coding-agent/slash-commands/marketplace-install-parser";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 

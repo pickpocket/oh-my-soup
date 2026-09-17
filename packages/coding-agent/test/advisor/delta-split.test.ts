@@ -7,7 +7,7 @@
 //     details.diff are obfuscated BEFORE chunk rendering (message-level pass),
 //     matching the old security contract.
 import { describe, expect, it } from "bun:test";
-import type { AgentMessage } from "@oh-my-pi/pi-agent-core";
+import type { AgentMessage } from "@oh-my-soup/pi-agent-core";
 
 import { renderAdvisorDeltaChunks } from "../../src/advisor/delta-split";
 import { formatSessionHistoryMarkdown } from "../../src/session/session-history-format";

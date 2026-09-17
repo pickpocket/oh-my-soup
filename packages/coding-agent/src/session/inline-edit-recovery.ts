@@ -7,9 +7,9 @@
  * normal tool pipeline — validation, approval tiering, execution, rendering,
  * journaling, provider replay — runs it unchanged.
  */
-import type { AssistantMessage } from "@oh-my-pi/pi-ai";
-import { mintToolCallId } from "@oh-my-pi/pi-ai/dialect";
-import { extractInlineSloppyRegions } from "@oh-my-pi/pi-natives";
+import type { AssistantMessage } from "@oh-my-soup/pi-ai";
+import { mintToolCallId } from "@oh-my-soup/pi-ai/dialect";
+import { extractInlineSloppyRegions } from "@oh-my-soup/pi-natives";
 
 /**
  * Convert stray sloppy payloads in `message`'s text blocks into one synthetic

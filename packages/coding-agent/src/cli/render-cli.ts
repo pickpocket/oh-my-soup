@@ -1,5 +1,5 @@
 /**
- * `omp render` — draw a session's entire thread through the production
+ * `oms render` — draw a session's entire thread through the production
  * transcript pipeline, headlessly.
  *
  * Replays the session into a real `InteractiveMode` + `TUI` wired to an
@@ -14,16 +14,16 @@
 import { Database } from "bun:sqlite";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { Agent } from "@oh-my-pi/pi-agent-core";
-import type { Terminal, TerminalAppearance, TerminalAppearanceRequestToken } from "@oh-my-pi/pi-tui/terminal";
-import type { RenderScheduler } from "@oh-my-pi/pi-tui/tui";
-import { getProjectDir, isEnoent, logger, TempDir } from "@oh-my-pi/pi-utils";
-import { VERSION } from "@oh-my-pi/pi-utils/dirs";
+import { Agent } from "@oh-my-soup/pi-agent-core";
+import type { Terminal, TerminalAppearance, TerminalAppearanceRequestToken } from "@oh-my-soup/pi-tui/terminal";
+import type { RenderScheduler } from "@oh-my-soup/pi-tui/tui";
+import { getProjectDir, isEnoent, logger, TempDir } from "@oh-my-soup/pi-utils";
+import { VERSION } from "@oh-my-soup/pi-utils/dirs";
 import { ModelRegistry } from "../config/model-registry";
 import { Settings } from "../config/settings";
-import { Composer } from "@oh-my-pi/pi-tui/prompt/composer";
+import { Composer } from "@oh-my-soup/pi-tui/prompt/composer";
 import { InteractiveMode } from "../modes/interactive-mode";
-import { initTheme } from "@oh-my-pi/pi-tui/theme";
+import { initTheme } from "@oh-my-soup/pi-tui/theme";
 import { AgentSession } from "../session/agent-session";
 import { AuthStorage, SqliteAuthCredentialStore } from "../session/auth-storage";
 import { findMostRecentSession, resolveResumableSession } from "../session/session-listing";
@@ -175,8 +175,8 @@ export async function runRenderCommand(args: RenderCommandArgs): Promise<number>
 
 	// Copy before opening: SessionManager.open takes the single-writer lock and
 	// session teardown appends a session_exit entry — neither may touch a live
-	// session file the user has open in another omp.
-	const tempDir = TempDir.createSync("@omp-render-");
+	// session file the user has open in another oms.
+	const tempDir = TempDir.createSync("@oms-render-");
 	const workingCopy = path.join(tempDir.path(), path.basename(sourcePath));
 
 	const width = args.width ?? (process.stdout.isTTY ? process.stdout.columns : undefined) ?? 120;
@@ -275,7 +275,7 @@ export async function runRenderCommand(args: RenderCommandArgs): Promise<number>
 			mode?.stop();
 			await session?.dispose();
 		} catch (err) {
-			logger.debug("omp render teardown failed", { error: String(err) });
+			logger.debug("oms render teardown failed", { error: String(err) });
 		}
 		tempDir.removeSync();
 	}

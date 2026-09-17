@@ -4,7 +4,7 @@
  * `prompt()` checks `isStreaming` at the top, but image normalization (and the
  * vision-description call) suspend before `#promptWithMessage` increments the
  * in-flight count. Two callers that both saw an idle session — the CLI initial
- * message of an `omp "prompt"` launch and a submission typed right after the
+ * message of an `oms "prompt"` launch and a submission typed right after the
  * startup composer opens its submit gate — used to both dispatch: the loser
  * died with AgentBusyError and the prompts could land out of order. The
  * post-await re-check queues the loser as a steer into the winner's turn.
@@ -13,17 +13,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { Agent } from "@oh-my-pi/pi-agent-core";
-import { createMockModel } from "@oh-my-pi/pi-ai/providers/mock";
-import { getBundledModel } from "@oh-my-pi/pi-catalog/models";
-import { ModelRegistry } from "@oh-my-pi/pi-coding-agent/config/model-registry";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { ExtensionRuntime, loadExtensionFromFactory } from "@oh-my-pi/pi-coding-agent/extensibility/extensions/loader";
-import { ExtensionRunner } from "@oh-my-pi/pi-coding-agent/extensibility/extensions/runner";
-import { AgentSession } from "@oh-my-pi/pi-coding-agent/session/agent-session";
-import { AuthStorage } from "@oh-my-pi/pi-coding-agent/session/auth-storage";
-import { SessionManager } from "@oh-my-pi/pi-coding-agent/session/session-manager";
-import { EventBus } from "@oh-my-pi/pi-coding-agent/utils/event-bus";
+import { Agent } from "@oh-my-soup/pi-agent-core";
+import { createMockModel } from "@oh-my-soup/pi-ai/providers/mock";
+import { getBundledModel } from "@oh-my-soup/pi-catalog/models";
+import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { ExtensionRuntime, loadExtensionFromFactory } from "@oh-my-soup/pi-coding-agent/extensibility/extensions/loader";
+import { ExtensionRunner } from "@oh-my-soup/pi-coding-agent/extensibility/extensions/runner";
+import { AgentSession } from "@oh-my-soup/pi-coding-agent/session/agent-session";
+import { AuthStorage } from "@oh-my-soup/pi-coding-agent/session/auth-storage";
+import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
+import { EventBus } from "@oh-my-soup/pi-coding-agent/utils/event-bus";
 import { assistantMsg } from "./utilities";
 
 interface BtwBranchResult {
@@ -83,7 +83,7 @@ describe("AgentSession concurrent prompt dispatch", () => {
 	it.each(["navigateTree", "branch", "fork", "branchFromBtw"] as const)(
 		"drops an admitted custom prompt when %s replaces its branch before dispatch",
 		async transition => {
-			sessionDir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-prompt-transition-"));
+			sessionDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-prompt-transition-"));
 			const manager = SessionManager.create(sessionDir, sessionDir);
 			const retained = manager.appendMessage({ role: "user", content: "Retained", timestamp: 1 });
 			const abandoned = manager.appendMessage({ role: "user", content: "Abandoned", timestamp: 2 });

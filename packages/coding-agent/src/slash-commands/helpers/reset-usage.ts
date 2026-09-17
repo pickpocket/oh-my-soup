@@ -7,7 +7,7 @@ import type { ResetCreditAccountStatus, ResetCreditRedeemOutcome, ResetCreditTar
 
 export const CODEX_PROVIDER_ID = "openai-codex";
 
-import type { ResetUsageAccount } from "@oh-my-pi/pi-tui/overlays/reset-usage-selector";
+import type { ResetUsageAccount } from "@oh-my-soup/pi-tui/overlays/reset-usage-selector";
 
 /**
  * Map live per-account reset status to selector rows. Sorted with the active

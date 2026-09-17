@@ -1,11 +1,11 @@
 import { beforeAll, describe, expect, it } from "bun:test";
-import type { ImageContent } from "@oh-my-pi/pi-ai";
-import { CustomEditor } from "@oh-my-pi/pi-tui/prompt/custom-editor";
-import { chipLabel } from "@oh-my-pi/pi-tui/prompt/composer-attachments";
-import { getEditorTheme, initTheme } from "@oh-my-pi/pi-tui/theme";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { UiHelpers } from "@oh-my-pi/pi-coding-agent/modes/utils/ui-helpers";
-import type { InteractiveModeContext } from "@oh-my-pi/pi-coding-agent/modes/types";
+import type { ImageContent } from "@oh-my-soup/pi-ai";
+import { CustomEditor } from "@oh-my-soup/pi-tui/prompt/custom-editor";
+import { chipLabel } from "@oh-my-soup/pi-tui/prompt/composer-attachments";
+import { getEditorTheme, initTheme } from "@oh-my-soup/pi-tui/theme";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { UiHelpers } from "@oh-my-soup/pi-coding-agent/modes/utils/ui-helpers";
+import type { InteractiveModeContext } from "@oh-my-soup/pi-coding-agent/modes/types";
 
 const image: ImageContent = { type: "image", data: "aGVsbG8=", mimeType: "image/png" };
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { TUI } from "@oh-my-pi/pi-tui";
+import { TUI } from "@oh-my-soup/pi-tui";
 import { VirtualTerminal } from "./virtual-terminal";
 
 describe("TUI start listeners", () => {

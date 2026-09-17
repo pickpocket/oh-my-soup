@@ -114,7 +114,7 @@ export class LocalModuleLoader {
 		const version = this.#moduleVersions.get(modulePath) ?? 1;
 		this.#moduleVersions.set(modulePath, version);
 		const fileUrl = pathToFileURL(modulePath).href;
-		const identifier = `${fileUrl}?omp-session=${this.#sessionTag}&v=${version}`;
+		const identifier = `${fileUrl}?oms-session=${this.#sessionTag}&v=${version}`;
 		const wrappedSource = buildModuleSource(stripped, modulePath);
 		const module = new vm.SourceTextModule(wrappedSource, {
 			context: this.#context,
@@ -313,7 +313,7 @@ function buildRequire(fromPath: string): NodeJS.Require {
 function buildModuleSource(source: string, modulePath: string): string {
 	const moduleDir = path.dirname(modulePath);
 	return [
-		`const require = globalThis.__omp_get_require__(${JSON.stringify(pathToFileURL(modulePath).href)});`,
+		`const require = globalThis.__oms_get_require__(${JSON.stringify(pathToFileURL(modulePath).href)});`,
 		`const __filename = ${JSON.stringify(modulePath)};`,
 		`const __dirname = ${JSON.stringify(moduleDir)};`,
 		source,

@@ -1,14 +1,14 @@
 import * as os from "node:os";
 import { beforeAll, describe, expect, it } from "bun:test";
-import type { DailyActivityPoint } from "@oh-my-pi/pi-tui/overlays/usage-dashboard";
-import type { UsageReport } from "@oh-my-pi/pi-ai";
+import type { DailyActivityPoint } from "@oh-my-soup/pi-tui/overlays/usage-dashboard";
+import type { UsageReport } from "@oh-my-soup/pi-ai";
 import {
 	buildHeatmapLayout,
 	buildProviderCards,
 	formatActivityErrorDetail,
 	UsageDashboardComponent,
-} from "@oh-my-pi/pi-tui/overlays/usage-dashboard";
-import { initTheme } from "@oh-my-pi/pi-tui/theme";
+} from "@oh-my-soup/pi-tui/overlays/usage-dashboard";
+import { initTheme } from "@oh-my-soup/pi-tui/theme";
 
 function day(day: string, cost: number, requests = 1): DailyActivityPoint {
 	return { day, cost, requests };
@@ -213,7 +213,7 @@ describe("UsageDashboardComponent", () => {
 	});
 	it("sanitizes control sequences, collapses multiline errors, and shortens paths", async () => {
 		const home = os.homedir();
-		const rawError = `subprocess crashed at ${home}/.omp/stats.db:\n\tfailed to open\x1b[2J\r\nline 2\x1b[31m...`;
+		const rawError = `subprocess crashed at ${home}/.oms/stats.db:\n\tfailed to open\x1b[2J\r\nline 2\x1b[31m...`;
 		const { promise: rendered, resolve: markRendered } = Promise.withResolvers<void>();
 		const component = new UsageDashboardComponent({
 			reports: [],
@@ -231,9 +231,9 @@ describe("UsageDashboardComponent", () => {
 		expect(contentLine).not.toContain("\n");
 		expect(contentLine).not.toContain("\t");
 		expect(contentLine).not.toContain(home);
-		expect(contentLine).toContain("~/.omp/stats.db");
+		expect(contentLine).toContain("~/.oms/stats.db");
 		expect(contentLine).toContain(
-			"Usage history unavailable (subprocess crashed at ~/.omp/stats.db: failed to open line 2).",
+			"Usage history unavailable (subprocess crashed at ~/.oms/stats.db: failed to open line 2).",
 		);
 	});
 });
@@ -246,7 +246,7 @@ describe("formatActivityErrorDetail", () => {
 
 	it("shortens home directory paths to tilde and removes trailing dots", () => {
 		const home = "/Users/testuser";
-		const input = `Error: failed to open ${home}/.omp/stats.db...`;
-		expect(formatActivityErrorDetail(input, home)).toBe("Error: failed to open ~/.omp/stats.db");
+		const input = `Error: failed to open ${home}/.oms/stats.db...`;
+		expect(formatActivityErrorDetail(input, home)).toBe("Error: failed to open ~/.oms/stats.db");
 	});
 });

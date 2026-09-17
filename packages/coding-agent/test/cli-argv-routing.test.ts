@@ -1,7 +1,7 @@
 /**
  * Leading global option flags must not hide a subcommand from the CLI runner.
  *
- * #2970: `omp --approval-mode=yolo acp` was rewritten to
+ * #2970: `oms --approval-mode=yolo acp` was rewritten to
  * `launch --approval-mode=yolo acp`, swallowing `acp` as a launch prompt so the
  * yolo override never reached the ACP command path. The resolver now skips
  * leading global flags (using the launch parser's value-consumption contract)
@@ -9,7 +9,7 @@
  * flags.
  */
 import { describe, expect, test } from "bun:test";
-import { resolveCliArgv } from "@oh-my-pi/pi-coding-agent/cli-commands";
+import { resolveCliArgv } from "@oh-my-soup/pi-coding-agent/cli-commands";
 
 describe("resolveCliArgv routes subcommands hidden behind leading global flags", () => {
 	test("`--approval-mode=yolo acp` dispatches the acp subcommand with the flag preserved", () => {

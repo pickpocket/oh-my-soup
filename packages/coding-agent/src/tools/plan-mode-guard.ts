@@ -5,7 +5,7 @@ import {
 	HL_FILE_HASH_SEP,
 	HL_FILE_PREFIX,
 	HL_FILE_SUFFIX,
-} from "@oh-my-pi/pi-tui/tools/hashline-format";
+} from "@oh-my-soup/pi-tui/tools/hashline-format";
 import {
 	type LocalProtocolOptions,
 	resolveLocalRoot,
@@ -14,7 +14,7 @@ import {
 } from "../internal-urls";
 import type { ToolSession } from ".";
 import { normalizeLocalScheme, resolveToCwd } from "./path-utils";
-import { ToolError } from "@oh-my-pi/pi-tui/tools/tool-errors";
+import { ToolError } from "@oh-my-soup/pi-tui/tools/tool-errors";
 
 const VAULT_SCHEME_PREFIX = "vault:";
 const LOCAL_SCHEME_PREFIX = "local:";

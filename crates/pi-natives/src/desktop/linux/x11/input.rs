@@ -886,7 +886,7 @@ struct MpxSession<'a> {
 
 impl<'a> MpxSession<'a> {
 	fn create(conn: &'a RustConnection, root: Window) -> CoreResult<Self> {
-		let name = format!("OMP MPX {}", std::process::id());
+		let name = format!("OMS MPX {}", std::process::id());
 		let change = HierarchyChange {
 			len:  hierarchy_len(4 + name.len()),
 			data: HierarchyChangeData::AddMaster(HierarchyChangeDataAddMaster {

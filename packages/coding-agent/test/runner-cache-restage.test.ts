@@ -12,7 +12,7 @@ describe("stageRunnerScript re-validation", () => {
 	const dirs: string[] = [];
 
 	function uniqueDir() {
-		const name = `omp-runner-cache-test-${process.pid}-${dirs.length}-${Date.now()}`;
+		const name = `oms-runner-cache-test-${process.pid}-${dirs.length}-${Date.now()}`;
 		dirs.push(name);
 		return name;
 	}

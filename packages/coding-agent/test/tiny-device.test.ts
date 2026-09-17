@@ -9,7 +9,7 @@ import {
 	tinyMlxSupported,
 	tinyModelDeviceLoadOrder,
 	tinyModelDeviceSettingToEnv,
-} from "@oh-my-pi/pi-coding-agent/tiny/device";
+} from "@oh-my-soup/pi-coding-agent/tiny/device";
 
 describe("tiny model device selection", () => {
 	it("defaults to CPU-only inference on every platform", () => {

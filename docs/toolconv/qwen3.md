@@ -186,7 +186,7 @@ message.tool_calls = [
 ]
 ```
 
-## omp / pi converter behavior
+## oms / pi converter behavior
 
 The repository's `qwen3` dialect is an **owned in-band converter**. Select it
 with `PI_DIALECT=qwen3` (or the equivalent agent configuration). With tools
@@ -201,9 +201,9 @@ The catalog's current family-affinity helper maps every model id containing
 `qwen` to `qwen3`, including Qwen3-Coder. For a Coder endpoint, set
 `tools.format=native` (or the equivalent native-tool setting) and configure the
 serving endpoint itself with its `qwen3_xml` parser. `qwen3_xml` is not an
-OMP-owned dialect and therefore is not a valid `tools.format` value.
+OMS-owned dialect and therefore is not a valid `tools.format` value.
 
-The omp renderer always writes a nested `arguments` object and renders
+The oms renderer always writes a nested `arguments` object and renders
 parallel calls newline-separated. Results become newline-delimited
 `<tool_response>` blocks inside the synthetic user history message. The
 scanner mints an id (`ptc_…`) and emits `toolStart` as soon as the leading JSON
@@ -235,13 +235,13 @@ text.
 - **Reasoning models + stopword templates:** Qwen warns against ReAct-style stopword tool templates for Qwen3, since reasoning text may contain the stopwords and corrupt parsing — use this native Hermes template instead.
 - **Robustness:** the format is prompt/template-driven, so malformed output is possible
   (truncated JSON, missing `</tool_call>`, prose mixed into a call, or stringified
-  arguments). vLLM may fall back to content depending on its parser path; omp's
+  arguments). vLLM may fall back to content depending on its parser path; oms's
   owned scanner instead consumes a recognized block and emits no call when the
   outer JSON/name cannot be recovered. Named / `required` tool choice can route
   through vLLM's structured-outputs backend when using vLLM native tools, but
   owned mode sends no native provider tool definition and therefore cannot rely
   on that backend.
-- **Version/scope:** this `hermes` template covers `Qwen3-*`, `Qwen2.5-*`, and `QwQ-32B`. It does **not** cover `Qwen3-Coder`, which uses a different XML scheme parsed by a serving engine's `qwen3_xml` parser. OMP has no `qwen3_xml` owned dialect; use `tools.format=native` and configure that parser at the endpoint.
+- **Version/scope:** this `hermes` template covers `Qwen3-*`, `Qwen2.5-*`, and `QwQ-32B`. It does **not** cover `Qwen3-Coder`, which uses a different XML scheme parsed by a serving engine's `qwen3_xml` parser. OMS has no `qwen3_xml` owned dialect; use `tools.format=native` and configure that parser at the endpoint.
 
 ## Sources
 

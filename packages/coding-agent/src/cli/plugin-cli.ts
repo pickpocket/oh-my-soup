@@ -1,12 +1,12 @@
 /**
  * Plugin CLI command handlers.
  *
- * Handles `omp plugin <command>` subcommands for plugin lifecycle management.
+ * Handles `oms plugin <command>` subcommands for plugin lifecycle management.
  */
 
 import * as path from "node:path";
-import { APP_NAME, getPluginsNodeModules, getProjectDir } from "@oh-my-pi/pi-utils";
-import chalk from "@oh-my-pi/pi-utils/chalk";
+import { APP_NAME, getPluginsNodeModules, getProjectDir } from "@oh-my-soup/pi-utils";
+import chalk from "@oh-my-soup/pi-utils/chalk";
 import { resolveOrDefaultProjectRegistryPath } from "../discovery/helpers";
 import { PluginManager, parseSettingValue, validateSetting } from "../extensibility/plugins";
 import {
@@ -18,7 +18,7 @@ import {
 	parsePluginId,
 } from "../extensibility/plugins/marketplace/index.js";
 import type { InstalledPlugin } from "../extensibility/plugins/types";
-import { theme } from "@oh-my-pi/pi-tui/theme";
+import { theme } from "@oh-my-soup/pi-tui/theme";
 
 // =============================================================================
 // Types
@@ -337,7 +337,7 @@ async function handleUpgrade(args: string[], flags: PluginCommandArgs["flags"]):
 			if (flags.scope) {
 				console.error(
 					chalk.yellow(
-						`Warning: --scope is ignored when upgrading all plugins. Use 'omp plugin upgrade <id> --scope ${flags.scope}' to target a specific plugin and scope.`,
+						`Warning: --scope is ignored when upgrading all plugins. Use 'oms plugin upgrade <id> --scope ${flags.scope}' to target a specific plugin and scope.`,
 					),
 				);
 			}
@@ -364,7 +364,7 @@ async function handleInstall(
 	if (packages.length === 0) {
 		console.error(chalk.red(`Usage: ${APP_NAME} plugin install <source>[features] ...`));
 		console.error(chalk.dim("Examples:"));
-		console.error(chalk.dim(`  ${APP_NAME} plugin install @oh-my-pi/exa`));
+		console.error(chalk.dim(`  ${APP_NAME} plugin install @oh-my-soup/exa`));
 		console.error(chalk.dim(`  ${APP_NAME} plugin install name@marketplace`));
 		console.error(chalk.dim(`  ${APP_NAME} plugin install github:user/repo`));
 		console.error(chalk.dim(`  ${APP_NAME} plugin install https://github.com/user/repo#v1.0`));
@@ -418,7 +418,7 @@ async function handleInstall(
 		if (target.type === "local") {
 			// Local paths route to link(): symlink the directory into the plugins
 			// node_modules tree so source edits show up without a reinstall. Matches
-			// `omp plugin link <path>` so users can use either verb interchangeably.
+			// `oms plugin link <path>` so users can use either verb interchangeably.
 			if (flags.scope) {
 				console.error(
 					chalk.yellow(
@@ -1097,7 +1097,7 @@ ${chalk.bold("Options:")}
   -l, --local      Use project-local overrides
 
 ${chalk.bold("Examples:")}
-  ${APP_NAME} plugin install @oh-my-pi/exa[search]
+  ${APP_NAME} plugin install @oh-my-soup/exa[search]
   ${APP_NAME} plugin list --json
   ${APP_NAME} plugin features my-plugin --enable search,web
   ${APP_NAME} plugin config set my-plugin apiKey sk-xxx

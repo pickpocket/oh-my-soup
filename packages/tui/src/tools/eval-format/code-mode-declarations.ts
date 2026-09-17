@@ -3,7 +3,7 @@
  * under Codex Code Mode (spliced into the `eval-code-mode.md` prompt),
  * mirroring codex-rs augment_tool_spec_for_code_mode.
  */
-import { arkToWireSchema, isArkSchema } from "@oh-my-pi/pi-ai/utils/schema/wire";
+import { arkToWireSchema, isArkSchema } from "@oh-my-soup/pi-ai/utils/schema/wire";
 
 interface JsonSchema {
 	type?: string;

@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { streamOpenAICompletions } from "@oh-my-pi/pi-ai/providers/openai-completions";
-import { streamOpenAIResponses } from "@oh-my-pi/pi-ai/providers/openai-responses";
-import type { Context, FetchImpl, Model, ModelSpec } from "@oh-my-pi/pi-ai/types";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
-import { USER_AGENT } from "@oh-my-pi/pi-utils";
+import { streamOpenAICompletions } from "@oh-my-soup/pi-ai/providers/openai-completions";
+import { streamOpenAIResponses } from "@oh-my-soup/pi-ai/providers/openai-responses";
+import type { Context, FetchImpl, Model, ModelSpec } from "@oh-my-soup/pi-ai/types";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
+import { USER_AGENT } from "@oh-my-soup/pi-utils";
 import { resolveOpenAIRequestSetup } from "../src/providers/openai-shared";
 
 const context: Context = {
@@ -92,7 +92,7 @@ async function captureStreamHeaders(
 }
 
 describe("resolveOpenAIRequestSetup User-Agent", () => {
-	test("sets omp User-Agent on xAI when none is provided", () => {
+	test("sets oms User-Agent on xAI when none is provided", () => {
 		for (const provider of ["xai", "xai-oauth"] as const) {
 			const setup = resolveOpenAIRequestSetup(
 				{ provider, id: "grok-4.6", baseUrl: "https://api.x.ai/v1" },
@@ -143,17 +143,17 @@ describe("resolveOpenAIRequestSetup User-Agent", () => {
 });
 
 describe("xAI stream User-Agent", () => {
-	test("xAI Responses POST sends omp User-Agent", async () => {
+	test("xAI Responses POST sends oms User-Agent", async () => {
 		const captured = await captureStreamHeaders(
 			fetch => streamOpenAIResponses(xaiResponsesModel(), context, { apiKey: "sk-test", fetch }),
 			createResponsesSse(),
 		);
 		expect(captured.url).toBe("https://api.x.ai/v1/responses");
 		expect(captured.userAgent).toBe(USER_AGENT);
-		expect(captured.userAgent).toMatch(/^omp\/\d+\.\d+\.\d+$/);
+		expect(captured.userAgent).toMatch(/^oms\/\d+\.\d+\.\d+$/);
 	});
 
-	test("xAI OAuth Responses POST sends omp User-Agent", async () => {
+	test("xAI OAuth Responses POST sends oms User-Agent", async () => {
 		const captured = await captureStreamHeaders(
 			fetch => streamOpenAIResponses(xaiResponsesModel("xai-oauth"), context, { apiKey: "sk-test", fetch }),
 			createResponsesSse(),
@@ -162,7 +162,7 @@ describe("xAI stream User-Agent", () => {
 		expect(captured.userAgent).toBe(USER_AGENT);
 	});
 
-	test("OpenAI Completions POST does not send omp User-Agent", async () => {
+	test("OpenAI Completions POST does not send oms User-Agent", async () => {
 		const captured = await captureStreamHeaders(
 			fetch => streamOpenAICompletions(openaiCompletionsModel(), context, { apiKey: "sk-test", fetch }),
 			createChatSse(),

@@ -1,10 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "bun:test";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { TempDir } from "@oh-my-pi/pi-utils";
-import * as evalIndex from "@oh-my-pi/pi-coding-agent/eval";
-import * as pyKernel from "@oh-my-pi/pi-coding-agent/eval/py/kernel";
-import type { ToolSession } from "@oh-my-pi/pi-coding-agent/tools";
-import { EvalTool } from "@oh-my-pi/pi-coding-agent/tools/eval";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { TempDir } from "@oh-my-soup/pi-utils";
+import * as evalIndex from "@oh-my-soup/pi-coding-agent/eval";
+import * as pyKernel from "@oh-my-soup/pi-coding-agent/eval/py/kernel";
+import type { ToolSession } from "@oh-my-soup/pi-coding-agent/tools";
+import { EvalTool } from "@oh-my-soup/pi-coding-agent/tools/eval";
 
 function makeSession(): ToolSession {
 	return {
@@ -181,7 +181,7 @@ describe("EvalTool display() text surfacing", () => {
 	});
 
 	it("keeps oversized display details bounded and spills the full value to the artifact", async () => {
-		using tempDir = TempDir.createSync("@omp-eval-display-");
+		using tempDir = TempDir.createSync("@oms-eval-display-");
 		const artifactPath = tempDir.join("eval.log");
 		const huge = `start-${"x".repeat(100_000)}-end`;
 		vi.spyOn(pyKernel, "checkPythonKernelAvailability").mockResolvedValue({ ok: true });
@@ -230,7 +230,7 @@ describe("EvalTool display() text surfacing", () => {
 	});
 
 	it("restores the full display value when the artifact write fails", async () => {
-		using tempDir = TempDir.createSync("@omp-eval-display-fail-");
+		using tempDir = TempDir.createSync("@oms-eval-display-fail-");
 		// Parent directory is never created, so the spill FileSink cannot open —
 		// OutputSink swallows the error, so persistence must be treated as
 		// unconfirmed and the full value restored into details.

@@ -1,15 +1,15 @@
 /**
- * Git data model for the `omp git` fullscreen TUI.
+ * Git data model for the `oms git` fullscreen TUI.
  *
  * Owns porcelain status parsing into staged/unstaged file lists, HEAD commit
  * metadata for the clean-tree view, per-file old/new content resolution for
  * the split diff pane, and the staging/commit actions the sidebar triggers.
  */
 import * as path from "node:path";
-import type { VcsGitRepo, VcsNumstatEntry } from "@oh-my-pi/pi-natives";
-import { DiffSide, DiffStream, type DiffStreamProgress, rasterizeSvg } from "@oh-my-pi/pi-natives";
-import * as vcs from "@oh-my-pi/pi-natives/vcs";
-import { BINARY_SNIFF_BYTES, isEnoent, isProbablyBinaryHeader } from "@oh-my-pi/pi-utils";
+import type { VcsGitRepo, VcsNumstatEntry } from "@oh-my-soup/pi-natives";
+import { DiffSide, DiffStream, type DiffStreamProgress, rasterizeSvg } from "@oh-my-soup/pi-natives";
+import * as vcs from "@oh-my-soup/pi-natives/vcs";
+import { BINARY_SNIFF_BYTES, isEnoent, isProbablyBinaryHeader } from "@oh-my-soup/pi-utils";
 import type { NumstatEntry } from "../../commit/types";
 import {
 	DIFF_CONTEXT_LINES,
@@ -20,7 +20,7 @@ import {
 	type FileAssetSide,
 	type FileContents,
 	type FileStreamUpdate,
-} from "@oh-my-pi/pi-tui/apps/git/state";
+} from "@oh-my-soup/pi-tui/apps/git/state";
 
 /** SHA of git's canonical empty tree: diff base for a root commit. */
 const EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
@@ -219,7 +219,7 @@ function mapNumstat(entries: VcsNumstatEntry[]): NumstatEntry[] {
 export class GitModel {
 	readonly cwd: string;
 	readonly #repo: VcsGitRepo;
-	/** Resolved SHA when the TUI is pinned to one commit (`omp git <rev>`). */
+	/** Resolved SHA when the TUI is pinned to one commit (`oms git <rev>`). */
 	readonly pinnedSha: string | null;
 	branch: string | null = null;
 	unstaged: ChangedFile[] = [];

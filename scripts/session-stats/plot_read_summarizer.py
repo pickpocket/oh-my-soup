@@ -29,7 +29,7 @@ import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import numpy as np
 
-DB_PATH = Path.home() / ".omp" / "stats.db"
+DB_PATH = Path.home() / ".oms" / "stats.db"
 OUT_DIR = Path(__file__).resolve().parent / "out"
 DAY_MS = 86_400_000
 

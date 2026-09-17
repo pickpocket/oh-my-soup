@@ -6,7 +6,7 @@
  * "No models available". Those providers ship no bundled models, so the
  * static+cached catalog the SDK resolves against at startup is empty on a
  * cache-cold boot; the online discovery pass in `main.ts` runs only AFTER
- * `createAgentSession` returns. `omp models` (which awaits discovery) listed the
+ * `createAgentSession` returns. `oms models` (which awaits discovery) listed the
  * models, but the interactive session degraded. The SDK now awaits one
  * cache-aware discovery pass and retries resolution when the initial fallback
  * fails and discoverable providers exist.
@@ -15,13 +15,13 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { FetchImpl } from "@oh-my-pi/pi-ai";
-import { ModelRegistry } from "@oh-my-pi/pi-coding-agent/config/model-registry";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { createAgentSession } from "@oh-my-pi/pi-coding-agent/sdk";
-import { AuthStorage } from "@oh-my-pi/pi-coding-agent/session/auth-storage";
-import { SessionManager } from "@oh-my-pi/pi-coding-agent/session/session-manager";
-import { Snowflake } from "@oh-my-pi/pi-utils";
+import type { FetchImpl } from "@oh-my-soup/pi-ai";
+import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { createAgentSession } from "@oh-my-soup/pi-coding-agent/sdk";
+import { AuthStorage } from "@oh-my-soup/pi-coding-agent/session/auth-storage";
+import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
+import { Snowflake } from "@oh-my-soup/pi-utils";
 
 describe("issue #6114 fresh launch default role from discovery-only local provider", () => {
 	let tempDir: string;

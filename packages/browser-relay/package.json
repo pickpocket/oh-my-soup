@@ -1,15 +1,15 @@
 {
 	"type": "module",
-	"name": "@oh-my-pi/browser-relay",
+	"name": "@oh-my-soup/browser-relay",
 	"version": "0.1.0",
 	"private": true,
-	"description": "Chrome extension that lets the omp browser tool drive your existing tabs (relay server lives in the omp CLI: `omp browser-relay`)",
-	"homepage": "https://omp.sh",
+	"description": "Chrome extension that lets the oms browser tool drive your existing tabs (relay server lives in the oms CLI: `oms browser-relay`)",
+	"homepage": "https://github.com/pickpocket/oh-my-soup",
 	"author": "Stencil Labs, Inc.",
 	"license": "MIT",
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/can1357/oh-my-pi.git",
+		"url": "git+https://github.com/pickpocket/oh-my-soup.git",
 		"directory": "packages/browser-relay"
 	},
 	"scripts": {

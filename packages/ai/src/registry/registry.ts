@@ -1,6 +1,6 @@
-import type { KnownProvider } from "@oh-my-pi/pi-catalog";
-import { authProviders } from "@oh-my-pi/pi-catalog/compat/auth";
-import type { AuthProviderId, LoginProviderId } from "@oh-my-pi/pi-catalog/compat/auth-ids";
+import type { KnownProvider } from "@oh-my-soup/pi-catalog";
+import { authProviders } from "@oh-my-soup/pi-catalog/compat/auth";
+import type { AuthProviderId, LoginProviderId } from "@oh-my-soup/pi-catalog/compat/auth-ids";
 import { amazonBedrockTransport } from "./amazon-bedrock";
 import { bedrockMantleTransport } from "./bedrock-mantle";
 import { buildProviderDefinition, type ProviderTransport } from "./build";
@@ -22,7 +22,7 @@ const TRANSPORTS: Record<string, ProviderTransport> = {
 
 /**
  * The single per-provider list, derived from the compiled auth stratum
- * (`@oh-my-pi/pi-catalog` `rules/auth/*.kdl`) in `/login` display order.
+ * (`@oh-my-soup/pi-catalog` `rules/auth/*.kdl`) in `/login` display order.
  * Adding a provider = one new `auth/<id>.kdl` (plus a `TRANSPORTS` entry when
  * it shapes requests in code). Every legacy structure (`OAuthProvider` union,
  * env map, login list, refresh/login dispatch, CLI callback maps) derives

@@ -23,9 +23,9 @@ from rich.table import Table
 from rich.text import Text
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(REPO_ROOT / "python/omp-rpc/src"))
+sys.path.insert(0, str(REPO_ROOT / "python/oms-rpc/src"))
 
-from omp_rpc import (  # noqa: E402
+from oms_rpc import (  # noqa: E402
     AgentEndEvent,
     AutoRetryEndEvent,
     AutoRetryStartEvent,
@@ -946,12 +946,12 @@ def sync_reference_fixtures(fixtures_dir: Path) -> None:
         (fixtures_dir / name).write_text(content)
 
 
-def resolve_omp_bin(raw: str | None) -> str:
+def resolve_oms_bin(raw: str | None) -> str:
     if raw:
         return raw
-    found = shutil.which("omp")
+    found = shutil.which("oms")
     if not found:
-        raise SystemExit("Could not find `omp` on PATH. Set --omp-bin or OMP_BIN.")
+        raise SystemExit("Could not find `oms` on PATH. Set --oms-bin or OMS_BIN.")
     return found
 
 
@@ -1140,7 +1140,7 @@ class ModelRunRecorder:
 def run_model_sync(
     *,
     model: str,
-    omp_bin: str,
+    oms_bin: str,
     results_dir: Path,
     workspace_root: Path,
     timeout: float,
@@ -1175,7 +1175,7 @@ def run_model_sync(
 
     try:
         with RpcClient(
-            executable=omp_bin,
+            executable=oms_bin,
             model=model,
             cwd=workspace,
             thinking="high",
@@ -1375,7 +1375,7 @@ def format_combined_reviews(sources: list[tuple[str, str, str]]) -> str:
 def run_oracle_review_sync(
     *,
     model: str,
-    omp_bin: str,
+    oms_bin: str,
     sources: list[tuple[str, str, str]],
     results_dir: Path,
     timeout: float,
@@ -1385,7 +1385,7 @@ def run_oracle_review_sync(
     prompt_path.write_text(prompt, encoding="utf-8")
 
     with RpcClient(
-        executable=omp_bin,
+        executable=oms_bin,
         model=model,
         cwd=results_dir,
         thinking="high",
@@ -1410,9 +1410,9 @@ def run_oracle_review_sync(
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Run OpenRouter fixture evaluations through omp RPC mode."
+        description="Run OpenRouter fixture evaluations through oms RPC mode."
     )
-    parser.add_argument("--omp-bin", default=os.environ.get("OMP_BIN"))
+    parser.add_argument("--oms-bin", default=os.environ.get("OMS_BIN"))
     parser.add_argument("--fixtures-dir", default=os.path.expanduser("~/tmp/fixtures"))
     parser.add_argument("--results-dir")
     parser.add_argument(
@@ -1448,7 +1448,7 @@ def parse_args() -> argparse.Namespace:
 
 
 async def run_all(args: argparse.Namespace) -> int:
-    omp_bin = resolve_omp_bin(args.omp_bin)
+    oms_bin = resolve_oms_bin(args.oms_bin)
 
     if args.rerun or args.rerun_oracle:
         rerun_path = args.rerun_oracle or args.rerun
@@ -1465,7 +1465,7 @@ async def run_all(args: argparse.Namespace) -> int:
                 synthesis = await asyncio.to_thread(
                     run_oracle_review_sync,
                     model=args.oracle_model,
-                    omp_bin=omp_bin,
+                    oms_bin=oms_bin,
                     sources=sources,
                     results_dir=results_dir,
                     timeout=args.timeout,
@@ -1495,7 +1495,7 @@ async def run_all(args: argparse.Namespace) -> int:
     results_dir = (
         Path(args.results_dir)
         if args.results_dir
-        else tmp_root / f"omp-fixture-runs-{timestamp}"
+        else tmp_root / f"oms-fixture-runs-{timestamp}"
     )
     results_dir.mkdir(parents=True, exist_ok=True)
     workspace_root = tmp_root / f"rate-edit-tool-workspaces-{timestamp}"
@@ -1510,7 +1510,7 @@ async def run_all(args: argparse.Namespace) -> int:
         asyncio.to_thread(
             run_model_sync,
             model=model,
-            omp_bin=omp_bin,
+            oms_bin=oms_bin,
             results_dir=results_dir,
             workspace_root=workspace_root,
             timeout=args.timeout,
@@ -1541,7 +1541,7 @@ async def run_all(args: argparse.Namespace) -> int:
         oracle_synthesis = await asyncio.to_thread(
             run_oracle_review_sync,
             model=args.oracle_model,
-            omp_bin=omp_bin,
+            oms_bin=oms_bin,
             sources=sources,
             results_dir=results_dir,
             timeout=args.timeout,

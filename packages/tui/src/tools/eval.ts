@@ -1,6 +1,6 @@
 import type { Component } from "../index";
 import { Markdown, Text, visibleWidth } from "../index";
-import { formatNumber, sanitizeText } from "@oh-my-pi/pi-utils";
+import { formatNumber, sanitizeText } from "@oh-my-soup/pi-utils";
 import type { RenderResultOptions, ToolRenderer } from "./renderer";
 import { formatContextUsage } from "../chrome/context-thresholds";
 import { truncateToVisualLines } from "../chrome/visual-truncate";
@@ -32,7 +32,7 @@ import {
 	truncateToWidth,
 	wrapBrackets,
 } from "../render/render-utils";
-import type { ImageContent } from "@oh-my-pi/pi-ai";
+import type { ImageContent } from "@oh-my-soup/pi-ai";
 import type { OutputMeta } from "./output-meta";
 import type { ConfiguredThinkingLevel } from "../render/render-utils";
 

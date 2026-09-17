@@ -97,7 +97,7 @@ CREATE TABLE IF NOT EXISTS runs (
 	job_name TEXT PRIMARY KEY,
 	benchmark TEXT NOT NULL DEFAULT 'harbor',
 	dataset TEXT NOT NULL DEFAULT '',
-	agent TEXT NOT NULL DEFAULT 'omp',
+	agent TEXT NOT NULL DEFAULT 'oms',
 	models TEXT NOT NULL DEFAULT '',
 	prewalk TEXT,
 	role TEXT NOT NULL DEFAULT '',
@@ -543,11 +543,11 @@ function readHarborConfig(jobDir: string): { dataset: string; agent: string; mod
 				? raw.dataset
 				: (((raw.datasets as Array<Record<string, unknown>> | undefined)?.[0]?.name as string | undefined) ?? "");
 		const agents = raw.agents as Array<Record<string, unknown>> | undefined;
-		const agent = (agents?.[0]?.name as string | undefined) ?? "omp";
+		const agent = (agents?.[0]?.name as string | undefined) ?? "oms";
 		const models = (agents?.[0]?.model_name as string | undefined) ?? "";
 		return { dataset: String(dataset), agent, models };
 	} catch {
-		return { dataset: "", agent: "omp", models: "" };
+		return { dataset: "", agent: "oms", models: "" };
 	}
 }
 

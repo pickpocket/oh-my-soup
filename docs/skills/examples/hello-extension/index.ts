@@ -1,5 +1,5 @@
-// @ts-nocheck — example file; install @oh-my-pi/pi-coding-agent before running
-import type { ExtensionAPI } from "@oh-my-pi/pi-coding-agent";
+// @ts-nocheck — example file; install @oh-my-soup/pi-coding-agent before running
+import type { ExtensionAPI } from "@oh-my-soup/pi-coding-agent";
 
 export default function helloExtension(pi: ExtensionAPI) {
   // Show a greeting whenever a session starts.

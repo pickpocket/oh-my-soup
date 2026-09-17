@@ -6,14 +6,14 @@
  * evaluation is unnecessary in an ordinary interactive process.
  */
 /** Blob-broker selector shared by the CLI dispatcher and worker launcher. */
-export const BLOB_BROKER_WORKER_ARG = "__omp_worker_blob_broker";
+export const BLOB_BROKER_WORKER_ARG = "__oms_worker_blob_broker";
 /** Computer-worker selector shared by the CLI dispatcher and worker launcher. */
-export const COMPUTER_WORKER_ARG = "__omp_worker_computer";
+export const COMPUTER_WORKER_ARG = "__oms_worker_computer";
 /** Daemon-broker selector shared by the CLI dispatcher and worker launcher. */
-export const DAEMON_BROKER_WORKER_ARG = "__omp_worker_daemon_broker";
+export const DAEMON_BROKER_WORKER_ARG = "__oms_worker_daemon_broker";
 /** LSP-multiplexer selector shared by the CLI dispatcher and worker launcher. */
-export const LSP_MUX_WORKER_ARG = "__omp_worker_lsp_mux";
+export const LSP_MUX_WORKER_ARG = "__oms_worker_lsp_mux";
 /** Activity-worker selector shared by the CLI dispatcher and worker launcher. */
-export const STATS_ACTIVITY_WORKER_ARG = "__omp_worker_stats_activity";
+export const STATS_ACTIVITY_WORKER_ARG = "__oms_worker_stats_activity";
 /** Terminal-output selector shared by the CLI dispatcher and worker launcher. */
-export const TERMINAL_OUTPUT_WORKER_ARG = "__omp_worker_terminal_output";
+export const TERMINAL_OUTPUT_WORKER_ARG = "__oms_worker_terminal_output";

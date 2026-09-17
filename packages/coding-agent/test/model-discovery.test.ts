@@ -3,24 +3,24 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "bun:test";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { Effort, type FetchImpl, type Model } from "@oh-my-pi/pi-ai";
-import type { OAuthCredentials } from "@oh-my-pi/pi-ai/oauth/types";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
-import { writeModelCache } from "@oh-my-pi/pi-catalog/model-cache";
-import { getBundledModel } from "@oh-my-pi/pi-catalog/models";
-import { resolveModelCacheProviderId, resolveOllamaModelCacheProviderId } from "@oh-my-pi/pi-catalog/provider-models";
-import type { ModelSpec, OpenAICompat } from "@oh-my-pi/pi-catalog/types";
+import { Effort, type FetchImpl, type Model } from "@oh-my-soup/pi-ai";
+import type { OAuthCredentials } from "@oh-my-soup/pi-ai/oauth/types";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
+import { writeModelCache } from "@oh-my-soup/pi-catalog/model-cache";
+import { getBundledModel } from "@oh-my-soup/pi-catalog/models";
+import { resolveModelCacheProviderId, resolveOllamaModelCacheProviderId } from "@oh-my-soup/pi-catalog/provider-models";
+import type { ModelSpec, OpenAICompat } from "@oh-my-soup/pi-catalog/types";
 import {
 	applyLlamaCppQwenThinking,
 	discoverOllamaModels,
 	discoveryProbeTimeoutMs,
-} from "@oh-my-pi/pi-coding-agent/config/model-discovery";
-import { RUNTIME_DYNAMIC_MODEL_FETCH_TIMEOUT_MS } from "@oh-my-pi/pi-coding-agent/config/model-provider-discovery";
-import { kNoAuth, ModelRegistry } from "@oh-my-pi/pi-coding-agent/config/model-registry";
-import { ProviderDiscoverySchema } from "@oh-my-pi/pi-coding-agent/config/models-config-schema";
-import { resetSettingsForTest } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { AuthStorage } from "@oh-my-pi/pi-coding-agent/session/auth-storage";
-import { removeSyncWithRetries, Snowflake } from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-coding-agent/config/model-discovery";
+import { RUNTIME_DYNAMIC_MODEL_FETCH_TIMEOUT_MS } from "@oh-my-soup/pi-coding-agent/config/model-provider-discovery";
+import { kNoAuth, ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
+import { ProviderDiscoverySchema } from "@oh-my-soup/pi-coding-agent/config/models-config-schema";
+import { resetSettingsForTest } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { AuthStorage } from "@oh-my-soup/pi-coding-agent/session/auth-storage";
+import { removeSyncWithRetries, Snowflake } from "@oh-my-soup/pi-utils";
 
 describe("ModelRegistry runtime discovery", () => {
 	let tempDir: string;
@@ -732,14 +732,14 @@ describe("ModelRegistry runtime discovery", () => {
 	});
 
 	test("keeps OLLAMA_BASE_URL precedence over OLLAMA_HOST", async () => {
-		using _baseUrl = withEnv("OLLAMA_BASE_URL", "http://omp-ollama.example:2222");
+		using _baseUrl = withEnv("OLLAMA_BASE_URL", "http://oms-ollama.example:2222");
 		using _host = withEnv("OLLAMA_HOST", "ollama-host.example:3333");
-		const fetchMock = mockOllamaDiscovery(["phi4-mini"], "http://omp-ollama.example:2222");
+		const fetchMock = mockOllamaDiscovery(["phi4-mini"], "http://oms-ollama.example:2222");
 		const registry = new ModelRegistry(authStorage, modelsJsonPath, { fetch: fetchMock });
 		await registry.refresh();
 
 		const model = registry.find("ollama", "phi4-mini");
-		expect(model?.baseUrl).toBe("http://omp-ollama.example:2222/v1");
+		expect(model?.baseUrl).toBe("http://oms-ollama.example:2222/v1");
 		expect(registry.getProviderDiscoveryState("ollama")?.optional).toBe(false);
 	});
 

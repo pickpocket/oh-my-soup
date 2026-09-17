@@ -143,7 +143,7 @@ Structured outputs captured separately include:
 
 - `application/json` -> JSON display output
 - `image/png` / `image/jpeg` -> image output
-- `application/x-omp-status` -> status event
+- `application/x-oms-status` -> status event
 
 Cancellation/timeout:
 

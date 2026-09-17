@@ -8,9 +8,9 @@
 import { describe, expect, it } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { syncAllSessions } from "@oh-my-pi/omp-stats/aggregator";
-import { buildSessionTrace, getTraceEntry, listSessionSummaries, TracePathError } from "@oh-my-pi/omp-stats/trace";
-import { getSessionsDir } from "@oh-my-pi/pi-utils";
+import { syncAllSessions } from "@oh-my-soup/oms-stats/aggregator";
+import { buildSessionTrace, getTraceEntry, listSessionSummaries, TracePathError } from "@oh-my-soup/oms-stats/trace";
+import { getSessionsDir } from "@oh-my-soup/pi-utils";
 import { installStatsTestIsolation } from "./helpers/temp-agent";
 
 installStatsTestIsolation("@pi-stats-trace-");
@@ -525,7 +525,7 @@ describe("getTraceEntry", () => {
 describe("listSessionSummaries", () => {
 	it("uses the session cwd for home-relative storage keys and keeps the legacy path fallback", async () => {
 		const sessionsDir = getSessionsDir();
-		const currentFile = path.join(sessionsDir, "-project-omp-kit", "current.jsonl");
+		const currentFile = path.join(sessionsDir, "-project-oms-kit", "current.jsonl");
 		const compressedFile = path.join(sessionsDir, "-project-compressed", "compressed.jsonl.gz");
 		const legacyFile = path.join(sessionsDir, "--work--legacy--", "legacy.jsonl");
 		await fs.mkdir(path.dirname(currentFile), { recursive: true });
@@ -540,7 +540,7 @@ describe("listSessionSummaries", () => {
 					version: 3,
 					id: "current",
 					timestamp: iso(T),
-					cwd: "/home/han/project/omp-kit",
+					cwd: "/home/han/project/oms-kit",
 					title: "Stale header title",
 				},
 			]
@@ -569,7 +569,7 @@ describe("listSessionSummaries", () => {
 		await Bun.write(legacyFile, JSON.stringify({ type: "title", v: 1, title: "Legacy session" }));
 
 		const rows = await listSessionSummaries();
-		expect(rows.find(row => row.file === currentFile)?.folder).toBe("/home/han/project/omp-kit");
+		expect(rows.find(row => row.file === currentFile)?.folder).toBe("/home/han/project/oms-kit");
 		expect(rows.find(row => row.file === currentFile)?.title).toBe("Current title");
 		expect(rows.find(row => row.file === compressedFile)?.folder).toBe("/home/han/project/compressed");
 		expect(rows.find(row => row.file === compressedFile)?.title).toBe("Compressed title");

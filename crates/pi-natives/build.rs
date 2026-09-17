@@ -30,7 +30,7 @@ fn build_oauth_callback_relay(target_os: &str) {
 	let target = env::var("TARGET").expect("TARGET should be set");
 	let rustc = env::var_os("RUSTC").unwrap_or_else(|| OsString::from("rustc"));
 	let mut output = PathBuf::from(env::var_os("OUT_DIR").expect("OUT_DIR should be set"))
-		.join("omp-oauth-callback-relay");
+		.join("oms-oauth-callback-relay");
 	if target_os == "windows" {
 		output.set_extension("exe");
 	}
@@ -46,7 +46,7 @@ fn build_oauth_callback_relay(target_os: &str) {
 	command
 		.current_dir(&manifest_dir)
 		.arg("--crate-name")
-		.arg("omp_oauth_callback_relay")
+		.arg("oms_oauth_callback_relay")
 		.arg("--crate-type=bin")
 		.arg("--edition=2024")
 		.arg("--target")
@@ -87,7 +87,7 @@ fn build_oauth_callback_relay(target_os: &str) {
 		String::from_utf8_lossy(&result.stdout),
 		String::from_utf8_lossy(&result.stderr)
 	);
-	println!("cargo:rustc-env=OMP_OAUTH_RELAY_BINARY={}", output.display());
+	println!("cargo:rustc-env=OMS_OAUTH_RELAY_BINARY={}", output.display());
 }
 
 #[path = "src/oauth_callback/darwin_compiler.rs"]
@@ -98,7 +98,7 @@ fn build_darwin_oauth_callback_helper() {
 		PathBuf::from(env::var_os("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR should be set"));
 	let source = manifest_dir.join("src/oauth_callback/darwin-helper.m");
 	let output = PathBuf::from(env::var_os("OUT_DIR").expect("OUT_DIR should be set"))
-		.join("omp-oauth-callback-darwin-helper");
+		.join("oms-oauth-callback-darwin-helper");
 	let architecture = match env::var("CARGO_CFG_TARGET_ARCH").as_deref() {
 		Ok("aarch64") => "arm64",
 		Ok("x86_64") => "x86_64",
@@ -138,7 +138,7 @@ fn build_darwin_oauth_callback_helper() {
 		String::from_utf8_lossy(&result.stdout),
 		String::from_utf8_lossy(&result.stderr)
 	);
-	println!("cargo:rustc-env=OMP_OAUTH_DARWIN_HELPER={}", output.display());
+	println!("cargo:rustc-env=OMS_OAUTH_DARWIN_HELPER={}", output.display());
 }
 
 fn target_linker(target: &str) -> Option<OsString> {

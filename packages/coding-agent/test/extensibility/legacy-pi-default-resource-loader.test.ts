@@ -2,16 +2,16 @@ import { afterAll, afterEach, describe, expect, it, vi } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
 import {
 	DefaultPackageManager,
 	DefaultResourceLoader,
 	createAgentSession as legacyCreateAgentSession,
-} from "@oh-my-pi/pi-coding-agent/extensibility/legacy-pi-coding-agent-shim";
-import type { Skill } from "@oh-my-pi/pi-coding-agent/extensibility/skills";
-import type { CreateAgentSessionOptions, CreateAgentSessionResult } from "@oh-my-pi/pi-coding-agent/sdk";
-import * as sdkModule from "@oh-my-pi/pi-coding-agent/sdk";
-import { removeWithRetries } from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-coding-agent/extensibility/legacy-pi-coding-agent-shim";
+import type { Skill } from "@oh-my-soup/pi-coding-agent/extensibility/skills";
+import type { CreateAgentSessionOptions, CreateAgentSessionResult } from "@oh-my-soup/pi-coding-agent/sdk";
+import * as sdkModule from "@oh-my-soup/pi-coding-agent/sdk";
+import { removeWithRetries } from "@oh-my-soup/pi-utils";
 
 // Issue #4567: every published version of pi-schedule-prompt (and every pi
 // extension spawning subagents) imports `DefaultResourceLoader` at module
@@ -43,8 +43,8 @@ async function mkTempCwd(prefix: string): Promise<string> {
 }
 
 describe("DefaultPackageManager.resolve() (issue #5658)", () => {
-	it("enumerates configured extension paths through OMP discovery", async () => {
-		const tmp = await mkTempCwd("omp-legacy-default-package-manager-");
+	it("enumerates configured extension paths through OMS discovery", async () => {
+		const tmp = await mkTempCwd("oms-legacy-default-package-manager-");
 		const cwd = path.join(tmp, "project");
 		const agentDir = path.join(tmp, "agent");
 		const extensionPath = path.join(cwd, "configured-extension.ts");
@@ -73,7 +73,7 @@ describe("DefaultPackageManager.resolve() (issue #5658)", () => {
 
 describe("DefaultResourceLoader.reload() (issue #4567)", () => {
 	it("populates the discovery snapshot honoring no* flags and applying every override", async () => {
-		const tmp = await mkTempCwd("omp-legacy-default-resource-loader-reload-");
+		const tmp = await mkTempCwd("oms-legacy-default-resource-loader-reload-");
 		const injected: Skill = {
 			name: "issue-4567-synthesized",
 			description: "injected via skillsOverride",
@@ -129,7 +129,7 @@ describe("DefaultResourceLoader.reload() (issue #4567)", () => {
 		expect(loader.getAgentsFiles().agentsFiles).toEqual([]);
 	});
 	it("loads relative additional skills and prompt templates before override callbacks when discovery is disabled", async () => {
-		const tmp = await mkTempCwd("omp-legacy-default-resource-loader-additional-paths-");
+		const tmp = await mkTempCwd("oms-legacy-default-resource-loader-additional-paths-");
 		const skillName = "issue-4567-explicit-skill";
 		const skillDescription = "Loaded from an explicit additionalSkillPaths directory";
 		const skillRoot = path.join(tmp, "extra-skills");
@@ -192,7 +192,7 @@ describe("DefaultResourceLoader.reload() (issue #4567)", () => {
 
 describe("createAgentSession({ resourceLoader }) (issue #4567)", () => {
 	it("translates a DefaultResourceLoader into the SDK's option surface without silently discarding it", async () => {
-		const tmp = await mkTempCwd("omp-legacy-default-resource-loader-session-");
+		const tmp = await mkTempCwd("oms-legacy-default-resource-loader-session-");
 
 		let captured: CreateAgentSessionOptions | undefined;
 		const spy = vi

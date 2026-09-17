@@ -2,15 +2,15 @@
  * Component for displaying bash command execution with streaming output.
  */
 
-import type { ImageContent } from "@oh-my-pi/pi-ai";
+import type { ImageContent } from "@oh-my-soup/pi-ai";
 import { Image } from "../components/image";
 import type { Loader } from "../components/loader";
 import { Text } from "../components/text";
 import { getImageDimensions, imageFallback, ImageProtocol, TERMINAL } from "../terminal-capabilities";
 import { Container, type TUI } from "../tui";
 import { Ellipsis, truncateToWidth, visibleWidth } from "../utils";
-import { sanitizeText } from "@oh-my-pi/pi-utils";
-import type { Terminal as XtermTerminalType } from "@oh-my-pi/pi-utils/vterm";
+import { sanitizeText } from "@oh-my-soup/pi-utils";
+import type { Terminal as XtermTerminalType } from "@oh-my-soup/pi-utils/vterm";
 import { theme } from "../theme/theme";
 import type { OutputArtifactError } from "../tools/streaming-output";
 import type { TruncationMeta } from "../tools/output-meta";

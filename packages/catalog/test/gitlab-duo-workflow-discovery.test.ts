@@ -8,11 +8,11 @@ import {
 	discoverGitLabDuoWorkflowNamespace,
 	discoverGitLabDuoWorkflowRuntimeNamespace,
 	fetchGitLabDuoWorkflowModels,
-} from "@oh-my-pi/pi-catalog/discovery/gitlab-duo-workflow";
-import { getSupportedEfforts } from "@oh-my-pi/pi-catalog/model-thinking";
-import { isCatalogDescriptor } from "@oh-my-pi/pi-catalog/provider-models/descriptor-types";
-import { PROVIDER_DESCRIPTORS } from "@oh-my-pi/pi-catalog/provider-models/descriptors";
-import type { FetchImpl } from "@oh-my-pi/pi-catalog/types";
+} from "@oh-my-soup/pi-catalog/discovery/gitlab-duo-workflow";
+import { getSupportedEfforts } from "@oh-my-soup/pi-catalog/model-thinking";
+import { isCatalogDescriptor } from "@oh-my-soup/pi-catalog/provider-models/descriptor-types";
+import { PROVIDER_DESCRIPTORS } from "@oh-my-soup/pi-catalog/provider-models/descriptors";
+import type { FetchImpl } from "@oh-my-soup/pi-catalog/types";
 
 const TEST_TOKEN = "redacted-test-token";
 const originalNamespaceId = Bun.env.GITLAB_DUO_NAMESPACE_ID;
@@ -151,7 +151,7 @@ describe("GitLab Duo Workflow discovery", () => {
 	});
 
 	it("resolves a runtime namespace override without aiChatAvailableModels", async () => {
-		const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-gitlab-duo-workflow-runtime-"));
+		const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-gitlab-duo-workflow-runtime-"));
 		try {
 			const unavailablePayloads: AvailableModelsPayload[] = [
 				null,
@@ -256,7 +256,7 @@ describe("GitLab Duo Workflow discovery", () => {
 	});
 
 	it("resolves a runtime group namespace without aiChatAvailableModels", async () => {
-		const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-gitlab-duo-workflow-runtime-"));
+		const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-gitlab-duo-workflow-runtime-"));
 		try {
 			const { fetch, calls } = createMockFetch({
 				groups: [{ id: "runtime-group-root", full_path: "runtime-group", duo_features_enabled: true }],
@@ -577,7 +577,7 @@ describe("GitLab Duo Workflow discovery", () => {
 	});
 
 	it("uses the current workspace GitLab remote before group candidates", async () => {
-		const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-gitlab-duo-workflow-"));
+		const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-gitlab-duo-workflow-"));
 		try {
 			await fs.mkdir(path.join(tmpDir, ".git"));
 			await fs.writeFile(
@@ -608,7 +608,7 @@ describe("GitLab Duo Workflow discovery", () => {
 	});
 
 	it("follows the worktree commondir to read remotes from the common Git config", async () => {
-		const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-gitlab-duo-workflow-"));
+		const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-gitlab-duo-workflow-"));
 		try {
 			// Simulate a linked worktree: `<work>/.git` is a file pointing at the worktree
 			// gitdir, whose own config has no remotes; the remote lives in the common dir
@@ -649,7 +649,7 @@ describe("GitLab Duo Workflow discovery", () => {
 	});
 
 	it("strips a relative GitLab install base path from the remote project path", async () => {
-		const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-gitlab-duo-workflow-"));
+		const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-gitlab-duo-workflow-"));
 		try {
 			await fs.mkdir(path.join(tmpDir, ".git"));
 			await fs.writeFile(
@@ -690,7 +690,7 @@ describe("GitLab Duo Workflow discovery", () => {
 	});
 
 	it("does not treat a same-host different-port remote as the workspace project", async () => {
-		const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-gitlab-duo-workflow-"));
+		const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-gitlab-duo-workflow-"));
 		try {
 			await fs.mkdir(path.join(tmpDir, ".git"));
 			// The configured GitLab is on :8443; the remote points at the same hostname
@@ -728,7 +728,7 @@ describe("GitLab Duo Workflow discovery", () => {
 	});
 
 	it("accepts an SSH remote whose port differs from the web base URL", async () => {
-		const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-gitlab-duo-workflow-"));
+		const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-gitlab-duo-workflow-"));
 		try {
 			await fs.mkdir(path.join(tmpDir, ".git"));
 			// Self-managed GitLab: web UI on https://host (443), SSH on a dedicated port.

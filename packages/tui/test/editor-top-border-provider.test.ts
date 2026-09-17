@@ -1,5 +1,5 @@
 /**
- * Regression for oh-my-pi#4145 (TUI busy loop during long-running eval).
+ * Regression for oh-my-soup#4145 (TUI busy loop during long-running eval).
  *
  * The pre-fix hot path rebuilt the editor's top border synchronously on every
  * session event, even though renders are throttled to ~30 fps. On a busy
@@ -17,7 +17,7 @@
  * 4. Clearing the provider falls back to the eager slot.
  */
 import { describe, expect, it } from "bun:test";
-import { Editor, type EditorTopBorder } from "@oh-my-pi/pi-tui/components/editor";
+import { Editor, type EditorTopBorder } from "@oh-my-soup/pi-tui/components/editor";
 import { defaultEditorTheme } from "./test-themes";
 
 function stubTopBorder(label: string): EditorTopBorder {

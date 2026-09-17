@@ -1,6 +1,6 @@
 import { Database } from "bun:sqlite";
 import { describe, expect, it } from "bun:test";
-import { VeracityConsolidator } from "@oh-my-pi/pi-mnemopi/core/veracity-consolidation";
+import { VeracityConsolidator } from "@oh-my-soup/pi-mnemopi/core/veracity-consolidation";
 
 describe("VeracityConsolidator", () => {
 	it("does not close a caller-owned Database handle", () => {

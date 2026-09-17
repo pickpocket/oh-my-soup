@@ -1,7 +1,7 @@
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { ptree, Snowflake } from "@oh-my-pi/pi-utils";
+import { ptree, Snowflake } from "@oh-my-soup/pi-utils";
 import { settings } from "../../config/settings";
 import type { AgentStorage } from "../../session/agent-storage";
 import { throwIfAborted } from "../../tools/tool-errors";

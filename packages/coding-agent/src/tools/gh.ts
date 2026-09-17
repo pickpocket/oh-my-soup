@@ -1,12 +1,12 @@
-import type { GhToolDetails } from "@oh-my-pi/pi-tui/tools/github";
-import { type } from "@oh-my-pi/omptype";
+import type { GhToolDetails } from "@oh-my-soup/pi-tui/tools/github";
+import { type } from "@oh-my-soup/omstype";
 import type {
 	AgentTool,
 	AgentToolContext,
 	AgentToolResult,
 	AgentToolUpdateCallback,
 	ToolApprovalDecision,
-} from "@oh-my-pi/pi-agent-core";
+} from "@oh-my-soup/pi-agent-core";
 
 import {
 	BINARY_SNIFF_BYTES,
@@ -15,11 +15,11 @@ import {
 	parseImageMetadata,
 	prompt,
 	untilAborted,
-} from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-utils";
 import githubDescription from "../prompts/tools/github.md" with { type: "text" };
 import { github } from "../utils/github";
 import { loadImageAttachmentInput } from "../utils/image-loading";
-import { webpExclusionForModel } from "@oh-my-pi/pi-tui/chat/image-loading";
+import { webpExclusionForModel } from "@oh-my-soup/pi-tui/chat/image-loading";
 import type { ToolSession } from ".";
 import {
 	buildTextResult,
@@ -41,7 +41,7 @@ import {
 } from "./gh-search";
 import { executeRepoView } from "./gh-view";
 
-import { ToolError } from "@oh-my-pi/pi-tui/tools/tool-errors";
+import { ToolError } from "@oh-my-soup/pi-tui/tools/tool-errors";
 import { toolResult } from "./tool-result";
 
 export { formatRepoRef, parsePositiveDecimalInt, resolveDefaultRepoMemoized } from "./gh-common";

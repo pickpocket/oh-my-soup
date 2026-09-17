@@ -11,7 +11,7 @@
  * loading that can be integrated when stream.ts is refactored.
  */
 
-import type { CompatOf } from "@oh-my-pi/pi-catalog/types";
+import type { CompatOf } from "@oh-my-soup/pi-catalog/types";
 import * as AIError from "../error";
 import type {
 	Api,

@@ -3,7 +3,7 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import * as url from "node:url";
-import { removeWithRetries } from "@oh-my-pi/pi-utils";
+import { removeWithRetries } from "@oh-my-soup/pi-utils";
 
 const CLI_ENTRY = path.join(import.meta.dir, "..", "src", "cli.ts");
 const FIXTURE_PATH = path.join(import.meta.dir, "fixtures", "resources-no-templates-mcp.ts");
@@ -13,14 +13,14 @@ const FIXTURE_PATH = path.join(import.meta.dir, "fixtures", "resources-no-templa
 // still handshaking when `connectServers` returns and the read begins.
 const HANDSHAKE_DELAY_MS = 700;
 
-describe("omp read MCP resource with a slow-connecting server", () => {
+describe("oms read MCP resource with a slow-connecting server", () => {
 	let root: string;
 	let projectDir: string;
 	let agentDir: string;
 	let probePath: string;
 
 	beforeEach(async () => {
-		root = await fs.mkdtemp(path.join(os.tmpdir(), "omp-read-mcp-slow-"));
+		root = await fs.mkdtemp(path.join(os.tmpdir(), "oms-read-mcp-slow-"));
 		projectDir = path.join(root, "project");
 		agentDir = path.join(root, "agent");
 		await Promise.all([fs.mkdir(projectDir), fs.mkdir(agentDir)]);

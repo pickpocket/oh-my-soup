@@ -28,7 +28,7 @@ use winreg::{
 use super::context::Context;
 
 const SNAPSHOT_VERSION: u32 = 1;
-const MARKER_NAME: &str = "omp OAuth Callback Transaction";
+const MARKER_NAME: &str = "oms OAuth Callback Transaction";
 const DEFAULT_VALUE: &str = "";
 
 /// Complete pre-registration state for the HKCU values touched by this backend.
@@ -703,8 +703,8 @@ mod tests {
 					.as_nanos(),
 				TEST_SEQUENCE.fetch_add(1, Ordering::Relaxed)
 			);
-			let scheme = format!("omp-oauth-test-{unique}");
-			let directory = std::env::temp_dir().join(format!("omp oauth callback {unique}"));
+			let scheme = format!("oms-oauth-test-{unique}");
+			let directory = std::env::temp_dir().join(format!("oms oauth callback {unique}"));
 			fs::create_dir_all(&directory).unwrap();
 			let context = Context::new(
 				directory.clone(),
@@ -748,13 +748,13 @@ mod tests {
 
 	#[test]
 	fn command_quotes_native_paths_and_url_as_data() {
-		let helper = Path::new(r#"C:\Program Files\omp\callback "helper".exe"#);
+		let helper = Path::new(r#"C:\Program Files\oms\callback "helper".exe"#);
 		let callback = Path::new(r"C:\OAuth callbacks\pending\");
 		let command = relay_command(helper, callback).unwrap();
 		assert_eq!(
 			command,
 			OsString::from(
-				r#""C:\Program Files\omp\callback \"helper\".exe" "C:\OAuth callbacks\pending\\" "%1""#
+				r#""C:\Program Files\oms\callback \"helper\".exe" "C:\OAuth callbacks\pending\\" "%1""#
 			)
 		);
 	}
@@ -762,14 +762,14 @@ mod tests {
 	#[test]
 	fn command_rewrites_canonicalized_verbatim_paths_the_shell_cannot_launch() {
 		let command = relay_command(
-			Path::new(r"\\?\C:\Users\dev\.omp\oauth\callback-helper.exe"),
-			Path::new(r"\\?\C:\Users\dev\.omp\oauth\callback.url"),
+			Path::new(r"\\?\C:\Users\dev\.oms\oauth\callback-helper.exe"),
+			Path::new(r"\\?\C:\Users\dev\.oms\oauth\callback.url"),
 		)
 		.unwrap();
 		assert_eq!(
 			command,
 			OsString::from(
-				r#""C:\Users\dev\.omp\oauth\callback-helper.exe" "C:\Users\dev\.omp\oauth\callback.url" "%1""#
+				r#""C:\Users\dev\.oms\oauth\callback-helper.exe" "C:\Users\dev\.oms\oauth\callback.url" "%1""#
 			)
 		);
 	}
@@ -905,7 +905,7 @@ mod tests {
 		// fall back to the legacy command instead of retaining the journal.
 		let verbatim = Context::new(
 			context.home,
-			PathBuf::from(r"\\?\Volume{d0e5f6a7-0000-0000-0000-000000000000}\omp-oauth-test"),
+			PathBuf::from(r"\\?\Volume{d0e5f6a7-0000-0000-0000-000000000000}\oms-oauth-test"),
 			context.scheme,
 			context.id,
 			BTreeMap::new(),

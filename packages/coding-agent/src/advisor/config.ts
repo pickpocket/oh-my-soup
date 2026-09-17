@@ -1,7 +1,7 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { type } from "@oh-my-pi/omptype";
-import { isEnoent, logger } from "@oh-my-pi/pi-utils";
+import { type } from "@oh-my-soup/omstype";
+import { isEnoent, logger } from "@oh-my-soup/pi-utils";
 import { YAML } from "bun";
 import { expandAtImports } from "../discovery/at-imports";
 import { BUILTIN_TOOL_NAMES, normalizeToolNames } from "../tools/builtin-names";

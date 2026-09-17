@@ -1,7 +1,7 @@
 {
 	"$schema": "https://json-schema.org/draft/2020-12/schema",
-	"title": "OMP Coding Agent Theme",
-	"description": "Theme schema for the OMP coding agent",
+	"title": "OMS Coding Agent Theme",
+	"description": "Theme schema for the OMS coding agent",
 	"type": "object",
 	"required": ["name", "colors"],
 	"properties": {

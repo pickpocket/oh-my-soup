@@ -1,5 +1,5 @@
 {
-	"name": "@oh-my-pi/pi-ai",
+	"name": "@oh-my-soup/pi-ai",
 	"version": "18.2.4",
 	"description": "Unified LLM API with automatic model discovery and provider configuration",
 	"keywords": [
@@ -11,7 +11,7 @@
 		"openai",
 		"unified"
 	],
-	"homepage": "https://omp.sh",
+	"homepage": "https://github.com/pickpocket/oh-my-soup",
 	"bugs": {
 		"url": "https://github.com/can1357/oh-my-pi/issues"
 	},
@@ -22,7 +22,7 @@
 	],
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/can1357/oh-my-pi.git",
+		"url": "git+https://github.com/pickpocket/oh-my-soup.git",
 		"directory": "packages/ai"
 	},
 	"files": [
@@ -125,11 +125,11 @@
 		"fmt": "oxfmt --no-error-on-unmatched-pattern 'src/**/*.{ts,tsx}' '{test,bench,examples,scripts}/**/*.ts' '*.ts'"
 	},
 	"dependencies": {
-		"@oh-my-pi/omptype": "catalog:",
-		"@oh-my-pi/pi-catalog": "catalog:",
-		"@oh-my-pi/pi-natives": "catalog:",
-		"@oh-my-pi/pi-utils": "catalog:",
-		"@oh-my-pi/pi-wire": "catalog:"
+		"@oh-my-soup/omstype": "catalog:",
+		"@oh-my-soup/pi-catalog": "catalog:",
+		"@oh-my-soup/pi-natives": "catalog:",
+		"@oh-my-soup/pi-utils": "catalog:",
+		"@oh-my-soup/pi-wire": "catalog:"
 	},
 	"devDependencies": {
 		"@types/bun": "catalog:"

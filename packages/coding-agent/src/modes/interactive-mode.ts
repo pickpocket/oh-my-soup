@@ -10,11 +10,11 @@ import {
 	type AgentMessage,
 	EventLoopKeepalive,
 	ThinkingLevel,
-} from "@oh-my-pi/pi-agent-core";
-import type { CompactionOutcome } from "@oh-my-pi/pi-agent-core/compaction";
-import type { AssistantMessage, ImageContent, Message, Model, Usage, UsageReport } from "@oh-my-pi/pi-ai";
-import { modelsAreEqual } from "@oh-my-pi/pi-catalog/models";
-import { execReplace } from "@oh-my-pi/pi-natives";
+} from "@oh-my-soup/pi-agent-core";
+import type { CompactionOutcome } from "@oh-my-soup/pi-agent-core/compaction";
+import type { AssistantMessage, ImageContent, Message, Model, Usage, UsageReport } from "@oh-my-soup/pi-ai";
+import { modelsAreEqual } from "@oh-my-soup/pi-catalog/models";
+import { execReplace } from "@oh-my-soup/pi-natives";
 import type {
 	AutocompleteProvider,
 	Component,
@@ -22,7 +22,7 @@ import type {
 	LoaderMessageColorFn,
 	OverlayHandle,
 	SlashCommand,
-} from "@oh-my-pi/pi-tui";
+} from "@oh-my-soup/pi-tui";
 import {
 	Container,
 	clearRenderCache,
@@ -38,9 +38,9 @@ import {
 	type TUI,
 	visibleWidth,
 	wrapTextWithAnsi,
-} from "@oh-my-pi/pi-tui";
-import type { TerminalAppearanceRequestToken } from "@oh-my-pi/pi-tui/terminal";
-import { isInsideTerminalMultiplexer } from "@oh-my-pi/pi-tui/terminal-capabilities";
+} from "@oh-my-soup/pi-tui";
+import type { TerminalAppearanceRequestToken } from "@oh-my-soup/pi-tui/terminal";
+import { isInsideTerminalMultiplexer } from "@oh-my-soup/pi-tui/terminal-capabilities";
 import {
 	$env,
 	adjustHsv,
@@ -54,14 +54,14 @@ import {
 	sanitizeText,
 	stableStringifyJson,
 	setProjectDir,
-} from "@oh-my-pi/pi-utils";
-import chalk from "@oh-my-pi/pi-utils/chalk";
+} from "@oh-my-soup/pi-utils";
+import chalk from "@oh-my-soup/pi-utils/chalk";
 import { reset as resetCapabilities } from "../capability";
 import { restartArgv } from "../cli/flag-tables";
 import type { CollabGuestLink } from "../collab/guest";
 import { CollabController } from "../collab/controller";
 import type { CollabHost } from "../collab/host";
-import { formatKeyHint, KeybindingsManager } from "@oh-my-pi/pi-tui/app-keybindings";
+import { formatKeyHint, KeybindingsManager } from "@oh-my-soup/pi-tui/app-keybindings";
 import { formatModelString, type ResolvedModelRoleValue } from "../config/model-resolver";
 import { applyProviderGlobalsFromSettings } from "../config/provider-globals";
 import {
@@ -86,7 +86,7 @@ import type { CompactOptions } from "../extensibility/extensions/types";
 import type { Skill } from "../extensibility/skills";
 import type { FileSlashCommand } from "../extensibility/slash-commands";
 import { loadSlashCommands } from "../extensibility/slash-commands";
-import type { Goal } from "@oh-my-pi/pi-tui/tools/goal";
+import type { Goal } from "@oh-my-soup/pi-tui/tools/goal";
 import type { GoalModeState } from "../goals/state";
 import { rebindMemoryBackendForCwd } from "../hindsight/backend";
 import { copyLocalArtifacts, resolveLocalUrlToPath } from "../internal-urls";
@@ -106,7 +106,7 @@ import guidedGoalInterviewPrompt from "../prompts/goals/guided-goal-interview.md
 import planFilenamePrompt from "../prompts/system/plan-filename.md" with { type: "text" };
 import planModeApprovedPrompt from "../prompts/system/plan-mode-approved.md" with { type: "text" };
 import planModeCompactInstructionsPrompt from "../prompts/system/plan-mode-compact-instructions.md" with { type: "text" };
-import type { AgentHubRegistry } from "@oh-my-pi/pi-tui/overlays/agent-hub-types";
+import type { AgentHubRegistry } from "@oh-my-soup/pi-tui/overlays/agent-hub-types";
 import { AgentRegistry, MAIN_AGENT_ID } from "../registry/agent-registry";
 import {
 	type AgentSession,
@@ -120,21 +120,21 @@ import type { ForeignSessionSource } from "../session/foreign-session-store";
 import { HistoryStorage } from "../session/history-storage";
 import { USER_INTERRUPT_LABEL } from "../session/messages";
 import { resolveMarkdownLinkTargets } from "../internal-urls/hyperlink-targets";
-import { modelMentionDisplayName } from "@oh-my-pi/pi-tui/prompt/model-mention-syntax";
-import { modelMentionChipLabel } from "@oh-my-pi/pi-tui/prompt/composer-attachments";
+import { modelMentionDisplayName } from "@oh-my-soup/pi-tui/prompt/model-mention-syntax";
+import { modelMentionChipLabel } from "@oh-my-soup/pi-tui/prompt/composer-attachments";
 import type { SessionContext } from "../session/session-context";
 import { getRecentSessions } from "../session/session-listing";
 import type { SessionManager } from "../session/session-manager";
 import type { ShakeMode } from "../session/shake-types";
 import { BUILTIN_SLASH_COMMAND_RESERVED_NAMES, buildTuiBuiltinSlashCommands } from "../slash-commands/builtin-registry";
 import { buildStaticInlineHint } from "../slash-commands/builtin-completions";
-import { formatDuration } from "@oh-my-pi/pi-tui/chrome/format";
+import { formatDuration } from "@oh-my-soup/pi-tui/chrome/format";
 import { STTController, type SttState } from "../stt";
 import { resolveCliEntryCmd } from "../subprocess/worker-client";
 import { discoverTitleSystemPromptFile, resolvePromptInput } from "../system-prompt";
 import { labelEchoesHandle } from "../task/label";
-import { agentTypeBadge, formatTaskId } from "@oh-my-pi/pi-tui/tools/task";
-import type { ConfiguredThinkingLevel } from "@oh-my-pi/pi-tui/thinking";
+import { agentTypeBadge, formatTaskId } from "@oh-my-soup/pi-tui/tools/task";
+import type { ConfiguredThinkingLevel } from "@oh-my-soup/pi-tui/thinking";
 import { tinyTitleClient } from "../tiny/title-client";
 import { isMCPToolName } from "../tools/builtin-names";
 import type { LspStartupServerInfo } from "../tools";
@@ -149,7 +149,7 @@ import {
 	shortenPath,
 	TRUNCATE_LENGTHS,
 	truncateToWidth,
-} from "@oh-my-pi/pi-tui/render/render-utils";
+} from "@oh-my-soup/pi-tui/render/render-utils";
 import { setAutoQaConsentHandler } from "../tools/report-tool-issue";
 import {
 	createTodoHudStateData,
@@ -165,17 +165,17 @@ import {
 	selectCollapsedTodos,
 	setActiveTodoDescriptionsProvider,
 	todoMatchesAnyDescription,
-} from "@oh-my-pi/pi-tui/tools/todo";
+} from "@oh-my-soup/pi-tui/tools/todo";
 import { vocalizer } from "../tts/vocalizer";
-import { applyHyperlinkSetting, fileHyperlink } from "@oh-my-pi/pi-tui/render/hyperlink";
-import { renderTreeList } from "@oh-my-pi/pi-tui/render/tree-list";
+import { applyHyperlinkSetting, fileHyperlink } from "@oh-my-soup/pi-tui/render/hyperlink";
+import { renderTreeList } from "@oh-my-soup/pi-tui/render/tree-list";
 import { formatStartupChangelogSummary, type StartupChangelogSelection } from "../utils/changelog";
 import { copyToClipboard } from "../utils/clipboard";
 import type { EventBus } from "../utils/event-bus";
 import { getEditorCommand, openInEditor } from "../utils/external-editor";
 import { resumeCommand } from "../utils/resume-command";
-import { getSessionAccentAnsi, getSessionAccentHex } from "@oh-my-pi/pi-tui/theme/session-color";
-import { messageHasDisplayableThinking } from "@oh-my-pi/pi-tui/chat/thinking-display";
+import { getSessionAccentAnsi, getSessionAccentHex } from "@oh-my-soup/pi-tui/theme/session-color";
+import { messageHasDisplayableThinking } from "@oh-my-soup/pi-tui/chat/thinking-display";
 import { TokenRateMeter } from "../utils/token-rate";
 import {
 	disposeTerminalTitleState,
@@ -192,31 +192,31 @@ import {
 	type VibeParentSession,
 	VibeSessionRegistry,
 } from "../vibe/runtime";
-import type { AssistantMessageComponent } from "@oh-my-pi/pi-tui/chat/assistant-message";
-import { AttachmentChipsBand } from "@oh-my-pi/pi-tui/prompt/attachment-chips";
-import type { BashExecutionComponent } from "@oh-my-pi/pi-tui/chat/bash-execution";
-import { ChatBlock, type ChatBlockHost } from "@oh-my-pi/pi-tui/chrome/chat-block";
-import { CodexResetFireworksController } from "@oh-my-pi/pi-tui/overlays/codex-reset-fireworks";
-import { CustomEditor } from "@oh-my-pi/pi-tui/prompt/custom-editor";
-import { DynamicBorder } from "@oh-my-pi/pi-tui/chrome/dynamic-border";
-import { EditorTopGap } from "@oh-my-pi/pi-tui/prompt/editor-top-gap";
-import { ErrorBannerComponent } from "@oh-my-pi/pi-tui/overlays/error-banner";
-import type { EvalExecutionComponent } from "@oh-my-pi/pi-tui/chat/eval-execution";
-import type { HookEditorComponent } from "@oh-my-pi/pi-tui/overlays/hook-editor";
-import type { HookInputComponent } from "@oh-my-pi/pi-tui/overlays/hook-input";
-import type { HookSelectorComponent, HookSelectorSlider } from "@oh-my-pi/pi-tui/overlays/hook-selector";
-import { type PlanReviewAnnotationState, PlanReviewOverlay } from "@oh-my-pi/pi-tui/overlays/plan-review-overlay";
-import { PlanSaveOverlay, type PlanSaveOverlayResult } from "@oh-my-pi/pi-tui/overlays/plan-save-overlay";
-import { ServedModelTracker } from "@oh-my-pi/pi-tui/chat/served-model-marker";
-import { SessionInfoOverlay } from "@oh-my-pi/pi-tui/overlays/session-info-overlay";
-import { SkillMessageComponent } from "@oh-my-pi/pi-tui/chat/skill-message";
-import { StatusLineComponent } from "@oh-my-pi/pi-tui/status-line";
+import type { AssistantMessageComponent } from "@oh-my-soup/pi-tui/chat/assistant-message";
+import { AttachmentChipsBand } from "@oh-my-soup/pi-tui/prompt/attachment-chips";
+import type { BashExecutionComponent } from "@oh-my-soup/pi-tui/chat/bash-execution";
+import { ChatBlock, type ChatBlockHost } from "@oh-my-soup/pi-tui/chrome/chat-block";
+import { CodexResetFireworksController } from "@oh-my-soup/pi-tui/overlays/codex-reset-fireworks";
+import { CustomEditor } from "@oh-my-soup/pi-tui/prompt/custom-editor";
+import { DynamicBorder } from "@oh-my-soup/pi-tui/chrome/dynamic-border";
+import { EditorTopGap } from "@oh-my-soup/pi-tui/prompt/editor-top-gap";
+import { ErrorBannerComponent } from "@oh-my-soup/pi-tui/overlays/error-banner";
+import type { EvalExecutionComponent } from "@oh-my-soup/pi-tui/chat/eval-execution";
+import type { HookEditorComponent } from "@oh-my-soup/pi-tui/overlays/hook-editor";
+import type { HookInputComponent } from "@oh-my-soup/pi-tui/overlays/hook-input";
+import type { HookSelectorComponent, HookSelectorSlider } from "@oh-my-soup/pi-tui/overlays/hook-selector";
+import { type PlanReviewAnnotationState, PlanReviewOverlay } from "@oh-my-soup/pi-tui/overlays/plan-review-overlay";
+import { PlanSaveOverlay, type PlanSaveOverlayResult } from "@oh-my-soup/pi-tui/overlays/plan-save-overlay";
+import { ServedModelTracker } from "@oh-my-soup/pi-tui/chat/served-model-marker";
+import { SessionInfoOverlay } from "@oh-my-soup/pi-tui/overlays/session-info-overlay";
+import { SkillMessageComponent } from "@oh-my-soup/pi-tui/chat/skill-message";
+import { StatusLineComponent } from "@oh-my-soup/pi-tui/status-line";
 import { statusLineHost } from "./status-line-host";
-import { stopSharedSpinnerTicker, type ToolExecutionHandle } from "@oh-my-pi/pi-tui/chat/tool-execution";
-import { TranscriptContainer } from "@oh-my-pi/pi-tui/chrome/transcript-container";
-import type { LspServerInfo as WelcomeLspServerInfo } from "@oh-my-pi/pi-tui/prompt/welcome";
-import { Composer, PINNED_HUD_TOGGLE_ID, type ComposerStatusSnapshot } from "@oh-my-pi/pi-tui/prompt/composer";
-import { writeComposerStatusCache, writeComposerWelcomeCache } from "@oh-my-pi/pi-tui/prompt/composer-cache";
+import { stopSharedSpinnerTicker, type ToolExecutionHandle } from "@oh-my-soup/pi-tui/chat/tool-execution";
+import { TranscriptContainer } from "@oh-my-soup/pi-tui/chrome/transcript-container";
+import type { LspServerInfo as WelcomeLspServerInfo } from "@oh-my-soup/pi-tui/prompt/welcome";
+import { Composer, PINNED_HUD_TOGGLE_ID, type ComposerStatusSnapshot } from "@oh-my-soup/pi-tui/prompt/composer";
+import { writeComposerStatusCache, writeComposerWelcomeCache } from "@oh-my-soup/pi-tui/prompt/composer-cache";
 import { BtwController } from "./controllers/btw-controller";
 import { CleanseCommandController } from "./controllers/cleanse-command-controller";
 import { CommandController } from "./controllers/command-controller";
@@ -231,7 +231,7 @@ import { SessionFocusController } from "./controllers/session-focus-controller";
 import { SSHCommandController } from "./controllers/ssh-command-controller";
 import { TanCommandController } from "./controllers/tan-command-controller";
 import { TodoCommandController } from "./controllers/todo-command-controller";
-import { imageReferenceHyperlink, materializeImageReferenceLinks } from "@oh-my-pi/pi-tui/prompt/image-references";
+import { imageReferenceHyperlink, materializeImageReferenceLinks } from "@oh-my-soup/pi-tui/prompt/image-references";
 import { describeLoopCondition, evaluateLoopCondition, type LoopConditionVerdict } from "./loop-condition";
 import {
 	consumeLoopLimitIteration,
@@ -242,23 +242,23 @@ import {
 	isLoopLimitExhausted,
 	parseLoopArgs,
 } from "./loop-limit";
-import type { LoopConditionConfig, LoopLimitRuntime } from "@oh-my-pi/pi-tui/status-line/loop";
+import type { LoopConditionConfig, LoopLimitRuntime } from "@oh-my-soup/pi-tui/status-line/loop";
 import { OAuthManualInputManager } from "./oauth-manual-input";
 import {
 	getRunningSubagentBadgeAgentIds,
 	getRunningSubagentBadgeRegistry,
-} from "@oh-my-pi/pi-tui/overlays/running-subagent-badge";
+} from "@oh-my-soup/pi-tui/overlays/running-subagent-badge";
 import {
 	type ObservableSession,
 	type SessionObserverChangeKind,
 	SessionObserverRegistry,
-} from "@oh-my-pi/pi-tui/overlays/session-observer-registry";
+} from "@oh-my-soup/pi-tui/overlays/session-observer-registry";
 import { createSessionTeardown, type SessionTeardown } from "./session-teardown";
-import { sanitizeStatusText } from "@oh-my-pi/pi-tui/chrome/shared";
+import { sanitizeStatusText } from "@oh-my-soup/pi-tui/chrome/shared";
 import { invokeSkillCommandFromText, isKnownSkillCommand } from "./skill-command";
-import { clearMermaidCache } from "@oh-my-pi/pi-tui/theme/mermaid-cache";
-import { type ShimmerPalette, shimmerEnabled, shimmerText } from "@oh-my-pi/pi-tui/theme/shimmer";
-import type { Theme } from "@oh-my-pi/pi-tui/theme";
+import { clearMermaidCache } from "@oh-my-soup/pi-tui/theme/mermaid-cache";
+import { type ShimmerPalette, shimmerEnabled, shimmerText } from "@oh-my-soup/pi-tui/theme/shimmer";
+import type { Theme } from "@oh-my-soup/pi-tui/theme";
 import {
 	getEditorTheme,
 	getMarkdownTheme,
@@ -267,8 +267,8 @@ import {
 	setMarkdownMermaidRendering,
 	startMacOSAppearanceReprobeFallback,
 	theme,
-} from "@oh-my-pi/pi-tui/theme";
-import { getSlashCommandTypeIcon } from "@oh-my-pi/pi-tui/theme/tui-adapters";
+} from "@oh-my-soup/pi-tui/theme";
+import { getSlashCommandTypeIcon } from "@oh-my-soup/pi-tui/theme/tui-adapters";
 import type {
 	AgentHubOpenOptions,
 	CompactionQueuedMessage,
@@ -1633,7 +1633,7 @@ export class InteractiveMode implements InteractiveModeContext {
 		// custom messages, branch summaries, and compaction summaries) and the user
 		// set no explicit `mode_change` (which #reconcileModeFromSession just
 		// restored). SDK startup metadata and extension `custom` state entries are
-		// ignored. This way `omp --continue` (or auto-resume) that finds no recent
+		// ignored. This way `oms --continue` (or auto-resume) that finds no recent
 		// session and creates a fresh one still honors the default, while a session
 		// with restored context or an explicit mode keeps its reconciled mode. Scoped
 		// to launch (not the switch reconciler above) so /new and the plan-approval →
@@ -5638,7 +5638,7 @@ export class InteractiveMode implements InteractiveModeContext {
 		// Do not force a final render during teardown: disposed session/UI state can
 		// collapse to an empty frame, clearing the viewport and leaving the parent
 		// shell prompt at row 0. Stop from the last committed frame so the terminal
-		// hands Bash the cursor immediately after visible OMP content.
+		// hands Bash the cursor immediately after visible OMS content.
 		// Drain any in-flight Kitty key release events before stopping.
 		// This prevents escape sequences from leaking to the parent shell over slow SSH.
 		await this.ui.terminal.drainInput(1000);

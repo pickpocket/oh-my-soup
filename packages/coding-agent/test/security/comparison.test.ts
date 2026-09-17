@@ -24,7 +24,7 @@ function finding(
 		evidence: [],
 		validation: { status: "unvalidated", evidenceIds: [] },
 		disposition: { status: "open" },
-		provenance: { producer: { kind: "omp-native", name: "fixture" }, createdAt: "2026-07-29T00:00:00.000Z" },
+		provenance: { producer: { kind: "oms-native", name: "fixture" }, createdAt: "2026-07-29T00:00:00.000Z" },
 	};
 }
 
@@ -32,7 +32,7 @@ function bundle(scanId: string, findings: SecurityFinding[]): SecurityScanBundle
 	for (const item of findings) item.scanId = scanId;
 	return {
 		scan: {
-			documentType: "omp-security.scan",
+			documentType: "oms-security.scan",
 			schemaVersion: "1.0",
 			id: scanId,
 			projectKey: "fixture",
@@ -46,8 +46,8 @@ function bundle(scanId: string, findings: SecurityFinding[]): SecurityScanBundle
 				excludePaths: [],
 				treeDigest: "fixture",
 			},
-			producer: { kind: "omp-native", name: "fixture" },
-			provenance: { producer: { kind: "omp-native", name: "fixture" }, createdAt: "2026-07-29T00:00:00.000Z" },
+			producer: { kind: "oms-native", name: "fixture" },
+			provenance: { producer: { kind: "oms-native", name: "fixture" }, createdAt: "2026-07-29T00:00:00.000Z" },
 			findingIds: findings.map(item => item.id),
 			coverage: {
 				mode: "imported",

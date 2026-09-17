@@ -1,6 +1,6 @@
 // TypeSafe (System One judgments) is not a chat-model provider: it answers
 // typed questions (choice / yes-no / score) over JSON state via
-// `POST /v1/systemone`, consumed through `@oh-my-pi/pi-ai`'s `TypeSafeJudge`.
+// `POST /v1/systemone`, consumed through `@oh-my-soup/pi-ai`'s `TypeSafeJudge`.
 // No `providers/typesafe.kdl` entry exists on purpose — it has no chat models,
 // so it never appears in the model picker; the credential alone is what the
 // judgment resolver checks.

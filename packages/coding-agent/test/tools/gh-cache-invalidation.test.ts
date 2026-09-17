@@ -4,13 +4,13 @@
  * leaving unrelated commands and read-only `gh` calls alone.
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "bun:test";
-import { invalidateGithubCacheForBashCommand } from "@oh-my-pi/pi-coding-agent/tools/gh-cache-invalidation";
+import { invalidateGithubCacheForBashCommand } from "@oh-my-soup/pi-coding-agent/tools/gh-cache-invalidation";
 import {
 	clearAll,
 	getCached,
 	putCached,
 	resetForTests as resetCacheForTests,
-} from "@oh-my-pi/pi-coding-agent/tools/github-cache";
+} from "@oh-my-soup/pi-coding-agent/tools/github-cache";
 
 const REPO = "owner/example";
 
@@ -76,8 +76,8 @@ function seedPr(number: number, repo = REPO): void {
 let originalEnv: string | undefined;
 
 beforeAll(() => {
-	originalEnv = process.env.OMP_GITHUB_CACHE_DB;
-	process.env.OMP_GITHUB_CACHE_DB = ":memory:";
+	originalEnv = process.env.OMS_GITHUB_CACHE_DB;
+	process.env.OMS_GITHUB_CACHE_DB = ":memory:";
 	resetCacheForTests();
 });
 
@@ -88,9 +88,9 @@ beforeEach(() => {
 afterAll(() => {
 	resetCacheForTests();
 	if (originalEnv === undefined) {
-		delete process.env.OMP_GITHUB_CACHE_DB;
+		delete process.env.OMS_GITHUB_CACHE_DB;
 	} else {
-		process.env.OMP_GITHUB_CACHE_DB = originalEnv;
+		process.env.OMS_GITHUB_CACHE_DB = originalEnv;
 	}
 });
 

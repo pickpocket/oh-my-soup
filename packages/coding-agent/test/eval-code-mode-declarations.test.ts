@@ -1,11 +1,11 @@
 import { describe, expect, test } from "bun:test";
-import { type } from "@oh-my-pi/omptype";
+import { type } from "@oh-my-soup/omstype";
 import { Settings } from "../src/config/settings";
 import type { ToolSession } from "../src/tools";
 import { createBrowserPrelude } from "../src/tools/browser";
 import { createComputerPrelude } from "../src/tools/computer";
 import { EvalTool } from "../src/tools/eval";
-import { generateCodeModeDeclarations } from "@oh-my-pi/pi-tui/tools/eval-format/code-mode-declarations";
+import { generateCodeModeDeclarations } from "@oh-my-soup/pi-tui/tools/eval-format/code-mode-declarations";
 
 describe("generateCodeModeDeclarations", () => {
 	test("emits a declare-const block with typed signatures", () => {

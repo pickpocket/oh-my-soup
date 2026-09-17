@@ -7,9 +7,9 @@
 
 import * as os from "node:os";
 import * as path from "node:path";
-import { ThinkingLevel } from "@oh-my-pi/pi-agent-core";
-import type { Ellipsis } from "@oh-my-pi/pi-natives";
-import { pluralize, sanitizeText } from "@oh-my-pi/pi-utils";
+import { ThinkingLevel } from "@oh-my-soup/pi-agent-core";
+import type { Ellipsis } from "@oh-my-soup/pi-natives";
+import { pluralize, sanitizeText } from "@oh-my-soup/pi-utils";
 import { formatKeyHints, type KeyId } from "../app-keybindings";
 import { getKeybindings } from "../keybindings";
 import type { Theme } from "../theme/theme";
@@ -17,7 +17,7 @@ import type { Component } from "../tui";
 import { replaceTabs, sliceByColumn, truncateToWidth, visibleWidth } from "../utils";
 import { Hasher } from "./utils";
 
-export { Ellipsis } from "@oh-my-pi/pi-natives";
+export { Ellipsis } from "@oh-my-soup/pi-natives";
 export { replaceTabs, truncateToWidth, wrapTextWithAnsi } from "../utils";
 
 /** A thinking selector configured as a concrete level or automatic selection. */
@@ -253,7 +253,7 @@ export function getDomain(url: string): string {
 // Formatting Utilities
 // =============================================================================
 
-export { formatAge, formatBytes, formatCount, formatDuration, pluralize } from "@oh-my-pi/pi-utils";
+export { formatAge, formatBytes, formatCount, formatDuration, pluralize } from "@oh-my-soup/pi-utils";
 
 // =============================================================================
 // Theme Helper Utilities

@@ -1,9 +1,9 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { $which, isEnoent } from "@oh-my-pi/pi-utils";
+import { $which, isEnoent } from "@oh-my-soup/pi-utils";
 import { isSettingsInitialized, settings } from "../config/settings";
 import { getDefault } from "../config/settings-schema";
-import { isMarkdownPath } from "@oh-my-pi/pi-tui/lang-from-path";
+import { isMarkdownPath } from "@oh-my-soup/pi-tui/lang-from-path";
 import { parseInternalUrl } from "./parse";
 import { validateRelativePath } from "./skill-protocol";
 import type { InternalResource, InternalUrl, ProtocolHandler, ResolveContext, WriteContext } from "./types";

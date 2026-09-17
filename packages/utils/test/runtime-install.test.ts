@@ -35,7 +35,7 @@ interface ResolveFilenameModule {
 }
 
 async function makeNodeModules(packages: Record<string, { manifest: Record<string, unknown>; files: string[] }>) {
-	const root = await fs.mkdtemp(path.join(os.tmpdir(), "omp-runtime-install-"));
+	const root = await fs.mkdtemp(path.join(os.tmpdir(), "oms-runtime-install-"));
 	tempDirs.push(root);
 	const nodeModules = path.join(root, "node_modules");
 	for (const name in packages) {
@@ -184,7 +184,7 @@ describe("installRuntimeModuleResolver", () => {
 	});
 
 	test("uninstall restores the stock resolver and createRequire relative requires", async () => {
-		const root = await fs.mkdtemp(path.join(os.tmpdir(), "omp-runtime-uninstall-"));
+		const root = await fs.mkdtemp(path.join(os.tmpdir(), "oms-runtime-uninstall-"));
 		tempDirs.push(root);
 		await fs.writeFile(path.join(root, "config.js"), 'module.exports = { value: "config-ok" };\n');
 		await fs.writeFile(
@@ -218,7 +218,7 @@ describe("installRuntimeModuleResolver", () => {
 
 describe("writeRuntimeManifest", () => {
 	async function readManifest(install: Parameters<typeof writeRuntimeManifest>[1]) {
-		const dir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-runtime-manifest-"));
+		const dir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-runtime-manifest-"));
 		tempDirs.push(dir);
 		await writeRuntimeManifest(dir, install);
 		return JSON.parse(await fs.readFile(path.join(dir, "package.json"), "utf8")) as Record<string, unknown>;
@@ -252,17 +252,17 @@ describe("ensureRuntimeInstalled install lock", () => {
 	// A local `file:` dependency keeps the real `bun install` offline and
 	// deterministic — no registry, no network.
 	async function makeFileDependency(): Promise<{ spec: string; probe: string }> {
-		const src = await fs.mkdtemp(path.join(os.tmpdir(), "omp-runtime-dep-"));
+		const src = await fs.mkdtemp(path.join(os.tmpdir(), "oms-runtime-dep-"));
 		tempDirs.push(src);
 		await fs.writeFile(
 			path.join(src, "package.json"),
-			JSON.stringify({ name: "omp-runtime-fixture", version: "1.0.0" }),
+			JSON.stringify({ name: "oms-runtime-fixture", version: "1.0.0" }),
 		);
-		return { spec: `file:${src}`, probe: "omp-runtime-fixture" };
+		return { spec: `file:${src}`, probe: "oms-runtime-fixture" };
 	}
 
 	async function makeRuntimeDir(): Promise<string> {
-		const root = await fs.mkdtemp(path.join(os.tmpdir(), "omp-runtime-cache-"));
+		const root = await fs.mkdtemp(path.join(os.tmpdir(), "oms-runtime-cache-"));
 		tempDirs.push(root);
 		return path.join(root, "cache", "fixture-runtime");
 	}

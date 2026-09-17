@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "bun:test";
-import { TempDir } from "@oh-my-pi/pi-utils";
+import { TempDir } from "@oh-my-soup/pi-utils";
 import { Settings } from "../../src/config/settings";
 import { resolveOwnerScopedSessionKey, type SessionOwners } from "../../src/eval/executor-base";
 import { disposeAllVmContexts, disposeVmContextsByOwner } from "../../src/eval/js/context-manager";
@@ -88,7 +88,7 @@ describe("JS eval owner-scoped reset forking", () => {
 	});
 
 	it("forks shared resets while resetting an exclusive owner in place", async () => {
-		using tempDir = TempDir.createSync("@omp-js-owner-fork-");
+		using tempDir = TempDir.createSync("@oms-js-owner-fork-");
 		const session = makeSession(tempDir.path());
 		const evalSessionId = `js-owner-fork:${crypto.randomUUID()}`;
 		const run = (code: string, kernelOwnerId: string, reset?: boolean) =>
@@ -129,7 +129,7 @@ describe("Python cold-start reset race", () => {
 	});
 
 	it("forks a reset issued while the shared kernel is still starting", async () => {
-		using tempDir = TempDir.createSync("@omp-py-owner-race-");
+		using tempDir = TempDir.createSync("@oms-py-owner-race-");
 		const shutdowns = [0, 0];
 		const kernels: PythonKernel[] = [];
 		const firstStartEntered = Promise.withResolvers<void>();

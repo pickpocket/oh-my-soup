@@ -10,9 +10,9 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { $ } from "bun";
-import * as vcs from "@oh-my-pi/pi-natives/vcs";
+import * as vcs from "@oh-my-soup/pi-natives/vcs";
 
-const dir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-issue-966-"));
+const dir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-issue-966-"));
 try {
 	await $\`git init --initial-branch=main\`.cwd(dir).quiet();
 	await $\`git config user.email tester@example.com\`.cwd(dir).quiet();

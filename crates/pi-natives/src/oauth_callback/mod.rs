@@ -91,9 +91,9 @@ const JOURNAL_ENVIRONMENT_KEYS: [&str; 3] =
 	["XDG_CONFIG_HOME", "XDG_DATA_HOME", "XDG_CURRENT_DESKTOP"];
 
 #[cfg(target_os = "macos")]
-const HELPER_BYTES: &[u8] = include_bytes!(env!("OMP_OAUTH_DARWIN_HELPER"));
+const HELPER_BYTES: &[u8] = include_bytes!(env!("OMS_OAUTH_DARWIN_HELPER"));
 #[cfg(not(target_os = "macos"))]
-const HELPER_BYTES: &[u8] = include_bytes!(env!("OMP_OAUTH_RELAY_BINARY"));
+const HELPER_BYTES: &[u8] = include_bytes!(env!("OMS_OAUTH_RELAY_BINARY"));
 
 /// Construction options for [`NativeOAuthCallback`].
 #[napi(object)]
@@ -767,7 +767,7 @@ fn environment_home(env: &BTreeMap<String, String>) -> Option<PathBuf> {
 
 fn storage_root(home: &Path, scheme: &str) -> PathBuf {
 	home
-		.join(".omp")
+		.join(".oms")
 		.join("oauth")
 		.join("native")
 		.join(platform_name())

@@ -5,19 +5,19 @@
  * providers with provider-specific parameters exposed conditionally.
  */
 
-import { type } from "@oh-my-pi/omptype";
-import type { AgentTool, AgentToolContext, AgentToolResult, AgentToolUpdateCallback } from "@oh-my-pi/pi-agent-core";
-import type { AuthStorage } from "@oh-my-pi/pi-ai";
-import { prompt } from "@oh-my-pi/pi-utils";
+import { type } from "@oh-my-soup/omstype";
+import type { AgentTool, AgentToolContext, AgentToolResult, AgentToolUpdateCallback } from "@oh-my-soup/pi-agent-core";
+import type { AuthStorage } from "@oh-my-soup/pi-ai";
+import { prompt } from "@oh-my-soup/pi-utils";
 import { ModelRegistry } from "../../config/model-registry";
 import { settings } from "../../config/settings";
 import type { CustomTool, CustomToolContext, RenderResultOptions } from "../../extensibility/custom-tools/types";
-import type { Theme } from "@oh-my-pi/pi-tui/theme";
+import type { Theme } from "@oh-my-soup/pi-tui/theme";
 import webSearchSystemPrompt from "../../prompts/system/web-search.md" with { type: "text" };
 import webSearchDescription from "../../prompts/tools/web-search.md" with { type: "text" };
 import { discoverAuthStorage } from "../../sdk";
 import type { ToolSession } from "../../tools";
-import { formatAge } from "@oh-my-pi/pi-tui/render/render-utils";
+import { formatAge } from "@oh-my-soup/pi-tui/render/render-utils";
 import { throwIfAborted } from "../../tools/tool-errors";
 import {
 	formatSearchProviderFailure,
@@ -27,11 +27,11 @@ import {
 	type SearchProvider,
 	type SearchProviderCandidate,
 } from "./provider";
-import { getSearchProviderLabel } from "@oh-my-pi/pi-tui/tools/web-search";
+import { getSearchProviderLabel } from "@oh-my-soup/pi-tui/tools/web-search";
 import { applyQueryConstraints, parseSearchQuery } from "./query";
-import { renderSearchCall, renderSearchResult, type SearchRenderDetails } from "@oh-my-pi/pi-tui/tools/web-search";
+import { renderSearchCall, renderSearchResult, type SearchRenderDetails } from "@oh-my-soup/pi-tui/tools/web-search";
 import { DEFAULT_WEB_SEARCH_TIMEOUT_SECONDS, MAX_WEB_SEARCH_TIMEOUT_SECONDS, SearchProviderError } from "./types";
-import { type SearchProviderId, type SearchResponse } from "@oh-my-pi/pi-tui/tools/web-search";
+import { type SearchProviderId, type SearchResponse } from "@oh-my-soup/pi-tui/tools/web-search";
 
 /** Web search tool parameters schema */
 export const webSearchSchema = type({
@@ -150,7 +150,7 @@ async function executeSearch(
 	const parsedQuery = parseSearchQuery(params.query);
 
 	// Invariant across providers; read once and tolerate an uninitialized
-	// Settings singleton (e.g. `omp q ...` CLI path, unit tests) so the
+	// Settings singleton (e.g. `oms q ...` CLI path, unit tests) so the
 	// provider-fallback loop never aborts before any provider runs.
 	let antigravityEndpointMode: "auto" | "production" | "sandbox" | undefined;
 	try {
@@ -282,7 +282,7 @@ async function executeSearch(
  * Execute a web search query for CLI/testing workflows.
  *
  * `authStorage` may be omitted; in that case we discover one via the standard
- * factory (`discoverAuthStorage`), which honours `OMP_AUTH_BROKER_URL` and
+ * factory (`discoverAuthStorage`), which honours `OMS_AUTH_BROKER_URL` and
  * otherwise opens the local SQLite credential store.
  */
 export async function runSearchQuery(
@@ -395,5 +395,5 @@ export function getSearchTools(): CustomTool<any, any>[] {
 }
 
 export { getSearchProvider, setExcludedSearchProviders, setSearchProviderOrder } from "./provider";
-export type { SearchProviderId as SearchProvider, SearchResponse } from "@oh-my-pi/pi-tui/tools/web-search";
+export type { SearchProviderId as SearchProvider, SearchResponse } from "@oh-my-soup/pi-tui/tools/web-search";
 export { isSearchProviderId, isSearchProviderPreference } from "./types";

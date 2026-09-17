@@ -1,13 +1,13 @@
-import type { AgentMessage } from "@oh-my-pi/pi-agent-core";
-import { customMessageEntryMessage, isUserRequestEntry } from "@oh-my-pi/pi-tui/chat/transcript-entry";
-import { getAnthropicCompactionPayload, isTurnStartEntry } from "@oh-my-pi/pi-agent-core/compaction";
+import type { AgentMessage } from "@oh-my-soup/pi-agent-core";
+import { customMessageEntryMessage, isUserRequestEntry } from "@oh-my-soup/pi-tui/chat/transcript-entry";
+import { getAnthropicCompactionPayload, isTurnStartEntry } from "@oh-my-soup/pi-agent-core/compaction";
 import {
 	coerceServiceTierByFamily,
 	type OpenAIResponsesHistoryPayload,
 	type ServiceTierByFamily,
-} from "@oh-my-pi/pi-ai";
-import * as snapcompact from "@oh-my-pi/snapcompact";
-import { isRecord } from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-ai";
+import * as snapcompact from "@oh-my-soup/snapcompact";
+import { isRecord } from "@oh-my-soup/pi-utils";
 import {
 	createBranchSummaryMessage,
 	createCompactionSummaryMessage,

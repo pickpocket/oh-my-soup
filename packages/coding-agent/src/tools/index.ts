@@ -1,7 +1,7 @@
-import type { AgentOptions, AgentTelemetryConfig, AgentTool, AgentToolContext } from "@oh-my-pi/pi-agent-core";
-import type { EditStore } from "@oh-my-pi/pi-natives";
-import type { FetchImpl, ImageContent, Model, ServiceTierByFamily, ToolChoice } from "@oh-my-pi/pi-ai";
-import { logger } from "@oh-my-pi/pi-utils";
+import type { AgentOptions, AgentTelemetryConfig, AgentTool, AgentToolContext } from "@oh-my-soup/pi-agent-core";
+import type { EditStore } from "@oh-my-soup/pi-natives";
+import type { FetchImpl, ImageContent, Model, ServiceTierByFamily, ToolChoice } from "@oh-my-soup/pi-ai";
+import { logger } from "@oh-my-soup/pi-utils";
 import type { AsyncJobManager } from "../async/job-manager";
 import type { Rule } from "../capability/rule";
 import type { EffectiveExtensionRoots } from "../capability/types";
@@ -33,7 +33,7 @@ import type { ToolChoiceQueue } from "../session/tool-choice-queue";
 import { TaskTool } from "../task";
 import type { AgentOutputManager } from "../task/output-manager";
 import { type AgentDefinition, canSpawnAtDepth } from "../task/types";
-import { type StructuredSubagentSchemaMode } from "@oh-my-pi/pi-tui/tools/task";
+import { type StructuredSubagentSchemaMode } from "@oh-my-soup/pi-tui/tools/task";
 import type { WorkPoolYieldItem } from "../task/workpool-yield";
 import type { EventBus } from "../utils/event-bus";
 import { WebSearchTool } from "../web/search";
@@ -63,7 +63,7 @@ import { ReadTool } from "./read";
 import type { PlanProposalHandler } from "./resolve";
 import { SecurityScanTool } from "./security-scan";
 import { supportsExternalThinking, ThinkTool } from "./think";
-import { type TodoPhase } from "@oh-my-pi/pi-tui/tools/todo";
+import { type TodoPhase } from "@oh-my-soup/pi-tui/tools/todo";
 import { TodoTool } from "./todo";
 import { WriteTool } from "./write";
 import { isMountableUnderXdev, type XdevState } from "./xdev";
@@ -72,7 +72,7 @@ import { YieldTool } from "./yield";
 export * from "../edit";
 export * from "../goals";
 export * from "../lsp";
-export * from "@oh-my-pi/pi-tui/tools/streaming-output";
+export * from "@oh-my-soup/pi-tui/tools/streaming-output";
 export * from "../task";
 export * from "../web/search";
 export * from "./ask";
@@ -84,7 +84,7 @@ export type {
 	BashRenderArgs,
 	BashRenderContext,
 	ShellRendererConfig,
-} from "@oh-my-pi/pi-tui/tools/bash";
+} from "@oh-my-soup/pi-tui/tools/bash";
 export * from "./browser";
 export * from "./checkpoint";
 export * from "./computer";
@@ -111,7 +111,7 @@ export type {
 	CoordinationDetails,
 	HubDetails,
 	HubRenderArgs,
-} from "@oh-my-pi/pi-tui/tools/hub";
+} from "@oh-my-soup/pi-tui/tools/hub";
 export * from "./image-gen";
 export * from "./learn";
 export * from "./manage-skill";
@@ -127,13 +127,13 @@ export type {
 	FindingPriorityInfo,
 	FindingDetails,
 	SubmitReviewDetails,
-} from "@oh-my-pi/pi-tui/tools/task";
+} from "@oh-my-soup/pi-tui/tools/task";
 export * from "./security-scan";
 export * from "./think";
 export * from "./todo";
 export * from "./tts";
 export * from "./vibe";
-export type { VibeToolDetails } from "@oh-my-pi/pi-tui/tools/vibe";
+export type { VibeToolDetails } from "@oh-my-soup/pi-tui/tools/vibe";
 export * from "./write";
 export * from "./xdev";
 export * from "./yield";
@@ -245,7 +245,7 @@ export interface ToolSession {
 	 */
 	effectiveExtensionRoots?(): EffectiveExtensionRoots;
 	/**
-	 * Pre-discovered custom-tool source paths from `.omp/tools/`, `.claude/tools/`,
+	 * Pre-discovered custom-tool source paths from `.oms/tools/`, `.claude/tools/`,
 	 * plugins, etc. Forwarded to subagents so they skip the FS scan but still
 	 * re-bind tools to their own session-scoped `CustomToolAPI`.
 	 */
@@ -841,7 +841,7 @@ export async function createTools(session: ToolSession, toolNames?: string[]): P
 	return tools;
 }
 
-export type { AskToolDetails, QuestionResult } from "@oh-my-pi/pi-tui/tools/ask";
+export type { AskToolDetails, QuestionResult } from "@oh-my-soup/pi-tui/tools/ask";
 export type {
 	TodoStatus,
 	TodoOperation,
@@ -850,9 +850,9 @@ export type {
 	TodoCompletionTransition,
 	TodoToolDetails,
 	CollapsedTodoSelection,
-} from "@oh-my-pi/pi-tui/tools/todo";
-export type { ThinkRenderArgs } from "@oh-my-pi/pi-tui/tools/think";
-export type { ResolutionDeviceName, ResolveDetails } from "@oh-my-pi/pi-tui/tools/resolve";
+} from "@oh-my-soup/pi-tui/tools/todo";
+export type { ThinkRenderArgs } from "@oh-my-soup/pi-tui/tools/think";
+export type { ResolutionDeviceName, ResolveDetails } from "@oh-my-soup/pi-tui/tools/resolve";
 export type {
 	GhToolDetails,
 	GhPrCheckoutSummary,
@@ -860,4 +860,4 @@ export type {
 	GhRunWatchRunDetails,
 	GhRunWatchFailedLogDetails,
 	GhRunWatchViewDetails,
-} from "@oh-my-pi/pi-tui/tools/github";
+} from "@oh-my-soup/pi-tui/tools/github";

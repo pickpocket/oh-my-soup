@@ -4,7 +4,7 @@ import {
 	DEFAULT_COMPACTION_SETTINGS,
 	prepareCompaction,
 	type SessionEntry,
-} from "@oh-my-pi/pi-agent-core/compaction";
+} from "@oh-my-soup/pi-agent-core/compaction";
 import { createAssistantMessage, createUserMessage } from "./helpers";
 
 let seq = 0;

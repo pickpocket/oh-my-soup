@@ -13,7 +13,7 @@ import {
 	truncateToWidth,
 	visibleWidth,
 } from "../index";
-import { formatBytes } from "@oh-my-pi/pi-utils";
+import { formatBytes } from "@oh-my-soup/pi-utils";
 import { theme } from "../theme/theme";
 import { matchesAppInterrupt, matchesSelectDown, matchesSelectUp } from "../keybinding-matchers";
 /** Session lifecycle status presented by the picker. */

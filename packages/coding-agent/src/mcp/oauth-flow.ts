@@ -5,22 +5,22 @@
  * by providing authorization URL, token URL, and client credentials.
  */
 
-import type { OAuthCallbackFlowOptions } from "@oh-my-pi/pi-ai/oauth/callback-server";
-import { OAuthCallbackFlow } from "@oh-my-pi/pi-ai/oauth/callback-server";
-import type { OAuthController, OAuthCredentials } from "@oh-my-pi/pi-ai/oauth/types";
-import type { FetchImpl } from "@oh-my-pi/pi-ai/types";
-import { getActiveProfile } from "@oh-my-pi/pi-utils/dirs";
+import type { OAuthCallbackFlowOptions } from "@oh-my-soup/pi-ai/oauth/callback-server";
+import { OAuthCallbackFlow } from "@oh-my-soup/pi-ai/oauth/callback-server";
+import type { OAuthController, OAuthCredentials } from "@oh-my-soup/pi-ai/oauth/types";
+import type { FetchImpl } from "@oh-my-soup/pi-ai/types";
+import { getActiveProfile } from "@oh-my-soup/pi-utils/dirs";
 import type { OAuthCredential } from "../session/auth-storage";
 import { buildWellKnownUrls } from "./oauth-discovery";
 
-/** Credential-id prefix for OMP-managed MCP OAuth credentials keyed by profile and server URL. */
+/** Credential-id prefix for OMS-managed MCP OAuth credentials keyed by profile and server URL. */
 const MCP_OAUTH_URL_CREDENTIAL_PREFIX = "mcp_oauth:";
 
 /** Credential-id prefix for profile-scoped MCP OAuth credentials (`mcp_oauth:profile:<profile>:<serverUrl>`). */
 const MCP_OAUTH_PROFILE_CREDENTIAL_PREFIX = `${MCP_OAUTH_URL_CREDENTIAL_PREFIX}profile:`;
 
 /**
- * Deterministic credential id for an MCP server URL scoped to an OMP profile.
+ * Deterministic credential id for an MCP server URL scoped to an OMS profile.
  *
  * Local profile stores are already separate, but auth-broker storage shares one
  * provider namespace across profiles. Including the profile in the provider key
@@ -33,7 +33,7 @@ export function mcpOAuthCredentialId(serverUrl: string, profile: string | undefi
 	return `${MCP_OAUTH_PROFILE_CREDENTIAL_PREFIX}${profile ?? "default"}:${serverUrl}`;
 }
 
-/** Whether a credential id was minted by OMP's MCP OAuth flows (either era). */
+/** Whether a credential id was minted by OMS's MCP OAuth flows (either era). */
 export function isManagedMCPOAuthCredentialId(credentialId: string | undefined): credentialId is string {
 	return (
 		!!credentialId &&
@@ -271,7 +271,7 @@ interface ResourceIndicatorFilterOptions {
  * (`https://gateway.example.com/my-service/mcp`): servers can use either form
  * as the audience they require for the grant.
  *
- * Plane is stricter for OMP-synthesized fallback resources (e.g. using the
+ * Plane is stricter for OMS-synthesized fallback resources (e.g. using the
  * configured server URL `https://mcp.plane.so/http/mcp` as `resource`), so
  * fallback callers opt into `stripSameOriginResource`. Provider-advertised
  * `oauth.resource` values and authorization-URL `?resource=` values keep the
@@ -445,7 +445,7 @@ export class MCPOAuthFlow extends OAuthCallbackFlow {
 			// requested audience; a query carried by the endpoint URL does not.
 			params.set("resource", this.#resource);
 		} else if (existingResource) {
-			// An embedded resource outranks OMP's server-URL fallback. Gateway-
+			// An embedded resource outranks OMS's server-URL fallback. Gateway-
 			// hosted MCP servers can use origin-only or path-scoped audiences.
 			const filtered = filterResourceIndicator(resolveResourceUri(existingResource), this.config.authorizationUrl);
 			if (filtered) {
@@ -614,7 +614,7 @@ export class MCPOAuthFlow extends OAuthCallbackFlow {
 
 		try {
 			const registrationBody: Record<string, unknown> = {
-				client_name: "oh-my-pi",
+				client_name: "oh-my-soup",
 				redirect_uris: [redirectUri],
 				grant_types: ["authorization_code", "refresh_token"],
 				response_types: ["code"],

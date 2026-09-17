@@ -1,4 +1,4 @@
-import type { RenderScheduler, RenderTimer } from "@oh-my-pi/pi-tui/tui";
+import type { RenderScheduler, RenderTimer } from "@oh-my-soup/pi-tui/tui";
 import type { VirtualTerminal } from "./virtual-terminal";
 
 /**

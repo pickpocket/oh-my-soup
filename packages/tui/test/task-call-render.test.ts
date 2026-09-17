@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, it } from "bun:test";
-import { getThemeByName, setThemeInstance, type Theme } from "@oh-my-pi/pi-tui/theme";
-import type { TaskParams } from "@oh-my-pi/pi-tui/tools/task";
-import { taskToolRenderer } from "@oh-my-pi/pi-tui/tools/task";
+import { getThemeByName, setThemeInstance, type Theme } from "@oh-my-soup/pi-tui/theme";
+import type { TaskParams } from "@oh-my-soup/pi-tui/tools/task";
+import { taskToolRenderer } from "@oh-my-soup/pi-tui/tools/task";
 
 describe("task renderer: streaming call preview", () => {
 	let theme: Theme;

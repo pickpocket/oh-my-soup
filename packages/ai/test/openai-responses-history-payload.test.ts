@@ -1,16 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
-import { type } from "@oh-my-pi/omptype";
+import { type } from "@oh-my-soup/omstype";
 import {
 	convertCodexResponsesMessages,
 	streamOpenAICodexResponses,
-} from "@oh-my-pi/pi-ai/providers/openai-codex-responses";
-import { type OpenAIResponsesOptions, streamOpenAIResponses } from "@oh-my-pi/pi-ai/providers/openai-responses";
-import { buildResponsesInput } from "@oh-my-pi/pi-ai/providers/openai-shared";
-import type { Context, Model, ModelSpec, ProviderSessionState, Tool } from "@oh-my-pi/pi-ai/types";
-import { createOpenAIResponsesHistoryPayload } from "@oh-my-pi/pi-ai/utils";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
-import { type GeneratedProvider, getBundledModel } from "@oh-my-pi/pi-catalog/models";
-import * as piUtils from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-ai/providers/openai-codex-responses";
+import { type OpenAIResponsesOptions, streamOpenAIResponses } from "@oh-my-soup/pi-ai/providers/openai-responses";
+import { buildResponsesInput } from "@oh-my-soup/pi-ai/providers/openai-shared";
+import type { Context, Model, ModelSpec, ProviderSessionState, Tool } from "@oh-my-soup/pi-ai/types";
+import { createOpenAIResponsesHistoryPayload } from "@oh-my-soup/pi-ai/utils";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
+import { type GeneratedProvider, getBundledModel } from "@oh-my-soup/pi-catalog/models";
+import * as piUtils from "@oh-my-soup/pi-utils";
 
 const TEST_INSTALLATION_ID = "00000000-0000-4000-8000-000000000001";
 
@@ -876,7 +876,7 @@ describe("OpenAI responses history payload", () => {
 	});
 
 	it("does not replay an empty Codex final_answer message or its trailing reasoning item", async () => {
-		// gpt-5.6 shape captured from a live omp session: the answer landed in the
+		// gpt-5.6 shape captured from a live oms session: the answer landed in the
 		// `commentary` phase, so the turn closed with an empty `final_answer`.
 		// Replaying that item seeds the next turn with an empty slot the model
 		// fills with drift ("\n\n", stray words, non-Latin residue).

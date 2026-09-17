@@ -100,13 +100,13 @@ Python `tab.run` accepts a JavaScript string only; it does not accept a Python c
 
 `browser.open` selects a browser in this order when explicitly requested: `app.cdp_url`, `app.path`, then `app.relay`. Without explicit selection it considers relay settings, configured CDP, cmux, then project-shared headless Chromium.
 
-- **Headless:** creates an omp-owned page in project-shared Chromium and applies stealth patches.
+- **Headless:** creates an oms-owned page in project-shared Chromium and applies stealth patches.
 - **Spawned (`app.path`):** starts or reuses a CDP-enabled browser/Electron executable. `app.args` applies only here.
 - **Connected (`app.cdp_url`):** attaches to an existing HTTP CDP discovery endpoint.
 - **Relay (`app.relay: true`):** adopts the user's real Chrome tab. `app.target` selects by URL/title substring; without it the visible usable tab is adopted.
 - **Cmux:** drives an available cmux WKWebView surface.
 
-Reusing one tab name across browser kinds is rejected until the existing tab is closed. Closing omp-owned headless pages and owned cmux surfaces closes them. Connected and relay pages remain open. Spawned browser processes remain open unless `kill: true` releases their last managed tab and terminates the process.
+Reusing one tab name across browser kinds is rejected until the existing tab is closed. Closing oms-owned headless pages and owned cmux surfaces closes them. Connected and relay pages remain open. Spawned browser processes remain open unless `kill: true` releases their last managed tab and terminates the process.
 
 ## Screenshots and output
 

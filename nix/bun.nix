@@ -653,22 +653,22 @@
     url = "https://registry.npmjs.org/@octokit/types/-/types-18.0.0.tgz";
     hash = "sha512-l6bAF43PNxkJp6g+W4PjoUSSkxHomXw2nOum5CTftJz1NlV3vu93NImgOYtLf6CbBUb5j+fiuzW0PPQ5JTSvZA==";
   };
-  "@oh-my-pi/browser-relay" = copyPathToStore ../packages/browser-relay;
-  "@oh-my-pi/collab-web" = copyPathToStore ../packages/collab-web;
-  "@oh-my-pi/omp-stats" = copyPathToStore ../packages/stats;
-  "@oh-my-pi/omptype" = copyPathToStore ../packages/omptype;
-  "@oh-my-pi/pi-agent-core" = copyPathToStore ../packages/agent;
-  "@oh-my-pi/pi-ai" = copyPathToStore ../packages/ai;
-  "@oh-my-pi/pi-catalog" = copyPathToStore ../packages/catalog;
-  "@oh-my-pi/pi-coding-agent" = copyPathToStore ../packages/coding-agent;
-  "@oh-my-pi/pi-metaharness" = copyPathToStore ../packages/metaharness;
-  "@oh-my-pi/pi-mnemopi" = copyPathToStore ../packages/mnemopi;
-  "@oh-my-pi/pi-natives" = copyPathToStore ../packages/natives;
-  "@oh-my-pi/pi-tui" = copyPathToStore ../packages/tui;
-  "@oh-my-pi/pi-utils" = copyPathToStore ../packages/utils;
-  "@oh-my-pi/pi-wire" = copyPathToStore ../packages/wire;
-  "@oh-my-pi/snapcompact" = copyPathToStore ../packages/snapcompact;
-  "@oh-my-pi/typescript-edit-benchmark" = copyPathToStore ../packages/typescript-edit-benchmark;
+  "@oh-my-soup/browser-relay" = copyPathToStore ../packages/browser-relay;
+  "@oh-my-soup/collab-web" = copyPathToStore ../packages/collab-web;
+  "@oh-my-soup/oms-stats" = copyPathToStore ../packages/stats;
+  "@oh-my-soup/omstype" = copyPathToStore ../packages/omstype;
+  "@oh-my-soup/pi-agent-core" = copyPathToStore ../packages/agent;
+  "@oh-my-soup/pi-ai" = copyPathToStore ../packages/ai;
+  "@oh-my-soup/pi-catalog" = copyPathToStore ../packages/catalog;
+  "@oh-my-soup/pi-coding-agent" = copyPathToStore ../packages/coding-agent;
+  "@oh-my-soup/pi-metaharness" = copyPathToStore ../packages/metaharness;
+  "@oh-my-soup/pi-mnemopi" = copyPathToStore ../packages/mnemopi;
+  "@oh-my-soup/pi-natives" = copyPathToStore ../packages/natives;
+  "@oh-my-soup/pi-tui" = copyPathToStore ../packages/tui;
+  "@oh-my-soup/pi-utils" = copyPathToStore ../packages/utils;
+  "@oh-my-soup/pi-wire" = copyPathToStore ../packages/wire;
+  "@oh-my-soup/snapcompact" = copyPathToStore ../packages/snapcompact;
+  "@oh-my-soup/typescript-edit-benchmark" = copyPathToStore ../packages/typescript-edit-benchmark;
   "@opentelemetry/api-logs@0.220.0" = fetchurl {
     url = "https://registry.npmjs.org/@opentelemetry/api-logs/-/api-logs-0.220.0.tgz";
     hash = "sha512-CmVa4ImJ+ynfrPMNaAXHET6Bhb44SwzmfyVJFq9ni2jgXJR/l7C6gfVFddNmHP+ZOkP9cf4f9DBe68qVLTHc9w==";
@@ -2021,7 +2021,7 @@
     url = "https://registry.npmjs.org/roarr/-/roarr-2.15.4.tgz";
     hash = "sha512-CHhPh+UNHD2GTXNYhPWLnU8ONHdI+5DI+4EYIAOaiD63rHeYlZvyh8P+in5999TTSFgUYuKUAjzRI4mdh/p+2A==";
   };
-  "robomp-web" = copyPathToStore ../python/robomp/web;
+  "roboms-web" = copyPathToStore ../python/roboms/web;
   "rolldown@1.2.8" = fetchurl {
     url = "https://registry.npmjs.org/rolldown/-/rolldown-1.2.8.tgz";
     hash = "sha512-Z67nTmhZe7anqnM/EjI392w5i/ANUinjip7QYsOyN37oayduxt3ksdX0hf5OOamkAd53BiIHfbfSzfUmzKFQqQ==";

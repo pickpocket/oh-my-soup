@@ -385,7 +385,7 @@ function WindowInsightsPanel({ insights }: { insights: ProviderWindowInsight[] }
 				columns={columns}
 				data={insights}
 				keyExtractor={i => `${i.provider}::${i.windowKey}`}
-				emptyText="No usage snapshots recorded yet — they accumulate whenever usage is fetched (TUI footer, /usage, omp usage)"
+				emptyText="No usage snapshots recorded yet — they accumulate whenever usage is fetched (TUI footer, /usage, oms usage)"
 			/>
 		</Panel>
 	);

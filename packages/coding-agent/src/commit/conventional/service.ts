@@ -1,8 +1,8 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import type { VcsNumstatEntry } from "@oh-my-pi/pi-natives";
-import * as vcs from "@oh-my-pi/pi-natives/vcs";
-import { getCommitCacheDbPath } from "@oh-my-pi/pi-utils";
+import type { VcsNumstatEntry } from "@oh-my-soup/pi-natives";
+import * as vcs from "@oh-my-soup/pi-natives/vcs";
+import { getCommitCacheDbPath } from "@oh-my-soup/pi-utils";
 import { ModelRegistry } from "../../config/model-registry";
 import { Settings } from "../../config/settings";
 import { discoverAuthStorage, loadCliExtensionProviders } from "../../sdk";
@@ -16,7 +16,7 @@ import {
 	type CommitInferenceRequest,
 	type CommitInferenceResponse,
 	type CommitProgress,
-	OmpCommitInference,
+	OmsCommitInference,
 } from "./inference";
 import { detectRepositoryContext, formatRepositoryContext } from "./repo-context";
 
@@ -87,7 +87,7 @@ export async function generateGitCommit(options: GenerateGitCommitOptions): Prom
 	const numstat = renderNumstat(numstatEntries);
 	const context = await collectGenerationContext(options.cwd, options.signal);
 
-	const inference = new LazyCommitInference(() => createOmpInference(options, settings, config));
+	const inference = new LazyCommitInference(() => createOmsInference(options, settings, config));
 	try {
 		const result = await generateConventionalCommit({ diff, stat, numstat, config, inference, context });
 		return { ...result, stagedAll };
@@ -96,11 +96,11 @@ export async function generateGitCommit(options: GenerateGitCommitOptions): Prom
 	}
 }
 
-async function createOmpInference(
+async function createOmsInference(
 	options: GenerateGitCommitOptions,
 	settings: Settings,
 	config: ConventionalGenerationConfig,
-): Promise<OmpCommitInference> {
+): Promise<OmsCommitInference> {
 	options.signal?.throwIfAborted();
 	const authStorage = await discoverAuthStorage();
 	try {
@@ -114,7 +114,7 @@ async function createOmpInference(
 		const cache = config.cacheEnabled
 			? await CommitInferenceCache.open(getCommitCacheDbPath(), config.cacheTtlDays)
 			: null;
-		return new OmpCommitInference({
+		return new OmsCommitInference({
 			primary,
 			smol,
 			forcePrimaryForEveryRole: options.modelOverride !== undefined,
@@ -177,10 +177,10 @@ async function projectNames(cwd: string): Promise<string[]> {
 }
 
 class LazyCommitInference implements CommitInference {
-	readonly #create: () => Promise<OmpCommitInference>;
-	#instance: Promise<OmpCommitInference> | undefined;
+	readonly #create: () => Promise<OmsCommitInference>;
+	#instance: Promise<OmsCommitInference> | undefined;
 
-	constructor(create: () => Promise<OmpCommitInference>) {
+	constructor(create: () => Promise<OmsCommitInference>) {
 		this.#create = create;
 	}
 

@@ -1,7 +1,7 @@
 /**
  * Shared command execution utilities for hooks and custom tools.
  */
-import { ptree } from "@oh-my-pi/pi-utils";
+import { ptree } from "@oh-my-soup/pi-utils";
 
 /**
  * Options for executing shell commands.

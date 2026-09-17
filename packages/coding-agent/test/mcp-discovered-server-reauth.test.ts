@@ -1,6 +1,6 @@
 /**
  * Regression coverage for `/mcp reauth` (and `/mcp test|unauth`) on a server
- * that `/mcp list` shows but that lives in no writable OMP config — e.g. a
+ * that `/mcp list` shows but that lives in no writable OMS config — e.g. a
  * server installed from a Claude Code marketplace plugin, registered under a
  * namespaced name like `cloudflare:cloudflare-api`.
  *
@@ -21,7 +21,7 @@ import { describe, expect, it } from "bun:test";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { removeSyncWithRetries } from "@oh-my-pi/pi-utils";
+import { removeSyncWithRetries } from "@oh-my-soup/pi-utils";
 import type { SourceMeta } from "../src/capability/types";
 import { readMCPConfigFile, updateMCPServer, validateServerName } from "../src/mcp/config-writer";
 import { MCPManager } from "../src/mcp/manager";
@@ -33,7 +33,7 @@ const BUN_EXEC = process.execPath;
 describe("MCP discovered-server reauth", () => {
 	describe("manager surfaces discovered configs for unconnected servers", () => {
 		it("exposes config + source for a discovered server that failed to connect", async () => {
-			const workDir = fs.mkdtempSync(path.join(os.tmpdir(), "omp-mcp-discovered-"));
+			const workDir = fs.mkdtempSync(path.join(os.tmpdir(), "oms-mcp-discovered-"));
 			const manager = new MCPManager(workDir);
 
 			// Exits before speaking MCP, so the connect attempt fails and the
@@ -84,7 +84,7 @@ describe("MCP discovered-server reauth", () => {
 		});
 
 		it("updateMCPServer round-trips a namespaced HTTP server with an oauth auth block", async () => {
-			const workDir = fs.mkdtempSync(path.join(os.tmpdir(), "omp-mcp-persist-"));
+			const workDir = fs.mkdtempSync(path.join(os.tmpdir(), "oms-mcp-persist-"));
 			const filePath = path.join(workDir, "mcp.json");
 
 			// Exactly the shape `/mcp reauth` writes: the discovered config plus

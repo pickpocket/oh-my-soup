@@ -1,7 +1,7 @@
     (function() {
       'use strict';
 
-      const THEME_STORAGE_KEY = 'omp-export-theme';
+      const THEME_STORAGE_KEY = 'oms-export-theme';
       const themeSelect = document.getElementById('theme-select');
       let themePreference = 'auto';
       try {
@@ -570,8 +570,8 @@
       }
 
       /**
-       * Split an OMP interleaved assistant into sidebar text/tool rows.
-       * Pi stores those continuations as separate entries; OMP keeps one
+       * Split an OMS interleaved assistant into sidebar text/tool rows.
+       * Pi stores those continuations as separate entries; OMS keeps one
        * content array. Do not mutate session entries or parentIds.
        */
       function buildInterleavedAssistantRows(flatNode, toolResultNodes, includeTools) {
@@ -916,7 +916,7 @@
       // TOOL CALL RENDERING
       // ============================================================
       //
-      // Tool calls render through the bundled <omp-tool-view> web component
+      // Tool calls render through the bundled <oms-tool-view> web component
       // (tool-views.generated.js — the same React renderers collab-web uses).
       // Payloads are handed over via a global store keyed by data-key, which
       // survives innerHTML serialization and cloneNode round trips.
@@ -938,7 +938,7 @@
             openAgent: (id) => openSubSession(joinKey(sctx.prefix, id)),
           },
         });
-        return '<omp-tool-view class="tool-execution ' + statusClass + '" id="' + blockId + '" data-key="' + key + '" open></omp-tool-view>';
+        return '<oms-tool-view class="tool-execution ' + statusClass + '" id="' + blockId + '" data-key="' + key + '" open></oms-tool-view>';
       }
 
       // ============================================================

@@ -1,15 +1,15 @@
 {
   "type": "module",
   "private": true,
-  "name": "@oh-my-pi/typescript-edit-benchmark",
+  "name": "@oh-my-soup/typescript-edit-benchmark",
   "version": "0.0.1",
   "description": "Edit benchmark suite using TypeScript source code mutations",
-  "homepage": "https://omp.sh",
+  "homepage": "https://github.com/pickpocket/oh-my-soup",
   "author": "Stencil Labs, Inc.",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/can1357/oh-my-pi.git",
+    "url": "git+https://github.com/pickpocket/oh-my-soup.git",
     "directory": "packages/typescript-edit-benchmark"
   },
   "exports": {
@@ -34,15 +34,15 @@
     "@babel/parser": "catalog:",
     "@babel/traverse": "catalog:",
     "@babel/types": "catalog:",
-    "@oh-my-pi/pi-agent-core": "catalog:",
-    "@oh-my-pi/pi-coding-agent": "catalog:",
-    "@oh-my-pi/pi-utils": "catalog:",
+    "@oh-my-soup/pi-agent-core": "catalog:",
+    "@oh-my-soup/pi-coding-agent": "catalog:",
+    "@oh-my-soup/pi-utils": "catalog:",
     "diff": "catalog:",
-    "@oh-my-pi/pi-natives": "catalog:",
+    "@oh-my-soup/pi-natives": "catalog:",
     "prettier": "catalog:",
     "regexp-tree": "catalog:",
-    "@oh-my-pi/pi-ai": "catalog:",
-    "@oh-my-pi/pi-tui": "catalog:"
+    "@oh-my-soup/pi-ai": "catalog:",
+    "@oh-my-soup/pi-tui": "catalog:"
   },
   "devDependencies": {
     "@types/babel__generator": "catalog:",

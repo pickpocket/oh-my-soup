@@ -6,8 +6,8 @@
  * injected as a system reminder, and the request is retried.
  */
 import * as path from "node:path";
-import { AstMatchStrictness, astMatch } from "@oh-my-pi/pi-natives";
-import { logger } from "@oh-my-pi/pi-utils";
+import { AstMatchStrictness, astMatch } from "@oh-my-soup/pi-natives";
+import { logger } from "@oh-my-soup/pi-utils";
 import { compileRuleCondition, type Rule } from "../capability/rule";
 import type { TtsrSettings } from "../config/settings";
 

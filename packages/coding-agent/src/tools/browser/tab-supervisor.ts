@@ -6,14 +6,14 @@ import {
 	Snowflake,
 	withTimeout,
 	workerHostEntry,
-} from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-utils";
 import type { CDPSession, Page, Target } from "puppeteer-core";
 import { callSessionTool } from "../../eval/js/tool-bridge";
-import { webpExclusionForModel } from "@oh-my-pi/pi-tui/chat/image-loading";
+import { webpExclusionForModel } from "@oh-my-soup/pi-tui/chat/image-loading";
 import type { ToolSession } from "../index";
 import { expandPath } from "../path-utils";
 import { ToolAbortError } from "../tool-errors";
-import { ToolError } from "@oh-my-pi/pi-tui/tools/tool-errors";
+import { ToolError } from "@oh-my-soup/pi-tui/tools/tool-errors";
 import { gracefulKillTreeOnce, pickElectronTarget, shouldPreserveConnectedBrowserFocus } from "./attach";
 import { CmuxTab, runCmuxCode } from "./cmux/cmux-tab";
 import { mapWaitUntil } from "./cmux/rpc";
@@ -455,7 +455,7 @@ async function acquireTabImpl(
 	};
 	worker.onMessage(msg => handleTabMessage(tab, msg));
 	tabs.set(name, tab);
-	// Durably record ownership so another live omp process can reap this page if
+	// Durably record ownership so another live oms process can reap this page if
 	// this process dies abnormally before its own teardown closes the tab.
 	const scope = sharedScopeOf(browser);
 	if (scope) void recordSharedTarget(scope, info.targetId);
@@ -906,7 +906,7 @@ export async function releaseTabsForOwner(ownerId: string, opts: ReleaseTabOptio
 }
 
 /**
- * Tabs this settle machinery may ever touch: OMP-launched headless puppeteer
+ * Tabs this settle machinery may ever touch: OMS-launched headless puppeteer
  * tabs (`kindTag === "headless"` covers hidden and visible shared-daemon
  * tabs) that are alive and not opted out with `persist`. Connected, relay,
  * and spawned tabs drive the user's own pages/apps, and cmux surfaces are a
@@ -1213,7 +1213,7 @@ async function buildInitPayload(browser: PuppeteerBrowserHandle, opts: AcquireTa
 			mode: "headless",
 			browserWSEndpoint,
 			safeDir,
-			// Visible launches still need an OMP-owned page, stealth setup, and
+			// Visible launches still need an OMS-owned page, stealth setup, and
 			// independent lifecycle; only their fixed device emulation is disabled.
 			emulateViewport: browser.kind.headless,
 			viewport: opts.viewport,
@@ -1541,7 +1541,7 @@ async function spawnTabWorker(): Promise<WorkerHandle> {
 	try {
 		const hostEntry = workerHostEntry();
 		const worker = hostEntry
-			? new Worker(hostEntry, { type: "module", argv: ["__omp_worker_tab"] })
+			? new Worker(hostEntry, { type: "module", argv: ["__oms_worker_tab"] })
 			: new Worker(new URL("./tab-worker-entry.ts", import.meta.url).href, { type: "module" });
 		return wrapBunWorker(worker);
 	} catch (err) {

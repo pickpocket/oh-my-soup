@@ -1,4 +1,4 @@
-import { $env } from "@oh-my-pi/pi-utils";
+import { $env } from "@oh-my-soup/pi-utils";
 import type { Api, ImageContent, Model, TextContent } from "../types";
 
 export const NON_VISION_IMAGE_PLACEHOLDER = "[image omitted: model does not support vision]";
@@ -52,7 +52,7 @@ export function isOpenAICompletionsVisionSupported(model: Model<"openai-completi
  * guard, as does the OpenRouter chat fallback (`PI_OPENROUTER_RESPONSES=0`,
  * which dispatches `openrouter` models through `streamOpenAICompletions`);
  * every other API ships the modalities the model declares. Callers that report
- * or gate on the wire (for example the `omp models` table) read this
+ * or gate on the wire (for example the `oms models` table) read this
  * predicate; declared capability reads `model.input`.
  */
 export function sendsImageInputOnWire(model: Model<Api>): boolean {

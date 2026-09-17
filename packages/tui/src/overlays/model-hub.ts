@@ -10,11 +10,11 @@ import { parseModelString, splitUpstreamRouting, formatModelSelectorValue } from
  * Fully mouse-navigable (hover, wheel, click). Session-only switching lives
  * in the compact alt+p picker ({@link ./model-picker}).
  */
-import { ThinkingLevel } from "@oh-my-pi/pi-agent-core";
-import type { Model } from "@oh-my-pi/pi-ai";
-import { getOAuthProviders } from "@oh-my-pi/pi-ai/oauth";
-import { getSupportedEfforts } from "@oh-my-pi/pi-catalog/model-thinking";
-import { providerEntry } from "@oh-my-pi/pi-catalog/compat/providers";
+import { ThinkingLevel } from "@oh-my-soup/pi-agent-core";
+import type { Model } from "@oh-my-soup/pi-ai";
+import { getOAuthProviders } from "@oh-my-soup/pi-ai/oauth";
+import { getSupportedEfforts } from "@oh-my-soup/pi-catalog/model-thinking";
+import { providerEntry } from "@oh-my-soup/pi-catalog/compat/providers";
 import type { Component, TUI } from "../tui";
 import { extractPrintableText, matchesKey } from "../keys";
 import { fuzzyFilter } from "../fuzzy";
@@ -356,7 +356,7 @@ export class ModelHubComponent implements Component {
 		}
 
 		// Reconcile catalogs in the background. This is online discovery only —
-		// it must not re-run `!command` credential helpers (F5 / `omp models
+		// it must not re-run `!command` credential helpers (F5 / `oms models
 		// refresh` pass refreshCommandCredentials for that). A --models scope is
 		// registry-independent, so the reload would only repeat the hydration
 		// above.

@@ -5,7 +5,7 @@ import {
 	type TerminalFrameProvider,
 	TUI,
 	type ViewportSize,
-} from "@oh-my-pi/pi-tui";
+} from "@oh-my-soup/pi-tui";
 import { VirtualTerminal } from "./virtual-terminal";
 
 // Regression coverage for the SIGWINCH-side pre-erase archiving the unfinished

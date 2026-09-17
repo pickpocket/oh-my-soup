@@ -16,8 +16,8 @@ import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { configureCredentialRedaction } from "@oh-my-pi/pi-ai/providers/transform-messages";
-import { configureProviderMaxInFlightRequests } from "@oh-my-pi/pi-ai/stream";
+import { configureCredentialRedaction } from "@oh-my-soup/pi-ai/providers/transform-messages";
+import { configureProviderMaxInFlightRequests } from "@oh-my-soup/pi-ai/stream";
 import {
 	getAgentDbPath,
 	getAgentDir,
@@ -29,14 +29,14 @@ import {
 	MAIN_CONFIG_FILENAMES,
 	procmgr,
 	setWorktreesDir,
-} from "@oh-my-pi/pi-utils";
-import { withFileLock } from "@oh-my-pi/pi-utils/file-lock";
-import { setShimmerMode } from "@oh-my-pi/pi-tui/theme/shimmer";
-import { setChatTranscriptDisplayPreferences } from "@oh-my-pi/pi-tui/chat/display-preferences";
-import { setEditorGapComposerShape } from "@oh-my-pi/pi-tui/prompt/editor-top-gap";
-import { setEmojiAutocompleteEnabled } from "@oh-my-pi/pi-tui/prompt/prompt-action-autocomplete";
-import { setMcpRenderMarkdownResults } from "@oh-my-pi/pi-tui/tools/mcp";
-import { isLightTheme, setAutoThemeMapping, setColorBlindMode, setSymbolPreset } from "@oh-my-pi/pi-tui/theme/theme";
+} from "@oh-my-soup/pi-utils";
+import { withFileLock } from "@oh-my-soup/pi-utils/file-lock";
+import { setShimmerMode } from "@oh-my-soup/pi-tui/theme/shimmer";
+import { setChatTranscriptDisplayPreferences } from "@oh-my-soup/pi-tui/chat/display-preferences";
+import { setEditorGapComposerShape } from "@oh-my-soup/pi-tui/prompt/editor-top-gap";
+import { setEmojiAutocompleteEnabled } from "@oh-my-soup/pi-tui/prompt/prompt-action-autocomplete";
+import { setMcpRenderMarkdownResults } from "@oh-my-soup/pi-tui/tools/mcp";
+import { isLightTheme, setAutoThemeMapping, setColorBlindMode, setSymbolPreset } from "@oh-my-soup/pi-tui/theme/theme";
 import { JSONC, YAML } from "bun";
 import { invalidate as invalidateCapabilityFsCache } from "../capability/fs";
 import { type Settings as SettingsCapabilityItem, settingsCapability } from "../capability/settings";
@@ -45,19 +45,19 @@ import { loadCapability } from "../discovery";
 import { AgentStorage } from "../session/agent-storage";
 import { type CompactionMethod, DEFAULT_COMPACTION_METHOD_ORDER } from "../session/compaction-methods";
 import { AUTO_IMAGE_PROVIDER_ORDER, isImageProviderId } from "../tools/image-providers";
-import { applyHyperlinkSetting } from "@oh-my-pi/pi-tui/render/hyperlink";
+import { applyHyperlinkSetting } from "@oh-my-soup/pi-tui/render/hyperlink";
 import {
 	setFeedModelBadgeEnabled,
 	setInlineImageMaxColumns,
 	setInlineImageMaxRows,
-} from "@oh-my-pi/pi-tui/render/render-utils";
+} from "@oh-my-soup/pi-tui/render/render-utils";
 import { replaceFileAtomically } from "../utils/atomic-file";
-import { type EditMode } from "@oh-my-pi/pi-tui/tools/edit";
+import { type EditMode } from "@oh-my-soup/pi-tui/tools/edit";
 import { normalizeEditMode } from "../utils/edit-mode";
 import { isSearchProviderId, SEARCH_PROVIDER_ORDER } from "../web/search/types";
-import { stringifyYamlConfig } from "@oh-my-pi/pi-utils/yaml-config";
+import { stringifyYamlConfig } from "@oh-my-soup/pi-utils/yaml-config";
 import { validateAgentServiceTierOverrides } from "./service-tier";
-import { STATUS_LINE_SEGMENT_IDS } from "@oh-my-pi/pi-tui/status-line/schema";
+import { STATUS_LINE_SEGMENT_IDS } from "@oh-my-soup/pi-tui/status-line/schema";
 import {
 	type BashInterceptorRule,
 	type GroupPrefix,
@@ -269,7 +269,7 @@ const SETTINGS_GROUP_ONLY_PREFIXES: Readonly<Record<string, true>> = (() => {
  * Drop entries from capability-provided project settings whose non-object
  * value would shadow an entire settings group. `.claude/settings.json` is
  * shared with other tools, and a foreign leaf like `"tui": "fullscreen"`
- * deep-merges over omp's `tui` group, silently replacing every `tui.*`
+ * deep-merges over oms's `tui` group, silently replacing every `tui.*`
  * setting for sessions rooted in that project. Values at schema leaves,
  * unknown keys, and well-formed nested objects pass through unchanged.
  */
@@ -537,7 +537,7 @@ export class Settings {
 	#global: RawSettings = {};
 	/** Project settings from .claude/settings.yml etc */
 	#project: RawSettings = {};
-	/** Last successfully loaded native .omp/config.yml contents. */
+	/** Last successfully loaded native .oms/config.yml contents. */
 	#projectFileSettings: RawSettings = {};
 	/** Logical config paths whose malformed targets were moved aside. */
 	#quarantinedYamlTargets = new Map<string, string>();
@@ -1028,7 +1028,7 @@ export class Settings {
 	}
 
 	/**
-	 * Raw project settings layer (`.claude/settings.yml`, `.omp/config.yml`,
+	 * Raw project settings layer (`.claude/settings.yml`, `.oms/config.yml`,
 	 * etc.), deep-cloned. Companion to {@link getGlobalSettings} for the legacy
 	 * pi `SettingsManager` shim's `getProjectSettings()`.
 	 */
@@ -1061,7 +1061,7 @@ export class Settings {
 	/**
 	 * Provenance of the effective `extensions` array for extension-root
 	 * sub-discovery. `"project"` only when a project settings provider owns it
-	 * (any of `.omp/config.yml`, `.omp/settings.json`, `.claude/settings.json`,
+	 * (any of `.oms/config.yml`, `.oms/settings.json`, `.claude/settings.json`,
 	 * … — all merged into the project layer) and no higher user-level layer (a
 	 * `--config` overlay or a runtime override) replaces it; otherwise `"user"`.
 	 * Callers pass this into {@link EffectiveExtensionRoots.configuredLevel} so
@@ -2442,7 +2442,7 @@ export class Settings {
 					!("bankId" in hindsightObj) &&
 					typeof agentName === "string" &&
 					agentName.trim().length > 0 &&
-					agentName !== "omp"
+					agentName !== "oms"
 				) {
 					hindsightObj.bankId = agentName;
 				}

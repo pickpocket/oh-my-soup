@@ -2,7 +2,7 @@
  * Run on-disk storage maintenance.
  */
 
-import { Command, Flags } from "@oh-my-pi/pi-utils/cli";
+import { Command, Flags } from "@oh-my-soup/pi-utils/cli";
 import { gcHelp as commandHelp } from "../cli/command-help";
 import { collectGcErrors, type GcCommandArgs, runGcCommand } from "../cli/gc-cli";
 

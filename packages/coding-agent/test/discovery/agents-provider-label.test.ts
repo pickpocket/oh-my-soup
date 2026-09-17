@@ -6,7 +6,7 @@
  * rules, prompts, commands, and context/system files (never agents).
  */
 import { describe, expect, test } from "bun:test";
-import { getAllProvidersInfo } from "@oh-my-pi/pi-coding-agent/discovery";
+import { getAllProvidersInfo } from "@oh-my-soup/pi-coding-agent/discovery";
 
 describe("agents (config-standard) provider label", () => {
 	test("display name disambiguates from the /agents subagents feature", () => {

@@ -1,5 +1,5 @@
 import { type Component, truncateToWidth, visibleWidth } from "../index";
-import { formatBytes } from "@oh-my-pi/pi-utils";
+import { formatBytes } from "@oh-my-soup/pi-utils";
 import { ProgressBar } from "../components/progress-bar";
 /** Download progress fields consumed by the status display. */
 export interface TinyTitleDownloadProgress {

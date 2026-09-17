@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import { ExtensionRunner } from "@oh-my-pi/pi-coding-agent/extensibility/extensions/runner";
-import type { ExtensionRuntime } from "@oh-my-pi/pi-coding-agent/extensibility/extensions/types";
+import { ExtensionRunner } from "@oh-my-soup/pi-coding-agent/extensibility/extensions/runner";
+import type { ExtensionRuntime } from "@oh-my-soup/pi-coding-agent/extensibility/extensions/types";
 
 function createRunner(): ExtensionRunner {
 	const runtime = {

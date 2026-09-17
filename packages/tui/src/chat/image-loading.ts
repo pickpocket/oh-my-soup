@@ -1,5 +1,5 @@
-import type { ImageContent, Model } from "@oh-my-pi/pi-ai";
-import { formatBytes, parseImageMetadata, SUPPORTED_IMAGE_MIME_TYPES } from "@oh-my-pi/pi-utils";
+import type { ImageContent, Model } from "@oh-my-soup/pi-ai";
+import { formatBytes, parseImageMetadata, SUPPORTED_IMAGE_MIME_TYPES } from "@oh-my-soup/pi-utils";
 
 export const MAX_IMAGE_INPUT_BYTES = 20 * 1024 * 1024;
 
@@ -9,7 +9,7 @@ export const SUPPORTED_INPUT_IMAGE_MIME_TYPES = SUPPORTED_IMAGE_MIME_TYPES;
  * Ollama and its local-backend family decode image input through llama.cpp /
  * `stb_image`, which is compiled without WebP support, so a WebP upload fails
  * with an opaque HTTP 400. Detect those models so the resize pipeline encodes
- * to PNG/JPEG instead — the automatic equivalent of `OMP_NO_WEBP=1`.
+ * to PNG/JPEG instead — the automatic equivalent of `OMS_NO_WEBP=1`.
  */
 export function modelLacksWebpSupport(
 	model: Pick<Model, "provider" | "api" | "imageInputDecoder"> | undefined,
@@ -28,7 +28,7 @@ export function modelLacksWebpSupport(
 
 /**
  * `true` when `model` cannot decode WebP, otherwise `undefined` so the
- * `OMP_NO_WEBP` env fallback in {@link resizeImage} still applies. Feed straight
+ * `OMS_NO_WEBP` env fallback in {@link resizeImage} still applies. Feed straight
  * into {@link ImageResizeOptions.excludeWebP}.
  */
 export function webpExclusionForModel(model: Pick<Model, "provider" | "api"> | undefined): true | undefined {

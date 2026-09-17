@@ -1,25 +1,25 @@
 import { afterEach, describe, expect, it, vi } from "bun:test";
 import * as path from "node:path";
-import type { AgentToolContext } from "@oh-my-pi/pi-agent-core";
-import { AsyncJobManager } from "@oh-my-pi/pi-coding-agent/async";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import * as evalIndex from "@oh-my-pi/pi-coding-agent/eval";
-import * as bashExecutor from "@oh-my-pi/pi-coding-agent/exec/bash-executor";
-import { getThemeByName } from "@oh-my-pi/pi-tui/theme";
-import { ArtifactManager } from "@oh-my-pi/pi-coding-agent/session/artifacts";
-import { SessionManager } from "@oh-my-pi/pi-coding-agent/session/session-manager";
-import type { ToolSession } from "@oh-my-pi/pi-coding-agent/tools";
-import { BashTool } from "@oh-my-pi/pi-coding-agent/tools/bash";
-import { EvalTool } from "@oh-my-pi/pi-coding-agent/tools/eval";
-import { HubTool } from "@oh-my-pi/pi-coding-agent/tools/hub";
-import { hubToolRenderer } from "@oh-my-pi/pi-tui/tools/hub";
-import type { CoordinationDetails, JobSnapshot } from "@oh-my-pi/pi-tui/tools/hub";
-import { type OutputMeta } from "@oh-my-pi/pi-tui/tools/output-meta";
-import { formatOutputNotice } from "@oh-my-pi/pi-tui/tools/output-meta";
-import { wrapToolWithMetaNotice } from "@oh-my-pi/pi-coding-agent/tools/output-meta";
-import { ReadTool } from "@oh-my-pi/pi-coding-agent/tools/read";
-import { ToolAbortError } from "@oh-my-pi/pi-coding-agent/tools/tool-errors";
-import { TempDir } from "@oh-my-pi/pi-utils";
+import type { AgentToolContext } from "@oh-my-soup/pi-agent-core";
+import { AsyncJobManager } from "@oh-my-soup/pi-coding-agent/async";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import * as evalIndex from "@oh-my-soup/pi-coding-agent/eval";
+import * as bashExecutor from "@oh-my-soup/pi-coding-agent/exec/bash-executor";
+import { getThemeByName } from "@oh-my-soup/pi-tui/theme";
+import { ArtifactManager } from "@oh-my-soup/pi-coding-agent/session/artifacts";
+import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
+import type { ToolSession } from "@oh-my-soup/pi-coding-agent/tools";
+import { BashTool } from "@oh-my-soup/pi-coding-agent/tools/bash";
+import { EvalTool } from "@oh-my-soup/pi-coding-agent/tools/eval";
+import { HubTool } from "@oh-my-soup/pi-coding-agent/tools/hub";
+import { hubToolRenderer } from "@oh-my-soup/pi-tui/tools/hub";
+import type { CoordinationDetails, JobSnapshot } from "@oh-my-soup/pi-tui/tools/hub";
+import { type OutputMeta } from "@oh-my-soup/pi-tui/tools/output-meta";
+import { formatOutputNotice } from "@oh-my-soup/pi-tui/tools/output-meta";
+import { wrapToolWithMetaNotice } from "@oh-my-soup/pi-coding-agent/tools/output-meta";
+import { ReadTool } from "@oh-my-soup/pi-coding-agent/tools/read";
+import { ToolAbortError } from "@oh-my-soup/pi-coding-agent/tools/tool-errors";
+import { TempDir } from "@oh-my-soup/pi-utils";
 
 function sessionFor(root: string, manager?: AsyncJobManager): ToolSession {
 	return {

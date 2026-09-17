@@ -3,7 +3,7 @@
  *
  * Resolution order: GitHub-noreply address → Gravatar (`d=404` so misses fall
  * through) → GitHub commits API when the repo has a github remote. Hits are
- * normalized to a 64px PNG via `Bun.Image` and cached in ~/.omp/cache/avatars;
+ * normalized to a 64px PNG via `Bun.Image` and cached in ~/.oms/cache/avatars;
  * definite misses leave a `.miss` marker so offline sessions stay quiet. When
  * no photo exists (or the terminal cannot draw images) the sidebar falls back
  * to a deterministic half-block identicon supplied by the view.
@@ -11,8 +11,8 @@
 
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import * as vcs from "@oh-my-pi/pi-natives/vcs";
-import { getAvatarCacheDir, logger } from "@oh-my-pi/pi-utils";
+import * as vcs from "@oh-my-soup/pi-natives/vcs";
+import { getAvatarCacheDir, logger } from "@oh-my-soup/pi-utils";
 
 const AVATAR_PX = 64;
 const FETCH_TIMEOUT_MS = 5_000;
@@ -47,7 +47,7 @@ async function githubApiAvatarUrl(cwd: string, email: string): Promise<string | 
 	const match = remoteUrl?.match(/github\.com[/:]([^/]+)\/([^/]+?)(?:\.git)?$/);
 	if (!match) return null;
 	const token = process.env.GITHUB_TOKEN ?? process.env.GH_TOKEN;
-	const headers: Record<string, string> = { Accept: "application/vnd.github+json", "User-Agent": "oh-my-pi" };
+	const headers: Record<string, string> = { Accept: "application/vnd.github+json", "User-Agent": "oh-my-soup" };
 	if (token) headers.Authorization = `Bearer ${token}`;
 	try {
 		const response = await fetch(

@@ -1,8 +1,8 @@
 import { describe, expect, it } from "bun:test";
 import * as path from "node:path";
-import { AgentRegistry } from "@oh-my-pi/pi-coding-agent/registry/agent-registry";
-import { registerPersistedSubagents } from "@oh-my-pi/pi-coding-agent/registry/persisted-agents";
-import { TempDir } from "@oh-my-pi/pi-utils";
+import { AgentRegistry } from "@oh-my-soup/pi-coding-agent/registry/agent-registry";
+import { registerPersistedSubagents } from "@oh-my-soup/pi-coding-agent/registry/persisted-agents";
+import { TempDir } from "@oh-my-soup/pi-utils";
 
 function transcript(): string {
 	return [
@@ -20,7 +20,7 @@ function transcript(): string {
 
 describe("persisted agent isolation artifacts", () => {
 	it("restores nested-repo patch files beside a transcript in capture order", async () => {
-		using tempDir = TempDir.createSync("@omp-artifacts-nested-");
+		using tempDir = TempDir.createSync("@oms-artifacts-nested-");
 		const dir = tempDir.path();
 		const agentDir = path.join(dir, "main");
 		await Bun.write(path.join(dir, "main.jsonl"), "");

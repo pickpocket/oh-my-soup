@@ -29,7 +29,7 @@ import {
 	truncateToWidth,
 	visibleWidth,
 } from "../index";
-import { sanitizeText } from "@oh-my-pi/pi-utils";
+import { sanitizeText } from "@oh-my-soup/pi-utils";
 import { sanitizeStatusText } from "../chrome/shared";
 import { getMarkdownTheme, theme } from "../theme/theme";
 import {

@@ -2,8 +2,8 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { callToolJson, handleJsonRpc, runStdio } from "@oh-my-pi/pi-mnemopi/mcp-server";
-import { getToolDefinitions, handleToolCall, TOOLS } from "@oh-my-pi/pi-mnemopi/mcp-tools";
+import { callToolJson, handleJsonRpc, runStdio } from "@oh-my-soup/pi-mnemopi/mcp-server";
+import { getToolDefinitions, handleToolCall, TOOLS } from "@oh-my-soup/pi-mnemopi/mcp-tools";
 
 let dataDir: string;
 

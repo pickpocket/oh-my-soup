@@ -13,7 +13,7 @@ describe("daemon presence canonicalProjectDir EISDIR fallback", () => {
 	});
 
 	it("falls back to the resolved path when realpath throws EISDIR", async () => {
-		const projectDir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-eisdir-fallback-"));
+		const projectDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-eisdir-fallback-"));
 		const runtimeDir = path.join(projectDir, "runtime");
 		const resolvedProjectDir = path.resolve(projectDir);
 		let realpathCalls = 0;

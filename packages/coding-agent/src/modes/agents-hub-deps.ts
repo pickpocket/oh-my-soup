@@ -1,9 +1,9 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import type { AgentMessage } from "@oh-my-pi/pi-agent-core";
-import type { AgentsHubDeps } from "@oh-my-pi/pi-tui/overlays/agents-hub";
-import { shortenPath } from "@oh-my-pi/pi-tui/render/render-utils";
-import { isEnoent, prompt } from "@oh-my-pi/pi-utils";
+import type { AgentMessage } from "@oh-my-soup/pi-agent-core";
+import type { AgentsHubDeps } from "@oh-my-soup/pi-tui/overlays/agents-hub";
+import { shortenPath } from "@oh-my-soup/pi-tui/render/render-utils";
+import { isEnoent, prompt } from "@oh-my-soup/pi-utils";
 import { YAML } from "bun";
 import type { EffectiveExtensionRoots } from "../capability/types";
 import { getConfigDirs } from "../config";

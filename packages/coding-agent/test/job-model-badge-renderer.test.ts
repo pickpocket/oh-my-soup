@@ -1,14 +1,14 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "bun:test";
-import { ThinkingLevel } from "@oh-my-pi/pi-agent-core";
-import { visibleWidth } from "@oh-my-pi/pi-tui";
+import { ThinkingLevel } from "@oh-my-soup/pi-agent-core";
+import { visibleWidth } from "@oh-my-soup/pi-tui";
 import { AsyncJobManager } from "../src/async/job-manager";
 import { resetSettingsForTest, Settings, settings } from "../src/config/settings";
-import { getThemeByName, setThemeInstance, type Theme } from "@oh-my-pi/pi-tui/theme";
+import { getThemeByName, setThemeInstance, type Theme } from "@oh-my-soup/pi-tui/theme";
 import type { ToolSession } from "../src/tools";
-import { jobsRenderResult } from "@oh-my-pi/pi-tui/tools/hub";
+import { jobsRenderResult } from "@oh-my-soup/pi-tui/tools/hub";
 import { snapshotJobs } from "../src/tools/hub/jobs";
-import type { CoordinationDetails } from "@oh-my-pi/pi-tui/tools/hub";
-import { formatDuration, thinkingLevelGlyph } from "@oh-my-pi/pi-tui/render/render-utils";
+import type { CoordinationDetails } from "@oh-my-soup/pi-tui/tools/hub";
+import { formatDuration, thinkingLevelGlyph } from "@oh-my-soup/pi-tui/render/render-utils";
 
 const ansiPattern = /\x1b\[[0-9;]*m/g;
 const hyperlinkPattern = /\x1b\]8;[^\x1b\x07]*(?:\x07|\x1b\\)/g;

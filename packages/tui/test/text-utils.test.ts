@@ -5,7 +5,7 @@ import {
 	sliceWithWidth,
 	truncateToWidth,
 	visibleWidth,
-} from "@oh-my-pi/pi-tui/utils";
+} from "@oh-my-soup/pi-tui/utils";
 
 describe("text utils", () => {
 	it("computes visible width for ANSI and tabs", () => {

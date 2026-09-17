@@ -11,19 +11,19 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { Agent } from "@oh-my-pi/pi-agent-core";
-import { getBundledModel } from "@oh-my-pi/pi-catalog/models";
-import type { EffectiveExtensionRoots } from "@oh-my-pi/pi-coding-agent/capability/types";
-import { ModelRegistry } from "@oh-my-pi/pi-coding-agent/config/model-registry";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import "@oh-my-pi/pi-coding-agent/discovery";
-import { setActiveSkills } from "@oh-my-pi/pi-coding-agent/extensibility/skills";
-import { AgentSession } from "@oh-my-pi/pi-coding-agent/session/agent-session";
-import { AuthStorage } from "@oh-my-pi/pi-coding-agent/session/auth-storage";
-import { convertToLlm } from "@oh-my-pi/pi-coding-agent/session/messages";
-import { SessionManager } from "@oh-my-pi/pi-coding-agent/session/session-manager";
-import { discoverAgents } from "@oh-my-pi/pi-coding-agent/task/discovery";
-import { removeSyncWithRetries } from "@oh-my-pi/pi-utils";
+import { Agent } from "@oh-my-soup/pi-agent-core";
+import { getBundledModel } from "@oh-my-soup/pi-catalog/models";
+import type { EffectiveExtensionRoots } from "@oh-my-soup/pi-coding-agent/capability/types";
+import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import "@oh-my-soup/pi-coding-agent/discovery";
+import { setActiveSkills } from "@oh-my-soup/pi-coding-agent/extensibility/skills";
+import { AgentSession } from "@oh-my-soup/pi-coding-agent/session/agent-session";
+import { AuthStorage } from "@oh-my-soup/pi-coding-agent/session/auth-storage";
+import { convertToLlm } from "@oh-my-soup/pi-coding-agent/session/messages";
+import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
+import { discoverAgents } from "@oh-my-soup/pi-coding-agent/task/discovery";
+import { removeSyncWithRetries } from "@oh-my-soup/pi-utils";
 
 interface SessionInputs {
 	additionalExtensionPaths?: readonly string[];
@@ -56,7 +56,7 @@ describe("AgentSession extension-root discovery (post-startup)", () => {
 	let tempDir: string;
 
 	beforeEach(() => {
-		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "omp-session-ext-"));
+		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "oms-session-ext-"));
 	});
 
 	afterEach(async () => {

@@ -2,7 +2,7 @@
  * @-import expansion for context files (AGENTS.md / CLAUDE.md / GEMINI.md / …).
  *
  * Other coding agents (Claude Code, Goose, Cline, …) treat `@path/to/file`
- * references inside their markdown memory files as inline includes. omp
+ * references inside their markdown memory files as inline includes. oms
  * loads the same files in their native shape, so this module performs the
  * same expansion before content lands in the system prompt.
  *
@@ -24,7 +24,7 @@
  */
 import * as os from "node:os";
 import * as path from "node:path";
-import { logger } from "@oh-my-pi/pi-utils";
+import { logger } from "@oh-my-soup/pi-utils";
 import { readFile } from "../capability/fs";
 
 /** Maximum number of recursive `@`-import hops. Matches Claude Code's documented cap. */

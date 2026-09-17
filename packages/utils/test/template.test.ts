@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import * as path from "node:path";
-import * as prompt from "@oh-my-pi/pi-utils/prompt";
-import { create, type HelperOptions, SafeString } from "@oh-my-pi/pi-utils/template";
+import * as prompt from "@oh-my-soup/pi-utils/prompt";
+import { create, type HelperOptions, SafeString } from "@oh-my-soup/pi-utils/template";
 import fileOperations from "./fixtures/template/file-operations.md" with { type: "text" };
 import frontmatter from "./fixtures/template/frontmatter.md" with { type: "text" };
 import identifierTask from "./fixtures/template/identifier-task.md" with { type: "text" };

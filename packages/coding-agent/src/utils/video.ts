@@ -8,10 +8,10 @@
  * anything timestamp-shaped is a seek position.
  */
 import * as path from "node:path";
-import { isVideoPath } from "@oh-my-pi/pi-tui/prompt/video";
-import { untilAborted } from "@oh-my-pi/pi-utils/abortable";
-import { TempDir } from "@oh-my-pi/pi-utils/temp";
-import { $which } from "@oh-my-pi/pi-utils/which";
+import { isVideoPath } from "@oh-my-soup/pi-tui/prompt/video";
+import { untilAborted } from "@oh-my-soup/pi-utils/abortable";
+import { TempDir } from "@oh-my-soup/pi-utils/temp";
+import { $which } from "@oh-my-soup/pi-utils/which";
 
 const VIDEO_MIME_BY_EXT: Record<string, string> = {
 	".mp4": "video/mp4",
@@ -337,7 +337,7 @@ export async function extractVideoFramePng(
 	selector: VideoSelector,
 	signal?: AbortSignal,
 ): Promise<VideoPng> {
-	const tmp = await TempDir.create("omp-video-frame-");
+	const tmp = await TempDir.create("oms-video-frame-");
 	try {
 		const out = tmp.join("frame.png");
 		if (selector.kind === "time") {
@@ -395,7 +395,7 @@ export async function buildVideoContactSheetPng(
 	const thumbs = CONTACT_SHEET_THUMBS;
 	const cols = CONTACT_SHEET_COLS;
 	const rows = Math.ceil(thumbs / cols);
-	const tmp = await TempDir.create("omp-video-sheet-");
+	const tmp = await TempDir.create("oms-video-sheet-");
 	try {
 		const duration = meta.durationSec;
 		const times: number[] =

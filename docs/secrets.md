@@ -38,8 +38,8 @@ Define custom secret entries in YAML. Two locations are checked:
 
 | Level   | Path                       | Purpose                     |
 | ------- | -------------------------- | --------------------------- |
-| Global  | `~/.omp/agent/secrets.yml` | Secrets across all projects |
-| Project | `<cwd>/.omp/secrets.yml`   | Project-specific secrets    |
+| Global  | `~/.oms/agent/secrets.yml` | Secrets across all projects |
+| Project | `<cwd>/.oms/secrets.yml`   | Project-specific secrets    |
 
 Project entries override global entries with matching `content`.
 
@@ -88,7 +88,7 @@ Native Responses replay plaintext is obfuscated too, including message text, too
 
 Native collision values are collected through the same field traversal before redaction, so a value found only in a dynamic definition or search item can invalidate an earlier friendly prefix in history or pending advisor updates. Advisors re-scrub replay and its next-compaction source after maintenance commits, including snapshots containing newly discovered values. Encrypted replay and unknown protocol variants remain opaque; encrypted history cannot be retrospectively inspected or rewritten.
 
-The 12-character hash base is an HMAC of the exact secret under a private per-install key (stored at `~/.omp/agent/secret-placeholder.key`, or `$XDG_STATE_HOME/omp/secret-placeholder.key` on XDG-enabled installs, never sent to a model). This prevents a transcript reader from dictionary-hashing a placeholder back to its secret. Secrets that differ only by case receive independent bases, so seeing one placeholder does not let a provider synthesize another by changing the case hint. If the key cannot be persisted on the lazy built-in-token path, the session warns and uses a process-ephemeral key; obfuscation remains reversible within that process but placeholders are not stable across restarts. A case-hint suffix labels the casing of the redacted value:
+The 12-character hash base is an HMAC of the exact secret under a private per-install key (stored at `~/.oms/agent/secret-placeholder.key`, or `$XDG_STATE_HOME/oms/secret-placeholder.key` on XDG-enabled installs, never sent to a model). This prevents a transcript reader from dictionary-hashing a placeholder back to its secret. Secrets that differ only by case receive independent bases, so seeing one placeholder does not let a provider synthesize another by changing the case hint. If the key cannot be persisted on the lazy built-in-token path, the session warns and uses a process-ephemeral key; obfuscation remains reversible within that process but placeholders are not stable across restarts. A case-hint suffix labels the casing of the redacted value:
 
 | Hint | Meaning                                        |
 | ---- | ---------------------------------------------- |

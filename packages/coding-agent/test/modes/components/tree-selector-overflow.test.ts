@@ -1,8 +1,8 @@
 import { beforeAll, describe, expect, it } from "bun:test";
-import type { AgentMessage } from "@oh-my-pi/pi-agent-core";
-import { TreeSelectorComponent } from "@oh-my-pi/pi-tui/overlays/tree-selector";
-import * as themeModule from "@oh-my-pi/pi-tui/theme";
-import type { SessionEntry, SessionTreeNode } from "@oh-my-pi/pi-coding-agent/session/session-entries";
+import type { AgentMessage } from "@oh-my-soup/pi-agent-core";
+import { TreeSelectorComponent } from "@oh-my-soup/pi-tui/overlays/tree-selector";
+import * as themeModule from "@oh-my-soup/pi-tui/theme";
+import type { SessionEntry, SessionTreeNode } from "@oh-my-soup/pi-coding-agent/session/session-entries";
 
 let counter = 0;
 function makeUserNode(text: string, parentId: string | null = null): SessionTreeNode {

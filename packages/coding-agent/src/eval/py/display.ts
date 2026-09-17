@@ -36,8 +36,8 @@ export async function renderKernelDisplay(content: Record<string, unknown>): Pro
 	const outputs: KernelDisplayOutput[] = [];
 
 	// Status events bypass the text path entirely — they exist only for TUI hooks.
-	if (data["application/x-omp-status"] !== undefined) {
-		const statusData = data["application/x-omp-status"];
+	if (data["application/x-oms-status"] !== undefined) {
+		const statusData = data["application/x-oms-status"];
 		if (statusData && typeof statusData === "object" && "op" in statusData) {
 			outputs.push({ type: "status", event: statusData as PythonStatusEvent });
 		}

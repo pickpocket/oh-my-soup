@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "bun:test";
-import { executeAcpBuiltinSlashCommand } from "@oh-my-pi/pi-coding-agent/slash-commands/acp-builtins";
+import { executeAcpBuiltinSlashCommand } from "@oh-my-soup/pi-coding-agent/slash-commands/acp-builtins";
 
 function acpRuntime(options?: { enabled?: boolean; available?: boolean }) {
 	const store = {

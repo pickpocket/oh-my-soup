@@ -1,10 +1,10 @@
 import { describe, expect, it } from "bun:test";
-import { convertCodexResponsesMessages } from "@oh-my-pi/pi-ai/providers/openai-codex-responses";
-import type { ResponseInput } from "@oh-my-pi/pi-ai/providers/openai-responses-wire";
-import { buildResponsesInput } from "@oh-my-pi/pi-ai/providers/openai-shared";
-import type { AssistantMessage, Context, ToolResultMessage, UserMessage } from "@oh-my-pi/pi-ai/types";
-import { createOpenAIResponsesHistoryPayload } from "@oh-my-pi/pi-ai/utils";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
+import { convertCodexResponsesMessages } from "@oh-my-soup/pi-ai/providers/openai-codex-responses";
+import type { ResponseInput } from "@oh-my-soup/pi-ai/providers/openai-responses-wire";
+import { buildResponsesInput } from "@oh-my-soup/pi-ai/providers/openai-shared";
+import type { AssistantMessage, Context, ToolResultMessage, UserMessage } from "@oh-my-soup/pi-ai/types";
+import { createOpenAIResponsesHistoryPayload } from "@oh-my-soup/pi-ai/utils";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
 import { createCodexModel } from "./helpers";
 
 // Literal Harmony analysis-channel marker. openai-codex/gpt-oss reject any
@@ -46,7 +46,7 @@ function harmonyPoisonedContext(): { context: Context; user: UserMessage; toolRe
 		toolCallId: "call_1",
 		toolName: "grep",
 		isError: false,
-		content: [{ type: "text", text: `omp://toolconv/harmony.md: ${MARKER}\nmore docs` }],
+		content: [{ type: "text", text: `oms://toolconv/harmony.md: ${MARKER}\nmore docs` }],
 		timestamp: 0,
 	};
 	return { context: { messages: [user, assistant, toolResult] }, user, toolResult };

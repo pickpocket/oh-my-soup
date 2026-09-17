@@ -2,7 +2,7 @@
 
 Tool-calling convention of Google's **Gemma 4** open-weights family (`google/gemma-4-*-it`). It is a clean break from the prompt-engineered Pythonic `tool_code` form used by Gemma 3 and hosted Gemini (see `gemini.md`): Gemma 4 introduces **dedicated special tokens** and a compact **token-delimited brace syntax**. Calls and responses each get their own paired markers, and every string value is wrapped in a `<|"|>` token rather than ASCII quotes. The model emits one call as `<|tool_call>call:NAME{key:value,…}<tool_call|>`; the developer parses it, runs the tool, and appends `<|tool_response>response:NAME{output:…}<tool_response|>`.
 
-Verified against the OMP `gemma` dialect (`packages/ai/src/dialect/gemma.ts`): the streaming scanner that parses these blocks and the `renderAssistantToolCalls` / `renderToolResults` / `renderTranscript` renderers that produce them. The example streams below match that implementation; the worked model id is `google/gemma-4-E2B-it`.
+Verified against the OMS `gemma` dialect (`packages/ai/src/dialect/gemma.ts`): the streaming scanner that parses these blocks and the `renderAssistantToolCalls` / `renderToolResults` / `renderTranscript` renderers that produce them. The example streams below match that implementation; the worked model id is `google/gemma-4-E2B-it`.
 
 ## Special tokens
 
@@ -57,12 +57,12 @@ Value grammar inside `{…}`:
 | list | `[v,v,…]` | `tags:[<\|"\|>a<\|"\|>,<\|"\|>b<\|"\|>]` |
 | nested object | `{k:v,…}` | `config:{theme:<\|"\|>dark<\|"\|>}` |
 
-The OMP parser is the streaming `GemmaInbandScanner` (`packages/ai/src/dialect/gemma.ts`), not a flat regex. For each `<|tool_call>` block it:
+The OMS parser is the streaming `GemmaInbandScanner` (`packages/ai/src/dialect/gemma.ts`), not a flat regex. For each `<|tool_call>` block it:
 
 1. finds the matching `<tool_call|>` close, skipping any `<|"|>…<|"|>` string span so a `<tool_call|>` sequence that appears inside a string value does not end the block early;
 2. matches the `call:NAME{` head, then takes the brace body up to its depth-matched `}`;
 3. splits that body into `key:value` pairs at top-level commas — bracket depth (`[]`, `{}`) and `<|"|>` string spans are skipped — and decodes each value per the grammar above, so nested lists and objects parse correctly (a single-level regex would not).
-Calls are emitted only after the complete close marker arrives; there are no partial-argument events. If the stream is flushed with an unterminated tool block, OMP drops that incomplete block. A syntactically closed block with a missing final argument brace is still parsed from the available body.
+Calls are emitted only after the complete close marker arrives; there are no partial-argument events. If the stream is flushed with an unterminated tool block, OMS drops that incomplete block. A syntactically closed block with a missing final argument brace is still parsed from the available body.
 
 ## Multiple / parallel tool calls
 
@@ -77,7 +77,7 @@ Each result is `<|tool_response>response:NAME{output:VALUE}<tool_response|>`. `r
 <|tool_response>response:read{output:<|"|>FILE<|"|>}<tool_response|>
 ```
 
-The Gemma wire form has no dedicated success/error field. OMP renders `isError` results in the same `response:NAME{output:…}` shape as successful results, so any failure indication must be present in the result text itself.
+The Gemma wire form has no dedicated success/error field. OMS renders `isError` results in the same `response:NAME{output:…}` shape as successful results, so any failure indication must be present in the result text itself.
 
 ## End-to-end example
 
@@ -97,12 +97,12 @@ The current weather in Tokyo is 15 degrees Celsius and sunny.<turn|>
 - **Asymmetric pipes.** The closer is `<tool_call|>`, not `</tool_call>` or `<|tool_call>`. Matching the wrong pipe side will never close the block.
 - **One call per block.** Unlike a JSON `tool_calls[]` array, parallelism is "more blocks", not "more entries in one block".
 - **Bare scalars.** A value not wrapped in `<|"|>` is `true`/`false` → bool, `null`/`none` → null, numeric → number, otherwise a bare string (e.g. an unquoted enum or type name like `STRING`).
-- **Tool-call ids are synthesized.** The format carries no id; after receiving a complete closed block, OMP parses it and emits adjacent `toolStart`/`toolEnd` events with a newly minted id. Rendered responses are correlated by surrounding message order/name.
+- **Tool-call ids are synthesized.** The format carries no id; after receiving a complete closed block, OMS parses it and emits adjacent `toolStart`/`toolEnd` events with a newly minted id. Rendered responses are correlated by surrounding message order/name.
 - **Not Gemma 3 / hosted Gemini.** Those use the Pythonic `tool_code` / `default_api` form in `gemini.md`. Gemma 4 replaced it with this token syntax; the two are not interchangeable.
-- **Gemma 3 automatic-selection caveat.** OMP's current family affinity maps Gemma 3 and Gemma 4 model IDs to `gemma`. If a Gemma 3 model is marked `supportsTools: false`, `tools.format=auto` therefore chooses this Gemma 4 grammar even though Gemma 3 requires the Pythonic convention in `gemini.md`; set `tools.format=gemini` explicitly.
+- **Gemma 3 automatic-selection caveat.** OMS's current family affinity maps Gemma 3 and Gemma 4 model IDs to `gemma`. If a Gemma 3 model is marked `supportsTools: false`, `tools.format=auto` therefore chooses this Gemma 4 grammar even though Gemma 3 requires the Pythonic convention in `gemini.md`; set `tools.format=gemini` explicitly.
 
 ## Sources
 
-- OMP `gemma` dialect implementation: `packages/ai/src/dialect/gemma.ts` (scanner + renderers), `packages/ai/src/dialect/catalog.ts` + `packages/ai/src/dialect/prompt-template.md` (tool catalog), `packages/ai/src/dialect/gemma.md` (format guide).
+- OMS `gemma` dialect implementation: `packages/ai/src/dialect/gemma.ts` (scanner + renderers), `packages/ai/src/dialect/catalog.ts` + `packages/ai/src/dialect/prompt-template.md` (tool catalog), `packages/ai/src/dialect/gemma.md` (format guide).
 - Function calling with Gemma 4: https://ai.google.dev/gemma/docs/capabilities/text/function-calling-gemma4
 - Gemma 4 prompt formatting: https://ai.google.dev/gemma/docs/core/prompt-formatting-gemma4

@@ -2,15 +2,15 @@
  * Cache-layer tests for `github-cache` (storage + TTL semantics) and for the
  * `getOrFetchIssue` / `getOrFetchPr` wrappers wired into `gh.ts`.
  *
- * Each test isolates `OMP_GITHUB_CACHE_DB` to a temp file and clears
+ * Each test isolates `OMS_GITHUB_CACHE_DB` to a temp file and clears
  * `github.json` / `github.text` mocks between cases.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { getOrFetchIssue, getOrFetchPr } from "@oh-my-pi/pi-coding-agent/tools/gh";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { getOrFetchIssue, getOrFetchPr } from "@oh-my-soup/pi-coding-agent/tools/gh";
 import {
 	clearAll,
 	getCached,
@@ -18,10 +18,10 @@ import {
 	openDb,
 	putCached,
 	resetForTests as resetCacheForTests,
-} from "@oh-my-pi/pi-coding-agent/tools/github-cache";
-import { ToolAbortError, throwIfAborted } from "@oh-my-pi/pi-coding-agent/tools/tool-errors";
-import { github } from "@oh-my-pi/pi-coding-agent/utils/github";
-import { removeWithRetries } from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-coding-agent/tools/github-cache";
+import { ToolAbortError, throwIfAborted } from "@oh-my-soup/pi-coding-agent/tools/tool-errors";
+import { github } from "@oh-my-soup/pi-coding-agent/utils/github";
+import { removeWithRetries } from "@oh-my-soup/pi-utils";
 
 const TEST_REPO = "owner/example";
 const TEST_AUTH_KEY = "test-auth";
@@ -31,17 +31,17 @@ let originalEnv: string | undefined;
 
 beforeEach(async () => {
 	tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "gh-cache-"));
-	originalEnv = process.env.OMP_GITHUB_CACHE_DB;
-	process.env.OMP_GITHUB_CACHE_DB = path.join(tempDir, "github-cache.db");
+	originalEnv = process.env.OMS_GITHUB_CACHE_DB;
+	process.env.OMS_GITHUB_CACHE_DB = path.join(tempDir, "github-cache.db");
 	resetCacheForTests();
 });
 
 afterEach(async () => {
 	resetCacheForTests();
 	if (originalEnv === undefined) {
-		delete process.env.OMP_GITHUB_CACHE_DB;
+		delete process.env.OMS_GITHUB_CACHE_DB;
 	} else {
-		process.env.OMP_GITHUB_CACHE_DB = originalEnv;
+		process.env.OMS_GITHUB_CACHE_DB = originalEnv;
 	}
 	vi.restoreAllMocks();
 	await removeWithRetries(tempDir);
@@ -186,7 +186,7 @@ describe("github-cache db layer", () => {
 		const parent = path.join(tempDir, "caller-owned-parent");
 		await fs.mkdir(parent, { recursive: true, mode: 0o755 });
 		await fs.chmod(parent, 0o755);
-		process.env.OMP_GITHUB_CACHE_DB = path.join(parent, "github-cache.db");
+		process.env.OMS_GITHUB_CACHE_DB = path.join(parent, "github-cache.db");
 		resetCacheForTests();
 
 		const db = openDb();

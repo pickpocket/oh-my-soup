@@ -1,6 +1,6 @@
 # Natives media + system utilities
 
-This document covers the media/system/conversion exports currently present in `@oh-my-pi/pi-natives`: audio capture/playback and live WebRTC media, terminal SIXEL and snapcompact PNG encoding, HTML conversion, clipboard access, token counting, DeviceCheck, macOS appearance/power helpers, and work profiling.
+This document covers the media/system/conversion exports currently present in `@oh-my-soup/pi-natives`: audio capture/playback and live WebRTC media, terminal SIXEL and snapcompact PNG encoding, HTML conversion, clipboard access, token counting, DeviceCheck, macOS appearance/power helpers, and work profiling.
 
 ## Implementation files
 

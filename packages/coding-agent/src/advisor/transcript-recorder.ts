@@ -1,8 +1,8 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import type { AgentMessage } from "@oh-my-pi/pi-agent-core";
-import type { Message, UserMessage } from "@oh-my-pi/pi-ai";
-import { logger } from "@oh-my-pi/pi-utils";
+import type { AgentMessage } from "@oh-my-soup/pi-agent-core";
+import type { Message, UserMessage } from "@oh-my-soup/pi-ai";
+import { logger } from "@oh-my-soup/pi-utils";
 import { visitEntriesFromFileStream } from "../session/session-loader";
 import { SessionManager } from "../session/session-manager";
 import { fingerprintMessage } from "./message-fingerprint";
@@ -152,7 +152,7 @@ export async function loadAdvisorTranscriptCosts(
  * subagent — its turns are written to a JSONL inside the owning session's
  * artifacts dir (`<session>/__advisor.jsonl`, `<session>/<SubId>/__advisor.jsonl`
  * for subagent advisors). That single file gives the advisor model proper usage
- * attribution in `omp stats` (the stats parser scans the session dir
+ * attribution in `oms stats` (the stats parser scans the session dir
  * recursively) and a read-only transcript in the Agent Hub, without making the
  * advisor a registered, messageable peer.
  *

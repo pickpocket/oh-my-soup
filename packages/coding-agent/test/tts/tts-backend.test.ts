@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { resolveTtsBackend } from "@oh-my-pi/pi-coding-agent/tools/tts";
+import { resolveTtsBackend } from "@oh-my-soup/pi-coding-agent/tools/tts";
 
 describe("resolveTtsBackend", () => {
 	test("honors an explicit deepinfra preference regardless of codec or xAI credentials", () => {

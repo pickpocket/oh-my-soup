@@ -38,7 +38,7 @@ describe("getVertexAccessToken impersonated_service_account ADC", () => {
 	beforeEach(async () => {
 		__resetVertexTokenCache();
 		originalGac = Bun.env.GOOGLE_APPLICATION_CREDENTIALS;
-		tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-vertex-adc-"));
+		tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-vertex-adc-"));
 	});
 
 	afterEach(async () => {

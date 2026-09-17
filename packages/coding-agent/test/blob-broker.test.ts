@@ -2,11 +2,11 @@ import { afterAll, describe, expect, it, vi } from "bun:test";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { AssistantMessage, AssistantMessageEvent, Context, Model } from "@oh-my-pi/pi-ai";
-import { AssistantMessageEventStream } from "@oh-my-pi/pi-ai/utils/event-stream";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
-import { getProjectDir } from "@oh-my-pi/pi-utils";
-import * as snapcompact from "@oh-my-pi/snapcompact";
+import type { AssistantMessage, AssistantMessageEvent, Context, Model } from "@oh-my-soup/pi-ai";
+import { AssistantMessageEventStream } from "@oh-my-soup/pi-ai/utils/event-stream";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
+import { getProjectDir } from "@oh-my-soup/pi-utils";
+import * as snapcompact from "@oh-my-soup/snapcompact";
 import { LocalBlobBackend } from "../src/blob-broker/broker";
 import { contextHasImageUrls, supportsRemoteImageUrls } from "../src/blob-broker/context-images";
 import { ImageUrlService } from "../src/blob-broker/service";
@@ -172,7 +172,7 @@ describe("BlobRegistry lazy blobs", () => {
 describe("BlobRegistry persistence", () => {
 	let persistSeq = 0;
 	function makePersist(ttlMs: number): BlobPersistence {
-		const dir = path.join(os.tmpdir(), `omp-blob-registry-${process.pid}-${persistSeq++}`);
+		const dir = path.join(os.tmpdir(), `oms-blob-registry-${process.pid}-${persistSeq++}`);
 		fs.mkdirSync(dir, { recursive: true });
 		cleanups.push(() => void fs.promises.rm(dir, { recursive: true, force: true }));
 		return { blobsDir: dir, indexPath: path.join(dir, "urls-index.json"), ttlMs };
@@ -345,7 +345,7 @@ describe("uploaders", () => {
 	});
 
 	it("runs a command uploader end to end against a stub binary", async () => {
-		const stub = path.join(os.tmpdir(), `omp-test-uploader-${process.pid}.sh`);
+		const stub = path.join(os.tmpdir(), `oms-test-uploader-${process.pid}.sh`);
 		await Bun.write(
 			stub,
 			`#!/bin/sh\ntest -s "$2" || exit 3\necho "uploaded $2"\necho "https://files.example/abc.$3"\n`,

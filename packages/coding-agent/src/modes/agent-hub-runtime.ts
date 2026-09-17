@@ -1,6 +1,6 @@
 import * as fs from "node:fs";
-import type { AgentHubDeps, AgentHubRemote } from "@oh-my-pi/pi-tui/overlays/agent-hub";
-import type { AgentTranscriptSource } from "@oh-my-pi/pi-tui/overlays/agent-transcript-viewer";
+import type { AgentHubDeps, AgentHubRemote } from "@oh-my-soup/pi-tui/overlays/agent-hub";
+import type { AgentTranscriptSource } from "@oh-my-soup/pi-tui/overlays/agent-transcript-viewer";
 import { AgentActivityIndex } from "../activity";
 import { getRoleInfo } from "../config/model-roles";
 import type { Settings } from "../config/settings";

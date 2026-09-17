@@ -1,10 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "bun:test";
-import { HindsightApi } from "@oh-my-pi/pi-coding-agent/hindsight/client";
-import type { HindsightConfig } from "@oh-my-pi/pi-coding-agent/hindsight/config";
-import { HindsightSessionState } from "@oh-my-pi/pi-coding-agent/hindsight/state";
-import { extractMessages } from "@oh-my-pi/pi-coding-agent/hindsight/transcript";
-import type { AgentSession } from "@oh-my-pi/pi-coding-agent/session/agent-session";
-import type { SessionEntry } from "@oh-my-pi/pi-coding-agent/session/session-entries";
+import { HindsightApi } from "@oh-my-soup/pi-coding-agent/hindsight/client";
+import type { HindsightConfig } from "@oh-my-soup/pi-coding-agent/hindsight/config";
+import { HindsightSessionState } from "@oh-my-soup/pi-coding-agent/hindsight/state";
+import { extractMessages } from "@oh-my-soup/pi-coding-agent/hindsight/transcript";
+import type { AgentSession } from "@oh-my-soup/pi-coding-agent/session/agent-session";
+import type { SessionEntry } from "@oh-my-soup/pi-coding-agent/session/session-entries";
 
 function captureBodies(): unknown[] {
 	const bodies: unknown[] = [];
@@ -32,7 +32,7 @@ const makeConfig = (overrides: Partial<HindsightConfig> = {}): HindsightConfig =
 	retainMode: "full-session",
 	retainEveryNTurns: 3,
 	retainOverlapTurns: 2,
-	retainContext: "omp",
+	retainContext: "oms",
 	recallBudget: "mid",
 	recallMaxTokens: 1024,
 	recallTypes: ["world", "experience"],

@@ -4,8 +4,8 @@ import {
 	normalizeSelector,
 	resolveOpTimeouts,
 	resolveWaitTimeout,
-} from "@oh-my-pi/pi-coding-agent/tools/browser/tab-worker";
-import { resolvePredicateTimeout } from "@oh-my-pi/pi-coding-agent/tools/run-scope";
+} from "@oh-my-soup/pi-coding-agent/tools/browser/tab-worker";
+import { resolvePredicateTimeout } from "@oh-my-soup/pi-coding-agent/tools/run-scope";
 
 // Regression coverage for the "weird timeouts" failure mode: interactive `tab.*` helpers
 // used to run with the full cell budget as their internal puppeteer timeout, so a stalled

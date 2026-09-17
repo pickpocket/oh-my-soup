@@ -1,5 +1,5 @@
-import type { Model } from "@oh-my-pi/pi-ai";
-import { isAnthropicOAuthToken } from "@oh-my-pi/pi-catalog/utils";
+import type { Model } from "@oh-my-soup/pi-ai";
+import { isAnthropicOAuthToken } from "@oh-my-soup/pi-catalog/utils";
 import type { ProviderFileClient, ProviderFileHandle, ProviderFileUploadRequest } from "./provider-file-types";
 import type { FetchImpl } from "./uploader-runtime";
 

@@ -2,11 +2,11 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { clearCache as clearFsCache } from "@oh-my-pi/pi-coding-agent/capability/fs";
-import { type SlashCommand, slashCommandCapability } from "@oh-my-pi/pi-coding-agent/capability/slash-command";
-import { resetSettingsForTest } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { loadCapability } from "@oh-my-pi/pi-coding-agent/discovery";
-import { removeWithRetries } from "@oh-my-pi/pi-utils";
+import { clearCache as clearFsCache } from "@oh-my-soup/pi-coding-agent/capability/fs";
+import { type SlashCommand, slashCommandCapability } from "@oh-my-soup/pi-coding-agent/capability/slash-command";
+import { resetSettingsForTest } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { loadCapability } from "@oh-my-soup/pi-coding-agent/discovery";
+import { removeWithRetries } from "@oh-my-soup/pi-utils";
 
 async function writeFile(filePath: string, content: string): Promise<void> {
 	await fs.mkdir(path.dirname(filePath), { recursive: true });
@@ -26,7 +26,7 @@ describe("Claude Code slash command discovery", () => {
 		originalHome = process.env.HOME;
 		originalClaudeConfigDir = process.env.CLAUDE_CONFIG_DIR;
 		delete process.env.CLAUDE_CONFIG_DIR;
-		root = await fs.mkdtemp(path.join(os.tmpdir(), "omp-claude-commands-"));
+		root = await fs.mkdtemp(path.join(os.tmpdir(), "oms-claude-commands-"));
 		home = path.join(root, "home");
 		project = path.join(root, "project");
 		process.env.HOME = home;

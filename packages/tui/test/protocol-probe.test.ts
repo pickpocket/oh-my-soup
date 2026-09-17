@@ -4,9 +4,9 @@ import {
 	buildSampleImage,
 	encodeRgbPng,
 	ProtocolProbeComponent,
-} from "@oh-my-pi/pi-tui/apps/debug/protocol-probe";
-import { initTheme } from "@oh-my-pi/pi-tui/theme";
-import { getImageDimensions, ImageBudget, ImageProtocol, TERMINAL } from "@oh-my-pi/pi-tui";
+} from "@oh-my-soup/pi-tui/apps/debug/protocol-probe";
+import { initTheme } from "@oh-my-soup/pi-tui/theme";
+import { getImageDimensions, ImageBudget, ImageProtocol, TERMINAL } from "@oh-my-soup/pi-tui";
 
 beforeAll(async () => {
 	// buildLargeTextLines styles the OSC 66 span through the global theme singleton.

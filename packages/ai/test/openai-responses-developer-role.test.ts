@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-import { resolveModelPolicy } from "@oh-my-pi/pi-catalog/compat/resolve";
+import { resolveModelPolicy } from "@oh-my-soup/pi-catalog/compat/resolve";
 
 interface ResponsesCompatTestSpec {
 	id?: string;

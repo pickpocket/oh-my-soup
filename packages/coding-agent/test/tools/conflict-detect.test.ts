@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { type ConflictEntry, renderConflictRegion } from "@oh-my-pi/pi-tui/tools/conflict-detect";
+import { type ConflictEntry, renderConflictRegion } from "@oh-my-soup/pi-tui/tools/conflict-detect";
 import {
 	ConflictHistory,
 	expandContentTokens,
@@ -7,8 +7,8 @@ import {
 	parseConflictUri,
 	scanConflictLines,
 	spliceConflict,
-} from "@oh-my-pi/pi-coding-agent/tools/conflict-detect";
-import { ToolError } from "@oh-my-pi/pi-tui/tools/tool-errors";
+} from "@oh-my-soup/pi-coding-agent/tools/conflict-detect";
+import { ToolError } from "@oh-my-soup/pi-tui/tools/tool-errors";
 
 describe("scanConflictLines", () => {
 	it("detects a 2-way conflict with correct line numbers and labels", () => {

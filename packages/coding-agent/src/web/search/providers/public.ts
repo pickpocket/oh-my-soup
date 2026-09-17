@@ -1,6 +1,6 @@
-import type { AuthStorage } from "@oh-my-pi/pi-ai";
+import type { AuthStorage } from "@oh-my-soup/pi-ai";
 import { formatSearchProviderFailures, getSearchProvider, isSearchProviderExcluded } from "../provider";
-import type { SearchProviderId, SearchResponse, SearchSource } from "@oh-my-pi/pi-tui/tools/web-search";
+import type { SearchProviderId, SearchResponse, SearchSource } from "@oh-my-soup/pi-tui/tools/web-search";
 import { SearchProviderError } from "../types";
 import { clampNumResults } from "../utils";
 import type { SearchParams } from "./base";

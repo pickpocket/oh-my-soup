@@ -1,12 +1,12 @@
 import { describe, expect, it } from "bun:test";
-import type { AgentMessage } from "@oh-my-pi/pi-agent-core";
+import type { AgentMessage } from "@oh-my-soup/pi-agent-core";
 import {
 	extractCodeBlocks,
 	extractLastCommand,
 	extractLastLink,
 	extractLinks,
 	extractQuoteBlocks,
-} from "@oh-my-pi/pi-tui/overlays/copy-targets";
+} from "@oh-my-soup/pi-tui/overlays/copy-targets";
 
 function assistantCalls(toolCalls: Array<{ name: string; arguments: Record<string, unknown> }>): AgentMessage {
 	return {

@@ -1,4 +1,4 @@
-import { getProjectDir, logger } from "@oh-my-pi/pi-utils";
+import { getProjectDir, logger } from "@oh-my-soup/pi-utils";
 
 type MarketplaceAutoUpdateMode = "off" | "notify" | "auto";
 

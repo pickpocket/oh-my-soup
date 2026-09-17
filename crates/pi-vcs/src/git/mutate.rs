@@ -69,8 +69,8 @@ pub(crate) fn update_reference(
 				.map_or(0, |elapsed| elapsed.as_secs())
 		);
 		gix::actor::SignatureRef {
-			name:  "oh-my-pi".into(),
-			email: "omp@localhost".into(),
+			name:  "oh-my-soup".into(),
+			email: "oms@localhost".into(),
 			time:  &now,
 		}
 	};

@@ -76,7 +76,7 @@ export function createSecurityFindingFingerprint(input: SecurityFindingFingerpri
 		}),
 		"hex",
 	);
-	return `omp-security/v1:sha256:${digest}`;
+	return `oms-security/v1:sha256:${digest}`;
 }
 
 export function createSecurityFindingId(fingerprint: string): string {

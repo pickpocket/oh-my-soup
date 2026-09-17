@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, it } from "bun:test";
-import { visibleWidth } from "@oh-my-pi/pi-tui";
-import { LiveVisualizer } from "@oh-my-pi/pi-tui/apps/live-visualizer";
-import { initTheme } from "@oh-my-pi/pi-tui/theme";
+import { visibleWidth } from "@oh-my-soup/pi-tui";
+import { LiveVisualizer } from "@oh-my-soup/pi-tui/apps/live-visualizer";
+import { initTheme } from "@oh-my-soup/pi-tui/theme";
 
 describe("LiveVisualizer", () => {
 	beforeAll(async () => {

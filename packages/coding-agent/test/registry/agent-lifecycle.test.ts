@@ -1,11 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import * as fsp from "node:fs/promises";
 import * as path from "node:path";
-import { AgentLifecycleManager } from "@oh-my-pi/pi-coding-agent/registry/agent-lifecycle";
-import { AgentRegistry, MAIN_AGENT_ID } from "@oh-my-pi/pi-coding-agent/registry/agent-registry";
-import { registerPersistedSubagents } from "@oh-my-pi/pi-coding-agent/registry/persisted-agents";
-import type { AgentSession } from "@oh-my-pi/pi-coding-agent/session/agent-session";
-import { TempDir } from "@oh-my-pi/pi-utils";
+import { AgentLifecycleManager } from "@oh-my-soup/pi-coding-agent/registry/agent-lifecycle";
+import { AgentRegistry, MAIN_AGENT_ID } from "@oh-my-soup/pi-coding-agent/registry/agent-registry";
+import { registerPersistedSubagents } from "@oh-my-soup/pi-coding-agent/registry/persisted-agents";
+import type { AgentSession } from "@oh-my-soup/pi-coding-agent/session/agent-session";
+import { TempDir } from "@oh-my-soup/pi-utils";
 
 interface SessionStub {
 	session: AgentSession;
@@ -706,7 +706,7 @@ describe("AgentLifecycleManager", () => {
 	});
 
 	it("tombstone release keeps a killed ref as terminal `aborted` so a persisted-subagent rescan cannot resurrect it as parked", async () => {
-		using tempDir = TempDir.createSync("@omp-lifecycle-tombstone-");
+		using tempDir = TempDir.createSync("@oms-lifecycle-tombstone-");
 		const rootSessionFile = path.join(tempDir.path(), "main.jsonl");
 		const workerId = "Killed-Sub";
 		const workerSessionFile = path.join(tempDir.path(), "main", `${workerId}.jsonl`);
@@ -778,7 +778,7 @@ describe("AgentLifecycleManager", () => {
 	});
 
 	it("tombstone release survives the dispose-path unregister racing the sidecar write (#10531)", async () => {
-		using tempDir = TempDir.createSync("@omp-lifecycle-tombstone-race-");
+		using tempDir = TempDir.createSync("@oms-lifecycle-tombstone-race-");
 		const workerId = "Raced-Sub";
 		const workerSessionFile = path.join(tempDir.path(), `${workerId}.jsonl`);
 		await Bun.write(workerSessionFile, "");

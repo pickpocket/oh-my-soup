@@ -418,7 +418,7 @@ export function makeOpenRouterRewriter(opts: OpenRouterOptions): RewriteChunk {
 						Authorization: `Bearer ${opts.apiKey}`,
 						"Content-Type": "application/json",
 						"HTTP-Referer": "https://omp.sh/",
-						"X-Title": "omp",
+						"X-Title": "oms",
 					},
 					body,
 				});

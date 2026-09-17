@@ -1,13 +1,13 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "bun:test";
 import * as path from "node:path";
-import type { AssistantMessage } from "@oh-my-pi/pi-ai";
-import { resetSettingsForTest, Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import type { AssistantThinkingRenderer } from "@oh-my-pi/pi-coding-agent/extensibility/extensions";
-import { AssistantMessageComponent } from "@oh-my-pi/pi-tui/chat/assistant-message";
-import { TranscriptContainer } from "@oh-my-pi/pi-tui/chrome/transcript-container";
-import { clearMermaidCache } from "@oh-my-pi/pi-tui/theme/mermaid-cache";
-import { initTheme } from "@oh-my-pi/pi-tui/theme";
-import { ImageProtocol, setTerminalImageProtocol, TERMINAL, Text } from "@oh-my-pi/pi-tui";
+import type { AssistantMessage } from "@oh-my-soup/pi-ai";
+import { resetSettingsForTest, Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import type { AssistantThinkingRenderer } from "@oh-my-soup/pi-coding-agent/extensibility/extensions";
+import { AssistantMessageComponent } from "@oh-my-soup/pi-tui/chat/assistant-message";
+import { TranscriptContainer } from "@oh-my-soup/pi-tui/chrome/transcript-container";
+import { clearMermaidCache } from "@oh-my-soup/pi-tui/theme/mermaid-cache";
+import { initTheme } from "@oh-my-soup/pi-tui/theme";
+import { ImageProtocol, setTerminalImageProtocol, TERMINAL, Text } from "@oh-my-soup/pi-tui";
 
 const originalImageProtocol = TERMINAL.imageProtocol;
 

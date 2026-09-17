@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { $env } from "@oh-my-pi/pi-utils";
+import { $env } from "@oh-my-soup/pi-utils";
 
 /** INI sections with `profile ` / `sso-session ` prefixes normalized. */
 export type AwsIniFile = Record<string, Record<string, string>>;

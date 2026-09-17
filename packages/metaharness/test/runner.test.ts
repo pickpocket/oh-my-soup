@@ -26,13 +26,13 @@ describe("generic agent-arg / env passthrough", () => {
 		expect(cfg.agentArgs).toEqual(["--prewalk", "--prewalk-into", "google/gemini-3.5-flash"]);
 
 		const env = buildHarborEnv(cfg, "/tmp/models.yml", null, "test");
-		expect(JSON.parse(env.OMP_BENCH_AGENT_ARGS ?? "[]")).toEqual(cfg.agentArgs);
+		expect(JSON.parse(env.OMS_BENCH_AGENT_ARGS ?? "[]")).toEqual(cfg.agentArgs);
 	});
 
-	it("omits OMP_BENCH_AGENT_ARGS when no --agent-arg was passed", () => {
+	it("omits OMS_BENCH_AGENT_ARGS when no --agent-arg was passed", () => {
 		const cfg = parseArgs(["--model", "anthropic/claude-opus-4-8"]);
 		const env = buildHarborEnv(cfg, "/tmp/models.yml", null, "test");
-		expect(env.OMP_BENCH_AGENT_ARGS).toBeUndefined();
+		expect(env.OMS_BENCH_AGENT_ARGS).toBeUndefined();
 	});
 
 	it("explicit --providers is authoritative; the default derives from the model", () => {
@@ -41,11 +41,11 @@ describe("generic agent-arg / env passthrough", () => {
 		// while only e.g. oauth-only providers route through the gateway.
 		const explicit = parseArgs(["--model", "anthropic/claude-opus-4-8", "--providers", "google"]);
 		const envExplicit = buildHarborEnv(explicit, "/tmp/models.yml", null, "test");
-		expect(new Set(envExplicit.OMP_BENCH_GATEWAY_PROVIDERS?.split(","))).toEqual(new Set(["google"]));
+		expect(new Set(envExplicit.OMS_BENCH_GATEWAY_PROVIDERS?.split(","))).toEqual(new Set(["google"]));
 		// No flag: the model's provider is gateway-routed by default.
 		const derived = parseArgs(["--model", "anthropic/claude-opus-4-8"]);
 		const envDerived = buildHarborEnv(derived, "/tmp/models.yml", null, "test");
-		expect(new Set(envDerived.OMP_BENCH_GATEWAY_PROVIDERS?.split(","))).toEqual(new Set(["anthropic"]));
+		expect(new Set(envDerived.OMS_BENCH_GATEWAY_PROVIDERS?.split(","))).toEqual(new Set(["anthropic"]));
 	});
 
 	it("collects explicit --env pairs, with an explicit value winning over a bare host-forwarded key", () => {
@@ -72,22 +72,22 @@ describe("install modes", () => {
 			depsDir: "/tmp/deps",
 			nodeModules: ["node_modules"],
 		});
-		expect(env.OMP_BENCH_INSTALL).toBe("source");
-		expect(env.OMP_BENCH_SOURCE_DIR).toBe("/opt/omp/src");
-		expect(env.OMP_BENCH_SOURCE_BUN).toBe("/opt/omp/bin/bun");
-		expect(env.OMP_BENCH_SOURCE_ARCH).toBe("arm64");
+		expect(env.OMS_BENCH_INSTALL).toBe("source");
+		expect(env.OMS_BENCH_SOURCE_DIR).toBe("/opt/oms/src");
+		expect(env.OMS_BENCH_SOURCE_BUN).toBe("/opt/oms/bin/bun");
+		expect(env.OMS_BENCH_SOURCE_ARCH).toBe("arm64");
 	});
 
 	it("omits source mount env when no mount was prepared (binary/local runs)", () => {
 		const cfg = parseArgs(["--model", "anthropic/claude-opus-4-8", "--install", "local"]);
-		const env = buildHarborEnv(cfg, "/tmp/models.yml", "/tmp/omp.tgz", "test");
-		expect(env.OMP_BENCH_INSTALL).toBe("local");
-		expect(env.OMP_BENCH_SOURCE_DIR).toBeUndefined();
-		expect(env.OMP_BENCH_SOURCE_ARCH).toBeUndefined();
+		const env = buildHarborEnv(cfg, "/tmp/models.yml", "/tmp/oms.tgz", "test");
+		expect(env.OMS_BENCH_INSTALL).toBe("local");
+		expect(env.OMS_BENCH_SOURCE_DIR).toBeUndefined();
+		expect(env.OMS_BENCH_SOURCE_ARCH).toBeUndefined();
 	});
 
 	it("--tarball implies a local (tarball) install", () => {
-		const cfg = parseArgs(["--model", "anthropic/claude-opus-4-8", "--tarball", "/tmp/omp.tgz"]);
+		const cfg = parseArgs(["--model", "anthropic/claude-opus-4-8", "--tarball", "/tmp/oms.tgz"]);
 		expect(cfg.install).toBe("local");
 		expect(cfg.build).toBe(false);
 	});
@@ -157,7 +157,7 @@ describe("live-trial cost probe", () => {
 		try {
 			const agentDir = path.join(jobDir, "task__abc", "agent");
 			fs.mkdirSync(agentDir, { recursive: true });
-			const log = path.join(agentDir, "omp.txt");
+			const log = path.join(agentDir, "oms.txt");
 
 			// First flush: one complete event plus a partial line mid-write.
 			fs.writeFileSync(log, `${usageEvent(0.5, 100, 10)}{"type":"mess`);

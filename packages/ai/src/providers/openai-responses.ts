@@ -1,5 +1,5 @@
 import { scheduler } from "node:timers/promises";
-import { $flag, logger, structuredCloneJSON } from "@oh-my-pi/pi-utils";
+import { $flag, logger, structuredCloneJSON } from "@oh-my-soup/pi-utils";
 import * as AIError from "../error";
 import { getEnvApiKey } from "../stream";
 import type {

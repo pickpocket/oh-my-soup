@@ -4,9 +4,9 @@
  * `hub`'s running-agents snapshot, not silently left in the running roster.
  */
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { AgentRegistry } from "@oh-my-pi/pi-coding-agent/registry/agent-registry";
-import type { ToolSession } from "@oh-my-pi/pi-coding-agent/tools";
-import { noMatchingJobsResult } from "@oh-my-pi/pi-coding-agent/tools/hub/jobs";
+import { AgentRegistry } from "@oh-my-soup/pi-coding-agent/registry/agent-registry";
+import type { ToolSession } from "@oh-my-soup/pi-coding-agent/tools";
+import { noMatchingJobsResult } from "@oh-my-soup/pi-coding-agent/tools/hub/jobs";
 
 const SELF_ID = "Main";
 

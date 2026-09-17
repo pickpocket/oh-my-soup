@@ -2,9 +2,9 @@ import { afterEach, describe, expect, it } from "bun:test";
 import * as path from "node:path";
 import * as url from "node:url";
 import { applyHyperlinkSetting } from "../src/render/hyperlink";
-import { getThemeByName } from "@oh-my-pi/pi-tui/theme";
-import { sanitizeText } from "@oh-my-pi/pi-utils";
-import { grepToolRenderer } from "@oh-my-pi/pi-tui/tools/grep";
+import { getThemeByName } from "@oh-my-soup/pi-tui/theme";
+import { sanitizeText } from "@oh-my-soup/pi-utils";
+import { grepToolRenderer } from "@oh-my-soup/pi-tui/tools/grep";
 
 function extractLinkUris(text: string): string[] {
 	return [...text.matchAll(/\x1b\]8;[^;]*;([^\x1b]+)\x1b\\/g)].map(match => match[1]!);
@@ -117,7 +117,7 @@ describe("grepToolRenderer", () => {
 		expect(theme).toBeDefined();
 		const uiTheme = theme!;
 
-		const projectRoot = path.resolve("/tmp/omp-project");
+		const projectRoot = path.resolve("/tmp/oms-project");
 		const filePath = path.join(projectRoot, "src", "file.ts");
 		const result = {
 			content: [{ type: "text", text: "" }],
@@ -147,7 +147,7 @@ describe("grepToolRenderer", () => {
 		expect(theme).toBeDefined();
 		const uiTheme = theme!;
 
-		const filePath = path.resolve("/tmp/omp-project/file.ts");
+		const filePath = path.resolve("/tmp/oms-project/file.ts");
 		const result = {
 			content: [{ type: "text", text: "" }],
 			details: {
@@ -184,7 +184,7 @@ describe("grepToolRenderer", () => {
 			})
 			.join("\n");
 
-		const filePath = path.resolve("/tmp/omp-project/renderer.ts");
+		const filePath = path.resolve("/tmp/oms-project/renderer.ts");
 		const result = {
 			content: [{ type: "text", text: "" }],
 			details: {

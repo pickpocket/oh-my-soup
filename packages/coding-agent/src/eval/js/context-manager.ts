@@ -1,4 +1,4 @@
-import { logger, Snowflake, workerHostEntry } from "@oh-my-pi/pi-utils";
+import { logger, Snowflake, workerHostEntry } from "@oh-my-soup/pi-utils";
 import {
 	createWorkerHandle,
 	createWorkerSubprocess,
@@ -7,7 +7,7 @@ import {
 } from "../../subprocess/worker-client";
 import type { ToolSession } from "../../tools";
 import { ToolAbortError } from "../../tools/tool-errors";
-import { ToolError } from "@oh-my-pi/pi-tui/tools/tool-errors";
+import { ToolError } from "@oh-my-soup/pi-tui/tools/tool-errors";
 import { safeSend as safeSendIpc } from "../../utils/ipc";
 import { EVAL_TIMEOUT_PAUSE_OP, EVAL_TIMEOUT_RESUME_OP } from "../bridge-timeout";
 import { getEnabledEvalPreludes } from "../preludes";
@@ -121,7 +121,7 @@ const resettingSessions = new Map<string, Promise<void>>();
 // SIGILL/SIGSEGV. Callers that pass a larger per-cell budget still dominate.
 const WORKER_INIT_TIMEOUT_MS = 15_000;
 const WORKER_CLOSE_TIMEOUT_MS = 1_000;
-const JS_EVAL_PROCESS_ARG = "__omp_worker_js_eval_process";
+const JS_EVAL_PROCESS_ARG = "__oms_worker_js_eval_process";
 const productionWorkerFactories: JsEvalWorkerFactories = {
 	spawnProcess: spawnJsProcess,
 	spawnWorker: spawnBunWorker,
@@ -441,7 +441,7 @@ export async function disposeVmContextsByOwner(ownerId: string): Promise<void> {
  * fallback). Catches silent process-load and init-message regressions
  * that otherwise strand every cell on the init timeout in a distribution build —
  * the failure mode that motivated `installWorkerInbox`. Wired into
- * `omp --smoke-test` so binary / source / tarball installs all exercise it.
+ * `oms --smoke-test` so binary / source / tarball installs all exercise it.
  */
 export async function smokeTestJsEvalWorker(): Promise<void> {
 	const worker = spawnJsWorker();
@@ -941,7 +941,7 @@ function spawnBunWorker(): JsEvalWorkerHandle {
 	try {
 		const hostEntry = workerHostEntry();
 		const worker = hostEntry
-			? new Worker(hostEntry, { type: "module", argv: ["__omp_worker_js_eval"] })
+			? new Worker(hostEntry, { type: "module", argv: ["__oms_worker_js_eval"] })
 			: new Worker(new URL("./worker-entry.ts", import.meta.url).href, { type: "module" });
 		return wrapBunWorker(worker);
 	} catch (error) {

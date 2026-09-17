@@ -2,16 +2,16 @@ import { beforeAll, describe, expect, it } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { AgentTool } from "@oh-my-pi/pi-agent-core";
-import { editDiffString } from "@oh-my-pi/pi-natives";
-import { resetSettingsForTest, Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { editToolRenderer, renderStreamingFallback } from "@oh-my-pi/pi-tui/tools/edit";
-import { renderDiff } from "@oh-my-pi/pi-tui/chrome/diff";
-import { ToolExecutionComponent } from "@oh-my-pi/pi-tui/chat/tool-execution";
-import * as themeModule from "@oh-my-pi/pi-tui/theme";
-import { type TUI, visibleWidth } from "@oh-my-pi/pi-tui";
-import { removeWithRetries } from "@oh-my-pi/pi-utils";
-import chalk from "@oh-my-pi/pi-utils/chalk";
+import type { AgentTool } from "@oh-my-soup/pi-agent-core";
+import { editDiffString } from "@oh-my-soup/pi-natives";
+import { resetSettingsForTest, Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { editToolRenderer, renderStreamingFallback } from "@oh-my-soup/pi-tui/tools/edit";
+import { renderDiff } from "@oh-my-soup/pi-tui/chrome/diff";
+import { ToolExecutionComponent } from "@oh-my-soup/pi-tui/chat/tool-execution";
+import * as themeModule from "@oh-my-soup/pi-tui/theme";
+import { type TUI, visibleWidth } from "@oh-my-soup/pi-tui";
+import { removeWithRetries } from "@oh-my-soup/pi-utils";
+import chalk from "@oh-my-soup/pi-utils/chalk";
 
 beforeAll(async () => {
 	resetSettingsForTest();

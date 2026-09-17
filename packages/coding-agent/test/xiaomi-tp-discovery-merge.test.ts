@@ -2,10 +2,10 @@ import { describe, expect, test } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { Model } from "@oh-my-pi/pi-ai";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
-import { invalidateCommandConfig } from "@oh-my-pi/pi-coding-agent/config/resolve-config-value";
-import { mergeDiscoveredModel } from "@oh-my-pi/pi-coding-agent/config/model-registry";
+import type { Model } from "@oh-my-soup/pi-ai";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
+import { invalidateCommandConfig } from "@oh-my-soup/pi-coding-agent/config/resolve-config-value";
+import { mergeDiscoveredModel } from "@oh-my-soup/pi-coding-agent/config/model-registry";
 
 /**
  * Regression for v15.2.4 tp- key bug: when Xiaomi `tp-` token-plan keys hit
@@ -136,7 +136,7 @@ describe("mergeDiscoveredModel", () => {
 	});
 
 	test("raw provider `!command` headers win over the discovery snapshot and re-resolve on rotation (#10458)", async () => {
-		const tokenFile = path.join(os.tmpdir(), `omp-rot-${Date.now()}-${Math.random().toString(36).slice(2)}.txt`);
+		const tokenFile = path.join(os.tmpdir(), `oms-rot-${Date.now()}-${Math.random().toString(36).slice(2)}.txt`);
 		// Cross-platform + space-safe: re-invoke the running Bun to print the
 		// token file's contents. All paths are JSON-quoted so a temp dir with
 		// spaces survives both `/bin/sh -c` and `cmd.exe /c`, and the eval body
@@ -170,7 +170,7 @@ describe("mergeDiscoveredModel", () => {
 	});
 
 	test("authHeader+apiKey provider (no explicit headers) re-derives Authorization live on rotation (#10551)", async () => {
-		const tokenFile = path.join(os.tmpdir(), `omp-ah-${Date.now()}-${Math.random().toString(36).slice(2)}.txt`);
+		const tokenFile = path.join(os.tmpdir(), `oms-ah-${Date.now()}-${Math.random().toString(36).slice(2)}.txt`);
 		const readScript = "process.stdout.write(await Bun.file(Bun.argv[1]).text())";
 		const apiKey = `!${JSON.stringify(process.execPath)} -e "${readScript}" ${JSON.stringify(tokenFile)}`;
 		await Bun.write(tokenFile, "token-A");

@@ -1,5 +1,5 @@
-import type { Usage } from "@oh-my-pi/pi-ai";
-import { isRecord } from "@oh-my-pi/pi-utils";
+import type { Usage } from "@oh-my-soup/pi-ai";
+import { isRecord } from "@oh-my-soup/pi-utils";
 import type { ThemeColor } from "../theme/theme";
 import type { ConfiguredThinkingLevel } from "../render/render-utils";
 import type { ToolRenderer } from "./renderer";
@@ -14,7 +14,7 @@ import { Container, type Component } from "../tui";
 import { Markdown } from "../components/markdown";
 import { Text } from "../components/text";
 import { visibleWidth, wrapTextWithAnsi } from "../utils";
-import { formatNumber, sanitizeText } from "@oh-my-pi/pi-utils";
+import { formatNumber, sanitizeText } from "@oh-my-soup/pi-utils";
 import type { RenderResultOptions } from "./renderer";
 import { formatContextUsage } from "../chrome/context-thresholds";
 import { getMarkdownTheme, type Theme } from "../theme/theme";

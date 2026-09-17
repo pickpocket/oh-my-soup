@@ -10,7 +10,7 @@
  * touching the persisted settings file.
  */
 
-import { logger } from "@oh-my-pi/pi-utils";
+import { logger } from "@oh-my-soup/pi-utils";
 import type { Settings } from "../config/settings";
 
 export type HindsightScoping = "global" | "per-project" | "per-project-tagged";
@@ -159,7 +159,7 @@ export function loadHindsightConfig(settings: Settings, env: NodeJS.ProcessEnv =
 		retainMode: retainModeEnv ?? settingsRetainMode ?? "full-session",
 		retainEveryNTurns: retainEveryNTurnsEnv ?? settings.get("hindsight.retainEveryNTurns"),
 		retainOverlapTurns: settings.get("hindsight.retainOverlapTurns"),
-		retainContext: settings.get("hindsight.retainContext") ?? "omp",
+		retainContext: settings.get("hindsight.retainContext") ?? "oms",
 
 		recallBudget: recallBudgetEnv ?? settingsRecallBudget ?? "mid",
 		recallMaxTokens: recallMaxTokensEnv ?? settings.get("hindsight.recallMaxTokens"),

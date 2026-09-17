@@ -65,7 +65,7 @@ function isReadRangeList(value: string): boolean {
 }
 
 /**
- * Whether a read path ends in an OMP line selector, including compound `raw`
+ * Whether a read path ends in an OMS line selector, including compound `raw`
  * forms. Cursor uses this only to describe the operation already executed by
  * the coding-agent read tool; the selector remains embedded in the path.
  */

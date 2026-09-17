@@ -1,4 +1,4 @@
-/* Design tokens — omp brand palette: deep-purple surfaces, pink accent, cyan
+/* Design tokens — oms brand palette: deep-purple surfaces, pink accent, cyan
  * focus ring. Dark is the default; `[data-theme="light"]` and the
  * prefers-color-scheme light fallback flip to light surfaces.
  * The ONLY file allowed to contain raw color values. */

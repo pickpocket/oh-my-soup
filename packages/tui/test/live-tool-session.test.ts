@@ -128,7 +128,7 @@ describe("listLiveToolRecords snapshot", () => {
 			name: "git",
 			displayName: "git",
 			path: gitPath,
-			source: { provider: "native", providerName: "OMP", level: "user" },
+			source: { provider: "native", providerName: "OMS", level: "user" },
 			state: "active",
 			raw: { name: "git", path: gitPath },
 		};
@@ -165,7 +165,7 @@ describe("listLiveToolRecords snapshot", () => {
 	});
 
 	test("joins factory siblings on a UNC source path", () => {
-		const unc = "\\\\server\\share\\.omp\\tools\\systemd.ts";
+		const unc = "\\\\server\\share\\.oms\\tools\\systemd.ts";
 		const infos = [info("systemd_inspect", "extension", unc), info("systemd_control", "extension", unc)];
 		const session = fakeSession(infos, [tool("systemd_inspect"), tool("systemd_control")]);
 		const listed = listLiveToolRecords(session);
@@ -176,7 +176,7 @@ describe("listLiveToolRecords snapshot", () => {
 			name: "systemd",
 			displayName: "systemd",
 			path: unc,
-			source: { provider: "native", providerName: "OMP", level: "user" },
+			source: { provider: "native", providerName: "OMS", level: "user" },
 			state: "active",
 			raw: { name: "systemd", path: unc },
 		};
@@ -219,7 +219,7 @@ describe("listLiveToolRecords snapshot", () => {
 				name: "git",
 				displayName: "git",
 				path: gitPath,
-				source: { provider: "native", providerName: "OMP", level: "user" },
+				source: { provider: "native", providerName: "OMS", level: "user" },
 				state: "active",
 				raw: { name: "git", path: gitPath },
 			},
@@ -229,7 +229,7 @@ describe("listLiveToolRecords snapshot", () => {
 				name: "systemd",
 				displayName: "systemd",
 				path: systemdPath,
-				source: { provider: "native", providerName: "OMP", level: "user" },
+				source: { provider: "native", providerName: "OMS", level: "user" },
 				state: "active",
 				raw: { name: "systemd", path: systemdPath },
 			},

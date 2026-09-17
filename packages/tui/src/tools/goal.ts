@@ -1,6 +1,6 @@
 import type { Component } from "../tui";
 import { Text } from "../components/text";
-import { formatNumber, formatDuration } from "@oh-my-pi/pi-utils";
+import { formatNumber, formatDuration } from "@oh-my-soup/pi-utils";
 import type { Theme, ThemeColor } from "../theme/theme";
 import { formatErrorDetail, TRUNCATE_LENGTHS } from "../render/render-utils";
 import { renderStatusLine, truncateToWidth } from "../render/index";

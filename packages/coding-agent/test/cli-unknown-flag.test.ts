@@ -1,8 +1,8 @@
 import { describe, expect, it } from "bun:test";
-import { parseArgs, reportUnrecognizedFlags } from "@oh-my-pi/pi-coding-agent/cli/args";
-import { applyExtensionFlags } from "@oh-my-pi/pi-coding-agent/cli/extension-flags";
+import { parseArgs, reportUnrecognizedFlags } from "@oh-my-soup/pi-coding-agent/cli/args";
+import { applyExtensionFlags } from "@oh-my-soup/pi-coding-agent/cli/extension-flags";
 
-// Regression coverage for issue #2459: `omp --list-models` (a stale flag) was
+// Regression coverage for issue #2459: `oms --list-models` (a stale flag) was
 // silently consumed as a prompt instead of failing fast — the agent started a
 // real session, connected to MCP, and hung waiting for the model. Any
 // `--`-prefixed token that does not match a built-in OR an extension-registered
@@ -67,7 +67,7 @@ describe("parseArgs — unrecognized flag tracking (#2459)", () => {
 	});
 
 	it("treats every token after `--` as a positional, even flag-shaped ones (#2461 review)", () => {
-		// `omp -p -- --explain-this` must forward `--explain-this` as the
+		// `oms -p -- --explain-this` must forward `--explain-this` as the
 		// prompt body. Without after-separator semantics the unknown-flag guard
 		// trips on it and the CLI exits before any session work.
 		const parsed = parseArgs(["-p", "--", "--explain-this", "-x", "plain"]);

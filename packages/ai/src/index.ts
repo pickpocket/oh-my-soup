@@ -1,4 +1,4 @@
-export { type Type, type } from "@oh-my-pi/omptype";
+export { type Type, type } from "@oh-my-soup/omstype";
 export * from "./api-registry";
 export type * from "./auth-broker";
 export type { AuthGatewayBootOptions, ModelResolver } from "./auth-gateway/server";

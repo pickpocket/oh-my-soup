@@ -10,7 +10,7 @@
  * EXTENSION_LANG table, which would just re-state the lookup map.
  */
 import { describe, expect, it } from "bun:test";
-import { detectLanguageId, getLanguageFromPath } from "@oh-my-pi/pi-tui/lang-from-path";
+import { detectLanguageId, getLanguageFromPath } from "@oh-my-soup/pi-tui/lang-from-path";
 
 describe("getLanguageFromPath", () => {
 	it("detects Dockerfile by basename (case-insensitive)", () => {

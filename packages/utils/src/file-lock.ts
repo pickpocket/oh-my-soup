@@ -5,7 +5,7 @@
  * mutexes, and other Unix platforms use `flock(2)` on `${filePath}.lock`.
  */
 import * as path from "node:path";
-import { FileLock as NativeFileLock } from "@oh-my-pi/pi-natives";
+import { FileLock as NativeFileLock } from "@oh-my-soup/pi-natives";
 
 /** Controls bounded waiting when an advisory file lock is contended. */
 export interface FileLockOptions {

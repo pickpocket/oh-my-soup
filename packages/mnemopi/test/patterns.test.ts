@@ -4,7 +4,7 @@ import {
 	DetectedPattern,
 	MemoryCompressor,
 	PatternDetector,
-} from "@oh-my-pi/pi-mnemopi/core/patterns";
+} from "@oh-my-soup/pi-mnemopi/core/patterns";
 
 describe("memory compression", () => {
 	it("reports savings and zero-size stats", () => {

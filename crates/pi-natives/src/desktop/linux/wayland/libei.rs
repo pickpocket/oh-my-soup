@@ -90,7 +90,7 @@ impl Libei {
 			.block_on(
 				backend
 					.context
-					.handshake_tokio("omp-computer", ei::handshake::ContextType::Sender),
+					.handshake_tokio("oms-computer", ei::handshake::ContextType::Sender),
 			)
 			.map_err(|err| DesktopError::input_failed(format!("libei handshake: {err}")))?;
 		backend.discover_devices(runtime, &mut events, targets)?;

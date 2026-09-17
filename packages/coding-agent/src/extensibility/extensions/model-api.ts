@@ -6,7 +6,7 @@
  * alias, and compare model families — without touching the mutable registry or
  * duplicating resolution/family heuristics.
  */
-import type { Api, Model } from "@oh-my-pi/pi-ai";
+import type { Api, Model } from "@oh-my-soup/pi-ai";
 import type { ModelRegistry } from "../../config/model-registry";
 import { getModelMatchPreferences, resolveModelRoleValue } from "../../config/model-resolver";
 import type { Settings } from "../../config/settings";

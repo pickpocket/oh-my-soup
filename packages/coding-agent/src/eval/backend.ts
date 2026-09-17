@@ -1,8 +1,8 @@
 import { buildEvalUrlRoots, type LocalProtocolOptions } from "../internal-urls";
-import type { OutputArtifactError } from "@oh-my-pi/pi-tui/tools/streaming-output";
+import type { OutputArtifactError } from "@oh-my-soup/pi-tui/tools/streaming-output";
 import type { ToolSession } from "../tools";
 import type { BackendProbeOptions } from "./probe";
-import type { EvalLanguage, EvalStatusEvent } from "@oh-my-pi/pi-tui/tools/eval";
+import type { EvalLanguage, EvalStatusEvent } from "@oh-my-soup/pi-tui/tools/eval";
 import type { EvalDisplayOutput } from "./types";
 
 /** Per-cell execute() options. */

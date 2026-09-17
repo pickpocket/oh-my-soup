@@ -1,17 +1,17 @@
 # Providers
 
-Providers are the model backends `omp` can route requests to: Anthropic, OpenAI, Google Gemini, Groq, OpenRouter, Mistral, xAI, local engines like Ollama, hosted gateways, custom `models.yml` providers, and providers registered by extensions.
+Providers are the model backends `oms` can route requests to: Anthropic, OpenAI, Google Gemini, Groq, OpenRouter, Mistral, xAI, local engines like Ollama, hosted gateways, custom `models.yml` providers, and providers registered by extensions.
 
 A **provider** is the account or backend namespace, such as `anthropic`, `openai`, `google`, or `ollama`. A **model** is a concrete model under that provider, selected as `provider/model-id`, such as `anthropic/claude-opus-4-6`. Disabling a provider removes every model under it from selection; if you only want to narrow individual models, use model settings instead.
 
 This page covers how providers become available, how credentials are resolved, the provider/environment-variable map, local engines, disabling providers, and custom providers. For endpoint-specific request, reasoning, tool, stream, usage, and retry constraints, see [Provider endpoint constraints](./provider-endpoint-constraints.md). For model selection and the full `models.yml` schema, see [Model and Provider Configuration](./models.md). For config-file locations and merge precedence, see [Settings](./settings.md). For credential storage and login flows in depth, see [Secrets and credentials](./secrets.md). For the complete environment-variable reference, see [Environment variables](./environment-variables.md). For local engine setup, see [Local models](./local-models.md). For context-file discovery providers, see [Context files](./context-files.md).
 
-## How `omp` decides a provider is available
+## How `oms` decides a provider is available
 
 At startup the model registry assembles its catalog from four sources, in order:
 
 1. The bundled model catalog (every built-in provider and its known models).
-2. Custom provider and model entries from `~/.omp/agent/models.yml`.
+2. Custom provider and model entries from `~/.oms/agent/models.yml`.
 3. Runtime-discovered models for providers that support discovery (local engines and discovery-enabled gateways).
 4. Providers and models registered by extensions.
 
@@ -26,7 +26,7 @@ Keyless local engines are a special case: `ollama`, `llama.cpp`, and `lm-studio`
 
 ## Credentials and precedence
 
-When a provider needs an API key, `omp` resolves it in this order (first match wins):
+When a provider needs an API key, `oms` resolves it in this order (first match wins):
 
 1. **Runtime override**: a key supplied for the current process, for example CLI `--api-key`. Never persisted.
 2. **`models.yml` config key**: an `apiKey` pinned on a custom provider, registered as a config-sourced bearer. This deliberately beats stored OAuth, so a key supplied for a custom `baseUrl` or gateway is honored instead of forwarding an upstream OAuth token the proxy would reject.
@@ -36,7 +36,7 @@ When a provider needs an API key, `omp` resolves it in this order (first match w
 6. **Other stored API key**: for example, a broker-migrated key. This is a last resort so an explicit environment variable wins.
 7. **`models.yml` fallback resolver**: keys for custom providers not otherwise registered.
 
-Stored credentials live in the auth store at `~/.omp/agent/agent.db` for local auth, or in the configured auth-broker snapshot when running in broker mode. (`PI_CODING_AGENT_DIR` relocates the `~/.omp/agent` base, and the auth store moves with it.)
+Stored credentials live in the auth store at `~/.oms/agent/agent.db` for local auth, or in the configured auth-broker snapshot when running in broker mode. (`PI_CODING_AGENT_DIR` relocates the `~/.oms/agent` base, and the auth store moves with it.)
 
 ### OAuth vs API key, and provider-scoped logins
 
@@ -47,18 +47,18 @@ Use the interactive slash commands inside a session:
 - `/login` — opens the OAuth/key selector. `/login <provider>` jumps straight to one provider (e.g. `/login anthropic`); for an OAuth flow that needs a pasted callback, run `/login <redirect-url>` to complete it.
 - `/logout` — opens the provider selector to remove stored credentials.
 
-For headless or remote setups backed by a shared auth broker, the CLI exposes `omp auth-broker login <provider>` / `omp auth-broker logout` (and `status`, `list`, `import`, `migrate`). See [Secrets and credentials](./secrets.md) for the broker model.
+For headless or remote setups backed by a shared auth broker, the CLI exposes `oms auth-broker login <provider>` / `oms auth-broker logout` (and `status`, `list`, `import`, `migrate`). See [Secrets and credentials](./secrets.md) for the broker model.
 
-When a model has no credentials, `omp` tells you to run `/login` or set the provider's environment variable.
+When a model has no credentials, `oms` tells you to run `/login` or set the provider's environment variable.
 
-For ClinePass, set `CLINE_API_KEY` or run `/login cline-pass` to open the Cline dashboard and validate a newly created API key. OMP refreshes membership from Cline's public recommended-models endpoint and bundles the current sixteen-model roster with Cline-authored limits, subscription pricing, modalities, and per-model reasoning controls for offline startup. New live ids remain selectable before regeneration, using conservative metadata rather than guessed controls. `omp usage` reports five-hour, weekly, and monthly quota windows. Free-tier models are marked `(free)` and work with the same key on any Cline account; subscription models show API-equivalent reference pricing, while streamed gateway cost remains authoritative for actual billed or discounted usage. Requests mirror Cline CLI client headers and a stable per-session task id, Qwen routes use Cline's prompt-cache shape, and Qwen3.7 Plus maps thinking levels to the gateway's token-budget field.
+For ClinePass, set `CLINE_API_KEY` or run `/login cline-pass` to open the Cline dashboard and validate a newly created API key. OMS refreshes membership from Cline's public recommended-models endpoint and bundles the current sixteen-model roster with Cline-authored limits, subscription pricing, modalities, and per-model reasoning controls for offline startup. New live ids remain selectable before regeneration, using conservative metadata rather than guessed controls. `oms usage` reports five-hour, weekly, and monthly quota windows. Free-tier models are marked `(free)` and work with the same key on any Cline account; subscription models show API-equivalent reference pricing, while streamed gateway cost remains authoritative for actual billed or discounted usage. Requests mirror Cline CLI client headers and a stable per-session task id, Qwen routes use Cline's prompt-cache shape, and Qwen3.7 Plus maps thinking levels to the gateway's token-budget field.
 
 ### Pinning a key in `models.yml`
 
 A custom provider's `apiKey` is resolved as **environment-variable-name-or-literal**: if the value names an existing environment variable, that variable's value is used; otherwise the string itself is the key. Prefixing the value with `!` runs it as a shell command and uses the trimmed stdout (see [Model and Provider Configuration](./models.md) for the full value syntax).
 
 ```yaml
-# ~/.omp/agent/models.yml
+# ~/.oms/agent/models.yml
 providers:
   my-gateway:
     baseUrl: https://gateway.example.com/v1
@@ -155,7 +155,7 @@ Each provider has one or more environment variables that supply a key when no st
 | `yolo-auto`                      | `YOLO_AUTO_API_KEY`                                                            |
 | `charm-hyper`                    | `CHARM_HYPER_API_KEY`, then `HYPER_API_KEY`                                   |
 
-`/login cloudflare-ai-gateway` prompts for the gateway token, Cloudflare account ID, and gateway ID, then stores all three together. To use environment variables, set all three values listed above. OMP selects the Anthropic, OpenAI, or Workers AI gateway route for each model; you do not need a `models.yml` base URL override.
+`/login cloudflare-ai-gateway` prompts for the gateway token, Cloudflare account ID, and gateway ID, then stores all three together. To use environment variables, set all three values listed above. OMS selects the Anthropic, OpenAI, or Workers AI gateway route for each model; you do not need a `models.yml` base URL override.
 
 `charm-hyper` is Charm's OpenAI-compatible inference gateway for coding agents. Issue or manage a key at `https://hyper.charm.land/`; the model list is discovered live from the provider's public `/v1/models` endpoint, and `HYPER_API_KEY` is accepted as a fallback alias for `CHARM_HYPER_API_KEY`.
 
@@ -163,15 +163,15 @@ OAuth-backed providers such as `anthropic`, `github-copilot`, `cursor`, `ollama-
 
 ### `.env` discovery and precedence
 
-`omp` eagerly loads `.env` files into the process environment before any provider lookup. It reads four files and, for each variable, the **first** source that defines it wins. Effective precedence, high to low:
+`oms` eagerly loads `.env` files into the process environment before any provider lookup. It reads four files and, for each variable, the **first** source that defines it wins. Effective precedence, high to low:
 
-1. The process environment inherited by `omp` (already-set variables always win).
+1. The process environment inherited by `oms` (already-set variables always win).
 2. `<cwd>/.env`
-3. `~/.omp/agent/.env`
-4. `~/.omp/.env`
+3. `~/.oms/agent/.env`
+4. `~/.oms/.env`
 5. `~/.env`
 
-A variable already present in the process environment is never overwritten by a `.env` file. Among the files, a value set in `<cwd>/.env` wins over `~/.omp/agent/.env`, which wins over `~/.omp/.env`, which wins over `~/.env`. So a shell-exported `OPENAI_API_KEY` beats every `.env` file, and a project's `<cwd>/.env` beats your home `~/.env`.
+A variable already present in the process environment is never overwritten by a `.env` file. Among the files, a value set in `<cwd>/.env` wins over `~/.oms/agent/.env`, which wins over `~/.oms/.env`, which wins over `~/.env`. So a shell-exported `OPENAI_API_KEY` beats every `.env` file, and a project's `<cwd>/.env` beats your home `~/.env`.
 
 Project-local `.env` is the simplest way to make one repository use a project-specific gateway, key, or local endpoint:
 
@@ -187,7 +187,7 @@ OLLAMA_BASE_URL=http://127.0.0.1:11434
 - keys must match `[A-Za-z_][A-Za-z0-9_]*` (shell-identifier shape) — other names are dropped;
 - values may be wrapped in single or double quotes, which are stripped;
 - values containing a NUL byte are dropped;
-- an `OMP_`-prefixed key is also mirrored to the matching `PI_`-prefixed name.
+- an `OMS_`-prefixed key is also mirrored to the matching `PI_`-prefixed name.
 
 ## Built-in local engines
 
@@ -211,7 +211,7 @@ For installing and running these engines, see [Local models](./local-models.md).
 Use the `disabledProviders` setting to remove a provider's models from selection:
 
 ```yaml
-# ~/.omp/agent/config.yml or <project>/.omp/config.yml
+# ~/.oms/agent/config.yml or <project>/.oms/config.yml
 disabledProviders:
   - anthropic
   - openai
@@ -233,10 +233,10 @@ Disabling a provider does not delete its stored credentials — re-enable it by 
 
 ## Project-specific provider control
 
-Project settings live in `<project>/.omp/config.yml`. Use them when one repository must allow or hide a different provider set than your global default:
+Project settings live in `<project>/.oms/config.yml`. Use them when one repository must allow or hide a different provider set than your global default:
 
 ```yaml
-# <project>/.omp/config.yml
+# <project>/.oms/config.yml
 disabledProviders:
   - openai
   - openrouter
@@ -245,13 +245,13 @@ disabledProviders:
 Settings arrays are **replaced** wholesale by the higher-precedence layer, not merged or appended. If the global file disables three providers and the project file disables one, the project sees only the project list:
 
 ```yaml
-# ~/.omp/agent/config.yml
+# ~/.oms/agent/config.yml
 disabledProviders:
   - anthropic
   - openai
   - google
 
-# <project>/.omp/config.yml
+# <project>/.oms/config.yml
 disabledProviders:
   - groq
 ```
@@ -311,7 +311,7 @@ Watch the related names. The Google Gemini **API** models use the model provider
 
 ## Custom providers in `models.yml`
 
-Custom providers live in `~/.omp/agent/models.yml` under `providers:`. A provider ID defined there participates in the same selection, credential resolution, and `disabledProviders` rules as built-in providers.
+Custom providers live in `~/.oms/agent/models.yml` under `providers:`. A provider ID defined there participates in the same selection, credential resolution, and `disabledProviders` rules as built-in providers.
 
 Minimal OpenAI-compatible provider:
 
@@ -345,7 +345,7 @@ providers:
         name: GLM-4.6 (BigModel)
 ```
 
-Set `BIGMODEL_API_KEY` to the `<id>.<secret>` key before starting `omp`, then select `bigmodel/glm-4.6`. The key does not use an `sk-` prefix.
+Set `BIGMODEL_API_KEY` to the `<id>.<secret>` key before starting `oms`, then select `bigmodel/glm-4.6`. The key does not use an `sk-` prefix.
 
 Keyless local provider (no credentials required):
 
@@ -391,8 +391,8 @@ disabledProviders:
 
 **The wrong key is being used (a stale key from `.env`).** Resolution favors runtime `--api-key`, then a `models.yml` config key, stored OAuth, a key saved by `/login`, environment or `.env`, other stored API keys, and finally the `models.yml` fallback resolver. An already-set process environment variable also beats every `.env` file, and `<cwd>/.env` beats `~/.env`. If an unexpected key wins, check for an exported shell variable and the four `.env` files in precedence order, and clear the one that should not apply.
 
-**A provider still appears even though I disabled it.** `disabledProviders` arrays are replaced, not merged: a project `<project>/.omp/config.yml` array fully overrides the global one. Verify the _effective_ list for the directory you are in (path-scoped entries only apply at or under their configured path), and confirm the ID is spelled exactly. Use `omp config get disabledProviders` to inspect the merged value (see [Settings](./settings.md)).
+**A provider still appears even though I disabled it.** `disabledProviders` arrays are replaced, not merged: a project `<project>/.oms/config.yml` array fully overrides the global one. Verify the _effective_ list for the directory you are in (path-scoped entries only apply at or under their configured path), and confirm the ID is spelled exactly. Use `oms config get disabledProviders` to inspect the merged value (see [Settings](./settings.md)).
 
 **A discovery provider name had no effect on models (or vice-versa).** The ID namespace is shared. `gemini`, `codex`, `claude`, `native`, and `agents` are discovery-source IDs; the Google model backend is `google`. Make sure you are disabling the right kind of provider.
 
-**A custom `models.yml` provider does not load.** A YAML or schema error makes the registry skip the custom file. Validate the file with `omp models` (use `omp models find <substr>` to scope it to one provider). A provider with custom `models` needs `baseUrl`, authentication (`apiKey`, unless `auth: none`), and `api` at provider level or on every model. A provider with no models is also valid when it defines at least one supported override (`baseUrl`, `headers`, `apiKey`, `auth: none`, `compat`, `disableStrictTools`, `remoteCompaction`, `modelOverrides`, or `discovery`). Discovery providers may omit `models`, but need provider-level `api` unless `discovery.type` is `proxy`. An explicit `ollama`, `lm-studio`, or `llama.cpp` entry intentionally replaces built-in discovery for that ID. See [Model and Provider Configuration](./models.md).
+**A custom `models.yml` provider does not load.** A YAML or schema error makes the registry skip the custom file. Validate the file with `oms models` (use `oms models find <substr>` to scope it to one provider). A provider with custom `models` needs `baseUrl`, authentication (`apiKey`, unless `auth: none`), and `api` at provider level or on every model. A provider with no models is also valid when it defines at least one supported override (`baseUrl`, `headers`, `apiKey`, `auth: none`, `compat`, `disableStrictTools`, `remoteCompaction`, `modelOverrides`, or `discovery`). Discovery providers may omit `models`, but need provider-level `api` unless `discovery.type` is `proxy`. An explicit `ollama`, `lm-studio`, or `llama.cpp` entry intentionally replaces built-in discovery for that ID. See [Model and Provider Configuration](./models.md).

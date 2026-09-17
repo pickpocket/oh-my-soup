@@ -1,6 +1,6 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import type { RpcAgentProcess } from "@oh-my-pi/pi-coding-agent/modes/rpc/rpc-client";
+import type { RpcAgentProcess } from "@oh-my-soup/pi-coding-agent/modes/rpc/rpc-client";
 import { type Client, connect, type HostGateway, type Process, type Sandbox } from "@stencil-hq/vibemon";
 import type { GuestArch, VmonConfig } from "./types";
 
@@ -172,7 +172,7 @@ function adaptRpcProcess(process: Process): RpcAgentProcess {
 export class TrialVm {
 	/** Stable sandbox name used by every lifecycle call. */
 	readonly name: string;
-	/** Guest CPU architecture selecting the matching omp binary. */
+	/** Guest CPU architecture selecting the matching oms binary. */
 	readonly arch: GuestArch;
 	/** OCI image working directory probed after boot. */
 	readonly workdir: string;

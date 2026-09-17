@@ -1,19 +1,19 @@
 import { beforeAll, describe, expect, it, spyOn, vi } from "bun:test";
 import { stripVTControlCharacters } from "node:util";
-import { type } from "@oh-my-pi/omptype";
-import type { AgentToolContext } from "@oh-my-pi/pi-agent-core";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
+import { type } from "@oh-my-soup/omstype";
+import type { AgentToolContext } from "@oh-my-soup/pi-agent-core";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
 import type {
 	ExtensionAskDialogQuestion,
 	ExtensionAskDialogResult,
 	ExtensionUISelectItem,
-} from "@oh-my-pi/pi-coding-agent/extensibility/extensions";
-import { getThemeByName, initTheme, theme, type Theme } from "@oh-my-pi/pi-tui/theme";
-import type { ToolSession } from "@oh-my-pi/pi-coding-agent/tools";
-import { AskTool } from "@oh-my-pi/pi-coding-agent/tools/ask";
-import { askToolRenderer } from "@oh-my-pi/pi-tui/tools/ask";
-import { ToolAbortError } from "@oh-my-pi/pi-coding-agent/tools/tool-errors";
-import { TERMINAL } from "@oh-my-pi/pi-tui";
+} from "@oh-my-soup/pi-coding-agent/extensibility/extensions";
+import { getThemeByName, initTheme, theme, type Theme } from "@oh-my-soup/pi-tui/theme";
+import type { ToolSession } from "@oh-my-soup/pi-coding-agent/tools";
+import { AskTool } from "@oh-my-soup/pi-coding-agent/tools/ask";
+import { askToolRenderer } from "@oh-my-soup/pi-tui/tools/ask";
+import { ToolAbortError } from "@oh-my-soup/pi-coding-agent/tools/tool-errors";
+import { TERMINAL } from "@oh-my-soup/pi-tui";
 
 function createSession(overrides: Partial<ToolSession> = {}): ToolSession {
 	return {
@@ -419,7 +419,7 @@ describe("AskTool option descriptions", () => {
 		const select = vi.fn(async (_prompt: string, options: ExtensionUISelectItem[]) => {
 			expect(options[0]).toEqual({
 				label: "Use local credentials",
-				description: "Authenticate with provider keys already configured under ~/.omp.",
+				description: "Authenticate with provider keys already configured under ~/.oms.",
 			});
 			expect(options[1]).toEqual({
 				label: "Set up in terminal",
@@ -440,7 +440,7 @@ describe("AskTool option descriptions", () => {
 						options: [
 							{
 								label: "Use local credentials",
-								description: "Authenticate with provider keys already configured under ~/.omp.",
+								description: "Authenticate with provider keys already configured under ~/.oms.",
 							},
 							{
 								label: "Set up in terminal",
@@ -473,7 +473,7 @@ describe("AskTool option descriptions", () => {
 				options: [
 					{
 						label: "Use local credentials",
-						description: "Authenticate with provider keys already configured under ~/.omp.",
+						description: "Authenticate with provider keys already configured under ~/.oms.",
 					},
 					{
 						label: "Set up in terminal",

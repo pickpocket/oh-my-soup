@@ -4,9 +4,9 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { $ } from "bun";
 import { AvatarLoader } from "../src/cli/git-tui/avatar";
-import { Sidebar, type SidebarAction } from "@oh-my-pi/pi-tui/apps/git/sidebar";
+import { Sidebar, type SidebarAction } from "@oh-my-soup/pi-tui/apps/git/sidebar";
 import { GitModel } from "../src/cli/git-tui/state";
-import { initTheme } from "@oh-my-pi/pi-tui/theme";
+import { initTheme } from "@oh-my-soup/pi-tui/theme";
 
 beforeAll(async () => {
 	await initTheme(false);
@@ -14,7 +14,7 @@ beforeAll(async () => {
 
 /** Repo with three untracked files under two directories: a/one.txt, a/two.txt, b/three.txt. */
 async function withDirtyRepo(run: (harness: SidebarHarness) => Promise<void>): Promise<void> {
-	const repo = await fs.mkdtemp(path.join(os.tmpdir(), "omp-git-tui-sidebar-"));
+	const repo = await fs.mkdtemp(path.join(os.tmpdir(), "oms-git-tui-sidebar-"));
 	try {
 		await $`git init --initial-branch=main`.cwd(repo).quiet();
 		await $`git config user.name "Test User"`.cwd(repo).quiet();
@@ -33,7 +33,7 @@ async function withDirtyRepo(run: (harness: SidebarHarness) => Promise<void>): P
 
 /** Repo where a/ holds both a modified tracked file and an untracked one: a/tracked.txt (M), a/new.txt (?). */
 async function withMixedRepo(run: (harness: SidebarHarness) => Promise<void>): Promise<void> {
-	const repo = await fs.mkdtemp(path.join(os.tmpdir(), "omp-git-tui-sidebar-mixed-"));
+	const repo = await fs.mkdtemp(path.join(os.tmpdir(), "oms-git-tui-sidebar-mixed-"));
 	try {
 		await $`git init --initial-branch=main`.cwd(repo).quiet();
 		await $`git config user.name "Test User"`.cwd(repo).quiet();

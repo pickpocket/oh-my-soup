@@ -1,27 +1,27 @@
 /**
  * Regression test for `loadCliExtensionProviders`.
  *
- * One-shot CLIs (`omp bench`, dry-balance) build a bare `ModelRegistry` that
+ * One-shot CLIs (`oms bench`, dry-balance) build a bare `ModelRegistry` that
  * only knows built-in catalog providers. Before the helper existed they never
  * loaded extensions, so a provider contributed by an extension
  * (`pi.registerProvider(...)`, e.g. a custom OpenAI-compatible gateway under
- * `~/.omp/agent/extensions/`) was invisible to model resolution and
- * `omp bench <provider>/<model>` failed with "Model not found".
+ * `~/.oms/agent/extensions/`) was invisible to model resolution and
+ * `oms bench <provider>/<model>` failed with "Model not found".
  *
  * Contract under test: after `loadCliExtensionProviders` drains the extension's
  * provider registrations into the registry, a `provider/id` selector for that
  * extension provider resolves. Discovery is disabled and the extension path is
- * passed explicitly so the test never touches the developer's real `~/.omp`.
+ * passed explicitly so the test never touches the developer's real `~/.oms`.
  */
 
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import * as fs from "node:fs/promises";
-import { AuthStorage } from "@oh-my-pi/pi-ai";
-import { ModelRegistry } from "@oh-my-pi/pi-coding-agent/config/model-registry";
-import { getModelMatchPreferences, resolveCliModel } from "@oh-my-pi/pi-coding-agent/config/model-resolver";
-import { resetSettingsForTest, Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { loadCliExtensionProviders } from "@oh-my-pi/pi-coding-agent/sdk";
-import { TempDir } from "@oh-my-pi/pi-utils";
+import { AuthStorage } from "@oh-my-soup/pi-ai";
+import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
+import { getModelMatchPreferences, resolveCliModel } from "@oh-my-soup/pi-coding-agent/config/model-resolver";
+import { resetSettingsForTest, Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { loadCliExtensionProviders } from "@oh-my-soup/pi-coding-agent/sdk";
+import { TempDir } from "@oh-my-soup/pi-utils";
 
 let tmp: TempDir;
 let extPath: string;

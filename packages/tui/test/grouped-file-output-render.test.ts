@@ -4,7 +4,7 @@ import {
 	classifyGroupedLines,
 	formatGroupedFiles,
 	groupLineIndicesByBlank,
-} from "@oh-my-pi/pi-tui/tools/grouped-file-output";
+} from "@oh-my-soup/pi-tui/tools/grouped-file-output";
 
 const REPO_ROOT = path.resolve("repo");
 const OUTSIDE_DIR = path.resolve(path.parse(REPO_ROOT).root, "outside", "dir");
@@ -76,7 +76,7 @@ describe("classifyGroupedLines", () => {
 	});
 
 	it("flags url-like headers for caller-side resolution without a filesystem path", () => {
-		const ctx = classifyGroupedLines(["# omp://docs/", "  body"], REPO_ROOT);
+		const ctx = classifyGroupedLines(["# oms://docs/", "  body"], REPO_ROOT);
 		expect(ctx[0]).toMatchObject({ kind: "file", isUrl: true });
 		expect(ctx[0]?.headerPath).toBeUndefined();
 	});

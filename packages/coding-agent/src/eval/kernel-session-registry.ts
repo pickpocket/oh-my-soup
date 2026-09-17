@@ -1,6 +1,6 @@
 import * as path from "node:path";
 
-import { logger } from "@oh-my-pi/pi-utils";
+import { logger } from "@oh-my-soup/pi-utils";
 import {
 	attachSessionOwner,
 	type CancelledErrorClass,

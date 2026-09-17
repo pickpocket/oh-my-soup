@@ -6,7 +6,7 @@
  * below are load-bearing, not cosmetic.
  */
 import { describe, expect, it } from "bun:test";
-import { isDefinitiveOAuthFailure } from "@oh-my-pi/pi-ai/auth-storage";
+import { isDefinitiveOAuthFailure } from "@oh-my-soup/pi-ai/auth-storage";
 
 describe("isDefinitiveOAuthFailure", () => {
 	it("treats explicit dead-grant errors as definitive", () => {

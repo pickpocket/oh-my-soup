@@ -1,14 +1,14 @@
 import { createModelBrowserSource } from "../src/modes/model-browser-source";
 import { afterEach, beforeAll, describe, expect, it, vi } from "bun:test";
-import { getBundledModel } from "@oh-my-pi/pi-catalog/models";
-import { KeybindingsManager } from "@oh-my-pi/pi-tui/app-keybindings";
-import type { ModelRegistry } from "@oh-my-pi/pi-coding-agent/config/model-registry";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { ModelHubComponent } from "@oh-my-pi/pi-tui/overlays/model-hub";
-import { SessionSelectorComponent } from "@oh-my-pi/pi-tui/overlays/session-selector";
-import { initTheme } from "@oh-my-pi/pi-tui/theme";
-import type { SessionInfo } from "@oh-my-pi/pi-coding-agent/session/session-listing";
-import { setKeybindings, type TUI } from "@oh-my-pi/pi-tui";
+import { getBundledModel } from "@oh-my-soup/pi-catalog/models";
+import { KeybindingsManager } from "@oh-my-soup/pi-tui/app-keybindings";
+import type { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { ModelHubComponent } from "@oh-my-soup/pi-tui/overlays/model-hub";
+import { SessionSelectorComponent } from "@oh-my-soup/pi-tui/overlays/session-selector";
+import { initTheme } from "@oh-my-soup/pi-tui/theme";
+import type { SessionInfo } from "@oh-my-soup/pi-coding-agent/session/session-listing";
+import { setKeybindings, type TUI } from "@oh-my-soup/pi-tui";
 
 beforeAll(() => {
 	initTheme();

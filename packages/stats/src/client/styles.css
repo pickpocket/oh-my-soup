@@ -1,11 +1,11 @@
 @import "tailwindcss/index.css";
 
 /* ==========================================================================
-   OMP Theme Variables & Color Scheme
+   OMS Theme Variables & Color Scheme
    ========================================================================== */
 :root {
   color-scheme: dark;
-  /* OMP brand palette — packages/collab-web/src/styles/tokens.css:
+  /* OMS brand palette — packages/collab-web/src/styles/tokens.css:
      deep-purple surfaces (hue 307), pink accent #ed4abf, cyan focus ring #5ad8e6. */
   --page: oklch(0.16 0.02 307);
   --surface: oklch(0.19 0.022 307);
@@ -23,7 +23,7 @@
   --danger: oklch(0.66 0.19 25);
   --warning: oklch(0.79 0.14 85);
 
-  /* Bridge the view components' token vocabulary to the OMP base tokens so
+  /* Bridge the view components' token vocabulary to the OMS base tokens so
      muted/secondary text and semantic accents resolve instead of silently
      falling back to inherited text color. Re-resolve per theme via var(). */
   --text-primary: var(--text);
@@ -1293,7 +1293,7 @@
 }
 
 /* ==========================================================================
-   Brand mark on the OMP wordmark (both rail + mobile drawer headers)
+   Brand mark on the OMS wordmark (both rail + mobile drawer headers)
    ========================================================================== */
 .stats-logo-container {
   display: grid;
@@ -1308,7 +1308,7 @@
   width: 16px;
   height: 16px;
   border-radius: 4px;
-  background: linear-gradient(135deg, #ed4abf 0%, #9b4dff 50%, #5ad8e6 100%); /* OMP brand gradient mark */
+  background: linear-gradient(135deg, #ed4abf 0%, #9b4dff 50%, #5ad8e6 100%); /* OMS brand gradient mark */
 }
 
 .stats-logo-text,

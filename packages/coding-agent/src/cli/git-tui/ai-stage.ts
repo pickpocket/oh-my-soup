@@ -8,10 +8,10 @@
  * are staged via `git apply --cached`; picked untracked and binary files are
  * staged whole.
  */
-import type { NoulQuestion } from "@oh-my-pi/pi-ai";
-import type { VcsHunkSelection } from "@oh-my-pi/pi-natives";
-import * as vcs from "@oh-my-pi/pi-natives/vcs";
-import { logger, prompt } from "@oh-my-pi/pi-utils";
+import type { NoulQuestion } from "@oh-my-soup/pi-ai";
+import type { VcsHunkSelection } from "@oh-my-soup/pi-natives";
+import * as vcs from "@oh-my-soup/pi-natives/vcs";
+import { logger, prompt } from "@oh-my-soup/pi-utils";
 import { parseFileDiffs, parseFileHunks } from "../../commit/git/diff";
 import type { FileDiff } from "../../commit/types";
 import { ModelRegistry } from "../../config/model-registry";
@@ -20,8 +20,8 @@ import { resolveJudge } from "../../judgment";
 import fileQuestionTemplate from "../../prompts/system/git-ai-stage-file.md" with { type: "text" };
 import { discoverAuthStorage, loadCliExtensionProviders } from "../../sdk";
 import { ONLINE_MEMORY_MODEL_KEY } from "../../tiny/models";
-import type { ChangedFile } from "@oh-my-pi/pi-tui/apps/git/state";
-import type { AiStageOutcome } from "@oh-my-pi/pi-tui/apps/git/git-tui";
+import type { ChangedFile } from "@oh-my-soup/pi-tui/apps/git/state";
+import type { AiStageOutcome } from "@oh-my-soup/pi-tui/apps/git/git-tui";
 
 /** Files per file-pass judgment; larger trees fan out one call per batch. */
 const FILE_BATCH = 80;

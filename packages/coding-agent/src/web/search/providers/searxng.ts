@@ -33,10 +33,10 @@
  * Reference: https://docs.searxng.org/dev/search_api.html
  */
 
-import type { AuthStorage, FetchImpl } from "@oh-my-pi/pi-ai";
+import type { AuthStorage, FetchImpl } from "@oh-my-soup/pi-ai";
 
 import { settings } from "../../../config/settings";
-import type { SearchResponse, SearchSource } from "@oh-my-pi/pi-tui/tools/web-search";
+import type { SearchResponse, SearchSource } from "@oh-my-soup/pi-tui/tools/web-search";
 import { SearchProviderError } from "../../../web/search/types";
 import type { StructuredQuery } from "../query";
 import { formatScraperQuery, parseSearchQuery } from "../query";

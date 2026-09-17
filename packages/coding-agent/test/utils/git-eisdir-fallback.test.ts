@@ -2,8 +2,8 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import * as vcs from "@oh-my-pi/pi-natives/vcs";
-import { removeWithRetries } from "@oh-my-pi/pi-utils";
+import * as vcs from "@oh-my-soup/pi-natives/vcs";
+import { removeWithRetries } from "@oh-my-soup/pi-utils";
 import { $ } from "bun";
 
 describe("git reference directory fallback", () => {
@@ -11,7 +11,7 @@ describe("git reference directory fallback", () => {
 	let commitSha: string;
 
 	beforeAll(async () => {
-		repoDir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-ref-fallback-"));
+		repoDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-ref-fallback-"));
 		const initResult = await $`git init --initial-branch=main`.cwd(repoDir).quiet();
 		if (initResult.exitCode !== 0) throw new Error("git init failed");
 		await $`git config user.name "Test User"`.cwd(repoDir).quiet();

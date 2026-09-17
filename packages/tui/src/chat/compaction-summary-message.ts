@@ -2,7 +2,7 @@ import { Box } from "../components/box";
 import { Disclosure } from "../components/disclosure";
 import { type Component } from "../tui";
 import { Markdown } from "../components/markdown";
-import { formatNumber } from "@oh-my-pi/pi-utils";
+import { formatNumber } from "@oh-my-soup/pi-utils";
 import { getMarkdownTheme, theme } from "../theme";
 import type { BranchSummaryMessage, CompactionSummaryMessage, CustomMessage } from "./messages";
 

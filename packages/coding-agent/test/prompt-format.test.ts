@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { prompt } from "@oh-my-pi/pi-utils";
+import { prompt } from "@oh-my-soup/pi-utils";
 
 describe("prompt.format renderPhase", () => {
 	test("pre-render preserves indentation on Handlebars block lines", () => {

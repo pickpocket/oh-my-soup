@@ -23,14 +23,14 @@
  *   ... --tiny openrouter/inclusionai/ling-2.6-flash
  *   ... --synth openrouter/openai/gpt-oss-120b
  *
- * Auth: provider API keys resolve through omp's auth storage
- * (~/.omp/agent/agent.db: stored key, OAuth, or env var fallback).
+ * Auth: provider API keys resolve through oms's auth storage
+ * (~/.oms/agent/agent.db: stored key, OAuth, or env var fallback).
  */
 
 import { parseArgs } from "node:util";
-import { type Api, AuthStorage, completeSimple, type Model, SqliteAuthCredentialStore } from "@oh-my-pi/pi-ai";
-import { type GeneratedProvider, getBundledModel } from "@oh-my-pi/pi-catalog/models";
-import { getAgentDbPath } from "@oh-my-pi/pi-utils";
+import { type Api, AuthStorage, completeSimple, type Model, SqliteAuthCredentialStore } from "@oh-my-soup/pi-ai";
+import { type GeneratedProvider, getBundledModel } from "@oh-my-soup/pi-catalog/models";
+import { getAgentDbPath } from "@oh-my-soup/pi-utils";
 
 const DEFAULT_TINY = "openrouter/inclusionai/ling-2.6-flash";
 const DEFAULT_SYNTH = "openrouter/openai/gpt-oss-120b";
@@ -125,7 +125,7 @@ async function openModel(modelSpec: string, storage: AuthStorage): Promise<Opene
 	if (!model) throw new Error(`unknown model "${modelSpec}" (not in bundled catalog)`);
 	const apiKey = await storage.getApiKey(provider);
 	if (!apiKey) {
-		throw new Error(`no credentials for provider "${provider}" (run \`omp login\` or set the provider env var)`);
+		throw new Error(`no credentials for provider "${provider}" (run \`oms login\` or set the provider env var)`);
 	}
 	return { model, apiKey, spec: modelSpec, usage: { input: 0, output: 0, calls: 0 } };
 }

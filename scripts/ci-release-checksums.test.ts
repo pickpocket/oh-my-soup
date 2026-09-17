@@ -14,17 +14,17 @@ afterEach(async () => {
 describe("formatChecksums", () => {
 	it("sorts entries by basename and formats as `sha256sum -c`-compatible lines", () => {
 		const output = formatChecksums([
-			{ name: "omp-linux-x64", sha256: "b".repeat(64) },
-			{ name: "omp-darwin-arm64", sha256: "a".repeat(64) },
+			{ name: "oms-linux-x64", sha256: "b".repeat(64) },
+			{ name: "oms-darwin-arm64", sha256: "a".repeat(64) },
 		]);
-		expect(output).toBe(`${"a".repeat(64)}  omp-darwin-arm64\n${"b".repeat(64)}  omp-linux-x64\n`);
+		expect(output).toBe(`${"a".repeat(64)}  oms-darwin-arm64\n${"b".repeat(64)}  oms-linux-x64\n`);
 	});
 
 	it("hashes assets and writes a sorted checksum manifest", async () => {
-		const dir = await mkdtemp(path.join(tmpdir(), "omp-release-checksums-"));
+		const dir = await mkdtemp(path.join(tmpdir(), "oms-release-checksums-"));
 		tempDirs.push(dir);
-		const aPath = path.join(dir, "omp-a");
-		const zPath = path.join(dir, "omp-z");
+		const aPath = path.join(dir, "oms-a");
+		const zPath = path.join(dir, "oms-z");
 		const outPath = path.join(dir, "SHA256SUMS.txt");
 		await Promise.all([writeFile(aPath, "abc"), writeFile(zPath, "")]);
 
@@ -34,8 +34,8 @@ describe("formatChecksums", () => {
 
 		expect(result.exitCode).toBe(0);
 		expect(await readFile(outPath, "utf8")).toBe(
-			"ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad  omp-a\n" +
-				"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  omp-z\n",
+			"ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad  oms-a\n" +
+				"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  oms-z\n",
 		);
 	});
 

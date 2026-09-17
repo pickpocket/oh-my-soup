@@ -1,15 +1,15 @@
-import { logExperimentToolRenderer } from "@oh-my-pi/pi-tui/tools/autoresearch";
+import { logExperimentToolRenderer } from "@oh-my-soup/pi-tui/tools/autoresearch";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { type } from "@oh-my-pi/omptype";
-import * as vcs from "@oh-my-pi/pi-natives/vcs";
+import { type } from "@oh-my-soup/omstype";
+import * as vcs from "@oh-my-soup/pi-natives/vcs";
 
 import type { ToolDefinition } from "../../extensibility/extensions";
 
 import { computeRunModifiedPaths, getCurrentAutoresearchBranch, parseWorkDirDirtyPaths } from "../git";
 import { ensureNumericMetricMap, mergeAsi, pathMatchesSpec, sanitizeAsi, tryGitPrefix, tryGitStatus } from "../helpers";
-import { formatNum } from "@oh-my-pi/pi-tui/tools/autoresearch";
-import { currentResults, findBaselineSecondary } from "@oh-my-pi/pi-tui/apps/autoresearch-data";
+import { formatNum } from "@oh-my-soup/pi-tui/tools/autoresearch";
+import { currentResults, findBaselineSecondary } from "@oh-my-soup/pi-tui/apps/autoresearch-data";
 import { buildExperimentState, computeConfidence, findBestKeptMetric } from "../state";
 import { openAutoresearchStorageIfExists, type SessionRow } from "../storage";
 import type {
@@ -18,7 +18,7 @@ import type {
 	ExperimentState,
 	LogDetails,
 	NumericMetricMap,
-} from "@oh-my-pi/pi-tui/tools/autoresearch";
+} from "@oh-my-soup/pi-tui/tools/autoresearch";
 import type { AutoresearchToolFactoryOptions } from "../types";
 
 const EXPERIMENT_TOOL_NAMES = ["init_experiment", "run_experiment", "log_experiment", "update_notes"];

@@ -33,7 +33,7 @@ describe("shouldDetachKernel", () => {
  */
 describe("shouldHideKernelWindow", () => {
 	it("inherits the host console on Windows when one is attached", () => {
-		// Reporter's repro: omp launched in Windows Terminal, host has a
+		// Reporter's repro: oms launched in Windows Terminal, host has a
 		// console, kernel must inherit so `import pandas` doesn't deadlock in
 		// `_multiarray_umath` and SIGINT can recover the cell.
 		expect(shouldHideKernelWindow({ platform: "win32", hostHasInheritableConsole: true })).toBe(false);
@@ -78,7 +78,7 @@ describe("consoleAttached", () => {
 		).toBe(true);
 	});
 
-	it("treats `omp -p '...' > out.txt` (stdout-only redirect) as console-attached", () => {
+	it("treats `oms -p '...' > out.txt` (stdout-only redirect) as console-attached", () => {
 		expect(consoleAttached({ stdinIsTTY: true, stdoutIsTTY: false, stderrIsTTY: true })).toBe(true);
 	});
 

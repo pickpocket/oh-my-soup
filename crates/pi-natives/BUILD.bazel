@@ -66,10 +66,10 @@ rust_shared_library(
     proc_macro_deps = all_crate_deps(proc_macro = True),
     rustc_env = select({
         "@platforms//os:macos": {
-            "OMP_OAUTH_DARWIN_HELPER": "$(execpath :oauth_callback_darwin_helper)",
+            "OMS_OAUTH_DARWIN_HELPER": "$(execpath :oauth_callback_darwin_helper)",
         },
         "//conditions:default": {
-            "OMP_OAUTH_RELAY_BINARY": "$(execpath :oauth_callback_relay)",
+            "OMS_OAUTH_RELAY_BINARY": "$(execpath :oauth_callback_relay)",
         },
     }),
     rustc_flags = select({

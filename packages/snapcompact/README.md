@@ -1,10 +1,10 @@
-# @oh-my-pi/snapcompact
+# @oh-my-soup/snapcompact
 
 Bitmap-frame context compression for vision-capable LLMs.
 
-Instead of asking an LLM to summarize discarded conversation history, snapcompact serializes it and renders the text into dense PNG frames of pixel-font glyphs that vision models read back directly. The whole pass is local and deterministic — no LLM call, no API key, no latency beyond rendering. Rasterization and PNG encoding happen in native code (`@oh-my-pi/pi-natives`).
+Instead of asking an LLM to summarize discarded conversation history, snapcompact serializes it and renders the text into dense PNG frames of pixel-font glyphs that vision models read back directly. The whole pass is local and deterministic — no LLM call, no API key, no latency beyond rendering. Rasterization and PNG encoding happen in native code (`@oh-my-soup/pi-natives`).
 
-Built for [oh-my-pi](https://github.com/can1357/oh-my-pi)'s compaction pipeline, but the rendering API works on arbitrary text.
+Built for [oh-my-soup](https://github.com/pickpocket/oh-my-soup)'s compaction pipeline, but the rendering API works on arbitrary text.
 
 ## How it works
 
@@ -29,7 +29,7 @@ Bitmap shapes keep their provider-tuned geometry and draw missing glyphs through
 ## Install
 
 ```sh
-bun add @oh-my-pi/snapcompact
+bun add @oh-my-soup/snapcompact
 ```
 
 Ships TypeScript source directly (no build step); requires Bun ≥ 1.3.14.
@@ -39,7 +39,7 @@ Ships TypeScript source directly (no build step); requires Bun ≥ 1.3.14.
 Render arbitrary text into LLM image blocks:
 
 ```ts
-import { renderMany, frames, resolveShape } from "@oh-my-pi/snapcompact";
+import { renderMany, frames, resolveShape } from "@oh-my-soup/snapcompact";
 
 const images = renderMany(longText, { model }); // ImageContent[], first page first
 const count = frames(longText, { model });      // frame count without rendering
@@ -49,7 +49,7 @@ const shape = resolveShape(model);              // eval-optimal Shape for the re
 Run a full compaction pass over prepared messages:
 
 ```ts
-import { compact } from "@oh-my-pi/snapcompact";
+import { compact } from "@oh-my-soup/snapcompact";
 
 const result = await compact(preparation, { model });
 // result.summary        — short "resume prior conversation" lead-in, reading guide, and FILES section
@@ -67,6 +67,6 @@ const result = await compact(preparation, { model });
 
 ## References
 
-- [Monorepo README](https://github.com/can1357/oh-my-pi#readme)
+- [Monorepo README](https://github.com/pickpocket/oh-my-soup#readme)
 - [Compaction architecture](../../docs/compaction.md)
 - [CHANGELOG](./CHANGELOG.md)

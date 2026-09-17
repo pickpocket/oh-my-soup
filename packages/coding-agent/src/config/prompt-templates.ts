@@ -7,7 +7,7 @@ import {
 	logger,
 	parseFrontmatter,
 	prompt,
-} from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-utils";
 import { jtdToTypeScript } from "../tools/jtd-to-typescript";
 import { parseCommandArgs, substituteArgs } from "../utils/command-args";
 
@@ -160,7 +160,7 @@ export interface LoadPromptTemplatesOptions {
 /**
  * Load all prompt templates from:
  * 1. Global: agentDir/prompts/
- * 2. Project: cwd/.omp/prompts/
+ * 2. Project: cwd/.oms/prompts/
  */
 export async function loadPromptTemplates(options: LoadPromptTemplatesOptions = {}): Promise<PromptTemplate[]> {
 	const resolvedCwd = options.cwd ?? getProjectDir();
@@ -173,7 +173,7 @@ export async function loadPromptTemplates(options: LoadPromptTemplatesOptions = 
 	const globalPromptsDir = options.agentDir ? path.join(options.agentDir, "prompts") : resolvedAgentDir;
 	templates.push(...(await loadTemplatesFromDir(globalPromptsDir, "user")));
 
-	// 2. Load project templates from cwd/.omp/prompts/
+	// 2. Load project templates from cwd/.oms/prompts/
 	const projectPromptsDir = getProjectPromptsDir(resolvedCwd);
 	templates.push(...(await loadTemplatesFromDir(projectPromptsDir, "project")));
 

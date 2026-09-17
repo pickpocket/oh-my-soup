@@ -96,7 +96,7 @@ fn environment(extra: &[(&str, &str)]) -> BTreeMap<String, String> {
 fn core(home: PathBuf, env: BTreeMap<String, String>) -> Core {
 	Core {
 		home,
-		scheme: "omp-test".to_owned(),
+		scheme: "oms-test".to_owned(),
 		env,
 		state: Mutex::new(State {
 			phase:     Phase::Idle,
@@ -119,8 +119,8 @@ fn active(result: StartOutcome) -> Box<Registration> {
 fn invalid_scheme_is_rejected_before_filesystem_access() {
 	let _serial = TEST_SERIAL.blocking_lock();
 	assert!(validate_scheme("../another-handler").is_err());
-	assert!(validate_scheme("OMP").is_err());
-	assert!(validate_scheme("omp+oauth.test").is_ok());
+	assert!(validate_scheme("OMS").is_err());
+	assert!(validate_scheme("oms+oauth.test").is_ok());
 }
 
 #[test]
@@ -132,7 +132,7 @@ fn remote_start_is_unsupported_without_creating_storage() {
 		start_blocking(&core, CancelToken::default()).unwrap(),
 		StartOutcome::Unsupported
 	));
-	assert!(!home.join(".omp").exists());
+	assert!(!home.join(".oms").exists());
 	fs::remove_dir_all(home).unwrap();
 }
 
@@ -146,7 +146,7 @@ fn wsl_env_is_unsupported_without_creating_storage() {
 		start_blocking(&core, CancelToken::default()).unwrap(),
 		StartOutcome::Unsupported
 	));
-	assert!(!home.join(".omp").exists());
+	assert!(!home.join(".oms").exists());
 	fs::remove_dir_all(home).unwrap();
 }
 
@@ -171,9 +171,9 @@ fn activation_failure_restores_even_after_mutating_os_state() {
 		.err()
 		.expect("activation should fail");
 	assert!(error.to_string().contains("injected activation failure"));
-	assert!(!home.join(".oauth-owner-omp-test").exists());
+	assert!(!home.join(".oauth-owner-oms-test").exists());
 	assert!(
-		!storage_root(&home, "omp-test")
+		!storage_root(&home, "oms-test")
 			.join("registration.json")
 			.exists()
 	);
@@ -190,9 +190,9 @@ fn uncertain_restore_retains_journal_and_ownership() {
 		.err()
 		.expect("restoration should fail");
 	assert!(error.to_string().contains("recovery journal retained"));
-	assert!(home.join(".oauth-owner-omp-test").exists());
+	assert!(home.join(".oauth-owner-oms-test").exists());
 	assert!(
-		storage_root(&home, "omp-test")
+		storage_root(&home, "oms-test")
 			.join("registration.json")
 			.exists()
 	);
@@ -203,14 +203,14 @@ fn uncertain_restore_retains_journal_and_ownership() {
 fn stale_journal_is_recovered_before_successor_activation() {
 	let _serial = TEST_SERIAL.blocking_lock();
 	let home = temp_home("stale");
-	let root = storage_root(&home, "omp-test");
+	let root = storage_root(&home, "oms-test");
 	ensure_storage_root(&root).unwrap();
 	let old_id = "0123456789abcdef0123456789abcdef";
 	let old_env = environment(&[]);
 	let old_context = Context::new(
 		home.clone(),
 		root.join(old_id),
-		"omp-test".to_owned(),
+		"oms-test".to_owned(),
 		old_id.to_owned(),
 		old_env.clone(),
 		CancelToken::default(),
@@ -221,7 +221,7 @@ fn stale_journal_is_recovered_before_successor_activation() {
 	let journal = Journal {
 		version: JOURNAL_VERSION,
 		id: old_id.to_owned(),
-		scheme: "omp-test".to_owned(),
+		scheme: "oms-test".to_owned(),
 		environment: journal_environment(&old_env),
 		snapshot,
 	};
@@ -232,7 +232,7 @@ fn stale_journal_is_recovered_before_successor_activation() {
 	let mut registration = active(start_blocking(&core, CancelToken::default()).unwrap());
 	assert_ne!(registration.context.id, old_id);
 	assert_eq!(
-		fs::read_to_string(home.join(".oauth-owner-omp-test")).unwrap(),
+		fs::read_to_string(home.join(".oauth-owner-oms-test")).unwrap(),
 		registration.context.id
 	);
 	cleanup_registration(&mut registration, CancelToken::default()).unwrap();
@@ -265,20 +265,20 @@ async fn cancellation_prevents_start_and_wait_claims_once() {
 	let mut cancel = CancelToken::default();
 	cancel.emplace_abort_token().abort(AbortReason::User);
 	assert!(start_blocking(&core, cancel).is_err());
-	assert!(!home.join(".omp").exists());
+	assert!(!home.join(".oms").exists());
 
 	let callback = home.join("callback.url");
-	fs::write(&callback, b"omp-test://callback?code=one").unwrap();
+	fs::write(&callback, b"oms-test://callback?code=one").unwrap();
 	let url = wait_for_callback_async(
 		&callback,
-		"omp-test",
+		"oms-test",
 		"0123456789abcdef0123456789abcdef",
 		1,
 		&CancelToken::default(),
 	)
 	.await
 	.unwrap();
-	assert_eq!(url, "omp-test://callback?code=one");
+	assert_eq!(url, "oms-test://callback?code=one");
 	assert!(!callback.exists());
 	let mut cancelled_wait = CancelToken::default();
 	cancelled_wait
@@ -287,7 +287,7 @@ async fn cancellation_prevents_start_and_wait_claims_once() {
 	assert!(
 		wait_for_callback_async(
 			&callback,
-			"omp-test",
+			"oms-test",
 			"0123456789abcdef0123456789abcdef",
 			2,
 			&cancelled_wait,
@@ -305,9 +305,9 @@ fn journal_rejects_traversal_and_unknown_fields() {
 	let json = br#"{
 		"version":1,
 		"id":"0123456789abcdef0123456789abcdef",
-		"scheme":"omp-test",
+		"scheme":"oms-test",
 		"environment":{},
-		"snapshot":{"version":1,"id":"0123456789abcdef0123456789abcdef","scheme":"omp-test"},
+		"snapshot":{"version":1,"id":"0123456789abcdef0123456789abcdef","scheme":"oms-test"},
 		"extra":true
 	}"#;
 	assert!(serde_json::from_slice::<Journal>(json).is_err());

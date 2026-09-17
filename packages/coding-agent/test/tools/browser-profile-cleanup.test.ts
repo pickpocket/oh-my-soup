@@ -2,7 +2,7 @@
  * Regression test for issue #7058: on Windows, puppeteer-core deletes its temp
  * Chrome profile with an unretried `rm()` from an eager process-exit hook, so an
  * EBUSY on the still-locked profile surfaces as an unhandled rejection that
- * crashes OMP. OMP now owns the profile directory and removes it itself with a
+ * crashes OMS. OMS now owns the profile directory and removes it itself with a
  * lock-tolerant, warn-and-leave cleanup.
  */
 
@@ -10,12 +10,12 @@ import { afterEach, describe, expect, it, spyOn } from "bun:test";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { removeUserDataDir } from "@oh-my-pi/pi-coding-agent/tools/browser/launch";
-import { type BrowserHandle, releaseBrowser } from "@oh-my-pi/pi-coding-agent/tools/browser/registry";
-import * as piUtils from "@oh-my-pi/pi-utils";
+import { removeUserDataDir } from "@oh-my-soup/pi-coding-agent/tools/browser/launch";
+import { type BrowserHandle, releaseBrowser } from "@oh-my-soup/pi-coding-agent/tools/browser/registry";
+import * as piUtils from "@oh-my-soup/pi-utils";
 
 async function makeProfileDir(): Promise<string> {
-	const dir = await fs.promises.mkdtemp(path.join(os.tmpdir(), "omp-chrome-profile-test-"));
+	const dir = await fs.promises.mkdtemp(path.join(os.tmpdir(), "oms-chrome-profile-test-"));
 	await Bun.write(path.join(dir, "SingletonLock"), "lock");
 	await Bun.write(path.join(dir, "Default", "Preferences"), "{}");
 	return dir;

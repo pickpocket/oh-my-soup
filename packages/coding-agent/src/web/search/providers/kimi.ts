@@ -3,14 +3,14 @@
  *
  * Uses the Kimi Code search API to retrieve web results. This is the Kimi Code
  * membership service, distinct from the Moonshot Open Platform — it requires a
- * Kimi Code Console credential (`omp /login kimi-code` or an explicit
+ * Kimi Code Console credential (`oms /login kimi-code` or an explicit
  * `MOONSHOT_SEARCH_API_KEY` / `KIMI_SEARCH_API_KEY`), not `MOONSHOT_API_KEY`.
  * Endpoint: POST https://api.kimi.com/coding/v1/search
  */
-import { type ApiKey, type AuthStorage, type FetchImpl, withAuth } from "@oh-my-pi/pi-ai";
-import { $env } from "@oh-my-pi/pi-utils";
+import { type ApiKey, type AuthStorage, type FetchImpl, withAuth } from "@oh-my-soup/pi-ai";
+import { $env } from "@oh-my-soup/pi-utils";
 
-import type { SearchResponse, SearchSource } from "@oh-my-pi/pi-tui/tools/web-search";
+import type { SearchResponse, SearchSource } from "@oh-my-soup/pi-tui/tools/web-search";
 import { SearchProviderError } from "../../../web/search/types";
 import { formatQuery, parseSearchQuery, type QuerySyntax, type StructuredQuery } from "../query";
 import { clampNumResults, dateToAgeSeconds } from "../utils";
@@ -76,7 +76,7 @@ function resolveBaseUrl(): string {
 /**
  * Resolve the Kimi Code search credential. Highest precedence is the explicit
  * search-key env override; otherwise an AuthStorage-backed resolver for a
- * stored `kimi-code` credential (from `omp /login kimi-code`), so a stale token
+ * stored `kimi-code` credential (from `oms /login kimi-code`), so a stale token
  * triggers the central force-refresh / sibling-rotate retry. Returns
  * `undefined` when neither is configured.
  *
@@ -148,7 +148,7 @@ export async function searchKimi(params: KimiSearchParams): Promise<SearchRespon
 	const keyOrResolver = await resolveKey(params.authStorage, params.sessionId, params.signal);
 	if (!keyOrResolver) {
 		throw new Error(
-			"Kimi search credentials not found. Kimi web search uses the Kimi Code service (api.kimi.com); set MOONSHOT_SEARCH_API_KEY / KIMI_SEARCH_API_KEY to a Kimi Code Console key, or login with 'omp /login kimi-code'. A Moonshot Open Platform key (MOONSHOT_API_KEY) is not accepted here.",
+			"Kimi search credentials not found. Kimi web search uses the Kimi Code service (api.kimi.com); set MOONSHOT_SEARCH_API_KEY / KIMI_SEARCH_API_KEY to a Kimi Code Console key, or login with 'oms /login kimi-code'. A Moonshot Open Platform key (MOONSHOT_API_KEY) is not accepted here.",
 		);
 	}
 

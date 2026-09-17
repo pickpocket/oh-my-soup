@@ -1,23 +1,23 @@
 /**
- * Ownership marker for task-isolation sandboxes under `~/.omp/wt/`.
+ * Ownership marker for task-isolation sandboxes under `~/.oms/wt/`.
  *
  * Each isolation base dir (`ensureIsolation` in {@link ./worktree}) holds a
- * compact `m` mount plus this marker file naming the omp process that created
- * it. `omp worktree clear` consults the marker so it can distinguish a live
+ * compact `m` mount plus this marker file naming the oms process that created
+ * it. `oms worktree clear` consults the marker so it can distinguish a live
  * subagent's sandbox from a crashed run's leftover instead of deleting both.
  */
 import * as path from "node:path";
-import * as natives from "@oh-my-pi/pi-natives";
+import * as natives from "@oh-my-soup/pi-natives";
 import { $ } from "bun";
 
 const { IsoBackendKind } = natives;
 
 /** Marker file written into a task-isolation base dir identifying its owner. */
-export const ISOLATION_OWNER_FILE = ".omp-isolation-owner.json";
+export const ISOLATION_OWNER_FILE = ".oms-isolation-owner.json";
 
 /** Recorded owner of a task-isolation sandbox. */
 export interface IsolationOwner {
-	/** PID of the omp process that created and owns the sandbox. */
+	/** PID of the oms process that created and owns the sandbox. */
 	pid: number;
 	/** Task id the sandbox was materialised for. */
 	id: string;
@@ -64,7 +64,7 @@ async function processStartToken(pid: number): Promise<string | null> {
  * Record the current process as owner of the sandbox rooted at `baseDir`.
  *
  * Written before the isolation backend materialises `m` so a concurrent
- * `omp worktree clear` never sees an owner-less sandbox mid-creation.
+ * `oms worktree clear` never sees an owner-less sandbox mid-creation.
  */
 export async function writeIsolationOwner(baseDir: string, id: string): Promise<void> {
 	const startToken = await processStartToken(process.pid);
@@ -73,7 +73,7 @@ export async function writeIsolationOwner(baseDir: string, id: string): Promise<
 }
 
 /**
- * Whether a live omp process still owns the sandbox at `baseDir`.
+ * Whether a live oms process still owns the sandbox at `baseDir`.
  *
  * A missing or malformed marker means no verifiable owner — a crashed run or a
  * sandbox from before markers existed, both safe to reclaim. `process.kill(pid,
@@ -109,10 +109,10 @@ export async function hasLiveIsolationOwner(baseDir: string): Promise<boolean> {
 }
 
 /** Sidecar recording the native-teardown backend of a retained workspace. */
-export const RETAINED_BACKEND_FILE = ".omp-retained-backend.json";
+export const RETAINED_BACKEND_FILE = ".oms-retained-backend.json";
 
 /**
- * Backends whose workspaces `omp worktree clear` must not remove with plain
+ * Backends whose workspaces `oms worktree clear` must not remove with plain
  * recursive `rm`, but route through native `isoStop` teardown instead:
  * mounts (overlayfs, projfs), where `rm` destroys the preserved layer and
  * fails on the mountpoint, and Btrfs subvolumes, whose root is only removable

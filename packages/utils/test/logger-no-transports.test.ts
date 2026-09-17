@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it, spyOn } from "bun:test";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { logger } from "@oh-my-pi/pi-utils";
+import { logger } from "@oh-my-soup/pi-utils";
 
 /**
  * Regression: `setTransports({ file: false, console: false })` left the shared
@@ -19,15 +19,15 @@ let prevAgentDir: string | undefined;
 
 beforeAll(() => {
 	tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "pi-logger-no-transports-"));
-	prevAgentDir = process.env.OMP_AGENT_DIR;
-	process.env.OMP_AGENT_DIR = tempDir;
+	prevAgentDir = process.env.OMS_AGENT_DIR;
+	process.env.OMS_AGENT_DIR = tempDir;
 });
 
 afterAll(() => {
 	if (prevAgentDir === undefined) {
-		delete process.env.OMP_AGENT_DIR;
+		delete process.env.OMS_AGENT_DIR;
 	} else {
-		process.env.OMP_AGENT_DIR = prevAgentDir;
+		process.env.OMS_AGENT_DIR = prevAgentDir;
 	}
 	// Detach the file transport before deleting tempDir so no live handle points
 	// at a removed dir. With the silent fix this is a harmless no-op, not a leak.
@@ -68,7 +68,7 @@ describe("logger with no transports", () => {
 
 		let found = false;
 		for (let i = 0; i < 40 && !found; i++) {
-			for (const f of fs.readdirSync(tempDir).filter(n => n.startsWith("omp.") && n.endsWith(".log"))) {
+			for (const f of fs.readdirSync(tempDir).filter(n => n.startsWith("oms.") && n.endsWith(".log"))) {
 				if (fs.readFileSync(path.join(tempDir, f), "utf8").includes("no-transports-resume-fixture")) {
 					found = true;
 					break;

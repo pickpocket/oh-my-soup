@@ -3,15 +3,15 @@ import * as fs from "node:fs";
 import * as fsp from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { visibleWidth } from "@oh-my-pi/pi-tui";
+import { visibleWidth } from "@oh-my-soup/pi-tui";
 import { Settings } from "../../../src/config/settings";
-import { MoveOverlay, type MoveOverlayResult } from "@oh-my-pi/pi-tui/overlays/move-overlay";
+import { MoveOverlay, type MoveOverlayResult } from "@oh-my-soup/pi-tui/overlays/move-overlay";
 import {
 	moveDirectorySource,
 	resolveExistingDirectory,
 	resolveMovePath,
 } from "../../../src/modes/move-directory-source";
-import { getThemeByName, setThemeInstance, type Theme } from "@oh-my-pi/pi-tui/theme";
+import { getThemeByName, setThemeInstance, type Theme } from "@oh-my-soup/pi-tui/theme";
 
 // Strip SGR colors so assertions see visible text only.
 const stripAnsi = (text: string): string => text.replace(/\x1b\[[0-9;]*m/g, "");
@@ -36,7 +36,7 @@ describe("resolveExistingDirectory", () => {
 	let tmp: string;
 
 	beforeEach(async () => {
-		tmp = await fsp.mkdtemp(path.join(os.tmpdir(), "omp-move-resolve-"));
+		tmp = await fsp.mkdtemp(path.join(os.tmpdir(), "oms-move-resolve-"));
 	});
 	afterEach(async () => {
 		await fsp.rm(tmp, { recursive: true, force: true });
@@ -71,7 +71,7 @@ describe("MoveOverlay", () => {
 	});
 
 	beforeEach(async () => {
-		tmp = await fsp.mkdtemp(path.join(os.tmpdir(), "omp-move-overlay-"));
+		tmp = await fsp.mkdtemp(path.join(os.tmpdir(), "oms-move-overlay-"));
 		cwd = tmp;
 		fs.mkdirSync(path.join(tmp, "alpha"));
 		fs.mkdirSync(path.join(tmp, "beta"));
@@ -209,7 +209,7 @@ describe("MoveOverlay", () => {
 		// entry per keystroke. Populate with mostly files so the old code path
 		// would have stat'd all of them; the fix classifies via `Dirent` and only
 		// falls back to `statSync` on symlink entries.
-		const bulk = await fsp.mkdtemp(path.join(os.tmpdir(), "omp-move-overlay-bulk-"));
+		const bulk = await fsp.mkdtemp(path.join(os.tmpdir(), "oms-move-overlay-bulk-"));
 		try {
 			for (let i = 0; i < 60; i++) {
 				fs.writeFileSync(path.join(bulk, `f_${String(i).padStart(3, "0")}.txt`), "x");
@@ -240,7 +240,7 @@ describe("MoveOverlay", () => {
 		// whose isDirectory()/isFile()/isSymbolicLink() all report false. Those
 		// entries must fall back to statSync so /move still lists real
 		// directories on NFS/FUSE/older SMB.
-		const unknownFs = await fsp.mkdtemp(path.join(os.tmpdir(), "omp-move-overlay-unknown-"));
+		const unknownFs = await fsp.mkdtemp(path.join(os.tmpdir(), "oms-move-overlay-unknown-"));
 		try {
 			const realDir = path.join(unknownFs, "real-dir");
 			const realFile = path.join(unknownFs, "real-file.txt");

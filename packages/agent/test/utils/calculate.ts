@@ -1,5 +1,5 @@
-import { type } from "@oh-my-pi/omptype";
-import type { AgentTool, AgentToolResult } from "@oh-my-pi/pi-agent-core/types";
+import { type } from "@oh-my-soup/omstype";
+import type { AgentTool, AgentToolResult } from "@oh-my-soup/pi-agent-core/types";
 
 export interface CalculateResult extends AgentToolResult<undefined> {
 	content: Array<{ type: "text"; text: string }>;

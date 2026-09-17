@@ -14,7 +14,7 @@
  *    message delta is a cache miss each turn.
  */
 
-import type { Context, Message, Tool } from "@oh-my-pi/pi-ai";
+import type { Context, Message, Tool } from "@oh-my-soup/pi-ai";
 import { normalizeTools } from "./agent-loop";
 import { messageEstimateVersion } from "./compaction/message-cache";
 import type { AgentContext, AgentMessage } from "./types";

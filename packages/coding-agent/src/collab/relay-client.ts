@@ -7,7 +7,7 @@
  * close codes (host conflict, room full) and guest decryption failures never
  * reconnect. Hosts discard undecryptable guest frames without closing the room.
  */
-import { logger } from "@oh-my-pi/pi-utils";
+import { logger } from "@oh-my-soup/pi-utils";
 import { open, sealSerialized } from "./crypto";
 import type { CollabFrame, RelayControlMessage } from "./protocol";
 import { packEnvelope, unpackEnvelope } from "./protocol";

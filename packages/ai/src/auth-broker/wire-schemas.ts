@@ -12,7 +12,7 @@
  * exception (standard type keeps extra keys): it preserves provider-specific extension fields so
  * they round-trip through the broker instead of being dropped (see below).
  */
-import { type FluentType, type } from "@oh-my-pi/omptype";
+import { type FluentType, type } from "@oh-my-soup/omstype";
 import {
 	type ApiKeyCredential,
 	type AuthCredential,

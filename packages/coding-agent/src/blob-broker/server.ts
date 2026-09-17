@@ -1,5 +1,5 @@
 /**
- * Worker entry for the project-shared blob daemon (`__omp_worker_blob_broker`).
+ * Worker entry for the project-shared blob daemon (`__oms_worker_blob_broker`).
  *
  * Hosts a {@link LocalBlobBackend} (store + exposure or uploader) plus an HTTP
  * control plane on a Unix socket. Sessions register blobs over the socket;
@@ -9,7 +9,7 @@
  */
 
 import * as fs from "node:fs";
-import { logger } from "@oh-my-pi/pi-utils";
+import { logger } from "@oh-my-soup/pi-utils";
 import { isUploaderKind, LocalBlobBackend } from "./broker";
 import {
 	BLOB_BROKER_CONFIG_ENV,

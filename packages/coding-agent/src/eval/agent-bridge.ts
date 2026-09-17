@@ -1,7 +1,7 @@
 /**
  * Host-side handler for the eval `agent()` helper.
  */
-import { type } from "@oh-my-pi/omptype";
+import { type } from "@oh-my-soup/omstype";
 import { MAIN_AGENT_ID } from "../registry/agent-registry";
 import { createEvalCustomTools, describeEvalTools } from "../task/eval-tools";
 import {
@@ -14,10 +14,10 @@ import {
 	type StructuredSubagentResult,
 	type StructuredSubagentSchemaMode,
 } from "../task/structured-subagent";
-import type { AgentProgress, SingleResult } from "@oh-my-pi/pi-tui/tools/task";
-import type { NestedRepoPatch } from "@oh-my-pi/pi-tui/tools/task";
+import type { AgentProgress, SingleResult } from "@oh-my-soup/pi-tui/tools/task";
+import type { NestedRepoPatch } from "@oh-my-soup/pi-tui/tools/task";
 import type { ToolSession } from "../tools";
-import { ToolError } from "@oh-my-pi/pi-tui/tools/tool-errors";
+import { ToolError } from "@oh-my-soup/pi-tui/tools/tool-errors";
 import type { JsStatusEvent } from "./js/shared/types";
 
 /** Synthetic bridge name reserved for the `agent()` helper across both runtimes. */

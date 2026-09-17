@@ -1,5 +1,5 @@
-import { type Agent, ThinkingLevel } from "@oh-my-pi/pi-agent-core";
-import type { Model, ProviderSessionState, ServiceTier, ServiceTierByFamily, ServiceTierFamily } from "@oh-my-pi/pi-ai";
+import { type Agent, ThinkingLevel } from "@oh-my-soup/pi-agent-core";
+import type { Model, ProviderSessionState, ServiceTier, ServiceTierByFamily, ServiceTierFamily } from "@oh-my-soup/pi-ai";
 import {
 	clearAnthropicFastModeFallback,
 	Effort,
@@ -7,11 +7,11 @@ import {
 	realizesPriorityServiceTier,
 	resolveModelServiceTier,
 	serviceTierFamily,
-} from "@oh-my-pi/pi-ai";
-import { isFireworksFastModelId } from "@oh-my-pi/pi-catalog/fireworks-model-id";
-import { getSupportedEfforts } from "@oh-my-pi/pi-catalog/model-thinking";
-import { modelsAreEqual } from "@oh-my-pi/pi-catalog/models";
-import { logger } from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-ai";
+import { isFireworksFastModelId } from "@oh-my-soup/pi-catalog/fireworks-model-id";
+import { getSupportedEfforts } from "@oh-my-soup/pi-catalog/model-thinking";
+import { modelsAreEqual } from "@oh-my-soup/pi-catalog/models";
+import { logger } from "@oh-my-soup/pi-utils";
 import { classifyDifficulty } from "../auto-thinking/classifier";
 import type { ModelRegistry } from "../config/model-registry";
 import {
@@ -23,7 +23,7 @@ import {
 } from "../config/model-resolver";
 import { getKnownRoleIds } from "../config/model-roles";
 import type { Settings } from "../config/settings";
-import { containsUltrathink } from "@oh-my-pi/pi-tui/prompt/ultrathink";
+import { containsUltrathink } from "@oh-my-soup/pi-tui/prompt/ultrathink";
 import {
 	AUTO_THINKING,
 	type ConfiguredThinkingLevel,
@@ -33,8 +33,8 @@ import {
 	resolveThinkingLevelForModel,
 	shouldDisableReasoning,
 	toReasoningEffort,
-} from "@oh-my-pi/pi-tui/thinking";
-import type { EditMode } from "@oh-my-pi/pi-tui/tools/edit";
+} from "@oh-my-soup/pi-tui/thinking";
+import type { EditMode } from "@oh-my-soup/pi-tui/tools/edit";
 import type { AgentSessionEvent } from "./agent-session-events";
 import type { ModelCycleResult, ResolvedRoleModel, RoleModelCycle, RoleModelCycleResult } from "./agent-session-types";
 import { formatRoleModelValue, resolveRoleModelFull } from "./role-models";

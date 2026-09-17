@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, mock, vi } from "bun:test";
-import type { Model } from "@oh-my-pi/pi-ai";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
-import { runOnboardingSetup } from "@oh-my-pi/pi-coding-agent/commands/setup";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
+import type { Model } from "@oh-my-soup/pi-ai";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
+import { runOnboardingSetup } from "@oh-my-soup/pi-coding-agent/commands/setup";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
 import {
 	ALL_SCENES,
 	createSetupHost,
@@ -12,15 +12,15 @@ import {
 	type SetupScene,
 	type SetupSceneHost,
 	selectSetupScenes,
-} from "@oh-my-pi/pi-coding-agent/modes/setup";
-import { providersSetupScene } from "@oh-my-pi/pi-tui/setup/scenes/providers";
-import { themeSetupScene } from "@oh-my-pi/pi-tui/setup/scenes/theme";
-import { WebSearchTab } from "@oh-my-pi/pi-tui/setup/scenes/web-search";
-import { SetupWizardComponent } from "@oh-my-pi/pi-tui/setup/wizard-overlay";
-import { initTheme, theme } from "@oh-my-pi/pi-tui/theme";
-import type { InteractiveModeContext } from "@oh-my-pi/pi-coding-agent/modes/types";
-import { SEARCH_PROVIDER_OPTIONS } from "@oh-my-pi/pi-tui/tools/web-search";
-import { SEARCH_PROVIDER_ORDER } from "@oh-my-pi/pi-coding-agent/web/search/types";
+} from "@oh-my-soup/pi-coding-agent/modes/setup";
+import { providersSetupScene } from "@oh-my-soup/pi-tui/setup/scenes/providers";
+import { themeSetupScene } from "@oh-my-soup/pi-tui/setup/scenes/theme";
+import { WebSearchTab } from "@oh-my-soup/pi-tui/setup/scenes/web-search";
+import { SetupWizardComponent } from "@oh-my-soup/pi-tui/setup/wizard-overlay";
+import { initTheme, theme } from "@oh-my-soup/pi-tui/theme";
+import type { InteractiveModeContext } from "@oh-my-soup/pi-coding-agent/modes/types";
+import { SEARCH_PROVIDER_OPTIONS } from "@oh-my-soup/pi-tui/tools/web-search";
+import { SEARCH_PROVIDER_ORDER } from "@oh-my-soup/pi-coding-agent/web/search/types";
 
 type SetupApplicationSceneHost = Omit<SetupSceneHost, "ctx"> & { ctx: InteractiveModeContext };
 
@@ -550,7 +550,7 @@ describe("setup wizard web search tab", () => {
 	});
 });
 
-describe("omp setup onboarding trigger", () => {
+describe("oms setup onboarding trigger", () => {
 	it("starts the normal interactive command with forced setup wizard", async () => {
 		let forceSetupWizard: boolean | undefined;
 		await runOnboardingSetup({

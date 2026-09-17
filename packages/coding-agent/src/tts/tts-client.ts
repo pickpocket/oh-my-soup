@@ -1,4 +1,4 @@
-import { logger } from "@oh-my-pi/pi-utils";
+import { logger } from "@oh-my-soup/pi-utils";
 import {
 	createUnavailableWorker,
 	createWorkerHandle,
@@ -131,7 +131,7 @@ class AudioChunkChannel {
  * Hidden subcommand on the main CLI that boots the TTS worker in the spawned
  * subprocess. Kept in sync with the dispatch in `cli.ts` (Main-owned).
  */
-export const TTS_WORKER_ARG = "__omp_worker_tts";
+export const TTS_WORKER_ARG = "__oms_worker_tts";
 
 /**
  * Spawn the TTS worker as a subprocess. Exported for tests and the smoke probe;
@@ -380,7 +380,7 @@ export class TtsClient {
 
 	/**
 	 * The TTS subprocess is spawned `unref`'d so an idle worker never blocks
-	 * process exit. A short-lived CLI command (`omp say`) awaiting a request would
+	 * process exit. A short-lived CLI command (`oms say`) awaiting a request would
 	 * otherwise let the event loop drain and exit before the audio arrives, so we
 	 * `ref` the worker exactly while at least one request is pending.
 	 */

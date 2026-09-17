@@ -17,19 +17,19 @@
  */
 
 import { afterEach, describe, expect, it, spyOn, vi } from "bun:test";
-import type { CmuxKind } from "@oh-my-pi/pi-coding-agent/tools/browser/cmux/rpc";
-import { CmuxSocketClient } from "@oh-my-pi/pi-coding-agent/tools/browser/cmux/socket-client";
-import { acquireBrowser, getBrowsersMapForTest } from "@oh-my-pi/pi-coding-agent/tools/browser/registry";
+import type { CmuxKind } from "@oh-my-soup/pi-coding-agent/tools/browser/cmux/rpc";
+import { CmuxSocketClient } from "@oh-my-soup/pi-coding-agent/tools/browser/cmux/socket-client";
+import { acquireBrowser, getBrowsersMapForTest } from "@oh-my-soup/pi-coding-agent/tools/browser/registry";
 import {
 	acquireTab,
 	getTabsMapForTest,
 	releaseTab,
 	releaseTabsForOwner,
-} from "@oh-my-pi/pi-coding-agent/tools/browser/tab-supervisor";
-import { ToolAbortError } from "@oh-my-pi/pi-coding-agent/tools/tool-errors";
+} from "@oh-my-soup/pi-coding-agent/tools/browser/tab-supervisor";
+import { ToolAbortError } from "@oh-my-soup/pi-coding-agent/tools/tool-errors";
 
 function makeKind(socketSuffix: string): CmuxKind {
-	return { kind: "cmux", socketPath: `/tmp/omp-test-${socketSuffix}.sock`, surface: `surface-${socketSuffix}` };
+	return { kind: "cmux", socketPath: `/tmp/oms-test-${socketSuffix}.sock`, surface: `surface-${socketSuffix}` };
 }
 
 async function drainAllTabs(): Promise<void> {
@@ -193,7 +193,7 @@ describe("browser lifecycle — close deadlines", () => {
 			return {};
 		});
 
-		const kind: CmuxKind = { kind: "cmux", socketPath: "/tmp/omp-close-deadline.sock" };
+		const kind: CmuxKind = { kind: "cmux", socketPath: "/tmp/oms-close-deadline.sock" };
 		const browser = await acquireBrowser(kind, { cwd: "/tmp" });
 		await acquireTab("probe", browser, { timeoutMs: 1_000 });
 

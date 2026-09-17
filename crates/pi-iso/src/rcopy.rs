@@ -39,7 +39,7 @@ impl IsolationBackend for RcopyBackend {
 		prepare_destination(&merged)?;
 		if is_git_worktree(&lower) {
 			git_worktree_add(&lower, &merged)?;
-			// `worktree add --detach HEAD` lands on a clean checkout. omp
+			// `worktree add --detach HEAD` lands on a clean checkout. oms
 			// (and friends) expect `merged` to mirror `lower`'s **live**
 			// working tree, so seed the index + working tree + untracked
 			// files exactly as they exist in lower. No applyBaseline call

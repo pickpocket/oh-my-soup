@@ -12,13 +12,13 @@
  */
 import { describe, expect, it } from "bun:test";
 import * as path from "node:path";
-import { ModelRegistry } from "@oh-my-pi/pi-coding-agent/config/model-registry";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import type { ExtensionFactory } from "@oh-my-pi/pi-coding-agent/extensibility/extensions";
-import { createAgentSession } from "@oh-my-pi/pi-coding-agent/sdk";
-import { AuthStorage } from "@oh-my-pi/pi-coding-agent/session/auth-storage";
-import { SessionManager } from "@oh-my-pi/pi-coding-agent/session/session-manager";
-import { TempDir } from "@oh-my-pi/pi-utils";
+import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import type { ExtensionFactory } from "@oh-my-soup/pi-coding-agent/extensibility/extensions";
+import { createAgentSession } from "@oh-my-soup/pi-coding-agent/sdk";
+import { AuthStorage } from "@oh-my-soup/pi-coding-agent/session/auth-storage";
+import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
+import { TempDir } from "@oh-my-soup/pi-utils";
 
 const PROVIDER = "tan-fixture-gw";
 const MODEL_ID = "tan-fixture-model";
@@ -82,7 +82,7 @@ function baseOptions(cwd: string) {
 
 describe("/tan extension auth over a shared registry", () => {
 	it("keeps the extension provider's credential resolvable after a forwarded tan-like child is created", async () => {
-		using tempDir = TempDir.createSync("omp-tan-ext-auth-");
+		using tempDir = TempDir.createSync("oms-tan-ext-auth-");
 		const cwd = path.resolve(tempDir.path());
 		const extPath = path.join(cwd, "provider-ext.ts");
 		await Bun.write(extPath, EXTENSION_SOURCE);
@@ -137,7 +137,7 @@ describe("/tan extension auth over a shared registry", () => {
 	}, 20_000);
 
 	it("preserves auth via the extension-paths fallback when no prepared factories are forwarded", async () => {
-		using tempDir = TempDir.createSync("omp-tan-ext-auth-fallback-");
+		using tempDir = TempDir.createSync("oms-tan-ext-auth-fallback-");
 		const cwd = path.resolve(tempDir.path());
 		const extPath = path.join(cwd, "provider-ext.ts");
 		await Bun.write(extPath, EXTENSION_SOURCE);

@@ -1,15 +1,15 @@
-import { ToolError } from "@oh-my-pi/pi-tui/tools/tool-errors";
+import { ToolError } from "@oh-my-soup/pi-tui/tools/tool-errors";
 
 const NON_SERIALIZABLE_RUN_ARGUMENT = "Run argument is not JSON-serializable; pass plain data";
 
 /** Marker that renders a serialized function as an executable run argument. */
 export interface FnArgMarker {
-	__omp_fn: string;
+	__oms_fn: string;
 }
 
 /** Marker that renders a serialized regular expression as an executable run argument. */
 export interface RegExpArgMarker {
-	__omp_re: {
+	__oms_re: {
 		source: string;
 		flags?: string;
 	};
@@ -30,12 +30,12 @@ function hasSoleOwnKey(value: Record<string, unknown>, key: string): boolean {
 export function renderRunArg(value: unknown): string {
 	if (value === undefined) return "undefined";
 
-	if (isPlainObject(value) && hasSoleOwnKey(value, "__omp_fn") && typeof value.__omp_fn === "string") {
-		return `(${value.__omp_fn})`;
+	if (isPlainObject(value) && hasSoleOwnKey(value, "__oms_fn") && typeof value.__oms_fn === "string") {
+		return `(${value.__oms_fn})`;
 	}
 
-	if (isPlainObject(value) && hasSoleOwnKey(value, "__omp_re")) {
-		const marker = value.__omp_re;
+	if (isPlainObject(value) && hasSoleOwnKey(value, "__oms_re")) {
+		const marker = value.__oms_re;
 		if (
 			isPlainObject(marker) &&
 			typeof marker.source === "string" &&

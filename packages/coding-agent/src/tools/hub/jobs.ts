@@ -4,26 +4,26 @@
  * running-agents roster for activity with no job entry.
  */
 
-import type { AgentToolResult } from "@oh-my-pi/pi-agent-core";
+import type { AgentToolResult } from "@oh-my-soup/pi-agent-core";
 
 import type { AsyncJob, AsyncJobDetails, AsyncJobManager, AsyncJobType } from "../../async";
 
 import { renderStructuredJson } from "../../session/async-job-delivery";
 import { USER_INTERRUPT_LABEL } from "../../session/messages";
-import type { StructuredSubagentOutput } from "@oh-my-pi/pi-tui/tools/task";
-import { parseConfiguredThinkingLevel } from "@oh-my-pi/pi-tui/thinking";
+import type { StructuredSubagentOutput } from "@oh-my-soup/pi-tui/tools/task";
+import { parseConfiguredThinkingLevel } from "@oh-my-soup/pi-tui/thinking";
 
 import type { ToolSession } from "..";
 
-import { formatDuration } from "@oh-my-pi/pi-tui/render/render-utils";
+import { formatDuration } from "@oh-my-soup/pi-tui/render/render-utils";
 import type {
 	AgentActivitySnapshot,
 	CancelOutcome,
 	CoordinationDetails,
 	JobSnapshot,
-} from "@oh-my-pi/pi-tui/tools/hub";
+} from "@oh-my-soup/pi-tui/tools/hub";
 
-import { isWaitingPollDetails } from "@oh-my-pi/pi-tui/tools/hub";
+import { isWaitingPollDetails } from "@oh-my-soup/pi-tui/tools/hub";
 
 /**
  * Resolve a list of job ids to job records visible to the calling agent.

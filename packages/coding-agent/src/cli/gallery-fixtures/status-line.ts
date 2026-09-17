@@ -7,9 +7,9 @@
  * model mid-session), where the gauge clamps to full while the context_pct
  * segment reports the raw percent.
  */
-import { StatusLineComponent } from "@oh-my-pi/pi-tui/status-line";
+import { StatusLineComponent } from "@oh-my-soup/pi-tui/status-line";
 import { statusLineHost } from "../../modes/status-line-host";
-import { theme } from "@oh-my-pi/pi-tui/theme";
+import { theme } from "@oh-my-soup/pi-tui/theme";
 import type { AgentSession } from "../../session/agent-session";
 import type { GalleryFixture, GalleryFixtureState } from "./types";
 

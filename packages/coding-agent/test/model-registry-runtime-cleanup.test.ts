@@ -1,13 +1,13 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import * as fs from "node:fs/promises";
-import { type AssistantMessageEventStream, clearCustomApis, getCustomApi } from "@oh-my-pi/pi-ai";
-import { getOAuthProvider } from "@oh-my-pi/pi-ai/oauth";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
-import { writeModelCache } from "@oh-my-pi/pi-catalog/model-cache";
-import { resolveModelCacheProviderId, resolveOllamaModelCacheProviderId } from "@oh-my-pi/pi-catalog/provider-models";
-import { ModelRegistry, type ProviderConfigInput } from "@oh-my-pi/pi-coding-agent/config/model-registry";
-import { AuthStorage } from "@oh-my-pi/pi-coding-agent/session/auth-storage";
-import { TempDir } from "@oh-my-pi/pi-utils";
+import { type AssistantMessageEventStream, clearCustomApis, getCustomApi } from "@oh-my-soup/pi-ai";
+import { getOAuthProvider } from "@oh-my-soup/pi-ai/oauth";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
+import { writeModelCache } from "@oh-my-soup/pi-catalog/model-cache";
+import { resolveModelCacheProviderId, resolveOllamaModelCacheProviderId } from "@oh-my-soup/pi-catalog/provider-models";
+import { ModelRegistry, type ProviderConfigInput } from "@oh-my-soup/pi-coding-agent/config/model-registry";
+import { AuthStorage } from "@oh-my-soup/pi-coding-agent/session/auth-storage";
+import { TempDir } from "@oh-my-soup/pi-utils";
 
 describe("ModelRegistry runtime source cleanup", () => {
 	let authStorage: AuthStorage;
@@ -59,7 +59,7 @@ describe("ModelRegistry runtime source cleanup", () => {
 	});
 
 	test("extension rebinding preserves unrelated credential-scoped cached models", async () => {
-		using tempDir = TempDir.createSync("@omp-model-registry-rebind-");
+		using tempDir = TempDir.createSync("@oms-model-registry-rebind-");
 		const provider = "opencode-go";
 		const apiKey = "opencode-go-test-key";
 		const cachedModel = buildModel({
@@ -109,7 +109,7 @@ describe("ModelRegistry runtime source cleanup", () => {
 	});
 
 	test("unloading an override-only extension keeps a built-in provider's hydrated discoveries", async () => {
-		using tempDir = TempDir.createSync("@omp-model-registry-override-only-");
+		using tempDir = TempDir.createSync("@oms-model-registry-override-only-");
 		const provider = "opencode-go";
 		const apiKey = "opencode-go-test-key";
 		const cachedModel = buildModel({
@@ -150,7 +150,7 @@ describe("ModelRegistry runtime source cleanup", () => {
 	});
 
 	test("extension rebinding discards discoveries removed from the model config", async () => {
-		using tempDir = TempDir.createSync("@omp-model-registry-config-rebind-");
+		using tempDir = TempDir.createSync("@oms-model-registry-config-rebind-");
 		const modelsPath = tempDir.join("models.json");
 		const cacheDbPath = tempDir.join("models.db");
 		const provider = "configured-ollama";
@@ -211,7 +211,7 @@ describe("ModelRegistry runtime source cleanup", () => {
 	});
 
 	test("extension rebinding discards discoveries whose model overrides changed", async () => {
-		using tempDir = TempDir.createSync("@omp-model-registry-override-rebind-");
+		using tempDir = TempDir.createSync("@oms-model-registry-override-rebind-");
 		const modelsPath = tempDir.join("models.json");
 		const cacheDbPath = tempDir.join("models.db");
 		const provider = "configured-ollama";

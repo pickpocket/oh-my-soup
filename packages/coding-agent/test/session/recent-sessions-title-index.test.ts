@@ -2,10 +2,10 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { getRecentSessions } from "@oh-my-pi/pi-coding-agent/session/session-listing";
-import { SessionManager } from "@oh-my-pi/pi-coding-agent/session/session-manager";
-import { resetSessionTitleIndexForTests } from "@oh-my-pi/pi-coding-agent/session/title-index";
-import { getConfigRootDir, removeSyncWithRetries, setAgentDir } from "@oh-my-pi/pi-utils";
+import { getRecentSessions } from "@oh-my-soup/pi-coding-agent/session/session-listing";
+import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
+import { resetSessionTitleIndexForTests } from "@oh-my-soup/pi-coding-agent/session/title-index";
+import { getConfigRootDir, removeSyncWithRetries, setAgentDir } from "@oh-my-soup/pi-utils";
 import { makeAssistantMessage } from "../session-manager/helpers";
 
 /**
@@ -21,7 +21,7 @@ describe("recent sessions title index", () => {
 	const fallbackAgentDir = path.join(getConfigRootDir(), "agent");
 
 	beforeEach(() => {
-		testAgentDir = fs.mkdtempSync(path.join(os.tmpdir(), "omp-recent-titles-"));
+		testAgentDir = fs.mkdtempSync(path.join(os.tmpdir(), "oms-recent-titles-"));
 		cwd = path.join(testAgentDir, "cwd");
 		fs.mkdirSync(cwd, { recursive: true });
 		setAgentDir(testAgentDir);

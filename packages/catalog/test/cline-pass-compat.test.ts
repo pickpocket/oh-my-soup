@@ -1,17 +1,17 @@
 import { describe, expect, it } from "bun:test";
-import { toClinePassPublicModelId, toClinePassWireModelId } from "@oh-my-pi/pi-catalog/cline-pass-model-id";
-import { resolveModelPolicy } from "@oh-my-pi/pi-catalog/compat/resolve";
-import { Effort } from "@oh-my-pi/pi-catalog/effort";
-import { getBundledModels } from "@oh-my-pi/pi-catalog/models";
+import { toClinePassPublicModelId, toClinePassWireModelId } from "@oh-my-soup/pi-catalog/cline-pass-model-id";
+import { resolveModelPolicy } from "@oh-my-soup/pi-catalog/compat/resolve";
+import { Effort } from "@oh-my-soup/pi-catalog/effort";
+import { getBundledModels } from "@oh-my-soup/pi-catalog/models";
 import {
 	DEFAULT_MODEL_PER_PROVIDER,
 	MODELS_DEV_PROVIDER_DESCRIPTORS,
 	mapModelsDevToModels,
 	PROVIDER_DESCRIPTORS,
-} from "@oh-my-pi/pi-catalog/provider-models";
-import { createReferenceResolver } from "@oh-my-pi/pi-catalog/provider-models/bundled-references";
-import { clinePassModelManagerOptions } from "@oh-my-pi/pi-catalog/provider-models/openai-compat";
-import type { ModelSpec } from "@oh-my-pi/pi-catalog/types";
+} from "@oh-my-soup/pi-catalog/provider-models";
+import { createReferenceResolver } from "@oh-my-soup/pi-catalog/provider-models/bundled-references";
+import { clinePassModelManagerOptions } from "@oh-my-soup/pi-catalog/provider-models/openai-compat";
+import type { ModelSpec } from "@oh-my-soup/pi-catalog/types";
 
 const CLINEPASS_MODELS_DEV_FIXTURE = {
 	"cline-pass": {

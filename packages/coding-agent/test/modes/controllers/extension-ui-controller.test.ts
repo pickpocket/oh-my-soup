@@ -1,13 +1,13 @@
 import { afterEach, beforeAll, describe, expect, it, type Mock, vi } from "bun:test";
-import { type Component, Container, isFocusable, type OverlayOptions, setKeybindings } from "@oh-my-pi/pi-tui";
-import { KeybindingsManager } from "@oh-my-pi/pi-tui/app-keybindings";
+import { type Component, Container, isFocusable, type OverlayOptions, setKeybindings } from "@oh-my-soup/pi-tui";
+import { KeybindingsManager } from "@oh-my-soup/pi-tui/app-keybindings";
 import type { ExtensionAskDialogQuestion, ExtensionUIContext } from "../../../src/extensibility/extensions";
-import { AskDialogComponent } from "@oh-my-pi/pi-tui/overlays/ask-dialog";
-import { CustomEditor } from "@oh-my-pi/pi-tui/prompt/custom-editor";
-import { HookEditorComponent } from "@oh-my-pi/pi-tui/overlays/hook-editor";
+import { AskDialogComponent } from "@oh-my-soup/pi-tui/overlays/ask-dialog";
+import { CustomEditor } from "@oh-my-soup/pi-tui/prompt/custom-editor";
+import { HookEditorComponent } from "@oh-my-soup/pi-tui/overlays/hook-editor";
 import { ExtensionUiController } from "../../../src/modes/controllers/extension-ui-controller";
 import { InputController } from "../../../src/modes/controllers/input-controller";
-import { getEditorTheme, getThemeByName, setThemeInstance } from "@oh-my-pi/pi-tui/theme";
+import { getEditorTheme, getThemeByName, setThemeInstance } from "@oh-my-soup/pi-tui/theme";
 import type { InteractiveModeContext } from "../../../src/modes/types";
 
 afterEach(() => {

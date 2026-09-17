@@ -1,5 +1,5 @@
 import * as path from "node:path";
-import { getTinyModelsCacheDir } from "@oh-my-pi/pi-utils";
+import { getTinyModelsCacheDir } from "@oh-my-soup/pi-utils";
 
 export const KOKORO_PACKAGE = "kokoro-js";
 export const KOKORO_VERSION = "1.2.1";

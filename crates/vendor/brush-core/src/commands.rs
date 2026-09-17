@@ -1025,7 +1025,7 @@ pub enum ChildSessionAction {
 ///
 /// The pre-fix code only detached when `new_pg` was set, which is gated on
 /// brush's interactive job-control path. When brush is embedded in a
-/// non-interactive host (e.g. `pi-natives` inside OMP), `new_pg` is false, the
+/// non-interactive host (e.g. `pi-natives` inside OMS), `new_pg` is false, the
 /// child inherited the host's controlling tty, and any `/dev/tty` open or
 /// `tcsetpgrp` call from the child could SIGTTIN/SIGTTOU and stop the host.
 ///

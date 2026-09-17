@@ -2,15 +2,15 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { readImageMetadata, removeSyncWithRetries } from "@oh-my-pi/pi-utils";
+import { readImageMetadata, removeSyncWithRetries } from "@oh-my-soup/pi-utils";
 import { loadImageInput } from "../src/utils/image-loading";
-import { InvalidImageDataError } from "@oh-my-pi/pi-tui/chat/image-loading";
+import { InvalidImageDataError } from "@oh-my-soup/pi-tui/chat/image-loading";
 
 describe("readImageMetadata", () => {
 	let testDir: string;
 
 	beforeEach(() => {
-		testDir = fs.mkdtempSync(path.join(os.tmpdir(), "omp-image-input-"));
+		testDir = fs.mkdtempSync(path.join(os.tmpdir(), "oms-image-input-"));
 	});
 
 	afterEach(() => {

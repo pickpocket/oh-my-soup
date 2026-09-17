@@ -1,16 +1,16 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "bun:test";
-import { type } from "@oh-my-pi/omptype";
-import type { AgentTool } from "@oh-my-pi/pi-agent-core";
-import type { AssistantMessage, ToolCall, ToolResultMessage, Usage } from "@oh-my-pi/pi-ai";
-import { resetSettingsForTest, Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { AssistantMessageComponent } from "@oh-my-pi/pi-tui/chat/assistant-message";
-import { ReadToolGroupComponent } from "@oh-my-pi/pi-tui/chat/read-tool-group";
-import { ToolExecutionComponent } from "@oh-my-pi/pi-tui/chat/tool-execution";
-import { EventController } from "@oh-my-pi/pi-coding-agent/modes/controllers/event-controller";
-import { initTheme } from "@oh-my-pi/pi-tui/theme";
-import { UiHelpers } from "@oh-my-pi/pi-coding-agent/modes/utils/ui-helpers";
-import type { AgentSessionEvent } from "@oh-my-pi/pi-coding-agent/session/agent-session";
-import { type Component, TERMINAL } from "@oh-my-pi/pi-tui";
+import { type } from "@oh-my-soup/omstype";
+import type { AgentTool } from "@oh-my-soup/pi-agent-core";
+import type { AssistantMessage, ToolCall, ToolResultMessage, Usage } from "@oh-my-soup/pi-ai";
+import { resetSettingsForTest, Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { AssistantMessageComponent } from "@oh-my-soup/pi-tui/chat/assistant-message";
+import { ReadToolGroupComponent } from "@oh-my-soup/pi-tui/chat/read-tool-group";
+import { ToolExecutionComponent } from "@oh-my-soup/pi-tui/chat/tool-execution";
+import { EventController } from "@oh-my-soup/pi-coding-agent/modes/controllers/event-controller";
+import { initTheme } from "@oh-my-soup/pi-tui/theme";
+import { UiHelpers } from "@oh-my-soup/pi-coding-agent/modes/utils/ui-helpers";
+import type { AgentSessionEvent } from "@oh-my-soup/pi-coding-agent/session/agent-session";
+import { type Component, TERMINAL } from "@oh-my-soup/pi-tui";
 import { createInteractiveModeContext } from "./helpers/interactive-mode-context";
 
 const TOOL_CALL_A_ID = "toolu_mixed_text_order_a";
@@ -239,7 +239,7 @@ describe("EventController mixed assistant text/tool rendering", () => {
 			type: "toolCall",
 			id: "toolu_prefixed_github",
 			name: "xd://github",
-			arguments: { op: "repo_view", repo: "can1357/oh-my-pi" },
+			arguments: { op: "repo_view", repo: "pickpocket/oh-my-soup" },
 		};
 		const streaming = assistantMessage([toolCall]);
 
@@ -258,7 +258,7 @@ describe("EventController mixed assistant text/tool rendering", () => {
 				partial: streaming,
 			},
 		} as Extract<AgentSessionEvent, { type: "message_update" }>);
-		expect(Bun.stripANSI(live.chatContainer.render(120).join("\n"))).toContain("GitHub Repo can1357/oh-my-pi");
+		expect(Bun.stripANSI(live.chatContainer.render(120).join("\n"))).toContain("GitHub Repo pickpocket/oh-my-soup");
 
 		const executionOnly = createFixture(false, toolByName);
 		await executionOnly.controller.handleEvent({
@@ -268,7 +268,7 @@ describe("EventController mixed assistant text/tool rendering", () => {
 			args: toolCall.arguments,
 		} as Extract<AgentSessionEvent, { type: "tool_execution_start" }>);
 		expect(Bun.stripANSI(executionOnly.chatContainer.render(120).join("\n"))).toContain(
-			"GitHub Repo can1357/oh-my-pi",
+			"GitHub Repo pickpocket/oh-my-soup",
 		);
 
 		const rebuilt = createFixture(false, toolByName);
@@ -280,7 +280,7 @@ describe("EventController mixed assistant text/tool rendering", () => {
 			injectedTtsrRules: [],
 			mode: "none",
 		});
-		expect(Bun.stripANSI(rebuilt.chatContainer.render(120).join("\n"))).toContain("GitHub Repo can1357/oh-my-pi");
+		expect(Bun.stripANSI(rebuilt.chatContainer.render(120).join("\n"))).toContain("GitHub Repo pickpocket/oh-my-soup");
 
 		// Canonicalization is presentation-only; provider replay keeps the wire spelling.
 		expect(toolCall.name).toBe("xd://github");

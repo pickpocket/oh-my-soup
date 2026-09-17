@@ -1,10 +1,10 @@
 import { afterEach, describe, expect, it } from "bun:test";
-import type { AuthStorage, FetchImpl } from "@oh-my-pi/pi-ai";
-import { setExcludedSearchProviders } from "@oh-my-pi/pi-coding-agent/web/search/provider";
-import type { SearchParams } from "@oh-my-pi/pi-coding-agent/web/search/providers/base";
-import { searchPublicWeb } from "@oh-my-pi/pi-coding-agent/web/search/providers/public";
-import { SearchProviderError } from "@oh-my-pi/pi-coding-agent/web/search/types";
-import { type SearchProviderId } from "@oh-my-pi/pi-tui/tools/web-search";
+import type { AuthStorage, FetchImpl } from "@oh-my-soup/pi-ai";
+import { setExcludedSearchProviders } from "@oh-my-soup/pi-coding-agent/web/search/provider";
+import type { SearchParams } from "@oh-my-soup/pi-coding-agent/web/search/providers/base";
+import { searchPublicWeb } from "@oh-my-soup/pi-coding-agent/web/search/providers/public";
+import { SearchProviderError } from "@oh-my-soup/pi-coding-agent/web/search/types";
+import { type SearchProviderId } from "@oh-my-soup/pi-tui/tools/web-search";
 
 const fakeAuthStorage = {
 	async getApiKey() {

@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
 import {
 	collapseBuiltVariants,
 	collapseVariants,
@@ -13,22 +13,22 @@ import {
 	resolveVariantSelector,
 	reviewedCollapseTable,
 	type VariantCollapseTable,
-} from "@oh-my-pi/pi-catalog/compat/collapse";
-import { stripThinkingVariantSuffix } from "@oh-my-pi/pi-catalog/compat/taxonomy";
+} from "@oh-my-soup/pi-catalog/compat/collapse";
+import { stripThinkingVariantSuffix } from "@oh-my-soup/pi-catalog/compat/taxonomy";
 import {
 	ANTIGRAVITY_PRIMARY_ENDPOINT,
 	fetchAntigravityDiscoveryModels,
-} from "@oh-my-pi/pi-catalog/discovery/antigravity";
-import { Effort } from "@oh-my-pi/pi-catalog/effort";
-import { resolveProviderModels } from "@oh-my-pi/pi-catalog/model-manager";
+} from "@oh-my-soup/pi-catalog/discovery/antigravity";
+import { Effort } from "@oh-my-soup/pi-catalog/effort";
+import { resolveProviderModels } from "@oh-my-soup/pi-catalog/model-manager";
 import {
 	defaultSupportedEffort,
 	mapEffortToGoogleThinkingLevel,
 	resolveWireModelId,
-} from "@oh-my-pi/pi-catalog/model-thinking";
-import { getBundledModel, getBundledModels } from "@oh-my-pi/pi-catalog/models";
-import { googleGeminiCliModelManagerOptions } from "@oh-my-pi/pi-catalog/provider-models/google";
-import type { ModelSpec } from "@oh-my-pi/pi-catalog/types";
+} from "@oh-my-soup/pi-catalog/model-thinking";
+import { getBundledModel, getBundledModels } from "@oh-my-soup/pi-catalog/models";
+import { googleGeminiCliModelManagerOptions } from "@oh-my-soup/pi-catalog/provider-models/google";
+import type { ModelSpec } from "@oh-my-soup/pi-catalog/types";
 
 function requireReviewedTable(provider: string): VariantCollapseTable {
 	const table = reviewedCollapseTable(provider);

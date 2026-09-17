@@ -1,22 +1,22 @@
 import { beforeAll, describe, expect, it, spyOn } from "bun:test";
 import * as os from "node:os";
 import { stripVTControlCharacters } from "node:util";
-import { PluginManager } from "@oh-my-pi/pi-coding-agent/extensibility/plugins";
+import { PluginManager } from "@oh-my-soup/pi-coding-agent/extensibility/plugins";
 import {
 	type InstalledPluginSummary,
 	MarketplaceManager,
 	parsePluginId,
-} from "@oh-my-pi/pi-coding-agent/extensibility/plugins/marketplace";
-import { createPluginSettingsHost } from "@oh-my-pi/pi-coding-agent/extensibility/plugins/settings-host";
-import type { InstalledPlugin } from "@oh-my-pi/pi-coding-agent/extensibility/plugins/types";
+} from "@oh-my-soup/pi-coding-agent/extensibility/plugins/marketplace";
+import { createPluginSettingsHost } from "@oh-my-soup/pi-coding-agent/extensibility/plugins/settings-host";
+import type { InstalledPlugin } from "@oh-my-soup/pi-coding-agent/extensibility/plugins/types";
 import {
 	type InstalledPluginSummary as MarketplaceSettingsPlugin,
 	MarketplacePluginDetailComponent,
 	PluginListComponent,
 	type PluginListEntry,
 	PluginSettingsComponent,
-} from "@oh-my-pi/pi-tui/overlays/plugin-settings";
-import { initTheme } from "@oh-my-pi/pi-tui/theme";
+} from "@oh-my-soup/pi-tui/overlays/plugin-settings";
+import { initTheme } from "@oh-my-soup/pi-tui/theme";
 
 beforeAll(async () => {
 	await initTheme();
@@ -121,8 +121,8 @@ describe("PluginListComponent", () => {
 
 		const text = stripVTControlCharacters(component.render(120).join("\n"));
 		expect(text).toContain("No plugins installed");
-		expect(text).toContain("omp plugin install <package>");
-		expect(text).toContain("omp plugin install <name>@<marketplace>");
+		expect(text).toContain("oms plugin install <package>");
+		expect(text).toContain("oms plugin install <name>@<marketplace>");
 	});
 
 	it("routes enter on a marketplace entry to onMarketplaceSelect", () => {
@@ -333,7 +333,7 @@ describe("MarketplacePluginDetailComponent", () => {
 
 	it("renders and updates settings from the marketplace runtime package", async () => {
 		const manager = new PluginManager(process.cwd());
-		const runtimePlugin = npm("omp-commit", {
+		const runtimePlugin = npm("oms-commit", {
 			manifest: {
 				version: "1.0.0",
 				settings: {
@@ -348,7 +348,7 @@ describe("MarketplacePluginDetailComponent", () => {
 		spyOn(manager, "getPluginSettings").mockResolvedValue({});
 		const changes: Array<[string, string, unknown]> = [];
 		let renderRequests = 0;
-		const component = new MarketplacePluginDetailComponent(marketplace("omp-commit@market"), manager, {
+		const component = new MarketplacePluginDetailComponent(marketplace("oms-commit@market"), manager, {
 			parsePluginId,
 			onEnabledChange: () => {},
 			onConfigChange: (pluginName, key, value) => changes.push([pluginName, key, value]),
@@ -362,12 +362,12 @@ describe("MarketplacePluginDetailComponent", () => {
 		component.handleInput("\x1b[B");
 		component.handleInput(" ");
 
-		expect(changes).toEqual([["omp-commit", "mainBranchProtection", false]]);
+		expect(changes).toEqual([["oms-commit", "mainBranchProtection", false]]);
 	});
 
 	it("shortens home-relative install paths to ~ before rendering", async () => {
 		const home = os.homedir();
-		const installPath = `${home}/.omp/cache/plugins/sample@mkt`;
+		const installPath = `${home}/.oms/cache/plugins/sample@mkt`;
 		const plugin = marketplace("sample@mkt", { entry: { installPath } });
 		const manager = new PluginManager(process.cwd());
 		spyOn(manager, "getPlugin").mockResolvedValue(undefined);
@@ -379,7 +379,7 @@ describe("MarketplacePluginDetailComponent", () => {
 			onBack: () => {},
 		});
 
-		const text = await renderMarketplaceDetail(component, "~/.omp/cache/plugins/sample@mkt");
+		const text = await renderMarketplaceDetail(component, "~/.oms/cache/plugins/sample@mkt");
 		expect(text).not.toContain(home);
 	});
 });

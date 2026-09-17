@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "bun:test";
-import type { Theme } from "@oh-my-pi/pi-tui/theme";
-import { setShimmerMode, shimmerText } from "@oh-my-pi/pi-tui/theme/shimmer";
+import type { Theme } from "@oh-my-soup/pi-tui/theme";
+import { setShimmerMode, shimmerText } from "@oh-my-soup/pi-tui/theme/shimmer";
 
 const testTheme = {
 	bold(text: string): string {

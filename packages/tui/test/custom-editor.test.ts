@@ -1,15 +1,15 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "bun:test";
-import type { ImageContent } from "@oh-my-pi/pi-ai";
-import { CURSOR_MARKER } from "@oh-my-pi/pi-tui";
-import { setKittyProtocolActive } from "@oh-my-pi/pi-tui/keys";
+import type { ImageContent } from "@oh-my-soup/pi-ai";
+import { CURSOR_MARKER } from "@oh-my-soup/pi-tui";
+import { setKittyProtocolActive } from "@oh-my-soup/pi-tui/keys";
 import { $ } from "bun";
-import { getDefaultPasteImageKeys } from "@oh-my-pi/pi-tui/app-keybindings";
+import { getDefaultPasteImageKeys } from "@oh-my-soup/pi-tui/app-keybindings";
 import {
 	chipLabel,
 	COMPOSER_TOKEN_REGEX,
 	modelMentionChipLabel,
 	skillChipLabel,
-} from "@oh-my-pi/pi-tui/prompt/composer-attachments";
+} from "@oh-my-soup/pi-tui/prompt/composer-attachments";
 import {
 	CustomEditor,
 	extractBracketedImagePastePaths,
@@ -20,8 +20,8 @@ import {
 	SPACE_HOLD_MECHANICAL_RUN,
 	SPACE_HOLD_RELEASE_MS,
 	SPACE_REPEAT_MAX_GAP_MS,
-} from "@oh-my-pi/pi-tui/prompt/custom-editor";
-import { getEditorTheme, initTheme, theme } from "@oh-my-pi/pi-tui/theme";
+} from "@oh-my-soup/pi-tui/prompt/custom-editor";
+import { getEditorTheme, initTheme, theme } from "@oh-my-soup/pi-tui/theme";
 
 function makeEditor() {
 	const editor = new CustomEditor(getEditorTheme());
@@ -61,7 +61,7 @@ function feedGaps(editor: CustomEditor, gaps: number[]): void {
 }
 
 async function decorateInFreshProcess(text: string, imageLinks?: readonly string[]): Promise<string> {
-	const customEditorUrl = import.meta.resolve("@oh-my-pi/pi-tui/prompt/custom-editor");
+	const customEditorUrl = import.meta.resolve("@oh-my-soup/pi-tui/prompt/custom-editor");
 	const script = `
 import { CustomEditor } from ${JSON.stringify(customEditorUrl)};
 const editor = new CustomEditor({});

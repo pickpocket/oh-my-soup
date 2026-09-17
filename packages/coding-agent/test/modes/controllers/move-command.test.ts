@@ -2,11 +2,11 @@ import { afterEach, beforeAll, describe, expect, it, vi } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { CommandController } from "@oh-my-pi/pi-coding-agent/modes/controllers/command-controller";
-import { getThemeByName, setThemeInstance } from "@oh-my-pi/pi-tui/theme";
-import type { InteractiveModeContext } from "@oh-my-pi/pi-coding-agent/modes/types";
-import * as sessionWorktree from "@oh-my-pi/pi-coding-agent/session/session-worktree";
-import { Container } from "@oh-my-pi/pi-tui";
+import { CommandController } from "@oh-my-soup/pi-coding-agent/modes/controllers/command-controller";
+import { getThemeByName, setThemeInstance } from "@oh-my-soup/pi-tui/theme";
+import type { InteractiveModeContext } from "@oh-my-soup/pi-coding-agent/modes/types";
+import * as sessionWorktree from "@oh-my-soup/pi-coding-agent/session/session-worktree";
+import { Container } from "@oh-my-soup/pi-tui";
 
 function createMoveContext(sourceDir: string, settingsFlush?: () => Promise<void>) {
 	const state = { cwd: sourceDir, movedTo: undefined as string | undefined, completedBtwVisible: true };
@@ -73,7 +73,7 @@ describe("CommandController /move", () => {
 	afterEach(() => vi.restoreAllMocks());
 
 	it("does not create a checkout when the BTW gate rejects a worktree command", async () => {
-		const sourceDir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-wt-gate-"));
+		const sourceDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-wt-gate-"));
 		try {
 			const { ctx, state } = createMoveContext(sourceDir);
 			const target = path.join(sourceDir, "checkout");
@@ -96,7 +96,7 @@ describe("CommandController /move", () => {
 	});
 
 	it("holds one migration gate through worktree creation, relocation and source cleanup", async () => {
-		const sourceDir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-wt-lifecycle-"));
+		const sourceDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-wt-lifecycle-"));
 		const creating = Promise.withResolvers<void>();
 		const created = Promise.withResolvers<void>();
 		const relocating = Promise.withResolvers<void>();
@@ -161,7 +161,7 @@ describe("CommandController /move", () => {
 	});
 
 	it("releases the gate without relocating when worktree creation fails", async () => {
-		const sourceDir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-wt-failure-"));
+		const sourceDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-wt-failure-"));
 		try {
 			const { ctx, state, withBtwSessionMove } = createMoveContext(sourceDir);
 			vi.spyOn(sessionWorktree, "createSessionWorktree").mockRejectedValue(new Error("Branch already exists"));
@@ -179,8 +179,8 @@ describe("CommandController /move", () => {
 	});
 
 	it("relocates the active session before re-scoping cwd-derived state", async () => {
-		const sourceDir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-move-source-"));
-		const targetDir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-move-target-"));
+		const sourceDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-move-source-"));
+		const targetDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-move-target-"));
 		try {
 			const { ctx, state, present } = createMoveContext(sourceDir);
 			const controller = new CommandController(ctx);
@@ -203,8 +203,8 @@ describe("CommandController /move", () => {
 	});
 
 	it("restores captured manager state when cwd application fails", async () => {
-		const sourceDir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-move-source-"));
-		const targetDir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-move-target-"));
+		const sourceDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-move-source-"));
+		const targetDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-move-target-"));
 		try {
 			const { ctx, state, captureState, restoreState, rollbackMove, shutdown, withBtwSessionMove } =
 				createMoveContext(sourceDir);
@@ -233,8 +233,8 @@ describe("CommandController /move", () => {
 		}
 	});
 	it("shuts down when rollback and workspace realignment both fail", async () => {
-		const sourceDir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-move-source-"));
-		const targetDir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-move-target-"));
+		const sourceDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-move-source-"));
+		const targetDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-move-target-"));
 		try {
 			const { ctx, shutdown, rollbackMove } = createMoveContext(sourceDir);
 			let applyCount = 0;
@@ -256,8 +256,8 @@ describe("CommandController /move", () => {
 		}
 	});
 	it("stops recovery after aligning with the moved session", async () => {
-		const sourceDir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-move-source-"));
-		const targetDir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-move-target-"));
+		const sourceDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-move-source-"));
+		const targetDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-move-target-"));
 		try {
 			const { ctx, shutdown, rollbackMove } = createMoveContext(sourceDir);
 			ctx.applyCwdChange = vi
@@ -281,7 +281,7 @@ describe("CommandController /move", () => {
 	});
 
 	it("does not prompt or create a move target when pending settings flush fails", async () => {
-		const sourceDir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-move-source-"));
+		const sourceDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-move-source-"));
 		const targetDir = path.join(sourceDir, "destination");
 		try {
 			const { ctx, state, withBtwSessionMove } = createMoveContext(sourceDir, async () => {
@@ -311,7 +311,7 @@ describe("CommandController /move", () => {
 	it.each(["cancelled picker", "empty path", "missing parent", "declined creation", "streaming"] as const)(
 		"preserves the session and BTW state when /move is cancelled or rejected on %s",
 		async rejection => {
-			const sourceDir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-move-source-"));
+			const sourceDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-move-source-"));
 			try {
 				const { ctx, state, withBtwSessionMove } = createMoveContext(sourceDir);
 				const targetDir = path.join(sourceDir, "destination");
@@ -357,7 +357,7 @@ describe("CommandController /move", () => {
 	);
 
 	it("does not prompt or create a move target when the BTW migration gate refuses", async () => {
-		const sourceDir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-move-gate-"));
+		const sourceDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-move-gate-"));
 		try {
 			const { ctx, state } = createMoveContext(sourceDir);
 			const targetDir = path.join(sourceDir, "destination");
@@ -385,7 +385,7 @@ describe("CommandController /move", () => {
 	it.each([true, false])(
 		"holds the move gate across creation confirmation and only commits an accepted move (confirmed=%s)",
 		async confirmed => {
-			const sourceDir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-move-lifecycle-"));
+			const sourceDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-move-lifecycle-"));
 			const confirming = Promise.withResolvers<void>();
 			const confirmation = Promise.withResolvers<boolean>();
 			const creating = Promise.withResolvers<void>();
@@ -485,8 +485,8 @@ describe("CommandController /move", () => {
 	);
 
 	it("does not relocate session files or cwd when the BTW migration gate refuses", async () => {
-		const sourceDir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-move-source-"));
-		const targetDir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-move-target-"));
+		const sourceDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-move-source-"));
+		const targetDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-move-target-"));
 		try {
 			const { ctx, state } = createMoveContext(sourceDir);
 			const sourceFile = path.join(sourceDir, "session.jsonl");
@@ -516,8 +516,8 @@ describe("CommandController /move", () => {
 	});
 
 	it("preserves completed BTW state when moving the session fails", async () => {
-		const sourceDir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-move-source-"));
-		const targetDir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-move-target-"));
+		const sourceDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-move-source-"));
+		const targetDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-move-target-"));
 		try {
 			const { ctx, state, withBtwSessionMove } = createMoveContext(sourceDir);
 			ctx.session.moveSession = vi.fn(async () => {

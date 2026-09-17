@@ -1,10 +1,10 @@
 import { describe, expect, it } from "bun:test";
-import { dropSettingsGroupShadows } from "@oh-my-pi/pi-coding-agent/config/settings";
+import { dropSettingsGroupShadows } from "@oh-my-soup/pi-coding-agent/config/settings";
 
 describe("dropSettingsGroupShadows", () => {
 	it("drops a non-object leaf that would shadow a settings group", () => {
 		// `.claude/settings.json` is shared with other tools; Claude Code's own
-		// `"tui": "fullscreen"` must not replace omp's whole `tui.*` group.
+		// `"tui": "fullscreen"` must not replace oms's whole `tui.*` group.
 		const result = dropSettingsGroupShadows({ tui: "fullscreen" }, "/proj/.claude/settings.json");
 		expect(result).toEqual({});
 	});
@@ -22,8 +22,8 @@ describe("dropSettingsGroupShadows", () => {
 		expect(result).toEqual({ auth: {}, autoResume: true });
 	});
 
-	it("drops Claude Code's top-level model string, which would shadow omp's model.* group", () => {
-		// Claude Code writes `"model": "opus"` at the top level; omp has no bare
+	it("drops Claude Code's top-level model string, which would shadow oms's model.* group", () => {
+		// Claude Code writes `"model": "opus"` at the top level; oms has no bare
 		// `model` leaf, only `model.*` settings, so the string is a shadow too.
 		const result = dropSettingsGroupShadows({ model: "opus" }, "/proj/.claude/settings.json");
 		expect(result).toEqual({});

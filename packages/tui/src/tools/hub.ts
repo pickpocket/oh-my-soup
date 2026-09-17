@@ -2,7 +2,7 @@ import { styleTerminalRow } from "./terminal-output";
 import type { Component } from "../tui";
 import { Text } from "../components/text";
 import { visibleWidth } from "../utils";
-import { formatAge, pluralize } from "@oh-my-pi/pi-utils";
+import { formatAge, pluralize } from "@oh-my-soup/pi-utils";
 import { shimmerEnabled, shimmerText } from "../theme/shimmer";
 import type { Theme, ThemeColor } from "../theme/theme";
 import { Ellipsis, Hasher, type RenderCache, renderStatusLine, renderTreeList, truncateToWidth } from "../render/index";

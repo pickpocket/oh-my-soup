@@ -151,13 +151,13 @@ mod tests {
 	}
 
 	#[test]
-	fn host_omp_num_threads_forces_count() {
+	fn host_oms_num_threads_forces_count() {
 		let (code, capture) = run_in(&[("OMP_NUM_THREADS", "3")], &[]);
 		assert_eq!((code, capture.out(), capture.err()), (0, "3\n".to_string(), String::new()));
 	}
 
 	#[test]
-	fn omp_thread_limit_caps_omp_num_threads() {
+	fn oms_thread_limit_caps_oms_num_threads() {
 		let (code, capture) = run_in(
 			&[("OMP_NUM_THREADS", "64"), ("OMP_THREAD_LIMIT", "2")],
 			&[],
@@ -166,7 +166,7 @@ mod tests {
 	}
 
 	#[test]
-	fn all_prints_positive_integer_and_ignores_omp_num_threads() {
+	fn all_prints_positive_integer_and_ignores_oms_num_threads() {
 		let (code, capture) = run_in(&[("OMP_NUM_THREADS", "0")], &["--all"]);
 		assert_eq!(code, 0);
 		assert_eq!(capture.err(), "");

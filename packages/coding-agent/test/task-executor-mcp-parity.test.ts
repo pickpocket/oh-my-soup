@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "bun:test";
-import { INTENT_FIELD } from "@oh-my-pi/pi-wire";
+import { INTENT_FIELD } from "@oh-my-soup/pi-wire";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";

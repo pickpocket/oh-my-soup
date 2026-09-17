@@ -1,5 +1,5 @@
-import { toNumber } from "@oh-my-pi/pi-catalog/utils";
-import { $env } from "@oh-my-pi/pi-utils";
+import { toNumber } from "@oh-my-soup/pi-catalog/utils";
+import { $env } from "@oh-my-soup/pi-utils";
 import { getKimiCommonHeaders } from "../registry/oauth/kimi";
 import type {
 	CredentialRankingStrategy,
@@ -160,7 +160,7 @@ function buildUsageAmount(row: KimiUsageRow): UsageAmount {
 function toUsageLimit(row: KimiUsageRow, provider: string, index: number, accountId?: string): UsageLimit {
 	// Kimi puts `resetTime` on the limit `detail`, not on `window`, so a
 	// window built from `duration`/`timeUnit` alone carries no resetsAt.
-	// Fall back to the row-level reset so `omp usage` can render
+	// Fall back to the row-level reset so `oms usage` can render
 	// "resets in …" for the 5h window too.
 	const window: UsageWindow | undefined = row.window
 		? row.window.resetsAt !== undefined || row.resetsAt === undefined

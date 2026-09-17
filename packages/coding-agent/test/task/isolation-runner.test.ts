@@ -2,23 +2,23 @@ import { afterEach, describe, expect, it, vi } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { AgentLifecycleManager } from "@oh-my-pi/pi-coding-agent/registry/agent-lifecycle";
-import { AgentRegistry } from "@oh-my-pi/pi-coding-agent/registry/agent-registry";
-import { SessionManager } from "@oh-my-pi/pi-coding-agent/session/session-manager";
-import type { AgentSession } from "@oh-my-pi/pi-coding-agent/session/agent-session";
-import * as executorModule from "@oh-my-pi/pi-coding-agent/task/executor";
-import { RETAINED_BACKEND_FILE } from "@oh-my-pi/pi-coding-agent/task/isolation-ownership";
+import { AgentLifecycleManager } from "@oh-my-soup/pi-coding-agent/registry/agent-lifecycle";
+import { AgentRegistry } from "@oh-my-soup/pi-coding-agent/registry/agent-registry";
+import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
+import type { AgentSession } from "@oh-my-soup/pi-coding-agent/session/agent-session";
+import * as executorModule from "@oh-my-soup/pi-coding-agent/task/executor";
+import { RETAINED_BACKEND_FILE } from "@oh-my-soup/pi-coding-agent/task/isolation-ownership";
 import {
 	applyEligibleNestedPatches,
 	mergeIsolatedChanges,
 	persistNestedPatches,
 	retainIsolationWorkspace,
 	runIsolatedSubprocess,
-} from "@oh-my-pi/pi-coding-agent/task/isolation-runner";
-import type { SingleResult } from "@oh-my-pi/pi-tui/tools/task";
-import * as worktreeModule from "@oh-my-pi/pi-coding-agent/task/worktree";
-import * as natives from "@oh-my-pi/pi-natives";
-import * as vcs from "@oh-my-pi/pi-natives/vcs";
+} from "@oh-my-soup/pi-coding-agent/task/isolation-runner";
+import type { SingleResult } from "@oh-my-soup/pi-tui/tools/task";
+import * as worktreeModule from "@oh-my-soup/pi-coding-agent/task/worktree";
+import * as natives from "@oh-my-soup/pi-natives";
+import * as vcs from "@oh-my-soup/pi-natives/vcs";
 import { $ } from "bun";
 
 function result(overrides: Partial<SingleResult> = {}): SingleResult {
@@ -51,7 +51,7 @@ async function git(repoRoot: string, ...args: string[]): Promise<string> {
 }
 
 async function seedFooRepo(finalContent: string): Promise<{ repoRoot: string; patchPath: string }> {
-	const repoRoot = await fs.mkdtemp(path.join(os.tmpdir(), "omp-isolation-merge-"));
+	const repoRoot = await fs.mkdtemp(path.join(os.tmpdir(), "oms-isolation-merge-"));
 	tempRoots.push(repoRoot);
 
 	await git(repoRoot, "init", "-q", "-b", "main");
@@ -85,7 +85,7 @@ describe("runIsolatedSubprocess", () => {
 	});
 
 	it("preserves branch-mode output as a patch when branch transfer fails", async () => {
-		const repoRoot = await fs.mkdtemp(path.join(os.tmpdir(), "omp-isolation-run-"));
+		const repoRoot = await fs.mkdtemp(path.join(os.tmpdir(), "oms-isolation-run-"));
 		tempRoots.push(repoRoot);
 		const isolationDir = path.join(repoRoot, "isolated");
 		const artifactsDir = path.join(repoRoot, "artifacts");
@@ -161,18 +161,18 @@ describe("runIsolatedSubprocess", () => {
 		expect(await Bun.file(patchPath).text()).toBe(rootPatch);
 		expect(outcome.nestedPatches).toEqual([]);
 		expect(captureSpy).toHaveBeenCalledWith(isolationDir, baseline);
-		expect(deleteSpy).toHaveBeenCalledWith("omp/task/PreserveBranchFailure", true);
+		expect(deleteSpy).toHaveBeenCalledWith("oms/task/PreserveBranchFailure", true);
 		expect(cleanupSpy).toHaveBeenCalledTimes(1);
 		expect(AgentRegistry.global().get("PreserveBranchFailure")?.history?.patchPath).toBe(patchPath);
 	});
 
 	it("keeps the task branch when it already carries the agent's commits", async () => {
 		// Regression for #8868: `commitToBranch` fetches the agent's commits into
-		// the parent ODB and creates `omp/task/<id>` before it commits the leftover
+		// the parent ODB and creates `oms/task/<id>` before it commits the leftover
 		// working-tree delta. A throw from that trailing step used to delete the
 		// branch while the isolation worktree — the only other copy — was torn
 		// down in `finally`, losing committed work outright.
-		const repoRoot = await fs.mkdtemp(path.join(os.tmpdir(), "omp-isolation-rescue-"));
+		const repoRoot = await fs.mkdtemp(path.join(os.tmpdir(), "oms-isolation-rescue-"));
 		tempRoots.push(repoRoot);
 		const isolationDir = path.join(repoRoot, "isolated");
 		const artifactsDir = path.join(repoRoot, "artifacts");
@@ -241,11 +241,11 @@ describe("runIsolatedSubprocess", () => {
 			buildFailureResult: err => result({ exitCode: 1, error: String(err) }),
 		});
 
-		expect(rangeSpy).toHaveBeenCalledWith("base", "omp/task/RescueBranchCommits");
-		expect(refSpy).toHaveBeenCalledWith("refs/heads/omp/task/RescueBranchCommits");
+		expect(rangeSpy).toHaveBeenCalledWith("base", "oms/task/RescueBranchCommits");
+		expect(refSpy).toHaveBeenCalledWith("refs/heads/oms/task/RescueBranchCommits");
 		expect(deleteSpy).not.toHaveBeenCalled();
 		expect(outcome.error).toContain("git apply --3way failed");
-		expect(outcome.error).toContain("preserved on branch omp/task/RescueBranchCommits");
+		expect(outcome.error).toContain("preserved on branch oms/task/RescueBranchCommits");
 		expect(outcome.error).toContain("cherry-pick");
 		expect(cleanupSpy).toHaveBeenCalledTimes(1);
 	});
@@ -308,7 +308,7 @@ describe("runIsolatedSubprocess", () => {
 	});
 
 	it("captures a successful yield's patch when child cleanup is deferred (issue #9670)", async () => {
-		const artifactsDir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-isolation-defer-ok-"));
+		const artifactsDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-isolation-defer-ok-"));
 		tempRoots.push(artifactsDir);
 		const rootPatch = "diff --git a/task.txt b/task.txt\n--- a/task.txt\n+++ b/task.txt\n@@ -1 +1 @@\n-old\n+new\n";
 		const cleanupGate = Promise.withResolvers<void>();
@@ -376,7 +376,7 @@ describe("runIsolatedSubprocess", () => {
 
 	it("captures follow-up changes before releasing a kept-alive isolated worktree", async () => {
 		const isolationDir = "/repo/isolated";
-		const artifactsDir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-isolation-retained-"));
+		const artifactsDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-isolation-retained-"));
 		tempRoots.push(artifactsDir);
 		const initialPatch = "diff --git a/task.txt b/task.txt\n+initial\n";
 		const finalPatch = "diff --git a/task.txt b/task.txt\n+initial\n+follow-up\n";
@@ -428,7 +428,7 @@ describe("runIsolatedSubprocess", () => {
 			.mockResolvedValueOnce({ rootPatch: initialPatch, nestedPatches: [] })
 			.mockResolvedValueOnce({ rootPatch: finalPatch, nestedPatches: [] });
 		const commitSpy = vi.spyOn(worktreeModule, "commitToBranch").mockResolvedValue({
-			branchName: "omp/task/RetainedIsolation",
+			branchName: "oms/task/RetainedIsolation",
 			baseSha: "base",
 			nestedPatches: [],
 		});
@@ -470,7 +470,7 @@ describe("runIsolatedSubprocess", () => {
 		// post-run patch capture. The worktree must survive that early release so
 		// capture succeeds; cleanup happens once afterwards in `finally`.
 		const isolationDir = "/repo/isolated";
-		const artifactsDir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-isolation-oneshot-"));
+		const artifactsDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-isolation-oneshot-"));
 		tempRoots.push(artifactsDir);
 		const rootPatch = "diff --git a/task.txt b/task.txt\n+captured\n";
 		const baseline = {
@@ -626,7 +626,7 @@ describe("runIsolatedSubprocess", () => {
 	});
 
 	it("writes nested-repo patches to disk before the workspace is torn down", async () => {
-		const artifactsDir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-isolation-nested-"));
+		const artifactsDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-isolation-nested-"));
 		tempRoots.push(artifactsDir);
 		const nestedPatch =
 			"diff --git a/b.txt b/b.txt\nnew file mode 100644\n--- /dev/null\n+++ b/b.txt\n@@ -0,0 +1 @@\n+hi\n";
@@ -701,7 +701,7 @@ describe("runIsolatedSubprocess", () => {
 	});
 
 	it("retains the workspace when captured changes cannot be written", async () => {
-		const blockedDir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-isolation-blocked-"));
+		const blockedDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-isolation-blocked-"));
 		tempRoots.push(blockedDir);
 		// A regular file where the artifacts directory should be: every write fails.
 		const artifactsDir = path.join(blockedDir, "artifacts");
@@ -756,7 +756,7 @@ describe("runIsolatedSubprocess", () => {
 	});
 
 	it("removes partial nested patches when a later write fails", async () => {
-		const artifactsDir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-isolation-partial-"));
+		const artifactsDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-isolation-partial-"));
 		tempRoots.push(artifactsDir);
 		const originalWrite = Bun.write.bind(Bun);
 		let calls = 0;
@@ -789,7 +789,7 @@ describe("retainIsolationWorkspace", () => {
 	});
 
 	it("moves the workspace to a unique sibling out of the deterministic slot", async () => {
-		const parent = await fs.mkdtemp(path.join(os.tmpdir(), "omp-isolation-retain-"));
+		const parent = await fs.mkdtemp(path.join(os.tmpdir(), "oms-isolation-retain-"));
 		tempRoots.push(parent);
 		const baseDir = path.join(parent, "wt_abc123");
 		const isolationDir = path.join(baseDir, "m");
@@ -809,7 +809,7 @@ describe("retainIsolationWorkspace", () => {
 	});
 
 	it("records no sidecar for copy backends that need no unmount", async () => {
-		const parent = await fs.mkdtemp(path.join(os.tmpdir(), "omp-isolation-retain-copy-"));
+		const parent = await fs.mkdtemp(path.join(os.tmpdir(), "oms-isolation-retain-copy-"));
 		tempRoots.push(parent);
 		const isolationDir = path.join(parent, "wt_abc123", "m");
 		await fs.mkdir(isolationDir, { recursive: true });
@@ -824,7 +824,7 @@ describe("retainIsolationWorkspace", () => {
 	it("reports the original dir when the move fails", async () => {
 		// The helper moves the workspace base dir; point it at a base that
 		// does not exist so the rename rejects.
-		const missingParent = path.join(os.tmpdir(), `omp-isolation-retain-missing-${Date.now()}`);
+		const missingParent = path.join(os.tmpdir(), `oms-isolation-retain-missing-${Date.now()}`);
 		const isolationDir = path.join(missingParent, "wt_abc123", "m");
 
 		await expect(retainIsolationWorkspace(isolationDir)).resolves.toEqual({
@@ -835,7 +835,7 @@ describe("retainIsolationWorkspace", () => {
 	});
 
 	it("reports missing metadata when the sidecar cannot be written", async () => {
-		const parent = await fs.mkdtemp(path.join(os.tmpdir(), "omp-isolation-retain-sidecar-"));
+		const parent = await fs.mkdtemp(path.join(os.tmpdir(), "oms-isolation-retain-sidecar-"));
 		tempRoots.push(parent);
 		const isolationDir = path.join(parent, "wt_abc123", "m");
 		await fs.mkdir(isolationDir, { recursive: true });
@@ -911,7 +911,7 @@ describe("mergeIsolatedChanges", () => {
 			repoRoot: "/repo",
 			mergeMode: "branch",
 			result: result({
-				branchName: "omp/task/Throwing",
+				branchName: "oms/task/Throwing",
 				patchPath: "/repo/artifacts/task.patch",
 				nestedPatchPaths: ["/repo/artifacts/task.nested-0-inner.patch"],
 			}),
@@ -919,7 +919,7 @@ describe("mergeIsolatedChanges", () => {
 
 		expect(outcome.changesApplied).toBe(false);
 		expect(outcome.summary).toContain("Merge phase failed");
-		expect(outcome.summary).toContain("omp/task/Throwing");
+		expect(outcome.summary).toContain("oms/task/Throwing");
 		expect(outcome.summary).toContain("/repo/artifacts/task.patch");
 		expect(outcome.summary).toContain("/repo/artifacts/task.nested-0-inner.patch");
 	});
@@ -930,12 +930,12 @@ describe("mergeIsolatedChanges", () => {
 			repoRoot: "/repo",
 			mergeMode: "branch",
 			result: result({
-				error: "Merge failed: conflict. The agent's commits are preserved on branch omp/task/Rescued — merge or cherry-pick it manually.",
+				error: "Merge failed: conflict. The agent's commits are preserved on branch oms/task/Rescued — merge or cherry-pick it manually.",
 			}),
 		});
 
 		expect(outcome.changesApplied).toBe(false);
-		expect(outcome.summary).toContain("omp/task/Rescued");
+		expect(outcome.summary).toContain("oms/task/Rescued");
 		expect(outcome.summary).toContain("cherry-pick");
 	});
 

@@ -4,7 +4,7 @@
  * Where the OpenAI / Anthropic / Responses route modules translate foreign
  * wire shapes through pi-ai's canonical {@link Context}, this module accepts
  * the canonical shape *directly* — for clients that already speak pi-ai
- * (containerized omp, robomp's sidecar auth-gateway).
+ * (containerized oms, roboms's sidecar auth-gateway).
  * Skipping the wire-format → Context → wire-format round-trip cuts
  * per-request CPU but, more importantly, avoids the quantization that those
  * translations impose on first-class pi-ai fields (service tier, cache
@@ -42,7 +42,7 @@ export interface PiNativeParsedRequest {
  * provider-session map) and gateway-owned controls (`apiKey`, `signal`) are
  * intentionally absent — those are server-side concerns. Anything outside this
  * allow-list is dropped silently rather than 400ing, so clients can forward
- * `SimpleStreamOptions` from older / newer omp builds without per-version
+ * `SimpleStreamOptions` from older / newer oms builds without per-version
  * conditionals.
  */
 const ALLOWED_OPTION_KEYS: ReadonlySet<keyof SimpleStreamOptions> = new Set([
@@ -171,7 +171,7 @@ const SSE_DONE = SSE_ENCODER.encode("data: [DONE]\n\n");
  * canonical event type IS the wire type. Including the rolling
  * `partial: AssistantMessage` on every delta is quadratic in turn length
  * on the wire, but for the loopback / sidecar topology this transport
- * targets (containerized omp → host gateway, robomp slot → omp-auth-gateway
+ * targets (containerized oms → host gateway, roboms slot → oms-auth-gateway
  * sidecar) the bandwidth cost is negligible compared to provider latency —
  * and the client gets to feed the events straight into its existing
  * `AssistantMessageEventStream.push()` plumbing with zero translation.

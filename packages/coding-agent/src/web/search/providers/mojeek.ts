@@ -1,8 +1,8 @@
-import type { AuthStorage } from "@oh-my-pi/pi-ai";
-import { untilAborted } from "@oh-my-pi/pi-utils";
-import { parseHTML } from "@oh-my-pi/pi-utils/dom";
+import type { AuthStorage } from "@oh-my-soup/pi-ai";
+import { untilAborted } from "@oh-my-soup/pi-utils";
+import { parseHTML } from "@oh-my-soup/pi-utils/dom";
 import type { Page } from "puppeteer-core";
-import type { SearchResponse, SearchSource } from "@oh-my-pi/pi-tui/tools/web-search";
+import type { SearchResponse, SearchSource } from "@oh-my-soup/pi-tui/tools/web-search";
 import { SearchProviderError } from "../../../web/search/types";
 import { formatScraperQuery, type QuerySyntax } from "../query";
 import { clampNumResults } from "../utils";

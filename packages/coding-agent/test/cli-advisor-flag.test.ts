@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { parseArgs } from "@oh-my-pi/pi-coding-agent/cli/args";
+import { parseArgs } from "@oh-my-soup/pi-coding-agent/cli/args";
 
 describe("parseArgs — --advisor flag", () => {
 	it("parses --advisor as a boolean flag", () => {

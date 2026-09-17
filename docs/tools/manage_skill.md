@@ -44,7 +44,7 @@
 - Mutations of the same normalized name are serialized in-process in submission order; different names may proceed in parallel. Cross-process races are not serialized.
 
 ## Side Effects
-- Filesystem: writes or deletes `<agent-dir>/managed-skills/<name>/SKILL.md`; the default agent directory is `~/.omp/agent`.
+- Filesystem: writes or deletes `<agent-dir>/managed-skills/<name>/SKILL.md`; the default agent directory is `~/.oms/agent`.
 - Network: none.
 - Session state: reads `autolearn.enabled` during tool creation and refreshes the active skill list after a successful mutation when `refreshSkills` is available.
 - Background work: none.

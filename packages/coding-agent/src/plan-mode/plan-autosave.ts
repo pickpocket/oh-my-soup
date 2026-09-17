@@ -1,6 +1,6 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { getProjectAgentDir } from "@oh-my-pi/pi-utils";
+import { getProjectAgentDir } from "@oh-my-soup/pi-utils";
 import type { Settings } from "../config/settings";
 import { expandTilde } from "../tools/path-utils";
 
@@ -27,7 +27,7 @@ export function planSaveFileName(title: string): string {
 	return `${stem.endsWith("_PLAN") ? stem : `${stem}_PLAN`}.md`;
 }
 
-/** Default autosave location: `<project>/.omp/plans/`. */
+/** Default autosave location: `<project>/.oms/plans/`. */
 export function defaultPlanAutosaveDir(cwd: string): string {
 	return path.join(getProjectAgentDir(cwd), "plans");
 }

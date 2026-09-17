@@ -1,4 +1,4 @@
-import { getSearchProviderLabel } from "@oh-my-pi/pi-tui/tools/web-search";
+import { getSearchProviderLabel } from "@oh-my-soup/pi-tui/tools/web-search";
 // Lazy registry of web search providers.
 //
 // Each provider is loaded on first use; importing this module loads zero
@@ -9,9 +9,9 @@ import { getSearchProviderLabel } from "@oh-my-pi/pi-tui/tools/web-search";
 // Provider modules are loaded lazily; display metadata lives in types.ts so UI
 // listings can share it without importing provider implementations.
 
-import type { AuthStorage } from "@oh-my-pi/pi-ai";
+import type { AuthStorage } from "@oh-my-soup/pi-ai";
 import type { SearchProvider } from "./providers/base";
-import { SEARCH_PROVIDER_LABELS, type SearchProviderId } from "@oh-my-pi/pi-tui/tools/web-search";
+import { SEARCH_PROVIDER_LABELS, type SearchProviderId } from "@oh-my-soup/pi-tui/tools/web-search";
 import { SEARCH_PROVIDER_ORDER, SearchProviderError } from "./types";
 
 export type { SearchParams } from "./providers/base";

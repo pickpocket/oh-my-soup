@@ -15,7 +15,7 @@ export const CLINEPASS_API_BASE_URL = "https://api.cline.bot/api/v1";
  * The gate accepted an arbitrary version string when probed (0.0.1 passed on
  * 2026-08-13), so the pinned versions are mirror fidelity, not a minimum — but
  * the full set is sent deliberately: partial mirrors are one gateway change
- * away from a 403. `X-Task-ID` carries OMP's stable prompt-cache/session key
+ * away from a 403. `X-Task-ID` carries OMS's stable prompt-cache/session key
  * when available; account and discovery calls omit it rather than inventing a
  * per-request identity.
  */

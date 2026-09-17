@@ -1,8 +1,8 @@
-import type { Agent, AgentMessage } from "@oh-my-pi/pi-agent-core";
-import { logger, prompt } from "@oh-my-pi/pi-utils";
+import type { Agent, AgentMessage } from "@oh-my-soup/pi-agent-core";
+import { logger, prompt } from "@oh-my-soup/pi-utils";
 import type { Settings } from "../config/settings";
 import { IrcBus } from "../irc/bus";
-import { type IrcMessage } from "@oh-my-pi/pi-tui/tools/hub";
+import { type IrcMessage } from "@oh-my-soup/pi-tui/tools/hub";
 import parentIrcSteerTemplate from "../prompts/steering/parent-irc.md" with { type: "text" };
 import ircAutoReplyTemplate from "../prompts/system/irc-autoreply.md" with { type: "text" };
 import ircIncomingTemplate from "../prompts/system/irc-incoming.md" with { type: "text" };

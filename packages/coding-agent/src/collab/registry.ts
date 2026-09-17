@@ -25,9 +25,9 @@ import * as crypto from "node:crypto";
 import * as fs from "node:fs";
 import * as net from "node:net";
 import * as path from "node:path";
-import { getBaseConfigRoot, isEnoent } from "@oh-my-pi/pi-utils";
+import { getBaseConfigRoot, isEnoent } from "@oh-my-soup/pi-utils";
 
-/** Discovery metadata / IPC protocol version. Mixed omp versions fail safely. */
+/** Discovery metadata / IPC protocol version. Mixed oms versions fail safely. */
 export const COLLAB_REGISTRY_VERSION = 1;
 
 /** Reject request lines beyond this size; a valid request is <300 bytes. */
@@ -113,7 +113,7 @@ export interface CollabRegistryOptions {
 
 export interface CollabPublishOptions extends CollabRegistryOptions {
 	/**
-	 * Identity recorded in the metadata and matched by `omp collab link <id>`.
+	 * Identity recorded in the metadata and matched by `oms collab link <id>`.
 	 * Defaults to a fresh random ID; a host that rotates rooms passes its
 	 * process-lifetime instance ID so the replacement room keeps the same id.
 	 * The metadata file and endpoint are always named per publication, so a
@@ -146,7 +146,7 @@ export class CollabLinkError extends Error {
 
 /**
  * Discovery metadata directory. Deliberately under the profile-independent
- * config root (`~/.omp/run/collab-hosts`) — unlike the launch broker's
+ * config root (`~/.oms/run/collab-hosts`) — unlike the launch broker's
  * profile-scoped runtime dir — so hosts started under any profile are
  * discoverable from any other (issue #6099 user story 18).
  */
@@ -346,7 +346,7 @@ function handleConnection(socket: net.Socket, token: string, source: CollabHostR
  * The registry must be a real directory; POSIX also verifies its owner.
  * Both publication and listing check this: listing prunes malformed
  * entries, so following a symlink into an unrelated directory would let a
- * planted link turn `omp collab list` into a deletion tool.
+ * planted link turn `oms collab list` into a deletion tool.
  */
 async function assertPrivateDir(dir: string): Promise<fs.Stats | null> {
 	const stat = await fs.promises.lstat(dir);
@@ -389,14 +389,14 @@ function socketFallbackDir(dir: string, base: string): string {
 		.update(dir)
 		.digest("hex")
 		.slice(0, 20);
-	return path.join(base, `omp-collab-${key}`);
+	return path.join(base, `oms-collab-${key}`);
 }
 
 /**
  * Where this publication's Unix socket lives. The canonical location is next
  * to the metadata, but a deep config root (long home directory, nested
  * `PI_CONFIG_DIR`) can push that past `sun_path`, and a host that cannot bind
- * would silently stay absent from `omp collab list`. Listers never guess the
+ * would silently stay absent from `oms collab list`. Listers never guess the
  * relocated path; the metadata records the endpoint.
  */
 async function resolveSocketEndpoint(dir: string, entryId: string, fallbackBase: string): Promise<string> {
@@ -433,7 +433,7 @@ export async function publishCollabHost(
 	const token = crypto.randomBytes(32).toString("hex");
 	const endpoint =
 		process.platform === "win32"
-			? `\\\\.\\pipe\\omp-collab-${entryId}`
+			? `\\\\.\\pipe\\oms-collab-${entryId}`
 			: await resolveSocketEndpoint(dir, entryId, options?.socketFallbackBase ?? DEFAULT_SOCKET_FALLBACK_BASE);
 	const metaPath = path.join(dir, `${entryId}.json`);
 
@@ -621,7 +621,7 @@ async function listEntry(dir: string, name: string, timeoutMs: number): Promise<
 		return null;
 	}
 	if (meta.version !== COLLAB_REGISTRY_VERSION) {
-		// A different omp version owns this entry. Never show it; prune only
+		// A different oms version owns this entry. Never show it; prune only
 		// once the owning process is gone so newer versions keep their state.
 		if (!pidAlive(meta.pid)) await pruneEntry(dir, name, meta);
 		return null;

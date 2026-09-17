@@ -1,6 +1,6 @@
 import { scheduler } from "node:timers/promises";
-import { type } from "@oh-my-pi/omptype";
-import { calculateCost } from "@oh-my-pi/pi-catalog/models";
+import { type } from "@oh-my-soup/omstype";
+import { calculateCost } from "@oh-my-soup/pi-catalog/models";
 import {
 	applyCodexResidencyHeader,
 	CODEX_BASE_URL,
@@ -9,7 +9,7 @@ import {
 	getCodexAccountId,
 	OPENAI_HEADER_VALUES,
 	OPENAI_HEADERS,
-} from "@oh-my-pi/pi-catalog/wire/codex";
+} from "@oh-my-soup/pi-catalog/wire/codex";
 import {
 	$env,
 	$flag,
@@ -21,7 +21,7 @@ import {
 	readSseJson,
 	structuredCloneJSON,
 	USER_AGENT,
-} from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-utils";
 import * as AIError from "../error";
 import { getEnvApiKey, isOfficialCodexApiUrl } from "../stream";
 import type {
@@ -258,7 +258,7 @@ const CODEX_WEBSOCKET_MESSAGE_QUEUE_CAPACITY = Number($env.PI_CODEX_WEBSOCKET_ME
 const CODEX_WEBSOCKET_MAX_IDLE_REUSE_MS = Number($env.PI_CODEX_WEBSOCKET_MAX_IDLE_REUSE_MS || 30_000);
 /**
  * Steady-state liveness ceiling for the Codex WebSocket transport. Distinct from
- * the OMP-wide stream watchdog removed in #1392: a WebSocket can stay TCP-open
+ * the OMS-wide stream watchdog removed in #1392: a WebSocket can stay TCP-open
  * indefinitely without exchanging frames (server crash after upgrade, half-open
  * network path), so we still need a transport-internal cap to detect those
  * states and trigger the WS→SSE fallback. Only applies AFTER the first event
@@ -416,7 +416,7 @@ export interface OpenAICodexTurnRequestDiagnostics {
 	canAppendBeforeRequest: boolean;
 }
 
-/** Raw provider usage plus the normalized buckets OMP displays for the latest Codex turn. */
+/** Raw provider usage plus the normalized buckets OMS displays for the latest Codex turn. */
 export interface OpenAICodexTurnUsageDiagnostics {
 	rawInputTokens: number;
 	rawCachedTokens: number;

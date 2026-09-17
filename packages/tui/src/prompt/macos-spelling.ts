@@ -1,7 +1,7 @@
-import * as native from "@oh-my-pi/pi-natives";
+import * as native from "@oh-my-soup/pi-natives";
 import { TERMINAL } from "../index";
 import type { EditorInlineReplacement, EditorTextAssistProvider, EditorWordReplacements } from "../components/editor";
-import { logger } from "@oh-my-pi/pi-utils";
+import { logger } from "@oh-my-soup/pi-utils";
 import { maskNonProse } from "./markdown-prose";
 
 /** Styled underline: red curly undercurl via colon-subparameter SGR (4:3 + SGR 58 color). */

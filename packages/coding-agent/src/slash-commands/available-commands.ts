@@ -1,4 +1,4 @@
-import type { AvailableCommand } from "@oh-my-pi/pi-utils/acp";
+import type { AvailableCommand } from "@oh-my-soup/pi-utils/acp";
 import type { EffectiveExtensionRoots } from "../capability/types";
 import type { SkillsSettings } from "../config/settings";
 import type { LoadedCustomCommand } from "../extensibility/custom-commands";

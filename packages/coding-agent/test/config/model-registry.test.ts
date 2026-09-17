@@ -2,8 +2,8 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "bun:test";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { AuthStorage } from "@oh-my-pi/pi-ai";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
+import { AuthStorage } from "@oh-my-soup/pi-ai";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
 import { ModelRegistry } from "../../src/config/model-registry";
 
 const testModel = buildModel({
@@ -25,11 +25,11 @@ describe("ModelRegistry", () => {
 	let authStorage: AuthStorage;
 
 	beforeEach(async () => {
-		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "omp-reg-"));
+		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "oms-reg-"));
 		authStorage = await AuthStorage.create(":memory:");
 		// Construct with an explicit modelsPath inside the temp dir so the
 		// constructor's #loadModels read returns "not-found" rather than
-		// touching the host's ~/.omp/agent/models.yaml. isBunTestRuntime()
+		// touching the host's ~/.oms/agent/models.yaml. isBunTestRuntime()
 		// auto-stubs #fetch in the constructor.
 		registry = new ModelRegistry(authStorage, path.join(tmpDir, "models.yaml"));
 	});

@@ -1,9 +1,9 @@
 {
   "type": "module",
-  "name": "@oh-my-pi/pi-tui",
+  "name": "@oh-my-soup/pi-tui",
   "version": "18.2.4",
   "description": "Terminal User Interface library with differential rendering for efficient text-based applications",
-  "homepage": "https://omp.sh",
+  "homepage": "https://github.com/pickpocket/oh-my-soup",
   "author": "Stencil Labs, Inc.",
   "contributors": [
     "Mario Zechner"
@@ -11,7 +11,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/can1357/oh-my-pi.git",
+    "url": "git+https://github.com/pickpocket/oh-my-soup.git",
     "directory": "packages/tui"
   },
   "bugs": {
@@ -37,14 +37,14 @@
     "fmt": "oxfmt --no-error-on-unmatched-pattern 'src/**/*.{ts,tsx}' '{test,bench,examples,scripts}/**/*.ts' '*.ts'"
   },
   "dependencies": {
-    "@oh-my-pi/omptype": "catalog:",
-    "@oh-my-pi/pi-agent-core": "catalog:",
-    "@oh-my-pi/pi-ai": "catalog:",
-    "@oh-my-pi/pi-catalog": "catalog:",
-    "@oh-my-pi/pi-natives": "catalog:",
-    "@oh-my-pi/pi-utils": "catalog:",
-    "@oh-my-pi/pi-wire": "catalog:",
-    "@oh-my-pi/snapcompact": "catalog:"
+    "@oh-my-soup/omstype": "catalog:",
+    "@oh-my-soup/pi-agent-core": "catalog:",
+    "@oh-my-soup/pi-ai": "catalog:",
+    "@oh-my-soup/pi-catalog": "catalog:",
+    "@oh-my-soup/pi-natives": "catalog:",
+    "@oh-my-soup/pi-utils": "catalog:",
+    "@oh-my-soup/pi-wire": "catalog:",
+    "@oh-my-soup/snapcompact": "catalog:"
   },
   "devDependencies": {
     "kitty-vt-wasm": "catalog:"

@@ -35,7 +35,7 @@ async function expectFreshModuleRender(script: string): Promise<void> {
 // created by plugin/extension loading before `initTheme`/`initThemeSync`.
 describe("rendering before theme initialization (#10864)", () => {
 	it("uses detected terminal capabilities for a magic-keyword gradient", async () => {
-		const entry = Bun.resolveSync("@oh-my-pi/pi-tui/prompt/magic-keywords", import.meta.dir);
+		const entry = Bun.resolveSync("@oh-my-soup/pi-tui/prompt/magic-keywords", import.meta.dir);
 		await expectFreshModuleRender(`
 			import { highlightMagicKeywords } from ${JSON.stringify(entry)};
 			const text = "please ultrathink about this";

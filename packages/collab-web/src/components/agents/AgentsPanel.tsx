@@ -3,7 +3,7 @@ import type {
 	AgentSnapshot,
 	SubagentLifecyclePayload,
 	SubagentProgressPayload,
-} from "@oh-my-pi/pi-wire";
+} from "@oh-my-soup/pi-wire";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { fmtCost, fmtDuration, fmtTokens, relTime } from "../../lib/format";

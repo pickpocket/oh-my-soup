@@ -1,5 +1,5 @@
 /**
- * Types for the omp commit pipeline.
+ * Types for the oms commit pipeline.
  */
 /** Conventional commit classifications accepted by commit generation. */
 export type CommitType =
@@ -47,7 +47,7 @@ export const CHANGELOG_CATEGORIES: ChangelogCategory[] = [
 	"Security",
 ];
 
-/** Arguments accepted by the `omp commit` command. */
+/** Arguments accepted by the `oms commit` command. */
 export interface CommitCommandArgs {
 	/** Push after commit */
 	push: boolean;

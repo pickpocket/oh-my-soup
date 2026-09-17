@@ -1,5 +1,5 @@
-import { coreWeaveProjectHeaders } from "@oh-my-pi/pi-catalog/wire/coreweave";
-import { $env } from "@oh-my-pi/pi-utils";
+import { coreWeaveProjectHeaders } from "@oh-my-soup/pi-catalog/wire/coreweave";
+import { $env } from "@oh-my-soup/pi-utils";
 import * as AIError from "../../error";
 
 const PROJECT_PERSIST_INSTRUCTIONS =

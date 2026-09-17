@@ -4,18 +4,18 @@ import {
 	type AgentMessage,
 	type AgentTurnEndContext,
 	createToolScopedAbortReason,
-} from "@oh-my-pi/pi-agent-core";
-import type { AssistantMessage, AssistantMessageEvent, Model, ToolCall } from "@oh-my-pi/pi-ai";
-import { GeminiHeaderRunDetector } from "@oh-my-pi/pi-ai/utils/thinking-loop";
-import { type RepeatedToolCallDetection, ToolCallLoopGuard } from "@oh-my-pi/pi-ai/utils/tool-call-loop-guard";
-import { logger, prompt } from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-agent-core";
+import type { AssistantMessage, AssistantMessageEvent, Model, ToolCall } from "@oh-my-soup/pi-ai";
+import { GeminiHeaderRunDetector } from "@oh-my-soup/pi-ai/utils/thinking-loop";
+import { type RepeatedToolCallDetection, ToolCallLoopGuard } from "@oh-my-soup/pi-ai/utils/tool-call-loop-guard";
+import { logger, prompt } from "@oh-my-soup/pi-utils";
 import type { Settings } from "../config/settings";
 import { type LocalProtocolOptions, resolveLocalUrlToPath } from "../internal-urls";
 import geminiToolReminderTemplate from "../prompts/system/gemini-tool-call-reminder.md" with { type: "text" };
 import type { SecretObfuscator } from "../secrets/obfuscator";
 import { assertEditableFile } from "../tools/auto-generated-guard";
 import { isInternalUrlPath, normalizeLocalScheme, resolveToCwd } from "../tools/path-utils";
-import { ToolError } from "@oh-my-pi/pi-tui/tools/tool-errors";
+import { ToolError } from "@oh-my-soup/pi-tui/tools/tool-errors";
 import type { CustomMessage } from "./messages";
 import type { SessionManager } from "./session-manager";
 import {

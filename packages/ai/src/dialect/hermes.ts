@@ -1,4 +1,4 @@
-import { parseJsonWithRepair, parseStreamingJson } from "@oh-my-pi/pi-utils";
+import { parseJsonWithRepair, parseStreamingJson } from "@oh-my-soup/pi-utils";
 import type { Message, ToolCall } from "../types";
 import { asRecord, mintToolCallId, partialSuffixOverlapAny } from "./coercion";
 import dialectPrompt from "./hermes.md" with { type: "text" };

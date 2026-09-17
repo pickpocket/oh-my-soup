@@ -2,18 +2,18 @@ import { describe, expect, it } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { type } from "@oh-my-pi/omptype";
-import type { AgentTool } from "@oh-my-pi/pi-agent-core";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import * as themeModule from "@oh-my-pi/pi-tui/theme";
-import { ToolChoiceQueue } from "@oh-my-pi/pi-coding-agent/session/tool-choice-queue";
-import { createTools, type Tool, type ToolSession } from "@oh-my-pi/pi-coding-agent/tools";
-import { requiresApproval, resolveApproval } from "@oh-my-pi/pi-coding-agent/tools/approval";
-import { githubToolRenderer } from "@oh-my-pi/pi-tui/tools/github";
-import { ToolError } from "@oh-my-pi/pi-tui/tools/tool-errors";
-import { WriteTool } from "@oh-my-pi/pi-coding-agent/tools/write";
-import { type WriteRenderContext, writeToolRenderer } from "@oh-my-pi/pi-tui/tools/write";
-import type { XdevMountedRenderer } from "@oh-my-pi/pi-tui/tools/xdev";
+import { type } from "@oh-my-soup/omstype";
+import type { AgentTool } from "@oh-my-soup/pi-agent-core";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import * as themeModule from "@oh-my-soup/pi-tui/theme";
+import { ToolChoiceQueue } from "@oh-my-soup/pi-coding-agent/session/tool-choice-queue";
+import { createTools, type Tool, type ToolSession } from "@oh-my-soup/pi-coding-agent/tools";
+import { requiresApproval, resolveApproval } from "@oh-my-soup/pi-coding-agent/tools/approval";
+import { githubToolRenderer } from "@oh-my-soup/pi-tui/tools/github";
+import { ToolError } from "@oh-my-soup/pi-tui/tools/tool-errors";
+import { WriteTool } from "@oh-my-soup/pi-coding-agent/tools/write";
+import { type WriteRenderContext, writeToolRenderer } from "@oh-my-soup/pi-tui/tools/write";
+import type { XdevMountedRenderer } from "@oh-my-soup/pi-tui/tools/xdev";
 import {
 	listXdevTools,
 	resolveMountedXdevTool,
@@ -24,8 +24,8 @@ import {
 	xdevDocs,
 	xdevDocsAll,
 	xdevEntries,
-} from "@oh-my-pi/pi-coding-agent/tools/xdev";
-import { removeWithRetries } from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-coding-agent/tools/xdev";
+import { removeWithRetries } from "@oh-my-soup/pi-utils";
 
 /** Mirrors `ToolExecutionComponent#buildRenderContext`: mounted tools expose their render hooks to the write renderer. */
 function mountedRenderContext(xdev: XdevState): WriteRenderContext {

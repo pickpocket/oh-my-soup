@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { Effort } from "@oh-my-pi/pi-ai";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
-import { parseModelPattern, resolveCliModel } from "@oh-my-pi/pi-coding-agent/config/model-resolver";
+import { Effort } from "@oh-my-soup/pi-ai";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
+import { parseModelPattern, resolveCliModel } from "@oh-my-soup/pi-coding-agent/config/model-resolver";
 
 // Issue #8800: a custom (models.yml) provider model whose literal id contains a
 // slash, e.g. "deepseek/deepseek-v4-flash", must resolve to the custom provider

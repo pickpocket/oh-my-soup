@@ -22,7 +22,7 @@
  * variants at a fork and jump between user turns elsewhere, Enter rewinds to
  * the outlined item, Esc cancels.
  */
-import type { AgentTool } from "@oh-my-pi/pi-agent-core";
+import type { AgentTool } from "@oh-my-soup/pi-agent-core";
 import {
 	type Component,
 	matchesKey,

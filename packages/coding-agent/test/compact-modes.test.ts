@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { findCompactMode, parseCompactArgs } from "@oh-my-pi/pi-coding-agent/session/compact-modes";
+import { findCompactMode, parseCompactArgs } from "@oh-my-soup/pi-coding-agent/session/compact-modes";
 
 describe("compact mode registry", () => {
 	it("maps each mode to the method order the engine executes", () => {

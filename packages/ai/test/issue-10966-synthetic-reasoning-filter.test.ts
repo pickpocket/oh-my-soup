@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
-import { buildParams } from "@oh-my-pi/pi-ai/providers/openai-responses";
-import type { AssistantMessage, Context, Model } from "@oh-my-pi/pi-ai/types";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
+import { buildParams } from "@oh-my-soup/pi-ai/providers/openai-responses";
+import type { AssistantMessage, Context, Model } from "@oh-my-soup/pi-ai/types";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
 
 const cost = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
 

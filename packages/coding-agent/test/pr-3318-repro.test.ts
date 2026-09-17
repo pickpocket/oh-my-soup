@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import type { UsageReport } from "@oh-my-pi/pi-ai";
-import { buildUsageReportText } from "@oh-my-pi/pi-coding-agent/slash-commands/helpers/usage-report";
+import type { UsageReport } from "@oh-my-soup/pi-ai";
+import { buildUsageReportText } from "@oh-my-soup/pi-coding-agent/slash-commands/helpers/usage-report";
 
 describe("PR 3318 repro", () => {
 	it("falls back to scoped account when metadata identities are empty strings", async () => {

@@ -1,5 +1,5 @@
-import { getOAuthProviders } from "@oh-my-pi/pi-ai/oauth";
-import type { OAuthProviderInfo } from "@oh-my-pi/pi-ai/oauth/types";
+import { getOAuthProviders } from "@oh-my-soup/pi-ai/oauth";
+import type { OAuthProviderInfo } from "@oh-my-soup/pi-ai/oauth/types";
 import {
 	Container,
 	extractPrintableText,

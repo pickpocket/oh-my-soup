@@ -1,8 +1,8 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from "bun:test";
-import { getThemeByName, setThemeInstance } from "@oh-my-pi/pi-tui/theme";
-import type { AgentProgress, SingleResult, TaskToolDetails } from "@oh-my-pi/pi-tui/tools/task";
-import { taskToolRenderer } from "@oh-my-pi/pi-tui/tools/task";
-import { formatDuration, formatNumber } from "@oh-my-pi/pi-utils";
+import { getThemeByName, setThemeInstance } from "@oh-my-soup/pi-tui/theme";
+import type { AgentProgress, SingleResult, TaskToolDetails } from "@oh-my-soup/pi-tui/tools/task";
+import { taskToolRenderer } from "@oh-my-soup/pi-tui/tools/task";
+import { formatDuration, formatNumber } from "@oh-my-soup/pi-utils";
 
 describe("task renderer: nested live rendering", () => {
 	beforeAll(async () => {

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import * as path from "node:path";
-import { isRecord, readJsonl } from "@oh-my-pi/pi-utils";
+import { isRecord, readJsonl } from "@oh-my-soup/pi-utils";
 
 async function expectRpcOwnsStdin(): Promise<void> {
 	const cliPath = path.join(import.meta.dir, "..", "src", "cli.ts");

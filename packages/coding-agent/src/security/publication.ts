@@ -1,6 +1,6 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { type } from "@oh-my-pi/omptype";
+import { type } from "@oh-my-soup/omstype";
 import type { ToolDefinition } from "../extensibility/extensions";
 import securityPublishDescription from "../prompts/tools/security-publish.md" with { type: "text" };
 import type {
@@ -376,7 +376,7 @@ export function createSecurityPublicationTool(
 					operationId: options.operationId,
 				});
 				const scan: SecurityScan = {
-					documentType: "omp-security.scan",
+					documentType: "oms-security.scan",
 					schemaVersion: "1.0",
 					id: options.scanId,
 					projectKey: options.store.projectKey,

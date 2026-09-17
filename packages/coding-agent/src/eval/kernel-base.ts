@@ -1,4 +1,4 @@
-import { logger, Snowflake } from "@oh-my-pi/pi-utils";
+import { logger, Snowflake } from "@oh-my-soup/pi-utils";
 import type { Subprocess } from "bun";
 import { type KernelDisplayOutput, renderKernelDisplay } from "./py/display";
 import type { ShadowBarrier, ShadowControlNode, ShadowOperation } from "./speculation/types";
@@ -145,7 +145,7 @@ export function getRemainingTimeMs(deadlineMs?: number): number | undefined {
  *
  * `process.kill(-pid, …)` is a group signal, and the degenerate targets are
  * catastrophic rather than merely useless: `-0` signals *our own* process group
- * (omp would kill itself along with the whole terminal job) and `-1` signals
+ * (oms would kill itself along with the whole terminal job) and `-1` signals
  * every process the user is permitted to signal. Both must be rejected before
  * the negation is applied.
  */
@@ -161,7 +161,7 @@ export function isSignalableProcessGroup(pid: number | undefined): pid is number
  * so each runner calls `setsid()` and becomes the leader of its own session and
  * process group. Signalling only the direct PID therefore leaves anything the
  * runner itself spawned behind, and those orphans keep the kernel's pipes open
- * for the remainder of the omp process lifetime (#7714).
+ * for the remainder of the oms process lifetime (#7714).
  *
  * Windows has no process groups, so this is a no-op there and callers keep
  * relying on the direct-PID kill.

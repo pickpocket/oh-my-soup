@@ -20,9 +20,9 @@
  */
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import type * as natives from "@oh-my-pi/pi-natives";
-import * as vcs from "@oh-my-pi/pi-natives/vcs";
-import { prompt } from "@oh-my-pi/pi-utils";
+import type * as natives from "@oh-my-soup/pi-natives";
+import * as vcs from "@oh-my-soup/pi-natives/vcs";
+import { prompt } from "@oh-my-soup/pi-utils";
 import isolationErrorTemplate from "../prompts/tools/isolation-error.md" with { type: "text" };
 import isolationSummaryTemplate from "../prompts/tools/isolation-summary.md" with { type: "text" };
 import { AgentLifecycleManager } from "../registry/agent-lifecycle";
@@ -33,7 +33,7 @@ import { trackLateCleanup } from "../utils/late-cleanup";
 import type { ExecutorOptions } from "./executor";
 import { runSubprocess } from "./executor";
 import { needsNativeTeardown, writeRetainedBackend } from "./isolation-ownership";
-import type { NestedRepoPatch, SingleResult } from "@oh-my-pi/pi-tui/tools/task";
+import type { NestedRepoPatch, SingleResult } from "@oh-my-soup/pi-tui/tools/task";
 import {
 	applyNestedPatches,
 	captureBaseline,
@@ -273,7 +273,7 @@ async function writeIsolationPatch(
  * isolated run with the same id cannot wipe it: `ensureIsolation`
  * unconditionally removes the deterministic base dir before writing its
  * owner marker. The owner marker, `m` mount, and backend sidecar move along,
- * so `omp worktree clear` still classifies and reclaims the workspace with
+ * so `oms worktree clear` still classifies and reclaims the workspace with
  * native teardown. Backends needing it (mounts, Btrfs subvolumes) record the
  * sidecar BEFORE the move so it travels atomically — a crash between rename
  * and a later write would leave a mounted workspace with a dead owner and
@@ -343,7 +343,7 @@ function renderIsolationError(context: IsolationErrorContext): string {
 /**
  * Run a subagent inside an isolation worktree and capture its changes.
  *
- * Branch mode: on success, commits the diff onto `omp/task/${agentId}` and
+ * Branch mode: on success, commits the diff onto `oms/task/${agentId}` and
  * returns `branchName` + `nestedPatches` (+ `nestedPatchPaths`). On commit
  * failure the still-live isolation diff is written to
  * `${artifactsDir}/${agentId}.patch`, the task branch is kept when it already
@@ -468,7 +468,7 @@ export async function runIsolatedSubprocess(opts: IsolatedRunOptions): Promise<S
 			} catch (mergeErr) {
 				// Agent succeeded but the branch commit failed. `commitToBranch`
 				// is not atomic: the clean-baseline path fetches the agent's
-				// commits into the parent ODB and creates `omp/task/<id>` before
+				// commits into the parent ODB and creates `oms/task/<id>` before
 				// it commits the leftover working-tree delta, so a throw from
 				// that trailing step leaves behind a branch that already holds
 				// every commit the agent made. The isolation worktree — the only
@@ -477,7 +477,7 @@ export async function runIsolatedSubprocess(opts: IsolatedRunOptions): Promise<S
 				// recoverable merge conflict into permanent loss of committed
 				// work (#8868). Delete only when nothing is at stake.
 				const baseSha = taskBaseline.root.headCommit;
-				const branchName = `omp/task/${opts.agentId}`;
+				const branchName = `oms/task/${opts.agentId}`;
 				const rescueBranch = await rescueTaskBranch(opts.context.repoRoot, branchName, baseSha);
 				const msg = mergeErr instanceof Error ? mergeErr.message : String(mergeErr);
 				try {

@@ -1,5 +1,5 @@
 import * as fs from "node:fs/promises";
-import { ensureChromiumExecutable } from "@oh-my-pi/pi-coding-agent/tools/browser/launch";
+import { ensureChromiumExecutable } from "@oh-my-soup/pi-coding-agent/tools/browser/launch";
 
 /**
  * Whether the Chromium puppeteer resolves can actually execute on this host.

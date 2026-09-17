@@ -1,6 +1,6 @@
-# LSP configuration in OMP
+# LSP configuration in OMS
 
-This guide explains how to configure language servers for the OMP coding agent.
+This guide explains how to configure language servers for the OMS coding agent.
 
 Source of truth in code:
 
@@ -10,7 +10,7 @@ Source of truth in code:
 
 ## Auto-detection
 
-When no config file contributes a server override, OMP auto-detects built-in servers by intersecting two conditions:
+When no config file contributes a server override, OMS auto-detects built-in servers by intersecting two conditions:
 
 1. The current working directory contains at least one of the server's `rootMarkers`.
 2. The server binary is available — checked in supported project-local bin directories first (for example `node_modules/.bin/`, Python virtual environments, Ruby binstubs, and project `bin/` for Go), then `$PATH`.
@@ -19,28 +19,28 @@ Root-marker detection at startup is cwd-only; it does not search parent director
 
 ## Config file locations
 
-OMP merges LSP config from multiple sources, lowest to highest precedence:
+OMS merges LSP config from multiple sources, lowest to highest precedence:
 
 | Precedence | Location                                                                                                     |
 | ---------: | ------------------------------------------------------------------------------------------------------------ |
 |     Lowest | `~/lsp.json`, `~/.lsp.json`, `~/lsp.yaml`, `~/.lsp.yaml`, `~/lsp.yml`, `~/.lsp.yml`                          |
 |            | Plugin LSP configs (marketplace / `--plugin-dir` roots)                                                      |
 |            | User config dirs: active native agent directory, then `~/.claude/lsp.*`, `~/.codex/lsp.*`, `~/.gemini/lsp.*` |
-|            | Cwd config dirs: `<cwd>/.omp/lsp.*`, `<cwd>/.claude/lsp.*`, `<cwd>/.codex/lsp.*`, `<cwd>/.gemini/lsp.*`      |
+|            | Cwd config dirs: `<cwd>/.oms/lsp.*`, `<cwd>/.claude/lsp.*`, `<cwd>/.codex/lsp.*`, `<cwd>/.gemini/lsp.*`      |
 |    Highest | Cwd root: `<cwd>/lsp.*` and `<cwd>/.lsp.*`                                                                   |
 
 Each location accepts `.json`, `.yaml`, and `.yml`, including hidden variants. When multiple variants coexist in one location, precedence from highest to lowest is `lsp.json`, `.lsp.json`, `lsp.yaml`, `.lsp.yaml`, `lsp.yml`, `.lsp.yml`.
 
 Merging is shallow per server: a higher-precedence server object overrides only its top-level fields, but object-valued fields such as `settings`, `initOptions`, `capabilities`, and `workspaceReadyTimings` replace the lower value as a whole rather than deep-merging it. Servers absent from override files remain at built-in defaults.
 
-The native user config directory follows `PI_CONFIG_DIR` and active profiles; `~/.omp/agent/lsp.json` is the default-profile spelling. This shared config lookup does not use `PI_CODING_AGENT_DIR` as an arbitrary replacement base. Project and cwd sources do not walk ancestors.
+The native user config directory follows `PI_CONFIG_DIR` and active profiles; `~/.oms/agent/lsp.json` is the default-profile spelling. This shared config lookup does not use `PI_CODING_AGENT_DIR` as an arbitrary replacement base. Project and cwd sources do not walk ancestors.
 
 **Recommended locations:**
 
 - User-wide preferences → active native agent directory's `lsp.json`
-- Project-specific overrides → `<cwd>/.omp/lsp.json`
+- Project-specific overrides → `<cwd>/.oms/lsp.json`
 
-> **Note:** Auto-detection mode is skipped only when at least one readable config contributes a non-empty server map. A config that only sets `idleTimeoutMs` still uses built-in auto-detection. With server overrides, OMP first merges them onto all defaults, then keeps servers whose root markers match the cwd, whose binary resolves, and whose merged config is not `disabled`.
+> **Note:** Auto-detection mode is skipped only when at least one readable config contributes a non-empty server map. A config that only sets `idleTimeoutMs` still uses built-in auto-detection. With server overrides, OMS first merges them onto all defaults, then keeps servers whose root markers match the cwd, whose binary resolves, and whose merged config is not `disabled`.
 
 ## File shape
 
@@ -92,7 +92,7 @@ The required fields may be omitted from an override of a built-in server because
 
 ### Capabilities
 
-The `capabilities` object enables optional server-specific features that OMP supports on a per-server basis:
+The `capabilities` object enables optional server-specific features that OMS supports on a per-server basis:
 
 ```json
 {
@@ -195,7 +195,7 @@ Shut down language servers that have been inactive for more than five minutes:
 
 ### Disable a server for one project, keep it globally
 
-Place the override in `<project>/.omp/lsp.json`:
+Place the override in `<project>/.oms/lsp.json`:
 
 ```json
 {
@@ -207,7 +207,7 @@ Place the override in `<project>/.omp/lsp.json`:
 }
 ```
 
-The user-level config in `~/.omp/agent/lsp.json` is unaffected; pylsp is only suppressed in this project.
+The user-level config in `~/.oms/agent/lsp.json` is unaffected; pylsp is only suppressed in this project.
 
 ## Built-in server list
 

@@ -7,10 +7,10 @@ import {
 	handleServerMessage,
 	processInteractionUpdate,
 	type ToolCallState,
-} from "@oh-my-pi/pi-ai/providers/cursor";
-import type { AssistantMessage, CursorExecHandlers, ToolResultMessage } from "@oh-my-pi/pi-ai/types";
-import { kCursorExecResolved, setStreamingPartialJson } from "@oh-my-pi/pi-ai/utils/block-symbols";
-import { AssistantMessageEventStream } from "@oh-my-pi/pi-ai/utils/event-stream";
+} from "@oh-my-soup/pi-ai/providers/cursor";
+import type { AssistantMessage, CursorExecHandlers, ToolResultMessage } from "@oh-my-soup/pi-ai/types";
+import { kCursorExecResolved, setStreamingPartialJson } from "@oh-my-soup/pi-ai/utils/block-symbols";
+import { AssistantMessageEventStream } from "@oh-my-soup/pi-ai/utils/event-stream";
 import {
 	type AgentClientMessage,
 	AgentClientMessageSchema,
@@ -66,8 +66,8 @@ import {
 	SubagentAwaitArgsSchema,
 	ToolCallSchema,
 	WebFetchAllowlistPrecheckArgsSchema,
-} from "@oh-my-pi/pi-catalog/discovery/cursor-proto";
-import { create, fromBinary, toBinary } from "@oh-my-pi/pi-catalog/discovery/protobuf";
+} from "@oh-my-soup/pi-catalog/discovery/cursor-proto";
+import { create, fromBinary, toBinary } from "@oh-my-soup/pi-catalog/discovery/protobuf";
 
 /**
  * Drive one `ExecServerMessage` through the real dispatcher and decode every
@@ -284,7 +284,7 @@ describe("Cursor stream teardown", () => {
 						target: {
 							case: "github",
 							value: create(ConnectScmGithubSchema, {
-								repository: create(ConnectScmGithubRepositorySchema, { owner: "can1357", repo: "oh-my-pi" }),
+								repository: create(ConnectScmGithubRepositorySchema, { owner: "can1357", repo: "oh-my-soup" }),
 							}),
 						},
 					}),
@@ -1478,7 +1478,7 @@ describe("Cursor modern exec frames: server-resolved tool calls leave a paired b
 
 	it("reads the connectScm repository out of the target oneof, not a flat field", async () => {
 		const { output, results } = runConnectScm(
-			{ toolCallId: "call-scm-1", repository: { owner: "can1357", repo: "oh-my-pi" } },
+			{ toolCallId: "call-scm-1", repository: { owner: "can1357", repo: "oh-my-soup" } },
 			{ case: "success", value: {} },
 		);
 
@@ -1486,7 +1486,7 @@ describe("Cursor modern exec frames: server-resolved tool calls leave a paired b
 		expect(block).toMatchObject({
 			id: "call-scm-1",
 			name: "connect_scm",
-			arguments: { owner: "can1357", repo: "oh-my-pi" },
+			arguments: { owner: "can1357", repo: "oh-my-soup" },
 		});
 		// Resolved => agent-loop runs no local tool, so the decoder owes the pair.
 		expect(block[kCursorExecResolved]).toBe(true);

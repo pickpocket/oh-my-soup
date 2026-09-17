@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { parseSessionFile } from "@oh-my-pi/omp-stats/parser";
-import { getSessionsDir } from "@oh-my-pi/pi-utils";
+import { parseSessionFile } from "@oh-my-soup/oms-stats/parser";
+import { getSessionsDir } from "@oh-my-soup/pi-utils";
 import { installStatsTestIsolation } from "./helpers/temp-agent";
 
 installStatsTestIsolation("@pi-stats-large-session-");

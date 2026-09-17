@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Sign and notarize a compiled macOS `omp` binary with a Developer ID identity.
+# Sign and notarize a compiled macOS `oms` binary with a Developer ID identity.
 #
 # The release build (`ci:release:build-binaries`) ad-hoc signs the binary so it
 # runs locally. This script *replaces* that signature with a real Developer ID
@@ -58,7 +58,7 @@ if [[ ! -f "$ENTITLEMENTS" ]]; then
 fi
 
 WORKDIR="$(mktemp -d)"
-KEYCHAIN="$WORKDIR/omp-signing.keychain-db"
+KEYCHAIN="$WORKDIR/oms-signing.keychain-db"
 KEYCHAIN_PASSWORD="$(openssl rand -hex 24)"
 CERT_PATH="$WORKDIR/cert.p12"
 API_KEY_PATH="$WORKDIR/api-key.p8"

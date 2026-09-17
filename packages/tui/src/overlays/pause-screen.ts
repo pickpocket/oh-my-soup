@@ -11,7 +11,7 @@
  * Use case: freeze a busy session, hand-edit the repo, resume, then explain
  * the change via a normal steering message.
  */
-import { agentPauseGate } from "@oh-my-pi/pi-agent-core";
+import { agentPauseGate } from "@oh-my-soup/pi-agent-core";
 import {
 	type Component,
 	matchesKey,

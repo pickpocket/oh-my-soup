@@ -11,8 +11,8 @@ import {
 	TextJudge,
 	TypeSafeApiError,
 	TypeSafeJudge,
-} from "@oh-my-pi/pi-ai";
-import { getProviderDefinition } from "@oh-my-pi/pi-ai/registry";
+} from "@oh-my-soup/pi-ai";
+import { getProviderDefinition } from "@oh-my-soup/pi-ai/registry";
 
 const LEVELS = ["low", "medium", "high", "xhigh", "max"] as const;
 

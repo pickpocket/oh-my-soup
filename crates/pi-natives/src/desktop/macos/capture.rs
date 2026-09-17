@@ -280,7 +280,7 @@ fn scaled_edge(value: u32, scale: f64) -> u32 {
 
 fn run_screencapture(args: &[String]) -> CoreResult<RgbaImage> {
 	let file = tempfile::Builder::new()
-		.prefix("omp-computer-")
+		.prefix("oms-computer-")
 		.suffix(".png")
 		.tempfile()
 		.map_err(|error| {

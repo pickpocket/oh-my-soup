@@ -6,7 +6,7 @@
  * Run from the repo root: `bun packages/mnemopi/bench/native-vectors.bench.ts`
  */
 import * as os from "node:os";
-import { cosineSimilarityPairs } from "@oh-my-pi/pi-natives";
+import { cosineSimilarityPairs } from "@oh-my-soup/pi-natives";
 import { jaccardSimilarity, mmrRerank } from "../src/core/mmr";
 import { searchExactVectorIndex } from "../src/core/vector-index";
 import { cosineSimilarity } from "../src/core/vector-math";

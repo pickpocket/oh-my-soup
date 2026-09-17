@@ -1,4 +1,4 @@
-name: OMP Nix
+name: OMS Nix
 
 on:
   push:

@@ -11,8 +11,8 @@
 
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { getBundledModel, type GeneratedProvider } from "@oh-my-pi/pi-catalog/models";
-import { getSessionsDir, isEnoent } from "@oh-my-pi/pi-utils";
+import { getBundledModel, type GeneratedProvider } from "@oh-my-soup/pi-catalog/models";
+import { getSessionsDir, isEnoent } from "@oh-my-soup/pi-utils";
 import { getSessionRollups, getToolCallCountsBySession, isScheduledCatalogModel } from "./db";
 import { extractFolderFromPath, parseAllSessionEntries, resolveUsageTotal } from "./parser";
 import type {

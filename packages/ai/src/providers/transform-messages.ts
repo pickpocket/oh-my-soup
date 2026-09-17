@@ -913,7 +913,7 @@ export function transformMessages<TApi extends Api>(
 					// Anthropic endpoint accepts this block on replay: every
 					// other target either rejects unknown content blocks with a
 					// 400 (anthropic-compatible endpoints like Umans/Z.AI/MiniMax,
-					// and older omp gateways whose schema pre-dates this feature)
+					// and older oms gateways whose schema pre-dates this feature)
 					// or throws in its converter (Bedrock). Even the official
 					// replay path only accepts the block when the current request
 					// itself opts into the beta — but we don't know that here, so

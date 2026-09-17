@@ -30,7 +30,7 @@ import {
 	statRemotePath,
 	writeRemoteFile,
 } from "../ssh/file-transfer";
-import { isMarkdownPath } from "@oh-my-pi/pi-tui/lang-from-path";
+import { isMarkdownPath } from "@oh-my-soup/pi-tui/lang-from-path";
 import type {
 	InternalResource,
 	InternalUrl,

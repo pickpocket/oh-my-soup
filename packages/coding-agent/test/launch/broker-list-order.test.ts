@@ -1,11 +1,11 @@
 import { describe, expect, it } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { TempDir } from "@oh-my-pi/pi-utils";
+import { TempDir } from "@oh-my-soup/pi-utils";
 import { startDaemonBrokerFromEnvironment } from "../../src/launch/broker";
 import { createDaemonBrokerClient, type DaemonBrokerClient } from "../../src/launch/client";
 import { DAEMON_IDLE_GRACE_ENV, DAEMON_PROJECT_DIR_ENV, DAEMON_RUNTIME_DIR_ENV } from "../../src/launch/protocol";
-import { type DaemonSnapshot, type DaemonSpec } from "@oh-my-pi/pi-tui/tools/hub";
+import { type DaemonSnapshot, type DaemonSpec } from "@oh-my-soup/pi-tui/tools/hub";
 
 const TERMINAL_HISTORY_LIMIT = 10;
 
@@ -73,7 +73,7 @@ async function shutdown(client: DaemonBrokerClient, broker: Promise<void>, activ
 
 describe("broker list", () => {
 	it("returns active daemons first and caps recovered terminal history by real exit time", async () => {
-		using tempDir = TempDir.createSync("@omp-launch-list-");
+		using tempDir = TempDir.createSync("@oms-launch-list-");
 		const projectDir = path.join(tempDir.path(), "project");
 		const runtimeDir = path.join(tempDir.path(), "runtime");
 		await fs.mkdir(projectDir);

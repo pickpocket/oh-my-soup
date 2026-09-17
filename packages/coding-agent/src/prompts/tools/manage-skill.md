@@ -1,4 +1,4 @@
-Managed skill: `SKILL.md` in isolated `~/.omp/agent/managed-skills`; surfaced as a normal skill in future sessions.
+Managed skill: `SKILL.md` in isolated `~/.oms/agent/managed-skills`; surfaced as a normal skill in future sessions.
 
 Use: repeatable procedures worth codifying — setup sequence, debugging recipe, project-specific workflow.
 User-authored skills separate; tool NEVER edits them.

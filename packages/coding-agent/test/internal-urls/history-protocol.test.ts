@@ -12,22 +12,22 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { InternalUrlRouter } from "@oh-my-pi/pi-coding-agent/internal-urls";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { InternalUrlRouter } from "@oh-my-soup/pi-coding-agent/internal-urls";
 import {
 	formatCurrentBranchFullHistory,
 	HistoryProtocolHandler,
-} from "@oh-my-pi/pi-coding-agent/internal-urls/history-protocol";
+} from "@oh-my-soup/pi-coding-agent/internal-urls/history-protocol";
 import {
 	registerArtifactsDir,
 	resetRegisteredArtifactDirsForTests,
-} from "@oh-my-pi/pi-coding-agent/internal-urls/registry-helpers";
-import { AgentRegistry } from "@oh-my-pi/pi-coding-agent/registry/agent-registry";
-import type { AgentSession } from "@oh-my-pi/pi-coding-agent/session/agent-session";
-import { CURRENT_SESSION_VERSION, type SessionEntry } from "@oh-my-pi/pi-coding-agent/session/session-entries";
-import type { ToolSession } from "@oh-my-pi/pi-coding-agent/tools";
-import { ReadTool } from "@oh-my-pi/pi-coding-agent/tools/read";
-import { removeWithRetries } from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-coding-agent/internal-urls/registry-helpers";
+import { AgentRegistry } from "@oh-my-soup/pi-coding-agent/registry/agent-registry";
+import type { AgentSession } from "@oh-my-soup/pi-coding-agent/session/agent-session";
+import { CURRENT_SESSION_VERSION, type SessionEntry } from "@oh-my-soup/pi-coding-agent/session/session-entries";
+import type { ToolSession } from "@oh-my-soup/pi-coding-agent/tools";
+import { ReadTool } from "@oh-my-soup/pi-coding-agent/tools/read";
+import { removeWithRetries } from "@oh-my-soup/pi-utils";
 
 async function withTempDir<T>(fn: (dir: string) => Promise<T>): Promise<T> {
 	const dir = await fs.mkdtemp(path.join(os.tmpdir(), "history-protocol-"));

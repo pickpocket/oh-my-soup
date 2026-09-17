@@ -21,9 +21,9 @@ import {
  */
 describe("worker-host selectors", () => {
 	it("recognizes the shared selector namespace without claiming ordinary CLI arguments", () => {
-		expect(WORKER_HOST_SELECTOR_PREFIX).toBe("__omp_worker_");
-		expect(isWorkerHostSelector("__omp_worker_stats_sync")).toBeTrue();
-		expect(isWorkerHostSelector("__omp_worker_computer")).toBeTrue();
+		expect(WORKER_HOST_SELECTOR_PREFIX).toBe("__oms_worker_");
+		expect(isWorkerHostSelector("__oms_worker_stats_sync")).toBeTrue();
+		expect(isWorkerHostSelector("__oms_worker_computer")).toBeTrue();
 		expect(isWorkerHostSelector("--version")).toBeFalse();
 		expect(isWorkerHostSelector(undefined)).toBeFalse();
 	});

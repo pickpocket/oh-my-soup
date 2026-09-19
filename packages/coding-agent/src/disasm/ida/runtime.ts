@@ -642,7 +642,6 @@ async function delay(ms: number, signal?: AbortSignal): Promise<void> {
 	throwIfAborted(signal);
 	await new Promise<void>((resolve, reject) => {
 		let settled = false;
-		let timer: ReturnType<typeof setTimeout>;
 		const cleanup = () => signal.removeEventListener("abort", onAbort);
 		const onAbort = () => {
 			if (settled) return;
@@ -651,7 +650,7 @@ async function delay(ms: number, signal?: AbortSignal): Promise<void> {
 			cleanup();
 			reject(abortError(signal));
 		};
-		timer = setTimeout(() => {
+		const timer = setTimeout(() => {
 			if (settled) return;
 			settled = true;
 			cleanup();

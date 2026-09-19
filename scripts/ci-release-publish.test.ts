@@ -53,6 +53,10 @@ describe("published manifest topology", () => {
 				types: "./dist/types/index.d.ts",
 				import: "./src/index.ts",
 			},
+			"./ar": {
+				types: "./dist/types/ar/index.d.ts",
+				import: "./src/ar/index.ts",
+			},
 			"./*": {
 				types: "./dist/types/*.d.ts",
 				import: "./src/*.ts",

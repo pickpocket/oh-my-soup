@@ -1727,6 +1727,7 @@ fn positional_rewrite_segments(
 	None
 }
 
+#[allow(clippy::too_many_arguments)]
 fn prepare_inline(
 	content: &str,
 	located: &Candidate,

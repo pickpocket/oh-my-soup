@@ -158,6 +158,14 @@ Conversion behavior:
 
 ## Runtime switching behavior
 
+The `theme` export is a live binding, including in bundled extensions. Read it inside rendering callbacks rather than retaining a theme instance across switches. Extension renderer callbacks may also use their supplied theme argument.
+
+```ts
+import { theme } from "@oh-my-soup/pi-coding-agent";
+
+const renderStatus = () => theme.fg("accent", "Ready");
+```
+
 ### Initial theme (`initTheme`)
 
 `main.ts` initializes theme with settings:
@@ -184,7 +192,7 @@ Current defaults from settings schema:
 ### Explicit switching (`setTheme`)
 
 - loads selected theme
-- updates global `theme` singleton
+- updates the live `theme` export
 - optionally starts watcher
 - triggers `onThemeChange` callback
 
@@ -195,7 +203,7 @@ On failure:
 
 ### Preview switching (`previewTheme`)
 
-- applies temporary preview theme to global `theme`
+- applies the preview to the live `theme` export
 - does **not** change persisted settings by itself
 - returns success/error without fallback replacement
 
@@ -353,6 +361,6 @@ Use this workflow:
 
 - All `colors` tokens are required for custom themes except optional `thinkingMax`, which falls back to `thinkingXhigh`.
 - `export` and `symbols` are optional.
-- `$schema` in theme JSON is informational; runtime validation is enforced by the ArkType schema in code.
+- `$schema` in theme JSON is informational; runtime validation is enforced by the ArkType-compatible schema in code (`themeJsonSchema` in `src/modes/theme/schema.ts`).
 - `setTheme` failure falls back to `dark`; `previewTheme` failure does not replace current theme.
 - File watcher reload errors or temporary missing files keep the current loaded theme until a successful reload or explicit theme switch.

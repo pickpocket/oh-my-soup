@@ -1,9 +1,11 @@
 import { describe, expect, it } from "bun:test";
 import { Effort } from "@oh-my-soup/pi-catalog/effort";
+import MODELS_JSON from "@oh-my-soup/pi-catalog/models.json" with { type: "json" };
 import {
 	MODELS_DEV_PROVIDER_DESCRIPTORS,
 	mapModelsDevToModels,
 } from "@oh-my-soup/pi-catalog/provider-models/openai-compat";
+import type { ModelSpec } from "@oh-my-soup/pi-catalog/types";
 import { applyGeneratedModelPolicies } from "../scripts/generated-policies";
 
 const XAI_MODELS_DEV_FIXTURE = {
@@ -69,15 +71,12 @@ const XAI_MODELS_DEV_FIXTURE = {
 	},
 };
 
-function mapPaidXaiFixture() {
-	return mapModelsDevToModels(XAI_MODELS_DEV_FIXTURE, MODELS_DEV_PROVIDER_DESCRIPTORS).filter(
-		model => model.provider === "xai",
-	);
-}
-
 describe("paid xAI Responses thinking policy", () => {
-	it("bakes the effort-dial allowlist on stencil.so Responses mapping", () => {
-		const byId = Object.fromEntries(mapPaidXaiFixture().map(model => [model.id, model]));
+	it("bakes the effort-dial allowlist on stencil.so → openai-responses mapping", () => {
+		const mapped = mapModelsDevToModels(XAI_MODELS_DEV_FIXTURE, MODELS_DEV_PROVIDER_DESCRIPTORS).filter(
+			model => model.provider === "xai",
+		);
+		const byId = Object.fromEntries(mapped.map(model => [model.id, model]));
 
 		expect(byId["grok-4.5"]?.api).toBe("openai-responses");
 		expect(byId["grok-4.5"]?.compat).toMatchObject({
@@ -100,11 +99,15 @@ describe("paid xAI Responses thinking policy", () => {
 		expect(byId["grok-2"]?.compat).not.toHaveProperty("reasoningEffortMap");
 	});
 
-	it("strips stale dials and preserves native xhigh exceptions during generation", () => {
-		const mapped = mapPaidXaiFixture();
-		const stale = mapped.find(model => model.id === "grok-code-fast-1");
-		expect(stale).toBeDefined();
-		stale!.thinking = { mode: "effort", efforts: [Effort.Minimal, Effort.Low, Effort.Medium, Effort.High] };
+	it("strips stale thinking dials from off-allowlist paid xAI reasoners during generation", () => {
+		const mapped = mapModelsDevToModels(XAI_MODELS_DEV_FIXTURE, MODELS_DEV_PROVIDER_DESCRIPTORS).filter(
+			model => model.provider === "xai",
+		);
+		// Snapshot-era Completions rows still carry a default effort ladder after the
+		// api flip; the generator must not re-emit that dial for Responses.
+		const snapshotStale = mapped.find(model => model.id === "grok-code-fast-1");
+		expect(snapshotStale).toBeDefined();
+		snapshotStale!.thinking = { mode: "effort", efforts: [Effort.Minimal, Effort.Low, Effort.Medium, Effort.High] };
 
 		applyGeneratedModelPolicies(mapped);
 		const byId = Object.fromEntries(mapped.map(model => [model.id, model]));
@@ -114,22 +117,56 @@ describe("paid xAI Responses thinking policy", () => {
 			efforts: [Effort.Minimal, Effort.Low, Effort.Medium, Effort.High],
 			effortMap: { minimal: "low" },
 		});
-		for (const id of ["grok-4.6", "grok-4.20-multi-agent-beta-latest"] as const) {
-			expect(byId[id]?.thinking).toEqual({
-				mode: "effort",
-				efforts: [Effort.Minimal, Effort.Low, Effort.Medium, Effort.High, Effort.XHigh],
-				effortMap: { minimal: "low" },
-			});
-			expect(byId[id]?.compat).toMatchObject({
-				supportsReasoningEffort: true,
-				reasoningEffortMap: { minimal: "low" },
-			});
-			expect(byId[id]?.compat).not.toMatchObject({ reasoningEffortMap: { xhigh: "high" } });
-		}
+		expect(byId["grok-4.6"]?.thinking).toEqual({
+			mode: "effort",
+			efforts: [Effort.Minimal, Effort.Low, Effort.Medium, Effort.High, Effort.XHigh],
+			effortMap: { minimal: "low" },
+		});
+		expect(byId["grok-4.6"]?.compat).toMatchObject({
+			supportsReasoningEffort: true,
+			reasoningEffortMap: { minimal: "low" },
+		});
+		expect(byId["grok-4.6"]?.compat).not.toMatchObject({
+			reasoningEffortMap: { xhigh: "high" },
+		});
+		expect(byId["grok-4.20-multi-agent-beta-latest"]?.thinking).toEqual({
+			mode: "effort",
+			efforts: [Effort.Minimal, Effort.Low, Effort.Medium, Effort.High, Effort.XHigh],
+			effortMap: { minimal: "low" },
+		});
+		expect(byId["grok-4.20-multi-agent-beta-latest"]?.compat).toMatchObject({
+			supportsReasoningEffort: true,
+			reasoningEffortMap: { minimal: "low" },
+		});
+		expect(byId["grok-4.20-multi-agent-beta-latest"]?.compat).not.toMatchObject({
+			reasoningEffortMap: { xhigh: "high" },
+		});
 		for (const id of ["grok-code-fast-1", "grok-build-0.1", "grok-4.20-0309-reasoning"] as const) {
 			expect(byId[id]?.reasoning, id).toBe(true);
 			expect(byId[id]?.thinking, id).toBeUndefined();
 			expect(byId[id]?.compat, id).toMatchObject({ supportsReasoningEffort: false });
 		}
+	});
+
+	it("exports no-dial rows in the bundled models.json snapshot", () => {
+		const bundled =
+			(MODELS_JSON as unknown as Record<string, Record<string, ModelSpec<"openai-responses">>>).xai ?? {};
+		for (const id of ["grok-code-fast-1", "grok-build-0.1", "grok-4.20-0309-reasoning"] as const) {
+			expect(bundled[id], `xai/${id} missing from models.json`).toBeDefined();
+			expect(bundled[id]?.reasoning, id).toBe(true);
+			expect(bundled[id]?.thinking, id).toBeUndefined();
+			expect(bundled[id]?.compat?.supportsReasoningEffort, id).toBe(false);
+		}
+		expect(bundled["grok-4.5"]?.thinking?.efforts).toEqual([Effort.Minimal, Effort.Low, Effort.Medium, Effort.High]);
+		expect(bundled["grok-4.5"]?.thinking?.efforts).not.toContain(Effort.XHigh);
+		expect(bundled["grok-4.5"]?.compat?.supportsReasoningEffort).toBe(true);
+		expect(bundled["grok-4.6"]?.thinking?.efforts).toContain(Effort.XHigh);
+		expect(bundled["grok-4.6"]?.compat).not.toMatchObject({
+			reasoningEffortMap: { xhigh: "high" },
+		});
+		expect(bundled["grok-4.20-multi-agent-beta-latest"]?.thinking?.efforts).toContain(Effort.XHigh);
+		expect(bundled["grok-4.20-multi-agent-beta-latest"]?.compat).not.toMatchObject({
+			reasoningEffortMap: { xhigh: "high" },
+		});
 	});
 });

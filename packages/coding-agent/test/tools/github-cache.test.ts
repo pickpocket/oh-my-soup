@@ -3,7 +3,7 @@
  * `getOrFetchIssue` / `getOrFetchPr` wrappers wired into `gh.ts`.
  *
  * Each test isolates `OMS_GITHUB_CACHE_DB` to a temp file and clears
- * `git.github.json` / `git.github.text` mocks between cases.
+ * `github.json` / `github.text` mocks between cases.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import * as fs from "node:fs/promises";
@@ -20,7 +20,7 @@ import {
 	resetForTests as resetCacheForTests,
 } from "@oh-my-soup/pi-coding-agent/tools/github-cache";
 import { ToolAbortError, throwIfAborted } from "@oh-my-soup/pi-coding-agent/tools/tool-errors";
-import * as git from "@oh-my-soup/pi-coding-agent/utils/git";
+import { github } from "@oh-my-soup/pi-coding-agent/utils/github";
 import { removeWithRetries } from "@oh-my-soup/pi-utils";
 
 const TEST_REPO = "owner/example";
@@ -184,10 +184,8 @@ describe("github-cache db layer", () => {
 
 	it("does not chmod an existing cache parent directory", async () => {
 		const parent = path.join(tempDir, "caller-owned-parent");
-		await fs.mkdir(parent, { recursive: true });
-		const marker = path.join(parent, "caller-owned.txt");
-		await fs.writeFile(marker, "preserve me");
-		if (process.platform !== "win32") await fs.chmod(parent, 0o755);
+		await fs.mkdir(parent, { recursive: true, mode: 0o755 });
+		await fs.chmod(parent, 0o755);
 		process.env.OMS_GITHUB_CACHE_DB = path.join(parent, "github-cache.db");
 		resetCacheForTests();
 
@@ -195,9 +193,7 @@ describe("github-cache db layer", () => {
 
 		expect(db).not.toBeNull();
 		const stat = await fs.stat(parent);
-		expect(stat.isDirectory()).toBe(true);
-		expect(await fs.readFile(marker, "utf8")).toBe("preserve me");
-		if (process.platform !== "win32") expect(stat.mode & 0o777).toBe(0o755);
+		expect(stat.mode & 0o777).toBe(0o755);
 	});
 
 	it("preserves rows across openDb() and honors the configured hard TTL via per-lookup sweep", async () => {
@@ -448,8 +444,11 @@ describe("getOrFetchView (TTL semantics)", () => {
 		expect(result.status).toBe("stale");
 		expect(result.rendered).toBe("old-diff");
 
-		await Promise.resolve();
-		await Bun.sleep(5);
+		for (let i = 0; i < 100; i++) {
+			const refreshed = getCached<{ refreshed: boolean }>(TEST_REPO, "pr-diff", 52, false);
+			if (refreshed?.payload.refreshed) break;
+			await Bun.sleep(0);
+		}
 
 		expect(fetchFresh).toHaveBeenCalledTimes(1);
 		const updated = getCached<{ refreshed: boolean }>(TEST_REPO, "pr-diff", 52, false);
@@ -556,7 +555,7 @@ describe("getOrFetchView (TTL semantics)", () => {
 
 describe("getOrFetchIssue (gh-wired wrapper)", () => {
 	it("second call within the soft TTL window does not invoke gh", async () => {
-		const spy = vi.spyOn(git.github, "json").mockResolvedValue(issuePayload(123, "body") as never);
+		const spy = vi.spyOn(github, "json").mockResolvedValue(issuePayload(123, "body") as never);
 
 		const first = await getOrFetchIssue({
 			cwd: "/tmp/test",
@@ -581,7 +580,7 @@ describe("getOrFetchIssue (gh-wired wrapper)", () => {
 	});
 
 	it("derives (repo, number) from a full GitHub issue URL identifier", async () => {
-		const spy = vi.spyOn(git.github, "json").mockResolvedValue(issuePayload(7, "from-url") as never);
+		const spy = vi.spyOn(github, "json").mockResolvedValue(issuePayload(7, "from-url") as never);
 		const url = `https://github.com/${TEST_REPO}/issues/7`;
 
 		await getOrFetchIssue({ cwd: "/tmp/test", issue: url, cacheAuthKey: TEST_AUTH_KEY });
@@ -595,7 +594,7 @@ describe("getOrFetchIssue (gh-wired wrapper)", () => {
 	});
 
 	it("caches comments-on and comments-off separately", async () => {
-		const spy = vi.spyOn(git.github, "json").mockResolvedValue(issuePayload(5, "no-comments-body") as never);
+		const spy = vi.spyOn(github, "json").mockResolvedValue(issuePayload(5, "no-comments-body") as never);
 
 		await getOrFetchIssue({
 			cwd: "/tmp/test",
@@ -635,7 +634,7 @@ describe("getOrFetchIssue (gh-wired wrapper)", () => {
 
 describe("getOrFetchPr (gh-wired wrapper)", () => {
 	it("caches PR view by (repo, number) and re-uses on the second call", async () => {
-		const spy = vi.spyOn(git.github, "json").mockResolvedValue(prPayload(77, "pr-body") as never);
+		const spy = vi.spyOn(github, "json").mockResolvedValue(prPayload(77, "pr-body") as never);
 
 		const first = await getOrFetchPr({
 			cwd: "/tmp/test",

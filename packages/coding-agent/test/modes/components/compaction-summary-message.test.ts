@@ -3,8 +3,8 @@ import { resetSettingsForTest, Settings } from "@oh-my-soup/pi-coding-agent/conf
 import {
 	createHandoffSummaryMessageComponent,
 	HandoffSummaryMessageComponent,
-} from "@oh-my-soup/pi-coding-agent/modes/components/compaction-summary-message";
-import { initTheme } from "@oh-my-soup/pi-coding-agent/modes/theme/theme";
+} from "@oh-my-soup/pi-tui/chat/compaction-summary-message";
+import { initTheme } from "@oh-my-soup/pi-tui/theme";
 import type { CustomMessage } from "@oh-my-soup/pi-coding-agent/session/messages";
 
 beforeAll(async () => {
@@ -39,7 +39,7 @@ describe("handoff summary divider", () => {
 
 		expect(component).toBeInstanceOf(HandoffSummaryMessageComponent);
 		const collapsed = Bun.stripANSI(component!.render(80).join("\n"));
-		expect(collapsed).toContain("handoff");
+		expect(collapsed).toContain("handed-off");
 		expect(collapsed).toContain("ctrl+o");
 		expect(collapsed).not.toContain("[handoff]");
 		expect(collapsed).not.toContain("Continue the resize fix");

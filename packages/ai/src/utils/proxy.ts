@@ -1,10 +1,21 @@
 import * as net from "node:net";
 import * as tls from "node:tls";
+import * as logger from "@oh-my-soup/pi-utils/logger";
 import { AbortError } from "../error/abort";
 import { StreamTimeoutError, ValidationError } from "../error/validation";
 import type { FetchImpl } from "../types";
 
-type BunProxyRequestInit = RequestInit & { proxy: string };
+/**
+ * Host:port of a proxy URL for logging. Proxy URLs can carry basic-auth
+ * credentials, so never log the raw value.
+ */
+function proxyLogTarget(proxyUrl: string): string {
+	try {
+		return new URL(proxyUrl).host;
+	} catch {
+		return "<unparseable>";
+	}
+}
 
 /**
  * Checks if a host is local or cloud metadata, which should always bypass the proxy
@@ -129,6 +140,14 @@ export function getProxyForProvider(provider: string): string | undefined {
 	const envKey = `PI_PROXY_${normalized}`;
 	const value = Bun.env[envKey] || Bun.env.PI_PROXY;
 	proxyCache.set(provider, value);
+	// Once per provider per process: a silently unproxied provider request is
+	// otherwise indistinguishable from a proxied one until the region block
+	// answers 403.
+	logger.debug("provider proxy resolved", {
+		provider,
+		source: Bun.env[envKey] ? envKey : value ? "PI_PROXY" : "none",
+		proxy: value ? proxyLogTarget(value) : undefined,
+	});
 	return value;
 }
 
@@ -143,56 +162,112 @@ export function getProxyForUrl(provider: string, url: URL): string | undefined {
 }
 
 /**
- * Wraps `fetchImpl` so non-local requests tunnel through `proxyUrl`.
- * A caller-supplied proxy wins, which makes nested global and provider-specific
- * wrappers idempotent.
+ * Return `init` with `proxy: proxyUrl` set when the request should tunnel.
+ * A caller-supplied `init.proxy` always wins (the innermost, most specific
+ * decision); local/metadata hosts, NO_PROXY matches, and unparseable URLs
+ * pass through unchanged.
  */
-function wrapFetchWithProxyUrl(fetchImpl: FetchImpl, proxyUrl: string | undefined): FetchImpl {
-	if (!proxyUrl) return fetchImpl;
+export function withProxyInit(
+	input: string | URL | Request,
+	init: RequestInit | undefined,
+	proxyUrl: string,
+): RequestInit | undefined {
+	if ((init as { proxy?: unknown } | undefined)?.proxy) return init;
+	const urlStr = input instanceof Request ? input.url : input.toString();
+	let urlObj: URL;
+	try {
+		urlObj = new URL(urlStr);
+	} catch {
+		return init;
+	}
 
-	const wrapped = async (input: string | URL | Request, init?: RequestInit): Promise<Response> => {
-		if ((init as { proxy?: unknown } | undefined)?.proxy) return fetchImpl(input, init);
-
-		const urlStr = input instanceof Request ? input.url : input.toString();
-		let urlObj: URL;
-		try {
-			urlObj = new URL(urlStr);
-		} catch {
-			return fetchImpl(input, init);
+	if (shouldBypassProxy(urlObj)) {
+		// A NO_PROXY rule silencing a configured proxy is otherwise invisible
+		// until the unproxied egress is refused; local hosts are routine.
+		if (!isLocalOrMetadataHost(urlObj.hostname)) {
+			logger.debug("proxy bypassed by NO_PROXY", {
+				host: urlObj.host,
+				noProxy: Bun.env.NO_PROXY || Bun.env.no_proxy,
+			});
 		}
+		return init;
+	}
 
-		if (shouldBypassProxy(urlObj)) return fetchImpl(input, init);
-		const proxyInit: BunProxyRequestInit = { ...(init ?? {}), proxy: proxyUrl };
-		return fetchImpl(input, proxyInit);
-	};
+	const proxied: RequestInit & { proxy: string } = { ...init, proxy: proxyUrl };
+	return proxied;
+}
 
-	if (fetchImpl.preconnect) wrapped.preconnect = fetchImpl.preconnect;
+/** Wraps `fetchImpl` so non-local requests tunnel through `proxyUrl`; see {@link withProxyInit}. */
+function wrapFetchWithProxyUrl(fetchImpl: FetchImpl, proxyUrl: string | undefined): FetchImpl {
+	if (!proxyUrl) {
+		return fetchImpl;
+	}
+
+	const wrapped = (input: string | URL | Request, init?: RequestInit): Promise<Response> =>
+		fetchImpl(input, withProxyInit(input, init, proxyUrl));
+
+	if (fetchImpl.preconnect) {
+		wrapped.preconnect = fetchImpl.preconnect;
+	}
 	return wrapped;
 }
 
-/** Wraps a fetch implementation with the provider's resolved proxy. */
+/**
+ * Wraps a fetch implementation to inject proxy options for non-local hosts.
+ */
 export function wrapFetchForProxy(fetchImpl: FetchImpl, provider: string): FetchImpl {
 	return wrapFetchWithProxyUrl(fetchImpl, getProxyForProvider(provider));
 }
 
 let globalProxyFetchInstalled = false;
 
-/** Test seam: allows a restored global fetch to be wrapped again. */
+/** Test seam: re-arms {@link installGlobalProxyFetch}. */
 export function __resetGlobalProxyFetch(): void {
 	globalProxyFetchInstalled = false;
 }
 
 /**
- * Applies `PI_PROXY` to bare process-wide fetch calls such as OAuth, usage, and
- * model discovery. Per-request provider proxies retain precedence, while local,
- * private-range, metadata, and NO_PROXY targets remain direct.
+ * Routes the process-wide `globalThis.fetch` through `PI_PROXY`.
+ *
+ * Bun's native fetch resolves `HTTPS_PROXY` / `HTTP_PROXY` / `ALL_PROXY` by
+ * itself but knows nothing about `PI_PROXY`. Provider *streams* get their proxy
+ * from {@link wrapFetchForProxy}; every other provider-bound request — OAuth
+ * token refresh and login, usage probes, model discovery — goes out through the
+ * bare global `fetch` and would silently ignore `PI_PROXY`. That asymmetry is
+ * fatal wherever a provider geo-blocks its token endpoint: the stream is
+ * proxied, the refresh is not, and the credential dies with a 403.
+ *
+ * A per-request `proxy` (including `PI_PROXY_<PROVIDER>` injected by
+ * {@link wrapFetchForProxy}) still wins, and loopback / private-range /
+ * `NO_PROXY` targets bypass, so local model servers and MCP hosts are
+ * untouched. Idempotent; a no-op when `PI_PROXY` is unset.
  */
 export function installGlobalProxyFetch(): void {
 	if (globalProxyFetchInstalled) return;
 	const proxyUrl = Bun.env.PI_PROXY?.trim();
-	if (!proxyUrl) return;
+	// One line naming every proxy-relevant variable this process can see: a
+	// missing PI_PROXY and a NO_PROXY rule that silences it are otherwise
+	// indistinguishable from a working proxy that the peer rejected.
+	const env = {
+		PI_PROXY: proxyUrl ? proxyLogTarget(proxyUrl) : undefined,
+		PI_PROXY_ANTHROPIC: Bun.env.PI_PROXY_ANTHROPIC ? proxyLogTarget(Bun.env.PI_PROXY_ANTHROPIC) : undefined,
+		HTTPS_PROXY: Bun.env.HTTPS_PROXY || Bun.env.https_proxy ? "set" : undefined,
+		ALL_PROXY: Bun.env.ALL_PROXY || Bun.env.all_proxy ? "set" : undefined,
+		NO_PROXY: Bun.env.NO_PROXY || Bun.env.no_proxy,
+	};
+	if (!proxyUrl) {
+		logger.debug("global proxy fetch not installed", {
+			reason: "PI_PROXY unset",
+			env,
+		});
+		return;
+	}
 	globalProxyFetchInstalled = true;
 	globalThis.fetch = wrapFetchWithProxyUrl(globalThis.fetch, proxyUrl) as typeof globalThis.fetch;
+	logger.debug("global proxy fetch installed", {
+		proxy: proxyLogTarget(proxyUrl),
+		env,
+	});
 }
 
 export interface ConnectProxiedSocketOptions {
@@ -230,7 +305,6 @@ export async function connectProxiedSocket(
 	const { promise, resolve, reject } = Promise.withResolvers<tls.TLSSocket>();
 
 	const readyEvent = useProxySsl ? "secureConnect" : "connect";
-	let rawSocket: net.Socket | undefined;
 	let tunnelSocket: tls.TLSSocket | undefined;
 	let timeout: NodeJS.Timeout | undefined;
 	let responseData = "";
@@ -257,6 +331,12 @@ export async function connectProxiedSocket(
 		settled = true;
 		cleanup();
 		destroyInProgress();
+		logger.debug("proxy tunnel failed", {
+			proxy: `${proxyHost}:${proxyPort}`,
+			target: `${targetHost}:${targetPort}`,
+			error: String(error),
+			code: "code" in error ? String(error.code) : undefined,
+		});
 		reject(error);
 	};
 	const resolveOnce = (socket: tls.TLSSocket): void => {
@@ -270,6 +350,14 @@ export async function connectProxiedSocket(
 	const onTunnelError = (error: Error): void => rejectOnce(error);
 	const onTunnelReady = (): void => {
 		if (!tunnelSocket) return;
+		logger.debug("proxy tunnel established", {
+			proxy: `${proxyHost}:${proxyPort}`,
+			target: `${targetHost}:${targetPort}`,
+			peer: `${rawSocket?.remoteAddress ?? "?"}:${rawSocket?.remotePort ?? "?"}`,
+			localPort: rawSocket?.localPort,
+			alpn: tunnelSocket.alpnProtocol,
+			authorized: tunnelSocket.authorized,
+		});
 		resolveOnce(tunnelSocket);
 	};
 	const onProxyData = (chunk: Buffer): void => {
@@ -281,20 +369,26 @@ export async function connectProxiedSocket(
 		rawSocket.off("error", onRawError);
 
 		const firstLine = responseData.split("\r\n")[0];
+		logger.debug("proxy tunnel CONNECT reply", {
+			proxy: `${proxyHost}:${proxyPort}`,
+			target: `${targetHost}:${targetPort}`,
+			reply: firstLine,
+		});
 		if (!firstLine.includes(" 200 ")) {
 			rejectOnce(new ValidationError(`Proxy tunnel failed: ${firstLine}`));
 			return;
 		}
 
 		const tlsOptions = options?.tls;
-		tunnelSocket = tls.connect({
+		const newTunnelSocket: tls.TLSSocket = tls.connect({
 			...tlsOptions,
 			socket: rawSocket,
 			servername: tlsOptions?.servername ?? targetHost,
 			ALPNProtocols: tlsOptions?.ALPNProtocols ?? ["h2"],
 		});
-		tunnelSocket.once("secureConnect", onTunnelReady);
-		tunnelSocket.once("error", onTunnelError);
+		tunnelSocket = newTunnelSocket;
+		newTunnelSocket.once("secureConnect", onTunnelReady);
+		newTunnelSocket.once("error", onTunnelError);
 	};
 	const onProxyReady = (): void => {
 		if (!rawSocket) return;
@@ -310,6 +404,11 @@ export async function connectProxiedSocket(
 
 		rawSocket.write(connectReq);
 		rawSocket.on("data", onProxyData);
+		logger.debug("proxy tunnel CONNECT sent", {
+			proxy: `${proxyHost}:${proxyPort}`,
+			target: `${targetHost}:${targetPort}`,
+			peer: `${rawSocket.remoteAddress ?? "?"}:${rawSocket.remotePort ?? "?"}`,
+		});
 	};
 
 	options?.signal?.addEventListener("abort", onAbort, { once: true });
@@ -321,7 +420,7 @@ export async function connectProxiedSocket(
 		timeout.unref?.();
 	}
 
-	rawSocket = useProxySsl
+	const rawSocket = useProxySsl
 		? tls.connect({
 				host: proxyHost,
 				port: proxyPort,

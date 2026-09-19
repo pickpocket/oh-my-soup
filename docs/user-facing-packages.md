@@ -74,7 +74,9 @@ Sources: [`packages/browser-relay/README.md`](../packages/browser-relay/README.m
 
 - Package: private `@oh-my-soup/browser-relay`; user command: `oms browser-relay`.
 - Setup: run `oms browser-relay install`, load the unpacked extension from
-  `~/.oms/browser-relay/extension`, then set `browser.relay` or use `app.relay: true`.
+  `~/.oms/browser-relay/extension`, then opt in per call with `app.relay: true` — or set
+  `browser.relay`, which makes the relay the profile-wide default across projects (scope
+  details in the package README).
 - Behavior: the relay auto-starts through the global daemon broker; `app.target` selects a tab by
   URL/title substring, otherwise the visible tab is adopted.
 - Security/limits: it binds loopback; use `--token` when local processes are untrusted. Chrome

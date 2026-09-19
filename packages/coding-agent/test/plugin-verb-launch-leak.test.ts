@@ -106,3 +106,18 @@ describe("documented-but-unregistered plugin verbs do not leak to launch (#2935)
 		});
 	});
 });
+
+describe("`oms plugins` is a registered alias of `oms plugin`", () => {
+	// The TUI builtin is `/plugins` while the CLI command is `plugin`. Dispatch
+	// resolves `CommandEntry.aliases`, not the command class's `static aliases`,
+	// so dropping the registry entry would make `oms plugins list` stop reaching
+	// the plugin command again.
+	test("`oms plugins list` routes to the plugin command instead of launch", () => {
+		expect(isSubcommand("plugins")).toBe(true);
+		expect(resolveCliArgv(["plugins", "list"])).toEqual({ argv: ["plugins", "list"] });
+	});
+
+	test("bare `oms plugins` routes to the plugin command, which defaults to list", () => {
+		expect(resolveCliArgv(["plugins"])).toEqual({ argv: ["plugins"] });
+	});
+});

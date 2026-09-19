@@ -1,11 +1,8 @@
 import { beforeAll, describe, expect, it } from "bun:test";
-import {
-	containsOrchestrate,
-	highlightOrchestrate,
-	renderOrchestrateNotice,
-} from "@oh-my-soup/pi-coding-agent/modes/orchestrate";
-import { initTheme } from "@oh-my-soup/pi-coding-agent/modes/theme/theme";
-import { containsUltrathink, highlightUltrathink } from "@oh-my-soup/pi-coding-agent/modes/ultrathink";
+import { renderOrchestrateNotice } from "@oh-my-soup/pi-coding-agent/modes/orchestrate";
+import { containsOrchestrate, highlightOrchestrate } from "@oh-my-soup/pi-tui/prompt/orchestrate";
+import { initTheme } from "@oh-my-soup/pi-tui/theme";
+import { containsUltrathink, highlightUltrathink } from "@oh-my-soup/pi-tui/prompt/ultrathink";
 import { clearBundledCommandsCache, loadBundledCommands } from "@oh-my-soup/pi-coding-agent/task/commands";
 
 beforeAll(() => {

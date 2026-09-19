@@ -12,7 +12,8 @@ import { AgentSession, type AgentSessionEvent } from "@oh-my-soup/pi-coding-agen
 import { AuthStorage } from "@oh-my-soup/pi-coding-agent/session/auth-storage";
 import { convertToLlm } from "@oh-my-soup/pi-coding-agent/session/messages";
 import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
-import { TempDir } from "@oh-my-soup/pi-utils";
+import { TempDir, withTimeout } from "@oh-my-soup/pi-utils";
+import { mockSchedulerWaitWithClock } from "./helpers/mock-scheduler-clock";
 
 const recordToolSchema = type({ value: type("string") });
 
@@ -57,7 +58,26 @@ function emptyStop(): MockResponse {
 	return {
 		content: [],
 		stopReason: "stop",
-		usage: { output: 1, cacheRead: 100 },
+		usage: { output: 0, cacheRead: 100 },
+	};
+}
+
+// A zero-block `stop` for which the provider still billed output tokens: content
+// was generated and dropped downstream (e.g. a filter/refusal flattened to
+// `finish_reason: "stop"` by a proxy), so the context/`/shake images` hint is wrong.
+function filteredEmptyStop(): MockResponse {
+	return {
+		content: [],
+		stopReason: "stop",
+		usage: { output: 126, cacheRead: 100 },
+	};
+}
+
+function reasoningOnlyEmptyStop(): MockResponse {
+	return {
+		content: [],
+		stopReason: "stop",
+		usage: { output: 126, reasoningTokens: 126, cacheRead: 100 },
 	};
 }
 
@@ -180,12 +200,7 @@ function reminderMessages(messages: AgentMessage[]): AgentMessage[] {
 }
 
 async function expectPromptCompletes(prompt: Promise<boolean>): Promise<void> {
-	await Promise.race([
-		prompt,
-		Bun.sleep(1_000).then(() => {
-			throw new Error("Expected session prompt to settle after empty-stop retry cap");
-		}),
-	]);
+	await withTimeout(prompt, 1_000, "Expected session prompt to settle after empty-stop retry cap");
 }
 
 afterEach(async () => {
@@ -217,6 +232,10 @@ describe("AgentSession empty stop guard", () => {
 			.filter(entry => entry.type === "message")
 			.map(entry => entry.message as AgentMessage);
 		expect(emptyAssistantStops(activeBranchMessages)).toHaveLength(0);
+		// A discarded empty stop is physically removed from the journal, not just
+		// reparented off the active branch: it must never be able to resurface as
+		// the active leaf on reload (the loader rebuilds from the last physical
+		// entry) if the process is killed before the recovery turn lands.
 		expect(
 			emptyAssistantStops(
 				session.sessionManager
@@ -224,7 +243,7 @@ describe("AgentSession empty stop guard", () => {
 					.filter(entry => entry.type === "message")
 					.map(entry => entry.message as AgentMessage),
 			),
-		).toHaveLength(1);
+		).toHaveLength(0);
 	});
 
 	it("retries a tool-use stop that has no tool call or text", async () => {
@@ -276,7 +295,7 @@ describe("AgentSession empty stop guard", () => {
 	});
 
 	it("caps provider-empty recovery without consuming generic retries and accepts the next prompt", async () => {
-		vi.spyOn(scheduler, "wait").mockResolvedValue(undefined);
+		mockSchedulerWaitWithClock();
 		const { session, mock } = await createHarness(
 			[emptyProviderResponse(), emptyProviderResponse(), emptyProviderResponse(), emptyProviderResponse()],
 			{
@@ -378,6 +397,54 @@ describe("AgentSession empty stop guard", () => {
 			.filter(entry => entry.type === "message")
 			.map(entry => entry.message as AgentMessage);
 		expect(emptyAssistantStops(activeBranchMessages)).toHaveLength(0);
+
+		// The loader reconstructs the active branch from the last physical journal
+		// entry. The empty stop is removed from history and a marker durably
+		// selects its parent, so reload cannot reactivate the discarded turn.
+		const journalMessages = session.sessionManager
+			.getEntries()
+			.filter(entry => entry.type === "message")
+			.map(entry => entry.message as AgentMessage);
+		expect(emptyAssistantStops(journalMessages)).toHaveLength(0);
+		const lastJournalEntry = session.sessionManager.getEntries().at(-1);
+		expect(lastJournalEntry).toMatchObject({
+			type: "branch_summary",
+			summary: "",
+			details: { kind: "discarded-entry-branch" },
+		});
+	});
+
+	it("does not revive capped empty responses through pending todo reminders", async () => {
+		const { session, mock } = await createHarness(
+			[
+				emptyStop(),
+				emptyStop(),
+				emptyStop(),
+				emptyStop(),
+				{ content: ["Which task should I resume?"], stopReason: "stop" },
+			],
+			{ "todo.enabled": true, "todo.reminders": true, "todo.remindersMax": 3 },
+		);
+		session.setTodoPhases([
+			{ name: "Work", tasks: [{ content: "Finish the pending change", status: "in_progress" }] },
+		]);
+		const retryEnds: Array<Extract<AgentSessionEvent, { type: "auto_retry_end" }>> = [];
+		const todoReminders: Array<Extract<AgentSessionEvent, { type: "todo_reminder" }>> = [];
+		session.subscribe(event => {
+			if (event.type === "auto_retry_end") retryEnds.push(event);
+			if (event.type === "todo_reminder") todoReminders.push(event);
+		});
+
+		await expectPromptCompletes(session.prompt("continue the pending task"));
+		await session.waitForIdle();
+
+		expect(mock.calls).toHaveLength(4);
+		expect(retryEnds).toEqual([expect.objectContaining({ success: false, attempt: 3 })]);
+		expect(todoReminders).toEqual([]);
+
+		await session.prompt("I am ready to resume");
+		await session.waitForIdle();
+		expect(mock.calls).toHaveLength(5);
 	});
 
 	it("waits for capped empty-stop persistence before removing the active branch entry", async () => {
@@ -428,14 +495,11 @@ describe("AgentSession empty stop guard", () => {
 	});
 
 	it("does not let a capped empty stop anchor the next context estimate", async () => {
-		const billedEmptyStops = Array.from(
-			{ length: 4 },
-			(): MockResponse => ({
-				content: [],
-				stopReason: "stop",
-				usage: { input: 172_000, output: 1, cacheRead: 0, cacheWrite: 0, totalTokens: 172_001 },
-			}),
-		);
+		const billedEmptyStops = Array.from({ length: 4 }, (): MockResponse => ({
+			content: [],
+			stopReason: "stop",
+			usage: { input: 172_000, output: 1, cacheRead: 0, cacheWrite: 0, totalTokens: 172_001 },
+		}));
 		const { session, mock } = await createHarness(billedEmptyStops);
 
 		await expectPromptCompletes(session.prompt("answer from compacted context"));
@@ -468,8 +532,83 @@ describe("AgentSession empty stop guard", () => {
 		expect(retryEndEvents[0]?.finalError).toContain("/shake images");
 	});
 
+	it("names billed output tokens instead of the context hint when a capped empty stop billed output", async () => {
+		const { session, mock } = await createHarness([
+			filteredEmptyStop(),
+			filteredEmptyStop(),
+			filteredEmptyStop(),
+			filteredEmptyStop(),
+		]);
+		const retryEndEvents: Array<Extract<AgentSessionEvent, { type: "auto_retry_end" }>> = [];
+		session.subscribe(event => {
+			if (event.type === "auto_retry_end") {
+				retryEndEvents.push(event);
+			}
+		});
+
+		await expectPromptCompletes(session.prompt("answer that gets filtered"));
+		await session.waitForIdle();
+
+		expect(mock.calls).toHaveLength(4);
+		expect(retryEndEvents).toHaveLength(1);
+		expect(retryEndEvents[0]?.success).toBe(false);
+		const finalError = retryEndEvents[0]?.finalError ?? "";
+		expect(finalError).toContain("billed 126 output tokens");
+		expect(finalError).not.toContain("/shake images");
+	});
+
+	it("keeps the context hint when a capped zero-block stop billed only reasoning tokens", async () => {
+		const { session, mock } = await createHarness([
+			reasoningOnlyEmptyStop(),
+			reasoningOnlyEmptyStop(),
+			reasoningOnlyEmptyStop(),
+			reasoningOnlyEmptyStop(),
+		]);
+		const retryEndEvents: Array<Extract<AgentSessionEvent, { type: "auto_retry_end" }>> = [];
+		session.subscribe(event => {
+			if (event.type === "auto_retry_end") {
+				retryEndEvents.push(event);
+			}
+		});
+
+		await expectPromptCompletes(session.prompt("think without delivering an answer"));
+		await session.waitForIdle();
+
+		expect(mock.calls).toHaveLength(4);
+		expect(retryEndEvents).toHaveLength(1);
+		expect(retryEndEvents[0]?.success).toBe(false);
+		const finalError = retryEndEvents[0]?.finalError ?? "";
+		expect(finalError).toContain("/shake images");
+		expect(finalError).not.toContain("billed");
+	});
+
+	it("keeps the context hint for a capped thinking-only stop even though it billed output", async () => {
+		const { session, mock } = await createHarness([
+			thinkingOnlyStop(),
+			thinkingOnlyStop(),
+			thinkingOnlyStop(),
+			thinkingOnlyStop(),
+		]);
+		const retryEndEvents: Array<Extract<AgentSessionEvent, { type: "auto_retry_end" }>> = [];
+		session.subscribe(event => {
+			if (event.type === "auto_retry_end") {
+				retryEndEvents.push(event);
+			}
+		});
+
+		await expectPromptCompletes(session.prompt("think without answering"));
+		await session.waitForIdle();
+
+		expect(mock.calls).toHaveLength(4);
+		expect(retryEndEvents).toHaveLength(1);
+		expect(retryEndEvents[0]?.success).toBe(false);
+		const finalError = retryEndEvents[0]?.finalError ?? "";
+		expect(finalError).toContain("/shake images");
+		expect(finalError).not.toContain("billed");
+	});
+
 	it("ends auto-retry state when empty stop retries hit the cap", async () => {
-		vi.spyOn(scheduler, "wait").mockResolvedValue(undefined);
+		mockSchedulerWaitWithClock();
 		const { session, mock } = await createHarness(
 			[{ throw: "503 service unavailable: overloaded_error" }, emptyStop(), emptyStop(), emptyStop(), emptyStop()],
 			{
@@ -538,7 +677,7 @@ describe("AgentSession empty stop guard", () => {
 	});
 
 	it("preserves auto-retry budget across empty stop continuations", async () => {
-		vi.spyOn(scheduler, "wait").mockResolvedValue(undefined);
+		mockSchedulerWaitWithClock();
 		const { session, mock } = await createHarness(
 			[
 				{ throw: "503 service unavailable: overloaded_error" },

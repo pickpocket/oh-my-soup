@@ -1,37 +1,101 @@
+import type { ImageContent } from "@oh-my-soup/pi-ai";
 import { logger } from "@oh-my-soup/pi-utils";
+import type { StructuredSubagentOutput } from "@oh-my-soup/pi-tui/tools/task";
+import type { OutputMeta } from "@oh-my-soup/pi-tui/tools/output-meta";
 
 const DELIVERY_RETRY_BASE_MS = 500;
 const DELIVERY_RETRY_MAX_MS = 30_000;
 const DELIVERY_RETRY_JITTER_MS = 200;
 const DEFAULT_RETENTION_MS = 5 * 60 * 1000;
+/**
+ * A settled job row whose result was already consumed — auto-delivered to its
+ * sink, or recovered by a foreground `hub jobs`/`hub wait` snapshot — has
+ * served its inspectability purpose: the model holds the result, and later
+ * job snapshots listing it for the full retention window is exactly the
+ * "background jobs hang around after they complete" complaint. Evict shortly
+ * after consumption instead; the short grace still covers a follow-up
+ * `agent://<id>` read of the just-delivered pointer. Unconsumed rows
+ * (dead-lettered deliveries, still-retrying sinks, watch-suppressed jobs
+ * nobody polled) keep the full {@link DEFAULT_RETENTION_MS} window.
+ */
+const CONSUMED_RESULT_EVICTION_MS = 30_000;
+/**
+ * Extra delay after an `async-result` delivery settles (its `ASIDE_MESSAGE_COMMIT`
+ * hook fires, resolving `enqueueWithReceipt()`) before retained artifacts are
+ * removed. The commit hook fires when the follow-up is inserted into the
+ * transcript, not after the model's next provider call has actually read it —
+ * this window gives that round trip time to complete before the backing
+ * `<id>.md`/`.json` files disappear out from under an advertised `agent://` URL.
+ */
+const RETAINED_ARTIFACTS_CLEANUP_GRACE_MS = 60_000;
+/**
+ * Upper bound on how long retained-artifacts cleanup waits for a hung
+ * delivery sink before giving up and running cleanup anyway. Without this,
+ * a sink that never settles (e.g. a yield-queue receipt whose owning
+ * session is gone) would leak the temp directory for the process lifetime
+ * (PR #10625 review). Matches {@link DEFAULT_RETENTION_MS}: by the time a
+ * job would have been evicted anyway, there is no realistic path left for
+ * the model to still read the advertised `agent://` pointer.
+ */
+const RETAINED_ARTIFACTS_CLEANUP_MAX_WAIT_MS = DEFAULT_RETENTION_MS;
 const DEFAULT_MAX_RUNNING_JOBS = 15;
 /** Abort reason used only when the owning session shuts down the entire manager. */
 export const ASYNC_JOB_MANAGER_SHUTDOWN_REASON = Symbol("AsyncJobManager shutdown");
 
 /**
- * Adaptive ("smart") `hub` poll-wait ladder (ms). A tight poll loop climbs
- * these rungs so each immediate re-poll backs off and stops spending turns on
- * "still running" frames; the floor (first rung) is the shortest wait and the
- * top rung is the longest a smart poll will ever block. Only used when
- * `async.pollWaitDuration` is set to `smart`; fixed durations wait verbatim.
+ * Adaptive `hub` wait-window ladder (ms). A tight wait loop climbs these rungs
+ * so each immediate re-wait backs off and stops spending turns on "still
+ * running" frames; the floor (first rung) is the shortest window and the top
+ * rung is the longest a wait will ever block.
  */
-const POLL_WAIT_LADDER_MS = [5_000, 10_000, 30_000, 60_000, 300_000] as const;
+export const POLL_WAIT_LADDER_MS = [5_000, 10_000, 30_000, 60_000, 300_000] as const;
 /**
- * Going at least this long between poll calls means the agent stepped out of
- * the poll loop to do real work — the next poll drops back to the ladder floor.
+ * Going at least this long between waits means the agent stepped out of the
+ * wait loop to do real work — the next wait drops back to the ladder floor.
  */
 const POLL_ESCALATION_RESET_MS = 60_000;
 
 interface PollEscalationState {
-	/** Index into POLL_WAIT_LADDER_MS used for the most recent poll wait. */
+	/** Index into POLL_WAIT_LADDER_MS used for the most recent wait. */
 	level: number;
-	/** Timestamp (ms) when the most recent poll wait returned. */
+	/** Timestamp (ms) when the most recent wait returned. */
 	lastPollEndAt: number;
+}
+
+/** Kind of work a managed job runs; drives job-row badges and delivery labels. */
+export type AsyncJobType = "bash" | "task" | "eval";
+
+/** Settled job-body payload: delivery text plus its parsed structured output. */
+export interface AsyncJobRunResult {
+	text: string;
+	structured?: StructuredSubagentOutput;
+}
+
+/**
+ * Job-body failure that still carries the run's structured output, so a
+ * strict-mode schema violation fails the job without dropping the parsed
+ * (invalid) payload.
+ */
+export class AsyncJobError extends Error {
+	constructor(
+		message: string,
+		readonly structured?: StructuredSubagentOutput,
+	) {
+		super(message);
+	}
+}
+
+/** Progress metadata retained for renderers and multimodal completion delivery. */
+export interface AsyncJobDetails extends Record<string, unknown> {
+	/** Images recovered from command output, independent of text truncation. */
+	images?: ImageContent[];
+	/** Tool output metadata needed when a completion is delivered or recovered later. */
+	meta?: OutputMeta;
 }
 
 export interface AsyncJob {
 	id: string;
-	type: "bash" | "task";
+	type: AsyncJobType;
 	status: "running" | "completed" | "failed" | "cancelled";
 	startTime: number;
 	label: string;
@@ -39,8 +103,15 @@ export interface AsyncJob {
 	promise: Promise<void>;
 	resultText?: string;
 	errorText?: string;
+	/**
+	 * Parsed structured completion for a job whose work selected an output
+	 * schema. Set from the body's {@link AsyncJobRunResult} or from an
+	 * {@link AsyncJobError}. The job row is the carrier — every delivery
+	 * attempt, redelivery, and `hub` snapshot reads it from here.
+	 */
+	structured?: StructuredSubagentOutput;
 	/** Latest tool-render details reported by the running job. */
-	latestDetails?: Record<string, unknown>;
+	latestDetails?: AsyncJobDetails;
 	/**
 	 * Registry id of the agent that registered the job (e.g. "Main",
 	 * "AuthLoader"). Used by scoped cancel/list APIs so a subagent's teardown
@@ -60,6 +131,15 @@ export interface AsyncJob {
 	 * until the caller invokes `markRunning()` from the run context.
 	 */
 	queued?: boolean;
+	/**
+	 * Disposal closure for a detached spawn's temporary artifacts directory
+	 * that `runStructuredSubagent()` retained past completion (so a
+	 * delayed `agent://<id>` handle in an `async-result` delivery still
+	 * resolves). The manager invokes and clears this exactly once — on
+	 * eviction or manager disposal — so the retained directory does not
+	 * outlive the job row it was kept alive for.
+	 */
+	retainedArtifactsCleanup?: () => Promise<void>;
 }
 
 /** Delivery callback for a settled job's result text. */
@@ -77,17 +157,47 @@ export interface AsyncJobManagerOptions {
 	onJobComplete?: AsyncJobDeliverySink;
 	maxRunningJobs?: number;
 	retentionMs?: number;
+	/**
+	 * Delay after a job's `async-result` delivery settles before its retained
+	 * artifacts are removed (see {@link RETAINED_ARTIFACTS_CLEANUP_GRACE_MS}).
+	 * Defaults to that constant; tests override to `0` to assert cleanup
+	 * without a real-time wait.
+	 */
+	retainedArtifactsCleanupGraceMs?: number;
+	/**
+	 * Upper bound on how long retained-artifacts cleanup waits for a job's
+	 * delivery to settle before giving up and running cleanup anyway (see
+	 * {@link RETAINED_ARTIFACTS_CLEANUP_MAX_WAIT_MS}). Defaults to that
+	 * constant; tests override to a small value to assert the bound without
+	 * a real-time wait.
+	 */
+	retainedArtifactsCleanupMaxWaitMs?: number;
+	/**
+	 * Delay before a settled job row is evicted once its result has been
+	 * consumed (delivered to a sink or recovered by a foreground snapshot).
+	 * Defaults to {@link CONSUMED_RESULT_EVICTION_MS}; tests override to a
+	 * small value to assert eviction without real-time waits.
+	 */
+	consumedResultEvictionMs?: number;
 }
 
 interface AsyncJobDelivery {
 	jobId: string;
 	text: string;
-	job: AsyncJob;
 	attempt: number;
 	nextAttemptAt: number;
 	lastError?: string;
 	ownerId?: string;
 	promise?: Promise<void>;
+	/**
+	 * Job-body metadata a sink needs to render the delivered result,
+	 * snapshotted at enqueue time. `#deliverDelivery` falls back to
+	 * reconstructing an `AsyncJob`-shaped record from this when the live job
+	 * row has already been evicted (retention elapsed while delivery kept
+	 * retrying) — without it, a recovered delivery would silently drop
+	 * `structured` even though `text` survives on the delivery itself.
+	 */
+	jobSnapshot?: Pick<AsyncJob, "type" | "status" | "startTime" | "label" | "structured" | "agentId" | "latestDetails">;
 }
 
 export interface AsyncJobDeliveryState {
@@ -109,7 +219,7 @@ export interface AsyncJobRegisterOptions {
 	ownerId?: string;
 	/** Registry id of the subagent this job runs; see {@link AsyncJob.agentId}. */
 	agentId?: string;
-	onProgress?: (text: string, details?: Record<string, unknown>) => void | Promise<void>;
+	onProgress?: (text: string, details?: AsyncJobDetails) => void | Promise<void>;
 	/** Register the job in queued state; see {@link AsyncJob.queued}. */
 	queued?: boolean;
 }
@@ -153,7 +263,11 @@ export class AsyncJobManager {
 	readonly #onJobComplete: AsyncJobManagerOptions["onJobComplete"];
 	readonly #maxRunningJobs: number;
 	readonly #retentionMs: number;
+	readonly #retainedArtifactsCleanupGraceMs: number;
+	readonly #retainedArtifactsCleanupMaxWaitMs: number;
+	readonly #consumedResultEvictionMs: number;
 	#deliveryLoop: Promise<void> | undefined;
+	#deliveryQueueChanged = Promise.withResolvers<void>();
 	#disposed = false;
 
 	#filterJobs(jobs: Iterable<AsyncJob>, filter?: AsyncJobFilter): AsyncJob[] {
@@ -170,6 +284,18 @@ export class AsyncJobManager {
 		this.#onJobComplete = options.onJobComplete;
 		this.#maxRunningJobs = Math.max(1, Math.floor(options.maxRunningJobs ?? DEFAULT_MAX_RUNNING_JOBS));
 		this.#retentionMs = Math.max(0, Math.floor(options.retentionMs ?? DEFAULT_RETENTION_MS));
+		this.#retainedArtifactsCleanupGraceMs = Math.max(
+			0,
+			Math.floor(options.retainedArtifactsCleanupGraceMs ?? RETAINED_ARTIFACTS_CLEANUP_GRACE_MS),
+		);
+		this.#retainedArtifactsCleanupMaxWaitMs = Math.max(
+			0,
+			Math.floor(options.retainedArtifactsCleanupMaxWaitMs ?? RETAINED_ARTIFACTS_CLEANUP_MAX_WAIT_MS),
+		);
+		this.#consumedResultEvictionMs = Math.max(
+			0,
+			Math.floor(options.consumedResultEvictionMs ?? CONSUMED_RESULT_EVICTION_MS),
+		);
 	}
 
 	/** True when the running-job count has reached the configured cap. */
@@ -184,15 +310,15 @@ export class AsyncJobManager {
 	}
 
 	register(
-		type: "bash" | "task",
+		type: AsyncJobType,
 		label: string,
 		run: (ctx: {
 			jobId: string;
 			signal: AbortSignal;
-			reportProgress: (text: string, details?: Record<string, unknown>) => Promise<void>;
+			reportProgress: (text: string, details?: AsyncJobDetails) => Promise<void>;
 			/** Clear the queued flag once the job actually starts executing. */
 			markRunning: () => void;
-		}) => Promise<string>,
+		}) => Promise<string | AsyncJobRunResult>,
 		options?: AsyncJobRegisterOptions,
 	): string {
 		if (this.#disposed) {
@@ -229,7 +355,7 @@ export class AsyncJobManager {
 			queued: options?.queued === true,
 		};
 
-		const reportProgress = async (text: string, details?: Record<string, unknown>): Promise<void> => {
+		const reportProgress = async (text: string, details?: AsyncJobDetails): Promise<void> => {
 			if (details) job.latestDetails = details;
 			if (!options?.onProgress) return;
 			try {
@@ -243,7 +369,7 @@ export class AsyncJobManager {
 		};
 		job.promise = (async () => {
 			try {
-				const text = await run({
+				const outcome = await run({
 					jobId: id,
 					signal: abortController.signal,
 					reportProgress,
@@ -251,6 +377,9 @@ export class AsyncJobManager {
 						job.queued = false;
 					},
 				});
+				const text = typeof outcome === "string" ? outcome : outcome.text;
+				const structured = typeof outcome === "string" ? undefined : outcome.structured;
+				if (structured) job.structured = structured;
 				if (job.status === "cancelled") {
 					job.resultText = text;
 					this.#scheduleEviction(id);
@@ -261,6 +390,7 @@ export class AsyncJobManager {
 				this.#enqueueDelivery(id, text);
 				this.#scheduleEviction(id);
 			} catch (error) {
+				if (error instanceof AsyncJobError && error.structured) job.structured = error.structured;
 				if (job.status === "cancelled") {
 					job.errorText = error instanceof Error ? error.message : String(error);
 					this.#scheduleEviction(id);
@@ -290,7 +420,6 @@ export class AsyncJobManager {
 		if (job.status !== "running") return false;
 		job.status = "cancelled";
 		job.abortController.abort();
-		this.#scheduleEviction(id);
 		return true;
 	}
 
@@ -338,6 +467,7 @@ export class AsyncJobManager {
 		for (const jobId of uniqueJobIds) {
 			this.#watchedJobs.add(jobId);
 		}
+		this.#notifyDeliveryQueueChanged();
 		return uniqueJobIds.length;
 	}
 
@@ -353,12 +483,12 @@ export class AsyncJobManager {
 	}
 
 	/**
-	 * Compute the next adaptive ("smart") wait (ms) for a blocking `hub` wait by
-	 * the given owner. Consecutive polls — those starting within
-	 * POLL_ESCALATION_RESET_MS of the previous poll returning — climb
+	 * Compute the next adaptive wait window (ms) for a blocking `hub` wait by
+	 * the given owner. Consecutive waits — those starting within
+	 * POLL_ESCALATION_RESET_MS of the previous wait returning — climb
 	 * POLL_WAIT_LADDER_MS so a tight wait loop backs off; a longer gap means the
-	 * agent left to do real work, so the wait resets to the floor. Pair each call
-	 * with `recordPollWaitEnd()` once the wait returns.
+	 * agent left to do real work, so the window resets to the floor. Pair each
+	 * call with `recordPollWaitEnd()` once the wait returns.
 	 */
 	nextPollWaitMs(ownerId: string | undefined, now: number = Date.now()): number {
 		const prev = this.#pollEscalation.get(ownerId);
@@ -369,9 +499,9 @@ export class AsyncJobManager {
 	}
 
 	/**
-	 * Mark a blocking poll wait as finished so the idle-reset window is measured
-	 * from now. Polling again before POLL_ESCALATION_RESET_MS elapses keeps
-	 * climbing the ladder; waiting longer resets it to the floor.
+	 * Mark a blocking wait as finished so the idle-reset window is measured
+	 * from now. Waiting again before POLL_ESCALATION_RESET_MS elapses keeps
+	 * climbing the ladder; a longer gap resets it to the floor.
 	 */
 	recordPollWaitEnd(ownerId: string | undefined, now: number = Date.now()): void {
 		const prev = this.#pollEscalation.get(ownerId);
@@ -392,8 +522,10 @@ export class AsyncJobManager {
 			this.#deliveries.length,
 			...this.#deliveries.filter(delivery => !this.isDeliverySuppressed(delivery.jobId)),
 		);
+		this.#notifyDeliveryQueueChanged();
 		return before - this.#deliveries.length;
 	}
+
 	/**
 	 * Mark settled job results as recovered by a foreground snapshot.
 	 *
@@ -453,7 +585,6 @@ export class AsyncJobManager {
 		for (const job of this.getRunningJobs(filter)) {
 			job.status = "cancelled";
 			job.abortController.abort(reason);
-			this.#scheduleEviction(job.id);
 		}
 	}
 
@@ -624,8 +755,15 @@ export class AsyncJobManager {
 		const jobsSettled = await this.#waitForAllUntil(deadline);
 		const drained = await this.drainDeliveries({ timeoutMs: Math.max(deadline - Date.now(), 0) });
 		this.#clearEvictionTimers();
+		// Bypass the grace-period sleep: dispose has already drained/cancelled
+		// deliveries above, so there is nothing left for the model to read via
+		// `agent://<id>` — sleeping the retention window here would only leak
+		// temp dirs for up to `retainedArtifactsCleanupGraceMs` (or past
+		// process exit, since dispose does not await these cleanups).
+		for (const job of this.#jobs.values()) this.#runRetainedArtifactsCleanup(job, { bypassGrace: true });
 		this.#jobs.clear();
 		this.#deliveries.length = 0;
+		this.#notifyDeliveryQueueChanged();
 		this.#inFlightDeliveries.length = 0;
 		this.#suppressedDeliveries.clear();
 		this.#watchedJobs.clear();
@@ -634,18 +772,29 @@ export class AsyncJobManager {
 		this.#deliverySinks.clear();
 		return jobsSettled && drained;
 	}
-	#consumeJobResult(jobId: string, expectedJob?: AsyncJob): boolean {
+
+	#consumeJobResult(jobId: string): boolean {
 		const job = this.#jobs.get(jobId);
-		if (
-			!job ||
-			(expectedJob !== undefined && job !== expectedJob) ||
-			job.status === "running" ||
-			this.#consumedJobResults.has(jobId)
-		) {
-			return false;
-		}
+		if (!job || job.status === "running" || this.#consumedJobResults.has(jobId)) return false;
 		if (job.resultText === undefined && job.errorText === undefined) return false;
 		this.#consumedJobResults.add(jobId);
+		// The result reached its consumer (sink delivery or foreground snapshot):
+		// the row no longer needs to outlive the full retention window. Re-arm the
+		// eviction timer with the short consumed grace — but only when no delivery
+		// for this job is still queued or in flight. An in-flight delivery is an
+		// async-result entry parked on the owner's yield queue, and the foreground
+		// snapshot that consumed this result suppressed exactly that entry via
+		// #suppressedDeliveries; evicting now would clear that marker (#evictJob)
+		// before the queue's isStale check drains it, letting the already-consumed
+		// result inject a duplicate async-result follow-up. A parked entry keeps
+		// the full retention window instead. Clamping inside #scheduleEviction
+		// keeps a shorter configured retention the effective cap.
+		const deliveryPending =
+			this.#deliveries.some(delivery => delivery.jobId === jobId) ||
+			this.#inFlightDeliveries.some(delivery => delivery.jobId === jobId);
+		if (!deliveryPending) {
+			this.#scheduleEviction(jobId, this.#consumedResultEvictionMs);
+		}
 		return true;
 	}
 
@@ -674,28 +823,127 @@ export class AsyncJobManager {
 		return candidate;
 	}
 
+	/**
+	 * Fire a retained temporary artifacts cleanup exactly once, deferred
+	 * until this job's `async-result` delivery has settled (delivered,
+	 * dead-lettered, or given up retrying) plus a grace period. Job-row
+	 * eviction happens on its own timer independent of delivery — a still-
+	 * streaming owner session can leave a delivery in flight (its sink
+	 * awaits `yieldQueue.enqueueWithReceipt()`) well past the retention
+	 * window, and deleting the retained directory before that receipt
+	 * settles would advertise an `agent://` URL whose backing files are
+	 * already gone.
+	 * The receipt itself resolves at `ASIDE_MESSAGE_COMMIT` — when the
+	 * follow-up is inserted into the transcript, but *before* the next
+	 * provider call that actually shows it to the model (agent-loop fires
+	 * the commit hook, then starts the call). Running cleanup immediately
+	 * on settlement would delete the artifacts before the model's very next
+	 * turn has any chance to read the pointer via a tool call, so a grace
+	 * period covers that round trip.
+	 * Errors are logged, not thrown — a failed disposal must not block job
+	 * eviction or manager teardown.
+	 */
+	#runRetainedArtifactsCleanup(job: AsyncJob, options?: { bypassGrace?: boolean }): void {
+		const cleanup = job.retainedArtifactsCleanup;
+		if (!cleanup) return;
+		job.retainedArtifactsCleanup = undefined;
+		const jobId = job.id;
+		const bypassGrace = options?.bypassGrace === true;
+		void this.#waitForJobDeliverySettledBounded(jobId)
+			.then(() =>
+				!bypassGrace && this.#retainedArtifactsCleanupGraceMs > 0
+					? Bun.sleep(this.#retainedArtifactsCleanupGraceMs)
+					: undefined,
+			)
+			.then(cleanup)
+			.catch(error => {
+				logger.warn("Async job retained artifacts cleanup failed", {
+					jobId,
+					error: error instanceof Error ? error.message : String(error),
+				});
+			});
+	}
+
+	/**
+	 * Bounded variant of {@link #waitForJobDeliverySettled}: gives up and
+	 * resolves after {@link #retainedArtifactsCleanupMaxWaitMs} even if the
+	 * delivery sink never settles (e.g. a yield-queue receipt whose owning
+	 * session is gone) so a hung sink cannot leak the retained temp
+	 * directory for the process lifetime (PR #10625 review). The unbounded
+	 * wait keeps running in the background after the bound trips; it is
+	 * harmless once orphaned since cleanup no longer depends on it.
+	 */
+	async #waitForJobDeliverySettledBounded(jobId: string): Promise<void> {
+		const timedOut = Promise.withResolvers<true>();
+		const timer = setTimeout(() => timedOut.resolve(true), this.#retainedArtifactsCleanupMaxWaitMs);
+		timer.unref();
+		try {
+			const timedOutFirst = await Promise.race([
+				this.#waitForJobDeliverySettled(jobId).then(() => false as const),
+				timedOut.promise,
+			]);
+			if (timedOutFirst) {
+				logger.warn(
+					"Async job delivery did not settle before the retained artifacts cleanup bound; running cleanup anyway",
+					{
+						jobId,
+						maxWaitMs: this.#retainedArtifactsCleanupMaxWaitMs,
+					},
+				);
+			}
+		} finally {
+			clearTimeout(timer);
+		}
+	}
+
+	/**
+	 * Resolve once no delivery for `jobId` is queued or in flight. Loops
+	 * because a failed in-flight attempt may requeue itself for retry;
+	 * terminates once the delivery succeeds, is dead-lettered (no live
+	 * sink), or stops retrying (job already evicted from `#jobs`).
+	 */
+	async #waitForJobDeliverySettled(jobId: string): Promise<void> {
+		for (;;) {
+			const inFlight = this.#inFlightDeliveries.find(delivery => delivery.jobId === jobId);
+			if (inFlight) {
+				await inFlight.promise?.catch(() => {});
+				continue;
+			}
+			const queued = this.#deliveries.find(delivery => delivery.jobId === jobId);
+			if (!queued) return;
+			this.#ensureDeliveryLoop();
+			await this.#waitForDeliveryQueueChange(Math.max(50, queued.nextAttemptAt - Date.now()));
+		}
+	}
+
 	#evictJob(jobId: string): boolean {
 		clearTimeout(this.#evictionTimers.get(jobId));
 		this.#evictionTimers.delete(jobId);
 		this.#suppressedDeliveries.delete(jobId);
 		this.#watchedJobs.delete(jobId);
 		this.#consumedJobResults.delete(jobId);
+		const job = this.#jobs.get(jobId);
+		if (job) this.#runRetainedArtifactsCleanup(job);
 		return this.#jobs.delete(jobId);
 	}
 
-	#scheduleEviction(jobId: string): void {
+	/**
+	 * Arm (or re-arm) this job's eviction timer. The default delay is the full
+	 * retention window; a consumed result passes the shorter
+	 * {@link #consumedResultEvictionMs}. The delay is clamped to the configured
+	 * retention so an explicit short retention always stays the effective cap.
+	 */
+	#scheduleEviction(jobId: string, delayMs: number = this.#retentionMs): void {
 		if (this.#disposed) return;
 		if (this.#retentionMs <= 0) {
 			this.#evictJob(jobId);
 			return;
 		}
-		const existing = this.#evictionTimers.get(jobId);
-		if (existing) {
-			clearTimeout(existing);
-		}
+		const delay = Math.max(0, Math.min(this.#retentionMs, delayMs));
+		clearTimeout(this.#evictionTimers.get(jobId));
 		const timer = setTimeout(() => {
 			this.#evictJob(jobId);
-		}, this.#retentionMs);
+		}, delay);
 		timer.unref();
 		this.#evictionTimers.set(jobId, timer);
 	}
@@ -743,13 +991,14 @@ export class AsyncJobManager {
 			const now = Date.now();
 			if (selected.nextAttemptAt > now) {
 				if (selected.nextAttemptAt > deadline) return false;
-				await Bun.sleep(selected.nextAttemptAt - now);
+				await this.#waitForDeliveryQueueChange(selected.nextAttemptAt - now);
 				continue;
 			}
 
 			const index = this.#deliveries.indexOf(selected);
 			if (index === -1) continue;
 			this.#deliveries.splice(index, 1);
+			this.#notifyDeliveryQueueChanged();
 			if (this.isDeliverySuppressed(selected.jobId)) continue;
 
 			return this.#waitForDeliveryPromise(this.#deliverDelivery(selected), deadline);
@@ -766,14 +1015,23 @@ export class AsyncJobManager {
 			return;
 		}
 		const job = this.#jobs.get(jobId);
-		if (!job) return;
-		this.#deliveries.push({
+		this.#queueDelivery({
 			jobId,
-			job,
 			text,
 			attempt: 0,
 			nextAttemptAt: Date.now(),
-			ownerId: job.ownerId,
+			ownerId: job?.ownerId,
+			jobSnapshot: job
+				? {
+						type: job.type,
+						status: job.status,
+						startTime: job.startTime,
+						label: job.label,
+						structured: job.structured,
+						agentId: job.agentId,
+						latestDetails: job.latestDetails,
+					}
+				: undefined,
 		});
 		this.#ensureDeliveryLoop();
 	}
@@ -804,7 +1062,8 @@ export class AsyncJobManager {
 			}
 			const waitMs = delivery.nextAttemptAt - Date.now();
 			if (waitMs > 0) {
-				await Bun.sleep(waitMs);
+				await this.#waitForDeliveryQueueChange(waitMs);
+				continue;
 			}
 			if (this.#deliveries[0] !== delivery) {
 				continue;
@@ -848,15 +1107,26 @@ export class AsyncJobManager {
 		}
 		const promise = (async () => {
 			this.#inFlightDeliveries.push(delivery);
+			let delivered = false;
 			try {
-				await sink(delivery.jobId, delivery.text, delivery.job);
-				this.#consumeJobResult(delivery.jobId, delivery.job);
+				await sink(
+					delivery.jobId,
+					delivery.text,
+					this.#jobs.get(delivery.jobId) ?? this.#reconstructEvictedJob(delivery),
+				);
+				delivered = true;
+				// A foreground snapshot may have consumed this result while the
+				// sink receipt was parked. The receipt has now settled, so the
+				// suppression tombstone no longer needs the full retention window.
+				if (this.#consumedJobResults.has(delivery.jobId) && this.#jobs.has(delivery.jobId)) {
+					this.#scheduleEviction(delivery.jobId, this.#consumedResultEvictionMs);
+				}
 			} catch (error) {
 				delivery.attempt += 1;
 				delivery.lastError = error instanceof Error ? error.message : String(error);
 				delivery.nextAttemptAt = Date.now() + this.#getRetryDelay(delivery.attempt);
-				if (!this.isDeliverySuppressed(delivery.jobId) && this.#jobs.get(delivery.jobId) === delivery.job) {
-					this.#deliveries.push(delivery);
+				if (!this.isDeliverySuppressed(delivery.jobId) && this.#jobs.has(delivery.jobId)) {
+					this.#queueDelivery(delivery);
 				}
 				logger.warn("Async job completion delivery failed", {
 					jobId: delivery.jobId,
@@ -869,9 +1139,63 @@ export class AsyncJobManager {
 				if (index !== -1) this.#inFlightDeliveries.splice(index, 1);
 				if (this.#deliveries.length > 0) this.#ensureDeliveryLoop();
 			}
+			// A normally delivered result is consumed only after the attempt left
+			// #inFlightDeliveries, so it can arm the short eviction grace.
+			if (delivered && !this.#consumedJobResults.has(delivery.jobId)) {
+				this.#consumeJobResult(delivery.jobId);
+			}
 		})();
 		delivery.promise = promise;
 		return promise;
+	}
+
+	/**
+	 * Rebuild a minimal {@link AsyncJob} from a delivery's enqueue-time
+	 * snapshot when the live job row was already evicted by the time this
+	 * delivery attempt runs (retention elapsed while delivery kept retrying).
+	 * Lets the sink still render `type`/`label`/`structured` instead of
+	 * silently losing them, matching what `job.resultText` would have carried
+	 * had the row survived.
+	 */
+	#reconstructEvictedJob(delivery: AsyncJobDelivery): AsyncJob | undefined {
+		const snapshot = delivery.jobSnapshot;
+		if (!snapshot) return undefined;
+		return {
+			id: delivery.jobId,
+			type: snapshot.type,
+			status: snapshot.status,
+			startTime: snapshot.startTime,
+			label: snapshot.label,
+			abortController: new AbortController(),
+			promise: Promise.resolve(),
+			resultText: delivery.text,
+			structured: snapshot.structured,
+			agentId: snapshot.agentId,
+			latestDetails: snapshot.latestDetails,
+		};
+	}
+
+	#queueDelivery(delivery: AsyncJobDelivery): void {
+		const index = this.#deliveries.findIndex(candidate => candidate.nextAttemptAt > delivery.nextAttemptAt);
+		if (index === -1) this.#deliveries.push(delivery);
+		else this.#deliveries.splice(index, 0, delivery);
+		this.#notifyDeliveryQueueChanged();
+	}
+
+	async #waitForDeliveryQueueChange(delayMs: number): Promise<void> {
+		const timerElapsed = Promise.withResolvers<void>();
+		const timer = setTimeout(timerElapsed.resolve, delayMs);
+		timer.unref();
+		try {
+			await Promise.race([timerElapsed.promise, this.#deliveryQueueChanged.promise]);
+		} finally {
+			clearTimeout(timer);
+		}
+	}
+
+	#notifyDeliveryQueueChanged(): void {
+		this.#deliveryQueueChanged.resolve();
+		this.#deliveryQueueChanged = Promise.withResolvers<void>();
 	}
 
 	async #waitForDeliveryPromise(promise: Promise<void> | undefined, deadline: number): Promise<boolean> {

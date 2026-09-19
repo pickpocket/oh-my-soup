@@ -79,7 +79,6 @@ export async function openInEditor(
 			windowsVerbatimArguments: spawnCommand.windowsVerbatimArguments,
 		});
 		const exitCode = await child.exited;
-
 		if (exitCode === 0) {
 			const text = await Bun.file(tmpFile).text();
 			if (options?.trimTrailingNewline === false) {

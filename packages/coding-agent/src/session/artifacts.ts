@@ -53,6 +53,7 @@ export async function writeArtifact(path: string, content: string): Promise<numb
 	return expectedBytes;
 }
 
+
 /**
  * Manages artifact storage for a session.
  *

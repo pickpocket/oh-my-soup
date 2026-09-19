@@ -1,248 +1,132 @@
-# browser
+# Browser Eval prelude
 
-> Open, reuse, close, and script browser tabs against headless Camoufox (stealth Firefox over WebDriver BiDi), CDP-attached apps, the user's Chrome through the OMS Browser Relay, or cmux surfaces.
+The Eval `browser` facade opens, reuses, scripts, and closes named Chromium, Electron, CDP, relay, or cmux tabs. Use [`read`](./read.md) for static URLs; use `browser` for authenticated state, JavaScript execution, or interaction.
 
 ## Source
-- Entry: `packages/coding-agent/src/tools/browser.ts`
+
+- Host facade: `packages/coding-agent/src/tools/browser.ts`
+- JavaScript/Python facades: `packages/coding-agent/src/tools/browser/prelude.{js,py}`
 - Model-facing prompt: `packages/coding-agent/src/prompts/tools/browser.md`
-- Key collaborators:
-  - `packages/coding-agent/src/tools/browser/tab-supervisor.ts` — global tab registry; worker lifecycle; run/close coordination.
-  - `packages/coding-agent/src/tools/browser/tab-worker.ts` — executes `run` code; implements the `tab` helper API; owns the per-tab Camoufox engine for headless tabs.
-  - `packages/coding-agent/src/tools/browser/tab-worker-entry.ts` — worker-thread transport bootstrap.
-  - `packages/coding-agent/src/tools/browser/registry.ts` — browser-handle registry keyed by browser kind; virtual (pid-only) handles for headless.
-  - `packages/coding-agent/src/tools/browser/launch.ts` — Puppeteer loading, Camoufox engine resolution/download (camoufox-js pkgman), per-browser fingerprint spec generation, BiDi launch.
-  - `packages/coding-agent/src/tools/browser/attach.ts` — CDP attach/reuse, target picking, spawned-app process handling.
-  - `packages/coding-agent/src/tools/browser/tab-protocol.ts` — worker init/run/result message schema.
-  - `packages/coding-agent/src/tools/browser/readable.ts` — `tab.extract()` readability extraction.
-  - `packages/coding-agent/src/tools/browser/aria/aria-snapshot.ts` — `captureAriaSnapshot()` (puppeteer/CDP path) and `buildAriaSnapshotScript()` (cmux path); imports the committed `aria-snapshot.bundle.txt`.
-  - `packages/coding-agent/src/tools/browser/aria/aria-snapshot.bundle.txt` — generated, committed artifact: Playwright's injected ARIA-snapshot sources (Apache-2.0, (c) Microsoft; ARIA tree + W3C accessible-name computation) bundled to a CJS module. Upstream sources are not vendored into the repo.
-  - `packages/coding-agent/scripts/generate-aria-snapshot.ts` — fetches the pinned Playwright sources to a temp dir and bundles them into `aria-snapshot.bundle.txt` (CJS, browser target). Dev-time, network-bound; only the bundle is committed.
-  - `packages/coding-agent/src/tools/browser/cmux/rpc.ts` — cmux browser-kind resolution plus snapshot/eval/wait-state helpers for the cmux backend.
-  - `packages/coding-agent/src/tools/browser/cmux/socket-client.ts` — `CmuxSocketClient`: JSON-RPC over the cmux unix socket.
-  - `packages/coding-agent/src/tools/browser/cmux/cmux-tab.ts` — `CmuxTab` surface helper API and `runCmuxCode()` execution path.
-  - `packages/coding-agent/src/tools/browser/relay/kind.ts` — relay setting/env resolution and default endpoint.
-  - `packages/coding-agent/src/tools/browser/relay/daemon.ts` — machine-global broker-owned relay auto-start.
-  - `packages/coding-agent/src/tools/browser/relay/{server,bridge,protocol}.ts` — loopback CDP facade and Chrome-extension protocol bridge.
-  - `packages/coding-agent/src/eval/js/shared/runtime.ts` — shared `JsRuntime` that executes `run` code (same engine as the `eval` JS tool); both the worker and cmux backends delegate to it.
-  - `packages/coding-agent/src/tools/browser/readable.ts` — `tab.extract()` readability extraction.
+- Tab lifecycle: `packages/coding-agent/src/tools/browser/tab-supervisor.ts`
+- Browser worker and inner tab API: `packages/coding-agent/src/tools/browser/tab-worker.ts`
+- Browser registry and launch modes: `packages/coding-agent/src/tools/browser/{registry,launch,attach}.ts`
+- Relay: `packages/coding-agent/src/tools/browser/relay/`
+- Cmux backend: `packages/coding-agent/src/tools/browser/cmux/`
 
-## Inputs
+The prelude exists only while Eval and `browser.enabled` are enabled. It is not an AgentTool.
 
-### Shared fields
+## JavaScript API
 
-| Field | Type | Required | Description |
-| --- | --- | --- | --- |
-| `action` | `"open" \| "close" \| "run"` | Yes | Dispatches to the open/close/run path. |
-| `name` | `string` | No | Tab id. Defaults to `"main"`. Tabs live in a process-global map, so the same name is reused across later calls and in-process subagents until closed. |
-| `timeout` | `number` | No | Tool wall-clock timeout in seconds. Defaults to `30`; clamped to the browser tool range before execution. |
+```js
+const tab = await browser.open({
+  name: "main",
+  url: "https://example.com",
+  wait_until: "load",
+});
 
-### `action: "open"`
+const observation = await tab.observe();
+await tab.id(observation.elements[0].id).click();
+const title = await tab.title();
 
-| Field | Type | Required | Description |
-| --- | --- | --- | --- |
-| `url` | `string` | No | Navigate after the tab is ready. Existing reusable tabs also navigate when `url` is supplied. |
-| `viewport` | `{ width: number; height: number; scale?: number }` | No | Requested viewport. For headless launch this becomes the initial viewport; for a page it is applied with `page.setViewport()`. `scale` maps to Puppeteer `deviceScaleFactor`. |
-| `wait_until` | `"load" \| "domcontentloaded" \| "networkidle0" \| "networkidle2"` | No | Navigation wait condition. Defaults to `"load"` where omitted, including `open` navigation and later `tab.goto(...)`. |
-| `dialogs` | `"accept" \| "dismiss"` | No | Installs a page `dialog` handler that auto-accepts or auto-dismisses dialogs. Omitted means no handler. |
-| `app` | `{ path?: string; cdp_url?: string; relay?: boolean; args?: string[]; target?: string }` | No | Selects browser kind. Explicit `app.cdp_url` wins, then `app.path`, then relay selection. `app.relay: true` opts into the OMS Browser Relay; `app.relay: false` suppresses relay settings for this call. With no explicit app kind, `browser.relay` (overridden by `PI_BROWSER_RELAY`) precedes `browser.cdpUrl`, then cmux when available, then `browser.headless`. `browser.relayUrl` defaults to `http://127.0.0.1:9224`. `args` apply only to spawned `app.path`; `target` selects an attached/spawned/relay page by URL/title substring. |
+const length = await tab.run(
+  async ({ tab }, suffix) => (await tab.title() + suffix).length,
+  { args: ["!"], timeout: 30 },
+);
 
-### `action: "close"`
+await tab.close();
+```
 
-| Field | Type | Required | Description |
-| --- | --- | --- | --- |
-| `all` | `boolean` | No | Close every known tab. Omitted closes only `name`. |
-| `kill` | `boolean` | No | When a tab release drops a spawned-app browser handle to refcount 0, also terminate its process tree. Has no effect on headless shutdown and only disconnects connected CDP browsers. |
+- `browser.open(options?) -> Promise<BrowserTab>` opens or reuses a named tab and returns its handle.
+- `browser.tab(name = "main") -> BrowserTab` returns an existing handle; it does not open a tab.
+- `browser.close({ name?, all?, kill?, timeout? }) -> Promise<void>` releases one or all managed tabs.
+- `tab.close({ kill?, timeout? }) -> Promise<void>` releases that handle's tab.
 
-### `action: "run"`
+`open` accepts `name`, `url`, `viewport`, `wait_until`, `dialogs`, `app`, and `timeout`. `timeout` is in seconds, defaults to 30, and is clamped to 1–300.
 
-| Field | Type | Required | Description |
-| --- | --- | --- | --- |
-| `code` | `string` | Yes | Async-function body executed by the shared `JsRuntime` (`src/eval/js/shared/runtime.ts`, the same engine as the `eval` JS tool). In scope: browser-specific `page`, `browser`, `tab`, `assert(cond, msg?)`, and `wait(ms)`, plus the runtime prelude helpers (`display`, `print`, `read`, `write`, `append`, `tree`, `env`, `tool`, `completion`, `agent`, `parallel`, `pipeline`, `log`, `phase`, `budget`, ...) and ambient Bun globals (`console`, timers, `URL`, `TextEncoder`/`TextDecoder`, `Buffer`). |
+### Direct tab helpers
 
-## Outputs
-The tool returns one result per call; no streaming partial output is emitted from the browser implementation itself.
+Direct helpers cross the host bridge and return real structured values:
 
-- `open`: text content with `Opened` or `Reused`, browser description, URL, and optional title. `details` includes `action`, `name`, `browser`, `url`, `viewport`, and the same text in `details.result`.
-- `close`: text content with either `Closed ...` or `No tab named ...`. `details` includes `action`, `name`, and `details.result`.
-- `run`: ordered `content` array built as:
-  1. every structured display output in execution order (object/image `display(value)` calls plus helper status events),
-  2. final return value, JSON-stringified unless already a string,
-  3. or `Ran code on tab "..."` if nothing else was produced.
-- `display(value)` is handled by the shared runtime's `displayValue()` (`src/eval/js/shared/runtime.ts`), then mapped to content by `WorkerCore.#pushDisplay()` (`packages/coding-agent/src/tools/browser/tab-worker.ts`):
-  - `{ type: "image", data, mimeType }` with decodable base64 becomes image content; an unrecognized `data` shape is dropped with a debug note.
-  - any other object/array becomes pretty JSON text (`JSON.stringify(value, null, 2)`); a value that is not structured-cloneable is dropped with a debug note.
-  - helper side effects (`read`/`write`/`tree`/...) emit `status` events that surface as compact JSON text.
-  - primitive `display(value)` (string/number/...) and `console.*` flow to the text channel, which the worker forwards as debug logs rather than tool content; `undefined` is ignored.
-- `tab.screenshot()` also appends text plus an image content item unless `silent: true`; `details.screenshots` records persisted screenshot metadata `{ dest, mimeType, bytes, width, height }`.
-- `run` `details` includes `action`, `name`, current `browser`/`url` when the tab exists, optional `screenshots`, and `details.result` containing only the concatenated text outputs. Combined run text is capped at the inline byte limit via `enforceInlineByteCap()`; over-cap text is saved as a session artifact (`saveBrowserOutputArtifact()`) and the capped text replaces it in content and `details.result`.
+- Navigation: `url()`, `title()`, `goto(url, { waitUntil? })`
+- Inspection: `observe({ includeAll?, viewportOnly? })`, `ariaSnapshot(selector?, { depth?, boxes? })`, `screenshot({ selector?, fullPage?, silent? })`, `extract("markdown" | "text")`
+- Interaction: `click(selector)`, `type(selector, text)`, `fill(selector, value)`, `press(key, { selector? })`, `scroll(dx, dy)`, `drag(from, to)`, `scrollIntoView(selector)`, `select(selector, ...values)`, `uploadFile(selector, ...paths)`
+- Waiting: `waitFor(selector, { timeout? })`, `waitForSelector(selector, { timeout?, visible?, hidden? })`, `waitForUrl(stringOrRegExp, { timeout? })`
+- Page execution: `evaluate(fnOrSource, ...args)`
 
-## Flow
-1. `BrowserTool.execute()` (`packages/coding-agent/src/tools/browser.ts`) abort-checks, clamps `timeout` via `clampTimeout("browser", ...)`, defaults `name` to `"main"`, and dispatches on `action`.
-2. `open` resolves browser kind with `resolveBrowserKind()`:
-   - `app.cdp_url` → `{ kind: "connected" }` after trimming trailing slashes.
-   - `app.path` → `{ kind: "spawned" }` after resolving against session cwd.
-   - `app.relay: true` → relay mode unless `PI_BROWSER_RELAY=0` disables it.
-   - otherwise, unless `app.relay === false`, `browser.relay` selects relay mode; `PI_BROWSER_RELAY=0|1` is the final setting override and `browser.relayUrl` supplies the endpoint.
-   - otherwise, a non-empty `browser.cdpUrl` setting → `{ kind: "connected" }`.
-   - otherwise, `resolveCmuxKind()` → `{ kind: "cmux", socketPath, password?, surface? }` when `CMUX_SOCKET_PATH` is set and cmux is enabled (`browser.cmux`, overridable by `PI_BROWSER_CMUX`).
-   - otherwise → `{ kind: "headless", headless: session.settings.get("browser.headless") }`.
-3. `open` rejects reusing the same tab name across different browser kinds (`sameBrowserKind()`); callers must close first.
-4. `open` acquires a browser handle through `acquireBrowser()` (`packages/coding-agent/src/tools/browser/registry.ts`):
-   - existing connected handle is reused by browser-kind key;
-   - stale disconnected handles are disposed and recreated;
-   - headless returns a virtual per-tab handle (never cached or shared — the tab worker will launch its own Camoufox engine with a fresh BrowserForge fingerprint);
-   - `connected` waits for `${cdpUrl}/json/version`, then `puppeteer.connect()`;
-   - `relay` auto-starts the machine-global broker-owned server for loopback endpoints in CLI hosts, waits up to 35 seconds for the extension handshake, then attaches through Puppeteer. Remote endpoints and non-CLI hosts must already be serving;
-   - `spawned` first tries `findReusableCdp()`, else kills same-path processes, allocates a free loopback port, spawns the executable with `--remote-debugging-port=<port>`, waits for CDP, then connects;
-   - `cmux` connects a `CmuxSocketClient` to the cmux unix socket; existing cmux handles are reused unconditionally (no connection-liveness recheck).
-5. `open` acquires a tab through `acquireTab()` (`packages/coding-agent/src/tools/browser/tab-supervisor.ts`):
-   - same-name + same-browser + alive tab is reused unless `dialogs` changed;
-   - same-name but different browser handle, dead state, or changed dialog policy forces release and recreation;
-   - reusing with a new `url` navigates by issuing `await tab.goto(...)` through the worker, defaulting to `waitUntil: "load"` when `wait_until` is omitted.
-6. New tabs build a `WorkerInitPayload` in `buildInitPayload()`:
-   - headless mode sends `headless`, `url`, `waitUntil`, `viewport`, `dialogs`, and timeout; the worker launches its own Camoufox engine over WebDriver BiDi (Playwright/Juggler was not an option: its fd 3/4 pipe transport is unimplemented in Bun — oven-sh/bun#4670).
-   - attached, spawned, and relay modes resolve a page with `pickElectronTarget()`, get its target id, and send `targetId` plus `dialogs`. When no `target` is supplied for connected/relay mode, target selection prefers the visible usable page and screenshots do not activate it; an explicit matcher may select and activate a background page for target-correct pixels.
-7. `acquireTab()` spawns a dedicated Bun `Worker` from `tab-worker-entry.ts`; if that fails it falls back to inline execution in the main thread (`spawnInlineWorker()`), preserving behavior but losing protection against synchronous infinite loops.
-8. `WorkerCore.#init()` (`packages/coding-agent/src/tools/browser/tab-worker.ts`) prepares the page. Headless mode launches Camoufox via puppeteer's BiDi support, adopts the initial tab (`browser.newPage()` hangs over BiDi on Camoufox — `browsingContext.create` never resolves), applies an explicit viewport if requested (no default: Camoufox pins its window to the spoofed screen), installs dialog handling if requested, and optionally navigates; the engine pid is reported back in the ready info for registry teardown. Attach mode connects to the browser websocket endpoint, resolves the requested target page, and optionally installs dialog handling.
-9. On success the worker sends `ready` with `{ url, title, viewport, targetId }`; the supervisor stores a `TabSession`, increments browser-handle refcount with `holdBrowser()`, and keeps the tab in a process-global `Map<string, TabSession>`.
-10. `run` requires non-empty `code`, looks up the tab with `getTab()`, then delegates to `runInTab()`.
-11. `runInTabWithSnapshot()` rejects dead tabs and concurrent runs (`Tab ... is busy`), captures session cwd plus optional `browser.screenshotDir`, registers an abort hook, sends a `run` message to the worker, and races the result against `timeoutMs + 750` ms. Timeouts force-kill the tab worker and, for headless tabs, close the orphaned page target.
-12. `WorkerCore.#run()` builds the `tab` API, lazily creates a shared `JsRuntime` via `#ensureRuntime()`, injects `page`/`browser`/`tab`/`assert`/`wait` with `runtime.setRunScope()`, and executes the user code through `runtime.run(code, ...)` raced against a cancel/timeout rejection. Cmux tabs take a parallel path through `runCmuxCode()`, which drives the same `JsRuntime`.
-13. The `tab` helper API implemented in `#createTabApi()` is:
-   - `tab.name: string`
-   - `tab.page: Page`
-   - `tab.signal?: AbortSignal`
-   - `tab.url(): string`
-   - `tab.title(): Promise<string>`
-   - `tab.goto(url, { waitUntil? })`
-   - `tab.observe({ includeAll?, viewportOnly? })`
-   - `tab.ariaSnapshot(selector?, { depth?, boxes? })`
-   - `tab.ref(id)`
-   - `tab.screenshot({ selector?, fullPage?, save?, silent? })`
-   - `tab.extract(format = "markdown")`
-   - `tab.click(selector)`
-   - `tab.type(selector, text)`
-   - `tab.fill(selector, value)`
-   - `tab.press(key, { selector? })`
-   - `tab.scroll(deltaX, deltaY)`
-   - `tab.drag(from, to)`
-   - `tab.waitFor(selector, { timeout? })`
-   - `tab.evaluate(fn, ...args)`
-   - `tab.scrollIntoView(selector)`
-   - `tab.select(selector, ...values)`
-   - `tab.uploadFile(selector, ...filePaths)`
-   - `tab.waitForUrl(pattern, { timeout? })`
-   - `tab.waitForResponse(pattern, { timeout? })`
-   - `tab.waitForSelector(selector, { timeout?, visible?, hidden? })`
-   - `tab.waitForNavigation({ waitUntil?, timeout? })`
-   - `tab.id(n)`
-   - `tab.ref(id)`
-14. Selector handling in `normalizeSelector()` accepts plain CSS and Puppeteer query handlers, and rewrites legacy Playwright-style prefixes `p-text/`, `p-xpath/`, `p-pierce/`, `p-aria/`; other `p-*` prefixes throw a `ToolError`. Playwright-only engines/pseudos (`:has-text()`, `:text()`, `:visible`, `:nth-match()`, `:near()`/`:above()`/…) on a CSS selector throw a `ToolError` pointing at the `text/`/`aria/` equivalents instead of stalling the action timeout.
-15. `tab.observe()` clears the element cache, then takes a Puppeteer accessibility snapshot (CDP attach pages) or — on Camoufox/BiDi, which has no AX tree — an in-page interactive-element scan (`#scanObservationDom`), filters to interactive nodes unless `includeAll`, optionally filters to viewport-visible nodes, assigns numeric ids, caches `ElementHandle`s, and returns URL/title/viewport/scroll metadata plus `elements`.
-15a. `tab.ariaSnapshot()` resolves the optional `selector` (via `normalizeSelector()` → `page.$`, defaulting to the whole document) and runs the generated Playwright ARIA-snapshot bundle (`src/tools/browser/aria/aria-snapshot.bundle.txt`) via `captureAriaSnapshot()`. The bundle is wrapped in a `new Function` built worker-side (so page CSP never applies) and serialized to a CDP `page.evaluate` in the page's **main world**, returning Playwright-format YAML. It always runs in `ai` mode: every node gets a `[ref=eN]` id, clickables get `[cursor=pointer]`, and matched DOM nodes are tagged with an `_ariaRef` expando. Existing `_ariaRef` expandos are cleared before each snapshot so ids renumber deterministically from e1 (the fresh module's counter resets each call); refs stay valid until the next snapshot. The cmux backend uses `buildAriaSnapshotScript()` over `browser.eval` instead (no `ElementHandle`; CSS selectors only for the root).
-16. `tab.id(n)` resolves the cached `ElementHandle`, verifies `el.isConnected`, and throws a stale-id error after cache invalidation if the DOM changed or the cache was cleared.
-16a. `tab.ref(id)` resolves a `[ref=eN]` id from the latest `ariaSnapshot()` to a live `ElementHandle` via `resolveAriaRefHandle()` (`page.evaluateHandle` in the main world, walking the document + shadow roots for the matching `_ariaRef`), throwing if no element matches; it accepts a bare `eN` or a prefixed form. Selector helpers recognize `aria-ref=eN`, `aria-ref/eN`, `ariaref/eN`, bare `eN`, and `@eN`. The cmux backend interprets bare `eN` in its own observation-id namespace; in either backend an `eN` selector means the id from the latest page dump.
-17. `tab.goto()` clears the cached element ids before navigating. Any new `tab.observe()` also clears and rebuilds the cache.
-18. `tab.click()` uses a custom retry loop for `text/...` selectors to find an actionable visible match; other selectors use `page.locator(...).click()`. Interactive actions (`click`/`fill`/`type`/`press`/`scroll`/`drag`/`scrollIntoView`/`select`/`uploadFile`) and the `waitFor*` helpers run under a per-op deadline (`min(cellBudget − slack, ceiling)`) threaded into both the puppeteer `signal` and `.setTimeout()`, so a stalled helper aborts the CDP action and rejects with a named `tab.<op> timed out after <ms>ms` that leaves cell budget — never the opaque whole-cell timeout. `goto`/`evaluate` stay uncapped.
-19. `tab.screenshot()` captures either the whole page or a selector PNG, downsizes a copy for model output, chooses a persistence path, writes the image to disk, records metadata, and optionally emits text + image display entries.
-20. `display()` calls accumulate in an array. After code finishes, the worker posts `{ displays, returnValue, screenshots }`; `BrowserTool.#run()` appends the return value as trailing text content when not `undefined`.
-21. `close` releases one tab or all tabs via `releaseTab()` / `releaseAllTabs()`. Each tab aborts pending runs, asks the worker to close, waits up to `750` ms for a `closed` ack, terminates the worker, decrements browser refcount, and disposes the browser handle when refcount reaches zero.
+Direct `waitFor` and `waitForSelector` return booleans. `tab.id(number)` and `tab.ref("e5")` instead return `BrowserElement` handles. Handles support `click`, `type`, `fill`, `press`, `hover`, `focus`, `select`, `uploadFile`, `scrollIntoView`, `boundingBox`, `isVisible`, `isHidden`, and `evaluate`. A string passed to `BrowserElement.evaluate` is a function expression invoked with the element as its first argument.
 
-## Modes / Variants
-- **Action dispatch**
-  - `open` — acquire/reuse browser + tab.
-  - `close` — release one tab or all tabs.
-  - `run` — execute JS inside the tab worker.
-- **Browser kind**
-  - **Headless**: each tab worker launches its own Camoufox (stealth-patched Firefox) engine over WebDriver BiDi with a fresh per-tab fingerprint; anti-detection happens in the engine's C++ layer, not via injected JavaScript. `tab.observe()` uses a DOM interactive scan (no CDP AX tree on BiDi); `tab.evaluate` runs in the page's main world via `mainRealm()`; `aria/Name` selectors resolve through an in-page accname engine.
-  - **Spawned app (`app.path`)**: reuses an existing CDP-enabled process for that executable when possible; otherwise kills same-path processes, spawns the executable with remote debugging enabled, then attaches.
-  - **Connected browser (`app.cdp_url`, or the `browser.cdpUrl` setting when the call carries no `app`)**: attaches to an already-running CDP endpoint. No process ownership; close only disconnects.
-  - **OMS Browser Relay (`app.relay`, or `browser.relay`)**: attaches to the user's own Chrome tabs through the loopback relay and its MV3 extension. Install once with `oms browser-relay install`. CLI hosts auto-start the fixed-port relay daemon for loopback URLs; a remote/custom relay must already be serving. The relay is a connected browser: no process ownership. Without `app.target`, the visible usable tab is adopted without raising it; a matcher selects by URL/title substring.
-  - **Cmux surface (`browser.cmux`)**: with no `app` and a cmux socket available (`CMUX_SOCKET_PATH`, enabled by the `browser.cmux` setting / `PI_BROWSER_CMUX` override), drives a cmux WKWebView surface over a unix-socket JSON-RPC client instead of Puppeteer. No Bun worker; `open` opens a split (owning that surface), `run` executes via `runCmuxCode()`, and `close` issues `surface.close` for surfaces it owns (leaving the workspace's last surface open).
-- **Target selection for attached/spawned/relay browsers**
-  - With `app.target`, `pickElectronTarget()` returns the first page whose URL or title contains the case-insensitive substring.
-  - Without `app.target`, it skips titles/URLs matching `request handler|devtools|background page|background host|service worker` and otherwise falls back to the first page.
-- **Worker mode**
-  - **Dedicated worker**: normal path; user code runs off the main thread and can be aborted even when it blocks synchronously.
-  - **Inline fallback**: activated when Bun worker spawn fails; behavior matches, but synchronous infinite loops on user code cannot be interrupted.
-- **Dialog policy**
-  - No `dialogs` field: no auto-handler.
-  - `accept`/`dismiss`: page `dialog` events are handled automatically.
-  - Changing dialog policy on an existing live tab forces tab recreation instead of mutating the worker in place.
-- **Screenshot persistence**
-  - `save` provided: persist full-resolution PNG at the resolved cwd-relative or absolute path.
-  - `browser.screenshotDir` session setting set: persist full-resolution PNG under that directory with a timestamped filename.
-  - Neither set: persist the resized image to a temp-file path under the OS temp dir.
+Selectors accept CSS and Puppeteer `aria/…`, `text/…`, `xpath/…`, and `pierce/…` query handlers. Playwright-only pseudos such as `:has-text()` and `:visible` are rejected. `tab.select` is required for `<select>` elements; `tab.fill` does not support them.
 
-## Side Effects
-- Filesystem
-  - `loadPuppeteer()` writes `{}` to `<puppeteer-safe-dir>/package.json` before importing `puppeteer-core`.
-  - First headless use downloads the Camoufox engine (~490 MB) into `getCamoufoxDir()` (`~/.oms/camoufox`), sha256-verified via camoufox-js's pkgman.
-  - `tab.screenshot()` creates parent directories and writes image files.
-  - `tab.uploadFile()` resolves supplied paths against the session cwd.
-- Network
-  - CDP attach paths poll `http://127.0.0.1:<port>/json/version` or the supplied `cdp_url` `/json/version`.
-  - Browser-attach sessions create CDP websocket connections; headless sessions create a BiDi websocket to the worker-owned engine.
-  - First-use Camoufox engine download fetches from the project's GitHub releases.
-  - Loopback relay mode may start the machine-global `oms.browser.relay` daemon. The extension connects outbound to the relay, and Puppeteer connects to its CDP-compatible endpoint.
-  - User `page` / `tab` operations perform normal browser network traffic.
-- Subprocesses / native bindings
-  - Headless mode: the tab worker launches a per-tab Camoufox engine process.
-  - `app.path` mode may spawn the target executable via `Bun.spawn()`.
-  - `killExistingByPath()` / `gracefulKillTreeOnce()` use `@oh-my-soup/pi-natives` process inspection/termination.
-  - Worker mode uses Bun `Worker`; fallback mode does not.
-- Session state (transcript, memory, jobs, checkpoints, registries)
-  - Browser handles are cached in a process-global `Map` keyed by browser kind in `packages/coding-agent/src/tools/browser/registry.ts`.
-  - Tabs are cached in a process-global `Map` keyed by `name` in `packages/coding-agent/src/tools/browser/tab-supervisor.ts`.
-  - `run` captures session cwd and optional `browser.screenshotDir` for screenshot/save path resolution.
-  - `restartForModeChange()` drops only headless tabs.
-- User-visible prompts / interactive UI
-  - None beyond normal tool output. Dialog auto-handling is invisible unless it fails and emits debug logs.
-- Background work / cancellation
-  - `open`, `run`, CDP waits, and browser actions thread through abort signals.
-  - A timed-out `run` aborts the worker execution path and can tear down the tab.
+`observe()` assigns numeric ids consumed by `tab.id`. `ariaSnapshot()` assigns `[ref=eN]` ids consumed by `tab.ref`. Navigation and re-rendering invalidate handles; re-observe and act in the same Eval cell.
 
-## Limits & Caps
-- Tool timeout clamp: default `30` s, min `1` s, max `300` s (`TOOL_TIMEOUTS.browser` in `packages/coding-agent/src/tools/tool-timeouts.ts`).
-- Supervisor grace period around init/run/close: `750` ms (`GRACE_MS` in `packages/coding-agent/src/tools/browser/tab-supervisor.ts`).
-- Puppeteer protocol timeout for launch/connect operations: `60_000` ms (`BROWSER_PROTOCOL_TIMEOUT_MS` in `packages/coding-agent/src/tools/browser/launch.ts`).
-- Connected-browser CDP readiness wait: `5_000` ms before `puppeteer.connect()` (`packages/coding-agent/src/tools/browser/registry.ts`).
-- Spawned-app CDP readiness wait after spawn: `30_000` ms (`packages/coding-agent/src/tools/browser/registry.ts`).
-- Relay extension handshake wait: `35_000` ms; loopback relay daemon readiness: `15_000` ms (`packages/coding-agent/src/tools/browser/{registry,relay/daemon}.ts`).
-- CDP polling cadence: 150 ms in `waitForCdp()` (`packages/coding-agent/src/tools/browser/attach.ts`).
-- Screenshot model-attachment resize cap: `maxWidth 1024`, `maxHeight 1024`, `maxBytes 150 * 1024`, `jpegQuality 70` (`packages/coding-agent/src/tools/browser/tab-worker.ts`).
-- `tab.waitForUrl()` polling interval: `200` ms (`packages/coding-agent/src/tools/browser/tab-worker.ts`).
-- Drag simulation uses `12` mouse-move steps (`packages/coding-agent/src/tools/browser/tab-worker.ts`).
-- Per-op fail-fast ceilings (`packages/coding-agent/src/tools/browser/tab-worker.ts`): quick page reads (`observe`/`screenshot`/`extract`/`ariaSnapshot`) `min(cellBudget − 1s, 20s)`; interactive actions + default waits `min(cellBudget − 1s, 15s)`; an explicit `{ timeout }` on a `waitFor*` is clamped to `cellBudget − 1s` (`0`/`Infinity` → that bound). See `resolveOpTimeouts()` / `resolveWaitTimeout()`.
+### `tab.run(fnOrCode, options?)`
 
-## Errors
-- `BrowserTool.execute()` converts DOM-style `AbortError` into `ToolAbortError`; other errors propagate.
-- `run` hard-fails on missing code: `Missing required parameter 'code' for action 'run'.`
-- `open` fails when reusing a name across browser kinds: `Tab "..." is bound to a different browser (...). Close it first.`
-- `runInTabWithSnapshot()` fails when the tab is absent/dead (`Tab "..." is not alive. Reopen it.`) or already running (`Tab "..." is busy`).
-- Worker init failures and run failures are serialized through `RunErrorPayload`; `ToolError` and abort state are reconstructed on the host side by `errorFromPayload()`.
-- Attached-target mismatches surface as:
-  - `No page targets available on the attached browser`
-  - `No page target matched "...". Available pages:\n...`
-  - `Target ... is no longer available on the attached browser`
-- Spawned-app path validation requires an absolute executable path after cwd resolution, not an app bundle directory path.
-- Spawn/attach failures are wrapped into `ToolError`s such as `Timed out waiting for CDP endpoint ...`, `Failed to attach to ...`, or `Connected to ... but puppeteer.connect failed: ...`.
-- `app.cdp_url` must be the HTTP CDP discovery endpoint, not a `ws://` URL; otherwise `normalizeConnectedCdpUrl()` throws `browser app.cdp_url must be the HTTP CDP discovery endpoint ...`.
-- Relay mode rejects an unreachable endpoint or a relay whose extension never connects. Loopback CLI-host errors tell the user to run `oms browser-relay install` and check the extension badge; remote/non-auto-started errors tell the user to start `oms browser-relay` or check the endpoint.
-- `tab` helper errors are user-visible `ToolError`s, including unsupported selector prefix, stale/unknown element id, invalid drag target, missing upload files, non-`<select>` for `tab.select()`, non-file-input for `tab.uploadFile()`, and screenshot selector misses.
-- On run timeout, the worker reports `Browser code execution timed out after <ms>ms` (with `(stalled on <op>)` naming the still-running helper); a single stalled per-op helper instead rejects with `tab.<op>(...) timed out after <ms>ms` before the cell budget is reached. The supervisor may escalate to `Browser code execution hung past grace; tab killed` if the worker does not respond after the grace window.
+A run accepts either a serialized function or a JavaScript function-body string, plus `{ args?, timeout? }`:
 
-## Notes
-- Use `read` for static URLs; use `browser` when JavaScript execution, authentication, or interaction is required. A tab must be opened before `run`, and named tabs persist until closed.
-- `run` code has full Node/Bun and session-tool access; it is not sandboxed.
-- `loadPuppeteer()` and `loadPuppeteerInWorker()` temporarily redirect `cwd` to a safe Puppeteer directory before importing `puppeteer-core`, because Puppeteer probes the current working directory during module load.
-- Headless stealth is engine-level: Camoufox is a Firefox fork patched at the C++ source level (navigator/screen/WebGL/canvas/fonts/audio/WebRTC/timezone fingerprints, `navigator.webdriver` fix, isolated automation scope). There is no JavaScript injection seam for pages to detect.
-- WebDriver BiDi gaps vs CDP on the headless path: no `Page.stopLoading` (`window.stop()` is used), no accessibility tree (`tab.observe()` falls back to a DOM interactive scan), no `request.respond` mocking (interception supports abort/continue only), and disabling interception does not release held requests (run cleanup continues them explicitly).
-- Headless tabs never create pages (`browsingContext.create` hangs over BiDi on Camoufox); the worker adopts the browser's initial tab.
-- Raw `page.evaluate` in `run` code executes in an isolated realm on both drivers; `tab.evaluate` is the main-world escape hatch (via `mainRealm()`).
-- Relay mode drives an existing user browser and receives no stealth patches. Anything that can reach the relay endpoint can drive logged-in tabs; the built-in server binds loopback, and an optional shared token gates the extension connection.
-- `tab.extract()` reads `page.content()`, runs Readability first, then falls back to the first non-empty of `[data-pagefind-body]`/`main article`/`article`/`main`/`[role='main']`/`body`, and returns `null` if neither extraction path yields content.
-- `close(all: true, kill: false)` disconnects from spawned, connected, and relay browsers when the last tab closes but leaves spawned app processes and the user's Chrome running; headless engine processes are always killed on dispose (single-owner).
-- Headless orphan cleanup is pid-based: if a worker dies before closing its browser, registry teardown kills the engine process tree.
-- Console methods inside `run` do not appear in tool output; they are forwarded as debug/warn/error logs through the worker transport.
-- Raw page request interception is run-scoped. At run end the worker removes user `request` handlers, disables interception, and releases held requests; cleanup failure marks the tab for recovery.
+```js
+const hrefs = await tab.run(async ({ page }) => {
+  return await page.$$eval("a", links => links.map(link => link.href));
+});
+
+const title = await tab.run(
+  "return await tab.title();",
+  { timeout: 10 },
+);
+```
+
+Functions receive `{ tab, page, browser, wait, assert }` as their first argument. Additional `args` follow it. Plain data, functions, and `RegExp` values are serialized; the function cannot capture Eval-cell closures. Code strings use the same names as globals and allow top-level `await`.
+
+The inner `tab` is the full worker helper API. In addition to the direct surface it includes handle-returning `waitFor`/`waitForSelector` and run-scoped `waitForNavigation`/`waitForResponse`. Start a navigation/response wait before the action that triggers it.
+
+Runs use the shared JavaScript runtime with ordinary Eval helpers and full Bun/Node and tool-bridge access. This is API isolation, not a security sandbox. Request interception is cleaned up at the end of each run.
+
+The return value stays structured. Nonempty text emitted by inner `display(...)` calls prints in the outer Eval cell, object/image displays remain Eval output, and a run with no display text emits no placeholder.
+
+## Python API
+
+Python exposes the same handles and direct method names. `open` and `close` use keyword arguments, while `browser.tab` and `tab.id`/`tab.ref` are synchronous handle lookups. Keyword arguments on direct helpers become a trailing JavaScript options object.
+
+```python
+tab = await browser.open(name="main", url="https://example.com")
+observation = await tab.observe(viewportOnly=True)
+await tab.id(observation["elements"][0]["id"]).click()
+title = await tab.run("return await tab.title();", timeout=30)
+await tab.close()
+```
+
+Python `tab.run` accepts a JavaScript string only; it does not accept a Python callable.
+
+## Browser modes
+
+`browser.open` selects a browser in this order when explicitly requested: `app.cdp_url`, `app.path`, then `app.relay`. Without explicit selection it considers relay settings, configured CDP, cmux, then project-shared headless Chromium.
+
+- **Headless:** creates an oms-owned page in project-shared Chromium and applies stealth patches.
+- **Spawned (`app.path`):** starts or reuses a CDP-enabled browser/Electron executable. `app.args` applies only here.
+- **Connected (`app.cdp_url`):** attaches to an existing HTTP CDP discovery endpoint.
+- **Relay (`app.relay: true`):** adopts the user's real Chrome tab. `app.target` selects by URL/title substring; without it the visible usable tab is adopted.
+- **Cmux:** drives an available cmux WKWebView surface.
+
+Reusing one tab name across browser kinds is rejected until the existing tab is closed. Closing oms-owned headless pages and owned cmux surfaces closes them. Connected and relay pages remain open. Spawned browser processes remain open unless `kill: true` releases their last managed tab and terminates the process.
+
+## Screenshots and output
+
+`tab.screenshot()` saves a full-resolution image beneath `browser.screenshotDir`, or the OS temporary directory when unset, and returns the path. Unless `silent: true`, it also emits an Eval image. It never accepts an output path.
+
+Host result details preserve structured `value` separately from displayed content. Display text is capped by the shared inline-output policy; over-cap text is stored as a session artifact and the capped text is printed.
+
+## Safety and lifecycle
+
+Relay and attached modes operate on real logged-in sessions; sites attribute actions to the user. Name a target or create a dedicated tab. Never navigate the user's visible tab or take a consequential action without direct authorization.
+
+Each named tab has one worker and permits one active run. A timed-out or aborted run can recycle the worker and invalidate handles. `browser.close({ all: true })` releases all managed tabs; `kill` never closes or kills relay/CDP-attached browsers.
+
+## Common recovery
+
+- Missing/dead tab: call `browser.open` again.
+- Stale id/ref: call `observe` or `ariaSnapshot` again, then reacquire the handle.
+- Busy tab: await the active helper/run before issuing another.
+- Selector timeout: re-observe and use a supported selector.
+- Relay unavailable: install/start the relay and verify its Chrome extension connection.
+- Attached target missing: inspect available pages and use a precise `app.target`.
+
+`tab.run` and direct helpers execute against live browser state. Verify the actual page after every UI-changing action.

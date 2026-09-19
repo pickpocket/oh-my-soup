@@ -1213,9 +1213,13 @@ describe("archive helpers", () => {
 		expect(snapcompact.providerImageBudget(undefined)).toBe(snapcompact.DEFAULT_PROVIDER_IMAGE_BUDGET);
 		expect(snapcompact.providerImageBudget("some-new-router")).toBe(snapcompact.DEFAULT_PROVIDER_IMAGE_BUDGET);
 		expect(snapcompact.providerImageBudget("openai-codex")).toBe(200);
-		// The default frame budget must stay under the Anthropic image wire cap:
-		// compaction no longer clamps the archive per provider, so a default above
-		// the cap would silently drop frames or error on large-window Claude.
+		expect(snapcompact.providerFrameBudget("some-new-router")).toBe(snapcompact.DEFAULT_PROVIDER_IMAGE_BUDGET);
+		expect(snapcompact.providerFrameBudget("umans")).toBe(10);
+		expect(snapcompact.providerFrameBudget("anthropic")).toBe(snapcompact.MAX_FRAMES_DEFAULT);
+		// Anthropic's image cap is the high-water mark the default frame count
+		// must stay under; unknown providers are clamped separately via
+		// providerFrameBudget so their lower image floors cannot archive frames
+		// the send path will drop.
 		expect(snapcompact.MAX_FRAMES_DEFAULT).toBeLessThanOrEqual(snapcompact.providerImageBudget("anthropic"));
 	});
 });
@@ -1319,6 +1323,7 @@ describe("data URL elision", () => {
 	const b64 = Buffer.from(svg, "utf8").toString("base64");
 	const dataUrl = `data:image/svg+xml;base64,${b64}`;
 	const placeholder = `[data URL omitted: image/svg+xml, ${b64.length} base64 chars]`;
+	// No base64 run long enough to read as an image payload may survive.
 	const leakedPayload = /;base64,[A-Za-z0-9+/=]{40}/;
 	const markerInPayload = /;base64,[A-Za-z0-9+/=]*\s*\[(?:…|\.{3})\d+ch elided/;
 	const recognizableDataUrl = /data:[A-Za-z][\w.+-]*\/[\w.+-]+(?:;[\w!#$%&'*+.^|~-]+=[\w!#$%&'*+.^|~-]+)*;base64,/i;
@@ -1339,6 +1344,9 @@ describe("data URL elision", () => {
 	});
 
 	it("prevents character-cap head/tail cuts from leaving a recognizable data URL in archived tool results", () => {
+		// Sweep the atom across the 1,200-char head and 800-char tail boundaries.
+		// Each pad is a distinct cut landing: 0 start, 600 inside head, 1150/1199
+		// straddle the head cut, 4000 discarded middle, 6500 straddle tail, 7400 tail.
 		for (const pad of [0, 600, 1150, 1199, 4000, 6500, 7400]) {
 			const text = `${"p".repeat(pad)} ![img](${dataUrl}) ${"s".repeat(7600 - pad)}`;
 			const out = snapcompact.normalize(snapcompact.serializeConversation([createToolResultMessage(text)]));
@@ -1371,28 +1379,28 @@ describe("data URL elision", () => {
 		expect(out).not.toMatch(/data:image\/gif;base64,/i);
 	});
 
-	it("leaves prose mentions like data:image/png;base64,abc untouched", () => {
+	it("prevents prose mentions like data:image/png;base64,abc from being rewritten into placeholders", () => {
 		const prose = "e.g. 'data:image/png;base64,abc' is the expected shape";
 		const out = snapcompact.serializeConversation([createToolResultMessage(prose)]);
 		expect(out).toContain(prose);
 		expect(out).not.toContain("data URL omitted");
 	});
 
-	it("elides parameterized data URLs in archived tool results", () => {
+	it("prevents a ;charset=utf-8 data URL from surviving in archived tool results as image input", () => {
 		const url = `data:image/svg+xml;charset=utf-8;base64,${b64}`;
 		const out = snapcompact.serializeConversation([createToolResultMessage(`see ${url} end`)]);
 		expect(out).toContain(`[data URL omitted: image/svg+xml;charset=utf-8, ${b64.length} base64 chars]`);
 		expect(out).not.toMatch(recognizableDataUrl);
 	});
 
-	it("elides case-insensitive DATA:/BASE64 data URLs", () => {
+	it("prevents uppercase DATA:/BASE64 data URLs from surviving in archived tool results as image input", () => {
 		const url = `DATA:IMAGE/PNG;BASE64,${b64}`;
 		const out = snapcompact.serializeConversation([createToolResultMessage(`see ${url} end`)]);
 		expect(out).toContain(`[data URL omitted: IMAGE/PNG, ${b64.length} base64 chars]`);
 		expect(out).not.toMatch(recognizableDataUrl);
 	});
 
-	it("prevents user-message data URLs from surviving in the compacted archive", async () => {
+	it("prevents user-message data URLs from surviving as sliced undecodable image refs in the compacted archive", async () => {
 		const result = await snapcompact.compact(
 			makePreparation({
 				messagesToSummarize: [
@@ -1407,7 +1415,7 @@ describe("data URL elision", () => {
 		expect(all).not.toMatch(markerInPayload);
 	});
 
-	it("heals pre-guard archives during re-compaction", async () => {
+	it("prevents re-compaction of a pre-guard archive from replaying undecodable data-URL fragments", async () => {
 		const legacyHead =
 			`earlier work ![a](${dataUrl}) then ` +
 			`data:image/png;base64,${"QUFB".repeat(50)} [...900ch elided...] ${"QUFB".repeat(10)} and ` +
@@ -1435,26 +1443,31 @@ describe("data URL elision", () => {
 		expect(all).toContain("data URL omitted: image/webp");
 	});
 
-	it("heals poisoned archive prefixes in historyBlocks", () => {
+	it("prevents historyBlocks from replaying poisoned archive prefixes as invalid image input", () => {
 		const rows: Array<{ head: string; placeholder: string; retain?: string }> = [
 			{
+				// cut +0: empty payload after `;base64,` (exercises regex `*` zero-width match)
 				head: "history ![x](data:image/svg+xml;base64,",
 				placeholder: "data URL omitted: image/svg+xml",
 			},
 			{
+				// cut +1: `Q` (strict archive path below source floor)
 				head: "history ![x](data:image/svg+xml;base64,Q",
 				placeholder: "data URL omitted: image/svg+xml",
 			},
 			{
+				// cut +39: `${"QUFB".repeat(9)}QUL` (just below 40-char floor)
 				head: `history ![x](data:image/svg+xml;base64,${"QUFB".repeat(9)}QUL`,
 				placeholder: "data URL omitted: image/svg+xml",
 			},
 			{
+				// marker directly after comma: pre-guard slice landed on `;base64,`
 				head: "data:image/webp;base64, [...900ch elided...] QUFB rest",
 				placeholder: "data URL omitted: image/webp",
 				retain: " rest",
 			},
 			{
+				// parameterized archive fragment: explicit source+archive RFC 2397 requirement
 				head: "data:image/svg+xml;charset=utf-8;base64,Q",
 				placeholder: "data URL omitted: image/svg+xml;charset=utf-8",
 			},
@@ -1467,7 +1480,7 @@ describe("data URL elision", () => {
 				textHead: row.head,
 				textTail: "tail",
 			});
-			const text = blocks.map(block => (block.type === "text" ? block.text : "")).join("\n");
+			const text = blocks.map(b => (b.type === "text" ? b.text : "")).join("\n");
 			expect(text).not.toMatch(recognizableDataUrl);
 			expect(text).toContain(row.placeholder);
 			if (row.retain !== undefined) {
@@ -1478,7 +1491,7 @@ describe("data URL elision", () => {
 		}
 	});
 
-	it("heals data URLs while extracting archive migration text", () => {
+	it("prevents archive migration text from replaying invalid image input to summarizers/providers", () => {
 		const poisoned = "data:image/png;base64,QUFB [...900ch elided...] QUFB";
 		const text = snapcompact.archiveSourceText({
 			frames: [],
@@ -1490,7 +1503,9 @@ describe("data URL elision", () => {
 		expect(text).not.toMatch(recognizableDataUrl);
 	});
 
-	it("scans unmatched Markdown brackets without quadratic stalls", () => {
+	it("prevents unmatched Markdown brackets from stalling tool-result compaction", () => {
+		// Unmatched `[` plus `;base64,` used to stall tool-result compaction in
+		// the data-URL matcher before the 2,000-character cap could apply.
 		const text = `${"[".repeat(80_000)};base64,`;
 		const out = snapcompact.serializeConversation([createToolResultMessage(text)]);
 		const marker = "[…78008ch elided…]";

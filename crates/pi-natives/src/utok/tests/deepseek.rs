@@ -1,5 +1,5 @@
-//! Golden-fixture test: DeepSeekV3 vs reference HF tokenizers encode
-//! (add_special_tokens=False) over cache/deepseek-v4.tokenizer.json.
+//! Golden-fixture test: `DeepSeekV3` vs reference HF tokenizers encode
+//! (`add_special_tokens=False`) over cache/deepseek-v4.tokenizer.json.
 //! Base BPE is identical V3..V4 (verified upstream: same vocab + merges
 //! hash), so one encoding covers the whole family.
 

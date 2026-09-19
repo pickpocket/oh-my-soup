@@ -1,6 +1,6 @@
 /**
  * Mid-conversation reasoning effort via `configuration_update` input items
- * (GPT-6 Astra).
+ * (GPT-6 Astra; `model.compat.supportsConfigurationUpdate`).
  *
  * The request-level `reasoning.effort` is pinned to the value of the session's
  * first request so the cached prompt prefix survives an effort change. Each
@@ -46,13 +46,6 @@ export function createOpenAIEffortControlState<TEffort extends string>(): OpenAI
 }
 
 const MAX_EFFORT_CONTROL_STATES = 16;
-
-/** Only GPT-6 Astra accepts `configuration_update` input items. */
-export function supportsOpenAIConfigurationUpdate(modelId: string): boolean {
-	const slash = modelId.lastIndexOf("/");
-	const bare = slash === -1 ? modelId : modelId.slice(slash + 1);
-	return bare.toLowerCase() === "gpt-6-astra";
-}
 
 /**
  * Fetch (or create) the control state for one conversation from a provider's

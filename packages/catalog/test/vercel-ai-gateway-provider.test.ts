@@ -2,7 +2,11 @@ import { describe, expect, test } from "bun:test";
 import { vercelAiGatewayModelManagerOptions } from "@oh-my-soup/pi-catalog/provider-models/openai-compat";
 
 describe("Vercel AI Gateway provider", () => {
-	test("caps Muse Spark contributor output allowance while preserving its context window", async () => {
+	test("caps meta/muse-spark-1.2-contributor output allowance to 131072 while preserving context window", async () => {
+		// Vercel currently reports both context_window and max_tokens as 1M for the
+		// contributor model, which makes Anthropic messages requests fail with 400
+		// when prompt + max_tokens exceeds the shared context window. The mapper
+		// must cap the output allowance while leaving the context window intact.
 		const contributorId = "meta/muse-spark-1.2-contributor";
 		const controlId = "anthropic/claude-sonnet-4-5-20250929";
 		const fetchMock = (async () =>
@@ -30,11 +34,19 @@ describe("Vercel AI Gateway provider", () => {
 				],
 			})) as unknown as typeof fetch;
 
-		const models = await vercelAiGatewayModelManagerOptions({ fetch: fetchMock }).fetchDynamicModels?.();
+		const options = vercelAiGatewayModelManagerOptions({ fetch: fetchMock });
+		const models = await options.fetchDynamicModels?.();
+		expect(models).not.toBeNull();
 		const byId = new Map((models ?? []).map(model => [model.id, model]));
-		expect(byId.get(contributorId)?.contextWindow).toBe(1_048_576);
-		expect(byId.get(contributorId)?.maxTokens).toBe(131_072);
-		expect(byId.get(controlId)?.contextWindow).toBe(200_000);
-		expect(byId.get(controlId)?.maxTokens).toBe(8192);
+
+		const contributor = byId.get(contributorId);
+		expect(contributor).toBeDefined();
+		expect(contributor?.contextWindow).toBe(1_048_576);
+		expect(contributor?.maxTokens).toBe(131_072);
+
+		const control = byId.get(controlId);
+		expect(control).toBeDefined();
+		expect(control?.contextWindow).toBe(200_000);
+		expect(control?.maxTokens).toBe(8192);
 	});
 });

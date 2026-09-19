@@ -66,7 +66,7 @@ function words(text: string): number {
 
 /** Draft ledger shared by the protocol tools and the command loop. */
 export class CompressProtocol {
-	readonly #tokenizer = new Tokenizer();
+	readonly #tokenizer: Tokenizer;
 	readonly #sourceWords: number;
 	readonly #sourceTokens: number;
 	readonly #drafts: CompressDraft[] = [];
@@ -74,7 +74,13 @@ export class CompressProtocol {
 	#approved = false;
 	#verdict: string | undefined;
 
+	/**
+	 * Metrics measure source-vs-draft ratios with the default estimate. The
+	 * compress session resolves its model after this ledger is constructed, so
+	 * no catalog model is available here.
+	 */
 	constructor(source: string) {
+		this.#tokenizer = new Tokenizer();
 		this.#sourceWords = words(source);
 		this.#sourceTokens = this.#tokenizer.countTokens(source);
 	}

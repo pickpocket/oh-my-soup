@@ -1,3 +1,23 @@
+/**
+ * Provider-anchored transcript token accounting.
+ *
+ * Local tokenization is the expensive way to answer "how big is this
+ * conversation?" — and usually the wrong one, because the provider already
+ * answered it. Every settled assistant turn carries `usage` covering the exact
+ * prompt it was sent: the system prompt, the tool schemas, and every message up
+ * to and including itself. The only genuinely unaccounted-for text is the tail
+ * appended *after* that turn.
+ *
+ * These helpers locate the newest trustworthy usage report and tokenize only
+ * that tail, so a long session pays counting proportional to one turn instead
+ * of to the whole transcript, every turn.
+ *
+ * Trust rules for an anchor (mirroring the provider contract):
+ * - Assistant role only — nothing else carries `usage`.
+ * - Not `aborted` / `error`: those turns report partial or zero usage.
+ * - `hasContextTokenUsage(usage)`: the report must carry usable context numbers.
+ */
+
 import type { AssistantMessage } from "@oh-my-soup/pi-ai";
 import type { MessageCountOptions, Tokenizer } from "../tokenizer";
 import type { AgentMessage } from "../types";
@@ -13,7 +33,13 @@ export interface TranscriptUsageAnchor {
 	tokens: number;
 }
 
-/** Whether this message's provider usage may anchor transcript accounting. */
+/**
+ * Whether this message's provider usage may anchor transcript accounting.
+ *
+ * The single home for the trust rules — every anchor scan MUST route through
+ * it so a stale-usage rule can never drift between the transcript walkers and
+ * the session-entry walkers.
+ */
 export function isTranscriptUsageAnchor(message: AgentMessage): message is AssistantMessage {
 	if (message.role !== "assistant") return false;
 	const assistant = message as AssistantMessage;
@@ -21,7 +47,14 @@ export function isTranscriptUsageAnchor(message: AgentMessage): message is Assis
 	return assistant.usage !== undefined && hasContextTokenUsage(assistant.usage);
 }
 
-/** Find the newest trustworthy provider usage report in the requested suffix. */
+/**
+ * Newest assistant turn in `messages[fromIndex..]` whose usage can anchor the
+ * transcript, or `undefined` when none qualifies (fresh context, or every
+ * recent turn aborted/errored).
+ *
+ * `fromIndex` excludes turns whose usage is stale — anything a compaction
+ * summarized away describes a prompt that is no longer sent.
+ */
 export function findTranscriptUsageAnchor(
 	messages: readonly AgentMessage[],
 	fromIndex = 0,
@@ -34,16 +67,34 @@ export function findTranscriptUsageAnchor(
 	return undefined;
 }
 
+/** Options for {@link estimateTranscriptTokens}. */
 export interface TranscriptTokenOptions {
-	/** Ignore provider usage anchors before this index. */
+	/**
+	 * Gates the anchor search only: usage at or before this index is stale (a
+	 * compaction rewrote the prompt it describes) and must not anchor. Content
+	 * accounting is governed separately by {@link countFromIndex}.
+	 */
 	anchorFromIndex?: number;
-	/** First message counted locally when no trustworthy anchor exists. */
+	/**
+	 * First message whose content is counted locally when no anchor is found.
+	 * Defaults to 0 (count the whole transcript), which is what a floor
+	 * estimate wants; pass the compaction boundary to skip summarized-away
+	 * messages entirely.
+	 */
 	countFromIndex?: number;
-	/** Exclude opaque reasoning payloads from locally counted messages. */
+	/** Forwarded to {@link Tokenizer.countMessage} for every locally counted message. */
 	excludeEncryptedReasoning?: boolean;
 }
 
-/** Provider-anchored total plus a local count of only the unaccounted tail. */
+/**
+ * Conversation tokens for `messages`: the provider's own report for everything
+ * it already covers, plus a local count of only the unaccounted-for tail.
+ *
+ * An anchored result already includes the non-message prefix (system prompt +
+ * tool schemas) because the provider charged it; an unanchored result is a
+ * message-only sum. Callers that add non-message tokens on top MUST branch on
+ * {@link findTranscriptUsageAnchor} rather than assuming one shape.
+ */
 export function estimateTranscriptTokens(
 	messages: readonly AgentMessage[],
 	tokenizer: Tokenizer,

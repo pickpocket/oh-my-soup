@@ -67,15 +67,24 @@ describe("summarization input budget", () => {
 			.spyOn(ai, "completeSimple")
 			.mockImplementation(async () => createAssistantMessage(`summary ${++call}`));
 		try {
+			// 40k-token window leaves ~4k of conversation budget after the summary
+			// reserve, so ~48k tokens of conversation cannot be one prompt.
 			const messages = Array.from({ length: 12 }, (_, i) => turn(i, 4_000)).flat();
 			const summary = await generateSummary(messages, getModel(40_000), 16_384, "test-key");
 
 			expect(spy.mock.calls.length).toBeGreaterThan(1);
 			expect(summary).toBe(`summary ${spy.mock.calls.length}`);
+
+			// Every window is inside the budget, and every window after the first
+			// carries the summary of the ones before it.
 			const prompts = spy.mock.calls.map(promptTextOf);
-			for (const prompt of prompts) expect(prompt.length).toBeLessThan(40_000 * 4);
+			for (const prompt of prompts) {
+				expect(prompt.length).toBeLessThan(40_000 * 4);
+			}
 			expect(prompts[0]).not.toContain("<previous-summary>");
 			expect(prompts[1]).toContain("<previous-summary>\nsummary 1\n</previous-summary>");
+
+			// The fold covers the whole span: first and last turns both reach a call.
 			expect(prompts[0]).toContain("turn 0");
 			expect(prompts[prompts.length - 1]).toContain("turn 11");
 		} finally {
@@ -84,6 +93,9 @@ describe("summarization input budget", () => {
 	});
 
 	test("shrinks windows when the provider rejects a prompt the catalog said would fit", async () => {
+		// claude-sonnet-4-5 advertises a 1M window but is beta-gated to 200k on
+		// OAuth credentials (`anthropic.ts` never advertises the 1M beta), so the
+		// only authority on the real cap is the rejection itself.
 		const providerCapChars = 160_000;
 		const rejected: number[] = [];
 		let call = 0;
@@ -98,10 +110,13 @@ describe("summarization input budget", () => {
 		try {
 			const messages = Array.from({ length: 60 }, (_, i) => turn(i, 4_000)).flat();
 			const summary = await generateSummary(messages, getModel(400_000), 16_384, "test-key");
+
+			// The first plan trusted the catalog and was rejected; the fold halved
+			// the window instead of failing the compaction.
 			expect(rejected.length).toBeGreaterThan(0);
 			expect(rejected.length).toBeLessThan(4);
 			expect(summary).toBe(`summary ${call}`);
-			const accepted = spy.mock.calls.map(promptTextOf).filter(prompt => prompt.length <= providerCapChars);
+			const accepted = spy.mock.calls.map(promptTextOf).filter(p => p.length <= providerCapChars);
 			expect(accepted[0]).toContain("turn 0");
 			expect(accepted[accepted.length - 1]).toContain("turn 59");
 		} finally {
@@ -110,7 +125,11 @@ describe("summarization input budget", () => {
 	});
 
 	test("keeps the window floor inside a small model's context", async () => {
-		const providerCapChars = 26_000;
+		// The absolute 16,384-token floor plus the carried summary and output
+		// reserves exceeds a 40k window outright, and overflow recovery would then
+		// bail at the very floor that caused the rejection. The floor scales with
+		// the window instead, so a small-context model still folds successfully.
+		const providerCapChars = 26_000; // what a 40k window can host next to the reserves
 		const spy = vi.spyOn(ai, "completeSimple").mockImplementation(async (_model, context) => {
 			const prompt = promptTextOf([_model, context]);
 			if (prompt.length > providerCapChars) {

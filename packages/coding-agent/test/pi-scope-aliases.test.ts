@@ -50,9 +50,9 @@ const CASES: readonly AliasCase[] = [
 	},
 	// @oh-my-soup self-import — canonical scope must still flow through the shim
 	// so a duplicate copy is never dragged in from a plugin's own node_modules.
-	{ id: "ohmysoup-utils", aliasSpecifier: "@oh-my-soup/pi-utils", canonicalPath: canonicalUtils, symbol: "logger" },
+	{ id: "ohmypi-utils", aliasSpecifier: "@oh-my-soup/pi-utils", canonicalPath: canonicalUtils, symbol: "logger" },
 	{
-		id: "ohmysoup-coding-agent",
+		id: "ohmypi-coding-agent",
 		aliasSpecifier: "@oh-my-soup/pi-coding-agent",
 		canonicalPath: canonicalCodingAgent,
 		symbol: "isToolCallEventType",

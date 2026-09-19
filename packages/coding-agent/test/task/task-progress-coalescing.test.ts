@@ -16,7 +16,8 @@ import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
 import { TaskTool } from "@oh-my-soup/pi-coding-agent/task";
 import * as discoveryModule from "@oh-my-soup/pi-coding-agent/task/discovery";
 import * as executorModule from "@oh-my-soup/pi-coding-agent/task/executor";
-import type { AgentDefinition, AgentProgress, SingleResult, TaskParams } from "@oh-my-soup/pi-coding-agent/task/types";
+import type { AgentProgress, SingleResult, TaskParams } from "@oh-my-soup/pi-coding-agent/task";
+import type { AgentDefinition } from "@oh-my-soup/pi-coding-agent/task/types";
 import type { ToolSession } from "@oh-my-soup/pi-coding-agent/tools";
 
 const taskAgent: AgentDefinition = {

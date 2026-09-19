@@ -86,22 +86,37 @@ describe("/retry dispatch (ACP)", () => {
 		expect(result).toEqual({ consumed: true });
 	});
 
-	it("holds the ACP turn open for a scheduled retry", async () => {
+	it("announces the retry and holds the ACP turn open for the retried turn", async () => {
 		const h = acpRuntime({ retryResult: true });
 		const result = await executeAcpBuiltinSlashCommand("/retry", h.runtime);
-		expect(h.output).toHaveBeenCalledWith("Retrying the last failed turn.");
+		expect(h.output.mock.calls[0]?.[0]).toBe("Retrying the last failed turn.");
 		expect(h.keepTurnOpenUntilIdle).toHaveBeenCalledTimes(1);
 		expect(result).toEqual({ consumed: true, agentInvoked: true });
 	});
 
-	it("returns immediately for hosts that stream the continuation themselves", async () => {
+	it("returns immediately for hosts that stream the continuation themselves (RPC/TUI)", async () => {
+		// RPC's `prompt` awaits this dispatcher before responding and serializes
+		// later frames, so blocking here would break `RpcClient.prompt()`'s
+		// documented immediate return and strand a follow-up `abort`.
 		const h = acpRuntime({ retryResult: true, withKeepOpen: false });
 		const result = await executeAcpBuiltinSlashCommand("/retry", h.runtime);
 		expect(h.retry).toHaveBeenCalledTimes(1);
+		expect(h.output.mock.calls[0]?.[0]).toBe("Retrying the last failed turn.");
 		expect(result).toEqual({ consumed: true, agentInvoked: true });
 	});
 
+	it("reports a scheduled retry as agent work, and a no-op retry as local-only", async () => {
+		// RPC maps a bare `{ consumed: true }` to `agentInvoked: false`. A
+		// successful retry schedules an `agent.continue()` turn, so reporting
+		// local-only there would have the host finalize the request while the
+		// retried turn is still streaming.
+		const scheduled = await executeAcpBuiltinSlashCommand("/retry", acpRuntime({ retryResult: true }).runtime);
+		const noop = await executeAcpBuiltinSlashCommand("/retry", acpRuntime({ retryResult: false }).runtime);
+		expect(scheduled).toEqual({ consumed: true, agentInvoked: true });
+		expect(noop).toEqual({ consumed: true });
+	});
+
 	it("is advertised to ACP clients", () => {
-		expect(ACP_BUILTIN_SLASH_COMMANDS.find(command => command.name === "retry")).toBeDefined();
+		expect(ACP_BUILTIN_SLASH_COMMANDS.find(c => c.name === "retry")).toBeDefined();
 	});
 });

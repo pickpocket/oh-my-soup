@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "bun:test";
 import CommitCommand from "@oh-my-soup/pi-coding-agent/commands/commit";
 import * as commitModule from "@oh-my-soup/pi-coding-agent/commit";
-import * as themeModule from "@oh-my-soup/pi-coding-agent/modes/theme/theme";
+import * as themeModule from "@oh-my-soup/pi-tui/theme";
 import { postmortem } from "@oh-my-soup/pi-utils";
 
 describe("oms commit command lifecycle (issue #1041)", () => {

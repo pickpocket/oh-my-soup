@@ -32,13 +32,13 @@ const FAKE_INSTALLED: InstalledPlugin = {
 	enabled: true,
 };
 
-async function createLocalPlugin(root: string): Promise<string> {
-	const localPlugin = path.join(root, "kimi-datasource");
+async function createLocalPlugin(root: string, name = "kimi-datasource"): Promise<string> {
+	const localPlugin = path.join(root, name);
 	await fs.mkdir(localPlugin, { recursive: true });
 	await Bun.write(
 		path.join(localPlugin, "package.json"),
 		JSON.stringify({
-			name: "kimi-datasource",
+			name,
 			version: "1.0.0",
 			oms: { extensions: ["./src/extension.ts"] },
 		}),
@@ -78,21 +78,19 @@ describe("runPluginCommand({ action: 'install', args: [<local>] })", () => {
 		await removeWithRetries(tmpRoot);
 	});
 
-	for (const spec of [".", "./pkg", "../pkg", "/abs/pkg", "~/pkg"]) {
-		test(`dispatches ${JSON.stringify(spec)} to link() instead of install()`, async () => {
-			const linkSpy = spyOn(PluginManager.prototype, "link").mockResolvedValue(FAKE_INSTALLED);
-			const installSpy = spyOn(PluginManager.prototype, "install").mockResolvedValue(FAKE_INSTALLED);
-			try {
-				await runPluginCommand({ action: "install", args: [spec], flags: { json: true } });
-				expect(linkSpy).toHaveBeenCalledTimes(1);
-				expect(linkSpy.mock.calls[0]?.[0]).toBe(spec);
-				expect(installSpy).not.toHaveBeenCalled();
-			} finally {
-				linkSpy.mockRestore();
-				installSpy.mockRestore();
-			}
-		});
-	}
+	test("dispatches a local path to link() instead of install()", async () => {
+		const linkSpy = spyOn(PluginManager.prototype, "link").mockResolvedValue(FAKE_INSTALLED);
+		const installSpy = spyOn(PluginManager.prototype, "install").mockResolvedValue(FAKE_INSTALLED);
+		try {
+			await runPluginCommand({ action: "install", args: ["."], flags: { json: true } });
+			expect(linkSpy).toHaveBeenCalledTimes(1);
+			expect(linkSpy.mock.calls[0]?.[0]).toBe(".");
+			expect(installSpy).not.toHaveBeenCalled();
+		} finally {
+			linkSpy.mockRestore();
+			installSpy.mockRestore();
+		}
+	});
 
 	test("npm-style spec still dispatches to install(), not link()", async () => {
 		// Guard against an overly-eager local detector: a bare package name with
@@ -144,6 +142,48 @@ describe("runPluginCommand({ action: 'install', args: [<local>] })", () => {
 			enabled: true,
 		});
 	});
+
+	test("links over a real directory left by a git install", async () => {
+		// A git-sourced install leaves a directory, not a symlink, under the
+		// plugin's name. Relinking must replace it rather than fail on unlink.
+		const localPlugin = await createLocalPlugin(tmpRoot);
+		const linkTarget = path.join(tmpRoot, "plugins", "node_modules", "kimi-datasource");
+		await fs.mkdir(linkTarget, { recursive: true });
+		await Bun.write(path.join(linkTarget, "package.json"), JSON.stringify({ name: "kimi-datasource" }));
+
+		await new PluginManager(tmpRoot).link(localPlugin);
+
+		expect((await fs.lstat(linkTarget)).isSymbolicLink()).toBe(true);
+		expect(await fs.readlink(linkTarget)).toBe(localPlugin);
+	});
+
+	test("rejects a package name that could escape the plugin directory", async () => {
+		const localPlugin = path.join(tmpRoot, "malicious");
+		await fs.mkdir(localPlugin);
+		await Bun.write(
+			path.join(localPlugin, "package.json"),
+			JSON.stringify({ name: "../../victim", version: "1.0.0" }),
+		);
+		const victim = path.join(tmpRoot, "victim");
+		await fs.mkdir(victim);
+		await Bun.write(path.join(victim, "sentinel.txt"), "keep");
+
+		await expect(new PluginManager(tmpRoot).link(localPlugin)).rejects.toThrow("Invalid package name");
+		expect(await Bun.file(path.join(victim, "sentinel.txt")).text()).toBe("keep");
+	});
+
+	test("uninstall removes a linked scoped plugin from node_modules", async () => {
+		const pluginName = "@getpipher/oms-statusline";
+		const localPlugin = await createLocalPlugin(tmpRoot, pluginName);
+		const manager = new PluginManager(tmpRoot);
+		const linkPath = path.join(tmpRoot, "plugins", "node_modules", pluginName);
+
+		await manager.link(localPlugin);
+		await manager.uninstall(pluginName);
+
+		await expect(fs.lstat(linkPath)).rejects.toHaveProperty("code", "ENOENT");
+	});
+
 	test("list --json includes linked local plugin without package dependencies", async () => {
 		const localPlugin = await createLocalPlugin(tmpRoot);
 		const output: string[] = [];

@@ -13,11 +13,14 @@
  */
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "bun:test";
 import { resetSettingsForTest, Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
-import { StatusLineComponent } from "@oh-my-soup/pi-coding-agent/modes/components/status-line";
-import type { SegmentContext } from "@oh-my-soup/pi-coding-agent/modes/components/status-line/segments";
-import { renderSegment } from "@oh-my-soup/pi-coding-agent/modes/components/status-line/segments";
-import { initTheme } from "@oh-my-soup/pi-coding-agent/modes/theme/theme";
+import { StatusLineComponent } from "@oh-my-soup/pi-tui/status-line";
+import { statusLineHost } from "@oh-my-soup/pi-coding-agent/modes/status-line-host";
+import type { SegmentContext } from "@oh-my-soup/pi-tui/status-line/segments";
+import { renderSegment } from "@oh-my-soup/pi-tui/status-line/segments";
+import { initTheme } from "@oh-my-soup/pi-tui/theme";
+import { StatusLineTestComponents } from "./helpers/status-line";
 
+const statusLines = new StatusLineTestComponents();
 beforeAll(async () => {
 	resetSettingsForTest();
 	await Settings.init({ inMemory: true });
@@ -25,6 +28,7 @@ beforeAll(async () => {
 });
 
 afterAll(() => {
+	statusLines.dispose();
 	resetSettingsForTest();
 });
 
@@ -44,6 +48,7 @@ function createCtx(activeMs: number): SegmentContext {
 		prewalk: null,
 		goalMode: null,
 		vibeMode: null,
+		vim: null,
 		collab: null,
 		usageStats: {
 			input: 0,
@@ -62,8 +67,11 @@ function createCtx(activeMs: number): SegmentContext {
 		contextTokens: 0,
 		contextWindow: 0,
 		autoCompactEnabled: false,
+		compactionSpeculation: "idle",
+		speculationBlinkOn: true,
 		subagentCount: 0,
 		activeMs,
+		turnElapsedMs: null,
 		activeRepo: null,
 		worktree: null,
 		git: { branch: null, status: null, pr: null },
@@ -136,7 +144,7 @@ describe("time_spent segment", () => {
 
 describe("StatusLineComponent active-time accounting", () => {
 	it("accumulates only across markActivityStart/markActivityEnd windows, not idle time", () => {
-		const c = new StatusLineComponent(makeSession());
+		const c = statusLines.track(new StatusLineComponent(makeSession(), statusLineHost));
 		let now = 1_000_000_000;
 		vi.spyOn(Date, "now").mockImplementation(() => now);
 
@@ -163,7 +171,7 @@ describe("StatusLineComponent active-time accounting", () => {
 	});
 
 	it("ticks live during an open window so the segment animates while the agent runs", () => {
-		const c = new StatusLineComponent(makeSession());
+		const c = statusLines.track(new StatusLineComponent(makeSession(), statusLineHost));
 		let now = 2_000_000_000;
 		vi.spyOn(Date, "now").mockImplementation(() => now);
 
@@ -175,7 +183,7 @@ describe("StatusLineComponent active-time accounting", () => {
 	});
 
 	it("is idempotent: reentrant markActivityStart and unmatched markActivityEnd never double-count", () => {
-		const c = new StatusLineComponent(makeSession());
+		const c = statusLines.track(new StatusLineComponent(makeSession(), statusLineHost));
 		let now = 3_000_000_000;
 		vi.spyOn(Date, "now").mockImplementation(() => now);
 
@@ -198,7 +206,7 @@ describe("StatusLineComponent active-time accounting", () => {
 	});
 
 	it("resetActiveTime resets the active accumulator for /clear and fresh-session flows", () => {
-		const c = new StatusLineComponent(makeSession());
+		const c = statusLines.track(new StatusLineComponent(makeSession(), statusLineHost));
 		let now = 4_000_000_000;
 		vi.spyOn(Date, "now").mockImplementation(() => now);
 
@@ -219,7 +227,7 @@ describe("StatusLineComponent active-time accounting", () => {
 	});
 
 	it("resetActiveTime also drops an in-flight window so /clear during a turn starts fresh", () => {
-		const c = new StatusLineComponent(makeSession());
+		const c = statusLines.track(new StatusLineComponent(makeSession(), statusLineHost));
 		let now = 5_000_000_000;
 		vi.spyOn(Date, "now").mockImplementation(() => now);
 
@@ -245,7 +253,7 @@ describe("StatusLineComponent active-time accounting", () => {
 		// keeps the leak inside the subagent's meter.
 		const main = makeSession({ isStreaming: false });
 		const sub = makeSession({ isStreaming: true });
-		const c = new StatusLineComponent(main);
+		const c = statusLines.track(new StatusLineComponent(main, statusLineHost));
 		let now = 6_000_000_000;
 		vi.spyOn(Date, "now").mockImplementation(() => now);
 
@@ -279,7 +287,7 @@ describe("StatusLineComponent active-time accounting", () => {
 		// it instead.
 		const main = makeSession({ isStreaming: false });
 		const sub = makeSession({ isStreaming: true });
-		const c = new StatusLineComponent(main);
+		const c = statusLines.track(new StatusLineComponent(main, statusLineHost));
 		let now = 7_000_000_000;
 		vi.spyOn(Date, "now").mockImplementation(() => now);
 
@@ -308,7 +316,7 @@ describe("StatusLineComponent active-time accounting", () => {
 		// would carry the previous conversation's meter into the
 		// resumed one.
 		const session = makeSession({ sessionFile: "/tmp/conv-a.jsonl" });
-		const c = new StatusLineComponent(session);
+		const c = statusLines.track(new StatusLineComponent(session, statusLineHost));
 		let now = 8_000_000_000;
 		vi.spyOn(Date, "now").mockImplementation(() => now);
 
@@ -336,7 +344,7 @@ describe("StatusLineComponent active-time accounting", () => {
 		// first autosave sets one. That transition is the same
 		// conversation, so accumulated active time MUST survive.
 		const session = makeSession({ sessionFile: undefined });
-		const c = new StatusLineComponent(session);
+		const c = statusLines.track(new StatusLineComponent(session, statusLineHost));
 		let now = 9_000_000_000;
 		vi.spyOn(Date, "now").mockImplementation(() => now);
 

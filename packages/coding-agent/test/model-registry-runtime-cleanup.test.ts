@@ -1,16 +1,15 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import * as fs from "node:fs";
-import * as os from "node:os";
-import * as path from "node:path";
+import * as fs from "node:fs/promises";
 import { type AssistantMessageEventStream, clearCustomApis, getCustomApi } from "@oh-my-soup/pi-ai";
 import { getOAuthProvider } from "@oh-my-soup/pi-ai/oauth";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
+import { writeModelCache } from "@oh-my-soup/pi-catalog/model-cache";
+import { resolveModelCacheProviderId, resolveOllamaModelCacheProviderId } from "@oh-my-soup/pi-catalog/provider-models";
 import { ModelRegistry, type ProviderConfigInput } from "@oh-my-soup/pi-coding-agent/config/model-registry";
 import { AuthStorage } from "@oh-my-soup/pi-coding-agent/session/auth-storage";
-import { removeSyncWithRetries, Snowflake } from "@oh-my-soup/pi-utils";
+import { TempDir } from "@oh-my-soup/pi-utils";
 
 describe("ModelRegistry runtime source cleanup", () => {
-	let tempDir: string;
-	let modelsJsonPath: string;
 	let authStorage: AuthStorage;
 
 	const sourceId = "ext://runtime-cleanup";
@@ -28,22 +27,16 @@ describe("ModelRegistry runtime source cleanup", () => {
 		({}) as unknown as AssistantMessageEventStream;
 
 	beforeEach(async () => {
-		tempDir = path.join(os.tmpdir(), `pi-test-model-registry-runtime-cleanup-${Snowflake.next()}`);
-		fs.mkdirSync(tempDir, { recursive: true });
-		modelsJsonPath = path.join(tempDir, "models.json");
-		authStorage = await AuthStorage.create(path.join(tempDir, "testauth.db"));
+		authStorage = await AuthStorage.create(":memory:");
 	});
 
 	afterEach(() => {
 		clearCustomApis();
 		authStorage.close();
-		if (tempDir && fs.existsSync(tempDir)) {
-			removeSyncWithRetries(tempDir);
-		}
 	});
 
 	test("clearSourceRegistrations removes runtime overlays and fallback auth for that source", () => {
-		const registry = new ModelRegistry(authStorage, modelsJsonPath);
+		const registry = new ModelRegistry(authStorage, undefined, { ignoreLocalModelConfig: true });
 		const config: ProviderConfigInput = {
 			baseUrl: "https://runtime.example.com/v1",
 			apiKey: "RUNTIME_KEY",
@@ -65,8 +58,228 @@ describe("ModelRegistry runtime source cleanup", () => {
 		expect(getCustomApi("custom-runtime-cleanup-api")).toBeUndefined();
 	});
 
+	test("extension rebinding preserves unrelated credential-scoped cached models", async () => {
+		using tempDir = TempDir.createSync("@oms-model-registry-rebind-");
+		const provider = "opencode-go";
+		const apiKey = "opencode-go-test-key";
+		const cachedModel = buildModel({
+			id: "cached-credential-model",
+			name: "Cached Credential Model",
+			api: "openai-responses",
+			provider,
+			baseUrl: "https://opencode.ai/zen/go/v1",
+			reasoning: false,
+			input: ["text"],
+			cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+			contextWindow: 128_000,
+			maxTokens: 16_384,
+		});
+		authStorage.setRuntimeApiKey(provider, apiKey);
+		writeModelCache(
+			resolveModelCacheProviderId(provider, { apiKey }),
+			Date.now(),
+			[cachedModel],
+			true,
+			"",
+			tempDir.join("models.db"),
+		);
+		const registry = new ModelRegistry(authStorage, tempDir.join("models.yml"));
+		await registry.hydrateCredentialScopedModelCaches();
+		expect(registry.getAvailable().some(model => model.provider === provider && model.id === cachedModel.id)).toBe(
+			true,
+		);
+
+		for (let cycle = 0; cycle < 2; cycle += 1) {
+			registry.registerProvider(
+				"runtime-provider",
+				{
+					baseUrl: "https://runtime.example.com/v1",
+					apiKey: "RUNTIME_KEY",
+					api: "openai-completions",
+					models: [baseModel],
+				},
+				sourceId,
+			);
+			registry.clearSourceRegistrations(sourceId);
+
+			expect(registry.getAvailable().some(model => model.provider === provider && model.id === cachedModel.id)).toBe(
+				true,
+			);
+		}
+	});
+
+	test("unloading an override-only extension keeps a built-in provider's hydrated discoveries", async () => {
+		using tempDir = TempDir.createSync("@oms-model-registry-override-only-");
+		const provider = "opencode-go";
+		const apiKey = "opencode-go-test-key";
+		const cachedModel = buildModel({
+			id: "cached-credential-model",
+			name: "Cached Credential Model",
+			api: "openai-responses",
+			provider,
+			baseUrl: "https://opencode.ai/zen/go/v1",
+			reasoning: false,
+			input: ["text"],
+			cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+			contextWindow: 128_000,
+			maxTokens: 16_384,
+		});
+		authStorage.setRuntimeApiKey(provider, apiKey);
+		writeModelCache(
+			resolveModelCacheProviderId(provider, { apiKey }),
+			Date.now(),
+			[cachedModel],
+			true,
+			"",
+			tempDir.join("models.db"),
+		);
+		const registry = new ModelRegistry(authStorage, tempDir.join("models.yml"));
+		await registry.hydrateCredentialScopedModelCaches();
+		expect(registry.getAvailable().some(model => model.provider === provider && model.id === cachedModel.id)).toBe(
+			true,
+		);
+
+		// An extension registers only a transport override for the built-in
+		// provider — no models, no fetchDynamicModels manager.
+		registry.registerProvider(provider, { baseUrl: "https://gateway.example.com/v1" }, sourceId);
+		registry.clearSourceRegistrations(sourceId);
+
+		expect(registry.getAvailable().some(model => model.provider === provider && model.id === cachedModel.id)).toBe(
+			true,
+		);
+	});
+
+	test("extension rebinding discards discoveries removed from the model config", async () => {
+		using tempDir = TempDir.createSync("@oms-model-registry-config-rebind-");
+		const modelsPath = tempDir.join("models.json");
+		const cacheDbPath = tempDir.join("models.db");
+		const provider = "configured-ollama";
+		const baseUrl = "http://127.0.0.1:11435";
+		const discoveredModel = buildModel({
+			id: "removed-config-model",
+			name: "Removed Config Model",
+			api: "openai-completions",
+			provider,
+			baseUrl,
+			reasoning: false,
+			input: ["text"],
+			cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+			contextWindow: 128_000,
+			maxTokens: 16_384,
+		});
+		await Bun.write(
+			modelsPath,
+			JSON.stringify({
+				providers: {
+					[provider]: {
+						baseUrl,
+						api: "openai-completions",
+						auth: "none",
+						discovery: { type: "ollama" },
+					},
+				},
+			}),
+		);
+		const oldMtime = new Date("2020-01-01T00:00:00Z");
+		await fs.utimes(modelsPath, oldMtime, oldMtime);
+		writeModelCache(
+			resolveOllamaModelCacheProviderId(provider, baseUrl),
+			Date.now(),
+			[discoveredModel],
+			true,
+			"",
+			cacheDbPath,
+		);
+		const registry = new ModelRegistry(authStorage, modelsPath);
+		await registry.refresh("offline");
+		expect(registry.find(provider, discoveredModel.id)).toBeDefined();
+		registry.registerProvider(
+			"runtime-provider",
+			{
+				baseUrl: "https://runtime.example.com/v1",
+				apiKey: "RUNTIME_KEY",
+				api: "openai-completions",
+				models: [baseModel],
+			},
+			sourceId,
+		);
+
+		await Bun.write(modelsPath, JSON.stringify({ providers: {} }));
+		registry.clearSourceRegistrations(sourceId);
+
+		expect(registry.find(provider, discoveredModel.id)).toBeUndefined();
+	});
+
+	test("extension rebinding discards discoveries whose model overrides changed", async () => {
+		using tempDir = TempDir.createSync("@oms-model-registry-override-rebind-");
+		const modelsPath = tempDir.join("models.json");
+		const cacheDbPath = tempDir.join("models.db");
+		const provider = "configured-ollama";
+		const baseUrl = "http://127.0.0.1:11436";
+		const modelId = "override-config-model";
+		const discoveredModel = buildModel({
+			id: modelId,
+			name: "Override Config Model",
+			api: "openai-completions",
+			provider,
+			baseUrl,
+			reasoning: false,
+			input: ["text"],
+			cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+			contextWindow: 128_000,
+			maxTokens: 16_384,
+		});
+		const writeConfig = (modelOverrides: Record<string, unknown> | undefined) =>
+			Bun.write(
+				modelsPath,
+				JSON.stringify({
+					providers: {
+						[provider]: {
+							baseUrl,
+							api: "openai-completions",
+							auth: "none",
+							discovery: { type: "ollama" },
+							...(modelOverrides ? { modelOverrides } : {}),
+						},
+					},
+				}),
+			);
+		await writeConfig({ [modelId]: { headers: { "X-Override": "stale" } } });
+		const oldMtime = new Date("2020-01-01T00:00:00Z");
+		await fs.utimes(modelsPath, oldMtime, oldMtime);
+		writeModelCache(
+			resolveOllamaModelCacheProviderId(provider, baseUrl),
+			Date.now(),
+			[discoveredModel],
+			true,
+			"",
+			cacheDbPath,
+		);
+		const registry = new ModelRegistry(authStorage, modelsPath);
+		await registry.refresh("offline");
+		const configured = registry.find(provider, modelId);
+		expect(configured && (await registry.resolveModelHeaders(configured))?.["X-Override"]).toBe("stale");
+		registry.registerProvider(
+			"runtime-provider",
+			{
+				baseUrl: "https://runtime.example.com/v1",
+				apiKey: "RUNTIME_KEY",
+				api: "openai-completions",
+				models: [baseModel],
+			},
+			sourceId,
+		);
+
+		// Remove the per-model override, keeping the discovery config identical.
+		await writeConfig(undefined);
+		registry.clearSourceRegistrations(sourceId);
+
+		const restored = registry.find(provider, modelId);
+		expect(restored && (await registry.resolveModelHeaders(restored))?.["X-Override"]).toBeUndefined();
+	});
+
 	test("unregisterProvider removes only the named provider and its login entry", () => {
-		const registry = new ModelRegistry(authStorage, modelsJsonPath);
+		const registry = new ModelRegistry(authStorage, undefined, { ignoreLocalModelConfig: true });
 		registry.registerProvider(
 			"runtime-provider",
 			{

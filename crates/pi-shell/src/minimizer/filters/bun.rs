@@ -534,9 +534,8 @@ mod tests {
 			 applied.\n@oh-my-soup/pi-utils check: Checked 40 files in 11ms. No fixes \
 			 applied.\n@oh-my-soup/pi-utils check: $ tsgo -p tsconfig.json \
 			 --noEmit\n@oh-my-soup/pi-utils check: Exited with code 0\n@oh-my-soup/pi-coding-agent \
-			 check: Checked 1178 files in 287ms. No fixes applied.\n@oh-my-soup/pi-coding-agent \
-			 check: $ tsgo -p tsconfig.json --noEmit\n@oh-my-soup/pi-coding-agent check: Exited with \
-			 code 0\n",
+			 check: Checked 1178 files in 287ms. No fixes applied.\n@oh-my-soup/pi-coding-agent check: \
+			 $ tsgo -p tsconfig.json --noEmit\n@oh-my-soup/pi-coding-agent check: Exited with code 0\n",
 			0,
 		);
 
@@ -685,7 +684,8 @@ mod tests {
 			"internal command lines must be stripped: {:?}",
 			out.text
 		);
-		// Nonzero exit lines are preserved as evidence (code 0 exits are stripped).
+		// Nonzero exit lines are preserved as evidence (code 0 exits are
+		// stripped).
 		assert!(
 			out.text.contains("Exited with code 1"),
 			"nonzero exit line must survive as evidence: {:?}",

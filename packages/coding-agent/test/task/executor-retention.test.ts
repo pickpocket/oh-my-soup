@@ -19,7 +19,8 @@ import type { CreateAgentSessionResult } from "@oh-my-soup/pi-coding-agent/sdk";
 import * as sdkModule from "@oh-my-soup/pi-coding-agent/sdk";
 import type { AgentSession, AgentSessionEvent } from "@oh-my-soup/pi-coding-agent/session/agent-session";
 import { finalizeSubagentLifecycle, runSubprocess } from "@oh-my-soup/pi-coding-agent/task/executor";
-import type { AgentDefinition, TaskToolDetails } from "@oh-my-soup/pi-coding-agent/task/types";
+import type { TaskToolDetails } from "@oh-my-soup/pi-coding-agent/task";
+import type { AgentDefinition } from "@oh-my-soup/pi-coding-agent/task/types";
 import { EventBus } from "@oh-my-soup/pi-coding-agent/utils/event-bus";
 
 const agent: AgentDefinition = {

@@ -1,8 +1,9 @@
 // Contract (#8867): a physically corrupt models.db must not permanently
 // disable the model cache. On an unrecoverable SQLITE_CORRUPT/NOTADB failure
-// the cache quarantines the broken file, recreates a fresh database, and
-// retries once so a successful live catalog can be persisted and read back by
-// later processes. Healthy caches never enter the recovery path.
+// the shared cache quarantines the broken file, recreates a fresh database,
+// and retries the operation once — so a successful live catalog can be
+// persisted and read back by later processes. Non-corruption reads of a
+// healthy cache never quarantine anything.
 import { Database } from "bun:sqlite";
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import * as fs from "node:fs/promises";
@@ -38,12 +39,12 @@ async function foldWalIntoMainDb(dbPath: string): Promise<void> {
 	await removeWithRetries(`${dbPath}-shm`);
 }
 
-/** Clobber every byte after the 100-byte header so SQLite reports physical page corruption. */
+/** Clobber every byte after the 100-byte header — a valid header over garbage pages yields SQLITE_CORRUPT. */
 async function corruptDbPages(dbPath: string): Promise<void> {
 	await foldWalIntoMainDb(dbPath);
-	const bytes = await fs.readFile(dbPath);
-	bytes.fill(0xff, 100);
-	await fs.writeFile(dbPath, bytes);
+	const buf = await fs.readFile(dbPath);
+	buf.fill(0xff, 100);
+	await fs.writeFile(dbPath, buf);
 }
 
 async function quarantinedFiles(dir: string): Promise<string[]> {
@@ -56,7 +57,7 @@ describe("model cache corruption self-heal (#8867)", () => {
 	let dbPath = "";
 
 	beforeEach(async () => {
-		tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-catalog-corrupt-cache-"));
+		tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "pi-catalog-corrupt-cache-"));
 		dbPath = path.join(tempDir, "models.db");
 	});
 
@@ -72,11 +73,11 @@ describe("model cache corruption self-heal (#8867)", () => {
 		writeModelCache("runtime-ext", Date.now(), [createModel("bootstrap")], true, "fp1", dbPath);
 		await corruptDbPages(dbPath);
 
-		// A read of the corrupt file self-heals to an empty cache.
+		// A read of the corrupt file must not throw and must self-heal to an empty cache.
 		expect(readModelCache<"openai-completions">("runtime-ext", TTL_MS, Date.now, dbPath)).toBeNull();
 		expect((await quarantinedFiles(tempDir)).length).toBeGreaterThan(0);
 
-		// A successful live catalog persists into the recreated database.
+		// The successful live catalog now persists into the recreated database...
 		writeModelCache(
 			"runtime-ext",
 			Date.now(),
@@ -86,13 +87,14 @@ describe("model cache corruption self-heal (#8867)", () => {
 			dbPath,
 		);
 
-		// A fresh connection sees it instead of a permanent cache miss.
+		// ...and a later process (fresh read) sees it instead of a permanent miss.
 		const healed = readModelCache<"openai-completions">("runtime-ext", TTL_MS, Date.now, dbPath);
 		expect(healed?.models.map(model => model.id)).toEqual(["discovered-a", "discovered-b"]);
 	});
 
 	it("recreates a SQLITE_NOTADB cache on write so discovery can persist", async () => {
 		writeModelCache("runtime-ext", Date.now(), [createModel("bootstrap")], true, "fp1", dbPath);
+		// Overwrite with bytes that are not a SQLite database at all.
 		await fs.writeFile(dbPath, Buffer.from("not a database".repeat(64)));
 
 		writeModelCache("runtime-ext", Date.now(), [createModel("discovered")], true, "fp2", dbPath);

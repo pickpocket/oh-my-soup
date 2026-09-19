@@ -37,8 +37,13 @@ interface CdpCommand {
 }
 
 /**
- * Per-pseudo-session Runtime domain state. Never-toggled sessions retain the
- * legacy event fan-out; only an explicit disable silences one.
+ * Per-pseudo-session Runtime domain state.
+ * - `default`: never toggled Runtime — still receives the relay's legacy
+ *   root-event fan-out, so oms's own patched-puppeteer client (which
+ *   pull-acquires contexts and never sends `Runtime.enable`) keeps getting
+ *   `Runtime.executionContextCreated`.
+ * - `enabled`: ran `Runtime.enable`; gets the existing-context replay.
+ * - `disabled`: explicitly ran `Runtime.disable`; silenced until it re-enables.
  */
 type RuntimeState = "default" | "enabled" | "disabled";
 
@@ -48,7 +53,7 @@ interface SessionRef {
 	runtimeState: RuntimeState;
 	/** Context ids already announced to this pseudo-session. */
 	readonly runtimeContexts: Set<number>;
-	/** In-flight Runtime.enable for this session; duplicates await it. */
+	/** In-flight `Runtime.enable` for this session; duplicates await it. */
 	runtimeEnabling: Promise<void> | null;
 	/** Monotonic ownership token for enable rollback and replay. */
 	runtimeEpoch: number;
@@ -84,6 +89,7 @@ class CdpConnection {
 		return out;
 	}
 }
+
 /** Transport replacement is retryable and must not permanently ban a tab. */
 class ExtensionReplacedError extends Error {}
 
@@ -102,9 +108,9 @@ class TabState {
 	/** Whether targets for this tab were announced to discovering connections. */
 	announced = false;
 	attaching: Promise<boolean> | null = null;
-	/** Relay-initiated detach in flight; replacement attachment waits for it. */
+	/** Relay-initiated detach in flight; reattach serializes behind it. */
 	detaching: Promise<void> | null = null;
-	/** A successful attach completed after the most recently requested detach. */
+	/** A successful attach completed after the most recently requested relay detach. */
 	reattachedAfterDetach = false;
 	/** True after the relay put this tab in the oms group; `ompGroupId` holds that group. */
 	grouped = false;
@@ -117,7 +123,7 @@ class TabState {
 	readonly realSessions = new Set<string>();
 	/** Live execution contexts from the shared root debugger session. */
 	readonly runtimeContexts = new Map<number, Record<string, unknown>>();
-	/** Shared-root Runtime state, independent of each pseudo-session's state. */
+	/** Whether the shared root Runtime domain has been enabled by the bridge. */
 	rootRuntimeEnabled = false;
 	rootRuntimeEnabling: Promise<void> | null = null;
 	/** Invalidates an in-flight Runtime enable when the debugger detaches. */
@@ -234,6 +240,7 @@ export class RelayBridge {
 	}
 
 	// ---- extension lifecycle -------------------------------------------------
+
 	#rejectPendingExtensionRpcs(error: Error): void {
 		for (const pending of this.#pendingRpc.values()) {
 			clearTimeout(pending.timer);
@@ -324,25 +331,18 @@ export class RelayBridge {
 			seen.add(snap.tabId);
 			this.#onTabUpsert(snap, { silent: true });
 		}
-		for (const tabId of [...this.#tabs.keys()]) {
+		for (const tabId of Array.from(this.#tabs.keys())) {
 			if (!seen.has(tabId)) this.#onTabRemoved(tabId);
 		}
 		for (const tab of this.#tabs.values()) {
+			const wasAttached = tab.attached;
 			tab.attached = attachedNow.has(tab.tabId);
 			tab.attaching = null;
-			// Restore any attachment represented by still-live downstream sessions.
-			if (!tab.attached && this.#sessionHolders(tab.tabId).length > 0) {
-				void this.#ensureAttached(tab).then(async ok => {
-					if (!ok) {
-						this.#onTabDetached(tab.tabId, "reattach_failed", false);
-						return;
-					}
-					await this.#restoreRuntimeSessions(tab).catch(error => {
-						this.#log("Runtime restore failed", {
-							tabId: tab.tabId,
-							error: error instanceof Error ? error.message : String(error),
-						});
-					});
+			// A service-worker restart can drop attachments while downstream
+			// connections still hold sessions: restore them best-effort.
+			if (wasAttached && !tab.attached && this.#sessionHolders(tab.tabId).length > 0) {
+				void this.#ensureAttached(tab).then(ok => {
+					if (!ok) this.#onTabDetached(tab.tabId, "reattach_failed", false);
 				});
 			}
 		}
@@ -430,6 +430,8 @@ export class RelayBridge {
 			ref.runtimeState = "disabled";
 			ref.runtimeEpoch++;
 			ref.runtimeContexts.clear();
+			// Abandon any in-flight enable's ownership: a later enable starts fresh
+			// rather than joining a cycle that predates this disable.
 			ref.runtimeEnabling = null;
 			this.#reply(conn, msg, {});
 			return;
@@ -438,11 +440,13 @@ export class RelayBridge {
 			await this.#forwardToTab(conn, msg, ref.tabId, undefined);
 			return;
 		}
+		// A pipelined duplicate must await the in-flight enable, never ack early:
+		// the root cycle may still fail, and success must trail the context replay.
 		if (ref.runtimeEnabling) {
 			await this.#awaitEnable(conn, msg, ref.runtimeEnabling);
 			return;
 		}
-		if (ref.runtimeState === "enabled" && this.#tabs.get(ref.tabId)?.rootRuntimeEnabled) {
+		if (ref.runtimeState === "enabled") {
 			this.#reply(conn, msg, {});
 			return;
 		}
@@ -455,43 +459,50 @@ export class RelayBridge {
 		}
 	}
 
-	/** Reply to one Runtime.enable command with the shared enable's outcome. */
+	/** Reply to one `Runtime.enable` command with the shared enable's outcome. */
 	async #awaitEnable(conn: CdpConnection, msg: CdpCommand, enabling: Promise<void>): Promise<void> {
 		try {
 			await enabling;
 			this.#reply(conn, msg, {});
-		} catch (error) {
-			this.#replyError(conn, msg, error instanceof Error ? error.message : String(error));
+		} catch (err) {
+			this.#replyError(conn, msg, err instanceof Error ? err.message : String(err));
 		}
 	}
 
-	/** Enable the shared root Runtime and replay live contexts to this session. */
+	/**
+	 * Drive the shared root `Runtime.enable` for a session and replay the live
+	 * contexts to it. Rejects if the root cycle fails so every joined caller
+	 * observes the failure instead of a spurious success.
+	 */
 	async #enableSessionRuntime(conn: CdpConnection, sessionId: string, ref: SessionRef): Promise<void> {
-		const previous = ref.runtimeState;
+		const prev = ref.runtimeState;
 		const epoch = ++ref.runtimeEpoch;
 		ref.runtimeState = "enabled";
 		const tab = this.#tabs.get(ref.tabId);
 		if (!tab) {
-			ref.runtimeState = previous;
+			ref.runtimeState = prev;
 			throw new Error(`No tab with id ${ref.tabId}`);
 		}
 		try {
 			await this.#ensureRuntimeEnabled(tab);
+			// A disable or newer enable may have taken ownership while the root
+			// RPC was in flight; only the latest enable may replay or roll back.
 			if (conn.sessions.get(sessionId) === ref && ref.runtimeEpoch === epoch && ref.runtimeState === "enabled") {
 				this.#replayRuntimeContexts(conn, sessionId, ref, tab);
 			}
-		} catch (error) {
+		} catch (err) {
 			if (ref.runtimeEpoch === epoch) {
-				ref.runtimeState = previous;
+				ref.runtimeState = prev;
 				ref.runtimeContexts.clear();
 			}
-			throw error;
+			throw err;
 		}
 	}
 
 	async #ensureRuntimeEnabled(tab: TabState): Promise<void> {
 		if (tab.rootRuntimeEnabled) return;
 		if (tab.rootRuntimeEnabling) return await tab.rootRuntimeEnabling;
+
 		const enabling = this.#cycleRuntime(tab);
 		tab.rootRuntimeEnabling = enabling;
 		const generation = tab.runtimeGeneration;
@@ -795,6 +806,8 @@ export class RelayBridge {
 					if (ref.kind !== "page" || ref.tabId !== tabId) continue;
 					if (destroyedContextId !== undefined) ref.runtimeContexts.delete(destroyedContextId);
 					if (method === "Runtime.executionContextsCleared") ref.runtimeContexts.clear();
+					// `default` sessions never enabled Runtime but still get the
+					// legacy fan-out; only an explicit `Runtime.disable` silences one.
 					if (ref.runtimeState === "disabled") continue;
 					if (createdContextId !== undefined) {
 						if (ref.runtimeContexts.has(createdContextId)) continue;
@@ -816,9 +829,13 @@ export class RelayBridge {
 	#onTabDetached(tabId: number, reason: string, relayInitiated: boolean): void {
 		const tab = this.#tabs.get(tabId);
 		if (!tab) return;
+		// Explicit source attribution comes from the extension that executed
+		// chrome.debugger.detach, so socket replacement cannot confuse this
+		// with a user cancellation or mutate an unrelated attach promise.
 		if (relayInitiated) {
-			// A replacement hello can observe the old attachment before its
-			// pending detach completes. Do not clobber a later successful attach.
+			// A replacement hello can observe the old attachment before the
+			// pending detach completes. Reconcile that stale snapshot unless a
+			// later attach has already superseded this detach.
 			if (!tab.reattachedAfterDetach) tab.attached = false;
 			return;
 		}
@@ -827,6 +844,8 @@ export class RelayBridge {
 		tab.attaching = null;
 		this.#resetRuntime(tab);
 		tab.banned = true;
+		// The user dismissed the debugger infobar (or the attach was torn
+		// down): release the tab's oms-group membership too.
 		this.#syncTabGrouping(tab);
 		this.#retractTab(tab);
 	}
@@ -1013,10 +1032,16 @@ export class RelayBridge {
 		conn.sessions.delete(sessionId);
 		const targetId = ref.kind === "tab" ? tabTargetId(ref.tabId) : pageTargetId(ref.tabId);
 		this.#emit(conn, "Target.detachedFromTarget", { sessionId, targetId }, parentSessionId);
+		// An explicit release of the last session must drop the attachment too,
+		// or it outlives every downstream session: the infobar stays up, and
+		// dismissing it bans the tab for the rest of the epoch.
 		this.#detachIfUnheld(ref.tabId);
 	}
 
-	/** Release chrome.debugger once no downstream pseudo-session holds this tab. */
+	/**
+	 * Release the tab's chrome.debugger attachment once no downstream session
+	 * holds it. Inert while the long-lived registry connection still holds one.
+	 */
 	#detachIfUnheld(tabId: number): void {
 		if (this.#sessionHolders(tabId).length > 0) return;
 		const tab = this.#tabs.get(tabId);
@@ -1038,32 +1063,6 @@ export class RelayBridge {
 		tab.rootRuntimeEnabled = false;
 		tab.rootRuntimeEnabling = null;
 		tab.runtimeGeneration++;
-		for (const conn of this.#conns.values()) {
-			for (const ref of conn.sessions.values()) {
-				if (ref.kind !== "page" || ref.tabId !== tab.tabId) continue;
-				ref.runtimeContexts.clear();
-				ref.runtimeEpoch++;
-				ref.runtimeEnabling = null;
-			}
-		}
-	}
-
-	async #restoreRuntimeSessions(tab: TabState): Promise<void> {
-		const enabled: Array<{ conn: CdpConnection; sessionId: string; ref: SessionRef }> = [];
-		for (const conn of this.#conns.values()) {
-			for (const [sessionId, ref] of conn.sessions) {
-				if (ref.kind === "page" && ref.tabId === tab.tabId && ref.runtimeState === "enabled") {
-					enabled.push({ conn, sessionId, ref });
-				}
-			}
-		}
-		if (enabled.length === 0) return;
-		await this.#ensureRuntimeEnabled(tab);
-		for (const { conn, sessionId, ref } of enabled) {
-			if (conn.sessions.get(sessionId) === ref && ref.runtimeState === "enabled") {
-				this.#replayRuntimeContexts(conn, sessionId, ref, tab);
-			}
-		}
 	}
 
 	/** Connections currently holding any session on a tab. */
@@ -1086,7 +1085,8 @@ export class RelayBridge {
 	}
 
 	async #ensureAttached(tab: TabState): Promise<boolean> {
-		// Serialize a replacement attachment behind any relay-initiated detach.
+		// The extension emits the detach echo before resolving the RPC. Awaiting
+		// prevents a replacement attach racing either operation.
 		while (tab.detaching) await tab.detaching;
 		if (tab.attached) return true;
 		if (tab.banned || !this.#ext) return false;
@@ -1097,13 +1097,13 @@ export class RelayBridge {
 				tab.reattachedAfterDetach = true;
 				return true;
 			})
-			.catch(error => {
+			.catch(err => {
 				this.#log("attach failed", {
 					tabId: tab.tabId,
 					url: tab.url,
-					error: error instanceof Error ? error.message : String(error),
+					error: err instanceof Error ? err.message : String(err),
 				});
-				if (!(error instanceof ExtensionReplacedError)) tab.banned = true;
+				if (!(err instanceof ExtensionReplacedError)) tab.banned = true;
 				return false;
 			})
 			.finally(() => {

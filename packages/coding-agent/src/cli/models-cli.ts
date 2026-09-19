@@ -12,9 +12,11 @@
  * forces the network (`online`).
  */
 import type { Api, Effort, Model } from "@oh-my-soup/pi-ai";
+import { sendsImageInputOnWire } from "@oh-my-soup/pi-ai/providers/vision-guard";
 import { getSupportedEfforts } from "@oh-my-soup/pi-catalog/model-thinking";
 import { formatNumber, getProjectDir } from "@oh-my-soup/pi-utils";
 import chalk from "@oh-my-soup/pi-utils/chalk";
+import type { ConfigError } from "../config/config-file";
 import { ModelRegistry } from "../config/model-registry";
 import { Settings } from "../config/settings";
 import { discoverAndLoadExtensions, ExtensionRunner, emitSessionShutdownEvent } from "../extensibility/extensions";
@@ -165,14 +167,23 @@ function boxTable(columns: BoxColumn[], rows: string[][]): string[] {
 	return lines;
 }
 
+/**
+ * The two registry reads the listing performs. Structural so the renderer can be
+ * exercised without booting a full {@link ModelRegistry}.
+ */
+export interface ModelsListingSource {
+	getAvailable(): Model<Api>[];
+	getError(): ConfigError | undefined;
+}
+
 /** `oms models ls`/`find`: provider-grouped listing (one box table per provider). */
-function renderProviderModels(
-	modelRegistry: ModelRegistry,
+export function renderProviderModels(
+	source: ModelsListingSource,
 	action: ModelsAction,
 	pattern: string | undefined,
 	json: boolean,
 ): void {
-	const available = modelRegistry.getAvailable();
+	const available = source.getAvailable();
 	const needle = pattern?.toLowerCase();
 	let filtered = available;
 
@@ -196,7 +207,7 @@ function renderProviderModels(
 		}
 	}
 
-	const configError = modelRegistry.getError();
+	const configError = source.getError();
 
 	if (json) {
 		if (configError) {
@@ -243,7 +254,9 @@ function renderProviderModels(
 			formatLimit(model.contextWindow),
 			formatLimit(model.maxTokens),
 			model.thinking ? getSupportedEfforts(model).join(",") : model.reasoning ? "yes" : "-",
-			model.input.includes("image") ? "yes" : "no",
+			// Wire truth, not the declared `input`: the transport drops image parts for
+			// models the catalog marks text-only (`compat.stripImageInput`, #9697).
+			sendsImageInputOnWire(model) ? "yes" : "no",
 		]);
 		for (const line of boxTable(
 			[
@@ -304,7 +317,7 @@ export async function runModelsListing(options: RunModelsListingOptions): Promis
 		cwd,
 		eventBus,
 		disableExtensionDiscovery ? undefined : disabledExtensionIds,
-		{ ambient: !disableExtensionDiscovery },
+		{ ambient: !disableExtensionDiscovery, includeAmbientHooks: false },
 	);
 	const extensionRunner =
 		extensionsResult.extensions.length > 0
@@ -365,7 +378,10 @@ export async function runModelsCommand(command: ModelsCommandArgs): Promise<void
 		if (action === "refresh" && !json && process.stderr.isTTY) {
 			process.stderr.write("Refreshing models from all providers…\n");
 		}
-		await modelRegistry.refresh(action === "refresh" ? "online" : "online-if-uncached");
+		await modelRegistry.refresh(
+			action === "refresh" ? "online" : "online-if-uncached",
+			action === "refresh" ? { refreshCommandCredentials: true } : undefined,
+		);
 
 		const cliExtensionPaths = command.flags.extensions ?? [];
 		await runModelsListing({

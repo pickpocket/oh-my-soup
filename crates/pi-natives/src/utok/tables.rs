@@ -132,6 +132,19 @@ static GLM5: LazyLock<BpeEncoding> = LazyLock::new(|| BpeEncoding {
 	ignore_merges: true,
 });
 
+/// Resolve the BPE encoding for a non-Claude family.
+pub(crate) fn bpe_for(enc: Encoding) -> &'static BpeEncoding {
+	match enc {
+		Encoding::O200kBase => &O200K_BASE,
+		Encoding::Cl100kBase => &CL100K_BASE,
+		Encoding::Qwen3 => &QWEN3,
+		Encoding::DeepSeekV3 => &DEEPSEEK3,
+		Encoding::KimiK2 => &KIMI_K2,
+		Encoding::Glm5 => &GLM5,
+		_ => unreachable!("claude families never reach bpe_for"),
+	}
+}
+
 #[cfg(test)]
 mod glm_scan_tests {
 	//! Differential justifying the cl100k-scanner alias: piece boundaries
@@ -210,18 +223,5 @@ mod glm_scan_tests {
 				"piece boundaries diverge on {text:?}"
 			);
 		}
-	}
-}
-
-/// Resolve the BPE encoding for a non-Claude family.
-pub fn bpe_for(enc: Encoding) -> &'static BpeEncoding {
-	match enc {
-		Encoding::O200kBase => &O200K_BASE,
-		Encoding::Cl100kBase => &CL100K_BASE,
-		Encoding::Qwen3 => &QWEN3,
-		Encoding::DeepSeekV3 => &DEEPSEEK3,
-		Encoding::KimiK2 => &KIMI_K2,
-		Encoding::Glm5 => &GLM5,
-		_ => unreachable!("claude families never reach bpe_for"),
 	}
 }

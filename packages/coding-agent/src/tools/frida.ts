@@ -24,22 +24,13 @@ import type {
 	FridaScanMatch,
 	FridaSessionInfo,
 } from "../frida/types";
-import type { Theme } from "../modes/theme/theme";
+import type { Theme } from "@oh-my-soup/pi-tui/theme";
 import fridaDescription from "../prompts/tools/frida.md" with { type: "text" };
-import { enforceInlineByteCap } from "../session/streaming-output";
-import { renderStatusLine } from "../tui";
-import { CachedOutputBlock, markFramedBlockComponent } from "../tui/output-block";
+import { enforceInlineByteCap } from "@oh-my-soup/pi-tui/tools/streaming-output";
+import { CachedOutputBlock, formatExpandHint, formatStatusIcon, markFramedBlockComponent, PREVIEW_LIMITS, renderStatusLine, replaceTabs, TRUNCATE_LENGTHS, truncateToWidth } from "@oh-my-soup/pi-tui/render";
 import type { ToolSession } from ".";
 import { truncateForPrompt } from "./approval";
-import type { OutputMeta } from "./output-meta";
-import {
-	formatExpandHint,
-	formatStatusIcon,
-	PREVIEW_LIMITS,
-	replaceTabs,
-	TRUNCATE_LENGTHS,
-	truncateToWidth,
-} from "./render-utils";
+import type { OutputMeta } from "@oh-my-soup/pi-tui/tools/output-meta";
 import { ToolError } from "./tool-errors";
 import { type ToolResultBuilder, toolResult } from "./tool-result";
 import { clampTimeout } from "./tool-timeouts";
@@ -202,15 +193,13 @@ export const fridaToolRenderer = {
 					);
 				}
 				return outputBlock.render(
-					width,
-					0,
-					() => ({
+					{
 						header,
 						state: result.isError ? "error" : "success",
 						sections: [{ label: theme.fg("toolTitle", "Output"), lines: displayedLines }],
 						width,
 						applyBg: false,
-					}),
+					},
 					theme,
 				);
 			},

@@ -11,19 +11,11 @@ describe("runUpdateCommand fetch cancellation", () => {
 
 	it("checks release metadata with a timeout signal", async () => {
 		let requestSignal: AbortSignal | undefined;
-		let requestUrl: string | undefined;
 		vi.spyOn(console, "log").mockImplementation(() => {});
-		// The version probe reads the `releases/latest` redirect, so the stub has
-		// to answer with the 302 that carries the tag — a body-only response would
-		// look like a repository with no releases.
 		const fetchStub = Object.assign(
-			async (input: FetchInput, init?: FetchInit) => {
+			async (_input: FetchInput, init?: FetchInit) => {
 				requestSignal = init?.signal ?? undefined;
-				requestUrl = String(input);
-				return new Response(null, {
-					status: 302,
-					headers: { location: "https://github.com/pickpocket/oh-my-soup/releases/tag/v999.0.0" },
-				});
+				return Response.json({ version: "999.0.0" });
 			},
 			{ preconnect: globalThis.fetch.preconnect },
 		);
@@ -31,7 +23,6 @@ describe("runUpdateCommand fetch cancellation", () => {
 
 		await runUpdateCommand({ force: false, check: true });
 
-		expect(requestUrl).toBe("https://github.com/pickpocket/oh-my-soup/releases/latest");
 		expect(requestSignal).toBeInstanceOf(AbortSignal);
 	});
 });
@@ -82,6 +73,15 @@ describe("getLatestRelease rename pointers", () => {
 			"https://registry.npmjs.org/@new/oms/latest",
 		]);
 	});
+	it("fetches the canary dist-tag when checking the canary channel", async () => {
+		const urls = stubRegistry({
+			"@oh-my-soup/pi-coding-agent": { version: "999.0.0-canary.1" },
+		});
+
+		await getLatestRelease({ channel: "canary" });
+
+		expect(urls).toEqual(["https://registry.npmjs.org/@oh-my-soup/pi-coding-agent/canary"]);
+	});
 
 	it("ignores a rename pointer that cycles back to an already-visited package", async () => {
 		const urls = stubRegistry({
@@ -104,7 +104,7 @@ describe("getLatestRelease proxy errors", () => {
 		vi.restoreAllMocks();
 	});
 
-	it("translates Bun's proxy failure into actionable CLI guidance", async () => {
+	it("translates Bun's UnsupportedProxyProtocol fetch failure into an actionable CLI message", async () => {
 		const fetchStub = Object.assign(
 			async () => {
 				throw new Error(
@@ -116,15 +116,17 @@ describe("getLatestRelease proxy errors", () => {
 		);
 		vi.spyOn(globalThis, "fetch").mockImplementation(fetchStub);
 
-		const error = await getLatestRelease({ timeoutMs: 5000 }).then(
+		const err = await getLatestRelease({ timeoutMs: 5000 }).then(
 			() => null,
-			(reason: unknown) => reason as Error,
+			(e: unknown) => e as Error,
 		);
 
-		expect(error).toBeInstanceOf(Error);
-		expect(error?.message).not.toContain("verbose: true");
-		expect(error?.message).not.toContain("fetch()");
-		expect(error?.message).toMatch(/SOCKS/i);
-		expect(error?.message).toMatch(/https?:\/\//i);
+		expect(err).toBeInstanceOf(Error);
+		// The raw fetch() instruction the CLI user cannot act on must not leak through.
+		expect(err?.message).not.toContain("verbose: true");
+		expect(err?.message).not.toContain("fetch()");
+		// Instead the user gets actionable guidance about supported proxy schemes.
+		expect(err?.message).toMatch(/SOCKS/i);
+		expect(err?.message).toMatch(/https?:\/\//i);
 	});
 });

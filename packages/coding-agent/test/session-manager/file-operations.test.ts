@@ -15,6 +15,9 @@ import {
 	setAgentDir,
 } from "@oh-my-soup/pi-utils";
 
+const OLDER_MTIME = new Date("2000-01-01T00:00:00.000Z");
+const NEWER_MTIME = new Date("2000-01-01T00:00:01.000Z");
+
 describe("loadEntriesFromFile", () => {
 	let tempDir: string;
 
@@ -76,9 +79,9 @@ describe("findMostRecentSession", () => {
 		const file2 = path.join(tempDir, "newer.jsonl");
 
 		fs.writeFileSync(file1, '{"type":"session","id":"old","timestamp":"2025-01-01T00:00:00Z","cwd":"/tmp"}\n');
-		// Small delay to ensure different mtime
-		await new Promise(r => setTimeout(r, 10));
+		fs.utimesSync(file1, OLDER_MTIME, OLDER_MTIME);
 		fs.writeFileSync(file2, '{"type":"session","id":"new","timestamp":"2025-01-01T00:00:00Z","cwd":"/tmp"}\n');
+		fs.utimesSync(file2, NEWER_MTIME, NEWER_MTIME);
 
 		expect(await findMostRecentSession(tempDir)).toBe(file2);
 	});
@@ -88,7 +91,6 @@ describe("findMostRecentSession", () => {
 		const valid = path.join(tempDir, "valid.jsonl");
 
 		fs.writeFileSync(invalid, '{"type":"not-session"}\n');
-		await new Promise(r => setTimeout(r, 10));
 		fs.writeFileSync(valid, '{"type":"session","id":"abc","timestamp":"2025-01-01T00:00:00Z","cwd":"/tmp"}\n');
 
 		expect(await findMostRecentSession(tempDir)).toBe(valid);
@@ -170,8 +172,7 @@ describe("SessionManager temp cwd session dirs", () => {
 	const fallbackAgentDir = path.join(getConfigRootDir(), "agent");
 
 	function expectedTempSessionDirName(tempCwd: string): string {
-		const relative = path.relative(resolveEquivalentPath(os.tmpdir()), resolveEquivalentPath(path.resolve(tempCwd)));
-		return relative ? `-tmp-${relative.split(path.sep).join("-")}` : "-tmp";
+		return `-tmp-${path.relative(os.tmpdir(), path.resolve(tempCwd)).replace(/[/\\:]/g, "-")}`;
 	}
 
 	function toLegacyAbsoluteSessionDirName(cwd: string): string {
@@ -226,7 +227,7 @@ describe("SessionManager temp cwd session dirs", () => {
 		expect(fs.existsSync(path.join(expectedDir, "carried.jsonl"))).toBe(true);
 	});
 
-	it("migrates hashed-scheme session dirs into canonical -tmp names", () => {
+	it("migrates hashed-scheme session dirs back into legacy names", () => {
 		const tempCwd = path.join(testAgentDir, `hashed-cwd-${Snowflake.next()}`);
 		fs.mkdirSync(tempCwd, { recursive: true });
 
@@ -328,8 +329,7 @@ describe("SessionManager legacy session migration persistence", () => {
 				}),
 			].join("\n")}\n`,
 		);
-		// A historical mtime keeps rewrite checks independent of wall-clock adjustments.
-		fs.utimesSync(sessionFile, 1, 1);
+		fs.utimesSync(sessionFile, OLDER_MTIME, OLDER_MTIME);
 		const initialMtimeMs = fs.statSync(sessionFile).mtimeMs;
 
 		const session = await SessionManager.open(sessionFile, tempDir);
@@ -342,11 +342,9 @@ describe("SessionManager legacy session migration persistence", () => {
 		expect(migratedEntries[0]?.parentId).toBeNull();
 		expect(migratedEntries[1]?.parentId).toBe(migratedEntries[0]?.id);
 
-		await new Promise(resolve => setTimeout(resolve, 20));
 		await session.flush();
 		expect(fs.statSync(sessionFile).mtimeMs).toBe(initialMtimeMs);
 
-		await new Promise(resolve => setTimeout(resolve, 20));
 		session.appendMessage({ role: "user", content: "follow up", timestamp: Date.now() });
 		await session.flush();
 
@@ -375,11 +373,10 @@ describe("SessionManager legacy session migration persistence", () => {
 				}),
 			].join("\n")}\n`,
 		);
-		fs.utimesSync(sessionFile, 1, 1);
+		fs.utimesSync(sessionFile, OLDER_MTIME, OLDER_MTIME);
 		const initialMtimeMs = fs.statSync(sessionFile).mtimeMs;
 
 		const session = await SessionManager.open(sessionFile, tempDir);
-		await new Promise(resolve => setTimeout(resolve, 20));
 		await session.rewriteEntries();
 
 		const persistedEntries = await loadEntriesFromFile(sessionFile);
@@ -408,11 +405,10 @@ describe("SessionManager legacy session migration persistence", () => {
 				}),
 			].join("\n")}\n`,
 		);
-		fs.utimesSync(sessionFile, 1, 1);
+		fs.utimesSync(sessionFile, OLDER_MTIME, OLDER_MTIME);
 		const initialMtimeMs = fs.statSync(sessionFile).mtimeMs;
 
 		const session = await SessionManager.open(sessionFile, tempDir);
-		await new Promise(resolve => setTimeout(resolve, 20));
 		await session.ensureOnDisk();
 
 		const persistedEntries = await loadEntriesFromFile(sessionFile);
@@ -427,7 +423,7 @@ describe("SessionManager legacy session migration persistence", () => {
 		expect(persistedEntries[1].id).toBeDefined();
 		expect(persistedEntries[1].parentId).toBeNull();
 	});
-	it("keeps the last non-empty session resumable after starting a fresh session", async () => {
+	it("keeps an explicitly started session resumable after its first turn", async () => {
 		const session = SessionManager.create(tempDir, tempDir);
 		session.appendMessage({ role: "user", content: "hello", timestamp: Date.now() - 1 });
 		session.appendMessage(makeAssistantMessage());
@@ -438,9 +434,9 @@ describe("SessionManager legacy session migration persistence", () => {
 
 		const freshSessionFile = await session.newSession();
 		expect(freshSessionFile).toBeDefined();
-		expect(fs.existsSync(freshSessionFile!)).toBe(false);
-		// Lazy new-session persistence: nothing on disk yet, so materialize the
-		// fresh session the way assistant output would (issue #5730).
+		// The boundary itself is durable before the first turn; completed output
+		// then keeps the same session at the head of restart selection (#5730).
+		expect(fs.existsSync(freshSessionFile!)).toBe(true);
 		session.appendMessage({ role: "user", content: "first message of fresh session", timestamp: Date.now() });
 		session.appendMessage(makeAssistantMessage());
 		await session.flush();

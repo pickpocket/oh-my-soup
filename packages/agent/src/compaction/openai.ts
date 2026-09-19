@@ -23,6 +23,7 @@ import {
 	getCodexAttestationHeader,
 } from "@oh-my-soup/pi-ai/providers/openai-codex-responses";
 import {
+	encodeResponsesToolResultOutput,
 	hoistInterleavedResponsesToolBatchMessages,
 	parseAzureDeploymentNameMap,
 	parseTextSignature,
@@ -45,6 +46,7 @@ import {
 } from "@oh-my-soup/pi-ai/utils";
 import { captureOpenAIHttpError } from "@oh-my-soup/pi-ai/utils/openai-http";
 import {
+	applyCodexResidencyHeader,
 	CODEX_BASE_URL,
 	codexRoutingHint,
 	getCodexAccountId,
@@ -64,14 +66,14 @@ export * from "./compaction-v2-streaming";
 export const OPENAI_REMOTE_COMPACTION_PRESERVE_KEY = "openaiRemoteCompaction";
 
 /**
- * Hard ceiling on remote compaction HTTP requests. Unlike every provider
- * stream (guarded by first-event/idle watchdogs in pi-ai), these are raw
- * fetches awaiting one non-streamed JSON body — a connection silently dropped
- * by a middlebox would otherwise hang the whole compaction pipeline forever
- * (frozen "Auto context-full maintenance…" spinner, manual /compact queueing
- * behind it). On timeout the caller falls back to local summarization.
+ * Hard ceiling on remote compaction HTTP requests (5 minutes). Unlike every
+ * provider stream (guarded by first-event/idle watchdogs in pi-ai), these are
+ * raw fetches awaiting one non-streamed JSON body — a connection silently
+ * dropped by a middlebox would otherwise hang the whole compaction pipeline
+ * forever (frozen "Auto context-full maintenance…" spinner, manual /compact
+ * queueing behind it). On timeout the caller falls back to local summarization.
  */
-export const REMOTE_COMPACTION_TIMEOUT_MS = 180_000;
+export const REMOTE_COMPACTION_TIMEOUT_MS = 300_000;
 
 const DEFAULT_AZURE_API_VERSION = "v1";
 
@@ -124,11 +126,21 @@ export interface TrimRemoteCompactionInputResult {
 	estimatedTokensAfter: number;
 }
 
+/** Verdict for one remote-compaction request measured against the model window. */
 interface RemoteCompactionBudgetProbe {
+	/** Estimated request tokens; the text part is exact when the cheap bound busted. */
 	tokens: number;
+	/** Whether the request fits the window. Always true when no window is known. */
 	fits: boolean;
 }
 
+/**
+ * Cheap-first sizing of a remote-compaction request. Images and the request
+ * frame are charged flat, so they come off the budget rather than through the
+ * tokenizer; the serialized transcript is then probed with
+ * {@link Tokenizer.checkTokenBudget}, which only pays for an exact count when
+ * the byte bound cannot already prove the request fits.
+ */
 function probeRemoteCompactionInputBudget(
 	input: Array<Record<string, unknown>>,
 	tokenizer: Tokenizer,
@@ -270,15 +282,22 @@ export interface RemoteCompactionResponse {
 // OpenAI provider gating + endpoint resolution
 // ============================================================================
 
-function isOpenAiRemoteCompactionApi(api: Api | undefined): boolean {
+export function isOpenAiRemoteCompactionApi(api: Api | undefined): boolean {
 	return api === "openai-responses" || api === "azure-openai-responses" || api === "openai-codex-responses";
 }
 
 export function shouldUseOpenAiRemoteCompaction(model: Model): boolean {
 	if (model.remoteCompaction?.enabled === false) return false;
-	if (model.provider === "openai" || model.provider === "openai-codex") return true;
+	const compactionApi = model.remoteCompaction?.api ?? model.api;
+	// ChatGPT's Codex backend exposes V2 compaction on /codex/responses, but
+	// does not expose the OpenAI V1 /responses/compact endpoint. Only use the
+	// V1 path for Codex when an explicit compatible endpoint was configured.
+	if (model.provider === "openai-codex") {
+		return (model.remoteCompaction?.endpoint?.trim().length ?? 0) > 0;
+	}
+	if (model.provider === "openai") return true;
 	if (model.remoteCompaction?.enabled !== true) return false;
-	return isOpenAiRemoteCompactionApi(model.remoteCompaction.api ?? model.api);
+	return isOpenAiRemoteCompactionApi(compactionApi);
 }
 
 function resolveOpenAiCompactEndpoint(model: Model): string {
@@ -379,7 +398,7 @@ export function withOpenAiRemoteCompactionPreserveData(
 ): Record<string, unknown> | undefined {
 	if (remoteCompaction) {
 		return {
-			...(preserveData ?? {}),
+			...preserveData,
 			[OPENAI_REMOTE_COMPACTION_PRESERVE_KEY]: remoteCompaction,
 		};
 	}
@@ -493,6 +512,7 @@ export function buildOpenAiNativeHistory(
 	messages: Message[],
 	model: Model,
 	previousReplacementHistory?: Array<Record<string, unknown>>,
+	supportsImageDetailOriginal = false,
 ): Array<Record<string, unknown>> {
 	const input: Array<Record<string, unknown>> = previousReplacementHistory
 		? adaptComputerHistoryForCompaction([...previousReplacementHistory], model.supportsComputerUse === true)
@@ -681,12 +701,7 @@ export function buildOpenAiNativeHistory(
 
 		if (message.role === "toolResult") {
 			const normalized = normalizeResponsesToolCallId(message.toolCallId);
-			const textOutput = message.content
-				.filter(block => block.type === "text")
-				.map(block => block.text)
-				.join("\n");
-			const hasImages = message.content.some(block => block.type === "image");
-			const outputText = textOutput.length > 0 ? textOutput : hasImages ? "(see attached image)" : "";
+			const { output, outputText } = encodeResponsesToolResultOutput(message, model, supportsImageDetailOriginal);
 			if (demotedComputerCallIds.has(normalized.callId)) {
 				const resultItem =
 					message.providerMetadata?.type === "computer"
@@ -736,23 +751,8 @@ export function buildOpenAiNativeHistory(
 			input.push({
 				type: customCallIds.has(normalized.callId) ? "custom_tool_call_output" : "function_call_output",
 				call_id: normalized.callId,
-				output: outputText.toWellFormed(),
+				output,
 			});
-
-			if (hasImages && model.input.includes("image")) {
-				const contentBlocks: Array<Record<string, unknown>> = [
-					{ type: "input_text", text: TOOL_RESULT_IMAGE_ATTACHMENT_TEXT },
-				];
-				for (const block of message.content) {
-					if (block.type !== "image") continue;
-					contentBlocks.push({
-						type: "input_image",
-						detail: "auto",
-						image_url: `data:${block.mimeType};base64,${block.data}`,
-					});
-				}
-				input.push({ type: "message", role: "user", content: contentBlocks });
-			}
 		}
 
 		msgIndex++;
@@ -811,12 +811,12 @@ export async function requestOpenAiRemoteCompaction(
 		? {
 				"content-type": "application/json",
 				"api-key": apiKey,
-				...(model.headers ?? {}),
+				...model.headers,
 			}
 		: {
 				"content-type": "application/json",
 				Authorization: `Bearer ${apiKey}`,
-				...(model.headers ?? {}),
+				...model.headers,
 			};
 
 	// Codex endpoints require additional auth headers
@@ -825,6 +825,7 @@ export async function requestOpenAiRemoteCompaction(
 		if (accountId) {
 			headers[OPENAI_HEADERS.ACCOUNT_ID] = accountId;
 		}
+		applyCodexResidencyHeader(headers, apiKey);
 		const attestation = await getCodexAttestationHeader(accountId);
 		if (attestation) {
 			headers[OPENAI_HEADERS.ATTESTATION] = attestation;

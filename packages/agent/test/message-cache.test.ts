@@ -179,14 +179,19 @@ describe("estimate cache invalidation seams", () => {
 		expect(after).toBeLessThan(before);
 	});
 
-	test("explicit invalidateMessageCache forces a recount", () => {
+	test("explicit invalidateMessageCache forces a recount in every tokenizer instance", () => {
 		const result = toolResult("original content here");
+		const second = new Tokenizer();
 		const before = tokenizer.countMessage(result as AgentMessage);
-		// Mutate content directly (simulating an owner rewrite) then invalidate.
+		expect(second.countMessage(result as AgentMessage)).toBe(before);
+		// Mutate content directly (simulating an owner rewrite); without
+		// invalidation both instances still return their stale memo.
 		result.content = [{ type: "text", text: "a much longer replacement body that should count higher than before" }];
-		// Without invalidation the stale cached value would still be returned.
 		expect(tokenizer.countMessage(result as AgentMessage)).toBe(before);
+		expect(second.countMessage(result as AgentMessage)).toBe(before);
+		// One version-tag bump invalidates the memo in BOTH instances.
 		invalidateMessageCache(result as AgentMessage);
 		expect(tokenizer.countMessage(result as AgentMessage)).toBeGreaterThan(before);
+		expect(second.countMessage(result as AgentMessage)).toBeGreaterThan(before);
 	});
 });

@@ -23,9 +23,7 @@
  * sweep scheduling — is real. Each test injects its own coordinator, so the
  * process-wide default is never touched.
  */
-import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
-import * as path from "node:path";
-import { scheduler } from "node:timers/promises";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "bun:test";
 import { Agent } from "@oh-my-soup/pi-agent-core";
 import type { ResetCreditAccountStatus, ResetCreditTarget, UsageReport } from "@oh-my-soup/pi-ai";
 import { createMockModel } from "@oh-my-soup/pi-ai/providers/mock";
@@ -40,7 +38,7 @@ import {
 	createCodexAutoRedeemCoordinator,
 } from "@oh-my-soup/pi-coding-agent/session/codex-auto-reset";
 import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
-import { TempDir } from "@oh-my-soup/pi-utils";
+import { mockSchedulerWaitWithClock } from "./helpers/mock-scheduler-clock";
 
 const ACCOUNT_ID = "acct-1";
 const EMAIL = "user@example.com";
@@ -107,17 +105,18 @@ function liveCreditStatus(availableCount: number, expiresInMs?: number): ResetCr
 }
 
 describe("codex saved-reset trigger integration", () => {
-	let tempDir: TempDir;
 	let authStorage: AuthStorage;
 	let modelRegistry: ModelRegistry;
 	let sessions: AgentSession[];
 	let managers: SessionManager[];
 
-	beforeEach(async () => {
-		tempDir = TempDir.createSync("@pi-codex-reset-int-");
-		authStorage = await AuthStorage.create(path.join(tempDir.path(), "testauth.db"));
+	beforeAll(async () => {
+		authStorage = await AuthStorage.create(":memory:");
+		modelRegistry = new ModelRegistry(authStorage, undefined, { ignoreLocalModelConfig: true });
+	});
+
+	beforeEach(() => {
 		vi.spyOn(aiStream, "getEnvApiKey").mockReturnValue(undefined);
-		modelRegistry = new ModelRegistry(authStorage, path.join(tempDir.path(), "models.yml"));
 		sessions = [];
 		managers = [];
 	});
@@ -129,9 +128,11 @@ describe("codex saved-reset trigger integration", () => {
 		for (const manager of managers.splice(0).reverse()) {
 			await manager.close();
 		}
-		authStorage.close();
-		tempDir.removeSync();
 		vi.restoreAllMocks();
+	});
+
+	afterAll(() => {
+		authStorage.close();
 	});
 
 	interface HarnessOpts {
@@ -148,8 +149,8 @@ describe("codex saved-reset trigger integration", () => {
 	}
 
 	function buildSession(opts: HarnessOpts): Harness {
-		const model = getBundledModel("openai-codex", "gpt-5.4");
-		if (!model) throw new Error("Expected bundled openai-codex/gpt-5.4 to exist");
+		const model = getBundledModel("openai-codex", "gpt-5.5");
+		if (!model) throw new Error("Expected bundled openai-codex/gpt-5.5 to exist");
 		authStorage.setRuntimeApiKey("openai-codex", "test-key");
 		vi.spyOn(authStorage, "getOAuthAccountIdentity").mockReturnValue({ accountId: ACCOUNT_ID, email: EMAIL });
 		vi.spyOn(authStorage, "fetchUsageReports").mockImplementation(async () => [opts.report]);
@@ -185,7 +186,7 @@ describe("codex saved-reset trigger integration", () => {
 		});
 		settings.setModelRole("default", `${model.provider}/${model.id}`);
 
-		const sessionManager = SessionManager.create(tempDir.path(), path.join(tempDir.path(), "sessions"));
+		const sessionManager = SessionManager.inMemory();
 		managers.push(sessionManager);
 		const coordinator = createCodexAutoRedeemCoordinator();
 		const session = new AgentSession({
@@ -208,7 +209,7 @@ describe("codex saved-reset trigger integration", () => {
 			liveCredits: [liveCreditStatus(1)],
 			streamErrorFirst: true,
 		});
-		vi.spyOn(scheduler, "wait").mockResolvedValue(undefined);
+		mockSchedulerWaitWithClock();
 
 		await session.prompt("trigger a codex usage limit");
 		await session.waitForIdle();
@@ -239,7 +240,7 @@ describe("codex saved-reset trigger integration", () => {
 			liveCredits: [liveCreditStatus(1)],
 			streamErrorFirst: true,
 		});
-		vi.spyOn(scheduler, "wait").mockResolvedValue(undefined);
+		mockSchedulerWaitWithClock();
 
 		await session.prompt("trigger a codex usage limit");
 		await session.waitForIdle();

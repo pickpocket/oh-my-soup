@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, it } from "bun:test";
 import type { Component } from "@oh-my-soup/pi-tui";
-import { isConPTYHosted } from "@oh-my-soup/pi-tui/terminal";
 import { TERMINAL } from "@oh-my-soup/pi-tui/terminal-capabilities";
 import {
 	createProcessTerminalRenderHarness,
@@ -34,7 +33,7 @@ function restoreEnv(name: "SSH_CONNECTION" | "SSH_TTY" | "SSH_CLIENT" | "TMUX", 
 	Bun.env[name] = value;
 }
 
-describe.skipIf(isConPTYHosted())("ProcessTerminal kitty keyboard progressive-enhancement ordering", () => {
+describe("ProcessTerminal kitty keyboard progressive-enhancement ordering", () => {
 	let harness: ProcessTerminalRenderHarness | undefined;
 
 	afterEach(() => {

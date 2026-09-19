@@ -2,7 +2,8 @@ import { describe, expect, it } from "bun:test";
 import type { AuthStorage, FetchImpl } from "@oh-my-soup/pi-ai";
 import type { SearchParams } from "@oh-my-soup/pi-coding-agent/web/search/providers/base";
 import { searchYandex, YandexProvider } from "@oh-my-soup/pi-coding-agent/web/search/providers/yandex";
-import { SEARCH_PROVIDER_OPTIONS, SearchProviderError } from "@oh-my-soup/pi-coding-agent/web/search/types";
+import { SEARCH_PROVIDER_OPTIONS } from "@oh-my-soup/pi-tui/tools/web-search";
+import { SearchProviderError } from "@oh-my-soup/pi-coding-agent/web/search/types";
 
 const fakeAuthStorage = {
 	getApiKey() {

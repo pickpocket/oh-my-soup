@@ -40,17 +40,17 @@ describe("daemon broker idle shutdown", () => {
 
 		const previousTitle = process.title;
 		// Create the client (writes broker.token) before starting the broker, which reads that token.
-		const client = await createDaemonBrokerClient(projectDir, { runtimeDir, idleGraceMs: 200 });
-		const broker = startBroker(projectDir, runtimeDir, 200);
+		const client = await createDaemonBrokerClient(projectDir, { runtimeDir, idleGraceMs: 100 });
+		const broker = startBroker(projectDir, runtimeDir, 100);
 		try {
-			// A persistent daemon that outlives the first idle-shutdown timer (200ms) and then
-			// self-exits (~700ms). restart:"no" so its exit is terminal.
+			// A persistent daemon that outlives the first idle-shutdown timer (100ms) and then
+			// self-exits (~300ms). restart:"no" so its exit is terminal.
 			const started = await client.request({
 				op: "start",
 				spec: {
 					name: "persistent-temp",
 					application: process.execPath,
-					args: ["-e", "setTimeout(() => {}, 700)"],
+					args: ["-e", "setTimeout(() => {}, 300)"],
 					env: {},
 					cwd: projectDir,
 					pty: false,

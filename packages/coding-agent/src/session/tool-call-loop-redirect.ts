@@ -4,6 +4,7 @@ import toolCallLoopRedirectTemplate from "../prompts/system/tool-call-loop-redir
 
 export const TOOL_CALL_LOOP_REDIRECT_TYPE = "tool-call-loop-redirect";
 
+/** Structured record of the loop a redirect was issued for. */
 export interface ToolCallLoopRedirectDetails {
 	toolName: string;
 	count: number;
@@ -11,7 +12,13 @@ export interface ToolCallLoopRedirectDetails {
 	resultSummary: string;
 }
 
-/** Render the shared corrective used by primary and advisor loop guards. */
+/**
+ * Renders the corrective a repeated tool call earns. Shared by the primary
+ * session's `LoopGuards` and the advisor's own loop guard: both bounds speak
+ * with one wording, while each wraps it in the message shape its own agent
+ * converts to LLM context (the primary maps custom messages, the advisor runs
+ * the default converter that keeps only LLM-native roles).
+ */
 export function renderToolCallLoopRedirect(detection: RepeatedToolCallDetection): string {
 	return prompt.render(toolCallLoopRedirectTemplate, {
 		tool_name: detection.toolName,

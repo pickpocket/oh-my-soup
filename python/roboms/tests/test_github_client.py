@@ -242,6 +242,8 @@ def test_submit_pr_review_posts_comment_event_and_inline_comments() -> None:
     captured: dict[str, object] = {}
 
     def handler(request: httpx.Request) -> httpx.Response:
+        import json
+
         captured["path"] = request.url.path
         captured["body"] = json.loads(request.content)
         return httpx.Response(
@@ -274,7 +276,7 @@ def test_submit_pr_review_posts_comment_event_and_inline_comments() -> None:
     }
 
 
-def test_submit_pr_review_forgejo_uses_positions_and_commit_id() -> None:
+def test_submit_pr_review_forgejo_uses_new_position_payload() -> None:
     captured: dict[str, object] = {}
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -302,7 +304,6 @@ def test_submit_pr_review_forgejo_uses_positions_and_commit_id() -> None:
                 {"path": "src/app.py", "line": 12, "side": "RIGHT", "body": "finding"},
                 {"path": "src/old.py", "line": 5, "side": "LEFT", "body": "removed-line finding"},
             ],
-            commit_id="abc123",
         )
     )
     assert review.id == 44
@@ -314,7 +315,6 @@ def test_submit_pr_review_forgejo_uses_positions_and_commit_id() -> None:
             {"path": "src/app.py", "body": "finding", "new_position": 12},
             {"path": "src/old.py", "body": "removed-line finding", "old_position": 5},
         ],
-        "commit_id": "abc123",
     }
 
 
@@ -429,3 +429,108 @@ def test_close_issue_propagates_error() -> None:
     with pytest.raises(GitHubError) as exc:
         _run_async(client.close_issue("octo/widget", 42))
     assert exc.value.status == 404
+
+
+def test_release_action_reads_parse_runs_jobs_and_failed_steps() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/repos/octo/widget/actions/runs":
+            assert request.url.params["head_sha"] == "abc"
+            assert request.url.params["per_page"] == "100"
+            return httpx.Response(
+                200,
+                json={
+                    "workflow_runs": [
+                        {
+                            "id": 10,
+                            "name": "CI",
+                            "event": "push",
+                            "status": "completed",
+                            "conclusion": "failure",
+                            "head_branch": "main",
+                            "head_sha": "abc",
+                            "html_url": "https://example/runs/10",
+                            "run_attempt": 2,
+                        }
+                    ]
+                },
+            )
+        assert request.url.path == "/repos/octo/widget/actions/runs/10/jobs"
+        assert request.url.params["filter"] == "latest"
+        return httpx.Response(
+            200,
+            json={
+                "jobs": [
+                    {
+                        "id": 20,
+                        "run_id": 10,
+                        "name": "test",
+                        "status": "completed",
+                        "conclusion": "failure",
+                        "html_url": "https://example/jobs/20",
+                        "steps": [
+                            {"name": "checkout", "conclusion": "success"},
+                            {"name": "tests", "conclusion": "failure"},
+                            {"name": "cleanup", "conclusion": "skipped"},
+                        ],
+                    }
+                ]
+            },
+        )
+
+    client = GitHubClient("tok", transport=httpx.MockTransport(handler))
+    runs = _run_async(client.list_workflow_runs("octo/widget", head_sha="abc"))
+    jobs = _run_async(client.list_workflow_jobs("octo/widget", runs[0].id))
+    assert runs[0].run_attempt == 2
+    assert runs[0].head_sha == "abc"
+    assert jobs[0].failed_steps == ("tests",)
+
+
+def test_job_log_tail_follows_redirect_and_caps_retained_bytes() -> None:
+    payload = b"discard\n" + (b"x" * (4 * 1024 * 1024)) + b"\nlast\n"
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/logs"):
+            return httpx.Response(302, headers={"location": "https://logs.example/job.txt"})
+        assert request.url.host == "logs.example"
+        return httpx.Response(200, content=payload)
+
+    client = GitHubClient("tok", transport=httpx.MockTransport(handler))
+    tail = _run_async(client.get_job_log_tail("octo/widget", 20, tail_lines=2))
+    assert len(tail.encode()) <= 4 * 1024 * 1024
+    assert tail.endswith("\nlast")
+    assert "discard" not in tail
+
+
+def test_tag_dereference_and_release_metadata() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/git/ref/tags/v1.2.3"):
+            return httpx.Response(200, json={"object": {"type": "tag", "sha": "tag-object"}})
+        if request.url.path.endswith("/git/tags/tag-object"):
+            return httpx.Response(200, json={"object": {"type": "commit", "sha": "commit-sha"}})
+        assert request.url.path.endswith("/releases/tags/v1.2.3")
+        return httpx.Response(
+            200,
+            json={
+                "tag_name": "v1.2.3",
+                "name": "1.2.3",
+                "draft": False,
+                "prerelease": False,
+                "html_url": "https://example/releases/v1.2.3",
+                "assets": [{"name": "oms-darwin-arm64.tar.gz"}],
+            },
+        )
+
+    client = GitHubClient("tok", transport=httpx.MockTransport(handler))
+    assert _run_async(client.get_tag_sha("octo/widget", "v1.2.3")) == "commit-sha"
+    release = _run_async(client.get_release_by_tag("octo/widget", "v1.2.3"))
+    assert release is not None
+    assert release.asset_names == ("oms-darwin-arm64.tar.gz",)
+
+
+def test_missing_tag_and_release_return_none() -> None:
+    client = GitHubClient(
+        "tok",
+        transport=httpx.MockTransport(lambda request: httpx.Response(404, json={"message": "Not Found"})),
+    )
+    assert _run_async(client.get_tag_sha("octo/widget", "v1.2.3")) is None
+    assert _run_async(client.get_release_by_tag("octo/widget", "v1.2.3")) is None

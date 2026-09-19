@@ -23,6 +23,10 @@ services:
         PI_BASE: oh-my-soup/pi:dev
     image: roboms:dev
     container_name: roboms
+    # Stable hostname: os.hostname() inside the container feeds usage
+    # attribution (x-oms-hostname → broker `clients.hostname`); without this
+    # it reports the random docker container id.
+    hostname: roboms
     # Phase B (graceful shutdown): gives the orchestrator at least
     # ROBOMS_SHUTDOWN_DRAIN_TIMEOUT_SECONDS + ROBOMS_SHUTDOWN_KILL_TIMEOUT_SECONDS
     # before SIGKILL. Defaults: 25 + 5 = 30s.
@@ -46,6 +50,13 @@ services:
 
       # --- PR review ---
       ROBOMS_PR_REVIEW_ENABLED: ${ROBOMS_PR_REVIEW_ENABLED:-true}
+
+      # --- release sentinel ---
+      ROBOMS_RELEASE_SENTINEL_ENABLED: ${ROBOMS_RELEASE_SENTINEL_ENABLED:-false}
+      ROBOMS_RELEASE_COMMIT_PREFIX: "${ROBOMS_RELEASE_COMMIT_PREFIX:-chore: bump version to }"
+      ROBOMS_RELEASE_MAX_ROUNDS: ${ROBOMS_RELEASE_MAX_ROUNDS:-5}
+      ROBOMS_RELEASE_TASK_TIMEOUT_SECONDS: ${ROBOMS_RELEASE_TASK_TIMEOUT_SECONDS:-3600}
+      ROBOMS_RELEASE_MODEL: ${ROBOMS_RELEASE_MODEL:-}
 
       # --- model selection ---
       ROBOMS_MODEL: ${ROBOMS_MODEL:-anthropic/claude-sonnet-4-6}
@@ -94,7 +105,7 @@ services:
       # subprocess runs with HOME=/srv/agent-home, so ~/.oms and ~/.agent
       # resolve there without exposing mutable host mounts.
       - ${HOME}/.oms/agent/models.container.yml:/srv/agent-home-stage/.oms/agent/models.yml:ro
-      - ${HOME}/.agent/AGENT.md:/srv/agent-home-stage/.agent/AGENTS.md:ro
+      - ${HOME}/.agent/AGENTS.md:/srv/agent-home-stage/.agent/AGENTS.md:ro
       - ${HOME}/.agent/rules:/srv/agent-home-stage/.agent/rules:ro
     ports:
       - "0.0.0.0:6543:8080"

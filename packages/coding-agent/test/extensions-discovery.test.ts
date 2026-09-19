@@ -2,10 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import * as fs from "node:fs";
 import * as fsPromises from "node:fs/promises";
 import * as path from "node:path";
-import {
-	type ExtensionModule,
-	extensionModuleCapability,
-} from "@oh-my-soup/pi-coding-agent/capability/extension-module";
+import { type ExtensionModule, extensionModuleCapability } from "@oh-my-soup/pi-coding-agent/capability/extension-module";
 import { resetSettingsForTest, Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
 import { getCapability, initializeWithSettings } from "@oh-my-soup/pi-coding-agent/discovery";
 import {
@@ -32,8 +29,9 @@ describe("extensions discovery", () => {
 		tempDir.removeSync();
 	});
 
-	const discoverForTest = async (configuredPaths: string[] = []) => {
-		const result = await discoverAndLoadExtensions(configuredPaths, tempDir.path());
+	const discoverForTest = async (configuredPaths: string[] = [], ambient = false) => {
+		const paths = ambient ? configuredPaths : [extensionsDir, ...configuredPaths];
+		const result = await discoverAndLoadExtensions(paths, tempDir.path(), undefined, undefined, { ambient });
 		return {
 			...result,
 			extensions: filterUserScoped(result.extensions, [tempDir.path(), ...configuredPaths]),
@@ -190,6 +188,57 @@ describe("extensions discovery", () => {
 			"explicit-hook-tool",
 			"explicit-tool",
 		]);
+	});
+
+	it("uses inherited roots instead of local extension inputs during cold discovery", async () => {
+		const inherited = tempDir.join("inherited.ts");
+		const configured = tempDir.join("configured.ts");
+		const unwanted = path.join(extensionsDir, "unwanted.ts");
+		await Bun.write(inherited, extensionCodeWithTool("inherited-tool"));
+		await Bun.write(configured, extensionCodeWithTool("configured-tool"));
+		await Bun.write(unwanted, extensionCodeWithTool("unwanted-tool"));
+		const settings = Settings.isolated({ extensions: [unwanted] });
+		const paths = await discoverSessionExtensionPaths(
+			{
+				additionalExtensionPaths: [unwanted],
+				extensionRoots: () => ({
+					explicit: [inherited],
+					mode: "explicit-only",
+					configured: [configured],
+					configuredLevel: "project",
+				}),
+			},
+			tempDir.path(),
+			settings,
+		);
+		const result = await loadExtensions(paths, tempDir.path());
+		expect(result.extensions.flatMap(extension => [...extension.tools.keys()])).toEqual(["inherited-tool"]);
+	});
+
+	it("uses the inherited configured lane when merging cold extension discovery", async () => {
+		const inherited = tempDir.join("inherited.ts");
+		const unwanted = tempDir.join("unwanted.ts");
+		await Bun.write(inherited, extensionCodeWithTool("inherited-tool"));
+		await Bun.write(unwanted, extensionCodeWithTool("unwanted-tool"));
+		const settings = Settings.isolated({ extensions: [unwanted] });
+		const paths = await discoverSessionExtensionPaths(
+			{
+				disableExtensionDiscovery: true,
+				additionalExtensionPaths: [unwanted],
+				extensionRoots: () => ({
+					explicit: [],
+					mode: "merge",
+					configured: [inherited],
+					configuredLevel: "project",
+				}),
+			},
+			tempDir.path(),
+			settings,
+		);
+		const result = await loadExtensions(paths, tempDir.path());
+		const tools = result.extensions.flatMap(extension => [...extension.tools.keys()]);
+		expect(tools).toContain("inherited-tool");
+		expect(tools).not.toContain("unwanted-tool");
 	});
 
 	it("explicit-only discovery ignores unreadable optional hook directories", async () => {
@@ -455,7 +504,7 @@ describe("extensions discovery", () => {
 		fs.writeFileSync(path.join(realDir, "index.ts"), extensionCode);
 		fs.symlinkSync(realDir, path.join(extensionsDir, "weird.ts"), "dir");
 
-		const result = await discoverForTest();
+		const result = await discoverForTest([], true);
 
 		expect(result.errors).toHaveLength(0);
 		expect(result.extensions).toHaveLength(1);
@@ -481,6 +530,20 @@ describe("extensions discovery", () => {
 		expect(result.errors).toHaveLength(0);
 		expect(result.extensions).toHaveLength(1);
 		expect(result.extensions[0].path).toContain("exists.ts");
+	});
+
+	it("does not fall back to index.ts when a configured manifest only declares missing entries", async () => {
+		const configuredDir = path.join(tempDir.path(), "configured-package");
+		fs.mkdirSync(configuredDir);
+		fs.writeFileSync(path.join(configuredDir, "index.ts"), extensionCodeWithTool("decoy-index"));
+		fs.writeFileSync(
+			path.join(configuredDir, "package.json"),
+			JSON.stringify({ oms: { extensions: ["./missing.ts"] } }),
+		);
+
+		const paths = await discoverExtensionPaths([configuredDir], tempDir.path(), undefined, { ambient: false });
+
+		expect(paths).toEqual([]);
 	});
 
 	it("loads extensions and registers commands", async () => {
@@ -693,11 +756,33 @@ describe("extensions discovery", () => {
 			`,
 		);
 
-		const result = await discoverForTest();
+		const result = await discoverForTest([], true);
 		const loadedHook = result.extensions.find(extension => extension.path === hookPath);
 
 		expect(result.errors).toHaveLength(0);
 		expect(loadedHook?.handlers.has("tool_call")).toBe(true);
+	});
+
+	it("can exclude ambient hooks without disabling native provider extensions", async () => {
+		const hookDir = path.join(getProjectAgentDir(tempDir.path()), "hooks", "pre");
+		fs.mkdirSync(hookDir, { recursive: true });
+		const hookPath = path.join(hookDir, "models-poison.ts");
+		fs.writeFileSync(
+			hookPath,
+			`export default function(pi) {
+				pi.on("tool_call", async () => ({ block: true, reason: "blocked by hook" }));
+			}`,
+		);
+		const nativeExtensionPath = path.join(extensionsDir, "provider.ts");
+		fs.writeFileSync(nativeExtensionPath, extensionCode);
+
+		const paths = await discoverExtensionPaths([], tempDir.path(), undefined, {
+			ambient: true,
+			includeAmbientHooks: false,
+		});
+
+		expect(paths).toContain(nativeExtensionPath);
+		expect(paths).not.toContain(hookPath);
 	});
 
 	it("keeps discovered hooks separate from disabled extension-module ids", async () => {
@@ -723,7 +808,7 @@ describe("extensions discovery", () => {
 		});
 		initializeWithSettings(settings);
 
-		const result = await discoverForTest();
+		const result = await discoverForTest([], true);
 		const loadedHook = result.extensions.find(extension => extension.path === hookPath);
 
 		expect(result.errors).toHaveLength(0);

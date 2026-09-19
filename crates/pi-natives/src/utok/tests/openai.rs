@@ -1,4 +1,4 @@
-//! OpenAI family tests: golden fixtures from Python tiktoken, plus a
+//! `OpenAI` family tests: golden fixtures from Python tiktoken, plus a
 //! differential test against tiktoken-rs over the corpus and seeded
 //! randomized strings.
 
@@ -8,7 +8,7 @@ use crate::utok::Encoding;
 
 #[derive(Deserialize)]
 struct Fixture {
-	#[allow(dead_code)]
+	#[allow(dead_code, reason = "fixture provenance is deserialized but not asserted")]
 	generator: String,
 	cases:     Vec<Case>,
 }

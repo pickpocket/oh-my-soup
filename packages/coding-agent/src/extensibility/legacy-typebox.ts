@@ -1,4 +1,5 @@
 import { type } from "@oh-my-soup/omstype";
+import { IR_BRAND } from "@oh-my-soup/omstype/ir";
 import {
 	type AnySchema,
 	type ObjectOpts,
@@ -40,6 +41,44 @@ function isRuntimeSchema(value: unknown): value is AnySchema {
 	return typeof value === "function";
 }
 
+/**
+ * Deep-copy a legacy `Type.Unsafe` document into a plain, structured-cloneable
+ * JSON Schema, lowering any embedded omstype schema to its wire JSON. Legacy
+ * Pi extensions were written against real TypeBox, whose `Type.*` builders
+ * return plain JSON-Schema objects; omstype's builders return callable schema
+ * values instead, which breaks two idioms extensions use inside raw documents:
+ *
+ *  - Direct embedding — `Type.Unsafe({ anyOf: [Type.Array(...), Other] })`.
+ *    The nested schema is a function; `structuredClone` throws
+ *    `DataCloneError: The object can not be cloned.` (issue #8420) and omstype
+ *    would drop its `toJsonSchema()` override during composition anyway.
+ *  - Spreading — `Type.Unsafe({ ...Schema, description })`. Spreading a
+ *    callable copies omstype's internal fields (`ir`, `run`, `$`, …) instead
+ *    of JSON keywords. The copied `run` is a self-reference to the original
+ *    schema, so its `toJsonSchema()` recovers the real wire document; the
+ *    caller's own additions (everything not an omstype internal) are overlaid.
+ */
+function lowerEmbeddedSchemas(value: unknown): unknown {
+	if (isRuntimeSchema(value)) return value.toJsonSchema();
+	if (Array.isArray(value)) return value.map(lowerEmbeddedSchemas);
+	if (value !== null && typeof value === "object") {
+		const source = value as Record<string, unknown>;
+		const canonical = source.run;
+		if (IR_BRAND in value && isRuntimeSchema(canonical)) {
+			const base = canonical.toJsonSchema();
+			const internalKeys = new Set(Object.keys(canonical));
+			for (const key in source) {
+				if (!internalKeys.has(key)) base[key] = lowerEmbeddedSchemas(source[key]);
+			}
+			return base;
+		}
+		const result: Record<string, unknown> = {};
+		for (const key in source) result[key] = lowerEmbeddedSchemas(source[key]);
+		return result;
+	}
+	return value;
+}
+
 function defineHidden(target: object, key: PropertyKey, value: unknown): void {
 	Object.defineProperty(target, key, {
 		value,
@@ -50,12 +89,14 @@ function defineHidden(target: object, key: PropertyKey, value: unknown): void {
 
 function unsafe<T = unknown>(jsonSchema: Record<string, unknown> = {}): LegacyUnsafeSchema<T> {
 	// `document` is the verbatim wire schema; keep it isolated from the validator.
+	// `lowerEmbeddedSchemas` returns a fresh plain-JSON copy (lowering any nested
+	// omstype builder to its wire form), so it doubles as the detaching clone.
 	// `upgradeJsonSchemaTo202012` returns its input untouched when no upgrade is
 	// needed, and `validateJsonSchemaValue` then annotates that object with JIT
 	// epoch metadata and normalized keywords — which would leak into emission if
-	// the two shared a reference.
-	const document = structuredClone(jsonSchema);
-	const upgradedSchema = upgradeJsonSchemaTo202012(structuredClone(jsonSchema));
+	// the two shared a reference, so give the validator its own structured clone.
+	const document = lowerEmbeddedSchemas(jsonSchema) as Record<string, unknown>;
+	const upgradedSchema = upgradeJsonSchemaTo202012(structuredClone(document));
 	const validate = (data: unknown): T | ValidationFailure => {
 		const result = validateJsonSchemaValue(upgradedSchema, data);
 		if (result.success) return data as T;
@@ -125,7 +166,7 @@ const object = ((properties: Record<string, unknown>, opts?: ObjectOpts) => {
 		const document = OmsType.Object(normalizedProperties, objectOpts).toJsonSchema();
 		document.additionalProperties = isRuntimeSchema(additionalProperties)
 			? additionalProperties.toJsonSchema()
-			: structuredClone(additionalProperties);
+			: lowerEmbeddedSchemas(additionalProperties);
 		return unsafe(document);
 	}
 	return OmsType.Object(normalizedProperties, normalizedOpts);

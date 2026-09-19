@@ -593,11 +593,10 @@ mod foreground {
 	impl ForegroundGuard {
 		fn activate(id: &str) -> CoreResult<Self> {
 			let target = background::hwnd(id)?;
-			// SAFETY: GetForegroundWindow has no pointer or handle preconditions and
-			// returns either the current foreground HWND or null.
+			// SAFETY: GetForegroundWindow accesses process-global foreground
+			// state.
 			let previous = unsafe { GetForegroundWindow() };
-			// SAFETY: target is the non-null HWND validated by background::hwnd;
-			// SetForegroundWindow accepts that handle and retains no borrowed memory.
+			// SAFETY: SetForegroundWindow is called with a validated target HWND.
 			if previous != target && unsafe { SetForegroundWindow(target) } == 0 {
 				return Err(DesktopError::input_failed(format!(
 					"SetForegroundWindow failed for window {id}"
@@ -610,16 +609,16 @@ mod foreground {
 	impl Drop for ForegroundGuard {
 		fn drop(&mut self) {
 			if !self.previous.is_null() && self.previous != self.target {
-				// SAFETY: restoring the previously observed HWND is best-effort; Win32
-				// validates it.
+				// SAFETY: restoring the previously observed HWND is best-effort;
+				// Win32 validates it.
 				unsafe { SetForegroundWindow(self.previous) };
 			}
 		}
 	}
 
 	fn send(event: INPUT) -> CoreResult<()> {
-		// SAFETY: event points to one fully initialized INPUT copied synchronously by
-		// Win32.
+		// SAFETY: event points to one fully initialized INPUT copied
+		// synchronously by Win32.
 		let sent = unsafe { SendInput(1, &event, size_of::<INPUT>() as i32) };
 		if sent == 1 {
 			Ok(())
@@ -646,18 +645,15 @@ mod foreground {
 
 	fn move_to(x: f64, y: f64) -> CoreResult<()> {
 		let (x, y) = capture::logical_to_physical(x, y)?;
-		// SAFETY: SM_XVIRTUALSCREEN is a documented GetSystemMetrics index; the call
-		// takes no pointers and has no additional preconditions.
-		let origin_x = unsafe { GetSystemMetrics(SM_XVIRTUALSCREEN) };
-		// SAFETY: SM_YVIRTUALSCREEN is a documented GetSystemMetrics index; the call
-		// takes no pointers and has no additional preconditions.
-		let origin_y = unsafe { GetSystemMetrics(SM_YVIRTUALSCREEN) };
-		// SAFETY: SM_CXVIRTUALSCREEN is a documented GetSystemMetrics index; the call
-		// takes no pointers and has no additional preconditions.
-		let width = unsafe { GetSystemMetrics(SM_CXVIRTUALSCREEN) };
-		// SAFETY: SM_CYVIRTUALSCREEN is a documented GetSystemMetrics index; the call
-		// takes no pointers and has no additional preconditions.
-		let height = unsafe { GetSystemMetrics(SM_CYVIRTUALSCREEN) };
+		// SAFETY: GetSystemMetrics has no preconditions.
+		let (origin_x, origin_y, width, height) = unsafe {
+			(
+				GetSystemMetrics(SM_XVIRTUALSCREEN),
+				GetSystemMetrics(SM_YVIRTUALSCREEN),
+				GetSystemMetrics(SM_CXVIRTUALSCREEN),
+				GetSystemMetrics(SM_CYVIRTUALSCREEN),
+			)
+		};
 		if width <= 1 || height <= 1 {
 			return Err(DesktopError::input_failed("Win32 virtual desktop geometry is unavailable"));
 		}

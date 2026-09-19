@@ -6,23 +6,11 @@ import * as path from "node:path";
 import { getOrCreateSnapshot, sanitizeSnapshotForBrush } from "@oh-my-soup/pi-coding-agent/utils/shell-snapshot";
 import fnEnvHelper from "../src/utils/shell-snapshot-fn-env.sh" with { type: "text" };
 
-// Resolve the same Bash for every direct helper probe. On Windows, `bash.exe`
-// in System32 is the WSL launcher; it may exist even when no distro is usable.
-// Prefer the Bash bundled beside Git before falling back to PATH.
-const gitExecutable = Bun.which("git");
-const gitBash =
-	process.platform === "win32" && gitExecutable
-		? [
-				path.resolve(path.dirname(gitExecutable), "../bin/bash.exe"),
-				path.resolve(path.dirname(gitExecutable), "../usr/bin/bash.exe"),
-				path.resolve(path.dirname(gitExecutable), "../../usr/bin/bash.exe"),
-			].find(existsSync)
-		: undefined;
-const REAL_BASH =
-	(Bun.env.SHELL?.includes("bash") && existsSync(Bun.env.SHELL) ? Bun.env.SHELL : undefined) ??
-	gitBash ??
-	Bun.which("bash") ??
-	"/bin/bash";
+// macOS ships bash at `/bin/bash`, not `/usr/bin/bash`; resolve a real bash the
+// same way `bash-executor.test.ts` does so these e2e tests stay portable. The
+// `getOrCreateSnapshot` tests below symlink this under a unique name and skip
+// when no bash is present.
+const REAL_BASH = Bun.env.SHELL?.includes("bash") ? Bun.env.SHELL : "/bin/bash";
 // Likewise resolve `echo` (the stand-in for the mise binary the captured
 // function invokes): macOS has no `/usr/bin/echo`, so hard-coding it makes the
 // replay fail with `No such file or directory` even though the export landed.
@@ -127,7 +115,7 @@ describe("shell-snapshot fn-env helper", () => {
 	it("emits export lines for env vars referenced by captured functions, skips unset and shell-internal names", async () => {
 		const funcs = [
 			`mise () { command "$__MISE_EXE" "$@"; }`,
-			// biome-ignore lint/suspicious/noTemplateCurlyInString: literal shell parameter expansion `${FOO_TEST_DIR}`
+			// oxlint-disable-next-line no-template-curly-in-string -- literal shell parameter expansion `${FOO_TEST_DIR}`
 			'my_fn () { echo "$FOO_TEST_DIR ${FOO_TEST_DIR}"; }',
 			`uses_path () { echo "$PATH"; }`,
 			`uses_locale () { echo "$LC_ALL"; }`,
@@ -135,7 +123,7 @@ describe("shell-snapshot fn-env helper", () => {
 			``,
 		].join("\n");
 
-		const child = Bun.spawn([REAL_BASH, "-c", `${fnEnvHelper}\n__oms_emit_referenced_exports`], {
+		const child = Bun.spawn(["bash", "-c", `${fnEnvHelper}\n__oms_emit_referenced_exports`], {
 			env: {
 				PATH: process.env.PATH ?? "/usr/bin:/bin",
 				__MISE_EXE: "/opt/echo",
@@ -176,7 +164,7 @@ describe("shell-snapshot fn-env helper", () => {
 			``,
 		].join("\n");
 
-		const child = Bun.spawn([REAL_BASH, "-c", `${fnEnvHelper}\n__oms_emit_referenced_exports`], {
+		const child = Bun.spawn(["bash", "-c", `${fnEnvHelper}\n__oms_emit_referenced_exports`], {
 			env: {
 				PATH: process.env.PATH ?? "/usr/bin:/bin",
 				GITHUB_TOKEN: "ghp_REDACTED",
@@ -222,7 +210,7 @@ describe("shell-snapshot fn-env helper", () => {
 
 	it("single-quote-escapes values containing apostrophes and preserves newlines", async () => {
 		const funcs = `shout () { echo "$TRICKY_VAL $NL_VAL"; }\n`;
-		const child = Bun.spawn([REAL_BASH, "-c", `${fnEnvHelper}\n__oms_emit_referenced_exports`], {
+		const child = Bun.spawn(["bash", "-c", `${fnEnvHelper}\n__oms_emit_referenced_exports`], {
 			env: {
 				PATH: process.env.PATH ?? "/usr/bin:/bin",
 				TRICKY_VAL: "it's 'tricky'",
@@ -242,7 +230,7 @@ describe("shell-snapshot fn-env helper", () => {
 
 		// Eval the emitted lines and verify the round-trip values match.
 		const round = Bun.spawn(
-			[REAL_BASH, "-c", `eval "$1"; printf '%s\n' "$TRICKY_VAL"; printf '%s\n' "$NL_VAL"`, "_", out],
+			["bash", "-c", `eval "$1"; printf '%s\\n' "$TRICKY_VAL"; printf '%s\\n' "$NL_VAL"`, "_", out],
 			{ stdout: "pipe", stderr: "ignore" },
 		);
 		const echoed = await readStream(round.stdout as ReadableStream<Uint8Array> | null);
@@ -251,7 +239,7 @@ describe("shell-snapshot fn-env helper", () => {
 	});
 });
 
-describe.skipIf(process.platform === "win32")("getOrCreateSnapshot", () => {
+describe("getOrCreateSnapshot", () => {
 	it("re-exports env vars referenced by snapshotted functions (issue #3470)", async () => {
 		const home = await fs.mkdtemp(path.join(os.tmpdir(), "oms-snap-3470-"));
 		await fs.writeFile(
@@ -390,14 +378,15 @@ describe.skipIf(process.platform === "win32")("getOrCreateSnapshot", () => {
 		process.env.TMPDIR = testRoot;
 		try {
 			const fakeShell = path.join(testRoot, "timeout-shell.sh");
-			// Sleep longer than SNAPSHOT_TIMEOUT_MS (2000)
-			await fs.writeFile(fakeShell, `#!/bin/sh\nsleep 3\n`);
+			// A short injected deadline exercises Bun's real process timeout without
+			// making the suite wait out the two-second production startup budget.
+			await fs.writeFile(fakeShell, `#!/bin/sh\nsleep 1\n`);
 			await fs.chmod(fakeShell, 0o755);
 
 			const env = { ...process.env, HOME: testRoot };
 			const snapshotDir = snapshotDirIn(testRoot);
 
-			const snapshotPath = await getOrCreateSnapshot(fakeShell, env);
+			const snapshotPath = await getOrCreateSnapshot(fakeShell, env, 25);
 			expect(snapshotPath).toBeNull();
 
 			if (existsSync(snapshotDir)) {
@@ -409,7 +398,7 @@ describe.skipIf(process.platform === "win32")("getOrCreateSnapshot", () => {
 			else process.env.TMPDIR = originalTmpDir;
 			await fs.rm(testRoot, { recursive: true, force: true });
 		}
-	}, 5000); // increase test timeout to 5s to accommodate the 2s snapshot timeout
+	});
 
 	it("keeps snapshots in a uid-scoped dir so accounts sharing /tmp cannot collide", async () => {
 		// Regression: the dir used to be a single fixed `oms-shell-snapshots` name

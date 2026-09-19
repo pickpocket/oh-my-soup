@@ -13,6 +13,7 @@ import { removeWithRetries } from "../../utils/src/temp";
 
 const PROVIDER = "unit-rotate-oauth";
 const SOURCE = "auth-storage-force-refresh-rotate-test";
+
 const CODEX_PROVIDER = "openai-codex";
 const DAYBREAK_MODEL = "gpt-daybreak-blue-latest";
 const CODEX_CHATGPT_MODEL_DENIAL =
@@ -21,7 +22,6 @@ const CURSOR_PROVIDER = "cursor";
 const CURSOR_MODEL = "cursor-grok-4.6";
 const CURSOR_PLAN_DENIAL =
 	'Connect error resource_exhausted: Error [details: {"error":"ERROR_RATE_LIMITED_CHANGEABLE","details":{"title":"Named models unavailable","detail":"Free plans can only use Auto."}}]';
-
 function farExpiry(): number {
 	return Date.now() + 60 * 60_000;
 }
@@ -363,9 +363,7 @@ describe("AuthStorage forceRefresh + rotateSessionCredential", () => {
 		authStorage.close();
 		const concurrentStore = await SqliteAuthCredentialStore.open(path.join(tempDir, "agent.db"));
 		store = concurrentStore;
-		let targetCredentialId: number | undefined;
 		let targetRemoved = false;
-		let concurrentStorage: AuthStorage;
 		const usageProvider: UsageProvider = {
 			id: PROVIDER,
 			async fetchUsage() {
@@ -382,7 +380,7 @@ describe("AuthStorage forceRefresh + rotateSessionCredential", () => {
 			findWindowLimits: () => ({}),
 			windowDefaults: { primaryMs: 60_000, secondaryMs: 60_000 },
 		};
-		concurrentStorage = new AuthStorage(concurrentStore, {
+		const concurrentStorage = new AuthStorage(concurrentStore, {
 			usageProviderResolver: provider => (provider === PROVIDER ? usageProvider : undefined),
 			rankingStrategyResolver: provider => (provider === PROVIDER ? rankingStrategy : undefined),
 		});
@@ -397,7 +395,7 @@ describe("AuthStorage forceRefresh + rotateSessionCredential", () => {
 		const rows = concurrentStore.listAuthCredentials(PROVIDER);
 		const target = rows[0];
 		if (!target) throw new Error("expected target credential");
-		targetCredentialId = target.id;
+		const targetCredentialId = target.id;
 		const siblings = rows.slice(1);
 
 		const marked = await concurrentStorage.markUsageLimitReached(PROVIDER, undefined, {
@@ -536,6 +534,7 @@ describe("AuthStorage forceRefresh + rotateSessionCredential", () => {
 		expect(usageLimitSpy).not.toHaveBeenCalled();
 		expect(await authStorage.getApiKey(PROVIDER, "cyber-policy")).not.toBe(first);
 	});
+
 	test("Codex ChatGPT model denial blocks only that model and rotates to a sibling", async () => {
 		if (!store) throw new Error("test setup failed");
 		const codexStorage = new AuthStorage(store, { usageProviderResolver: () => undefined });
@@ -620,7 +619,7 @@ describe("AuthStorage forceRefresh + rotateSessionCredential", () => {
 		if (!store) throw new Error("test setup failed");
 		const cursorStorage = new AuthStorage(store, { usageProviderResolver: () => undefined });
 		vi.spyOn(oauthUtils, "getOAuthApiKey").mockImplementation(async (_provider, credentials) => {
-			const credential = credentials[CURSOR_PROVIDER] as OAuthCredentials | undefined;
+			const credential = credentials[CURSOR_PROVIDER];
 			if (!credential) return null;
 			return { apiKey: credential.access, newCredentials: credential };
 		});
@@ -661,9 +660,12 @@ describe("AuthStorage forceRefresh + rotateSessionCredential", () => {
 			.listAuthCredentials(CURSOR_PROVIDER)
 			.find(row => row.credential.type === "oauth" && row.credential.access === "cursor-plan-denied");
 		if (!deniedRow) throw new Error("denied credential row missing");
-		expect(
-			typeof store.getCredentialBlock?.(deniedRow.id, `${CURSOR_PROVIDER}:oauth`, "model-policy:cursor-grok-4.6"),
-		).toBe("number");
+		const modelBlock = store.getCredentialBlock?.(
+			deniedRow.id,
+			`${CURSOR_PROVIDER}:oauth`,
+			"model-policy:cursor-grok-4.6",
+		);
+		expect(typeof modelBlock).toBe("number");
 		expect(store.getCredentialBlock?.(deniedRow.id, `${CURSOR_PROVIDER}:oauth`, "")).toBeUndefined();
 
 		const otherModelStorage = new AuthStorage(store, { usageProviderResolver: () => undefined });
@@ -859,7 +861,38 @@ describe("AuthStorage forceRefresh + rotateSessionCredential", () => {
 		]);
 
 		await authStorage.getApiKey(PROVIDER, "sess");
+		const blockedBefore = Date.now();
 		const outcome = await authStorage.markUsageLimitReached(PROVIDER, "sess", { retryAfterMs: 3_600_000 });
-		expect(outcome).toEqual({ switched: false, retryAtMs: undefined });
+		const blockedAfter = Date.now();
+		expect(outcome.switched).toBe(false);
+		expect(outcome.retryAtMs).toBeUndefined();
+		expect(outcome.blockedUntilMs).toBeDefined();
+		expect(outcome.requestedBlockedUntilMs).toBeDefined();
+		expect(outcome.requestedBlockedUntilMs!).toBeGreaterThanOrEqual(blockedBefore + 3_600_000);
+		expect(outcome.requestedBlockedUntilMs!).toBeLessThanOrEqual(blockedAfter + 3_600_000);
+		expect(outcome.blockedUntilMs!).toBeGreaterThanOrEqual(blockedBefore + 3_600_000);
+		expect(outcome.blockedUntilMs!).toBeLessThanOrEqual(blockedAfter + 3_600_000);
+	});
+
+	test("markUsageLimitReached reports the merged block deadline on out-of-order responses", async () => {
+		// Two sessions share one credential; the longer block lands first and
+		// a shorter hint arrives later. The reported deadline must stay at
+		// the longer stored block — waiting on the shorter value would retry
+		// before the credential is actually usable.
+		if (!authStorage) throw new Error("test setup failed");
+		registerProvider();
+		await authStorage.set(PROVIDER, [
+			{ type: "oauth", access: "only-access", refresh: "only-refresh", expires: farExpiry() },
+		]);
+
+		await authStorage.getApiKey(PROVIDER, "sess-a");
+		await authStorage.getApiKey(PROVIDER, "sess-b");
+		const longWindow = await authStorage.markUsageLimitReached(PROVIDER, "sess-a", { retryAfterMs: 7_200_000 });
+		expect(longWindow.switched).toBe(false);
+		const shortWindow = await authStorage.markUsageLimitReached(PROVIDER, "sess-b", { retryAfterMs: 60_000 });
+		expect(shortWindow.switched).toBe(false);
+		expect(shortWindow.blockedUntilMs).toBeDefined();
+		expect(shortWindow.blockedUntilMs!).toBeGreaterThan(Date.now() + 7_100_000);
+		expect(shortWindow.blockedUntilMs!).toBeLessThanOrEqual(Date.now() + 7_200_000);
 	});
 });

@@ -49,6 +49,44 @@ function captureCapsKey(caps) {
 function legacyButton(button) {
 	return button === "middle" ? "wheel" : button;
 }
+function sourceDimensions(capture) {
+	if (capture.sourceWidth !== undefined && capture.sourceHeight !== undefined) {
+		return { sourceWidth: capture.sourceWidth, sourceHeight: capture.sourceHeight };
+	}
+	const displays = Array.isArray(capture.displays) ? capture.displays : [];
+	if (displays.length === 0) {
+		return { sourceWidth: capture.width, sourceHeight: capture.height };
+	}
+	const minX = Math.min(...displays.map(display => display.x));
+	const minY = Math.min(...displays.map(display => display.y));
+	const maxX = Math.max(...displays.map(display => display.x + display.width));
+	const maxY = Math.max(...displays.map(display => display.y + display.height));
+	const nativeScale = Math.max(1, ...displays.map(display => display.scale ?? 1));
+	return {
+		sourceWidth: Math.max(1, Math.round((maxX - minX) * nativeScale)),
+		sourceHeight: Math.max(1, Math.round((maxY - minY) * nativeScale)),
+	};
+}
+
+function frameSignature(capture) {
+	return JSON.stringify({
+		target: capture.target,
+		width: capture.width,
+		height: capture.height,
+		displays: capture.displays?.map(display => ({
+			id: display.id,
+			x: display.x,
+			y: display.y,
+			width: display.width,
+			height: display.height,
+			scale: display.scale,
+			pixelX: display.pixelX,
+			pixelY: display.pixelY,
+			pixelWidth: display.pixelWidth,
+			pixelHeight: display.pixelHeight,
+		})),
+	});
+}
 
 /**
  * Adapt the pre-parity desktop addon ABI used by pull-request CI artifacts to
@@ -62,7 +100,7 @@ export function adaptDesktopSession(NativeDesktopSession) {
 
 	class DesktopSession {
 		#native;
-		#NativeDesktopSession;
+		#nativeDesktopSession;
 		#options;
 		#sessions;
 		#closed = false;
@@ -70,7 +108,7 @@ export function adaptDesktopSession(NativeDesktopSession) {
 
 		constructor(options) {
 			try {
-				this.#NativeDesktopSession = NativeDesktopSession;
+				this.#nativeDesktopSession = NativeDesktopSession;
 				this.#options = options;
 				this.#native = new NativeDesktopSession(options);
 				this.#sessions = new Map([[captureCapsKey(), this.#native]]);
@@ -88,8 +126,8 @@ export function adaptDesktopSession(NativeDesktopSession) {
 		}
 
 		#nativeForCapturedTarget(target) {
-			const native = this.#capturedTargets.get(target);
-			if (native) return native;
+			const capture = this.#capturedTargets.get(target);
+			if (capture) return capture.native;
 			throw desktopError(
 				"InvalidCoordinateFrame",
 				`no capture of '${target}' yet — take a screenshot of this target first`,
@@ -101,7 +139,7 @@ export function adaptDesktopSession(NativeDesktopSession) {
 			const existing = this.#sessions.get(key);
 			if (existing) return existing;
 			try {
-				const native = new this.#NativeDesktopSession({
+				const native = new this.#nativeDesktopSession({
 					...this.#options,
 					maxWidth: caps?.maxWidth,
 					maxHeight: caps?.maxHeight,
@@ -113,8 +151,8 @@ export function adaptDesktopSession(NativeDesktopSession) {
 			}
 		}
 
-		#ensureForeground(options) {
-			if (options?.deliveryMode !== undefined && options.deliveryMode !== "foreground") {
+		#ensureForeground(target, options) {
+			if (options?.deliveryMode !== "foreground" && (target !== "desktop" || options?.deliveryMode !== undefined)) {
 				throw desktopError(
 					"BackgroundUnavailable",
 					"the installed native addon supports foreground input only",
@@ -124,7 +162,11 @@ export function adaptDesktopSession(NativeDesktopSession) {
 
 		async #execute(actions, target, native = this.#native, fallbackCode = "InputFailed") {
 			try {
-				await native.execute(Array.isArray(actions) ? actions : [actions], target);
+				const capture = await native.execute(Array.isArray(actions) ? actions : [actions], target);
+				const previous = this.#capturedTargets.get(target);
+				if (capture && previous?.native === native && frameSignature(capture) !== previous.signature) {
+					this.#capturedTargets.delete(target);
+				}
 			} catch (error) {
 				throw normalizeError(error, fallbackCode);
 			}
@@ -158,13 +200,9 @@ export function adaptDesktopSession(NativeDesktopSession) {
 			try {
 				const native = this.#sessionForCapture(caps);
 				const capture = await native.capture(target);
-				this.#capturedTargets.set(target, native);
-				return {
-					...capture,
-					sourceWidth: capture.sourceWidth ?? capture.width,
-					sourceHeight: capture.sourceHeight ?? capture.height,
-					target,
-				};
+				const adapted = { ...capture, ...sourceDimensions(capture), target };
+				this.#capturedTargets.set(target, { native, signature: frameSignature(adapted) });
+				return adapted;
 			} catch (error) {
 				throw normalizeError(error, "CaptureFailed");
 			}
@@ -172,9 +210,9 @@ export function adaptDesktopSession(NativeDesktopSession) {
 
 		async click(target, x, y, options) {
 			this.#ensureOpen();
-			this.#ensureForeground(options);
+			this.#ensureForeground(target, options);
 			const native = this.#nativeForCapturedTarget(target);
-			const count = options?.count ?? 1;
+			const count = Math.max(1, options?.count ?? 1);
 			const button = legacyButton(options?.button ?? "left");
 			const point = { x: Math.round(x), y: Math.round(y), keys: options?.modifiers ?? [] };
 			const actions =
@@ -186,7 +224,7 @@ export function adaptDesktopSession(NativeDesktopSession) {
 
 		async moveMouse(target, x, y, options) {
 			this.#ensureOpen();
-			this.#ensureForeground(options);
+			this.#ensureForeground(target, options);
 			await this.#execute(
 				{ type: "move", x: Math.round(x), y: Math.round(y), keys: options?.modifiers ?? [] },
 				target,
@@ -196,7 +234,7 @@ export function adaptDesktopSession(NativeDesktopSession) {
 
 		async drag(target, path, options) {
 			this.#ensureOpen();
-			this.#ensureForeground(options);
+			this.#ensureForeground(target, options);
 			await this.#execute(
 				{ type: "drag", path: path.map(legacyPoint), keys: options?.modifiers ?? [] },
 				target,
@@ -206,7 +244,7 @@ export function adaptDesktopSession(NativeDesktopSession) {
 
 		async scroll(target, x, y, dx, dy, options) {
 			this.#ensureOpen();
-			this.#ensureForeground(options);
+			this.#ensureForeground(target, options);
 			await this.#execute(
 				{
 					type: "scroll",
@@ -223,14 +261,14 @@ export function adaptDesktopSession(NativeDesktopSession) {
 
 		async typeText(target, text, options) {
 			this.#ensureOpen();
-			this.#ensureForeground(options);
-			await this.#execute({ type: "type", text }, target);
+			this.#ensureForeground(target, options);
+			await this.#execute({ type: "type", text }, target, this.#capturedTargets.get(target)?.native ?? this.#native);
 		}
 
 		async keyChord(target, keys, options) {
 			this.#ensureOpen();
-			this.#ensureForeground(options);
-			await this.#execute({ type: "keypress", keys }, target);
+			this.#ensureForeground(target, options);
+			await this.#execute({ type: "keypress", keys }, target, this.#capturedTargets.get(target)?.native ?? this.#native);
 		}
 
 		async raiseWindow() {

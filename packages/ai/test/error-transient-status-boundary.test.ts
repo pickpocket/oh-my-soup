@@ -1,6 +1,13 @@
 import { describe, expect, it } from "bun:test";
 import * as AIError from "@oh-my-soup/pi-ai/error";
 
+/**
+ * The transient classifier matches bare HTTP status codes in error text. Those
+ * digits must be a token of their own: oms appends its own
+ * `raw-http-request=<...>/<random-id>.json` pointer to provider errors, and a
+ * random id containing `503` used to make a hard 400 look retryable — which
+ * turned a deterministic oversized-prompt rejection into ten identical retries.
+ */
 describe("transient status classification", () => {
 	const overflowWithArtifactPointer =
 		'Summarization failed: 400 {"type":"error","error":{"type":"invalid_request_error",' +
@@ -14,10 +21,20 @@ describe("transient status classification", () => {
 	});
 
 	it("still classifies a real gateway status as transient", () => {
-		for (const text of ["503 Service Unavailable", "upstream returned 502", "HTTP 429 from provider"]) {
+		for (const text of [
+			"503 Service Unavailable",
+			"upstream returned 502",
+			"HTTP 429 from provider",
+			"auth-gateway 524: <none>",
+		]) {
 			const id = AIError.classify(new Error(text), "anthropic-messages");
 			expect(AIError.is(id, AIError.Flag.Transient)).toBe(true);
 		}
+	});
+
+	it("keeps a namespaced gateway 4xx terminal", () => {
+		const id = AIError.classify(new Error("auth-gateway 404: not found"), "anthropic-messages");
+		expect(AIError.is(id, AIError.Flag.Transient)).toBe(false);
 	});
 
 	it("does not treat status digits inside an identifier as transient", () => {

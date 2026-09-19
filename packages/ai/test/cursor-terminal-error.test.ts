@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, it } from "bun:test";
 import * as http2 from "node:http2";
-import { create, toBinary } from "@bufbuild/protobuf";
 import * as AIError from "@oh-my-soup/pi-ai/error";
 import { streamCursor } from "@oh-my-soup/pi-ai/providers/cursor";
 import type { Context, CursorToolResultHandler, Model, ToolResultMessage } from "@oh-my-soup/pi-ai/types";
@@ -16,7 +15,8 @@ import {
 	TurnEndedUpdateSchema,
 	UpdateTodosArgsSchema,
 	UpdateTodosToolCallSchema,
-} from "@oh-my-soup/pi-catalog/discovery/cursor-gen/agent_pb";
+} from "@oh-my-soup/pi-catalog/discovery/cursor-proto";
+import { create, toBinary } from "@oh-my-soup/pi-catalog/discovery/protobuf";
 
 const CONNECT_END_STREAM_FLAG = 0b00000010;
 
@@ -366,7 +366,6 @@ describe("Cursor terminal lifecycle after turnEnded", () => {
 		expect(result.stopReason).toBe("error");
 		expect(result.errorMessage).toContain("google.rpc.ErrorInfo");
 		expect(result.errorMessage).toContain("quota exceeded for request field tools");
-		expect(result.errorClassificationMessage).toBe("Connect error invalid_argument: Error");
 		expect(AIError.is(result.errorId, AIError.Flag.UsageLimit)).toBe(false);
 	});
 

@@ -18,13 +18,6 @@ interface TemplateProbeResult {
 	assetsRemoved: number;
 }
 
-const expectedTemplate: TemplateProbeResult = {
-	chars: 376_316,
-	bytes: 376_472,
-	sha256: "dd7a6919e81e66904570c5f4593bebd8fa542a9625017eb15c5422f5abd02e9c",
-	stableCache: true,
-	assetsRemoved: 0,
-};
 const assetDir = new URL("../src/export/html/", import.meta.url);
 const templateProbePath = path.resolve(import.meta.dir, "fixtures", "html-export-template-probe.ts");
 const heapProbePath = path.resolve(import.meta.dir, "fixtures", "html-export-static-import-heap-probe.ts");
@@ -36,7 +29,7 @@ const compiledPath = path.join(tempRoot, "compiled-template-probe");
 let bundlePath: string;
 const bundledDependencyStubs: Record<string, string> = {
 	"@oh-my-soup/pi-utils": 'export const APP_NAME = "oms"; export const isEnoent = () => false;',
-	"../../modes/theme/theme":
+	"@oh-my-soup/pi-tui/theme":
 		"export const getResolvedThemeColors = async () => ({}); export const getThemeExportColors = async () => ({});",
 	"../../session/session-loader": "export const loadEntriesFromFile = async () => [];",
 	"../../session/session-manager":
@@ -74,6 +67,20 @@ function composeExpectedTemplate(): string {
 		.replace("<template-tool-views/>", () => `<script>${toolViewsJs}</script>`)
 		.replace("<template-js/>", () => `<script>${templateJs}</script>`);
 }
+
+/** Probe result every bundle shape must reproduce: the composed source template, byte for byte. */
+function expectedProbeResult(): TemplateProbeResult {
+	const template = composeExpectedTemplate();
+	return {
+		chars: template.length,
+		bytes: Buffer.byteLength(template),
+		sha256: new Bun.CryptoHasher("sha256").update(template).digest("hex"),
+		stableCache: true,
+		assetsRemoved: 0,
+	};
+}
+
+const expectedTemplate = expectedProbeResult();
 
 async function runProbe(command: string[]): Promise<TemplateProbeResult> {
 	const proc = Bun.spawn(command, {

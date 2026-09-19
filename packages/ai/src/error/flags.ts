@@ -8,7 +8,9 @@ import {
 	STREAM_ENVELOPE_ERROR_PREFIX,
 } from "./classes";
 import {
+	is402BillingCapBody,
 	isAccountScopedCapText,
+	isDashScopeTokenLimitText,
 	isOpaqueStatusBody,
 	isUsageLimitStatus,
 	matchesUsageLimitText,
@@ -39,7 +41,7 @@ export const Flag = {
 	FastModeUnsupported: 0x2000_0000,
 	/** OAuth refresh failed definitively — the stored grant is dead, re-login required. */
 	OAuthExpiry: 0x4000_0000,
-	/** HTTP 413 byte/media rejection — token compaction cannot shrink bytes or media budgets. */
+	/** HTTP 413 byte/media rejection — token compaction cannot shrink bytes or media budgets (#9235). */
 	PayloadRejected: 0x8000_0000,
 } as const;
 
@@ -57,8 +59,8 @@ const KIND_MASK =
 	Flag.ContentBlocked |
 	Flag.AccountPolicy |
 	Flag.ContextOverflow |
-	Flag.PayloadRejected |
 	Flag.AuthFailed |
+	Flag.PayloadRejected |
 	Flag.SilentAbort |
 	Flag.UserInterrupt |
 	Flag.Abort |
@@ -90,26 +92,26 @@ const CONTEXT_OVERFLOW_EVIDENCE_PATTERNS = [
 	/greater than the context length/i, // LM Studio
 	/context window exceeds limit/i, // MiniMax
 	/exceeded model token limit/i, // Kimi For Coding
-	/too large for model with \d+ maximum context length/i, // Mistral
-	/prompt too long; exceeded (?:max )?context length/i, // Ollama
-	/context[_ ]length[_ ]exceeded/i,
-	/too many tokens/i,
-	/token limit exceeded/i,
+	/context[_ ]length[_ ]exceeded/i, // Generic fallback
+	/too many tokens/i, // Generic fallback
+	/token limit exceeded/i, // Generic fallback
 	/request_too_large[^\n]*\btokens?\b/i,
 	/\btokens?\b[^\n]*request_too_large/i,
-	/model_context_window_exceeded/i,
-	/prompt filled the context window/i,
+	/model_context_window_exceeded/i, // z.ai non-standard finish_reason surfaced as error text
+	/prompt filled the context window/i, // Ollama OpenAI-compatible empty length completion
 	/exceeds the limit of \d+ tokens?\b/i,
 	/chat history exceeds the \d+-message limit/i, // Provider message-count cap
 ] as const;
-
+// Numeric limit pattern — also matches media budgets, so must never veto a payload flag (#9235).
 const GENERIC_LIMIT_OVERFLOW_PATTERN = /exceeds the limit of \d+/i;
 const OVERFLOW_PATTERNS = [...CONTEXT_OVERFLOW_EVIDENCE_PATTERNS, GENERIC_LIMIT_OVERFLOW_PATTERN];
 
+/** Token-context evidence only — excludes GENERIC_LIMIT_OVERFLOW_PATTERN which media budgets also match (#9235). */
 function hasTokenContextOverflowEvidence(text: string): boolean {
-	return CONTEXT_OVERFLOW_EVIDENCE_PATTERNS.some(pattern => pattern.test(text));
+	return CONTEXT_OVERFLOW_EVIDENCE_PATTERNS.some(p => p.test(text));
 }
 
+/** Checks every cause-chain link; a wrapper whose nested 413 names the token budget stays overflow-only (#9235). */
 function hasCauseTokenContextOverflowEvidence(error: unknown): boolean {
 	const seen = new Set<object>();
 	let link: unknown = error;
@@ -120,17 +122,21 @@ function hasCauseTokenContextOverflowEvidence(error: unknown): boolean {
 		}
 		if (seen.has(link)) break;
 		seen.add(link);
-		if ("message" in link && typeof link.message === "string" && hasTokenContextOverflowEvidence(link.message)) {
-			return true;
+		if ("message" in link) {
+			const message: unknown = link.message;
+			if (typeof message === "string" && hasTokenContextOverflowEvidence(message)) return true;
 		}
-		if (!("cause" in link)) break;
-		link = link.cause;
+		if ("cause" in link) {
+			link = link.cause;
+			continue;
+		}
+		break;
 	}
 	return false;
 }
 
 const OVERFLOW_NO_BODY_PATTERN = /\b4(00|13)\s*(status code)?\s*\(no body\)/i;
-
+// Bare `413 (no body)` deliberately dual-flagged; maintenance arbitrates against local headroom (#9235).
 const PAYLOAD_REJECTION_PATTERNS = [
 	/\b413\s*(?:status code\s*)?\(no body\)/i,
 	/\b413\b[^.\n]{0,120}\b(?:request|payload|entity|body)\b[^.\n]{0,60}\b(?:exceed|too large|limit)/i,
@@ -140,26 +146,47 @@ const PAYLOAD_REJECTION_PATTERNS = [
 ] as const;
 
 function matchesPayloadRejectionText(text: string): boolean {
-	return PAYLOAD_REJECTION_PATTERNS.some(pattern => pattern.test(text)) && !hasTokenContextOverflowEvidence(text);
+	if (!PAYLOAD_REJECTION_PATTERNS.some(p => p.test(text))) return false;
+	// Token-context evidence vetoes; only token wording counts — generic numeric limits also match media budgets.
+	if (hasTokenContextOverflowEvidence(text)) return false;
+	return true;
 }
 
-/**
- * Non-overflow errors that would otherwise match an OVERFLOW_PATTERN.
- * Example: Bedrock throttling reads "ThrottlingException: Too many tokens,
- * please wait before trying again." which matches /too many tokens/i.
- */
-const NON_OVERFLOW_PATTERNS = [
-	/^(Throttling error|Service unavailable):/i, // AWS Bedrock human-readable non-overflow prefixes
-	/throttl/i, // Raw AWS "ThrottlingException" and similar shed-load wording
-	/rate limit/i, // Generic rate limiting
-	/too many requests/i, // Generic HTTP 429 style
-];
 const TIMEOUT_PATTERN = /\b(?:operation\s+)?timed?\s*out\b|\btimeout\b|\bstream stall\b/i;
 const TRANSIENT_ENVELOPE_PATTERN = /anthropic stream envelope error:/i;
-const TRANSIENT_ENVELOPE_BEFORE_START_PATTERN = /before message_start/i;
+const TRANSIENT_ENVELOPE_TRUNCATION_PATTERN = /before message_(?:start|stop)/i;
 export const STREAM_READ_ERROR_PATTERN = /stream[_ -]?read[_ -]?error/i;
+/** Python h2/httpx diagnostics forwarded through provider or proxy error events. */
+export const PYTHON_HTTP2_STREAM_RESET_PATTERN = /<StreamReset stream_id:\d+, error_code:(?:2|7), remote_reset:True>/;
+/** Python h11/httpx EOF while reading an HTTP/1.1 chunked response body. */
+export const PYTHON_HTTP_INCOMPLETE_CHUNK_PATTERN =
+	/peer closed connection without sending complete message body \(incomplete chunked read\)/;
+/** reqwest body-frame failures forwarded by the Codex HTTP proxy. */
+export const CODEX_HTTP_BODY_READ_ERROR_PATTERN = /\btransport error reading codex response body\b/i;
+
+const RESPONSES_REQUEST_BODY_READ_TIMEOUT_PATTERN = /\btimed out reading request body\b/i;
+
+/** Exact HTTP request-body-read timeout diagnostic. */
+export function isRequestBodyReadTimeout(status: number | undefined, message: string | undefined): boolean {
+	return status === 408 && RESPONSES_REQUEST_BODY_READ_TIMEOUT_PATTERN.test(message ?? "");
+}
+
+/** Exact pre-output Responses 408 that needs a changed-request recovery path. */
+export function isResponsesRequestBodyReadTimeout(message: {
+	api?: Api;
+	errorStatus?: number;
+	errorMessage?: string;
+	requestBodyReadTimeoutFullReplay?: boolean;
+}): boolean {
+	return (
+		message.api === "openai-responses" &&
+		message.requestBodyReadTimeoutFullReplay === true &&
+		isRequestBodyReadTimeout(message.errorStatus, message.errorMessage)
+	);
+}
+
 export const TRANSIENT_TRANSPORT_PATTERN =
-	/\b(?:no[_ -]?capacity|(?:high|peak)[ _-]?demand|(?:at|over|insufficient)[ _-]?capacity|capacity[ _-]?(?:exceeded|exhausted)|peak[ _-]?load)\b|overloaded|provider.?returned.?error|rate.?limit|too many requests|\b(?:429|500|502|503|504)\b|service.?unavailable|server.?error|internal.?error|retry your request|network.?error|connection.?error|connection.?refused|unable.?to.?connect\.\s*is the computer able to access the url\?|other side closed|fetch failed|upstream.?connect|upstream.?request.?failed|reset before headers|socket hang up|timed? out|timeout|terminated|retry delay|stream stall|no error details in response|HTTP2(?:StreamReset|RefusedStream|EnhanceYourCalm)|malformed.?function.?call/i;
+	/\b(?:no[_ -]?capacity|(?:high|peak)[ _-]?demand|(?:at|over|insufficient)[ _-]?capacity|capacity[ _-]?(?:exceeded|exhausted)|peak[ _-]?load)\b|overloaded|provider.?returned.?error|rate.?limit|too many requests|auth-gateway\s+5\d{2}(?=[:\s]|$)|\b(?:429|500|502|503|504)\b|service.?unavailable|server.?error|internal.?error|retry your request|network.?error|connection.?error|connection.?refused|unable.?to.?connect\.\s*is the computer able to access the url\?|other side closed|fetch failed|upstream.?connect|upstream.?request.?failed|reset before headers|socket hang up|timed? out|timeout|terminated|retry delay|stream stall|no error details in response|HTTP2(?:StreamReset|RefusedStream|EnhanceYourCalm)|nghttp2_(?:internal_error|refused_stream)|stream closed with error code nghttp2_(?:internal_error|refused_stream)|malformed.?function.?call/i;
 const AUTH_FAILURE_PATTERN =
 	/\b(?:401|403|unauthorized|forbidden|authentication|auth[_ ]?unavailable|no auth available|(?:invalid|no)[_ ]?api[_ ]?key)\b/i;
 const MALFORMED_FUNCTION_CALL_PATTERN = /\bmalformed.?function.?call\b/i;
@@ -214,16 +241,14 @@ const STALE_RESPONSE_ITEM_DETAIL_PATTERN = /not[ _]?found|invalid|expired|stale|
 export const LLAMA_CPP_TOOL_CALL_PARSE_PATTERN =
 	/failed to parse tool call arguments as json|\[json\.exception\.parse_error\.101\]/i;
 
-// Copilot fleet skew: HTTP 400 `model_not_supported` can reject a model that
-// `/models` advertised on the same host when the request lands on a stale
-// replica. `model_not_available_for_integrator` is deliberately excluded:
-// GitHub also uses it for stable per-integrator entitlement denials and includes
-// that integrator's actionable `Available models` list in the response.
-const COPILOT_TRANSIENT_MODEL_CODES: Record<string, true> = {
-	model_not_supported: true,
-};
-const COPILOT_TRANSIENT_MODEL_PATTERN = /model_not_supported/i;
-// Replay-safe model-side decode overflow wrapped as a Fireworks request-validation 400.
+// Fireworks (and other OpenAI-compat backends) can abort mid-generation with an
+// HTTP 400 `invalid_request_error` whose body reports a model-side numerical
+// fault: "Floating point NaN (not-a-number) is detected in generation". Despite
+// the request-validation wrapper this is a decode-time logits overflow, not a
+// bad request — a byte-identical replay of the same payload succeeds. The fault
+// fires before any content is emitted, so retry is replay-safe. Kept narrow
+// (both the NaN wording and "detected in generation") so it cannot swallow
+// genuine request-validation 400s.
 const GENERATION_NAN_PATTERN = /floating[ _-]?point nan\b.*\bdetected in generation/is;
 // Anthropic strict-tool grammar too large / schema too complex (400 invalid_request_error).
 // Feature-gated deployments (Azure Foundry, Baseten, …) reject `strict: true`
@@ -400,7 +425,9 @@ function isTransientErrorText(text: string): boolean {
 	return (
 		isUnexpectedSocketCloseMessage(text) ||
 		isStreamReadErrorText(text) ||
-		(TRANSIENT_ENVELOPE_PATTERN.test(text) && TRANSIENT_ENVELOPE_BEFORE_START_PATTERN.test(text)) ||
+		PYTHON_HTTP2_STREAM_RESET_PATTERN.test(text) ||
+		PYTHON_HTTP_INCOMPLETE_CHUNK_PATTERN.test(text) ||
+		(TRANSIENT_ENVELOPE_PATTERN.test(text) && TRANSIENT_ENVELOPE_TRUNCATION_PATTERN.test(text)) ||
 		TRANSIENT_TRANSPORT_PATTERN.test(text)
 	);
 }
@@ -433,8 +460,18 @@ function isContentBlockedText(text: string): boolean {
 }
 
 function matchesOverflowText(text: string): boolean {
-	if (NON_OVERFLOW_PATTERNS.some(p => p.test(text))) return false;
 	return OVERFLOW_PATTERNS.some(p => p.test(text)) || OVERFLOW_NO_BODY_PATTERN.test(text);
+}
+
+/**
+ * A 4xx the provider rejected as a deterministic client error — every 4xx
+ * except 408 (Request Timeout) and 429 (Too Many Requests), the retryable
+ * pair. Mirrors the 4xx policy in {@link isProviderRetryableError}: such a
+ * request replays identically, so a transient signal riding on it (e.g. a
+ * truncation phrase in the body) must not flip it to retryable.
+ */
+function isTerminalClientErrorStatus(status: number | undefined): boolean {
+	return status !== undefined && status >= 400 && status < 500 && status !== 408 && status !== 429;
 }
 
 function classifyText(
@@ -468,28 +505,47 @@ function classifyText(
 
 		const isLimitStatus = isUsageLimitStatus(statusClean);
 		const reason = parseRateLimitReason(cleanMessage);
+		const is402BillingCap = statusClean === 402 && is402BillingCapBody(cleanMessage);
 		// Concurrency caps (e.g. Vertex "Online prediction concurrent requests
 		// quota exceeded") are shed-and-backoff, not credential-rotatable —
 		// exclude them even when the quota-worded phrasing matches the generic
 		// usage-limit text matcher, whose `quota.?exceeded` arm would otherwise
 		// set Flag.UsageLimit and burn a healthy sibling credential. HTTP 402 is
-		// excluded from this gate: it is categorically an account-billing cap, so
-		// a 402 whose body merely mentions concurrency still classifies as a
-		// usage limit, mirroring isUsageLimitOutcome.
-		const isBillingCapStatus = statusClean === 402;
-		const concurrencyExcluded = reason === "CONCURRENT_LIMIT" && !isBillingCapStatus;
+		// excluded from this gate: a 402 whose body merely mentions concurrency
+		// still classifies as a usage limit, mirroring isUsageLimitOutcome.
+		const concurrencyExcluded = reason === "CONCURRENT_LIMIT" && statusClean !== 402;
 		if (
 			!concurrencyExcluded &&
-			(matchesUsageLimitText(cleanMessage) ||
+			(is402BillingCap ||
+				matchesUsageLimitText(cleanMessage) ||
 				((statusClean === 403 || statusClean === undefined) && isAccountScopedCapText(cleanMessage)) ||
-				(isLimitStatus &&
-					(isOpaque || reason === "QUOTA_EXHAUSTED" || (isBillingCapStatus && reason === "CONCURRENT_LIMIT"))))
+				(isLimitStatus && (isOpaque || reason === "QUOTA_EXHAUSTED")))
 		) {
 			kinds |= Flag.UsageLimit;
 		}
-
 		if (isTimeoutText(errorMessage)) kinds |= Flag.Transient | Flag.Timeout;
 		else if (isTransientErrorText(errorMessage)) kinds |= Flag.Transient;
+		// A stream truncation, transport-level stream drop, or forwarded Codex HTTP
+		// body-read failure may not match TRANSIENT_TRANSPORT_PATTERN. Flag it
+		// explicitly so AIError.retriable and the turn-recovery layer treat it as
+		// retryable, matching the provider retry path (isProviderRetryableError).
+		// Separate `if` (not chained onto the else-if) so a timeout whose text also
+		// reads as a truncation keeps Flag.Timeout alongside Flag.Transient. The
+		// string arm applies the strict STREAM_PARSE_DIAGNOSTIC_PATTERN, per the
+		// rationale on isTransientStreamParseError. Skip a phrase that rides on a
+		// terminal 4xx (e.g. a malformed request rejected as "400 unexpected EOF"):
+		// that is a deterministic client error that replays identically, so keep it
+		// terminal. classify() carries the outer terminal status down the cause
+		// chain so a wrapped truncation (ProviderHttpError 400 → cause "unexpected
+		// EOF") is caught here too.
+		if (
+			!isTerminalClientErrorStatus(statusClean) &&
+			(isTransientStreamParseError(errorMessage) ||
+				isTransientStreamDropError(errorMessage) ||
+				CODEX_HTTP_BODY_READ_ERROR_PATTERN.test(errorMessage))
+		) {
+			kinds |= Flag.Transient;
+		}
 		// A concurrency cap (e.g. Vertex "Online prediction concurrent requests
 		// quota exceeded") is transient — shed-and-backoff. The bare wording need
 		// not match TRANSIENT_TRANSPORT_PATTERN, so flag it explicitly to keep
@@ -499,13 +555,13 @@ function classifyText(
 			kinds |= Flag.StaleResponsesItem;
 		}
 
-		// Copilot's `model_not_supported` fleet-skew rejection is transient.
-		if (statusClean === 400 && COPILOT_TRANSIENT_MODEL_PATTERN.test(cleanMessage)) kinds |= Flag.Transient;
-		// Fireworks reports this replay-safe decode failure as invalid_request_error.
+		// Fireworks mid-generation NaN 400 is a model-side decode fault, not a bad
+		// request; a byte-identical replay succeeds, so treat it as transient.
 		if (statusClean === 400 && GENERATION_NAN_PATTERN.test(cleanMessage)) kinds |= Flag.Transient;
 		if (matchesStrictToolsRejection(cleanMessage, statusClean)) kinds |= Flag.Grammar;
 		if (matchesFastModeUnsupported(cleanMessage, statusClean)) kinds |= Flag.FastModeUnsupported;
 	}
+	// Status-only 413: infer PayloadRejected unless prior classification carries token-context evidence (#9235).
 	const statusEvidence = errorStatus ?? (errorMessage ? status({ message: errorMessage }) : undefined);
 	if (
 		statusEvidence === 413 &&
@@ -513,6 +569,9 @@ function classifyText(
 		!(errorMessage && hasTokenContextOverflowEvidence(errorMessage))
 	) {
 		kinds |= Flag.PayloadRejected;
+	}
+	if (statusEvidence === 402 && (errorMessage === undefined || isOpaqueStatusBody(errorMessage))) {
+		kinds |= Flag.UsageLimit;
 	}
 	if (kinds !== 0) return create(kinds);
 	const fallbackStatus = errorStatus ?? (errorMessage ? status({ message: errorMessage }) : undefined);
@@ -525,6 +584,11 @@ export function classify(error: unknown, api?: Api): number {
 	const seen = new Set<object>();
 	const causeTokenEvidence = hasCauseTokenContextOverflowEvidence(error);
 	let link: unknown = error;
+	// A terminal 4xx on an outer link governs its own cause diagnostics: a
+	// wrapped truncation is describing why the deterministic request failed,
+	// not an independently retryable transport fault. Carry it down so the
+	// stream-parse guard in classifyText sees it on the status-less cause.
+	let governingTerminalStatus: number | undefined;
 	while (link !== undefined && link !== null) {
 		if (typeof link === "object") {
 			if (seen.has(link)) break;
@@ -560,7 +624,12 @@ export function classify(error: unknown, api?: Api): number {
 		} else if (link instanceof ProviderHttpError) {
 			let linkKinds = 0;
 			const { status: codeStatus, code } = link;
-			if (code === "usage_limit_reached" || code === "insufficient_quota") {
+			if (
+				code === "usage_limit_reached" ||
+				(code === "insufficient_quota" && !isDashScopeTokenLimitText(link.message)) ||
+				(codeStatus === 402 &&
+					(code === "payment_required" || code === "deactivated_workspace" || is402BillingCapBody(link.message)))
+			) {
 				linkKinds |= Flag.UsageLimit;
 			}
 			if (code === "overloaded_error" || code === "rate_limit_error") {
@@ -594,8 +663,10 @@ export function classify(error: unknown, api?: Api): number {
 			linkMessage = (link as { message: string }).message;
 		}
 
-		const textId = classifyText(linkMessage, status(link), causeTokenEvidence, api);
+		const linkStatus = status(link);
+		const textId = classifyText(linkMessage, linkStatus ?? governingTerminalStatus, causeTokenEvidence, api);
 		kinds |= textId & KIND_MASK;
+		if (isTerminalClientErrorStatus(linkStatus)) governingTerminalStatus = linkStatus;
 
 		link = typeof link === "object" && "cause" in link ? (link as { cause: unknown }).cause : undefined;
 	}
@@ -617,6 +688,7 @@ export function isUsageLimit(error: unknown, api?: Api): boolean {
 export function isAccountPolicyError(error: unknown, api?: Api): boolean {
 	return is(classify(error, api), Flag.AccountPolicy);
 }
+
 /**
  * Model id from Codex's exact ChatGPT-account entitlement denial. Generic
  * unsupported-model invalid requests deliberately do not match.
@@ -680,38 +752,36 @@ export function isFastModeUnsupported(error: unknown): boolean {
 	return is(classify(error), Flag.FastModeUnsupported);
 }
 
-/**
- * Depth-bounded search for a provider error `code`. SDK error objects keep the
- * parsed response body on `.error`, and Copilot's body is itself
- * `{ error: { code } }`, so the code sits up to two envelopes below the thrown
- * error depending on which SDK produced it.
- */
-function providerErrorCode(error: object): string | undefined {
-	let node: object = error;
-	for (let depth = 0; depth < 3; depth++) {
-		if ("code" in node && typeof node.code === "string") return node.code;
-		if (!("error" in node)) return undefined;
-		const nested: unknown = node.error;
-		if (!nested || typeof nested !== "object") return undefined;
-		node = nested;
-	}
-	return undefined;
-}
+const CLINE_PASS_SURFACE_GATE_PATTERN = /only available via cline product surfaces/i;
 
 /**
- * GitHub Copilot 400 `model_not_supported` response for a model advertised by
- * `/models` — transient fleet skew, not a malformed request. Reads the
- * structural `code` through the SDK/body envelopes, then falls back to the
- * stringified body both SDK families put in `message`.
+ * Cline's gateway gates some roster entries (certain free-tier models) to its
+ * own product surfaces with a 403. The API key is valid — the restriction is
+ * per-model client policy — so it must neither rotate sibling credentials (they
+ * fail identically) nor surface as an auth failure.
  */
-export function isCopilotTransientModelError(error: unknown): boolean {
-	if (!error || typeof error !== "object" || status(error) !== 400) return false;
-	const code = providerErrorCode(error);
-	// `Object.hasOwn`, not a bare index: `code` is provider-controlled, and a
-	// prototype key (`__proto__`, `toString`, …) would otherwise read truthy.
-	if (code !== undefined && Object.hasOwn(COPILOT_TRANSIENT_MODEL_CODES, code)) return true;
-	const message: unknown = "message" in error ? error.message : undefined;
-	return typeof message === "string" && COPILOT_TRANSIENT_MODEL_PATTERN.test(message);
+export function isClinePassSurfaceGateMessage(errorMessage: string | undefined): boolean {
+	return errorMessage !== undefined && CLINE_PASS_SURFACE_GATE_PATTERN.test(errorMessage);
+}
+
+const GITHUB_COPILOT_POLICY_DENIAL_PATTERN = /GitHub Copilot access denied \(HTTP 403\)/;
+
+/**
+ * GitHub Copilot 403s are plan/model-policy/org denials against a valid token —
+ * never a revoked credential (those arrive as 401). Wiping stored credentials
+ * on them hides the whole provider from `/model` and forces a pointless
+ * re-login, so credential-lifetime decisions must exempt them even though
+ * they still classify as `Flag.AuthFailed` (issue #11275). Mirrors the 403
+ * contract in `rewriteCopilotError` (`utils/http-inspector.ts`).
+ */
+export function isGitHubCopilotPolicyDenial(
+	provider: string | undefined,
+	status: number | undefined,
+	errorMessage: string | undefined,
+): boolean {
+	if (provider !== "github-copilot") return false;
+	if (status === 403) return true;
+	return errorMessage !== undefined && GITHUB_COPILOT_POLICY_DENIAL_PATTERN.test(errorMessage);
 }
 
 export function classifyMessage(message: {
@@ -738,6 +808,7 @@ export function classifyMessage(message: {
 	);
 
 	let kinds = ((existingId ?? 0) | textId) & KIND_MASK;
+	// Two-phase finalization: drop stale status-inferred payload bit when final text proves token overflow (#9235).
 	if (
 		currentStatus === 413 &&
 		classificationMessage &&
@@ -763,7 +834,7 @@ export function attach<E extends object>(error: E, id: number): E {
 	return error;
 }
 
-/** Provider-reported usage proves context-window excess and outranks payload-shaped text. */
+/** Provider-reported usage proves context-window excess — authoritative, compaction-owned (#9235). */
 export function isUsageBackedContextOverflow(message: AssistantMessage, contextWindow?: number): boolean {
 	if (!contextWindow) return false;
 	const inputTokens = message.usage.input + message.usage.cacheRead + message.usage.cacheWrite;
@@ -776,7 +847,8 @@ export function isContextOverflow(message: AssistantMessage, contextWindow?: num
 	return message.stopReason === "error" && !!message.errorMessage && matchesOverflowText(message.errorMessage);
 }
 
-/** HTTP 413 byte/media rejection; bare no-body 413s intentionally co-carry overflow. */
+/** HTTP 413 byte/media rejection (#9235); may co-occur with {@link isContextOverflow} for bare `413 (no body)`.
+ *  Callers with local headroom should skip compaction when this returns true. */
 export function isPayloadRejection(message: AssistantMessage): boolean {
 	if (is(message.errorId, Flag.PayloadRejected)) return true;
 	const { errorMessage } = message;
@@ -784,7 +856,9 @@ export function isPayloadRejection(message: AssistantMessage): boolean {
 	return matchesPayloadRejectionText(errorMessage);
 }
 
-/** Dual-classified payload/overflow text without authoritative provider usage evidence. */
+/** Dual-flagged 413 (PayloadRejected + ContextOverflow) with no provider-reported token excess (#9235).
+ *  The co-flag means a different provider's larger byte/media budget may accept the request.
+ *  Usage-backed overflows are authoritative window excesses and never ambiguous. */
 export function isTextAmbiguousContextOverflow(
 	errorId: number,
 	message: AssistantMessage | undefined,
@@ -792,7 +866,8 @@ export function isTextAmbiguousContextOverflow(
 ): boolean {
 	const overflowFlagged =
 		is(errorId, Flag.ContextOverflow) || (message !== undefined && isContextOverflow(message, contextWindow));
-	if (!overflowFlagged || !is(errorId, Flag.PayloadRejected)) return false;
+	if (!overflowFlagged) return false;
+	if (!is(errorId, Flag.PayloadRejected)) return false;
 	return !(message !== undefined && isUsageBackedContextOverflow(message, contextWindow));
 }
 
@@ -819,6 +894,31 @@ const STREAM_EVENT_ORDER_PATTERN = /stream event order|before message_start/i;
 export function isTransientStreamParseError(error: unknown): boolean {
 	if (typeof error === "string") return STREAM_PARSE_DIAGNOSTIC_PATTERN.test(error);
 	return error instanceof Error && STREAM_PARSE_TRUNCATION_PATTERN.test(error.message);
+}
+
+/**
+ * Transport-level stream drops: the connection or upstream stream ended before a
+ * terminal event, with no JSON-parse signal and no retryable status attached.
+ *
+ * Distinct from {@link STREAM_PARSE_TRUNCATION_PATTERN} (mid-body JSON
+ * truncation) — these name the transport itself dropping (proxy/gateway closing
+ * the SSE stream, socket dying before the TLS handshake completes). The wording
+ * is the statusless twin of a `408 stream disconnected`, which the status path
+ * already retries; an identical replay recovers it, so callers under a
+ * non-terminal status treat it as transient (#11805).
+ */
+const STREAM_DROP_PATTERN =
+	/stream disconnected before completion|stream closed before response\.completed|stream was interrupted|stream ended before terminal (?:chunk|completion event)|socket disconnected before secure tls connection/i;
+
+/**
+ * Transport stream-drop diagnostic (see {@link STREAM_DROP_PATTERN}). Unlike
+ * {@link isTransientStreamParseError}, one pattern serves both the live `Error`
+ * and the persisted-string forms: the phrasings are high-signal enough to trust
+ * detached from a transport `Error`.
+ */
+export function isTransientStreamDropError(error: unknown): boolean {
+	if (typeof error === "string") return STREAM_DROP_PATTERN.test(error);
+	return error instanceof Error && STREAM_DROP_PATTERN.test(error.message);
 }
 
 /** Any malformed stream-envelope error (prefix-tagged or out-of-order events). */

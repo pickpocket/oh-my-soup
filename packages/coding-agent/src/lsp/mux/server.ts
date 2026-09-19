@@ -140,7 +140,6 @@ function rpcError(id: LspJsonRpcId, code: number, message: string): LspJsonRpcRe
 function parseConnectParams(params: unknown): MuxConnectParams | undefined {
 	if (!isRecord(params) || typeof params.command !== "string" || typeof params.cwd !== "string") return undefined;
 	if (!Array.isArray(params.args) || !params.args.every(arg => typeof arg === "string")) return undefined;
-	if (typeof params.configurationIdentity !== "string") return undefined;
 	if (params.env !== undefined) {
 		if (!isRecord(params.env)) return undefined;
 		for (const key in params.env) if (typeof params.env[key] !== "string") return undefined;
@@ -225,7 +224,7 @@ export class LspMuxServer {
 	async #performShutdown(): Promise<void> {
 		this.#shuttingDown = true;
 		clearTimeout(this.#idleTimer);
-		for (const session of [...this.#sessions]) session.socket.destroy();
+		for (const session of Array.from(this.#sessions)) session.socket.destroy();
 		await Promise.all([...this.#servers].map(server => this.#stopServer(server)));
 		const listener = this.#netServer;
 		this.#netServer = undefined;
@@ -278,19 +277,24 @@ export class LspMuxServer {
 		this.#sessions.add(session);
 		this.#disarmMuxIdle();
 		socket.on("data", chunk => {
-			session.framer.push(Buffer.from(chunk));
-			for (const text of session.framer.drain(header => {
-				logger.warn("LSP mux client framing resync", { header: header.slice(0, 200) });
-			})) {
-				try {
-					const parsed: unknown = JSON.parse(text);
-					if (!isRecord(parsed) || parsed.jsonrpc !== "2.0") throw new Error("invalid JSON-RPC message");
-					void this.#fromSession(session, parsed as unknown as RpcMessage).catch(error => {
-						logger.warn("LSP mux client message handling failed", { error: String(error) });
-					});
-				} catch (error) {
-					logger.warn("LSP mux client sent malformed JSON", { error: String(error) });
+			try {
+				session.framer.push(Buffer.from(chunk));
+				for (const text of session.framer.drain(header => {
+					logger.warn("LSP mux client framing resync", { header: header.slice(0, 200) });
+				})) {
+					try {
+						const parsed: unknown = JSON.parse(text);
+						if (!isRecord(parsed) || parsed.jsonrpc !== "2.0") throw new Error("invalid JSON-RPC message");
+						void this.#fromSession(session, parsed as unknown as RpcMessage).catch(error => {
+							logger.warn("LSP mux client message handling failed", { error: String(error) });
+						});
+					} catch (error) {
+						logger.warn("LSP mux client sent malformed JSON", { error: String(error) });
+					}
 				}
+			} catch (error) {
+				logger.warn("LSP mux client framing failed", { error: String(error) });
+				socket.destroy();
 			}
 		});
 		socket.on("error", error => logger.warn("LSP mux session socket error", { error: error.message }));
@@ -473,6 +477,7 @@ export class LspMuxServer {
 			}
 		} catch (error) {
 			logger.warn("LSP mux server reader failed", { server: server.key, error: String(error) });
+			this.#killServer(server);
 		} finally {
 			reader.releaseLock();
 		}
@@ -675,7 +680,7 @@ export class LspMuxServer {
 		this.#servers.delete(server);
 		if (server.lingerTimer) clearTimeout(server.lingerTimer);
 		server.pending.clear();
-		for (const session of [...server.sessions]) session.socket.destroy();
+		for (const session of Array.from(server.sessions)) session.socket.destroy();
 		server.sessions.clear();
 	}
 
@@ -688,7 +693,13 @@ export class LspMuxServer {
 		server.pending.set(id, { resolveInternal: resolve });
 		try {
 			await this.#writeServer(server, { jsonrpc: "2.0", id, method: "shutdown", params: null });
-			await Promise.race([promise, Bun.sleep(SHUTDOWN_BUDGET_MS)]);
+			const timeout = Promise.withResolvers<void>();
+			const timer = setTimeout(timeout.resolve, SHUTDOWN_BUDGET_MS);
+			try {
+				await Promise.race([promise, timeout.promise]);
+			} finally {
+				clearTimeout(timer);
+			}
 			await this.#writeServer(server, { jsonrpc: "2.0", method: "exit" });
 		} catch (error) {
 			logger.warn("LSP mux graceful server shutdown failed", { server: server.key, error: String(error) });

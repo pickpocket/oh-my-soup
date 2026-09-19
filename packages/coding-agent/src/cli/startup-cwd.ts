@@ -1,63 +1,71 @@
+import * as os from "node:os";
+import * as path from "node:path";
 import { directoryExists, getProjectDir, normalizePathForComparison, setProjectDir } from "@oh-my-soup/pi-utils";
-import { homedir, tmpdir } from "os";
-import { join } from "path";
-
 import type { Args } from "./args";
 
-/**
- * Attempts to set the project directory when the target exists.
- *
- * @param directory - Directory to apply.
- * @returns Whether the project directory was changed.
- */
-const tryProjectDir = async (directory: string): Promise<boolean> => {
-	try {
-		if ((await directoryExists(directory)) === false) return false;
-
-		setProjectDir(directory);
-		return true;
-	} catch {
-		return false;
+async function maybeAutoChdir(parsed: Args): Promise<void> {
+	if (parsed.allowHome || parsed.cwd) {
+		return;
 	}
-};
 
-/**
- * Moves the project directory out of the home directory when allowed.
- *
- * @param parsed - Parsed startup arguments.
- * @returns A promise that resolves after the directory check completes.
- */
-const maybeAutoChdir = async (parsed: Args): Promise<void> => {
-	if (parsed.allowHome === true) return;
-	if (parsed.cwd !== undefined) return;
+	const home = os.homedir();
+	if (!home) {
+		return;
+	}
 
-	const home = homedir();
-	if (home === "") return;
+	const normalizePath = normalizePathForComparison;
 
-	const cwd = normalizePathForComparison(getProjectDir());
-	if (cwd !== normalizePathForComparison(home)) return;
+	const cwd = normalizePath(getProjectDir());
+	const normalizedHome = normalizePath(home);
+	if (cwd !== normalizedHome) {
+		return;
+	}
 
-	const candidates = [join(home, "tmp"), ...(process.platform === "win32" ? [] : ["/tmp", "/var/tmp"])];
+	const candidates =
+		process.platform === "win32" ? [path.join(home, "tmp")] : [path.join(home, "tmp"), "/tmp", "/var/tmp"];
+	for (const candidate of candidates) {
+		try {
+			if (!(await directoryExists(candidate))) {
+				continue;
+			}
+			setProjectDir(candidate);
+			return;
+		} catch {
+			// Try next candidate.
+		}
+	}
 
-	for (const directory of candidates) if (await tryProjectDir(directory)) return;
+	try {
+		const fallback = os.tmpdir();
+		if (fallback && normalizePath(fallback) !== cwd && (await directoryExists(fallback))) {
+			setProjectDir(fallback);
+		}
+	} catch {
+		// Ignore fallback errors.
+	}
+}
 
-	const fallback = tmpdir();
-	if (fallback === "") return;
-	if (normalizePathForComparison(fallback) === cwd) return;
-
-	await tryProjectDir(fallback);
-};
-
-/**
- * Applies the configured startup directory or selects a temporary directory
- * when launching from the home directory.
- *
- * @param parsed - Parsed startup arguments.
- * @returns A promise that resolves after the project directory is applied.
- */
-export const applyStartupCwd = async (parsed: Args): Promise<void> => {
-	if (parsed.cwd === undefined) return await maybeAutoChdir(parsed);
-
-	setProjectDir(parsed.cwd);
-	parsed.cwd = getProjectDir();
-};
+export async function applyStartupCwd(parsed: Args): Promise<void> {
+	if (parsed.cwd) {
+		try {
+			setProjectDir(parsed.cwd);
+		} catch (error) {
+			const reason = error instanceof Error ? error.message : String(error);
+			// Permission denials are the macOS TCC case; a plain ENOENT typo
+			// should not be told to grant Full Disk Access.
+			const code = (error as NodeJS.ErrnoException | null)?.code;
+			const hint =
+				code === "EACCES" || code === "EPERM"
+					? " On macOS, grant oms Files & Folders or Full Disk Access permission for the target directory."
+					: "";
+			throw new Error(`Cannot change working directory to ${parsed.cwd}: ${reason}.${hint}`);
+		}
+		// setProjectDir resolves the (possibly relative) target against the launch
+		// cwd and chdirs into it. Re-sync parsed.cwd to the resolved absolute path
+		// so downstream consumers (buildSessionOptions, settings/discovery, session
+		// persistence) don't re-resolve a relative string against the new cwd.
+		parsed.cwd = getProjectDir();
+		return;
+	}
+	await maybeAutoChdir(parsed);
+}

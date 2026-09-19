@@ -1,0 +1,10 @@
+// Catalog entry for "openai-prism"; models come from the verified static
+// roster in provider-models/openai-compat.ts (OPENAI_PRISM_STATIC_MODELS),
+// seeded by generate-models.ts, so no seed block is declared here. Auth is a
+// signed-in browser Cookie header (PRISM_COOKIE), not an API key.
+
+provider "openai-prism" {
+	default-model "gpt-5.6-sol"
+	env "PRISM_COOKIE"
+	discovery label="OpenAI Prism"
+}

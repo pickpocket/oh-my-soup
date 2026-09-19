@@ -10,10 +10,14 @@ describe("resolveMemoryCompletionInput", () => {
 		});
 		expect(request.systemPrompt).toBe(memoryExtractionPrompt);
 		expect(request.prompt).toBe("Sam works at Globex.");
+		// The rendered prompt is deliberately discarded: instructions belong in the
+		// system turn and the user turn must carry only the text to extract from.
 		expect(request.prompt).not.toContain("rendered");
 	});
 
 	it("keeps the rendered prompt and adds no system turn without an extraction task", () => {
+		// Consolidation reaches the same completion fn with no task, so it must keep
+		// the prompt Mnemopi rendered from consolidationPrompt.
 		const rendered = "Summarize these memories faithfully.";
 		expect(resolveMemoryCompletionInput(rendered)).toEqual({ prompt: rendered });
 		expect(resolveMemoryCompletionInput(rendered, {})).toEqual({ prompt: rendered });

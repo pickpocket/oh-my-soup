@@ -47,7 +47,9 @@ The custom template keeps these generated surfaces:
 - always-apply rules and the rulebook listing;
 - secret-redaction guidance when enabled.
 
-The separate project/environment footer remains and carries workstation data, deeper-directory context pointers, optional workspace information, current date/cwd, and the final completion requirements. Optional extra system blocks, such as computer-tool safety and active nested-repository context, also remain when applicable.
+The separate project/environment footer remains and carries workstation data, deeper-directory context pointers, optional workspace information, and the final completion requirements. Optional extra system blocks, such as computer-tool safety and active nested-repository context, also remain when applicable.
+
+The current date and working directory no longer live in the footer: they are emitted as a `<system-reminder>` block on the first user turn of each provider request (`date-cwd-reminder.md`). Keeping per-request bytes out of the system prompt lets open-weight providers (DeepSeek, Qwen, GLM, …) that render tool schemas after the system content keep their prefix cache, and lets a session crossing midnight refresh the date without rebuilding the prompt (#7404).
 
 What disappears is the content unique to the default instruction template: its built-in role/personality text, tool inventory and general tool policy, internal-URL catalog, exploration/delegation/workflow rules, and `xd://` protocol guidance. Generated skills and rules are **not** lost; the custom template renders them explicitly.
 
@@ -64,6 +66,11 @@ Without `SYSTEM.md`, append text is rendered at the end of `project-prompt.md`, 
 With `SYSTEM.md`, append text is rendered immediately after the custom text in `custom-system-prompt.md`. Context, skills, and rules follow it, and the separate project/environment footer follows that block. The templates prevent the append text and context files from being emitted twice.
 
 SDK-generated append content (for enabled memory/auto-learn features and MCP guidance) is combined before the user-supplied append text.
+Those generated blocks can end with `## MCP Server Instructions`, whose text declares
+itself server-controlled and unverified. Whenever a generated block precedes the
+user-supplied text, the text is rendered under its own `## User Instructions` heading
+so it cannot read as a trailing paragraph of a server-owned section. On its own — no
+generated block, no `SYSTEM.md` — the append text is emitted unchanged, without a heading.
 
 ## Plain-text contract
 
@@ -79,7 +86,7 @@ on
 {{#if hasMemoryRoot}}Memory enabled.{{/if}}
 ```
 
-those characters reach the model literally. Internal values such as `cwd`, `date`, `skills`, `rules`, and `toolRefs` are private template implementation details, not a user templating API.
+those characters reach the model literally. Internal values such as `cwd`, `skills`, `rules`, and `toolRefs` are private template implementation details, not a user templating API. The calendar date is deliberately not exposed as a template value anymore — it rides the per-request first-turn reminder instead (see above).
 
 ## Recipes
 
@@ -102,6 +109,17 @@ Cite paths with backticks.
 ```
 
 OMS still adds the generated context, skills, rules, and project/environment footer, but not the default instruction template's tool and workflow guidance.
+
+### Replace the personality block
+
+The default template renders a personality block chosen by the `personality` setting (`default`, `friendly`, `pragmatic`, `none`). A user-level `PERSONALITY.md` replaces the selected preset's text:
+
+```text
+# ~/.oms/agent/PERSONALITY.md
+Follow ASD-STE100 Simplified Technical English for all responses.
+```
+
+Only the agent directory is checked (`~/.oms/agent` by default; profile- and XDG-aware) — there is no project-level or other-config-base lookup. `personality: none` still omits the block entirely (subagents always run with `none`), and an empty or unreadable file falls back to the configured preset with a logged warning.
 
 ### Customize automatic session titles
 
@@ -136,6 +154,7 @@ The CLI flags and files do **not** set this property: they set `customSystemProm
 | Replace the default instruction template but keep generated context, skills, and rules | `SYSTEM.md` or `--system-prompt`                                         |
 | Replace every provider-facing system block                                             | SDK `CreateAgentSessionOptions.systemPrompt`                             |
 | Customize automatic session titles                                                     | `TITLE_SYSTEM.md`                                                        |
+| Replace the personality block while keeping the rest of the default prompt            | `PERSONALITY.md`                                                         |
 | Use `{{cwd}}` or other internal variables in a user file                               | Not supported; user content is inserted verbatim                         |
 | Inherit selected default-template sections                                             | Not supported; append to the default or copy the required text           |
 | Per-directory override                                                                 | A supported config base directly under the cwd used to launch OMS        |

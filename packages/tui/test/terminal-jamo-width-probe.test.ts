@@ -6,7 +6,7 @@ function jamoWidthFor(env: NodeJS.ProcessEnv): "platform" | "unicode" | 1 | 2 {
 }
 
 describe("Hangul Compatibility Jamo width terminal capability", () => {
-	it("uses terminal-specific widths for Hangul Compatibility Jamo", () => {
+	it("prevents Korean IME cursor drift by matching terminal-specific Hangul Compatibility Jamo widths", () => {
 		// Ghostty and Orca follow UAX#11 and render Hangul Compatibility Jamo at
 		// 2 cells; Warp renders them at 1 cell. Every other terminal keeps the
 		// platform default (macOS narrow, otherwise UAX#11).

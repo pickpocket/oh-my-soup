@@ -94,7 +94,7 @@ describe("task label generation", () => {
 		expect(labeled).toBe("Sleep then reply done");
 	});
 
-	it("treats case-insensitive Name-N collision labels as echoed handles", () => {
+	it("treats a case-insensitive Name-N collision as an echoed handle", () => {
 		expect(labelEchoesHandle("AuthLoader-3", "authloader")).toBe(true);
 		expect(labelEchoesHandle("AuthLoader-3", "AuthLoader")).toBe(true);
 		expect(labelEchoesHandle("AuthLoader", "authloader")).toBe(true);

@@ -14,8 +14,23 @@
  */
 
 import type { Context, Model, UserMessage } from "@oh-my-soup/pi-ai";
-
 export type SystemPromptPlacementSetting = "auto" | "system" | "first-turn";
+
+
+export type SystemPromptPlacementModel = {
+	/**
+	 * Explicit model capability retained by catalog entries and custom model
+	 * definitions from the fork.
+	 */
+	supportsSystemPrompt?: boolean;
+	/**
+	 * The upstream catalog's resolved compatibility record also carries the
+	 * instruction-channel capability for models that do not expose the legacy
+	 * field.
+	 */
+	compat?: unknown;
+};
+
 
 /**
  * Deterministic timestamp keeps the synthetic turn byte-stable across
@@ -27,10 +42,16 @@ const PLACEMENT_MESSAGE_TIMESTAMP = 0;
 /** Resolve the effective placement for a model under the configured policy. */
 export function resolveSystemPromptPlacement(
 	setting: SystemPromptPlacementSetting,
-	model: Pick<Model, "supportsSystemPrompt">,
+	model: SystemPromptPlacementModel,
 ): "system" | "first-turn" {
 	if (setting === "system" || setting === "first-turn") return setting;
-	return model.supportsSystemPrompt === false ? "first-turn" : "system";
+	if (model.supportsSystemPrompt === false) return "first-turn";
+	const lacksNativeInstructionChannel =
+		typeof model.compat === "object" &&
+		model.compat !== null &&
+		"supportsDeveloperRole" in model.compat &&
+		model.compat.supportsDeveloperRole === false;
+	return lacksNativeInstructionChannel ? "first-turn" : "system";
 }
 
 /**
@@ -40,7 +61,7 @@ export function resolveSystemPromptPlacement(
  */
 export function applySystemPromptPlacement(
 	context: Context,
-	model: Pick<Model, "supportsSystemPrompt">,
+	model: SystemPromptPlacementModel,
 	setting: SystemPromptPlacementSetting,
 ): Context {
 	if (resolveSystemPromptPlacement(setting, model) === "system") return context;

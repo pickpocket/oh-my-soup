@@ -38,14 +38,28 @@ export interface SSHHostInfo {
 }
 
 /**
- * OpenSSH first binds an expanded ControlPath plus a "." and 16 random
- * characters before renaming it into place. Reserve that temporary suffix,
- * since paths at or above sockaddr_un.sun_path are rejected.
+ * OpenSSH ControlPath sizing.
+ *
+ * The multiplexing master binds its listening socket at `ControlPath`, but
+ * `muxserver_listen` first binds a *temporary* path — the expanded `ControlPath`
+ * plus a "." and a 16-char random suffix — before atomically renaming it into
+ * place. That temporary path, not the final `%C.sock`, is what OpenSSH's
+ * `unix_listener()` length-checks against `sizeof(sockaddr_un.sun_path)`, so the
+ * budget below reserves it (issue #9070). A path whose length reaches the
+ * platform limit is rejected outright ("... too long for Unix domain socket").
  */
 const CONTROL_SOCKET_BASENAME = "%C.sock";
+/** Bytes `%C.sock` expands to: a 40-char connection digest plus ".sock". */
 const CONTROL_SOCKET_NAME_BYTES = 40 + ".sock".length;
+/** "." + 16 random chars appended by `muxserver_listen` while binding. */
 const MUX_TEMP_SUFFIX_BYTES = 1 + 16;
 
+/**
+ * Whether `controlDir` leaves room for the whole `%C.sock` plus OpenSSH's mux
+ * temp bind within `sun_path` (104 bytes on macOS, 108 elsewhere; OpenSSH
+ * rejects lengths >= that). The worst case is dir + "/" + expanded `%C.sock`
+ * (40-hex digest + ".sock") + the mux temp suffix.
+ */
 export function controlPathFitsBudget(controlDir: string, platform: SshPlatform): boolean {
 	const sunPathLimit = platform === "darwin" ? 104 : 108;
 	const worstCase = Buffer.byteLength(controlDir) + 1 + CONTROL_SOCKET_NAME_BYTES + MUX_TEMP_SUFFIX_BYTES;
@@ -53,9 +67,12 @@ export function controlPathFitsBudget(controlDir: string, platform: SshPlatform)
 }
 
 /**
- * Produce a deterministic, depth-bounded fallback keyed by uid and the fully
- * resolved canonical control directory. Including the latter preserves
- * isolation across profiles and distinct XDG state roots.
+ * Deterministic, depth-bounded control directory used when the canonical
+ * control directory would overflow `sun_path` (#9070). The digest keys both
+ * uid and the fully resolved canonical control directory, separated by NUL so
+ * their boundaries are unambiguous. This preserves isolation when the same
+ * profile resolves through different XDG state roots without spending variable
+ * path bytes on the decimal uid.
  */
 export function sshControlFallbackDir(canonicalDir: string, uid: number, tmpBase = "/tmp"): string {
 	const key = new Bun.CryptoHasher("sha256")
@@ -69,9 +86,16 @@ export function sshControlFallbackDir(canonicalDir: string, uid: number, tmpBase
 
 interface ControlDirChoice {
 	dir: string;
+	/** True when `dir` is the shared-temp fallback and needs owner-private hardening. */
 	shared: boolean;
 }
 
+/**
+ * Choose the SSH control directory. Prefers the canonical profile-rooted path
+ * and only relocates to {@link sshControlFallbackDir} when the canonical path
+ * cannot hold the full `%C.sock` + mux temp bind within `sun_path`. Platforms
+ * without ControlMaster (Windows) or without a uid keep the canonical path.
+ */
 export function resolveSshControlDir(opts: {
 	canonicalDir: string;
 	platform: SshPlatform;
@@ -91,6 +115,12 @@ interface ControlDirGuardStat {
 	mode: number;
 }
 
+/**
+ * Reject reasons for an owner-private control directory reused from a shared
+ * temp base: it must be a real directory (not a symlink an attacker planted),
+ * owned by us, with no group/other access. Returns `null` when the directory is
+ * safe to use. Pure so the rejection matrix is testable without root.
+ */
 export function controlDirGuardError(stat: ControlDirGuardStat, expectedUid: number | undefined): string | null {
 	if (stat.isSymlink) return "is a symlink";
 	if (!stat.isDir) return "is not a directory";
@@ -121,8 +151,11 @@ interface SSHArgsOptions {
 }
 
 /**
- * Create the ControlMaster directory and enforce the shared fallback's trust
- * boundary before either direct SSH or sshfs launches OpenSSH.
+ * Create the shared SSH ControlMaster directory and enforce its trust boundary.
+ *
+ * Both direct SSH connections and sshfs mounts MUST call this before launching
+ * OpenSSH so the bounded `/tmp` fallback cannot bypass the symlink, owner, or
+ * mode checks.
  */
 export function ensureSshControlDir(): void {
 	fs.mkdirSync(CONTROL_DIR, { recursive: true, mode: 0o700 });
@@ -138,9 +171,16 @@ export function ensureSshControlDir(): void {
 }
 
 /**
- * Open the final component without following links, then inspect and normalize
- * the same pinned inode through its descriptor. No second pathname lookup can
- * turn a rejected symlink swap into an accepted directory.
+ * Harden a control directory pulled from a shared temp base ({@link CONTROL_DIR_SHARED}).
+ *
+ * Opens the final path component with `O_NOFOLLOW | O_DIRECTORY` so a symlink or
+ * non-directory is refused atomically at open time, then inspects and normalizes
+ * that one pinned inode through the fd (`fstat`/`fchmod`) — never a second
+ * pathname lookup. This closes the swap window where another local user could
+ * replace the entry with a symlink between two `stat`s and slip a victim-owned
+ * 0700 target past the checks (#9070). Rejects a symlink, a non-directory, a
+ * foreign owner, or lingering group/other access via {@link controlDirGuardError}.
+ * Exported as a test seam.
  */
 export function assertOwnerPrivateDir(dir: string): void {
 	const uid = process.getuid?.();
@@ -149,6 +189,10 @@ export function assertOwnerPrivateDir(dir: string): void {
 		fd = fs.openSync(dir, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_DIRECTORY);
 	} catch (err) {
 		const code = (err as NodeJS.ErrnoException).code;
+		// O_NOFOLLOW rejects a symlinked final component; kernels report it as
+		// either ELOOP or (with O_DIRECTORY) ENOTDIR. Either way the entry is
+		// already refused — we only lstat here to label the failure precisely, so
+		// a swap after this point cannot weaken the (already-final) rejection.
 		if (code === "ELOOP" || code === "ENOTDIR") {
 			let isSymlink = false;
 			try {
@@ -159,20 +203,24 @@ export function assertOwnerPrivateDir(dir: string): void {
 		throw err;
 	}
 	try {
-		let stat = fs.fstatSync(fd);
-		if ((uid === undefined || stat.uid === uid) && (stat.mode & 0o777) !== 0o700) {
+		let st = fs.fstatSync(fd);
+		// Normalize perms on the pinned inode only when it is ours; never fchmod a
+		// directory another user owns.
+		if ((uid === undefined || st.uid === uid) && (st.mode & 0o777) !== 0o700) {
 			try {
 				fs.fchmodSync(fd, 0o700);
-				stat = fs.fstatSync(fd);
+				st = fs.fstatSync(fd);
 			} catch (err) {
 				logger.debug("SSH control dir chmod failed", { path: dir, error: String(err) });
 			}
 		}
 		const reason = controlDirGuardError(
-			{ isSymlink: false, isDir: stat.isDirectory(), uid: stat.uid, mode: stat.mode },
+			{ isSymlink: false, isDir: st.isDirectory(), uid: st.uid, mode: st.mode },
 			uid,
 		);
-		if (reason) throw new Error(`SSH control directory ${dir} ${reason}`);
+		if (reason) {
+			throw new Error(`SSH control directory ${dir} ${reason}`);
+		}
 	} finally {
 		fs.closeSync(fd);
 	}

@@ -158,18 +158,20 @@ describe("loadFilesFromDir recursion", () => {
 	let tempDir!: string;
 	let ctx!: LoadContext;
 
-	const writeFixture = (relativePath: string, content: string) => {
-		const fullPath = path.join(tempDir, relativePath);
-		fs.mkdirSync(path.dirname(fullPath), { recursive: true });
-		fs.writeFileSync(fullPath, content);
+	const write = (rel: string, content: string) => {
+		const full = path.join(tempDir, rel);
+		fs.mkdirSync(path.dirname(full), { recursive: true });
+		fs.writeFileSync(full, content);
 	};
 
 	beforeEach(() => {
 		clearCache();
 		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "pi-loadfiles-recursion-"));
 		ctx = { cwd: tempDir, home: tempDir, repoRoot: tempDir };
-		writeFixture("my-tool.ts", "export default () => ({});\n");
-		writeFixture(
+		// Top-level tool plus a Python-venv-style frontend asset nested below it,
+		// mirroring the ~/.codex/tools/mineru/Lib/site-packages layout from #8552.
+		write("my-tool.ts", "export default () => ({});\n");
+		write(
 			path.join("mineru", "Lib", "site-packages", "gradio", "assets", "svelte", "media-query-D37ajmZt.js"),
 			"window.matchMedia;\n",
 		);
@@ -180,19 +182,22 @@ describe("loadFilesFromDir recursion", () => {
 		removeSyncWithRetries(tempDir);
 	});
 
-	const names = (recursive?: boolean) =>
-		loadFilesFromDir<{ name: string }>(ctx, tempDir, "test", "user", {
+	const names = (dir: string, recursive?: boolean) =>
+		loadFilesFromDir<{ name: string }>(ctx, dir, "test", "user", {
 			extensions: ["ts", "js"],
 			recursive,
-			transform: (_name, _content, filePath) => ({ name: path.relative(tempDir, filePath) }),
-		}).then(result => result.items.map(item => item.name).sort());
+			transform: (_name, _content, filePath) => ({ name: path.relative(dir, filePath) }),
+		}).then(r => r.items.map(i => i.name).sort());
 
-	test("default scan stays top-level", async () => {
-		expect(await names()).toEqual(["my-tool.ts"]);
+	// Regression for #8552: the non-recursive default must NOT descend into the
+	// venv subtree. The native glob defaults recursive=true, so before the fix
+	// `*.{ts,js}` was rewritten to `**/*.{ts,js}` and imported the Svelte asset.
+	test("default scan stays top-level and skips the venv subtree", async () => {
+		expect(await names(tempDir)).toEqual(["my-tool.ts"]);
 	});
 
-	test("recursive scan includes nested files", async () => {
-		expect(await names(true)).toEqual([
+	test("recursive:true still walks the whole subtree", async () => {
+		expect(await names(tempDir, true)).toEqual([
 			path.join("mineru", "Lib", "site-packages", "gradio", "assets", "svelte", "media-query-D37ajmZt.js"),
 			"my-tool.ts",
 		]);

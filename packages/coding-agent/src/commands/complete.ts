@@ -8,7 +8,7 @@
  * first field. The import surface is kept deliberately narrow so a TAB press
  * doesn't pay for the full agent boot.
  */
-import { type GeneratedProvider, getBundledModelIds, getBundledProviders } from "@oh-my-soup/pi-catalog/models";
+import { type GeneratedProvider, getBundledModels, getBundledProviders } from "@oh-my-soup/pi-catalog/models";
 import { Command } from "@oh-my-soup/pi-utils/cli";
 import { completeHelp as commandHelp } from "../cli/command-help";
 import { SessionManager } from "../session/session-manager";
@@ -39,17 +39,15 @@ function completeModels(prefix: string): void {
 	const seen = new Set<string>();
 	const lines: string[] = [];
 	for (const provider of getBundledProviders()) {
-		// The index carries `provider -> model ids` without model bodies, so a
-		// TAB press never JSON.parses or builds the bundled catalog.
-		for (const id of getBundledModelIds(provider as GeneratedProvider)) {
+		for (const model of getBundledModels(provider as GeneratedProvider)) {
 			// Offer both the fully-qualified `provider/id` and the bare `id`
 			// (matches the fuzzy resolution `--model` accepts).
-			const candidates = [`${provider}/${id}`, id];
+			const candidates = [`${model.provider}/${model.id}`, model.id];
 			for (const candidate of candidates) {
 				if (seen.has(candidate)) continue;
 				seen.add(candidate);
 				if (needle && !candidate.toLowerCase().includes(needle)) continue;
-				lines.push(`${candidate}\t${provider}`);
+				lines.push(`${candidate}\t${model.provider}`);
 			}
 		}
 	}

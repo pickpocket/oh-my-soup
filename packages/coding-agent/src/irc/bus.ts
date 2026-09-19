@@ -1,3 +1,4 @@
+import { type IrcMessage, type IrcDeliveryReceipt } from "@oh-my-soup/pi-tui/tools/hub";
 /**
  * IrcBus - Process-global mailbox bus for agent-to-agent messaging.
  *
@@ -18,27 +19,9 @@
 import { logger, Snowflake } from "@oh-my-soup/pi-utils";
 import { AgentLifecycleManager } from "../registry/agent-lifecycle";
 import { AgentRegistry, MAIN_AGENT_ID } from "../registry/agent-registry";
+import type { AgentSession } from "../session/agent-session";
+import type { AgentSessionEvent } from "../session/agent-session-events";
 import type { CustomMessage } from "../session/messages";
-
-export interface IrcMessage {
-	id: string;
-	/** Sender agent id. */
-	from: string;
-	/** Recipient agent id (resolved; "all" is expanded by the tool, not stored). */
-	to: string;
-	body: string;
-	ts: number;
-	/** Message id being answered. */
-	replyTo?: string;
-}
-
-export interface IrcDeliveryReceipt {
-	/** Id of the attempted message, including failed deliveries. */
-	id: string;
-	to: string;
-	outcome: "injected" | "woken" | "revived" | "failed";
-	error?: string;
-}
 
 interface IrcWaiter {
 	from?: string;
@@ -46,23 +29,22 @@ interface IrcWaiter {
 	cancel: () => void;
 }
 
+/**
+ * Rejection reason for a `send await:true` whose awaited peer reached a
+ * terminal stop (ended its turn, parked, was aborted, or unregistered)
+ * without ever replying. Distinct from a plain timeout so the sender can
+ * surface "they stopped" instead of stranding the caller on the full
+ * `irc.timeoutMs` window.
+ */
+export class IrcAwaitTargetStopped extends Error {
+	constructor(target: string) {
+		super(`Awaited peer "${target}" stopped without replying.`);
+		this.name = "IrcAwaitTargetStopped";
+	}
+}
+
 /** Mailbox cap per agent; oldest messages are dropped beyond it. */
 const MAILBOX_CAP = 100;
-
-/** Maximum IRC body length, measured in UTF-16 String.length units. */
-export const IRC_MAX_BODY_CHARS = 8_000;
-
-/** In-memory only: transcript history must never re-enter context on reload. */
-const IRC_LOG_CAP = 500;
-
-export interface IrcLogFilter {
-	/** Include messages sent or received by this agent. */
-	agent?: string;
-	/** Include messages with ts >= since. */
-	since?: number;
-	/** Return the newest N matches in chronological order. */
-	limit?: number;
-}
 
 export class IrcBus {
 	static #global: IrcBus | undefined;
@@ -83,8 +65,8 @@ export class IrcBus {
 	readonly #lifecycle: () => AgentLifecycleManager;
 	readonly #mailboxes = new Map<string, IrcMessage[]>();
 	readonly #waiters = new Map<string, IrcWaiter[]>();
-	readonly #log: IrcMessage[] = [];
-	readonly #logListeners = new Set<() => void>();
+	/** Timestamp of the latest successful send per `from` → `to`; see {@link sentSince}. */
+	readonly #lastSent = new Map<string, Map<string, number>>();
 
 	constructor(registry: AgentRegistry = AgentRegistry.global(), lifecycle?: AgentLifecycleManager) {
 		this.#registry = registry;
@@ -122,18 +104,35 @@ export class IrcBus {
 		opts?: { expectsReply?: boolean; suppressRelay?: boolean },
 	): Promise<IrcDeliveryReceipt> {
 		const message: IrcMessage = { ...msg, id: Snowflake.next(), ts: Date.now() };
-		if (message.body.length > IRC_MAX_BODY_CHARS) {
-			return {
-				id: message.id,
-				to: message.to,
-				outcome: "failed",
-				error: `Message is ${message.body.length} characters; the cap is ${IRC_MAX_BODY_CHARS}. Nothing was sent. Send a local:// or artifact:// path instead.`,
-			};
+		const receipt = await this.#deliver(message, opts);
+		if (receipt.outcome !== "failed") {
+			let sent = this.#lastSent.get(message.from);
+			if (!sent) {
+				sent = new Map();
+				this.#lastSent.set(message.from, sent);
+			}
+			sent.set(message.to, message.ts);
 		}
+		return receipt;
+	}
+
+	/**
+	 * Whether `from` successfully sent `to` anything at or after `sinceTs`.
+	 * The wake-turn relay uses it to skip agents that already answered their
+	 * waker themselves.
+	 */
+	sentSince(from: string, to: string, sinceTs: number): boolean {
+		const ts = this.#lastSent.get(from)?.get(to);
+		return ts !== undefined && ts >= sinceTs;
+	}
+
+	async #deliver(
+		message: IrcMessage,
+		opts?: { expectsReply?: boolean; suppressRelay?: boolean },
+	): Promise<IrcDeliveryReceipt> {
 		const ref = this.#registry.get(message.to);
 		if (!ref) {
 			return {
-				id: message.id,
 				to: message.to,
 				outcome: "failed",
 				error: `Unknown agent "${message.to}" — check \`irc list\` for live peers.`,
@@ -141,7 +140,6 @@ export class IrcBus {
 		}
 		if (ref.status === "aborted") {
 			return {
-				id: message.id,
 				to: message.to,
 				outcome: "failed",
 				error: `Agent "${message.to}" was hard-aborted and cannot be messaged or revived. Its transcript remains readable at history://${message.to}.`,
@@ -150,7 +148,6 @@ export class IrcBus {
 		// Advisor refs are observability-only transcripts, never messageable peers.
 		if (ref.kind === "advisor") {
 			return {
-				id: message.id,
 				to: message.to,
 				outcome: "failed",
 				error: `Agent "${message.to}" is a read-only advisor transcript and cannot be messaged.`,
@@ -183,7 +180,6 @@ export class IrcBus {
 				// Not revivable / released / revive failed. Do not buffer: a permanent
 				// failure must not inflate unread counts or pretend delivery is pending.
 				return {
-					id: message.id,
 					to: message.to,
 					outcome: "failed",
 					error: error instanceof Error ? error.message : String(error),
@@ -196,31 +192,20 @@ export class IrcBus {
 		// the session injection path.
 		const waiter = this.#takeMatchingWaiter(message.to, message.from);
 		if (waiter) {
-			// Complete the hand-off before synchronous observers can cancel it.
 			waiter.resolve(message);
-			this.#appendToLog(message);
 			if (!opts?.suppressRelay) this.#relayToMainUi(message);
-			return { id: message.id, to: message.to, outcome: revived ? "revived" : "injected" };
+			return { to: message.to, outcome: revived ? "revived" : "injected" };
 		}
 
 		const session = this.#registry.get(message.to)?.session;
 		if (!session) {
-			return {
-				id: message.id,
-				to: message.to,
-				outcome: "failed",
-				error: `Agent "${message.to}" has no live session.`,
-			};
+			return { to: message.to, outcome: "failed", error: `Agent "${message.to}" has no live session.` };
 		}
 
-		// Log before handing off: a synchronous reply can already quote this id.
-		// Every path below delivers or buffers; permanent pre-delivery failures
-		// above neither enter the transcript nor inflate unread counts.
-		this.#appendToLog(message);
 		try {
 			const delivery = await session.deliverIrcMessage(message, opts);
 			if (!opts?.suppressRelay) this.#relayToMainUi(message);
-			return { id: message.id, to: message.to, outcome: revived ? "revived" : delivery };
+			return { to: message.to, outcome: revived ? "revived" : delivery };
 		} catch (error) {
 			// Live hand-off failed (e.g. recipient disposed mid-shutdown): buffer
 			// the message so a later `wait`/`inbox` from the recipient can still
@@ -228,7 +213,6 @@ export class IrcBus {
 			// seen it.
 			this.#enqueue(message);
 			return {
-				id: message.id,
 				to: message.to,
 				outcome: "failed",
 				error: error instanceof Error ? error.message : String(error),
@@ -248,7 +232,11 @@ export class IrcBus {
 		filter: { from?: string },
 		timeoutMs: number,
 		signal?: AbortSignal,
-		options?: { drainPending?: boolean; liveness?: { registry: AgentRegistry; senderId: string } },
+		options?: {
+			drainPending?: boolean;
+			liveness?: { registry: AgentRegistry; senderId: string };
+			awaitTarget?: { registry: AgentRegistry; target: string };
+		},
 	): Promise<IrcMessage | null> {
 		if (signal?.aborted) {
 			throw signal.reason instanceof Error ? signal.reason : new Error("IRC wait aborted");
@@ -264,7 +252,7 @@ export class IrcBus {
 		let timer: NodeJS.Timeout | undefined;
 		let onAbort: (() => void) | undefined;
 		let unsubscribeLiveness: (() => void) | undefined;
-		let settled = false;
+		let unsubscribeAwaitTarget: (() => void) | undefined;
 
 		const liveness = options?.liveness;
 		const livenessReason = filter.from
@@ -274,8 +262,6 @@ export class IrcBus {
 		const settle = (
 			outcome: { kind: "message"; msg: IrcMessage } | { kind: "timeout" } | { kind: "abort"; error: Error },
 		): void => {
-			if (settled) return;
-			settled = true;
 			cleanup();
 			if (outcome.kind === "message") {
 				resolve(outcome.msg);
@@ -291,6 +277,7 @@ export class IrcBus {
 			clearTimeout(timer);
 			if (signal && onAbort) signal.removeEventListener("abort", onAbort);
 			unsubscribeLiveness?.();
+			unsubscribeAwaitTarget?.();
 		};
 
 		const waiter: IrcWaiter = {
@@ -309,6 +296,7 @@ export class IrcBus {
 		}
 		if (timeoutMs > 0) {
 			timer = setTimeout(() => settle({ kind: "timeout" }), timeoutMs);
+			timer.unref?.();
 		}
 
 		let waiters = this.#waiters.get(agentId);
@@ -331,6 +319,64 @@ export class IrcBus {
 			if (!check()) {
 				settle({ kind: "abort", error: new Error(livenessReason) });
 			}
+		}
+
+		// `send await:true`: settle the sender promptly once the awaited peer
+		// reaches a terminal stop without replying, instead of stranding it on
+		// the full timeout. Unlike `liveness`, this tolerates a peer that is
+		// idle/parked when the send lands (the send is about to wake or revive
+		// it): it only aborts once the peer has actually been observed running
+		// and then stopped, or is unambiguously gone (unregistered / aborted).
+		// A real reply resolves the waiter first (the recipient sends it mid-turn,
+		// before the turn-end idle transition), so cleanup tears this down.
+		const awaitTarget = options?.awaitTarget;
+		if (awaitTarget) {
+			const { registry, target } = awaitTarget;
+			let subscribedSession: AgentSession | null = null;
+			let unsubscribeSession: (() => void) | undefined;
+			let active = true;
+			// The peer's terminal `agent_end` is the authoritative "stopped" signal.
+			// It is emitted only after the peer's prompt fully unwinds (see
+			// AgentSession#flushPendingAgentEnd) and supersedes scheduled
+			// continuations. A side-channel auto-reply may outlive that main turn,
+			// though, so wait for it before declaring the peer stopped: its bus send
+			// resolves this waiter first; an empty/failed reply then falls through to
+			// the clean stopped result.
+			const onSessionEvent = (event: AgentSessionEvent): void => {
+				if (event.type !== "agent_end" || event.isTerminal === false) return;
+				const session = subscribedSession;
+				if (!session) {
+					settle({ kind: "abort", error: new IrcAwaitTargetStopped(target) });
+					return;
+				}
+				void session.waitForIrcReplies().then(() => {
+					if (!active || registry.get(target)?.session !== session) return;
+					settle({ kind: "abort", error: new IrcAwaitTargetStopped(target) });
+				});
+			};
+			const sync = (): void => {
+				const ref = registry.get(target);
+				// Gone or hard-aborted: no reply will ever come.
+				if (!ref || ref.status === "aborted") {
+					settle({ kind: "abort", error: new IrcAwaitTargetStopped(target) });
+					return;
+				}
+				// Follow the live session across a park→revive rebuild; tolerate a
+				// parked peer with no session yet (the send is about to revive it).
+				const session = ref.session;
+				if (session && session !== subscribedSession) {
+					unsubscribeSession?.();
+					subscribedSession = session;
+					unsubscribeSession = session.subscribe(onSessionEvent);
+				}
+			};
+			const unsubscribeChange = registry.onChange(sync);
+			unsubscribeAwaitTarget = () => {
+				active = false;
+				unsubscribeChange();
+				unsubscribeSession?.();
+			};
+			sync();
 		}
 
 		return promise;
@@ -357,56 +403,8 @@ export class IrcBus {
 		return this.#takeFromMailbox(agentId, from);
 	}
 
-	/** Pending mailbox messages only, not delivered messages in the transcript. */
 	unreadCount(agentId: string): number {
 		return this.#mailboxes.get(agentId)?.length ?? 0;
-	}
-
-	/** Chronological transcript copy, optionally scoped to an agent or time. */
-	log(filter?: IrcLogFilter): IrcMessage[] {
-		const { agent, since, limit } = filter ?? {};
-		let matches = this.#log;
-		if (agent !== undefined || since !== undefined) {
-			matches = matches.filter(
-				msg =>
-					(agent === undefined || msg.from === agent || msg.to === agent) &&
-					(since === undefined || msg.ts >= since),
-			);
-		}
-		if (limit !== undefined && limit >= 0 && matches.length > limit) {
-			return matches.slice(matches.length - Math.floor(limit));
-		}
-		return matches === this.#log ? [...matches] : matches;
-	}
-
-	/** Find recent reply context without draining the recipient's mailbox. */
-	find(id: string): IrcMessage | undefined {
-		for (let index = this.#log.length - 1; index >= 0; index--) {
-			const message = this.#log[index];
-			if (message.id === id) return message;
-		}
-		return undefined;
-	}
-
-	onChange(listener: () => void): () => void {
-		this.#logListeners.add(listener);
-		return () => this.#logListeners.delete(listener);
-	}
-
-	#appendToLog(message: IrcMessage): void {
-		// Revival can delay an older send behind a newer live delivery.
-		let index = this.#log.length;
-		while (index > 0 && this.#log[index - 1].ts > message.ts) index--;
-		this.#log.splice(index, 0, message);
-		if (this.#log.length > IRC_LOG_CAP) this.#log.shift();
-		for (const listener of this.#logListeners) {
-			try {
-				listener();
-			} catch (error) {
-				// Display observers must never change delivery semantics.
-				logger.debug("IrcBus: transcript listener failed", { error: String(error) });
-			}
-		}
 	}
 
 	#enqueue(message: IrcMessage): void {
@@ -471,7 +469,7 @@ export class IrcBus {
 			customType: "irc:relay",
 			content: `[IRC \`${message.from}\` → \`${message.to}\`]\n\n${message.body}`,
 			display: true,
-			details: { id: message.id, from: message.from, to: message.to, body: message.body },
+			details: { from: message.from, to: message.to, body: message.body },
 			attribution: "agent",
 			timestamp: message.ts,
 		};

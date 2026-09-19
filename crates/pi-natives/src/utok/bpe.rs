@@ -6,7 +6,7 @@
 //! decompression in [`tables`](crate::utok::tables).
 //!
 //! Input is encoding-generic: [`BpeEncoding::count`]/[`encode`]
-//! ([`BpeEncoding::encode`]) take `&[U: Unit]`. Pre-tokenization scans the
+//! (`BpeEncoding::encode`) take `&[U: Unit]`. Pre-tokenization scans the
 //! units natively; each piece is then UTF-8-encoded into a reused buffer
 //! for the byte-keyed rank table (`str` input skips that copy entirely,
 //! non-UTF-8 flavors narrow ASCII runs 1:1). Steady state performs no
@@ -101,8 +101,8 @@ fn pack(key: &[u8]) -> Option<u128> {
 ///   byte pair, so over half of all lookups land here as one array load.
 /// - other ≤15 bytes — [`pack`]ed `u128` keys in an Fx map: KV inline in the
 ///   table, no `Box` pointer chase, no byte-wise compare.
-/// - More than 15 bytes — plain byte-keyed Fx map (~3% of vocab; spans this
-///   long are almost always misses).
+/// - >15 bytes — plain byte-keyed Fx map (~3% of vocab; spans this long are
+///   > almost always misses).
 pub struct RankTable {
 	/// Rank of 2-byte token `[a, b]` at `a << 8 | b`; `u32::MAX` where
 	/// absent (ranks are vocab indices, far below the sentinel).
@@ -270,11 +270,7 @@ pub struct BpeEncoding {
 	/// (GLM-5). The engine already short-circuits whole-piece hits, which
 	/// is proven equivalent for GLM-5 (see GLM tests); flag kept for
 	/// documentation and any future divergence.
-	#[allow(
-		dead_code,
-		reason = "retained as family metadata because GLM-5 ignore_merges currently matches the \
-		          default whole-piece fast path"
-	)]
+	#[allow(dead_code, reason = "retained to document the GLM-5 tokenizer behavior")]
 	pub ignore_merges: bool,
 }
 
@@ -305,8 +301,12 @@ impl BpeEncoding {
 			return self.scan(bytes, f);
 		}
 		// Non-UTF-8 flavors: owned UTF-8 needed only when NFC actually has
-		// work to do, or while the family is still on the regex splitter.
-		if (self.nfc && !nfc_quick(units)) || self.splitter.is_regex() {
+		// work to do, or while the test-only regex oracle is active.
+		#[cfg(test)]
+		let regex_splitter = self.splitter.is_regex();
+		#[cfg(not(test))]
+		let regex_splitter = false;
+		if (self.nfc && !nfc_quick(units)) || regex_splitter {
 			let s = decode_lossy(units);
 			let s = match pretoken::nfc(&s) {
 				Cow::Owned(o) if self.nfc => o,

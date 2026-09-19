@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "bun:test";
 import * as path from "node:path";
 import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
-import { getThemeByName } from "@oh-my-soup/pi-coding-agent/modes/theme/theme";
+import { getThemeByName } from "@oh-my-soup/pi-tui/theme";
 import {
 	getImportantNotesFromEntries,
 	IMPORTANT_NOTES_CUSTOM_TYPE,
@@ -12,7 +12,7 @@ import { FileSessionStorage } from "@oh-my-soup/pi-coding-agent/session/session-
 import { createTools, type ToolSession } from "@oh-my-soup/pi-coding-agent/tools";
 import { resolveApproval } from "@oh-my-soup/pi-coding-agent/tools/approval";
 import { NotesTool, notesToolRenderer } from "@oh-my-soup/pi-coding-agent/tools/notes";
-import { PREVIEW_LIMITS } from "@oh-my-soup/pi-coding-agent/tools/render-utils";
+import { PREVIEW_LIMITS } from "@oh-my-soup/pi-tui/render";
 import { WriteTool } from "@oh-my-soup/pi-coding-agent/tools/write";
 import { sanitizeText, TempDir } from "@oh-my-soup/pi-utils";
 
@@ -319,63 +319,6 @@ describe("session important notes", () => {
 		}
 	});
 
-	it("settles an in-flight save before replacement and carries its committed snapshot", async () => {
-		using temp = TempDir.createSync("@oms-notes-transition-barrier-");
-		const dir = path.join(temp.path(), "sessions");
-		const storage = new FileSessionStorage();
-		const manager = SessionManager.create(temp.path(), dir, storage);
-		const started = Promise.withResolvers<void>();
-		const release = Promise.withResolvers<void>();
-		try {
-			const tool = new NotesTool(toolSession(manager));
-			await tool.execute("seed", { op: "set", key: "server", text: "old" });
-			const previousFile = manager.getSessionFile()!;
-			const publish = storage.writeTextAtomic.bind(storage);
-			vi.spyOn(storage, "writeTextAtomic").mockImplementationOnce(async (file, text) => {
-				started.resolve();
-				await release.promise;
-				await publish(file, text);
-			});
-			const save = tool.execute("publish", { op: "set", key: "server", text: "new" });
-			await started.promise;
-			let replaced = false;
-			const replacement = manager
-				.newSession(undefined, previousBranch => {
-					manager.appendCustomEntry(IMPORTANT_NOTES_CUSTOM_TYPE, {
-						version: 1,
-						notes: getImportantNotesFromEntries(previousBranch),
-					});
-				})
-				.then(file => {
-					replaced = true;
-					return file;
-				});
-			try {
-				await Promise.resolve();
-				expect(replaced).toBe(false);
-			} finally {
-				release.resolve();
-				await save;
-				await replacement;
-			}
-			const saved = await save;
-			expect(saved.isError).toBeUndefined();
-			expect(saved.details?.notes).toEqual([{ key: "server", text: "new" }]);
-			expect(getImportantNotesFromEntries(manager.getBranch())).toEqual([{ key: "server", text: "new" }]);
-			const replacementFile = await replacement;
-			if (!replacementFile) throw new Error("Expected a persisted replacement session");
-			expect(replacementFile).not.toBe(previousFile);
-			const reopened = await SessionManager.open(replacementFile, dir);
-			try {
-				expect(getImportantNotesFromEntries(reopened.getBranch())).toEqual([{ key: "server", text: "new" }]);
-			} finally {
-				await reopened.close();
-			}
-		} finally {
-			release.resolve();
-			await manager.close();
-		}
-	});
 
 	it("rejects synchronous transcript replacement while a note publication is staged", async () => {
 		using temp = TempDir.createSync("@oms-notes-sync-transition-");

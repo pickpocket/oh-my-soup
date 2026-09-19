@@ -139,11 +139,13 @@ describe("google-gemini-cli Gemini 3.x thinking mapping", () => {
 		expect(thinking?.thinkingLevel).toBeUndefined();
 		expect(thinking?.thinkingBudget).toBeDefined();
 	});
-	it("sends LOW when gemini-3.7-flash minimal aliases the low wire SKU", async () => {
+
+	it("sends LOW not MINIMAL when gemini-3.7-flash minimal aliases the -low SKU", async () => {
 		let requestBody: string | undefined;
 		const fetchMock = createFetchMock(body => {
 			requestBody = body;
 		});
+
 		const model = buildModel({
 			id: "gemini-3.7-flash",
 			name: "Gemini 3.7 Flash",

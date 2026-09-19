@@ -1,7 +1,9 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "bun:test";
 import { resetSettingsForTest, Settings, settings } from "@oh-my-soup/pi-coding-agent/config/settings";
-import { SettingsSelectorComponent } from "@oh-my-soup/pi-coding-agent/modes/components/settings-selector";
-import { initTheme } from "@oh-my-soup/pi-coding-agent/modes/theme/theme";
+import { SettingsSelectorComponent } from "@oh-my-soup/pi-tui/overlays/settings-selector";
+import { createSettingsHost } from "@oh-my-soup/pi-coding-agent/config/settings-ui";
+import { createPluginSettingsHost } from "@oh-my-soup/pi-coding-agent/extensibility/plugins/settings-host";
+import { initTheme } from "@oh-my-soup/pi-tui/theme";
 import { SEARCH_PROVIDER_CHOICES } from "@oh-my-soup/pi-coding-agent/web/search/types";
 
 beforeAll(async () => {
@@ -46,7 +48,8 @@ function createSelector(): SettingsSelectorComponent {
 			thinkingLevel: undefined,
 			availableThemes: ["dark"],
 			providers: [],
-			cwd: process.cwd(),
+			settings: createSettingsHost(),
+			plugins: createPluginSettingsHost(process.cwd()),
 		},
 		{
 			onChange: () => {},
@@ -56,6 +59,23 @@ function createSelector(): SettingsSelectorComponent {
 }
 
 const [firstChoice, secondChoice] = SEARCH_PROVIDER_CHOICES;
+
+function optionRow(component: SettingsSelectorComponent, label: string): number {
+	const lines = Bun.stripANSI(component.render(120).join("\n")).split("\n");
+	const row = lines.findIndex(line => line.includes(label));
+	if (row === -1) throw new Error(`Missing settings option: ${label}`);
+	return row + 1;
+}
+
+function sendMouse(component: SettingsSelectorComponent, button: number, row: number, suffix: "M" | "m"): void {
+	component.handleInput(`\x1b[<${button};3;${row}${suffix}`);
+}
+
+function clickOption(component: SettingsSelectorComponent, label: string): void {
+	const row = optionRow(component, label);
+	sendMouse(component, 0, row, "M");
+	sendMouse(component, 0, row, "m");
+}
 
 describe("multiselect settings (array-of-enum)", () => {
 	it("edits providers.webSearchOrder via the ordered toggle list", () => {
@@ -92,9 +112,34 @@ describe("multiselect settings (array-of-enum)", () => {
 		comp.handleInput("\n");
 
 		const menu = comp.render(120).join("\n");
-		comp.handleInput(" ");
-		expect(settings.get("providers.webSearchOrder")).toEqual([secondChoice!.value]);
+		expect(menu).not.toContain(firstChoice!.label);
 		expect(menu).toContain(secondChoice!.label);
+	});
+
+	it("hides excluded providers from the web search order row summary", () => {
+		const comp = createSelector();
+		settings.set("providers.webSearchOrder", [firstChoice!.value, secondChoice!.value]);
+		settings.set("providers.webSearchExclude", [firstChoice!.value]);
+		for (const ch of "web search provider order") comp.handleInput(ch);
+
+		const row = Bun.stripANSI(comp.render(120).join("\n"))
+			.split("\n")
+			.find(line => line.includes("Web Search Provider Order"));
+		expect(row).not.toContain(firstChoice!.label);
+		expect(row).toContain(secondChoice!.label);
+	});
+
+	it("shows the default web search order when every configured provider is excluded", () => {
+		const comp = createSelector();
+		settings.set("providers.webSearchOrder", [firstChoice!.value]);
+		settings.set("providers.webSearchExclude", [firstChoice!.value]);
+		for (const ch of "web search provider order") comp.handleInput(ch);
+
+		const row = Bun.stripANSI(comp.render(120).join("\n"))
+			.split("\n")
+			.find(line => line.includes("Web Search Provider Order"));
+		expect(row).not.toContain(firstChoice!.label);
+		expect(row).toContain("default");
 	});
 
 	it("splices the hovered option into the pressed digit's position", () => {
@@ -139,5 +184,48 @@ describe("multiselect settings (array-of-enum)", () => {
 
 		comp.handleInput(" ");
 		expect(settings.get("providers.webSearchExclude")).toEqual([]);
+	});
+
+	it("toggles list members on mouse click", () => {
+		const comp = createSelector();
+		for (const ch of "web search provider order") comp.handleInput(ch);
+		comp.handleInput("\n");
+
+		clickOption(comp, firstChoice!.label);
+		expect(settings.get("providers.webSearchOrder")).toEqual([firstChoice!.value]);
+
+		clickOption(comp, firstChoice!.label);
+		expect(settings.get("providers.webSearchOrder")).toEqual([]);
+	});
+
+	it("reorders selected list members by drag and drop", () => {
+		const comp = createSelector();
+		for (const ch of "web search provider order") comp.handleInput(ch);
+		comp.handleInput("\n");
+		clickOption(comp, firstChoice!.label);
+		clickOption(comp, secondChoice!.label);
+		expect(settings.get("providers.webSearchOrder")).toEqual([firstChoice!.value, secondChoice!.value]);
+
+		const sourceRow = optionRow(comp, secondChoice!.label);
+		const targetRow = optionRow(comp, firstChoice!.label);
+		sendMouse(comp, 0, sourceRow, "M");
+		sendMouse(comp, 32, targetRow, "M");
+		sendMouse(comp, 0, targetRow, "m");
+
+		expect(settings.get("providers.webSearchOrder")).toEqual([secondChoice!.value, firstChoice!.value]);
+	});
+});
+
+describe("settings section sidebar", () => {
+	it("does not toggle the selected section's first setting", () => {
+		const comp = createSelector();
+		for (let i = 0; i < 7; i++) comp.handleInput("\x1b[C");
+		expect(settings.get("dev.autoqa")).toBe(true);
+
+		clickOption(comp, "Developer");
+		expect(settings.get("dev.autoqa")).toBe(true);
+
+		clickOption(comp, "Developer");
+		expect(settings.get("dev.autoqa")).toBe(true);
 	});
 });

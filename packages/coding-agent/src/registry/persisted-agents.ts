@@ -9,11 +9,10 @@ import { EPHEMERAL_MODEL_CHANGE_ROLE } from "../session/session-entries";
 import { visitEntriesFromFileStream } from "../session/session-loader";
 import { loadBundledAgents } from "../task/agents";
 import { isReadOnlyAgent } from "../task/read-only-policy";
-import { persistedVibeChildIds } from "../vibe/runtime";
+import { persistedVibeChildIds } from "../vibe/lifecycle";
 import {
 	type AgentHistorySummary,
 	type AgentMetricsSummary,
-	type AgentRef,
 	type AgentRegistry,
 	getAgentTombstonePath,
 	MAIN_AGENT_ID,
@@ -21,7 +20,12 @@ import {
 
 /** Maximum prefix entries inspected for task metadata. */
 const MAX_METADATA_LINES = 64;
-/** Bounds pathological legacy advisor transcripts during Hub roster scans. */
+/**
+ * Upper bound on records scanned to compute an advisor transcript's Hub metrics.
+ * Well above any healthy advisor file (post issue #9553 the file grows O(new
+ * content)); it exists only so a legacy multi-GB transcript can't stall the
+ * render thread when the Hub roster is built.
+ */
 const MAX_ADVISOR_HISTORY_LINES = 200_000;
 
 interface PersistedAgentMetadata {
@@ -29,6 +33,8 @@ interface PersistedAgentMetadata {
 	createdAt?: number;
 	lastActivity?: number;
 	history?: AgentHistorySummary;
+	/** True when the file is only a SessionManager header (no session_init, no messages). */
+	incomplete?: boolean;
 }
 
 interface PersistedTranscript {
@@ -123,6 +129,21 @@ function assistantMetrics(message: Record<string, unknown>): AssistantMetrics {
 	};
 }
 
+/**
+ * Distinguish a filesystem open/read fault (EACCES/EMFILE/EIO — any coded
+ * errno except ENOENT) from content incompleteness. Malformed and truncated
+ * JSONL records never surface as errors: the stream visitor skips them
+ * in-band. ENOENT is the tolerated optional-file race (a transcript listed by
+ * readdir can vanish before its metadata is read). So a coded non-ENOENT
+ * error means the read itself failed and must propagate — dropping the
+ * roster latch so the next call retries — instead of masquerading as an
+ * incomplete transcript.
+ */
+function isFilesystemError(error: unknown): boolean {
+	const code = (error as NodeJS.ErrnoException | null)?.code;
+	return typeof code === "string" && code !== "ENOENT";
+}
+
 async function readPersistedAgentHistory(
 	transcript: PersistedTranscript,
 	shouldContinue: () => boolean,
@@ -157,6 +178,11 @@ async function readPersistedAgentHistory(
 				const message = recordOf(record.message);
 				if (message?.role === "assistant") assistantById.set(id, assistantMetrics(message));
 			},
+			// Advisor transcripts are the one file that can grow pathologically large
+			// (issue #9553); cap their scan so one bad transcript can't stall the Hub
+			// on the render thread. Healthy advisor files sit far below this bound,
+			// so their metrics stay exact; a capped legacy file reports approximate
+			// (lower-bound) cost/tokens rather than freezing `hub list`.
 			{
 				shouldContinue,
 				maxRecords: isAdvisorTranscriptName(path.basename(transcript.sessionFile))
@@ -164,7 +190,12 @@ async function readPersistedAgentHistory(
 					: undefined,
 			},
 		);
-	} catch {
+	} catch (error) {
+		// Malformed and truncated records are skipped in-band; a vanished file
+		// (ENOENT) degrades to empty history. Any other filesystem fault is
+		// transient and surfaces to the caller instead of masquerading as a
+		// transcript with no history.
+		if (isFilesystemError(error)) throw error;
 		return {};
 	}
 
@@ -240,12 +271,39 @@ async function readPersistedAgentHistory(
 }
 
 /**
+ * Nested-repo patch files the isolation runner wrote beside a transcript,
+ * picked out of the directory listing the scan already holds:
+ * `<id>.nested-<n>-<path>.patch`, in capture order.
+ */
+function nestedPatchFilesFor(dir: string, transcriptName: string, entries: readonly fs.Dirent[]): string[] {
+	const prefix = `${transcriptName.slice(0, -".jsonl".length)}.nested-`;
+	return entries
+		.filter(entry => entry.isFile() && entry.name.startsWith(prefix) && entry.name.endsWith(".patch"))
+		.map(entry => entry.name)
+		.sort((a, b) => Number.parseInt(a.slice(prefix.length), 10) - Number.parseInt(b.slice(prefix.length), 10))
+		.map(name => path.join(dir, name));
+}
+
+/**
  * Read only the small session prefix needed by the Hub. A subagent's first
  * `session_init` is written before its conversation, so this never walks a
  * multi-megabyte historical transcript just to populate one roster row.
  */
-async function readPersistedAgentMetadata(sessionFile: string): Promise<PersistedAgentMetadata> {
-	const stat = fs.promises.stat(sessionFile).catch(() => undefined);
+async function readPersistedAgentMetadata(
+	sessionFile: string,
+	nestedPatchPaths: readonly string[] = [],
+): Promise<PersistedAgentMetadata> {
+	// Settle immediately instead of leaving a rejecting promise pending while
+	// the transcript stream runs: a stat fault (EACCES/EMFILE/EIO) must not
+	// surface as an unhandled rejection if the stream errors first or takes
+	// long. ENOENT stays the tolerated optional-file race (a transcript listed
+	// by readdir can vanish before its metadata is read); the fault is captured
+	// and rethrown only after the stream has settled, so the roster latch drops
+	// and the next call retries.
+	const stat: Promise<{ file?: fs.Stats; error?: unknown }> = fs.promises.stat(sessionFile).then(
+		file => ({ file }),
+		error => (isFilesystemError(error) ? { error } : { file: undefined }),
+	);
 	const artifactBase = sessionFile.slice(0, -".jsonl".length);
 	const outputPath = `${artifactBase}.md`;
 	const patchPath = `${artifactBase}.patch`;
@@ -253,6 +311,8 @@ async function readPersistedAgentMetadata(sessionFile: string): Promise<Persiste
 	let createdAt: number | undefined;
 	let activity: string | undefined;
 	let history: AgentHistorySummary = {};
+	let hasSessionInit = false;
+	let hasConversation = false;
 	try {
 		await visitEntriesFromFileStream(
 			sessionFile,
@@ -273,7 +333,12 @@ async function readPersistedAgentMetadata(sessionFile: string): Promise<Persiste
 					}
 					return;
 				}
+				if (record.type === "message" || record.type === "custom_message") {
+					hasConversation = true;
+					return;
+				}
 				if (record.type !== "session_init") return;
+				hasSessionInit = true;
 				createdAt ??= timestampOf(record.timestamp);
 				if (typeof record.task === "string") activity = summarizePersistedTask(record.task);
 				const inferred = typeof record.systemPrompt === "string" ? inferBundledAgent(record.systemPrompt) : {};
@@ -290,19 +355,30 @@ async function readPersistedAgentMetadata(sessionFile: string): Promise<Persiste
 			},
 			{ maxRecords: MAX_METADATA_LINES },
 		);
-	} catch {
-		// A readable transcript is still useful even when its optional metadata
-		// prefix is malformed.
+	} catch (error) {
+		// Malformed and truncated records are skipped in-band by the stream
+		// visitor, so the only errors reaching this catch are filesystem
+		// faults. ENOENT races degrade to an incomplete record; transient
+		// faults (EACCES/EMFILE/EIO) surface so the roster latch drops and the
+		// next call retries. A readable transcript with a malformed metadata
+		// prefix still yields what it can.
+		if (isFilesystemError(error)) throw error;
 	}
-	const [file, [hasOutput, hasPatch]] = await Promise.all([stat, artifactFiles]);
+	const [statResult, [hasOutput, hasPatch]] = await Promise.all([stat, artifactFiles]);
+	// A transient stat fault surfaces now that both reads have settled; ENOENT
+	// already degraded to an undefined file above.
+	if (statResult.error !== undefined) throw statResult.error;
+	const file = statResult.file;
 	return {
 		activity,
 		createdAt: createdAt ?? file?.birthtimeMs,
 		lastActivity: file?.mtimeMs,
+		incomplete: !hasSessionInit && !hasConversation,
 		history: {
 			...history,
 			...(hasOutput ? { outputPath } : {}),
 			...(hasPatch ? { patchPath } : {}),
+			...(nestedPatchPaths.length > 0 ? { nestedPatchPaths: [...nestedPatchPaths] } : {}),
 		},
 	};
 }
@@ -318,16 +394,69 @@ async function readPersistedVibeChildIds(sessionFile: string, shouldContinue: ()
 			{ shouldContinue },
 		);
 		return ids;
-	} catch {
+	} catch (error) {
+		if (isFilesystemError(error)) throw error;
 		return new Set();
 	}
 }
+
+/**
+ * Upper bound on remembered roster latches. Once the bound is reached, only
+ * settled entries are forgotten (oldest first), so an in-flight scan is never
+ * evicted and a root whose latch was pruned is simply re-scanned on its next
+ * ensure call.
+ */
+const MAX_PERSISTED_ROSTER_LATCHES = 32;
+
 const kPersistedRosterLatches = Symbol("persistedRosterLatches");
-const kPersistedRosterRestoreTail = Symbol("persistedRosterRestoreTail");
+
+/**
+ * Failure-tolerant serialization tail for scan bodies. Distinct roots share one
+ * process-global registry, so their scans must not interleave: a child
+ * basename present in two roots' trees would otherwise be captured as
+ * unregistered by both, and whichever registers last would CAS-skip the other,
+ * leaving that root with a settled latch that never saw its own transcript.
+ * The tail always stores a settled wrapper, so a failed scan can never poison
+ * the queue for the next root.
+ */
+const kPersistedRosterScanTail = Symbol("persistedRosterScanTail");
+
+interface PersistedRosterLatch {
+	/** Settles when the root's roster scan finishes (success or logged failure). */
+	pending: Promise<void>;
+	/** True once `pending` has settled; only settled latches are evictable. */
+	settled: boolean;
+	/**
+	 * Narrowest root-ownership token: every (id → sessionFile) pair this root's
+	 * scan restored as a parked ref — registered fresh, replaced from another
+	 * root, or confirmed already pointing at this root's own transcript. A
+	 * settled latch is reusable only while every recorded ref still matches
+	 * registry identity/session; a missing or re-targeted ref means another
+	 * root's scan (or a release) moved the id, so this root must be re-scanned.
+	 * Rebuilt per scan, the token stays bounded by the root's own transcript
+	 * tree — no reverse global map.
+	 */
+	owned: Map<string, string>;
+}
 
 interface RegistryWithPersistedRosterLatches extends AgentRegistry {
-	[kPersistedRosterLatches]?: Map<string, Promise<void>>;
-	[kPersistedRosterRestoreTail]?: Promise<void>;
+	[kPersistedRosterLatches]?: Map<string, PersistedRosterLatch>;
+	[kPersistedRosterScanTail]?: Promise<void>;
+}
+
+/**
+ * A settled latch is reusable only while every parked ref its scan restored
+ * still matches registry identity/session. A missing ref (released) or one
+ * re-targeted at a different session file (superseded by another root's scan)
+ * invalidates the latch, forcing a re-scan that restores this root's own
+ * transcripts. Refs the scan did not restore are not this root's to police.
+ */
+function latchOwnershipValid(registry: AgentRegistry, owned: Map<string, string>): boolean {
+	for (const [id, sessionFile] of owned) {
+		const ref = registry.get(id);
+		if (!ref || ref.sessionFile !== sessionFile) return false;
+	}
+	return true;
 }
 
 async function resolveRootSessionFile(registry: AgentRegistry, hint?: string | null): Promise<string | undefined> {
@@ -339,28 +468,52 @@ async function resolveRootSessionFile(registry: AgentRegistry, hint?: string | n
 				? mainFile
 				: undefined;
 	if (candidate === undefined) return undefined;
-	let current = path.resolve(candidate);
-	for (let depth = 0; depth < 8; depth++) {
-		const parentFile = `${path.dirname(current)}.jsonl`;
-		if (!(await Bun.file(parentFile).exists())) return current;
+	let current: string = path.resolve(candidate);
+	// The climb is unbounded: a subagent can nest arbitrarily deep (there is no
+	// fixed depth ceiling in this tree), and stopping early would make parked
+	// top-level siblings invisible to deep children.
+	for (;;) {
+		const parentFile: string = `${path.dirname(current)}.jsonl`;
+		if (parentFile === current || !(await Bun.file(parentFile).exists())) return current;
 		current = parentFile;
 	}
-	return current;
 }
 
-/** True when an agent transcript belongs to the selected interactive session tree. */
-export function isAgentRefInSessionRoot(ref: AgentRef, rootSessionFile: string | undefined): boolean {
-	if (!rootSessionFile) return true;
-	if (!ref.sessionFile) return ref.status !== "parked";
-	const resolvedSessionFile = path.resolve(ref.sessionFile);
-	if (resolvedSessionFile === rootSessionFile) return true;
-	const relative = path.relative(rootSessionFile.slice(0, -".jsonl".length), resolvedSessionFile);
-	return relative !== "" && relative !== ".." && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative);
+function rosterScanError(error: unknown): string {
+	const text = error instanceof Error ? error.message : String(error);
+	return text.length <= 200 ? text : `${text.slice(0, 197)}...`;
+}
+
+function sessionFileBelongsToRoot(sessionFile: string, rootSessionFile: string): boolean {
+	const file = path.resolve(sessionFile);
+	const root = path.resolve(rootSessionFile);
+	const artifactRoot = root.slice(0, -".jsonl".length);
+	return file === root || file.startsWith(`${artifactRoot}${path.sep}`);
+}
+
+/** Keep old parked trees out of a new/current session's model-facing roster. */
+export function isCurrentSessionRosterRef(
+	ref: { status: string; sessionFile: string | null },
+	rootSessionFile: string | undefined,
+): boolean {
+	if (ref.status !== "parked" || !rootSessionFile || !ref.sessionFile) return true;
+	return sessionFileBelongsToRoot(ref.sessionFile, rootSessionFile);
 }
 
 /**
- * Restore parked sibling transcripts once per interactive session root.
- * Failed scans remain retryable and never prevent the active session opening.
+ * Restore parked sibling transcripts once per current root session. Scans are
+ * latched per root: concurrent calls for the same root share one in-flight
+ * scan, while distinct roots stay latched independently but serialize their
+ * scan bodies behind a failure-tolerant tail (a child basename shared across
+ * roots must be observed as already-registered, never raced unseen). A settled
+ * latch is reusable only while every parked ref its scan restored still matches
+ * registry identity/session: a shared id another root's scan replaced (or a
+ * released ref) invalidates the latch, so returning to this root re-scans
+ * through the tail and restores its own transcripts instead of leaving the
+ * other root's refs in this roster. The latch
+ * cache is bounded by forgetting settled roots oldest-first, so a switch back
+ * to an old root re-scans only once its latch was pruned. IO failure degrades
+ * roster counts, never task startup, and remains retryable.
  */
 export async function ensurePersistedRoster(
 	registry: AgentRegistry,
@@ -370,48 +523,127 @@ export async function ensurePersistedRoster(
 	try {
 		root = await resolveRootSessionFile(registry, sessionFileHint);
 	} catch (error) {
-		logger.warn("Failed to resolve persisted agent roster", { error: String(error) });
+		logger.warn("Persisted agent roster root resolution failed; using in-memory peers", {
+			error: rosterScanError(error),
+		});
 		return undefined;
 	}
 	if (!root) return undefined;
-	const resolvedRoot = root;
 
 	const taggedRegistry = registry as RegistryWithPersistedRosterLatches;
-	const latches = taggedRegistry[kPersistedRosterLatches] ?? new Map<string, Promise<void>>();
-	taggedRegistry[kPersistedRosterLatches] = latches;
-	const existing = latches.get(resolvedRoot);
-	if (existing) {
-		await existing;
-		return resolvedRoot;
+	let latches = taggedRegistry[kPersistedRosterLatches];
+	if (!latches) {
+		latches = new Map();
+		taggedRegistry[kPersistedRosterLatches] = latches;
 	}
-	const priorRestore = taggedRegistry[kPersistedRosterRestoreTail] ?? Promise.resolve();
-	const pending = priorRestore
-		.then(() => registerPersistedSubagents(registry, resolvedRoot))
-		.catch(error => {
-			latches.delete(resolvedRoot);
-			logger.warn("Failed to restore persisted agent roster", { root: resolvedRoot, error: String(error) });
-		});
-	taggedRegistry[kPersistedRosterRestoreTail] = pending;
-	latches.set(resolvedRoot, pending);
-	await pending;
-	return resolvedRoot;
+	const existing = latches.get(root);
+	if (existing) {
+		await existing.pending;
+		if (existing.settled) {
+			// A settled latch is reusable only while every parked ref its scan
+			// restored still matches registry identity/session. Another root's
+			// scan can replace a shared id globally while this root's latch sits
+			// settled; reusing the latch then would leave this root's roster
+			// pointing at the other root's transcripts. On any missing or
+			// re-targeted ref, drop the latch and refresh this root through the
+			// same serialized scan tail so its own transcripts win again.
+			if (latchOwnershipValid(registry, existing.owned)) return root;
+			if (latches.get(root) === existing) latches.delete(root);
+			// A concurrent superseded waiter may already have inserted the fresh
+			// latch; join it instead of scanning twice.
+			const replacement = latches.get(root);
+			if (replacement) {
+				await replacement.pending;
+				return root;
+			}
+		} else {
+			// A failed scan already dropped its own latch; degrade to in-memory
+			// peers and let the next call retry.
+			return root;
+		}
+	}
+	// Forget settled latches oldest-first once the bound is reached, so a
+	// process that visits many roots doesn't accumulate one entry per root.
+	// In-flight scans are never evicted: their latch is the single-flight guard.
+	if (latches.size >= MAX_PERSISTED_ROSTER_LATCHES) {
+		for (const [latchedRoot, latch] of latches) {
+			if (latches.size < MAX_PERSISTED_ROSTER_LATCHES) break;
+			if (latch.settled) latches.delete(latchedRoot);
+		}
+	}
+	// Chain the scan body behind any other root's in-flight scan (same-root
+	// calls never reach here: they joined the latch above). The tail always
+	// stores a settled wrapper, so a failed scan settles it and the next root
+	// still proceeds.
+	const latch: PersistedRosterLatch = { pending: undefined!, settled: false, owned: new Map() };
+	const tail = taggedRegistry[kPersistedRosterScanTail] ?? Promise.resolve();
+	const scan = tail.then(() =>
+		registerPersistedSubagents(registry, root, { hydrateHistory: false, owned: latch.owned }),
+	);
+	taggedRegistry[kPersistedRosterScanTail] = scan.then(
+		() => {},
+		() => {},
+	);
+	latch.pending = scan.then(
+		() => {
+			const current = latches.get(root);
+			if (current) current.settled = true;
+		},
+		error => {
+			// A failed scan drops its latch so the next call retries; the failure
+			// itself degrades to in-memory peers, never task startup.
+			const current = latches.get(root);
+			if (current && current.pending === latch.pending) {
+				latches.delete(root);
+			} else if (current) {
+				current.settled = true;
+			}
+			logger.warn("Persisted agent roster scan failed; using in-memory peers", {
+				rootSessionFile: root,
+				error: rosterScanError(error),
+			});
+		},
+	);
+	latches.set(root, latch);
+	await latch.pending;
+	return root;
 }
 
 /** Register persisted subagent and advisor transcripts as parked registry refs. */
 export async function registerPersistedSubagents(
 	registry: AgentRegistry,
 	sessionFile: string | null | undefined,
-	options: { shouldContinue?: () => boolean } = {},
+	options: {
+		shouldContinue?: () => boolean;
+		hydrateHistory?: boolean;
+		/**
+		 * When supplied, every (id → sessionFile) pair this scan restores or
+		 * confirms as this root's parked ref is recorded here: the narrowest
+		 * root-ownership token `ensurePersistedRoster` validates settled latches
+		 * against, bounded by this root's own transcript tree.
+		 */
+		owned?: Map<string, string>;
+	} = {},
 ): Promise<void> {
 	if (!sessionFile?.endsWith(".jsonl")) return;
 	const shouldContinue = options.shouldContinue ?? (() => true);
+	const hydrateHistory = options.hydrateHistory ?? true;
 	if (!shouldContinue()) return;
 	const vibeOwnedIds = await readPersistedVibeChildIds(sessionFile, shouldContinue);
 	if (!shouldContinue()) return;
 	const root = sessionFile.slice(0, -6);
 	const transcripts: PersistedTranscript[] = [];
-	await registerPersistedSubagentsFromDir(registry, root, undefined, vibeOwnedIds, transcripts, shouldContinue);
-	if (!shouldContinue()) return;
+	await registerPersistedSubagentsFromDir(
+		registry,
+		root,
+		undefined,
+		vibeOwnedIds,
+		transcripts,
+		shouldContinue,
+		sessionFile,
+		options.owned,
+	);
+	if (!hydrateHistory || !shouldContinue()) return;
 	let nextTranscript = 0;
 	const workers = Array.from({ length: Math.min(4, transcripts.length) }, async () => {
 		for (;;) {
@@ -434,13 +666,17 @@ async function registerPersistedSubagentsFromDir(
 	vibeOwnedIds: ReadonlySet<string>,
 	transcripts: PersistedTranscript[],
 	shouldContinue: () => boolean,
+	rootSessionFile: string,
+	owned?: Map<string, string>,
 ): Promise<void> {
 	if (!shouldContinue()) return;
 	let entries: fs.Dirent[];
 	try {
 		entries = await fs.promises.readdir(dir, { withFileTypes: true });
-	} catch {
-		return;
+	} catch (error) {
+		const code = (error as NodeJS.ErrnoException).code;
+		if (code === "ENOENT" || code === "ENOTDIR") return;
+		throw error;
 	}
 	if (!shouldContinue()) return;
 	let entriesSinceYield = 0;
@@ -486,57 +722,95 @@ async function registerPersistedSubagentsFromDir(
 					history: { ...metadata.history, readOnly: true },
 					status: "parked",
 				});
+				owned?.set(advisorId, sessionFile);
 				transcripts.push({
 					id: advisorId,
 					sessionFile,
 					createdAt: metadata.createdAt,
 					lastActivity: metadata.lastActivity,
 				});
+			} else if (existing) {
+				owned?.set(advisorId, sessionFile);
+				transcripts.push({
+					id: advisorId,
+					sessionFile,
+					createdAt: existing.createdAt,
+					lastActivity: existing.lastActivity,
+				});
 			}
 			continue;
 		}
 		const id = entry.name.slice(0, -6);
-		if (vibeOwnedIds.has(id) && registry.get(id)?.sessionFile !== sessionFile) continue;
+		const existing = registry.get(id);
+		if (vibeOwnedIds.has(id) && existing?.sessionFile !== sessionFile) continue;
 		let tombstoned = false;
 		try {
 			await fs.promises.access(getAgentTombstonePath(sessionFile));
 			tombstoned = true;
 		} catch (error) {
-			if ((error as NodeJS.ErrnoException).code !== "ENOENT") continue;
+			// A missing tombstone is the normal case. Any other fault (EACCES/
+			// EMFILE/EIO) is transient: surface it so the roster latch drops and
+			// the next call retries instead of silently skipping this transcript.
+			if (isFilesystemError(error)) throw error;
 		}
 		if (!shouldContinue()) return;
-		const existing = registry.get(id);
-		if (
-			existing?.kind === "sub" &&
+		const replaceable =
+			existing !== undefined &&
+			existing.kind === "sub" &&
+			existing.status === "parked" &&
 			existing.session === null &&
-			existing.sessionFile !== sessionFile &&
-			(existing.status === "parked" || existing.status === "aborted")
-		) {
-			registry.unregister(id, existing);
-		}
-		if (!registry.get(id)) {
-			const metadata = await readPersistedAgentMetadata(sessionFile);
+			typeof existing.sessionFile === "string" &&
+			!sessionFileBelongsToRoot(existing.sessionFile, rootSessionFile);
+		if (existing && !replaceable) {
+			if (existing.sessionFile === sessionFile) {
+				owned?.set(id, sessionFile);
+				transcripts.push({
+					id,
+					sessionFile,
+					createdAt: existing.createdAt,
+					lastActivity: existing.lastActivity,
+				});
+			}
+		} else {
+			const expected = existing ?? null;
+			const metadata = await readPersistedAgentMetadata(sessionFile, nestedPatchFilesFor(dir, entry.name, entries));
 			if (!shouldContinue()) return;
-			registry.register({
-				id,
-				displayName: id,
-				kind: "sub",
-				parentId: parentId ?? MAIN_AGENT_ID,
-				session: null,
-				sessionFile,
-				activity: metadata.activity,
-				createdAt: metadata.createdAt,
-				lastActivity: metadata.lastActivity,
-				history: metadata.history,
-				status: tombstoned ? "aborted" : "parked",
-			});
-			const ref = registry.get(id);
-			transcripts.push({
-				id,
-				sessionFile,
-				createdAt: ref?.createdAt,
-				lastActivity: ref?.lastActivity,
-			});
+			// Metadata reads yield. A spawn may claim the id while this scan is
+			// inspecting the file; never replace that live generation with a
+			// transcript-derived parked ref.
+			const current = registry.get(id);
+			const stillUnclaimed = expected === null && !current;
+			const stillReplaceable =
+				expected !== null && current === expected && current.status === "parked" && current.session === null;
+			// SessionManager.open writes title+session before createAgentSession
+			// claims the id. Parking that stub makes the spawn's expectedAgentRef:null
+			// CAS fail with "already owned by another session generation".
+			if ((stillUnclaimed || stillReplaceable) && !(metadata.incomplete && !tombstoned)) {
+				const input = {
+					id,
+					displayName: id,
+					kind: "sub" as const,
+					parentId: parentId ?? MAIN_AGENT_ID,
+					session: null,
+					sessionFile,
+					activity: metadata.activity,
+					createdAt: metadata.createdAt,
+					lastActivity: metadata.lastActivity,
+					history: metadata.history,
+					status: tombstoned ? ("aborted" as const) : ("parked" as const),
+				};
+				const vacated = stillUnclaimed || (expected !== null && registry.unregister(id, expected));
+				if (vacated && registry.registerIfAvailable(input, null)) {
+					const ref = registry.get(id);
+					owned?.set(id, sessionFile);
+					transcripts.push({
+						id,
+						sessionFile,
+						createdAt: ref?.createdAt,
+						lastActivity: ref?.lastActivity,
+					});
+				}
+			}
 		}
 		await registerPersistedSubagentsFromDir(
 			registry,
@@ -545,6 +819,8 @@ async function registerPersistedSubagentsFromDir(
 			vibeOwnedIds,
 			transcripts,
 			shouldContinue,
+			rootSessionFile,
+			owned,
 		);
 	}
 }

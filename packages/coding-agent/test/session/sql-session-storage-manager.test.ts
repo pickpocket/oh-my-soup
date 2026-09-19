@@ -7,10 +7,10 @@
  */
 
 import { describe, expect, it } from "bun:test";
-import * as path from "node:path";
 import type { Usage } from "@oh-my-soup/pi-ai";
 import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
 import { SqlSessionStorage } from "@oh-my-soup/pi-coding-agent/session/sql-session-storage";
+import { SessionWriteConflictError } from "@oh-my-soup/pi-coding-agent/session/session-storage";
 import { SQL } from "bun";
 
 function fakeUsage(input: number, output: number): Usage {
@@ -28,10 +28,9 @@ describe("SessionManager + SqlSessionStorage (SQLite)", () => {
 	it("persists appended assistant messages into SQL and reloads via open()", async () => {
 		const client = new SQL("sqlite::memory:");
 		const storage = await SqlSessionStorage.create({ client });
-		const sessionDir = path.resolve("/sessions/proj");
-		const cwd = path.resolve("/cwd");
+		const sessionDir = "/sessions/proj";
 
-		const manager = SessionManager.create(cwd, sessionDir, storage);
+		const manager = SessionManager.create("/cwd", sessionDir, storage);
 		manager.appendMessage({
 			role: "assistant",
 			provider: "anthropic",
@@ -82,10 +81,9 @@ describe("SessionManager + SqlSessionStorage (SQLite)", () => {
 	it("SessionManager.list returns SQL-backed sessions for the cwd", async () => {
 		const client = new SQL("sqlite::memory:");
 		const storage = await SqlSessionStorage.create({ client });
-		const sessionDir = path.resolve("/sessions/list-proj");
-		const cwd = path.resolve("/cwd");
+		const sessionDir = "/sessions/list-proj";
 
-		const a = SessionManager.create(cwd, sessionDir, storage);
+		const a = SessionManager.create("/cwd", sessionDir, storage);
 		a.appendMessage({
 			role: "assistant",
 			provider: "anthropic",
@@ -100,7 +98,7 @@ describe("SessionManager + SqlSessionStorage (SQLite)", () => {
 		await storage.drain();
 		await a.close();
 
-		const b = SessionManager.create(cwd, sessionDir, storage);
+		const b = SessionManager.create("/cwd", sessionDir, storage);
 		b.appendMessage({
 			role: "assistant",
 			provider: "anthropic",
@@ -120,10 +118,28 @@ describe("SessionManager + SqlSessionStorage (SQLite)", () => {
 		expect(aFile).toBeDefined();
 		expect(bFile).toBeDefined();
 
-		const sessions = await SessionManager.list(cwd, sessionDir, storage);
+		const sessions = await SessionManager.list("/cwd", sessionDir, storage);
 		const sessionFiles = sessions.map(s => s.path).sort();
 		expect(sessionFiles).toContain(aFile as string);
 		expect(sessionFiles).toContain(bFile as string);
+		await client.end();
+	});
+
+	it("rejects a stale rewrite after another SQL storage appends", async () => {
+		const client = new SQL("sqlite::memory:");
+		const firstStorage = await SqlSessionStorage.create({ client });
+		const first = SessionManager.create("/cwd", "/sessions/shared", firstStorage);
+		await first.ensureOnDisk();
+		const sessionFile = first.getSessionFile();
+		if (!sessionFile) throw new Error("Expected session file");
+
+		const secondStorage = await SqlSessionStorage.create({ client });
+		const second = await SessionManager.open(sessionFile, "/sessions/shared", secondStorage);
+		second.appendMessage({ role: "user", content: "durable SQL peer turn", timestamp: Date.now() });
+		await second.close();
+
+		await expect(first.rewriteEntries()).rejects.toBeInstanceOf(SessionWriteConflictError);
+		expect(await secondStorage.readText(sessionFile)).toContain("durable SQL peer turn");
 		await client.end();
 	});
 });

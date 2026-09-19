@@ -1,6 +1,6 @@
 import type { AuthStorage } from "@oh-my-soup/pi-ai";
 import { parseHTML } from "@oh-my-soup/pi-utils/dom";
-import type { SearchResponse, SearchSource } from "../../../web/search/types";
+import type { SearchResponse, SearchSource } from "@oh-my-soup/pi-tui/tools/web-search";
 import { SearchProviderError } from "../../../web/search/types";
 import { formatScraperQuery } from "../query";
 import { clampNumResults } from "../utils";
@@ -8,7 +8,7 @@ import type { SearchParams } from "./base";
 import { SearchProvider } from "./base";
 import type { LoadedHtmlPage } from "./browser-page";
 import { browserFetch } from "./browser-page";
-import { classifyProviderHttpError, withHardTimeout } from "./utils";
+import { classifyProviderHttpError, normalizeSearchText, withHardTimeout } from "./utils";
 
 /**
  * Ecosia serves a server-rendered Vue/Nuxt results page (no `__NUXT_DATA__`
@@ -71,13 +71,13 @@ function parseHtmlResults(html: string): ParsedResult[] {
 		if (!heading || !href) continue;
 		const url = resolveResultUrl(href);
 		if (!url) continue;
-		const title = (heading.textContent ?? "").replace(/\s+/g, " ").trim();
+		const title = normalizeSearchText(heading.textContent) ?? "";
 		if (!title) continue;
 		const description =
 			article.querySelector('[data-test-id="web-result-description"]') ??
 			article.querySelector('[data-test-id="result-description"]');
-		const snippet = (description?.textContent ?? "").replace(/\s+/g, " ").trim();
-		results.push({ title, url, snippet: snippet || undefined });
+		const snippet = normalizeSearchText(description?.textContent);
+		results.push({ title, url, snippet });
 	}
 	return results;
 }
@@ -112,7 +112,6 @@ async function callEcosiaHtml(params: SearchParams): Promise<string> {
 			fetch: params.fetch,
 			signal,
 			timeoutMs: params.timeoutMs,
-			searchBrowserSessionId: params.searchBrowserSessionId,
 			referer: ECOSIA_HOME_URL,
 			browser: {
 				homeUrl: ECOSIA_HOME_URL,

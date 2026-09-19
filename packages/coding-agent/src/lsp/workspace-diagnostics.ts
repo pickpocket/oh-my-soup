@@ -1,5 +1,5 @@
 import * as fs from "node:fs";
-import path from "node:path";
+import * as path from "node:path";
 import { ToolAbortError, throwIfAborted } from "../tools/tool-errors";
 
 /** Project type detection result */
@@ -94,7 +94,8 @@ async function resolveGoWorkspaceDiagnosticsCommand(cwd: string, signal?: AbortS
  *
  * Detection used to return on the first matching marker, so a polyglot root
  * (for example `Cargo.toml` alongside `tsconfig.json`) only ever ran the
- * highest-priority checker and silently skipped the rest. Every marker is
+ * highest-priority checker and silently skipped the rest: the workspace was
+ * reported as verified while whole languages went unchecked. Every marker is
  * collected instead, in the original priority order, so single-language roots
  * keep their exact previous result while polyglot roots check everything.
  *
@@ -104,28 +105,30 @@ async function resolveGoWorkspaceDiagnosticsCommand(cwd: string, signal?: AbortS
  */
 export async function detectProjectTypes(cwd: string, signal?: AbortSignal): Promise<ProjectType[]> {
 	const detected: ProjectType[] = [];
+	const marker = (name: string) => fs.existsSync(path.join(cwd, name));
 
-	if (fs.existsSync(path.join(cwd, "Cargo.toml"))) {
+	if (marker("Cargo.toml")) {
 		const command = ["cargo", "check", "--message-format=short"];
 		detected.push({ type: "rust", command, description: "Rust (cargo check)" });
 	}
 
-	if (fs.existsSync(path.join(cwd, "tsconfig.json"))) {
+	if (marker("tsconfig.json")) {
 		const command = ["npx", "tsc", "--noEmit"];
 		detected.push({ type: "typescript", command, description: "TypeScript (tsc --noEmit)" });
 	}
 
-	if (fs.existsSync(path.join(cwd, "go.work"))) {
+	// Check for Go workspaces before single-module Go projects.
+	if (marker("go.work")) {
 		detected.push({
 			type: "go",
 			command: await resolveGoWorkspaceDiagnosticsCommand(cwd, signal),
 			description: "Go workspace (go build)",
 		});
-	} else if (fs.existsSync(path.join(cwd, "go.mod"))) {
+	} else if (marker("go.mod")) {
 		detected.push({ type: "go", command: ["go", "build", "./..."], description: "Go (go build)" });
 	}
 
-	if (fs.existsSync(path.join(cwd, "pyproject.toml")) || fs.existsSync(path.join(cwd, "pyrightconfig.json"))) {
+	if (marker("pyproject.toml") || marker("pyrightconfig.json")) {
 		detected.push({ type: "python", command: ["pyright"], description: "Python (pyright)" });
 	}
 
@@ -168,6 +171,7 @@ async function mapWithConcurrency<T, R>(
 	limit: number,
 	run: (item: T) => Promise<R>,
 ): Promise<R[]> {
+	// oxlint-disable-next-line unicorn/no-new-array -- length preallocation
 	const results: R[] = new Array(items.length);
 	let cursor = 0;
 
@@ -213,10 +217,18 @@ async function runProjectDiagnostics(cwd: string, projectType: ProjectType, sign
 			throwIfAborted(signal);
 			const combined = (stdout + stderr).trim();
 			if (!combined) {
+				// A checker that exits non-zero without writing a single byte never
+				// inspected the workspace: it failed to start (missing toolchain),
+				// crashed, or was killed (OOM). Reporting "No issues found" there
+				// tells the agent the workspace is clean when nothing actually
+				// checked it. A non-zero exit *with* output is the normal way
+				// tsc/cargo/pyright report diagnostics and still falls through to
+				// the branch below. Mirrors the exit-status gate
+				// `resolveGoWorkspaceDiagnosticsCommand` already applies above.
 				return interpretEmptyDiagnosticsResult(exitCode, proc.signalCode, command);
 			}
-			// Limit output length per language so a noisy checker cannot crowd
-			// its siblings out of a polyglot report.
+			// Limit output length. The cap is per language so a noisy checker
+			// cannot crowd its siblings out of a polyglot report.
 			const lines = combined.split("\n");
 			if (lines.length > 50) {
 				return `${lines.slice(0, 50).join("\n")}\n[…${lines.length - 50}ln elided…]`;
@@ -233,7 +245,7 @@ async function runProjectDiagnostics(cwd: string, projectType: ProjectType, sign
 	}
 }
 
-/** Run every detected workspace checker and combine their output. */
+/** Run workspace diagnostics command and parse output */
 export async function runWorkspaceDiagnostics(
 	cwd: string,
 	signal?: AbortSignal,
@@ -241,6 +253,8 @@ export async function runWorkspaceDiagnostics(
 	throwIfAborted(signal);
 	const projectTypes = await detectProjectTypes(cwd, signal);
 	const primary = projectTypes[0] ?? { type: "unknown" as const, description: "Unknown project type" };
+	// Keep the single-language shape byte-identical; only name every checker
+	// when more than one actually ran.
 	const projectType =
 		projectTypes.length > 1 ? { ...primary, description: combineProjectDescriptions(projectTypes) } : primary;
 

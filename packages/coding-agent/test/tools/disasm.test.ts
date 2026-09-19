@@ -6,7 +6,7 @@ import {
 	type DisassemblerOpenOptions,
 	IdaDisassemblerAdapter,
 	registerDisassemblerAdapter,
-} from "@oh-my-soup/pi-coding-agent/disasm";
+} from "../../src/disasm";
 import type { ToolSession } from "@oh-my-soup/pi-coding-agent/sdk";
 import { DisasmTool } from "@oh-my-soup/pi-coding-agent/tools/disasm";
 import { patchIdalibRunnerAutoWait } from "../../scripts/generate-ida-bridge-bundle";

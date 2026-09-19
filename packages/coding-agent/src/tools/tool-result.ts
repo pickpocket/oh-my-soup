@@ -1,7 +1,8 @@
 import type { AgentToolResult } from "@oh-my-soup/pi-agent-core";
 import type { ImageContent, TextContent } from "@oh-my-soup/pi-ai";
-import type { OutputSummary, TruncationResult } from "../session/streaming-output";
-import type { OutputMeta, TruncationOptions, TruncationSummaryOptions, TruncationTextOptions } from "./output-meta";
+import type { OutputSummary, TruncationResult } from "@oh-my-soup/pi-tui/tools/streaming-output";
+import type { OutputMeta } from "@oh-my-soup/pi-tui/tools/output-meta";
+import type { LimitsInput, TruncationOptions, TruncationSummaryOptions, TruncationTextOptions } from "./output-meta";
 import { outputMeta } from "./output-meta";
 
 type ToolContent = Array<TextContent | ImageContent>;
@@ -44,7 +45,7 @@ export class ToolResultBuilder<TDetails extends DetailsWithMeta> {
 		return this;
 	}
 
-	limits(limits: { matchLimit?: number; resultLimit?: number; headLimit?: number; columnMax?: number }): this {
+	limits(limits: LimitsInput): this {
 		this.#meta.limits(limits);
 		return this;
 	}

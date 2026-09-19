@@ -56,12 +56,12 @@ async function readMessageEntries(file: string): Promise<AdvisorEntry[]> {
 	return entries.filter(entry => entry.type === "message");
 }
 
-function assistantMessage(text: string, inputTokens: number, cost = 0): AgentMessage {
+function assistantMessage(text: string, inputTokens: number, cost = 0, provider = "anthropic"): AgentMessage {
 	const message = {
 		role: "assistant" as const,
 		content: [{ type: "text" as const, text }],
 		api: "anthropic-messages",
-		provider: "anthropic",
+		provider,
 		model: "test-advisor-model",
 		usage: {
 			input: inputTokens,
@@ -164,13 +164,15 @@ describe("AdvisorTranscriptRecorder", () => {
 		});
 	});
 
-	it("skips retried replay batches while retaining billed attempts", async () => {
+	it("skips a retried batch but keeps every billed assistant turn", async () => {
 		await withTempDir(async dir => {
 			const sessionFile = path.join(dir, "sess.jsonl");
 			const recorder = new AdvisorTranscriptRecorder(
 				() => sessionFile,
 				() => dir,
 			);
+			// A failing advisor re-sends the identical batch each attempt; the turn
+			// only commits once it finally succeeds (issue #9553).
 			for (let attempt = 0; attempt < 5; attempt++) {
 				recorder.beginTurn();
 				recorder.record({ ...userMessage("### Session update"), timestamp: attempt + 1 } as AgentMessage);
@@ -180,22 +182,41 @@ describe("AdvisorTranscriptRecorder", () => {
 			await recorder.close();
 
 			const messages = await readMessageEntries(path.join(dir, "sess", ADVISOR_TRANSCRIPT_FILENAME));
-			expect(messages.filter(entry => entry.message?.role === "user")).toHaveLength(1);
-			expect(messages.filter(entry => entry.message?.role === "assistant")).toHaveLength(5);
+			expect(messages.filter(m => m.message?.role === "user")).toHaveLength(1);
+			expect(messages.filter(m => m.message?.role === "assistant")).toHaveLength(5);
 			expect((await loadAdvisorTranscriptCosts(sessionFile)).get("")).toBeCloseTo(0.5, 8);
 		});
 	});
 
-	it("preserves identical deltas across committed turns and after abandonment", async () => {
+	it("keeps identical deltas that belong to distinct committed turns", async () => {
 		await withTempDir(async dir => {
 			const sessionFile = path.join(dir, "sess.jsonl");
 			const recorder = new AdvisorTranscriptRecorder(
 				() => sessionFile,
 				() => dir,
 			);
-			recorder.beginTurn();
-			recorder.record(userMessage("### Session update"));
-			recorder.commitTurn();
+			// The user re-submits the same prompt across three separate turns: each
+			// renders an identical "Session update" yet is genuinely new content.
+			for (let turn = 0; turn < 3; turn++) {
+				recorder.beginTurn();
+				recorder.record(userMessage("### Session update"));
+				recorder.record(assistantMessage(`review ${turn}`, 1, 0.1));
+				recorder.commitTurn();
+			}
+			await recorder.close();
+
+			const messages = await readMessageEntries(path.join(dir, "sess", ADVISOR_TRANSCRIPT_FILENAME));
+			expect(messages.filter(m => m.message?.role === "user")).toHaveLength(3);
+		});
+	});
+
+	it("keeps a repeated delta after the prior batch is abandoned", async () => {
+		await withTempDir(async dir => {
+			const sessionFile = path.join(dir, "sess.jsonl");
+			const recorder = new AdvisorTranscriptRecorder(
+				() => sessionFile,
+				() => dir,
+			);
 			recorder.beginTurn();
 			recorder.record(userMessage("### Session update"));
 			recorder.abandonTurn();
@@ -205,7 +226,7 @@ describe("AdvisorTranscriptRecorder", () => {
 			await recorder.close();
 
 			const messages = await readMessageEntries(path.join(dir, "sess", ADVISOR_TRANSCRIPT_FILENAME));
-			expect(messages.filter(entry => entry.message?.role === "user")).toHaveLength(3);
+			expect(messages.filter(m => m.message?.role === "user")).toHaveLength(2);
 		});
 	});
 
@@ -223,14 +244,113 @@ describe("AdvisorTranscriptRecorder", () => {
 			await ready;
 
 			const transcript = path.join(dir, "sess", ADVISOR_TRANSCRIPT_FILENAME);
-			expect(
-				(await readMessageEntries(transcript)).filter(entry => entry.message?.role === "assistant"),
-			).toHaveLength(1);
+			const beforeRelease = await readMessageEntries(transcript);
+			expect(beforeRelease.filter(m => m.message?.role === "assistant")).toHaveLength(1);
+
 			gate.resolve();
 			await recorder.close();
-			expect(
-				(await readMessageEntries(transcript)).filter(entry => entry.message?.role === "assistant"),
-			).toHaveLength(2);
+			const afterRelease = await readMessageEntries(transcript);
+			expect(afterRelease.filter(m => m.message?.role === "assistant")).toHaveLength(2);
+		});
+	});
+
+	it("keeps identical deltas delivered within one turn", async () => {
+		await withTempDir(async dir => {
+			const sessionFile = path.join(dir, "sess.jsonl");
+			const recorder = new AdvisorTranscriptRecorder(
+				() => sessionFile,
+				() => dir,
+			);
+			// Two tool runs with byte-identical output render two identical chunks in
+			// one delivery; both must persist (they are distinct positions, not a replay).
+			recorder.beginTurn();
+			recorder.record(userMessage("### Session update"));
+			recorder.record(userMessage("### Session update"));
+			recorder.record(assistantMessage("review", 1, 0.1));
+			recorder.commitTurn();
+			await recorder.close();
+
+			const messages = await readMessageEntries(path.join(dir, "sess", ADVISOR_TRANSCRIPT_FILENAME));
+			expect(messages.filter(m => m.message?.role === "user")).toHaveLength(2);
+		});
+	});
+
+	it("loads cumulative costs by advisor slug", async () => {
+		await withTempDir(async dir => {
+			const sessionFile = path.join(dir, "sess.jsonl");
+			const primary = new AdvisorTranscriptRecorder(
+				() => sessionFile,
+				() => dir,
+			);
+			const security = new AdvisorTranscriptRecorder(
+				() => sessionFile,
+				() => dir,
+				advisorTranscriptFilename("security"),
+			);
+			primary.record(assistantMessage("primary", 1, 0.25));
+			security.record(assistantMessage("first", 1, 0.25));
+			security.record(assistantMessage("second", 1, 0.5));
+			await Promise.all([primary.close(), security.close()]);
+
+			expect(Object.fromEntries(await loadAdvisorTranscriptCosts(sessionFile))).toEqual({
+				"": 0.25,
+				security: 0.75,
+			});
+		});
+	});
+
+	it("captures billing providers per advisor slug for subscription attribution", async () => {
+		await withTempDir(async dir => {
+			const sessionFile = path.join(dir, "sess.jsonl");
+			const recorder = new AdvisorTranscriptRecorder(
+				() => sessionFile,
+				() => dir,
+			);
+			recorder.record(assistantMessage("primary", 1, 0.25));
+			await recorder.close();
+
+			const providersBySlug = new Map<string, Set<string>>();
+			await loadAdvisorTranscriptCosts(sessionFile, { providersBySlug });
+			expect([...(providersBySlug.get("") ?? [])]).toEqual(["anthropic"]);
+		});
+	});
+
+	it("excludes providers that only produced zero-cost turns from subscription attribution", async () => {
+		await withTempDir(async dir => {
+			const sessionFile = path.join(dir, "sess.jsonl");
+			const recorder = new AdvisorTranscriptRecorder(
+				() => sessionFile,
+				() => dir,
+			);
+			recorder.record(assistantMessage("paid", 1, 0.25, "openai"));
+			recorder.record(assistantMessage("failed subscription fallback", 1, 0, "anthropic"));
+			await recorder.close();
+
+			const providersBySlug = new Map<string, Set<string>>();
+			await loadAdvisorTranscriptCosts(sessionFile, { providersBySlug });
+			expect([...(providersBySlug.get("") ?? [])]).toEqual(["openai"]);
+		});
+	});
+
+	it("yields before snapshotting transcript metadata", async () => {
+		await withTempDir(async dir => {
+			const sessionFile = path.join(dir, "sess.jsonl");
+			const recorder = new AdvisorTranscriptRecorder(
+				() => sessionFile,
+				() => dir,
+			);
+			recorder.record(assistantMessage("persisted", 1, 0.25));
+			await recorder.close();
+
+			let snapshotTaken = false;
+			const costs = loadAdvisorTranscriptCosts(sessionFile, {
+				onSnapshot: () => {
+					snapshotTaken = true;
+				},
+			});
+			expect(snapshotTaken).toBe(false);
+			expect((await costs).get("")).toBeCloseTo(0.25, 8);
+			expect(snapshotTaken).toBe(true);
 		});
 	});
 
@@ -256,32 +376,9 @@ describe("AdvisorTranscriptRecorder", () => {
 				},
 			});
 			await appended.promise;
+
 			expect((await costs).get("")).toBeCloseTo(0.25, 8);
 			expect((await loadAdvisorTranscriptCosts(sessionFile)).get("")).toBeCloseTo(0.75, 8);
-		});
-	});
-
-	it("loads cumulative costs by advisor slug", async () => {
-		await withTempDir(async dir => {
-			const sessionFile = path.join(dir, "sess.jsonl");
-			const primary = new AdvisorTranscriptRecorder(
-				() => sessionFile,
-				() => dir,
-			);
-			const security = new AdvisorTranscriptRecorder(
-				() => sessionFile,
-				() => dir,
-				advisorTranscriptFilename("security"),
-			);
-			primary.record(assistantMessage("primary", 1, 0.25));
-			security.record(assistantMessage("first", 1, 0.25));
-			security.record(assistantMessage("second", 1, 0.5));
-			await Promise.all([primary.close(), security.close()]);
-
-			expect(Object.fromEntries(await loadAdvisorTranscriptCosts(sessionFile))).toEqual({
-				"": 0.25,
-				security: 0.75,
-			});
 		});
 	});
 

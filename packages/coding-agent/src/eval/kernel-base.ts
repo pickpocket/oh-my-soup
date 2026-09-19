@@ -1,6 +1,21 @@
 import { logger, Snowflake } from "@oh-my-soup/pi-utils";
 import type { Subprocess } from "bun";
 import { type KernelDisplayOutput, renderKernelDisplay } from "./py/display";
+import type { ShadowBarrier, ShadowControlNode, ShadowOperation } from "./speculation/types";
+
+const STARTUP_CONTROL_TIMEOUT_MS = 5_000;
+
+async function raceControlTimeout<T>(promise: Promise<T>, timeoutMs: number, reason: string): Promise<T> {
+	const signal = AbortSignal.timeout(timeoutMs);
+	const { promise: timeout, reject } = Promise.withResolvers<never>();
+	const onAbort = (): void => reject(new Error(reason));
+	signal.addEventListener("abort", onAbort, { once: true });
+	try {
+		return await Promise.race([promise, timeout]);
+	} finally {
+		signal.removeEventListener("abort", onAbort);
+	}
+}
 
 export type KernelRuntimeEnv = Record<string, string | null>;
 
@@ -26,6 +41,8 @@ export interface KernelExecuteResult {
 	cancelled: boolean;
 	timedOut: boolean;
 	stdinRequested: boolean;
+	/** True when an atomic retained-runtime admission check rejected this execution before user code ran. */
+	admissionRejected?: boolean;
 	/**
 	 * True when the kernel subprocess was killed as part of settling this
 	 * execution (e.g. SIGINT was ignored and we escalated to shutdown, or the
@@ -61,8 +78,6 @@ export interface BaseKernelOptions<TExecuteOptions extends KernelExecuteOptions 
 	traceIpc: boolean;
 	/** Wire payload asking the runner to exit cleanly. */
 	exitPayload: string;
-	/** Optional wire payload for cooperative interrupts; OS SIGINT remains the fallback. */
-	interruptPayload?: string;
 	/** How long to wait after SIGINT before escalating to subprocess termination. */
 	interruptEscalationMs: number;
 	/** Default grace period applied by {@link BaseKernel.shutdown}. */
@@ -71,7 +86,16 @@ export interface BaseKernelOptions<TExecuteOptions extends KernelExecuteOptions 
 	buildPayload: (code: string, msgId: string, options?: TExecuteOptions) => string;
 }
 
-export type FrameType = "started" | "stdout" | "stderr" | "display" | "result" | "error" | "done";
+export type FrameType =
+	| "started"
+	| "stdout"
+	| "stderr"
+	| "display"
+	| "result"
+	| "error"
+	| "done"
+	| "shadow_snapshot"
+	| "shadow_plan";
 
 export interface Frame {
 	type: FrameType;
@@ -82,8 +106,17 @@ export interface Frame {
 	evalue?: string;
 	traceback?: string[];
 	status?: "ok" | "error";
+	operations?: ShadowOperation[];
+	controls?: ShadowControlNode[];
+	barrier?: ShadowBarrier | null;
 	executionCount?: number;
 	cancelled?: boolean;
+	eligible?: boolean;
+	reason?: string;
+	revision?: number;
+	digest?: string;
+	admissionRejected?: boolean;
+	values?: Record<string, unknown>;
 }
 
 interface PendingExecution {
@@ -94,6 +127,7 @@ interface PendingExecution {
 	error?: { name: string; value: string; traceback: string[] };
 	cancelled: boolean;
 	timedOut: boolean;
+	admissionRejected?: boolean;
 	stdinRequested: boolean;
 	kernelKilled: boolean;
 	settled: boolean;
@@ -111,7 +145,7 @@ export function getRemainingTimeMs(deadlineMs?: number): number | undefined {
  *
  * `process.kill(-pid, …)` is a group signal, and the degenerate targets are
  * catastrophic rather than merely useless: `-0` signals *our own* process group
- * (omp would kill itself along with the whole terminal job) and `-1` signals
+ * (oms would kill itself along with the whole terminal job) and `-1` signals
  * every process the user is permitted to signal. Both must be rejected before
  * the negation is applied.
  */
@@ -127,7 +161,7 @@ export function isSignalableProcessGroup(pid: number | undefined): pid is number
  * so each runner calls `setsid()` and becomes the leader of its own session and
  * process group. Signalling only the direct PID therefore leaves anything the
  * runner itself spawned behind, and those orphans keep the kernel's pipes open
- * for the remainder of the omp process lifetime (#7714).
+ * for the remainder of the oms process lifetime (#7714).
  *
  * Windows has no process groups, so this is a no-op there and callers keep
  * relying on the direct-PID kill.
@@ -184,6 +218,7 @@ export abstract class BaseKernel<TExecuteOptions extends KernelExecuteOptions = 
 	#shutdownConfirmed = false;
 	#exitedPromise: Promise<number> | null = null;
 	#pending = new Map<string, PendingExecution>();
+	#pendingControls = new Map<string, PromiseWithResolvers<Frame>>();
 	#readBuffer = "";
 	readonly #options: BaseKernelOptions<TExecuteOptions>;
 
@@ -212,11 +247,25 @@ export abstract class BaseKernel<TExecuteOptions extends KernelExecuteOptions = 
 	}
 
 	async execute(code: string, options?: TExecuteOptions): Promise<KernelExecuteResult> {
+		const msgId = options?.id ?? Snowflake.next();
+		return await this.#submit(msgId, this.#options.buildPayload(code, msgId, options), options, true);
+	}
+
+	/** Submit a raw runner request without sending SIGINT when its caller cancels. */
+	async submitRequest(msgId: string, payload: string, options?: TExecuteOptions): Promise<KernelExecuteResult> {
+		return await this.#submit(msgId, payload, options, false);
+	}
+
+	async #submit(
+		msgId: string,
+		payload: string,
+		options: TExecuteOptions | undefined,
+		interruptOnCancel: boolean,
+	): Promise<KernelExecuteResult> {
 		if (!this.isAlive()) {
 			throw new Error(`${this.#options.languageName} kernel is not running`);
 		}
 
-		const msgId = options?.id ?? Snowflake.next();
 		const { promise, resolve } = Promise.withResolvers<KernelExecuteResult>();
 		const pending: PendingExecution = {
 			resolve,
@@ -242,6 +291,7 @@ export abstract class BaseKernel<TExecuteOptions extends KernelExecuteOptions = 
 				cancelled: pending.cancelled,
 				timedOut: pending.timedOut,
 				stdinRequested: pending.stdinRequested,
+				admissionRejected: pending.admissionRejected,
 				kernelKilled: pending.kernelKilled,
 			});
 		};
@@ -249,7 +299,7 @@ export abstract class BaseKernel<TExecuteOptions extends KernelExecuteOptions = 
 		let requestWritten = false;
 		const requestCancel = () => {
 			if (pending.settled || pending.escalationTimer) return;
-			if (!requestWritten) {
+			if (!requestWritten || !interruptOnCancel) {
 				finalize();
 				return;
 			}
@@ -301,8 +351,6 @@ export abstract class BaseKernel<TExecuteOptions extends KernelExecuteOptions = 
 
 		pending.finalize = finalize;
 
-		const payload = this.#options.buildPayload(code, msgId, options);
-
 		if (pending.settled) {
 			return promise;
 		}
@@ -322,17 +370,28 @@ export abstract class BaseKernel<TExecuteOptions extends KernelExecuteOptions = 
 
 		return promise;
 	}
+	async requestControl(
+		payload: string,
+		id = Snowflake.next(),
+		timeoutMs = STARTUP_CONTROL_TIMEOUT_MS,
+	): Promise<Frame> {
+		if (!this.isAlive()) throw new Error(`${this.#options.languageName} kernel is not running`);
+		const deferred = Promise.withResolvers<Frame>();
+		this.#pendingControls.set(id, deferred);
+		try {
+			await this.#writeLine(payload);
+			return await raceControlTimeout(
+				deferred.promise,
+				timeoutMs,
+				`${this.#options.languageName} control request timed out`,
+			);
+		} finally {
+			this.#pendingControls.delete(id);
+		}
+	}
 
 	async interrupt(): Promise<void> {
 		if (!this.#proc || this.#disposed) return;
-		if (this.#options.interruptPayload) {
-			try {
-				await this.#writeLine(this.#options.interruptPayload);
-				return;
-			} catch {
-				// Fall through to the process signal when the control channel is unavailable.
-			}
-		}
 		try {
 			this.#proc.kill("SIGINT");
 		} catch (err) {
@@ -380,16 +439,18 @@ export abstract class BaseKernel<TExecuteOptions extends KernelExecuteOptions = 
 			// signal above never reaches anything it spawned. Sweep the group too.
 			killProcessGroup(proc.pid, "SIGTERM");
 			result = await this.#waitForExitWithTimeout(timeoutMs);
-		}
-		if (result === null) {
-			try {
-				proc.kill("SIGKILL");
-			} catch {
-				/* ignore */
+			if (result === null) {
+				try {
+					proc.kill("SIGKILL");
+				} catch {
+					/* ignore */
+				}
 			}
-			killProcessGroup(proc.pid, "SIGKILL");
-			result = await this.#waitForExitWithTimeout(timeoutMs);
 		}
+		// A confirmed leader exit does not prove its descendants exited, even
+		// when the runner honored the shutdown request without any signals.
+		killProcessGroup(proc.pid, "SIGKILL");
+		if (result === null) result = await this.#waitForExitWithTimeout(timeoutMs);
 
 		const confirmed = result !== null;
 		if (!confirmed) {
@@ -406,6 +467,10 @@ export abstract class BaseKernel<TExecuteOptions extends KernelExecuteOptions = 
 	}
 
 	#abortPendingExecutions(reason: string, options?: { kernelKilled?: boolean }): void {
+		for (const pending of this.#pendingControls.values()) {
+			pending.reject(new Error(reason));
+		}
+		this.#pendingControls.clear();
 		if (this.#pending.size === 0) return;
 		const pending = Array.from(this.#pending.values());
 		this.#pending.clear();
@@ -518,6 +583,11 @@ export abstract class BaseKernel<TExecuteOptions extends KernelExecuteOptions = 
 	async #handleFrame(frame: Frame): Promise<void> {
 		const rid = frame.id;
 		if (!rid) return;
+		const control = this.#pendingControls.get(rid);
+		if (control) {
+			control.resolve(frame);
+			return;
+		}
 		const pending = this.#pending.get(rid);
 		if (!pending) return;
 
@@ -570,6 +640,9 @@ export abstract class BaseKernel<TExecuteOptions extends KernelExecuteOptions = 
 				}
 				if (frame.cancelled) {
 					pending.cancelled = true;
+				}
+				if (frame.admissionRejected) {
+					pending.admissionRejected = true;
 				}
 				pending.finalize?.();
 				return;

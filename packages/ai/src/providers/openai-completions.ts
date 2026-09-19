@@ -1,9 +1,9 @@
 import type { Effort } from "@oh-my-soup/pi-catalog/effort";
-import { isKimiModelId } from "@oh-my-soup/pi-catalog/identity";
 import { resolveWireModelId } from "@oh-my-soup/pi-catalog/model-thinking";
 import { calculateCost } from "@oh-my-soup/pi-catalog/models";
 import type { ResolvedOpenAICompat } from "@oh-my-soup/pi-catalog/types";
-import { $env, parseStreamingJson, parseStreamingJsonThrottled } from "@oh-my-soup/pi-utils";
+import { clinePassClientHeaders } from "@oh-my-soup/pi-catalog/wire/cline-pass";
+import { $env, logger, parseStreamingJson, parseStreamingJsonThrottled } from "@oh-my-soup/pi-utils";
 import { renderDemotedThinking } from "../dialect/demotion";
 import * as AIError from "../error";
 import { getKimiCommonHeaders } from "../registry/oauth/kimi";
@@ -30,7 +30,7 @@ import type {
 import { normalizeSystemPrompts, resolveCacheRetention } from "../utils";
 import { createAbortSourceTracker } from "../utils/abort";
 import { isDemotedThinking, kStreamingLastParseLen } from "../utils/block-symbols";
-import { hasVisibleAssistantContent, withEmptyCompletionRetry } from "../utils/empty-completion-retry";
+import { hasVisibleAssistantContent, withReplaySafeStreamRetry } from "../utils/empty-completion-retry";
 import { AssistantMessageEventStream } from "../utils/event-stream";
 import type { RawHttpRequestDump } from "../utils/http-inspector";
 import {
@@ -41,9 +41,10 @@ import {
 } from "../utils/idle-iterator";
 import { OpenAIHttpError, postOpenAIStream } from "../utils/openai-http";
 import { notifyProviderResponse } from "../utils/provider-response";
-import { callWithCopilotModelRetry } from "../utils/retry";
 import {
 	adaptSchemaForStrict,
+	findStrictToolSchemaViolation,
+	flattenExclusiveRequiredRootUnion,
 	NO_STRICT,
 	normalizeSchemaForMoonshot,
 	sanitizeSchemaForGrammar,
@@ -61,6 +62,7 @@ import type {
 	ChatCompletionContentPart,
 	ChatCompletionContentPartImage,
 	ChatCompletionContentPartText,
+	ChatCompletionMessageFunctionToolCall,
 	ChatCompletionMessageParam,
 	ChatCompletionTool,
 	ChatCompletionToolMessageParam,
@@ -76,13 +78,15 @@ import {
 	rememberOpenAIReasoningEffortFallback,
 	resolveOpenAIReasoningEffortFallback,
 } from "./openai-reasoning-fallback";
+import { servedModelFromOpenRouterReasoning } from "./anthropic-signature";
+import { resolveCopilotRequestIdentity, wrapFetchForCopilotFallback } from "./github-copilot-headers";
 import {
-	applyChatCompletionsCompatPolicy,
+	applyChatCompletionsReasoningParams,
 	applyChatCompletionsToolStream,
 	applyOpenAIExtraBody,
 	applyOpenAIGatewayRouting,
 	applyOpenAIServiceTier,
-	applyOpenRouterReportedCost,
+	applyProviderReportedCost,
 	applyWireModelIdTransform,
 	calculateOpenAIUsageAccounting,
 	clearOpenAIStrictToolsState,
@@ -92,7 +96,6 @@ import {
 	getOpenAIPromptCacheKey,
 	getOpenAIStrictToolsScope,
 	isCompiledGrammarTooLargeStrictError,
-	isOpenRouterAnthropicModel,
 	isStrictToolsDisabledForScope,
 	type OpenAICompatPolicy,
 	type OpenAICompletionsParams,
@@ -104,6 +107,7 @@ import {
 	resolveOpenAICompletionsOutputClamp,
 	resolveOpenAIOutputTokenParam,
 	resolveOpenAIRequestSetup,
+	shouldDropAutoToolChoiceForReasoning,
 	shouldRetryWithoutStrictTools,
 } from "./openai-shared";
 import { transformMessages } from "./transform-messages";
@@ -129,6 +133,44 @@ type OpenAICompletionsDeltaWithReasoningDetails = ChatCompletionChunk.Choice["de
 	reasoning_details?: unknown;
 };
 
+type GeminiThoughtSignatureNamespace = "google" | "vertex";
+
+type GeminiThoughtSignatureExtraContent = Partial<
+	Record<GeminiThoughtSignatureNamespace, { thought_signature: string }>
+>;
+
+type OpenAICompletionsFunctionToolCall = ChatCompletionMessageFunctionToolCall & {
+	extra_content?: GeminiThoughtSignatureExtraContent;
+};
+
+const GEMINI_THOUGHT_SIGNATURE_NAMESPACES: readonly GeminiThoughtSignatureNamespace[] = ["google", "vertex"];
+
+function getGeminiThoughtSignatureExtraContent(value: unknown): GeminiThoughtSignatureExtraContent | undefined {
+	if (typeof value !== "object" || value === null) return undefined;
+	for (const namespace of GEMINI_THOUGHT_SIGNATURE_NAMESPACES) {
+		const providerContent = Reflect.get(value, namespace);
+		if (typeof providerContent !== "object" || providerContent === null) continue;
+		const thoughtSignature = Reflect.get(providerContent, "thought_signature");
+		if (typeof thoughtSignature !== "string" || thoughtSignature.length === 0) continue;
+		return namespace === "google"
+			? { google: { thought_signature: thoughtSignature } }
+			: { vertex: { thought_signature: thoughtSignature } };
+	}
+	return undefined;
+}
+
+function parseGeminiThoughtSignatureExtraContent(
+	thoughtSignature: string | undefined,
+): GeminiThoughtSignatureExtraContent | undefined {
+	if (!thoughtSignature) return undefined;
+	try {
+		const parsed: unknown = JSON.parse(thoughtSignature);
+		return getGeminiThoughtSignatureExtraContent(parsed);
+	} catch {
+		return undefined;
+	}
+}
+
 type OpenAICompletionsAssistantMessageParam = ChatCompletionAssistantMessageParam &
 	Partial<Record<OpenAICompletionsReasoningField, string>> & {
 		reasoning_details?: unknown[];
@@ -146,7 +188,7 @@ type OpenAICompletionsUsageLike = {
 	prompt_cache_miss_tokens?: unknown;
 	prompt_tokens_details?: unknown;
 	completion_tokens_details?: unknown;
-	// Vertex/Gemini reports cache hits here (camelCase) when routed through an
+	// Vertex/Gemini reports cache hits here (camelCase) when fronted by an
 	// OpenAI-compatible gateway; the OpenAI-shaped cached fields stay absent.
 	cachedContentTokenCount?: unknown;
 };
@@ -584,6 +626,47 @@ const OPENAI_COMPLETIONS_FIRST_EVENT_TIMEOUT_MESSAGE =
 // converts the already-successful response into a timeout error.
 const OPENAI_COMPLETIONS_POST_FINISH_GRACE_MS = 2_500;
 
+const OPENAI_COMPLETIONS_ERROR_STATUS_BY_TYPE: Readonly<Record<string, number>> = {
+	SERVICE_UNAVAILABLE: 503,
+	TOO_MANY_REQUESTS: 429,
+	REQUEST_TIMEOUT: 408,
+};
+
+function parseOpenAICompletionsErrorStatus(value: unknown): number | undefined {
+	const status =
+		typeof value === "number"
+			? value
+			: typeof value === "string" && /^\d{3}$/.test(value.trim())
+				? Number(value)
+				: undefined;
+	return status !== undefined && Number.isInteger(status) && status >= 400 && status <= 599 ? status : undefined;
+}
+
+function createOpenAICompletionsStreamError(chunk: unknown, provider: string): Error | undefined {
+	if (!chunk || typeof chunk !== "object") return undefined;
+	const error = Reflect.get(chunk, "error");
+	const flatMessage = Reflect.get(chunk, "message");
+	const structuredError = error !== null && typeof error === "object";
+	if (!structuredError && typeof error !== "string" && typeof flatMessage !== "string") return undefined;
+
+	const parsed = AIError.OpenAIHttpError.parseEnvelope(chunk, undefined);
+	const detail = parsed.detail ?? "Provider returned an in-band OpenAI completions stream error";
+	if (!structuredError) {
+		return new AIError.ProviderResponseError(detail, { provider, kind: "runtime" });
+	}
+
+	const typeValue = Reflect.get(error, "type");
+	const codeValue = Reflect.get(error, "code");
+	const type = typeof typeValue === "string" ? typeValue.trim() : undefined;
+	const status =
+		parseOpenAICompletionsErrorStatus(codeValue) ??
+		(type ? OPENAI_COMPLETIONS_ERROR_STATUS_BY_TYPE[type.toUpperCase()] : undefined);
+	if (status === undefined) {
+		return new AIError.ProviderResponseError(detail, { provider, kind: "runtime" });
+	}
+	return new AIError.ProviderHttpError(`${status} ${detail}`, status, { code: parsed.code });
+}
+
 const streamOpenAICompletionsOnce = (
 	model: Model<"openai-completions">,
 	context: Context,
@@ -594,7 +677,7 @@ const streamOpenAICompletionsOnce = (
 	(async () => {
 		const startTime = performance.now();
 		let firstTokenTime: number | undefined;
-		const policy = resolveOpenAICompatForRequest(model, options);
+		const policy = resolveOpenAICompatForRequest(model, options, Boolean(context.tools?.length));
 
 		const output: AssistantMessage = createInitialResponsesAssistantMessage(model.api, model.provider, model.id);
 		let rawRequestDump: RawHttpRequestDump | undefined;
@@ -604,9 +687,9 @@ const streamOpenAICompletionsOnce = (
 		);
 		const { requestAbortController, requestSignal } = abortTracker;
 		const onSseEvent = options?.onSseEvent;
-		// Track `[DONE]` independently of the optional raw-event callback. It is
-		// the protocol terminal signal even when a compatible host omits or nulls
-		// `finish_reason`.
+		// Track the OpenAI `[DONE]` sentinel independently of `onSseEvent`: it is
+		// the streaming protocol's terminal signal, so a stream that ends with it
+		// completed by server agreement even when no `finish_reason` chunk arrived.
 		let sawDoneSentinel = false;
 		const rawSseObserver = (event: RawSseEvent) => {
 			if (event.data === "[DONE]") sawDoneSentinel = true;
@@ -643,13 +726,22 @@ const streamOpenAICompletionsOnce = (
 				getOpenAIStreamFirstEventTimeoutMs(idleTimeoutMs, model.compat.streamFirstEventTimeoutMs);
 			const requestTimeoutMs =
 				firstEventTimeoutMs !== undefined && firstEventTimeoutMs > 0 ? firstEventTimeoutMs : undefined;
-			const { copilotPremiumRequests, baseUrl, headers, query, requestHeaders } = createRequestSetup(
+			const {
+				copilotPremiumRequests,
+				baseUrl,
+				headers,
+				query,
+				requestHeaders,
+				copilotCacheKey,
+				copilotCacheSnapshot,
+			} = createRequestSetup(
 				model,
 				context,
 				apiKey,
 				options?.headers,
 				options?.initiatorOverride,
 				getOpenAIPromptCacheKey(options),
+				options?.sessionId,
 			);
 			const premiumRequestsTotal = copilotPremiumRequests;
 			let appliedStrictTools = false;
@@ -670,16 +762,20 @@ const streamOpenAICompletionsOnce = (
 				: `${trimmedBaseUrl}/chat/completions`;
 			const createCompletionsStream = async (toolStrictModeOverride?: ToolStrictModeOverride) => {
 				const effectiveToolStrictModeOverride = disableStrictTools ? "none" : toolStrictModeOverride;
-				let { params, strictToolsApplied } = buildParams(model, context, options, effectiveToolStrictModeOverride);
-				appliedStrictTools = strictToolsApplied;
-				const reasoningEffortFallbackKey = createOpenAIReasoningEffortFallbackKey(
-					"chat-completions",
-					trimmedBaseUrl,
-					params.model,
-				);
-				const requestReasoningEffortFallback = requestReasoningEffortFallbacks.has(reasoningEffortFallbackKey)
-					? requestReasoningEffortFallbacks.get(reasoningEffortFallbackKey)
-					: getOpenAIReasoningEffortFallback(providerSessionState, reasoningEffortFallbackKey);
+				const builtParams = buildParams(model, context, options, effectiveToolStrictModeOverride);
+				appliedStrictTools = builtParams.strictToolsApplied;
+				let params = builtParams.params;
+				// Tool-triggered suppression is a hard wire constraint; cached
+				// enabled-effort negotiation must not overwrite its `none`.
+				const reasoningEffortFallbackKey = builtParams.reasoningEffortFallbackAllowed
+					? createOpenAIReasoningEffortFallbackKey("chat-completions", trimmedBaseUrl, params.model)
+					: undefined;
+				const requestReasoningEffortFallback =
+					reasoningEffortFallbackKey === undefined
+						? undefined
+						: requestReasoningEffortFallbacks.has(reasoningEffortFallbackKey)
+							? requestReasoningEffortFallbacks.get(reasoningEffortFallbackKey)
+							: getOpenAIReasoningEffortFallback(providerSessionState, reasoningEffortFallbackKey);
 				if (requestReasoningEffortFallback !== undefined) {
 					applyOpenAIReasoningEffortFallback(params, requestReasoningEffortFallback);
 				}
@@ -713,33 +809,44 @@ const streamOpenAICompletionsOnce = (
 						headers: headersWithTimeout,
 						body: params,
 						signal: requestSignal,
-						fetch: options?.fetch,
+						fetch: wrapFetchForCopilotFallback(
+							options?.fetch,
+							model.provider === "github-copilot",
+							resolveCopilotRequestIdentity(options?.headers),
+							copilotCacheKey,
+							copilotCacheSnapshot,
+						),
 						// Transient 408/429/5xx get Retry-After-aware transport retries.
 						// The first-event watchdog above aborts `requestSignal`, which
 						// bounds every attempt and backoff sleep — retries cannot
 						// extend the deadline.
 						onSseEvent: rawSseObserver,
 					});
+					// Disarm the first-event watchdog as soon as headers arrive — a slow
+					// onResponse callback must not abort an already-connected stream.
+					clearTimeout(requestTimeout);
 					await notifyProviderResponse(options, response, model, requestId);
 					return events;
 				} finally {
 					// Headers arrived (or the request failed); from here the
 					// first-event deadline is enforced by `iterateWithIdleTimeout`.
-					if (requestTimeout !== undefined) clearTimeout(requestTimeout);
+					clearTimeout(requestTimeout);
 				}
 			};
 			let openaiStream: AsyncIterable<ChatCompletionChunk>;
 			try {
-				openaiStream = await callWithCopilotModelRetry(() => createCompletionsStream(), {
-					provider: model.provider,
-					signal: requestSignal,
-				});
+				openaiStream = await createCompletionsStream();
 			} catch (error) {
 				const capturedErrorResponse = error instanceof OpenAIHttpError ? error.captured : undefined;
+				// A caller disable with a retained effort preference is still an
+				// explicit disable: without this, a fieldless rejection of the
+				// resulting `none` resolves to a delete-effort retry that gets
+				// cached and strips later enabled turns.
+				const isExplicitDisable = options?.disableReasoning === true;
 				const reasoningEffortFallback =
 					activeReasoningEffortFallbackKey && activeRequestParams && !requestSignal.aborted
 						? resolveOpenAIReasoningEffortFallback(error, capturedErrorResponse, activeRequestParams, {
-								explicitDisable: options?.disableReasoning === true && options.reasoning === undefined,
+								explicitDisable: isExplicitDisable,
 							})
 						: undefined;
 				if (reasoningEffortFallback !== undefined && activeReasoningEffortFallbackKey) {
@@ -748,13 +855,18 @@ const streamOpenAICompletionsOnce = (
 					attemptedReasoningEffortFallbacks.add(retryMarker);
 					requestReasoningEffortFallbacks.set(activeReasoningEffortFallbackKey, reasoningEffortFallback);
 					openaiStream = await createCompletionsStream();
-					rememberOpenAIReasoningEffortFallback(
-						providerSessionState,
-						activeReasoningEffortFallbackKey,
-						reasoningEffortFallback,
-					);
+					// Explicit-disable fallbacks stay per-request so a reasoning-off
+					// side request cannot downgrade later normal turns sharing
+					// the session state.
+					if (!isExplicitDisable) {
+						rememberOpenAIReasoningEffortFallback(
+							providerSessionState,
+							activeReasoningEffortFallbackKey,
+							reasoningEffortFallback,
+						);
+					}
 				} else if (
-					isOpenRouterAnthropicModel(model) &&
+					model.compat.retryWithoutStrictOnGrammarError &&
 					!disableStrictTools &&
 					isCompiledGrammarTooLargeStrictError(error, capturedErrorResponse)
 				) {
@@ -842,7 +954,7 @@ const streamOpenAICompletionsOnce = (
 				stream.push({ type: "toolcall_end", contentIndex, toolCall: block, partial: output });
 			};
 			const finishPendingToolCallBlocks = (): void => {
-				for (const block of [...pendingToolCallBlocks]) {
+				for (const block of Array.from(pendingToolCallBlocks)) {
 					finishToolCallBlock(block);
 				}
 			};
@@ -1032,7 +1144,7 @@ const streamOpenAICompletionsOnce = (
 			let sawUsagePayload = false;
 			let awaitTrailingUsageDetails = false;
 			const applyUsagePayload = (rawUsage: object): void => {
-				output.usage = parseChunkUsage(rawUsage, model, premiumRequestsTotal);
+				output.usage = parseChunkUsage(rawUsage, model, premiumRequestsTotal, output.timestamp);
 				sawUsagePayload = true;
 				awaitTrailingUsageDetails = !hasPositiveCacheReadTokenField(rawUsage);
 			};
@@ -1057,6 +1169,23 @@ const streamOpenAICompletionsOnce = (
 			});
 			for await (const chunk of terminalAwareStream) {
 				if (!chunk || typeof chunk !== "object") continue;
+				// Rate-limit/overload bodies sent inside an HTTP 200 stream (Azure,
+				// LiteLLM-style aggregators, some gates) arrive as an `error` member or
+				// a bare `{ code, status }` chunk. This probe runs first: the legacy
+				// stream-error guard below turns *any* object `error` member into a
+				// statusless `ProviderResponseError`, so if it went first no throttle
+				// envelope would ever reach the in-band classifier.
+				//
+				// Invariants (body-error.ts): the status is read only from error
+				// `status`/`code` fields and restricted to 429/5xx — never derived from
+				// prose, so a body mentioning 401/403 stays out of the auth lane — and a
+				// synthesized message is never opaque, so an unreadable body cannot burn
+				// a credential. Envelopes that are not a recognised throttle return
+				// `undefined` and keep their pre-existing handling.
+				const inBand = AIError.createInBandProviderError(chunk);
+				if (inBand) throw inBand;
+				const streamError = createOpenAICompletionsStreamError(chunk, model.provider);
+				if (streamError) throw streamError;
 
 				// OpenAI documents ChatCompletionChunk.id as the unique chat completion identifier,
 				// and each chunk in a streamed completion carries the same id.
@@ -1148,6 +1277,12 @@ const streamOpenAICompletionsOnce = (
 
 					if (choice?.delta?.tool_calls && choice.delta.tool_calls.length > 0) {
 						const toolCalls = choice.delta.tool_calls;
+						// Pure tool-call responses never emit a text/thinking delta, so
+						// without this stamp TTFT stays undefined for every turn that
+						// begins with a structured call (measured: all toolUse-stop
+						// rows on OpenAI-compatible gateways) and the usage row's
+						// TTFT/tok/s figures silently degrade.
+						if (!firstTokenTime) firstTokenTime = performance.now();
 						for (let toolCallOffset = 0; toolCallOffset < toolCalls.length; toolCallOffset++) {
 							const toolCall = toolCalls[toolCallOffset]!;
 							const streamIndex = typeof toolCall.index === "number" ? toolCall.index : undefined;
@@ -1211,6 +1346,8 @@ const streamOpenAICompletionsOnce = (
 
 							if (toolCall.id) block.id = toolCall.id;
 							if (incomingName) block.name = incomingName;
+							const extraContent = getGeminiThoughtSignatureExtraContent(Reflect.get(toolCall, "extra_content"));
+							if (extraContent) block.thoughtSignature = JSON.stringify(extraContent);
 							let delta = "";
 							// The OpenAI SDK types `function.arguments` as a JSON string, but MiniMax-compatible
 							// hosts stream a fully-formed object instead. Model both shapes so the branches below
@@ -1267,6 +1404,7 @@ const streamOpenAICompletionsOnce = (
 					if (Array.isArray(reasoningDetails)) {
 						for (const detail of reasoningDetails) {
 							if (!detail || typeof detail !== "object") continue;
+							if (!output.upstreamModel) output.upstreamModel = servedModelFromOpenRouterReasoning(detail);
 							const detailObject = detail as { type?: unknown; id?: unknown; data?: unknown };
 							if (detailObject.type === "reasoning.encrypted" && detailObject.id && detailObject.data) {
 								const matchingToolCall = output.content.find(
@@ -1306,9 +1444,15 @@ const streamOpenAICompletionsOnce = (
 
 			// Detect premature stream closure before the normal block-finalization
 			// sweep. Throwing after that sweep would make the error handler emit a
-			// second text_end/thinking_end for the same partial block. Only transport
-			// EOF with neither `finish_reason` nor `[DONE]` is incomplete: compatible
-			// hosts may use `[DONE]` alone as their terminal signal.
+			// second text_end/thinking_end for the same partial block.
+			//
+			// Only a genuine truncation — transport EOF with neither a
+			// `finish_reason` chunk nor the `[DONE]` sentinel — is incomplete. A
+			// stream terminated by `[DONE]` completed by server agreement; some
+			// OpenAI-compatible hosts omit or `null` the `finish_reason` and rely on
+			// `[DONE]` alone, so finalize those as the default `stop`
+			// (mapStopReason(null)) instead of surfacing a false incomplete-stream
+			// error and retrying every turn.
 			if (streamFinishedAt === undefined && !sawDoneSentinel && output.content.length > 0) {
 				throw new AIError.ProviderResponseError(
 					"OpenAI completions stream closed before a finish_reason was received",
@@ -1399,13 +1543,15 @@ const streamOpenAICompletionsOnce = (
 };
 
 /**
- * Public entry: wrap the single-attempt streamer with bounded empty-completion
- * retries — flaky gateways occasionally 200 with `delta: {}` + `finish_reason:
- * "stop"` and no usage, which would otherwise stall the agent loop. Shared with
- * the Anthropic provider via `withEmptyCompletionRetry`.
+ * Retries benign empty completions and transient provider failures only before
+ * assistant output commits the attempt.
  */
 export const streamOpenAICompletions: StreamFunction<"openai-completions"> = (model, context, options) =>
-	withEmptyCompletionRetry(model, context, options, streamOpenAICompletionsOnce);
+	withReplaySafeStreamRetry(model, context, options, streamOpenAICompletionsOnce, {
+		retryEmptyCompletion: true,
+		retryProviderErrors: true,
+		maxProviderErrorRetries: 1,
+	});
 
 function createRequestSetup(
 	model: Model<"openai-completions">,
@@ -1414,6 +1560,7 @@ function createRequestSetup(
 	extraHeaders?: Record<string, string>,
 	initiatorOverride?: MessageAttribution,
 	promptCacheSessionId?: string,
+	sessionId?: string,
 ): OpenAIRequestSetup & { baseUrl: string } {
 	const apiVersion = $env.AZURE_OPENAI_API_VERSION || "2024-10-21";
 	const deploymentName = parseAzureDeploymentNameMap($env.AZURE_OPENAI_DEPLOYMENT_NAME_MAP).get(model.id) ?? model.id;
@@ -1422,12 +1569,19 @@ function createRequestSetup(
 		extraHeaders,
 		initiatorOverride,
 		promptCacheSessionId,
+		sessionId,
 		messages: context.messages,
 		defaultBaseUrl: "https://api.openai.com/v1",
 		// Provider auth/header overlay: Kimi-code hosts require shared client
 		// attribution headers prepended before caller headers. Kept here (not in
 		// the shared helper) because it is provider-specific request setup.
-		prependHeaders: model.provider === "kimi-code" ? getKimiCommonHeaders : undefined,
+		// ClinePass sends the mirrored Cline CLI identity; documented in wire/cline-pass.ts.
+		prependHeaders:
+			model.provider === "kimi-code"
+				? getKimiCommonHeaders
+				: model.provider === "cline-pass"
+					? () => clinePassClientHeaders(promptCacheSessionId)
+					: undefined,
 		alibabaCodingPlanAuth: true,
 		azureChatCompletions: { apiVersion, deploymentName },
 	});
@@ -1440,25 +1594,26 @@ function createRequestSetup(
 function resolveOpenAICompatForRequest(
 	model: Model<"openai-completions">,
 	options: OpenAICompletionsOptions | undefined,
+	hasTools: boolean,
 ): OpenAICompatPolicy {
 	return resolveOpenAICompatPolicy(model, {
 		endpoint: "chat-completions",
 		reasoning: options?.reasoning,
 		disableReasoning: options?.disableReasoning,
 		toolChoice: mapToOpenAICompletionsToolChoice(options?.toolChoice),
+		hasTools,
 	});
 }
 
 function dropOpenRouterKimiForcedToolReasoning(
 	params: OpenAICompletionsParams,
-	model: Model<"openai-completions">,
+	_model: Model<"openai-completions">,
 	policy: OpenAICompatPolicy,
 ): void {
 	if (
 		policy.reasoning.disableReason === "forced-tool-choice" &&
 		policy.reasoning.disableMode === "openrouter-enabled-false" &&
-		policy.compat.isOpenRouterHost &&
-		isKimiModelId(model.id)
+		policy.compat.isOpenRouterHost
 	) {
 		delete params.reasoning;
 	}
@@ -1468,14 +1623,8 @@ function hasActiveNativeKimiK3Reasoning(
 	model: Model<"openai-completions">,
 	options: OpenAICompletionsOptions | undefined,
 ): boolean {
-	if (model.provider !== "kimi-code" || model.id.toLowerCase() !== "k3" || !model.reasoning) return false;
-	if (options?.reasoning === undefined || options.disableReasoning) return false;
-	try {
-		const url = new URL(model.baseUrl);
-		return url.hostname === "api.kimi.com" && (url.pathname === "/coding" || url.pathname.startsWith("/coding/"));
-	} catch {
-		return false;
-	}
+	if (!model.compat.nativeKimiK3Reasoning || !model.reasoning) return false;
+	return options?.reasoning !== undefined && !options.disableReasoning;
 }
 
 function isChatCompletionsPromptCacheableContentBlock(
@@ -1522,7 +1671,7 @@ function applyOpenAIChatCompletionsPromptCachePolicy(
 	options: OpenAICompletionsOptions | undefined,
 ): void {
 	const promptCacheKey = getOpenAIPromptCacheKey(options);
-	if (model.provider === "kimi-code" && promptCacheKey !== undefined) {
+	if (model.compat.supportsPromptCacheKey && promptCacheKey !== undefined) {
 		params.prompt_cache_key = promptCacheKey;
 	}
 
@@ -1555,8 +1704,9 @@ function buildParams(
 	params: OpenAICompletionsParams;
 	toolStrictMode: AppliedToolStrictMode;
 	strictToolsApplied: boolean;
+	reasoningEffortFallbackAllowed: boolean;
 } {
-	const initialPolicy = resolveOpenAICompatForRequest(model, options);
+	const initialPolicy = resolveOpenAICompatForRequest(model, options, Boolean(context.tools?.length));
 	const initialCompat = initialPolicy.compat as ResolvedOpenAICompat;
 	const cacheRetention = resolveCacheRetention(options?.cacheRetention);
 
@@ -1672,7 +1822,10 @@ function buildParams(
 		params.tool_choice = "auto";
 	}
 
-	if (params.tool_choice === "none" && (!Array.isArray(params.tools) || params.tools.length === 0)) {
+	if (
+		(!Array.isArray(params.tools) || params.tools.length === 0) &&
+		(params.tool_choice === "none" || isForcedToolChoice(params.tool_choice))
+	) {
 		// `tool_choice: "none"` with no tools to gate is redundant and also
 		// trips LiteLLM → Bedrock: the proxy serializes the directive into a
 		// `toolConfig` block, and Bedrock requires `toolConfig.tools` to be
@@ -1681,6 +1834,8 @@ function buildParams(
 		// Side-channel turns hit this: `/btw` and IRC background replies route
 		// through `AgentSession.runEphemeralTurn`, which sets `context.tools = []`
 		// and `toolChoice: "none"` (see packages/coding-agent/src/session/agent-session.ts).
+		// The same empty-tools case applies after leftover-union quarantine: a
+		// leftover `"required"` / named force would 400 just like the bad schema.
 		delete params.tool_choice;
 	}
 
@@ -1696,11 +1851,16 @@ function buildParams(
 		delete params.tool_choice;
 	}
 
+	if (shouldDropAutoToolChoiceForReasoning(model, initialCompat, params.tool_choice, options)) {
+		delete params.tool_choice;
+	}
+
 	const finalPolicy = resolveOpenAICompatPolicy(model, {
 		endpoint: "chat-completions",
 		reasoning: options?.reasoning,
 		disableReasoning: options?.disableReasoning,
 		toolChoice: params.tool_choice,
+		hasTools: Array.isArray(params.tools) && params.tools.length > 0,
 	});
 	const compat = finalPolicy.compat as ResolvedOpenAICompat;
 	const messages = convertMessages(model, context, compat);
@@ -1725,7 +1885,11 @@ function buildParams(
 	}
 	applyChatCompletionsToolStream(params, model, compat);
 
-	applyChatCompletionsCompatPolicy(params, finalPolicy);
+	applyChatCompletionsReasoningParams(params, model, compat, {
+		...options,
+		toolChoice: params.tool_choice,
+		hasTools: Array.isArray(params.tools) && params.tools.length > 0,
+	});
 	dropOpenRouterKimiForcedToolReasoning(params, model, finalPolicy);
 
 	applyOpenAIGatewayRouting(params, compat, cacheRetention !== "none");
@@ -1735,13 +1899,19 @@ function buildParams(
 	});
 	applyOpenAIChatCompletionsPromptCachePolicy(params, model, options);
 
-	return { params, toolStrictMode, strictToolsApplied };
+	return {
+		params,
+		toolStrictMode,
+		strictToolsApplied,
+		reasoningEffortFallbackAllowed: finalPolicy.reasoning.disableReason !== "tools",
+	};
 }
 
 export function parseChunkUsage(
 	rawUsage: object,
 	model: Model<"openai-completions">,
 	premiumRequests: number | undefined,
+	timestamp?: number,
 ): AssistantMessage["usage"] {
 	const usageLike = rawUsage as OpenAICompletionsUsageLike;
 	const rawPromptTokenDetails = usageLike.prompt_tokens_details;
@@ -1783,8 +1953,8 @@ export function parseChunkUsage(
 		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
 		...(premiumRequests !== undefined ? { premiumRequests } : {}),
 	};
-	calculateCost(model, usage);
-	applyOpenRouterReportedCost(model, usage, rawUsage);
+	calculateCost(model, usage, timestamp);
+	applyProviderReportedCost(model, usage, rawUsage);
 	return usage;
 }
 
@@ -1955,7 +2125,7 @@ export function convertMessages(
 						content.push({
 							type: "image_url",
 							image_url: {
-								url: `data:${item.mimeType};base64,${item.data}`,
+								url: item.url ?? `data:${item.mimeType};base64,${item.data}`,
 								// Chat Completions has no "original"; omit it (provider default).
 								...(item.detail && item.detail !== "original" ? { detail: item.detail } : {}),
 							},
@@ -2172,26 +2342,28 @@ export function convertMessages(
 				assistantMsg.tool_calls = toolCalls.map((tc, toolCallIndex) => {
 					const toolCallId = ensureToolCallId(tc.id, `${i}:${toolCallIndex}:${tc.name}`, msg);
 					rememberToolCallId(tc.id, toolCallId);
-					return {
+					const replayedToolCall: OpenAICompletionsFunctionToolCall = {
 						id: normalizeMistralToolId(toolCallId, compat.requiresMistralToolIds),
-						type: "function" as const,
+						type: "function",
 						function: {
 							name: tc.name,
 							arguments: serializeToolArguments(tc.arguments),
 						},
 					};
+					const extraContent = parseGeminiThoughtSignatureExtraContent(tc.thoughtSignature);
+					if (extraContent) replayedToolCall.extra_content = extraContent;
+					return replayedToolCall;
 				});
-				const reasoningDetails = toolCalls
-					.filter(tc => tc.thoughtSignature)
-					.map(tc => {
-						try {
-							const parsed: unknown = JSON.parse(tc.thoughtSignature!);
-							return parsed;
-						} catch {
-							return null;
-						}
-					})
-					.filter(Boolean);
+				const reasoningDetails = toolCalls.flatMap(tc => {
+					const thoughtSignature = tc.thoughtSignature;
+					if (!thoughtSignature) return [];
+					try {
+						const parsed: unknown = JSON.parse(thoughtSignature);
+						return getGeminiThoughtSignatureExtraContent(parsed) ? [] : [parsed];
+					} catch {
+						return [];
+					}
+				});
 				if (reasoningDetails.length > 0) {
 					assistantMsg.reasoning_details = reasoningDetails;
 				}
@@ -2262,7 +2434,7 @@ export function convertMessages(
 							imageBlocks.push({
 								type: "image_url",
 								image_url: {
-									url: `data:${block.mimeType};base64,${block.data}`,
+									url: block.url ?? `data:${block.mimeType};base64,${block.data}`,
 								},
 							});
 						}
@@ -2314,9 +2486,12 @@ function convertTools(
 	compat: ResolvedOpenAICompat,
 	toolStrictModeOverride?: ToolStrictModeOverride,
 ): BuiltOpenAICompletionTools {
+	const rejectRootObjectUnion = compat.rejectRootObjectUnion;
 	const adaptedTools = tools.map(tool => {
 		const strict = !NO_STRICT && compat.supportsStrictMode !== false && tool.strict !== false;
-		const baseParameters = toolWireSchema(tool);
+		const baseParameters = rejectRootObjectUnion
+			? flattenExclusiveRequiredRootUnion(toolWireSchema(tool))
+			: toolWireSchema(tool);
 		const adapted = adaptSchemaForStrict(baseParameters, strict);
 		return {
 			tool,
@@ -2336,47 +2511,55 @@ function convertTools(
 					: "none"
 				: "mixed";
 
+	const wireTools: ChatCompletionTool[] = [];
+	let anyStrictEmitted = false;
+	for (const { tool, baseParameters, parameters, strict } of adaptedTools) {
+		const includeStrict = toolStrictMode === "all_strict" || (toolStrictMode === "mixed" && strict);
+		// `strict: false` is semantically distinct from omitted `strict` on some
+		// backends: with it absent, optional properties may be over-filled with
+		// placeholder values (#4336). Preserve the author's explicit `false`,
+		// but only in "mixed" mode against a provider that understands the
+		// field — the `all_strict → none` collapse and `supportsStrictMode:
+		// false` paths deliberately keep the wire flag uniformly absent.
+		const includeExplicitFalse =
+			!includeStrict && tool.strict === false && toolStrictMode === "mixed" && compat.supportsStrictMode !== false;
+		const wireParameters = includeStrict ? parameters : baseParameters;
+		// Moonshot/Kimi native hosts validate against the stricter MFJS subset
+		// (const→enum, typed enums, no validators) and 400 otherwise.
+		// Grammar-constrained local backends (llama.cpp, LM Studio, vLLM)
+		// build a GBNF grammar from the schema and 400 with
+		// `Unrecognized schema: true` on the bare boolean subschema
+		// `toolWireSchema` emits for open fields (issue #5914).
+		const emittedParameters =
+			compat.toolSchemaFlavor === "moonshot-mfjs"
+				? (normalizeSchemaForMoonshot(wireParameters) as Record<string, unknown>)
+				: compat.toolSchemaFlavor === "grammar"
+					? sanitizeSchemaForGrammar(wireParameters)
+					: wireParameters;
+		const violation = findStrictToolSchemaViolation(emittedParameters, "#", { rejectRootObjectUnion });
+		if (violation) {
+			logger.warn(
+				`Tool "${tool.name}" omitted from the openai-completions request: its parameter schema is invalid for this provider at ${violation} (an enum/const value cannot match its declared type, or leftover xAI object-root union). Other tools are unaffected.`,
+			);
+			continue;
+		}
+		if (includeStrict) anyStrictEmitted = true;
+		wireTools.push({
+			type: "function",
+			function: {
+				name: tool.name,
+				description: tool.description || "",
+				parameters: emittedParameters,
+				// Only include strict if provider supports it. Some reject unknown fields.
+				...(includeStrict ? { strict: true } : includeExplicitFalse ? { strict: false } : {}),
+			},
+		});
+	}
+
 	return {
-		tools: adaptedTools.map(({ tool, baseParameters, parameters, strict }) => {
-			const includeStrict = toolStrictMode === "all_strict" || (toolStrictMode === "mixed" && strict);
-			// `strict: false` is semantically distinct from omitted `strict` on some
-			// backends: with it absent, optional properties may be over-filled with
-			// placeholder values (#4336). Preserve the author's explicit `false`,
-			// but only in "mixed" mode against a provider that understands the
-			// field — the `all_strict → none` collapse and `supportsStrictMode:
-			// false` paths deliberately keep the wire flag uniformly absent.
-			const includeExplicitFalse =
-				!includeStrict &&
-				tool.strict === false &&
-				toolStrictMode === "mixed" &&
-				compat.supportsStrictMode !== false;
-			const wireParameters = includeStrict ? parameters : baseParameters;
-			return {
-				type: "function",
-				function: {
-					name: tool.name,
-					description: tool.description || "",
-					// Moonshot/Kimi native hosts validate against the stricter MFJS subset
-					// (const→enum, typed enums, no validators) and 400 otherwise.
-					// Grammar-constrained local backends (llama.cpp, LM Studio, vLLM)
-					// build a GBNF grammar from the schema and 400 with
-					// `Unrecognized schema: true` on the bare boolean subschema
-					// `toolWireSchema` emits for open fields (issue #5914).
-					parameters:
-						compat.toolSchemaFlavor === "moonshot-mfjs"
-							? (normalizeSchemaForMoonshot(wireParameters) as Record<string, unknown>)
-							: compat.toolSchemaFlavor === "grammar"
-								? sanitizeSchemaForGrammar(wireParameters)
-								: wireParameters,
-					// Only include strict if provider supports it. Some reject unknown fields.
-					...(includeStrict ? { strict: true } : includeExplicitFalse ? { strict: false } : {}),
-				},
-			};
-		}),
+		tools: wireTools,
 		toolStrictMode,
-		strictToolsApplied:
-			tools.length > 0 &&
-			(toolStrictMode === "all_strict" || (toolStrictMode === "mixed" && adaptedTools.some(tool => tool.strict))),
+		strictToolsApplied: wireTools.length > 0 && anyStrictEmitted,
 	};
 }
 
@@ -2388,9 +2571,10 @@ function mapStopReason(reason: ChatCompletionChunk.Choice["finish_reason"] | str
 	errorMessage?: string;
 } {
 	if (reason === null) return { stopReason: "stop" };
-	// OpenAI-compatible Gemini gateways may emit native uppercase values such
-	// as STOP and MAX_TOKENS. Match case-insensitively while retaining `reason`
-	// for diagnostics on unknown values.
+	// Some OpenAI-compatible gateways fronting Google Gemini backends emit the
+	// native uppercase finish reasons (`STOP`, `MAX_TOKENS`) instead of the
+	// lowercase OpenAI contract values. Fold case so a clean completion isn't
+	// misclassified as a provider error.
 	const normalized = typeof reason === "string" ? reason.toLowerCase() : reason;
 	switch (normalized) {
 		case "stop":
@@ -2415,8 +2599,10 @@ function mapStopReason(reason: ChatCompletionChunk.Choice["finish_reason"] | str
 			return { stopReason: "error", errorMessage: "Provider returned error finish_reason" };
 		case "insufficient_system_resource":
 			// DeepSeek kills the generation mid-stream when its inference system runs
-			// out of resources. Treat the provider-side capacity failure like the
-			// bare `error` case so the session retry classifier retries the turn.
+			// out of resources (docs: "the request is interrupted due to insufficient
+			// resource of the inference system"). Server-side capacity failure — like
+			// the bare `error` case, word the message to match the transient-transport
+			// retry pattern so the turn is auto-retried instead of pinned as an error.
 			return {
 				stopReason: "error",
 				errorMessage: "Provider returned error finish_reason: insufficient_system_resource",

@@ -7,16 +7,17 @@ import { ThinkingLevel } from "@oh-my-soup/pi-agent-core";
 import { buildModel } from "@oh-my-soup/pi-catalog/build";
 import { getSupportedEfforts } from "@oh-my-soup/pi-catalog/model-thinking";
 import { getBundledModel } from "@oh-my-soup/pi-catalog/models";
+import { MODEL_ROLE_IDS } from "@oh-my-soup/pi-coding-agent/config/model-roles";
 import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
-import { AssistantMessageComponent } from "@oh-my-soup/pi-coding-agent/modes/components/assistant-message";
-import { ReadToolGroupComponent } from "@oh-my-soup/pi-coding-agent/modes/components/read-tool-group";
-import { ToolExecutionComponent } from "@oh-my-soup/pi-coding-agent/modes/components/tool-execution";
+import { AssistantMessageComponent } from "@oh-my-soup/pi-tui/chat/assistant-message";
+import { ReadToolGroupComponent } from "@oh-my-soup/pi-tui/chat/read-tool-group";
+import { ToolExecutionComponent } from "@oh-my-soup/pi-tui/chat/tool-execution";
 import { SelectorController } from "@oh-my-soup/pi-coding-agent/modes/controllers/selector-controller";
-import { getThemeByName, setThemeInstance } from "@oh-my-soup/pi-coding-agent/modes/theme/theme";
+import { getThemeByName, setThemeInstance } from "@oh-my-soup/pi-tui/theme";
 import type { InteractiveModeContext } from "@oh-my-soup/pi-coding-agent/modes/types";
 import type { ResolvedRoleModel } from "@oh-my-soup/pi-coding-agent/session/agent-session";
-import { AgentStorage } from "@oh-my-soup/pi-coding-agent/session/agent-storage";
-import { AUTO_THINKING } from "@oh-my-soup/pi-coding-agent/thinking";
+import { AUTO_THINKING } from "@oh-my-soup/pi-tui/thinking";
+import { setTerminalHyperlinks, TERMINAL } from "@oh-my-soup/pi-tui";
 import { removeSyncWithRetries, Snowflake } from "@oh-my-soup/pi-utils";
 import { beginSettingsTest, restoreSettingsTestState, type SettingsTestState } from "./helpers/settings-test-state";
 
@@ -68,6 +69,32 @@ describe("selector setting side effects", () => {
 		expect(invalidate).toHaveBeenCalledTimes(1);
 		expect(requestRender).toHaveBeenCalledTimes(1);
 	});
+	it("applies tui.hyperlinks changes to live renderers", () => {
+		const originalHyperlinks = TERMINAL.hyperlinks;
+		const statusInvalidate = vi.fn();
+		const invalidate = vi.fn();
+		const requestRender = vi.fn();
+		const controller = new SelectorController({
+			statusLine: { invalidate: statusInvalidate },
+			ui: { invalidate, requestRender },
+		} as unknown as InteractiveModeContext);
+
+		try {
+			setTerminalHyperlinks(false);
+			Settings.instance.override("tui.hyperlinks", "always");
+			controller.handleSettingChange("tui.hyperlinks", "always");
+			expect(TERMINAL.hyperlinks).toBe(true);
+
+			Settings.instance.override("tui.hyperlinks", "off");
+			controller.handleSettingChange("tui.hyperlinks", "off");
+			expect(TERMINAL.hyperlinks).toBe(false);
+			expect(statusInvalidate).toHaveBeenCalledTimes(2);
+			expect(invalidate).toHaveBeenCalledTimes(2);
+			expect(requestRender).toHaveBeenCalledTimes(2);
+		} finally {
+			setTerminalHyperlinks(originalHyperlinks);
+		}
+	});
 	it("applies memory backend changes to the live session", () => {
 		const applyMemoryBackend = vi.fn(async () => {});
 		const controller = new SelectorController({
@@ -96,20 +123,36 @@ describe("selector setting side effects", () => {
 		expect(requestRender).toHaveBeenCalledTimes(1);
 	});
 
+	it("re-enables live advisor runtime to rebuild when advisor.maxNotesPerUpdate changes in /settings", () => {
+		const setAdvisorEnabled = vi.fn();
+		const isAdvisorEnabled = vi.fn().mockReturnValue(true);
+		const requestRender = vi.fn();
+		const controller = new SelectorController({
+			session: { setAdvisorEnabled, isAdvisorEnabled },
+			ui: { requestRender },
+		} as unknown as InteractiveModeContext);
+
+		controller.handleSettingChange("advisor.maxNotesPerUpdate", 3);
+
+		expect(isAdvisorEnabled).toHaveBeenCalledTimes(1);
+		expect(setAdvisorEnabled).toHaveBeenCalledWith(true);
+		expect(requestRender).toHaveBeenCalledTimes(1);
+	});
+
 	for (const id of ["terminal.showImages", "showImages"]) {
 		for (const visible of [false, true]) {
 			it(`updates every image owner and rebuilds the transcript when ${id}=${visible}`, () => {
 				const setShowImages = vi.fn();
 				const setImagesVisible = vi.fn();
 				const clearInlineImages = vi.fn();
-				const resetDisplay = vi.fn();
+				const requestRender = vi.fn();
 				const tool = Object.create(ToolExecutionComponent.prototype) as ToolExecutionComponent;
 				tool.setShowImages = setShowImages;
 				const assistant = Object.create(AssistantMessageComponent.prototype) as AssistantMessageComponent;
 				assistant.setImagesVisible = setImagesVisible;
 				const controller = new SelectorController({
 					chatContainer: { children: [tool, assistant] },
-					ui: { clearInlineImages, resetDisplay },
+					ui: { clearInlineImages, requestRender },
 				} as unknown as InteractiveModeContext);
 
 				controller.handleSettingChange(id, visible);
@@ -117,10 +160,10 @@ describe("selector setting side effects", () => {
 				expect(setShowImages).toHaveBeenCalledWith(visible);
 				expect(setImagesVisible).toHaveBeenCalledWith(visible);
 				expect(clearInlineImages).toHaveBeenCalledTimes(visible ? 0 : 1);
-				expect(resetDisplay).toHaveBeenCalledTimes(1);
+				expect(requestRender).toHaveBeenCalledTimes(1);
 				if (!visible) {
 					expect(clearInlineImages.mock.invocationCallOrder[0]).toBeLessThan(
-						resetDisplay.mock.invocationCallOrder[0],
+						requestRender.mock.invocationCallOrder[0],
 					);
 				}
 			});
@@ -167,6 +210,25 @@ describe("selector setting side effects", () => {
 		});
 	}
 
+	for (const enabled of [false, true]) {
+		it(`rebuilds the transcript when display.showTokenUsage=${enabled} changes in /settings`, () => {
+			const rebuildChatFromMessages = vi.fn();
+			const resetDisplay = vi.fn();
+			const controller = new SelectorController({
+				rebuildChatFromMessages,
+				ui: { resetDisplay },
+			} as unknown as InteractiveModeContext);
+
+			controller.handleSettingChange("display.showTokenUsage", enabled);
+
+			expect(rebuildChatFromMessages).toHaveBeenCalledTimes(1);
+			expect(resetDisplay).toHaveBeenCalledTimes(1);
+			expect(rebuildChatFromMessages.mock.invocationCallOrder[0]).toBeLessThan(
+				resetDisplay.mock.invocationCallOrder[0],
+			);
+		});
+	}
+
 	it("clears stale default role thinking when auto is selected", async () => {
 		const testTheme = await getThemeByName("dark");
 		if (!testTheme) throw new Error("Failed to load dark theme for model selector test");
@@ -181,6 +243,7 @@ describe("selector setting side effects", () => {
 			modelRoles: { default: `${previousModel.provider}/${previousModel.id}:high` },
 		});
 		const setModel = vi.fn(async () => ({ switched: true }));
+		const assignmentApplied = Promise.withResolvers<void>();
 		const autoApplied = Promise.withResolvers<void>();
 		const setThinkingLevel = vi.fn((level: ThinkingLevel | typeof AUTO_THINKING, persist: boolean) => {
 			if (level === AUTO_THINKING && persist) {
@@ -221,8 +284,8 @@ describe("selector setting side effects", () => {
 			},
 			statusLine: { invalidate: vi.fn() },
 			updateEditorBorderColor: vi.fn(),
-			keybindings: { getKeys: () => [] },
-			showStatus: vi.fn(),
+			keybindings: { getKeys: () => [], getDisplayString: () => "" },
+			showStatus: vi.fn(() => assignmentApplied.resolve()),
 			showError: vi.fn(),
 		} as unknown as InteractiveModeContext);
 
@@ -236,6 +299,8 @@ describe("selector setting side effects", () => {
 			hub.handleInput("\n"); // Enter the role rows.
 			hub.handleInput("\n"); // Assign DEFAULT.
 			hub.handleInput("\n"); // Pick the scoped replacement model.
+			await assignmentApplied.promise;
+			await Promise.resolve();
 
 			const levels = [ThinkingLevel.Inherit, ThinkingLevel.Off, AUTO_THINKING, ...getSupportedEfforts(nextModel)];
 			const highIndex = levels.indexOf(ThinkingLevel.High);
@@ -254,6 +319,100 @@ describe("selector setting side effects", () => {
 				}),
 			);
 			expect(setThinkingLevel).toHaveBeenLastCalledWith(AUTO_THINKING, true);
+		} finally {
+			hub.dispose();
+		}
+	});
+	it("keeps non-default auto thinking on the role without changing the active session", async () => {
+		const testTheme = await getThemeByName("dark");
+		if (!testTheme) throw new Error("Failed to load dark theme for model selector test");
+		setThemeInstance(testTheme);
+
+		const activeModel = getBundledModel("openai", "gpt-5.5");
+		const taskModel = getBundledModel("openai-codex", "gpt-5.6-sol");
+		if (!activeModel || !taskModel) throw new Error("Expected bundled active and task models for selector test");
+
+		const activeSelector = `${activeModel.provider}/${activeModel.id}`;
+		const taskSelector = `${taskModel.provider}/${taskModel.id}`;
+		const settings = Settings.isolated({
+			defaultThinkingLevel: ThinkingLevel.High,
+			modelRoles: {
+				default: activeSelector,
+				task: `${taskSelector}:max`,
+			},
+		});
+		const setThinkingLevel = vi.fn();
+		const assignmentApplied = Promise.withResolvers<void>();
+		const showStatus = vi.fn((message: string) => {
+			if (message.startsWith("TASK model:")) assignmentApplied.resolve();
+		});
+		let captured: unknown;
+		const controller = new SelectorController({
+			ui: {
+				requestRender: vi.fn(),
+				setFocus: vi.fn(),
+				showOverlay: vi.fn((component: unknown) => {
+					captured = component;
+					return { hide: vi.fn() };
+				}),
+				terminal: { rows: 40 },
+			},
+			editorContainer: { clear: vi.fn(), addChild: vi.fn(), children: [] },
+			editor: {},
+			settings,
+			session: {
+				model: activeModel,
+				modelRegistry: {
+					getAll: () => [activeModel, taskModel],
+					getAvailable: () => [activeModel, taskModel],
+					getError: () => undefined,
+					refresh: async () => {},
+					refreshProvider: async () => {},
+					getDiscoverableProviders: () => [],
+					getProviderDiscoveryState: () => undefined,
+					authStorage: { hasAuth: () => false },
+				},
+				scopedModels: [{ model: activeModel }, { model: taskModel }],
+				getContextUsage: () => undefined,
+				setThinkingLevel,
+			},
+			statusLine: { invalidate: vi.fn() },
+			updateEditorBorderColor: vi.fn(),
+			keybindings: { getKeys: () => [], getDisplayString: () => "" },
+			showStatus,
+			showError: vi.fn(),
+		} as unknown as InteractiveModeContext);
+
+		controller.showModelSelector();
+		const hub = captured as
+			| { handleInput(data: string): void; render(width: number): string[]; dispose(): void }
+			| undefined;
+		if (!hub) throw new Error("Expected model hub overlay to be shown");
+		try {
+			hub.handleInput("\x1b[A"); // All models → Roles.
+			hub.handleInput("\n"); // Enter the role rows.
+			const taskOffset = MODEL_ROLE_IDS.indexOf("task") - MODEL_ROLE_IDS.indexOf("default");
+			for (let i = 0; i < taskOffset; i++) hub.handleInput("\x1b[B"); // Default → task.
+			hub.handleInput("t");
+
+			const levels = [ThinkingLevel.Inherit, ThinkingLevel.Off, AUTO_THINKING, ...getSupportedEfforts(taskModel)];
+			const autoIndex = levels.indexOf(AUTO_THINKING);
+			const maxIndex = levels.indexOf(ThinkingLevel.Max);
+			if (maxIndex < autoIndex) throw new Error("Expected task model to support max thinking");
+			for (let i = autoIndex; i < maxIndex; i++) hub.handleInput("\x1b[D");
+			hub.handleInput("\n");
+			await assignmentApplied.promise;
+
+			expect(settings.getModelRole("task")).toBe(`${taskSelector}:auto`);
+			expect(settings.get("defaultThinkingLevel")).toBe(ThinkingLevel.High);
+			expect(setThinkingLevel).not.toHaveBeenCalled();
+			const lines = hub.render(220).map(line => stripVTControlCharacters(line));
+			const defaultRow = lines.find(line => line.includes("DEFAULT"));
+			const taskRow = lines.find(line => line.includes("TASK"));
+			expect(defaultRow).toContain("high");
+			expect(defaultRow).not.toContain("auto");
+			expect(taskRow).toContain("auto");
+			expect(taskRow).not.toContain("max");
 		} finally {
 			hub.dispose();
 		}
@@ -304,7 +463,7 @@ describe("selector setting side effects", () => {
 			},
 			statusLine: { invalidate: vi.fn() },
 			updateEditorBorderColor: vi.fn(),
-			keybindings: { getKeys: () => [] },
+			keybindings: { getKeys: () => [], getDisplayString: () => "" },
 			showStatus,
 			showError: vi.fn(),
 		} as unknown as InteractiveModeContext);
@@ -392,7 +551,7 @@ describe("selector setting side effects", () => {
 			},
 			statusLine: { invalidate: vi.fn() },
 			updateEditorBorderColor: vi.fn(),
-			keybindings: { getKeys: () => [] },
+			keybindings: { getKeys: () => [], getDisplayString: () => "" },
 			showStatus,
 			showError: vi.fn(),
 		} as unknown as InteractiveModeContext);
@@ -410,6 +569,7 @@ describe("selector setting side effects", () => {
 			hub.handleInput("\x1b[B"); // Project scope → global scope.
 			hub.handleInput("\n");
 			await assignmentApplied.promise;
+			await Promise.resolve();
 
 			expect(setModel).not.toHaveBeenCalled();
 			expect(settings.getGlobalModelRole("default")).toBe(globalSelector);
@@ -429,6 +589,7 @@ describe("selector setting side effects", () => {
 			hub.handleInput("\x1b[B"); // Project scope → global scope.
 			hub.handleInput("\n");
 			await capturedRuntimeAssignmentApplied.promise;
+			await Promise.resolve();
 
 			expect(setModel).not.toHaveBeenCalled();
 			expect(settings.getGlobalModelRole("default")).toBe(globalSelector);
@@ -491,7 +652,7 @@ describe("selector setting side effects", () => {
 			},
 			statusLine: { invalidate: vi.fn() },
 			updateEditorBorderColor: vi.fn(),
-			keybindings: { getKeys: () => [] },
+			keybindings: { getKeys: () => [], getDisplayString: () => "" },
 			showStatus,
 			showError: vi.fn(),
 		} as unknown as InteractiveModeContext);
@@ -593,7 +754,7 @@ describe("selector setting side effects", () => {
 				},
 				statusLine: { invalidate: vi.fn() },
 				updateEditorBorderColor: vi.fn(),
-				keybindings: { getKeys: () => [] },
+				keybindings: { getKeys: () => [], getDisplayString: () => "" },
 				showStatus,
 				showError: vi.fn(),
 			} as unknown as InteractiveModeContext);
@@ -701,7 +862,7 @@ describe("selector setting side effects", () => {
 				},
 				statusLine: { invalidate: vi.fn() },
 				updateEditorBorderColor: vi.fn(),
-				keybindings: { getKeys: () => [] },
+				keybindings: { getKeys: () => [], getDisplayString: () => "" },
 				showStatus,
 				showError: vi.fn(),
 			} as unknown as InteractiveModeContext);
@@ -718,6 +879,7 @@ describe("selector setting side effects", () => {
 				hub.handleInput("\n"); // Pick the project model.
 				hub.handleInput("\n"); // Save to project scope.
 				await projectAssignmentApplied.promise;
+				await Promise.resolve();
 				hub.handleInput("\x1b[C"); // Inherit → off.
 				hub.handleInput("\x1b[C"); // Off → auto.
 				hub.handleInput("\n");
@@ -743,6 +905,7 @@ describe("selector setting side effects", () => {
 				hub.handleInput("\x1b[B"); // Project scope → global scope.
 				hub.handleInput("\n"); // Save the hidden global fallback.
 				await globalAssignmentApplied.promise;
+				await Promise.resolve();
 
 				expect(settings.getGlobalModelRole("default")).toBe(projectSelector);
 				expect(settings.getModelRole("default")).toBe(overlaySelector);
@@ -752,7 +915,6 @@ describe("selector setting side effects", () => {
 				hub.dispose();
 			}
 		} finally {
-			AgentStorage.resetInstance();
 			if (fs.existsSync(testDir)) removeSyncWithRetries(testDir);
 		}
 	});
@@ -806,7 +968,7 @@ describe("selector setting side effects", () => {
 			},
 			statusLine: { invalidate: vi.fn() },
 			updateEditorBorderColor: vi.fn(),
-			keybindings: { getKeys: () => [] },
+			keybindings: { getKeys: () => [], getDisplayString: () => "" },
 			showStatus,
 			showError: vi.fn(),
 		} as unknown as InteractiveModeContext);
@@ -880,7 +1042,7 @@ describe("selector setting side effects", () => {
 			},
 			statusLine: { invalidate: vi.fn() },
 			updateEditorBorderColor: vi.fn(),
-			keybindings: { getKeys: () => [] },
+			keybindings: { getKeys: () => [], getDisplayString: () => "" },
 			showStatus,
 			showError,
 		} as unknown as InteractiveModeContext);
@@ -974,7 +1136,7 @@ describe("selector setting side effects", () => {
 			},
 			statusLine: { invalidate: vi.fn() },
 			updateEditorBorderColor: vi.fn(),
-			keybindings: { getKeys: () => [] },
+			keybindings: { getKeys: () => [], getDisplayString: () => "" },
 			showModelCycleTrack,
 			showError,
 		} as unknown as InteractiveModeContext);
@@ -1048,7 +1210,7 @@ describe("selector setting side effects", () => {
 			},
 			statusLine: { invalidate: statusInvalidate },
 			updateEditorBorderColor,
-			keybindings: { getKeys: () => [] },
+			keybindings: { getKeys: () => [], getDisplayString: () => "" },
 			showStatus,
 			showError,
 		} as unknown as InteractiveModeContext);
@@ -1133,7 +1295,7 @@ describe("selector setting side effects", () => {
 			},
 			statusLine: { invalidate: vi.fn() },
 			updateEditorBorderColor: vi.fn(),
-			keybindings: { getKeys: () => [] },
+			keybindings: { getKeys: () => [], getDisplayString: () => "" },
 			showStatus: vi.fn(),
 			showError: vi.fn(),
 		} as unknown as InteractiveModeContext);
@@ -1220,7 +1382,7 @@ describe("selector setting side effects", () => {
 			},
 			statusLine: { invalidate: vi.fn() },
 			updateEditorBorderColor: vi.fn(),
-			keybindings: { getKeys: () => [] },
+			keybindings: { getKeys: () => [], getDisplayString: () => "" },
 			showStatus,
 			showError: vi.fn(),
 		} as unknown as InteractiveModeContext);
@@ -1305,7 +1467,7 @@ describe("selector setting side effects", () => {
 			},
 			statusLine: { invalidate: vi.fn() },
 			updateEditorBorderColor: vi.fn(),
-			keybindings: { getKeys: () => [] },
+			keybindings: { getKeys: () => [], getDisplayString: () => "" },
 			showStatus,
 			showError,
 		} as unknown as InteractiveModeContext);
@@ -1408,7 +1570,7 @@ describe("selector setting side effects", () => {
 				},
 				statusLine: { invalidate: statusInvalidate },
 				updateEditorBorderColor,
-				keybindings: { getKeys: () => [] },
+				keybindings: { getKeys: () => [], getDisplayString: () => "" },
 				showStatus,
 				showError,
 			} as unknown as InteractiveModeContext);
@@ -1515,7 +1677,7 @@ describe("selector setting side effects", () => {
 				},
 				statusLine: { invalidate: vi.fn() },
 				updateEditorBorderColor: vi.fn(),
-				keybindings: { getKeys: () => [] },
+				keybindings: { getKeys: () => [], getDisplayString: () => "" },
 				showStatus,
 				showError,
 			} as unknown as InteractiveModeContext);
@@ -1605,7 +1767,7 @@ describe("selector setting side effects", () => {
 			},
 			statusLine: { invalidate: vi.fn() },
 			updateEditorBorderColor: vi.fn(),
-			keybindings: { getKeys: () => [] },
+			keybindings: { getKeys: () => [], getDisplayString: () => "" },
 			showStatus,
 			showError: vi.fn(),
 		} as unknown as InteractiveModeContext);
@@ -1686,7 +1848,7 @@ describe("selector setting side effects", () => {
 			},
 			statusLine: { invalidate: vi.fn() },
 			updateEditorBorderColor: vi.fn(),
-			keybindings: { getKeys: () => [] },
+			keybindings: { getKeys: () => [], getDisplayString: () => "" },
 			showStatus,
 			showError: vi.fn(),
 		} as unknown as InteractiveModeContext);

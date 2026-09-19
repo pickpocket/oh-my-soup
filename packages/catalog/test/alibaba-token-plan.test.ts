@@ -1,20 +1,24 @@
 import { describe, expect, test } from "bun:test";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
 import { Effort } from "@oh-my-soup/pi-catalog/effort";
+import { seedModels } from "@oh-my-soup/pi-catalog/compat/providers";
 import { getBundledModel } from "@oh-my-soup/pi-catalog/models";
-import { CATALOG_PROVIDERS } from "@oh-my-soup/pi-catalog/provider-models/descriptors";
+import { providerEntry } from "@oh-my-soup/pi-catalog/compat/providers";
 import {
 	ALIBABA_TOKEN_PLAN_BASE_URL,
-	ALIBABA_TOKEN_PLAN_STATIC_MODELS,
 	alibabaTokenPlanModelManagerOptions,
 } from "@oh-my-soup/pi-catalog/provider-models/openai-compat";
 import type { FetchImpl } from "@oh-my-soup/pi-catalog/types";
 import { serializeAlibabaTokenPlanCredential } from "@oh-my-soup/pi-catalog/wire/alibaba-token-plan";
 
+const alibabaTokenPlanModels = seedModels<"openai-completions">("alibaba-token-plan");
+
 describe("QwenCloud Token Plan provider", () => {
 	test("ships the documented Individual text-model allowlist", () => {
-		expect(ALIBABA_TOKEN_PLAN_STATIC_MODELS.map(model => model.id)).toEqual([
+		expect(alibabaTokenPlanModels.map(model => model.id)).toEqual([
 			"qwen3.8-max-preview",
 			"qwen3.8-max",
+			"qwen3.8-flash",
 			"qwen3.7-max",
 			"qwen3.7-plus",
 			"qwen3.6-flash",
@@ -22,7 +26,7 @@ describe("QwenCloud Token Plan provider", () => {
 			"deepseek-v4-pro",
 		]);
 
-		const preview = ALIBABA_TOKEN_PLAN_STATIC_MODELS[0];
+		const preview = alibabaTokenPlanModels[0];
 		expect(preview).toMatchObject({
 			provider: "alibaba-token-plan",
 			baseUrl: ALIBABA_TOKEN_PLAN_BASE_URL,
@@ -39,7 +43,7 @@ describe("QwenCloud Token Plan provider", () => {
 			},
 		});
 
-		expect(ALIBABA_TOKEN_PLAN_STATIC_MODELS.find(model => model.id === "glm-5.2")?.thinking?.efforts).toEqual([
+		expect(alibabaTokenPlanModels.find(model => model.id === "glm-5.2")?.thinking?.efforts).toEqual([
 			Effort.Minimal,
 			Effort.Low,
 			Effort.Medium,
@@ -75,10 +79,12 @@ describe("QwenCloud Token Plan provider", () => {
 						},
 						{ id: "deepseek-v4-flash", owned_by: "qwencloud" },
 						{ id: "deepseek-v4-flash-0731", owned_by: "qwencloud" },
+						{ id: "deepseek-v4-pro-0813", owned_by: "qwencloud" },
 						{ id: "kimi-k2.7-code", owned_by: "qwencloud" },
 						{ id: "MiniMax-M2.5", owned_by: "qwencloud" },
 						{ id: "qwen3.6-plus", owned_by: "qwencloud" },
 						{ id: "qwen3.8-max", owned_by: "qwencloud" },
+						{ id: "qwen3.8-flash", owned_by: "qwencloud" },
 						{ id: "deepseek-v3.2", owned_by: "qwencloud" },
 						{ id: "glm-5.1", owned_by: "qwencloud" },
 						{ id: "glm-5", owned_by: "qwencloud" },
@@ -106,6 +112,7 @@ describe("QwenCloud Token Plan provider", () => {
 			"deepseek-v3.2",
 			"deepseek-v4-flash",
 			"deepseek-v4-flash-0731",
+			"deepseek-v4-pro-0813",
 			"future-chat-model",
 			"glm-5",
 			"glm-5.1",
@@ -115,13 +122,16 @@ describe("QwenCloud Token Plan provider", () => {
 			"MiniMax-M2.5",
 			"qwen3.6-plus",
 			"qwen3.7-plus",
+			"qwen3.8-flash",
 			"qwen3.8-max",
 		]);
 		const expectedLimits = [
 			["qwen3.6-plus", 1_000_000, 65_536],
 			["qwen3.8-max", 1_000_000, 131_072],
+			["qwen3.8-flash", 1_000_000, 131_072],
 			["deepseek-v4-flash", 1_000_000, 384_000],
 			["deepseek-v4-flash-0731", 1_000_000, 384_000],
+			["deepseek-v4-pro-0813", 1_000_000, 384_000],
 			["deepseek-v3.2", 131_072, 65_536],
 			["glm-5.1", 202_752, 128_000],
 			["glm-5", 202_752, 16_384],
@@ -133,7 +143,7 @@ describe("QwenCloud Token Plan provider", () => {
 		for (const [id, contextWindow, maxTokens] of expectedLimits) {
 			expect(models?.find(model => model.id === id)).toMatchObject({ contextWindow, maxTokens });
 		}
-		for (const id of ["deepseek-v4-flash", "deepseek-v4-flash-0731"]) {
+		for (const id of ["deepseek-v4-flash", "deepseek-v4-flash-0731", "deepseek-v4-pro-0813"]) {
 			expect(models?.find(model => model.id === id)).toMatchObject({
 				reasoning: true,
 				thinking: {
@@ -168,6 +178,24 @@ describe("QwenCloud Token Plan provider", () => {
 			},
 			compat: {
 				supportsReasoningEffort: true,
+				whenThinking: {
+					thinkingFormat: "openai",
+					extraBody: { enable_thinking: true },
+				},
+			},
+		});
+		const flash = models?.find(model => model.id === "qwen3.8-flash");
+		if (!flash) throw new Error("qwen3.8-flash missing from discovery");
+		expect(buildModel(flash)).toMatchObject({
+			id: "qwen3.8-flash",
+			provider: "alibaba-token-plan",
+			reasoning: true,
+			input: ["text", "image"],
+			contextWindow: 1_000_000,
+			maxTokens: 131_072,
+			compat: {
+				supportsReasoningEffort: true,
+				replayReasoningContent: true,
 				whenThinking: {
 					thinkingFormat: "openai",
 					extraBody: { enable_thinking: true },
@@ -215,12 +243,12 @@ describe("QwenCloud Token Plan provider", () => {
 	});
 
 	test("uses Token Plan-specific environment keys and authoritative discovery", () => {
-		const descriptor = CATALOG_PROVIDERS.find(provider => provider.id === "alibaba-token-plan");
+		const descriptor = providerEntry("alibaba-token-plan");
 		expect(descriptor).toMatchObject({
 			defaultModel: "qwen3.7-plus",
 			envVars: ["ALIBABA_TOKEN_PLAN_API_KEY", "BAILIAN_TOKEN_PLAN_API_KEY"],
 			dynamicModelsAuthoritative: true,
-			catalogDiscovery: { label: "QwenCloud Token Plan" },
+			discovery: { label: "QwenCloud Token Plan" },
 		});
 	});
 });

@@ -1,18 +1,20 @@
-import { describe, expect, it, spyOn } from "bun:test";
+import { beforeAll, describe, expect, it, spyOn } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
+import { disableUserSource, enableUserSource } from "@oh-my-soup/pi-coding-agent/capability";
 import { type Skill as CapabilitySkill, skillCapability } from "@oh-my-soup/pi-coding-agent/capability/skill";
 import { getCapability } from "@oh-my-soup/pi-coding-agent/discovery";
 import { getWslWindowsHomeCandidate, runHostProbe } from "@oh-my-soup/pi-coding-agent/discovery/agents";
 import {
+	type LoadSkillsResult,
 	loadSkills,
 	loadSkillsFromDir,
 	parseSkillInvocation,
 	type Skill,
 } from "@oh-my-soup/pi-coding-agent/extensibility/skills";
 import { removeWithRetries } from "@oh-my-soup/pi-utils";
-
+import { restoreEnvValue } from "./helpers/settings-test-state";
 const fixturesDir = path.resolve(import.meta.dirname, "fixtures/skills");
 const collisionFixturesDir = path.resolve(import.meta.dirname, "fixtures/skills-collision");
 
@@ -46,8 +48,13 @@ const DISABLE_ALL_BUILTIN_SKILLS = {
 
 describe("skills", () => {
 	describe("loadSkillsFromDir", () => {
-		const loadFixtureRoot = () => loadSkillsFromDir({ dir: fixturesDir, source: "test" });
+		let fixtureRoot: LoadSkillsResult;
 
+		beforeAll(async () => {
+			fixtureRoot = await loadSkillsFromDir({ dir: fixturesDir, source: "test" });
+		});
+
+		const loadFixtureRoot = async () => fixtureRoot;
 		it("should load a valid skill from a skills root", async () => {
 			const { skills, warnings } = await loadFixtureRoot();
 			const validSkill = skills.find(skill => skill.name === "valid-skill");
@@ -157,22 +164,34 @@ describe("skills", () => {
 	});
 
 	describe("loadSkills with options", () => {
+		let customDirectorySkills: LoadSkillsResult;
+
+		beforeAll(async () => {
+			customDirectorySkills = await loadSkills({
+				...DISABLE_ALL_BUILTIN_SKILLS,
+				customDirectories: [fixturesDir],
+			});
+		});
 		it("should load from customDirectories only when built-ins disabled", async () => {
-			const { skills } = await loadSkills({ ...DISABLE_ALL_BUILTIN_SKILLS, customDirectories: [fixturesDir] });
+			const { skills } = customDirectorySkills;
 			expect(skills.length).toBeGreaterThan(0);
 			// Custom directory skills have source "custom:user"
 			expect(skills.every(s => s.source.startsWith("custom"))).toBe(true);
 		});
 
 		it("should return customDirectory skills sorted by name (case-insensitive)", async () => {
-			const { skills } = await loadSkills({ ...DISABLE_ALL_BUILTIN_SKILLS, customDirectories: [fixturesDir] });
+			const { skills } = customDirectorySkills;
 
 			expect(skills.map(s => s.name)).toEqual(expectedFixtureSkillOrder);
 		});
 
 		it("should keep user Claude skills when project .claude/skills is missing", async () => {
+			const originalClaudeConfigDir = process.env.CLAUDE_CONFIG_DIR;
+			delete process.env.CLAUDE_CONFIG_DIR;
+			delete Bun.env.CLAUDE_CONFIG_DIR;
 			const tempHomeDir = await fs.mkdtemp(path.join(os.tmpdir(), "pi-claude-home-"));
 			const tempProjectDir = await fs.mkdtemp(path.join(os.tmpdir(), "pi-claude-project-"));
+			enableUserSource("claude");
 
 			try {
 				const userSkillDir = path.join(tempHomeDir, ".claude", "skills", "user-only-skill");
@@ -197,6 +216,8 @@ describe("skills", () => {
 				const result = await claudeProvider!.load({ cwd: tempProjectDir, home: tempHomeDir, repoRoot: null });
 				expect(result.items.some(skill => skill.name === "user-only-skill" && skill.level === "user")).toBe(true);
 			} finally {
+				disableUserSource("claude");
+				restoreEnvValue("CLAUDE_CONFIG_DIR", originalClaudeConfigDir);
 				await removeWithRetries(tempProjectDir);
 				await removeWithRetries(tempHomeDir);
 			}
@@ -301,17 +322,14 @@ describe("skills", () => {
 		it("kills a host probe that never exits instead of blocking startup (#8402)", () => {
 			// Integration test against real OS timer behavior: the contract is that
 			// runHostProbe's spawnSync `timeout` actually kills a genuinely blocked
-			// child. That is a native process-lifecycle effect the kernel drives, so
-			// fake timers cannot exercise it. The child would sleep a minute (stand-in
-			// for a wedged WSL->Windows interop pipe); the 500ms probe timeout must
-			// kill it and report "unavailable" rather than hang the calling thread.
+			// child. Injecting a short deadline preserves that native lifecycle
+			// coverage without paying the production discovery budget.
 			const start = performance.now();
-			const result = runHostProbe([process.execPath, "-e", "await Bun.sleep(60_000)"]);
+			const result = runHostProbe([process.execPath, "-e", "await Bun.sleep(60_000)"], 25);
 			const elapsed = performance.now() - start;
 			expect(result).toBeUndefined();
-			// Loose bound: proves the probe returned via its own timeout, not via the
-			// child completing; a broken timeout would block far past this ceiling.
-			expect(elapsed).toBeLessThan(5_000);
+			// Loose bound proves the probe returned via its timeout, not the child.
+			expect(elapsed).toBeLessThan(1_000);
 		});
 
 		it("returns trimmed stdout for a host probe that succeeds (#8402)", () => {
@@ -584,13 +602,22 @@ describe("collision handling", () => {
 describe("parseSkillInvocation", () => {
 	describe("leading `/skill:<name>` form", () => {
 		it("parses a bare leading command", () => {
-			expect(parseSkillInvocation("/skill:foo")).toEqual({ name: "foo", args: "" });
+			expect(parseSkillInvocation("/skill:foo")).toEqual({ name: "foo", args: "", prompt: "/skill:foo" });
 		});
 
 		it("captures everything after the first space as args", () => {
 			expect(parseSkillInvocation("/skill:foo focus on auth")).toEqual({
 				name: "foo",
 				args: "focus on auth",
+				prompt: "/skill:foo focus on auth",
+			});
+		});
+
+		it("terminates the name at a newline so a multi-line draft still invokes the skill", () => {
+			expect(parseSkillInvocation("/skill:foo\nfocus on auth")).toEqual({
+				name: "foo",
+				args: "focus on auth",
+				prompt: "/skill:foo\nfocus on auth",
 			});
 		});
 
@@ -598,6 +625,7 @@ describe("parseSkillInvocation", () => {
 			expect(parseSkillInvocation("  /skill:foo focus on auth")).toEqual({
 				name: "foo",
 				args: "focus on auth",
+				prompt: "/skill:foo focus on auth",
 			});
 		});
 
@@ -611,6 +639,7 @@ describe("parseSkillInvocation", () => {
 			expect(parseSkillInvocation("fix the auth bug /skill:security-scan ")).toEqual({
 				name: "security-scan",
 				args: "fix the auth bug",
+				prompt: "fix the auth bug /skill:security-scan",
 			});
 		});
 
@@ -618,6 +647,7 @@ describe("parseSkillInvocation", () => {
 			expect(parseSkillInvocation("leading /skill:foo trailing")).toEqual({
 				name: "foo",
 				args: "leading trailing",
+				prompt: "leading /skill:foo trailing",
 			});
 		});
 
@@ -625,6 +655,7 @@ describe("parseSkillInvocation", () => {
 			expect(parseSkillInvocation("explain this\nthen use /skill:security-scan ")).toEqual({
 				name: "security-scan",
 				args: "explain this\nthen use",
+				prompt: "explain this\nthen use /skill:security-scan",
 			});
 		});
 
@@ -651,12 +682,15 @@ describe("parseSkillInvocation", () => {
 			expect(parseSkillInvocation("$echo /skill:reviewer")).toEqual({
 				name: "reviewer",
 				args: "$echo",
+				prompt: "$echo /skill:reviewer",
 			});
-			// biome-ignore lint/suspicious/noTemplateCurlyInString: testing literal string containing shell variable
+			// oxlint-disable-next-line no-template-curly-in-string -- testing literal string containing shell variable
 			expect(parseSkillInvocation("${HOME}/bin /skill:foo")).toEqual({
 				name: "foo",
-				// biome-ignore lint/suspicious/noTemplateCurlyInString: testing literal string containing shell variable
+				// oxlint-disable-next-line no-template-curly-in-string -- testing literal string containing shell variable
 				args: "${HOME}/bin",
+				// oxlint-disable-next-line no-template-curly-in-string -- testing literal string containing shell variable
+				prompt: "${HOME}/bin /skill:foo",
 			});
 		});
 

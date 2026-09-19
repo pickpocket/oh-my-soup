@@ -6,12 +6,14 @@ import * as path from "node:path";
 import { gunzipSync, gzipSync } from "node:zlib";
 import { withStatsSyncLock } from "@oh-my-soup/oms-stats/aggregator";
 import { type GcResult, runGcCommand } from "@oh-my-soup/pi-coding-agent/cli/gc-cli";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
 import {
 	getAgentDir,
 	getBlobsDir,
+	getCustomSessionFilesDir,
 	getHistoryDbPath,
 	getSessionsDir,
-	removeWithRetries,
+	getTerminalSessionsDir,
 	setAgentDir,
 	setProjectDir,
 } from "@oh-my-soup/pi-utils";
@@ -24,18 +26,10 @@ let stderrWrites: string[] = [];
 let stdoutSpy: { mockRestore(): void } | undefined;
 let stderrSpy: { mockRestore(): void } | undefined;
 let settingsState: SettingsTestState | undefined;
-let databases: Database[] = [];
 const originalExitCode = process.exitCode;
-
-function openTestDatabase(file: string): Database {
-	const database = new Database(file);
-	databases.push(database);
-	return database;
-}
 
 beforeEach(async () => {
 	settingsState = beginSettingsTest();
-	databases = [];
 	root = await fs.mkdtemp(path.join(os.tmpdir(), "oms-gc-"));
 	writes = [];
 	stderrWrites = [];
@@ -58,15 +52,7 @@ afterEach(async () => {
 	process.exitCode = originalExitCode;
 	restoreSettingsTestState(settingsState);
 	settingsState = undefined;
-	for (const database of databases) {
-		try {
-			database.close();
-		} catch {
-			// A test may have already closed it to exercise on-disk behavior.
-		}
-	}
-	databases = [];
-	await removeWithRetries(root);
+	await fs.rm(root, { recursive: true, force: true });
 });
 
 function hashFor(label: string): string {
@@ -212,6 +198,186 @@ describe("runGcCommand blob sweep", () => {
 		expect(await Bun.file(referenced).exists()).toBe(true);
 	});
 
+	test("--apply resolves breadcrumbed relative session paths from their recorded cwd", async () => {
+		const referencedHash = hashFor("custom-dir-reference");
+		const orphanHash = hashFor("custom-dir-orphan");
+		const referenced = await writeBlob(root, referencedHash, "referenced");
+		const orphan = await writeBlob(root, orphanHash, "orphan");
+		await agePath(referenced);
+		await agePath(orphan);
+
+		// A relative --session-dir transcript stored outside the managed roots.
+		const projectDir = path.join(root, "project");
+		const externalDir = path.join(projectDir, ".oms-sessions");
+		await fs.mkdir(externalDir, { recursive: true });
+		const externalFile = path.join(externalDir, "work.jsonl");
+		await Bun.write(
+			externalFile,
+			[
+				JSON.stringify({ type: "session", version: 3, id: "work", timestamp: "2026-01-01T00:00:00.000Z" }),
+				JSON.stringify({ type: "message", message: { role: "user", content: `blob:sha256:${referencedHash}` } }),
+				"",
+			].join("\n"),
+		);
+		// GC runs from another cwd, so resolving the relative path from process.cwd()
+		// would miss this transcript and delete its blob.
+		const crumbDir = getTerminalSessionsDir(root);
+		await fs.mkdir(crumbDir, { recursive: true });
+		await Bun.write(path.join(crumbDir, "tty-1"), `${projectDir}\n.oms-sessions/work.jsonl\n`);
+
+		const result = await runGcCommand({ flags: { agentDir: root, blobs: true, apply: true } });
+
+		expect(result.blobs?.referenced).toBe(1);
+		expect(result.blobs?.deleted).toBe(1);
+		expect(await Bun.file(referenced).exists()).toBe(true);
+		expect(await Bun.file(orphan).exists()).toBe(false);
+	});
+
+	test("--apply scans an exact extensionless session file after its breadcrumb is overwritten", async () => {
+		const referencedHash = hashFor("registry-reference");
+		const orphanHash = hashFor("registry-orphan");
+		const referenced = await writeBlob(root, referencedHash, "referenced");
+		const orphan = await writeBlob(root, orphanHash, "orphan");
+		await agePath(referenced);
+		await agePath(orphan);
+
+		// An extensionless --session transcript whose terminal breadcrumb was
+		// overwritten by a later session is invisible to the root-scan globs.
+		const externalDir = path.join(root, "external-sessions");
+		await fs.mkdir(externalDir, { recursive: true });
+		const externalFile = path.join(externalDir, "work");
+		await Bun.write(
+			externalFile,
+			[
+				JSON.stringify({ type: "session", version: 3, id: "work", timestamp: "2026-01-01T00:00:00.000Z" }),
+				JSON.stringify({ type: "message", message: { role: "user", content: `blob:sha256:${referencedHash}` } }),
+				"",
+			].join("\n"),
+		);
+		// Only the persistent registry records the exact file — no terminal breadcrumb exists.
+		const registryDir = getCustomSessionFilesDir(root);
+		await fs.mkdir(registryDir, { recursive: true });
+		await Bun.write(path.join(registryDir, "session-1"), externalFile);
+
+		const result = await runGcCommand({ flags: { agentDir: root, blobs: true, apply: true } });
+
+		expect(result.blobs?.referenced).toBe(1);
+		expect(result.blobs?.deleted).toBe(1);
+		expect(await Bun.file(referenced).exists()).toBe(true);
+		expect(await Bun.file(orphan).exists()).toBe(false);
+	});
+
+	test("keeps raw blob references split across chunks in journals, archives, and backups", async () => {
+		const sessionDir = path.join(getSessionsDir(root), "project");
+		const archiveDir = path.join(root, "archive", "sessions", "project");
+		const activeHash = hashFor("active-chunks");
+		const archivedHash = hashFor("archived-chunks");
+		const backupHash = hashFor("backup-chunks");
+		const orphanHash = hashFor("not-a-reference");
+		const active = await writeBlob(root, activeHash, "active");
+		const archived = await writeBlob(root, archivedHash, "archived");
+		const backup = await writeBlob(root, backupHash, "backup");
+		const orphan = await writeBlob(root, orphanHash, "orphan");
+		for (const file of [active, archived, backup, orphan]) await agePath(file);
+		const encoder = new TextEncoder();
+		const journals = new Map<string, Uint8Array<ArrayBuffer>>([
+			[path.join(sessionDir, "active.jsonl"), encoder.encode(`malformed "blob:sha256:${activeHash}`)],
+			[
+				path.join(archiveDir, "archived.jsonl.gz"),
+				gzipSync(`${" ".repeat(16 * 1024 - 20)}blob:sha256:${archivedHash}\ninvalid tail`),
+			],
+			[
+				path.join(sessionDir, "lost.jsonl.1234567890.bak"),
+				encoder.encode(`broken BLOB:SHA256:${backupHash.toUpperCase()}\r\nblob:sha256:${orphanHash}x`),
+			],
+		]);
+		for (const [file, bytes] of journals) await Bun.write(file, bytes);
+		const realFile = Bun.file.bind(Bun);
+		const fileSpy = spyOn(Bun, "file").mockImplementation((source, options) => {
+			const file = realFile(source as string, options);
+			const bytes = journals.get(String(source));
+			if (bytes) {
+				file.stream = () => {
+					let offset = 0;
+					return new ReadableStream<Uint8Array<ArrayBuffer>>({
+						pull(controller) {
+							if (offset >= bytes.length) {
+								controller.close();
+								return;
+							}
+							controller.enqueue(bytes.subarray(offset, offset + 7));
+							offset += 7;
+						},
+					});
+				};
+			}
+			return file;
+		});
+		let result: GcResult;
+		try {
+			result = await runGcCommand({ flags: { agentDir: root, blobs: true, apply: true } });
+		} finally {
+			fileSpy.mockRestore();
+		}
+
+		expect(result.blobs?.referenced).toBe(3);
+		expect(result.blobs?.deleted).toBe(1);
+		for (const file of [active, archived, backup]) expect(await Bun.file(file).exists()).toBe(true);
+		expect(await Bun.file(orphan).exists()).toBe(false);
+	});
+
+	test("aborts blob deletion when a gzip archive fails after yielding valid references", async () => {
+		const hash = hashFor("partial-archive-reference");
+		const referenced = await writeBlob(root, hash, "referenced");
+		const orphan = await writeBlob(root, hashFor("partial-archive-orphan"), "orphan");
+		await agePath(referenced);
+		await agePath(orphan);
+		const archive = path.join(root, "archive", "sessions", "project", "broken.jsonl.gz");
+		const bytes = gzipSync(`blob:sha256:${hash}\n${"{}\n".repeat(12 * 1024)}`);
+		await Bun.write(archive, bytes.subarray(0, -4));
+
+		await expect(runGcCommand({ flags: { agentDir: root, blobs: true, apply: true } })).rejects.toThrow();
+
+		expect(await Bun.file(referenced).exists()).toBe(true);
+		expect(await Bun.file(orphan).exists()).toBe(true);
+		expect(await Bun.file(path.join(root, "gc.lock")).exists()).toBe(false);
+	});
+
+	test("aborts blob deletion when a journal read fails after a complete record", async () => {
+		const orphan = await writeBlob(root, hashFor("read-error-orphan"), "orphan");
+		await agePath(orphan);
+		const session = await writeSession(root, "project", "read-error", "complete");
+		const realFile = Bun.file.bind(Bun);
+		const fileSpy = spyOn(Bun, "file").mockImplementation((source, options) => {
+			const file = realFile(source as string, options);
+			if (source === session) {
+				file.stream = () => {
+					let yielded = false;
+					return new ReadableStream<Uint8Array<ArrayBuffer>>({
+						pull(controller) {
+							if (yielded) controller.error(Object.assign(new Error("journal read failed"), { code: "EIO" }));
+							else {
+								yielded = true;
+								controller.enqueue(new TextEncoder().encode("{}\n"));
+							}
+						},
+					});
+				};
+			}
+			return file;
+		});
+		try {
+			await expect(runGcCommand({ flags: { agentDir: root, blobs: true, apply: true } })).rejects.toThrow(
+				"journal read failed",
+			);
+		} finally {
+			fileSpy.mockRestore();
+		}
+
+		expect(await Bun.file(orphan).exists()).toBe(true);
+		expect(await Bun.file(path.join(root, "gc.lock")).exists()).toBe(false);
+	});
+
 	test("uses configured gc selectors and retention defaults", async () => {
 		await agePath(await writeBlob(root, hashFor("orphan"), "orphan"));
 		await writeSession(root, "project", "archive-me", "complete", { ageDays: 10 });
@@ -239,8 +405,14 @@ describe("runGcCommand blob sweep", () => {
 		);
 	});
 
-	test("--apply reads gc config from the requested agent dir without opening settings storage", async () => {
+	test("--apply loads gc config from each requested agent dir", async () => {
+		const initializedAgentDir = path.join(root, "initialized-agent");
 		const targetAgentDir = path.join(root, "target-agent");
+		await writeConfig(
+			initializedAgentDir,
+			["gc:", "  blobs: false", "  archive: false", "  wal: false", ""].join("\n"),
+		);
+		await Settings.init({ agentDir: initializedAgentDir });
 		await writeSession(targetAgentDir, "project", "archive-me", "complete", { ageDays: 10 });
 		await writeConfig(
 			targetAgentDir,
@@ -264,7 +436,6 @@ describe("runGcCommand blob sweep", () => {
 		expect(
 			await Bun.file(path.join(targetAgentDir, "archive", "sessions", "project", "archive-me.jsonl.gz")).exists(),
 		).toBe(true);
-		expect(await Bun.file(path.join(targetAgentDir, "agent.db")).exists()).toBe(false);
 	});
 
 	test("invalid configured archive age falls back to schema default", async () => {
@@ -401,7 +572,7 @@ describe("runGcCommand history checkpoint", () => {
 	test("dry-run reports WAL checkpoint without truncating it", async () => {
 		const dbPath = getHistoryDbPath(root);
 		await fs.mkdir(path.dirname(dbPath), { recursive: true });
-		const db = openTestDatabase(dbPath);
+		const db = new Database(dbPath);
 		db.run("PRAGMA journal_mode=WAL");
 		db.run("CREATE TABLE history (id INTEGER PRIMARY KEY, prompt TEXT)");
 		db.run("INSERT INTO history (prompt) VALUES ('hello')");
@@ -421,7 +592,7 @@ describe("runGcCommand history checkpoint", () => {
 	test("--apply checkpoints history WAL", async () => {
 		const dbPath = getHistoryDbPath(root);
 		await fs.mkdir(path.dirname(dbPath), { recursive: true });
-		const db = openTestDatabase(dbPath);
+		const db = new Database(dbPath);
 		db.run("PRAGMA journal_mode=WAL");
 		db.run("CREATE TABLE history (id INTEGER PRIMARY KEY, prompt TEXT)");
 		db.run("INSERT INTO history (prompt) VALUES ('hello')");
@@ -431,8 +602,7 @@ describe("runGcCommand history checkpoint", () => {
 
 		expect(result.wal?.checkpointed).toBe(true);
 		expect(result.wal?.walBytes).toBe(0);
-		const walPath = `${dbPath}-wal`;
-		expect((await Bun.file(walPath).exists()) ? (await fs.stat(walPath)).size : 0).toBe(0);
+		expect((await fs.stat(`${dbPath}-wal`)).size).toBe(0);
 	});
 
 	test("--apply propagates WAL checkpoint failures and releases the gc lock", async () => {
@@ -449,8 +619,8 @@ describe("runGcCommand history checkpoint", () => {
 	test("--apply reports busy WAL checkpoints and releases the gc lock", async () => {
 		const dbPath = getHistoryDbPath(root);
 		await fs.mkdir(path.dirname(dbPath), { recursive: true });
-		const writer = openTestDatabase(dbPath);
-		const reader = openTestDatabase(dbPath);
+		const writer = new Database(dbPath);
+		const reader = new Database(dbPath);
 		try {
 			writer.run("PRAGMA journal_mode=WAL");
 			writer.run("CREATE TABLE history (id INTEGER PRIMARY KEY, prompt TEXT)");
@@ -486,6 +656,7 @@ describe("runGcCommand cold-session archive", () => {
 		const interrupted = await writeSession(root, "project", "interrupted", "interrupted", { ageDays: 90 });
 		await fs.mkdir(archiveMe.slice(0, -".jsonl".length), { recursive: true });
 		await Bun.write(path.join(archiveMe.slice(0, -".jsonl".length), "0.bash.log"), "artifact");
+		const original = await Bun.file(archiveMe).bytes();
 
 		const result = await runGcCommand({
 			flags: {
@@ -503,11 +674,180 @@ describe("runGcCommand cold-session archive", () => {
 		expect(result.archive?.skippedActive).toBe(2);
 		expect(await Bun.file(archiveMe).exists()).toBe(false);
 		expect(await Bun.file(archived).exists()).toBe(true);
-		expect(new TextDecoder().decode(gunzipSync(await Bun.file(archived).bytes()))).toContain('"archive-me"');
+		expect(new Uint8Array(gunzipSync(await Bun.file(archived).bytes()))).toEqual(original);
 		expect(await Bun.file(path.join(archived.slice(0, -".jsonl.gz".length), "0.bash.log")).exists()).toBe(true);
 		expect(await Bun.file(keepRecent).exists()).toBe(true);
 		expect(await Bun.file(pending).exists()).toBe(true);
 		expect(await Bun.file(interrupted).exists()).toBe(true);
+	});
+
+	test("keeps the source journal when compression encounters a read error", async () => {
+		const session = await writeSession(root, "project", "compression-error", "complete", { ageDays: 90 });
+		const original = await Bun.file(session).bytes();
+		const archiveDir = path.join(root, "archive", "sessions", "project");
+		const realFile = Bun.file.bind(Bun);
+		const fileSpy = spyOn(Bun, "file").mockImplementation((source, options) => {
+			const file = realFile(source as string, options);
+			if (source === session) {
+				file.stream = () => {
+					let yielded = false;
+					return new ReadableStream<Uint8Array<ArrayBuffer>>({
+						pull(controller) {
+							if (yielded) controller.error(new Error("compression read failed"));
+							else {
+								yielded = true;
+								controller.enqueue(original.subarray(0, original.length / 2));
+							}
+						},
+					});
+				};
+			}
+			return file;
+		});
+		let result: GcResult;
+		try {
+			result = await runGcCommand({
+				flags: {
+					agentDir: root,
+					archive: true,
+					apply: true,
+					coldArchiveAfterDays: 0,
+					retainNewestGlobal: 0,
+					retainNewestPerCwd: 0,
+				},
+			});
+		} finally {
+			fileSpy.mockRestore();
+		}
+
+		expect(result.archive?.archived).toBe(0);
+		expect(result.archive?.errors).toEqual([`${session}: compression read failed`]);
+		expect(await Bun.file(session).bytes()).toEqual(original);
+		expect(await fs.readdir(archiveDir)).toEqual([]);
+		expect(await Bun.file(path.join(root, "gc.lock")).exists()).toBe(false);
+	});
+
+	test("restores byte-identical journal bytes when moving artifacts fails after compression", async () => {
+		const session = await writeSession(root, "project", "rollback", "complete");
+		const header = JSON.stringify({
+			type: "session",
+			version: 3,
+			id: "rollback",
+			timestamp: "2026-01-01T00:00:00.000Z",
+			cwd: "/tmp",
+		});
+		const message = JSON.stringify({
+			type: "message",
+			message: { role: "assistant", content: [{ type: "text", text: "界".repeat(8 * 1024) }] },
+		});
+		const original = new TextEncoder().encode(`${header}\r\n${message}`);
+		await Bun.write(session, original);
+		await agePath(session, 90);
+		const artifacts = session.slice(0, -".jsonl".length);
+		await Bun.write(path.join(artifacts, "0.bash.log"), "retained artifact");
+		const archiveDir = path.join(root, "archive", "sessions", "project");
+		const rename = fs.rename.bind(fs);
+		const renameSpy = spyOn(fs, "rename").mockImplementation(async (source, destination) => {
+			if (String(source) === artifacts) throw new Error("artifact move failed");
+			await rename(source, destination);
+		});
+		let result: GcResult;
+		try {
+			result = await runGcCommand({
+				flags: {
+					agentDir: root,
+					archive: true,
+					apply: true,
+					coldArchiveAfterDays: 0,
+					retainNewestGlobal: 0,
+					retainNewestPerCwd: 0,
+				},
+			});
+		} finally {
+			renameSpy.mockRestore();
+		}
+
+		expect(result.archive?.archived).toBe(0);
+		expect(result.archive?.errors).toEqual([`${session}: artifact move failed`]);
+		expect(await Bun.file(session).bytes()).toEqual(original);
+		expect(await Bun.file(path.join(artifacts, "0.bash.log")).text()).toBe("retained artifact");
+		expect(await fs.readdir(archiveDir)).toEqual([]);
+		expect((await fs.readdir(path.dirname(session))).sort()).toEqual(["rollback", "rollback.jsonl"]);
+	});
+
+	test("does not publish a partial restored journal when rollback gzip validation fails", async () => {
+		const session = await writeSession(root, "project", "rollback-corrupt", "complete", {
+			blobRef: "界".repeat(12 * 1024),
+			ageDays: 90,
+		});
+		const artifacts = session.slice(0, -".jsonl".length);
+		await Bun.write(path.join(artifacts, "0.bash.log"), "retained artifact");
+		const archive = path.join(root, "archive", "sessions", "project", "rollback-corrupt.jsonl.gz");
+		const rename = fs.rename.bind(fs);
+		const renameSpy = spyOn(fs, "rename").mockImplementation(async (source, destination) => {
+			if (String(source) === artifacts) {
+				const bytes = await Bun.file(archive).bytes();
+				await Bun.write(archive, bytes.subarray(0, -4));
+				throw new Error("artifact move failed");
+			}
+			await rename(source, destination);
+		});
+		let result: GcResult;
+		try {
+			result = await runGcCommand({
+				flags: {
+					agentDir: root,
+					archive: true,
+					apply: true,
+					coldArchiveAfterDays: 0,
+					retainNewestGlobal: 0,
+					retainNewestPerCwd: 0,
+				},
+			});
+		} finally {
+			renameSpy.mockRestore();
+		}
+
+		expect(result.archive?.archived).toBe(0);
+		expect(result.archive?.errors).toEqual([`${session}: artifact move failed`]);
+		expect(await Bun.file(session).exists()).toBe(false);
+		expect(await Bun.file(archive).exists()).toBe(true);
+		expect(await Bun.file(path.join(artifacts, "0.bash.log")).text()).toBe("retained artifact");
+		expect(await fs.readdir(path.dirname(session))).toEqual(["rollback-corrupt"]);
+	});
+
+	test("does not publish a partial restored journal when the rollback destination fails", async () => {
+		const session = await writeSession(root, "project", "rollback-write", "complete", { ageDays: 90 });
+		const original = await Bun.file(session).bytes();
+		const artifacts = session.slice(0, -".jsonl".length);
+		await Bun.write(path.join(artifacts, "0.bash.log"), "retained artifact");
+		const archive = path.join(root, "archive", "sessions", "project", "rollback-write.jsonl.gz");
+		const rename = fs.rename.bind(fs);
+		const renameSpy = spyOn(fs, "rename").mockImplementation(async (source, destination) => {
+			if (String(source) === artifacts || String(destination) === session) throw new Error("rename failed");
+			await rename(source, destination);
+		});
+		let result: GcResult;
+		try {
+			result = await runGcCommand({
+				flags: {
+					agentDir: root,
+					archive: true,
+					apply: true,
+					coldArchiveAfterDays: 0,
+					retainNewestGlobal: 0,
+					retainNewestPerCwd: 0,
+				},
+			});
+		} finally {
+			renameSpy.mockRestore();
+		}
+
+		expect(result.archive?.archived).toBe(0);
+		expect(result.archive?.errors).toEqual([`${session}: rename failed`]);
+		expect(await Bun.file(session).exists()).toBe(false);
+		expect(new Uint8Array(gunzipSync(await Bun.file(archive).bytes()))).toEqual(original);
+		expect(await fs.readdir(path.dirname(session))).toEqual(["rollback-write"]);
 	});
 
 	test("skips archiving parent sessions with live nested sessions", async () => {
@@ -547,7 +887,7 @@ describe("runGcCommand cold-session archive", () => {
 		await writeSession(root, "project", "archive-me", "complete", { ageDays: 90 });
 		const dbPath = getHistoryDbPath(root);
 		await fs.mkdir(path.dirname(dbPath), { recursive: true });
-		const db = openTestDatabase(dbPath);
+		const db = new Database(dbPath);
 		db.run("CREATE TABLE history (id INTEGER PRIMARY KEY AUTOINCREMENT, prompt TEXT NOT NULL, session_id TEXT)");
 		db.run("CREATE VIRTUAL TABLE history_fts USING fts5(prompt, content='history', content_rowid='id')");
 		db.run("INSERT INTO history (prompt, session_id) VALUES ('old prompt', 'archive-me')");
@@ -566,7 +906,7 @@ describe("runGcCommand cold-session archive", () => {
 			},
 		});
 
-		const check = openTestDatabase(dbPath);
+		const check = new Database(dbPath);
 		const rows = check.prepare("SELECT session_id FROM history ORDER BY id").all() as Array<{ session_id: string }>;
 		const ftsRows = check
 			.prepare("SELECT h.session_id FROM history_fts f JOIN history h ON h.id = f.rowid ORDER BY h.id")
@@ -585,7 +925,7 @@ describe("runGcCommand cold-session archive", () => {
 		const keepSession = path.join(getSessionsDir(root), "project", "keep.jsonl");
 		const statsDbPath = path.join(root, "stats.db");
 		const tables = ["messages", "user_messages", "tool_calls", "file_offsets"] as const;
-		const db = openTestDatabase(statsDbPath);
+		const db = new Database(statsDbPath);
 		for (const table of tables) {
 			db.run(`CREATE TABLE ${table} (session_file TEXT NOT NULL)`);
 			const insert = db.prepare(`INSERT INTO ${table} (session_file) VALUES (?)`);
@@ -604,7 +944,7 @@ describe("runGcCommand cold-session archive", () => {
 				retainNewestPerCwd: 0,
 			},
 		});
-		const dryCheck = openTestDatabase(statsDbPath);
+		const dryCheck = new Database(statsDbPath);
 		for (const table of tables) {
 			const row = dryCheck.prepare(`SELECT COUNT(*) AS count FROM ${table}`).get() as { count: number };
 			expect(row.count).toBe(3);
@@ -623,7 +963,7 @@ describe("runGcCommand cold-session archive", () => {
 			},
 		});
 
-		const check = openTestDatabase(statsDbPath);
+		const check = new Database(statsDbPath);
 		const remaining = Object.fromEntries(
 			tables.map(table => [
 				table,
@@ -779,7 +1119,7 @@ describe("runGcCommand cold-session archive", () => {
 		const childStat = await fs.stat(child);
 
 		const statsDbPath = path.join(root, "stats.db");
-		const db = openTestDatabase(statsDbPath);
+		const db = new Database(statsDbPath);
 		db.run(
 			"CREATE TABLE messages (session_file TEXT NOT NULL, entry_id TEXT NOT NULL, timestamp INTEGER NOT NULL, UNIQUE(session_file, entry_id))",
 		);
@@ -800,7 +1140,6 @@ describe("runGcCommand cold-session archive", () => {
 			insert.run(parent, sharedId, timestampMs);
 			insert.run(parent, parentOnlyId, timestampMs);
 			insert.run(parent, table === "messages" ? "collision-assistant" : "collision-user", timestampMs);
-			insert.finalize();
 		}
 		const insertToolCall = db.prepare(
 			"INSERT INTO tool_calls (session_file, entry_id, timestamp, tool_call_id) VALUES (?, ?, ?, ?)",
@@ -808,18 +1147,12 @@ describe("runGcCommand cold-session archive", () => {
 		insertToolCall.run(parent, "shared-assistant", timestampMs, "shared-tool");
 		insertToolCall.run(parent, "parent-only-assistant", timestampMs, "parent-only-tool");
 		insertToolCall.run(parent, "collision-assistant", timestampMs, "collision-tool");
-		insertToolCall.finalize();
-		const insertParentOffset = db.prepare(
-			"INSERT INTO file_offsets (session_file, offset, last_modified) VALUES (?, ?, ?)",
-		);
-		insertParentOffset.run(parent, 444, 1);
-		insertParentOffset.finalize();
+		db.prepare("INSERT INTO file_offsets (session_file, offset, last_modified) VALUES (?, ?, ?)").run(parent, 444, 1);
 		const insertOffset = db.prepare(
 			"INSERT INTO file_offsets (session_file, offset, last_modified) VALUES (?, ?, ?)",
 		);
 		insertOffset.run(child, childStat.size, childStat.mtimeMs);
 		insertOffset.run(sibling, siblingStat.size, siblingStat.mtimeMs);
-		insertOffset.finalize();
 		db.close();
 
 		const result = await runGcCommand({
@@ -833,7 +1166,7 @@ describe("runGcCommand cold-session archive", () => {
 			},
 		});
 
-		const check = openTestDatabase(statsDbPath);
+		const check = new Database(statsDbPath);
 		const messages = check.prepare("SELECT session_file, entry_id FROM messages").all();
 		const userMessages = check.prepare("SELECT session_file, entry_id FROM user_messages").all();
 		const toolCalls = check.prepare("SELECT session_file, entry_id, tool_call_id FROM tool_calls").all();
@@ -864,7 +1197,7 @@ describe("runGcCommand cold-session archive", () => {
 				apply: true,
 			},
 		});
-		const secondCheck = openTestDatabase(statsDbPath);
+		const secondCheck = new Database(statsDbPath);
 		const secondMessages = secondCheck.prepare("SELECT session_file, entry_id FROM messages").all();
 		const secondUserMessages = secondCheck.prepare("SELECT session_file, entry_id FROM user_messages").all();
 		const secondToolCalls = secondCheck.prepare("SELECT session_file, entry_id, tool_call_id FROM tool_calls").all();
@@ -927,7 +1260,7 @@ describe("runGcCommand cold-session archive", () => {
 		});
 
 		const statsDbPath = path.join(root, "stats.db");
-		const db = openTestDatabase(statsDbPath);
+		const db = new Database(statsDbPath);
 		db.run(
 			"CREATE TABLE messages (session_file TEXT NOT NULL, entry_id TEXT NOT NULL, timestamp INTEGER NOT NULL, UNIQUE(session_file, entry_id))",
 		);
@@ -955,7 +1288,7 @@ describe("runGcCommand cold-session archive", () => {
 				apply: true,
 			},
 		});
-		const check = openTestDatabase(statsDbPath);
+		const check = new Database(statsDbPath);
 		const messages = check.prepare("SELECT session_file, entry_id FROM messages").all();
 		const legacyRows = check.prepare("SELECT session_file FROM user_messages").all();
 		const offsets = check.prepare("SELECT session_file FROM file_offsets").all();
@@ -981,17 +1314,14 @@ describe("runGcCommand cold-session archive", () => {
 
 		const statsDbPath = path.join(root, "stats.db");
 		const tables = ["messages", "user_messages", "tool_calls", "file_offsets"] as const;
-		const db = openTestDatabase(statsDbPath);
+		const db = new Database(statsDbPath);
 		for (const table of tables) {
 			db.run(`CREATE TABLE ${table} (session_file TEXT NOT NULL)`);
 			const insert = db.prepare(`INSERT INTO ${table} (session_file) VALUES (?)`);
 			insert.run(original);
 			insert.run(historicalNested);
-			insert.finalize();
 		}
-		const insertMoved = db.prepare("INSERT INTO file_offsets (session_file) VALUES (?)");
-		insertMoved.run(moved);
-		insertMoved.finalize();
+		db.prepare("INSERT INTO file_offsets (session_file) VALUES (?)").run(moved);
 		db.close();
 
 		const result = await runGcCommand({
@@ -1005,7 +1335,7 @@ describe("runGcCommand cold-session archive", () => {
 			},
 		});
 
-		const check = openTestDatabase(statsDbPath);
+		const check = new Database(statsDbPath);
 		const remaining = Object.fromEntries(
 			tables.map(table => [
 				table,
@@ -1058,7 +1388,7 @@ describe("runGcCommand cold-session archive", () => {
 		const unrelated = path.join(getSessionsDir(root), "unrelated", path.basename(original));
 
 		const statsDbPath = path.join(root, "stats.db");
-		const db = openTestDatabase(statsDbPath);
+		const db = new Database(statsDbPath);
 		db.run(
 			"CREATE TABLE messages (session_file TEXT NOT NULL, entry_id TEXT NOT NULL, timestamp INTEGER NOT NULL, UNIQUE(session_file, entry_id))",
 		);
@@ -1086,7 +1416,7 @@ describe("runGcCommand cold-session archive", () => {
 				apply: true,
 			},
 		});
-		const check = openTestDatabase(statsDbPath);
+		const check = new Database(statsDbPath);
 		const messages = check.prepare("SELECT session_file, entry_id FROM messages").all();
 		const offsets = check.prepare("SELECT session_file FROM file_offsets").all();
 		check.close();
@@ -1126,7 +1456,7 @@ describe("runGcCommand cold-session archive", () => {
 		}
 
 		const statsDbPath = path.join(root, "stats.db");
-		const db = openTestDatabase(statsDbPath);
+		const db = new Database(statsDbPath);
 		db.run("CREATE TABLE messages (session_file TEXT NOT NULL)");
 		db.prepare("INSERT INTO messages (session_file) VALUES (?)").run(previousSessionFile);
 		db.close();
@@ -1141,7 +1471,7 @@ describe("runGcCommand cold-session archive", () => {
 				apply: true,
 			},
 		});
-		const check = openTestDatabase(statsDbPath);
+		const check = new Database(statsDbPath);
 		const rows = check.prepare("SELECT session_file FROM messages").all();
 		check.close();
 
@@ -1158,7 +1488,7 @@ describe("runGcCommand cold-session archive", () => {
 		});
 		const unrelated = path.join(root, "unrelated", path.basename(session));
 		const statsDbPath = path.join(root, "stats.db");
-		const db = openTestDatabase(statsDbPath);
+		const db = new Database(statsDbPath);
 		db.run("CREATE TABLE messages (session_file TEXT NOT NULL)");
 		const insert = db.prepare("INSERT INTO messages (session_file) VALUES (?)");
 		insert.run(session);
@@ -1175,7 +1505,7 @@ describe("runGcCommand cold-session archive", () => {
 				apply: true,
 			},
 		});
-		const check = openTestDatabase(statsDbPath);
+		const check = new Database(statsDbPath);
 		const rows = check.prepare("SELECT session_file FROM messages").all();
 		check.close();
 
@@ -1191,7 +1521,7 @@ describe("runGcCommand cold-session archive", () => {
 		await fs.mkdir(path.dirname(corruptArchive), { recursive: true });
 		await Bun.write(corruptArchive, "not gzip");
 		const statsDbPath = path.join(root, "stats.db");
-		const db = openTestDatabase(statsDbPath);
+		const db = new Database(statsDbPath);
 		db.run("CREATE TABLE messages (session_file TEXT NOT NULL)");
 		db.prepare("INSERT INTO messages (session_file) VALUES (?)").run(session);
 		db.close();
@@ -1206,7 +1536,7 @@ describe("runGcCommand cold-session archive", () => {
 				apply: true,
 			},
 		});
-		const check = openTestDatabase(statsDbPath);
+		const check = new Database(statsDbPath);
 		const rows = check.prepare("SELECT session_file FROM messages").all();
 		check.close();
 
@@ -1218,7 +1548,7 @@ describe("runGcCommand cold-session archive", () => {
 		expect(rows).toEqual([]);
 	});
 
-	test("preserves shared stats through an unreadable intermediate archive", async () => {
+	test("preserves shared stats through a late-corrupt intermediate archive", async () => {
 		const sessionsDir = path.join(getSessionsDir(root), "project");
 		const archiveDir = path.join(root, "archive", "sessions", "project");
 		await fs.mkdir(sessionsDir, { recursive: true });
@@ -1235,7 +1565,7 @@ describe("runGcCommand cold-session archive", () => {
 			id: "shared-assistant",
 			parentId: null,
 			timestamp,
-			message: { role: "assistant", content: [] },
+			message: { role: "assistant", content: [{ type: "text", text: "界".repeat(8 * 1024) }] },
 		};
 		await Bun.write(
 			ancestorArchive,
@@ -1247,7 +1577,19 @@ describe("runGcCommand cold-session archive", () => {
 				].join("\n"),
 			),
 		);
-		await Bun.write(corruptArchive, "not gzip");
+		const intermediateJournal = [
+			JSON.stringify({
+				type: "session",
+				version: 3,
+				id: "intermediate",
+				timestamp,
+				cwd: "/tmp",
+				parentSession: ancestorPath,
+			}),
+			JSON.stringify(sharedAssistant),
+			"",
+		].join("\n");
+		await Bun.write(corruptArchive, gzipSync(intermediateJournal).subarray(0, -4));
 		await Bun.write(
 			retainedPath,
 			[
@@ -1266,7 +1608,7 @@ describe("runGcCommand cold-session archive", () => {
 		const retainedStat = await fs.stat(retainedPath);
 
 		const statsDbPath = path.join(root, "stats.db");
-		const db = openTestDatabase(statsDbPath);
+		const db = new Database(statsDbPath);
 		db.run(
 			"CREATE TABLE messages (session_file TEXT NOT NULL, entry_id TEXT NOT NULL, timestamp INTEGER NOT NULL, UNIQUE(session_file, entry_id))",
 		);
@@ -1295,7 +1637,7 @@ describe("runGcCommand cold-session archive", () => {
 				apply: true,
 			},
 		});
-		const firstCheck = openTestDatabase(statsDbPath);
+		const firstCheck = new Database(statsDbPath);
 		const firstMessages = firstCheck.prepare("SELECT session_file, entry_id FROM messages").all();
 		const firstOffsets = firstCheck
 			.prepare("SELECT session_file, offset, last_modified FROM file_offsets ORDER BY session_file")
@@ -1313,23 +1655,7 @@ describe("runGcCommand cold-session archive", () => {
 			{ session_file: retainedPath, offset: retainedStat.size, last_modified: retainedStat.mtimeMs },
 		]);
 
-		await Bun.write(
-			corruptArchive,
-			gzipSync(
-				[
-					JSON.stringify({
-						type: "session",
-						version: 3,
-						id: "intermediate",
-						timestamp,
-						cwd: "/tmp",
-						parentSession: ancestorPath,
-					}),
-					JSON.stringify(sharedAssistant),
-					"",
-				].join("\n"),
-			),
-		);
+		await Bun.write(corruptArchive, gzipSync(intermediateJournal));
 		const second = await runGcCommand({
 			flags: {
 				agentDir: root,
@@ -1340,7 +1666,7 @@ describe("runGcCommand cold-session archive", () => {
 				apply: true,
 			},
 		});
-		const secondCheck = openTestDatabase(statsDbPath);
+		const secondCheck = new Database(statsDbPath);
 		const secondMessages = secondCheck.prepare("SELECT session_file, entry_id FROM messages").all();
 		const secondOffsets = secondCheck.prepare("SELECT session_file, offset, last_modified FROM file_offsets").all();
 		secondCheck.close();
@@ -1402,7 +1728,7 @@ describe("runGcCommand cold-session archive", () => {
 		const childStat = await fs.stat(childPath);
 
 		const statsDbPath = path.join(root, "stats.db");
-		const db = openTestDatabase(statsDbPath);
+		const db = new Database(statsDbPath);
 		db.run(
 			"CREATE TABLE tool_calls (session_file TEXT NOT NULL, entry_id TEXT NOT NULL, timestamp INTEGER NOT NULL, tool_call_id TEXT NOT NULL, UNIQUE(session_file, tool_call_id))",
 		);
@@ -1432,7 +1758,7 @@ describe("runGcCommand cold-session archive", () => {
 				apply: true,
 			},
 		});
-		const check = openTestDatabase(statsDbPath);
+		const check = new Database(statsDbPath);
 		const toolCalls = check.prepare("SELECT session_file, entry_id, tool_call_id FROM tool_calls").all();
 		const offsets = check.prepare("SELECT session_file, offset, last_modified FROM file_offsets").all();
 		check.close();
@@ -1453,12 +1779,12 @@ describe("runGcCommand cold-session archive", () => {
 		);
 		const historicalStatsPath = path.join(root, "unrelated", "headerless-session.jsonl");
 		const statsDbPath = path.join(root, "stats.db");
-		const stats = openTestDatabase(statsDbPath);
+		const stats = new Database(statsDbPath);
 		stats.run("CREATE TABLE messages (session_file TEXT NOT NULL)");
 		stats.prepare("INSERT INTO messages (session_file) VALUES (?)").run(historicalStatsPath);
 		stats.close();
 		const historyDbPath = getHistoryDbPath(root);
-		const history = openTestDatabase(historyDbPath);
+		const history = new Database(historyDbPath);
 		history.run("CREATE TABLE history (id INTEGER PRIMARY KEY, prompt TEXT NOT NULL, session_id TEXT)");
 		history.run("INSERT INTO history (prompt, session_id) VALUES ('keep me', 'headerless-session')");
 		history.close();
@@ -1473,10 +1799,10 @@ describe("runGcCommand cold-session archive", () => {
 				apply: true,
 			},
 		});
-		const statsCheck = openTestDatabase(statsDbPath);
+		const statsCheck = new Database(statsDbPath);
 		const statsRows = statsCheck.prepare("SELECT session_file FROM messages").all();
 		statsCheck.close();
-		const historyCheck = openTestDatabase(historyDbPath);
+		const historyCheck = new Database(historyDbPath);
 		const historyRows = historyCheck.prepare("SELECT session_id FROM history").all();
 		historyCheck.close();
 
@@ -1489,10 +1815,73 @@ describe("runGcCommand cold-session archive", () => {
 		expect(historyRows).toEqual([{ session_id: "headerless-session" }]);
 	});
 
+	test("validates the entire archived gzip before pruning history and retries after repair", async () => {
+		const archive = path.join(root, "archive", "sessions", "project", "late-corrupt.jsonl.gz");
+		const journal = [
+			JSON.stringify({ type: "title", v: 1, title: "Archived title" }),
+			JSON.stringify({ type: "session", version: 3, id: "late-corrupt", timestamp: "2026-01-01T00:00:00.000Z" }),
+			"{}\n".repeat(12 * 1024),
+		].join("\r\n");
+		const compressed = gzipSync(journal);
+		await Bun.write(archive, compressed.subarray(0, -4));
+		const dbPath = getHistoryDbPath(root);
+		const db = new Database(dbPath);
+		db.run("CREATE TABLE history (id INTEGER PRIMARY KEY, prompt TEXT NOT NULL, session_id TEXT)");
+		db.run("INSERT INTO history (prompt, session_id) VALUES ('keep until validated', 'late-corrupt')");
+		db.close();
+
+		const first = await runGcCommand({ flags: { agentDir: root, archive: true, apply: true } });
+		const firstCheck = new Database(dbPath);
+		const firstRows = firstCheck.prepare("SELECT session_id FROM history").all();
+		firstCheck.close();
+
+		expect(first.archive?.historyRowsDeleted).toBe(0);
+		expect(first.archive?.errors.some(error => error.startsWith("history cleanup scan: "))).toBe(true);
+		expect(firstRows).toEqual([{ session_id: "late-corrupt" }]);
+
+		await Bun.write(archive, compressed);
+		const second = await runGcCommand({ flags: { agentDir: root, archive: true, apply: true } });
+		const secondCheck = new Database(dbPath);
+		const secondRows = secondCheck.prepare("SELECT session_id FROM history").all();
+		secondCheck.close();
+
+		expect(second.archive?.archived).toBe(0);
+		expect(second.archive?.historyRowsDeleted).toBe(1);
+		expect(second.archive?.errors).toEqual([]);
+		expect(secondRows).toEqual([]);
+	});
+
+	test("recognizes legacy padded archive headers when cleaning history", async () => {
+		const archive = path.join(root, "archive", "sessions", "project", "padded.jsonl.gz");
+		const title = JSON.stringify({ type: "title", v: 1, title: "Padded" });
+		const header = JSON.stringify({
+			type: "session",
+			version: 3,
+			id: "padded",
+			timestamp: "2026-01-01T00:00:00.000Z",
+		});
+		await Bun.write(archive, gzipSync(`${title}\u00a0\r\n${header}\ufeff\n`));
+		const dbPath = getHistoryDbPath(root);
+		const db = new Database(dbPath);
+		db.run("CREATE TABLE history (id INTEGER PRIMARY KEY, prompt TEXT NOT NULL, session_id TEXT)");
+		db.run("INSERT INTO history (prompt, session_id) VALUES ('archived', 'padded')");
+		db.close();
+
+		const result = await runGcCommand({ flags: { agentDir: root, archive: true, apply: true } });
+		const check = new Database(dbPath);
+		try {
+			expect(result.archive?.errors).toEqual([]);
+			expect(result.archive?.historyRowsDeleted).toBe(1);
+			expect(check.prepare("SELECT session_id FROM history").all()).toEqual([]);
+		} finally {
+			check.close();
+		}
+	});
+
 	test("waits for the shared stats lock before archive reconciliation", async () => {
 		const session = await writeSession(root, "project", "archive-me", "complete", { ageDays: 90 });
 		const statsDbPath = path.join(root, "stats.db");
-		const db = openTestDatabase(statsDbPath);
+		const db = new Database(statsDbPath);
 		db.run("CREATE TABLE messages (session_file TEXT NOT NULL)");
 		db.prepare("INSERT INTO messages (session_file) VALUES (?)").run(session);
 		db.close();
@@ -1518,13 +1907,13 @@ describe("runGcCommand cold-session archive", () => {
 				},
 			});
 			archivedWhileLocked = await sessionMoved;
-			const lockedCheck = openTestDatabase(statsDbPath);
+			const lockedCheck = new Database(statsDbPath);
 			rowsWhileLocked = lockedCheck.prepare("SELECT session_file FROM messages").all();
 			lockedCheck.close();
 		});
 		if (!gcPromise) throw new Error("GC did not start");
 		const result = await gcPromise;
-		const check = openTestDatabase(statsDbPath);
+		const check = new Database(statsDbPath);
 		const rows = check.prepare("SELECT session_file FROM messages").all();
 		check.close();
 
@@ -1557,7 +1946,7 @@ describe("runGcCommand cold-session archive", () => {
 		expect(first.archive?.errors.some(error => error.startsWith("stats cleanup: "))).toBe(true);
 
 		await fs.rm(statsDbPath, { force: true });
-		const db = openTestDatabase(statsDbPath);
+		const db = new Database(statsDbPath);
 		db.run("CREATE TABLE messages (session_file TEXT NOT NULL)");
 		db.prepare("INSERT INTO messages (session_file) VALUES (?)").run(session);
 		db.close();
@@ -1572,7 +1961,7 @@ describe("runGcCommand cold-session archive", () => {
 				apply: true,
 			},
 		});
-		const check = openTestDatabase(statsDbPath);
+		const check = new Database(statsDbPath);
 		const rows = check.prepare("SELECT session_file FROM messages").all();
 		check.close();
 
@@ -1608,7 +1997,7 @@ describe("runGcCommand cold-session archive", () => {
 		expect(await Bun.file(archived).exists()).toBe(true);
 
 		await fs.rm(dbPath, { force: true });
-		const db = openTestDatabase(dbPath);
+		const db = new Database(dbPath);
 		db.run("CREATE TABLE history (id INTEGER PRIMARY KEY AUTOINCREMENT, prompt TEXT NOT NULL, session_id TEXT)");
 		db.run("INSERT INTO history (prompt, session_id) VALUES ('old prompt', 'archive-me')");
 		db.close();
@@ -1624,7 +2013,7 @@ describe("runGcCommand cold-session archive", () => {
 			},
 		});
 
-		const check = openTestDatabase(dbPath);
+		const check = new Database(dbPath);
 		const rows = check.prepare("SELECT session_id FROM history ORDER BY id").all();
 		check.close();
 
@@ -1664,7 +2053,7 @@ describe("runGcCommand cold-session archive", () => {
 		const session = await writeSession(root, "project", "legacy-history", "complete", { ageDays: 90 });
 		const dbPath = getHistoryDbPath(root);
 		await fs.mkdir(path.dirname(dbPath), { recursive: true });
-		const db = openTestDatabase(dbPath);
+		const db = new Database(dbPath);
 		db.run("CREATE TABLE history (id INTEGER PRIMARY KEY AUTOINCREMENT, prompt TEXT NOT NULL)");
 		db.run("INSERT INTO history (prompt) VALUES ('old prompt')");
 		db.close();

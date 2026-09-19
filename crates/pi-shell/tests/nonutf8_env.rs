@@ -1,4 +1,4 @@
-//! Regression tests for oh-my-pi issue #8925: a host environment entry whose
+//! Regression tests for oh-my-soup issue #8925: a host environment entry whose
 //! key or value is not valid Unicode must not crash session startup or command
 //! execution.
 //!
@@ -68,11 +68,11 @@ async fn run(command: &str) -> (Option<i32>, String) {
 async fn session_start_skips_non_utf8_value_and_preserves_env() {
 	let path = std::env::var("PATH").unwrap_or_default();
 
-	let _corrupt = ScopedEnvVar::set_corrupt("OMP_TEST_CORRUPT_8925", GHOSTTY_BIN_DIR_BYTES);
-	let _sentinel = ScopedEnvVar::set("OMP_TEST_SENTINEL_8925", "sentinel-value");
+	let _corrupt = ScopedEnvVar::set_corrupt("OMS_TEST_CORRUPT_8925", GHOSTTY_BIN_DIR_BYTES);
+	let _sentinel = ScopedEnvVar::set("OMS_TEST_SENTINEL_8925", "sentinel-value");
 
 	// Starts with a corrupt var present: must not panic.
-	let (code, output) = run("echo $OMP_TEST_SENTINEL_8925").await;
+	let (code, output) = run("echo $OMS_TEST_SENTINEL_8925").await;
 	assert_eq!(code, Some(0), "session start must succeed with a corrupt env var");
 	assert!(
 		output.contains("sentinel-value"),
@@ -91,7 +91,7 @@ async fn session_start_skips_non_utf8_value_and_preserves_env() {
 /// either.
 #[tokio::test(flavor = "multi_thread")]
 async fn process_builtin_shell_build_survives_non_utf8_env() {
-	let _corrupt = ScopedEnvVar::set_corrupt("OMP_TEST_CORRUPT_8925", GHOSTTY_BIN_DIR_BYTES);
+	let _corrupt = ScopedEnvVar::set_corrupt("OMS_TEST_CORRUPT_8925", GHOSTTY_BIN_DIR_BYTES);
 
 	let (code, _) = run("sleep 0").await;
 	assert_eq!(code, Some(0), "process builtin must survive a corrupt env var");

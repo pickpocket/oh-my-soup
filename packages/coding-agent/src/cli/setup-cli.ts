@@ -8,12 +8,12 @@ import { APP_NAME, getProjectDir, getPythonEnvDir } from "@oh-my-soup/pi-utils";
 import chalk from "@oh-my-soup/pi-utils/chalk";
 import { Settings, settings } from "../config/settings";
 import { checkPythonKernelAvailability } from "../eval/py/kernel";
-import { theme } from "../modes/theme/theme";
+import { theme } from "@oh-my-soup/pi-tui/theme";
 import { downloadSttModel, isSttModelCached } from "../stt/downloader";
 import { isSttModelKey, STT_MODEL_OPTIONS } from "../stt/models";
 import { downloadTtsModel, isTtsLocalModelKey, isTtsModelCached, TTS_LOCAL_MODEL_OPTIONS } from "../tts";
+import { selectSetupModel } from "@oh-my-soup/pi-tui/apps/setup-model-picker";
 import { ensureTool, getToolPath } from "../utils/tools-manager";
-import { selectSetupModel } from "./setup-model-picker";
 
 export type SetupComponent = "python" | "speech" | "objdump";
 
@@ -67,7 +67,7 @@ export function parseSetupArgs(args: string[]): SetupCommandArgs | undefined {
 	};
 }
 
-interface PythonCheckResult {
+export interface PythonCheckResult {
 	available: boolean;
 	pythonPath?: string;
 	usingManagedEnv?: boolean;
@@ -83,7 +83,7 @@ function managedPythonPath(): string {
 /**
  * Check Python environment and kernel dependencies.
  */
-async function checkPythonSetup(cwd: string, interpreter?: string): Promise<PythonCheckResult> {
+export async function checkPythonSetup(cwd: string, interpreter?: string): Promise<PythonCheckResult> {
 	const availability = await checkPythonKernelAvailability(cwd, interpreter, { forceProbe: true });
 	return {
 		available: availability.ok,

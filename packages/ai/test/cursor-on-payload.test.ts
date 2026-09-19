@@ -1,9 +1,15 @@
+// Regression: cursor ignored the onPayload replacement return value
+// (fire-and-forget), so the hook could never change the request actually sent
+// upstream. The replacement contract matches anthropic / openai-responses /
+// google: await the hook and use its non-undefined return as the request.
+// buildGrpcRequest is exercised directly (the transport is HTTP/2), and the
+// serialized run request is decoded back from the wire bytes.
 import { describe, expect, it } from "bun:test";
-import { fromBinary } from "@bufbuild/protobuf";
 import { buildGrpcRequest } from "@oh-my-soup/pi-ai/providers/cursor";
 import type { Context, Model } from "@oh-my-soup/pi-ai/types";
 import { buildModel } from "@oh-my-soup/pi-catalog/build";
-import { AgentClientMessageSchema } from "@oh-my-soup/pi-catalog/discovery/cursor-gen/agent_pb";
+import { AgentClientMessageSchema } from "@oh-my-soup/pi-catalog/discovery/cursor-proto";
+import { fromBinary } from "@oh-my-soup/pi-catalog/discovery/protobuf";
 
 const model: Model<"cursor-agent"> = buildModel({
 	id: "cursor-composer-2.5",
@@ -27,58 +33,85 @@ function decodeRunRequest(requestBytes: Uint8Array): { case: string; value: Reco
 	return decoded.message as unknown as { case: string; value: Record<string, any> };
 }
 
-async function build(options: Parameters<typeof buildGrpcRequest>[2]) {
-	return buildGrpcRequest(model, context, options, { conversationId: "conv-1", blobStore: new Map() });
-}
-
 describe("cursor onPayload replacement", () => {
-	it("serializes an async replacement", async () => {
-		const { requestBytes } = await build({
-			onPayload: async payload => ({
-				...(payload as Record<string, unknown>),
-				customSystemPrompt: "replacement",
-			}),
-		});
+	it("sends an async onPayload replacement body", async () => {
+		const { requestBytes } = await buildGrpcRequest(
+			model,
+			context,
+			{
+				onPayload: async payload => ({
+					...(payload as Record<string, unknown>),
+					customSystemPrompt: "replacement",
+				}),
+			},
+			{ conversationId: "conv-1", blobStore: new Map() },
+		);
 
 		const message = decodeRunRequest(requestBytes);
 		expect(message.case).toBe("runRequest");
 		expect(message.value.customSystemPrompt).toBe("replacement");
 	});
 
-	it("keeps the original payload when the hook returns undefined", async () => {
-		const { requestBytes } = await build({ onPayload: async () => undefined });
-		expect(decodeRunRequest(requestBytes).value.customSystemPrompt).toBeUndefined();
+	it("keeps the original body when onPayload returns undefined", async () => {
+		const { requestBytes } = await buildGrpcRequest(
+			model,
+			context,
+			{ onPayload: async () => undefined },
+			{ conversationId: "conv-1", blobStore: new Map() },
+		);
+
+		const message = decodeRunRequest(requestBytes);
+		expect(message.case).toBe("runRequest");
+		expect(message.value.customSystemPrompt).toBeUndefined();
 	});
 
-	it("applies customSystemPrompt when the hook returns undefined", async () => {
-		const { requestBytes } = await build({ customSystemPrompt: "from-options", onPayload: async () => undefined });
-		expect(decodeRunRequest(requestBytes).value.customSystemPrompt).toBe("from-options");
+	it("applies customSystemPrompt when onPayload returns undefined", async () => {
+		const { requestBytes } = await buildGrpcRequest(
+			model,
+			context,
+			{ customSystemPrompt: "from-options", onPayload: async () => undefined },
+			{ conversationId: "conv-1", blobStore: new Map() },
+		);
+
+		const message = decodeRunRequest(requestBytes);
+		expect(message.value.customSystemPrompt).toBe("from-options");
 	});
 
-	it("lets the replacement drop customSystemPrompt", async () => {
-		let hookSawOption = false;
-		const { requestBytes } = await build({
-			customSystemPrompt: "from-options",
-			onPayload: async payload => {
-				const { customSystemPrompt, ...rest } = payload as Record<string, unknown>;
-				hookSawOption = customSystemPrompt === "from-options";
-				return rest;
+	it("lets the onPayload replacement drop customSystemPrompt (replacement is final)", async () => {
+		const { requestBytes } = await buildGrpcRequest(
+			model,
+			context,
+			{
+				customSystemPrompt: "from-options",
+				onPayload: async payload => {
+					const { customSystemPrompt: _dropped, ...rest } = payload as Record<string, unknown>;
+					return rest;
+				},
 			},
-		});
+			{ conversationId: "conv-1", blobStore: new Map() },
+		);
 
-		expect(hookSawOption).toBe(true);
-		expect(decodeRunRequest(requestBytes).value.customSystemPrompt).toBeUndefined();
+		const message = decodeRunRequest(requestBytes);
+		// The hook saw customSystemPrompt already applied (set before the hook) and
+		// returned a replacement that does not carry it — that replacement is final.
+		expect(message.value.customSystemPrompt).toBeUndefined();
 	});
 
-	it("lets the replacement override customSystemPrompt", async () => {
-		const { requestBytes } = await build({
-			customSystemPrompt: "from-options",
-			onPayload: async payload => ({
-				...(payload as Record<string, unknown>),
-				customSystemPrompt: "from-hook",
-			}),
-		});
+	it("lets the onPayload replacement override customSystemPrompt", async () => {
+		const { requestBytes } = await buildGrpcRequest(
+			model,
+			context,
+			{
+				customSystemPrompt: "from-options",
+				onPayload: async payload => ({
+					...(payload as Record<string, unknown>),
+					customSystemPrompt: "from-hook",
+				}),
+			},
+			{ conversationId: "conv-1", blobStore: new Map() },
+		);
 
-		expect(decodeRunRequest(requestBytes).value.customSystemPrompt).toBe("from-hook");
+		const message = decodeRunRequest(requestBytes);
+		expect(message.value.customSystemPrompt).toBe("from-hook");
 	});
 });

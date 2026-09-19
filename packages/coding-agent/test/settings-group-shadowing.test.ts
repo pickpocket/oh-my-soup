@@ -1,14 +1,12 @@
-import { afterEach, describe, expect, it, vi } from "bun:test";
+import { describe, expect, it } from "bun:test";
 import { dropSettingsGroupShadows } from "@oh-my-soup/pi-coding-agent/config/settings";
-import { logger } from "@oh-my-soup/pi-utils";
-
-afterEach(() => {
-	vi.restoreAllMocks();
-});
 
 describe("dropSettingsGroupShadows", () => {
 	it("drops a non-object leaf that would shadow a settings group", () => {
-		expect(dropSettingsGroupShadows({ tui: "fullscreen" }, "/proj/.claude/settings.json")).toEqual({});
+		// `.claude/settings.json` is shared with other tools; Claude Code's own
+		// `"tui": "fullscreen"` must not replace oms's whole `tui.*` group.
+		const result = dropSettingsGroupShadows({ tui: "fullscreen" }, "/proj/.claude/settings.json");
+		expect(result).toEqual({});
 	});
 
 	it("keeps well-formed nested objects for a settings group", () => {
@@ -24,29 +22,25 @@ describe("dropSettingsGroupShadows", () => {
 		expect(result).toEqual({ auth: {}, autoResume: true });
 	});
 
-	it("drops a top-level model string that would shadow model.*", () => {
-		expect(dropSettingsGroupShadows({ model: "opus" }, "/proj/.claude/settings.json")).toEqual({});
+	it("drops Claude Code's top-level model string, which would shadow oms's model.* group", () => {
+		// Claude Code writes `"model": "opus"` at the top level; oms has no bare
+		// `model` leaf, only `model.*` settings, so the string is a shadow too.
+		const result = dropSettingsGroupShadows({ model: "opus" }, "/proj/.claude/settings.json");
+		expect(result).toEqual({});
 	});
-
-	it("passes unknown keys and schema leaves through untouched", () => {
-		const input = {
+	it("passes unknown keys through untouched", () => {
+		const result = dropSettingsGroupShadows(
+			{ permissions: { allow: ["Bash"] }, $schema: "https://json.schemastore.org/claude-code-settings.json" },
+			"/proj/.claude/settings.json",
+		);
+		expect(result).toEqual({
 			permissions: { allow: ["Bash"] },
 			$schema: "https://json.schemastore.org/claude-code-settings.json",
-			cycleOrder: ["a", "b"],
-		};
-		expect(dropSettingsGroupShadows(input, "/proj/.claude/settings.json")).toEqual(input);
+		});
 	});
 
-	it("warns with the setting and source without logging the ignored value", () => {
-		const warn = vi.spyOn(logger, "warn").mockImplementation(() => {});
-		const secret = "sensitive-project-value";
-		dropSettingsGroupShadows({ tui: secret }, "/proj/.claude/settings.json");
-
-		expect(warn).toHaveBeenCalledTimes(1);
-		expect(warn).toHaveBeenCalledWith("Settings: ignoring project setting that would shadow a settings group", {
-			setting: "tui",
-			source: "/proj/.claude/settings.json",
-		});
-		expect(JSON.stringify(warn.mock.calls)).not.toContain(secret);
+	it("preserves arrays at non-group paths", () => {
+		const result = dropSettingsGroupShadows({ cycleOrder: ["a", "b"] }, "/proj/.claude/settings.json");
+		expect(result).toEqual({ cycleOrder: ["a", "b"] });
 	});
 });

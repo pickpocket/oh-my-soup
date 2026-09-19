@@ -40,6 +40,18 @@ class FakeCdpSocket implements RelaySocket {
 		const result = msg && "result" in msg && msg.result && typeof msg.result === "object" ? msg.result : undefined;
 		return result && "sessionId" in result && typeof result.sessionId === "string" ? result.sessionId : undefined;
 	}
+	/** Session ids the bridge announced through `Target.attachedToTarget`. */
+	attachedSessions(): string[] {
+		const out: string[] = [];
+		for (const msg of this.messages) {
+			if (msg.method !== "Target.attachedToTarget") continue;
+			const params = msg.params;
+			if (params && typeof params === "object" && "sessionId" in params && typeof params.sessionId === "string") {
+				out.push(params.sessionId);
+			}
+		}
+		return out;
+	}
 }
 
 function tab(overrides: Partial<TabSnapshot> & { tabId: number }): TabSnapshot {
@@ -73,6 +85,14 @@ function ack(bridge: RelayBridge, socket: FakeExtSocket, op: RelayRpcRequest["op
 	for (const rpc of socket.pending(op)) {
 		socket.markAcked(rpc.id);
 		bridge.extMessage(socket, JSON.stringify({ t: "rpcResult", id: rpc.id, ok: true, result }));
+	}
+}
+
+/** Fail every unanswered extension RPC of `op` with `ok: false`. */
+function nack(bridge: RelayBridge, socket: FakeExtSocket, op: RelayRpcRequest["op"], error = "rpc failed"): void {
+	for (const rpc of socket.pending(op)) {
+		socket.markAcked(rpc.id);
+		bridge.extMessage(socket, JSON.stringify({ t: "rpcResult", id: rpc.id, ok: false, error }));
 	}
 }
 
@@ -281,258 +301,564 @@ describe("RelayBridge tab grouping", () => {
 	});
 });
 
-describe("RelayBridge Runtime virtualization", () => {
-	it("fans out by default, honors disable, and replays cached contexts on enable", async () => {
-		const bridge = new RelayBridge();
+describe("RelayBridge Runtime sessions", () => {
+	it("virtualizes Runtime enable state for each pseudo-session", async () => {
+		const bridge = new RelayBridge({});
+		const ext = new FakeExtSocket();
+		connect(bridge, ext, [tab({ tabId: 1 })]);
+
+		const first = new FakeCdpSocket();
+		const firstConn = bridge.cdpConnected(first);
+		const firstSession = await attachPage(bridge, ext, first, firstConn, 1);
+		bridge.cdpMessage(firstConn, JSON.stringify({ id: ++msgSeq, sessionId: firstSession, method: "Runtime.enable" }));
+		await flush();
+		expect(ext.pending("send").map(rpc => rpc.method)).toEqual(["Runtime.disable"]);
+		ack(bridge, ext, "send");
+		await flush();
+		expect(ext.pending("send").map(rpc => rpc.method)).toEqual(["Runtime.enable"]);
+
+		const context = {
+			context: {
+				id: 17,
+				origin: "https://example.com",
+				name: "",
+				uniqueId: "context-17",
+				auxData: { isDefault: true, type: "default", frameId: "frame-1" },
+			},
+		};
+		bridge.extMessage(
+			ext,
+			JSON.stringify({ t: "cdpEvent", tabId: 1, method: "Runtime.executionContextCreated", params: context }),
+		);
+		ack(bridge, ext, "send");
+		await flush();
+
+		const second = new FakeCdpSocket();
+		const secondConn = bridge.cdpConnected(second);
+		const secondSession = await attachPage(bridge, ext, second, secondConn, 1);
+		const runtimeSendCount = ext.rpcs("send").length;
+		bridge.cdpMessage(
+			secondConn,
+			JSON.stringify({ id: ++msgSeq, sessionId: secondSession, method: "Runtime.enable" }),
+		);
+		await flush();
+		expect(ext.rpcs("send")).toHaveLength(runtimeSendCount);
+
+		const contexts = second.messages.filter(
+			message => message.sessionId === secondSession && message.method === "Runtime.executionContextCreated",
+		);
+		expect(contexts.map(message => message.params)).toEqual([context]);
+
+		bridge.cdpMessage(
+			secondConn,
+			JSON.stringify({ id: ++msgSeq, sessionId: secondSession, method: "Runtime.disable" }),
+		);
+		await flush();
+		expect(ext.rpcs("send")).toHaveLength(runtimeSendCount);
+
+		const nextContext = {
+			context: { ...context.context, id: 18, uniqueId: "context-18" },
+		};
+		bridge.extMessage(
+			ext,
+			JSON.stringify({ t: "cdpEvent", tabId: 1, method: "Runtime.executionContextCreated", params: nextContext }),
+		);
+		const firstContexts = first.messages.filter(
+			message => message.sessionId === firstSession && message.method === "Runtime.executionContextCreated",
+		);
+		expect(firstContexts.map(message => message.params)).toEqual([context, nextContext]);
+		expect(
+			second.messages.filter(
+				message => message.sessionId === secondSession && message.method === "Runtime.executionContextCreated",
+			),
+		).toEqual(contexts);
+	});
+
+	it("keeps a pipelined Runtime.disable authoritative while root enable completes", async () => {
+		const bridge = new RelayBridge({});
+		const ext = new FakeExtSocket();
+		connect(bridge, ext, [tab({ tabId: 1 })]);
+
+		const cdp = new FakeCdpSocket();
+		const connId = bridge.cdpConnected(cdp);
+		const sessionId = await attachPage(bridge, ext, cdp, connId, 1);
+		bridge.cdpMessage(connId, JSON.stringify({ id: ++msgSeq, sessionId, method: "Runtime.enable" }));
+		await flush();
+
+		bridge.cdpMessage(connId, JSON.stringify({ id: ++msgSeq, sessionId, method: "Runtime.disable" }));
+		ack(bridge, ext, "send");
+		await flush();
+		expect(ext.pending("send").map(rpc => rpc.method)).toEqual(["Runtime.enable"]);
+
+		const context = { context: { id: 19 } };
+		bridge.extMessage(
+			ext,
+			JSON.stringify({ t: "cdpEvent", tabId: 1, method: "Runtime.executionContextCreated", params: context }),
+		);
+		ack(bridge, ext, "send");
+		await flush();
+
+		expect(
+			cdp.messages.filter(
+				message => message.sessionId === sessionId && message.method === "Runtime.executionContextCreated",
+			),
+		).toEqual([]);
+	});
+	it("refreshes Runtime contexts after the extension reconnects", async () => {
+		const bridge = new RelayBridge({});
+		const firstExt = new FakeExtSocket();
+		connect(bridge, firstExt, [tab({ tabId: 1 })]);
+
+		const first = new FakeCdpSocket();
+		const firstConn = bridge.cdpConnected(first);
+		const firstSession = await attachPage(bridge, firstExt, first, firstConn, 1);
+		bridge.cdpMessage(firstConn, JSON.stringify({ id: ++msgSeq, sessionId: firstSession, method: "Runtime.enable" }));
+		await flush();
+		ack(bridge, firstExt, "send");
+		await flush();
+		const staleContext = { context: { id: 17 } };
+		bridge.extMessage(
+			firstExt,
+			JSON.stringify({
+				t: "cdpEvent",
+				tabId: 1,
+				method: "Runtime.executionContextCreated",
+				params: staleContext,
+			}),
+		);
+		ack(bridge, firstExt, "send");
+		await flush();
+
+		bridge.extClosed(firstExt);
+		const nextExt = new FakeExtSocket();
+		bridge.extConnected(nextExt);
+		bridge.extMessage(
+			nextExt,
+			JSON.stringify({
+				t: "hello",
+				userAgent: "test",
+				browserVersion: "Chrome/151.0.0.0",
+				tabs: [tab({ tabId: 1 })],
+				attachedTabIds: [1],
+			}),
+		);
+
+		const second = new FakeCdpSocket();
+		const secondConn = bridge.cdpConnected(second);
+		const secondSession = await attachPage(bridge, nextExt, second, secondConn, 1);
+		bridge.cdpMessage(
+			secondConn,
+			JSON.stringify({ id: ++msgSeq, sessionId: secondSession, method: "Runtime.enable" }),
+		);
+		await flush();
+		expect(nextExt.pending("send").map(rpc => rpc.method)).toEqual(["Runtime.disable"]);
+		ack(bridge, nextExt, "send");
+		await flush();
+		expect(nextExt.pending("send").map(rpc => rpc.method)).toEqual(["Runtime.enable"]);
+
+		const currentContext = { context: { id: 18 } };
+		bridge.extMessage(
+			nextExt,
+			JSON.stringify({
+				t: "cdpEvent",
+				tabId: 1,
+				method: "Runtime.executionContextCreated",
+				params: currentContext,
+			}),
+		);
+		ack(bridge, nextExt, "send");
+		await flush();
+
+		const contexts = second.messages.filter(
+			message => message.sessionId === secondSession && message.method === "Runtime.executionContextCreated",
+		);
+		expect(contexts.map(message => message.params)).toEqual([currentContext]);
+	});
+});
+
+describe("RelayBridge attachment release", () => {
+	it("detaches cleanly on explicit last-session release and permits reattachment", async () => {
+		const bridge = new RelayBridge({ group: { title: "oms", color: "cyan" } });
+		const ext = new FakeExtSocket();
+		connect(bridge, ext, [tab({ tabId: 1 })]);
+		const cdp = new FakeCdpSocket();
+		const connId = bridge.cdpConnected(cdp);
+		const sessionId = await attachPage(bridge, ext, cdp, connId, 1);
+		bridge.cdpMessage(
+			connId,
+			JSON.stringify({ id: ++msgSeq, method: "Target.detachFromTarget", params: { sessionId } }),
+		);
+		await flush();
+		expect(ext.rpcs("detach").map(rpc => rpc.tabId)).toEqual([1]);
+
+		// Mirror Chrome: onDetach reaches the bridge before detach's RPC result.
+		// This echo is expected and must not ban/retract the live target.
+		bridge.extMessage(
+			ext,
+			JSON.stringify({ t: "detached", tabId: 1, reason: "target_closed", relayInitiated: true }),
+		);
+		ack(bridge, ext, "detach");
+		await flush();
+
+		const reattachId = ++msgSeq;
+		bridge.cdpMessage(
+			connId,
+			JSON.stringify({ id: reattachId, method: "Target.attachToTarget", params: { targetId: "PAGE1" } }),
+		);
+		ack(bridge, ext, "attach");
+		await flush();
+		expect(cdp.sessionFor(reattachId)).toBeDefined();
+		expect(cdp.messages.some(message => message.method === "Target.targetDestroyed")).toBe(false);
+	});
+
+	it("serializes immediate reattachment behind the detach RPC and its echo", async () => {
+		const bridge = new RelayBridge({ group: { title: "oms", color: "cyan" } });
+		const ext = new FakeExtSocket();
+		connect(bridge, ext, [tab({ tabId: 1 })]);
+		const cdp = new FakeCdpSocket();
+		const connId = bridge.cdpConnected(cdp);
+		const sessionId = await attachPage(bridge, ext, cdp, connId, 1);
+		bridge.cdpMessage(
+			connId,
+			JSON.stringify({ id: ++msgSeq, method: "Target.detachFromTarget", params: { sessionId } }),
+		);
+		await flush();
+
+		const reattachId = ++msgSeq;
+		bridge.cdpMessage(
+			connId,
+			JSON.stringify({ id: reattachId, method: "Target.attachToTarget", params: { targetId: "PAGE1" } }),
+		);
+		await flush();
+		// Only the initial attach has reached the extension while detach is pending.
+		expect(ext.rpcs("attach")).toHaveLength(1);
+
+		bridge.extMessage(
+			ext,
+			JSON.stringify({ t: "detached", tabId: 1, reason: "target_closed", relayInitiated: true }),
+		);
+		ack(bridge, ext, "detach");
+		await flush();
+		expect(ext.rpcs("attach")).toHaveLength(2);
+		ack(bridge, ext, "attach");
+		await flush();
+		expect(cdp.sessionFor(reattachId)).toBeDefined();
+	});
+
+	it("keeps the attachment while another connection still holds a session on the tab", async () => {
+		const bridge = new RelayBridge({ group: { title: "oms", color: "cyan" } });
+		const ext = new FakeExtSocket();
+		connect(bridge, ext, [tab({ tabId: 1 })]);
+		// Long-lived registry connection: holds a session on the tab throughout.
+		const registry = new FakeCdpSocket();
+		const registryConn = bridge.cdpConnected(registry);
+		await attachPage(bridge, ext, registry, registryConn, 1);
+		const worker = new FakeCdpSocket();
+		const workerConn = bridge.cdpConnected(worker);
+		const sessionId = await attachPage(bridge, ext, worker, workerConn, 1);
+		bridge.cdpMessage(
+			workerConn,
+			JSON.stringify({ id: ++msgSeq, method: "Target.detachFromTarget", params: { sessionId } }),
+		);
+		await flush();
+		expect(ext.rpcs("detach")).toHaveLength(0);
+	});
+
+	it("detaches once the tab session released alongside the page session leaves no holder", async () => {
+		const bridge = new RelayBridge({ group: { title: "oms", color: "cyan" } });
+		const ext = new FakeExtSocket();
+		connect(bridge, ext, [tab({ tabId: 1 })]);
+		const cdp = new FakeCdpSocket();
+		const connId = bridge.cdpConnected(cdp);
+		// setAutoAttach mints a tab session; attachToTarget adds a page session.
+		bridge.cdpMessage(connId, JSON.stringify({ id: ++msgSeq, method: "Target.setAutoAttach" }));
+		ack(bridge, ext, "attach");
+		await flush();
+		const pageSession = await attachPage(bridge, ext, cdp, connId, 1);
+		const tabSession = cdp.attachedSessions().find(id => id !== pageSession);
+		if (!tabSession) throw new Error("setAutoAttach did not mint a tab session");
+		bridge.cdpMessage(
+			connId,
+			JSON.stringify({ id: ++msgSeq, method: "Target.detachFromTarget", params: { sessionId: pageSession } }),
+		);
+		await flush();
+		// The tab session still holds the attachment.
+		expect(ext.rpcs("detach")).toHaveLength(0);
+		bridge.cdpMessage(
+			connId,
+			JSON.stringify({ id: ++msgSeq, method: "Target.detachFromTarget", params: { sessionId: tabSession } }),
+		);
+		await flush();
+		expect(ext.rpcs("detach").map(rpc => rpc.tabId)).toEqual([1]);
+	});
+
+	it("retracts held sessions when reconnect reattachment fails", async () => {
+		const bridge = new RelayBridge({ group: { title: "oms", color: "cyan" } });
 		const ext = new FakeExtSocket();
 		connect(bridge, ext, [tab({ tabId: 1 })]);
 		const cdp = new FakeCdpSocket();
 		const connId = bridge.cdpConnected(cdp);
 		const sessionId = await attachPage(bridge, ext, cdp, connId, 1);
 
-		bridge.extMessage(
-			ext,
-			JSON.stringify({
-				t: "cdpEvent",
-				tabId: 1,
-				method: "Runtime.executionContextCreated",
-				params: { context: { id: 10 } },
-			}),
-		);
-		expect(cdp.messages.filter(message => message.method === "Runtime.executionContextCreated")).toHaveLength(1);
-
-		bridge.cdpMessage(connId, JSON.stringify({ id: 201, sessionId, method: "Runtime.disable" }));
-		bridge.extMessage(
-			ext,
-			JSON.stringify({
-				t: "cdpEvent",
-				tabId: 1,
-				method: "Runtime.executionContextCreated",
-				params: { context: { id: 11 } },
-			}),
-		);
-		expect(cdp.messages.filter(message => message.method === "Runtime.executionContextCreated")).toHaveLength(1);
-
-		bridge.cdpMessage(connId, JSON.stringify({ id: 202, sessionId, method: "Runtime.enable" }));
-		expect(ext.pending("send").map(request => request.method)).toEqual(["Runtime.disable"]);
-		ack(bridge, ext, "send");
-		await flush();
-		expect(ext.pending("send").map(request => request.method)).toEqual(["Runtime.enable"]);
-		ack(bridge, ext, "send");
-		await flush();
-
-		const contexts = cdp.messages
-			.filter(message => message.method === "Runtime.executionContextCreated")
-			.map(message => {
-				const params = message.params;
-				if (!params || typeof params !== "object" || !("context" in params)) throw new Error("missing context");
-				const context = params.context;
-				if (!context || typeof context !== "object" || !("id" in context) || typeof context.id !== "number") {
-					throw new Error("missing context id");
-				}
-				return context.id;
-			});
-		expect(contexts).toEqual([10, 10, 11]);
-		expect(cdp.messages.find(message => message.id === 202)).toMatchObject({ result: {} });
-	});
-
-	it("joins duplicate enables and preserves a newer disable when the shared cycle fails", async () => {
-		const bridge = new RelayBridge();
-		const ext = new FakeExtSocket();
-		connect(bridge, ext, [tab({ tabId: 2 })]);
-		const cdp = new FakeCdpSocket();
-		const connId = bridge.cdpConnected(cdp);
-		const sessionId = await attachPage(bridge, ext, cdp, connId, 2);
-
-		bridge.cdpMessage(connId, JSON.stringify({ id: 210, sessionId, method: "Runtime.enable" }));
-		bridge.cdpMessage(connId, JSON.stringify({ id: 211, sessionId, method: "Runtime.enable" }));
-		expect(ext.pending("send")).toHaveLength(1);
-		const rootDisable = ext.pending("send")[0]!;
-		ext.markAcked(rootDisable.id);
-		bridge.extMessage(ext, JSON.stringify({ t: "rpcResult", id: rootDisable.id, ok: false, error: "denied" }));
-		await flush();
-
-		expect(ext.rpcs("send")).toHaveLength(1);
-		expect(cdp.messages.find(message => message.id === 210)).toMatchObject({ error: { message: "denied" } });
-		expect(cdp.messages.find(message => message.id === 211)).toMatchObject({ error: { message: "denied" } });
-
-		bridge.cdpMessage(connId, JSON.stringify({ id: 212, sessionId, method: "Runtime.enable" }));
-		bridge.cdpMessage(connId, JSON.stringify({ id: 213, sessionId, method: "Runtime.disable" }));
-		const retry = ext.pending("send")[0]!;
-		ext.markAcked(retry.id);
-		bridge.extMessage(ext, JSON.stringify({ t: "rpcResult", id: retry.id, ok: false, error: "still denied" }));
-		await flush();
-		bridge.extMessage(
-			ext,
-			JSON.stringify({
-				t: "cdpEvent",
-				tabId: 2,
-				method: "Runtime.executionContextCreated",
-				params: { context: { id: 20 } },
-			}),
-		);
-		expect(cdp.messages.filter(message => message.method === "Runtime.executionContextCreated")).toHaveLength(0);
-	});
-
-	it("restores enabled Runtime sessions and clears context dedupe across reconnect", async () => {
-		const bridge = new RelayBridge();
-		const ext = new FakeExtSocket();
-		connect(bridge, ext, [tab({ tabId: 3 })]);
-		const cdp = new FakeCdpSocket();
-		const connId = bridge.cdpConnected(cdp);
-		const sessionId = await attachPage(bridge, ext, cdp, connId, 3);
-		bridge.cdpMessage(connId, JSON.stringify({ id: 220, sessionId, method: "Runtime.enable" }));
-		ack(bridge, ext, "send");
-		await flush();
-		ack(bridge, ext, "send");
-		await flush();
-		bridge.extMessage(
-			ext,
-			JSON.stringify({
-				t: "cdpEvent",
-				tabId: 3,
-				method: "Runtime.executionContextCreated",
-				params: { context: { id: 30 } },
-			}),
-		);
-
-		bridge.extClosed(ext);
 		const replacement = new FakeExtSocket();
-		connect(bridge, replacement, [tab({ tabId: 3 })]);
+		connect(bridge, replacement, [tab({ tabId: 1 })]);
+		expect(replacement.pending("attach")).toHaveLength(1);
+		nack(bridge, replacement, "attach", "debugger unavailable");
+		await flush();
+
+		const detached = cdp.messages.find(
+			message =>
+				message.method === "Target.detachedFromTarget" &&
+				message.params !== null &&
+				typeof message.params === "object" &&
+				"sessionId" in message.params &&
+				message.params.sessionId === sessionId,
+		);
+		expect(detached).toBeDefined();
+	});
+
+	it("reconciles a delayed detach after replacement hello still reports the old attachment", async () => {
+		const bridge = new RelayBridge({ group: { title: "oms", color: "cyan" } });
+		const ext = new FakeExtSocket();
+		connect(bridge, ext, [tab({ tabId: 1 })]);
+		const cdp = new FakeCdpSocket();
+		const connId = bridge.cdpConnected(cdp);
+		const sessionId = await attachPage(bridge, ext, cdp, connId, 1);
+		bridge.cdpMessage(
+			connId,
+			JSON.stringify({ id: ++msgSeq, method: "Target.detachFromTarget", params: { sessionId } }),
+		);
+		await flush();
+
+		const replacement = new FakeExtSocket();
+		connect(bridge, replacement, [tab({ tabId: 1 })], [1]);
+		bridge.extMessage(
+			replacement,
+			JSON.stringify({ t: "detached", tabId: 1, reason: "target_closed", relayInitiated: true }),
+		);
+		await flush();
+
+		const reattachId = ++msgSeq;
+		bridge.cdpMessage(
+			connId,
+			JSON.stringify({ id: reattachId, method: "Target.attachToTarget", params: { targetId: "PAGE1" } }),
+		);
+		await flush();
 		expect(replacement.pending("attach")).toHaveLength(1);
 		ack(bridge, replacement, "attach");
 		await flush();
-		expect(replacement.pending("send").map(request => request.method)).toEqual(["Runtime.disable"]);
-		ack(bridge, replacement, "send");
-		await flush();
-		expect(replacement.pending("send").map(request => request.method)).toEqual(["Runtime.enable"]);
-		ack(bridge, replacement, "send");
-		await flush();
-
-		bridge.extMessage(
-			replacement,
-			JSON.stringify({
-				t: "cdpEvent",
-				tabId: 3,
-				method: "Runtime.executionContextCreated",
-				params: { context: { id: 30 } },
-			}),
-		);
-		expect(cdp.messages.filter(message => message.method === "Runtime.executionContextCreated")).toHaveLength(2);
+		expect(cdp.sessionFor(reattachId)).toBeDefined();
 	});
-});
 
-describe("RelayBridge detach and replacement lifecycle", () => {
-	it("serializes explicit final-session detach before replacement attachment", async () => {
-		const bridge = new RelayBridge();
+	it("does not ban a tab when its in-flight attach is interrupted by extension replacement", async () => {
+		const bridge = new RelayBridge({ group: { title: "oms", color: "cyan" } });
 		const ext = new FakeExtSocket();
-		connect(bridge, ext, [tab({ tabId: 4 })]);
-		const firstCdp = new FakeCdpSocket();
-		const firstConn = bridge.cdpConnected(firstCdp);
-		const firstSession = await attachPage(bridge, ext, firstCdp, firstConn, 4);
-
+		connect(bridge, ext, [tab({ tabId: 1 })]);
+		const cdp = new FakeCdpSocket();
+		const connId = bridge.cdpConnected(cdp);
 		bridge.cdpMessage(
-			firstConn,
-			JSON.stringify({ id: 230, method: "Target.detachFromTarget", params: { sessionId: firstSession } }),
+			connId,
+			JSON.stringify({ id: ++msgSeq, method: "Target.attachToTarget", params: { targetId: "PAGE1" } }),
 		);
+		expect(ext.pending("attach")).toHaveLength(1);
+
+		const replacement = new FakeExtSocket();
+		connect(bridge, replacement, [tab({ tabId: 1 })]);
+		await flush();
+
+		const retryId = ++msgSeq;
+		bridge.cdpMessage(
+			connId,
+			JSON.stringify({ id: retryId, method: "Target.attachToTarget", params: { targetId: "PAGE1" } }),
+		);
+		await flush();
+		expect(replacement.pending("attach")).toHaveLength(1);
+		ack(bridge, replacement, "attach");
+		await flush();
+		expect(cdp.sessionFor(retryId)).toBeDefined();
+	});
+
+	it("clears an in-flight detach immediately when the extension socket is replaced", async () => {
+		const bridge = new RelayBridge({ group: { title: "oms", color: "cyan" } });
+		const ext = new FakeExtSocket();
+		connect(bridge, ext, [tab({ tabId: 1 })]);
+		const cdp = new FakeCdpSocket();
+		const connId = bridge.cdpConnected(cdp);
+		const sessionId = await attachPage(bridge, ext, cdp, connId, 1);
+		bridge.cdpMessage(
+			connId,
+			JSON.stringify({ id: ++msgSeq, method: "Target.detachFromTarget", params: { sessionId } }),
+		);
+		await flush();
 		expect(ext.pending("detach")).toHaveLength(1);
 
-		const secondCdp = new FakeCdpSocket();
-		const secondConn = bridge.cdpConnected(secondCdp);
-		bridge.cdpMessage(
-			secondConn,
-			JSON.stringify({ id: 231, method: "Target.attachToTarget", params: { targetId: "PAGE4", flatten: true } }),
-		);
-		await flush();
-		expect(ext.pending("attach")).toHaveLength(0);
-
-		bridge.extMessage(
-			ext,
-			JSON.stringify({ t: "detached", tabId: 4, reason: "target_closed", relayInitiated: true }),
-		);
-		ack(bridge, ext, "detach");
-		await flush();
-		expect(ext.pending("attach")).toHaveLength(1);
-		ack(bridge, ext, "attach");
-		await flush();
-		expect(secondCdp.sessionFor(231)).toBeDefined();
-	});
-
-	it("clears old RPC waits on socket replacement without permanently banning the tab", async () => {
-		const bridge = new RelayBridge();
-		const oldExt = new FakeExtSocket();
-
-		connect(bridge, oldExt, [tab({ tabId: 5 })]);
-		const cdp = new FakeCdpSocket();
-		const connId = bridge.cdpConnected(cdp);
-		bridge.cdpMessage(
-			connId,
-			JSON.stringify({ id: 240, method: "Target.attachToTarget", params: { targetId: "PAGE5", flatten: true } }),
-		);
-		expect(oldExt.pending("attach")).toHaveLength(1);
-
 		const replacement = new FakeExtSocket();
-		connect(bridge, replacement, [tab({ tabId: 5 })]);
-		await flush();
-		expect(cdp.messages.find(message => message.id === 240)).toMatchObject({
-			error: { message: "Cannot attach to tab 5 (https://example.com/)" },
-		});
-
+		connect(bridge, replacement, [tab({ tabId: 1 })]);
+		const reattachId = ++msgSeq;
 		bridge.cdpMessage(
 			connId,
-			JSON.stringify({ id: 241, method: "Target.attachToTarget", params: { targetId: "PAGE5", flatten: true } }),
-		);
-		ack(bridge, replacement, "attach");
-		await flush();
-		expect(cdp.sessionFor(241)).toBeDefined();
-	});
-	it("correlates a delayed relay detach echo delivered through a replacement socket", async () => {
-		const bridge = new RelayBridge();
-		const oldExt = new FakeExtSocket();
-		connect(bridge, oldExt, [tab({ tabId: 7 })]);
-		const cdp = new FakeCdpSocket();
-		const connId = bridge.cdpConnected(cdp);
-		const sessionId = await attachPage(bridge, oldExt, cdp, connId, 7);
-		bridge.cdpMessage(connId, JSON.stringify({ id: 235, method: "Target.detachFromTarget", params: { sessionId } }));
-		expect(oldExt.pending("detach")).toHaveLength(1);
-
-		const replacement = new FakeExtSocket();
-		connect(bridge, replacement, [tab({ tabId: 7 })], [7]);
-		bridge.extMessage(
-			replacement,
-			JSON.stringify({ t: "detached", tabId: 7, reason: "target_closed", relayInitiated: true }),
+			JSON.stringify({ id: reattachId, method: "Target.attachToTarget", params: { targetId: "PAGE1" } }),
 		);
 		await flush();
 
-		bridge.cdpMessage(
-			connId,
-			JSON.stringify({ id: 236, method: "Target.attachToTarget", params: { targetId: "PAGE7", flatten: true } }),
-		);
+		// Reattachment reaches the replacement immediately; it does not wait
+		// for the old socket's unreachable detach result or its 20s timeout.
 		expect(replacement.pending("attach")).toHaveLength(1);
 		ack(bridge, replacement, "attach");
 		await flush();
-		expect(cdp.sessionFor(236)).toBeDefined();
-	});
+		const replacementSession = cdp.sessionFor(reattachId);
+		expect(replacementSession).toBeDefined();
 
-	it("treats failed reattachment as a real detach, not a relay echo", async () => {
-		const bridge = new RelayBridge();
-		const ext = new FakeExtSocket();
-		connect(bridge, ext, [tab({ tabId: 6 })]);
-		const cdp = new FakeCdpSocket();
-		const connId = bridge.cdpConnected(cdp);
-		await attachPage(bridge, ext, cdp, connId, 6);
-
-		const replacement = new FakeExtSocket();
-		connect(bridge, replacement, [tab({ tabId: 6 })]);
-		const reattach = replacement.pending("attach")[0]!;
-		replacement.markAcked(reattach.id);
+		// The old chrome.debugger.detach finishes after replacement attach and
+		// sends its callback through the new global extension socket. Correlation
+		// must survive the rejected RPC so this cannot retract the new session.
 		bridge.extMessage(
 			replacement,
-			JSON.stringify({ t: "rpcResult", id: reattach.id, ok: false, error: "another debugger" }),
+			JSON.stringify({ t: "detached", tabId: 1, reason: "target_closed", relayInitiated: true }),
 		);
 		await flush();
+		const replacementDetach = cdp.messages.find(
+			message =>
+				message.method === "Target.detachedFromTarget" &&
+				message.params !== null &&
+				typeof message.params === "object" &&
+				"sessionId" in message.params &&
+				message.params.sessionId === replacementSession,
+		);
+		expect(replacementDetach).toBeUndefined();
 
-		expect(cdp.messages.some(message => message.method === "Target.detachedFromTarget")).toBe(true);
-		expect(cdp.messages.some(message => message.method === "Target.targetDestroyed")).toBe(false);
+		// A later genuine user cancellation has no relay attribution and must
+		// still retract the replacement session.
+		bridge.extMessage(replacement, JSON.stringify({ t: "detached", tabId: 1, reason: "canceled_by_user" }));
+		await flush();
+		const userDetach = cdp.messages.find(
+			message =>
+				message.method === "Target.detachedFromTarget" &&
+				message.params !== null &&
+				typeof message.params === "object" &&
+				"sessionId" in message.params &&
+				message.params.sessionId === replacementSession,
+		);
+		expect(userDetach).toBeDefined();
+	});
+
+	it("still fans root Runtime events out to a session that never enabled the domain", async () => {
+		const bridge = new RelayBridge({});
+		const ext = new FakeExtSocket();
+		connect(bridge, ext, [tab({ tabId: 1 })]);
+
+		const cdp = new FakeCdpSocket();
+		const connId = bridge.cdpConnected(cdp);
+		// oms's own patched-puppeteer client pull-acquires contexts and never
+		// sends Runtime.enable, yet still waits on executionContextCreated.
+		const sessionId = await attachPage(bridge, ext, cdp, connId, 1);
+
+		const context = { context: { id: 42, uniqueId: "context-42" } };
+		bridge.extMessage(
+			ext,
+			JSON.stringify({ t: "cdpEvent", tabId: 1, method: "Runtime.executionContextCreated", params: context }),
+		);
+
+		const received = cdp.messages.filter(
+			message => message.sessionId === sessionId && message.method === "Runtime.executionContextCreated",
+		);
+		expect(received.map(message => message.params)).toEqual([context]);
+
+		// An explicit disable silences the same session — a later re-emit is dropped.
+		bridge.cdpMessage(connId, JSON.stringify({ id: ++msgSeq, sessionId, method: "Runtime.disable" }));
+		await flush();
+		bridge.extMessage(
+			ext,
+			JSON.stringify({ t: "cdpEvent", tabId: 1, method: "Runtime.executionContextCreated", params: context }),
+		);
+		expect(
+			cdp.messages.filter(
+				message => message.sessionId === sessionId && message.method === "Runtime.executionContextCreated",
+			),
+		).toEqual(received);
+	});
+
+	it("holds a pipelined duplicate Runtime.enable until the in-flight enable settles", async () => {
+		const bridge = new RelayBridge({});
+		const ext = new FakeExtSocket();
+		connect(bridge, ext, [tab({ tabId: 1 })]);
+		const cdp = new FakeCdpSocket();
+		const connId = bridge.cdpConnected(cdp);
+		const sessionId = await attachPage(bridge, ext, cdp, connId, 1);
+
+		const enable1 = ++msgSeq;
+		bridge.cdpMessage(connId, JSON.stringify({ id: enable1, sessionId, method: "Runtime.enable" }));
+		await flush();
+		const enable2 = ++msgSeq;
+		bridge.cdpMessage(connId, JSON.stringify({ id: enable2, sessionId, method: "Runtime.enable" }));
+		await flush();
+
+		// Root disable/enable cycle still pending: neither caller may be acked.
+		expect(cdp.messages.filter(message => message.id === enable1 || message.id === enable2)).toEqual([]);
+
+		ack(bridge, ext, "send"); // Runtime.disable leg
+		await flush();
+		ack(bridge, ext, "send"); // Runtime.enable leg
+		await flush();
+
+		expect(cdp.messages.filter(message => message.id === enable1 && "result" in message)).toHaveLength(1);
+		expect(cdp.messages.filter(message => message.id === enable2 && "result" in message)).toHaveLength(1);
+	});
+
+	it("fails a pipelined duplicate Runtime.enable when the root enable fails", async () => {
+		const bridge = new RelayBridge({});
+		const ext = new FakeExtSocket();
+		connect(bridge, ext, [tab({ tabId: 1 })]);
+		const cdp = new FakeCdpSocket();
+		const connId = bridge.cdpConnected(cdp);
+		const sessionId = await attachPage(bridge, ext, cdp, connId, 1);
+
+		const enable1 = ++msgSeq;
+		bridge.cdpMessage(connId, JSON.stringify({ id: enable1, sessionId, method: "Runtime.enable" }));
+		await flush();
+		const enable2 = ++msgSeq;
+		bridge.cdpMessage(connId, JSON.stringify({ id: enable2, sessionId, method: "Runtime.enable" }));
+		await flush();
+
+		// The first leg of the root cycle fails: both callers must observe it.
+		nack(bridge, ext, "send");
+		await flush();
+
+		expect(cdp.messages.filter(message => message.id === enable1 && "error" in message)).toHaveLength(1);
+		expect(cdp.messages.filter(message => message.id === enable2 && "error" in message)).toHaveLength(1);
+		expect(
+			cdp.messages.filter(message => (message.id === enable1 || message.id === enable2) && "result" in message),
+		).toEqual([]);
+	});
+
+	it("preserves the latest disable when an older and newer enable both fail", async () => {
+		const bridge = new RelayBridge({});
+		const ext = new FakeExtSocket();
+		connect(bridge, ext, [tab({ tabId: 1 })]);
+		const cdp = new FakeCdpSocket();
+		const connId = bridge.cdpConnected(cdp);
+		const sessionId = await attachPage(bridge, ext, cdp, connId, 1);
+
+		bridge.cdpMessage(connId, JSON.stringify({ id: ++msgSeq, sessionId, method: "Runtime.enable" }));
+		await flush();
+		bridge.cdpMessage(connId, JSON.stringify({ id: ++msgSeq, sessionId, method: "Runtime.disable" }));
+		const latestEnable = ++msgSeq;
+		bridge.cdpMessage(connId, JSON.stringify({ id: latestEnable, sessionId, method: "Runtime.enable" }));
+		await flush();
+
+		nack(bridge, ext, "send");
+		await flush();
+		expect(cdp.messages.filter(message => message.id === latestEnable && "error" in message)).toHaveLength(1);
+
+		const context = { context: { id: 91, uniqueId: "context-91" } };
+		bridge.extMessage(
+			ext,
+			JSON.stringify({ t: "cdpEvent", tabId: 1, method: "Runtime.executionContextCreated", params: context }),
+		);
+		expect(
+			cdp.messages.filter(
+				message => message.sessionId === sessionId && message.method === "Runtime.executionContextCreated",
+			),
+		).toEqual([]);
 	});
 });

@@ -71,7 +71,9 @@ describe("TUI SIXEL capability probe", () => {
 	it("enables SIXEL on a terminal identified only by COLORTERM (foot)", () => {
 		// Regression: the probe used to require isConPTYHosted() && WT_SESSION, so a
 		// SIXEL-capable terminal that exports no identifying variable (foot sets
-		// TERM=foot and COLORTERM=truecolor only) kept imageProtocol null.
+		// TERM=foot and COLORTERM=truecolor only) resolved the `trueColor`
+		// capability row, kept imageProtocol null, and rendered every image as the
+		// `[Image: …]` text card.
 		delete Bun.env.WT_SESSION;
 		delete Bun.env.WSL_DISTRO_NAME;
 		delete Bun.env.WSL_INTEROP;
@@ -129,7 +131,10 @@ describe("TUI SIXEL capability probe", () => {
 	});
 
 	it("enables SIXEL under WSL + Windows Terminal (process.platform is linux)", () => {
-		// The probe is portable rather than host-gated, so WSL remains covered.
+		// Regression for #6009: inside WSL, process.platform reports "linux" even
+		// though the host is Windows Terminal, so a probe gated on
+		// process.platform === "win32" never negotiated SIXEL there. The probe no
+		// longer gates on the host at all; WSL is one covered environment of many.
 		if (process.platform !== "linux") return;
 		Bun.env.WT_SESSION = "test-wt-session";
 		Bun.env.WSL_DISTRO_NAME = "Ubuntu";

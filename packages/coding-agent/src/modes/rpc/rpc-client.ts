@@ -47,9 +47,32 @@ type DistributiveOmit<T, K extends keyof T> = T extends unknown ? Omit<T, K> : n
 /** RpcCommand without the id field (for internal send) */
 type RpcCommandBody = DistributiveOmit<RpcCommand, "id">;
 
+/** Process transport consumed by {@link RpcClient}. */
+export interface RpcAgentProcess {
+	stdin: {
+		write(data: string | Uint8Array): unknown;
+	};
+	stdout: ReadableStream<Uint8Array>;
+	peekStderr(): string;
+	kill(signal?: Parameters<ptree.ChildProcess["kill"]>[0], graceMs?: number): void;
+	exited: Promise<number>;
+}
+
 export interface RpcClientOptions {
-	/** Path to the CLI entry point (default: searches for dist/cli.js) */
+	/** Path to the CLI entry point (default: `dist/cli.js`). */
 	cliPath?: string;
+	/**
+	 * Agent launcher override. An argv prefix receives the normal RPC/model args
+	 * appended; a builder receives those args and returns the complete argv.
+	 * Builders support transports such as SSH that must quote the final argv.
+	 * Ignored when {@link spawn} is provided.
+	 */
+	command?: string[] | ((agentArgs: string[]) => string[]);
+	/**
+	 * Spawn the RPC agent over a custom transport instead of a local child process.
+	 * Takes precedence over {@link command}.
+	 */
+	spawn?: (agentArgs: string[]) => RpcAgentProcess | Promise<RpcAgentProcess>;
 	/** Working directory for the agent */
 	cwd?: string;
 	/** Environment variables */
@@ -62,6 +85,8 @@ export interface RpcClientOptions {
 	sessionDir?: string;
 	/** Additional CLI arguments */
 	args?: string[];
+	/** Grace period before escalating process termination (default: process utility default, 1000ms) */
+	terminationGraceMs?: number;
 	/** Custom tools owned by the embedding host and exposed over the RPC transport */
 	customTools?: RpcClientCustomTool[];
 }
@@ -111,6 +136,7 @@ const agentEventTypes = new Set<AgentEvent["type"]>([
 	"message_end",
 	"tool_execution_start",
 	"tool_execution_update",
+	"tool_stream_update",
 	"tool_execution_end",
 ]);
 
@@ -244,7 +270,7 @@ function isPageFallbackError(error: unknown): boolean {
 // ============================================================================
 
 export class RpcClient {
-	#process: ptree.ChildProcess | null = null;
+	#process: RpcAgentProcess | null = null;
 	#reaping: Promise<void> | null = null;
 	#eventListeners: RpcEventListener[] = [];
 	#sessionEventListeners: RpcSessionEventListener[] = [];
@@ -299,12 +325,18 @@ export class RpcClient {
 		if (this.options.args) {
 			args.push(...this.options.args);
 		}
-
-		const child = ptree.spawn(["bun", cliPath, ...args], {
-			cwd: this.options.cwd,
-			env: { ...Bun.env, ...this.options.env },
-			stdin: "pipe",
-		});
+		const child = this.options.spawn
+			? await this.options.spawn(args)
+			: ptree.spawn(
+					typeof this.options.command === "function"
+						? this.options.command(args)
+						: [...(this.options.command ?? ["bun", cliPath]), ...args],
+					{
+						cwd: this.options.cwd,
+						env: { ...Bun.env, ...this.options.env },
+						stdin: "pipe",
+					},
+				);
 		this.#process = child;
 
 		// Wait for the "ready" signal or process exit
@@ -325,7 +357,7 @@ export class RpcClient {
 			this.#pendingHostToolCalls.clear();
 
 			try {
-				child.kill();
+				child.kill(undefined, this.options.terminationGraceMs);
 			} catch {
 				// The process may already have exited.
 			}
@@ -352,6 +384,13 @@ export class RpcClient {
 			// failures are reaped by the readyPromise catch below; established
 			// workers are reaped here so pending requests cannot hang indefinitely.
 			if (!readySettled) {
+				// Stdout can close before the exit reaper finishes draining stderr.
+				// child.exited settles only after the stderr tail is complete (for
+				// nonzero exits), so give it a bounded head start: the exit watcher
+				// below was registered first and rejects with the real stderr text
+				// instead of an empty "Stderr:" (flaked under full-suite load).
+				await Promise.race([child.exited.catch(() => {}), Bun.sleep(250)]);
+				if (readySettled) return;
 				readySettled = true;
 				readyReject(new Error(`Agent output stream ended before ready. Stderr: ${child.peekStderr()}`));
 				return;
@@ -441,7 +480,7 @@ export class RpcClient {
 
 		const error = new Error("Client stopped");
 		const child = this.#process;
-		child.kill();
+		child.kill(undefined, this.options.terminationGraceMs);
 		this.#abortController.abort(error);
 		this.#process = null;
 		for (const request of this.#pendingRequests.values()) request.reject(error);
@@ -460,7 +499,7 @@ export class RpcClient {
 		void this.stop();
 	}
 
-	#waitForExit(child: ptree.ChildProcess): Promise<void> {
+	#waitForExit(child: RpcAgentProcess): Promise<void> {
 		const reaping = child.exited.then(
 			() => {},
 			() => {},
@@ -771,7 +810,7 @@ export class RpcClient {
 	}
 
 	/**
-	 * Hand off session context to a new session.
+	 * Summarize the session into a handoff document and compact it in place.
 	 */
 	async handoff(customInstructions?: string): Promise<RpcHandoffResult | null> {
 		const response = await this.#send({ type: "handoff", customInstructions });
@@ -943,6 +982,7 @@ export class RpcClient {
 			parameters: tool.parameters,
 			hidden: tool.hidden,
 			loadMode: tool.loadMode,
+			readsSkillUris: tool.readsSkillUris,
 		}));
 		const response = await this.#send({ type: "set_host_tools", tools: definitions });
 		return this.#getData<{ toolNames: string[] }>(response).toolNames;
@@ -1191,9 +1231,10 @@ export class RpcClient {
 		if (!this.#process?.stdin) {
 			throw new Error("Client not started");
 		}
-		const stdin = this.#process.stdin as FileSink;
+		const stdin = this.#process.stdin;
 		stdin.write(`${JSON.stringify(frame)}\n`);
-		const flushResult = stdin.flush();
+		if (!("flush" in stdin)) return;
+		const flushResult = (stdin as FileSink).flush();
 		if (isPromise(flushResult)) {
 			flushResult.catch((err: Error) => {
 				onError?.(err);

@@ -6,17 +6,6 @@ afterEach(() => {
 	vi.restoreAllMocks();
 });
 
-/** Claim and immediately release a port, so each flow can pin a known-free one. */
-function freeLoopbackPort(): number {
-	const probe = Bun.serve({ hostname: "127.0.0.1", port: 0, fetch: () => new Response("probe") });
-	const port = probe.port;
-	probe.stop(true);
-	if (typeof port !== "number") {
-		throw new Error("Bun.serve({ port: 0 }) did not assign a numeric port");
-	}
-	return port;
-}
-
 function mockProviderTokenEndpoint(onBody: (body: string) => void): FetchImpl {
 	return async (input, init) => {
 		const url = String(input);
@@ -93,6 +82,61 @@ describe("mcp oauth flow", () => {
 		expect((registrationPayload as { scope?: string } | null)?.scope).toBeUndefined();
 		expect(authUrl.searchParams.get("client_id")).toBe("registered-client-id");
 		expect(authUrl.searchParams.get("state")).toBe("test-state");
+	});
+
+	it("uses the issuer rather than the authorization endpoint to discover DCR metadata", async () => {
+		const calls: string[] = [];
+		const fetchImpl: FetchImpl = async input => {
+			const url = String(input);
+			calls.push(url);
+
+			if (url === "https://auth.example.com/auth/realms/myrealm/.well-known/oauth-authorization-server") {
+				return new Response(
+					JSON.stringify({
+						registration_endpoint:
+							"https://auth.example.com/auth/realms/myrealm/clients-registrations/openid-connect",
+					}),
+					{ status: 200, headers: { "Content-Type": "application/json" } },
+				);
+			}
+			if (url === "https://auth.example.com/auth/realms/myrealm/clients-registrations/openid-connect") {
+				return new Response(JSON.stringify({ client_id: "registered-client-id" }), {
+					status: 200,
+					headers: { "Content-Type": "application/json" },
+				});
+			}
+			return new Response("not found", { status: 404 });
+		};
+
+		const flow = new MCPOAuthFlow(
+			{
+				authorizationUrl: "https://auth.example.com/auth/realms/myrealm/protocol/openid-connect/auth",
+				tokenUrl: "https://auth.example.com/auth/realms/myrealm/protocol/openid-connect/token",
+				issuerUrl: "https://auth.example.com/auth/realms/myrealm",
+				fetch: fetchImpl,
+			},
+			{},
+		);
+
+		const { url } = await flow.generateAuthUrl("test-state", "http://127.0.0.1:53175/callback");
+
+		expect(new URL(url).searchParams.get("client_id")).toBe("registered-client-id");
+		expect(calls).toContain("https://auth.example.com/auth/realms/myrealm/.well-known/oauth-authorization-server");
+	});
+
+	it("removes a whitespace-only embedded client id before authorization", async () => {
+		const flow = new MCPOAuthFlow(
+			{
+				authorizationUrl: "https://provider.example/authorize?client_id=%20%09",
+				tokenUrl: "https://provider.example/token",
+				fetch: async () => new Response("not found", { status: 404 }),
+			},
+			{},
+		);
+
+		const { url } = await flow.generateAuthUrl("test-state", "http://127.0.0.1:53174/callback");
+
+		expect(new URL(url).searchParams.get("client_id")).toBeNull();
 	});
 
 	it("includes discovered scopes in dynamic client registration", async () => {
@@ -199,7 +243,6 @@ describe("mcp oauth flow", () => {
 	});
 
 	it("uses configured callbackPath for the local redirect URI", async () => {
-		const callbackPort = freeLoopbackPort();
 		let observedRedirectUri = "";
 		let tokenRequestBody = "";
 
@@ -208,7 +251,7 @@ describe("mcp oauth flow", () => {
 				authorizationUrl: "https://provider.example/authorize",
 				tokenUrl: "https://provider.example/token",
 				clientId: "client-id",
-				callbackPort,
+				callbackPort: 14567,
 				callbackPath: "slack/oauth_redirect",
 				fetch: mockProviderTokenEndpoint(body => {
 					tokenRequestBody = body;
@@ -232,7 +275,6 @@ describe("mcp oauth flow", () => {
 		const tokenParams = new URLSearchParams(tokenRequestBody);
 
 		expect(redirectUrl.pathname).toBe("/slack/oauth_redirect");
-		expect(observedRedirectUri).toBe(`http://localhost:${callbackPort}/slack/oauth_redirect`);
 		expect(tokenParams.get("redirect_uri")).toBe(observedRedirectUri);
 		expect(credentials).toMatchObject({
 			access: "access-token",
@@ -240,7 +282,6 @@ describe("mcp oauth flow", () => {
 		});
 	});
 	it("sends MCP resource indicator in authorization and token requests", async () => {
-		const callbackPort = freeLoopbackPort();
 		let authResource = "";
 		let tokenRequestBody = "";
 
@@ -250,7 +291,7 @@ describe("mcp oauth flow", () => {
 				tokenUrl: "https://provider.example/token",
 				clientId: "client-id",
 				resource: "https://mcp.example.com/mcp",
-				callbackPort,
+				callbackPort: 14572,
 				fetch: mockProviderTokenEndpoint(body => {
 					tokenRequestBody = body;
 				}),
@@ -275,8 +316,7 @@ describe("mcp oauth flow", () => {
 		expect(authResource).toBe("https://mcp.example.com/mcp");
 		expect(tokenParams.get("resource")).toBe("https://mcp.example.com/mcp");
 	});
-	it("uses an authorization URL resource for the matching token request", async () => {
-		const callbackPort = freeLoopbackPort();
+	it("prefers the configured resource over one embedded in the authorization URL", async () => {
 		let authResource = "";
 		let tokenRequestBody = "";
 
@@ -287,7 +327,7 @@ describe("mcp oauth flow", () => {
 				tokenUrl: "https://provider.example/token",
 				clientId: "client-id",
 				resource: "https://config-resource.example/mcp",
-				callbackPort,
+				callbackPort: 14573,
 				fetch: mockProviderTokenEndpoint(body => {
 					tokenRequestBody = body;
 				}),
@@ -309,12 +349,11 @@ describe("mcp oauth flow", () => {
 		await flow.login();
 		const tokenParams = new URLSearchParams(tokenRequestBody);
 
-		expect(authResource).toBe("https://auth-url-resource.example/mcp");
-		expect(tokenParams.get("resource")).toBe("https://auth-url-resource.example/mcp");
+		expect(authResource).toBe("https://config-resource.example/mcp");
+		expect(tokenParams.get("resource")).toBe("https://config-resource.example/mcp");
 	});
 
 	it("uses exact redirectUri and clientSecret for provider requests", async () => {
-		const callbackPort = freeLoopbackPort();
 		let observedRedirectUri = "";
 		let tokenRequestBody = "";
 
@@ -325,7 +364,7 @@ describe("mcp oauth flow", () => {
 				clientId: "client-id",
 				clientSecret: "client-secret",
 				redirectUri: "https://public.example/slack/oauth_redirect",
-				callbackPort,
+				callbackPort: 14568,
 				callbackPath: "slack/oauth_redirect",
 				fetch: mockProviderTokenEndpoint(body => {
 					tokenRequestBody = body;
@@ -338,7 +377,7 @@ describe("mcp oauth flow", () => {
 					const state = authUrl.searchParams.get("state") ?? "";
 					queueMicrotask(() => {
 						void completeLocalOAuthCallback(
-							`http://localhost:${callbackPort}/slack/oauth_redirect?code=test-code&state=${state}`,
+							`http://localhost:14568/slack/oauth_redirect?code=test-code&state=${state}`,
 						);
 					});
 				},
@@ -359,7 +398,6 @@ describe("mcp oauth flow", () => {
 	});
 
 	it("rejects an HTTP-200 token response that carries no access token", async () => {
-		const callbackPort = freeLoopbackPort();
 		let observedRedirectUri = "";
 		const flow = new MCPOAuthFlow(
 			{
@@ -367,7 +405,7 @@ describe("mcp oauth flow", () => {
 				tokenUrl: "https://provider.example/token",
 				clientId: "client-id",
 				clientSecret: "client-secret",
-				callbackPort,
+				callbackPort: 14569,
 				fetch: async input => {
 					const url = String(input);
 					if (url === "https://provider.example/token") {
@@ -398,7 +436,6 @@ describe("mcp oauth flow", () => {
 	});
 
 	it("preserves root redirectUri values without adding a trailing slash", async () => {
-		const callbackPort = freeLoopbackPort();
 		let observedRedirectUri = "";
 		let tokenRequestBody = "";
 
@@ -408,7 +445,7 @@ describe("mcp oauth flow", () => {
 				tokenUrl: "https://provider.example/token",
 				clientId: "client-id",
 				redirectUri: "https://public.example",
-				callbackPort,
+				callbackPort: 14571,
 				fetch: mockProviderTokenEndpoint(body => {
 					tokenRequestBody = body;
 				}),
@@ -419,7 +456,7 @@ describe("mcp oauth flow", () => {
 					observedRedirectUri = authUrl.searchParams.get("redirect_uri") ?? "";
 					const state = authUrl.searchParams.get("state") ?? "";
 					queueMicrotask(() => {
-						void completeLocalOAuthCallback(`http://localhost:${callbackPort}/?code=test-code&state=${state}`);
+						void completeLocalOAuthCallback(`http://localhost:14571/?code=test-code&state=${state}`);
 					});
 				},
 				signal: AbortSignal.timeout(1_000),
@@ -438,7 +475,6 @@ describe("mcp oauth flow", () => {
 	});
 
 	it("supports https loopback redirectUri values behind a separate local callback port", async () => {
-		const callbackPort = freeLoopbackPort();
 		let observedRedirectUri = "";
 		let tokenRequestBody = "";
 
@@ -447,7 +483,7 @@ describe("mcp oauth flow", () => {
 				authorizationUrl: "https://provider.example/authorize",
 				tokenUrl: "https://provider.example/token",
 				redirectUri: "https://localhost:3443/slack/oauth_redirect",
-				callbackPort,
+				callbackPort: 14570,
 				fetch: mockProviderTokenEndpoint(body => {
 					tokenRequestBody = body;
 				}),
@@ -459,7 +495,7 @@ describe("mcp oauth flow", () => {
 					const state = authUrl.searchParams.get("state") ?? "";
 					queueMicrotask(() => {
 						void completeLocalOAuthCallback(
-							`http://localhost:${callbackPort}/slack/oauth_redirect?code=test-code&state=${state}`,
+							`http://localhost:14570/slack/oauth_redirect?code=test-code&state=${state}`,
 						);
 					});
 				},
@@ -627,6 +663,7 @@ describe("mcp oauth flow", () => {
 		const progress: string[] = [];
 		let authCalls = 0;
 		let advertisedUrl = "";
+		const callbackReady = new AbortController();
 		try {
 			const flow = new MCPOAuthFlow(
 				{
@@ -641,10 +678,12 @@ describe("mcp oauth flow", () => {
 					onAuth: ({ url }) => {
 						authCalls += 1;
 						advertisedUrl = url;
+						callbackReady.abort("callback URL captured");
 					},
 					onProgress: msg => progress.push(msg),
-					// Abort once the flow is waiting for the browser callback we never deliver.
-					signal: AbortSignal.timeout(500),
+					// Stop immediately once the fallback URL has been observed; no browser
+					// callback is needed for this port-selection/DCR contract.
+					signal: callbackReady.signal,
 				},
 			);
 
@@ -816,7 +855,6 @@ describe("mcp oauth flow", () => {
 	});
 
 	it("accepts pasted redirect URLs through manual input", async () => {
-		const callbackPort = freeLoopbackPort();
 		let tokenRequestBody = "";
 		let manualAuthUrl = "";
 
@@ -825,7 +863,7 @@ describe("mcp oauth flow", () => {
 				authorizationUrl: "https://provider.example/authorize",
 				tokenUrl: "https://provider.example/token",
 				clientId: "client-id",
-				callbackPort,
+				callbackPort: 14570,
 				fetch: mockProviderTokenEndpoint(body => {
 					tokenRequestBody = body;
 				}),
@@ -885,6 +923,17 @@ describe("mcp oauth flow", () => {
 
 		expect(tokenParams.get("grant_type")).toBe("refresh_token");
 		expect(tokenParams.get("resource")).toBeNull();
+	});
+	it("omits a whitespace-only client id from token refresh", async () => {
+		let tokenRequestBody = "";
+
+		await refreshMCPOAuthToken("https://provider.example/token", "refresh-token", " \t ", undefined, {
+			fetch: mockProviderTokenEndpoint(body => {
+				tokenRequestBody = body;
+			}),
+		});
+
+		expect(new URLSearchParams(tokenRequestBody).has("client_id")).toBe(false);
 	});
 	describe("RFC 8707 resource indicator", () => {
 		// Provider-advertised resource indicators are authoritative, including

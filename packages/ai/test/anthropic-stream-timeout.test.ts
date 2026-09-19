@@ -1,10 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import * as AIError from "@oh-my-soup/pi-ai/error";
 import { streamAnthropic } from "@oh-my-soup/pi-ai/providers/anthropic";
-import {
-	AnthropicMessagesClient,
-	type AnthropicMessagesClientLike,
-} from "@oh-my-soup/pi-ai/providers/anthropic-client";
+import { AnthropicMessagesClient, type AnthropicMessagesClientLike } from "@oh-my-soup/pi-ai/providers/anthropic-client";
 import type { Context, FetchImpl, Model } from "@oh-my-soup/pi-ai/types";
 import { buildModel } from "@oh-my-soup/pi-catalog/build";
 import { waitForDelayOrAbort } from "./helpers";
@@ -408,7 +405,9 @@ describe("anthropic first-event timeout retries", () => {
 
 		expect(attempt).toBe(11);
 		expect(providerRetryWait).toHaveBeenCalledTimes(10);
+		// oxlint-disable-next-line unicorn/no-new-array -- length preallocation
 		expect(requestTimeouts).toEqual(new Array(11).fill(1));
+		// oxlint-disable-next-line unicorn/no-new-array -- length preallocation
 		expect(requestMaxRetries).toEqual(new Array(11).fill(0));
 		expect(result.stopReason).toBe("error");
 		expect(result.errorMessage).toBe("Anthropic stream timed out while waiting for the first event");

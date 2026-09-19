@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import * as path from "node:path";
-import { filterEnv, resolvePythonRuntime } from "../../../src/eval/py/runtime";
+import { $which } from "@oh-my-soup/pi-utils";
 
 interface RunnerFrame {
 	type?: string;
@@ -9,15 +9,10 @@ interface RunnerFrame {
 	status?: string;
 }
 
+const pythonPath = Bun.env.PYTHON ?? ($which("python3") ? "python3" : "python");
 const runnerPath = path.resolve(import.meta.dir, "../../../src/eval/py/runner.py");
 const repoRoot = path.resolve(import.meta.dir, "../../../../..");
-const pythonRuntime = resolvePythonRuntime(repoRoot, filterEnv(process.env));
-const pythonPath = pythonRuntime.pythonPath;
 const encoder = new TextEncoder();
-
-function posixShellQuote(value: string): string {
-	return `'${value.replaceAll("'", `'"'"'`)}'`;
-}
 
 function shellQuote(value: string): string {
 	// `!cmd` runs through cmd.exe on Windows (shell=True) and a POSIX shell
@@ -25,7 +20,7 @@ function shellQuote(value: string): string {
 	if (process.platform === "win32") {
 		return `"${value.replaceAll('"', '""')}"`;
 	}
-	return posixShellQuote(value);
+	return `'${value.replaceAll("'", `'"'"'`)}'`;
 }
 
 async function runCell(code: string): Promise<RunnerFrame[]> {
@@ -35,7 +30,7 @@ async function runCell(code: string): Promise<RunnerFrame[]> {
 		stdout: "pipe",
 		stderr: "pipe",
 		env: {
-			...pythonRuntime.env,
+			...process.env,
 			PYTHONUNBUFFERED: "1",
 			PYTHONIOENCODING: "utf-8",
 		},
@@ -182,8 +177,7 @@ describe("Python runner shell output streaming", () => {
 			"sys.stdout.write('second')",
 			"sys.stdout.flush()",
 		].join(";");
-		const bashPythonPath = pythonPath.replaceAll("\\", "/");
-		const frames = await runCell(`%%bash\n${posixShellQuote(bashPythonPath)} -c ${posixShellQuote(child)}`);
+		const frames = await runCell(`%%bash\n${pythonPath} -c ${shellQuote(child)}`);
 		const stdout = frames.filter(frame => frame.type === "stdout").map(frame => frame.data);
 
 		expect(stdout[0]).toBe("first");

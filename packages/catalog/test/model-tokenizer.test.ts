@@ -19,7 +19,7 @@ function spec(id: string): ModelSpec<"openai-completions"> {
 }
 
 describe("resolveModelTokenizer", () => {
-	test("routes only generations covered by embedded vocabularies", () => {
+	test("routes only tokenizer generations covered by embedded vocabularies", () => {
 		expect(resolveModelTokenizer("anthropic/claude-opus-4-7")).toBe("claude-v47");
 		expect(resolveModelTokenizer("claude-sonnet-5")).toBe("claude-v5-sonnet");
 		expect(resolveModelTokenizer("Qwen/Qwen3.8-27B")).toBe("qwen3");
@@ -31,9 +31,10 @@ describe("resolveModelTokenizer", () => {
 		expect(resolveModelTokenizer("moonshot-v1-128k")).toBeUndefined();
 		expect(resolveModelTokenizer("glm-5.2")).toBe("glm5");
 		expect(resolveModelTokenizer("glm-4.7")).toBeUndefined();
+		expect(resolveModelTokenizer("yolo")).toBeUndefined();
+		expect(resolveModelTokenizer("yolo-auto/yolo", "yolo-auto")).toBe("qwen3");
 	});
-
-	test("buildModel uses wire identity and preserves explicit policy", () => {
+	test("buildModel materializes wire-model tokenizer policy and preserves explicit policy", () => {
 		expect(buildModel(spec("deepseek-v4-pro")).tokenizer).toBe("deepseek-v3");
 		expect(buildModel({ ...spec("alias"), requestModelId: "deepseek-v4-pro" }).tokenizer).toBe("deepseek-v3");
 		expect(buildModel({ ...spec("deepseek-v4-pro"), tokenizer: "qwen3" }).tokenizer).toBe("qwen3");

@@ -1,1 +1,0 @@
-{"swe-1-6-slow":{"id":"swe-1-6-slow","name":"SWE-1.6 Slow","api":"devin-agent","provider":"devin","baseUrl":"https://server.codeium.com","reasoning":true,"input":["text","image"],"supportsTools":true,"cost":{"input":0,"output":0,"cacheRead":0,"cacheWrite":0},"contextWindow":200000,"maxTokens":64000,"supportsComputerUse":false}}

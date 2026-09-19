@@ -9,8 +9,6 @@ import {
 import type { AssistantMessage, Model, Usage } from "@oh-my-soup/pi-ai";
 import { buildModel } from "@oh-my-soup/pi-catalog/build";
 
-type AbortEventListener = ((event: Event) => void) | { handleEvent(event: Event): void };
-
 const MODEL: Model = buildModel({
 	id: "mock-model",
 	name: "mock-model",
@@ -23,7 +21,6 @@ const MODEL: Model = buildModel({
 	contextWindow: 200_000,
 	maxTokens: 32_768,
 });
-const tokenizer = new Tokenizer(MODEL);
 
 const ZERO_USAGE: Usage = {
 	input: 0,
@@ -187,7 +184,7 @@ describe("branch summarization", () => {
 		];
 
 		// Budget tight enough that the useless blob alone would blow it out.
-		const { messages } = prepareBranchEntries(entries, tokenizer, 100);
+		const { messages } = prepareBranchEntries(entries, new Tokenizer(), 100);
 
 		const userMessages = messages.filter((m): m is Extract<typeof m, { role: "user" }> => m.role === "user");
 		expect(userMessages).toHaveLength(1);
@@ -230,7 +227,7 @@ describe("branch summarization", () => {
 			},
 		];
 
-		const { messages } = prepareBranchEntries(entries, tokenizer, 700);
+		const { messages } = prepareBranchEntries(entries, new Tokenizer(), 700);
 
 		expect(messages.some(m => m.role === "toolResult")).toBe(true);
 	});
@@ -245,7 +242,7 @@ describe("branch summarization", () => {
 			get reason() {
 				return aborted ? reason : undefined;
 			},
-			addEventListener(type: string, listener: AbortEventListener) {
+			addEventListener(type: string, listener: ((event: Event) => void) | { handleEvent(event: Event): void }) {
 				if (type !== "abort") return;
 				aborted = true;
 				const event = new Event("abort");

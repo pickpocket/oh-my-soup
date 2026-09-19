@@ -5,7 +5,8 @@ import { resetSettingsForTest } from "@oh-my-soup/pi-coding-agent/config/setting
 import { AgentStorage } from "@oh-my-soup/pi-coding-agent/session/agent-storage";
 import { getConfigRootDir, setAgentDir, TempDir } from "@oh-my-soup/pi-utils";
 import { isCredential, SETTINGS_SCHEMA, type SettingPath } from "../src/config/settings-schema";
-import { getSettingDef } from "../src/modes/components/settings-defs";
+import { getSettingDef } from "@oh-my-soup/pi-tui/overlays/settings-defs";
+import { createSettingsHost } from "../src/config/settings-ui";
 
 const paths = Object.keys(SETTINGS_SCHEMA) as SettingPath[];
 
@@ -25,7 +26,7 @@ describe("credential settings", () => {
 	it("classifies UI-visible credentials through the same marker", () => {
 		// One field, not two: there is no separate UI-only masking flag that could
 		// drift away from this classification.
-		for (const path of ["mnemopi.embeddingApiKey", "mnemopi.llmApiKey", "task.discordWebhookUrl"] as const) {
+		for (const path of ["mnemopi.embeddingApiKey", "mnemopi.llmApiKey"] as const) {
 			expect(isCredential(path)).toBe(true);
 		}
 	});
@@ -37,10 +38,10 @@ describe("credential settings", () => {
 		}
 	});
 
-	it("only marks string settings as credentials", () => {
+	it("only marks string or record settings as credentials", () => {
 		for (const path of paths) {
 			if (!isCredential(path)) continue;
-			expect(SETTINGS_SCHEMA[path].type).toBe("string");
+			expect(["string", "record"]).toContain(SETTINGS_SCHEMA[path].type);
 		}
 	});
 });
@@ -50,13 +51,8 @@ describe("credential masking reaches every surface", () => {
 		// The panel derives masking from the same classification the CLI uses, so
 		// a credential cannot render as plain text on one surface and dots on the
 		// other.
-		for (const path of [
-			"hindsight.apiToken",
-			"mnemopi.embeddingApiKey",
-			"mnemopi.llmApiKey",
-			"task.discordWebhookUrl",
-		] as const) {
-			const def = getSettingDef(path);
+		for (const path of ["hindsight.apiToken", "mnemopi.embeddingApiKey", "mnemopi.llmApiKey"] as const) {
+			const def = getSettingDef(createSettingsHost().entries, path);
 			expect(def?.type).toBe("text");
 			expect(def && "secret" in def ? def.secret : undefined).toBe(true);
 		}
@@ -64,12 +60,12 @@ describe("credential masking reaches every surface", () => {
 
 	it("keeps credentials with no panel entry out of the panel entirely", () => {
 		for (const path of ["auth.broker.token", "searxng.token", "dev.autoqaPush.token"] as const) {
-			expect(getSettingDef(path)).toBeUndefined();
+			expect(getSettingDef(createSettingsHost().entries, path)).toBeUndefined();
 		}
 	});
 
 	it("leaves ordinary text settings unmasked", () => {
-		const def = getSettingDef("shellPath");
+		const def = getSettingDef(createSettingsHost().entries, "shellPath");
 		if (def?.type === "text") expect(def.secret).toBe(false);
 	});
 });
@@ -93,7 +89,7 @@ describe("config list output", () => {
 
 	afterEach(async () => {
 		vi.restoreAllMocks();
-		AgentStorage.resetInstance();
+		AgentStorage.close();
 		resetSettingsForTest();
 		if (originalAgentDir) setAgentDir(originalAgentDir);
 		else {
@@ -146,20 +142,6 @@ describe("config list output", () => {
 		expect(raw).not.toContain("********");
 		expect(parsed["searxng.token"]).toMatchObject({ redacted: true });
 		expect(parsed["searxng.token"]).not.toHaveProperty("value");
-	});
-
-	it("hides the configured Discord webhook in human and JSON output", async () => {
-		const webhook = `https://discord.example.test/api/webhooks/123/${SECRET}?thread_id=456`;
-		await runConfigCommand({ action: "set", key: "task.discordWebhookUrl", value: webhook, flags: { json: true } });
-		const human = await humanList();
-		expect(human).toContain("task.discordWebhookUrl = ********");
-		expect(human).not.toContain(webhook);
-		expect(human).not.toContain(SECRET);
-		const { raw, parsed } = await jsonList();
-		expect(raw).not.toContain(webhook);
-		expect(raw).not.toContain(SECRET);
-		expect(parsed["task.discordWebhookUrl"]).toMatchObject({ redacted: true });
-		expect(parsed["task.discordWebhookUrl"]).not.toHaveProperty("value");
 	});
 
 	it("does not report an unset credential as configured", async () => {

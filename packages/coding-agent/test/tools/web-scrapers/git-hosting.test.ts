@@ -1,9 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import {
-	handleGitHub,
-	parseGitHubUrl,
-	stripActionsLogTimestamps,
-} from "@oh-my-soup/pi-coding-agent/web/scrapers/github";
+import { handleGitHub, parseGitHubUrl, stripActionsLogTimestamps } from "@oh-my-soup/pi-coding-agent/web/scrapers/github";
 import { handleGitHubGist } from "@oh-my-soup/pi-coding-agent/web/scrapers/github-gist";
 
 const SKIP = !Bun.env.WEB_FETCH_INTEGRATION;
@@ -251,9 +247,7 @@ describe("parseGitHubUrl — Actions", () => {
 
 describe("parseGitHubUrl — commit", () => {
 	it("classifies a commit URL with a full SHA", () => {
-		const gh = parseGitHubUrl(
-			"https://github.com/pickpocket/oh-my-soup/commit/c1a1cb6149e73b345919dd4cf629b0d9ac74fb57",
-		);
+		const gh = parseGitHubUrl("https://github.com/pickpocket/oh-my-soup/commit/c1a1cb6149e73b345919dd4cf629b0d9ac74fb57");
 		expect(gh).toEqual({
 			type: "commit",
 			owner: "pickpocket",

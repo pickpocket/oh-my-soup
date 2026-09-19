@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, it } from "bun:test";
-import { HistorySearchComponent } from "@oh-my-soup/pi-coding-agent/modes/components/history-search";
-import { initTheme, theme } from "@oh-my-soup/pi-coding-agent/modes/theme/theme";
+import { HistorySearchComponent } from "@oh-my-soup/pi-tui/overlays/history-search";
+import { initTheme, theme } from "@oh-my-soup/pi-tui/theme";
 import type { HistoryEntry, HistoryStorage } from "@oh-my-soup/pi-coding-agent/session/history-storage";
 
 beforeAll(async () => {

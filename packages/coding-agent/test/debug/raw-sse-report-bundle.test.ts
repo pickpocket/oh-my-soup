@@ -4,7 +4,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import type { Model } from "@oh-my-soup/pi-ai";
 import { buildModel } from "@oh-my-soup/pi-catalog/build";
-import { RawSseDebugBuffer } from "@oh-my-soup/pi-coding-agent/debug/raw-sse-buffer";
+import { RawSseDebugBuffer } from "@oh-my-soup/pi-tui/apps/debug/raw-sse-buffer";
 import { createReportBundle } from "@oh-my-soup/pi-coding-agent/debug/report-bundle";
 import { getConfigRootDir, removeWithRetries, setAgentDir } from "@oh-my-soup/pi-utils";
 

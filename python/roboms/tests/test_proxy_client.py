@@ -9,7 +9,6 @@ import os
 import subprocess
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
 
 import httpx
 import pytest
@@ -502,7 +501,7 @@ async def test_close_issue_round_trip(proxy_settings: Settings) -> None:
 
 
 def _capturing_app(app, path: str) -> tuple[Callable, list[dict[str, object]]]:
-    """ASGI wrapper recording raw JSON bodies posted to one path."""
+    """ASGI wrapper recording raw JSON bodies POSTed to `path`."""
     bodies: list[dict[str, object]] = []
 
     async def middleware(scope, receive, send):
@@ -524,10 +523,12 @@ def _capturing_app(app, path: str) -> tuple[Callable, list[dict[str, object]]]:
     return middleware, bodies
 
 
-async def test_submit_pr_review_commit_id_reaches_both_proxy_ends(proxy_settings: Settings) -> None:
+async def test_submit_pr_review_commit_id_reaches_wire(proxy_settings: Settings) -> None:
+    """commit_id must appear in the /gh/v1/submit_pr_review wire body the
+    proxy client POSTs, and the server must forward it to the direct client."""
     app = create_proxy_app(proxy_settings)
     app.state.settings = proxy_settings
-    upstream: dict[str, Any] = {}
+    upstream: dict[str, object] = {}
 
     def gh(req: httpx.Request) -> httpx.Response:
         if req.url.path == "/repos/octo/widget/pulls/2/reviews" and req.method == "POST":
@@ -570,8 +571,10 @@ async def test_submit_pr_review_commit_id_reaches_both_proxy_ends(proxy_settings
             "commit_id": "abc123",
         }
     ]
+    # Server forwarded it to the direct client, which put it on the GitHub wire.
     assert upstream["body"]["commit_id"] == "abc123"
 
+    # Without commit_id the key is omitted from the proxy wire body.
     await client.submit_pr_review(
         repo="octo/widget",
         pr_number=2,
@@ -583,12 +586,14 @@ async def test_submit_pr_review_commit_id_reaches_both_proxy_ends(proxy_settings
 
 
 @pytest.mark.parametrize("bad_commit_id", [12345, ""])
-async def test_submit_pr_review_server_omits_invalid_commit_id(
-    proxy_settings: Settings, bad_commit_id: object
-) -> None:
+async def test_submit_pr_review_rejects_non_string_commit_id(proxy_settings: Settings, bad_commit_id: object) -> None:
+    """The proxy server must not forward a non-string or empty commit_id
+    upstream: a raw POST bypasses the proxy client, so assert on the
+    upstream-captured reviews body — the key must be absent and the request
+    still succeeds."""
     app = create_proxy_app(proxy_settings)
     app.state.settings = proxy_settings
-    upstream: dict[str, Any] = {}
+    upstream: dict[str, object] = {}
 
     def gh(req: httpx.Request) -> httpx.Response:
         if req.url.path == "/repos/octo/widget/pulls/3/reviews" and req.method == "POST":
@@ -615,26 +620,21 @@ async def test_submit_pr_review_server_omits_invalid_commit_id(
         "commit_id": bad_commit_id,
     }
     body = json.dumps(payload).encode()
-    timestamp, signature = sign(
-        method="POST",
-        path="/gh/v1/submit_pr_review",
-        body=body,
-        key=_HMAC_BYTES,
-    )
+    timestamp, sig = sign(method="POST", path="/gh/v1/submit_pr_review", body=body, key=_HMAC_BYTES)
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app),
         base_url="http://proxy.test",
     ) as client:
-        response = await client.post(
+        resp = await client.post(
             "/gh/v1/submit_pr_review",
             content=body,
             headers={
                 HEADER_TIMESTAMP: timestamp,
-                HEADER_SIGNATURE: signature,
+                HEADER_SIGNATURE: sig,
                 "Content-Type": "application/json",
             },
         )
-    assert response.status_code == 200, response.text
+    assert resp.status_code == 200, resp.text
     assert "commit_id" not in upstream["body"]
 
 
@@ -745,6 +745,40 @@ def test_proxy_git_transport_push_slot_uid_body() -> None:
     assert "slot_uid" not in captured[1]
 
 
+def test_proxy_git_transport_push_release_body() -> None:
+    captured: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured.append(request)
+        return httpx.Response(200, json={"head": "abc123", "branch": "main", "tag": "v1.2.3"})
+
+    transport = ProxyGitTransport(
+        base_url="http://proxy.test",
+        hmac_key=_HMAC,
+        transport=httpx.MockTransport(handler),
+    )
+    result = transport.push_release(
+        repo="octo/widget",
+        workspace_key="octo__widget__release",
+        repo_dir=Path("/unused"),
+        branch="main",
+        tag="v1.2.3",
+        expected_head="abc123",
+        slot_uid=2001,
+    )
+
+    assert result.head == "abc123"
+    assert captured[0].url.path == "/gh/v1/git/push_release"
+    assert json.loads(captured[0].content) == {
+        "repo": "octo/widget",
+        "workspace_key": "octo__widget__release",
+        "branch": "main",
+        "tag": "v1.2.3",
+        "expected_head": "abc123",
+        "slot_uid": 2001,
+    }
+
+
 # Sanity: signed POST headers from ProxyGitTransport._post verify cleanly.
 def test_proxy_git_transport_post_headers_verify() -> None:
     captured: list[httpx.Request] = []
@@ -779,3 +813,76 @@ def test_proxy_git_transport_post_headers_verify() -> None:
     )
     assert result.ok, result.reason
     assert json.loads(req.content)["repo"] == "octo/widget"
+
+
+async def test_release_read_payloads_deserialize() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        path = request.url.path
+        if path == "/gh/v1/workflow_runs":
+            return httpx.Response(
+                200,
+                json={
+                    "items": [
+                        {
+                            "id": 1,
+                            "name": "CI",
+                            "event": "push",
+                            "status": "completed",
+                            "conclusion": "failure",
+                            "head_branch": "main",
+                            "head_sha": "abc",
+                            "html_url": "https://example/run",
+                            "run_attempt": 1,
+                        }
+                    ]
+                },
+            )
+        if path == "/gh/v1/workflow_jobs":
+            return httpx.Response(
+                200,
+                json={
+                    "items": [
+                        {
+                            "id": 2,
+                            "run_id": 1,
+                            "name": "test",
+                            "status": "completed",
+                            "conclusion": "failure",
+                            "html_url": "https://example/job",
+                            "failed_steps": ["tests"],
+                        }
+                    ]
+                },
+            )
+        if path == "/gh/v1/job_log_tail":
+            return httpx.Response(200, json={"text": "failure"})
+        if path == "/gh/v1/tag_ref":
+            return httpx.Response(200, json={"sha": "abc"})
+        assert path == "/gh/v1/release_by_tag"
+        return httpx.Response(
+            200,
+            json={
+                "tag": "v1.2.3",
+                "name": "1.2.3",
+                "draft": False,
+                "prerelease": False,
+                "html_url": "https://example/release",
+                "asset_names": ["oms.tar.gz"],
+            },
+        )
+
+    client = GitHubProxyClient(
+        base_url="http://proxy.test",
+        hmac_key=_HMAC,
+        transport=httpx.MockTransport(handler),
+    )
+    runs = await client.list_workflow_runs("octo/widget", head_sha="abc")
+    jobs = await client.list_workflow_jobs("octo/widget", 1)
+    log_tail = await client.get_job_log_tail("octo/widget", 2, tail_lines=120)
+    tag_sha = await client.get_tag_sha("octo/widget", "v1.2.3")
+    release = await client.get_release_by_tag("octo/widget", "v1.2.3")
+    assert runs[0].head_sha == "abc"
+    assert jobs[0].failed_steps == ("tests",)
+    assert log_tail == "failure"
+    assert tag_sha == "abc"
+    assert release is not None and release.asset_names == ("oms.tar.gz",)

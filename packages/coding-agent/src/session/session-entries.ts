@@ -1,6 +1,14 @@
 import type { AgentMessage } from "@oh-my-soup/pi-agent-core";
-import type { ImageContent, MessageAttribution, ServiceTierByFamily, TextContent } from "@oh-my-soup/pi-ai";
-import type { StructuredSubagentSchemaMode } from "../task/types";
+import type {
+	ImageContent,
+	MessageAttribution,
+	ServiceTierByFamily,
+	StopReason,
+	TextContent,
+	Usage,
+} from "@oh-my-soup/pi-ai";
+import type { StructuredSubagentSchemaMode } from "@oh-my-soup/pi-tui/tools/task";
+import type { CompactionMethod } from "./compaction-methods";
 
 export const CURRENT_SESSION_VERSION = 3;
 
@@ -67,6 +75,20 @@ export interface SessionMessageEntry extends SessionEntryBase {
 	message: AgentMessage;
 }
 
+/** Usage from a model call that does not belong in the conversation transcript. */
+export interface ModelUsageEntry extends SessionEntryBase {
+	type: "model_usage";
+	purpose: string;
+	/** Resolved model role used for the call, such as `tiny` or `smol`. */
+	role?: string;
+	api: string;
+	provider: string;
+	model: string;
+	usage: Usage;
+	stopReason: StopReason;
+	errorMessage?: string;
+}
+
 export interface ThinkingLevelChangeEntry extends SessionEntryBase {
 	type: "thinking_level_change";
 	thinkingLevel?: string | null;
@@ -99,6 +121,12 @@ export interface CompactionEntry<T = unknown> extends SessionEntryBase {
 	shortSummary?: string;
 	firstKeptEntryId: string;
 	tokensBefore: number;
+	/** Estimated context tokens after the rewrite (display metadata). */
+	tokensAfter?: number;
+	/** Method that produced this entry; absent on legacy sessions and extension-provided compactions. */
+	method?: CompactionMethod;
+	/** Last branch entry represented by provider-native replay history; later entries replay normally. */
+	providerReplayThroughEntryId?: string;
 	/** Extension-specific data (e.g., ArtifactIndex, version markers for structured compaction) */
 	details?: T;
 	/** Hook-provided data to persist across compaction */
@@ -171,6 +199,7 @@ declare module "@oh-my-soup/pi-agent-core/compaction/entries" {
 	interface CustomCompactionSessionEntries {
 		titleChange: TitleChangeEntry;
 		credentialPin: CredentialPinEntry;
+		modelUsage: ModelUsageEntry;
 	}
 }
 
@@ -197,8 +226,6 @@ export interface CredentialPinEntry extends SessionEntryBase {
 	provider: string;
 	/** `credentialPinHash()` of the serving account's identity + scope tuple. */
 	hash: string;
-	/** Account was explicitly chosen by the user (`/rotateaccount`, account picker), not just last-served. */
-	pinned?: boolean;
 }
 
 /** Session init entry - captures initial context for subagent sessions (debugging/replay). */
@@ -230,6 +257,8 @@ export interface SessionInitEntry extends SessionEntryBase {
 	readSummarize?: boolean;
 	/** Effective advisor for this subagent: `"on"` = advisor-role model, else an explicit model pattern; absent = unadvised. */
 	advisor?: string;
+	/** True when the subagent ran inside an isolation worktree: never revivable, transcript-only after park. Absent on older files. */
+	isolated?: boolean;
 }
 
 /** Mode change entry - tracks agent mode transitions (e.g. plan mode). */
@@ -266,6 +295,7 @@ export interface CustomMessageEntry<T = unknown> extends SessionEntryBase {
 /** Session entry - has id/parentId for tree structure (returned by "read" methods in SessionManager) */
 export type SessionEntry =
 	| SessionMessageEntry
+	| ModelUsageEntry
 	| ThinkingLevelChangeEntry
 	| ModelChangeEntry
 	| ServiceTierChangeEntry

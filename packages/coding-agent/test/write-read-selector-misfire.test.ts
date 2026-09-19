@@ -5,9 +5,7 @@ import * as path from "node:path";
 import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
 import type { ToolSession } from "@oh-my-soup/pi-coding-agent/tools";
 import { WriteTool } from "@oh-my-soup/pi-coding-agent/tools/write";
-import { readArchiveEntries, writeArchive } from "@oh-my-soup/pi-coding-agent/utils/zip";
-
-const SUPPORTS_LITERAL_COLON_FILENAMES = process.platform !== "win32";
+import { readArchiveEntries, writeArchive } from "@oh-my-soup/pi-utils/ar";
 
 // A read-only step that mis-dispatches `read` as `write` passes the full read
 // expression (`src/foo.tsx:1-260:raw`) as the target. Because a literal colon
@@ -45,31 +43,25 @@ describe("write refuses read-selector misfires", () => {
 		await fs.rm(dir, { recursive: true, force: true });
 	});
 
-	it.skipIf(!SUPPORTS_LITERAL_COLON_FILENAMES)(
-		"lets non-empty content deliberately create a selector-shaped filename",
-		async () => {
-			const dir = await makeWorkspace();
-			const write = new WriteTool(session(dir));
-			const literal = "src/components/LoraSelector.tsx:1-260:raw";
-			const res = await write.execute("c", { path: literal, content: "hi" });
-			expect(res.isError).toBeUndefined();
-			expect(await Bun.file(path.join(dir, literal)).text()).toBe("hi");
-			await fs.rm(dir, { recursive: true, force: true });
-		},
-	);
+	it("lets non-empty content deliberately create a selector-shaped filename", async () => {
+		const dir = await makeWorkspace();
+		const write = new WriteTool(session(dir));
+		const literal = "src/components/LoraSelector.tsx:1-260:raw";
+		const res = await write.execute("c", { path: literal, content: "hi" });
+		expect(res.isError).toBeUndefined();
+		expect(await Bun.file(path.join(dir, literal)).text()).toBe("hi");
+		await fs.rm(dir, { recursive: true, force: true });
+	});
 
-	it.skipIf(!SUPPORTS_LITERAL_COLON_FILENAMES)(
-		"keeps an existing literal colon filename writable with empty content",
-		async () => {
-			const dir = await makeWorkspace();
-			await Bun.write(path.join(dir, "log:1-5"), "old");
-			const write = new WriteTool(session(dir));
-			const res = await write.execute("c", { path: "log:1-5", content: "" });
-			expect(res.isError).toBeUndefined();
-			expect(await Bun.file(path.join(dir, "log:1-5")).text()).toBe("");
-			await fs.rm(dir, { recursive: true, force: true });
-		},
-	);
+	it("keeps an existing literal colon filename writable with empty content", async () => {
+		const dir = await makeWorkspace();
+		await Bun.write(path.join(dir, "log:1-5"), "old");
+		const write = new WriteTool(session(dir));
+		const res = await write.execute("c", { path: "log:1-5", content: "" });
+		expect(res.isError).toBeUndefined();
+		expect(await Bun.file(path.join(dir, "log:1-5")).text()).toBe("");
+		await fs.rm(dir, { recursive: true, force: true });
+	});
 
 	it("still allows ordinary empty-file creation without a read-shaped suffix", async () => {
 		const dir = await makeWorkspace();
@@ -135,17 +127,14 @@ describe("write refuses read-selector misfires", () => {
 		await fs.rm(dir, { recursive: true, force: true });
 	});
 
-	it.skipIf(!SUPPORTS_LITERAL_COLON_FILENAMES)(
-		"keeps an existing literal file whose name looks like a selector list writable",
-		async () => {
-			const dir = await makeWorkspace();
-			const write = new WriteTool(session(dir));
-			const target = "report:1-2;archive:3-4";
-			await Bun.write(path.join(dir, target), "old");
-			const res = await write.execute("c", { path: target, content: "new" });
-			expect(res.isError).toBeUndefined();
-			expect(await Bun.file(path.join(dir, target)).text()).toBe("new");
-			await fs.rm(dir, { recursive: true, force: true });
-		},
-	);
+	it("keeps an existing literal file whose name looks like a selector list writable", async () => {
+		const dir = await makeWorkspace();
+		const write = new WriteTool(session(dir));
+		const target = "report:1-2;archive:3-4";
+		await Bun.write(path.join(dir, target), "old");
+		const res = await write.execute("c", { path: target, content: "new" });
+		expect(res.isError).toBeUndefined();
+		expect(await Bun.file(path.join(dir, target)).text()).toBe("new");
+		await fs.rm(dir, { recursive: true, force: true });
+	});
 });

@@ -1,5 +1,5 @@
 //! Golden-fixture test: Qwen3 vs reference HF tokenizers encode
-//! (add_special_tokens=false), including NFC normalization and the
+//! (`add_special_tokens=false`), including NFC normalization and the
 //! dead-rank (merge-unreachable vocab entry) regressions.
 
 use crate::utok::Encoding;

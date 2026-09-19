@@ -9,7 +9,7 @@ import {
 	parseDateValue,
 	parseSearchQuery,
 } from "@oh-my-soup/pi-coding-agent/web/search/query";
-import type { SearchSource } from "@oh-my-soup/pi-coding-agent/web/search/types";
+import type { SearchSource } from "@oh-my-soup/pi-tui/tools/web-search";
 
 describe("parseSearchQuery", () => {
 	it("leaves plain queries untouched", () => {
@@ -174,9 +174,9 @@ describe("formatQuery", () => {
 
 describe("formatScraperQuery", () => {
 	it("demotes path-carrying site: and inurl: to plain terms, keeping bare-domain site:", () => {
-		expect(
-			formatScraperQuery("site:github.com/pickpocket/oh-my-soup inurl:releases site:github.com 17.1.1 release"),
-		).toBe("17.1.1 release github.com/pickpocket/oh-my-soup releases site:github.com");
+		expect(formatScraperQuery("site:github.com/pickpocket/oh-my-soup inurl:releases site:github.com 17.1.1 release")).toBe(
+			"17.1.1 release github.com/pickpocket/oh-my-soup releases site:github.com",
+		);
 	});
 
 	it("demotes every site in an OR-groupable multi-site query when all carry paths", () => {

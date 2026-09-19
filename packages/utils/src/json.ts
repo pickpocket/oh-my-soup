@@ -36,7 +36,8 @@ function stableJsonClone(value: unknown): unknown {
 
 /**
  * Deterministically serialize JSON-shaped data by sorting object keys at every
- * depth while preserving array order.
+ * depth while preserving array order. Throws for values JSON cannot represent
+ * as a top-level value instead of returning an easy-to-misuse undefined.
  */
 export function stableStringifyJson(value: unknown): string {
 	const serialized = JSON.stringify(stableJsonClone(value));

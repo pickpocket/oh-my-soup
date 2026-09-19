@@ -26,6 +26,7 @@ describe("cursor usage provider", () => {
 		});
 
 		it("emits an uncapped used-only bucket when the request limit is null", () => {
+			// Exact sanitized payload reported in #6381: the plan has no legacy cap.
 			const payload = {
 				"gpt-4": {
 					numRequests: 0,
@@ -38,22 +39,30 @@ describe("cursor usage provider", () => {
 			};
 
 			const report = parseCursorUsage(payload);
+			expect(report).not.toBeNull();
 			expect(report?.limits).toHaveLength(1);
-			expect(report?.limits[0]).toMatchObject({
-				id: "cursor:requests:gpt-4",
-				label: "gpt-4 requests",
-				amount: { used: 0, unit: "requests" },
-			});
-			expect(report?.limits[0]?.status).toBeUndefined();
-			expect(report?.limits[0]?.window?.resetsAt).toBe(Date.parse("2026-08-23T01:19:45.000Z"));
+
+			const limit = report?.limits[0];
+			expect(limit?.id).toBe("cursor:requests:gpt-4");
+			expect(limit?.label).toBe("gpt-4 requests");
+			expect(limit?.amount).toEqual({ used: 0, unit: "requests" });
+			expect(limit?.status).toBeUndefined();
+			expect(limit?.window?.resetsAt).toBe(Date.parse("2026-08-23T01:19:45.000Z"));
 		});
 
 		it("keeps capped and uncapped buckets side by side", () => {
-			const report = parseCursorUsage({
-				"gpt-4": { numRequests: 12, maxRequestUsage: null },
-				"claude-3-5-sonnet": { used: 80, limit: 100 },
-			});
+			const payload = {
+				"gpt-4": {
+					numRequests: 12,
+					maxRequestUsage: null,
+				},
+				"claude-3-5-sonnet": {
+					used: 80,
+					limit: 100,
+				},
+			};
 
+			const report = parseCursorUsage(payload);
 			expect(report?.limits.map(limit => limit.id)).toEqual([
 				"cursor:requests:gpt-4",
 				"cursor:requests:claude-3-5-sonnet",
@@ -640,6 +649,8 @@ describe("cursor usage provider", () => {
 				accountId: "account_123",
 				projectId: "project_123",
 			});
+			// The legacy bucket is uncapped (`maxRequestUsage: null`) but still reported,
+			// so it merges ahead of the personal summary instead of vanishing (#6381).
 			expect(report?.limits.map(limit => limit.id)).toEqual([
 				"cursor:requests:gpt-4",
 				"cursor:usd:individual-overall",

@@ -1,8 +1,8 @@
 import { type } from "@oh-my-soup/omstype";
-import { parseKnownModel, semverEqual } from "../identity/classify";
+import { compareRevision, parseRevision } from "../compat/revision";
+import { classifyModel } from "../compat/taxonomy";
 import { getBundledModels } from "../models";
-import { resolveOpenAIDaybreakStandardCost } from "../openai-pricing";
-import type { FetchImpl, Model, ModelSpec } from "../types";
+import type { FetchImpl, ModelSpec } from "../types";
 import { discoveryFetch } from "../utils";
 import { CODEX_BASE_URL, CODEX_CLIENT_VERSION, OPENAI_HEADER_VALUES, OPENAI_HEADERS } from "../wire/codex";
 
@@ -10,41 +10,47 @@ const DEFAULT_MODEL_LIST_PATHS = ["/codex/models", "/models"] as const;
 const DEFAULT_CONTEXT_WINDOW = 272_000;
 const DEFAULT_MAX_TOKENS = 128_000;
 /**
- * GPT-5.6 luna/sol/terra hard context capacity. Codex discovery omits
- * `context_window` for these SKUs, so the generic {@link DEFAULT_CONTEXT_WINDOW}
- * (272000) would understate the real window — OpenAI's Codex model registry
- * declares context_window = max_context_window = 372000 (#5705). Used as the
- * fallback only when upstream reports no value.
+ * Fallback for GPT-5.6-family SKUs when upstream omits `context_window`: the
+ * generic {@link DEFAULT_CONTEXT_WINDOW} (272000) understates the registry's
+ * former 372000 hard capacity (#5705).
  */
 const GPT_5_6_CONTEXT_WINDOW = 372_000;
-/** GPT-5.6 worker variants share the 1M capability of their canonical bundled SKUs. */
+/**
+ * OpenAI enabled a 1M-token window for subscription Codex on GPT-5.6
+ * luna/sol/terra (2026-08-16), but the Codex model registry still reports the
+ * stale 272000 — so the reported value must be floored, not just defaulted
+ * (openai/codex#38917; Codex CLI override `model_context_window = 1000000`).
+ */
 const GPT_5_6_1M_CONTEXT_WINDOW = 1_000_000;
 const CODEX_GPT_5_6_1M_SLUGS: ReadonlySet<string> = new Set(["gpt-5.6-luna", "gpt-5.6-sol", "gpt-5.6-terra"]);
+/**
+ * Codex advertises worker-mode SKUs under a `-wm` suffix (`gpt-5.6-luna-wm`).
+ *
+ * Those rows route through the same Codex backend as their plain SKU, but an
+ * authoritative discovery list that only advertises the `-wm` slug prunes the
+ * bundled plain model, leaving a configured `openai-codex/gpt-5.6-luna`
+ * unresolvable except via fuzzy fallback onto the `-wm` row — which this user's
+ * ChatGPT account rejects. The compatibility rule, scoped to Codex discovery:
+ * a `-wm` slug whose plain counterpart exists in the bundled Codex catalog is
+ * ALSO registered under its plain id. Both listings derive their base-model
+ * metadata (1M-window floor, daybreak pricing, context fallback) from the
+ * canonical plain slug — the suffix is a routing variant, not a different
+ * model, so the `-wm` row no longer keeps stale backend-parsed capability
+ * values while its plain listing is enriched.
+ *
+ * Deliberate boundary: the "safe" gate is the bundled Codex catalog. A `-wm`
+ * slug whose plain counterpart is only a user-local models.yml entry (not
+ * bundled) stays verbatim — authoritative discovery for genuinely distinct
+ * `-wm` SKUs is preserved, and a hidden plain backend entry can be re-surfaced
+ * through its advertised `-wm` row because the configured plain slug must
+ * resolve.
+ */
 const CODEX_WORKER_SUFFIX = "-wm";
 const CODEX_REMOTE_COMPACTION = {
 	enabled: true,
 	api: "openai-codex-responses",
 	v2StreamingEnabled: true,
 } as const;
-
-/** Curated fallback for fresh/offline Codex installs. */
-export const CODEX_ASTRA_FALLBACK_MODEL: ModelSpec<"openai-codex-responses"> = {
-	id: "gpt-6-astra",
-	name: "GPT-6 Astra",
-	api: "openai-codex-responses",
-	provider: "openai-codex",
-	baseUrl: CODEX_BASE_URL,
-	reasoning: true,
-	input: ["text", "image"],
-	cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-	remoteCompaction: CODEX_REMOTE_COMPACTION,
-	contextWindow: DEFAULT_CONTEXT_WINDOW,
-	maxTokens: DEFAULT_MAX_TOKENS,
-	preferWebsockets: true,
-	useResponsesLite: true,
-	toolMode: "code_mode_only",
-	priority: 1,
-};
 
 const codexReasoningPresetSchema = type({
 	"effort?": "unknown",
@@ -55,6 +61,7 @@ const codexModelEntrySchema = type({
 	"id?": "unknown",
 	"display_name?": "unknown",
 	"context_window?": "unknown",
+	"max_context_window?": "unknown",
 	"default_reasoning_level?": "unknown",
 	"supported_reasoning_levels?": "unknown",
 	"input_modalities?": "unknown",
@@ -226,18 +233,27 @@ function normalizeCodexModels(payload: unknown, baseUrl: string): ModelSpec<"ope
 	const parsedEntries: ParsedCodexModelEntry[] = [];
 	for (const entry of entries) {
 		const parsed = parseCodexModelEntry(entry);
-		if (parsed) parsedEntries.push(parsed);
+		if (parsed) {
+			parsedEntries.push(parsed);
+		}
 	}
 
+	// A worker `-wm` slug gets an extra plain-id route only when the bundled
+	// catalog ships the plain SKU (the "safe" precondition); the backend's own
+	// plain slug wins over any synthesized clone, and unknown `-wm` SKUs stay
+	// verbatim. Both listings of a safe `-wm` model carry the same base-model
+	// metadata (context-window floor, daybreak pricing) derived from the
+	// canonical plain slug — the suffix is a routing variant, not a different
+	// model.
 	const advertisedSlugs = new Set(parsedEntries.map(parsed => parsed.slug));
-	const bundledCodexModels = new Map(getBundledModels("openai-codex").map(model => [model.id, model]));
+	const bundledCodexModelIds = getBundledCodexModelIds();
 	const normalized: NormalizedCodexModel[] = [];
 	for (const parsed of parsedEntries) {
-		const canonicalSlug = plainCounterpartForWorkerSlug(parsed.slug, bundledCodexModels) ?? parsed.slug;
-		const canonicalCost = bundledCodexModels.get(canonicalSlug)?.cost;
-		normalized.push(buildNormalizedCodexModel(parsed, parsed.slug, canonicalSlug, canonicalCost, baseUrl));
-		if (canonicalSlug !== parsed.slug && !advertisedSlugs.has(canonicalSlug)) {
-			normalized.push(buildNormalizedCodexModel(parsed, canonicalSlug, canonicalSlug, canonicalCost, baseUrl));
+		const canonicalSlug = plainCounterpartForWorkerSlug(parsed.slug, bundledCodexModelIds) ?? parsed.slug;
+		normalized.push(buildNormalizedCodexModel(parsed, parsed.slug, canonicalSlug, baseUrl));
+		const plainSlug = canonicalSlug !== parsed.slug ? canonicalSlug : null;
+		if (plainSlug && !advertisedSlugs.has(plainSlug)) {
+			normalized.push(buildNormalizedCodexModel(parsed, plainSlug, canonicalSlug, baseUrl));
 		}
 	}
 
@@ -251,59 +267,95 @@ function normalizeCodexModels(payload: unknown, baseUrl: string): ModelSpec<"ope
 	return normalized.map(item => item.model);
 }
 
-function plainCounterpartForWorkerSlug(slug: string, bundledCodexModels: ReadonlyMap<string, Model>): string | null {
-	if (!slug.endsWith(CODEX_WORKER_SUFFIX)) return null;
+/** Ids of the bundled Codex catalog, consulted once per discovery run. */
+function getBundledCodexModelIds(): ReadonlySet<string> {
+	const ids = new Set(getBundledModels("openai-codex").map(model => model.id));
+	return ids;
+}
+
+/**
+ * Map a Codex worker `-wm` slug to its plain counterpart when the bundled
+ * catalog registers that plain SKU. Returns `null` for non-worker slugs and
+ * for `-wm` slugs without a safe plain counterpart.
+ */
+function plainCounterpartForWorkerSlug(slug: string, bundledCodexModelIds: ReadonlySet<string>): string | null {
+	if (!slug.endsWith(CODEX_WORKER_SUFFIX)) {
+		return null;
+	}
 	const plain = slug.slice(0, -CODEX_WORKER_SUFFIX.length);
-	const reference = bundledCodexModels.get(plain);
-	return plain.length > 0 && reference?.api === "openai-codex-responses" ? plain : null;
+	return plain.length > 0 && bundledCodexModelIds.has(plain) ? plain : null;
 }
 
 interface ParsedCodexModelEntry {
 	slug: string;
 	name: string;
 	contextWindow: number | null;
+	maxContextWindow: number | null;
 	reasoning: boolean;
 	input: ("text" | "image")[];
 	preferWebsockets: boolean;
 	useResponsesLite: boolean;
-	priority: number;
 	toolMode: boolean;
+	priority: number;
 }
 
 function parseCodexModelEntry(entry: unknown): ParsedCodexModelEntry | null {
 	const parsedEntry = codexModelEntrySchema(entry);
-	if (parsedEntry instanceof type.errors) return null;
+	if (parsedEntry instanceof type.errors) {
+		return null;
+	}
 
 	const payload: CodexModelEntry = parsedEntry;
 	const slug = toNonEmptyString(payload.slug) ?? toNonEmptyString(payload.id);
-	if (!slug) return null;
+	if (!slug) {
+		return null;
+	}
 
 	const visibility = toNonEmptyString(payload.visibility)?.toLowerCase();
-	if (visibility === "hide" || visibility === "hidden") return null;
+	if (visibility === "hide" || visibility === "hidden") {
+		return null;
+	}
 
 	return {
 		slug,
 		name: toNonEmptyString(payload.display_name) ?? slug,
 		contextWindow: toPositiveInt(payload.context_window),
+		maxContextWindow: toPositiveInt(payload.max_context_window),
 		reasoning: supportsReasoning(payload.default_reasoning_level, payload.supported_reasoning_levels),
 		input: normalizeInputModalities(payload.input_modalities),
 		preferWebsockets: toBoolean(payload.prefer_websockets) === true,
-		toolMode: payload.tool_mode === "code_mode_only",
 		useResponsesLite: toBoolean(payload.use_responses_lite) === true,
+		toolMode: payload.tool_mode === "code_mode_only",
 		priority: toFiniteNumber(payload.priority) ?? Number.MAX_SAFE_INTEGER,
 	};
 }
 
+/**
+ * Build a normalized Codex model spec. `slug` is the registered id (either the
+ * advertised slug or a synthesized plain counterpart); `canonicalSlug` names
+ * the model's bundled SKU (`slug` itself for plain/unknown rows, the plain
+ * counterpart for a safe `-wm` row) and owns the base-model metadata derivation
+ * so both listings of a model report the same context window and pricing.
+ */
 function buildNormalizedCodexModel(
 	parsed: ParsedCodexModelEntry,
 	slug: string,
 	canonicalSlug: string,
-	canonicalCost: ModelSpec<"openai-codex-responses">["cost"] | undefined,
 	baseUrl: string,
 ): NormalizedCodexModel {
-	const parsedKnown = parseKnownModel(canonicalSlug);
+	// Codex discovery historically omitted `context_window` for GPT-5.6-family
+	// SKUs (#5705); luna/sol/terra additionally floor the reported value because
+	// the registry still declares the pre-1M 272000 window. Keyed on the
+	// canonical slug so a safe `gpt-5.6-luna-wm` row gets the same floor as its
+	// plain listing.
+	const identity = classifyModel("openai-codex", canonicalSlug, { lenient: true });
+	const revision = identity.revision === undefined ? undefined : parseRevision(identity.revision);
+	const gpt56 = parseRevision("5.6");
 	const fallbackContextWindow =
-		parsedKnown.family === "openai" && semverEqual(parsedKnown.version, "5.6")
+		identity.class === "openai" &&
+		revision !== undefined &&
+		gpt56 !== undefined &&
+		compareRevision(revision, gpt56) === 0
 			? GPT_5_6_CONTEXT_WINDOW
 			: DEFAULT_CONTEXT_WINDOW;
 	const reportedContextWindow = parsed.contextWindow ?? fallbackContextWindow;
@@ -311,8 +363,6 @@ function buildNormalizedCodexModel(
 		? Math.max(reportedContextWindow, GPT_5_6_1M_CONTEXT_WINDOW)
 		: reportedContextWindow;
 	const maxTokens = Math.min(DEFAULT_MAX_TOKENS, contextWindow);
-	const cost = resolveOpenAIDaybreakStandardCost(canonicalSlug) ?? canonicalCost;
-
 	return {
 		priority: parsed.priority,
 		model: {
@@ -323,9 +373,12 @@ function buildNormalizedCodexModel(
 			baseUrl,
 			reasoning: parsed.reasoning,
 			input: parsed.input,
-			cost: cost ? { ...cost } : { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+			// Codex discovery omits pricing; documented subscription credit-equivalent
+			// rates are rule-owned (`providers/openai-codex.kdl`) and applied at build time.
+			cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
 			remoteCompaction: CODEX_REMOTE_COMPACTION,
 			contextWindow,
+			...(parsed.maxContextWindow !== null ? { maxContextWindow: parsed.maxContextWindow } : {}),
 			maxTokens,
 			...(parsed.preferWebsockets ? { preferWebsockets: true } : {}),
 			...(parsed.useResponsesLite ? { useResponsesLite: true } : {}),

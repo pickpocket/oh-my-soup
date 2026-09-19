@@ -6,6 +6,7 @@
  * Project-level discovery walks up from cwd to repoRoot.
  */
 import * as path from "node:path";
+import { isWsl, windowsPathToWslMount } from "@oh-my-soup/pi-utils";
 import { registerProvider } from "../capability";
 import { type ContextFile, contextFileCapability } from "../capability/context-file";
 import { readFile } from "../capability/fs";
@@ -16,7 +17,7 @@ import { type SlashCommand, slashCommandCapability } from "../capability/slash-c
 import { type SystemPrompt, systemPromptCapability } from "../capability/system-prompt";
 import type { LoadContext, LoadResult } from "../capability/types";
 import {
-	buildRuleFromMarkdown,
+	discoverRuleFromMarkdown,
 	calculateDepth,
 	createSourceMeta,
 	loadFilesFromDir,
@@ -35,25 +36,6 @@ interface UserPathCandidateOptions {
 	wslPath?: (windowsPath: string) => string | undefined;
 }
 
-const WINDOWS_DRIVE_PROFILE_PATTERN = /^([A-Za-z]):[\\/](.*)$/;
-
-function isWsl(platform: NodeJS.Platform, env: NodeJS.ProcessEnv): boolean {
-	return platform === "linux" && Boolean(env.WSL_DISTRO_NAME || env.WSL_INTEROP);
-}
-
-function convertWindowsPathToDefaultWslMount(windowsPath: string): string | undefined {
-	const trimmed = windowsPath.trim();
-	if (trimmed.length === 0) return undefined;
-	// The result is always a WSL (POSIX) path, so build it with posix
-	// semantics regardless of the host platform.
-	if (path.posix.isAbsolute(trimmed)) return path.posix.normalize(trimmed);
-	const match = WINDOWS_DRIVE_PROFILE_PATTERN.exec(trimmed);
-	if (!match) return undefined;
-	const [, drive, rest] = match;
-	const segments = rest.replace(/\\/g, "/").split("/").filter(Boolean);
-	return path.posix.join("/mnt", drive.toLowerCase(), ...segments);
-}
-
 /**
  * Hard cap for best-effort host-discovery probes.
  *
@@ -67,18 +49,18 @@ const HOST_PROBE_TIMEOUT_MS = 500;
 
 /**
  * Run a best-effort discovery probe and return its trimmed stdout, or
- * `undefined` when the command fails, produces no output, or exceeds
- * {@link HOST_PROBE_TIMEOUT_MS}. On timeout the child is killed with SIGKILL so
- * a wedged interop pipe cannot hang startup; the killed/non-zero exit is then
- * reported as "unavailable" and discovery falls back to the Linux
- * `$HOME`/`~/.oms` candidates.
+ * `undefined` when the command fails, produces no output, or exceeds the
+ * timeout. On timeout the child is killed with SIGKILL so a wedged interop pipe
+ * cannot hang startup; the killed/non-zero exit is then reported as
+ * "unavailable" and discovery falls back to the Linux `$HOME`/`~/.oms`
+ * candidates.
  */
-export function runHostProbe(cmd: string[]): string | undefined {
+export function runHostProbe(cmd: string[], timeoutMs = HOST_PROBE_TIMEOUT_MS): string | undefined {
 	try {
 		const result = Bun.spawnSync(cmd, {
 			stdout: "pipe",
 			stderr: "ignore",
-			timeout: HOST_PROBE_TIMEOUT_MS,
+			timeout: timeoutMs,
 			killSignal: "SIGKILL",
 		});
 		if (result.exitCode !== 0) return undefined;
@@ -105,7 +87,10 @@ export function getWslWindowsHomeCandidate(options: UserPathCandidateOptions = {
 	if (!isWsl(platform, env)) return undefined;
 	const userProfile = env.USERPROFILE ?? (options.windowsUserProfile ?? resolveWindowsUserProfile)();
 	if (!userProfile) return undefined;
-	return (options.wslPath ?? resolveWithWslPath)(userProfile) ?? convertWindowsPathToDefaultWslMount(userProfile);
+	const interopPath = (options.wslPath ?? resolveWithWslPath)(userProfile);
+	if (interopPath !== undefined) return interopPath;
+	const trimmed = userProfile.trim();
+	return path.posix.isAbsolute(trimmed) ? path.posix.normalize(trimmed) : windowsPathToWslMount(trimmed);
 }
 
 /**
@@ -200,7 +185,7 @@ async function loadRules(ctx: LoadContext): Promise<LoadResult<Rule>> {
 		loadFilesFromDir<Rule>(ctx, dir, PROVIDER_ID, level, {
 			extensions: ["md", "mdc"],
 			transform: (name, content, filePath, source) =>
-				buildRuleFromMarkdown(name, content, filePath, source, { stripNamePattern: /\.(md|mdc)$/ }),
+				discoverRuleFromMarkdown(name, content, filePath, source, { stripNamePattern: /\.(md|mdc)$/ }),
 		});
 
 	const results = await Promise.all([

@@ -3,6 +3,10 @@ import { type } from "@oh-my-soup/omstype";
 import type { Tool } from "@oh-my-soup/pi-ai/types";
 import { validateToolArguments } from "@oh-my-soup/pi-ai/utils/validation";
 
+// Issue #8886 — some providers (notably Gemini) serialize array arguments as
+// flattened property paths (`questions[0].id`) instead of a nested array.
+
+// Mirrors the shape of OMS's `ask` tool (`packages/coding-agent/src/tools/ask.ts`).
 const questionItem = type({
 	id: type("string"),
 	question: type("string"),
@@ -35,8 +39,8 @@ function callWith(
 	}
 }
 
-describe("flattened array-property normalization", () => {
-	it("rebuilds nested arrays and objects before validation", () => {
+describe("Flattened array-property normalization (issue #8886)", () => {
+	it("rebuilds a nested questions array from flattened property paths", () => {
 		const result = callWith({
 			"questions[0].id": "doc_structure",
 			"questions[0].question": "Which format should we adopt?",
@@ -58,7 +62,7 @@ describe("flattened array-property normalization", () => {
 		});
 	});
 
-	it("handles multiple array elements across one property", () => {
+	it("handles multiple array elements across the same property", () => {
 		const result = callWith({
 			"questions[0].id": "q1",
 			"questions[0].question": "First",
@@ -79,7 +83,7 @@ describe("flattened array-property normalization", () => {
 
 	it("supports bare leaf array elements", () => {
 		const tool: Tool = {
-			name: "tags",
+			name: "t",
 			description: "",
 			parameters: type({ tags: type("string").array().atLeastLength(2) }),
 		};
@@ -89,20 +93,12 @@ describe("flattened array-property normalization", () => {
 	});
 
 	it("preserves non-flattened sibling keys", () => {
-		const tool: Tool = {
-			name: "questions",
-			description: "",
-			parameters: type({ title: type("string"), questions: questionItem.array().atLeastLength(1) }),
-		};
-		const result = callWith(
-			{
-				title: "Session",
-				"questions[0].id": "q",
-				"questions[0].question": "Go?",
-				"questions[0].options[0].label": "Yes",
-			},
-			tool,
-		);
+		const result = callWith({
+			title: "Session",
+			"questions[0].id": "q",
+			"questions[0].question": "Go?",
+			"questions[0].options[0].label": "Yes",
+		});
 		expect(result.success).toBe(true);
 		expect(result.args).toEqual({
 			title: "Session",
@@ -110,7 +106,7 @@ describe("flattened array-property normalization", () => {
 		});
 	});
 
-	it("leaves already nested arrays untouched", () => {
+	it("leaves plain nested objects untouched", () => {
 		const args = { questions: [{ id: "q", question: "Go?", options: [{ label: "Yes" }] }] };
 		const result = callWith(args);
 		expect(result.success).toBe(true);
@@ -118,47 +114,27 @@ describe("flattened array-property normalization", () => {
 	});
 
 	it("leaves non-array dotted keys untouched", () => {
-		const tool: Tool = {
-			name: "literal",
-			description: "",
-			parameters: type({ "a.b": type("number"), c: type("number") }),
-		};
+		const tool: Tool = { name: "t", description: "", parameters: type({ "a.b": type("number"), c: type("number") }) };
 		const args = { "a.b": 1, c: 2 };
 		const result = callWith(args, tool);
 		expect(result.success).toBe(true);
 		expect(result.args).toEqual(args);
 	});
 
-	it("leaves malformed indexed keys untouched and surfaces validation", () => {
-		expect(callWith({ "questions[foo]": "nope" }).success).toBe(false);
-		expect(callWith({ label: "300" }).success).toBe(false);
-	});
-
-	it("rejects literal-root collisions without mutating caller containers", () => {
-		const questions: unknown[] = [];
-		const result = callWith({ questions, "questions[0].id": "x" });
-		expect(result.success).toBe(false);
-		expect(questions).toEqual([]);
-	});
-
-	it("rejects prefix/leaf collisions instead of overwriting either value", () => {
-		const tool: Tool = {
-			name: "items",
-			description: "",
-			parameters: type({ items: type({ label: type("string") }).array() }),
-		};
-		const result = callWith({ "items[0]": "scalar", "items[0].label": "nested" }, tool);
+	it("leaves malformed indexed keys untouched and surfaces the validation error", () => {
+		const result = callWith({ "questions[foo]": "nope" });
 		expect(result.success).toBe(false);
 	});
 
-	it("keeps prototype-named path segments inert", () => {
-		const tool: Tool = {
-			name: "items",
-			description: "",
-			parameters: type({ items: type({ label: type("string") }).array() }),
-		};
-		const result = callWith({ "items[0].__proto__.polluted": "yes" }, tool);
+	it("leaves non-indexed keys untouched on schema mismatch too", () => {
+		const result = callWith({ label: "300" });
 		expect(result.success).toBe(false);
-		expect((Object.prototype as Record<string, unknown>).polluted).toBeUndefined();
+	});
+
+	it("bails (does not silently drop data) when a flattened path collides with a plain key", () => {
+		const result = callWith({ questions: [5], "questions[0].id": "x" });
+		// Ambiguous input must not lose the plain key — fall through to a genuine
+		// validation error instead of a partial rebuild.
+		expect(result.success).toBe(false);
 	});
 });

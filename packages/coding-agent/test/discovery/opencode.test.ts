@@ -157,6 +157,40 @@ describe("OpenCode MCP discovery", () => {
 		expect(shared[0]).toMatchObject({ command: "project-jsonc-server", enabled: false });
 	});
 
+	test("preserves OAuth settings from remote OpenCode MCP servers", async () => {
+		await fs.writeFile(
+			path.join(tempDir, "opencode.json"),
+			JSON.stringify({
+				mcp: {
+					service: {
+						type: "remote",
+						url: "https://mcp.example.com/mcp",
+						oauth: {
+							clientId: "configured-client",
+							clientSecret: "configured-secret",
+							scope: "mcp:read mcp:write",
+							callbackPort: 53192,
+							redirectUri: "http://127.0.0.1:53192/callback",
+						},
+					},
+				},
+			}),
+		);
+
+		const [server] = await loadOpenCodeMcpConfig(tempDir);
+
+		expect(server).toMatchObject({
+			name: "service",
+			oauth: {
+				clientId: "configured-client",
+				clientSecret: "configured-secret",
+				scope: "mcp:read mcp:write",
+				callbackPort: 53192,
+				redirectUri: "http://127.0.0.1:53192/callback",
+			},
+		});
+	});
+
 	test("inherits lower-precedence fields on partial overrides", async () => {
 		const projectDir = path.join(tempDir, "project");
 		const userConfigDir = path.join(tempDir, ".config", "opencode");
@@ -288,8 +322,9 @@ describe("OpenCode MCP discovery", () => {
 		expect(server?.args).toBeUndefined();
 	});
 
-	test("expands OpenCode env and file substitutions", async () => {
-		await fs.writeFile(path.join(tempDir, "mcp-key.txt"), "file-token\n");
+	test("expands OpenCode {env:VAR} and {file:path} substitutions", async () => {
+		const secretFile = path.join(tempDir, "mcp-key.txt");
+		await fs.writeFile(secretFile, "file-token\n");
 		await fs.writeFile(
 			path.join(tempDir, "opencode.json"),
 			JSON.stringify({
@@ -304,7 +339,7 @@ describe("OpenCode MCP discovery", () => {
 						url: "https://mcp.example.xyz/mcp",
 						headers: { Authorization: "Bearer {file:./mcp-key.txt}" },
 					},
-					"missing-env-server": {
+					"missing-server": {
 						type: "remote",
 						url: "https://mcp.example.xyz/mcp",
 						headers: { Authorization: "Bearer {env:OMS_TEST_MCP_ABSENT}" },
@@ -319,12 +354,14 @@ describe("OpenCode MCP discovery", () => {
 		try {
 			const servers = await loadOpenCodeMcpConfig(tempDir);
 			const byName = Object.fromEntries(servers.map(server => [server.name, server]));
+
 			expect(byName["env-server"]).toMatchObject({
 				url: "https://mcp.example.xyz/mcp/server",
 				headers: { Authorization: "Bearer secret-token" },
 			});
 			expect(byName["file-server"]?.headers).toEqual({ Authorization: "Bearer file-token" });
-			expect(byName["missing-env-server"]?.headers).toEqual({ Authorization: "Bearer " });
+			// Unset env expands to empty string, matching OpenCode — never the literal token.
+			expect(byName["missing-server"]?.headers).toEqual({ Authorization: "Bearer " });
 		} finally {
 			delete Bun.env.OMS_TEST_MCP_KEY;
 			delete Bun.env.OMS_TEST_MCP_PATH;

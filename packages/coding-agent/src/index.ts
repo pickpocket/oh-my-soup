@@ -8,7 +8,7 @@ export { z } from "@oh-my-soup/omstype/zod";
 export { Container, Markdown, Spacer, Text } from "@oh-my-soup/pi-tui";
 // Logging
 export { getAgentDir, logger, VERSION } from "@oh-my-soup/pi-utils";
-export * from "./config/keybindings";
+export * from "@oh-my-soup/pi-tui/app-keybindings";
 export * from "./config/model-registry";
 // Prompt templates
 export type * from "./config/prompt-templates";
@@ -35,7 +35,7 @@ export * from "./main";
 export * from "./modes";
 export * from "./modes/components";
 // Theme utilities for custom tools
-export * from "./modes/theme/theme";
+export * from "@oh-my-soup/pi-tui/theme";
 // SDK for programmatic usage
 export * from "./sdk";
 export * from "./session/agent-session";
@@ -55,9 +55,25 @@ export * from "./session/session-storage";
 export * from "./session/sql-session-storage";
 export * from "./task/executor";
 export type * from "./task/types";
+export type {
+	AgentSource,
+	StructuredSubagentSchemaMode,
+	StructuredSubagentSchemaSource,
+	StructuredSubagentValidationStatus,
+	StructuredSubagentOutput,
+	TaskItem,
+	TaskParams,
+	ReviewFinding,
+	ReviewSummary,
+	ReviewData,
+	YieldItem,
+	AgentProgress,
+	SingleResult,
+	TaskToolDetails,
+} from "@oh-my-soup/pi-tui/tools/task";
 // Tools (detail types and utilities)
 export * from "./tools";
-export * from "./utils/git";
+export * from "./utils/github";
 // UI components for extensions
 export {
 	HookEditorComponent as ExtensionEditorComponent,

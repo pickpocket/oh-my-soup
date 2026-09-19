@@ -1,37 +1,39 @@
 import * as path from "node:path";
-import { isCompiledBinary, logger, Snowflake, withTimeout, workerHostEntry } from "@oh-my-soup/pi-utils";
+import { isCompiledBinary, logger, withTimeout, workerHostEntry } from "@oh-my-soup/pi-utils";
 import type { Subprocess } from "bun";
-import type { Browser } from "puppeteer-core";
-import { ToolAbortError, ToolError } from "../tool-errors";
-import { findFreeCdpPort, findReusableCdp, gracefulKillTreeOnce, killExistingByPath, waitForCdp } from "./attach";
+import type { Browser, CDPSession } from "puppeteer-core";
+import { ToolAbortError } from "../tool-errors";
+import { ToolError } from "@oh-my-soup/pi-tui/tools/tool-errors";
+import { findFreeCdpPort, findReusableCdp, gracefulKillTreeOnce, resolveSpawnArgs, waitForCdp } from "./attach";
 import type { CmuxKind } from "./cmux/rpc";
 import { CmuxSocketClient } from "./cmux/socket-client";
-import { BROWSER_PROTOCOL_TIMEOUT_MS, loadPuppeteer } from "./launch";
+import {
+	BROWSER_PROTOCOL_TIMEOUT_MS,
+	DEFAULT_VIEWPORT,
+	launchHeadlessBrowser,
+	loadPuppeteer,
+	removeUserDataDir,
+	type UserAgentOverride,
+} from "./launch";
+import { reapOrphanSharedTargets } from "./orphan-registry";
 import { ensureRelayDaemon, isLoopbackRelayUrl } from "./relay/daemon";
 import type { RelayKind } from "./relay/kind";
+import { ensureSharedBrowser } from "./shared-daemon";
 
-/**
- * Headless tabs run their own Camoufox browser process inside the tab worker
- * (WebDriver BiDi has no shareable server endpoint), so the headless handle is
- * virtual: the registry tracks identity + the engine pid for teardown, while
- * the live `Browser` object never leaves the worker. Attach kinds keep a real
- * host-side CDP connection.
- */
-export type HeadlessBrowserKind = { kind: "headless"; headless: boolean };
 export type PuppeteerBrowserKind =
-	| { kind: "spawned"; path: string }
+	| { kind: "headless"; headless: boolean }
+	| { kind: "spawned"; path: string; args?: string[] }
 	| { kind: "connected"; cdpUrl: string }
 	| RelayKind;
 
-export type BrowserKind = HeadlessBrowserKind | PuppeteerBrowserKind | CmuxKind;
+export type BrowserKind = PuppeteerBrowserKind | CmuxKind;
 
 export type BrowserKindTag = BrowserKind["kind"];
 
 /**
- * Upper bound on process teardown for headless Camoufox. The worker normally
- * closes its own browser; the registry kill is the safety net for a wedged
- * worker, and a wedged engine would otherwise hang cleanup forever (cf. the
- * old Chromium variant, issue #5260).
+ * Upper bound on `browser.close()` for headless Chromium. Puppeteer waits for
+ * the process to fully exit; a wedged Chromium would otherwise hang cleanup
+ * forever (issue #5260), so we cap the wait and force-kill on timeout.
  */
 const HEADLESS_CLOSE_TIMEOUT_MS = 5_000;
 /**
@@ -47,18 +49,17 @@ interface BrowserHandleCommon {
 	refCount: number;
 }
 
-export interface HeadlessBrowserHandle extends BrowserHandleCommon {
-	kind: HeadlessBrowserKind;
-	/** Engine pid, reported by the tab worker once the browser is up. */
-	pid?: number;
-}
-
 export interface PuppeteerBrowserHandle extends BrowserHandleCommon {
 	kind: PuppeteerBrowserKind;
 	browser: Browser;
 	cdpUrl?: string;
 	pid?: number;
+	/** OMS-owned temp Chromium profile directory removed on dispose (process-local headless launches). */
+	userDataDir?: string;
+	/** Broker daemon backing this handle; dispose disconnects instead of closing, kill routes to the broker. */
+	sharedDaemon?: { name: string; projectDir: string };
 	subprocess?: Subprocess;
+	stealth: { browserSession: CDPSession | null; override: UserAgentOverride | null };
 }
 
 export interface CmuxBrowserHandle extends BrowserHandleCommon {
@@ -67,7 +68,7 @@ export interface CmuxBrowserHandle extends BrowserHandleCommon {
 	surface?: string;
 }
 
-export type BrowserHandle = HeadlessBrowserHandle | PuppeteerBrowserHandle | CmuxBrowserHandle;
+export type BrowserHandle = PuppeteerBrowserHandle | CmuxBrowserHandle;
 
 /** Controls bounded browser-handle teardown and identifies the owning resource in timeout diagnostics. */
 export interface ReleaseBrowserOptions {
@@ -77,16 +78,15 @@ export interface ReleaseBrowserOptions {
 }
 
 const browsers = new Map<string, BrowserHandle>();
+/** In-flight opens by browser key, so concurrent acquisitions share one launch instead of storming Chromium. */
+const pendingOpens = new Map<string, Promise<BrowserHandle>>();
 
-function browserKey(kind: BrowserKind): string {
+export function browserKey(kind: BrowserKind): string {
 	switch (kind.kind) {
 		case "headless":
-			// Headless browsers are per-tab: every acquisition is a fresh engine
-			// process (and a fresh Camoufox fingerprint), so the key must never
-			// collide with another tab's handle.
-			return `headless:${kind.headless ? "1" : "0"}:${Snowflake.next()}`;
+			return `headless:${kind.headless ? "1" : "0"}`;
 		case "spawned":
-			return `spawned:${kind.path}`;
+			return `spawned:${JSON.stringify([kind.path, kind.args ?? []])}`;
 		case "connected":
 			return `connected:${kind.cdpUrl}`;
 		case "relay":
@@ -99,49 +99,57 @@ function browserKey(kind: BrowserKind): string {
 export interface AcquireBrowserOptions {
 	cwd: string;
 	viewport?: { width: number; height: number; deviceScaleFactor?: number };
-	appArgs?: string[];
 	signal?: AbortSignal;
 }
 
 export async function acquireBrowser(kind: BrowserKind, opts: AcquireBrowserOptions): Promise<BrowserHandle> {
+	if (kind.kind === "spawned") kind = { ...kind, args: resolveSpawnArgs(kind.path, kind.args, opts.cwd) };
 	const key = browserKey(kind);
-	const existing = browsers.get(key);
-	if (existing) {
-		if ("client" in existing) return existing;
-		if (!("browser" in existing)) {
-			// Headless virtual handles are per-tab and never shared; a stale one
-			// under a colliding key is dropped, never reused.
-			browsers.delete(key);
-		} else if (existing.browser.connected) {
-			return existing;
-		} else {
+	for (;;) {
+		const existing = browsers.get(key);
+		if (existing) {
+			if ("client" in existing) return existing;
+			if (existing.browser.connected) return existing;
 			browsers.delete(key);
 			await disposeBrowserHandle(existing, { kill: false });
+			continue;
 		}
-	}
-	// Short-circuit before launching: the tool wrapper's `untilAborted` only
-	// rejects its outer promise on abort; without this check `openBrowserHandle`
-	// would still fire and its result would land in `browsers` below.
-	if (opts.signal?.aborted) throw new ToolAbortError("Browser open aborted");
+		// Short-circuit before launching: the tool wrapper's `untilAborted` only
+		// rejects its outer promise on abort; without this check `openBrowserHandle`
+		// would still fire and its result would land in `browsers` below.
+		if (opts.signal?.aborted) throw new ToolAbortError("Browser open aborted");
 
-	const handle = await openBrowserHandle(kind, opts, key);
-	// The launch may resolve AFTER the caller has already aborted (the outer
-	// `untilAborted` rejects immediately on abort but does not cancel the
-	// inner promise). Without this branch the completed handle sits in
-	// `browsers` at refCount:0 forever — no tab ever takes a hold,
-	// `releaseBrowser` never fires, and `releaseAllTabs` walks `tabs`, not
-	// `browsers`, so the orphaned app process survives to process exit.
-	// (Issue #3963.)
-	if (opts.signal?.aborted) {
-		await disposeBrowserHandle(handle, { kill: kind.kind === "spawned" }).catch(err => {
-			logger.debug("Failed to dispose orphan browser after abort", {
-				error: err instanceof Error ? err.message : String(err),
+		// Single-flight per key: a concurrent caller already opening this browser
+		// wins; everyone else waits and re-reads the registry. Without this, N
+		// simultaneous opens each launch a Chromium and the last write wins,
+		// leaking the rest as unreferenced process trees.
+		const pending = pendingOpens.get(key);
+		if (pending) {
+			await pending.catch(() => undefined);
+			continue;
+		}
+		const open = openBrowserHandle(kind, opts).finally(() => pendingOpens.delete(key));
+		pendingOpens.set(key, open);
+		const handle = await open;
+		// The launch may resolve AFTER the caller has already aborted (the outer
+		// `untilAborted` rejects immediately on abort but does not cancel the
+		// inner promise, and `launchHeadlessBrowser` does not accept a signal).
+		// Without this branch the completed handle sits in `browsers` at
+		// refCount:0 forever — no tab ever takes a hold, `releaseBrowser` never
+		// fires, and `releaseAllTabs` walks `tabs`, not `browsers`, so the
+		// orphaned Chromium/app process / puppeteer handle survives to process
+		// exit. (Issue #3963.)
+		if (opts.signal?.aborted) {
+			await disposeBrowserHandle(handle, { kill: kind.kind === "spawned" }).catch(err => {
+				logger.debug("Failed to dispose orphan browser after abort", {
+					error: err instanceof Error ? err.message : String(err),
+				});
 			});
-		});
-		throw new ToolAbortError("Browser open aborted");
+			throw new ToolAbortError("Browser open aborted");
+		}
+		browsers.set(key, handle);
+		return handle;
 	}
-	browsers.set(key, handle);
-	return handle;
 }
 
 export function normalizeConnectedCdpUrl(rawCdpUrl: string): string {
@@ -154,12 +162,12 @@ export function normalizeConnectedCdpUrl(rawCdpUrl: string): string {
 	return cdpUrl;
 }
 
-async function openBrowserHandle(kind: BrowserKind, opts: AcquireBrowserOptions, key: string): Promise<BrowserHandle> {
+async function openBrowserHandle(kind: BrowserKind, opts: AcquireBrowserOptions): Promise<BrowserHandle> {
 	if (kind.kind === "cmux") {
 		const client = new CmuxSocketClient({ socketPath: kind.socketPath, password: kind.password });
 		await client.connect();
 		return {
-			key,
+			key: browserKey(kind),
 			kind,
 			client,
 			surface: kind.surface,
@@ -167,13 +175,25 @@ async function openBrowserHandle(kind: BrowserKind, opts: AcquireBrowserOptions,
 		};
 	}
 	if (kind.kind === "headless") {
-		// The Camoufox engine is launched by the tab worker during init; the
-		// registry handle starts pid-less and is stamped from the worker's
-		// ready info by the supervisor.
+		// Every real oms process (session, subagent, worker — anything with a CLI
+		// worker host) MUST go through the project-shared broker-owned Chromium:
+		// per-process launches are what produced launch storms and orphaned
+		// process trees. The process-local launch survives only for hosts that
+		// cannot spawn the broker (bun test, SDK embedding without a CLI entry).
+		if (isCompiledBinary() || workerHostEntry() !== null) {
+			return await openSharedHeadlessHandle(kind, opts);
+		}
+		const { browser, userDataDir } = await launchHeadlessBrowser({
+			headless: kind.headless,
+			viewport: opts.viewport,
+		});
 		return {
-			key,
+			key: browserKey(kind),
 			kind,
+			browser,
+			userDataDir,
 			refCount: 0,
+			stealth: { browserSession: null, override: null },
 		};
 	}
 	if (kind.kind === "connected") {
@@ -186,11 +206,12 @@ async function openBrowserHandle(kind: BrowserKind, opts: AcquireBrowserOptions,
 			protocolTimeout: BROWSER_PROTOCOL_TIMEOUT_MS,
 		});
 		return {
-			key,
+			key: browserKey(kind),
 			kind,
 			browser,
 			cdpUrl,
 			refCount: 0,
+			stealth: { browserSession: null, override: null },
 		};
 	}
 	if (kind.kind === "relay") {
@@ -224,11 +245,12 @@ async function openBrowserHandle(kind: BrowserKind, opts: AcquireBrowserOptions,
 			protocolTimeout: BROWSER_PROTOCOL_TIMEOUT_MS,
 		});
 		return {
-			key,
+			key: browserKey(kind),
 			kind,
 			browser,
 			cdpUrl,
 			refCount: 0,
+			stealth: { browserSession: null, override: null },
 		};
 	}
 
@@ -238,7 +260,8 @@ async function openBrowserHandle(kind: BrowserKind, opts: AcquireBrowserOptions,
 			`app.path must be absolute (got ${JSON.stringify(exe)}). Pass the binary inside Foo.app/Contents/MacOS/, not the .app bundle.`,
 		);
 	}
-	const reused = await findReusableCdp(exe, opts.signal);
+	const appArgs = kind.args ?? [];
+	const reused = await findReusableCdp(exe, { signal: opts.signal, appArgs });
 	let cdpUrl: string;
 	let pid: number;
 	let subprocess: Subprocess | undefined;
@@ -247,11 +270,10 @@ async function openBrowserHandle(kind: BrowserKind, opts: AcquireBrowserOptions,
 		cdpUrl = reused.cdpUrl;
 		pid = reused.pid;
 	} else {
-		const killed = await killExistingByPath(exe, opts.signal);
-		if (killed > 0) logger.debug("Killed existing instances before attach", { exe, killed });
 		const port = await findFreeCdpPort();
-		const launchArgs = [...(opts.appArgs ?? []), `--remote-debugging-port=${port}`];
+		const launchArgs = [...appArgs, `--remote-debugging-port=${port}`];
 		const child = Bun.spawn([exe, ...launchArgs], {
+			cwd: opts.cwd,
 			stdout: "ignore",
 			stderr: "ignore",
 			stdin: "ignore",
@@ -283,13 +305,14 @@ async function openBrowserHandle(kind: BrowserKind, opts: AcquireBrowserOptions,
 		throw new ToolError(`Connected to ${cdpUrl} but puppeteer.connect failed: ${(err as Error).message}`);
 	}
 	return {
-		key,
+		key: browserKey(kind),
 		kind,
 		browser,
 		cdpUrl,
 		pid,
 		subprocess,
 		refCount: 0,
+		stealth: { browserSession: null, override: null },
 	};
 }
 
@@ -313,23 +336,40 @@ async function disposeBrowserHandle(handle: BrowserHandle, opts: ReleaseBrowserO
 		handle.client.close();
 		return;
 	}
-	if (!("browser" in handle)) {
-		// Headless (virtual) handle: the worker owns the live browser and closes
-		// it on tab close; this kill is the safety net for a wedged or
-		// force-killed worker that left the engine running. Headless handles are
-		// single-owner, so the kill is unconditional (opts.kill governs spawned
-		// apps only).
-		if (handle.pid !== undefined) {
+	if (handle.kind.kind === "headless") {
+		if (handle.sharedDaemon) {
+			// The broker owns the Chromium; this process only drops its CDP
+			// connection. `kill` is scoped to spawned-app browsers — stopping the
+			// shared daemon here would tear down every other session's tabs. The
+			// daemon dies with the last oms client in the project (broker idle
+			// teardown), or via an explicit hub stop.
+			if (handle.browser.connected) {
+				try {
+					handle.browser.disconnect();
+				} catch (err) {
+					logger.debug("Failed to disconnect from shared browser", { error: (err as Error).message });
+				}
+			}
+			return;
+		}
+		if (handle.browser.connected) {
+			// Puppeteer's `browser.close()` resolves only once the Chromium
+			// process fully exits. A wedged Chromium (a known Windows failure
+			// mode) leaves this await pending forever, freezing `releaseTab` in
+			// the "Closing tab" phase (issue #5260). Bound it, then SIGKILL the
+			// process tree so cleanup always completes.
+			const proc = handle.browser.process();
 			try {
-				await withTimeout(
-					gracefulKillTreeOnce(handle.pid),
-					HEADLESS_CLOSE_TIMEOUT_MS,
-					"Timed out killing headless Camoufox engine",
-				);
+				await withTimeout(handle.browser.close(), HEADLESS_CLOSE_TIMEOUT_MS, "Timed out closing headless browser");
 			} catch (err) {
-				logger.debug("Failed to kill headless Camoufox engine", { error: (err as Error).message });
+				logger.debug("Failed to close headless browser; force-killing", { error: (err as Error).message });
+				if (proc?.pid !== undefined) await gracefulKillTreeOnce(proc.pid).catch(() => undefined);
 			}
 		}
+		// OMS owns the profile directory (puppeteer's temp cleanup is disabled by
+		// our explicit --user-data-dir), so remove it now the process tree has
+		// exited. Tolerant of the Windows lock-held window (issue #7058).
+		if (handle.userDataDir) await removeUserDataDir(handle.userDataDir);
 		return;
 	}
 	// Connected and relay browsers belong to the user: drop our CDP link, never kill.
@@ -350,7 +390,65 @@ async function disposeBrowserHandle(handle: BrowserHandle, opts: ReleaseBrowserO
 			logger.debug("Failed to disconnect from spawned browser", { error: (err as Error).message });
 		}
 	}
-	if (opts.kill && handle.pid !== undefined) await gracefulKillTreeOnce(handle.pid);
+	// A discovered CDP PID is borrowed, not ours to kill on close or abort.
+	if (opts.kill && handle.subprocess && handle.subprocess.exitCode === null) {
+		await gracefulKillTreeOnce(handle.subprocess.pid);
+	}
+}
+
+/**
+ * Attach to the project-shared broker-owned Chromium. Failures surface as
+ * `ToolError` — a CLI-host process never silently falls back to a private
+ * Chromium, so a broken broker cannot quietly recreate per-process launch
+ * storms.
+ */
+async function openSharedHeadlessHandle(
+	kind: Extract<PuppeteerBrowserKind, { kind: "headless" }>,
+	opts: AcquireBrowserOptions,
+): Promise<PuppeteerBrowserHandle> {
+	const vp = opts.viewport ?? DEFAULT_VIEWPORT;
+	try {
+		const shared = await ensureSharedBrowser({
+			projectDir: opts.cwd,
+			headless: kind.headless,
+			viewport: vp,
+			signal: opts.signal,
+		});
+		if (!shared) {
+			throw new ToolError(
+				"Shared browser daemon unavailable (broker start or Chromium launch failed); check `hub ps` for oms.browser.* daemons and ~/.oms/logs for details",
+			);
+		}
+		const puppeteer = await loadPuppeteer();
+		const browser = await puppeteer.connect({
+			browserWSEndpoint: shared.wsEndpoint,
+			defaultViewport: kind.headless
+				? {
+						width: vp.width,
+						height: vp.height,
+						deviceScaleFactor: vp.deviceScaleFactor ?? DEFAULT_VIEWPORT.deviceScaleFactor,
+					}
+				: null,
+			protocolTimeout: BROWSER_PROTOCOL_TIMEOUT_MS,
+		});
+		// Attaching to the shared daemon is the natural point to sweep targets
+		// left behind by oms processes that died without teardown — bounds
+		// accumulation without a background timer. Best-effort and detached so a
+		// slow reap never delays the open (issue #10022).
+		void reapOrphanSharedTargets(browser, { projectDir: shared.projectDir, daemonName: shared.daemonName });
+		return {
+			key: browserKey(kind),
+			kind,
+			browser,
+			sharedDaemon: { name: shared.daemonName, projectDir: shared.projectDir },
+			refCount: 0,
+			stealth: { browserSession: null, override: null },
+		};
+	} catch (err) {
+		if (err instanceof ToolAbortError || err instanceof ToolError) throw err;
+		if (opts.signal?.aborted) throw new ToolAbortError("Browser open aborted");
+		throw new ToolError(`Shared browser attach failed: ${err instanceof Error ? err.message : String(err)}`);
+	}
 }
 
 /** Test-only accessor for the module-global browsers map. */

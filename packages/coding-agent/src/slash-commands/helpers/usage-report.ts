@@ -1,16 +1,10 @@
 import type { UsageLimit, UsageReport } from "@oh-my-soup/pi-ai";
 import { sanitizeText } from "@oh-my-soup/pi-utils";
 import type { OAuthAccountIdentity } from "../../session/auth-storage";
+import { collapseSharedUsageReports } from "@oh-my-soup/pi-tui/overlays/usage-display";
 import type { SlashCommandRuntime } from "../types";
 import { reportMatchesActiveAccount } from "./active-oauth-account";
-import { formatDuration, renderAsciiBar } from "./format";
-
-function formatProviderName(provider: string): string {
-	return provider
-		.split(/[-_]/g)
-		.map(part => (part ? part[0].toUpperCase() + part.slice(1) : ""))
-		.join(" ");
-}
+import { formatDuration, formatProviderName, renderAsciiBar } from "@oh-my-soup/pi-tui/chrome/format";
 
 function formatWindowSuffix(label: string, windowLabel: string | undefined): string {
 	if (!windowLabel) return "";
@@ -65,10 +59,11 @@ function renderUsageReports(
 	resolveActiveAccount?: (provider: string) => OAuthAccountIdentity | undefined,
 	usageModelSelectors: readonly string[] = [],
 ): string {
-	const latestFetchedAt = Math.max(...reports.map(report => report.fetchedAt ?? 0));
+	const displayReports = collapseSharedUsageReports(reports);
+	const latestFetchedAt = Math.max(...displayReports.map(report => report.fetchedAt ?? 0));
 	const lines = [`Usage${latestFetchedAt ? ` (${formatDuration(nowMs - latestFetchedAt)} ago)` : ""}`];
 	const grouped = new Map<string, UsageReport[]>();
-	for (const report of reports) {
+	for (const report of displayReports) {
 		const providerReports = grouped.get(report.provider) ?? [];
 		providerReports.push(report);
 		grouped.set(report.provider, providerReports);

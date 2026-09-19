@@ -1,4 +1,5 @@
 import type { Settings } from "../config/settings";
+import type { SlashCommandIconName } from "@oh-my-soup/pi-tui/theme/symbols";
 import type { InteractiveModeContext, SubmittedUserInput } from "../modes/types";
 import type { AgentSession } from "../session/agent-session";
 import type { SessionManager } from "../session/session-manager";
@@ -16,6 +17,8 @@ export interface BuiltinSlashCommand {
 	name: string;
 	aliases?: string[];
 	description: string;
+	/** Autocomplete type-indicator icon. Defaults to "action" (generic terminal glyph). */
+	icon?: SlashCommandIconName;
 	/** Whether the command consumes text after the command name. */
 	allowArgs?: boolean;
 	/** Subcommands for dropdown completion (e.g. /mcp add, /mcp list). */
@@ -59,6 +62,8 @@ export interface SlashCommandRuntime {
 	sessionManager: SessionManager;
 	settings: Settings;
 	cwd: string;
+	/** Cancellation of the host prompt/request, when supported. */
+	signal?: AbortSignal;
 	/** Emit text to the operator. TUI maps to `ctx.showStatus`, ACP to `sessionUpdate`. */
 	output: (text: string) => Promise<void> | void;
 	/** Re-advertise the available command list (no-op outside ACP). */
@@ -75,12 +80,14 @@ export interface SlashCommandRuntime {
 	 *
 	 * Provided only by the ACP dispatcher, whose prompt turn owns the event
 	 * subscription and settles as soon as a builtin reports consumed: work a
-	 * command merely schedules (for example, `/retry`'s continuation) would
-	 * otherwise stream into an already-unsubscribed turn and be dropped.
+	 * command merely *schedules* (e.g. `/retry`'s post-prompt continuation)
+	 * would otherwise stream into an already-unsubscribed turn and be dropped.
 	 *
 	 * Deliberately absent in RPC and TUI: both observe the continuation through
-	 * their own always-on session subscription, and blocking RPC here would park
-	 * its serialized command queue so the client could not abort the retried turn.
+	 * their own always-on session subscription, and `RpcClient.prompt()`
+	 * documents an immediate return — blocking it there would also park the
+	 * serialized command queue, so a client could not `abort` the very turn it
+	 * is waiting on.
 	 */
 	keepTurnOpenUntilIdle?: () => Promise<void>;
 	/**

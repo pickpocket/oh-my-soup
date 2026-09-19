@@ -2,8 +2,8 @@ import * as fs from "node:fs/promises";
 import { hasFsCode, isEexist, isEnoent, logger, toError } from "@oh-my-soup/pi-utils";
 
 /**
- * Publish a staged sibling file while preserving an existing destination across
- * Windows EPERM/EEXIST rename-over-target failures.
+ * Publish a staged sibling file atomically, preserving an existing destination
+ * across Windows `EPERM`/`EEXIST` replacement failures.
  */
 export async function replaceFileAtomically(tempPath: string, targetPath: string): Promise<void> {
 	try {

@@ -8,15 +8,7 @@ import {
 	convertResponsesInputContent,
 } from "@oh-my-soup/pi-ai/providers/openai-shared";
 import { NON_VISION_IMAGE_PLACEHOLDER } from "@oh-my-soup/pi-ai/providers/vision-guard";
-import type {
-	Api,
-	AssistantMessage,
-	Context,
-	Model,
-	ModelSpec,
-	ToolResultMessage,
-	Usage,
-} from "@oh-my-soup/pi-ai/types";
+import type { Api, AssistantMessage, Context, Model, ModelSpec, ToolResultMessage, Usage } from "@oh-my-soup/pi-ai/types";
 import { buildModel } from "@oh-my-soup/pi-catalog/build";
 import type { ResolvedOpenAICompat } from "@oh-my-soup/pi-catalog/types";
 
@@ -76,6 +68,13 @@ const compat: ResolvedOpenAICompat = {
 	emptyLengthFinishIsContextError: false,
 	usesOpenAIToolCallIdLimit: false,
 	dropThinkingWhenReasoningEffort: false,
+	nativeKimiK3Reasoning: false,
+	zaiReasoningEffortDialect: false,
+	clampOutputToModelMax: false,
+	stripImageInput: false,
+	rejectRootObjectUnion: false,
+	retryWithoutStrictOnGrammarError: false,
+	supportsPromptCacheKey: false,
 };
 
 function makeModel<TApi extends Api>(api: TApi, provider: Model["provider"]): Model<TApi> {

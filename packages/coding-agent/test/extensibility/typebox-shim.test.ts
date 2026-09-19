@@ -225,4 +225,108 @@ describe("pi.typebox compatibility shim", () => {
 			}
 		});
 	});
+
+	// Issue #8420: legacy extensions build raw documents that embed omstype
+	// schema builders. Those builders are callable values, so a document that
+	// nests or spreads them is neither structured-cloneable nor a plain TypeBox
+	// object; `Type.Unsafe` must lower them to wire JSON before use.
+	describe("lowers embedded omstype schemas inside Type.Unsafe documents", () => {
+		it("embeds sibling schema builders in an anyOf branch", () => {
+			const item = Type.Object({ agent: Type.String() });
+			const template = Type.Object({ agent: Type.String() }, { additionalProperties: false });
+			const schema = Type.Unsafe({
+				anyOf: [Type.Array(item, { minItems: 1 }), template],
+				description: "static array or single template",
+			});
+
+			const document = schema.toJsonSchema();
+			expect(() => structuredClone(document)).not.toThrow();
+			expect(document).toEqual({
+				anyOf: [
+					{
+						type: "array",
+						minItems: 1,
+						items: { type: "object", properties: { agent: { type: "string" } }, required: ["agent"] },
+					},
+					{
+						type: "object",
+						properties: { agent: { type: "string" } },
+						required: ["agent"],
+						additionalProperties: false,
+					},
+				],
+				description: "static array or single template",
+			});
+			expect(schema.safeParse([{ agent: "scout" }]).success).toBe(true);
+			expect(schema.safeParse({ agent: "scout" }).success).toBe(true);
+			expect(schema.safeParse(42).success).toBe(false);
+		});
+
+		it("preserves a legitimate run property containing a schema builder", () => {
+			const schema = Type.Unsafe({
+				type: "object",
+				properties: { run: Type.Boolean() },
+				required: ["run"],
+				additionalProperties: false,
+			});
+
+			expect(schema.toJsonSchema()).toEqual({
+				type: "object",
+				properties: { run: { type: "boolean" } },
+				required: ["run"],
+				additionalProperties: false,
+			});
+			expect(schema.safeParse({ run: true }).success).toBe(true);
+			expect(schema.safeParse(true).success).toBe(false);
+		});
+
+		it("preserves wire-only constraints on embedded schema builders", () => {
+			const schema = Type.Unsafe({
+				type: "object",
+				properties: {
+					code: Type.String({ pattern: "^x" }),
+					count: Type.Number({ multipleOf: 2 }),
+				},
+				required: ["code", "count"],
+				additionalProperties: false,
+			});
+
+			expect(schema.toJsonSchema()).toEqual({
+				type: "object",
+				properties: {
+					code: { type: "string", pattern: "^x" },
+					count: { type: "number", multipleOf: 2 },
+				},
+				required: ["code", "count"],
+				additionalProperties: false,
+			});
+			expect(schema.safeParse({ code: "xray", count: 4 }).success).toBe(true);
+			expect(schema.safeParse({ code: "bad", count: 4 }).success).toBe(false);
+			expect(schema.safeParse({ code: "xray", count: 3 }).success).toBe(false);
+		});
+
+		it("recovers the wire schema when a builder is spread into a new document", () => {
+			const base = Type.Unsafe({
+				anyOf: [
+					{ type: "object", additionalProperties: true },
+					{ type: "boolean", enum: [false] },
+				],
+			});
+			// `{ ...base, description }` copies omstype's internal fields, not JSON
+			// keywords; the shim must recover `anyOf` from the copied self-reference
+			// and overlay the caller's added `description`.
+			const schema = Type.Unsafe({ ...base, description: "mission object or false" });
+
+			expect(schema.toJsonSchema()).toEqual({
+				anyOf: [
+					{ type: "object", additionalProperties: true },
+					{ type: "boolean", enum: [false] },
+				],
+				description: "mission object or false",
+			});
+			expect(schema.safeParse(false).success).toBe(true);
+			expect(schema.safeParse({ objective: "ship" }).success).toBe(true);
+			expect(schema.safeParse("nope").success).toBe(false);
+		});
+	});
 });

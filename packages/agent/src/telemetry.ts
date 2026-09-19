@@ -1638,7 +1638,7 @@ export async function recordManualChatTelemetry(
 /**
  * Options accepted by {@link instrumentedCompleteSimple}. Mirrors the
  * `streamAssistantResponse` chat-span lifecycle for oneshot LLM calls
- * (compaction summaries, handoff document, branch summary, inspect_image).
+ * (compaction summaries, handoff document, branch summary, image_question).
  */
 export interface InstrumentedChatSpanOptions {
 	readonly telemetry: AgentTelemetry | undefined;
@@ -1649,7 +1649,7 @@ export interface InstrumentedChatSpanOptions {
 	/**
 	 * Tag stamped onto `pi.gen_ai.oneshot.kind`. Values used by the agent:
 	 * `compaction_summary`, `compaction_short_summary`, `compaction_turn_prefix`,
-	 * `handoff`, `branch_summary`, `inspect_image`. Free-form to allow callers
+	 * `handoff`, `branch_summary`, `image_question`. Free-form to allow callers
 	 * outside this package to add new kinds without bumping the helper.
 	 */
 	readonly oneshotKind?: string;
@@ -1666,10 +1666,20 @@ export interface InstrumentedChatSpanOptions {
 		options: SimpleStreamOptions,
 	) => Promise<AssistantMessage>;
 	/**
-	 * Opt in to bounded transient retries for a replay-safe oneshot.
-	 * Omitted means no retry because arbitrary tools and tool choices may have
-	 * side effects. Framework-owned abort and response-header wiring overrides
-	 * the corresponding fields supplied here.
+	 * Opt in to transient-failure retry for this oneshot (Anthropic
+	 * `overloaded_error`, `rate_limit_error`, 429/500/502/503/529). Omitted or
+	 * `undefined` means **no retry** — the failure is surfaced exactly as before.
+	 *
+	 * Deliberately opt-in rather than default-on: `oneshotKind` is free-form and
+	 * callers may pass arbitrary `ctx.tools` / `options.toolChoice`, so this
+	 * funnel cannot itself prove a given request is replay-safe. Re-issuing is
+	 * only safe when the call performs no side effect and nothing consumed
+	 * partial output — true for summaries, titles, handoffs and image
+	 * descriptions, which parse a complete response after it resolves. Enable it
+	 * per call site, as a reviewed decision.
+	 *
+	 * Pass `{}` to accept the {@link retryTransientCompletion} defaults
+	 * (3 attempts, 500ms base backoff, `retry-after` honored).
 	 */
 	readonly retry?: OneshotRetryOptions;
 }
@@ -1732,13 +1742,23 @@ export async function instrumentedCompleteSimple<TApi extends Api>(
 	try {
 		return await runInActiveSpan(chatSpan, async () => {
 			const complete = span.completeImpl ?? completeSimple;
+			// Opt-in only (see `retry` on InstrumentedChatSpanOptions): each attempt
+			// re-issues the whole request, which is safe only for replay-safe
+			// oneshots. `getResponseHeaders` hands the failed attempt's headers to
+			// the retry layer — an AssistantMessage carries none, so this is what
+			// makes `retry-after` on a real 429/529 actually honored.
 			const runOnce = () => {
+				// Clear first so a previous attempt's `retry-after` can never be
+				// reused for a later failure that arrived without headers.
 				capturedHeaders = undefined;
 				return complete(model, ctx, { ...options, onResponse: captureOnResponse });
 			};
 			const message = span.retry
 				? await retryTransientCompletion(runOnce, {
 						...span.retry,
+						provider: model.provider,
+						// Framework-owned: the caller must not be able to detach the
+						// abort signal or the header source by passing them itself.
 						signal: options.signal,
 						getResponseHeaders: () => capturedHeaders,
 					})

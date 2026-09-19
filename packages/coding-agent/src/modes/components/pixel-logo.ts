@@ -1,7 +1,7 @@
 import { TERMINAL } from "@oh-my-soup/pi-tui";
 import { hexToRgb } from "@oh-my-soup/pi-utils";
 import type { RgbTriple, ShineConfig, SoupLogoOptions } from "../../types/logo";
-import { getThemeEpoch, theme } from "../theme/theme";
+import { getThemeEpoch, theme, type ThemeColor } from "@oh-my-soup/pi-tui/theme";
 
 /**
  * Palette-indexed pixel rows of the soup-bowl brand logo. Each character is a
@@ -63,7 +63,7 @@ const resolvePalette = (): Palette => {
 	const epoch = getThemeEpoch();
 	if (cachedPalette !== undefined && cachedPalette.epoch === epoch) return cachedPalette.palette;
 	const palette = Object.fromEntries(
-		Object.entries(PALETTE_KEYS).map(([symbol, key]) => [symbol, hexToRgb(theme.getColorHex(key))]),
+		Object.entries(PALETTE_KEYS).map(([symbol, key]) => [symbol, hexToRgb(theme.getColorHex(key as ThemeColor))]),
 	) as Record<PaletteSymbol, RgbTriple>;
 	cachedPalette = { epoch, palette };
 	return palette;

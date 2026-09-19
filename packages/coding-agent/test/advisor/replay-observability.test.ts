@@ -19,10 +19,6 @@ function userMessage(text: string, timestamp: number): AgentMessage {
 	return { role: "user", content: text, timestamp } as AgentMessage;
 }
 
-async function settle() {
-	for (let i = 0; i < 50; i++) await Promise.resolve();
-}
-
 function hasResetReason(details: unknown, reason: string): details is { reason: string } {
 	return typeof details === "object" && details !== null && "reason" in details && details.reason === reason;
 }
@@ -43,18 +39,17 @@ describe("advisor context reset observability", () => {
 			};
 			const host: AdvisorRuntimeHost = {
 				snapshotMessages: () => messages,
-				enqueueAdvice: () => {},
 			};
 			const runtime = new AdvisorRuntime(agent, host);
 
 			runtime.onTurnEnd();
-			await settle();
+			expect(await runtime.waitForCatchup(1_000, 1)).toBe(true);
 
 			// Replace a delivered message with a changed clone, then grow the tail.
 			messages[0] = userMessage("turn one body EDITED", 1);
 			messages.push(userMessage("turn three body", 3));
 			runtime.onTurnEnd();
-			await settle();
+			expect(await runtime.waitForCatchup(1_000, 1)).toBe(true);
 
 			const events = debugSpy.mock.calls.map(call => ({ message: call[0], details: call[1] }));
 			const divergence = events.find(event => event.message === "advisor delivered prefix changed");
@@ -85,7 +80,6 @@ describe("advisor context reset observability", () => {
 			};
 			const host: AdvisorRuntimeHost = {
 				snapshotMessages: () => [],
-				enqueueAdvice: () => {},
 			};
 			const runtime = new AdvisorRuntime(agent, host);
 
@@ -104,7 +98,13 @@ describe("advisor context reset observability", () => {
 	});
 
 	it("logs quarantine reset reasons while preserving the retry limit", async () => {
-		const debugSpy = vi.spyOn(logger, "debug").mockImplementation(() => {});
+		const recoveryLogged = Promise.withResolvers<void>();
+		const exhaustedLogged = Promise.withResolvers<void>();
+		const debugSpy = vi.spyOn(logger, "debug").mockImplementation((message, details) => {
+			if (message !== "advisor context reset") return;
+			if (hasResetReason(details, "quarantine-recovery")) recoveryLogged.resolve();
+			if (hasResetReason(details, "quarantine-retry-exhausted")) exhaustedLogged.resolve();
+		});
 		try {
 			const messages: AgentMessage[] = [userMessage("turn body", 1)];
 			let agentResetCalls = 0;
@@ -121,14 +121,13 @@ describe("advisor context reset observability", () => {
 			};
 			const runtime = new AdvisorRuntime(agent, {
 				snapshotMessages: () => messages,
-				enqueueAdvice: () => {},
 				notifyFailure: error => failures.push(error),
 			});
 
 			runtime.onTurnEnd();
-			await settle();
+			await recoveryLogged.promise;
 			runtime.onTurnEnd();
-			await settle();
+			await exhaustedLogged.promise;
 
 			const events = debugSpy.mock.calls.map(call => ({ message: call[0], details: call[1] }));
 			expect(

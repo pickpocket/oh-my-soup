@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "bun:test";
 import * as path from "node:path";
 import { Agent } from "@oh-my-soup/pi-agent-core";
 import type {
@@ -138,14 +138,21 @@ function successStream(model: Model<Api>, text: string): AssistantMessageEventSt
 }
 
 describe("AgentSession Gemini header-runaway interrupt", () => {
-	let tempDir: TempDir;
+	let sharedDir: TempDir;
 	let authStorage: AuthStorage;
+	let modelRegistry: ModelRegistry;
 	let session: AgentSession | undefined;
 
-	beforeEach(async () => {
-		tempDir = TempDir.createSync("@pi-gemini-header-interrupt-");
-		authStorage = await AuthStorage.create(path.join(tempDir.path(), "auth.db"));
+	beforeAll(async () => {
+		sharedDir = TempDir.createSync("@pi-gemini-header-interrupt-shared-");
+		authStorage = await AuthStorage.create(path.join(sharedDir.path(), "auth.db"));
 		authStorage.setRuntimeApiKey("openrouter", "openrouter-test-key");
+		modelRegistry = new ModelRegistry(authStorage);
+	});
+
+	afterAll(() => {
+		authStorage.close();
+		sharedDir.removeSync();
 	});
 
 	afterEach(async () => {
@@ -153,8 +160,6 @@ describe("AgentSession Gemini header-runaway interrupt", () => {
 			await session.dispose();
 			session = undefined;
 		}
-		authStorage.close();
-		tempDir.removeSync();
 		vi.restoreAllMocks();
 	});
 
@@ -164,7 +169,6 @@ describe("AgentSession Gemini header-runaway interrupt", () => {
 		modelId = "google/gemini-3.5-flash",
 	): void {
 		const model = createMockModel({ provider: "openrouter", id: modelId }).model;
-		const modelRegistry = new ModelRegistry(authStorage);
 		const agent = new Agent({
 			getApiKey: requestedModel => `${requestedModel.provider}-test-key`,
 			initialState: { model, systemPrompt: ["Test"], tools: [], messages: [] },

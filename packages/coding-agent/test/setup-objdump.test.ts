@@ -3,7 +3,7 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { runSetupCommand } from "@oh-my-soup/pi-coding-agent/cli/setup-cli";
-import { initTheme } from "@oh-my-soup/pi-coding-agent/modes/theme/theme";
+import { initTheme } from "@oh-my-soup/pi-tui/theme";
 import * as toolsManager from "@oh-my-soup/pi-coding-agent/utils/tools-manager";
 import * as piUtils from "@oh-my-soup/pi-utils";
 

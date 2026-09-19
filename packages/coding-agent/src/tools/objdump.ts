@@ -3,24 +3,15 @@ import { type } from "@oh-my-soup/omstype";
 import type { AgentTool, AgentToolResult, RenderResultOptions } from "@oh-my-soup/pi-agent-core";
 import { type Component, Text } from "@oh-my-soup/pi-tui";
 import { logger, prompt, ptree, sanitizeText, TempDir } from "@oh-my-soup/pi-utils";
-import type { Theme } from "../modes/theme/theme";
+import type { Theme } from "@oh-my-soup/pi-tui/theme";
 import objdumpDescription from "../prompts/tools/objdump.md" with { type: "text" };
-import { OutputSink } from "../session/streaming-output";
-import { renderStatusLine } from "../tui";
-import { CachedOutputBlock, markFramedBlockComponent } from "../tui/output-block";
+import { OutputSink } from "@oh-my-soup/pi-tui/tools/streaming-output";
+import { CachedOutputBlock, formatExpandHint, formatStatusIcon, markFramedBlockComponent, PREVIEW_LIMITS, renderStatusLine, replaceTabs, shortenPath, TRUNCATE_LENGTHS, truncateToWidth } from "@oh-my-soup/pi-tui/render";
 import { getToolPath } from "../utils/tools-manager";
 import type { ToolSession } from ".";
-import { type OutputMeta, resolveOutputMaxColumns, resolveOutputSinkHeadBytes } from "./output-meta";
+import type { OutputMeta } from "@oh-my-soup/pi-tui/tools/output-meta";
+import { resolveOutputMaxColumns, resolveOutputSinkHeadBytes } from "./output-meta";
 import { resolveToCwd } from "./path-utils";
-import {
-	formatExpandHint,
-	formatStatusIcon,
-	PREVIEW_LIMITS,
-	replaceTabs,
-	shortenPath,
-	TRUNCATE_LENGTHS,
-	truncateToWidth,
-} from "./render-utils";
 import { renderError, ToolAbortError, ToolError, throwIfAborted } from "./tool-errors";
 import { toolResult } from "./tool-result";
 import { clampTimeout } from "./tool-timeouts";
@@ -416,32 +407,28 @@ export const objdumpToolRenderer = {
 		const outputBlock = new CachedOutputBlock();
 		return markFramedBlockComponent({
 			render(width: number): readonly string[] {
+				const action = replaceTabs(sanitizeText(args?.action ?? result.details?.action ?? "request"));
+				const failed = result.isError || (result.details !== undefined && result.details.exitCode !== 0);
+				const state = options.isPartial ? "running" : failed ? "error" : "success";
+				const text = result.content.find(block => block.type === "text")?.text ?? "No output";
+				const lines = replaceTabs(sanitizeText(text)).split("\n");
+				const limit = options.expanded ? PREVIEW_LIMITS.EXPANDED_LINES : PREVIEW_LIMITS.COLLAPSED_LINES;
+				const preview = lines.slice(0, limit).map(line => truncateToWidth(line, TRUNCATE_LENGTHS.LINE));
+				if (lines.length > preview.length) {
+					preview.push(
+						theme.fg(
+							"muted",
+							`… ${lines.length - preview.length} more lines ${formatExpandHint(theme, options.expanded, true)}`,
+						),
+					);
+				}
 				return outputBlock.render(
-					width,
-					0,
-					() => {
-						const action = replaceTabs(sanitizeText(args?.action ?? result.details?.action ?? "request"));
-						const failed = result.isError || (result.details !== undefined && result.details.exitCode !== 0);
-						const state = options.isPartial ? "running" : failed ? "error" : "success";
-						const text = result.content.find(block => block.type === "text")?.text ?? "No output";
-						const lines = replaceTabs(sanitizeText(text)).split("\n");
-						const limit = options.expanded ? PREVIEW_LIMITS.EXPANDED_LINES : PREVIEW_LIMITS.COLLAPSED_LINES;
-						const preview = lines.slice(0, limit).map(line => truncateToWidth(line, TRUNCATE_LENGTHS.LINE));
-						if (lines.length > preview.length) {
-							preview.push(
-								theme.fg(
-									"muted",
-									`… ${lines.length - preview.length} more lines ${formatExpandHint(theme, options.expanded, true)}`,
-								),
-							);
-						}
-						return {
-							header: `${formatStatusIcon(state, theme, options.spinnerFrame)} Objdump ${action}`,
-							state,
-							sections: [{ label: theme.fg("toolTitle", "Output"), lines: preview }],
-							width,
-							applyBg: false,
-						};
+					{
+						header: `${formatStatusIcon(state, theme, options.spinnerFrame)} Objdump ${action}`,
+						state,
+						sections: [{ label: theme.fg("toolTitle", "Output"), lines: preview }],
+						width,
+						applyBg: false,
 					},
 					theme,
 				);

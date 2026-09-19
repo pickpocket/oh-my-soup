@@ -1,5 +1,5 @@
 //! Golden-fixture test: Glm5 vs reference HF tokenizers
-//! (add_special_tokens=False).
+//! (`add_special_tokens=False`).
 //!
 //! GLM-4.x note: GLM-5 is an ID-preserving superset of GLM-4.x (~3.5k extra
 //! merges), so GLM-4.x counts are near-exact under this table — no separate
@@ -36,10 +36,10 @@ fn glm5_matches_reference() {
 	}
 }
 
-/// Directed ignore_merges semantics: ' 参考' exists in vocab (99855) but
+/// Directed `ignore_merges` semantics: ' 参考' exists in vocab (99855) but
 /// HF's greedy merge order never forms it from bytes; normal merge-loop BPE
 /// yields [26767, 224, 98580] (verified with the Python reference with
-/// ignore_merges=false). The whole-piece short-circuit must win.
+/// `ignore_merges=false`). The whole-piece short-circuit must win.
 #[test]
 fn glm5_ignore_merges_whole_piece_wins() {
 	assert_eq!(Encoding::Glm5.encode(" 参考").unwrap(), vec![99855]);

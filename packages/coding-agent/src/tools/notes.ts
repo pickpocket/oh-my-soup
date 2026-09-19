@@ -1,9 +1,9 @@
 import { type } from "@oh-my-soup/omstype";
 import type { AgentTool, AgentToolResult } from "@oh-my-soup/pi-agent-core";
-import type { Component } from "@oh-my-soup/pi-tui";
+import { type Component, Ellipsis } from "@oh-my-soup/pi-tui";
 import { prompt, sanitizeText } from "@oh-my-soup/pi-utils";
 import type { RenderResultOptions } from "../extensibility/custom-tools/types";
-import type { Theme } from "../modes/theme/theme";
+import type { Theme } from "@oh-my-soup/pi-tui/theme";
 import notesDescription from "../prompts/tools/notes.md" with { type: "text" };
 import {
 	applyImportantNotesMutation,
@@ -12,9 +12,8 @@ import {
 	IMPORTANT_NOTES_MAX_CHARS,
 	type ImportantNote,
 } from "../session/important-notes";
-import { Ellipsis, renderStatusLine, truncateToWidth } from "../tui";
+import { createCachedComponent, formatExpandHint, PREVIEW_LIMITS, renderStatusLine, replaceTabs, truncateToWidth } from "@oh-my-soup/pi-tui/render";
 import type { ToolSession } from "./index";
-import { createCachedComponent, formatExpandHint, PREVIEW_LIMITS, replaceTabs } from "./render-utils";
 
 const notesSchema = type({
 	op: type('"list" | "set" | "delete" | "clear"').describe("operation to apply"),

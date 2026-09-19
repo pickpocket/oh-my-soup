@@ -4,8 +4,8 @@ import * as os from "node:os";
 import * as path from "node:path";
 import type { AgentToolResult } from "@oh-my-soup/pi-agent-core";
 import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
-import { getThemeByName } from "@oh-my-soup/pi-coding-agent/modes/theme/theme";
-import { OutputSink } from "@oh-my-soup/pi-coding-agent/session/streaming-output";
+import { getThemeByName } from "@oh-my-soup/pi-tui/theme";
+import { OutputSink } from "@oh-my-soup/pi-tui/tools/streaming-output";
 import type { ToolSession } from "@oh-my-soup/pi-coding-agent/tools";
 import {
 	type ObjdumpParams,
@@ -13,7 +13,7 @@ import {
 	type ObjdumpToolDetails,
 	objdumpToolRenderer,
 } from "@oh-my-soup/pi-coding-agent/tools/objdump";
-import { PREVIEW_LIMITS } from "@oh-my-soup/pi-coding-agent/tools/render-utils";
+import { PREVIEW_LIMITS } from "@oh-my-soup/pi-tui/render";
 import { ToolAbortError, ToolError } from "@oh-my-soup/pi-coding-agent/tools/tool-errors";
 import * as toolsManager from "@oh-my-soup/pi-coding-agent/utils/tools-manager";
 import { ptree } from "@oh-my-soup/pi-utils";

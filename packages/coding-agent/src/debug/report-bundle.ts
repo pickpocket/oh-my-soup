@@ -3,13 +3,14 @@
  *
  * Creates a .tar.gz archive with session data, logs, system info, and optional profiling data.
  */
+
 import type { Dirent } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import type { WorkProfile } from "@oh-my-soup/pi-natives";
 import { APP_NAME, getLogPath, getLogsDir, getReportsDir, isEnoent } from "@oh-my-soup/pi-utils";
-import { writeArchive } from "../utils/zip";
-import type { CpuProfile, HeapSnapshot } from "./profiler";
+import { writeArchive } from "@oh-my-soup/pi-utils/ar";
+import type { CpuProfile, MemoryStats } from "./profiler";
 import { collectSystemInfo, sanitizeEnv } from "./system-info";
 
 /** Maximum number of log lines to load into memory at once. */
@@ -43,8 +44,8 @@ export interface ReportBundleOptions {
 	settings?: Record<string, unknown>;
 	/** CPU profile (for performance reports) */
 	cpuProfile?: CpuProfile;
-	/** Heap snapshot (for memory reports) */
-	heapSnapshot?: HeapSnapshot;
+	/** Numeric memory statistics, never raw heap contents */
+	memoryStats?: MemoryStats;
 	/** Work profile (for work scheduling reports) */
 	workProfile?: WorkProfile;
 	/** Raw provider SSE diagnostics captured by the session buffer */
@@ -76,7 +77,7 @@ export interface DebugLogSource {
  * - profile.cpuprofile: CPU profile (performance report only)
  * - raw-sse.txt: Recent raw provider SSE diagnostics (when captured)
  * - profile.md: Markdown CPU profile (performance report only)
- * - heap.heapsnapshot: Heap snapshot (memory report only)
+ * - memory.json: Numeric process and heap statistics (memory report only)
  * - work.folded: Work profile folded stacks (work report only)
  * - work.md: Work profile summary (work report only)
  * - work.svg: Work profile flamegraph (work report only)
@@ -88,7 +89,7 @@ export async function createReportBundle(options: ReportBundleOptions): Promise<
 	const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
 	const outputPath = path.join(reportsDir, `oms-report-${timestamp}.tar.gz`);
 
-	const data: Record<string, string> = {};
+	const data: Record<string, string | Uint8Array> = {};
 	const files: string[] = [];
 
 	// Collect system info
@@ -134,7 +135,7 @@ export async function createReportBundle(options: ReportBundleOptions): Promise<
 		// Artifacts subtree (same path without .jsonl). Recursing captures the
 		// current session's nested subagent transcripts and their artifacts while
 		// staying inside this session's own directory — unrelated co-located
-		// sessions in the sessions root are never touched.
+		// sessions in the sessions root are never touched (#8648).
 		const artifactsDir = options.sessionFile.slice(0, -6);
 		await addDirectoryToArchive(data, files, artifactsDir, "artifacts");
 	}
@@ -147,10 +148,10 @@ export async function createReportBundle(options: ReportBundleOptions): Promise<
 		files.push("profile.md");
 	}
 
-	// Heap snapshot
-	if (options.heapSnapshot) {
-		data["heap.heapsnapshot"] = options.heapSnapshot.data;
-		files.push("heap.heapsnapshot");
+	// Memory statistics exclude heap contents, which can contain credentials.
+	if (options.memoryStats) {
+		data["memory.json"] = JSON.stringify(options.memoryStats, null, 2);
+		files.push("memory.json");
 	}
 
 	// Work profile
@@ -173,7 +174,7 @@ export async function createReportBundle(options: ReportBundleOptions): Promise<
 
 /** Recursively add every file under a directory to the archive. */
 async function addDirectoryToArchive(
-	data: Record<string, string>,
+	data: Record<string, string | Uint8Array>,
 	files: string[],
 	dirPath: string,
 	archivePrefix: string,
@@ -185,7 +186,6 @@ async function addDirectoryToArchive(
 		// Directory doesn't exist
 		return;
 	}
-
 	for (const entry of entries) {
 		const entryPath = path.join(dirPath, entry.name);
 		const archivePath = `${archivePrefix}/${entry.name}`;

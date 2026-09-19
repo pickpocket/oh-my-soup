@@ -1,11 +1,5 @@
 import { type Agent, ThinkingLevel } from "@oh-my-soup/pi-agent-core";
-import type {
-	Model,
-	ProviderSessionState,
-	ServiceTier,
-	ServiceTierByFamily,
-	ServiceTierFamily,
-} from "@oh-my-soup/pi-ai";
+import type { Model, ProviderSessionState, ServiceTier, ServiceTierByFamily, ServiceTierFamily } from "@oh-my-soup/pi-ai";
 import {
 	clearAnthropicFastModeFallback,
 	Effort,
@@ -29,7 +23,7 @@ import {
 } from "../config/model-resolver";
 import { getKnownRoleIds } from "../config/model-roles";
 import type { Settings } from "../config/settings";
-import { containsUltrathink } from "../modes/ultrathink";
+import { containsUltrathink } from "@oh-my-soup/pi-tui/prompt/ultrathink";
 import {
 	AUTO_THINKING,
 	type ConfiguredThinkingLevel,
@@ -39,8 +33,8 @@ import {
 	resolveThinkingLevelForModel,
 	shouldDisableReasoning,
 	toReasoningEffort,
-} from "../thinking";
-import type { EditMode } from "../utils/edit-mode";
+} from "@oh-my-soup/pi-tui/thinking";
+import type { EditMode } from "@oh-my-soup/pi-tui/tools/edit";
 import type { AgentSessionEvent } from "./agent-session-events";
 import type { ModelCycleResult, ResolvedRoleModel, RoleModelCycle, RoleModelCycleResult } from "./agent-session-types";
 import { formatRoleModelValue, resolveRoleModelFull } from "./role-models";
@@ -144,7 +138,12 @@ export class ModelControls {
 		return this.#scopedModels;
 	}
 
-	/** Replace the Ctrl+P cycle scope after runtime provider discovery settles. */
+	/**
+	 * Replace the Ctrl+P cycle scope. Startup resolves the scope before background
+	 * provider discovery runs; the CLI re-pushes the fuller list here once discovery
+	 * completes so a newly-discovered `enabledModels` model joins the cycle and the
+	 * scoped `/models` picker (issue #9220).
+	 */
 	setScopedModels(scopedModels: Array<{ model: Model; thinkingLevel?: ThinkingLevel }>): void {
 		this.#scopedModels = scopedModels;
 	}
@@ -613,6 +612,10 @@ export class ModelControls {
 		} else {
 			const controller = new AbortController();
 			const timer = setTimeout(() => controller.abort(), ModelControls.#AUTO_THINKING_TIMEOUT_MS);
+			const usageOwner = {
+				sessionId: this.#host.sessionManager.getSessionId(),
+				parentId: this.#host.sessionManager.getLeafId(),
+			};
 			try {
 				resolved = await classifyDifficulty(promptText, {
 					settings: this.#host.settings,
@@ -621,6 +624,13 @@ export class ModelControls {
 					sessionId: this.#host.sessionId(),
 					signal: controller.signal,
 					metadataResolver: provider => this.#host.agent.metadataForProvider(provider),
+					onUsage: usage => {
+						const entryId = this.#host.sessionManager.appendModelUsage(
+							{ purpose: "auto-thinking", ...usage },
+							usageOwner,
+						);
+						if (entryId) usageOwner.parentId = entryId;
+					},
 				});
 			} catch (error) {
 				logger.debug("auto-thinking: classification failed; using fallback level", {

@@ -3,13 +3,18 @@ import * as os from "node:os";
 import * as path from "node:path";
 import {
 	$env,
+	$which,
 	isBunTestRuntime,
 	isCompiledBinary,
+	isExecutable,
+	isFullyQualifiedPath,
 	logger,
 	postmortem,
 	stripWindowsExtendedLengthPathPrefix,
+	WhichCachePolicy,
 	workerHostEntry,
 } from "@oh-my-soup/pi-utils";
+import { stripGitRepoLocationEnv } from "@oh-my-soup/pi-utils/env";
 import type { Subprocess } from "bun";
 
 /**
@@ -107,18 +112,61 @@ export interface WorkerSpawnCommand {
 export const SMOKE_TEST_TIMEOUT_MS = 30_000;
 
 /**
+ * Resolve the current executable path, falling back to finding the binary on
+ * PATH if the original physical path was unlinked on disk (e.g. Homebrew or a
+ * package manager pruned the prior version directory during an in-flight
+ * upgrade, leaving `process.execPath` pointing at a missing path).
+ */
+export function resolveExecutablePath(): string {
+	const executable = stripWindowsExtendedLengthPathPrefix(process.execPath);
+	if (isCompiledBinary() && !isExecutable(executable)) {
+		const argv0 = stripWindowsExtendedLengthPathPrefix(process.argv0);
+		const isPath = argv0.includes("/") || argv0.includes("\\") || argv0.includes(":");
+		const candidates = [
+			// Prefer the original launcher when invoked with an absolute path
+			isFullyQualifiedPath(argv0) ? argv0 : null,
+			!isPath ? $which(argv0, { requireAbsolutePaths: true, cache: WhichCachePolicy.Bypass }) : null,
+			// Generic fallback to finding "oms" on PATH
+			$which("oms", { requireAbsolutePaths: true, cache: WhichCachePolicy.Bypass }),
+		];
+		for (const candidate of candidates) {
+			if (candidate && isExecutable(candidate)) {
+				return candidate;
+			}
+		}
+	}
+	return executable;
+}
+
+/**
+ * Resolve the command that re-enters this CLI's entrypoint: the compiled
+ * binary itself, or the runtime plus the declared worker-host entry. Used by
+ * the TUI `/restart` relaunch; workers go through {@link resolveWorkerSpawnCmd},
+ * whose no-host fallback deliberately differs (cwd-relative entry pinned to the
+ * package root for `bun test` IPC). Outside a CLI host this falls back to the
+ * absolute path of `src/cli.ts` so the relaunch keeps the caller's cwd.
+ */
+export function resolveCliEntryCmd(): string[] {
+	const executable = resolveExecutablePath();
+	if (isCompiledBinary()) return [executable];
+	const hostEntry = workerHostEntry();
+	if (hostEntry) return [executable, hostEntry];
+	return [executable, path.resolve(import.meta.dir, "..", "cli.ts")];
+}
+
+/**
  * Resolve the command used to relaunch the agent CLI into worker mode. In a
  * compiled binary the entry point is the binary itself; otherwise re-enter the
  * declared worker-host entry by absolute path. Workers deliberately spawn
  * without a pinned cwd there: they share the parent's foreground process
- * group, and terminal cwd heuristics read the newest process in that group, so
- * anchoring them to the install dir leaks into newly opened terminal tabs.
- * With no declared host entry (bun test, SDK embedding) fall back to a
- * cwd-relative `src/cli.ts`, which Bun subprocess IPC handles more reliably
- * under `bun test`.
+ * group, and terminal cwd heuristics (kitty's new_tab_with_cwd) read the
+ * newest process in that group, so anchoring them to the install dir leaks
+ * into newly opened terminal tabs. With no declared host entry (bun test, SDK
+ * embedding) fall back to a cwd-relative `src/cli.ts`, which Bun subprocess
+ * IPC handles more reliably under `bun test`.
  */
 export function resolveWorkerSpawnCmd(workerArg: string): WorkerSpawnCommand {
-	const executable = stripWindowsExtendedLengthPathPrefix(process.execPath);
+	const executable = resolveExecutablePath();
 	if (isCompiledBinary()) return { cmd: [executable, workerArg] };
 	const hostEntry = workerHostEntry();
 	if (hostEntry) {
@@ -140,6 +188,9 @@ export function workerEnvFromParent(overlay?: Record<string, string>): Record<st
 		const value = base[key];
 		if (typeof value === "string") merged[key] = value;
 	}
+	// Inherited repo-location overrides must not reach a worker or the PTY
+	// daemons it hosts (issue #11082); an explicit overlay still wins below.
+	stripGitRepoLocationEnv(merged);
 	if (overlay) {
 		for (const key in overlay) merged[key] = overlay[key];
 	}
@@ -149,11 +200,13 @@ export function workerEnvFromParent(overlay?: Record<string, string>): Record<st
 /**
  * `LD_LIBRARY_PATH` overlay that lets a dlopen'd native addon find its C++
  * runtime. The ONNX addons installed on demand under `~/.oms/agent/cache/**`
- * need `libstdc++.so.6` / `libgcc_s.so.1`; because each addon carries its own
- * `DT_RUNPATH`, an RPATH on our executable cannot satisfy them, so the path
- * has to come from the environment. On NixOS the packaged build exports
- * `OMS_NATIVE_LIBRARY_PATH` (see `nix/package.nix`). Appended last so an
- * inherited `LD_LIBRARY_PATH` keeps precedence.
+ * are `process.dlopen`'d and need `libstdc++.so.6` / `libgcc_s.so.1`; because
+ * each addon carries its own `DT_RUNPATH`, an RPATH on our executable cannot
+ * satisfy them, so the path has to come from the environment. On distros where
+ * those libraries are outside the loader's default search path (NixOS) the
+ * packaged build exports `OMS_NATIVE_LIBRARY_PATH` (see `nix/package.nix`).
+ * Appended last so an inherited `LD_LIBRARY_PATH` keeps precedence.
+ * Pure for testability; see {@link inferenceWorkerEnv} for the spawn-time glue.
  */
 export function nativeLibraryPathOverlay(
 	env: Record<string, string | undefined>,
@@ -167,8 +220,10 @@ export function nativeLibraryPathOverlay(
 }
 
 /**
- * Environment for ONNX inference workers only. User PTYs, eval kernels, and
- * tool subprocesses keep the parent loader path unchanged.
+ * Env for an ONNX inference worker: the parent env plus the native library
+ * path. Only these workers get it — the daemon broker spawns user PTY sessions
+ * and eval kernels through {@link workerEnvFromParent}, and rewriting the
+ * loader search path of arbitrary user commands risks a `GLIBCXX` mismatch.
  */
 export function inferenceWorkerEnv(overlay?: Record<string, string>): Record<string, string> {
 	return workerEnvFromParent({ ...nativeLibraryPathOverlay($env, process.platform), ...overlay });

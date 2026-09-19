@@ -6,11 +6,10 @@ import { getBundledModels } from "@oh-my-soup/pi-catalog/models";
 import type { CustomMessage } from "@oh-my-soup/pi-coding-agent/session/messages";
 import { SessionProviderBoundary } from "@oh-my-soup/pi-coding-agent/session/session-provider-boundary";
 import {
-	modelLacksWebpSupport,
 	normalizeModelContextImages,
 	normalizeModelContextMessages,
-	webpExclusionForModel,
 } from "@oh-my-soup/pi-coding-agent/utils/image-loading";
+import { modelLacksWebpSupport, webpExclusionForModel } from "@oh-my-soup/pi-tui/chat/image-loading";
 
 // 1x1 red PNG seed, upscaled + re-encoded as WebP at test time so no binary
 // fixture is checked in. Bun.Image sniffs format from bytes.

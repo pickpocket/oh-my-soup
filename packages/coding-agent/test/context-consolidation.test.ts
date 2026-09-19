@@ -1,24 +1,23 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "bun:test";
 import * as path from "node:path";
-import { Agent, type AgentMessage, Tokenizer } from "@oh-my-soup/pi-agent-core";
+import { Agent, type AgentMessage } from "@oh-my-soup/pi-agent-core";
 import type { AssistantMessage, Message, Model } from "@oh-my-soup/pi-ai";
 import { createMockModel } from "@oh-my-soup/pi-ai/providers/mock";
 import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
 import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
-import { StatusLineComponent } from "@oh-my-soup/pi-coding-agent/modes/components/status-line";
-import { initTheme } from "@oh-my-soup/pi-coding-agent/modes/theme/theme";
-import {
-	computeContextBreakdown,
-	computeNonMessageTokens,
-} from "@oh-my-soup/pi-coding-agent/modes/utils/context-usage";
+import { StatusLineComponent } from "@oh-my-soup/pi-tui/status-line";
+import { computeNonMessageTokens } from "@oh-my-soup/pi-tui/status-line/context-usage";
+import { statusLineHost } from "@oh-my-soup/pi-coding-agent/modes/status-line-host";
+import { initTheme } from "@oh-my-soup/pi-tui/theme";
+import { computeSessionContextBreakdown } from "@oh-my-soup/pi-coding-agent/session/context-usage-runtime";
 import { AgentSession } from "@oh-my-soup/pi-coding-agent/session/agent-session";
 import { AuthStorage } from "@oh-my-soup/pi-coding-agent/session/auth-storage";
 import { IMPORTANT_NOTES_CUSTOM_TYPE } from "@oh-my-soup/pi-coding-agent/session/important-notes";
 import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
 import { TempDir } from "@oh-my-soup/pi-utils";
+import { StatusLineTestComponents } from "./helpers/status-line";
 
-const tokenizer = new Tokenizer();
-
+const statusLines = new StatusLineTestComponents();
 describe("Context usage consolidation", () => {
 	let sharedDir: TempDir;
 	let authStorage: AuthStorage;
@@ -56,6 +55,7 @@ describe("Context usage consolidation", () => {
 	});
 
 	afterAll(async () => {
+		statusLines.dispose();
 		authStorage.close();
 		try {
 			await sharedDir.remove();
@@ -91,7 +91,7 @@ describe("Context usage consolidation", () => {
 			settings: Settings.isolated({
 				"compaction.enabled": true,
 				"compaction.autoContinue": false,
-				"compaction.strategy": "context-full",
+				"compaction.methodOrder": ["soft"],
 				"compaction.thresholdTokens": 8000,
 			}),
 			modelRegistry,
@@ -138,7 +138,7 @@ describe("Context usage consolidation", () => {
 				},
 				contextSnapshot: {
 					promptTokens: 10_000,
-					nonMessageTokens: computeNonMessageTokens(session, tokenizer),
+					nonMessageTokens: computeNonMessageTokens(session, agent.tokenizer, session.settings.revision),
 					importantNotesTokens: billedNotesTokens,
 				},
 				timestamp: 1,
@@ -149,7 +149,7 @@ describe("Context usage consolidation", () => {
 				setNotes(text);
 				const expected = 10_000 + session.getImportantNotesReferenceTokens() - billedNotesTokens;
 				expect(session.getContextUsage()?.tokens).toBe(expected);
-				const panel = computeContextBreakdown(session);
+				const panel = computeSessionContextBreakdown(session);
 				expect(panel.usedTokens).toBe(expected);
 				expect(panel.categories.reduce((sum, category) => sum + category.tokens, 0)).toBe(expected);
 			}
@@ -181,7 +181,10 @@ describe("Context usage consolidation", () => {
 					totalTokens: 9001,
 					cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
 				},
-				contextSnapshot: { promptTokens: 9000, nonMessageTokens: computeNonMessageTokens(session, tokenizer) },
+				contextSnapshot: {
+					promptTokens: 9000,
+					nonMessageTokens: computeNonMessageTokens(session, agent.tokenizer, session.settings.revision),
+				},
 				timestamp: 1,
 			});
 			syncSession(session, agent);
@@ -190,8 +193,8 @@ describe("Context usage consolidation", () => {
 			const breakdown = session.getContextBreakdown();
 			expect(breakdown?.anchored).toBe(false);
 			expect(breakdown?.usedTokens).toBe(
-				computeNonMessageTokens(session, tokenizer) +
-					tokenizer.countMessages(agent.state.messages) +
+				computeNonMessageTokens(session, agent.tokenizer, session.settings.revision) +
+					agent.tokenizer.countMessages(agent.state.messages) +
 					session.getImportantNotesReferenceTokens(),
 			);
 		} finally {
@@ -398,7 +401,7 @@ describe("Context usage consolidation", () => {
 		const breakdown = session.getContextBreakdown();
 		expect(breakdown?.anchored).toBe(true);
 
-		const customEstimate = tokenizer.countMessage(customMsg);
+		const customEstimate = agent.tokenizer.countMessage(customMsg);
 		expect(breakdown?.usedTokens).toBe(150 + customEstimate);
 
 		await tempDir.remove();
@@ -433,10 +436,10 @@ describe("Context usage consolidation", () => {
 		const breakdownVal = session.getContextBreakdown();
 		const used = breakdownVal?.usedTokens;
 
-		const cb = computeContextBreakdown(session);
+		const cb = computeSessionContextBreakdown(session);
 		expect(cb.usedTokens).toBe(used!);
 
-		const sl = new StatusLineComponent(session);
+		const sl = statusLines.track(new StatusLineComponent(session, statusLineHost));
 		expect(sl.getCachedContextBreakdown().usedTokens).toBe(used!);
 
 		const cu = session.getContextUsage();
@@ -471,7 +474,7 @@ describe("Context usage consolidation", () => {
 		sessionManager.appendMessage(assistant);
 		syncSession(session, agent);
 
-		const sl = new StatusLineComponent(session);
+		const sl = statusLines.track(new StatusLineComponent(session, statusLineHost));
 		const initialBreakdown = sl.getCachedContextBreakdown();
 
 		const assistantExt = assistant as unknown as { thinkingSignature: string };
@@ -646,7 +649,13 @@ describe("Context usage consolidation", () => {
 		await tempDir.remove();
 	});
 
-	it("tolerates an undefined system-prompt section through getContextBreakdown", async () => {
+	// A before_agent_start extension can hand back a system-prompt array with a
+	// missing (undefined) section. getContextBreakdown funnels that array into
+	// both estimate paths — computeNonMessageBreakdown AND the collapsed
+	// computeNonMessageTokens — so the whole call must tolerate it rather than
+	// throwing "Failed to measure JavaScript string" and killing the session
+	// (issue #9331).
+	it("tolerates an undefined system-prompt section without throwing", async () => {
 		const tempDir = TempDir.createSync("@malformed-prompt-");
 		const malformed = ["You are a helpful assistant.", undefined as unknown as string, "trailing context"];
 		const { session } = createSession(tempDir, [], malformed);

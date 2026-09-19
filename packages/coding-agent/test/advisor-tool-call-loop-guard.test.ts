@@ -7,10 +7,11 @@ import { AssistantMessageEventStream } from "@oh-my-soup/pi-ai/utils/event-strea
 import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
 import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
 import { AgentSession } from "@oh-my-soup/pi-coding-agent/session/agent-session";
-import { AuthStorage } from "@oh-my-soup/pi-coding-agent/session/auth-storage";
+import type { AuthStorage } from "@oh-my-soup/pi-coding-agent/session/auth-storage";
 import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
 import { TempDir } from "@oh-my-soup/pi-utils";
 import { AdvisorLoopGuard } from "../src/advisor/loop-guard";
+import { createInMemoryAuthStorage } from "./helpers/agent-session-setup";
 
 const zeroUsage = {
 	input: 0,
@@ -21,6 +22,7 @@ const zeroUsage = {
 	cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
 } satisfies AssistantMessage["usage"];
 
+/** Advisor-visible tool that fails the same way on every call. */
 const failingReadTool: AgentTool = {
 	name: "read",
 	label: "Read",
@@ -37,9 +39,9 @@ describe("advisor tool-call loop guard", () => {
 	let authStorage: AuthStorage;
 	let session: AgentSession | undefined;
 
-	beforeAll(async () => {
+	beforeAll(() => {
 		tempDir = TempDir.createSync("@pi-advisor-tool-call-loop-guard-");
-		authStorage = await AuthStorage.create(":memory:");
+		authStorage = createInMemoryAuthStorage();
 		authStorage.setRuntimeApiKey("anthropic", "test-key");
 	});
 
@@ -53,6 +55,10 @@ describe("advisor tool-call loop guard", () => {
 		await tempDir.remove();
 	});
 
+	/**
+	 * Live advisor agent built through the real `SessionAdvisors` path, driven by
+	 * a stream that repeats one identical failing tool call forever.
+	 */
 	function createAdvisor(
 		guardSettings: Record<string, unknown>,
 		maxRepeatedTurns = 8,
@@ -63,6 +69,8 @@ describe("advisor tool-call loop guard", () => {
 		let turn = 0;
 		const advisorStreamFn: typeof advisorMock.stream = (_model, context) => {
 			contexts.push(context);
+			// Deliberately ignore the corrective. The enabled guard must hard-stop
+			// this stream; the finite ceiling keeps the disabled control bounded.
 			const repeating = turn < maxRepeatedTurns;
 			turn++;
 			const message: AssistantMessage = repeating
@@ -120,7 +128,7 @@ describe("advisor tool-call loop guard", () => {
 		return { advisor, contexts };
 	}
 
-	it("hard-stops a repeated tool loop without classifying it as a retryable failure", async () => {
+	it("redirects the advisor's own repeated tool call and reaches its next request", async () => {
 		const { advisor, contexts } = createAdvisor(
 			{
 				"model.toolCallLoopGuard.enabled": true,
@@ -128,11 +136,23 @@ describe("advisor tool-call loop guard", () => {
 			},
 			20,
 		);
+
 		if (!session) throw new Error("Expected live session");
 		await session.prompt("review the current update");
 		expect(await session.waitForAdvisorCatchup(2_000)).toBe(true);
+
+		// First threshold injects one corrective; ignoring it re-arms the
+		// detector, and the second threshold aborts. The agent loop observes the
+		// abort after one already-scheduled request, bounding twenty repeats at 7.
 		expect(contexts).toHaveLength(7);
-		expect(JSON.stringify(contexts[3]!.messages)).toContain("You called `read` 3 consecutive times");
+		const delivered = JSON.stringify(contexts[3]!.messages);
+		expect(delivered).toContain("You called `read` 3 consecutive times");
+		expect(delivered).toContain("ENOENT: no such file or directory");
+		const redirects = advisor.state.messages.filter(
+			message => message.role === "user" && JSON.stringify(message.content).includes("tool_call_loop_detected"),
+		);
+		expect(redirects).toHaveLength(1);
+		expect(advisor.state.messages.filter(message => message.role === "custom")).toHaveLength(0);
 		expect(advisor.state.error).toBeUndefined();
 	});
 
@@ -170,6 +190,7 @@ describe("advisor tool-call loop guard", () => {
 			};
 			return { message, toolResults: [result], willContinue: true };
 		};
+
 		guard.recordTurn(messages, turn("before-1"));
 		guard.recordTurn(messages, turn("before-2"));
 		guard.reset();
@@ -183,10 +204,13 @@ describe("advisor tool-call loop guard", () => {
 
 	it("leaves the advisor unbounded when the shared loop guard is disabled", async () => {
 		const { advisor, contexts } = createAdvisor({ "model.toolCallLoopGuard.enabled": false });
+
 		await advisor.prompt("review the current update");
+
 		expect(contexts.some(context => JSON.stringify(context.messages).includes("tool_call_loop_detected"))).toBe(
 			false,
 		);
+		// Nine requests: eight repeated tool-call turns plus the final stop.
 		expect(contexts).toHaveLength(9);
 	});
 });

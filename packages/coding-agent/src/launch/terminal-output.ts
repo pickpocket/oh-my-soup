@@ -1,6 +1,6 @@
 import { logger } from "@oh-my-soup/pi-utils";
 import xterm, { type Terminal as XtermTerminal } from "@oh-my-soup/pi-utils/vterm";
-import { readTerminalRows } from "../tools/terminal-output";
+import { readTerminalRows } from "@oh-my-soup/pi-tui/tools/terminal-output";
 import { DAEMON_PTY_COLUMNS, DAEMON_PTY_ROWS } from "./protocol";
 
 const VIRTUAL_SCROLLBACK_ROWS = 4_096;

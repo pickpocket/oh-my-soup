@@ -9,13 +9,13 @@
  */
 
 import { describe, expect, it } from "bun:test";
-import * as path from "node:path";
 import type { Usage } from "@oh-my-soup/pi-ai";
 import {
 	RedisSessionStorage,
 	type RedisSessionStorageClient,
 } from "@oh-my-soup/pi-coding-agent/session/redis-session-storage";
 import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
+import { SessionWriteConflictError } from "@oh-my-soup/pi-coding-agent/session/session-storage";
 
 interface FakeRedis extends RedisSessionStorageClient {
 	strings: Map<string, string>;
@@ -46,12 +46,15 @@ function createFakeRedis(): FakeRedis {
 			const argv = args.slice(2 + keyCount);
 			if (script.includes("OMS_WRITE_FULL")) {
 				const [fileKey, metaKey, titleKey] = keys;
-				const [content, filePath, mtimeMs, hasTitle, title] = argv;
+				const [content, filePath, mtimeMs, hasTitle, title, expectedSize] = argv;
+				const current = strings.get(fileKey);
+				const actualSize = current === undefined ? -1 : Buffer.byteLength(current, "utf8");
+				if (expectedSize !== "" && actualSize !== Number(expectedSize)) return [0, actualSize];
 				strings.set(fileKey, content);
 				getHash(metaKey).set(filePath, mtimeMs);
 				if (hasTitle === "1") getHash(titleKey).set(filePath, title);
 				else getHash(titleKey).delete(filePath);
-				return 1;
+				return [1, Buffer.byteLength(content, "utf8")];
 			}
 			if (script.includes("OMS_APPEND")) {
 				const [fileKey, metaKey] = keys;
@@ -156,10 +159,9 @@ describe("SessionManager + RedisSessionStorage", () => {
 	it("persists appended assistant messages into Redis and reloads them via open()", async () => {
 		const redis = createFakeRedis();
 		const storage = await RedisSessionStorage.create({ client: redis });
-		const cwd = path.resolve("redis-session-manager-fixture", "cwd");
-		const sessionDir = path.resolve("redis-session-manager-fixture", "sessions", "proj");
+		const sessionDir = "/sessions/proj";
 
-		const manager = SessionManager.create(cwd, sessionDir, storage);
+		const manager = SessionManager.create("/cwd", sessionDir, storage);
 		manager.appendMessage({
 			role: "assistant",
 			provider: "anthropic",
@@ -208,10 +210,9 @@ describe("SessionManager + RedisSessionStorage", () => {
 	it("SessionManager.list returns Redis-backed sessions for the cwd", async () => {
 		const redis = createFakeRedis();
 		const storage = await RedisSessionStorage.create({ client: redis });
-		const cwd = path.resolve("redis-session-manager-fixture", "cwd");
-		const sessionDir = path.resolve("redis-session-manager-fixture", "sessions", "list-proj");
+		const sessionDir = "/sessions/list-proj";
 
-		const a = SessionManager.create(cwd, sessionDir, storage);
+		const a = SessionManager.create("/cwd", sessionDir, storage);
 		a.appendMessage({
 			role: "assistant",
 			provider: "anthropic",
@@ -226,7 +227,7 @@ describe("SessionManager + RedisSessionStorage", () => {
 		await storage.drain();
 		await a.close();
 
-		const b = SessionManager.create(cwd, sessionDir, storage);
+		const b = SessionManager.create("/cwd", sessionDir, storage);
 		b.appendMessage({
 			role: "assistant",
 			provider: "anthropic",
@@ -246,9 +247,26 @@ describe("SessionManager + RedisSessionStorage", () => {
 		expect(aFile).toBeDefined();
 		expect(bFile).toBeDefined();
 
-		const sessions = await SessionManager.list(cwd, sessionDir, storage);
+		const sessions = await SessionManager.list("/cwd", sessionDir, storage);
 		const sessionFiles = sessions.map(s => s.path).sort();
 		expect(sessionFiles).toContain(aFile as string);
 		expect(sessionFiles).toContain(bFile as string);
+	});
+
+	it("rejects a stale rewrite after another Redis storage appends", async () => {
+		const redis = createFakeRedis();
+		const firstStorage = await RedisSessionStorage.create({ client: redis });
+		const first = SessionManager.create("/cwd", "/sessions/shared", firstStorage);
+		await first.ensureOnDisk();
+		const sessionFile = first.getSessionFile();
+		if (!sessionFile) throw new Error("Expected session file");
+
+		const secondStorage = await RedisSessionStorage.create({ client: redis });
+		const second = await SessionManager.open(sessionFile, "/sessions/shared", secondStorage);
+		second.appendMessage({ role: "user", content: "durable Redis peer turn", timestamp: Date.now() });
+		await second.close();
+
+		await expect(first.rewriteEntries()).rejects.toBeInstanceOf(SessionWriteConflictError);
+		expect(redis.strings.get(`oms:sessions:file:${sessionFile}`)).toContain("durable Redis peer turn");
 	});
 });

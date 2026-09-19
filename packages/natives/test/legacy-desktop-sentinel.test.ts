@@ -5,7 +5,7 @@ import * as path from "node:path";
 import { validateLoadedBindings } from "../native/loader-state.js";
 
 async function withCandidate(contents: string, test: (candidate: string) => void) {
-	const dir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-natives-legacy-desktop-"));
+	const dir = await fs.mkdtemp(path.join(os.tmpdir(), "pi-natives-legacy-desktop-"));
 	const candidate = path.join(dir, "pi_natives.node");
 	try {
 		await fs.writeFile(candidate, contents);
@@ -50,6 +50,12 @@ describe("legacy native addon loading", () => {
 			expect(() => validateLoadedBindings(ctx, { DesktopSession: LegacyDesktopSession }, candidate)).toThrow(
 				"reinstall to re-sync",
 			);
+		});
+	});
+	it("rejects a pre-sentinel core without the legacy desktop ABI", async () => {
+		const ctx = ctxFor("17.2.8");
+		await withCandidate("legacy native addon", candidate => {
+			expect(() => validateLoadedBindings(ctx, legacyCoreBindings, candidate)).toThrow("reinstall to re-sync");
 		});
 	});
 

@@ -14,7 +14,7 @@
  *   captured response body for the strict-tools fallback and the responses
  *   chain-state detectors, which regex over `error.message`.
  */
-import { fetchWithRetry, readSseJson, type SseEventObserver } from "@oh-my-soup/pi-utils";
+import { fetchWithRetry, readSseJsonOrText, type SseEventObserver } from "@oh-my-soup/pi-utils";
 import * as AIError from "../error";
 import { OpenAIHttpError } from "../error";
 
@@ -36,14 +36,24 @@ const DEFAULT_MAX_ATTEMPTS = 6;
 const MAX_DETAIL_CHARS = 4096;
 
 /**
- * LiteLLM (and compatible proxies) mark pre-upstream concurrency admission
- * failures as `rate_limit_type: max_parallel_requests`. Session recovery owns
- * concurrency backoff and model fallback, so transport retries must surface
- * this response immediately. Ordinary RPM/quota 429s remain retryable.
+ * LiteLLM (and compatible proxies) shed over-concurrency requests *before* the
+ * upstream call with an immediate HTTP 429 marked `rate_limit_type:
+ * max_parallel_requests` — as a response header and/or a structured body field.
+ * This is an admission failure, not an upstream rate/quota limit: the request
+ * never reached a model. Retrying it inside the transport (honoring the proxy's
+ * `Retry-After`, up to {@link DEFAULT_MAX_ATTEMPTS} times) duplicates — worse,
+ * at 60s per sleep instead of 5s — the concurrency backoff and model fallback
+ * that `TurnRecovery` already owns, stalling one turn for up to ~300s
+ * (issue #8854). {@link isConcurrencyAdmissionRejection} lets the transport
+ * surface it on the first attempt so session recovery runs promptly. Genuine
+ * RPM/quota 429s carry no such marker and keep honoring `Retry-After`.
  */
 const CONCURRENCY_ADMISSION_LIMITER = "max_parallel_requests";
+
+/** Body form of the marker: `"rate_limit_type": "max_parallel_requests"` (top level or under `error`). */
 const CONCURRENCY_ADMISSION_BODY_PATTERN = /"rate_limit_type"\s*:\s*"max_parallel_requests"/;
 
+/** `true` for a proxy concurrency-admission 429 that must bypass transport-level retry. */
 function isConcurrencyAdmissionRejection(response: Response, bodyText: string): boolean {
 	return (
 		response.headers.get("rate_limit_type")?.trim() === CONCURRENCY_ADMISSION_LIMITER ||
@@ -58,6 +68,8 @@ export interface OpenAIStreamRequestInit {
 	body: unknown;
 	signal: AbortSignal;
 	fetch?: FetchImpl;
+	/** Optional caller-specific gate composed with shared transport retry exclusions. */
+	shouldRetryResponse?: (response: Response, bodyText: string) => boolean | Promise<boolean>;
 	/** Raw wire-frame observer (`onSseEvent` debug pipeline). */
 	onSseEvent?: SseEventObserver;
 }
@@ -85,7 +97,12 @@ export async function postOpenAIStream<TEvent>(init: OpenAIStreamRequestInit): P
 		signal: init.signal,
 		fetch: init.fetch,
 		maxAttempts: DEFAULT_MAX_ATTEMPTS,
-		shouldRetryResponse: (response, bodyText) => !isConcurrencyAdmissionRejection(response, bodyText),
+		// A proxy concurrency-admission 429 (`rate_limit_type: max_parallel_requests`)
+		// surfaces immediately instead of being slept-and-retried here; session
+		// recovery owns its backoff/fallback (issue #8854).
+		shouldRetryResponse: async (response, bodyText) =>
+			!isConcurrencyAdmissionRejection(response, bodyText) &&
+			(init.shouldRetryResponse === undefined || (await init.shouldRetryResponse(response, bodyText))),
 		// Bun's native fetch enforces a hard ~300s pre-response timeout (issue #2422).
 		// Cold large-context streams legitimately exceed it; the caller's
 		// `firstEventTimeoutMs`/`AbortSignal` already govern stuck requests.
@@ -100,10 +117,42 @@ export async function postOpenAIStream<TEvent>(init: OpenAIStreamRequestInit): P
 		});
 	}
 	return {
-		events: readSseJson<TEvent>(response.body, init.signal, init.onSseEvent),
+		events: decodeStream<TEvent>(response.body, init.signal, init.onSseEvent),
 		response,
 		requestId: response.headers.get("x-request-id"),
 	};
+}
+
+/**
+ * Consume `readSseJsonOrText` and turn a non-JSON `data:` frame into a
+ * classified in-band error. A reverse proxy that already committed to an HTTP
+ * 200 stream (so the status line can no longer carry the failure) answers with
+ * plain text — `data: 429 Too Many Requests`, an nginx throttle page — and
+ * that has to advance the fallback chain like a real 429 (body-error.ts).
+ * Frames that are not recognisable throttles rethrow the original parse error,
+ * preserving the pre-existing loud failure for genuinely malformed payloads.
+ * `readSseJsonOrText` also yields a frame that was a JSON-encoded *string* on the
+ * wire (a double-encoded proxy error page); it is not a usable event either, so
+ * it is classified the same way and then dropped — every consumer here already
+ * ignored a string chunk, the completions loop by its `typeof !== "object"` test.
+ */
+async function* decodeStream<TEvent>(
+	body: ReadableStream<Uint8Array>,
+	signal: AbortSignal | undefined,
+	onSseEvent: SseEventObserver | undefined,
+): AsyncGenerator<TEvent> {
+	for await (const frame of readSseJsonOrText<TEvent>(body, signal, onSseEvent)) {
+		if (typeof frame === "string") {
+			const inBand = AIError.createInBandProviderErrorFromText(frame);
+			if (inBand) throw inBand;
+			// Not a recognisable throttle: reproduce the exact strict-parse failure the
+			// previous reader raised, so genuinely malformed payloads stay equally
+			// loud. A frame that parses again was a JSON string, not a malformed one.
+			JSON.parse(frame);
+			continue;
+		}
+		yield frame;
+	}
 }
 
 /** Decode a non-2xx response into an {@link OpenAIHttpError} without consuming it twice. */

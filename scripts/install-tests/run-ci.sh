@@ -33,6 +33,7 @@ smoke_cli() {
    # probe for #1011/#1027 worker loading and for npm/compiled distributions
    # missing the dashboard assets that `stats --summary` never touches.
    XDG_DATA_HOME="$runtime_dir/xdg" HOME="$runtime_dir/home" "$oms_bin" --smoke-test
+   bun "$ROOT_DIR/scripts/install-tests/settings-session.ts" "$oms_bin"
 }
 
 find_tarball() {
@@ -91,22 +92,14 @@ bun --cwd=packages/coding-agent run build
 BINARY_DIR="$WORK_DIR/binary-bin"
 mkdir -p "$BINARY_DIR"
 cp packages/coding-agent/dist/oms "$BINARY_DIR/oms"
-(
-   export PI_CODING_AGENT_DIR="$WORK_DIR/binary-agent"
-   "$BINARY_DIR/oms" setup objdump
-   "$BINARY_DIR/oms" setup objdump --check
-   smoke_cli "$BINARY_DIR/oms"
-)
+smoke_cli "$BINARY_DIR/oms"
 
 section "Source install smoke"
 SOURCE_BUN_HOME="$WORK_DIR/bun-source"
 (
    export BUN_INSTALL="$SOURCE_BUN_HOME"
-   export PI_CODING_AGENT_DIR="$WORK_DIR/source-agent"
    export PATH="$BUN_INSTALL/bin:$PATH"
    bun --cwd="$ROOT_DIR/packages/coding-agent" link
-   sh "$ROOT_DIR/scripts/link-oms.sh"
-   "$BUN_INSTALL/bin/oms" setup objdump --check
    smoke_cli "$BUN_INSTALL/bin/oms"
 )
 
@@ -143,7 +136,7 @@ cp "$natives_pkg_backup" "$ROOT_DIR/packages/natives/package.json"
 # 3. Pack the remaining workspace packages (natives core and coding-agent
 #    handled separately). `collab-web` is private but still packed here so its
 #    prepack build and tarball file list stay release-safe.
-for pkg in utils wire omstype hashline catalog ai mnemopi snapcompact agent tui stats collab-web; do
+for pkg in utils wire omstype catalog ai mnemopi snapcompact agent tui stats collab-web; do
    (
       cd "$ROOT_DIR/packages/$pkg"
       bun pm pack --destination "$TARBALL_DIR" --quiet >/dev/null
@@ -151,16 +144,16 @@ for pkg in utils wire omstype hashline catalog ai mnemopi snapcompact agent tui 
 done
 
 # 4. Pack the coding agent with its *published* manifest: release swaps
-#    `bin.oms` from `src/cli.ts` to `dist/cli.js` and adds consumer postinstall.
-#    The repository manifest keeps source links usable before bundling and
-#    workspace installation safe before build:native. Reproduce both overrides
-#    to exercise the installed CLI and its dependency setup lifecycle.
+#    `bin.oms` from `src/cli.ts` to the prepack bundle `dist/cli.js`. The repo
+#    manifest keeps pointing at source so `bun link`/`install.sh --source`
+#    work without a build, so the swap must be reproduced here for the smoke
+#    to exercise the bundled worker-host entry the published package ships.
 #    Always restore the working-tree manifest.
 agent_pkg_backup="$WORK_DIR/coding-agent-package.json.orig"
 cp "$ROOT_DIR/packages/coding-agent/package.json" "$agent_pkg_backup"
 agent_rc=0
 {
-   bun -e 'import { applyPublishRuntime } from "./scripts/ci-release-publish.ts"; await applyPublishRuntime("packages/coding-agent", true);' &&
+   bun -e 'import { applyPublishBin } from "./scripts/ci-release-publish.ts"; await applyPublishBin("packages/coding-agent", true);' &&
       (cd "$ROOT_DIR/packages/coding-agent" && bun pm pack --destination "$TARBALL_DIR" --quiet >/dev/null)
 } || agent_rc=$?
 cp "$agent_pkg_backup" "$ROOT_DIR/packages/coding-agent/package.json"
@@ -171,7 +164,6 @@ wire_tgz="$(find_tarball "$TARBALL_DIR"/oh-my-soup-pi-wire-*.tgz)"
 omstype_tgz="$(find_tarball "$TARBALL_DIR"/oh-my-soup-omstype-*.tgz)"
 natives_tgz="$(find_tarball "$TARBALL_DIR"/oh-my-soup-pi-natives-[0-9]*.tgz)"
 natives_leaf_tgz="$(find_tarball "$TARBALL_DIR"/oh-my-soup-pi-natives-"$host_tag"-*.tgz)"
-hashline_tgz="$(find_tarball "$TARBALL_DIR"/oh-my-soup-hashline-*.tgz)"
 catalog_tgz="$(find_tarball "$TARBALL_DIR"/oh-my-soup-pi-catalog-*.tgz)"
 ai_tgz="$(find_tarball "$TARBALL_DIR"/oh-my-soup-pi-ai-*.tgz)"
 mnemopi_tgz="$(find_tarball "$TARBALL_DIR"/oh-my-soup-pi-mnemopi-*.tgz)"
@@ -186,21 +178,18 @@ TARBALL_APP_DIR="$WORK_DIR/tarball-install"
 mkdir -p "$TARBALL_APP_DIR"
 (
    cd "$TARBALL_APP_DIR"
-   export PI_CODING_AGENT_DIR="$WORK_DIR/tarball-agent"
    bun init -y >/dev/null
 
    # Write overrides so bun resolves inter-package deps from tarballs, not the registry
    # (the version under test has not necessarily been published yet).
    node -e "
 		const pkg = JSON.parse(require('fs').readFileSync('package.json', 'utf8'));
-		pkg.trustedDependencies = [...new Set([...(pkg.trustedDependencies ?? []), '@oh-my-soup/pi-coding-agent'])];
 		pkg.overrides = {
 			'@oh-my-soup/pi-utils': '$utils_tgz',
 			'@oh-my-soup/pi-wire': '$wire_tgz',
 			'@oh-my-soup/omstype': '$omstype_tgz',
 			'@oh-my-soup/pi-natives': '$natives_tgz',
 			'@oh-my-soup/pi-natives-$host_tag': '$natives_leaf_tgz',
-			'@oh-my-soup/hashline': '$hashline_tgz',
 			'@oh-my-soup/pi-ai': '$ai_tgz',
 			'@oh-my-soup/pi-catalog': '$catalog_tgz',
 			'@oh-my-soup/pi-mnemopi': '$mnemopi_tgz',
@@ -214,7 +203,7 @@ mkdir -p "$TARBALL_APP_DIR"
 		require('fs').writeFileSync('package.json', JSON.stringify(pkg, null, 2));
 	"
 
-   bun add "$utils_tgz" "$wire_tgz" "$omstype_tgz" "$natives_tgz" "$hashline_tgz" "$catalog_tgz" "$ai_tgz" "$mnemopi_tgz" "$snapcompact_tgz" "$agent_tgz" "$tui_tgz" "$stats_tgz" "$coding_agent_tgz" "$collab_web_tgz"
+   bun add "$utils_tgz" "$wire_tgz" "$omstype_tgz" "$natives_tgz" "$catalog_tgz" "$ai_tgz" "$mnemopi_tgz" "$snapcompact_tgz" "$agent_tgz" "$tui_tgz" "$stats_tgz" "$coding_agent_tgz" "$collab_web_tgz"
    # The platform leaf must arrive through the core's optionalDependencies +
    # override, not as a direct dependency — assert it landed before smoking so a
    # resolution regression is distinguishable from a runtime loader bug.
@@ -223,7 +212,6 @@ mkdir -p "$TARBALL_APP_DIR"
       echo "Platform leaf package not installed: $leaf_dir"
       exit 1
    }
-   ./node_modules/.bin/oms setup objdump --check
    wire_proto="$(bun -e 'import { COLLAB_PROTO } from "@oh-my-soup/pi-wire"; process.stdout.write(String(COLLAB_PROTO));')"
    [ "$wire_proto" = "3" ] || {
       echo "Unexpected @oh-my-soup/pi-wire COLLAB_PROTO: $wire_proto"

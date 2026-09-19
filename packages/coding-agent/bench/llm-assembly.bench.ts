@@ -4,7 +4,7 @@
  * Before each model call and during compaction accounting, the agent walks the
  * full live `AgentMessage[]` history through:
  *   1. `convertToLlm(messages)`  — role-specific conversion into provider `Message[]`.
- *   2. `estimateTokens(message)` — cl100k-style token counting for prune/shake/floors.
+ *   2. `Tokenizer.countMessage(message)` — cl100k-style token counting for prune/shake/floors.
  *
  * In a long session those historical objects are settled, yet before the memo
  * both paths recompute from scratch on every pass. This bench measures cold
@@ -182,7 +182,7 @@ const convertGrow = sample(
 	},
 );
 
-// ─── estimateTokens ───────────────────────────────────────────────────────────
+// ─── Tokenizer.countMessage ───────────────────────────────────────────────────
 // Cold: fresh-identity history per sample → every estimate is a cache miss.
 const estimateFirst = sample(
 	() => buildHistory(N),

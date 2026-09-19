@@ -1,3 +1,4 @@
+import { LIST_STATUS_ORDER } from "@oh-my-soup/pi-tui/tools/hub";
 /**
  * Hub messaging half — agent-to-agent messaging over the process-global IrcBus.
  *
@@ -10,38 +11,28 @@
  */
 
 import type { AgentToolResult } from "@oh-my-soup/pi-agent-core";
-import { type Component, Text } from "@oh-my-soup/pi-tui";
-import { formatAge, formatDuration } from "@oh-my-soup/pi-utils";
+
+import { formatDuration } from "@oh-my-soup/pi-utils";
 import type { Settings } from "../../config/settings";
-import type { RenderResultOptions } from "../../extensibility/custom-tools/types";
-import { IRC_MAX_BODY_CHARS, IrcBus, type IrcDeliveryReceipt, type IrcMessage } from "../../irc/bus";
-import type { Theme } from "../../modes/theme/theme";
-import { type AgentRef, type AgentRegistry, MAIN_AGENT_ID } from "../../registry/agent-registry";
-import { ensurePersistedRoster, isAgentRefInSessionRoot } from "../../registry/persisted-agents";
+
+import { IrcAwaitTargetStopped, IrcBus } from "../../irc/bus";
+import { type IrcMessage } from "@oh-my-soup/pi-tui/tools/hub";
+
+import { type AgentRegistry, MAIN_AGENT_ID } from "../../registry/agent-registry";
+import { ensurePersistedRoster, isCurrentSessionRosterRef } from "../../registry/persisted-agents";
 import { canSpawnAtDepth } from "../../task/types";
-import { Ellipsis, renderStatusLine, renderTreeList, truncateToWidth } from "../../tui";
-import {
-	createCachedComponent,
-	formatBadge,
-	formatErrorDetail,
-	getPreviewLines,
-	PREVIEW_LIMITS,
-	replaceTabs,
-	type ToolUIColor,
-} from "../render-utils";
+
 import {
 	type CoordinationDetails,
 	DEFAULT_HUB_LIST_LIMIT,
 	type HubListStatus,
-	type HubRenderArgs,
 	type HubRosterCounts,
-	hubErrorResult,
 	MAX_HUB_LIST_LIMIT,
-} from "./types";
-
-export { DEFAULT_HUB_LIST_LIMIT, MAX_HUB_LIST_LIMIT } from "./types";
+} from "@oh-my-soup/pi-tui/tools/hub";
+import { hubErrorResult } from "./types";
 
 export const DEFAULT_IRC_TIMEOUT_MS = 120_000;
+
 export interface HubListParams {
 	status?: HubListStatus;
 	limit?: number;
@@ -56,10 +47,23 @@ function resolveHubListLimit(limit: number | undefined): number {
 	return Math.min(Math.max(1, Math.floor(limit)), MAX_HUB_LIST_LIMIT);
 }
 
-function selectListRefs(refs: AgentRef[], senderId: string, status: HubListStatus | undefined): AgentRef[] {
-	const addressable = refs.filter(ref => isAddressablePeer(ref, senderId));
-	if (status === "parked") return addressable.filter(ref => ref.status === "parked");
-	const live = addressable.filter(ref => ref.status === "running" || ref.status === "idle");
+function selectListRefs(
+	registry: AgentRegistry,
+	senderId: string,
+	status: HubListStatus | undefined,
+	rootSessionFile: string | undefined,
+) {
+	if (status === "parked") {
+		return registry
+			.list()
+			.filter(
+				ref =>
+					isAddressablePeer(ref, senderId) &&
+					ref.status === "parked" &&
+					isCurrentSessionRosterRef(ref, rootSessionFile),
+			);
+	}
+	const live = registry.listVisibleTo(senderId);
 	return status ? live.filter(ref => ref.status === status) : live;
 }
 
@@ -110,12 +114,6 @@ export function normalizeIrcTimeoutMs(value: number): number {
 	return Math.max(1, Math.trunc(value));
 }
 
-/** Effective message-wait timeout: explicit param wins, then `irc.timeoutMs`. */
-export function resolveMessageTimeoutMs(settings: Settings, explicit?: number): number {
-	if (explicit !== undefined) return normalizeIrcTimeoutMs(explicit);
-	return normalizeIrcTimeoutMs(settings.get("irc.timeoutMs"));
-}
-
 /** Session-buffered inbox drain used before parking a bus waiter. */
 export function drainPendingInbox(registry: AgentRegistry, senderId: string, from?: string): IrcMessage | undefined {
 	const session = registry.get(senderId)?.session;
@@ -134,7 +132,8 @@ export function messageResult(senderId: string, waited: IrcMessage): AgentToolRe
 
 /**
  * List addressable peers. Default is running+idle with a conservative bound.
- * Persisted refs are restored from the caller's interactive session root.
+ * One latched restore from the root session file runs before counts, even
+ * when live siblings are already in memory.
  */
 export async function executeList(
 	registry: AgentRegistry,
@@ -146,11 +145,14 @@ export async function executeList(
 		registry,
 		sessionFileHint ?? registry.get(senderId)?.sessionFile,
 	);
-	const refs = registry.list().filter(ref => isAgentRefInSessionRoot(ref, rootSessionFile));
-	const selected = selectListRefs(refs, senderId, params.status);
+	const refs = registry
+		.list()
+		.filter(ref => isAddressablePeer(ref, senderId) && isCurrentSessionRosterRef(ref, rootSessionFile));
+
+	const selected = selectListRefs(registry, senderId, params.status, rootSessionFile);
 	selected.sort(
 		(a, b) =>
-			(PEER_STATUS_ORDER[a.status] ?? 9) - (PEER_STATUS_ORDER[b.status] ?? 9) || b.lastActivity - a.lastActivity,
+			(LIST_STATUS_ORDER[a.status] ?? 9) - (LIST_STATUS_ORDER[b.status] ?? 9) || b.lastActivity - a.lastActivity,
 	);
 	const limit = resolveHubListLimit(params.limit);
 	const truncated = Math.max(0, selected.length - limit);
@@ -176,7 +178,7 @@ export async function executeList(
 	for (const peer of peers) {
 		const extras = [
 			peer.activity || undefined,
-			peer.unread > 0 ? `${peer.unread} undelivered to it` : undefined,
+			peer.unread > 0 ? `unread ${peer.unread}` : undefined,
 			peer.parentId ? `parent ${peer.parentId}` : undefined,
 			`active ${formatDuration(Date.now() - peer.lastActivity)} ago`,
 		].filter(Boolean);
@@ -201,15 +203,14 @@ export interface HubSendParams {
 	message?: string;
 	replyTo?: string;
 	await?: boolean;
-	timeoutMs?: number;
 }
 
 export async function executeSend(
-	deps: { registry: AgentRegistry; senderId: string; settings: Settings },
+	deps: { registry: AgentRegistry; senderId: string; settings: Settings; sessionFileHint?: string | null },
 	params: HubSendParams,
 	signal?: AbortSignal,
 ): Promise<AgentToolResult<CoordinationDetails>> {
-	const { registry, senderId, settings } = deps;
+	const { registry, senderId, settings, sessionFileHint } = deps;
 	const to = params.to?.trim();
 	const message = params.message?.trim();
 	if (!to) {
@@ -217,12 +218,6 @@ export async function executeSend(
 	}
 	if (!message) {
 		return hubErrorResult('`message` is required for op="send".', { op: "send", from: senderId });
-	}
-	if (message.length > IRC_MAX_BODY_CHARS) {
-		return hubErrorResult(
-			`\`message\` is ${message.length} characters; the cap is ${IRC_MAX_BODY_CHARS} characters. Nothing was sent. Write the payload to \`local://<name>.md\` (or reference an \`artifact://\` id) and send the path instead.`,
-			{ op: "send", from: senderId, to },
-		);
 	}
 	if (to === senderId) {
 		return hubErrorResult("Cannot send a message to yourself.", { op: "send", from: senderId, to });
@@ -235,32 +230,29 @@ export async function executeSend(
 			to,
 		});
 	}
+	// A direct send may address a parked id that another root's scan (or a
+	// prior list) restored into this process-global registry. Refresh this
+	// caller's persisted roster once before the bus resolves the target, so a
+	// same-named parked ref (and the revival that follows it) targets this
+	// root's transcript — never requiring a prior `list`. Broadcasts address
+	// no id and fan out to live peers only, so they skip the refresh. A
+	// missing caller session hint keeps the existing in-memory behavior: no
+	// root is guessed from the registry or cwd.
+	if (!isBroadcast && sessionFileHint) {
+		await ensurePersistedRoster(registry, sessionFileHint);
+	}
 
 	const bus = IrcBus.global();
 	let waited: IrcMessage | null | undefined;
-	const timeoutMs = params.await ? resolveMessageTimeoutMs(settings, params.timeoutMs) : undefined;
+	const timeoutMs = params.await ? normalizeIrcTimeoutMs(settings.get("irc.timeoutMs")) : undefined;
 	const awaitAbort = params.await ? new AbortController() : undefined;
 	const awaitCancelled = new Error("IRC await cancelled");
-	const recipientFinished = new Error("IRC recipient finished without replying");
 	let removeAwaitAbortListener: (() => void) | undefined;
-	let removeRecipientStatusListener: (() => void) | undefined;
-	let deliverySucceeded = false;
-	let sawRunning = false;
-	let recipientStopped = false;
-	const observeRecipient = (): void => {
-		const ref = registry.get(to);
-		if (ref && registry.isRunning(ref)) {
-			sawRunning = true;
-			recipientStopped = false;
-		} else if (sawRunning || !ref || ref.status === "aborted") {
-			recipientStopped = true;
-		}
-		if (deliverySucceeded && recipientStopped) awaitAbort?.abort(recipientFinished);
-	};
 	const waiting = params.await
 		? bus
 				.wait(senderId, { from: to }, timeoutMs ?? DEFAULT_IRC_TIMEOUT_MS, awaitAbort?.signal, {
 					drainPending: false,
+					awaitTarget: { registry, target: to },
 				})
 				.then(
 					message => ({ message, error: null as Error | null }),
@@ -269,10 +261,6 @@ export async function executeSend(
 						error: error === awaitCancelled ? null : error instanceof Error ? error : new Error(String(error)),
 					}),
 				)
-				.finally(() => {
-					removeAwaitAbortListener?.();
-					removeRecipientStatusListener?.();
-				})
 		: undefined;
 	if (params.await && signal && awaitAbort) {
 		if (signal.aborted) {
@@ -284,15 +272,6 @@ export async function executeSend(
 			signal.addEventListener("abort", onAbort, { once: true });
 			removeAwaitAbortListener = () => signal.removeEventListener("abort", onAbort);
 		}
-	}
-	if (params.await) {
-		// Observe before sending: wake/revival may run and finish while delivery
-		// is still resolving. Do not cancel an initially idle peer; plan mode
-		// can answer through a side turn without ever entering running.
-		observeRecipient();
-		removeRecipientStatusListener = registry.onChange(event => {
-			if (event.ref.id === to) observeRecipient();
-		});
 	}
 
 	try {
@@ -318,10 +297,6 @@ export async function executeSend(
 
 		const lines: string[] = [];
 		const delivered = receipts.filter(receipt => receipt.outcome !== "failed");
-		if (params.await && delivered.length > 0) {
-			deliverySucceeded = true;
-			observeRecipient();
-		}
 		if (targets.length === 0) {
 			lines.push("No live peers to broadcast to.");
 		} else if (delivered.length === 0) {
@@ -332,8 +307,8 @@ export async function executeSend(
 		for (const receipt of receipts) {
 			lines.push(
 				receipt.outcome === "failed"
-					? `- ${receipt.to}: failed [${receipt.id}] — ${receipt.error ?? "unknown error"}`
-					: `- ${receipt.to}: ${receipt.outcome} [${receipt.id}]`,
+					? `- ${receipt.to}: failed — ${receipt.error ?? "unknown error"}`
+					: `- ${receipt.to}: ${receipt.outcome}`,
 			);
 		}
 
@@ -341,17 +316,20 @@ export async function executeSend(
 			lines.push("");
 			if (delivered.length > 0) {
 				const reply = await waiting;
-				if (reply.error === recipientFinished) {
-					waited = null;
-					lines.push(
-						`${to} finished its turn without replying — any later answer arrives as an incoming message; do not resend.`,
-					);
-				} else if (reply.error) {
-					// The send already succeeded; if the wait was interrupted by our
-					// caller signal (steering / messaging), preserve the delivery receipt
-					// so the agent loop keeps this tool as "sent" instead of marking it
-					// skipped, which would prompt a duplicate resend on the next turn.
-					if (signal?.aborted) {
+				if (reply.error) {
+					if (reply.error instanceof IrcAwaitTargetStopped) {
+						// The awaited peer ran and stopped without replying: the send
+						// still succeeded, so surface a clean note instead of erroring
+						// out — and settle now rather than blocking the full timeout.
+						lines.push(
+							`${to} stopped without replying. ` +
+								`Check \`inbox\` or their transcript (history://${to}) for a later answer.`,
+						);
+					} else if (signal?.aborted) {
+						// The send already succeeded; if the wait was interrupted by our
+						// caller signal (steering / messaging), preserve the delivery receipt
+						// so the agent loop keeps this tool as "sent" instead of marking it
+						// skipped, which would prompt a duplicate resend on the next turn.
 						lines.push(
 							`Send delivered but the reply wait was interrupted before ${to} answered. ` +
 								"Check `inbox` or `wait` again after handling the interrupt.",
@@ -362,7 +340,7 @@ export async function executeSend(
 				} else {
 					waited = reply.message;
 					if (waited) {
-						lines.push(`Reply from ${waited.from} [${waited.id}]:`);
+						lines.push(`Reply from ${waited.from}:`);
 						lines.push(waited.body);
 					} else {
 						lines.push(
@@ -374,7 +352,7 @@ export async function executeSend(
 			} else {
 				awaitAbort?.abort(awaitCancelled);
 				const reply = await waiting;
-				if (reply.error) throw reply.error;
+				if (reply.error && !(reply.error instanceof IrcAwaitTargetStopped)) throw reply.error;
 			}
 		}
 
@@ -392,19 +370,18 @@ export async function executeSend(
 	} finally {
 		awaitAbort?.abort(awaitCancelled);
 		removeAwaitAbortListener?.();
-		removeRecipientStatusListener?.();
 	}
 }
 
-/** Pure message wait: no jobs in play, block on the bus with peer liveness. */
+/** Pure message wait: no jobs in play, block on the bus with peer liveness for `timeoutMs`. */
 export async function executeMessageWait(
-	deps: { registry: AgentRegistry; senderId: string; settings: Settings },
-	params: { from?: string; timeoutMs?: number },
+	deps: { registry: AgentRegistry; senderId: string },
+	params: { from?: string; timeoutMs: number },
 	signal?: AbortSignal,
 ): Promise<AgentToolResult<CoordinationDetails>> {
-	const { registry, senderId, settings } = deps;
+	const { registry, senderId } = deps;
+	const { timeoutMs } = params;
 	const from = params.from?.trim() || undefined;
-	const timeoutMs = resolveMessageTimeoutMs(settings, params.timeoutMs);
 	try {
 		const waited = await IrcBus.global().wait(senderId, { from }, timeoutMs, signal, {
 			liveness: { registry, senderId },
@@ -451,409 +428,4 @@ export function executeInbox(
 		content: [{ type: "text", text: lines.join("\n") }],
 		details: { op: "inbox", from: senderId, inbox: messages },
 	};
-}
-
-// =============================================================================
-// TUI Renderer (messaging half)
-// =============================================================================
-
-const BODY_LINES_COLLAPSED = 2;
-const BODY_LINES_EXPANDED = 12;
-const BODY_LINE_WIDTH = 100;
-
-const PEER_STATUS_ORDER: Record<string, number> = { running: 0, idle: 1, parked: 2 };
-
-function ircGlyph(theme: Theme): string {
-	return theme.styledSymbol("tool.irc", "accent");
-}
-
-function outcomeColor(outcome: IrcDeliveryReceipt["outcome"]): ToolUIColor {
-	switch (outcome) {
-		case "woken":
-			return "success";
-		case "revived":
-			return "warning";
-		case "injected":
-			return "accent";
-		case "failed":
-			return "error";
-	}
-}
-
-/** Glyph + status word, matching the agent-hub status conventions. */
-function peerStatusBadge(status: string, theme: Theme): string {
-	switch (status) {
-		case "running":
-			return theme.fg("accent", `${theme.status.running} running`);
-		case "idle":
-			return theme.fg("success", `${theme.status.enabled} idle`);
-		case "parked":
-			return theme.fg("muted", `${theme.status.shadowed} parked`);
-		default:
-			return theme.fg("error", `${theme.status.aborted} ${status}`);
-	}
-}
-
-function messageAge(ts: number | undefined): string {
-	if (!ts) return "";
-	return formatAge(Math.max(1, Math.round((Date.now() - ts) / 1000)));
-}
-
-function textContent(result: { content: Array<{ type: string; text?: string }> }): string {
-	return result.content.find(part => part.type === "text")?.text?.trim() ?? "";
-}
-
-/**
- * Quote-bordered message body preview. `tone` separates outbound text (dim)
- * from received text (toolOutput); a trailing dim counter marks elided lines.
- */
-function bodyLines(
-	body: string,
-	expanded: boolean,
-	theme: Theme,
-	options: { indent?: string; tone?: "dim" | "toolOutput"; collapsedLines?: number } = {},
-): string[] {
-	const indent = options.indent ?? "";
-	const tone = options.tone ?? "toolOutput";
-	const max = expanded ? BODY_LINES_EXPANDED : (options.collapsedLines ?? BODY_LINES_COLLAPSED);
-	const total = body.split("\n").filter(line => line.trim()).length;
-	const quote = theme.fg("dim", theme.md.quoteBorder);
-	const lines = getPreviewLines(body, max, BODY_LINE_WIDTH, Ellipsis.Unicode).map(
-		line => `${indent}${quote} ${theme.fg(tone, replaceTabs(line))}`,
-	);
-	const hidden = total - Math.min(total, max);
-	if (hidden > 0) {
-		lines.push(`${indent}${quote} ${theme.fg("dim", `… +${hidden} more ${hidden === 1 ? "line" : "lines"}`)}`);
-	}
-	return lines;
-}
-
-/** Header title carrying the op direction: `IRC ➤ peer` out, `IRC ⟵ peer` in. */
-function callTitle(args: HubRenderArgs | undefined, theme: Theme): string {
-	switch (args?.op) {
-		case "send":
-			return `IRC ${theme.nav.selected} ${args.to?.trim() || "…"}`;
-		case "wait":
-			return `IRC ${theme.nav.back} ${args.from?.trim() || "anyone"}`;
-		case "inbox":
-			return "IRC inbox";
-		case "list":
-			return "IRC peers";
-		default:
-			return "Hub";
-	}
-}
-
-function callMeta(args: HubRenderArgs | undefined): string[] {
-	const meta: string[] = [];
-	if (args?.op === "send") {
-		if (args.to === "all") meta.push("broadcast");
-		if (args.await) meta.push("await reply");
-		if (args.replyTo) meta.push("reply");
-	}
-	if (args?.op === "wait" && args.timeoutMs) meta.push(`timeout ${formatDuration(args.timeoutMs)}`);
-	if (args?.op === "inbox" && args.peek) meta.push("peek");
-	return meta;
-}
-
-function renderErrorResult(
-	result: { content: Array<{ type: string; text?: string }> },
-	args: HubRenderArgs | undefined,
-	theme: Theme,
-): string[] {
-	const text = textContent(result) || "IRC call failed.";
-	return [
-		renderStatusLine({ icon: "error", title: callTitle(args, theme), meta: callMeta(args) }, theme),
-		formatErrorDetail(text, theme),
-	];
-}
-
-/**
- * Display-only transcript card for live IRC traffic: `irc:incoming` DMs
- * delivered to this session, `irc:autoreply` side-channel replies sent on
- * this session's behalf, and `irc:relay` observations of agent↔agent
- * traffic. Shares the tool renderer's glyph + quote-border conventions so
- * cards and hub messaging output look identical in the transcript.
- */
-export function createIrcMessageCard(
-	card: {
-		kind: "incoming" | "autoreply" | "relay";
-		from?: string;
-		to?: string;
-		body?: string;
-		replyTo?: string;
-		timestamp?: number;
-	},
-	getExpanded: () => boolean,
-	uiTheme: Theme,
-): Component {
-	const from = card.from?.trim() || "?";
-	const title =
-		card.kind === "incoming"
-			? `IRC ${uiTheme.nav.back} ${from}`
-			: card.kind === "autoreply"
-				? `IRC ${uiTheme.nav.selected} ${card.to?.trim() || "?"}`
-				: `IRC ${from} ${uiTheme.nav.selected} ${card.to?.trim() || "?"}`;
-	const body = card.body ?? "";
-	const meta: string[] = [];
-	if (card.kind === "autoreply") meta.push("auto");
-	if (card.replyTo) meta.push("reply");
-	const age = messageAge(card.timestamp);
-	if (age) meta.push(age);
-	return createCachedComponent(
-		getExpanded,
-		(width, expanded) => {
-			const lines = [renderStatusLine({ iconOverride: ircGlyph(uiTheme), title, meta }, uiTheme)];
-			if (body.trim()) {
-				lines.push(...bodyLines(body, expanded, uiTheme, { indent: "  ", collapsedLines: 3 }));
-			}
-			return lines.map(line => truncateToWidth(line, width, Ellipsis.Unicode));
-		},
-		{ paddingX: 1 },
-	);
-}
-
-function renderSendResult(
-	result: { content: Array<{ type: string; text?: string }>; isError?: boolean },
-	details: Partial<CoordinationDetails>,
-	args: HubRenderArgs | undefined,
-	expanded: boolean,
-	theme: Theme,
-): string[] {
-	const receipts = details.receipts ?? [];
-	const to = details.to ?? args?.to?.trim() ?? "?";
-	const title = `IRC ${theme.nav.selected} ${to}`;
-
-	// Pre-delivery failures (validation) and empty broadcasts carry no receipts.
-	if (receipts.length === 0) {
-		const text = textContent(result) || (result.isError ? "Send failed." : "Nothing to deliver.");
-		return [
-			renderStatusLine({ icon: result.isError ? "error" : "warning", title }, theme),
-			result.isError ? formatErrorDetail(text, theme) : `  ${theme.fg("muted", replaceTabs(text))}`,
-		];
-	}
-
-	const delivered = receipts.filter(receipt => receipt.outcome !== "failed");
-	const failedCount = receipts.length - delivered.length;
-	const waited = details.waited;
-	const timedOut = waited === null;
-
-	const meta: string[] = [];
-	if (to === "all") meta.push("broadcast");
-	if (receipts.length === 1) {
-		const receipt = receipts[0]!;
-		meta.push(theme.fg(outcomeColor(receipt.outcome), receipt.outcome));
-		meta.push(theme.fg("dim", `[${receipt.id}]`));
-	} else {
-		if (delivered.length > 0) meta.push(theme.fg("success", `${delivered.length} delivered`));
-		if (failedCount > 0) meta.push(theme.fg("error", `${failedCount} failed`));
-	}
-	if (timedOut) meta.push(theme.fg("warning", "no reply"));
-
-	const icon = result.isError
-		? { icon: "error" as const }
-		: timedOut
-			? { icon: "warning" as const }
-			: { iconOverride: ircGlyph(theme) };
-	const lines = [renderStatusLine({ ...icon, title, meta }, theme)];
-
-	const sent = args?.message?.trim();
-	if (sent) lines.push(...bodyLines(sent, expanded, theme, { indent: "  ", tone: "dim" }));
-
-	if (receipts.length > 1 || failedCount > 0) {
-		lines.push(
-			...renderTreeList<IrcDeliveryReceipt>(
-				{
-					items: receipts,
-					expanded,
-					maxCollapsed: PREVIEW_LIMITS.COLLAPSED_ITEMS,
-					itemType: "recipient",
-					renderItem: receipt => {
-						const badge = formatBadge(receipt.outcome, outcomeColor(receipt.outcome), theme);
-						const error =
-							receipt.outcome === "failed" && receipt.error
-								? ` ${theme.fg("error", `${theme.format.dash} ${receipt.error}`)}`
-								: "";
-						return `${theme.fg("toolOutput", receipt.to)} ${badge} ${theme.fg("dim", `[${receipt.id}]`)}${error}`;
-					},
-				},
-				theme,
-			),
-		);
-	}
-
-	if (waited) {
-		const age = messageAge(waited.ts);
-		lines.push(
-			`  ${theme.fg("dim", theme.nav.back)} ${theme.fg("accent", waited.from)}${age ? ` ${theme.fg("dim", age)}` : ""}`,
-		);
-		lines.push(...bodyLines(waited.body, expanded, theme, { indent: "  " }));
-	} else if (timedOut) {
-		lines.push(`  ${theme.fg("warning", "No reply yet — they may answer later; check inbox or wait again.")}`);
-	}
-	return lines;
-}
-
-function renderWaitResult(
-	result: { content: Array<{ type: string; text?: string }>; isError?: boolean },
-	details: Partial<CoordinationDetails>,
-	args: HubRenderArgs | undefined,
-	expanded: boolean,
-	theme: Theme,
-): string[] {
-	const waited = details.waited;
-	if (!waited) {
-		const text = textContent(result) || "No message arrived.";
-		return [
-			renderStatusLine(
-				{ icon: "warning", title: `IRC ${theme.nav.back} ${args?.from?.trim() || "anyone"}`, meta: ["timed out"] },
-				theme,
-			),
-			`  ${theme.fg("muted", replaceTabs(text))}`,
-		];
-	}
-	const meta = [messageAge(waited.ts)];
-	if (waited.replyTo) meta.push("reply");
-	return [
-		renderStatusLine({ iconOverride: ircGlyph(theme), title: `IRC ${theme.nav.back} ${waited.from}`, meta }, theme),
-		...bodyLines(waited.body, expanded, theme, { indent: "  " }),
-	];
-}
-
-function renderInboxResult(
-	details: Partial<CoordinationDetails>,
-	args: HubRenderArgs | undefined,
-	expanded: boolean,
-	theme: Theme,
-): string[] {
-	const messages = details.inbox ?? [];
-	if (messages.length === 0) {
-		return [renderStatusLine({ iconOverride: ircGlyph(theme), title: "IRC inbox", meta: ["empty"] }, theme)];
-	}
-	const meta = [`${messages.length} ${messages.length === 1 ? "message" : "messages"}`];
-	if (args?.peek) meta.push("peek");
-	const header = renderStatusLine({ iconOverride: ircGlyph(theme), title: "IRC inbox", meta }, theme);
-	const items = renderTreeList<IrcMessage>(
-		{
-			items: messages,
-			expanded,
-			maxCollapsed: PREVIEW_LIMITS.COLLAPSED_ITEMS,
-			itemType: "message",
-			renderItem: msg => {
-				const age = messageAge(msg.ts);
-				const replyBadge = msg.replyTo ? ` ${formatBadge("reply", "muted", theme)}` : "";
-				const head = `${theme.fg("accent", msg.from)}${age ? ` ${theme.fg("dim", age)}` : ""}${replyBadge}`;
-				return [head, ...bodyLines(msg.body, expanded, theme, { collapsedLines: 1 })];
-			},
-		},
-		theme,
-	);
-	return [header, ...items];
-}
-
-function renderListResult(details: Partial<CoordinationDetails>, expanded: boolean, theme: Theme): string[] {
-	const peers = [...(details.peers ?? [])].sort(
-		(a, b) =>
-			(PEER_STATUS_ORDER[a.status] ?? 9) - (PEER_STATUS_ORDER[b.status] ?? 9) || b.lastActivity - a.lastActivity,
-	);
-	const rosterCounts = details.counts;
-	if (peers.length === 0) {
-		const meta =
-			rosterCounts && rosterCounts.parked > 0
-				? [
-						`${rosterCounts.running} running`,
-						`${rosterCounts.idle} idle`,
-						`${rosterCounts.parked} parked`,
-						...(rosterCounts.truncated > 0 ? [`${rosterCounts.truncated} truncated`] : []),
-					]
-				: ["no other agents"];
-		return [renderStatusLine({ icon: "info", title: "IRC peers", meta }, theme)];
-	}
-	const counts = new Map<string, number>();
-	for (const peer of peers) counts.set(peer.status, (counts.get(peer.status) ?? 0) + 1);
-	const meta = rosterCounts
-		? [
-				`${rosterCounts.running} running`,
-				`${rosterCounts.idle} idle`,
-				`${rosterCounts.parked} parked`,
-				...(rosterCounts.truncated > 0 ? [`${rosterCounts.truncated} truncated`] : []),
-			]
-		: [...counts].map(([status, count]) => `${count} ${status}`);
-	const unreadTotal = peers.reduce((sum, peer) => sum + peer.unread, 0);
-	if (unreadTotal > 0) meta.push(theme.fg("warning", `${unreadTotal} undelivered`));
-	const header = renderStatusLine({ iconOverride: ircGlyph(theme), title: "IRC peers", meta }, theme);
-	const items = renderTreeList(
-		{
-			items: peers,
-			expanded,
-			maxCollapsed: PREVIEW_LIMITS.COLLAPSED_ITEMS,
-			itemType: "peer",
-			renderItem: peer => {
-				const kindText = peer.parentId ? `${peer.kind}${theme.sep.dot}of ${peer.parentId}` : peer.kind;
-				const unread = peer.unread > 0 ? ` ${formatBadge(`${peer.unread} undelivered`, "warning", theme)}` : "";
-				const age = messageAge(peer.lastActivity);
-				const activity = peer.activity ? ` ${theme.fg("dim", replaceTabs(peer.activity))}` : "";
-				const name = theme.fg("dim", replaceTabs(peer.displayName));
-				return `${peerStatusBadge(peer.status, theme)} ${theme.bold(replaceTabs(peer.id))} ${name} ${theme.fg("dim", kindText)}${activity}${unread}${age ? ` ${theme.fg("dim", age)}` : ""}`;
-			},
-		},
-		theme,
-	);
-	return [header, ...items];
-}
-
-function buildResultLines(
-	result: { content: Array<{ type: string; text?: string }>; isError?: boolean },
-	details: Partial<CoordinationDetails>,
-	args: HubRenderArgs | undefined,
-	expanded: boolean,
-	theme: Theme,
-): string[] {
-	switch (details.op ?? args?.op) {
-		case "send":
-			return renderSendResult(result, details, args, expanded, theme);
-		case "wait":
-			return renderWaitResult(result, details, args, expanded, theme);
-		case "inbox":
-			return result.isError
-				? renderErrorResult(result, args, theme)
-				: renderInboxResult(details, args, expanded, theme);
-		case "list":
-			return result.isError ? renderErrorResult(result, args, theme) : renderListResult(details, expanded, theme);
-		default: {
-			const text = textContent(result) || (result.isError ? "Hub call failed." : "Done.");
-			return [
-				renderStatusLine({ icon: result.isError ? "error" : "success", title: callTitle(args, theme) }, theme),
-				result.isError ? formatErrorDetail(text, theme) : `  ${theme.fg("muted", replaceTabs(text))}`,
-			];
-		}
-	}
-}
-
-/** Pending-call frame for messaging ops (send/wait-from/inbox/list). */
-export function messagingRenderCall(args: HubRenderArgs, _options: RenderResultOptions, uiTheme: Theme): Component {
-	const lines = [
-		renderStatusLine({ icon: "pending", title: callTitle(args, uiTheme), meta: callMeta(args) }, uiTheme),
-	];
-	if (args?.op === "send" && args.message?.trim()) {
-		lines.push(...bodyLines(args.message, false, uiTheme, { indent: "  ", tone: "dim", collapsedLines: 1 }));
-	}
-	return new Text(lines.join("\n"), 0, 0);
-}
-
-/** Result frame for messaging ops and message-carrying `wait` results. */
-export function messagingRenderResult(
-	result: { content: Array<{ type: string; text?: string }>; details?: CoordinationDetails; isError?: boolean },
-	options: RenderResultOptions,
-	uiTheme: Theme,
-	args?: HubRenderArgs,
-): Component {
-	const details: Partial<CoordinationDetails> = result.details ?? {};
-	return createCachedComponent(
-		() => options.expanded,
-		(width, expanded) =>
-			buildResultLines(result, details, args, expanded, uiTheme).map(line =>
-				truncateToWidth(line, width, Ellipsis.Unicode),
-			),
-	);
 }

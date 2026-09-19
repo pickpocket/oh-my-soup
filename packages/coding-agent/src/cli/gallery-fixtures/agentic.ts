@@ -1,7 +1,7 @@
 // Gallery fixtures for the agentic orchestration tools (task, hub, goal).
 import type { Usage } from "@oh-my-soup/pi-ai";
-import type { TaskToolDetails } from "../../task/types";
-import type { HubDetails } from "../../tools/hub";
+import type { TaskToolDetails } from "@oh-my-soup/pi-tui/tools/task";
+import type { HubDetails } from "@oh-my-soup/pi-tui/tools/hub";
 import type { GalleryFixture } from "./types";
 
 /** Message/activity timestamps are offsets from load time so gallery ages stay plausible. */
@@ -21,19 +21,17 @@ export const agenticFixtures: Record<string, GalleryFixture> = {
 	task: {
 		label: "Task",
 		customRendered: true,
-		// Streaming: agent chosen, assignment still landing.
+		// Streaming: agent chosen, assignment still landing. The args follow the
+		// tool schema `renderCall` reads (`agent`, `name`, `task`).
 		streamingArgs: {
 			agent: "task",
-			id: "AuthLoader",
-			description: "Load auth middleware",
-			assignment: "Read packages/server/src/auth/*.ts and summarize the session-cookie",
+			name: "AuthLoader",
+			task: "Read packages/server/src/auth/*.ts and summarize the session-cookie",
 		},
 		args: {
 			agent: "task",
-			id: "AuthLoader",
-			description: "Load auth middleware",
-			assignment:
-				"Read packages/server/src/auth/session.ts and middleware.ts, then document the session-cookie validation flow and any TODOs.",
+			name: "AuthLoader",
+			task: "Read packages/server/src/auth/session.ts and middleware.ts, then document the session-cookie validation flow and any TODOs.",
 		},
 		result: {
 			content: [
@@ -170,7 +168,7 @@ export const agenticFixtures: Record<string, GalleryFixture> = {
 				op: "send",
 				from: "Main",
 				to: "AuthLoader",
-				receipts: [{ id: "7181122334455667788", to: "AuthLoader", outcome: "revived" }],
+				receipts: [{ to: "AuthLoader", outcome: "revived" }],
 				waited: {
 					id: "7181122334455667789",
 					from: "AuthLoader",
@@ -193,14 +191,7 @@ export const agenticFixtures: Record<string, GalleryFixture> = {
 				op: "send",
 				from: "Main",
 				to: "RateLimiter",
-				receipts: [
-					{
-						id: "7181122334455667787",
-						to: "RateLimiter",
-						outcome: "failed",
-						error: 'unknown agent "RateLimiter"',
-					},
-				],
+				receipts: [{ to: "RateLimiter", outcome: "failed", error: 'unknown agent "RateLimiter"' }],
 			} satisfies HubDetails,
 		},
 	},

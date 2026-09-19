@@ -21,12 +21,11 @@ import {
 import { syncNativeBeads } from "../beads/sync";
 import type { BeadsIssue, BeadsStats } from "../beads/types";
 import type { RenderResultOptions } from "../extensibility/custom-tools/types";
-import type { Theme } from "../modes/theme/theme";
+import type { Theme } from "@oh-my-soup/pi-tui/theme";
 import beadsDescription from "../prompts/tools/beads.md" with { type: "text" };
-import { framedBlock, renderStatusLine } from "../tui";
+import { formatMoreItems, framedToolCard, renderStatusLine } from "@oh-my-soup/pi-tui/render";
 import type { ToolSession } from ".";
 import { truncateForPrompt } from "./approval";
-import { formatMoreItems } from "./render-utils";
 import { ToolError } from "./tool-errors";
 
 export { findBeadsInitRoot, findBeadsWorkspaceRoot, NativeBeadsRepository } from "../beads/repository";
@@ -605,13 +604,23 @@ export const beadsToolRenderer = {
 		if (result.isError) {
 			const errorText = result.content?.find(entry => entry.type === "text")?.text ?? "beads operation failed";
 			const header = renderStatusLine({ icon: "error", title: "Beads", meta }, uiTheme);
-			return framedBlock(uiTheme, width => ({ header, width, sections: [{ lines: errorText.split("\n") }] }));
+			return framedToolCard(uiTheme, () => ({
+				header,
+				phase: "error",
+				sections: [{ content: errorText.split("\n") }],
+				applyBg: false,
+			}));
 		}
 		const text = result.content?.find(entry => entry.type === "text")?.text ?? "";
 		const lines = text.split("\n");
 		const visible = lines.slice(0, RENDER_LINE_CAP);
 		if (lines.length > visible.length) visible.push(formatMoreItems(lines.length - visible.length, "line"));
 		const header = renderStatusLine({ icon: "done", title: "Beads", meta }, uiTheme);
-		return framedBlock(uiTheme, width => ({ header, width, sections: [{ lines: visible }] }));
+		return framedToolCard(uiTheme, () => ({
+			header,
+			phase: "success",
+			sections: [{ content: visible }],
+			applyBg: false,
+		}));
 	},
 };

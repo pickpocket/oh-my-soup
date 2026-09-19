@@ -639,6 +639,63 @@ describe("sanitizeSchemaForOpenAIResponses", () => {
 		expect(properties.self).toBe(sanitized as unknown as object);
 		expect((sanitized as { type: unknown }).type).toBe("object");
 	});
+
+	it("preserves exclusive-required anyOf for provider-specific handling", () => {
+		const schema = {
+			type: "object",
+			properties: {
+				project: { type: "string" },
+				paths: { type: "array", items: { type: "string" } },
+				scopes: { type: "array", items: { type: "string" } },
+			},
+			required: ["project"],
+			anyOf: [{ required: ["paths"] }, { required: ["scopes"] }],
+		};
+
+		expect(sanitizeSchemaForOpenAIResponses(schema)).toEqual({
+			type: "object",
+			properties: {
+				project: { type: "string" },
+				paths: { type: "array", items: { type: "string" } },
+				scopes: { type: "array", items: { type: "string" } },
+			},
+			required: ["project"],
+			anyOf: [{ required: ["paths"] }, { required: ["scopes"] }],
+		});
+	});
+
+	it("does not flatten nested exclusive-required anyOf (xAI only rejects the tool root)", () => {
+		const schema = {
+			type: "object",
+			properties: {
+				outputSchema: {
+					type: "object",
+					properties: {
+						paths: { type: "array", items: { type: "string" } },
+						scopes: { type: "array", items: { type: "string" } },
+					},
+					anyOf: [{ required: ["paths"] }, { required: ["scopes"] }],
+				},
+			},
+			required: ["outputSchema"],
+		};
+		const sanitized = sanitizeSchemaForOpenAIResponses(schema);
+		expect(sanitized.anyOf).toBeUndefined();
+		const outputSchema = (sanitized.properties as Record<string, unknown>).outputSchema as Record<string, unknown>;
+		expect(outputSchema.anyOf).toEqual([{ required: ["paths"] }, { required: ["scopes"] }]);
+	});
+
+	it("does not flatten a root union that constrains existing properties", () => {
+		const schema = {
+			type: "object",
+			properties: { kind: { type: "string" } },
+			anyOf: [{ properties: { kind: { const: "a" } } }, { properties: { kind: { const: "b" } } }],
+		};
+		expect(sanitizeSchemaForOpenAIResponses(schema).anyOf).toEqual([
+			{ properties: { kind: { const: "a" } } },
+			{ properties: { kind: { const: "b" } } },
+		]);
+	});
 });
 
 // ---------------------------------------------------------------------------
@@ -904,11 +961,11 @@ describe("normalizeSchemaForCCA", () => {
 		});
 	});
 
-	it("strips annotation keywords (deprecated, readOnly, writeOnly, $comment) on Google/CCA wires", () => {
-		// MCP servers annotate tool parameters with these metadata fields, but
-		// Google's protojson schemas have no corresponding fields and reject the
-		// whole request with 400 "Cannot find field".
-		const input = {
+	it("strips annotation keywords (deprecated, readOnly, writeOnly, $comment) that Cloud Code Assist rejects", () => {
+		// MCP servers (e.g. Stitch's screen tools) annotate parameters with
+		// `deprecated: true`; CCA's protojson has no such Schema field and
+		// rejects the whole request with 400 "Cannot find field".
+		const sanitized = normalizeSchemaForCCA({
 			type: "object",
 			properties: {
 				projectId: { type: "string", deprecated: true, readOnly: true },
@@ -916,8 +973,9 @@ describe("normalizeSchemaForCCA", () => {
 				name: { type: "string" },
 			},
 			required: ["name"],
-		};
-		const stripped = {
+		});
+
+		expect(sanitized).toEqual({
 			type: "object",
 			properties: {
 				projectId: { type: "string" },
@@ -925,16 +983,7 @@ describe("normalizeSchemaForCCA", () => {
 				name: { type: "string" },
 			},
 			required: ["name"],
-		};
-
-		expect(normalizeSchemaForGoogle(input)).toEqual({
-			...stripped,
-			propertyOrdering: ["projectId", "screenId", "name"],
 		});
-		expect(normalizeSchemaForCCA(input)).toEqual(stripped);
-
-		// Non-Google execution consumes the raw schema annotations.
-		expect(normalizeSchemaForMCP(input)).toEqual(input);
 	});
 
 	it("lifts stripped validation keywords into description", () => {

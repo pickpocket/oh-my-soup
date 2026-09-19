@@ -1,18 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "bun:test";
-import * as path from "node:path";
+
 import { ThinkingLevel } from "@oh-my-soup/pi-agent-core";
 import * as ai from "@oh-my-soup/pi-ai";
 import { Effort, type Model } from "@oh-my-soup/pi-ai";
 import { buildModel } from "@oh-my-soup/pi-catalog/build";
 import { getBundledModel } from "@oh-my-soup/pi-catalog/models";
-import {
-	classifyDifficulty,
-	parseDifficultyBucket,
-	parseDifficultyLevel,
-} from "@oh-my-soup/pi-coding-agent/auto-thinking/classifier";
-import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
+import { classifyDifficulty } from "@oh-my-soup/pi-coding-agent/auto-thinking/classifier";
 import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
-import { AuthStorage } from "@oh-my-soup/pi-coding-agent/session/auth-storage";
 import {
 	AUTO_THINKING,
 	clampAutoThinkingEffort,
@@ -22,43 +16,24 @@ import {
 	parseThinkingLevel,
 	resolveProvisionalAutoLevel,
 	resolveTaskEffortLevel,
-} from "@oh-my-soup/pi-coding-agent/thinking";
+} from "@oh-my-soup/pi-tui/thinking";
 import type { TinyMemoryLocalModelKey } from "@oh-my-soup/pi-coding-agent/tiny/models";
 import { tinyModelClient } from "@oh-my-soup/pi-coding-agent/tiny/title-client";
-import { TempDir } from "@oh-my-soup/pi-utils";
+import { asGlobalFetch } from "./helpers/fetch-mock";
 
 describe("auto thinking classifier helpers", () => {
 	afterEach(() => {
 		vi.restoreAllMocks();
 	});
 
-	interface LocalClassifierFixture {
-		settings: Settings;
-		registry: ModelRegistry;
-		model: Model;
-		cleanup: () => void;
-	}
-
-	async function createLocalClassifierFixture(
-		autoThinkingModel: TinyMemoryLocalModelKey,
-	): Promise<LocalClassifierFixture> {
-		const tempDir = TempDir.createSync("@pi-auto-thinking-classifier-");
-		const authStorage = await AuthStorage.create(path.join(tempDir.path(), "auth.db"));
+	function createLocalClassifierFixture(autoThinkingModel: TinyMemoryLocalModelKey) {
 		const model = getBundledModel("anthropic", "claude-sonnet-4-6");
-		if (!model) {
-			authStorage.close();
-			tempDir.removeSync();
-			throw new Error("Expected bundled Claude Sonnet 4.6 model");
-		}
+		if (!model) throw new Error("Expected bundled Claude Sonnet 4.6 model");
 
 		return {
 			settings: Settings.isolated({ "providers.autoThinkingModel": autoThinkingModel }),
-			registry: new ModelRegistry(authStorage, path.join(tempDir.path(), "models.yml")),
+			registry: { authStorage: { hasAuth: () => false } } as never,
 			model,
-			cleanup: () => {
-				authStorage.close();
-				tempDir.removeSync();
-			},
 		};
 	}
 
@@ -78,42 +53,18 @@ describe("auto thinking classifier helpers", () => {
 		expect(parseCliThinkingLevel("bogus")).toBeUndefined();
 	});
 
-	it("maps online level labels to effort levels", () => {
-		expect(parseDifficultyLevel("x-high")).toBe(Effort.XHigh);
-		expect(parseDifficultyLevel("The answer is HIGH.")).toBe(Effort.High);
-		expect(parseDifficultyLevel("med")).toBe(Effort.Medium);
-		expect(parseDifficultyLevel("low")).toBe(Effort.Low);
-		expect(parseDifficultyLevel("max")).toBe(Effort.Max);
-		expect(parseDifficultyLevel("unknown")).toBeUndefined();
-	});
-
-	it("maps local 3-bucket labels to coarse effort levels", () => {
-		expect(parseDifficultyBucket("trivial")).toBe(Effort.Low);
-		expect(parseDifficultyBucket("moderate")).toBe(Effort.High);
-		expect(parseDifficultyBucket("hard")).toBe(Effort.XHigh);
-		expect(parseDifficultyBucket("medium")).toBeUndefined();
-	});
-
 	it("expands the local reasoning classifier budget", async () => {
 		let maxTokens: number | undefined;
-		const fixture = await createLocalClassifierFixture("qwen3-1.7b");
+		const fixture = createLocalClassifierFixture("qwen3-1.7b");
 		vi.spyOn(tinyModelClient, "complete").mockImplementation(async (_modelKey, _prompt, options) => {
 			maxTokens = options?.maxTokens;
 			return "moderate";
 		});
 
-		try {
-			const effort = await classifyDifficulty("fix the local classifier token budget", {
-				settings: fixture.settings,
-				registry: fixture.registry,
-				model: fixture.model,
-			});
+		const effort = await classifyDifficulty("fix the local classifier token budget", fixture);
 
-			expect(effort).toBe(Effort.High);
-			expect(maxTokens).toBe(1024);
-		} finally {
-			fixture.cleanup();
-		}
+		expect(effort).toBe(Effort.High);
+		expect(maxTokens).toBe(1024);
 	});
 
 	it("keeps the local classifier capped at xhigh even when opted in to max", async () => {
@@ -122,74 +73,53 @@ describe("auto thinking classifier helpers", () => {
 		// on-device model never selected. `max` is the model's only tier at or
 		// above Low, and the local ceiling hides it, so nothing is eligible —
 		// falling through to `minimal` would breach the Low floor.
-		const fixture = await createLocalClassifierFixture("qwen3-1.7b");
+		const fixture = createLocalClassifierFixture("qwen3-1.7b");
 		const sparse = buildLadderModel("mock-minimal-max", [Effort.Minimal, Effort.Max]);
 		vi.spyOn(tinyModelClient, "complete").mockResolvedValue("hard");
+		const settings = Settings.isolated({
+			"providers.autoThinkingModel": "qwen3-1.7b",
+			"providers.autoThinkingMaxEffort": "max",
+		});
 
-		try {
-			const settings = Settings.isolated({
-				"providers.autoThinkingModel": "qwen3-1.7b",
-				"providers.autoThinkingMaxEffort": "max",
-			});
-
-			expect(
-				await classifyDifficulty("cut over the storage layer", {
-					settings,
-					registry: fixture.registry,
-					model: sparse,
-				}),
-			).toBeUndefined();
-		} finally {
-			fixture.cleanup();
-		}
+		expect(
+			await classifyDifficulty("cut over the storage layer", {
+				settings,
+				registry: fixture.registry,
+				model: sparse,
+			}),
+		).toBeUndefined();
 	});
 
 	it("uses a larger local non-reasoning classifier floor", async () => {
 		let maxTokens: number | undefined;
-		const fixture = await createLocalClassifierFixture("qwen2.5-1.5b");
+		const fixture = createLocalClassifierFixture("qwen2.5-1.5b");
 		vi.spyOn(tinyModelClient, "complete").mockImplementation(async (_modelKey, _prompt, options) => {
 			maxTokens = options?.maxTokens;
 			return "moderate";
 		});
 
-		try {
-			const effort = await classifyDifficulty("rename a local helper", {
-				settings: fixture.settings,
-				registry: fixture.registry,
-				model: fixture.model,
-			});
+		const effort = await classifyDifficulty("rename a local helper", fixture);
 
-			expect(effort).toBe(Effort.High);
-			expect(maxTokens).toBe(16);
-		} finally {
-			fixture.cleanup();
-		}
+		expect(effort).toBe(Effort.High);
+		expect(maxTokens).toBe(16);
 	});
 
 	it("uses shared tiny-message preprocessing before local classification", async () => {
 		let classifierPrompt = "";
-		const fixture = await createLocalClassifierFixture("qwen2.5-1.5b");
+		const fixture = createLocalClassifierFixture("qwen2.5-1.5b");
 		vi.spyOn(tinyModelClient, "complete").mockImplementation(async (_modelKey, promptText) => {
 			classifierPrompt = promptText;
 			return "moderate";
 		});
 
-		try {
-			await classifyDifficulty(
-				"\u001b[31minvestigate failure\u001b[0m 54783db3f0f17c74cae81976f0e825a909deb71e\n```\nnoisy code\n```",
-				{
-					settings: fixture.settings,
-					registry: fixture.registry,
-					model: fixture.model,
-				},
-			);
+		await classifyDifficulty(
+			"\u001b[31minvestigate failure\u001b[0m 54783db3f0f17c74cae81976f0e825a909deb71e\n```\nnoisy code\n```",
+			fixture,
+		);
 
-			expect(classifierPrompt).toContain("investigate failure 54783db");
-			expect(classifierPrompt).not.toContain("54783db3f0f17c74cae81976f0e825a909deb71e");
-			expect(classifierPrompt).not.toContain("noisy code");
-		} finally {
-			fixture.cleanup();
-		}
+		expect(classifierPrompt).toContain("investigate failure 54783db");
+		expect(classifierPrompt).not.toContain("54783db3f0f17c74cae81976f0e825a909deb71e");
+		expect(classifierPrompt).not.toContain("noisy code");
 	});
 
 	it("uses a reasoning-safe online classifier budget when the catalog disables reasoning", async () => {
@@ -209,6 +139,7 @@ describe("auto thinking classifier helpers", () => {
 			},
 		} as never;
 		const registry = {
+			authStorage: { hasAuth: () => false },
 			getAvailable: () => [classifierModel],
 			getApiKey: async () => "test-key",
 			resolver: () => async () => "test-key",
@@ -228,7 +159,13 @@ describe("auto thinking classifier helpers", () => {
 			| undefined;
 
 		expect(effort).toBe(Effort.High);
-		expect(options).toMatchObject({ disableReasoning: true, maxTokens: 1024 });
+		// The cap must exceed Anthropic's 1024-token minimum thinking budget so an
+		// Anthropic-dialect proxy (LiteLLM/Vertex) that downgrades the disabled
+		// request to the lowest reasoning effort still satisfies
+		// `max_tokens > thinking.budget_tokens` (issue #8610).
+		expect(options?.disableReasoning).toBe(true);
+		expect(options?.maxTokens).toBe(4096);
+		expect(options?.maxTokens).toBeGreaterThan(1024);
 	});
 
 	function createOnlineFixture(targetModel: Model, answer: string, maxEffort: "xhigh" | "max" = "xhigh") {
@@ -247,15 +184,34 @@ describe("auto thinking classifier helpers", () => {
 			},
 		} as never;
 		const registry = {
+			authStorage: { hasAuth: () => false },
 			getAvailable: () => [classifierModel],
 			getApiKey: async () => "test-key",
 			resolver: () => async () => "test-key",
 		} as never;
-		const completeSimpleMock = vi.spyOn(ai, "completeSimple").mockResolvedValue({
-			stopReason: "stop",
-			content: [{ type: "text", text: answer }],
-		} as never);
-		return { deps: { settings, registry, model: targetModel }, completeSimpleMock };
+		const usage = {
+			input: 11,
+			output: 2,
+			cacheRead: 3,
+			cacheWrite: 0,
+			totalTokens: 16,
+			cost: { input: 0.0011, output: 0.0004, cacheRead: 0.00003, cacheWrite: 0, total: 0.00153 },
+		};
+		const completeSimpleMock = vi
+			.spyOn(ai, "completeSimple")
+			.mockImplementation(async (_model, _context, options) => {
+				const response = {
+					api: classifierModel.api,
+					provider: classifierModel.provider,
+					model: classifierModel.id,
+					usage,
+					stopReason: "stop",
+					content: [{ type: "text", text: answer }],
+				} as never;
+				options?.onAttempt?.(response);
+				return response;
+			});
+		return { deps: { settings, registry, model: targetModel }, completeSimpleMock, classifierModel, usage };
 	}
 
 	function buildLadderModel(id: string, efforts: Effort[]): Model {
@@ -276,6 +232,43 @@ describe("auto thinking classifier helpers", () => {
 
 	const MAX_LADDER = [Effort.Low, Effort.Medium, Effort.High, Effort.XHigh, Effort.Max];
 	const XHIGH_LADDER = [Effort.Low, Effort.Medium, Effort.High, Effort.XHigh];
+
+	it("reports usage for each response when a transient classifier failure is retried", async () => {
+		const fixture = createOnlineFixture(buildLadderModel("mock-max", MAX_LADDER), "high");
+		fixture.completeSimpleMock.mockImplementationOnce(async (_model, _context, options) => {
+			const response = {
+				api: fixture.classifierModel.api,
+				provider: fixture.classifierModel.provider,
+				model: fixture.classifierModel.id,
+				usage: fixture.usage,
+				stopReason: "error",
+				errorStatus: 500,
+				errorMessage: "Internal Server Error",
+				content: [],
+			} as never;
+			options?.onAttempt?.(response);
+			return response;
+		});
+		const onUsage = vi.fn();
+
+		await classifyDifficulty("refactor the scheduler", { ...fixture.deps, onUsage });
+
+		expect(fixture.completeSimpleMock).toHaveBeenCalledTimes(2);
+		expect(onUsage).toHaveBeenCalledTimes(2);
+		expect(onUsage).toHaveBeenNthCalledWith(
+			1,
+			expect.objectContaining({ stopReason: "error", errorMessage: "Internal Server Error" }),
+		);
+		expect(onUsage).toHaveBeenNthCalledWith(2, {
+			role: "smol",
+			api: fixture.classifierModel.api,
+			provider: fixture.classifierModel.provider,
+			model: fixture.classifierModel.id,
+			usage: fixture.usage,
+			stopReason: "stop",
+			errorMessage: undefined,
+		});
+	});
 
 	it("offers the max label only when opted in on a model that exposes the tier", async () => {
 		const optedIn = createOnlineFixture(buildLadderModel("mock-max", MAX_LADDER), "high", "max");
@@ -299,15 +292,19 @@ describe("auto thinking classifier helpers", () => {
 		expect(unsupportedRequest.systemPrompt[0]).not.toMatch(/\bmax\b/);
 	});
 
-	it("resolves max only when opted in, and snaps it to the ceiling otherwise", async () => {
+	it("resolves max only when opted in, and rejects it as off-ladder otherwise", async () => {
 		const optedIn = createOnlineFixture(buildLadderModel("mock-max", MAX_LADDER), "max", "max");
 		expect(await classifyDifficulty("untangle this cross-service race", optedIn.deps)).toBe(Effort.Max);
 
 		vi.restoreAllMocks();
 
-		// Hallucinated `max` on a max-capable model must not cross the default ceiling.
+		// A `max` the question never offered is not an answer: the classification
+		// fails (the caller keeps its provisional level) rather than crossing the
+		// default ceiling.
 		const defaulted = createOnlineFixture(buildLadderModel("mock-max", MAX_LADDER), "max");
-		expect(await classifyDifficulty("untangle this cross-service race", defaulted.deps)).toBe(Effort.XHigh);
+		await expect(classifyDifficulty("untangle this cross-service race", defaulted.deps)).rejects.toThrow(
+			/no option label/,
+		);
 	});
 
 	it("resolves the sparse ladder's max tier when opted in", async () => {
@@ -324,11 +321,6 @@ describe("auto thinking classifier helpers", () => {
 			"max",
 		);
 		expect(await classifyDifficulty("rename a helper", fixture.deps)).toBe(Effort.Low);
-	});
-
-	it("snaps a hallucinated max back to the model's ceiling instead of failing the turn", async () => {
-		const fixture = createOnlineFixture(buildLadderModel("mock-xhigh", XHIGH_LADDER), "max");
-		expect(await classifyDifficulty("untangle this cross-service race", fixture.deps)).toBe(Effort.XHigh);
 	});
 
 	it("resolves no level on a max-only ladder without opt-in", async () => {
@@ -349,8 +341,175 @@ describe("auto thinking classifier helpers", () => {
 	});
 
 	it("stops at the highest tier under the ceiling on a sparse ladder", async () => {
-		const fixture = createOnlineFixture(buildLadderModel("mock-hm", [Effort.High, Effort.Max]), "max");
+		const fixture = createOnlineFixture(buildLadderModel("mock-hm", [Effort.High, Effort.Max]), "xhigh");
 		expect(await classifyDifficulty("cut over the storage layer", fixture.deps)).toBe(Effort.High);
+	});
+
+	it("routes to TypeSafe over the chat chain when a credential exists, even with a local model configured", async () => {
+		const target = buildLadderModel("mock-max", MAX_LADDER);
+		const settings = Settings.isolated({ "providers.autoThinkingModel": "qwen3-1.7b" });
+		const registry = {
+			authStorage: { hasAuth: (provider: string) => provider === "typesafe", resolver: () => "ts-key" },
+			getAvailable: () => [],
+		} as never;
+		const localMock = vi.spyOn(tinyModelClient, "complete");
+		let requested:
+			| { state: unknown; questions: Record<string, { type: string; criteria: Record<string, unknown> }> }
+			| undefined;
+		vi.spyOn(globalThis, "fetch").mockImplementation(
+			asGlobalFetch(async (_url, init) => {
+				requested = JSON.parse(String(init?.body));
+				return Response.json({
+					model: "jev-latest",
+					answers: {
+						level: {
+							type: "choice",
+							choice: "high",
+							probabilities: { low: 0.05, medium: 0.2, high: 0.6, xhigh: 0.15 },
+							confidence: 0.55,
+						},
+					},
+					usage: { input_tokens: 42, output_tokens: 3 },
+				});
+			}),
+		);
+		const onUsage = vi.fn();
+
+		const effort = await classifyDifficulty("add validation around the retry path", {
+			settings,
+			registry,
+			model: target,
+			onUsage,
+		});
+
+		expect(effort).toBe(Effort.High);
+		expect(localMock).not.toHaveBeenCalled();
+		// TypeSafe answers the full ladder (not the coarse local buckets), and the
+		// default ceiling keeps `max` off the offered options.
+		expect(Object.keys(requested?.questions.level.criteria ?? {})).toEqual(["low", "medium", "high", "xhigh"]);
+		expect(requested?.state).toEqual({ request: "add validation around the retry path" });
+		expect(onUsage).toHaveBeenCalledWith(
+			expect.objectContaining({ role: "typesafe", provider: "typesafe", model: "jev-latest", stopReason: "stop" }),
+		);
+	});
+
+	it("falls back to the chat chain when TypeSafe fails, and to the session model when no role resolves", async () => {
+		const target = buildLadderModel("mock-max", MAX_LADDER);
+		const settings = {
+			get(path: string) {
+				if (path === "providers.autoThinkingModel") return "online";
+				return undefined;
+			},
+			getModelRole() {
+				return undefined;
+			},
+			getStorage() {
+				return undefined;
+			},
+		} as never;
+		const registry = {
+			authStorage: { hasAuth: (provider: string) => provider === "typesafe", resolver: () => "ts-key" },
+			getAvailable: () => [],
+			getApiKey: async () => "test-key",
+			resolver: () => async () => "test-key",
+		} as never;
+		const fetchMock = vi
+			.spyOn(globalThis, "fetch")
+			.mockImplementation(asGlobalFetch(async () => new Response("down", { status: 503 })));
+		const completeSimpleMock = vi.spyOn(ai, "completeSimple").mockResolvedValue({
+			stopReason: "stop",
+			content: [{ type: "text", text: "high" }],
+		} as never);
+
+		const effort = await classifyDifficulty("add pagination", { settings, registry, model: target });
+
+		expect(effort).toBe(Effort.High);
+		// 503 is retried by the TypeSafe client, then the chain takes over; with no
+		// tiny/smol/default role the session model itself answers.
+		expect(fetchMock.mock.calls.length).toBeGreaterThan(1);
+		expect(completeSimpleMock).toHaveBeenCalledTimes(1);
+		expect(completeSimpleMock.mock.calls[0]?.[0]).toBe(target);
+	});
+
+	it("falls back from TypeSafe through tiny, smol, then default", async () => {
+		const tiny = buildLadderModel("tiny-judge", XHIGH_LADDER);
+		const smol = buildLadderModel("smol-judge", XHIGH_LADDER);
+		const defaultModel = buildLadderModel("default-judge", XHIGH_LADDER);
+		const target = buildLadderModel("session-judge", MAX_LADDER);
+		const settings = {
+			get(path: string) {
+				if (path === "providers.autoThinkingModel") return "online";
+				return undefined;
+			},
+			getModelRole(role: string) {
+				if (role === "tiny") return `${tiny.provider}/${tiny.id}`;
+				if (role === "smol") return `${smol.provider}/${smol.id}`;
+				if (role === "default") return `${defaultModel.provider}/${defaultModel.id}`;
+				return undefined;
+			},
+			getStorage() {
+				return undefined;
+			},
+		} as never;
+		const registry = {
+			authStorage: { hasAuth: (provider: string) => provider === "typesafe", resolver: () => "bad-ts-key" },
+			getAvailable: () => [tiny, smol, defaultModel],
+			getApiKey: async () => "test-key",
+			resolver: () => async () => "test-key",
+		} as never;
+		vi.spyOn(globalThis, "fetch").mockImplementation(
+			asGlobalFetch(async () => new Response("unauthorized", { status: 401 })),
+		);
+		const attempted: string[] = [];
+		vi.spyOn(ai, "completeSimple").mockImplementation(async model => {
+			attempted.push(model.id);
+			if (model.id !== defaultModel.id) {
+				return { stopReason: "error", errorStatus: 400, errorMessage: "unavailable", content: [] } as never;
+			}
+			return { stopReason: "stop", content: [{ type: "text", text: "medium" }] } as never;
+		});
+
+		expect(await classifyDifficulty("add validation", { settings, registry, model: target })).toBe(Effort.Medium);
+		expect(attempted).toEqual([tiny.id, smol.id, defaultModel.id]);
+	});
+
+	it("never uses TypeSafe when the judgment provider is pinned to llm", async () => {
+		const classifierModel = getBundledModel("anthropic", "claude-sonnet-4-6");
+		if (!classifierModel) throw new Error("Expected bundled Claude Sonnet 4.6 model");
+		const settings = {
+			get(path: string) {
+				if (path === "providers.judgmentProvider") return "llm";
+				if (path === "providers.autoThinkingModel") return "online";
+				return undefined;
+			},
+			getModelRole(role: string) {
+				return role === "smol" ? `${classifierModel.provider}/${classifierModel.id}` : undefined;
+			},
+			getStorage() {
+				return undefined;
+			},
+		} as never;
+		const registry = {
+			authStorage: { hasAuth: () => true, resolver: () => "ts-key" },
+			getAvailable: () => [classifierModel],
+			getApiKey: async () => "test-key",
+			resolver: () => async () => "test-key",
+		} as never;
+		const fetchMock = vi.spyOn(globalThis, "fetch");
+		const completeSimpleMock = vi.spyOn(ai, "completeSimple").mockResolvedValue({
+			stopReason: "stop",
+			content: [{ type: "text", text: "medium" }],
+		} as never);
+
+		const effort = await classifyDifficulty("rename a helper", {
+			settings,
+			registry,
+			model: buildLadderModel("mock-max", MAX_LADDER),
+		});
+
+		expect(effort).toBe(Effort.Medium);
+		expect(fetchMock).not.toHaveBeenCalled();
+		expect(completeSimpleMock).toHaveBeenCalledTimes(1);
 	});
 
 	it("keeps the provisional auto level below max even when the model defaults to it", () => {
@@ -498,5 +657,140 @@ describe("auto thinking classifier helpers", () => {
 			expect(parseThinkingLevel(selector)).toBeUndefined();
 			expect(parseConfiguredThinkingLevel(selector)).toBeUndefined();
 		}
+	});
+
+	it.each([true, false])("tries the explicit tiny → smol role chain with modelFallback=%s", async enabled => {
+		const smol = getBundledModel("anthropic", "claude-sonnet-4-6");
+		if (!smol) throw new Error("Expected bundled Claude Sonnet 4.6 model");
+		const fallback = buildLadderModel("fallback-smol", XHIGH_LADDER);
+		const target = buildLadderModel("mock-max", MAX_LADDER);
+		const settings = {
+			get(path: string) {
+				if (path === "providers.autoThinkingModel") return "online";
+				if (path === "providers.autoThinkingMaxEffort") return "xhigh";
+				if (path === "retry.modelFallback") return enabled;
+				if (path === "retry.fallbackChains")
+					return { [`${smol.provider}/${smol.id}`]: [`${fallback.provider}/${fallback.id}`] };
+				return undefined;
+			},
+			getModelRole(role: string) {
+				if (role === "tiny") return `${smol.provider}/${smol.id}`;
+				return role === "smol" ? `${fallback.provider}/${fallback.id}` : undefined;
+			},
+			getStorage() {
+				return undefined;
+			},
+		} as never;
+		const registry = {
+			authStorage: { hasAuth: () => false },
+			getAvailable: () => [smol, fallback],
+			getApiKey: async () => "test-key",
+			resolver: () => async () => "test-key",
+		} as never;
+		const completeSimpleMock = vi.spyOn(ai, "completeSimple").mockImplementation(async model => {
+			if (model.id === smol.id) {
+				return {
+					stopReason: "error",
+					errorStatus: 400,
+					errorMessage: "Model is not available in the active live catalog",
+					content: [],
+				} as never;
+			}
+			return {
+				stopReason: "stop",
+				content: [{ type: "text", text: "medium" }],
+			} as never;
+		});
+
+		const effort = await classifyDifficulty("rename a helper", { settings, registry, model: target });
+		expect(effort).toBe(Effort.Medium);
+		expect(completeSimpleMock).toHaveBeenCalledTimes(2);
+		expect(completeSimpleMock.mock.calls[0]?.[0]).toBe(smol);
+		expect(completeSimpleMock.mock.calls[1]?.[0]).toBe(fallback);
+	});
+
+	it("continues after credential resolution errors on the primary candidate", async () => {
+		const smol = getBundledModel("anthropic", "claude-sonnet-4-6");
+		if (!smol) throw new Error("Expected bundled Claude Sonnet 4.6 model");
+		const fallback = buildLadderModel("fallback-smol", XHIGH_LADDER);
+		const target = buildLadderModel("mock-max", MAX_LADDER);
+		const settings = {
+			get(path: string) {
+				if (path === "providers.autoThinkingModel") return "online";
+				if (path === "providers.autoThinkingMaxEffort") return "xhigh";
+				if (path === "retry.modelFallback") return true;
+				if (path === "retry.fallbackChains")
+					return { [`${smol.provider}/${smol.id}`]: [`${fallback.provider}/${fallback.id}`] };
+				return undefined;
+			},
+			getModelRole(role: string) {
+				if (role === "tiny") return `${smol.provider}/${smol.id}`;
+				return role === "smol" ? `${fallback.provider}/${fallback.id}` : undefined;
+			},
+			getStorage() {
+				return undefined;
+			},
+		} as never;
+		const registry = {
+			authStorage: { hasAuth: () => false },
+			getAvailable: () => [smol, fallback],
+			getApiKey: async (model: Model) => {
+				if (model.id === smol.id) throw new Error("OAuth refresh failed");
+				return "test-key";
+			},
+			resolver: () => async () => "test-key",
+		} as never;
+		vi.spyOn(ai, "completeSimple").mockResolvedValue({
+			stopReason: "stop",
+			content: [{ type: "text", text: "medium" }],
+		} as never);
+
+		const effort = await classifyDifficulty("rename a helper", { settings, registry, model: target });
+		expect(effort).toBe(Effort.Medium);
+	});
+
+	it("propagates caller cancellation without trying later classifier candidates", async () => {
+		const smol = getBundledModel("anthropic", "claude-sonnet-4-6");
+		if (!smol) throw new Error("Expected bundled Claude Sonnet 4.6 model");
+		const fallback = buildLadderModel("fallback-smol", XHIGH_LADDER);
+		const target = buildLadderModel("mock-max", MAX_LADDER);
+		const settings = {
+			get(path: string) {
+				if (path === "providers.autoThinkingModel") return "online";
+				if (path === "providers.autoThinkingMaxEffort") return "xhigh";
+				if (path === "retry.modelFallback") return true;
+				if (path === "retry.fallbackChains")
+					return { [`${smol.provider}/${smol.id}`]: [`${fallback.provider}/${fallback.id}`] };
+				return undefined;
+			},
+			getModelRole(role: string) {
+				if (role === "tiny") return `${smol.provider}/${smol.id}`;
+				return role === "smol" ? `${fallback.provider}/${fallback.id}` : undefined;
+			},
+			getStorage() {
+				return undefined;
+			},
+		} as never;
+		const controller = new AbortController();
+		const registry = {
+			authStorage: { hasAuth: () => false },
+			getAvailable: () => [smol, fallback],
+			getApiKey: async () => {
+				controller.abort();
+				throw new Error("OAuth refresh failed");
+			},
+			resolver: () => async () => "test-key",
+		} as never;
+		const completeSimpleMock = vi.spyOn(ai, "completeSimple");
+
+		await expect(
+			classifyDifficulty("rename a helper", {
+				settings,
+				registry,
+				model: target,
+				signal: controller.signal,
+			}),
+		).rejects.toThrow();
+		expect(completeSimpleMock).not.toHaveBeenCalled();
 	});
 });

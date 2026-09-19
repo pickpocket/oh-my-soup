@@ -1,7 +1,6 @@
-import { computeContextBreakdown } from "../../modes/utils/context-usage";
-import { buildContextTree, renderContextTreeLines } from "../../session/context-tree";
+import { computeSessionContextBreakdown } from "../../session/context-usage-runtime";
 import type { SlashCommandRuntime } from "../types";
-import { renderAsciiBar } from "./format";
+import { renderAsciiBar } from "@oh-my-soup/pi-tui/chrome/format";
 
 /**
  * Build the `/context` ACP-mode text. Tries the rich breakdown first
@@ -10,7 +9,7 @@ import { renderAsciiBar } from "./format";
  */
 export function buildContextReportText(runtime: SlashCommandRuntime): string {
 	try {
-		const breakdown = computeContextBreakdown(runtime.session, { snapcompactSavings: true });
+		const breakdown = computeSessionContextBreakdown(runtime.session, { snapcompactSavings: true });
 		if (breakdown.contextWindow <= 0) {
 			return "Context usage is unavailable: no model is selected for this session.";
 		}
@@ -63,19 +62,5 @@ export function buildContextReportText(runtime: SlashCommandRuntime): string {
 		const fallback = runtime.session.getContextUsage();
 		if (!fallback) return "Context usage is unavailable.";
 		return ["Context", `Window: ${fallback.contextWindow}`, `Used: ${fallback.tokens ?? 0}`].join("\n");
-	}
-}
-
-/**
- * Build the `/context` per-agent usage tree (main session plus live and
- * disk-only subagents). Best-effort: returns undefined when the tree cannot
- * be built so the flat breakdown still renders on its own.
- */
-export async function buildContextTreeText(runtime: SlashCommandRuntime): Promise<string | undefined> {
-	try {
-		const tree = await buildContextTree(runtime.session);
-		return ["Agents (own = this agent only, total = own + descendants):", ...renderContextTreeLines(tree)].join("\n");
-	} catch {
-		return undefined;
 	}
 }

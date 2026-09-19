@@ -9,7 +9,7 @@ afterEach(() => {
 });
 
 describe("mountRemote", () => {
-	it("surfaces the ControlMaster directory guard before touching sshfs", async () => {
+	it("surfaces the shared ControlMaster directory guard before touching sshfs", async () => {
 		vi.spyOn(piUtils, "$which").mockImplementation(command => (command === "sshfs" ? "/bin/true" : null));
 		vi.spyOn(connectionManager, "ensureSshControlDir").mockImplementation(() => {
 			throw new Error("SSH control directory /tmp/oms-test is a symlink");

@@ -1,6 +1,8 @@
 import { describe, expect, it } from "bun:test";
 import { streamBedrock } from "@oh-my-soup/pi-ai/providers/amazon-bedrock";
 import { crc32 } from "@oh-my-soup/pi-ai/providers/aws-eventstream";
+import { setBedrockProviderModule } from "@oh-my-soup/pi-ai/providers/register-builtins";
+import { streamSimple } from "@oh-my-soup/pi-ai/stream";
 import type { Context, FetchImpl, Model } from "@oh-my-soup/pi-ai/types";
 import { buildModel } from "@oh-my-soup/pi-catalog/build";
 
@@ -136,6 +138,33 @@ describe("issue #6276 — Amazon Bedrock guardrails", () => {
 			trace: "enabled_full",
 		});
 	});
+	it("maps transport guardrails into the Bedrock provider options", async () => {
+		setBedrockProviderModule({ streamBedrock });
+		const { promise, resolve } = Promise.withResolvers<GuardrailPayload>();
+		const stream = streamSimple(model(), context, {
+			guardrailIdentifier: "arn:aws:bedrock:eu-west-1:123456789012:guardrail/abcd1234",
+			guardrailVersion: "7",
+			guardrailTrace: "enabled_full",
+			providerOptions: { bearerToken: "test-token" },
+			fetch: async () => new Response(new Uint8Array(), { status: 200 }),
+			onPayload: payload => {
+				resolve(payload as GuardrailPayload);
+				return undefined;
+			},
+		});
+		const drain = (async () => {
+			for await (const _ of stream) {
+				// Drain the provider stream so request errors are observed.
+			}
+		})();
+		const [payload] = await Promise.all([promise, drain]);
+
+		expect(payload.guardrailConfig).toEqual({
+			guardrailIdentifier: "arn:aws:bedrock:eu-west-1:123456789012:guardrail/abcd1234",
+			guardrailVersion: "7",
+			trace: "enabled_full",
+		});
+	});
 
 	it("defaults configured guardrails to the DRAFT version", async () => {
 		const payload = await capturePayload({ guardrailIdentifier: "abcd1234" });
@@ -147,17 +176,7 @@ describe("issue #6276 — Amazon Bedrock guardrails", () => {
 		});
 	});
 
-	it("reports configured guardrail intervention explicitly", async () => {
-		const result = await streamBedrock(model(), context, {
-			bearerToken: "test-token",
-			fetch: stopReasonFetch("guardrail_intervened"),
-		}).result();
-
-		expect(result.stopReason).toBe("error");
-		expect(result.errorMessage).toContain("Amazon Bedrock guardrail");
-	});
-
-	it("keeps provider content filtering distinct from guardrail intervention", async () => {
+	it("keeps model content filtering distinct from guardrail intervention", async () => {
 		const result = await streamBedrock(model(), context, {
 			bearerToken: "test-token",
 			fetch: stopReasonFetch("content_filtered"),

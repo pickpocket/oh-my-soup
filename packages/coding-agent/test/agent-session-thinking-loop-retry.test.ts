@@ -1,6 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
-import * as path from "node:path";
-import { scheduler } from "node:timers/promises";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "bun:test";
 import { Agent } from "@oh-my-soup/pi-agent-core";
 import type {
 	Api,
@@ -21,7 +19,7 @@ import { AgentSession, type AgentSessionEvent } from "@oh-my-soup/pi-coding-agen
 import { AuthStorage } from "@oh-my-soup/pi-coding-agent/session/auth-storage";
 import { type CustomMessage, convertToLlm } from "@oh-my-soup/pi-coding-agent/session/messages";
 import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
-import { TempDir } from "@oh-my-soup/pi-utils";
+import { mockSchedulerWaitWithClock } from "./helpers/mock-scheduler-clock";
 
 const LOOP_PARAGRAPHS = [
 	"I am now verifying the test module to guarantee there are no compile errors and the code is completely safe.",
@@ -112,14 +110,14 @@ function errorIdOnlyThinkingLoopStream(model: Model<Api>): AssistantMessageEvent
 }
 
 describe("AgentSession thinking-loop retry", () => {
-	let tempDir: TempDir;
 	let authStorage: AuthStorage;
+	let modelRegistry: ModelRegistry;
 	let session: AgentSession | undefined;
 
-	beforeEach(async () => {
-		tempDir = TempDir.createSync("@pi-thinking-loop-retry-");
-		authStorage = await AuthStorage.create(path.join(tempDir.path(), "auth.db"));
+	beforeAll(async () => {
+		authStorage = await AuthStorage.create(":memory:");
 		authStorage.setRuntimeApiKey("openrouter", "openrouter-test-key");
+		modelRegistry = new ModelRegistry(authStorage);
 	});
 
 	afterEach(async () => {
@@ -127,14 +125,15 @@ describe("AgentSession thinking-loop retry", () => {
 			await session.dispose();
 			session = undefined;
 		}
-		authStorage.close();
-		tempDir.removeSync();
 		vi.restoreAllMocks();
+	});
+
+	afterAll(() => {
+		authStorage.close();
 	});
 
 	it("drops a chunked thinking-loop error and retries the turn", async () => {
 		const model = createMockModel({ provider: "openrouter", id: "google/gemini-3.5-flash" }).model;
-		const modelRegistry = new ModelRegistry(authStorage);
 		const calls: string[] = [];
 		const agent = new Agent({
 			getApiKey: requestedModel => `${requestedModel.provider}-test-key`,
@@ -167,7 +166,7 @@ describe("AgentSession thinking-loop retry", () => {
 			settings,
 			modelRegistry,
 		});
-		vi.spyOn(scheduler, "wait").mockResolvedValue(undefined);
+		mockSchedulerWaitWithClock();
 		const retryStartEvents: Array<Extract<AgentSessionEvent, { type: "auto_retry_start" }>> = [];
 		const retryEndEvents: Array<Extract<AgentSessionEvent, { type: "auto_retry_end" }>> = [];
 		session.subscribe(event => {
@@ -195,7 +194,6 @@ describe("AgentSession thinking-loop retry", () => {
 
 	it("starts retry for thinking-loop errorId even without transient wording", async () => {
 		const model = createMockModel({ provider: "openrouter", id: "google/gemini-3.5-flash" }).model;
-		const modelRegistry = new ModelRegistry(authStorage);
 		const calls: string[] = [];
 		const agent = new Agent({
 			getApiKey: requestedModel => `${requestedModel.provider}-test-key`,
@@ -226,7 +224,7 @@ describe("AgentSession thinking-loop retry", () => {
 			settings,
 			modelRegistry,
 		});
-		vi.spyOn(scheduler, "wait").mockResolvedValue(undefined);
+		mockSchedulerWaitWithClock();
 		const retryStartEvents: Array<Extract<AgentSessionEvent, { type: "auto_retry_start" }>> = [];
 		session.subscribe(event => {
 			if (event.type === "auto_retry_start") retryStartEvents.push(event);
@@ -247,7 +245,6 @@ describe("AgentSession thinking-loop retry", () => {
 
 	it("injects a redirect notice into the retried turn after a thinking loop", async () => {
 		const model = createMockModel({ provider: "openrouter", id: "google/gemini-3.5-flash" }).model;
-		const modelRegistry = new ModelRegistry(authStorage);
 		const calls: string[] = [];
 		const contexts: Context[] = [];
 		const agent = new Agent({
@@ -282,7 +279,7 @@ describe("AgentSession thinking-loop retry", () => {
 			settings,
 			modelRegistry,
 		});
-		vi.spyOn(scheduler, "wait").mockResolvedValue(undefined);
+		mockSchedulerWaitWithClock();
 
 		await session.prompt("Trigger redirect injection after thinking loop");
 		await session.waitForIdle();
@@ -315,7 +312,6 @@ describe("AgentSession thinking-loop retry", () => {
 
 	it("injects a redirect notice on each consecutive thinking-loop retry", async () => {
 		const model = createMockModel({ provider: "openrouter", id: "google/gemini-3.5-flash" }).model;
-		const modelRegistry = new ModelRegistry(authStorage);
 		const calls: string[] = [];
 		const contexts: Context[] = [];
 		const agent = new Agent({
@@ -350,7 +346,7 @@ describe("AgentSession thinking-loop retry", () => {
 			settings,
 			modelRegistry,
 		});
-		vi.spyOn(scheduler, "wait").mockResolvedValue(undefined);
+		mockSchedulerWaitWithClock();
 
 		await session.prompt("Trigger redirect injection after two thinking loops");
 		await session.waitForIdle();

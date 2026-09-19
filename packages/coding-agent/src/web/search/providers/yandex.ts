@@ -1,7 +1,7 @@
 import type { AuthStorage } from "@oh-my-soup/pi-ai";
 import { parseHTML } from "@oh-my-soup/pi-utils/dom";
-import type { SearchResponse, SearchSource } from "../../../web/search/types";
-import { SearchProviderError } from "../../../web/search/types";
+import type { SearchResponse, SearchSource } from "@oh-my-soup/pi-tui/tools/web-search";
+import { SearchProviderError } from "../types";
 import { formatScraperQuery, parseSearchQuery, type QuerySyntax } from "../query";
 import { clampNumResults } from "../utils";
 import type { SearchParams } from "./base";

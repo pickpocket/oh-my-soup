@@ -15,13 +15,14 @@ import type {
 	MemoryBackendSearchItem,
 	MemoryBackendStartOptions,
 	MemoryBackendStatus,
+	MemoryPromptPreparation,
 } from "../memory-backend/types";
 import memoryConsolidationPrompt from "../prompts/system/memory-consolidation-system.md" with { type: "text" };
 import memoryExtractionPrompt from "../prompts/system/memory-extraction-system.md" with { type: "text" };
 import type { AgentSession } from "../session/agent-session";
 import { isTinyMemoryLocalModelKey, ONLINE_MEMORY_MODEL_KEY } from "../tiny/models";
 import { tinyModelClient } from "../tiny/title-client";
-import { shortenPath } from "../tools/render-utils";
+import { shortenPath } from "@oh-my-soup/pi-tui/render/render-utils";
 import {
 	loadMnemopiConfig,
 	type MnemopiBackendConfig,
@@ -63,11 +64,17 @@ const STATIC_INSTRUCTIONS = [
 	"",
 ].join("\n");
 
+/** Prompt turns for one Mnemopi completion. */
 export interface MemoryCompletionInput {
 	prompt: string;
 	systemPrompt?: string;
 }
 
+/** Maps a Mnemopi completion into instruction and input turns.
+ *
+ *  Extraction is the only task with its own instructions, and it always supplies
+ *  the raw text, so the instructions become the system turn and the text becomes
+ *  the user turn. Every other task keeps the prompt Mnemopi rendered. */
 export function resolveMemoryCompletionInput(
 	prompt: string,
 	options?: MnemopiLlmCompleteOptions,
@@ -84,6 +91,9 @@ async function installMnemopiState(session: AgentSession, config: MnemopiBackend
 	await previous?.dispose();
 	try {
 		state.attachSessionListeners();
+		// Promote age-eligible working memory to episodic before the session's
+		// first write can TTL-trim unconsolidated retain/learn rows (#10770).
+		state.promoteEligibleWorkingMemory();
 		return state;
 	} catch (error) {
 		setMnemopiSessionState(session, undefined);
@@ -136,9 +146,23 @@ export const mnemopiBackend: MemoryBackend = {
 		return truncateApproxTokens(rendered, settings.get("mnemopi.injectionTokenLimit"));
 	},
 
-	async beforeAgentStartPrompt(session, promptText): Promise<string | undefined> {
+	async beforeAgentStartPrompt(session, promptText): Promise<MemoryPromptPreparation | undefined> {
 		const state = getMnemopiSessionState(session);
-		return await state?.beforeAgentStartPrompt(promptText);
+		const preparation = await state?.beforeAgentStartPrompt(promptText);
+		if (!preparation) return undefined;
+		if (preparation.context) {
+			// Match the canonical memory block's budget while the recall is staged
+			// separately from its static instructions. Commit still caches the full snippet.
+			const rendered = [STATIC_INSTRUCTIONS, preparation.context].join("\n\n").trim();
+			preparation.context =
+				truncateApproxTokens(rendered, session.settings.get("mnemopi.injectionTokenLimit"))
+					.slice(STATIC_INSTRUCTIONS.length)
+					.trim() || undefined;
+		}
+		return {
+			context: preparation.context,
+			commit: () => getMnemopiSessionState(session) === state && preparation.commit(),
+		};
 	},
 
 	async clear(agentDir, _cwd, session): Promise<void> {
@@ -178,7 +202,7 @@ export const mnemopiBackend: MemoryBackend = {
 				await Promise.all([loadMnemopi(), loadMnemopiCore()]);
 				state = await installMnemopiState(session, config);
 			}
-			await state?.consolidate({ full: true });
+			await state?.consolidate({ full: true, retain: true });
 		} catch (error) {
 			logger.warn("Mnemopi: enqueue failed.", { error: String(error) });
 		}
@@ -529,6 +553,9 @@ async function resolveMnemopiProviderOptions(
 						systemPrompt: request.systemPrompt,
 					});
 				},
+				// No `extractionPrompt`: resolveMemoryCompletionInput supplies the
+				// instructions as a system turn for every extraction call, so anything
+				// rendered here would be built in code and then discarded.
 				consolidationPrompt: memoryConsolidationPrompt,
 			},
 		};
@@ -567,19 +594,22 @@ async function resolveMnemopiProviderOptions(
 					});
 					return null;
 				}
-				const message = await retryTransientCompletion(() =>
-					completeSimple(
-						model,
-						{
-							...(request.systemPrompt ? { systemPrompt: [request.systemPrompt] } : {}),
-							messages: [{ role: "user", content: request.prompt, timestamp: Date.now() }],
-						},
-						{
-							apiKey: modelRegistry.resolver(model, sessionId),
-							maxTokens: opts?.maxTokens,
-							temperature: opts?.temperature,
-						},
-					),
+				const message = await retryTransientCompletion(
+					() =>
+						completeSimple(
+							model,
+							{
+								...(request.systemPrompt ? { systemPrompt: [request.systemPrompt] } : {}),
+								messages: [{ role: "user", content: request.prompt, timestamp: Date.now() }],
+							},
+							{
+								apiKey: modelRegistry.resolver(model, sessionId),
+								sessionId,
+								maxTokens: opts?.maxTokens,
+								temperature: opts?.temperature,
+							},
+						),
+					{ provider: model.provider },
 				);
 				return message.content
 					.filter(

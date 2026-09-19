@@ -2,7 +2,20 @@ import { describe, expect, it } from "bun:test";
 import { retryTransientCompletion } from "@oh-my-soup/pi-ai/oneshot-retry";
 import type { AssistantMessage, Usage } from "@oh-my-soup/pi-ai/types";
 
-type AbortEventListener = ((event: Event) => void) | { handleEvent(event: Event): void };
+/**
+ * Defends the contract every oneshot LLM call site now depends on:
+ * `completeSimple` reports a transient provider failure by RESOLVING with
+ * `stopReason: "error"` rather than throwing, so a retry layer that only
+ * catches exceptions silently never fires. Before this helper, an Anthropic
+ * `overloaded_error` / 429 / 529 on a summary, title, handoff or image
+ * description failed on the first blip — or was swallowed into `null`, making a
+ * transient overload indistinguishable from a legitimate empty result.
+ *
+ * These tests pin the four properties the call sites rely on: transient
+ * error-stops are re-issued, non-transient ones are not, the final failure is
+ * handed back unchanged (so existing `null`/throw fallbacks still work), and a
+ * caller abort wins immediately.
+ */
 
 const emptyUsage = (): Usage =>
 	({
@@ -10,9 +23,8 @@ const emptyUsage = (): Usage =>
 		output: 0,
 		cacheRead: 0,
 		cacheWrite: 0,
-		totalTokens: 0,
 		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
-	}) as Usage;
+	}) as unknown as Usage;
 
 function message(overrides: Partial<AssistantMessage> = {}): AssistantMessage {
 	return {
@@ -29,23 +41,43 @@ function message(overrides: Partial<AssistantMessage> = {}): AssistantMessage {
 }
 
 const overloaded = (): AssistantMessage =>
-	message({ stopReason: "error", errorStatus: 529, errorMessage: "overloaded_error: Overloaded" });
+	message({
+		stopReason: "error",
+		errorStatus: 529,
+		errorMessage: "Anthropic stream error (overloaded_error): Overloaded",
+	});
+
 const rateLimited = (): AssistantMessage =>
 	message({ stopReason: "error", errorStatus: 429, errorMessage: "rate_limit_error: too many requests" });
+
+// Keep the suite fast: the helper's real backoff floor is 500ms.
 const fast = { baseDelayMs: 1, maxAttempts: 3 } as const;
 
 describe("retryTransientCompletion", () => {
-	it("retries resolved transient error stops until success", async () => {
+	it("re-issues an Anthropic 529 error-stop and returns the eventual success", async () => {
+		const results = [overloaded(), overloaded(), message({ stopReason: "stop" })];
 		let calls = 0;
 		const final = await retryTransientCompletion(() => {
 			calls += 1;
-			return Promise.resolve(calls < 3 ? overloaded() : message());
+			return Promise.resolve(results.shift()!);
 		}, fast);
+
 		expect(calls).toBe(3);
 		expect(final.stopReason).toBe("stop");
 	});
 
-	it("retries status-only transient error stops", async () => {
+	it("re-issues a 429 rate-limit error-stop", async () => {
+		let calls = 0;
+		const final = await retryTransientCompletion(() => {
+			calls += 1;
+			return Promise.resolve(calls === 1 ? rateLimited() : message());
+		}, fast);
+
+		expect(calls).toBe(2);
+		expect(final.stopReason).toBe("stop");
+	});
+
+	it("re-issues a status-only 503 error-stop", async () => {
 		let calls = 0;
 		const final = await retryTransientCompletion(() => {
 			calls += 1;
@@ -55,86 +87,47 @@ describe("retryTransientCompletion", () => {
 					: message(),
 			);
 		}, fast);
+
 		expect(calls).toBe(2);
 		expect(final.stopReason).toBe("stop");
 	});
 
-	it("returns the final resolved failure unchanged", async () => {
+	it("returns the failing message unchanged once attempts are exhausted, so caller fallbacks still apply", async () => {
 		let calls = 0;
 		const final = await retryTransientCompletion(() => {
 			calls += 1;
 			return Promise.resolve(overloaded());
 		}, fast);
+
 		expect(calls).toBe(3);
+		expect(final.stopReason).toBe("error");
 		expect(final.errorMessage).toContain("overloaded_error");
 	});
 
 	it("does not retry a non-transient provider error", async () => {
 		let calls = 0;
-		const final = await retryTransientCompletion(() => {
-			calls += 1;
-			return Promise.resolve(
-				message({ stopReason: "error", errorStatus: 400, errorMessage: "invalid_request_error: bad schema" }),
-			);
-		}, fast);
+		const final = await retryTransientCompletion(
+			() => {
+				calls += 1;
+				return Promise.resolve(
+					message({
+						stopReason: "error",
+						errorStatus: 400,
+						errorMessage: "invalid_request_error: messages: at least one message is required",
+					}),
+				);
+			},
+			{ ...fast, maxAttempts: 5 },
+		);
+
 		expect(calls).toBe(1);
 		expect(final.stopReason).toBe("error");
-	});
-
-	it("does not retry deterministic llama.cpp parse failures reported as 500", async () => {
-		let calls = 0;
-		const final = await retryTransientCompletion(() => {
-			calls += 1;
-			return Promise.resolve(
-				message({
-					stopReason: "error",
-					errorStatus: 500,
-					errorMessage: "failed to parse tool call arguments as JSON",
-				}),
-			);
-		}, fast);
-		expect(calls).toBe(1);
-		expect(final.stopReason).toBe("error");
-	});
-
-	it("retries thrown transient failures and rethrows the last one", async () => {
-		let calls = 0;
-		const attempt = retryTransientCompletion(() => {
-			calls += 1;
-			const error = new Error("overloaded_error") as Error & { status: number };
-			error.status = 529;
-			throw error;
-		}, fast);
-		await expect(attempt).rejects.toThrow("overloaded_error");
-		expect(calls).toBe(3);
-	});
-
-	it("retries thrown status-only transient failures", async () => {
-		let calls = 0;
-		const final = await retryTransientCompletion(() => {
-			calls += 1;
-			if (calls === 1) {
-				const error = new Error("request failed") as Error & { status: number };
-				error.status = 503;
-				throw error;
-			}
-			return Promise.resolve(message());
-		}, fast);
-		expect(calls).toBe(2);
-		expect(final.stopReason).toBe("stop");
-	});
-
-	it("does not retry thrown non-transient failures", async () => {
-		let calls = 0;
-		const attempt = retryTransientCompletion(() => {
-			calls += 1;
-			throw new Error("invalid_request_error: bad schema");
-		}, fast);
-		await expect(attempt).rejects.toThrow("invalid_request_error");
-		expect(calls).toBe(1);
 	});
 
 	it("does not retry an input the model cannot fit", async () => {
+		// A oneshot replays a fixed prompt: the same overflow comes back every
+		// attempt, so the retries only delay the caller's fallback. Observed live
+		// as 10 identical 3M-token compaction summarization calls.
 		let calls = 0;
 		const final = await retryTransientCompletion(
 			() => {
@@ -155,7 +148,88 @@ describe("retryTransientCompletion", () => {
 		expect(final.stopReason).toBe("error");
 	});
 
-	it("stops immediately when already aborted at an attempt boundary", async () => {
+	it("does not retry a transient-wrapped payload rejection", async () => {
+		let calls = 0;
+		const final = await retryTransientCompletion(
+			() => {
+				calls += 1;
+				return Promise.resolve(
+					message({
+						stopReason: "error",
+						errorStatus: 413,
+						errorMessage: "Provider returned error: 413 Payload Too Large",
+					}),
+				);
+			},
+			{ ...fast, maxAttempts: 5 },
+		);
+
+		expect(calls).toBe(1);
+		expect(final.stopReason).toBe("error");
+		expect(final.errorMessage).toContain("413");
+	});
+
+	it("does not retry a deterministic llama.cpp tool-call parse failure reported as 500", async () => {
+		let calls = 0;
+		const final = await retryTransientCompletion(
+			() => {
+				calls += 1;
+				return Promise.resolve(
+					message({
+						stopReason: "error",
+						errorStatus: 500,
+						errorMessage: "failed to parse tool call arguments as JSON",
+					}),
+				);
+			},
+			{ ...fast, maxAttempts: 5 },
+		);
+
+		expect(calls).toBe(1);
+		expect(final.stopReason).toBe("error");
+	});
+
+	it("retries a thrown transient error and rethrows the last one when exhausted", async () => {
+		let calls = 0;
+		const attempt = retryTransientCompletion(() => {
+			calls += 1;
+			const error = new Error("529 overloaded_error: Overloaded") as Error & { status?: number };
+			error.status = 529;
+			throw error;
+		}, fast);
+
+		await expect(attempt).rejects.toThrow(/overloaded_error/);
+		expect(calls).toBe(3);
+	});
+
+	it("retries a thrown status-only 503 error", async () => {
+		let calls = 0;
+		const final = await retryTransientCompletion(() => {
+			calls += 1;
+			if (calls === 1) {
+				const error = new Error("request failed") as Error & { status: number };
+				error.status = 503;
+				throw error;
+			}
+			return Promise.resolve(message());
+		}, fast);
+
+		expect(calls).toBe(2);
+		expect(final.stopReason).toBe("stop");
+	});
+
+	it("does not retry a thrown non-transient error", async () => {
+		let calls = 0;
+		const attempt = retryTransientCompletion(() => {
+			calls += 1;
+			throw new Error("invalid_request_error: bad tool schema");
+		}, fast);
+
+		await expect(attempt).rejects.toThrow(/invalid_request_error/);
+		expect(calls).toBe(1);
+	});
+
+	it("stops immediately when the caller aborts", async () => {
 		const controller = new AbortController();
 		let calls = 0;
 		const final = await retryTransientCompletion(
@@ -166,117 +240,46 @@ describe("retryTransientCompletion", () => {
 			},
 			{ ...fast, signal: controller.signal },
 		);
+
 		expect(calls).toBe(1);
 		expect(final.stopReason).toBe("error");
 	});
 
-	it("rejects with the abort reason when cancelled during backoff", async () => {
-		const reason = new Error("user cancelled");
-		let aborted = false;
-		const signal = {
-			get aborted() {
-				return aborted;
-			},
-			get reason() {
-				return aborted ? reason : undefined;
-			},
-			addEventListener(type: string, listener: AbortEventListener) {
-				if (type !== "abort") return;
-				aborted = true;
-				const event = new Event("abort");
-				if (typeof listener === "function") listener(event);
-				else listener.handleEvent(event);
-			},
-			removeEventListener() {},
-		} as unknown as AbortSignal;
+	it("rejects with the abort reason when the caller cancels during backoff", async () => {
+		// The cancel lands while we are waiting, not while an attempt is in flight:
+		// it must stay a cancellation rather than being reported as the provider
+		// failure we happened to be sleeping on.
+		const controller = new AbortController();
+		const reason = new Error("user pressed escape");
 		let calls = 0;
 		const attempt = retryTransientCompletion(
 			() => {
 				calls += 1;
+				setTimeout(() => controller.abort(reason), 5);
 				return Promise.resolve(overloaded());
 			},
-			{ maxAttempts: 3, baseDelayMs: 200, signal },
+			{ maxAttempts: 3, baseDelayMs: 200, signal: controller.signal },
 		);
-		await expect(attempt).rejects.toThrow("user cancelled");
+
+		await expect(attempt).rejects.toThrow("user pressed escape");
 		expect(calls).toBe(1);
 	});
 
-	it("reports retries through the instrumentation hook", async () => {
-		const attempts: number[] = [];
+	it("reports each retry through onRetry so callers can log the wait", async () => {
+		const seen: number[] = [];
 		let calls = 0;
-		await retryTransientCompletion(() => Promise.resolve(++calls === 1 ? overloaded() : message()), {
-			...fast,
-			onRetry: info => attempts.push(info.attempt),
-		});
-		expect(attempts).toEqual([1]);
-	});
-
-	it("honors response retry-after headers", async () => {
-		let calls = 0;
-		let delay = -1;
-		await retryTransientCompletion(() => Promise.resolve(++calls === 1 ? rateLimited() : message()), {
-			maxAttempts: 2,
-			baseDelayMs: 1,
-			getResponseHeaders: () => ({ "retry-after-ms": "5" }),
-			onRetry: info => {
-				delay = info.delayMs;
-			},
-		});
-		expect(delay).toBe(5);
-	});
-
-	it("honors retry-after headers carried by thrown errors", async () => {
-		let calls = 0;
-		let delay = -1;
-		const attempt = retryTransientCompletion(
-			() => {
-				calls += 1;
-				const error = new Error("overloaded_error") as Error & {
-					status: number;
-					headers: Record<string, string>;
-				};
-				error.status = 529;
-				error.headers = { "retry-after-ms": "5" };
-				throw error;
-			},
-			{ maxAttempts: 2, baseDelayMs: 1, onRetry: info => (delay = info.delayMs) },
-		);
-		await expect(attempt).rejects.toThrow("overloaded_error");
-		expect(calls).toBe(2);
-		expect(delay).toBe(5);
-	});
-
-	it("honors the canonical retry-after-ms message suffix", async () => {
-		let calls = 0;
-		let delay = -1;
 		await retryTransientCompletion(
-			() =>
-				Promise.resolve(
-					++calls === 1
-						? message({ stopReason: "error", errorStatus: 429, errorMessage: "rate limited retry-after-ms=5" })
-						: message(),
-				),
-			{ maxAttempts: 2, baseDelayMs: 1, onRetry: info => (delay = info.delayMs) },
-		);
-		expect(delay).toBe(5);
-	});
-
-	it("surfaces failures instead of parking beyond maxDelayMs", async () => {
-		let calls = 0;
-		const final = await retryTransientCompletion(
 			() => {
 				calls += 1;
-				return Promise.resolve(
-					message({ stopReason: "error", errorStatus: 429, errorMessage: "rate limited retry-after-ms=12000" }),
-				);
+				return Promise.resolve(calls === 1 ? overloaded() : message());
 			},
-			{ ...fast, maxDelayMs: 1000 },
+			{ ...fast, onRetry: info => seen.push(info.attempt) },
 		);
-		expect(calls).toBe(1);
-		expect(final.stopReason).toBe("error");
+
+		expect(seen).toEqual([1]);
 	});
 
-	it("surfaces failures instead of parking on an over-cap text retry hint", async () => {
+	it("surfaces the failure instead of parking when the provider asks for longer than maxDelayMs", async () => {
 		let calls = 0;
 		const final = await retryTransientCompletion(
 			() => {
@@ -291,11 +294,86 @@ describe("retryTransientCompletion", () => {
 			},
 			{ ...fast, maxDelayMs: 1_000 },
 		);
+
 		expect(calls).toBe(1);
 		expect(final.stopReason).toBe("error");
 	});
 
-	it("surfaces failures when a retry-after header exceeds maxDelayMs", async () => {
+	it("honors a retry-after-ms response header over the backoff floor", async () => {
+		// The header is the only place a real Anthropic 429 carries its wait: the
+		// resolved AssistantMessage has no headers, so a helper that reads only the
+		// error text would silently fall back to plain backoff.
+		let calls = 0;
+		let observedDelay = -1;
+		await retryTransientCompletion(
+			() => {
+				calls += 1;
+				return Promise.resolve(calls === 1 ? rateLimited() : message());
+			},
+			{
+				maxAttempts: 2,
+				baseDelayMs: 1,
+				getResponseHeaders: () => ({ "retry-after-ms": "120" }),
+				onRetry: info => {
+					observedDelay = info.delayMs;
+				},
+			},
+		);
+
+		expect(calls).toBe(2);
+		expect(observedDelay).toBe(120);
+	});
+
+	it("honors the canonical retry-after-ms error-message suffix", async () => {
+		let calls = 0;
+		let observedDelay = -1;
+		await retryTransientCompletion(
+			() => {
+				calls += 1;
+				return Promise.resolve(
+					calls === 1
+						? message({
+								stopReason: "error",
+								errorStatus: 429,
+								errorMessage: "rate_limit_error: too many requests retry-after-ms=5",
+							})
+						: message(),
+				);
+			},
+			{
+				maxAttempts: 2,
+				baseDelayMs: 1,
+				onRetry: info => {
+					observedDelay = info.delayMs;
+				},
+			},
+		);
+
+		expect(calls).toBe(2);
+		expect(observedDelay).toBe(5);
+	});
+
+	it("surfaces a canonical retry-after-ms suffix above maxDelayMs", async () => {
+		let calls = 0;
+		const final = await retryTransientCompletion(
+			() => {
+				calls += 1;
+				return Promise.resolve(
+					message({
+						stopReason: "error",
+						errorStatus: 429,
+						errorMessage: "rate_limit_error: too many requests retry-after-ms=12000",
+					}),
+				);
+			},
+			{ ...fast, maxDelayMs: 1_000 },
+		);
+
+		expect(calls).toBe(1);
+		expect(final.stopReason).toBe("error");
+	});
+
+	it("surfaces the failure when a retry-after header exceeds maxDelayMs", async () => {
 		let calls = 0;
 		const final = await retryTransientCompletion(
 			() => {
@@ -309,43 +387,73 @@ describe("retryTransientCompletion", () => {
 				getResponseHeaders: () => ({ "retry-after": "300" }),
 			},
 		);
-		expect(calls).toBe(1);
-		expect(final.stopReason).toBe("error");
-	});
-	it("does not retry a transient-wrapped payload rejection", async () => {
-		let calls = 0;
-		const final = await retryTransientCompletion(
-			() => {
-				calls += 1;
-				return Promise.resolve(
-					message({
-						stopReason: "error",
-						errorStatus: 413,
-						errorMessage: "provider returned error: request_too_large payload too large",
-					}),
-				);
-			},
-			{ ...fast, maxAttempts: 5 },
-		);
+
 		expect(calls).toBe(1);
 		expect(final.stopReason).toBe("error");
 	});
 
-	it("keeps retrying narrowly-classified transient 400s", async () => {
+	it("recovers retry-after from a thrown provider error's own headers", async () => {
 		let calls = 0;
-		const final = await retryTransientCompletion(() => {
-			calls += 1;
-			return Promise.resolve(
-				calls === 1
-					? message({
-							stopReason: "error",
-							errorStatus: 400,
-							errorMessage: "provider returned error: numerical decode fault",
-						})
-					: message(),
-			);
-		}, fast);
+		let observedDelay = -1;
+		const attempt = retryTransientCompletion(
+			() => {
+				calls += 1;
+				const error = new Error("529 overloaded_error: Overloaded") as Error & {
+					status?: number;
+					headers?: Record<string, string>;
+				};
+				error.status = 529;
+				error.headers = { "retry-after-ms": "90" };
+				throw error;
+			},
+			{
+				maxAttempts: 2,
+				baseDelayMs: 1,
+				onRetry: info => {
+					observedDelay = info.delayMs;
+				},
+			},
+		);
+
+		await expect(attempt).rejects.toThrow(/overloaded_error/);
 		expect(calls).toBe(2);
-		expect(final.stopReason).toBe("stop");
+		expect(observedDelay).toBe(90);
+	});
+
+	it("applies the provider reset-timezone policy to a naive absolute reset", async () => {
+		// "2099-09-01 06:00:00" with no offset: Z.AI reads it as Beijing time
+		// (2099-08-31T22:00Z, already elapsed → discarded → normal backoff retry),
+		// while a provider with no declared offset reads it as UTC (now+6h, over
+		// the 3h cap → fail fast). Same body; provider policy flips the flow.
+		const fixedNow = Date.parse("2099-09-01T00:00:00Z");
+		const realNow = Date.now;
+		Date.now = () => fixedNow;
+		try {
+			const errorMessage = "rate_limit_error: too many requests. Your limit will reset at 2099-09-01 06:00:00";
+			const opts = { baseDelayMs: 1, maxAttempts: 2, maxDelayMs: 3 * 60 * 60_000 } as const;
+
+			let genericCalls = 0;
+			const generic = await retryTransientCompletion(() => {
+				genericCalls += 1;
+				return Promise.resolve(message({ stopReason: "error", errorStatus: 429, errorMessage }));
+			}, opts);
+			expect(genericCalls).toBe(1);
+			expect(generic.stopReason).toBe("error");
+
+			let zaiCalls = 0;
+			const zai = await retryTransientCompletion(
+				() => {
+					zaiCalls += 1;
+					return Promise.resolve(
+						zaiCalls === 1 ? message({ stopReason: "error", errorStatus: 429, errorMessage }) : message(),
+					);
+				},
+				{ ...opts, provider: "zai" },
+			);
+			expect(zaiCalls).toBe(2);
+			expect(zai.stopReason).toBe("stop");
+		} finally {
+			Date.now = realNow;
+		}
 	});
 });

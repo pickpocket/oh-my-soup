@@ -1,20 +1,23 @@
 import { describe, expect, test } from "bun:test";
-import { buildModel } from "@oh-my-soup/pi-catalog/build";
-import { Effort } from "@oh-my-soup/pi-catalog/effort";
-import { YOLO_AUTO_STATIC_MODELS } from "@oh-my-soup/pi-catalog/provider-models/openai-compat";
+import type { Context, FetchImpl, Model } from "@oh-my-soup/pi-ai/types";
+import { buildModel } from "../../catalog/src/build";
+import { Effort } from "../../catalog/src/effort";
+import { seedModels } from "../../catalog/src/compat/providers";
 import { streamOpenAICompletions } from "../src/providers/openai-completions";
-import type { Context, FetchImpl, Model } from "../src/types";
 
-const model = buildModel(YOLO_AUTO_STATIC_MODELS[0]) as Model<"openai-completions">;
-const context: Context = { messages: [{ role: "user", content: "hello", timestamp: 0 }] };
+const model = buildModel(seedModels("yolo-auto")[0]) as Model<"openai-completions">;
 
-async function outgoingBody(options: {
-	reasoning?: Effort;
-	disableReasoning?: boolean;
-}): Promise<Record<string, unknown>> {
-	let body: Record<string, unknown> | undefined;
-	const fetchImpl: FetchImpl = async (_input, init) => {
-		if (typeof init?.body === "string") body = JSON.parse(init.body) as Record<string, unknown>;
+const context: Context = {
+	messages: [{ role: "user", content: "hello", timestamp: 0 }],
+};
+
+function captureRequest(): { bodies: Record<string, unknown>[]; fetch: FetchImpl } {
+	const bodies: Record<string, unknown>[] = [];
+	const fetch: FetchImpl = async (_input, init) => {
+		if (typeof init?.body === "string") {
+			const parsed: unknown = JSON.parse(init.body);
+			if (typeof parsed === "object" && parsed !== null) bodies.push(parsed as Record<string, unknown>);
+		}
 		const chunk = JSON.stringify({
 			id: "chatcmpl-yolo",
 			object: "chat.completion.chunk",
@@ -27,21 +30,36 @@ async function outgoingBody(options: {
 			headers: { "content-type": "text/event-stream" },
 		});
 	};
-	await streamOpenAICompletions(model, context, { apiKey: "yolo-test-key", fetch: fetchImpl, ...options }).result();
+	return { bodies, fetch };
+}
+
+async function outgoingBody(options: {
+	reasoning?: Effort;
+	disableReasoning?: boolean;
+}): Promise<Record<string, unknown>> {
+	const { bodies, fetch } = captureRequest();
+	await streamOpenAICompletions(model, context, { apiKey: "yolo-test-key", fetch, ...options }).result();
+	const body = bodies[0];
 	if (!body) throw new Error("Yolo-Auto request was not captured");
 	return body;
 }
 
 describe("Yolo-Auto chat-template thinking wire format", () => {
-	test("enables generic template thinking and forwards the mapped effort", async () => {
-		const body = await outgoingBody({ reasoning: Effort.XHigh });
-		expect(body.chat_template_kwargs).toEqual({ thinking: true, reasoning_effort: "max" });
+	test("enables thinking in chat_template_kwargs", async () => {
+		const body = await outgoingBody({ reasoning: Effort.Low });
+		expect(body.chat_template_kwargs).toEqual({ thinking: true, reasoning_effort: "low" });
 		expect(body).not.toHaveProperty("reasoning_effort");
 	});
 
-	test("disables thinking through the schema-safe template kwargs field", async () => {
+	test("disables thinking in chat_template_kwargs", async () => {
 		const body = await outgoingBody({ disableReasoning: true });
 		expect(body.chat_template_kwargs).toEqual({ thinking: false });
+		expect(body).not.toHaveProperty("reasoning_effort");
+	});
+
+	test("maps and forwards the selected effort in chat_template_kwargs", async () => {
+		const body = await outgoingBody({ reasoning: Effort.XHigh });
+		expect(body.chat_template_kwargs).toEqual({ thinking: true, reasoning_effort: "max" });
 		expect(body).not.toHaveProperty("reasoning_effort");
 	});
 });

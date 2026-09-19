@@ -1,3 +1,4 @@
+import { createAgentHubRuntime } from "@oh-my-soup/pi-coding-agent/modes/agent-hub-runtime";
 /**
  * Regression: the agent hub row order must be stable while the hub is open.
  *
@@ -9,13 +10,13 @@ import { afterEach, beforeAll, describe, expect, it, setSystemTime, vi } from "b
 import { ThinkingLevel } from "@oh-my-soup/pi-agent-core";
 import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
 import { IrcBus } from "@oh-my-soup/pi-coding-agent/irc/bus";
-import { type AgentHubDeps, AgentHubOverlayComponent } from "@oh-my-soup/pi-coding-agent/modes/components/agent-hub";
-import { SessionObserverRegistry } from "@oh-my-soup/pi-coding-agent/modes/session-observer-registry";
-import { initTheme, theme } from "@oh-my-soup/pi-coding-agent/modes/theme/theme";
-import { AgentLifecycleManager } from "@oh-my-soup/pi-coding-agent/registry/agent-lifecycle";
+import { type AgentHubDeps, AgentHubOverlayComponent } from "@oh-my-soup/pi-tui/overlays/agent-hub";
+import { SessionObserverRegistry } from "@oh-my-soup/pi-tui/overlays/session-observer-registry";
+import { initTheme, theme } from "@oh-my-soup/pi-tui/theme";
 import { AgentRegistry } from "@oh-my-soup/pi-coding-agent/registry/agent-registry";
 import type { AgentSession } from "@oh-my-soup/pi-coding-agent/session/agent-session";
 import { visibleWidth } from "@oh-my-soup/pi-tui/utils";
+import { AgentActivityIndex, type AgentActivityRow } from "../src/activity";
 
 interface GeometryStub {
 	setRows(n: number): void;
@@ -45,7 +46,7 @@ function stubStdoutGeometry(cols: number): GeometryStub {
 
 function makeHub(agents: AgentRegistry, overrides: Partial<AgentHubDeps> = {}) {
 	return new AgentHubOverlayComponent({
-		settings: Settings.isolated(),
+		...createAgentHubRuntime({ settings: Settings.isolated(), registry: agents }),
 		observers: new SessionObserverRegistry(),
 		hubKeys: [],
 		onDone: () => {},
@@ -53,20 +54,9 @@ function makeHub(agents: AgentRegistry, overrides: Partial<AgentHubDeps> = {}) {
 		registry: agents,
 		irc: new IrcBus(agents),
 		focusAgent: async () => {},
+		manageActivityLive: !overrides.activity,
 		...overrides,
 	});
-}
-
-function makeIrcHub(ids: string[], overrides: Partial<AgentHubDeps> = {}) {
-	const agents = new AgentRegistry();
-	const lifecycle = new AgentLifecycleManager(agents);
-	for (const id of ids) {
-		const session = { deliverIrcMessage: async () => "injected" as const } as unknown as AgentSession;
-		agents.register({ id, displayName: id, kind: "sub", session });
-	}
-	const irc = new IrcBus(agents, lifecycle);
-	const hub = makeHub(agents, { irc, lifecycle, ...overrides });
-	return { hub, irc, lifecycle };
 }
 
 interface RenderedAgentRow {
@@ -74,7 +64,12 @@ interface RenderedAgentRow {
 	selected: boolean;
 }
 
-const ROSTER_ENTRY_PATTERN = /^(❯| ) (\S+) (?:(?:(?:│ {3}| {4})*)(?:├── |└── ))?(\S+)/u;
+const ROSTER_ENTRY_PATTERN = /^(❯| ) (?:(?:(?:│ {3}| {4})*)(?:├── |└── ))?(\S+) (\S+)/u;
+function rosterEntryMatch(cell: string | undefined): RegExpExecArray | null {
+	if (!cell) return null;
+	const match = ROSTER_ENTRY_PATTERN.exec(cell);
+	return match?.[2] === "│" ? null : match;
+}
 
 function rosterCell(raw: string): string | undefined {
 	const line = Bun.stripANSI(raw);
@@ -85,13 +80,11 @@ function rosterCell(raw: string): string | undefined {
 }
 
 function renderedAgentRows(hub: AgentHubOverlayComponent, width = 120): RenderedAgentRow[] {
-	// Roster entry first cells are
-	// `<cursor> <status-glyph> [tree-prefix] <id> …`; task cells are
-	// indented deeper and never match the cursor/status slots.
+	// `<cursor> <status-glyph> [tree-prefix] <id> …`; continuation rows may
+	// carry `│` in the status column and are rejected by rosterEntryMatch.
 	const rows: RenderedAgentRow[] = [];
 	for (const raw of hub.render(width)) {
-		const cell = rosterCell(raw);
-		const match = cell ? ROSTER_ENTRY_PATTERN.exec(cell) : null;
+		const match = rosterEntryMatch(rosterCell(raw));
 		if (match) rows.push({ id: match[3]!, selected: match[1] === "❯" });
 	}
 	return rows;
@@ -107,26 +100,19 @@ function selectedAgentId(hub: AgentHubOverlayComponent): string | undefined {
 
 function renderedRosterEntry(hub: AgentHubOverlayComponent, id: string, width: number): string {
 	const cells = hub.render(width).map(rosterCell);
-	const start = cells.findIndex(cell => {
-		const match = cell ? ROSTER_ENTRY_PATTERN.exec(cell) : null;
-		return match?.[3] === id;
-	});
+	const start = cells.findIndex(cell => rosterEntryMatch(cell)?.[3] === id);
 	expect(start).toBeGreaterThanOrEqual(0);
 	const entry: string[] = [];
 	for (let i = start; i < cells.length; i++) {
 		const cell = cells[i];
 		if (cell === undefined || cell.trim().length === 0) break;
-		if (i > start && ROSTER_ENTRY_PATTERN.test(cell)) break;
+		if (i > start && rosterEntryMatch(cell)) break;
 		entry.push(cell.trimEnd());
 	}
 	return entry.join("\n");
 }
 function renderedRosterHeaderLineRaw(hub: AgentHubOverlayComponent, id: string, width: number): string {
-	const line = hub.render(width).find(raw => {
-		const cell = rosterCell(raw);
-		const match = cell ? ROSTER_ENTRY_PATTERN.exec(cell) : null;
-		return match?.[3] === id;
-	});
+	const line = hub.render(width).find(raw => rosterEntryMatch(rosterCell(raw))?.[3] === id);
 	if (!line) throw new Error(`No rendered roster header for ${id}`);
 	return line;
 }
@@ -169,7 +155,36 @@ describe("Agent hub row ordering", () => {
 		}
 	});
 
-	it("freezes the initial lastActivity order while the hub is open", () => {
+	it("captures initial ranking when agents load after empty construction", () => {
+		vi.useFakeTimers();
+		geometry = stubStdoutGeometry(120);
+		const agents = new AgentRegistry();
+		const hub = makeHub(agents);
+
+		try {
+			expect(renderedAgentIds(hub)).toEqual([]);
+
+			setSystemTime(3000);
+			agents.register({
+				id: "Parked",
+				displayName: "Parked",
+				kind: "sub",
+				session: null,
+				status: "parked",
+			});
+			setSystemTime(1000);
+			agents.register({ id: "Older", displayName: "Older", kind: "sub", session: {} as AgentSession });
+			setSystemTime(2000);
+			agents.register({ id: "Newer", displayName: "Newer", kind: "sub", session: {} as AgentSession });
+
+			vi.advanceTimersByTime(100);
+			expect(renderedAgentIds(hub)).toEqual(["Newer", "Older", "Parked"]);
+		} finally {
+			hub.dispose();
+		}
+	});
+
+	it("keeps row order stable as agents heartbeat and appends new agents", () => {
 		vi.useFakeTimers();
 		let hub: AgentHubOverlayComponent | undefined;
 		try {
@@ -188,23 +203,56 @@ describe("Agent hub row ordering", () => {
 			agents.register({ id: "C", displayName: "Gamma", kind: "sub", session: sessionC });
 
 			hub = makeHub(agents);
+			// Captured once on open: status then recency (most-recent first).
 			expect(renderedAgentIds(hub)).toEqual(["C", "B", "A"]);
-			// Bump A's lastActivity far ahead of the others; captured order wins.
+
+			// A heartbeats far ahead of the others; a stable roster must NOT bubble
+			// it to the top while the hub is open (issue #10524).
 			setSystemTime(4000);
 			agents.setActivity("A", "still running");
 
-			// Status changes must not reorder the captured roster either.
-			agents.setStatus("B", "idle");
-
-			// Registering a new agent schedules a coalesced row refresh; even a
-			// different status is appended after all rows captured on open.
+			// A new agent appears and forces a refresh: existing rows keep their
+			// captured order, and the newcomer appends at the end.
 			setSystemTime(5000);
 			const sessionD = {} as AgentSession;
 			agents.register({ id: "D", displayName: "Delta", kind: "sub", session: sessionD, status: "parked" });
-
+			// Renders coalesce: the immediate frame still shows the captured order.
 			expect(renderedAgentIds(hub)).toEqual(["C", "B", "A"]);
 			vi.advanceTimersByTime(100);
 			expect(renderedAgentIds(hub)).toEqual(["C", "B", "A", "D"]);
+
+			// Reusing an unregistered id creates a new agent generation. It must
+			// append rather than reclaiming the removed generation's old rank.
+			agents.unregister("B", sessionB);
+			agents.register({ id: "B", displayName: "Beta 2", kind: "sub", session: {} as AgentSession });
+			vi.advanceTimersByTime(100);
+			expect(renderedAgentIds(hub)).toEqual(["C", "A", "D", "B"]);
+		} finally {
+			hub?.dispose();
+			vi.useRealTimers();
+			setSystemTime();
+		}
+	});
+
+	it("filters agents with a fuzzy query and clears on Escape", () => {
+		vi.useFakeTimers();
+		let hub: AgentHubOverlayComponent | undefined;
+		try {
+			geometry = stubStdoutGeometry(120);
+			const agents = new AgentRegistry();
+			const sessionA = {} as AgentSession;
+			agents.register({ id: "alpha-one", displayName: "Alpha", kind: "sub", session: sessionA });
+			const sessionB = {} as AgentSession;
+			agents.register({ id: "beta-two", displayName: "Beta", kind: "sub", session: sessionB });
+
+			hub = makeHub(agents);
+			expect(renderedAgentIds(hub)).toEqual(["alpha-one", "beta-two"]);
+			hub.handleInput("/");
+			hub.handleInput("a");
+			hub.handleInput("p");
+			expect(renderedAgentIds(hub)).toEqual(["alpha-one"]);
+			hub.handleInput("\u001b");
+			expect(renderedAgentIds(hub)).toEqual(["alpha-one", "beta-two"]);
 		} finally {
 			hub?.dispose();
 			vi.useRealTimers();
@@ -225,6 +273,7 @@ describe("Agent hub row ordering", () => {
 		const getSessions = vi.spyOn(observers, "getSessions");
 		const getSession = vi.spyOn(observers, "getSession");
 		const hub = new AgentHubOverlayComponent({
+			...createAgentHubRuntime({ registry: agents }),
 			observers,
 			hubKeys: [],
 			onDone: () => {},
@@ -280,6 +329,7 @@ describe("Agent hub row ordering", () => {
 		const observers = new SessionObserverRegistry();
 		const getSession = vi.spyOn(observers, "getSession");
 		const hub = new AgentHubOverlayComponent({
+			...createAgentHubRuntime({ registry: agents }),
 			observers,
 			hubKeys: [],
 			onDone: () => {},
@@ -760,7 +810,7 @@ describe("Agent hub row ordering", () => {
 
 			const historical = renderedRosterEntry(hub, "Historical", 160);
 			expect(historical).toContain("Restored task");
-			expect(historical).toContain("usage —");
+			expect(historical).toMatch(/usage\s+·/);
 			expect(historical).not.toContain("$0.000");
 		} finally {
 			hub.dispose();
@@ -823,8 +873,8 @@ describe("Agent hub row ordering", () => {
 		try {
 			const rendered = Bun.stripANSI(hub.render(160).join("\n"));
 			expect(rendered).toContain("0/2 measured");
-			expect(renderedRosterEntry(hub, "Incomplete", 160)).toContain("usage —");
-			expect(renderedRosterEntry(hub, "NonFinite", 160)).toContain("usage —");
+			expect(renderedRosterEntry(hub, "Incomplete", 160)).toMatch(/usage\s+·/);
+			expect(renderedRosterEntry(hub, "NonFinite", 160)).toMatch(/usage\s+·/);
 			expect(getSessionStats).not.toHaveBeenCalled();
 		} finally {
 			hub.dispose();
@@ -887,10 +937,12 @@ describe("Agent hub row ordering", () => {
 		]);
 		const hub = makeHub(agents, {
 			observers,
-			settings: Settings.isolated({
-				modelRoles: { rapid: "openai/gpt-4o" },
-				modelTags: { rapid: { name: "Quick", color: "warning" } },
-			}),
+			getRoleInfo: createAgentHubRuntime({
+				settings: Settings.isolated({
+					modelRoles: { rapid: "openai/gpt-4o" },
+					modelTags: { rapid: { name: "Quick", color: "warning" } },
+				}),
+			}).getRoleInfo,
 		});
 
 		try {
@@ -960,9 +1012,46 @@ describe("Agent hub row ordering", () => {
 
 		try {
 			hub.handleInput("t");
-			expect(Bun.stripANSI(renderedRosterHeaderLineRaw(hub, "First", 120))).toContain("├── First");
-			expect(Bun.stripANSI(renderedRosterHeaderLineRaw(hub, "Grandchild", 120))).toContain("│   └── Grandchild");
-			expect(Bun.stripANSI(renderedRosterHeaderLineRaw(hub, "Last", 120))).toContain("└── Last");
+			expect(Bun.stripANSI(renderedRosterHeaderLineRaw(hub, "First", 120))).toContain("├── ⟳ First");
+			expect(Bun.stripANSI(renderedRosterHeaderLineRaw(hub, "Grandchild", 120))).toContain("│   └── ⟳ Grandchild");
+			expect(Bun.stripANSI(renderedRosterHeaderLineRaw(hub, "Last", 120))).toContain("└── ⟳ Last");
+		} finally {
+			hub.dispose();
+		}
+	});
+	it("keeps tree rails continuous across task and metrics rows", () => {
+		geometry = stubStdoutGeometry(120);
+		geometry.setRows(32);
+		const agents = new AgentRegistry();
+		agents.register({ id: "Parent", displayName: "Parent", kind: "sub", parentId: "Main", session: null });
+		agents.setActivity("Parent", "Parent task");
+		agents.register({ id: "First", displayName: "First", kind: "sub", parentId: "Parent", session: null });
+		agents.setActivity("First", "First task");
+		agents.register({ id: "Grandchild", displayName: "Grandchild", kind: "sub", parentId: "First", session: null });
+		agents.setActivity("Grandchild", "Grandchild task");
+		agents.register({ id: "Last", displayName: "Last", kind: "sub", parentId: "Parent", session: null });
+		agents.setActivity("Last", "Last task");
+		const hub = makeHub(agents);
+
+		try {
+			hub.handleInput("t");
+			const parentDetails = renderedRosterEntry(hub, "Parent", 120).split("\n").slice(1);
+			const firstDetails = renderedRosterEntry(hub, "First", 120).split("\n").slice(1);
+			const grandchildDetails = renderedRosterEntry(hub, "Grandchild", 120).split("\n").slice(1);
+			const lastDetails = renderedRosterEntry(hub, "Last", 120).split("\n").slice(1);
+			expect(parentDetails).toHaveLength(2);
+			expect(firstDetails).toHaveLength(2);
+			expect(grandchildDetails).toHaveLength(2);
+			expect(lastDetails).toHaveLength(2);
+			expect(parentDetails.every(line => line.startsWith("  │ "))).toBe(true);
+			expect(firstDetails.every(line => line.startsWith("  │   │ "))).toBe(true);
+			expect(grandchildDetails.every(line => line.startsWith("  │         "))).toBe(true);
+			expect(lastDetails.every(line => line.startsWith("        ") && !line.includes("│"))).toBe(true);
+			const metadataOrigins = [parentDetails, firstDetails, grandchildDetails, lastDetails].map(lines =>
+				lines[1]!.indexOf("usage"),
+			);
+			expect(new Set(metadataOrigins)).toEqual(new Set([metadataOrigins[0]]));
+			expect(metadataOrigins[0]).toBeGreaterThan(0);
 		} finally {
 			hub.dispose();
 		}
@@ -1035,134 +1124,68 @@ describe("Agent hub row ordering", () => {
 		}
 	});
 
-	it("toggles scoped and all-agent IRC traffic without changing roster selection or activation", async () => {
-		vi.useFakeTimers();
+	it("renders and operates the unified Activity view with transcript deep-links", () => {
 		geometry = stubStdoutGeometry(120);
-		setSystemTime(new Date("2026-09-01T12:00:00Z"));
-		const onDone = vi.fn();
-		const focusAgent = vi.fn(async () => {});
-		const { hub, irc, lifecycle } = makeIrcHub(["A", "B", "C"], { onDone, focusAgent, hubKeys: ["alt+a"] });
-		try {
-			await hub.persistedSubagentsReady;
-			await irc.send({ from: "A", to: "B", body: "Outgoing from selected" });
-			await irc.send({ from: "B", to: "A", body: "Incoming to selected" });
-			await irc.send({ from: "B", to: "C", body: "Other pair only" });
-			expect(selectedAgentId(hub)).toBe("A");
+		geometry.setRows(28);
+		const agents = new AgentRegistry();
+		agents.register({ id: "Worker", displayName: "Worker", kind: "sub", parentId: "Main", session: null });
+		const activity = new AgentActivityIndex();
+		activity.setLive("Worker", [
+			{
+				id: "tool-error",
+				agentId: "Worker",
+				timestamp: 1_000,
+				kind: "tool",
+				title: "read",
+				summary: "src/auth.ts",
+				status: "error",
+				toolName: "read",
+				source: "live",
+			},
+			{
+				id: "response",
+				agentId: "Worker",
+				timestamp: 2_000,
+				kind: "response",
+				title: "Response",
+				summary: "Reviewed the authentication boundary",
+				status: "success",
+				entryId: "entry-42",
+				source: "transcript",
+			},
+		] satisfies AgentActivityRow[]);
+		const hub = makeHub(agents, { activity, initialSection: "activity" });
 
-			hub.handleInput("c");
-			const scoped = Bun.stripANSI(hub.render(120).join("\n"));
-			expect(scoped).toContain("Agent IRC · A");
-			expect(scoped).toContain("Outgoing from selected");
-			expect(scoped).toContain("Incoming to selected");
-			expect(scoped).not.toContain("Other pair only");
-			hub.handleInput(wheel("down"));
-			hub.handleInput(leftClick(4));
+		try {
+			const initial = Bun.stripANSI(hub.render(120).join("\n"));
+			expect(initial).toContain("2 Activity");
+			expect(initial).toContain("src/auth.ts");
+			expect(initial).toContain("Reviewed the authentication boundary");
+
+			hub.handleInput("f");
+			const errors = Bun.stripANSI(hub.render(120).join("\n"));
+			expect(errors).toContain("errors");
+			expect(errors).toContain("src/auth.ts");
+			expect(errors).not.toContain("Reviewed the authentication boundary");
+
+			hub.handleInput("f");
+			hub.handleInput("/");
+			for (const key of "authentication") hub.handleInput(key);
 			hub.handleInput("\r");
-			expect(focusAgent).not.toHaveBeenCalled();
-			expect(onDone).not.toHaveBeenCalled();
+			const searched = Bun.stripANSI(hub.render(120).join("\n"));
+			expect(searched).toContain("responses");
+			expect(searched).toContain("authentication");
+			expect(searched).not.toContain("src/auth.ts");
 
-			hub.handleInput("a");
-			expect(Bun.stripANSI(hub.render(120).join("\n"))).toContain("Other pair only");
-			hub.handleInput("a");
-			expect(Bun.stripANSI(hub.render(120).join("\n"))).not.toContain("Other pair only");
-			hub.handleInput("c");
-			expect(selectedAgentId(hub)).toBe("A");
-			hub.handleInput("j");
-			hub.handleInput("c");
-			expect(Bun.stripANSI(hub.render(120).join("\n"))).toContain("Agent IRC · B");
-			hub.handleInput("\x1b[D");
-			expect(selectedAgentId(hub)).toBe("B");
-			expect(onDone).not.toHaveBeenCalled();
-			hub.handleInput("c");
-			hub.handleInput("\x1b");
-			expect(selectedAgentId(hub)).toBe("B");
-			hub.handleInput("c");
-			hub.handleInput("\x1ba");
-			expect(onDone).toHaveBeenCalledTimes(1);
+			const open = vi.spyOn(hub, "openChat");
+			hub.handleInput("\r");
+			expect(open).toHaveBeenCalledWith("Worker", "entry-42");
+			hub.handleInput(" ");
+			expect(Bun.stripANSI(hub.render(120).join("\n"))).toContain("paused");
+			hub.handleInput("1");
+			expect(Bun.stripANSI(hub.render(120).join("\n"))).toContain("Roster");
 		} finally {
 			hub.dispose();
-			await lifecycle.dispose();
-		}
-	});
-
-	it("renders only the newest scoped messages in chronological order within the terminal height", async () => {
-		geometry = stubStdoutGeometry(120);
-		geometry.setRows(8);
-		const { hub, irc, lifecycle } = makeIrcHub(["A"]);
-		try {
-			for (let i = 0; i < 10; i++) {
-				await irc.send({ from: "B", to: "A", body: `message-${i}` });
-			}
-			hub.handleInput("c");
-			const frame = hub.render(80);
-			const text = Bun.stripANSI(frame.join("\n"));
-			expect(frame).toHaveLength(8);
-			expect(text).not.toContain("message-5");
-			expect(text.indexOf("message-6")).toBeGreaterThanOrEqual(0);
-			expect(text.indexOf("message-6")).toBeLessThan(text.indexOf("message-7"));
-			expect(text.indexOf("message-7")).toBeLessThan(text.indexOf("message-8"));
-			expect(text.indexOf("message-8")).toBeLessThan(text.indexOf("message-9"));
-		} finally {
-			hub.dispose();
-			await lifecycle.dispose();
-		}
-	});
-
-	it("sanitizes hostile IRC fields and fits the actual render width even on tiny terminals", async () => {
-		geometry = stubStdoutGeometry(160);
-		geometry.setRows(8);
-		const agentId = "A\t\n\x1b[2J";
-		const { hub, irc, lifecycle } = makeIrcHub([agentId]);
-		try {
-			await irc.send({
-				from: "B\t\r\n\x1b]0;hostile-title\x07",
-				to: agentId,
-				body: `first\tline\nsecond\rline\x07\x1b[2J ${"界".repeat(200)}`,
-				replyTo: "reply\t\n\x1b[2J",
-			});
-			hub.handleInput("c");
-			const wide = Bun.stripANSI(hub.render(160).join("\n"));
-			expect(wide).toContain("first");
-			expect(wide).toContain("second");
-			for (const width of [1, 16, 40, 80, 160]) {
-				const frame = hub.render(width);
-				expect(frame.length).toBeLessThanOrEqual(8);
-				for (const line of frame) {
-					expect(visibleWidth(line)).toBeLessThanOrEqual(width);
-					expect(line).not.toContain("\x1b[2J");
-					expect(line).not.toContain("hostile-title");
-					expect(Bun.stripANSI(line)).not.toMatch(/[\t\r\n\x07]/);
-				}
-			}
-		} finally {
-			hub.dispose();
-			await lifecycle.dispose();
-		}
-	});
-
-	it("refreshes an empty IRC view on bus delivery and stops rendering after disposal", async () => {
-		vi.useFakeTimers();
-		geometry = stubStdoutGeometry(120);
-		const requestRender = vi.fn();
-		const { hub, irc, lifecycle } = makeIrcHub(["A"], { requestRender });
-		try {
-			await hub.persistedSubagentsReady;
-			hub.handleInput("c");
-			expect(Bun.stripANSI(hub.render(120).join("\n"))).toContain("No peer messages recorded");
-			requestRender.mockClear();
-			await irc.send({ from: "B", to: "A", body: "Live bus update" });
-			vi.advanceTimersByTime(100);
-			expect(requestRender).toHaveBeenCalledTimes(1);
-			expect(Bun.stripANSI(hub.render(120).join("\n"))).toContain("Live bus update");
-
-			hub.dispose();
-			requestRender.mockClear();
-			await irc.send({ from: "B", to: "A", body: "After disposal" });
-			vi.advanceTimersByTime(10_000);
-			expect(requestRender).not.toHaveBeenCalled();
-		} finally {
-			hub.dispose();
-			await lifecycle.dispose();
 		}
 	});
 });

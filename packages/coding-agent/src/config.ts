@@ -2,15 +2,16 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { CONFIG_DIR_NAME, getConfigAgentDirName, getProjectDir, LEGACY_CONFIG_DIR_NAME } from "@oh-my-soup/pi-utils";
+import { isUserSourceEnabled } from "./capability";
+import { resolveClaudePaths } from "./config/claude-paths";
 import { expandTilde } from "./tools/path-utils";
 
 export * from "./config/config-file";
 
 const priorityList = [
 	{ dir: CONFIG_DIR_NAME, globalAgentDir: getConfigAgentDirName },
-	// Pre-rebrand tier: `.omp` trees authored before the oms rename still load,
-	// ranked below `.oms` so a migrated copy wins. Collapses into the canonical
-	// tier (deduped by resolved path) when the config root is pinned to `.omp`.
+	// Pre-rebrand tier: `.omp` trees still load below `.oms` so migrated
+	// configuration wins when both locations exist.
 	{ dir: LEGACY_CONFIG_DIR_NAME, globalAgentDir: () => `${LEGACY_CONFIG_DIR_NAME}/agent` },
 	{ dir: ".claude" },
 	{ dir: ".codex" },
@@ -80,12 +81,13 @@ export function getChangelogPath(): string | undefined {
 // =============================================================================
 
 /**
- * Config directory bases in priority order (highest first).
- * User-level: ~/.oms/agent, ~/.claude, ~/.codex, ~/.gemini
- * Project-level: .oms, .claude, .codex, .gemini
+ * User-level: ~/.oms/agent, ~/.omp/agent, Claude's active config directory,
+ * ~/.codex, ~/.gemini
+ * Project-level: .oms, .omp, .claude, .codex, .gemini
  */
 const USER_CONFIG_BASES = priorityList.map(({ dir, globalAgentDir }) => ({
-	base: () => path.join(os.homedir(), globalAgentDir ? globalAgentDir() : dir),
+	base: () =>
+		dir === ".claude" ? resolveClaudePaths().configDir : path.join(os.homedir(), globalAgentDir?.() ?? dir),
 	name: dir,
 }));
 
@@ -130,9 +132,8 @@ export interface GetConfigDirsOptions {
 export function getConfigDirs(subpath: string, options: GetConfigDirsOptions = {}): ConfigDirEntry[] {
 	const { user = true, project = true, cwd = getProjectDir(), existingOnly = false } = options;
 	const results: ConfigDirEntry[] = [];
-	// The legacy `.omp` tier resolves to the same path as the canonical tier
-	// whenever the config root is pinned to it; first-seen-wins keeps discovery
-	// from loading those commands, skills, and rules twice.
+	// A configured canonical root can resolve to the legacy path. Preserve the
+	// priority order while avoiding duplicate discovery in that case.
 	const seen = new Set<string>();
 	const push = (resolvedPath: string, source: string, level: ConfigDirEntry["level"]) => {
 		if (seen.has(resolvedPath)) return;
@@ -144,12 +145,23 @@ export function getConfigDirs(subpath: string, options: GetConfigDirsOptions = {
 
 	// User-level directories (highest priority)
 	if (user) {
-		for (const { base, name } of USER_CONFIG_BASES) push(path.resolve(base(), subpath), name, "user");
+		for (const { base, name } of USER_CONFIG_BASES) {
+			if (
+				name !== CONFIG_DIR_NAME &&
+				name !== LEGACY_CONFIG_DIR_NAME &&
+				!isUserSourceEnabled(name.replace(/^\./, ""))
+			) {
+				continue;
+			}
+			push(path.resolve(base(), subpath), name, "user");
+		}
 	}
 
 	// Project-level directories
 	if (project) {
-		for (const { base, name } of PROJECT_CONFIG_BASES) push(path.resolve(cwd, base, subpath), name, "project");
+		for (const { base, name } of PROJECT_CONFIG_BASES) {
+			push(path.resolve(cwd, base, subpath), name, "project");
+		}
 	}
 
 	return results;

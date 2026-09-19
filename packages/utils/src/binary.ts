@@ -16,8 +16,8 @@ import { peekFile, peekFileSync } from "./peek-file";
 
 /**
  * Header window sniffed for the binary heuristic; mirrors git's 8000-byte scan.
- * Exported so callers that already hold the file can sniff the identical prefix
- * without reopening it.
+ * Exported so callers that already hold the whole file in memory can sniff the
+ * identical prefix through {@link isProbablyBinaryHeader} instead of reopening.
  */
 export const BINARY_SNIFF_BYTES = 8192;
 

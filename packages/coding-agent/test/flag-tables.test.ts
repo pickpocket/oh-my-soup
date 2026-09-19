@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { parseArgs, validateToolNames } from "../src/cli/args";
-import { OPTIONAL_VALUE_FLAGS, STRING_VALUE_FLAGS } from "../src/cli/flag-tables";
+import { OPTIONAL_VALUE_FLAGS, restartArgv, STRING_VALUE_FLAGS } from "../src/cli/flag-tables";
 import { CliUsageError } from "../src/cli/usage-error";
 
 /**
@@ -73,12 +73,8 @@ describe("--session-dir", () => {
 		const previous = Bun.env.PI_CODING_AGENT_SESSION_DIR;
 		Bun.env.PI_CODING_AGENT_SESSION_DIR = "/env/sessions";
 		try {
-			const inherited = parseArgs([]);
-			expect(inherited.sessionDir).toBe("/env/sessions");
-			expect(inherited.sessionDirExplicit).toBeUndefined();
-			const explicit = parseArgs(["--session-dir", "/cli/sessions"]);
-			expect(explicit.sessionDir).toBe("/cli/sessions");
-			expect(explicit.sessionDirExplicit).toBe(true);
+			expect(parseArgs([]).sessionDir).toBe("/env/sessions");
+			expect(parseArgs(["--session-dir", "/cli/sessions"]).sessionDir).toBe("/cli/sessions");
 		} finally {
 			if (previous === undefined) {
 				delete Bun.env.PI_CODING_AGENT_SESSION_DIR;
@@ -186,5 +182,44 @@ describe("foreign session import flags", () => {
 		expect(codex.fromCodex).toBe(true);
 		expect(codex.messages).toEqual(["continue this session"]);
 		expect(codex.unrecognizedFlags).toEqual([]);
+	});
+});
+
+describe("restartArgv (/restart relaunch argv)", () => {
+	it("keeps configuration flags, drops positionals, and appends --resume", () => {
+		expect(restartArgv(["--model", "gpt-5", "fix the bug", "@notes.md"], "sid")).toEqual([
+			"--model",
+			"gpt-5",
+			"--resume",
+			"sid",
+		]);
+	});
+
+	it("drops every session-source flag, including inline = and value forms", () => {
+		expect(
+			restartArgv(["--resume=old", "-r", "old2", "--continue", "-c", "--fork", "xyz", "--from-claude"], "sid"),
+		).toEqual(["--resume", "sid"]);
+	});
+
+	it("keeps the value of an unknown extension flag instead of dropping it as a positional", () => {
+		expect(restartArgv(["--myext-flag", "val", "--no-tools"], "sid")).toEqual([
+			"--myext-flag",
+			"val",
+			"--no-tools",
+			"--resume",
+			"sid",
+		]);
+	});
+
+	it("treats everything after -- as prompt text and drops it", () => {
+		expect(restartArgv(["--print-thoughts", "--", "--model", "opus"], "sid")).toEqual([
+			"--print-thoughts",
+			"--resume",
+			"sid",
+		]);
+	});
+
+	it("omits --resume for a session that never materialized on disk", () => {
+		expect(restartArgv(["--no-session", "hello"], undefined)).toEqual(["--no-session"]);
 	});
 });

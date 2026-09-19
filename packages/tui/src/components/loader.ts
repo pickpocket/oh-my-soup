@@ -1,24 +1,21 @@
 import type { TUI } from "../tui";
-import { getPaddingX, sliceByColumn, visibleWidth } from "../utils";
+import { getPaddingX, padding, sliceByColumn, visibleWidth } from "../utils";
 import { Text } from "./text";
 
 const RENDER_INTERVAL_MS = 1000 / 30;
-const SPINNER_ADVANCE_MS = 80;
+/** Milliseconds between spinner-frame advances; exported so time-derived spinners elsewhere tick at the Loader cadence. */
+export const SPINNER_ADVANCE_MS = 80;
 const RENDER_BACKPRESSURE_MULTIPLIER = 9;
+const MAX_BACKPRESSURE_FRAME_COST_MS = 200;
 
 type ColorFn = (str: string) => string;
 
 /**
  * Styles Loader message fragments without changing their visible text or width.
  * Set `animated` for colorizers whose ANSI output changes over time.
- * `frameKey` identifies the animation frame: while it returns the same value,
- * the colorizer promises byte-identical output for the same message, letting
- * the loader skip repaints between frames. Colorizers without a `frameKey`
- * repaint on every animated tick, as before.
  */
 export type LoaderMessageColorFn = ColorFn & {
 	readonly animated?: true;
-	readonly frameKey?: () => number;
 };
 
 /** Animates a spinner and colorized message while asynchronous work is pending. */
@@ -32,13 +29,13 @@ export class Loader extends Text {
 	#layout?: readonly { leading: string; content: string; trailing: string }[];
 	#layoutFrames: readonly string[];
 	#layoutFrame: string;
-	#lastAnimatedFrameKey: number | undefined;
+	#trailer?: () => string | undefined;
 
 	constructor(
 		ui: TUI,
 		private spinnerColorFn: ColorFn,
 		private messageColorFn: LoaderMessageColorFn,
-		private message: string = "Loading...",
+		private message: string | (() => string) = "Loading...",
 		spinnerFrames?: string[],
 	) {
 		super("", 1, 0);
@@ -58,6 +55,16 @@ export class Loader extends Text {
 		});
 		this.#layoutFrame = this.#layoutFrames[0];
 		this.start();
+	}
+	/** Return the current message and animation state for debug inspection. */
+	override debugState(): Record<string, unknown> {
+		const message = this.#resolveMessage();
+		return {
+			message: message.slice(0, 120),
+			messageLength: message.length,
+			running: this.#intervalId !== undefined,
+			frame: this.#currentFrame,
+		};
 	}
 
 	override render(width: number): readonly string[] {
@@ -97,6 +104,15 @@ export class Loader extends Text {
 				lines.push(`${leading}${content ? this.messageColorFn(content) : ""}${trailing}`);
 			}
 		}
+		if (this.#trailer && lines.length > 1) {
+			const trailer = this.#trailer();
+			if (trailer) {
+				// Text pads rows to full width; drop that pad before docking right.
+				const body = lines[1].trimEnd();
+				const gap = width - visibleWidth(body) - visibleWidth(trailer);
+				if (gap >= 2) lines[1] = body + padding(gap) + trailer;
+			}
+		}
 		return lines;
 	}
 
@@ -118,6 +134,12 @@ export class Loader extends Text {
 	/** Lifecycle teardown: stop the animation timer. Idempotent. */
 	dispose() {
 		this.stop();
+	}
+	/** Install a lazy right-docked suffix for the spinner row (e.g. a styled
+	 * session title). Re-evaluated every paint; dropped when the row leaves
+	 * less than a two-cell gap. */
+	setTrailer(trailer: (() => string | undefined) | undefined): void {
+		this.#trailer = trailer;
 	}
 
 	setMessage(message: string) {
@@ -141,45 +163,43 @@ export class Loader extends Text {
 				this.#lastSpinnerTick += steps * SPINNER_ADVANCE_MS;
 				this.#syncText();
 			}
-			// An animated colorizer with a frame key repaints only when the frame
-			// actually advanced — identical frames are byte-identical, so writing
-			// them would be pure ConPTY/render cost.
-			const frameKey = this.messageColorFn.frameKey?.();
-			const animatedFrameChanged = frameKey === undefined || frameKey !== this.#lastAnimatedFrameKey;
-			if (shouldAdvanceSpinner || (this.#ui?.synchronizedOutput === true && animatedFrameChanged)) {
-				this.#lastAnimatedFrameKey = frameKey;
+			if (shouldAdvanceSpinner || this.#ui?.synchronizedOutput === true) {
 				this.#requestPaint();
 			}
 
-			const frameCostMs = performance.now() - startedAt;
+			const completedFrameCostMs = this.#ui?.lastFrameCostMs ?? 0;
+			const requestCostMs = performance.now() - startedAt;
 			if (this.#intervalId !== timer) return;
-			const cadenceDelayMs = Math.max(0, intervalMs - frameCostMs);
-			// Idle for nine times the paint cost to keep animation at or below
-			// 10% CPU, even when a slow ConPTY write exceeds the normal cadence.
-			const backpressureDelayMs = frameCostMs * RENDER_BACKPRESSURE_MULTIPLIER;
+			const cadenceDelayMs = Math.max(0, intervalMs - requestCostMs);
+			// Idle for nine times the full frame cost to keep animation at or
+			// below 10% CPU even though requestComponentRender() only enqueues.
+			const boundedFrameCostMs = Math.min(
+				MAX_BACKPRESSURE_FRAME_COST_MS,
+				Math.max(completedFrameCostMs, requestCostMs),
+			);
+			const backpressureDelayMs = boundedFrameCostMs * RENDER_BACKPRESSURE_MULTIPLIER;
 			this.#scheduleTick(intervalMs, Math.max(cadenceDelayMs, backpressureDelayMs));
 		}, delayMs);
 		this.#intervalId = timer;
 	}
-	/** Re-wrap the underlying Text only when its message or frame width changes. */
+	#resolveMessage(): string {
+		return typeof this.message === "function" ? this.message() : this.message;
+	}
+
+	/** Re-wrap the underlying Text only when its message or frame width changes.
+	 * When {@link message} is a function it is re-evaluated on every spinner
+	 * tick, so a dynamic label (e.g. a live countdown) advances in sync with
+	 * the glyph instead of freezing on the initial value. */
 	#syncText(): boolean {
 		const layoutFrame = this.#layoutFrames[this.#currentFrame];
 		this.#layoutFrame = layoutFrame;
-		return this.setText(`${layoutFrame} ${this.message}`);
+		return this.setText(`${layoutFrame} ${this.#resolveMessage()}`);
 	}
 
 	#requestPaint() {
 		if (!this.#ui) {
 			return;
 		}
-		// Direct write: a loader tick changes only this component, so the TUI can
-		// update the already-positioned rows without driving the full
-		// compose/prepare/diff pipeline. Lightweight test stubs may not carry the
-		// newer API; keep their legacy component-scoped path working.
-		if (typeof this.#ui.requestDirectWrite === "function") {
-			this.#ui.requestDirectWrite(this);
-		} else {
-			this.#ui.requestComponentRender(this);
-		}
+		this.#ui.requestComponentRender(this);
 	}
 }

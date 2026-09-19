@@ -7,8 +7,6 @@ import type { ToolSession } from "@oh-my-soup/pi-coding-agent/tools";
 import { WriteTool } from "@oh-my-soup/pi-coding-agent/tools/write";
 import { removeWithRetries } from "@oh-my-soup/pi-utils";
 
-const SUPPORTS_POSIX_MODE_BITS = process.platform !== "win32";
-
 function createSession(cwd: string): ToolSession {
 	return {
 		cwd,
@@ -48,7 +46,7 @@ describe("write tool shebang chmod", () => {
 		await removeWithRetries(tmpDir);
 	});
 
-	it("marks shebang files executable where POSIX mode bits are supported", async () => {
+	it("marks files starting with #! as executable and flags the result", async () => {
 		const filePath = path.join(tmpDir, "run.sh");
 		const tool = new WriteTool(createSession(tmpDir));
 
@@ -57,18 +55,12 @@ describe("write tool shebang chmod", () => {
 			content: "#!/bin/sh\necho hi\n",
 		});
 
-		expect(await Bun.file(filePath).text()).toBe("#!/bin/sh\necho hi\n");
-		if (SUPPORTS_POSIX_MODE_BITS) {
-			const stat = await fs.stat(filePath);
-			// All three execute bits flipped on (chmod a+x semantics).
-			expect(stat.mode & 0o111).toBe(0o111);
-			// Notice remains model-facing so callers see that chmod changed the file mode.
-			expect(details(result).madeExecutable).toBe(true);
-			expect(resultText(result)).toContain("[Notice: Made executable via chmod +x]");
-		} else {
-			expect(details(result).madeExecutable).toBeUndefined();
-			expect(resultText(result)).not.toContain("[Notice: Made executable via chmod +x]");
-		}
+		const stat = await fs.stat(filePath);
+		// All three execute bits flipped on (chmod a+x semantics).
+		expect(stat.mode & 0o111).toBe(0o111);
+		// Notice remains model-facing so callers see that chmod changed the file mode.
+		expect(details(result).madeExecutable).toBe(true);
+		expect(resultText(result)).toContain("[Notice: Made executable via chmod +x]");
 	});
 
 	it("does not chmod files without a shebang", async () => {
@@ -80,14 +72,12 @@ describe("write tool shebang chmod", () => {
 			content: "no shebang here\n",
 		});
 
-		if (SUPPORTS_POSIX_MODE_BITS) {
-			const stat = await fs.stat(filePath);
-			expect(stat.mode & 0o111).toBe(0);
-		}
+		const stat = await fs.stat(filePath);
+		expect(stat.mode & 0o111).toBe(0);
 		expect(details(result).madeExecutable).toBeUndefined();
 	});
 
-	it.skipIf(!SUPPORTS_POSIX_MODE_BITS)("does not re-flag when file is already executable", async () => {
+	it("does not re-flag when file is already executable", async () => {
 		const filePath = path.join(tmpDir, "preexec.sh");
 		await fs.writeFile(filePath, "#!/bin/sh\nold\n");
 		await fs.chmod(filePath, 0o755);

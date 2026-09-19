@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "bun:test";
 import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
 import { TaskTool } from "@oh-my-soup/pi-coding-agent/task";
 import * as discoveryModule from "@oh-my-soup/pi-coding-agent/task/discovery";
-import type { TaskParams } from "@oh-my-soup/pi-coding-agent/task/types";
+import type { TaskParams } from "@oh-my-soup/pi-tui/tools/task";
 import type { ToolSession } from "@oh-my-soup/pi-coding-agent/tools";
 
 function createSession(overrides: Partial<Record<string, unknown>> = {}): ToolSession {

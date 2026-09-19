@@ -64,7 +64,6 @@ pi-*.html
 # Generated files
 packages/coding-agent/src/export/html/tool-views.generated.js
 packages/natives/npm/
-packages/coding-agent/src/utils/mupdf-wasm.wasm
 /runs/
 python/oms-rpc/src/oms_rpc.egg-info/
 python/oms-rpc/build/
@@ -92,3 +91,5 @@ packages/coding-agent/bench/boot-baseline.json
 /bazel-pi
 /bazel-oh-my-soup
 /.bazelrc.user
+
+.parity/

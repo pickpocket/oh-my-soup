@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { BeamMemory } from "@oh-my-soup/pi-mnemopi/core/beam";
 import { removeSyncWithRetries } from "@oh-my-soup/pi-utils";
 
+
 // Real embeddings (fastembed + onnxruntime-node, ~270MB) install on demand via
 // `bun install` on first use. These tests never exercise embeddings — the
 // consolidation dry-run touches no vectors — so disable them; otherwise the

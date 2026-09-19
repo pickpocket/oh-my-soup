@@ -1,21 +1,22 @@
 import { beforeAll, describe, expect, it, spyOn } from "bun:test";
 import * as os from "node:os";
 import { stripVTControlCharacters } from "node:util";
-import { resetSettingsForTest, Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
 import { PluginManager } from "@oh-my-soup/pi-coding-agent/extensibility/plugins";
 import {
 	type InstalledPluginSummary,
 	MarketplaceManager,
+	parsePluginId,
 } from "@oh-my-soup/pi-coding-agent/extensibility/plugins/marketplace";
+import { createPluginSettingsHost } from "@oh-my-soup/pi-coding-agent/extensibility/plugins/settings-host";
 import type { InstalledPlugin } from "@oh-my-soup/pi-coding-agent/extensibility/plugins/types";
 import {
+	type InstalledPluginSummary as MarketplaceSettingsPlugin,
 	MarketplacePluginDetailComponent,
 	PluginListComponent,
 	type PluginListEntry,
 	PluginSettingsComponent,
-} from "@oh-my-soup/pi-coding-agent/modes/components/plugin-settings";
-import { SettingsSelectorComponent } from "@oh-my-soup/pi-coding-agent/modes/components/settings-selector";
-import { initTheme } from "@oh-my-soup/pi-coding-agent/modes/theme/theme";
+} from "@oh-my-soup/pi-tui/overlays/plugin-settings";
+import { initTheme } from "@oh-my-soup/pi-tui/theme";
 
 beforeAll(async () => {
 	await initTheme();
@@ -126,7 +127,7 @@ describe("PluginListComponent", () => {
 
 	it("routes enter on a marketplace entry to onMarketplaceSelect", () => {
 		const target = marketplace("pick@mkt");
-		let selected: InstalledPluginSummary | null = null;
+		let selected: MarketplaceSettingsPlugin | null = null;
 		const component = new PluginListComponent(
 			[
 				{ kind: "npm", plugin: npm("filler") },
@@ -166,7 +167,7 @@ describe("PluginSettingsComponent", () => {
 		);
 
 		try {
-			const component = new PluginSettingsComponent(process.cwd(), {
+			const component = new PluginSettingsComponent(createPluginSettingsHost(process.cwd()), {
 				onClose: () => {},
 				onPluginChanged: async () => {
 					order.push("reload");
@@ -192,9 +193,7 @@ describe("PluginSettingsComponent", () => {
 		}
 	});
 
-	it("schedules a render frame once the production plugins tab mounts its async list", async () => {
-		resetSettingsForTest();
-		await Settings.init({ inMemory: true });
+	it("schedules a render frame once the async plugin list mounts", async () => {
 		const npmListSpy = spyOn(PluginManager.prototype, "list").mockResolvedValue([]);
 		const listInstalledSpy = spyOn(MarketplaceManager.prototype, "listInstalledPlugins").mockResolvedValue([
 			marketplace("late@mkt"),
@@ -203,37 +202,24 @@ describe("PluginSettingsComponent", () => {
 		try {
 			const mounted = Promise.withResolvers<void>();
 			let renders = 0;
-			let selector: SettingsSelectorComponent | undefined;
-			selector = new SettingsSelectorComponent(
-				{
-					availableThinkingLevels: [],
-					thinkingLevel: undefined,
-					availableThemes: ["dark"],
-					providers: [],
-					cwd: process.cwd(),
-					requestRender: () => {
-						renders++;
-						const frame = stripVTControlCharacters(selector?.render(120).join("\n") ?? "");
-						if (frame.includes("late@mkt")) mounted.resolve();
-					},
+			const component = new PluginSettingsComponent(createPluginSettingsHost(process.cwd()), {
+				onClose: () => {},
+				onPluginChanged: () => {},
+				requestRender: () => {
+					renders++;
+					mounted.resolve();
 				},
-				{
-					onChange: () => {},
-					onCancel: () => {},
-				},
-			);
-			// Plugins follows the ten settings tabs. Exercise the production
-			// SettingsSelector → PluginSettings callback wiring, not a direct
-			// component construction that can hide an unwired caller.
-			for (let i = 0; i < 10; i++) selector.handleInput("\x1b[C");
+			});
 
+			// No manual render() poll: the real TUI only repaints when the
+			// component asks for a frame. Without requestRender the list stays
+			// blank until an unrelated event forces a redraw (reopening /settings).
 			await mounted.promise;
 			expect(renders).toBeGreaterThanOrEqual(1);
-			expect(stripVTControlCharacters(selector.render(120).join("\n"))).toContain("late@mkt");
+			expect(stripVTControlCharacters(component.render(120).join("\n"))).toContain("late@mkt");
 		} finally {
 			npmListSpy.mockRestore();
 			listInstalledSpy.mockRestore();
-			resetSettingsForTest();
 		}
 	});
 
@@ -244,7 +230,7 @@ describe("PluginSettingsComponent", () => {
 
 		try {
 			let closed = 0;
-			const component = new PluginSettingsComponent(process.cwd(), {
+			const component = new PluginSettingsComponent(createPluginSettingsHost(process.cwd()), {
 				onClose: () => {
 					closed++;
 				},
@@ -273,7 +259,7 @@ describe("PluginSettingsComponent", () => {
 
 		try {
 			let closed = 0;
-			const component = new PluginSettingsComponent(process.cwd(), {
+			const component = new PluginSettingsComponent(createPluginSettingsHost(process.cwd()), {
 				onClose: () => {
 					closed++;
 				},
@@ -296,54 +282,104 @@ describe("PluginSettingsComponent", () => {
 	});
 });
 
+async function renderMarketplaceDetail(component: MarketplacePluginDetailComponent, needle: string): Promise<string> {
+	for (let i = 0; i < 5; i++) {
+		await Promise.resolve();
+		const text = stripVTControlCharacters(component.render(120).join("\n"));
+		if (text.includes(needle)) return text;
+	}
+	return stripVTControlCharacters(component.render(120).join("\n"));
+}
+
 describe("MarketplacePluginDetailComponent", () => {
-	it("exposes the enable toggle and metadata", () => {
+	it("exposes the enable toggle and metadata", async () => {
 		const plugin = marketplace("plugin@mkt", {
 			entry: { gitCommitSha: "abc1234", enabled: false },
 		});
+		const manager = new PluginManager(process.cwd());
+		spyOn(manager, "getPlugin").mockResolvedValue(undefined);
 
-		const component = new MarketplacePluginDetailComponent(plugin, {
+		const component = new MarketplacePluginDetailComponent(plugin, manager, {
+			parsePluginId,
 			onEnabledChange: () => {},
+			onConfigChange: () => {},
 			onBack: () => {},
 		});
 
-		const text = stripVTControlCharacters(component.render(120).join("\n"));
-		expect(text).toContain("plugin@mkt");
+		const text = await renderMarketplaceDetail(component, "plugin@mkt");
 		expect(text).toContain("Enabled");
-		// Read-only metadata must surface, including scope and the git commit SHA.
 		expect(text).toContain("0.4.2");
 		expect(text).toContain("abc1234");
 		expect(text).toContain("user");
 		expect(text).toContain("/cache/marketplace/plugin@mkt");
 	});
 
-	it("invokes onEnabledChange when the enabled toggle is activated", () => {
+	it("invokes onEnabledChange when the enabled toggle is activated", async () => {
 		const calls: boolean[] = [];
-		const component = new MarketplacePluginDetailComponent(marketplace("toggle@mkt"), {
+		const manager = new PluginManager(process.cwd());
+		spyOn(manager, "getPlugin").mockResolvedValue(undefined);
+		const component = new MarketplacePluginDetailComponent(marketplace("toggle@mkt"), manager, {
+			parsePluginId,
 			onEnabledChange: enabled => calls.push(enabled),
+			onConfigChange: () => {},
 			onBack: () => {},
 		});
+		await renderMarketplaceDetail(component, "Enabled");
 
-		// Activate the Enabled toggle (it is the first item). Space cycles its value.
 		component.handleInput(" ");
 
 		expect(calls).toEqual([false]);
 	});
 
-	it("shortens home-relative install paths to ~ before rendering", () => {
+	it("renders and updates settings from the marketplace runtime package", async () => {
+		const manager = new PluginManager(process.cwd());
+		const runtimePlugin = npm("oms-commit", {
+			manifest: {
+				version: "1.0.0",
+				settings: {
+					mainBranchProtection: {
+						type: "boolean",
+						default: true,
+					},
+				},
+			},
+		});
+		spyOn(manager, "getPlugin").mockResolvedValue(runtimePlugin);
+		spyOn(manager, "getPluginSettings").mockResolvedValue({});
+		const changes: Array<[string, string, unknown]> = [];
+		let renderRequests = 0;
+		const component = new MarketplacePluginDetailComponent(marketplace("oms-commit@market"), manager, {
+			parsePluginId,
+			onEnabledChange: () => {},
+			onConfigChange: (pluginName, key, value) => changes.push([pluginName, key, value]),
+			requestRender: () => renderRequests++,
+			onBack: () => {},
+		});
+		const text = await renderMarketplaceDetail(component, "mainBranchProtection");
+		expect(text).toContain("true");
+		expect(renderRequests).toBe(1);
+
+		component.handleInput("\x1b[B");
+		component.handleInput(" ");
+
+		expect(changes).toEqual([["oms-commit", "mainBranchProtection", false]]);
+	});
+
+	it("shortens home-relative install paths to ~ before rendering", async () => {
 		const home = os.homedir();
 		const installPath = `${home}/.oms/cache/plugins/sample@mkt`;
 		const plugin = marketplace("sample@mkt", { entry: { installPath } });
+		const manager = new PluginManager(process.cwd());
+		spyOn(manager, "getPlugin").mockResolvedValue(undefined);
 
-		const component = new MarketplacePluginDetailComponent(plugin, {
+		const component = new MarketplacePluginDetailComponent(plugin, manager, {
+			parsePluginId,
 			onEnabledChange: () => {},
+			onConfigChange: () => {},
 			onBack: () => {},
 		});
 
-		const text = stripVTControlCharacters(component.render(120).join("\n"));
-		// `shortenPath` keeps the rest of the path intact but replaces $HOME with `~`,
-		// so the user's home directory never leaks into the rendered TUI surface.
-		expect(text).toContain("~/.oms/cache/plugins/sample@mkt");
+		const text = await renderMarketplaceDetail(component, "~/.oms/cache/plugins/sample@mkt");
 		expect(text).not.toContain(home);
 	});
 });

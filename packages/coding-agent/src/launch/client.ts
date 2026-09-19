@@ -3,8 +3,9 @@ import * as net from "node:net";
 import * as os from "node:os";
 import * as path from "node:path";
 import { getGlobalDaemonRuntimeDir, isEexist, isEnoent, logger, postmortem } from "@oh-my-soup/pi-utils";
+import { hostHasInheritableConsole } from "../eval/py/spawn-options";
 import { resolveWorkerSpawnCmd, workerEnvFromParent } from "../subprocess/worker-client";
-import { daemonBrokerEndpoint, daemonRuntimeDir } from "./paths";
+import { canonicalProjectDir, daemonBrokerEndpoint, daemonRuntimeDir } from "./paths";
 import {
 	DAEMON_BROKER_WORKER_ARG,
 	DAEMON_IDLE_GRACE_ENV,
@@ -22,10 +23,9 @@ import { resolveDaemonSpawnOptions } from "./spawn-options";
 const CONNECT_TIMEOUT_MS = 10_000;
 const CONNECT_RETRY_MS = 50;
 const TOKEN_FILE = "broker.token";
-// A broker is a cross-process lease holder, not a managed command. It must
-// outlive the client that won the spawn race.
 const BROKER_SPAWN_OPTIONS = resolveDaemonSpawnOptions({
 	platform: process.platform,
+	hostHasInheritableConsole: hostHasInheritableConsole(),
 	surviveParentExit: true,
 });
 
@@ -64,17 +64,6 @@ export interface DaemonBrokerClient {
 
 /** A request reached the broker and the broker rejected the operation. */
 export class DaemonBrokerRejectedError extends Error {}
-
-async function canonicalProjectDir(projectDir: string): Promise<string> {
-	const resolved = path.resolve(projectDir);
-	try {
-		return await fs.realpath(resolved);
-	} catch {
-		// Network/DFS/virtual drives throw EPERM/EINVAL/UNKNOWN; the resolved
-		// path is always a usable scope identity.
-		return resolved;
-	}
-}
 
 async function readOrCreateToken(runtimeDir: string): Promise<string> {
 	await fs.mkdir(runtimeDir, { recursive: true, mode: 0o700 });
@@ -299,8 +288,9 @@ class SocketDaemonClient implements DaemonBrokerClient {
 			this.#bindSocket(await openSocket(this.#endpoint, 250));
 			return;
 		} catch {
-			// No live broker. Multiple clients may race to spawn; the broker's PID
-			// lease selects one winner before any candidate touches the socket.
+			// No live broker. Multiple clients may race to spawn; the broker's
+			// process-owned lease selects one winner before any candidate touches
+			// the socket.
 		}
 		this.#spawnBroker();
 		const deadline = Date.now() + CONNECT_TIMEOUT_MS;
@@ -314,7 +304,11 @@ class SocketDaemonClient implements DaemonBrokerClient {
 				await Bun.sleep(CONNECT_RETRY_MS);
 			}
 		}
-		throw new Error(`Failed to start daemon broker: ${lastError?.message ?? "socket unavailable"}`);
+		throw new Error(
+			`Failed to start daemon broker at ${this.#endpoint} after ${CONNECT_TIMEOUT_MS / 1000}s: ` +
+				`${lastError?.message ?? "socket unavailable"}. Scope: ${this.#runtimeDir}. ` +
+				"Run `oms --smoke-test` to verify broker startup, or `oms ps` to inspect supervised processes.",
+		);
 	}
 
 	#spawnBroker(): void {
@@ -499,14 +493,7 @@ export async function daemonClientForGlobal(service: string): Promise<DaemonBrok
 	// Canonicalize only after creation so the first caller and later callers
 	// derive the same Windows pipe key even when an ancestor is a symlink.
 	await fs.mkdir(runtimeDir, { recursive: true, mode: 0o700 });
-	let canonical: string;
-	try {
-		canonical = await fs.realpath(runtimeDir);
-	} catch {
-		// Network/virtual filesystems can reject realpath; the plain path still
-		// names the same directory for every caller.
-		canonical = runtimeDir;
-	}
+	const canonical = await fs.realpath(runtimeDir);
 	return sharedDaemonClient(`global:${canonical}`, () =>
 		createDaemonBrokerClient(canonical, {
 			runtimeDir: canonical,
@@ -525,6 +512,10 @@ export async function closeDaemonClients(): Promise<void> {
 
 /** Exercise worker-host broker startup and authenticated RPC for distribution smoke tests. */
 export async function smokeTestDaemonBroker(): Promise<void> {
+	// Keep the broker's runtime dir under a private parent this process owns, so
+	// the broker's dead-scope sweep (pruneDeadDaemonRuntimeDirs, fired on startup)
+	// can only ever reclaim siblings inside it — never unrelated neighbours in
+	// os.tmpdir() such as tmux/ssh sockets or build trees (issue #8721).
 	const smokeRoot = await fs.mkdtemp(path.join(os.tmpdir(), "oms-daemon-smoke-"));
 	const projectDir = path.join(smokeRoot, "project");
 	const runtimeDir = path.join(smokeRoot, "run");

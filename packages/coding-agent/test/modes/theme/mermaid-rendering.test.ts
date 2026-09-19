@@ -1,13 +1,13 @@
 import { afterEach, beforeAll, describe, expect, it } from "bun:test";
 import { Markdown } from "@oh-my-soup/pi-tui";
 import { Settings } from "../../../src/config/settings";
-import { createTheme, getBuiltinThemes } from "../../../src/modes/theme/loader";
+import { createTheme, getBuiltinThemes } from "@oh-my-soup/pi-tui/theme/loader";
 import {
 	getMarkdownTheme,
 	getThemeByName,
 	setMarkdownMermaidRendering,
 	setThemeInstance,
-} from "../../../src/modes/theme/theme";
+} from "@oh-my-soup/pi-tui/theme";
 import { buildSystemPrompt } from "../../../src/system-prompt";
 
 const workspaceTree = {

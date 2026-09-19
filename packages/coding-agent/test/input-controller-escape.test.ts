@@ -21,12 +21,8 @@ type FakeEditor = {
 	onSelectModelTemporary?: () => void;
 	onSelectModel?: () => void;
 	onLeftAtStart?: () => void;
-	onHistorySearch?: () => void;
 	onPasteImage?: () => void;
 	onCopyPrompt?: () => void;
-	onExpandTools?: () => void;
-	onToggleThinking?: () => void;
-	onExternalEditor?: () => void;
 	onDequeue?: () => void;
 	onChange?: (text: string) => void;
 	setText(text: string): void;
@@ -105,6 +101,8 @@ function createContext(): {
 	const hasActiveBtw = vi.fn(() => false);
 	const handleOmfgEscape = vi.fn(() => true);
 	const hasActiveOmfg = vi.fn(() => false);
+	const handleCleanseEscape = vi.fn(() => true);
+	const hasActiveCleanse = vi.fn(() => false);
 	const updatePendingMessagesDisplay = vi.fn();
 	const prompt = vi.fn();
 	const startPendingSubmission = vi.fn(
@@ -128,12 +126,11 @@ function createContext(): {
 		pendingImageLinks: [],
 	};
 
-	let ctx!: InteractiveModeContext;
 	const ensureLoadingAnimation = vi.fn(() => {
 		ctx.loadingAnimation = {} as InteractiveModeContext["loadingAnimation"];
 	});
 
-	ctx = {
+	const ctx = {
 		editor: editor as unknown as InteractiveModeContext["editor"],
 		ui: {
 			requestRender,
@@ -158,6 +155,8 @@ function createContext(): {
 			queuedMessageCount: 0,
 			messages: [],
 			extensionRunner: undefined,
+			customCommands: [],
+			promptTemplates: [],
 			abort,
 			abortBash,
 			abortEval,
@@ -190,6 +189,8 @@ function createContext(): {
 		} as unknown as InteractiveModeContext["keybindings"],
 		compactionQueuedMessages: [],
 		mcpTestEscapeHandlers: new Set(),
+		skillCommands: new Map(),
+		fileSlashCommands: new Set<string>(),
 		isBashMode: false,
 		isPythonMode: false,
 		optimisticUserMessageSignature: undefined,
@@ -215,6 +216,8 @@ function createContext(): {
 		hasActiveBtw,
 		handleOmfgEscape,
 		hasActiveOmfg,
+		handleCleanseEscape,
+		hasActiveCleanse,
 		showTreeSelector: vi.fn(),
 		showUserMessageSelector: vi.fn(),
 		showSessionSelector: vi.fn(),
@@ -439,7 +442,7 @@ describe("InputController escape behavior", () => {
 		expect(spies.abort).not.toHaveBeenCalled();
 	});
 
-	it("cancels every advertised /mcp test without stealing cancellation from the agent turn", () => {
+	it("keeps every overlapping /mcp test cancellable and consumes ownership on dispatch", () => {
 		const { ctx, editor, spies } = createContext();
 		mutableSessionState(ctx).isStreaming = true;
 		const firstTestEscapeHandler = vi.fn();
@@ -453,8 +456,10 @@ describe("InputController escape behavior", () => {
 
 		expect(firstTestEscapeHandler).toHaveBeenCalledTimes(1);
 		expect(latestTestEscapeHandler).toHaveBeenCalledTimes(1);
-		expect(ctx.mcpTestEscapeHandlers.size).toBe(0);
 		expect(spies.abort).not.toHaveBeenCalled();
+		// One press consumes the ownership: the next Esc must reach the stream
+		// abort below instead of being swallowed by stale registrations.
+		expect(ctx.mcpTestEscapeHandlers.size).toBe(0);
 
 		editor.onEscape?.();
 
@@ -670,21 +675,7 @@ describe("InputController escape behavior", () => {
 		expect(ctx.unfocusSession).toHaveBeenCalledTimes(1);
 		expect(ctx.focusParentSession).not.toHaveBeenCalled();
 	});
-	it("opens the tree selector and clears the display on default double-Esc", () => {
-		const { ctx, editor, spies } = createContext();
-		const controller = new InputController(ctx);
-
-		controller.setupKeyHandlers();
-		editor.onEscape?.();
-		editor.onEscape?.();
-
-		expect(ctx.showTreeSelector).toHaveBeenCalledTimes(1);
-		expect(ctx.showUserMessageSelector).not.toHaveBeenCalled();
-		expect(spies.resetDisplay).toHaveBeenCalledTimes(1);
-	});
-
-	it("opens the message selector and clears the display when double-Esc is configured for branch", () => {
-		Settings.instance.override("doubleEscapeAction", "branch");
+	it("opens the rewind selector and forces a viewport repaint on default double-Esc", () => {
 		const { ctx, editor, spies } = createContext();
 		const controller = new InputController(ctx);
 
@@ -694,7 +685,43 @@ describe("InputController escape behavior", () => {
 
 		expect(ctx.showUserMessageSelector).toHaveBeenCalledTimes(1);
 		expect(ctx.showTreeSelector).not.toHaveBeenCalled();
-		expect(spies.resetDisplay).toHaveBeenCalledTimes(1);
+		// Never `resetDisplay()`: that replays the whole transcript and wedges
+		// double-Esc on long sessions (invisible selector behind a multi-second
+		// scrollback replay).
+		expect(spies.requestRender).toHaveBeenCalledWith(true);
+		expect(spies.resetDisplay).not.toHaveBeenCalled();
+	});
+
+	it("ignores double-Esc when the action is disabled", () => {
+		Settings.instance.override("doubleEscapeAction", "none");
+		const { ctx, editor, spies } = createContext();
+		const controller = new InputController(ctx);
+
+		controller.setupKeyHandlers();
+		editor.onEscape?.();
+		editor.onEscape?.();
+
+		expect(ctx.showUserMessageSelector).not.toHaveBeenCalled();
+		expect(ctx.showTreeSelector).not.toHaveBeenCalled();
+		expect(spies.resetDisplay).not.toHaveBeenCalled();
+	});
+
+	it("opens the session tree on double-Esc when the action is tree", () => {
+		Settings.instance.override("doubleEscapeAction", "tree");
+		const { ctx, editor, spies } = createContext();
+		const controller = new InputController(ctx);
+
+		controller.setupKeyHandlers();
+		editor.onEscape?.();
+		editor.onEscape?.();
+
+		expect(ctx.showTreeSelector).toHaveBeenCalledTimes(1);
+		expect(ctx.showUserMessageSelector).not.toHaveBeenCalled();
+		// Same forced viewport repaint as the rewind path: without it the
+		// overlay paint is deferred past the escape input grace and double-Esc
+		// reads as dead on long sessions.
+		expect(spies.requestRender).toHaveBeenCalledWith(true);
+		expect(spies.resetDisplay).not.toHaveBeenCalled();
 	});
 	it("preserves typed editor text on Esc without opening selectors or aborting", () => {
 		const { ctx, editor, spies } = createContext();

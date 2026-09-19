@@ -22,28 +22,6 @@ pub(super) struct Win32Ax {
 	displays:               Option<Vec<DesktopDisplay>>,
 }
 
-#[cfg(not(test))]
-macro_rules! uia_element {
-	($handle:expr) => {{
-		let AxHandle::Uia(element) = $handle;
-		element
-	}};
-}
-
-#[cfg(test)]
-macro_rules! uia_element {
-	($handle:expr) => {
-		match $handle {
-			AxHandle::Uia(element) => element,
-			AxHandle::Test(_) => {
-				return Err(DesktopError::ax_failed(
-					"accessibility handle does not belong to UI Automation",
-				));
-			},
-		}
-	};
-}
-
 impl Win32Ax {
 	pub(super) const fn new() -> Self {
 		Self { automation_initialized: false, displays: None }
@@ -56,6 +34,19 @@ impl Win32Ax {
 			let automation = UIAutomation::new().map_err(ax_error)?;
 			self.automation_initialized = true;
 			Ok(automation)
+		}
+	}
+
+	#[allow(
+		clippy::missing_const_for_fn,
+		clippy::unnecessary_wraps,
+		reason = "in test configuration handle matching can return an error"
+	)]
+	fn element(handle: &AxHandle) -> CoreResult<&UIElement> {
+		match handle {
+			AxHandle::Uia(element) => Ok(element),
+			#[cfg(test)]
+			_ => Err(DesktopError::ax_failed("accessibility handle does not belong to UI Automation")),
 		}
 	}
 
@@ -74,6 +65,7 @@ impl Win32Ax {
 		self.displays.as_deref()
 	}
 
+	#[allow(clippy::suboptimal_flops, reason = "clarity of physical coordinate calculation")]
 	fn logical_bounds(&mut self, left: i32, top: i32, right: i32, bottom: i32) -> Option<AxBounds> {
 		let displays = self.display_layout()?;
 		let display = displays
@@ -82,9 +74,9 @@ impl Win32Ax {
 				let physical_x = f64::from(display.x) * display.scale;
 				let physical_y = f64::from(display.y) * display.scale;
 				f64::from(left) >= physical_x
-					&& f64::from(left) < f64::from(display.width).mul_add(display.scale, physical_x)
+					&& f64::from(left) < physical_x + f64::from(display.width) * display.scale
 					&& f64::from(top) >= physical_y
-					&& f64::from(top) < f64::from(display.height).mul_add(display.scale, physical_y)
+					&& f64::from(top) < physical_y + f64::from(display.height) * display.scale
 			})
 			.or_else(|| displays.first())?;
 		let scale = display.scale.max(f64::EPSILON);
@@ -175,7 +167,7 @@ impl AxBackend for Win32Ax {
 	}
 
 	fn props(&mut self, handle: &AxHandle) -> CoreResult<AxProps> {
-		let element = uia_element!(handle);
+		let element = Self::element(handle)?;
 		let control_type = element.get_control_type().map_err(ax_error)?;
 		let native_role = control_type.to_string();
 		let walker = self.walker()?;
@@ -200,7 +192,7 @@ impl AxBackend for Win32Ax {
 	}
 
 	fn children(&mut self, handle: &AxHandle) -> CoreResult<Vec<AxHandle>> {
-		let element = uia_element!(handle);
+		let element = Self::element(handle)?;
 		Ok(self
 			.walker()?
 			.get_children(element)
@@ -211,12 +203,12 @@ impl AxBackend for Win32Ax {
 	}
 
 	fn parent(&mut self, handle: &AxHandle) -> CoreResult<Option<AxHandle>> {
-		let element = uia_element!(handle);
+		let element = Self::element(handle)?;
 		Ok(self.walker()?.get_parent(element).ok().map(AxHandle::Uia))
 	}
 
 	fn perform(&mut self, handle: &AxHandle, action: &str) -> CoreResult<()> {
-		let element = uia_element!(handle);
+		let element = Self::element(handle)?;
 		match action.trim().to_ascii_lowercase().as_str() {
 			"press" => {
 				if let Ok(pattern) = element.get_pattern::<UIInvokePattern>() {
@@ -261,14 +253,14 @@ impl AxBackend for Win32Ax {
 	}
 
 	fn set_value(&mut self, handle: &AxHandle, value: &str) -> CoreResult<()> {
-		uia_element!(handle)
+		Self::element(handle)?
 			.get_pattern::<UIValuePattern>()
 			.and_then(|pattern| pattern.set_value(value))
 			.map_err(ax_error)
 	}
 
 	fn focus(&mut self, handle: &AxHandle) -> CoreResult<()> {
-		uia_element!(handle).set_focus().map_err(ax_error)
+		Self::element(handle)?.set_focus().map_err(ax_error)
 	}
 
 	fn element_at(&mut self, x: f64, y: f64) -> CoreResult<Option<AxHandle>> {
@@ -292,7 +284,7 @@ impl AxBackend for Win32Ax {
 	}
 
 	fn attributes(&mut self, handle: &AxHandle) -> CoreResult<Vec<(String, String)>> {
-		let element = uia_element!(handle);
+		let element = Self::element(handle)?;
 		let properties = [
 			UIProperty::RuntimeId,
 			UIProperty::BoundingRectangle,

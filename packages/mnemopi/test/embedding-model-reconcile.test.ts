@@ -8,7 +8,7 @@
 
 import { Database } from "bun:sqlite";
 import { describe, expect, it } from "bun:test";
-import "./setup";
+
 import { initBeam } from "@oh-my-soup/pi-mnemopi/core/beam";
 import { Mnemopi } from "@oh-my-soup/pi-mnemopi/core/memory";
 

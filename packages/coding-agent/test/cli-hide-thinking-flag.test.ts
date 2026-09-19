@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test";
 import { ThinkingLevel } from "@oh-my-soup/pi-agent-core";
 import { Effort } from "@oh-my-soup/pi-ai";
 import { parseArgs } from "@oh-my-soup/pi-coding-agent/cli/args";
-import { AUTO_THINKING } from "@oh-my-soup/pi-coding-agent/thinking";
+import { AUTO_THINKING } from "@oh-my-soup/pi-tui/thinking";
 
 describe("parseArgs — --hide-thinking flag", () => {
 	it("parses --hide-thinking as a boolean flag", () => {

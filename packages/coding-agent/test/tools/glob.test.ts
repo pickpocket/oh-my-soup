@@ -5,7 +5,8 @@ import { Settings } from "../../src/config/settings";
 import type { ToolSession } from "../../src/tools";
 import { GlobTool } from "../../src/tools/glob";
 import { findUniqueWorkspaceSuffixWithGlobForTest } from "../../src/tools/path-utils";
-import { ToolAbortError, ToolError } from "../../src/tools/tool-errors";
+import { ToolAbortError } from "../../src/tools/tool-errors";
+import { ToolError } from "@oh-my-soup/pi-tui/tools/tool-errors";
 
 function createSession(cwd = process.cwd()): ToolSession {
 	return {
@@ -90,8 +91,7 @@ describe("GlobTool.execute", () => {
 					throw new Error("Missing native cancellation signal");
 				}
 				const nativeSignal = options.signal;
-				if (nativeSignal.aborted) timeoutObserved.resolve();
-				else nativeSignal.addEventListener("abort", () => timeoutObserved.resolve(), { once: true });
+				nativeSignal.addEventListener("abort", () => timeoutObserved.resolve(), { once: true });
 				started.resolve();
 				await timeoutObserved.promise;
 				await release.promise;
@@ -110,15 +110,8 @@ describe("GlobTool.execute", () => {
 				executionSettled = true;
 			},
 		);
-		// AbortSignal.timeout uses an unref'd platform timer, so keep the event
-		// loop alive until the native test double observes that real signal.
-		const timeoutWatchdog = setTimeout(
-			() => timeoutObserved.reject(new Error("Native glob did not observe its timeout signal")),
-			5000,
-		);
 		await started.promise;
 		await timeoutObserved.promise;
-		clearTimeout(timeoutWatchdog);
 		await new Promise<void>(resolve => setImmediate(resolve));
 		expect(executionSettled).toBe(false);
 
@@ -186,7 +179,6 @@ describe("GlobTool.execute", () => {
 		await expect(execution).rejects.toBeInstanceOf(ToolAbortError);
 		expect(settledCount).toBe(2);
 	});
-
 	test("suffix recovery rejects a caller abort after native completion", async () => {
 		const controller = new AbortController();
 		const nativeCompleted = Promise.withResolvers<void>();

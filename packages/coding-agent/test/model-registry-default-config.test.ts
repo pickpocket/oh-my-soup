@@ -1,18 +1,28 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { TempDir } from "@oh-my-soup/pi-utils";
+import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
+import { AuthStorage } from "@oh-my-soup/pi-coding-agent/session/auth-storage";
+import { getAgentDir, setAgentDir, TempDir } from "@oh-my-soup/pi-utils";
 
-const packageRoot = path.resolve(import.meta.dir, "..");
+const originalAgentDir = getAgentDir();
+const originalAgentDirEnv = process.env.PI_CODING_AGENT_DIR;
 
 let tempDir: TempDir;
+let authStorage: AuthStorage;
 
 describe("ModelRegistry default custom models config", () => {
-	beforeEach(() => {
+	beforeEach(async () => {
 		tempDir = TempDir.createSync("@model-registry-default-config-");
+		setAgentDir(tempDir.path());
+		authStorage = await AuthStorage.create(":memory:");
 	});
 
 	afterEach(async () => {
+		authStorage.close();
+		setAgentDir(originalAgentDir);
+		if (originalAgentDirEnv === undefined) delete process.env.PI_CODING_AGENT_DIR;
+		else process.env.PI_CODING_AGENT_DIR = originalAgentDirEnv;
 		await tempDir.remove().catch(() => {});
 	});
 
@@ -24,7 +34,7 @@ describe("ModelRegistry default custom models config", () => {
 			baseUrl: "https://yaml-default.example.com/v1",
 		});
 
-		const model = loadDefaultRegistryModel({
+		const [model] = loadDefaultRegistryModels({
 			provider: "yaml-default-only",
 			modelId: "yaml-model",
 		});
@@ -42,7 +52,7 @@ describe("ModelRegistry default custom models config", () => {
 			imageInputDecoder: "stb",
 		});
 
-		const model = loadDefaultRegistryModel({ provider: "managed-primary", modelId: "local-vision" });
+		const [model] = loadDefaultRegistryModels({ provider: "managed-primary", modelId: "local-vision" });
 
 		expect(model?.imageInputDecoder).toBe("stb");
 	});
@@ -50,7 +60,7 @@ describe("ModelRegistry default custom models config", () => {
 	test("loads Bedrock cache capabilities from a model override", () => {
 		writeBedrockCacheOverride();
 
-		const model = loadDefaultRegistryModel({
+		const [model] = loadDefaultRegistryModels({
 			provider: "amazon-bedrock",
 			modelId: "us.anthropic.claude-opus-4-8",
 		});
@@ -63,6 +73,7 @@ describe("ModelRegistry default custom models config", () => {
 			// Reasoning-tier Bedrock stream-stall watchdog widening applies to
 			// overrides too (model compat generation).
 			streamIdleTimeoutMs: 900000,
+			streamRevision: "possible",
 		});
 	});
 
@@ -80,14 +91,10 @@ describe("ModelRegistry default custom models config", () => {
 			baseUrl: "https://yaml-loser.example.com/v1",
 		});
 
-		const ymlModel = loadDefaultRegistryModel({
-			provider: "yaml-precedence",
-			modelId: "from-yml",
-		});
-		const yamlModel = loadDefaultRegistryModel({
-			provider: "yaml-precedence",
-			modelId: "from-yaml",
-		});
+		const [ymlModel, yamlModel] = loadDefaultRegistryModels(
+			{ provider: "yaml-precedence", modelId: "from-yml" },
+			{ provider: "yaml-precedence", modelId: "from-yaml" },
+		);
 
 		expect(ymlModel?.baseUrl).toBe("https://yml-winner.example.com/v1");
 		expect(yamlModel).toBeUndefined();
@@ -107,14 +114,10 @@ describe("ModelRegistry default custom models config", () => {
 			baseUrl: "https://json-loser.example.com/v1",
 		});
 
-		const yamlModel = loadDefaultRegistryModel({
-			provider: "yaml-json-precedence",
-			modelId: "from-yaml",
-		});
-		const jsonModel = loadDefaultRegistryModel({
-			provider: "yaml-json-precedence",
-			modelId: "from-json",
-		});
+		const [yamlModel, jsonModel] = loadDefaultRegistryModels(
+			{ provider: "yaml-json-precedence", modelId: "from-yaml" },
+			{ provider: "yaml-json-precedence", modelId: "from-json" },
+		);
 
 		expect(yamlModel?.baseUrl).toBe("https://yaml-over-json.example.com/v1");
 		expect(jsonModel).toBeUndefined();
@@ -146,6 +149,7 @@ interface ModelSnapshot {
 		promptCacheMinimumTokens: number;
 		promptCacheMaximumCheckpoints: number;
 		streamIdleTimeoutMs?: number;
+		streamRevision?: "possible";
 	};
 }
 
@@ -223,40 +227,18 @@ function writeModelsJson(fixture: ProviderFixture): void {
 	);
 }
 
-function loadDefaultRegistryModel(lookup: ModelLookup): ModelSnapshot | undefined {
-	const script = `
-		import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
-		import { AuthStorage } from "@oh-my-soup/pi-coding-agent/session/auth-storage";
-
-		const authStorage = await AuthStorage.create(":memory:");
-		try {
-			const registry = new ModelRegistry(authStorage);
-			const model = registry.find(${JSON.stringify(lookup.provider)}, ${JSON.stringify(lookup.modelId)});
-			process.stdout.write(JSON.stringify(model ? {
-				provider: model.provider,
-				id: model.id,
-				name: model.name,
-				baseUrl: model.baseUrl,
-				imageInputDecoder: model.imageInputDecoder,
-				compat: model.compat,
-			} : null));
-		} finally {
-			authStorage.close();
-		}
-	`;
-	const result = Bun.spawnSync([process.execPath, "-e", script], {
-		cwd: packageRoot,
-		env: {
-			...process.env,
-			PI_CODING_AGENT_DIR: tempDir.path(),
-		},
-		stdout: "pipe",
-		stderr: "pipe",
+function loadDefaultRegistryModels(...lookups: ModelLookup[]): Array<ModelSnapshot | undefined> {
+	const registry = new ModelRegistry(authStorage);
+	return lookups.map(lookup => {
+		const model = registry.find(lookup.provider, lookup.modelId);
+		if (!model) return undefined;
+		return {
+			provider: model.provider,
+			id: model.id,
+			name: model.name,
+			baseUrl: model.baseUrl,
+			imageInputDecoder: model.imageInputDecoder,
+			compat: model.compat as ModelSnapshot["compat"],
+		};
 	});
-	const stdout = new TextDecoder().decode(result.stdout).trim();
-	const stderr = new TextDecoder().decode(result.stderr).trim();
-	if (result.exitCode !== 0) {
-		throw new Error(`default ModelRegistry lookup failed: ${stderr || stdout || `exit ${result.exitCode}`}`);
-	}
-	return JSON.parse(stdout) ?? undefined;
 }

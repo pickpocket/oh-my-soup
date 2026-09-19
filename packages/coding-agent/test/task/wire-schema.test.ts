@@ -3,7 +3,8 @@ import { type } from "@oh-my-soup/omstype";
 import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
 import { TaskTool, taskSchema } from "@oh-my-soup/pi-coding-agent/task";
 import * as discoveryModule from "@oh-my-soup/pi-coding-agent/task/discovery";
-import { getTaskSchema, oneLineLabel } from "@oh-my-soup/pi-coding-agent/task/types";
+import { getTaskSchema } from "@oh-my-soup/pi-coding-agent/task/types";
+import { oneLineLabel } from "@oh-my-soup/pi-tui/tools/task";
 import type { ToolSession } from "@oh-my-soup/pi-coding-agent/tools";
 
 // Contract: the task tool's wire shape is flat `{ name?, agent?, task, isolated? }`
@@ -112,7 +113,7 @@ describe("task approval details surface the dispatch", () => {
 		return TaskTool.create({
 			cwd: "/tmp",
 			hasUI: false,
-			settings: Settings.isolated({ "task.isolation.mode": "none", "task.batch": true }),
+			settings: Settings.isolated({ "task.isolation.enabled": false, "task.batch": true }),
 			getSessionFile: () => null,
 			getSessionSpawns: () => spawns,
 		} as unknown as ToolSession);

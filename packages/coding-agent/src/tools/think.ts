@@ -3,7 +3,7 @@ import type { AgentTool, AgentToolResult } from "@oh-my-soup/pi-agent-core";
 import type { Model } from "@oh-my-soup/pi-ai";
 import { type Component, Markdown } from "@oh-my-soup/pi-tui";
 import type { RenderResultOptions } from "../extensibility/custom-tools/types";
-import { getMarkdownTheme, type Theme } from "../modes/theme/theme";
+import { getMarkdownTheme, type Theme } from "@oh-my-soup/pi-tui/theme";
 
 /** Whether a model transport can replace native reasoning with the external scratchpad. */
 export function supportsExternalThinking(model: Model | null | undefined): boolean {
@@ -19,6 +19,11 @@ export function supportsExternalThinking(model: Model | null | undefined): boole
 	if (model.api === "google-generative-ai" || model.api === "google-gemini-cli" || model.api === "google-vertex") {
 		return !model.reasoning || model.thinking?.mode === "budget" || model.thinking?.suppressWhenOff === true;
 	}
+	// A reasoning model with no thinking controls at all (no effort dial, no
+	// disable sentinel — e.g. xai's dial-less reasoners on openai-responses)
+	// has no way to turn native reasoning off, so the scratchpad can never
+	// replace it.
+	if (model.reasoning && model.thinking == null) return false;
 	// ChatGPT Codex reasoning models require a concrete effort. Sending the
 	// Responses disable sentinel (`none`) is rejected by Astra and its sibling
 	// code-mode models, so their optional scratchpad must never replace native

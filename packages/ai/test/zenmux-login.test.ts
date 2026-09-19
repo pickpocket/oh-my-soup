@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from "bun:test";
-import { loginZenMux } from "@oh-my-soup/pi-ai/registry/zenmux";
+import { getProviderDefinition } from "@oh-my-soup/pi-ai/registry/registry";
 import type { FetchImpl } from "@oh-my-soup/pi-ai/types";
+
+const loginZenMux = getProviderDefinition("zenmux")!.login!;
 
 describe("zenmux login", () => {
 	it("opens ZenMux key settings and validates against models endpoint", async () => {

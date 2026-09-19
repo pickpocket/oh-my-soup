@@ -1,68 +1,84 @@
 import { afterEach, describe, expect, it } from "bun:test";
 import * as http2 from "node:http2";
-import { create, fromBinary, toBinary } from "@bufbuild/protobuf";
 import { streamCursor } from "@oh-my-soup/pi-ai/providers/cursor";
 import type { Context, Model } from "@oh-my-soup/pi-ai/types";
 import { buildModel } from "@oh-my-soup/pi-catalog/build";
 import {
 	AgentClientMessageSchema,
 	AgentServerMessageSchema,
-	type InteractionUpdate,
 	InteractionUpdateSchema,
 	TextDeltaUpdateSchema,
 	TurnEndedUpdateSchema,
-} from "@oh-my-soup/pi-catalog/discovery/cursor-gen/agent_pb";
+} from "@oh-my-soup/pi-catalog/discovery/cursor-proto";
+import { create, fromBinary, toBinary } from "@oh-my-soup/pi-catalog/discovery/protobuf";
 
-// A bare resource_exhausted before any token poisons Cursor's server-side
-// conversation ID. The next turn must use a fresh wire ID while preserving the
-// caller's stable session ID.
+// #8345: a server-side per-conversation rejection (bare resource_exhausted,
+// zero tokens) poisons the wire conversationId; the next attempt must rotate
+// to a fresh id and succeed, instead of failing forever until /fork.
 
 let server: http2.Http2Server | undefined;
 const sessions = new Set<http2.Http2Session>();
 
-function frameConnectMessage(data: Uint8Array): Buffer {
+function frameConnectMessage(data: Uint8Array, flags = 0): Buffer {
 	const frame = Buffer.alloc(5 + data.length);
+	frame[0] = flags;
 	frame.writeUInt32BE(data.length, 1);
 	frame.set(data, 5);
 	return frame;
 }
 
-function interactionFrame(message: InteractionUpdate["message"]): Buffer {
-	return frameConnectMessage(
-		toBinary(
-			AgentServerMessageSchema,
-			create(AgentServerMessageSchema, {
-				message: {
-					case: "interactionUpdate",
-					value: create(InteractionUpdateSchema, { message }),
-				},
+function textDeltaFrame(text: string): Buffer {
+	const message = create(AgentServerMessageSchema, {
+		message: {
+			case: "interactionUpdate",
+			value: create(InteractionUpdateSchema, {
+				message: { case: "textDelta", value: create(TextDeltaUpdateSchema, { text }) },
 			}),
-		),
-	);
+		},
+	});
+	return frameConnectMessage(toBinary(AgentServerMessageSchema, message));
 }
 
+function turnEndedFrame(): Buffer {
+	const message = create(AgentServerMessageSchema, {
+		message: {
+			case: "interactionUpdate",
+			value: create(InteractionUpdateSchema, {
+				message: { case: "turnEnded", value: create(TurnEndedUpdateSchema, {}) },
+			}),
+		},
+	});
+	return frameConnectMessage(toBinary(AgentServerMessageSchema, message));
+}
+
+/** Decode the wire conversationId from the first client frame of a request. */
 function decodeConversationId(chunk: Buffer): string | undefined {
-	const message = fromBinary(AgentClientMessageSchema, chunk.subarray(5));
-	return message.message.case === "runRequest" ? message.message.value.conversationId : undefined;
+	const msg = fromBinary(AgentClientMessageSchema, chunk.subarray(5));
+	if (msg.message.case !== "runRequest") return undefined;
+	return msg.message.value.conversationId;
 }
 
 type WireRequest = {
 	conversationId?: string;
 	action?: string;
+	userText?: string;
 	pendingToolCalls: number;
 };
 
 function decodeRunRequest(chunk: Buffer): WireRequest | undefined {
-	const message = fromBinary(AgentClientMessageSchema, chunk.subarray(5));
-	if (message.message.case !== "runRequest") return undefined;
-	const request = message.message.value;
+	const msg = fromBinary(AgentClientMessageSchema, chunk.subarray(5));
+	if (msg.message.case !== "runRequest") return undefined;
+	const req = msg.message.value;
+	const action = req.action?.action;
 	return {
-		conversationId: request.conversationId,
-		action: request.action?.action.case,
-		pendingToolCalls: request.conversationState?.pendingToolCalls.length ?? 0,
+		conversationId: req.conversationId,
+		action: req.action?.action.case,
+		userText: action?.case === "userMessageAction" ? action.value.userMessage?.text : undefined,
+		pendingToolCalls: req.conversationState?.pendingToolCalls?.length ?? 0,
 	};
 }
 
+/** /retry after restart: trailing tool results, no active user message. */
 function resumeContext(): Context {
 	return {
 		messages: [
@@ -96,6 +112,7 @@ function resumeContext(): Context {
 	};
 }
 
+/** First request ends with a bare resource_exhausted; later ones turn normally. */
 async function startServer(seenConversationIds: string[]): Promise<string> {
 	server = http2.createServer();
 	server.on("session", session => {
@@ -114,18 +131,12 @@ async function startServer(seenConversationIds: string[]): Promise<string> {
 					stream.sendTrailers({ "grpc-status": "8", "grpc-message": "resource_exhausted" });
 				});
 				stream.end();
-				return;
+			} else {
+				stream.respond({ ":status": 200, "content-type": "application/connect+proto" });
+				stream.write(textDeltaFrame("recovered"));
+				stream.write(turnEndedFrame());
+				stream.end();
 			}
-
-			stream.respond({ ":status": 200, "content-type": "application/connect+proto" });
-			stream.write(
-				interactionFrame({
-					case: "textDelta",
-					value: create(TextDeltaUpdateSchema, { text: "recovered" }),
-				}),
-			);
-			stream.write(interactionFrame({ case: "turnEnded", value: create(TurnEndedUpdateSchema, {}) }));
-			stream.end();
 		});
 	});
 
@@ -138,7 +149,11 @@ async function startServer(seenConversationIds: string[]): Promise<string> {
 	return `http://127.0.0.1:${address.port}`;
 }
 
-async function startScriptedServer(seen: WireRequest[], script: Array<"reject" | "ok">): Promise<string> {
+/** Scripted fixture: each entry is a clean turn, rejection, or turn followed by a rejecting trailer. */
+async function startScriptedServer(
+	seen: WireRequest[],
+	script: Array<"reject" | "ok" | "turnEndedReject">,
+): Promise<string> {
 	server = http2.createServer();
 	server.on("session", session => {
 		sessions.add(session);
@@ -148,24 +163,28 @@ async function startScriptedServer(seen: WireRequest[], script: Array<"reject" |
 	server.on("stream", (stream: http2.ServerHttp2Stream) => {
 		stream.on("data", (chunk: Buffer) => {
 			const decoded = decodeRunRequest(chunk);
-			if (decoded) seen.push(decoded);
-			const decision = script[Math.min(requestCount, script.length - 1)] ?? "reject";
+			if (decoded !== undefined) seen.push(decoded);
 			requestCount++;
+			const decision = script[Math.min(requestCount - 1, script.length - 1)] ?? "reject";
 			if (decision === "reject") {
 				stream.respond({ ":status": 200, "content-type": "application/connect+proto" }, { waitForTrailers: true });
 				stream.once("wantTrailers", () => {
 					stream.sendTrailers({ "grpc-status": "8", "grpc-message": "resource_exhausted" });
 				});
 				stream.end();
-				return;
+			} else if (decision === "turnEndedReject") {
+				stream.respond({ ":status": 200, "content-type": "application/connect+proto" }, { waitForTrailers: true });
+				stream.once("wantTrailers", () => {
+					stream.sendTrailers({ "grpc-status": "8", "grpc-message": "resource_exhausted" });
+				});
+				stream.write(turnEndedFrame());
+				stream.end();
+			} else {
+				stream.respond({ ":status": 200, "content-type": "application/connect+proto" });
+				stream.write(textDeltaFrame("recovered"));
+				stream.write(turnEndedFrame());
+				stream.end();
 			}
-			stream.respond({ ":status": 200, "content-type": "application/connect+proto" });
-			stream.end(
-				Buffer.concat([
-					interactionFrame({ case: "textDelta", value: create(TextDeltaUpdateSchema, { text: "recovered" }) }),
-					interactionFrame({ case: "turnEnded", value: create(TurnEndedUpdateSchema, {}) }),
-				]),
-			);
 		});
 	});
 
@@ -174,7 +193,7 @@ async function startScriptedServer(seen: WireRequest[], script: Array<"reject" |
 	server.listen(0, "127.0.0.1", listening.resolve);
 	await listening.promise;
 	const address = server.address();
-	if (!address || typeof address === "string") throw new Error("expected scripted fixture to bind a TCP port");
+	if (!address || typeof address === "string") throw new Error("expected the fixture server to bind a tcp port");
 	return `http://127.0.0.1:${address.port}`;
 }
 
@@ -185,10 +204,7 @@ async function stopServer(): Promise<void> {
 	const closing = server;
 	server = undefined;
 	const closed = Promise.withResolvers<void>();
-	closing.close(error => {
-		if (error) closed.reject(error);
-		else closed.resolve();
-	});
+	closing.close(error => (error ? closed.reject(error) : closed.resolve()));
 	await closed.promise;
 }
 
@@ -209,6 +225,7 @@ function makeModel(baseUrl: string): Model<"cursor-agent"> {
 
 const context: Context = { messages: [{ role: "user", content: "hello", timestamp: 1 }] };
 
+/** Drain a stream and return its terminal event (done / error). */
 async function runToEnd(
 	baseUrl: string,
 	sessionId: string,
@@ -217,16 +234,20 @@ async function runToEnd(
 	const stream = streamCursor(makeModel(baseUrl), ctx, { apiKey: "test-token", sessionId });
 	let terminal: { type: "done" | "error"; message?: string } = { type: "done" };
 	for await (const event of stream) {
-		if (event.type === "error") terminal = { type: "error", message: event.error.errorMessage };
+		if (event.type === "error") {
+			terminal = { type: "error", message: event.error.errorMessage };
+		}
 	}
-	await stream.result().catch(() => undefined);
+	await stream.result().catch(() => {});
 	return terminal;
 }
 
-afterEach(stopServer);
+afterEach(async () => {
+	await stopServer();
+});
 
-describe("Cursor conversation ID rotation", () => {
-	it("rotates a poisoned wire ID and recovers on the next turn", async () => {
+describe("Cursor conversationId rotation (issue #8345)", () => {
+	it("rotates the poisoned conversationId and recovers on the next attempt", async () => {
 		const seenConversationIds: string[] = [];
 		const baseUrl = await startServer(seenConversationIds);
 
@@ -236,12 +257,56 @@ describe("Cursor conversation ID rotation", () => {
 
 		const second = await runToEnd(baseUrl, "sess-poisoned");
 		expect(second.type).toBe("done");
+
 		expect(seenConversationIds).toHaveLength(2);
 		expect(seenConversationIds[0]).toBe("sess-poisoned");
 		expect(seenConversationIds[1]).not.toBe(seenConversationIds[0]);
 	});
 
-	it("rebuilds a rotated resume turn without stale checkpoint or tool state", async () => {
+	it("keeps the rotated id when the new conversation is also rejected", async () => {
+		const seenConversationIds: string[] = [];
+		// Fail every request: rotation must happen exactly once.
+		server = http2.createServer();
+		server.on("session", session => {
+			sessions.add(session);
+			session.on("close", () => sessions.delete(session));
+		});
+		server.on("stream", (stream: http2.ServerHttp2Stream) => {
+			stream.on("data", (chunk: Buffer) => {
+				const conversationId = decodeConversationId(chunk);
+				if (conversationId !== undefined) seenConversationIds.push(conversationId);
+				stream.respond({ ":status": 200, "content-type": "application/connect+proto" }, { waitForTrailers: true });
+				stream.once("wantTrailers", () => {
+					stream.sendTrailers({ "grpc-status": "8", "grpc-message": "resource_exhausted" });
+				});
+				stream.end();
+			});
+		});
+		const listening = Promise.withResolvers<void>();
+		server.once("error", listening.reject);
+		server.listen(0, "127.0.0.1", listening.resolve);
+		await listening.promise;
+		const address = server.address();
+		if (!address || typeof address === "string") throw new Error("expected the fixture server to bind a tcp port");
+		const baseUrl = `http://127.0.0.1:${address.port}`;
+
+		const r1 = await runToEnd(baseUrl, "sess-sticky");
+		const r2 = await runToEnd(baseUrl, "sess-sticky");
+		const r3 = await runToEnd(baseUrl, "sess-sticky");
+		console.log(
+			"[test] results:",
+			JSON.stringify([r1.type, r1.message, r2.type, r2.message, r3.type, r3.message]),
+			"seen:",
+			JSON.stringify(seenConversationIds),
+		);
+
+		expect(seenConversationIds).toHaveLength(3);
+		expect(seenConversationIds[0]).toBe("sess-sticky");
+		expect(seenConversationIds[1]).toBe(seenConversationIds[2]);
+		expect(seenConversationIds[1]).not.toBe("sess-sticky");
+	});
+
+	it("rotated retry recovers a resume-action turn", async () => {
 		const seen: WireRequest[] = [];
 		const baseUrl = await startScriptedServer(seen, ["reject", "ok"]);
 		const ctx = resumeContext();
@@ -249,6 +314,7 @@ describe("Cursor conversation ID rotation", () => {
 		const first = await runToEnd(baseUrl, "sess-resume", ctx);
 		expect(first.type).toBe("error");
 		expect(first.message).toMatch(/resource.?exhausted/i);
+
 		const second = await runToEnd(baseUrl, "sess-resume", ctx);
 		expect(second.type).toBe("done");
 
@@ -257,17 +323,22 @@ describe("Cursor conversation ID rotation", () => {
 		expect(seen[0]?.action).toBe("resumeAction");
 		expect(seen[1]?.conversationId).not.toBe(seen[0]?.conversationId);
 		expect(seen[1]?.action).toBe("userMessageAction");
+		expect(seen[1]?.userText).toBe("Use the read tool.");
 		expect(seen[1]?.pendingToolCalls).toBe(0);
 	});
 
-	it("rotates again after a recovered replacement is poisoned later", async () => {
+	it("re-rotates when the rotated conversation is poisoned later", async () => {
 		const seen: WireRequest[] = [];
 		const baseUrl = await startScriptedServer(seen, ["reject", "ok", "reject", "ok"]);
 
-		expect((await runToEnd(baseUrl, "sess-rerotate")).type).toBe("error");
-		expect((await runToEnd(baseUrl, "sess-rerotate")).type).toBe("done");
-		expect((await runToEnd(baseUrl, "sess-rerotate")).type).toBe("error");
-		expect((await runToEnd(baseUrl, "sess-rerotate")).type).toBe("done");
+		const first = await runToEnd(baseUrl, "sess-rerotate");
+		expect(first.type).toBe("error");
+		const second = await runToEnd(baseUrl, "sess-rerotate");
+		expect(second.type).toBe("done");
+		const third = await runToEnd(baseUrl, "sess-rerotate");
+		expect(third.type).toBe("error");
+		const fourth = await runToEnd(baseUrl, "sess-rerotate");
+		expect(fourth.type).toBe("done");
 
 		expect(seen).toHaveLength(4);
 		expect(seen[0]?.conversationId).toBe("sess-rerotate");
@@ -275,5 +346,19 @@ describe("Cursor conversation ID rotation", () => {
 		expect(seen[2]?.conversationId).toBe(seen[1]?.conversationId);
 		expect(seen[3]?.conversationId).not.toBe(seen[1]?.conversationId);
 		expect(seen[3]?.conversationId).not.toBe(seen[0]?.conversationId);
+	});
+
+	it("does not re-rotate when turnEnded is followed by a rejecting trailer", async () => {
+		const seen: WireRequest[] = [];
+		const baseUrl = await startScriptedServer(seen, ["reject", "turnEndedReject", "reject"]);
+
+		expect((await runToEnd(baseUrl, "sess-failed-rotation")).type).toBe("error");
+		expect((await runToEnd(baseUrl, "sess-failed-rotation")).type).toBe("error");
+		expect((await runToEnd(baseUrl, "sess-failed-rotation")).type).toBe("error");
+
+		expect(seen).toHaveLength(3);
+		expect(seen[0]?.conversationId).toBe("sess-failed-rotation");
+		expect(seen[1]?.conversationId).not.toBe(seen[0]?.conversationId);
+		expect(seen[2]?.conversationId).toBe(seen[1]?.conversationId);
 	});
 });

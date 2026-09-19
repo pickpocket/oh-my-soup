@@ -22,8 +22,10 @@ use napi::{
 	bindgen_prelude::{Array, Either},
 };
 use napi_derive::napi;
+use pi_shell::rayon_global_pool_available;
+use rayon::prelude::*;
 
-use crate::utok;
+use crate::{js, utok};
 
 /// Tokenizer encoding to use.
 #[napi(string_enum)]
@@ -70,9 +72,9 @@ impl Encoding {
 /// Count tokens in `input`.
 ///
 /// `input` may be a single string or an array of strings; an array returns
-/// the sum across all elements. Always returns a single token total — use
-/// this for any aggregate budget question without paying a per-element napi
-/// crossing.
+/// the sum across all elements (counted in parallel when the global rayon pool
+/// is available). Always returns a single token total — use this for any
+/// aggregate budget question without paying a per-element napi crossing.
 ///
 /// Measures user/model content, not wire-protocol tokens: BPE encodings
 /// use ordinary encoding (no special-token handling) and the Claude
@@ -86,28 +88,34 @@ pub fn count_tokens(
 ) -> napi::Result<u32> {
 	let enc = Encoding::utok(encoding);
 	match input {
-		Either::A(js_str) => {
-			let text = js_str.into_utf16()?;
-			let (_, units) = text
-				.as_slice()
-				.split_last()
-				.expect("napi UTF-16 buffer has a terminator");
-			Ok(enc.count(units))
-		},
+		Either::A(text) => Ok(enc.count(&*js::utf16(text)?)),
 		Either::B(array) => {
-			let mut total = 0u32;
+			// Node-API handles are thread-affine, so every element is read here on
+			// the JS thread — into one buffer, so the batch costs one allocation
+			// rather than one per string. Only the counting fans out.
+			let mut units = Vec::new();
+			let mut spans = Vec::with_capacity(array.len() as usize);
 			for index in 0..array.len() {
 				let text = array
 					.get::<JsString>(index)?
-					.ok_or_else(|| napi::Error::from_reason("array changed during token counting"))?
-					.into_utf16()?;
-				let (_, units) = text
-					.as_slice()
-					.split_last()
-					.expect("napi UTF-16 buffer has a terminator");
-				total += enc.count(units);
+					.ok_or_else(|| napi::Error::from_reason("array changed during token counting"))?;
+				spans.push(js::utf16_append(text, &mut units)?);
 			}
-			Ok(total)
+			// Scheduling a Rayon job costs more than tokenizing a small prompt
+			// batch. Keep those batches on the N-API thread; large batches still
+			// amortize the pool handoff across enough independent strings.
+			const PARALLEL_BATCH_MIN: usize = 16;
+			Ok(if spans.len() >= PARALLEL_BATCH_MIN && rayon_global_pool_available() {
+				spans
+					.par_iter()
+					.map(|span| enc.count(&units[span.clone()]))
+					.sum()
+			} else {
+				spans
+					.iter()
+					.map(|span| enc.count(&units[span.clone()]))
+					.sum()
+			})
 		},
 	}
 }

@@ -11,7 +11,7 @@ import { AuthStorage } from "@oh-my-soup/pi-coding-agent/session/auth-storage";
 import { getRestorableSessionModels } from "@oh-my-soup/pi-coding-agent/session/session-context";
 import { EPHEMERAL_MODEL_CHANGE_ROLE } from "@oh-my-soup/pi-coding-agent/session/session-entries";
 import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
-import { AUTO_THINKING } from "@oh-my-soup/pi-coding-agent/thinking";
+import { AUTO_THINKING } from "@oh-my-soup/pi-tui/thinking";
 import { TempDir } from "@oh-my-soup/pi-utils";
 
 describe("AgentSession model persistence", () => {

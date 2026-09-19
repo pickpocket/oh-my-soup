@@ -104,7 +104,7 @@ pub mod cls {
 
 /// Decode the codepoint at `i`, or `None` at end of input.
 #[inline]
-pub fn decode_at<U: Unit>(units: &[U], i: usize) -> Option<(char, usize)> {
+pub(crate) fn decode_at<U: Unit>(units: &[U], i: usize) -> Option<(char, usize)> {
 	(i < units.len()).then(|| U::decode(units, i))
 }
 
@@ -112,7 +112,7 @@ pub fn decode_at<U: Unit>(units: &[U], i: usize) -> Option<(char, usize)> {
 /// absent (the alternate is used both standalone and as an optional
 /// suffix). Case-insensitivity is simple case folding, so `'s` also
 /// matches U+017F ſ — matching the reference regex engines.
-pub fn contraction_end<U: Unit>(units: &[U], pos: usize) -> usize {
+pub(crate) fn contraction_end<U: Unit>(units: &[U], pos: usize) -> usize {
 	let Some(('\'', n0)) = decode_at(units, pos) else {
 		return pos;
 	};
@@ -135,7 +135,7 @@ pub fn contraction_end<U: Unit>(units: &[U], pos: usize) -> usize {
 }
 
 /// `\p{N}{1,3}` at `pos`.
-pub fn digits_end<U: Unit>(units: &[U], pos: usize) -> Option<usize> {
+pub(crate) fn digits_end<U: Unit>(units: &[U], pos: usize) -> Option<usize> {
 	let mut i = pos;
 	for _ in 0..3 {
 		match decode_at(units, i) {
@@ -148,7 +148,7 @@ pub fn digits_end<U: Unit>(units: &[U], pos: usize) -> Option<usize> {
 
 /// ` ?[^\s\p{L}\p{N}]+[\r\n]*` at `pos`; `trailing_slash` adds o200k's `/`
 /// to the tail class (`[\r\n/]*`).
-pub fn punct_end<U: Unit>(units: &[U], pos: usize, trailing_slash: bool) -> Option<usize> {
+pub(crate) fn punct_end<U: Unit>(units: &[U], pos: usize, trailing_slash: bool) -> Option<usize> {
 	let mut i = pos;
 	if let Some((' ', n)) = decode_at(units, pos) {
 		i += n;
@@ -180,7 +180,7 @@ pub fn punct_end<U: Unit>(units: &[U], pos: usize, trailing_slash: bool) -> Opti
 /// - otherwise a run at end of input matches whole,
 /// - otherwise the run gives back one codepoint for the `(?!\S)` lookahead
 ///   (unless it is a single codepoint, which `\s+` takes whole).
-pub fn ws_end<U: Unit>(units: &[U], pos: usize) -> Option<usize> {
+pub(crate) fn ws_end<U: Unit>(units: &[U], pos: usize) -> Option<usize> {
 	let mut i = pos;
 	let mut last_nl_end = None;
 	let mut last_len = 0;

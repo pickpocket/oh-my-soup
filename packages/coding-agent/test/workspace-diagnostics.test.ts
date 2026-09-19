@@ -1,7 +1,7 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import * as fs from "node:fs";
 import * as os from "node:os";
-import path from "node:path";
+import * as path from "node:path";
 import {
 	combineDiagnosticsOutputs,
 	combineProjectDescriptions,
@@ -10,6 +10,7 @@ import {
 } from "../src/lsp/workspace-diagnostics";
 
 const command = ["npx", "tsc", "--noEmit"];
+
 const roots: string[] = [];
 
 /** Build a throwaway workspace root containing exactly the given marker files. */
@@ -35,23 +36,27 @@ describe("interpretEmptyDiagnosticsResult", () => {
 		);
 	});
 
-	test("reports a silent signal termination as an unverified workspace", () => {
-		expect(interpretEmptyDiagnosticsResult(143, "SIGTERM", command)).toBe(
-			"Failed to run npx tsc --noEmit: the checker was killed by SIGTERM without reporting anything, so the workspace was not verified",
+	test("reports a signal when the checker was killed silently", () => {
+		expect(interpretEmptyDiagnosticsResult(137, "SIGKILL", command)).toBe(
+			"Failed to run npx tsc --noEmit: the checker was killed by SIGKILL without reporting anything, so the workspace was not verified",
 		);
 	});
 
-	test("treats an empty successful exit as clean", () => {
+	test("preserves the clean-workspace result for a successful silent checker", () => {
 		expect(interpretEmptyDiagnosticsResult(0, null, command)).toBe("No issues found");
 	});
 });
 
 describe("detectProjectTypes", () => {
+	// #8385: detection returned on the first matching marker, so a root holding
+	// both `Cargo.toml` and `tsconfig.json` only ever ran cargo and reported the
+	// workspace verified while TypeScript was never checked at all.
 	test("detects every language in a polyglot root instead of only the first", async () => {
 		const detected = await detectProjectTypes(makeRoot("Cargo.toml", "tsconfig.json"));
 
+		const descriptions = detected.map(entry => entry.description);
 		expect(detected.map(entry => entry.type)).toEqual(["rust", "typescript"]);
-		expect(detected.map(entry => entry.description)).toEqual(["Rust (cargo check)", "TypeScript (tsc --noEmit)"]);
+		expect(descriptions).toEqual(["Rust (cargo check)", "TypeScript (tsc --noEmit)"]);
 		for (const entry of detected) {
 			expect(entry.command?.length ?? 0).toBeGreaterThan(0);
 		}
@@ -118,11 +123,11 @@ describe("combineDiagnosticsOutputs", () => {
 		expect(combineDiagnosticsOutputs([rust])).toBe("No issues found");
 	});
 
-	test("labels every language so polyglot errors are not omitted", () => {
-		const rust = { description: "Rust (cargo check)", output: "src/lib.rs:1: error" };
+	test("labels each language so a failure is attributable to its checker", () => {
+		const rust = { description: "Rust (cargo check)", output: "No issues found" };
 		const ts = { description: "TypeScript (tsc --noEmit)", output: "src/a.ts(1,1): error TS2304" };
 		const expected =
-			"=== Rust (cargo check) ===\nsrc/lib.rs:1: error\n\n=== TypeScript (tsc --noEmit) ===\nsrc/a.ts(1,1): error TS2304";
+			"=== Rust (cargo check) ===\nNo issues found\n\n=== TypeScript (tsc --noEmit) ===\nsrc/a.ts(1,1): error TS2304";
 
 		expect(combineDiagnosticsOutputs([rust, ts])).toBe(expected);
 	});

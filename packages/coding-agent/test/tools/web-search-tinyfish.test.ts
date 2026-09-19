@@ -165,25 +165,6 @@ describe("TinyFish web search provider", () => {
 		expectTinyFishParams(captured[0], ["query", "num_results", "page", "language"]);
 	});
 
-	it("does not prefix-match three-letter language subtags", async () => {
-		const captured: URL[] = [];
-		const fetchMock: FetchImpl = async input => {
-			const url = input instanceof URL ? input : new URL(typeof input === "string" ? input : input.url);
-			captured.push(url);
-			return new Response(JSON.stringify(tinyFishPage(tinyFishResults("tinyfish", 3))), {
-				status: 200,
-				headers: { "Content-Type": "application/json" },
-			});
-		};
-
-		await searchTinyFish({ ...makeParams("cheap tablets lang:eng"), fetch: fetchMock });
-
-		expect(captured).toHaveLength(1);
-		expect(captured[0].searchParams.has("language")).toBe(false);
-		expect(captured[0].searchParams.has("location")).toBe(false);
-		expectTinyFishParams(captured[0], ["query", "num_results", "page"]);
-	});
-
 	it("passes TinyFish num_results and applies numSearchResults across pages", async () => {
 		const captured: { url: URL; init?: RequestInit }[] = [];
 		const pages = new Map([

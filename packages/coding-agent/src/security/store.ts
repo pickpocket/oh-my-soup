@@ -1,8 +1,8 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { getSecurityProjectDir, isEexist, isEnoent, isEnotempty, logger, toError } from "@oh-my-soup/pi-utils";
+import * as vcs from "@oh-my-soup/pi-natives/vcs";
+import { getSecurityProjectDir, isEnoent } from "@oh-my-soup/pi-utils";
 import { withFileLock } from "@oh-my-soup/pi-utils/file-lock";
-import * as git from "../utils/git";
 import { compareSecurityLineage } from "./comparison";
 import type {
 	SecurityComparisonReport,
@@ -105,103 +105,30 @@ export async function writeSecurityFileAtomic(
 		await fs.rm(temporaryPath, { force: true }).catch(() => undefined);
 	}
 }
-async function writePrivateFile(filePath: string, content: string): Promise<void> {
-	await fs.writeFile(filePath, content, { encoding: "utf-8", mode: PRIVATE_FILE_MODE, flag: "wx" });
-	if (process.platform !== "win32") await fs.chmod(filePath, PRIVATE_FILE_MODE);
-}
-
-function isDirectoryReplaceConflict(error: unknown): boolean {
-	return (
-		isEexist(error) ||
-		isEnotempty(error) ||
-		(process.platform === "win32" && error instanceof Error && "code" in error && error.code === "EPERM")
-	);
-}
-
-/** Replace the visible bundle as a directory; the backup path permits rollback where rename-over-directory is unsupported. */
-async function publishStagedDirectory(stagingRoot: string, root: string): Promise<void> {
-	try {
-		await fs.rename(stagingRoot, root);
-		return;
-	} catch (error) {
-		if (!isDirectoryReplaceConflict(error)) throw error;
-	}
-
-	const backupRoot = `${root}.${process.pid}.${Bun.randomUUIDv7()}.bak`;
-	try {
-		await fs.rename(root, backupRoot);
-	} catch (error) {
-		if (isEnoent(error)) {
-			await fs.rename(stagingRoot, root);
-			return;
-		}
-		throw error;
-	}
-
-	try {
-		await fs.rename(stagingRoot, root);
-	} catch (replaceError) {
-		try {
-			await fs.rename(backupRoot, root);
-		} catch (rollbackError) {
-			throw new Error(
-				`Failed to publish security bundle after ${toError(replaceError).message}; ` +
-					`the previous bundle remains at ${backupRoot} because rollback failed: ${toError(rollbackError).message}`,
-				{ cause: toError(replaceError) },
-			);
-		}
-		throw replaceError;
-	}
-
-	try {
-		await fs.rm(backupRoot, { recursive: true });
-	} catch (error) {
-		if (!isEnoent(error)) {
-			logger.warn("Failed to remove security bundle publication backup", {
-				root,
-				backupRoot,
-				error: toError(error).message,
-			});
-		}
-	}
-}
-
-/** Materialize every public artifact off-path before making the complete directory visible to readers. */
 export async function writeSecurityBundleToDirectory(directory: string, input: SecurityScanBundle): Promise<void> {
 	const bundle = parseSecurityScanBundle(input);
 	const root = path.resolve(directory);
-	try {
-		const existing = await fs.lstat(root);
-		if (existing.isSymbolicLink()) throw new Error("Security output directory must not be a symbolic link");
-		if (!existing.isDirectory()) throw new Error("Security output path exists and is not a directory");
-	} catch (error) {
-		if (!isEnoent(error)) throw error;
+	await ensurePrivateDirectory(root);
+	await writeSecurityFileAtomic(path.join(root, "findings.json"), `${JSON.stringify(bundle.findings, null, 2)}\n`);
+	if (bundle.report !== undefined) {
+		await writeSecurityFileAtomic(path.join(root, "report.md"), bundle.report);
+	} else {
+		await fs.rm(path.join(root, "report.md"), { force: true });
 	}
-	const stagingRoot = path.join(
-		path.dirname(root),
-		`.${path.basename(root)}.${process.pid}.${Bun.randomUUIDv7()}.tmp`,
+	if (bundle.sarif !== undefined) {
+		await writeSecurityFileAtomic(path.join(root, "results.sarif"), `${JSON.stringify(bundle.sarif, null, 2)}\n`);
+	} else {
+		await fs.rm(path.join(root, "results.sarif"), { force: true });
+	}
+	await writeSecurityFileAtomic(
+		path.join(root, "provenance.json"),
+		`${JSON.stringify(redactPrivateSecurityMetadata(bundle.scan.provenance), null, 2)}\n`,
 	);
-	await ensurePrivateDirectory(stagingRoot);
-	try {
-		await writePrivateFile(path.join(stagingRoot, "findings.json"), `${JSON.stringify(bundle.findings, null, 2)}\n`);
-		if (bundle.report !== undefined) {
-			await writePrivateFile(path.join(stagingRoot, "report.md"), bundle.report);
-		}
-		if (bundle.sarif !== undefined) {
-			await writePrivateFile(path.join(stagingRoot, "results.sarif"), `${JSON.stringify(bundle.sarif, null, 2)}\n`);
-		}
-		await writePrivateFile(
-			path.join(stagingRoot, "provenance.json"),
-			`${JSON.stringify(redactPrivateSecurityMetadata(bundle.scan.provenance), null, 2)}\n`,
-		);
-		await writePrivateFile(
-			path.join(stagingRoot, "scan.json"),
-			`${JSON.stringify(createPublicSecurityScan(bundle.scan), null, 2)}\n`,
-		);
-		await publishStagedDirectory(stagingRoot, root);
-	} finally {
-		await fs.rm(stagingRoot, { recursive: true, force: true }).catch(() => undefined);
-	}
+	// The scan manifest is the commit marker for directory consumers.
+	await writeSecurityFileAtomic(
+		path.join(root, "scan.json"),
+		`${JSON.stringify(createPublicSecurityScan(bundle.scan), null, 2)}\n`,
+	);
 }
 
 async function readJsonFile(filePath: string): Promise<unknown> {
@@ -242,7 +169,8 @@ export class SecurityStore {
 
 	static async openForCwd(cwd: string, options: SecurityStoreOptions = {}): Promise<SecurityStore> {
 		const resolvedCwd = path.resolve(cwd);
-		const repositoryRoot = (await git.repo.root(resolvedCwd, options.signal)) ?? resolvedCwd;
+		options.signal?.throwIfAborted();
+		const repositoryRoot = vcs.repo(resolvedCwd)?.root() ?? resolvedCwd;
 		return SecurityStore.open(repositoryRoot, options);
 	}
 

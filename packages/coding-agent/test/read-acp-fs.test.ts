@@ -6,7 +6,7 @@ import type { AgentToolResult } from "@oh-my-soup/pi-agent-core";
 import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
 import type { ClientBridge } from "@oh-my-soup/pi-coding-agent/session/client-bridge";
 import type { ToolSession } from "@oh-my-soup/pi-coding-agent/tools";
-import type { ReadToolDetails } from "@oh-my-soup/pi-coding-agent/tools/read";
+import type { ReadToolDetails } from "@oh-my-soup/pi-tui/tools/read";
 import { ReadTool } from "@oh-my-soup/pi-coding-agent/tools/read";
 import { removeWithRetries } from "@oh-my-soup/pi-utils";
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { colorToAnsi, detectColorMode } from "../src/modes/theme/color";
+import { colorToAnsi, detectColorMode } from "@oh-my-soup/pi-tui/theme/color";
 
 describe("theme color mode", () => {
 	it("emits 256-color SGR for macOS Terminal.app", () => {

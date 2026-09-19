@@ -79,7 +79,7 @@ A named profile (`oms --profile <name>`, `OMS_PROFILE`, or the legacy fallback `
 
 The relocation is uniform across the native provider (`builtin.ts`) and the generic `config.ts` helpers, so it covers slash commands, rules, prompts, instructions, hooks, tools, extensions, settings, skills, and MCP, plus the top-level `SYSTEM.md` / `RULES.md` / `AGENTS.md` files and runtime state (sessions, blobs, `agent.db`). A profile sees only its own OMS config, never the default profile's agent config.
 
-Keybindings are the one exception: a named profile merges the default profile's `~/.oms/agent/keybindings.*` under its own `~/.oms/profiles/<name>/agent/keybindings.*`, with the profile file overriding per binding ([#4867](https://github.com/can1357/oh-my-pi/issues/4867)). Keybindings describe the terminal/keyboard in front of the user, which doesn't change with the active profile, so user-level remaps keep working in every profile unless the profile explicitly overrides them. The inherited file is read-only for the profile process — legacy-format migration of the default profile's file only happens when the default profile itself runs.
+Keybindings are the one exception: a named profile merges the default profile's `~/.oms/agent/keybindings.*` under its own `~/.oms/profiles/<name>/agent/keybindings.*`, with the profile file overriding per binding ([#4867](https://github.com/pickpocket/oh-my-soup/issues/4867)). Keybindings describe the terminal/keyboard in front of the user, which doesn't change with the active profile, so user-level remaps keep working in every profile unless the profile explicitly overrides them. The inherited file is read-only for the profile process — legacy-format migration of the default profile's file only happens when the default profile itself runs.
 
 On macOS and Linux, an existing `$XDG_DATA_HOME/oms`, `$XDG_STATE_HOME/oms`, or `$XDG_CACHE_HOME/oms` can relocate the corresponding data, state, or cache paths. For a named profile, OMS uses an XDG category only when that category already contains `oms/profiles/<name>`; otherwise that category remains under `~/.oms/profiles/<name>`. Run `oms config init-xdg` before relying on XDG paths.
 
@@ -183,7 +183,6 @@ On startup, if neither global `config.yml` nor `config.yaml` exists:
 Field-level migrations in `#migrateRawSettings`:
 
 - `queueMode` -> `steeringMode`
-- `ask.timeout` milliseconds -> seconds when old value looks like ms (`> 1000`)
 - Legacy flat `theme: "..."` -> `theme.dark/theme.light` structure
 
 ---
@@ -194,20 +193,41 @@ Most non-core config loading flows through the capability registry (`src/capabil
 
 ## Provider ordering
 
-Providers are sorted by numeric priority (higher first). Example priorities:
+Providers are sorted by numeric priority (higher first). Full set:
 
 - Native OMS (`builtin.ts`): `100`
+- OMS plugins (`oms-plugins`): `90`
 - Claude: `80`
-- Codex / agents / Claude marketplace: `70`
+- Agent Plugins standard (`agent-plugins`): `75`
+- Codex / agents / Claude plugins marketplace: `70`
 - Gemini: `60`
+- OpenCode: `55`
+- Cursor / Windsurf: `50`
+- Cline: `40`
+- GitHub Copilot: `30`
+- VS Code: `20`
+- agents-md (`AGENTS.md` files): `10`
+- mcp-json / ssh-json: `5`
+- Built-in default rules (`builtin-defaults`): `1`
 
 ```text
 Provider precedence (higher wins)
 
-native (.oms)          priority 100
-claude                 priority  80
-codex / agents / ...   priority  70
-gemini                 priority  60
+native (.oms)           priority 100
+oms-plugins             priority  90
+claude                  priority  80
+agent-plugins           priority  75
+codex / agents /
+  claude-plugins        priority  70
+gemini                  priority  60
+opencode                priority  55
+cursor / windsurf       priority  50
+cline                   priority  40
+github                  priority  30
+vscode                  priority  20
+agents-md               priority  10
+mcp-json / ssh-json     priority   5
+builtin-defaults        priority   1
 ```
 
 ## Dedup semantics
@@ -323,7 +343,7 @@ Settings capability items are not deduplicated; `Settings.#loadProjectSettings()
 
 - `ConfigFile` JSON -> YAML migration for YAML-targeted files.
 - Settings migration from `settings.json` and `agent.db` to `config.yml`.
-- Field migrations cover renamed/removed settings and value-shape changes, including `queueMode`, changelog settings, `ask.timeout`, flat `theme`, `inspect_image.enabled`, task isolation/eager settings, removed edit and compaction modes, `inlineToolDescriptors`, status-line segments, provider/search settings, memories/hindsight settings, and nested-leaf renames. Consult `Settings.#migrateRawSettings()` for the current exhaustive list.
+- Field migrations cover renamed/removed settings and value-shape changes, including `queueMode`, changelog settings, flat `theme`, retired image-tool settings, task isolation/eager settings, removed edit and compaction modes, `inlineToolDescriptors`, status-line segments, provider/search settings, memories/hindsight settings, and nested-leaf renames. Consult `Settings.#migrateRawSettings()` for the current exhaustive list.
 - Legacy setting names `skills.enablePiUser` / `skills.enablePiProject` are still active gates for native skill source.
 
 If these compatibility paths are removed in code, update this document immediately; several runtime behaviors still depend on them today.

@@ -1,3 +1,8 @@
+// Regression: openai-completions ignored the onPayload replacement return
+// value (fire-and-forget), so extensions hooking before_provider_request
+// could never transform the body actually sent upstream. The replacement
+// contract matches anthropic / openai-responses / google: await the hook,
+// and use its non-undefined return as the request body.
 import { describe, expect, it } from "bun:test";
 import { streamOpenAICompletions } from "@oh-my-soup/pi-ai/providers/openai-completions";
 import type { Context, FetchImpl, Model } from "@oh-my-soup/pi-ai/types";
@@ -9,7 +14,9 @@ const completionsModel = {
 } satisfies Model<"openai-completions">;
 
 function baseContext(): Context {
-	return { messages: [{ role: "user", content: "Say hello", timestamp: Date.now() }] };
+	return {
+		messages: [{ role: "user", content: "Say hello", timestamp: Date.now() }],
+	};
 }
 
 function createSseFetch(capture?: (body: unknown) => void): FetchImpl {
@@ -22,15 +29,16 @@ function createSseFetch(capture?: (body: unknown) => void): FetchImpl {
 			chunk({ choices: [{ index: 0, delta: { role: "assistant", content: "ok" } }] }) +
 			chunk({ choices: [{ index: 0, delta: {}, finish_reason: "stop" }] }) +
 			"data: [DONE]\n\n";
-		return new Response(
-			new ReadableStream<Uint8Array>({
-				start(controller) {
-					controller.enqueue(encoder.encode(sse));
-					controller.close();
-				},
-			}),
-			{ status: 200, headers: { "content-type": "text/event-stream" } },
-		);
+		const stream = new ReadableStream<Uint8Array>({
+			start(controller) {
+				controller.enqueue(encoder.encode(sse));
+				controller.close();
+			},
+		});
+		return new Response(stream, {
+			status: 200,
+			headers: { "content-type": "text/event-stream" },
+		});
 	}
 	return mockFetch as typeof fetch;
 }
@@ -38,7 +46,7 @@ function createSseFetch(capture?: (body: unknown) => void): FetchImpl {
 type Body = Record<string, any>;
 
 describe("openai-completions onPayload replacement", () => {
-	it("sends an async replacement and records the final wire payload", async () => {
+	it("sends an async onPayload replacement body", async () => {
 		let captured: Body | undefined;
 		const result = await streamOpenAICompletions(completionsModel, baseContext(), {
 			apiKey: "test-key",
@@ -54,7 +62,7 @@ describe("openai-completions onPayload replacement", () => {
 		expect(JSON.stringify(captured)).not.toContain("Say hello");
 	}, 10_000);
 
-	it("sends a synchronous replacement", async () => {
+	it("sends a synchronous onPayload replacement body", async () => {
 		let captured: Body | undefined;
 		await streamOpenAICompletions(completionsModel, baseContext(), {
 			apiKey: "test-key",
@@ -68,7 +76,7 @@ describe("openai-completions onPayload replacement", () => {
 		expect(captured?.messages).toEqual([{ role: "user", content: "sync-replacement" }]);
 	}, 10_000);
 
-	it("keeps the original body when the hook returns undefined", async () => {
+	it("keeps the original body when onPayload returns undefined", async () => {
 		let captured: Body | undefined;
 		await streamOpenAICompletions(completionsModel, baseContext(), {
 			apiKey: "test-key",

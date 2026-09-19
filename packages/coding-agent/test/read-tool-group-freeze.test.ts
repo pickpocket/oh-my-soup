@@ -1,8 +1,8 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "bun:test";
 import { resetSettingsForTest, Settings, settings } from "@oh-my-soup/pi-coding-agent/config/settings";
-import { ReadToolGroupComponent } from "@oh-my-soup/pi-coding-agent/modes/components/read-tool-group";
-import { TranscriptContainer } from "@oh-my-soup/pi-coding-agent/modes/components/transcript-container";
-import * as themeModule from "@oh-my-soup/pi-coding-agent/modes/theme/theme";
+import { ReadToolGroupComponent } from "@oh-my-soup/pi-tui/chat/read-tool-group";
+import { TranscriptContainer } from "@oh-my-soup/pi-tui/chrome/transcript-container";
+import * as themeModule from "@oh-my-soup/pi-tui/theme";
 import type { Component } from "@oh-my-soup/pi-tui";
 
 /** Minimal transcript block whose finalized state is fixed at construction. */

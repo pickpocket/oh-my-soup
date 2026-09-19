@@ -1,4 +1,4 @@
-//! Golden-fixture test: KimiK2 vs reference tiktoken encode_ordinary.
+//! Golden-fixture test: `KimiK2` vs reference tiktoken `encode_ordinary`.
 
 use crate::utok::Encoding;
 

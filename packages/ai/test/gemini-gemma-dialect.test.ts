@@ -1,11 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import type { ToolCall } from "@oh-my-soup/pi-ai";
-import {
-	createInbandScanner,
-	type Dialect,
-	getDialectDefinition,
-	type InbandScanEvent,
-} from "@oh-my-soup/pi-ai/dialect";
+import { createInbandScanner, type Dialect, getDialectDefinition, type InbandScanEvent } from "@oh-my-soup/pi-ai/dialect";
 
 function scan(dialect: Dialect, text: string, charByChar = false): InbandScanEvent[] {
 	const scanner = createInbandScanner(dialect);

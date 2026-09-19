@@ -239,9 +239,15 @@ describe("AuthStorage OAuth refresh race", () => {
 		expect(oauth.map(credential => credential.refresh).sort()).toEqual(["refresh-a-rotated", "refresh-b-rotated"]);
 	});
 
-	test("preflight retries a peer-rotated credential but skips a deleted CAS loser", async () => {
+	test("preflight retries a peer-rotated credential instead of stranding it", async () => {
 		const staleExpires = Date.now() - 60_000;
 		const freshExpires = Date.now() + 60 * 60_000;
+
+		// A store WITHOUT durable-lease support: the lease path in
+		// #refreshOAuthCredentialUnshared wraps refresh in refreshStoredOAuthCredential,
+		// which absorbs a peer rotation itself. We want the definitive failure to reach
+		// #resolveOAuthSelection's own preflight catch so the "peer-rotated" outcome of
+		// #disableDefinitiveOAuthFailure is what's actually exercised.
 		const rows: StoredAuthCredential[] = [
 			{
 				id: 1,
@@ -251,8 +257,6 @@ describe("AuthStorage OAuth refresh race", () => {
 			},
 		];
 		const cache = new Map<string, { value: string; expiresAtSec: number }>();
-		// Exclude durable lease hooks so the definitive failure reaches the
-		// preflight CAS-loser path directly.
 		const noLeaseStore: AuthCredentialStore = {
 			close() {},
 			listAuthCredentials(provider) {
@@ -275,7 +279,9 @@ describe("AuthStorage OAuth refresh race", () => {
 			deleteAuthCredentialsForProvider() {},
 			getCache(key) {
 				const entry = cache.get(key);
-				return entry && entry.expiresAtSec * 1000 > Date.now() ? entry.value : null;
+				if (!entry) return null;
+				if (entry.expiresAtSec * 1000 <= Date.now()) return null;
+				return entry.value;
 			},
 			setCache(key, value, expiresAtSec) {
 				cache.set(key, { value, expiresAtSec });
@@ -284,7 +290,6 @@ describe("AuthStorage OAuth refresh race", () => {
 		};
 
 		let refreshCalls = 0;
-		let deleteDuringRefresh = false;
 		oauthUtils.registerOAuthProvider({
 			id: "unit-oauth-preflight-rotate",
 			name: "Unit OAuth Preflight Rotate",
@@ -295,16 +300,15 @@ describe("AuthStorage OAuth refresh race", () => {
 			async refreshToken(credentials) {
 				refreshCalls += 1;
 				if (credentials.refresh === "stale-refresh") {
-					if (deleteDuringRefresh) {
-						rows.length = 0;
-					} else {
-						rows[0]!.credential = {
-							type: "oauth",
-							access: "fresh-access-from-peer",
-							refresh: "fresh-refresh-from-peer",
-							expires: freshExpires,
-						};
-					}
+					// A peer completed its own refresh mid-flight and rotated the shared row;
+					// our stale refresh token is now dead (invalid_grant), but the persisted
+					// row holds the peer's freshly rotated credential.
+					rows[0]!.credential = {
+						type: "oauth",
+						access: "fresh-access-from-peer",
+						refresh: "fresh-refresh-from-peer",
+						expires: freshExpires,
+					};
 					throw new Error('HTTP 400 invalid_grant {"error":"invalid_grant"}');
 				}
 				return credentials;
@@ -314,38 +318,30 @@ describe("AuthStorage OAuth refresh race", () => {
 			},
 		});
 
-		const disabledEvents: CredentialDisabledEvent[] = [];
+		const events: CredentialDisabledEvent[] = [];
 		const storage = new AuthStorage(noLeaseStore, {
 			onCredentialDisabled: event => {
-				disabledEvents.push(event);
+				events.push(event);
 			},
 		});
 		await storage.reload();
 
 		const apiKey = await storage.getApiKey("unit-oauth-preflight-rotate", "session-preflight-rotate");
 
+		// The single stored credential was peer-rotated during preflight refresh. The
+		// resolve pass must pick up the reloaded fresh credential instead of adding the
+		// candidate to preflightFailures and returning undefined.
 		expect(apiKey).toBe("fresh-access-from-peer");
-		expect(disabledEvents).toHaveLength(0);
+		expect(events).toHaveLength(0);
+		// Preflight refreshed once and threw; the final pass reuses the fresh token
+		// synced from the reloaded row rather than replaying a second refresh.
 		expect(refreshCalls).toBe(1);
-		expect(rows[0]?.credential).toMatchObject({
-			type: "oauth",
-			access: "fresh-access-from-peer",
-			refresh: "fresh-refresh-from-peer",
-		});
-
-		rows[0]!.credential = {
-			type: "oauth",
-			access: "deleted-access",
-			refresh: "stale-refresh",
-			expires: staleExpires,
-		};
-		deleteDuringRefresh = true;
-		await storage.reload();
-
-		const deletedResult = await storage.getApiKey("unit-oauth-preflight-rotate", "session-preflight-delete");
-		expect(deletedResult).toBeUndefined();
-		expect(rows).toHaveLength(0);
-		expect(disabledEvents).toHaveLength(0);
+		const stored = noLeaseStore.listAuthCredentials("unit-oauth-preflight-rotate");
+		expect(stored).toHaveLength(1);
+		expect(stored[0]?.credential.type).toBe("oauth");
+		if (stored[0]?.credential.type === "oauth") {
+			expect(stored[0].credential.refresh).toBe("fresh-refresh-from-peer");
+		}
 	});
 
 	test("coalesces concurrent refreshes for the same credential", async () => {
@@ -457,7 +453,6 @@ describe("AuthStorage OAuth refresh race", () => {
 
 		const expires = Date.now() - 60_000;
 		const refreshedExpires = Date.now() + 60 * 60_000;
-		let credentialId: number | undefined;
 
 		oauthUtils.registerOAuthProvider({
 			id: "unit-oauth-post-lease-race",
@@ -489,7 +484,7 @@ describe("AuthStorage OAuth refresh race", () => {
 		await authStorage.set("unit-oauth-post-lease-race", [
 			{ type: "oauth", access: "access-old", refresh: "refresh-old", expires },
 		]);
-		credentialId = store.listAuthCredentials("unit-oauth-post-lease-race")[0]?.id;
+		const credentialId = store.listAuthCredentials("unit-oauth-post-lease-race")[0]?.id;
 		expect(credentialId).toBeDefined();
 
 		const apiKey = await authStorage.getApiKey("unit-oauth-post-lease-race", "session-post-lease");
@@ -960,22 +955,17 @@ describe("AuthStorage OAuth refresh race", () => {
 		expect(result.credential).toMatchObject({ type: "oauth", access: "peer-rotated-access" });
 	});
 
-	test("does not replay a refresh when the CAS winner remains inside refresh skew", async () => {
+	test("stops after a definitive refresh failure loses its disable CAS", async () => {
 		if (!authStorage || !store) throw new Error("test setup failed");
 
-		const credentialStore = store;
-		const now = Date.now();
 		await authStorage.set("unit-oauth-definitive-cas-loss", [
 			{
 				type: "oauth",
 				access: "access-old",
 				refresh: "refresh-old",
-				expires: now - 60_000,
+				expires: Date.now() - 60_000,
 			},
 		]);
-		const persisted = credentialStore.listAuthCredentials("unit-oauth-definitive-cas-loss")[0];
-		if (!persisted) throw new Error("credential setup failed");
-
 		const controller = new AbortController();
 		let refreshCalls = 0;
 		oauthUtils.registerOAuthProvider({
@@ -983,29 +973,18 @@ describe("AuthStorage OAuth refresh race", () => {
 			name: "Unit OAuth Definitive CAS Loss",
 			sourceId: "auth-storage-oauth-refresh-race-test",
 			async login() {
-				return { access: "unused", refresh: "unused", expires: now + 60 * 60_000 };
+				return { access: "unused", refresh: "unused", expires: Date.now() + 60 * 60_000 };
 			},
 			async refreshToken() {
-				refreshCalls++;
-				if (refreshCalls > 1) controller.abort(new Error("unexpected refresh replay"));
+				refreshCalls += 1;
+				if (refreshCalls > 1) controller.abort(new Error("unexpected retry"));
 				throw new Error('HTTP 400 invalid_grant {"error":"invalid_grant"}');
 			},
 			getApiKey(credentials) {
 				return credentials.access;
 			},
 		});
-		vi.spyOn(credentialStore, "tryDisableAuthCredentialIfMatches").mockImplementation(() => {
-			// Simulate a peer winning the disable CAS with a rotated credential
-			// that is technically unexpired but still inside the five-minute
-			// refresh skew. Returning it would immediately replay its refresh.
-			credentialStore.updateAuthCredential(persisted.id, {
-				type: "oauth",
-				access: "peer-near-expiry-access",
-				refresh: "peer-near-expiry-refresh",
-				expires: now + 60_000,
-			});
-			return false;
-		});
+		vi.spyOn(store, "tryDisableAuthCredentialIfMatches").mockReturnValue(false);
 
 		await expect(
 			authStorage.getApiKey("unit-oauth-definitive-cas-loss", "session-cas-loss", {

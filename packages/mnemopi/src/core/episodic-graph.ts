@@ -565,6 +565,10 @@ export class EpisodicGraph {
 	}
 
 	private extractParticipants(content: string): string[] {
+		// Match capitalized proper nouns across cased scripts (Latin, Greek, Cyrillic, …).
+		// `[A-Z][a-z]+` plus ASCII `\b` matched no non-Latin token, so any non-English
+		// memory produced zero participants (issue #7918). Unicode property escapes with
+		// the `u` flag, and `\p{L}`-based lookaround boundaries in place of `\b`, fix that.
 		const names = Array.from(
 			content.matchAll(/(?<![\p{L}\p{N}_])(\p{Lu}\p{Ll}+(?:\s+\p{Lu}\p{Ll}+)?)(?![\p{L}\p{N}_])/gu),
 			match => match[1] ?? "",

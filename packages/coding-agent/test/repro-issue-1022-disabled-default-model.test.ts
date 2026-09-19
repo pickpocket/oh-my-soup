@@ -5,10 +5,9 @@ import * as path from "node:path";
 import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
 import { resetSettingsForTest, Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
 import { createAgentSession } from "@oh-my-soup/pi-coding-agent/sdk";
-import { AgentStorage } from "@oh-my-soup/pi-coding-agent/session/agent-storage";
 import { AuthStorage } from "@oh-my-soup/pi-coding-agent/session/auth-storage";
 import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
-import { removeWithRetries, Snowflake } from "@oh-my-soup/pi-utils";
+import { removeSyncWithRetries, Snowflake } from "@oh-my-soup/pi-utils";
 import { YAML } from "bun";
 
 /**
@@ -37,10 +36,9 @@ describe("issue #1022 — path-scoped enabledModels respected by default fallbac
 		fs.mkdirSync(cwd, { recursive: true });
 	});
 
-	afterEach(async () => {
+	afterEach(() => {
 		resetSettingsForTest();
-		AgentStorage.resetInstance();
-		if (fs.existsSync(testDir)) await removeWithRetries(testDir);
+		if (fs.existsSync(testDir)) removeSyncWithRetries(testDir);
 	});
 
 	test("does not pick a disallowed provider when enabledModels excludes it", async () => {
@@ -59,7 +57,7 @@ describe("issue #1022 — path-scoped enabledModels respected by default fallbac
 		expect(settings.get("enabledModels")).toEqual(["openai-codex"]);
 		expect(settings.get("disabledProviders")).toEqual(["github-copilot"]);
 
-		const authStorage = await AuthStorage.create(path.join(testDir, "auth.db"));
+		const authStorage = await AuthStorage.create(":memory:");
 		// Only anthropic has credentials. Per `enabledModels` the path allows
 		// only openai-codex, so no anthropic model should be selected.
 		authStorage.setRuntimeApiKey("anthropic", "test-anthropic-key");

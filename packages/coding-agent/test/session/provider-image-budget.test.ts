@@ -1,13 +1,8 @@
 import { describe, expect, it } from "bun:test";
 import type { Context, ImageContent, TextContent } from "@oh-my-soup/pi-ai";
 import { buildModel } from "@oh-my-soup/pi-catalog/build";
-import {
-	clampProviderContextImages,
-	createImageBudgetWatermark,
-} from "@oh-my-soup/pi-coding-agent/session/provider-image-budget";
+import { clampProviderContextImages } from "@oh-my-soup/pi-coding-agent/session/provider-image-budget";
 
-// umans has a provider image budget of 10; the hysteresis batch is 4, so an
-// over-budget trim drops down to 6 surviving images.
 const UMANS_MODEL = buildModel({
 	id: "umans-glm-5.2",
 	name: "umans-glm-5.2",
@@ -20,8 +15,6 @@ const UMANS_MODEL = buildModel({
 	contextWindow: 128000,
 	maxTokens: 4096,
 });
-
-const USER_IMAGE_OMISSION_TEXT = "[image omitted: over provider image budget]";
 
 function image(data: string): ImageContent {
 	return { type: "image", data, mimeType: "image/png" };
@@ -56,33 +49,22 @@ function textData(context: Context): string[] {
 	return data;
 }
 
-function userImageContext(count: number): Context {
-	return {
-		systemPrompt: ["system"],
-		tools: [],
-		messages: Array.from({ length: count }, (_, index) => ({
-			role: "user",
-			content: [text(`text-${index}`), image(`image-${index}`)],
-			timestamp: index,
-		})),
-	};
-}
-
 describe("provider context image budgets", () => {
-	it("drops oldest images down to budget minus the hysteresis batch while preserving text", () => {
-		const context = userImageContext(31);
+	it("drops oldest images above the active provider cap while preserving text", () => {
+		const context: Context = {
+			systemPrompt: ["system"],
+			tools: [],
+			messages: Array.from({ length: 31 }, (_, index) => ({
+				role: "user",
+				content: [text(`text-${index}`), image(`image-${index}`)],
+				timestamp: index,
+			})),
+		};
 
-		const clamped = clampProviderContextImages(context, UMANS_MODEL, createImageBudgetWatermark());
+		const clamped = clampProviderContextImages(context, UMANS_MODEL);
 
-		// 31 images over a cap of 10 trims down to 10 - 4 = 6 survivors.
-		expect(imageData(clamped)).toEqual(Array.from({ length: 6 }, (_, index) => `image-${index + 25}`));
-		// Every dropped user image is replaced by the byte-stable placeholder,
-		// so the message keeps its shape and the model sees the omission.
-		expect(textData(clamped)).toEqual(
-			Array.from({ length: 31 }, (_, index) => index).flatMap(index =>
-				index < 25 ? [`text-${index}`, USER_IMAGE_OMISSION_TEXT] : [`text-${index}`],
-			),
-		);
+		expect(imageData(clamped)).toEqual(Array.from({ length: 10 }, (_, index) => `image-${index + 21}`));
+		expect(textData(clamped)).toEqual(Array.from({ length: 31 }, (_, index) => `text-${index}`));
 		expect(clamped).not.toBe(context);
 		expect(imageData(context)).toEqual(Array.from({ length: 31 }, (_, index) => `image-${index}`));
 	});
@@ -94,18 +76,17 @@ describe("provider context image budgets", () => {
 			messages: Array.from({ length: 11 }, (_, index) => ({
 				role: "toolResult",
 				toolCallId: `call-${index}`,
-				toolName: "inspect_image",
+				toolName: "read",
 				content: [image(`image-${index}`)],
 				isError: false,
 				timestamp: index,
 			})),
 		};
 
-		const clamped = clampProviderContextImages(context, UMANS_MODEL, createImageBudgetWatermark());
+		const clamped = clampProviderContextImages(context, UMANS_MODEL);
 		const firstMessage = clamped.messages[0];
 
-		// 11 over a cap of 10 trims down to 6 survivors (hysteresis batch 4).
-		expect(imageData(clamped)).toEqual(Array.from({ length: 6 }, (_, index) => `image-${index + 5}`));
+		expect(imageData(clamped)).toEqual(Array.from({ length: 10 }, (_, index) => `image-${index + 1}`));
 		expect(firstMessage?.role).toBe("toolResult");
 		expect(firstMessage?.content).toEqual([text("[image omitted: provider image limit]")]);
 	});
@@ -170,65 +151,5 @@ describe("provider context image budgets", () => {
 		};
 
 		expect(clampProviderContextImages(context, UMANS_MODEL)).toBe(context);
-	});
-
-	it("keeps the drop frontier stable for the next BATCH images after a trim", () => {
-		const watermark = createImageBudgetWatermark();
-
-		// 11 images exceed the cap of 10: trim down to 6 (drop the oldest 5).
-		const first = clampProviderContextImages(userImageContext(11), UMANS_MODEL, watermark);
-		expect(imageData(first)).toEqual(Array.from({ length: 6 }, (_, index) => `image-${index + 5}`));
-		expect(watermark.droppedImages).toBe(5);
-
-		// The next 4 new images ride inside the overshoot: same 5 oldest slots
-		// dropped, no frontier movement, so the cached prefix stays intact.
-		for (let total = 12; total <= 15; total++) {
-			const clamped = clampProviderContextImages(userImageContext(total), UMANS_MODEL, watermark);
-			expect(watermark.droppedImages).toBe(5);
-			expect(imageData(clamped)).toEqual(Array.from({ length: total - 5 }, (_, index) => `image-${index + 5}`));
-		}
-
-		// The 5th image past the trim exceeds the cap again: re-trim to 6 survivors.
-		const retrimmed = clampProviderContextImages(userImageContext(16), UMANS_MODEL, watermark);
-		expect(watermark.droppedImages).toBe(10);
-		expect(imageData(retrimmed)).toEqual(Array.from({ length: 6 }, (_, index) => `image-${index + 10}`));
-	});
-
-	it("keeps previously dropped slots dropped even when the count is back under the cap", () => {
-		const watermark = createImageBudgetWatermark();
-		clampProviderContextImages(userImageContext(11), UMANS_MODEL, watermark);
-		expect(watermark.droppedImages).toBe(5);
-
-		// Same history replayed (nothing new): the frontier holds.
-		const replayed = clampProviderContextImages(userImageContext(11), UMANS_MODEL, watermark);
-		expect(watermark.droppedImages).toBe(5);
-		expect(imageData(replayed)).toEqual(Array.from({ length: 6 }, (_, index) => `image-${index + 5}`));
-	});
-
-	it("resets the frontier when history shrinks (compaction rewrote the prefix)", () => {
-		const watermark = createImageBudgetWatermark();
-		clampProviderContextImages(userImageContext(16), UMANS_MODEL, watermark);
-		expect(watermark.droppedImages).toBe(10);
-
-		// Post-compaction history carries only 3 images: the old frontier would
-		// eat all of them, and the prefix cache is already invalidated anyway.
-		const context = userImageContext(3);
-		expect(clampProviderContextImages(context, UMANS_MODEL, watermark)).toBe(context);
-		expect(watermark.droppedImages).toBe(0);
-	});
-
-	it("replaces dropped user images with a byte-identical placeholder across turns", () => {
-		const watermark = createImageBudgetWatermark();
-		const first = clampProviderContextImages(userImageContext(11), UMANS_MODEL, watermark);
-		const second = clampProviderContextImages(userImageContext(12), UMANS_MODEL, watermark);
-
-		const firstMessage = first.messages[0];
-		const secondMessage = second.messages[0];
-		if (!Array.isArray(firstMessage?.content) || !Array.isArray(secondMessage?.content)) {
-			throw new Error("Expected array content");
-		}
-		expect(firstMessage.content).toEqual([text("text-0"), text(USER_IMAGE_OMISSION_TEXT)]);
-		// Same slot, same bytes on the next turn — the cached prefix is untouched.
-		expect(secondMessage.content).toEqual(firstMessage.content);
 	});
 });

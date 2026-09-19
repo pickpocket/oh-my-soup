@@ -18,37 +18,33 @@
  * result instead of falling back to the LLM summarizer.
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
-import * as path from "node:path";
-import { Agent, Tokenizer } from "@oh-my-soup/pi-agent-core";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "bun:test";
+import { Agent } from "@oh-my-soup/pi-agent-core";
 import { effectiveReserveTokens, prepareCompaction } from "@oh-my-soup/pi-agent-core/compaction";
 import { getBundledModel } from "@oh-my-soup/pi-catalog/models";
 import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
 import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
 import { encodeRpcFrame, MAX_RPC_FRAME_BYTES } from "@oh-my-soup/pi-coding-agent/modes/rpc/rpc-frame";
-import { computeNonMessageTokens } from "@oh-my-soup/pi-coding-agent/modes/utils/context-usage";
+import { computeNonMessageTokens } from "@oh-my-soup/pi-tui/status-line/context-usage";
 import { AgentSession, type AgentSessionEvent } from "@oh-my-soup/pi-coding-agent/session/agent-session";
 import { AuthStorage } from "@oh-my-soup/pi-coding-agent/session/auth-storage";
 import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
-import { TempDir } from "@oh-my-soup/pi-utils";
 import * as snapcompact from "@oh-my-soup/snapcompact";
 
-const tokenizer = new Tokenizer();
-
 describe("AgentSession snapcompact frame-budget sizing", () => {
-	let tempDir: TempDir;
 	let session: AgentSession;
 	let sessionManager: SessionManager;
 	let authStorage: AuthStorage;
 	let modelRegistry: ModelRegistry;
 
-	beforeEach(async () => {
-		tempDir = TempDir.createSync("@pi-snapcompact-budget-");
-
-		authStorage = await AuthStorage.create(path.join(tempDir.path(), "testauth.db"));
+	beforeAll(async () => {
+		authStorage = await AuthStorage.create(":memory:");
 		authStorage.setRuntimeApiKey("anthropic", "test-key");
 		modelRegistry = new ModelRegistry(authStorage);
-		sessionManager = SessionManager.create(tempDir.path(), tempDir.path());
+	});
+
+	beforeEach(() => {
+		sessionManager = SessionManager.inMemory();
 
 		const bundled = getBundledModel("anthropic", "claude-sonnet-4-5");
 		if (!bundled) throw new Error("Expected bundled claude-sonnet-4-5 model");
@@ -95,7 +91,7 @@ describe("AgentSession snapcompact frame-budget sizing", () => {
 			agent,
 			sessionManager,
 			settings: Settings.isolated({
-				"compaction.strategy": "snapcompact",
+				"compaction.methodOrder": ["snapcompact", "soft"],
 				"compaction.autoContinue": false,
 				// Force a small kept-recent window so the seeded conversation
 				// definitely splits into discard + kept and prepareCompaction()
@@ -107,13 +103,12 @@ describe("AgentSession snapcompact frame-budget sizing", () => {
 	});
 
 	afterEach(async () => {
-		try {
-			await session?.dispose();
-		} finally {
-			authStorage?.close();
-			await tempDir?.remove();
-			vi.restoreAllMocks();
-		}
+		await session?.dispose();
+		vi.restoreAllMocks();
+	});
+
+	afterAll(() => {
+		authStorage.close();
 	});
 
 	it("passes a maxFrames whose full projection (frames + text edges + base) fits the budget", async () => {
@@ -175,10 +170,8 @@ describe("AgentSession snapcompact frame-budget sizing", () => {
 		// numFrames × FRAME_TOKEN_ESTIMATE + non-message + kept-recent.
 		const preparation = prepareCompaction(branchEntries, settings);
 		if (!preparation) throw new Error("Expected non-empty preparation");
-		let baseTokens = computeNonMessageTokens(session, tokenizer);
-		for (const message of preparation.recentMessages) {
-			baseTokens += tokenizer.countMessage(message);
-		}
+		let baseTokens = computeNonMessageTokens(session, session.agent.tokenizer, session.settings.revision);
+		baseTokens += session.agent.tokenizer.countMessages(preparation.recentMessages);
 		const shape = snapcompact.resolveShape(model);
 		const edgeCap = snapcompact.geometry(shape).capacity;
 		// Worst-case `textHead + textTail` tokenized at the cl100k 4-chars/token
@@ -248,25 +241,7 @@ describe("AgentSession snapcompact frame-budget sizing", () => {
 	it("applies the frame byte cap when the model context window is unknown", async () => {
 		const model = session.model;
 		if (!model) throw new Error("Expected model");
-		await session.dispose();
-		// dispose() released the manager's in-memory transcript; reopen the
-		// persisted file for the replacement session, as revival paths do.
-		const sessionFile = sessionManager.getSessionFile();
-		if (!sessionFile) throw new Error("Expected a persisted session file");
-		sessionManager = await SessionManager.open(sessionFile, tempDir.path());
-		const unknownWindowModel = { ...model, contextWindow: 0 };
-		session = new AgentSession({
-			agent: new Agent({
-				initialState: { model: unknownWindowModel, systemPrompt: ["Test"], tools: [], messages: [] },
-			}),
-			sessionManager,
-			settings: Settings.isolated({
-				"compaction.strategy": "snapcompact",
-				"compaction.autoContinue": false,
-				"compaction.keepRecentTokens": 4000,
-			}),
-			modelRegistry,
-		});
+		session.agent.setModel({ ...model, contextWindow: 0 });
 
 		const branchEntries = sessionManager.getBranch();
 		const lastEntry = branchEntries[branchEntries.length - 1];
@@ -285,6 +260,31 @@ describe("AgentSession snapcompact frame-budget sizing", () => {
 		await session.compact(undefined, { mode: "snapcompact" });
 
 		expect(compactSpy.mock.calls[0]?.[1]?.maxFrames).toBe(snapcompact.maxFramesForDataBudget());
+	});
+
+	it("caps maxFrames at the provider image budget so unknown gateways do not archive frames the send path will drop", async () => {
+		const model = session.model;
+		if (!model) throw new Error("Expected model");
+		session.agent.setModel({ ...model, provider: "ramp", contextWindow: 500_000 });
+
+		const branchEntries = sessionManager.getBranch();
+		const lastEntry = branchEntries[branchEntries.length - 1];
+		if (!lastEntry?.id) throw new Error("Expected branch entry with id");
+		const compactSpy = vi.spyOn(snapcompact, "compact").mockResolvedValue({
+			summary: "stubbed snapcompact",
+			shortSummary: "stub",
+			firstKeptEntryId: lastEntry.id,
+			tokensBefore: 100_000,
+			details: { readFiles: [], modifiedFiles: [] },
+			preserveData: {
+				snapcompact: { frames: [], totalChars: 0, truncatedChars: 0 },
+			},
+		});
+
+		await session.compact(undefined, { mode: "snapcompact" });
+
+		expect(compactSpy).toHaveBeenCalledTimes(1);
+		expect(compactSpy.mock.calls[0]?.[1]?.maxFrames).toBe(snapcompact.DEFAULT_PROVIDER_IMAGE_BUDGET);
 	});
 
 	it("keeps the frame archive out of the RPC result after persisting it", async () => {

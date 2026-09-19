@@ -156,14 +156,7 @@ pub fn content_token_count<U: Unit>(units: &[U], family: Family) -> u32 {
 /// Reconstructed `count_tokens` value for `units` as a single user message:
 /// content tiling plus the measured message frame (ctok's `token_count`).
 // Exercised by the fixture tests; `lib.rs` only routes content counts.
-#[cfg_attr(
-	not(test),
-	allow(
-		dead_code,
-		reason = "fixture tests validate full message counts while production routes content counts \
-		          only"
-	)
-)]
+#[cfg_attr(not(test), allow(dead_code, reason = "used only by fixture tests"))]
 pub fn message_token_count<U: Unit>(units: &[U], family: Family) -> u32 {
 	content_token_count(units, family) + family.params().message_overhead
 }
@@ -230,7 +223,7 @@ mod tests {
 	fn content_count_is_message_minus_frame() {
 		// The public split every consumer relies on: summing fragments must
 		// never include per-message frame overhead.
-		assert_eq!(content_token_count("".as_bytes(), Family::V5), 0);
+		assert_eq!(content_token_count(b"", Family::V5), 0);
 		for (family, overhead) in
 			[(Family::V3, 7), (Family::V47, 11), (Family::V5, 6), (Family::V5Sonnet, 6)]
 		{

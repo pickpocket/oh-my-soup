@@ -234,7 +234,7 @@ describe("processInteractionUpdate content block ordering", () => {
 });
 
 describe("processInteractionUpdate args_text_delta handling", () => {
-	it("preserves announced arguments when Cursor streams no argument deltas", () => {
+	it("preserves announced args when Cursor streams no argument deltas", () => {
 		const h = newHarness();
 		startMcpToolCall(h, "get_weather", "call-weather", {
 			city: new TextEncoder().encode(`"Paris"`),
@@ -251,7 +251,7 @@ describe("processInteractionUpdate args_text_delta handling", () => {
 		expect(h.captured.map(event => event.type)).toEqual(["toolcall_start", "toolcall_end"]);
 	});
 
-	it("preserves announced arguments when a truncated stream flushes the call", () => {
+	it("preserves announced args when the stream ends before tool completion", () => {
 		const h = newHarness();
 		startMcpToolCall(h, "get_weather", "call-weather", {
 			city: new TextEncoder().encode(`"Paris"`),

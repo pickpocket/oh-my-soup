@@ -6,6 +6,7 @@ import * as path from "node:path";
 import * as zlib from "node:zlib";
 import packageJson from "../package.json" with { type: "json" };
 import { embeddedAddon } from "./embedded-addon.js";
+import { containsVersionSentinel, versionSentinelFor } from "./version-sentinel.js";
 
 /**
  * Native addon loader for `@oh-my-soup/pi-natives`.
@@ -31,7 +32,14 @@ import { embeddedAddon } from "./embedded-addon.js";
  * post-build `--reset` stub) is the authoritative compiled-mode signal.
  */
 
-const SUPPORTED_PLATFORMS = ["linux-x64", "linux-arm64", "darwin-x64", "darwin-arm64", "win32-x64"];
+const SUPPORTED_PLATFORMS = [
+	"linux-x64",
+	"linux-arm64",
+	"darwin-x64",
+	"darwin-arm64",
+	"win32-x64",
+	"win32-arm64",
+];
 
 /**
  * Streaming startup marker, enabled by `PI_DEBUG_STARTUP`. Local copy of the
@@ -87,7 +95,6 @@ export function detectCompiledBinary({ embeddedAddon, env, importMetaUrl }) {
 	}
 	return false;
 }
-
 /**
  * @param {{ tag: string; arch: string; variant: "modern" | "baseline" | null | undefined }} input
  * @returns {string[]}
@@ -649,6 +656,7 @@ function maybeStageNodeModulesAddon(ctx, errors) {
 	return stagedPath;
 }
 
+
 /**
  * Before version sentinels were exported, published native addons still shared
  * this stable core ABI. Let those on-disk addons bridge a package-version bump
@@ -661,7 +669,11 @@ function isCompatiblePreSentinelNativeAddon(bindings, diskHasExpectedSentinel) {
 	return (
 		typeof bindings.countTokens === "function" &&
 		typeof bindings.executeShell === "function" &&
-		typeof bindings.visibleWidth === "function"
+		typeof bindings.visibleWidth === "function" &&
+		typeof bindings.DesktopSession === "function" &&
+		typeof bindings.DesktopSession.prototype?.capture === "function" &&
+		typeof bindings.DesktopSession.prototype?.execute === "function" &&
+		typeof bindings.DesktopSession.prototype?.close === "function"
 	);
 }
 
@@ -692,7 +704,7 @@ export function validateLoadedBindings(ctx, bindings, candidate) {
 	// the current sentinel; otherwise a restart would simply reload stale disk.
 	let diskHasExpectedSentinel = false;
 	try {
-		diskHasExpectedSentinel = fs.readFileSync(candidate).includes(ctx.versionSentinelExport);
+		diskHasExpectedSentinel = containsVersionSentinel(fs.readFileSync(candidate), ctx.versionSentinelExport);
 	} catch {
 		// The successful require above normally guarantees readability. If the
 		// file disappears concurrently, retain the safe reinstall diagnosis.
@@ -826,7 +838,7 @@ export function initLoaderContext(overrides = {}) {
 	// physically cannot expose the symbol this loader is looking for. That
 	// turns the silent `<sym> is not a function` crash from a Windows
 	// locked-file update into an actionable load-time error.
-	const versionSentinelExport = `__piNativesV${packageVersion.replace(/[^A-Za-z0-9]/g, "_")}`;
+	const versionSentinelExport = versionSentinelFor(packageVersion);
 
 	return {
 		platformTag,

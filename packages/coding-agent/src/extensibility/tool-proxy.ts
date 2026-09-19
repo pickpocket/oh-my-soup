@@ -17,9 +17,12 @@ export function applyToolProxy<TTool extends object>(tool: TTool, wrapper: objec
 				get() {
 					const value = (tool as Record<PropertyKey, unknown>)[key];
 					if (typeof value !== "function") return value;
-					// Callable schema values must pass through untouched: bind()
-					// returns a bare function without toJsonSchema/assert, poisoning
-					// downstream wire-schema normalization and token accounting.
+					// Callable schema values (ArkType `Type`, e.g. the `parameters` schema)
+					// must pass through untouched: `bind()` returns a bare bound function
+					// that drops the schema surface (`toJsonSchema`/`assert`/own keys), so a
+					// bound schema later stringifies to `undefined` and poisons wire-schema
+					// and token accounting. Only genuine methods are bound so `this` is
+					// preserved through the wrapper.
 					if (isArkSchema(value) || typeof value.bind !== "function") return value;
 					return value.bind(tool);
 				},

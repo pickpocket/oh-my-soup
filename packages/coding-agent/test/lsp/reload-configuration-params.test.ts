@@ -1,3 +1,5 @@
+// Regression coverage for issue #8383: `lsp reload` must re-send the configured
+// settings instead of an empty object.
 import { describe, expect, test } from "bun:test";
 import { reloadConfigurationParams } from "@oh-my-soup/pi-coding-agent/lsp/servers";
 import type { ServerConfig } from "@oh-my-soup/pi-coding-agent/lsp/types";
@@ -20,7 +22,7 @@ describe("reloadConfigurationParams", () => {
 		expect(reloadConfigurationParams(BASE_CONFIG)).toEqual({ settings: {} });
 	});
 
-	test("never replaces configured settings with an empty object", () => {
+	test("never replaces configured settings with an empty object (issue #8383)", () => {
 		const settings: Record<string, unknown> = { biome: { enabled: true } };
 		const config: ServerConfig = { ...BASE_CONFIG, settings };
 		expect(reloadConfigurationParams(config).settings).toBe(settings);

@@ -30,16 +30,18 @@ export function getNeverAbortSignal(): AbortSignal {
 	return neverAbortController.signal;
 }
 
-export function createMCPTimeout(
-	timeoutMs: number,
-	signal?: AbortSignal,
-): {
+/** Tracks a request deadline separately from caller and transport cancellation. */
+export interface MCPTimeoutOperation {
 	signal?: AbortSignal;
+	/** Clear the deadline while preserving cancellation of any still-open response stream. */
 	clear: () => void;
 	isTimeoutAbort: (error: unknown) => boolean;
-	/** True when this operation's own timer fired, regardless of the consumer-visible error. */
+	/** True when this operation's own timer fired (regardless of what error a consumer saw). */
 	timedOut: () => boolean;
-} {
+}
+
+/** Apply a deadline without allowing a later abort source to overwrite the first one. */
+export function createMCPTimeout(timeoutMs: number, signal?: AbortSignal): MCPTimeoutOperation {
 	if (!isMCPTimeoutEnabled(timeoutMs)) {
 		return {
 			signal,
@@ -50,28 +52,30 @@ export function createMCPTimeout(
 	}
 
 	const abortController = new AbortController();
-	// Track which source fired first. A late caller abort must not erase an
-	// elapsed timeout, and a late timer must not relabel caller cancellation.
+	// Track which abort source fired first so neither a later caller abort nor
+	// a later timer can overwrite the earlier one. Without this:
+	// - Timer fires during response.json(), caller aborts before catch →
+	//   both signals aborted, old `!signal?.aborted` was false → timeout
+	//   leaked as SyntaxError ("Unexpected end of JSON input").
+	// - Caller aborts first, body-read rejects after timeoutMs → timer still
+	//   fires → caller cancellation misreported as timeout.
 	let timerFired = false;
 	let callerAborted = false;
 	let timeoutId: NodeJS.Timeout | undefined;
-	let onCallerAbort: (() => void) | undefined;
+	const onCallerAbort = (): void => {
+		callerAborted = true;
+		clearTimeout(timeoutId);
+	};
 	if (signal?.aborted) {
 		callerAborted = true;
-		abortController.abort();
+		abortController.abort(signal.reason);
 	} else {
 		timeoutId = setTimeout(() => {
 			if (callerAborted) return;
 			timerFired = true;
 			abortController.abort();
 		}, timeoutMs);
-		if (signal) {
-			onCallerAbort = () => {
-				callerAborted = true;
-				clearTimeout(timeoutId);
-			};
-			signal.addEventListener("abort", onCallerAbort, { once: true });
-		}
+		signal?.addEventListener("abort", onCallerAbort, { once: true });
 	}
 	const operationSignal = signal ? AbortSignal.any([signal, abortController.signal]) : abortController.signal;
 
@@ -79,7 +83,7 @@ export function createMCPTimeout(
 		signal: operationSignal,
 		clear: () => {
 			clearTimeout(timeoutId);
-			if (signal && onCallerAbort) signal.removeEventListener("abort", onCallerAbort);
+			signal?.removeEventListener("abort", onCallerAbort);
 		},
 		isTimeoutAbort: error =>
 			timerFired &&

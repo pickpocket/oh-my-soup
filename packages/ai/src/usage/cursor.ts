@@ -306,10 +306,12 @@ export function parseCursorUsage(payload: unknown, fetchedAt = Date.now()): Usag
 		const unit = isUsd ? "usd" : "requests";
 		const cleanBucket = key.toLowerCase().trim();
 		const limitId = isUsd ? `cursor:usd:${cleanBucket}` : `cursor:requests:${cleanBucket}`;
+
 		const label = isUsd ? `${key} spend` : `${key} requests`;
 
-		// Cursor plans without a legacy numeric cap report maxRequestUsage: null.
-		// Keep the used/reset metadata instead of collapsing the account to no usage data.
+		// Some Cursor plans report no legacy numeric cap (`maxRequestUsage: null`).
+		// Emit an uncapped, used-only meter for those buckets instead of dropping
+		// them, which used to collapse the whole account to "no usage data".
 		let amount: UsageAmount;
 		if (limitVal === undefined) {
 			amount = { used: usedVal, unit };
@@ -330,9 +332,9 @@ export function parseCursorUsage(payload: unknown, fetchedAt = Date.now()): Usag
 			label,
 			scope: {
 				provider: "cursor",
-				windowId: window.id,
+				...(window ? { windowId: window.id } : {}),
 			},
-			window,
+			...(window ? { window } : {}),
 			amount,
 			...(amount.usedFraction !== undefined ? { status: usageStatus(amount.usedFraction) } : {}),
 		});

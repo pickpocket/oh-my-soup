@@ -9,7 +9,7 @@ import { createMockModel } from "@oh-my-soup/pi-ai/providers/mock";
 import { getBundledModel } from "@oh-my-soup/pi-catalog/models";
 import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
 import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
-import { computeNonMessageTokens } from "@oh-my-soup/pi-coding-agent/modes/utils/context-usage";
+import { computeNonMessageTokens } from "@oh-my-soup/pi-tui/status-line/context-usage";
 import { type CreateAgentSessionOptions, createAgentSession } from "@oh-my-soup/pi-coding-agent/sdk";
 import { AuthStorage } from "@oh-my-soup/pi-coding-agent/session/auth-storage";
 import {
@@ -86,13 +86,19 @@ async function fixture(tempDir: TempDir, mounted = false, options: Partial<Creat
 	return { manager, model, authStorage, create };
 }
 
-function budgetFixture(tempDir: TempDir, contextWindow: number) {
+function budgetFixture(
+	tempDir: TempDir,
+	contextWindow: number,
+	settingsOverrides: Parameters<typeof Settings.isolated>[0] = {},
+) {
 	return fixture(tempDir, false, {
 		model: { ...getBundledModel("openai", "gpt-4o-mini"), contextWindow },
 		customSystemPrompt: "Review fixture.",
 		settings: Settings.isolated({
 			"compaction.enabled": true,
-			"compaction.strategy": "context-full",
+			// Deterministic compact() counting: background speculative compaction
+			// would add its own summarization runs.
+			"compaction.asyncEnabled": false,
 			"compaction.thresholdTokens": Math.floor(contextWindow * 0.73),
 			"compaction.reserveTokens": 1024,
 			"compaction.keepRecentTokens": 512,
@@ -100,6 +106,7 @@ function budgetFixture(tempDir: TempDir, contextWindow: number) {
 			"contextPromotion.enabled": false,
 			"retry.enabled": false,
 			"provider.appendOnlyContext": "on",
+			...settingsOverrides,
 		}),
 	});
 }
@@ -555,7 +562,11 @@ describe("SDK important notes requests", () => {
 	it("recovers an over-budget request by trimming tool results instead of failing", async () => {
 		using tempDir = TempDir.createSync("sdk-notes-toolresult-rescue-");
 		const contextWindow = 8192;
-		const { manager, model, authStorage, create } = await budgetFixture(tempDir, contextWindow);
+		const { manager, model, authStorage, create } = await budgetFixture(tempDir, contextWindow, {
+			// Seeded rather than set at runtime: isolated Settings pin seeded keys,
+			// and this test needs compaction genuinely unavailable from the start.
+			"compaction.enabled": false,
+		});
 		const notes = [{ key: "evidence", text: "0123456789abcdef".repeat(64) }];
 		manager.appendMessage({ role: "user", content: "Investigate everything.", timestamp: 1 });
 		manager.appendMessage({
@@ -589,7 +600,6 @@ describe("SDK important notes requests", () => {
 			// Compaction fully unavailable: the only recovery left is reclaiming
 			// the oversized tool result. Before the tiered rescue this prompt
 			// failed with "Important notes cannot fit the safe context budget".
-			session.settings.set("compaction.enabled", false);
 			const budget =
 				contextWindow -
 				compaction.resolveBudgetReserveTokens(contextWindow, session.settings.getGroup("compaction"));

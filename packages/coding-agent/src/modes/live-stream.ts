@@ -16,7 +16,7 @@ export type LiveStreamSession = Pick<AgentSession, "registerSessionChangeCallbac
 		getHeader(): SessionHeader | null;
 		getSessionFile(): string | undefined;
 		getSessionId(): string;
-		subscribeToEntries(listener: (entry: SessionEntry) => void): () => void;
+		onEntryAppended?: (entry: SessionEntry) => void;
 	};
 };
 
@@ -96,11 +96,19 @@ export class LiveStream {
 				this.#refreshSessionSnapshot();
 				this.#broadcast(this.#chatClients, { type: "event", event: serializeAgentSessionEvent(event) });
 			});
-			this.#unsubscribeEntries = this.#session.sessionManager.subscribeToEntries(entry => {
+			const previousEntryListener = this.#session.sessionManager.onEntryAppended;
+			const entryListener = (entry: SessionEntry): void => {
+				previousEntryListener?.(entry);
 				if (!this.#refreshSessionSnapshot()) {
 					this.#broadcast(this.#sessionClients, { type: "entry", entry });
 				}
-			});
+			};
+			this.#session.sessionManager.onEntryAppended = entryListener;
+			this.#unsubscribeEntries = () => {
+				if (this.#session.sessionManager.onEntryAppended === entryListener) {
+					this.#session.sessionManager.onEntryAppended = previousEntryListener;
+				}
+			};
 			this.#unsubscribeSessionChange = this.#session.registerSessionChangeCallback(() => {
 				this.#refreshSessionSnapshot(true);
 			});

@@ -2,19 +2,8 @@ import { escapeXmlText, prompt, Snowflake } from "@oh-my-soup/pi-utils";
 import goalBudgetLimitPrompt from "../prompts/goals/goal-budget-limit.md" with { type: "text" };
 import goalContinuationPrompt from "../prompts/goals/goal-continuation.md" with { type: "text" };
 import goalModeActivePrompt from "../prompts/goals/goal-mode-active.md" with { type: "text" };
-import {
-	buildGoalGateFailureContinuation,
-	createGoalGateState,
-	DEFAULT_GOAL_GATE_MAX_RETRIES,
-	type GoalGateExec,
-	type GoalGateFailure,
-	type GoalGateOutcome,
-	type GoalGateSnapshot,
-	type GoalGateState,
-	normalizeGoalGateCommands,
-	runGoalGates,
-} from "./gates";
-import type { Goal, GoalBudgetSteering, GoalModeState, GoalRuntimeEvent, GoalTokenUsage } from "./state";
+import type { Goal } from "@oh-my-soup/pi-tui/tools/goal";
+import type { GoalBudgetSteering, GoalModeState, GoalRuntimeEvent, GoalTokenUsage } from "./state";
 
 export interface GoalRuntimeHost {
 	getState(): GoalModeState | undefined;
@@ -28,16 +17,6 @@ export interface GoalRuntimeHost {
 		deliverAs?: "steer" | "followUp" | "nextTurn";
 	}): Promise<void>;
 	now?(): number;
-	/** Environment for goal quality gates (cwd, limits, injectable exec/snapshot for tests). */
-	gateContext?(): GoalGateContext;
-}
-
-export interface GoalGateContext {
-	cwd?: string;
-	maxRetries?: number;
-	timeoutMs?: number;
-	exec?: GoalGateExec;
-	captureSnapshot?: GoalGateSnapshot;
 }
 
 export interface GoalTurnSnapshot {
@@ -90,9 +69,7 @@ export function goalTokenDelta(current: GoalTokenUsage, baseline: GoalTokenUsage
 	// cacheWrite separately on Anthropic/Bedrock; rotating a 1h ephemeral cache or
 	// re-anchoring a changed system prompt can write 100K+ tokens, which the goal
 	// budget must account for. cacheRead is excluded because it is reused prefix,
-	// not new work consumed by the goal. This matches prime-agent's autonomous
-	// token accounting, which also counts input + output + cacheWrite and
-	// excludes cacheRead.
+	// not new work consumed by the goal.
 	return (
 		Math.max(0, current.input - baseline.input) +
 		Math.max(0, current.cacheWrite - baseline.cacheWrite) +
@@ -144,10 +121,6 @@ export class GoalRuntime {
 	#wallClock: GoalWallClockSnapshot;
 	#budgetReportedFor: string | undefined;
 	#accountingTail: Promise<void> = Promise.resolve();
-	/** Quality-gate bookkeeping for the active goal: attempt counts, last failure,
-	 *  and the worktree dedup snapshot. In-memory only — never persisted. */
-	#gateState: GoalGateState = createGoalGateState();
-	#gateGoalId: string | undefined;
 
 	constructor(host: GoalRuntimeHost) {
 		this.#host = host;
@@ -337,20 +310,6 @@ export class GoalRuntime {
 		});
 	}
 
-	/** Replaces the goal's quality gate commands and resets gate bookkeeping. */
-	async setGates(gates: string[] | undefined): Promise<GoalModeState | undefined> {
-		return await this.#withAccounting(async () => {
-			const state = this.#getStateClone();
-			if (!state?.goal) return undefined;
-			state.goal.gates = normalizeGoalGateCommands(gates);
-			state.goal.updatedAt = this.#now();
-			this.#gateState = createGoalGateState();
-			this.#gateGoalId = state.goal.id;
-			await this.#commitState(state, { persist: state.enabled ? "goal" : "goal_paused" });
-			return state;
-		});
-	}
-
 	async #flushUsageLocked(
 		steering: GoalBudgetSteering,
 		currentUsage: GoalTokenUsage = this.#host.getCurrentUsage(),
@@ -408,14 +367,13 @@ export class GoalRuntime {
 		await this.#withAccounting(() => this.#flushUsageLocked(steering, currentUsage));
 	}
 
-	#createGoalState(objective: string, tokenBudget: number | undefined, gates: string[] | undefined): GoalModeState {
+	#createGoalState(objective: string, tokenBudget: number | undefined): GoalModeState {
 		const now = this.#now();
 		const goal: Goal = {
 			id: String(Snowflake.next()),
 			objective,
 			status: "active",
 			tokenBudget,
-			gates: normalizeGoalGateCommands(gates),
 			tokensUsed: 0,
 			timeUsedSeconds: 0,
 			createdAt: now,
@@ -424,7 +382,7 @@ export class GoalRuntime {
 		return { enabled: true, mode: "active", goal };
 	}
 
-	async createGoal(input: { objective: string; tokenBudget?: number; gates?: string[] }): Promise<GoalModeState> {
+	async createGoal(input: { objective: string; tokenBudget?: number }): Promise<GoalModeState> {
 		const objective = input.objective.trim();
 		if (!objective) throw new Error("objective is required when op=create");
 		validateTokenBudget(input.tokenBudget);
@@ -433,7 +391,7 @@ export class GoalRuntime {
 			if (existing?.goal && existing.goal.status !== "dropped" && existing.goal.status !== "complete") {
 				throw new Error("cannot create a new goal because this session already has a goal");
 			}
-			const state = this.#createGoalState(objective, input.tokenBudget, input.gates);
+			const state = this.#createGoalState(objective, input.tokenBudget);
 			this.#budgetReportedFor = undefined;
 			this.#markActiveAccounting(state.goal);
 			await this.#commitState(state, { persist: "goal" });
@@ -441,7 +399,7 @@ export class GoalRuntime {
 		});
 	}
 
-	async replaceGoal(input: { objective: string; tokenBudget?: number; gates?: string[] }): Promise<GoalModeState> {
+	async replaceGoal(input: { objective: string; tokenBudget?: number }): Promise<GoalModeState> {
 		const objective = input.objective.trim();
 		if (!objective) throw new Error("objective is required when op=replace");
 		validateTokenBudget(input.tokenBudget);
@@ -451,7 +409,7 @@ export class GoalRuntime {
 				throw new Error("cannot replace goal because no goal is active");
 			}
 			await this.#flushUsageLocked("suppressed");
-			const state = this.#createGoalState(objective, input.tokenBudget, input.gates);
+			const state = this.#createGoalState(objective, input.tokenBudget);
 			this.#budgetReportedFor = undefined;
 			this.#markActiveAccounting(state.goal);
 			await this.#commitState(state, { persist: "goal" });
@@ -514,16 +472,6 @@ export class GoalRuntime {
 	}
 
 	async completeGoalFromTool(): Promise<Goal> {
-		// Every configured quality gate must exit 0 before the goal may complete.
-		const gateOutcome = await this.runGates();
-		if (gateOutcome === "failed" || gateOutcome === "retry_exhausted") {
-			const failure = this.#gateState.lastFailure;
-			throw new Error(
-				failure
-					? `cannot complete goal: ${buildGoalGateFailureContinuation(failure, this.#gateMaxRetries(), this.#now())}`
-					: "cannot complete goal: quality gates failed",
-			);
-		}
 		return await this.#withAccounting(async () => {
 			await this.#flushUsageLocked("suppressed");
 			const state = this.#getStateClone();
@@ -546,63 +494,6 @@ export class GoalRuntime {
 			await this.#commitState(state, { persist: "goal" });
 			return state.goal;
 		});
-	}
-
-	get lastGateFailure(): GoalGateFailure | undefined {
-		return this.#gateState.lastFailure;
-	}
-
-	#gateMaxRetries(): number {
-		const maxRetries = this.#host.gateContext?.().maxRetries;
-		return maxRetries !== undefined && Number.isFinite(maxRetries) && maxRetries > 0
-			? Math.trunc(maxRetries)
-			: DEFAULT_GOAL_GATE_MAX_RETRIES;
-	}
-
-	/**
-	 * Runs the goal's quality gates, if any. Returns undefined when the goal
-	 * is not active or has no gates configured. Bookkeeping (attempt counts,
-	 * last failure, worktree dedup snapshot) is per-goal and in-memory only.
-	 */
-	async runGates(signal?: AbortSignal): Promise<GoalGateOutcome | undefined> {
-		const state = this.#host.getState();
-		// Accounting statuses (active | budget-limited) rather than just active:
-		// completion is allowed from budget-limited, and gates must not be
-		// bypassable there.
-		if (!state?.enabled || !isAccountingStatus(state.goal)) return undefined;
-		const commands = normalizeGoalGateCommands(state.goal.gates);
-		if (!commands) return undefined;
-		if (this.#gateGoalId !== state.goal.id) {
-			this.#gateState = createGoalGateState();
-			this.#gateGoalId = state.goal.id;
-		}
-		const context = this.#host.gateContext?.() ?? {};
-		return await runGoalGates(commands, this.#gateState, {
-			cwd: context.cwd,
-			signal,
-			maxRetries: this.#gateMaxRetries(),
-			timeoutMs: context.timeoutMs,
-			exec: context.exec,
-			captureSnapshot: context.captureSnapshot,
-		});
-	}
-
-	/**
-	 * Gate-aware continuation prompt for goal-continuation boundaries: runs
-	 * quality gates first. A failing gate feeds its output verbatim into the
-	 * continuation; passing (or absent) gates fall back to the normal goal
-	 * continuation prompt. Returns undefined when the goal is not active or
-	 * once gate retries are exhausted, so auto-continuation stops.
-	 */
-	async buildGateAwareContinuationPrompt(signal?: AbortSignal): Promise<string | undefined> {
-		const base = this.buildContinuationPrompt();
-		if (base === undefined) return undefined;
-		const outcome = await this.runGates(signal);
-		if (outcome === undefined || outcome === "passed") return base;
-		if (outcome === "retry_exhausted") return undefined;
-		const failure = this.#gateState.lastFailure;
-		if (!failure) return base;
-		return buildGoalGateFailureContinuation(failure, this.#gateMaxRetries(), this.#now());
 	}
 
 	buildActivePrompt(): string | undefined {

@@ -1,6 +1,6 @@
 import { Tokenizer } from "@oh-my-soup/pi-agent-core";
 import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
-import { estimateToolSchemaTokens } from "@oh-my-soup/pi-coding-agent/modes/utils/context-usage";
+import { estimateToolSchemaTokens } from "@oh-my-soup/pi-tui/status-line/context-usage";
 import { buildSystemPrompt } from "@oh-my-soup/pi-coding-agent/system-prompt";
 import { createTools, type Tool, type ToolSession } from "@oh-my-soup/pi-coding-agent/tools";
 
@@ -13,6 +13,9 @@ function est(s: string): number {
 
 await Settings.init({ inMemory: true, cwd: process.cwd() });
 const settings = Settings.isolated({});
+
+// This standalone inspection script has no resolved catalog Model; its counts
+// therefore intentionally use the runtime's default estimate policy.
 const tokenizer = new Tokenizer();
 
 const session: ToolSession = {
@@ -49,7 +52,6 @@ console.log(`\nTOOLS TOTAL tokens: ${totalTok}\n`);
 const built = await buildSystemPrompt({
 	tools: toolsMap as never,
 	toolNames: tools.map(t => t.name),
-	importantNotesTool: toolsMap.has("notes") ? "notes" : undefined,
 	inlineToolDescriptors: false,
 	nativeTools: true,
 	cwd: process.cwd(),

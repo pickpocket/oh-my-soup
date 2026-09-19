@@ -4,6 +4,7 @@ import * as AIError from "@oh-my-soup/pi-ai/error";
 import type { FetchImpl } from "@oh-my-soup/pi-ai/types";
 import {
 	__resetGlobalProxyFetch,
+	__resetProxyCache,
 	connectProxiedSocket,
 	getProxyForProvider,
 	getProxyForUrl,
@@ -14,6 +15,10 @@ import {
 } from "@oh-my-soup/pi-ai/utils/proxy";
 
 const PROXY = "http://127.0.0.1:24560";
+
+// The provider-proxy memo survives across suite files; earlier files can cache
+// a provider id with no env set and poison the assertions below.
+beforeEach(() => __resetProxyCache());
 
 interface SilentProxyServer {
 	url: string;
@@ -325,25 +330,38 @@ describe("installGlobalProxyFetch", () => {
 		Bun.env.PI_PROXY = PROXY;
 		installGlobalProxyFetch();
 		await fetch("https://api.anthropic.com/v1/oauth/token", { method: "POST" });
-		expect(calls[0]?.proxy).toBe(PROXY);
+		expect(calls[0].proxy).toBe(PROXY);
 	});
 
-	it("keeps a caller proxy across stacked global and provider wrappers", async () => {
+	it("leaves global fetch untouched when PI_PROXY is unset", async () => {
+		const before = globalThis.fetch;
+		installGlobalProxyFetch();
+		expect(globalThis.fetch).toBe(before);
+		await fetch("https://api.anthropic.com/v1/oauth/token");
+		expect(calls[0].proxy).toBeUndefined();
+	});
+
+	it("keeps a caller-supplied proxy so PI_PROXY_<PROVIDER> still wins", async () => {
 		Bun.env.PI_PROXY = PROXY;
 		Bun.env.PI_PROXY_GLOBAL_PREC = "http://127.0.0.1:24561";
 		installGlobalProxyFetch();
 		await wrapFetchForProxy(globalThis.fetch, "global-prec")("https://api.anthropic.com/v1/messages");
-		expect(calls[0]?.proxy).toBe("http://127.0.0.1:24561");
+		expect(calls[0].proxy).toBe("http://127.0.0.1:24561");
 	});
 
-	it("bypasses loopback targets and installs only once", async () => {
+	it("bypasses loopback targets so local model servers stay direct", async () => {
+		Bun.env.PI_PROXY = PROXY;
+		installGlobalProxyFetch();
+		await fetch("http://127.0.0.1:11434/api/chat");
+		expect(calls[0].proxy).toBeUndefined();
+	});
+
+	it("installs once", async () => {
 		Bun.env.PI_PROXY = PROXY;
 		installGlobalProxyFetch();
 		const wrapped = globalThis.fetch;
 		installGlobalProxyFetch();
 		expect(globalThis.fetch).toBe(wrapped);
-		await fetch("http://127.0.0.1:11434/api/chat");
-		expect(calls[0]?.proxy).toBeUndefined();
 	});
 });
 

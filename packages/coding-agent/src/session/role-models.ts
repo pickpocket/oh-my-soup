@@ -1,11 +1,10 @@
 import type { ThinkingLevel } from "@oh-my-soup/pi-agent-core";
 import type { Model } from "@oh-my-soup/pi-ai";
 import type { ModelRegistry } from "../config/model-registry";
+import { formatModelSelectorValue, parseModelString } from "@oh-my-soup/pi-tui/overlays/model-selector";
 import {
 	extractExplicitThinkingSelector,
-	formatModelSelectorValue,
 	getModelMatchPreferences,
-	parseModelString,
 	type ResolvedModelRoleValue,
 	resolveModelRoleValue,
 } from "../config/model-resolver";

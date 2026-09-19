@@ -4,6 +4,9 @@ import type { FetchImpl } from "@oh-my-soup/pi-catalog/types";
 
 describe("vLLM provider discovery", () => {
 	test("lights up the reasoning dial for Qwen 3.8+ despite silent /v1/models metadata", async () => {
+		// vLLM's /v1/models never advertises reasoning; without the id-based
+		// upgrade a served Qwen3.8 loses its effort dial entirely and always
+		// thinks at the template's xhigh default.
 		const fetchMock: FetchImpl = async () =>
 			new Response(
 				JSON.stringify({
@@ -24,6 +27,7 @@ describe("vLLM provider discovery", () => {
 			reasoning: true,
 			contextWindow: 262144,
 		});
+		// Non-thinking Qwen generations keep the wire-reported default.
 		expect(models?.find(model => model.id === "qwen2.5-coder-7b")?.reasoning).toBe(false);
 	});
 });

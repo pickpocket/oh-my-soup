@@ -10,7 +10,7 @@
 import { type ApiKey, type AuthStorage, type FetchImpl, withAuth } from "@oh-my-soup/pi-ai";
 import { $env } from "@oh-my-soup/pi-utils";
 
-import type { SearchResponse, SearchSource } from "../../../web/search/types";
+import type { SearchResponse, SearchSource } from "@oh-my-soup/pi-tui/tools/web-search";
 import { SearchProviderError } from "../../../web/search/types";
 import { formatQuery, parseSearchQuery, type QuerySyntax, type StructuredQuery } from "../query";
 import { clampNumResults, dateToAgeSeconds } from "../utils";

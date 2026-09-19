@@ -9,7 +9,6 @@ const COPILOT_PREMIUM_MULTIPLIERS: Record<string, number> = {
 	"github-copilot/grok-code-fast-1": 0.25,
 };
 
-import { readdir, rm } from "node:fs/promises";
 import * as path from "node:path";
 import { discoverAuthStorage } from "@oh-my-soup/pi-ai/auth-broker/discover";
 import type { OAuthAccess } from "@oh-my-soup/pi-ai/auth-storage";
@@ -17,9 +16,12 @@ import type { OAuthProvider } from "@oh-my-soup/pi-ai/oauth/types";
 import { getGitLabDuoModels } from "@oh-my-soup/pi-ai/providers/gitlab-duo";
 import { getProviderDefinition } from "@oh-my-soup/pi-ai/registry";
 import { $env } from "@oh-my-soup/pi-utils";
+import { buildModel } from "../src/build";
+import { isRetiredProvider } from "../src/compat/behavior";
+import { collapseVariants } from "../src/compat/collapse";
+import { providerEntries, providerEntry, seedModels } from "../src/compat/providers";
+import type { CompiledProvider } from "../src/compat/types";
 import { ANTIGRAVITY_PRIMARY_ENDPOINT, fetchAntigravityDiscoveryModels } from "../src/discovery/antigravity";
-import { CODEX_ASTRA_FALLBACK_MODEL } from "../src/discovery/codex";
-import { buildGitLabDuoWorkflowFallbackModel } from "../src/discovery/gitlab-duo-workflow";
 import { createModelManager } from "../src/model-manager";
 import prevModelsJson from "../src/models.json" with { type: "json" };
 import { toModelSpec } from "../src/provider-models/bundled-references";
@@ -30,43 +32,32 @@ import {
 	isCatalogDescriptor,
 } from "../src/provider-models/descriptor-types";
 import { PROVIDER_DESCRIPTORS } from "../src/provider-models/descriptors";
+import { filterModelsDevCatalogRows } from "../src/provider-models/models-dev-policies";
 import {
-	AIAND_STATIC_MODELS,
-	ALIBABA_TOKEN_PLAN_STATIC_MODELS,
-	ANTHROPIC_CURATED_FALLBACK_MODELS,
-	BEDROCK_MANTLE_STATIC_MODELS,
+	applyXaiCatalogPricing,
 	buildFireworksFastSeed,
 	buildXaiOAuthStaticSeed,
 	clampFireworksKimiMaxTokens,
 	clampKimiK27CodeMaxTokens,
 	fetchWellKnownModels,
-	GMI_CLOUD_STATIC_MODELS,
 	isFireworksKimiK2ModelId,
 	isKimiK27CodeModelId,
 	kimiCodeMaxTokens,
-	META_MUSE_STATIC_MODELS,
 	MODELS_DEV_PROVIDER_DESCRIPTORS,
 	mapModelsDevToModels,
-	OPENAI_DAYBREAK_CURATED_FALLBACK_MODELS,
 	OPENAI_PRISM_STATIC_MODELS,
 	projectOpenAIProReasoningAliases,
-	SAKANA_FUGU_STATIC_MODELS,
 	stripFireworksDeepSeekThinkingToggle,
-	YOLO_AUTO_STATIC_MODELS,
 } from "../src/provider-models/openai-compat";
 import { type OpenAICodexAccount, openaiCodexModelManagerOptions } from "../src/provider-models/special";
-import type { Api, ModelSpec } from "../src/types";
+import type { Api, Model, ModelSpec } from "../src/types";
 import { cleanModelName } from "../src/utils";
-import { collapseEffortVariantsAcrossProviders } from "../src/variant-collapse";
+import { mergeCopilotApiHeaders } from "../src/wire/github-copilot";
 import {
 	applyAntigravityPricingFallback,
 	applyCanonicalLimitFallback,
 	applyGeneratedModelPolicies,
-	applyNoSystemPromptCapability,
 	applyOllamaCloudOutputCap,
-	CLOUDFLARE_FALLBACK_MODEL,
-	dropBedrockMantleOpenAIModels,
-	dropUnsupportedBedrockGeoIds,
 	hasBillableCost,
 	linkOpenAIPromotionTargets,
 } from "./generated-policies";
@@ -82,7 +73,93 @@ const packageRoot = path.join(import.meta.dir, "..");
  * and never written to models.json.
  */
 const DISCOVERY_ONLY_PROVIDERS = new Set(["ollama", "vllm", "lm-studio", "litellm"]);
-const RETIRED_PROVIDERS = new Set(["wafer-pass", "wandb"]);
+/**
+ * Credential-scoped catalogs (Devin's Cascade roster is gated per account/team
+ * via `allowed_model_uids`). Fetching them during generation would bake one
+ * private account's entitlements into the shared bundle, and those rows then
+ * survive forever as previous-snapshot zombies: a later regen without that
+ * credential can never mark the provider authoritative to prune them. These
+ * providers are never fetched at generation time and their previous-snapshot
+ * rows are dropped — the curated static seed is the only bundled surface, and
+ * runtime discovery is authoritative per credential (mirrors the GitLab Duo
+ * fallback-only policy below).
+ */
+const CREDENTIAL_SCOPED_PROVIDERS = new Set(["devin"]);
+
+/**
+ * The rows one provider's authored seed (`rules/providers/<id>.kdl`) contributes
+ * to this regeneration, per its `bundle` policy:
+ * - `always`: every regen (same-id upstream/discovery rows still win dedup).
+ * - `fallback`: only when the provider's authoritative discovery did not succeed.
+ * - `empty`: only when no other source produced a row for the provider.
+ *
+ * xai-oauth is the one projected seed: its rows are curated facts that
+ * `buildXaiOAuthStaticSeed` bakes into full Responses specs, and the bundle
+ * carries the baked form so `ModelRegistry.#loadModels()` honours a persisted
+ * `modelRoles.default = "xai-oauth/<id>"` synchronously at boot.
+ */
+function bundledSeedRows(
+	entry: CompiledProvider,
+	models: readonly ModelSpec[],
+	authoritativeProviders: ReadonlySet<string>,
+): readonly ModelSpec[] {
+	switch (entry.seed?.bundle) {
+		case undefined:
+			return [];
+		case "fallback":
+			if (authoritativeProviders.has(entry.id)) return [];
+			break;
+		case "empty":
+			if (models.some(model => model.provider === entry.id)) return [];
+			break;
+		case "always":
+			break;
+	}
+	return entry.id === "xai-oauth" ? buildXaiOAuthStaticSeed() : seedModels(entry.id);
+}
+
+/** Catalog providers whose seed rows carry the given precedence. */
+function seededProviders(precedence: "upstream" | "seed"): CompiledProvider[] {
+	const entries = providerEntries();
+	const out: CompiledProvider[] = [];
+	for (const id in entries) {
+		const entry = entries[id];
+		if (entry.seed?.precedence === precedence) out.push(entry);
+	}
+	return out;
+}
+
+/**
+ * Restores unfetched rows from a previous generated catalog while pruning
+ * providers whose snapshots are no longer valid.
+ */
+export function mergePreviousSnapshotModels(
+	models: readonly ModelSpec[],
+	previousModels: Readonly<Record<string, Readonly<Record<string, Model<Api>>>>>,
+	excludedProviders: ReadonlySet<string>,
+): ModelSpec[] {
+	const merged = [...models];
+	const fetchedKeys = new Set(models.map(model => `${model.provider}/${model.id}`));
+	for (const provider in previousModels) {
+		const providerModels = previousModels[provider];
+		for (const id in providerModels) {
+			const model = toModelSpec(providerModels[id]);
+			if (
+				!fetchedKeys.has(`${model.provider}/${model.id}`) &&
+				!DISCOVERY_ONLY_PROVIDERS.has(model.provider) &&
+				!CREDENTIAL_SCOPED_PROVIDERS.has(model.provider) &&
+				// Yolo-Auto's documented static seed is the complete fallback
+				// catalog; never resurrect retired ids from the previous snapshot.
+				model.provider !== "yolo-auto" &&
+				!isRetiredProvider(model.provider) &&
+				!excludedProviders.has(model.provider)
+			) {
+				merged.push(model);
+			}
+		}
+	}
+	return merged;
+}
 
 async function resolveProviderApiKey(providerId: string, catalog: CatalogDiscoveryConfig): Promise<string | undefined> {
 	for (const envVar of catalog.envVars ?? []) {
@@ -160,7 +237,7 @@ async function fetchProviderModelsFromCatalog(
 			return { models: [], succeeded: true };
 		}
 		console.log(`Fetched ${models.length} models from ${descriptor.catalogDiscovery.label} model manager`);
-		// The manager returns built models; models.json stores specs (sparse compat).
+		// Keep discovery rows as specs until policies finish; the final bundle is fully materialized below.
 		return { models: models.map(model => toModelSpec(model)), succeeded: true };
 	} catch (error) {
 		console.error(`Failed to fetch ${descriptor.catalogDiscovery.label} models:`, error);
@@ -214,7 +291,27 @@ function applyGlobalModelsDevFallback(
 		if (
 			providerScopedKeys.has(`${model.provider}/${model.id}`) ||
 			model.provider === "devin" ||
-			model.provider === "baseten"
+			model.provider === "baseten" ||
+			// Meta's first-party rows come from the reviewed seed; a same-id
+			// gateway row would overwrite their display names.
+			model.provider === "meta" ||
+			// Providers whose discovery is the deployment truth and whose
+			// corrections live in KDL opt out of same-id reference fills.
+			providerEntry(model.provider)?.skipCrossProviderReferenceFills === true
+		) {
+			return model;
+		}
+		// ClinePass free-tier entries arrive manager-complete: enriched from the
+		// bundled upstream reference and carrying a tier-marked name. The same-id
+		// overlay would overwrite their names with the reference's display name
+		// (dropping the "(free)" marker) and flip reasoning from unrelated
+		// same-id data, diverging the bundle from the runtime roster. Their raw
+		// wire tag marks them as manager-complete. (`.api` equality narrows the
+		// generic, making the compat field access sound.)
+		if (
+			model.provider === "cline-pass" &&
+			model.api === "openai-completions" &&
+			(model as ModelSpec<"openai-completions">).compat?.wireModelIdMode === "raw"
 		) {
 			return model;
 		}
@@ -231,6 +328,8 @@ function applyGlobalModelsDevFallback(
 			// provider-specific values when discovery returned them explicitly.
 			contextWindow: model.contextWindow ?? reference.contextWindow,
 			maxTokens: model.maxTokens ?? reference.maxTokens,
+			int: model.int ?? reference.int,
+			tps: model.tps ?? reference.tps,
 		};
 	});
 }
@@ -286,11 +385,12 @@ function applyCodexPricingFallback(models: readonly ModelSpec[]): ModelSpec[] {
 		if (model.provider !== "openai-codex" || model.api !== "openai-codex-responses") {
 			return model;
 		}
-		if (model.id === CODEX_ASTRA_FALLBACK_MODEL.id) return model;
 		if (hasBillableCost(model.cost)) {
 			return model;
 		}
 
+		// Daybreak standard pricing is rule-owned (`providers/openai-codex.kdl`
+		// cost-patch); only same-id openai mirrors remain generator-applied.
 		const openAICost = openAIModels.get(model.id);
 		if (!openAICost) {
 			return model;
@@ -339,50 +439,6 @@ function applyFireworksDeepSeekReasoningShape(models: readonly ModelSpec[]): Mod
 		if (model.provider !== "fireworks" || model.api !== "openai-completions") return model;
 		// `.api` equality doesn't narrow the generic; the guard makes this cast sound.
 		return stripFireworksDeepSeekThinkingToggle(model as ModelSpec<"openai-completions">, model.id);
-	});
-}
-
-/**
- * Z.AI's `/v1/models` advertises context-tier variants with a `[1m]` suffix
- * (e.g. `glm-5.2[1m]`). That suffix is a Claude Code-side convention — Z.AI's
- * own docs instruct users to append `[1m]` to enable 1M context *inside Claude
- * Code* — but the inference endpoint rejects the bracketed id outright with
- * `[1211][Unknown Model, please check the model code.]`. The base id
- * (`glm-5.2`) already carries the full 1M context window (pinned by
- * {@link applyGeneratedModelPolicy}), so drop the unusable bracketed siblings
- * from the bundled catalog rather than ship a model that 400s on first use.
- */
-function dropUnusableZaiContextTierIds(models: readonly ModelSpec[]): ModelSpec[] {
-	return models.filter(model => !(model.provider === "zai" && model.id.endsWith("[1m]")));
-}
-
-/**
- * Fireworks discovery and prior snapshots can surface internal control-plane
- * resource ids (`accounts/fireworks/{models,routers}/...`) alongside the public
- * request ids (`kimi-k2.7-code`, `deepseek-v4-flash`, ...). The wire ids are an
- * implementation detail the request path reconstructs from the public id, so
- * drop them from the bundle outright.
- */
-function dropFireworksWireIds(models: readonly ModelSpec[]): ModelSpec[] {
-	return models.filter(
-		model =>
-			!(
-				(model.provider === "fireworks" || model.provider === "firepass") &&
-				model.id.startsWith("accounts/fireworks/")
-			),
-	);
-}
-
-/**
- * Xiaomi's `/v1/models` can advertise ASR/TTS ids alongside chat/completions
- * models. Runtime discovery filters them, but previous bundled snapshots can
- * still resurrect those stale ids via the fallback merge. Drop them here so the
- * committed catalog matches the runtime surface.
- */
-function dropXiaomiAudioOnlyIds(models: readonly ModelSpec[]): ModelSpec[] {
-	return models.filter(model => {
-		const isXiaomiProvider = model.provider === "xiaomi" || model.provider.startsWith("xiaomi-token-plan-");
-		return !isXiaomiProvider || (!model.id.includes("-tts") && !model.id.includes("-asr"));
 	});
 }
 
@@ -506,7 +562,9 @@ async function generateModels() {
 	const modelsDevModels = await loadModelsDevData();
 	const catalogProviderDescriptors = PROVIDER_DESCRIPTORS.filter(
 		(descriptor): descriptor is CatalogProviderDescriptor =>
-			isCatalogDescriptor(descriptor) && !DISCOVERY_ONLY_PROVIDERS.has(descriptor.providerId),
+			isCatalogDescriptor(descriptor) &&
+			!DISCOVERY_ONLY_PROVIDERS.has(descriptor.providerId) &&
+			!CREDENTIAL_SCOPED_PROVIDERS.has(descriptor.providerId),
 	);
 	const catalogProviderModelBatches = await Promise.all(
 		catalogProviderDescriptors.map(async descriptor => ({
@@ -540,71 +598,15 @@ async function generateModels() {
 		modelsDevModels,
 	);
 
-	if (!allModels.some(model => model.provider === "cloudflare-ai-gateway")) {
-		allModels.push(CLOUDFLARE_FALLBACK_MODEL as ModelSpec<"anthropic-messages">);
+	// Authored seed rows (`rules/providers/<id>.kdl`) whose upstream rows win
+	// dedup. Pushed before the previous-snapshot merge so the current seed, not
+	// a stale snapshot copy, is the fallback row.
+	for (const entry of seededProviders("upstream")) {
+		allModels.push(...bundledSeedRows(entry, allModels, authoritativeCatalogProviders));
 	}
-
-	// xai-oauth is not in stencil.so; its descriptor's catalogDiscovery fetch
-	// only succeeds with live SuperGrok OAuth credentials (and on success the
-	// dynamic entries — already overlaid by applyXAIOAuthCuration — win dedup
-	// below). Always push the curated seed so a regen without credentials, or
-	// with a failed fetch, still bundles XAI_OAUTH_CURATED_MODELS verbatim:
-	// ModelRegistry.#loadModels() picks them up synchronously at boot, so a
-	// persisted `modelRoles.default = "xai-oauth/<id>"` is honored before the
-	// async refresh fires (interactive boot does not await refresh).
-	allModels.push(...buildXaiOAuthStaticSeed());
-	// Daybreak is separately provisioned and absent from stencil.so. Keep its
-	// documented aliases and current Cyber snapshot in every generated bundle.
-	allModels.push(...OPENAI_DAYBREAK_CURATED_FALLBACK_MODELS);
-	// Seed Anthropic models that are live on the first-party API or in limited
-	// release but that stencil.so has not catalogued yet (e.g. Claude Fable 5 /
-	// Mythos 5). Deduped behind upstream entries; metadata is pinned in
-	// applyAnthropicCatalogPolicy.
-	allModels.push(...ANTHROPIC_CURATED_FALLBACK_MODELS);
-	// Seed Meta's documented Muse model so first-run selection does not depend on
-	// credentials or live discovery.
-	allModels.push(...META_MUSE_STATIC_MODELS);
-	// Prism has no public catalog endpoint; preserve its verified models without
-	// requiring a signed-in browser session or a project during generation.
+	// Prism has no public catalog endpoint, so preserve its verified static
+	// roster through regeneration instead of relying on a prior snapshot.
 	allModels.push(...OPENAI_PRISM_STATIC_MODELS);
-	// Mantle's catalog endpoint is account/API-key scoped. Keep the generated
-	// bundle deterministic; authenticated runtime discovery may replace this seed.
-	allModels.push(...BEDROCK_MANTLE_STATIC_MODELS);
-	// Seed Sakana's documented Fugu models so the provider is usable when
-	// catalog generation has no live API key. If live `/v1/models` succeeds,
-	// Sakana is authoritative and stale seed IDs must stay out.
-	if (!authoritativeCatalogProviders.has("sakana")) {
-		allModels.push(...SAKANA_FUGU_STATIC_MODELS);
-	}
-	// Seed ai&'s documented catalog so the provider is usable when generation
-	// has no AIAND_API_KEY. A live org-scoped `/v1/models` snapshot is
-	// authoritative and replaces the seed.
-	if (!authoritativeCatalogProviders.has("aiand")) {
-		allModels.push(...AIAND_STATIC_MODELS);
-	}
-	if (!authoritativeCatalogProviders.has("yolo-auto")) {
-		allModels.push(...YOLO_AUTO_STATIC_MODELS);
-	}
-	// Seed the GMI Cloud default model so a fresh install (and a regen without a
-	// `GMI_API_KEY`) still resolves the descriptor's `defaultModel` synchronously
-	// at boot. If live `/v1/models` discovery succeeds, it is authoritative.
-	if (!authoritativeCatalogProviders.has("gmi-cloud")) {
-		allModels.push(...GMI_CLOUD_STATIC_MODELS);
-	}
-	// Seed the GitLab Duo Agent fallback model so a fresh install (no credentialed
-	// dynamic discovery/cache yet) still surfaces the provider's default model in the
-	// built-in catalog. The descriptor deliberately has NO `catalogDiscovery`, so it is
-	// excluded from the generator's discovery loop (`isCatalogDescriptor` filter above):
-	// generation never fetches `aiChatAvailableModels` for it. That is intentional —
-	// Duo discovery is credential- and namespace-scoped, so running it during generation
-	// would bundle one private account's pinned/selectable models (and its
-	// `gitlabDuoWorkflowRootNamespaceId`) as authoritative for every fresh install.
-	// The generic fallback is the only thing bundled; live namespace-scoped models are
-	// discovered at runtime per credential/workspace. The `authoritativeCatalogProviders`
-	// guard therefore always passes for this id, kept only to mirror the Sakana seed shape.
-	if (!authoritativeCatalogProviders.has("gitlab-duo-agent")) {
-		allModels.push(buildGitLabDuoWorkflowFallbackModel());
-	}
 	// Seed Fireworks "Fast" serving-path variants (`<id>-fast`). Fast routers are
 	// not enumerated by the serverless control-plane list, so discovery never
 	// surfaces them; the seed projects each base entry into a fast variant.
@@ -633,9 +635,6 @@ async function generateModels() {
 			}
 		}
 	}
-	if (!allModels.some(model => model.provider === "openai-codex" && model.id === CODEX_ASTRA_FALLBACK_MODEL.id)) {
-		allModels.push(CODEX_ASTRA_FALLBACK_MODEL);
-	}
 
 	const modelsDevSnapshotExcludedProviders = new Set<string>();
 	for (const model of modelsDevModels) {
@@ -648,47 +647,41 @@ async function generateModels() {
 	// or authoritative stencil.so sources keep that upstream list exactly, so
 	// retired entries from the previous snapshot do not reappear during regeneration.
 	// Discovery-only providers (local inference servers) — never bundle static models.
-	const fetchedKeys = new Set(allModels.map(model => `${model.provider}/${model.id}`));
+	const previousSnapshotExcludedProviders = new Set([
+		...authoritativeCatalogProviders,
+		...authoritativeSpecialDiscoveryProviders,
+		...modelsDevSnapshotExcludedProviders,
+		"firepass",
+	]);
 
 	// Previous-snapshot entries may carry an older ThinkingConfig vocabulary;
 	// applyGeneratedModelPolicies re-bakes `thinking` for every model, so the
 	// inbound shape is irrelevant beyond identity/pricing/compat fields.
-	for (const models of Object.values(prevModelsJson as unknown as Record<string, Record<string, ModelSpec>>)) {
-		for (const model of Object.values(models)) {
-			if (
-				!fetchedKeys.has(`${model.provider}/${model.id}`) &&
-				!DISCOVERY_ONLY_PROVIDERS.has(model.provider) &&
-				model.provider !== "yolo-auto" &&
-				!RETIRED_PROVIDERS.has(model.provider) &&
-				!authoritativeCatalogProviders.has(model.provider) &&
-				!authoritativeSpecialDiscoveryProviders.has(model.provider) &&
-				!modelsDevSnapshotExcludedProviders.has(model.provider)
-			) {
-				allModels.push(model);
-			}
-		}
-	}
-
+	allModels = mergePreviousSnapshotModels(
+		allModels,
+		prevModelsJson as unknown as Record<string, Record<string, Model<Api>>>,
+		previousSnapshotExcludedProviders,
+	);
 	allModels = applyGlobalModelsDevFallback(allModels, modelsDevModels);
-	// Seed QwenCloud's documented Token Plan models when credentialed
-	// discovery is unavailable. A successful `/models` response is authoritative
-	// for the subscribed edition and must not be widened by the fallback.
-	// Deduplication keeps earlier rows, so prepend the curated seed to prevent
-	// incomplete upstream metadata from replacing its capabilities.
-	if (!authoritativeCatalogProviders.has("alibaba-token-plan")) {
-		allModels.unshift(...ALIBABA_TOKEN_PLAN_STATIC_MODELS);
+	// Previous-snapshot fallbacks can retain a retired client fingerprint. Force
+	// every bundled Copilot model onto the same identity used by live discovery.
+	allModels = allModels.map(model =>
+		model.provider === "github-copilot" ? { ...model, headers: mergeCopilotApiHeaders(model.headers) } : model,
+	);
+	// Seed rows that outrank upstream: prepended after the snapshot merge and
+	// reference fills, so dedup keeps the authored row and same-id rows from
+	// other providers never overwrite its name/capabilities.
+	for (const entry of seededProviders("seed")) {
+		allModels.unshift(...bundledSeedRows(entry, allModels, authoritativeCatalogProviders));
 	}
 	allModels = applyUmansPricingFallback(allModels, modelsDevModels);
 	allModels = applyPremiumMultiplierOverrides(allModels);
+	allModels = applyXaiCatalogPricing(allModels);
 	allModels = applyCodexPricingFallback(allModels);
 	allModels = applyAntigravityPricingFallback(allModels);
 	allModels = applyKimiMaxTokensCap(allModels);
 	allModels = applyFireworksDeepSeekReasoningShape(allModels);
-	allModels = dropFireworksWireIds(allModels);
-	allModels = dropUnusableZaiContextTierIds(allModels);
-	allModels = dropXiaomiAudioOnlyIds(allModels);
-	allModels = dropUnsupportedBedrockGeoIds(allModels);
-	allModels = dropBedrockMantleOpenAIModels(allModels);
+	allModels = filterModelsDevCatalogRows(allModels);
 	allModels = normalizeAntigravityEndpoint(allModels);
 	// Normalize display names: gateway author prefixes ("OpenAI: …"), alias
 	// markers ("(latest)"), provider attribution ("(Antigravity)"), and
@@ -706,14 +699,13 @@ async function generateModels() {
 	// Collapse effort-tier variants AFTER the policy re-bake: live-discovery
 	// entries are already collapsed (rebake skips them); this pass folds
 	// previous-snapshot raw members into their logical families.
-	allModels = collapseEffortVariantsAcrossProviders(allModels);
+	allModels = collapseVariants(allModels);
 	// Fill remaining null endpoint limits from each model's canonical-family
 	// reference. Runs last so canonical ids and explicit policy limits are final.
 	applyCanonicalLimitFallback(allModels);
 	// Pin every Ollama Cloud model's max-output to the enforced ceiling; runs
 	// after canonical fallback so finalized context windows drive the cap.
 	applyOllamaCloudOutputCap(allModels);
-	applyNoSystemPromptCapability(allModels);
 
 	for (const model of allModels) {
 		canonicalizeModelCompat(model);
@@ -722,7 +714,7 @@ async function generateModels() {
 	// Group by provider and sort each provider's models
 	const providers: Record<string, Record<string, ModelSpec>> = {};
 	for (const model of allModels) {
-		if (DISCOVERY_ONLY_PROVIDERS.has(model.provider) || RETIRED_PROVIDERS.has(model.provider)) continue;
+		if (DISCOVERY_ONLY_PROVIDERS.has(model.provider) || isRetiredProvider(model.provider)) continue;
 		if (!providers[model.provider]) {
 			providers[model.provider] = {};
 		}
@@ -742,13 +734,17 @@ async function generateModels() {
 		);
 	};
 
-	const MODELS: Record<string, Record<string, ModelSpec>> = sortObj(providers);
-	for (const key in MODELS) {
-		MODELS[key] = sortObj(MODELS[key]);
+	const modelSpecs: Record<string, Record<string, ModelSpec>> = sortObj(providers);
+	const MODELS: Record<string, Record<string, Model<Api>>> = {};
+	for (const [provider, models] of Object.entries(modelSpecs)) {
+		MODELS[provider] = Object.fromEntries(
+			Object.entries(sortObj(models)).map(([id, model]) => [id, buildModel(model)]),
+		);
 	}
 
-	// Emit the catalog artifacts: full snapshot + per-provider chunks + index.
-	await writeCatalogArtifacts(MODELS);
+	// Generate JSON file
+	await Bun.write(path.join(packageRoot, "src/models.json"), JSON.stringify(MODELS));
+	console.log("Generated src/models.json");
 
 	// Print statistics
 	const totalModels = allModels.length;
@@ -781,108 +777,6 @@ function canonicalizeModelCompat(model: ModelSpec<Api>): void {
 	}
 }
 
-/**
- * Provider ids double as generated chunk filenames and import identifiers.
- * The set is assembled from upstream catalogs, so refuse anything that could
- * escape `src/models/` or produce an invalid module before writing files.
- */
-function assertSafeProviderId(provider: string): void {
-	if (!/^[a-z0-9][a-z0-9-]*$/.test(provider)) {
-		throw new Error(`provider id is unsafe for generated chunk artifacts: ${JSON.stringify(provider)}`);
-	}
-}
-
-/** `alibaba-coding-plan` → `alibabaCodingPlan`; guarded against a leading digit. */
-function chunkImportIdentifier(provider: string): string {
-	const identifier = provider.replace(/-+([a-z0-9])/g, (_match, first: string) => first.toUpperCase());
-	return /^[0-9]/.test(identifier) ? `provider${identifier}` : identifier;
-}
-
-/**
- * Write the generated catalog artifacts:
- *
- * - `src/models.json` — the full snapshot. Compatibility artifact: it is the
- *   prev-snapshot input of the next regeneration, the `./models.json` package
- *   export, and the fixture several bundled-catalog tests pin against. The
- *   runtime no longer imports it.
- * - `src/models/<provider>.json.txt` — one pretty-printed JSON chunk per
- *   provider, embedded as raw text by the bundler and JSON.parsed lazily on
- *   first access (see `src/models.ts`).
- * - `src/models/chunks.ts` — static import map over those chunks so `bun
- *   build --compile` embeds every chunk while evaluation stays lazy.
- * - `src/models-index.json` — provider → bundled model ids, for sync
- *   boot-path consumers that never need model bodies.
- */
-async function writeCatalogArtifacts(MODELS: Record<string, Record<string, ModelSpec>>): Promise<void> {
-	const providers = Object.keys(MODELS);
-	for (const provider of providers) assertSafeProviderId(provider);
-
-	await Bun.write(path.join(packageRoot, "src/models.json"), JSON.stringify(MODELS, null, "	"));
-	console.log("Generated src/models.json");
-
-	const index = Object.fromEntries(providers.map(provider => [provider, Object.keys(MODELS[provider])]));
-	await Bun.write(path.join(packageRoot, "src/models-index.json"), JSON.stringify(index, null, "	"));
-	console.log("Generated src/models-index.json");
-
-	const chunksDir = path.join(packageRoot, "src/models");
-	// Drop chunks of providers that left the catalog so the loader map and the
-	// on-disk directory never disagree.
-	const liveChunks = new Set(providers.map(provider => `${provider}.json.txt`));
-	for (const entry of await readdir(chunksDir).catch(() => [] as string[])) {
-		if (entry.endsWith(".json.txt") && !liveChunks.has(entry)) {
-			await rm(path.join(chunksDir, entry));
-			console.log(`Removed stale chunk src/models/${entry}`);
-		}
-	}
-	// Chunks are minified on purpose: the human-reviewable snapshot is
-	// models.json; minified chunks embed ~30% fewer bytes and lex/parse faster.
-	for (const provider of providers) {
-		await Bun.write(path.join(chunksDir, `${provider}.json.txt`), JSON.stringify(MODELS[provider]));
-	}
-
-	const importLines = providers
-		.map(provider => `import ${chunkImportIdentifier(provider)} from "./${provider}.json.txt";`)
-		.sort()
-		.join("\n");
-	const entryLines = providers
-		.map(provider => {
-			const identifier = chunkImportIdentifier(provider);
-			const key = identifier === provider ? provider : `"${provider}": ${identifier}`;
-			return `\t${key},`;
-		})
-		.join("\n");
-	const chunksModule = `// GENERATED by scripts/generate-models.ts — DO NOT EDIT.
-// Regenerate with \`bun run gen:models\`.
-//
-// Static imports of the per-provider catalog chunks: the bundler embeds every
-// chunk as raw text, but a provider's body is JSON.parsed only on first
-// access (see ../models.ts), so module evaluation never materializes the
-// full catalog.
-${importLines}
-
-export const MODEL_CHUNKS: Record<string, string> = {
-${entryLines}
-};
-`;
-	await Bun.write(path.join(chunksDir, "chunks.ts"), chunksModule);
-	console.log(`Generated src/models/ (${providers.length} chunks + chunks.ts)`);
-}
-
-/**
- * Re-derive the runtime artifacts (index, chunks, import map) from the
- * committed `src/models.json` snapshot without refreshing any remote catalog.
- * The recovery path after merges that change the snapshot: derived artifacts
- * must always agree with it byte-for-byte.
- */
-async function deriveArtifactsFromSnapshot(): Promise<void> {
-	const snapshot: Record<string, Record<string, ModelSpec>> = await Bun.file(
-		path.join(packageRoot, "src/models.json"),
-	).json();
-	await writeCatalogArtifacts(snapshot);
-}
-
-if (process.argv.includes("--derive-only")) {
-	deriveArtifactsFromSnapshot().catch(console.error);
-} else {
+if (import.meta.main) {
 	generateModels().catch(console.error);
 }

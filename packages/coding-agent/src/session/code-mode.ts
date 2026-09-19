@@ -4,7 +4,16 @@
  * bridge, mirroring codex-rs ToolMode::CodeModeOnly.
  */
 
-/** Tool names that always stay directly model-visible under code mode. */
+import { logger } from "@oh-my-soup/pi-utils";
+
+/**
+ * Tool names that always stay directly model-visible under code mode. The
+ * `__*__` names are the eval bridge's own internal operations (declared in
+ * `eval/*-bridge.ts`, spelled out here to keep this module free of eval
+ * imports): `callSessionTool` consumes them before the registry, so a
+ * registered tool sharing one of those names is only reachable while it stays
+ * on the direct surface.
+ */
 export const CODE_MODE_KEEP_TOOLS: Record<string, true> = {
 	eval: true,
 	ask: true,
@@ -12,6 +21,20 @@ export const CODE_MODE_KEEP_TOOLS: Record<string, true> = {
 	notes: true,
 	yield: true,
 	think: true,
+	// checkpoint/rewind results drive session state machinery keyed on the
+	// toolResult's toolName (see session/checkpoint-entries.ts); wrapped inside
+	// an eval result they are invisible to it, so they must stay direct.
+	checkpoint: true,
+	rewind: true,
+	// Rollover requests likewise depend on the direct toolResult's toolName.
+	new_context: true,
+	__agent__: true,
+	__budget__: true,
+	__completion__: true,
+	__wait__: true,
+	__status__: true,
+	__cancel__: true,
+	__workpool__: true,
 };
 
 export interface CodeModeResolution {
@@ -26,14 +49,17 @@ export function resolveCodeMode(args: {
 	setting: "off" | "on" | "auto";
 	extraDirectTools?: readonly string[];
 	enabledToolNames: readonly string[];
+	evalTransportAvailable: boolean;
 }): CodeModeResolution {
 	const active =
 		args.provider === "openai-codex" &&
+		args.enabledToolNames.includes("eval") &&
+		args.evalTransportAvailable &&
 		(args.setting === "on" || (args.setting === "auto" && args.toolMode === "code_mode_only"));
 	if (!active) return { active: false, directToolNames: new Set(args.enabledToolNames) };
 	const direct = new Set<string>();
 	for (const name of args.enabledToolNames) {
-		if (CODE_MODE_KEEP_TOOLS[name]) direct.add(name);
+		if (CODE_MODE_KEEP_TOOLS[name] === true) direct.add(name);
 	}
 	for (const name of args.extraDirectTools ?? []) {
 		if (args.enabledToolNames.includes(name)) direct.add(name);
@@ -59,14 +85,33 @@ export interface ToolNamespacesInfo {
 }
 
 export function buildToolNamespacesInfo(args: {
-	tools: ReadonlyArray<{ name: string; loadMode?: string; mcpServerName?: string }>;
+	tools: ReadonlyArray<{ name: string; customWireName?: string; loadMode?: string; mcpServerName?: string }>;
 	directToolNames: ReadonlySet<string>;
 }): ToolNamespacesInfo {
-	const functions: Record<string, ToolNamespaceFunctionInfo> = {};
+	// Null prototype: a tool named `toString` or `__proto__` must land as an own
+	// entry instead of reading or replacing an inherited member.
+	const functions: Record<string, ToolNamespaceFunctionInfo> = Object.create(null);
 	for (const tool of args.tools) {
-		functions[tool.name] = {
-			name: tool.name,
-			direct: args.directToolNames.has(tool.name),
+		const direct = args.directToolNames.has(tool.name);
+		const wireName = direct ? (tool.customWireName ?? tool.name) : tool.name;
+		const existing = functions[wireName];
+		// One wire name can only denote one callable. Direct exposure beats a
+		// bridged entry; between two direct entries, the exact tool name beats an
+		// alias, matching the agent-loop dispatcher's exact-name-first lookup.
+		if (existing) {
+			const existingExact = existing.code_mode_name === wireName;
+			const candidateExact = tool.name === wireName;
+			const replace = direct && (!existing.direct || (candidateExact && !existingExact));
+			logger.warn("Code Mode wire name collision", {
+				wireName,
+				kept: replace ? tool.name : existing.code_mode_name,
+				dropped: replace ? existing.code_mode_name : tool.name,
+			});
+			if (!replace) continue;
+		}
+		functions[wireName] = {
+			name: wireName,
+			direct,
 			code_mode_name: tool.name,
 			deferred: tool.loadMode === "discoverable",
 			source: tool.mcpServerName ? { kind: "mcp", server_name: tool.mcpServerName } : { kind: "harness" },

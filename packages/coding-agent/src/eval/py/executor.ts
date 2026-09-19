@@ -1,12 +1,13 @@
 import * as fs from "node:fs";
-import * as path from "node:path";
 
-import { getProjectDir, logger } from "@oh-my-soup/pi-utils";
+import { getProjectDir, logger, Snowflake } from "@oh-my-soup/pi-utils";
+import type { OutputArtifactError } from "@oh-my-soup/pi-tui/tools/streaming-output";
 import type { ToolSession } from "../../tools";
 import {
 	buildManagedKernelEnv,
 	buildManagedKernelEnvPatch,
 	createCancelledKernelResult,
+	EvalKernelNotRunningError,
 	executeWithKernelBase,
 	getExecutionDeadlineMs,
 	getRemainingTimeoutMs,
@@ -15,6 +16,8 @@ import {
 	waitForPromiseWithCancellation,
 } from "../executor-base";
 import type { JsStatusEvent } from "../js/shared/types";
+import { getEnabledEvalPreludes } from "../preludes";
+import type { EvalToolDescriptor, EvalToolInvokeResult } from "../types";
 import {
 	createKernelSessionRegistry,
 	formatSessionKernelTimeoutAnnotation,
@@ -24,6 +27,7 @@ import {
 	normalizeKernelSessionCwd,
 	requireRemainingKernelTimeoutMs,
 } from "../kernel-session-registry";
+import type { PythonShadowPlan, PythonShadowSnapshot } from "./kernel";
 import {
 	checkPythonKernelAvailability,
 	type KernelDisplayOutput,
@@ -31,22 +35,27 @@ import {
 	type KernelExecuteResult,
 	type KernelShutdownResult,
 	PythonKernel,
+	type PythonPreludeSource,
 } from "./kernel";
 import { resolveExplicitPythonRuntime } from "./runtime";
-import {
-	buildRestoreCode,
-	buildSnapshotCode,
-	formatRestoreNotice,
-	manifestPathIn,
-	parseMarkerError,
-	parseRestoreResult,
-	parseSnapshotResult,
-	SNAPSHOT_DIR_NAME,
-	snapshotPathIn,
-} from "./state-snapshot";
-import { ensurePyToolBridge } from "./tool-bridge";
+import { ensurePyToolBridge, registerPyToolBridge } from "./tool-bridge";
 
 export type PythonKernelMode = "session" | "per-call";
+
+/** Raw request sent to a retained Python kernel's tool registry. */
+export type PythonToolRequest =
+	| { op: "describe"; names: string[] }
+	| { op: "call"; name: string; args: Record<string, unknown> };
+
+/** Session identity and bridge context for invoking a retained Python tool. */
+export interface PythonToolInvokeOptions {
+	cwd: string;
+	sessionId: string;
+	interpreter?: string;
+	kernelOwnerId?: string;
+	toolSession: ToolSession;
+	signal?: AbortSignal;
+}
 
 export interface PythonExecutorOptions {
 	/** Working directory for command execution */
@@ -87,13 +96,6 @@ export interface PythonExecutorOptions {
 	 * preferred over `PI_SESSION_FILE`-derived paths.
 	 */
 	artifactsDir?: string;
-	/**
-	 * Snapshot the kernel's user namespace to `<artifactsDir>/py-kernel-snapshot/`
-	 * on graceful session shutdown and restore it once when a resumed session
-	 * boots a fresh kernel. Enabled by default (`python.stateSnapshot` setting);
-	 * requires `artifactsDir` and session kernel mode.
-	 */
-	stateSnapshot?: boolean;
 	/** Artifact path/id for full output storage */
 	artifactPath?: string;
 	artifactId?: string;
@@ -127,6 +129,11 @@ export interface PythonExecutorOptions {
 
 export interface PythonKernelExecutor {
 	execute: (code: string, options?: KernelExecuteOptions) => Promise<KernelExecuteResult>;
+	syncPreludes?: (
+		preludes: readonly PythonPreludeSource[],
+		signal: AbortSignal | undefined,
+		timeoutMs: number,
+	) => Promise<void>;
 }
 
 export interface PythonResult {
@@ -140,6 +147,7 @@ export interface PythonResult {
 	truncated: boolean;
 	/** Artifact ID if full output was saved to artifact storage */
 	artifactId?: string;
+	artifactError?: OutputArtifactError;
 	/** Total number of lines in the output stream */
 	totalLines: number;
 	/** Total number of bytes in the output stream */
@@ -172,8 +180,6 @@ interface SessionKernelReplacement {
 interface PythonSession extends KernelSession<PythonKernel> {
 	generation: number;
 	replacement?: SessionKernelReplacement;
-	/** Where graceful shutdown persists the namespace snapshot, when enabled. */
-	stateSnapshotDir?: string;
 }
 
 function normalizeExplicitInterpreter(cwd: string, interpreter: string | undefined): string {
@@ -183,113 +189,6 @@ function normalizeExplicitInterpreter(cwd: string, interpreter: string | undefin
 		return fs.realpathSync.native(resolved);
 	} catch {
 		return resolved;
-	}
-}
-
-// ---------------------------------------------------------------------------
-// Kernel state snapshot/restore (session resume)
-//
-// On graceful session shutdown (dispose by owner / dispose-all at exit) the
-// live namespace is pickled per-variable with dill into the session's
-// artifacts dir; when a resumed session boots a fresh kernel the payload is
-// revived and a one-line notice is surfaced through the first cell's output.
-// Both directions are best-effort: a missing dill, unpicklable values, or a
-// corrupt payload degrade to a debug log and never break shutdown or boot.
-// ---------------------------------------------------------------------------
-
-const STATE_SNAPSHOT_TIMEOUT_MS = 30_000;
-
-/** Snapshot payloads already restored (or attempted) by this process. */
-const restoredSnapshotPaths = new Set<string>();
-
-/** Restore notices awaiting delivery through the kernel's next cell output. */
-const pendingRestoreNotices = new WeakMap<PythonKernelExecutor, string>();
-
-function resolveStateSnapshotDir(options: PythonExecutorOptions): string | undefined {
-	if (options.stateSnapshot === false) return undefined;
-	if (options.kernelMode === "per-call") return undefined;
-	if (!options.artifactsDir) return undefined;
-	return path.join(options.artifactsDir, SNAPSHOT_DIR_NAME);
-}
-
-/** Runs state helper code silently on the kernel and returns collected stdout. */
-async function runKernelStateCode(kernel: PythonKernelExecutor, code: string): Promise<string> {
-	let stdout = "";
-	await kernel.execute(code, {
-		silent: true,
-		storeHistory: false,
-		timeoutMs: STATE_SNAPSHOT_TIMEOUT_MS,
-		onChunk: text => {
-			stdout += text;
-		},
-	});
-	return stdout;
-}
-
-/** Best-effort namespace snapshot before a graceful session shutdown. Never throws. */
-async function snapshotKernelState(session: PythonSession): Promise<void> {
-	const dir = session.stateSnapshotDir;
-	if (!dir || !session.kernel.isAlive()) return;
-	const outPath = snapshotPathIn(dir);
-	try {
-		const stdout = await runKernelStateCode(session.kernel, buildSnapshotCode(outPath, manifestPathIn(dir)));
-		const result = parseSnapshotResult(stdout, outPath);
-		if (!result) {
-			logger.debug("Python kernel state snapshot skipped", {
-				path: outPath,
-				reason: parseMarkerError(stdout) ?? "no result marker",
-			});
-			return;
-		}
-		logger.debug("Python kernel state snapshot written", {
-			path: outPath,
-			saved: result.saved.length,
-			skipped: result.skipped.length,
-			bytes: result.bytes,
-		});
-	} catch (err) {
-		logger.debug("Python kernel state snapshot failed", {
-			path: outPath,
-			error: err instanceof Error ? err.message : String(err),
-		});
-	}
-}
-
-/**
- * Restore a persisted namespace into a freshly booted session kernel. Runs at
- * most once per snapshot path per process so a mid-session kernel replacement
- * cannot resurrect state that is staler than the work done since resume.
- * Never throws.
- */
-async function restoreKernelStateIfPresent(kernel: PythonKernel, options: PythonExecutorOptions): Promise<void> {
-	const dir = resolveStateSnapshotDir(options);
-	if (!dir) return;
-	const snapshotPath = snapshotPathIn(dir);
-	if (restoredSnapshotPaths.has(snapshotPath)) return;
-	restoredSnapshotPaths.add(snapshotPath);
-	try {
-		if (!fs.existsSync(snapshotPath)) return;
-		const stdout = await runKernelStateCode(kernel, buildRestoreCode(snapshotPath));
-		const result = parseRestoreResult(stdout, snapshotPath);
-		if (!result) {
-			logger.debug("Python kernel state restore skipped", {
-				path: snapshotPath,
-				reason: parseMarkerError(stdout) ?? "no result marker",
-			});
-			return;
-		}
-		if (result.restored.length === 0 && result.failed.length === 0) return;
-		pendingRestoreNotices.set(kernel, formatRestoreNotice(result));
-		logger.debug("Python kernel state restored", {
-			path: snapshotPath,
-			restored: result.restored.length,
-			failed: result.failed.length,
-		});
-	} catch (err) {
-		logger.debug("Python kernel state restore failed", {
-			path: snapshotPath,
-			error: err instanceof Error ? err.message : String(err),
-		});
 	}
 }
 
@@ -330,15 +229,13 @@ function createCancelledPythonResult(timedOut: boolean, timeoutMs?: number): Pyt
 
 async function startKernel(cwd: string, options: PythonExecutorOptions): Promise<PythonKernel> {
 	requireRemainingTimeoutMs(options.deadlineMs);
-	const kernel = await PythonKernel.start({
+	return await PythonKernel.start({
 		cwd,
 		env: buildManagedKernelEnv(options),
 		signal: options.signal,
 		deadlineMs: options.deadlineMs,
 		interpreter: options.interpreter,
 	});
-	await restoreKernelStateIfPresent(kernel, options);
-	return kernel;
 }
 
 async function replaceSessionKernel(
@@ -415,10 +312,9 @@ async function replaceSessionKernel(
 	return await waitForPromiseWithCancellation(deferred.promise, options, PythonExecutionCancelledError);
 }
 
-async function shutdownInvalidatedSession(session: PythonSession, resetting: boolean): Promise<KernelShutdownResult> {
+async function shutdownInvalidatedSession(session: PythonSession): Promise<KernelShutdownResult> {
 	const replacement = session.replacement;
 	if (replacement) await replacement.promise.catch(() => undefined);
-	if (!resetting) await snapshotKernelState(session);
 	return await session.kernel.shutdown();
 }
 
@@ -428,7 +324,6 @@ async function acquireLiveSessionKernel(
 	options: PythonExecutorOptions,
 	context: KernelSessionRegistryContext<PythonKernel, PythonExecutorOptions, PythonSession>,
 ): Promise<PythonKernel> {
-	session.stateSnapshotDir = resolveStateSnapshotDir(options);
 	while (context.sessions.get(session.sessionKey) === session) {
 		const kernel = session.kernel;
 		if (kernel.isAlive()) return kernel;
@@ -441,17 +336,27 @@ async function acquireLiveSessionKernel(
 // Execution
 // ---------------------------------------------------------------------------
 
+function pythonPreludeSources(session: ToolSession | undefined): PythonPreludeSource[] {
+	const definitions = getEnabledEvalPreludes(session?.getEvalPreludes?.() ?? []);
+	return definitions.flatMap(definition =>
+		definition.python.trim().length === 0
+			? []
+			: [{ name: definition.name, exports: [...definition.exports], source: definition.python }],
+	);
+}
+
 async function executeWithKernel(
 	kernel: PythonKernelExecutor,
 	code: string,
 	options: PythonExecutorOptions | undefined,
 ): Promise<PythonResult> {
-	const notice = pendingRestoreNotices.get(kernel);
-	if (notice !== undefined) {
-		pendingRestoreNotices.delete(kernel);
-		await options?.onChunk?.(notice);
-	}
-	const result = await executeWithKernelBase<PythonExecutorOptions>({
+	const remainingMs = getRemainingTimeoutMs(options?.deadlineMs);
+	await kernel.syncPreludes?.(
+		pythonPreludeSources(options?.toolSession),
+		options?.signal,
+		Math.max(1, remainingMs ?? 10_000),
+	);
+	return executeWithKernelBase<PythonExecutorOptions>({
 		kernel,
 		code,
 		options,
@@ -462,8 +367,6 @@ async function executeWithKernel(
 		formatKernelTimeoutAnnotation,
 		formatTimeoutAnnotation,
 	});
-	if (notice !== undefined) result.output = notice + result.output;
-	return result;
 }
 
 async function ensureKernelAvailable(cwd: string, options: PythonExecutorOptions): Promise<void> {
@@ -515,17 +418,111 @@ const sessionRegistry = createKernelSessionRegistry<PythonKernel, PythonExecutor
 	invalidateSession: session => {
 		session.generation += 1;
 	},
-	shutdownSession: (session, resetting) => shutdownInvalidatedSession(session, resetting),
+	shutdownSession: session => shutdownInvalidatedSession(session),
 	validateKernel: (session, kernel) => session.kernel === kernel,
 });
 
-/**
- * Live-kernel peek for the post-compaction kernel-state notice. Returns the
- * session's kernel only when it is already running; never spawns one.
- */
+/** Return a live retained Python kernel for post-compaction state probing. */
 export function peekLivePythonKernel(sessionId: string): PythonKernelExecutor | undefined {
-	const session = sessionRegistry.peekSessionById(sessionId);
-	return session?.kernel.isAlive() ? session.kernel : undefined;
+	return sessionRegistry.peekLiveKernelBySessionId(sessionId);
+}
+
+interface PythonToolRequestOutcome {
+	execution: KernelExecuteResult;
+	envelope: unknown;
+}
+
+function isUnknownRecord(value: unknown): value is Record<string, unknown> {
+	return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function pythonToolError(execution: KernelExecuteResult): string {
+	const error = execution.error;
+	if (!error) return "Python tool request failed";
+	return error.value || error.name || "Python tool request failed";
+}
+
+async function invokePythonToolRequest(
+	request: PythonToolRequest,
+	options: PythonToolInvokeOptions,
+): Promise<PythonToolRequestOutcome> {
+	const cwd = normalizeKernelSessionCwd(options.cwd);
+	const kernel = sessionRegistry.peekLiveKernel(cwd, {
+		cwd,
+		sessionId: options.sessionId,
+		interpreter: options.interpreter,
+		kernelOwnerId: options.kernelOwnerId,
+	});
+	if (!kernel) throw new EvalKernelNotRunningError("Python");
+
+	const bridgeOptions: PythonExecutorOptions = {
+		cwd,
+		sessionId: options.sessionId,
+		interpreter: options.interpreter,
+		kernelOwnerId: options.kernelOwnerId,
+		toolSession: options.toolSession,
+		signal: options.signal,
+	};
+	await ensureToolBridge(bridgeOptions);
+
+	const runId = Snowflake.next();
+	const unregister = registerPyToolBridge(options.sessionId, runId, {
+		toolSession: options.toolSession,
+		signal: options.signal,
+		emitStatus: undefined,
+	});
+	let envelope: unknown;
+	try {
+		const execution = await kernel.invokeTool(request, {
+			id: runId,
+			signal: options.signal,
+			onDisplay: output => {
+				if (output.type === "json") envelope = output.data;
+			},
+		});
+		return { execution, envelope };
+	} finally {
+		unregister();
+	}
+}
+
+/** Describe named tools defined in a retained Python kernel. */
+export async function describePythonTools(
+	names: string[],
+	options: PythonToolInvokeOptions,
+): Promise<{ tools: EvalToolDescriptor[]; missing: string[] }> {
+	const { execution, envelope } = await invokePythonToolRequest({ op: "describe", names }, options);
+	if (execution.status === "error") throw new Error(pythonToolError(execution));
+	if (!isUnknownRecord(envelope) || envelope.ok !== true) {
+		throw new Error("Python tool describe request returned an invalid response");
+	}
+
+	const rawTools = Array.isArray(envelope.tools) ? envelope.tools : [];
+	const tools: EvalToolDescriptor[] = [];
+	for (const rawTool of rawTools) {
+		if (!isUnknownRecord(rawTool)) continue;
+		const { name, description, parameters } = rawTool;
+		if (typeof name !== "string" || typeof description !== "string" || !isUnknownRecord(parameters)) continue;
+		tools.push({ name, description, parameters, language: "python" });
+	}
+	const missing = Array.isArray(envelope.missing)
+		? envelope.missing.filter((name): name is string => typeof name === "string")
+		: [];
+	return { tools, missing };
+}
+
+/** Invoke a named tool defined in a retained Python kernel. */
+export async function callPythonTool(
+	name: string,
+	args: Record<string, unknown>,
+	options: PythonToolInvokeOptions,
+): Promise<EvalToolInvokeResult> {
+	const { execution, envelope } = await invokePythonToolRequest({ op: "call", name, args }, options);
+	if (execution.status === "error") return { ok: false, error: pythonToolError(execution) };
+	if (!isUnknownRecord(envelope) || envelope.ok !== true || !("value" in envelope)) {
+		return { ok: false, error: "Python tool call returned an invalid response" };
+	}
+	return { ok: true, value: envelope.value };
 }
 
 export async function disposeAllKernelSessions(): Promise<void> {
@@ -534,6 +531,39 @@ export async function disposeAllKernelSessions(): Promise<void> {
 
 export async function disposeKernelSessionsByOwner(ownerId: string): Promise<void> {
 	await sessionRegistry.disposeByOwner(ownerId);
+}
+
+/** Projects against an already-retained, idle Python session without starting a kernel. */
+export async function shadowPlanPythonIfPresent(options: {
+	cwd: string;
+	sessionId: string;
+	kernelOwnerId?: string;
+	code: string;
+	timeoutMs?: number;
+}): Promise<PythonShadowPlan | null> {
+	const cwd = normalizeKernelSessionCwd(options.cwd);
+	const session = sessionRegistry.getPresentSession(cwd, {
+		sessionId: options.sessionId,
+		kernelOwnerId: options.kernelOwnerId,
+	});
+	if (!session?.kernel.isAlive()) return null;
+	return await session.kernel.shadowPlan(options.code, options.timeoutMs);
+}
+
+/** Captures the current retained-namespace token without planning or starting a kernel. */
+export async function snapshotPythonNamespaceIfPresent(options: {
+	cwd: string;
+	sessionId: string;
+	kernelOwnerId?: string;
+	timeoutMs?: number;
+}): Promise<Pick<PythonShadowSnapshot, "revision" | "digest"> | null> {
+	const cwd = normalizeKernelSessionCwd(options.cwd);
+	const session = sessionRegistry.getPresentSession(cwd, {
+		sessionId: options.sessionId,
+		kernelOwnerId: options.kernelOwnerId,
+	});
+	if (!session?.kernel.isAlive()) return null;
+	return await session.kernel.snapshotUserNamespace(options.timeoutMs);
 }
 
 export async function executePythonWithKernel(
@@ -548,7 +578,7 @@ export async function executePython(code: string, options?: PythonExecutorOption
 	const cwd = normalizeKernelSessionCwd(options?.cwd ?? getProjectDir());
 	const deadlineMs = getExecutionDeadlineMs(options);
 	const executionOptions: PythonExecutorOptions = {
-		...(options ?? {}),
+		...options,
 		cwd,
 		deadlineMs,
 	};

@@ -4,7 +4,7 @@ import { Agent } from "@oh-my-soup/pi-agent-core";
 import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
 import { resetSettingsForTest, Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
 import { InteractiveMode } from "@oh-my-soup/pi-coding-agent/modes/interactive-mode";
-import { initTheme } from "@oh-my-soup/pi-coding-agent/modes/theme/theme";
+import { initTheme } from "@oh-my-soup/pi-tui/theme";
 import { AgentSession } from "@oh-my-soup/pi-coding-agent/session/agent-session";
 import { AuthStorage } from "@oh-my-soup/pi-coding-agent/session/auth-storage";
 import { HistoryStorage } from "@oh-my-soup/pi-coding-agent/session/history-storage";
@@ -51,7 +51,7 @@ describe("issue #816 — plan mode pendingModelSwitch leak", () => {
 	afterEach(async () => {
 		vi.restoreAllMocks();
 		mode?.stop();
-		HistoryStorage.resetInstance();
+		HistoryStorage.close();
 		await session?.dispose();
 		authStorage?.close();
 		tempDir?.removeSync();

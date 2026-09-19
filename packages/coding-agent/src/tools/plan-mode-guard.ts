@@ -1,7 +1,11 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { HL_FILE_HASH_LENGTH, HL_FILE_HASH_SEP, HL_FILE_PREFIX, HL_FILE_SUFFIX } from "@oh-my-soup/hashline";
-import { pathIsWithin } from "@oh-my-soup/pi-utils";
+import {
+	HL_FILE_HASH_LENGTH,
+	HL_FILE_HASH_SEP,
+	HL_FILE_PREFIX,
+	HL_FILE_SUFFIX,
+} from "@oh-my-soup/pi-tui/tools/hashline-format";
 import {
 	type LocalProtocolOptions,
 	resolveLocalRoot,
@@ -10,7 +14,7 @@ import {
 } from "../internal-urls";
 import type { ToolSession } from ".";
 import { normalizeLocalScheme, resolveToCwd } from "./path-utils";
-import { ToolError } from "./tool-errors";
+import { ToolError } from "@oh-my-soup/pi-tui/tools/tool-errors";
 
 const VAULT_SCHEME_PREFIX = "vault:";
 const LOCAL_SCHEME_PREFIX = "local:";
@@ -23,7 +27,7 @@ const HL_TRAILING_TAG_RE = new RegExp(`${HL_FILE_HASH_SEP}[0-9A-Fa-f]{${HL_FILE_
  *  root via `localProtocolOptions`; the sandbox root the plan-mode guard derives
  *  must match where the artifact actually lives, or it rejects a legitimate plan
  *  edit (and tag-based path recovery onto the sandbox would miss it). */
-function planLocalProtocolOptions(session: ToolSession): LocalProtocolOptions {
+export function planLocalProtocolOptions(session: ToolSession): LocalProtocolOptions {
 	return (
 		session.localProtocolOptions ?? {
 			getArtifactsDir: () => session.getArtifactsDir?.() ?? null,
@@ -40,6 +44,13 @@ function localSandboxRoot(session: ToolSession): string | null {
 	} catch {
 		return null;
 	}
+}
+
+/** True when `absolutePath` resolves inside `root` (== root or under it). */
+function isWithinRoot(absolutePath: string, root: string): boolean {
+	if (absolutePath === root) return true;
+	const sep = `${root}${path.sep}`;
+	return absolutePath.startsWith(sep);
 }
 
 /** Strip the hashline `[path#TAG]` wrapper from a write/edit target so the inner
@@ -84,15 +95,15 @@ export function targetsLocalSandbox(session: ToolSession, targetPath: string): b
 	}
 	if (!path.isAbsolute(resolved)) return false;
 	const absolute = path.resolve(resolved);
-	if (pathIsWithin(root, absolute)) return true;
+	if (isWithinRoot(absolute, root)) return true;
 	// Compare realpath-normalized forms so that `/tmp/…` vs `/private/tmp/…`
 	// (macOS) and other symlink-collapsed roots both resolve to the same
 	// sandbox identity.
 	try {
 		const realRoot = fs.realpathSync.native(root);
-		if (pathIsWithin(realRoot, absolute)) return true;
+		if (isWithinRoot(absolute, realRoot)) return true;
 		const realParent = fs.realpathSync.native(path.dirname(absolute));
-		return pathIsWithin(realRoot, path.join(realParent, path.basename(absolute)));
+		return isWithinRoot(path.join(realParent, path.basename(absolute)), realRoot);
 	} catch {
 		return false;
 	}

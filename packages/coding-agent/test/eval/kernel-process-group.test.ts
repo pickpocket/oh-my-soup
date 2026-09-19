@@ -1,6 +1,18 @@
-import { describe, expect, mock, test } from "bun:test";
-import type { Subprocess } from "bun";
+import { describe, expect, test } from "bun:test";
 import { BaseKernel, isSignalableProcessGroup, killProcessGroup } from "../../src/eval/kernel-base";
+
+class TestKernel extends BaseKernel {
+	constructor() {
+		super("process-group-test", {
+			languageName: "Test",
+			traceIpc: false,
+			exitPayload: "exit",
+			interruptEscalationMs: 10,
+			shutdownGraceMs: 25,
+			buildPayload: code => code,
+		});
+	}
+}
 
 const POSIX = process.platform !== "win32";
 
@@ -14,48 +26,9 @@ function processGroupExists(pid: number): boolean {
 	}
 }
 
-class TestKernel extends BaseKernel {
-	constructor() {
-		super("test-kernel", {
-			languageName: "Test",
-			traceIpc: false,
-			exitPayload: "{}",
-			interruptEscalationMs: 1,
-			shutdownGraceMs: 1,
-			buildPayload: () => "{}",
-		});
-	}
-}
-
-test("treats graceful exit code zero as a confirmed shutdown", async () => {
-	const kill = mock(() => {});
-	const closedStream = () =>
-		new ReadableStream<Uint8Array>({
-			start(controller) {
-				controller.close();
-			},
-		});
-	const kernel = new TestKernel();
-	kernel.setProcess({
-		pid: 0x7fffffff,
-		stdin: {
-			write: mock(() => 0),
-			flush: mock(() => {}),
-			end: mock(() => {}),
-		},
-		stdout: closedStream(),
-		stderr: closedStream(),
-		exited: Promise.resolve(0),
-		kill,
-	} as unknown as Subprocess<"pipe", "pipe", "pipe">);
-
-	await expect(kernel.shutdown({ timeoutMs: 0 })).resolves.toEqual({ confirmed: true });
-	expect(kill).not.toHaveBeenCalled();
-});
-
 describe("isSignalableProcessGroup", () => {
 	test("rejects the degenerate kill(2) group targets", () => {
-		// `-0` would signal omp's own process group and `-1` would signal every
+		// `-0` would signal oms's own process group and `-1` would signal every
 		// process the user can reach; both must never be negated into a kill.
 		expect(isSignalableProcessGroup(0)).toBe(false);
 		expect(isSignalableProcessGroup(1)).toBe(false);
@@ -87,20 +60,92 @@ describe("killProcessGroup", () => {
 		expect(killProcessGroup(0x7fffffff, "SIGKILL")).toBe(false);
 	});
 
-	test.skipIf(!POSIX)("agrees with kill(2) on a live child and never throws", async () => {
-		const proc = Bun.spawn(["sleep", "30"], { stdin: "ignore", stdout: "ignore", stderr: "ignore" });
+	test.skipIf(!POSIX)("kills a live detached process group", async () => {
+		const proc = Bun.spawn(["sleep", "30"], {
+			detached: true,
+			stdin: "ignore",
+			stdout: "ignore",
+			stderr: "ignore",
+		});
 		try {
-			// Whether the child leads its own group depends on the spawn backend, so
-			// compare against kill(2) ground truth rather than assuming detachment.
-			const expected = processGroupExists(proc.pid);
-			expect(killProcessGroup(proc.pid, "SIGKILL")).toBe(expected);
+			expect(processGroupExists(proc.pid)).toBe(true);
+			expect(killProcessGroup(proc.pid, "SIGKILL")).toBe(true);
+			await proc.exited;
+			expect(processGroupExists(proc.pid)).toBe(false);
 		} finally {
 			proc.kill("SIGKILL");
-			const settled = await Promise.race([
-				proc.exited.then(() => "exited" as const),
-				Bun.sleep(5_000).then(() => "timeout" as const),
-			]);
-			expect(settled).toBe("exited");
 		}
 	});
+});
+
+describe("BaseKernel shutdown", () => {
+	test.skipIf(!POSIX)("confirms a graceful zero-code exit on shutdown and repeated cleanup", async () => {
+		const proc = Bun.spawn(["sh", "-c", 'read request; [ "$request" = exit ]'], {
+			detached: true,
+			stdin: "pipe",
+			stdout: "pipe",
+			stderr: "pipe",
+		});
+		const kernel = new TestKernel();
+		kernel.setProcess(proc);
+		try {
+			expect(await kernel.shutdown({ timeoutMs: 1_000 })).toEqual({ confirmed: true });
+			expect(await proc.exited).toBe(0);
+			expect(kernel.isAlive()).toBe(false);
+			expect(await kernel.shutdown()).toEqual({ confirmed: true });
+		} finally {
+			killProcessGroup(proc.pid, "SIGKILL");
+			proc.kill("SIGKILL");
+			await proc.exited;
+		}
+	});
+
+	test.skipIf(!POSIX).each(["graceful", "timeout"] as const)(
+		"kills TERM-resistant descendants after a %s leader exit",
+		async exitMode => {
+			const pidFile = `/tmp/oms-kernel-process-group-${process.pid}-${Date.now()}`;
+			const child = `sh -c 'trap "" TERM; echo ready > "$1"; exec sleep 30' sh '${pidFile}' &`;
+			const command =
+				exitMode === "graceful"
+					? `${child} read request; [ "$request" = exit ]`
+					: `trap 'exit 0' TERM; ${child} wait`;
+			const proc = Bun.spawn(["sh", "-c", command], {
+				detached: true,
+				stdin: "pipe",
+				stdout: "pipe",
+				stderr: "pipe",
+			});
+			try {
+				// This integration test must wait on real subprocess state; fake timers
+				// cannot advance fork, signal delivery, or filesystem visibility.
+				await Promise.race([
+					(async () => {
+						while (!(await Bun.file(pidFile).exists())) await Bun.sleep(10);
+					})(),
+					Bun.sleep(1_000).then(() => {
+						throw new Error("timed out waiting for the kernel descendant");
+					}),
+				]);
+
+				const kernel = new TestKernel();
+				kernel.setProcess(proc);
+				expect(await kernel.shutdown({ timeoutMs: 1_000 })).toEqual({ confirmed: true });
+				expect(await proc.exited).toBe(0);
+
+				await Promise.race([
+					(async () => {
+						while (processGroupExists(proc.pid)) await Bun.sleep(10);
+					})(),
+					Bun.sleep(1_000).then(() => {
+						throw new Error("kernel process group survived shutdown");
+					}),
+				]);
+			} finally {
+				killProcessGroup(proc.pid, "SIGKILL");
+				proc.kill("SIGKILL");
+				await proc.exited;
+				await Bun.file(pidFile).delete();
+			}
+		},
+	);
 });

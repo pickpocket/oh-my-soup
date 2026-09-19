@@ -10,7 +10,7 @@
  *      terminal settle, bounded by PLAN_MODE_REMINDER_MAX (then yields to the
  *      user), and either decision tool resets the counter.
  */
-import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "bun:test";
 import { type } from "@oh-my-soup/omstype";
 import {
 	Agent,
@@ -26,13 +26,14 @@ import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry
 import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
 import type { CustomTool } from "@oh-my-soup/pi-coding-agent/extensibility/custom-tools/types";
 import { resolveLocalUrlToPath } from "@oh-my-soup/pi-coding-agent/internal-urls";
-import { IrcBus, type IrcMessage } from "@oh-my-soup/pi-coding-agent/irc/bus";
+import { IrcBus } from "@oh-my-soup/pi-coding-agent/irc/bus";
+import { type IrcMessage } from "@oh-my-soup/pi-tui/tools/hub";
 import { AgentRegistry } from "@oh-my-soup/pi-coding-agent/registry/agent-registry";
 import { AgentSession } from "@oh-my-soup/pi-coding-agent/session/agent-session";
 import { AuthStorage } from "@oh-my-soup/pi-coding-agent/session/auth-storage";
 import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
 import type { XdevState } from "@oh-my-soup/pi-coding-agent/tools/xdev";
-import { Snowflake, TempDir } from "@oh-my-soup/pi-utils";
+import { TempDir } from "@oh-my-soup/pi-utils";
 import planModeReminderPrompt from "../src/prompts/system/plan-mode-tool-decision-reminder.md" with { type: "text" };
 
 /** A stable, literal (non-templated) line of the reminder prompt, so the test
@@ -97,12 +98,28 @@ interface PlanHarness {
 	mock: MockModel;
 	advisorMock?: MockModel;
 	sideMock?: MockModel;
+	isDeviceOnlyWrite: () => boolean;
+	isPendingFullWriteDescription: () => boolean;
 }
 
 describe("AgentSession plan-mode convergence", () => {
 	let tempDir: TempDir;
 	let session: AgentSession | undefined;
-	const authStorages: AuthStorage[] = [];
+	let authDir: TempDir;
+	let authStorage: AuthStorage;
+	let modelRegistry: ModelRegistry;
+
+	beforeAll(async () => {
+		authDir = TempDir.createSync("@pi-plan-converge-auth-");
+		authStorage = await AuthStorage.create(authDir.join("auth.db"));
+		authStorage.setRuntimeApiKey("anthropic", "test-key");
+		modelRegistry = new ModelRegistry(authStorage, authDir.join("models.yml"));
+	});
+
+	afterAll(() => {
+		authStorage.close();
+		authDir.removeSync();
+	});
 
 	beforeEach(() => {
 		tempDir = TempDir.createSync("@pi-plan-converge-");
@@ -113,7 +130,6 @@ describe("AgentSession plan-mode convergence", () => {
 			await session?.dispose();
 		} finally {
 			session = undefined;
-			for (const authStorage of authStorages.splice(0)) authStorage.close();
 			await tempDir?.remove();
 		}
 	});
@@ -127,6 +143,7 @@ describe("AgentSession plan-mode convergence", () => {
 			initialPlanTools?: string[];
 			xdev?: boolean;
 			rebuildGate?: { fail: boolean };
+			deviceOnlyWrite?: boolean;
 		},
 	): Promise<PlanHarness> {
 		const model = getBundledModel("anthropic", "claude-sonnet-4-5");
@@ -145,7 +162,8 @@ describe("AgentSession plan-mode convergence", () => {
 				? [readTool, writeTool]
 				: [readTool]
 			: [askTool, writeTool, readTool];
-		let currentAgent: Agent | undefined;
+		let deviceOnlyWrite = options?.deviceOnlyWrite === true;
+		let pendingFullWriteDescription = false;
 		const xdev: XdevState | undefined = options?.xdev
 			? {
 					tools: toolRegistry,
@@ -166,12 +184,7 @@ describe("AgentSession plan-mode convergence", () => {
 			},
 			streamFn: mock.stream,
 		});
-		currentAgent = agent;
-
-		const authStorage = await AuthStorage.create(tempDir.join(`auth-${Snowflake.next()}.db`));
-		authStorages.push(authStorage);
-		authStorage.setRuntimeApiKey("anthropic", "test-key");
-		const modelRegistry = new ModelRegistry(authStorage, tempDir.join(`models-${Snowflake.next()}.yml`));
+		const currentAgent = agent;
 
 		let advisorMock: MockModel | undefined;
 		let advisorStreamFn: StreamFn | undefined;
@@ -197,6 +210,13 @@ describe("AgentSession plan-mode convergence", () => {
 			modelRegistry,
 			toolRegistry,
 			builtInToolNames: ["ask", "write", "read"],
+			isDeviceOnlyWrite: () => deviceOnlyWrite,
+			setDeviceOnlyWrite: enabled => {
+				deviceOnlyWrite = enabled;
+			},
+			setPendingFullWriteDescription: enabled => {
+				pendingFullWriteDescription = enabled;
+			},
 			advisorTools: [],
 			advisorStreamFn,
 			sideStreamFn,
@@ -211,7 +231,14 @@ describe("AgentSession plan-mode convergence", () => {
 		});
 		if (!options?.planYolo) created.setPlanModeState({ enabled: true, planFilePath: "local://PLAN.md" });
 		session = created;
-		return { session: created, mock, advisorMock, sideMock };
+		return {
+			session: created,
+			mock,
+			advisorMock,
+			sideMock,
+			isDeviceOnlyWrite: () => deviceOnlyWrite,
+			isPendingFullWriteDescription: () => pendingFullWriteDescription,
+		};
 	}
 
 	it("T1: an advisor concern does not wake the primary in plan mode", async () => {
@@ -351,6 +378,46 @@ describe("AgentSession plan-mode convergence", () => {
 
 		expect(countReminders(harness.session.agent.state.messages)).toBe(2);
 		expect(harness.mock.calls.length).toBe(4);
+	});
+
+	it("keeps PlanYolo's internal write augmentation transport-only", async () => {
+		const harness = await createPlanSession(
+			[
+				{ content: ["planning A"] },
+				{ content: ["planning B"] },
+				{ content: ["planning C"] },
+				{ content: ["planning D"] },
+			],
+			{ planYolo: true, xdev: true, deviceOnlyWrite: true },
+		);
+
+		await harness.session.prompt("make a plan");
+		await harness.session.waitForIdle();
+
+		expect(harness.session.getPlanModeState()?.enabled).toBe(true);
+		expect(harness.session.getActiveToolNames()).toContain("write");
+		expect(harness.isDeviceOnlyWrite()).toBe(true);
+		expect(harness.isPendingFullWriteDescription()).toBe(false);
+	});
+	it("rolls PlanYolo state back when transport activation fails", async () => {
+		const rebuildGate = { fail: true };
+		const harness = await createPlanSession([{ content: ["planning"] }], {
+			planYolo: true,
+			xdev: true,
+			deviceOnlyWrite: true,
+			rebuildGate,
+		});
+
+		await expect(harness.session.prompt("make a plan")).rejects.toThrow("rebuild failed");
+		expect(harness.session.getPlanModeState()).toBeUndefined();
+		expect(harness.session.getActiveToolNames()).toEqual(["read"]);
+		expect(harness.isDeviceOnlyWrite()).toBe(true);
+
+		rebuildGate.fail = false;
+		await harness.session.prompt("retry the plan");
+		await harness.session.waitForIdle();
+		expect(harness.session.getPlanModeState()?.enabled).toBe(true);
+		expect(harness.isDeviceOnlyWrite()).toBe(true);
 	});
 
 	it("restores the pre-plan tool set after PlanYolo approval", async () => {

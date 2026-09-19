@@ -27,6 +27,7 @@ import { type MCPServer, mcpCapability } from "../capability/mcp";
 import { type Settings, settingsCapability } from "../capability/settings";
 import { type Skill, skillCapability } from "../capability/skill";
 import { type SlashCommand, slashCommandCapability } from "../capability/slash-command";
+import { slashCommandFrontmatterDisplay } from "@oh-my-soup/pi-tui/overlays/extensions/inspector-model";
 import type { LoadContext, LoadResult, SourceMeta } from "../capability/types";
 import { settings } from "../config/settings";
 
@@ -37,6 +38,7 @@ import {
 	getProjectPath,
 	getUserPath,
 	loadFilesFromDir,
+	resolveUserPath,
 	scanSkillsFromDir,
 } from "./helpers";
 
@@ -76,41 +78,56 @@ async function loadJsonConfig(
 }
 
 /**
- * Apply OpenCode's `{env:VAR}` and `{file:path}` substitutions before parsing
- * its JSONC configuration.
+ * Apply OpenCode's config variable substitution to raw config text.
+ *
+ * OpenCode expands `{env:VAR}` (the env value, or an empty string when unset)
+ * and `{file:path}` (file contents, trimmed and JSON-escaped) at load time,
+ * before the JSON is parsed — see opencode `packages/opencode/src/config/variable.ts`.
+ * OMS loads the same config files, so it MUST honor the same syntax; the generic
+ * `${VAR}` expansion used elsewhere never matches, leaving a header like
+ * `Bearer {env:MCP_KEY}` to reach the MCP server verbatim and 401 (#8778).
+ *
+ * `{file:path}` resolves relative to the config file's directory, or from a `~`/
+ * absolute path. A token on a `//` comment line is left untouched, matching
+ * OpenCode. A missing file expands to an empty string (OpenCode's `missing:
+ * "empty"` mode) rather than aborting discovery.
  */
 async function substituteConfigVars(text: string, configPath: string): Promise<string> {
 	const envExpanded = text.replace(/\{env:([^}]+)\}/g, (_, name: string) => Bun.env[name] ?? "");
+
 	const fileMatches = [...envExpanded.matchAll(/\{file:[^}]+\}/g)];
 	if (fileMatches.length === 0) return envExpanded;
 
 	const configDir = path.dirname(configPath);
-	let expanded = "";
+	let out = "";
 	let cursor = 0;
 	for (const match of fileMatches) {
 		const token = match[0];
 		const index = match.index ?? 0;
-		expanded += envExpanded.slice(cursor, index);
+		out += envExpanded.slice(cursor, index);
 		cursor = index + token.length;
 
+		// A `{file:...}` sitting on a JSONC comment line is not a real reference.
 		const lineStart = envExpanded.lastIndexOf("\n", index - 1) + 1;
 		if (envExpanded.slice(lineStart, index).trimStart().startsWith("//")) {
-			expanded += token;
+			out += token;
 			continue;
 		}
 
 		let filePath = token.slice("{file:".length, -1);
 		if (filePath.startsWith("~/")) filePath = path.join(os.homedir(), filePath.slice(2));
 		const resolved = path.isAbsolute(filePath) ? filePath : path.resolve(configDir, filePath);
+
 		const fileContent = await readFile(resolved);
 		if (fileContent === null) {
 			logger.warn("OpenCode config references a missing file", { configPath, path: resolved });
 			continue;
 		}
-		expanded += JSON.stringify(fileContent.trim()).slice(1, -1);
+		// JSON-escape so multi-line/quoted contents stay valid inside the string literal.
+		out += JSON.stringify(fileContent.trim()).slice(1, -1);
 	}
-	expanded += envExpanded.slice(cursor);
-	return expanded;
+	out += envExpanded.slice(cursor);
+	return out;
 }
 
 /**
@@ -181,6 +198,13 @@ interface OpenCodeMCPConfig {
 	headers?: Record<string, string>;
 	enabled?: boolean;
 	timeout?: number;
+	oauth?: {
+		clientId?: string;
+		clientSecret?: string;
+		scope?: string;
+		callbackPort?: number;
+		redirectUri?: string;
+	};
 }
 
 function stringArray(value: unknown): string[] | undefined {
@@ -200,6 +224,19 @@ function stringRecord(value: unknown): Record<string, string> | undefined {
 		record[key] = item;
 	}
 	return record;
+}
+
+function normalizeOAuth(value: unknown): MCPServer["oauth"] | undefined {
+	if (!isRecord(value)) return undefined;
+
+	const oauth = {
+		clientId: typeof value.clientId === "string" ? value.clientId : undefined,
+		clientSecret: typeof value.clientSecret === "string" ? value.clientSecret : undefined,
+		scope: typeof value.scope === "string" ? value.scope : undefined,
+		callbackPort: typeof value.callbackPort === "number" ? value.callbackPort : undefined,
+		redirectUri: typeof value.redirectUri === "string" ? value.redirectUri : undefined,
+	};
+	return Object.values(oauth).some(item => item !== undefined) ? oauth : undefined;
 }
 
 function normalizeCommand(
@@ -298,6 +335,7 @@ function buildMCPServer(name: string, serverConfig: OpenCodeMCPConfig, source: O
 		headers: serverConfig.headers && typeof serverConfig.headers === "object" ? serverConfig.headers : undefined,
 		enabled: serverConfig.enabled,
 		timeout: typeof serverConfig.timeout === "number" ? serverConfig.timeout : undefined,
+		oauth: normalizeOAuth(serverConfig.oauth),
 		transport,
 		_source: createSourceMeta(PROVIDER_ID, source.path, source.level),
 	};
@@ -370,17 +408,20 @@ async function loadExtensionModules(ctx: LoadContext): Promise<LoadResult<Extens
 function readOpencodeCommandToggles(): { enableUser: boolean; enableProject: boolean } {
 	try {
 		return {
-			enableUser: settings.get("commands.enableOpencodeUser") ?? true,
+			enableUser: settings.get("commands.enableOpencodeUser") === true,
 			enableProject: settings.get("commands.enableOpencodeProject") ?? true,
 		};
 	} catch {
-		return { enableUser: true, enableProject: true };
+		return { enableUser: false, enableProject: true };
 	}
 }
 
 async function loadSlashCommands(ctx: LoadContext): Promise<LoadResult<SlashCommand>> {
 	const { enableUser, enableProject } = readOpencodeCommandToggles();
-	const userCommandsDir = enableUser ? getUserPath(ctx, "opencode", "commands") : null;
+	// The legacy commands toggle is a commands-only opt-in for ~/.config/opencode.
+	const userCommandsDir = enableUser
+		? resolveUserPath(ctx, "opencode", "commands")
+		: getUserPath(ctx, "opencode", "commands");
 	const projectCommandsDir = enableProject ? getProjectPath(ctx, "opencode", "commands") : null;
 
 	const transformCommand =
@@ -391,6 +432,7 @@ async function loadSlashCommands(ctx: LoadContext): Promise<LoadResult<SlashComm
 				name: String(commandName),
 				path: filePath,
 				content: body,
+				...slashCommandFrontmatterDisplay(frontmatter),
 				level,
 				_source: source,
 			};

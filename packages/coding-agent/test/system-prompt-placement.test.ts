@@ -17,16 +17,19 @@ function baseContext(): Context {
 	};
 }
 
+const NATIVE_INSTRUCTION_CHANNEL = { compat: { supportsDeveloperRole: true } };
+const USER_TURN_INSTRUCTION_CHANNEL = { compat: { supportsDeveloperRole: false } };
+
 describe("resolveSystemPromptPlacement", () => {
-	test("auto keeps the system channel unless the model opts out", () => {
+	test("auto keeps the system channel unless the resolved compatibility opts out", () => {
 		expect(resolveSystemPromptPlacement("auto", {})).toBe("system");
-		expect(resolveSystemPromptPlacement("auto", { supportsSystemPrompt: true })).toBe("system");
-		expect(resolveSystemPromptPlacement("auto", { supportsSystemPrompt: false })).toBe("first-turn");
+		expect(resolveSystemPromptPlacement("auto", NATIVE_INSTRUCTION_CHANNEL)).toBe("system");
+		expect(resolveSystemPromptPlacement("auto", USER_TURN_INSTRUCTION_CHANNEL)).toBe("first-turn");
 	});
 
 	test("forced modes override the model capability", () => {
-		expect(resolveSystemPromptPlacement("system", { supportsSystemPrompt: false })).toBe("system");
-		expect(resolveSystemPromptPlacement("first-turn", { supportsSystemPrompt: true })).toBe("first-turn");
+		expect(resolveSystemPromptPlacement("system", USER_TURN_INSTRUCTION_CHANNEL)).toBe("system");
+		expect(resolveSystemPromptPlacement("first-turn", NATIVE_INSTRUCTION_CHANNEL)).toBe("first-turn");
 	});
 });
 
@@ -34,12 +37,12 @@ describe("applySystemPromptPlacement", () => {
 	test("returns the context unchanged on the system channel", () => {
 		const context = baseContext();
 		expect(applySystemPromptPlacement(context, {}, "auto")).toBe(context);
-		expect(applySystemPromptPlacement(context, { supportsSystemPrompt: false }, "system")).toBe(context);
+		expect(applySystemPromptPlacement(context, USER_TURN_INSTRUCTION_CHANNEL, "system")).toBe(context);
 	});
 
 	test("relocates the prompt into a synthetic first user turn for incapable models", () => {
 		const context = baseContext();
-		const placed = applySystemPromptPlacement(context, { supportsSystemPrompt: false }, "auto");
+		const placed = applySystemPromptPlacement(context, USER_TURN_INSTRUCTION_CHANNEL, "auto");
 
 		expect(placed.systemPrompt).toBeUndefined();
 		expect(placed.messages).toHaveLength(2);
@@ -59,21 +62,21 @@ describe("applySystemPromptPlacement", () => {
 	});
 
 	test("forced first-turn relocates even for capable models", () => {
-		const placed = applySystemPromptPlacement(baseContext(), { supportsSystemPrompt: true }, "first-turn");
+		const placed = applySystemPromptPlacement(baseContext(), NATIVE_INSTRUCTION_CHANNEL, "first-turn");
 		expect(placed.systemPrompt).toBeUndefined();
 		expect(placed.messages[0]?.role).toBe("user");
 	});
 
 	test("no prompt content means no synthetic turn", () => {
 		const empty: Context = { systemPrompt: ["", "   "], messages: [], tools: undefined };
-		expect(applySystemPromptPlacement(empty, { supportsSystemPrompt: false }, "auto")).toBe(empty);
+		expect(applySystemPromptPlacement(empty, USER_TURN_INSTRUCTION_CHANNEL, "auto")).toBe(empty);
 		const absent: Context = { messages: [] };
-		expect(applySystemPromptPlacement(absent, { supportsSystemPrompt: false }, "first-turn")).toBe(absent);
+		expect(applySystemPromptPlacement(absent, USER_TURN_INSTRUCTION_CHANNEL, "first-turn")).toBe(absent);
 	});
 
 	test("synthetic opener is byte-stable across requests", () => {
-		const first = applySystemPromptPlacement(baseContext(), { supportsSystemPrompt: false }, "auto");
-		const second = applySystemPromptPlacement(baseContext(), { supportsSystemPrompt: false }, "auto");
+		const first = applySystemPromptPlacement(baseContext(), USER_TURN_INSTRUCTION_CHANNEL, "auto");
+		const second = applySystemPromptPlacement(baseContext(), USER_TURN_INSTRUCTION_CHANNEL, "auto");
 		expect(JSON.stringify(first.messages[0])).toBe(JSON.stringify(second.messages[0]));
 	});
 });
@@ -128,7 +131,7 @@ describe("applyModelPromptFile", () => {
 		using tempDir = TempDir.createSync("@pi-prompt-file-compose-");
 		const file = tempDir.join("prompt.md");
 		await Bun.write(file, "composed prompt");
-		const flagged = { ...MODEL, supportsSystemPrompt: false };
+		const flagged = { ...MODEL, compat: { supportsDeveloperRole: false } };
 
 		const withFile = await applyModelPromptFile(baseContext(), flagged, { [modelPromptKey(flagged)]: file });
 		const placed = applySystemPromptPlacement(withFile, flagged, "auto");

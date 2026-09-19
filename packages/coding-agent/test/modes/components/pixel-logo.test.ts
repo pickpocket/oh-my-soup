@@ -1,7 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { SOUP_LOGO_ROWS, SOUP_LOGO_WIDTH, soupLogo, soupLogoCells } from "../../../src/modes/components/pixel-logo";
-import { SOUP_LOGO_DEFAULTS } from "../../../src/modes/theme/schema";
-import { initTheme } from "../../../src/modes/theme/theme";
+import { initTheme, theme, type ThemeColor } from "@oh-my-soup/pi-tui/theme";
 
 describe("soup pixel logo", () => {
 	it("renders theme-palette half-block rows at the declared dimensions", async () => {
@@ -15,9 +14,9 @@ describe("soup pixel logo", () => {
 			const indexed = Bun.color(hex, "ansi-256") ?? "";
 			return joined.includes(truecolor) || (indexed !== "" && joined.includes(indexed.slice(2)));
 		};
-		expect(containsColor(SOUP_LOGO_DEFAULTS.welcomeLogoOh)).toBe(true);
-		expect(containsColor(SOUP_LOGO_DEFAULTS.welcomeLogoMy)).toBe(true);
-		expect(containsColor(SOUP_LOGO_DEFAULTS.welcomeLogoBowl)).toBe(true);
+		expect(containsColor(theme.getColorHex("welcomeLogoOh" as ThemeColor))).toBe(true);
+		expect(containsColor(theme.getColorHex("welcomeLogoMy" as ThemeColor))).toBe(true);
+		expect(containsColor(theme.getColorHex("welcomeLogoBowl" as ThemeColor))).toBe(true);
 	});
 
 	it("doubles every cell at scale 2 and keeps transparent margins empty", async () => {

@@ -17,7 +17,6 @@
  * stick or re-rank.
  */
 
-import { getOAuthProviders } from "@oh-my-soup/pi-ai/oauth";
 import type { AuthStorage } from "./auth-storage";
 import type { SessionManager } from "./session-manager";
 
@@ -56,10 +55,8 @@ export function credentialPinHash(provider: string, identity: CredentialPinIdent
 
 /**
  * Record the account that served the latest assistant turn for `provider`.
- * Appends a `credential_pin` entry only when the account or its explicit
- * pinned-ness differs from the branch's latest pin, so steady-state sessions
- * add a single entry; the effective last-use time is derived from later
- * assistant turns on read (see `SessionManager.getCredentialPins`).
+ * Appends only when the branch's recorded account changes; effective last use
+ * is derived from subsequent assistant turns on read.
  */
 export function recordCredentialPin(
 	authStorage: AuthStorage,
@@ -70,11 +67,8 @@ export function recordCredentialPin(
 	const identity = authStorage.getOAuthAccountIdentity(provider, sessionId);
 	if (!identity) return;
 	const hash = credentialPinHash(provider, identity);
-	if (!hash) return;
-	const pinned = authStorage.getSessionOAuthStickyInfo(provider, sessionId)?.pinned === true;
-	const latest = sessionManager.getCredentialPins().get(provider);
-	if (latest?.hash === hash && (latest.pinned === true) === pinned) return;
-	sessionManager.appendCredentialPin(provider, hash, pinned);
+	if (!hash || sessionManager.getCredentialPins().get(provider)?.hash === hash) return;
+	sessionManager.appendCredentialPin(provider, hash);
 }
 
 /**
@@ -92,26 +86,19 @@ export function seedCredentialPins(authStorage: AuthStorage, sessionManager: Ses
 		if (!match) continue;
 		authStorage.pinSessionOAuthAccount(provider, sessionId, match.credentialId, {
 			lastUsedAtMs: pin.lastUsedAt,
-			explicit: pin.pinned === true,
 		});
 	}
 }
 
 /**
- * Copy the parent session's explicitly pinned OAuth accounts (from
- * `/rotateaccount` or the account picker) onto a freshly spawned child
- * session, so subagents route to the account the user chose instead of
- * re-ranking by usage headroom — ranking is biased *away* from the pinned
- * account precisely because the parent is burning it. Implicit "last served"
- * stickies are not inherited: multi-account fan-outs deliberately spread load
- * unless the user picked an account.
+ * Copy the parent session's OAuth account affinities onto a newly spawned
+ * child. The auth store owns the current stickiness model, so inheritance
+ * remains aligned with its routing and usage-limit handling.
  */
 export function inheritPinnedCredentials(
 	authStorage: AuthStorage,
 	parentSessionId: string,
 	childSessionId: string,
 ): void {
-	for (const provider of getOAuthProviders()) {
-		authStorage.inheritPinnedSessionOAuthAccount(provider.id, parentSessionId, childSessionId);
-	}
+	authStorage.inheritSessionCredentials(parentSessionId, childSessionId);
 }

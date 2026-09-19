@@ -243,7 +243,6 @@ describe("global --profile flag", () => {
 			const childEnv: Record<string, string | undefined> = {
 				...process.env,
 				HOME: home,
-				USERPROFILE: home,
 				PI_CONFIG_DIR: configDir,
 				PI_NO_TITLE: "1",
 				NO_COLOR: "1",
@@ -297,7 +296,6 @@ describe("global --profile flag", () => {
 			const childEnv: Record<string, string | undefined> = {
 				...process.env,
 				HOME: home,
-				USERPROFILE: home,
 				PI_CONFIG_DIR: ".oms-profile-cli-env-bad",
 				OMS_PROFILE: "..",
 				NO_COLOR: "1",

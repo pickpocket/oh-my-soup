@@ -2,7 +2,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, type Mock, vi }
 import type { AgentMessage } from "@oh-my-soup/pi-agent-core";
 import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
 import { SelectorController } from "@oh-my-soup/pi-coding-agent/modes/controllers/selector-controller";
-import { initTheme } from "@oh-my-soup/pi-coding-agent/modes/theme/theme";
+import { initTheme } from "@oh-my-soup/pi-tui/theme";
 import type { InteractiveModeContext } from "@oh-my-soup/pi-coding-agent/modes/types";
 import type { SessionTreeNode } from "@oh-my-soup/pi-coding-agent/session/session-entries";
 import { setKittyProtocolActive } from "@oh-my-soup/pi-tui/keys";

@@ -15,6 +15,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { engines, version } from "../package.json" with { type: "json" };
+import { isEnoent, isEnotdir } from "./fs-error";
 
 /** App name (e.g. "oms") */
 export const APP_NAME: string = "oms";
@@ -132,7 +133,8 @@ function readProfileFromEnvSafe(): string | undefined {
 	}
 }
 
-function getBaseConfigRoot(): string {
+/** Profile-independent config root (~/.oms), shared by every oms profile. */
+export function getBaseConfigRoot(): string {
 	return path.join(os.homedir(), getConfigDirName());
 }
 
@@ -189,32 +191,77 @@ export function normalizePathForComparison(inputPath: string): string {
 	return process.platform === "win32" ? resolvedPath.toLowerCase() : resolvedPath;
 }
 
+/**
+ * Compare paths already normalized by {@link normalizePathForComparison}.
+ *
+ * Returns the relative path (an empty string when the paths are equal), or
+ * `null` when the candidate is outside the root. Callers classifying one
+ * candidate against several static roots can normalize each side once and
+ * reuse the public helpers' containment semantics without repeating realpath
+ * work.
+ */
+export function relativePathWithinNormalizedRoot(normalizedRoot: string, normalizedCandidate: string): string | null {
+	const relative = path.relative(normalizedRoot, normalizedCandidate);
+	if (relative !== "" && (relative.startsWith("..") || path.isAbsolute(relative))) return null;
+	return relative;
+}
+
 export function pathIsWithin(root: string, candidate: string): boolean {
 	const normalizedRoot = normalizePathForComparison(root);
 	const normalizedCandidate = normalizePathForComparison(candidate);
-	const relative = path.relative(normalizedRoot, normalizedCandidate);
-	return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
+	return relativePathWithinNormalizedRoot(normalizedRoot, normalizedCandidate) !== null;
 }
 
 export function relativePathWithinRoot(root: string, candidate: string): string | null {
-	if (!pathIsWithin(root, candidate)) return null;
 	const normalizedRoot = normalizePathForComparison(root);
 	const normalizedCandidate = normalizePathForComparison(candidate);
-	const relative = path.relative(normalizedRoot, normalizedCandidate);
-	return relative || null;
+	return relativePathWithinNormalizedRoot(normalizedRoot, normalizedCandidate) || null;
 }
 
-let projectDir = standardizeMacOSPath(process.cwd());
+let projectDir: string | undefined;
 
 /** Get the project directory. */
 export function getProjectDir(): string {
+	if (projectDir === undefined) {
+		try {
+			projectDir = standardizeMacOSPath(process.cwd());
+		} catch {
+			const candidates = [process.env.PWD, os.homedir(), os.tmpdir()];
+			for (const candidate of candidates) {
+				if (!candidate || !path.isAbsolute(candidate)) continue;
+				try {
+					process.chdir(candidate);
+					projectDir = standardizeMacOSPath(candidate);
+					break;
+				} catch {}
+			}
+			if (projectDir === undefined) {
+				throw new Error("Unable to determine an accessible working directory");
+			}
+		}
+	}
 	return projectDir;
 }
 
 /** Set the project directory. */
 export function setProjectDir(dir: string): void {
-	projectDir = standardizeMacOSPath(path.resolve(dir));
-	process.chdir(projectDir);
+	const resolved = standardizeMacOSPath(path.resolve(dir));
+	process.chdir(resolved);
+	projectDir = resolved;
+}
+
+/** Reset the cached project directory (test seam). */
+export function __resetProjectDirCacheForTests(): void {
+	projectDir = undefined;
+}
+
+/** Whether a path is absent or not a directory. Other stat failures return false. */
+export async function directoryIsMissing(dir: string): Promise<boolean> {
+	try {
+		return !(await fs.promises.stat(dir)).isDirectory();
+	} catch (error) {
+		return isEnoent(error) || isEnotdir(error);
+	}
 }
 
 /**
@@ -229,6 +276,44 @@ export async function directoryExists(dir: string): Promise<boolean> {
 	} catch {
 		return false;
 	}
+}
+
+/**
+ * Whether `dir` both exists and can be entered. POSIX `stat` succeeds for a
+ * directory whose own search/execute permission is denied (it only needs
+ * +x on the parent chain), so existence alone does not imply `chdir` works.
+ * Callers that adopt a directory as a working directory must check this
+ * rather than {@link directoryExists} alone.
+ */
+export async function directoryIsEnterable(dir: string): Promise<boolean> {
+	try {
+		const [stats] = await Promise.all([fs.promises.stat(dir), fs.promises.access(dir, fs.constants.X_OK)]);
+		return stats.isDirectory();
+	} catch {
+		return false;
+	}
+}
+
+/** Whether `dir` is enterable, synchronous variant. See {@link directoryIsEnterable}. */
+export function directoryIsEnterableSync(dir: string): boolean {
+	try {
+		fs.accessSync(dir, fs.constants.X_OK);
+		return fs.statSync(dir).isDirectory();
+	} catch {
+		return false;
+	}
+}
+
+/**
+ * Project directory when it is enterable, otherwise a safe fallback.
+ * Used by spawns that must preserve project-relative behavior when healthy.
+ */
+export function getSafeProjectCwd(): string {
+	try {
+		const dir = getProjectDir();
+		if (directoryIsEnterableSync(dir)) return dir;
+	} catch {}
+	return os.homedir();
 }
 
 const resolvedConfigDirNames = new Map<string, string>();
@@ -703,10 +788,14 @@ export function getPuppeteerDir(): string {
 export function getCamoufoxDir(): string {
 	return dirs.rootSubdir("camoufox", "cache");
 }
-
 /** Get the browser relay extension install directory (~/.oms/browser-relay). */
 export function getBrowserRelayDir(): string {
 	return dirs.rootSubdir("browser-relay", "data");
+}
+
+/** Get the profile root for Chromium browsers the browser tool spawns via `app.path` (~/.oms/browser-profiles). */
+export function getBrowserProfilesDir(): string {
+	return dirs.rootSubdir("browser-profiles", "state");
 }
 
 /** Get DOCS_RS cache directory () */
@@ -751,6 +840,20 @@ export function getGithubCacheDbPath(): string {
 	if (override) return override;
 	return dirs.rootSubdir(path.join("cache", "github-cache.db"), "cache");
 }
+/**
+ * Get the conventional commit inference cache database path (~/.oms/cache/commit-inference.db).
+ * Honors `OMS_COMMIT_CACHE_DB` so tests and operators can isolate the cache.
+ */
+export function getCommitCacheDbPath(): string {
+	const override = process.env.OMS_COMMIT_CACHE_DB;
+	if (override) return override;
+	return dirs.rootSubdir(path.join("cache", "commit-inference.db"), "cache");
+}
+
+/** Get the legacy Pi extension parse cache database path. */
+export function getLegacyPiExtensionCacheDbPath(): string {
+	return dirs.rootSubdir(path.join("cache", "legacy-pi-extension-cache.db"), "cache");
+}
 
 /**
  * Get the encrypted auth-broker snapshot cache path (~/.oms/cache/auth-broker-snapshot.enc).
@@ -763,6 +866,10 @@ export function getAuthBrokerSnapshotCachePath(): string {
 	return dirs.rootSubdir(path.join("cache", "auth-broker-snapshot.enc"), "cache");
 }
 
+/** Get the commit-author avatar cache directory (~/.oms/cache/avatars). */
+export function getAvatarCacheDir(): string {
+	return dirs.rootSubdir(path.join("cache", "avatars"), "cache");
+}
 /** Get the local FastEmbed model cache directory (~/.oms/cache/fastembed). */
 export function getFastembedCacheDir(): string {
 	return dirs.rootSubdir(path.join("cache", "fastembed"), "cache");
@@ -846,6 +953,10 @@ export function getTinyModelsCacheDir(agentDir?: string): string {
 export function getDocumentConversionCacheDir(agentDir?: string): string {
 	return dirs.agentSubdir(agentDir, path.join("cache", "document-conversions"), "cache");
 }
+/** Get the per-project composer speculative cache directory (~/.oms/agent/cache/composer; XDG default: $XDG_CACHE_HOME/oms/cache/composer). */
+export function getComposerCacheDir(agentDir?: string): string {
+	return dirs.agentSubdir(agentDir, path.join("cache", "composer"), "cache");
+}
 
 /** Get the sessions directory (~/.oms/agent/sessions). */
 export function getSessionsDir(agentDir?: string): string {
@@ -892,11 +1003,20 @@ export function getTerminalSessionsDir(agentDir?: string): string {
 	return dirs.agentSubdir(agentDir, "terminal-sessions", "state");
 }
 
+/**
+ * Get the persistent registry of custom session files
+ * (~/.oms/agent/custom-session-files). Each `--session-dir`/`--session`
+ * transcript is recorded here as one marker file so storage GC can scan its
+ * exact path after its terminal breadcrumb is overwritten by a later session.
+ */
+export function getCustomSessionFilesDir(agentDir?: string): string {
+	return dirs.agentSubdir(agentDir, "custom-session-files", "state");
+}
+
 /** Get the crash log path (~/.oms/agent/oms-crash.log). */
 export function getCrashLogPath(agentDir?: string): string {
 	return dirs.agentSubdir(agentDir, "oms-crash.log", "state");
 }
-
 /** Get the debug log path (~/.oms/agent/oms-debug.log). */
 export function getDebugLogPath(agentDir?: string): string {
 	return dirs.agentSubdir(agentDir, `${APP_NAME}-debug.log`, "state");
@@ -935,9 +1055,24 @@ export function daemonProjectKey(projectDir: string): string {
 	return Bun.hash.wyhash(input).toString(16).padStart(16, "0");
 }
 
+/** Directory holding the per-model tiny-worker sockets and logs (~/.oms/run/tiny; XDG default: $XDG_STATE_HOME/oms/run/tiny). */
+export function getTinyWorkerRuntimeDir(): string {
+	return dirs.rootSubdir(path.join("run", "tiny"), "state");
+}
+
+/** Root directory containing every per-project daemon runtime scope (~/.oms/run/daemons; XDG default: $XDG_STATE_HOME/oms/run/daemons). */
+export function getDaemonRuntimeRoot(): string {
+	return dirs.rootSubdir(path.join("run", "daemons"), "state");
+}
+
 /** Get the daemon runtime directory for a project (~/.oms/run/daemons/<hash>; XDG default: $XDG_STATE_HOME/oms/run/daemons/<hash>). */
 export function getDaemonRuntimeDir(projectDir: string): string {
-	return dirs.rootSubdir(path.join("run", "daemons", daemonProjectKey(projectDir)), "state");
+	return path.join(getDaemonRuntimeRoot(), daemonProjectKey(projectDir));
+}
+
+/** Root directory containing every machine-global daemon service scope. */
+export function getGlobalDaemonRuntimeRoot(): string {
+	return path.join(getBaseConfigRoot(), "run", "daemons", "global");
 }
 
 /** Get a profile-independent runtime directory for a machine-global daemon service. */
@@ -945,7 +1080,7 @@ export function getGlobalDaemonRuntimeDir(service: string): string {
 	if (!/^[a-z0-9][a-z0-9._-]*$/i.test(service)) {
 		throw new Error(`Invalid global daemon service name: ${JSON.stringify(service)}`);
 	}
-	return path.join(getBaseConfigRoot(), "run", "daemons", "global", service);
+	return path.join(getGlobalDaemonRuntimeRoot(), service);
 }
 
 /** Get the provider in-flight root directory (~/.oms/run/provider-inflight; XDG default: $XDG_STATE_HOME/oms/run/provider-inflight). */
@@ -1006,6 +1141,17 @@ export function getSSHConfigPath(scope: "user" | "project", cwd: string = getPro
 let cachedInstallId: string | null = null;
 
 const INSTALL_ID_FILE = "install-id";
+/**
+ * Application label for usage attribution (`OMS_APP_NAME`), defaulting to
+ * `oms`. Embedders that drive oms programmatically (roboms, CI bots, …) set
+ * the env var so broker-side per-client burn tracking can answer "what did
+ * app X use" instead of folding everything into one install-wide bucket.
+ */
+export function getAppName(): string {
+	const value = process.env.OMS_APP_NAME?.trim();
+	return value ? value : "oms";
+}
+
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**

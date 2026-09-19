@@ -15,17 +15,15 @@ export interface LoadedHtmlPage {
 
 interface BrowserFallbackOptions {
 	/**
-	 * `always` skips the preliminary global fetch and navigates in Camoufox.
-	 * Agent callers reuse their retained session browser; one-shot callers
-	 * launch a process for the request. An explicitly injected `fetch` remains
-	 * a deterministic transport override for tests and programmatic callers.
+	 * `always` skips the preliminary fetch and navigates in the browser. An
+	 * injected `fetch` remains a deterministic transport override for tests.
 	 */
 	mode?: "fallback" | "always";
 	homeUrl?: string;
 	ready?: { selector: string; timeoutMs: number };
 	afterNavigation?: (page: Page, signal: AbortSignal) => Promise<void>;
 	shouldFallback: (page: LoadedHtmlPage) => boolean;
-	/** Throw inside the serialized page operation so a rejected final page cannot taint the retained browser. */
+	/** Reject a terminal browser page so a retained session is reset before its next use. */
 	onFallbackExhausted?: (page: LoadedHtmlPage) => Error;
 	attempts?: number;
 	retryDelayMs?: number;
@@ -41,9 +39,16 @@ export interface BrowserFetchOptions {
 	init?: Omit<RequestInit, "headers" | "signal">;
 	headers?: Readonly<Record<string, string>>;
 	browser?: BrowserFallbackOptions;
-	/** Stable owner shared by a parent AgentSession and all of its subagents. */
+	/** Stable owner shared by a parent agent session and its subagents. */
 	searchBrowserSessionId?: string;
 }
+
+/**
+ * Upper bound on `page.close()` during teardown. A dead CDP session leaves
+ * puppeteer's close pending forever; `.catch()` only covers rejection, not a
+ * hang, so cleanup needs its own deadline (issue #8865).
+ */
+const PAGE_CLOSE_TIMEOUT_MS = 5_000;
 
 async function fetchHtmlPage(url: string, options: BrowserFetchOptions, fetchImpl: FetchImpl): Promise<LoadedHtmlPage> {
 	const response = await fetchImpl(url, {
@@ -72,18 +77,14 @@ async function navigateBrowserPage(
 		await untilAborted(signal, () => page.goto(homeUrl, { waitUntil: "domcontentloaded", timeout: timeoutMs }));
 	}
 	for (let attempt = 0; attempt < attempts; attempt++) {
-		if (attempt > 0 && retryDelayMs) {
-			await untilAborted(signal, () => Bun.sleep(retryDelayMs));
-		}
+		if (attempt > 0 && retryDelayMs) await untilAborted(signal, () => Bun.sleep(retryDelayMs));
 
 		const response = await untilAborted(signal, () =>
 			page.goto(url, { waitUntil: "domcontentloaded", timeout: timeoutMs }),
 		);
 		if (options.afterNavigation) await options.afterNavigation(page, signal);
 		if (ready) {
-			await untilAborted(signal, () =>
-				page.waitForSelector(ready.selector, { timeout: ready.timeoutMs }).catch(() => null),
-			);
+			await untilAborted(signal, () => page.waitForSelector(ready.selector, { timeout: ready.timeoutMs }).catch(() => null));
 		}
 		const loaded = {
 			html: await untilAborted(signal, () => page.content()),
@@ -122,7 +123,11 @@ async function browseHtmlPage(
 		// because `browser` is never assigned and the finally block cannot see it.
 		void launch.then(
 			async lateBrowser => {
-				if (signal.aborted) await lateBrowser.close().catch(() => undefined);
+				if (signal.aborted) {
+					await untilAborted(AbortSignal.timeout(PAGE_CLOSE_TIMEOUT_MS), () => lateBrowser.close()).catch(
+						() => undefined,
+					);
+				}
 			},
 			() => undefined,
 		);
@@ -130,19 +135,16 @@ async function browseHtmlPage(
 		page = await untilAborted(signal, () => adoptInitialPage(browser!));
 		return await navigateBrowserPage(page, true, url, options, signal, timeoutMs);
 	} finally {
-		await page?.close().catch(() => undefined);
-		await browser?.close().catch(() => undefined);
+		if (page) {
+			await untilAborted(AbortSignal.timeout(PAGE_CLOSE_TIMEOUT_MS), () => page!.close()).catch(() => undefined);
+		}
+		if (browser) {
+			await untilAborted(AbortSignal.timeout(PAGE_CLOSE_TIMEOUT_MS), () => browser!.close()).catch(() => undefined);
+		}
 	}
 }
 
-/**
- * Load HTML through a browser-profiled fetch or Camoufox. Agent callers pass a
- * stable `searchBrowserSessionId` to reuse one serialized browser; one-shot
- * programmatic callers retain launch-per-request behavior.
- *
- * `browser.mode: "always"` makes Camoufox the production transport rather
- * than a rejection fallback; an injected fetch remains an explicit override.
- */
+/** Fetch with a fresh browser profile, escalating rejected production responses to the stealth browser. */
 export async function browserFetch(url: string, options: BrowserFetchOptions): Promise<LoadedHtmlPage> {
 	const fetchImpl = options.fetch ?? fetch;
 	if (options.browser?.mode === "always" && !options.fetch) {

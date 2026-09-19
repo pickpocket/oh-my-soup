@@ -46,7 +46,7 @@
  */
 
 import type { Api, ImageContent, Message, TextContent } from "@oh-my-soup/pi-ai";
-import { isFableOrMythos, parseAnthropicModel, semverGte } from "@oh-my-soup/pi-catalog/identity";
+import { classifyModel, compareRevision, parseRevision } from "@oh-my-soup/pi-catalog/identity";
 import { renderSnapcompactPng, snapcompactSupportedChars } from "@oh-my-soup/pi-natives";
 import { formatGroupedPaths, prompt } from "@oh-my-soup/pi-utils";
 import { INTENT_FIELD } from "@oh-my-soup/pi-wire";
@@ -364,12 +364,17 @@ const MODEL_VARIANTS: readonly (readonly [RegExp, IdealShape])[] = [
 
 /** Eval-ideal format for a model id, or undefined when unmeasured. */
 export function idealShapeVariant(modelId: string): IdealShape | undefined {
-	// The catalog parser is case-sensitive; the regex rules below are not.
-	// Normalize so mixed-case gateway ids keep matching the Anthropic tier.
-	const anthropic = parseAnthropicModel(modelId.toLowerCase());
+	const identity = classifyModel("", modelId, { lenient: true });
+	const revision = identity.revision === undefined ? undefined : parseRevision(identity.revision);
+	const opusFloor = parseRevision("4.7");
 	if (
-		anthropic &&
-		(isFableOrMythos(anthropic.kind) || (anthropic.kind === "opus" && semverGte(anthropic.version, "4.7")))
+		identity.class === "anthropic" &&
+		(identity.family === "fable" ||
+			identity.family === "mythos" ||
+			(identity.family === "opus" &&
+				revision !== undefined &&
+				opusFloor !== undefined &&
+				compareRevision(revision, opusFloor) >= 0))
 	) {
 		// Opus 4.7+ and Fable/Mythos read high-res natively: same recall and
 		// cost as 1568, a third fewer frames. 1932 is the largest *square* not
@@ -517,6 +522,11 @@ export const DEFAULT_PROVIDER_IMAGE_BUDGET = 5;
 /** Per-request image budget for `provider`; unknown providers get the floor. */
 export function providerImageBudget(provider: string | undefined): number {
 	return (provider !== undefined ? PROVIDER_IMAGE_BUDGETS[provider] : undefined) ?? DEFAULT_PROVIDER_IMAGE_BUDGET;
+}
+
+/** Archive frame cap for `provider`: image budget, never above {@link MAX_FRAMES_DEFAULT}. */
+export function providerFrameBudget(provider: string | undefined): number {
+	return Math.min(providerImageBudget(provider), MAX_FRAMES_DEFAULT);
 }
 
 /** Key under `CompactionEntry.preserveData` holding the frame archive. */
@@ -785,12 +795,11 @@ const MEDIA_TYPE_TOKEN = String.raw`[\w!#$%&'*+.^|~-]+`;
 
 /** An inline base64 data URL. The payload may be empty or carry one embedded
  *  elision marker so fragments left by pre-guard slices — including a cut
- *  landing exactly on `;base64,` — still match. RFC 2397 allows
- *  `*( ";" parameter )` between type/subtype and the terminal `;base64`;
- *  unquoted tokens are matched, quoted-string values are out of scope.
- *  `data:` and `base64` match case-insensitively (`gi`). Matching starts at
- *  `data:`; Markdown wrappers are recovered by
- *  {@link adjacentMarkdownOpenerStart} after each hit. */
+ *  landing exactly on `;base64,` — still match. RFC 2397 allows `*( ";" parameter )`
+ *  between type/subtype and the terminal `;base64`; unquoted tokens are matched,
+ *  quoted-string values are out of scope. `data:` and `base64` match
+ *  case-insensitively (`gi`). Matching starts at `data:`; Markdown wrappers are
+ *  recovered by {@link adjacentMarkdownOpenerStart} after each hit. */
 const DATA_URL_ATOM = new RegExp(
 	String.raw`data:([A-Za-z][\w.+-]*\/[\w.+-]+(?:;${MEDIA_TYPE_TOKEN}=${MEDIA_TYPE_TOKEN})*);base64,` +
 		String.raw`([A-Za-z0-9+/=]*(?:\s*${ELIDED_MARKER}\s*[A-Za-z0-9+/=]*)?)` +
@@ -818,28 +827,39 @@ type DataUrlContext = "source" | "archive";
 
 /** Start of `!?[label](\s*` immediately before `dataIndex`, or `undefined`.
  *  The opener must lie in `[cursor, dataIndex)`. Nested `[` in the label is
- *  kept by taking the earliest `[` after a prior `]`, newline, or `cursor`;
- *  the scan never walks already-emitted text, so repeated `](data:...)` stays
- *  linear. */
+ *  kept (the old `[^\]\n]*` class allowed it) by taking the earliest `[` after
+ *  a prior `]`, newline, or `cursor`; the scan never walks already-emitted
+ *  text, so repeated `](data:...)` stays linear. */
 function adjacentMarkdownOpenerStart(text: string, dataIndex: number, cursor: number): number | undefined {
-	let index = dataIndex;
-	while (index > cursor && MARKDOWN_WHITESPACE_CHAR.test(text.charAt(index - 1))) index--;
-	if (index - 2 < cursor || text.charAt(index - 1) !== "(" || text.charAt(index - 2) !== "]") return undefined;
+	let i = dataIndex;
+	while (i > cursor && MARKDOWN_WHITESPACE_CHAR.test(text.charAt(i - 1))) i--;
+	// `](` and any following whitespace must sit in [cursor, dataIndex).
+	if (i - 2 < cursor || text.charAt(i - 1) !== "(" || text.charAt(i - 2) !== "]") return undefined;
 	let opener = -1;
-	for (let scan = index - 3; scan >= cursor; scan--) {
-		const char = text.charAt(scan);
-		if (char === "]" || char === "\n") break;
-		if (char === "[") opener = scan;
+	for (let j = i - 3; j >= cursor; j--) {
+		const c = text.charAt(j);
+		if (c === "]" || c === "\n") break;
+		if (c === "[") opener = j;
 	}
 	if (opener < 0) return undefined;
 	return opener > cursor && text.charAt(opener - 1) === "!" ? opener - 1 : opener;
 }
 
 /** Replace every inline base64 data URL atomically with a deterministic
- *  placeholder. Payloads already carrying an elision marker, and
- *  non-canonical fragments left by pre-guard slices, are healed the same way.
- *  The placeholder preserves the media type and restores payload characters
- *  represented by a legacy elision marker. */
+ *  placeholder. A character cap that slices inside a base64 payload leaves a
+ *  recognizable image reference that can never decode; OpenAI-dialect
+ *  providers reject such requests as invalid image input, and because the
+ *  corrupted text persists in the archive the session re-fails on every later
+ *  request. The payload is worthless to a model as text, so the whole atom —
+ *  Markdown wrapper included — collapses to its metadata. Payloads already
+ *  carrying an elision marker, and non-canonical fragments left by pre-guard
+ *  slices, are healed the same way.
+ *
+ *  The placeholder's `<mime>` is the media type as written: type/subtype plus
+ *  any unquoted RFC 2397 `;parameter=value` segments, original case preserved.
+ *  Parameters are kept rather than stripped to a bare type/subtype so charset
+ *  (and similar) remain visible after elision and the label stays a pure
+ *  function of the captured text. */
 function elideDataUrls(text: string, context: DataUrlContext = "source"): string {
 	if (!/;base64,/i.test(text)) return text;
 	DATA_URL_ATOM.lastIndex = 0;
@@ -860,6 +880,8 @@ function elideDataUrls(text: string, context: DataUrlContext = "source"): string
 			CANONICAL_BASE64.test(payload) ||
 			payload.length >= DAMAGED_PAYLOAD_MIN_CHARS;
 		if (!isAtom) {
+			// Advance through short prose too, so a later wrapper cannot swallow
+			// a data URL already copied out of its Markdown label.
 			out.push(text.slice(cursor, urlEnd));
 			cursor = urlEnd;
 		} else {
@@ -871,6 +893,10 @@ function elideDataUrls(text: string, context: DataUrlContext = "source"): string
 			const openerStart = foundOpener !== undefined && foundOpener >= cursor ? foundOpener : undefined;
 			const emitStart = openerStart ?? urlStart;
 			out.push(text.slice(cursor, emitStart));
+			// Swallow the Markdown wrapper only when both delimiters matched;
+			// otherwise re-emit whichever half was captured untouched. An opener
+			// that starts before the already-emitted cursor would overlap a prior
+			// replacement, so that URL is treated as bare.
 			if (openerStart !== undefined && closer !== undefined) {
 				out.push(placeholder);
 			} else {
@@ -1041,15 +1067,16 @@ export function serializeConversation(messages: Message[], options?: SerializeOp
 // Preserve-data helpers
 // ============================================================================
 
-const OPENAI_REMOTE_COMPACTION_PRESERVE_KEY = "openaiRemoteCompaction";
+/** Provider-native compaction payloads a snapcompact pass supersedes. */
+const PROVIDER_COMPACTION_PRESERVE_KEYS = ["openaiRemoteCompaction", "anthropicCompaction"] as const;
 
-function stripOpenAiRemoteCompactionPreserveData(
+function stripProviderCompactionPreserveData(
 	preserveData: Record<string, unknown> | undefined,
 ): Record<string, unknown> | undefined {
-	if (!preserveData || !(OPENAI_REMOTE_COMPACTION_PRESERVE_KEY in preserveData)) {
+	if (!preserveData || !PROVIDER_COMPACTION_PRESERVE_KEYS.some(key => key in preserveData)) {
 		return preserveData;
 	}
-	const { [OPENAI_REMOTE_COMPACTION_PRESERVE_KEY]: _removed, ...rest } = preserveData;
+	const { openaiRemoteCompaction: _openai, anthropicCompaction: _anthropic, ...rest } = preserveData;
 	return Object.keys(rest).length > 0 ? rest : undefined;
 }
 
@@ -1742,10 +1769,21 @@ export function renderabilityProbeText(
 	return serialized;
 }
 
+/** A frame payload that can be priced before it is materialized. */
+export interface LazyFrameData {
+	readonly bytes: number;
+	read(): string;
+}
+
 /** Options for reconstructing a persisted snapcompact archive into prompt blocks. */
 export interface HistoryBlockOptions {
 	/** Hard cap on image base64 bytes attached to one rebuilt provider request. */
 	maxFrameDataBytes?: number;
+	/**
+	 * Price and resolve a frame payload. Called in newest-first budget order.
+	 * Returning `undefined` drops a missing payload.
+	 */
+	resolveFrameData?: (data: string) => LazyFrameData | undefined;
 }
 
 function formatFrameDataBytes(bytes: number): string {
@@ -1754,38 +1792,105 @@ function formatFrameDataBytes(bytes: number): string {
 	return `${bytes} B`;
 }
 
-function imagesWithinBudget(
-	archive: Archive,
-	maxFrameDataBytes: number | undefined,
-): { images: ImageContent[]; omittedFrames: number; omittedBytes: number } {
-	if (maxFrameDataBytes === undefined) {
-		return { images: images(archive), omittedFrames: 0, omittedBytes: 0 };
+/**
+ * Prefix of an externalized frame payload (see the session blob store).
+ *
+ * A frame persisted by a recent session holds this reference rather than
+ * base64, so a caller that never supplies `resolveFrameData` would otherwise
+ * hand the reference string to the provider as image data. Dropping the frame
+ * is the safe failure: a missing picture beats a rejected request.
+ */
+const BLOB_REFERENCE_PREFIX = "blob:sha256:";
+
+function isUnresolvedBlobReference(data: string): boolean {
+	return data.startsWith(BLOB_REFERENCE_PREFIX);
+}
+
+/** One reconstructed slot: a usable frame, an unavailable gap, or a byte-budget gap. */
+type FrameSlot = { frame: Frame } | { unavailable: true } | { omittedBytes: number };
+
+/**
+ * Price every frame newest-first and retain only payloads that fit the byte
+ * budget. Gap slots preserve the original chronology without materializing
+ * rejected payloads.
+ */
+function imagesWithinBudget(archive: Archive, options: HistoryBlockOptions): FrameSlot[] {
+	const { maxFrameDataBytes, resolveFrameData } = options;
+	const hasUnresolvedReference = archive.frames.some(frame => isUnresolvedBlobReference(frame.data));
+	if (maxFrameDataBytes === undefined && !resolveFrameData && !hasUnresolvedReference) {
+		return archive.frames.map(frame => ({ frame }));
 	}
 
 	let usedBytes = 0;
-	let omittedFrames = 0;
-	let omittedBytes = 0;
-	const keptNewestFirst: Frame[] = [];
+	const newestFirst: FrameSlot[] = [];
 	for (let index = archive.frames.length - 1; index >= 0; index--) {
 		const frame = archive.frames[index];
 		if (!frame) continue;
-		const bytes = frame.data.length;
-		if (usedBytes + bytes > maxFrameDataBytes) {
-			omittedFrames++;
-			omittedBytes += bytes;
+		const lazy = resolveFrameData?.(frame.data);
+		if (!lazy && (resolveFrameData || isUnresolvedBlobReference(frame.data))) {
+			newestFirst.push({ unavailable: true });
+			continue;
+		}
+		const bytes = lazy ? lazy.bytes : frame.data.length;
+		if (maxFrameDataBytes !== undefined && usedBytes + bytes > maxFrameDataBytes) {
+			newestFirst.push({ omittedBytes: bytes });
 			continue;
 		}
 		usedBytes += bytes;
-		keptNewestFirst.push(frame);
+		newestFirst.push({ frame: lazy ? { ...frame, data: lazy.read() } : frame });
 	}
-	keptNewestFirst.reverse();
-	return { images: images({ ...archive, frames: keptNewestFirst }), omittedFrames, omittedBytes };
+	newestFirst.reverse();
+	return newestFirst;
+}
+
+/** Collapse a run of unavailable frames into one in-place gap marker. */
+function unavailableFrameNotice(count: number): string {
+	return `-------------- ${count.toLocaleString()} archived image frame${count === 1 ? "" : "s"} unavailable here --------------`;
+}
+
+/** Blocks for the imaged middle, with both gap causes kept in chronological position. */
+function frameBlocks(slots: FrameSlot[]): (TextContent | ImageContent)[] {
+	const blocks: (TextContent | ImageContent)[] = [];
+	let pendingGap: "unavailable" | "budget" | undefined;
+	let pendingFrames = 0;
+	let pendingBytes = 0;
+	const flushGap = (): void => {
+		if (!pendingGap) return;
+		blocks.push({
+			type: "text",
+			text:
+				pendingGap === "unavailable"
+					? unavailableFrameNotice(pendingFrames)
+					: omittedFrameNotice(pendingFrames, pendingBytes),
+		});
+		pendingGap = undefined;
+		pendingFrames = 0;
+		pendingBytes = 0;
+	};
+	for (const slot of slots) {
+		if ("frame" in slot) {
+			flushGap();
+			blocks.push(...images({ frames: [slot.frame] } as Archive));
+			continue;
+		}
+		const gap = "unavailable" in slot ? "unavailable" : "budget";
+		if (pendingGap && pendingGap !== gap) flushGap();
+		pendingGap = gap;
+		pendingFrames++;
+		if ("omittedBytes" in slot) pendingBytes += slot.omittedBytes;
+	}
+	flushGap();
+	return blocks;
 }
 
 function omittedFrameNotice(omittedFrames: number, omittedBytes: number): string {
+	const budgetNote =
+		omittedBytes > 0
+			? ` ${formatFrameDataBytes(omittedBytes)} of base64 exceeded the per-request snapcompact payload budget.`
+			: "";
 	return [
 		"-------------- snapcompact image middle omitted",
-		`${omittedFrames.toLocaleString()} archived image frame${omittedFrames === 1 ? "" : "s"} (${formatFrameDataBytes(omittedBytes)} base64) exceeded the per-request snapcompact payload budget. The compacted summary and visible text edges remain available.`,
+		`${omittedFrames.toLocaleString()} archived image frame${omittedFrames === 1 ? "" : "s"} could not be included.${budgetNote} The compacted summary and visible text edges remain available.`,
 		"--------------",
 	].join("\n");
 }
@@ -1805,26 +1910,14 @@ export function images(archive: Archive): ImageContent[] {
  *  instead of persisted on the session entry. */
 export function historyBlocks(archive: Archive, options: HistoryBlockOptions = {}): (TextContent | ImageContent)[] {
 	const blocks: (TextContent | ImageContent)[] = [];
-	const budgeted = imagesWithinBudget(archive, options.maxFrameDataBytes);
-	const hasImages = budgeted.images.length > 0;
-	const hasOmittedImages = budgeted.omittedFrames > 0;
+	const middle = frameBlocks(imagesWithinBudget(archive, options));
+	const hasImages = middle.some(block => block.type === "image");
+	const hasOmittedImages = middle.some(block => block.type === "text");
 	if (archive.textHead) {
-		const suffix = hasImages
-			? "\n-------------- imaged middle below\n"
-			: hasOmittedImages
-				? `\n${omittedFrameNotice(budgeted.omittedFrames, budgeted.omittedBytes)}\n`
-				: "";
+		const suffix = hasImages ? "\n-------------- imaged middle below\n" : "";
 		blocks.push({ type: "text", text: elideDataUrls(toPlainText(archive.textHead), "archive") + suffix });
-	} else if (hasOmittedImages && !hasImages) {
-		blocks.push({ type: "text", text: omittedFrameNotice(budgeted.omittedFrames, budgeted.omittedBytes) });
 	}
-	// Omitted frames are the OLDEST archived images: the byte budget keeps the
-	// newest tail frames, so the gap notice precedes the kept images to keep the
-	// reconstructed blocks oldest-to-newest.
-	if (hasImages && hasOmittedImages) {
-		blocks.push({ type: "text", text: omittedFrameNotice(budgeted.omittedFrames, budgeted.omittedBytes) });
-	}
-	blocks.push(...budgeted.images);
+	blocks.push(...middle);
 	if (archive.textTail) {
 		const prefix = hasImages
 			? "-------------- imaged middle above\n"
@@ -2131,9 +2224,10 @@ export async function compact<TMessage = Message>(
 		});
 	}
 
-	// A snapcompact pass replaces any provider-side replacement history; strip the
-	// OpenAI remote-compaction payload like the default summarizer path does.
-	const basePreserve = stripOpenAiRemoteCompactionPreserveData(previousPreserveData) ?? {};
+	// A snapcompact pass replaces any provider-side compaction payload; strip the
+	// OpenAI replacement history and the Anthropic compaction block like the
+	// default summarizer path does.
+	const basePreserve = stripProviderCompactionPreserveData(previousPreserveData) ?? {};
 	const persistedText =
 		layout.keptText.length > 0 && layout.textTail.length > 0
 			? `${layout.keptText.slice(0, layout.keptText.length - layout.textTail.length)}${textTail}`

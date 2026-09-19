@@ -14,7 +14,7 @@ import type {
 } from "@oh-my-soup/pi-coding-agent/dap/types";
 import type { ToolSession } from "@oh-my-soup/pi-coding-agent/tools";
 import { DebugTool } from "@oh-my-soup/pi-coding-agent/tools/debug";
-import { removeWithRetries } from "@oh-my-soup/pi-utils";
+import { removeWithRetries, withTimeout } from "@oh-my-soup/pi-utils";
 
 const TEST_ADAPTER: DapResolvedAdapter = {
 	name: "lldb-dap",
@@ -29,6 +29,42 @@ const TEST_ADAPTER: DapResolvedAdapter = {
 	connectMode: "stdio",
 	acceptsDirectoryProgram: false,
 };
+
+it("rejects pending DAP work and terminates an adapter with invalid framing", async () => {
+	const client = await DapClient.spawn({
+		adapter: {
+			...TEST_ADAPTER,
+			command: process.execPath,
+			resolvedCommand: process.execPath,
+			args: ["run", path.join(import.meta.dir, "../fixtures/malformed-jsonrpc-peer.ts")],
+		},
+		cwd: process.cwd(),
+	});
+	try {
+		const request = client.sendRequest("initialize", {}, undefined, 60_000);
+		const event = client.waitForEvent("stopped", undefined, undefined, 60_000);
+		const results = await withTimeout(
+			Promise.allSettled([request, event]),
+			5_000,
+			"Invalid framing did not reject pending DAP work",
+		);
+		for (const result of results) {
+			expect(result.status).toBe("rejected");
+			if (result.status === "rejected") {
+				expect(result.reason).toBeInstanceOf(Error);
+				expect((result.reason as Error).message).toMatch(/Content-Length.*limit/);
+			}
+		}
+		await expect(client.sendRequest("threads", {})).rejects.toThrow(/not running/);
+		await withTimeout(
+			client.proc.exited.catch(() => {}),
+			5_000,
+			"Malformed adapter remained alive",
+		);
+	} finally {
+		await client.dispose();
+	}
+}, 10_000);
 
 const DELAYED_UNIX_SOCKET_ADAPTER = `
 const listenPrefix = "--listen=unix:";
@@ -75,6 +111,7 @@ class FakeDapClient {
 			attachErrorDelayMs?: number;
 			configurationDoneError?: string;
 			supportsConfigurationDone?: boolean;
+			deferInitialized?: boolean;
 			rejectStopWaiters?: boolean;
 			stopAfterLaunch?: boolean;
 		},
@@ -95,8 +132,14 @@ class FakeDapClient {
 	}
 
 	async initialize(): Promise<DapCapabilities> {
-		queueMicrotask(() => this.#emit("initialized", {}));
+		if (!this.options.deferInitialized) {
+			queueMicrotask(() => this.#emit("initialized", {}));
+		}
 		return { supportsConfigurationDoneRequest: this.options.supportsConfigurationDone ?? true };
+	}
+
+	emitInitialized(): void {
+		this.#emit("initialized", {});
 	}
 
 	async sendRequest(command: string, args?: unknown): Promise<unknown> {
@@ -227,7 +270,10 @@ describe("DAP launch failure handling", () => {
 			attachDefaults: { request: "attach", skipAttachRequest: true },
 		};
 		const manager = new DapSessionManager();
-		const fake = new FakeDapClient(adapter, process.cwd(), { supportsConfigurationDone: false });
+		const fake = new FakeDapClient(adapter, process.cwd(), {
+			supportsConfigurationDone: false,
+			deferInitialized: true,
+		});
 		spyOn(DapClient, "spawn").mockResolvedValue(fake as unknown as DapClient);
 
 		const summary = await manager.attach({ adapter, cwd: process.cwd() });
@@ -235,6 +281,8 @@ describe("DAP launch failure handling", () => {
 		expect(fake.requests.map(request => request.command)).toEqual([]);
 		expect(summary.status).toBe("running");
 		expect(summary.needsConfigurationDone).toBe(false);
+		fake.emitInitialized();
+		expect(manager.getActiveSession()?.status).toBe("running");
 	});
 
 	it("does not emit an unhandled rejection when launch fails before initial stop watchers settle", async () => {
@@ -462,49 +510,46 @@ describe("DAP launch failure handling", () => {
 		}
 	});
 
-	it.skipIf(process.platform === "win32")(
-		"kills the detached adapter process when it never dials back on the TCP client-addr path",
-		async () => {
-			const originalPlatform = process.platform;
-			Object.defineProperty(process, "platform", { value: "darwin", configurable: true });
+	it("kills the detached adapter process when it never dials back on the TCP client-addr path", async () => {
+		const originalPlatform = process.platform;
+		Object.defineProperty(process, "platform", { value: "darwin", configurable: true });
+		try {
+			const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "oms-debug-tcp-leak-"));
 			try {
-				const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "oms-debug-tcp-leak-"));
+				const adapterPath = path.join(cwd, "wedged-tcp-adapter.mjs");
+				const pidFilePath = path.join(cwd, "adapter.pid");
+				await fs.writeFile(
+					adapterPath,
+					`await Bun.write(${JSON.stringify(pidFilePath)}, String(process.pid));\nawait Bun.sleep(60_000);\n`,
+				);
+				const adapter: DapResolvedAdapter = {
+					...TEST_ADAPTER,
+					name: "wedged-tcp-adapter",
+					command: process.execPath,
+					args: [adapterPath],
+					resolvedCommand: process.execPath,
+					connectMode: "socket",
+				};
+				await expect(DapClient.spawn({ adapter, cwd, socketReadyTimeoutMs: 300 })).rejects.toThrow(
+					/did not connect within/,
+				);
+				await Bun.sleep(500);
+				const adapterPid = Number(await Bun.file(pidFilePath).text());
+				expect(Number.isFinite(adapterPid)).toBe(true);
+				let alive = true;
 				try {
-					const adapterPath = path.join(cwd, "wedged-tcp-adapter.mjs");
-					const pidFilePath = path.join(cwd, "adapter.pid");
-					await fs.writeFile(
-						adapterPath,
-						`await Bun.write(${JSON.stringify(pidFilePath)}, String(process.pid));\nawait Bun.sleep(60_000);\n`,
-					);
-					const adapter: DapResolvedAdapter = {
-						...TEST_ADAPTER,
-						name: "wedged-tcp-adapter",
-						command: process.execPath,
-						args: [adapterPath],
-						resolvedCommand: process.execPath,
-						connectMode: "socket",
-					};
-					await expect(DapClient.spawn({ adapter, cwd, socketReadyTimeoutMs: 300 })).rejects.toThrow(
-						/did not connect within/,
-					);
-					await Bun.sleep(500);
-					const adapterPid = Number(await Bun.file(pidFilePath).text());
-					expect(Number.isFinite(adapterPid)).toBe(true);
-					let alive = true;
-					try {
-						process.kill(adapterPid, 0);
-					} catch {
-						alive = false;
-					}
-					expect(alive).toBe(false);
-				} finally {
-					await removeWithRetries(cwd);
+					process.kill(adapterPid, 0);
+				} catch {
+					alive = false;
 				}
+				expect(alive).toBe(false);
 			} finally {
-				Object.defineProperty(process, "platform", { value: originalPlatform, configurable: true });
+				await removeWithRetries(cwd);
 			}
-		},
-	);
+		} finally {
+			Object.defineProperty(process, "platform", { value: originalPlatform, configurable: true });
+		}
+	});
 });
 
 describe("connectSocket unix transport", () => {
@@ -524,7 +569,7 @@ describe("connectSocket unix transport", () => {
 	});
 });
 
-describe.skipIf(process.platform === "win32")("DAP TCP transport resilience", () => {
+describe("DAP TCP transport resilience", () => {
 	const TCP_ADAPTER_BASE: DapResolvedAdapter = {
 		...TEST_ADAPTER,
 		name: "js-debug-adapter",
@@ -554,7 +599,7 @@ await Bun.sleep(60_000);
 		await fs.writeFile(adapterPath, source);
 		const adapter: DapResolvedAdapter = {
 			...TCP_ADAPTER_BASE,
-			// biome-ignore lint/suspicious/noTemplateCurlyInString: literal DAP `${port}` placeholder substituted by the adapter launcher
+			// oxlint-disable-next-line no-template-curly-in-string -- literal DAP `${port}` placeholder substituted by the adapter launcher
 			args: [adapterPath, "${port}", "127.0.0.1"],
 		};
 		try {
@@ -825,6 +870,21 @@ describe("DebugTool launch validation", () => {
 		} finally {
 			launchSpy.mockRestore();
 		}
+	});
+
+	it("validates missing attach targets before adapter discovery", async () => {
+		const selectAttachSpy = spyOn(dapModule, "selectAttachAdapter").mockReturnValue(null);
+		const session: ToolSession = {
+			cwd: process.cwd(),
+			hasUI: false,
+			getSessionFile: () => null,
+			getSessionSpawns: () => "*",
+			settings: Settings.isolated({ "debug.enabled": true }),
+		};
+		const tool = new DebugTool(session);
+
+		await expect(tool.execute("call", { action: "attach" })).rejects.toThrow("attach requires pid or port");
+		expect(selectAttachSpy).not.toHaveBeenCalled();
 	});
 
 	it("allows explicit adapters with target attach defaults to attach without pid or port", async () => {

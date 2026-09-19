@@ -2,21 +2,19 @@ import * as fs from "node:fs/promises";
 import * as net from "node:net";
 import * as os from "node:os";
 import * as path from "node:path";
-import { Process, type PtyRunResult, PtySession } from "@oh-my-soup/pi-natives";
-import {
-	hasFsCode,
-	isEexist,
-	isEnoent,
-	logger,
-	postmortem,
-	procmgr,
-	sanitizeText,
-	setProcessName,
-} from "@oh-my-soup/pi-utils";
+import { FileLock, Process, type PtyRunResult, PtySession } from "@oh-my-soup/pi-natives";
+import { isEnoent, logger, postmortem, procmgr, sanitizeText, setProcessName } from "@oh-my-soup/pi-utils";
+import { TerminalQueryResponder } from "@oh-my-soup/pi-utils/vterm";
 import { hostHasInheritableConsole } from "../eval/py/spawn-options";
-import { truncateHead, truncateHeadBytes, truncateTail, truncateTailBytes } from "../session/streaming-output";
+import {
+	truncateHead,
+	truncateHeadBytes,
+	truncateTail,
+	truncateTailBytes,
+} from "@oh-my-soup/pi-tui/tools/streaming-output";
 import { workerEnvFromParent } from "../subprocess/worker-client";
-import { daemonBrokerEndpoint } from "./paths";
+import { daemonBrokerEndpoint, writeDaemonScopeMeta } from "./paths";
+import type { DaemonReadySpec, DaemonSnapshot, DaemonSpec } from "@oh-my-soup/pi-tui/tools/hub";
 import { hasLiveDaemonProjectPresence, pruneDeadDaemonRuntimeDirs } from "./presence";
 import {
 	DAEMON_IDLE_GRACE_ENV,
@@ -26,11 +24,8 @@ import {
 	DAEMON_RUNTIME_DIR_ENV,
 	type DaemonCompletionNotification,
 	type DaemonOperation,
-	type DaemonReadySpec,
 	type DaemonRpcResult,
 	type DaemonSignal,
-	type DaemonSnapshot,
-	type DaemonSpec,
 	type DaemonWireRequest,
 	parseDaemonSnapshot,
 	parseDaemonSpec,
@@ -46,6 +41,7 @@ const MAX_LOG_BYTES = 25 * 1024 * 1024;
 const LOG_READ_BYTES = 2 * 1024 * 1024;
 const READINESS_BUFFER_CHARS = 64 * 1024;
 const RESTART_MAX_DELAY_MS = 30_000;
+const RESTART_BACKOFF_BASE_MS = 1_000;
 /**
  * Cap on terminal (exited/failed) daemons surfaced by `list`. Active daemons
  * are always shown in full; older history is truncated so the response stays
@@ -54,18 +50,19 @@ const RESTART_MAX_DELAY_MS = 30_000;
 const MAX_TERMINAL_DAEMONS_LISTED = 10;
 const TOKEN_FILE = "broker.token";
 const PID_FILE = "broker.pid";
+/**
+ * How long a live lease left by a broker without the native lock is given to
+ * bind its endpoint before the lease is treated as stale (issue #11080).
+ */
+const LEASE_HANDOFF_GRACE_MS = 500;
+/** Connect budget for the endpoint probe that answers "is a broker serving this scope?". */
+const LEASE_PROBE_TIMEOUT_MS = 250;
 const META_FILE = "meta.json";
 const LOG_FILE = "output.log";
 const PREVIOUS_LOG_FILE = "output.previous.log";
-const HOST_HAS_INHERITABLE_CONSOLE = hostHasInheritableConsole();
 const DAEMON_SPAWN_OPTIONS = resolveDaemonSpawnOptions({
 	platform: process.platform,
-	hostHasInheritableConsole: HOST_HAS_INHERITABLE_CONSOLE,
-	surviveParentExit: false,
-});
-const DETACHED_DAEMON_SPAWN_OPTIONS = resolveDaemonSpawnOptions({
-	platform: process.platform,
-	hostHasInheritableConsole: HOST_HAS_INHERITABLE_CONSOLE,
+	hostHasInheritableConsole: hostHasInheritableConsole(),
 	surviveParentExit: true,
 });
 
@@ -108,7 +105,8 @@ interface ManagedDaemon {
 
 interface BrokerLease {
 	path: string;
-	instanceId: string;
+	/** Process-owned native lock; the OS drops it however this broker exits. */
+	lock: FileLock;
 }
 
 interface DaemonLogRead {
@@ -301,50 +299,83 @@ class DaemonLog {
 	}
 }
 
-async function acquireBrokerLease(runtimeDir: string): Promise<BrokerLease | null> {
-	const pidPath = path.join(runtimeDir, PID_FILE);
-	for (let attempt = 0; attempt < 2; attempt++) {
-		try {
-			const handle = await fs.open(pidPath, "wx", 0o600);
-			const instanceId = crypto.randomUUID();
-			try {
-				await handle.writeFile(JSON.stringify({ pid: process.pid, instanceId }), "utf8");
-			} finally {
-				await handle.close();
-			}
-			return { path: pidPath, instanceId };
-		} catch (error) {
-			if (!isEexist(error)) throw error;
-			try {
-				const raw: unknown = await Bun.file(pidPath).json();
-				if (typeof raw === "object" && raw !== null && "pid" in raw && typeof raw.pid === "number") {
-					try {
-						process.kill(raw.pid, 0);
-						return null;
-					} catch (error) {
-						// EPERM: the broker exists but is inaccessible (e.g. elevated on
-						// Windows) — it is alive, not stale.
-						if (hasFsCode(error, "EPERM")) return null;
-						// Stale PID file; the next loop iteration claims it.
-					}
-				}
-			} catch {
-				// Malformed or partially-written PID files are stale.
-			}
-			await fs.rm(pidPath, { force: true });
-		}
+/** Whether a broker is accepting connections on the scope endpoint right now. */
+function probeBrokerEndpoint(endpoint: string): Promise<boolean> {
+	const { promise, resolve } = Promise.withResolvers<boolean>();
+	const socket = net.createConnection({ path: endpoint });
+	let settled = false;
+	const finish = (connected: boolean): void => {
+		if (settled) return;
+		settled = true;
+		socket.destroy();
+		resolve(connected);
+	};
+	socket.once("connect", () => finish(true));
+	socket.once("error", () => finish(false));
+	socket.setTimeout(LEASE_PROBE_TIMEOUT_MS, () => finish(false));
+	return promise;
+}
+
+/**
+ * Whether a live lease left by a broker that predates the native lock still
+ * owns this scope. The recorded PID alone cannot answer it: PID reuse by an
+ * unrelated process looks exactly like a live broker, while a real broker only
+ * becomes observable when it binds the endpoint — milliseconds after writing
+ * the lease. Probe, allow one startup grace, then probe again.
+ */
+async function holdsLiveForeignLease(pidPath: string, endpoint: string): Promise<boolean> {
+	let pid: number | undefined;
+	try {
+		// `fs.readFile` (libuv) rather than `Bun.file().json()`: the CLI entry runs
+		// as a floating promise, so an await that completes without an active
+		// libuv handle lets Bun exit this worker before it ever listens — exactly
+		// what happens on the cold-start path when broker.pid is absent.
+		const raw: unknown = JSON.parse(await fs.readFile(pidPath, "utf8"));
+		if (typeof raw === "object" && raw !== null && "pid" in raw && typeof raw.pid === "number") pid = raw.pid;
+	} catch {
+		// Missing or torn lease: nothing to honor.
 	}
-	return null;
+	if (pid === undefined || pid === process.pid) return false;
+	try {
+		process.kill(pid, 0);
+	} catch {
+		return false; // Dead PID: the lease outlived its broker.
+	}
+	if (await probeBrokerEndpoint(endpoint)) return true;
+	await Bun.sleep(LEASE_HANDOFF_GRACE_MS);
+	return probeBrokerEndpoint(endpoint);
+}
+
+/**
+ * Claim the one-broker-per-scope lease. The native lock is process-owned, so
+ * the OS releases it however the broker dies — a crashed broker can never wedge
+ * the scope behind a stale lease again (issue #11080). `broker.pid` stays as
+ * human-readable metadata for `oms ps` and dead-scope pruning.
+ */
+async function acquireBrokerLease(runtimeDir: string, endpoint: string): Promise<BrokerLease | null> {
+	const pidPath = path.join(runtimeDir, PID_FILE);
+	const lock = FileLock.tryAcquire(pidPath);
+	if (!lock.acquired) return null;
+	try {
+		// A broker from a build without the native lock cannot be seen through it;
+		// adopt the scope instead of starting a duplicate supervisor.
+		if (await holdsLiveForeignLease(pidPath, endpoint)) {
+			lock.release();
+			return null;
+		}
+		await fs.writeFile(pidPath, JSON.stringify({ pid: process.pid }), { mode: 0o600 });
+		return { path: pidPath, lock };
+	} catch (error) {
+		lock.release();
+		throw error;
+	}
 }
 
 async function releaseBrokerLease(lease: BrokerLease): Promise<void> {
 	try {
-		const raw: unknown = await Bun.file(lease.path).json();
-		if (typeof raw === "object" && raw !== null && "instanceId" in raw && raw.instanceId === lease.instanceId) {
-			await fs.rm(lease.path, { force: true });
-		}
-	} catch (error) {
-		if (!isEnoent(error)) throw error;
+		await fs.rm(lease.path, { force: true });
+	} finally {
+		lease.lock.release();
 	}
 }
 
@@ -370,6 +401,7 @@ class DaemonBroker {
 	readonly #endpoint: string;
 	readonly #token: string;
 	readonly #idleGraceMs: number;
+	readonly #restartBackoffBaseMs: number;
 	readonly #records = new Map<string, ManagedDaemon>();
 	/**
 	 * Names reserved by an in-flight `start` before its record lands in
@@ -390,12 +422,19 @@ class DaemonBroker {
 	#idleTimer: NodeJS.Timeout | undefined;
 	#shuttingDown = false;
 
-	constructor(projectDir: string, runtimeDir: string, token: string, idleGraceMs: number) {
+	constructor(
+		projectDir: string,
+		runtimeDir: string,
+		token: string,
+		idleGraceMs: number,
+		restartBackoffBaseMs: number,
+	) {
 		this.#projectDir = projectDir;
 		this.#runtimeDir = runtimeDir;
 		this.#endpoint = daemonBrokerEndpoint(projectDir, runtimeDir);
 		this.#token = token;
 		this.#idleGraceMs = idleGraceMs;
+		this.#restartBackoffBaseMs = restartBackoffBaseMs;
 	}
 
 	async run(): Promise<void> {
@@ -735,10 +774,23 @@ class DaemonBroker {
 			cols: DAEMON_PTY_COLUMNS,
 			rows: DAEMON_PTY_ROWS,
 		};
+		// Nothing plays terminal for a supervised PTY, so a program probing for
+		// cursor position or device attributes would block on the reply. Answer
+		// the queries from the output stream and write the replies to its stdin.
+		const responder = new TerminalQueryResponder();
 		const onChunk = (error: Error | null, chunk: string): void => {
 			if (generation !== record.generation) return;
 			if (error) record.log?.append(`PTY output error: ${error.message}\n`);
-			if (chunk) this.#onOutput(record, generation, chunk);
+			if (!chunk) return;
+			const reply = responder.feed(chunk);
+			if (reply) {
+				try {
+					session.write(reply);
+				} catch {
+					// The PTY may exit between emitting its final output and receiving the reply.
+				}
+			}
+			this.#onOutput(record, generation, chunk);
 		};
 		const started = Promise.withResolvers<number | undefined>();
 		const onStart = (error: Error | null, pid: number): void => {
@@ -814,7 +866,7 @@ class DaemonBroker {
 				cwd: record.spec.cwd,
 				env: workerEnvFromParent(record.spec.env),
 				stdio: ["ignore", output.fd, output.fd],
-				...DETACHED_DAEMON_SPAWN_OPTIONS,
+				...DAEMON_SPAWN_OPTIONS,
 			});
 			record.process = process;
 			record.snapshot.pid = process.pid;
@@ -974,7 +1026,10 @@ class DaemonBroker {
 			record.snapshot.readyAt = undefined;
 			record.snapshot.readyMatch = undefined;
 			record.snapshot.state = "restarting";
-			const delay = Math.min(1_000 * 2 ** Math.min(record.consecutiveFailures, 5), RESTART_MAX_DELAY_MS);
+			const delay = Math.min(
+				this.#restartBackoffBaseMs * 2 ** Math.min(record.consecutiveFailures, 5),
+				RESTART_MAX_DELAY_MS,
+			);
 			record.log?.append(
 				`\n[daemon exited${exitCode === undefined ? "" : ` with code ${exitCode}`}; restarting in ${delay}ms]\n`,
 			);
@@ -1064,6 +1119,10 @@ class DaemonBroker {
 
 	async #wait(operation: Extract<DaemonOperation, { op: "wait" }>): Promise<DaemonRpcResult> {
 		const record = this.#record(operation.name);
+		// A wait observes exactly one launch generation. Automatic or explicit
+		// relaunches reuse the managed record, so polling the record without this
+		// binding can hang past an exit or consume the replacement's output.
+		const boundGeneration = record.generation;
 		await this.#refreshDetached(record);
 		let matched: string | undefined;
 		let pattern: RegExp | undefined;
@@ -1080,7 +1139,10 @@ class DaemonBroker {
 			record.snapshot.readyAt !== undefined ||
 			record.snapshot.state === "ready" ||
 			(record.snapshot.state === "running" && !record.spec.ready);
+		const generationEnded = (): boolean =>
+			record.generation !== boundGeneration || record.snapshot.state === "restarting";
 		const condition = (): boolean => {
+			if (generationEnded()) return true;
 			if (pattern) {
 				const match = pattern.exec(record.readinessBuffer);
 				if (!match) return false;
@@ -1093,6 +1155,13 @@ class DaemonBroker {
 			return readyObserved() || terminalState(record.snapshot.state);
 		};
 		const woke = condition() || (await this.#waitUntil(record, condition, operation.timeoutMs));
+		if (generationEnded()) {
+			const exit = record.snapshot.exitCode === undefined ? "" : ` with exit code ${record.snapshot.exitCode}`;
+			throw new Error(
+				`Daemon ${operation.name} generation ${boundGeneration} exited${exit}; ` +
+					"the wait was rejected instead of continuing against a replacement generation",
+			);
+		}
 		// A for:"ready" wait that woke on a terminal exit without ever observing
 		// readiness is still "not ready" — surface it as timed out so callers and the
 		// renderer don't chain work against a dead process.
@@ -1366,8 +1435,13 @@ class DaemonBroker {
 	}
 }
 
+export interface DaemonBrokerStartOptions {
+	/** Base of the exponential child-restart backoff. */
+	restartBackoffBaseMs?: number;
+}
+
 /** Start the detached project or global daemon broker selected by the CLI worker host. */
-export async function startDaemonBrokerFromEnvironment(): Promise<void> {
+export async function startDaemonBrokerFromEnvironment(options: DaemonBrokerStartOptions = {}): Promise<void> {
 	const projectDir = process.env[DAEMON_PROJECT_DIR_ENV];
 	const runtimeDir = process.env[DAEMON_RUNTIME_DIR_ENV];
 	if (!projectDir || !runtimeDir) throw new Error("Daemon broker environment is incomplete");
@@ -1377,11 +1451,27 @@ export async function startDaemonBrokerFromEnvironment(): Promise<void> {
 	delete process.env[DAEMON_IDLE_GRACE_ENV];
 	const parsedGrace = rawGrace === undefined ? DEFAULT_IDLE_GRACE_MS : Number.parseInt(rawGrace, 10);
 	const idleGraceMs = Number.isFinite(parsedGrace) && parsedGrace >= 0 ? parsedGrace : DEFAULT_IDLE_GRACE_MS;
+	const requestedRestartBackoffBaseMs = options.restartBackoffBaseMs ?? RESTART_BACKOFF_BASE_MS;
+	const restartBackoffBaseMs =
+		Number.isFinite(requestedRestartBackoffBaseMs) && requestedRestartBackoffBaseMs >= 0
+			? requestedRestartBackoffBaseMs
+			: RESTART_BACKOFF_BASE_MS;
 	await fs.mkdir(runtimeDir, { recursive: true, mode: 0o700 });
-	const lease = await acquireBrokerLease(runtimeDir);
+	const endpoint = daemonBrokerEndpoint(projectDir, runtimeDir);
+	// Hold the lease for the whole broker lifetime: it is a native lock the OS
+	// releases on exit, so keeping `lease` referenced keeps the scope owned.
+	const lease = await acquireBrokerLease(runtimeDir, endpoint);
 	if (!lease) return;
 	setProcessName("oms daemon broker");
-	// Reclaim dead sibling project scopes without delaying broker startup.
+	// Record the scope's project dir so `oms ps` can map this hash-keyed runtime
+	// dir back to its project (and derive the Windows pipe name) offline.
+	void writeDaemonScopeMeta(runtimeDir, projectDir).catch(error => {
+		logger.warn("Failed to record daemon scope metadata", {
+			error: error instanceof Error ? error.message : String(error),
+		});
+	});
+	// Reclaim sibling daemon scopes left behind by dead brokers (issue #8674).
+	// Detached and non-throwing so it never delays clients connecting to us.
 	void pruneDeadDaemonRuntimeDirs(runtimeDir).catch(error => {
 		logger.warn("Daemon runtime prune failed", {
 			error: error instanceof Error ? error.message : String(error),
@@ -1389,7 +1479,7 @@ export async function startDaemonBrokerFromEnvironment(): Promise<void> {
 	});
 	const token = (await Bun.file(path.join(runtimeDir, TOKEN_FILE)).text()).trim();
 	if (!token) throw new Error("Daemon broker token is empty");
-	const broker = new DaemonBroker(projectDir, runtimeDir, token, idleGraceMs);
+	const broker = new DaemonBroker(projectDir, runtimeDir, token, idleGraceMs, restartBackoffBaseMs);
 	const cancelCleanup = postmortem.register("daemon-broker", () => broker.shutdown());
 	try {
 		await broker.run();

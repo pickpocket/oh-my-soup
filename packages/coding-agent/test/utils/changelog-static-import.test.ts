@@ -2,7 +2,6 @@ import { describe, expect, test } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { VERSION } from "@oh-my-soup/pi-utils";
 import type { BunPlugin } from "bun";
 import { resolveBundledChangelogPath } from "../../src/utils/changelog";
 
@@ -48,7 +47,7 @@ function changelogUtilsStubPlugin(): BunPlugin {
 		setup(build) {
 			build.onResolve({ filter: /^@oh-my-soup\/pi-utils$/ }, () => ({ path: utilsStubPath }));
 			build.onResolve({ filter: /^\.\.\/config$/ }, args =>
-				args.importer.replaceAll("\\", "/").endsWith("/utils/changelog.ts") ? { path: utilsStubPath } : undefined,
+				args.importer.endsWith("/utils/changelog.ts") ? { path: utilsStubPath } : undefined,
 			);
 		},
 	};
@@ -115,8 +114,8 @@ describe("changelog static import resources", () => {
 				unrelatedCwd,
 			);
 
-			expect(result.version).toBe(VERSION);
 			expect(result.entries).toBe(sourceResult.entries);
+			expect(result.version).toBe(sourceResult.version);
 		} finally {
 			await fs.rm(tempDir, { force: true, recursive: true });
 		}
@@ -147,8 +146,8 @@ describe("changelog static import resources", () => {
 			expect(buildOutput.success, buildOutput.logs.map(log => log.message).join("\n")).toBe(true);
 
 			const result = await runProbe([binaryPath, missingPackageChangelogPath], unrelatedCwd);
-			expect(result.version).toBe(VERSION);
 			expect(result.entries).toBe(sourceResult.entries);
+			expect(result.version).toBe(sourceResult.version);
 		} finally {
 			await fs.rm(tempDir, { force: true, recursive: true });
 		}

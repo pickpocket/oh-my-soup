@@ -1,7 +1,9 @@
 import { afterEach, describe, expect, test, vi } from "bun:test";
 import { resolveOpenAIRequestSetup } from "@oh-my-soup/pi-ai/providers/openai-shared";
-import { loginMoonshot } from "@oh-my-soup/pi-ai/registry/moonshot";
+import { getProviderDefinition } from "@oh-my-soup/pi-ai/registry/registry";
 import type { FetchImpl } from "@oh-my-soup/pi-ai/types";
+
+const loginMoonshot = getProviderDefinition("moonshot")!.login!;
 
 const ORIGINAL_MOONSHOT_BASE_URL = Bun.env.MOONSHOT_BASE_URL;
 

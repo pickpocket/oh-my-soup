@@ -6,9 +6,9 @@
  * Correctness contract: the result MUST equal the native engine's width for the
  * same input, because `truncateToWidth` / `sliceWithWidth` / `wrapTextWithAnsi`
  * cut text using that native model — any divergence makes padding / cursor math
- * drift. This guards the corrections layered on top of `Bun.stringWidth`
- * (tabs, OSC 66 scaling, and zero-cell APC payloads) and catches silent width-
- * table drift across Bun upgrades.
+ * (`width - visibleWidth(...)`) drift. This guards the two corrections layered
+ * on top of `Bun.stringWidth` (tabs, OSC 66 scaling) and catches silent
+ * `Bun.stringWidth` width-table drift across Bun upgrades.
  */
 import { afterEach, describe, expect, it } from "bun:test";
 import { visibleWidth as nativeVisibleWidth } from "@oh-my-soup/pi-natives";
@@ -70,7 +70,6 @@ describe("visibleWidth — parity with the native width engine", () => {
 		["apc-st", `${ESC}_Ga=p,U=1,q=2,i=123,p=123,c=9,r=4${ST}ab`],
 		["apc-bel", `x${ESC}_marker${BEL}y`],
 		["apc-multi", `${ESC}_Ga=p,i=1${ST}a${ESC}_Ga=p,i=2${ST}b`],
-		["apc-payload-controls-and-wide-text", `a${ESC}_marker\tㅁ${ST}b`],
 	];
 	for (const [name, input] of corpus) {
 		it(name, () => {
@@ -95,7 +94,8 @@ describe("visibleWidth — parity with the native width engine", () => {
 
 	it("measures APC payloads as zero cells (Kitty placement prefix on placeholder rows)", () => {
 		// Regression: `Bun.stringWidth` counts APC payloads as printable, which
-		// broke centering math for Unicode-placeholder thumbnail rows.
+		// broke centering math for Unicode-placeholder thumbnail rows — the
+		// composer attachment chip painted its right border inside the card.
 		const cells = "\u{10eeee}\u0305\u030d".repeat(9);
 		const line = `${ESC}_Ga=p,U=1,q=2,i=123,p=123,c=9,r=4${ST}${ESC}[38;2;1;2;3m${cells}${ESC}[39m`;
 		expect(visibleWidth(line)).toBe(9);

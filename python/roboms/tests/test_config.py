@@ -169,6 +169,22 @@ def test_pick_model_covers_full_pool(monkeypatch: pytest.MonkeyPatch, env: dict[
     assert seen == {"a", "b", "c"}
 
 
+def test_release_model_falls_back_to_general_pool(monkeypatch: pytest.MonkeyPatch, env: dict[str, str]) -> None:
+    monkeypatch.setenv("ROBOMS_MODEL", "a")
+    reset_settings_cache()
+    cfg = Settings()  # type: ignore[call-arg]
+    assert cfg.release_model_pool == ("a",)
+    assert cfg.pick_release_model() == "a"
+
+
+def test_release_model_pool_csv_parses(monkeypatch: pytest.MonkeyPatch, env: dict[str, str]) -> None:
+    monkeypatch.setenv("ROBOMS_MODEL", "fallback")
+    monkeypatch.setenv("ROBOMS_RELEASE_MODEL", " release-a, release-b ,, ")
+    reset_settings_cache()
+    cfg = Settings()  # type: ignore[call-arg]
+    assert cfg.release_model_pool == ("release-a", "release-b")
+
+
 def test_max_concurrency_default_is_8(env: dict[str, str]) -> None:
     cfg = Settings()  # type: ignore[call-arg]
     assert cfg.max_concurrency == 8

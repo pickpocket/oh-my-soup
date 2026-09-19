@@ -27,7 +27,7 @@ async function createContextSession(
 		settings.set("advisor.enabled", true);
 		settings.setModelRole("advisor", `${model.provider}/${model.id}`);
 	}
-	const modelRegistry = new ModelRegistry(authStorage);
+	const modelRegistry = new ModelRegistry(authStorage, `${cwd}/models.json`);
 	const sessionManager = SessionManager.inMemory(cwd);
 	const { session } = await createAgentSession({
 		cwd,
@@ -41,6 +41,8 @@ async function createContextSession(
 		slashCommands: [],
 		enableMCP: false,
 		enableLsp: false,
+		toolNames: [],
+		restrictToolNames: true,
 		skipPythonPreflight: true,
 	});
 	return { session, authStorage, sessionManager };
@@ -141,7 +143,9 @@ describe("context-file prompt refresh", () => {
 		const cwdA = tempDir.join("cwd-a");
 		const cwdB = tempDir.join("cwd-b");
 		fs.mkdirSync(path.join(cwdA, "old-repo", ".git"), { recursive: true });
+		fs.writeFileSync(path.join(cwdA, "old-repo", ".git", "HEAD"), "ref: refs/heads/main\n", "utf8");
 		fs.mkdirSync(path.join(cwdB, "new-repo", ".git"), { recursive: true });
+		fs.writeFileSync(path.join(cwdB, "new-repo", ".git", "HEAD"), "ref: refs/heads/main\n", "utf8");
 		const { session, authStorage, sessionManager } = await createContextSession(cwdA, Settings.isolated({}));
 
 		try {

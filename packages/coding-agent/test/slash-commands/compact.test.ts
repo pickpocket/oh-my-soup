@@ -81,6 +81,8 @@ describe("/compact dispatch (ACP)", () => {
 			backgroundTasks.push(task());
 		};
 
+		// The dispatcher must resolve before compaction finishes so the RPC
+		// serialized queue can dequeue a follow-up abort.
 		const result = await executeAcpBuiltinSlashCommand("/compact", h.runtime);
 		await compactStarted.promise;
 		expect(result).toEqual({ consumed: true });
@@ -91,30 +93,37 @@ describe("/compact dispatch (ACP)", () => {
 		expect(h.output).toHaveBeenCalledWith("Compaction complete.");
 	});
 
-	it("stays silent when a user interrupt cancels compaction", async () => {
+	it("stays silent when compaction is cancelled by a user interrupt", async () => {
 		const h = acpRuntime();
-		h.compact.mockRejectedValue(new CompactionCancelledError(undefined, { cause: USER_INTERRUPT_LABEL }));
+		h.compact.mockImplementation(async () => {
+			throw new CompactionCancelledError(undefined, { cause: USER_INTERRUPT_LABEL });
+		});
 		const backgroundTasks: Promise<void>[] = [];
 		h.runtime.runCommandInBackground = task => {
 			backgroundTasks.push(task());
 		};
 
-		expect(await executeAcpBuiltinSlashCommand("/compact", h.runtime)).toEqual({ consumed: true });
+		const result = await executeAcpBuiltinSlashCommand("/compact", h.runtime);
+		expect(result).toEqual({ consumed: true });
 		await Promise.all(backgroundTasks);
 		expect(h.output).not.toHaveBeenCalled();
 	});
 
-	it("surfaces extension cancellation rather than treating it as an interrupt", async () => {
+	it("surfaces extension cancellation instead of treating it as a user interrupt", async () => {
 		const h = acpRuntime();
-		h.compact.mockRejectedValue(new CompactionCancelledError());
+		h.compact.mockImplementation(async () => {
+			throw new CompactionCancelledError();
+		});
 
 		await executeAcpBuiltinSlashCommand("/compact", h.runtime);
 		expect(h.output).toHaveBeenCalledWith("Compaction failed: Compaction cancelled");
 	});
 
-	it("surfaces provider failures behind the compaction prefix", async () => {
+	it("surfaces other failures behind the Compaction failed prefix", async () => {
 		const h = acpRuntime();
-		h.compact.mockRejectedValue(new Error("no model selected"));
+		h.compact.mockImplementation(async () => {
+			throw new Error("no model selected");
+		});
 
 		await executeAcpBuiltinSlashCommand("/compact", h.runtime);
 		expect(h.output).toHaveBeenCalledWith("Compaction failed: no model selected");

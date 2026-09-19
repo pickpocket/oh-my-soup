@@ -13,6 +13,7 @@ import type { CustomTool, CustomToolContext } from "../extensibility/custom-tool
 import { resolveXAIHttpCredentials } from "../lib/xai-http";
 import ttsDescription from "../prompts/tools/tts.md" with { type: "text" };
 import { DEFAULT_TTS_LOCAL_MODEL_KEY, DEFAULT_TTS_VOICE, isTtsLocalModelKey, KOKORO_VOICES } from "../tts/models";
+import { ttsClient } from "../tts/tts-client";
 import { encodeWav } from "../tts/wav";
 import { formatPathRelativeToCwd, resolveToCwd } from "./path-utils";
 
@@ -37,6 +38,9 @@ const DEFAULT_DEEPINFRA_TTS_MODEL = "hexgrad/Kokoro-82M";
 
 const ttsSchema = type({
 	text: "1 <= string <= 15000",
+	// Optional (no schema default) so an explicit "eve" stays distinguishable
+	// from an omitted voice: xAI applies its own default, DeepInfra forwards
+	// the voice only when the caller actually set one.
 	"voice_id?": "string",
 	language: "string = 'en'",
 	output_path: "string",
@@ -93,24 +97,32 @@ function readStringSetting(key: "providers.tts" | "tts.localModel" | "tts.localV
 	}
 }
 
+/**
+ * Shared cloud-speech POST: bearer auth, JSON payload, 60 s timeout fence,
+ * ProviderHttpError mapped to an error string. Returns the raw audio bytes.
+ */
 async function postSpeechRequest(options: {
 	label: string;
 	url: string;
 	payload: Record<string, unknown>;
 	apiKey: ApiKey;
+	resolveHeaders?: () => Promise<Record<string, string> | undefined>;
 	fetchImpl: FetchImpl;
 	signal: AbortSignal | undefined;
 }): Promise<Uint8Array | { errorText: string }> {
 	const timeoutSignal = AbortSignal.timeout(60_000);
 	const combinedSignal = options.signal ? AbortSignal.any([options.signal, timeoutSignal]) : timeoutSignal;
+
 	let response: Response;
 	try {
 		response = await withAuth(
 			options.apiKey,
 			async key => {
-				const result = await options.fetchImpl(options.url, {
+				const configuredHeaders = await options.resolveHeaders?.();
+				const resp = await options.fetchImpl(options.url, {
 					method: "POST",
 					headers: {
+						...configuredHeaders,
 						Authorization: `Bearer ${key}`,
 						"Content-Type": "application/json",
 						"User-Agent": USER_AGENT,
@@ -118,21 +130,23 @@ async function postSpeechRequest(options: {
 					body: JSON.stringify(options.payload),
 					signal: combinedSignal,
 				});
-				if (!result.ok) {
-					const detail = await result.text();
+				if (!resp.ok) {
+					const detail = await resp.text();
 					throw new ProviderHttpError(
-						`${options.label} failed (${result.status}): ${detail.slice(0, 300)}`,
-						result.status,
-						{ headers: result.headers },
+						`${options.label} failed (${resp.status}): ${detail.slice(0, 300)}`,
+						resp.status,
+						{ headers: resp.headers },
 					);
 				}
-				return result;
+				return resp;
 			},
 			{ signal: combinedSignal },
 		);
 	} catch (error) {
 		const status = (error as { status?: unknown }).status;
-		if (error instanceof Error && typeof status === "number") return { errorText: error.message };
+		if (error instanceof Error && typeof status === "number") {
+			return { errorText: error.message };
+		}
 		throw error;
 	}
 	return new Uint8Array(await response.arrayBuffer());
@@ -185,11 +199,13 @@ async function synthesizeXai(
 		sessionId,
 		baseUrl: creds.baseURL,
 	});
+
 	const bytes = await postSpeechRequest({
 		label: "xAI TTS",
 		url: `${creds.baseURL}/tts`,
 		payload,
 		apiKey,
+		resolveHeaders: () => ctx.modelRegistry.getProviderHeaders(creds.provider),
 		fetchImpl: ctx.fetch ?? fetch,
 		signal,
 	});
@@ -229,17 +245,24 @@ async function synthesizeDeepInfra(
 			],
 		};
 	}
+
+	// Forward the voice only when the caller set one so DeepInfra's server
+	// default applies otherwise (voice ids are model-specific).
 	const payload: Record<string, unknown> = {
 		model: DEFAULT_DEEPINFRA_TTS_MODEL,
 		input: params.text,
 		response_format: codec,
 		...(params.voice_id ? { voice: params.voice_id } : {}),
 	};
+
+	const apiKey: ApiKey = ctx.modelRegistry.resolver("deepinfra", { sessionId });
+
 	const bytes = await postSpeechRequest({
 		label: "DeepInfra TTS",
 		url: DEEPINFRA_TTS_URL,
 		payload,
-		apiKey: ctx.modelRegistry.resolver("deepinfra", { sessionId }),
+		apiKey,
+		resolveHeaders: () => ctx.modelRegistry.getProviderHeaders("deepinfra"),
 		fetchImpl: ctx.fetch ?? fetch,
 		signal,
 	});
@@ -265,11 +288,6 @@ async function synthesizeLocal(
 	outputPath: string,
 	signal: AbortSignal | undefined,
 ): Promise<AgentToolResult<TtsToolDetails, TtsSchemaType>> {
-	// The tts-client pulls the whole subprocess worker stack (worker-client,
-	// title-client IPC env); load it only when local synthesis actually runs so
-	// the tool table stays off the startup path. Fixed specifier; deferral is
-	// the point.
-	const { ttsClient } = await import("../tts/tts-client");
 	const modelSetting = readStringSetting("tts.localModel");
 	const modelKey = modelSetting && isTtsLocalModelKey(modelSetting) ? modelSetting : DEFAULT_TTS_LOCAL_MODEL_KEY;
 	const voice = readStringSetting("tts.localVoice") || DEFAULT_TTS_VOICE;
@@ -329,6 +347,7 @@ export const ttsTool: CustomTool<typeof ttsSchema, TtsToolDetails> = {
 		const codec: TtsCodec = outputPath.toLowerCase().endsWith(".wav") ? "wav" : "mp3";
 
 		const preference = readStringSetting("providers.tts") ?? "auto";
+		// Only resolve xAI creds when they can affect routing (skip for explicit local/deepinfra preferences).
 		const hasXaiCreds =
 			preference === "local" || preference === "deepinfra"
 				? false

@@ -1,7 +1,6 @@
 import type { Agent } from "@oh-my-soup/pi-agent-core";
 import { logger } from "@oh-my-soup/pi-utils";
 import type { Settings } from "../config/settings";
-import { disposeJuliaKernelSessionsByOwner } from "../eval/jl/executor";
 import { disposeVmContextsByOwner } from "../eval/js/context-manager";
 import { namespaceSessionId as namespacePythonSessionId } from "../eval/py";
 import {
@@ -9,9 +8,9 @@ import {
 	executePython as executePythonCommand,
 	type PythonResult,
 } from "../eval/py/executor";
-import { disposeRubyKernelSessionsByOwner } from "../eval/rb/executor";
 import { defaultEvalSessionId } from "../eval/session-id";
 import type { ExtensionRunner } from "../extensibility/extensions";
+import type { ToolSession } from "../tools";
 import { outputMeta } from "../tools/output-meta";
 import type { PythonExecutionMessage } from "./messages";
 import type { SessionManager } from "./session-manager";
@@ -22,6 +21,7 @@ export interface EvalRunnerHost {
 	sessionManager: SessionManager;
 	settings: Settings;
 	extensionRunner(): ExtensionRunner | undefined;
+	evalToolSession?: ToolSession;
 	isStreaming(): boolean;
 	appendSessionMessage(message: PythonExecutionMessage): void;
 }
@@ -80,9 +80,9 @@ export class EvalRunner {
 				kernelMode: this.#host.settings.get("python.kernelMode"),
 				interpreter: this.#host.settings.get("python.interpreter")?.trim() || undefined,
 				artifactsDir: this.#host.sessionManager.getArtifactsDir() ?? undefined,
-				stateSnapshot: this.#host.settings.get("python.stateSnapshot"),
 				onChunk,
 				signal: abortController.signal,
+				toolSession: this.#host.evalToolSession,
 			});
 			this.recordPythonResult(code, result, options);
 			return result;
@@ -182,8 +182,6 @@ export class EvalRunner {
 		}
 		const results = await Promise.allSettled([
 			disposeKernelSessionsByOwner(this.#kernelOwnerId),
-			disposeRubyKernelSessionsByOwner(this.#kernelOwnerId),
-			disposeJuliaKernelSessionsByOwner(this.#kernelOwnerId),
 			disposeVmContextsByOwner(this.#kernelOwnerId),
 		]);
 		const errors: unknown[] = [];

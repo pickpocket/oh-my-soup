@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "bun:test";
 import * as path from "node:path";
 import { disposeAllKernelSessions, executePythonWithKernel } from "@oh-my-soup/pi-coding-agent/eval/py/executor";
-import { DEFAULT_MAX_BYTES } from "@oh-my-soup/pi-coding-agent/session/streaming-output";
+import { DEFAULT_MAX_BYTES } from "@oh-my-soup/pi-tui/tools/streaming-output";
 import { TempDir } from "@oh-my-soup/pi-utils";
 import { FakeKernel } from "./helpers";
 

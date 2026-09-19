@@ -10,13 +10,16 @@ describe("isUnsupportedProxyError", () => {
 });
 
 describe("unsupportedProxyMessage", () => {
-	it("names the unsupported proxy environment variable", () => {
-		const message = unsupportedProxyMessage({ HTTPS_PROXY: "socks5h://127.0.0.1:1080" });
+	it("names the proxy env var whose scheme Bun's fetch cannot use", () => {
+		const message = unsupportedProxyMessage({
+			HTTPS_PROXY: "socks5h://127.0.0.1:1080",
+			NO_PROXY: "localhost",
+		});
 		expect(message).toContain("HTTPS_PROXY=socks5h://127.0.0.1:1080");
-		expect(message).toContain("http://");
+		expect(message).toMatch(/http:\/\//);
 	});
 
-	it("does not flag HTTP proxy URLs as offending", () => {
+	it("does not flag http(s) proxy vars as offending", () => {
 		const message = unsupportedProxyMessage({ HTTP_PROXY: "http://127.0.0.1:8080" });
 		expect(message).not.toContain("offending");
 		expect(message).toContain("Only http:// and https:// proxies are supported");

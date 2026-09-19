@@ -24,8 +24,10 @@ export class EventStream<T, R = T> implements AsyncIterable<T> {
 	 */
 	#pendingLocalWork = 0;
 	/**
-	 * A downstream stream whose pending local work also counts as ours while
-	 * this stream forwards its events.
+	 * A downstream stream whose local work also counts as ours — set when this
+	 * stream forwards another stream's events (e.g. the Cursor discovered-id
+	 * retry drains an inner stream), so the watchdog on this stream sees the
+	 * inner exec bridge's busy state instead of aborting a healthy tool run.
 	 */
 	#localWorkDelegate: LocalWorkSource | undefined;
 	finalResultPromise: Promise<R>;
@@ -135,12 +137,17 @@ export class EventStream<T, R = T> implements AsyncIterable<T> {
 		return this.finalResultPromise;
 	}
 
-	/** True while local work on this stream or its forwarded delegate is pending. */
+	/** True while local work tracked via {@link trackLocalWork} — on this stream or a forwarded delegate — is pending. */
 	get hasPendingLocalWork(): boolean {
 		return this.#pendingLocalWork > 0 || (this.#localWorkDelegate?.hasPendingLocalWork ?? false);
 	}
 
-	/** Count a forwarded stream's local work as this stream's own until detached. */
+	/**
+	 * Count `source`'s pending local work as this stream's own. Used when this
+	 * stream forwards another's events (Cursor discovered-id retry) so the
+	 * watchdog does not abort a live tool run happening on the inner stream.
+	 * Pass `undefined` to detach once forwarding ends.
+	 */
 	forwardLocalWorkFrom(source: LocalWorkSource | undefined): void {
 		this.#localWorkDelegate = source;
 	}

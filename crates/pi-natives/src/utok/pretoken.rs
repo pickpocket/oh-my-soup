@@ -40,21 +40,10 @@ impl Splitter {
 	}
 
 	/// Whether this splitter needs `&str` input (the engine transcodes
-	/// non-UTF-8 flavors before calling in). Always false at runtime; only
-	/// the test-only regex oracle transcodes.
-	#[cfg_attr(
-		not(test),
-		allow(
-			clippy::unused_self,
-			reason = "the test-only Regex variant shares this method API with runtime variants"
-		)
-	)]
+	/// non-UTF-8 flavors before calling in).
+	#[cfg(test)]
 	pub const fn is_regex(&self) -> bool {
-		#[cfg(test)]
-		if matches!(self, Self::Regex(_)) {
-			return true;
-		}
-		false
+		matches!(self, Self::Regex(_))
 	}
 
 	/// Feed every piece of `units` to `f`, in order, covering the input
@@ -125,7 +114,7 @@ impl Splitter {
 }
 
 /// Drive a single-stage scanner over `units`.
-pub fn scan_loop<U: Unit>(
+pub(crate) fn scan_loop<U: Unit>(
 	units: &[U],
 	f: &mut impl FnMut(&[U]),
 	next: impl Fn(&[U], usize) -> usize,

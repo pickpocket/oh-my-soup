@@ -127,7 +127,11 @@ describe("openai-completions parseChunkUsage", () => {
 		expect(usage.totalTokens).toBe(6_250);
 	});
 
-	it("reads Vertex cachedContentTokenCount as cache-read tokens", () => {
+	it("reads Vertex/Gemini cachedContentTokenCount as a cache-read source", () => {
+		// Vertex AI (and gateways fronting it) report cache hits in
+		// usage.cachedContentTokenCount (camelCase) with no OpenAI-shaped
+		// cached_tokens field. promptTokenCount/prompt_tokens includes the
+		// cached portion, so input = prompt_tokens - cachedContentTokenCount.
 		const usage = parseChunkUsage(
 			{
 				prompt_tokens: 33_006,
@@ -139,7 +143,6 @@ describe("openai-completions parseChunkUsage", () => {
 			undefined,
 		);
 
-		// Vertex includes cached tokens in prompt_tokens.
 		expect(usage.cacheRead).toBe(28_639);
 		expect(usage.input).toBe(4_367);
 		expect(usage.totalTokens).toBe(33_116);

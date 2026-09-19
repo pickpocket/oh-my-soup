@@ -1,12 +1,12 @@
 import { afterEach, describe, expect, it, spyOn } from "bun:test";
-import { logger } from "@oh-my-soup/pi-utils";
-import "./setup";
+
 import {
 	embed,
 	resetEmbeddingProviderForTests,
 	setLocalModelInitializerForTests,
 } from "@oh-my-soup/pi-mnemopi/core/embeddings";
 import { withMnemopiRuntimeOptions } from "@oh-my-soup/pi-mnemopi/core/runtime-options";
+import { logger } from "@oh-my-soup/pi-utils";
 
 const ENV_KEYS = [
 	"NODE_ENV",

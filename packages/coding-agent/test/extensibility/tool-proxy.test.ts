@@ -25,6 +25,11 @@ describe("applyToolProxy", () => {
 	});
 
 	it("preserves bind-capable schema callables from external arktype copies", () => {
+		// Regression: an extension bundling its own arktype registers tools whose
+		// `parameters` is a callable Type that DOES have Function.prototype.bind
+		// (unlike omstype). Binding it returned a bare bound function with no
+		// schema surface, so toolWireSchema stringified to undefined and the
+		// native tokenizer crashed every read-only subagent at first prompt.
 		const schema = Object.assign((value: unknown) => value, {
 			toJsonSchema: () => ({ type: "object" }),
 			assert: (value: unknown) => value,

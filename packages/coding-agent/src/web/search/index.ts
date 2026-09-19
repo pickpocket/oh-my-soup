@@ -12,31 +12,26 @@ import { prompt } from "@oh-my-soup/pi-utils";
 import { ModelRegistry } from "../../config/model-registry";
 import { settings } from "../../config/settings";
 import type { CustomTool, CustomToolContext, RenderResultOptions } from "../../extensibility/custom-tools/types";
-import type { Theme } from "../../modes/theme/theme";
+import type { Theme } from "@oh-my-soup/pi-tui/theme";
 import webSearchSystemPrompt from "../../prompts/system/web-search.md" with { type: "text" };
 import webSearchDescription from "../../prompts/tools/web-search.md" with { type: "text" };
 import { discoverAuthStorage } from "../../sdk";
 import type { ToolSession } from "../../tools";
-import { formatAge } from "../../tools/render-utils";
+import { formatAge } from "@oh-my-soup/pi-tui/render/render-utils";
 import { throwIfAborted } from "../../tools/tool-errors";
 import {
 	formatSearchProviderFailure,
 	formatSearchProviderFailures,
 	getSearchProvider,
-	getSearchProviderLabel,
 	resolveProviderCandidates,
 	type SearchProvider,
 	type SearchProviderCandidate,
 } from "./provider";
+import { getSearchProviderLabel } from "@oh-my-soup/pi-tui/tools/web-search";
 import { applyQueryConstraints, parseSearchQuery } from "./query";
-import { renderSearchCall, renderSearchResult, type SearchRenderDetails } from "./render";
-import {
-	DEFAULT_WEB_SEARCH_TIMEOUT_SECONDS,
-	MAX_WEB_SEARCH_TIMEOUT_SECONDS,
-	SearchProviderError,
-	type SearchProviderId,
-	type SearchResponse,
-} from "./types";
+import { renderSearchCall, renderSearchResult, type SearchRenderDetails } from "@oh-my-soup/pi-tui/tools/web-search";
+import { DEFAULT_WEB_SEARCH_TIMEOUT_SECONDS, MAX_WEB_SEARCH_TIMEOUT_SECONDS, SearchProviderError } from "./types";
+import { type SearchProviderId, type SearchResponse } from "@oh-my-soup/pi-tui/tools/web-search";
 
 const MAX_WEB_SEARCH_ATTEMPTS = 3;
 
@@ -132,6 +127,7 @@ function hasRenderableSearchContent(response: SearchResponse): boolean {
 interface ExecuteSearchOptions {
 	authStorage: AuthStorage;
 	modelRegistry?: ModelRegistry;
+	modelName?: string;
 	sessionId?: string;
 	searchBrowserSessionId?: string;
 	signal?: AbortSignal;
@@ -143,7 +139,7 @@ async function executeSearch(
 	params: SearchQueryParams,
 	options: ExecuteSearchOptions,
 ): Promise<{ content: Array<{ type: "text"; text: string }>; details: SearchRenderDetails }> {
-	const { authStorage, modelRegistry, sessionId, searchBrowserSessionId, signal } = options;
+	const { authStorage, modelRegistry, modelName, sessionId, searchBrowserSessionId, signal } = options;
 	const explicitProvider = params.provider;
 	let candidates: SearchProviderCandidate[];
 	if (explicitProvider && explicitProvider !== "auto") {
@@ -218,6 +214,7 @@ async function executeSearch(
 				timeoutMs,
 				authStorage,
 				modelRegistry,
+				modelName,
 				sessionId,
 				searchBrowserSessionId,
 				antigravityEndpointMode,
@@ -245,11 +242,7 @@ async function executeSearch(
 					}
 
 					if (!hasRenderableSearchContent(finalResponse)) {
-						throw new SearchProviderError(
-							provider.id,
-							`${provider.label} returned no renderable search content.`,
-							204,
-						);
+						throw new SearchProviderError(provider.id, `${provider.label} returned no renderable search content.`, 204);
 					}
 
 					const text = formatForLLM(finalResponse, constraintNotes);
@@ -259,6 +252,11 @@ async function executeSearch(
 					};
 				} catch (error) {
 					throwIfAborted(signal);
+					// Empty renderable content is deterministic for this provider and
+					// query: re-asking cannot help, so fall through to the next
+					// candidate instead of burning the remaining same-provider
+					// retries (those exist for transient transport failures).
+					if (error instanceof SearchProviderError && error.status === 204) throw error;
 					if (attempt === MAX_WEB_SEARCH_ATTEMPTS) throw error;
 				}
 			}
@@ -309,6 +307,7 @@ export async function runSearchQuery(
 	options: {
 		authStorage?: AuthStorage;
 		modelRegistry?: ModelRegistry;
+		modelName?: string;
 		sessionId?: string;
 		searchBrowserSessionId?: string;
 		signal?: AbortSignal;
@@ -324,6 +323,7 @@ export async function runSearchQuery(
 		return await executeSearch("cli-web-search", params, {
 			authStorage,
 			modelRegistry,
+			modelName: options.modelName,
 			sessionId: options.sessionId,
 			searchBrowserSessionId: options.searchBrowserSessionId,
 			signal: options.signal,
@@ -368,6 +368,7 @@ export class WebSearchTool implements AgentTool<typeof webSearchSchema, SearchRe
 		return executeSearch(_toolCallId, params, {
 			authStorage,
 			modelRegistry: this.#session.modelRegistry,
+			modelName: this.#session.getActiveModel?.()?.id,
 			sessionId,
 			searchBrowserSessionId,
 			signal,
@@ -375,7 +376,7 @@ export class WebSearchTool implements AgentTool<typeof webSearchSchema, SearchRe
 	}
 }
 
-/** Web search tool as CustomTool (for TUI rendering support) */
+/** Web search tool as CustomTool for consumers embedding the custom-tool API. */
 export const webSearchCustomTool: CustomTool<typeof webSearchSchema, SearchRenderDetails> = {
 	name: "web_search",
 	label: "Web Search",
@@ -395,6 +396,7 @@ export const webSearchCustomTool: CustomTool<typeof webSearchSchema, SearchRende
 		return executeSearch(toolCallId, params, {
 			authStorage,
 			modelRegistry: ctx.modelRegistry,
+			modelName: ctx.model?.id,
 			sessionId,
 			searchBrowserSessionId: ctx.searchBrowserSessionId ?? sessionId,
 			signal,
@@ -415,5 +417,5 @@ export function getSearchTools(): CustomTool<any, any>[] {
 }
 
 export { getSearchProvider, setExcludedSearchProviders, setSearchProviderOrder } from "./provider";
-export type { SearchProviderId as SearchProvider, SearchResponse } from "./types";
+export type { SearchProviderId as SearchProvider, SearchResponse } from "@oh-my-soup/pi-tui/tools/web-search";
 export { isSearchProviderId, isSearchProviderPreference } from "./types";

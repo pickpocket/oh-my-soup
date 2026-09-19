@@ -3,16 +3,23 @@
  *
  * Speaks NDJSON with `runner.py` over stdin/stdout. One subprocess per kernel
  * instance; sessions reuse a single subprocess across executions. Cancellation
- * uses SIGINT on POSIX and a cooperative interrupt frame on Windows, raising
- * `KeyboardInterrupt` inside user code without terminating the retained kernel.
- * Shutdown writes `{"type":"exit"}` and escalates to SIGTERM/SIGKILL on timeout.
+ * is `kill("SIGINT")` which raises a real `KeyboardInterrupt` inside user
+ * code. Shutdown writes `{"type":"exit"}` and escalates to SIGTERM/SIGKILL on
+ * timeout.
  */
 import * as path from "node:path";
 import { $flag, isBunTestRuntime, logger, Snowflake } from "@oh-my-soup/pi-utils";
 import { Settings } from "../../config/settings";
-import { BaseKernel, getRemainingTimeMs, type KernelStartOptions } from "../kernel-base";
+import {
+	BaseKernel,
+	getRemainingTimeMs,
+	type KernelExecuteOptions,
+	type KernelExecuteResult,
+	type KernelStartOptions,
+} from "../kernel-base";
 import { type BackendProbeOptions, probeCandidates } from "../probe";
 import { stageRunnerScript } from "../runner-cache";
+import type { ShadowPlan } from "../speculation/types";
 import { PYTHON_PRELUDE } from "./prelude";
 import RUNNER_SCRIPT from "./runner.py" with { type: "text" };
 import {
@@ -23,6 +30,7 @@ import {
 	resolvePythonRuntime,
 } from "./runtime";
 import { hostHasInheritableConsole, shouldDetachKernel, shouldHideKernelWindow } from "./spawn-options";
+import type { PythonToolRequest } from "./executor";
 
 export type {
 	KernelExecuteOptions,
@@ -47,12 +55,56 @@ const STARTUP_TIMEOUT_MS = 10_000;
 // kernel's state, so we only kill as a last-resort recovery path.
 const INTERRUPT_ESCALATION_MS = 5_000;
 
+const PYTHON_RESERVED_PRELUDE_EXPORTS: Record<string, true> = {
+	__oms_tools__: true,
+	_oms_prelude: true,
+	AgentHandle: true,
+	CompletionHandle: true,
+	JudgmentHandle: true,
+	WorkPool: true,
+	agent: true,
+	budget: true,
+	completion: true,
+	display: true,
+	env: true,
+	judge: true,
+	log: true,
+	output: true,
+	phase: true,
+	read: true,
+	tool: true,
+	wait: true,
+	workpool: true,
+	write: true,
+};
+
 export interface PythonKernelAvailability {
 	ok: boolean;
 	pythonPath?: string;
 	reason?: string;
 	/** The probed-working runtime, when one was found. */
 	runtime?: PythonRuntime;
+}
+
+export interface PythonPreludeSource {
+	name: string;
+	exports: string[];
+	source: string;
+}
+
+export interface PythonShadowSnapshot {
+	revision: number;
+	values: Readonly<Record<string, unknown>>;
+	digest: string;
+}
+
+export interface PythonShadowPlan extends ShadowPlan {
+	snapshot: PythonShadowSnapshot;
+}
+
+interface PythonKernelExecuteOptions extends KernelExecuteOptions {
+	expectedShadowRevision?: number;
+	expectedShadowDigest?: string;
 }
 
 // Cache successful probes per resolved cwd + explicit interpreter: every cell
@@ -73,8 +125,8 @@ export async function checkPythonKernelAvailability(
 	const key = `${resolvedCwd}\0${interpreter ?? ""}`;
 	const cached = availabilityCache.get(key);
 	if (cached) return await cached;
-	// Probe controls belong to one caller; sharing in-flight work would let one
-	// cancellation poison a concurrent session's availability check.
+	// Probe controls belong to one caller. Do not share an in-flight promise:
+	// aborting one eval must not cancel a concurrent session's availability check.
 	const result = await probePythonKernelAvailability(resolvedCwd, interpreter, options);
 	if (result.ok) availabilityCache.set(key, Promise.resolve(result));
 	return result;
@@ -83,7 +135,7 @@ export async function checkPythonKernelAvailability(
 async function probePythonKernelAvailability(
 	cwd: string,
 	interpreter?: string,
-	probeOptions?: BackendProbeOptions,
+	probeOpts?: BackendProbeOptions,
 ): Promise<PythonKernelAvailability> {
 	try {
 		const settings = await Settings.init();
@@ -101,7 +153,7 @@ async function probePythonKernelAvailability(
 				env: runtime.env,
 				label: runtime.pythonPath,
 			})),
-			{ cwd, signal: probeOptions?.signal, timeoutMs: probeOptions?.timeoutMs },
+			{ cwd, signal: probeOpts?.signal, timeoutMs: probeOpts?.timeoutMs },
 		);
 		if (result.ok) {
 			const runtime = runtimes[result.index];
@@ -115,18 +167,19 @@ async function probePythonKernelAvailability(
 			pythonPath: runtimes[0].pythonPath,
 			reason: `No working Python interpreter found. Tried: ${result.failures.join("; ")}`,
 		};
-	} catch (error) {
-		return { ok: false, reason: error instanceof Error ? error.message : String(error) };
+	} catch (err) {
+		return { ok: false, reason: err instanceof Error ? err.message : String(err) };
 	}
 }
 
-export class PythonKernel extends BaseKernel {
+export class PythonKernel extends BaseKernel<PythonKernelExecuteOptions> {
+	#installedPreludes = new Map<string, PythonPreludeSource>();
+
 	private constructor(id: string) {
 		super(id, {
 			languageName: "Python",
 			traceIpc: TRACE_IPC,
 			exitPayload: JSON.stringify({ type: "exit" }),
-			interruptPayload: process.platform === "win32" ? JSON.stringify({ type: "interrupt" }) : undefined,
 			interruptEscalationMs: INTERRUPT_ESCALATION_MS,
 			shutdownGraceMs: SHUTDOWN_GRACE_MS,
 			buildPayload: (code, msgId, opts) =>
@@ -137,8 +190,85 @@ export class PythonKernel extends BaseKernel {
 					env: opts?.env,
 					silent: opts?.silent ?? false,
 					storeHistory: opts?.storeHistory ?? !(opts?.silent ?? false),
+					expectedShadowRevision: opts?.expectedShadowRevision,
+					expectedShadowDigest: opts?.expectedShadowDigest,
 				}),
 		});
+	}
+
+	/** Describe or invoke a tool defined in this retained Python kernel. */
+	async invokeTool(request: PythonToolRequest, options?: KernelExecuteOptions): Promise<KernelExecuteResult> {
+		const id = options?.id ?? Snowflake.next();
+		return await this.submitRequest(id, JSON.stringify({ type: "tool", id, ...request }), options);
+	}
+
+	/** Synchronize enabled capability snippets before the next user cell. */
+	async syncPreludes(
+		preludes: readonly PythonPreludeSource[],
+		signal: AbortSignal | undefined,
+		timeoutMs: number,
+	): Promise<void> {
+		const desired = new Map<string, PythonPreludeSource>();
+		const exportOwners = new Map<string, string>();
+		for (const prelude of preludes) {
+			if (desired.has(prelude.name)) throw new Error(`Duplicate eval prelude name: ${prelude.name}`);
+			for (const name of prelude.exports) {
+				if (Object.hasOwn(PYTHON_RESERVED_PRELUDE_EXPORTS, name)) {
+					throw new Error(`Eval prelude ${prelude.name} cannot replace reserved global ${name}`);
+				}
+				const owner = exportOwners.get(name);
+				if (owner) throw new Error(`Eval preludes ${owner} and ${prelude.name} both export ${name}`);
+				exportOwners.set(name, prelude.name);
+			}
+			desired.set(prelude.name, prelude);
+		}
+
+		const removedExports: string[] = [];
+		const changed: PythonPreludeSource[] = [];
+		for (const [name, installed] of this.#installedPreludes) {
+			const next = desired.get(name);
+			if (
+				next &&
+				next.source === installed.source &&
+				next.exports.length === installed.exports.length &&
+				next.exports.every((value, index) => value === installed.exports[index])
+			) {
+				continue;
+			}
+			removedExports.push(...installed.exports);
+		}
+		for (const [name, prelude] of desired) {
+			const installed = this.#installedPreludes.get(name);
+			if (
+				installed &&
+				prelude.source === installed.source &&
+				prelude.exports.length === installed.exports.length &&
+				prelude.exports.every((value, index) => value === installed.exports[index])
+			) {
+				continue;
+			}
+			changed.push(prelude);
+		}
+		if (removedExports.length === 0 && changed.length === 0) return;
+
+		const source: string[] = [];
+		if (removedExports.length > 0) {
+			source.push(
+				`for __oms_export in ${JSON.stringify(removedExports)}:\n    globals().pop(__oms_export, None)`,
+				'globals().pop("__oms_export", None)',
+			);
+		}
+		for (const prelude of changed) source.push(prelude.source);
+		await this.executeWithBudget(source.join("\n"), signal, timeoutMs, "Python eval prelude sync");
+
+		this.#installedPreludes.clear();
+		for (const [name, prelude] of desired) {
+			this.#installedPreludes.set(name, {
+				name,
+				exports: [...prelude.exports],
+				source: prelude.source,
+			});
+		}
 	}
 
 	static async start(options: KernelStartOptions): Promise<PythonKernel> {
@@ -200,7 +330,61 @@ export class PythonKernel extends BaseKernel {
 			throw err;
 		}
 	}
+
+	/**
+	 * Captures the runner's JSON-safe user namespace only when no Python cell is
+	 * executing. Ineligible or malformed responses deliberately fall back.
+	 */
+	async snapshotUserNamespace(timeoutMs?: number): Promise<PythonShadowSnapshot | null> {
+		const id = Snowflake.next();
+		const frame = await this.requestControl(JSON.stringify({ type: "shadow_snapshot", id }), id, timeoutMs);
+		if (
+			frame.type !== "shadow_snapshot" ||
+			frame.eligible !== true ||
+			typeof frame.revision !== "number" ||
+			typeof frame.digest !== "string"
+		) {
+			return null;
+		}
+		return { revision: frame.revision, digest: frame.digest, values: Object.freeze(frame.values ?? {}) };
+	}
+
+	/** Projects a candidate against an already-running, idle Python kernel. */
+	async shadowPlan(code: string, timeoutMs?: number): Promise<PythonShadowPlan | null> {
+		const id = Snowflake.next();
+		const frame = await this.requestControl(JSON.stringify({ type: "shadow_plan", id, code }), id, timeoutMs);
+		if (
+			frame.type !== "shadow_plan" ||
+			frame.eligible !== true ||
+			typeof frame.revision !== "number" ||
+			typeof frame.digest !== "string" ||
+			!Array.isArray(frame.operations)
+		) {
+			return null;
+		}
+		return {
+			snapshot: { revision: frame.revision, digest: frame.digest, values: Object.freeze(frame.values ?? {}) },
+			operations: frame.operations,
+			...(frame.controls && frame.controls.length > 0 ? { controls: frame.controls } : {}),
+			...(frame.barrier ? { barrier: frame.barrier } : {}),
+		};
+	}
+
+	/** Atomically starts a cell only if its retained shadow snapshot is still current. */
+	async executeIfSnapshotMatches(
+		code: string,
+		snapshot: Pick<PythonShadowSnapshot, "revision" | "digest">,
+		options?: KernelExecuteOptions,
+	): Promise<KernelExecuteResult | null> {
+		const result = await this.execute(code, {
+			...options,
+			expectedShadowRevision: snapshot.revision,
+			expectedShadowDigest: snapshot.digest,
+		});
+		return result.admissionRejected ? null : result;
+	}
 }
+
 function buildInitScript(cwd: string, env?: Record<string, string | undefined>): string {
 	const envEntries = Object.entries(env ?? {}).filter(([, value]) => value !== undefined);
 	const envPayload = Object.fromEntries(envEntries);

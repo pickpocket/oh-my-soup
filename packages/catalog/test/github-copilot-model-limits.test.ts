@@ -4,8 +4,9 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { Effort } from "@oh-my-soup/pi-catalog/effort";
 import { createModelManager } from "@oh-my-soup/pi-catalog/model-manager";
-import { getBundledModel } from "@oh-my-soup/pi-catalog/models";
+import { getBundledModel, getBundledModels } from "@oh-my-soup/pi-catalog/models";
 import { githubCopilotModelManagerOptions } from "@oh-my-soup/pi-catalog/provider-models/openai-compat";
+import { COPILOT_API_HEADERS } from "@oh-my-soup/pi-catalog/wire/github-copilot";
 import type { ModelSpec } from "@oh-my-soup/pi-catalog/types";
 
 function getHeaderValue(headers: unknown, key: string): string | undefined {
@@ -39,13 +40,20 @@ async function discoverCopilotModels(
 	expectedBaseUrl = "https://api.githubcopilot.com",
 	expectedAuthorizationToken = apiKey,
 ) {
-	const requestApiVersions: Array<string | undefined> = [];
+	const requestHeaders: Headers[] = [];
 	const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
 		const url = typeof input === "string" ? input : input.toString();
+		if (url === "https://api.github.com/copilot_internal/user") {
+			expect(getHeaderValue(init?.headers, "Authorization")).toBe(`token ${expectedAuthorizationToken}`);
+			// The probe must be bounded by the shared discovery deadline so a
+			// stalled endpoint cannot hang discovery (PR #8510 review).
+			expect(init?.signal).toBeInstanceOf(AbortSignal);
+			return Response.json({ endpoints: { api: expectedBaseUrl } });
+		}
 		expect(url).toBe(`${expectedBaseUrl}/models`);
 		expect(init?.method).toBe("GET");
 		expect(getHeaderValue(init?.headers, "Authorization")).toBe(`Bearer ${expectedAuthorizationToken}`);
-		requestApiVersions.push(getHeaderValue(init?.headers, "X-GitHub-Api-Version"));
+		requestHeaders.push(new Headers(init?.headers));
 		return new Response(JSON.stringify(payload), {
 			status: 200,
 			headers: { "Content-Type": "application/json" },
@@ -53,7 +61,7 @@ async function discoverCopilotModels(
 	});
 	const options = githubCopilotModelManagerOptions({ apiKey, fetch: fetchMock });
 	const models = await options.fetchDynamicModels?.();
-	return { models: models ?? [], fetchMock, requestApiVersions };
+	return { models: models ?? [], fetchMock, requestHeaders };
 }
 
 function cachedCopilotCompletionModel(id: string, name: string): ModelSpec<"openai-completions"> {
@@ -72,48 +80,106 @@ function cachedCopilotCompletionModel(id: string, name: string): ModelSpec<"open
 }
 
 describe("github copilot model limits mapping", () => {
-	it("uses configured base URL for discovery", async () => {
+	it("discovers the plan endpoint for a raw environment token before model discovery", async () => {
+		const token = "ghu_valid_business_token";
 		const { fetchMock } = await discoverCopilotModels(
 			{ data: [] },
-			"copilot-test-key",
-			"https://api.githubcopilot.com",
+			token,
+			"https://api.business.githubcopilot.com",
+			token,
 		);
-		expect(fetchMock).toHaveBeenCalledTimes(1);
+		expect(fetchMock).toHaveBeenCalledTimes(2);
 	});
-
-	it("does not reuse another credential's authoritative model cache", async () => {
-		const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "pi-copilot-credential-cache-"));
+	it("falls back to the personal endpoint when the raw-token probe fails", async () => {
+		const token = "ghu_valid_business_token";
+		const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+			const url = typeof input === "string" ? input : input.toString();
+			if (url === "https://api.github.com/copilot_internal/user") {
+				expect(init?.signal).toBeInstanceOf(AbortSignal);
+				throw new DOMException("The operation timed out.", "TimeoutError");
+			}
+			expect(url).toBe("https://api.githubcopilot.com/models");
+			return Response.json({ data: [] });
+		});
+		const models = await githubCopilotModelManagerOptions({ apiKey: token, fetch: fetchMock }).fetchDynamicModels?.();
+		expect(models).toEqual([]);
+		expect(fetchMock).toHaveBeenCalledTimes(2);
+	});
+	it("drops cross-provider wire routing from enterprise-only sibling ids", async () => {
+		const { models } = await discoverCopilotModels({
+			data: [
+				{
+					id: "gpt-5.6-sol-fast",
+					name: "GPT-5.6 Sol Fast (Internal only)",
+					capabilities: {
+						type: "chat",
+						limits: { max_context_window_tokens: 1_050_000, max_output_tokens: 128_000 },
+					},
+					billing: {
+						token_prices: {
+							default: { context_max: 200_000, input_price: 234, output_price: 1234, cache_price: 56 },
+						},
+					},
+				},
+			],
+		});
+		const sol = models.find(m => m.id === "gpt-5.6-sol-fast");
+		expect(sol?.api).toBe("openai-responses");
+		// The global fallback reference is the Cursor collapsed family; its
+		// off-tier requestModelId pin and effort routing must not transfer or
+		// every request goes out as gpt-5.6-sol-none-fast regardless of effort.
+		expect(sol).not.toHaveProperty("requestModelId");
+		// The discovered default-tier prices still apply on the reference branch.
+		expect(sol?.cost).toMatchObject({ input: 2.34, output: 12.34, cacheRead: 0.56 });
+		// The strip must not mutate the shared bundled Cursor entry the global
+		// reference points at: it keeps its routing for Cursor consumers.
+		expect(getBundledModels("cursor").find(m => m.id === "gpt-5.6-sol-fast")?.thinking?.effortRouting).toMatchObject({
+			off: "gpt-5.6-sol-none-fast",
+		});
+	});
+	it("does not reuse another token's authoritative cache after COPILOT_GITHUB_TOKEN switches", async () => {
+		const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "pi-ai-copilot-token-switch-"));
 		const cacheDbPath = path.join(tempDir, "models.db");
 		try {
-			const personalKey = JSON.stringify({
-				token: "ghu_personal_token",
-				apiEndpoint: "https://api.githubcopilot.com",
+			const personalFetch = vi.fn(async (input: string | URL | Request) => {
+				const url = typeof input === "string" ? input : input.toString();
+				if (url === "https://api.github.com/copilot_internal/user") {
+					return Response.json({ endpoints: { api: "https://api.githubcopilot.com" } });
+				}
+				if (url === "https://api.githubcopilot.com/models") {
+					return Response.json({ data: [{ id: "gpt-5.5", name: "GPT-5.5" }] });
+				}
+				throw new Error(`unexpected personal request: ${url}`);
 			});
-			const personalFetch = vi.fn(async () =>
-				Response.json({ data: [{ id: "gpt-5.2-codex", name: "GPT-5.2 Codex" }] }),
-			);
 			const personalManager = createModelManager({
-				...githubCopilotModelManagerOptions({ apiKey: personalKey, fetch: personalFetch }),
+				...githubCopilotModelManagerOptions({ apiKey: "ghu_personal_token", fetch: personalFetch }),
 				cacheDbPath,
 			});
+			// Personal token discovery writes a fresh authoritative cache.
 			await personalManager.refresh("online");
 
-			const businessKey = JSON.stringify({
-				token: "ghu_business_token",
-				apiEndpoint: "https://api.business.githubcopilot.com",
+			const businessSeen: string[] = [];
+			const businessFetch = vi.fn(async (input: string | URL | Request) => {
+				const url = typeof input === "string" ? input : input.toString();
+				businessSeen.push(url);
+				if (url === "https://api.github.com/copilot_internal/user") {
+					return Response.json({ endpoints: { api: "https://api.business.githubcopilot.com" } });
+				}
+				if (url === "https://api.business.githubcopilot.com/models") {
+					return Response.json({ data: [{ id: "gpt-5.5", name: "GPT-5.5" }] });
+				}
+				throw new Error(`unexpected business request: ${url}`);
 			});
-			const businessFetch = vi.fn(async () =>
-				Response.json({ data: [{ id: "gpt-5.2-codex", name: "GPT-5.2 Codex" }] }),
-			);
 			const businessManager = createModelManager({
-				...githubCopilotModelManagerOptions({ apiKey: businessKey, fetch: businessFetch }),
+				...githubCopilotModelManagerOptions({ apiKey: "ghu_business_token", fetch: businessFetch }),
 				cacheDbPath,
 			});
-			const result = await businessManager.refresh("online-if-uncached");
-
-			expect(personalFetch).toHaveBeenCalledTimes(1);
-			expect(businessFetch).toHaveBeenCalledTimes(1);
-			expect(result.models.some(model => model.baseUrl === "https://api.business.githubcopilot.com")).toBe(true);
+			// Default online-if-uncached must not satisfy the switched token from the
+			// prior token's fresh authoritative personal-endpoint cache.
+			const { models } = await businessManager.refresh("online-if-uncached");
+			expect(businessSeen).toContain("https://api.github.com/copilot_internal/user");
+			expect(businessSeen).toContain("https://api.business.githubcopilot.com/models");
+			expect(models.some(model => model.baseUrl === "https://api.business.githubcopilot.com")).toBe(true);
 		} finally {
 			await fs.rm(tempDir, { recursive: true, force: true });
 		}
@@ -357,9 +423,23 @@ describe("github copilot model limits mapping", () => {
 		const model = models.find(candidate => candidate.id === "grok-4.5");
 		expect(model?.api).toBe("openai-responses");
 	});
+	it("routes grok-4.6 to the openai-responses endpoint (#8807)", async () => {
+		const { models } = await discoverCopilotModels({
+			data: [
+				{
+					id: "grok-4.6",
+					name: "Grok 4.6",
+				},
+			],
+		});
+
+		const model = models.find(candidate => candidate.id === "grok-4.6");
+		expect(model?.api).toBe("openai-responses");
+	});
 	for (const migration of [
 		{ id: "mai-code-1-flash-picker", name: "MAI-Code-1-Flash" },
 		{ id: "grok-4.5", name: "Grok 4.5" },
+		{ id: "grok-4.6", name: "Grok 4.6" },
 	]) {
 		it(`refreshes a cached ${migration.name} completion route after the endpoint migration`, async () => {
 			const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), `pi-ai-copilot-${migration.id}-cache-`));
@@ -393,7 +473,7 @@ describe("github copilot model limits mapping", () => {
 				const { models } = await manager.refresh("online-if-uncached");
 				const model = models.find(candidate => candidate.id === migration.id);
 
-				expect(fetchMock).toHaveBeenCalledTimes(1);
+				expect(fetchMock).toHaveBeenCalledTimes(2);
 				expect(model?.api).toBe("openai-responses");
 			} finally {
 				await fs.rm(tempDir, { recursive: true, force: true });
@@ -428,7 +508,7 @@ describe("github copilot model limits mapping", () => {
 			});
 			const { models } = await manager.refresh("online-if-uncached");
 
-			expect(fetchMock).toHaveBeenCalledTimes(1);
+			expect(fetchMock).toHaveBeenCalledTimes(2);
 			// The bundled catalog now ships a responses-route grok-4.5, so the id
 			// resurfaces from the bundle after the failed refresh. The migration
 			// contract is that the stale cached COMPLETIONS route never comes
@@ -440,10 +520,92 @@ describe("github copilot model limits mapping", () => {
 			await fs.rm(tempDir, { recursive: true, force: true });
 		}
 	});
+
+	it("refetches a cached enterprise sibling still pinned to -none-fast", async () => {
+		const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "pi-ai-copilot-solfast-cache-"));
+		const cacheDbPath = path.join(tempDir, "models.db");
+		try {
+			const poisoned: ModelSpec<"openai-responses"> = {
+				id: "gpt-5.6-sol-fast",
+				name: "GPT-5.6 Sol Fast (Internal only)",
+				api: "openai-responses",
+				provider: "github-copilot",
+				baseUrl: "https://api.githubcopilot.com",
+				reasoning: true,
+				requestModelId: "gpt-5.6-sol-none-fast",
+				// Faithful to a real pre-fix mapper row: headers present, so the
+				// header-restore path cannot force the refetch by itself and only
+				// the fingerprint migration distinguishes fixed from broken.
+				headers: { ...COPILOT_API_HEADERS },
+				thinking: {
+					mode: "effort",
+					efforts: [Effort.Low, Effort.Medium, Effort.High, Effort.XHigh, Effort.Max],
+					effortRouting: {
+						off: "gpt-5.6-sol-none-fast",
+						[Effort.Low]: "gpt-5.6-sol-low-fast",
+						[Effort.Medium]: "gpt-5.6-sol-medium-fast",
+						[Effort.High]: "gpt-5.6-sol-high-fast",
+						[Effort.XHigh]: "gpt-5.6-sol-xhigh-fast",
+						[Effort.Max]: "gpt-5.6-sol-max-fast",
+					},
+				},
+				input: ["text"],
+				cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+				contextWindow: 1_050_000,
+				maxTokens: 128_000,
+			};
+			const fetchMock = vi.fn(async () => {
+				return new Response(
+					JSON.stringify({
+						data: [
+							{
+								id: "gpt-5.6-sol-fast",
+								name: "GPT-5.6 Sol Fast (Internal only)",
+								capabilities: {
+									type: "chat",
+									limits: { max_context_window_tokens: 1_050_000, max_output_tokens: 128_000 },
+								},
+							},
+						],
+					}),
+					{
+						status: 200,
+						headers: { "Content-Type": "application/json" },
+					},
+				);
+			});
+			// Seed the poisoned row under the previous cache namespace, mirroring
+			// exactly what a pre-fix binary wrote: same DB, same credential scope,
+			// v1 scheme. The v2 namespace must orphan it and force a refetch.
+			const previousNamespace = `github-copilot:models-v1:${Bun.hash("copilot-test-key\0https://api.githubcopilot.com").toString(36)}`;
+			const oldManager = createModelManager({
+				...githubCopilotModelManagerOptions({ apiKey: "copilot-test-key", fetch: fetchMock }),
+				cacheProviderId: previousNamespace,
+				cacheDbPath,
+				fetchDynamicModels: async () => [poisoned],
+			});
+			await oldManager.refresh("online");
+			const manager = createModelManager({
+				...githubCopilotModelManagerOptions({ apiKey: "copilot-test-key", fetch: fetchMock }),
+				cacheDbPath,
+			});
+			const { models } = await manager.refresh("online-if-uncached");
+			const model = models.find(candidate => candidate.id === "gpt-5.6-sol-fast");
+
+			// The v2 namespace orphans the poisoned v1 row, forcing a refetch;
+			// the remapped row carries no off-tier pin.
+			expect(fetchMock).toHaveBeenCalled();
+			expect(model?.api).toBe("openai-responses");
+			expect(model).not.toHaveProperty("requestModelId");
+			expect(model?.thinking?.effortRouting).toBeUndefined();
+		} finally {
+			await fs.rm(tempDir, { recursive: true, force: true });
+		}
+	});
 });
 
 /**
- * Entry shaped like the `/models` response under `X-GitHub-Api-Version: 2026-06-01`:
+ * Entry shaped like the `/models` response under `X-GitHub-Api-Version: 2026-08-01`:
  * `capabilities.limits` reports the long-context ceiling and
  * `billing.token_prices` carries per-tier prompt boundaries and prices
  * (hundredths of a dollar per 1M tokens).
@@ -497,9 +659,31 @@ function tieredCopilotEntry(overrides: {
 }
 
 describe("github copilot tiered context windows", () => {
-	it("sends the Copilot API version header on discovery", async () => {
-		const { requestApiVersions } = await discoverCopilotModels({ data: [] });
-		expect(requestApiVersions).toEqual(["2026-06-01"]);
+	it("sends the Copilot CLI identity on discovery", async () => {
+		const { requestHeaders } = await discoverCopilotModels({ data: [] });
+		expect(Object.fromEntries(requestHeaders[0] ?? [])).toMatchObject({
+			authorization: "Bearer copilot-test-key",
+			"copilot-harness-id": "copilot-sdk",
+			"copilot-integration-id": "copilot-developer-cli",
+			"editor-version": "copilot/1.0.82",
+			"openai-intent": "conversation-agent",
+			"user-agent": "copilot/1.0.82",
+			"x-github-api-version": "2026-08-01",
+			"x-initiator": "user",
+		});
+	});
+
+	it("keeps every bundled Copilot model on the Copilot CLI identity", () => {
+		for (const model of getBundledModels("github-copilot")) {
+			expect(model.headers).toMatchObject({
+				"User-Agent": "copilot/1.0.82",
+				"Editor-Version": "copilot/1.0.82",
+				"Copilot-Integration-Id": "copilot-developer-cli",
+				"Copilot-Harness-Id": "copilot-sdk",
+				"Openai-Intent": "conversation-agent",
+				"X-GitHub-Api-Version": "2026-08-01",
+			});
+		}
 	});
 
 	it("caps the base entry to the default tier and synthesizes a 1M sibling", async () => {
@@ -524,7 +708,7 @@ describe("github copilot tiered context windows", () => {
 		expect(base?.contextWindow).toBe(264_000);
 		expect(base?.maxTokens).toBe(64_000);
 		expect(base?.contextPromotionTarget).toBe("github-copilot/claude-opus-4.7-1m");
-		expect(base?.headers?.["X-GitHub-Api-Version"]).toBe("2026-06-01");
+		expect(base?.headers?.["X-GitHub-Api-Version"]).toBe("2026-08-01");
 
 		const variant = models.find(candidate => candidate.id === "claude-opus-4.7-1m");
 		expect(variant?.requestModelId).toBe("claude-opus-4.7");

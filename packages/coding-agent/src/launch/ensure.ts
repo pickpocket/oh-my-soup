@@ -7,7 +7,7 @@
 import { logger } from "@oh-my-soup/pi-utils";
 import { throwIfAborted } from "../tools/tool-errors";
 import type { DaemonBrokerClient } from "./client";
-import type { DaemonSnapshot } from "./protocol";
+import type { DaemonSnapshot } from "@oh-my-soup/pi-tui/tools/hub";
 
 const DEFAULT_READY_TIMEOUT_MS = 30_000;
 const STOP_TIMEOUT_MS = 5_000;

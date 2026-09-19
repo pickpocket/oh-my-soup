@@ -7,7 +7,6 @@
  * duplicating resolution/family heuristics.
  */
 import type { Api, Model } from "@oh-my-soup/pi-ai";
-import { modelFamilyToken } from "@oh-my-soup/pi-catalog/identity";
 import type { ModelRegistry } from "../../config/model-registry";
 import { getModelMatchPreferences, resolveModelRoleValue } from "../../config/model-resolver";
 import type { Settings } from "../../config/settings";
@@ -34,6 +33,7 @@ export function createExtensionModelQuery(
 				settings,
 				matchPreferences: getModelMatchPreferences(settings),
 			}).model,
-		family: (model: Model<Api>): string => modelFamilyToken(model.id) || model.provider.toLowerCase(),
+		family: (model: Model<Api>): string =>
+			model.identity.class === "unknown" ? model.provider.toLowerCase() : model.identity.class,
 	};
 }

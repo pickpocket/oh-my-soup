@@ -20,7 +20,7 @@
 
 import { beforeAll, describe, expect, mock, test } from "bun:test";
 import { AgentBusyError } from "@oh-my-soup/pi-agent-core";
-import { initTheme } from "@oh-my-soup/pi-coding-agent/modes/theme/theme";
+import { initTheme } from "@oh-my-soup/pi-tui/theme";
 import type { CompactionQueuedMessage, InteractiveModeContext } from "@oh-my-soup/pi-coding-agent/modes/types";
 import { UiHelpers } from "@oh-my-soup/pi-coding-agent/modes/utils/ui-helpers";
 

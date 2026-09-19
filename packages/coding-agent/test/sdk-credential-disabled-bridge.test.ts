@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "bun:test";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { AuthStorage, type AuthStorageOptions, type CredentialDisabledEvent } from "@oh-my-soup/pi-ai";
+import { AuthStorage, type CredentialDisabledEvent } from "@oh-my-soup/pi-ai";
 import * as oauthUtils from "@oh-my-soup/pi-ai/oauth";
 import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
 import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
@@ -78,13 +78,6 @@ const initializeRunnerForTest = (runner: ExtensionRunner | undefined): void => {
 
 describe("createAgentSession credential_disabled subscription", () => {
 	const tempDirs: string[] = [];
-	const authStorages = new Set<AuthStorage>();
-
-	const createAuthStorage = async (dbPath: string, options: AuthStorageOptions = {}): Promise<AuthStorage> => {
-		const authStorage = await AuthStorage.create(dbPath, options);
-		authStorages.add(authStorage);
-		return authStorage;
-	};
 
 	const makeDirs = (label: string): SessionDirs => {
 		const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), `pi-credential-disabled-${label}-${Snowflake.next()}-`));
@@ -114,6 +107,11 @@ describe("createAgentSession credential_disabled subscription", () => {
 		contextFiles: [],
 		promptTemplates: [],
 		workspaceTree: emptyWorkspaceTree(dirs.cwd),
+		// This suite exercises the SDK's credential event bridge, not ambient tools.
+		// Avoid rebuilding the full built-in/custom-tool surface for every session.
+		toolNames: ["read"],
+		preloadedCustomToolPaths: [],
+		skipPythonPreflight: true,
 		slashCommands: [],
 		enableMCP: false,
 		enableLsp: false,
@@ -153,8 +151,6 @@ describe("createAgentSession credential_disabled subscription", () => {
 
 	afterEach(() => {
 		vi.restoreAllMocks();
-		for (const authStorage of authStorages) authStorage.close();
-		authStorages.clear();
 		for (const dir of tempDirs.splice(0)) {
 			removeSyncWithRetries(dir);
 		}
@@ -163,7 +159,7 @@ describe("createAgentSession credential_disabled subscription", () => {
 	it("fans events out to both embedder and session-extension subscribers", async () => {
 		const dirs = makeDirs("fanout");
 		const embedderEvents: CredentialDisabledEvent[] = [];
-		const authStorage = await createAuthStorage(path.join(dirs.agentDir, "agent.db"), {
+		const authStorage = await AuthStorage.create(path.join(dirs.agentDir, "agent.db"), {
 			onCredentialDisabled: event => {
 				embedderEvents.push(event);
 			},
@@ -194,7 +190,7 @@ describe("createAgentSession credential_disabled subscription", () => {
 	it("session.dispose() unsubscribes the session's listener; the embedder's listener keeps firing", async () => {
 		const dirs = makeDirs("dispose");
 		const embedderEvents: CredentialDisabledEvent[] = [];
-		const authStorage = await createAuthStorage(path.join(dirs.agentDir, "agent.db"), {
+		const authStorage = await AuthStorage.create(path.join(dirs.agentDir, "agent.db"), {
 			onCredentialDisabled: event => {
 				embedderEvents.push(event);
 			},
@@ -232,7 +228,7 @@ describe("createAgentSession credential_disabled subscription", () => {
 	it("concurrent sessions each subscribe their own listener; each dispose only removes its own", async () => {
 		const sharedDirs = makeDirs("concurrent");
 		const embedderEvents: CredentialDisabledEvent[] = [];
-		const authStorage = await createAuthStorage(path.join(sharedDirs.agentDir, "agent.db"), {
+		const authStorage = await AuthStorage.create(path.join(sharedDirs.agentDir, "agent.db"), {
 			onCredentialDisabled: event => {
 				embedderEvents.push(event);
 			},
@@ -307,7 +303,7 @@ describe("createAgentSession credential_disabled subscription", () => {
 		// rather than the real context wired in by mode controllers.
 		const dirs = makeDirs("pre-init");
 		// No constructor handler — verifies the default case still defers properly.
-		const authStorage = await createAuthStorage(path.join(dirs.agentDir, "agent.db"));
+		const authStorage = await AuthStorage.create(path.join(dirs.agentDir, "agent.db"));
 		const ext = makeRecordingExtension();
 
 		const { session } = await createAgentSession(baseOptions(dirs, authStorage, [ext.factory]));
@@ -343,7 +339,7 @@ describe("createAgentSession credential_disabled subscription", () => {
 		// and the extension runner (deferred until initialize).
 		const dirs = makeDirs("embedder-and-extension");
 		const embedderEvents: CredentialDisabledEvent[] = [];
-		const authStorage = await createAuthStorage(path.join(dirs.agentDir, "agent.db"), {
+		const authStorage = await AuthStorage.create(path.join(dirs.agentDir, "agent.db"), {
 			onCredentialDisabled: event => {
 				embedderEvents.push(event);
 			},
@@ -383,7 +379,7 @@ describe("createAgentSession credential_disabled subscription", () => {
 	it("releases the session subscription if createAgentSession throws mid-startup", async () => {
 		const dirs = makeDirs("startup-failure");
 		const embedderEvents: CredentialDisabledEvent[] = [];
-		const authStorage = await createAuthStorage(path.join(dirs.agentDir, "agent.db"), {
+		const authStorage = await AuthStorage.create(path.join(dirs.agentDir, "agent.db"), {
 			onCredentialDisabled: event => {
 				embedderEvents.push(event);
 			},
@@ -417,7 +413,7 @@ describe("createAgentSession credential_disabled subscription", () => {
 	it("subscribes through the registry's auth storage when only options.modelRegistry is provided", async () => {
 		const dirs = makeDirs("registry-only");
 		const embedderEvents: CredentialDisabledEvent[] = [];
-		const authStorage = await createAuthStorage(path.join(dirs.agentDir, "agent.db"), {
+		const authStorage = await AuthStorage.create(path.join(dirs.agentDir, "agent.db"), {
 			onCredentialDisabled: event => {
 				embedderEvents.push(event);
 			},
@@ -462,8 +458,8 @@ describe("createAgentSession credential_disabled subscription", () => {
 
 	it("rejects when options.authStorage and options.modelRegistry.authStorage are different instances", async () => {
 		const dirs = makeDirs("mismatch");
-		const registryStorage = await createAuthStorage(path.join(dirs.agentDir, "agent-registry.db"));
-		const otherStorage = await createAuthStorage(path.join(dirs.agentDir, "agent-other.db"));
+		const registryStorage = await AuthStorage.create(path.join(dirs.agentDir, "agent-registry.db"));
+		const otherStorage = await AuthStorage.create(path.join(dirs.agentDir, "agent-other.db"));
 		const modelRegistry = new ModelRegistry(registryStorage, path.join(dirs.agentDir, "models-registry.json"));
 
 		await expect(
@@ -492,7 +488,7 @@ describe("createAgentSession credential_disabled subscription", () => {
 		// Handler exceptions were therefore silently dropped. The flush is now deferred
 		// by one microtask so a sync onError() registration lands in time.
 		const dirs = makeDirs("error-routing");
-		const authStorage = await createAuthStorage(path.join(dirs.agentDir, "agent.db"));
+		const authStorage = await AuthStorage.create(path.join(dirs.agentDir, "agent.db"));
 		const modelRegistry = new ModelRegistry(authStorage, path.join(dirs.agentDir, "models.json"));
 		try {
 			const throwingExtension: Extension = {
@@ -510,7 +506,10 @@ describe("createAgentSession credential_disabled subscription", () => {
 				]),
 				tools: new Map(),
 				assistantThinkingRenderers: [],
+				fileWriteFallbackHandlers: [],
+				fileDeleteFallbackHandlers: [],
 				messageRenderers: new Map(),
+				composerShapes: new Map(),
 				commands: new Map(),
 				flags: new Map(),
 				shortcuts: new Map(),

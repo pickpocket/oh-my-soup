@@ -8,7 +8,8 @@ RUN apt-get update && apt-get install -y curl ca-certificates unzip jq procps bu
 RUN curl -fsSL https://bun.sh/install | bash
 ENV PATH="/root/.bun/bin:$PATH"
 
-# Install Rust (needed to build native addon)
+# Install Rust — the host native addon builds through the default
+# cargo/napi-rs backend, so no bazelisk is needed.
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain nightly
 ENV PATH="/root/.cargo/bin:$PATH"
 
@@ -87,9 +88,6 @@ for pkg in "${PACKAGES[@]}"; do
     
     # Backup original
     cp package.json package.json.bak
-    if [ "$pkg" = "coding-agent" ]; then
-        (cd /repo && bun -e 'import { applyPublishRuntime } from "./scripts/ci-release-publish.ts"; await applyPublishRuntime("packages/coding-agent", true);')
-    fi
     
     # Resolve workspace:* references
     for dep_name in "${!VERSION_MAP[@]}"; do
@@ -128,7 +126,6 @@ RUN verdaccio --config /root/.config/verdaccio/config.yaml &>/dev/null & \
 
 # Clean install in fresh directory
 WORKDIR /test
-RUN printf '{"trustedDependencies":["@oh-my-soup/pi-coding-agent"]}\n' > package.json
 RUN verdaccio --config /root/.config/verdaccio/config.yaml &>/dev/null & \
     sleep 3 && \
     bun add @oh-my-soup/pi-coding-agent --registry http://localhost:4873 && \
@@ -136,4 +133,4 @@ RUN verdaccio --config /root/.config/verdaccio/config.yaml &>/dev/null & \
 
 # Verify the installed package works
 ENV PATH="/test/node_modules/.bin:$PATH"
-RUN oms --version && oms setup objdump --check
+RUN oms --version

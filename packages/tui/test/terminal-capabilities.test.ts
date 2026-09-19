@@ -1,182 +1,69 @@
 import { describe, expect, it } from "bun:test";
-import * as fs from "node:fs/promises";
-import * as os from "node:os";
-import * as path from "node:path";
-import { pathToFileURL } from "node:url";
 import {
+	detectStyledUnderlineSupport,
 	detectTerminalId,
 	getTerminalInfo,
 	hyperlinksUserOverride,
 	ImageProtocol,
+	isPaseoEmbedder,
 	NotifyProtocol,
+	resolveImageProtocol,
 	resolveWarpImageProtocol,
 	shouldEnableHyperlinksByDefault,
 	shouldEnableSynchronizedOutputByDefault,
 	synchronizedOutputUserOverride,
+	isInsideHerdr,
+	isInsideTerminalMultiplexer,
 } from "@oh-my-soup/pi-tui/terminal-capabilities";
 
-interface ImageCapabilityResult {
-	id: string;
-	imageProtocol: string | null;
-	forced: boolean;
-	rendered: string;
-}
-
-async function renderTerminalImage(overrides: NodeJS.ProcessEnv): Promise<ImageCapabilityResult> {
-	const env: NodeJS.ProcessEnv = { ...Bun.env };
-	const controlledEnvKeys = [
-		"PI_FORCE_IMAGE_PROTOCOL",
-		"PI_KITTY_PLACEHOLDERS",
-		"PI_NO_KITTY_PLACEHOLDERS",
-		"TERM",
-		"TERM_PROGRAM",
-		"COLORTERM",
-		"TMUX",
-		"STY",
-		"SSH_CONNECTION",
-		"SSH_CLIENT",
-		"SSH_TTY",
-		"WSL_DISTRO_NAME",
-		"WSL_INTEROP",
-		"KITTY_WINDOW_ID",
-		"GHOSTTY_RESOURCES_DIR",
-		"WEZTERM_PANE",
-		"ITERM_SESSION_ID",
-		"VSCODE_PID",
-		"ALACRITTY_WINDOW_ID",
-	];
-	for (const key of controlledEnvKeys) {
-		delete env[key];
-	}
-	Object.assign(env, overrides);
-
-	const directory = await fs.mkdtemp(path.join(os.tmpdir(), "tui-image-capability-"));
-	try {
-		// Set TTY state before static imports initialize TERMINAL. Piped stdout
-		// alone would hide the old screen/tmux fallback and miss the regression.
-		const preload = path.join(directory, "tty.ts");
-		// Clear capability markers after the env loader runs, too: a developer's
-		// .env must not silently restore a protocol or terminal identity.
-		const envModule = pathToFileURL(Bun.resolveSync("@oh-my-soup/pi-utils/env", import.meta.dir)).href;
-		await Bun.write(
-			preload,
-			`import ${JSON.stringify(envModule)};
-Object.defineProperty(process.stdout, "isTTY", { value: true });
-for (const key of ${JSON.stringify(controlledEnvKeys)}) delete Bun.env[key];
-Object.assign(Bun.env, ${JSON.stringify(overrides)});
-`,
-		);
-		const proc = Bun.spawn({
-			cmd: [
-				process.execPath,
-				"--preload",
-				preload,
-				"--eval",
-				`import { Image } from "@oh-my-soup/pi-tui/components/image";
-import { isImageProtocolForced, TERMINAL, TERMINAL_ID } from "@oh-my-soup/pi-tui/terminal-capabilities";
-const image = new Image(
-	"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAAAAAA6fptVAAAACklEQVR4nGNgAAAAAgABSK+kcQAAAABJRU5ErkJggg==",
-	"image/png",
-	{ fallbackColor: text => text },
-	{ maxWidthCells: 10, maxHeightCells: 2 },
-	{ widthPx: 100, heightPx: 100 },
-);
-console.log(JSON.stringify({
-	id: TERMINAL_ID,
-	imageProtocol: TERMINAL.imageProtocol,
-	forced: isImageProtocolForced(),
-	rendered: image.render(20).join(""),
-}));`,
-			],
-			env,
-			stdout: "pipe",
-			stderr: "pipe",
-		});
-		const [stdout, stderr, exitCode] = await Promise.all([
-			new Response(proc.stdout).text(),
-			new Response(proc.stderr).text(),
-			proc.exited,
-		]);
-		expect(stderr).toBe("");
-		expect(exitCode).toBe(0);
-		return JSON.parse(stdout) as ImageCapabilityResult;
-	} finally {
-		await fs.rm(directory, { recursive: true, force: true });
-	}
-}
-
-describe("terminal image protocol selection", () => {
-	it.each([
-		{ TERM: "screen-256color" },
-		{ TERM: "tmux-256color", TMUX: "/tmp/tmux-1000/default,1,0", COLORTERM: "truecolor" },
-		{ TERM: "xterm-256color" },
-	])("renders text without graphics escapes for an unknown SSH terminal: %j", async terminalEnv => {
-		const result = await renderTerminalImage({ ...terminalEnv, SSH_CONNECTION: "192.0.2.1 50000 192.0.2.2 22" });
-
-		expect(result.imageProtocol).toBeNull();
-		expect(result.forced).toBe(false);
-		expect(result.rendered).toContain("[Image:");
-		expect(result.rendered).not.toContain("\x1b");
+describe("isInsideHerdr", () => {
+	it("is true for HERDR_ENV=1", () => {
+		expect(isInsideHerdr({ HERDR_ENV: "1" })).toBe(true);
 	});
 
-	it.each([
-		{ env: { KITTY_WINDOW_ID: "1" }, id: "kitty", protocol: ImageProtocol.Kitty },
-		{ env: { TERM: "xterm-ghostty" }, id: "ghostty", protocol: ImageProtocol.Kitty },
-		{ env: { TERM_PROGRAM: "WezTerm" }, id: "wezterm", protocol: ImageProtocol.Kitty },
-		{ env: { ITERM_SESSION_ID: "session" }, id: "iterm2", protocol: ImageProtocol.Iterm2 },
-	])("preserves advertised image support over SSH: $id", async ({ env, id, protocol }) => {
-		const result = await renderTerminalImage({ ...env, SSH_TTY: "/dev/pts/3" });
-
-		expect(result.id).toBe(id);
-		expect(result.imageProtocol).toBe(protocol);
-		expect(result.rendered).toContain(protocol);
-		expect(result.rendered).not.toContain("[Image:");
+	it("is true for each pane identity var", () => {
+		expect(isInsideHerdr({ HERDR_PANE_ID: "abc" })).toBe(true);
+		expect(isInsideHerdr({ HERDR_TAB_ID: "t1" })).toBe(true);
+		expect(isInsideHerdr({ HERDR_WORKSPACE_ID: "w1" })).toBe(true);
 	});
 
-	it("preserves known outer-terminal evidence through a multiplexer", async () => {
-		const result = await renderTerminalImage({
-			TERM: "screen-256color",
-			TMUX: "/tmp/tmux-1000/default,1,0",
-			KITTY_WINDOW_ID: "1",
-			SSH_TTY: "/dev/pts/3",
-		});
-
-		expect(result.imageProtocol).toBe(ImageProtocol.Kitty);
-		expect(result.rendered).toContain(ImageProtocol.Kitty);
+	it("is false for empty identity vars", () => {
+		expect(isInsideHerdr({ HERDR_PANE_ID: "" })).toBe(false);
+		expect(isInsideHerdr({ HERDR_TAB_ID: "" })).toBe(false);
+		expect(isInsideHerdr({ HERDR_WORKSPACE_ID: "" })).toBe(false);
 	});
 
-	it.each([
-		{ override: "kitty", protocol: ImageProtocol.Kitty, prefix: ImageProtocol.Kitty },
-		{ override: "iterm2", protocol: ImageProtocol.Iterm2, prefix: ImageProtocol.Iterm2 },
-		{ override: "sixel", protocol: ImageProtocol.Sixel, prefix: "\x1bP" },
-	])(
-		"honors an explicit protocol on an unknown SSH multiplexer: $override",
-		async ({ override, protocol, prefix }) => {
-			const result = await renderTerminalImage({
-				TERM: "tmux-256color",
-				TMUX: "/tmp/tmux-1000/default,1,0",
-				SSH_TTY: "/dev/pts/3",
-				PI_FORCE_IMAGE_PROTOCOL: override,
-			});
+	it("is false for client-only Herdr vars", () => {
+		expect(isInsideHerdr({ HERDR_SOCKET_PATH: "/tmp/x" })).toBe(false);
+		expect(isInsideHerdr({ HERDR_BIN_PATH: "/usr/bin/herdr" })).toBe(false);
+		expect(isInsideHerdr({ HERDR_SESSION: "s1" })).toBe(false);
+		expect(isInsideHerdr({ HERDR_CONFIG_PATH: "/tmp/herdr.toml" })).toBe(false);
+		expect(isInsideHerdr({ HERDR_CLIENT_SOCKET_PATH: "/tmp/client.sock" })).toBe(false);
+	});
 
-			expect(result.forced).toBe(true);
-			expect(result.imageProtocol).toBe(protocol);
-			expect(result.rendered).toContain(prefix);
-			expect(result.rendered).not.toContain("[Image:");
-		},
-	);
+	it("is false for HERDR_ENV=0", () => {
+		expect(isInsideHerdr({ HERDR_ENV: "0" })).toBe(false);
+	});
+});
 
-	it("keeps graphics off when explicitly disabled on a supported SSH terminal", async () => {
-		const result = await renderTerminalImage({
-			KITTY_WINDOW_ID: "1",
-			SSH_TTY: "/dev/pts/3",
-			PI_FORCE_IMAGE_PROTOCOL: "off",
-		});
+describe("isInsideTerminalMultiplexer", () => {
+	it("is true for HERDR_PANE_ID without HERDR_ENV", () => {
+		expect(isInsideTerminalMultiplexer({ HERDR_PANE_ID: "p1" })).toBe(true);
+	});
 
-		expect(result.forced).toBe(true);
-		expect(result.imageProtocol).toBeNull();
-		expect(result.rendered).toContain("[Image:");
-		expect(result.rendered).not.toContain("\x1b");
+	it("is true for a wmux pane (WMUX=1 and native WMUX_SURFACE_ID)", () => {
+		expect(isInsideTerminalMultiplexer({ WMUX: "1" })).toBe(true);
+		expect(isInsideTerminalMultiplexer({ WMUX_SURFACE_ID: "3f2a" })).toBe(true);
+	});
+
+	it("is false for WMUX=0 or an empty surface id", () => {
+		expect(isInsideTerminalMultiplexer({ WMUX: "0" })).toBe(false);
+		expect(isInsideTerminalMultiplexer({ WMUX_SURFACE_ID: "" })).toBe(false);
+	});
+
+	it("is false for client-only wmux CLI vars", () => {
+		expect(isInsideTerminalMultiplexer({ WMUX_CLI: "C:/wmux/wmux.exe" })).toBe(false);
+		expect(isInsideTerminalMultiplexer({ WMUX_PIPE: "\\\\.\\pipe\\wmux" })).toBe(false);
 	});
 });
 
@@ -221,12 +108,20 @@ describe("shouldEnableSynchronizedOutputByDefault", () => {
 		}
 	});
 
-	it("enables sync in Windows Terminal / WSL via WT_SESSION regardless of terminal id", () => {
+	it("enables sync only when WT_SESSION does not contradict the terminal identity", () => {
 		expect(shouldEnableSynchronizedOutputByDefault({ WT_SESSION: "abc" }, "trueColor")).toBe(true);
-		// WSL shape: Linux + WT_SESSION + COLORTERM=truecolor collapses to trueColor id.
-		expect(shouldEnableSynchronizedOutputByDefault({ WT_SESSION: "abc", COLORTERM: "truecolor" }, "trueColor")).toBe(
-			true,
-		);
+		expect(
+			shouldEnableSynchronizedOutputByDefault(
+				{ WT_SESSION: "abc", TERM_PROGRAM: "Windows_Terminal", COLORTERM: "truecolor" },
+				"trueColor",
+			),
+		).toBe(true);
+		expect(
+			shouldEnableSynchronizedOutputByDefault(
+				{ WT_SESSION: "0", TERM_PROGRAM: "Tabby", COLORTERM: "truecolor" },
+				"trueColor",
+			),
+		).toBe(false);
 	});
 
 	it("enables sync when TERM_FEATURES advertises the Sy capability, even through SSH/mux", () => {
@@ -253,6 +148,27 @@ describe("shouldEnableSynchronizedOutputByDefault", () => {
 		expect(shouldEnableSynchronizedOutputByDefault({ CMUX_WORKSPACE_ID: "workspace" }, "wezterm")).toBe(false);
 		expect(shouldEnableSynchronizedOutputByDefault({ TERM: "tmux-256color" }, "iterm2")).toBe(false);
 		expect(shouldEnableSynchronizedOutputByDefault({ TERM: "screen-256color" }, "kitty")).toBe(false);
+	});
+
+	it("enables sync inside Herdr even when a Kitty/Ghostty identity leaks", () => {
+		expect(shouldEnableSynchronizedOutputByDefault({ HERDR_ENV: "1" }, "kitty")).toBe(true);
+		expect(shouldEnableSynchronizedOutputByDefault({ HERDR_ENV: "1" }, "ghostty")).toBe(true);
+		expect(shouldEnableSynchronizedOutputByDefault({ HERDR_ENV: "1" }, "trueColor")).toBe(true);
+		expect(shouldEnableSynchronizedOutputByDefault({ HERDR_ENV: "1" }, "base")).toBe(true);
+		expect(shouldEnableSynchronizedOutputByDefault({ HERDR_PANE_ID: "p1" }, "kitty")).toBe(true);
+		expect(shouldEnableSynchronizedOutputByDefault({ HERDR_PANE_ID: "p1" }, "ghostty")).toBe(true);
+		expect(shouldEnableSynchronizedOutputByDefault({ HERDR_PANE_ID: "p1", TMUX: "1" }, "kitty")).toBe(true);
+	});
+
+	it("does not treat client-only Herdr vars as inside a pane", () => {
+		expect(shouldEnableSynchronizedOutputByDefault({ HERDR_SOCKET_PATH: "/tmp/x", TMUX: "1" }, "kitty")).toBe(false);
+	});
+
+	it("still lets a user opt-out inside Herdr", () => {
+		expect(shouldEnableSynchronizedOutputByDefault({ HERDR_ENV: "1", PI_NO_SYNC_OUTPUT: "1" }, "ghostty")).toBe(
+			false,
+		);
+		expect(shouldEnableSynchronizedOutputByDefault({ HERDR_ENV: "1", PI_TUI_SYNC_OUTPUT: "0" }, "kitty")).toBe(false);
 	});
 
 	it("keeps known-unsupported and unknown profiles off", () => {
@@ -288,13 +204,37 @@ describe("Warp terminal capabilities", () => {
 	});
 
 	it("resolves the process-wide Warp terminal id and image protocol from TERM_PROGRAM", async () => {
-		const resolved = await renderTerminalImage({
+		const env = subprocessEnv({
 			TERM_PROGRAM: "WarpTerminal",
 			COLORTERM: "truecolor",
 		});
+		for (const key of ["WSL_DISTRO_NAME", "WSL_INTEROP"]) {
+			delete env[key];
+		}
+
+		const proc = Bun.spawn({
+			cmd: [
+				process.execPath,
+				"--eval",
+				`import { ImageProtocol, TERMINAL, TERMINAL_ID } from "@oh-my-soup/pi-tui/terminal-capabilities";
+console.log(JSON.stringify({ id: TERMINAL_ID, imageProtocol: TERMINAL.imageProtocol, expected: ImageProtocol.Kitty }));`,
+			],
+			env,
+			stdout: "pipe",
+			stderr: "pipe",
+		});
+		const [stdout, stderr, exitCode] = await Promise.all([
+			new Response(proc.stdout).text(),
+			new Response(proc.stderr).text(),
+			proc.exited,
+		]);
+
+		expect(stderr).toBe("");
+		expect(exitCode).toBe(0);
+		const resolved = JSON.parse(stdout) as { id: string; imageProtocol: string | null; expected: string };
 		expect(resolved.id).toBe("warp");
 		// Warp for Windows lacks Kitty graphics support.
-		expect(resolved.imageProtocol).toBe(process.platform === "win32" ? null : ImageProtocol.Kitty);
+		expect(resolved.imageProtocol).toBe(process.platform === "win32" ? null : resolved.expected);
 	});
 
 	it("is Kitty-capable with true color but no OSC 8 hyperlinks", () => {
@@ -307,7 +247,7 @@ describe("Warp terminal capabilities", () => {
 		expect(warp.trueColor).toBe(true);
 		expect(warp.hyperlinks).toBe(false);
 		expect(warp.notifyProtocol).toBe(NotifyProtocol.Osc9);
-		expect(warp.textSizing).toBe(false);
+		expect(warp.supportsTextSizing).toBe(false);
 	});
 
 	it("uses Kitty images on macOS/Linux and disables them on Windows", () => {
@@ -324,7 +264,7 @@ describe("Warp terminal capabilities", () => {
 		expect(linux.trueColor).toBe(true);
 		expect(linux.hyperlinks).toBe(false);
 		expect(linux.deccara).toBe(false);
-		expect(linux.textSizing).toBe(false);
+		expect(linux.supportsTextSizing).toBe(false);
 	});
 
 	it("treats WSL as the Windows host so Kitty APC garbage never reaches Warp for Windows", () => {
@@ -343,6 +283,133 @@ describe("Warp terminal capabilities", () => {
 		expect(shouldEnableSynchronizedOutputByDefault({}, "warp")).toBe(false);
 		expect(shouldEnableHyperlinksByDefault({}, "warp")).toBe(false);
 		expect(shouldEnableHyperlinksByDefault({ PI_FORCE_HYPERLINKS: "1" }, "warp")).toBe(true);
+	});
+});
+
+/**
+ * Build a child-process env for the TERMINAL resolution subprocesses: inherits
+ * the runner's environment, strips every terminal-identification marker and
+ * image-protocol pin, then applies the caller's overrides. Keeps the suite
+ * independent of which terminal it runs inside (full-suite safe).
+ */
+function subprocessEnv(overrides: Record<string, string | undefined>): Record<string, string | undefined> {
+	const env: Record<string, string | undefined> = { ...Bun.env };
+	for (const key of [
+		"PI_FORCE_IMAGE_PROTOCOL",
+		"PASEO_TERMINAL_ID",
+		"KITTY_WINDOW_ID",
+		"GHOSTTY_RESOURCES_DIR",
+		"HERDR_ENV",
+		"HERDR_PANE_ID",
+		"HERDR_TAB_ID",
+		"HERDR_WORKSPACE_ID",
+		"WEZTERM_PANE",
+		"ITERM_SESSION_ID",
+		"VSCODE_PID",
+		"ALACRITTY_WINDOW_ID",
+	]) {
+		delete env[key];
+	}
+	return { ...env, ...overrides };
+}
+
+describe("Herdr image protocol mask", () => {
+	it("rejects a leaked Ghostty protocol when Herdr owns the pane grid", () => {
+		const env = {
+			COLORTERM: "truecolor",
+			GHOSTTY_RESOURCES_DIR: "/usr/share/ghostty",
+			HERDR_ENV: "1",
+			TERM: "xterm-256color",
+			TERM_PROGRAM: "ghostty",
+		};
+		const terminalId = detectTerminalId(env);
+
+		expect(terminalId).toBe("ghostty");
+		expect(resolveImageProtocol(terminalId, env, true)).toBeNull();
+	});
+
+	it("rejects a leaked Ghostty protocol when HERDR_PANE_ID is set without HERDR_ENV", () => {
+		const env = {
+			COLORTERM: "truecolor",
+			GHOSTTY_RESOURCES_DIR: "/usr/share/ghostty",
+			HERDR_PANE_ID: "p1",
+			TERM: "xterm-256color",
+			TERM_PROGRAM: "ghostty",
+		};
+		const terminalId = detectTerminalId(env);
+
+		expect(terminalId).toBe("ghostty");
+		expect(resolveImageProtocol(terminalId, env, true)).toBeNull();
+	});
+});
+
+describe("Paseo embedder carve-out", () => {
+	it("detects Paseo via PASEO_TERMINAL_ID", () => {
+		expect(isPaseoEmbedder({})).toBe(false);
+		expect(isPaseoEmbedder({ PASEO_TERMINAL_ID: "term-1" })).toBe(true);
+	});
+
+	it("keeps graphics disabled for a base terminal inside and outside Paseo", () => {
+		// An unrecognized mux TERM is not graphics evidence. Paseo remains an
+		// explicit carve-out, but generic tmux/screen shells are equally safe.
+		expect(resolveImageProtocol("base", { TERM: "tmux-256color", PASEO_TERMINAL_ID: "term-1" }, true)).toBeNull();
+		expect(resolveImageProtocol("base", { TERM: "tmux-256color" }, true)).toBeNull();
+	});
+
+	it("drops Kitty graphics when Paseo hosts the terminal", async () => {
+		const env = subprocessEnv({ TERM_PROGRAM: "kitty", PASEO_TERMINAL_ID: "term-1" });
+
+		const proc = Bun.spawn({
+			cmd: [
+				process.execPath,
+				"--eval",
+				`import { ImageProtocol, TERMINAL, TERMINAL_ID } from "@oh-my-soup/pi-tui/terminal-capabilities";
+console.log(JSON.stringify({ id: TERMINAL_ID, imageProtocol: TERMINAL.imageProtocol, expected: ImageProtocol.Kitty }));`,
+			],
+			env,
+			stdout: "pipe",
+			stderr: "pipe",
+		});
+		const [stdout, stderr, exitCode] = await Promise.all([
+			new Response(proc.stdout).text(),
+			new Response(proc.stderr).text(),
+			proc.exited,
+		]);
+
+		expect(stderr).toBe("");
+		expect(exitCode).toBe(0);
+		const resolved = JSON.parse(stdout) as { id: string; imageProtocol: string | null };
+		expect(resolved.id).toBe("kitty");
+		// Paseo's xterm.js renderer implements neither Kitty graphics nor
+		// Unicode placeholders (getpaseo/paseo#3850).
+		expect(resolved.imageProtocol).toBeNull();
+	});
+
+	it("keeps Kitty graphics for a real kitty without PASEO_TERMINAL_ID", async () => {
+		const env = subprocessEnv({ TERM_PROGRAM: "kitty" });
+
+		const proc = Bun.spawn({
+			cmd: [
+				process.execPath,
+				"--eval",
+				`import { ImageProtocol, TERMINAL, TERMINAL_ID } from "@oh-my-soup/pi-tui/terminal-capabilities";
+console.log(JSON.stringify({ id: TERMINAL_ID, imageProtocol: TERMINAL.imageProtocol, expected: ImageProtocol.Kitty }));`,
+			],
+			env,
+			stdout: "pipe",
+			stderr: "pipe",
+		});
+		const [stdout, stderr, exitCode] = await Promise.all([
+			new Response(proc.stdout).text(),
+			new Response(proc.stderr).text(),
+			proc.exited,
+		]);
+
+		expect(stderr).toBe("");
+		expect(exitCode).toBe(0);
+		const resolved = JSON.parse(stdout) as { id: string; imageProtocol: string | null; expected: string };
+		expect(resolved.id).toBe("kitty");
+		expect(resolved.imageProtocol).toBe(resolved.expected);
 	});
 });
 
@@ -508,5 +575,41 @@ describe("shouldEnableHyperlinksByDefault", () => {
 		expect(shouldEnableHyperlinksByDefault({ PI_FORCE_HYPERLINKS: "1" }, "base")).toBe(true);
 		expect(shouldEnableHyperlinksByDefault({ PI_FORCE_HYPERLINKS: "1", TMUX: "1" }, "wezterm")).toBe(true);
 		expect(shouldEnableHyperlinksByDefault({ PI_FORCE_HYPERLINKS: "1", STY: "1.pts-0" }, "kitty")).toBe(true);
+	});
+});
+
+describe("detectStyledUnderlineSupport", () => {
+	it("enables the colon form only on terminals that implement styled underlines", () => {
+		expect(detectStyledUnderlineSupport("kitty", {})).toBe(true);
+		expect(detectStyledUnderlineSupport("ghostty", {})).toBe(true);
+		expect(detectStyledUnderlineSupport("wezterm", {})).toBe(true);
+		expect(detectStyledUnderlineSupport("iterm2", { TERM_PROGRAM_VERSION: "3.5.0" })).toBe(true);
+	});
+
+	it("keeps Apple Terminal and other unproven hosts on the flat underline", () => {
+		// Apple Terminal advertises no id marker and resolves to `base`, where the
+		// colon-form reset paints a black bar — so base and every fallback stay off.
+		expect(detectTerminalId({ TERM_PROGRAM: "Apple_Terminal" })).toBe("base");
+		expect(detectStyledUnderlineSupport("base")).toBe(false);
+		expect(detectStyledUnderlineSupport("trueColor")).toBe(false);
+		expect(detectStyledUnderlineSupport("vscode")).toBe(false);
+		expect(detectStyledUnderlineSupport("alacritty")).toBe(false);
+		expect(detectStyledUnderlineSupport("warp")).toBe(false);
+		expect(detectStyledUnderlineSupport("orca")).toBe(false);
+	});
+
+	it("enables iTerm2 only on a confirmed version >= 3.5, else flat fallback", () => {
+		expect(detectStyledUnderlineSupport("iterm2", { TERM_PROGRAM_VERSION: "2.1.4" })).toBe(false);
+		expect(detectStyledUnderlineSupport("iterm2", { TERM_PROGRAM_VERSION: "3.4.0" })).toBe(false);
+		expect(detectStyledUnderlineSupport("iterm2", { TERM_PROGRAM_VERSION: "3.5.0" })).toBe(true);
+		expect(detectStyledUnderlineSupport("iterm2", { TERM_PROGRAM_VERSION: "4.0.0" })).toBe(true);
+		expect(detectStyledUnderlineSupport("iterm2", {})).toBe(false);
+	});
+
+	it("disables the colon form under a multiplexer even when a proven terminal id leaks through", () => {
+		expect(detectStyledUnderlineSupport("kitty", { TMUX: "/tmp/tmux-1000/default,1,0" })).toBe(false);
+		expect(detectStyledUnderlineSupport("ghostty", { STY: "1234.pts-0.host" })).toBe(false);
+		expect(detectStyledUnderlineSupport("wezterm", { TERM: "screen-256color" })).toBe(false);
+		expect(detectStyledUnderlineSupport("iterm2", { TERM_PROGRAM_VERSION: "3.5.0", ZELLIJ: "0" })).toBe(false);
 	});
 });

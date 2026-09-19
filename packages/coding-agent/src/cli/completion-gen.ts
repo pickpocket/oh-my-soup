@@ -69,7 +69,7 @@ const MODEL_FLAGS: Record<string, true> = { model: true, smol: true, slow: true,
 /** Single-value flags resolved against on-disk sessions. */
 const SESSION_FLAGS: Record<string, true> = { resume: true, fork: true, session: true };
 /** Flags whose value is a directory path. */
-const DIR_FLAGS: Record<string, true> = { "session-dir": true, "plugin-dir": true, history: true, stream: true };
+const DIR_FLAGS: Record<string, true> = { "session-dir": true, "plugin-dir": true };
 
 function flagValue(name: string, desc: FlagDescriptor): ValueSource {
 	if (desc.kind === "boolean") return { kind: "flag" };
@@ -374,7 +374,11 @@ function generateZsh(spec: CompletionSpec): string {
 
 	// Dynamic helpers (single source: `<bin> __complete <kind>` → value<TAB>desc).
 	parts.push(`_oms_call() {
-	local kind=$1
+	# zsh's _arguments invokes an action function with the compadd options it
+	# computed prepended ($subopts, then $expl — _arguments:465), so $1 is
+	# "-J" in a stock setup and the kind arrives last. Read it from the end:
+	# the prepended options can be either flags or option/value pairs.
+	local kind=\${argv[-1]}
 	local -a items
 	local line
 	for line in "\${(@f)$(command ${bin} __complete $kind -- "$PREFIX" 2>/dev/null)}"; do

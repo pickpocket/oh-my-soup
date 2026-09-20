@@ -3,7 +3,10 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
 import { resetSettingsForTest, Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
-import { ExtensionRuntime, loadExtensionFromFactory } from "@oh-my-soup/pi-coding-agent/extensibility/extensions/loader";
+import {
+	ExtensionRuntime,
+	loadExtensionFromFactory,
+} from "@oh-my-soup/pi-coding-agent/extensibility/extensions/loader";
 import { ExtensionRunner } from "@oh-my-soup/pi-coding-agent/extensibility/extensions/runner";
 import { ExtensionToolWrapper, wrapRegisteredTool } from "@oh-my-soup/pi-coding-agent/extensibility/extensions/wrapper";
 import { SettingsManager } from "@oh-my-soup/pi-coding-agent/extensibility/legacy-pi-coding-agent-shim";

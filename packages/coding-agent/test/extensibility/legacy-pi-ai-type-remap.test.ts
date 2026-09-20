@@ -191,7 +191,10 @@ describe("legacy pi package root remaps (issue #1474)", () => {
 	it("loads @earendil-works/pi-coding-agent root imports when host package resolution is unavailable", async () => {
 		const realResolveSync = Bun.resolveSync.bind(Bun);
 		vi.spyOn(Bun, "resolveSync").mockImplementation((specifier: string, from: string) => {
-			if (specifier === "@oh-my-soup/pi-coding-agent" && from.endsWith(path.join("src", "extensibility", "plugins"))) {
+			if (
+				specifier === "@oh-my-soup/pi-coding-agent" &&
+				from.endsWith(path.join("src", "extensibility", "plugins"))
+			) {
 				throw new Error("compiled binary host package resolution unavailable");
 			}
 			return realResolveSync(specifier, from);

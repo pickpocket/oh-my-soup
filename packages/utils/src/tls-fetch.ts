@@ -162,4 +162,3 @@ export function wrapFetchForExtraCa(fetchImpl: FetchImpl): FetchImpl {
 	);
 	return wrapped;
 }
-

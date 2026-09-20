@@ -16,7 +16,6 @@
 import type { Context, Model, UserMessage } from "@oh-my-soup/pi-ai";
 export type SystemPromptPlacementSetting = "auto" | "system" | "first-turn";
 
-
 export type SystemPromptPlacementModel = {
 	/**
 	 * Explicit model capability retained by catalog entries and custom model
@@ -30,7 +29,6 @@ export type SystemPromptPlacementModel = {
 	 */
 	compat?: unknown;
 };
-
 
 /**
  * Deterministic timestamp keeps the synthetic turn byte-stable across

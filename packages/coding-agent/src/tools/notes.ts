@@ -12,7 +12,14 @@ import {
 	IMPORTANT_NOTES_MAX_CHARS,
 	type ImportantNote,
 } from "../session/important-notes";
-import { createCachedComponent, formatExpandHint, PREVIEW_LIMITS, renderStatusLine, replaceTabs, truncateToWidth } from "@oh-my-soup/pi-tui/render";
+import {
+	createCachedComponent,
+	formatExpandHint,
+	PREVIEW_LIMITS,
+	renderStatusLine,
+	replaceTabs,
+	truncateToWidth,
+} from "@oh-my-soup/pi-tui/render";
 import type { ToolSession } from "./index";
 
 const notesSchema = type({

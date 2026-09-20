@@ -84,7 +84,9 @@ async function navigateBrowserPage(
 		);
 		if (options.afterNavigation) await options.afterNavigation(page, signal);
 		if (ready) {
-			await untilAborted(signal, () => page.waitForSelector(ready.selector, { timeout: ready.timeoutMs }).catch(() => null));
+			await untilAborted(signal, () =>
+				page.waitForSelector(ready.selector, { timeout: ready.timeoutMs }).catch(() => null),
+			);
 		}
 		const loaded = {
 			html: await untilAborted(signal, () => page.content()),

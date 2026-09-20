@@ -2,7 +2,10 @@ import { describe, expect, test } from "bun:test";
 import type { UsageProvider, UsageReport } from "@oh-my-soup/pi-ai";
 import { unregisterOAuthProvider } from "@oh-my-soup/pi-ai/oauth";
 import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
-import { ExtensionRuntime, loadExtensionFromFactory } from "@oh-my-soup/pi-coding-agent/extensibility/extensions/loader";
+import {
+	ExtensionRuntime,
+	loadExtensionFromFactory,
+} from "@oh-my-soup/pi-coding-agent/extensibility/extensions/loader";
 import { ExtensionRunner } from "@oh-my-soup/pi-coding-agent/extensibility/extensions/runner";
 import type { ProviderConfig } from "@oh-my-soup/pi-coding-agent/extensibility/extensions/types";
 import { AuthStorage } from "@oh-my-soup/pi-coding-agent/session/auth-storage";

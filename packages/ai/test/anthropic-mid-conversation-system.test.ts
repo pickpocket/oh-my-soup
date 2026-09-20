@@ -1,6 +1,13 @@
 import { describe, expect, it } from "bun:test";
 import { convertAnthropicMessages } from "@oh-my-soup/pi-ai/providers/anthropic";
-import type { AssistantMessage, DeveloperMessage, Message, Model, ModelSpec, UserMessage } from "@oh-my-soup/pi-ai/types";
+import type {
+	AssistantMessage,
+	DeveloperMessage,
+	Message,
+	Model,
+	ModelSpec,
+	UserMessage,
+} from "@oh-my-soup/pi-ai/types";
 import { buildModel } from "@oh-my-soup/pi-catalog/build";
 
 /**

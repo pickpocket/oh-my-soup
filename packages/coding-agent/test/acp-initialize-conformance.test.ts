@@ -11,7 +11,10 @@ import { type } from "@oh-my-soup/omstype";
 import type { Model } from "@oh-my-soup/pi-ai";
 import { buildModel } from "@oh-my-soup/pi-catalog/build";
 import { AcpAgent } from "@oh-my-soup/pi-coding-agent/modes/acp/acp-agent";
-import { ACP_TERMINAL_AUTH_FLAG, prepareAcpTerminalAuthArgs } from "@oh-my-soup/pi-coding-agent/modes/acp/terminal-auth";
+import {
+	ACP_TERMINAL_AUTH_FLAG,
+	prepareAcpTerminalAuthArgs,
+} from "@oh-my-soup/pi-coding-agent/modes/acp/terminal-auth";
 import type { AgentSession } from "@oh-my-soup/pi-coding-agent/session/agent-session";
 import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
 import { getConfigRootDir, setAgentDir, VERSION } from "@oh-my-soup/pi-utils";

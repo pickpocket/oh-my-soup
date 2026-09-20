@@ -6,7 +6,18 @@ import { logger, prompt, ptree, sanitizeText, TempDir } from "@oh-my-soup/pi-uti
 import type { Theme } from "@oh-my-soup/pi-tui/theme";
 import objdumpDescription from "../prompts/tools/objdump.md" with { type: "text" };
 import { OutputSink } from "@oh-my-soup/pi-tui/tools/streaming-output";
-import { CachedOutputBlock, formatExpandHint, formatStatusIcon, markFramedBlockComponent, PREVIEW_LIMITS, renderStatusLine, replaceTabs, shortenPath, TRUNCATE_LENGTHS, truncateToWidth } from "@oh-my-soup/pi-tui/render";
+import {
+	CachedOutputBlock,
+	formatExpandHint,
+	formatStatusIcon,
+	markFramedBlockComponent,
+	PREVIEW_LIMITS,
+	renderStatusLine,
+	replaceTabs,
+	shortenPath,
+	TRUNCATE_LENGTHS,
+	truncateToWidth,
+} from "@oh-my-soup/pi-tui/render";
 import { getToolPath } from "../utils/tools-manager";
 import type { ToolSession } from ".";
 import type { OutputMeta } from "@oh-my-soup/pi-tui/tools/output-meta";

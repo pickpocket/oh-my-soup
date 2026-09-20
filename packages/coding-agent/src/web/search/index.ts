@@ -242,7 +242,11 @@ async function executeSearch(
 					}
 
 					if (!hasRenderableSearchContent(finalResponse)) {
-						throw new SearchProviderError(provider.id, `${provider.label} returned no renderable search content.`, 204);
+						throw new SearchProviderError(
+							provider.id,
+							`${provider.label} returned no renderable search content.`,
+							204,
+						);
 					}
 
 					const text = formatForLLM(finalResponse, constraintNotes);

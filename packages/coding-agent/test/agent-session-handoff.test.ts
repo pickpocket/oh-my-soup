@@ -162,7 +162,6 @@ describe("AgentSession handoff", () => {
 		expect(session.agent.state.messages.some(message => message.role === "compactionSummary")).toBe(true);
 		expect(events.filter(event => event.type === "auto_compaction_start")).toHaveLength(0);
 		expect(events.filter(event => event.type === "auto_compaction_end")).toHaveLength(0);
-
 	});
 
 	it("preserves exact important notes through automatic in-place handoff and disk resume", async () => {

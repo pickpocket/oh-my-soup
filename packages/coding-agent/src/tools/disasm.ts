@@ -23,7 +23,17 @@ import {
 import type { Theme } from "@oh-my-soup/pi-tui/theme";
 import disasmDescription from "../prompts/tools/disasm.md" with { type: "text" };
 import { enforceInlineByteCap } from "@oh-my-soup/pi-tui/tools/streaming-output";
-import { CachedOutputBlock, formatExpandHint, formatStatusIcon, markFramedBlockComponent, PREVIEW_LIMITS, renderStatusLine, replaceTabs, TRUNCATE_LENGTHS, truncateToWidth } from "@oh-my-soup/pi-tui/render";
+import {
+	CachedOutputBlock,
+	formatExpandHint,
+	formatStatusIcon,
+	markFramedBlockComponent,
+	PREVIEW_LIMITS,
+	renderStatusLine,
+	replaceTabs,
+	TRUNCATE_LENGTHS,
+	truncateToWidth,
+} from "@oh-my-soup/pi-tui/render";
 import type { ToolSession } from ".";
 import { truncateForPrompt } from "./approval";
 import type { OutputMeta } from "@oh-my-soup/pi-tui/tools/output-meta";

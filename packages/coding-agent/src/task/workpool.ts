@@ -14,7 +14,12 @@ import {
 	reserveStructuredSubagentId,
 	runStructuredSubagent,
 } from "./structured-subagent";
-import { type AgentProgress, oneLineLabel, type SingleResult, type TaskToolDetails } from "@oh-my-soup/pi-tui/tools/task";
+import {
+	type AgentProgress,
+	oneLineLabel,
+	type SingleResult,
+	type TaskToolDetails,
+} from "@oh-my-soup/pi-tui/tools/task";
 import { buildWorkPoolOutputSchema, type WorkPoolYieldItem } from "./workpool-yield";
 
 /** One user-supplied unit tracked through a workpool batch. */

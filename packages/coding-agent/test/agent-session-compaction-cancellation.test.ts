@@ -3,7 +3,10 @@ import { Agent, CompactionCancelledError } from "@oh-my-soup/pi-agent-core";
 import { getBundledModel } from "@oh-my-soup/pi-catalog/models";
 import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
 import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
-import { ExtensionRuntime, loadExtensionFromFactory } from "@oh-my-soup/pi-coding-agent/extensibility/extensions/loader";
+import {
+	ExtensionRuntime,
+	loadExtensionFromFactory,
+} from "@oh-my-soup/pi-coding-agent/extensibility/extensions/loader";
 import { ExtensionRunner } from "@oh-my-soup/pi-coding-agent/extensibility/extensions/runner";
 import { AgentSession } from "@oh-my-soup/pi-coding-agent/session/agent-session";
 import { AuthStorage } from "@oh-my-soup/pi-coding-agent/session/auth-storage";

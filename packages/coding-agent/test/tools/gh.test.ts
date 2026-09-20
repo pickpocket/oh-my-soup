@@ -21,7 +21,13 @@ import { ToolError } from "@oh-my-soup/pi-tui/tools/tool-errors";
 import { withRepoLock } from "@oh-my-soup/pi-coding-agent/utils/repo-lock";
 import type { VcsGitRepo } from "@oh-my-soup/pi-natives";
 import * as vcs from "@oh-my-soup/pi-natives/vcs";
-import { getAgentDir, hashPath, normalizePathForComparison, removeWithRetries, setAgentDir } from "@oh-my-soup/pi-utils";
+import {
+	getAgentDir,
+	hashPath,
+	normalizePathForComparison,
+	removeWithRetries,
+	setAgentDir,
+} from "@oh-my-soup/pi-utils";
 
 const TINY_PNG_BASE64 =
 	"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg==";

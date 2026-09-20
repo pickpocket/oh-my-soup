@@ -13,7 +13,10 @@ import type { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-reg
 import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
 import { parseAgentFields } from "@oh-my-soup/pi-coding-agent/discovery/helpers";
 import type { ToolPathWithSource } from "@oh-my-soup/pi-coding-agent/extensibility/custom-tools";
-import type { LoadExtensionsResult, PreparedExtension } from "@oh-my-soup/pi-coding-agent/extensibility/extensions/types";
+import type {
+	LoadExtensionsResult,
+	PreparedExtension,
+} from "@oh-my-soup/pi-coding-agent/extensibility/extensions/types";
 import type { MCPManager } from "@oh-my-soup/pi-coding-agent/mcp/manager";
 import type { CreateAgentSessionOptions, CreateAgentSessionResult } from "@oh-my-soup/pi-coding-agent/sdk";
 import * as sdkModule from "@oh-my-soup/pi-coding-agent/sdk";

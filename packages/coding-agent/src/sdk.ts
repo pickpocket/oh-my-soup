@@ -4402,7 +4402,11 @@ async function createAgentSessionScoped(options: CreateAgentSessionOptions): Pro
 					convertToLlm: convertToLlmFinal,
 					transformContext: async messages => wrapSteeringForModel(messages),
 					transformProviderContext: async (context, transformModel) => {
-						let transformed = await applyModelPromptFile(context, transformModel, settings.get("systemPromptFiles"));
+						let transformed = await applyModelPromptFile(
+							context,
+							transformModel,
+							settings.get("systemPromptFiles"),
+						);
 						transformed = applySystemPromptPlacement(
 							transformed,
 							transformModel,

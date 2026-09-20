@@ -140,7 +140,6 @@ describe("wrapLeakedThinkingStream", () => {
 		});
 	}
 
-
 	it("splits a leaked fence into structured blocks live during streaming", async () => {
 		const leaked = "Visible before.```thinking\nplan\n```Visible after.";
 		const { events, result } = await runWrapper(inner => {

@@ -1363,7 +1363,7 @@ const MAX_LINK_RESOLUTION_DEPTH = 40;
 function resolveDirectoryAliasPath(entries: ReadonlyMap<string, ArchiveIndexEntry>, archivePath: string): string {
 	let resolvedPath = archivePath;
 	const seen = new Set<string>();
-	for (let rewrites = 0; !seen.has(resolvedPath); ) {
+	for (let rewrites = 0; !seen.has(resolvedPath);) {
 		seen.add(resolvedPath);
 		let replacement: string | undefined;
 		for (let end = resolvedPath.length; end > 0; end = resolvedPath.lastIndexOf("/", end - 1)) {

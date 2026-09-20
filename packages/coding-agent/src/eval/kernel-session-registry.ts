@@ -500,5 +500,12 @@ export function createKernelSessionRegistry<
 		return result;
 	}
 
-	return { disposeAll, disposeByOwner, executeOnSession, peekLiveKernel, peekLiveKernelBySessionId, getPresentSession };
+	return {
+		disposeAll,
+		disposeByOwner,
+		executeOnSession,
+		peekLiveKernel,
+		peekLiveKernelBySessionId,
+		getPresentSession,
+	};
 }

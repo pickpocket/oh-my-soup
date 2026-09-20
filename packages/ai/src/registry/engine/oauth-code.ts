@@ -3,7 +3,11 @@
  * through the configured callback transport, followed by the declared token
  * exchange, credential projection, userinfo enrichment and after-exchange hook.
  */
-import type { CompiledAuthProvider, CompiledCallback, CompiledOAuthCodeLogin } from "@oh-my-soup/pi-catalog/compat/types";
+import type {
+	CompiledAuthProvider,
+	CompiledCallback,
+	CompiledOAuthCodeLogin,
+} from "@oh-my-soup/pi-catalog/compat/types";
 import * as AIError from "../../error";
 import type { FetchImpl } from "../../types";
 import { validateApiKeyAgainstModelsEndpoint } from "../api-key-validation";

@@ -2,7 +2,10 @@ import { describe, expect, it } from "bun:test";
 import { parseArgs } from "@oh-my-soup/pi-coding-agent/cli/args";
 import { applyExtensionFlags, type ExtensionFlagSink } from "@oh-my-soup/pi-coding-agent/cli/extension-flags";
 import { buildInitialMessage } from "@oh-my-soup/pi-coding-agent/cli/initial-message";
-import { ExtensionRuntime, loadExtensionFromFactory } from "@oh-my-soup/pi-coding-agent/extensibility/extensions/loader";
+import {
+	ExtensionRuntime,
+	loadExtensionFromFactory,
+} from "@oh-my-soup/pi-coding-agent/extensibility/extensions/loader";
 import { ExtensionRunner } from "@oh-my-soup/pi-coding-agent/extensibility/extensions/runner";
 import { normalizeContinueSessionArgs } from "@oh-my-soup/pi-coding-agent/main";
 import { EventBus } from "@oh-my-soup/pi-coding-agent/utils/event-bus";

@@ -4,7 +4,10 @@ import { Agent, AppendOnlyContextManager } from "@oh-my-soup/pi-agent-core";
 import type { AssistantMessage } from "@oh-my-soup/pi-ai";
 import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
 import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
-import { ExtensionRuntime, loadExtensionFromFactory } from "@oh-my-soup/pi-coding-agent/extensibility/extensions/loader";
+import {
+	ExtensionRuntime,
+	loadExtensionFromFactory,
+} from "@oh-my-soup/pi-coding-agent/extensibility/extensions/loader";
 import { ExtensionRunner } from "@oh-my-soup/pi-coding-agent/extensibility/extensions/runner";
 import type { ExtensionAPI } from "@oh-my-soup/pi-coding-agent/extensibility/extensions/types";
 import { AgentSession } from "@oh-my-soup/pi-coding-agent/session/agent-session";

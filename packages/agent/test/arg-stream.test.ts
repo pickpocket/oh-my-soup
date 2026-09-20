@@ -1,7 +1,13 @@
 import { describe, expect, it } from "bun:test";
 import { type } from "@oh-my-soup/omstype";
 import { agentLoop } from "@oh-my-soup/pi-agent-core/agent-loop";
-import type { AgentContext, AgentEvent, AgentLoopConfig, AgentMessage, AgentTool } from "@oh-my-soup/pi-agent-core/types";
+import type {
+	AgentContext,
+	AgentEvent,
+	AgentLoopConfig,
+	AgentMessage,
+	AgentTool,
+} from "@oh-my-soup/pi-agent-core/types";
 import type { AssistantMessage, Message } from "@oh-my-soup/pi-ai";
 import { createMockModel } from "@oh-my-soup/pi-ai/providers/mock";
 import { AssistantMessageEventStream } from "@oh-my-soup/pi-ai/utils/event-stream";

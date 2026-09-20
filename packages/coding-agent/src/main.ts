@@ -1689,7 +1689,9 @@ export async function runRootCommand(
 				normalizePathForComparison(path.resolve(parsedArgs.history)) !==
 					normalizePathForComparison(path.resolve(parsedArgs.sessionDir))
 			) {
-				process.stderr.write(`${chalk.red("Error: --history cannot be combined with a different --session-dir")}\n`);
+				process.stderr.write(
+					`${chalk.red("Error: --history cannot be combined with a different --session-dir")}\n`,
+				);
 				process.exit(1);
 			}
 			parsedArgs.sessionDir = parsedArgs.history;

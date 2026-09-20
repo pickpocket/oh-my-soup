@@ -15,7 +15,11 @@ import {
 	readArgsHaveTarget,
 } from "@oh-my-soup/pi-tui/chat/read-tool-group";
 import { TodoReminderComponent } from "@oh-my-soup/pi-tui/chat/todo-reminder";
-import { ToolExecutionComponent, type ToolExecutionHandle, toolRenderName } from "@oh-my-soup/pi-tui/chat/tool-execution";
+import {
+	ToolExecutionComponent,
+	type ToolExecutionHandle,
+	toolRenderName,
+} from "@oh-my-soup/pi-tui/chat/tool-execution";
 import { TtsrNotificationComponent } from "@oh-my-soup/pi-tui/chat/ttsr-notification";
 import { createUsageRowBlock, turnElapsedMs } from "@oh-my-soup/pi-tui/overlays/usage-row";
 import { getSymbolTheme, theme } from "@oh-my-soup/pi-tui/theme";

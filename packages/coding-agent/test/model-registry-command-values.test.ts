@@ -6,7 +6,10 @@ import { streamSimple } from "@oh-my-soup/pi-ai";
 import { withAuth } from "@oh-my-soup/pi-ai/auth-retry";
 import type { Api, Context, FetchImpl, Model } from "@oh-my-soup/pi-ai/types";
 import { buildModel } from "@oh-my-soup/pi-catalog/build";
-import { invalidateAllCommandConfigs, resolveConfigValue } from "@oh-my-soup/pi-coding-agent/config/resolve-config-value";
+import {
+	invalidateAllCommandConfigs,
+	resolveConfigValue,
+} from "@oh-my-soup/pi-coding-agent/config/resolve-config-value";
 import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
 import { AuthStorage } from "@oh-my-soup/pi-coding-agent/session/auth-storage";
 import * as piUtils from "@oh-my-soup/pi-utils";

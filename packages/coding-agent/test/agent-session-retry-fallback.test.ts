@@ -25,7 +25,10 @@ import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry
 import { parseModelString } from "@oh-my-soup/pi-tui/overlays/model-selector";
 import { parseModelPattern } from "@oh-my-soup/pi-coding-agent/config/model-resolver";
 import { type SettingPath, Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
-import { ExtensionRuntime, loadExtensionFromFactory } from "@oh-my-soup/pi-coding-agent/extensibility/extensions/loader";
+import {
+	ExtensionRuntime,
+	loadExtensionFromFactory,
+} from "@oh-my-soup/pi-coding-agent/extensibility/extensions/loader";
 import { ExtensionRunner } from "@oh-my-soup/pi-coding-agent/extensibility/extensions/runner";
 import { initTheme } from "@oh-my-soup/pi-tui/theme";
 import { AgentSession, type AgentSessionEvent } from "@oh-my-soup/pi-coding-agent/session/agent-session";

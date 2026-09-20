@@ -2,7 +2,11 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { type BtwHistoryRecord, BtwHistoryStore, getBtwCopyText } from "@oh-my-soup/pi-coding-agent/session/btw-history";
+import {
+	type BtwHistoryRecord,
+	BtwHistoryStore,
+	getBtwCopyText,
+} from "@oh-my-soup/pi-coding-agent/session/btw-history";
 import { acquireFileLock, withFileLock } from "@oh-my-soup/pi-utils";
 
 describe("BtwHistoryStore", () => {

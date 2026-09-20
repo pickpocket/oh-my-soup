@@ -23,7 +23,14 @@ import type { InteractiveModeContext, RenderSessionContextOptions } from "@oh-my
 import { UiHelpers } from "@oh-my-soup/pi-coding-agent/modes/utils/ui-helpers";
 import type { SessionContext, StrippedToolCallsMarker } from "@oh-my-soup/pi-coding-agent/session/session-context";
 import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
-import { type Component, Container, Image, ImageProtocol, setTerminalImageProtocol, TERMINAL } from "@oh-my-soup/pi-tui";
+import {
+	type Component,
+	Container,
+	Image,
+	ImageProtocol,
+	setTerminalImageProtocol,
+	TERMINAL,
+} from "@oh-my-soup/pi-tui";
 import { TempDir } from "@oh-my-soup/pi-utils";
 
 beforeAll(() => {

@@ -172,9 +172,9 @@ export async function parseChangelog(changelogPath: string | undefined): Promise
 	// three-way changelog merge can also interleave release blocks, so restore
 	// the newest-first ordering callers use for "latest" and "previous".
 	const currentVersion = parseChangelogVersion(VERSION);
-	return (currentVersion ? entries.filter(entry => compareChangelogEntries(entry, currentVersion) <= 0) : entries).sort(
-		(left, right) => compareChangelogEntries(right, left),
-	);
+	return (
+		currentVersion ? entries.filter(entry => compareChangelogEntries(entry, currentVersion) <= 0) : entries
+	).sort((left, right) => compareChangelogEntries(right, left));
 }
 
 function parseChangelogContent(content: string): ChangelogEntry[] {

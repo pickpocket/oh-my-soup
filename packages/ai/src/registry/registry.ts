@@ -36,9 +36,7 @@ const ADDITIONAL_PROVIDER_DEFINITIONS = [openaiPrismProvider] as const satisfies
  * legacy structure (`OAuthProvider` union, env map, login list, refresh/login
  * dispatch, CLI callback maps) derives from this registry.
  */
-const policyProviderDefinitions = authProviders().map(policy =>
-	buildProviderDefinition(policy, TRANSPORTS[policy.id]),
-);
+const policyProviderDefinitions = authProviders().map(policy => buildProviderDefinition(policy, TRANSPORTS[policy.id]));
 
 export const PROVIDER_REGISTRY: readonly ProviderDefinition[] = [
 	...policyProviderDefinitions,
@@ -64,8 +62,5 @@ type _CheckRegistryComplete = _MissingCatalogProviders extends never
 true satisfies _CheckRegistryComplete;
 
 /** Loginable providers (those whose auth policy or direct definition declares a login flow). */
-type AdditionalLoginProvider = Extract<
-	(typeof ADDITIONAL_PROVIDER_DEFINITIONS)[number],
-	{ readonly login: unknown }
->;
+type AdditionalLoginProvider = Extract<(typeof ADDITIONAL_PROVIDER_DEFINITIONS)[number], { readonly login: unknown }>;
 export type OAuthProviderUnion = LoginProviderId | AdditionalLoginProvider["id"];

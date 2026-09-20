@@ -8,7 +8,10 @@ import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
 import { AuthStorage } from "@oh-my-soup/pi-coding-agent/session/auth-storage";
 import type { CompactionMethod } from "@oh-my-soup/pi-coding-agent/session/compaction-methods";
 import { convertToLlm } from "@oh-my-soup/pi-coding-agent/session/messages";
-import { SessionMaintenance, type SessionMaintenanceHost } from "@oh-my-soup/pi-coding-agent/session/session-maintenance";
+import {
+	SessionMaintenance,
+	type SessionMaintenanceHost,
+} from "@oh-my-soup/pi-coding-agent/session/session-maintenance";
 import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
 import * as snapcompactModule from "@oh-my-soup/snapcompact";
 

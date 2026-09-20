@@ -3,7 +3,11 @@ import * as path from "node:path";
 import { scheduler } from "node:timers/promises";
 import { Agent } from "@oh-my-soup/pi-agent-core";
 import * as compactionModule from "@oh-my-soup/pi-agent-core/compaction";
-import { type CompactionPreparation, resolveThresholdTokens, shouldCompact } from "@oh-my-soup/pi-agent-core/compaction";
+import {
+	type CompactionPreparation,
+	resolveThresholdTokens,
+	shouldCompact,
+} from "@oh-my-soup/pi-agent-core/compaction";
 import type { AssistantMessage } from "@oh-my-soup/pi-ai";
 import { getBundledModel } from "@oh-my-soup/pi-catalog/models";
 import { TempDir } from "@oh-my-soup/pi-utils";

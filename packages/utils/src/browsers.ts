@@ -117,7 +117,6 @@ export function computeExecutablePath(options: ComputeExecutablePathOptions): st
 	}
 }
 
-
 /** Download and unpack Chrome into Puppeteer's existing cache layout. */
 export async function install(options: InstallOptions): Promise<InstalledBrowser> {
 	const platform = options.platform ?? detectBrowserPlatform();

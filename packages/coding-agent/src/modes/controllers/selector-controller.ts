@@ -102,7 +102,10 @@ import { AgentsHubComponent } from "@oh-my-soup/pi-tui/overlays/agents-hub";
 import { AssistantMessageComponent } from "@oh-my-soup/pi-tui/chat/assistant-message";
 import { CopySelectorComponent } from "@oh-my-soup/pi-tui/overlays/copy-selector";
 import { ExtensionDashboard } from "@oh-my-soup/pi-tui/overlays/extensions/extension-dashboard";
-import { listLiveToolRecords, liveToolRecordFromSession } from "@oh-my-soup/pi-tui/overlays/extensions/live-tool-session";
+import {
+	listLiveToolRecords,
+	liveToolRecordFromSession,
+} from "@oh-my-soup/pi-tui/overlays/extensions/live-tool-session";
 import { createExtensionDashboardRuntime } from "../components/extensions/dashboard-runtime";
 import { HistorySearchComponent } from "@oh-my-soup/pi-tui/overlays/history-search";
 import type { LoginDialogComponent as LoginDialogComponentType } from "@oh-my-soup/pi-tui/overlays/login-dialog";

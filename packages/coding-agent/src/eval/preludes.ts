@@ -1,4 +1,9 @@
-import type { AgentToolContext, AgentToolResult, AgentToolUpdateCallback, ToolApproval } from "@oh-my-soup/pi-agent-core";
+import type {
+	AgentToolContext,
+	AgentToolResult,
+	AgentToolUpdateCallback,
+	ToolApproval,
+} from "@oh-my-soup/pi-agent-core";
 import { untilAborted } from "@oh-my-soup/pi-utils";
 import type { ToolSession } from "../tools";
 import { denyError, formatApprovalPrompt, resolveApproval, resolveApprovalFromContext } from "../tools/approval";

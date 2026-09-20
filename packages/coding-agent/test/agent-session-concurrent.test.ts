@@ -23,7 +23,10 @@ import type { Rule } from "@oh-my-soup/pi-coding-agent/capability/rule";
 import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
 import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
 import { TtsrManager } from "@oh-my-soup/pi-coding-agent/export/ttsr";
-import { ExtensionRuntime, loadExtensionFromFactory } from "@oh-my-soup/pi-coding-agent/extensibility/extensions/loader";
+import {
+	ExtensionRuntime,
+	loadExtensionFromFactory,
+} from "@oh-my-soup/pi-coding-agent/extensibility/extensions/loader";
 import { ExtensionRunner } from "@oh-my-soup/pi-coding-agent/extensibility/extensions/runner";
 import { GoalRuntime } from "@oh-my-soup/pi-coding-agent/goals/runtime";
 import { AgentSession } from "@oh-my-soup/pi-coding-agent/session/agent-session";

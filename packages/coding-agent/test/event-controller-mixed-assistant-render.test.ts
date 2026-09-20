@@ -280,7 +280,9 @@ describe("EventController mixed assistant text/tool rendering", () => {
 			injectedTtsrRules: [],
 			mode: "none",
 		});
-		expect(Bun.stripANSI(rebuilt.chatContainer.render(120).join("\n"))).toContain("GitHub Repo pickpocket/oh-my-soup");
+		expect(Bun.stripANSI(rebuilt.chatContainer.render(120).join("\n"))).toContain(
+			"GitHub Repo pickpocket/oh-my-soup",
+		);
 
 		// Canonicalization is presentation-only; provider replay keeps the wire spelling.
 		expect(toolCall.name).toBe("xd://github");

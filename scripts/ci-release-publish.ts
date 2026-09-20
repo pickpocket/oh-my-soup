@@ -243,6 +243,22 @@ export async function applyPublishRuntime(pkgRelDir: string, write: boolean): Pr
 	return manifest;
 }
 
+/**
+ * Apply only the published `bin` rewrite to a package's working-tree
+ * manifest. Used by `scripts/install-tests/run-ci.sh` to pack the coding
+ * agent with its published topology (bin → prepack bundle) without running
+ * the type-emission steps; the caller backs up and restores the manifest.
+ */
+export async function applyPublishBin(pkgRelDir: string, write: boolean): Promise<PackageManifest> {
+	const pkg = packages.find(entry => entry.dir === pkgRelDir);
+	if (!pkg?.publishBin) throw new Error(`No publishBin override declared for ${pkgRelDir}`);
+	const manifestPath = path.join(repoRoot, pkgRelDir, "package.json");
+	const manifest = (await Bun.file(manifestPath).json()) as PackageManifest;
+	manifest.bin = { ...pkg.publishBin };
+	if (write) await Bun.write(manifestPath, `${JSON.stringify(manifest, null, "\t")}\n`);
+	return manifest;
+}
+
 function buildNativeOptionalDependencies(version: string): JsonObject {
 	const optionalDependencies: JsonObject = {};
 	for (const target of LEAF_TARGETS) {

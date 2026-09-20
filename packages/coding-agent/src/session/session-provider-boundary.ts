@@ -3,7 +3,14 @@
 import type { Agent, AgentMessage } from "@oh-my-soup/pi-agent-core";
 import type { CompactionPreparation } from "@oh-my-soup/pi-agent-core/compaction";
 import { sendsImageInputOnWire } from "@oh-my-soup/pi-ai/providers/vision-guard";
-import type { AssistantMessage, ImageContent, Message, Model, SimpleStreamOptions, TextContent } from "@oh-my-soup/pi-ai";
+import type {
+	AssistantMessage,
+	ImageContent,
+	Message,
+	Model,
+	SimpleStreamOptions,
+	TextContent,
+} from "@oh-my-soup/pi-ai";
 import { isRecord, logger } from "@oh-my-soup/pi-utils";
 import * as snapcompact from "@oh-my-soup/snapcompact";
 import type { ModelRegistry } from "../config/model-registry";

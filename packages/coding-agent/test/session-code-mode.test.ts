@@ -56,7 +56,16 @@ describe("resolveCodeMode", () => {
 			evalTransportAvailable: true,
 		});
 		expect(r.active).toBe(true);
-		expect([...r.directToolNames].sort()).toEqual(["ask", "checkpoint", "eval", "notes", "rewind", "think", "todo", "yield"]);
+		expect([...r.directToolNames].sort()).toEqual([
+			"ask",
+			"checkpoint",
+			"eval",
+			"notes",
+			"rewind",
+			"think",
+			"todo",
+			"yield",
+		]);
 	});
 	test("auto without flag: inactive", () => {
 		expect(

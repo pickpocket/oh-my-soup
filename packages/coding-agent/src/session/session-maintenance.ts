@@ -2499,7 +2499,10 @@ export class SessionMaintenance {
 		this.#midTurnDeadEndPendingPrePrompt = false;
 		if (!shouldCompact(contextTokens, contextWindow, compactionSettings)) {
 			await this.#recoverImportantNotesFit(messages, true);
-			this.maybeStartSpeculativeCompaction(this.#estimatePrePromptContextTokens(messages, contextWindow), contextWindow);
+			this.maybeStartSpeculativeCompaction(
+				this.#estimatePrePromptContextTokens(messages, contextWindow),
+				contextWindow,
+			);
 			return;
 		}
 		if (

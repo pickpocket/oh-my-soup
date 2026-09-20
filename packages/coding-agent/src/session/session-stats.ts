@@ -304,7 +304,11 @@ export class SessionStatsTracker {
 			}
 		}
 		if (!anchored) {
-			usedTokens = currentNonMessageTokens + importantNotesTokens + this.#tokenizer.countMessages(activeMessages) + pendingTokens;
+			usedTokens =
+				currentNonMessageTokens +
+				importantNotesTokens +
+				this.#tokenizer.countMessages(activeMessages) +
+				pendingTokens;
 		}
 		if (anchored) {
 			// Older snapshots cannot prove what note cost was billed. Never subtract

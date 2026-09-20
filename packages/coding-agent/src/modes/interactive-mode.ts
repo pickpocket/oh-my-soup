@@ -458,7 +458,6 @@ class StatusHudContainer extends AnchoredLiveContainer {
 		super();
 	}
 
-
 	override render(width: number): readonly string[] {
 		const lines = this.#renderLines(width);
 		this.mode.statusRowOccupied = lines.length > 0;

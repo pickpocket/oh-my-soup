@@ -145,4 +145,3 @@ describe("wrapFetchForExtraCa", () => {
 		expect(twice).toBe(once);
 	});
 });
-

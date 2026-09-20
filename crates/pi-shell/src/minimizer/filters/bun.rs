@@ -534,8 +534,9 @@ mod tests {
 			 applied.\n@oh-my-soup/pi-utils check: Checked 40 files in 11ms. No fixes \
 			 applied.\n@oh-my-soup/pi-utils check: $ tsgo -p tsconfig.json \
 			 --noEmit\n@oh-my-soup/pi-utils check: Exited with code 0\n@oh-my-soup/pi-coding-agent \
-			 check: Checked 1178 files in 287ms. No fixes applied.\n@oh-my-soup/pi-coding-agent check: \
-			 $ tsgo -p tsconfig.json --noEmit\n@oh-my-soup/pi-coding-agent check: Exited with code 0\n",
+			 check: Checked 1178 files in 287ms. No fixes applied.\n@oh-my-soup/pi-coding-agent \
+			 check: $ tsgo -p tsconfig.json --noEmit\n@oh-my-soup/pi-coding-agent check: Exited with \
+			 code 0\n",
 			0,
 		);
 

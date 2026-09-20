@@ -3,7 +3,10 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import type { MarketplacePluginEntry } from "@oh-my-soup/pi-coding-agent/extensibility/plugins/marketplace";
-import { resolvePluginSource, validatePluginSource } from "@oh-my-soup/pi-coding-agent/extensibility/plugins/marketplace";
+import {
+	resolvePluginSource,
+	validatePluginSource,
+} from "@oh-my-soup/pi-coding-agent/extensibility/plugins/marketplace";
 import { removeSyncWithRetries } from "@oh-my-soup/pi-utils";
 
 // Fixture: a cloned marketplace with a single plugin at ./plugins/hello-plugin

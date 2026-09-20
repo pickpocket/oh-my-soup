@@ -29,7 +29,12 @@
  * queued/planning until `tool_execution_start`, and only then delegate to the
  * wrapped tool's own renderer with the decoded inner args.
  */
-import type { AgentToolContext, AgentToolResult, AgentToolUpdateCallback, ToolLoadMode } from "@oh-my-soup/pi-agent-core";
+import type {
+	AgentToolContext,
+	AgentToolResult,
+	AgentToolUpdateCallback,
+	ToolLoadMode,
+} from "@oh-my-soup/pi-agent-core";
 import { type Tool as AiTool, jsonSchemaToTypeScript, toolWireSchema, validateToolArguments } from "@oh-my-soup/pi-ai";
 import { schemaDeclaresIntentField } from "../utils/tool-schema";
 import { stripXdUrlPrefix, XD_URL_PREFIX } from "@oh-my-soup/pi-tui/tools/xd-url";

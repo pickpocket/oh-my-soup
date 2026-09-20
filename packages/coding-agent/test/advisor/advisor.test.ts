@@ -43,7 +43,6 @@ import { getOpenAiRemoteCompactionPayload } from "../../src/session/session-cont
 import { formatSessionHistoryMarkdown } from "../../src/session/session-history-format";
 import { YieldQueue } from "../../src/session/yield-queue";
 
-
 /** Poll until the drain loop reaches the asserted state — waitForCatchup
  *  releases IMMEDIATELY on advisor failure (the primary must never park on a
  *  failing advisor), so failure-path tests cannot use it as a settle barrier. */

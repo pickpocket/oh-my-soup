@@ -2,7 +2,10 @@ import { afterEach, describe, expect, it, vi } from "bun:test";
 import { AgentBusyError, type AgentTelemetryConfig, type Tracer } from "@oh-my-soup/pi-agent-core";
 import { type AssistantMessage, Effort } from "@oh-my-soup/pi-ai";
 import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
-import type { ExtensionActions, LoadExtensionsResult } from "@oh-my-soup/pi-coding-agent/extensibility/extensions/types";
+import type {
+	ExtensionActions,
+	LoadExtensionsResult,
+} from "@oh-my-soup/pi-coding-agent/extensibility/extensions/types";
 import type { CreateAgentSessionResult } from "@oh-my-soup/pi-coding-agent/sdk";
 import * as sdkModule from "@oh-my-soup/pi-coding-agent/sdk";
 import { AgentRegistry } from "@oh-my-soup/pi-coding-agent/registry/agent-registry";

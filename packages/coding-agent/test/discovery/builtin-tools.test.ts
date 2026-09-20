@@ -7,7 +7,10 @@ import { type CustomTool, toolCapability } from "@oh-my-soup/pi-coding-agent/cap
 import { resetSettingsForTest, Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
 import { initializeWithSettings, loadCapability } from "@oh-my-soup/pi-coding-agent/discovery";
 import { clearClaudePluginRootsCache } from "@oh-my-soup/pi-coding-agent/discovery/helpers";
-import { discoverCustomToolPaths, loadCustomTools } from "@oh-my-soup/pi-coding-agent/extensibility/custom-tools/loader";
+import {
+	discoverCustomToolPaths,
+	loadCustomTools,
+} from "@oh-my-soup/pi-coding-agent/extensibility/custom-tools/loader";
 import { __resetDirsFromEnvForTests, removeWithRetries, setAgentDir } from "@oh-my-soup/pi-utils";
 import { restoreEnvValue } from "../helpers/settings-test-state";
 

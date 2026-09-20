@@ -223,7 +223,9 @@ export const observed = [
 		// top level left every nested key out of the compiled registry, so the
 		// import resolved from source and failed inside a binary — which is how
 		// a real extension (`quota-hud.ts`) broke on this exact specifier.
-		expect(bundledModuleKeys.has("@oh-my-soup/pi-coding-agent/slash-commands/helpers/active-oauth-account")).toBe(true);
+		expect(bundledModuleKeys.has("@oh-my-soup/pi-coding-agent/slash-commands/helpers/active-oauth-account")).toBe(
+			true,
+		);
 		// Directory index modules stay excluded: `./x/*` must not serve `x/y`
 		// from `y/index.ts`, which Node would not resolve either.
 		expect(bundledModuleKeys.has("@oh-my-soup/pi-tui/theme/defaults/index")).toBe(false);

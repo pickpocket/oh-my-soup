@@ -3,7 +3,11 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import type { ImageContent } from "@oh-my-soup/pi-ai";
-import { resetSettingsForTest, Settings, type ShellMinimizerSettings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import {
+	resetSettingsForTest,
+	Settings,
+	type ShellMinimizerSettings,
+} from "@oh-my-soup/pi-coding-agent/config/settings";
 import {
 	applyDirenvPreflight,
 	buildMinimizerOptions,

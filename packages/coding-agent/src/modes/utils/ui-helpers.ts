@@ -33,7 +33,11 @@ import {
 import { SkillMessageComponent } from "@oh-my-soup/pi-tui/chat/skill-message";
 import { StrippedToolCallsPlaceholder } from "@oh-my-soup/pi-tui/chat/stripped-tool-calls-placeholder";
 import { ToolActivityContainer } from "@oh-my-soup/pi-tui/chrome/tool-activity";
-import { ToolExecutionComponent, type ToolExecutionHandle, toolRenderName } from "@oh-my-soup/pi-tui/chat/tool-execution";
+import {
+	ToolExecutionComponent,
+	type ToolExecutionHandle,
+	toolRenderName,
+} from "@oh-my-soup/pi-tui/chat/tool-execution";
 import { TranscriptBlock, TranscriptContainer } from "@oh-my-soup/pi-tui/chrome/transcript-container";
 import { createUsageRowBlock, turnElapsedMs } from "@oh-my-soup/pi-tui/overlays/usage-row";
 import { UserMessageComponent } from "@oh-my-soup/pi-tui/chat/user-message";

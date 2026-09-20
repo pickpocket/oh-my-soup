@@ -18,7 +18,11 @@ import type {
 	SpeculativePhysicalOutcome,
 	ToolCallContext,
 } from "@oh-my-soup/pi-agent-core/types";
-import { ASIDE_MESSAGE_COMMIT, ASIDE_MESSAGE_DISCARD, SPECULATIVE_STREAM_SESSION } from "@oh-my-soup/pi-agent-core/types";
+import {
+	ASIDE_MESSAGE_COMMIT,
+	ASIDE_MESSAGE_DISCARD,
+	SPECULATIVE_STREAM_SESSION,
+} from "@oh-my-soup/pi-agent-core/types";
 import type { AssistantMessage, AssistantMessageEvent, Context, Message, ToolResultMessage } from "@oh-my-soup/pi-ai";
 import { createMockModel, type MockResponse } from "@oh-my-soup/pi-ai/providers/mock";
 import { kCursorExecResolved, setStreamingPartialJson } from "@oh-my-soup/pi-ai/utils/block-symbols";

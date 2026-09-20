@@ -4,7 +4,12 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { type } from "@oh-my-soup/omstype";
-import { type AssistantMessage, createAssistantMessageEventStream, getCustomApi, type ToolCall } from "@oh-my-soup/pi-ai";
+import {
+	type AssistantMessage,
+	createAssistantMessageEventStream,
+	getCustomApi,
+	type ToolCall,
+} from "@oh-my-soup/pi-ai";
 import { runCommitAgentSession } from "@oh-my-soup/pi-coding-agent/commit/agentic/agent";
 import * as commitTools from "@oh-my-soup/pi-coding-agent/commit/agentic/tools";
 import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";

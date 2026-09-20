@@ -319,7 +319,6 @@ describe("session important notes", () => {
 		}
 	});
 
-
 	it("rejects synchronous transcript replacement while a note publication is staged", async () => {
 		using temp = TempDir.createSync("@oms-notes-sync-transition-");
 		const storage = new FileSessionStorage();

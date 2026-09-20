@@ -9074,7 +9074,6 @@ export class AgentSession {
 				logger.warn("System prompt refresh after model change failed", { error: String(error) });
 			}
 		}
-
 	}
 
 	#closeCodexProviderSessionsForHistoryRewrite(): void {

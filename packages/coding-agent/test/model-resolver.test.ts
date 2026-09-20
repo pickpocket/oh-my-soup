@@ -23,7 +23,10 @@ import {
 	resolveModelScope,
 	resolveProviderModelReference,
 } from "@oh-my-soup/pi-coding-agent/config/model-resolver";
-import { DEFAULT_MODEL_ROLE_ALIAS, LEGACY_MODEL_ROLE_ALIAS_PREFIX } from "@oh-my-soup/pi-coding-agent/config/model-roles";
+import {
+	DEFAULT_MODEL_ROLE_ALIAS,
+	LEGACY_MODEL_ROLE_ALIAS_PREFIX,
+} from "@oh-my-soup/pi-coding-agent/config/model-roles";
 import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
 
 // Mock models for testing

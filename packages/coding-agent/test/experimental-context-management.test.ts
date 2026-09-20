@@ -14,7 +14,10 @@ import {
 	SKILL_PROMPT_MESSAGE_TYPE,
 } from "@oh-my-soup/pi-coding-agent/session/messages";
 import type { CompactionEntry } from "@oh-my-soup/pi-coding-agent/session/session-entries";
-import { ExtensionRuntime, loadExtensionFromFactory } from "@oh-my-soup/pi-coding-agent/extensibility/extensions/loader";
+import {
+	ExtensionRuntime,
+	loadExtensionFromFactory,
+} from "@oh-my-soup/pi-coding-agent/extensibility/extensions/loader";
 import { ExtensionRunner } from "@oh-my-soup/pi-coding-agent/extensibility/extensions/runner";
 import { EventBus } from "@oh-my-soup/pi-coding-agent/utils/event-bus";
 import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";

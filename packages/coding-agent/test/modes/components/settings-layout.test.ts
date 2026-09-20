@@ -1,7 +1,12 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "bun:test";
 import { resetSettingsForTest, Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
 import { SETTINGS_SCHEMA, type SettingPath } from "@oh-my-soup/pi-coding-agent/config/settings-schema";
-import { getSettingsForTab, SETTING_TABS, type SettingTab, TAB_GROUPS } from "@oh-my-soup/pi-tui/overlays/settings-defs";
+import {
+	getSettingsForTab,
+	SETTING_TABS,
+	type SettingTab,
+	TAB_GROUPS,
+} from "@oh-my-soup/pi-tui/overlays/settings-defs";
 import { createSettingsHost } from "@oh-my-soup/pi-coding-agent/config/settings-ui";
 import { createPluginSettingsHost } from "@oh-my-soup/pi-coding-agent/extensibility/plugins/settings-host";
 import { SettingsSelectorComponent } from "@oh-my-soup/pi-tui/overlays/settings-selector";

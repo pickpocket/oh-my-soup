@@ -11,7 +11,10 @@ import {
 	streamCursor,
 	type ToolCallState,
 } from "@oh-my-soup/pi-ai/providers/cursor";
-import { streamCursor as lazyStreamCursor, setCursorProviderModule } from "@oh-my-soup/pi-ai/providers/register-builtins";
+import {
+	streamCursor as lazyStreamCursor,
+	setCursorProviderModule,
+} from "@oh-my-soup/pi-ai/providers/register-builtins";
 import type { AssistantMessage, Context, CursorExecHandlers, Model, ToolResultMessage } from "@oh-my-soup/pi-ai/types";
 import { kCursorExecResolved } from "@oh-my-soup/pi-ai/utils/block-symbols";
 import { AssistantMessageEventStream } from "@oh-my-soup/pi-ai/utils/event-stream";

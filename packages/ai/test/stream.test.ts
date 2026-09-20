@@ -7,7 +7,15 @@ import { type } from "@oh-my-soup/omstype";
 import { Effort } from "@oh-my-soup/pi-ai";
 import { __resetVertexTokenCache } from "@oh-my-soup/pi-ai/providers/google-auth";
 import { complete, getEnvApiKey, stream } from "@oh-my-soup/pi-ai/stream";
-import type { Api, Context, ImageContent, Model, OptionsForApi, Tool, ToolResultMessage } from "@oh-my-soup/pi-ai/types";
+import type {
+	Api,
+	Context,
+	ImageContent,
+	Model,
+	OptionsForApi,
+	Tool,
+	ToolResultMessage,
+} from "@oh-my-soup/pi-ai/types";
 import { buildModel } from "@oh-my-soup/pi-catalog/build";
 import { getBundledModel } from "@oh-my-soup/pi-catalog/models";
 import { $which } from "@oh-my-soup/pi-utils";

@@ -5,7 +5,11 @@ import * as path from "node:path";
 import { scheduler } from "node:timers/promises";
 import { isOfficialAnthropicApiUrl } from "@oh-my-soup/pi-catalog/compat/anthropic";
 import type { Effort } from "@oh-my-soup/pi-catalog/effort";
-import { isVertexExpressOpenAIUrl, isVertexRawPredictUrl, resolveVertexEndpointHost } from "@oh-my-soup/pi-catalog/hosts";
+import {
+	isVertexExpressOpenAIUrl,
+	isVertexRawPredictUrl,
+	resolveVertexEndpointHost,
+} from "@oh-my-soup/pi-catalog/hosts";
 import {
 	defaultSupportedEffort,
 	mapEffortToAnthropicAdaptiveEffort,

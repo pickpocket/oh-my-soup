@@ -7,8 +7,15 @@ import { HistoryProtocolHandler } from "@oh-my-soup/pi-coding-agent/internal-url
 import { parseInternalUrl } from "@oh-my-soup/pi-coding-agent/internal-urls/parse";
 import { IrcBus } from "@oh-my-soup/pi-coding-agent/irc/bus";
 import { AgentLifecycleManager } from "@oh-my-soup/pi-coding-agent/registry/agent-lifecycle";
-import { AgentRegistry, getAgentTombstonePath, MAIN_AGENT_ID } from "@oh-my-soup/pi-coding-agent/registry/agent-registry";
-import { ensurePersistedRoster, registerPersistedSubagents } from "@oh-my-soup/pi-coding-agent/registry/persisted-agents";
+import {
+	AgentRegistry,
+	getAgentTombstonePath,
+	MAIN_AGENT_ID,
+} from "@oh-my-soup/pi-coding-agent/registry/agent-registry";
+import {
+	ensurePersistedRoster,
+	registerPersistedSubagents,
+} from "@oh-my-soup/pi-coding-agent/registry/persisted-agents";
 import type { AgentSession } from "@oh-my-soup/pi-coding-agent/session/agent-session";
 import { CURRENT_SESSION_VERSION } from "@oh-my-soup/pi-coding-agent/session/session-entries";
 import { collectIrcPeerRoster } from "@oh-my-soup/pi-coding-agent/task/executor";

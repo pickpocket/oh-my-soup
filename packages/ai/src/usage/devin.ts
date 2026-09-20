@@ -21,7 +21,11 @@ import {
 	type Timestamp,
 } from "@oh-my-soup/pi-catalog/discovery/devin-proto";
 import { create, toBinary } from "@oh-my-soup/pi-catalog/discovery/protobuf";
-import { DEVIN_DEFAULT_BASE_URL, devinCliMetadata, normalizeDevinSessionToken } from "@oh-my-soup/pi-catalog/wire/devin";
+import {
+	DEVIN_DEFAULT_BASE_URL,
+	devinCliMetadata,
+	normalizeDevinSessionToken,
+} from "@oh-my-soup/pi-catalog/wire/devin";
 import { decodeDevinUnaryMessage } from "@oh-my-soup/pi-catalog/wire/devin-proto";
 import type {
 	UsageAmount,

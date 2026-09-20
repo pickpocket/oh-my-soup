@@ -8,7 +8,10 @@
 
 import { describe, expect, it } from "bun:test";
 import { serializeTitleSlot } from "@oh-my-soup/pi-coding-agent/session/session-title-slot";
-import { SqlSessionStorage, type SqlSessionStorageClient } from "@oh-my-soup/pi-coding-agent/session/sql-session-storage";
+import {
+	SqlSessionStorage,
+	type SqlSessionStorageClient,
+} from "@oh-my-soup/pi-coding-agent/session/sql-session-storage";
 import { SQL } from "bun";
 
 async function createSqlite(): Promise<{ client: InstanceType<typeof SQL>; storage: SqlSessionStorage }> {

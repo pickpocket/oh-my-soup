@@ -506,10 +506,7 @@ export const streamGoogleGeminiCli = createLazyStream(
 	GOOGLE_GEMINI_CLI_LAZY_STREAM_LIMITS,
 );
 export const streamGoogleVertex = createLazyStream(loadGoogleVertexProviderModule);
-export const streamOpenAIPrism = createLazyStream(
-	loadOpenAIPrismProviderModule,
-	PROVIDER_HANDLED_STREAM_TIMEOUTS,
-);
+export const streamOpenAIPrism = createLazyStream(loadOpenAIPrismProviderModule, PROVIDER_HANDLED_STREAM_TIMEOUTS);
 export const streamOpenAICodexResponses = createLazyStream(
 	loadOpenAICodexResponsesProviderModule,
 	PROVIDER_HANDLED_STREAM_TIMEOUTS,

@@ -30,7 +30,11 @@ import type {
 	ExtensionFactory,
 	ExtensionRunner,
 } from "@oh-my-soup/pi-coding-agent/extensibility/extensions";
-import { type CreateAgentSessionOptions, createAgentSession, discoverAuthStorage } from "@oh-my-soup/pi-coding-agent/sdk";
+import {
+	type CreateAgentSessionOptions,
+	createAgentSession,
+	discoverAuthStorage,
+} from "@oh-my-soup/pi-coding-agent/sdk";
 import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
 import type { FileWriteFallbackRequest } from "@oh-my-soup/pi-coding-agent/tools/file-write-fallback";
 import { removeSyncWithRetries, Snowflake } from "@oh-my-soup/pi-utils";

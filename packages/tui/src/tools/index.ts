@@ -7,7 +7,13 @@ import { sanitizeText } from "@oh-my-soup/pi-utils";
 import { Text } from "../components/text";
 import { renderStatusLine } from "../render/status-line";
 import { framedToolCard } from "../render/tool-card";
-import { formatExpandHint, PREVIEW_LIMITS, replaceTabs, TRUNCATE_LENGTHS, truncateToWidth } from "../render/render-utils";
+import {
+	formatExpandHint,
+	PREVIEW_LIMITS,
+	replaceTabs,
+	TRUNCATE_LENGTHS,
+	truncateToWidth,
+} from "../render/render-utils";
 import { askToolRenderer } from "./ask";
 import { astEditToolRenderer } from "./ast-edit";
 import { astGrepToolRenderer } from "./ast-grep";
@@ -69,14 +75,24 @@ const notesToolRenderer = {
 				return {
 					header,
 					phase,
-					sections: [{ content: replaceTabs(sanitizeText(message)).split("\n").slice(0, PREVIEW_LIMITS.OUTPUT_COLLAPSED) }],
+					sections: [
+						{ content: replaceTabs(sanitizeText(message)).split("\n").slice(0, PREVIEW_LIMITS.OUTPUT_COLLAPSED) },
+					],
 					applyBg: false,
 				};
 			}
 			const limit = options.expanded ? PREVIEW_LIMITS.OUTPUT_EXPANDED : PREVIEW_LIMITS.COLLAPSED_ITEMS;
-			const content = notes.slice(0, limit).map(note => `  ${theme.fg("toolOutput", replaceTabs(sanitizeText(`${note.key}: ${note.text}`)).replace(/\n/g, " "))}`);
+			const content = notes
+				.slice(0, limit)
+				.map(
+					note =>
+						`  ${theme.fg("toolOutput", replaceTabs(sanitizeText(`${note.key}: ${note.text}`)).replace(/\n/g, " "))}`,
+				);
 			if (notes.length === 0) content.push(theme.fg("dim", "(no notes)"));
-			if (notes.length > limit) content.push(theme.fg("muted", `… ${notes.length - limit} more ${formatExpandHint(theme, options.expanded, true)}`));
+			if (notes.length > limit)
+				content.push(
+					theme.fg("muted", `… ${notes.length - limit} more ${formatExpandHint(theme, options.expanded, true)}`),
+				);
 			return { header, phase, sections: [{ content }], applyBg: false };
 		});
 	},
@@ -114,7 +130,12 @@ const objdumpToolRenderer = {
 			const limit = options.expanded ? PREVIEW_LIMITS.EXPANDED_LINES : PREVIEW_LIMITS.COLLAPSED_LINES;
 			const content = lines.slice(0, limit).map(line => truncateToWidth(line, TRUNCATE_LENGTHS.LINE));
 			if (lines.length > content.length) {
-				content.push(theme.fg("muted", `… ${lines.length - content.length} more lines ${formatExpandHint(theme, options.expanded, true)}`));
+				content.push(
+					theme.fg(
+						"muted",
+						`… ${lines.length - content.length} more lines ${formatExpandHint(theme, options.expanded, true)}`,
+					),
+				);
 			}
 			return {
 				header,

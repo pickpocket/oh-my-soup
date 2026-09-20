@@ -7,6 +7,10 @@
 - Added an optional `think` scratchpad tool for models, including native-reasoning models such as Astra; native provider reasoning remains enabled and preferred. Streamed `<thinking>`, `<think>`, and `<scratchpad>` sections use the same thinking presentation without creating a second tool call or leaking raw tags into the final answer.
 - Added OpenAI Prism (`prism.openai.com`) as a built-in provider with `gpt-6-astra`, `gpt-5.6-sol`, and `gpt-5.6-terra`. `/login` collects a signed-in browser `Cookie` header plus a dedicated Prism project, and `PRISM_COOKIE` configures it from the environment. Server-registered conversations preserve native history across turns and session reloads; local tools use the in-band XML dialect. Existing histories without a Prism conversation pointer require a new session.
 
+### Changed
+
+- Absorbed 5,894 upstream oh-my-pi commits (through dbf3afad489), bringing the fork current with upstream's v17.5-era features, fixes, and restructuring while preserving every OMS feature. Compiled binaries temporarily ship without bytecode precompilation (slightly slower cold start) until a fork-side module regains compatibility with Bun's bytecode CJS lowering.
+
 ### Fixed
 
 - Fixed transient HUD/status panels leaking into scrollback and duplicating transcript lines when rapid updates grow or collapse panels beyond the viewport.

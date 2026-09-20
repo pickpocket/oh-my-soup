@@ -2,11 +2,6 @@
 
 ## [Unreleased]
 
-## [17.3.2] - 2026-08-16
-
-### Changed
-
-- Replaced the Greek-pi brand glyph in the collab lockup with 🍜.
 ## [18.2.1] - 2026-09-15
 
 ### Fixed
@@ -37,6 +32,12 @@
 ### Fixed
 
 - The ask tool card now renders the note the user attached to their answer; previously it was dropped from HTML exports and the collab guest view.
+
+## [17.3.2] - 2026-08-16
+
+### Changed
+
+- Replaced the Greek-pi brand glyph in the collab lockup with 🍜.
 
 ## [17.2.10] - 2026-08-06
 

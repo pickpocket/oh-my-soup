@@ -2,11 +2,6 @@
 
 ## [Unreleased]
 
-## [17.3.3] - 2026-08-27
-
-### Added
-
-- Added zstd-embedded exact content tokenizers for Qwen 3.5+/3.6+/3.8, DeepSeek V3/V4/R1, Kimi K2/K3, and GLM-5 alongside rebuilt OpenAI o200k/cl100k and Claude reconstructions. `countTokens` accepts JavaScript strings directly as UTF-16, avoiding a UTF-8 temporary.
 ## [18.2.1] - 2026-09-15
 
 ### Added
@@ -222,6 +217,12 @@
 - Fixed the root Cargo workspace failing to load when a stale directory exists under `crates/` — e.g. a deleted crate whose directory survived `git reset --hard`. `members` no longer globs `crates/pi-*`, so a directory without a `Cargo.toml` can no longer break every cargo and Bazel build.
 - Fixed Docker build contexts shipping nested build output: `.dockerignore` patterns are anchored at the context root, so bare `target/` and `dist/` matched neither `go-port/*/target` (~1.4 GB) nor `packages/*/dist` (~600 MB).
 - Fixed `deviceCheckGenerateToken` aborting the whole process with `SIGTRAP` when called from a macOS session without GUI/graphic access (SSH, a launchd `LaunchDaemon`, a CI runner, a service account, a sandbox), which made every `openai-codex/*` OAuth model unusable for such accounts. `-[DCDevice isSupported]` synchronously opens an XPC connection to the per-user DeviceCheck metadata daemon, which exists only in an interactive GUI login session; without one the connection setup hits `_xpc_api_misuse` and traps before any completion handler runs, so the promise never rejects. The binding now checks the caller's security session for the `sessionHasGraphicAccess` attribute first and resolves `{ supported: false, error: … }` instead of touching DeviceCheck when it is absent ([#8353](https://github.com/can1357/oh-my-pi/issues/8353)).
+
+## [17.3.3] - 2026-08-27
+
+### Added
+
+- Added zstd-embedded exact content tokenizers for Qwen 3.5+/3.6+/3.8, DeepSeek V3/V4/R1, Kimi K2/K3, and GLM-5 alongside rebuilt OpenAI o200k/cl100k and Claude reconstructions. `countTokens` accepts JavaScript strings directly as UTF-16, avoiding a UTF-8 temporary.
 
 ## [17.3.1] - 2026-08-13
 

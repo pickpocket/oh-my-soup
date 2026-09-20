@@ -1,9 +1,18 @@
 # Changelog
 
 ## [Unreleased]
+
+## [18.3.0] - 2026-09-20
+
+### Added
+
+- Added coarse vendor-lineage classification (`anthropic`/`openai`/`gemini`/`kimi`/…) to `@oh-my-soup/pi-catalog/identity` for "are two models the same family?" comparisons, with namespace normalization and kind/variant collapse ([#2406](https://github.com/can1357/oh-my-pi/issues/2406))
+- New `identity/` module centralizing model-identity concerns that were previously duplicated across packages: structured taxonomy classification and revisions, proxy/reseller reference lookup (`identity/reference.ts`), bracket-affix and id-segment helpers (`identity/id.ts`), and provider priority ordering (`identity/priority.ts`).
+
 ### Fixed
 
 - Fixed Yolo-Auto advertising 1M context for Qwen Flash: `qwen3.8-flash` and the paid `yolo` route now resolve to the documented 256K deployment window with the Qwen chat-template reasoning dialect, and `qwen3.8-flash` is the provider default.
+- Fixed adaptive-display classification only matching dash-form version ids: dotted ids (`claude-opus-4.7`) now classify through the structured taxonomy, so six bundled dotted Opus 4.7/4.8 entries (github-copilot, vercel-ai-gateway, zenmux) regain adaptive `display` support; bare dated ids (`claude-opus-4-20250514` = Opus 4.0) stay excluded.
 
 ## [18.2.4] - 2026-09-17
 
@@ -198,6 +207,16 @@
 
 - Improved model search and selection so configured roles, provider preferences, and recent usage are prioritized while browsing and filtering models.
 
+## [18.1.6] - 2026-09-03
+
+### Added
+
+- Added catalog-delivered model intelligence scores and estimated output throughput to help compare model capabilities and performance.
+
+### Changed
+
+- The bundled model catalog loads lazily per provider: `gen:models` now also emits per-provider chunks (`src/models/*.json.txt` + a generated static import map) and a light `models-index.json`, and the runtime parses a provider's chunk on first access instead of materializing all ~4800 models at module evaluation. Catalog data eval at boot drops ~87% (38ms → 5ms measured on the bundled form); full-catalog walkers pay a one-time memoized parse. Public API unchanged; new additive `getBundledModelIds(provider)` serves id-only consumers (shell completion) from the index without loading bodies.
+
 ## [18.1.5] - 2026-09-03
 
 ### Added
@@ -382,6 +401,18 @@
 
 - Added model capability metadata for reversible private-use glyph tokenization on Claude-compatible models, so provider request handling can apply the compatibility layer without inferring from transport details.
 
+## [17.5.0] - 2026-09-12
+
+### Added
+
+- Added Z.AI `glm-5.3-flash` with native image input, a 1M-token context window, 128K output, promotional pay-as-you-go pricing, and its mandatory `low`/`high`/`max` reasoning-effort ladder.
+- Added the explicit `emoji` owned tool-calling dialect identity.
+- Added Claude Fable 5.1 to the bundled first-party Anthropic catalog with its 1M context window, 128K output limit, adaptive five-tier reasoning, and cache pricing.
+
+### Changed
+
+- Updated the shared OpenAI Codex client compatibility version from `0.153.0` to `0.153.4` for discovery and request headers.
+
 ## [17.4.2] - 2026-08-21
 
 ### Added
@@ -490,6 +521,13 @@
 - Fixed raw `COPILOT_GITHUB_TOKEN` credentials skipping plan-specific endpoint discovery, which routed GitHub Copilot Business model requests to the personal endpoint and returned HTTP 403. The GitHub Copilot model cache is now scoped per credential, so switching the token no longer serves another account's stale endpoint for the cache TTL ([#8507](https://github.com/can1357/oh-my-pi/issues/8507)).
 - Fixed the OpenRouter `deepseek/deepseek-v4-pro-0813` route silently clamping the reasoning effort to `high`: the dated SKU advertises (and accepts) the wire-exact `low`/`high`/`max` ladder, so its effort override no longer collapses to `high`-only. The undated `deepseek/deepseek-v4-pro` OpenRouter route stays `high`-only. ([#8517](https://github.com/can1357/oh-my-pi/issues/8517))
 
+## [17.3.3] - 2026-08-27
+
+### Added
+
+- Models now materialize an optional `tokenizer` family in the catalog (`claude-v3`/`v47`/`v5`, Qwen 3.5+, DeepSeek V3/V4/R1, Kimi K2/K3, and GLM-5+). The field follows `requestModelId`, applies to bundled, discovered, and custom models, and can be explicitly overridden in model configuration.
+- Added Z.AI `glm-5.3` with its documented 1M context window, 128K output limit, pay-as-you-go pricing, and forced `low`/`high`/`max` reasoning effort surface.
+
 ## [17.3.2] - 2026-08-13
 
 ### Added
@@ -506,45 +544,6 @@
 
 - Removed `ANTIGRAVITY_SYSTEM_INSTRUCTION` from `wire/gemini-headers`; the Antigravity transport and web search no longer inject a fake identity prompt.
 
-## [17.3.1] - 2026-08-13
-
-### Added
-
-- Added dynamic Antigravity and Gemini CLI discovery support for Gemini 3.7 Flash, with low/medium/high thinking-level routing.
-
-### Changed
-
-- Updated model metadata, context windows, pricing, and configurations in the catalog
-
-## [18.1.6] - 2026-09-03
-
-### Added
-
-- Added catalog-delivered model intelligence scores and estimated output throughput to help compare model capabilities and performance.
-
-### Changed
-
-- The bundled model catalog loads lazily per provider: `gen:models` now also emits per-provider chunks (`src/models/*.json.txt` + a generated static import map) and a light `models-index.json`, and the runtime parses a provider's chunk on first access instead of materializing all ~4800 models at module evaluation. Catalog data eval at boot drops ~87% (38ms → 5ms measured on the bundled form); full-catalog walkers pay a one-time memoized parse. Public API unchanged; new additive `getBundledModelIds(provider)` serves id-only consumers (shell completion) from the index without loading bodies.
-
-## [17.5.0] - 2026-09-12
-
-### Added
-
-- Added Z.AI `glm-5.3-flash` with native image input, a 1M-token context window, 128K output, promotional pay-as-you-go pricing, and its mandatory `low`/`high`/`max` reasoning-effort ladder.
-- Added the explicit `emoji` owned tool-calling dialect identity.
-- Added Claude Fable 5.1 to the bundled first-party Anthropic catalog with its 1M context window, 128K output limit, adaptive five-tier reasoning, and cache pricing.
-
-### Changed
-
-- Updated the shared OpenAI Codex client compatibility version from `0.153.0` to `0.153.4` for discovery and request headers.
-
-## [17.3.3] - 2026-08-27
-
-### Added
-
-- Models now materialize an optional `tokenizer` family in the catalog (`claude-v3`/`v47`/`v5`, Qwen 3.5+, DeepSeek V3/V4/R1, Kimi K2/K3, and GLM-5+). The field follows `requestModelId`, applies to bundled, discovered, and custom models, and can be explicitly overridden in model configuration.
-- Added Z.AI `glm-5.3` with its documented 1M context window, 128K output limit, pay-as-you-go pricing, and forced `low`/`high`/`max` reasoning effort surface.
-
 ## [17.3.2] - 2026-08-16
 
 ### Added
@@ -554,6 +553,16 @@
 ### Fixed
 
 - Fixed `omp models refresh` so revoked ChatGPT account tokens no longer prevent the remaining OpenAI Codex models from being discovered.
+
+## [17.3.1] - 2026-08-13
+
+### Added
+
+- Added dynamic Antigravity and Gemini CLI discovery support for Gemini 3.7 Flash, with low/medium/high thinking-level routing.
+
+### Changed
+
+- Updated model metadata, context windows, pricing, and configurations in the catalog
 
 ## [17.3.1] - 2026-08-14
 
@@ -1441,7 +1450,6 @@
 ### Added
 
 - Added `modelFamilyToken(modelId)` to `@oh-my-soup/pi-catalog/identity`: a coarse vendor-lineage token (`anthropic`/`openai`/`gemini`/`kimi`/…) for "are two models the same family?" comparisons, backed by `parseKnownModel` canonical-id normalization. Opaque and comparison-only; kind/variant collapsed onto the vendor token ([#2406](https://github.com/can1357/oh-my-pi/issues/2406))
-- Added coarse vendor-lineage classification (`anthropic`/`openai`/`gemini`/`kimi`/…) to `@oh-my-soup/pi-catalog/identity` for "are two models the same family?" comparisons, with namespace normalization and kind/variant collapse ([#2406](https://github.com/can1357/oh-my-pi/issues/2406))
 
 ### Changed
 
@@ -1579,7 +1587,6 @@
 - Compat detection gained model-time flags so handlers stop sniffing baseUrl: completions `supportsReasoningParams`, `alwaysSendMaxTokens`, `isOpenRouterHost`, `isVercelGatewayHost`, `streamIdleTimeoutMs`, and a precomputed `whenThinking` alternate view (OpenCode `reasoning_content` gating, #1071/#1484); responses `strictResponsesPairing`, `supportsLongPromptCacheRetention`, `supportsReasoningEffort`; anthropic `officialEndpoint`, `requiresToolResultId`, `replayUnsignedThinking`.
 - New `@oh-my-soup/pi-catalog` package: the model catalog extracted from `@oh-my-soup/pi-ai`. Owns the bundled `models.json` and its generation pipeline (`scripts/generate-models.ts`), the core model data types (`Model`, `Api`, `ThinkingConfig`, `Effort`, `Usage`, compat interfaces), thinking metadata enrichment and generated policies (`model-thinking.ts`), the SQLite model cache and model manager, per-provider discovery factories (`provider-models/`), the discovery protocol clients (`discovery/`), and the new `CATALOG_PROVIDERS` table — the single source of truth for provider ids, default models, and discovery wiring (`KnownProvider`, `PROVIDER_DESCRIPTORS`, and `DEFAULT_MODEL_PER_PROVIDER` are derived from it).
 - New `identity/` module centralizing model-identity concerns that were previously duplicated across packages: family classification and version parsing (`identity/classify.ts`, extracted from pi-ai's `model-thinking` internals), canonical model equivalence with injected reference data (`identity/equivalence.ts`, from coding-agent's `model-equivalence`), proxy/reseller reference lookup (`identity/reference.ts`, from coding-agent's `model-registry`), bracket-affix and id-segment helpers (`identity/id.ts`), a single trailing-marker vocabulary with canonical vs reference flavors (`identity/markers.ts` — `search` stays reference-only so Perplexity's `sonar-pro-search` remains canonical-distinct), and provider priority ordering (`identity/priority.ts`).
-- New `identity/` module centralizing model-identity concerns that were previously duplicated across packages: structured taxonomy classification and revisions, proxy/reseller reference lookup (`identity/reference.ts`), bracket-affix and id-segment helpers (`identity/id.ts`), and provider priority ordering (`identity/priority.ts`).
 - Memoized bundled-reference accessors (`getBundledCanonicalReferenceData` / `getBundledModelReferenceIndex` in `identity/bundled.ts`): one lazy walk of the bundled catalog feeds both canonical equivalence and proxy-reference lookup, so consumers no longer hand-roll the glue.
 - `identity/selection.ts`: pure canonical-variant selection (`resolveCanonicalVariant`, `buildCanonicalModelOrder`, `CanonicalVariantPreferences`) extracted from the coding-agent registry — provider rank, then exact-id match, variant source, id length, and candidate order.
 
@@ -1599,7 +1606,6 @@
 - Fixed Ollama Cloud dynamic discovery so same-id matches from other providers no longer supply context-window or max-output-token limits for discovered models.
 - Wired `@oh-my-soup/pi-catalog` into the release publish package list, tarball install smoke test, and root `bun generate-models` script.
 - Fixed `supportsAdaptiveThinkingDisplay` only matching dash-form version ids: dotted ids (`claude-opus-4.7`) now classify through `identity/classify` like every other anthropic predicate, so six bundled dotted Opus 4.7/4.8 entries (github-copilot, vercel-ai-gateway, zenmux) regain adaptive `display` support; bare dated ids (`claude-opus-4-20250514` = Opus 4.0) stay excluded.
-- Fixed adaptive-display classification only matching dash-form version ids: dotted ids (`claude-opus-4.7`) now classify through the structured taxonomy, so six bundled dotted Opus 4.7/4.8 entries (github-copilot, vercel-ai-gateway, zenmux) regain adaptive `display` support; bare dated ids (`claude-opus-4-20250514` = Opus 4.0) stay excluded.
 - Fixed the OpenRouter anthropic adaptive-effort map misclassifying bare dated Opus ids (`claude-opus-4-20250514` parsed as version 4.20 → wrongly adaptive); the map now derives from the shared classifier and the shared 4-/5-tier tables.
 
 ### Removed

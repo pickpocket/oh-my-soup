@@ -2,29 +2,12 @@
 
 ## [Unreleased]
 
+## [18.3.0] - 2026-09-20
+
 ### Fixed
 
 - Coalesced pending terminal paints while stdout is backpressured, keeping input responsive and preserving the latest frame, forced redraws, and resize state until output drains.
 - Stopped assuming Kitty graphics support from `TERM=screen*` or `TERM=tmux*`; unknown terminals use text image fallbacks unless a recognized terminal profile or explicit protocol override provides support.
-
-## [17.3.2] - 2026-08-16
-
-### Changed
-
-- Loader message color functions can supply an optional `frameKey`; when the key and spinner glyph are both unchanged, the animation tick skips its direct write instead of repainting identical bytes. Color functions without a `frameKey` keep the previous per-tick paint behavior.
-### Added
-
-- Added composable forms, menus, split layouts, disclosures, tree views, tool cards, and data widgets for terminal extensions and standalone apps.
-- Added the full coding-agent terminal UI to this package: theme runtime (`@oh-my-soup/pi-tui/theme`), render primitives (`/render`), shared chrome (`/chrome`), tool renderers and registry (`/tools`), chat transcript components (`/chat/*`), overlays and hubs (`/overlays/*`), status line (`/status-line`), composer and autocomplete (`/prompt/*`), setup wizard (`/setup/*`), and standalone apps (`/apps/*`: git TUI, process top, debug viewers, boards, pickers). Components take host capabilities through structural interfaces and setters instead of reading application settings.
-- Added image input validation and automatic conversion for unsupported formats
-- Added MCP Add Wizard for streamlined server configuration
-- Added support for video preview rendering in chat
-- Added interactive task list renderer for managing subtasks
-- Added `autoresearch` tool renderer for tracking experiments
-- Enhanced merge conflict rendering with side-by-side diff support
-- Improved output rendering for GitHub workflow jobs and runs
-- Added performance improvements for long-running bash streaming output
-- Added the `dark-celestial` built-in theme: a twilight dark palette with pink/coral accents, purple keywords, cyan functions, and peach strings.
 
 ## [18.2.4] - 2026-09-17
 
@@ -376,6 +359,26 @@
 ### Fixed
 
 - Fixed Gemini reports rendering their final headings and tables as one raw code block when the model emitted a lone closing Markdown fence without its opener.
+
+## [17.3.2] - 2026-08-16
+
+### Changed
+
+- Loader message color functions can supply an optional `frameKey`; when the key and spinner glyph are both unchanged, the animation tick skips its direct write instead of repainting identical bytes. Color functions without a `frameKey` keep the previous per-tick paint behavior.
+
+### Added
+
+- Added composable forms, menus, split layouts, disclosures, tree views, tool cards, and data widgets for terminal extensions and standalone apps.
+- Added the full coding-agent terminal UI to this package: theme runtime (`@oh-my-soup/pi-tui/theme`), render primitives (`/render`), shared chrome (`/chrome`), tool renderers and registry (`/tools`), chat transcript components (`/chat/*`), overlays and hubs (`/overlays/*`), status line (`/status-line`), composer and autocomplete (`/prompt/*`), setup wizard (`/setup/*`), and standalone apps (`/apps/*`: git TUI, process top, debug viewers, boards, pickers). Components take host capabilities through structural interfaces and setters instead of reading application settings.
+- Added image input validation and automatic conversion for unsupported formats
+- Added MCP Add Wizard for streamlined server configuration
+- Added support for video preview rendering in chat
+- Added interactive task list renderer for managing subtasks
+- Added `autoresearch` tool renderer for tracking experiments
+- Enhanced merge conflict rendering with side-by-side diff support
+- Improved output rendering for GitHub workflow jobs and runs
+- Added performance improvements for long-running bash streaming output
+- Added the `dark-celestial` built-in theme: a twilight dark palette with pink/coral accents, purple keywords, cyan functions, and peach strings.
 
 ## [17.3.1] - 2026-08-13
 

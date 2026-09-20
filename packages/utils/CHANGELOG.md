@@ -2,26 +2,11 @@
 
 ## [Unreleased]
 
-## [17.5.0] - 2026-09-12
-
-### Fixed
-
-- String truncation no longer splits UTF-16 surrogate pairs at the cut boundary, keeping capped text and its suffix well-formed.
-
-## [17.3.3] - 2026-08-27
+## [18.3.0] - 2026-09-20
 
 ### Changed
 
-- `getDaemonRuntimeDir` now derives its project key through the new exported `daemonProjectKey`, which lowercases the resolved path before hashing on win32 so case-variant launcher cwds (`d:\repo` vs `D:\repo`) map to one runtime scope. POSIX keys are unchanged.
-
-## [17.3.1] - 2026-08-14
-
-### Changed
-
-- Extended parsed Server-Sent Events with optional `id` and `retry` fields, including control-only events, so reconnecting transports can retain stream cursors and server-requested retry intervals.
-### Added
-
-- Added stringifyYamlConfig utility to strip trailing spaces from YAML block headers
+- Changed outbound User-Agent consumers to share the versioned `USER_AGENT` constant (`oms/<version>`).
 
 ## [18.2.3] - 2026-09-17
 
@@ -246,6 +231,12 @@
 - Fixed the Mermaid ASCII renderer throwing on left-to-right diagrams containing a `subgraph`, which made the fenced block fall back to raw source in the terminal. `offsetDrawingForSubgraphs` shifts every drawing coordinate to make room for subgraph borders that extend past the origin, but the canvas had already been sized from the pre-shift grid extents, so edges routed to the outermost column wrote past the allocation and `drawLine` threw on the missing column. The canvas and role canvas now grow by the same shift. ([#9340](https://github.com/can1357/oh-my-pi/issues/9340))
 - Fixed child shell environments inheriting Bun-autoloaded `.env.<mode>.local` values from the launch directory. ([#9290](https://github.com/can1357/oh-my-pi/issues/9290))
 
+## [17.5.0] - 2026-09-12
+
+### Fixed
+
+- String truncation no longer splits UTF-16 surrogate pairs at the cut boundary, keeping capped text and its suffix well-formed.
+
 ## [17.4.2] - 2026-08-21
 
 ### Fixed
@@ -270,11 +261,27 @@
 
 - Fixed the Markdown renderer incorrectly breaking into a raw code block when a 4-space-indented line (such as a box-drawing tree child under a └── branch) directly followed paragraph text; it now correctly stays part of the paragraph, matching standard Markdown behavior.
 
+## [17.3.3] - 2026-08-27
+
+### Changed
+
+- `getDaemonRuntimeDir` now derives its project key through the new exported `daemonProjectKey`, which lowercases the resolved path before hashing on win32 so case-variant launcher cwds (`d:\repo` vs `D:\repo`) map to one runtime scope. POSIX keys are unchanged.
+
 ## [17.3.2] - 2026-08-13
 
 ### Fixed
 
 - Fixed `fetchWithRetry()` aborts during retry backoff to preserve the documented `"Request was aborted"` error contract ([#8450](https://github.com/can1357/oh-my-pi/issues/8450)).
+
+## [17.3.1] - 2026-08-14
+
+### Changed
+
+- Extended parsed Server-Sent Events with optional `id` and `retry` fields, including control-only events, so reconnecting transports can retain stream cursors and server-requested retry intervals.
+
+### Added
+
+- Added stringifyYamlConfig utility to strip trailing spaces from YAML block headers
 
 ## [17.3.0] - 2026-08-13
 
@@ -297,7 +304,6 @@
 - Changed outbound User-Agent consumers to share the versioned `USER_AGENT` constant (`omp/<version>`).
 - Changed outbound User-Agent consumers to share the versioned `USER_AGENT` constant (`oms/<version>`).
 - Changed stale process-log retention from the newest five files globally to one newest file per completed process and day within the current and previous four local calendar days. This preserves bounded daily diagnostic coverage while continuing to remove one-use audit files.
-- Changed outbound User-Agent consumers to share the versioned `USER_AGENT` constant (`oms/<version>`).
 
 ### Fixed
 

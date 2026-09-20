@@ -3,7 +3,7 @@ import { matchesKey } from "../keys";
 import { padding, truncateToWidth, visibleWidth } from "../utils";
 import { routeSgrMouseInput, type SgrMouseEvent } from "../mouse";
 import { APP_NAME } from "@oh-my-soup/pi-utils";
-import { gradientLogo, PI_LOGO } from "../prompt/welcome";
+import { gradientLogo, OMS_LOGO } from "../prompt/welcome";
 import { theme } from "../theme/theme";
 import type { SetupHost } from "./scenes/types";
 import { renderSetupOutro, SETUP_OUTRO_MS } from "./scenes/outro";
@@ -196,7 +196,7 @@ export class SetupWizardComponent implements Component, OverlayFocusOwner {
 		const title = this.#activeScene?.title ?? scene?.title ?? "Setup";
 		const subtitle = this.#activeScene?.subtitle;
 		const contentWidth = Math.max(MIN_CONTENT_WIDTH, width - SCENE_MARGIN_X * 2);
-		const logo = gradientLogo(PI_LOGO, 0);
+		const logo = gradientLogo(OMS_LOGO, 0);
 		const header = [
 			"",
 			...logo.map(line => centerLine(line, width)),

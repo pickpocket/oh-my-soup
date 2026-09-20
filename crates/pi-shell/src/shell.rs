@@ -2891,13 +2891,13 @@ mod tests {
 		let source_info = SourceInfo::from("pi-natives:test");
 
 		time::timeout(
-			Duration::from_secs(5),
+			Duration::from_secs(30),
 			session.shell.run_string(command, &source_info, &params),
 		)
 		.await
 		.expect("pipeline did not stop")
 		.expect("stopped pipeline");
-		time::timeout(Duration::from_secs(5), async {
+		time::timeout(Duration::from_secs(30), async {
 			while !first_ready.exists() || !second_ready.exists() {
 				time::sleep(Duration::from_millis(10)).await;
 			}

@@ -1,12 +1,12 @@
 import { padding, truncateToWidth, visibleWidth } from "../../utils";
-import { gradientEscape, gradientLogo, PI_LOGO, type ShineConfig } from "../../prompt/welcome";
+import { gradientEscape, gradientLogo, OMS_LOGO, type ShineConfig } from "../../prompt/welcome";
 import { theme } from "../../theme/theme";
 
 export const SETUP_SPLASH_MS = 2600;
 export const SETUP_TICK_MS = 33;
 
 /** Brand mark at 2x: every glyph doubled horizontally, every row doubled vertically. */
-const LARGE_LOGO = PI_LOGO.flatMap(line => {
+const LARGE_LOGO = OMS_LOGO.flatMap(line => {
 	let wide = "";
 	for (const char of line) {
 		wide += char === " " ? "  " : `${char}${char}`;
@@ -117,7 +117,7 @@ function waterAmplitude(
 }
 
 /**
- * Animated setup splash, in the spirit of the oms landing page: the brand π
+ * Animated setup splash, in the spirit of the oms landing page: the brand OMS
  * mark rendered with the live diagonal gradient + shine sweep, rising out of a
  * rippling, gradient-lit water surface, under a faint twinkling starfield. The
  * mark and water share one continuous gradient so the sweep reads across the
@@ -189,8 +189,8 @@ export function renderSetupSplash(width: number, height: number, elapsedMs: numb
 
 /** Centered fallback for windows too small to hold the full scene. */
 function renderCompactSplash(width: number, height: number, phase: number, shine: ShineConfig): string[] {
-	const art = height >= 14 ? LARGE_LOGO : PI_LOGO;
-	const content = [...gradientLogo(art, phase, shine), "", theme.bold("O h   M y   P i")];
+	const art = height >= 14 ? LARGE_LOGO : OMS_LOGO;
+	const content = [...gradientLogo(art, phase, shine), "", theme.bold("O h   M y   S o u p")];
 	const start = Math.max(0, Math.floor((height - content.length) / 2));
 	const lines: string[] = [];
 	for (let y = 0; y < height; y++) {

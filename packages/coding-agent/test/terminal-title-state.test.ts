@@ -12,9 +12,9 @@ import { setTerminalHeadless } from "@oh-my-soup/pi-utils";
 import { mockWindowsConsoleTitle, type WindowsConsoleTitleMock } from "./terminal-title-test-utils";
 
 const LABEL = "my-project";
-// The brand the title runtime prefixes every composed title with. Plain π —
+// The brand the title runtime prefixes every composed title with. Plain 🍜 —
 // window titles render in the OS UI font, so nerd-font glyphs are unusable here.
-const BRAND = "π";
+const BRAND = "🍜";
 
 describe("buildTerminalTitleWithState", () => {
 	it("separates brand and label with '>' when idle/done (your turn)", () => {
@@ -28,7 +28,7 @@ describe("buildTerminalTitleWithState", () => {
 	it("animates spinner frames in the separator slot while working outside Windows", () => {
 		const frame0 = buildTerminalTitleWithState(LABEL, "working", 0, true, "linux", "braille", {});
 		const frame1 = buildTerminalTitleWithState(LABEL, "working", 1, true, "linux", "braille", {});
-		// The brand stays a bare `π`; only the separator between brand and label
+		// The brand stays a bare `🍜`; only the separator between brand and label
 		// carries the spinner glyph, and it advances per frame.
 		expect(frame0).toBe(`${BRAND} ⠋ ${LABEL}`);
 		expect(frame1).toBe(`${BRAND} ⠙ ${LABEL}`);
@@ -53,7 +53,7 @@ describe("buildTerminalTitleWithState", () => {
 		expect(buildTerminalTitleWithState(undefined, "working", 0, true, "linux", "braille", {})).toBe(`${BRAND} ⠋`);
 	});
 
-	it("renders the pre-state `π: label` layout when disabled, regardless of state", () => {
+	it("renders the pre-state `🍜: label` layout when disabled, regardless of state", () => {
 		expect(buildTerminalTitleWithState(LABEL, "working", 3, false)).toBe(`${BRAND}: ${LABEL}`);
 		expect(buildTerminalTitleWithState(LABEL, "idle", 0, false)).toBe(`${BRAND}: ${LABEL}`);
 		expect(buildTerminalTitleWithState(LABEL, "attention", 0, false)).toBe(`${BRAND}: ${LABEL}`);
@@ -95,7 +95,7 @@ describe("buildTerminalTitleWithState", () => {
 // `working` spinner arms a periodic `setInterval` that, on every tick, re-emits
 // the terminal title as an OSC-0 write (`ESC]0;<title>BEL`). If that interval is
 // not cleared on teardown, a pending tick can fire AFTER the shell title was
-// restored, leaving the parent shell tab reading `π ⠋ …` post-exit.
+// restored, leaving the parent shell tab reading `🍜 ⠋ …` post-exit.
 // `disposeTerminalTitleState()` (now wired into `InteractiveMode.shutdown()`)
 // must stop the timer so no further OSC-title write reaches stdout.
 //
@@ -234,7 +234,7 @@ describe("disposeTerminalTitleState", () => {
 		// `this.stop()` unsubscribes the session, so in that window a live
 		// `#handleAgentStart` can still call `setTerminalTitleState("working")`.
 		// If dispose only stops the timer, that call re-arms it and a tick writes
-		// `π ⠋ …` into the parent shell's tab — the exact leak the ordering
+		// `🍜 ⠋ …` into the parent shell's tab — the exact leak the ordering
 		// comment in `shutdown()` claims to prevent.
 		disposeTerminalTitleState();
 
@@ -301,7 +301,7 @@ describe("disposeTerminalTitleState", () => {
 		expect(titles.length).toBeGreaterThan(0);
 		for (const title of titles) {
 			expect(title).toContain("my-project");
-			expect(title).toMatch(/^π [-\\|/] my-project$/);
+			expect(title).toMatch(/^🍜 [-\\|/] my-project$/);
 			expect(title).not.toContain("⠋");
 		}
 	});
@@ -330,7 +330,7 @@ describe("disposeTerminalTitleState", () => {
 		expect(titles.length).toBeGreaterThan(0);
 		for (const title of titles) {
 			expect(title).toContain("my-project");
-			expect(title).toMatch(/^π [○◔◑◕●] my-project$/);
+			expect(title).toMatch(/^🍜 [○◔◑◕●] my-project$/);
 		}
 	});
 

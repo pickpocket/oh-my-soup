@@ -484,7 +484,13 @@ export class WelcomeComponent implements Component {
 }
 
 /** Block-grid brand mark shared by the welcome and setup surfaces. */
-export const PI_LOGO = ["████████████", "   ██  ██   ", "   ██  ██   ", "   ▒▒  ██   ", "       ██   "];
+export const OMS_LOGO = [
+	"█████ █   █ █████",
+	"█   █ ██ ██ █    ",
+	"█   █ █ █ █ █████",
+	"█   █ █   █     █",
+	"█████ █   █ █████",
+];
 
 /** Multi-stop palette for the diagonal gradient. */
 const GRADIENT_STOPS: ReadonlyArray<readonly [number, number, number]> = [
@@ -604,8 +610,8 @@ function introLogoFrame(progress: number): string[] {
 	const phase = ((((1 - eased) * INTRO_SWEEPS) % 1) + 1) % 1;
 	const shinePos = (((progress * INTRO_SHINE_TRAVERSALS) % 1) + 1) % 1;
 	const shineStrength = (1 - eased) ** 1.5;
-	return gradientLogo(PI_LOGO, phase, { strength: shineStrength, pos: shinePos });
+	return gradientLogo(OMS_LOGO, phase, { strength: shineStrength, pos: shinePos });
 }
 
 /** Resting gradient frame, cached for re-renders outside of the intro. */
-const REST_FRAME = gradientLogo(PI_LOGO, 0);
+const REST_FRAME = gradientLogo(OMS_LOGO, 0);

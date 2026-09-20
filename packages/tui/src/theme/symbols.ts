@@ -458,7 +458,7 @@ const UNICODE_SYMBOLS: SymbolMap = {
 	"icon.advisor": "👁",
 	"icon.advisorClosed": "🙈",
 	"icon.time": "⏱",
-	"icon.oms": "π",
+	"icon.oms": "🍜",
 	"icon.esc": "⎋",
 	"icon.ghost": "👻",
 	"icon.agents": "👥",
@@ -817,11 +817,9 @@ const NERD_SYMBOLS: SymbolMap = {
 	"icon.advisorClosed": "\ueae7",
 	// pick:  | alt: ◷ ◴
 	"icon.time": "\uf017",
-	// pick: 󰵗 (nf-md-pi) | alt:  π ∏ ∑
-	// INTENTIONAL: U+F0D57 is the chosen glyph here. It has been "fixed" to
-	// U+F03FF before (2ec52b8bdd) and reverted because it renders the wrong glyph;
-	// do not swap it again.
-	"icon.oms": "\u{f0d57}",
+	// Brand: the OMS soup bowl. The emoji renders identically with and without
+	// nerd-font coverage, so both symbol tables share it.
+	"icon.oms": "🍜",
 	// pick: 󱊷 (nf-md-keyboard_esc) | alt: ⎋
 	"icon.esc": "\u{f12b7}",
 	// pick: 󰊠 (nf-md-ghost) | alt: 👻

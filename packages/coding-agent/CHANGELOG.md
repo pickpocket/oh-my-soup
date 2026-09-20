@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- Completed the OMS rebrand on surfaces introduced by the upstream merge: the welcome screen and setup splash now render the OMS block wordmark instead of the π mark (the compact splash spells "Oh My Soup"), the status-line brand icon and default terminal title use the 🍜 bowl, and the remaining π glyphs were swept from comments and tests.
+
 ## [18.3.0] - 2026-09-20
 
 ### Breaking Changes

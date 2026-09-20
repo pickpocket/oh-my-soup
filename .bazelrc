@@ -59,6 +59,9 @@ build:rustfmt --output_groups=+rustfmt_checks
 build:rustfmt --@rules_rust//rust/settings:rustfmt.toml=//:rustfmt.toml
 test --test_output=errors
 test --test_summary=terse
+# Forward the CI marker through the scrubbed test env; see the CI-skip guard
+# in crates/pi-shell/src/shell.rs (jobspec kill stop-detection race).
+test --test_env=CI
 
 # --- CI base -----------------------------------------------------------------
 build:ci --curses=no --color=yes --show_timestamps

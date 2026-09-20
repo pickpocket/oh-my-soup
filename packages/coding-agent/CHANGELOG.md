@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixed `oms update` failing with "Failed to fetch release info … Not Found": release metadata now resolves from GitHub releases (the fork's actual distribution channel) instead of the unpublished `@oh-my-soup` npm scope, for both the stable and canary channels. Installs prior to 18.3.2 need one manual reinstall to pick up the fixed updater.
+
 ## [18.3.1] - 2026-09-20
 
 ### Fixed

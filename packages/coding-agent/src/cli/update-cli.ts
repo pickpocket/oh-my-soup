@@ -802,19 +802,23 @@ async function resolveUpdateTarget(options: { allowPackageManagers: boolean }): 
 	throw new Error(`Could not resolve ${APP_NAME} binary path in PATH`);
 }
 
-/** Bound on `oms.rename` hops so a broken pointer chain cannot loop forever. */
-const MAX_RENAME_HOPS = 3;
-
 async function fetchLatestManifest(
 	pkg: string,
 	timeoutMs: number,
 	channel: UpdateChannel,
 ): Promise<{ version: string; manifest: Record<string, unknown> }> {
+	// Releases live on GitHub, not npm: the @oh-my-soup scope is unpublished,
+	// so the registry can never answer for this fork. `/releases/latest`
+	// excludes drafts and prereleases; the canary channel scans the release
+	// list for the newest prerelease instead.
 	let response: Response;
 	try {
-		response = await fetch(`${NPM_REGISTRY}${pkg}/${channel === "canary" ? "canary" : "latest"}`, {
-			signal: withTimeoutSignal(timeoutMs),
-		});
+		response = await fetch(
+			channel === "canary"
+				? `${GITHUB_API}/repos/${REPO}/releases?per_page=30`
+				: `${GITHUB_API}/repos/${REPO}/releases/latest`,
+			{ signal: withTimeoutSignal(timeoutMs) },
+		);
 	} catch (err) {
 		if (isTimeoutError(err)) {
 			throw new Error(`Timed out fetching release info for ${pkg} after ${Math.round(timeoutMs / 1000)}s`, {
@@ -825,25 +829,52 @@ async function fetchLatestManifest(
 		throw err;
 	}
 	if (!response.ok) {
-		if (response.status === 404 && channel === "canary") {
-			throw new Error(`No canary release has been published for ${pkg} yet. Try \`${APP_NAME} update --stable\`.`);
-		}
 		throw new Error(`Failed to fetch release info for ${pkg}: ${response.statusText}`);
 	}
 
 	const data: unknown = await response.json();
-	if (!isRecord(data) || typeof data.version !== "string") {
-		throw new Error(`Malformed npm registry response for ${pkg}: missing version`);
+	let tag: string | undefined;
+	if (channel === "canary") {
+		if (!Array.isArray(data)) throw new Error(`Malformed GitHub releases response for ${pkg}`);
+		const canary = data.find(entry => isRecord(entry) && entry.prerelease === true && !entry.draft);
+		if (!canary) {
+			throw new Error(`No canary release has been published for ${pkg} yet. Try \`${APP_NAME} update --stable\`.`);
+		}
+		tag = (canary as Record<string, unknown>).tag_name as string | undefined;
+	} else if (isRecord(data) && typeof data.tag_name === "string") {
+		tag = data.tag_name;
 	}
-	return { version: data.version, manifest: data };
+	const version = typeof tag === "string" ? tag.replace(/^v/, "") : undefined;
+	if (!version || !/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(version)) {
+		throw new Error(`Malformed GitHub release response for ${pkg}: missing version tag`);
+	}
+
+	// The published manifest carries the optional `oms.dist` / `oms.rename`
+	// steering fields; source it from the tagged tree. A miss degrades to an
+	// empty manifest, which callers treat as the default binary flow.
+	let manifest: Record<string, unknown> = { version };
+	try {
+		const manifestResponse = await fetch(
+			`https://raw.githubusercontent.com/${REPO}/v${version}/packages/coding-agent/package.json`,
+			{ signal: withTimeoutSignal(timeoutMs) },
+		);
+		if (manifestResponse.ok) {
+			const parsed: unknown = await manifestResponse.json();
+			if (isRecord(parsed)) manifest = { ...parsed, version };
+		}
+	} catch {
+		// Steering fields are optional; version alone suffices.
+	}
+	return { version, manifest };
 }
 
 /**
- * Get the latest release info from the npm registry, following `oms.rename`
+ * Get the latest release info from GitHub releases, following `oms.rename`
  * pointers ({@link resolveReleaseRename}) when the package has moved to a new
- * npm name. Version, dist, and install names all come from the final manifest
- * in the chain. Uses npm instead of GitHub API to avoid unauthenticated rate
- * limiting.
+ * name. Version, dist, and install names all come from the final manifest in
+ * the chain. Unauthenticated GitHub API limits (60/hour) are ample for the
+ * occasional update check, and npm cannot answer: the fork's packages are not
+ * published there.
  */
 export async function getLatestRelease(
 	options: { timeoutMs?: number; channel?: UpdateChannel } = {},
@@ -851,15 +882,14 @@ export async function getLatestRelease(
 	const timeoutMs = options.timeoutMs ?? RELEASE_METADATA_TIMEOUT_MS;
 	const channel = options.channel ?? "stable";
 	const packages: ReleasePackages = { ...CURRENT_PACKAGES };
-	const visited = new Set([packages.pkg]);
-	let latest = await fetchLatestManifest(packages.pkg, timeoutMs, channel);
-	for (let hop = 0; hop < MAX_RENAME_HOPS; hop++) {
-		const rename = resolveReleaseRename(latest.manifest);
-		if (!rename || visited.has(rename.pkg)) break;
-		visited.add(rename.pkg);
+	const latest = await fetchLatestManifest(packages.pkg, timeoutMs, channel);
+	// GitHub sourcing yields one authoritative manifest per release, so a
+	// rename is pure bookkeeping: adopt the new install names without
+	// refetching (the npm-era pointer chase resolved other packuments).
+	const rename = resolveReleaseRename(latest.manifest);
+	if (rename && rename.pkg !== packages.pkg) {
 		packages.pkg = rename.pkg;
 		if (rename.natives) packages.natives = rename.natives;
-		latest = await fetchLatestManifest(packages.pkg, timeoutMs, channel);
 	}
 
 	return {

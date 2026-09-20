@@ -15,7 +15,7 @@ describe("runUpdateCommand fetch cancellation", () => {
 		const fetchStub = Object.assign(
 			async (_input: FetchInput, init?: FetchInit) => {
 				requestSignal = init?.signal ?? undefined;
-				return Response.json({ version: "999.0.0" });
+				return Response.json({ tag_name: "v999.0.0" });
 			},
 			{ preconnect: globalThis.fetch.preconnect },
 		);
@@ -27,26 +27,35 @@ describe("runUpdateCommand fetch cancellation", () => {
 	});
 });
 
-describe("getLatestRelease rename pointers", () => {
+describe("getLatestRelease GitHub resolution", () => {
 	afterEach(() => {
 		vi.restoreAllMocks();
 	});
 
-	function stubRegistry(manifests: Record<string, unknown>): string[] {
+	function stubGithub(options: {
+		latest?: unknown;
+		releases?: unknown;
+		manifests?: Record<string, unknown>;
+	}): string[] {
 		const urls: string[] = [];
 		const fetchStub = Object.assign(
 			async (input: FetchInput) => {
 				const url = String(input);
 				urls.push(url);
-				let manifest: unknown;
-				for (const pkg in manifests) {
-					if (url.includes(pkg)) {
-						manifest = manifests[pkg];
-						break;
+				if (url.endsWith("/releases/latest")) {
+					if (options.latest) return Response.json(options.latest);
+					return new Response(null, { status: 404, statusText: "Not Found" });
+				}
+				if (url.includes("/releases?")) {
+					if (options.releases) return Response.json(options.releases);
+					return new Response(null, { status: 404, statusText: "Not Found" });
+				}
+				for (const tag in options.manifests ?? {}) {
+					if (url.includes(`/${tag}/packages/coding-agent/package.json`)) {
+						return Response.json(options.manifests?.[tag]);
 					}
 				}
-				if (!manifest) return new Response(null, { status: 404, statusText: "Not Found" });
-				return Response.json(manifest);
+				return new Response(null, { status: 404, statusText: "Not Found" });
 			},
 			{ preconnect: globalThis.fetch.preconnect },
 		);
@@ -54,46 +63,57 @@ describe("getLatestRelease rename pointers", () => {
 		return urls;
 	}
 
-	it("follows oms.rename to the new package and resolves version, dist, and names from its manifest", async () => {
-		const urls = stubRegistry({
-			"@new/oms": { version: "999.1.0", oms: { dist: "npm" } },
-			"@oh-my-soup/pi-coding-agent": {
-				version: "999.0.0",
-				oms: { dist: "binary", rename: { package: "@new/oms", natives: "@new/natives" } },
+	it("resolves the version from the latest GitHub release and applies oms.rename install names from the tagged manifest", async () => {
+		const urls = stubGithub({
+			latest: { tag_name: "v999.1.0" },
+			manifests: {
+				"v999.1.0": {
+					version: "999.1.0",
+					oms: { dist: "npm", rename: { package: "@new/oms", natives: "@new/natives" } },
+				},
 			},
 		});
 
 		const release = await getLatestRelease();
 
 		expect(release.version).toBe("999.1.0");
+		expect(release.tag).toBe("v999.1.0");
 		expect(release.dist).toBe("npm");
 		expect(release.packages).toEqual({ pkg: "@new/oms", natives: "@new/natives" });
 		expect(urls).toEqual([
-			"https://registry.npmjs.org/@oh-my-soup/pi-coding-agent/latest",
-			"https://registry.npmjs.org/@new/oms/latest",
+			"https://api.github.com/repos/pickpocket/oh-my-soup/releases/latest",
+			"https://raw.githubusercontent.com/pickpocket/oh-my-soup/v999.1.0/packages/coding-agent/package.json",
 		]);
 	});
-	it("fetches the canary dist-tag when checking the canary channel", async () => {
-		const urls = stubRegistry({
-			"@oh-my-soup/pi-coding-agent": { version: "999.0.0-canary.1" },
+
+	it("resolves the canary channel from the newest non-draft prerelease", async () => {
+		const urls = stubGithub({
+			releases: [
+				{ tag_name: "v999.2.0", prerelease: false, draft: false },
+				{ tag_name: "v999.1.0-canary.1", prerelease: true, draft: false },
+			],
 		});
 
-		await getLatestRelease({ channel: "canary" });
+		const release = await getLatestRelease({ channel: "canary" });
 
-		expect(urls).toEqual(["https://registry.npmjs.org/@oh-my-soup/pi-coding-agent/canary"]);
+		expect(release.version).toBe("999.1.0-canary.1");
+		expect(urls[0]).toBe("https://api.github.com/repos/pickpocket/oh-my-soup/releases?per_page=30");
 	});
 
-	it("ignores a rename pointer that cycles back to an already-visited package", async () => {
-		const urls = stubRegistry({
-			"@oh-my-soup/pi-coding-agent": {
-				version: "999.0.0",
-				oms: { rename: { package: "@oh-my-soup/pi-coding-agent" } },
+	it("keeps the current install names when oms.rename points back at the same package", async () => {
+		const urls = stubGithub({
+			latest: { tag_name: "v999.0.0" },
+			manifests: {
+				"v999.0.0": {
+					version: "999.0.0",
+					oms: { rename: { package: "@oh-my-soup/pi-coding-agent" } },
+				},
 			},
 		});
 
 		const release = await getLatestRelease();
 
-		expect(urls).toHaveLength(1);
+		expect(urls).toHaveLength(2);
 		expect(release.version).toBe("999.0.0");
 		expect(release.packages).toEqual({ pkg: "@oh-my-soup/pi-coding-agent", natives: "@oh-my-soup/pi-natives" });
 	});

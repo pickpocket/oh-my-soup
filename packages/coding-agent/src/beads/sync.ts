@@ -423,7 +423,7 @@ function formatMerge(result: BeadsMergeResult): string {
 	const conflicts = result.dependencyConflicts
 		? `, ${result.dependencyConflicts} dependency conflict(s) resolved deterministically`
 		: "";
-	return `${result.issues} issue update(s), ${result.dependencies} dependency edge change(s), ${result.memories} memory update(s)${conflicts}`;
+	return `${result.issues} issue update(s), ${result.dependencies} dependency edge change(s), ${result.memories} memory update(s), ${result.notes} note update(s)${conflicts}`;
 }
 
 /**
@@ -473,7 +473,7 @@ export async function syncNativeBeads(
 	}
 	const transportConfig = await readEffectiveTransportConfig(repository.root, signal);
 	const temporaryRemote = `oms-beads-${randomUUID()}`;
-	let aggregate: BeadsMergeResult = { issues: 0, dependencies: 0, dependencyConflicts: 0, memories: 0 };
+	let aggregate: BeadsMergeResult = { issues: 0, dependencies: 0, dependencyConflicts: 0, memories: 0, notes: 0 };
 	for (let attempt = 1; attempt <= MAX_SYNC_ATTEMPTS; attempt++) {
 		const temporaryDirectory = TempDir.createSync("@oms-beads-sync-");
 		const temporary = temporaryDirectory.path();
@@ -569,24 +569,33 @@ export async function syncNativeBeads(
 			const remoteMemories = hasRemoteSnapshot
 				? await readSnapshotFile(runTemporaryTransportGit, "FETCH_HEAD", ".beads/oms-memories.jsonl", signal)
 				: "";
-			const merged = repository.mergeInterchange(remoteIssues, remoteMemories, MAX_SNAPSHOT_BYTES);
+			const remoteNotes = hasRemoteSnapshot
+				? await readSnapshotFile(runTemporaryTransportGit, "FETCH_HEAD", ".beads/oms-notes.jsonl", signal)
+				: "";
+			const merged = repository.mergeInterchange(remoteIssues, remoteMemories, remoteNotes, MAX_SNAPSHOT_BYTES);
 			aggregate = {
 				issues: aggregate.issues + merged.issues,
 				dependencies: aggregate.dependencies + merged.dependencies,
 				dependencyConflicts: Math.max(aggregate.dependencyConflicts, merged.dependencyConflicts),
 				memories: aggregate.memories + merged.memories,
+				notes: aggregate.notes + merged.notes,
 			};
 
 			const snapshot = repository.snapshotInterchange();
 			assertSnapshotSize(".beads/issues.jsonl", snapshot.issues);
 			assertSnapshotSize(".beads/oms-memories.jsonl", snapshot.memories);
+			assertSnapshotSize(".beads/oms-notes.jsonl", snapshot.notes);
 			const targetDir = path.join(temporary, ".beads");
 			fs.mkdirSync(targetDir, { recursive: true });
 			fs.writeFileSync(path.join(targetDir, "issues.jsonl"), snapshot.issues, "utf8");
 			fs.writeFileSync(path.join(targetDir, "oms-memories.jsonl"), snapshot.memories, "utf8");
-			await runTemporaryGit(["add", "--force", "--", ".beads/issues.jsonl", ".beads/oms-memories.jsonl"], {
-				signal,
-			});
+			fs.writeFileSync(path.join(targetDir, "oms-notes.jsonl"), snapshot.notes, "utf8");
+			await runTemporaryGit(
+				["add", "--force", "--", ".beads/issues.jsonl", ".beads/oms-memories.jsonl", ".beads/oms-notes.jsonl"],
+				{
+					signal,
+				},
+			);
 			const diff = await runTemporaryGit(["diff", "--cached", "--quiet"], { allowFailure: true, signal });
 			if (diff.exitCode !== 0 && diff.exitCode !== 1) {
 				throw new NativeBeadsError(

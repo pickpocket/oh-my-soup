@@ -1,6 +1,6 @@
 /** Native OMS Beads persistence contracts. */
 
-export const NATIVE_BEADS_SCHEMA_VERSION = 3;
+export const NATIVE_BEADS_SCHEMA_VERSION = 4;
 
 export const BEADS_ISSUE_STATUSES = ["open", "in_progress", "closed", "deferred"] as const;
 export type BeadsIssueStatus = (typeof BEADS_ISSUE_STATUSES)[number];
@@ -54,6 +54,28 @@ export interface BeadsMemory {
 	updated_at: string;
 }
 
+export interface BeadsNote {
+	issue_id?: string;
+	key: string;
+	text: string;
+	created_at: string;
+	updated_at: string;
+	created_by?: string;
+	deleted_at?: string;
+}
+
+export interface SetBeadsNoteInput {
+	issueId?: string;
+	key: string;
+	text: string;
+	actor: string;
+}
+
+export interface BeadsNoteStamp {
+	count: number;
+	maxUpdatedAt?: string;
+}
+
 export interface CreateBeadsIssueInput {
 	title: string;
 	description?: string;
@@ -96,4 +118,5 @@ export interface BeadsMergeResult {
 	dependencies: number;
 	dependencyConflicts: number;
 	memories: number;
+	notes: number;
 }

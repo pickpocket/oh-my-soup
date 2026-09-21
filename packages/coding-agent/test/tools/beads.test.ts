@@ -6,7 +6,12 @@ import * as path from "node:path";
 import { toolWireSchema } from "@oh-my-soup/pi-ai/utils/schema";
 import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
 import { BUILTIN_TOOLS, type ToolSession } from "@oh-my-soup/pi-coding-agent/tools";
-import { type BeadsIssue, BeadsTool, findBeadsWorkspaceRoot } from "@oh-my-soup/pi-coding-agent/tools/beads";
+import {
+	type BeadsIssue,
+	BeadsTool,
+	findBeadsWorkspaceRoot,
+	NativeBeadsRepository,
+} from "@oh-my-soup/pi-coding-agent/tools/beads";
 import { $which, TempDir } from "@oh-my-soup/pi-utils";
 
 function createSession(
@@ -270,6 +275,36 @@ describe("native beads availability and initialization", () => {
 		} finally {
 			tempDir.removeSync();
 		}
+	});
+
+	it("closes its SQLite handle after many distinct statements", () => {
+		const tempDir = TempDir.createSync("@oms-native-beads-close-");
+		const root = path.join(tempDir.path(), "repo");
+		fs.mkdirSync(root, { recursive: true });
+		// Bun's Database.query() cache is bounded and drops evicted statements
+		// without finalizing them, so a repository that issued more distinct
+		// statements than that cache holds could no longer close: close(true)
+		// threw "database is locked" and the file stayed mapped on Windows.
+		const repository = NativeBeadsRepository.initialize(root, "close");
+		const parent = repository.create({ title: "Parent", actor: "oms:test" });
+		const child = repository.create({ title: "Child", parent: parent.id, actor: "oms:test" });
+		repository.addDependency(child.id, parent.id, "blocks", "oms:test");
+		repository.update({ id: child.id, notes: "state", actor: "oms:test" });
+		repository.remember("Closing releases every prepared statement.");
+		for (let limit = 1; limit <= 12; limit++) {
+			repository.list(undefined, limit, limit % 3);
+			repository.ready(limit);
+			repository.blocked(limit);
+			repository.memories(limit);
+		}
+		repository.dependencyTree(parent.id);
+		repository.prime();
+		repository.stats();
+		expect(() => repository.close()).not.toThrow();
+		// A leaked handle keeps the database mapped, so removal is the observable
+		// proof that every statement was finalized.
+		expect(() => tempDir.removeSync()).not.toThrow();
+		expect(fs.existsSync(root)).toBe(false);
 	});
 
 	it("does not silently replace a legacy Dolt database without interchange data", async () => {
@@ -560,7 +595,7 @@ describe.skipIf(!$which("git"))("native beads isolated git sync", () => {
 			const pushed = await first.execute("sync-push", { op: "sync" });
 			expect(firstText(pushed)).toContain("pushed the consolidated snapshot");
 			expect(git(remote, ["rev-parse", "refs/heads/oms-beads"])).toMatch(/^[0-9a-f]{40,64}$/);
-			const expectedSyncedFiles = ".beads/issues.jsonl\n.beads/oms-memories.jsonl";
+			const expectedSyncedFiles = ".beads/issues.jsonl\n.beads/oms-memories.jsonl\n.beads/oms-notes.jsonl";
 			expect(git(remote, ["for-each-ref", "--format=%(refname)", "refs/heads"])).toBe("refs/heads/oms-beads");
 			expect(git(remote, ["ls-tree", "-r", "--name-only", "refs/heads/oms-beads"])).toBe(expectedSyncedFiles);
 			expectDirtyGitState(firstRoot, firstState);
@@ -589,7 +624,7 @@ describe("native beads schema and approvals", () => {
 			for (const op of ["ready", "blocked", "list", "show", "dep_tree", "prime", "memory", "stats"]) {
 				expect(tool.approval({ op })).toBe("read");
 			}
-			for (const op of ["init", "create", "update", "close", "dep_add", "remember"]) {
+			for (const op of ["init", "create", "update", "close", "dep_add", "remember", "index"]) {
 				expect(tool.approval({ op })).toBe("write");
 			}
 			expect(tool.approval({ op: "sync" })).toBe("exec");
@@ -608,6 +643,7 @@ describe("native beads schema and approvals", () => {
 				"memory",
 				"remember",
 				"stats",
+				"index",
 				"sync",
 			] as const;
 			expect(() => tool.parameters.assert({ op: "init", unexpected: true })).toThrow();

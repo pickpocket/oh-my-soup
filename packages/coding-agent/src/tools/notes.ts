@@ -1,12 +1,14 @@
 import { type } from "@oh-my-soup/omstype";
-import type { AgentTool, AgentToolResult } from "@oh-my-soup/pi-agent-core";
+import type { AgentTool, AgentToolResult, ToolApprovalDecision } from "@oh-my-soup/pi-agent-core";
 import { type Component, Ellipsis } from "@oh-my-soup/pi-tui";
 import { prompt, sanitizeText } from "@oh-my-soup/pi-utils";
 import type { RenderResultOptions } from "../extensibility/custom-tools/types";
 import type { Theme } from "@oh-my-soup/pi-tui/theme";
 import notesDescription from "../prompts/tools/notes.md" with { type: "text" };
+import { findBeadsWorkspaceRoot, NativeBeadsRepository } from "../beads/repository";
 import {
 	applyImportantNotesMutation,
+	assertImportantNoteKey,
 	getImportantNotesFromEntries,
 	IMPORTANT_NOTES_CUSTOM_TYPE,
 	IMPORTANT_NOTES_MAX_CHARS,
@@ -21,25 +23,37 @@ import {
 	truncateToWidth,
 } from "@oh-my-soup/pi-tui/render";
 import type { ToolSession } from "./index";
+import { actorForSession } from "./beads";
 
 const notesSchema = type({
 	op: type('"list" | "set" | "delete" | "clear"').describe("operation to apply"),
-	"key?": type("string").describe("note key (set/delete); nonblank, trimmed, at most 80 characters"),
+	"scope?": type('"session" | "project" | "issue"').describe("notes scope; defaults to session"),
+	"issue?": type("string").describe("issue id for issue scope; supplying it selects issue scope"),
+	"key?": type("string").describe("note key (list/set/delete); nonblank, trimmed, at most 80 characters"),
 	"text?": type("string").describe("exact reference text to save (set)"),
+	"+": "reject",
 });
 
 type NotesParams = typeof notesSchema.infer;
 
+type NotesScope = "session" | "project" | "issue";
+
 export interface NotesToolDetails {
 	op: NotesParams["op"];
 	notes: readonly ImportantNote[];
-	storage: "session" | "memory";
+	storage: "session" | "memory" | "beads";
+	scope: NotesScope;
+	issue?: string;
 }
 
 export class NotesTool implements AgentTool<typeof notesSchema, NotesToolDetails> {
 	readonly name = "notes";
 	readonly label = "Notes";
-	readonly approval = "read" as const;
+	readonly approval = (args: unknown): ToolApprovalDecision => {
+		const input = args !== null && typeof args === "object" ? (args as Partial<NotesParams>) : {};
+		const scope = Object.hasOwn(input, "issue") ? "issue" : (input.scope ?? "session");
+		return scope !== "session" && (input.op === "set" || input.op === "delete") ? "write" : "read";
+	};
 	readonly loadMode = "essential";
 	readonly concurrency = "exclusive";
 	readonly strict = true;
@@ -50,6 +64,11 @@ export class NotesTool implements AgentTool<typeof notesSchema, NotesToolDetails
 	constructor(private readonly session: ToolSession) {}
 
 	async execute(_toolCallId: string, params: NotesParams): Promise<AgentToolResult<NotesToolDetails>> {
+		const scope: NotesScope = params.issue !== undefined ? "issue" : (params.scope ?? "session");
+		return scope === "session" ? this.#executeSession(params) : this.#executeBeads(params, scope);
+	}
+
+	async #executeSession(params: NotesParams): Promise<AgentToolResult<NotesToolDetails>> {
 		const manager = this.session.sessionManager;
 		const storage = manager && this.session.getSessionFile() ? "session" : "memory";
 		const sessionId = manager?.getSessionId();
@@ -63,6 +82,12 @@ export class NotesTool implements AgentTool<typeof notesSchema, NotesToolDetails
 			let notes: readonly ImportantNote[];
 			if (params.op === "list") {
 				notes = await manager.readEntriesAtomically(readNotes);
+				if (params.key !== undefined) {
+					assertImportantNoteKey(params.key);
+					const note = notes.find(entry => entry.key === params.key);
+					if (!note) throw new Error(`Note not found: ${params.key}`);
+					notes = [{ ...note }];
+				}
 			} else {
 				const mutation = { op: params.op, key: params.key, text: params.text };
 				const assertOwner = () => {
@@ -99,7 +124,7 @@ export class NotesTool implements AgentTool<typeof notesSchema, NotesToolDetails
 						text: params.op === "list" ? `${summary}\n${JSON.stringify(notes)}` : summary,
 					},
 				],
-				details: { op: params.op, notes, storage },
+				details: { op: params.op, notes, storage, scope: "session" },
 			};
 		} catch (error) {
 			return {
@@ -116,6 +141,80 @@ export class NotesTool implements AgentTool<typeof notesSchema, NotesToolDetails
 							)
 						: [],
 					storage,
+					scope: "session",
+				},
+				isError: true,
+			};
+		}
+	}
+
+	async #executeBeads(
+		params: NotesParams,
+		scope: Exclude<NotesScope, "session">,
+	): Promise<AgentToolResult<NotesToolDetails>> {
+		const issue = scope === "issue" ? params.issue?.trim() : undefined;
+		let previousNotes: readonly ImportantNote[] = [];
+		try {
+			if (scope === "issue" && !issue) throw new Error("Issue-scoped notes require `issue`.");
+			if (params.op === "clear") throw new Error("`clear` is available only for session-scoped notes.");
+			const root = findBeadsWorkspaceRoot(this.session.cwd);
+			if (!root) {
+				throw new Error(
+					"This project is not initialized for native Beads. Run the beads tool with `op: init` first.",
+				);
+			}
+			const repository = NativeBeadsRepository.open(root);
+			let notes: readonly ImportantNote[] = [];
+			try {
+				const readNotes = () => repository.notes(issue).map(note => ({ key: note.key, text: note.text }));
+				previousNotes = readNotes();
+				if (params.op === "set") {
+					if (params.key === undefined) throw new Error("Setting a note requires `key`.");
+					if (params.text === undefined) throw new Error("Setting a note requires string `text`.");
+					repository.setNote({
+						issueId: issue,
+						key: params.key,
+						text: params.text,
+						actor: actorForSession(this.session),
+					});
+					notes = readNotes();
+				} else if (params.op === "delete") {
+					if (params.key === undefined) throw new Error("Deleting a note requires `key`.");
+					repository.deleteNote(issue, params.key);
+					notes = readNotes();
+				} else {
+					notes = previousNotes;
+					if (params.key !== undefined) {
+						assertImportantNoteKey(params.key);
+						const note = notes.find(entry => entry.key === params.key);
+						if (!note) throw new Error(`Note not found: ${params.key}`);
+						notes = [{ ...note }];
+					}
+				}
+			} finally {
+				repository.close();
+			}
+			const location = scope === "project" ? "Beads project scope" : `Beads issue ${issue}`;
+			const summary = `${notes.length} notes (${location}).`;
+			return {
+				content: [{ type: "text", text: params.op === "list" ? `${summary}\n${JSON.stringify(notes)}` : summary }],
+				details: {
+					op: params.op,
+					notes,
+					storage: "beads",
+					scope,
+					...(issue ? { issue } : {}),
+				},
+			};
+		} catch (error) {
+			return {
+				content: [{ type: "text", text: error instanceof Error ? error.message : String(error) }],
+				details: {
+					op: params.op,
+					notes: previousNotes.map(note => ({ ...note })),
+					storage: "beads",
+					scope,
+					...(issue ? { issue } : {}),
 				},
 				isError: true,
 			};
@@ -127,6 +226,12 @@ export const notesToolRenderer = {
 	inline: true,
 	mergeCallAndResult: true,
 	renderCall(args: Partial<NotesParams>, options: RenderResultOptions, theme: Theme): Component {
+		const scope = args.issue !== undefined ? "issue" : (args.scope ?? "session");
+		const issue = scope === "issue" && args.issue ? ` ${args.issue}` : "";
+		const description =
+			scope === "session"
+				? `${args.op ?? ""} ${args.key ?? ""}`
+				: `${args.op ?? ""} ${scope}${issue} ${args.key ?? ""}`;
 		return createCachedComponent(
 			() => options.expanded,
 			width => [
@@ -135,7 +240,7 @@ export const notesToolRenderer = {
 						{
 							icon: "pending",
 							title: "Notes",
-							description: replaceTabs(sanitizeText(`${args?.op ?? ""} ${args?.key ?? ""}`)).replace(/\n/g, " "),
+							description: replaceTabs(sanitizeText(description)).replace(/\n/g, " "),
 						},
 						theme,
 					),
@@ -154,12 +259,18 @@ export const notesToolRenderer = {
 			() => options.expanded,
 			(width, expanded) => {
 				const notes = result.details?.notes ?? [];
+				const scope = result.details?.scope ?? "session";
+				const storage = result.details?.storage ?? "memory";
+				const meta =
+					scope === "session"
+						? [String(notes.length), storage]
+						: [String(notes.length), storage, scope, ...(result.details?.issue ? [result.details.issue] : [])];
 				const lines = [
 					renderStatusLine(
 						{
 							icon: result.isError ? "error" : "success",
 							title: "Notes",
-							meta: [String(notes.length), result.details?.storage === "session" ? "session" : "memory"],
+							meta,
 						},
 						theme,
 					),

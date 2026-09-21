@@ -50,6 +50,11 @@ function snapshotError(notes: unknown): string | undefined {
 	return undefined;
 }
 
+export function assertImportantNoteKey(key: unknown): asserts key is string {
+	const error = keyError(key);
+	if (error) throw new Error(error);
+}
+
 /** Read the latest valid full snapshot from the active branch, including an empty clear tombstone. */
 export function getImportantNotesFromEntries(entries: readonly SessionEntry[]): readonly ImportantNote[] {
 	for (let index = entries.length - 1; index >= 0; index--) {
@@ -67,9 +72,8 @@ export function applyImportantNotesMutation(
 	mutation: ImportantNotesMutation,
 ): readonly ImportantNote[] {
 	if (mutation.op === "clear") return notes.length === 0 ? notes : [];
-	const error = keyError(mutation.key);
-	if (error) throw new Error(error);
-	const key = mutation.key!;
+	assertImportantNoteKey(mutation.key);
+	const key = mutation.key;
 	const index = notes.findIndex(note => note.key === key);
 	if (mutation.op === "delete") {
 		if (index < 0) throw new Error(`Note not found: ${key}`);

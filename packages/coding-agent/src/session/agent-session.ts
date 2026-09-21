@@ -407,6 +407,7 @@ export type { AdvisorStats, AdvisorStatusOverviewEntry, PerAdvisorStat } from ".
 
 const SESSION_STOP_CONTINUATION_CAP = 8;
 
+import { BeadsTracker, type BeadsTrackerHost } from "./beads-tracker";
 import { LoopGuards, type StreamGuardsHost, StreamingEditGuard } from "./stream-guards";
 import { TodoTracker, type TodoTrackerHost } from "./todo-tracker";
 import { TtsrCoordinator, type TtsrCoordinatorHost } from "./ttsr-coordinator";
@@ -684,6 +685,7 @@ export class AgentSession {
 	#planModeReminderCount = 0;
 	#planModeReminderAwaitingProgress = false;
 	readonly #todo: TodoTracker;
+	readonly #beads: BeadsTracker;
 	readonly #modelMentions: ModelMentionRegistry;
 	#workPoolYieldItems: readonly WorkPoolYieldItem[] = [];
 	/** Item set matching the last successfully rebuilt provider prompt. The base
@@ -1428,6 +1430,24 @@ export class AgentSession {
 			consumeLastServedToolChoiceLabel: () => this.#toolChoiceQueue.consumeLastServedLabel(),
 		};
 		this.#todo = new TodoTracker(todoHost);
+		const beadsHost: BeadsTrackerHost = {
+			agent: this.agent,
+			sessionManager: this.sessionManager,
+			settings: this.settings,
+			model: () => this.model,
+			agentKind: () => this.#agentKind,
+			emitSessionEvent: event => this.#emitSessionEvent(event),
+			scheduleAgentContinue: options => this.#scheduleAgentContinue(options),
+			promptGeneration: () => this.#promptGeneration,
+			hasPendingAsyncWake: () => this.#hasPendingAsyncWake(),
+			getActiveToolNames: () => this.getActiveToolNames(),
+			getEnabledToolNames: () => this.getEnabledToolNames(),
+			planModeEnabled: () => this.#planModeState?.enabled === true,
+			consumeLastServedToolChoiceLabel: () => this.#toolChoiceQueue.consumeLastServedLabel(),
+			cwd: () => this.sessionManager.getCwd(),
+			agentId: () => this.getAgentId(),
+		};
+		this.#beads = new BeadsTracker(beadsHost);
 		this.#modelMentions = new ModelMentionRegistry({
 			sessionManager: this.sessionManager,
 			modelRegistry: this.#modelRegistry,
@@ -1670,6 +1690,7 @@ export class AgentSession {
 			// Mid-run todo reconciliation — evaluated at injection time so a turn
 			// that flips a todo just before this poll suppresses the nudge.
 			thunks.push(() => this.#todo.takeMidRunNudge());
+			thunks.push(() => this.#beads.takeMidRunNudge());
 			const contextNotesReminder = this.#experimentalContextNotesReminder;
 			if (contextNotesReminder) {
 				this.#experimentalContextNotesReminder = undefined;
@@ -3130,6 +3151,12 @@ export class AgentSession {
 		// not progress an agent could mark done.
 		if (event.type === "message_end" && event.message.role === "toolResult") {
 			this.#todo.onToolResult(event.message.toolName, event.message.isError);
+			this.#beads.onToolResult(
+				event.message.toolName,
+				event.message.isError,
+				event.message.details,
+				event.message.toolCallId,
+			);
 		}
 		// Track the settled assistant turn synchronously as well: agent_end
 		// maintenance reads `#lastAssistantMessage`, and when a turn's events all
@@ -3833,10 +3860,21 @@ export class AgentSession {
 					await emitAgentEndNotification({ willContinue: true });
 					return;
 				}
-				const todoContinuationScheduled = await this.#todo.checkCompletion(msg);
-				if (todoContinuationScheduled) {
-					await emitAgentEndNotification({ willContinue: true });
-					return;
+				// `consumeLastServedToolChoiceLabel` is destructive. Read the
+				// user-force guard once here so both completion trackers honor it;
+				// Todo's own check then sees an empty label on the ordinary path.
+				const lastServedToolChoiceLabel = this.#toolChoiceQueue.consumeLastServedLabel();
+				if (lastServedToolChoiceLabel !== "user-force") {
+					const todoContinuationScheduled = await this.#todo.checkCompletion(msg);
+					if (todoContinuationScheduled) {
+						await emitAgentEndNotification({ willContinue: true });
+						return;
+					}
+					const beadsContinuationScheduled = await this.#beads.checkCompletion(msg);
+					if (beadsContinuationScheduled) {
+						await emitAgentEndNotification({ willContinue: true });
+						return;
+					}
 				}
 			}
 			// A pending async wake means this settle is a scheduling pause, not
@@ -4085,10 +4123,14 @@ export class AgentSession {
 	#scheduleAutoContinuePrompt(generation: number): boolean {
 		const continuePrompt = async () => {
 			// Compaction summarizes away the first-message eager preludes, so re-assert the
-			// delegate-via-tasks / phased-todo reminders on this auto-resumed turn. This runs
-			// at invocation (past the abort check below), so an aborted continuation queues
-			// nothing; scoped to this request via prependMessages, never the shared queue.
-			const eagerNudges = this.#todo.buildPostCompactionEagerNudges();
+			// durable Beads / delegate-via-tasks / phased-todo reminders on this auto-resumed
+			// turn. This runs at invocation (past the abort check below), so an aborted
+			// continuation queues nothing; scoped to this request via prependMessages, never
+			// the shared queue.
+			const eagerNudges = [
+				...this.#todo.buildPostCompactionEagerNudges(),
+				...this.#beads.buildPostCompactionEagerNudges(),
+			];
 			await this.#promptWithMessage(
 				{
 					role: "developer",
@@ -4193,7 +4235,8 @@ export class AgentSession {
 			this.#synchronouslyTerminatedYieldToolCallIds.add(ctx.toolCall.id);
 			this.agent.abort(TERMINAL_TOOL_RESULT_ABORT_REASON);
 		}
-		return this.#ttsr.afterToolCall(ctx);
+		const ttsrResult = this.#ttsr.afterToolCall(ctx);
+		return this.#beads.afterToolCall(ctx, ttsrResult) ?? ttsrResult;
 	}
 	/**
 	 * Emits the extension `tool_call` event for a loop-dispatched call at
@@ -4490,6 +4533,13 @@ export class AgentSession {
 			await this.#extensionRunner.emit({
 				type: "todo_reminder",
 				todos: event.todos,
+				attempt: event.attempt,
+				maxAttempts: event.maxAttempts,
+			});
+		} else if (event.type === "beads_reminder") {
+			await this.#extensionRunner.emit({
+				type: "beads_reminder",
+				issues: event.issues,
 				attempt: event.attempt,
 				maxAttempts: event.maxAttempts,
 			});
@@ -6483,6 +6533,10 @@ export class AgentSession {
 				: undefined;
 		const eagerTodoPrelude =
 			!options?.synthetic && !hasPendingUserDirective ? this.#todo.createEagerTodoPrelude(expandedText) : undefined;
+		const eagerBeadsPrelude =
+			!options?.synthetic && !hasPendingUserDirective
+				? this.#beads.createEagerBeadsPrelude(expandedText)
+				: undefined;
 		const eagerTaskPrelude =
 			!options?.synthetic && !hasPendingUserDirective ? this.#todo.createEagerTaskPrelude(expandedText) : undefined;
 		const videoAttachmentNotices = this.#createVideoAttachmentNotices(options?.images, submittedAt);
@@ -6545,6 +6599,14 @@ export class AgentSession {
 			: { role: "user" as const, content: userContent, attribution: promptAttribution, timestamp: submittedAt };
 
 		const preludeMessages: AgentMessage[] = [];
+		if (eagerBeadsPrelude) {
+			if (eagerBeadsPrelude.toolChoice) {
+				this.#toolChoiceQueue.pushOnce(eagerBeadsPrelude.toolChoice, {
+					label: "eager-beads",
+				});
+			}
+			preludeMessages.push(eagerBeadsPrelude.message);
+		}
 		if (eagerTodoPrelude) {
 			if (eagerTodoPrelude.toolChoice) {
 				this.#toolChoiceQueue.pushOnce(eagerTodoPrelude.toolChoice, {
@@ -6585,6 +6647,7 @@ export class AgentSession {
 			// (e.g., compaction aborted, validation failed).
 			this.#toolChoiceQueue.removeByLabel("eager-todo");
 			this.#toolChoiceQueue.removeByLabel("external-thinking");
+			this.#toolChoiceQueue.removeByLabel("eager-beads");
 		}
 		outcome.sessionClaimed = dispatched;
 		if (!dispatched && message.role === "user") {
@@ -6863,6 +6926,7 @@ export class AgentSession {
 			this.#irc.flushPending();
 
 			this.#todo.resetCycle();
+			this.#beads.resetCycle();
 			this.#resetPromptMaintenanceState();
 			this.#recovery.setAcceptTerminalEmptyStop(options?.acceptTerminalEmptyStop === true);
 
@@ -8442,6 +8506,7 @@ export class AgentSession {
 			this.sessionManager.appendServiceTierChange(this.#models.serviceTierEntry());
 
 			this.#todo.resetCycle();
+			this.#beads.resetSession();
 			this.#planReferenceSent = false;
 			this.#planReferencePath = "local://PLAN.md";
 			this.#advisors.resetSessionState();
@@ -8494,6 +8559,7 @@ export class AgentSession {
 		this.#assertVibeSessionTransitionAllowed("fork the session");
 		const previousSessionFile = this.sessionFile;
 		const previousSessionId = this.sessionManager.getSessionId();
+		const previousBeadsActor = this.#beads.actor;
 
 		// Emit session_before_switch event with reason "fork" (can be cancelled)
 		if (this.#extensionRunner?.hasHandlers("session_before_switch")) {
@@ -8545,6 +8611,12 @@ export class AgentSession {
 			this.#freshProviderSessionId = undefined;
 			this.#adoptInheritedProviderPromptCacheKey();
 			this.#syncAgentSessionId();
+			try {
+				this.#beads.reassignClaims(previousBeadsActor);
+			} catch {
+				// Durable work tracking must not make a session fork fail.
+			}
+			this.#beads.resetCycle();
 			this.#memory.rekeyForCurrentSessionId();
 			this.#advisors.reattachRecorderFeeds();
 			advisorRecordersDetached = false;
@@ -9810,6 +9882,10 @@ export class AgentSession {
 				const providersBySlug = new Map<string, Set<string>>();
 				const costs = await loadAdvisorTranscriptCosts(this.sessionFile, { providersBySlug });
 				this.#advisors.restoreCost(costs, providersBySlug);
+			}
+			if (switchingToDifferentSession) {
+				this.#beads.resetSession();
+				this.#beads.refreshHeldIssues();
 			}
 			this.#bash.finishSessionTransition(bashTransition, true);
 			// Keep the old reservations during rollback; the target is committed now,

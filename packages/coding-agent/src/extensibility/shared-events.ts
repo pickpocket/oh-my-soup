@@ -15,6 +15,7 @@
 import type { AgentMessage } from "@oh-my-soup/pi-agent-core";
 import type { CompactionPreparation, CompactionResult } from "@oh-my-soup/pi-agent-core/compaction";
 import type { AssistantRetryRecovery, ImageContent, TextContent, ToolResultMessage } from "@oh-my-soup/pi-ai";
+import type { BeadsIssue } from "../beads/types";
 import type { Rule } from "../capability/rule";
 import type { Goal } from "@oh-my-soup/pi-tui/tools/goal";
 import type { GoalModeState } from "../goals/state";
@@ -296,6 +297,14 @@ export interface TtsrTriggeredEvent {
 export interface TodoReminderEvent {
 	type: "todo_reminder";
 	todos: TodoItem[];
+	attempt: number;
+	maxAttempts: number;
+}
+
+/** Fired when a session yields with claimed Beads work left unreconciled */
+export interface BeadsReminderEvent {
+	type: "beads_reminder";
+	issues: BeadsIssue[];
 	attempt: number;
 	maxAttempts: number;
 }

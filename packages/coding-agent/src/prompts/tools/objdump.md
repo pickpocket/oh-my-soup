@@ -4,15 +4,15 @@ OMS installers provision a managed LLVM bundle, preferred over LLVM-only PATH lo
 
 ## Actions
 
-| Action | LLVM operation | Purpose |
-| --- | --- | --- |
-| `headers` | `-f -p`; format-aware Mach-O header flags | File and private/container headers |
-| `sections` | `-h` | Section headers, sizes, addresses, and flags |
-| `symbols` | `-t`, or `-T` with `dynamic: true` | Static or dynamic symbol table |
-| `disassemble` | `-d`, or `-D` with `all_sections: true` | Instructions in executable sections, or all sections |
-| `relocations` | `-r`, or `-R` with `dynamic: true` | Static or dynamic relocations |
-| `contents` | `-s` | Section bytes |
-| `info` | `--version` | LLVM version and registered disassembly targets |
+|Action|LLVM operation|Purpose|
+|---|---|---|
+|`headers`|`-f -p`; format-aware Mach-O header flags|File and private/container headers|
+|`sections`|`-h`|Section headers, sizes, addresses, and flags|
+|`symbols`|`-t`, or `-T` with `dynamic: true`|Static or dynamic symbol table|
+|`disassemble`|`-d`, or `-D` with `all_sections: true`|Instructions in executable sections, or all sections|
+|`relocations`|`-r`, or `-R` with `dynamic: true`|Static or dynamic relocations|
+|`contents`|`-s`|Section bytes|
+|`info`|`--version`|LLVM version and registered disassembly targets|
 
 `file` is required except for `info`. Paths resolve against the session working directory; absolute paths and `~` are supported. Internal URLs, remote URLs, network paths, and directories are rejected. `info` accepts only `action` and `timeout`.
 

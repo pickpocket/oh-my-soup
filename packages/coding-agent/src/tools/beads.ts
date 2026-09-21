@@ -12,6 +12,8 @@ import type {
 } from "@oh-my-soup/pi-agent-core";
 import { Text } from "@oh-my-soup/pi-tui";
 import { prompt, untilAborted } from "@oh-my-soup/pi-utils";
+import { NativeBeadsGraphIndexer, type GraphIndexProgress, type GraphIndexResult } from "../beads/graph/indexer";
+import { NativeBeadsGraphStore } from "../beads/graph/store";
 import {
 	findBeadsInitRoot,
 	findBeadsWorkspaceRoot,
@@ -54,7 +56,7 @@ const BEADS_READONLY_OPS: Record<string, true> = {
 
 const beadsSchema = type({
 	op: type(
-		"'init' | 'ready' | 'blocked' | 'list' | 'show' | 'create' | 'update' | 'close' | 'dep_add' | 'dep_tree' | 'prime' | 'memory' | 'remember' | 'stats' | 'sync'",
+		"'init' | 'ready' | 'blocked' | 'list' | 'show' | 'create' | 'update' | 'close' | 'dep_add' | 'dep_tree' | 'prime' | 'memory' | 'remember' | 'stats' | 'index' | 'sync'",
 	).describe("native beads operation"),
 	"id?": type("string").describe("issue id (show/update/close/dep_tree; dependent child for dep_add)"),
 	"ids?": type("string[]").describe("issue ids (show/close several at once)"),
@@ -86,6 +88,16 @@ const beadsSchema = type({
 
 type BeadsInput = typeof beadsSchema.infer;
 
+export interface BeadsGraphDetails {
+	runId: string;
+	filesScanned: number;
+	filesChanged: number;
+	filesRemoved: number;
+	partialCoverage: boolean;
+	freshness: "indexing" | "fresh";
+	indexedAt?: string;
+}
+
 export interface BeadsToolDetails {
 	op: BeadsInput["op"];
 	issues?: BeadsIssue[];
@@ -94,6 +106,7 @@ export interface BeadsToolDetails {
 	root?: string;
 	nextOffset?: number;
 	stats?: BeadsStats;
+	graph?: BeadsGraphDetails;
 }
 
 const STATUS_GLYPHS: Record<string, string> = {
@@ -235,7 +248,7 @@ function collectIds(params: BeadsInput): string[] {
 	return ids;
 }
 
-function actorForSession(session: ToolSession): string {
+export function actorForSession(session: ToolSession): string {
 	const agentId = session.getAgentId?.()?.trim() || "agent";
 	const sessionId = session.getSessionId?.()?.trim();
 	if (sessionId) {
@@ -268,6 +281,41 @@ function formatStats(stats: BeadsStats): string {
 	].join("\n");
 }
 
+function graphDetails(result: GraphIndexResult): BeadsGraphDetails {
+	return {
+		runId: result.runId,
+		filesScanned: result.filesScanned,
+		filesChanged: result.filesChanged,
+		filesRemoved: result.filesRemoved,
+		partialCoverage: result.partialCoverage,
+		freshness: result.freshness.state,
+		indexedAt: result.freshness.indexedAt,
+	};
+}
+
+function graphProgressDetails(progress: GraphIndexProgress): BeadsGraphDetails {
+	return {
+		runId: progress.runId,
+		filesScanned: progress.filesScanned,
+		filesChanged: progress.filesChanged,
+		filesRemoved: progress.filesRemoved,
+		partialCoverage: progress.partialCoverage,
+		freshness: "indexing",
+	};
+}
+
+function formatGraphDetails(graph: BeadsGraphDetails): string {
+	const coverage = graph.partialCoverage ? "partial" : "complete";
+	const freshness = graph.indexedAt ? `${graph.freshness} (${graph.indexedAt})` : graph.freshness;
+	return [
+		`Files scanned: ${graph.filesScanned}`,
+		`Files changed: ${graph.filesChanged}`,
+		`Files removed: ${graph.filesRemoved}`,
+		`Coverage: ${coverage}`,
+		`Freshness: ${freshness}`,
+	].join("\n");
+}
+
 export class BeadsTool implements AgentTool<typeof beadsSchema, BeadsToolDetails> {
 	readonly name = "beads";
 	readonly approval = (args: unknown): ToolApprovalDecision => {
@@ -293,7 +341,7 @@ export class BeadsTool implements AgentTool<typeof beadsSchema, BeadsToolDetails
 		_toolCallId: string,
 		params: BeadsInput,
 		signal?: AbortSignal,
-		_onUpdate?: AgentToolUpdateCallback<BeadsToolDetails>,
+		onUpdate?: AgentToolUpdateCallback<BeadsToolDetails>,
 		_context?: AgentToolContext,
 	): Promise<AgentToolResult<BeadsToolDetails>> {
 		return untilAborted(signal, async () => {
@@ -383,6 +431,8 @@ export class BeadsTool implements AgentTool<typeof beadsSchema, BeadsToolDetails
 								details: { op: params.op, stats },
 							};
 						});
+					case "index":
+						return this.#executeIndex(signal, onUpdate);
 					case "sync":
 						return this.#executeSync(signal);
 				}
@@ -560,6 +610,40 @@ export class BeadsTool implements AgentTool<typeof beadsSchema, BeadsToolDetails
 		});
 	}
 
+	async #executeIndex(
+		signal: AbortSignal | undefined,
+		onUpdate: AgentToolUpdateCallback<BeadsToolDetails> | undefined,
+	): Promise<AgentToolResult<BeadsToolDetails>> {
+		if (!this.session.settings.get("beads.graph.enabled")) {
+			throw new ToolError("The derived Beads graph is disabled by `beads.graph.enabled`.");
+		}
+		const root = this.#workspaceRoot();
+		const store = NativeBeadsGraphStore.open(root);
+		try {
+			const indexer = new NativeBeadsGraphIndexer(store, {
+				include: this.session.settings.get("beads.graph.include"),
+				exclude: this.session.settings.get("beads.graph.exclude"),
+				maxFiles: this.session.settings.get("beads.graph.maxFiles"),
+				maxFileBytes: this.session.settings.get("beads.graph.maxFileBytes"),
+				signal,
+				onProgress: progress => {
+					const graph = graphProgressDetails(progress);
+					onUpdate?.({
+						content: [{ type: "text", text: formatGraphDetails(graph) }],
+						details: { op: "index", graph, root },
+					});
+				},
+			});
+			const graph = graphDetails(await indexer.index());
+			return {
+				content: [{ type: "text", text: formatGraphDetails(graph) }],
+				details: { op: "index", graph, root },
+			};
+		} finally {
+			store.close();
+		}
+	}
+
 	async #executeSync(signal?: AbortSignal): Promise<AgentToolResult<BeadsToolDetails>> {
 		const repository = NativeBeadsRepository.open(this.#workspaceRoot());
 		try {
@@ -612,7 +696,7 @@ export const beadsToolRenderer = {
 			}));
 		}
 		const text = result.content?.find(entry => entry.type === "text")?.text ?? "";
-		const lines = text.split("\n");
+		const lines = result.details?.graph ? formatGraphDetails(result.details.graph).split("\n") : text.split("\n");
 		const visible = lines.slice(0, RENDER_LINE_CAP);
 		if (lines.length > visible.length) visible.push(formatMoreItems(lines.length - visible.length, "line"));
 		const header = renderStatusLine({ icon: "done", title: "Beads", meta }, uiTheme);

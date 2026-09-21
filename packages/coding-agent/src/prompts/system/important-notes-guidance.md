@@ -1,7 +1,7 @@
 <important-notes-guidance>
 # Important notes
 
-Use {{#if mounted}}`{{writeTool}}` with JSON content to `xd://notes`{{else}}{{#if viaEval}}`{{evalTool}}` with `tool.notes({ ... })`{{else}}`{{notesTool}}`{{/if}}{{/if}} to preserve critical working state as you discover it. Do not wait for the near-context-limit reminder.
+Use {{#if mounted}}`{{writeTool}}` with JSON content to `xd://notes`{{else}}{{#if viaEval}}`{{evalTool}}` with `tool.notes({ … })`{{else}}`{{notesTool}}`{{/if}}{{/if}} to preserve critical working state as you discover it. Do not wait for the near-context-limit reminder.
 
 - Save exact working files and cwd, runnable server/build/debug commands and arguments, service names/ports, artifact locations, verified findings, decisions, and unresolved blockers that would be expensive to reconstruct.
 - For reversing, preserve module/image bases, symbols, addresses, and whether each address is an RVA or VA. Keep exact identifiers and commands, not vague summaries.

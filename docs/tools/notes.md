@@ -12,12 +12,12 @@ Save exact, session-scoped reference information independently of conversation s
 
 ## Operations
 
-| `op` | Required fields | Effect |
-| --- | --- | --- |
-| `list` | None | Return all current notes without writing state. |
-| `set` | `key`, `text` | Add a key or replace its text exactly. |
-| `delete` | `key` | Remove an existing key; a missing key is an error. |
-| `clear` | None | Remove all notes. Repeating this is harmless. |
+| `op` | Required fields | Optional fields | Effect |
+| --- | --- | --- | --- |
+| `list` | None | `scope`, `issue`, `key` | Return the notes in the selected scope. `key` returns that single note in full. |
+| `set` | `key`, `text` | `scope`, `issue` | Add a key or replace its text exactly. |
+| `delete` | `key` | `scope`, `issue` | Remove an existing key; a missing key is an error. Beads scopes keep a tombstone so the deletion wins over a stale copy elsewhere. |
+| `clear` | None | None | Remove all session notes. Session scope only; a Beads scope is rejected. |
 
 Example tool arguments:
 
@@ -29,11 +29,33 @@ Example tool arguments:
 {"op":"set","key":"dispatch","text":"app.exe image base 0x140000000; dispatcher RVA 0x1A2B0; database local://analysis.i64"}
 ```
 
-The tool is essential by default and remains available directly in Code Mode. Explicit restricted tool lists must grant `notes`. It uses read-tier approval because it changes only internal session state, not workspace files. If configured as discoverable, the existing `xd://notes` transport can invoke it.
+The tool is essential by default and remains available directly in Code Mode. Explicit restricted tool lists must grant `notes`. Session-scoped operations use read-tier approval because they change only internal session state; `set` and `delete` in a Beads scope use write-tier approval because they write `.beads/`. If configured as discoverable, the existing `xd://notes` transport can invoke it.
+
+## Scopes
+
+`scope` selects where a note lives. It defaults to `session`, so existing calls are unchanged. Supplying `issue` selects issue scope.
+
+| Scope | Stored in | Visible to | Use for |
+| --- | --- | --- | --- |
+| `session` (default) | session journal | this session, and forks of it | this machine's or session's working state |
+| `project` | `.beads/`, no issue | every session in the workspace, and every machine after `sync` | shared durable facts: commands, conventions, gotchas |
+| `issue` | `.beads/`, attached to one issue | every session in the workspace; follows the issue | working state of one piece of work |
+
+```json
+{"op":"set","scope":"project","key":"build","text":"bun run check"}
+```
+
+```json
+{"op":"set","issue":"oms-1a2b3c","key":"next","text":"indexer wiring is done; resolution pass is next"}
+```
+
+Beads scopes require an initialized Beads workspace and otherwise fail with a message naming the beads `init` operation. Attaching requires the issue to exist; attached notes survive closing it.
 
 ## Persistence and isolation
 
 The latest full snapshot is a custom entry in the active session journal, separate from the history sent to the summarizer. File-backed updates use atomic journal publication; failed updates return an error without replacing the previous notes. The result reports `session` or `memory` storage. Memory-only sessions retain notes during compaction but cannot recover them after process exit.
+
+Project- and issue-scoped notes live in the Beads store instead: authoritative rows in `.beads/oms-beads.sqlite`, exported deterministically to `.beads/oms-notes.jsonl`, and synchronized by the beads `sync` operation. They merge per `(issue, key)` by `updated_at`, independently of the issue record, so a note written on one machine and a field edited on another both survive. Deleting a note writes a tombstone that is hidden from listings and pruned after 30 days. A note write never changes the issue's `updated_at`. The result reports `beads` storage.
 
 Reads wait for atomic publication, so they never expose a snapshot that is later rolled back. Tool results contain detached arrays and note objects; modifying result details cannot mutate the journal. Session replacement waits for in-flight publication, and queued mutations reject if their original session or branch has changed.
 
@@ -63,5 +85,6 @@ The reminder is acknowledged only after successful primary model delivery, inclu
 - Invalid or oversized changes leave the current snapshot unchanged; content is never silently truncated.
 - `list` returns the complete bounded snapshot; mutation results report the note count, capacity usage, and storage mode.
 - Terminal previews sanitize control characters and truncate long content. The saved text remains exact.
+- Beads scopes: at most 16,000 UTF-16 code units per note, at most 32 live notes and 16,000 combined characters per issue, and at most 256 live project notes.
 
-These notes complement `todo` progress tracking and durable project memory; they do not replace either.
+These notes complement `todo` progress tracking and the Beads issue graph; they do not replace either. Session scope is this session's scratch state, project scope is the workspace's shared board, and issue scope is the working state of one tracked piece of work.

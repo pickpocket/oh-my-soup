@@ -27,6 +27,7 @@ import { expandAtImports } from "./discovery/at-imports";
 import { loadSkills, type Skill } from "./extensibility/skills";
 import { hasObsidian } from "./internal-urls/vault-protocol";
 import activeRepoContextTemplate from "./prompts/system/active-repo-context.md" with { type: "text" };
+import beadsGuidance from "./prompts/system/beads-guidance.md" with { type: "text" };
 import computerSafetyPrompt from "./prompts/system/computer-safety.md" with { type: "text" };
 import customSystemPromptTemplate from "./prompts/system/custom-system-prompt.md" with { type: "text" };
 import importantNotesGuidance from "./prompts/system/important-notes-guidance.md" with { type: "text" };
@@ -1106,6 +1107,9 @@ export async function buildSystemPrompt(options: BuildSystemPromptOptions = {}):
 				viaEval: importantNotesTool === "eval",
 			}),
 		);
+	}
+	if (tools?.has("beads")) {
+		systemPrompt.push(prompt.render(beadsGuidance, { beadsTool: tools.get("beads")?.wireName ?? "beads" }));
 	}
 	if (computerEnabled) {
 		systemPrompt.push(computerSafetyPrompt.trim());

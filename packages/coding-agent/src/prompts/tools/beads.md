@@ -16,6 +16,7 @@ Pick `op`. Per operation:
 - `memory` — retrieve the complete value for `key`; follow character `offset` when paged.
 - `remember` — store durable project insight in `text`.
 - `stats` — issue counts and graph health.
+- `index` — incrementally refresh the rebuildable, local-only code-file index. It respects `beads.graph.*` settings, reports coverage and freshness, and never changes issue blockers or synchronized data.
 - `sync` — merge and push deterministic snapshots through the configured Git remote's isolated `refs/heads/oms-beads` branch; never mutates the checked-out branch.
 </instruction>
 

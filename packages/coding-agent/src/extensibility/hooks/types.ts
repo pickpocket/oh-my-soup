@@ -43,6 +43,7 @@ import type {
 	SessionStartEvent,
 	SessionSwitchEvent,
 	SessionTreeEvent,
+	BeadsReminderEvent,
 	TodoReminderEvent,
 	ToolCallEventResult,
 	ToolResultEventResult,
@@ -296,6 +297,7 @@ export type {
 	AutoCompactionStartEvent,
 	AutoRetryEndEvent,
 	AutoRetryStartEvent,
+	BeadsReminderEvent,
 	TodoReminderEvent,
 	TtsrTriggeredEvent,
 	TurnEndEvent,
@@ -404,6 +406,7 @@ export type HookEvent =
 	| AutoRetryEndEvent
 	| TtsrTriggeredEvent
 	| TodoReminderEvent
+	| BeadsReminderEvent
 	| ToolCallEvent
 	| ToolResultEvent;
 
@@ -496,6 +499,7 @@ export interface HookAPI {
 	on(event: "auto_retry_end", handler: HookHandler<AutoRetryEndEvent>): void;
 	on(event: "ttsr_triggered", handler: HookHandler<TtsrTriggeredEvent>): void;
 	on(event: "todo_reminder", handler: HookHandler<TodoReminderEvent>): void;
+	on(event: "beads_reminder", handler: HookHandler<BeadsReminderEvent>): void;
 	on(event: "tool_call", handler: HookHandler<ToolCallEvent, ToolCallEventResult>): void;
 	on(event: "tool_result", handler: HookHandler<ToolResultEvent, ToolResultEventResult>): void;
 

@@ -122,6 +122,7 @@ import type {
 	SessionStopEventResult,
 	SessionSwitchEvent,
 	SessionTreeEvent,
+	BeadsReminderEvent,
 	TodoReminderEvent,
 	ToolCallEventResult,
 	ToolResultEventResult,
@@ -813,6 +814,7 @@ export type {
 	AutoRetryStartEvent,
 	RetryFallbackAppliedEvent,
 	RetryFallbackSucceededEvent,
+	BeadsReminderEvent,
 	TodoReminderEvent,
 	TtsrTriggeredEvent,
 } from "../shared-events";
@@ -1079,6 +1081,7 @@ export type ExtensionEvent =
 	| RetryFallbackSucceededEvent
 	| TtsrTriggeredEvent
 	| TodoReminderEvent
+	| BeadsReminderEvent
 	| GoalUpdatedEvent
 	| CredentialDisabledEvent
 	| McpNotificationEvent
@@ -1246,6 +1249,7 @@ export interface ExtensionAPI {
 	on(event: "retry_fallback_succeeded", handler: ExtensionHandler<RetryFallbackSucceededEvent>): void;
 	on(event: "ttsr_triggered", handler: ExtensionHandler<TtsrTriggeredEvent>): void;
 	on(event: "todo_reminder", handler: ExtensionHandler<TodoReminderEvent>): void;
+	on(event: "beads_reminder", handler: ExtensionHandler<BeadsReminderEvent>): void;
 	on(event: "goal_updated", handler: ExtensionHandler<GoalUpdatedEvent>): void;
 	on(event: "credential_disabled", handler: ExtensionHandler<CredentialDisabledEvent>): void;
 	on(event: "input", handler: ExtensionHandler<InputEvent, InputEventResult>): void;

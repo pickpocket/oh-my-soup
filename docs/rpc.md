@@ -492,7 +492,7 @@ Common event types:
 - `retry_fallback_applied`, `retry_fallback_succeeded`
 - `model_changed`, `thinking_level_changed`
 - `ttsr_triggered`
-- `todo_reminder`, `todo_auto_clear`
+- `todo_reminder`, `beads_reminder`, `todo_auto_clear`
 - `irc_message`, `notice`, `goal_updated`
 
 Extension runner errors are emitted separately as:

@@ -1,4 +1,4 @@
-import { Database } from "bun:sqlite";
+import { Database, type Statement } from "bun:sqlite";
 import { createHash, randomUUID } from "node:crypto";
 import * as fs from "node:fs";
 import * as os from "node:os";
@@ -8,17 +8,27 @@ import {
 	type BeadsIssue,
 	type BeadsMemory,
 	type BeadsMergeResult,
+	type BeadsNote,
+	type BeadsNoteStamp,
 	type BeadsStats,
 	BLOCKING_DEPENDENCY_TYPES,
 	type CreateBeadsIssueInput,
 	NATIVE_BEADS_SCHEMA_VERSION,
+	type SetBeadsNoteInput,
 	type UpdateBeadsIssueInput,
 } from "./types";
+
+import {
+	applyImportantNotesMutation,
+	assertImportantNoteKey,
+	IMPORTANT_NOTES_MAX_CHARS,
+} from "../session/important-notes";
 
 const BEADS_DIR = ".beads";
 const DATABASE_FILE = "oms-beads.sqlite";
 const ISSUES_EXPORT_FILE = "issues.jsonl";
 const MEMORIES_EXPORT_FILE = "oms-memories.jsonl";
+const NOTES_EXPORT_FILE = "oms-notes.jsonl";
 const INTERCHANGE_JOURNAL_FILE = "oms-interchange-journal.json";
 const INTERCHANGE_GENERATION_KEY = "interchange_generation";
 const INTERCHANGE_JOURNAL_VERSION = 1;
@@ -33,6 +43,8 @@ const MAX_MEMORY_KEY_LENGTH = 255;
 const MAX_DEPENDENCY_TREE_LINES = 200;
 const PRIME_MEMORY_LIMIT = 20;
 const PRIME_MEMORY_VALUE_LENGTH = 2_000;
+const MAX_PROJECT_NOTE_ENTRIES = 256;
+const NOTE_TOMBSTONE_RETENTION_MS = 30 * 24 * 60 * 60 * 1_000;
 const IMPORT_FALLBACK_TIME = "1970-01-01T00:00:00.000Z";
 const BLOCKING_TYPES = [...BLOCKING_DEPENDENCY_TYPES];
 const BLOCKING_TYPE_SET = new Set<string>(BLOCKING_TYPES);
@@ -114,6 +126,16 @@ interface MemoryRow {
 	value: string;
 	created_at: string;
 	updated_at: string;
+}
+
+interface NoteRow {
+	issue_id: string;
+	key: string;
+	text: string;
+	created_at: string;
+	updated_at: string;
+	created_by: string;
+	deleted_at: string | null;
 }
 
 function dependencyIdentity(dependency: Pick<DependencyRow, "issue_id" | "depends_on_id" | "type">): string {
@@ -403,6 +425,7 @@ function derivePrefix(root: string, beadsDir: string, requested?: string): strin
 interface InterchangeSnapshot {
 	issues: string;
 	memories: string;
+	notes: string;
 }
 
 interface InterchangeJournal {
@@ -410,6 +433,7 @@ interface InterchangeJournal {
 	generation: string;
 	hadIssues: boolean;
 	hadMemories: boolean;
+	hadNotes?: boolean;
 }
 
 function countJsonLines(content: string): number {
@@ -429,6 +453,7 @@ function assertInterchangeSnapshot(snapshot: InterchangeSnapshot, maximumBytes =
 	for (const [label, content] of [
 		[ISSUES_EXPORT_FILE, snapshot.issues],
 		[MEMORIES_EXPORT_FILE, snapshot.memories],
+		[NOTES_EXPORT_FILE, snapshot.notes],
 	] as const) {
 		if (Buffer.byteLength(content) > byteLimit) {
 			throw new NativeBeadsError(`${label} exceeds the ${byteLimit.toLocaleString()} byte snapshot limit.`);
@@ -455,18 +480,34 @@ function removeFile(file: string): void {
 	}
 }
 
-function interchangePaths(beadsDir: string, generation: string, kind: "issues" | "memories") {
-	const target = path.join(beadsDir, kind === "issues" ? ISSUES_EXPORT_FILE : MEMORIES_EXPORT_FILE);
+function interchangePaths(beadsDir: string, generation: string, kind: "issues" | "memories" | "notes") {
+	const target = path.join(
+		beadsDir,
+		kind === "issues" ? ISSUES_EXPORT_FILE : kind === "memories" ? MEMORIES_EXPORT_FILE : NOTES_EXPORT_FILE,
+	);
 	const stem = path.join(beadsDir, `.oms-interchange-${generation}-${kind}`);
 	return { target, staged: `${stem}.new`, backup: `${stem}.old` };
 }
 
+/**
+ * Run one statement outside any cache. Bun's `Database.query()` keeps a bounded
+ * statement cache whose evicted statements stay unfinalized until garbage
+ * collection, which makes `close(true)` fail with "database is locked", so
+ * module-level helpers prepare and finalize explicitly.
+ */
+function queryValue<T>(db: Database, sql: string, ...params: Array<string | number>): T | null {
+	const statement = db.prepare(sql);
+	try {
+		return statement.get(...params) as T | null;
+	} finally {
+		statement.finalize();
+	}
+}
+
 function readInterchangeGeneration(db: Database): string {
-	const hasMeta = db.query("SELECT 1 AS present FROM sqlite_master WHERE type = 'table' AND name = 'meta'").get();
+	const hasMeta = queryValue(db, "SELECT 1 AS present FROM sqlite_master WHERE type = 'table' AND name = 'meta'");
 	if (!hasMeta) return "";
-	const row = db.query("SELECT value FROM meta WHERE key = ?").get(INTERCHANGE_GENERATION_KEY) as {
-		value: string;
-	} | null;
+	const row = queryValue<{ value: string }>(db, "SELECT value FROM meta WHERE key = ?", INTERCHANGE_GENERATION_KEY);
 	return row?.value ?? "";
 }
 
@@ -490,7 +531,8 @@ function readInterchangeJournal(beadsDir: string): InterchangeJournal | null {
 		typeof value.generation !== "string" ||
 		!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(value.generation) ||
 		typeof value.hadIssues !== "boolean" ||
-		typeof value.hadMemories !== "boolean"
+		typeof value.hadMemories !== "boolean" ||
+		("hadNotes" in value && typeof value.hadNotes !== "boolean")
 	) {
 		throw new NativeBeadsError("Native Beads interchange journal has an unsupported shape.");
 	}
@@ -520,6 +562,9 @@ function recoverInterchangePublication(db: Database, beadsDir: string): void {
 		{ ...interchangePaths(beadsDir, journal.generation, "issues"), hadTarget: journal.hadIssues },
 		{ ...interchangePaths(beadsDir, journal.generation, "memories"), hadTarget: journal.hadMemories },
 	];
+	if (journal.hadNotes !== undefined) {
+		entries.push({ ...interchangePaths(beadsDir, journal.generation, "notes"), hadTarget: journal.hadNotes });
+	}
 	const rollForward = readInterchangeGeneration(db) === journal.generation;
 	if (rollForward) {
 		for (const entry of entries) {
@@ -563,21 +608,24 @@ function publishInterchangeSnapshot(db: Database, beadsDir: string, snapshot: In
 	const generation = randomUUID();
 	const issues = interchangePaths(beadsDir, generation, "issues");
 	const memories = interchangePaths(beadsDir, generation, "memories");
+	const notes = interchangePaths(beadsDir, generation, "notes");
 	const journal: InterchangeJournal = {
 		version: INTERCHANGE_JOURNAL_VERSION,
 		generation,
 		hadIssues: exists(issues.target),
 		hadMemories: exists(memories.target),
+		hadNotes: exists(notes.target),
 	};
 	const journalPath = path.join(beadsDir, INTERCHANGE_JOURNAL_FILE);
 	let journalWritten = false;
 	try {
 		fs.writeFileSync(issues.staged, snapshot.issues, "utf8");
 		fs.writeFileSync(memories.staged, snapshot.memories, "utf8");
+		fs.writeFileSync(notes.staged, snapshot.notes, "utf8");
 		fs.writeFileSync(`${journalPath}.tmp`, `${JSON.stringify(journal)}\n`, "utf8");
 		fs.renameSync(`${journalPath}.tmp`, journalPath);
 		journalWritten = true;
-		for (const entry of [issues, memories]) {
+		for (const entry of [issues, memories, notes]) {
 			if (exists(entry.target)) preserveInterchangeTarget(entry.target, entry.backup);
 			fs.renameSync(entry.staged, entry.target);
 		}
@@ -590,6 +638,7 @@ function publishInterchangeSnapshot(db: Database, beadsDir: string, snapshot: In
 		if (!journalWritten) {
 			removeFile(issues.staged);
 			removeFile(memories.staged);
+			removeFile(notes.staged);
 			removeFile(`${journalPath}.tmp`);
 		}
 		throw error;
@@ -863,6 +912,32 @@ function normalizeImportedMemory(value: unknown): BeadsMemory {
 	return { key, value: content, created_at: createdAt, updated_at: normalizeIso(value.updated_at, createdAt) };
 }
 
+function normalizeImportedNote(value: unknown): BeadsNote {
+	if (!isObject(value)) throw new NativeBeadsError("Note record must be an object.");
+	const issueId = importedOptionalString(value, "issue_id", "Note issue id")?.trim();
+	if (issueId) assertIssueId(issueId);
+	const key = importedOptionalString(value, "key", "Note key");
+	const text = importedOptionalString(value, "text", "Note text");
+	if (!key) throw new NativeBeadsError("Note key must not be empty.");
+	if (text === undefined) throw new NativeBeadsError("Note text is required.");
+	assertImportantNoteKey(key);
+	assertBoundedText("Note text", text, IMPORTANT_NOTES_MAX_CHARS);
+	const createdAt = normalizeIso(value.created_at, IMPORT_FALLBACK_TIME);
+	const createdBy = importedOptionalString(value, "created_by", "Note creator")?.trim();
+	if (createdBy) assertBoundedText("Note creator", createdBy, MAX_TITLE_LENGTH);
+	const deletedAt = importedOptionalString(value, "deleted_at", "Note deletion time")?.trim();
+	if (deletedAt && text !== "") throw new NativeBeadsError("Deleted note text must be empty.");
+	return {
+		...(issueId ? { issue_id: issueId } : {}),
+		key,
+		text,
+		created_at: createdAt,
+		updated_at: normalizeIso(value.updated_at, createdAt),
+		...(createdBy ? { created_by: createdBy } : {}),
+		...(deletedAt ? { deleted_at: normalizeIso(deletedAt, createdAt) } : {}),
+	};
+}
+
 export function findBeadsWorkspaceRoot(cwd: string, homeDirectory = os.homedir()): string | null {
 	const home = path.resolve(homeDirectory);
 	let current = path.resolve(cwd);
@@ -930,7 +1005,9 @@ export class NativeBeadsRepository {
 	readonly databasePath: string;
 	readonly issuesExportPath: string;
 	readonly memoriesExportPath: string;
+	readonly notesExportPath: string;
 	readonly #db: Database;
+	readonly #statements = new Map<string, Statement>();
 
 	private constructor(root: string, options: RepositoryOpenOptions) {
 		this.root = path.resolve(root);
@@ -938,6 +1015,7 @@ export class NativeBeadsRepository {
 		this.databasePath = path.join(this.beadsDir, DATABASE_FILE);
 		this.issuesExportPath = path.join(this.beadsDir, ISSUES_EXPORT_FILE);
 		this.memoriesExportPath = path.join(this.beadsDir, MEMORIES_EXPORT_FILE);
+		this.notesExportPath = path.join(this.beadsDir, NOTES_EXPORT_FILE);
 
 		if (options.create) {
 			fs.mkdirSync(this.beadsDir, { recursive: true });
@@ -960,7 +1038,7 @@ export class NativeBeadsRepository {
 			}
 		} catch (error) {
 			try {
-				this.#db.close(true);
+				this.close();
 			} catch {
 				// Preserve the initialization failure; the database never escaped this constructor.
 			}
@@ -985,11 +1063,31 @@ export class NativeBeadsRepository {
 	}
 
 	close(): void {
+		for (const statement of this.#statements.values()) statement.finalize();
+		this.#statements.clear();
 		this.#db.close(true);
 	}
 
+	/**
+	 * Prepared statements live in this repository-owned cache instead of Bun's
+	 * `Database.query()` cache: that cache is bounded, evicts silently, and
+	 * leaves evicted statements unfinalized until garbage collection, so a
+	 * repository issuing more distinct statements than it holds could no longer
+	 * `close(true)` ("database is locked") and kept the file mapped on Windows.
+	 */
+	#statement(sql: string): Statement {
+		let statement = this.#statements.get(sql);
+		if (!statement) {
+			statement = this.#db.prepare(sql);
+			this.#statements.set(sql, statement);
+		}
+		return statement;
+	}
+
 	get prefix(): string {
-		const row = this.#db.query("SELECT value FROM meta WHERE key = 'issue_prefix'").get() as { value: string } | null;
+		const row = this.#statement("SELECT value FROM meta WHERE key = 'issue_prefix'").get() as {
+			value: string;
+		} | null;
 		return row?.value || "bd";
 	}
 
@@ -1003,7 +1101,7 @@ export class NativeBeadsRepository {
 		);
 	}
 	#assertSchemaCurrent(): void {
-		const versionRow = this.#db.query("PRAGMA user_version").get() as { user_version: number };
+		const versionRow = this.#statement("PRAGMA user_version").get() as { user_version: number };
 		if (versionRow.user_version !== NATIVE_BEADS_SCHEMA_VERSION) {
 			if (versionRow.user_version > NATIVE_BEADS_SCHEMA_VERSION) {
 				throw new NativeBeadsError(
@@ -1014,7 +1112,7 @@ export class NativeBeadsRepository {
 				`Native Beads schema v${versionRow.user_version} requires initialization by this OMS build (v${NATIVE_BEADS_SCHEMA_VERSION}); run the beads init operation.`,
 			);
 		}
-		const marker = this.#db.query("SELECT 1 AS present FROM meta WHERE key = 'interchange_imported'").get();
+		const marker = this.#statement("SELECT 1 AS present FROM meta WHERE key = 'interchange_imported'").get();
 		if (!marker) {
 			throw new NativeBeadsError(
 				"Native Beads initialization is incomplete; run the beads init operation to finish importing the interchange files.",
@@ -1023,7 +1121,7 @@ export class NativeBeadsRepository {
 	}
 
 	#initializeSchema(prefix: string): void {
-		const versionRow = this.#db.query("PRAGMA user_version").get() as { user_version: number };
+		const versionRow = this.#statement("PRAGMA user_version").get() as { user_version: number };
 		if (versionRow.user_version > NATIVE_BEADS_SCHEMA_VERSION) {
 			throw new NativeBeadsError(
 				`Native Beads schema v${versionRow.user_version} is newer than this OMS build (v${NATIVE_BEADS_SCHEMA_VERSION}).`,
@@ -1076,12 +1174,25 @@ export class NativeBeadsRepository {
 				CREATE INDEX IF NOT EXISTS idx_issues_status_priority ON issues(status, priority, created_at);
 				CREATE INDEX IF NOT EXISTS idx_dependencies_target ON dependencies(depends_on_id, type);
 			`);
+			this.#statement(`
+				CREATE TABLE IF NOT EXISTS notes (
+					issue_id TEXT NOT NULL DEFAULT '',
+					key TEXT NOT NULL,
+					text TEXT NOT NULL,
+					created_at TEXT NOT NULL,
+					updated_at TEXT NOT NULL,
+					created_by TEXT NOT NULL DEFAULT '',
+					deleted_at TEXT,
+					PRIMARY KEY (issue_id, key)
+				)
+			`).run();
+			this.#statement("CREATE INDEX IF NOT EXISTS idx_notes_issue_id ON notes(issue_id)").run();
 			this.#db.run("INSERT OR IGNORE INTO meta (key, value) VALUES ('issue_prefix', ?)", [prefix]);
-			const issueColumns = this.#db.query("PRAGMA table_info(issues)").all() as Array<{ name: string }>;
+			const issueColumns = this.#statement("PRAGMA table_info(issues)").all() as Array<{ name: string }>;
 			if (!issueColumns.some(column => column.name === "extra_json")) {
 				this.#db.run("ALTER TABLE issues ADD COLUMN extra_json TEXT NOT NULL DEFAULT '{}'");
 			}
-			const dependencyColumns = this.#db.query("PRAGMA table_info(dependencies)").all() as Array<{ name: string }>;
+			const dependencyColumns = this.#statement("PRAGMA table_info(dependencies)").all() as Array<{ name: string }>;
 			if (!dependencyColumns.some(column => column.name === "extra_json")) {
 				this.#db.run("ALTER TABLE dependencies ADD COLUMN extra_json TEXT NOT NULL DEFAULT '{}'");
 			}
@@ -1094,21 +1205,26 @@ export class NativeBeadsRepository {
 	}
 
 	#importInterchangeOnce(): void {
-		const marker = this.#db.query("SELECT 1 AS present FROM meta WHERE key = 'interchange_imported'").get();
+		const marker = this.#statement("SELECT 1 AS present FROM meta WHERE key = 'interchange_imported'").get();
 		if (marker) return;
 		const issuesContent = readImportFile(this.issuesExportPath, ISSUES_EXPORT_FILE);
 		const memoriesContent = readImportFile(this.memoriesExportPath, MEMORIES_EXPORT_FILE);
+		const notesContent = readImportFile(this.notesExportPath, NOTES_EXPORT_FILE);
 		const issues = parseJsonLines(issuesContent, normalizeImportedIssue, ISSUES_EXPORT_FILE);
 		const memories = parseJsonLines(memoriesContent, normalizeImportedMemory, MEMORIES_EXPORT_FILE);
+		const notes = parseJsonLines(notesContent, normalizeImportedNote, NOTES_EXPORT_FILE);
 		this.#publishedImmediate(
 			() => {
-				const currentMarker = this.#db
-					.query("SELECT 1 AS present FROM meta WHERE key = 'interchange_imported'")
-					.get();
+				const currentMarker = this.#statement(
+					"SELECT 1 AS present FROM meta WHERE key = 'interchange_imported'",
+				).get();
 				if (currentMarker) return false;
 				for (const issue of issues) this.#upsertImportedIssue(issue, true);
 				for (const memory of memories) this.#upsertImportedMemory(memory, true);
+				for (const note of notes) this.#upsertImportedNote(note, true);
 				this.#reconcileDependencies(issues.flatMap(issue => issue.dependencies ?? []));
+				this.#dropOrphanedNotes();
+				this.#pruneDeletedNotes();
 				this.#db.run("INSERT OR IGNORE INTO meta (key, value) VALUES ('interchange_imported', '1')");
 				return true;
 			},
@@ -1132,11 +1248,18 @@ export class NativeBeadsRepository {
 	}
 
 	#mutate<T>(operation: () => T): T {
-		return this.#publishedImmediate(operation, () => this.#interchangeSnapshot());
+		return this.#publishedImmediate(
+			() => {
+				const result = operation();
+				this.#pruneDeletedNotes();
+				return result;
+			},
+			() => this.#interchangeSnapshot(),
+		);
 	}
 
 	#issueRow(id: string): IssueRow | null {
-		return this.#db.query("SELECT * FROM issues WHERE id = ?").get(id) as IssueRow | null;
+		return this.#statement("SELECT * FROM issues WHERE id = ?").get(id) as IssueRow | null;
 	}
 
 	#requireIssueRow(id: string): IssueRow {
@@ -1147,11 +1270,9 @@ export class NativeBeadsRepository {
 	}
 
 	#dependencies(id: string): BeadsDependency[] {
-		const rows = this.#db
-			.query(
-				"SELECT issue_id, depends_on_id, type, created_at, created_by, extra_json FROM dependencies WHERE issue_id = ? ORDER BY type, depends_on_id",
-			)
-			.all(id) as DependencyRow[];
+		const rows = this.#statement(
+			"SELECT issue_id, depends_on_id, type, created_at, created_by, extra_json FROM dependencies WHERE issue_id = ? ORDER BY type, depends_on_id",
+		).all(id) as DependencyRow[];
 		return rows.map(row => ({
 			issue_id: row.issue_id,
 			depends_on_id: row.depends_on_id,
@@ -1163,19 +1284,19 @@ export class NativeBeadsRepository {
 
 	#hydrate(row: IssueRow): BeadsIssue {
 		const dependencies = this.#dependencies(row.id);
-		const blockedBy = this.#db
-			.query(
-				`SELECT d.depends_on_id AS id, blocker.title AS title, blocker.status AS status
+		const blockedBy = this.#statement(`SELECT d.depends_on_id AS id, blocker.title AS title, blocker.status AS status
 				 FROM dependencies d
 				 LEFT JOIN issues blocker ON blocker.id = d.depends_on_id
 				 WHERE d.issue_id = ? AND d.type IN (${BLOCKING_PLACEHOLDERS})
 				   AND (blocker.id IS NULL OR blocker.status <> 'closed')
-				 ORDER BY d.depends_on_id`,
-			)
-			.all(row.id, ...BLOCKING_TYPES) as Array<{ id: string; title: string | null; status: string | null }>;
-		const dependentCount = this.#db
-			.query("SELECT COUNT(*) AS count FROM dependencies WHERE depends_on_id = ?")
-			.get(row.id) as {
+				 ORDER BY d.depends_on_id`).all(row.id, ...BLOCKING_TYPES) as Array<{
+			id: string;
+			title: string | null;
+			status: string | null;
+		}>;
+		const dependentCount = this.#statement("SELECT COUNT(*) AS count FROM dependencies WHERE depends_on_id = ?").get(
+			row.id,
+		) as {
 			count: number;
 		};
 		const labels = parseLabels(row.labels_json);
@@ -1221,9 +1342,9 @@ export class NativeBeadsRepository {
 		const args: Array<string | number> = status ? [status] : [];
 		if (boundedLimit !== null) args.push(boundedLimit, boundedOffset);
 		else if (boundedOffset > 0) args.push(boundedOffset);
-		const rows = this.#db
-			.query(`SELECT * FROM issues${status ? " WHERE status = ?" : ""} ORDER BY priority, created_at, id${suffix}`)
-			.all(...args) as IssueRow[];
+		const rows = this.#statement(
+			`SELECT * FROM issues${status ? " WHERE status = ?" : ""} ORDER BY priority, created_at, id${suffix}`,
+		).all(...args) as IssueRow[];
 		return rows.map(row => this.#hydrate(row));
 	}
 
@@ -1244,7 +1365,7 @@ export class NativeBeadsRepository {
 		const args: Array<string | number> = [...BLOCKING_TYPES];
 		if (boundedLimit !== null) args.push(boundedLimit, boundedOffset);
 		else if (boundedOffset > 0) args.push(boundedOffset);
-		const rows = this.#db.query(sql).all(...args) as IssueRow[];
+		const rows = this.#statement(sql).all(...args) as IssueRow[];
 		return rows.map(row => this.#hydrate(row));
 	}
 
@@ -1265,7 +1386,7 @@ export class NativeBeadsRepository {
 		const args: Array<string | number> = [...BLOCKING_TYPES];
 		if (boundedLimit !== null) args.push(boundedLimit, boundedOffset);
 		else if (boundedOffset > 0) args.push(boundedOffset);
-		const rows = this.#db.query(sql).all(...args) as IssueRow[];
+		const rows = this.#statement(sql).all(...args) as IssueRow[];
 		return rows.map(row => this.#hydrate(row));
 	}
 
@@ -1429,6 +1550,43 @@ export class NativeBeadsRepository {
 		return this.show(normalized);
 	}
 
+	/** Issues this actor currently holds, newest claim first. */
+	claimedBy(actor: string): BeadsIssue[] {
+		const normalized = actor.trim();
+		if (!normalized) return [];
+		const rows = this.#statement(
+			"SELECT * FROM issues WHERE status = 'in_progress' AND assignee = ? ORDER BY started_at DESC, id",
+		).all(normalized) as IssueRow[];
+		return rows.map(row => this.#hydrate(row));
+	}
+
+	/**
+	 * Move every live claim from one actor to another.
+	 *
+	 * Session handoff mints a new actor id (the session id is hashed into it),
+	 * so without this the replacement session cannot see — or release — the work
+	 * its predecessor claimed. Returns the number of reassigned issues.
+	 */
+	reassignClaims(fromActor: string, toActor: string): number {
+		const from = fromActor.trim();
+		const to = toActor.trim();
+		if (!from || !to) throw new NativeBeadsError("Claim reassignment requires both actors.");
+		assertBoundedText("Claim actor", to, MAX_TITLE_LENGTH);
+		if (from === to) return 0;
+		return this.#mutate(() => {
+			const rows = this.#statement("SELECT id FROM issues WHERE status = 'in_progress' AND assignee = ?").all(
+				from,
+			) as Array<{ id: string }>;
+			if (rows.length === 0) return 0;
+			this.#db.run("UPDATE issues SET assignee = ?, updated_at = ? WHERE status = 'in_progress' AND assignee = ?", [
+				to,
+				new Date().toISOString(),
+				from,
+			]);
+			return rows.length;
+		});
+	}
+
 	addDependency(issueId: string, dependsOnId: string, type = "blocks", actor = "oms"): boolean {
 		const child = issueId.trim();
 		const parent = dependsOnId.trim();
@@ -1469,9 +1627,7 @@ export class NativeBeadsRepository {
 	}
 
 	#hasBlockingPath(from: string, target: string): boolean {
-		const row = this.#db
-			.query(
-				`WITH RECURSIVE reachable(id) AS (
+		const row = this.#statement(`WITH RECURSIVE reachable(id) AS (
 					SELECT depends_on_id FROM dependencies WHERE issue_id = ? AND type IN (${BLOCKING_PLACEHOLDERS})
 					UNION
 					SELECT dependency.depends_on_id
@@ -1479,9 +1635,12 @@ export class NativeBeadsRepository {
 					JOIN reachable ON dependency.issue_id = reachable.id
 					WHERE dependency.type IN (${BLOCKING_PLACEHOLDERS})
 				)
-				SELECT 1 AS present FROM reachable WHERE id = ? LIMIT 1`,
-			)
-			.get(from, ...BLOCKING_TYPES, ...BLOCKING_TYPES, target);
+				SELECT 1 AS present FROM reachable WHERE id = ? LIMIT 1`).get(
+			from,
+			...BLOCKING_TYPES,
+			...BLOCKING_TYPES,
+			target,
+		);
 		return Boolean(row);
 	}
 
@@ -1520,6 +1679,140 @@ export class NativeBeadsRepository {
 		return lines.join("\n");
 	}
 
+	setNote(input: SetBeadsNoteInput): BeadsNote {
+		const issueId = this.#normalizeNoteIssueId(input.issueId);
+		assertImportantNoteKey(input.key);
+		assertBoundedText("Note text", input.text, IMPORTANT_NOTES_MAX_CHARS);
+		const actor = input.actor.trim();
+		if (!actor) throw new NativeBeadsError("Note actor must not be empty.");
+		assertBoundedText("Note actor", actor, MAX_TITLE_LENGTH);
+		this.#mutate(() => {
+			if (issueId) this.#requireIssueRow(issueId);
+			const existing = this.#noteRow(issueId, input.key);
+			const current = this.#liveNoteRows(issueId).map(row => ({ key: row.key, text: row.text }));
+			if (issueId) {
+				applyImportantNotesMutation(current, { op: "set", key: input.key, text: input.text });
+			} else if ((!existing || existing.deleted_at !== null) && current.length >= MAX_PROJECT_NOTE_ENTRIES) {
+				throw new NativeBeadsError(
+					`Project notes exceed ${MAX_PROJECT_NOTE_ENTRIES} entries; delete an existing key first.`,
+				);
+			}
+			if (existing && existing.deleted_at === null && existing.text === input.text) return;
+			const now = new Date().toISOString();
+			this.#statement(
+				`INSERT INTO notes (issue_id, key, text, created_at, updated_at, created_by, deleted_at)
+				 VALUES (?, ?, ?, ?, ?, ?, NULL)
+				 ON CONFLICT(issue_id, key) DO UPDATE SET
+					text = excluded.text,
+					updated_at = excluded.updated_at,
+					deleted_at = NULL`,
+			).run(issueId, input.key, input.text, now, now, actor);
+		});
+		const row = this.#noteRow(issueId, input.key);
+		if (!row || row.deleted_at !== null) throw new NativeBeadsError(`Note not found: ${input.key}`);
+		return this.#exportNote(row);
+	}
+
+	deleteNote(issueId: string | undefined, key: string): void {
+		const scope = this.#normalizeNoteIssueId(issueId);
+		this.#mutate(() => {
+			if (scope) this.#requireIssueRow(scope);
+			const current = this.#liveNoteRows(scope).map(row => ({ key: row.key, text: row.text }));
+			applyImportantNotesMutation(current, { op: "delete", key });
+			const now = new Date().toISOString();
+			const result = this.#statement(
+				`UPDATE notes
+				 SET text = '', updated_at = ?, deleted_at = ?
+				 WHERE issue_id = ? AND key = ? AND deleted_at IS NULL`,
+			).run(now, now, scope, key);
+			if (result.changes !== 1) throw new NativeBeadsError(`Note not found: ${key}`);
+		});
+	}
+
+	notes(issueId?: string): BeadsNote[] {
+		const scope = this.#normalizeNoteIssueId(issueId);
+		if (scope) this.#requireIssueRow(scope);
+		return this.#liveNoteRows(scope).map(row => this.#exportNote(row));
+	}
+
+	notesForIssues(ids: readonly string[]): BeadsNote[] {
+		const issueIds = [...new Set(ids.map(id => this.#normalizeNoteIssueId(id)).filter(Boolean))];
+		if (issueIds.length === 0) return [];
+		const placeholders = issueIds.map(() => "?").join(", ");
+		const rows = this.#statement(
+			`SELECT issue_id, key, text, created_at, updated_at, created_by, deleted_at
+			 FROM notes
+			 WHERE deleted_at IS NULL AND issue_id IN (${placeholders})
+			 ORDER BY issue_id, key`,
+		).all(...issueIds) as NoteRow[];
+		return rows.map(row => this.#exportNote(row));
+	}
+
+	noteStamp(ids: readonly string[]): BeadsNoteStamp {
+		const issueIds = [...new Set(ids.map(id => this.#normalizeNoteIssueId(id)).filter(Boolean))];
+		const where =
+			issueIds.length === 0
+				? "deleted_at IS NULL AND issue_id = ''"
+				: `deleted_at IS NULL AND (issue_id = '' OR issue_id IN (${issueIds.map(() => "?").join(", ")}))`;
+		const row = this.#statement(
+			`SELECT COUNT(*) AS count, MAX(updated_at) AS max_updated_at
+			 FROM notes
+			 WHERE ${where}`,
+		).get(...issueIds) as { count: number; max_updated_at: string | null };
+		return { count: row.count, maxUpdatedAt: row.max_updated_at ?? undefined };
+	}
+
+	#normalizeNoteIssueId(issueId: string | undefined): string {
+		const normalized = issueId?.trim() ?? "";
+		if (normalized) assertIssueId(normalized);
+		return normalized;
+	}
+
+	#noteRow(issueId: string, key: string): NoteRow | null {
+		return this.#statement(
+			"SELECT issue_id, key, text, created_at, updated_at, created_by, deleted_at FROM notes WHERE issue_id = ? AND key = ?",
+		).get(issueId, key) as NoteRow | null;
+	}
+
+	#liveNoteRows(issueId: string): NoteRow[] {
+		return this.#statement(
+			`SELECT issue_id, key, text, created_at, updated_at, created_by, deleted_at
+			 FROM notes
+			 WHERE issue_id = ? AND deleted_at IS NULL
+			 ORDER BY key`,
+		).all(issueId) as NoteRow[];
+	}
+
+	#exportNote(row: NoteRow): BeadsNote {
+		return {
+			...(row.issue_id ? { issue_id: row.issue_id } : {}),
+			key: row.key,
+			text: row.text,
+			created_at: row.created_at,
+			updated_at: row.updated_at,
+			...(row.created_by ? { created_by: row.created_by } : {}),
+			...(row.deleted_at ? { deleted_at: row.deleted_at } : {}),
+		};
+	}
+
+	/**
+	 * Notes whose issue no longer exists locally cannot be attached to anything.
+	 * They arrive through interchange (an issue deleted on one machine, a note
+	 * written on another), so they are dropped rather than failing the import:
+	 * a merge must never refuse data it did not author, and a failed import-once
+	 * would leave the store unopenable.
+	 */
+	#dropOrphanedNotes(): number {
+		return this.#statement(
+			"DELETE FROM notes WHERE issue_id <> '' AND NOT EXISTS (SELECT 1 FROM issues WHERE issues.id = notes.issue_id)",
+		).run().changes;
+	}
+
+	#pruneDeletedNotes(now = Date.now()): number {
+		const cutoff = new Date(now - NOTE_TOMBSTONE_RETENTION_MS).toISOString();
+		return this.#statement("DELETE FROM notes WHERE deleted_at IS NOT NULL AND deleted_at <= ?").run(cutoff).changes;
+	}
+
 	remember(text: string): BeadsMemory {
 		const insight = text.trim();
 		if (!insight) throw new NativeBeadsError("Memory text must not be empty.");
@@ -1534,16 +1827,16 @@ export class NativeBeadsRepository {
 			);
 			return selectedKey;
 		});
-		return this.#db.query("SELECT * FROM memories WHERE key = ?").get(key) as MemoryRow;
+		return this.#statement("SELECT * FROM memories WHERE key = ?").get(key) as MemoryRow;
 	}
 
 	memory(key: string): BeadsMemory {
 		const normalized = key.trim();
 		if (!normalized) throw new NativeBeadsError("Memory key must not be empty.");
 		assertMemoryKey(normalized);
-		const row = this.#db
-			.query("SELECT key, value, created_at, updated_at FROM memories WHERE key = ?")
-			.get(normalized) as MemoryRow | null;
+		const row = this.#statement("SELECT key, value, created_at, updated_at FROM memories WHERE key = ?").get(
+			normalized,
+		) as MemoryRow | null;
 		if (!row) throw new NativeBeadsError(`Memory not found: ${normalized}`);
 		return row;
 	}
@@ -1559,7 +1852,7 @@ export class NativeBeadsRepository {
 		const digest = createHash("sha256").update(text).digest("hex");
 		for (let length = 16; length <= digest.length; length += 8) {
 			const key = `${slug}-${digest.slice(0, length)}`;
-			const existing = this.#db.query("SELECT value FROM memories WHERE key = ?").get(key) as {
+			const existing = this.#statement("SELECT value FROM memories WHERE key = ?").get(key) as {
 				value: string;
 			} | null;
 			if (!existing || existing.value === text) return key;
@@ -1578,9 +1871,9 @@ export class NativeBeadsRepository {
 		const args: Array<string | number> = needle ? [needle, needle] : [];
 		if (boundedLimit !== null) args.push(boundedLimit, offset);
 		else if (offset > 0) args.push(offset);
-		return this.#db
-			.query(`SELECT key, value, created_at, updated_at FROM memories${where} ORDER BY key${pagination}`)
-			.all(...args) as MemoryRow[];
+		return this.#statement(
+			`SELECT key, value, created_at, updated_at FROM memories${where} ORDER BY key${pagination}`,
+		).all(...args) as MemoryRow[];
 	}
 
 	prime(query?: string, offset = 0, limit = PRIME_MEMORY_LIMIT): string {
@@ -1618,19 +1911,19 @@ export class NativeBeadsRepository {
 	stats(): BeadsStats {
 		return this.#db
 			.transaction(() => {
-				const rows = this.#db.query("SELECT status, COUNT(*) AS count FROM issues GROUP BY status").all() as Array<{
+				const rows = this.#statement(
+					"SELECT status, COUNT(*) AS count FROM issues GROUP BY status",
+				).all() as Array<{
 					status: string;
 					count: number;
 				}>;
 				const counts = new Map(rows.map(row => [row.status, row.count]));
-				const totalRow = this.#db.query("SELECT COUNT(*) AS count FROM issues").get() as { count: number };
-				const dependencyRow = this.#db.query("SELECT COUNT(*) AS count FROM dependencies").get() as {
+				const totalRow = this.#statement("SELECT COUNT(*) AS count FROM issues").get() as { count: number };
+				const dependencyRow = this.#statement("SELECT COUNT(*) AS count FROM dependencies").get() as {
 					count: number;
 				};
-				const memoryRow = this.#db.query("SELECT COUNT(*) AS count FROM memories").get() as { count: number };
-				const readyRow = this.#db
-					.query(
-						`SELECT COUNT(*) AS count FROM issues issue
+				const memoryRow = this.#statement("SELECT COUNT(*) AS count FROM memories").get() as { count: number };
+				const readyRow = this.#statement(`SELECT COUNT(*) AS count FROM issues issue
 				 WHERE issue.status = 'open'
 				   AND NOT EXISTS (
 					SELECT 1 FROM dependencies dependency
@@ -1638,12 +1931,8 @@ export class NativeBeadsRepository {
 					WHERE dependency.issue_id = issue.id
 					  AND dependency.type IN (${BLOCKING_PLACEHOLDERS})
 					  AND (blocker.id IS NULL OR blocker.status <> 'closed')
-				   )`,
-					)
-					.get(...BLOCKING_TYPES) as { count: number };
-				const blockedRow = this.#db
-					.query(
-						`SELECT COUNT(*) AS count FROM issues issue
+				   )`).get(...BLOCKING_TYPES) as { count: number };
+				const blockedRow = this.#statement(`SELECT COUNT(*) AS count FROM issues issue
 				 WHERE issue.status IN ('open', 'in_progress')
 				   AND EXISTS (
 					SELECT 1 FROM dependencies dependency
@@ -1651,9 +1940,7 @@ export class NativeBeadsRepository {
 					WHERE dependency.issue_id = issue.id
 					  AND dependency.type IN (${BLOCKING_PLACEHOLDERS})
 					  AND (blocker.id IS NULL OR blocker.status <> 'closed')
-				   )`,
-					)
-					.get(...BLOCKING_TYPES) as { count: number };
+				   )`).get(...BLOCKING_TYPES) as { count: number };
 				return {
 					total: totalRow.count,
 					open: counts.get("open") ?? 0,
@@ -1671,9 +1958,9 @@ export class NativeBeadsRepository {
 	}
 
 	#blockingCycleCount(): number {
-		const edges = this.#db
-			.query(`SELECT issue_id, depends_on_id FROM dependencies WHERE type IN (${BLOCKING_PLACEHOLDERS})`)
-			.all(...BLOCKING_TYPES) as Array<{ issue_id: string; depends_on_id: string }>;
+		const edges = this.#statement(
+			`SELECT issue_id, depends_on_id FROM dependencies WHERE type IN (${BLOCKING_PLACEHOLDERS})`,
+		).all(...BLOCKING_TYPES) as Array<{ issue_id: string; depends_on_id: string }>;
 		const graph = new Map<string, string[]>();
 		for (const edge of edges) {
 			const targets = graph.get(edge.issue_id) ?? [];
@@ -1709,15 +1996,30 @@ export class NativeBeadsRepository {
 
 	exportInterchange(): void {
 		this.#publishedImmediate(
-			() => undefined,
+			() => this.#pruneDeletedNotes(),
 			() => this.#interchangeSnapshot(),
 		);
 	}
 
-	mergeInterchange(issuesJsonl: string, memoriesJsonl: string, maximumSnapshotBytes?: number): BeadsMergeResult {
+	mergeInterchange(
+		issuesJsonl: string,
+		memoriesJsonl: string,
+		notesJsonlOrMaximumSnapshotBytes?: string | number,
+		maximumSnapshotBytes?: number,
+	): BeadsMergeResult {
+		const notesJsonl = typeof notesJsonlOrMaximumSnapshotBytes === "string" ? notesJsonlOrMaximumSnapshotBytes : "";
+		const snapshotLimit =
+			typeof notesJsonlOrMaximumSnapshotBytes === "number" ? notesJsonlOrMaximumSnapshotBytes : maximumSnapshotBytes;
 		const issues = parseJsonLines(issuesJsonl, normalizeImportedIssue, ISSUES_EXPORT_FILE);
 		const memories = parseJsonLines(memoriesJsonl, normalizeImportedMemory, MEMORIES_EXPORT_FILE);
-		const result: BeadsMergeResult = { issues: 0, dependencies: 0, dependencyConflicts: 0, memories: 0 };
+		const notes = parseJsonLines(notesJsonl, normalizeImportedNote, NOTES_EXPORT_FILE);
+		const result: BeadsMergeResult = {
+			issues: 0,
+			dependencies: 0,
+			dependencyConflicts: 0,
+			memories: 0,
+			notes: 0,
+		};
 		let preparedSnapshot: InterchangeSnapshot | null = null;
 		this.#publishedImmediate(
 			() => {
@@ -1728,10 +2030,15 @@ export class NativeBeadsRepository {
 				result.dependencies = dependencyResult.changes;
 				result.dependencyConflicts = dependencyResult.conflicts;
 				for (const memory of memories) if (this.#upsertImportedMemory(memory, false)) result.memories++;
-				const changed = Boolean(result.issues || result.dependencies || result.memories);
-				if (changed || maximumSnapshotBytes !== undefined) {
+				for (const note of notes) if (this.#upsertImportedNote(note, false)) result.notes++;
+				const orphaned = this.#dropOrphanedNotes();
+				const pruned = this.#pruneDeletedNotes();
+				const changed = Boolean(
+					result.issues || result.dependencies || result.memories || result.notes || pruned || orphaned,
+				);
+				if (changed || snapshotLimit !== undefined) {
 					preparedSnapshot = this.#interchangeSnapshot();
-					assertInterchangeSnapshot(preparedSnapshot, maximumSnapshotBytes);
+					assertInterchangeSnapshot(preparedSnapshot, snapshotLimit);
 				}
 				return changed;
 			},
@@ -1741,9 +2048,9 @@ export class NativeBeadsRepository {
 	}
 
 	#reconcileDependencies(incoming: readonly ImportedBeadsDependency[]): { changes: number; conflicts: number } {
-		const existing = this.#db
-			.query("SELECT issue_id, depends_on_id, type, created_at, created_by, extra_json FROM dependencies")
-			.all() as DependencyRow[];
+		const existing = this.#statement(
+			"SELECT issue_id, depends_on_id, type, created_at, created_by, extra_json FROM dependencies",
+		).all() as DependencyRow[];
 		const canonical = new Map<string, { row: DependencyRow; metadataKey: string }>();
 		for (const source of [existing, incoming]) {
 			for (const dependency of source) {
@@ -1812,7 +2119,7 @@ export class NativeBeadsRepository {
 			);
 			changes += result.changes;
 		}
-		const issuesWithParent = this.#db.query("SELECT id FROM issues WHERE parent_id IS NOT NULL").all() as Array<{
+		const issuesWithParent = this.#statement("SELECT id FROM issues WHERE parent_id IS NOT NULL").all() as Array<{
 			id: string;
 		}>;
 		for (const issue of issuesWithParent) {
@@ -1848,17 +2155,23 @@ export class NativeBeadsRepository {
 		return this.#db.transaction(() => this.#serializeMemories()).deferred();
 	}
 
+	serializeNotes(): string {
+		return this.#db.transaction(() => this.#serializeNotes()).deferred();
+	}
+
 	#interchangeSnapshot(): InterchangeSnapshot {
-		return { issues: this.#serializeIssues(), memories: this.#serializeMemories() };
+		return {
+			issues: this.#serializeIssues(),
+			memories: this.#serializeMemories(),
+			notes: this.#serializeNotes(),
+		};
 	}
 
 	#serializeIssues(): string {
-		const rows = this.#db.query("SELECT * FROM issues ORDER BY id").all() as IssueRow[];
-		const dependencyRows = this.#db
-			.query(
-				"SELECT issue_id, depends_on_id, type, created_at, created_by, extra_json FROM dependencies ORDER BY issue_id, type, depends_on_id",
-			)
-			.all() as DependencyRow[];
+		const rows = this.#statement("SELECT * FROM issues ORDER BY id").all() as IssueRow[];
+		const dependencyRows = this.#statement(
+			"SELECT issue_id, depends_on_id, type, created_at, created_by, extra_json FROM dependencies ORDER BY issue_id, type, depends_on_id",
+		).all() as DependencyRow[];
 		const dependencies = new Map<string, ImportedBeadsDependency[]>();
 		for (const row of dependencyRows) {
 			const values = dependencies.get(row.issue_id) ?? [];
@@ -1891,6 +2204,13 @@ export class NativeBeadsRepository {
 	#serializeMemories(): string {
 		const rows = this.memories();
 		return rows.map(row => JSON.stringify(row)).join("\n") + (rows.length > 0 ? "\n" : "");
+	}
+
+	#serializeNotes(): string {
+		const rows = this.#statement(
+			"SELECT issue_id, key, text, created_at, updated_at, created_by, deleted_at FROM notes ORDER BY issue_id, key",
+		).all() as NoteRow[];
+		return rows.map(row => JSON.stringify(this.#exportNote(row))).join("\n") + (rows.length > 0 ? "\n" : "");
 	}
 	#exportIssue(row: IssueRow, dependencies: ImportedBeadsDependency[]): ImportedBeadsIssue {
 		const labels = parseLabels(row.labels_json);
@@ -1981,7 +2301,7 @@ export class NativeBeadsRepository {
 	}
 
 	#upsertImportedMemory(memory: BeadsMemory, force: boolean): boolean {
-		const existing = this.#db.query("SELECT * FROM memories WHERE key = ?").get(memory.key) as MemoryRow | null;
+		const existing = this.#statement("SELECT * FROM memories WHERE key = ?").get(memory.key) as MemoryRow | null;
 		const timestampOrder = compareIso(memory.updated_at, existing?.updated_at ?? IMPORT_FALLBACK_TIME);
 		const shouldWrite =
 			force ||
@@ -1994,6 +2314,48 @@ export class NativeBeadsRepository {
 			`INSERT INTO memories (key, value, created_at, updated_at) VALUES (?, ?, ?, ?)
 			 ON CONFLICT(key) DO UPDATE SET value = excluded.value, created_at = excluded.created_at, updated_at = excluded.updated_at`,
 			[memory.key, memory.value, memory.created_at, memory.updated_at],
+		);
+		return true;
+	}
+
+	#upsertImportedNote(note: BeadsNote, force: boolean): boolean {
+		const incoming: NoteRow = {
+			issue_id: note.issue_id ?? "",
+			key: note.key,
+			text: note.text,
+			created_at: note.created_at,
+			updated_at: note.updated_at,
+			created_by: note.created_by ?? "",
+			deleted_at: note.deleted_at ?? null,
+		};
+
+		const existing = this.#noteRow(incoming.issue_id, incoming.key);
+		const timestampOrder = compareIso(incoming.updated_at, existing?.updated_at ?? IMPORT_FALLBACK_TIME);
+		const shouldWrite =
+			force ||
+			!existing ||
+			timestampOrder > 0 ||
+			(timestampOrder === 0 &&
+				JSON.stringify([incoming.text, incoming.created_at, incoming.created_by, incoming.deleted_at ?? ""]) >
+					JSON.stringify([existing.text, existing.created_at, existing.created_by, existing.deleted_at ?? ""]));
+		if (!shouldWrite) return false;
+		this.#statement(
+			`INSERT INTO notes (issue_id, key, text, created_at, updated_at, created_by, deleted_at)
+			 VALUES (?, ?, ?, ?, ?, ?, ?)
+			 ON CONFLICT(issue_id, key) DO UPDATE SET
+				text = excluded.text,
+				created_at = excluded.created_at,
+				updated_at = excluded.updated_at,
+				created_by = excluded.created_by,
+				deleted_at = excluded.deleted_at`,
+		).run(
+			incoming.issue_id,
+			incoming.key,
+			incoming.text,
+			incoming.created_at,
+			incoming.updated_at,
+			incoming.created_by,
+			incoming.deleted_at,
 		);
 		return true;
 	}

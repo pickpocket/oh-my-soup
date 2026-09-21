@@ -4689,6 +4689,92 @@ export const SETTINGS_SCHEMA = {
 		},
 	},
 
+	"beads.eager": {
+		type: "enum",
+		values: ["default", "preferred", "always"] as const,
+		default: "preferred",
+		ui: {
+			tab: "memory",
+			group: "Beads",
+			label: "Beads Session Prelude",
+			description: "How strongly to surface a Beads-managed workspace at the start of a session",
+			options: [
+				{ value: "default", label: "Off", description: "No prelude; the model discovers Beads on its own" },
+				{ value: "preferred", label: "Reminder", description: "Hidden prelude naming the workspace and claims" },
+				{
+					value: "always",
+					label: "Forced",
+					description: "Also force a first beads call when the model supports it",
+				},
+			],
+		},
+	},
+
+	"beads.reminders": {
+		type: "boolean",
+		default: true,
+		ui: {
+			tab: "memory",
+			group: "Beads",
+			label: "Beads Reminders",
+			description: "Remind the agent to close or annotate claimed issues before stopping",
+		},
+	},
+
+	"beads.remindersMax": {
+		type: "number",
+		default: 1,
+		ui: {
+			tab: "memory",
+			group: "Beads",
+			label: "Beads Reminder Limit",
+			description: "Maximum number of claim reminders per prompt cycle",
+			options: [
+				{ value: "1", label: "1 reminder" },
+				{ value: "2", label: "2 reminders" },
+				{ value: "3", label: "3 reminders" },
+			],
+		},
+	},
+
+	"beads.graph.enabled": {
+		type: "boolean",
+		default: true,
+		ui: {
+			tab: "memory",
+			group: "Beads",
+			label: "Beads Code Graph",
+			description:
+				"Enable the derived code graph in .beads/oms-graph.sqlite. The graph is rebuildable and never synchronized.",
+		},
+	},
+
+	"beads.graph.include": { type: "array", default: EMPTY_STRING_ARRAY },
+
+	"beads.graph.exclude": { type: "array", default: EMPTY_STRING_ARRAY },
+
+	"beads.graph.maxFiles": {
+		type: "number",
+		default: 20_000,
+		ui: {
+			tab: "memory",
+			group: "Beads",
+			label: "Beads Graph File Limit",
+			description: "Maximum files indexed into the code graph; crossing it reports partial coverage",
+		},
+	},
+
+	"beads.graph.maxFileBytes": {
+		type: "number",
+		default: 1024 * 1024,
+		ui: {
+			tab: "memory",
+			group: "Beads",
+			label: "Beads Graph File Size Limit",
+			description: "Files larger than this are recorded as nodes but not parsed",
+		},
+	},
+
 	"github.enabled": {
 		type: "boolean",
 		default: false,

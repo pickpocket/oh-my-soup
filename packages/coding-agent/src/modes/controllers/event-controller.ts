@@ -278,6 +278,7 @@ export class EventController {
 			retry_fallback_succeeded: e => this.#handleRetryFallbackSucceeded(e),
 			ttsr_triggered: e => this.#handleTtsrTriggered(e),
 			todo_reminder: e => this.#handleTodoReminder(e),
+			beads_reminder: e => this.#handleBeadsReminder(e),
 			todo_auto_clear: e => this.#handleTodoAutoClear(e),
 			irc_message: e => this.#handleIrcMessage(e),
 			notice: e => this.#handleNotice(e),
@@ -2376,6 +2377,11 @@ export class EventController {
 	async #handleTodoReminder(event: Extract<AgentSessionEvent, { type: "todo_reminder" }>): Promise<void> {
 		const component = new TodoReminderComponent(event.todos, event.attempt, event.maxAttempts);
 		this.ctx.present(component);
+	}
+	async #handleBeadsReminder(event: Extract<AgentSessionEvent, { type: "beads_reminder" }>): Promise<void> {
+		const ids = event.issues.map(issue => issue.id);
+		const subject = ids.length === 0 ? "durable Beads work" : `claimed ${ids.join(", ")}`;
+		this.ctx.showStatus(`Beads reminder ${event.attempt}/${event.maxAttempts}: reconcile ${subject} before stopping`);
 	}
 	async #handleTodoAutoClear(_event: Extract<AgentSessionEvent, { type: "todo_auto_clear" }>): Promise<void> {
 		await this.ctx.reloadTodos();

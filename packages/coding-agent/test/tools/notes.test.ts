@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "bun:test";
+import * as fs from "node:fs";
 import * as path from "node:path";
 import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
 import { getThemeByName } from "@oh-my-soup/pi-tui/theme";
@@ -12,6 +13,7 @@ import { FileSessionStorage } from "@oh-my-soup/pi-coding-agent/session/session-
 import { createTools, type ToolSession } from "@oh-my-soup/pi-coding-agent/tools";
 import { resolveApproval } from "@oh-my-soup/pi-coding-agent/tools/approval";
 import { NotesTool, notesToolRenderer } from "@oh-my-soup/pi-coding-agent/tools/notes";
+import { NativeBeadsRepository } from "@oh-my-soup/pi-coding-agent/tools/beads";
 import { PREVIEW_LIMITS } from "@oh-my-soup/pi-tui/render";
 import { WriteTool } from "@oh-my-soup/pi-coding-agent/tools/write";
 import { sanitizeText, TempDir } from "@oh-my-soup/pi-utils";
@@ -29,6 +31,176 @@ function toolSession(manager: SessionManager, overrides: Partial<ToolSession> = 
 }
 
 afterEach(() => vi.restoreAllMocks());
+
+describe("Beads-backed notes", () => {
+	it("round-trips durable project notes and routes scope-aware tool operations", async () => {
+		using temp = TempDir.createSync("@oms-notes-beads-project-");
+		const root = temp.path();
+		const initialized = NativeBeadsRepository.initialize(root);
+		initialized.close();
+		const tool = new NotesTool(toolSession(SessionManager.inMemory(root)));
+
+		expect(tool.approval({ op: "set", scope: "session" })).toBe("read");
+		expect(tool.approval({ op: "set", scope: "project" })).toBe("write");
+		expect(tool.approval({ op: "delete", issue: "oms-sample" })).toBe("write");
+		expect(tool.approval({ op: "list", scope: "project" })).toBe("read");
+
+		const saved = await tool.execute("project-set", {
+			op: "set",
+			scope: "project",
+			key: "deploy",
+			text: "bun run deploy --prod",
+		});
+		expect(saved.isError).toBeUndefined();
+		expect(saved.details).toMatchObject({
+			storage: "beads",
+			scope: "project",
+			notes: [{ key: "deploy", text: "bun run deploy --prod" }],
+		});
+		const listed = await tool.execute("project-list-one", { op: "list", scope: "project", key: "deploy" });
+		expect(listed.details?.notes).toEqual([{ key: "deploy", text: "bun run deploy --prod" }]);
+
+		const exported = await Bun.file(path.join(root, ".beads", "oms-notes.jsonl")).text();
+		const [record] = exported
+			.trim()
+			.split("\n")
+			.map(line => JSON.parse(line) as Record<string, unknown>);
+		expect(record).toMatchObject({ key: "deploy", text: "bun run deploy --prod" });
+		expect(record).not.toHaveProperty("issue_id");
+
+		const importedRoot = path.join(root, "imported");
+		fs.mkdirSync(path.join(importedRoot, ".beads"), { recursive: true });
+		fs.writeFileSync(path.join(importedRoot, ".beads", "oms-notes.jsonl"), exported, "utf8");
+		const imported = NativeBeadsRepository.initialize(importedRoot);
+		try {
+			expect(imported.notes().map(note => ({ key: note.key, text: note.text }))).toEqual([
+				{ key: "deploy", text: "bun run deploy --prod" },
+			]);
+		} finally {
+			imported.close();
+		}
+
+		const rejected = await tool.execute("project-clear", { op: "clear", scope: "project" });
+		expect(rejected.isError).toBe(true);
+		expect(rejected.details).toMatchObject({ storage: "beads", scope: "project" });
+	});
+
+	it("keeps attached notes after close, bounds issue state, and leaves issue timestamps unchanged", () => {
+		using temp = TempDir.createSync("@oms-notes-beads-limits-");
+		const repository = NativeBeadsRepository.initialize(temp.path());
+		try {
+			const issue = repository.create({ title: "Attached notes", actor: "oms:test" });
+			const issueUpdatedAt = repository.show([issue.id])[0]?.updated_at;
+			expect(() =>
+				repository.setNote({ issueId: "oms-missing", key: "state", text: "missing issue", actor: "oms:test" }),
+			).toThrow();
+			repository.setNote({ issueId: issue.id, key: "state", text: "in progress", actor: "oms:test" });
+			expect(repository.show([issue.id])[0]?.updated_at).toBe(issueUpdatedAt);
+			repository.closeIssues([issue.id], "done");
+			expect(repository.notes(issue.id).map(note => ({ key: note.key, text: note.text }))).toEqual([
+				{ key: "state", text: "in progress" },
+			]);
+			expect(repository.notesForIssues([issue.id]).map(note => ({ key: note.key, text: note.text }))).toEqual([
+				{ key: "state", text: "in progress" },
+			]);
+			expect(repository.noteStamp([issue.id])).toMatchObject({ count: 1 });
+
+			const limited = repository.create({ title: "Limited notes", actor: "oms:test" });
+			for (let index = 0; index < 32; index++) {
+				repository.setNote({ issueId: limited.id, key: `n${index}`, text: "fact", actor: "oms:test" });
+			}
+			const beforeOverflow = repository.notes(limited.id).map(note => ({ key: note.key, text: note.text }));
+			expect(() =>
+				repository.setNote({ issueId: limited.id, key: "n32", text: "overflow", actor: "oms:test" }),
+			).toThrow();
+			expect(repository.notes(limited.id).map(note => ({ key: note.key, text: note.text }))).toEqual(beforeOverflow);
+
+			const oversized = repository.create({ title: "Total note limit", actor: "oms:test" });
+			expect(() =>
+				repository.setNote({
+					issueId: oversized.id,
+					key: "a",
+					text: "x".repeat(IMPORTANT_NOTES_MAX_CHARS),
+					actor: "oms:test",
+				}),
+			).toThrow();
+			expect(repository.notes(oversized.id)).toEqual([]);
+
+			for (let index = 0; index < 33; index++) {
+				repository.setNote({ key: `project-${index}`, text: "shared", actor: "oms:test" });
+			}
+			expect(repository.notes()).toHaveLength(33);
+		} finally {
+			repository.close();
+		}
+	});
+
+	it("keeps a newer delete over a stale edit and prunes expired tombstones", () => {
+		using temp = TempDir.createSync("@oms-notes-beads-merge-");
+		const left = NativeBeadsRepository.initialize(temp.path());
+		let right: NativeBeadsRepository | undefined;
+		try {
+			const issue = left.create({ title: "Merge notes", actor: "oms:test" });
+			const baseNote = {
+				issue_id: issue.id,
+				key: "state",
+				text: "base",
+				created_at: "1970-01-01T00:00:00.000Z",
+				updated_at: "1970-01-01T00:00:00.000Z",
+				created_by: "oms:test",
+			};
+			left.mergeInterchange("", "", `${JSON.stringify(baseNote)}\n`);
+			const base = left.snapshotInterchange();
+
+			const rightRoot = path.join(temp.path(), "right");
+			fs.mkdirSync(rightRoot);
+			right = NativeBeadsRepository.initialize(rightRoot);
+			right.mergeInterchange(base.issues, base.memories, base.notes);
+			right.mergeInterchange(
+				"",
+				"",
+				`${JSON.stringify({ ...baseNote, text: "stale edit", updated_at: "1971-01-01T00:00:00.000Z" })}\n`,
+			);
+
+			left.deleteNote(issue.id, "state");
+			left.mergeInterchange("", "", right.serializeNotes());
+			expect(left.notes(issue.id)).toEqual([]);
+			expect(left.serializeNotes()).toContain('"deleted_at"');
+
+			left.mergeInterchange(
+				"",
+				"",
+				`${JSON.stringify({
+					issue_id: issue.id,
+					key: "expired",
+					text: "",
+					created_at: "1970-01-01T00:00:00.000Z",
+					updated_at: "1970-01-01T00:00:00.000Z",
+					deleted_at: "1970-01-01T00:00:00.000Z",
+				})}\n`,
+			);
+			expect(left.serializeNotes()).not.toContain('"key":"expired"');
+		} finally {
+			right?.close();
+			left.close();
+		}
+	});
+
+	it("keeps session notes available without a Beads workspace", async () => {
+		using temp = TempDir.createSync("@oms-notes-session-no-beads-");
+		const manager = SessionManager.inMemory(temp.path());
+		const tool = new NotesTool(toolSession(manager));
+		expect(fs.existsSync(path.join(temp.path(), ".beads"))).toBe(false);
+		expect(
+			(await tool.execute("session-set", { op: "set", key: "server", text: "bun run dev" })).isError,
+		).toBeUndefined();
+		expect((await tool.execute("session-list", { op: "list" })).details).toMatchObject({
+			storage: "memory",
+			scope: "session",
+			notes: [{ key: "server", text: "bun run dev" }],
+		});
+	});
+});
 
 describe("session important notes", () => {
 	it("replaces keyed notes, deletes only existing keys, and keeps an empty clear tombstone", async () => {
@@ -454,7 +626,11 @@ describe("session important notes", () => {
 		const unsafe = "\u001b[31munsafe\u0007\t";
 		const notes = Array.from({ length: 32 }, (_, index) => ({ key: `n${index}`, text: unsafe + "x".repeat(300) }));
 		const success = notesToolRenderer
-			.renderResult({ content: [], details: { op: "list", notes, storage: "memory" } }, options, theme)
+			.renderResult(
+				{ content: [], details: { op: "list", notes, storage: "memory", scope: "session" } },
+				options,
+				theme,
+			)
 			.render(70);
 		expect(success.length).toBeLessThanOrEqual(PREVIEW_LIMITS.COLLAPSED_ITEMS + 2);
 		const pending = notesToolRenderer

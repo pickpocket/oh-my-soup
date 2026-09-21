@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+## [18.4.0] - 2026-09-21
+
+### Added
+
+- Beads notes: the `notes` tool gained `project` and `issue` scopes backed by the Beads store (`scope: "session" | "project" | "issue"`, or `issue: "<id>"`). Project notes are a shared, synchronized board for the workspace; issue notes travel with the issue across sessions and machines. Deletions are tombstoned so they win over stale copies after a merge, and a new `.beads/oms-notes.jsonl` interchange file is synchronized alongside issues and memories. Session-scoped notes are unchanged.
+- Beads derived code graph: a new `beads` `index` operation maintains a rebuildable, never-synchronized `.beads/oms-graph.sqlite` file index (content-hash skip, batched writes, abandoned-run takeover, partial-coverage reporting) as the foundation for code-aware issue context. Controlled by `beads.graph.enabled`, `beads.graph.include`, `beads.graph.exclude`, `beads.graph.maxFiles`, and `beads.graph.maxFileBytes`.
+- Beads session tracking: sessions in a Beads-managed workspace now receive a static system-prompt section, a hidden first-turn and post-compaction prelude listing held claims, reminders folded into `todo` results on transitions, a mid-run nudge after sustained mutations without touching Beads, and a bounded stop-time reminder when an issue was claimed but never closed or annotated. Claims move with `/fork` and `/tan`, subagents are exempt, and calls made through `write xd://beads` are tracked like direct calls. Controlled by `beads.eager`, `beads.reminders`, and `beads.remindersMax`; a `beads_reminder` event reaches RPC clients, extensions, and hooks.
+
+### Fixed
+
+- Native Beads no longer fails to close its SQLite store with "database is locked" after issuing many distinct statements: the repository now owns and finalizes its prepared statements instead of relying on Bun's bounded query cache, which also left the database file mapped on Windows.
+- Beads interchange import and `sync` merges no longer reject foreign data: notes attached to an issue that no longer exists locally are dropped instead of aborting the import, and per-scope note limits apply only to local writes.
+
 ## [18.3.2] - 2026-09-20
 
 ### Fixed

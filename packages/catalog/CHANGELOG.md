@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [18.4.3] - 2026-09-22
+
 ### Added
 
 - Added first-party and Codex support for GPT-6 Sol and GPT-6 Luna, including Code Mode transport metadata, 1.05M API and 872K Codex extended-context limits, reasoning controls, service-tier and long-context pricing, account-plan eligibility, and offline fallback rows for gradual rollout.

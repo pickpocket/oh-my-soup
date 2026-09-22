@@ -851,6 +851,9 @@ function resolveAnthropicPolicy(
 	const isZenmux = modelMatchesHost(spec, "zenmux");
 	const requiresThinkingEnabled = modelMatchesHost(spec, "moonshotNative") && facts.kimiMandatoryThinking;
 	const isAzure = isAzureAnthropicRoute(baseUrl);
+	const rejectsForcedToolChoice =
+		facts.family("fable", "mythos") ||
+		(facts.is("anthropic") && facts.family("opus") && facts.revGte("5.5"));
 	const signingEndpoint = official || isCopilot || isZenmux || isAnthropicSigningProxyUrl(baseUrl);
 	const compat: ResolvedAnthropicCompat = {
 		officialEndpoint: official,
@@ -869,7 +872,7 @@ function resolveAnthropicPolicy(
 		supportsMidConversationToolChanges: false,
 		supportsPerMessageEffort: false,
 		supportsThinkingBindingControls: false,
-		supportsForcedToolChoice: !requiresThinkingEnabled && !facts.family("fable", "mythos"),
+		supportsForcedToolChoice: !requiresThinkingEnabled && !rejectsForcedToolChoice,
 		supportsSamplingParams: !facts.anthropicAdaptiveGenAtLeast("4.7"),
 		requiresToolResultId: false,
 		requiresThinkingEnabled,

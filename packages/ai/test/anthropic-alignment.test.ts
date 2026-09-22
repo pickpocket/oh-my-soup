@@ -2919,6 +2919,46 @@ describe("Anthropic request fingerprint alignment", () => {
 		}
 	});
 
+	it("downgrades named forced tool choice for Claude Opus 5.5 without deleting adaptive thinking", async () => {
+		const payload = (await captureAnthropicPayload(
+			buildModel({
+				...ANTHROPIC_MODEL_SPEC,
+				id: "claude-opus-5-5",
+				name: "Claude Opus 5.5",
+				contextWindow: 1_000_000,
+				maxTokens: 128_000,
+				thinking: {
+					mode: "anthropic-adaptive",
+					efforts: [Effort.Low, Effort.Medium, Effort.High, Effort.XHigh, Effort.Max],
+				},
+			}),
+			{
+				systemPrompt: ["Stay concise."],
+				messages: [{ role: "user", content: "Use the tool", timestamp: Date.now() }],
+				tools: [
+					{
+						name: "think",
+						description: "Think before continuing",
+						parameters: { type: "object", properties: {}, additionalProperties: false },
+					},
+				],
+			},
+			{
+				thinkingEnabled: true,
+				reasoning: Effort.Low,
+				toolChoice: { type: "tool", name: "think" },
+			},
+		)) as {
+			thinking?: { type?: string; display?: string };
+			tool_choice?: { type?: string; name?: string };
+			output_config?: { effort?: string };
+		};
+
+		expect(payload.tool_choice).toEqual({ type: "auto" });
+		expect(payload.thinking).toEqual({ type: "adaptive", display: "summarized" });
+		expect(payload.output_config).toEqual({ effort: "low" });
+	});
+
 	it("treats tool prefix helpers as no-ops when prefix is empty string", () => {
 		// Directly verify the codec's identity behaviour: builtins pass through apply unchanged.
 		// (Empty-prefix path is exercised by the builtin guard below; the contract is

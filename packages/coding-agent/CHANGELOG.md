@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [18.4.2] - 2026-09-22
+
+### Fixed
+
+- Prevented Claude Opus 5.5 from sending unsupported forced tool choices while preserving the external thinking tool through automatic tool selection.
+
 ## [18.4.1] - 2026-09-21
 
 ### Fixed

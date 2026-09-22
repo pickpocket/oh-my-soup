@@ -1,7 +1,7 @@
 {
   "type": "module",
   "name": "@oh-my-soup/pi-wire",
-  "version": "18.4.1",
+  "version": "18.4.2",
   "description": "Shared wire protocol types for Oh My Soup packages",
   "homepage": "https://github.com/pickpocket/oh-my-soup",
   "author": "Can Boluk",

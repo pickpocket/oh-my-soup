@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [18.4.1] - 2026-09-21
+
 ### Fixed
 
 - Updated the Anthropic OAuth Claude Code fingerprint to 2.1.280 so models requiring the newer client version are accepted.

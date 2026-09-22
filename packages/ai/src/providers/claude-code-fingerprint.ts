@@ -9,7 +9,7 @@
  */
 
 /** Current Claude Code CLI version represented on the Anthropic wire. */
-export const claudeCodeVersion = "2.1.257";
+export const claudeCodeVersion = "2.1.280";
 /** `@anthropic-ai/sdk` version bundled by the current Claude Code release. */
 export const claudeCodeSdkVersion = "0.112.1";
 /** User-Agent emitted by Claude Code's CLI inference entrypoint. */

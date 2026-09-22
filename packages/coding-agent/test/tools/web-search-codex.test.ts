@@ -309,15 +309,15 @@ describe("searchCodex model selection", () => {
 		}
 	});
 
-	it("uses GPT-5.6 Luna as the first bundled default", async () => {
+	it("uses GPT-6 Luna as the first bundled default", async () => {
 		delete process.env.PI_CODEX_WEB_SEARCH_MODEL;
-		const result = await searchCodex(makeSearchParams("default codex model", mockCodexFetch("gpt-5.6-luna")));
+		const result = await searchCodex(makeSearchParams("default codex model", mockCodexFetch("gpt-6-luna")));
 
 		expect(capturedRequest).not.toBeNull();
 		expect(capturedRequest?.url).toBe("https://chatgpt.com/backend-api/codex/responses");
 		expect(new Headers(capturedRequest?.headers).get("x-openai-internal-codex-residency")).toBe("us");
-		expect(capturedRequest?.body?.model).toBe("gpt-5.6-luna");
-		expect(result.model).toBe("gpt-5.6-luna");
+		expect(capturedRequest?.body?.model).toBe("gpt-6-luna");
+		expect(result.model).toBe("gpt-6-luna");
 		expect(result.sources).toEqual([{ title: "Example Article", url: "https://example.com/article" }]);
 	});
 
@@ -457,11 +457,11 @@ describe("searchCodex model selection", () => {
 
 	it("falls back to the default model when PI_CODEX_WEB_SEARCH_MODEL is blank", async () => {
 		process.env.PI_CODEX_WEB_SEARCH_MODEL = "   ";
-		const result = await searchCodex(makeSearchParams("blank codex model", mockCodexFetch("gpt-5.6-luna")));
+		const result = await searchCodex(makeSearchParams("blank codex model", mockCodexFetch("gpt-6-luna")));
 
 		expect(capturedRequest).not.toBeNull();
-		expect(capturedRequest?.body?.model).toBe("gpt-5.6-luna");
-		expect(result.model).toBe("gpt-5.6-luna");
+		expect(capturedRequest?.body?.model).toBe("gpt-6-luna");
+		expect(result.model).toBe("gpt-6-luna");
 	});
 
 	it("retries the next bundled default when Codex rejects a model for ChatGPT accounts", async () => {
@@ -478,20 +478,20 @@ describe("searchCodex model selection", () => {
 
 			const requestedModel = capturedRequest.body?.model;
 			if (calls === 1) {
-				expect(requestedModel).toBe("gpt-5.6-luna");
+				expect(requestedModel).toBe("gpt-6-luna");
 				return Promise.resolve(
 					new Response(
 						JSON.stringify({
-							detail: "The 'gpt-5.6-luna' model is not supported when using Codex with a ChatGPT account.",
+							detail: "The 'gpt-6-luna' model is not supported when using Codex with a ChatGPT account.",
 						}),
 						{ status: 400, headers: { "Content-Type": "application/json" } },
 					),
 				);
 			}
 
-			expect(requestedModel).toBe("gpt-5.6-terra");
+			expect(requestedModel).toBe("gpt-6-sol");
 			return Promise.resolve(
-				new Response(makeSseResponse("gpt-5.6-terra"), {
+				new Response(makeSseResponse("gpt-6-sol"), {
 					status: 200,
 					headers: { "Content-Type": "text/event-stream" },
 				}),
@@ -501,7 +501,7 @@ describe("searchCodex model selection", () => {
 		const result = await searchCodex(makeSearchParams("retry unsupported default", fetchMock));
 
 		expect(calls).toBe(2);
-		expect(result.model).toBe("gpt-5.6-terra");
+		expect(result.model).toBe("gpt-6-sol");
 		expect(result.sources).toEqual([{ title: "Example Article", url: "https://example.com/article" }]);
 	});
 
@@ -802,21 +802,21 @@ describe("searchCodex model selection", () => {
 				item: { type: "message", content: [{ type: "output_text", text: "stale answer, no search" }] },
 			})}`,
 			"",
-			`data: ${JSON.stringify({ type: "response.completed", response: { id: "resp_skip", model: "gpt-5.6-luna" } })}`,
+			`data: ${JSON.stringify({ type: "response.completed", response: { id: "resp_skip", model: "gpt-6-luna" } })}`,
 			"",
 		].join("\n");
 		const fetchMock: FetchImpl = (_url, init) => {
 			calls += 1;
 			const body = init?.body ? (JSON.parse(init.body as string) as Record<string, unknown>) : null;
 			if (calls === 1) {
-				expect(body?.model).toBe("gpt-5.6-luna");
+				expect(body?.model).toBe("gpt-6-luna");
 				return Promise.resolve(
 					new Response(noSearchSse, { status: 200, headers: { "Content-Type": "text/event-stream" } }),
 				);
 			}
-			expect(body?.model).toBe("gpt-5.6-terra");
+			expect(body?.model).toBe("gpt-6-sol");
 			return Promise.resolve(
-				new Response(makeSseResponse("gpt-5.6-terra"), {
+				new Response(makeSseResponse("gpt-6-sol"), {
 					status: 200,
 					headers: { "Content-Type": "text/event-stream" },
 				}),
@@ -825,7 +825,7 @@ describe("searchCodex model selection", () => {
 
 		const result = await searchCodex(makeSearchParams("advance past skipped search", fetchMock));
 		expect(calls).toBe(2);
-		expect(result.model).toBe("gpt-5.6-terra");
+		expect(result.model).toBe("gpt-6-sol");
 		expect(result.sources).toEqual([{ title: "Example Article", url: "https://example.com/article" }]);
 	});
 

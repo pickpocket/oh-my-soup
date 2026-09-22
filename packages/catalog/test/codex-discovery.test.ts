@@ -262,6 +262,116 @@ describe("Codex model discovery", () => {
 		}
 	});
 
+	it("normalizes GPT-6 Sol and Luna with the current Codex fingerprint", async () => {
+		let capturedUrl: URL | undefined;
+		let capturedHeaders: Headers | undefined;
+		const fetchFn: typeof fetch = Object.assign(
+			async (input: string | URL | Request, init?: RequestInit) => {
+				capturedUrl = new URL(input instanceof Request ? input.url : input.toString());
+				capturedHeaders = new Headers(init?.headers);
+				return Response.json({
+					models: [
+						{
+							slug: "gpt-6-sol",
+							display_name: "GPT-6 Sol",
+							context_window: 272_000,
+							max_context_window: 872_000,
+							default_reasoning_level: "medium",
+							supported_reasoning_levels: ["low", "medium", "high", "xhigh", "max", "ultra"],
+							input_modalities: ["text", "image"],
+							supported_in_api: true,
+							priority: 2,
+							prefer_websockets: true,
+							use_responses_lite: true,
+							tool_mode: "code_mode_only",
+						},
+						{
+							slug: "gpt-6-luna",
+							display_name: "GPT-6 Luna",
+							context_window: 272_000,
+							max_context_window: 872_000,
+							default_reasoning_level: "medium",
+							supported_reasoning_levels: ["low", "medium", "high", "xhigh", "max"],
+							input_modalities: ["text", "image"],
+							supported_in_api: true,
+							priority: 3,
+							prefer_websockets: true,
+							use_responses_lite: true,
+							tool_mode: "code_mode_only",
+						},
+					],
+				});
+			},
+			{ preconnect() {} },
+		);
+		const result = await fetchCodexModels({ accessToken: "test-token", fetchFn });
+
+		expect(capturedUrl?.searchParams.get("client_version")).toBe("0.156.0");
+		expect(capturedHeaders?.get("version")).toBe("0.156.0");
+		expect(result?.models.map(model => model.id)).toEqual(["gpt-6-sol", "gpt-6-luna"]);
+
+		for (const id of ["gpt-6-sol", "gpt-6-luna"] as const) {
+			const spec = result?.models.find(model => model.id === id);
+			if (!spec) throw new Error(`Expected discovered ${id}`);
+			expect(spec).toMatchObject({
+				contextWindow: 272_000,
+				maxContextWindow: 872_000,
+				maxTokens: 128_000,
+				input: ["text", "image"],
+				preferWebsockets: true,
+				useResponsesLite: true,
+				toolMode: "code_mode_only",
+				remoteCompaction: {
+					enabled: true,
+					api: "openai-codex-responses",
+					v2StreamingEnabled: true,
+				},
+			});
+			expect(getSupportedEfforts(buildModel(spec))).toEqual([
+				Effort.Low,
+				Effort.Medium,
+				Effort.High,
+				Effort.XHigh,
+				Effort.Max,
+			]);
+		}
+
+		const sol = buildModel(result!.models.find(model => model.id === "gpt-6-sol")!);
+		expect(sol).toMatchObject({
+			priority: 2,
+			cost: {
+				input: 2,
+				output: 10,
+				cacheRead: 0.2,
+				cacheWrite: 2.5,
+				longContext: {
+					inputThreshold: 272_000,
+					input: 4,
+					output: 15,
+					cacheRead: 0.4,
+					cacheWrite: 5,
+				},
+			},
+		});
+		const luna = buildModel(result!.models.find(model => model.id === "gpt-6-luna")!);
+		expect(luna).toMatchObject({
+			priority: 3,
+			cost: {
+				input: 0.1,
+				output: 0.5,
+				cacheRead: 0.01,
+				cacheWrite: 0.125,
+				longContext: {
+					inputThreshold: 272_000,
+					input: 0.2,
+					output: 0.75,
+					cacheRead: 0.02,
+					cacheWrite: 0.25,
+				},
+			},
+		});
+	});
+
 	it("floors stale reported windows for GPT-5.6 luna/sol/terra and honors reports above the floor", async () => {
 		const fetchFn: typeof fetch = Object.assign(
 			async () =>

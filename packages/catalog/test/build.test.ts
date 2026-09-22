@@ -889,11 +889,17 @@ describe("Responses configuration_update compat", () => {
 		});
 	}
 
-	it("turns supportsConfigurationUpdate on for gpt-6-astra on any host and leaves sibling ids off", () => {
-		// The class rule is keyed on the exact id, not on the host: a custom proxy
-		// serving gpt-6-astra gets the item, its gpt-6 neighbour never does.
+	it("turns supportsConfigurationUpdate on for published GPT-6 ids on any host", () => {
+		// Exact published ids own the item independent of host; unknown siblings
+		// and earlier generations remain opt-in.
 		expect(buildModel(astraProxySpec()).compat.supportsConfigurationUpdate).toBe(true);
+		expect(
+			buildModel(astraProxySpec({ id: "gpt-6-sol", name: "GPT-6 Sol" })).compat.supportsConfigurationUpdate,
+		).toBe(true);
 		expect(buildModel(astraProxySpec({ id: "gpt-6", name: "GPT-6" })).compat.supportsConfigurationUpdate).toBe(false);
+		expect(
+			buildModel(astraProxySpec({ id: "gpt-5.6-sol", name: "GPT-5.6 Sol" })).compat.supportsConfigurationUpdate,
+		).toBe(false);
 	});
 
 	it("lets a spec-level compat override switch configuration_update off for a custom endpoint", () => {

@@ -29,6 +29,8 @@
 		"haiku-4-5",
 		"haiku-4.5",
 		"haiku",
+		"openai-codex/gpt-6-luna",
+		"gpt-6-luna",
 		"openai-codex/gpt-5.6-luna",
 		"gpt-5.6-luna",
 		"openai-codex/gpt-5.4-mini",
@@ -36,6 +38,8 @@
 		"mini"
 	],
 	"slow": [
+		"openai-codex/gpt-6-sol",
+		"gpt-6-sol",
 		"openai-codex/gpt-5.6-sol",
 		"gpt-5.6-sol",
 		"anthropic/claude-fable-5-1",

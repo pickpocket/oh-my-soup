@@ -30,6 +30,24 @@ provider "openai" {
 			cost input=12.5 output=75 cache-read=1.25 cache-write=15.625
 			limits context=400000 max-tokens=128000
 		}
+		model "gpt-6-sol" name="GPT-6 Sol" {
+			reasoning #true
+			input "text" "image"
+			cost input=2 output=10 cache-read=0.2 cache-write=2.5
+			limits context=1050000 max-tokens=128000
+			thinking-mode "effort"
+			thinking-efforts "low" "medium" "high" "xhigh" "max"
+			thinking-default-level "medium"
+		}
+		model "gpt-6-luna" name="GPT-6 Luna" {
+			reasoning #true
+			input "text" "image"
+			cost input=0.1 output=0.5 cache-read=0.01 cache-write=0.125
+			limits context=1050000 max-tokens=128000
+			thinking-mode "effort"
+			thinking-efforts "low" "medium" "high" "xhigh" "max"
+			thinking-default-level "medium"
+		}
 	}
 
 	// Replaces the strict-mode provider whitelist entry.
@@ -61,6 +79,18 @@ provider "openai" {
 	// residue: taxonomy ranks and exact globs do not isolate these models.
 	models "gpt-5.6-cyber" {
 		reasoning-disable-mode "none-effort"
+	}
+	// GPT-6 Sol and Luna accept `none` on the first-party API and use the
+	// documented Batch/Flex and Fast processing multipliers.
+	models "gpt-6-sol" "gpt-6-luna" {
+		reasoning-disable-mode "none-effort"
+		thinking-mode "effort"
+		thinking-efforts "low" "medium" "high" "xhigh" "max"
+		thinking-default-level "medium"
+		service-tier-cost {
+			flex 0.5
+			priority 2
+		}
 	}
 	// The 5.6 generation reasons through the wire `none` tier when disabled,
 	// and every first-party GPT-5 Responses SKU takes the freeform apply_patch
@@ -101,6 +131,26 @@ provider "openai" {
 			output 18.0
 			cache-read 0.4
 			cache-write 5.0
+		}
+	}
+	// GPT-6 Sol and Luna use the same >272K whole-request multiplier:
+	// 2x input/cache and 1.5x output.
+	models "gpt-6-sol" {
+		long-context-cost {
+			input-threshold 272000
+			input 4.0
+			output 15.0
+			cache-read 0.4
+			cache-write 5.0
+		}
+	}
+	models "gpt-6-luna" {
+		long-context-cost {
+			input-threshold 272000
+			input 0.2
+			output 0.75
+			cache-read 0.02
+			cache-write 0.25
 		}
 	}
 	// Astra API route bills the documented long-context tier above 272K input:

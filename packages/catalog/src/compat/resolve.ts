@@ -852,8 +852,7 @@ function resolveAnthropicPolicy(
 	const requiresThinkingEnabled = modelMatchesHost(spec, "moonshotNative") && facts.kimiMandatoryThinking;
 	const isAzure = isAzureAnthropicRoute(baseUrl);
 	const rejectsForcedToolChoice =
-		facts.family("fable", "mythos") ||
-		(facts.is("anthropic") && facts.family("opus") && facts.revGte("5.5"));
+		facts.family("fable", "mythos") || (facts.is("anthropic") && facts.family("opus") && facts.revGte("5.5"));
 	const signingEndpoint = official || isCopilot || isZenmux || isAnthropicSigningProxyUrl(baseUrl);
 	const compat: ResolvedAnthropicCompat = {
 		officialEndpoint: official,

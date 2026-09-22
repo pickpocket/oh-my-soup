@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- Added GPT-6 Luna and GPT-6 Sol to the `smol` and `slow` model-role preferences and made Codex web search prefer Luna with Sol as its first fallback.
+
 ## [18.4.2] - 2026-09-22
 
 ### Fixed

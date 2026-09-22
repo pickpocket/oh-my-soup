@@ -1,4 +1,6 @@
 import { describe, expect, test } from "bun:test";
+import { planRequirementFor } from "../src/compat/behavior";
+import { Effort } from "../src/effort";
 import { fetchCodexModels } from "../src/discovery/codex";
 import { getBundledModel } from "../src/models";
 
@@ -43,9 +45,52 @@ describe("codex discovery tool_mode", () => {
 		}
 	});
 
-	test("bundles Code Mode metadata for the offline GPT-6 Astra fallback", () => {
-		const astra = getBundledModel("openai-codex", "gpt-6-astra");
-		expect(astra?.toolMode).toBe("code_mode_only");
-		expect(astra?.applyPatchToolType).toBe("freeform");
+	test("bundles complete GPT-6 Sol and Luna fallbacks", () => {
+		const expectedEfforts = [Effort.Low, Effort.Medium, Effort.High, Effort.XHigh, Effort.Max];
+		for (const [id, priority] of [
+			["gpt-6-sol", 2],
+			["gpt-6-luna", 3],
+		] as const) {
+			const model = getBundledModel("openai-codex", id);
+			expect(model).toMatchObject({
+				contextWindow: 272_000,
+				maxContextWindow: 872_000,
+				maxTokens: 128_000,
+				input: ["text", "image"],
+				priority,
+				preferWebsockets: true,
+				useResponsesLite: true,
+				toolMode: "code_mode_only",
+				applyPatchToolType: "freeform",
+				remoteCompaction: {
+					enabled: true,
+					api: "openai-codex-responses",
+					v2StreamingEnabled: true,
+				},
+				thinking: { mode: "effort", efforts: expectedEfforts, defaultLevel: Effort.Medium },
+				compat: { supportsConfigurationUpdate: true },
+			});
+		}
+
+		const directSol = getBundledModel("openai", "gpt-6-sol");
+		expect(directSol).toMatchObject({
+			contextWindow: 1_050_000,
+			maxTokens: 128_000,
+			serviceTierCost: { flex: 0.5, priority: 2 },
+			compat: {
+				reasoningDisableMode: "none-effort",
+				supportsConfigurationUpdate: true,
+			},
+		});
+		expect(directSol?.cost.longContext).toEqual({
+			inputThreshold: 272_000,
+			input: 4,
+			output: 15,
+			cacheRead: 0.4,
+			cacheWrite: 5,
+		});
+
+		expect(planRequirementFor("openai-codex", "gpt-6-sol")).toBe("paid");
+		expect(planRequirementFor("openai-codex", "gpt-6-luna")).toBeUndefined();
 	});
 });

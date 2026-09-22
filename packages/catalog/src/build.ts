@@ -11,7 +11,7 @@ import { resolveModelPolicy } from "./compat/resolve";
 import type { ModelIdentity } from "./compat/types";
 import { resolveModelTokenizer } from "./model-tokenizer";
 import { materializeTimeBasedCost } from "./pricing";
-import type { Api, Model, ModelSpec } from "./types";
+import type { Api, Model, ModelSpec, RemoteCompactionConfig } from "./types";
 import { cleanModelName } from "./utils";
 
 function numberField(source: object, key: string): number | undefined {
@@ -65,13 +65,13 @@ function isInputModalities(value: unknown): value is ("text" | "image")[] {
 }
 
 /**
- * Applies resolved catalog-data axes onto the model: reviewed metadata
  * corrections (`cost-patch`, `limits-patch`, `long-context-cost`,
- * `context-window-floor`) overwrite upstream values; selection metadata
- * (`priority`, `apply-patch-tool-type`, `service-tier-cost`,
- * `requires-cursor-tool-schema-projection`, `requires-tool-result-image-hoisting`,
- * `supports-assistant-prefill`) is rule-owned; `context-promotion-target` fills
- * only when the spec left it unset.
+ * `context-window-floor`) overwrite upstream values; selection and transport
+ * metadata (`priority`, `apply-patch-tool-type`, `service-tier-cost`,
+ * `prefer-websockets`, `use-responses-lite`, `tool-mode`,
+ * `remote-compaction`, `requires-cursor-tool-schema-projection`,
+ * `requires-tool-result-image-hoisting`, `supports-assistant-prefill`) is
+ * rule-owned; `context-promotion-target` fills only when the spec left it unset.
  */
 function applyCatalogAssignments<TApi extends Api>(model: Model<TApi>, catalog: Record<string, unknown>): void {
 	const serviceTierCost = objectPayload(catalog.serviceTierCost);
@@ -113,6 +113,26 @@ function applyCatalogAssignments<TApi extends Api>(model: Model<TApi>, catalog: 
 	const contextPromotionTarget = catalog.contextPromotionTarget;
 	if (typeof contextPromotionTarget === "string" && model.contextPromotionTarget === undefined) {
 		model.contextPromotionTarget = contextPromotionTarget;
+	}
+	const maxContextWindow = catalog.maxContextWindow;
+	if (typeof maxContextWindow === "number" && Number.isFinite(maxContextWindow) && maxContextWindow > 0) {
+		model.maxContextWindow = maxContextWindow;
+	}
+	const preferWebsockets = catalog.preferWebsockets;
+	if (typeof preferWebsockets === "boolean") model.preferWebsockets = preferWebsockets;
+	const useResponsesLite = catalog.useResponsesLite;
+	if (typeof useResponsesLite === "boolean") model.useResponsesLite = useResponsesLite;
+	if (catalog.toolMode === "code_mode_only") model.toolMode = "code_mode_only";
+	const remoteCompaction = objectPayload(catalog.remoteCompaction);
+	if (remoteCompaction !== undefined) {
+		const config: RemoteCompactionConfig<TApi> = {};
+		const enabled: unknown = Reflect.get(remoteCompaction, "enabled");
+		const api: unknown = Reflect.get(remoteCompaction, "api");
+		const v2StreamingEnabled: unknown = Reflect.get(remoteCompaction, "v2StreamingEnabled");
+		if (typeof enabled === "boolean") config.enabled = enabled;
+		if (typeof api === "string") config.api = api as TApi;
+		if (typeof v2StreamingEnabled === "boolean") config.v2StreamingEnabled = v2StreamingEnabled;
+		model.remoteCompaction = config;
 	}
 }
 

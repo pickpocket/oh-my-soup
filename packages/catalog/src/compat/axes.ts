@@ -297,6 +297,10 @@ export const AXES: Readonly<Record<string, AxisDef>> = {
 	"long-context-cost": { key: "longContext", set: "catalog", shape: "object" },
 	"long-usage-limit-fallback": { key: "longUsageLimitFallback", set: "catalog", shape: "scalar" },
 	"max-context-window": { key: "maxContextWindow", set: "catalog", shape: "scalar" },
+	"prefer-websockets": { key: "preferWebsockets", set: "catalog", shape: "scalar" },
+	"remote-compaction": { key: "remoteCompaction", set: "catalog", shape: "object" },
+	"tool-mode": { key: "toolMode", set: "catalog", shape: "scalar", values: ["code_mode_only"] },
+	"use-responses-lite": { key: "useResponsesLite", set: "catalog", shape: "scalar" },
 	"requires-cursor-tool-schema-projection": {
 		key: "requiresCursorToolSchemaProjection",
 		set: "catalog",

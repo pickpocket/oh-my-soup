@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- Updated the Codex client fingerprint to 0.156.0 so GPT-6 Sol and GPT-6 Luna are discoverable and accepted when enabled for an account.
+
 ## [18.4.2] - 2026-09-22
 
 ### Fixed

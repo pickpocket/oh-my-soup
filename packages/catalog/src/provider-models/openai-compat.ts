@@ -3555,30 +3555,42 @@ function normalizeVercelAiGatewayBaseUrls(rawBaseUrl: string | undefined): { bas
 
 export function vercelAiGatewayModelManagerOptions(
 	config?: VercelAiGatewayModelManagerConfig,
-): ModelManagerOptions<"anthropic-messages"> {
+): ModelManagerOptions<Api> {
 	const apiKey = config?.apiKey;
 	const { baseUrl, catalogBaseUrl } = normalizeVercelAiGatewayBaseUrls(config?.baseUrl);
 	return {
 		providerId: "vercel-ai-gateway",
 		fetchDynamicModels: () =>
-			fetchOpenAICompatibleModels({
+			fetchOpenAICompatibleModels<Api>({
 				api: "anthropic-messages",
 				provider: "vercel-ai-gateway",
 				baseUrl: catalogBaseUrl,
 				apiKey,
 				filterModel: (entry: OpenAICompatibleModelRecord) => {
 					const tags = entry.tags;
-					return Array.isArray(tags) && tags.includes("tool-use");
+					// Pixel Canary supports coding without native tool calls. The agent
+					// uses its in-band tool dialect when supportsTools is false.
+					return (Array.isArray(tags) && tags.includes("tool-use")) || entry.id === "stealth/pixel-canary";
 				},
 				mapModel: (
 					entry: OpenAICompatibleModelRecord,
-					defaults: ModelSpec<"anthropic-messages">,
-					_context: OpenAICompatibleModelMapperContext<"anthropic-messages">,
-				): ModelSpec<"anthropic-messages"> => {
+					defaults: ModelSpec<Api>,
+					_context: OpenAICompatibleModelMapperContext<Api>,
+				): ModelSpec<Api> => {
 					const pricing = entry.pricing as Record<string, unknown> | undefined;
 					const tags = Array.isArray(entry.tags) ? (entry.tags as string[]) : [];
 					const reportedMaxTokens = typeof entry.max_tokens === "number" ? entry.max_tokens : defaults.maxTokens;
 					const modelId = typeof entry.id === "string" ? entry.id : defaults.id;
+					const isPixelCanary = modelId === "stealth/pixel-canary";
+					const effortOptions =
+						isPixelCanary && Array.isArray(entry.reasoning_options)
+							? entry.reasoning_options.find(option => isRecord(option) && option.type === "effort")
+							: undefined;
+					const advertisedEfforts =
+						isRecord(effortOptions) && Array.isArray(effortOptions.values) ? effortOptions.values : undefined;
+					const efforts = advertisedEfforts
+						? THINKING_EFFORTS.filter(effort => advertisedEfforts.includes(effort))
+						: undefined;
 					const maxTokens =
 						modelId === "meta/muse-spark-1.2-contributor" && typeof reportedMaxTokens === "number"
 							? Math.min(reportedMaxTokens, 131_072)
@@ -3586,7 +3598,20 @@ export function vercelAiGatewayModelManagerOptions(
 
 					return {
 						...defaults,
-						baseUrl,
+						baseUrl: isPixelCanary ? catalogBaseUrl : baseUrl,
+						...(isPixelCanary
+							? {
+									api: "openai-completions",
+									...(Array.isArray(entry.supported_parameters)
+										? entry.supported_parameters.includes("tools")
+											? {}
+											: { supportsTools: false }
+										: tags.includes("tool-use")
+											? {}
+											: { supportsTools: false }),
+									...(efforts?.length ? { thinking: { mode: "effort" as const, efforts } } : {}),
+								}
+							: {}),
 						reasoning: tags.includes("reasoning"),
 						input: tags.includes("vision") ? ["text", "image"] : ["text"],
 						cost: {

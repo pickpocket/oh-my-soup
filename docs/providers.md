@@ -155,6 +155,8 @@ Each provider has one or more environment variables that supply a key when no st
 | `yolo-auto`                      | `YOLO_AUTO_API_KEY`                                                            |
 | `charm-hyper`                    | `CHARM_HYPER_API_KEY`, then `HYPER_API_KEY`                                   |
 
+Vercel AI Gateway's Pixel Canary is available as `vercel-ai-gateway/stealth/pixel-canary`. Set `AI_GATEWAY_API_KEY` (or use `/login vercel-ai-gateway`), then select it with `oms --model vercel-ai-gateway/stealth/pixel-canary`. If an existing catalog cache predates the model, run `oms models refresh`. The gateway currently does not advertise native tool calling for this model; OMS uses its in-band tool format instead. Vercel notes that prompts and outputs may be retained for provider training.
+
 `/login cloudflare-ai-gateway` prompts for the gateway token, Cloudflare account ID, and gateway ID, then stores all three together. To use environment variables, set all three values listed above. OMS selects the Anthropic, OpenAI, or Workers AI gateway route for each model; you do not need a `models.yml` base URL override.
 
 `charm-hyper` is Charm's OpenAI-compatible inference gateway for coding agents. Issue or manage a key at `https://hyper.charm.land/`; the model list is discovered live from the provider's public `/v1/models` endpoint, and `HYPER_API_KEY` is accepted as a fallback alias for `CHARM_HYPER_API_KEY`.

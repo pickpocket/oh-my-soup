@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- Added Vercel AI Gateway's Pixel Canary (`vercel-ai-gateway/stealth/pixel-canary`) to the bundled and live catalogs with its published reasoning, image, and output limits. Its missing native tool support selects the agent's in-band tool dialect.
+
 ## [18.4.3] - 2026-09-22
 
 ### Added

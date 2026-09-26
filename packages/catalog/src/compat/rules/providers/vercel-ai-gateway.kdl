@@ -7,6 +7,29 @@ provider "vercel-ai-gateway" {
 		env "VERCEL_AI_GATEWAY_API_KEY"
 	}
 
+	// Public AI Gateway catalog: Pixel Canary has no native tools, but the
+	// coding agent can use its in-band dialect. Seed cold-start selection;
+	// live discovery replaces the row when the catalog reports new limits.
+	seed api="openai-completions" base-url="https://ai-gateway.vercel.sh/v1" bundle="always" {
+		model "stealth/pixel-canary" name="Pixel Canary" {
+			reasoning #true
+			input "text" "image"
+			supports-tools #false
+			cost input=0 output=0 cache-read=0 cache-write=0
+			limits context=262144 max-tokens=131072
+			thinking-mode "effort"
+			thinking-efforts "low" "medium" "xhigh"
+		}
+	}
+
+	models "stealth/pixel-canary" {
+		max-tokens-field "max_tokens"
+		supports-store #false
+		reasoning-disable-mode "none-effort"
+		thinking-mode "effort"
+		thinking-efforts "low" "medium" "xhigh"
+	}
+
 	// residue: the bare `deepseek/*` namespace rides the Anthropic route, whose
 	// ladder is the generic five-tier scale.
 	models "deepseek/*" {

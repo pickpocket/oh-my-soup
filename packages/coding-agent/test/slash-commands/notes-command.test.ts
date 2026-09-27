@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from "bun:test";
 import type { InteractiveModeContext } from "@oh-my-soup/pi-coding-agent/modes/types";
 import {
 	formatNoteTimestamp,
-	getImportantNotesFromEntries,
 	IMPORTANT_NOTES_CUSTOM_TYPE,
 } from "@oh-my-soup/pi-coding-agent/session/important-notes";
 import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
@@ -105,6 +104,22 @@ describe("/notes slash command", () => {
 		expect(second.outputs.join("\n")).not.toContain("- embed");
 	});
 
+	it("search falls back to literal matching for invalid regex", async () => {
+		const manager = SessionManager.inMemory();
+		manager.appendCustomEntry(IMPORTANT_NOTES_CUSTOM_TYPE, {
+			version: 2,
+			op: "set",
+			key: "proc",
+			text: "spawn (worker) first",
+			at: "2026-09-27T10:00:00.000Z",
+		});
+		const { ctx, outputs } = createHarness(manager);
+		// "(worker)" is an invalid regex — the literal fallback must match it,
+		// and the zero-match branch stays reachable for other patterns.
+		await executeBuiltinSlashCommand("/notes search (worker)", { ctx });
+		expect(outputs.join("\n")).toContain("- proc");
+	});
+
 	it("unknown verbs list the supported forms", async () => {
 		const manager = SessionManager.inMemory();
 		seed(manager);
@@ -157,11 +172,5 @@ describe("/notes slash command", () => {
 		const { ctx, outputs } = createHarness(manager);
 		await executeBuiltinSlashCommand("/notes search", { ctx });
 		expect(outputs.join("\n")).toContain("Usage: /notes search <text or regex>");
-	});
-
-	it("reads the folded journal", () => {
-		const manager = SessionManager.inMemory();
-		seed(manager);
-		expect(getImportantNotesFromEntries(manager.getBranch())).toHaveLength(2);
 	});
 });

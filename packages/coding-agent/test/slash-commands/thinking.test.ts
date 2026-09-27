@@ -33,6 +33,13 @@ describe("/thinking slash command", () => {
 		expect(setThinkingLevel).toHaveBeenCalledWith("high", false);
 	});
 
+	it("accepts auto without requiring it in the model's effort list", async () => {
+		const { ctx, setThinkingLevel, outputs } = createHarness({ available: ["low", "medium"] });
+		await executeBuiltinSlashCommand("/thinking auto", { ctx });
+		expect(setThinkingLevel).toHaveBeenCalledWith("auto", false);
+		expect(outputs.at(-1)).toContain("Thinking level set to auto");
+	});
+
 	it("turns thinking off on request", async () => {
 		const { ctx, setThinkingLevel } = createHarness();
 		await executeBuiltinSlashCommand("/thinking off", { ctx });

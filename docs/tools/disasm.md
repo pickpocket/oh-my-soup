@@ -168,7 +168,7 @@ Common tables available for queries:
 | `imports` | Imported library symbols |
 | `segments` | Binary segment info |
 | `pseudocode` | Decompiled code (IDA only) |
-| `bin_search` | Binary search results (IDA/Binary Ninja only) |
+| `bin_search` | Binary search results (IDA only; Binary Ninja uses `byte_search`) |
 
 Use `PRAGMA table_info(table)` to inspect column schemas for your target.
 

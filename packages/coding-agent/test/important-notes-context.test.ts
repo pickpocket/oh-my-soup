@@ -503,6 +503,10 @@ describe("important notes request projection", () => {
 		expect(deliver(token, [], tokenOpts(6_000))).toHaveLength(1);
 		// Still above the threshold: no re-inject until it drops back below.
 		expect(deliver(token, [], tokenOpts(7_000))).toHaveLength(0);
+		// Dropping below the line re-arms the crossing…
+		expect(deliver(token, [], tokenOpts(3_000))).toHaveLength(0);
+		// …so the next upward crossing injects again.
+		expect(referenceNotes(deliver(token, [], tokenOpts(6_000)))).toHaveLength(1);
 
 		const windows = new ImportantNotesContext();
 		const windowOpts = (nonMessageTokens: number) =>
@@ -515,6 +519,9 @@ describe("important notes request projection", () => {
 		expect(deliver(windows, [], windowOpts(3_000))).toHaveLength(0);
 		expect(deliver(windows, [], windowOpts(6_000))).toHaveLength(1);
 		expect(deliver(windows, [], windowOpts(7_000))).toHaveLength(0);
+		// Drop below re-arms, re-cross injects again.
+		expect(deliver(windows, [], windowOpts(3_000))).toHaveLength(0);
+		expect(referenceNotes(deliver(windows, [], windowOpts(6_000)))).toHaveLength(1);
 	});
 
 	it("omits updatedAt stamps from the injected JSON when timestamps are off", () => {

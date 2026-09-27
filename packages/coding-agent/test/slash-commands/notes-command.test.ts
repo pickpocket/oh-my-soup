@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "bun:test";
 import type { InteractiveModeContext } from "@oh-my-soup/pi-coding-agent/modes/types";
 import {
+	formatNoteTimestamp,
 	getImportantNotesFromEntries,
 	IMPORTANT_NOTES_CUSTOM_TYPE,
 } from "@oh-my-soup/pi-coding-agent/session/important-notes";
@@ -13,6 +14,8 @@ function createHarness(manager: SessionManager) {
 	const ctx = {
 		session: { requestNotesReference },
 		sessionManager: { getCwd: () => manager.getCwd(), getBranch: () => manager.getBranch() },
+		// searchModel "off" keeps /notes search deterministic: no model/network
+		// pass, so regex assertions never depend on a provider.
 		settings: { get: (path: string) => (path === "notes.searchModel" ? "off" : undefined) },
 		editor: { setText: () => { } },
 		showStatus: (text: string) => {
@@ -50,7 +53,9 @@ describe("/notes slash command", () => {
 		await executeBuiltinSlashCommand("/notes show", { ctx });
 		expect(requestNotesReference).not.toHaveBeenCalled();
 		expect(outputs.join("\n")).toContain("Session notes (2)");
-		expect(outputs.join("\n")).toContain("27 Sep, 10:00:00");
+		// Assert through the formatter: renders local time, so a fixed UTC
+		// literal would be TZ-dependent (and gains a year prefix from 2027).
+		expect(outputs.join("\n")).toContain(formatNoteTimestamp("2026-09-27T10:00:00.000Z"));
 	});
 
 	it("inject arms reinjection without printing notes", async () => {
@@ -101,6 +106,30 @@ describe("/notes slash command", () => {
 		const { ctx, outputs } = createHarness(manager);
 		await executeBuiltinSlashCommand("/notes wat", { ctx });
 		expect(outputs.join("\n")).toContain("Unknown /notes verb");
+	});
+
+	it("empty journal still arms injection on bare /notes", async () => {
+		const manager = SessionManager.inMemory();
+		const { ctx, requestNotesReference, outputs } = createHarness(manager);
+		await executeBuiltinSlashCommand("/notes", { ctx });
+		expect(requestNotesReference).toHaveBeenCalledTimes(1);
+		expect(outputs.join("\n")).toContain("No session notes saved");
+	});
+
+	it("show with an unknown key errors without arming injection", async () => {
+		const manager = SessionManager.inMemory();
+		seed(manager);
+		const { ctx, requestNotesReference, outputs } = createHarness(manager);
+		await executeBuiltinSlashCommand("/notes show nope", { ctx });
+		expect(requestNotesReference).not.toHaveBeenCalled();
+		expect(outputs.join("\n")).toContain("Note not found: nope");
+	});
+
+	it("search without a pattern prints usage", async () => {
+		const manager = SessionManager.inMemory();
+		const { ctx, outputs } = createHarness(manager);
+		await executeBuiltinSlashCommand("/notes search", { ctx });
+		expect(outputs.join("\n")).toContain("Usage: /notes search <text or regex>");
 	});
 
 	it("reads the folded journal", () => {

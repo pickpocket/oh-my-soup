@@ -2813,7 +2813,7 @@ export const SETTINGS_SCHEMA = {
 			group: "Session Notes",
 			label: "Inject at token threshold",
 			description:
-				"Estimated context tokens that trigger a notes reinjection when reinject notes is set to at token threshold",
+				"Estimated context tokens that trigger a notes reinjection when reinject notes is set to at token threshold; 0 disables the trigger",
 		},
 	},
 	"notes.injectWindowPercent": {
@@ -2824,7 +2824,7 @@ export const SETTINGS_SCHEMA = {
 			group: "Session Notes",
 			label: "Inject at window percent",
 			description:
-				"Percent of the model context window that triggers a notes reinjection when reinject notes is set to at window percent",
+				"Percent of the model context window that triggers a notes reinjection when reinject notes is set to at window percent; 0 disables the trigger",
 		},
 	},
 	"notes.searchModel": {

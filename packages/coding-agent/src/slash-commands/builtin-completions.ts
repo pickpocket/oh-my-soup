@@ -51,7 +51,8 @@ export function buildThinkingLevelCompletions(
  };
 }
 
-const NOTES_SUBCOMMANDS: SubcommandDef[] = [
+/** Single source for the /notes verb contract: dropdown, ACP advertising, and handler validation. */
+export const NOTES_SUBCOMMANDS: SubcommandDef[] = [
  { name: "show", description: "Print notes with dates; add a key to print just that note", usage: "[<key>]" },
  { name: "inject", description: "Re-attach the notes reference to the next request, without printing" },
  { name: "both", description: "Print notes and re-attach the reference to the next request", usage: "[<key>]" },

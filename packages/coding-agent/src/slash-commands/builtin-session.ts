@@ -6,6 +6,7 @@ import { formatNoteTimestamp, getImportantNotesFromEntries, type ImportantNote }
 import { completeSimple, retryTransientCompletion } from "@oh-my-soup/pi-ai";
 import { logger } from "@oh-my-soup/pi-utils";
 import { collectOnlineTinyCandidates } from "../tiny/online-candidates";
+import { NOTES_SUBCOMMANDS } from "./builtin-completions";
 
 import {
  type ModelPromptBinding,
@@ -896,20 +897,11 @@ export const BUILTIN_SESSION_SLASH_COMMANDS: ReadonlyArray<SlashCommandSpec> = [
    "Session notes: show (with dates), inject the reference into the next request, both, or search by text/regex. A bare <key> after show/both prints just that note.",
   acpDescription: "Show, inject, or search session notes",
   inlineHint: "[show|inject|both|search] [<key|pattern>]",
-  subcommands: [
-   { name: "show", description: "Print notes with dates; add a key to print just that note", usage: "[<key>]" },
-   { name: "inject", description: "Re-attach the notes reference to the next request, without printing" },
-   { name: "both", description: "Print notes and re-attach the reference to the next request", usage: "[<key>]" },
-   {
-    name: "search",
-    description: "Search note keys and contents by text or regex",
-    usage: "<pattern>",
-   },
-  ],
+  subcommands: NOTES_SUBCOMMANDS,
   allowArgs: true,
   handle: async (command, runtime) => {
    const raw = command.args.trim();
-   const spaceIndex = raw.indexOf(" ");
+   const spaceIndex = raw.search(/\s/);
    const verb = (spaceIndex === -1 ? raw : raw.slice(0, spaceIndex)).toLowerCase() || "both";
    const rest = spaceIndex === -1 ? "" : raw.slice(spaceIndex + 1).trim();
    const notes = getImportantNotesFromEntries(runtime.sessionManager.getBranch());

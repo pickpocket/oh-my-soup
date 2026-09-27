@@ -3,18 +3,22 @@ import { getOAuthProviders } from "@oh-my-soup/pi-ai/oauth";
 import type { AgentSession } from "../session/agent-session";
 import type { SessionOAuthAccountList } from "../session/agent-session-types";
 import { formatNoteTimestamp, getImportantNotesFromEntries, type ImportantNote } from "../session/important-notes";
+import { completeSimple, retryTransientCompletion } from "@oh-my-soup/pi-ai";
+import { logger } from "@oh-my-soup/pi-utils";
+import { collectOnlineTinyCandidates } from "../tiny/online-candidates";
+
 import {
-	type ModelPromptBinding,
-	modelPromptKey,
-	resolveModelPromptBinding,
-	resolveSystemPromptPlacement,
-	type SystemPromptPlacementSetting,
+ type ModelPromptBinding,
+ modelPromptKey,
+ resolveModelPromptBinding,
+ resolveSystemPromptPlacement,
+ type SystemPromptPlacementSetting,
 } from "../session/system-prompt-placement";
 import {
-	getChangelogPath,
-	parseChangelog,
-	RECENT_CHANGELOG_ENTRY_LIMIT,
-	renderChangelogEntries,
+ getChangelogPath,
+ parseChangelog,
+ RECENT_CHANGELOG_ENTRY_LIMIT,
+ renderChangelogEntries,
 } from "../utils/changelog";
 import { formatTokenCount, refreshStatusLine } from "./builtin-modes";
 import type { ConfiguredThinkingLevel } from "@oh-my-soup/pi-tui/thinking";
@@ -30,203 +34,265 @@ import { handleTodoAcp } from "./helpers/todo";
 import { buildUsageReportText } from "./helpers/usage-report";
 import type { SlashCommandRuntime, SlashCommandSpec } from "./types";
 
+/** Hard ceiling for the model-assisted notes search so a slow provider cannot park the command. */
+const NOTES_MODEL_SEARCH_TIMEOUT_MS = 20_000;
+
+/**
+ * Ask the configured search model (notes.searchModel — a model role like
+ * "smol") which saved notes are relevant to the query. The role resolves
+ * through the tiny-candidate chain; returns the keys the model picked, or
+ * throws — the caller keeps its regex results either way.
+ */
+async function searchNotesWithModel(
+ runtime: SlashCommandRuntime,
+ notes: readonly ImportantNote[],
+ query: string,
+ roleModel: string,
+): Promise<string[]> {
+ const registry = runtime.session.modelRegistry;
+ const sessionId = runtime.sessionManager.getSessionId();
+ const candidates = collectOnlineTinyCandidates([roleModel], runtime.settings, registry.getAvailable());
+ if (candidates.length === 0) throw new Error(`no model resolved for "${roleModel}"`);
+ const listing = notes.map((note, index) => `${index + 1}. ${note.key}: ${note.text}`).join("\n");
+ const systemPrompt =
+  'You filter saved session notes. Reply ONLY with a JSON array of the note keys relevant to the query, e.g. ["key1","key2"]. Use keys exactly as given. Reply [] when none are relevant.';
+ const userMessage = `Query: ${query}\n\nNotes:\n${listing}`;
+ const signal = AbortSignal.timeout(NOTES_MODEL_SEARCH_TIMEOUT_MS);
+ for (const candidate of candidates) {
+  try {
+   const response = await retryTransientCompletion(
+    () =>
+     completeSimple(
+      candidate.model,
+      { systemPrompt: [systemPrompt], messages: [{ role: "user", content: userMessage, timestamp: Date.now() }] },
+      {
+       apiKey: registry.resolver(candidate.model, sessionId),
+       sessionId,
+       maxTokens: 512,
+       temperature: 0,
+       signal,
+      },
+     ),
+    { signal, provider: candidate.model.provider },
+   );
+   const text = response.content
+    .map(part => (part.type === "text" ? part.text : ""))
+    .join("")
+    .trim();
+   const start = text.indexOf("[");
+   const end = text.lastIndexOf("]");
+   if (start < 0 || end <= start) continue;
+   const parsed: unknown = JSON.parse(text.slice(start, end + 1));
+   if (!Array.isArray(parsed)) continue;
+   const keys = parsed.filter((key): key is string => typeof key === "string");
+   if (keys.length > 0 || response.stopReason === "stop") return keys;
+  } catch (error) {
+   logger.debug("notes: model search attempt failed", {
+    model: candidate.model.id,
+    error: error instanceof Error ? error.message : String(error),
+   });
+  }
+ }
+ throw new Error("every candidate model failed");
+}
+
 async function handleUsageResetCommand(
-	arg: string,
-	session: AgentSession,
-	output: SlashCommandRuntime["output"],
+ arg: string,
+ session: AgentSession,
+ output: SlashCommandRuntime["output"],
 ): Promise<void> {
-	let accounts: ResetUsageAccount[];
-	try {
-		accounts = toResetUsageAccounts(await session.listResetCredits());
-	} catch (error) {
-		await output(`Could not load saved resets: ${errorMessage(error)}`);
-		return;
-	}
-	if (accounts.length === 0) {
-		await output("No Codex accounts found. Use /login to add one.");
-		return;
-	}
-	const targetArg = arg.trim();
-	if (!targetArg) {
-		const lines = ["Saved Codex rate-limit resets:"];
-		for (const account of accounts) {
-			const detail = account.error ? `unavailable (${account.error})` : `${account.availableCount} available`;
-			lines.push(`- ${account.label}: ${detail}${account.active ? " (active)" : ""}`);
-		}
-		lines.push("", "Spend one with `/usage reset <account email>` or `/usage reset active`.");
-		await output(lines.join("\n"));
-		return;
-	}
-	const wanted = targetArg.toLowerCase();
-	const target =
-		wanted === "active"
-			? accounts.find(account => account.active)
-			: accounts.find(
-				account =>
-					account.label.toLowerCase() === wanted ||
-					account.target.email?.toLowerCase() === wanted ||
-					account.target.accountId?.toLowerCase() === wanted,
-			);
-	if (!target) {
-		await output(`No Codex account matches "${targetArg}".`);
-		return;
-	}
-	if (target.availableCount <= 0) {
-		await output(`${target.label}: no saved resets to spend.`);
-		return;
-	}
-	const outcome = await session.redeemResetCredit(target.target);
-	await output(describeRedeemOutcome(outcome, target.label));
+ let accounts: ResetUsageAccount[];
+ try {
+  accounts = toResetUsageAccounts(await session.listResetCredits());
+ } catch (error) {
+  await output(`Could not load saved resets: ${errorMessage(error)}`);
+  return;
+ }
+ if (accounts.length === 0) {
+  await output("No Codex accounts found. Use /login to add one.");
+  return;
+ }
+ const targetArg = arg.trim();
+ if (!targetArg) {
+  const lines = ["Saved Codex rate-limit resets:"];
+  for (const account of accounts) {
+   const detail = account.error ? `unavailable (${account.error})` : `${account.availableCount} available`;
+   lines.push(`- ${account.label}: ${detail}${account.active ? " (active)" : ""}`);
+  }
+  lines.push("", "Spend one with `/usage reset <account email>` or `/usage reset active`.");
+  await output(lines.join("\n"));
+  return;
+ }
+ const wanted = targetArg.toLowerCase();
+ const target =
+  wanted === "active"
+   ? accounts.find(account => account.active)
+   : accounts.find(
+    account =>
+     account.label.toLowerCase() === wanted ||
+     account.target.email?.toLowerCase() === wanted ||
+     account.target.accountId?.toLowerCase() === wanted,
+   );
+ if (!target) {
+  await output(`No Codex account matches "${targetArg}".`);
+  return;
+ }
+ if (target.availableCount <= 0) {
+  await output(`${target.label}: no saved resets to spend.`);
+  return;
+ }
+ const outcome = await session.redeemResetCredit(target.target);
+ await output(describeRedeemOutcome(outcome, target.label));
 }
 
 async function handleSessionPinCommand(
-	arg: string,
-	session: AgentSession,
-	output: SlashCommandRuntime["output"],
+ arg: string,
+ session: AgentSession,
+ output: SlashCommandRuntime["output"],
 ): Promise<void> {
-	if (session.isStreaming) {
-		await output("Cannot pin an account while the session is streaming.");
-		return;
-	}
-	let accountList: SessionOAuthAccountList | undefined;
-	try {
-		accountList = await session.listCurrentProviderOAuthAccounts();
-	} catch (error) {
-		await output(`Could not load provider accounts: ${errorMessage(error)}`);
-		return;
-	}
-	if (!accountList) {
-		await output("Select a model before pinning a provider account.");
-		return;
-	}
-	const provider = getOAuthProviders().find(candidate => candidate.id === accountList.provider);
-	const providerName = provider?.name ?? accountList.provider;
-	const accounts = toSessionPinAccounts(accountList.accounts);
-	if (accounts.length === 0) {
-		const source = session.modelRegistry.authStorage.describeCredentialSource(
-			accountList.provider,
-			session.sessionId,
-		);
-		await output(
-			source
-				? `No stored OAuth accounts for ${providerName}. Current auth comes from ${source}.`
-				: `No stored OAuth accounts for ${providerName}. Use /login to add one.`,
-		);
-		return;
-	}
+ if (session.isStreaming) {
+  await output("Cannot pin an account while the session is streaming.");
+  return;
+ }
+ let accountList: SessionOAuthAccountList | undefined;
+ try {
+  accountList = await session.listCurrentProviderOAuthAccounts();
+ } catch (error) {
+  await output(`Could not load provider accounts: ${errorMessage(error)}`);
+  return;
+ }
+ if (!accountList) {
+  await output("Select a model before pinning a provider account.");
+  return;
+ }
+ const provider = getOAuthProviders().find(candidate => candidate.id === accountList.provider);
+ const providerName = provider?.name ?? accountList.provider;
+ const accounts = toSessionPinAccounts(accountList.accounts);
+ if (accounts.length === 0) {
+  const source = session.modelRegistry.authStorage.describeCredentialSource(
+   accountList.provider,
+   session.sessionId,
+  );
+  await output(
+   source
+    ? `No stored OAuth accounts for ${providerName}. Current auth comes from ${source}.`
+    : `No stored OAuth accounts for ${providerName}. Use /login to add one.`,
+  );
+  return;
+ }
 
-	const selector = arg.trim();
-	if (!selector) {
-		const lines = [`OAuth accounts for ${providerName}:`];
-		for (const account of accounts) {
-			lines.push(`${account.position + 1}. ${account.label}${account.active ? " (active)" : ""}`);
-		}
-		lines.push("", "Pin one with `/session pin <number|email|account id>`.");
-		await output(lines.join("\n"));
-		return;
-	}
+ const selector = arg.trim();
+ if (!selector) {
+  const lines = [`OAuth accounts for ${providerName}:`];
+  for (const account of accounts) {
+   lines.push(`${account.position + 1}. ${account.label}${account.active ? " (active)" : ""}`);
+  }
+  lines.push("", "Pin one with `/session pin <number|email|account id>`.");
+  await output(lines.join("\n"));
+  return;
+ }
 
-	const matches = matchSessionPinAccounts(accounts, selector);
-	if (matches.length === 0) {
-		await output(`No ${providerName} account matches "${selector}".`);
-		return;
-	}
-	if (matches.length > 1) {
-		await output(
-			`"${selector}" matches multiple ${providerName} accounts: ${matches
-				.map(account => `${account.position + 1}. ${account.label}`)
-				.join(", ")}. Use the account number.`,
-		);
-		return;
-	}
+ const matches = matchSessionPinAccounts(accounts, selector);
+ if (matches.length === 0) {
+  await output(`No ${providerName} account matches "${selector}".`);
+  return;
+ }
+ if (matches.length > 1) {
+  await output(
+   `"${selector}" matches multiple ${providerName} accounts: ${matches
+    .map(account => `${account.position + 1}. ${account.label}`)
+    .join(", ")}. Use the account number.`,
+  );
+  return;
+ }
 
-	const account = matches[0];
-	if (!account || !session.pinCurrentProviderOAuthAccount(account.credentialId)) {
-		await output(`${account?.label ?? selector} is no longer available to pin.`);
-		return;
-	}
-	await output(`Pinned ${account.label} to this session for ${providerName}.`);
+ const account = matches[0];
+ if (!account || !session.pinCurrentProviderOAuthAccount(account.credentialId)) {
+  await output(`${account?.label ?? selector} is no longer available to pin.`);
+  return;
+ }
+ await output(`Pinned ${account.label} to this session for ${providerName}.`);
 }
 const ROTATE_ACCOUNT_PROVIDER_ALIASES: Readonly<Record<string, string>> = {
-	openai: "openai-codex",
+ openai: "openai-codex",
 };
 
 function resolveRotateAccountProvider(input: string): { id: string; name: string } | undefined {
-	const normalized = input.trim().toLowerCase();
-	if (!normalized) return undefined;
-	const providers = getOAuthProviders();
-	const providerId = ROTATE_ACCOUNT_PROVIDER_ALIASES[normalized] ?? normalized;
-	const matched =
-		providers.find(provider => provider.id.toLowerCase() === providerId) ??
-		providers.find(provider => provider.name.toLowerCase() === normalized);
-	if (!matched) return undefined;
-	const id = matched.storeCredentialsAs ?? matched.id;
-	const storageProvider = providers.find(provider => provider.id === id);
-	return { id, name: storageProvider?.name ?? matched.name };
+ const normalized = input.trim().toLowerCase();
+ if (!normalized) return undefined;
+ const providers = getOAuthProviders();
+ const providerId = ROTATE_ACCOUNT_PROVIDER_ALIASES[normalized] ?? normalized;
+ const matched =
+  providers.find(provider => provider.id.toLowerCase() === providerId) ??
+  providers.find(provider => provider.name.toLowerCase() === normalized);
+ if (!matched) return undefined;
+ const id = matched.storeCredentialsAs ?? matched.id;
+ const storageProvider = providers.find(provider => provider.id === id);
+ return { id, name: storageProvider?.name ?? matched.name };
 }
 
 async function handleRotateAccountCommand(
-	arg: string,
-	session: AgentSession,
-	output: SlashCommandRuntime["output"],
+ arg: string,
+ session: AgentSession,
+ output: SlashCommandRuntime["output"],
 ): Promise<void> {
-	if (session.isStreaming) {
-		await output("Cannot rotate an account while the session is streaming.");
-		return;
-	}
-	const requestedProvider = arg.trim();
-	if (!requestedProvider) {
-		await output("Usage: /rotateaccount <provider>");
-		return;
-	}
-	const provider = resolveRotateAccountProvider(requestedProvider);
-	if (!provider) {
-		await output(`Unknown OAuth provider: ${requestedProvider}`);
-		return;
-	}
+ if (session.isStreaming) {
+  await output("Cannot rotate an account while the session is streaming.");
+  return;
+ }
+ const requestedProvider = arg.trim();
+ if (!requestedProvider) {
+  await output("Usage: /rotateaccount <provider>");
+  return;
+ }
+ const provider = resolveRotateAccountProvider(requestedProvider);
+ if (!provider) {
+  await output(`Unknown OAuth provider: ${requestedProvider}`);
+  return;
+ }
 
-	const authStorage = session.modelRegistry.authStorage;
-	let accounts = toSessionPinAccounts(authStorage.listOAuthAccounts(provider.id, session.sessionId));
-	if (accounts.length > 1 && !accounts.some(account => account.active)) {
-		try {
-			await authStorage.getOAuthAccess(provider.id, session.sessionId);
-		} catch (error) {
-			await output(`Could not resolve the active ${provider.name} account: ${errorMessage(error)}`);
-			return;
-		}
-		accounts = toSessionPinAccounts(authStorage.listOAuthAccounts(provider.id, session.sessionId));
-	}
+ const authStorage = session.modelRegistry.authStorage;
+ let accounts = toSessionPinAccounts(authStorage.listOAuthAccounts(provider.id, session.sessionId));
+ if (accounts.length > 1 && !accounts.some(account => account.active)) {
+  try {
+   await authStorage.getOAuthAccess(provider.id, session.sessionId);
+  } catch (error) {
+   await output(`Could not resolve the active ${provider.name} account: ${errorMessage(error)}`);
+   return;
+  }
+  accounts = toSessionPinAccounts(authStorage.listOAuthAccounts(provider.id, session.sessionId));
+ }
 
-	if (accounts.length === 0) {
-		await output(
-			`No stored OAuth accounts for ${provider.name}. Account rotation only applies to stored OAuth accounts.`,
-		);
-		return;
-	}
-	if (accounts.length === 1) {
-		await output(`Only one stored OAuth account exists for ${provider.name}; nothing to rotate.`);
-		return;
-	}
+ if (accounts.length === 0) {
+  await output(
+   `No stored OAuth accounts for ${provider.name}. Account rotation only applies to stored OAuth accounts.`,
+  );
+  return;
+ }
+ if (accounts.length === 1) {
+  await output(`Only one stored OAuth account exists for ${provider.name}; nothing to rotate.`);
+  return;
+ }
 
-	const currentIndex = accounts.findIndex(account => account.active);
-	if (currentIndex === -1) {
-		await output(`Could not resolve an active ${provider.name} account to rotate.`);
-		return;
-	}
-	const current = accounts[currentIndex];
-	const next = accounts[(currentIndex + 1) % accounts.length];
-	if (!current || !next || !authStorage.pinSessionOAuthAccount(provider.id, session.sessionId, next.credentialId)) {
-		await output(`The next ${provider.name} account is no longer available to select.`);
-		return;
-	}
-	await output(
-		`Rotated ${provider.name} from ${current.label} to ${next.label}. Pinned ${next.label} for this session.`,
-	);
+ const currentIndex = accounts.findIndex(account => account.active);
+ if (currentIndex === -1) {
+  await output(`Could not resolve an active ${provider.name} account to rotate.`);
+  return;
+ }
+ const current = accounts[currentIndex];
+ const next = accounts[(currentIndex + 1) % accounts.length];
+ if (!current || !next || !authStorage.pinSessionOAuthAccount(provider.id, session.sessionId, next.credentialId)) {
+  await output(`The next ${provider.name} account is no longer available to select.`);
+  return;
+ }
+ await output(
+  `Rotated ${provider.name} from ${current.label} to ${next.label}. Pinned ${next.label} for this session.`,
+ );
 }
 
 const PLACEMENT_LABELS: Record<"system" | "first-turn", string> = {
-	system: "system prompt",
-	"first-turn": "first user turn",
+ system: "system prompt",
+ "first-turn": "first user turn",
 };
 
 /**
@@ -239,698 +305,767 @@ const PLACEMENT_LABELS: Record<"system" | "first-turn", string> = {
  * the file. `clear`: remove the binding entirely.
  */
 async function handleSpromptCommand(
-	arg: string,
-	session: AgentSession,
-	output: SlashCommandRuntime["output"],
+ arg: string,
+ session: AgentSession,
+ output: SlashCommandRuntime["output"],
 ): Promise<void> {
-	const sessionSettings = session.settings;
-	const files = (sessionSettings.get("systemPromptFiles") ?? {}) as Record<string, unknown>;
-	const placementSetting = sessionSettings.get("systemPromptPlacement") as SystemPromptPlacementSetting;
-	const model = session.model;
-	const currentKey = model ? modelPromptKey(model) : undefined;
-	const trimmed = arg.trim();
+ const sessionSettings = session.settings;
+ const files = (sessionSettings.get("systemPromptFiles") ?? {}) as Record<string, unknown>;
+ const placementSetting = sessionSettings.get("systemPromptPlacement") as SystemPromptPlacementSetting;
+ const model = session.model;
+ const currentKey = model ? modelPromptKey(model) : undefined;
+ const trimmed = arg.trim();
 
-	if (!trimmed) {
-		const entries = Object.entries(files)
-			.map(([key, value]) => [key, resolveModelPromptBinding(value)] as const)
-			.filter((entry): entry is [string, ModelPromptBinding] => entry[1] !== undefined);
-		if (entries.length === 0) {
-			await output(
-				"No per-model prompt files configured. Use /sprompt set <file> to bind one to the current model.",
-			);
-			return;
-		}
-		const available = session.modelRegistry.getAvailable();
-		const lines = [`Per-model prompt files (systemPromptPlacement: ${placementSetting}):`];
-		for (const [key, binding] of entries) {
-			const known = available.find(candidate => modelPromptKey(candidate) === key);
-			const channel = known
-				? PLACEMENT_LABELS[resolveSystemPromptPlacement(placementSetting, known)]
-				: "placement unknown (model not loaded)";
-			const exists = await Bun.file(binding.path).exists();
-			const marker = key === currentKey ? "* " : "  ";
-			const flags = `${exists ? "" : " (file missing)"}${binding.enabled ? "" : " (disabled)"}`;
-			lines.push(`${marker}${key} -> ${binding.path}${flags} [${channel}]`);
-		}
-		if (entries.some(([key]) => key === currentKey)) lines.push("* = current model");
-		await output(lines.join("\n"));
-		return;
-	}
+ if (!trimmed) {
+  const entries = Object.entries(files)
+   .map(([key, value]) => [key, resolveModelPromptBinding(value)] as const)
+   .filter((entry): entry is [string, ModelPromptBinding] => entry[1] !== undefined);
+  if (entries.length === 0) {
+   await output(
+    "No per-model prompt files configured. Use /sprompt set <file> to bind one to the current model.",
+   );
+   return;
+  }
+  const available = session.modelRegistry.getAvailable();
+  const lines = [`Per-model prompt files (systemPromptPlacement: ${placementSetting}):`];
+  for (const [key, binding] of entries) {
+   const known = available.find(candidate => modelPromptKey(candidate) === key);
+   const channel = known
+    ? PLACEMENT_LABELS[resolveSystemPromptPlacement(placementSetting, known)]
+    : "placement unknown (model not loaded)";
+   const exists = await Bun.file(binding.path).exists();
+   const marker = key === currentKey ? "* " : "  ";
+   const flags = `${exists ? "" : " (file missing)"}${binding.enabled ? "" : " (disabled)"}`;
+   lines.push(`${marker}${key} -> ${binding.path}${flags} [${channel}]`);
+  }
+  if (entries.some(([key]) => key === currentKey)) lines.push("* = current model");
+  await output(lines.join("\n"));
+  return;
+ }
 
-	const { verb, rest } = parseSubcommand(trimmed);
-	if (verb === "set") {
-		if (!model || !currentKey) {
-			await output("No active model to bind a prompt file to.");
-			return;
-		}
-		const fileArg = rest.trim();
-		if (!fileArg) {
-			await output("Usage: /sprompt set <file>");
-			return;
-		}
-		const absolute = path.resolve(session.sessionManager.getCwd(), fileArg);
-		let text = "";
-		try {
-			text = (await Bun.file(absolute).text()).trim();
-		} catch {
-			await output(`Cannot read prompt file: ${absolute}`);
-			return;
-		}
-		if (!text) {
-			await output(`Prompt file is empty: ${absolute}`);
-			return;
-		}
-		sessionSettings.set("systemPromptFiles", { ...files, [currentKey]: absolute });
-		const channel = PLACEMENT_LABELS[resolveSystemPromptPlacement(placementSetting, model)];
-		await output(`Saved prompt file for ${currentKey}: ${absolute}. Delivered as ${channel} on this model.`);
-		return;
-	}
-	if (verb === "toggle") {
-		if (!model || !currentKey) {
-			await output("No active model.");
-			return;
-		}
-		const binding = resolveModelPromptBinding(files[currentKey]);
-		if (!binding) {
-			await output(`No prompt file configured for ${currentKey}. Use /sprompt set <file> first.`);
-			return;
-		}
-		// Re-enabled bindings normalize back to the bare-string form.
-		const next = binding.enabled ? { path: binding.path, enabled: false } : binding.path;
-		sessionSettings.set("systemPromptFiles", { ...files, [currentKey]: next });
-		if (binding.enabled) {
-			await output(
-				`Disabled prompt file for ${currentKey} (kept ${binding.path}). Run /sprompt toggle to re-enable.`,
-			);
-		} else {
-			const channel = PLACEMENT_LABELS[resolveSystemPromptPlacement(placementSetting, model)];
-			await output(`Enabled prompt file for ${currentKey}: ${binding.path}. Delivered as ${channel} on this model.`);
-		}
-		return;
-	}
-	if (verb === "clear") {
-		if (!currentKey) {
-			await output("No active model.");
-			return;
-		}
-		if (!(currentKey in files)) {
-			await output(`No prompt file configured for ${currentKey}.`);
-			return;
-		}
-		const next = { ...files };
-		delete next[currentKey];
-		sessionSettings.set("systemPromptFiles", next);
-		await output(`Removed prompt file for ${currentKey}.`);
-		return;
-	}
-	await output("Usage: /sprompt [set <file> | toggle | clear]");
-}
-
-function formatNotesReport(notes: readonly ImportantNote[], header: string): string {
-	const lines = [header];
-	for (const note of notes) {
-		const stamp = note.updatedAt ? ` (${formatNoteTimestamp(note.updatedAt)})` : "";
-		lines.push(`- ${note.key}${stamp}: ${note.text}`);
-	}
-	lines.push("", "The saved-notes reference is re-attached to the next request.");
-	return lines.join("\n");
+ const { verb, rest } = parseSubcommand(trimmed);
+ if (verb === "set") {
+  if (!model || !currentKey) {
+   await output("No active model to bind a prompt file to.");
+   return;
+  }
+  const fileArg = rest.trim();
+  if (!fileArg) {
+   await output("Usage: /sprompt set <file>");
+   return;
+  }
+  const absolute = path.resolve(session.sessionManager.getCwd(), fileArg);
+  let text = "";
+  try {
+   text = (await Bun.file(absolute).text()).trim();
+  } catch {
+   await output(`Cannot read prompt file: ${absolute}`);
+   return;
+  }
+  if (!text) {
+   await output(`Prompt file is empty: ${absolute}`);
+   return;
+  }
+  sessionSettings.set("systemPromptFiles", { ...files, [currentKey]: absolute });
+  const channel = PLACEMENT_LABELS[resolveSystemPromptPlacement(placementSetting, model)];
+  await output(`Saved prompt file for ${currentKey}: ${absolute}. Delivered as ${channel} on this model.`);
+  return;
+ }
+ if (verb === "toggle") {
+  if (!model || !currentKey) {
+   await output("No active model.");
+   return;
+  }
+  const binding = resolveModelPromptBinding(files[currentKey]);
+  if (!binding) {
+   await output(`No prompt file configured for ${currentKey}. Use /sprompt set <file> first.`);
+   return;
+  }
+  // Re-enabled bindings normalize back to the bare-string form.
+  const next = binding.enabled ? { path: binding.path, enabled: false } : binding.path;
+  sessionSettings.set("systemPromptFiles", { ...files, [currentKey]: next });
+  if (binding.enabled) {
+   await output(
+    `Disabled prompt file for ${currentKey} (kept ${binding.path}). Run /sprompt toggle to re-enable.`,
+   );
+  } else {
+   const channel = PLACEMENT_LABELS[resolveSystemPromptPlacement(placementSetting, model)];
+   await output(`Enabled prompt file for ${currentKey}: ${binding.path}. Delivered as ${channel} on this model.`);
+  }
+  return;
+ }
+ if (verb === "clear") {
+  if (!currentKey) {
+   await output("No active model.");
+   return;
+  }
+  if (!(currentKey in files)) {
+   await output(`No prompt file configured for ${currentKey}.`);
+   return;
+  }
+  const next = { ...files };
+  delete next[currentKey];
+  sessionSettings.set("systemPromptFiles", next);
+  await output(`Removed prompt file for ${currentKey}.`);
+  return;
+ }
+ await output("Usage: /sprompt [set <file> | toggle | clear]");
 }
 
 export const BUILTIN_SESSION_SLASH_COMMANDS: ReadonlyArray<SlashCommandSpec> = [
-	{
-		name: "todo",
-		icon: "todo",
-		description: "View or modify the agent's todo list",
-		acpDescription: "Manage todos",
-		acpInputHint: "<subcommand>",
-		subcommands: [
-			{ name: "edit", description: "Open todos in $EDITOR (Markdown round-trip)" },
-			{ name: "copy", description: "Copy todos as Markdown to clipboard" },
-			{ name: "expand", description: "Show every phase and task in the HUD" },
-			{ name: "collapse", description: "Restore the bounded HUD preview" },
-			{ name: "export", description: "Write todos as Markdown to a file (default: TODO.md)", usage: "[<path>]" },
-			{ name: "import", description: "Replace todos from a Markdown file (default: TODO.md)", usage: "[<path>]" },
-			{
-				name: "append",
-				description: "Append a task; phase fuzzy-matched or auto-created",
-				usage: "[<phase>] <task...>",
-			},
-			{ name: "start", description: "Mark task in_progress (fuzzy-matched)", usage: "<task>" },
-			{ name: "done", description: "Mark task/phase/all completed (fuzzy-matched)", usage: "[<task|phase>]" },
-			{ name: "drop", description: "Mark task/phase/all abandoned (fuzzy-matched)", usage: "[<task|phase>]" },
-			{ name: "rm", description: "Remove task/phase/all (fuzzy-matched)", usage: "[<task|phase>]" },
-		],
-		allowArgs: true,
-		getTuiAutocompleteDescription: runtime => {
-			const tasks = runtime.ctx.todoPhases.flatMap(phase => phase.tasks);
-			if (tasks.length === 0) return "Todos: none";
-			const pending = tasks.filter(task => task.status === "pending").length;
-			const inProgress = tasks.filter(task => task.status === "in_progress").length;
-			const completed = tasks.filter(task => task.status === "completed").length;
-			return `Todos: ${pending + inProgress} open (${inProgress} in progress, ${completed} done)`;
-		},
-		handle: handleTodoAcp,
-		handleTui: async (command, runtime) => {
-			await runtime.ctx.handleTodoCommand(command.args);
-			runtime.ctx.editor.setText("");
-		},
-	},
-	{
-		name: "session",
-		icon: "session",
-		description: "Session management commands",
-		acpDescription: "Show or configure the current session",
-		acpInputHint: "[info|delete|pin [account]]",
-		subcommands: [
-			{ name: "info", description: "Show session info and stats" },
-			{ name: "delete", description: "Delete current session and return to selector" },
-			{
-				name: "pin",
-				description: "Pin the current provider to a stored OAuth account",
-				usage: "[account]",
-			},
-		],
-		allowArgs: true,
-		handle: async (command, runtime) => {
-			const { verb, rest } = parseSubcommand(command.args);
-			if (!verb || (verb === "info" && !rest)) {
-				await runtime.output(
-					[
-						`Session: ${runtime.session.sessionId}`,
-						`Title: ${runtime.session.sessionName}`,
-						`CWD: ${runtime.cwd}`,
-					].join("\n"),
-				);
-				return commandConsumed();
-			}
-			if (verb === "delete" && !rest) {
-				if (runtime.session.isStreaming) return usage("Cannot delete the session while streaming.", runtime);
-				const sessionFile = runtime.sessionManager.getSessionFile();
-				if (!sessionFile) return usage("No session file to delete (in-memory session).", runtime);
-				// Route through the active SessionManager so the persist writer is
-				// closed before the file is deleted. Constructing a fresh
-				// FileSessionStorage and calling deleteSessionWithArtifacts leaves
-				// the active writer attached to the now-deleted path, so the next
-				// prompt would silently resurrect or corrupt the "deleted" file.
-				try {
-					await runtime.sessionManager.dropSession(sessionFile);
-				} catch (err) {
-					return usage(`Failed to delete session: ${errorMessage(err)}`, runtime);
-				}
-				await runtime.output(
-					`Session deleted: ${sessionFile}. Use ACP \`session/load\` to switch to another session.`,
-				);
-				return commandConsumed();
-			}
-			if (verb === "pin") {
-				await handleSessionPinCommand(rest, runtime.session, runtime.output);
-				return commandConsumed();
-			}
-			return usage("Usage: /session [info|delete|pin [account]]", runtime);
-		},
-		handleTui: async (command, runtime) => {
-			const { verb, rest } = parseSubcommand(command.args);
-			if (verb === "delete" && !rest) {
-				runtime.ctx.editor.setText("");
-				await runtime.ctx.handleSessionDeleteCommand();
-				return;
-			}
-			if (verb === "pin") {
-				if (rest) {
-					await handleSessionPinCommand(rest, runtime.ctx.session, text => runtime.ctx.showStatus(text));
-					refreshStatusLine(runtime.ctx);
-				} else {
-					await runtime.ctx.showSessionPinSelector();
-				}
-				runtime.ctx.editor.setText("");
-				return;
-			}
-			if (!verb || (verb === "info" && !rest)) {
-				await runtime.ctx.handleSessionCommand();
-			} else {
-				runtime.ctx.showStatus("Usage: /session [info|delete|pin [account]]");
-			}
-			runtime.ctx.editor.setText("");
-		},
-	},
-	{
-		name: "jobs",
-		icon: "jobs",
-		description: "Show async background jobs status",
-		acpDescription: "Show background jobs",
-		getTuiAutocompleteDescription: runtime => {
-			const snapshot = runtime.ctx.session.getAsyncJobSnapshot({ recentLimit: 5 });
-			if (!snapshot || (snapshot.running.length === 0 && snapshot.recent.length === 0)) return "Jobs: none";
-			return `Jobs: ${snapshot.running.length} running, ${snapshot.recent.length} recent`;
-		},
-		handle: async (_command, runtime) => {
-			const snapshot = runtime.session.getAsyncJobSnapshot({ recentLimit: 5 });
-			if (!snapshot || (snapshot.running.length === 0 && snapshot.recent.length === 0)) {
-				await runtime.output(
-					"No background jobs running. (Background jobs run async tools — e.g. long-running bash, debug, or task subagents that would otherwise tie up a turn. They appear here while alive and briefly after (until their result is delivered; at most ~5 minutes).)",
-				);
-				return commandConsumed();
-			}
-			const now = Date.now();
-			const lines: string[] = ["Background Jobs", `Running: ${snapshot.running.length}`];
-			if (snapshot.running.length > 0) {
-				lines.push("", "Running Jobs");
-				for (const job of snapshot.running) {
-					lines.push(`  [${job.id}] ${job.type} (${job.status}) — ${formatDuration(now - job.startTime)}`);
-					lines.push(`    ${job.label}`);
-				}
-			}
-			if (snapshot.recent.length > 0) {
-				lines.push("", "Recent Jobs");
-				for (const job of snapshot.recent) {
-					lines.push(`  [${job.id}] ${job.type} (${job.status}) — ${formatDuration(now - job.startTime)}`);
-					lines.push(`    ${job.label}`);
-				}
-			}
-			await runtime.output(lines.join("\n"));
-			return commandConsumed();
-		},
-		handleTui: async (_command, runtime) => {
-			await runtime.ctx.handleJobsCommand();
-			runtime.ctx.editor.setText("");
-		},
-	},
-	{
-		name: "usage",
-		icon: "gauge",
-		description: "Show provider usage and limits",
-		acpDescription: "Show token usage",
-		acpInputHint: "[show|reset [account|active]]",
-		subcommands: [
-			{ name: "show", description: "Show provider usage and limits" },
-			{ name: "reset", description: "Spend a saved Codex rate-limit reset", usage: "[account|active]" },
-		],
-		allowArgs: true,
-		handle: async (command, runtime) => {
-			const { verb, rest } = parseSubcommand(command.args);
-			if (!verb || (verb === "show" && !rest)) {
-				await runtime.output(await buildUsageReportText(runtime));
-				return commandConsumed();
-			}
-			if (verb === "reset") {
-				await handleUsageResetCommand(rest, runtime.session, runtime.output);
-				return commandConsumed();
-			}
-			return usage("Usage: /usage [show|reset [account|active]]", runtime);
-		},
-		handleTui: async (command, runtime) => {
-			const { verb, rest } = parseSubcommand(command.args);
-			if (!verb || (verb === "show" && !rest)) {
-				await runtime.ctx.handleUsageCommand();
-				runtime.ctx.editor.setText("");
-				return;
-			}
-			if (verb === "reset") {
-				if (rest) {
-					await handleUsageResetCommand(rest, runtime.ctx.session, text => runtime.ctx.showStatus(text));
-				} else {
-					await runtime.ctx.showResetUsageSelector();
-				}
-				runtime.ctx.editor.setText("");
-				return;
-			}
-			runtime.ctx.showStatus("Usage: /usage [show|reset [account|active]]");
-			runtime.ctx.editor.setText("");
-		},
-	},
-	{
-		name: "stats",
-		icon: "stats",
-		description: "Launch the local stats dashboard",
-		inlineHint: "[--port <port>] [--host <host>]",
-		allowArgs: true,
-		handle: async (command, runtime) => {
-			const parsed = parseStatsDashboardArgs(command.args);
-			if ("error" in parsed) return usage(parsed.error, runtime);
+ {
+  name: "todo",
+  icon: "todo",
+  description: "View or modify the agent's todo list",
+  acpDescription: "Manage todos",
+  acpInputHint: "<subcommand>",
+  subcommands: [
+   { name: "edit", description: "Open todos in $EDITOR (Markdown round-trip)" },
+   { name: "copy", description: "Copy todos as Markdown to clipboard" },
+   { name: "expand", description: "Show every phase and task in the HUD" },
+   { name: "collapse", description: "Restore the bounded HUD preview" },
+   { name: "export", description: "Write todos as Markdown to a file (default: TODO.md)", usage: "[<path>]" },
+   { name: "import", description: "Replace todos from a Markdown file (default: TODO.md)", usage: "[<path>]" },
+   {
+    name: "append",
+    description: "Append a task; phase fuzzy-matched or auto-created",
+    usage: "[<phase>] <task...>",
+   },
+   { name: "start", description: "Mark task in_progress (fuzzy-matched)", usage: "<task>" },
+   { name: "done", description: "Mark task/phase/all completed (fuzzy-matched)", usage: "[<task|phase>]" },
+   { name: "drop", description: "Mark task/phase/all abandoned (fuzzy-matched)", usage: "[<task|phase>]" },
+   { name: "rm", description: "Remove task/phase/all (fuzzy-matched)", usage: "[<task|phase>]" },
+  ],
+  allowArgs: true,
+  getTuiAutocompleteDescription: runtime => {
+   const tasks = runtime.ctx.todoPhases.flatMap(phase => phase.tasks);
+   if (tasks.length === 0) return "Todos: none";
+   const pending = tasks.filter(task => task.status === "pending").length;
+   const inProgress = tasks.filter(task => task.status === "in_progress").length;
+   const completed = tasks.filter(task => task.status === "completed").length;
+   return `Todos: ${pending + inProgress} open (${inProgress} in progress, ${completed} done)`;
+  },
+  handle: handleTodoAcp,
+  handleTui: async (command, runtime) => {
+   await runtime.ctx.handleTodoCommand(command.args);
+   runtime.ctx.editor.setText("");
+  },
+ },
+ {
+  name: "session",
+  icon: "session",
+  description: "Session management commands",
+  acpDescription: "Show or configure the current session",
+  acpInputHint: "[info|delete|pin [account]]",
+  subcommands: [
+   { name: "info", description: "Show session info and stats" },
+   { name: "delete", description: "Delete current session and return to selector" },
+   {
+    name: "pin",
+    description: "Pin the current provider to a stored OAuth account",
+    usage: "[account]",
+   },
+  ],
+  allowArgs: true,
+  handle: async (command, runtime) => {
+   const { verb, rest } = parseSubcommand(command.args);
+   if (!verb || (verb === "info" && !rest)) {
+    await runtime.output(
+     [
+      `Session: ${runtime.session.sessionId}`,
+      `Title: ${runtime.session.sessionName}`,
+      `CWD: ${runtime.cwd}`,
+     ].join("\n"),
+    );
+    return commandConsumed();
+   }
+   if (verb === "delete" && !rest) {
+    if (runtime.session.isStreaming) return usage("Cannot delete the session while streaming.", runtime);
+    const sessionFile = runtime.sessionManager.getSessionFile();
+    if (!sessionFile) return usage("No session file to delete (in-memory session).", runtime);
+    // Route through the active SessionManager so the persist writer is
+    // closed before the file is deleted. Constructing a fresh
+    // FileSessionStorage and calling deleteSessionWithArtifacts leaves
+    // the active writer attached to the now-deleted path, so the next
+    // prompt would silently resurrect or corrupt the "deleted" file.
+    try {
+     await runtime.sessionManager.dropSession(sessionFile);
+    } catch (err) {
+     return usage(`Failed to delete session: ${errorMessage(err)}`, runtime);
+    }
+    await runtime.output(
+     `Session deleted: ${sessionFile}. Use ACP \`session/load\` to switch to another session.`,
+    );
+    return commandConsumed();
+   }
+   if (verb === "pin") {
+    await handleSessionPinCommand(rest, runtime.session, runtime.output);
+    return commandConsumed();
+   }
+   return usage("Usage: /session [info|delete|pin [account]]", runtime);
+  },
+  handleTui: async (command, runtime) => {
+   const { verb, rest } = parseSubcommand(command.args);
+   if (verb === "delete" && !rest) {
+    runtime.ctx.editor.setText("");
+    await runtime.ctx.handleSessionDeleteCommand();
+    return;
+   }
+   if (verb === "pin") {
+    if (rest) {
+     await handleSessionPinCommand(rest, runtime.ctx.session, text => runtime.ctx.showStatus(text));
+     refreshStatusLine(runtime.ctx);
+    } else {
+     await runtime.ctx.showSessionPinSelector();
+    }
+    runtime.ctx.editor.setText("");
+    return;
+   }
+   if (!verb || (verb === "info" && !rest)) {
+    await runtime.ctx.handleSessionCommand();
+   } else {
+    runtime.ctx.showStatus("Usage: /session [info|delete|pin [account]]");
+   }
+   runtime.ctx.editor.setText("");
+  },
+ },
+ {
+  name: "jobs",
+  icon: "jobs",
+  description: "Show async background jobs status",
+  acpDescription: "Show background jobs",
+  getTuiAutocompleteDescription: runtime => {
+   const snapshot = runtime.ctx.session.getAsyncJobSnapshot({ recentLimit: 5 });
+   if (!snapshot || (snapshot.running.length === 0 && snapshot.recent.length === 0)) return "Jobs: none";
+   return `Jobs: ${snapshot.running.length} running, ${snapshot.recent.length} recent`;
+  },
+  handle: async (_command, runtime) => {
+   const snapshot = runtime.session.getAsyncJobSnapshot({ recentLimit: 5 });
+   if (!snapshot || (snapshot.running.length === 0 && snapshot.recent.length === 0)) {
+    await runtime.output(
+     "No background jobs running. (Background jobs run async tools — e.g. long-running bash, debug, or task subagents that would otherwise tie up a turn. They appear here while alive and briefly after (until their result is delivered; at most ~5 minutes).)",
+    );
+    return commandConsumed();
+   }
+   const now = Date.now();
+   const lines: string[] = ["Background Jobs", `Running: ${snapshot.running.length}`];
+   if (snapshot.running.length > 0) {
+    lines.push("", "Running Jobs");
+    for (const job of snapshot.running) {
+     lines.push(`  [${job.id}] ${job.type} (${job.status}) — ${formatDuration(now - job.startTime)}`);
+     lines.push(`    ${job.label}`);
+    }
+   }
+   if (snapshot.recent.length > 0) {
+    lines.push("", "Recent Jobs");
+    for (const job of snapshot.recent) {
+     lines.push(`  [${job.id}] ${job.type} (${job.status}) — ${formatDuration(now - job.startTime)}`);
+     lines.push(`    ${job.label}`);
+    }
+   }
+   await runtime.output(lines.join("\n"));
+   return commandConsumed();
+  },
+  handleTui: async (_command, runtime) => {
+   await runtime.ctx.handleJobsCommand();
+   runtime.ctx.editor.setText("");
+  },
+ },
+ {
+  name: "usage",
+  icon: "gauge",
+  description: "Show provider usage and limits",
+  acpDescription: "Show token usage",
+  acpInputHint: "[show|reset [account|active]]",
+  subcommands: [
+   { name: "show", description: "Show provider usage and limits" },
+   { name: "reset", description: "Spend a saved Codex rate-limit reset", usage: "[account|active]" },
+  ],
+  allowArgs: true,
+  handle: async (command, runtime) => {
+   const { verb, rest } = parseSubcommand(command.args);
+   if (!verb || (verb === "show" && !rest)) {
+    await runtime.output(await buildUsageReportText(runtime));
+    return commandConsumed();
+   }
+   if (verb === "reset") {
+    await handleUsageResetCommand(rest, runtime.session, runtime.output);
+    return commandConsumed();
+   }
+   return usage("Usage: /usage [show|reset [account|active]]", runtime);
+  },
+  handleTui: async (command, runtime) => {
+   const { verb, rest } = parseSubcommand(command.args);
+   if (!verb || (verb === "show" && !rest)) {
+    await runtime.ctx.handleUsageCommand();
+    runtime.ctx.editor.setText("");
+    return;
+   }
+   if (verb === "reset") {
+    if (rest) {
+     await handleUsageResetCommand(rest, runtime.ctx.session, text => runtime.ctx.showStatus(text));
+    } else {
+     await runtime.ctx.showResetUsageSelector();
+    }
+    runtime.ctx.editor.setText("");
+    return;
+   }
+   runtime.ctx.showStatus("Usage: /usage [show|reset [account|active]]");
+   runtime.ctx.editor.setText("");
+  },
+ },
+ {
+  name: "stats",
+  icon: "stats",
+  description: "Launch the local stats dashboard",
+  inlineHint: "[--port <port>] [--host <host>]",
+  allowArgs: true,
+  handle: async (command, runtime) => {
+   const parsed = parseStatsDashboardArgs(command.args);
+   if ("error" in parsed) return usage(parsed.error, runtime);
 
-			await runtime.output("Syncing session files...");
-			try {
-				const result = await launchStatsDashboard(parsed);
-				await runtime.output(result.message);
-			} catch (error) {
-				await runtime.output(`Stats dashboard failed: ${errorMessage(error)}`);
-			}
-			return commandConsumed();
-		},
-	},
-	{
-		name: "changelog",
-		icon: "news",
-		description: "Show changelog entries",
-		acpDescription: "Show changelog",
-		acpInputHint: "[full]",
-		subcommands: [{ name: "full", description: "Show complete changelog" }],
-		allowArgs: true,
-		handle: async (command, runtime) => {
-			const changelogPath = getChangelogPath();
-			const allEntries = await parseChangelog(changelogPath);
-			const showFull = command.args.trim().toLowerCase() === "full";
-			const entriesToShow = showFull ? allEntries : allEntries.slice(0, RECENT_CHANGELOG_ENTRY_LIMIT);
-			if (entriesToShow.length === 0) {
-				await runtime.output("No changelog entries found.");
-				return commandConsumed();
-			}
-			await runtime.output(renderChangelogEntries(entriesToShow).markdown);
-			return commandConsumed();
-		},
-		handleTui: async (command, runtime) => {
-			const showFull = command.args.split(/\s+/).filter(Boolean).includes("full");
-			await runtime.ctx.handleChangelogCommand(showFull);
-			runtime.ctx.editor.setText("");
-		},
-	},
-	{
-		name: "hotkeys",
-		icon: "keyboard",
-		description: "Show all keyboard shortcuts",
-		handleTui: (_command, runtime) => {
-			runtime.ctx.handleHotkeysCommand();
-			runtime.ctx.editor.setText("");
-		},
-	},
-	{
-		name: "tools",
-		icon: "tools",
-		description: "Show tools currently visible to the agent",
-		acpDescription: "Show available tools",
-		getTuiAutocompleteDescription: runtime => {
-			const active = runtime.ctx.session.getActiveToolNames().length;
-			const all = runtime.ctx.session.getAllToolNames().length;
-			return all === 0 ? "Tools: none available" : `Tools: ${active} active / ${all} available`;
-		},
-		handle: async (_command, runtime) => {
-			const active = runtime.session.getActiveToolNames();
-			const all = runtime.session.getAllToolNames();
-			if (all.length === 0) {
-				await runtime.output("No tools are available.");
-				return commandConsumed();
-			}
-			const lines = all.map(name => `${active.includes(name) ? "*" : "-"} ${name}`);
-			for (const mounted of runtime.session.getXdevToolEntries()) {
-				lines.push(`~ xd://${mounted.name}`);
-			}
-			await runtime.output(lines.join("\n"));
-			return commandConsumed();
-		},
-		handleTui: (_command, runtime) => {
-			runtime.ctx.handleToolsCommand();
-			runtime.ctx.editor.setText("");
-		},
-	},
-	{
-		name: "context",
-		icon: "context",
-		description: "Show estimated context usage breakdown",
-		acpDescription: "Show context usage",
-		getTuiAutocompleteDescription: runtime => {
-			const usage = runtime.ctx.session.getContextUsage();
-			if (!usage) return "Context: unavailable";
-			return `Context: ${Math.round(usage.percent)}% (${formatTokenCount(usage.tokens)}/${formatTokenCount(usage.contextWindow)})`;
-		},
-		handle: async (_command, runtime) => {
-			await runtime.output(buildContextReportText(runtime));
-			return commandConsumed();
-		},
-		handleTui: (_command, runtime) => {
-			runtime.ctx.handleContextCommand();
-			runtime.ctx.editor.setText("");
-		},
-	},
-	{
-		name: "extensions",
-		aliases: ["status"],
-		icon: "extension",
-		description: "Open Extension Control Center dashboard",
-		handleTui: (_command, runtime) => {
-			runtime.ctx.showExtensionsDashboard();
-			runtime.ctx.editor.setText("");
-		},
-	},
-	{
-		name: "agents",
-		icon: "agents",
-		description: "Open the agents hub (per-agent model, prewalk, and advisor)",
-		handleTui: (_command, runtime) => {
-			runtime.ctx.showAgentsDashboard();
-			runtime.ctx.editor.setText("");
-		},
-	},
-	{
-		name: "git",
-		icon: "branch",
-		description: "Open the git UI (split diff viewer, staging, commit composer)",
-		inlineHint: "[revision]",
-		allowArgs: true,
-		handleTui: (command, runtime) => {
-			runtime.ctx.showGitUi(command.args.trim() || undefined);
-			runtime.ctx.editor.setText("");
-		},
-	},
-	{
-		name: "hub",
-		icon: "agents",
-		description: "Open the live Agent Hub",
-		handleTui: (_command, runtime) => {
-			runtime.ctx.showAgentHub({ initialSection: "activity" });
-			runtime.ctx.editor.setText("");
-		},
-	},
-	{
-		name: "branch",
-		aliases: ["rewind"],
-		icon: "branch",
-		description: "Rewind to a previous message, keeping the old path as a branch",
-		handleTui: (_command, runtime) => {
-			runtime.ctx.showUserMessageSelector();
-			runtime.ctx.editor.setText("");
-		},
-	},
-	{
-		name: "fork",
-		icon: "branch",
-		description: "Create a new fork from a previous message",
-		handleTui: async (_command, runtime) => {
-			runtime.ctx.editor.setText("");
-			await runtime.ctx.handleForkCommand();
-		},
-	},
-	{
-		name: "tree",
-		icon: "tree",
-		description: "Navigate session tree (switch branches)",
-		handleTui: (_command, runtime) => {
-			runtime.ctx.showTreeSelector();
-			runtime.ctx.editor.setText("");
-		},
-	},
-	{
-		name: "login",
-		icon: "signIn",
-		description: "Login with OAuth provider",
-		inlineHint: "[provider|redirect URL]",
-		allowArgs: true,
-		getTuiAutocompleteDescription: runtime =>
-			runtime.ctx.oauthManualInput.hasPending()
-				? `Login: waiting for ${runtime.ctx.oauthManualInput.pendingProviderId ?? "OAuth"} callback`
-				: "Login: choose provider",
-		handleTui: (command, runtime) => {
-			const manualInput = runtime.ctx.oauthManualInput;
-			const args = command.args.trim();
-			if (args.length > 0) {
-				const matchedProvider = getOAuthProviders().find(provider => provider.id === args);
-				if (matchedProvider) {
-					if (manualInput.hasPending()) {
-						const pendingProvider = manualInput.pendingProviderId;
-						const message = pendingProvider
-							? `OAuth login already in progress for ${pendingProvider}. Paste the redirect URL with /login <url>.`
-							: "OAuth login already in progress. Paste the redirect URL with /login <url>.";
-						runtime.ctx.showWarning(message);
-						runtime.ctx.editor.setText("");
-						return;
-					}
-					void runtime.ctx.showOAuthSelector("login", matchedProvider.id);
-					runtime.ctx.editor.setText("");
-					return;
-				}
-				const submitted = manualInput.submit(args);
-				if (submitted) {
-					runtime.ctx.showStatus("OAuth callback received; completing login…");
-				} else {
-					runtime.ctx.showWarning("No OAuth login is waiting for a manual callback.");
-				}
-				runtime.ctx.editor.setText("");
-				return;
-			}
+   await runtime.output("Syncing session files...");
+   try {
+    const result = await launchStatsDashboard(parsed);
+    await runtime.output(result.message);
+   } catch (error) {
+    await runtime.output(`Stats dashboard failed: ${errorMessage(error)}`);
+   }
+   return commandConsumed();
+  },
+ },
+ {
+  name: "changelog",
+  icon: "news",
+  description: "Show changelog entries",
+  acpDescription: "Show changelog",
+  acpInputHint: "[full]",
+  subcommands: [{ name: "full", description: "Show complete changelog" }],
+  allowArgs: true,
+  handle: async (command, runtime) => {
+   const changelogPath = getChangelogPath();
+   const allEntries = await parseChangelog(changelogPath);
+   const showFull = command.args.trim().toLowerCase() === "full";
+   const entriesToShow = showFull ? allEntries : allEntries.slice(0, RECENT_CHANGELOG_ENTRY_LIMIT);
+   if (entriesToShow.length === 0) {
+    await runtime.output("No changelog entries found.");
+    return commandConsumed();
+   }
+   await runtime.output(renderChangelogEntries(entriesToShow).markdown);
+   return commandConsumed();
+  },
+  handleTui: async (command, runtime) => {
+   const showFull = command.args.split(/\s+/).filter(Boolean).includes("full");
+   await runtime.ctx.handleChangelogCommand(showFull);
+   runtime.ctx.editor.setText("");
+  },
+ },
+ {
+  name: "hotkeys",
+  icon: "keyboard",
+  description: "Show all keyboard shortcuts",
+  handleTui: (_command, runtime) => {
+   runtime.ctx.handleHotkeysCommand();
+   runtime.ctx.editor.setText("");
+  },
+ },
+ {
+  name: "tools",
+  icon: "tools",
+  description: "Show tools currently visible to the agent",
+  acpDescription: "Show available tools",
+  getTuiAutocompleteDescription: runtime => {
+   const active = runtime.ctx.session.getActiveToolNames().length;
+   const all = runtime.ctx.session.getAllToolNames().length;
+   return all === 0 ? "Tools: none available" : `Tools: ${active} active / ${all} available`;
+  },
+  handle: async (_command, runtime) => {
+   const active = runtime.session.getActiveToolNames();
+   const all = runtime.session.getAllToolNames();
+   if (all.length === 0) {
+    await runtime.output("No tools are available.");
+    return commandConsumed();
+   }
+   const lines = all.map(name => `${active.includes(name) ? "*" : "-"} ${name}`);
+   for (const mounted of runtime.session.getXdevToolEntries()) {
+    lines.push(`~ xd://${mounted.name}`);
+   }
+   await runtime.output(lines.join("\n"));
+   return commandConsumed();
+  },
+  handleTui: (_command, runtime) => {
+   runtime.ctx.handleToolsCommand();
+   runtime.ctx.editor.setText("");
+  },
+ },
+ {
+  name: "context",
+  icon: "context",
+  description: "Show estimated context usage breakdown",
+  acpDescription: "Show context usage",
+  getTuiAutocompleteDescription: runtime => {
+   const usage = runtime.ctx.session.getContextUsage();
+   if (!usage) return "Context: unavailable";
+   return `Context: ${Math.round(usage.percent)}% (${formatTokenCount(usage.tokens)}/${formatTokenCount(usage.contextWindow)})`;
+  },
+  handle: async (_command, runtime) => {
+   await runtime.output(buildContextReportText(runtime));
+   return commandConsumed();
+  },
+  handleTui: (_command, runtime) => {
+   runtime.ctx.handleContextCommand();
+   runtime.ctx.editor.setText("");
+  },
+ },
+ {
+  name: "extensions",
+  aliases: ["status"],
+  icon: "extension",
+  description: "Open Extension Control Center dashboard",
+  handleTui: (_command, runtime) => {
+   runtime.ctx.showExtensionsDashboard();
+   runtime.ctx.editor.setText("");
+  },
+ },
+ {
+  name: "agents",
+  icon: "agents",
+  description: "Open the agents hub (per-agent model, prewalk, and advisor)",
+  handleTui: (_command, runtime) => {
+   runtime.ctx.showAgentsDashboard();
+   runtime.ctx.editor.setText("");
+  },
+ },
+ {
+  name: "git",
+  icon: "branch",
+  description: "Open the git UI (split diff viewer, staging, commit composer)",
+  inlineHint: "[revision]",
+  allowArgs: true,
+  handleTui: (command, runtime) => {
+   runtime.ctx.showGitUi(command.args.trim() || undefined);
+   runtime.ctx.editor.setText("");
+  },
+ },
+ {
+  name: "hub",
+  icon: "agents",
+  description: "Open the live Agent Hub",
+  handleTui: (_command, runtime) => {
+   runtime.ctx.showAgentHub({ initialSection: "activity" });
+   runtime.ctx.editor.setText("");
+  },
+ },
+ {
+  name: "branch",
+  aliases: ["rewind"],
+  icon: "branch",
+  description: "Rewind to a previous message, keeping the old path as a branch",
+  handleTui: (_command, runtime) => {
+   runtime.ctx.showUserMessageSelector();
+   runtime.ctx.editor.setText("");
+  },
+ },
+ {
+  name: "fork",
+  icon: "branch",
+  description: "Create a new fork from a previous message",
+  handleTui: async (_command, runtime) => {
+   runtime.ctx.editor.setText("");
+   await runtime.ctx.handleForkCommand();
+  },
+ },
+ {
+  name: "tree",
+  icon: "tree",
+  description: "Navigate session tree (switch branches)",
+  handleTui: (_command, runtime) => {
+   runtime.ctx.showTreeSelector();
+   runtime.ctx.editor.setText("");
+  },
+ },
+ {
+  name: "login",
+  icon: "signIn",
+  description: "Login with OAuth provider",
+  inlineHint: "[provider|redirect URL]",
+  allowArgs: true,
+  getTuiAutocompleteDescription: runtime =>
+   runtime.ctx.oauthManualInput.hasPending()
+    ? `Login: waiting for ${runtime.ctx.oauthManualInput.pendingProviderId ?? "OAuth"} callback`
+    : "Login: choose provider",
+  handleTui: (command, runtime) => {
+   const manualInput = runtime.ctx.oauthManualInput;
+   const args = command.args.trim();
+   if (args.length > 0) {
+    const matchedProvider = getOAuthProviders().find(provider => provider.id === args);
+    if (matchedProvider) {
+     if (manualInput.hasPending()) {
+      const pendingProvider = manualInput.pendingProviderId;
+      const message = pendingProvider
+       ? `OAuth login already in progress for ${pendingProvider}. Paste the redirect URL with /login <url>.`
+       : "OAuth login already in progress. Paste the redirect URL with /login <url>.";
+      runtime.ctx.showWarning(message);
+      runtime.ctx.editor.setText("");
+      return;
+     }
+     void runtime.ctx.showOAuthSelector("login", matchedProvider.id);
+     runtime.ctx.editor.setText("");
+     return;
+    }
+    const submitted = manualInput.submit(args);
+    if (submitted) {
+     runtime.ctx.showStatus("OAuth callback received; completing login…");
+    } else {
+     runtime.ctx.showWarning("No OAuth login is waiting for a manual callback.");
+    }
+    runtime.ctx.editor.setText("");
+    return;
+   }
 
-			if (manualInput.hasPending()) {
-				const provider = manualInput.pendingProviderId;
-				const message = provider
-					? `OAuth login already in progress for ${provider}. Paste the redirect URL with /login <url>.`
-					: "OAuth login already in progress. Paste the redirect URL with /login <url>.";
-				runtime.ctx.showWarning(message);
-				runtime.ctx.editor.setText("");
-				return;
-			}
+   if (manualInput.hasPending()) {
+    const provider = manualInput.pendingProviderId;
+    const message = provider
+     ? `OAuth login already in progress for ${provider}. Paste the redirect URL with /login <url>.`
+     : "OAuth login already in progress. Paste the redirect URL with /login <url>.";
+    runtime.ctx.showWarning(message);
+    runtime.ctx.editor.setText("");
+    return;
+   }
 
-			void runtime.ctx.showOAuthSelector("login");
-			runtime.ctx.editor.setText("");
-		},
-	},
-	{
-		name: "logout",
-		icon: "signOut",
-		description: "Logout from OAuth provider",
-		inlineHint: "[provider]",
-		allowArgs: true,
-		handleTui: (command, runtime) => {
-			const providerId = command.args.trim();
-			if (providerId) {
-				const matchedProvider = getOAuthProviders().find(provider => provider.id === providerId);
-				if (!matchedProvider) {
-					runtime.ctx.showWarning(`Unknown OAuth provider: ${providerId}`);
-					runtime.ctx.editor.setText("");
-					return;
-				}
-				void runtime.ctx.showOAuthSelector("logout", matchedProvider.id);
-				runtime.ctx.editor.setText("");
-				return;
-			}
-			void runtime.ctx.showOAuthSelector("logout");
-			runtime.ctx.editor.setText("");
-		},
-	},
-	{
-		name: "rotateaccount",
-		description: "Rotate to the next OAuth account for a provider",
-		inlineHint: "<provider>",
-		allowArgs: true,
-		handle: async (command, runtime) => {
-			await handleRotateAccountCommand(command.args, runtime.session, runtime.output);
-			return commandConsumed();
-		},
-	},
-	{
-		name: "sprompt",
-		description: "Per-model prompt files: list bindings or bind a prompt file to the current model",
-		acpDescription: "Manage per-model prompt files",
-		inlineHint: "[set <file> | toggle | clear]",
-		subcommands: [
-			{ name: "set", description: "Bind a prompt file to the current model", usage: "<file>" },
-			{
-				name: "toggle",
-				description: "Suspend or re-enable the current model's binding without forgetting the file",
-			},
-			{ name: "clear", description: "Remove the current model's prompt file binding" },
-		],
-		allowArgs: true,
-		handle: async (command, runtime) => {
-			await handleSpromptCommand(command.args, runtime.session, runtime.output);
-			return commandConsumed();
-		},
-	},
-	{
-		name: "notes",
-		icon: "session",
-		description: "Show session notes and re-attach them to the next request",
-		acpDescription: "Show session notes",
-		inlineHint: "[key]",
-		allowArgs: true,
-		handle: async (command, runtime) => {
-			const wanted = command.args.trim();
-			const notes = getImportantNotesFromEntries(runtime.sessionManager.getBranch());
-			if (wanted) {
-				const hit = notes.find(note => note.key === wanted);
-				if (!hit) {
-					await runtime.output(`Note not found: ${wanted}. Use /notes to list every note.`);
-					return commandConsumed();
-				}
-				await runtime.output(formatNotesReport([hit], `Session note ${wanted}:`));
-			} else {
-				await runtime.output(
-					notes.length === 0
-						? "No session notes saved. The notes tool stores working state that survives compaction and resume."
-						: formatNotesReport(notes, `Session notes (${notes.length}):`),
-				);
-			}
-			runtime.session.requestNotesReference();
-			return commandConsumed();
-		},
-	},
-	{
-		name: "thinking",
-		icon: "session",
-		description: "Show or set the model thinking level for this session",
-		acpDescription: "Show or set thinking level",
-		inlineHint: "[<level>]",
-		allowArgs: true,
-		handle: async (command, runtime) => {
-			const available: readonly string[] = runtime.session.getAvailableThinkingLevels();
-			const level = command.args.trim().toLowerCase();
-			if (!level) {
-				const current = runtime.session.thinkingLevel ?? "model default";
-				await runtime.output(
-					`Current thinking level: ${current}. Available: off, auto, ${available.join(", ")}. Use /thinking <level>.`,
-				);
-				return commandConsumed();
-			}
-			if (level === "off") {
-				runtime.session.setThinkingLevel("off", false);
-				await runtime.output("Thinking level set to off (model default reasoning).");
-				return commandConsumed();
-			}
-			if (level !== "auto" && !available.includes(level)) {
-				await runtime.output(`Unknown thinking level "${level}". Available: off, auto, ${available.join(", ")}.`);
-				return commandConsumed();
-			}
-			// Level validated against the model's available efforts above.
-			runtime.session.setThinkingLevel(level as ConfiguredThinkingLevel, false);
-			await runtime.output(`Thinking level set to ${level}.`);
-			return commandConsumed();
-		},
-	},
-	{
-		name: "mcp",
-		icon: "mcp",
-		description: "Manage MCP servers (add, list, remove, test)",
-		acpDescription: "Manage MCP servers",
-		inlineHint: "<subcommand>",
-		subcommands: [
-			{
-				name: "add",
-				description: "Add a new MCP server",
-				usage: "<name> [--scope project|user] [--url <url>] [-- <command...>]",
-			},
-			{ name: "list", description: "List all configured MCP servers" },
-			{ name: "remove", description: "Remove an MCP server", usage: "<name> [--scope project|user]" },
-			{ name: "test", description: "Test connection to a server", usage: "<name>" },
-			{ name: "reauth", description: "Reauthorize OAuth for a server", usage: "<name>" },
-			{ name: "unauth", description: "Remove OAuth auth from a server", usage: "<name>" },
-			{ name: "enable", description: "Enable an MCP server", usage: "<name>" },
-			{ name: "disable", description: "Disable an MCP server", usage: "<name>" },
-			{
-				name: "smithery-search",
-				description: "Search Smithery registry and deploy an MCP server",
-				usage: "<keyword> [--scope project|user] [--limit <1-100>] [--semantic]",
-			},
-			{ name: "smithery-login", description: "Login to Smithery and cache API key" },
-			{ name: "smithery-logout", description: "Remove cached Smithery API key" },
-			{ name: "reconnect", description: "Reconnect to a specific MCP server", usage: "<name>" },
-			{ name: "reload", description: "Force reload MCP runtime tools" },
-			{ name: "resources", description: "List available resources from connected servers" },
-			{ name: "prompts", description: "List available prompts from connected servers" },
-			{ name: "notifications", description: "Show notification capabilities and subscriptions" },
-			{ name: "help", description: "Show help message" },
-		],
-		allowArgs: true,
-		handle: handleMcpAcp,
-		handleTui: async (command, runtime) => {
-			runtime.ctx.editor.setText("");
-			await runtime.ctx.handleMCPCommand(command.text);
-		},
-	},
+   void runtime.ctx.showOAuthSelector("login");
+   runtime.ctx.editor.setText("");
+  },
+ },
+ {
+  name: "logout",
+  icon: "signOut",
+  description: "Logout from OAuth provider",
+  inlineHint: "[provider]",
+  allowArgs: true,
+  handleTui: (command, runtime) => {
+   const providerId = command.args.trim();
+   if (providerId) {
+    const matchedProvider = getOAuthProviders().find(provider => provider.id === providerId);
+    if (!matchedProvider) {
+     runtime.ctx.showWarning(`Unknown OAuth provider: ${providerId}`);
+     runtime.ctx.editor.setText("");
+     return;
+    }
+    void runtime.ctx.showOAuthSelector("logout", matchedProvider.id);
+    runtime.ctx.editor.setText("");
+    return;
+   }
+   void runtime.ctx.showOAuthSelector("logout");
+   runtime.ctx.editor.setText("");
+  },
+ },
+ {
+  name: "rotateaccount",
+  description: "Rotate to the next OAuth account for a provider",
+  inlineHint: "<provider>",
+  allowArgs: true,
+  handle: async (command, runtime) => {
+   await handleRotateAccountCommand(command.args, runtime.session, runtime.output);
+   return commandConsumed();
+  },
+ },
+ {
+  name: "sprompt",
+  description: "Per-model prompt files: list bindings or bind a prompt file to the current model",
+  acpDescription: "Manage per-model prompt files",
+  inlineHint: "[set <file> | toggle | clear]",
+  subcommands: [
+   { name: "set", description: "Bind a prompt file to the current model", usage: "<file>" },
+   {
+    name: "toggle",
+    description: "Suspend or re-enable the current model's binding without forgetting the file",
+   },
+   { name: "clear", description: "Remove the current model's prompt file binding" },
+  ],
+  allowArgs: true,
+  handle: async (command, runtime) => {
+   await handleSpromptCommand(command.args, runtime.session, runtime.output);
+   return commandConsumed();
+  },
+ },
+ {
+  name: "notes",
+  icon: "notepad",
+  description:
+   "Session notes: show (with dates), inject the reference into the next request, both, or search by text/regex. A bare <key> after show/both prints just that note.",
+  acpDescription: "Show, inject, or search session notes",
+  inlineHint: "[show|inject|both|search] [<key|pattern>]",
+  subcommands: [
+   { name: "show", description: "Print notes with dates; add a key to print just that note", usage: "[<key>]" },
+   { name: "inject", description: "Re-attach the notes reference to the next request, without printing" },
+   { name: "both", description: "Print notes and re-attach the reference to the next request", usage: "[<key>]" },
+   {
+    name: "search",
+    description: "Search note keys and contents by text or regex",
+    usage: "<pattern>",
+   },
+  ],
+  allowArgs: true,
+  handle: async (command, runtime) => {
+   const raw = command.args.trim();
+   const spaceIndex = raw.indexOf(" ");
+   const verb = (spaceIndex === -1 ? raw : raw.slice(0, spaceIndex)).toLowerCase() || "both";
+   const rest = spaceIndex === -1 ? "" : raw.slice(spaceIndex + 1).trim();
+   const notes = getImportantNotesFromEntries(runtime.sessionManager.getBranch());
+
+   const renderNotes = (selected: readonly ImportantNote[]): string => {
+    const lines = selected.map(note => {
+     const stamp = note.updatedAt ? ` (${formatNoteTimestamp(note.updatedAt)})` : "";
+     return `- ${note.key}${stamp}: ${note.text}`;
+    });
+    return `Session notes (${selected.length}):\n${lines.join("\n")}`;
+   };
+   const armInjection = (): string => {
+    // Queued steering-style: the flag survives until the next provider
+    // request consumes it — mid-turn (between tool calls) or after the
+    // agent yields, whichever comes first.
+    runtime.session.requestNotesReference();
+    return "The saved-notes reference is re-attached to the next request.";
+   };
+
+   if (verb === "search") {
+    if (!rest) {
+     await runtime.output("Usage: /notes search <text or regex>");
+     return commandConsumed();
+    }
+    let matcher: (note: ImportantNote) => boolean;
+    try {
+     const regex = new RegExp(rest, "i");
+     matcher = note => regex.test(note.key) || regex.test(note.text);
+    } catch {
+     const needle = rest.toLowerCase();
+     matcher = note => note.key.toLowerCase().includes(needle) || note.text.toLowerCase().includes(needle);
+    }
+    const regexMatches = notes.filter(matcher);
+    const matchedKeys = new Set(regexMatches.map(note => note.key));
+    let modelNote = "";
+    const searchModel = runtime.settings.get("notes.searchModel");
+    if (searchModel && searchModel !== "off" && notes.length > 0 && regexMatches.length < notes.length) {
+     try {
+      const semanticKeys = await searchNotesWithModel(runtime, notes, rest, searchModel);
+      const semantic = notes.filter(note => semanticKeys.includes(note.key) && !matchedKeys.has(note.key));
+      for (const note of semantic) matchedKeys.add(note.key);
+      if (semantic.length > 0) modelNote = ` (+${semantic.length} found by ${searchModel} model)`;
+     } catch (error) {
+      modelNote = ` (model search failed: ${error instanceof Error ? error.message : String(error)})`;
+     }
+    }
+    const matches = notes.filter(note => matchedKeys.has(note.key));
+    await runtime.output(
+     matches.length === 0
+      ? `No notes match "${rest}".`
+      : `${matches.length} matching note(s)${modelNote}:\n${renderNotes(matches)}`,
+    );
+    return commandConsumed();
+   }
+
+   if (verb !== "show" && verb !== "inject" && verb !== "both") {
+    await runtime.output(
+     `Unknown /notes verb "${verb}". Use show, inject, both, or search — e.g. "/notes show <key>" prints one note by its key.`,
+    );
+    return commandConsumed();
+   }
+
+   const shouldShow = verb === "show" || verb === "both";
+   const shouldInject = verb === "inject" || verb === "both";
+   const parts: string[] = [];
+   if (shouldShow) {
+    if (rest) {
+     const hit = notes.find(note => note.key === rest);
+     if (!hit) {
+      await runtime.output(`Note not found: ${rest}. Use /notes to list every note.`);
+      return commandConsumed();
+     }
+     parts.push(`Session note ${rest}:\n- ${hit.key}${hit.updatedAt ? ` (${formatNoteTimestamp(hit.updatedAt)})` : ""}: ${hit.text}`);
+    } else {
+     parts.push(
+      notes.length === 0
+       ? "No session notes saved. The notes tool stores working state that survives compaction and resume."
+       : renderNotes(notes),
+     );
+    }
+   }
+   if (shouldInject) parts.push(armInjection());
+   await runtime.output(parts.join("\n\n"));
+   return commandConsumed();
+  },
+ },
+ {
+  name: "thinking",
+  icon: "brain",
+  description: "Show or set the model thinking level (levels follow the active model)",
+  acpDescription: "Show or set thinking level",
+  inlineHint: "[<level>]",
+  allowArgs: true,
+  handle: async (command, runtime) => {
+   const available: readonly string[] = runtime.session.getAvailableThinkingLevels();
+   const level = command.args.trim().toLowerCase();
+   if (!level) {
+    const current = runtime.session.thinkingLevel ?? "model default";
+    await runtime.output(
+     `Current thinking level: ${current}. Available: off, auto, ${available.join(", ")}. Use /thinking <level>.`,
+    );
+    return commandConsumed();
+   }
+   if (level === "off") {
+    runtime.session.setThinkingLevel("off", false);
+    await runtime.output("Thinking level set to off (model default reasoning).");
+    return commandConsumed();
+   }
+   if (level !== "auto" && !available.includes(level)) {
+    await runtime.output(`Unknown thinking level "${level}". Available: off, auto, ${available.join(", ")}.`);
+    return commandConsumed();
+   }
+   // Level validated against the model's available efforts above.
+   runtime.session.setThinkingLevel(level as ConfiguredThinkingLevel, false);
+   await runtime.output(`Thinking level set to ${level}.`);
+   return commandConsumed();
+  },
+ },
+ {
+  name: "mcp",
+  icon: "mcp",
+  description: "Manage MCP servers (add, list, remove, test)",
+  acpDescription: "Manage MCP servers",
+  inlineHint: "<subcommand>",
+  subcommands: [
+   {
+    name: "add",
+    description: "Add a new MCP server",
+    usage: "<name> [--scope project|user] [--url <url>] [-- <command...>]",
+   },
+   { name: "list", description: "List all configured MCP servers" },
+   { name: "remove", description: "Remove an MCP server", usage: "<name> [--scope project|user]" },
+   { name: "test", description: "Test connection to a server", usage: "<name>" },
+   { name: "reauth", description: "Reauthorize OAuth for a server", usage: "<name>" },
+   { name: "unauth", description: "Remove OAuth auth from a server", usage: "<name>" },
+   { name: "enable", description: "Enable an MCP server", usage: "<name>" },
+   { name: "disable", description: "Disable an MCP server", usage: "<name>" },
+   {
+    name: "smithery-search",
+    description: "Search Smithery registry and deploy an MCP server",
+    usage: "<keyword> [--scope project|user] [--limit <1-100>] [--semantic]",
+   },
+   { name: "smithery-login", description: "Login to Smithery and cache API key" },
+   { name: "smithery-logout", description: "Remove cached Smithery API key" },
+   { name: "reconnect", description: "Reconnect to a specific MCP server", usage: "<name>" },
+   { name: "reload", description: "Force reload MCP runtime tools" },
+   { name: "resources", description: "List available resources from connected servers" },
+   { name: "prompts", description: "List available prompts from connected servers" },
+   { name: "notifications", description: "Show notification capabilities and subscriptions" },
+   { name: "help", description: "Show help message" },
+  ],
+  allowArgs: true,
+  handle: handleMcpAcp,
+  handleTui: async (command, runtime) => {
+   runtime.ctx.editor.setText("");
+   await runtime.ctx.handleMCPCommand(command.text);
+  },
+ },
 ];

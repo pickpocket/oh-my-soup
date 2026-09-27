@@ -24,10 +24,14 @@ import type { SessionEntry } from "./session-entries";
 export interface ImportantNotesPolicy {
 	/** Include each note's updatedAt date in the injected reference. */
 	timestamps: boolean;
-	/** When the saved-notes reference rides the request: after a compaction/reset boundary, on a turn cadence, or never. */
-	injectMode: "compaction" | "turns" | "off";
+	/** When the saved-notes reference rides the request: after a compaction/reset boundary, on a turn cadence, when context tokens cross a threshold, at a window percentage, or never. */
+	injectMode: "compaction" | "turns" | "token-threshold" | "window-percent" | "off";
 	/** Assistant turns between reinjections when injectMode is "turns". */
 	injectCadence: number;
+	/** Estimated context tokens that trigger a reinjection when injectMode is "token-threshold"; 0 disables. */
+	injectTokenThreshold: number;
+	/** Percent of the model context window that triggers a reinjection when injectMode is "window-percent"; 0 disables. */
+	injectWindowPercent: number;
 	/** Nudge the model to update its notes as the last action of a turn. */
 	autoUpdate: boolean;
 	/** Assistant turns without a notes mutation before the nudge fires. */
@@ -169,6 +173,8 @@ export class ImportantNotesContext {
 	/** Boundary id of the cycle in which the auto-update nudge last fired. */
 	#nudgedBoundaryId: string | null | undefined = undefined;
 	#nudgedTurns = -1;
+	/** Reference-free context estimate at the last acknowledged request, for threshold-crossing detection. */
+	#lastUsageEstimate: number | undefined = undefined;
 
 	/**
 	 * Token count of the reference the next request would carry at the
@@ -225,7 +231,51 @@ export class ImportantNotesContext {
 		const turnCadenceDue =
 			policy.injectMode === "turns" &&
 			(this.#injectedTurnMark === undefined || turnCount - this.#injectedTurnMark >= policy.injectCadence);
-		const shouldInject = reference !== undefined && (boundaryChanged || turnCadenceDue || options.forceInject === true);
+
+		// Reference-free usage estimate: crossing detection must not count the
+		// reference this request is about to add.
+		const messageTokens = tokenizer.countMessages(messages, { excludeEncryptedReasoning: true });
+		const localTokens = options.nonMessageTokens + messageTokens;
+		// Session usage can anchor to an earlier model or a pre-clear response.
+		// Only apply it when the newest assistant belongs to this live epoch/model.
+		let usageAnchor = 0;
+		{
+			const contextUsageTokens = options.contextUsageTokens;
+			if (contextUsageTokens !== undefined && Number.isFinite(contextUsageTokens) && contextUsageTokens >= 0) {
+				for (let index = branch.length - 1; index > boundaryIndex; index--) {
+					const entry = branch[index];
+					if (entry.type !== "message" || entry.message.role !== "assistant") continue;
+					const assistant = entry.message;
+					if (
+						assistant.stopReason === "error" ||
+						assistant.stopReason === "aborted" ||
+						!hasContextTokenUsage(assistant.usage)
+					) {
+						continue;
+					}
+					if (assistant.provider === model.provider && assistant.model === model.id) {
+						// Session accounting already includes the current saved-note reference.
+						usageAnchor = contextUsageTokens + Math.max(0, messageTokens - options.storedMessagesTokens);
+					}
+					break;
+				}
+			}
+		}
+		const usageEstimate = Math.max(localTokens, usageAnchor);
+
+		const crossingDue =
+			policy.injectMode === "token-threshold" && policy.injectTokenThreshold > 0
+				? usageEstimate >= policy.injectTokenThreshold &&
+				(this.#lastUsageEstimate === undefined || this.#lastUsageEstimate < policy.injectTokenThreshold)
+				: policy.injectMode === "window-percent" && policy.injectWindowPercent > 0 && contextWindow > 0
+					? ((): boolean => {
+						const limit = Math.floor((contextWindow * policy.injectWindowPercent) / 100);
+						return usageEstimate >= limit && (this.#lastUsageEstimate === undefined || this.#lastUsageEstimate < limit);
+					})()
+					: false;
+		const shouldInject =
+			reference !== undefined &&
+			(boundaryChanged || turnCadenceDue || crossingDue || options.forceInject === true);
 
 		const turnsSinceMutation = countTurnsSinceLastNotesEntry(branch);
 		const nudgeDue =
@@ -235,33 +285,9 @@ export class ImportantNotesContext {
 			(this.#nudgedBoundaryId !== boundaryKey || this.#nudgedTurns !== turnsSinceMutation);
 
 		const notesTokens = shouldInject && reference ? tokenizer.countMessage(reference) : 0;
-		const messageTokens = tokenizer.countMessages(messages, { excludeEncryptedReasoning: true });
-		let usedTokens = options.nonMessageTokens + messageTokens + notesTokens;
-		// Session usage can anchor to an earlier model or a pre-clear response.
-		// Only apply it when the newest assistant belongs to this live epoch/model.
-		const contextUsageTokens = options.contextUsageTokens;
-		if (contextUsageTokens !== undefined && Number.isFinite(contextUsageTokens) && contextUsageTokens >= 0) {
-			for (let index = branch.length - 1; index > boundaryIndex; index--) {
-				const entry = branch[index];
-				if (entry.type !== "message" || entry.message.role !== "assistant") continue;
-				const assistant = entry.message;
-				if (
-					assistant.stopReason === "error" ||
-					assistant.stopReason === "aborted" ||
-					!hasContextTokenUsage(assistant.usage)
-				) {
-					continue;
-				}
-				if (assistant.provider === model.provider && assistant.model === model.id) {
-					// Session accounting already includes the current saved-note reference.
-					usedTokens = Math.max(
-						usedTokens,
-						contextUsageTokens + Math.max(0, messageTokens - options.storedMessagesTokens),
-					);
-				}
-				break;
-			}
-		}
+		// When the usage anchor is present it already contains any reference the
+		// anchored request shipped — take the max instead of summing.
+		const usedTokens = Math.max(localTokens + notesTokens, usageAnchor);
 		const nearLimit = Number.isFinite(threshold) && threshold > 0 && usedTokens >= threshold * 0.8;
 		const remind = nearLimit && !reminded && options.notesTool !== undefined;
 
@@ -317,6 +343,7 @@ export class ImportantNotesContext {
 					this.#nudgedBoundaryId = boundaryKey;
 					this.#nudgedTurns = turnsSinceMutation;
 				}
+				this.#lastUsageEstimate = usageEstimate;
 			},
 		};
 	}

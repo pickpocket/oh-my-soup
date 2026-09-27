@@ -2768,14 +2768,14 @@ export const SETTINGS_SCHEMA = {
 	},
 	"notes.inject": {
 		type: "enum",
-		values: ["compaction", "turns", "off"] as const,
+		values: ["compaction", "turns", "token-threshold", "window-percent", "off"] as const,
 		default: "compaction",
 		ui: {
 			tab: "memory",
 			group: "Session Notes",
 			label: "Reinject notes",
 			description:
-				"When the saved-notes reference is attached to the model context: after compaction (default), on a turn cadence, or never",
+				"When the saved-notes reference is attached to the model context: after compaction (default), on a turn cadence, when context tokens cross a threshold, at a window percentage, or never",
 			options: [
 				{
 					value: "compaction",
@@ -2788,12 +2788,50 @@ export const SETTINGS_SCHEMA = {
 					description: "Reattach notes periodically using the reinject cadence below",
 				},
 				{
+					value: "token-threshold",
+					label: "At token threshold",
+					description: "Reattach notes when estimated context tokens cross notes.injectTokenThreshold",
+				},
+				{
+					value: "window-percent",
+					label: "At window percent",
+					description: "Reattach notes when context usage crosses notes.injectWindowPercent of the model window",
+				},
+				{
 					value: "off",
 					label: "Never",
 					description: "Never attach notes automatically; the agent reads them with notes list",
 				},
 			],
 		},
+	},
+	"notes.injectTokenThreshold": {
+		type: "number",
+		default: 100_000,
+		ui: {
+			tab: "memory",
+			group: "Session Notes",
+			label: "Inject at token threshold",
+			description:
+				"Estimated context tokens that trigger a notes reinjection when reinject notes is set to at token threshold",
+		},
+	},
+	"notes.injectWindowPercent": {
+		type: "number",
+		default: 70,
+		ui: {
+			tab: "memory",
+			group: "Session Notes",
+			label: "Inject at window percent",
+			description:
+				"Percent of the model context window that triggers a notes reinjection when reinject notes is set to at window percent",
+		},
+	},
+	"notes.searchModel": {
+		type: "string",
+		default: "smol",
+		description:
+			"Model role used by /notes search to find semantically matching notes beyond the regex pass; off disables the model pass",
 	},
 	"notes.injectCadence": {
 		type: "number",
@@ -6919,10 +6957,13 @@ export interface GcSettings {
 export interface NotesSettings {
 	enabled: boolean;
 	timestamps: boolean;
-	inject: "compaction" | "turns" | "off";
+	inject: "compaction" | "turns" | "token-threshold" | "window-percent" | "off";
 	injectCadence: number;
+	injectTokenThreshold: number;
+	injectWindowPercent: number;
 	autoUpdate: boolean;
 	autoUpdateCadence: number;
+	searchModel: string;
 }
 
 /** Map group prefix -> typed settings interface */

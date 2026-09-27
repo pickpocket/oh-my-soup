@@ -25,6 +25,8 @@ const basePolicy = {
 	timestamps: true,
 	injectMode: "compaction" as const,
 	injectCadence: 25,
+	injectTokenThreshold: 100_000,
+	injectWindowPercent: 70,
 	autoUpdate: false,
 	autoUpdateCadence: 10,
 };
@@ -481,6 +483,38 @@ describe("important notes request projection", () => {
 			at: "2026-09-27T13:44:22.000Z",
 		});
 		expect(nudges(context.transform([], opts()).messages)).toHaveLength(0);
+	});
+
+	it("injects on token-threshold and window-percent crossings once per episode", () => {
+		const manager = SessionManager.inMemory();
+		save(manager, [{ key: "cwd", text: "/work" }]);
+		const token = new ImportantNotesContext();
+		const tokenOpts = (nonMessageTokens: number) =>
+			options(manager, {
+				policy: { ...basePolicy, injectMode: "token-threshold", injectTokenThreshold: 5_000 },
+				nonMessageTokens,
+				branch: manager.getBranch(),
+			});
+		// Session start injects once.
+		expect(referenceNotes(deliver(token, [], tokenOpts(1_000)))).toHaveLength(1);
+		// Below threshold: quiet.
+		expect(deliver(token, [], tokenOpts(3_000))).toHaveLength(0);
+		// Crossing upward: inject.
+		expect(deliver(token, [], tokenOpts(6_000))).toHaveLength(1);
+		// Still above the threshold: no re-inject until it drops back below.
+		expect(deliver(token, [], tokenOpts(7_000))).toHaveLength(0);
+
+		const windows = new ImportantNotesContext();
+		const windowOpts = (nonMessageTokens: number) =>
+			options(manager, {
+				policy: { ...basePolicy, injectMode: "window-percent", injectWindowPercent: 25 },
+				nonMessageTokens,
+				branch: manager.getBranch(),
+			});
+		expect(referenceNotes(deliver(windows, [], windowOpts(1_000)))).toHaveLength(1);
+		expect(deliver(windows, [], windowOpts(3_000))).toHaveLength(0);
+		expect(deliver(windows, [], windowOpts(6_000))).toHaveLength(1);
+		expect(deliver(windows, [], windowOpts(7_000))).toHaveLength(0);
 	});
 
 	it("omits updatedAt stamps from the injected JSON when timestamps are off", () => {

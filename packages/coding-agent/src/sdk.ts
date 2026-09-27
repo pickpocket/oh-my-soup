@@ -3582,6 +3582,8 @@ async function createAgentSessionScoped(options: CreateAgentSessionOptions): Pro
 			timestamps: settings.get("notes.timestamps"),
 			injectMode: settings.get("notes.inject"),
 			injectCadence: settings.get("notes.injectCadence"),
+			injectTokenThreshold: settings.get("notes.injectTokenThreshold"),
+			injectWindowPercent: settings.get("notes.injectWindowPercent"),
 			autoUpdate: settings.get("notes.autoUpdate"),
 			autoUpdateCadence: settings.get("notes.autoUpdateCadence"),
 		});

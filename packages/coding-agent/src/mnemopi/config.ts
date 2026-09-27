@@ -32,6 +32,8 @@ export interface MnemopiBackendConfig {
 	recallContextTurns: number;
 	recallMaxQueryChars: number;
 	injectionTokenLimit: number;
+	/** Idle milliseconds before the embed subprocess is torn down; 0 disables. */
+	embedIdleExitMs: number;
 	debug: boolean;
 	providerOptions: MnemopiProviderOptions;
 	llmMode: MnemopiLlmMode;
@@ -80,6 +82,7 @@ export function loadMnemopiConfig(settings: Settings, agentDir: string): Mnemopi
 		recallContextTurns: Math.max(1, Math.floor(settings.get("mnemopi.recallContextTurns"))),
 		recallMaxQueryChars: Math.max(256, Math.floor(settings.get("mnemopi.recallMaxQueryChars"))),
 		injectionTokenLimit: Math.max(256, Math.floor(settings.get("mnemopi.injectionTokenLimit"))),
+		embedIdleExitMs: Math.max(0, Math.floor(settings.get("mnemopi.embedIdleExitMs"))),
 		debug: settings.get("mnemopi.debug"),
 		providerOptions: {
 			noEmbeddings: settings.get("mnemopi.noEmbeddings"),
@@ -90,10 +93,10 @@ export function loadMnemopiConfig(settings: Settings, agentDir: string): Mnemopi
 			llm:
 				llmMode === "remote"
 					? {
-							baseUrl: settings.get("mnemopi.llmBaseUrl"),
-							apiKey: settings.get("mnemopi.llmApiKey"),
-							model: settings.get("mnemopi.llmModel"),
-						}
+						baseUrl: settings.get("mnemopi.llmBaseUrl"),
+						apiKey: settings.get("mnemopi.llmApiKey"),
+						model: settings.get("mnemopi.llmModel"),
+					}
 					: false,
 		},
 		llmMode,
@@ -232,6 +235,10 @@ function bankOnlyHasCwd(dbPath: string, cwd: string): boolean {
 	let db: Database | undefined;
 	try {
 		db = new Database(dbPath, { readonly: true });
+		// Another oms instance may hold the write lock while this probe runs (the
+		// banks are shared per-project); without a busy timeout the probe throws
+		// SQLITE_BUSY and the bank is misread as foreign.
+		db.exec("PRAGMA busy_timeout=5000");
 		const row = db
 			.prepare<{ matching: number; unsafe: number }, [string, string]>(`
 				SELECT

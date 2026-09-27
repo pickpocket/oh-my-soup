@@ -84,8 +84,8 @@ function wrapSubprocess(spawned: SpawnedSubprocess<MnemopiEmbedWorkerOutbound>):
 function createUnavailableMnemopiEmbedWorker(error: unknown): MnemopiEmbedWorkerHandle {
 	return {
 		...createUnavailableWorker<MnemopiEmbedWorkerInbound, MnemopiEmbedWorkerOutbound>(error),
-		ref() {},
-		unref() {},
+		ref() { },
+		unref() { },
 	};
 }
 
@@ -121,8 +121,24 @@ export interface MnemopiSubprocessEmbeddingModel {
  */
 const EMBED_REQUEST_TIMEOUT_MS = 120_000;
 
+/**
+ * Idle window before the parent tears the embed subprocess down. The child
+ * caches the fastembed model for its process lifetime (~1.2 GB RSS with
+ * onnxruntime arenas), and nothing shares a worker across oms instances —
+ * two interactive sessions pin two copies for as long as both stay up.
+ * Tearing the worker down after an idle window releases that memory; the next
+ * embed respawns and reloads (init stays timeout-exempt). 0 disables the
+ * idle teardown.
+ */
+const DEFAULT_EMBED_IDLE_EXIT_MS = 600_000;
+
 /** Race marker for {@link MnemopiEmbedClient.#awaitRequest}. */
 const REQUEST_TIMED_OUT = Symbol("mnemopi.embed.timedOut");
+
+export interface MnemopiEmbedClientOptions {
+	/** Idle milliseconds before the subprocess is torn down; 0 disables. */
+	idleExitMs?: number;
+}
 
 export class MnemopiEmbedClient {
 	#worker: MnemopiEmbedWorkerHandle | null = null;
@@ -133,13 +149,29 @@ export class MnemopiEmbedClient {
 	#refed = false;
 	#spawnWorker: () => MnemopiEmbedWorkerHandle;
 	#requestTimeoutMs: number;
+	#idleExitMs: number;
+	#idleExitTimer: Timer | null = null;
 
 	constructor(
 		spawnWorker: () => MnemopiEmbedWorkerHandle = spawnMnemopiEmbedWorker,
 		requestTimeoutMs: number = EMBED_REQUEST_TIMEOUT_MS,
+		idleExitMs: number = DEFAULT_EMBED_IDLE_EXIT_MS,
 	) {
 		this.#spawnWorker = spawnWorker;
 		this.#requestTimeoutMs = requestTimeoutMs;
+		this.#idleExitMs = idleExitMs;
+	}
+
+	/**
+	 * Update runtime knobs after construction. The embed client is a module
+	 * singleton, so the mnemopi backend pushes its resolved settings here once
+	 * per session startup.
+	 */
+	configure(options: MnemopiEmbedClientOptions): void {
+		if (options.idleExitMs !== undefined) {
+			this.#idleExitMs = Math.max(0, Math.floor(options.idleExitMs));
+			this.#syncIdleExit();
+		}
 	}
 
 	/**
@@ -177,6 +209,10 @@ export class MnemopiEmbedClient {
 	}
 
 	async terminate(): Promise<void> {
+		if (this.#idleExitTimer !== null) {
+			clearTimeout(this.#idleExitTimer);
+			this.#idleExitTimer = null;
+		}
 		const worker = this.#worker;
 		this.#worker = null;
 		this.#unsubscribeMessage?.();
@@ -295,6 +331,26 @@ export class MnemopiEmbedClient {
 		this.#refed = shouldRef;
 		if (shouldRef) worker.ref();
 		else worker.unref();
+		this.#syncIdleExit();
+	}
+
+	/**
+	 * Arm the idle teardown whenever a worker exists with nothing in flight;
+	 * disarm the moment work arrives. The timer is `unref`'d — an idle worker
+	 * never holds the parent event loop open just to kill itself.
+	 */
+	#syncIdleExit(): void {
+		if (this.#idleExitTimer !== null) {
+			clearTimeout(this.#idleExitTimer);
+			this.#idleExitTimer = null;
+		}
+		if (this.#idleExitMs <= 0 || !this.#worker || this.#pending.size > 0) return;
+		const timer = setTimeout(() => {
+			this.#idleExitTimer = null;
+			if (this.#pending.size === 0 && this.#worker) void this.terminate();
+		}, this.#idleExitMs);
+		timer.unref();
+		this.#idleExitTimer = timer;
 	}
 
 	#handleMessage(message: MnemopiEmbedWorkerOutbound): void {

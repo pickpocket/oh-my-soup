@@ -3487,6 +3487,12 @@ export const SETTINGS_SCHEMA = {
 		},
 	},
 	"mnemopi.retainEveryNTurns": { type: "number", default: 4 },
+	"mnemopi.embedIdleExitMs": {
+		type: "number",
+		default: 600_000,
+		description:
+			"Idle milliseconds before the local-embedding subprocess is torn down to release its ~1.2 GB model; the next embed respawns it. 0 keeps the worker alive for the whole session.",
+	},
 	"mnemopi.recallLimit": { type: "number", default: 8 },
 	"mnemopi.recallContextTurns": { type: "number", default: 3 },
 	"mnemopi.recallMaxQueryChars": { type: "number", default: 4000 },

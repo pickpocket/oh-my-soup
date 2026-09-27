@@ -84,7 +84,7 @@ export interface DisasmToolDetails {
 	meta?: OutputMeta;
 }
 
-interface DisasmRenderArgs extends Partial<DisasmParams> {}
+interface DisasmRenderArgs extends Partial<DisasmParams> { }
 
 function summarizeDisasmCall(args: DisasmRenderArgs): string {
 	const action = args.action ?? "request";
@@ -201,34 +201,34 @@ export class DisasmTool implements AgentTool<typeof disasmSchema, DisasmToolDeta
 			},
 		},
 		{
-			caption: "Discover available tables and columns (single query)",
-			call: { action: "query", backend: "ida", target: "idalib-1234", sql: "SELECT table_name FROM sql_tables;" },
+			caption: "Discover a table's columns (IDA)",
+			call: { action: "query", backend: "ida", target: "idalib-1234", sql: "PRAGMA table_info(funcs);" },
 		},
 		{
-			caption: "Find named functions with LIMIT (pre-resolve func_id)",
+			caption: "Find named functions with LIMIT",
 			call: {
 				action: "query",
 				backend: "ida",
 				target: "idalib-1234",
-				sql: "SELECT func_id, start_ea FROM funcs WHERE name LIKE '%auth%' LIMIT 20",
+				sql: "SELECT start_ea, name FROM funcs WHERE name LIKE '%auth%' LIMIT 20",
 			},
 		},
 		{
-			caption: "Query instructions using pre-resolved func_id",
+			caption: "Filter instructions by resolved func_ea",
 			call: {
 				action: "query",
 				backend: "ida",
 				target: "idalib-1234",
-				sql: "SELECT address, text FROM instructions WHERE func_id=':func_id' LIMIT 200",
+				sql: "SELECT address, disasm FROM instructions WHERE func_ea=0x401000 LIMIT 200",
 			},
 		},
 		{
-			caption: "Use RETURNING for mutations (no follow-up SELECT)",
+			caption: "Rename a function after resolving its address",
 			call: {
 				action: "query",
 				backend: "ida",
 				target: "idalib-1234",
-				sql: "UPDATE funcs SET name='my_func' WHERE func_id=':id' RETURNING func_id, name, start_ea",
+				sql: "UPDATE funcs SET name='my_func' WHERE start_ea=0x401000",
 			},
 		},
 		{
@@ -502,7 +502,13 @@ function formatTargets(backend: string, targets: DisassemblerTarget[]): string {
 function formatQuery(query: DisassemblerQueryResult): string {
 	const cols = query.columns.length;
 	const rows = query.rows.length;
-	return `${rows} row${rows === 1 ? "" : "s"} (${cols} column${cols === 1 ? "" : "s"})`;
+	const header = `${rows} row${rows === 1 ? "" : "s"} (${cols} column${cols === 1 ? "" : "s"})`;
+	if (rows === 0) return header;
+	// details.query is UI-only — this text is the model's only copy of the
+	// data, so include a bounded preview and let the byte cap guard size.
+	const preview = query.rows.slice(0, 50);
+	const tail = rows > preview.length ? `\n… ${rows - preview.length} more rows` : "";
+	return `${header}\n${stringifyUnknown({ columns: query.columns, rows: preview })}${tail}`;
 }
 
 function formatExecution(execution: DisassemblerExecutionResult): string {

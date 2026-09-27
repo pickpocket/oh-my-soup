@@ -66,6 +66,17 @@ describe("important notes event-sourced journal", () => {
 		expect(countTurnsSinceLastNotesEntry(manager.getBranch())).toBe(2);
 		manager.appendCompaction("compacted", undefined, root, 12_000);
 		expect(countTurnsSinceLastNotesEntry(manager.getBranch())).toBe(0);
+		manager.appendResetBoundary();
+		expect(countTurnsSinceLastNotesEntry(manager.getBranch())).toBe(0);
+	});
+
+	it("folds a v2 clear event to an empty state", () => {
+		const manager = SessionManager.inMemory();
+		seed(manager, { version: 2, op: "set", key: "a", text: "x", at: "2026-09-27T10:00:00.000Z" });
+		seed(manager, { version: 2, op: "clear" });
+		const state = getImportantNotesState(manager.getBranch());
+		expect(state.notes).toEqual([]);
+		expect(state.pendingEvents).toBe(2);
 	});
 });
 

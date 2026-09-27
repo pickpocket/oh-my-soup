@@ -42,6 +42,8 @@ export interface SessionStatsTrackerHost {
 	model(): Model | undefined;
 	sessionId(): string;
 	importantNotesReferenceTokens(): number;
+	/** Whether the session journal currently holds any saved notes. */
+	hasImportantNotes(): boolean;
 }
 
 function correctedPromptTokens(assistant: AssistantMessage): number {
@@ -186,12 +188,12 @@ export class SessionStatsTracker {
 			premiumRequests: totalPremiumRequests,
 			...(hasCredits
 				? {
-						credits: {
-							cost: creditCost,
-							committedCost: committedCreditCost,
-							acuCost: committedAcuCost,
-						},
-					}
+					credits: {
+						cost: creditCost,
+						committedCost: committedCreditCost,
+						acuCost: committedAcuCost,
+					},
+				}
 				: undefined),
 			...(Object.keys(routedModels).length > 0 ? { routedModels } : undefined),
 			contextUsage: this.getContextUsage(),
@@ -251,9 +253,12 @@ export class SessionStatsTracker {
 		}
 
 		const anchorEpoch = anchorAssistant?.contextSnapshot?.compactionEpoch ?? 0;
+		// Zero recorded reference tokens means "not recorded yet" (pre-first
+		// request) OR "no notes" — only trust the anchor when no notes exist at
+		// all; otherwise an unprovable foreign-model snapshot wins the max() below.
 		const useAnchor =
 			anchorAssistant !== undefined &&
-			(importantNotesTokens === 0 ||
+			(!this.#host.hasImportantNotes() ||
 				(anchorAssistant.provider === this.#host.model()?.provider &&
 					anchorAssistant.model === this.#host.model()?.id)) &&
 			anchorIndex !== -1 &&
@@ -318,9 +323,9 @@ export class SessionStatsTracker {
 				usedTokens = Math.max(
 					usedTokens,
 					currentNonMessageTokens +
-						importantNotesTokens +
-						this.#tokenizer.countMessages(activeMessages, { excludeEncryptedReasoning: true }) +
-						this.#tokenizer.countMessages(pendingMessages, { excludeEncryptedReasoning: true }),
+					importantNotesTokens +
+					this.#tokenizer.countMessages(activeMessages, { excludeEncryptedReasoning: true }) +
+					this.#tokenizer.countMessages(pendingMessages, { excludeEncryptedReasoning: true }),
 				);
 			}
 		}

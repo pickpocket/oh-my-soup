@@ -118,16 +118,23 @@ export class NotesTool implements AgentTool<typeof notesSchema, NotesToolDetails
 					if (updated !== current.notes) {
 						// Event-sourced journaling: one mutation appends one small event
 						// entry; a fresh full snapshot is written every N events to bound
-						// the read-time fold.
+						// the read-time fold. Both shapes must carry the mutation's `at` —
+						// the fold stamps events, but a snapshot becomes the base and is
+						// never re-folded, so stamp here too or the 32nd set loses its date.
+						const at = new Date().toISOString();
+						const stamped =
+							mutation.op === "set"
+								? updated.map(note => (note.key === mutation.key ? { ...note, updatedAt: at } : note))
+								: updated;
 						const data: ImportantNotesEntryData =
 							current.pendingEvents + 1 >= IMPORTANT_NOTES_SNAPSHOT_EVERY
-								? { version: 2, snapshot: true, notes: updated }
+								? { version: 2, snapshot: true, notes: stamped }
 								: {
 									version: 2,
 									op: mutation.op,
 									key: mutation.key,
 									text: mutation.text,
-									at: new Date().toISOString(),
+									at,
 								};
 						manager.appendCustomEntry(IMPORTANT_NOTES_CUSTOM_TYPE, data);
 					}

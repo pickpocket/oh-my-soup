@@ -8,6 +8,7 @@ import { IMPORTANT_NOTES_CUSTOM_TYPE, type ImportantNote } from "@oh-my-soup/pi-
 import {
 	ImportantNotesContext,
 	type ImportantNotesContextOptions,
+	importantNotesFit,
 } from "@oh-my-soup/pi-coding-agent/session/important-notes-context";
 import { convertToLlm } from "@oh-my-soup/pi-coding-agent/session/messages";
 import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
@@ -524,6 +525,32 @@ describe("important notes request projection", () => {
 		expect(referenceNotes(deliver(windows, [], windowOpts(6_000)))).toHaveLength(1);
 	});
 
+	it("treats zero threshold and window settings as disabled", () => {
+		const manager = SessionManager.inMemory();
+		save(manager, [{ key: "cwd", text: "/work" }]);
+		const token = new ImportantNotesContext();
+		const tokenOpts = () =>
+			options(manager, {
+				policy: { ...basePolicy, injectMode: "token-threshold", injectTokenThreshold: 0 },
+				nonMessageTokens: 30_000,
+				branch: manager.getBranch(),
+			});
+		// Session start still injects once…
+		expect(referenceNotes(deliver(token, [], tokenOpts()))).toHaveLength(1);
+		// …but a zero threshold can never cross, so the steady state stays quiet.
+		expect(deliver(token, [], tokenOpts())).toHaveLength(0);
+
+		const windows = new ImportantNotesContext();
+		const windowOpts = () =>
+			options(manager, {
+				policy: { ...basePolicy, injectMode: "window-percent", injectWindowPercent: 0 },
+				nonMessageTokens: 30_000,
+				branch: manager.getBranch(),
+			});
+		expect(referenceNotes(deliver(windows, [], windowOpts()))).toHaveLength(1);
+		expect(deliver(windows, [], windowOpts())).toHaveLength(0);
+	});
+
 	it("omits updatedAt stamps from the injected JSON when timestamps are off", () => {
 		const manager = SessionManager.inMemory();
 		manager.appendCustomEntry(IMPORTANT_NOTES_CUSTOM_TYPE, {
@@ -540,5 +567,29 @@ describe("important notes request projection", () => {
 		expect(JSON.stringify(hidden.messages)).not.toContain("updatedAt");
 		const shown = new ImportantNotesContext().transform([], options(manager));
 		expect(JSON.stringify(shown.messages)).toContain("updatedAt");
+	});
+});
+
+describe("important notes warm and fit guards", () => {
+	it("warm returns 0 without a tool or when injection is off, else the reference size", () => {
+		const manager = SessionManager.inMemory();
+		save(manager, [{ key: "k", text: "v" }]);
+		const context = new ImportantNotesContext();
+		const warm = (notesTool: "notes" | undefined, injectMode: "compaction" | "off") =>
+			context.warm({
+				branch: manager.getBranch(),
+				tokenizer,
+				notesTool,
+				policy: { ...basePolicy, injectMode },
+			});
+		expect(warm(undefined, "compaction")).toBe(0);
+		expect(warm("notes", "off")).toBe(0);
+		expect(warm("notes", "compaction")).toBeGreaterThan(0);
+	});
+
+	it("importantNotesFit refuses an oversized reference and passes at zero tokens", () => {
+		expect(importantNotesFit(1_000_000, 0, model, compaction)).toBe(true);
+		expect(importantNotesFit(1_000_000, 5_000, model, compaction)).toBe(false);
+		expect(importantNotesFit(1_000, 5_000, model, compaction)).toBe(true);
 	});
 });

@@ -15,100 +15,100 @@ import { getImportantNotesFromEntries } from "../session/important-notes";
  * Returns subcommand names filtered by prefix in the dropdown.
  */
 export function buildArgumentCompletions(subcommands: SubcommandDef[]): (prefix: string) => AutocompleteItem[] | null {
- return (argumentPrefix: string) => {
-  if (argumentPrefix.includes(" ")) return null; // past the subcommand
-  const lower = argumentPrefix.toLowerCase();
-  const matches = subcommands
-   .filter(s => s.name.startsWith(lower))
-   .map(s => ({
-    value: `${s.name} `,
-    label: s.name,
-    description: s.description,
-    hint: s.usage,
-   }));
-  return matches.length > 0 ? matches : null;
- };
+	return (argumentPrefix: string) => {
+		if (argumentPrefix.includes(" ")) return null; // past the subcommand
+		const lower = argumentPrefix.toLowerCase();
+		const matches = subcommands
+			.filter(s => s.name.startsWith(lower))
+			.map(s => ({
+				value: `${s.name} `,
+				label: s.name,
+				description: s.description,
+				hint: s.usage,
+			}));
+		return matches.length > 0 ? matches : null;
+	};
 }
 
 /** /thinking <level>: the session model's available efforts plus auto/off, prefix-filtered. */
 export function buildThinkingLevelCompletions(
- runtime: TuiSlashCommandRuntime,
+	runtime: TuiSlashCommandRuntime,
 ): (prefix: string) => AutocompleteItem[] | null {
- return argumentPrefix => {
-  if (argumentPrefix.includes(" ")) return null;
-  const lower = argumentPrefix.toLowerCase();
-  const items: AutocompleteItem[] = [];
-  const push = (value: string, description: string) => {
-   if (!value.startsWith(lower)) return;
-   items.push({ value: `${value} `, label: value, description });
-  };
-  push("auto", "Automatic thinking level (model decides)");
-  for (const level of runtime.ctx.session.getAvailableThinkingLevels()) {
-   push(level, `${level} thinking effort`);
-  }
-  push("off", "Disable thinking");
-  return items.length > 0 ? items : null;
- };
+	return argumentPrefix => {
+		if (argumentPrefix.includes(" ")) return null;
+		const lower = argumentPrefix.toLowerCase();
+		const items: AutocompleteItem[] = [];
+		const push = (value: string, description: string) => {
+			if (!value.startsWith(lower)) return;
+			items.push({ value: `${value} `, label: value, description });
+		};
+		push("auto", "Automatic thinking level (model decides)");
+		for (const level of runtime.ctx.session.getAvailableThinkingLevels()) {
+			push(level, `${level} thinking effort`);
+		}
+		push("off", "Disable thinking");
+		return items.length > 0 ? items : null;
+	};
 }
 
 /** Single source for the /notes verb contract: dropdown, ACP advertising, and handler validation. */
 export const NOTES_SUBCOMMANDS: SubcommandDef[] = [
- { name: "show", description: "Print notes with dates; add a key to print just that note", usage: "[<key>]" },
- { name: "inject", description: "Re-attach the notes reference to the next request, without printing" },
- { name: "both", description: "Print notes and re-attach the reference to the next request", usage: "[<key>]" },
- { name: "search", description: "Search note keys and contents by text or regex", usage: "<pattern>" },
+	{ name: "show", description: "Print notes with dates; add a key to print just that note", usage: "[<key>]" },
+	{ name: "inject", description: "Re-attach the notes reference to the next request, without printing" },
+	{ name: "both", description: "Print notes and re-attach the reference to the next request", usage: "[<key>]" },
+	{ name: "search", description: "Search note keys and contents by text or regex", usage: "<pattern>" },
 ];
 
 /**
- * /notes argument completions: subcommands before the first space, then note
- * keys for `show`/`both` (free-form for `search`). Keys come from the live
- * session journal, so fresh notes autocomplete immediately.
- */
+	* /notes argument completions: subcommands before the first space, then note
+	* keys for `show`/`both` (free-form for `search`). Keys come from the live
+	* session journal, so fresh notes autocomplete immediately.
+	*/
 export function buildNotesArgumentCompletions(
- runtime: TuiSlashCommandRuntime,
+	runtime: TuiSlashCommandRuntime,
 ): (prefix: string) => AutocompleteItem[] | null {
- return argumentPrefix => {
-  const spaceIndex = argumentPrefix.indexOf(" ");
-  if (spaceIndex === -1) {
-   const lower = argumentPrefix.toLowerCase();
-   const matches = NOTES_SUBCOMMANDS.filter(s => s.name.startsWith(lower)).map(s => ({
-    value: `${s.name} `,
-    label: s.name,
-    description: s.description,
-    hint: s.usage,
-   }));
-   return matches.length > 0 ? matches : null;
-  }
-  const verb = argumentPrefix.slice(0, spaceIndex).toLowerCase();
-  if (verb !== "show" && verb !== "both") return null;
-  const keyPrefix = argumentPrefix.slice(spaceIndex + 1).toLowerCase();
-  const notes = getImportantNotesFromEntries(runtime.ctx.sessionManager.getBranch());
-  const matches = notes
-   .filter(note => note.key.toLowerCase().includes(keyPrefix))
-   .map(note => ({
-    value: `${verb} ${note.key}`,
-    label: note.key,
-    description: note.text.length > 80 ? `${note.text.slice(0, 77)}...` : note.text,
-   }));
-  return matches.length > 0 ? matches : null;
- };
+	return argumentPrefix => {
+		const spaceIndex = argumentPrefix.indexOf(" ");
+		if (spaceIndex === -1) {
+			const lower = argumentPrefix.toLowerCase();
+			const matches = NOTES_SUBCOMMANDS.filter(s => s.name.startsWith(lower)).map(s => ({
+				value: `${s.name} `,
+				label: s.name,
+				description: s.description,
+				hint: s.usage,
+			}));
+			return matches.length > 0 ? matches : null;
+		}
+		const verb = argumentPrefix.slice(0, spaceIndex).toLowerCase();
+		if (verb !== "show" && verb !== "both") return null;
+		const keyPrefix = argumentPrefix.slice(spaceIndex + 1).toLowerCase();
+		const notes = getImportantNotesFromEntries(runtime.ctx.sessionManager.getBranch());
+		const matches = notes
+			.filter(note => note.key.toLowerCase().includes(keyPrefix))
+			.map(note => ({
+				value: `${verb} ${note.key}`,
+				label: note.key,
+				description: note.text.length > 80 ? `${note.text.slice(0, 77)}...` : note.text,
+			}));
+		return matches.length > 0 ? matches : null;
+	};
 }
 
 /** /mcp subcommands whose argument is a server name (per their `usage: "<name>..."`). */
 const MCP_SERVER_NAME_SUBCOMMANDS: Readonly<Record<string, true>> = {
- enable: true,
- disable: true,
- test: true,
- remove: true,
- reconnect: true,
- reauth: true,
- unauth: true,
+	enable: true,
+	disable: true,
+	test: true,
+	remove: true,
+	reconnect: true,
+	reauth: true,
+	unauth: true,
 };
 
 /** Subcommands that accept names found only in `userConfig.disabledServers`. */
 const MCP_DISABLED_ONLY_ELIGIBLE_SUBCOMMANDS: Readonly<Record<string, true>> = {
- enable: true,
- disable: true,
+	enable: true,
+	disable: true,
 };
 
 /**
@@ -117,9 +117,9 @@ const MCP_DISABLED_ONLY_ELIGIBLE_SUBCOMMANDS: Readonly<Record<string, true>> = {
  * reconnect, and reauth explicitly require an enabled server.
  */
 const MCP_DISABLED_CONFIG_ELIGIBLE_SUBCOMMANDS: Readonly<Record<string, true>> = {
- enable: true,
- disable: true,
- unauth: true,
+	enable: true,
+	disable: true,
+	unauth: true,
 };
 
 /**
@@ -135,39 +135,39 @@ const MCP_DISABLED_CONFIG_ELIGIBLE_SUBCOMMANDS: Readonly<Record<string, true>> =
  * completion.
  */
 export function buildMcpArgumentCompletions(
- subcommands: SubcommandDef[],
- runtime: TuiSlashCommandRuntime,
+	subcommands: SubcommandDef[],
+	runtime: TuiSlashCommandRuntime,
 ): (argumentPrefix: string) => Promise<AutocompleteItem[] | null> {
- const genericCompletions = buildArgumentCompletions(subcommands);
- return async (argumentPrefix: string) => {
-  const spaceIndex = argumentPrefix.indexOf(" ");
-  if (spaceIndex === -1) return genericCompletions(argumentPrefix);
+	const genericCompletions = buildArgumentCompletions(subcommands);
+	return async (argumentPrefix: string) => {
+		const spaceIndex = argumentPrefix.indexOf(" ");
+		if (spaceIndex === -1) return genericCompletions(argumentPrefix);
 
-  const rawSubcommand = argumentPrefix.slice(0, spaceIndex);
-  const lowerSubcommand = rawSubcommand.toLowerCase();
-  if (MCP_SERVER_NAME_SUBCOMMANDS[lowerSubcommand] !== true) return null;
-  const namePrefix = argumentPrefix.slice(spaceIndex + 1).toLowerCase();
-  if (lowerSubcommand === "remove") {
-   return await buildMcpRemoveCompletions(rawSubcommand, namePrefix);
-  }
+		const rawSubcommand = argumentPrefix.slice(0, spaceIndex);
+		const lowerSubcommand = rawSubcommand.toLowerCase();
+		if (MCP_SERVER_NAME_SUBCOMMANDS[lowerSubcommand] !== true) return null;
+		const namePrefix = argumentPrefix.slice(spaceIndex + 1).toLowerCase();
+		if (lowerSubcommand === "remove") {
+			return await buildMcpRemoveCompletions(rawSubcommand, namePrefix);
+		}
 
-  let serverNames: string[];
-  try {
-   serverNames = await collectMcpServerNames(
-    runtime.ctx,
-    undefined,
-    MCP_DISABLED_ONLY_ELIGIBLE_SUBCOMMANDS[lowerSubcommand] === true,
-    MCP_DISABLED_CONFIG_ELIGIBLE_SUBCOMMANDS[lowerSubcommand] === true,
-   );
-  } catch (error) {
-   logger.warn("MCP server-name autocomplete failed to read config", { error });
-   return null;
-  }
-  const matches: AutocompleteItem[] = serverNames
-   .filter(name => name.toLowerCase().startsWith(namePrefix))
-   .map(name => ({ value: `${rawSubcommand} ${name} `, label: name }));
-  return matches.length > 0 ? matches : null;
- };
+		let serverNames: string[];
+		try {
+			serverNames = await collectMcpServerNames(
+				runtime.ctx,
+				undefined,
+				MCP_DISABLED_ONLY_ELIGIBLE_SUBCOMMANDS[lowerSubcommand] === true,
+				MCP_DISABLED_CONFIG_ELIGIBLE_SUBCOMMANDS[lowerSubcommand] === true,
+			);
+		} catch (error) {
+			logger.warn("MCP server-name autocomplete failed to read config", { error });
+			return null;
+		}
+		const matches: AutocompleteItem[] = serverNames
+			.filter(name => name.toLowerCase().startsWith(namePrefix))
+			.map(name => ({ value: `${rawSubcommand} ${name} `, label: name }));
+		return matches.length > 0 ? matches : null;
+	};
 }
 
 /**
@@ -181,35 +181,35 @@ export function buildMcpArgumentCompletions(
  * `--scope user` appended so the inserted command is directly executable.
  */
 async function buildMcpRemoveCompletions(
- rawSubcommand: string,
- namePrefix: string,
+	rawSubcommand: string,
+	namePrefix: string,
 ): Promise<AutocompleteItem[] | null> {
- const cwd = getProjectDir();
- let projectNames: string[];
- let userNames: string[];
- try {
-  const [projectConfig, userConfig] = await Promise.all([
-   readMCPConfigFile(getMCPConfigPath("project", cwd)),
-   readMCPConfigFile(getMCPConfigPath("user", cwd)),
-  ]);
-  projectNames = Object.keys(projectConfig.mcpServers ?? {});
-  userNames = Object.keys(userConfig.mcpServers ?? {});
- } catch (error) {
-  logger.warn("MCP remove autocomplete failed to read config", { error });
-  return null;
- }
+	const cwd = getProjectDir();
+	let projectNames: string[];
+	let userNames: string[];
+	try {
+		const [projectConfig, userConfig] = await Promise.all([
+			readMCPConfigFile(getMCPConfigPath("project", cwd)),
+			readMCPConfigFile(getMCPConfigPath("user", cwd)),
+		]);
+		projectNames = Object.keys(projectConfig.mcpServers ?? {});
+		userNames = Object.keys(userConfig.mcpServers ?? {});
+	} catch (error) {
+		logger.warn("MCP remove autocomplete failed to read config", { error });
+		return null;
+	}
 
- const projectNameSet = new Set(projectNames);
- const allNames = new Set([...projectNames, ...userNames]);
- const matches: AutocompleteItem[] = [...allNames]
-  .filter(name => name.toLowerCase().startsWith(namePrefix))
-  .map(name =>
-   projectNameSet.has(name)
-    ? { value: `${rawSubcommand} ${name} `, label: name }
-    : { value: `${rawSubcommand} ${name} --scope user `, label: `${name} (user)` },
-  )
-  .sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: "base" }));
- return matches.length > 0 ? matches : null;
+	const projectNameSet = new Set(projectNames);
+	const allNames = new Set([...projectNames, ...userNames]);
+	const matches: AutocompleteItem[] = [...allNames]
+		.filter(name => name.toLowerCase().startsWith(namePrefix))
+		.map(name =>
+			projectNameSet.has(name)
+				? { value: `${rawSubcommand} ${name} `, label: name }
+				: { value: `${rawSubcommand} ${name} --scope user `, label: `${name} (user)` },
+		)
+		.sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: "base" }));
+	return matches.length > 0 ? matches : null;
 }
 
 /**
@@ -217,35 +217,35 @@ async function buildMcpRemoveCompletions(
  * Shows remaining completion + usage as dim ghost text after cursor.
  */
 export function buildSubcommandInlineHint(subcommands: SubcommandDef[]): (argumentText: string) => string | null {
- return (argumentText: string) => {
-  const trimmed = argumentText.trimStart();
-  const spaceIndex = trimmed.indexOf(" ");
+	return (argumentText: string) => {
+		const trimmed = argumentText.trimStart();
+		const spaceIndex = trimmed.indexOf(" ");
 
-  if (spaceIndex === -1) {
-   // Still typing subcommand name — show remaining chars + usage
-   const prefix = trimmed.toLowerCase();
-   if (prefix.length === 0) return null;
-   const match = subcommands.find(s => s.name.startsWith(prefix));
-   if (!match) return null;
-   const remaining = match.name.slice(prefix.length);
-   return remaining + (match.usage ? ` ${match.usage}` : "");
-  }
+		if (spaceIndex === -1) {
+			// Still typing subcommand name — show remaining chars + usage
+			const prefix = trimmed.toLowerCase();
+			if (prefix.length === 0) return null;
+			const match = subcommands.find(s => s.name.startsWith(prefix));
+			if (!match) return null;
+			const remaining = match.name.slice(prefix.length);
+			return remaining + (match.usage ? ` ${match.usage}` : "");
+		}
 
-  // Subcommand typed — show remaining usage params
-  const subName = trimmed.slice(0, spaceIndex).toLowerCase();
-  const afterSub = trimmed.slice(spaceIndex + 1);
-  const sub = subcommands.find(s => s.name === subName);
-  if (!sub?.usage) return null;
+		// Subcommand typed — show remaining usage params
+		const subName = trimmed.slice(0, spaceIndex).toLowerCase();
+		const afterSub = trimmed.slice(spaceIndex + 1);
+		const sub = subcommands.find(s => s.name === subName);
+		if (!sub?.usage) return null;
 
-  if (afterSub.length > 0) {
-   const usageParts = sub.usage.split(" ");
-   const inputParts = afterSub.trim().split(/\s+/);
-   const remaining = usageParts.slice(inputParts.length);
-   return remaining.length > 0 ? remaining.join(" ") : null;
-  }
+		if (afterSub.length > 0) {
+			const usageParts = sub.usage.split(" ");
+			const inputParts = afterSub.trim().split(/\s+/);
+			const remaining = usageParts.slice(inputParts.length);
+			return remaining.length > 0 ? remaining.join(" ") : null;
+		}
 
-  return sub.usage;
- };
+		return sub.usage;
+	};
 }
 
 /**
@@ -253,7 +253,7 @@ export function buildSubcommandInlineHint(subcommands: SubcommandDef[]): (argume
  * Shows the hint only when no arguments have been typed yet.
  */
 export function buildStaticInlineHint(hint: string): (argumentText: string) => string | null {
- return (argumentText: string) => (argumentText.trim().length === 0 ? hint : null);
+	return (argumentText: string) => (argumentText.trim().length === 0 ? hint : null);
 }
 
 /**
@@ -265,30 +265,30 @@ export function buildStaticInlineHint(hint: string): (argumentText: string) => s
  * mention completion.
  */
 export function buildModelSelectorCompletions(
- runtime: TuiSlashCommandRuntime,
+	runtime: TuiSlashCommandRuntime,
 ): (argumentPrefix: string) => AutocompleteItem[] | null {
- return (argumentPrefix: string) => {
-  if (argumentPrefix.includes(" ")) return null;
-  const suffixIndex = argumentPrefix.indexOf(":");
-  const suffix = suffixIndex === -1 ? "" : argumentPrefix.slice(suffixIndex);
-  const query = (suffixIndex === -1 ? argumentPrefix : argumentPrefix.slice(0, suffixIndex)).toLowerCase();
-  const { session, settings } = runtime.ctx;
-  const matches: AutocompleteItem[] = [];
-  for (const role of getKnownRoleIds(settings)) {
-   const configured = settings.getModelRole(role);
-   if (!configured) continue;
-   const alias = formatModelRoleAlias(role);
-   if (!alias.toLowerCase().includes(query)) continue;
-   matches.push({ value: `${alias}${suffix} `, label: alias, description: configured });
-  }
-  const scoped = session.scopedModels.map(entry => entry.model);
-  for (const model of scoped.length > 0 ? scoped : session.modelRegistry.getAvailable()) {
-   const selector = `${model.provider}/${model.id}`;
-   if (!selector.toLowerCase().includes(query)) continue;
-   matches.push({ value: `${selector}${suffix} `, label: selector, description: model.name });
-  }
-  return matches.length > 0 ? matches : null;
- };
+	return (argumentPrefix: string) => {
+		if (argumentPrefix.includes(" ")) return null;
+		const suffixIndex = argumentPrefix.indexOf(":");
+		const suffix = suffixIndex === -1 ? "" : argumentPrefix.slice(suffixIndex);
+		const query = (suffixIndex === -1 ? argumentPrefix : argumentPrefix.slice(0, suffixIndex)).toLowerCase();
+		const { session, settings } = runtime.ctx;
+		const matches: AutocompleteItem[] = [];
+		for (const role of getKnownRoleIds(settings)) {
+			const configured = settings.getModelRole(role);
+			if (!configured) continue;
+			const alias = formatModelRoleAlias(role);
+			if (!alias.toLowerCase().includes(query)) continue;
+			matches.push({ value: `${alias}${suffix} `, label: alias, description: configured });
+		}
+		const scoped = session.scopedModels.map(entry => entry.model);
+		for (const model of scoped.length > 0 ? scoped : session.modelRegistry.getAvailable()) {
+			const selector = `${model.provider}/${model.id}`;
+			if (!selector.toLowerCase().includes(query)) continue;
+			matches.push({ value: `${selector}${suffix} `, label: selector, description: model.name });
+		}
+		return matches.length > 0 ? matches : null;
+	};
 }
 
 /**
@@ -297,96 +297,96 @@ export function buildModelSelectorCompletions(
  * destination directory.
  */
 export function buildDirectoryArgumentCompletions(): (prefix: string) => Promise<AutocompleteItem[] | null> {
- return async (argumentPrefix: string) => {
-  const prefix = argumentPrefix.trim();
+	return async (argumentPrefix: string) => {
+		const prefix = argumentPrefix.trim();
 
-  const cwd = getProjectDir();
-  const expandedPrefix = expandTilde(prefix);
-  const isAbsolute = path.isAbsolute(expandedPrefix);
+		const cwd = getProjectDir();
+		const expandedPrefix = expandTilde(prefix);
+		const isAbsolute = path.isAbsolute(expandedPrefix);
 
-  let searchDir: string;
-  let searchPrefix: string;
-  if (
-   prefix === "" ||
-   prefix === "." ||
-   prefix === "./" ||
-   prefix === ".." ||
-   prefix === "../" ||
-   prefix === "~" ||
-   prefix === "~/" ||
-   prefix === "/"
-  ) {
-   searchDir = isAbsolute ? expandedPrefix : path.join(cwd, expandedPrefix);
-   searchPrefix = "";
-  } else if (expandedPrefix.endsWith("/")) {
-   searchDir = isAbsolute ? expandedPrefix : path.join(cwd, expandedPrefix);
-   searchPrefix = "";
-  } else {
-   const dir = path.dirname(expandedPrefix);
-   searchDir = isAbsolute ? dir : path.join(cwd, dir);
-   searchPrefix = path.basename(expandedPrefix);
-  }
+		let searchDir: string;
+		let searchPrefix: string;
+		if (
+			prefix === "" ||
+			prefix === "." ||
+			prefix === "./" ||
+			prefix === ".." ||
+			prefix === "../" ||
+			prefix === "~" ||
+			prefix === "~/" ||
+			prefix === "/"
+		) {
+			searchDir = isAbsolute ? expandedPrefix : path.join(cwd, expandedPrefix);
+			searchPrefix = "";
+		} else if (expandedPrefix.endsWith("/")) {
+			searchDir = isAbsolute ? expandedPrefix : path.join(cwd, expandedPrefix);
+			searchPrefix = "";
+		} else {
+			const dir = path.dirname(expandedPrefix);
+			searchDir = isAbsolute ? dir : path.join(cwd, dir);
+			searchPrefix = path.basename(expandedPrefix);
+		}
 
-  try {
-   const entries = await fs.readdir(searchDir, { withFileTypes: true });
-   const suggestions: AutocompleteItem[] = [];
-   for (const entry of entries) {
-    if (!entry.name.toLowerCase().startsWith(searchPrefix.toLowerCase())) continue;
-    if (entry.name === ".git") continue;
+		try {
+			const entries = await fs.readdir(searchDir, { withFileTypes: true });
+			const suggestions: AutocompleteItem[] = [];
+			for (const entry of entries) {
+				if (!entry.name.toLowerCase().startsWith(searchPrefix.toLowerCase())) continue;
+				if (entry.name === ".git") continue;
 
-    let isDirectory = entry.isDirectory();
-    if (!isDirectory && entry.isSymbolicLink()) {
-     try {
-      isDirectory = (await fs.stat(path.join(searchDir, entry.name))).isDirectory();
-     } catch {
-      continue;
-     }
-    }
-    if (!isDirectory) continue;
+				let isDirectory = entry.isDirectory();
+				if (!isDirectory && entry.isSymbolicLink()) {
+					try {
+						isDirectory = (await fs.stat(path.join(searchDir, entry.name))).isDirectory();
+					} catch {
+						continue;
+					}
+				}
+				if (!isDirectory) continue;
 
-    const absoluteValue = path.join(searchDir, entry.name);
-    const displayValue = buildDirectoryCompletionDisplayValue(prefix, absoluteValue, cwd);
-    suggestions.push({ value: displayValue, label: `${entry.name}/` });
-   }
-   suggestions.sort((a, b) => a.label.localeCompare(b.label));
-   return suggestions.length > 0 ? suggestions : null;
-  } catch {
-   return null;
-  }
- };
+				const absoluteValue = path.join(searchDir, entry.name);
+				const displayValue = buildDirectoryCompletionDisplayValue(prefix, absoluteValue, cwd);
+				suggestions.push({ value: displayValue, label: `${entry.name}/` });
+			}
+			suggestions.sort((a, b) => a.label.localeCompare(b.label));
+			return suggestions.length > 0 ? suggestions : null;
+		} catch {
+			return null;
+		}
+	};
 }
 function buildDirectoryCompletionDisplayValue(prefix: string, absoluteValue: string, cwd: string): string {
- // Preserve the user's prefix style where possible, but always return a
- // value that /move can resolve (absolute or relative) without escaping.
- const normalized = path.normalize(absoluteValue);
+	// Preserve the user's prefix style where possible, but always return a
+	// value that /move can resolve (absolute or relative) without escaping.
+	const normalized = path.normalize(absoluteValue);
 
- if (prefix.startsWith("~/")) {
-  const home = os.homedir();
-  const homeRelative = path.relative(home, normalized);
-  return `~/${homeRelative.replaceAll("\\", "/")}/`;
- }
- if (prefix === "~") {
-  const home = os.homedir();
-  const homeRelative = path.relative(home, normalized);
-  return `~/${homeRelative.replaceAll("\\", "/")}/`;
- }
- if (prefix.startsWith("/")) {
-  return `${normalized.replaceAll("\\", "/")}/`;
- }
- if (prefix.startsWith("./")) {
-  const relative = path.relative(cwd, normalized);
-  return `./${relative.replaceAll("\\", "/")}/`;
- }
- if (prefix.startsWith("../")) {
-  const relative = path.relative(cwd, normalized);
-  return `${relative.replaceAll("\\", "/")}/`;
- }
- if (prefix === "..") {
-  const relative = path.relative(cwd, normalized);
-  return `${relative.replaceAll("\\", "/")}/`;
- }
+	if (prefix.startsWith("~/")) {
+		const home = os.homedir();
+		const homeRelative = path.relative(home, normalized);
+		return `~/${homeRelative.replaceAll("\\", "/")}/`;
+	}
+	if (prefix === "~") {
+		const home = os.homedir();
+		const homeRelative = path.relative(home, normalized);
+		return `~/${homeRelative.replaceAll("\\", "/")}/`;
+	}
+	if (prefix.startsWith("/")) {
+		return `${normalized.replaceAll("\\", "/")}/`;
+	}
+	if (prefix.startsWith("./")) {
+		const relative = path.relative(cwd, normalized);
+		return `./${relative.replaceAll("\\", "/")}/`;
+	}
+	if (prefix.startsWith("../")) {
+		const relative = path.relative(cwd, normalized);
+		return `${relative.replaceAll("\\", "/")}/`;
+	}
+	if (prefix === "..") {
+		const relative = path.relative(cwd, normalized);
+		return `${relative.replaceAll("\\", "/")}/`;
+	}
 
- // Default: relative to cwd.
- const relative = path.relative(cwd, normalized);
- return `${relative.replaceAll("\\", "/")}/`;
+	// Default: relative to cwd.
+	const relative = path.relative(cwd, normalized);
+	return `${relative.replaceAll("\\", "/")}/`;
 }

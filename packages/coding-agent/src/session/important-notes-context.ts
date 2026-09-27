@@ -224,7 +224,12 @@ export class ImportantNotesContext {
 
 		const injectEnabled = options.notesTool !== undefined && policy.injectMode !== "off";
 		const boundaryKey = boundaryId ?? "root";
-		const reference = injectEnabled ? referenceMessage(branch, options.obfuscator, policy.timestamps) : undefined;
+		// forceInject (operator /notes) bypasses the injectMode gate: the
+		// reference still requires notes to exist (referenceMessage handles that).
+		const reference =
+			injectEnabled || options.forceInject === true
+				? referenceMessage(branch, options.obfuscator, policy.timestamps)
+				: undefined;
 
 		const turnCount = countAssistantMessages(messages);
 		const boundaryChanged = (boundaryId ?? null) !== this.#injectedBoundaryId;

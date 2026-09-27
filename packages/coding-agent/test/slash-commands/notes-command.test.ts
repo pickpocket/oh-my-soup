@@ -8,15 +8,20 @@ import {
 import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
 import { executeBuiltinSlashCommand } from "@oh-my-soup/pi-coding-agent/slash-commands/builtin-registry";
 
-function createHarness(manager: SessionManager) {
+function createHarness(
+	manager: SessionManager,
+	settings: { get(path: string): unknown } = {
+		// searchModel "off" keeps /notes search deterministic: no model/network
+		// pass, so regex assertions never depend on a provider.
+		get: (path: string) => (path === "notes.searchModel" ? "off" : undefined),
+	},
+) {
 	const requestNotesReference = vi.fn();
 	const outputs: string[] = [];
 	const ctx = {
 		session: { requestNotesReference },
 		sessionManager: { getCwd: () => manager.getCwd(), getBranch: () => manager.getBranch() },
-		// searchModel "off" keeps /notes search deterministic: no model/network
-		// pass, so regex assertions never depend on a provider.
-		settings: { get: (path: string) => (path === "notes.searchModel" ? "off" : undefined) },
+		settings,
 		editor: { setText: () => { } },
 		showStatus: (text: string) => {
 			outputs.push(text);
@@ -123,6 +128,28 @@ describe("/notes slash command", () => {
 		await executeBuiltinSlashCommand("/notes show nope", { ctx });
 		expect(requestNotesReference).not.toHaveBeenCalled();
 		expect(outputs.join("\n")).toContain("Note not found: nope");
+	});
+
+	it("refuses inject when notes.inject is off instead of printing false success", async () => {
+		const manager = SessionManager.inMemory();
+		seed(manager);
+		const { ctx, requestNotesReference, outputs } = createHarness(manager, {
+			get: (path: string) => (path === "notes.inject" ? "off" : path === "notes.enabled" ? true : undefined),
+		});
+		await executeBuiltinSlashCommand("/notes inject", { ctx });
+		expect(requestNotesReference).not.toHaveBeenCalled();
+		expect(outputs.join("\n")).toContain("notes.inject=off");
+	});
+
+	it("refuses inject when notes are disabled entirely", async () => {
+		const manager = SessionManager.inMemory();
+		seed(manager);
+		const { ctx, requestNotesReference, outputs } = createHarness(manager, {
+			get: (path: string) => (path === "notes.enabled" ? false : undefined),
+		});
+		await executeBuiltinSlashCommand("/notes inject", { ctx });
+		expect(requestNotesReference).not.toHaveBeenCalled();
+		expect(outputs.join("\n")).toContain("notes.enabled=false");
 	});
 
 	it("search without a pattern prints usage", async () => {

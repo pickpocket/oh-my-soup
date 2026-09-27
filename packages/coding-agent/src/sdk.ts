@@ -979,9 +979,9 @@ export async function buildSystemPrompt(options: BuildSystemPromptOptions = {}):
 	const toolMap = options.tools ? new Map(options.tools.map(tool => [tool.name, tool])) : undefined;
 	const promptTools = toolMap
 		? projectSystemPromptToolMetadata(
-			toolMap,
-			options.inlineToolDescriptors ? { mode: "full" } : { mode: "compact", toolNames: toolNames ?? [] },
-		)
+				toolMap,
+				options.inlineToolDescriptors ? { mode: "full" } : { mode: "compact", toolNames: toolNames ?? [] },
+			)
 		: undefined;
 	return await buildSystemPromptInternal({
 		cwd: options.cwd,
@@ -1081,14 +1081,14 @@ export function customToolToDefinition(tool: CustomTool, sourcePath?: string): T
 		renderCall: tool.renderCall,
 		renderResult: tool.renderResult
 			? (result, options, theme): Component => {
-				const component = tool.renderResult?.(
-					result,
-					{ expanded: options.expanded, isPartial: options.isPartial, spinnerFrame: options.spinnerFrame },
-					theme,
-				);
-				// Return empty component if undefined to match Component type requirement
-				return component ?? ({ render: () => [] } as unknown as Component);
-			}
+					const component = tool.renderResult?.(
+						result,
+						{ expanded: options.expanded, isPartial: options.isPartial, spinnerFrame: options.spinnerFrame },
+						theme,
+					);
+					// Return empty component if undefined to match Component type requirement
+					return component ?? ({ render: () => [] } as unknown as Component);
+				}
 			: undefined,
 		[TOOL_DEFINITION_MARKER]: true,
 	};
@@ -1470,9 +1470,9 @@ async function createAgentSessionScoped(options: CreateAgentSessionOptions): Pro
 	const discoveredSkillsPromise =
 		options.skills === undefined
 			? logger.time("discoverSkills", discoverSkills, cwd, agentDir, {
-				...skillsSettings,
-				disabledExtensions: disabledExtensionIds,
-			})
+					...skillsSettings,
+					disabledExtensions: disabledExtensionIds,
+				})
 			: undefined;
 	discoveredSkillsPromise?.catch(() => { });
 
@@ -3280,9 +3280,9 @@ async function createAgentSessionScoped(options: CreateAgentSessionOptions): Pro
 			const autoLearnInstructions = restrictToolNames
 				? undefined
 				: buildAutoLearnInstructions({
-					manageSkill: builtInToolNames.includes("manage_skill"),
-					learn: builtInToolNames.includes("learn"),
-				});
+						manageSkill: builtInToolNames.includes("manage_skill"),
+						learn: builtInToolNames.includes("learn"),
+					});
 			const appendParts: string[] = [];
 			if (memoryInstructions) appendParts.push(memoryInstructions);
 			if (autoLearnInstructions) appendParts.push(autoLearnInstructions);
@@ -3461,8 +3461,8 @@ async function createAgentSessionScoped(options: CreateAgentSessionOptions): Pro
 		const alwaysInclude: string[] = restrictToolNames
 			? []
 			: [...sdkCustomTools.map(t => t.name), ...registeredTools.map(t => t.definition.name)].filter(
-				name => !defaultInactiveToolNames.has(name),
-			);
+					name => !defaultInactiveToolNames.has(name),
+				);
 		for (const name of alwaysInclude) {
 			if (toolRegistry.has(name) && !initialToolNames.includes(name)) {
 				initialToolNames.push(name);
@@ -3650,18 +3650,18 @@ async function createAgentSessionScoped(options: CreateAgentSessionOptions): Pro
 		const snapcompactInline =
 			snapcompactSystemPromptMode !== "none" || settings.get("snapcompact.toolResults")
 				? new SnapcompactInlineTransformer(
-					{
-						renderSystemPrompt: snapcompactSystemPromptMode,
-						renderToolResults: settings.get("snapcompact.toolResults"),
-						shape: settings.get("snapcompact.shape"),
-					},
-					// Journal the tokens each imaged tool result keeps off the wire
-					// (frames never reach session.jsonl, so this is their only trace).
-					createSnapcompactSavingsRecorder(() => sessionManager.getSessionFile() ?? null),
-					// With a serving blob broker, frames become lazy URLs: rasterized
-					// only when a provider fetches them, never held as pixels here.
-					blobBroker?.frameSink,
-				)
+						{
+							renderSystemPrompt: snapcompactSystemPromptMode,
+							renderToolResults: settings.get("snapcompact.toolResults"),
+							shape: settings.get("snapcompact.shape"),
+						},
+						// Journal the tokens each imaged tool result keeps off the wire
+						// (frames never reach session.jsonl, so this is their only trace).
+						createSnapcompactSavingsRecorder(() => sessionManager.getSessionFile() ?? null),
+						// With a serving blob broker, frames become lazy URLs: rasterized
+						// only when a provider fetches them, never held as pixels here.
+						blobBroker?.frameSink,
+					)
 				: undefined;
 		const transformProviderContext = async (context: Context, transformModel: Model): Promise<Context> => {
 			let transformed = await applyModelPromptFile(context, transformModel, settings.get("systemPromptFiles"));
@@ -3711,10 +3711,10 @@ async function createAgentSessionScoped(options: CreateAgentSessionOptions): Pro
 			(hasServiceTierEntry
 				? (existingSession.serviceTier ?? {})
 				: buildServiceTierByFamily(
-					settings.get("tier.openai"),
-					settings.get("tier.anthropic"),
-					settings.get("tier.google"),
-				));
+						settings.get("tier.openai"),
+						settings.get("tier.anthropic"),
+						settings.get("tier.google"),
+					));
 		const persistInitialServiceTier =
 			options.openAIServiceTier !== undefined || resolvedServiceTierByFamily !== undefined;
 		const initialServiceTierByFamily = { ...configuredServiceTierByFamily };
@@ -4020,9 +4020,9 @@ async function createAgentSessionScoped(options: CreateAgentSessionOptions): Pro
 			toolRegistry,
 			reconcileBrowserMcpFilter: mcpManager
 				? async enabled => {
-					await mcpManager.reconcileBrowserFilter(enabled);
-					return mcpManager.getTools();
-				}
+						await mcpManager.reconcileBrowserFilter(enabled);
+						return mcpManager.getTools();
+					}
 				: undefined,
 			memoryEnabled: !restrictToolNames,
 			memoryAgentDir: agentDir,
@@ -4030,11 +4030,11 @@ async function createAgentSessionScoped(options: CreateAgentSessionOptions): Pro
 			createMemoryTools: restrictToolNames
 				? undefined
 				: async () => {
-					const tools = await Promise.all(
-						MEMORY_BACKEND_TOOL_NAMES.map(name => BUILTIN_TOOLS[name](toolSession)),
-					);
-					return tools.filter((tool): tool is AgentTool => tool !== null);
-				},
+						const tools = await Promise.all(
+							MEMORY_BACKEND_TOOL_NAMES.map(name => BUILTIN_TOOLS[name](toolSession)),
+						);
+						return tools.filter((tool): tool is AgentTool => tool !== null);
+					},
 			createThinkTool: async () => (await HIDDEN_TOOLS.think(toolSession)) ?? null,
 			createVibeTools:
 				(options.taskDepth ?? 0) === 0 && !options.parentTaskPrefix
@@ -4066,17 +4066,17 @@ async function createAgentSessionScoped(options: CreateAgentSessionOptions): Pro
 			ensureGoalRegistered,
 			getMcpServerInstructions: mcpManager
 				? () => {
-					const raw = mcpManager.getServerInstructions();
-					if (!raw || raw.size === 0) return raw;
-					const out = new Map<string, string>();
-					for (const [name, text] of raw) {
-						out.set(
-							name,
-							text.length > MAX_MCP_INSTRUCTIONS_LENGTH ? text.slice(0, MAX_MCP_INSTRUCTIONS_LENGTH) : text,
-						);
+						const raw = mcpManager.getServerInstructions();
+						if (!raw || raw.size === 0) return raw;
+						const out = new Map<string, string>();
+						for (const [name, text] of raw) {
+							out.set(
+								name,
+								text.length > MAX_MCP_INSTRUCTIONS_LENGTH ? text.slice(0, MAX_MCP_INSTRUCTIONS_LENGTH) : text,
+							);
+						}
+						return out;
 					}
-					return out;
-				}
 				: undefined,
 			disconnectOwnedMcpManager: ownedMcpManager ? () => ownedMcpManager.disconnectAll() : undefined,
 			ttsrManager,
@@ -4325,8 +4325,8 @@ async function createAgentSessionScoped(options: CreateAgentSessionOptions): Pro
 					try {
 						const codexPrewarmApiKey = options.getApiKey
 							? // `getApiKey` returns a value-or-promise union; unwrap the promise,
-							// then resolve the result if it is itself an ApiKeyResolver.
-							await resolveApiKeyOnce(await options.getApiKey(codexModel))
+								// then resolve the result if it is itself an ApiKeyResolver.
+								await resolveApiKeyOnce(await options.getApiKey(codexModel))
 							: await modelRegistry.getApiKey(codexModel, providerSessionId);
 						if (!codexPrewarmApiKey) return;
 						await logger.time("prewarmOpenAICodexResponses", prewarmOpenAICodexResponses, codexModel, {

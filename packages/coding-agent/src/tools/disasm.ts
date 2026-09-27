@@ -192,10 +192,6 @@ export class DisasmTool implements AgentTool<typeof disasmSchema, DisasmToolDeta
 			call: { action: "open", backend: "ida", file: "./sample.exe", output_db: "./sample.i64" },
 		},
 		{
-			caption: "Open a binary in a managed headless Ghidra worker",
-			call: { action: "open", backend: "ghidra", file: "./sample.exe", output_db: "./sample.gpr" },
-		},
-		{
 			caption: "Open a binary in a managed headless Binary Ninja worker",
 			call: {
 				action: "open",
@@ -204,14 +200,35 @@ export class DisasmTool implements AgentTool<typeof disasmSchema, DisasmToolDeta
 				output_db: "./sample.bndb",
 			},
 		},
-		{ caption: "Discover IDA databases", call: { action: "list", backend: "ida" } },
 		{
-			caption: "Find named functions through the shared SQL interface",
+			caption: "Discover available tables and columns (single query)",
+			call: { action: "query", backend: "ida", target: "idalib-1234", sql: "SELECT table_name FROM sql_tables;" },
+		},
+		{
+			caption: "Find named functions with LIMIT (pre-resolve func_id)",
 			call: {
 				action: "query",
 				backend: "ida",
 				target: "idalib-1234",
-				sql: "SELECT name, start_ea FROM funcs WHERE name LIKE '%auth%' LIMIT 20",
+				sql: "SELECT func_id, start_ea FROM funcs WHERE name LIKE '%auth%' LIMIT 20",
+			},
+		},
+		{
+			caption: "Query instructions using pre-resolved func_id",
+			call: {
+				action: "query",
+				backend: "ida",
+				target: "idalib-1234",
+				sql: "SELECT address, text FROM instructions WHERE func_id=':func_id' LIMIT 200",
+			},
+		},
+		{
+			caption: "Use RETURNING for mutations (no follow-up SELECT)",
+			call: {
+				action: "query",
+				backend: "ida",
+				target: "idalib-1234",
+				sql: "UPDATE funcs SET name='my_func' WHERE func_id=':id' RETURNING func_id, name, start_ea",
 			},
 		},
 		{
@@ -483,7 +500,9 @@ function formatTargets(backend: string, targets: DisassemblerTarget[]): string {
 }
 
 function formatQuery(query: DisassemblerQueryResult): string {
-	return `${query.rows.length} row${query.rows.length === 1 ? "" : "s"}`;
+	const cols = query.columns.length;
+	const rows = query.rows.length;
+	return `${rows} row${rows === 1 ? "" : "s"} (${cols} column${cols === 1 ? "" : "s"})`;
 }
 
 function formatExecution(execution: DisassemblerExecutionResult): string {

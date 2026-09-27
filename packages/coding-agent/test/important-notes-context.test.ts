@@ -21,6 +21,14 @@ function save(manager: SessionManager, notes: ImportantNote[]): void {
 	manager.appendCustomEntry(IMPORTANT_NOTES_CUSTOM_TYPE, { version: 1, notes });
 }
 
+const basePolicy = {
+	timestamps: true,
+	injectMode: "compaction" as const,
+	injectCadence: 25,
+	autoUpdate: false,
+	autoUpdateCadence: 10,
+};
+
 function options(
 	manager: SessionManager,
 	overrides: Partial<ImportantNotesContextOptions> = {},
@@ -35,6 +43,7 @@ function options(
 		nonMessageTokens: 0,
 		storedMessagesTokens: 0,
 		notesTool: "notes",
+		policy: basePolicy,
 		...overrides,
 	};
 }
@@ -50,13 +59,34 @@ function deliver(
 }
 
 function reminders(messages: AgentMessage[]): AgentMessage[] {
-	return messages.filter(message => message.role === "developer");
+	return messages.filter(
+		message =>
+			message.role === "developer" &&
+			typeof message.content === "string" &&
+			message.content.includes("<context-headroom-reminder>"),
+	);
+}
+
+function nudges(messages: AgentMessage[]): AgentMessage[] {
+	return messages.filter(
+		message =>
+			message.role === "developer" &&
+			typeof message.content === "string" &&
+			message.content.includes("<notes-update-due>"),
+	);
 }
 
 function referenceNotes(messages: AgentMessage[]): ImportantNote[] {
 	const reference = messages.at(-1);
-	if (reference?.role !== "user" || typeof reference.content !== "string") throw new Error("Missing note reference");
-	return JSON.parse(reference.content.slice(reference.content.indexOf("[{"))) as ImportantNote[];
+	if (reference?.role !== "developer" || typeof reference.content !== "string") {
+		throw new Error("Missing note reference");
+	}
+	const start = reference.content.indexOf("[{");
+	const end = reference.content.lastIndexOf("]");
+	if (start < 0 || end <= start) {
+		throw new Error(`Reference JSON not found in: ${reference.content.slice(0, 200)}`);
+	}
+	return JSON.parse(reference.content.slice(start, end + 1)) as ImportantNote[];
 }
 
 describe("important notes request projection", () => {
@@ -99,18 +129,18 @@ describe("important notes request projection", () => {
 		const quiet = () => options(manager, { branch: manager.getBranch() });
 		const first = context.transform([], quiet());
 		const firstReference = first.messages.at(-1);
-		if (firstReference?.role !== "user") throw new Error("Expected the reference tail");
+		if (firstReference?.role !== "developer") throw new Error("Expected the reference tail");
 		expect(firstReference.attribution).toBe("user");
 		expect(first.referenceTokens).toBeGreaterThan(0);
 		// Request-local copies: corrupting one projection must not leak into the
 		// next render (or the memoized count) of the same saved snapshot.
 		firstReference.content = "tampered";
-		const second = context.transform([], quiet());
+		const second = context.transform([], { ...quiet(), forceInject: true });
 		expect(second.referenceTokens).toBe(first.referenceTokens);
 		expect(referenceNotes(second.messages)).toEqual([{ key: "server", text: "bun run dev --port 8123" }]);
 		// A new snapshot invalidates the memo and renders the updated notes.
 		save(manager, [{ key: "server", text: "bun run dev --port 8124" }]);
-		expect(referenceNotes(context.transform([], quiet()).messages)).toEqual([
+		expect(referenceNotes(context.transform([], { ...quiet(), forceInject: true }).messages)).toEqual([
 			{ key: "server", text: "bun run dev --port 8124" },
 		]);
 	});
@@ -149,8 +179,8 @@ describe("important notes request projection", () => {
 			const normalized = convertToLlm(projection.messages);
 			expect(inferCopilotInitiator(normalized)).toBe(initiator);
 			const reference = normalized.at(-1);
-			expect(reference?.role).toBe("user");
-			if (reference?.role !== "user") throw new Error("Expected the saved-note reference at the request tail");
+			expect(reference?.role).toBe("developer");
+			if (reference?.role !== "developer") throw new Error("Expected the saved-note reference at the request tail");
 			expect(reference.attribution).toBe(initiator);
 			const withoutNotes = context.transform(messages, {
 				...options(manager, { nonMessageTokens: 9000 }),
@@ -193,6 +223,7 @@ describe("important notes request projection", () => {
 						options(manager, {
 							compaction: setting,
 							nonMessageTokens: threshold * 0.8 - notesTokens - 1,
+							forceInject: true,
 						}),
 					),
 				),
@@ -205,6 +236,7 @@ describe("important notes request projection", () => {
 						options(manager, {
 							compaction: setting,
 							nonMessageTokens: threshold * 0.8 - notesTokens,
+							forceInject: true,
 						}),
 					),
 				),
@@ -225,14 +257,15 @@ describe("important notes request projection", () => {
 		).toHaveLength(0);
 	});
 
-	it("does not consume an inaccessible reminder and keeps notes visible when tools are disabled", () => {
+	it("does not consume an inaccessible reminder and gates injection on the notes tool", () => {
 		const manager = SessionManager.inMemory();
 		save(manager, [{ key: "artifact", text: "local://trace.json" }]);
 		const context = new ImportantNotesContext();
 		const disabled = options(manager, { notesTool: undefined, nonMessageTokens: 9000 });
 		const projected = deliver(context, [], disabled);
 		expect(reminders(projected)).toHaveLength(0);
-		expect(referenceNotes(projected)).toEqual([{ key: "artifact", text: "local://trace.json" }]);
+		// Without any notes tool there is nothing to inject: the reference is gone.
+		expect(projected).toHaveLength(0);
 		expect(reminders(deliver(context, [], { ...disabled, notesTool: "xd" }))).toHaveLength(1);
 		expect(reminders(deliver(context, [], { ...disabled, notesTool: "xd" }))).toHaveLength(0);
 	});
@@ -284,10 +317,15 @@ describe("important notes request projection", () => {
 		appendOnly.syncMessages(convertToLlm(first));
 		appendOnly.syncMessages(
 			convertToLlm(
-				deliver(context, [...messages, { role: "user", content: "next", timestamp: 3 }], options(manager)),
+				deliver(context, [...messages, { role: "user", content: "next", timestamp: 3 }], {
+					...options(manager),
+					forceInject: true,
+				}),
 			),
 		);
-		expect(appendOnly.log.toMessages().filter(message => message.role === "user")).toHaveLength(3);
+		// The request-only reference (developer role) never enters durable history.
+		expect(appendOnly.log.toMessages().filter(message => message.role === "user")).toHaveLength(2);
+		expect(appendOnly.log.toMessages().filter(message => message.role === "developer")).toHaveLength(1);
 		expect(manager.getBranch()).toEqual(branchBefore);
 		expect(messages).toHaveLength(1);
 		manager.branch(beforeUpdate);
@@ -357,5 +395,109 @@ describe("important notes request projection", () => {
 		expect(referenceNotes(projected)).toEqual(notes);
 		expect(reminders(projected)).toHaveLength(0);
 		expect(reminders(deliver(context, [], options(manager, { nonMessageTokens: 9000 })))).toHaveLength(1);
+	});
+
+	it("gates the reference to boundary changes: injects once, then only after a new boundary or force", () => {
+		const manager = SessionManager.inMemory();
+		save(manager, [{ key: "cwd", text: "/work/one" }]);
+		const context = new ImportantNotesContext();
+		const plain = () => options(manager, { branch: manager.getBranch() });
+		// Session start counts as a boundary: the resume-time snapshot ships once.
+		expect(referenceNotes(deliver(context, [], plain()))).toEqual([{ key: "cwd", text: "/work/one" }]);
+		// Steady state: no reference and zero reference tokens.
+		const quiet = context.transform([], plain());
+		expect(quiet.messages).toHaveLength(0);
+		expect(quiet.referenceTokens).toBe(0);
+		// A compaction boundary re-injects exactly once.
+		const root = manager.appendMessage({ role: "user", content: "root", timestamp: 1 });
+		manager.appendCompaction("compacted", undefined, root, 12_000);
+		expect(referenceNotes(deliver(context, [], plain()))).toEqual([{ key: "cwd", text: "/work/one" }]);
+		expect(context.transform([], plain()).messages).toHaveLength(0);
+		// Operator force injects one-shot without latching the boundary.
+		expect(referenceNotes(context.transform([], { ...plain(), forceInject: true }).messages)).toEqual([
+			{ key: "cwd", text: "/work/one" },
+		]);
+		expect(context.transform([], plain()).messages).toHaveLength(0);
+	});
+
+	it("honors inject mode off and turn-cadence reinjection", () => {
+		const manager = SessionManager.inMemory();
+		save(manager, [{ key: "port", text: "8123" }]);
+		const off = new ImportantNotesContext();
+		expect(
+			off.transform([], options(manager, { policy: { ...basePolicy, injectMode: "off" } })).messages,
+		).toHaveLength(0);
+		const turns = new ImportantNotesContext();
+		const turnOptions = () =>
+			options(manager, {
+				policy: { ...basePolicy, injectMode: "turns", injectCadence: 2 },
+				branch: manager.getBranch(),
+			});
+		const context = (count: number): AgentMessage[] => [
+			{ role: "user", content: "work", timestamp: 1 },
+			...Array.from({ length: count }, (_, index) => createAssistantMessage(`turn ${index}`)),
+		];
+		const first = turns.transform(context(0), turnOptions());
+		expect(referenceNotes(first.messages)).toEqual([{ key: "port", text: "8123" }]);
+		first.acknowledgeDelivery();
+		// One assistant turn below the cadence: nothing appended to the request.
+		const input = context(1);
+		expect(turns.transform(input, turnOptions()).messages).toEqual(input);
+		// Two assistant turns since the injection mark: reinject.
+		expect(referenceNotes(turns.transform(context(2), turnOptions()).messages)).toEqual([
+			{ key: "port", text: "8123" },
+		]);
+	});
+
+	it("nudges a notes update after the turn cadence and goes quiet after a mutation", () => {
+		const manager = SessionManager.inMemory();
+		save(manager, [{ key: "cwd", text: "/work" }]);
+		const context = new ImportantNotesContext();
+		const opts = () =>
+			options(manager, {
+				policy: { ...basePolicy, autoUpdate: true, autoUpdateCadence: 2 },
+				branch: manager.getBranch(),
+			});
+		// The snapshot save anchors the counter at zero turns.
+		expect(nudges(deliver(context, [], opts()))).toHaveLength(0);
+		manager.appendMessage(createAssistantMessage("turn 1"));
+		manager.appendMessage(createAssistantMessage("turn 2"));
+		// Two assistant turns since the last notes entry: the harness nudge ships.
+		const nudged = context.transform([], opts());
+		expect(nudges(nudged.messages)).toHaveLength(1);
+		expect(reminders(nudged.messages)).toHaveLength(0);
+		nudged.acknowledgeDelivery();
+		// Same counter, already nudged: quiet.
+		expect(nudges(context.transform([], opts()).messages)).toHaveLength(0);
+		// One more turn without a mutation: nudge again.
+		manager.appendMessage(createAssistantMessage("turn 3"));
+		expect(nudges(context.transform([], opts()).messages)).toHaveLength(1);
+		// A notes mutation resets the counter: the nudge goes quiet.
+		manager.appendCustomEntry(IMPORTANT_NOTES_CUSTOM_TYPE, {
+			version: 2,
+			op: "set",
+			key: "cwd",
+			text: "/work/two",
+			at: "2026-09-27T13:44:22.000Z",
+		});
+		expect(nudges(context.transform([], opts()).messages)).toHaveLength(0);
+	});
+
+	it("omits updatedAt stamps from the injected JSON when timestamps are off", () => {
+		const manager = SessionManager.inMemory();
+		manager.appendCustomEntry(IMPORTANT_NOTES_CUSTOM_TYPE, {
+			version: 2,
+			op: "set",
+			key: "server",
+			text: "bun run dev",
+			at: "2026-09-27T13:44:22.000Z",
+		});
+		const hidden = new ImportantNotesContext().transform(
+			[],
+			options(manager, { policy: { ...basePolicy, timestamps: false } }),
+		);
+		expect(JSON.stringify(hidden.messages)).not.toContain("updatedAt");
+		const shown = new ImportantNotesContext().transform([], options(manager));
+		expect(JSON.stringify(shown.messages)).toContain("updatedAt");
 	});
 });

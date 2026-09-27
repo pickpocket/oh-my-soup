@@ -127,7 +127,7 @@ export {
 	type StatusLineSeparatorStyle,
 } from "@oh-my-soup/pi-tui/status-line/schema";
 
-interface UiBoolean extends UiBase {}
+interface UiBoolean extends UiBase { }
 
 interface UiEnum<T extends readonly string[]> extends UiBase {
 	/** Submenu options. When omitted, the enum renders as an inline toggle derived from `values`. */
@@ -2742,6 +2742,89 @@ export const SETTINGS_SCHEMA = {
 	"compaction.remoteEndpoint": { type: "string", default: undefined },
 
 	"compaction.v2RetainedMessageBudget": { type: "number", default: 64000 },
+
+	// Session notes (important-notes): event-sourced journal storage, gated
+	// reference injection, and turn-cadence update nudges. The reference rides
+	// the request tail only when the policy says so; /notes reinjects on demand.
+	"notes.enabled": {
+		type: "boolean",
+		default: true,
+		ui: {
+			tab: "memory",
+			group: "Session Notes",
+			label: "Notes tool",
+			description: "Enable the session notes tool, its journal storage, and reference injection",
+		},
+	},
+	"notes.timestamps": {
+		type: "boolean",
+		default: true,
+		ui: {
+			tab: "memory",
+			group: "Session Notes",
+			label: "Note timestamps",
+			description: "Stamp each note with its last-update date and show it in lists and injected context",
+		},
+	},
+	"notes.inject": {
+		type: "enum",
+		values: ["compaction", "turns", "off"] as const,
+		default: "compaction",
+		ui: {
+			tab: "memory",
+			group: "Session Notes",
+			label: "Reinject notes",
+			description:
+				"When the saved-notes reference is attached to the model context: after compaction (default), on a turn cadence, or never",
+			options: [
+				{
+					value: "compaction",
+					label: "After compaction",
+					description: "Reattach notes once after each compaction, /clear, or session resume",
+				},
+				{
+					value: "turns",
+					label: "Every N turns",
+					description: "Reattach notes periodically using the reinject cadence below",
+				},
+				{
+					value: "off",
+					label: "Never",
+					description: "Never attach notes automatically; the agent reads them with notes list",
+				},
+			],
+		},
+	},
+	"notes.injectCadence": {
+		type: "number",
+		default: 25,
+		ui: {
+			tab: "memory",
+			group: "Session Notes",
+			label: "Reinject cadence (turns)",
+			description: "Assistant turns between reinjections when reinject notes is set to every N turns",
+		},
+	},
+	"notes.autoUpdate": {
+		type: "boolean",
+		default: true,
+		ui: {
+			tab: "memory",
+			group: "Session Notes",
+			label: "Auto-update nudges",
+			description: "Nudge the model to update its notes as the last action of a turn",
+		},
+	},
+	"notes.autoUpdateCadence": {
+		type: "number",
+		default: 10,
+		ui: {
+			tab: "memory",
+			group: "Session Notes",
+			label: "Update cadence (turns)",
+			description: "Assistant turns without a notes update before the nudge fires",
+		},
+	},
 
 	// Idle compaction
 	"compaction.idleEnabled": {
@@ -6556,22 +6639,22 @@ export type SettingPath = keyof Schema;
 export type SettingValue<P extends SettingPath> = Schema[P] extends { type: "boolean"; default: undefined }
 	? boolean | undefined
 	: Schema[P] extends { type: "boolean" }
-		? boolean
-		: Schema[P] extends { type: "string" }
-			? string | undefined
-			: Schema[P] extends { type: "number"; default: undefined }
-				? number | undefined
-				: Schema[P] extends { type: "number" }
-					? number
-					: Schema[P] extends { type: "enum"; values: infer V }
-						? V extends readonly string[]
-							? V[number]
-							: never
-						: Schema[P] extends { type: "array"; default: infer D }
-							? D
-							: Schema[P] extends { type: "record"; default: infer D }
-								? D
-								: never;
+	? boolean
+	: Schema[P] extends { type: "string" }
+	? string | undefined
+	: Schema[P] extends { type: "number"; default: undefined }
+	? number | undefined
+	: Schema[P] extends { type: "number" }
+	? number
+	: Schema[P] extends { type: "enum"; values: infer V }
+	? V extends readonly string[]
+	? V[number]
+	: never
+	: Schema[P] extends { type: "array"; default: infer D }
+	? D
+	: Schema[P] extends { type: "record"; default: infer D }
+	? D
+	: never;
 
 /** Get the default value for a setting path */
 export function getDefault<P extends SettingPath>(path: P): SettingValue<P> {
@@ -6827,6 +6910,15 @@ export interface GcSettings {
 	retainNewestPerCwd: number;
 }
 
+export interface NotesSettings {
+	enabled: boolean;
+	timestamps: boolean;
+	inject: "compaction" | "turns" | "off";
+	injectCadence: number;
+	autoUpdate: boolean;
+	autoUpdateCadence: number;
+}
+
 /** Map group prefix -> typed settings interface */
 export interface GroupTypeMap {
 	compaction: CompactionSettings;
@@ -6849,6 +6941,7 @@ export interface GroupTypeMap {
 	shellMinimizer: ShellMinimizerSettings;
 	codexResets: CodexResetsSettings;
 	gc: GcSettings;
+	notes: NotesSettings;
 }
 
 export type GroupPrefix = keyof GroupTypeMap;

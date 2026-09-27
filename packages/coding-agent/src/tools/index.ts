@@ -719,6 +719,7 @@ export async function createTools(session: ToolSession, toolNames?: string[]): P
 		if (name === "ast_grep") return session.settings.get("astGrep.enabled");
 		if (name === "ast_edit") return session.settings.get("astEdit.enabled");
 		if (name === "web_search") return session.settings.get("web_search.enabled");
+		if (name === "notes") return session.settings.get("notes.enabled");
 		if (name === "security_scan") return session.settings.get("security.enabled");
 		if (name === "think") return thinkToolEnabled;
 		if (name === "ask") return session.settings.get("ask.enabled");
@@ -762,13 +763,13 @@ export async function createTools(session: ToolSession, toolNames?: string[]): P
 		filteredRequestedTools !== undefined
 			? filteredRequestedTools.map(name => [name, allTools[name]] as const)
 			: [
-					...Object.entries(BUILTIN_TOOLS)
-						.filter(([name]) => isToolAllowed(name))
-						.map(([name, factory]) => [name, factory] as const),
-					...(thinkToolEnabled ? ([["think", HIDDEN_TOOLS.think]] as const) : []),
-					...(includeYield ? ([["yield", HIDDEN_TOOLS.yield]] as const) : []),
-					...(goalModeActive ? ([["goal", HIDDEN_TOOLS.goal]] as const) : []),
-				];
+				...Object.entries(BUILTIN_TOOLS)
+					.filter(([name]) => isToolAllowed(name))
+					.map(([name, factory]) => [name, factory] as const),
+				...(thinkToolEnabled ? ([["think", HIDDEN_TOOLS.think]] as const) : []),
+				...(includeYield ? ([["yield", HIDDEN_TOOLS.yield]] as const) : []),
+				...(goalModeActive ? ([["goal", HIDDEN_TOOLS.goal]] as const) : []),
+			];
 
 	const activeToolNames = new Set(baseEntries.map(([name]) => name));
 	if (session.setActiveToolNames) {

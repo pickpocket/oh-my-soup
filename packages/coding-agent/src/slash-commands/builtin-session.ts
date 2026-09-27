@@ -2,6 +2,7 @@ import * as path from "node:path";
 import { getOAuthProviders } from "@oh-my-soup/pi-ai/oauth";
 import type { AgentSession } from "../session/agent-session";
 import type { SessionOAuthAccountList } from "../session/agent-session-types";
+import { formatNoteTimestamp, getImportantNotesFromEntries, type ImportantNote } from "../session/important-notes";
 import {
 	type ModelPromptBinding,
 	modelPromptKey,
@@ -60,11 +61,11 @@ async function handleUsageResetCommand(
 		wanted === "active"
 			? accounts.find(account => account.active)
 			: accounts.find(
-					account =>
-						account.label.toLowerCase() === wanted ||
-						account.target.email?.toLowerCase() === wanted ||
-						account.target.accountId?.toLowerCase() === wanted,
-				);
+				account =>
+					account.label.toLowerCase() === wanted ||
+					account.target.email?.toLowerCase() === wanted ||
+					account.target.accountId?.toLowerCase() === wanted,
+			);
 	if (!target) {
 		await output(`No Codex account matches "${targetArg}".`);
 		return;
@@ -342,6 +343,16 @@ async function handleSpromptCommand(
 		return;
 	}
 	await output("Usage: /sprompt [set <file> | toggle | clear]");
+}
+
+function formatNotesReport(notes: readonly ImportantNote[], header: string): string {
+	const lines = [header];
+	for (const note of notes) {
+		const stamp = note.updatedAt ? ` (${formatNoteTimestamp(note.updatedAt)})` : "";
+		lines.push(`- ${note.key}${stamp}: ${note.text}`);
+	}
+	lines.push("", "The saved-notes reference is re-attached to the next request.");
+	return lines.join("\n");
 }
 
 export const BUILTIN_SESSION_SLASH_COMMANDS: ReadonlyArray<SlashCommandSpec> = [
@@ -818,6 +829,34 @@ export const BUILTIN_SESSION_SLASH_COMMANDS: ReadonlyArray<SlashCommandSpec> = [
 		allowArgs: true,
 		handle: async (command, runtime) => {
 			await handleSpromptCommand(command.args, runtime.session, runtime.output);
+			return commandConsumed();
+		},
+	},
+	{
+		name: "notes",
+		icon: "session",
+		description: "Show session notes and re-attach them to the next request",
+		acpDescription: "Show session notes",
+		inlineHint: "[key]",
+		allowArgs: true,
+		handle: async (command, runtime) => {
+			const wanted = command.args.trim();
+			const notes = getImportantNotesFromEntries(runtime.sessionManager.getBranch());
+			if (wanted) {
+				const hit = notes.find(note => note.key === wanted);
+				if (!hit) {
+					await runtime.output(`Note not found: ${wanted}. Use /notes to list every note.`);
+					return commandConsumed();
+				}
+				await runtime.output(formatNotesReport([hit], `Session note ${wanted}:`));
+			} else {
+				await runtime.output(
+					notes.length === 0
+						? "No session notes saved. The notes tool stores working state that survives compaction and resume."
+						: formatNotesReport(notes, `Session notes (${notes.length}):`),
+				);
+			}
+			runtime.session.requestNotesReference();
 			return commandConsumed();
 		},
 	},

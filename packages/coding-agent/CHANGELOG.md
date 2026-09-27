@@ -7,6 +7,7 @@
 - Mnemopi: `mnemopi.embedIdleExitMs` (default 600000, `0` disables) — the local-embedding subprocess now tears itself down after an idle window instead of pinning its ~1.2 GB fastembed model for the whole session; the next embed respawns it. Also unblocked the readonly bank probe behind a 5 s busy timeout so a concurrently consolidating instance can no longer flip bank detection.
 - Session notes: `notes.*` settings — `notes.enabled` gates the tool, `notes.timestamps` stamps each note with its last-update date, `notes.inject` picks when the saved-notes reference rides the model context (`compaction` after each compaction/resume, `turns` on a cadence, `off` never), `notes.injectCadence` spaces turns-mode reinjection, and `notes.autoUpdate`/`notes.autoUpdateCadence` nudge the model to update notes as the last action of a turn.
 - `/notes` command: prints session notes (with dates) and re-attaches the saved-notes reference to the next request on demand.
+- `/thinking [<level>]` command: shows or sets the model thinking level for the session without opening the model selector; unknown or unsupported levels are rejected with the available list.
 
 ### Changed
 

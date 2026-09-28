@@ -5,12 +5,6 @@ import type { MnemopiOptions } from "@oh-my-soup/pi-mnemopi";
 import { getMemoriesDir, logger } from "@oh-my-soup/pi-utils";
 import type { Settings } from "../config/settings";
 
-/** Integer-clamp a settings value, falling back when absent/NaN (garbage YAML must not poison knobs). */
-function clampInt(value: unknown, fallback: number, min: number): number {
-	const n = Math.floor(Number(value));
-	return Number.isFinite(n) ? Math.max(min, n) : fallback;
-}
-
 export type MnemopiLlmMode = "none" | "smol" | "remote";
 
 export type MnemopiScoping = "global" | "per-project" | "per-project-tagged";
@@ -38,8 +32,6 @@ export interface MnemopiBackendConfig {
 	recallContextTurns: number;
 	recallMaxQueryChars: number;
 	injectionTokenLimit: number;
-	/** Idle milliseconds before the embed subprocess is torn down; 0 disables. */
-	embedIdleExitMs: number;
 	debug: boolean;
 	providerOptions: MnemopiProviderOptions;
 	llmMode: MnemopiLlmMode;
@@ -83,12 +75,11 @@ export function loadMnemopiConfig(settings: Settings, agentDir: string): Mnemopi
 		polyphonicRecall: settings.get("mnemopi.polyphonicRecall"),
 		enhancedRecall: settings.get("mnemopi.enhancedRecall"),
 		proactiveLinking: settings.get("mnemopi.proactiveLinking"),
-		retainEveryNTurns: clampInt(settings.get("mnemopi.retainEveryNTurns"), 4, 1),
+		retainEveryNTurns: Math.max(1, Math.floor(settings.get("mnemopi.retainEveryNTurns"))),
 		recallLimit: Math.max(1, Math.floor(settings.get("mnemopi.recallLimit"))),
 		recallContextTurns: Math.max(1, Math.floor(settings.get("mnemopi.recallContextTurns"))),
 		recallMaxQueryChars: Math.max(256, Math.floor(settings.get("mnemopi.recallMaxQueryChars"))),
 		injectionTokenLimit: Math.max(256, Math.floor(settings.get("mnemopi.injectionTokenLimit"))),
-		embedIdleExitMs: clampInt(settings.get("mnemopi.embedIdleExitMs"), 600_000, 0),
 		debug: settings.get("mnemopi.debug"),
 		providerOptions: {
 			noEmbeddings: settings.get("mnemopi.noEmbeddings"),
@@ -99,10 +90,10 @@ export function loadMnemopiConfig(settings: Settings, agentDir: string): Mnemopi
 			llm:
 				llmMode === "remote"
 					? {
-						baseUrl: settings.get("mnemopi.llmBaseUrl"),
-						apiKey: settings.get("mnemopi.llmApiKey"),
-						model: settings.get("mnemopi.llmModel"),
-					}
+							baseUrl: settings.get("mnemopi.llmBaseUrl"),
+							apiKey: settings.get("mnemopi.llmApiKey"),
+							model: settings.get("mnemopi.llmModel"),
+						}
 					: false,
 		},
 		llmMode,
@@ -241,10 +232,6 @@ function bankOnlyHasCwd(dbPath: string, cwd: string): boolean {
 	let db: Database | undefined;
 	try {
 		db = new Database(dbPath, { readonly: true });
-		// Another oms instance may hold the write lock while this probe runs (the
-		// banks are shared per-project); without a busy timeout the probe throws
-		// SQLITE_BUSY and the bank is misread as foreign.
-		db.exec("PRAGMA busy_timeout=5000");
 		const row = db
 			.prepare<{ matching: number; unsafe: number }, [string, string]>(`
 				SELECT

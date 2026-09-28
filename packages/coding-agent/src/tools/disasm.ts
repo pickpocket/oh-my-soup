@@ -84,7 +84,7 @@ export interface DisasmToolDetails {
 	meta?: OutputMeta;
 }
 
-interface DisasmRenderArgs extends Partial<DisasmParams> { }
+interface DisasmRenderArgs extends Partial<DisasmParams> {}
 
 function summarizeDisasmCall(args: DisasmRenderArgs): string {
 	const action = args.action ?? "request";
@@ -192,6 +192,10 @@ export class DisasmTool implements AgentTool<typeof disasmSchema, DisasmToolDeta
 			call: { action: "open", backend: "ida", file: "./sample.exe", output_db: "./sample.i64" },
 		},
 		{
+			caption: "Open a binary in a managed headless Ghidra worker",
+			call: { action: "open", backend: "ghidra", file: "./sample.exe", output_db: "./sample.gpr" },
+		},
+		{
 			caption: "Open a binary in a managed headless Binary Ninja worker",
 			call: {
 				action: "open",
@@ -200,35 +204,14 @@ export class DisasmTool implements AgentTool<typeof disasmSchema, DisasmToolDeta
 				output_db: "./sample.bndb",
 			},
 		},
+		{ caption: "Discover IDA databases", call: { action: "list", backend: "ida" } },
 		{
-			caption: "Discover a table's columns (IDA)",
-			call: { action: "query", backend: "ida", target: "idalib-1234", sql: "PRAGMA table_info(funcs);" },
-		},
-		{
-			caption: "Find named functions with LIMIT",
+			caption: "Find named functions through the shared SQL interface",
 			call: {
 				action: "query",
 				backend: "ida",
 				target: "idalib-1234",
-				sql: "SELECT start_ea, name FROM funcs WHERE name LIKE '%auth%' LIMIT 20",
-			},
-		},
-		{
-			caption: "Filter instructions by resolved func_ea",
-			call: {
-				action: "query",
-				backend: "ida",
-				target: "idalib-1234",
-				sql: "SELECT address, disasm FROM instructions WHERE func_ea=0x401000 LIMIT 200",
-			},
-		},
-		{
-			caption: "Rename a function after resolving its address",
-			call: {
-				action: "query",
-				backend: "ida",
-				target: "idalib-1234",
-				sql: "UPDATE funcs SET name='my_func' WHERE start_ea=0x401000",
+				sql: "SELECT name, start_ea FROM funcs WHERE name LIKE '%auth%' LIMIT 20",
 			},
 		},
 		{
@@ -500,15 +483,7 @@ function formatTargets(backend: string, targets: DisassemblerTarget[]): string {
 }
 
 function formatQuery(query: DisassemblerQueryResult): string {
-	const cols = query.columns.length;
-	const rows = query.rows.length;
-	const header = `${rows} row${rows === 1 ? "" : "s"} (${cols} column${cols === 1 ? "" : "s"})`;
-	if (rows === 0) return header;
-	// details.query is UI-only — this text is the model's only copy of the
-	// data, so include a bounded preview and let the byte cap guard size.
-	const preview = query.rows.slice(0, 50);
-	const tail = rows > preview.length ? `\n… ${rows - preview.length} more rows` : "";
-	return `${header}\n${stringifyUnknown({ columns: query.columns, rows: preview })}${tail}`;
+	return `${query.rows.length} row${query.rows.length === 1 ? "" : "s"}\n${stringifyUnknown(query)}`;
 }
 
 function formatExecution(execution: DisassemblerExecutionResult): string {

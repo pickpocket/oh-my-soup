@@ -29,7 +29,6 @@ import {
 	type MnemopiProviderOptions,
 	truncateApproxTokens,
 } from "./config";
-import { mnemopiEmbedClient } from "./embed-client";
 import {
 	getMnemopiScopedBanks,
 	getMnemopiScopedDbPaths,
@@ -87,10 +86,6 @@ export function resolveMemoryCompletionInput(
 }
 
 async function installMnemopiState(session: AgentSession, config: MnemopiBackendConfig): Promise<MnemopiSessionState> {
-	// Push the resolved idle-exit knob into the shared embed client before any
-	// recall/retain can spawn the subprocess: two oms instances each pin their
-	// own ~1.2 GB fastembed worker, so idle teardown is what bounds the RSS.
-	mnemopiEmbedClient.configure({ idleExitMs: config.embedIdleExitMs });
 	const state = new MnemopiSessionState({ sessionId: session.sessionId, config, session });
 	const previous = setMnemopiSessionState(session, state);
 	await previous?.dispose();

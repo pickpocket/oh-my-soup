@@ -151,6 +151,7 @@ export type SymbolKey =
 	| "cmd.keyboard"
 	| "cmd.export"
 	| "cmd.clipboard"
+	| "cmd.brain"
 	| "cmd.share"
 	| "cmd.broadcast"
 	| "cmd.globe"
@@ -314,6 +315,7 @@ export type SlashCommandIconName =
 	| "keyboard"
 	| "export"
 	| "clipboard"
+	| "brain"
 	| "share"
 	| "broadcast"
 	| "globe"
@@ -511,6 +513,7 @@ const UNICODE_SYMBOLS: SymbolMap = {
 	"cmd.news": "📰",
 	"cmd.keyboard": "⌨",
 	"cmd.export": "📤",
+	"cmd.brain": "🧠",
 	"cmd.clipboard": "📋",
 	"cmd.share": "↗",
 	"cmd.broadcast": "📡",
@@ -920,6 +923,8 @@ const NERD_SYMBOLS: SymbolMap = {
 	"cmd.keyboard": "\uf11c",
 	// pick:  (nf-fa-external_link) | alt:  (nf-cod-link_external)
 	"cmd.export": "\uf08e",
+	// pick: 󰖑 (nf-md-brain)
+	"cmd.brain": "󰖑",
 	// pick:  (nf-fa-clipboard) | alt: 󰅇 (nf-md-clipboard)
 	"cmd.clipboard": "\uf0ea",
 	// pick:  (nf-fa-share_alt)
@@ -1240,6 +1245,7 @@ const ASCII_SYMBOLS: SymbolMap = {
 	"cmd.news": "",
 	"cmd.keyboard": "",
 	"cmd.export": "",
+	"cmd.brain": "[m]",
 	"cmd.clipboard": "",
 	"cmd.share": "",
 	"cmd.broadcast": "",

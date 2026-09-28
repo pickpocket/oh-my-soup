@@ -8,6 +8,7 @@ import {
 	buildModelSelectorCompletions,
 	buildStaticInlineHint,
 	buildSubcommandInlineHint,
+	buildThinkingLevelCompletions,
 } from "./builtin-completions";
 import { BUILTIN_CONTROL_SLASH_COMMANDS } from "./builtin-control";
 import { BUILTIN_HEARTBEAT_SLASH_COMMANDS } from "./builtin-heartbeat";
@@ -88,6 +89,10 @@ function materializeTuiBuiltinSlashCommand(
 		if (cmd.inlineHint) materialized.getInlineHint = buildStaticInlineHint(cmd.inlineHint);
 	} else if (cmd.name === "switch" && runtime) {
 		materialized.getArgumentCompletions = buildModelSelectorCompletions(runtime);
+		if (cmd.inlineHint) materialized.getInlineHint = buildStaticInlineHint(cmd.inlineHint);
+	} else if (cmd.name === "thinking" && runtime) {
+		// Levels are model-dependent: suggest the live session's efforts.
+		materialized.getArgumentCompletions = buildThinkingLevelCompletions(runtime);
 		if (cmd.inlineHint) materialized.getInlineHint = buildStaticInlineHint(cmd.inlineHint);
 	} else if (cmd.inlineHint) {
 		materialized.getInlineHint = buildStaticInlineHint(cmd.inlineHint);

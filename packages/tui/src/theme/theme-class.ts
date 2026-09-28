@@ -636,6 +636,7 @@ export class Theme {
 			gear: this.#symbols["cmd.gear"],
 			shield: this.#symbols["cmd.shield"],
 			wave: this.#symbols["cmd.wave"],
+			brain: this.#symbols["cmd.brain"],
 			compass: this.#symbols["cmd.compass"],
 			inbox: this.#symbols["cmd.inbox"],
 			swap: this.#symbols["cmd.swap"],

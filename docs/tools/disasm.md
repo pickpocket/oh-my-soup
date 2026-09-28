@@ -148,3 +148,27 @@ Drop to backend-native execution only when SQL is insufficient:
 - Prefer bounded SQL. Broad analysis scans can decompile or walk an entire database; Binary Ninja documents accepted bounds in `sql_tables.required_bounds`.
 - Multiple targets may stay open at once; each has its own worker.
 - `close` retires the worker, saves persistent projects/databases according to backend semantics, and deletes temporary databases.
+
+## Token Usage
+
+- `formatQuery` outputs row count only (not full JSON) to reduce token usage.
+- `formatTargets` outputs a compact multi-line metadata block per target.
+- Results are capped by `enforceInlineByteCap` when output exceeds limits.
+
+## SQL Tables
+
+Common tables available for queries:
+
+| Table | Purpose |
+|-------|---------|
+| `names` | Symbol and function names |
+| `strings` | String literals |
+| `xrefs` | Cross-references (code/data) |
+| `funcs` | Function metadata and bounds |
+| `imports` | Imported library symbols |
+| `segments` | Binary segment info |
+| `pseudocode` | Decompiled code (IDA only) |
+| `bin_search` | Binary search results (IDA only; Binary Ninja uses `byte_search`) |
+
+Use `PRAGMA table_info(table)` to inspect column schemas for your target.
+

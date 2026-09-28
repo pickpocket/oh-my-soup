@@ -7,7 +7,6 @@ import {
 	buildMcpArgumentCompletions,
 	buildModelSelectorCompletions,
 	buildNotesArgumentCompletions,
-	buildThinkingLevelCompletions,
 	buildStaticInlineHint,
 	buildSubcommandInlineHint,
 } from "./builtin-completions";
@@ -79,11 +78,7 @@ function materializeTuiBuiltinSlashCommand(
 	runtime?: TuiSlashCommandRuntime,
 ): TuiBuiltinSlashCommand {
 	const materialized: TuiBuiltinSlashCommand = { ...cmd };
-	if (cmd.name === "thinking" && runtime) {
-		// Levels are model-dependent: suggest the live session's efforts.
-		materialized.getArgumentCompletions = buildThinkingLevelCompletions(runtime);
-		if (cmd.inlineHint) materialized.getInlineHint = buildStaticInlineHint(cmd.inlineHint);
-	} else if (cmd.name === "notes" && runtime) {
+	if (cmd.name === "notes" && runtime) {
 		// Subcommands plus live note keys from the session journal.
 		materialized.getArgumentCompletions = buildNotesArgumentCompletions(runtime);
 		if (cmd.inlineHint) materialized.getInlineHint = buildStaticInlineHint(cmd.inlineHint);

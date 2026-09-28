@@ -697,7 +697,6 @@ export class Theme {
 			rule: this.#symbols["icon.extensionRule"],
 			skill: this.#symbols["icon.extensionSkill"],
 			mcp: this.#symbols["icon.extensionMcp"],
-			brain: this.#symbols["cmd.brain"],
 			notepad: this.#symbols["cmd.notepad"],
 			pin: this.#symbols["icon.pin"],
 		};

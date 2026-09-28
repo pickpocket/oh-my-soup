@@ -30,27 +30,6 @@ export function buildArgumentCompletions(subcommands: SubcommandDef[]): (prefix:
 	};
 }
 
-/** /thinking <level>: the session model's available efforts plus auto/off, prefix-filtered. */
-export function buildThinkingLevelCompletions(
-	runtime: TuiSlashCommandRuntime,
-): (prefix: string) => AutocompleteItem[] | null {
-	return argumentPrefix => {
-		if (argumentPrefix.includes(" ")) return null;
-		const lower = argumentPrefix.toLowerCase();
-		const items: AutocompleteItem[] = [];
-		const push = (value: string, description: string) => {
-			if (!value.startsWith(lower)) return;
-			items.push({ value: `${value} `, label: value, description });
-		};
-		push("auto", "Automatic thinking level (model decides)");
-		for (const level of runtime.ctx.session.getAvailableThinkingLevels()) {
-			push(level, `${level} thinking effort`);
-		}
-		push("off", "Disable thinking");
-		return items.length > 0 ? items : null;
-	};
-}
-
 /** Single source for the /notes verb contract: dropdown, ACP advertising, and handler validation. */
 export const NOTES_SUBCOMMANDS: SubcommandDef[] = [
 	{ name: "show", description: "Print notes with dates; add a key to print just that note", usage: "[<key>]" },

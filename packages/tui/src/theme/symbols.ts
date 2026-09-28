@@ -176,7 +176,6 @@ export type SymbolKey =
 	| "cmd.hammer"
 	| "cmd.power"
 	| "cmd.cart"
-	| "cmd.brain"
 	| "cmd.notepad"
 	// STT
 	| "icon.mic"
@@ -366,7 +365,6 @@ export type SlashCommandIconName =
 	| "rule"
 	| "skill"
 	| "mcp"
-	| "brain"
 	| "notepad"
 	| "pin";
 
@@ -541,7 +539,6 @@ const UNICODE_SYMBOLS: SymbolMap = {
 	"cmd.hammer": "🔨",
 	"cmd.power": "⏻",
 	"cmd.cart": "🛒",
-	"cmd.brain": "🧠",
 	"cmd.notepad": "📝",
 	// STT
 	"icon.mic": "🎤",
@@ -978,8 +975,6 @@ const NERD_SYMBOLS: SymbolMap = {
 	"cmd.power": "\uf011",
 	// pick:  (nf-fa-shopping_cart) | alt: 󰄋 (nf-md-cart)
 	"cmd.cart": "\uf07a",
-	// pick: 󰮑 (nf-md-brain) | alt:  (nf-fa-brain — same codepoint as icon.intelligence)
-	"cmd.brain": "",
 	// pick:  (nf-fa-sticky_note)
 	"cmd.notepad": "",
 	// STT - fa-microphone
@@ -1276,7 +1271,6 @@ const ASCII_SYMBOLS: SymbolMap = {
 	"cmd.hammer": "",
 	"cmd.power": "",
 	"cmd.cart": "",
-	"cmd.brain": "[m]",
 	"cmd.notepad": "[n]",
 	// STT
 	"icon.mic": "MIC",

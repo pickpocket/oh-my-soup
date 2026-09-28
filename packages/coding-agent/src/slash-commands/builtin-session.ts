@@ -133,11 +133,11 @@ async function handleUsageResetCommand(
 		wanted === "active"
 			? accounts.find(account => account.active)
 			: accounts.find(
-					account =>
-						account.label.toLowerCase() === wanted ||
-						account.target.email?.toLowerCase() === wanted ||
-						account.target.accountId?.toLowerCase() === wanted,
-				);
+				account =>
+					account.label.toLowerCase() === wanted ||
+					account.target.email?.toLowerCase() === wanted ||
+					account.target.accountId?.toLowerCase() === wanted,
+			);
 	if (!target) {
 		await output(`No Codex account matches "${targetArg}".`);
 		return;
@@ -917,6 +917,12 @@ export const BUILTIN_SESSION_SLASH_COMMANDS: ReadonlyArray<SlashCommandSpec> = [
 				});
 				return `Session notes (${selected.length}):\n${lines.join("\n")}`;
 			};
+			// Note text is agent-authored: strip terminal control sequences so a
+			// hostile note cannot rewrite the operator's terminal title or colors.
+			const safeNotesOutput = (text: string): string =>
+				text
+					.replace(/\u001B\][^\u0007\u001B]*(?:\u0007|\u001B\\)/g, "")
+					.replace(/\u001B\[[0-9;?]*[A-Za-z]/g, "");
 			const armInjection = (): string => {
 				if (runtime.settings.get("notes.enabled") === false) {
 					return "Session notes injection is disabled (notes.enabled=false); nothing queued.";
@@ -959,11 +965,11 @@ export const BUILTIN_SESSION_SLASH_COMMANDS: ReadonlyArray<SlashCommandSpec> = [
 					}
 				}
 				const matches = notes.filter(note => matchedKeys.has(note.key));
-				await runtime.output(
+				await runtime.output(safeNotesOutput(
 					matches.length === 0
 						? `No notes match "${rest}".`
 						: `${matches.length} matching note(s)${modelNote}:\n${renderNotes(matches)}`,
-				);
+				));
 				return commandConsumed();
 			}
 
@@ -994,7 +1000,7 @@ export const BUILTIN_SESSION_SLASH_COMMANDS: ReadonlyArray<SlashCommandSpec> = [
 				}
 			}
 			if (shouldInject) parts.push(armInjection());
-			await runtime.output(parts.join("\n\n"));
+			await runtime.output(safeNotesOutput(parts.join("\n\n")));
 			return commandConsumed();
 		},
 	},

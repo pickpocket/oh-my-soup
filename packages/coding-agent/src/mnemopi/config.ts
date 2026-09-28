@@ -5,6 +5,12 @@ import type { MnemopiOptions } from "@oh-my-soup/pi-mnemopi";
 import { getMemoriesDir, logger } from "@oh-my-soup/pi-utils";
 import type { Settings } from "../config/settings";
 
+/** Integer-clamp a settings value, falling back when absent/NaN (garbage YAML must not poison knobs). */
+function clampInt(value: unknown, fallback: number, min: number): number {
+	const n = Math.floor(Number(value));
+	return Number.isFinite(n) ? Math.max(min, n) : fallback;
+}
+
 export type MnemopiLlmMode = "none" | "smol" | "remote";
 
 export type MnemopiScoping = "global" | "per-project" | "per-project-tagged";
@@ -77,12 +83,12 @@ export function loadMnemopiConfig(settings: Settings, agentDir: string): Mnemopi
 		polyphonicRecall: settings.get("mnemopi.polyphonicRecall"),
 		enhancedRecall: settings.get("mnemopi.enhancedRecall"),
 		proactiveLinking: settings.get("mnemopi.proactiveLinking"),
-		retainEveryNTurns: Math.max(1, Math.floor(settings.get("mnemopi.retainEveryNTurns"))),
+		retainEveryNTurns: clampInt(settings.get("mnemopi.retainEveryNTurns"), 4, 1),
 		recallLimit: Math.max(1, Math.floor(settings.get("mnemopi.recallLimit"))),
 		recallContextTurns: Math.max(1, Math.floor(settings.get("mnemopi.recallContextTurns"))),
 		recallMaxQueryChars: Math.max(256, Math.floor(settings.get("mnemopi.recallMaxQueryChars"))),
 		injectionTokenLimit: Math.max(256, Math.floor(settings.get("mnemopi.injectionTokenLimit"))),
-		embedIdleExitMs: Math.max(0, Math.floor(settings.get("mnemopi.embedIdleExitMs"))),
+		embedIdleExitMs: clampInt(settings.get("mnemopi.embedIdleExitMs"), 600_000, 0),
 		debug: settings.get("mnemopi.debug"),
 		providerOptions: {
 			noEmbeddings: settings.get("mnemopi.noEmbeddings"),

@@ -159,7 +159,8 @@ export class MnemopiEmbedClient {
 	) {
 		this.#spawnWorker = spawnWorker;
 		this.#requestTimeoutMs = requestTimeoutMs;
-		this.#idleExitMs = idleExitMs;
+		const idle = Math.floor(Number(idleExitMs));
+		this.#idleExitMs = Number.isFinite(idle) ? Math.max(0, idle) : DEFAULT_EMBED_IDLE_EXIT_MS;
 	}
 
 	/**
@@ -169,7 +170,8 @@ export class MnemopiEmbedClient {
 	 */
 	configure(options: MnemopiEmbedClientOptions): void {
 		if (options.idleExitMs !== undefined) {
-			this.#idleExitMs = Math.max(0, Math.floor(options.idleExitMs));
+			const idle = Math.floor(Number(options.idleExitMs));
+			this.#idleExitMs = Number.isFinite(idle) ? Math.max(0, idle) : DEFAULT_EMBED_IDLE_EXIT_MS;
 			this.#syncIdleExit();
 		}
 	}

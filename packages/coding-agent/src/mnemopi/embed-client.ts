@@ -122,13 +122,24 @@ export interface MnemopiSubprocessEmbeddingModel {
 const EMBED_REQUEST_TIMEOUT_MS = 120_000;
 
 /**
+ * Cap for the model init round-trip (first load / post-respawn reload).
+ * Install-aware: bundled installs may spend several minutes installing
+ * fastembed and bootstrapping the model, so this is generous — but a wedged
+ * native load must not pin recall or shutdown consolidation forever (#7352).
+ */
+const INIT_REQUEST_TIMEOUT_MS = 600_000;
+
+/** Hard ceiling for setTimeout: Bun clamps larger delays to 1ms (overflow). */
+const MAX_TIMEOUT_MS = 2_147_000_000;
+
+/**
  * Idle window before the parent tears the embed subprocess down. The child
  * caches the fastembed model for its process lifetime (~1.2 GB RSS with
  * onnxruntime arenas), and nothing shares a worker across oms instances —
  * two interactive sessions pin two copies for as long as both stay up.
  * Tearing the worker down after an idle window releases that memory; the next
- * embed respawns and reloads (init stays timeout-exempt). 0 disables the
- * idle teardown.
+ * embed respawns and reloads (the reload round-trip is bounded by
+ * INIT_REQUEST_TIMEOUT_MS). 0 disables the idle teardown.
  */
 const DEFAULT_EMBED_IDLE_EXIT_MS = 600_000;
 
@@ -151,6 +162,8 @@ export class MnemopiEmbedClient {
 	#requestTimeoutMs: number;
 	#idleExitMs: number;
 	#idleExitTimer: Timer | null = null;
+	/** (model, cacheDir) keys confirmed loaded in the CURRENT worker; cleared on terminate. */
+	#loadedKeys = new Set<string>();
 
 	constructor(
 		spawnWorker: () => MnemopiEmbedWorkerHandle = spawnMnemopiEmbedWorker,
@@ -184,22 +197,35 @@ export class MnemopiEmbedClient {
 	 * single in-flight worker; calling with a different model loads it on
 	 * the child without restarting the process.
 	 */
+	/**
+	 * Initialize the named fastembed model inside the subprocess (bounded by
+	 * {@link INIT_REQUEST_TIMEOUT_MS} — install-aware, so bundled installs may
+	 * spend minutes). Marks the (model, cacheDir) key loaded for the current
+	 * worker generation; a later idle teardown clears it.
+	 */
+	async #ensureModelLoaded(model: MnemopiEmbedModelId, cacheDir: string | undefined): Promise<void> {
+		const key = `${model}\u0000${cacheDir ?? ""}`;
+		if (this.#loadedKeys.has(key)) return;
+		const worker = this.#ensureWorker();
+		const id = String(++this.#nextRequestId);
+		const { promise, resolve } = Promise.withResolvers<boolean>();
+		this.#addPending(id, { kind: "init", model, resolve });
+		try {
+			worker.send({ type: "init", id, model, cacheDir });
+			const ok = await this.#awaitRequest(promise, INIT_REQUEST_TIMEOUT_MS);
+			if (!ok) throw new Error("mnemopi embed model failed to initialize");
+			this.#loadedKeys.add(key);
+		} finally {
+			this.#deletePending(id);
+		}
+	}
+
 	async initialize(
 		model: MnemopiEmbedModelId,
 		cacheDir: string | undefined,
 	): Promise<MnemopiSubprocessEmbeddingModel | null> {
 		try {
-			const worker = this.#ensureWorker();
-			const id = String(++this.#nextRequestId);
-			const { promise, resolve } = Promise.withResolvers<boolean>();
-			this.#addPending(id, { kind: "init", model, resolve });
-			try {
-				worker.send({ type: "init", id, model, cacheDir });
-				const ok = await promise;
-				if (!ok) return null;
-			} finally {
-				this.#deletePending(id);
-			}
+			await this.#ensureModelLoaded(model, cacheDir);
 		} catch (error) {
 			logger.debug("mnemopi-embed: init failed", {
 				model,
@@ -215,6 +241,7 @@ export class MnemopiEmbedClient {
 			clearTimeout(this.#idleExitTimer);
 			this.#idleExitTimer = null;
 		}
+		this.#loadedKeys.clear();
 		const worker = this.#worker;
 		this.#worker = null;
 		this.#unsubscribeMessage?.();
@@ -240,6 +267,10 @@ export class MnemopiEmbedClient {
 		texts: string[],
 		batchSize: number | undefined,
 	): Promise<number[][]> {
+		// After an idle teardown (or SIGKILL reap) the fresh worker has no model
+		// loaded: re-run the init round-trip first so the reload is bounded by
+		// INIT_REQUEST_TIMEOUT_MS instead of the shorter embed cap.
+		await this.#ensureModelLoaded(model, cacheDir);
 		const worker = this.#ensureWorker();
 		const id = String(++this.#nextRequestId);
 		const { promise, resolve } = Promise.withResolvers<number[][] | Error>();
@@ -269,9 +300,9 @@ export class MnemopiEmbedClient {
 	 * native runtime cannot pin a turn's recall or shutdown consolidation
 	 * forever (issue #7352).
 	 */
-	async #awaitRequest<T>(promise: Promise<T>): Promise<T> {
+	async #awaitRequest<T>(promise: Promise<T>, timeoutMs = this.#requestTimeoutMs): Promise<T> {
 		const { promise: timedOut, resolve: fire } = Promise.withResolvers<typeof REQUEST_TIMED_OUT>();
-		const timer = setTimeout(() => fire(REQUEST_TIMED_OUT), this.#requestTimeoutMs);
+		const timer = setTimeout(() => fire(REQUEST_TIMED_OUT), timeoutMs);
 		timer.unref();
 		try {
 			const winner = await Promise.race([promise, timedOut]);
@@ -347,10 +378,13 @@ export class MnemopiEmbedClient {
 			this.#idleExitTimer = null;
 		}
 		if (this.#idleExitMs <= 0 || !this.#worker || this.#pending.size > 0) return;
+		// setTimeout clamps delays above 2^31-1 to 1ms: without this ceiling a
+		// huge idleExitMs would tear the worker down instantly, every time.
+		const delay = Math.min(this.#idleExitMs, MAX_TIMEOUT_MS);
 		const timer = setTimeout(() => {
 			this.#idleExitTimer = null;
 			if (this.#pending.size === 0 && this.#worker) void this.terminate();
-		}, this.#idleExitMs);
+		}, delay);
 		timer.unref();
 		this.#idleExitTimer = timer;
 	}

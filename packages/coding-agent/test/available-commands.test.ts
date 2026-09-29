@@ -3,7 +3,7 @@ import { buildAvailableSlashCommands } from "@oh-my-soup/pi-coding-agent/slash-c
 
 describe("buildAvailableSlashCommands", () => {
 	test("returns RPC-safe command metadata with stable sources", async () => {
-		const fileCommands = [{ name: "notes", description: "Open notes", content: "body", source: "test" }];
+		const fileCommands = [{ name: "wikinotes", description: "Open notes", content: "body", source: "test" }];
 		const mcpPrompt = {
 			path: "mcp:server/prompt",
 			resolvedPath: "mcp:server/prompt",
@@ -51,7 +51,7 @@ describe("buildAvailableSlashCommands", () => {
 		expect(byName["ext:hello"].description).toBe("Extension hello");
 		expect(byName["custom:hello"].description).toBe("Custom hello");
 		expect(byName["server:prompt"].description).toBe("MCP prompt");
-		expect(byName.notes.description).toBe("Open notes");
+		expect(byName["wikinotes"].description).toBe("Open notes");
 		expect(byName["skill:reviewer"].description).toBe("Review code");
 
 		expect(byName.model.source).toBe("builtin");
@@ -59,11 +59,11 @@ describe("buildAvailableSlashCommands", () => {
 		expect(byName["ext:hello"].source).toBe("extension");
 		expect(byName["server:prompt"].source).toBe("mcp_prompt");
 		expect(byName["custom:hello"].source).toBe("custom");
-		expect(byName.notes.source).toBe("file");
+		expect(byName["wikinotes"].source).toBe("file");
 	});
 
 	test("loads file commands into the session before advertising them", async () => {
-		const fileCommands = [{ name: "notes", description: "Open notes", content: "body", source: "test" }];
+		const fileCommands = [{ name: "wikinotes", description: "Open notes", content: "body", source: "test" }];
 		let loadedCommands: typeof fileCommands | undefined;
 
 		const commands = await buildAvailableSlashCommands(
@@ -79,7 +79,7 @@ describe("buildAvailableSlashCommands", () => {
 		);
 
 		expect(loadedCommands).toEqual(fileCommands);
-		expect(commands.find(command => command.name === "notes")?.source).toBe("file");
+		expect(commands.find(command => command.name === "wikinotes")?.source).toBe("file");
 	});
 
 	test("forwards file-command argumentHint as ACP input hint", async () => {
@@ -91,7 +91,7 @@ describe("buildAvailableSlashCommands", () => {
 				source: "test",
 				argumentHint: "[base-branch]",
 			},
-			{ name: "notes", description: "Open notes", content: "body", source: "test" },
+			{ name: "wikinotes", description: "Open notes", content: "body", source: "test" },
 		];
 
 		const commands = await buildAvailableSlashCommands(
@@ -99,14 +99,14 @@ describe("buildAvailableSlashCommands", () => {
 				customCommands: [],
 				skills: [],
 				sessionManager: { getCwd: () => process.cwd() },
-				setSlashCommands() {},
+				setSlashCommands() { },
 			} as never,
 			async () => fileCommands,
 		);
 		const byName = Object.fromEntries(commands.map(command => [command.name, command]));
 
 		expect(byName["git-sync"].input).toEqual({ hint: "[base-branch]" });
-		expect(byName.notes.input).toBeUndefined();
+		expect(byName["wikinotes"].input).toBeUndefined();
 	});
 
 	test("classifies MCP prompts by path and bundled custom commands as custom", async () => {
@@ -128,7 +128,7 @@ describe("buildAvailableSlashCommands", () => {
 				],
 				skills: [],
 				sessionManager: { getCwd: () => process.cwd() },
-				setSlashCommands() {},
+				setSlashCommands() { },
 			} as never,
 			async () => [],
 		);
@@ -144,7 +144,7 @@ describe("buildAvailableSlashCommands", () => {
 				customCommands: [{ command: { name: "legacy", description: "Legacy fixture" } }],
 				skills: [],
 				sessionManager: { getCwd: () => process.cwd() },
-				setSlashCommands() {},
+				setSlashCommands() { },
 			} as never,
 			async () => [],
 		);
@@ -162,7 +162,7 @@ describe("buildAvailableSlashCommands", () => {
 				customCommands: [{ command: { name: "plugin", description: "My plugin helper" } }],
 				skills: [],
 				sessionManager: { getCwd: () => "/tmp" },
-				setSlashCommands: () => {},
+				setSlashCommands: () => { },
 			} as never,
 			async () => fileCommands,
 		);

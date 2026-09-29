@@ -198,7 +198,6 @@ export const observed = [
 		expect(overrides["@oh-my-soup/pi-coding-agent"]).toBeDefined();
 		expect(overrides["@oh-my-soup/pi-tui"]).toBeDefined();
 	});
-
 	it("does not register subpath overrides in dev/install mode", () => {
 		const overrides = __buildLegacyPiPackageRootOverrides(false);
 		expect(overrides).not.toHaveProperty("@oh-my-soup/pi-ai/oauth");

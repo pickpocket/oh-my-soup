@@ -113,7 +113,6 @@ describe("resolveOpenAIRequestSetup User-Agent", () => {
 			expect(setup.requestHeaders["User-Agent"]).toBeUndefined();
 		}
 	});
-
 	test("does not override a caller-supplied xAI User-Agent", () => {
 		const setup = resolveOpenAIRequestSetup(
 			{

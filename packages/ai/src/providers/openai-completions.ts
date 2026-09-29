@@ -1,9 +1,16 @@
+import { resolveModelPolicy } from "@oh-my-soup/pi-catalog/compat/resolve";
 import type { Effort } from "@oh-my-soup/pi-catalog/effort";
 import { resolveWireModelId } from "@oh-my-soup/pi-catalog/model-thinking";
 import { calculateCost } from "@oh-my-soup/pi-catalog/models";
 import type { ResolvedOpenAICompat } from "@oh-my-soup/pi-catalog/types";
 import { clinePassClientHeaders } from "@oh-my-soup/pi-catalog/wire/cline-pass";
-import { $env, logger, parseStreamingJson, parseStreamingJsonThrottled } from "@oh-my-soup/pi-utils";
+import {
+	$env,
+	logger,
+	parseStreamingJson,
+	parseStreamingJsonThrottled,
+	type ServerSentEvent,
+} from "@oh-my-soup/pi-utils";
 import { renderDemotedThinking } from "../dialect/demotion";
 import * as AIError from "../error";
 import { getKimiCommonHeaders } from "../registry/oauth/kimi";
@@ -15,7 +22,6 @@ import type {
 	MessageAttribution,
 	Model,
 	ProviderSessionState,
-	RawSseEvent,
 	ServiceTier,
 	StopReason,
 	StreamFunction,
@@ -133,6 +139,13 @@ type OpenAICompletionsDeltaWithReasoningDetails = ChatCompletionChunk.Choice["de
 	reasoning_details?: unknown;
 };
 
+type GeminiMessageThoughtSignatureField = "thinking_signature" | "thought_signature";
+
+type GeminiMessageThoughtSignature = {
+	field: GeminiMessageThoughtSignatureField;
+	signature: string;
+};
+
 type GeminiThoughtSignatureNamespace = "google" | "vertex";
 
 type GeminiThoughtSignatureExtraContent = Partial<
@@ -144,6 +157,11 @@ type OpenAICompletionsFunctionToolCall = ChatCompletionMessageFunctionToolCall &
 };
 
 const GEMINI_THOUGHT_SIGNATURE_NAMESPACES: readonly GeminiThoughtSignatureNamespace[] = ["google", "vertex"];
+
+const GEMINI_MESSAGE_THOUGHT_SIGNATURE_FIELDS: readonly GeminiMessageThoughtSignatureField[] = [
+	"thinking_signature",
+	"thought_signature",
+];
 
 function getGeminiThoughtSignatureExtraContent(value: unknown): GeminiThoughtSignatureExtraContent | undefined {
 	if (typeof value !== "object" || value === null) return undefined;
@@ -159,21 +177,118 @@ function getGeminiThoughtSignatureExtraContent(value: unknown): GeminiThoughtSig
 	return undefined;
 }
 
-function parseGeminiThoughtSignatureExtraContent(
-	thoughtSignature: string | undefined,
-): GeminiThoughtSignatureExtraContent | undefined {
+function getGeminiMessageThoughtSignature(value: unknown): GeminiMessageThoughtSignature | undefined {
+	if (typeof value !== "object" || value === null) return undefined;
+	for (const field of GEMINI_MESSAGE_THOUGHT_SIGNATURE_FIELDS) {
+		const signature = Reflect.get(value, field);
+		if (typeof signature === "string" && signature.length > 0) return { field, signature };
+	}
+	return undefined;
+}
+
+function parseStoredThoughtSignature(thoughtSignature: string | undefined): unknown {
 	if (!thoughtSignature) return undefined;
 	try {
-		const parsed: unknown = JSON.parse(thoughtSignature);
-		return getGeminiThoughtSignatureExtraContent(parsed);
+		return JSON.parse(thoughtSignature);
 	} catch {
 		return undefined;
 	}
 }
 
+// A single tool-call turn on an OpenAI-compatible Gemini wire can carry two
+// independent signatures: a per-call one (`extra_content.google|vertex` or an
+// encrypted `reasoning_details` entry) and a message-level `thinking_signature`
+// / `thought_signature`. Both are stashed together on the originating tool
+// call's `thoughtSignature` so persistence and replay preserve each field.
+// `perCall` holds the raw extra_content object or reasoning detail; `message`
+// holds the message-level signature in its wire shape.
+type StoredGeminiSignature = {
+	perCall?: unknown;
+	message?: Partial<Record<GeminiMessageThoughtSignatureField, string>>;
+};
+
+// Reads the stored envelope, also accepting the legacy raw shapes emitted before
+// the envelope existed (a bare extra_content object, reasoning detail, or
+// message-level signature) so persisted history keeps replaying.
+function normalizeStoredGeminiSignature(value: unknown): StoredGeminiSignature | undefined {
+	if (typeof value !== "object" || value === null) return undefined;
+	const perCall = Reflect.get(value, "perCall");
+	const envelopeMessage = getGeminiMessageThoughtSignature(Reflect.get(value, "message"));
+	if (perCall !== undefined || envelopeMessage) {
+		const normalized: StoredGeminiSignature = {};
+		if (perCall !== undefined) normalized.perCall = perCall;
+		if (envelopeMessage) normalized.message = { [envelopeMessage.field]: envelopeMessage.signature };
+		return normalized;
+	}
+	const legacyMessage = getGeminiMessageThoughtSignature(value);
+	if (legacyMessage) return { message: { [legacyMessage.field]: legacyMessage.signature } };
+	return { perCall: value };
+}
+
+// Merges a new per-call or message-level signature into whatever is already
+// stored, so a later message-level signature never clobbers an earlier per-call
+// one (and vice versa).
+function mergeStoredGeminiSignature(existing: string | undefined, update: StoredGeminiSignature): string {
+	const merged = normalizeStoredGeminiSignature(parseStoredThoughtSignature(existing)) ?? {};
+	if (update.perCall !== undefined) merged.perCall = update.perCall;
+	if (update.message) merged.message = update.message;
+	return JSON.stringify(merged);
+}
+
+/**
+ * LiteLLM's wire shape for Anthropic thinking: streamed as
+ * `delta.thinking_blocks` (mirrored under
+ * `delta.provider_specific_fields.thinking_blocks`) and required back verbatim,
+ * in order, on the assistant turn that carries `tool_calls` — otherwise the
+ * upstream rejects the turn or LiteLLM silently drops its thinking.
+ * https://docs.litellm.ai/docs/reasoning_content#tool-calling-with-thinking
+ */
+type LiteLLMThinkingBlock =
+	| { type: "thinking"; thinking: string; signature: string }
+	| { type: "redacted_thinking"; data: string };
+
+function getLiteLLMThinkingBlocksDelta(delta: object): unknown[] | undefined {
+	const direct = Reflect.get(delta, "thinking_blocks");
+	if (Array.isArray(direct) && direct.length > 0) return direct;
+	const providerFields = Reflect.get(delta, "provider_specific_fields");
+	if (typeof providerFields !== "object" || providerFields === null) return undefined;
+	const mirrored = Reflect.get(providerFields, "thinking_blocks");
+	return Array.isArray(mirrored) && mirrored.length > 0 ? mirrored : undefined;
+}
+
+/**
+ * Rebuilds LiteLLM `thinking_blocks` from a stored assistant turn. Thinking
+ * blocks parsed from `thinking_blocks` keep the raw Anthropic signature as
+ * `thinkingSignature`; blocks parsed from `reasoning_content`-style fields
+ * carry the field name instead and are skipped. `transformMessages` strips
+ * signatures and redacted blocks on cross-model replays, so only the issuing
+ * model ever receives them back.
+ */
+function encodeLiteLLMThinkingBlocks(content: AssistantMessage["content"]): LiteLLMThinkingBlock[] {
+	const blocks: LiteLLMThinkingBlock[] = [];
+	for (const block of content) {
+		if (block.type === "thinking") {
+			const signature = block.thinkingSignature;
+			if (
+				!signature ||
+				signature === "reasoning_content" ||
+				signature === "reasoning" ||
+				signature === "reasoning_text"
+			) {
+				continue;
+			}
+			blocks.push({ type: "thinking", thinking: block.thinking, signature });
+		} else if (block.type === "redactedThinking") {
+			blocks.push({ type: "redacted_thinking", data: block.data });
+		}
+	}
+	return blocks;
+}
+
 type OpenAICompletionsAssistantMessageParam = ChatCompletionAssistantMessageParam &
-	Partial<Record<OpenAICompletionsReasoningField, string>> & {
+	Partial<Record<OpenAICompletionsReasoningField | GeminiMessageThoughtSignatureField, string>> & {
 		reasoning_details?: unknown[];
+		thinking_blocks?: LiteLLMThinkingBlock[];
 	};
 
 type OpenAICompletionsToolMessageParam = ChatCompletionToolMessageParam & {
@@ -690,28 +805,29 @@ const streamOpenAICompletionsOnce = (
 		// Track the OpenAI `[DONE]` sentinel independently of `onSseEvent`: it is
 		// the streaming protocol's terminal signal, so a stream that ends with it
 		// completed by server agreement even when no `finish_reason` chunk arrived.
+		// It arrives through `onDoneSentinel`, so the diagnostic observer below
+		// stays unset (and raw wire-line capture off) when nobody listens.
 		let sawDoneSentinel = false;
-		const rawSseObserver = (event: RawSseEvent) => {
-			if (event.data === "[DONE]") sawDoneSentinel = true;
-			if (onSseEvent) {
-				if (!event.event && event.data && event.data !== "[DONE]") {
-					try {
-						const parsed = JSON.parse(event.data);
-						const resolvedEvent =
-							typeof parsed.type === "string"
-								? parsed.type
-								: typeof parsed.object === "string"
-									? parsed.object
-									: null;
-						if (resolvedEvent) {
-							event.event = resolvedEvent;
-							event.raw = [`event: ${resolvedEvent}`, ...event.raw];
-						}
-					} catch {}
+		const rawSseObserver = onSseEvent
+			? (event: ServerSentEvent) => {
+					if (!event.event && event.data && event.data !== "[DONE]") {
+						try {
+							const parsed = JSON.parse(event.data);
+							const resolvedEvent =
+								typeof parsed.type === "string"
+									? parsed.type
+									: typeof parsed.object === "string"
+										? parsed.object
+										: null;
+							if (resolvedEvent) {
+								event.event = resolvedEvent;
+								event.raw = [`event: ${resolvedEvent}`, ...event.raw];
+							}
+						} catch {}
+					}
+					onSseEvent({ event: event.event, data: event.data, raw: [...event.raw] }, model);
 				}
-				onSseEvent(event, model);
-			}
-		};
+			: undefined;
 		// Assigned once the block helpers exist (they are scoped to the `try`);
 		// the catch handler uses it to close open blocks before emitting the
 		// terminal error so both exit paths obey the same block lifecycle.
@@ -821,6 +937,9 @@ const streamOpenAICompletionsOnce = (
 						// bounds every attempt and backoff sleep — retries cannot
 						// extend the deadline.
 						onSseEvent: rawSseObserver,
+						onDoneSentinel: () => {
+							sawDoneSentinel = true;
+						},
 					});
 					// Disarm the first-event watchdog as soon as headers arrive — a slow
 					// onResponse callback must not abort an already-connected stream.
@@ -919,9 +1038,20 @@ const streamOpenAICompletionsOnce = (
 				}
 			};
 			let currentBlock: OpenAIStreamBlock | undefined;
+			let messageThoughtSignature: GeminiMessageThoughtSignature | undefined;
+			// Content blocks are append-only for the lifetime of the stream, so each
+			// block's index is stable once pushed. Map block → index to keep the
+			// per-delta contentIndex lookup O(1): a linear `indexOf` per delta turns a
+			// long turn (many blocks × many deltas) quadratic, as openai-shared's
+			// Responses decoder documents (issue #10605).
+			const contentIndexByBlock = new Map<OpenAIStreamBlock, number>();
+			const pushContentBlock = (block: OpenAIStreamBlock): void => {
+				contentIndexByBlock.set(block, output.content.length);
+				output.content.push(block);
+			};
 			const blockIndex = (block: OpenAIStreamBlock | undefined): number => {
 				if (!block) return Math.max(0, output.content.length - 1);
-				return output.content.indexOf(block);
+				return contentIndexByBlock.get(block) ?? output.content.indexOf(block);
 			};
 			const finishToolCallBlock = (block: ToolCallStreamBlock): void => {
 				if (block.partialArgs === undefined) return;
@@ -976,11 +1106,7 @@ const streamOpenAICompletionsOnce = (
 				if (currentBlock?.type !== "toolCall") finishCurrentBlock(currentBlock);
 				finishPendingToolCallBlocks();
 			};
-			const appendText = (
-				message: AssistantMessage,
-				eventStream: AssistantMessageEventStream,
-				text: string,
-			): void => {
+			const appendText = (text: string): void => {
 				if (currentBlock?.type !== "text") {
 					// Leave toolCall blocks pending across text transitions: chunks after
 					// the first typically carry only `index`, so a finished (de-registered)
@@ -988,54 +1114,85 @@ const streamOpenAICompletionsOnce = (
 					// resume. The stream-end sweep finalizes pending calls.
 					if (currentBlock?.type !== "toolCall") finishCurrentBlock(currentBlock);
 					currentBlock = { type: "text", text: "" };
-					message.content.push(currentBlock);
-					eventStream.push({ type: "text_start", contentIndex: blockIndex(currentBlock), partial: message });
+					pushContentBlock(currentBlock);
+					stream.push({ type: "text_start", contentIndex: blockIndex(currentBlock), partial: output });
 				}
 				currentBlock.text += text;
-				eventStream.push({
+				stream.push({
 					type: "text_delta",
 					contentIndex: blockIndex(currentBlock),
 					delta: text,
-					partial: message,
+					partial: output,
 				});
 			};
-			const appendThinking = (
-				message: AssistantMessage,
-				eventStream: AssistantMessageEventStream,
-				thinking: string,
-				signature?: string,
-			): void => {
-				if (
-					currentBlock?.type !== "thinking" ||
-					(signature !== undefined && currentBlock.thinkingSignature !== signature)
-				) {
-					// Same as appendText: leave toolCall blocks pending so index-only
-					// continuation deltas can still find them.
+			const openThinkingBlock = (signature?: string): ThinkingContent => {
+				// Same as appendText: leave toolCall blocks pending so index-only
+				// continuation deltas can still find them.
+				if (currentBlock?.type !== "toolCall") finishCurrentBlock(currentBlock);
+				const block: ThinkingContent = { type: "thinking", thinking: "", thinkingSignature: signature };
+				currentBlock = block;
+				pushContentBlock(block);
+				stream.push({ type: "thinking_start", contentIndex: blockIndex(block), partial: output });
+				return block;
+			};
+			const appendThinking = (thinking: string, signature?: string): void => {
+				const block =
+					currentBlock?.type === "thinking" &&
+					(signature === undefined || currentBlock.thinkingSignature === signature)
+						? currentBlock
+						: openThinkingBlock(signature);
+				if (signature !== undefined && !block.thinkingSignature) {
+					block.thinkingSignature = signature;
+				}
+				block.thinking += thinking;
+				stream.push({ type: "thinking_delta", contentIndex: blockIndex(block), delta: thinking, partial: output });
+			};
+			// LiteLLM `thinking_blocks` entries each carry a text fragment, a
+			// signature fragment, or a whole redacted block. A signature seals its
+			// block, so text arriving after one opens the next block; signature
+			// fragments concatenate like Anthropic `signature_delta`. The raw
+			// signature lands in `thinkingSignature` for `encodeLiteLLMThinkingBlocks`.
+			let liteLLMThinkingBlock: ThinkingContent | undefined;
+			const appendLiteLLMThinkingBlock = (entry: unknown): void => {
+				if (typeof entry !== "object" || entry === null) return;
+				const type = Reflect.get(entry, "type");
+				if (type === "redacted_thinking") {
+					const data = Reflect.get(entry, "data");
+					if (typeof data !== "string" || data.length === 0) return;
 					if (currentBlock?.type !== "toolCall") finishCurrentBlock(currentBlock);
-					currentBlock = { type: "thinking", thinking: "", thinkingSignature: signature };
-					message.content.push(currentBlock);
-					eventStream.push({
-						type: "thinking_start",
-						contentIndex: blockIndex(currentBlock),
-						partial: message,
+					currentBlock = undefined;
+					liteLLMThinkingBlock = undefined;
+					output.content.push({ type: "redactedThinking", data });
+					return;
+				}
+				if (type !== "thinking") return;
+				const rawThinking = Reflect.get(entry, "thinking");
+				const rawSignature = Reflect.get(entry, "signature");
+				const thinking = typeof rawThinking === "string" ? rawThinking : "";
+				const signature = typeof rawSignature === "string" ? rawSignature : "";
+				if (!thinking && !signature) return;
+				if (!firstTokenTime) firstTokenTime = performance.now();
+				let block = currentBlock === liteLLMThinkingBlock ? liteLLMThinkingBlock : undefined;
+				if (!block || (thinking && block.thinkingSignature)) {
+					block = openThinkingBlock();
+					liteLLMThinkingBlock = block;
+				}
+				if (thinking) {
+					block.thinking += thinking;
+					stream.push({
+						type: "thinking_delta",
+						contentIndex: blockIndex(block),
+						delta: thinking,
+						partial: output,
 					});
 				}
-				if (signature !== undefined && !currentBlock.thinkingSignature) {
-					currentBlock.thinkingSignature = signature;
-				}
-				currentBlock.thinking += thinking;
-				eventStream.push({
-					type: "thinking_delta",
-					contentIndex: blockIndex(currentBlock),
-					delta: thinking,
-					partial: message,
-				});
+				if (signature) block.thinkingSignature = (block.thinkingSignature ?? "") + signature;
 			};
 
 			const appendTextDelta = (text: string): void => {
 				if (!text) return;
 				if (!firstTokenTime) firstTokenTime = performance.now();
-				appendText(output, stream, text);
+				appendText(text);
 			};
 			// Tracks the last full cumulative reasoning snapshot per signature (the
 			// reasoning field name) so dedup survives block transitions. Required
@@ -1062,7 +1219,7 @@ const streamOpenAICompletionsOnce = (
 					if (!emittedThinking) return;
 				}
 				if (!firstTokenTime) firstTokenTime = performance.now();
-				appendThinking(output, stream, emittedThinking, signature);
+				appendThinking(emittedThinking, signature);
 			};
 
 			let deepseekStripBuffer = "";
@@ -1107,7 +1264,7 @@ const streamOpenAICompletionsOnce = (
 				};
 				block.arguments = parseStreamingJson(call.arguments);
 				currentBlock = block;
-				output.content.push(block);
+				pushContentBlock(block);
 				stream.push({ type: "toolcall_start", contentIndex: blockIndex(block), partial: output });
 				stream.push({
 					type: "toolcall_delta",
@@ -1248,7 +1405,14 @@ const streamOpenAICompletionsOnce = (
 						}
 					}
 
-					if (foundReasoningField) {
+					// LiteLLM mirrors Anthropic thinking into both `reasoning_content`
+					// and `thinking_blocks`; only the latter carries the signature, so
+					// it wins and the text alias is skipped to avoid duplication.
+					const liteLLMThinkingBlocks = getLiteLLMThinkingBlocksDelta(choice.delta);
+					if (liteLLMThinkingBlocks) {
+						for (const entry of liteLLMThinkingBlocks) appendLiteLLMThinkingBlock(entry);
+						suppressHealedThinking = true;
+					} else if (foundReasoningField) {
 						appendThinkingDelta(
 							foundReasoningDelta,
 							foundReasoningField,
@@ -1324,7 +1488,7 @@ const streamOpenAICompletionsOnce = (
 								if (streamIndex !== undefined) toolCallBlockByIndex.set(streamIndex, block);
 								pendingToolCallBlocks.push(block);
 								currentBlock = block;
-								output.content.push(block);
+								pushContentBlock(block);
 								stream.push({
 									type: "toolcall_start",
 									contentIndex: blockIndex(block),
@@ -1347,7 +1511,11 @@ const streamOpenAICompletionsOnce = (
 							if (toolCall.id) block.id = toolCall.id;
 							if (incomingName) block.name = incomingName;
 							const extraContent = getGeminiThoughtSignatureExtraContent(Reflect.get(toolCall, "extra_content"));
-							if (extraContent) block.thoughtSignature = JSON.stringify(extraContent);
+							if (extraContent) {
+								block.thoughtSignature = mergeStoredGeminiSignature(block.thoughtSignature, {
+									perCall: extraContent,
+								});
+							}
 							let delta = "";
 							// The OpenAI SDK types `function.arguments` as a JSON string, but MiniMax-compatible
 							// hosts stream a fully-formed object instead. Model both shapes so the branches below
@@ -1411,9 +1579,27 @@ const streamOpenAICompletionsOnce = (
 									b => b.type === "toolCall" && b.id === detailObject.id,
 								) as ToolCall | undefined;
 								if (matchingToolCall) {
-									matchingToolCall.thoughtSignature = JSON.stringify(detailObject);
+									matchingToolCall.thoughtSignature = mergeStoredGeminiSignature(
+										matchingToolCall.thoughtSignature,
+										{ perCall: detailObject },
+									);
 								}
 							}
+						}
+					}
+
+					const incomingMessageThoughtSignature = getGeminiMessageThoughtSignature(choice.delta);
+					if (incomingMessageThoughtSignature) messageThoughtSignature = incomingMessageThoughtSignature;
+					if (messageThoughtSignature) {
+						for (const block of output.content) {
+							if (block.type !== "toolCall") continue;
+							block.thoughtSignature = mergeStoredGeminiSignature(block.thoughtSignature, {
+								message: {
+									[messageThoughtSignature.field]: messageThoughtSignature.signature,
+								},
+							});
+							messageThoughtSignature = undefined;
+							break;
 						}
 					}
 				}
@@ -1543,15 +1729,32 @@ const streamOpenAICompletionsOnce = (
 };
 
 /**
+ * Custom APIs deliberately have no catalog compat type. Once an extension
+ * explicitly delegates to this streamer, resolve the OpenAI wire policy on a
+ * request-local clone while preserving the custom API id on the original model.
+ */
+function resolveOpenAICompletionsCompat(model: Model<"openai-completions">): Model<"openai-completions"> {
+	if (model.compat !== undefined) return model;
+	const compat = resolveModelPolicy({
+		...model,
+		api: "openai-completions",
+		compat: model.compatConfig,
+	}).compat;
+	return { ...model, compat };
+}
+
+/**
  * Retries benign empty completions and transient provider failures only before
  * assistant output commits the attempt.
  */
-export const streamOpenAICompletions: StreamFunction<"openai-completions"> = (model, context, options) =>
-	withReplaySafeStreamRetry(model, context, options, streamOpenAICompletionsOnce, {
+export const streamOpenAICompletions: StreamFunction<"openai-completions"> = (model, context, options) => {
+	const resolvedModel = resolveOpenAICompletionsCompat(model);
+	return withReplaySafeStreamRetry(resolvedModel, context, options, streamOpenAICompletionsOnce, {
 		retryEmptyCompletion: true,
 		retryProviderErrors: true,
 		maxProviderErrorRetries: 1,
 	});
+};
 
 function createRequestSetup(
 	model: Model<"openai-completions">,
@@ -2267,6 +2470,9 @@ export function convertMessages(
 				}
 			}
 
+			const liteLLMThinkingBlocks = encodeLiteLLMThinkingBlocks(msg.content);
+			if (liteLLMThinkingBlocks.length > 0) assistantMsg.thinking_blocks = liteLLMThinkingBlocks;
+
 			const toolCalls = msg.content.filter(b => b.type === "toolCall") as ToolCall[];
 			// Replay reasoning_content on assistant turns for backends that validate
 			// thinking-mode history. DeepSeek V4 requires reasoning_content on EVERY
@@ -2350,19 +2556,23 @@ export function convertMessages(
 							arguments: serializeToolArguments(tc.arguments),
 						},
 					};
-					const extraContent = parseGeminiThoughtSignatureExtraContent(tc.thoughtSignature);
+					const stored = normalizeStoredGeminiSignature(parseStoredThoughtSignature(tc.thoughtSignature));
+					const extraContent = getGeminiThoughtSignatureExtraContent(stored?.perCall);
 					if (extraContent) replayedToolCall.extra_content = extraContent;
 					return replayedToolCall;
 				});
+				for (const toolCall of toolCalls) {
+					const stored = normalizeStoredGeminiSignature(parseStoredThoughtSignature(toolCall.thoughtSignature));
+					const messageSignature = getGeminiMessageThoughtSignature(stored?.message);
+					if (!messageSignature) continue;
+					assistantMsg[messageSignature.field] = messageSignature.signature;
+					break;
+				}
 				const reasoningDetails = toolCalls.flatMap(tc => {
-					const thoughtSignature = tc.thoughtSignature;
-					if (!thoughtSignature) return [];
-					try {
-						const parsed: unknown = JSON.parse(thoughtSignature);
-						return getGeminiThoughtSignatureExtraContent(parsed) ? [] : [parsed];
-					} catch {
-						return [];
-					}
+					const stored = normalizeStoredGeminiSignature(parseStoredThoughtSignature(tc.thoughtSignature));
+					const perCall = stored?.perCall;
+					if (perCall === undefined || getGeminiThoughtSignatureExtraContent(perCall)) return [];
+					return [perCall];
 				});
 				if (reasoningDetails.length > 0) {
 					assistantMsg.reasoning_details = reasoningDetails;

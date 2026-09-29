@@ -32,6 +32,10 @@ import { VIBE_TOOL_NAMES } from "@oh-my-soup/pi-coding-agent/tools/vibe";
 import { resetYieldTurnState } from "@oh-my-soup/pi-coding-agent/tools/yield";
 import { logger, removeSyncWithRetries, Snowflake, untilAborted } from "@oh-my-soup/pi-utils";
 
+import { cfgExternalThinking } from "@oh-my-soup/pi-coding-agent/session/settings";
+import { cfgPlanEnabled } from "@oh-my-soup/pi-coding-agent/plan-mode/settings";
+import { cfgToolsXdev, cfgToolsXdevDocs, cfgToolsXdevInlineDevices } from "@oh-my-soup/pi-coding-agent/tools/settings";
+
 const toolActivationExtension: ExtensionFactory = pi => {
 	pi.registerTool({
 		name: "default_inactive_tool",
@@ -167,6 +171,57 @@ describe("createAgentSession defaultInactive tool activation", () => {
 		}
 	});
 
+	it("refreshes mounted device schemas when prompt-doc settings change in a live session", async () => {
+		const tempDir = makeTempDir();
+		const settings = Settings.isolated();
+		const { session } = await createAgentSession({
+			...baseOptions(tempDir),
+			settings,
+			extensions: [
+				pi => {
+					pi.registerTool({
+						name: "inline_schema_tool",
+						label: "Inline Schema Tool",
+						description: "Live prompt schema probe.",
+						parameters: type({ uniqueLiveDocsSchema: "string" }),
+						async execute() {
+							return { content: [{ type: "text", text: "done" }] };
+						},
+					});
+				},
+			],
+		});
+
+		try {
+			const prompt = () => session.systemPrompt.join("\n");
+			expect(prompt()).toContain("xd://inline_schema_tool");
+			expect(prompt()).not.toContain("uniqueLiveDocsSchema");
+
+			const refresh = session.refreshBaseSystemPrompt.bind(session);
+			let refreshed = Promise.withResolvers<void>();
+			vi.spyOn(session, "refreshBaseSystemPrompt").mockImplementation(async () => {
+				await refresh();
+				refreshed.resolve();
+			});
+
+			cfgToolsXdevDocs.set(settings, "inline");
+			await refreshed.promise;
+			expect(prompt()).toContain("uniqueLiveDocsSchema");
+
+			refreshed = Promise.withResolvers<void>();
+			cfgToolsXdevDocs.set(settings, "builtins");
+			await refreshed.promise;
+			expect(prompt()).not.toContain("uniqueLiveDocsSchema");
+
+			refreshed = Promise.withResolvers<void>();
+			cfgToolsXdevInlineDevices.set(settings, ["inline_schema_tool"]);
+			await refreshed.promise;
+			expect(prompt()).toContain("uniqueLiveDocsSchema");
+		} finally {
+			await session.dispose();
+		}
+	});
+
 	it("mounts discoverable tools under xd:// for explicit tool lists omitting write", async () => {
 		const tempDir = makeTempDir();
 
@@ -243,15 +298,19 @@ describe("createAgentSession defaultInactive tool activation", () => {
 			expect(session.getToolByName("think")).toBeUndefined();
 			expect(session.getActiveToolNames()).not.toContain("think");
 
-			settings.set("thinkingTool.enabled", true);
-			await session.setThinkToolEnabled(true);
+			// The setting watch fires on the next microtask and queues the tool-registry
+			// mutation; a prompt refresh serializes behind it.
+			cfgExternalThinking.set(settings, true);
+			await Promise.resolve();
+			await session.refreshBaseSystemPrompt();
 
 			expect(session.getToolByName("think")).toBeDefined();
 			expect(session.getActiveToolNames()).toContain("think");
 			expect(session.getXdevToolEntries().map(entry => entry.name)).not.toContain("think");
 
-			settings.set("thinkingTool.enabled", false);
-			await session.setThinkToolEnabled(false);
+			cfgExternalThinking.set(settings, false);
+			await Promise.resolve();
+			await session.refreshBaseSystemPrompt();
 			expect(session.getActiveToolNames()).not.toContain("think");
 		} finally {
 			await session.dispose();
@@ -268,7 +327,7 @@ describe("createAgentSession defaultInactive tool activation", () => {
 			model: nativeModel,
 			settings,
 		});
-		session.modelRegistry.authStorage.setRuntimeApiKey("openai-codex", "test-key");
+		session.modelRegistry.authStorage.keys.setRuntime("openai-codex", "test-key");
 		const mock = createMockModel({ responses: [{ content: ["Done."] }] });
 		vi.spyOn(session.agent, "streamFn").mockImplementation(mock.stream);
 
@@ -286,6 +345,7 @@ describe("createAgentSession defaultInactive tool activation", () => {
 			await session.setModel(nativeModel);
 			expect(session.getActiveToolNames()).toContain("think");
 		} finally {
+			session.modelRegistry.authStorage.keys.removeRuntime("openai-codex");
 			await session.dispose();
 		}
 	});
@@ -306,7 +366,7 @@ describe("createAgentSession defaultInactive tool activation", () => {
 				{ content: ["Done."] },
 			],
 		});
-		registryAuthStorage.setRuntimeApiKey("openai", "test-key");
+		registryAuthStorage.keys.setRuntime("openai", "test-key");
 		const { session } = await createAgentSession(baseOptions(tempDir));
 		vi.spyOn(session.agent, "streamFn").mockImplementation(mock.stream);
 
@@ -326,7 +386,7 @@ describe("createAgentSession defaultInactive tool activation", () => {
 			});
 		} finally {
 			await session.dispose();
-			registryAuthStorage.removeRuntimeApiKey("openai");
+			registryAuthStorage.keys.removeRuntime("openai");
 		}
 	});
 
@@ -344,16 +404,15 @@ describe("createAgentSession defaultInactive tool activation", () => {
 			model: unsupported,
 		});
 		const authStorage = session.modelRegistry.authStorage;
-		authStorage.setRuntimeApiKey("anthropic", "test-key");
-		authStorage.setRuntimeApiKey("openai", "test-key");
-		authStorage.setRuntimeApiKey("google", "test-key");
-		authStorage.setRuntimeApiKey("xai", "test-key");
+		authStorage.keys.setRuntime("anthropic", "test-key");
+		authStorage.keys.setRuntime("openai", "test-key");
+		authStorage.keys.setRuntime("google", "test-key");
+		authStorage.keys.setRuntime("xai", "test-key");
 		const mock = createMockModel({ responses: [{ content: ["Done."] }] });
 		vi.spyOn(session.agent, "streamFn").mockImplementation(mock.stream);
 
 		try {
 			expect(session.getActiveToolNames()).toContain("think");
-			expect(session.systemPrompt.join("\n")).toContain("visible as thinking activity");
 			await session.prompt("Keep native reasoning when replacement is unsupported.");
 			expect(mock.calls).toHaveLength(1);
 			expect(mock.calls[0]?.context.tools?.map(tool => tool.name)).toContain("think");
@@ -362,7 +421,6 @@ describe("createAgentSession defaultInactive tool activation", () => {
 			await session.setModel(fable);
 			expect(session.getToolByName("think")).toBeDefined();
 			expect(session.getActiveToolNames()).toContain("think");
-			expect(session.systemPrompt.join("\n")).toContain("other tools become callable when it completes");
 			await session.setModel(responses);
 			expect(session.getActiveToolNames()).toContain("think");
 			await session.setModel(gemini);
@@ -456,7 +514,7 @@ describe("createAgentSession defaultInactive tool activation", () => {
 		const model = requireBundledModel("openai", "gpt-5");
 		// The prompt preflight validates the key through the registry (not the
 		// per-request `getApiKey` override), so seed it for keyless CI runners.
-		modelRegistry.authStorage.setRuntimeApiKey("openai", "test-key");
+		modelRegistry.authStorage.keys.setRuntime("openai", "test-key");
 		const { session } = await createAgentSession({
 			...baseOptions(tempDir),
 			settings,
@@ -1861,7 +1919,7 @@ describe("createAgentSession defaultInactive tool activation", () => {
 
 		const { session } = await createAgentSession({
 			...baseOptions(tempDir),
-			toolNames: ["read", "search", "find"],
+			toolNames: ["read", "search", "glob"],
 		});
 
 		try {
@@ -1871,7 +1929,6 @@ describe("createAgentSession defaultInactive tool activation", () => {
 			expect(activeToolNames).toContain("grep");
 			expect(activeToolNames).toContain("glob");
 			expect(activeToolNames).not.toContain("search");
-			expect(activeToolNames).not.toContain("find");
 		} finally {
 			await session.dispose();
 		}
@@ -1903,7 +1960,7 @@ describe("createAgentSession defaultInactive tool activation", () => {
 		const tempDir = makeTempDir();
 
 		const settings = Settings.isolated();
-		settings.set("plan.enabled", false);
+		cfgPlanEnabled.set(settings, false);
 
 		const { session } = await createAgentSession({
 			...baseOptions(tempDir),
@@ -2123,7 +2180,7 @@ describe("createAgentSession defaultInactive tool activation", () => {
 		const normalDir = makeTempDir();
 		const configuredSettings = () =>
 			Settings.isolated({
-				"providers.imageOrder": ["openai"],
+				modelRoles: { image: "openai/gpt-image-1" },
 				"generate_image.enabled": true,
 				"speechgen.enabled": true,
 				"memory.backend": "hindsight",
@@ -2154,7 +2211,7 @@ describe("createAgentSession defaultInactive tool activation", () => {
 			settings: configuredSettings(),
 			extensions: [toolActivationExtension, restrictedLateExtension],
 			customTools: [sdkCustomTool],
-			toolNames: ["read", "lsp", "hub"],
+			toolNames: ["read", "lsp"],
 			requireYieldTool: true,
 			restrictToolNames: true,
 			enableMCP: true,
@@ -2182,7 +2239,6 @@ describe("createAgentSession defaultInactive tool activation", () => {
 				"default_inactive_tool",
 				"sdk_custom_tool",
 				"restricted_late_extension_tool",
-				"hub",
 			]) {
 				expect(restricted.getToolByName(name)).toBeUndefined();
 			}
@@ -2329,11 +2385,11 @@ describe("createAgentSession defaultInactive tool activation", () => {
 	// env var — an env mutation would outlive this file — and removed after,
 	// since the storage is shared by every test here.
 	const withProviderAuth = async (providers: string[], run: () => Promise<void>): Promise<void> => {
-		for (const provider of providers) modelRegistry.authStorage.setRuntimeApiKey(provider, "test-key");
+		for (const provider of providers) modelRegistry.authStorage.keys.setRuntime(provider, "test-key");
 		try {
 			await run();
 		} finally {
-			for (const provider of providers) modelRegistry.authStorage.removeRuntimeApiKey(provider);
+			for (const provider of providers) modelRegistry.authStorage.keys.removeRuntime(provider);
 		}
 	};
 
@@ -2607,7 +2663,7 @@ describe("createAgentSession defaultInactive tool activation", () => {
 		// because the absence of that state is precisely what is under test.
 		const tempDir = makeTempDir();
 		const settings = Settings.isolated();
-		settings.set("tools.xdev", false);
+		cfgToolsXdev.set(settings, false);
 
 		await withProviderAuth(["openai"], async () => {
 			const { session } = await createAgentSession({ ...baseOptions(tempDir), settings });

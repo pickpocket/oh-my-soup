@@ -3,23 +3,29 @@ import * as path from "node:path";
 import * as url from "node:url";
 import type { AgentMessage } from "@oh-my-soup/pi-agent-core";
 import { resetSettingsForTest, Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { MAGIC_KEYWORDS } from "@oh-my-soup/pi-coding-agent/modes/magic-keywords";
 import { CustomEditor } from "@oh-my-soup/pi-tui/prompt/custom-editor";
 import { UserMessageComponent } from "@oh-my-soup/pi-tui/chat/user-message";
 import { chipLabel, modelChipStyle, modelMentionChipLabel } from "@oh-my-soup/pi-tui/prompt/composer-attachments";
 import { imageReferenceHyperlink } from "@oh-my-soup/pi-tui/prompt/image-references";
+import { setMagicKeywords } from "@oh-my-soup/pi-tui/prompt/magic-keywords";
 import { getEditorTheme, initTheme, theme } from "@oh-my-soup/pi-tui/theme";
 import type { InteractiveModeContext } from "@oh-my-soup/pi-coding-agent/modes/types";
 import { UiHelpers } from "@oh-my-soup/pi-coding-agent/modes/utils/ui-helpers";
 import { Container } from "@oh-my-soup/pi-tui";
+import { cfgTuiHyperlinks } from "@oh-my-soup/pi-coding-agent/modes/settings";
 
 beforeAll(async () => {
 	resetSettingsForTest();
 	await Settings.init({ inMemory: true });
-	Settings.instance.set("tui.hyperlinks", "always");
+	cfgTuiHyperlinks.set(Settings.instance, "always");
 	await initTheme(false);
+	// The host registers keywords at startup; without this nothing glows.
+	setMagicKeywords(MAGIC_KEYWORDS);
 });
 
 afterAll(() => {
+	setMagicKeywords([]);
 	resetSettingsForTest();
 });
 
@@ -151,7 +157,6 @@ describe("UserMessageComponent magic-keyword highlighting", () => {
 		};
 		const helpers = new UiHelpers({
 			chatContainer,
-			getUserMessageText: () => "please inspect [Image #1]",
 			sessionManager: sessionManagerMock,
 			viewSession: { sessionManager: sessionManagerMock },
 			transcriptMessageComponents: new WeakMap(),

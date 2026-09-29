@@ -1219,14 +1219,6 @@ describe("Generate E2E Tests", () => {
 			{ retry: 3 },
 		);
 
-		it.skip(
-			"should handle thinking mode",
-			async () => {
-				await handleThinking(llm, { reasoning: Effort.Medium });
-			},
-			{ retry: 3 },
-		);
-
 		it(
 			"should handle multi-turn with thinking and tools",
 			async () => {

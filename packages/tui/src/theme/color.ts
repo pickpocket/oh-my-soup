@@ -1,5 +1,11 @@
+import { paletteToRgb, rgbToHex } from "@oh-my-soup/pi-utils/color";
 import { detectTerminalId, getTerminalInfo } from "../terminal-capabilities";
 import type { ColorMode, ColorValue } from "./schema";
+
+/** SGR reset for the foreground color only, leaving other attributes intact. */
+export const FG_RESET = "\x1b[39m";
+/** SGR reset for the background color only, leaving other attributes intact. */
+export const BG_RESET = "\x1b[49m";
 
 // ============================================================================
 // Color Utilities
@@ -12,11 +18,26 @@ export function detectColorMode(env: NodeJS.ProcessEnv = Bun.env): ColorMode {
 	return terminal.trueColor ? "truecolor" : "256color";
 }
 
+const ANSI_COLOR_CACHE_LIMIT = 256;
+const ANSI_COLOR_CACHE_MAX_LENGTH = 128;
+const ansiColorCaches: Record<ColorMode, Map<string, string>> = {
+	truecolor: new Map(),
+	"256color": new Map(),
+};
+
+/** Convert a theme color to foreground SGR at the requested depth; throws for invalid colors. */
 export function colorToAnsi(color: string, mode: ColorMode): string {
+	const cache = color.length <= ANSI_COLOR_CACHE_MAX_LENGTH ? ansiColorCaches[mode] : undefined;
+	const cached = cache?.get(color);
+	if (cached !== undefined) return cached;
 	const format = mode === "truecolor" ? "ansi-16m" : "ansi-256";
 	const ansi = Bun.color(color, format);
 	if (ansi === null) {
 		throw new Error(`Invalid color value: ${color}`);
+	}
+	if (cache) {
+		if (cache.size >= ANSI_COLOR_CACHE_LIMIT) cache.clear();
+		cache.set(color, ansi);
 	}
 	return ansi;
 }
@@ -83,41 +104,7 @@ export function resolveToHex(value: string | number, isLight: boolean): string {
  * Indices 232-255: grayscale ramp
  */
 export function ansi256ToHex(index: number): string {
-	// Basic colors (0-15) - approximate common terminal values
-	const basicColors = [
-		"#000000",
-		"#800000",
-		"#008000",
-		"#808000",
-		"#000080",
-		"#800080",
-		"#008080",
-		"#c0c0c0",
-		"#808080",
-		"#ff0000",
-		"#00ff00",
-		"#ffff00",
-		"#0000ff",
-		"#ff00ff",
-		"#00ffff",
-		"#ffffff",
-	];
-	if (index < 16) {
-		return basicColors[index];
-	}
-
-	// Color cube (16-231): 6x6x6 = 216 colors
-	if (index < 232) {
-		const cubeIndex = index - 16;
-		const r = Math.floor(cubeIndex / 36);
-		const g = Math.floor((cubeIndex % 36) / 6);
-		const b = cubeIndex % 6;
-		const toHex = (n: number) => (n === 0 ? 0 : 55 + n * 40).toString(16).padStart(2, "0");
-		return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
-	}
-
-	// Grayscale (232-255): 24 shades
-	const gray = 8 + (index - 232) * 10;
-	const grayHex = gray.toString(16).padStart(2, "0");
-	return `#${grayHex}${grayHex}${grayHex}`;
+	const rgb = paletteToRgb(index);
+	if (!rgb) throw new Error(`Invalid palette index: ${index}`);
+	return rgbToHex(rgb);
 }

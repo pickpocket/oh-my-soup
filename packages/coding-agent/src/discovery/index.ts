@@ -36,6 +36,7 @@ import "./opencode";
 import "./github";
 import "./mcp-json";
 import "./oms-plugins";
+import "./skillshare";
 import "./ssh";
 import "./vscode";
 import "./windsurf";

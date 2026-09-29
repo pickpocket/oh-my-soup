@@ -84,6 +84,7 @@ const RELEASE: ReleaseInfo = {
 	tag: `v${NEW_VERSION}`,
 	version: NEW_VERSION,
 	packages: { pkg: NEW_PKG, natives: "@oh-my-soup/pi-natives" },
+	registry: "https://registry.npmjs.org/",
 };
 
 describe.skipIf(process.platform === "win32" || !hasNativeNpm)("rename migration over real npm", () => {

@@ -1,28 +1,34 @@
-import { describe, expect, it } from "bun:test";
-import type { AuthStorage, FetchImpl } from "@oh-my-soup/pi-ai";
+import { afterAll, describe, expect, it } from "bun:test";
+import type { FetchImpl } from "@oh-my-soup/pi-ai";
+import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
 import type { SearchParams } from "@oh-my-soup/pi-coding-agent/web/search/providers/base";
 import { searchYandex, YandexProvider } from "@oh-my-soup/pi-coding-agent/web/search/providers/yandex";
 import { SEARCH_PROVIDER_OPTIONS } from "@oh-my-soup/pi-tui/tools/web-search";
 import { SearchProviderError } from "@oh-my-soup/pi-coding-agent/web/search/types";
+import { createInMemoryAuthStorage } from "../helpers/agent-session-setup";
 
-const fakeAuthStorage = {
-	getApiKey() {
-		throw new Error("Yandex search must not request an API key");
-	},
-	hasAuth() {
-		throw new Error("Yandex search must not inspect credentials");
-	},
-} as unknown as AuthStorage;
+const authStorage = createInMemoryAuthStorage();
+const modelRegistry = new ModelRegistry(authStorage);
+// Direct Yandex scraper tests do not select a model; supply an existing search model for SearchParams.
+const model = (() => {
+	const found = modelRegistry.find("web", "google");
+	if (!found) throw new Error("Expected bundled web/google model");
+	return found;
+})();
 
 function makeParams(query: string, fetch: FetchImpl, overrides: Partial<SearchParams> = {}): SearchParams {
 	return {
 		query,
-		authStorage: fakeAuthStorage,
+		authStorage,
+		model,
+		modelRegistry,
 		systemPrompt: "Yandex search test prompt",
 		fetch,
 		...overrides,
 	};
 }
+
+afterAll(() => authStorage.close());
 
 function yandexResult(url: string, title: string, snippet?: string): string {
 	return `<li class="serp-item serp-item_card"><div class="Organic">
@@ -117,7 +123,7 @@ describe("Yandex web search provider", () => {
 	});
 
 	it("is credential-free and exposed by shared provider settings", () => {
-		expect(new YandexProvider().isAvailable(fakeAuthStorage)).toBe(true);
+		expect(new YandexProvider().isAvailable(authStorage)).toBe(true);
 		expect(SEARCH_PROVIDER_OPTIONS.find(option => option.value === "yandex")).toMatchObject({
 			label: "Yandex",
 		});

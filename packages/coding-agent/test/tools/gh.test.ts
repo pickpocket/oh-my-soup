@@ -3,7 +3,7 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import type { ToolCall } from "@oh-my-soup/pi-ai";
-import { toolWireSchema } from "@oh-my-soup/pi-ai/utils/schema";
+
 import { validateToolArguments } from "@oh-my-soup/pi-ai/utils/validation";
 import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
 import type { ToolSession } from "@oh-my-soup/pi-coding-agent/tools";
@@ -129,6 +129,10 @@ async function buildPrFixtureTemplate(): Promise<PrFixture> {
 
 	await fs.mkdir(repoRoot, { recursive: true });
 	runGit(baseDir, ["init", "-b", "main", repoRoot]);
+	// createPrFixture copies this tree with fs.cp; a background
+	// `git maintenance run --auto` lock would race the copy.
+	runGit(repoRoot, ["config", "maintenance.auto", "false"]);
+	runGit(repoRoot, ["config", "gc.auto", "0"]);
 	await fs.writeFile(path.join(repoRoot, "README.md"), "base\n");
 	runGit(repoRoot, ["add", "README.md"]);
 	runGit(repoRoot, ["commit", "-m", "base commit"]);
@@ -1415,15 +1419,6 @@ echo ok
 				);
 			});
 		});
-	});
-
-	it("exposes a flat op-based schema without legacy run_watch parameters", () => {
-		const tool = new GithubTool(createSession());
-		const wire = toolWireSchema(tool);
-		const properties = wire.properties as Record<string, unknown>;
-		expect(properties.op).toBeDefined();
-		expect(properties.interval).toBeUndefined();
-		expect(properties.grace).toBeUndefined();
 	});
 
 	it("tails failed job logs inline and saves the full failed-job logs as an artifact", async () => {

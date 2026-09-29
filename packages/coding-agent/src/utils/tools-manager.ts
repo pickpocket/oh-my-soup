@@ -2,8 +2,10 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { $which, getToolsDir, isEnoent, logger, ptree, TempDir, USER_AGENT } from "@oh-my-soup/pi-utils";
+import { extractArchive } from "@oh-my-soup/pi-utils/ar";
+import { type DownloadTracker, trackDownload, withDownload } from "../downloads/activity";
 import { isMuslLinux } from "./platform";
-import { extractArchive, extractTarGzArchive } from "./zip";
+import { extractTarGzArchive } from "./zip";
 
 const TOOL_DOWNLOAD_TIMEOUT_MS = 120_000;
 const TOOL_METADATA_TIMEOUT_MS = 5000;
@@ -37,7 +39,7 @@ async function readBodyChunk(reader: BodyReader, signal: AbortSignal | undefined
 	}
 }
 
-interface DownloadIntegrity {
+export interface DownloadIntegrity {
 	sha256: string;
 	maxBytes: number;
 }
@@ -45,8 +47,9 @@ interface DownloadIntegrity {
 async function writeResponseBody(
 	dest: string,
 	body: NonNullable<Response["body"]>,
-	signal?: AbortSignal,
-	integrity?: DownloadIntegrity,
+	signal: AbortSignal | undefined,
+	integrity: DownloadIntegrity | undefined,
+	onChunk: ((bytes: number) => void) | undefined,
 ): Promise<void> {
 	const reader = body.getReader();
 	const sink = Bun.file(dest).writer();
@@ -65,6 +68,7 @@ async function writeResponseBody(
 				}
 				hasher?.update(value);
 				await sink.write(value);
+				onChunk?.(value.byteLength);
 			}
 		}
 		await sink.end();
@@ -354,7 +358,7 @@ async function downloadLlvmTools(tool: "objdump" | "objcopy", signal?: AbortSign
 	try {
 		const archive = `${asset.directory}.tar.gz`;
 		const archivePath = staging.join(archive);
-		await downloadFile(`${LLVM_TOOLS_DIST}/${archive}`, archivePath, signal, asset);
+		await downloadFile(`${LLVM_TOOLS_DIST}/${archive}`, archivePath, { signal, integrity: asset });
 		signal?.throwIfAborted();
 		const prefix = `${asset.directory}/llvm-tools-preview/`;
 		const license = `${asset.directory}/LICENSE.TXT`;
@@ -486,14 +490,20 @@ async function getLatestVersion(repo: string, signal?: AbortSignal): Promise<str
 	return data.tag_name.replace(/^v/, "");
 }
 
+/** Options for {@link downloadFile}. */
+export interface DownloadFileOptions {
+	signal?: AbortSignal;
+	/** Bound on the whole transfer (default 2 minutes; raise it for large model weights). */
+	timeoutMs?: number;
+	/** Bytes written so far and the `Content-Length` total (undefined when the server omits it). */
+	onProgress?: (loaded: number, total: number | undefined) => void;
+	integrity?: DownloadIntegrity;
+}
+
 /** Download a tool asset without handing the streaming Response to Bun.write. */
-export async function downloadFile(
-	url: string,
-	dest: string,
-	signal?: AbortSignal,
-	integrity?: DownloadIntegrity,
-): Promise<void> {
-	const downloadSignal = ptree.combineSignals(signal, TOOL_DOWNLOAD_TIMEOUT_MS);
+export async function downloadFile(url: string, dest: string, options: DownloadFileOptions = {}): Promise<void> {
+	const { signal, timeoutMs = TOOL_DOWNLOAD_TIMEOUT_MS, onProgress, integrity } = options;
+	const downloadSignal = ptree.combineSignals(signal, timeoutMs);
 	let response: Response;
 	try {
 		response = await fetch(url, {
@@ -504,7 +514,20 @@ export async function downloadFile(
 		} else if (!response.body) {
 			throw new Error("No response body");
 		}
-		await writeResponseBody(dest, response.body, downloadSignal, integrity);
+		const length = Number(response.headers.get("content-length"));
+		const total = Number.isFinite(length) && length > 0 ? length : undefined;
+		let loaded = 0;
+		await writeResponseBody(
+			dest,
+			response.body,
+			downloadSignal,
+			integrity,
+			onProgress &&
+				(bytes => {
+					loaded += bytes;
+					onProgress(loaded, total);
+				}),
+		);
 	} catch (err) {
 		if (isAbortLikeError(err)) {
 			throw new Error(`Download timed out: ${url}`);
@@ -514,7 +537,11 @@ export async function downloadFile(
 }
 
 // Download and install a tool
-async function downloadTool(tool: ToolName, signal?: AbortSignal): Promise<string> {
+async function downloadTool(
+	tool: ToolName,
+	signal: AbortSignal | undefined,
+	tracker: DownloadTracker,
+): Promise<string> {
 	const config = TOOLS[tool];
 	if (!config) throw new Error(`Unknown tool: ${tool}`);
 
@@ -539,8 +566,9 @@ async function downloadTool(tool: ToolName, signal?: AbortSignal): Promise<strin
 	const binaryPath = path.join(toolsDir, config.binaryName + binaryExt);
 
 	// Handle direct binary downloads (no archive extraction needed)
+	const onProgress = (loaded: number, total: number | undefined): void => tracker.update({ loaded, total });
 	if (config.isDirectBinary) {
-		await downloadFile(downloadUrl, binaryPath, signal);
+		await downloadFile(downloadUrl, binaryPath, { signal, onProgress });
 		if (plat !== "win32") {
 			await fs.promises.chmod(binaryPath, 0o755);
 		}
@@ -549,7 +577,8 @@ async function downloadTool(tool: ToolName, signal?: AbortSignal): Promise<strin
 
 	// Download archive
 	const archivePath = path.join(toolsDir, assetName);
-	await downloadFile(downloadUrl, archivePath, signal);
+	await downloadFile(downloadUrl, archivePath, { signal, onProgress });
+	tracker.update({ detail: "extracting" });
 
 	// Extract
 	const tmp = await TempDir.create("@oms-tools-extract-");
@@ -685,17 +714,20 @@ export async function ensureTool(tool: ToolName, silentOrOptions?: EnsureToolOpt
 			logger.debug(`${pythonConfig.name} not found. Installing via uv/pip...`);
 		}
 		notify?.(`Installing ${pythonConfig.name}…`);
+		const tracker = trackDownload(pythonConfig.name, { detail: "installing" });
 		const success = await installPythonPackage(pythonConfig.package, signal);
 		if (success) {
 			// Re-check for the command after installation
 			const path = $which(pythonConfig.binaryName);
 			if (path) {
+				tracker.done();
 				if (!silent) {
 					logger.debug(`${pythonConfig.name} installed successfully`);
 				}
 				return path;
 			}
 		}
+		tracker.fail(new Error(`could not install ${pythonConfig.package} with uv or pip`));
 		if (!silent) {
 			logger.warn(`Failed to install ${pythonConfig.name}`);
 		}
@@ -712,7 +744,7 @@ export async function ensureTool(tool: ToolName, silentOrOptions?: EnsureToolOpt
 	notify?.(`Downloading ${config.name}…`);
 
 	try {
-		const path = await downloadTool(tool, signal);
+		const path = await withDownload(config.name, tracker => downloadTool(tool, signal, tracker));
 		if (!silent) {
 			logger.debug(`${config.name} installed to ${path}`);
 		}

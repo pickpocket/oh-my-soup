@@ -1,11 +1,18 @@
 import { beforeAll, describe, expect, it } from "bun:test";
 import { initTheme } from "@oh-my-soup/pi-tui/theme";
-import { renderWorkflowNotice } from "@oh-my-soup/pi-coding-agent/modes/workflow";
-import { containsWorkflow, highlightWorkflow } from "@oh-my-soup/pi-tui/prompt/workflow";
+import { renderWorkflowNotice } from "@oh-my-soup/pi-coding-agent/modes/magic-keywords";
+import {
+	containsMagicKeyword,
+	highlightMagicKeywords,
+	setMagicKeywords,
+} from "@oh-my-soup/pi-tui/prompt/magic-keywords";
+
+const containsWorkflow = (text: string) => containsMagicKeyword(text, "workflowz");
+const highlightWorkflow = (text: string) => highlightMagicKeywords(text);
 
 beforeAll(() => {
-	// highlightWorkflow reads the global theme's color mode.
 	initTheme();
+	setMagicKeywords([{ word: "workflowz", hue: [30, 150] }]);
 });
 
 describe("workflow keyword detection", () => {
@@ -34,11 +41,10 @@ describe("workflow keyword detection", () => {
 		expect(containsWorkflow("nothing to see here")).toBe(false);
 	});
 });
-
 describe("workflow notice", () => {
 	it("defaults to workpools and hides eval-defined tools when disabled", () => {
-		const enabled = renderWorkflowNotice({ taskBatch: true, evalTools: true });
-		const disabled = renderWorkflowNotice({ taskBatch: true, evalTools: false });
+		const enabled = renderWorkflowNotice({ taskBatch: true, scoutAvailable: true, evalTools: true });
+		const disabled = renderWorkflowNotice({ taskBatch: true, scoutAvailable: true, evalTools: false });
 		expect(enabled).toContain("Default to `workpool()`");
 		expect(enabled).toContain("`@tool`");
 		expect(disabled).toContain("Default to `workpool()`");

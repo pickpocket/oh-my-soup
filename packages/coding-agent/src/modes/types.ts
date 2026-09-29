@@ -1,6 +1,6 @@
 import type { AgentMessage } from "@oh-my-soup/pi-agent-core";
 import type { CompactionOutcome } from "@oh-my-soup/pi-agent-core/compaction";
-import type { AssistantMessage, ImageContent, Message, Model, Usage, UsageReport } from "@oh-my-soup/pi-ai";
+import type { AssistantMessage, ImageContent, Model, Usage, UsageReport } from "@oh-my-soup/pi-ai";
 import type { Component, Container, EditorTheme, Loader, Spacer, Text, TUI } from "@oh-my-soup/pi-tui";
 import type { CollabController } from "../collab/controller";
 import type { CollabGuestLink } from "../collab/guest";
@@ -27,6 +27,8 @@ import type { HistoryStorage } from "../session/history-storage";
 import type { SessionContext } from "../session/session-context";
 import type { SessionManager } from "../session/session-manager";
 import type { ShakeMode } from "../session/shake-types";
+import type { DictationTarget } from "../stt";
+import type { SpaceHoldHandler } from "@oh-my-soup/pi-tui/space-hold";
 import type { ConfiguredThinkingLevel } from "@oh-my-soup/pi-tui/thinking";
 import type { LspStartupServerInfo } from "../tools";
 import type { EventBus } from "../utils/event-bus";
@@ -47,6 +49,7 @@ import type { EventController } from "./controllers/event-controller";
 import type { LoopConditionConfig, LoopLimitRuntime } from "@oh-my-soup/pi-tui/status-line/loop";
 import type { OAuthManualInputManager } from "./oauth-manual-input";
 import type { Theme } from "@oh-my-soup/pi-tui/theme";
+import type { TodoItem, TodoPhase } from "@oh-my-soup/pi-tui/tools/todo";
 
 export type CompactionQueuedMessage = {
 	text: string;
@@ -76,20 +79,6 @@ export type SubmittedUserInput = {
 	streamingBehavior?: "steer" | "followUp";
 	cancelled: boolean;
 	started: boolean;
-};
-
-export type TodoStatus = "pending" | "in_progress" | "completed" | "abandoned" | "blocked";
-
-export type TodoItem = {
-	content: string;
-	status: TodoStatus;
-	details?: string;
-	notes?: string[];
-};
-
-export type TodoPhase = {
-	name: string;
-	tasks: TodoItem[];
 };
 
 export interface InteractiveModeInitOptions {
@@ -138,7 +127,6 @@ export interface InteractiveModeContext {
 	hookWidgetContainerBelow: Container;
 	statusLine: StatusLineComponent;
 	syncComposerShape(): void;
-	syncEditorSpelling(): void;
 
 	// Session access
 	session: AgentSession;
@@ -161,8 +149,6 @@ export interface InteractiveModeContext {
 	resolveViewportClickCandidates(index: number): string[];
 	/** Flip the pinned jump list between its collapsed few and the full list. */
 	togglePinnedHudExpanded(): void;
-	/** Rebuild the pinned jump list for a `display.pinnedAgents` change. */
-	applyPinnedAgentsSetting(): void;
 	/** Point the inline hover band at a click-candidate id (or clear it). */
 	setClickHoverId(id: string | undefined): void;
 	/** Clear loader, transient HUD/pending containers, streaming state, and pending tools. */
@@ -341,14 +327,17 @@ export interface InteractiveModeContext {
 	ensureLoadingAnimation(): void;
 	/** Reconcile the idle "F5 to Retry" status row with the transcript tail. */
 	syncRetryHintRow(): void;
-	startPendingSubmission(input: {
-		text: string;
-		images?: ImageContent[];
-		imageLinks?: (string | undefined)[];
-		customType?: string;
-		display?: boolean;
-		streamingBehavior?: "steer" | "followUp";
-	}): SubmittedUserInput;
+	startPendingSubmission(
+		input: {
+			text: string;
+			images?: ImageContent[];
+			imageLinks?: (string | undefined)[];
+			customType?: string;
+			display?: boolean;
+			streamingBehavior?: "steer" | "followUp";
+		},
+		options?: { preserveDraft?: boolean; clearEditor?: boolean },
+	): SubmittedUserInput;
 	cancelPendingSubmission(): boolean;
 	markPendingSubmissionStarted(input: SubmittedUserInput): boolean;
 	finishPendingSubmission(input: SubmittedUserInput): void;
@@ -406,17 +395,11 @@ export interface InteractiveModeContext {
 	 * `renderInitialMessages({ clearTerminalHistory: true })` replay.
 	 */
 	truncateTranscriptFromMessage(message: AgentMessage): boolean;
-	getUserMessageText(message: Message): string;
 	findLastAssistantMessage(): AssistantMessage | undefined;
 	extractAssistantText(message: AssistantMessage): string;
 	/** Refresh the running-subagents status badge from the active local or collab registry. */
 	syncRunningSubagentBadge(): void;
 	updateEditorBorderColor(): void;
-	/**
-	 * Re-apply `tui.vimMode` to the live editor and refresh the mode chrome (border, status-line
-	 * segment, cursor shape). Lets the setting take effect without restarting the session.
-	 */
-	applyVimModeSetting(): void;
 	rebuildChatFromMessages(options?: { reuseSettledComponents?: boolean }): void;
 	setTodos(todos: TodoItem[] | TodoPhase[]): void;
 	reloadTodos(source?: AgentSession): Promise<void>;
@@ -431,7 +414,7 @@ export interface InteractiveModeContext {
 	handleAdvisorStatusCommand(): Promise<void>;
 	handleJobsCommand(): Promise<void>;
 	handleUsageCommand(reports?: UsageReport[] | null): Promise<void>;
-	handleChangelogCommand(showFull?: boolean): Promise<void>;
+	handleChangelogCommand(args?: string): Promise<void>;
 	handleHotkeysCommand(): void;
 	handleToolsCommand(): void;
 	handleContextCommand(): void;
@@ -461,8 +444,13 @@ export interface InteractiveModeContext {
 	handleRenameCommand(title: string): Promise<void>;
 	handleMemoryCommand(text: string): Promise<void>;
 	handleSTTToggle(): Promise<void>;
+	/** Space-bar push-to-talk into `target`: a recognized hold starts dictation and its release stops
+	 *  it. Gated on `stt.enabled`, so a disabled STT leaves the space bar typing normally. */
+	dictationSpaceHold(target: DictationTarget): SpaceHoldHandler;
 	/** Start or stop the Codex-backed realtime voice session. */
 	handleLiveCommand(): Promise<void>;
+	/** Start a `/record` screen capture, or stop the running one. */
+	toggleRecording(): Promise<void>;
 	executeCompaction(
 		customInstructionsOrOptions?: string | CompactOptions,
 		isAuto?: boolean,

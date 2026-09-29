@@ -227,7 +227,7 @@ describe("fetchMarketplace", () => {
 		const root = path.join(tmpDir, "both-catalogs");
 		fs.mkdirSync(path.join(root, ".oms-plugin"), { recursive: true });
 		fs.mkdirSync(path.join(root, ".claude-plugin"), { recursive: true });
-		const ompCatalog = {
+		const omsCatalog = {
 			name: "from-oms-plugin",
 			owner: { name: "Test" },
 			plugins: [{ name: "p", source: "./p", description: "x" }],
@@ -237,7 +237,7 @@ describe("fetchMarketplace", () => {
 			owner: { name: "Test" },
 			plugins: [{ name: "p", source: "./p", description: "x" }],
 		};
-		fs.writeFileSync(path.join(root, ".oms-plugin", "marketplace.json"), JSON.stringify(ompCatalog));
+		fs.writeFileSync(path.join(root, ".oms-plugin", "marketplace.json"), JSON.stringify(omsCatalog));
 		fs.writeFileSync(path.join(root, ".claude-plugin", "marketplace.json"), JSON.stringify(claudeCatalog));
 
 		const result = await fetchMarketplace(root, tmpDir);
@@ -275,25 +275,5 @@ describe("fetchMarketplace", () => {
 		} finally {
 			cloneSpy.mockRestore();
 		}
-	});
-
-	// Network-dependent tests — skip in CI / offline environments.
-	// These verify real git clone and HTTP fetch error handling.
-	it.skip("github source throws on nonexistent repo", async () => {
-		await expect(fetchMarketplace("nonexistent-owner-xyz/nonexistent-repo-xyz", tmpDir)).rejects.toThrow(
-			/git clone failed/,
-		);
-	});
-
-	it.skip("git source throws on nonexistent repo", async () => {
-		await expect(
-			fetchMarketplace("git@github.com:nonexistent-owner-xyz/nonexistent-repo-xyz.git", tmpDir),
-		).rejects.toThrow(/git clone failed/);
-	});
-
-	it.skip("url source throws on non-2xx response", async () => {
-		await expect(fetchMarketplace("https://example.com/nonexistent-catalog-xyz.json", tmpDir)).rejects.toThrow(
-			/HTTP [45]\d\d/,
-		);
 	});
 });

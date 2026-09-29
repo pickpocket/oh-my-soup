@@ -3,14 +3,13 @@ import type { AssistantMessage, Usage } from "@oh-my-soup/pi-ai";
 import { type Component } from "../tui";
 import { Container } from "../tui";
 import { Text } from "../components/text";
-import { XD_URL_PREFIX } from "../tools/xd-url";
 import { getLanguageFromPath, theme } from "../theme";
 import { parseLineRanges, selectorLineRanges } from "../tools/line-ranges";
-import { splitPathAndSel } from "../tools/read";
+import { type ReadRenderArgs, type ReadToolDetails, readSourceFsPath, splitPathAndSel } from "../tools/read";
 import { PREVIEW_LIMITS, shortenPath } from "../render/render-utils";
 import { fileHyperlink, renderCodeCell } from "../render";
 import { canonicalizeMessage } from "./thinking-display";
-import { internalReadTargetPredicate } from "./read-target";
+import { internalUrlSchemeSpec, splitUrlScheme } from "../tools/url-scheme-host";
 import type { ToolExecutionHandle } from "./tool-execution";
 import { formatUsageRow } from "../overlays/usage-row";
 
@@ -35,14 +34,16 @@ export function readArgsHaveTarget(args: unknown): boolean {
 /**
  * Whether a read collapses into the compact {@link ReadToolGroupComponent}
  * rather than a full tool execution. Filesystem/external targets always
- * collapse; other internal URLs (`skill://`, `agent://`, …) render full so
- * their resolved content is visible. `xd://` device reads are the exception —
- * they list devices/docs and read better in the compact grouped view.
+ * collapse; registered internal-URL schemes render full so their resolved
+ * content is visible, unless their spec declares `compactTranscript`
+ * (device listings/docs read better in the compact grouped view).
  */
 export function readArgsCollapseIntoGroup(args: unknown): boolean {
 	const target = readArgsTarget(args);
 	if (target === undefined) return false;
-	return target.startsWith(XD_URL_PREFIX) || !internalReadTargetPredicate?.(target);
+	const url = splitUrlScheme(target);
+	const spec = url && internalUrlSchemeSpec(url.scheme);
+	return spec === undefined || spec.compactTranscript === true;
 }
 
 /**
@@ -72,44 +73,16 @@ export function groupedReadUsageCallIds(message: AssistantMessage): string[] | u
 	return toolCallIds.length > 0 ? toolCallIds : undefined;
 }
 
-type ReadRenderArgs = {
-	path?: string;
-	file_path?: string;
-};
-
 type ReadToolSuffixResolution = {
 	from: string;
 	to: string;
-};
-
-type ReadToolResultDetails = {
-	displayTarget?: string;
-	resolvedPath?: string;
-	suffixResolution?: {
-		from?: string;
-		to?: string;
-	};
-	conflictCount?: number;
-	displayReadTargets?: unknown;
-	displayReadTargetLinks?: unknown;
-	displayContent?: {
-		text?: string;
-		startLine?: number;
-		lineNumbers?: Array<number | null>;
-	};
-	meta?: {
-		source?: {
-			type?: string;
-			value?: string;
-		};
-	};
 };
 
 type ReadToolGroupOptions = {
 	showContentPreview?: boolean;
 };
 
-function getSuffixResolution(details: ReadToolResultDetails | undefined): ReadToolSuffixResolution | undefined {
+function getSuffixResolution(details: ReadToolDetails | undefined): ReadToolSuffixResolution | undefined {
 	if (typeof details?.suffixResolution?.from !== "string" || typeof details.suffixResolution.to !== "string") {
 		return undefined;
 	}
@@ -165,9 +138,7 @@ const READ_STATUS_RANK: Record<ReadEntry["status"], number> = {
 	error: 3,
 };
 
-const URL_LIKE_RE = /^[a-z][a-z0-9+.-]*:\/\//i;
-
-function getDisplayReadTargets(details: ReadToolResultDetails | undefined): ReadDisplayPathSpec[] | undefined {
+function getDisplayReadTargets(details: ReadToolDetails | undefined): ReadDisplayPathSpec[] | undefined {
 	if (!Array.isArray(details?.displayReadTargets)) return undefined;
 	const links = Array.isArray(details.displayReadTargetLinks) ? details.displayReadTargetLinks : undefined;
 	const targets: ReadDisplayPathSpec[] = [];
@@ -187,12 +158,7 @@ function displayPathWithSuffixResolution(currentPath: string, suffixResolution: 
 	return `${suffixResolution.to}:${currentSelector}`;
 }
 
-function readSourceFsPath(details: ReadToolResultDetails | undefined): string | undefined {
-	const source = details?.meta?.source;
-	return source?.type === "path" && typeof source.value === "string" ? source.value : undefined;
-}
-
-function readResultLinkPath(details: ReadToolResultDetails | undefined): string | undefined {
+function readResultLinkPath(details: ReadToolDetails | undefined): string | undefined {
 	return (
 		details?.displayTarget ??
 		(typeof details?.resolvedPath === "string" ? details.resolvedPath : readSourceFsPath(details))
@@ -270,7 +236,7 @@ function commaContinuesLineRangeSelector(input: string, partStart: number, comma
 
 function splitReadDisplayPathSpecs(rawPath: string): string[] {
 	const normalized = rawPath.trim();
-	if (!normalized || URL_LIKE_RE.test(normalized)) return [rawPath];
+	if (!normalized || splitUrlScheme(normalized)) return [rawPath];
 
 	const parts: string[] = [];
 	let braceDepth = 0;
@@ -415,7 +381,8 @@ export class ReadToolGroupComponent extends Container implements ToolExecutionHa
 
 	updateArgs(args: ReadRenderArgs, toolCallId?: string): void {
 		if (!toolCallId) return;
-		const rawPath = args.file_path || args.path || "";
+		const rawPath =
+			typeof args.file_path === "string" ? args.file_path : typeof args.path === "string" ? args.path : "";
 		const entry: ReadEntry = this.#entries.get(toolCallId) ?? {
 			toolCallId,
 			path: rawPath,
@@ -462,7 +429,7 @@ export class ReadToolGroupComponent extends Container implements ToolExecutionHa
 		if (!entry) return;
 		if (isPartial) return;
 		this.#blockVersion++;
-		const details = result.details as ReadToolResultDetails | undefined;
+		const details = result.details as ReadToolDetails | undefined;
 		const suffixResolution = getSuffixResolution(details);
 		const displayPaths = getDisplayReadTargets(details);
 		entry.linkPath = readResultLinkPath(details);

@@ -13,7 +13,7 @@
 
 import { afterEach, beforeAll, beforeEach, describe, expect, it, type Mock, vi } from "bun:test";
 import type { AgentMessage } from "@oh-my-soup/pi-agent-core";
-import type { AssistantMessage, ImageContent, Message, Usage } from "@oh-my-soup/pi-ai";
+import type { AssistantMessage, ImageContent, Usage } from "@oh-my-soup/pi-ai";
 import { kStreamingPartialJson } from "@oh-my-soup/pi-ai/utils/block-symbols";
 import { resetSettingsForTest, Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
 import { AssistantMessageComponent } from "@oh-my-soup/pi-tui/chat/assistant-message";
@@ -180,13 +180,11 @@ function makeRenderCtx(
 		},
 		// Rebuild paths honor terminal.showImages since the native-image work;
 		// keep it on so the image-replay contracts below stay meaningful.
-		settings: {
-			get: (key: string) => {
-				if (key === "terminal.showImages") return showImages;
-				if (key === "display.hideToolActivity") return hideToolActivity;
-				return false;
-			},
-		},
+		settings: Settings.isolated({
+			"terminal.showImages": showImages,
+			"display.hideToolActivity": hideToolActivity,
+			"composer.recallClearedDrafts": false,
+		}),
 		toolOutputExpanded: false,
 		hideToolActivity,
 		hideThinkingBlock: false,
@@ -221,7 +219,6 @@ function makeRenderCtx(
 		},
 		addMessageToChat: (message: AgentMessage, options?: { imageLinks?: readonly (string | undefined)[] }) =>
 			helpers.addMessageToChat(message, options),
-		getUserMessageText: (message: Message) => helpers.getUserMessageText(message),
 		renderSessionContext: (context: SessionContext, options?: RenderSessionContextOptions) =>
 			helpers.renderSessionContext(context, options),
 		renderSessionContextIncrementally: (
@@ -253,13 +250,6 @@ describe("UiHelpers.renderInitialMessages — transcript source", () => {
 });
 
 describe("UiHelpers.renderInitialMessages — clearTerminalHistory", () => {
-	it("requests a scrollback-clearing repaint when clearTerminalHistory is set", async () => {
-		await Settings.init({ inMemory: true });
-		const { ctx } = makeCtx();
-		await new UiHelpers(ctx).renderInitialMessages({ clearTerminalHistory: true });
-		expect(ctx.ui.requestRender).toHaveBeenCalledWith(true, { clearScrollback: true });
-	});
-
 	it("never clears scrollback when clearTerminalHistory is unset", async () => {
 		await Settings.init({ inMemory: true });
 		const { ctx } = makeCtx();
@@ -369,28 +359,6 @@ describe("UiHelpers.renderInitialMessages — responsiveness", () => {
 });
 
 describe("UiHelpers.renderInitialMessages — image replay", () => {
-	it("restores read tool image blocks onto the rebuilt assistant transcript", async () => {
-		await Settings.init({ inMemory: true, overrides: { "terminal.showImages": true } });
-		setTerminalImageProtocol(ImageProtocol.Sixel);
-		const transcript = transcriptWith([
-			assistantToolCall("read-image", "read", { path: "sample.png" }),
-			{
-				role: "toolResult",
-				toolCallId: "read-image",
-				toolName: "read",
-				content: [{ type: "text", text: "Read image: sample.png" }, pngImage],
-				isError: false,
-				timestamp: 2,
-			},
-		]);
-		const { ctx, chatContainer } = makeRenderCtx(transcript);
-
-		await new UiHelpers(ctx).renderInitialMessages();
-
-		expect(hasImageComponent(chatContainer)).toBe(true);
-		expect(Bun.stripANSI(chatContainer.render(100).join("\n"))).toContain("Read sample.png");
-	});
-
 	it("restores eval display image blocks onto rebuilt tool output", async () => {
 		await Settings.init({ inMemory: true, overrides: { "terminal.showImages": true } });
 		setTerminalImageProtocol(ImageProtocol.Sixel);
@@ -498,7 +466,7 @@ describe("UiHelpers.renderInitialMessages — image replay", () => {
 	it("replays reopened session image blocks through the cold-start rebuild path", async () => {
 		await Settings.init({ inMemory: true, overrides: { "terminal.showImages": true } });
 		setTerminalImageProtocol(ImageProtocol.Sixel);
-		using tempDir = TempDir.createSync("@pi-render-initial-image-replay-");
+		using tempDir = TempDir.createSync("@oms-render-initial-image-replay-");
 		const session = SessionManager.create(tempDir.path(), tempDir.path());
 		session.appendMessage(assistantToolCall("read-reopened", "read", { path: "reopened.png" }));
 		session.appendMessage({

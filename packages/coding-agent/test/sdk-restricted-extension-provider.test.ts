@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, test, vi } from "bun:test";
+import { afterAll, afterEach, beforeEach, describe, expect, test, vi } from "bun:test";
 import { $ } from "bun";
 import * as fs from "node:fs";
 import * as os from "node:os";
@@ -23,8 +23,18 @@ import {
 import type { AuthStorage } from "@oh-my-soup/pi-coding-agent/session/auth-storage";
 import type { AgentSession } from "@oh-my-soup/pi-coding-agent/session/agent-session";
 import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
-import { removeSyncWithRetries, Snowflake } from "@oh-my-soup/pi-utils";
+import { __resetDirsFromEnvForTests, removeSyncWithRetries, setAgentDir, Snowflake } from "@oh-my-soup/pi-utils";
+
+function restoreEnv(key: string, value: string | undefined): void {
+	if (value === undefined) {
+		delete process.env[key];
+	} else {
+		process.env[key] = value;
+	}
+}
 import { createAssistantMessage, createInMemoryAuthStorage } from "./helpers/agent-session-setup";
+
+import { cfgExtensionHandlersToolCallTimeoutMs } from "@oh-my-soup/pi-coding-agent/extensibility/settings";
 
 const providerName = "restricted-session-provider";
 const modelId = "restricted-session-model";
@@ -38,9 +48,15 @@ describe("restricted sessions sharing extension providers", () => {
 	let providerRequests: number;
 	let settings: Settings;
 
+	const originalAgentDir = process.env.PI_CODING_AGENT_DIR;
+	const originalPiProfile = process.env.PI_PROFILE;
+	const originalOmsProfile = process.env.OMS_PROFILE;
+
 	beforeEach(() => {
 		tempDir = path.join(os.tmpdir(), `pi-sdk-restricted-provider-${Snowflake.next()}`);
-		fs.mkdirSync(tempDir, { recursive: true });
+		const testAgentDir = path.join(tempDir, "agent");
+		fs.mkdirSync(testAgentDir, { recursive: true });
+		setAgentDir(testAgentDir);
 		authStorage = createInMemoryAuthStorage();
 		modelRegistry = new ModelRegistry(authStorage, path.join(tempDir, "models.yml"));
 		settings = Settings.isolated();
@@ -49,10 +65,24 @@ describe("restricted sessions sharing extension providers", () => {
 	});
 
 	afterEach(() => {
-		vi.restoreAllMocks();
-		modelRegistry.clearSourceRegistrations(sourceId);
-		authStorage.close();
-		removeSyncWithRetries(tempDir);
+		try {
+			vi.restoreAllMocks();
+			modelRegistry.clearSourceRegistrations(sourceId);
+			authStorage.close();
+		} finally {
+			restoreEnv("PI_CODING_AGENT_DIR", originalAgentDir);
+			restoreEnv("PI_PROFILE", originalPiProfile);
+			restoreEnv("OMS_PROFILE", originalOmsProfile);
+			__resetDirsFromEnvForTests();
+			removeSyncWithRetries(tempDir);
+		}
+	});
+
+	afterAll(() => {
+		restoreEnv("PI_CODING_AGENT_DIR", originalAgentDir);
+		restoreEnv("PI_PROFILE", originalPiProfile);
+		restoreEnv("OMS_PROFILE", originalOmsProfile);
+		__resetDirsFromEnvForTests();
 	});
 
 	const providerExtension: ExtensionFactory = pi => {
@@ -248,7 +278,7 @@ describe("restricted sessions sharing extension providers", () => {
 	test("fails closed when inherited tool policy throws, times out, or is cancelled", async () => {
 		const blocked = path.join(tempDir, "blocked.txt");
 		await Bun.write(blocked, "must not be read");
-		settings.set("extensionHandlers.toolCallTimeoutMs", 25);
+		cfgExtensionHandlersToolCallTimeoutMs.set(settings, 25);
 		await withRestrictedChild(
 			pi => {
 				pi.on("tool_call", event => {
@@ -277,7 +307,7 @@ describe("restricted sessions sharing extension providers", () => {
 
 		try {
 			expect(parent.model?.provider).toBe(providerName);
-			expect(modelRegistry.authStorage.hasAuth(providerName)).toBe(true);
+			expect(modelRegistry.authStorage.keys.source(providerName) !== undefined).toBe(true);
 			expect(getCustomApi(apiId)).toBeDefined();
 
 			const { session: child } = await createAgentSession({
@@ -291,7 +321,7 @@ describe("restricted sessions sharing extension providers", () => {
 			try {
 				expect(child.model?.provider).toBe(providerName);
 				expect(modelRegistry.find(providerName, modelId)).toBeDefined();
-				expect(modelRegistry.authStorage.hasAuth(providerName)).toBe(true);
+				expect(modelRegistry.authStorage.keys.source(providerName) !== undefined).toBe(true);
 				expect(getCustomApi(apiId)).toBeDefined();
 			} finally {
 				await child.dispose();
@@ -346,13 +376,14 @@ describe("restricted sessions sharing extension providers", () => {
 				settings,
 				modelRegistry,
 				authStorage,
+				sessionManager: SessionManager.inMemory(),
 				changelogTargets: [],
 				requireChangelog: false,
 			});
 
 			expect(providerRequests).toBe(2);
 			expect(state.proposal?.summary).toBe("fix(commit): retained extension provider");
-			expect(modelRegistry.authStorage.hasAuth(providerName)).toBe(true);
+			expect(modelRegistry.authStorage.keys.source(providerName) !== undefined).toBe(true);
 		} finally {
 			await parent.dispose();
 		}

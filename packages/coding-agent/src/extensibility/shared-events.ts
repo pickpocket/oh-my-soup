@@ -12,7 +12,7 @@
  * carry subsystem-specific message types — lives in the per-subsystem
  * `types.ts` files and is documented there.
  */
-import type { AgentMessage } from "@oh-my-soup/pi-agent-core";
+import { type AgentMessage, isNonBlankContext, joinAdditionalContext } from "@oh-my-soup/pi-agent-core";
 import type { CompactionPreparation, CompactionResult } from "@oh-my-soup/pi-agent-core/compaction";
 import type { AssistantRetryRecovery, ImageContent, TextContent, ToolResultMessage } from "@oh-my-soup/pi-ai";
 import type { BeadsIssue } from "../beads/types";
@@ -20,6 +20,7 @@ import type { Rule } from "../capability/rule";
 import type { Goal } from "@oh-my-soup/pi-tui/tools/goal";
 import type { GoalModeState } from "../goals/state";
 import type { BranchSummaryEntry, CompactionEntry, SessionEntry } from "../session/session-entries";
+import type { CacheWarmingAction } from "../session/cache-warmer";
 import type { TodoItem } from "@oh-my-soup/pi-tui/tools/todo";
 
 // ============================================================================
@@ -274,6 +275,8 @@ export interface RetryFallbackAppliedEvent {
 	from: string;
 	to: string;
 	role: string;
+	/** Decision-time cause, including whether the source request was skipped. */
+	reason?: string;
 }
 
 /** Fired when a request succeeds on the fallback model applied by auto-retry. */
@@ -339,6 +342,51 @@ export interface ToolCallEventResult {
 	 * write gate's approval and faces the full prompt again.
 	 */
 	input?: Record<string, unknown>;
+	/**
+	 * Trusted handler-authored instructions for the next provider request. The
+	 * host emits them after tool results with developer/system priority where
+	 * supported. Raw tool output and other untrusted data must stay in the tool
+	 * result. Distinct non-empty values from every non-blocking handler are preserved in
+	 * registration order; ignored when this or a later handler blocks the call.
+	 */
+	additionalContext?: string;
+}
+
+/**
+ * Merge one handler's `tool_call` result into the running aggregation.
+ * Non-blank `additionalContext` values accumulate in registration order and
+ * join (repeats dropped) at the end; `input` stays last-wins. A `block`
+ * result short-circuits the caller, discarding everything collected so far.
+ */
+export function accumulateToolCallResult(
+	aggregated: { input?: Record<string, unknown>; additionalContext: string[] },
+	handlerResult: ToolCallEventResult,
+): void {
+	if (isNonBlankContext(handlerResult.additionalContext)) {
+		aggregated.additionalContext.push(handlerResult.additionalContext);
+	}
+	if (handlerResult.input !== undefined) {
+		aggregated.input = handlerResult.input;
+	}
+}
+
+/**
+ * Build the aggregated `tool_call` result from collected context and input.
+ * Returns undefined when there is nothing to carry beyond the control result.
+ */
+export function buildAggregatedToolCallResult(
+	result: ToolCallEventResult | undefined,
+	aggregated: { input?: Record<string, unknown>; additionalContext: string[] },
+): ToolCallEventResult | undefined {
+	const { input } = aggregated;
+	const additionalContext = joinAdditionalContext(aggregated.additionalContext);
+	if (additionalContext === undefined && input === undefined) return result;
+	const { additionalContext: _dropped, input: _droppedInput, ...controlResult } = result ?? {};
+	return {
+		...controlResult,
+		...(input !== undefined ? { input } : {}),
+		...(additionalContext !== undefined ? { additionalContext } : {}),
+	};
 }
 
 /**
@@ -358,6 +406,28 @@ export interface ToolResultEventResult {
 export interface SessionBeforeSwitchResult {
 	/** If true, cancel the switch */
 	cancel?: boolean;
+}
+
+/**
+ * Fired before each prompt-cache warming refresh with the warmer's economics
+ * filled in. Return `{ action }` to override whether the refresh is sent.
+ */
+export interface CacheWarmingDecisionEvent {
+	type: "cache_warming_decision";
+	/** Price of this refresh: a cache read of the prompt plus one output token. */
+	warmCost: number;
+	/** Extra price of the next real request if the cache entry is lost. */
+	missCost: number;
+	/** Estimated chance that a real request arrives before the entry expires. */
+	continuationProbability: number;
+	/** The warmer's own decision. */
+	action: CacheWarmingAction;
+}
+
+/** Return type for `cache_warming_decision` handlers. */
+export interface CacheWarmingDecisionEventResult {
+	/** Override whether this refresh is sent. "stop" ends warming until the next real request. */
+	action?: CacheWarmingAction;
 }
 
 /** Return type for `session_before_branch` handlers */

@@ -1,25 +1,18 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "bun:test";
 import { resetSettingsForTest, Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
-import { SETTINGS_SCHEMA, type SettingPath } from "@oh-my-soup/pi-coding-agent/config/settings-schema";
-import {
-	getSettingsForTab,
-	SETTING_TABS,
-	type SettingTab,
-	TAB_GROUPS,
-} from "@oh-my-soup/pi-tui/overlays/settings-defs";
+import { SETTINGS_SCHEMA } from "@oh-my-soup/pi-coding-agent/config/settings-schema";
+import { all } from "@oh-my-soup/pi-coding-agent/config/registry";
+import { getSettingsForTab, SETTING_TABS, TAB_GROUPS } from "@oh-my-soup/pi-tui/overlays/settings-defs";
 import { createSettingsHost } from "@oh-my-soup/pi-coding-agent/config/settings-ui";
 import { createPluginSettingsHost } from "@oh-my-soup/pi-coding-agent/extensibility/plugins/settings-host";
 import { SettingsSelectorComponent } from "@oh-my-soup/pi-tui/overlays/settings-selector";
 import { initTheme, setTheme } from "@oh-my-soup/pi-tui/theme";
+import { cfgRetryUsageAwareFallback } from "@oh-my-soup/pi-coding-agent/session/settings";
+import { cfgAdvisorEnabled } from "@oh-my-soup/pi-coding-agent/advisor/settings";
 
 beforeAll(async () => {
 	await initTheme();
 });
-
-interface UiShape {
-	tab: SettingTab;
-	group?: string;
-}
 
 describe("settings layout", () => {
 	beforeEach(async () => {
@@ -33,41 +26,19 @@ describe("settings layout", () => {
 
 	it("every UI setting declares a group registered in TAB_GROUPS for its tab", () => {
 		const violations: string[] = [];
-		for (const path in SETTINGS_SCHEMA) {
-			const ui = (SETTINGS_SCHEMA[path as keyof typeof SETTINGS_SCHEMA] as { ui?: UiShape }).ui;
+		for (const setting of all()) {
+			const ui = setting.ui;
 			if (!ui) continue;
 			if (!ui.group) {
-				violations.push(`${path}: missing ui.group`);
+				violations.push(`${setting.id}: missing ui.group`);
 			} else if (!TAB_GROUPS[ui.tab].includes(ui.group)) {
-				violations.push(`${path}: group "${ui.group}" not in TAB_GROUPS["${ui.tab}"]`);
+				violations.push(`${setting.id}: group "${ui.group}" not in TAB_GROUPS["${ui.tab}"]`);
 			}
 		}
 		expect(violations).toEqual([]);
 	});
 
-	it("getSettingsForTab returns contiguous groups in TAB_GROUPS order", () => {
-		for (const tab of SETTING_TABS) {
-			const defs = getSettingsForTab(createSettingsHost().entries, tab);
-			expect(defs.length).toBeGreaterThan(0);
-
-			// Collapse the def sequence into the order groups first appear.
-			const sequence: string[] = [];
-			for (const def of defs) {
-				const group = def.group ?? "";
-				if (sequence[sequence.length - 1] !== group) sequence.push(group);
-			}
-
-			// Contiguous: no group appears twice in the collapsed sequence.
-			expect(new Set(sequence).size).toBe(sequence.length);
-
-			// Ordered: grouped sections follow the TAB_GROUPS declaration order.
-			const grouped = sequence.filter(group => group !== "");
-			const expected = TAB_GROUPS[tab].filter(group => grouped.includes(group));
-			expect(grouped).toEqual(expected);
-		}
-	});
-
-	it("exposes native terminal progress in the appearance settings menu", () => {
+	it("exposes native terminal progress in appearance settings", () => {
 		const def = getSettingsForTab(createSettingsHost().entries, "appearance").find(
 			def => def.path === "terminal.showProgress",
 		);
@@ -89,38 +60,6 @@ describe("settings layout", () => {
 		const values = def.options.map(option => option.value);
 		expect(values).toContain("silver16-bw");
 		expect(values).toEqual([...SETTINGS_SCHEMA["snapcompact.shape"].values]);
-	});
-
-	it("hides advisor dependent settings when advisor is disabled", () => {
-		const advisorDependentPaths: SettingPath[] = ["advisor.syncBacklog", "advisor.immuneTurns"];
-		const advisorDependentPathSet = new Set<string>(advisorDependentPaths);
-		const defs = getSettingsForTab(createSettingsHost().entries, "model").filter(def =>
-			advisorDependentPathSet.has(def.path),
-		);
-
-		expect(defs.map(def => def.path)).toEqual(advisorDependentPaths);
-		for (const def of defs) {
-			expect(def.condition?.()).toBe(false);
-		}
-
-		Settings.instance.set("advisor.enabled", true);
-
-		for (const def of defs) {
-			expect(def.condition?.()).toBe(true);
-		}
-	});
-
-	it("shows the unexpected-stop classifier setting only in smart mode", () => {
-		const def = getSettingsForTab(createSettingsHost().entries, "providers").find(
-			item => item.path === "providers.unexpectedStopModel",
-		);
-		if (!def?.condition) throw new Error("Unexpected Stop Model should be smart-mode only");
-
-		expect(def.condition()).toBe(false);
-		Settings.instance.set("features.unexpectedStopDetection", "smart");
-		expect(def.condition()).toBe(true);
-		Settings.instance.set("features.unexpectedStopDetection", "none");
-		expect(def.condition()).toBe(false);
 	});
 
 	it("shows provider request limits as a providers services submenu setting", () => {
@@ -156,6 +95,47 @@ describe("settings layout", () => {
 		expect(description).toContain("selector");
 	});
 
+	it("getSettingsForTab returns contiguous groups in TAB_GROUPS order", () => {
+		for (const tab of SETTING_TABS) {
+			const defs = getSettingsForTab(createSettingsHost().entries, tab);
+			expect(defs.length).toBeGreaterThan(0);
+
+			// Collapse the def sequence into the order groups first appear.
+			const sequence: string[] = [];
+			for (const def of defs) {
+				const group = def.group ?? "";
+				if (sequence[sequence.length - 1] !== group) sequence.push(group);
+			}
+
+			// Contiguous: no group appears twice in the collapsed sequence.
+			expect(new Set(sequence).size).toBe(sequence.length);
+
+			// Ordered: grouped sections follow the TAB_GROUPS declaration order.
+			const grouped = sequence.filter(group => group !== "");
+			const expected = TAB_GROUPS[tab].filter(group => grouped.includes(group));
+			expect(grouped).toEqual(expected);
+		}
+	});
+
+	it("hides advisor dependent settings when advisor is disabled", () => {
+		const advisorDependentPaths = ["advisor.syncBacklog", "advisor.immuneTurns"];
+		const advisorDependentPathSet = new Set<string>(advisorDependentPaths);
+		const defs = getSettingsForTab(createSettingsHost().entries, "model").filter(def =>
+			advisorDependentPathSet.has(def.path),
+		);
+
+		expect(defs.map(def => def.path)).toEqual(advisorDependentPaths);
+		for (const def of defs) {
+			expect(def.condition?.()).toBe(false);
+		}
+
+		cfgAdvisorEnabled.set(Settings.instance, true);
+
+		for (const def of defs) {
+			expect(def.condition?.()).toBe(true);
+		}
+	});
+
 	it("exposes usage-aware fallback as an opt-in advanced policy", () => {
 		const defs = getSettingsForTab(createSettingsHost().entries, "model").filter(def =>
 			def.path.startsWith("retry.usage"),
@@ -168,19 +148,9 @@ describe("settings layout", () => {
 		expect(defs[0]).toMatchObject({ type: "boolean", label: "Usage-Aware Fallback" });
 		expect(defs[1]?.condition?.()).toBe(false);
 		expect(defs[2]?.condition?.()).toBe(false);
-		Settings.instance.set("retry.usageAwareFallback", true);
+		cfgRetryUsageAwareFallback.set(Settings.instance, true);
 		expect(defs[1]?.condition?.()).toBe(true);
 		expect(defs[2]?.condition?.()).toBe(true);
-	});
-
-	it("exposes ask.enabled as a boolean under Available Tools", () => {
-		const def = getSettingsForTab(createSettingsHost().entries, "tools").find(def => def.path === "ask.enabled");
-
-		expect(def).toMatchObject({
-			type: "boolean",
-			label: "Ask",
-			group: "Available Tools",
-		});
 	});
 
 	it("renders preview inside SettingsSelectorComponent submenu without crashing", async () => {

@@ -3,11 +3,23 @@
 provider "openai-codex" {
 	default-model "gpt-5.5"
 	env "OPENAI_CODEX_OAUTH_TOKEN"
+	kind-apis {
+		image "openai-codex-responses"
+	}
+	web-search "codex"
 
-	// Credential-scoped rollout can lag the public launch. Bundle the official
-	// rows so fresh installs can select them immediately; successful account
-	// discovery remains authoritative and replaces this fallback roster.
 	seed api="openai-codex-responses" base-url="https://chatgpt.com/backend-api" bundle="always" {
+		// Label only: the Codex backend ignores `tool.model` and runs gpt-image-2-codex.
+		model "gpt-image-2" name="GPT Image 2" {
+			reasoning #false
+			input "text" "image"
+			cost input=0 output=0 cache-read=0 cache-write=0
+			limits
+			supports-tools #false
+		}
+		// Credential-scoped rollout can lag the public launch. Bundle the official
+		// rows so fresh installs can select them immediately; successful account
+		// discovery remains authoritative and replaces this fallback roster.
 		model "gpt-6-sol" name="GPT-6 Sol" {
 			reasoning #true
 			input "text" "image"
@@ -27,6 +39,11 @@ provider "openai-codex" {
 			thinking-default-level "medium"
 		}
 	}
+
+	models "gpt-image-2" {
+		kind "image"
+	}
+
 
 	// Replaces the Codex provider's handwritten flex/priority pricing fallback.
 	service-tier-cost {
@@ -61,39 +78,13 @@ provider "openai-codex" {
 			cache-write 15.625
 		}
 	}
-	// Official GPT-6 launch metadata. Rules apply equally to bundled fallbacks
-	// and account-discovered zero-cost rows.
+	// Preserve the plain GPT-6 aliases' selection order. Codex subscription
+	// pricing is below; API long-context pricing belongs to providers/openai.kdl.
 	models "gpt-6-sol" {
-		cost-patch {
-			input 2.0
-			output 10.0
-			cache-read 0.2
-			cache-write 2.5
-		}
 		priority 2
-		long-context-cost {
-			input-threshold 272000
-			input 4.0
-			output 15.0
-			cache-read 0.4
-			cache-write 5.0
-		}
 	}
 	models "gpt-6-luna" {
-		cost-patch {
-			input 0.1
-			output 0.5
-			cache-read 0.01
-			cache-write 0.125
-		}
 		priority 3
-		long-context-cost {
-			input-threshold 272000
-			input 0.2
-			output 0.75
-			cache-read 0.02
-			cache-write 0.25
-		}
 	}
 	models "gpt-6-sol" "gpt-6-luna" {
 		limits-patch {
@@ -137,6 +128,22 @@ provider "openai-codex" {
 			context-window 272000
 		}
 		max-context-window 922000
+	}
+	models "gpt-6-sol" "gpt-6-sol-wm" {
+		cost-patch {
+			input 2.0
+			output 10.0
+			cache-read 0.2
+			cache-write 0
+		}
+	}
+	models "gpt-6-luna" "gpt-6-luna-wm" {
+		cost-patch {
+			input 0.1
+			output 0.5
+			cache-read 0.01
+			cache-write 0
+		}
 	}
 	class "openai" {
 		revision ">=5.3 <7" {

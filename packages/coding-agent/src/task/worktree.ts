@@ -7,10 +7,11 @@ import type { VcsCommitAuthor, VcsGitRepo } from "@oh-my-soup/pi-natives";
 import * as natives from "@oh-my-soup/pi-natives";
 import * as vcs from "@oh-my-soup/pi-natives/vcs";
 import { formatBytes, getWorktreeDir, logger, Snowflake } from "@oh-my-soup/pi-utils";
-import type { SettingValue } from "../config/settings-schema";
+import type { SettingValueOf } from "../config/registry";
 import { withRepoLock } from "../utils/repo-lock";
 import { writeIsolationOwner } from "./isolation-ownership";
 import { mapWithConcurrencyLimit } from "./parallel";
+import type { cfgIsolationBackend } from "./settings";
 
 const { IsoBackendKind } = natives;
 
@@ -454,7 +455,7 @@ export async function applyNestedPatches(
 // ═══════════════════════════════════════════════════════════════════════════
 
 /** User-facing backend names exposed by the `isolation.backend` setting. */
-export type IsolationBackendSetting = SettingValue<"isolation.backend">;
+export type IsolationBackendSetting = SettingValueOf<typeof cfgIsolationBackend>;
 
 /**
  * Translate an {@link IsolationBackendSetting} to the native backend hint.

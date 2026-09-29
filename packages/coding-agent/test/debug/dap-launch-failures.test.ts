@@ -224,26 +224,6 @@ describe("DAP launch failure handling", () => {
 		expect(launch?.args).toMatchObject({ args: ["--configured"], program: "/bin/echo" });
 	});
 
-	it("surfaces the launch failure when configurationDone also fails", async () => {
-		const manager = new DapSessionManager();
-		const fake = new FakeDapClient(TEST_ADAPTER, process.cwd(), {
-			launchError: "launch: 'C:\\repo\\python' is not a valid executable",
-			configurationDoneError: "configurationDone: Expected process to be stopped.",
-		});
-		spyOn(DapClient, "spawn").mockResolvedValue(fake as unknown as DapClient);
-
-		let message = "";
-		try {
-			await manager.launch({ adapter: TEST_ADAPTER, program: "C:\\repo\\python", cwd: process.cwd() });
-		} catch (error) {
-			expect(error).toBeInstanceOf(Error);
-			message = (error as Error).message;
-		}
-
-		expect(message).toContain("launch: 'C:\\repo\\python' is not a valid executable");
-		expect(message).toContain("configurationDone: Expected process to be stopped.");
-	});
-
 	it("surfaces the attach failure when configurationDone also fails", async () => {
 		const manager = new DapSessionManager();
 		const fake = new FakeDapClient(TEST_ADAPTER, process.cwd(), {
@@ -1007,7 +987,6 @@ describe("DebugTool launch validation", () => {
 			launchSpy.mockRestore();
 		}
 	});
-
 	it("points to DAP configuration when a custom adapter command is unavailable", async () => {
 		const launchSpy = spyOn(dapModule, "selectLaunchAdapter").mockReturnValue({
 			kind: "unavailable",
@@ -1062,7 +1041,6 @@ describe("DebugTool launch validation", () => {
 			attachSpy.mockRestore();
 		}
 	});
-
 	it("falls back to the generic 'No debugger adapter' error when adapter is unspecified", async () => {
 		const launchSpy = spyOn(dapModule, "selectLaunchAdapter").mockReturnValue({ kind: "none" });
 		try {

@@ -81,9 +81,9 @@ export function getChangelogPath(): string | undefined {
 // =============================================================================
 
 /**
- * User-level: ~/.oms/agent, ~/.omp/agent, Claude's active config directory,
+ * User-level: ~/.oms/agent, ~/.omp/agent (legacy), Claude's active config directory,
  * ~/.codex, ~/.gemini
- * Project-level: .oms, .omp, .claude, .codex, .gemini
+ * Project-level: .oms, .omp (legacy), .claude, .codex, .gemini
  */
 const USER_CONFIG_BASES = priorityList.map(({ dir, globalAgentDir }) => ({
 	base: () =>

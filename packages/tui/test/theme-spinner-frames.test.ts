@@ -2,7 +2,8 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { SPINNER_GLYPH_ADVANCE_MS, sharedSpinnerFrame } from "@oh-my-soup/pi-tui/chat/tool-execution";
+import { sharedSpinnerFrame } from "@oh-my-soup/pi-tui/chat/tool-execution";
+import { SPINNER_ADVANCE_MS } from "@oh-my-soup/pi-tui/components/loader";
 import { getThemeByName } from "@oh-my-soup/pi-tui/theme";
 import { getConfigRootDir, getCustomThemesDir, removeWithRetries, setAgentDir } from "@oh-my-soup/pi-utils";
 
@@ -77,26 +78,14 @@ describe("theme symbols.spinnerFrames", () => {
 		await expect(getThemeByName("custom-empty-object")).resolves.toBeUndefined();
 	});
 
-	it("falls through to preset frames when `spinnerFrames` is absent", async () => {
-		// `dark` ships with `symbols.preset: "unicode"`; we only assert that the
-		// default status frames match the preset table when no override is set.
-		await writeCustomTheme("custom-no-override", {});
-
-		const theme = await getThemeByName("custom-no-override");
-		expect(theme).toBeDefined();
-		const status = theme!.getSpinnerFrames("status");
-		expect(status.length).toBeGreaterThan(1);
-		expect(status).not.toContain("A");
-	});
-
 	it("derives live tool spinner frames from a shared clock", () => {
 		const frameCount = 4;
-		const now = SPINNER_GLYPH_ADVANCE_MS * 3 + 12;
+		const now = SPINNER_ADVANCE_MS * 3 + 12;
 
-		expect(sharedSpinnerFrame(frameCount, now + SPINNER_GLYPH_ADVANCE_MS)).toBe(
+		expect(sharedSpinnerFrame(frameCount, now + SPINNER_ADVANCE_MS)).toBe(
 			(sharedSpinnerFrame(frameCount, now) + 1) % frameCount,
 		);
-		expect(sharedSpinnerFrame(frameCount, SPINNER_GLYPH_ADVANCE_MS * frameCount)).toBe(0);
+		expect(sharedSpinnerFrame(frameCount, SPINNER_ADVANCE_MS * frameCount)).toBe(0);
 		expect(sharedSpinnerFrame(0, now)).toBe(0);
 	});
 });

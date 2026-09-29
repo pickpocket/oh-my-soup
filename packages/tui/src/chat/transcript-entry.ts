@@ -68,6 +68,22 @@ export function isUserRequestEntry(entry: TranscriptEntryLike | { type: string }
 	return false;
 }
 
+/**
+ * Recent transcript tail starting at a user-request boundary, so tool calls
+ * and results stay together. ChatTranscriptBuilder drops a tool result whose
+ * initiating call was sliced away, so a tail of orphaned results can leave
+ * the picker without any target.
+ *
+ * A whole user turn may exceed `limit`; paginate rendering if one turn grows too large.
+ */
+export function recentTranscriptEntries(entries: TranscriptEntryLike[], limit = 600): TranscriptEntryLike[] {
+	if (entries.length <= limit) return entries;
+	for (let index = entries.length - limit; index > 0; index--) {
+		if (isUserRequestEntry(entries[index]!)) return entries.slice(index);
+	}
+	return entries;
+}
+
 /** Editable user request text, preserving skill invocation syntax. */
 export function userTurnDraft(entry: TranscriptEntryLike): string | undefined {
 	const message = transcriptEntryMessage(entry);
@@ -77,9 +93,20 @@ export function userTurnDraft(entry: TranscriptEntryLike): string | undefined {
 	return titleTextFromSkillPrompt(message) ?? textContent(message.content);
 }
 
-function textContent(content: string | ReadonlyArray<{ type: string; text?: string }>): string {
+/** Extract text blocks verbatim, optionally separating block boundaries. */
+export function textContent(content: string | ReadonlyArray<{ type: string; text?: string }>, separator = ""): string {
 	if (typeof content === "string") return content;
 	let text = "";
-	for (const block of content) if (block.type === "text" && block.text !== undefined) text += block.text;
+	let boundary = "";
+	for (const block of content) {
+		if (block.type !== "text") continue;
+		text += boundary + (block.text ?? "");
+		boundary = separator;
+	}
 	return text;
+}
+
+/** Join text blocks with spaces and collapse whitespace into a single-line label. */
+export function userMessageLabel(content: string | ReadonlyArray<{ type: string; text?: string }>): string {
+	return textContent(content, " ").replace(/\s+/g, " ").trim();
 }

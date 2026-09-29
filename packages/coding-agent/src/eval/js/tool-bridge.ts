@@ -12,7 +12,12 @@ import { EVAL_BUDGET_BRIDGE_NAME, type EvalBudgetResult, runEvalBudget } from ".
 import { EVAL_COMPACT_BRIDGE_NAME, type EvalCompactResult, runEvalCompact } from "../compact-bridge";
 import { withBridgeTimeoutPause } from "../bridge-timeout";
 import { EVAL_COMPLETION_BRIDGE_NAME, type EvalCompletionHandleResult, runEvalCompletion } from "../completion-bridge";
-import { EVAL_JUDGMENT_BRIDGE_NAME, runEvalJudgment } from "../judgment-bridge";
+import {
+	EVAL_JUDGMENT_BATCH_BRIDGE_NAME,
+	type EvalJudgmentBatchResult,
+	runEvalJudgmentBatch,
+} from "../judgment-batch-bridge";
+import { EVAL_JUDGMENT_BRIDGE_NAME, type EvalJudgmentResult, runEvalJudgment } from "../judgment-bridge";
 import {
 	EVAL_CANCEL_BRIDGE_NAME,
 	type EvalHandleSnapshot,
@@ -45,6 +50,8 @@ type ToolValue =
 	| EvalCompactResult
 	| EvalAgentHandleResult
 	| EvalCompletionHandleResult
+	| EvalJudgmentResult
+	| EvalJudgmentBatchResult
 	| EvalHandleSnapshot
 	| EvalWorkpoolResult
 	| { items: EvalHandleSnapshot[] }
@@ -131,6 +138,8 @@ const summarizeToolResult: StatusSummarizer = (name, args, result, text, hasErro
 				code: typeof details.exitCode === "number" ? details.exitCode : undefined,
 				output: text.slice(0, 500),
 			});
+		case "todo":
+			return withError({ op: "todo", chars: text.length, committed: committedTodoPhases(result) !== undefined });
 		default:
 			return withError({ op: name, chars: text.length });
 	}
@@ -237,7 +246,10 @@ export async function callSessionTool(name: string, args: unknown, options: Tool
 		return await runEvalCompletion(args, options);
 	}
 	if (name === EVAL_JUDGMENT_BRIDGE_NAME) {
-		return runEvalJudgment(args, options);
+		return await runEvalJudgment(args, options);
+	}
+	if (name === EVAL_JUDGMENT_BATCH_BRIDGE_NAME) {
+		return await runEvalJudgmentBatch(args, options);
 	}
 	if (name === EVAL_AGENT_BRIDGE_NAME) {
 		return await runEvalAgent(args, options);

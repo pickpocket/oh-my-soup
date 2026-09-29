@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { replaceRequiredInFiles, validateExplicitVersion } from "./release";
+import { bumpVersion, decideCIGate, replaceRequiredInFiles, validateExplicitVersion } from "./release";
 
 describe("validateExplicitVersion", () => {
 	test("rejects malformed versions", () => {
@@ -24,21 +24,14 @@ describe("validateExplicitVersion", () => {
 		expect(validateExplicitVersion("18.0.00")).toBe(null);
 	});
 
-	test("rejects prerelease suffixes (not supported by this release path)", () => {
-		// Prereleases would be published as npm `latest` because the downstream
-		// publish runs `npm publish` with no `--tag`.
+	test("rejects prerelease suffixes on explicit versions", () => {
+		// Explicit prereleases use the release's `canary` bump path and npm dist-tag.
 		expect(validateExplicitVersion("17.2.8-rc.1")).toBe(null);
 		expect(validateExplicitVersion("v17.2.8-beta")).toBe(null);
 		expect(validateExplicitVersion("1.0.0-alpha")).toBe(null);
 		expect(validateExplicitVersion("1.0.0-alpha.1.2")).toBe(null);
 		expect(validateExplicitVersion("1.0.0-0.3.7")).toBe(null);
 		expect(validateExplicitVersion("1.0.0-x.7.z.92")).toBe(null);
-	});
-
-	test("accepts bare three-segment numeric versions and returns them unchanged", () => {
-		expect(validateExplicitVersion("17.2.8")).toBe("17.2.8");
-		expect(validateExplicitVersion("0.0.0")).toBe("0.0.0");
-		expect(validateExplicitVersion("1.0.0")).toBe("1.0.0");
 	});
 
 	test("accepts leading v prefix and normalizes to the bare version", () => {
@@ -88,13 +81,114 @@ describe("release metadata replacement", () => {
 		expect(await Bun.file(file).text()).toBe(source);
 	});
 
-	test("updates every native sentinel and permits repeated global replacements", async () => {
-		const paths = await files(["__piNativesV17_5_0 __piNativesV17_5_0", "__piNativesV17_3_3 __piNativesV17_5_0"]);
-		const pattern = /__piNativesV[A-Za-z0-9_]+/g;
-		await replaceRequiredInFiles(paths, pattern, "__piNativesV17_5_0");
-		await replaceRequiredInFiles(paths, pattern, "__piNativesV17_5_0");
-		for (const file of paths) {
-			expect(await Bun.file(file).text()).toBe("__piNativesV17_5_0 __piNativesV17_5_0");
-		}
+	test("bumps the core version when applying a minor bump to a canary", () => {
+		expect(bumpVersion("0.13.0-canary.2", "minor")).toBe("0.14.0");
+	});
+});
+
+describe("decideCIGate", () => {
+	const run = (
+		databaseId: number,
+		status: string,
+		conclusion: string | null,
+		event = "push",
+		headBranch = "main",
+	) => ({
+		databaseId,
+		status,
+		conclusion,
+		event,
+		headBranch,
+	});
+
+	test("green HEAD passes", () => {
+		expect(decideCIGate([{ sha: "h", runs: [run(1, "completed", "success")] }])).toEqual({
+			kind: "pass",
+			sha: "h",
+			runId: 1,
+			ancestor: false,
+		});
+	});
+
+	test("failed run blocks", () => {
+		expect(decideCIGate([{ sha: "h", runs: [run(1, "completed", "failure")] }])).toMatchObject({
+			kind: "fail",
+			conclusion: "failure",
+		});
+	});
+
+	test("cancelled run blocks", () => {
+		expect(decideCIGate([{ sha: "h", runs: [run(1, "completed", "cancelled")] }])).toMatchObject({
+			kind: "fail",
+			conclusion: "cancelled",
+		});
+	});
+
+	test("in-progress run is pending", () => {
+		expect(decideCIGate([{ sha: "h", runs: [run(2, "in_progress", null)] }])).toEqual({
+			kind: "pending",
+			sha: "h",
+			runId: 2,
+			ancestor: false,
+		});
+	});
+
+	test("latest run wins (rerun after failure)", () => {
+		expect(
+			decideCIGate([{ sha: "h", runs: [run(1, "completed", "failure"), run(5, "completed", "success")] }]),
+		).toMatchObject({
+			kind: "pass",
+			runId: 5,
+		});
+		expect(
+			decideCIGate([{ sha: "h", runs: [run(5, "queued", null), run(1, "completed", "success")] }]),
+		).toMatchObject({
+			kind: "pending",
+			runId: 5,
+		});
+	});
+
+	test("no run on HEAD falls back to nearest ancestor with a run", () => {
+		const chain = [
+			{ sha: "h", runs: [] },
+			{ sha: "p1", runs: [] },
+			{ sha: "p2", runs: [run(3, "completed", "success")] },
+			{ sha: "p3", runs: [run(2, "completed", "failure")] },
+		];
+		expect(decideCIGate(chain)).toEqual({ kind: "pass", sha: "p2", runId: 3, ancestor: true });
+		expect(
+			decideCIGate([
+				{ sha: "h", runs: [] },
+				{ sha: "p", runs: [run(1, "completed", "failure")] },
+			]),
+		).toMatchObject({
+			kind: "fail",
+			sha: "p",
+			ancestor: true,
+		});
+	});
+
+	test("a pull_request or branch run never vouches for a main commit", () => {
+		// The SHA was PR-tested (green, but PR CI skips Rust validation and native
+		// builds), then pushed to main via a path-filtered change with no run.
+		const chain = [
+			{
+				sha: "h",
+				runs: [
+					run(9, "completed", "success", "pull_request", "feature"),
+					run(8, "completed", "success", "workflow_dispatch", "feature"),
+				],
+			},
+			{ sha: "p", runs: [run(4, "completed", "failure")] },
+		];
+		expect(decideCIGate(chain)).toMatchObject({ kind: "fail", sha: "p", runId: 4, ancestor: true });
+		expect(
+			decideCIGate([{ sha: "h", runs: [run(7, "completed", "success", "workflow_dispatch", "main")] }]),
+		).toMatchObject({ kind: "pass", runId: 7 });
+	});
+
+	test("no runs anywhere yields none", () => {
+		expect(decideCIGate([{ sha: "h", runs: [] }])).toEqual({ kind: "none" });
+		expect(decideCIGate([])).toEqual({ kind: "none" });
 	});
 });

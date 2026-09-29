@@ -3,6 +3,7 @@ import * as path from "node:path";
 import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
 import { createTools, type ToolSession } from "@oh-my-soup/pi-coding-agent/tools";
 import { FridaTool } from "@oh-my-soup/pi-coding-agent/tools/frida";
+import { cfgFridaEnabled } from "@oh-my-soup/pi-coding-agent/tools/settings";
 
 function makeSession(settings = Settings.isolated({})): ToolSession {
 	return {
@@ -112,9 +113,9 @@ describe("frida tool contract", () => {
 		const session = makeSession(settings);
 		expect(FridaTool.createIf(session)).toBeInstanceOf(FridaTool);
 
-		settings.set("frida.enabled", false);
+		cfgFridaEnabled.set(settings, false);
 		expect(FridaTool.createIf(session)).toBeNull();
-		settings.set("frida.enabled", true);
+		cfgFridaEnabled.set(settings, true);
 		const tool = FridaTool.createIf(session);
 		if (!tool) throw new Error("expected re-enabled Frida tool");
 

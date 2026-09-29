@@ -1,6 +1,9 @@
 import { type Component, type OverlayFocusOwner } from "../tui";
+import { formatKeyHint } from "../app-keybindings";
+import { editorKey, editorKeys } from "../chrome/keybinding-hints";
 import { matchesKey } from "../keys";
-import { padding, truncateToWidth, visibleWidth } from "../utils";
+import { centerLine, padding } from "../utils";
+import { padToWidth } from "../render/utils";
 import { routeSgrMouseInput, type SgrMouseEvent } from "../mouse";
 import { APP_NAME } from "@oh-my-soup/pi-utils";
 import { gradientLogo, OMS_LOGO } from "../prompt/welcome";
@@ -17,21 +20,9 @@ const MIN_CONTENT_WIDTH = 20;
 /** Cross-dissolve duration from the splash into the first scene. */
 const SCENE_TRANSITION_MS = 420;
 
-function centerLine(line: string, width: number): string {
-	const lineWidth = visibleWidth(line);
-	if (lineWidth >= width) return truncateToWidth(line, width);
-	const left = Math.floor((width - lineWidth) / 2);
-	return padding(left) + line + padding(width - left - lineWidth);
-}
-
-function clampLine(line: string, width: number): string {
-	const truncated = truncateToWidth(line, width);
-	return truncated + padding(Math.max(0, width - visibleWidth(truncated)));
-}
-
 function indentLine(line: string, width: number, indent: number): string {
 	const prefix = padding(Math.min(indent, Math.max(0, width - 1)));
-	return clampLine(prefix + line, width);
+	return width > 0 ? padToWidth(prefix + line, width) : "";
 }
 /** Stable per-row jitter in [0,1) for the dissolve reveal order. */
 function rowNoise(y: number): number {
@@ -211,10 +202,9 @@ export class SetupWizardComponent implements Component, OverlayFocusOwner {
 		header.push("");
 		this.#bodyRowStart = header.length;
 
-		const footer = [
-			"",
-			centerLine(theme.fg("dim", "↑/↓ select · enter confirm · esc skip · ctrl+c exit setup"), width),
-		];
+		const navKeys = editorKeys("tui.select.up", "tui.select.down");
+		const footerHint = `${navKeys} select · ${editorKey("tui.select.confirm")} confirm · ${editorKey("tui.select.cancel")} skip · ${formatKeyHint("ctrl+c")} exit setup`;
+		const footer = ["", centerLine(theme.fg("dim", footerHint), width)];
 		const maxBodyLines = Math.max(0, height - header.length - footer.length);
 		const body = this.#activeScene?.render(contentWidth, maxBodyLines).slice(0, maxBodyLines) ?? [];
 		const lines = [...header, ...body.map(line => indentLine(line, width, SCENE_MARGIN_X))];
@@ -226,7 +216,7 @@ export class SetupWizardComponent implements Component, OverlayFocusOwner {
 	}
 
 	#fitToScreen(lines: string[], width: number, height: number): string[] {
-		const fitted = lines.slice(0, height).map(line => clampLine(line, width));
+		const fitted = lines.slice(0, height).map(line => (width > 0 ? padToWidth(line, width) : ""));
 		while (fitted.length < height) {
 			fitted.push(padding(width));
 		}

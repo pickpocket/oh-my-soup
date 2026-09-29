@@ -121,11 +121,18 @@ describe("RpcHostUriBridge", () => {
 		bridge.clear("test cleanup");
 	});
 
-	it("rejects OMS-reserved schemes", () => {
+	it("rejects every OMS-reserved built-in scheme so hosts cannot shadow or clear them", () => {
 		const bridge = new RpcHostUriBridge(() => {});
-		expect(() => bridge.setSchemes([{ scheme: "security" }])).toThrow(
-			"Host URI scheme is reserved by OMS: security://",
-		);
+		for (const scheme of ["security", "local", "agent", "mcp"]) {
+			expect(() => bridge.setSchemes([{ scheme, writable: true }])).toThrow(
+				`Host URI scheme is reserved by OMS: ${scheme.toLowerCase()}://`,
+			);
+		}
+		bridge.clear("test cleanup");
+		// Built-ins keep their own semantics for later sessions.
+		expect(router.normalize("local:/x")).toBe("local://x");
+		expect(router.fileWritable("local://x")).toBe(true);
+		expect(router.canHandle("agent://x")).toBe(true);
 	});
 
 	it("normalizes scheme casing and rejects invalid characters", () => {

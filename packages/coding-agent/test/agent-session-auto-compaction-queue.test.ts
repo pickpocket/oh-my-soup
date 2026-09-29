@@ -1,6 +1,8 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "bun:test";
+import { scheduler } from "node:timers/promises";
 import { Agent, AgentBusyError } from "@oh-my-soup/pi-agent-core";
 import { CompactionCancelledError } from "@oh-my-soup/pi-agent-core/compaction";
+import { createMockModel } from "@oh-my-soup/pi-ai/providers/mock";
 import { getBundledModel } from "@oh-my-soup/pi-catalog/models";
 import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
 import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
@@ -18,6 +20,27 @@ import { EventBus } from "@oh-my-soup/pi-coding-agent/utils/event-bus";
 import { TempDir, withTimeout } from "@oh-my-soup/pi-utils";
 import * as logger from "@oh-my-soup/pi-utils/logger";
 import { mockSchedulerWaitWithClock } from "./helpers/mock-scheduler-clock";
+
+import {
+	cfgCompactionAutoContinue,
+	cfgCompactionDropUseless,
+	cfgCompactionKeepRecentTokens,
+	cfgCompactionMethodOrder,
+	cfgCompactionReserveTokens,
+	cfgCompactionSupersedeReads,
+	cfgCompactionThresholdPercent,
+	cfgCompactionThresholdTokens,
+	cfgContextPromotionEnabled,
+} from "@oh-my-soup/pi-coding-agent/session/context-settings";
+import {
+	cfgFeaturesUnexpectedStopDetection,
+	cfgRetryBaseDelayMs,
+	cfgRetryEnabled,
+	cfgRetryFallbackChains,
+	cfgRetryMaxDelayMs,
+	cfgRetryMaxRetries,
+	cfgRetryModelFallback,
+} from "@oh-my-soup/pi-coding-agent/session/settings";
 
 const runtimeSignalStoreKey = "__ompRuntimeSignals";
 
@@ -50,7 +73,8 @@ describe("AgentSession auto-compaction queue resume", () => {
 	beforeAll(async () => {
 		tempDir = TempDir.createSync("@pi-auto-compaction-queue-");
 		authStorage = await AuthStorage.create(":memory:");
-		authStorage.setRuntimeApiKey("anthropic", "test-key");
+		authStorage.keys.setRuntime("anthropic", "test-key");
+		authStorage.keys.setRuntime("mock", "test-key");
 		modelRegistry = new ModelRegistry(authStorage);
 	});
 
@@ -214,6 +238,10 @@ describe("AgentSession auto-compaction queue resume", () => {
 		// so consumers must see it as a non-terminal scheduling pause.
 		const agentEndTerminalStates: Array<boolean | undefined> = [];
 		const { promise: compactionDone, resolve: onCompactionDone } = Promise.withResolvers<void>();
+		// Session subscribers are notified before extension listeners settle, so the
+		// continuation's delay timer is armed some microtasks after
+		// auto_compaction_end reaches this test; wait for the arm itself.
+		const waitSpy = vi.spyOn(scheduler, "wait");
 		session.subscribe((event: AgentSessionEvent) => {
 			if (event.type === "auto_compaction_end") onCompactionDone();
 			if (event.type === "agent_end") agentEndTerminalStates.push(event.isTerminal);
@@ -250,7 +278,9 @@ describe("AgentSession auto-compaction queue resume", () => {
 
 		// Wait for compaction completion, then verify waitForIdle blocks on queued continuation.
 		await compactionDone;
-		await Promise.resolve();
+		while (!waitSpy.mock.calls.some(([delayMs]) => delayMs === 100)) {
+			await Promise.resolve();
+		}
 		const idlePromise = session.waitForIdle();
 		let idleResolved = false;
 		void idlePromise.then(() => {
@@ -269,7 +299,7 @@ describe("AgentSession auto-compaction queue resume", () => {
 	});
 
 	it("marks manual compaction active before abort teardown can yield", async () => {
-		session.settings.set("compaction.keepRecentTokens", 1);
+		cfgCompactionKeepRecentTokens.set(session.settings, 1);
 		sessionManager.appendMessage({
 			role: "assistant",
 			content: [{ type: "text", text: "previous answer" }],
@@ -318,7 +348,7 @@ describe("AgentSession auto-compaction queue resume", () => {
 		// arrives mid-compaction (async IRC, an xd:// mount notice, an SDK steer)
 		// would hang until the next explicit prompt unless compact() re-drains
 		// after reconnecting.
-		session.settings.set("compaction.keepRecentTokens", 1);
+		cfgCompactionKeepRecentTokens.set(session.settings, 1);
 		sessionManager.appendMessage({
 			role: "assistant",
 			content: [{ type: "text", text: "previous answer" }],
@@ -374,8 +404,8 @@ describe("AgentSession auto-compaction queue resume", () => {
 		// on a half-finished loop until the user types "continue" — an autoresearch
 		// run dies this way. The compaction must resume the interrupted turn once the
 		// summary is committed, the same way context-full compaction does.
-		session.settings.set("compaction.keepRecentTokens", 1);
-		session.settings.override("compaction.autoContinue", true);
+		cfgCompactionKeepRecentTokens.set(session.settings, 1);
+		cfgCompactionAutoContinue.override(session.settings, true);
 		sessionManager.appendMessage({
 			role: "assistant",
 			content: [{ type: "text", text: "previous answer" }],
@@ -417,8 +447,8 @@ describe("AgentSession auto-compaction queue resume", () => {
 	});
 
 	it("does not start a turn when a manual compaction interrupted nothing", async () => {
-		session.settings.set("compaction.keepRecentTokens", 1);
-		session.settings.override("compaction.autoContinue", true);
+		cfgCompactionKeepRecentTokens.set(session.settings, 1);
+		cfgCompactionAutoContinue.override(session.settings, true);
 		sessionManager.appendMessage({
 			role: "assistant",
 			content: [{ type: "text", text: "previous answer" }],
@@ -452,8 +482,8 @@ describe("AgentSession auto-compaction queue resume", () => {
 		// compaction abort bumps the generation and drops that prompt; nudging the
 		// model to "resume" would run it on the previous transcript with the user's
 		// input never sent.
-		session.settings.set("compaction.keepRecentTokens", 1);
-		session.settings.override("compaction.autoContinue", true);
+		cfgCompactionKeepRecentTokens.set(session.settings, 1);
+		cfgCompactionAutoContinue.override(session.settings, true);
 		sessionManager.appendMessage({
 			role: "assistant",
 			content: [{ type: "text", text: "previous answer" }],
@@ -502,8 +532,8 @@ describe("AgentSession auto-compaction queue resume", () => {
 		// Plan-mode "Approve and compact context" dispatches the execution turn
 		// itself after compaction; resuming the aborted approval turn on top of it
 		// would double-prompt.
-		session.settings.set("compaction.keepRecentTokens", 1);
-		session.settings.override("compaction.autoContinue", true);
+		cfgCompactionKeepRecentTokens.set(session.settings, 1);
+		cfgCompactionAutoContinue.override(session.settings, true);
 		sessionManager.appendMessage({
 			role: "assistant",
 			content: [{ type: "text", text: "previous answer" }],
@@ -540,8 +570,8 @@ describe("AgentSession auto-compaction queue resume", () => {
 		// barrier. It is the user's next intent: it must dispatch once compaction
 		// ends instead of losing the session to the synthetic resume (and, without
 		// a streamingBehavior, surfacing AgentBusyError).
-		session.settings.set("compaction.keepRecentTokens", 1);
-		session.settings.override("compaction.autoContinue", true);
+		cfgCompactionKeepRecentTokens.set(session.settings, 1);
+		cfgCompactionAutoContinue.override(session.settings, true);
 		sessionManager.appendMessage({
 			role: "assistant",
 			content: [{ type: "text", text: "previous answer" }],
@@ -598,8 +628,8 @@ describe("AgentSession auto-compaction queue resume", () => {
 		// They must wait for the cleanup barrier like prompt() (no turn against the
 		// disconnected session) and, once dispatched, take the session instead of
 		// the synthetic resume.
-		session.settings.set("compaction.keepRecentTokens", 1);
-		session.settings.override("compaction.autoContinue", true);
+		cfgCompactionKeepRecentTokens.set(session.settings, 1);
+		cfgCompactionAutoContinue.override(session.settings, true);
 		sessionManager.appendMessage({
 			role: "assistant",
 			content: [{ type: "text", text: "previous answer" }],
@@ -661,8 +691,8 @@ describe("AgentSession auto-compaction queue resume", () => {
 		// barrier as a real prompt, but it is handled inside prompt() and starts no
 		// turn. It must not swallow the resume, or the interrupted work is stranded
 		// exactly the way it was before the fix.
-		session.settings.set("compaction.keepRecentTokens", 1);
-		session.settings.override("compaction.autoContinue", true);
+		cfgCompactionKeepRecentTokens.set(session.settings, 1);
+		cfgCompactionAutoContinue.override(session.settings, true);
 		sessionManager.appendMessage({
 			role: "assistant",
 			content: [{ type: "text", text: "previous answer" }],
@@ -712,8 +742,8 @@ describe("AgentSession auto-compaction queue resume", () => {
 	});
 
 	it("drops the resume once any parked prompt starts a turn, even if a local command releases first", async () => {
-		session.settings.set("compaction.keepRecentTokens", 1);
-		session.settings.override("compaction.autoContinue", true);
+		cfgCompactionKeepRecentTokens.set(session.settings, 1);
+		cfgCompactionAutoContinue.override(session.settings, true);
 		sessionManager.appendMessage({
 			role: "assistant",
 			content: [{ type: "text", text: "previous answer" }],
@@ -771,8 +801,8 @@ describe("AgentSession auto-compaction queue resume", () => {
 		// AgentBusyError on that setup-only busy state. That refusal claims
 		// nothing. The first then reaches `agent.prompt`, which rejects: no turn
 		// started, so it claims nothing either and the interrupted turn resumes.
-		session.settings.set("compaction.keepRecentTokens", 1);
-		session.settings.override("compaction.autoContinue", true);
+		cfgCompactionKeepRecentTokens.set(session.settings, 1);
+		cfgCompactionAutoContinue.override(session.settings, true);
 		sessionManager.appendMessage({
 			role: "assistant",
 			content: [{ type: "text", text: "previous answer" }],
@@ -852,7 +882,7 @@ describe("AgentSession auto-compaction queue resume", () => {
 		// The abort has already ended the turn by the time compact() discovers the
 		// session is too small. Rejecting without a resume strands the work exactly
 		// like the original bug; the rejection appended nothing, so resuming is safe.
-		session.settings.override("compaction.autoContinue", true);
+		cfgCompactionAutoContinue.override(session.settings, true);
 		session.agent.replaceMessages(session.buildDisplaySessionContext().messages);
 
 		session.agent.state.isStreaming = true;
@@ -875,8 +905,8 @@ describe("AgentSession auto-compaction queue resume", () => {
 	it("does not resume when a session_before_compact hook vetoes the compaction", async () => {
 		// A hook cancel is an explicit refusal, not a no-op: unlike "nothing to
 		// compact", it must not turn into an autonomous resume of the aborted turn.
-		session.settings.set("compaction.keepRecentTokens", 1);
-		session.settings.override("compaction.autoContinue", true);
+		cfgCompactionKeepRecentTokens.set(session.settings, 1);
+		cfgCompactionAutoContinue.override(session.settings, true);
 		sessionManager.appendMessage({
 			role: "assistant",
 			content: [{ type: "text", text: "previous answer" }],
@@ -914,8 +944,8 @@ describe("AgentSession auto-compaction queue resume", () => {
 		// is still running when a second /compact starts. That pass interrupts
 		// nothing itself; it must take over the withheld resume instead of
 		// discarding it, or the command's release finds nothing to hand back.
-		session.settings.set("compaction.keepRecentTokens", 1);
-		session.settings.override("compaction.autoContinue", true);
+		cfgCompactionKeepRecentTokens.set(session.settings, 1);
+		cfgCompactionAutoContinue.override(session.settings, true);
 		sessionManager.appendMessage({
 			role: "assistant",
 			content: [{ type: "text", text: "previous answer" }],
@@ -986,8 +1016,8 @@ describe("AgentSession auto-compaction queue resume", () => {
 	async function vetoedTakeoverAfterWithheldResume(
 		options?: CompactOptions,
 	): Promise<{ role: string; synthetic?: boolean }[][]> {
-		session.settings.set("compaction.keepRecentTokens", 1);
-		session.settings.override("compaction.autoContinue", true);
+		cfgCompactionKeepRecentTokens.set(session.settings, 1);
+		cfgCompactionAutoContinue.override(session.settings, true);
 		const appendAssistant = (text: string): void => {
 			sessionManager.appendMessage({
 				role: "assistant",
@@ -1074,8 +1104,8 @@ describe("AgentSession auto-compaction queue resume", () => {
 		// That prompt no longer waits on the barrier, but it competes for the same
 		// session: once it starts a turn, the command's later release must not
 		// schedule the stale resume on top of it.
-		session.settings.set("compaction.keepRecentTokens", 1);
-		session.settings.override("compaction.autoContinue", true);
+		cfgCompactionKeepRecentTokens.set(session.settings, 1);
+		cfgCompactionAutoContinue.override(session.settings, true);
 		sessionManager.appendMessage({
 			role: "assistant",
 			content: [{ type: "text", text: "previous answer" }],
@@ -1135,8 +1165,8 @@ describe("AgentSession auto-compaction queue resume", () => {
 		// fire-and-forget: the command returns (locally handled, no turn of its own)
 		// while the send is still in setup. That send must claim the session before
 		// the command's release can hand the resume back, or the nudge races it.
-		session.settings.set("compaction.keepRecentTokens", 1);
-		session.settings.override("compaction.autoContinue", true);
+		cfgCompactionKeepRecentTokens.set(session.settings, 1);
+		cfgCompactionAutoContinue.override(session.settings, true);
 		sessionManager.appendMessage({
 			role: "assistant",
 			content: [{ type: "text", text: "previous answer" }],
@@ -1196,7 +1226,7 @@ describe("AgentSession auto-compaction queue resume", () => {
 	it("cancels an in-flight auto-compaction when manual compact startup aborts", async () => {
 		// Give the branch something to summarize so auto-compaction reaches the
 		// awaited session_before_compact hook, where the test parks it.
-		session.settings.set("compaction.keepRecentTokens", 1);
+		cfgCompactionKeepRecentTokens.set(session.settings, 1);
 		sessionManager.appendMessage({
 			role: "assistant",
 			content: [{ type: "text", text: "previous answer" }],
@@ -1507,13 +1537,13 @@ describe("AgentSession auto-compaction queue resume", () => {
 			session.agent.clearAllQueues();
 		});
 
-		session.settings.set("compaction.thresholdTokens", 76384);
-		session.settings.set("compaction.thresholdPercent", -1);
-		session.settings.set("compaction.methodOrder", ["soft"]);
-		session.settings.set("compaction.dropUseless", true);
-		session.settings.set("compaction.supersedeReads", true);
-		session.settings.set("compaction.keepRecentTokens", 10000);
-		session.settings.set("compaction.reserveTokens", 16384);
+		cfgCompactionThresholdTokens.set(session.settings, 76384);
+		cfgCompactionThresholdPercent.set(session.settings, -1);
+		cfgCompactionMethodOrder.set(session.settings, ["soft"]);
+		cfgCompactionDropUseless.set(session.settings, true);
+		cfgCompactionSupersedeReads.set(session.settings, true);
+		cfgCompactionKeepRecentTokens.set(session.settings, 10000);
+		cfgCompactionReserveTokens.set(session.settings, 16384);
 
 		// Final assistant turn: billed at ~91k context tokens, just over the
 		// reporter's threshold. The pre-fix code would have subtracted ≥20k of
@@ -1561,12 +1591,18 @@ describe("AgentSession auto-compaction queue resume", () => {
 				updatedAt: now,
 			},
 		});
-		session.settings.set("compaction.thresholdTokens", 76384);
-		session.settings.set("compaction.thresholdPercent", -1);
-		session.settings.set("compaction.autoContinue", true);
-		session.settings.set("contextPromotion.enabled", false);
-		session.settings.set("features.unexpectedStopDetection", "smart");
-		session.settings.set("providers.unexpectedStopModel", "online");
+		cfgCompactionThresholdTokens.set(session.settings, 76384);
+		cfgCompactionThresholdPercent.set(session.settings, -1);
+		cfgCompactionAutoContinue.set(session.settings, true);
+		cfgContextPromotionEnabled.set(session.settings, false);
+		cfgFeaturesUnexpectedStopDetection.set(session.settings, "smart");
+		const judgeModel = createMockModel();
+		const getAvailable = modelRegistry.getAvailable.bind(modelRegistry);
+		vi.spyOn(modelRegistry, "getAvailable").mockImplementation(kind =>
+			kind === "all" ? [judgeModel] : getAvailable(kind),
+		);
+		session.settings.setModelRole("judge", `${judgeModel.provider}/${judgeModel.id}`);
+		cfgRetryFallbackChains.set(session.settings, { judge: [] });
 
 		vi.spyOn(unexpectedStopClassifier, "classifyUnexpectedStop").mockResolvedValue(true);
 		vi.spyOn(session.agent, "continue").mockImplementation(async () => {
@@ -1619,15 +1655,15 @@ describe("AgentSession auto-compaction queue resume", () => {
 				updatedAt: now,
 			},
 		});
-		session.settings.set("compaction.thresholdTokens", 76384);
-		session.settings.set("compaction.thresholdPercent", -1);
-		session.settings.set("compaction.autoContinue", true);
-		session.settings.set("contextPromotion.enabled", false);
-		session.settings.set("retry.enabled", true);
-		session.settings.set("retry.baseDelayMs", 5);
-		session.settings.set("retry.maxDelayMs", 5_000);
-		session.settings.set("retry.maxRetries", 1);
-		session.settings.set("retry.modelFallback", false);
+		cfgCompactionThresholdTokens.set(session.settings, 76384);
+		cfgCompactionThresholdPercent.set(session.settings, -1);
+		cfgCompactionAutoContinue.set(session.settings, true);
+		cfgContextPromotionEnabled.set(session.settings, false);
+		cfgRetryEnabled.set(session.settings, true);
+		cfgRetryBaseDelayMs.set(session.settings, 5);
+		cfgRetryMaxDelayMs.set(session.settings, 5_000);
+		cfgRetryMaxRetries.set(session.settings, 1);
+		cfgRetryModelFallback.set(session.settings, false);
 
 		mockSchedulerWaitWithClock();
 		vi.spyOn(session.agent, "continue").mockImplementation(async () => {
@@ -1688,6 +1724,9 @@ describe("AgentSession auto-compaction queue resume", () => {
 		};
 		session.agent.emitExternalEvent({ type: "message_end", message: recoveredOverThreshold });
 		await withTimeout(retryEnded, 1000, "Retry end timed out");
+		// Subscribers see auto_retry_end before the retry lifecycle closes behind
+		// the extension notification; the state must settle within the same task.
+		await scheduler.yield();
 		expect(session.isRetrying).toBe(false);
 
 		session.agent.emitExternalEvent({ type: "agent_end", messages: [recoveredOverThreshold] });
@@ -1721,10 +1760,10 @@ describe("AgentSession auto-compaction queue resume", () => {
 				updatedAt: now,
 			},
 		});
-		session.settings.set("compaction.thresholdTokens", 76384);
-		session.settings.set("compaction.thresholdPercent", -1);
-		session.settings.set("compaction.autoContinue", true);
-		session.settings.set("contextPromotion.enabled", false);
+		cfgCompactionThresholdTokens.set(session.settings, 76384);
+		cfgCompactionThresholdPercent.set(session.settings, -1);
+		cfgCompactionAutoContinue.set(session.settings, true);
+		cfgContextPromotionEnabled.set(session.settings, false);
 
 		vi.spyOn(session.agent, "continue").mockImplementation(async () => {
 			session.agent.clearAllQueues();
@@ -1864,10 +1903,11 @@ describe("AgentSession auto-compaction queue resume", () => {
 		session.agent.emitExternalEvent({ type: "agent_end", messages: [assistantMsg] });
 
 		await withTimeout(reminderDone, 1000, "Todo reminder timed out");
-		await Promise.resolve();
+		// The extension notification and the resume it precedes settle behind the
+		// agent_end handler that waitForIdle drains.
+		await session.waitForIdle();
 
 		expect(getRuntimeSignals()).toContain("todo:1/3");
 		expect(continueSpy).toHaveBeenCalledTimes(1);
-		await session.waitForIdle();
 	});
 });

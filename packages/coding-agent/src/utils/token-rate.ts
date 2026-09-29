@@ -151,8 +151,9 @@ class DecayedSums {
  * message's own request-start timestamp and `timestamp + duration` (epoch ms,
  * the `Date.now()` clock) so dispatch latency never shortens a span. Tool
  * execution between messages neither ages the sums nor counts as time, so the
- * readout holds across it. {@link reset} blanks it on a session switch while
- * keeping the hidden-rate estimate.
+ * readout holds across it. Each `AgentSession` owns one meter, so background
+ * subagents keep their own reading; {@link seed} restores it from the last
+ * completed turn after a history swap and {@link reset} blanks it.
  *
  * Whole-message averages come from {@link calculateTokensPerSecond} instead.
  */
@@ -170,6 +171,8 @@ export class TokenRateMeter {
 	#inflightHiddenRate = 0;
 	#pendingIndex = -1;
 	#pending = "";
+	/** Token count of {@link #pending}, or -1 when it changed since last counted. */
+	#pendingTokens = -1;
 	/** Decayed sums behind the hidden-token rate estimate. */
 	#hiddenTokens = 0;
 	#hiddenSpanMs = 0;
@@ -196,6 +199,7 @@ export class TokenRateMeter {
 			this.#pendingIndex = index;
 		}
 		this.#pending += text;
+		this.#pendingTokens = -1;
 	}
 
 	/**
@@ -231,11 +235,29 @@ export class TokenRateMeter {
 		this.#clearInflight();
 		for (const sums of this.#history) sums.reset();
 	}
+	/**
+	 * Seed the window from a completed turn (`outputTokens` over `durationMs`),
+	 * scaled past the evidence gate so even short turns read immediately. Like
+	 * a just-finished turn, the reading holds until the next message blends
+	 * with it or {@link reset} blanks it.
+	 */
+	seed(outputTokens: number, durationMs: number): void {
+		if (!Number.isFinite(outputTokens) || outputTokens <= 0 || !Number.isFinite(durationMs) || durationMs <= 0) {
+			this.reset();
+			return;
+		}
+		this.#clearInflight();
+		const scale = Math.max(1, METER_MIN_TOKENS / outputTokens, METER_MIN_TIME_MS / durationMs);
+		for (const sums of this.#history) {
+			sums.tokens = outputTokens * scale;
+			sums.time = durationMs * scale;
+		}
+	}
 
 	/** Tokens per second over the decayed window, or null until enough tokens have accumulated. */
 	rate(nowMs: number = Date.now()): number | null {
 		const dtMs = this.#startedAt === null ? 0 : nowMs - this.#advancedTo;
-		const pendingTokens = this.#pending.length > 0 ? this.#count(this.#pending) : 0;
+		const pendingTokens = this.#countPending();
 		let tokens = 0;
 		let time = 0;
 		let evidenceTokens = 0;
@@ -273,6 +295,13 @@ export class TokenRateMeter {
 		this.#inflightHiddenRate = 0;
 		this.#pendingIndex = -1;
 		this.#pending = "";
+		this.#pendingTokens = -1;
+	}
+
+	#countPending(): number {
+		if (this.#pending.length === 0) return 0;
+		if (this.#pendingTokens < 0) this.#pendingTokens = this.#count(this.#pending);
+		return this.#pendingTokens;
 	}
 
 	/** Tokenize the pending bucket into the in-flight sums, optionally holding back the trailing partial word. */
@@ -288,6 +317,7 @@ export class TokenRateMeter {
 			}
 		}
 		this.#pending = tail;
+		this.#pendingTokens = -1;
 		if (text.length === 0) return;
 		this.#advance(nowMs);
 		const tokens = this.#count(text);

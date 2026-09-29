@@ -89,7 +89,6 @@ test("project .oms/RULES.md becomes an alwaysApply rule", async () => {
 	expect(projectRule?.alwaysApply).toBe(true);
 	expect(projectRule?.content).toContain("Always say hi.");
 });
-
 test("project RULES.md is found walking up from a sub-package cwd", async () => {
 	const subPkg = path.join(project, "packages", "app");
 	fs.mkdirSync(subPkg, { recursive: true });

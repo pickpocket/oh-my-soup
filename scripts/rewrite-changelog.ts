@@ -32,18 +32,9 @@
 import * as path from "node:path";
 import { parseArgs } from "node:util";
 import { type } from "@oh-my-soup/omstype";
-import {
-	type Api,
-	AuthStorage,
-	completeSimple,
-	Effort,
-	type Model,
-	SqliteAuthCredentialStore,
-	type Tool,
-	type ToolCall,
-} from "@oh-my-soup/pi-ai";
+import { type Api, completeSimple, Effort, type Model, type Tool, type ToolCall } from "@oh-my-soup/pi-ai";
+import { discoverAuthStorage } from "@oh-my-soup/pi-ai/auth-broker";
 import { type GeneratedProvider, getBundledModel } from "@oh-my-soup/pi-catalog/models";
-import { getAgentDbPath } from "@oh-my-soup/pi-utils";
 import {
 	type ChangelogDocument,
 	changelogPaths,
@@ -109,14 +100,21 @@ async function openModel(modelSpec: string): Promise<RewriteModel> {
 	const modelId = modelSpec.slice(slash + 1);
 	const model = getBundledModel(provider as GeneratedProvider, modelId);
 	if (!model) throw new Error(`unknown model "${modelSpec}" (not in bundled catalog)`);
-	const store = await SqliteAuthCredentialStore.open(getAgentDbPath());
-	const storage = new AuthStorage(store);
-	await storage.reload();
-	const apiKey = await storage.getApiKey(provider);
-	if (!apiKey) {
-		throw new Error(`no credentials for provider "${provider}" (run \`oms login\` or set the provider env var)`);
+	const sourceLabel = "rewrite-changelog";
+	const storage = await discoverAuthStorage({ sourceLabel });
+	try {
+		const apiKey = await storage.keys.get(provider);
+		if (!apiKey) {
+			throw new Error(
+				`no credentials for provider "${provider}" via ${sourceLabel} (check broker or run \`oms login\`)`,
+			);
+		}
+		return { model, apiKey, spec: modelSpec };
+	} finally {
+		// Broker-backed storage runs a background SSE/long-poll loop that keeps
+		// the event loop alive; release it once the key is captured.
+		storage.close();
 	}
-	return { model, apiKey, spec: modelSpec };
 }
 
 // --------------------------------------------------------------------------
@@ -311,7 +309,8 @@ async function run(options: RunOptions): Promise<RunResult> {
 	);
 	const model = await openModel(options.model);
 	const concurrency = options.concurrency ?? 4;
-	const results: Array<RewrittenFile | undefined> = new Array(paths.length);
+	const results: (RewrittenFile | undefined)[] = [];
+	results.length = paths.length;
 
 	let pathIndex = 0;
 	async function worker() {

@@ -22,6 +22,7 @@ import {
 } from "../render/render-utils";
 import { renderStatusLine, renderTreeList, urlHyperlink } from "../render";
 import { framedToolCard } from "../render/tool-card";
+import { getSearchProviderLabel, type SearchProviderId, type SearchResponse } from "./web-search-types";
 
 const MAX_COLLAPSED_ITEMS = PREVIEW_LIMITS.COLLAPSED_ITEMS;
 
@@ -246,13 +247,7 @@ export const webSearchToolRenderer = {
 	renderResult: renderSearchResult,
 	mergeCallAndResult: true,
 } satisfies ToolRenderer<{ query?: string; [key: string]: unknown }, SearchRenderDetails>;
-
-/**
- * Web Search Types
- *
- * Unified types for web search responses across supported providers.
- */
-
+/** Providers shown in the TUI's ordered-provider settings and chooser. */
 export const SEARCH_PROVIDER_OPTIONS = [
 	{
 		value: "auto",
@@ -291,15 +286,17 @@ export const SEARCH_PROVIDER_OPTIONS = [
 	},
 	{
 		value: "codex",
-		label: "OpenAI",
+		label: "OpenAI Codex",
 		description: "OpenAI's native web_search (uses ChatGPT OAuth via /login openai-codex)",
 	},
+	{ value: "openai", label: "OpenAI", description: "OpenAI Responses API web search" },
 	{
 		value: "xai",
 		label: "xAI",
 		description:
 			"Grok web search via xAI Responses API (uses SuperGrok/X Premium+ OAuth via /login xai-oauth, or XAI_API_KEY)",
 	},
+	{ value: "openrouter", label: "OpenRouter", description: "OpenRouter web search" },
 	{ value: "zai", label: "Z.AI", description: "Calls Z.AI webSearchPrime MCP" },
 	{ value: "exa", label: "Exa", description: "API via /login exa or EXA_API_KEY; explicit keyless fallback via MCP" },
 	{ value: "tinyfish", label: "TinyFish", description: "Requires TINYFISH_API_KEY" },
@@ -346,69 +343,4 @@ export const SEARCH_PROVIDER_OPTIONS = [
 		label: "Public Web",
 		description: "Queries every credential-free engine in parallel and consolidates deduplicated results",
 	},
-] as const;
-
-/** Supported web search providers (every option except `auto`). */
-export type SearchProviderId = Exclude<(typeof SEARCH_PROVIDER_OPTIONS)[number]["value"], "auto">;
-
-/** Display labels, derived from {@link SEARCH_PROVIDER_OPTIONS}. */
-export const SEARCH_PROVIDER_LABELS = Object.fromEntries(
-	SEARCH_PROVIDER_OPTIONS.flatMap(option => (option.value === "auto" ? [] : [[option.value, option.label] as const])),
-) as Record<SearchProviderId, string>;
-
-/** Source returned by search (all providers) */
-export interface SearchSource {
-	title: string;
-	url: string;
-	snippet?: string;
-	/** ISO date string or relative ("2d ago") */
-	publishedDate?: string;
-	/** Age in seconds for consistent formatting */
-	ageSeconds?: number;
-	author?: string;
-}
-
-/** Citation with text reference (LLM-mediated providers) */
-export interface SearchCitation {
-	url: string;
-	title: string;
-	citedText?: string;
-}
-
-/** Usage metrics */
-export interface SearchUsage {
-	inputTokens?: number;
-	outputTokens?: number;
-	/** Anthropic: number of web search requests made */
-	searchRequests?: number;
-	/** Perplexity: combined token count */
-	totalTokens?: number;
-}
-
-/** Unified response across providers */
-export interface SearchResponse {
-	provider: SearchProviderId | "none";
-	/** Synthesized answer text (LLM-mediated providers) */
-	answer?: string;
-	/** Search result sources */
-	sources: SearchSource[];
-	/** Text citations with context */
-	citations?: SearchCitation[];
-	/** Intermediate search queries (anthropic) */
-	searchQueries?: string[];
-	/** Follow-up question suggestions (provider-dependent) */
-	relatedQuestions?: string[];
-	/** Token usage metrics */
-	usage?: SearchUsage;
-	/** Model used */
-	model?: string;
-	/** Request ID for debugging */
-	requestId?: string;
-	/** Authentication mode used by the provider (e.g. oauth, api-key) */
-	authMode?: string;
-}
-
-/** Cheap, sync metadata accessor — never triggers a provider load. */
-export function getSearchProviderLabel(id: SearchProviderId): string {
-	return SEARCH_PROVIDER_LABELS[id] ?? id;
-}
+] as const satisfies readonly { value: "auto" | SearchProviderId; label: string; description: string }[];

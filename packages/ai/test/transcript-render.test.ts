@@ -100,7 +100,6 @@ describe("dialect transcript rendering", () => {
 
 		expect(new Set(outputs).size).toBe(outputs.length);
 	});
-
 	it("does not double-wrap thinking blocks already stored with literal envelopes", () => {
 		const wrapped: Message[] = [
 			{

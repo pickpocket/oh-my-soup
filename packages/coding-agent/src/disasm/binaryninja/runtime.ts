@@ -155,7 +155,7 @@ export async function openBinaryNinjaTarget(
 			bits: numberValue(info.bits),
 			pid: numberValue(info.pid),
 			metadata: {
-				...(objectValue(info.metadata) ?? {}),
+				...objectValue(info.metadata),
 				managed_by_oms: true,
 				install_dir: runtime.installDir,
 				temporary_database: temporaryDir !== undefined,

@@ -3,6 +3,7 @@ import * as path from "node:path";
 import { type } from "@oh-my-soup/omstype";
 import type { AgentTool, AgentToolResult } from "@oh-my-soup/pi-agent-core";
 import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { cfgEvalToolsEnabled } from "@oh-my-soup/pi-coding-agent/eval/settings";
 import {
 	disposeAllVmContexts,
 	invokeJsTool,
@@ -135,19 +136,18 @@ describe("executeJs", () => {
 			code: 'tool.read({ path: "src/a.ts" });',
 		});
 		if (!planned) throw new Error("expected retained session");
-		await expect(
-			runIfSnapshotMatches({
-				sessionKey: sessionId,
-				sessionId,
-				cwd: session.cwd,
-				session,
-				code: "globalThis.atomicContextManagerValue = 42;",
-				filename: "atomic-context.ts",
-				runState: {},
-				expectedRevision: planned.snapshot.revision,
-				expectedDigest: planned.digest,
-			}),
-		).resolves.not.toBeNull();
+		const admitted = await runIfSnapshotMatches({
+			sessionKey: sessionId,
+			sessionId,
+			cwd: session.cwd,
+			session,
+			code: "globalThis.atomicContextManagerValue = 42;",
+			filename: "atomic-context.ts",
+			runState: {},
+			expectedRevision: planned.snapshot.revision,
+			expectedDigest: planned.digest,
+		});
+		expect(admitted).not.toBeNull();
 		const result = await executeJs("return atomicContextManagerValue;", { sessionId, session, sessionFile });
 		expect(result.output.trim()).toBe("42");
 	});
@@ -162,19 +162,18 @@ describe("executeJs", () => {
 		});
 		if (!planned) throw new Error("expected retained session");
 		await executeJs("globalThis.atomicStaleGuard = 2;", { sessionId, session, sessionFile });
-		await expect(
-			runIfSnapshotMatches({
-				sessionKey: sessionId,
-				sessionId,
-				cwd: session.cwd,
-				session,
-				code: "globalThis.atomicStaleGuard = 3;",
-				filename: "atomic-stale-context.ts",
-				runState: {},
-				expectedRevision: planned.snapshot.revision,
-				expectedDigest: planned.digest,
-			}),
-		).resolves.toBeNull();
+		const rejected = await runIfSnapshotMatches({
+			sessionKey: sessionId,
+			sessionId,
+			cwd: session.cwd,
+			session,
+			code: "globalThis.atomicStaleGuard = 3;",
+			filename: "atomic-stale-context.ts",
+			runState: {},
+			expectedRevision: planned.snapshot.revision,
+			expectedDigest: planned.digest,
+		});
+		expect(rejected).toBeNull();
 		const result = await executeJs("return atomicStaleGuard;", { sessionId, session, sessionFile });
 		expect(result.output.trim()).toBe("2");
 	});
@@ -257,7 +256,7 @@ describe("executeJs", () => {
 		});
 		expect(alive.output.trim()).toBe("still here");
 
-		evalSession.settings.set("eval.tools.enabled", false);
+		cfgEvalToolsEnabled.set(evalSession.settings, false);
 		await expect(describeEvalTools(evalSession, ["dbl"])).rejects.toThrow("Eval-defined tools are disabled");
 	});
 

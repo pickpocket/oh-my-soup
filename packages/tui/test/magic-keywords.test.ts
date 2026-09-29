@@ -1,23 +1,31 @@
-import { beforeAll, describe, expect, it } from "bun:test";
+import { afterEach, beforeAll, beforeEach, describe, expect, it } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { hasMagicKeyword, highlightMagicKeywords } from "@oh-my-soup/pi-tui/prompt/magic-keywords";
+import { hasMagicKeyword, highlightMagicKeywords, setMagicKeywords } from "@oh-my-soup/pi-tui/prompt/magic-keywords";
 import { initTheme } from "@oh-my-soup/pi-tui/theme";
 
 const magicKeywordsPath = Bun.resolveSync("@oh-my-soup/pi-tui/prompt/magic-keywords", import.meta.dir);
+const TEST_KEYWORDS = [
+	{ word: "ultrathink", hue: [280, 340] },
+	{ word: "orchestrate", hue: [180, 260] },
+	{ word: "workflowz", hue: [30, 90] },
+] as const;
 
 beforeAll(async () => {
 	// Gradient palettes read the active theme's color mode.
 	await initTheme(false);
 });
+beforeEach(() => setMagicKeywords(TEST_KEYWORDS));
+afterEach(() => setMagicKeywords([]));
 
 describe("highlightMagicKeywords", () => {
 	it("paints keywords when the module-level theme is uninitialized", async () => {
 		const dir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-magic-keywords-"));
 		try {
 			const script = [
-				`import { highlightMagicKeywords } from ${JSON.stringify(magicKeywordsPath)};`,
+				`import { highlightMagicKeywords, setMagicKeywords } from ${JSON.stringify(magicKeywordsPath)};`,
+				'setMagicKeywords([{ word: "orchestrate", hue: [180, 260] }]);',
 				'const input = "please orchestrate this";',
 				"const output = highlightMagicKeywords(input);",
 				"if (output === input || Bun.stripANSI(output) !== input) process.exit(1);",

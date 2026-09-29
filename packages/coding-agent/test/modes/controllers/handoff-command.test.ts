@@ -2,6 +2,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from "bun:test";
 import { CommandController } from "@oh-my-soup/pi-coding-agent/modes/controllers/command-controller";
 import { getThemeByName, setThemeInstance } from "@oh-my-soup/pi-tui/theme";
 import type { InteractiveModeContext } from "@oh-my-soup/pi-coding-agent/modes/types";
+const keybindings = { getKeys: () => ["escape"] };
 
 function createContainer() {
 	return {
@@ -60,6 +61,7 @@ describe("/handoff command", () => {
 			},
 			loadingAnimation: undefined,
 			statusContainer,
+			keybindings,
 			chatContainer,
 			ui: { requestRender, requestComponentRender: vi.fn() },
 			editor: { onEscape: originalOnEscape },
@@ -109,6 +111,7 @@ describe("/handoff command", () => {
 				loadingAnimation = value;
 			},
 			statusContainer,
+			keybindings,
 			ui: { requestRender: vi.fn(), requestComponentRender: vi.fn() },
 			clearTransientSessionUi: vi.fn(() => {
 				loadingAnimation?.stop();
@@ -161,6 +164,7 @@ describe("/handoff command", () => {
 				loadingAnimation = value;
 			},
 			statusContainer,
+			keybindings,
 			ui: { requestRender: vi.fn(), requestComponentRender: vi.fn() },
 			clearTransientSessionUi: vi.fn(() => {
 				loadingAnimation?.stop();
@@ -225,6 +229,7 @@ describe("/handoff command", () => {
 				activeRetryLoader = value;
 			},
 			statusContainer,
+			keybindings,
 			ui: { requestRender: vi.fn(), requestComponentRender: vi.fn() },
 			clearTransientSessionUi: vi.fn(() => {
 				statusContainer.disposeChildren();
@@ -273,6 +278,7 @@ describe("/handoff command", () => {
 			},
 			loadingAnimation: undefined,
 			statusContainer,
+			keybindings,
 			chatContainer: createContainer(),
 			ui: { requestRender: vi.fn(), requestComponentRender: vi.fn() },
 			editor: { onEscape: vi.fn() },
@@ -302,6 +308,7 @@ describe("/handoff command", () => {
 			session: { isStreaming: true, handoff },
 			loadingAnimation: undefined,
 			statusContainer,
+			keybindings,
 			ui: { requestRender: vi.fn(), requestComponentRender: vi.fn() },
 			showWarning,
 			showError: vi.fn(),
@@ -333,6 +340,7 @@ describe("/handoff command", () => {
 			autoCompactionLoader,
 			retryLoader: undefined,
 			statusContainer,
+			keybindings,
 			ui: { requestRender: vi.fn(), requestComponentRender: vi.fn() },
 			showWarning,
 			showError: vi.fn(),

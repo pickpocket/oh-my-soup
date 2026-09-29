@@ -22,7 +22,41 @@ import type { SessionInfo } from "@oh-my-soup/pi-coding-agent/session/session-li
 import * as sessionListingModule from "@oh-my-soup/pi-coding-agent/session/session-listing";
 import { loadEntriesFromFile } from "@oh-my-soup/pi-coding-agent/session/session-loader";
 import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
-import { getProjectDir, normalizePathForComparison, setProjectDir } from "@oh-my-soup/pi-utils";
+import {
+	__resetDirsFromEnvForTests,
+	getProjectDir,
+	normalizePathForComparison,
+	setAgentDir,
+	setProjectDir,
+} from "@oh-my-soup/pi-utils";
+
+const originalAgentDir = process.env.PI_CODING_AGENT_DIR;
+const originalPiProfile = process.env.PI_PROFILE;
+const originalOmsProfile = process.env.OMS_PROFILE;
+let agentDirRoot: string | undefined;
+
+function restoreEnv(key: string, value: string | undefined): void {
+	if (value === undefined) {
+		delete process.env[key];
+	} else {
+		process.env[key] = value;
+	}
+}
+
+beforeEach(async () => {
+	agentDirRoot = await fsp.mkdtemp(path.join(os.tmpdir(), "oms-xproj-agent-dir-"));
+	setAgentDir(path.join(agentDirRoot, "agent"));
+});
+
+afterEach(async () => {
+	restoreEnv("PI_CODING_AGENT_DIR", originalAgentDir);
+	restoreEnv("PI_PROFILE", originalPiProfile);
+	restoreEnv("OMS_PROFILE", originalOmsProfile);
+	__resetDirsFromEnvForTests();
+	if (agentDirRoot) {
+		await fsp.rm(agentDirRoot, { recursive: true, force: true });
+	}
+});
 
 function buildArgs(resume: string, sessionDir?: string): Args {
 	return {
@@ -32,6 +66,7 @@ function buildArgs(resume: string, sessionDir?: string): Args {
 		fileArgs: [],
 		unknownFlags: new Map(),
 		unrecognizedFlags: [],
+		invalidFlagValues: [],
 	};
 }
 

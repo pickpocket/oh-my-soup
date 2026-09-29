@@ -36,7 +36,7 @@ export * from "@oh-my-soup/pi-tui/overlays/show-images-selector";
 export * from "@oh-my-soup/pi-tui/status-line";
 export * from "@oh-my-soup/pi-tui/overlays/theme-selector";
 export * from "@oh-my-soup/pi-tui/overlays/thinking-selector";
-export * from "@oh-my-soup/pi-tui/overlays/tiny-title-download-progress";
+
 export * from "@oh-my-soup/pi-tui/chat/todo-reminder";
 export * from "@oh-my-soup/pi-tui/chat/tool-execution";
 export * from "@oh-my-soup/pi-tui/overlays/tree-selector";

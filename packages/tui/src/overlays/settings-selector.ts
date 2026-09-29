@@ -46,14 +46,10 @@ import { PluginSettingsComponent, type PluginSettingsHost } from "./plugin-setti
 import { getSettingDef, getSettingsForTab, type SettingDef } from "./settings-defs";
 import { SnapcompactShapePreview } from "./snapcompact-shape-preview";
 import { getPreset } from "../status-line/presets";
-import { FormField, SelectFormField, TextFormField, type FormFieldTheme } from "../components/form";
-
-const formTheme: FormFieldTheme = {
-	label: text => theme.bold(theme.fg("accent", text)),
-	description: text => theme.fg("muted", text),
-	error: text => theme.fg("error", text),
-	hint: text => theme.fg("dim", text),
-};
+import { FormField, SelectFormField, TextFormField } from "../components/form";
+import { formTheme } from "../chrome/form-theme";
+import { formatKeyHint, formatKeyHints } from "../app-keybindings";
+import { editorKey, editorKeys } from "../chrome/keybinding-hints";
 
 /**
  * Free-text string setting field backed by the shared text form field.
@@ -76,7 +72,7 @@ function createSettingsTextField(
 		secret,
 		initialValue: currentValue || undefined,
 		empty: "submit",
-		hint: "  Enter to save · Esc to cancel · Clear field to unset",
+		hint: `  ${editorKey("tui.input.submit")} to save · ${editorKey("tui.select.cancel")} to cancel · Clear field to unset`,
 		onSubmit,
 		onCancel,
 		requestRender,
@@ -112,7 +108,7 @@ function createSettingsSelectField(
 		onSelectionChange,
 		onSubmit: onSelect,
 		onCancel,
-		hint: "  Enter to select · Esc to go back",
+		hint: `  ${editorKey("tui.select.confirm")} to select · ${editorKey("tui.select.cancel")} to go back`,
 		footer,
 		requestRender,
 	});
@@ -178,9 +174,10 @@ class MultiSelectSubmenu extends Container {
 			this.#cursor = this.#options.findIndex(option => option.value === item.value);
 		};
 		this.#selectList.onCancel = this.#onClose;
+		const back = `${editorKey("tui.select.cancel")} to go back`;
 		const hint = this.#ordered
-			? "  Click to toggle · drag selected items to reorder · ←/→ move · 1-9 place · Esc to go back"
-			: "  Click/Enter/Space to toggle · Esc to go back";
+			? `  Click to toggle · drag selected items to reorder · ${formatKeyHints(["left", "right"])} move · 1-9 place · ${back}`
+			: `  Click/${editorKey("tui.select.confirm")}/${formatKeyHint("space")} to toggle · ${back}`;
 		this.#field = new FormField(this.#selectList, {
 			theme: formTheme,
 			label: this.#title,
@@ -346,7 +343,7 @@ class ProviderLimitsSubmenu extends Container {
 			items,
 			maxVisible: 12,
 			selectTheme: getSelectListTheme(),
-			hint: "  Enter to edit provider · Esc to go back",
+			hint: `  ${editorKey("tui.select.confirm")} to edit provider · ${editorKey("tui.select.cancel")} to go back`,
 			onSubmit: value => {
 				if (value === "__clear_all") {
 					this.#settings.set("providers.maxInFlightRequests", {});
@@ -375,7 +372,7 @@ class ProviderLimitsSubmenu extends Container {
 					"Enter a positive number. Decimals round down. Clear the field to make this provider unlimited.",
 				initialValue: limits[provider]?.toString() ?? undefined,
 				empty: "submit",
-				hint: "  Enter to save · Esc to cancel · Clear field to unset",
+				hint: `  ${editorKey("tui.input.submit")} to save · ${editorKey("tui.select.cancel")} to cancel · Clear field to unset`,
 				validate: value => {
 					if (value.trim() === "") return undefined;
 					const limit = Number(value.trim());
@@ -573,17 +570,21 @@ export class SettingsSelectorComponent implements Component {
 	}
 
 	#footerHintText(): string {
+		const confirm = editorKey("tui.select.confirm");
+		const cancel = editorKey("tui.select.cancel");
+		const tab = formatKeyHint("tab");
+		const switchTabs = `${formatKeyHints(["left", "right"])} to switch tabs`;
 		if (this.#searchList) {
-			return "Enter to change · Tab to jump tabs · Esc to exit search";
+			return `${confirm} to change · ${tab} to jump tabs · ${cancel} to exit search`;
 		}
 		if (this.#currentTabId === "plugins") {
-			return "Tab to switch tabs · Esc to close";
+			return `${tab} to switch tabs · ${cancel} to close`;
 		}
 		if (this.#currentList?.sectionFocused) {
-			return "↑/↓ to jump sections · Tab/Enter to settings · ←/→ to switch tabs · Esc to close";
+			return `${editorKeys("tui.select.up", "tui.select.down")} to jump sections · ${tab}/${confirm} to settings · ${switchTabs} · ${cancel} to close`;
 		}
-		const nav = this.#hasSectionJump ? "Tab to jump sections · ←/→ to switch tabs" : "Tab to switch tabs";
-		return `Enter/Space to change · ${nav} · Type to search · Esc to close`;
+		const nav = this.#hasSectionJump ? `${tab} to jump sections · ${switchTabs}` : `${tab} to switch tabs`;
+		return `${confirm}/${formatKeyHint("space")} to change · ${nav} · Type to search · ${cancel} to close`;
 	}
 
 	/** Single-line search banner: accent icon, editable query with live cursor, right-aligned match count. */
@@ -1106,9 +1107,10 @@ export class SettingsSelectorComponent implements Component {
 			this.#formatTextInputEditValue(def.path, this.#context.settings.get(def.path)),
 			def.secret,
 			value => {
-				// Empty string clears the setting; undefined-typed string settings
-				// store "" which the browser.ts expandPath ignores (no-op fallback).
-				this.#setSettingValue(def.path, value);
+				// An empty field removes the persisted value, so the default (or an
+				// environment fallback) applies again instead of a pinned "".
+				if (value === "") this.#context.settings.unset(def.path);
+				else this.#setSettingValue(def.path, value);
 				this.#callbacks.onChange(def.path, this.#context.settings.get(def.path));
 				wrappedDone(this.#formatTextInputValue(def, this.#context.settings.get(def.path)));
 			},
@@ -1137,15 +1139,7 @@ export class SettingsSelectorComponent implements Component {
 		return entries.map(([provider, limit]) => `${provider}: ${limit}`).join(", ");
 	}
 
-	#getMultiSelectOptions(def: SettingDef & { type: "multiselect" }) {
-		if (def.path !== "providers.webSearchOrder") return def.options;
-		const excluded: unknown = this.#context.settings.get("providers.webSearchExclude");
-		if (!Array.isArray(excluded)) return def.options;
-		return def.options.filter(option => !excluded.includes(option.value));
-	}
-
 	#createMultiSelect(def: SettingDef & { type: "multiselect" }, done: (value?: string) => void): Container {
-		const options = this.#getMultiSelectOptions(def);
 		const current: unknown = this.#context.settings.get(def.path);
 		const initial = Array.isArray(current)
 			? current.filter((entry): entry is string => typeof entry === "string")
@@ -1153,7 +1147,7 @@ export class SettingsSelectorComponent implements Component {
 		return new MultiSelectSubmenu(
 			def.label,
 			def.description,
-			options,
+			def.options,
 			initial,
 			def.ordered,
 			value => {
@@ -1165,7 +1159,7 @@ export class SettingsSelectorComponent implements Component {
 	}
 
 	#formatMultiSelectValue(def: SettingDef & { type: "multiselect" }, value: unknown): string {
-		const options = this.#getMultiSelectOptions(def);
+		const { options } = def;
 		const labels = Array.isArray(value)
 			? value.flatMap(entry => {
 					if (typeof entry !== "string") return [];

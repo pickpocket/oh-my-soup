@@ -19,6 +19,7 @@ export const TOOL_TIMEOUTS = {
 	disasm: { default: 60, min: 5, max: 600 },
 	objdump: { default: 30, min: 1, max: 300 },
 	frida: { default: 60, min: 5, max: 600 },
+	ida: { default: 120, min: 1, max: 3600 },
 } as const satisfies Record<string, ToolTimeoutConfig>;
 
 export type ToolWithTimeout = keyof typeof TOOL_TIMEOUTS;

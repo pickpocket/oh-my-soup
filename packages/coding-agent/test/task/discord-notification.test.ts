@@ -4,6 +4,7 @@ import {
 	notifyTaskCompletion,
 	type TaskCompletionNotification,
 } from "@oh-my-soup/pi-coding-agent/task/discord-notification";
+import { cfgTaskDiscordWebhookUrl } from "@oh-my-soup/pi-coding-agent/task/settings";
 import type { ToolSession } from "@oh-my-soup/pi-coding-agent/tools";
 import { logger, postmortem } from "@oh-my-soup/pi-utils";
 import type { Server } from "bun";
@@ -172,11 +173,11 @@ describe("task Discord notifications", () => {
 		const second = createSink();
 		const owner = createOwner();
 		notifyTaskCompletion(owner.session, notification);
-		owner.settings.override("task.discordWebhookUrl", first.url);
+		cfgTaskDiscordWebhookUrl.override(owner.settings, first.url);
 		notifyTaskCompletion(owner.session, notification);
-		owner.settings.override("task.discordWebhookUrl", "");
+		cfgTaskDiscordWebhookUrl.override(owner.settings, "");
 		notifyTaskCompletion(owner.session, notification);
-		owner.settings.override("task.discordWebhookUrl", second.url);
+		cfgTaskDiscordWebhookUrl.override(owner.settings, second.url);
 		notifyTaskCompletion(owner.session, { ...notification, status: "cancelled" });
 		await owner.dispose();
 		expect(first.requests).toHaveLength(1);

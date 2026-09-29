@@ -2,6 +2,7 @@
 import { spawnSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { type GeneratedProvider, getBundledModel } from "@oh-my-soup/pi-catalog/models";
 /**
  * Harbor benchmark runner for the local `oms` build.
  *
@@ -28,6 +29,11 @@ const PKG_DIR = path.resolve(import.meta.dir, "..");
 const AGENT_DIR = path.join(PKG_DIR, "agent");
 const CODING_AGENT_DIR = path.join(REPO_ROOT, "packages", "coding-agent");
 const AGENT_IMPORT_PATH = "oms_local:OmsLocal";
+const PI_UPSTREAM_IMPORT_PATH = "pi_upstream:PiUpstream";
+/** Upstream `@earendil-works/pi-coding-agent` version pinned for `--agent pi`. */
+const PI_UPSTREAM_VERSION = "0.86.1";
+/** Agents this runner installs itself (config + secrets travel via agent-specific env). */
+const MANAGED_AGENTS: Record<string, true> = { oms: true, pi: true };
 
 /** Container-side mount points for `--install source` (must match oms_local.py defaults). */
 const SOURCE_SRC_MOUNT = "/opt/oms/src";
@@ -55,6 +61,10 @@ export interface Config {
 	thinking: string | null;
 	/** Extra args forwarded verbatim to the in-container oms CLI invocation (repeatable). */
 	agentArgs: string[];
+	/** oms tool allowlist (`--tools`); `null` keeps oms's default tool set. */
+	tools: string[] | null;
+	/** Extra oms settings written into the container config (dotted key → JSON value). */
+	settings: Record<string, unknown>;
 
 	agent: string;
 	install: "source" | "local" | "published";
@@ -98,6 +108,8 @@ function defaultConfig(): Config {
 		exclude: [],
 		thinking: null,
 		agentArgs: [],
+		tools: null,
+		settings: {},
 
 		agent: "oms",
 		install: "source",
@@ -147,6 +159,8 @@ Model / agent:
       --tarball <path>           Reuse a prebuilt oms tarball (implies --install local, --no-build)
       --no-build                 Skip packing; reuse newest tarball in bench dir (--install local)
       --agent-arg <arg>          Extra arg forwarded verbatim to the in-container oms CLI (repeatable)
+      --tools <a,b,c>            oms tool allowlist; enables the find tool when listed
+      --setting <key=value>      oms setting for the container config, e.g. edit.mode=sloppy (repeatable; JSON values)
       --env <KEY[=VALUE]>        Forward env into oms container (repeatable).
                                  KEY alone forwards host value; host PI_* auto-forwarded.
 
@@ -249,6 +263,27 @@ export function parseArgs(argv: string[]): Config {
 				break;
 			case "--agent-arg":
 				cfg.agentArgs.push(take(arg));
+				break;
+			case "--setting": {
+				const spec = take(arg);
+				const eq = spec.indexOf("=");
+				if (eq <= 0) throw new Error("--setting expects key=value");
+				const raw = spec.slice(eq + 1);
+				let value: unknown = raw;
+				try {
+					value = JSON.parse(raw);
+				} catch {
+					// bare strings stay strings
+				}
+				cfg.settings[spec.slice(0, eq)] = value;
+				break;
+			}
+			case "--tools":
+				cfg.tools = take(arg)
+					.split(",")
+					.map(tool => tool.trim())
+					.filter(tool => tool.length > 0);
+				if (cfg.tools.length === 0) throw new Error("--tools must name at least one tool");
 				break;
 			case "-l":
 			case "--tasks":
@@ -577,14 +612,14 @@ function probeLine(line: string, probe: CostProbe): void {
  * call this for every live trial, and a full-file reread used to block the
  * event loop for seconds (and OOM outright on runaway multi-GB transcripts).
  */
-function probeTrialCost(ompLogPath: string): CostProbe | null {
+function probeTrialCost(omsLogPath: string): CostProbe | null {
 	let size: number;
 	try {
-		size = fs.statSync(ompLogPath).size;
+		size = fs.statSync(omsLogPath).size;
 	} catch {
-		return costProbes.get(ompLogPath) ?? null;
+		return costProbes.get(omsLogPath) ?? null;
 	}
-	let probe = costProbes.get(ompLogPath);
+	let probe = costProbes.get(omsLogPath);
 	if (!probe || size < probe.offset) {
 		// New (or truncated/rotated) transcript. Skip a pre-existing giant head.
 		probe = {
@@ -596,12 +631,12 @@ function probeTrialCost(ompLogPath: string): CostProbe | null {
 			tokOut: 0,
 			tokCache: 0,
 		};
-		costProbes.set(ompLogPath, probe);
+		costProbes.set(omsLogPath, probe);
 	}
 	if (size === probe.offset) return probe;
 	let fd: number;
 	try {
-		fd = fs.openSync(ompLogPath, "r");
+		fd = fs.openSync(omsLogPath, "r");
 	} catch {
 		return probe;
 	}
@@ -924,7 +959,7 @@ function writeReport(st: RenderState, benchDir: string, exitCode: number): strin
 	const tot = aggregate(trials, readJobResult(st.jobDir), st.expected);
 	const successPct = tot.done > 0 ? (tot.pass / tot.done) * 100 : 0;
 	const lines: string[] = [];
-	const isOmp = st.cfg.agent === "oms";
+	const isOms = st.cfg.agent === "oms";
 	const argsLabel = agentArgsLabel(st.cfg);
 	const baseModelLine = st.cfg.models.join(", ");
 	const modelLine = argsLabel ? `${baseModelLine} (${argsLabel})` : baseModelLine;
@@ -932,7 +967,7 @@ function writeReport(st: RenderState, benchDir: string, exitCode: number): strin
 	lines.push("");
 	lines.push(`- dataset: \`${st.cfg.dataset}\``);
 	lines.push(`- tasks: ${st.cfg.tasks} · attempts: ${st.cfg.attempts} · concurrency: ${st.cfg.concurrency}`);
-	if (isOmp) {
+	if (isOms) {
 		lines.push(
 			`- install: ${st.cfg.install} · auth: ${st.cfg.gateway ? "host gateway (no keys in container)" : "direct provider keys"}`,
 		);
@@ -1219,6 +1254,33 @@ function buildMountsJson(source: SourceMount | null): string | null {
 	return JSON.stringify(mounts);
 }
 
+/** Neutralized upstream system prompt template uploaded into `pi` trials (see pi_upstream.py). */
+const PI_UPSTREAM_SYSTEM_PROMPT = path.join(AGENT_DIR, "pi-upstream-system.md");
+
+/**
+ * Catalog facts for each `provider/model` the upstream agent needs in its
+ * `models.json`: wire api, limits, modalities and cost, so its usage accounting
+ * matches oms's for the same model.
+ */
+function upstreamModelSpecs(cfg: Config): Array<Record<string, unknown>> {
+	return cfg.models.map(spec => {
+		const slash = spec.indexOf("/");
+		const provider = spec.slice(0, slash) as GeneratedProvider;
+		const id = spec.slice(slash + 1);
+		const model = getBundledModel(provider, id);
+		return {
+			provider,
+			id,
+			api: model.api,
+			reasoning: model.reasoning,
+			input: model.input,
+			contextWindow: model.contextWindow,
+			maxTokens: model.maxTokens,
+			cost: model.cost,
+		};
+	});
+}
+
 function deriveProviders(cfg: Config): string[] {
 	// Explicit --providers is authoritative: it's the escape hatch for routing
 	// only SOME providers through the gateway (e.g. oauth-only openai-codex)
@@ -1312,7 +1374,8 @@ function buildHarborArgs(
 	composeOverlayPath: string | null,
 	mountsJson: string | null,
 ): string[] {
-	const a: string[] = ["run", "-d", cfg.dataset, "-o", cfg.jobsDir, "--job-name", jobName];
+	const datasetFlag = fs.existsSync(cfg.dataset) ? "-p" : "-d";
+	const a: string[] = ["run", datasetFlag, cfg.dataset, "-o", cfg.jobsDir, "--job-name", jobName];
 	a.push("-n", String(cfg.concurrency), "-k", String(cfg.attempts), "-l", String(cfg.tasks));
 	for (const m of cfg.models) a.push("-m", m);
 	for (const inc of cfg.include) a.push("-i", inc);
@@ -1326,9 +1389,9 @@ function buildHarborArgs(
 	if (cfg.envType !== "docker") a.push("-e", cfg.envType);
 	if (mountsJson) a.push("--mounts", mountsJson);
 
-	if (cfg.agent === "oms") {
-		// Config + secrets travel via env (OMS_BENCH_*); the agent reads os.environ.
-		a.push("--agent-import-path", AGENT_IMPORT_PATH);
+	if (MANAGED_AGENTS[cfg.agent]) {
+		// Config + secrets travel via agent-specific env; the agent reads os.environ.
+		a.push("--agent-import-path", cfg.agent === "pi" ? PI_UPSTREAM_IMPORT_PATH : AGENT_IMPORT_PATH);
 		void modelsYaml;
 		void tarball;
 	} else {
@@ -1388,37 +1451,46 @@ export function buildHarborEnv(
 	source: SourceMount | null = null,
 ): Record<string, string> {
 	const env: Record<string, string> = { ...(process.env as Record<string, string>) };
-	// Drop any stale OMS_BENCH_FORWARD_ENV inherited from the caller's shell before
-	// the agent-type early return, so it never leaks (incl. into the dry-run dump).
+	// Drop stale fork/upstream forward-env values before the agent-type early return.
+	// Neither should leak into an unrelated Harbor agent or the dry-run dump.
 	delete env.OMS_BENCH_FORWARD_ENV;
-	if (cfg.agent !== "oms") return env;
+	delete env.OMP_BENCH_FORWARD_ENV;
+	if (!MANAGED_AGENTS[cfg.agent]) return env;
 	const prepend = (k: string, v: string): void => {
 		env[k] = env[k] ? `${v}:${env[k]}` : v;
 	};
 	prepend("PYTHONPATH", AGENT_DIR);
-	env.OMS_BENCH_INSTALL = cfg.install;
-	env.OMS_BENCH_VERSION = cfg.version ?? version;
-	if (tarball) env.OMS_BENCH_TARBALL = tarball;
-	if (source) {
+	if (cfg.agent === "pi") {
+		env.OMP_BENCH_PI_VERSION = cfg.version ?? PI_UPSTREAM_VERSION;
+		env.OMP_BENCH_PI_MODELS = JSON.stringify(upstreamModelSpecs(cfg));
+		env.OMP_BENCH_PI_SYSTEM_PROMPT = PI_UPSTREAM_SYSTEM_PROMPT;
+	}
+	const benchPrefix = cfg.agent === "pi" ? "OMP_BENCH_" : "OMS_BENCH_";
+	env[`${benchPrefix}INSTALL`] = cfg.install;
+	env[`${benchPrefix}VERSION`] = cfg.version ?? version;
+	if (tarball) env[`${benchPrefix}TARBALL`] = tarball;
+	if (source && cfg.agent === "oms") {
 		env.OMS_BENCH_SOURCE_DIR = SOURCE_SRC_MOUNT;
 		env.OMS_BENCH_SOURCE_BUN = `${SOURCE_BIN_MOUNT}/bun`;
 		env.OMS_BENCH_SOURCE_ARCH = source.arch;
 	}
-	if (cfg.binaryArm64) env.OMS_BENCH_BINARY_ARM64 = cfg.binaryArm64;
-	if (cfg.binaryX64) env.OMS_BENCH_BINARY_X64 = cfg.binaryX64;
-	if (cfg.thinking) env.OMS_BENCH_THINKING = cfg.thinking;
-	if (cfg.agentArgs.length > 0) env.OMS_BENCH_AGENT_ARGS = JSON.stringify(cfg.agentArgs);
-	if (cfg.webSearch) env.OMS_BENCH_WEB_SEARCH = "1";
-	env.OMS_BENCH_GATEWAY = cfg.gateway ? "1" : "0";
+	if (cfg.binaryArm64) env[`${benchPrefix}BINARY_ARM64`] = cfg.binaryArm64;
+	if (cfg.binaryX64) env[`${benchPrefix}BINARY_X64`] = cfg.binaryX64;
+	if (cfg.thinking) env[`${benchPrefix}THINKING`] = cfg.thinking;
+	if (cfg.agentArgs.length > 0) env[`${benchPrefix}AGENT_ARGS`] = JSON.stringify(cfg.agentArgs);
+	if (cfg.tools) env[`${benchPrefix}TOOLS`] = cfg.tools.join(",");
+	if (Object.keys(cfg.settings).length > 0) env[`${benchPrefix}SETTINGS`] = JSON.stringify(cfg.settings);
+	if (cfg.webSearch) env[`${benchPrefix}WEB_SEARCH`] = "1";
+	env[`${benchPrefix}GATEWAY`] = cfg.gateway ? "1" : "0";
 	if (cfg.gateway) {
-		env.OMS_BENCH_MODELS_YAML = modelsYaml;
-		env.OMS_BENCH_GATEWAY_URL = cfg.gatewayUrl;
-		env.OMS_BENCH_GATEWAY_TOKEN = cfg.gatewayToken;
-		env.OMS_BENCH_GATEWAY_PROVIDERS = deriveProviders(cfg).join(",");
+		if (cfg.agent === "oms") env.OMS_BENCH_MODELS_YAML = modelsYaml;
+		env[`${benchPrefix}GATEWAY_URL`] = cfg.gatewayUrl;
+		env[`${benchPrefix}GATEWAY_TOKEN`] = cfg.gatewayToken;
+		env[`${benchPrefix}GATEWAY_PROVIDERS`] = deriveProviders(cfg).join(",");
 	}
 	if (cfg.envType === "apple-container") env.OMS_BENCH_CONTAINER_DNS = CONTAINER_DNS;
 	const forward = collectForwardEnv(cfg);
-	if (Object.keys(forward).length > 0) env.OMS_BENCH_FORWARD_ENV = JSON.stringify(forward);
+	if (Object.keys(forward).length > 0) env[`${benchPrefix}FORWARD_ENV`] = JSON.stringify(forward);
 	return env;
 }
 

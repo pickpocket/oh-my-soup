@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "bun:test";
 import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { cfgSystemPromptFiles } from "@oh-my-soup/pi-coding-agent/session/context-settings";
 import { executeAcpBuiltinSlashCommand } from "@oh-my-soup/pi-coding-agent/slash-commands/acp-builtins";
 import type { SlashCommandRuntime } from "@oh-my-soup/pi-coding-agent/slash-commands/types";
 import { TempDir } from "@oh-my-soup/pi-utils";
@@ -55,7 +56,7 @@ describe("/sprompt", () => {
 
 		await executeAcpBuiltinSlashCommand("/sprompt set prompt.md", harness.runtime);
 
-		const saved = harness.settings.get("systemPromptFiles") as Record<string, string>;
+		const saved = cfgSystemPromptFiles.get(harness.settings);
 		const expectedPath = tempDir.join("prompt.md");
 		expect(saved["anthropic/claude-fable-5"]).toBe(expectedPath);
 		expect(harness.output).toHaveBeenCalledWith(
@@ -86,7 +87,7 @@ describe("/sprompt", () => {
 		await executeAcpBuiltinSlashCommand("/sprompt set empty.md", harness.runtime);
 		expect(harness.output).toHaveBeenLastCalledWith(`Prompt file is empty: ${tempDir.join("empty.md")}`);
 
-		expect(harness.settings.get("systemPromptFiles")).toEqual({});
+		expect(cfgSystemPromptFiles.get(harness.settings)).toEqual({});
 	});
 
 	it("lists bindings with placement channels and marks the current model", async () => {
@@ -124,15 +125,13 @@ describe("/sprompt", () => {
 			"anthropic/claude-fable-5": tempDir.join("a.md"),
 			"google/gemma-4-31b-it": tempDir.join("b.md"),
 		};
-		// Seed through set() — the same layer /sprompt writes — so clear's
-		// deletion is observable (isolated() seeds an override layer that get()
-		// would merge back in).
+		// Seed and inspect the mutable settings through the descriptor consumed by /sprompt.
 		const harness = createRuntime({ cwd: tempDir.path(), model: CAPABLE_MODEL });
-		harness.settings.set("systemPromptFiles", configured);
+		cfgSystemPromptFiles.set(harness.settings, configured);
 
 		await executeAcpBuiltinSlashCommand("/sprompt clear", harness.runtime);
 
-		expect(harness.settings.get("systemPromptFiles")).toEqual({
+		expect(cfgSystemPromptFiles.get(harness.settings)).toEqual({
 			"google/gemma-4-31b-it": tempDir.join("b.md"),
 		});
 		expect(harness.output).toHaveBeenCalledWith("Removed prompt file for anthropic/claude-fable-5.");
@@ -155,7 +154,7 @@ describe("/sprompt", () => {
 		await executeAcpBuiltinSlashCommand("/sprompt set prompt.md", harness.runtime);
 
 		await executeAcpBuiltinSlashCommand("/sprompt toggle", harness.runtime);
-		expect(harness.settings.get("systemPromptFiles")).toEqual({
+		expect(cfgSystemPromptFiles.get(harness.settings)).toEqual({
 			"anthropic/claude-fable-5": { path: file, enabled: false },
 		});
 		expect(harness.output).toHaveBeenLastCalledWith(
@@ -166,7 +165,7 @@ describe("/sprompt", () => {
 		expect(harness.output.mock.calls.at(-1)?.[0] as string).toContain(`${file} (disabled) [system prompt]`);
 
 		await executeAcpBuiltinSlashCommand("/sprompt toggle", harness.runtime);
-		expect(harness.settings.get("systemPromptFiles")).toEqual({ "anthropic/claude-fable-5": file });
+		expect(cfgSystemPromptFiles.get(harness.settings)).toEqual({ "anthropic/claude-fable-5": file });
 		expect(harness.output).toHaveBeenLastCalledWith(
 			`Enabled prompt file for anthropic/claude-fable-5: ${file}. Delivered as system prompt on this model.`,
 		);

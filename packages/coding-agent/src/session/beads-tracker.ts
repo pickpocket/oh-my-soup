@@ -18,6 +18,7 @@ import { buildNamedToolChoice } from "../utils/tool-choice";
 import type { AgentSessionEvent } from "./agent-session-events";
 import type { SessionManager } from "./session-manager";
 
+import { cfgBeadsEager, cfgBeadsEnabled, cfgBeadsReminders, cfgBeadsRemindersMax } from "./settings";
 const MID_RUN_NUDGE_MUTATION_THRESHOLD = 12;
 const TODO_FOLD_MAX_PER_CYCLE = 3;
 const MUTATING_TOOLS: Record<string, true> = {
@@ -168,7 +169,7 @@ export class BeadsTracker {
 	createEagerBeadsPrelude(
 		promptText: string | undefined,
 	): { message: AgentMessage; toolChoice?: ToolChoice } | undefined {
-		const mode = this.#host.settings.get("beads.eager");
+		const mode = cfgBeadsEager.get(this.#host.settings);
 		// Subagents work on slices delegated by a parent that already owns the
 		// durable bookkeeping; pushing them to prime and claim only adds noise.
 		if (!this.#beadsEnabled() || mode === "default" || this.#host.agentKind() === "sub") return undefined;
@@ -215,7 +216,7 @@ export class BeadsTracker {
 	/** Builds a post-compaction eager reminder, including the actor's live claims. */
 	buildPostCompactionEagerNudges(): AgentMessage[] {
 		if (!this.#beadsEnabled() || this.#host.agentKind() === "sub" || !this.#refreshHeldIssues()) return [];
-		const mode = this.#host.settings.get("beads.eager");
+		const mode = cfgBeadsEager.get(this.#host.settings);
 		if (mode === "default" || !this.#beadsReachable()) return [];
 		const claims = this.heldIssues;
 		return [
@@ -238,7 +239,7 @@ export class BeadsTracker {
 	/** Takes one hidden mid-run nudge per prompt cycle after sustained mutations. */
 	takeMidRunNudge(): AgentMessage | null {
 		if (this.#state !== "holding" || this.#mutationsSinceBeadsTouch < MID_RUN_NUDGE_MUTATION_THRESHOLD) return null;
-		if (this.#midRunNudgeIssued || !this.#beadsEnabled() || !this.#host.settings.get("beads.reminders")) return null;
+		if (this.#midRunNudgeIssued || !this.#beadsEnabled() || !cfgBeadsReminders.get(this.#host.settings)) return null;
 		if (this.#host.planModeEnabled() || !this.#beadsReachable()) return null;
 		this.#midRunNudgeIssued = true;
 		this.#mutationsSinceBeadsTouch = 0;
@@ -288,12 +289,12 @@ export class BeadsTracker {
 		if (this.#host.consumeLastServedToolChoiceLabel() === "user-force") return false;
 		if (this.#host.planModeEnabled()) return false;
 		if (this.#reminderAwaitingProgress) return false;
-		if (!this.#beadsEnabled() || !this.#host.settings.get("beads.reminders")) {
+		if (!this.#beadsEnabled() || !cfgBeadsReminders.get(this.#host.settings)) {
 			this.#reminderCount = 0;
 			this.#reminderAwaitingProgress = false;
 			return false;
 		}
-		const remindersMax = this.#host.settings.get("beads.remindersMax");
+		const remindersMax = cfgBeadsRemindersMax.get(this.#host.settings);
 		if (this.#reminderCount >= remindersMax) return false;
 		if (isAwaitingUserAnswer(message) || this.#host.hasPendingAsyncWake()) return false;
 		if (!this.#refreshHeldIssues()) return false;
@@ -474,7 +475,7 @@ export class BeadsTracker {
 	}
 
 	#beadsEnabled(): boolean {
-		return this.#host.settings.get("beads.enabled");
+		return cfgBeadsEnabled.get(this.#host.settings);
 	}
 
 	/** Whether the model can reach `beads` at all: top level, an xd:// mount, or the Code Mode bridge. */

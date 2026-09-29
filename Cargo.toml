@@ -10,12 +10,17 @@ members = [
    "crates/pi-edit",
    "crates/pi-iso",
    "crates/pi-natives",
+   "crates/pi-predict",
    "crates/pi-shell",
    "crates/pi-vcs",
+   "crates/pi-vfs",
    "crates/pi-voice",
    "crates/pi-walker",
    "crates/vendor/brush-core",
+   "crates/vendor/brush-parser",
    "crates/vendor/cfg_aliases",
+   "crates/vendor/napi",
+   "crates/vendor/tree-sitter-go",
 ]
 resolver = "3"
 
@@ -29,9 +34,18 @@ repository = "https://github.com/pickpocket/oh-my-soup"
 
 [patch.crates-io]
 brush-core = { path = "crates/vendor/brush-core" }
+# brush-parser 0.4.0 (latest release) re-parses `$(...)` bodies without
+# here-document awareness; the vendored copy fixes it (see its README.md).
+brush-parser = { path = "crates/vendor/brush-parser" }
 # portable-pty 0.9.0 pins nix 0.28, whose cfg_aliases 0.1.1 expansion emits
 # future-incompatible trailing semicolons.
 cfg_aliases = { path = "crates/vendor/cfg_aliases" }
+# napi 3.13.0 pins every `bun test --isolate` realm through per-thread handles
+# of never-torn-down envs; the vendored copy releases them (see its README.md).
+napi = { path = "crates/vendor/napi" }
+# tree-sitter-go 0.25.0 (latest release) rejects Go 1.26 `new(expr)`; the
+# vendored copy carries the upstream grammar fix (see its README.md).
+tree-sitter-go = { path = "crates/vendor/tree-sitter-go" }
 
 [profile.release]
 opt-level = 3
@@ -219,9 +233,11 @@ pi-diff = { path = "crates/pi-diff" }
 pi-edit = { path = "crates/pi-edit" }
 pi-iso = { path = "crates/pi-iso" }
 pi-shell = { path = "crates/pi-shell" }
+pi-predict = { path = "crates/pi-predict" }
 pi-voice = { path = "crates/pi-voice" }
 pi-walker = { path = "crates/pi-walker" }
 pi-vcs = { path = "crates/pi-vcs" }
+pi-vfs = { path = "crates/pi-vfs" }
 brush-core = { path = "crates/vendor/brush-core" }
 pi-builtins = { path = "crates/pi-builtins" }
 
@@ -307,6 +323,13 @@ windows-sys = { version = "0.61", features = [
    "Win32_System_Ioctl",
    "Win32_System_Threading",
 ] }
+# Transitive-only pin (wired through crates/pi-natives build-deps so the
+# constraint participates in resolution): cc 1.2.x passes
+# FILE_ATTRIBUTE_TEMPORARY to OpenOptionsExt::custom_flags as u32, but
+# find-msvc-tools 0.1.13 retyped that constant to i32, breaking every Windows
+# build. tree-sitter-sequel caps cc at ~1.2.1 so the fixed cc 1.4.x line is
+# out of reach; hold 0.1.12 until upstream ships a compatible release.
+find-msvc-tools = "=0.1.12"
 winreg = "0.56"
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -354,10 +377,13 @@ zune-jpeg = { version = "0.5", default-features = false, features = ["log"] }
 tinyvec = "=1.13.3"
 png = "0.18"
 inferno = { version = "0.12", default-features = false }
+# Oniguruma, not fancy-regex: onig is already linked (pi-builtins), and its
+# compiled grammar regexes are ~5x smaller and faster (TS+TSX warm: 29 vs 149 MB
+# RSS; a 16.8k-line .d.ts highlights in 226 vs 1166 ms).
 syntect = { version = "5.3", default-features = false, features = [
    "default-syntaxes",
    "default-themes",
-   "regex-fancy",
+   "regex-onig",
    "yaml-load",
 ] }
 
@@ -380,7 +406,7 @@ unicode-script = "0.5"
 # ──────────────────────────────────────────────────────────────────────────────
 # Shell Parsing
 # ──────────────────────────────────────────────────────────────────────────────
-brush-parser = "0.4"
+brush-parser = { path = "crates/vendor/brush-parser" }
 # ──────────────────────────────────────────────────────────────────────────────
 # Version Control (in-process git + jujutsu)
 # ──────────────────────────────────────────────────────────────────────────────
@@ -468,6 +494,15 @@ tree-sitter-vue = { version = "0.1.0", package = "tree-sitter-vue-next" }
 tree-sitter-xml = "0.7"
 tree-sitter-yaml = "0.7"
 tree-sitter-zig = "1.1"
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Machine Learning (pi-predict SmolLM2 engine)
+# ──────────────────────────────────────────────────────────────────────────────
+# macOS-only (Metal decoder; other targets use pi-predict's own CPU decoder).
+# 0.9.x, not 0.10+: later candle-core releases depend unconditionally on
+# `tokenizers` with the `onig` C library.
+candle-core = "0.9.2"
+candle-nn = "0.9.2"
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Unsorted (added by `cargo add` - move into a section above)

@@ -6,8 +6,6 @@ import {
 	assertOwnerPrivateDir,
 	controlDirGuardError,
 	controlPathFitsBudget,
-	getControlDir,
-	getControlPathTemplate,
 	resolveSshControlDir,
 	sshControlFallbackDir,
 } from "../src/ssh/connection-manager";
@@ -94,7 +92,6 @@ describe("resolveSshControlDir", () => {
 		expect(b.shared).toBe(true);
 		expect(a.dir).not.toBe(b.dir);
 	});
-
 	it("never relocates on Windows (ControlMaster unused) even for a long path", () => {
 		const canonicalDir = "/Users/arthur/.oms/profiles/upstream/ssh-control";
 		expect(resolveSshControlDir({ canonicalDir, platform: "win32", uid: 501 })).toEqual({
@@ -167,13 +164,5 @@ describe.skipIf(process.platform === "win32")("assertOwnerPrivateDir", () => {
 		const file = path.join(mkScratch(), "ctl");
 		fs.writeFileSync(file, "");
 		expect(() => assertOwnerPrivateDir(file)).toThrow("is not a directory");
-	});
-});
-
-describe("control template sharing", () => {
-	// sshfs-mount consumes getControlPathTemplate()/getControlDir() verbatim, so
-	// the %C.sock basename and its parent dir must stay in lockstep.
-	it("keeps %C.sock under the resolved control dir", () => {
-		expect(getControlPathTemplate()).toBe(path.join(getControlDir(), "%C.sock"));
 	});
 });

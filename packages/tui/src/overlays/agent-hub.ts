@@ -25,7 +25,7 @@ import {
 	type AgentActivityRow,
 	activityRowsFromProgress,
 } from "./agent-activity";
-import type { KeyId } from "../app-keybindings";
+import { formatKeyHint, formatKeyHints, type KeyId } from "../app-keybindings";
 import type { MessageRenderer } from "../chat/extension-types";
 import type { AgentLifecycleLike, IrcBusLike } from "./agent-hub-types";
 import { type AgentRecordLike, type AgentHubRegistry, type AgentStatus, MAIN_AGENT_ID } from "./agent-hub-types";
@@ -52,10 +52,8 @@ import {
 	formatMetricDuration,
 	formatMetrics,
 	formatRoleBadge,
-	fuzzyAgentMatch,
 	modelBadge,
 	type RosterRender,
-	sanitizeDisplayText,
 	sanitizeLine,
 	statusGlyph,
 	statusText,
@@ -63,8 +61,10 @@ import {
 	treeContinuation,
 	treeMetadataIndent,
 } from "./agent-hub-renderer";
+import { sanitizeDisplaySingleLine } from "./extensions/display-text";
 import { AgentTranscriptViewer, type AgentTranscriptSource } from "./agent-transcript-viewer";
 import type { AgentRoleDisplay } from "./agent-hub-renderer";
+import { fuzzyMatch } from "../fuzzy";
 import { bottomBorder, divider, dividerSplit, PanelRows, row, topBorder, topBorderSplit } from "../chrome/overlay-box";
 import { SplitPane } from "../components/layout/split-pane";
 import { Stack } from "../components/layout/stack";
@@ -102,13 +102,23 @@ function activityGlyph(row: AgentActivityRow): string {
 	}
 }
 
+const ACTIVITY_CLOCK_FORMAT = new Intl.DateTimeFormat(undefined, {
+	hour: "2-digit",
+	minute: "2-digit",
+	second: "2-digit",
+	hour12: false,
+});
+const ACTIVITY_CLOCK_CACHE_LIMIT = 512;
+const activityClockCache = new Map<number, string>();
+
 function activityClock(timestamp: number): string {
-	return new Date(timestamp).toLocaleTimeString(undefined, {
-		hour: "2-digit",
-		minute: "2-digit",
-		second: "2-digit",
-		hour12: false,
-	});
+	let text = activityClockCache.get(timestamp);
+	if (text === undefined) {
+		text = ACTIVITY_CLOCK_FORMAT.format(timestamp);
+		if (activityClockCache.size >= ACTIVITY_CLOCK_CACHE_LIMIT) activityClockCache.clear();
+		activityClockCache.set(timestamp, text);
+	}
+	return text;
 }
 /** Result of one host-backed transcript read for the Agent Hub viewer. */
 export interface AgentHubRemoteTranscript {
@@ -575,7 +585,7 @@ export class AgentHubOverlayComponent<TRecord extends AgentRecordLike = AgentRec
 		const query = this.#agentFilter.trim();
 		const rosterRows =
 			query.length > 0
-				? ordered.filter(ref => fuzzyAgentMatch(query, `${ref.id} ${ref.displayName ?? ""}`))
+				? ordered.filter(ref => fuzzyMatch(query, `${ref.id} ${ref.displayName ?? ""}`).matches)
 				: ordered;
 
 		if (this.#viewMode === "tree") {
@@ -767,7 +777,7 @@ export class AgentHubOverlayComponent<TRecord extends AgentRecordLike = AgentRec
 			row(
 				theme.fg(
 					"dim",
-					"1:agents  j/k:select  Enter:transcript  Space:follow  f:filter  s:scope  /:search  Esc:close",
+					`1:agents  ${formatKeyHints(["j", "k"])}:select  ${formatKeyHint("enter")}:transcript  ${formatKeyHint("space")}:follow  ${formatKeyHint("f")}:filter  ${formatKeyHint("s")}:scope  /:search  ${formatKeyHint("escape")}:close`,
 				),
 				width,
 			),
@@ -834,15 +844,18 @@ export class AgentHubOverlayComponent<TRecord extends AgentRecordLike = AgentRec
 		if (showingNarrowDetails) {
 			return theme.fg(
 				"dim",
-				`${filter}1:agents  2:activity  Tab:roster  PgUp/PgDn:scroll  Enter:open  t:${nextView}  Esc:roster`,
+				`${filter}1:agents  2:activity  ${formatKeyHint("tab")}:roster  ${formatKeyHints(["pageUp", "pageDown"])}:scroll  ${formatKeyHint("enter")}:open  ${formatKeyHint("t")}:${nextView}  ${formatKeyHint("escape")}:roster`,
 			);
 		}
 		if (availableWidth < 96) {
-			return theme.fg("dim", `${filter}j/k:select  Enter:open  t:${nextView}  Tab:details  r/x:manage  Esc:close`);
+			return theme.fg(
+				"dim",
+				`${filter}${formatKeyHints(["j", "k"])}:select  ${formatKeyHint("enter")}:open  ${formatKeyHint("t")}:${nextView}  ${formatKeyHint("tab")}:details  ${formatKeyHints(["r", "x"])}:manage  ${formatKeyHint("escape")}:close`,
+			);
 		}
 		return theme.fg(
 			"dim",
-			`${filter}1:agents  2:activity  j/k/wheel:select  PgUp/PgDn:details  Enter/click:open  t:${nextView}  r:revive  x:kill  Esc:close`,
+			`${filter}1:agents  2:activity  ${formatKeyHints(["j", "k"])}/wheel:select  ${formatKeyHints(["pageUp", "pageDown"])}:details  ${formatKeyHint("enter")}/click:open  ${formatKeyHint("t")}:${nextView}  ${formatKeyHint("r")}:revive  ${formatKeyHint("x")}:kill  ${formatKeyHint("escape")}:close`,
 		);
 	}
 
@@ -1061,8 +1074,8 @@ export class AgentHubOverlayComponent<TRecord extends AgentRecordLike = AgentRec
 			add(theme.bold(theme.fg("accent", label)));
 		};
 
-		add(`${statusGlyph(ref.status)} ${theme.bold(sanitizeDisplayText(ref.displayName || ref.id))}`);
-		if (ref.displayName && ref.displayName !== ref.id) add(theme.fg("dim", sanitizeDisplayText(ref.id)));
+		add(`${statusGlyph(ref.status)} ${theme.bold(sanitizeDisplaySingleLine(ref.displayName || ref.id))}`);
+		if (ref.displayName && ref.displayName !== ref.id) add(theme.fg("dim", sanitizeDisplaySingleLine(ref.id)));
 		const lifecycleDetails = [
 			metrics ? formatMetricDuration(metrics) : undefined,
 			`active ${formatAge(Math.max(1, Math.round((Date.now() - ref.lastActivity) / 1000)))}`,
@@ -1106,7 +1119,7 @@ export class AgentHubOverlayComponent<TRecord extends AgentRecordLike = AgentRec
 
 		section("Lineage");
 		add(
-			`Spawned by ${sanitizeDisplayText(ref.parentId ?? MAIN_AGENT_ID)}${children.length > 0 ? ` · ${children.length} children` : ""}`,
+			`Spawned by ${sanitizeDisplaySingleLine(ref.parentId ?? MAIN_AGENT_ID)}${children.length > 0 ? ` · ${children.length} children` : ""}`,
 		);
 		if (children.length > 0) add(theme.fg("dim", formatChildIds(children, width)));
 		add(theme.fg("dim", `Registered ${formatLocalDateTimeWithOffset(new Date(ref.createdAt))}`));
@@ -1165,11 +1178,11 @@ export class AgentHubOverlayComponent<TRecord extends AgentRecordLike = AgentRec
 		const branch = treeMode
 			? treeBranch(ref, max, this.#treeDepthById, this.#treeParentById, this.#treeLastSiblingById)
 			: "";
-		const id = sanitizeDisplayText(ref.id);
+		const id = sanitizeDisplaySingleLine(ref.id);
 		const styledId = selected ? theme.bold(theme.fg("accent", id)) : theme.bold(id);
 		const fields: string[] = [`${cursor} ${branch}${statusGlyph(ref.status)} ${styledId}`];
 		if (this.#viewMode === "roster" && ref.parentId && ref.parentId !== MAIN_AGENT_ID) {
-			fields.push(theme.fg("dim", `↳ ${sanitizeDisplayText(ref.parentId)}`));
+			fields.push(theme.fg("dim", `↳ ${sanitizeDisplaySingleLine(ref.parentId)}`));
 		}
 		if (ref.kind === "advisor") {
 			fields.push(theme.fg("warning", "read-only"));

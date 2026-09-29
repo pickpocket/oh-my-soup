@@ -142,7 +142,6 @@ describe("WorkerCore", () => {
 			second.send({ type: "close" });
 		}
 	});
-
 	it("re-init while a same-realm run is live does not crash the process", async () => {
 		const first = createWorkerHarness();
 		const second = createWorkerHarness();

@@ -10,6 +10,7 @@ import type { Message, Model } from "@oh-my-soup/pi-ai";
 import { logger } from "@oh-my-soup/pi-utils";
 import type { ModelRegistry } from "../config/model-registry";
 import type { Settings } from "../config/settings";
+import { cfgRefineAuto, cfgRefineCooldownMinutes } from "../session/settings";
 import { resolveRefinementStorePaths, runRefinementPass } from ".";
 import type { RefinementStorePaths } from "./backends";
 import { loadRefinementLog } from "./log";
@@ -46,13 +47,13 @@ export async function autoRefineCooldownElapsed(
  * block or fail compaction, so all errors degrade to a debug log line.
  */
 export function scheduleAutoRefineAfterCompaction(host: AutoRefineHost): void {
-	if (host.settings.get("refine.auto") !== "compact") return;
+	if (cfgRefineAuto.get(host.settings) !== "compact") return;
 	const model = host.model();
 	if (!model) return;
 	void (async () => {
 		try {
 			const paths = resolveRefinementStorePaths(host.sessionManager.getCwd());
-			const cooldownMinutes = host.settings.get("refine.cooldownMinutes");
+			const cooldownMinutes = cfgRefineCooldownMinutes.get(host.settings);
 			if (!(await autoRefineCooldownElapsed(paths, cooldownMinutes))) return;
 			const entry = await runRefinementPass({
 				paths,

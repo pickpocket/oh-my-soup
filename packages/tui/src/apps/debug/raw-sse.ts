@@ -1,8 +1,9 @@
+import { formatKeyHint } from "../../app-keybindings";
 import type { Component } from "../../tui";
 import { matchesKey } from "../../keys";
 import { routeSgrMouseInput, type SgrMouseEvent } from "../../mouse";
-import { replaceTabs, truncateToWidth } from "../../utils";
-import { sanitizeText } from "@oh-my-soup/pi-utils";
+import { truncateToWidth } from "../../utils";
+import { sanitizeDisplayText } from "../../overlays/extensions/display-text";
 import { theme } from "../../theme/theme";
 import { DebugViewerFrame } from "./viewer-frame";
 import {
@@ -16,10 +17,6 @@ const MIN_VIEWER_WIDTH = 40;
 // `data:` lines below this width render fine on a single row; anything wider gets pretty-printed
 // across multiple `data:` lines so streamed JSON blobs stop getting clipped by `truncateToWidth`.
 const PRETTY_PRINT_DATA_THRESHOLD = 100;
-
-function sanitizeFrameLine(line: string, width: number): string {
-	return truncateToWidth(replaceTabs(sanitizeText(line)), width);
-}
 
 // Walks the SSE wire lines and replaces single-line `data: <json>` payloads with
 // multi-line `data: <indented-json>` entries when the JSON is wide enough to clip.
@@ -218,7 +215,7 @@ export class RawSseViewerComponent implements Component {
 		const firstSequence = snapshot.records[0]?.sequence;
 		for (const record of snapshot.records) {
 			for (const line of this.#prettyLinesFor(record)) {
-				lines.push(sanitizeFrameLine(line, innerWidth));
+				lines.push(truncateToWidth(sanitizeDisplayText(line), innerWidth));
 			}
 			if (record.kind === "event" && record.truncated) {
 				lines.push(theme.fg("warning", `: oms-debug-event-truncated originalChars=${record.originalChars}`));
@@ -256,7 +253,7 @@ export class RawSseViewerComponent implements Component {
 	}
 
 	#statusText(): string {
-		const help = "Esc close · Ctrl+C copy raw · End follow tail · wheel scroll · click summary toggles follow";
+		const help = `${formatKeyHint("escape")} close · ${formatKeyHint("ctrl+c")} copy raw · ${formatKeyHint("end")} follow tail · wheel scroll · click summary toggles follow`;
 		return this.#statusMessage
 			? `${theme.fg("success", this.#statusMessage)}  ${theme.fg("dim", help)}`
 			: theme.fg("dim", help);

@@ -1,9 +1,11 @@
-import { padding, truncateToWidth, visibleWidth } from "../../utils";
+import { padding, visibleWidth } from "../../utils";
+import { padToWidth } from "../../render/utils";
 import { type SgrMouseEvent } from "../../mouse";
 import { type SelectItem, SelectList } from "../../components/select-list";
 import { Text } from "../../components/text";
 import { WizardStep } from "../../components/wizard-step";
 import { Container } from "../../tui";
+import { editorKey } from "../../chrome/keybinding-hints";
 import {
 	enableAutoTheme,
 	getAvailableThemes,
@@ -29,11 +31,6 @@ const CURATED_ITEMS: readonly SelectItem[] = [
 	{ value: "browse", label: "Browse all…", description: "Show every built-in and custom theme" },
 ];
 
-function fitLine(line: string, width: number): string {
-	const truncated = truncateToWidth(line, width);
-	return truncated + padding(Math.max(0, width - visibleWidth(truncated)));
-}
-
 function fillStyledLine(content: string, width: number): string {
 	return content + padding(Math.max(0, width - visibleWidth(content)));
 }
@@ -53,7 +50,7 @@ function renderMockStatusLine(width: number): string {
 	const leftWidth = visibleWidth(left);
 	const rightWidth = visibleWidth(right);
 	const gap = padding(Math.max(1, innerWidth - leftWidth - rightWidth - 2));
-	return theme.bg("statusLineBg", fitLine(` ${left}${gap}${right} `, width));
+	return theme.bg("statusLineBg", width > 0 ? padToWidth(` ${left}${gap}${right} `, width) : "");
 }
 
 function renderMockEditor(width: number): string[] {
@@ -63,10 +60,13 @@ function renderMockEditor(width: number): string[] {
 	const top = theme.fg("borderAccent", `${box.topLeft}${horizontal}${box.topRight}`);
 	const bottom = theme.fg("borderMuted", `${box.bottomLeft}${horizontal}${box.bottomRight}`);
 	const prompt = `${theme.fg("accent", ">")} ${theme.fg("text", "Ask anything, edit files, run tools")}${theme.inverse(" ")}`;
-	const hint = theme.fg("dim", "enter send · shift+enter newline · / commands");
+	const hint = theme.fg(
+		"dim",
+		`${editorKey("tui.input.submit")} send · ${editorKey("tui.input.newLine")} newline · / commands`,
+	);
 	return [
 		top,
-		`${theme.fg("borderAccent", box.vertical)}${fitLine(prompt, innerWidth)}${theme.fg("borderAccent", box.vertical)}`,
+		`${theme.fg("borderAccent", box.vertical)}${innerWidth > 0 ? padToWidth(prompt, innerWidth) : ""}${theme.fg("borderAccent", box.vertical)}`,
 		`${theme.fg("borderMuted", box.vertical)}${fillStyledLine(hint, innerWidth)}${theme.fg("borderMuted", box.vertical)}`,
 		bottom,
 	];
@@ -87,7 +87,9 @@ function renderThemePreview(width: number): string[] {
 
 class ThemeSceneController implements SetupSceneController {
 	title = "Pick a theme";
-	subtitle = "Move through the list to preview; Enter saves the highlighted choice.";
+	get subtitle(): string {
+		return `Move through the list to preview; ${editorKey("tui.select.confirm")} saves the highlighted choice.`;
+	}
 	#mode: ThemeMode = "curated";
 	#selectList: SelectList;
 	#loadingAllThemes = false;
@@ -139,13 +141,20 @@ class ThemeSceneController implements SetupSceneController {
 	render(width: number, maxLines?: number): readonly string[] {
 		const intro = new Container();
 		intro.addChild(
-			new Text(theme.fg("muted", "Theme changes preview live. Nothing is saved until you press Enter."), 0, 0),
+			new Text(
+				theme.fg(
+					"muted",
+					`Theme changes preview live. Nothing is saved until you press ${editorKey("tui.select.confirm")}.`,
+				),
+				0,
+				0,
+			),
 		);
 		intro.addChild(
 			new Text(
 				this.#mode === "all"
-					? theme.fg("dim", "Browsing all themes · Esc returns to curated choices")
-					: theme.fg("dim", "Esc skips this step"),
+					? theme.fg("dim", `Browsing all themes · ${editorKey("tui.select.cancel")} returns to curated choices`)
+					: theme.fg("dim", `${editorKey("tui.select.cancel")} skips this step`),
 				0,
 				0,
 			),

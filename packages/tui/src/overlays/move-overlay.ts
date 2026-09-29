@@ -8,15 +8,11 @@
 import { type Component, type Focusable, Key, matchesKey } from "../index";
 import { theme } from "../theme/theme";
 import { matchesSelectCancel, matchesSelectDown, matchesSelectUp } from "../keybinding-matchers";
+import { formTheme } from "../chrome/form-theme";
 import { bottomBorder, row, topBorder } from "../chrome/overlay-box";
-import { TextFormField, type FormFieldTheme } from "../components/form";
-
-const formTheme: FormFieldTheme = {
-	label: text => theme.bold(theme.fg("accent", text)),
-	description: text => theme.fg("muted", text),
-	error: text => theme.fg("error", text),
-	hint: text => theme.fg("dim", text),
-};
+import { TextFormField } from "../components/form";
+import { formatKeyHint } from "../app-keybindings";
+import { editorKey, editorKeys } from "../chrome/keybinding-hints";
 
 export interface MoveOverlayResult {
 	directory: string;
@@ -167,7 +163,9 @@ export class MoveOverlay implements Component, Focusable {
 		}
 
 		lines.push(row("", w));
-		lines.push(row(theme.fg("dim", "Type to filter · ↑↓ navigate · Tab accept · Enter confirm · Esc cancel"), w));
+		const nav = editorKeys("tui.select.up", "tui.select.down");
+		const hint = `Type to filter · ${nav} navigate · ${formatKeyHint("tab")} accept · ${formatKeyHint("enter")} confirm · ${editorKey("tui.select.cancel")} cancel`;
+		lines.push(row(theme.fg("dim", hint), w));
 		lines.push(bottomBorder(w));
 		this.#renderMemo = { width: w, fieldLines, revision: this.#revision, lines };
 		return lines;

@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "bun:test";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { cfgNotesEnabled } from "@oh-my-soup/pi-coding-agent/session/settings";
 import { getThemeByName } from "@oh-my-soup/pi-tui/theme";
 import {
 	getImportantNotesFromEntries,
@@ -653,7 +654,7 @@ describe("session important notes", () => {
 	it("omits the notes tool when notes.enabled is false", async () => {
 		const manager = SessionManager.inMemory();
 		const settings = Settings.isolated();
-		settings.override("notes.enabled", false);
+		cfgNotesEnabled.set(settings, false);
 		expect(await createTools(toolSession(manager, { settings }), ["notes"])).toEqual([]);
 		const all = await createTools(toolSession(manager, { settings }));
 		expect(all.some(tool => tool.name === "notes")).toBe(false);

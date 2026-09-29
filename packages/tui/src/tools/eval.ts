@@ -1,8 +1,8 @@
 import type { Component } from "../index";
-import { Markdown, Text, visibleWidth } from "../index";
-import { formatNumber, sanitizeText } from "@oh-my-soup/pi-utils";
+import { Markdown, Text } from "../index";
+import { sanitizeText } from "@oh-my-soup/pi-utils";
 import type { RenderResultOptions, ToolRenderer } from "./renderer";
-import { formatContextUsage } from "../chrome/context-thresholds";
+import { renderAgentTreeRow } from "./agent-tree";
 import { truncateToVisualLines } from "../chrome/visual-truncate";
 import { getMarkdownTheme, type Theme } from "../theme/theme";
 import { markFramedBlockComponent, outputBlockContentWidth, renderCodeCell } from "../render/index";
@@ -19,13 +19,9 @@ import {
 } from "./json-tree";
 import { formatStyledTruncationWarning, stripOutputNotice } from "./output-meta";
 import {
-	FEED_MODEL_BADGE_WIDTH,
-	formatBadge,
-	formatDuration,
-	formatFeedModelBadge,
-	formatStatusIcon,
+	DEFAULT_TERMINAL_PREVIEW_LINES,
+	cappedHeadLines,
 	formatTitle,
-	isFeedModelBadgeEnabled,
 	previewWindowRows,
 	replaceTabs,
 	shortenPath,
@@ -34,7 +30,7 @@ import {
 } from "../render/render-utils";
 import type { ImageContent } from "@oh-my-soup/pi-ai";
 import type { OutputMeta } from "./output-meta";
-import type { ConfiguredThinkingLevel } from "../render/render-utils";
+import { type ConfiguredThinkingLevel, expandKeyHint } from "../render/render-utils";
 
 /** Runtime backend that an eval cell dispatches to. */
 export type EvalLanguage = "python" | "js";
@@ -83,8 +79,8 @@ export interface EvalToolDetails {
 	};
 }
 
-/** Default collapsed eval output preview height. */
-export const EVAL_DEFAULT_PREVIEW_LINES = 10;
+/** Default collapsed eval output preview height; kept as a named alias (consumed by chat/tool-execution). */
+export const EVAL_DEFAULT_PREVIEW_LINES: number = DEFAULT_TERMINAL_PREVIEW_LINES;
 
 function languageForHighlighter(language: EvalLanguage | undefined): "python" | "javascript" {
 	if (language === "js") return "javascript";
@@ -97,10 +93,7 @@ interface EvalRenderCellArg {
 	title?: string;
 }
 
-interface EvalRenderArgs {
-	language?: string;
-	code?: string;
-	title?: string;
+interface EvalRenderArgs extends EvalRenderCellArg {
 	cells?: EvalRenderCellArg[];
 	__partialJson?: string;
 }
@@ -130,10 +123,9 @@ function getRenderCells(args: EvalRenderArgs | undefined): EvalRenderCell[] {
 	for (const cell of raw) {
 		if (!cell || typeof cell !== "object") continue;
 		const language = normalizeRenderLanguage(typeof cell.language === "string" ? cell.language : undefined);
-		const code = typeof cell.code === "string" ? cell.code : "";
 		out.push({
 			language,
-			code: formatEvalCodeForDisplay(code, language),
+			code: formatEvalCodeForDisplay(cell.code ?? "", language),
 			title: typeof cell.title === "string" ? cell.title : undefined,
 		});
 	}
@@ -143,15 +135,28 @@ function getRenderCells(args: EvalRenderArgs | undefined): EvalRenderCell[] {
 type AgentEventStatus = "pending" | "running" | "completed" | "failed" | "aborted";
 
 /**
- * Append or replace a status event. `agent` events are progress snapshots keyed
- * by `id`, so they coalesce in place (preserving first-seen order); every other
- * op is a discrete action and simply appends. Keeps the persisted event list
- * bounded even when a subagent emits hundreds of throttled progress ticks.
+ * Coalescing key of a progress-snapshot event: `agent` and `judge_batch`
+ * events keyed by `id`, where only the newest snapshot matters. Discrete
+ * actions (everything else) have no key. Shared by {@link upsertStatusEvent}
+ * and the executors' display collectors so both coalesce identically.
+ */
+export function statusEventKey(event: { op: string; [key: string]: unknown }): string | undefined {
+	if ((event.op === "agent" || event.op === "judge_batch") && typeof event.id === "string") {
+		return `${event.op}\0${event.id}`;
+	}
+	return undefined;
+}
+
+/**
+ * Append or replace a status event. Progress snapshots (see
+ * {@link statusEventKey}) coalesce in place, preserving first-seen order; every
+ * other op is a discrete action and simply appends. Keeps the persisted event
+ * list bounded even when a subagent or batch emits hundreds of progress ticks.
  */
 export function upsertStatusEvent(events: EvalStatusEvent[], event: EvalStatusEvent): void {
-	if (event.op === "agent" && typeof event.id === "string") {
-		const id = event.id;
-		const idx = events.findIndex(e => e.op === "agent" && e.id === id);
+	const key = statusEventKey(event);
+	if (key !== undefined) {
+		const idx = events.findIndex(e => statusEventKey(e) === key);
 		if (idx >= 0) {
 			events[idx] = event;
 			return;
@@ -181,29 +186,6 @@ function agentEventStatus(value: unknown): AgentEventStatus {
 	}
 }
 
-/** Append the toolCount · context · cost stat run, mirroring the task tool. */
-function formatAgentStats(event: EvalStatusEvent, theme: Theme): string {
-	let line = "";
-	const toolCount = eventNumber(event.toolCount);
-	if (toolCount > 0) {
-		line += `${theme.sep.dot}${theme.fg("dim", `${formatNumber(toolCount)} ${theme.icon.extensionTool}`)}`;
-	}
-	const contextTokens = eventNumber(event.contextTokens);
-	if (contextTokens > 0) {
-		const contextWindow = eventNumber(event.contextWindow);
-		const ctx =
-			contextWindow > 0
-				? formatContextUsage((contextTokens / contextWindow) * 100, contextWindow)
-				: formatNumber(contextTokens);
-		line += `${theme.sep.dot}${theme.fg("dim", ctx)}`;
-	}
-	const cost = eventNumber(event.cost);
-	if (cost > 0) {
-		line += `${theme.sep.dot}${theme.fg("statusLineCost", `$${cost.toFixed(2)}`)}`;
-	}
-	return line;
-}
-
 /**
  * Render coalesced `agent()` progress as a Task-tool-style tree, one entry per
  * subagent: a status line (icon · id · stats) plus, while running, the current
@@ -223,62 +205,37 @@ function renderAgentProgressEvents(
 		const cont = isLast ? "   " : `${theme.fg("dim", theme.tree.vertical)}  `;
 
 		const status = agentEventStatus(event.status);
-		const iconStatus =
-			status === "completed"
-				? "done"
-				: status === "failed"
-					? "error"
-					: status === "aborted"
-						? "aborted"
-						: status === "pending"
-							? "pending"
-							: "running";
-		const iconColor =
-			status === "completed" ? "success" : status === "failed" || status === "aborted" ? "error" : "accent";
-		const icon =
-			status === "completed"
-				? theme.styledSymbol("tool.eval", "accent")
-				: theme.fg(iconColor, formatStatusIcon(iconStatus, theme, status === "running" ? spinnerFrame : undefined));
-
-		const lead = `${prefix} ${icon} `;
-		const statusSuffix =
-			status === "failed" || status === "aborted" ? ` ${formatBadge(status, iconColor, theme)}` : "";
-		const id = truncateToWidth(
-			sanitizeText(eventString(event.id) ?? "agent").replace(/\s+/g, " "),
-			Math.max(0, width - visibleWidth(lead) - visibleWidth(statusSuffix)),
-		);
-		const model = eventString(event.resolvedModelIdentity ?? event.model ?? event.resolvedModel);
-		const thinkingLevel = event.resolvedThinkingLevel;
-		const modelPrefix =
-			model && isFeedModelBadgeEnabled()
-				? formatFeedModelBadge(
-						model,
-						thinkingLevel,
-						event.advisor === true,
-						theme,
-						Math.min(
-							FEED_MODEL_BADGE_WIDTH,
-							width - visibleWidth(lead) - visibleWidth(id) - visibleWidth(statusSuffix) - 1,
-						),
-					)
-				: "";
-		const modelLead = modelPrefix ? `${modelPrefix} ` : "";
-		let line = `${lead}${modelLead}${theme.fg("accent", theme.bold(id))}${statusSuffix}`;
-
 		const currentTool = eventString(event.currentTool);
 		const lastIntent = eventString(event.lastIntent);
-		if (status === "running" && !currentTool && !lastIntent) {
-			const preview = eventString(event.taskPreview);
-			if (preview) line += ` ${theme.fg("muted", truncateToWidth(replaceTabs(preview), 48))}`;
-		}
-
-		line += formatAgentStats(event, theme);
-		if (status === "completed" || status === "failed" || status === "aborted") {
-			const durationMs = eventNumber(event.durationMs);
-			if (durationMs > 0) line += `${theme.sep.dot}${theme.fg("dim", formatDuration(durationMs))}`;
-		}
-		// Do not let optional stats replace the end of the reserved failure status with an ellipsis.
-		lines.push(truncateToWidth(line, width, ""));
+		const preview = status === "running" && !currentTool && !lastIntent ? eventString(event.taskPreview) : undefined;
+		const toolCount = eventNumber(event.toolCount);
+		lines.push(
+			renderAgentTreeRow(
+				{
+					presentation: "eval",
+					status,
+					prefix,
+					id: sanitizeText(eventString(event.id) ?? "agent").replace(/\s+/g, " "),
+					width,
+					model: eventString(event.resolvedModelIdentity ?? event.model ?? event.resolvedModel),
+					thinkingLevel: event.resolvedThinkingLevel,
+					advisor: event.advisor === true,
+					spinnerFrame,
+					preview: preview ? ` ${theme.fg("muted", truncateToWidth(replaceTabs(preview), 48))}` : undefined,
+					stats: {
+						toolCount: toolCount > 0 ? toolCount : 0,
+						contextTokens: eventNumber(event.contextTokens),
+						contextWindow: eventNumber(event.contextWindow),
+						cost: eventNumber(event.cost),
+					},
+					durationMs:
+						status === "completed" || status === "failed" || status === "aborted"
+							? eventNumber(event.durationMs)
+							: undefined,
+				},
+				theme,
+			).line,
+		);
 
 		if (status === "running") {
 			if (currentTool) {
@@ -403,6 +360,12 @@ function formatStatusEvent(event: EvalStatusEvent, theme: Theme): string {
 				parts.push(data.action === "create" ? `${data.count} agent(s)` : `${data.count} item(s)`);
 			}
 			break;
+		case "judge_batch":
+			parts.push(`${data.action} ${data.id}`);
+			parts.push(`${data.done ?? 0}/${data.total ?? 0}`);
+			if (data.failed) parts.push(`${data.failed} failed`);
+			if (data.model) parts.push(String(data.model));
+			break;
 		case "wc":
 			parts.push(`${data.lines}L ${data.words}W ${data.chars}C`);
 			break;
@@ -452,13 +415,12 @@ function formatStatusEventExpanded(event: EvalStatusEvent, theme: Theme): string
 	};
 
 	const addPreview = (preview: string, maxLines = 3) => {
-		const previewLines = String(preview).split("\n").slice(0, maxLines);
-		for (const line of previewLines) {
+		const previewLines = cappedHeadLines(String(preview).split("\n"), maxLines);
+		for (const line of previewLines.lines) {
 			lines.push(`   ${theme.fg("toolOutput", truncateToWidth(replaceTabs(line), 80))}`);
 		}
-		const totalLines = String(preview).split("\n").length;
-		if (totalLines > maxLines) {
-			lines.push(`   ${theme.fg("dim", `… ${totalLines - maxLines} more lines`)}`);
+		if (previewLines.hidden > 0) {
+			lines.push(`   ${theme.fg("dim", `… ${previewLines.hidden} more lines`)}`);
 		}
 	};
 
@@ -715,7 +677,7 @@ export const evalToolRenderer = {
 						const outputLines = [...outputContent.lines];
 						if (!expanded && outputContent.hiddenCount > 0) {
 							outputLines.push(
-								uiTheme.fg("dim", `… ${outputContent.hiddenCount} more lines (ctrl+o to expand)`),
+								uiTheme.fg("dim", `… ${outputContent.hiddenCount} more lines (${expandKeyHint()} to expand)`),
 							);
 						}
 						if (statusLines.length > 0) {
@@ -755,12 +717,7 @@ export const evalToolRenderer = {
 							lines.push("");
 						}
 					}
-					if (jsonLines.length > 0) {
-						if (lines.length > 0) {
-							lines.push("");
-						}
-						lines.push(...jsonLines);
-					}
+					lines.push(...jsonLines);
 					if (timeoutLine) {
 						lines.push(timeoutLine);
 					}
@@ -854,7 +811,7 @@ export const evalToolRenderer = {
 					outputLines.push("");
 					const skippedLine = uiTheme.fg(
 						"dim",
-						`… (${cachedSkipped} earlier lines, showing ${cachedLines.length} of ${cachedSkipped + cachedLines.length}) (ctrl+o to expand)`,
+						`… (${cachedSkipped} earlier lines, showing ${cachedLines.length} of ${cachedSkipped + cachedLines.length}) (${expandKeyHint()} to expand)`,
 					);
 					outputLines.push(truncateToWidth(skippedLine, width));
 				}

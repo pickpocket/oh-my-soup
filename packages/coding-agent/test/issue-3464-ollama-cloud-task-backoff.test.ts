@@ -39,9 +39,9 @@ describe("issue #3464: ollama-cloud task backoff", () => {
 	beforeAll(async () => {
 		tempDir = TempDir.createSync("@oms-issue-3464-");
 		authStorage = await AuthStorage.create(path.join(tempDir.path(), "auth.db"));
-		authStorage.setRuntimeApiKey("anthropic", "anthropic-test-key");
-		authStorage.setRuntimeApiKey("openai", "openai-test-key");
-		authStorage.setRuntimeApiKey("ollama-cloud", "ollama-cloud-test-key");
+		authStorage.keys.setRuntime("anthropic", "anthropic-test-key");
+		authStorage.keys.setRuntime("openai", "openai-test-key");
+		authStorage.keys.setRuntime("ollama-cloud", "ollama-cloud-test-key");
 		modelRegistry = new ModelRegistry(authStorage);
 	});
 

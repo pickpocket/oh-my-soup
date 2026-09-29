@@ -29,6 +29,8 @@ import type { AgentSource } from "../tools/task";
 import { shortenPath } from "../render/render-utils";
 import { getEditorTheme, theme } from "../theme";
 import { matchesAppFollowUp, matchesSelectCancel, matchesSelectDown, matchesSelectUp } from "../keybinding-matchers";
+import { formatKeyHint, formatKeyHints } from "../app-keybindings";
+import { boundKeys, editorKey, editorKeys } from "../chrome/keybinding-hints";
 import {
 	buildBrowserItems,
 	ModelBrowser,
@@ -36,9 +38,14 @@ import {
 	type ModelBrowserSource,
 	sortModelItems,
 } from "./model-browser";
-import { bottomBorder, dividerSplit, PanelRows, row, topBorderSplit } from "../chrome/overlay-box";
-import { SplitPane } from "../components/layout/split-pane";
-import { Stack } from "../components/layout/stack";
+import {
+	HubFrame,
+	moveStripSelection,
+	type SidebarEntry as HubSidebarEntry,
+	type SidebarStyle,
+	type StripChip as HubStripChip,
+	type StripState as HubStripState,
+} from "./hub-frame";
 
 /** One agent with its per-agent settings overrides resolved for display. */
 export interface HubAgent {
@@ -66,41 +73,27 @@ const SOURCE_LABEL: Record<AgentSource, string> = {
 };
 const SOURCE_ORDER: Record<AgentSource, number> = { project: 0, user: 1, bundled: 2 };
 
-interface SidebarEntry {
-	id: string;
-	kind: "all" | "source" | "new" | "separator";
-	label: string;
+interface SidebarEntry extends HubSidebarEntry<"all" | "source" | "new" | "separator"> {
 	source?: AgentSource;
-	annotation?: string;
 }
 
 /** A body row of the agent list: an agent or the trailing "+ New agent…". */
 type ListRow = { kind: "agent"; agent: HubAgent } | { kind: "new" };
 
 /** The per-agent knob a strip or the model browser is editing. */
-type PropertyKind = "model" | "prewalk" | "advisor";
+export type PropertyKind = "model" | "prewalk" | "advisor";
 
-interface StripChip {
-	label: string;
-	styled: string;
-	action:
-		| { kind: "toggle" }
-		| { kind: "property"; property: PropertyKind }
-		| { kind: "set"; property: PropertyKind; value: string | undefined }
-		| { kind: "pick"; property: PropertyKind }
-		| { kind: "pattern"; property: PropertyKind };
-}
+type StripChip = HubStripChip<
+	| { kind: "toggle" }
+	| { kind: "property"; property: PropertyKind }
+	| { kind: "set"; property: PropertyKind; value: string | undefined }
+	| { kind: "pick"; property: PropertyKind }
+	| { kind: "pattern"; property: PropertyKind }
+>;
 
 type StripState =
-	| { kind: "chips"; agent: HubAgent; property?: PropertyKind; chips: StripChip[]; index: number }
+	| (HubStripState<StripChip> & { kind: "chips"; agent: HubAgent; property?: PropertyKind })
 	| { kind: "pattern"; agent: HubAgent; property: PropertyKind; input: Input };
-
-/** Recorded chip hit-range on the footer row (columns relative to frame col 0). */
-interface ChipRange {
-	start: number;
-	end: number;
-	index: number;
-}
 
 export interface GeneratedAgentSpec {
 	identifier: string;
@@ -117,8 +110,10 @@ export interface AgentsHubDeps {
 	resolvePatterns: (patterns: string[]) => string | undefined;
 	effectivePrewalkPattern: (agent: HubAgent) => string | undefined;
 	effectiveAdvisorPattern: (agent: HubAgent) => string | undefined;
-	setDisabledAgents: (names: string[]) => void;
-	setOverrides: (property: PropertyKind, overrides: Record<string, string>) => void;
+	/** Persist one agent's enabled state; other agents are untouched. */
+	setAgentDisabled: (name: string, options: { disabled: boolean }) => void;
+	/** Persist one agent's override for `property`; `undefined` clears it. Other agents are untouched. */
+	setAgentOverride: (property: PropertyKind, name: string, value: string | undefined) => void;
 	generateAgent: (description: string, onText: (text: string) => void) => Promise<string>;
 	saveAgent: (scope: "project" | "user", spec: GeneratedAgentSpec) => Promise<string>;
 }
@@ -127,8 +122,6 @@ export interface AgentsHubCallbacks {
 	onCancel: () => void;
 }
 
-const SIDEBAR_MIN_WIDTH = 16;
-const SIDEBAR_MAX_WIDTH = 24;
 const IDENTIFIER_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+){1,5}$/;
 
 function extractJsonObject(raw: string): string {
@@ -188,7 +181,6 @@ export class AgentsHubComponent implements Component {
 	#allAgents: HubAgent[] = [];
 	#entries: SidebarEntry[] = [];
 	#activeEntryId = "all";
-	#sidebarScroll = 0;
 	#focus: "scope" | "list" = "list";
 
 	#rows: ListRow[] = [];
@@ -200,7 +192,6 @@ export class AgentsHubComponent implements Component {
 	#loadError: string | null = null;
 
 	#strip: StripState | null = null;
-	#chipRanges: ChipRange[] = [];
 	/** Non-null while the body shows the model browser for one agent property. */
 	#assigning: { agent: HubAgent; property: PropertyKind } | null = null;
 	#browser: ModelBrowser;
@@ -214,15 +205,6 @@ export class AgentsHubComponent implements Component {
 	#createError: string | null = null;
 	#createStreamingText = "";
 
-	// Persistent fullscreen frame: top, growing two-pane body, split divider,
-	// footer, bottom. The fullscreen overlay paints from screen row 0, so mouse
-	// rows map 1:1 into the stack; the sidebar width is fixed per render.
-	#renderSidebarPane = (width: number, height: number | undefined): readonly string[] => {
-		const rows = Math.max(0, Math.floor(height ?? 10));
-		const lines = this.#renderSidebar(width, rows);
-		while (lines.length < rows) lines.push("");
-		return lines.slice(0, rows);
-	};
 	#renderBodyPane = (width: number, height: number | undefined): readonly string[] => {
 		const rows = Math.max(1, Math.floor(height ?? 10));
 		const lines: string[] = [this.#statusRow(width)];
@@ -238,26 +220,19 @@ export class AgentsHubComponent implements Component {
 		while (lines.length < rows) lines.push("");
 		return lines.slice(0, rows);
 	};
-	readonly #split = new SplitPane({
-		left: this.#renderSidebarPane,
-		right: this.#renderBodyPane,
-		prefix: () => `${theme.fg("border", theme.boxRound.vertical)} `,
-		divider: () => ` ${theme.fg("border", theme.boxRound.vertical)} `,
-		suffix: () => ` ${theme.fg("border", theme.boxRound.vertical)}`,
-	});
-	readonly #frameTop = new PanelRows();
-	readonly #frameDivider = new PanelRows();
-	readonly #frameFooter = new PanelRows();
-	readonly #frameBottom = new PanelRows();
-	readonly #frame = new Stack({
-		children: [
-			{ content: this.#frameTop, height: 1 },
-			{ content: this.#split, grow: 1 },
-			{ content: this.#frameDivider, height: 1 },
-			{ content: this.#frameFooter, height: 1 },
-			{ content: this.#frameBottom, height: 1 },
-		],
-	});
+	readonly #frame: HubFrame = new HubFrame(
+		"Agents",
+		{ min: 16, max: 24 },
+		(width, rows) =>
+			this.#frame.renderSidebar(
+				this.#entries,
+				width,
+				rows,
+				{ id: this.#activeEntryId, focused: this.#focus === "scope", follow: true, clamp: false },
+				this.#sidebarStyle,
+			),
+		this.#renderBodyPane,
+	);
 	/** First agent-list row's offset in body-line coordinates (after the status row). */
 	#listRowStart = 2;
 
@@ -368,22 +343,9 @@ export class AgentsHubComponent implements Component {
 
 	#toggleAgent(agent: HubAgent): void {
 		agent.disabled = !agent.disabled;
-		const disabled = this.#allAgents
-			.filter(entry => entry.disabled)
-			.map(entry => entry.name)
-			.sort((a, b) => a.localeCompare(b));
-		this.#deps.setDisabledAgents(disabled);
+		this.#deps.setAgentDisabled(agent.name, { disabled: agent.disabled });
 		this.#notice = `${agent.name} ${agent.disabled ? "disabled" : "enabled"}`;
 		this.#tui.requestRender();
-	}
-
-	#persistRecord(property: PropertyKind): void {
-		const overrides: Record<string, string> = {};
-		for (const agent of this.#allAgents) {
-			const value = this.#overrideFor(agent, property)?.trim();
-			if (value) overrides[agent.name] = value;
-		}
-		this.#deps.setOverrides(property, overrides);
 	}
 
 	#overrideFor(agent: HubAgent, property: PropertyKind): string | undefined {
@@ -410,7 +372,7 @@ export class AgentsHubComponent implements Component {
 				agent.advisorOverride = trimmed;
 				break;
 		}
-		this.#persistRecord(property);
+		this.#deps.setAgentOverride(property, agent.name, trimmed);
 		this.#notice = this.#describeProperty(agent, property);
 		this.#tui.requestRender();
 	}
@@ -542,7 +504,7 @@ export class AgentsHubComponent implements Component {
 
 	#closeStrip(): void {
 		this.#strip = null;
-		this.#chipRanges = [];
+		this.#frame.chipRanges = [];
 	}
 
 	#activateStripChip(): void {
@@ -845,14 +807,7 @@ export class AgentsHubComponent implements Component {
 			strip.input.handleInput(data);
 			return;
 		}
-		if (matchesKey(data, "left") || matchesKey(data, "up") || matchesKey(data, "shift+tab")) {
-			strip.index = (strip.index - 1 + strip.chips.length) % strip.chips.length;
-			return;
-		}
-		if (matchesKey(data, "right") || matchesKey(data, "down") || matchesKey(data, "tab")) {
-			strip.index = (strip.index + 1) % strip.chips.length;
-			return;
-		}
+		if (moveStripSelection(strip, data)) return;
 		if (matchesKey(data, "enter") || matchesKey(data, "return") || data === "\n") {
 			this.#activateStripChip();
 			return;
@@ -928,36 +883,15 @@ export class AgentsHubComponent implements Component {
 	// ═══════════════════════════════════════════════════════════════════════
 
 	#routeMouseEvent(event: SgrMouseEvent): boolean {
-		const hit = this.#frame.locate(event.row, event.col);
-		const bodyHeight = this.#frame.childRect(1)?.height ?? 0;
-		let contentLine = -1;
-		let overSidebar = false;
-		let overBody = false;
-		if (hit && hit.index === 1) {
-			const pane = this.#split.locate(hit.line, hit.col);
-			if (pane?.pane === "left") {
-				overSidebar = true;
-				contentLine = pane.line;
-			} else if (pane?.pane === "right") {
-				overBody = true;
-				contentLine = pane.line;
-			}
-		}
-		const overContent = contentLine >= 0 && contentLine < bodyHeight;
-		overSidebar = overSidebar && overContent;
-		overBody = overBody && overContent;
-		const bodyLine = contentLine - 1; // body row 0 is the status row
+		const { footerColumn, bodyHeight, contentLine, overSidebar, overBody, bodyLine } = this.#frame.locate(
+			event.row,
+			event.col,
+		);
 
-		if (hit && hit.index === 3 && this.#strip?.kind === "chips") {
+		if (footerColumn !== undefined && this.#strip?.kind === "chips") {
 			const strip = this.#strip;
-			if (event.leftClick) {
-				for (const range of this.#chipRanges) {
-					if (hit.col >= range.start && hit.col < range.end) {
-						strip.index = range.index;
-						this.#activateStripChip();
-						return true;
-					}
-				}
+			if (event.leftClick && this.#frame.selectChipAt(strip, footerColumn)) {
+				this.#activateStripChip();
 			}
 			return true;
 		}
@@ -970,8 +904,7 @@ export class AgentsHubComponent implements Component {
 
 		if (event.wheel !== null) {
 			if (overSidebar) {
-				const maxScroll = Math.max(0, this.#entries.length - bodyHeight);
-				this.#sidebarScroll = Math.max(0, Math.min(this.#sidebarScroll + event.wheel, maxScroll));
+				this.#frame.scrollSidebar(event.wheel, bodyHeight, this.#entries.length);
 			} else if (overBody) {
 				this.#rowIndex = Math.max(0, Math.min(this.#rows.length - 1, this.#rowIndex + event.wheel));
 			}
@@ -988,7 +921,7 @@ export class AgentsHubComponent implements Component {
 		if (!event.leftClick) return true;
 
 		if (overSidebar) {
-			const index = this.#sidebarScroll + contentLine;
+			const index = this.#frame.sidebarScroll + contentLine;
 			const clicked = this.#entries[index];
 			if (clicked && clicked.kind !== "separator") {
 				if (clicked.kind === "new") {
@@ -1024,48 +957,13 @@ export class AgentsHubComponent implements Component {
 		return Math.max(16, this.#tui.terminal?.rows || process.stdout.rows || 40);
 	}
 
-	#sidebarWidth(): number {
-		let longest = 0;
-		for (const entry of this.#entries) {
-			longest = Math.max(longest, visibleWidth(entry.label) + visibleWidth(entry.annotation ?? "") + 5);
-		}
-		return Math.max(SIDEBAR_MIN_WIDTH, Math.min(SIDEBAR_MAX_WIDTH, longest));
-	}
-
-	#renderSidebar(width: number, rows: number): string[] {
-		const activeIndex = Math.max(
-			0,
-			this.#entries.findIndex(entry => entry.id === this.#activeEntryId),
-		);
-		if (activeIndex < this.#sidebarScroll) this.#sidebarScroll = activeIndex;
-		else if (activeIndex >= this.#sidebarScroll + rows) this.#sidebarScroll = activeIndex - rows + 1;
-
-		const lines: string[] = [];
-		for (let i = this.#sidebarScroll; i < Math.min(this.#entries.length, this.#sidebarScroll + rows); i++) {
-			const entry = this.#entries[i];
-			if (!entry) continue;
-			if (entry.kind === "separator") {
-				lines.push(theme.fg("border", "─".repeat(width)));
-				continue;
-			}
-			const active = entry.id === this.#activeEntryId;
-			const cursor = active && this.#focus === "scope" ? theme.fg("accent", theme.nav.cursor) : " ";
-			const icon = entry.kind === "all" ? theme.icon.model : entry.kind === "new" ? "+" : theme.status.enabled;
-			const labelStyled = active ? theme.bold(theme.fg("accent", entry.label)) : entry.label;
-			const left = `${cursor} ${theme.fg(entry.kind === "new" ? "dim" : "accent", icon)} ${labelStyled}`;
-			const annotation = theme.fg("dim", entry.annotation ?? "");
-			const leftWidth = visibleWidth(left);
-			const annWidth = visibleWidth(annotation);
-			let line: string;
-			if (leftWidth + annWidth + 1 <= width) {
-				line = `${left}${" ".repeat(width - leftWidth - annWidth)}${annotation}`;
-			} else {
-				line = truncateToWidth(left, width);
-			}
-			lines.push(line);
-		}
-		return lines;
-	}
+	#sidebarStyle = (entry: SidebarEntry): SidebarStyle => {
+		const icon = entry.kind === "all" ? theme.icon.model : entry.kind === "new" ? "+" : theme.status.enabled;
+		return {
+			icon: theme.fg(entry.kind === "new" ? "dim" : "accent", icon),
+			annotation: theme.fg("dim", entry.annotation ?? ""),
+		};
+	};
 
 	#statusRow(width: number): string {
 		if (this.#loadError) return truncateToWidth(theme.fg("error", ` ${this.#loadError}`), width);
@@ -1073,7 +971,10 @@ export class AgentsHubComponent implements Component {
 			const { agent, property } = this.#assigning;
 			const what = property === "model" ? "model override" : `${property} model`;
 			return truncateToWidth(
-				theme.fg("accent", ` Picking ${what} for ${theme.bold(agent.name)} — Enter assigns, Esc cancels`),
+				theme.fg(
+					"accent",
+					` Picking ${what} for ${theme.bold(agent.name)} — ${formatKeyHint("enter")} assigns, ${editorKey("tui.select.cancel")} cancels`,
+				),
 				width,
 			);
 		}
@@ -1245,34 +1146,47 @@ export class AgentsHubComponent implements Component {
 	}
 
 	#footerHint(): string {
+		const enter = formatKeyHint("enter");
+		const cancel = editorKey("tui.select.cancel");
+		const upDown = editorKeys("tui.select.up", "tui.select.down");
 		if (this.#strip) {
 			if (this.#strip.kind === "pattern") {
 				const property = this.#strip.property;
 				const values = property === "model" ? "a model pattern" : '"on", "off", or a model pattern';
-				return `Enter ${values} (role aliases like @smol and :level suffixes work; empty clears) · Esc back`;
+				return `Enter ${values} (role aliases like @smol and :level suffixes work; empty clears) · ${cancel} back`;
 			}
-			return this.#strip.property ? "←/→ choose · Enter apply · Esc back" : "←/→ choose · Enter open · Esc cancel";
+			const choose = formatKeyHints(["left", "right"]);
+			return this.#strip.property
+				? `${choose} choose · ${enter} apply · ${cancel} back`
+				: `${choose} choose · ${enter} open · ${cancel} cancel`;
 		}
 		if (this.#assigning) {
-			return "Enter pick · ↑/↓ models · type to search · Esc cancel";
+			return `${enter} pick · ${upDown} models · type to search · ${cancel} cancel`;
 		}
 		if (this.#createActive) {
-			if (this.#createSpec) return "Enter save · Tab scope · r regenerate · Esc cancel";
+			const tab = formatKeyHint("tab");
+			if (this.#createSpec)
+				return `${enter} save · ${tab} scope · ${formatKeyHint("r")} regenerate · ${cancel} cancel`;
 			if (this.#createGenerating) return "Generating…";
-			return "Ctrl+Q/Ctrl+Enter generate · Enter newline · Tab scope · Esc cancel";
+			const generate = formatKeyHints(boundKeys("app.message.followUp", ["ctrl+q", "ctrl+enter"]));
+			return `${generate} generate · ${enter} newline · ${tab} scope · ${cancel} cancel`;
 		}
 		if (this.#focus === "scope") {
-			return "↑/↓ scopes · →/Enter agents · Esc close";
+			return `${upDown} scopes · ${formatKeyHints(["right", "enter"])} agents · ${cancel} close`;
 		}
-		return "Enter configure · Space enable/disable · ↑/↓ rows · type to search · Ctrl+R reload · Esc close";
+		return `${enter} configure · ${formatKeyHint("space")} enable/disable · ${upDown} rows · type to search · ${formatKeyHint("ctrl+r")} reload · ${cancel} close`;
 	}
 
 	#renderFooter(width: number): string {
-		this.#chipRanges = [];
 		const strip = this.#strip;
-		if (!strip) {
-			return truncateToWidth(theme.fg("dim", this.#footerHint()), width);
-		}
+		return this.#frame.renderFooter(
+			width,
+			this.#footerHint(),
+			strip ? () => this.#renderStrip(width, strip) : undefined,
+		);
+	}
+
+	#renderStrip(width: number, strip: StripState): string {
 		if (strip.kind === "pattern") {
 			const label = theme.fg("accent", `${strip.agent.name} ${strip.property} pattern:`);
 			const labelWidth = visibleWidth(`${strip.agent.name} ${strip.property} pattern:`);
@@ -1283,37 +1197,10 @@ export class AgentsHubComponent implements Component {
 		const prefix = strip.property
 			? `${theme.fg("accent", strip.agent.name)}${theme.fg("dim", ` · ${strip.property} →`)} `
 			: `${theme.fg("accent", strip.agent.name)}${theme.fg("dim", " →")} `;
-		let line = prefix;
-		let col = 2 + visibleWidth(prefix);
-		for (let i = 0; i < strip.chips.length; i++) {
-			const chip = strip.chips[i];
-			if (!chip) continue;
-			const selected = i === strip.index;
-			const body = ` ${chip.styled} `;
-			const rendered = selected
-				? theme.bg("selectedBg", `${theme.fg("accent", "[")}${body}${theme.fg("accent", "]")}`)
-				: body;
-			const w = visibleWidth(body) + (selected ? 2 : 0);
-			this.#chipRanges.push({ start: col, end: col + w, index: i });
-			line += rendered;
-			col += w;
-			line += " ";
-			col += 1;
-		}
-		return truncateToWidth(line, width);
+		return this.#frame.renderChips(width, prefix, strip);
 	}
 
 	render(width: number): readonly string[] {
-		const height = this.#terminalRows();
-		const sidebarWidth = this.#sidebarWidth();
-		const contentRows = Math.max(10, height - 4);
-		this.#split.setLeftSize({ fixed: sidebarWidth });
-		const leftWidth = this.#split.measure(width).left?.width ?? 0;
-		this.#frameTop.setLines([topBorderSplit(width, "Agents", leftWidth)]);
-		this.#frameDivider.setLines([dividerSplit(width, leftWidth)]);
-		this.#frameFooter.setLines([row(this.#renderFooter(width - 4), width)]);
-		this.#frameBottom.setLines([bottomBorder(width)]);
-		this.#frame.setHeight(contentRows + 4);
-		return this.#frame.render(width);
+		return this.#frame.render(width, this.#terminalRows(), this.#entries, this.#renderFooter(width - 4));
 	}
 }

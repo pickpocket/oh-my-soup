@@ -26,7 +26,7 @@ import { $which } from "@oh-my-soup/pi-utils";
 import type { TerminalId, TerminalNotification } from "./terminal-capabilities";
 
 /** Application name surfaced as the notification source. */
-const APP_NAME = "Oh My Soup";
+const APP_NAME = "oms";
 
 /** Resolved notifier binary used to fan a notification out to D-Bus. */
 export type DesktopNotifierKind = "notify-send" | "gdbus";

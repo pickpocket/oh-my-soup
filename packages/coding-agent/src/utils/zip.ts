@@ -253,7 +253,7 @@ function upsertArchiveEntry(
 }
 
 function ensureParentDirectories(map: Map<string, ArchiveIndexEntry>): void {
-	for (const entry of [...map.values()]) {
+	for (const entry of Array.from(map.values())) {
 		const parts = entry.path.split("/");
 		const stop = parts.length - 1;
 		for (let index = 1; index <= stop; index++) {
@@ -280,7 +280,8 @@ const ZIP_ALIAS_EXTENSIONS = ["jar", "war", "ear", "apk"] as const;
  * `.tar.gz` wins over `.tar`. Shared with `parseArchivePathCandidates` as its
  * split pattern so extension recognition and path splitting never drift.
  */
-const ARCHIVE_EXTENSION_ALTERNATION = ["tar\\.gz", "tgz", "zip", "tar", ...ZIP_ALIAS_EXTENSIONS].join("|");
+const ARCHIVE_EXTENSION_ALTERNATION =
+	["tar\\.gz", "tgz", "zip", "tar"].join("|") + `|${ZIP_ALIAS_EXTENSIONS.join("|")}`;
 
 /** Infer an archive format from a filesystem path's extension. */
 export function archiveFormatFromPath(filePath: string): ArchiveFormat | undefined {

@@ -1,27 +1,32 @@
-import { describe, expect, it } from "bun:test";
-import type { AuthStorage, FetchImpl } from "@oh-my-soup/pi-ai";
+import { afterAll, describe, expect, it } from "bun:test";
+import type { FetchImpl } from "@oh-my-soup/pi-ai";
+import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
 import type { SearchParams } from "@oh-my-soup/pi-coding-agent/web/search/providers/base";
 import { GoogleProvider, searchGoogle } from "@oh-my-soup/pi-coding-agent/web/search/providers/google";
 import { SearchProviderError } from "@oh-my-soup/pi-coding-agent/web/search/types";
+import { createInMemoryAuthStorage } from "../helpers/agent-session-setup";
 
-const fakeAuthStorage = {
-	getApiKey() {
-		throw new Error("Google search must not request an API key");
-	},
-	hasAuth() {
-		throw new Error("Google search must not inspect credentials");
-	},
-} as unknown as AuthStorage;
+const authStorage = createInMemoryAuthStorage();
+const modelRegistry = new ModelRegistry(authStorage);
+const model = (() => {
+	const found = modelRegistry.find("web", "google");
+	if (!found) throw new Error("Expected bundled web/google model");
+	return found;
+})();
 
 function makeParams(query: string, fetch: FetchImpl, overrides: Partial<SearchParams> = {}): SearchParams {
 	return {
 		query,
-		authStorage: fakeAuthStorage,
+		authStorage,
+		model,
+		modelRegistry,
 		systemPrompt: "Google search test prompt",
 		fetch,
 		...overrides,
 	};
 }
+
+afterAll(() => authStorage.close());
 
 function googleResult(url: string, title: string, snippet?: string): string {
 	return `<div class="MjjYud"><div class="tF2Cxc">
@@ -102,6 +107,6 @@ describe("native Google web search provider", () => {
 	});
 
 	it("is credential-free when explicitly selected", () => {
-		expect(new GoogleProvider().isAvailable(fakeAuthStorage)).toBe(true);
+		expect(new GoogleProvider().isAvailable(authStorage)).toBe(true);
 	});
 });

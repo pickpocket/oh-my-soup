@@ -63,6 +63,8 @@ function createCtx(overrides?: {
 		vibeMode: null,
 		vim: null,
 		collab: null,
+		stream: null,
+		recording: false,
 		usageStats: {
 			input: 0,
 			output: 0,
@@ -460,7 +462,6 @@ describe("overflow: path shrinks before git is dropped", () => {
 		}
 	});
 });
-
 describe("overflow: path survives before model", () => {
 	it("drops the model segment before the cwd path when both cannot fit", () => {
 		const root = fs.mkdtempSync(path.join(os.tmpdir(), "oms-statusline-overflow-"));

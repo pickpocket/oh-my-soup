@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { buildModel } from "@oh-my-soup/pi-catalog/build";
 import { resolveModelPolicy } from "@oh-my-soup/pi-catalog/compat/resolve";
-import { DEFAULT_MODEL_PER_PROVIDER } from "@oh-my-soup/pi-catalog/provider-models";
+
 import { zhipuCodingPlanModelManagerOptions } from "@oh-my-soup/pi-catalog/provider-models/openai-compat";
 import type { FetchImpl, ModelSpec } from "@oh-my-soup/pi-catalog/types";
 
@@ -60,13 +60,6 @@ function zhipuGlm52ByOfficialBaseUrl(): ModelSpec<"openai-completions"> {
 		baseUrl: "https://open.bigmodel.cn/api/paas/v4",
 	};
 }
-
-describe("zhipu-coding-plan descriptor", () => {
-	it("defaults to the same Zhipu-hosted model used by login validation", () => {
-		expect(DEFAULT_MODEL_PER_PROVIDER["zhipu-coding-plan"]).toBe("glm-5.1");
-		expect(DEFAULT_MODEL_PER_PROVIDER.zai).toBe("glm-5.3");
-	});
-});
 
 describe("openai-completions compat — zhipu-coding-plan branch", () => {
 	it("forces zai thinking format and disables reasoning_effort before GLM-5.2", () => {

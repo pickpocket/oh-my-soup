@@ -20,8 +20,10 @@ import { logger } from "@oh-my-soup/pi-utils";
 import { getSelectListTheme, getSettingsListTheme, theme } from "../theme/theme";
 import { shortenPath } from "../render/render-utils";
 import { OverlayPanel } from "../chrome/overlay-box";
-import { FormField, SelectFormField, TextFormField, type FormFieldTheme } from "../components/form";
+import { FormField, SelectFormField, TextFormField } from "../components/form";
+import { formTheme } from "../chrome/form-theme";
 import { SettingsFormField } from "../components/settings-list";
+import { editorKey } from "../chrome/keybinding-hints";
 
 /** Setting metadata consumed by the plugin settings UI. */
 export type PluginSettingSchema = {
@@ -269,7 +271,16 @@ export class PluginListComponent extends OverlayPanel {
 
 		this.addChild(this.#selectList);
 		this.addChild(new Spacer(1));
-		this.addChild(new Text(theme.fg("dim", "Enter to configure · Esc to go back"), 0, 0));
+		this.addChild(
+			new Text(
+				theme.fg(
+					"dim",
+					`${editorKey("tui.select.confirm")} to configure · ${editorKey("tui.select.cancel")} to go back`,
+				),
+				0,
+				0,
+			),
+		);
 	}
 
 	#renderItem(entry: PluginListEntry): SelectItem {
@@ -407,7 +418,7 @@ export class PluginDetailComponent extends OverlayPanel {
 			items,
 			maxVisible: Math.min(items.length, 10),
 			settingsTheme: getSettingsListTheme(),
-			hint: DETAIL_FOOTER_HINT,
+			hint: `${editorKey("tui.select.confirm")} to edit · ${editorKey("tui.select.cancel")} to go back`,
 			onChange: (id, newValue) => {
 				if (id === "__enabled__") {
 					this.callbacks.onEnabledChange(newValue === "true");
@@ -539,7 +550,7 @@ export class MarketplacePluginDetailComponent extends OverlayPanel {
 			maxVisible: Math.min(items.length, 10),
 			settingsTheme: getSettingsListTheme(),
 			summary,
-			hint: DETAIL_FOOTER_HINT,
+			hint: `${editorKey("tui.select.confirm")} to edit · ${editorKey("tui.select.cancel")} to go back`,
 			onChange: (id, newValue) => {
 				if (id === "__enabled__") {
 					const next = newValue === "true";
@@ -569,16 +580,6 @@ export class MarketplacePluginDetailComponent extends OverlayPanel {
 // =============================================================================
 // Config Submenus
 // =============================================================================
-
-const formTheme: FormFieldTheme = {
-	label: text => theme.bold(theme.fg("accent", text)),
-	description: text => theme.fg("muted", text),
-	error: text => theme.fg("error", text),
-	hint: text => theme.fg("dim", text),
-};
-
-/** Shared footer hint for plugin detail lists. */
-const DETAIL_FOOTER_HINT = "Enter to edit · Esc to go back";
 
 /**
  * Thin OverlayPanel boundary around a shared form field. The panel title stays
@@ -637,7 +638,7 @@ function createConfigEnumPanel(
 		currentValue,
 		maxVisible: 8,
 		selectTheme: getSelectListTheme(),
-		hint: "Enter to select · Esc to cancel",
+		hint: `${editorKey("tui.select.confirm")} to select · ${editorKey("tui.select.cancel")} to cancel`,
 		onSubmit: onSelect,
 		onCancel,
 		requestRender,
@@ -666,7 +667,7 @@ function createConfigInputPanel(
 		secret: schema.secret,
 		initialValue: !schema.secret ? currentValue : undefined,
 		empty: "cancel",
-		hint: "Enter to save · Esc to cancel",
+		hint: `${editorKey("tui.input.submit")} to save · ${editorKey("tui.select.cancel")} to cancel`,
 		onSubmit,
 		onCancel,
 		requestRender,

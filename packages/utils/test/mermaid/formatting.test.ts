@@ -1,10 +1,9 @@
 import { describe, expect, it } from "bun:test";
 import { renderMermaidAscii } from "../../src/mermaid-ascii";
 
-// The vendored renderer is ASCII-only, so inline formatting (HTML tags and
-// markdown emphasis) is reduced to plain text rather than preserved — otherwise
-// the raw tags/markers would print inside the node box. Exercised through the
-// public `@oh-my-soup/pi-utils` wrapper so the dependency-removal path stays covered.
+// The native ASCII renderer strips inline formatting (HTML tags and markdown
+// emphasis) so raw markers do not appear in node boxes. Exercise the utils
+// adapter to preserve the public renderer's output.
 describe("mermaid ASCII inline-formatting stripping", () => {
 	const render = (label: string): string => renderMermaidAscii(`flowchart TD\n  A[${label}]`, { colorMode: "none" });
 

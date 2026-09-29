@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { cfgToolsMaxTimeout } from "@oh-my-soup/pi-coding-agent/tools/settings";
 import {
 	type DisassemblerAdapter,
 	type DisassemblerExecutionOptions,
@@ -278,7 +279,7 @@ describe("disasm tool adapter boundary", () => {
 		});
 		try {
 			const session = makeSession();
-			session.settings.set("tools.maxTimeout", 9.5);
+			cfgToolsMaxTimeout.set(session.settings, 9.5);
 			const tool = new DisasmTool(session);
 			const opened = await tool.execute("open", {
 				action: "open",

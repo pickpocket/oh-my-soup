@@ -11,6 +11,7 @@ export interface StatusAccountIdentity {
 	orgId?: string;
 }
 
+/** Nested repository selected as the active workspace context. */
 export interface ActiveRepoContext {
 	cwd: string;
 	repoRoot: string;
@@ -52,6 +53,8 @@ export interface StatusLineSession {
 	getContextUsage(): { tokens: number; contextWindow: number; percent: number | null } | undefined;
 	autoResolvedThinkingLevel(): string | undefined;
 	isFastModeActive(): boolean;
+	/** Anthropic usage-limit label (`limit reached · wrapping up · resets 14:30`, `low priority until 14:30 · 62% left`). */
+	getAnthropicSlowModeLabel?(): string | undefined;
 	getPrewalkState?(): unknown;
 	getAsyncJobSnapshot(): { running: readonly { type: string; agentId?: string }[] } | null | undefined;
 	getGoalModeState(): { goal?: { status: string; tokensUsed: number; tokenBudget?: number } } | undefined;

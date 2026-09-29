@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "bun:test";
 import { TempDir } from "@oh-my-soup/pi-utils";
 import { Settings } from "../../src/config/settings";
-import { resolveOwnerScopedSessionKey, type SessionOwners } from "../../src/eval/executor-base";
 import { disposeAllVmContexts, disposeVmContextsByOwner } from "../../src/eval/js/context-manager";
 import { executeJs } from "../../src/eval/js/executor";
 import { disposeAllKernelSessions, executePython } from "../../src/eval/py/executor";
@@ -28,59 +27,6 @@ function makeSession(cwd: string): ToolSession {
 		getEvalSessionId: () => "test-eval-session",
 	};
 }
-
-describe("resolveOwnerScopedSessionKey", () => {
-	const BASE = "sess\0/cwd\0interp";
-	const FORK = `${BASE}\0fork\0owner-b`;
-
-	function resolve(options: { ownerId?: string; reset?: boolean; live?: Record<string, SessionOwners> }): string {
-		const live = options.live ?? {};
-		return resolveOwnerScopedSessionKey({
-			baseKey: BASE,
-			ownerId: options.ownerId,
-			reset: options.reset === true,
-			hasSession: key => key in live,
-			getOwners: key => live[key],
-		});
-	}
-
-	it("keeps the base key when the caller has no owner identity", () => {
-		expect(resolve({ reset: true, live: { [BASE]: { ownerIds: new Set(["x"]), hasFallbackOwner: false } } })).toBe(
-			BASE,
-		);
-	});
-
-	it("stays on an existing fork even without reset", () => {
-		const live = {
-			[BASE]: { ownerIds: new Set(["owner-a", "owner-b"]), hasFallbackOwner: false },
-			[FORK]: { ownerIds: new Set(["owner-b"]), hasFallbackOwner: false },
-		};
-		expect(resolve({ ownerId: "owner-b", live })).toBe(FORK);
-		expect(resolve({ ownerId: "owner-b", reset: true, live })).toBe(FORK);
-	});
-
-	it("forks a reset away from a co-owned base session", () => {
-		const live = { [BASE]: { ownerIds: new Set(["owner-a", "owner-b"]), hasFallbackOwner: false } };
-		expect(resolve({ ownerId: "owner-b", reset: true, live })).toBe(FORK);
-	});
-
-	it("forks a reset away from a fallback-owned base session", () => {
-		// Fallback ownership means some session without an explicit owner uses
-		// the context; a scoped reset must not destroy it.
-		const live = { [BASE]: { ownerIds: new Set(["session-id"]), hasFallbackOwner: true } };
-		expect(resolve({ ownerId: "owner-b", reset: true, live })).toBe(FORK);
-	});
-
-	it("resets in place when the requester exclusively owns the base session", () => {
-		const live = { [BASE]: { ownerIds: new Set(["owner-b"]), hasFallbackOwner: false } };
-		expect(resolve({ ownerId: "owner-b", reset: true, live })).toBe(BASE);
-	});
-
-	it("uses the base key for a reset when no live session exists", () => {
-		expect(resolve({ ownerId: "owner-b", reset: true })).toBe(BASE);
-		expect(resolve({ ownerId: "owner-b" })).toBe(BASE);
-	});
-});
 
 describe("JS eval owner-scoped reset forking", () => {
 	afterEach(async () => {

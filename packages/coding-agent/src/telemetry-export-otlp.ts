@@ -229,7 +229,7 @@ class AgentMetricRecorder {
 
 	recordChatUsage(event: ChatUsageEvent): void {
 		const baseAttrs = metricAttributes({
-			"gen_ai.operation.name": "chat",
+			"gen_ai.operation.name": event.operation,
 			"gen_ai.provider.name": event.provider,
 			"gen_ai.request.model": event.model,
 			"gen_ai.response.service_tier": event.serviceTier,

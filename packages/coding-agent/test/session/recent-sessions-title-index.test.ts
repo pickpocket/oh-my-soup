@@ -4,7 +4,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { getRecentSessions } from "@oh-my-soup/pi-coding-agent/session/session-listing";
 import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
-import { resetSessionTitleIndexForTests } from "@oh-my-soup/pi-coding-agent/session/title-index";
+import { resetSessionIndexForTests } from "@oh-my-soup/pi-coding-agent/session/session-index";
 import { getConfigRootDir, removeSyncWithRetries, setAgentDir } from "@oh-my-soup/pi-utils";
 import { makeAssistantMessage } from "../session-manager/helpers";
 
@@ -25,11 +25,11 @@ describe("recent sessions title index", () => {
 		cwd = path.join(testAgentDir, "cwd");
 		fs.mkdirSync(cwd, { recursive: true });
 		setAgentDir(testAgentDir);
-		resetSessionTitleIndexForTests();
+		resetSessionIndexForTests();
 	});
 
 	afterEach(() => {
-		resetSessionTitleIndexForTests();
+		resetSessionIndexForTests();
 		if (originalAgentDir) {
 			setAgentDir(originalAgentDir);
 		} else {

@@ -12,9 +12,8 @@ import {
 	StructuredSubagentError,
 	type StructuredSubagentIsolationControls,
 	type StructuredSubagentResult,
-	type StructuredSubagentSchemaMode,
 } from "../task/structured-subagent";
-import type { AgentProgress, SingleResult } from "@oh-my-soup/pi-tui/tools/task";
+import type { AgentProgress, SingleResult, StructuredSubagentSchemaMode } from "@oh-my-soup/pi-tui/tools/task";
 import type { NestedRepoPatch } from "@oh-my-soup/pi-tui/tools/task";
 import type { ToolSession } from "../tools";
 import { ToolError } from "@oh-my-soup/pi-tui/tools/tool-errors";
@@ -227,7 +226,6 @@ export async function runEvalAgent(args: unknown, options: EvalAgentBridgeOption
 						...(customTools ? { customTools } : {}),
 						retainArtifacts: true,
 						keepAlive: true,
-						shareEvalSession: false,
 						signal,
 						onProgress: progress => {
 							latestProgress = progress;

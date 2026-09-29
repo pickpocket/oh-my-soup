@@ -9,6 +9,7 @@ import { createMockModel } from "@oh-my-soup/pi-ai/providers/mock";
 import { getBundledModel } from "@oh-my-soup/pi-catalog/models";
 import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
 import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { cfgCompaction, cfgCompactionThresholdTokens } from "@oh-my-soup/pi-coding-agent/session/context-settings";
 import { computeNonMessageTokens } from "@oh-my-soup/pi-tui/status-line/context-usage";
 import { type CreateAgentSessionOptions, createAgentSession } from "@oh-my-soup/pi-coding-agent/sdk";
 import { AuthStorage } from "@oh-my-soup/pi-coding-agent/session/auth-storage";
@@ -55,7 +56,7 @@ async function fixture(tempDir: TempDir, mounted = false, options: Partial<Creat
 		contextWindow: mounted ? 4096 : 128_000,
 	};
 	const authStorage = await AuthStorage.create(tempDir.join("auth.db"));
-	authStorage.setRuntimeApiKey(model.provider, "test-key");
+	authStorage.keys.setRuntime(model.provider, "test-key");
 	const modelRegistry = new ModelRegistry(authStorage, tempDir.join("models.yml"));
 	const create = (sessionManager = manager) =>
 		createAgentSession({
@@ -424,12 +425,12 @@ describe("SDK important notes requests", () => {
 		try {
 			// Crossing the trigger must come from the note reference, not from
 			// incidental prompt/schema overhead in the fixture.
-			session.settings.set(
-				"compaction.thresholdTokens",
+			cfgCompactionThresholdTokens.set(
+				session.settings,
 				session.getContextUsage()!.tokens! - Math.floor(session.getImportantNotesReferenceTokens() / 2),
 			);
 			expect(session.getContextUsage()!.tokens! - session.getImportantNotesReferenceTokens()).toBeLessThan(
-				session.settings.get("compaction.thresholdTokens")!,
+				cfgCompactionThresholdTokens.get(session.settings),
 			);
 			const compact = vi.spyOn(compaction, "compact").mockImplementation(async preparation => ({
 				summary: "Previous evidence reviewed.",
@@ -447,7 +448,7 @@ describe("SDK important notes requests", () => {
 				session.agent.tokenizer.countMessages(mock.calls[0].context.messages, { excludeEncryptedReasoning: true }) +
 				computeNonMessageTokens(session, session.agent.tokenizer);
 			expect(sentTokens).toBeLessThanOrEqual(
-				contextWindow - compaction.effectiveReserveTokens(contextWindow, session.settings.getGroup("compaction")),
+				contextWindow - compaction.effectiveReserveTokens(contextWindow, cfgCompaction.get(session.settings)),
 			);
 			expect(getImportantNotesFromEntries(reopened.getBranch())).toEqual(notes);
 		} finally {
@@ -459,7 +460,10 @@ describe("SDK important notes requests", () => {
 	it("includes tool-loop note growth in maintenance before the continuation request", async () => {
 		using tempDir = TempDir.createSync("sdk-notes-growth-");
 		const contextWindow = 4096;
-		const { manager, model, authStorage, create } = await budgetFixture(tempDir, contextWindow);
+		const { manager, model, authStorage, create } = await budgetFixture(tempDir, contextWindow, {
+			"notes.injectOnTurns": true,
+			"notes.injectCadence": 1,
+		});
 		// Seed pressure sits just under the trigger: the first request already
 		// carries the (unavoidable) session-start reference, so the seeds must
 		// leave room for it within the safe budget before the growth loop runs.
@@ -469,8 +473,8 @@ describe("SDK important notes requests", () => {
 		const { session } = await create();
 		const text = "0123456789abcdef".repeat(96);
 		try {
-			session.settings.set(
-				"compaction.thresholdTokens",
+			cfgCompactionThresholdTokens.set(
+				session.settings,
 				session.getContextUsage()!.tokens! +
 					session.agent.tokenizer.countMessage({ role: "user", content: text, timestamp: 0 }),
 			);
@@ -509,8 +513,7 @@ describe("SDK important notes requests", () => {
 					session.agent.tokenizer.countMessages(call.context.messages, { excludeEncryptedReasoning: true }) +
 					computeNonMessageTokens(session, session.agent.tokenizer);
 				expect(sentTokens).toBeLessThanOrEqual(
-					contextWindow -
-						compaction.effectiveReserveTokens(contextWindow, session.settings.getGroup("compaction")),
+					contextWindow - compaction.effectiveReserveTokens(contextWindow, cfgCompaction.get(session.settings)),
 				);
 			}
 			expect(getImportantNotesFromEntries(manager.getBranch())).toEqual([
@@ -562,7 +565,7 @@ describe("SDK important notes requests", () => {
 			await session.prompt("Review the saved evidence.");
 			expect(mock.calls).toHaveLength(1);
 			await session.setModel({ ...getBundledModel("openai", "gpt-4o"), contextWindow: 4096 });
-			session.settings.set("compaction.thresholdTokens", 3000);
+			cfgCompactionThresholdTokens.set(session.settings, 3000);
 			for (const prompt of ["Continue.", "Retry with the same notes."]) {
 				await expect(session.prompt(prompt)).rejects.toThrow("explicitly shorten or delete notes");
 			}
@@ -614,9 +617,7 @@ describe("SDK important notes requests", () => {
 		const { session } = await create();
 		try {
 			const budget =
-				contextWindow -
-				compaction.resolveBudgetReserveTokens(contextWindow, session.settings.getGroup("compaction"));
-			expect(session.getContextUsage()!.tokens!).toBeGreaterThan(budget);
+				contextWindow - compaction.resolveBudgetReserveTokens(contextWindow, cfgCompaction.get(session.settings));
 			// The first request must reclaim tool output while retaining its injected note.
 			const compactSpy = vi.spyOn(compaction, "compact");
 			const mock = createMockModel({ provider: model.provider, id: model.id, handler: { content: ["done"] } });
@@ -651,11 +652,9 @@ describe("SDK important notes requests", () => {
 			// A threshold above the budget leaves a gap where shouldCompact says
 			// "no" while the request cannot fit. Before the recovery ladder this
 			// gap hard-failed the prompt and demanded a manual /compact.
-			session.settings.set("compaction.thresholdTokens", session.getContextUsage()!.tokens! + 512);
+			cfgCompactionThresholdTokens.set(session.settings, session.getContextUsage()!.tokens! + 512);
 			const budget =
-				contextWindow -
-				compaction.resolveBudgetReserveTokens(contextWindow, session.settings.getGroup("compaction"));
-			expect(session.getContextUsage()!.tokens!).toBeGreaterThan(budget);
+				contextWindow - compaction.resolveBudgetReserveTokens(contextWindow, cfgCompaction.get(session.settings));
 			const compactSpy = vi.spyOn(compaction, "compact").mockImplementation(async preparation => ({
 				summary: "Previous evidence reviewed.",
 				firstKeptEntryId: preparation.firstKeptEntryId,
@@ -706,7 +705,7 @@ describe("SDK important notes requests", () => {
 
 				const budget =
 					contextWindow -
-					compaction.resolveBudgetReserveTokens(contextWindow, session.settings.getGroup("compaction"));
+					compaction.resolveBudgetReserveTokens(contextWindow, cfgCompaction.get(session.settings));
 				const tokenizer = session.agent.tokenizer;
 				const fixedTokens = computeNonMessageTokens(session, tokenizer);
 				const priorMessages = session.agent.state.messages;

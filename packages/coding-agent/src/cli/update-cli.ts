@@ -4,7 +4,6 @@
  * Handles `oms update` to check for and install updates.
  * Uses the installer that owns the active oms executable when it can be detected.
  */
-import { createHash } from "node:crypto";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -22,27 +21,26 @@ import {
 	unsupportedProxyMessage,
 	withTimeoutSignal,
 } from "../utils/fetch-timeout";
+import {
+	DEFAULT_NPM_REGISTRY,
+	loadNpmRegistryResolver,
+	type NpmRegistry,
+	type NpmRegistryResolver,
+	npmRegistryPackageUrl,
+} from "./npm-registry";
+
+import { cfgUpdateChannel } from "../modes/settings";
 
 const REPO = "pickpocket/oh-my-soup";
 const PACKAGE = "@oh-my-soup/pi-coding-agent";
 const HOMEBREW_FORMULA = "can1357/tap/oms";
 const MISE_TOOL = "github:pickpocket/oh-my-soup";
 const NIX_STORE_DIR = "/nix/store";
-/**
- * Official npm registry origin.
- *
- * Pinned across both the version check and the bun install step so the two
- * agree on which catalog they are talking to. A user's bun may be pointed at
- * an unofficial mirror (corporate proxy, Taobao, etc.) that lags the upstream
- * registry by minutes-to-hours, in which case `getLatestRelease` would resolve
- * a version the mirror has not yet replicated and the install would fail with
- * `No version matching "X" found for specifier "<pkg>" (but package exists)`.
- * See #1686.
- */
-const NPM_REGISTRY = "https://registry.npmjs.org/";
 const GITHUB_API = "https://api.github.com";
 const RELEASE_METADATA_TIMEOUT_MS = 30_000;
 const BINARY_DOWNLOAD_TIMEOUT_MS = 15 * 60_000;
+/** Maximum package-rename pointers followed while resolving a release. */
+const MAX_RENAME_HOPS = 10;
 
 /**
  * Core native addon package. Bumped in lock-step with {@link PACKAGE} so the
@@ -97,6 +95,11 @@ export interface ReleaseInfo {
 	dist?: ReleaseDist;
 	/** npm names to install, resolved after following any `oms.rename` pointers. */
 	packages: ReleasePackages;
+	/**
+	 * Registry URL the version was resolved from; bun/npm installs pin to it
+	 * so the install sees the same catalog as the check. See #1686.
+	 */
+	registry: string;
 }
 
 export interface ReleaseBinaryAsset {
@@ -354,7 +357,7 @@ export async function downloadVerifiedBinary(options: VerifiedBinaryDownloadOpti
 		throw new Error(`Download failed: ${response.statusText}`);
 	}
 
-	const hash = createHash("sha256");
+	const hash = new Bun.SHA256();
 	let size = 0;
 	const verifier = new Transform({
 		transform(chunk, _encoding, callback) {
@@ -804,13 +807,74 @@ async function resolveUpdateTarget(options: { allowPackageManagers: boolean }): 
 
 async function fetchLatestManifest(
 	pkg: string,
+	registry: NpmRegistry | undefined,
 	timeoutMs: number,
 	channel: UpdateChannel,
 ): Promise<{ version: string; manifest: Record<string, unknown> }> {
-	// Releases live on GitHub, not npm: the @oh-my-soup scope is unpublished,
-	// so the registry can never answer for this fork. `/releases/latest`
-	// excludes drafts and prereleases; the canary channel scans the release
-	// list for the newest prerelease instead.
+	if (registry) {
+		const tag = channel === "canary" ? "canary" : "latest";
+		const headers: Record<string, string> = { accept: "application/json" };
+		if (registry.authorization) headers.authorization = registry.authorization;
+		const origin = registry.url === DEFAULT_NPM_REGISTRY ? "" : ` from ${registry.url} (${registry.source})`;
+		const get = async (url: string): Promise<Response> => {
+			try {
+				return await fetch(url, { headers, signal: withTimeoutSignal(timeoutMs) });
+			} catch (err) {
+				if (isTimeoutError(err)) {
+					throw new Error(
+						`Timed out fetching release info for ${pkg}${origin} after ${Math.round(timeoutMs / 1000)}s`,
+						{ cause: err },
+					);
+				}
+				if (isUnsupportedProxyError(err)) throw new Error(unsupportedProxyMessage(), { cause: err });
+				throw err;
+			}
+		};
+
+		let response = await get(npmRegistryPackageUrl(registry, pkg, tag));
+		let data: unknown;
+		if (!response.ok && origin && [400, 404, 405].includes(response.status)) {
+			// Some configured registries only expose package metadata through the packument.
+			response = await get(npmRegistryPackageUrl(registry, pkg));
+			if (response.ok) {
+				const packument: unknown = await response.json();
+				const distTags = isRecord(packument) ? packument["dist-tags"] : undefined;
+				const version = isRecord(distTags) ? distTags[tag] : undefined;
+				if (typeof version !== "string") {
+					if (channel === "canary")
+						throw new Error(
+							`No canary release has been published for ${pkg} yet. Try \`${APP_NAME} update --stable\`.`,
+						);
+					throw new Error(`Malformed npm registry response for ${pkg}${origin}: missing dist-tags.${tag}`);
+				}
+				const versions = isRecord(packument) ? packument.versions : undefined;
+				data = isRecord(versions) ? versions[version] : undefined;
+				if (!isRecord(data)) {
+					throw new Error(`Malformed npm registry response for ${pkg}${origin}: missing versions.${version}`);
+				}
+			}
+		}
+		if (!response.ok) {
+			if (response.status === 404 && channel === "canary") {
+				throw new Error(
+					`No canary release has been published for ${pkg} yet. Try \`${APP_NAME} update --stable\`.`,
+				);
+			}
+			const authHint =
+				response.status === 401 || response.status === 403 ? "; check the registry credentials in your .npmrc" : "";
+			throw new Error(
+				`Failed to fetch release info for ${pkg}${origin}: ${response.status} ${response.statusText}${authHint}`,
+			);
+		}
+		data ??= await response.json();
+		if (!isRecord(data) || typeof data.version !== "string") {
+			throw new Error(`Malformed npm registry response for ${pkg}${origin}: missing version`);
+		}
+		return { version: data.version, manifest: data };
+	}
+
+	// This fork publishes releases on GitHub, not npm. Stable excludes drafts and
+	// prereleases; canary scans the release list for the newest non-draft prerelease.
 	let response: Response;
 	try {
 		response = await fetch(
@@ -833,25 +897,24 @@ async function fetchLatestManifest(
 	}
 
 	const data: unknown = await response.json();
-	let tag: string | undefined;
+	let releaseTag: string | undefined;
 	if (channel === "canary") {
 		if (!Array.isArray(data)) throw new Error(`Malformed GitHub releases response for ${pkg}`);
 		const canary = data.find(entry => isRecord(entry) && entry.prerelease === true && !entry.draft);
 		if (!canary) {
 			throw new Error(`No canary release has been published for ${pkg} yet. Try \`${APP_NAME} update --stable\`.`);
 		}
-		tag = (canary as Record<string, unknown>).tag_name as string | undefined;
+		releaseTag = (canary as Record<string, unknown>).tag_name as string | undefined;
 	} else if (isRecord(data) && typeof data.tag_name === "string") {
-		tag = data.tag_name;
+		releaseTag = data.tag_name;
 	}
-	const version = typeof tag === "string" ? tag.replace(/^v/, "") : undefined;
+	const version = typeof releaseTag === "string" ? releaseTag.replace(/^v/, "") : undefined;
 	if (!version || !/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(version)) {
 		throw new Error(`Malformed GitHub release response for ${pkg}: missing version tag`);
 	}
 
-	// The published manifest carries the optional `oms.dist` / `oms.rename`
-	// steering fields; source it from the tagged tree. A miss degrades to an
-	// empty manifest, which callers treat as the default binary flow.
+	// Read OMS steering fields from the exact tag so dist and rename decisions
+	// match the release being installed; a missing manifest retains binary default.
 	let manifest: Record<string, unknown> = { version };
 	try {
 		const manifestResponse = await fetch(
@@ -871,25 +934,41 @@ async function fetchLatestManifest(
 /**
  * Get the latest release info from GitHub releases, following `oms.rename`
  * pointers ({@link resolveReleaseRename}) when the package has moved to a new
- * name. Version, dist, and install names all come from the final manifest in
- * the chain. Unauthenticated GitHub API limits (60/hour) are ample for the
- * occasional update check, and npm cannot answer: the fork's packages are not
- * published there.
+ * name. Version, dist, and install names come from the final manifest in
+ * the chain. By default this fork reads tagged GitHub releases because its
+ * @oh-my-soup packages are unpublished; callers may provide a registry resolver
+ * to use configured npm registries and follow package rename pointers.
  */
 export async function getLatestRelease(
-	options: { timeoutMs?: number; channel?: UpdateChannel } = {},
+	options: { timeoutMs?: number; channel?: UpdateChannel; registries?: NpmRegistryResolver } = {},
 ): Promise<ReleaseInfo> {
 	const timeoutMs = options.timeoutMs ?? RELEASE_METADATA_TIMEOUT_MS;
 	const channel = options.channel ?? "stable";
+	const registryResolver = options.registries ?? (await loadNpmRegistryResolver());
 	const packages: ReleasePackages = { ...CURRENT_PACKAGES };
-	const latest = await fetchLatestManifest(packages.pkg, timeoutMs, channel);
-	// GitHub sourcing yields one authoritative manifest per release, so a
-	// rename is pure bookkeeping: adopt the new install names without
-	// refetching (the npm-era pointer chase resolved other packuments).
-	const rename = resolveReleaseRename(latest.manifest);
-	if (rename && rename.pkg !== packages.pkg) {
-		packages.pkg = rename.pkg;
-		if (rename.natives) packages.natives = rename.natives;
+	let registry = registryResolver(packages.pkg);
+	let latest: { version: string; manifest: Record<string, unknown> };
+
+	if (options.registries) {
+		const visited = new Set([packages.pkg]);
+		latest = await fetchLatestManifest(packages.pkg, registry, timeoutMs, channel);
+		for (let hop = 0; hop < MAX_RENAME_HOPS; hop++) {
+			const rename = resolveReleaseRename(latest.manifest);
+			if (!rename || visited.has(rename.pkg)) break;
+			visited.add(rename.pkg);
+			packages.pkg = rename.pkg;
+			if (rename.natives) packages.natives = rename.natives;
+			registry = registryResolver(packages.pkg);
+			latest = await fetchLatestManifest(packages.pkg, registry, timeoutMs, channel);
+		}
+	} else {
+		latest = await fetchLatestManifest(packages.pkg, undefined, timeoutMs, channel);
+		const rename = resolveReleaseRename(latest.manifest);
+		if (rename && rename.pkg !== packages.pkg) {
+			packages.pkg = rename.pkg;
+			if (rename.natives) packages.natives = rename.natives;
+		}
+		registry = registryResolver(packages.pkg);
 	}
 
 	return {
@@ -897,6 +976,7 @@ export async function getLatestRelease(
 		version: latest.version,
 		dist: resolveReleaseDist(latest.manifest),
 		packages,
+		registry: registry.url,
 	};
 }
 
@@ -949,7 +1029,9 @@ async function addBunCacheActualDir(
 	packageNames: Set<string> | undefined,
 ): Promise<void> {
 	try {
-		const manifest = (await Bun.file(path.join(dirPath, "package.json")).json()) as Partial<
+		// `fs.promises` rather than `Bun.file().json()`: on Windows, Bun's rejected read of a
+		// missing file holds no loop handle, so the loop can drain mid-await (#13470).
+		const manifest = JSON.parse(await fs.promises.readFile(path.join(dirPath, "package.json"), "utf8")) as Partial<
 			Record<"name" | "version", unknown>
 		>;
 		if (typeof manifest.name !== "string" || typeof manifest.version !== "string") return;
@@ -1455,13 +1537,15 @@ function buildVersionedPackageInstallArgs(
 /**
  * Build the bun argv used to globally install a specific oms version.
  *
- * The version is selected by hitting {@link NPM_REGISTRY} directly in
- * {@link getLatestRelease}, so the install MUST observe the same catalog:
+ * The version is selected by querying the resolved registry in
+ * {@link getLatestRelease} ({@link ReleaseInfo.registry}), so the install
+ * MUST observe the same catalog:
  *
- * - `--registry=${NPM_REGISTRY}` pins the install to the official registry
- *   regardless of the user's bunfig/`.npmrc`. A mirror (corporate proxy,
- *   Taobao, …) that hasn't yet replicated the release would otherwise reject
- *   a version the upstream registry already advertises.
+ * - `--registry=<release registry>` pins the install to the registry the
+ *   check used. That is the user's configured feed when one is set, and
+ *   {@link DEFAULT_NPM_REGISTRY} otherwise, so a bun whose own resolution
+ *   differs (project bunfig, lagging mirror) cannot reject a version the
+ *   check already advertised.
  * - `--no-cache` tells bun to ignore its on-disk manifest snapshot so it
  *   re-fetches metadata from that registry on every invocation.
  *
@@ -1486,18 +1570,21 @@ export function buildBunInstallArgs(
 	expectedVersion: string,
 	nativeTag: string = currentNativeTag(),
 	packages: ReleasePackages = CURRENT_PACKAGES,
+	options: { registry?: string } = {},
 ): string[] {
 	return [
 		"install",
 		"-g",
 		"--no-cache",
-		`--registry=${NPM_REGISTRY}`,
+		`--registry=${options.registry ?? DEFAULT_NPM_REGISTRY}`,
 		...buildVersionedPackageInstallArgs(expectedVersion, nativeTag, packages),
 	];
 }
 
 /**
  * Build the npm argv used to update npm-managed global installs.
+ * Pins `--registry` to the checked registry for the same reason as
+ * {@link buildBunInstallArgs}.
  *
  * `force` is set only for rename migrations: npm refuses to write the `oms`
  * bin while the old package still owns it (`EEXIST`), and the migration
@@ -1508,13 +1595,13 @@ export function buildNpmInstallArgs(
 	expectedVersion: string,
 	nativeTag: string = currentNativeTag(),
 	packages: ReleasePackages = CURRENT_PACKAGES,
-	flags: { force?: boolean } = {},
+	flags: { force?: boolean; registry?: string } = {},
 ): string[] {
 	return [
 		"install",
 		"-g",
 		...(flags.force ? ["--force"] : []),
-		`--registry=${NPM_REGISTRY}`,
+		`--registry=${flags.registry ?? DEFAULT_NPM_REGISTRY}`,
 		...buildVersionedPackageInstallArgs(expectedVersion, nativeTag, packages),
 	];
 }
@@ -1584,10 +1671,15 @@ function packageManagerMigrationSteps(manager: "bun" | "npm", release: ReleaseIn
 	return {
 		async install() {
 			if (manager === "bun") {
-				const args = buildBunInstallArgs(release.version, nativeTag, release.packages);
+				const args = buildBunInstallArgs(release.version, nativeTag, release.packages, {
+					registry: release.registry,
+				});
 				return (await $`bun ${args}`.nothrow()).exitCode;
 			}
-			const args = buildNpmInstallArgs(release.version, nativeTag, release.packages, { force: true });
+			const args = buildNpmInstallArgs(release.version, nativeTag, release.packages, {
+				force: true,
+				registry: release.registry,
+			});
 			return (await $`npm ${args}`.nothrow()).exitCode;
 		},
 		async removeOld() {
@@ -1663,7 +1755,9 @@ async function updateViaBun(release: ReleaseInfo): Promise<InstalledVersionVerif
 	if (release.packages.pkg !== PACKAGE) {
 		await migrateRenamedInstall(release, packageManagerMigrationSteps("bun", release));
 	} else {
-		const args = buildBunInstallArgs(release.version, currentNativeTag(), release.packages);
+		const args = buildBunInstallArgs(release.version, currentNativeTag(), release.packages, {
+			registry: release.registry,
+		});
 		const result = await $`bun ${args}`.nothrow();
 		if (result.exitCode !== 0) {
 			throw new Error(`bun install failed with exit code ${result.exitCode}`);
@@ -1687,7 +1781,9 @@ async function updateViaNpm(release: ReleaseInfo): Promise<InstalledVersionVerif
 		await migrateRenamedInstall(release, packageManagerMigrationSteps("npm", release));
 		return undefined;
 	}
-	const args = buildNpmInstallArgs(release.version, currentNativeTag(), release.packages);
+	const args = buildNpmInstallArgs(release.version, currentNativeTag(), release.packages, {
+		registry: release.registry,
+	});
 	const result = await $`npm ${args}`.nothrow();
 	if (result.exitCode !== 0) {
 		throw new Error(`npm install failed with exit code ${result.exitCode}`);
@@ -2072,7 +2168,7 @@ function installerHint(): string {
 /** Persisted channel, or undefined when settings are unavailable (SDK/test embedding without `Settings.init()`). */
 function readPersistedChannel(): UpdateChannel | undefined {
 	try {
-		return settings.get("update.channel");
+		return cfgUpdateChannel.get(settings);
 	} catch {
 		return undefined;
 	}
@@ -2081,7 +2177,7 @@ function readPersistedChannel(): UpdateChannel | undefined {
 /** Persist an explicit channel switch; tolerated as a no-op when settings are unavailable. */
 function persistChannel(channel: UpdateChannel): void {
 	try {
-		settings.set("update.channel", channel);
+		cfgUpdateChannel.set(settings, channel);
 	} catch {
 		// Outside a CLI host the explicit flag still applied for this run.
 	}

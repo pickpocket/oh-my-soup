@@ -99,7 +99,7 @@ function conversationFetch(respond: (request: RecordedRequest) => Response | Pro
 }
 
 describe("Prism credential login", () => {
-	it("persists project and rotated browser cookies as API-key text through AuthStorage.login", async () => {
+	it("persists project and rotated browser cookies as API-key text through AuthStorage.oauth.login", async () => {
 		const temporaryDirectory = await fs.mkdtemp(path.join(os.tmpdir(), "prism-login-test-"));
 		const store = await SqliteAuthCredentialStore.open(path.join(temporaryDirectory, "auth.db"));
 		try {
@@ -122,7 +122,7 @@ describe("Prism credential login", () => {
 			});
 			const storage = new AuthStorage(store);
 			let prompt = 0;
-			const identity = await storage.login("openai-prism", {
+			const identity = await storage.oauth.login("openai-prism", {
 				onAuth: () => {},
 				onPrompt: async () =>
 					++prompt === 1 ? `Cookie: ${COOKIE}; obsolete=old` : `${PRISM_BASE_URL}/?u=${PROJECT_ID}&pg=1`,

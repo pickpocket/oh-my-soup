@@ -1,5 +1,6 @@
 import { Args, type CommandMetadata, Flags } from "@oh-my-soup/pi-utils/cli";
 import { APP_NAME } from "@oh-my-soup/pi-utils/dirs";
+import { formatKeyHint } from "@oh-my-soup/pi-tui/key-hint-format";
 import { CLI_THINKING_LEVELS } from "@oh-my-soup/pi-tui/thinking";
 import { SERVICE_TIER_OPENAI_VALUES } from "../config/service-tier";
 
@@ -34,6 +35,9 @@ export const launchHelp = {
 		provider: Flags.string({ description: "Provider to use (legacy; prefer --model)" }),
 		"api-key": Flags.string({ description: "API key (defaults to env vars)" }),
 		"system-prompt": Flags.string({ description: "System prompt (default: coding assistant prompt)" }),
+		"system-prompt-template": Flags.string({
+			description: "Handlebars system prompt template (mutually exclusive with --system-prompt)",
+		}),
 		"append-system-prompt": Flags.string({ description: "Append text or file contents to the system prompt" }),
 		"allow-home": Flags.boolean({ description: "Allow starting in ~ without auto-switching to a temp dir" }),
 		profile: Flags.string({ description: "Use an isolated profile for auth, sessions, settings, and caches" }),
@@ -63,7 +67,7 @@ export const launchHelp = {
 			description: "Directory for chat.sock event and session.sock journal JSONL streams",
 		}),
 		"no-session": Flags.boolean({ description: "Don't save session (ephemeral)" }),
-		models: Flags.string({ description: "Comma-separated model patterns for Ctrl+P cycling" }),
+		models: Flags.string({ description: `Comma-separated model patterns for ${formatKeyHint("ctrl+p")} cycling` }),
 		"no-tools": Flags.boolean({ description: "Disable all built-in tools" }),
 		"no-lsp": Flags.boolean({ description: "Disable LSP tools, formatting, and diagnostics" }),
 		"no-pty": Flags.boolean({ description: "Disable PTY-based interactive bash execution" }),
@@ -99,6 +103,9 @@ export const launchHelp = {
 		"no-rules": Flags.boolean({ description: "Disable rules discovery and loading" }),
 		export: Flags.string({ description: "Export session file to HTML and exit" }),
 		"no-title": Flags.boolean({ description: "Disable title auto-generation" }),
+		"no-ui": Flags.boolean({
+			description: "With --mode rpc: run extensions headless (no extension_ui_request dialogs for the host)",
+		}),
 		"print-thoughts": Flags.boolean({ description: "Include thinking blocks in print mode text output" }),
 		"max-time": Flags.string({ description: "Stop the session after this duration (e.g., 600, 10m, 1h)" }),
 		"auto-approve": Flags.boolean({

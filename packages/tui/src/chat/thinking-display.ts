@@ -1,12 +1,16 @@
 import type { AgentMessage } from "@oh-my-soup/pi-agent-core";
+import { FENCE_RE } from "../render/render-utils";
 
-// Single-slot-per-mode memo for formatThinkingForDisplay. During a streaming
+// Small per-mode MRU memo for formatThinkingForDisplay. During a streaming
 // tick the same growing thinking text is formatted up to three times (reveal
 // count, reveal slice, component render); this collapses them to one
 // computation. Prose and raw modes produce different output for the same text,
-// so each mode keeps its own slot. One entry per mode is enough for the common
-// case of one active thinking block and never regresses (a miss recomputes
-// exactly as before).
+// so each mode keeps its own slots. A message routinely holds several thinking
+// blocks (thinking → text → thinking), and every tick formats each of them, so
+// one slot per mode would thrash between blocks and turn every append into a
+// full refold; {@link DISPLAY_CACHE_SLOTS} slots keep one checkpoint per live
+// block. A miss recomputes exactly as before and evicts the least recently
+// used slot.
 //
 // Each slot also carries the fold state for incremental extension: when the
 // incoming text is an append of the previously formatted text (streaming only
@@ -84,8 +88,69 @@ function freshDisplayCache(): DisplayCache {
 	return { text: "", value: "", hadComment: false, startLineByte: 0, state: freshFoldState(), resumable: true };
 }
 
-const proseCache = freshDisplayCache();
-const rawCache = freshDisplayCache();
+/** Slots per mode: enough for the thinking blocks of one streaming message. */
+const DISPLAY_CACHE_SLOTS = 4;
+// Most recently used first.
+const proseSlots: DisplayCache[] = [];
+const rawSlots: DisplayCache[] = [];
+
+/** Drop every memo slot so the next call recomputes from scratch. Tests only. */
+export function resetThinkingDisplayCacheForTests(): void {
+	proseSlots.length = 0;
+	rawSlots.length = 0;
+}
+
+/**
+ * Pick the slot to format `text` into and move it to the front: an exact memo
+ * hit, else the resumable slot holding the longest verbatim prefix of `text`
+ * (an append). A miss overwrites a non-resumable slot holding a prefix of
+ * `text` — the same stream's retired checkpoint, e.g. the raw identity
+ * shortcut — so such a stream never evicts the other blocks' checkpoints;
+ * otherwise the least recently used slot (or a new one below the cap).
+ * Append detection runs here once so the caller never re-verifies.
+ */
+function acquireDisplayCache(
+	slots: DisplayCache[],
+	text: string,
+): { cache: DisplayCache; match: "hit" | "append" | "miss" } {
+	// Identity pass first: the repeated renders of one streaming tick must not
+	// pay any prefix verification against the other blocks' slots.
+	let index = slots.findIndex(slot => slot.text === text);
+	let match: "hit" | "append" | "miss" = index === -1 ? "miss" : "hit";
+	if (index === -1) {
+		let appendLength = 0;
+		let retired = -1;
+		let retiredLength = 0;
+		for (let i = 0; i < slots.length; i++) {
+			const slot = slots[i]!;
+			const length = slot.text.length;
+			if (length <= (slot.resumable ? appendLength : retiredLength) || !isAppend(slot, text)) continue;
+			if (slot.resumable) {
+				index = i;
+				match = "append";
+				appendLength = length;
+			} else {
+				retired = i;
+				retiredLength = length;
+			}
+		}
+		if (index === -1) index = retired;
+	}
+	if (index === -1) {
+		if (slots.length < DISPLAY_CACHE_SLOTS) {
+			const cache = freshDisplayCache();
+			slots.unshift(cache);
+			return { cache, match };
+		}
+		index = slots.length - 1;
+	}
+	const cache = slots[index]!;
+	if (index > 0) {
+		slots.splice(index, 1);
+		slots.unshift(cache);
+	}
+	return { cache, match };
+}
 
 export function canonicalizeMessage(text: string | null | undefined): string {
 	if (!text) return "";
@@ -114,7 +179,6 @@ const MAX_RESUME_PARTIAL_BYTES = 8192;
 // ` -->`. Comments with actual content are left untouched.
 const EMPTY_COMMENT_RE = /^<!--\s*-->$/;
 const OPEN_COMMENT_RE = /^<!--\s*$/;
-const FENCE = /^( {0,3})([`~]{3,})/;
 
 /**
  * Whether `line` is reasoning-summary comment noise: an empty HTML comment,
@@ -190,14 +254,12 @@ function renderFold(state: FoldState): string {
  */
 export function formatThinkingForDisplay(text: string, proseOnly: boolean): string {
 	if (!text) return text;
-	const cache = proseOnly ? proseCache : rawCache;
-	// Identity memo first: the 2nd and 3rd renders of one streaming tick pass
-	// the same text and must not pay the prefix verification below.
-	if (text === cache.text) return cache.value;
+	const { cache, match } = acquireDisplayCache(proseOnly ? proseSlots : rawSlots, text);
+	if (match === "hit") return cache.value;
 	let hasComment: boolean;
 	let fromByte: number;
 	let state: FoldState;
-	if (cache.resumable && isAppend(cache, text)) {
+	if (match === "append") {
 		// Append: a `<!--` introduced by the suffix flips the noise gate, and a
 		// marker straddling the seam can start at most 3 bytes back — identical
 		// to rescanning the full text, at O(delta).
@@ -233,7 +295,7 @@ export function formatThinkingForDisplay(text: string, proseOnly: boolean): stri
 		if (i === last) cache.state = { ...state };
 
 		if (state.inFence) {
-			const close = FENCE.exec(line);
+			const close = FENCE_RE.exec(line);
 			// A closing fence is the same char, at least as long, with nothing else on the line.
 			if (
 				close &&
@@ -254,7 +316,7 @@ export function formatThinkingForDisplay(text: string, proseOnly: boolean): stri
 		// Drop the whole line so `**Headline**\n\n<!-- -->` leaves no blank tail.
 		if (hasComment && isCommentNoise(line, i === last)) continue;
 
-		const open = FENCE.exec(line);
+		const open = FENCE_RE.exec(line);
 		if (open) {
 			const marker = open[2]!;
 			const ch = marker[0]!;

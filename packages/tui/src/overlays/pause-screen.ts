@@ -12,17 +12,13 @@
  * the change via a normal steering message.
  */
 import { agentPauseGate } from "@oh-my-soup/pi-agent-core";
-import {
-	type Component,
-	matchesKey,
-	type OverlayFocusOwner,
-	type OverlayHandle,
-	type OverlayOptions,
-	visibleWidth,
-} from "../index";
-import { formatDuration } from "../chrome/format";
+import { type Component, matchesKey, type OverlayFocusOwner, type OverlayHandle, type OverlayOptions } from "../index";
+import { formatCoarseDuration } from "../chrome/format";
+import { centerLine } from "../utils";
 import { theme } from "../theme/theme";
 import { matchesAppInterrupt } from "../keybinding-matchers";
+import { formatKeyHint } from "../app-keybindings";
+import { interruptKey } from "../chrome/keybinding-hints";
 
 /**
  * Slice of `InteractiveModeContext` the pause screen drives. Narrow so tests
@@ -56,12 +52,6 @@ const BODY_LINES = [
 	"Main agent, subagents, and advisor hold at their next step.",
 	"In-flight calls finish; nothing new starts until you resume.",
 ] as const;
-const RESUME_HINT = "esc · enter · space — resume";
-
-function centerLine(line: string, width: number): string {
-	const pad = Math.max(0, Math.floor((width - visibleWidth(line)) / 2));
-	return pad > 0 ? " ".repeat(pad) + line : line;
-}
 
 /** Live hold clock, seconds-precise: `0:07`, `12:34`, `1:02:03`. */
 function formatClock(ms: number): string {
@@ -80,37 +70,40 @@ function formatClock(ms: number): string {
 export function renderPauseScreen(width: number, height: number, elapsedMs: number, sessionName?: string): string[] {
 	const compact = width < MIN_FULL_WIDTH || height < MIN_FULL_HEIGHT;
 	const content: string[] = [];
+	// Resume keys mirror PauseScreenComponent#handleInput: `app.interrupt` (raw Escape when unbound), Enter, Space.
+	const esc = interruptKey();
 
 	if (compact) {
 		if (sessionName) {
-			content.push(centerLine(theme.bold(sessionName), width));
+			content.push(centerLine(theme.bold(sessionName), width).trimEnd());
 			content.push("");
 		}
-		content.push(centerLine(theme.bold(theme.fg("accent", `▌▌ ${TITLE}`)), width));
+		content.push(centerLine(theme.bold(theme.fg("accent", `▌▌ ${TITLE}`)), width).trimEnd());
 		content.push("");
-		content.push(centerLine(theme.fg("dim", `paused for ${formatClock(elapsedMs)}`), width));
-		content.push(centerLine(theme.fg("dim", "esc to resume"), width));
+		content.push(centerLine(theme.fg("dim", `paused for ${formatClock(elapsedMs)}`), width).trimEnd());
+		content.push(centerLine(theme.fg("dim", `${esc} to resume`), width).trimEnd());
 	} else {
 		if (sessionName) {
-			content.push(centerLine(theme.bold(sessionName), width));
+			content.push(centerLine(theme.bold(sessionName), width).trimEnd());
 			content.push("");
 			content.push("");
 		}
 		const bar = "█".repeat(BAR_WIDTH);
 		const glyphRow = `${bar}${" ".repeat(BAR_GAP)}${bar}`;
 		for (let i = 0; i < BAR_ROWS; i++) {
-			content.push(centerLine(theme.fg("accent", glyphRow), width));
+			content.push(centerLine(theme.fg("accent", glyphRow), width).trimEnd());
 		}
 		content.push("");
-		content.push(centerLine(theme.bold(theme.fg("accent", TITLE)), width));
+		content.push(centerLine(theme.bold(theme.fg("accent", TITLE)), width).trimEnd());
 		content.push("");
 		for (const line of BODY_LINES) {
-			content.push(centerLine(theme.fg("muted", line), width));
+			content.push(centerLine(theme.fg("muted", line), width).trimEnd());
 		}
 		content.push("");
-		content.push(centerLine(theme.fg("dim", `paused for ${formatClock(elapsedMs)}`), width));
+		content.push(centerLine(theme.fg("dim", `paused for ${formatClock(elapsedMs)}`), width).trimEnd());
 		content.push("");
-		content.push(centerLine(theme.fg("dim", RESUME_HINT), width));
+		const resumeHint = `${esc} · ${formatKeyHint("enter")} · ${formatKeyHint("space")} — resume`;
+		content.push(centerLine(theme.fg("dim", resumeHint), width).trimEnd());
 	}
 
 	const topPad = Math.max(0, Math.floor((height - content.length) / 2));
@@ -203,7 +196,7 @@ export async function runPauseScreen(host: PauseScreenHost): Promise<void> {
 		overlay.hide();
 		const heldMs = agentPauseGate.resume();
 		if (heldMs !== undefined) {
-			host.showStatus(`Resumed after ${formatDuration(heldMs)} — agents are running again.`);
+			host.showStatus(`Resumed after ${formatCoarseDuration(heldMs)} — agents are running again.`);
 		}
 	}
 }

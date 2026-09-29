@@ -6,6 +6,7 @@ import { renderMCPResult } from "@oh-my-soup/pi-tui/tools/mcp";
 import type { MCPToolDetails } from "@oh-my-soup/pi-tui/tools/mcp";
 import { ToolExecutionComponent, type ToolExecutionUi } from "@oh-my-soup/pi-tui/chat/tool-execution";
 import { getThemeByName, setThemeInstance, theme } from "@oh-my-soup/pi-tui/theme";
+import { cfgMcpRenderMarkdownResults } from "@oh-my-soup/pi-coding-agent/mcp/settings";
 
 class BoldTypeErrorComponent implements Component {
 	render(_width: number): readonly string[] {
@@ -29,7 +30,7 @@ describe("ToolExecutionComponent custom renderer failures", () => {
 	});
 
 	afterEach(() => {
-		settings.set("mcp.renderMarkdownResults", true);
+		cfgMcpRenderMarkdownResults.set(settings, true);
 	});
 
 	it("falls back to the custom tool label when a renderCall child component throws during render", () => {
@@ -151,7 +152,7 @@ describe("MCP result Markdown rendering", () => {
 	});
 
 	afterEach(() => {
-		settings.set("mcp.renderMarkdownResults", true);
+		cfgMcpRenderMarkdownResults.set(settings, true);
 	});
 
 	it("renders inline Markdown by default", () => {
@@ -168,7 +169,7 @@ describe("MCP result Markdown rendering", () => {
 	});
 
 	it("keeps Markdown syntax literal when the setting is disabled", () => {
-		settings.set("mcp.renderMarkdownResults", false);
+		cfgMcpRenderMarkdownResults.set(settings, false);
 		const component = renderMCPResult(
 			{ content: [{ type: "text", text: "**bold result**" }], details },
 			{ expanded: true, isPartial: false },
@@ -179,7 +180,7 @@ describe("MCP result Markdown rendering", () => {
 	});
 
 	it("preserves structured JSON rendering when Markdown is enabled", () => {
-		settings.set("mcp.renderMarkdownResults", true);
+		cfgMcpRenderMarkdownResults.set(settings, true);
 		const component = renderMCPResult(
 			{ content: [{ type: "text", text: '{"status":"**ok**"}' }], details },
 			{ expanded: true, isPartial: false },

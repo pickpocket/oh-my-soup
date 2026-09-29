@@ -1,5 +1,8 @@
+import { cfgSystemPromptFiles, cfgSystemPromptPlacement } from "../session/context-settings";
+import { cfgNotesSearchModel, cfgNotesTimestamps } from "../session/settings";
 import * as path from "node:path";
 import { getOAuthProviders } from "@oh-my-soup/pi-ai/oauth";
+import { journalJudgmentUsage, resolveJudge, sharedJudgmentCache } from "../judgment";
 import type { AgentSession } from "../session/agent-session";
 import type { SessionOAuthAccountList } from "../session/agent-session-types";
 import {
@@ -23,18 +26,19 @@ import {
 	modelPromptKey,
 	resolveModelPromptBinding,
 	resolveSystemPromptPlacement,
-	type SystemPromptPlacementSetting,
 } from "../session/system-prompt-placement";
 import {
 	getChangelogPath,
 	parseChangelog,
-	RECENT_CHANGELOG_ENTRY_LIMIT,
+	parseChangelogView,
 	renderChangelogEntries,
+	selectChangelogEntries,
 } from "../utils/changelog";
 import { formatTokenCount, refreshStatusLine } from "./builtin-modes";
 import { parseConfiguredThinkingLevel } from "@oh-my-soup/pi-tui/thinking";
 import { buildContextReportText } from "./helpers/context-report";
-import { formatDuration } from "@oh-my-soup/pi-tui/chrome/format";
+import { formatCoarseDuration } from "@oh-my-soup/pi-tui/chrome/format";
+import { sanitizeText } from "@oh-my-soup/pi-utils";
 import { handleMcpAcp } from "./helpers/mcp";
 import { commandConsumed, errorMessage, parseSubcommand, usage } from "./helpers/parse";
 import { describeRedeemOutcome, toResetUsageAccounts } from "./helpers/reset-usage";
@@ -126,53 +130,90 @@ async function searchNotesWithModel(
 	throw new Error("every candidate model failed");
 }
 
+function normalizeResetProvider(value: string): string | undefined {
+	switch (value.trim().toLowerCase()) {
+		case "anthropic":
+		case "claude":
+			return "anthropic";
+		case "openai-codex":
+		case "codex":
+			return "openai-codex";
+		default:
+			return undefined;
+	}
+}
+
 async function handleUsageResetCommand(
 	arg: string,
 	session: AgentSession,
 	output: SlashCommandRuntime["output"],
 ): Promise<void> {
+	const safe = (value: string): string => sanitizeText(value.replace(/[\r\n\t]+/g, " "));
 	let accounts: ResetUsageAccount[];
 	try {
 		accounts = toResetUsageAccounts(await session.listResetCredits());
 	} catch (error) {
-		await output(`Could not load saved resets: ${errorMessage(error)}`);
+		await output(`Could not load saved resets: ${safe(errorMessage(error))}`);
 		return;
 	}
 	if (accounts.length === 0) {
-		await output("No Codex accounts found. Use /login to add one.");
+		await output("No provider accounts found. Use /login to add one.");
 		return;
 	}
 	const targetArg = arg.trim();
 	if (!targetArg) {
-		const lines = ["Saved Codex rate-limit resets:"];
+		const lines = ["Saved rate-limit resets:"];
 		for (const account of accounts) {
-			const detail = account.error ? `unavailable (${account.error})` : `${account.availableCount} available`;
-			lines.push(`- ${account.label}: ${detail}${account.active ? " (active)" : ""}`);
+			let detail: string;
+			if (account.error) {
+				detail = `unavailable (${safe(account.error)})`;
+			} else {
+				detail = `${account.availableCount} saved, ${account.redeemableCount} usable now`;
+				if (account.expiresAt) detail += `, expires ${safe(account.expiresAt)}`;
+				if (account.redeemableCount === 0 && account.unavailableReason) {
+					detail += ` (${safe(account.unavailableReason)})`;
+				}
+			}
+			lines.push(
+				`- ${safe(account.label)} [${safe(account.providerLabel)} · ${account.provider}/${account.target.credentialId}]: ${detail}${account.active ? " (active)" : ""}`,
+			);
 		}
-		lines.push("", "Spend one with `/usage reset <account email>` or `/usage reset active`.");
+		lines.push("", "Spend one with `/usage reset <provider>/<credential id>` or `/usage reset <provider>/active`.");
 		await output(lines.join("\n"));
 		return;
 	}
-	const wanted = targetArg.toLowerCase();
-	const target =
-		wanted === "active"
-			? accounts.find(account => account.active)
-			: accounts.find(
-					account =>
-						account.label.toLowerCase() === wanted ||
-						account.target.email?.toLowerCase() === wanted ||
-						account.target.accountId?.toLowerCase() === wanted,
-				);
-	if (!target) {
-		await output(`No Codex account matches "${targetArg}".`);
+
+	const slash = targetArg.indexOf("/");
+	if (slash <= 0) {
+		await output("Choose an account with `/usage reset <provider>/<credential id>`.");
 		return;
 	}
-	if (target.availableCount <= 0) {
-		await output(`${target.label}: no saved resets to spend.`);
+	const requestedProvider = normalizeResetProvider(targetArg.slice(0, slash));
+	const requestedAccount = targetArg
+		.slice(slash + 1)
+		.trim()
+		.toLowerCase();
+	if (!requestedProvider) {
+		await output(`Unknown reset provider "${safe(targetArg.slice(0, slash))}". Use anthropic or openai-codex.`);
+		return;
+	}
+	const requestedCredentialId = /^\d+$/.test(requestedAccount) ? Number(requestedAccount) : undefined;
+	const target = accounts.find(account => {
+		if (account.provider !== requestedProvider) return false;
+		if (requestedAccount === "active") return account.active;
+		return requestedCredentialId !== undefined && account.target.credentialId === requestedCredentialId;
+	});
+	if (!target) {
+		await output(`No stored account matches "${safe(targetArg)}". List choices with \`/usage reset\`.`);
+		return;
+	}
+	if (target.redeemableCount <= 0) {
+		const reason = target.unavailableReason ? ` (${safe(target.unavailableReason)})` : "";
+		await output(`${safe(target.label)} [${safe(target.providerLabel)}]: no saved resets usable right now${reason}.`);
 		return;
 	}
 	const outcome = await session.redeemResetCredit(target.target);
-	await output(describeRedeemOutcome(outcome, target.label));
+	await output(safe(describeRedeemOutcome(outcome, target.label)));
 }
 
 async function handleSessionPinCommand(
@@ -199,10 +240,7 @@ async function handleSessionPinCommand(
 	const providerName = provider?.name ?? accountList.provider;
 	const accounts = toSessionPinAccounts(accountList.accounts);
 	if (accounts.length === 0) {
-		const source = session.modelRegistry.authStorage.describeCredentialSource(
-			accountList.provider,
-			session.sessionId,
-		);
+		const source = session.modelRegistry.authStorage.keys.describe(accountList.provider, session.sessionId);
 		await output(
 			source
 				? `No stored OAuth accounts for ${providerName}. Current auth comes from ${source}.`
@@ -282,15 +320,15 @@ async function handleRotateAccountCommand(
 	}
 
 	const authStorage = session.modelRegistry.authStorage;
-	let accounts = toSessionPinAccounts(authStorage.listOAuthAccounts(provider.id, session.sessionId));
+	let accounts = toSessionPinAccounts(authStorage.oauth.accounts(provider.id, session.sessionId));
 	if (accounts.length > 1 && !accounts.some(account => account.active)) {
 		try {
-			await authStorage.getOAuthAccess(provider.id, session.sessionId);
+			await authStorage.oauth.access(provider.id, session.sessionId);
 		} catch (error) {
 			await output(`Could not resolve the active ${provider.name} account: ${errorMessage(error)}`);
 			return;
 		}
-		accounts = toSessionPinAccounts(authStorage.listOAuthAccounts(provider.id, session.sessionId));
+		accounts = toSessionPinAccounts(authStorage.oauth.accounts(provider.id, session.sessionId));
 	}
 
 	if (accounts.length === 0) {
@@ -311,7 +349,7 @@ async function handleRotateAccountCommand(
 	}
 	const current = accounts[currentIndex];
 	const next = accounts[(currentIndex + 1) % accounts.length];
-	if (!current || !next || !authStorage.pinSessionOAuthAccount(provider.id, session.sessionId, next.credentialId)) {
+	if (!current || !next || !authStorage.sessions.pin(provider.id, session.sessionId, next.credentialId)) {
 		await output(`The next ${provider.name} account is no longer available to select.`);
 		return;
 	}
@@ -340,8 +378,8 @@ async function handleSpromptCommand(
 	output: SlashCommandRuntime["output"],
 ): Promise<void> {
 	const sessionSettings = session.settings;
-	const files = (sessionSettings.get("systemPromptFiles") ?? {}) as Record<string, unknown>;
-	const placementSetting = sessionSettings.get("systemPromptPlacement") as SystemPromptPlacementSetting;
+	const files = cfgSystemPromptFiles.get(sessionSettings) ?? {};
+	const placementSetting = cfgSystemPromptPlacement.get(sessionSettings);
 	const model = session.model;
 	const currentKey = model ? modelPromptKey(model) : undefined;
 	const trimmed = arg.trim();
@@ -396,7 +434,7 @@ async function handleSpromptCommand(
 			await output(`Prompt file is empty: ${absolute}`);
 			return;
 		}
-		sessionSettings.set("systemPromptFiles", { ...files, [currentKey]: absolute });
+		cfgSystemPromptFiles.set(sessionSettings, { ...files, [currentKey]: absolute });
 		const channel = PLACEMENT_LABELS[resolveSystemPromptPlacement(placementSetting, model)];
 		await output(`Saved prompt file for ${currentKey}: ${absolute}. Delivered as ${channel} on this model.`);
 		return;
@@ -413,7 +451,7 @@ async function handleSpromptCommand(
 		}
 		// Re-enabled bindings normalize back to the bare-string form.
 		const next = binding.enabled ? { path: binding.path, enabled: false } : binding.path;
-		sessionSettings.set("systemPromptFiles", { ...files, [currentKey]: next });
+		cfgSystemPromptFiles.set(sessionSettings, { ...files, [currentKey]: next });
 		if (binding.enabled) {
 			await output(
 				`Disabled prompt file for ${currentKey} (kept ${binding.path}). Run /sprompt toggle to re-enable.`,
@@ -435,7 +473,7 @@ async function handleSpromptCommand(
 		}
 		const next = { ...files };
 		delete next[currentKey];
-		sessionSettings.set("systemPromptFiles", next);
+		cfgSystemPromptFiles.set(sessionSettings, next);
 		await output(`Removed prompt file for ${currentKey}.`);
 		return;
 	}
@@ -582,14 +620,16 @@ export const BUILTIN_SESSION_SLASH_COMMANDS: ReadonlyArray<SlashCommandSpec> = [
 			if (snapshot.running.length > 0) {
 				lines.push("", "Running Jobs");
 				for (const job of snapshot.running) {
-					lines.push(`  [${job.id}] ${job.type} (${job.status}) — ${formatDuration(now - job.startTime)}`);
+					lines.push(`  [${job.id}] ${job.type} (${job.status}) — ${formatCoarseDuration(now - job.startTime)}`);
 					lines.push(`    ${job.label}`);
 				}
 			}
 			if (snapshot.recent.length > 0) {
 				lines.push("", "Recent Jobs");
 				for (const job of snapshot.recent) {
-					lines.push(`  [${job.id}] ${job.type} (${job.status}) — ${formatDuration(now - job.startTime)}`);
+					lines.push(
+						`  [${job.id}] ${job.type} (${job.status}) — ${formatCoarseDuration((job.endTime ?? now) - job.startTime)}`,
+					);
 					lines.push(`    ${job.label}`);
 				}
 			}
@@ -606,10 +646,14 @@ export const BUILTIN_SESSION_SLASH_COMMANDS: ReadonlyArray<SlashCommandSpec> = [
 		icon: "gauge",
 		description: "Show provider usage and limits",
 		acpDescription: "Show token usage",
-		acpInputHint: "[show|reset [account|active]]",
+		acpInputHint: "[show|reset [provider/credential-id|provider/active]]",
 		subcommands: [
 			{ name: "show", description: "Show provider usage and limits" },
-			{ name: "reset", description: "Spend a saved Codex rate-limit reset", usage: "[account|active]" },
+			{
+				name: "reset",
+				description: "Spend a saved provider rate-limit reset",
+				usage: "[provider/credential-id|provider/active]",
+			},
 		],
 		allowArgs: true,
 		handle: async (command, runtime) => {
@@ -622,7 +666,7 @@ export const BUILTIN_SESSION_SLASH_COMMANDS: ReadonlyArray<SlashCommandSpec> = [
 				await handleUsageResetCommand(rest, runtime.session, runtime.output);
 				return commandConsumed();
 			}
-			return usage("Usage: /usage [show|reset [account|active]]", runtime);
+			return usage("Usage: /usage [show|reset [provider/credential-id|provider/active]]", runtime);
 		},
 		handleTui: async (command, runtime) => {
 			const { verb, rest } = parseSubcommand(command.args);
@@ -640,7 +684,7 @@ export const BUILTIN_SESSION_SLASH_COMMANDS: ReadonlyArray<SlashCommandSpec> = [
 				runtime.ctx.editor.setText("");
 				return;
 			}
-			runtime.ctx.showStatus("Usage: /usage [show|reset [account|active]]");
+			runtime.ctx.showStatus("Usage: /usage [show|reset [provider/credential-id|provider/active]]");
 			runtime.ctx.editor.setText("");
 		},
 	},
@@ -655,8 +699,19 @@ export const BUILTIN_SESSION_SLASH_COMMANDS: ReadonlyArray<SlashCommandSpec> = [
 			if ("error" in parsed) return usage(parsed.error, runtime);
 
 			await runtime.output("Syncing session files...");
+			// The Frustration page judges through this session's settings and
+			// registry; its cost lands on this session's ledger.
+			const judge = resolveJudge({
+				settings: runtime.settings,
+				registry: runtime.session.modelRegistry,
+				sessionId: runtime.session.sessionId,
+				purpose: "stats_frustration",
+				onUsage: journalJudgmentUsage(runtime.sessionManager),
+				telemetry: runtime.session.agent.telemetry,
+				cache: sharedJudgmentCache(),
+			});
 			try {
-				const result = await launchStatsDashboard(parsed);
+				const result = await launchStatsDashboard(parsed, async () => judge);
 				await runtime.output(result.message);
 			} catch (error) {
 				await runtime.output(`Stats dashboard failed: ${errorMessage(error)}`);
@@ -669,14 +724,18 @@ export const BUILTIN_SESSION_SLASH_COMMANDS: ReadonlyArray<SlashCommandSpec> = [
 		icon: "news",
 		description: "Show changelog entries",
 		acpDescription: "Show changelog",
-		acpInputHint: "[full]",
-		subcommands: [{ name: "full", description: "Show complete changelog" }],
+		acpInputHint: "[full|last [N]]",
+		subcommands: [
+			{ name: "full", description: "Show complete changelog" },
+			{ name: "last", description: "Show the last N releases (default 1)", usage: "[N]" },
+		],
 		allowArgs: true,
 		handle: async (command, runtime) => {
+			const view = parseChangelogView(command.args);
+			if ("error" in view) return usage(view.error, runtime);
 			const changelogPath = getChangelogPath();
 			const allEntries = await parseChangelog(changelogPath);
-			const showFull = command.args.trim().toLowerCase() === "full";
-			const entriesToShow = showFull ? allEntries : allEntries.slice(0, RECENT_CHANGELOG_ENTRY_LIMIT);
+			const entriesToShow = selectChangelogEntries(allEntries, view);
 			if (entriesToShow.length === 0) {
 				await runtime.output("No changelog entries found.");
 				return commandConsumed();
@@ -685,8 +744,7 @@ export const BUILTIN_SESSION_SLASH_COMMANDS: ReadonlyArray<SlashCommandSpec> = [
 			return commandConsumed();
 		},
 		handleTui: async (command, runtime) => {
-			const showFull = command.args.split(/\s+/).filter(Boolean).includes("full");
-			await runtime.ctx.handleChangelogCommand(showFull);
+			await runtime.ctx.handleChangelogCommand(command.args);
 			runtime.ctx.editor.setText("");
 		},
 	},
@@ -936,7 +994,7 @@ export const BUILTIN_SESSION_SLASH_COMMANDS: ReadonlyArray<SlashCommandSpec> = [
 			const rest = spaceIndex === -1 ? "" : raw.slice(spaceIndex + 1).trim();
 			const notes = getImportantNotesFromEntries(runtime.sessionManager.getBranch());
 
-			const showTimestamps = runtime.settings.get("notes.timestamps");
+			const showTimestamps = cfgNotesTimestamps.get(runtime.settings);
 			const safeKey = (key: string) => stripNoteControlChars(key).replace(/\n/g, "");
 			const renderNotes = (selected: readonly ImportantNote[]): string => {
 				const lines = selected.map(note => {
@@ -972,7 +1030,7 @@ export const BUILTIN_SESSION_SLASH_COMMANDS: ReadonlyArray<SlashCommandSpec> = [
 				const regexMatches = notes.filter(matcher);
 				const matchedKeys = new Set(regexMatches.map(note => note.key));
 				let modelNote = "";
-				const searchModel = runtime.settings.get("notes.searchModel");
+				const searchModel = cfgNotesSearchModel.get(runtime.settings);
 				if (searchModel && searchModel !== "off" && notes.length > 0 && regexMatches.length < notes.length) {
 					try {
 						const semanticKeys = await searchNotesWithModel(runtime, notes, rest, searchModel);

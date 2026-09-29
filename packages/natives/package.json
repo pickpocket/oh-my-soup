@@ -4,7 +4,7 @@
   "description": "Native Rust bindings for PDF conversion, audio, WebRTC, grep, clipboard, image processing, syntax highlighting, PTY, and shell operations via N-API",
   "type": "module",
   "homepage": "https://github.com/pickpocket/oh-my-soup",
-  "author": "Stencil Labs, Inc.",
+  "author": { "name": "Stencil Labs, Inc.", "url": "https://stencil.so" },
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -12,7 +12,7 @@
     "directory": "packages/natives"
   },
   "bugs": {
-    "url": "https://github.com/can1357/oh-my-pi/issues"
+    "url": "https://github.com/pickpocket/oh-my-soup/issues"
   },
   "keywords": [
     "napi",
@@ -70,20 +70,28 @@
   "exports": {
     ".": {
       "types": "./native/index.d.ts",
-      "import": "./native/index.js"
+      "import": "./native/index.js",
+      "default": "./native/index.js"
+    },
+    "./path": {
+      "types": "./native/path.d.ts",
+      "import": "./native/path.js",
+      "default": "./native/path.js"
     },
     "./desktop": {
       "types": "./native/desktop.d.ts",
-      "import": "./native/desktop.js"
+      "import": "./native/desktop.js",
+      "default": "./native/desktop.js"
     },
     "./clipboard": {
       "types": "./native/clipboard.d.ts",
-      "import": "./native/clipboard.js"
-    }
-    ,
+      "import": "./native/clipboard.js",
+      "default": "./native/clipboard.js"
+    },
     "./vcs": {
       "types": "./native/vcs.d.ts",
-      "import": "./native/vcs.js"
+      "import": "./native/vcs.js",
+      "default": "./native/vcs.js"
     }
   }
 }

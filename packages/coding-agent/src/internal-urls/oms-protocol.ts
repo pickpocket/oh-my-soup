@@ -7,9 +7,32 @@
  * - oms:// - Lists all available documentation files
  * - oms://<file>.md - Reads a specific documentation file
  */
-import * as path from "node:path";
+import omsDoc from "../prompts/internal-urls/omp.md" with { type: "text" };
 import { getDocFilenames, getEmbeddedDoc } from "./docs-index";
-import type { InternalResource, InternalUrl, ProtocolHandler, UrlCompletion } from "./types";
+import {
+	ompDocFilename as docsFilename,
+	ompDocRel as sourceDocRel,
+	ompDocsScopeEntries as docsScopeEntries,
+} from "./omp-scope";
+import type {
+	InternalResource,
+	InternalUrl,
+	ProtocolHandler,
+	ResolveContext,
+	SchemeSpec,
+	UrlCompletion,
+} from "./types";
+
+function canonicalDocPath(url: InternalUrl): string {
+	try {
+		return sourceDocRel(url);
+	} catch (error) {
+		if (error instanceof Error) {
+			throw new Error(error.message.replaceAll("omp://", "oms://"));
+		}
+		throw error;
+	}
+}
 
 /**
  * Handler for oms:// URLs.
@@ -18,19 +41,38 @@ import type { InternalResource, InternalUrl, ProtocolHandler, UrlCompletion } fr
  */
 export class OmsProtocolHandler implements ProtocolHandler {
 	readonly scheme = "oms";
-	readonly immutable = true;
+	readonly spec: SchemeSpec = { backing: "virtual", selectors: "lines", immutable: true };
+
+	/** Always advertised: harness docs are embedded in every build. */
+	promptDoc(): string {
+		return omsDoc.trim().replaceAll("omp://", "oms://");
+	}
 
 	async resolve(url: InternalUrl): Promise<InternalResource> {
-		// Extract filename from host + path
-		const host = url.rawHost || url.hostname;
-		const pathname = url.rawPathname ?? url.pathname;
-		const filename = host ? (pathname && pathname !== "/" ? host + pathname : host) : "";
+		const filename = docsFilename(url);
+		// The docs root (`oms://`, `oms://docs`) names no doc. The grammar also
+		// rejects absolute paths and `..` traversal.
+		const docPath = canonicalDocPath(url);
 
-		if (!filename) {
+		if (!filename || !docPath) {
 			return this.#listDocs(url);
 		}
 
-		return this.#readDoc(filename, url);
+		return this.#readDoc(docPath, filename, url);
+	}
+
+	/** The docs root expands to every embedded doc; a single-doc URL yields that doc (or throws when unknown). */
+	async enumerate(url: InternalUrl, context?: ResolveContext): Promise<Array<{ url: string; content: string }>> {
+		const docPath = canonicalDocPath(url);
+		if (!docPath) {
+			const entries = await docsScopeEntries(context);
+			if (entries.length === 0) {
+				throw new Error("No documentation files found");
+			}
+			return entries.map(entry => ({ url: entry.url.replace("omp://", "oms://"), content: entry.content }));
+		}
+		const resource = await this.#readDoc(docPath, docsFilename(url), url);
+		return [{ url: `oms://${docPath}`, content: resource.content }];
 	}
 
 	async complete(): Promise<UrlCompletion[]> {
@@ -54,23 +96,7 @@ export class OmsProtocolHandler implements ProtocolHandler {
 		};
 	}
 
-	async #readDoc(filename: string, url: InternalUrl): Promise<InternalResource> {
-		// Validate: no traversal, no absolute paths
-		if (path.isAbsolute(filename)) {
-			throw new Error("Absolute paths are not allowed in oms:// URLs");
-		}
-
-		const normalized = path.posix.normalize(filename.replaceAll("\\", "/"));
-		if (normalized === ".." || normalized.startsWith("../") || normalized.includes("/../")) {
-			throw new Error("Path traversal (..) is not allowed in oms:// URLs");
-		}
-
-		const docPath =
-			normalized === "docs" ? "" : normalized.startsWith("docs/") ? normalized.slice("docs/".length) : normalized;
-		if (!docPath) {
-			return this.#listDocs(url);
-		}
-
+	async #readDoc(docPath: string, filename: string, url: InternalUrl): Promise<InternalResource> {
 		const content = await getEmbeddedDoc(docPath);
 		if (content === undefined) {
 			const lookup = docPath.replace(/\.md$/, "");

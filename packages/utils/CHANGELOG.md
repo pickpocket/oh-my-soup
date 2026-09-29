@@ -7,6 +7,62 @@
 ### Changed
 
 - Changed outbound User-Agent consumers to share the versioned `USER_AGENT` constant (`oms/<version>`).
+## [18.4.3] - 2026-09-28
+
+### Added
+
+- Added an optional `onDone` callback to `readSseJsonOrText` that reports the `[DONE]` sentinel without attaching a raw-event observer ([#13650](https://github.com/can1357/oh-my-pi/pull/13650) by [@H4vC](https://github.com/H4vC)).
+
+### Changed
+
+- SSE events read without raw capture now share one frozen empty `raw` array instead of allocating one per event ([#13650](https://github.com/can1357/oh-my-pi/pull/13650) by [@H4vC](https://github.com/H4vC)).
+
+### Fixed
+
+- Fixed the unsettled-command report overriding an explicit non-zero exit code with 1 and printing a spurious "ended before completing" line ([#13623](https://github.com/can1357/oh-my-pi/pull/13623) by [@H4vC](https://github.com/H4vC))
+
+## [18.4.2] - 2026-09-28
+
+### Added
+
+- Added cloneJsonTree to provide a high-performance deep copy utility for JSON-shaped object trees
+
+## [18.4.1] - 2026-09-28
+
+### Fixed
+
+- Fixed SQLite stores opened with `recoverCorruption` crashing on a corrupt file instead of being preserved and recreated when the corruption surfaced as a different initialization error such as `no such table` ([#13530](https://github.com/can1357/oh-my-pi/pull/13530) by [@Hunter-124](https://github.com/Hunter-124))
+- Fixed raw stderr output staying on the previous day's log file after the log sink rotates at local midnight ([#13003](https://github.com/can1357/oh-my-pi/issues/13003)).
+
+## [18.3.1] - 2026-09-25
+
+### Fixed
+
+- Fixed log rotation near local-day boundaries so dated log files are consistently assigned to the correct local date.
+
+## [18.2.7] - 2026-09-21
+
+### Changed
+
+- Mermaid diagrams are now rendered with the native renderer, with output remaining unchanged.
+- PI_TIMING span lines now include their start offset to make unspanned gaps easier to identify.
+
+### Fixed
+
+- Fixed a startup crash when PI_TIMING profiled modules loaded via require() or TypeScript declaration assets.
+
+## [18.2.5] - 2026-09-17
+
+### Added
+
+- Added utilities for reading dotenv-sourced environment values, customizing filtered child-shell environment values, converting color palettes to RGB, cleaning trailing spaces from YAML block headers, and counting newlines in text.
+
+### Fixed
+
+- Improved rotating file logging performance by reusing an append file descriptor for each active log file.
+- Improved JSON serialization performance by avoiding unnecessary bigint handling when serializing values without bigints.
+- Fixed `$which` cache collisions for lookups using different PATH or working-directory options.
+- SSE token reads now expose raw wire-line data only when explicitly requested; the default token path no longer includes per-line raw slices.
 
 ## [18.2.3] - 2026-09-17
 
@@ -74,6 +130,7 @@
 ### Added
 
 - Added `getBrowserProfilesDir()` (`~/.oms/browser-profiles`; XDG: `$XDG_STATE_HOME/oms/browser-profiles`) for profiles of Chromium browsers spawned by the browser tool.
+- Added `getBrowserProfilesDir()` (`~/.oms/browser-profiles`; XDG: `$XDG_STATE_HOME/omp/browser-profiles`) for profiles of Chromium browsers spawned by the browser tool.
 
 ### Fixed
 
@@ -604,7 +661,7 @@
 
 ### Changed
 
-- Mermaid diagrams are now rendered to ASCII by a first-party vendored renderer (`src/vendor/mermaid-ascii`, derived from the MIT-licensed `beautiful-mermaid`, ASCII pipeline only) with terminal display width measured via `Bun.stringWidth` (grapheme-aware, correct for wide/East-Asian glyphs and emoji). Inline label formatting (HTML formatting tags and markdown emphasis) is now reduced to plain text instead of printed raw.
+- Mermaid diagrams are now rendered to ASCII by a first-party renderer (initially derived from the MIT-licensed `beautiful-mermaid`, ASCII pipeline only) with terminal display width measured via `Bun.stringWidth` (grapheme-aware, correct for wide/East-Asian glyphs and emoji). Inline label formatting (HTML formatting tags and markdown emphasis) is now reduced to plain text instead of printed raw.
 
 ### Removed
 

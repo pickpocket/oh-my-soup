@@ -1,3 +1,4 @@
+import { cfgScheduledPromptsEnabled } from "../session/settings";
 import {
 	formatScheduledPromptJob,
 	type ParsedHeartbeatArgs,
@@ -57,7 +58,7 @@ export const BUILTIN_HEARTBEAT_SLASH_COMMANDS: ReadonlyArray<SlashCommandSpec> =
 		inlineHint: "<interval|cron> <prompt>",
 		allowArgs: true,
 		handle: async (command, runtime) => {
-			if (runtime.settings.get("scheduledPrompts.enabled") === false) {
+			if (cfgScheduledPromptsEnabled.get(runtime.settings) === false) {
 				return usage("Scheduled prompts are disabled (scheduledPrompts.enabled).", runtime);
 			}
 			let parsed: ParsedHeartbeatArgs;

@@ -11,7 +11,7 @@ import { upgradeJsonSchemaTo202012, validateJsonSchemaValue } from "@oh-my-soup/
 
 export * from "@oh-my-soup/omstype/typebox";
 
-const VALIDATION_FAILURE = Symbol("pi.typebox.validationFailure");
+const VALIDATION_FAILURE = Symbol("omp.typebox.validationFailure");
 
 interface ValidationFailure {
 	message: string;

@@ -44,6 +44,7 @@ import type { OutputMeta } from "@oh-my-soup/pi-tui/tools/output-meta";
 import { ToolError } from "./tool-errors";
 import { type ToolResultBuilder, toolResult } from "./tool-result";
 import { clampTimeout } from "./tool-timeouts";
+import { cfgFridaEnabled, cfgFridaPython, cfgToolsMaxTimeout } from "./settings";
 
 const fridaActionSchema = type.enumerated(
 	"devices",
@@ -283,7 +284,7 @@ export class FridaTool implements AgentTool<typeof fridaSchema, FridaToolDetails
 	}
 
 	static createIf(session: ToolSession): FridaTool | null {
-		return session.settings.get("frida.enabled") ? new FridaTool(session) : null;
+		return cfgFridaEnabled.get(session.settings) ? new FridaTool(session) : null;
 	}
 
 	async execute(
@@ -296,7 +297,7 @@ export class FridaTool implements AgentTool<typeof fridaSchema, FridaToolDetails
 		const details: FridaToolDetails = { action: params.action, success: true };
 		const result = toolResult(details);
 		const timeoutSec = Math.floor(
-			clampTimeout("frida", params.timeout, this.session.settings.get("tools.maxTimeout")),
+			clampTimeout("frida", params.timeout, cfgToolsMaxTimeout.get(this.session.settings)),
 		);
 		const timeoutMs = timeoutSec * 1000;
 
@@ -308,7 +309,7 @@ export class FridaTool implements AgentTool<typeof fridaSchema, FridaToolDetails
 		try {
 			await fridaWorker.ensureStarted(
 				{
-					python: params.python ?? (this.session.settings.get("frida.python") || undefined),
+					python: params.python ?? (cfgFridaPython.get(this.session.settings) || undefined),
 					cwd: this.session.cwd,
 				},
 				signal,

@@ -2,7 +2,7 @@ import type { AgentToolResult } from "@oh-my-soup/pi-agent-core";
 import type { ImageContent, TextContent } from "@oh-my-soup/pi-ai";
 import type { OutputSummary, TruncationResult } from "@oh-my-soup/pi-tui/tools/streaming-output";
 import type { OutputMeta } from "@oh-my-soup/pi-tui/tools/output-meta";
-import type { LimitsInput, TruncationOptions, TruncationSummaryOptions, TruncationTextOptions } from "./output-meta";
+import type { LimitsInput, TruncationMetaInput, TruncationSummaryOptions, TruncationTextOptions } from "./output-meta";
 import { outputMeta } from "./output-meta";
 
 type ToolContent = Array<TextContent | ImageContent>;
@@ -30,7 +30,7 @@ export class ToolResultBuilder<TDetails extends DetailsWithMeta> {
 		return this;
 	}
 
-	truncation(result: TruncationResult, options: TruncationOptions): this {
+	truncation(result: TruncationResult, options: TruncationMetaInput): this {
 		this.#meta.truncation(result, options);
 		return this;
 	}
@@ -62,6 +62,12 @@ export class ToolResultBuilder<TDetails extends DetailsWithMeta> {
 
 	sourceInternal(value: string): this {
 		this.#meta.sourceInternal(value);
+		return this;
+	}
+
+	/** Mark the result as a bounded page of a file its source re-reads with line selectors. */
+	pagedSource(): this {
+		this.#meta.pagedSource();
 		return this;
 	}
 

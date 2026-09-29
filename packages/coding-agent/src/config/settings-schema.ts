@@ -44,7 +44,6 @@ import {
 	TINY_TITLE_MODEL_OPTIONS,
 	TINY_TITLE_MODEL_VALUES,
 } from "../tiny/models";
-import { IMAGE_PROVIDER_CHOICES, type ImageProvider } from "../tools/image-providers";
 import {
 	DEFAULT_TTS_LOCAL_MODEL_KEY,
 	DEFAULT_TTS_VOICE,
@@ -54,12 +53,7 @@ import {
 	TTS_LOCAL_VOICE_VALUES,
 } from "../tts/models";
 import { EDIT_MODES } from "../utils/edit-mode";
-import {
-	DEFAULT_WEB_SEARCH_TIMEOUT_SECONDS,
-	MAX_WEB_SEARCH_TIMEOUT_SECONDS,
-	SEARCH_PROVIDER_CHOICES,
-} from "../web/search/types";
-import { type SearchProviderId } from "@oh-my-soup/pi-tui/tools/web-search";
+import { DEFAULT_WEB_SEARCH_TIMEOUT_SECONDS, MAX_WEB_SEARCH_TIMEOUT_SECONDS } from "../web/search/types";
 import {
 	SERVICE_TIER_ANTHROPIC_OPTIONS,
 	SERVICE_TIER_ANTHROPIC_VALUES,
@@ -5945,30 +5939,6 @@ export const SETTINGS_SCHEMA = {
 				"Maximum concurrent Ollama Cloud subagent runs per process; 0 disables the provider-specific limit",
 		},
 	},
-	"providers.webSearchOrder": {
-		type: "array",
-		default: [] as SearchProviderId[],
-		ui: {
-			tab: "providers",
-			group: "Services",
-			label: "Web Search Provider Order",
-			description:
-				"Prioritized providers for the web_search tool; unlisted providers retain their default order afterward",
-			options: SEARCH_PROVIDER_CHOICES,
-			ordered: true,
-		},
-	},
-	"providers.webSearchExclude": {
-		type: "array",
-		default: [] as SearchProviderId[],
-		ui: {
-			tab: "providers",
-			group: "Services",
-			label: "Excluded Web Search Providers",
-			description: "Providers that web_search should never use, even as fallbacks",
-			options: SEARCH_PROVIDER_CHOICES,
-		},
-	},
 	"providers.webSearchTimeoutSeconds": {
 		type: "number",
 		default: DEFAULT_WEB_SEARCH_TIMEOUT_SECONDS,
@@ -6022,19 +5992,6 @@ export const SETTINGS_SCHEMA = {
 					description: "Force sandbox endpoint only",
 				},
 			],
-		},
-	},
-	"providers.imageOrder": {
-		type: "array",
-		default: [] as ImageProvider[],
-		ui: {
-			tab: "providers",
-			group: "Services",
-			label: "Image Provider Order",
-			description:
-				"Prioritized providers for image generation; unlisted providers follow the active session provider and the built-in order",
-			options: IMAGE_PROVIDER_CHOICES,
-			ordered: true,
 		},
 	},
 	"providers.fireworksTier": {

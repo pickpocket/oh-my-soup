@@ -4,6 +4,7 @@ import { resetSettingsForTest, Settings, settings } from "@oh-my-soup/pi-coding-
 import { MCPAuthorizationLinkPrompt } from "@oh-my-soup/pi-coding-agent/modes/controllers/mcp-command-controller";
 import { initTheme } from "@oh-my-soup/pi-tui/theme";
 import { visibleWidth } from "@oh-my-soup/pi-tui";
+import { cfgTuiHyperlinks } from "@oh-my-soup/pi-coding-agent/modes/settings";
 
 const OSC = "\x1b]";
 const BEL = "\x07";
@@ -57,7 +58,7 @@ describe("MCPAuthorizationLinkPrompt", () => {
 	});
 
 	afterEach(() => {
-		settings.clearOverride("tui.hyperlinks");
+		cfgTuiHyperlinks.clearOverride(settings);
 		resetSettingsForTest();
 	});
 

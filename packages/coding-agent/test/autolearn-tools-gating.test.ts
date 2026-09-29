@@ -4,7 +4,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { type } from "@oh-my-soup/omstype";
 import { getManagedSkillsDir } from "@oh-my-soup/pi-coding-agent/autolearn/managed-skills";
-import { type SettingPath, Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
 import {
 	resetActiveSkillsForTests,
 	type Skill,
@@ -18,10 +18,7 @@ import { ManageSkillTool } from "@oh-my-soup/pi-coding-agent/tools/manage-skill"
 import { removeWithRetries } from "@oh-my-soup/pi-utils";
 import { getAgentDir, setAgentDir } from "@oh-my-soup/pi-utils/dirs";
 
-function makeSession(
-	settingsOverrides: Partial<Record<SettingPath, unknown>> = {},
-	extra: Partial<ToolSession> = {},
-): ToolSession {
+function makeSession(settingsOverrides: Record<string, unknown> = {}, extra: Partial<ToolSession> = {}): ToolSession {
 	return {
 		cwd: "/tmp/test",
 		hasUI: false,
@@ -282,6 +279,31 @@ describe("learn execute", () => {
 		expect(result.content[0]).toEqual({ type: "text", text: "Lesson queued for retention." });
 	});
 
+	it("rejects a global Hindsight lesson before queueing or minting a skill", async () => {
+		const queued: string[] = [];
+		const session = makeSession(
+			{ "autolearn.enabled": true, "memory.backend": "hindsight" },
+			{
+				getHindsightSessionState: () =>
+					({
+						enqueueRetain: (memory: string) => {
+							queued.push(memory);
+						},
+					}) as unknown as HindsightSessionState,
+			},
+		);
+
+		await expect(
+			new LearnTool(session).execute("hindsight-global", {
+				memory: "A cross-project lesson must not become project-local.",
+				scope: "global",
+				skill: { action: "create", name: "global-lesson", description: "Shared lesson.", body: "# Shared lesson" },
+			}),
+		).rejects.toThrow(/only available with the Mnemopi backend/i);
+		expect(queued).toEqual([]);
+		expect(await Bun.file(path.join(getManagedSkillsDir(), "global-lesson", "SKILL.md")).exists()).toBe(false);
+	});
+
 	it("reports Hindsight skill failures as queued partial outcomes", async () => {
 		const queued: string[] = [];
 		const session = makeSession(
@@ -305,11 +327,13 @@ describe("learn execute", () => {
 		expect(queued).toEqual(["queued lesson"]);
 	});
 
-	it("fails the lesson and skips the skill when mnemopi returns no id", async () => {
+	it("fails the lesson with the write error and skips the skill when the mnemopi write fails", async () => {
 		const failingState = {
 			sessionId: "sess-2",
 			session: { sessionManager: { getCwd: () => "/tmp/work" } },
-			rememberScoped: () => undefined,
+			rememberScoped: () => {
+				throw new Error("database or disk is full");
+			},
 		};
 		const session = makeSession(
 			{ "autolearn.enabled": true, "memory.backend": "mnemopi" },
@@ -320,7 +344,7 @@ describe("learn execute", () => {
 				memory: "lesson",
 				skill: { action: "create", name: "should-not-exist", description: "d", body: "b" },
 			}),
-		).rejects.toThrow(/did not store/i);
+		).rejects.toThrow("Mnemopi did not store the lesson: database or disk is full");
 		// A failed lesson must not leave a minted skill behind.
 		expect(await Bun.file(path.join(getManagedSkillsDir(), "should-not-exist", "SKILL.md")).exists()).toBe(false);
 	});

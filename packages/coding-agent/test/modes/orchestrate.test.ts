@@ -1,13 +1,19 @@
 import { beforeAll, describe, expect, it } from "bun:test";
-import { renderOrchestrateNotice } from "@oh-my-soup/pi-coding-agent/modes/orchestrate";
-import { containsOrchestrate, highlightOrchestrate } from "@oh-my-soup/pi-tui/prompt/orchestrate";
+import { renderOrchestrateNotice } from "@oh-my-soup/pi-coding-agent/modes/magic-keywords";
+import {
+	containsMagicKeyword,
+	highlightMagicKeywords,
+	setMagicKeywords,
+} from "@oh-my-soup/pi-tui/prompt/magic-keywords";
 import { initTheme } from "@oh-my-soup/pi-tui/theme";
-import { containsUltrathink, highlightUltrathink } from "@oh-my-soup/pi-tui/prompt/ultrathink";
 import { clearBundledCommandsCache, loadBundledCommands } from "@oh-my-soup/pi-coding-agent/task/commands";
 
+const containsOrchestrate = (text: string) => containsMagicKeyword(text, "orchestrate");
+const highlightOrchestrate = (text: string) => highlightMagicKeywords(text);
+
 beforeAll(() => {
-	// highlightOrchestrate/highlightUltrathink read the global theme's color mode.
 	initTheme();
+	setMagicKeywords([{ word: "orchestrate", hue: [150, 280] }]);
 });
 
 describe("orchestrate keyword detection", () => {
@@ -72,11 +78,9 @@ describe("orchestrate keyword highlighting", () => {
 		expect(highlightOrchestrate(filePath)).toBe(filePath);
 	});
 
-	it("does not cross-trigger with the ultrathink highlighter", () => {
+	it("leaves text for unregistered keywords untouched", () => {
 		expect(highlightOrchestrate("ultrathink")).toBe("ultrathink");
-		expect(highlightUltrathink("orchestrate")).toBe("orchestrate");
-		expect(containsUltrathink("orchestrate")).toBe(false);
-		expect(containsOrchestrate("ultrathink")).toBe(false);
+		expect(containsMagicKeyword("orchestrate", "ultrathink")).toBe(false);
 	});
 });
 

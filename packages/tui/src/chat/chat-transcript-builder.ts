@@ -5,7 +5,7 @@
  * viewer ({@link AgentTranscriptViewer}) to render a parked subagent / advisor /
  * collab-guest transcript that has no live session.
  *
- * Unlike the old incremental hub sync, {@link ChatTranscriptBuilder.rebuild}
+ * Unlike incremental transcript sync, {@link ChatTranscriptBuilder.rebuild}
  * always discards prior components and rebuilds the whole transcript from the
  * supplied entries. Re-rendering a growing transcript is therefore O(n) in the
  * entry count, but it cannot duplicate or misorder rows the way incremental
@@ -27,7 +27,7 @@ import {
 	SKILL_PROMPT_MESSAGE_TYPE,
 	type SkillPromptDetails,
 } from "./messages";
-import { type TranscriptEntryLike as TranscriptEntry, transcriptEntryMessage } from "./transcript-entry";
+import { textContent, type TranscriptEntryLike as TranscriptEntry, transcriptEntryMessage } from "./transcript-entry";
 import { theme } from "../theme";
 import {
 	assistantHasVisibleContent,
@@ -74,15 +74,6 @@ export interface ChatTranscriptBuilderDeps {
 	/** Session-scoped resolved destinations for model-authored Markdown links. */
 	linkTargets?: ReadonlyMap<string, string>;
 	requestRender: () => void;
-}
-
-/** Extracts the plain-text content of a user message (string or text blocks). */
-function userMessageText(message: Extract<AgentMessage, { role: "user" }>): string {
-	if (typeof message.content === "string") return message.content;
-	return message.content
-		.filter((block): block is { type: "text"; text: string } => block.type === "text")
-		.map(block => block.text)
-		.join("");
 }
 
 export class ChatTranscriptBuilder {
@@ -193,12 +184,12 @@ export class ChatTranscriptBuilder {
 		this.#expandables.push(component);
 	}
 
-	/** A `hub` wait showing all-running is displaced by the next `hub` call. */
+	/** A `wait` showing all-running is displaced by the next `wait` call. */
 	#resolveWaitingPoll(nextToolName?: string): void {
 		const previous = this.#waitingPoll;
 		if (!previous) return;
 		this.#waitingPoll = null;
-		if (nextToolName === "hub" && previous.isDisplaceableBlock() && this.container.canRemoveBlock(previous)) {
+		if (nextToolName === "wait" && previous.isDisplaceableBlock() && this.container.canRemoveBlock(previous)) {
 			this.container.removeChild(previous);
 		}
 		previous.seal();
@@ -306,8 +297,8 @@ export class ChatTranscriptBuilder {
 				// A user prompt closes the poll-displacement window, same as the live path.
 				if (message.role === "user") this.#resolveWaitingPoll();
 				if (message.role === "user") this.#resolveTodoSnapshot();
-				const textContent = message.role === "user" ? userMessageText(message) : "";
-				if (textContent) {
+				const userText = message.role === "user" ? textContent(message.content) : "";
+				if (userText) {
 					const isSynthetic = message.role === "developer" ? true : (message.synthetic ?? false);
 					// Synthetic (agent-attributed) inputs — chiefly the advisor's `Session
 					// update` replay dumps — can be hundreds of KiB of Markdown each.
@@ -315,11 +306,15 @@ export class ChatTranscriptBuilder {
 					// collapse them behind a compact summary that builds Markdown only on
 					// ctrl+o expand. Real user prompts stay fully rendered.
 					if (isSynthetic) {
-						const collapsed = new CollapsedSyntheticMessageComponent(textContent);
+						const collapsed = new CollapsedSyntheticMessageComponent(userText);
 						this.#trackExpandable(collapsed);
 						this.container.addChild(collapsed);
 					} else {
-						this.container.addChild(new UserMessageComponent(textContent));
+						this.container.addChild(
+							new UserMessageComponent(userText, {
+								liveSteered: message.role === "user" && message.liveSteered === true,
+							}),
+						);
 					}
 				}
 				break;
@@ -526,7 +521,7 @@ export class ChatTranscriptBuilder {
 		if (!pending) return;
 		pending.updateResult(message, false, message.toolCallId);
 		this.#pendingTools.delete(message.toolCallId);
-		if (message.toolName === "hub" && pending instanceof ToolExecutionComponent && pending.isDisplaceableBlock()) {
+		if (message.toolName === "wait" && pending instanceof ToolExecutionComponent && pending.isDisplaceableBlock()) {
 			this.#waitingPoll = pending;
 		} else if (
 			message.toolName === "todo" &&

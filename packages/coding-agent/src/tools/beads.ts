@@ -29,6 +29,15 @@ import { formatMoreItems, framedToolCard, renderStatusLine } from "@oh-my-soup/p
 import type { ToolSession } from ".";
 import { truncateForPrompt } from "./approval";
 import { ToolError } from "./tool-errors";
+import {
+	cfgBeadsEnabled,
+	cfgBeadsGraphEnabled,
+	cfgBeadsGraphExclude,
+	cfgBeadsGraphInclude,
+	cfgBeadsGraphMaxFileBytes,
+	cfgBeadsGraphMaxFiles,
+	cfgBeadsRemote,
+} from "../session/settings";
 
 export { findBeadsInitRoot, findBeadsWorkspaceRoot, NativeBeadsRepository } from "../beads/repository";
 export { syncNativeBeads } from "../beads/sync";
@@ -333,7 +342,7 @@ export class BeadsTool implements AgentTool<typeof beadsSchema, BeadsToolDetails
 	constructor(private readonly session: ToolSession) {}
 
 	static createIf(session: ToolSession): BeadsTool | null {
-		if (!session.settings.get("beads.enabled")) return null;
+		if (!cfgBeadsEnabled.get(session.settings)) return null;
 		return new BeadsTool(session);
 	}
 
@@ -614,17 +623,17 @@ export class BeadsTool implements AgentTool<typeof beadsSchema, BeadsToolDetails
 		signal: AbortSignal | undefined,
 		onUpdate: AgentToolUpdateCallback<BeadsToolDetails> | undefined,
 	): Promise<AgentToolResult<BeadsToolDetails>> {
-		if (!this.session.settings.get("beads.graph.enabled")) {
+		if (!cfgBeadsGraphEnabled.get(this.session.settings)) {
 			throw new ToolError("The derived Beads graph is disabled by `beads.graph.enabled`.");
 		}
 		const root = this.#workspaceRoot();
 		const store = NativeBeadsGraphStore.open(root);
 		try {
 			const indexer = new NativeBeadsGraphIndexer(store, {
-				include: this.session.settings.get("beads.graph.include"),
-				exclude: this.session.settings.get("beads.graph.exclude"),
-				maxFiles: this.session.settings.get("beads.graph.maxFiles"),
-				maxFileBytes: this.session.settings.get("beads.graph.maxFileBytes"),
+				include: cfgBeadsGraphInclude.get(this.session.settings),
+				exclude: cfgBeadsGraphExclude.get(this.session.settings),
+				maxFiles: cfgBeadsGraphMaxFiles.get(this.session.settings),
+				maxFileBytes: cfgBeadsGraphMaxFileBytes.get(this.session.settings),
 				signal,
 				onProgress: progress => {
 					const graph = graphProgressDetails(progress);
@@ -647,7 +656,7 @@ export class BeadsTool implements AgentTool<typeof beadsSchema, BeadsToolDetails
 	async #executeSync(signal?: AbortSignal): Promise<AgentToolResult<BeadsToolDetails>> {
 		const repository = NativeBeadsRepository.open(this.#workspaceRoot());
 		try {
-			const remote = this.session.settings.get("beads.remote")?.trim() || "origin";
+			const remote = cfgBeadsRemote.get(this.session.settings)?.trim() || "origin";
 			const result = await syncNativeBeads(repository, remote, signal);
 			return {
 				content: [{ type: "text", text: result.text }],

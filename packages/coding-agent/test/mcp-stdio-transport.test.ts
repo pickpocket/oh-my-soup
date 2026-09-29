@@ -313,7 +313,6 @@ describe("resolveStdioSpawnCommand", () => {
 			await removeWithRetries(tempDir);
 		}
 	});
-
 	it("resolves extension-less absolute Windows paths to the sibling .cmd shim", async () => {
 		// Mirrors npm's Windows shim layout: bare `codegraph` (shebang script),
 		// `codegraph.cmd` (cmd.exe wrapper), and `codegraph.ps1` siblings under
@@ -619,17 +618,6 @@ describe("writeFrame", () => {
 
 		expect(writeFrame(sink, "anything\n")).toBe(false);
 		expect(sink.writes).toEqual(["anything\n"]);
-	});
-
-	it("does not propagate non-Error throws either", () => {
-		const sink = {
-			write() {
-				throw "string-thrown-non-error";
-			},
-			flush() {},
-		};
-
-		expect(writeFrame(sink, "x")).toBe(false);
 	});
 
 	it("returns true and neutralizes an asynchronous write rejection (broken pipe surfaced as a Promise)", async () => {

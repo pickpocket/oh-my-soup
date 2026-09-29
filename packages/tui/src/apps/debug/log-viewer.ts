@@ -1,16 +1,13 @@
+import { formatKeyHint, formatKeyHints } from "../../app-keybindings";
 import type { Component } from "../../tui";
 import { extractPrintableText, matchesKey } from "../../keys";
 import { routeSgrMouseInput, type SgrMouseEvent } from "../../mouse";
 import { padding, replaceTabs, truncateToWidth, visibleWidth } from "../../utils";
 import { sanitizeText } from "@oh-my-soup/pi-utils";
 import { theme } from "../../theme/theme";
+import { sanitizeDisplayText } from "../../overlays/extensions/display-text";
 import { DebugViewerFrame, type DebugViewerFrameContent, type DebugViewerFrameContext } from "./viewer-frame";
-import {
-	formatDebugLogExpandedLines,
-	formatDebugLogLine,
-	parseDebugLogPid,
-	parseDebugLogTimestampMs,
-} from "./log-formatting";
+import { formatDebugLogExpandedLines, parseDebugLogPid, parseDebugLogTimestampMs } from "./log-formatting";
 /** Host capabilities for copying and fetching earlier log entries. */
 export interface LogViewerDeps {
 	copyToClipboard(text: string): void;
@@ -719,7 +716,7 @@ export class DebugLogViewerComponent implements Component {
 	}
 
 	#controlsText(): string {
-		return "Esc close · Ctrl+C copy · ↑/↓/wheel move · click toggle · Shift+↑/↓ select · ←/→ collapse/expand · Ctrl+A all · Ctrl+O older · Ctrl+P pid";
+		return `${formatKeyHint("escape")} close · ${formatKeyHint("ctrl+c")} copy · ${formatKeyHints(["up", "down"])}/wheel move · click toggle · ${formatKeyHints(["shift+up", "shift+down"])} select · ${formatKeyHints(["left", "right"])} collapse/expand · ${formatKeyHint("ctrl+a")} all · ${formatKeyHint("ctrl+o")} older · ${formatKeyHint("ctrl+p")} pid`;
 	}
 
 	#filterText(): string {
@@ -735,7 +732,7 @@ export class DebugLogViewerComponent implements Component {
 	#statusText(): string {
 		return this.#statusMessage
 			? theme.fg("success", this.#statusMessage)
-			: theme.fg("dim", "Enter loads older when highlighted; printable keys update filter");
+			: theme.fg("dim", `${formatKeyHint("enter")} loads older when highlighted; printable keys update filter`);
 	}
 
 	async #handleLoadOlder(additionalCount: number = LOAD_OLDER_CHUNK): Promise<void> {
@@ -836,7 +833,10 @@ export class DebugLogViewerComponent implements Component {
 				continue;
 			}
 
-			const preview = formatDebugLogLine(this.#model.getRawLine(logIndex), contentWidth);
+			const preview = truncateToWidth(
+				sanitizeDisplayText(this.#model.getRawLine(logIndex)),
+				Math.max(1, contentWidth),
+			);
 			const content = selected ? theme.bold(preview) : preview;
 			rendered.push({ rowIndex, lines: [truncateToWidth(`${prefix}${content}`, innerWidth)] });
 		}

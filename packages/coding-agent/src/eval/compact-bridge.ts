@@ -8,6 +8,7 @@
  * explicit request wins. One pending request max; re-calls replace it; turn
  * aborts drop it. Gated by the `compaction.agentCallable` setting.
  */
+import { cfgCompactionAgentCallable } from "../session/context-settings";
 import type { ToolSession } from "../tools";
 import { ToolError } from "../tools/tool-errors";
 
@@ -28,7 +29,7 @@ export type EvalCompactResult =
  */
 export function runEvalCompact(args: unknown, options: EvalCompactBridgeOptions): EvalCompactResult {
 	const session = options.session;
-	if (session.settings.get("compaction.agentCallable") !== true) {
+	if (cfgCompactionAgentCallable.get(session.settings) !== true) {
 		throw new ToolError("compact.* is disabled in this session (compaction.agentCallable = false)");
 	}
 	const payload = (args && typeof args === "object" ? args : {}) as { op?: unknown; instructions?: unknown };

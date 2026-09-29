@@ -83,7 +83,7 @@ function terminalYield(): AgentSessionEvent[] {
 function createScriptedSession(script: (emit: (event: AgentSessionEvent) => void) => Promise<void>): AgentSession {
 	const listeners: Array<(event: AgentSessionEvent) => void> = [];
 	const emit = (event: AgentSessionEvent) => {
-		for (const listener of [...listeners]) listener(event);
+		for (const listener of listeners.slice()) listener(event);
 	};
 	const session = {
 		state: { messages: [] },

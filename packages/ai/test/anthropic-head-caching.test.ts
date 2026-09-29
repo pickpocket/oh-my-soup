@@ -13,17 +13,9 @@
  * a 400 so the request short-circuits.
  */
 import { describe, expect, it } from "bun:test";
-import type { MessageCreateParams } from "@oh-my-soup/pi-ai/providers/anthropic-wire";
+import type { MessageCreateParams, TextBlockParam } from "@oh-my-soup/pi-ai/providers/anthropic-wire";
 import { streamAnthropic } from "@oh-my-soup/pi-ai/providers/anthropic";
-import type {
-	AssistantMessage,
-	CacheRetention,
-	Context,
-	Message,
-	Model,
-	ModelSpec,
-	ProviderSessionState,
-} from "@oh-my-soup/pi-ai/types";
+import type { AssistantMessage, CacheRetention, Context, Message, Model, ModelSpec } from "@oh-my-soup/pi-ai/types";
 import { markPerCallContextMessage } from "@oh-my-soup/pi-ai/utils/block-symbols";
 import { buildModel } from "@oh-my-soup/pi-catalog/build";
 
@@ -86,6 +78,32 @@ async function captureWireBody(
 	return body;
 }
 
+/**
+ * Builds one OAuth request and aborts it once the payload is built. `message`
+ * is the terminal message; its `requestControls` go on the reply appended for
+ * the next turn.
+ */
+async function captureTurn(
+	model: Model<"anthropic-messages">,
+	context: Context,
+	sessionId: string,
+): Promise<{ body: MessageCreateParams; message: AssistantMessage }> {
+	const controller = new AbortController();
+	let body: MessageCreateParams | undefined;
+	const message = await streamAnthropic(model, context, {
+		apiKey: "sk-ant-api-test",
+		signal: controller.signal,
+		isOAuth: true,
+		sessionId,
+		onPayload: payload => {
+			body = payload as unknown as MessageCreateParams;
+			controller.abort();
+		},
+	}).result();
+	if (!body) throw new Error("wire body was not captured");
+	return { body, message };
+}
+
 function countCacheBreakpoints(body: MessageCreateParams): number {
 	let count = 0;
 	for (const block of body.system ?? []) {
@@ -102,6 +120,12 @@ function countCacheBreakpoints(body: MessageCreateParams): number {
 		}
 	}
 	return count;
+}
+
+function textSystemBlocks(body: MessageCreateParams): TextBlockParam[] {
+	const system = body.system;
+	if (!Array.isArray(system)) return [];
+	return system.filter((block): block is TextBlockParam => typeof block !== "string");
 }
 
 function findCachedMessageIndices(body: MessageCreateParams): number[] {
@@ -173,32 +197,38 @@ describe("anthropic head caching (general API-key path)", () => {
 		expect(lastBlock.cache_control?.type).toBe("ephemeral");
 	});
 
-	it("keeps rolling and decimation breakpoints before per-call context", async () => {
-		const messages: Message[] = [
-			{ role: "user", content: "stable user", timestamp: 1 },
-			assistantMessage("stable assistant", 2),
-		];
-		const perCallMessage: Message = {
-			role: "developer",
-			content: "per-call context",
-			attribution: "agent",
-			timestamp: 3,
+	it("keeps the rolling tail breakpoint advancing past interior per-call context", async () => {
+		const buildHistory = (turns: number): Message[] => {
+			const messages: Message[] = [
+				{ role: "user", content: "stable user", timestamp: 1 },
+				assistantMessage("stable assistant", 2),
+			];
+			const perCallMessage: Message = {
+				role: "developer",
+				content: "per-call context",
+				attribution: "agent",
+				timestamp: 3,
+			};
+			markPerCallContextMessage(perCallMessage);
+			messages.push(perCallMessage);
+			for (let turn = 1; turn <= turns; turn++) {
+				messages.push({ role: "user", content: `later user ${turn}`, timestamp: turn * 2 + 2 });
+				messages.push(assistantMessage(`later assistant ${turn}`, turn * 2 + 3));
+			}
+			return messages;
 		};
-		markPerCallContextMessage(perCallMessage);
-		messages.push(perCallMessage);
-		for (let turn = 1; turn <= 15; turn++) {
-			messages.push({ role: "user", content: `later user ${turn}`, timestamp: turn * 2 + 2 });
-			messages.push(assistantMessage(`later assistant ${turn}`, turn * 2 + 3));
-		}
-
-		const body = await captureWireBody(undefined, { ...CONTEXT, messages });
-
-		expect(findCachedMessageIndices(body)).toEqual([0, 1]);
-	});
-
-	it("stays within Anthropic's 4-breakpoint budget", async () => {
-		const body = await captureWireBody();
-		expect(countCacheBreakpoints(body)).toBeLessThanOrEqual(4);
+		// The interior per-call mark truncates the reusable prefix at the mark
+		// but must not freeze the tail: across two successive histories the
+		// tail breakpoint index must advance with the new messages.
+		const tailBreakpoint = async (turns: number): Promise<number> => {
+			const body = await captureWireBody(undefined, { ...CONTEXT, messages: buildHistory(turns) });
+			expect(countCacheBreakpoints(body)).toBeLessThanOrEqual(4);
+			const cached = findCachedMessageIndices(body);
+			return Math.max(...cached);
+		};
+		const first = await tailBreakpoint(15);
+		const second = await tailBreakpoint(16);
+		expect(second).toBeGreaterThan(first);
 	});
 
 	it("adds no breakpoints when caching is disabled", async () => {
@@ -518,47 +548,30 @@ describe("anthropic head caching (general API-key path)", () => {
 
 	it("skips undecoratable trailing messages so tool-control turns keep a rolling tail breakpoint", async () => {
 		const oAuthModel = buildModel({ ...MODEL_SPEC, id: "claude-fable-5-1", name: "Claude Fable 5.1" });
-		const providerSessionState = new Map<string, ProviderSessionState>();
-		const flap = (turn: number): Context["tools"] =>
-			turn % 2 === 0
-				? [
-						...(CONTEXT.tools ?? []),
-						{
-							name: "extra",
-							description: "Extra tool",
-							parameters: { type: "object", properties: {}, additionalProperties: false },
-						},
-					]
-				: CONTEXT.tools;
-		const captureFlap = (messages: Message[], tools: Context["tools"]): Promise<MessageCreateParams> => {
-			const controller = new AbortController();
-			const { promise, resolve } = Promise.withResolvers<MessageCreateParams>();
-			const stream = streamAnthropic(
-				oAuthModel,
-				{ systemPrompt: ["You are helpful."], messages, tools },
-				{
-					apiKey: "sk-ant-api-test",
-					signal: controller.signal,
-					isOAuth: true,
-					sessionId: "sess-1",
-					providerSessionState,
-					onPayload: payload => {
-						resolve(payload as unknown as MessageCreateParams);
-						controller.abort();
-					},
-				},
-			);
-			void stream.result().catch(() => undefined);
-			return promise;
+		const extra = {
+			name: "extra",
+			description: "Extra tool",
+			parameters: { type: "object", properties: {}, additionalProperties: false },
 		};
+		// Withdrawn `extra` stays declared through `inactiveTools`, so every other turn sends a tool control.
+		const flap = (turn: number): Pick<Context, "tools" | "inactiveTools"> =>
+			turn % 2 === 0
+				? { tools: [...(CONTEXT.tools ?? []), extra] }
+				: { tools: CONTEXT.tools, inactiveTools: [extra] };
+		const captureFlap = (messages: Message[], tools: Pick<Context, "tools" | "inactiveTools">) =>
+			captureTurn(oAuthModel, { systemPrompt: ["You are helpful."], messages, ...tools }, "sess-1");
 		const history: Message[] = [
 			{ role: "user", content: "hello", timestamp: 1 },
 			{ role: "developer", content: "Session policy reminder.", timestamp: 2 },
 		];
 		let flapBody: MessageCreateParams | undefined;
 		for (let turn = 1; turn <= 32; turn++) {
-			flapBody = await captureFlap([...history], flap(turn));
-			history.push(assistantMessage(`answer ${turn}`, turn * 2 + 10));
+			const flapTurn = await captureFlap([...history], flap(turn));
+			flapBody = flapTurn.body;
+			history.push({
+				...assistantMessage(`answer ${turn}`, turn * 2 + 10),
+				requestControls: flapTurn.message.requestControls,
+			});
 			history.push({ role: "user", content: `question ${turn}`, timestamp: turn * 2 + 11 });
 		}
 		if (!flapBody) throw new Error("wire body was not captured");
@@ -591,5 +604,104 @@ describe("anthropic head caching (general API-key path)", () => {
 		expect(cached).toContain(68);
 		expect(cached).toContain(69);
 		expect(cached).toHaveLength(4);
+	});
+	it("keeps the head breakpoint on the stable prefix when the recall suffix refreshes", async () => {
+		const oAuthModel = buildModel({ ...MODEL_SPEC, id: "claude-opus-5", name: "Claude Opus 5" });
+		const captureRecall = (recall: string, messages: Message[]) =>
+			captureTurn(
+				oAuthModel,
+				{ systemPrompt: ["You are helpful.", "Follow the house style.", recall], messages, tools: CONTEXT.tools },
+				"sess-recall",
+			);
+		const messages: Message[] = [{ role: "user", content: "hello", timestamp: 1 }];
+		const first = await captureRecall("<memories>\nrecall v1\n</memories>", messages);
+		const before = first.body;
+		const { body: after } = await captureRecall("<memories>\nrecall v2\n</memories>", [
+			...messages,
+			{ ...assistantMessage("hi there", 2), requestControls: first.message.requestControls },
+			{ role: "user", content: "again", timestamp: 3 },
+		]);
+		expect(countCacheBreakpoints(after)).toBeLessThanOrEqual(4);
+		// The boundary breakpoint sits on the last stable block: with 2 OAuth
+		// identity blocks + 2 stable prompt blocks + 1 recall suffix, the
+		// anchor is index 3. The pre-decorated identity block (index 1) loses
+		// its breakpoint so the head stays at tool + system and both rolling
+		// message breakpoints survive.
+		const systemAfter = textSystemBlocks(after);
+		const cachedSystem = systemAfter
+			.map((block, index) => ("cache_control" in block && block.cache_control != null ? index : -1))
+			.filter(index => index >= 0);
+		expect(cachedSystem).toEqual([systemAfter.length - 2]);
+		expect(findCachedMessageIndices(after)).toHaveLength(2);
+		expect(textSystemBlocks(before).length).toBe(systemAfter.length);
+		// Stable prefix bytes survive the recall refresh: strip the volatile
+		// suffix and the per-turn cache_control, then compare.
+		const stableText = (body: MessageCreateParams): string[] =>
+			textSystemBlocks(body)
+				.filter(block => !block.text.startsWith("<memories>"))
+				.map(block => block.text);
+		expect(stableText(after)).toEqual(stableText(before));
+	});
+
+	it("anchors before the first volatile segment so blocks appended behind it stay out of the cached head", async () => {
+		// Coding-agent layout: static prompt, cwd-derived `<project-context>`,
+		// per-spawn subagent role text, then per-turn recall.
+		const capture = (cwd: string, role: string) =>
+			captureWireBody(undefined, {
+				...CONTEXT,
+				systemPrompt: [
+					"Static agent prompt.",
+					`<project-context>\n<file path="${cwd}/AGENTS.md">rules</file>\n</project-context>`,
+					role,
+					"<memories>\nrecall\n</memories>",
+				],
+			});
+		const first = textSystemBlocks(await capture("/work/a", "Role: spawn 1"));
+		const second = textSystemBlocks(await capture("/work/b", "Role: spawn 2"));
+		for (const system of [first, second]) {
+			expect(system.flatMap((block, index) => (block.cache_control != null ? [index] : []))).toEqual([0]);
+		}
+		expect(second[0]).toEqual(first[0]);
+	});
+
+	it("spends the OAuth system breakpoint on the last system block without taking one from the messages", async () => {
+		const oAuthModel = buildModel({ ...MODEL_SPEC, id: "claude-opus-5", name: "Claude Opus 5" });
+		const { body } = await captureTurn(
+			oAuthModel,
+			{
+				systemPrompt: ["You are helpful.", "Follow the house style."],
+				messages: [
+					{ role: "user", content: "hello", timestamp: 1 },
+					assistantMessage("hi there", 2),
+					{ role: "user", content: "again", timestamp: 3 },
+				],
+				tools: CONTEXT.tools,
+			},
+			"sess-oauth-anchor",
+		);
+		// 2 OAuth identity blocks + 2 caller prompt blocks. The only system
+		// breakpoint is on the last block, so a message-prefix miss still reads
+		// tools + the whole system prompt from cache.
+		const system = textSystemBlocks(body);
+		const cachedSystem = system
+			.map((block, index) => ("cache_control" in block && block.cache_control != null ? index : -1))
+			.filter(index => index >= 0);
+		expect(cachedSystem).toEqual([system.length - 1]);
+		// The move keeps the head at tool + system, so both rolling message
+		// breakpoints survive.
+		expect(findCachedMessageIndices(body)).toEqual([1, 2]);
+	});
+
+	it("falls back to tail anchoring when every system block is volatile", async () => {
+		const body = await captureWireBody(undefined, {
+			systemPrompt: ["<memories>\nonly recall\n</memories>"],
+			tools: [],
+			messages: [{ role: "user", content: "hello", timestamp: 1 }],
+		});
+		const systemAfter = textSystemBlocks(body);
+		const cachedSystem = systemAfter
+			.map((block, index) => ("cache_control" in block && block.cache_control != null ? index : -1))
+			.filter(index => index >= 0);
+		expect(cachedSystem).toContain(systemAfter.length - 1);
 	});
 });

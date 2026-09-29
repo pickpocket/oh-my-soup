@@ -28,7 +28,6 @@ describe("legacy pi compat package-root override validation (issue #2168)", () =
 		const result = __validateLegacyPiPackageRootOverrides(candidates, () => true);
 		expect(result).toEqual(candidates);
 	});
-
 	it("drops overrides whose filesystem targets are missing on disk", () => {
 		const candidates = {
 			"@oh-my-soup/pi-ai": "/tmp/exists-ai.js",

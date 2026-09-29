@@ -24,6 +24,7 @@ import {
 } from "@oh-my-soup/pi-tui/render";
 import type { ToolSession } from "./index";
 import { actorForSession } from "./beads";
+import { cfgNotesTimestamps } from "../session/settings";
 
 const notesSchema = type({
 	op: type('"list" | "set" | "delete" | "clear"').describe("operation to apply"),
@@ -73,7 +74,7 @@ export class NotesTool implements AgentTool<typeof notesSchema, NotesToolDetails
 	async #executeSession(params: NotesParams): Promise<AgentToolResult<NotesToolDetails>> {
 		const manager = this.session.sessionManager;
 		const storage = manager && this.session.getSessionFile() ? "session" : "memory";
-		const timestamps = this.session.settings.get("notes.timestamps");
+		const timestamps = cfgNotesTimestamps.get(this.session.settings);
 		const sessionId = manager?.getSessionId();
 		const branchGeneration = manager?.getBranchGeneration();
 		const ownsBranch = () =>

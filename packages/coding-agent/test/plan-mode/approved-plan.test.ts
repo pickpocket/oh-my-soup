@@ -6,7 +6,7 @@ import {
 	resolveApprovedPlan,
 	resolvePlanTitle,
 } from "@oh-my-soup/pi-coding-agent/plan-mode/approved-plan";
-import { normalizeLocalScheme } from "@oh-my-soup/pi-coding-agent/tools/path-utils";
+import { InternalUrlRouter } from "@oh-my-soup/pi-coding-agent/internal-urls/router";
 
 describe("planFileUrlForSlug", () => {
 	it("maps a slug to its local plan URL", () => {
@@ -67,9 +67,10 @@ describe("resolveApprovedPlan", () => {
 		// Mirror the real reader: canonicalize the local scheme before lookup, so a
 		// `local:/…` state path resolves the same file as the scanner's `local://…`.
 		const canonical = (files: Record<string, string>) => {
+			const router = InternalUrlRouter.instance();
 			const map: Record<string, string> = {};
-			for (const url in files) map[normalizeLocalScheme(url)] = files[url];
-			return async (url: string) => map[normalizeLocalScheme(url)] ?? null;
+			for (const url in files) map[router.normalize(url)] = files[url];
+			return async (url: string) => map[router.normalize(url)] ?? null;
 		};
 		const result = await resolveApprovedPlan({
 			suppliedTitle: undefined,
@@ -202,9 +203,13 @@ describe("resolvePlanTitle", () => {
 		expect(result.fileName).toBe("Code-Review-nettools-Updated-Issues.md");
 	});
 
-	it("falls back to the H1 when `suppliedTitle` is missing entirely", () => {
+	it("falls back to the plan's first H1 when `suppliedTitle` is missing", () => {
 		const result = resolvePlanTitle({ planContent, planFilePath });
-		expect(result.source).toBe("heading");
+		expect(result).toEqual({
+			title: "Code-Review-nettools-Updated-Issues",
+			fileName: "Code-Review-nettools-Updated-Issues.md",
+			source: "heading",
+		});
 	});
 
 	it("falls back to the H1 when `suppliedTitle` is an empty / whitespace string", () => {

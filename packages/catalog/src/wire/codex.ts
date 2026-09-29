@@ -6,6 +6,7 @@ export const CODEX_BASE_URL = "https://chatgpt.com/backend-api";
 
 /**
  * Pinned OpenAI Codex client version (corresponds to @openai/codex package version).
+ * Updated from npm by `bun run check-spoofed-versions --update`.
  *
  * The backend version-gates model availability against this value on both
  * `/models?client_version=` and `/responses`: GPT-6 Astra requires ≥0.153.0,

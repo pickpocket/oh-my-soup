@@ -1,6 +1,7 @@
-/** Default session-title model: the online @smol path (no local download / on-device inference). */
+/** Default session-title model: the online TINY role, then the smol fallback. */
 export const ONLINE_TINY_TITLE_MODEL_KEY = "online";
-/** Local model the `tiny-models` CLI downloads when none is named. Not the session-title default — that is {@link ONLINE_TINY_TITLE_MODEL_KEY}. */
+
+/** Local model the `tiny-models` CLI downloads when none is named. */
 export const DEFAULT_TINY_TITLE_LOCAL_MODEL_KEY = "lfm2.5-230m";
 
 export interface TinyTitleLocalModelSpec {
@@ -49,6 +50,8 @@ export const TINY_TITLE_LOCAL_MODELS = [
 	},
 ] as const satisfies readonly TinyTitleLocalModelSpec[];
 
+export type TinyTitleLocalModelKey = (typeof TINY_TITLE_LOCAL_MODELS)[number]["key"];
+
 export const TINY_TITLE_MODEL_VALUES = [
 	ONLINE_TINY_TITLE_MODEL_KEY,
 	"lfm2.5-230m",
@@ -57,7 +60,6 @@ export const TINY_TITLE_MODEL_VALUES = [
 ] as const;
 
 export type TinyTitleModelKey = (typeof TINY_TITLE_MODEL_VALUES)[number];
-export type TinyTitleLocalModelKey = (typeof TINY_TITLE_LOCAL_MODELS)[number]["key"];
 
 type MissingTinyTitleModelValue = Exclude<
 	typeof ONLINE_TINY_TITLE_MODEL_KEY | TinyTitleLocalModelKey,
@@ -95,8 +97,9 @@ export function getTinyTitleModelSpec(key: TinyTitleLocalModelKey): (typeof TINY
 	return spec;
 }
 
-/** Default memory model: the online path (the configured smol / remote LLM; no local download). */
+/** Default memory model: use the configured online tiny or smol model. */
 export const ONLINE_MEMORY_MODEL_KEY = "online";
+
 /** Recommended local model for memory tasks when none is named. */
 export const DEFAULT_MEMORY_LOCAL_MODEL_KEY = "lfm2-1.2b";
 
@@ -159,6 +162,8 @@ export const TINY_MEMORY_LOCAL_MODELS = [
 	},
 ] as const satisfies readonly TinyTitleLocalModelSpec[];
 
+export type TinyMemoryLocalModelKey = (typeof TINY_MEMORY_LOCAL_MODELS)[number]["key"];
+
 export const TINY_MEMORY_MODEL_VALUES = [
 	ONLINE_MEMORY_MODEL_KEY,
 	"qwen3-1.7b",
@@ -169,7 +174,6 @@ export const TINY_MEMORY_MODEL_VALUES = [
 ] as const;
 
 export type TinyMemoryModelKey = (typeof TINY_MEMORY_MODEL_VALUES)[number];
-export type TinyMemoryLocalModelKey = (typeof TINY_MEMORY_LOCAL_MODELS)[number]["key"];
 
 type MissingTinyMemoryModelValue = Exclude<
 	typeof ONLINE_MEMORY_MODEL_KEY | TinyMemoryLocalModelKey,
@@ -235,11 +239,8 @@ export const TINY_LOCAL_MODELS = [
 ] as const satisfies readonly TinyTitleLocalModelSpec[];
 
 /**
- * Difficulty-classifier model for the `auto` thinking level. Defaults to the
- * online smol path; the local options reuse the memory-model registry because
- * the shared worker's `complete()` only accepts memory local keys, and the
- * 1B+ memory models classify coding difficulty far more reliably than the
- * sub-1B title models.
+ * The auto-thinking classifier shares the memory-model registry: those 1B+
+ * local models classify coding difficulty more reliably than title models.
  */
 export const ONLINE_AUTO_THINKING_MODEL_KEY = ONLINE_MEMORY_MODEL_KEY;
 export const AUTO_THINKING_MODEL_VALUES = TINY_MEMORY_MODEL_VALUES;

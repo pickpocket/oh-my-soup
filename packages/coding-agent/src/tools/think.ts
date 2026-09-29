@@ -16,6 +16,14 @@ export function supportsExternalThinking(model: Model | null | undefined): boole
 	if (model.reasoning && (requiresThinking || (model.thinking?.requiresEffort && !model.thinking.suppressWhenOff))) {
 		return false;
 	}
+	if (model.reasoning) {
+		const compat = model.compat;
+		const omitsEffort =
+			compat !== undefined && "omitReasoningEffort" in compat && compat.omitReasoningEffort === true;
+		const lacksEffort =
+			compat !== undefined && "supportsReasoningEffort" in compat && compat.supportsReasoningEffort === false;
+		if (omitsEffort || lacksEffort) return false;
+	}
 	if (model.api === "google-generative-ai" || model.api === "google-gemini-cli" || model.api === "google-vertex") {
 		return !model.reasoning || model.thinking?.mode === "budget" || model.thinking?.suppressWhenOff === true;
 	}

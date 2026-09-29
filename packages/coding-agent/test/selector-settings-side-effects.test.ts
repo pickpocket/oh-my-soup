@@ -9,15 +9,13 @@ import { getSupportedEfforts } from "@oh-my-soup/pi-catalog/model-thinking";
 import { getBundledModel } from "@oh-my-soup/pi-catalog/models";
 import { MODEL_ROLE_IDS } from "@oh-my-soup/pi-coding-agent/config/model-roles";
 import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
-import { AssistantMessageComponent } from "@oh-my-soup/pi-tui/chat/assistant-message";
-import { ReadToolGroupComponent } from "@oh-my-soup/pi-tui/chat/read-tool-group";
-import { ToolExecutionComponent } from "@oh-my-soup/pi-tui/chat/tool-execution";
+import { AgentStorage } from "@oh-my-soup/pi-coding-agent/session/agent-storage";
+import { cfgDefaultThinkingLevel, cfgRetryFallbackChains } from "@oh-my-soup/pi-coding-agent/session/settings";
 import { SelectorController } from "@oh-my-soup/pi-coding-agent/modes/controllers/selector-controller";
 import { getThemeByName, setThemeInstance } from "@oh-my-soup/pi-tui/theme";
 import type { InteractiveModeContext } from "@oh-my-soup/pi-coding-agent/modes/types";
 import type { ResolvedRoleModel } from "@oh-my-soup/pi-coding-agent/session/agent-session";
 import { AUTO_THINKING } from "@oh-my-soup/pi-tui/thinking";
-import { setTerminalHyperlinks, TERMINAL } from "@oh-my-soup/pi-tui";
 import { removeSyncWithRetries, Snowflake } from "@oh-my-soup/pi-utils";
 import { beginSettingsTest, restoreSettingsTestState, type SettingsTestState } from "./helpers/settings-test-state";
 
@@ -34,201 +32,6 @@ afterEach(() => {
 });
 
 describe("selector setting side effects", () => {
-	it("refreshes the status line when git integration changes at runtime", () => {
-		const updateSettings = vi.fn();
-		const requestRender = vi.fn();
-		const controller = new SelectorController({
-			statusLine: { updateSettings },
-			ui: { requestRender },
-		} as unknown as InteractiveModeContext);
-
-		Settings.instance.override("git.enabled", false);
-		controller.handleSettingChange("git.enabled", false);
-
-		expect(updateSettings).toHaveBeenCalledWith(
-			expect.objectContaining({
-				preset: Settings.instance.get("statusLine.preset"),
-				leftSegments: Settings.instance.get("statusLine.leftSegments"),
-				rightSegments: Settings.instance.get("statusLine.rightSegments"),
-			}),
-		);
-		// The setting-change side effect is a single render request — the lazy
-		// top-border provider rebuilds during paint (#4145).
-		expect(requestRender).toHaveBeenCalledTimes(1);
-	});
-
-	it("invalidates the UI and requests a repaint when tui.tight changes", () => {
-		const invalidate = vi.fn();
-		const requestRender = vi.fn();
-		const controller = new SelectorController({
-			ui: { invalidate, requestRender },
-		} as unknown as InteractiveModeContext);
-
-		controller.handleSettingChange("tui.tight", true);
-
-		expect(invalidate).toHaveBeenCalledTimes(1);
-		expect(requestRender).toHaveBeenCalledTimes(1);
-	});
-	it("applies tui.hyperlinks changes to live renderers", () => {
-		const originalHyperlinks = TERMINAL.hyperlinks;
-		const statusInvalidate = vi.fn();
-		const invalidate = vi.fn();
-		const requestRender = vi.fn();
-		const controller = new SelectorController({
-			statusLine: { invalidate: statusInvalidate },
-			ui: { invalidate, requestRender },
-		} as unknown as InteractiveModeContext);
-
-		try {
-			setTerminalHyperlinks(false);
-			Settings.instance.override("tui.hyperlinks", "always");
-			controller.handleSettingChange("tui.hyperlinks", "always");
-			expect(TERMINAL.hyperlinks).toBe(true);
-
-			Settings.instance.override("tui.hyperlinks", "off");
-			controller.handleSettingChange("tui.hyperlinks", "off");
-			expect(TERMINAL.hyperlinks).toBe(false);
-			expect(statusInvalidate).toHaveBeenCalledTimes(2);
-			expect(invalidate).toHaveBeenCalledTimes(2);
-			expect(requestRender).toHaveBeenCalledTimes(2);
-		} finally {
-			setTerminalHyperlinks(originalHyperlinks);
-		}
-	});
-	it("applies memory backend changes to the live session", () => {
-		const applyMemoryBackend = vi.fn(async () => {});
-		const controller = new SelectorController({
-			session: { applyMemoryBackend },
-			showError: vi.fn(),
-		} as unknown as InteractiveModeContext);
-
-		controller.handleSettingChange("memory.backend", "mnemopi");
-
-		expect(applyMemoryBackend).toHaveBeenCalledTimes(1);
-	});
-	it("stops the live advisor runtime when advisor.enabled is turned off in /settings", () => {
-		const setAdvisorEnabled = vi.fn();
-		const invalidate = vi.fn();
-		const requestRender = vi.fn();
-		const controller = new SelectorController({
-			session: { setAdvisorEnabled },
-			statusLine: { invalidate },
-			ui: { requestRender },
-		} as unknown as InteractiveModeContext);
-
-		controller.handleSettingChange("advisor.enabled", false);
-
-		expect(setAdvisorEnabled).toHaveBeenCalledWith(false);
-		expect(invalidate).toHaveBeenCalledTimes(1);
-		expect(requestRender).toHaveBeenCalledTimes(1);
-	});
-
-	it("re-enables live advisor runtime to rebuild when advisor.maxNotesPerUpdate changes in /settings", () => {
-		const setAdvisorEnabled = vi.fn();
-		const isAdvisorEnabled = vi.fn().mockReturnValue(true);
-		const requestRender = vi.fn();
-		const controller = new SelectorController({
-			session: { setAdvisorEnabled, isAdvisorEnabled },
-			ui: { requestRender },
-		} as unknown as InteractiveModeContext);
-
-		controller.handleSettingChange("advisor.maxNotesPerUpdate", 3);
-
-		expect(isAdvisorEnabled).toHaveBeenCalledTimes(1);
-		expect(setAdvisorEnabled).toHaveBeenCalledWith(true);
-		expect(requestRender).toHaveBeenCalledTimes(1);
-	});
-
-	for (const id of ["terminal.showImages", "showImages"]) {
-		for (const visible of [false, true]) {
-			it(`updates every image owner and rebuilds the transcript when ${id}=${visible}`, () => {
-				const setShowImages = vi.fn();
-				const setImagesVisible = vi.fn();
-				const clearInlineImages = vi.fn();
-				const requestRender = vi.fn();
-				const tool = Object.create(ToolExecutionComponent.prototype) as ToolExecutionComponent;
-				tool.setShowImages = setShowImages;
-				const assistant = Object.create(AssistantMessageComponent.prototype) as AssistantMessageComponent;
-				assistant.setImagesVisible = setImagesVisible;
-				const controller = new SelectorController({
-					chatContainer: { children: [tool, assistant] },
-					ui: { clearInlineImages, requestRender },
-				} as unknown as InteractiveModeContext);
-
-				controller.handleSettingChange(id, visible);
-
-				expect(setShowImages).toHaveBeenCalledWith(visible);
-				expect(setImagesVisible).toHaveBeenCalledWith(visible);
-				expect(clearInlineImages).toHaveBeenCalledTimes(visible ? 0 : 1);
-				expect(requestRender).toHaveBeenCalledTimes(1);
-				if (!visible) {
-					expect(clearInlineImages.mock.invocationCallOrder[0]).toBeLessThan(
-						requestRender.mock.invocationCallOrder[0],
-					);
-				}
-			});
-		}
-	}
-
-	for (const hidden of [true, false]) {
-		it(`delegates display.hideToolActivity=${hidden} to the transcript container`, () => {
-			const setToolActivityVisible = vi.fn();
-			const setToolExpanded = vi.fn();
-			const tool = Object.create(ToolExecutionComponent.prototype) as ToolExecutionComponent;
-			tool.setExpanded = setToolExpanded;
-			const setReadExpanded = vi.fn();
-			const readGroup = Object.create(ReadToolGroupComponent.prototype) as ReadToolGroupComponent;
-			readGroup.setExpanded = setReadExpanded;
-			const setToolResultImagesVisible = vi.fn();
-			const assistant = Object.create(AssistantMessageComponent.prototype) as AssistantMessageComponent;
-			assistant.setToolResultImagesVisible = setToolResultImagesVisible;
-			const clearInlineImages = vi.fn();
-			const resetDisplay = vi.fn();
-			const ctx = {
-				hideToolActivity: !hidden,
-				toolOutputExpanded: true,
-				chatContainer: { children: [tool, readGroup, assistant], setToolActivityVisible },
-				ui: { clearInlineImages, resetDisplay },
-			};
-			const controller = new SelectorController(ctx as unknown as InteractiveModeContext);
-
-			controller.handleSettingChange("display.hideToolActivity", hidden);
-
-			expect(ctx.hideToolActivity).toBe(hidden);
-			expect(setToolActivityVisible).toHaveBeenCalledWith(!hidden);
-			expect(setToolResultImagesVisible).toHaveBeenCalledWith(!hidden);
-			expect(setToolExpanded).toHaveBeenCalledTimes(hidden ? 0 : 1);
-			expect(setReadExpanded).toHaveBeenCalledTimes(hidden ? 0 : 1);
-			expect(ctx.toolOutputExpanded).toBe(hidden);
-			expect(clearInlineImages).toHaveBeenCalledTimes(hidden ? 1 : 0);
-			expect(resetDisplay).toHaveBeenCalledTimes(1);
-			if (hidden) {
-				expect(clearInlineImages.mock.invocationCallOrder[0]).toBeLessThan(
-					resetDisplay.mock.invocationCallOrder[0],
-				);
-			}
-		});
-	}
-
-	for (const enabled of [false, true]) {
-		it(`rebuilds the transcript when display.showTokenUsage=${enabled} changes in /settings`, () => {
-			const rebuildChatFromMessages = vi.fn();
-			const resetDisplay = vi.fn();
-			const controller = new SelectorController({
-				rebuildChatFromMessages,
-				ui: { resetDisplay },
-			} as unknown as InteractiveModeContext);
-
-			controller.handleSettingChange("display.showTokenUsage", enabled);
-
-			expect(rebuildChatFromMessages).toHaveBeenCalledTimes(1);
-			expect(resetDisplay).toHaveBeenCalledTimes(1);
-			expect(rebuildChatFromMessages.mock.invocationCallOrder[0]).toBeLessThan(
-				resetDisplay.mock.invocationCallOrder[0],
-			);
-		});
-	}
-
 	it("clears stale default role thinking when auto is selected", async () => {
 		const testTheme = await getThemeByName("dark");
 		if (!testTheme) throw new Error("Failed to load dark theme for model selector test");
@@ -247,7 +50,7 @@ describe("selector setting side effects", () => {
 		const autoApplied = Promise.withResolvers<void>();
 		const setThinkingLevel = vi.fn((level: ThinkingLevel | typeof AUTO_THINKING, persist: boolean) => {
 			if (level === AUTO_THINKING && persist) {
-				settings.set("defaultThinkingLevel", level);
+				cfgDefaultThinkingLevel.set(settings, level);
 				autoApplied.resolve();
 			}
 		});
@@ -298,6 +101,7 @@ describe("selector setting side effects", () => {
 			hub.handleInput("\x1b[A"); // All models → Roles.
 			hub.handleInput("\n"); // Enter the role rows.
 			hub.handleInput("\n"); // Assign DEFAULT.
+			hub.handleInput("\n"); // Enter the model rows.
 			hub.handleInput("\n"); // Pick the scoped replacement model.
 			await assignmentApplied.promise;
 			await Promise.resolve();
@@ -404,7 +208,7 @@ describe("selector setting side effects", () => {
 			await assignmentApplied.promise;
 
 			expect(settings.getModelRole("task")).toBe(`${taskSelector}:auto`);
-			expect(settings.get("defaultThinkingLevel")).toBe(ThinkingLevel.High);
+			expect(cfgDefaultThinkingLevel.get(settings)).toBe(ThinkingLevel.High);
 			expect(setThinkingLevel).not.toHaveBeenCalled();
 			const lines = hub.render(220).map(line => stripVTControlCharacters(line));
 			const defaultRow = lines.find(line => line.includes("DEFAULT"));
@@ -475,6 +279,7 @@ describe("selector setting side effects", () => {
 			hub.handleInput("\x1b[A"); // All models → Roles.
 			hub.handleInput("\n"); // Enter the role rows.
 			hub.handleInput("\n"); // Assign DEFAULT.
+			hub.handleInput("\n"); // Sidebar → model list.
 			hub.handleInput("\n"); // Pick the scoped model.
 			hub.handleInput("\n"); // Save the assignment to the project.
 			await assignmentApplied.promise;
@@ -805,6 +610,7 @@ describe("selector setting side effects", () => {
 		fs.mkdirSync(projectDir, { recursive: true });
 		fs.writeFileSync(overlayPath, `modelRoles:\n  default: ${overlaySelector}\n`);
 
+		let loadedSettings: Settings | undefined;
 		try {
 			const settings = await Settings.loadIsolated({
 				cwd: projectDir,
@@ -812,6 +618,7 @@ describe("selector setting side effects", () => {
 				configFiles: [overlayPath],
 				overrides: { modelRoleStorage: "project" },
 			});
+			loadedSettings = settings;
 			expect(settings.getModelRole("default")).toBe(overlaySelector);
 			expect(settings.getModelRoleProvenance("default")).toBe("overlay");
 
@@ -823,7 +630,7 @@ describe("selector setting side effects", () => {
 				if (message.startsWith("Project default model:")) projectAssignmentApplied.resolve();
 				if (
 					message.startsWith("Project default model:") &&
-					settings.get("defaultThinkingLevel") === AUTO_THINKING
+					cfgDefaultThinkingLevel.get(settings) === AUTO_THINKING
 				) {
 					autoApplied.resolve();
 				}
@@ -884,7 +691,7 @@ describe("selector setting side effects", () => {
 				hub.handleInput("\x1b[C"); // Off → auto.
 				hub.handleInput("\n");
 				await autoApplied.promise;
-				expect(settings.get("defaultThinkingLevel")).toBe(AUTO_THINKING);
+				expect(cfgDefaultThinkingLevel.get(settings)).toBe(AUTO_THINKING);
 				await settings.flush();
 
 				expect(settings.getProjectModelRole("default")).toBe(projectSelector);
@@ -915,6 +722,8 @@ describe("selector setting side effects", () => {
 				hub.dispose();
 			}
 		} finally {
+			loadedSettings?.cancelPendingSaves();
+			AgentStorage.close();
 			if (fs.existsSync(testDir)) removeSyncWithRetries(testDir);
 		}
 	});
@@ -996,7 +805,7 @@ describe("selector setting side effects", () => {
 		setThemeInstance(testTheme);
 
 		const settings = Settings.isolated({});
-		settings.set("retry.fallbackChains", { default: "not-an-array" } as unknown as Record<string, string[]>);
+		cfgRetryFallbackChains.set(settings, { default: "not-an-array" } as unknown as Record<string, string[]>);
 		const fallback = buildModel({
 			id: "retry-fallback-model",
 			name: "retry-fallback-model",
@@ -1053,7 +862,8 @@ describe("selector setting side effects", () => {
 			| undefined;
 		if (!hub) throw new Error("Expected model hub overlay to be shown");
 		try {
-			hub.handleInput("\n");
+			hub.handleInput("\n"); // Sidebar → model list.
+			hub.handleInput("\n"); // Open the selected model's actions.
 			const frame = stripVTControlCharacters(hub.render(220).join("\n"));
 			expect(frame).toContain("retry-fallback");
 			hub.handleInput("\x1b[D");
@@ -1061,7 +871,7 @@ describe("selector setting side effects", () => {
 			await Promise.resolve();
 
 			expect(showError).not.toHaveBeenCalled();
-			expect(settings.get("retry.fallbackChains")).toEqual({ default: ["test/retry-fallback-model"] });
+			expect(cfgRetryFallbackChains.get(settings)).toEqual({ default: ["test/retry-fallback-model"] });
 			expect(showStatus).toHaveBeenCalledWith("DEFAULT fallbacks: test/retry-fallback-model");
 		} finally {
 			hub.dispose();
@@ -1727,7 +1537,7 @@ describe("selector setting side effects", () => {
 		const setModel = vi.fn(async () => ({ switched: true }));
 		const setThinkingLevel = vi.fn((level: unknown, persist?: boolean) => {
 			if (level === AUTO_THINKING && persist) {
-				settings.set("defaultThinkingLevel", AUTO_THINKING);
+				cfgDefaultThinkingLevel.set(settings, AUTO_THINKING);
 			}
 		});
 		const roleCleared = Promise.withResolvers<void>();

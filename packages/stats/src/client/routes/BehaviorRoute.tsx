@@ -1,623 +1,510 @@
-import { format } from "@oh-my-soup/pi-utils/dates";
 import { useMemo, useState } from "react";
-import { Bar, Line } from "react-chartjs-2";
+import { Chart, Legend, Sparkline, useHiddenSeries, type ChartSeries } from "../charts";
 import { getBehaviorDashboardStats } from "../api";
-import {
-	barDatasetStyle,
-	buildAggregateTimeSeries,
-	buildSharedPlugins,
-	buildSharedScales,
-	buildTopNByModelSeries,
-	CHART_THEMES,
-	lineDatasetStyle,
-	MODEL_COLORS,
-	styleDatasets,
-} from "../components/chart-shared";
-import {
-	DetailChartEmpty,
-	detailChartPlugins,
-	detailChartScalesSingleAxis,
-	ExpandableModelRow,
-	lineSeriesStyle,
-	MiniSparkline,
-	ModelNameCell,
-	ModelTableBody,
-	ModelTableHeader,
-	ModelTableShell,
-	TABLE_CHART_THEMES,
-	type TableChartTheme,
-	TrendEmpty,
-} from "../components/models-table-shared";
 import { formatInteger } from "../data/formatters";
-import { useResource } from "../data/useResource";
-import { buildBehaviorSummary } from "../data/view-models";
-import type { BehaviorModelStats, BehaviorOverallStats, BehaviorTimeSeriesPoint, TimeRange } from "../types";
-import { AsyncBoundary, Panel, SegmentedControl } from "../ui";
-import { useSystemTheme } from "../useSystemTheme";
+import { useQuery } from "../data/query";
+import type {
+	BehaviorDashboardStats,
+	BehaviorModelStats,
+	BehaviorStatsOverall,
+	BehaviorTimeSeriesPoint,
+	TimeRange,
+} from "../types";
+import {
+	Card,
+	ChartSkeleton,
+	type Column,
+	EmptyState,
+	PageHeader,
+	QueryView,
+	Segmented,
+	Stat,
+	StatGrid,
+	Table,
+	TableSkeleton,
+} from "../ui";
 
 export interface BehaviorRouteProps {
 	active: boolean;
 	range: TimeRange;
-	refreshTrigger: number;
 }
 
-export function BehaviorRoute({ active, range, refreshTrigger }: BehaviorRouteProps) {
-	const {
-		data: stats,
-		error,
-		loading,
-	} = useResource(["behavior", range, refreshTrigger], signal => getBehaviorDashboardStats(range, signal), {
-		pollMs: 30000,
-		enabled: active,
-	});
-
-	return (
-		<div className="stats-route-container space-y-6">
-			<AsyncBoundary loading={loading} error={error} data={stats}>
-				{stats && (
-					<>
-						<BehaviorSummaryPanel overall={stats.overall} behaviorSeries={stats.behaviorSeries} />
-						<BehaviorChartPanel behaviorSeries={stats.behaviorSeries} />
-						<BehaviorModelsTable models={stats.byModel} behaviorSeries={stats.behaviorSeries} />
-					</>
-				)}
-			</AsyncBoundary>
-		</div>
-	);
-}
-
-function perMsg(total: number, messages: number): string | undefined {
-	if (messages <= 0) return undefined;
-	return `${(total / messages).toFixed(2)} / msg`;
-}
-
-function BehaviorSummaryPanel({
-	overall,
-	behaviorSeries,
-}: {
-	overall: BehaviorOverallStats;
-	behaviorSeries: BehaviorTimeSeriesPoint[];
-}) {
-	const summary = useMemo(() => buildBehaviorSummary(overall, behaviorSeries), [overall, behaviorSeries]);
-	const messages = overall.totalMessages;
-
-	const cards = [
-		{
-			label: "User Messages",
-			value: formatInteger(overall.totalMessages),
-			sub: messages > 0 ? "in range" : undefined,
-		},
-		{
-			label: "Yelling (CAPS)",
-			value: formatInteger(overall.totalYelling),
-			sub: perMsg(overall.totalYelling, messages),
-		},
-		{
-			label: "Profanity Hits",
-			value: formatInteger(overall.totalProfanity),
-			sub: perMsg(overall.totalProfanity, messages),
-		},
-		{
-			label: "Anguish Signals",
-			value: formatInteger(overall.totalAnguish),
-			sub: perMsg(overall.totalAnguish, messages),
-		},
-		{
-			label: "Friction Signals",
-			value: formatInteger(summary.totalFrustration),
-			sub: perMsg(summary.totalFrustration, messages),
-		},
-		{
-			label: "Highest Friction Model",
-			value: summary.highestFrictionModel?.model ?? "—",
-			sub: summary.highestFrictionModel ? `${formatInteger(summary.highestFrictionModel.score)} hits` : undefined,
-		},
-	];
-
-	return (
-		<div className="grid grid-cols-2 md:grid-cols-6 gap-4">
-			{cards.map(card => (
-				<Panel key={card.label} className="stats-behavior-summary-card py-3 px-4">
-					<p className="text-xs stats-text-muted mb-1 font-medium truncate">{card.label}</p>
-					<p className="text-lg font-bold stats-text-primary truncate" title={card.value}>
-						{card.value}
-					</p>
-					{card.sub && <p className="text-xs stats-text-muted mt-0.5">{card.sub}</p>}
-				</Panel>
-			))}
-		</div>
-	);
-}
-
-const METRIC_OPTIONS = [
+const METRICS = [
 	{ value: "yelling", label: "CAPS", title: "Yelling (CAPS)" },
 	{ value: "profanity", label: "Profanity", title: "Profanity" },
-	{ value: "anguish", label: "Anguish", title: "Anguish (!!!, nooo, ugh, dude, ':(')" },
-	{ value: "negation", label: "Negation", title: "Negation (no/nope/wrong, makes no sense)" },
-	{
-		value: "repetition",
-		label: "Repetition",
-		title: "Repetition (i meant, still doesnt)",
-	},
+	{ value: "anguish", label: "Anguish", title: "Anguish (!!!, nooo, ugh, dude, :( )" },
+	{ value: "negation", label: "Negation", title: "Negation (no/nope/wrong)" },
+	{ value: "repetition", label: "Repetition", title: "Repetition (i meant, still doesnt)" },
 	{ value: "blame", label: "Blame", title: "Blame (you didnt, why did you, stop X-ing)" },
-	{
-		value: "frustration",
-		label: "Frustration",
-		title: "Frustration (neg + rep + blame)",
-	},
-	{ value: "total", label: "All", title: "All signals combined" },
+	{ value: "frustration", label: "Friction", title: "Negation + repetition + blame" },
+	{ value: "total", label: "All", title: "All behavior signals combined" },
 ] as const;
 
-type Metric = (typeof METRIC_OPTIONS)[number]["value"];
+type Metric = (typeof METRICS)[number]["value"];
+type ChartMode = "all" | "model";
 
-function formatRateAxis(value: number): string {
-	if (!Number.isFinite(value)) return "-";
-	if (value === 0) return "0%";
-	if (Math.abs(value) < 1) return `${value.toFixed(1)}%`;
-	return `${value.toFixed(0)}%`;
-}
+const CHART_MODES = [
+	{ value: "all" as const, label: "All models" },
+	{ value: "model" as const, label: "By model" },
+];
 
-function pointHits(point: BehaviorTimeSeriesPoint, metric: Metric): number {
-	if (metric === "frustration") {
-		return point.negation + point.repetition + point.blame;
-	}
-	if (metric === "total") {
-		return point.yelling + point.profanity + point.anguish + point.negation + point.repetition + point.blame;
-	}
-	return point[metric];
-}
+const MODEL_COLORS = ["var(--chart-primary)", "var(--chart-secondary)", "#9d7bff", "#e58b42", "#58c7b7"];
+const SIGNAL_COLORS = {
+	yelling: "#ed4abf",
+	profanity: "#ff6b7d",
+	anguish: "#9b4dff",
+	frustration: "#5ad8e6",
+} as const;
+const NO_BEHAVIOR = <EmptyState title="No user behavior recorded in this range" />;
 
-function ratePercent(hits: number, messages: number): number {
-	if (messages <= 0) return 0;
-	return (hits / messages) * 100;
-}
-
-interface DailyBucket {
-	hits: number;
-	messages: number;
-}
-
-function BehaviorChartPanel({ behaviorSeries }: { behaviorSeries: BehaviorTimeSeriesPoint[] }) {
-	const [byModel, setByModel] = useState(false);
+export function BehaviorRoute({ active, range }: BehaviorRouteProps) {
+	const query = useQuery(["behavior", range], () => getBehaviorDashboardStats(range), { enabled: active });
 	const [metric, setMetric] = useState<Metric>("total");
-	const theme = useSystemTheme();
-	const chartTheme = CHART_THEMES[theme];
-
-	const chartData = useMemo(() => {
-		if (byModel) {
-			return buildTopNByModelSeries<BehaviorTimeSeriesPoint, DailyBucket>(behaviorSeries, {
-				rankWeight: point => point.messages,
-				initBucket: () => ({ hits: 0, messages: 0 }),
-				accumulate: (bucket, point) => {
-					bucket.hits += pointHits(point, metric);
-					bucket.messages += point.messages;
-				},
-				bucketToValue: bucket => ratePercent(bucket.hits, bucket.messages),
-			});
-		}
-		const metricLabel = METRIC_OPTIONS.find(m => m.value === metric)?.title ?? "Hits";
-		return buildAggregateTimeSeries<BehaviorTimeSeriesPoint, DailyBucket>(behaviorSeries, metricLabel, {
-			initBucket: () => ({ hits: 0, messages: 0 }),
-			accumulate: (bucket, point) => {
-				bucket.hits += pointHits(point, metric);
-				bucket.messages += point.messages;
-			},
-			bucketToValue: bucket => ratePercent(bucket.hits, bucket.messages),
-		});
-	}, [behaviorSeries, byModel, metric]);
-
-	const sharedPlugins = useMemo(() => {
-		return buildSharedPlugins({
-			chartTheme,
-			showLegend: byModel,
-			defaultLabel: "Hits",
-			formatValue: formatRateAxis,
-		});
-	}, [chartTheme, byModel]);
-
-	const { sharedScaleBase, yScale } = useMemo(() => {
-		return buildSharedScales({ chartTheme, formatY: formatRateAxis });
-	}, [chartTheme]);
-
-	const metricLabel = useMemo(() => {
-		return METRIC_OPTIONS.find(m => m.value === metric)?.title ?? "";
-	}, [metric]);
-
-	const lineData = useMemo(() => {
-		if (!byModel) return null;
-		return {
-			labels: chartData.labels,
-			datasets: styleDatasets(chartData, i => lineDatasetStyle(MODEL_COLORS[i % MODEL_COLORS.length])),
-		};
-	}, [chartData, byModel]);
-
-	const lineOptions = useMemo(() => {
-		return {
-			responsive: true,
-			maintainAspectRatio: false,
-			interaction: { mode: "index" as const, intersect: false },
-			plugins: sharedPlugins,
-			scales: { x: sharedScaleBase, y: yScale },
-		};
-	}, [sharedPlugins, sharedScaleBase, yScale]);
-
-	const barData = useMemo(() => {
-		if (byModel) return null;
-		return {
-			labels: chartData.labels,
-			datasets: styleDatasets(chartData, i => barDatasetStyle(MODEL_COLORS[i % MODEL_COLORS.length])),
-		};
-	}, [chartData, byModel]);
-
-	const barOptions = useMemo(() => {
-		return {
-			responsive: true,
-			maintainAspectRatio: false,
-			interaction: { mode: "index" as const, intersect: false },
-			plugins: sharedPlugins,
-			scales: {
-				x: { ...sharedScaleBase, stacked: true },
-				y: { ...yScale, stacked: true },
-			},
-			layout: { padding: { top: 8 } },
-		};
-	}, [sharedPlugins, sharedScaleBase, yScale]);
-
-	const byModelOptions = [
-		{ value: false, label: "All Models" },
-		{ value: true, label: "By Model" },
-	];
-
-	return (
-		<Panel
-			title="User Friction Signals"
-			subtitle={`${metricLabel} as % of user messages per day`}
-			actions={
-				<div className="flex items-center gap-3 flex-wrap">
-					<SegmentedControl
-						options={METRIC_OPTIONS.map(o => ({
-							value: o.value,
-							label: o.label,
-							title: o.title,
-						}))}
-						value={metric}
-						onChange={setMetric}
-					/>
-					<SegmentedControl options={byModelOptions} value={byModel} onChange={setByModel} />
-				</div>
-			}
-		>
-			<div className="h-[300px]">
-				{chartData.labels.length === 0 ? (
-					<div className="h-full flex items-center justify-center text-stats-muted text-sm">
-						No friction signal data available
-					</div>
-				) : byModel && lineData ? (
-					<Line data={lineData} options={lineOptions} />
-				) : barData ? (
-					<Bar data={barData} options={barOptions} />
-				) : null}
-			</div>
-		</Panel>
-	);
-}
-
-const TABLE_GRID_TEMPLATE = "2fr 0.9fr 0.8fr 0.8fr 0.8fr 0.9fr 0.8fr 140px 40px";
-
-function totalHitRate(model: BehaviorModelStats): number {
-	if (model.totalMessages === 0) return 0;
-	const hits =
-		model.totalYelling +
-		model.totalProfanity +
-		model.totalAnguish +
-		model.totalNegation +
-		model.totalRepetition +
-		model.totalBlame;
-	return hits / model.totalMessages;
-}
-
-function formatRate(total: number, messages: number): string {
-	if (messages === 0) return "-";
-	const pct = (total / messages) * 100;
-	if (pct === 0) return "0%";
-	if (pct < 1) return `${pct.toFixed(1)}%`;
-	return `${pct.toFixed(0)}%`;
-}
-
-function BehaviorModelsTable({
-	models,
-	behaviorSeries,
-}: {
-	models: BehaviorModelStats[];
-	behaviorSeries: BehaviorTimeSeriesPoint[];
-}) {
+	const [mode, setMode] = useState<ChartMode>("all");
+	const [hidden, toggleHidden] = useHiddenSeries();
 	const [expandedKey, setExpandedKey] = useState<string | null>(null);
-	const theme = useSystemTheme();
-	const chartTheme = TABLE_CHART_THEMES[theme];
-
-	const trendByKey = useMemo(() => buildTrendLookup(behaviorSeries), [behaviorSeries]);
-
-	const sortedModels = useMemo(() => {
-		return [...models].sort((a, b) => {
-			if (b.totalMessages !== a.totalMessages) {
-				return b.totalMessages - a.totalMessages;
-			}
-			return totalHitRate(b) - totalHitRate(a);
-		});
-	}, [models]);
+	const view = useMemo(() => buildBehaviorView(query.data), [query.data]);
+	const columns = useMemo(() => buildModelColumns(view.byModel), [view.byModel]);
+	const chart = useMemo(
+		() => buildBehaviorChart(query.data?.behaviorSeries ?? [], metric, mode),
+		[query.data, metric, mode],
+	);
 
 	return (
-		<ModelTableShell title="Behavior Signals by Model" subtitle="Rates are per user message">
-			<ModelTableHeader
-				gridTemplate={TABLE_GRID_TEMPLATE}
-				columns={[
-					{ label: "Model" },
-					{ label: "Messages", align: "right" },
-					{ label: "CAPS %", align: "right" },
-					{ label: "Profanity %", align: "right" },
-					{ label: "Anguish %", align: "right" },
-					{ label: "Frustration %", align: "right" },
-					{ label: "Hits %", align: "right" },
-					{ label: "Trend", align: "center" },
-				]}
+		<div className="page">
+			<PageHeader
+				title="Behavior"
+				description="Regex behavior signals recorded from user messages. These raw signals remain separate from judged frustration."
 			/>
 
-			<ModelTableBody>
-				{sortedModels.map((model, index) => {
-					const key = `${model.model}::${model.provider}`;
-					const trend = trendByKey.get(key)?.data ?? [];
-					const trendColor = MODEL_COLORS[index % MODEL_COLORS.length];
-					const isExpanded = expandedKey === key;
-					const totalFrustration = model.totalNegation + model.totalRepetition + model.totalBlame;
-					const totalHits = model.totalYelling + model.totalProfanity + model.totalAnguish + totalFrustration;
+			<QueryView query={query} skeleton={<ChartSkeleton height={108} />}>
+				{stats => <BehaviorSummary overall={stats.overall} byModel={stats.byModel} />}
+			</QueryView>
 
-					return (
-						<ExpandableModelRow
-							key={key}
-							gridTemplate={TABLE_GRID_TEMPLATE}
-							isExpanded={isExpanded}
-							onToggle={() => setExpandedKey(isExpanded ? null : key)}
-							cells={[
-								<ModelNameCell key="name" model={model.model} provider={model.provider} />,
-								<div key="messages" className="text-right text-[var(--text-secondary)] font-mono text-sm">
-									{formatInteger(model.totalMessages)}
-								</div>,
-								<div key="caps" className="text-right text-[var(--text-secondary)] font-mono text-sm">
-									{formatRate(model.totalYelling, model.totalMessages)}
-								</div>,
-								<div key="profanity" className="text-right text-[var(--text-secondary)] font-mono text-sm">
-									{formatRate(model.totalProfanity, model.totalMessages)}
-								</div>,
-								<div key="anguish" className="text-right text-[var(--text-secondary)] font-mono text-sm">
-									{formatRate(model.totalAnguish, model.totalMessages)}
-								</div>,
-								<div key="frustration" className="text-right text-[var(--text-secondary)] font-mono text-sm">
-									{formatRate(totalFrustration, model.totalMessages)}
-								</div>,
-								<div key="hits" className="text-right text-[var(--text-secondary)] font-mono text-sm">
-									{formatRate(totalHits, model.totalMessages)}
-								</div>,
-							]}
-							trendCell={
-								trend.length === 0 ? (
-									<TrendEmpty />
-								) : (
-									<MiniSparkline
-										timestamps={trend.map(d => d.timestamp)}
-										values={trend.map(d => d.total)}
-										color={trendColor}
-									/>
-								)
-							}
-							expandedContent={
-								<div className="grid gap-4" style={{ gridTemplateColumns: "220px 1fr" }}>
-									<div className="space-y-4 text-sm">
-										<DetailRow
-											label="Yelling (CAPS)"
-											total={model.totalYelling}
-											messages={model.totalMessages}
-											valueClass="text-[#ed4abf]"
-										/>
-										<DetailRow
-											label="Profanity"
-											total={model.totalProfanity}
-											messages={model.totalMessages}
-											valueClass="text-[#ff6b7d]"
-										/>
-										<DetailRow
-											label="Anguish (!!!, nooo, dude, ..)"
-											total={model.totalAnguish}
-											messages={model.totalMessages}
-											valueClass="text-[#9b4dff]"
-										/>
-										<DetailRow
-											label="Negation (no/nope/wrong)"
-											total={model.totalNegation}
-											messages={model.totalMessages}
-											valueClass="text-[#5ad8e6]"
-										/>
-										<DetailRow
-											label="Repetition (i meant, still doesnt)"
-											total={model.totalRepetition}
-											messages={model.totalMessages}
-											valueClass="text-[#5ad8e6]"
-										/>
-										<DetailRow
-											label="Blame (you didnt, stop X-ing)"
-											total={model.totalBlame}
-											messages={model.totalMessages}
-											valueClass="text-[#5ad8e6]"
-										/>
-										<DetailRow
-											label="Avg chars / msg"
-											total={model.totalChars}
-											messages={model.totalMessages}
-											valueClass="stats-text-secondary"
-											mode="average"
-										/>
-									</div>
-									<div className="h-[200px]">
-										{trend.length === 0 ? (
-											<DetailChartEmpty />
-										) : (
-											<BreakdownChart data={trend} chartTheme={chartTheme} />
-										)}
-									</div>
-								</div>
+			<Card
+				index={1}
+				title="User behavior signals"
+				description={`${METRICS.find(option => option.value === metric)?.title ?? "Signals"} as a share of user messages per day`}
+				actions={
+					<div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+						<Segmented
+							size="sm"
+							options={METRICS.map(({ value, label, title }) => ({ value, label, title }))}
+							value={metric}
+							onChange={setMetric}
+							aria-label="Behavior signal"
+						/>
+						<Segmented
+							size="sm"
+							options={CHART_MODES}
+							value={mode}
+							onChange={setMode}
+							aria-label="Chart grouping"
+						/>
+					</div>
+				}
+				stale={query.stale}
+			>
+				<QueryView
+					query={query}
+					skeleton={<ChartSkeleton height={260} />}
+					isEmpty={stats => stats.behaviorSeries.length === 0}
+				>
+					{stats => {
+						const hasSeries = stats.behaviorSeries.length > 0;
+						return !hasSeries || chart.days.length === 0 ? (
+							<EmptyState title="No daily behavior signal data in this range" />
+						) : (
+							<div className="stack" style={{ gap: 12 }}>
+								<Chart
+									slots={chart.days.length}
+									tickLabel={i => formatDay(chart.days[i])}
+									tooltipTitle={i => formatDay(chart.days[i], true)}
+									series={chart.series}
+									kind={mode === "model" ? "line" : "bars"}
+									stacked={false}
+									height={260}
+									hidden={hidden}
+									format={value =>
+										value === 0 ? "0%" : value < 1 ? `${value.toFixed(1)}%` : `${value.toFixed(0)}%`
+									}
+									formatTooltip={value => `${value.toFixed(2)}%`}
+								/>
+								<Legend
+									items={chart.series.map(series => ({
+										key: series.key,
+										label: series.label,
+										color: series.color,
+									}))}
+									hidden={hidden}
+									onToggle={toggleHidden}
+								/>
+							</div>
+						);
+					}}
+				</QueryView>
+			</Card>
+
+			<Card
+				index={2}
+				title="Behavior signals by model"
+				description="Totals and rates per user message; select a row to expand its daily trend"
+				flush
+				stale={query.stale}
+			>
+				<QueryView
+					query={query}
+					skeleton={<TableSkeleton />}
+					isEmpty={stats => stats.byModel.length === 0}
+					empty={NO_BEHAVIOR}
+				>
+					{stats => (
+						<Table
+							columns={columns}
+							rows={stats.byModel}
+							rowKey={modelKey}
+							selectedKey={expandedKey}
+							onRowClick={row => setExpandedKey(current => (current === modelKey(row) ? null : modelKey(row)))}
+							initialSort={{ key: "messages", dir: "desc" }}
+							limit={20}
+							expanded={row =>
+								expandedKey === modelKey(row) ? (
+									<BehaviorModelDetails model={row} series={view.byModel.get(modelKey(row)) ?? []} />
+								) : null
 							}
 						/>
-					);
-				})}
-				{sortedModels.length === 0 ? (
-					<div className="border-t border-[var(--border-subtle)] px-5 py-8 text-center text-[var(--text-muted)] text-sm">
-						No user behavior recorded for this range yet.
-					</div>
-				) : null}
-			</ModelTableBody>
-		</ModelTableShell>
-	);
-}
-
-function DetailRow({
-	label,
-	total,
-	messages,
-	valueClass,
-	mode = "rate",
-}: {
-	label: string;
-	total: number;
-	messages: number;
-	valueClass: string;
-	mode?: "rate" | "average";
-}) {
-	const perMsgLabel = mode === "rate" ? "% of msgs" : "Per msg";
-	const perMsgValue = useMemo(() => {
-		if (messages === 0) return "-";
-		return mode === "rate" ? formatRate(total, messages) : (total / messages).toFixed(0);
-	}, [total, messages, mode]);
-
-	return (
-		<div>
-			<div className="text-[var(--text-primary)] font-medium mb-1">{label}</div>
-			<div className="space-y-0.5 text-[var(--text-secondary)]">
-				<div className="flex items-center justify-between">
-					<span className="stats-text-muted text-xs">Total</span>
-					<span className={`font-mono text-xs ${valueClass}`}>{formatInteger(total)}</span>
-				</div>
-				<div className="flex items-center justify-between">
-					<span className="stats-text-muted text-xs">{perMsgLabel}</span>
-					<span className="font-mono text-xs stats-text-primary">{perMsgValue}</span>
-				</div>
-			</div>
+					)}
+				</QueryView>
+			</Card>
 		</div>
 	);
 }
 
-const SERIES_COLORS = {
-	yelling: "#ed4abf", // brand pink
-	profanity: "#ff6b7d", // rose
-	anguish: "#9b4dff", // brand violet
-	frustration: "#5ad8e6", // brand cyan
-} as const;
+function BehaviorSummary({ overall, byModel }: { overall: BehaviorStatsOverall; byModel: BehaviorModelStats[] }) {
+	const totalFriction = overall.totalNegation + overall.totalRepetition + overall.totalBlame;
+	const highestFriction = byModel.reduce<BehaviorModelStats | null>((best, model) => {
+		if (!best) return model;
+		const rate = frictionTotal(model) / Math.max(1, model.totalMessages);
+		const bestRate = frictionTotal(best) / Math.max(1, best.totalMessages);
+		return rate > bestRate ? model : best;
+	}, null);
+	const highestTotal = highestFriction ? frictionTotal(highestFriction) : 0;
+	const averageChars = overall.totalMessages > 0 ? Math.round(overall.totalChars / overall.totalMessages) : 0;
+	return (
+		<div className="stack" style={{ gap: 12 }}>
+			<StatGrid min={160}>
+				<Stat label="User messages" value={formatInteger(overall.totalMessages)} hint="in range" />
+				<Stat
+					label="Yelling (CAPS)"
+					value={formatInteger(overall.totalYelling)}
+					hint={perMessage(overall.totalYelling, overall.totalMessages)}
+				/>
+				<Stat
+					label="Profanity hits"
+					value={formatInteger(overall.totalProfanity)}
+					hint={perMessage(overall.totalProfanity, overall.totalMessages)}
+				/>
+				<Stat
+					label="Anguish signals"
+					value={formatInteger(overall.totalAnguish)}
+					hint={perMessage(overall.totalAnguish, overall.totalMessages)}
+				/>
+				<Stat
+					label="Friction signals"
+					value={formatInteger(totalFriction)}
+					hint={perMessage(totalFriction, overall.totalMessages)}
+				/>
+				<Stat
+					label="Highest-friction model"
+					value={highestFriction?.model ?? "—"}
+					hint={
+						highestFriction
+							? `${formatInteger(highestTotal)} hits · ${formatRate(highestTotal, highestFriction.totalMessages)}`
+							: undefined
+					}
+					title={highestFriction ? `${highestFriction.model} (${highestFriction.provider})` : undefined}
+				/>
+			</StatGrid>
+			<StatGrid min={140}>
+				<Stat size="sm" label="Negation" value={formatInteger(overall.totalNegation)} />
+				<Stat size="sm" label="Repetition" value={formatInteger(overall.totalRepetition)} />
+				<Stat size="sm" label="Blame" value={formatInteger(overall.totalBlame)} />
+				<Stat size="sm" label="Average chars / message" value={formatInteger(averageChars)} />
+			</StatGrid>
+		</div>
+	);
+}
 
-function BreakdownChart({ data, chartTheme }: { data: DailyPoint[]; chartTheme: TableChartTheme }) {
-	const chartData = useMemo(() => {
+interface DailyTotals {
+	messages: number;
+	hits: number;
+}
+
+interface BehaviorView {
+	byModel: Map<string, BehaviorTimeSeriesPoint[]>;
+}
+
+function buildBehaviorView(stats: BehaviorDashboardStats | null): BehaviorView {
+	const byModel = new Map<string, BehaviorTimeSeriesPoint[]>();
+	for (const point of stats?.behaviorSeries ?? []) {
+		const key = modelKey(point);
+		const points = byModel.get(key);
+		if (points) points.push(point);
+		else byModel.set(key, [point]);
+	}
+	for (const points of byModel.values()) points.sort((a, b) => a.timestamp - b.timestamp);
+	return { byModel };
+}
+
+function buildBehaviorChart(
+	points: BehaviorTimeSeriesPoint[],
+	metric: Metric,
+	mode: ChartMode,
+): {
+	days: number[];
+	series: ChartSeries[];
+} {
+	const byDay = new Map<number, DailyTotals>();
+	const byModelDay = new Map<string, Map<number, DailyTotals>>();
+	const models = new Map<string, { model: string; provider: string; messages: number }>();
+
+	for (const point of points) {
+		const day = byDay.get(point.timestamp) ?? { messages: 0, hits: 0 };
+		day.messages += point.messages;
+		day.hits += pointHits(point, metric);
+		byDay.set(point.timestamp, day);
+
+		const key = modelKey(point);
+		const model = models.get(key) ?? { model: point.model, provider: point.provider, messages: 0 };
+		model.messages += point.messages;
+		models.set(key, model);
+		let days = byModelDay.get(key);
+		if (!days) {
+			days = new Map();
+			byModelDay.set(key, days);
+		}
+		const totals = days.get(point.timestamp) ?? { messages: 0, hits: 0 };
+		totals.messages += point.messages;
+		totals.hits += pointHits(point, metric);
+		days.set(point.timestamp, totals);
+	}
+
+	const days = [...byDay.keys()].sort((a, b) => a - b);
+	if (mode === "all") {
+		const label = METRICS.find(option => option.value === metric)?.title ?? "Signals";
 		return {
-			labels: data.map(d => format(new Date(d.timestamp), "MMM d")),
-			datasets: [
+			days,
+			series: [
 				{
-					label: "CAPS",
-					data: data.map(d => d.yelling),
-					...lineSeriesStyle(SERIES_COLORS.yelling),
-				},
-				{
-					label: "Profanity",
-					data: data.map(d => d.profanity),
-					...lineSeriesStyle(SERIES_COLORS.profanity),
-				},
-				{
-					label: "Anguish",
-					data: data.map(d => d.anguish),
-					...lineSeriesStyle(SERIES_COLORS.anguish),
-				},
-				{
-					label: "Frustration",
-					data: data.map(d => d.frustration),
-					...lineSeriesStyle(SERIES_COLORS.frustration),
+					key: "all",
+					label,
+					color: "var(--chart-primary)",
+					values: days.map(day => {
+						const totals = byDay.get(day)!;
+						return totals.messages > 0 ? (totals.hits / totals.messages) * 100 : 0;
+					}),
 				},
 			],
 		};
-	}, [data]);
-
-	const options = useMemo(() => {
-		return {
-			responsive: true,
-			maintainAspectRatio: false,
-			plugins: detailChartPlugins(chartTheme),
-			scales: detailChartScalesSingleAxis(chartTheme),
-		};
-	}, [chartTheme]);
-
-	return <Line data={chartData} options={options} />;
-}
-
-interface DailyPoint {
-	timestamp: number;
-	yelling: number;
-	profanity: number;
-	anguish: number;
-	frustration: number;
-	total: number;
-}
-
-interface ModelTrendSeries {
-	data: DailyPoint[];
-}
-
-function buildTrendLookup(points: BehaviorTimeSeriesPoint[]): Map<string, ModelTrendSeries> {
-	if (points.length === 0) return new Map();
-
-	const allDays = [...new Set(points.map(p => p.timestamp))].sort((a, b) => a - b);
-	const byKey = new Map<string, Map<number, DailyPoint>>();
-
-	for (const point of points) {
-		const key = `${point.model}::${point.provider}`;
-		let dayMap = byKey.get(key);
-		if (!dayMap) {
-			dayMap = new Map();
-			byKey.set(key, dayMap);
-		}
-		const existing = dayMap.get(point.timestamp) ?? {
-			timestamp: point.timestamp,
-			yelling: 0,
-			profanity: 0,
-			anguish: 0,
-			frustration: 0,
-			total: 0,
-		};
-		existing.yelling += point.yelling;
-		existing.profanity += point.profanity;
-		existing.anguish += point.anguish;
-		existing.frustration += point.negation + point.repetition + point.blame;
-		existing.total = existing.yelling + existing.profanity + existing.anguish + existing.frustration;
-		dayMap.set(point.timestamp, existing);
 	}
 
-	const out = new Map<string, ModelTrendSeries>();
-	for (const [key, dayMap] of byKey) {
-		const data = allDays.map(
-			ts =>
-				dayMap.get(ts) ?? {
-					timestamp: ts,
-					yelling: 0,
-					profanity: 0,
-					anguish: 0,
-					frustration: 0,
-					total: 0,
-				},
-		);
-		out.set(key, { data });
-	}
-	return out;
+	const topModels = [...models.entries()].sort((a, b) => b[1].messages - a[1].messages).slice(0, MODEL_COLORS.length);
+	return {
+		days,
+		series: topModels.map(([key, model], index) => ({
+			key,
+			label: model.provider ? `${model.model} · ${model.provider}` : model.model,
+			color: MODEL_COLORS[index],
+			kind: "line",
+			values: days.map(day => {
+				const totals = byModelDay.get(key)?.get(day);
+				return totals ? (totals.messages > 0 ? (totals.hits / totals.messages) * 100 : 0) : null;
+			}),
+		})),
+	};
+}
+
+function buildModelColumns(byModel: Map<string, BehaviorTimeSeriesPoint[]>): readonly Column<BehaviorModelStats>[] {
+	return [
+		{
+			key: "model",
+			header: "Model",
+			render: row => (
+				<div className="stack" style={{ gap: 2 }}>
+					<span className="mono">{row.model}</span>
+					<span className="micro muted">{row.provider}</span>
+				</div>
+			),
+			sort: row => row.model,
+			wrap: true,
+		},
+		{
+			key: "messages",
+			header: "Messages",
+			align: "right",
+			render: row => formatInteger(row.totalMessages),
+			sort: row => row.totalMessages,
+		},
+		{
+			key: "caps",
+			header: "CAPS %",
+			align: "right",
+			render: row => formatRate(row.totalYelling, row.totalMessages),
+			sort: row => ratio(row.totalYelling, row.totalMessages),
+		},
+		{
+			key: "profanity",
+			header: "Profanity %",
+			align: "right",
+			render: row => formatRate(row.totalProfanity, row.totalMessages),
+			sort: row => ratio(row.totalProfanity, row.totalMessages),
+		},
+		{
+			key: "anguish",
+			header: "Anguish %",
+			align: "right",
+			render: row => formatRate(row.totalAnguish, row.totalMessages),
+			sort: row => ratio(row.totalAnguish, row.totalMessages),
+		},
+		{
+			key: "friction",
+			header: "Friction %",
+			align: "right",
+			render: row => formatRate(frictionTotal(row), row.totalMessages),
+			sort: row => ratio(frictionTotal(row), row.totalMessages),
+		},
+		{
+			key: "hits",
+			header: "Hits %",
+			align: "right",
+			render: row => formatRate(signalTotal(row), row.totalMessages),
+			sort: row => ratio(signalTotal(row), row.totalMessages),
+		},
+		{
+			key: "trend",
+			header: "Trend",
+			align: "center",
+			render: row => (
+				<Sparkline values={(byModel.get(modelKey(row)) ?? []).map(point => pointHits(point, "total"))} />
+			),
+		},
+	];
+}
+
+function BehaviorModelDetails({ model, series }: { model: BehaviorModelStats; series: BehaviorTimeSeriesPoint[] }) {
+	const days = series.map(point => point.timestamp);
+	const trendSeries: ChartSeries[] = [
+		{
+			key: "yelling",
+			label: "CAPS",
+			color: SIGNAL_COLORS.yelling,
+			kind: "line",
+			values: series.map(point => point.yelling),
+		},
+		{
+			key: "profanity",
+			label: "Profanity",
+			color: SIGNAL_COLORS.profanity,
+			kind: "line",
+			values: series.map(point => point.profanity),
+		},
+		{
+			key: "anguish",
+			label: "Anguish",
+			color: SIGNAL_COLORS.anguish,
+			kind: "line",
+			values: series.map(point => point.anguish),
+		},
+		{
+			key: "friction",
+			label: "Friction",
+			color: SIGNAL_COLORS.frustration,
+			kind: "line",
+			values: series.map(point => point.negation + point.repetition + point.blame),
+		},
+	];
+	const detailRows = [
+		["Yelling (CAPS)", model.totalYelling],
+		["Profanity", model.totalProfanity],
+		["Anguish", model.totalAnguish],
+		["Negation", model.totalNegation],
+		["Repetition", model.totalRepetition],
+		["Blame", model.totalBlame],
+		["Characters", model.totalChars],
+	] as const;
+
+	return (
+		<div className="stack" style={{ gap: 14, padding: 16 }}>
+			<div className="grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(135px, 1fr))", gap: 12 }}>
+				{detailRows.map(([label, total]) => (
+					<div key={label} className="stack" style={{ gap: 3 }}>
+						<span className="micro muted">{label}</span>
+						<span className="micro muted">
+							{label === "Characters"
+								? model.totalMessages > 0
+									? `${formatInteger(Math.round(total / model.totalMessages))} / msg`
+									: "0 / msg"
+								: formatRate(total, model.totalMessages)}
+						</span>
+					</div>
+				))}
+			</div>
+			{days.length > 0 && (
+				<Chart
+					slots={days.length}
+					tickLabel={index => formatDay(days[index])}
+					series={trendSeries}
+					kind="line"
+					stacked={false}
+					height={190}
+					format={formatInteger}
+					formatTooltip={formatInteger}
+				/>
+			)}
+		</div>
+	);
+}
+
+function modelKey(
+	value: Pick<BehaviorModelStats, "model" | "provider"> | Pick<BehaviorTimeSeriesPoint, "model" | "provider">,
+): string {
+	return JSON.stringify([value.model, value.provider]);
+}
+
+function pointHits(point: BehaviorTimeSeriesPoint, metric: Metric): number {
+	if (metric === "frustration") return point.negation + point.repetition + point.blame;
+	if (metric === "total")
+		return point.yelling + point.profanity + point.anguish + point.negation + point.repetition + point.blame;
+	return point[metric];
+}
+
+function signalTotal(model: BehaviorModelStats): number {
+	return model.totalYelling + model.totalProfanity + model.totalAnguish + frictionTotal(model);
+}
+
+function frictionTotal(model: BehaviorModelStats): number {
+	return model.totalNegation + model.totalRepetition + model.totalBlame;
+}
+
+function ratio(total: number, messages: number): number {
+	return messages > 0 ? total / messages : 0;
+}
+
+function perMessage(total: number, messages: number): string | undefined {
+	return messages > 0 ? `${(total / messages).toFixed(2)} / msg` : undefined;
+}
+
+function formatRate(total: number, messages: number): string {
+	if (messages === 0) return "–";
+	const percent = (total / messages) * 100;
+	if (percent === 0) return "0%";
+	return percent < 1 ? `${percent.toFixed(1)}%` : `${percent.toFixed(0)}%`;
+}
+
+function formatDay(timestamp: number, includeYear = false): string {
+	return new Date(timestamp).toLocaleDateString("en-US", {
+		month: "short",
+		day: "numeric",
+		...(includeYear ? { year: "numeric" } : {}),
+	});
 }

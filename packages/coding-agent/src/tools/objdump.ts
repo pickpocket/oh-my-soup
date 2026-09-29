@@ -26,6 +26,7 @@ import { resolveToCwd } from "./path-utils";
 import { renderError, ToolAbortError, ToolError, throwIfAborted } from "./tool-errors";
 import { toolResult } from "./tool-result";
 import { clampTimeout } from "./tool-timeouts";
+import { cfgToolsArtifactSpillThreshold, cfgToolsMaxTimeout } from "./settings";
 
 const objdumpSchema = type({
 	action: type.enumerated("headers", "sections", "symbols", "disassemble", "relocations", "contents", "info"),
@@ -268,7 +269,7 @@ export class ObjdumpTool implements AgentTool<typeof objdumpSchema, ObjdumpToolD
 				throw new ToolError(`Cannot inspect file ${file}: ${renderError(error)}`);
 			}
 		}
-		const timeout = clampTimeout("objdump", params.timeout, this.session.settings.get("tools.maxTimeout"));
+		const timeout = clampTimeout("objdump", params.timeout, cfgToolsMaxTimeout.get(this.session.settings));
 		let artifact: { id?: string; path?: string } | undefined;
 		try {
 			artifact = await this.session.allocateOutputArtifact?.("objdump");
@@ -282,7 +283,7 @@ export class ObjdumpTool implements AgentTool<typeof objdumpSchema, ObjdumpToolD
 		const sink = new OutputSink({
 			artifactPath: artifact?.path,
 			artifactId: artifact?.id,
-			spillThreshold: this.session.settings.get("tools.artifactSpillThreshold") * 1024,
+			spillThreshold: cfgToolsArtifactSpillThreshold.get(this.session.settings) * 1024,
 			headBytes: resolveOutputSinkHeadBytes(this.session.settings),
 			maxColumns: resolveOutputMaxColumns(this.session.settings),
 		});

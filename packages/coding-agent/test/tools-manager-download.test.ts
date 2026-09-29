@@ -37,16 +37,16 @@ describe("tool asset downloads", () => {
 		const bytes = new TextEncoder().encode("verified-tool-bytes");
 		const sha256 = Bun.CryptoHasher.hash("sha256", bytes, "hex");
 		mockDownloadResponse(new Response(bytes));
-		await downloadFile("https://example.test/tool.bin", dest, undefined, { sha256, maxBytes: bytes.length });
+		await downloadFile("https://example.test/tool.bin", dest, { integrity: { sha256, maxBytes: bytes.length } });
 		expect(await Bun.file(dest).bytes()).toEqual(bytes);
 		mockDownloadResponse(new Response(bytes));
 		await expect(
-			downloadFile("https://example.test/tool.bin", dest, undefined, { sha256, maxBytes: bytes.length - 1 }),
+			downloadFile("https://example.test/tool.bin", dest, { integrity: { sha256, maxBytes: bytes.length - 1 } }),
 		).rejects.toThrow("exceeds");
 		expect(await Bun.file(dest).exists()).toBe(false);
 		mockDownloadResponse(new Response("different bytes"));
 		await expect(
-			downloadFile("https://example.test/tool.bin", dest, undefined, { sha256, maxBytes: bytes.length }),
+			downloadFile("https://example.test/tool.bin", dest, { integrity: { sha256, maxBytes: bytes.length } }),
 		).rejects.toThrow("SHA256 mismatch");
 		expect(await Bun.file(dest).exists()).toBe(false);
 	});
@@ -65,7 +65,7 @@ describe("tool asset downloads", () => {
 		});
 		mockDownloadResponse(new Response(body));
 		const controller = new AbortController();
-		const download = downloadFile("https://example.test/tool.bin", dest, controller.signal);
+		const download = downloadFile("https://example.test/tool.bin", dest, { signal: controller.signal });
 		await stalled.promise;
 		controller.abort(new DOMException("The operation timed out.", "TimeoutError"));
 		await expect(download).rejects.toThrow("Download timed out: https://example.test/tool.bin");

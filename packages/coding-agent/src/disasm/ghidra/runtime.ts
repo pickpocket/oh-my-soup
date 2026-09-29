@@ -559,14 +559,14 @@ async function enumerateProjectPrograms(
 		} catch {
 			// A project without programs produces no output file.
 		}
-		const programs = [
-			...new Set(
+		const programs = Array.from(
+			new Set(
 				contents
 					.split(/\r?\n/)
 					.map(line => line.trim())
 					.filter(Boolean),
 			),
-		];
+		);
 		if (programs.length === 0) {
 			throw new Error(`Ghidra project '${projectName}' contains no programs`);
 		}
@@ -891,5 +891,5 @@ postmortem.register("ghidra-headless-runtime", async () => {
 			cleanupTargetFiles(record);
 		}),
 	);
-	for (const directory of [...pendingCleanupDirectories]) removeDirectory(directory);
+	for (const directory of pendingCleanupDirectories) removeDirectory(directory);
 });

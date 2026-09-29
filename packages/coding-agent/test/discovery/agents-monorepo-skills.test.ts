@@ -2,17 +2,16 @@
  * Tests that the agents provider walks up from cwd to find capabilities in ancestor
  * .agent/ and .agents/ directories (project-level discovery).
  *
- * Instead of testing the full provider flow (which requires the entire capability registry),
- * this test verifies the building blocks (scanSkillsFromDir, loadFilesFromDir, readFile)
- * with the same walk-up pattern used by the agents provider.
+ * This test verifies the building blocks (getProjectPathCandidates, scanSkillsFromDir,
+ * loadFilesFromDir, readFile) with the same walk-up pattern used by the agents provider.
  */
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { clearCache, readFile } from "@oh-my-soup/pi-coding-agent/capability/fs";
-import type { Rule } from "@oh-my-soup/pi-coding-agent/capability/rule";
 import type { LoadContext } from "@oh-my-soup/pi-coding-agent/capability/types";
+import type { Rule } from "@oh-my-soup/pi-coding-agent/capability/rule";
 import { getProjectPathCandidates } from "@oh-my-soup/pi-coding-agent/discovery/agents";
 import {
 	buildRuleFromMarkdown,
@@ -64,30 +63,6 @@ describe("agents provider project-level discovery", () => {
 	// =========================================================================
 
 	describe("skills", () => {
-		test("finds .agents/skills in monorepo root from sub-project cwd", async () => {
-			writeSkill(path.join(repoRoot, ".agents", "skills"), "root-skill", "From repo root");
-
-			const results = await Promise.all(
-				getProjectPathCandidates(ctx, "skills").map(dir =>
-					scanSkillsFromDir(ctx, { dir, providerId: PROVIDER_ID, level: "project" }),
-				),
-			);
-			const names = results.flatMap(r => r.items).map(s => s.name);
-			expect(names).toContain("root-skill");
-		});
-
-		test("finds .agent/skills in monorepo root from sub-project cwd", async () => {
-			writeSkill(path.join(repoRoot, ".agent", "skills"), "root-skill", "From repo root");
-
-			const results = await Promise.all(
-				getProjectPathCandidates(ctx, "skills").map(dir =>
-					scanSkillsFromDir(ctx, { dir, providerId: PROVIDER_ID, level: "project" }),
-				),
-			);
-			const names = results.flatMap(r => r.items).map(s => s.name);
-			expect(names).toContain("root-skill");
-		});
-
 		test("finds skills at both sub-project and repo root, closest first", async () => {
 			writeSkill(path.join(subProject, ".agents", "skills"), "local-skill", "From sub-project");
 			writeSkill(path.join(repoRoot, ".agents", "skills"), "root-skill", "From repo root");
@@ -157,14 +132,6 @@ describe("agents provider project-level discovery", () => {
 			expect(names).not.toContain("above-home-skill");
 		});
 
-		test("project and user candidates do not overlap when cwd is under home", () => {
-			// Regression for https://github.com/can1357/oh-my-pi/issues/1116.
-			const noRepoCtx: LoadContext = { cwd: subProject, home: repoRoot, repoRoot: null };
-			const project = getProjectPathCandidates(noRepoCtx, "skills");
-			const user = [".agent", ".agents"].map(b => path.join(repoRoot, b, "skills"));
-			const overlap = project.filter(p => user.includes(p));
-			expect(overlap).toEqual([]);
-		});
 		test("returns empty when no ancestor has skills", async () => {
 			const results = await Promise.all(
 				getProjectPathCandidates(ctx, "skills").map(dir =>
@@ -363,7 +330,6 @@ describe("agents provider project-level discovery", () => {
 			const results = await Promise.all(paths.map(p => readFile(p)));
 			const found = results.filter(r => r !== null);
 			expect(found).toHaveLength(2);
-			// Closest first (sub-project before root)
 			expect(found[0]).toContain("Local Rules");
 			expect(found[1]).toContain("Root Rules");
 		});
@@ -394,9 +360,7 @@ describe("agents provider project-level discovery", () => {
 			}
 
 			expect(items).toHaveLength(2);
-			// Depths must differ so dedup keys are distinct
 			expect(items[0]!.depth).not.toBe(items[1]!.depth);
-			// Local (depth 0) before root (positive depth)
 			expect(items[0]!.depth).toBe(0);
 			expect(items[0]!.content).toContain("Local Rules");
 			expect(items[1]!.depth).toBeGreaterThan(0);

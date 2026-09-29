@@ -13,6 +13,8 @@ import type { AgentSessionEvent } from "@oh-my-soup/pi-coding-agent/session/agen
 import { type Component, TERMINAL } from "@oh-my-soup/pi-tui";
 import { createInteractiveModeContext } from "./helpers/interactive-mode-context";
 
+import { cfgTerminalShowImages } from "@oh-my-soup/pi-coding-agent/modes/settings";
+
 const TOOL_CALL_A_ID = "toolu_mixed_text_order_a";
 const TOOL_CALL_B_ID = "toolu_mixed_text_order_b";
 const INTRO_MARKER = "INTRO TEXT BEFORE FIRST TOOL";
@@ -528,7 +530,7 @@ describe("EventController mixed assistant text/tool rendering", () => {
 			Object.defineProperty(TERMINAL, "imageProtocol", { value: null });
 			try {
 				const { controller, chatContainer, ctx } = createFixture();
-				ctx.settings.set("terminal.showImages", true);
+				cfgTerminalShowImages.set(ctx.settings, true);
 				const readCall: ToolCall = {
 					type: "toolCall",
 					id: `read-image-${arrival}`,

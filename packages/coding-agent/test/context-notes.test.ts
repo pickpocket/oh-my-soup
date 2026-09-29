@@ -17,6 +17,8 @@ import { ContextNotesTool, NewContextTool } from "@oh-my-soup/pi-coding-agent/to
 import type { ToolSession } from "@oh-my-soup/pi-coding-agent/tools/index";
 import { TempDir } from "@oh-my-soup/pi-utils";
 
+import { cfgCompactionExperimentalContextManagement } from "@oh-my-soup/pi-coding-agent/session/context-settings";
+
 const NOW = "2026-09-04T00:00:00.000Z";
 
 function noteEntry(id: string, parentId: string | null, text: string): CustomEntry<ContextNotesEntry> {
@@ -163,7 +165,7 @@ describe("experimental context notes", () => {
 		try {
 			const pendingWrite = tool.execute("disabled-mid-write", { text: "must not persist" });
 			await Promise.resolve();
-			settings.override("compaction.experimentalContextManagement", false);
+			cfgCompactionExperimentalContextManagement.override(settings, false);
 			pendingEnsure.resolve();
 			await expect(pendingWrite).rejects.toThrow("Experimental context management is disabled.");
 			expect(getContextNotes(sessionManager.getBranch())).toBeUndefined();

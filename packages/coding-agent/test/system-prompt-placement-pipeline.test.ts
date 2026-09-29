@@ -11,6 +11,7 @@ import { AssistantMessageEventStream } from "@oh-my-soup/pi-ai/utils/event-strea
 import { buildModel } from "@oh-my-soup/pi-catalog/build";
 import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
 import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { cfgSystemPromptFiles, cfgSystemPromptPlacement } from "@oh-my-soup/pi-coding-agent/session/context-settings";
 import { createAgentSession } from "@oh-my-soup/pi-coding-agent/sdk";
 import { AuthStorage } from "@oh-my-soup/pi-coding-agent/session/auth-storage";
 import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
@@ -60,7 +61,7 @@ async function captureProviderContext(options: {
 		...(options.supportsSystemPrompt === undefined ? {} : { supportsSystemPrompt: options.supportsSystemPrompt }),
 	} as ModelSpec<Api>) as Model<Api>;
 	const authStorage = await AuthStorage.create(tempDir.join("auth.db"));
-	authStorage.setRuntimeApiKey(model.provider, "test-key");
+	authStorage.keys.setRuntime(model.provider, "test-key");
 	const modelRegistry = new ModelRegistry(authStorage, tempDir.join("models.yml"));
 	const { session } = await createAgentSession({
 		cwd: tempDir.path(),
@@ -209,15 +210,15 @@ describe("subagent inheritance of /sprompt bindings", () => {
 
 		// Parent session settings as /sprompt would leave them.
 		const parentSettings = Settings.isolated({ "compaction.enabled": false });
-		parentSettings.set("systemPromptFiles", { "managed-primary/placement-probe": promptFile });
-		parentSettings.set("systemPromptPlacement", "first-turn");
+		cfgSystemPromptFiles.set(parentSettings, { "managed-primary/placement-probe": promptFile });
+		cfgSystemPromptPlacement.set(parentSettings, "first-turn");
 
 		// Exactly what the task executor hands to createAgentSession for a child.
 		const subagentSettings = createSubagentSettings(parentSettings);
-		expect(subagentSettings.get("systemPromptFiles")).toEqual({
+		expect(cfgSystemPromptFiles.get(subagentSettings)).toEqual({
 			"managed-primary/placement-probe": promptFile,
 		});
-		expect(subagentSettings.get("systemPromptPlacement")).toBe("first-turn");
+		expect(cfgSystemPromptPlacement.get(subagentSettings)).toBe("first-turn");
 
 		const { context, dispose } = await captureProviderContext({ settingsInstance: subagentSettings });
 		try {

@@ -40,6 +40,18 @@ import type { OutputMeta } from "@oh-my-soup/pi-tui/tools/output-meta";
 import { ToolError } from "./tool-errors";
 import { toolResult } from "./tool-result";
 import { clampTimeout } from "./tool-timeouts";
+import {
+	cfgDisasmDefaultBackend,
+	cfgDisasmEnabled,
+	cfgDisasmIdaInstallDir,
+	cfgDisasmIdaPython,
+	cfgDisasmIdaUrl,
+	cfgDisasmGhidraInstallDir,
+	cfgDisasmGhidraJavaHome,
+	cfgDisasmBinaryNinjaInstallDir,
+	cfgDisasmBinaryNinjaPython,
+	cfgToolsMaxTimeout,
+} from "./settings";
 
 const disasmActionSchema = type.enumerated("backends", "open", "list", "query", "execute", "reset", "save", "close");
 const disasmSchema = type({
@@ -230,7 +242,7 @@ export class DisasmTool implements AgentTool<typeof disasmSchema, DisasmToolDeta
 	}
 
 	static createIf(session: ToolSession): DisasmTool | null {
-		return session.settings.get("disasm.enabled") ? new DisasmTool(session) : null;
+		return cfgDisasmEnabled.get(session.settings) ? new DisasmTool(session) : null;
 	}
 
 	async execute(
@@ -248,14 +260,13 @@ export class DisasmTool implements AgentTool<typeof disasmSchema, DisasmToolDeta
 			details.backends = backends;
 			return result.text(formatBackends(backends)).done();
 		}
-
-		const backend = (params.backend?.trim() || this.session.settings.get("disasm.defaultBackend") || "ida")
+		const backend = (params.backend?.trim() || cfgDisasmDefaultBackend.get(this.session.settings) || "ida")
 			.trim()
 			.toLowerCase();
 		validateBackendParameters(params, backend);
 		const endpoint = params.endpoint ?? this.#configuredEndpoint(backend);
 		const timeoutSec = Math.floor(
-			clampTimeout("disasm", params.timeout, this.session.settings.get("tools.maxTimeout")),
+			clampTimeout("disasm", params.timeout, cfgToolsMaxTimeout.get(this.session.settings)),
 		);
 		const timeoutSignal = AbortSignal.timeout(timeoutSec * 1000);
 		const combinedSignal = signal ? AbortSignal.any([signal, timeoutSignal]) : timeoutSignal;
@@ -264,20 +275,20 @@ export class DisasmTool implements AgentTool<typeof disasmSchema, DisasmToolDeta
 			adapter = createDisassemblerAdapter(backend, {
 				endpoint,
 				idaDir:
-					params.ida_dir ?? (backend === "ida" ? this.session.settings.get("disasm.ida.installDir") : undefined),
-				python: backend === "ida" ? (params.python ?? this.session.settings.get("disasm.ida.python")) : undefined,
+					params.ida_dir ?? (backend === "ida" ? cfgDisasmIdaInstallDir.get(this.session.settings) : undefined),
+				python: backend === "ida" ? (params.python ?? cfgDisasmIdaPython.get(this.session.settings)) : undefined,
 				ghidraInstallDir:
 					params.ghidra_dir ??
-					(backend === "ghidra" ? this.session.settings.get("disasm.ghidra.installDir") : undefined),
+					(backend === "ghidra" ? cfgDisasmGhidraInstallDir.get(this.session.settings) : undefined),
 				ghidraJavaHome:
 					params.java_home ??
-					(backend === "ghidra" ? this.session.settings.get("disasm.ghidra.javaHome") : undefined),
+					(backend === "ghidra" ? cfgDisasmGhidraJavaHome.get(this.session.settings) : undefined),
 				binaryNinjaInstallDir:
 					params.binaryninja_dir ??
-					(backend === "binaryninja" ? this.session.settings.get("disasm.binaryNinja.installDir") : undefined),
+					(backend === "binaryninja" ? cfgDisasmBinaryNinjaInstallDir.get(this.session.settings) : undefined),
 				binaryNinjaPython:
 					params.python ??
-					(backend === "binaryninja" ? this.session.settings.get("disasm.binaryNinja.python") : undefined),
+					(backend === "binaryninja" ? cfgDisasmBinaryNinjaPython.get(this.session.settings) : undefined),
 				cwd: this.session.cwd,
 			});
 		} catch (error) {
@@ -389,7 +400,7 @@ export class DisasmTool implements AgentTool<typeof disasmSchema, DisasmToolDeta
 	}
 
 	#configuredEndpoint(backend: string): string | undefined {
-		return backend === "ida" ? this.session.settings.get("disasm.ida.url") : undefined;
+		return backend === "ida" ? cfgDisasmIdaUrl.get(this.session.settings) : undefined;
 	}
 }
 function validateActionParameters(params: DisasmParams): void {

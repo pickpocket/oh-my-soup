@@ -1,5 +1,6 @@
 import { formatDuration, logger, postmortem, truncate, wrapFetchForExtraCa } from "@oh-my-soup/pi-utils";
 import type { ToolSession } from "../tools";
+import { cfgTaskDiscordWebhookUrl } from "./settings";
 import { withTimeoutSignal } from "../utils/fetch-timeout";
 
 export interface TaskCompletionNotification {
@@ -76,7 +77,7 @@ function unregisterPostmortem(state: PendingNotifications): void {
 /** Enqueue one best-effort, metadata-only notification without delaying task completion. */
 export function notifyTaskCompletion(session: ToolSession, notification: TaskCompletionNotification): void {
 	try {
-		const configured = session.settings.get("task.discordWebhookUrl")?.trim();
+		const configured = cfgTaskDiscordWebhookUrl.get(session.settings)?.trim();
 		if (!configured) return;
 		let state = pendingBySession.get(session);
 		if (state?.closed) return;

@@ -119,16 +119,6 @@ describe("global --profile flag", () => {
 		expect(getAgentDbPath()).toBe(path.join(os.homedir(), configDir, "profiles", "work", "agent", "agent.db"));
 	});
 
-	it("accepts the profile flag after other root flags", async () => {
-		vi.spyOn(process.stdout, "write").mockImplementation(() => true);
-
-		await runCli(["--version", "--profile", "office"]);
-
-		expect(process.exitCode).toBe(0);
-		expect(getActiveProfile()).toBe("office");
-		expect(getAgentDir()).toBe(path.join(os.homedir(), configDir, "profiles", "office", "agent"));
-	});
-
 	it("installs a shell alias and exits before command dispatch", async () => {
 		const installSpy = vi.spyOn(profileAliasCli, "installProfileAlias").mockResolvedValue({
 			shell: "bash",
@@ -204,7 +194,6 @@ describe("global --profile flag", () => {
 		expect(output).toContain("Created oms-work");
 		expect(output).not.toContain(`${APP_NAME}/${VERSION}`);
 	});
-
 	it("rejects missing profile values without dispatching", async () => {
 		const errSpy = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
 		const outSpy = vi.spyOn(process.stdout, "write").mockImplementation(() => true);

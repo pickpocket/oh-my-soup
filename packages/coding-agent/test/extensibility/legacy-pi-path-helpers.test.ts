@@ -14,12 +14,6 @@ import * as utils from "@oh-my-soup/pi-utils";
 describe("legacy shim path helpers", () => {
 	afterEach(() => vi.restoreAllMocks());
 
-	it("exports the three pi SDK path helpers as callable functions", () => {
-		expect(typeof shim.getAgentDir).toBe("function");
-		expect(typeof shim.getProjectDir).toBe("function");
-		expect(typeof shim.getPackageDir).toBe("function");
-	});
-
 	it("getPackageDir resolves the coding-agent package root in source mode", () => {
 		// oms's canonical helper returns the package root containing package.json
 		// (pi's "install directory of the coding-agent package" semantics).

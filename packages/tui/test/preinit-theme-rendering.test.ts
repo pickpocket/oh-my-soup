@@ -37,7 +37,8 @@ describe("rendering before theme initialization (#10864)", () => {
 	it("uses detected terminal capabilities for a magic-keyword gradient", async () => {
 		const entry = Bun.resolveSync("@oh-my-soup/pi-tui/prompt/magic-keywords", import.meta.dir);
 		await expectFreshModuleRender(`
-			import { highlightMagicKeywords } from ${JSON.stringify(entry)};
+			import { highlightMagicKeywords, setMagicKeywords } from ${JSON.stringify(entry)};
+			setMagicKeywords([{ word: "ultrathink", hue: [280, 340] }]);
 			const text = "please ultrathink about this";
 			const out = highlightMagicKeywords(text, undefined, 0);
 			if (out.replaceAll(/\\x1b\\[[0-9;]*m/g, "") !== text) throw new Error("visible-text-changed");

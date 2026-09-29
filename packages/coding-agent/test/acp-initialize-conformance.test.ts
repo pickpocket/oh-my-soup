@@ -10,6 +10,7 @@ import * as path from "node:path";
 import { type } from "@oh-my-soup/omstype";
 import type { Model } from "@oh-my-soup/pi-ai";
 import { buildModel } from "@oh-my-soup/pi-catalog/build";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
 import { AcpAgent } from "@oh-my-soup/pi-coding-agent/modes/acp/acp-agent";
 import {
 	ACP_TERMINAL_AUTH_FLAG,
@@ -56,7 +57,7 @@ class FakeAgentSession {
 	queuedMessageCount = 0;
 	systemPrompt = "system";
 	disposed = false;
-	settings = { get: (_path: string) => false };
+	settings = Settings.isolated();
 
 	constructor(cwd: string) {
 		this.sessionManager = SessionManager.create(cwd);
@@ -236,6 +237,7 @@ describe("ACP initialize conformance", () => {
 			expect.objectContaining({
 				name: "oh-my-soup",
 				title: "Oh My Soup",
+
 				version: VERSION,
 			}),
 		);

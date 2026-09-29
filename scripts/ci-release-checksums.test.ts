@@ -19,7 +19,6 @@ describe("formatChecksums", () => {
 		]);
 		expect(output).toBe(`${"a".repeat(64)}  oms-darwin-arm64\n${"b".repeat(64)}  oms-linux-x64\n`);
 	});
-
 	it("hashes assets and writes a sorted checksum manifest", async () => {
 		const dir = await mkdtemp(path.join(tmpdir(), "oms-release-checksums-"));
 		tempDirs.push(dir);

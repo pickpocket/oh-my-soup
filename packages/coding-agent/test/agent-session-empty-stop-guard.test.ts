@@ -1,12 +1,12 @@
 import { afterAll, afterEach, describe, expect, it, vi } from "bun:test";
 import * as path from "node:path";
-import { scheduler } from "node:timers/promises";
+
 import { type } from "@oh-my-soup/omstype";
 import { Agent, type AgentMessage, type AgentTool } from "@oh-my-soup/pi-agent-core";
 import type { ThinkingContent } from "@oh-my-soup/pi-ai";
 import { createMockModel, type MockModel, type MockResponse } from "@oh-my-soup/pi-ai/providers/mock";
 import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
-import { type SettingPath, Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
 import type { ExtensionRunner } from "@oh-my-soup/pi-coding-agent/extensibility/extensions/runner";
 import { AgentSession, type AgentSessionEvent } from "@oh-my-soup/pi-coding-agent/session/agent-session";
 import { AuthStorage } from "@oh-my-soup/pi-coding-agent/session/auth-storage";
@@ -21,12 +21,12 @@ type Harness = {
 	session: AgentSession;
 	tempDir: TempDir;
 };
-type SettingsOverrides = Partial<Record<SettingPath, unknown>>;
+type SettingsOverrides = Record<string, unknown>;
 
 const activeHarnesses: Harness[] = [];
 const sharedDir = TempDir.createSync("@pi-empty-stop-guard-shared-");
 const sharedAuthStorage = await AuthStorage.create(path.join(sharedDir.path(), "auth.db"));
-sharedAuthStorage.setRuntimeApiKey("mock", "test-key");
+sharedAuthStorage.keys.setRuntime("mock", "test-key");
 const sharedModelRegistry = new ModelRegistry(sharedAuthStorage, path.join(sharedDir.path(), "models.yml"));
 
 afterAll(() => {
@@ -128,7 +128,7 @@ async function createHarness(
 	const authStorage = sharedAuthStorage;
 
 	const mock = createMockModel({ provider: options.provider, id: options.id, responses });
-	authStorage.setRuntimeApiKey(mock.provider, "test-key");
+	authStorage.keys.setRuntime(mock.provider, "test-key");
 	const modelRegistry = sharedModelRegistry;
 	const settings = Settings.isolated({
 		"compaction.enabled": false,
@@ -447,7 +447,7 @@ describe("AgentSession empty stop guard", () => {
 		expect(mock.calls).toHaveLength(5);
 	});
 
-	it("waits for capped empty-stop persistence before removing the active branch entry", async () => {
+	it("discards the capped empty stop durably without waiting on a stalled message_end hook", async () => {
 		const releaseMessageEnd = Promise.withResolvers<void>();
 		const finalMessageEndEntered = Promise.withResolvers<void>();
 		let assistantMessageEnds = 0;
@@ -469,29 +469,29 @@ describe("AgentSession empty stop guard", () => {
 			{ extensionRunner },
 		);
 
-		let promptSettled = false;
-		const prompt = session.prompt("answer after delayed persistence");
-		void prompt.then(
-			() => {
-				promptSettled = true;
-			},
-			() => {
-				promptSettled = true;
-			},
-		);
+		// Persistence and the capped-stop cleanup run in emission order and must not
+		// be owned by extension listeners: a held message_end hook cannot stall the
+		// prompt, and the discard already waited for the final turn's persistence.
+		const prompt = session.prompt("answer while the final hook is held");
 		await finalMessageEndEntered.promise;
-		await scheduler.yield();
-		expect(promptSettled).toBe(false);
-
-		releaseMessageEnd.resolve();
-		await prompt;
-		await session.waitForIdle();
-
+		await withTimeout(prompt, 2_000, "Prompt stalled behind a held message_end hook");
 		const activeBranchMessages = session.sessionManager
 			.getBranch()
 			.filter(entry => entry.type === "message")
 			.map(entry => entry.message as AgentMessage);
 		expect(emptyAssistantStops(activeBranchMessages)).toHaveLength(0);
+		expect(session.sessionManager.getEntries().at(-1)).toMatchObject({
+			type: "branch_summary",
+			details: { kind: "discarded-entry-branch" },
+		});
+
+		releaseMessageEnd.resolve();
+		await session.waitForIdle();
+		const settledBranchMessages = session.sessionManager
+			.getBranch()
+			.filter(entry => entry.type === "message")
+			.map(entry => entry.message as AgentMessage);
+		expect(emptyAssistantStops(settledBranchMessages)).toHaveLength(0);
 	});
 
 	it("does not let a capped empty stop anchor the next context estimate", async () => {

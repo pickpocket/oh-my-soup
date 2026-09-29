@@ -1,5 +1,5 @@
 /**
- * Regression for https://github.com/can1357/oh-my-pi/issues/823.
+ * Regression for https://github.com/pickpocket/oh-my-soup/issues/823.
  *
  * On WSL (and any host where the user moves the standalone binary away from the
  * build-time native artifacts), the compiled `oms` binary fails to load
@@ -137,7 +137,6 @@ describe("issue 823: standalone-binary native loader path resolution", () => {
 		expect(candidates).not.toContain(path.join(versionedDir, "pi_natives.linux-x64-baseline.node"));
 		expect(candidates).not.toContain(path.join(userDataDir, "pi_natives.linux-x64-baseline.node"));
 	});
-
 	it("prefers platform leaf package candidates ahead of core nativeDir candidates on npm installs", () => {
 		const leafPackageDir = "/app/node_modules/@oh-my-soup/pi-natives-linux-x64";
 		const nativeDir = "/app/node_modules/@oh-my-soup/pi-natives/native";

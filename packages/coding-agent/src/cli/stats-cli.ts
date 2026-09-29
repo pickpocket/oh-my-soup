@@ -4,9 +4,21 @@
  * Handles `oms stats` subcommand for viewing AI usage statistics.
  */
 
+import { formatKeyHint } from "@oh-my-soup/pi-tui/key-hint-format";
 import { truncateToWidth } from "@oh-my-soup/pi-tui/utils";
 import { formatDuration, formatNumber, formatPercent } from "@oh-my-soup/pi-utils";
 import chalk from "@oh-my-soup/pi-utils/chalk";
+import { formatCost } from "@oh-my-soup/pi-tui/overlays/agent-hub-renderer";
+import { openStandaloneJudge } from "../judgment/standalone";
+import {
+	closeDb,
+	formatStatsDashboardUrl,
+	getDashboardStats,
+	getTotalMessageCount,
+	refreshRollups,
+	startServer,
+	syncAllSessions,
+} from "@oh-my-soup/oms-stats";
 import { openPath } from "../utils/open";
 
 /**
@@ -62,12 +74,6 @@ export interface StatsCommandArgs {
 	summary: boolean;
 }
 
-function formatCost(n: number): string {
-	if (n < 0.01) return `$${n.toFixed(4)}`;
-	if (n < 1) return `$${n.toFixed(3)}`;
-	return `$${n.toFixed(2)}`;
-}
-
 function normalizePremiumRequests(n: number): number {
 	return Math.round((n + Number.EPSILON) * 100) / 100;
 }
@@ -77,38 +83,37 @@ function normalizePremiumRequests(n: number): number {
 // =============================================================================
 
 export async function runStatsCommand(cmd: StatsCommandArgs): Promise<void> {
-	// Lazy import to avoid loading stats module when not needed
-	const { closeDb, formatStatsDashboardUrl, getDashboardStats, getTotalMessageCount, startServer, syncAllSessions } =
-		await import("@oh-my-soup/oms-stats");
-
-	// Sync session files first
-	const progress = createSyncProgressReporter();
-	process.stderr.write("Syncing session files...\n");
-	const { processed, files } = await syncAllSessions({ onProgress: progress.onProgress });
-	progress.finish();
-	const total = await getTotalMessageCount();
-	console.log(`Synced ${processed} new entries from ${files} files (${total} total)\n`);
-
-	if (cmd.json) {
-		const stats = await getDashboardStats();
-		console.log(JSON.stringify(stats, null, 2));
+	// One-shot reports need fully ingested, fully rolled-up data before printing.
+	if (cmd.json || cmd.summary) {
+		const progress = createSyncProgressReporter();
+		process.stderr.write("Syncing session files...\n");
+		const { processed, files } = await syncAllSessions({ onProgress: progress.onProgress });
+		progress.finish();
+		await refreshRollups();
+		const total = await getTotalMessageCount();
+		process.stderr.write(`Synced ${processed} new entries from ${files} files (${total} total)\n\n`);
+		if (cmd.json) {
+			console.log(JSON.stringify(await getDashboardStats(), null, 2));
+		} else {
+			await printStatsSummary();
+		}
 		return;
 	}
 
-	if (cmd.summary) {
-		await printStatsSummary();
-		return;
-	}
-
-	// Start the dashboard server
-	const { hostname, port } = await startServer(cmd.port, cmd.host);
+	// The dashboard starts immediately and ingests sessions in the background,
+	// streaming progress to the page. The judge (settings, auth, registry)
+	// resolves on the first Frustration estimate/run and lives until exit.
+	const cwd = process.cwd();
+	const { hostname, port } = await startServer(cmd.port, cmd.host, {
+		judge: async () => (await openStandaloneJudge(cwd, "stats_frustration")).judge,
+	});
 	const url = formatStatsDashboardUrl(hostname, port);
 	console.log(chalk.green(`Dashboard available at: ${url}`));
 
 	// Open browser
 	openPath(url);
 
-	console.log("Press Ctrl+C to stop\n");
+	console.log(`Press ${formatKeyHint("ctrl+c")} to stop\n`);
 
 	// Keep process running
 	process.on("SIGINT", () => {
@@ -122,7 +127,6 @@ export async function runStatsCommand(cmd: StatsCommandArgs): Promise<void> {
 }
 
 async function printStatsSummary(): Promise<void> {
-	const { getDashboardStats } = await import("@oh-my-soup/oms-stats");
 	const stats = await getDashboardStats();
 	const { overall, byModel, byFolder } = stats;
 

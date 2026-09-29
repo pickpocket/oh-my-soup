@@ -1,0 +1,361 @@
+/**
+ * The job tool's TUI preview must not leak the model-facing `<task-result>`
+ * envelope (prompts/tools/task-summary.md): a settled task job previews the
+ * inner <output>/<preview> body, while non-envelope result text (bash jobs)
+ * passes through unchanged.
+ */
+import { beforeAll, describe, expect, it } from "bun:test";
+import { initTheme, theme } from "@oh-my-soup/pi-tui/theme";
+import { prompt } from "@oh-my-soup/pi-utils";
+import taskSummaryTemplate from "../../coding-agent/src/prompts/tools/task-summary.md" with { type: "text" };
+import { createIrcMessageCard, waitToolRenderer } from "@oh-my-soup/pi-tui/tools/wait";
+
+function renderLines(resultText: string): string {
+	const result = {
+		content: [{ type: "text", text: "" }],
+		details: {
+			op: "wait" as const,
+			jobs: [
+				{
+					id: "SpawnProbe",
+					type: "task" as const,
+					status: "completed" as const,
+					label: "SpawnProbe",
+					durationMs: 8_700,
+					resultText,
+				},
+			],
+		},
+	};
+	const component = waitToolRenderer.renderResult(
+		result,
+		{ expanded: true } as Parameters<typeof waitToolRenderer.renderResult>[1],
+		theme,
+	);
+	return (component.render(120) as readonly string[]).join("\n");
+}
+
+describe("wait and IRC renderers", () => {
+	beforeAll(async () => {
+		await initTheme();
+	});
+
+	it("renders the consumed peer message as a sender card", () => {
+		const component = waitToolRenderer.renderResult(
+			{
+				content: [{ type: "text", text: "[42] Worker: file unlocked" }],
+				details: {
+					op: "wait",
+					waited: { id: "42", from: "Worker", to: "Main", body: "file unlocked", ts: Date.now() },
+				},
+			},
+			{ expanded: true, isPartial: false },
+			theme,
+		);
+		const output = Bun.stripANSI(component.render(120).join("\n"));
+		expect(output).toContain("Worker");
+		expect(output).toContain("file unlocked");
+	});
+
+	describe("waited peer messages", () => {
+		it("keeps a timed-out wait as a no-message result", () => {
+			const component = waitToolRenderer.renderResult(
+				{
+					content: [{ type: "text", text: "No message from AuthLoader within 2m." }],
+					details: { op: "wait", from: "Main", waited: null },
+				},
+				{ expanded: false, isPartial: false },
+				theme,
+			);
+			const output = Bun.stripANSI(component.render(120).join("\n"));
+			expect(output).toContain("No message from AuthLoader within 2m.");
+			expect(output).not.toContain("IRC");
+			expect(output).not.toContain("file unlocked");
+		});
+
+		it("collapses long received messages until the wait result is expanded", () => {
+			const result = {
+				content: [{ type: "text" as const, text: "" }],
+				details: {
+					op: "wait" as const,
+					waited: {
+						id: "7181122334455667789",
+						from: "Worker",
+						to: "Main",
+						body: ["line 1", "line 2", "line 3", "line 4", "line 5", "line 6"].join("\n"),
+						ts: Date.now(),
+					},
+				},
+			};
+			const collapsed = waitToolRenderer.renderResult(result, { expanded: false, isPartial: false }, theme);
+			const collapsedText = Bun.stripANSI(collapsed.render(120).join("\n"));
+			expect(collapsedText).toContain("line 1");
+			expect(collapsedText).toContain("line 2");
+			expect(collapsedText).not.toContain("line 3");
+			expect(collapsedText).toContain("+4 more lines");
+
+			const expanded = waitToolRenderer.renderResult(result, { expanded: true, isPartial: false }, theme);
+			const expandedText = Bun.stripANSI(expanded.render(120).join("\n"));
+			expect(expandedText).toContain("line 6");
+			expect(expandedText).not.toContain("more lines");
+		});
+	});
+
+	describe("IRC transcript cards", () => {
+		const render = (card: Parameters<typeof createIrcMessageCard>[0]) =>
+			Bun.stripANSI(
+				createIrcMessageCard(card, () => false, theme)
+					.render(120)
+					.join("\n"),
+			);
+
+		it("renders incoming, autoreply, relay, and workpool routing metadata", () => {
+			const incoming = render({ kind: "incoming", from: "Worker", to: "Main", body: "file unlocked" });
+			expect(incoming).toContain("Worker");
+			expect(incoming).toContain("file unlocked");
+
+			const autoreply = render({
+				kind: "autoreply",
+				to: "Worker",
+				body: "reply delivered",
+				replyTo: "7181122334455667789",
+			});
+			expect(autoreply).toContain("Worker");
+			expect(autoreply).toContain("auto");
+			expect(autoreply).toContain("reply");
+			expect(autoreply).toContain("reply delivered");
+
+			const relay = render({
+				kind: "relay",
+				from: "Worker",
+				to: "Main",
+				body: "peer handoff",
+				replyTo: "7181122334455667789",
+			});
+			expect(relay).toContain("Worker");
+			expect(relay).toContain("Main");
+			expect(relay).toContain("reply");
+			expect(relay).toContain("peer handoff");
+
+			const workpool = render({
+				kind: "workpool",
+				pool: "Security",
+				mode: "concierge",
+				to: "Main",
+				body: "finding",
+			});
+			expect(workpool).toContain("Pool");
+			expect(workpool).toContain("Security");
+			expect(workpool).toContain("concierge");
+			expect(workpool).toContain("finding");
+		});
+
+		it("collapses long incoming card bodies and reveals them when expanded", () => {
+			let expanded = false;
+			const component = createIrcMessageCard(
+				{
+					kind: "incoming",
+					from: "Worker",
+					body: ["line 1", "line 2", "line 3", "line 4", "line 5", "line 6"].join("\n"),
+				},
+				() => expanded,
+				theme,
+			);
+			const collapsed = Bun.stripANSI(component.render(120).join("\n"));
+			expect(collapsed).toContain("line 3");
+			expect(collapsed).not.toContain("line 4");
+			expect(collapsed).toContain("+3 more lines");
+
+			expanded = true;
+			const full = Bun.stripANSI(component.render(120).join("\n"));
+			expect(full).toContain("line 6");
+			expect(full).not.toContain("more lines");
+		});
+	});
+
+	it("previews the envelope body, not the wrapper markup", () => {
+		const summary = prompt.render(taskSummaryTemplate, {
+			agentName: "sonic",
+			id: "SpawnProbe",
+			status: "completed",
+			duration: "8.7s",
+			preview: "Probe finished: spawned worker, ping ok.",
+			truncated: false,
+			meta: { lineCount: 3, charSize: "120 B" },
+			mergeSummary: "",
+		});
+		const deliveryText = `${summary}\n\nSpawnProbe is now idle — message it via \`write agent://SpawnProbe\` to follow up; transcript at history://SpawnProbe`;
+
+		const output = renderLines(deliveryText);
+		expect(output).toContain("Probe finished: spawned worker, ping ok.");
+		expect(output).not.toContain("<task-result");
+		expect(output).not.toContain("<output>");
+	});
+
+	it("previews the truncated <preview> body the same way", () => {
+		const summary = prompt.render(taskSummaryTemplate, {
+			agentName: "task",
+			id: "BigOne",
+			status: "completed",
+			duration: "2m",
+			preview: "first line of long output",
+			truncated: true,
+			mergeSummary: "",
+		});
+
+		const output = renderLines(summary);
+		expect(output).toContain("first line of long output");
+		expect(output).not.toContain("<task-result");
+	});
+
+	it("flattens a pretty-printed JSON body instead of previewing a lone brace", () => {
+		const summary = prompt.render(taskSummaryTemplate, {
+			agentName: "sonic",
+			id: "EchoAlpha",
+			status: "completed",
+			duration: "11.6s",
+			preview: '{\n  "echo": "alpha",\n  "ok": true\n}',
+			truncated: false,
+			mergeSummary: "",
+		});
+
+		const output = Bun.stripANSI(renderLines(summary));
+		expect(output).toContain('{ "echo": "alpha", "ok": true }');
+		expect(output.split("\n").some(line => line.trim() === "{")).toBe(false);
+	});
+
+	it("passes non-envelope result text through unchanged", () => {
+		const output = renderLines("42 pass, 0 fail (18.4s)");
+		expect(output).toContain("42 pass, 0 fail (18.4s)");
+	});
+
+	it("drops the id column when the label repeats it", () => {
+		// Task jobs label themselves with their agent id; rendering both columns
+		// stutters ("SpawnProbe ⟨task⟩ SpawnProbe").
+		const output = Bun.stripANSI(renderLines("done"));
+		const header = output.split("\n").find(line => line.includes("SpawnProbe"));
+		expect(header).toBeDefined();
+		expect(header!.match(/SpawnProbe/g)).toHaveLength(1);
+	});
+
+	describe("collapse and filter when turned into a result", () => {
+		const jobsData = [
+			{
+				id: "Job1",
+				type: "task" as const,
+				status: "running" as const,
+				label: "Job1 running",
+				durationMs: 1200,
+			},
+			{
+				id: "Job2",
+				type: "task" as const,
+				status: "completed" as const,
+				label: "Job2 completed",
+				durationMs: 3400,
+				resultText: "Job2 result",
+			},
+			{
+				id: "Job3",
+				type: "task" as const,
+				status: "running" as const,
+				label: "Job3 running",
+				durationMs: 500,
+			},
+		];
+
+		it("shows all jobs when isPartial is true", () => {
+			const result = {
+				content: [{ type: "text" as const, text: "" }],
+				details: { op: "wait" as const, jobs: jobsData },
+			};
+			const component = waitToolRenderer.renderResult(
+				result,
+				{ expanded: true, isPartial: true } as Parameters<typeof waitToolRenderer.renderResult>[1],
+				theme,
+			);
+			const output = Bun.stripANSI((component.render(120) as readonly string[]).join("\n"));
+			expect(output).toContain("Job1 running");
+			expect(output).toContain("Job2 completed");
+			expect(output).toContain("Job3 running");
+			expect(output).toContain("waiting on 2 of 3 jobs");
+		});
+
+		it("shows only finished jobs when isPartial is false and it is a poll call", () => {
+			const result = {
+				content: [{ type: "text" as const, text: "" }],
+				details: { op: "wait" as const, jobs: jobsData },
+			};
+			const component = waitToolRenderer.renderResult(
+				result,
+				{ expanded: true, isPartial: false } as Parameters<typeof waitToolRenderer.renderResult>[1],
+				theme,
+			);
+			const output = Bun.stripANSI((component.render(120) as readonly string[]).join("\n"));
+			expect(output).not.toContain("Job1 running");
+			expect(output).toContain("Job2 completed");
+			expect(output).not.toContain("Job3 running");
+			expect(output).toContain("1 job settled");
+		});
+
+		it("shows nothing when isPartial is false and all jobs are running and it is a poll call", () => {
+			const runningJobsOnly = [
+				{
+					id: "Job1",
+					type: "task" as const,
+					status: "running" as const,
+					label: "Job1 running",
+					durationMs: 1200,
+				},
+			];
+			const result = {
+				content: [{ type: "text" as const, text: "" }],
+				details: { op: "wait" as const, jobs: runningJobsOnly },
+			};
+			const component = waitToolRenderer.renderResult(
+				result,
+				{ expanded: true, isPartial: false } as Parameters<typeof waitToolRenderer.renderResult>[1],
+				theme,
+			);
+			const lines = component.render(120) as readonly string[];
+			expect(lines).toHaveLength(0);
+		});
+
+		it("renders agent rows for running agents outside job control", () => {
+			const result = {
+				content: [{ type: "text" as const, text: "" }],
+				details: {
+					op: "wait" as const,
+					jobs: [],
+					agents: [{ id: "Worker", parentId: "Main", activity: "grepping the tree", ageMs: 65_000, live: true }],
+				},
+			};
+			const component = waitToolRenderer.renderResult(
+				result,
+				{ expanded: true, isPartial: false } as Parameters<typeof waitToolRenderer.renderResult>[1],
+				theme,
+			);
+			const output = Bun.stripANSI((component.render(120) as readonly string[]).join("\n"));
+			expect(output).toContain("1 running agent — no jobs");
+			expect(output).toContain("Worker");
+			expect(output).toContain("grepping the tree");
+		});
+
+		it("keeps a sealed bare-poll result visible when it carries an agent roster", () => {
+			const result = {
+				content: [{ type: "text" as const, text: "No running background jobs to wait for." }],
+				details: { op: "wait" as const, jobs: [], agents: [{ id: "Worker", ageMs: 1_000, live: false }] },
+			};
+			const component = waitToolRenderer.renderResult(
+				result,
+				{ expanded: true, isPartial: false } as Parameters<typeof waitToolRenderer.renderResult>[1],
+				theme,
+			);
+			const output = Bun.stripANSI((component.render(120) as readonly string[]).join("\n"));
+			expect(output).toContain("Worker");
+			// A ref claiming `running` with no turn in flight is flagged, not shown
+			// as live work.
+			expect(output).toContain("no turn");
+		});
+	});
+});

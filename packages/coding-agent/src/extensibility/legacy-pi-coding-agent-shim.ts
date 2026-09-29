@@ -42,7 +42,7 @@ import {
 import { getPackageDir as getOmsPackageDir } from "../config";
 import { formatKeyHints } from "@oh-my-soup/pi-tui/app-keybindings";
 import type { PromptTemplate } from "../config/prompt-templates";
-import { findScopedSettings, type SettingPath, Settings } from "../config/settings";
+import { findScopedSettings, Settings } from "../config/settings";
 import { EditTool } from "../edit";
 import type { CreateAgentSessionOptions, CreateAgentSessionResult, LoadExtensionsResult } from "../sdk";
 import {
@@ -67,6 +67,7 @@ import { GrepTool } from "../tools/grep";
 import { ReadTool } from "../tools/read";
 import { formatBytes } from "@oh-my-soup/pi-tui/render/render-utils";
 import { WriteTool } from "../tools/write";
+import { resolveToCwd } from "../tools/path-utils";
 import { EventBus } from "../utils/event-bus";
 import { convertImageToPng } from "@oh-my-soup/pi-tui/chat/image-loading";
 import { discoverExtensionPaths, loadExtensionFromFactory, loadExtensions } from "./extensions";
@@ -87,6 +88,8 @@ import { getEnabledPlugins, resolvePluginExtensionPaths, type ScopedInstalledPlu
 import type { Skill } from "./skills";
 import { loadSkillsFromDir } from "./skills";
 
+import { cfgDisabledExtensions, cfgExtensions, cfgSkills } from "./settings";
+
 const TOOL_DEFINITION_MARKER = "__isToolDefinition";
 const LEGACY_BUILTIN_TOOL_MARKER = "__ompLegacyBuiltinTool";
 const LEGACY_CODING_TOOL_NAMES = ["read", "bash", "edit", "write"] as const;
@@ -96,7 +99,7 @@ type LegacyCodingToolName = (typeof LEGACY_CODING_TOOL_NAMES)[number];
 type LegacyRegistryToolName = LegacyCodingToolName | "grep" | "glob";
 type LegacyBuiltinToolDefinition = ToolDefinition & { [LEGACY_BUILTIN_TOOL_MARKER]: true };
 
-type LegacySettingOverrides = Partial<Record<SettingPath, unknown>>;
+type LegacySettingOverrides = Record<string, unknown>;
 
 interface LegacyThemeLike {
 	fg(color: string, text: string): string;
@@ -537,12 +540,15 @@ export function createBashToolDefinition(cwd: string, options?: BashToolOptions)
 					onUpdate,
 				);
 			}
+			// The registry tool takes no per-call environment: `env` is service-launch
+			// configuration and is rejected outside it. A hook's env reaches `!` user
+			// shells through `shellEnv` above and the `operations` branch through its
+			// exec options.
 			return tool.execute(
 				toolCallId,
 				{
 					command: spawn?.command ?? command,
 					cwd: spawn?.cwd ?? cwd,
-					env: spawn?.env,
 					timeout,
 				},
 				signal,
@@ -581,11 +587,19 @@ export function createGrepToolDefinition(cwd: string, options?: GrepToolOptions)
 			return new Text(`${themedTitle(theme, "grep")} ${themedMuted(theme, `/${pattern}/ in ${searchPath}`)}`, 0, 0);
 		},
 		renderResult: legacyRenderResult,
-		execute: (toolCallId, params, signal, onUpdate) => {
+		execute: async (toolCallId, params, signal, onUpdate) => {
 			const rawPattern = stringField(params, "pattern") ?? "";
 			const pattern = booleanField(params, "literal") ? piEscapeRegexLiteral(rawPattern) : rawPattern;
 			const searchPath = stringField(params, "path") ?? ".";
 			const glob = stringField(params, "glob");
+			let isFile = false;
+			if (glob) {
+				try {
+					isFile = (await fs.promises.stat(resolveToCwd(searchPath, cwd))).isFile();
+				} catch {
+					// Leave unresolved paths and URLs to the built-in grep resolver.
+				}
+			}
 			const context = numberField(params, "context");
 			// The new grep reads context from settings fixed at construction; build a
 			// per-call tool when the model passes an explicit legacy `context`.
@@ -600,7 +614,7 @@ export function createGrepToolDefinition(cwd: string, options?: GrepToolOptions)
 				toolCallId,
 				{
 					pattern,
-					path: glob ? piJoinPath(searchPath, glob) : searchPath,
+					path: glob && !isFile ? piJoinPath(searchPath, glob) : searchPath,
 					case: booleanField(params, "ignoreCase") ? false : undefined,
 				},
 				signal,
@@ -842,8 +856,8 @@ export class DefaultPackageManager {
 	/** Resolve enabled extension paths with their OMS plugin provenance. */
 	async resolve(_onMissing?: (source: string) => Promise<MissingSourceAction>): Promise<ResolvedPaths> {
 		const settings = await this.#settingsManager;
-		const configuredPaths = settings.get("extensions") ?? [];
-		const disabledExtensionIds = settings.get("disabledExtensions") ?? [];
+		const configuredPaths = cfgExtensions.get(settings);
+		const disabledExtensionIds = cfgDisabledExtensions.get(settings);
 		const [extensionPaths, plugins] = await Promise.all([
 			discoverExtensionPaths(configuredPaths, this.#cwd, disabledExtensionIds),
 			getEnabledPlugins(this.#cwd),
@@ -1100,8 +1114,8 @@ export class DefaultResourceLoader implements ResourceLoader {
 				options.noSkills
 					? Promise.resolve({ skills: [], warnings: [] })
 					: discoverSkills(cwd, agentDir, {
-							...settings.getGroup("skills"),
-							disabledExtensions: settings.get("disabledExtensions") ?? [],
+							...cfgSkills.get(settings),
+							disabledExtensions: cfgDisabledExtensions.get(settings),
 						}),
 				this.#loadAdditionalSkills(),
 				options.noPromptTemplates ? Promise.resolve([]) : discoverPromptTemplates(cwd, agentDir),
@@ -1430,7 +1444,7 @@ export async function createAgentSession(
 }
 
 /**
- * Synchronous auth storage surface retained for legacy extensions.
+ * Legacy auth storage surface with synchronous reads and asynchronous writes.
  *
  * Modern OMS auth storage is asynchronous, while older provider extensions
  * call `AuthStorage.create().get()` during module initialization.
@@ -1453,10 +1467,10 @@ export class AuthStorage {
 		}
 	}
 
-	set(provider: string, credential: AuthCredential): void {
+	async set(provider: string, credential: AuthCredential): Promise<void> {
 		const store = new SqliteAuthCredentialStore(new Database(getAgentDbPath()));
 		try {
-			store.upsertAuthCredentialForProvider(provider, credential);
+			await store.upsertAuthCredential(provider, credential);
 		} finally {
 			store.close();
 		}
@@ -1495,7 +1509,7 @@ export function getPackageDir(): string {
 
 // Legacy pi's `@earendil-works/pi-coding-agent` re-exported `estimateTokens`,
 // `compact`, `serializeConversation`, and `calculateContextTokens` from its
-// package root (via `./core/compaction/index.ts`). In oms these live in
+// package root (via `./core/compaction/index.ts`). In OMS these live in
 // `@oh-my-soup/pi-agent-core/compaction`, and the coding-agent barrel below does
 // not forward them, so legacy extensions importing them fail Bun's static
 // export check during validation (issues #6583, #7174, #7403, #10278).
@@ -1516,7 +1530,7 @@ export function estimateTokens(message: AgentMessage, tokenizer?: Tokenizer, opt
 
 // Legacy pi's `@earendil-works/pi-coding-agent` also exported `findCutPoint` and
 // `sessionEntryToContextMessages` from its package root (upstream Pi 0.84.2
-// public API). In oms `findCutPoint` moved to `@oh-my-soup/pi-agent-core/compaction`
+// public API). In OMS `findCutPoint` moved to `@oh-my-soup/pi-agent-core/compaction`
 // AND grew a required `Tokenizer` parameter, and `sessionEntryToContextMessages`
 // has no canonical equivalent, so neither reaches the barrel below and legacy
 // extensions importing them (e.g. NVlabs/SoL-Pi's online-context-compact) fail
@@ -1583,7 +1597,7 @@ export function sessionEntryToContextMessages(entry: SessionEntry): AgentMessage
 }
 
 // Same barrel gap for two more legacy package-root exports: pi re-exported the
-// `CONFIG_DIR_NAME` constant and the CLI parser `parseArgs`. In oms
+// `CONFIG_DIR_NAME` constant and the CLI parser `parseArgs`. In OMS
 // `CONFIG_DIR_NAME` lives in `@oh-my-soup/pi-utils` and `parseArgs` in
 // `../cli/args`, neither of which the barrel below forwards, so legacy
 // extensions importing either fail Bun's static export check during validation.

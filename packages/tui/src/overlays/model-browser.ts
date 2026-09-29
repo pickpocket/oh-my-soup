@@ -11,6 +11,7 @@ import { ThinkingLevel } from "@oh-my-soup/pi-agent-core";
 import type { Model } from "@oh-my-soup/pi-ai";
 import { buildModel } from "@oh-my-soup/pi-catalog/build";
 import { modelsAreEqual } from "@oh-my-soup/pi-catalog/models";
+import type { ModelKind } from "@oh-my-soup/pi-catalog/types";
 import type { Component } from "../tui";
 import { fuzzyRank } from "../fuzzy";
 import { Input } from "../components/input";
@@ -20,7 +21,7 @@ import type { SgrMouseEvent } from "../mouse";
 import { replaceTabs, truncateToWidth, visibleWidth } from "../utils";
 import { formatNumber, sanitizeText } from "@oh-my-soup/pi-utils";
 import { type ConfiguredThinkingLevel, parseConfiguredThinkingLevel } from "../thinking";
-import { thinkingLevelGlyph as sharedThinkingLevelGlyph } from "../render/render-utils";
+import { thinkingLevelGlyph } from "../render/render-utils";
 import { type ThemeColor, theme } from "../theme/theme";
 import {
 	matchesSelectCancel,
@@ -33,7 +34,22 @@ import { MenuSelection } from "../components/menu-selection";
 import { clampScrollOffset, scrollOffsetForRow } from "../components/scroll-viewport";
 
 /** Canonical display ordering of built-in model roles. */
-export type ModelRole = "default" | "smol" | "slow" | "vision" | "plan" | "commit" | "tiny" | "task" | "advisor";
+export type ModelRole =
+	| "default"
+	| "smol"
+	| "slow"
+	| "vision"
+	| "plan"
+	| "commit"
+	| "tiny"
+	| "memory"
+	| "task"
+	| "advisor"
+	| "image"
+	| "web"
+	| "speech"
+	| "dictation"
+	| "judge";
 export const MODEL_ROLE_IDS: ModelRole[] = [
 	"default",
 	"smol",
@@ -42,9 +58,28 @@ export const MODEL_ROLE_IDS: ModelRole[] = [
 	"plan",
 	"commit",
 	"tiny",
+	"memory",
+	"task",
+	"advisor",
+	"image",
+	"web",
+	"speech",
+	"dictation",
+	"judge",
+];
+export const CHAT_MODEL_ROLE_IDS: ModelRole[] = [
+	"default",
+	"smol",
+	"slow",
+	"vision",
+	"plan",
+	"commit",
+	"tiny",
+	"memory",
 	"task",
 	"advisor",
 ];
+export const KIND_ROLE_IDS: ModelRole[] = ["image", "web", "speech", "dictation", "judge"];
 
 /** Measured model performance shown in browser rows. */
 export interface ModelBrowserPerf {
@@ -59,6 +94,8 @@ export interface ModelBrowserRoleInfo {
 	name: string;
 	color?: ThemeColor;
 	hidden?: boolean;
+	section: "chat" | "kind";
+	accepts(model: Model): boolean;
 }
 
 /** Role lookup used for scoped model resolution. */
@@ -76,20 +113,26 @@ export interface ResolvedModelRoleValue {
 
 /** Host-provided preferences and model-role resolution for the browser. */
 export interface ModelBrowserSource extends ModelRoleLookup {
+	/**
+	 * Changes whenever any preference this source reads or resolves against changes,
+	 * except the storage-backed `mruOrder` and `modelPerf`. Keys derived-scope caches.
+	 */
+	readonly revision: number;
 	readonly defaultThinkingLevel: string;
 	readonly modelProviderOrder: readonly string[];
 	readonly knownRoleIds: readonly string[];
 	readonly mruOrder: readonly string[];
 	readonly modelPerf: ReadonlyMap<string, ModelBrowserPerf>;
 	getRoleInfo(role: string): ModelBrowserRoleInfo;
+	defaultRoleChain(role: string): string[];
 	resolveRoleValue(value: string | undefined, models: Model[], roleLookup?: ModelRoleLookup): ResolvedModelRoleValue;
 }
 
 /** Read-only catalog surface consumed by model browsers. */
 export interface ModelBrowserRegistry {
 	getError(): unknown;
-	getAvailable(): Model[];
-	getAll(): Model[];
+	getAvailable(kind?: ModelKind | "all"): Model[];
+	getAll(kind?: ModelKind | "all"): Model[];
 }
 
 /** One selectable row. `selector` is a canonical model key or host-specific virtual key. */
@@ -137,16 +180,32 @@ export function resolveRoleAssignments(
 		return ThinkingLevel.Inherit;
 	};
 
+	// Roles sharing an `accepts` predicate share one filtered array, so the
+	// resolver's array-keyed indexes are built once per pool, not once per role.
+	const eligible = (
+		pool: ReadonlyArray<Model>,
+		byAccepts: Map<ModelBrowserRoleInfo["accepts"], Model[]>,
+		role: string,
+	): Model[] => {
+		const accepts = settings.getRoleInfo(role).accepts;
+		let models = byAccepts.get(accepts);
+		if (!models) {
+			models = pool.filter(accepts);
+			byAccepts.set(accepts, models);
+		}
+		return models;
+	};
+
 	const roles: RoleAssignments = {};
 	const knownRoles = settings.knownRoleIds;
 	const configuredRoles = new Set<string>();
-	const catalog = [...allModels];
+	const catalogByAccepts = new Map<ModelBrowserRoleInfo["accepts"], Model[]>();
 
 	for (const role of knownRoles) {
 		const roleValue = settings.getModelRole(role);
 		if (!roleValue) continue;
 		configuredRoles.add(role);
-		const resolved = settings.resolveRoleValue(roleValue, catalog);
+		const resolved = settings.resolveRoleValue(roleValue, eligible(allModels, catalogByAccepts, role));
 		if (resolved.model) {
 			roles[role] = {
 				model: resolved.model,
@@ -157,10 +216,10 @@ export function resolveRoleAssignments(
 	}
 
 	if (autoCandidates.length > 0) {
-		const candidates = [...autoCandidates];
+		const candidatesByAccepts = new Map<ModelBrowserRoleInfo["accepts"], Model[]>();
 		for (const role of knownRoles) {
 			if (configuredRoles.has(role)) continue;
-			const resolved = settings.resolveRoleValue(`pi/${role}`, candidates);
+			const resolved = settings.resolveRoleValue(`pi/${role}`, eligible(autoCandidates, candidatesByAccepts, role));
 			if (!resolved.model) continue;
 			roles[role] = {
 				model: resolved.model,
@@ -291,32 +350,95 @@ export interface SessionModelScope {
 	error: string | undefined;
 }
 
+/** Catalog inputs a {@link SessionModelScope} is derived from. */
+interface SessionModelScopeInputs {
+	models: ReadonlyArray<Model>;
+	allModels: ReadonlyArray<Model>;
+	error: string | undefined;
+}
+
+function readSessionModelScopeInputs(
+	registry: ModelBrowserRegistry,
+	scopedModels: ReadonlyArray<Model>,
+): SessionModelScopeInputs {
+	if (scopedModels.length > 0) return { models: scopedModels, allModels: scopedModels, error: undefined };
+	const loadError = registry.getError();
+	let error = loadError ? String(loadError) : undefined;
+	let models: ReadonlyArray<Model>;
+	try {
+		models = registry.getAvailable();
+	} catch (cause) {
+		error = cause instanceof Error ? cause.message : String(cause);
+		models = [];
+	}
+	return { models, allModels: registry.getAll("all"), error };
+}
+
+function scopeFromInputs(settings: ModelBrowserSource, inputs: SessionModelScopeInputs): SessionModelScope {
+	const roles = resolveRoleAssignments(settings, inputs.allModels, inputs.models);
+	const mruOrder = settings.mruOrder;
+	const items = buildBrowserItems(inputs.models);
+	sortModelItems(items, { roles, mruOrder });
+	return { items, roles, mruOrder, error: inputs.error };
+}
+
 /** Build the session picker's current scope without creating an interactive browser. */
 export function buildSessionModelScope(
 	settings: ModelBrowserSource,
 	registry: ModelBrowserRegistry,
 	scopedModels: ReadonlyArray<Model>,
 ): SessionModelScope {
-	let models: ReadonlyArray<Model>;
-	let error: string | undefined;
-	if (scopedModels.length > 0) {
-		models = scopedModels;
-	} else {
-		const loadError = registry.getError();
-		error = loadError ? String(loadError) : undefined;
-		try {
-			models = registry.getAvailable();
-		} catch (cause) {
-			error = cause instanceof Error ? cause.message : String(cause);
-			models = [];
-		}
+	return scopeFromInputs(settings, readSessionModelScopeInputs(registry, scopedModels));
+}
+
+function sameEntries<T>(a: ReadonlyArray<T>, b: ReadonlyArray<T>): boolean {
+	if (a === b) return true;
+	if (a.length !== b.length) return false;
+	for (let i = 0; i < a.length; i++) {
+		if (a[i] !== b[i]) return false;
 	}
-	const allModels = scopedModels.length > 0 ? models : registry.getAll();
-	const roles = resolveRoleAssignments(settings, allModels, models);
-	const mruOrder = settings.mruOrder;
-	const items = buildBrowserItems(models);
-	sortModelItems(items, { roles, mruOrder });
-	return { items, roles, mruOrder, error };
+	return true;
+}
+
+/**
+ * {@link buildSessionModelScope} for per-keystroke callers: returns the same
+ * scope until the source revision, MRU order, scoped models, or the registry's
+ * available models, catalog, or load error change.
+ */
+export class SessionModelScopeCache {
+	#settings: ModelBrowserSource;
+	#registry: ModelBrowserRegistry;
+	#revision = 0;
+	#inputs: SessionModelScopeInputs | undefined;
+	#scope: SessionModelScope | undefined;
+
+	constructor(settings: ModelBrowserSource, registry: ModelBrowserRegistry) {
+		this.#settings = settings;
+		this.#registry = registry;
+	}
+
+	get(scopedModels: ReadonlyArray<Model>): SessionModelScope {
+		const revision = this.#settings.revision;
+		const inputs = readSessionModelScopeInputs(this.#registry, scopedModels);
+		const cachedInputs = this.#inputs;
+		const cached = this.#scope;
+		if (
+			cached &&
+			cachedInputs &&
+			revision === this.#revision &&
+			inputs.error === cachedInputs.error &&
+			sameEntries(inputs.models, cachedInputs.models) &&
+			sameEntries(inputs.allModels, cachedInputs.allModels) &&
+			sameEntries(this.#settings.mruOrder, cached.mruOrder)
+		) {
+			return cached;
+		}
+		const scope = scopeFromInputs(this.#settings, inputs);
+		this.#revision = revision;
+		this.#inputs = inputs;
+		this.#scope = scope;
+		return scope;
+	}
 }
 
 interface RoleProviderStats {
@@ -460,11 +582,6 @@ export function rankModelItems(
 	return matches;
 }
 
-/** Compact glyph for a configured thinking level using the active theme. */
-export function thinkingLevelGlyph(level: ConfiguredThinkingLevel): string {
-	return sharedThinkingLevelGlyph(level, theme);
-}
-
 /**
  * A slim role chip: `● default ◉` — solid dot for configured assignments,
  * hollow for auto-selected fallbacks, thinking glyph attached when set.
@@ -480,7 +597,7 @@ export function thinkingLevelGlyph(level: ConfiguredThinkingLevel): string {
 export function formatRoleChip(role: string, assignment: RoleAssignment, settings: ModelBrowserSource): string {
 	const info = settings.getRoleInfo(role);
 	const label = (info.tag ?? info.name ?? role).toLowerCase();
-	const glyph = thinkingLevelGlyph(assignment.thinkingLevel);
+	const glyph = thinkingLevelGlyph(assignment.thinkingLevel, theme);
 	const suffix = glyph ? ` ${theme.fg("dim", glyph)}` : "";
 	if (assignment.autoSelected) {
 		return theme.fg("dim", `${theme.status.shadowed} ${label}`) + suffix;

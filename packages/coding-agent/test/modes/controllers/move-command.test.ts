@@ -514,7 +514,6 @@ describe("CommandController /move", () => {
 			await fs.rm(targetDir, { recursive: true, force: true });
 		}
 	});
-
 	it("preserves completed BTW state when moving the session fails", async () => {
 		const sourceDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-move-source-"));
 		const targetDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-move-target-"));

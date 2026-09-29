@@ -124,7 +124,7 @@ process.env.OTEL_EXPORTER_OTLP_LOGS_ENDPOINT = `${base}/v1/logs`;
 process.env.OTEL_EXPORTER_OTLP_METRICS_ENDPOINT = `${base}/v1/metrics`;
 process.env.OTEL_SERVICE_NAME = "oh-my-soup-signals-probe";
 
-await initTelemetryExport();
+await initTelemetryExport(true);
 if (!isTelemetryExportEnabled()) {
 	console.error("PROBE: providers did not register");
 	await server.stop(true);
@@ -144,6 +144,7 @@ logger.error("probe error", { code: "probe" });
 // Metric instruments via the agent telemetry hooks.
 const usage: ChatUsageEvent = {
 	span: undefined as never,
+	operation: "chat",
 	agent: { id: "main", name: "Main" },
 	conversationId: "probe-session",
 	stepNumber: 0,

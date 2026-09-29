@@ -144,16 +144,16 @@ for pkg in utils wire omstype catalog ai mnemopi snapcompact agent tui stats col
 done
 
 # 4. Pack the coding agent with its *published* manifest: release swaps
-#    `bin.oms` from `src/cli.ts` to the prepack bundle `dist/cli.js`. The repo
+#    `bin.oms` from `src/cli.ts` to the prepack bundle `dist/cli.js` and adds
+#    the consumer postinstall that provisions local LLVM objdump. The repo
 #    manifest keeps pointing at source so `bun link`/`install.sh --source`
-#    work without a build, so the swap must be reproduced here for the smoke
-#    to exercise the bundled worker-host entry the published package ships.
+#    work without a build, so both published overrides must be reproduced here.
 #    Always restore the working-tree manifest.
 agent_pkg_backup="$WORK_DIR/coding-agent-package.json.orig"
 cp "$ROOT_DIR/packages/coding-agent/package.json" "$agent_pkg_backup"
 agent_rc=0
 {
-   bun -e 'import { applyPublishBin } from "./scripts/ci-release-publish.ts"; await applyPublishBin("packages/coding-agent", true);' &&
+   bun -e 'import { applyPublishRuntime } from "./scripts/ci-release-publish.ts"; await applyPublishRuntime("packages/coding-agent", true);' &&
       (cd "$ROOT_DIR/packages/coding-agent" && bun pm pack --destination "$TARBALL_DIR" --quiet >/dev/null)
 } || agent_rc=$?
 cp "$agent_pkg_backup" "$ROOT_DIR/packages/coding-agent/package.json"

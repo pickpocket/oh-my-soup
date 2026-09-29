@@ -6,6 +6,14 @@ import { getProjectDir } from "@oh-my-soup/pi-utils";
 
 const PATH_DELIMITERS = new Set([" ", "\t", '"', "'", "="]);
 
+/**
+ * How long an `@` fuzzy search may run before the immediate-directory prefix
+ * listing is reported through `onPartial`. Fuzzy walks of normal repos finish
+ * well under this, so they never flash an interim list; huge roots (a volume
+ * of sibling projects) take seconds and would otherwise show nothing new.
+ */
+const AT_PARTIAL_DELAY_MS = 150;
+
 function buildAutocompleteFuzzyDiscoveryProfile(
 	query: string,
 	basePath: string,
@@ -137,11 +145,8 @@ function buildCompletionValue(
 	return `${openQuote}${path}${closeQuote}`;
 }
 
-/**
- * Check if query is a subsequence of target (fuzzy match).
- * "wig" matches "skill:wig" because w-i-g appear in order.
- */
-function fuzzyMatch(query: string, target: string): boolean {
+/** Ranked-tier subsequence match ("wig" ~ "skill:wig"); distinct from fuzzy.ts's word-local engine. */
+export function subsequenceMatch(query: string, target: string): boolean {
 	if (query.length === 0) return true;
 	if (query.length > target.length) return false;
 
@@ -153,10 +158,18 @@ function fuzzyMatch(query: string, target: string): boolean {
 }
 
 /**
- * Score a fuzzy match. Higher = better match.
- * Prioritizes: exact match > starts-with > contains > subsequence
+ * Whether an `@` file completion `value` still fits the live `@` token.
+ * The editor narrows a stale `@` list with this while a fresh search runs;
+ * mirrors the subsequence filter `getSuggestions` applies to fuzzy results.
  */
-function fuzzyScore(query: string, target: string): number {
+export function atCompletionMatches(token: string, value: string): boolean {
+	const query = parsePathPrefix(token).rawPrefix.replaceAll("\\", "/").toLowerCase();
+	const target = parsePathPrefix(value).rawPrefix.replace(/"$/, "").toLowerCase();
+	return subsequenceMatch(query, target);
+}
+
+/** Ranked-tier subsequence score (100/80/60/40−gaps·5); higher is better, 0 is no match. */
+export function subsequenceScore(query: string, target: string): number {
 	if (query.length === 0) return 1;
 	if (target === query) return 100;
 	if (target.startsWith(query)) return 80;
@@ -211,12 +224,16 @@ export interface SlashCommand {
 }
 
 export interface AutocompleteProvider {
-	/** Get autocomplete suggestions for current text/cursor position. Expensive providers SHOULD stop when `signal` aborts. */
+	/**
+	 * Get autocomplete suggestions for current text/cursor position. Expensive providers SHOULD stop when `signal` aborts.
+	 * Slow providers MAY report interim suggestions through `onPartial` before resolving; the resolved value supersedes them.
+	 */
 	getSuggestions(
 		lines: string[],
 		cursorLine: number,
 		cursorCol: number,
 		signal?: AbortSignal,
+		onPartial?: (suggestions: { items: AutocompleteItem[]; prefix: string }) => void,
 	): Promise<{
 		items: AutocompleteItem[];
 		prefix: string; // What we're matching against (e.g., "/" or "src/")
@@ -309,7 +326,7 @@ export function scoreCommandTextMatch(lowerPrefix: string, lowerTarget: string):
 	// name first (e.g. `/set` → `setup` above `settings`), silently changing the
 	// command that the sync-completion path applies on Enter.
 	if (lowerTarget.startsWith(lowerPrefix)) return 900;
-	return fuzzyMatch(lowerPrefix, lowerTarget) ? fuzzyScore(lowerPrefix, lowerTarget) : 0;
+	return subsequenceMatch(lowerPrefix, lowerTarget) ? subsequenceScore(lowerPrefix, lowerTarget) : 0;
 }
 
 function buildSlashCommandCompletions(
@@ -356,7 +373,9 @@ function buildSlashCommandCompletions(
 							: scoreCommandTextMatch(lowerPrefix, name.toLowerCase());
 				const lowerDesc = staticDesc.toLowerCase();
 				const descScore =
-					lowerDesc && fuzzyMatch(lowerPrefix, lowerDesc) ? fuzzyScore(lowerPrefix, lowerDesc) * 0.5 : 0;
+					lowerDesc && subsequenceMatch(lowerPrefix, lowerDesc)
+						? subsequenceScore(lowerPrefix, lowerDesc) * 0.5
+						: 0;
 				const primaryScore = Math.max(nameScore, descScore);
 				if (primaryScore > 0) {
 					const fullDesc = resolveFullDesc();
@@ -562,6 +581,7 @@ export class CombinedAutocompleteProvider implements AutocompleteProvider {
 		cursorLine: number,
 		cursorCol: number,
 		signal?: AbortSignal,
+		onPartial?: (suggestions: { items: AutocompleteItem[]; prefix: string }) => void,
 	): Promise<{ items: AutocompleteItem[]; prefix: string } | null> {
 		if (signal?.aborted) return null;
 		const currentLine = lines[cursorLine] || "";
@@ -657,16 +677,27 @@ export class CombinedAutocompleteProvider implements AutocompleteProvider {
 				if (items.length === 0) return null;
 				return { items, prefix: atPrefix };
 			}
-			const suggestions =
-				rawPrefix.length > 0
-					? await this.#getFuzzyFileSuggestions(rawPrefix, { isQuotedPrefix, signal })
-					: await this.#getFileSuggestions("@");
-			if (suggestions.length === 0 && rawPrefix.length > 0) {
+			if (rawPrefix.length === 0) {
+				const items = await this.#getFileSuggestions("@");
+				return items.length > 0 ? { items, prefix: atPrefix } : null;
+			}
+			const fuzzy = this.#getFuzzyFileSuggestions(rawPrefix, { isQuotedPrefix, signal });
+			if (onPartial) {
+				const settled = await Promise.race([
+					fuzzy.then(() => true),
+					Bun.sleep(AT_PARTIAL_DELAY_MS).then(() => false),
+				]);
+				if (!settled) {
+					const listing = await this.#getFileSuggestions(atPrefix);
+					if (listing.length > 0 && !signal?.aborted) onPartial({ items: listing, prefix: atPrefix });
+				}
+			}
+			const suggestions = await fuzzy;
+			if (suggestions.length === 0) {
 				const fallback = await this.#getFileSuggestions(atPrefix);
 				if (fallback.length === 0) return null;
 				return { items: fallback, prefix: atPrefix };
 			}
-			if (suggestions.length === 0) return null;
 
 			return {
 				items: suggestions,
@@ -1125,7 +1156,7 @@ export class CombinedAutocompleteProvider implements AutocompleteProvider {
 				if (/(^|\/)\.git(\/|$)/.test(normalized)) {
 					return false;
 				}
-				return lowerQuery.length === 0 || fuzzyMatch(lowerQuery, normalized.toLowerCase());
+				return lowerQuery.length === 0 || subsequenceMatch(lowerQuery, normalized.toLowerCase());
 			});
 			// `fuzzyFind` is already capped via `maxResults` in
 			// `buildAutocompleteFuzzyDiscoveryProfile`; no extra slice here.

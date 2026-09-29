@@ -8,10 +8,10 @@
  */
 import { type ApiKey, type AuthStorage, type FetchImpl, getEnvApiKey, withAuth } from "@oh-my-soup/pi-ai";
 import { isRecord } from "@oh-my-soup/pi-utils";
-import { getDefault, settings } from "../../../config/settings";
+import { settings } from "../../../config/settings";
 import { findApiKey, isSearchResponse } from "../../../exa/mcp-client";
 import { readMcpJsonRpcResponse } from "../../../mcp/json-rpc";
-import type { SearchResponse, SearchSource } from "@oh-my-soup/pi-tui/tools/web-search";
+import type { SearchResponse, SearchSource } from "../types";
 import { SearchProviderError } from "../../../web/search/types";
 import { formatQuery, parseSearchQuery, type StructuredQuery } from "../query";
 import { dateToAgeSeconds } from "../utils";
@@ -19,18 +19,20 @@ import type { SearchParams } from "./base";
 import { SearchProvider } from "./base";
 import { classifyProviderHttpError, withHardTimeout } from "./utils";
 
+import { cfgExaEnabled, cfgExaSearchDelayMs } from "../../settings";
+
 const EXA_API_URL = "https://api.exa.ai/search";
 const EXA_MCP_URL = "https://mcp.exa.ai/mcp";
 const EXA_MCP_SOURCE = "oh-my-soup";
 const MAX_EXA_SNIPPET_CHARS = 500;
-const DEFAULT_EXA_SEARCH_DELAY_MS = getDefault("exa.searchDelayMs");
+const DEFAULT_EXA_SEARCH_DELAY_MS = cfgExaSearchDelayMs.default;
 
 let nextExaSearchRequestAt = 0;
 let exaSearchThrottle = Promise.resolve();
 
 function configuredExaSearchDelayMs(): number {
 	try {
-		const delayMs = settings.get("exa.searchDelayMs");
+		const delayMs = cfgExaSearchDelayMs.get(settings);
 		return Number.isFinite(delayMs) && delayMs > 0 ? Math.floor(delayMs) : 0;
 	} catch {
 		return DEFAULT_EXA_SEARCH_DELAY_MS;
@@ -431,11 +433,11 @@ export async function searchExa(params: ExaSearchParams): Promise<SearchResponse
 	// so the env-key and keyless-MCP fallbacks below stay intact, then drive the
 	// authStorage path through the central force-refresh/rotate retry policy.
 	const storedKey = params.authStorage
-		? await params.authStorage.getApiKey("exa", params.sessionId, { signal: params.signal })
+		? await params.authStorage.keys.get("exa", params.sessionId, { signal: params.signal })
 		: undefined;
 	const keyOrResolver: ApiKey | undefined =
 		storedKey && params.authStorage
-			? params.authStorage.resolver("exa", { sessionId: params.sessionId })
+			? params.authStorage.keys.resolver("exa", { sessionId: params.sessionId })
 			: getEnvApiKey("exa");
 	const response = keyOrResolver
 		? await withAuth(keyOrResolver, key => callExaSearch(key, params), { signal: params.signal })
@@ -480,25 +482,13 @@ export class ExaProvider extends SearchProvider {
 	readonly id = "exa";
 	readonly label = "Exa";
 
-	isAvailable(authStorage: AuthStorage): boolean {
-		if (!this.#settingsAllowSearch()) return false;
-		return !!getEnvApiKey("exa") || authStorage.hasAuth("exa");
-	}
-
 	/**
-	 * Exa ships an unauthenticated public MCP fallback, so an explicit
-	 * selection (programmatic or via `providers.webSearch: exa`) routes
-	 * through MCP even when no credential is configured. The auto chain
-	 * still uses {@link isAvailable} so an unrelated configured provider
-	 * keeps priority over the public fallback.
+	 * Available unless disabled in settings: without a credential, search runs
+	 * through Exa's unauthenticated public MCP.
 	 */
-	override isExplicitlyAvailable(_authStorage: AuthStorage): boolean {
-		return this.#settingsAllowSearch();
-	}
-
-	#settingsAllowSearch(): boolean {
+	isAvailable(_authStorage: AuthStorage): boolean {
 		try {
-			if (settings.get("exa.enabled") === false) {
+			if (cfgExaEnabled.get(settings) === false) {
 				return false;
 			}
 		} catch {

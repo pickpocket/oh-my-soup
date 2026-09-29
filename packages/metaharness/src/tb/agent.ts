@@ -1,6 +1,6 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import type { AgentBinaries, GatewayConfig, GuestArch } from "./types";
+import type { AgentBinaries, AgentConfig, GatewayConfig, GuestArch } from "./types";
 import type { TrialVm } from "./vmon";
 
 const REPO_ROOT = path.resolve(import.meta.dir, "../../../..");
@@ -86,7 +86,12 @@ export async function prepareAgentBinaries(opts: {
 }
 
 /** Install oms and gateway-only configuration into one running trial microVM. */
-export async function installAgent(vm: TrialVm, binaries: AgentBinaries, gateway: GatewayConfig): Promise<string> {
+export async function installAgent(
+	vm: TrialVm,
+	binaries: AgentBinaries,
+	gateway: GatewayConfig,
+	agent: AgentConfig,
+): Promise<string> {
 	const binary = binaries[vm.arch];
 	if (!binary) throw new Error(`No oms binary available for guest architecture ${vm.arch}`);
 
@@ -117,6 +122,8 @@ edit:
   mode: replace
 web_search:
   enabled: false
+find:
+  enabled: ${agent.tools.includes("find")}
 `;
 	const writeConfig = await vm.exec(
 		`mkdir -p "$HOME/.oms/agent"\ncat > "$HOME/.oms/agent/models.yml" <<'OMS_MODELS_EOF'\n${modelsYaml}OMS_MODELS_EOF\ncat > "$HOME/.oms/agent/config.yml" <<'OMS_CONFIG_EOF'\n${configYaml}OMS_CONFIG_EOF`,

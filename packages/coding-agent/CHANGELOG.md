@@ -5,6 +5,7 @@
 ### Added
 
 - Added durable session notes with `/notes` show/search/edit, configurable context reinjection, and update reminders. ([#7](https://github.com/pickpocket/oh-my-soup/pull/7) by [@ReKon64](https://github.com/ReKon64))
+- Added `/thinking [<level>]` to show the configured thinking selector or set auto, off, or a model-supported effort directly, with argument completion. ([#8](https://github.com/pickpocket/oh-my-soup/pull/8) by [@ReKon64](https://github.com/ReKon64))
 
 ## [18.4.3] - 2026-09-22
 

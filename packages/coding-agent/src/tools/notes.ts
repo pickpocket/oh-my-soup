@@ -7,12 +7,12 @@ import type { Theme } from "@oh-my-soup/pi-tui/theme";
 import notesDescription from "../prompts/tools/notes.md" with { type: "text" };
 import { findBeadsWorkspaceRoot, NativeBeadsRepository } from "../beads/repository";
 import {
-	applyImportantNotesMutation,
 	assertImportantNoteKey,
+	formatNoteTimestamp,
 	getImportantNotesFromEntries,
-	IMPORTANT_NOTES_CUSTOM_TYPE,
 	IMPORTANT_NOTES_MAX_CHARS,
 	type ImportantNote,
+	writeSessionNotes,
 } from "../session/important-notes";
 import {
 	createCachedComponent,
@@ -44,6 +44,8 @@ export interface NotesToolDetails {
 	storage: "session" | "memory" | "beads";
 	scope: NotesScope;
 	issue?: string;
+	/** Session scope only: notes carry updatedAt stamps (notes.timestamps setting). */
+	timestamps?: boolean;
 }
 
 export class NotesTool implements AgentTool<typeof notesSchema, NotesToolDetails> {
@@ -71,6 +73,7 @@ export class NotesTool implements AgentTool<typeof notesSchema, NotesToolDetails
 	async #executeSession(params: NotesParams): Promise<AgentToolResult<NotesToolDetails>> {
 		const manager = this.session.sessionManager;
 		const storage = manager && this.session.getSessionFile() ? "session" : "memory";
+		const timestamps = this.session.settings.get("notes.timestamps");
 		const sessionId = manager?.getSessionId();
 		const branchGeneration = manager?.getBranchGeneration();
 		const ownsBranch = () =>
@@ -83,65 +86,54 @@ export class NotesTool implements AgentTool<typeof notesSchema, NotesToolDetails
 			if (params.op === "list") {
 				notes = await manager.readEntriesAtomically(readNotes);
 				if (params.key !== undefined) {
-					assertImportantNoteKey(params.key);
 					const note = notes.find(entry => entry.key === params.key);
-					if (!note) throw new Error(`Note not found: ${params.key}`);
+					if (!note) {
+						assertImportantNoteKey(params.key);
+						throw new Error(`Note not found: ${params.key}`);
+					}
 					notes = [{ ...note }];
 				}
 			} else {
-				const mutation = { op: params.op, key: params.key, text: params.text };
-				const assertOwner = () => {
-					if (!ownsBranch()) {
+				const owner = { sessionId: manager.getSessionId(), branchGeneration: manager.getBranchGeneration() };
+				previousNotes = await manager.readEntriesAtomically(() => {
+					if (manager.getSessionId() !== sessionId || manager.getBranchGeneration() !== branchGeneration) {
 						throw new Error(
 							"Note update rejected: the active session or branch changed. Retry in the current session.",
 						);
 					}
-				};
-				// Validate only committed state, without touching disk for rejected input.
-				await manager.readEntriesAtomically(() => {
-					assertOwner();
-					previousNotes = getImportantNotesFromEntries(manager.getBranch());
-					applyImportantNotesMutation(previousNotes, mutation);
+					return getImportantNotesFromEntries(manager.getBranch()).map(note => ({ ...note }));
 				});
-				// Recompute after queued writes, and reject replaced-session requests
-				// before staging and after publication. Return only an owned snapshot.
-				notes = await manager.appendEntriesAtomically(() => {
-					const current = getImportantNotesFromEntries(manager.getBranch());
-					const updated = applyImportantNotesMutation(current, mutation);
-					if (updated !== current) {
-						manager.appendCustomEntry(IMPORTANT_NOTES_CUSTOM_TYPE, { version: 1, notes: updated });
-					}
-					return readNotes();
-				}, assertOwner);
+				notes = await writeSessionNotes(manager, { op: params.op, key: params.key, text: params.text }, owner);
 			}
 			const chars = notes.reduce((total, note) => total + note.key.length + note.text.length, 0);
+			const visibleNotes = timestamps ? notes : notes.map(({ key, text }) => ({ key, text }));
 			const location = storage === "session" ? "session journal" : "memory only; not persisted to disk";
 			const summary = `${notes.length} notes, ${chars}/${IMPORTANT_NOTES_MAX_CHARS} characters (${location}).`;
 			return {
 				content: [
 					{
 						type: "text",
-						text: params.op === "list" ? `${summary}\n${JSON.stringify(notes)}` : summary,
+						text: params.op === "list" ? `${summary}\n${JSON.stringify(visibleNotes)}` : summary,
 					},
 				],
-				details: { op: params.op, notes, storage, scope: "session" },
+				details: { op: params.op, notes: visibleNotes, storage, scope: "session", timestamps },
 			};
 		} catch (error) {
+			const failedNotes = manager
+				? await manager.readEntriesAtomically(() =>
+						ownsBranch() ? getImportantNotesFromEntries(manager.getBranch()) : previousNotes,
+					)
+				: [];
 			return {
 				content: [{ type: "text", text: error instanceof Error ? error.message : String(error) }],
 				details: {
 					op: params.op,
-					notes: manager
-						? await manager.readEntriesAtomically(() =>
-								(ownsBranch() ? getImportantNotesFromEntries(manager.getBranch()) : previousNotes).map(
-									note => ({
-										...note,
-									}),
-								),
-							)
-						: [],
+					notes: (timestamps ? failedNotes : failedNotes.map(({ key, text }) => ({ key, text }))).map(note => ({
+						...note,
+					})),
 					storage,
 					scope: "session",
+					timestamps,
 				},
 				isError: true,
 			};
@@ -280,8 +272,10 @@ export const notesToolRenderer = {
 					lines.push(...replaceTabs(sanitizeText(message)).split("\n").slice(0, PREVIEW_LIMITS.OUTPUT_COLLAPSED));
 				} else {
 					const limit = expanded ? PREVIEW_LIMITS.OUTPUT_EXPANDED : PREVIEW_LIMITS.COLLAPSED_ITEMS;
+					const showStamps = result.details?.timestamps === true;
 					for (const note of notes.slice(0, limit)) {
-						const text = replaceTabs(sanitizeText(`${note.key}: ${note.text}`)).replace(/\n/g, " ");
+						const stamp = showStamps && note.updatedAt ? ` (${formatNoteTimestamp(note.updatedAt)})` : "";
+						const text = replaceTabs(sanitizeText(`${note.key}${stamp}: ${note.text}`)).replace(/\n/g, " ");
 						lines.push(`  ${theme.fg("toolOutput", text)}`);
 					}
 					if (notes.length > limit) lines.push(`  ${formatExpandHint(theme, expanded, true)}`);

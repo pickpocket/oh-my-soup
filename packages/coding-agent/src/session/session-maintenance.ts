@@ -395,7 +395,7 @@ export interface SessionMaintenanceHost {
 	goalModeState(): GoalModeState | undefined;
 	planReferencePath(): string;
 	nonMessageTokenSource(): NonMessageTokenSource;
-	importantNotesReferenceTokens(): number;
+	importantNotesReferenceTokens(pendingMessages?: AgentMessage[]): number;
 	hasExperimentalContextRolloverTools(): boolean;
 	takeExperimentalContextRolloverRequest(context: AgentTurnEndContext | undefined): boolean;
 	queueExperimentalContextNotesReminder(prompt: string): void;
@@ -2336,19 +2336,23 @@ export class SessionMaintenance {
 	}
 
 	/** Persistent prompt overhead that compaction cannot remove. */
-	#fixedContextTokens(): number {
+	#fixedContextTokens(pendingMessages: AgentMessage[] = []): number {
 		return (
 			computeNonMessageTokens(this.#host.nonMessageTokenSource(), this.#tokenizer, this.#host.settings.revision) +
-			this.#host.importantNotesReferenceTokens()
+			this.#host.importantNotesReferenceTokens(pendingMessages)
 		);
 	}
 
-	#assertImportantNotesFit(contextTokens: number, attemptedRecovery = false): void {
+	#assertImportantNotesFit(
+		contextTokens: number,
+		attemptedRecovery = false,
+		pendingMessages: AgentMessage[] = [],
+	): void {
 		const model = this.#model;
 		if (!model) return;
 		assertImportantNotesFit(
 			contextTokens,
-			this.#host.importantNotesReferenceTokens(),
+			this.#host.importantNotesReferenceTokens(pendingMessages),
 			model,
 			this.#host.settings.getGroup("compaction"),
 			{ attemptedRecovery },
@@ -2368,14 +2372,14 @@ export class SessionMaintenance {
 		const fits = () =>
 			importantNotesFit(
 				this.#estimateStoredContextTokens(pendingMessages),
-				this.#host.importantNotesReferenceTokens(),
+				this.#host.importantNotesReferenceTokens(pendingMessages),
 				model,
 				compactionSettings,
 			);
 		if (fits()) return;
 		logger.debug("Important-notes fit recovery started", {
 			contextTokens: this.#estimateStoredContextTokens(pendingMessages),
-			referenceTokens: this.#host.importantNotesReferenceTokens(),
+			referenceTokens: this.#host.importantNotesReferenceTokens(pendingMessages),
 			contextWindow: model.contextWindow,
 			model: `${model.provider}/${model.id}`,
 			allowCompaction,
@@ -2420,7 +2424,7 @@ export class SessionMaintenance {
 			});
 			if (fits()) return;
 		}
-		this.#assertImportantNotesFit(this.#estimateStoredContextTokens(pendingMessages), true);
+		this.#assertImportantNotesFit(this.#estimateStoredContextTokens(pendingMessages), true, pendingMessages);
 	}
 
 	/**
@@ -2443,7 +2447,7 @@ export class SessionMaintenance {
 		// other arm of compactionContextTokens) already accounts for it.
 		const opts = { excludeEncryptedReasoning: true } as const;
 		return (
-			this.#fixedContextTokens() +
+			this.#fixedContextTokens(pendingMessages) +
 			this.#tokenizer.countMessages(this.#host.messages(), opts) +
 			this.#tokenizer.countMessages(pendingMessages, opts)
 		);
@@ -2545,7 +2549,7 @@ export class SessionMaintenance {
 		// rewrite when even an empty history could not accommodate it — the
 		// futile-floor message (larger model / shorten notes) is the accurate
 		// remedy there, not the recovery-exhausted variant.
-		this.#assertImportantNotesFit(this.#fixedContextTokens());
+		this.#assertImportantNotesFit(this.#fixedContextTokens(messages), false, messages);
 
 		logger.debug("Pre-prompt context maintenance triggered by pending prompt size", {
 			contextTokens,

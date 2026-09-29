@@ -37,6 +37,7 @@ import { MoveOverlay, type MoveOverlayResult } from "@oh-my-soup/pi-tui/overlays
 import { moveDirectorySource } from "../move-directory-source";
 import { TranscriptBlock } from "@oh-my-soup/pi-tui/chrome/transcript-container";
 import { getMarkdownTheme, getSymbolTheme, theme, type Theme } from "@oh-my-soup/pi-tui/theme";
+import { IMPORTANT_NOTES_CUSTOM_TYPE } from "../../session/important-notes";
 import type { InteractiveModeContext } from "../../modes/types";
 import { renderContextUsage } from "@oh-my-soup/pi-tui/status-line/context-usage";
 import { computeSessionContextBreakdown } from "../../session/context-usage-runtime";
@@ -1088,6 +1089,10 @@ export class CommandController {
 		if (!result) {
 			this.ctx.showWarning("Wait for the current response to finish or abort it before resetting the context.");
 			return;
+		}
+		// Opt-in destructive companion: /clear also wipes the session notes journal.
+		if (this.ctx.settings.get("notes.clearOnClear") === true) {
+			this.ctx.sessionManager.appendCustomEntry(IMPORTANT_NOTES_CUSTOM_TYPE, { version: 2, op: "clear" });
 		}
 		// Drop the rendered transcript so the UI matches the now-empty model
 		// context (mirrors #runNewSessionFlow's teardown, minus the new session —

@@ -168,6 +168,7 @@ import { createInterruptedTurnAbortMessage } from "./session/exit-diagnostics";
 import {
 	assertImportantNotesFit,
 	ImportantNotesContext,
+	type ImportantNotesContextOptions,
 	type ImportantNotesProjection,
 } from "./session/important-notes-context";
 import { recoverInlineSloppyEdit } from "./session/inline-edit-recovery";
@@ -3578,27 +3579,34 @@ async function createAgentSessionScoped(options: CreateAgentSessionOptions): Pro
 		};
 
 		const importantNotesContext = new ImportantNotesContext();
-		let pendingNotesProjection: ImportantNotesProjection | undefined;
-		const transformContext = async (messages: AgentMessage[], signal?: AbortSignal, primary = false) => {
-			if (primary) pendingNotesProjection = undefined;
-			const withContext = await extensionRunner.emitContext(messages);
-			signal?.throwIfAborted();
-			const wrapped = wrapSteeringForModel(withContext);
-			const activeModel = agent.state.model;
-			if (!activeModel) return wrapped;
-			const notesTool = resolveImportantNotesTool(session.getActiveToolNames());
+		const notesPolicy = () => ({
+			timestamps: settings.get("notes.timestamps"),
+			injectAfterCompaction: settings.get("notes.injectAfterCompaction"),
+			injectOnTurns: settings.get("notes.injectOnTurns"),
+			injectCadence: settings.get("notes.injectCadence"),
+			injectAtTokenThreshold: settings.get("notes.injectAtTokenThreshold"),
+			injectTokenThreshold: settings.get("notes.injectTokenThreshold"),
+			injectAtWindowPercent: settings.get("notes.injectAtWindowPercent"),
+			injectWindowPercent: settings.get("notes.injectWindowPercent"),
+			autoUpdate: settings.get("notes.autoUpdate"),
+			autoUpdateCadence: settings.get("notes.autoUpdateCadence"),
+		});
+		const notesProjectionOptions = (
+			activeModel: Model,
+			forceInject: boolean,
+			branch = sessionManager.getBranch(),
+			policy = notesPolicy(),
+		): ImportantNotesContextOptions => {
+			const notesTool = resolveImportantNotesTool(session?.getActiveToolNames() ?? []);
 			const notesToolName = notesTool === "xd" ? "write" : notesTool;
-			const branch = sessionManager.getBranch();
-			const compaction = settings.getGroup("compaction");
-			const nonMessageTokens = computeNonMessageTokens(session, agent.tokenizer, settings.revision);
-			const projection = importantNotesContext.transform(wrapped, {
+			return {
 				sessionId: sessionManager.getSessionId(),
 				branchGeneration: sessionManager.getBranchGeneration(),
 				branch,
 				model: activeModel,
-				compaction,
+				compaction: settings.getGroup("compaction"),
 				tokenizer: agent.tokenizer,
-				nonMessageTokens,
+				nonMessageTokens: computeNonMessageTokens(session, agent.tokenizer, settings.revision),
 				contextUsageTokens: session.getContextUsage()?.tokens ?? undefined,
 				storedMessagesTokens: agent.tokenizer.countMessages(agent.state.messages, {
 					excludeEncryptedReasoning: true,
@@ -3607,9 +3615,30 @@ async function createAgentSessionScoped(options: CreateAgentSessionOptions): Pro
 				notesToolName: notesToolName
 					? (toolRegistry.get(notesToolName)?.customWireName ?? notesToolName)
 					: undefined,
+				policy,
+				forceInject,
 				obfuscator,
-			});
+			};
+		};
+		let pendingNotesProjection: ImportantNotesProjection | undefined;
+		// Whether the pending primary projection's reference shipped because of an
+		// armed /notes inject: that arm is consume-once, so a failed delivery must
+		// re-arm it (trigger-driven injections re-evaluate naturally on retry).
+		let pendingNotesWasForceInject = false;
+		const transformContext = async (messages: AgentMessage[], signal?: AbortSignal, primary = false) => {
+			if (primary) pendingNotesProjection = undefined;
+			const withContext = await extensionRunner.emitContext(messages);
+			signal?.throwIfAborted();
+			const wrapped = wrapSteeringForModel(withContext);
+			const activeModel = agent.state.model;
+			if (!activeModel) return wrapped;
+			// Consume the armed /notes inject exactly once per primary request.
+			const forceInject = primary ? session.takeNotesReferenceRequest() : false;
+			const projectionOptions = notesProjectionOptions(activeModel, forceInject);
+			const projection = importantNotesContext.transform(wrapped, projectionOptions);
+			const { nonMessageTokens, compaction } = projectionOptions;
 			const referenceTokens = projection.referenceTokens;
+			if (primary) pendingNotesWasForceInject = forceInject;
 			// Refuse dispatch only when the irreducible floor — prompt overhead plus
 			// the notes reference — could not fit even an empty history. A request
 			// that is merely over budget is left to pre-prompt / mid-run maintenance
@@ -3843,6 +3872,18 @@ async function createAgentSessionScoped(options: CreateAgentSessionOptions): Pro
 					: undefined
 				: undefined,
 		});
+		// Pre-prompt maintenance runs before the first transformContext, so no
+		// reference tokens are recorded yet: reserve eagerly for the
+		// session-start reference the next request will carry. The builtin tool
+		// gate is settings-driven; the first real transform records the exact
+		// value afterwards.
+		const warmTokens = importantNotesContext.warm({
+			branch: sessionManager.getBranch(),
+			tokenizer: agent.tokenizer,
+			obfuscator,
+			notesTool: settings.get("notes.enabled") ? "notes" : undefined,
+			policy: notesPolicy(),
+		});
 		disposeCallbacks.add(
 			agent.subscribe(event => {
 				if (event.type === "message_end" && event.message.role === "assistant") {
@@ -3850,9 +3891,17 @@ async function createAgentSessionScoped(options: CreateAgentSessionOptions): Pro
 					pendingNotesProjection = undefined;
 					if (event.message.stopReason !== "error" && event.message.stopReason !== "aborted") {
 						projection?.acknowledgeDelivery();
+					} else if (pendingNotesWasForceInject && (projection?.referenceTokens ?? 0) > 0) {
+						// A force-injected reference died with the request: re-arm the
+						// consume-once flag so the retry still ships it. Trigger-driven
+						// injections re-evaluate naturally (their boundary/cadence state
+						// was never acknowledged).
+						session.requestNotesReference();
 					}
+					pendingNotesWasForceInject = false;
 				} else if (event.type === "agent_end") {
 					pendingNotesProjection = undefined;
+					pendingNotesWasForceInject = false;
 				}
 			}),
 		);
@@ -3967,6 +4016,28 @@ async function createAgentSessionScoped(options: CreateAgentSessionOptions): Pro
 			serviceTierByFamily: initialServiceTierByFamily,
 			sessionManager,
 			settings,
+			estimateUpcomingImportantNotesReferenceTokens: (forceInject, pendingMessages) => {
+				const policy = notesPolicy();
+				const branch = sessionManager.getBranch();
+				if (
+					!forceInject &&
+					(!policy.injectAfterCompaction ||
+						!importantNotesContext.boundaryNeedsReference(sessionManager.getSessionId(), branch)) &&
+					!policy.injectOnTurns &&
+					!policy.injectAtTokenThreshold &&
+					!policy.injectAtWindowPercent
+				) {
+					return 0;
+				}
+				const activeModel = agent.state.model;
+				if (!activeModel) return 0;
+				const messages =
+					pendingMessages.length > 0 ? [...agent.state.messages, ...pendingMessages] : agent.state.messages;
+				return importantNotesContext.preflightReferenceTokens(
+					messages,
+					notesProjectionOptions(activeModel, forceInject, branch, policy),
+				);
+			},
 			additionalExtensionPaths: options.additionalExtensionPaths,
 			extensionRoots: buildSessionExtensionRoots,
 			preparedExtensions: extensionsResult.preparedExtensions,
@@ -4081,6 +4152,10 @@ async function createAgentSessionScoped(options: CreateAgentSessionOptions): Pro
 			titleSystemPrompt: options.titleSystemPrompt,
 		});
 		hasSession = true;
+		// Session-start reference accounting (warmTokens above): pre-prompt
+		// maintenance now reserves for the reference that ships with the first
+		// request instead of seeing zero recorded tokens.
+		if (warmTokens > 0) session.recordImportantNotesReferenceTokens(warmTokens);
 		releaseSearchBrowserLease = retainSearchBrowserSession(searchBrowserSessionId);
 		if (options.searchBrowserSessionId === undefined) {
 			unregisterSearchBrowserSessionChange = session.registerSessionChangeCallback(() => {

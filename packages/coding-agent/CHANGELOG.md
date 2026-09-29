@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- Added durable session notes with `/notes` show/search/edit, configurable context reinjection, and update reminders. ([#7](https://github.com/pickpocket/oh-my-soup/pull/7) by [@ReKon64](https://github.com/ReKon64))
+
 ## [18.4.3] - 2026-09-22
 
 ### Added

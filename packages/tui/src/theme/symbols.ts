@@ -176,6 +176,7 @@ export type SymbolKey =
 	| "cmd.hammer"
 	| "cmd.power"
 	| "cmd.cart"
+	| "cmd.notepad"
 	// STT
 	| "icon.mic"
 	// Compaction divider
@@ -364,6 +365,7 @@ export type SlashCommandIconName =
 	| "rule"
 	| "skill"
 	| "mcp"
+	| "notepad"
 	| "pin";
 
 const UNICODE_SYMBOLS: SymbolMap = {
@@ -537,6 +539,7 @@ const UNICODE_SYMBOLS: SymbolMap = {
 	"cmd.hammer": "🔨",
 	"cmd.power": "⏻",
 	"cmd.cart": "🛒",
+	"cmd.notepad": "📝",
 	// STT
 	"icon.mic": "🎤",
 	// Compaction divider
@@ -972,6 +975,8 @@ const NERD_SYMBOLS: SymbolMap = {
 	"cmd.power": "\uf011",
 	// pick:  (nf-fa-shopping_cart) | alt: 󰄋 (nf-md-cart)
 	"cmd.cart": "\uf07a",
+	// pick:  (nf-fa-sticky_note)
+	"cmd.notepad": "",
 	// STT - fa-microphone
 	"icon.mic": "\uf130",
 	// Compaction divider - fa-camera-retro
@@ -1266,6 +1271,7 @@ const ASCII_SYMBOLS: SymbolMap = {
 	"cmd.hammer": "",
 	"cmd.power": "",
 	"cmd.cart": "",
+	"cmd.notepad": "[n]",
 	// STT
 	"icon.mic": "MIC",
 	// Compaction divider

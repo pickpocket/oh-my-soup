@@ -67,6 +67,7 @@ export const BUILTIN_SLASH_COMMAND_DEFS: ReadonlyArray<BuiltinSlashCommand> = BU
 		description: command.description,
 		icon: command.icon,
 		subcommands: command.subcommands,
+		argumentCompletions: command.argumentCompletions,
 		inlineHint: command.inlineHint,
 		getTuiAutocompleteDescription: command.getTuiAutocompleteDescription,
 	}),
@@ -91,6 +92,9 @@ function materializeTuiBuiltinSlashCommand(
 		if (cmd.inlineHint) materialized.getInlineHint = buildStaticInlineHint(cmd.inlineHint);
 	} else if (cmd.inlineHint) {
 		materialized.getInlineHint = buildStaticInlineHint(cmd.inlineHint);
+	}
+	if (runtime && cmd.argumentCompletions) {
+		materialized.getArgumentCompletions = cmd.argumentCompletions(runtime);
 	}
 	if (runtime && cmd.getTuiAutocompleteDescription) {
 		materialized.getAutocompleteDescription = () => cmd.getTuiAutocompleteDescription?.(runtime);
@@ -138,7 +142,8 @@ export async function executeBuiltinSlashCommand(
 	}
 	// Collab guests run a read-mostly replica: session-mutating builtins are
 	// host-only; the allowlist covers purely local/read-only commands.
-	if (runtime.ctx.collabGuest && !COLLAB_GUEST_ALLOWED_COMMANDS[command.name]) {
+	const guestReadOnlyNotes = command.name === "notes" && /^(show|search)(?:\s|$)/i.test(parsed.args.trim());
+	if (runtime.ctx.collabGuest && !guestReadOnlyNotes && !COLLAB_GUEST_ALLOWED_COMMANDS[command.name]) {
 		runtime.ctx.showStatus(`/${command.name} is host-only during a collab session`);
 		runtime.ctx.editor.setText("");
 		return true;
@@ -157,6 +162,7 @@ export async function executeBuiltinSlashCommand(
 		// `SlashCommandRuntime` shape.
 		const ctx = runtime.ctx;
 		const adapted: SlashCommandRuntime = {
+			ctx,
 			session: ctx.session,
 			sessionManager: ctx.sessionManager,
 			settings: ctx.settings,

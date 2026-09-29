@@ -5,9 +5,11 @@ import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
 import { getThemeByName } from "@oh-my-soup/pi-tui/theme";
 import {
 	getImportantNotesFromEntries,
+	getImportantNotesState,
 	IMPORTANT_NOTES_CUSTOM_TYPE,
 	IMPORTANT_NOTES_MAX_CHARS,
 } from "@oh-my-soup/pi-coding-agent/session/important-notes";
+import type { SessionEntry } from "@oh-my-soup/pi-coding-agent/session/session-entries";
 import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
 import { FileSessionStorage } from "@oh-my-soup/pi-coding-agent/session/session-storage";
 import { createTools, type ToolSession } from "@oh-my-soup/pi-coding-agent/tools";
@@ -28,6 +30,11 @@ function toolSession(manager: SessionManager, overrides: Partial<ToolSession> = 
 		settings: Settings.isolated(),
 		...overrides,
 	};
+}
+
+/** Folded notes without updatedAt stamps, for structural journal assertions. */
+function journalNotes(branch: readonly SessionEntry[]): Array<{ key: string; text: string }> {
+	return getImportantNotesFromEntries(branch).map(({ key, text }) => ({ key, text }));
 }
 
 afterEach(() => vi.restoreAllMocks());
@@ -203,6 +210,25 @@ describe("Beads-backed notes", () => {
 });
 
 describe("session important notes", () => {
+	it("writes a full snapshot entry at the 32nd mutation and resets pending events", async () => {
+		const manager = SessionManager.inMemory();
+		const tool = new NotesTool(toolSession(manager));
+		for (let i = 0; i < 32; i++) {
+			const result = await tool.execute(`set-${i}`, { op: "set", key: `key-${i}`, text: `value ${i}` });
+			expect(result.isError).toBeUndefined();
+		}
+		const last = manager.getBranch().at(-1);
+		expect(last).toMatchObject({
+			type: "custom",
+			customType: IMPORTANT_NOTES_CUSTOM_TYPE,
+			data: { version: 2, snapshot: true },
+		});
+		expect(getImportantNotesState(manager.getBranch()).pendingEvents).toBe(0);
+		// The fold still serves every note written across the boundary.
+		const listed = await tool.execute("list-after-snapshot", { op: "list" });
+		expect(listed.details?.notes).toHaveLength(32);
+	});
+
 	it("replaces keyed notes, deletes only existing keys, and keeps an empty clear tombstone", async () => {
 		const manager = SessionManager.inMemory();
 		const tool = new NotesTool(toolSession(manager));
@@ -213,8 +239,8 @@ describe("session important notes", () => {
 		const reopenedTool = new NotesTool(toolSession(manager));
 		const listed = await reopenedTool.execute("list", { op: "list" });
 		expect(listed.details?.notes).toEqual([
-			{ key: "server", text: exact },
-			{ key: "address", text: "0x140001234" },
+			{ key: "server", text: exact, updatedAt: expect.any(String) },
+			{ key: "address", text: "0x140001234", updatedAt: expect.any(String) },
 		]);
 		expect(listed.details?.storage).toBe("memory");
 		expect(listed.content.find(part => part.type === "text")?.text).toContain("not persisted to disk");
@@ -222,12 +248,12 @@ describe("session important notes", () => {
 		const entriesBeforeMissing = manager.getEntries().length;
 		expect((await tool.execute("missing", { op: "delete", key: "address" })).isError).toBe(true);
 		expect(manager.getEntries()).toHaveLength(entriesBeforeMissing);
-		expect(getImportantNotesFromEntries(manager.getBranch())).toEqual([{ key: "server", text: exact }]);
+		expect(journalNotes(manager.getBranch())).toEqual([{ key: "server", text: exact }]);
 		await tool.execute("clear", { op: "clear" });
 		expect(manager.getBranch().at(-1)).toMatchObject({
 			type: "custom",
 			customType: IMPORTANT_NOTES_CUSTOM_TYPE,
-			data: { version: 1, notes: [] },
+			data: { version: 2, op: "clear" },
 		});
 		const entriesAfterClear = manager.getEntries().length;
 		expect((await tool.execute("clear-again", { op: "clear" })).isError).toBeUndefined();
@@ -251,7 +277,7 @@ describe("session important notes", () => {
 		]) {
 			expect((await tool.execute("invalid", params)).isError).toBe(true);
 			expect(manager.getEntries()).toHaveLength(before);
-			expect(getImportantNotesFromEntries(manager.getBranch())).toEqual([{ key: "a", text }]);
+			expect(journalNotes(manager.getBranch())).toEqual([{ key: "a", text }]);
 		}
 		await tool.execute("unchanged", { op: "set", key: "a", text });
 		expect(manager.getEntries()).toHaveLength(before);
@@ -265,7 +291,7 @@ describe("session important notes", () => {
 		}
 		expect((await tool.execute("overflow", { op: "set", key: "n32", text: "fact" })).isError).toBe(true);
 		expect((await tool.execute("replace", { op: "set", key: "n0", text: "revised" })).isError).toBeUndefined();
-		const notes = getImportantNotesFromEntries(manager.getBranch());
+		const notes = journalNotes(manager.getBranch());
 		expect(notes).toHaveLength(32);
 		expect(notes[0]).toEqual({ key: "n0", text: "revised" });
 	});
@@ -282,11 +308,53 @@ describe("session important notes", () => {
 			{ version: 1, notes: [{ key: "big", text: "x".repeat(IMPORTANT_NOTES_MAX_CHARS) }] },
 		]) {
 			manager.appendCustomEntry(IMPORTANT_NOTES_CUSTOM_TYPE, invalid);
-			expect(getImportantNotesFromEntries(manager.getBranch())).toEqual(notes);
+			expect(journalNotes(manager.getBranch())).toEqual(notes);
 		}
 		manager.appendCustomEntry(IMPORTANT_NOTES_CUSTOM_TYPE, { version: 1, notes: [] });
 		manager.appendCustomEntry(IMPORTANT_NOTES_CUSTOM_TYPE, { version: 0, notes });
-		expect(getImportantNotesFromEntries(manager.getBranch())).toEqual([]);
+		expect(journalNotes(manager.getBranch())).toEqual([]);
+	});
+
+	it("resumes a legacy control-character key through later events and a snapshot without accepting new unsafe keys", async () => {
+		const manager = SessionManager.inMemory();
+		const legacy = { key: "leg\u0007acy\nkey", text: "retained across migrations" };
+		manager.appendCustomEntry(IMPORTANT_NOTES_CUSTOM_TYPE, { version: 1, notes: [legacy] });
+		const tool = new NotesTool(toolSession(manager));
+		expect(journalNotes(manager.getBranch())).toEqual([legacy]);
+		expect((await tool.execute("read-legacy", { op: "list", key: legacy.key })).details?.notes[0]?.text).toBe(
+			legacy.text,
+		);
+		const before = manager.getEntries().length;
+		expect((await tool.execute("invalid-key", { op: "set", key: "new\u0007key", text: "not saved" })).isError).toBe(
+			true,
+		);
+		expect(manager.getEntries()).toHaveLength(before);
+		for (let index = 0; index < 32; index++) {
+			expect(
+				(await tool.execute(`valid-${index}`, { op: "set", key: "server", text: `port ${index}` })).isError,
+			).toBeUndefined();
+		}
+		expect(manager.getBranch().at(-1)).toMatchObject({ type: "custom", data: { snapshot: true } });
+		expect(journalNotes(manager.getBranch())).toEqual([legacy, { key: "server", text: "port 31" }]);
+		expect(
+			(await tool.execute("update-legacy", { op: "set", key: legacy.key, text: "updated legacy" })).isError,
+		).toBeUndefined();
+		expect(journalNotes(manager.getBranch())).toEqual([
+			{ ...legacy, text: "updated legacy" },
+			{ key: "server", text: "port 31" },
+		]);
+	});
+
+	it("hides stored timestamps from tool-visible list and details when the setting is off", async () => {
+		const manager = SessionManager.inMemory();
+		const settings = Settings.isolated({ "notes.timestamps": false });
+		const tool = new NotesTool(toolSession(manager, { settings }));
+		const saved = await tool.execute("save", { op: "set", key: "server", text: "port 8123" });
+		expect(saved.isError).toBeUndefined();
+		const listed = await tool.execute("list", { op: "list" });
+		expect(listed.content.find(part => part.type === "text")?.text ?? "").not.toContain("updatedAt");
+		expect(listed.details?.notes).toEqual([{ key: "server", text: "port 8123" }]);
+		expect(getImportantNotesFromEntries(manager.getBranch())[0]?.updatedAt).toBeDefined();
 	});
 
 	it("reopens durable notes after compaction and isolates fork updates from the original session", async () => {
@@ -308,19 +376,17 @@ describe("session important notes", () => {
 			await manager.flush();
 			await manager.close();
 			reopened = await SessionManager.open(file, dir);
-			expect(getImportantNotesFromEntries(reopened.getBranch())).toEqual([{ key: "server", text: "bun run dev" }]);
+			expect(journalNotes(reopened.getBranch())).toEqual([{ key: "server", text: "bun run dev" }]);
 			forked = await SessionManager.forkFrom(file, cwd, dir, undefined, { suppressBreadcrumb: true });
 			const forkTool = new NotesTool(toolSession(forked));
 			await forkTool.execute("fork-edit", { op: "set", key: "server", text: "bun run dev --port 9000" });
-			expect(getImportantNotesFromEntries(reopened.getBranch())).toEqual([{ key: "server", text: "bun run dev" }]);
-			expect(getImportantNotesFromEntries(forked.getBranch())).toEqual([
-				{ key: "server", text: "bun run dev --port 9000" },
-			]);
+			expect(journalNotes(reopened.getBranch())).toEqual([{ key: "server", text: "bun run dev" }]);
+			expect(journalNotes(forked.getBranch())).toEqual([{ key: "server", text: "bun run dev --port 9000" }]);
 			await forkTool.execute("fork-clear", { op: "clear" });
 			const forkFile = forked.getSessionFile()!;
 			await forked.close();
 			forked = await SessionManager.open(forkFile, dir);
-			expect(getImportantNotesFromEntries(forked.getBranch())).toEqual([]);
+			expect(journalNotes(forked.getBranch())).toEqual([]);
 		} finally {
 			await forked?.close();
 			await reopened?.close();
@@ -337,15 +403,15 @@ describe("session important notes", () => {
 		const tail = manager.getBranch().at(-1)!.id;
 		manager.branch(root);
 		expect((await tool.execute("branch-list", { op: "list" })).details?.notes).toEqual([
-			{ key: "address", text: "0x401000" },
+			{ key: "address", text: "0x401000", updatedAt: expect.any(String) },
 		]);
 		await tool.execute("branch-clear", { op: "clear" });
 		manager.branch(tail);
 		expect((await tool.execute("original-list", { op: "list" })).details?.notes).toEqual([
-			{ key: "address", text: "0x402000" },
+			{ key: "address", text: "0x402000", updatedAt: expect.any(String) },
 		]);
 		manager.appendResetBoundary();
-		expect(getImportantNotesFromEntries(manager.getBranch())).toEqual([{ key: "address", text: "0x402000" }]);
+		expect(journalNotes(manager.getBranch())).toEqual([{ key: "address", text: "0x402000" }]);
 		const child = new NotesTool(toolSession(SessionManager.inMemory(manager.getCwd())));
 		expect((await child.execute("fresh-child", { op: "list" })).details?.notes).toEqual([]);
 		await manager.newSession();
@@ -365,15 +431,15 @@ describe("session important notes", () => {
 			const rejected = await save;
 			expect(rejected.isError).toBe(true);
 			expect(rejected.content.find(part => part.type === "text")?.text).toMatch(/session or branch changed/i);
-			expect(getImportantNotesFromEntries(manager.getBranch())).toEqual([]);
+			expect(journalNotes(manager.getBranch())).toEqual([]);
 			await manager.ensureOnDisk();
 			const replacementFile = manager.getSessionFile()!;
 			expect(replacementFile).not.toBe(previousFile);
 			const previous = await SessionManager.open(previousFile, dir);
 			const replacement = await SessionManager.open(replacementFile, dir);
 			try {
-				expect(getImportantNotesFromEntries(previous.getBranch())).toEqual([{ key: "server", text: "old" }]);
-				expect(getImportantNotesFromEntries(replacement.getBranch())).toEqual([]);
+				expect(journalNotes(previous.getBranch())).toEqual([{ key: "server", text: "old" }]);
+				expect(journalNotes(replacement.getBranch())).toEqual([]);
 			} finally {
 				await previous.close();
 				await replacement.close();
@@ -395,7 +461,7 @@ describe("session important notes", () => {
 		const rejected = await save;
 		expect(rejected.isError).toBe(true);
 		expect(rejected.details?.notes).toEqual([]);
-		expect(getImportantNotesFromEntries(manager.getBranch())).toEqual([{ key: "server", text: "ancestor" }]);
+		expect(journalNotes(manager.getBranch())).toEqual([{ key: "server", text: "ancestor" }]);
 		expect(manager.getEntries()).toHaveLength(before);
 	});
 
@@ -433,8 +499,10 @@ describe("session important notes", () => {
 			const failed = await save;
 			expect(failed.isError).toBe(true);
 			expect(failed.content.find(part => part.type === "text")?.text).toContain("gated publish failure");
-			expect(failed.details?.notes).toEqual([{ key: "server", text: "committed" }]);
-			expect((await listing).details?.notes).toEqual([{ key: "server", text: "committed" }]);
+			expect(failed.details?.notes).toEqual([{ key: "server", text: "committed", updatedAt: expect.any(String) }]);
+			expect((await listing).details?.notes).toEqual([
+				{ key: "server", text: "committed", updatedAt: expect.any(String) },
+			]);
 			expect(await Bun.file(file).text()).toBe(before);
 			const writeCount = writes.mock.calls.length;
 			await tool.execute("after-write", { op: "list" });
@@ -470,18 +538,16 @@ describe("session important notes", () => {
 			release.resolve();
 			const rejected = await save;
 			expect(rejected.isError).toBe(true);
-			expect(rejected.details?.notes).toEqual([{ key: "server", text: "outgoing" }]);
+			expect(rejected.details?.notes).toEqual([{ key: "server", text: "outgoing", updatedAt: expect.any(String) }]);
 			expect(manager.getLeafId()).toBe(root);
 			expect(manager.getEntries()).toHaveLength(before);
-			expect(getImportantNotesFromEntries(manager.getBranch())).toEqual([{ key: "server", text: "ancestor" }]);
+			expect(journalNotes(manager.getBranch())).toEqual([{ key: "server", text: "ancestor" }]);
 			const file = manager.getSessionFile()!;
 			expect(await Bun.file(file).text()).not.toContain('"text":"stale"');
 			const reopened = await SessionManager.open(file, dir);
 			try {
 				expect(reopened.getEntries()).toHaveLength(before);
-				expect(getImportantNotesFromEntries(reopened.getBranch(root))).toEqual([
-					{ key: "server", text: "ancestor" },
-				]);
+				expect(journalNotes(reopened.getBranch(root))).toEqual([{ key: "server", text: "ancestor" }]);
 			} finally {
 				await reopened.close();
 			}
@@ -520,7 +586,7 @@ describe("session important notes", () => {
 				await save;
 			}
 			expect((await save).isError).toBeUndefined();
-			expect(getImportantNotesFromEntries(manager.getBranch())).toEqual([{ key: "server", text: "new" }]);
+			expect(journalNotes(manager.getBranch())).toEqual([{ key: "server", text: "new" }]);
 		} finally {
 			release.resolve();
 			await manager.close();
@@ -542,14 +608,14 @@ describe("session important notes", () => {
 				const notes = result.details!.notes;
 				notes[0].text = "mutated externally";
 				(notes as Array<{ key: string; text: string }>).push({ key: "injected", text: "not journaled" });
-				expect(getImportantNotesFromEntries(manager.getBranch())).toEqual([{ key: "server", text: "exact" }]);
+				expect(journalNotes(manager.getBranch())).toEqual([{ key: "server", text: "exact" }]);
 				expect(manager.getEntries()).toHaveLength(before);
 			}
 			const file = manager.getSessionFile()!;
 			await manager.flush();
 			const reopened = await SessionManager.open(file, dir);
 			try {
-				expect(getImportantNotesFromEntries(reopened.getBranch())).toEqual([{ key: "server", text: "exact" }]);
+				expect(journalNotes(reopened.getBranch())).toEqual([{ key: "server", text: "exact" }]);
 			} finally {
 				await reopened.close();
 			}
@@ -574,7 +640,7 @@ describe("session important notes", () => {
 			const failed = await tool.execute("failure", { op: "set", key: "server", text: "lost command" });
 			expect(failed.isError).toBe(true);
 			expect(failed.content.find(part => part.type === "text")?.text).toMatch(/ENOTDIR|EEXIST|not a directory/i);
-			expect(getImportantNotesFromEntries(manager.getBranch())).toEqual([{ key: "server", text: "old command" }]);
+			expect(journalNotes(manager.getBranch())).toEqual([{ key: "server", text: "old command" }]);
 			expect(await Bun.file(file).text()).toBe(before);
 			expect(
 				(await tool.execute("retry", { op: "set", key: "server", text: "new command" })).isError,
@@ -582,6 +648,15 @@ describe("session important notes", () => {
 		} finally {
 			await manager.close();
 		}
+	});
+
+	it("omits the notes tool when notes.enabled is false", async () => {
+		const manager = SessionManager.inMemory();
+		const settings = Settings.isolated();
+		settings.override("notes.enabled", false);
+		expect(await createTools(toolSession(manager, { settings }), ["notes"])).toEqual([]);
+		const all = await createTools(toolSession(manager, { settings }));
+		expect(all.some(tool => tool.name === "notes")).toBe(false);
 	});
 
 	it("exposes granted notes to read-only children without widening explicit restricted lists", async () => {
@@ -594,7 +669,7 @@ describe("session important notes", () => {
 		const args = { op: "set", key: "address", text: "0x401000" };
 		expect(resolveApproval(notes, args, "always-ask").policy).toBe("allow");
 		expect((await notes.execute("readonly-save", args)).isError).toBeUndefined();
-		expect(getImportantNotesFromEntries(manager.getBranch())).toEqual([{ key: "address", text: "0x401000" }]);
+		expect(journalNotes(manager.getBranch())).toEqual([{ key: "address", text: "0x401000" }]);
 		const restricted = await createTools(toolSession(manager, { restrictToolNames: true }), ["read"]);
 		expect(restricted.map(tool => tool.name)).toEqual(["read"]);
 		expect(await createTools(toolSession(manager, { restrictToolNames: true }), [])).toEqual([]);
@@ -616,7 +691,7 @@ describe("session important notes", () => {
 		const result = await write.execute("device-save", args);
 		expect(result.isError).toBeUndefined();
 		expect(result.details?.xdev).toMatchObject({ tool: "notes", mode: "execute", tier: "read" });
-		expect(getImportantNotesFromEntries(manager.getBranch())).toEqual([{ key: "file", text: "src/server.ts" }]);
+		expect(journalNotes(manager.getBranch())).toEqual([{ key: "file", text: "src/server.ts" }]);
 	});
 
 	it("bounds and sanitizes pending, success, and error terminal previews", async () => {

@@ -2743,6 +2743,180 @@ export const SETTINGS_SCHEMA = {
 
 	"compaction.v2RetainedMessageBudget": { type: "number", default: 64000 },
 
+	// Session notes (important-notes): event-sourced journal storage, gated
+	// reference injection, and turn-cadence update nudges. The reference rides
+	// the request tail only when the policy says so; /notes reinjects on demand.
+	"notes.enabled": {
+		type: "boolean",
+		default: true,
+		ui: {
+			tab: "memory",
+			group: "Session Notes",
+			label: "Notes tool",
+			description: "Enable the session notes tool, its journal storage, and reference injection",
+		},
+	},
+	"notes.timestamps": {
+		type: "boolean",
+		default: true,
+		ui: {
+			tab: "memory",
+			group: "Session Notes",
+			label: "Note timestamps",
+			description: "Show each note's last-update date in lists and injected context",
+		},
+	},
+	"notes.clearOnClear": {
+		type: "boolean",
+		default: false,
+		ui: {
+			tab: "memory",
+			group: "Session Notes",
+			label: "Clear notes on /clear",
+			description:
+				"Also wipe the session notes journal when /clear resets the conversation. Destructive: wiped notes cannot be recovered.",
+		},
+	},
+	"notes.injectAfterCompaction": {
+		type: "boolean",
+		default: true,
+		ui: {
+			tab: "memory",
+			group: "Session Notes",
+			label: "Inject after compaction",
+			description: "Reattach the saved-notes reference after each compaction, /clear, or session resume",
+		},
+	},
+	"notes.injectOnTurns": {
+		type: "boolean",
+		default: false,
+		ui: {
+			tab: "memory",
+			group: "Session Notes",
+			label: "Reinject on turn cadence",
+			description: "Reattach the saved-notes reference every N assistant turns (see reinject cadence below)",
+		},
+	},
+	"notes.injectCadence": {
+		type: "number",
+		default: 25,
+		ui: {
+			tab: "memory",
+			group: "Session Notes",
+			label: "Reinject cadence (turns)",
+			description: "Assistant turns between reinjections when reinject on turn cadence is on",
+			options: [
+				{ value: "5", label: "5 turns" },
+				{ value: "10", label: "10 turns" },
+				{ value: "25", label: "25 turns" },
+				{ value: "50", label: "50 turns" },
+				{ value: "100", label: "100 turns" },
+			],
+		},
+	},
+	"notes.injectAtTokenThreshold": {
+		type: "boolean",
+		default: false,
+		ui: {
+			tab: "memory",
+			group: "Session Notes",
+			label: "Reinject at token threshold",
+			description: "Reattach the saved-notes reference when context tokens cross the threshold below",
+		},
+	},
+	"notes.injectTokenThreshold": {
+		type: "number",
+		default: 100_000,
+		ui: {
+			tab: "memory",
+			group: "Session Notes",
+			label: "Inject at token threshold",
+			description:
+				"Estimated context tokens that trigger a notes reinjection when reinject at token threshold is on. Set it below the model's context window — use reinject at window percent for window-relative behavior",
+			options: [
+				{ value: "50000", label: "50K tokens" },
+				{ value: "75000", label: "75K tokens" },
+				{ value: "100000", label: "100K tokens" },
+				{ value: "150000", label: "150K tokens" },
+				{ value: "200000", label: "200K tokens" },
+				{ value: "300000", label: "300K tokens" },
+				{ value: "400000", label: "400K tokens" },
+				{ value: "500000", label: "500K tokens" },
+				{ value: "600000", label: "600K tokens" },
+				{ value: "700000", label: "700K tokens" },
+				{ value: "800000", label: "800K tokens" },
+				{ value: "900000", label: "900K tokens" },
+				{ value: "1000000", label: "1M tokens" },
+			],
+		},
+	},
+	"notes.injectAtWindowPercent": {
+		type: "boolean",
+		default: false,
+		ui: {
+			tab: "memory",
+			group: "Session Notes",
+			label: "Reinject at window percent",
+			description: "Reattach the saved-notes reference when context usage crosses the window percentage below",
+		},
+	},
+	"notes.injectWindowPercent": {
+		type: "number",
+		default: 70,
+		ui: {
+			tab: "memory",
+			group: "Session Notes",
+			label: "Inject at window percent",
+			description:
+				"Percent of the model context window that triggers a notes reinjection when reinject at window percent is on",
+			options: [
+				{ value: "50", label: "50% of window" },
+				{ value: "60", label: "60% of window" },
+				{ value: "70", label: "70% of window" },
+				{ value: "80", label: "80% of window" },
+				{ value: "90", label: "90% of window" },
+			],
+		},
+	},
+	"notes.searchModel": {
+		type: "string",
+		default: "smol",
+		ui: {
+			tab: "memory",
+			group: "Session Notes",
+			label: "Model-assisted search",
+			description:
+				"Model role used by /notes search to find semantically matching notes beyond the regex pass; off disables the model pass",
+		},
+	},
+	"notes.autoUpdate": {
+		type: "boolean",
+		default: true,
+		ui: {
+			tab: "memory",
+			group: "Session Notes",
+			label: "Auto-update nudges",
+			description: "Nudge the model to update its notes as the last action of a turn",
+		},
+	},
+	"notes.autoUpdateCadence": {
+		type: "number",
+		default: 10,
+		ui: {
+			tab: "memory",
+			group: "Session Notes",
+			label: "Update cadence (turns)",
+			description: "Assistant turns between update nudges when no note has changed",
+			options: [
+				{ value: "5", label: "5 turns" },
+				{ value: "10", label: "10 turns" },
+				{ value: "15", label: "15 turns" },
+				{ value: "25", label: "25 turns" },
+				{ value: "50", label: "50 turns" },
+			],
+		},
+	},
+
 	// Idle compaction
 	"compaction.idleEnabled": {
 		type: "boolean",
@@ -6827,6 +7001,22 @@ export interface GcSettings {
 	retainNewestPerCwd: number;
 }
 
+export interface NotesSettings {
+	enabled: boolean;
+	timestamps: boolean;
+	clearOnClear: boolean;
+	injectAfterCompaction: boolean;
+	injectOnTurns: boolean;
+	injectCadence: number;
+	injectAtTokenThreshold: boolean;
+	injectTokenThreshold: number;
+	injectAtWindowPercent: boolean;
+	injectWindowPercent: number;
+	autoUpdate: boolean;
+	autoUpdateCadence: number;
+	searchModel: string;
+}
+
 /** Map group prefix -> typed settings interface */
 export interface GroupTypeMap {
 	compaction: CompactionSettings;
@@ -6849,6 +7039,7 @@ export interface GroupTypeMap {
 	shellMinimizer: ShellMinimizerSettings;
 	codexResets: CodexResetsSettings;
 	gc: GcSettings;
+	notes: NotesSettings;
 }
 
 export type GroupPrefix = keyof GroupTypeMap;

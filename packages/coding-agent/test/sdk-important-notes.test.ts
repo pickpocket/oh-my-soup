@@ -24,7 +24,7 @@ import { TempDir, untilAborted } from "@oh-my-soup/pi-utils";
 function noteData(context: Context): unknown[] {
 	const notes: unknown[] = [];
 	for (const message of context.messages) {
-		if (message.role !== "user") continue;
+		if (message.role !== "developer") continue;
 		const text =
 			typeof message.content === "string"
 				? message.content
@@ -33,7 +33,10 @@ function noteData(context: Context): unknown[] {
 						.map(block => block.text)
 						.join("\n");
 		const start = text.indexOf('[{"key":');
-		if (start >= 0) notes.push(JSON.parse(text.slice(start)));
+		if (start < 0) continue;
+		const end = text.lastIndexOf("]");
+		if (end <= start) continue;
+		notes.push(JSON.parse(text.slice(start, end + 1)));
 	}
 	return notes;
 }
@@ -220,7 +223,9 @@ describe("SDK important notes requests", () => {
 			await session.runEphemeralTurn({ promptText: "Report the saved command." });
 			expect(mock.calls).toHaveLength(1);
 			expect(noteData(mock.calls[0].context)).toEqual([[{ key: "command", text: "bun run dev" }]]);
-			expect(mock.calls[0].context.messages.at(-1)?.role).toBe("user");
+			// The saved-notes reference is a developer message and is the request
+			// tail; agent billing attribution must survive behind it.
+			expect(mock.calls[0].context.messages.at(-1)?.role).toBe("developer");
 			expect(inferCopilotInitiator(mock.calls[0].context.messages)).toBe("agent");
 		} finally {
 			await session.dispose();
@@ -295,11 +300,13 @@ describe("SDK important notes requests", () => {
 				"agent",
 			]);
 			expect(noteData(mock.calls[0].context)).toEqual([[{ key: "server", text: "old" }]]);
-			expect(noteData(mock.calls[1].context)).toEqual([
-				[{ key: "server", text: "cwd=/api; bun run dev --port 8123" }],
-			]);
-			expect(noteData(mock.calls[2].context)).toEqual([
-				[{ key: "server", text: "cwd=/api; bun run dev --port 8124" }],
+			// Gated injection: with an unchanged compaction boundary the reference
+			// is NOT re-attached after a tool update; the journal stays the source
+			// of truth until the next boundary reinjects it.
+			expect(noteData(mock.calls[1].context)).toEqual([]);
+			expect(noteData(mock.calls[2].context)).toEqual([]);
+			expect(getImportantNotesFromEntries(manager.getBranch())).toEqual([
+				{ key: "server", text: "cwd=/api; bun run dev --port 8124", updatedAt: expect.any(String) },
 			]);
 			const kept = manager.appendMessage({ role: "user", content: "replacement history", timestamp: Date.now() });
 			manager.appendCompaction("Condensed server task", undefined, kept, 12_000);
@@ -314,8 +321,10 @@ describe("SDK important notes requests", () => {
 			vi.spyOn(session.agent, "streamFn").mockImplementation(resumed.stream);
 			await session.prompt("Continue from the saved command.");
 			expect(resumed.calls).toHaveLength(1);
+			// Compacted-history resume is a new boundary: the reference ships again
+			// carrying the latest saved snapshot, timestamps included.
 			expect(noteData(resumed.calls[0].context)).toEqual([
-				[{ key: "server", text: "cwd=/api; bun run dev --port 8124" }],
+				[{ key: "server", text: "cwd=/api; bun run dev --port 8124", updatedAt: expect.any(String) }],
 			]);
 			const users = reopened
 				.getBranch()
@@ -451,7 +460,10 @@ describe("SDK important notes requests", () => {
 		using tempDir = TempDir.createSync("sdk-notes-growth-");
 		const contextWindow = 4096;
 		const { manager, model, authStorage, create } = await budgetFixture(tempDir, contextWindow);
-		manager.appendMessage({ role: "user", content: "0123456789abcdef".repeat(235), timestamp: 1 });
+		// Seed pressure sits just under the trigger: the first request already
+		// carries the (unavoidable) session-start reference, so the seeds must
+		// leave room for it within the safe budget before the growth loop runs.
+		manager.appendMessage({ role: "user", content: "0123456789abcdef".repeat(225), timestamp: 1 });
 		manager.appendMessage({ role: "user", content: "0123456789abcdef".repeat(140), timestamp: 2 });
 		manager.appendCustomEntry(IMPORTANT_NOTES_CUSTOM_TYPE, { version: 1, notes: [{ key: "evidence", text: "old" }] });
 		const { session } = await create();
@@ -489,7 +501,9 @@ describe("SDK important notes requests", () => {
 			expect(compactionsAtFirstDispatch).toBe(0);
 			expect(compact).toHaveBeenCalledTimes(1);
 			expect(mock.calls).toHaveLength(2);
-			expect(noteData(mock.calls[1].context)).toEqual([[{ key: "evidence", text }]]);
+			// The mid-turn compaction is a new boundary, so the continuation
+			// reinjects the reference with the just-saved snapshot, timestamps on.
+			expect(noteData(mock.calls[1].context)).toEqual([[{ key: "evidence", text, updatedAt: expect.any(String) }]]);
 			for (const call of mock.calls) {
 				const sentTokens =
 					session.agent.tokenizer.countMessages(call.context.messages, { excludeEncryptedReasoning: true }) +
@@ -499,7 +513,9 @@ describe("SDK important notes requests", () => {
 						compaction.effectiveReserveTokens(contextWindow, session.settings.getGroup("compaction")),
 				);
 			}
-			expect(getImportantNotesFromEntries(manager.getBranch())).toEqual([{ key: "evidence", text }]);
+			expect(getImportantNotesFromEntries(manager.getBranch())).toEqual([
+				{ key: "evidence", text, updatedAt: expect.any(String) },
+			]);
 		} finally {
 			await session.dispose();
 			authStorage.close();
@@ -597,23 +613,22 @@ describe("SDK important notes requests", () => {
 		manager.appendCustomEntry(IMPORTANT_NOTES_CUSTOM_TYPE, { version: 1, notes });
 		const { session } = await create();
 		try {
-			// Compaction fully unavailable: the only recovery left is reclaiming
-			// the oversized tool result. Before the tiered rescue this prompt
-			// failed with "Important notes cannot fit the safe context budget".
 			const budget =
 				contextWindow -
 				compaction.resolveBudgetReserveTokens(contextWindow, session.settings.getGroup("compaction"));
 			expect(session.getContextUsage()!.tokens!).toBeGreaterThan(budget);
+			// The first request must reclaim tool output while retaining its injected note.
 			const compactSpy = vi.spyOn(compaction, "compact");
 			const mock = createMockModel({ provider: model.provider, id: model.id, handler: { content: ["done"] } });
 			vi.spyOn(session.agent, "streamFn").mockImplementation(mock.stream);
 			await session.prompt("Summarize the findings.");
 			expect(compactSpy).not.toHaveBeenCalled();
 			expect(mock.calls).toHaveLength(1);
-			expect(JSON.stringify(mock.calls[0].context.messages)).not.toContain("match line");
-			expect(noteData(mock.calls[0].context)).toEqual([notes]);
+			const target = mock.calls[0];
+			expect(JSON.stringify(target.context.messages)).not.toContain("match line");
+			expect(noteData(target.context)).toEqual([notes]);
 			const sentTokens =
-				session.agent.tokenizer.countMessages(mock.calls[0].context.messages, { excludeEncryptedReasoning: true }) +
+				session.agent.tokenizer.countMessages(target.context.messages, { excludeEncryptedReasoning: true }) +
 				computeNonMessageTokens(session, session.agent.tokenizer);
 			expect(sentTokens).toBeLessThanOrEqual(budget);
 			expect(getImportantNotesFromEntries(manager.getBranch())).toEqual(notes);
@@ -663,6 +678,124 @@ describe("SDK important notes requests", () => {
 			authStorage.close();
 		}
 	});
+
+	for (const trigger of ["forced", "window-crossing"] as const) {
+		it(`refuses a ${trigger} notes reference after a quiet turn when it exceeds the safe request budget`, async () => {
+			using tempDir = TempDir.createSync(`sdk-notes-${trigger}-fit-`);
+			const contextWindow = 4096;
+			const { manager, model, authStorage, create } = await budgetFixture(tempDir, contextWindow, {
+				"compaction.enabled": false,
+				"provider.appendOnlyContext": "off",
+				"notes.injectAtWindowPercent": trigger === "window-crossing",
+				"notes.injectWindowPercent": 50,
+			});
+			manager.appendCustomEntry(IMPORTANT_NOTES_CUSTOM_TYPE, {
+				version: 1,
+				notes: [{ key: "reference", text: "0123456789abcdef".repeat(110) }],
+			});
+			const { session } = await create();
+			try {
+				const mock = createMockModel({ provider: model.provider, id: model.id, handler: { content: ["done"] } });
+				vi.spyOn(session.agent, "streamFn").mockImplementation(mock.stream);
+				await session.prompt("Start.");
+				const noteTokens = session.getImportantNotesReferenceTokens();
+				expect(noteTokens).toBeGreaterThan(0);
+				await session.prompt("Continue.");
+				expect(noteData(mock.calls[1].context)).toEqual([]);
+				expect(session.getImportantNotesReferenceTokens()).toBe(0);
+
+				const budget =
+					contextWindow -
+					compaction.resolveBudgetReserveTokens(contextWindow, session.settings.getGroup("compaction"));
+				const tokenizer = session.agent.tokenizer;
+				const fixedTokens = computeNonMessageTokens(session, tokenizer);
+				const priorMessages = session.agent.state.messages;
+				let low = 1;
+				let high = 2048;
+				while (low < high) {
+					const middle = Math.floor((low + high) / 2);
+					const estimatedTokens =
+						fixedTokens +
+						tokenizer.countMessages([
+							...priorMessages,
+							{ role: "user", content: "0123456789abcdef".repeat(middle), timestamp: 0 },
+						]);
+					if (estimatedTokens >= budget - noteTokens / 2) high = middle;
+					else low = middle + 1;
+				}
+				const pending = "0123456789abcdef".repeat(low);
+				const withoutNotes =
+					fixedTokens +
+					tokenizer.countMessages([...priorMessages, { role: "user", content: pending, timestamp: 0 }]);
+				expect(withoutNotes).toBeLessThan(budget);
+				expect(withoutNotes + noteTokens).toBeGreaterThan(budget);
+
+				if (trigger === "forced") session.requestNotesReference();
+				await expect(session.prompt(pending)).rejects.toThrow("Saved notes are unchanged");
+				expect(mock.calls).toHaveLength(2);
+			} finally {
+				await session.dispose();
+				authStorage.close();
+			}
+		});
+	}
+
+	for (const transition of ["new", "resume"] as const) {
+		it(`does not carry the previous notes reference into a ${transition} session's context figure`, async () => {
+			using tempDir = TempDir.createSync(`sdk-notes-${transition}-context-`);
+			const { manager, model, authStorage, create } = await budgetFixture(tempDir, 4096, {
+				"compaction.enabled": false,
+				"provider.appendOnlyContext": "off",
+			});
+			manager.appendCustomEntry(IMPORTANT_NOTES_CUSTOM_TYPE, {
+				version: 1,
+				notes: [{ key: "reference", text: "0123456789abcdef".repeat(110) }],
+			});
+			const { session } = await create();
+			try {
+				const mock = createMockModel({ provider: model.provider, id: model.id, handler: { content: ["done"] } });
+				vi.spyOn(session.agent, "streamFn").mockImplementation(mock.stream);
+				await session.prompt("Start.");
+				expect(noteData(mock.calls[0].context)).toHaveLength(1);
+				expect(session.getImportantNotesReferenceTokens()).toBeGreaterThan(0);
+
+				if (transition === "new") {
+					expect(await session.newSession()).toBe(true);
+				} else {
+					const oldUsage = session.getContextBreakdown()?.usedTokens;
+					const rejected = SessionManager.create(tempDir.join("other-workspace"), tempDir.join("sessions"));
+					try {
+						await rejected.ensureOnDisk();
+						await rejected.flush();
+						const rejectedFile = rejected.getSessionFile();
+						if (!rejectedFile) throw new Error("Expected persisted rejected session");
+						expect(await session.switchSession(rejectedFile)).toBe(false);
+						expect(session.getContextBreakdown()?.usedTokens).toBe(oldUsage);
+					} finally {
+						await rejected.close();
+					}
+
+					const target = SessionManager.create(tempDir.path(), tempDir.join("sessions"));
+					try {
+						await target.ensureOnDisk();
+						await target.flush();
+						const targetFile = target.getSessionFile();
+						if (!targetFile) throw new Error("Expected persisted target session");
+						expect(await session.switchSession(targetFile)).toBe(true);
+					} finally {
+						await target.close();
+					}
+				}
+
+				expect(session.getContextBreakdown()?.usedTokens).toBe(
+					computeNonMessageTokens(session, session.agent.tokenizer, session.settings.revision),
+				);
+			} finally {
+				await session.dispose();
+				authStorage.close();
+			}
+		});
+	}
 
 	it("executes an unrelated custom notes override without preservation guidance or reminders", async () => {
 		using tempDir = TempDir.createSync("sdk-notes-custom-");
@@ -810,7 +943,12 @@ describe("SDK important notes requests", () => {
 				expect(warning).toHaveLength(1);
 				expect(JSON.stringify(warning)).toContain("`save_session_notes`");
 				expect(JSON.stringify(warning)).not.toContain("the `notes` tool");
-				expect(noteData(mock.calls[1].context)).toEqual([[{ key: "command", text: "bun run dev --port 8123" }]]);
+				// The save is the first time notes exist, so this continuation is the
+				// first boundary where a reference can ship — with the tool-set
+				// updatedAt timestamp.
+				expect(noteData(mock.calls[1].context)).toEqual([
+					[{ key: "command", text: "bun run dev --port 8123", updatedAt: expect.any(String) }],
+				]);
 				expect(
 					manager
 						.getBranch()

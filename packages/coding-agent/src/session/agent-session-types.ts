@@ -228,6 +228,8 @@ export interface AgentSessionConfig {
 	ensureGoalRegistered?: () => Promise<boolean>;
 	/** Current session pre-LLM message transform pipeline. */
 	transformContext?: (messages: AgentMessage[], signal?: AbortSignal) => AgentMessage[] | Promise<AgentMessage[]>;
+	/** Predict the next reference before provider projection, including a pending user message. */
+	estimateUpcomingImportantNotesReferenceTokens?: (forceInject: boolean, pendingMessages: AgentMessage[]) => number;
 	/** Provider request transform applied after message conversion. */
 	transformProviderContext?: (context: Context, model: Model) => Context | Promise<Context>;
 	/** Stream wrapper for side-channel requests. */

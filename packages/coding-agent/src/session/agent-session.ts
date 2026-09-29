@@ -313,8 +313,8 @@ import {
 	TOOL_EXECUTION_START_CUSTOM_TYPE,
 	type ToolExecutionStartData,
 } from "./exit-diagnostics";
-import { countImportantNotesReferenceTokens } from "./important-notes-context";
 import { IrcBridge, type IrcBridgeHost } from "./irc-bridge";
+import { getImportantNotesFromEntries } from "./important-notes";
 import {
 	buildLaunchCompletionBatchMessage,
 	isLaunchCompletionOwner,
@@ -1539,7 +1539,6 @@ export class AgentSession {
 		});
 		this.agent.prepareQueuedMessages = this.#prepareQueuedUserMessages;
 		this.#detachUsageBeforeModelCall = this.agent.addBeforeModelCallHook(async signal => {
-			this.#requestImportantNotesTokens = this.getImportantNotesReferenceTokens();
 			if (!this.settings.get("retry.usageAwareFallback")) return;
 			if (this.#usagePreflightReadyForNextModelCall) {
 				const checkedModel = this.#usagePreflightReadyModel;
@@ -1560,6 +1559,7 @@ export class AgentSession {
 			model: () => this.model,
 			sessionId: () => this.sessionId,
 			importantNotesReferenceTokens: () => this.getImportantNotesReferenceTokens(),
+			hasImportantNotes: () => getImportantNotesFromEntries(this.sessionManager.getBranch()).length > 0,
 		};
 		this.#stats = new SessionStatsTracker(statsHost);
 		const memoryHost: SessionMemoryHost = {
@@ -1973,7 +1973,12 @@ export class AgentSession {
 			goalModeState: () => this.#goalModeState,
 			planReferencePath: () => this.#planReferencePath,
 			nonMessageTokenSource: () => this,
-			importantNotesReferenceTokens: () => this.getImportantNotesReferenceTokens(),
+			importantNotesReferenceTokens: (pendingMessages = []) =>
+				Math.max(
+					this.getImportantNotesReferenceTokens(),
+					config.estimateUpcomingImportantNotesReferenceTokens?.(this.#notesReferenceRequested, pendingMessages) ??
+						0,
+				),
 			hasExperimentalContextRolloverTools: () => {
 				const enabled = this.#tools.getEnabledToolNames();
 				for (const name in EXPERIMENTAL_CONTEXT_REQUIRED_TOOLS) {
@@ -2211,6 +2216,23 @@ export class AgentSession {
 			label: "user-force",
 			onRejected: info => (info.reason === "unavailable" ? "drop_sequence" : "requeue"),
 		});
+	}
+
+	#notesReferenceRequested = false;
+
+	/**
+	 * Arm one-shot reinjection of the session-notes reference into the next
+	 * primary model request (/notes). The notes context transform consumes it.
+	 */
+	requestNotesReference(): void {
+		this.#notesReferenceRequested = true;
+	}
+
+	/** Consume the armed notes-reference reinjection request, if any. */
+	takeNotesReferenceRequest(): boolean {
+		if (!this.#notesReferenceRequested) return false;
+		this.#notesReferenceRequested = false;
+		return true;
 	}
 
 	/** The tool-choice queue: forces forthcoming tool invocations and carries handlers. */
@@ -5256,6 +5278,9 @@ export class AgentSession {
 		// on-disk record and the plain `transcript:true` export path keep the full
 		// pre-reset history.
 		this.sessionManager.appendResetBoundary();
+		// The old request's reference left with the reset history; maintenance
+		// estimates a new boundary reference from the surviving notes instead.
+		this.#requestImportantNotesTokens = 0;
 
 		resetCapabilities();
 		await this.refreshBaseSystemPrompt();
@@ -8472,6 +8497,8 @@ export class AgentSession {
 				// point keeps the status line honest even if a later step below throws.
 				this.#advisors.clearCost();
 				sessionTransitioned = true;
+				// The delivered reference belonged to the old conversation.
+				this.#requestImportantNotesTokens = 0;
 			} finally {
 				this.#bash.finishSessionTransition(bashTransition, sessionTransitioned);
 			}
@@ -9683,6 +9710,7 @@ export class AgentSession {
 		const previousBaseSystemPromptBeforeMemoryPromotion = this.#memory.promotionSnapshot;
 		const previousFreshProviderSessionId = this.#freshProviderSessionId;
 		const previousInheritedProviderPromptCacheKey = this.#inheritedProviderPromptCacheKey;
+		const previousRequestImportantNotesTokens = this.#requestImportantNotesTokens;
 
 		// Snapshot the full checkpoint runtime state: the success path calls
 		// #rehydrateCheckpointRewindState(), which clears and rebuilds all four
@@ -9719,6 +9747,7 @@ export class AgentSession {
 				await this.#advisors.drainAndDetachRecorders();
 			}
 			await this.sessionManager.setSessionFile(sessionPath);
+			if (switchingToDifferentSession) this.#requestImportantNotesTokens = 0;
 			this.#bash.markSessionTransition(bashTransition);
 			const newCwd = this.sessionManager.getCwd();
 			const recordedCwd = this.sessionManager.getRecordedCwd() ?? previousSessionState.cwd;
@@ -9900,6 +9929,7 @@ export class AgentSession {
 			return true;
 		} catch (error) {
 			this.sessionManager.restoreState(previousSessionState);
+			this.#requestImportantNotesTokens = previousRequestImportantNotesTokens;
 			this.#freshProviderSessionId = previousFreshProviderSessionId;
 			this.#syncAgentSessionId(previousSessionState.sessionId, false);
 			this.#memory.rekeyForCurrentSessionId();
@@ -10715,13 +10745,9 @@ export class AgentSession {
 		return this.#stats.getSessionStats();
 	}
 
-	/** Tokens in the latest request-only note snapshot, using the outbound rendering policy. */
+	/** Reference tokens from the latest primary request, or the session-start warm estimate before one; 0 when notes are absent or injection is off. */
 	getImportantNotesReferenceTokens(): number {
-		return countImportantNotesReferenceTokens(
-			this.sessionManager.getBranch(),
-			this.agent.tokenizer,
-			this.#obfuscator,
-		);
+		return this.#requestImportantNotesTokens;
 	}
 
 	/** Capture the reference selected by the final primary request projection. */

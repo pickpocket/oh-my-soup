@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
-import type { AssistantMessage, FetchImpl } from "@oh-my-pi/pi-ai";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
-import { Effort } from "@oh-my-pi/pi-catalog/effort";
+import type { AssistantMessage, FetchImpl } from "@oh-my-soup/pi-ai";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
+import { Effort } from "@oh-my-soup/pi-catalog/effort";
 import {
 	anthropicMessagesApi,
 	isContextOverflow,
@@ -9,12 +9,12 @@ import {
 	parseStreamingJson,
 	repairJson,
 	streamSimpleOpenAIResponses,
-} from "@oh-my-pi/pi-coding-agent/extensibility/legacy-pi-ai-shim";
+} from "@oh-my-soup/pi-coding-agent/extensibility/legacy-pi-ai-shim";
 
 // Issue #6859: pi extensions import runtime helpers from the `@earendil-works/pi-ai`
-// (aliased to `@oh-my-pi/pi-ai`) package root that omp's barrel no longer forwards.
-// `isContextOverflow` moved under `@oh-my-pi/pi-ai/error` and the JSON-repair
-// helpers moved to `@oh-my-pi/pi-utils`, so `export * from "@oh-my-pi/pi-ai"` left
+// (aliased to `@oh-my-soup/pi-ai`) package root that omp's barrel no longer forwards.
+// `isContextOverflow` moved under `@oh-my-soup/pi-ai/error` and the JSON-repair
+// helpers moved to `@oh-my-soup/pi-utils`, so `export * from "@oh-my-soup/pi-ai"` left
 // them off the shim surface and a named import tripped Bun's static
 // "No matching export" check during plugin validation (e.g.
 // `omp plugin install pi-blackhole`). This pins the bridged root surface so it

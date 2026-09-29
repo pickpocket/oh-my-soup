@@ -2,11 +2,11 @@ import { afterEach, describe, expect, it, vi } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { startAuthGateway } from "@oh-my-pi/pi-ai/auth-gateway";
-import { AuthStorage } from "@oh-my-pi/pi-ai/auth-storage";
-import { createMockModel } from "@oh-my-pi/pi-ai/providers/mock";
-import { getBundledModel } from "@oh-my-pi/pi-catalog/models";
-import type { FetchImpl } from "@oh-my-pi/pi-catalog/types";
+import { startAuthGateway } from "@oh-my-soup/pi-ai/auth-gateway";
+import { AuthStorage } from "@oh-my-soup/pi-ai/auth-storage";
+import { createMockModel } from "@oh-my-soup/pi-ai/providers/mock";
+import { getBundledModel } from "@oh-my-soup/pi-catalog/models";
+import type { FetchImpl } from "@oh-my-soup/pi-catalog/types";
 
 const REQUEST = {
 	state: "Help! My payouts have been failing for 3 days.",
@@ -86,7 +86,7 @@ describe("auth-gateway POST /v1/systemone", () => {
 			"/v1/systemone",
 			{ model: "typesafe/jev-latest", ...REQUEST },
 			{
-				"x-omp-app": "robomp",
+				"x-omp-app": "roboms",
 			},
 		);
 
@@ -107,7 +107,7 @@ describe("auth-gateway POST /v1/systemone", () => {
 		expect(cost).toBeGreaterThan(0);
 		expect(recorded).toHaveLength(1);
 		expect(recorded[0]).toMatchObject({ provider: "typesafe", model: "jev-latest", costUsd: cost });
-		expect(recorded[0].client?.app).toBe("robomp");
+		expect(recorded[0].client?.app).toBe("roboms");
 	});
 
 	it("serves the OpenRouter Decisions path with the same handler", async () => {

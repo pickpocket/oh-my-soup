@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { $which, TempDir } from "@oh-my-pi/pi-utils";
+import { $which, TempDir } from "@oh-my-soup/pi-utils";
 import { PYTHON_PRELUDE } from "../../../src/eval/py/prelude";
 const pythonPath = Bun.env.PYTHON ?? ($which("python3") ? "python3" : "python");
 

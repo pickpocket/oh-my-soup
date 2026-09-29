@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import type { AgentMessage } from "@oh-my-pi/pi-agent-core";
-import { RpcSessionEventForwarder } from "@oh-my-pi/pi-coding-agent/modes/rpc/rpc-session-events";
-import type { RpcAgentSessionEventFrame } from "@oh-my-pi/pi-coding-agent/modes/rpc/rpc-types";
-import type { AgentSessionEvent } from "@oh-my-pi/pi-coding-agent/session/agent-session";
+import type { AgentMessage } from "@oh-my-soup/pi-agent-core";
+import { RpcSessionEventForwarder } from "@oh-my-soup/pi-coding-agent/modes/rpc/rpc-session-events";
+import type { RpcAgentSessionEventFrame } from "@oh-my-soup/pi-coding-agent/modes/rpc/rpc-types";
+import type { AgentSessionEvent } from "@oh-my-soup/pi-coding-agent/session/agent-session";
 
 const reply = { role: "assistant", content: [] } as unknown as AgentMessage;
 const card = { role: "custom", customType: "advisor-card", content: "note" } as unknown as AgentMessage;

@@ -1,13 +1,13 @@
 import * as fs from "node:fs/promises";
 import http2 from "node:http2";
-import { isCursorMaxModeWireId } from "@oh-my-pi/pi-catalog/compat/collapse";
-import { classifyModel, collapseVariantId } from "@oh-my-pi/pi-catalog/compat/taxonomy";
+import { isCursorMaxModeWireId } from "@oh-my-soup/pi-catalog/compat/collapse";
+import { classifyModel, collapseVariantId } from "@oh-my-soup/pi-catalog/compat/taxonomy";
 import type {
 	ConversationStep,
 	CursorRule,
 	McpToolDefinition,
 	RequestedModel_ModelParameterbytes,
-} from "@oh-my-pi/pi-catalog/discovery/cursor-proto";
+} from "@oh-my-soup/pi-catalog/discovery/cursor-proto";
 import {
 	AgentClientMessageSchema,
 	AgentConversationTurnStructureSchema,
@@ -149,7 +149,7 @@ import {
 	WriteShellStdinErrorSchema,
 	WriteShellStdinResultSchema,
 	WriteSuccessSchema,
-} from "@oh-my-pi/pi-catalog/discovery/cursor-proto";
+} from "@oh-my-soup/pi-catalog/discovery/cursor-proto";
 import {
 	create,
 	decodeJsonValue,
@@ -158,9 +158,9 @@ import {
 	type JsonValue,
 	toBinary,
 	toJson,
-} from "@oh-my-pi/pi-catalog/discovery/protobuf";
-import { THINKING_EFFORTS } from "@oh-my-pi/pi-catalog/effort";
-import { calculateCost } from "@oh-my-pi/pi-catalog/models";
+} from "@oh-my-soup/pi-catalog/discovery/protobuf";
+import { THINKING_EFFORTS } from "@oh-my-soup/pi-catalog/effort";
+import { calculateCost } from "@oh-my-soup/pi-catalog/models";
 import {
 	$env,
 	isRecord,
@@ -169,7 +169,7 @@ import {
 	parseStreamingJson,
 	parseStreamingJsonThrottled,
 	sanitizeText,
-} from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-utils";
 import * as AIError from "../error";
 import type {
 	Api,

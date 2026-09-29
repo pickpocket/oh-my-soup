@@ -1,6 +1,6 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from "bun:test";
-import { pickWeightedTip, WelcomeComponent } from "@oh-my-pi/pi-tui/prompt/welcome";
-import { initTheme, theme } from "@oh-my-pi/pi-tui/theme";
+import { pickWeightedTip, WelcomeComponent } from "@oh-my-soup/pi-tui/prompt/welcome";
+import { initTheme, theme } from "@oh-my-soup/pi-tui/theme";
 
 describe("WelcomeComponent", () => {
 	beforeAll(async () => {

@@ -1,17 +1,17 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from "bun:test";
-import type { AssistantMessage, Usage } from "@oh-my-pi/pi-ai";
+import type { AssistantMessage, Usage } from "@oh-my-soup/pi-ai";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { BtwHistoryPanel } from "@oh-my-pi/pi-tui/overlays/btw-history-panel";
-import { BtwHistoryStore } from "@oh-my-pi/pi-coding-agent/session/btw-history";
-import { SessionManager } from "@oh-my-pi/pi-coding-agent/session/session-manager";
-import { BtwPanelComponent } from "@oh-my-pi/pi-tui/overlays/btw-panel";
-import { BtwController } from "@oh-my-pi/pi-coding-agent/modes/controllers/btw-controller";
-import { initTheme } from "@oh-my-pi/pi-tui/theme";
-import type { InteractiveModeContext } from "@oh-my-pi/pi-coding-agent/modes/types";
-import * as clipboard from "@oh-my-pi/pi-coding-agent/utils/clipboard";
-import { Container, replaceTabs, type TUI } from "@oh-my-pi/pi-tui";
+import { BtwHistoryPanel } from "@oh-my-soup/pi-tui/overlays/btw-history-panel";
+import { BtwHistoryStore } from "@oh-my-soup/pi-coding-agent/session/btw-history";
+import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
+import { BtwPanelComponent } from "@oh-my-soup/pi-tui/overlays/btw-panel";
+import { BtwController } from "@oh-my-soup/pi-coding-agent/modes/controllers/btw-controller";
+import { initTheme } from "@oh-my-soup/pi-tui/theme";
+import type { InteractiveModeContext } from "@oh-my-soup/pi-coding-agent/modes/types";
+import * as clipboard from "@oh-my-soup/pi-coding-agent/utils/clipboard";
+import { Container, replaceTabs, type TUI } from "@oh-my-soup/pi-tui";
 
 const usage: Usage = {
 	input: 0,

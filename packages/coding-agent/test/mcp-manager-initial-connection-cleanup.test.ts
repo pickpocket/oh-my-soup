@@ -2,10 +2,10 @@ import { afterEach, describe, expect, it, vi } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import * as mcpClient from "@oh-my-pi/pi-coding-agent/mcp/client";
-import { MCPManager } from "@oh-my-pi/pi-coding-agent/mcp/manager";
-import type { MCPServerConnection, MCPStdioServerConfig, MCPTransport } from "@oh-my-pi/pi-coding-agent/mcp/types";
-import { removeWithRetries } from "@oh-my-pi/pi-utils";
+import * as mcpClient from "@oh-my-soup/pi-coding-agent/mcp/client";
+import { MCPManager } from "@oh-my-soup/pi-coding-agent/mcp/manager";
+import type { MCPServerConnection, MCPStdioServerConfig, MCPTransport } from "@oh-my-soup/pi-coding-agent/mcp/types";
+import { removeWithRetries } from "@oh-my-soup/pi-utils";
 import { TOOL_NAME as DELAYED_TOOL_NAME } from "./fixtures/delayed-tool-mcp";
 
 const CONFIG: MCPStdioServerConfig = {

@@ -1,4 +1,4 @@
-import { getAgentDbPath, logger } from "@oh-my-pi/pi-utils";
+import { getAgentDbPath, logger } from "@oh-my-soup/pi-utils";
 import type { Provider } from "../types";
 import type { CredentialRankingContext, CredentialRankingStrategy, UsageReport } from "../usage";
 import type { RankingStrategyResolver } from "../usage/registry";

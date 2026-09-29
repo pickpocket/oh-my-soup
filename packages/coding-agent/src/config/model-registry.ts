@@ -1,11 +1,11 @@
 import * as path from "node:path";
-import type { ApiKeyResolver, FetchImpl, ResolvedApiKey, UsageProvider } from "@oh-my-pi/pi-ai";
-import type { AuthApiKeyOptions } from "@oh-my-pi/pi-ai/auth-storage";
-import { registerCustomApi, unregisterCustomApis } from "@oh-my-pi/pi-ai/api-registry";
-import { registerOAuthProvider, unregisterOAuthProvider, unregisterOAuthProviders } from "@oh-my-pi/pi-ai/oauth";
-import type { OAuthCredentials, OAuthLoginCallbacks } from "@oh-my-pi/pi-ai/oauth/types";
-import { setCodexAttestationProvider } from "@oh-my-pi/pi-ai/providers/openai-codex-attestation";
-import { getProviderDefinition } from "@oh-my-pi/pi-ai/registry";
+import type { ApiKeyResolver, FetchImpl, ResolvedApiKey, UsageProvider } from "@oh-my-soup/pi-ai";
+import type { AuthApiKeyOptions } from "@oh-my-soup/pi-ai/auth-storage";
+import { registerCustomApi, unregisterCustomApis } from "@oh-my-soup/pi-ai/api-registry";
+import { registerOAuthProvider, unregisterOAuthProvider, unregisterOAuthProviders } from "@oh-my-soup/pi-ai/oauth";
+import type { OAuthCredentials, OAuthLoginCallbacks } from "@oh-my-soup/pi-ai/oauth/types";
+import { setCodexAttestationProvider } from "@oh-my-soup/pi-ai/providers/openai-codex-attestation";
+import { getProviderDefinition } from "@oh-my-soup/pi-ai/registry";
 import type {
 	Api,
 	Context,
@@ -14,24 +14,24 @@ import type {
 	RemoteCompactionConfig,
 	SimpleStreamOptions,
 	ThinkingConfig,
-} from "@oh-my-pi/pi-ai/types";
-import type { AssistantMessageEventStream } from "@oh-my-pi/pi-ai/utils/event-stream";
-import { buildDiscoveredModel, buildModel } from "@oh-my-pi/pi-catalog/build";
-import { collapseBuiltVariants } from "@oh-my-pi/pi-catalog/compat/collapse";
+} from "@oh-my-soup/pi-ai/types";
+import type { AssistantMessageEventStream } from "@oh-my-soup/pi-ai/utils/event-stream";
+import { buildDiscoveredModel, buildModel } from "@oh-my-soup/pi-catalog/build";
+import { collapseBuiltVariants } from "@oh-my-soup/pi-catalog/compat/collapse";
 import {
 	clampCodexContextWindow,
 	clampsContextOverride,
 	resolveMaxContextWindow,
-} from "@oh-my-pi/pi-catalog/compat/context-window";
-import { applyCatalogMetrics, CatalogMetricsIndex } from "@oh-my-pi/pi-catalog/identity/metrics";
-import { readModelCache } from "@oh-my-pi/pi-catalog/model-cache";
+} from "@oh-my-soup/pi-catalog/compat/context-window";
+import { applyCatalogMetrics, CatalogMetricsIndex } from "@oh-my-soup/pi-catalog/identity/metrics";
+import { readModelCache } from "@oh-my-soup/pi-catalog/model-cache";
 import {
 	createModelManager,
 	fingerprintStaticModels,
 	type ModelManagerOptions,
 	type ModelRefreshStrategy,
-} from "@oh-my-pi/pi-catalog/model-manager";
-import { getBundledModels, getBundledProviders } from "@oh-my-pi/pi-catalog/models";
+} from "@oh-my-soup/pi-catalog/model-manager";
+import { getBundledModels, getBundledProviders } from "@oh-my-soup/pi-catalog/models";
 import {
 	googleAntigravityModelManagerOptions,
 	googleGeminiCliModelManagerOptions,
@@ -42,10 +42,10 @@ import {
 	PROVIDER_DESCRIPTORS,
 	resolveModelCacheProviderId,
 	resolveOllamaModelCacheProviderId,
-} from "@oh-my-pi/pi-catalog/provider-models";
-import { toModelSpec } from "@oh-my-pi/pi-catalog/provider-models/bundled-references";
-import { modelKind, type ModelKind } from "@oh-my-pi/pi-catalog/types";
-import { getAgentDir, isBunTestRuntime, logger, wrapFetchForExtraCa } from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-catalog/provider-models";
+import { toModelSpec } from "@oh-my-soup/pi-catalog/provider-models/bundled-references";
+import { modelKind, type ModelKind } from "@oh-my-soup/pi-catalog/types";
+import { getAgentDir, isBunTestRuntime, logger, wrapFetchForExtraCa } from "@oh-my-soup/pi-utils";
 import { resolveProviderModelReference } from "../config/model-resolver";
 import { generateCodexAttestation } from "../live/attestation";
 import type { AuthStorage } from "../session/auth-storage";

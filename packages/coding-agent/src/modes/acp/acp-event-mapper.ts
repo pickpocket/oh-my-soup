@@ -6,14 +6,14 @@ import type {
 	ToolCallContent,
 	ToolCallLocation,
 	ToolKind,
-} from "@oh-my-pi/pi-utils/acp";
+} from "@oh-my-soup/pi-utils/acp";
 import { InternalUrlRouter } from "../../internal-urls/router";
 import { extractUriScheme } from "../../internal-urls/parse";
 import type { SchemeSpec } from "../../internal-urls/types";
 import type { AgentSessionEvent } from "../../session/agent-session";
 import { resolveToCwd, splitPathAndSelPreferringLiteralSync } from "../../tools/path-utils";
-import type { TodoStatus } from "@oh-my-pi/pi-tui/tools/todo";
-import { canonicalizeMessage } from "@oh-my-pi/pi-tui/chat/thinking-display";
+import type { TodoStatus } from "@oh-my-soup/pi-tui/tools/todo";
+import { canonicalizeMessage } from "@oh-my-soup/pi-tui/chat/thinking-display";
 
 interface MessageProgress {
 	textEmitted: boolean;

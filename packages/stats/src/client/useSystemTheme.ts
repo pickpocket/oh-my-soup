@@ -3,7 +3,7 @@ import { useSyncExternalStore } from "react";
 export type SystemTheme = "light" | "dark";
 export type ThemePreference = "system" | "light" | "dark";
 
-const STORAGE_KEY = "omp-stats-theme";
+const STORAGE_KEY = "oms-stats-theme";
 const DARK_SCHEME_QUERY = "(prefers-color-scheme: dark)";
 
 function readStoredPreference(): ThemePreference {

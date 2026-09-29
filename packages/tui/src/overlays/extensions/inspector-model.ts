@@ -5,8 +5,8 @@
  * are joined here at render time — the same seam as {@link snapshotMcpRuntime}.
  */
 import * as path from "node:path";
-import { arkToWireSchema, isArkSchema } from "@oh-my-pi/pi-ai/utils/schema";
-import { normalizePathForComparison, parseFrontmatter } from "@oh-my-pi/pi-utils";
+import { arkToWireSchema, isArkSchema } from "@oh-my-soup/pi-ai/utils/schema";
+import { normalizePathForComparison, parseFrontmatter } from "@oh-my-soup/pi-utils";
 import {
 	sanitizeDisplayField,
 	sanitizeDisplayLine,

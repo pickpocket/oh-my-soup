@@ -4,7 +4,7 @@
  * Where the OpenAI / Anthropic / Responses route modules translate foreign
  * wire shapes through pi-ai's canonical {@link Context}, this module accepts
  * the canonical shape *directly* — for clients that already speak pi-ai
- * (containerized omp, robomp's sidecar auth-gateway).
+ * (containerized omp, roboms's sidecar auth-gateway).
  * Skipping the wire-format → Context → wire-format round-trip cuts
  * per-request CPU but, more importantly, avoids the quantization that those
  * translations impose on first-class pi-ai fields (service tier, cache
@@ -173,7 +173,7 @@ const SSE_DONE = SSE_ENCODER.encode("data: [DONE]\n\n");
  * canonical event type IS the wire type. Including the rolling
  * `partial: AssistantMessage` on every delta is quadratic in turn length
  * on the wire, but for the loopback / sidecar topology this transport
- * targets (containerized omp → host gateway, robomp slot → omp-auth-gateway
+ * targets (containerized omp → host gateway, roboms slot → omp-auth-gateway
  * sidecar) the bandwidth cost is negligible compared to provider latency —
  * and the client gets to feed the events straight into its existing
  * `AssistantMessageEventStream.push()` plumbing with zero translation.

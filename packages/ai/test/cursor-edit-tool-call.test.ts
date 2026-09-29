@@ -8,15 +8,15 @@ import {
 	handleServerMessage,
 	processInteractionUpdate,
 	type ToolCallState,
-} from "@oh-my-pi/pi-ai/providers/cursor";
+} from "@oh-my-soup/pi-ai/providers/cursor";
 import type {
 	AssistantMessage,
 	CursorExecHandlers,
 	CursorToolResultHandler,
 	ToolResultMessage,
-} from "@oh-my-pi/pi-ai/types";
-import { kCursorExecResolved, kStreamingBlockKind } from "@oh-my-pi/pi-ai/utils/block-symbols";
-import { AssistantMessageEventStream } from "@oh-my-pi/pi-ai/utils/event-stream";
+} from "@oh-my-soup/pi-ai/types";
+import { kCursorExecResolved, kStreamingBlockKind } from "@oh-my-soup/pi-ai/utils/block-symbols";
+import { AssistantMessageEventStream } from "@oh-my-soup/pi-ai/utils/event-stream";
 import {
 	AgentClientMessageSchema,
 	AgentServerMessageSchema,
@@ -27,8 +27,8 @@ import {
 	ReadArgsSchema,
 	ToolCallSchema,
 	WriteArgsSchema,
-} from "@oh-my-pi/pi-catalog/discovery/cursor-proto";
-import { create, fromBinary } from "@oh-my-pi/pi-catalog/discovery/protobuf";
+} from "@oh-my-soup/pi-catalog/discovery/cursor-proto";
+import { create, fromBinary } from "@oh-my-soup/pi-catalog/discovery/protobuf";
 
 const EDIT_ID = "tool_7aef3020-f275-4579-887c-34106e146f7";
 const ENVELOPE_ID = "call-edit-1";

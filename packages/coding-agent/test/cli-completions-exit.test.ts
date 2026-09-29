@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, spyOn } from "bun:test";
-import { postmortem } from "@oh-my-pi/pi-utils";
+import { postmortem } from "@oh-my-soup/pi-utils";
 import Completions from "../src/commands/completions";
 
 describe("Completions command exit contract", () => {

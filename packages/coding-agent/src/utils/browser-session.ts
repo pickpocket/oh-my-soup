@@ -1,10 +1,10 @@
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { LoginCancelledError } from "@oh-my-pi/pi-ai/error";
-import type { OAuthBrowserSessionRequest } from "@oh-my-pi/pi-ai/oauth/types";
-import { logger, withTimeout } from "@oh-my-pi/pi-utils";
-import { untilAborted } from "@oh-my-pi/pi-utils/abortable";
+import { LoginCancelledError } from "@oh-my-soup/pi-ai/error";
+import type { OAuthBrowserSessionRequest } from "@oh-my-soup/pi-ai/oauth/types";
+import { logger, withTimeout } from "@oh-my-soup/pi-utils";
+import { untilAborted } from "@oh-my-soup/pi-utils/abortable";
 import type { Browser } from "puppeteer-core";
 import { gracefulKillTreeOnce } from "../tools/browser/attach";
 import { ensureChromiumExecutable, loadPuppeteer, removeUserDataDir } from "../tools/browser/launch";

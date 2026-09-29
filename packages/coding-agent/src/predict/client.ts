@@ -1,7 +1,7 @@
 /**
  * Client half of the machine-global text-prediction daemon.
  *
- * The composer's word-completion provider (`@oh-my-pi/pi-tui/prompt/word-completion`)
+ * The composer's word-completion provider (`@oh-my-soup/pi-tui/prompt/word-completion`)
  * reaches the daemon through {@link textPredictionBackend}. The first request
  * starts the daemon under the `text-predict` global broker when nothing is
  * listening; one socket per process then carries every request. Failures never
@@ -11,9 +11,9 @@ import * as fs from "node:fs/promises";
 import type * as net from "node:net";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { PredictedWord } from "@oh-my-pi/pi-natives";
-import type { WordCompletionEngine, WordPredictionBackend } from "@oh-my-pi/pi-tui/prompt/word-completion";
-import { getAgentDir, logger, ptree, VERSION } from "@oh-my-pi/pi-utils";
+import type { PredictedWord } from "@oh-my-soup/pi-natives";
+import type { WordCompletionEngine, WordPredictionBackend } from "@oh-my-soup/pi-tui/prompt/word-completion";
+import { getAgentDir, logger, ptree, VERSION } from "@oh-my-soup/pi-utils";
 import { daemonClientForGlobal } from "../launch/client";
 import { describeQuietly, stopQuietly, waitReady } from "../launch/ensure";
 import { resolveWorkerSpawnCmd, SMOKE_TEST_TIMEOUT_MS, workerEnvFromParent } from "../subprocess/worker-client";

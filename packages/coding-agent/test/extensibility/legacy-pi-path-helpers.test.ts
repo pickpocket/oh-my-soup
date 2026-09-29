@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, spyOn, vi } from "bun:test";
 import * as path from "node:path";
-import * as configModule from "@oh-my-pi/pi-coding-agent/config";
-import * as shim from "@oh-my-pi/pi-coding-agent/extensibility/legacy-pi-coding-agent-shim";
-import * as utils from "@oh-my-pi/pi-utils";
+import * as configModule from "@oh-my-soup/pi-coding-agent/config";
+import * as shim from "@oh-my-soup/pi-coding-agent/extensibility/legacy-pi-coding-agent-shim";
+import * as utils from "@oh-my-soup/pi-utils";
 
 // Issue #5968: pi extensions import the SDK path helpers (`getAgentDir`,
 // `getProjectDir`, `getPackageDir`) from `@earendil-works/pi-coding-agent`,

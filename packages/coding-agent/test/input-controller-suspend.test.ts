@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, type Mock, vi } from "bun:test";
-import { InputController } from "@oh-my-pi/pi-coding-agent/modes/controllers/input-controller";
-import type { InteractiveModeContext } from "@oh-my-pi/pi-coding-agent/modes/types";
-import { KeybindingsManager } from "@oh-my-pi/pi-tui/app-keybindings";
+import { InputController } from "@oh-my-soup/pi-coding-agent/modes/controllers/input-controller";
+import type { InteractiveModeContext } from "@oh-my-soup/pi-coding-agent/modes/types";
+import { KeybindingsManager } from "@oh-my-soup/pi-tui/app-keybindings";
 
 interface SuspendCtx {
 	ctx: InteractiveModeContext;

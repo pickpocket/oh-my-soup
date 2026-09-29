@@ -1,4 +1,4 @@
-import type { Api, FetchImpl, Model, Usage } from "@oh-my-pi/pi-catalog/types";
+import type { Api, FetchImpl, Model, Usage } from "@oh-my-soup/pi-catalog/types";
 import type { ApiKey } from "../auth-retry";
 
 export interface ImageInput {

@@ -1,6 +1,6 @@
 import { describe, expect, it, spyOn } from "bun:test";
 
-import { classifyInstallTarget, handleMarketplaceInstall } from "@oh-my-pi/pi-coding-agent/cli/classify-install-target";
+import { classifyInstallTarget, handleMarketplaceInstall } from "@oh-my-soup/pi-coding-agent/cli/classify-install-target";
 
 const KNOWN = new Set(["my-marketplace"]);
 

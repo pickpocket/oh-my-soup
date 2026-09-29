@@ -7,7 +7,7 @@
  * cursor, so retrying would loop hot without ever surfacing the failure.
  */
 
-import type { SessionEntry } from "@oh-my-pi/pi-wire";
+import type { SessionEntry } from "@oh-my-soup/pi-wire";
 import type { TranscriptResult } from "./client";
 import { parseJsonl } from "./jsonl";
 

@@ -20,7 +20,7 @@ import {
 	IndexedSessionStorage,
 	type SessionStorageBackend,
 	type SessionStorageIndexEntry,
-} from "@oh-my-pi/pi-coding-agent/session/indexed-session-storage";
+} from "@oh-my-soup/pi-coding-agent/session/indexed-session-storage";
 
 function deferred<T = void>() {
 	let resolve!: (value: T) => void;

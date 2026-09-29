@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { Terminal as VirtualTerminal } from "@oh-my-pi/pi-utils/vterm";
+import { Terminal as VirtualTerminal } from "@oh-my-soup/pi-utils/vterm";
 
 const COLUMNS = 120;
 const ROWS = 30;

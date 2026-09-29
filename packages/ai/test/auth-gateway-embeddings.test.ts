@@ -2,11 +2,11 @@ import { afterEach, describe, expect, it, vi } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { startAuthGateway } from "@oh-my-pi/pi-ai/auth-gateway";
-import type { AuthGatewayServerHandle } from "@oh-my-pi/pi-ai/auth-gateway/types";
-import { AuthStorage } from "@oh-my-pi/pi-ai/auth-storage";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
-import type { Api, FetchImpl, Model, ModelSpec } from "@oh-my-pi/pi-catalog/types";
+import { startAuthGateway } from "@oh-my-soup/pi-ai/auth-gateway";
+import type { AuthGatewayServerHandle } from "@oh-my-soup/pi-ai/auth-gateway/types";
+import { AuthStorage } from "@oh-my-soup/pi-ai/auth-storage";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
+import type { Api, FetchImpl, Model, ModelSpec } from "@oh-my-soup/pi-catalog/types";
 
 interface UpstreamRequest {
 	url: string;

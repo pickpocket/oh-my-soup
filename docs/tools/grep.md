@@ -67,7 +67,7 @@ The tool returns a single text block in `content[0].text` plus structured `detai
    - multiple entries: `resolveExplicitSearchPaths()` (via `resolveToolSearchScope()`) computes a common base directory, brace-union glob, exact-file list, or per-entry target list over host entries; every internal URL entry is its own target. Targets fan out when the common ancestor is not itself a requested scope, or when a plain-file entry would otherwise be demoted into a directory walk's glob union (`fanOutFileTargets`).
 7. Line-range selectors are validated after path/archive resolution. They are allowed only for single files (host files, archive members, or internal URL files); glob (including internal-URL glob)/directory line-range selectors error.
 8. `resolveToolSearchScope()` stats the resolved base through the URL filesystem to decide file vs directory behavior. A URL that fails carries its handler's diagnosis (`Cannot search artifact://9: Artifact 9 not found. Available: …`); a URL whose scheme needs a higher tier fails with the filesystem's approval error.
-9. It calls native `grep()` from `@oh-my-pi/pi-natives` with:
+9. It calls native `grep()` from `@oh-my-soup/pi-natives` with:
    - `pattern`, `ignoreCase`, `multiline`, `gitignore`;
    - `hidden: true`;
    - `contextBefore` / `contextAfter` from settings;

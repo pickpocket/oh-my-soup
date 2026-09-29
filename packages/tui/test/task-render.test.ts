@@ -1,8 +1,8 @@
 import { afterEach, beforeAll, describe, expect, it } from "bun:test";
-import { getThemeByName, setThemeInstance, type Theme } from "@oh-my-pi/pi-tui/theme";
-import { renderResult, taskCardAgentIds } from "@oh-my-pi/pi-tui/tools/task";
-import { taskToolRenderer } from "@oh-my-pi/pi-tui/tools/task";
-import type { AgentProgress, SingleResult, TaskToolDetails } from "@oh-my-pi/pi-tui/tools/task";
+import { getThemeByName, setThemeInstance, type Theme } from "@oh-my-soup/pi-tui/theme";
+import { renderResult, taskCardAgentIds } from "@oh-my-soup/pi-tui/tools/task";
+import { taskToolRenderer } from "@oh-my-soup/pi-tui/tools/task";
+import type { AgentProgress, SingleResult, TaskToolDetails } from "@oh-my-soup/pi-tui/tools/task";
 
 const strip = (lines: readonly string[]): string =>
 	lines

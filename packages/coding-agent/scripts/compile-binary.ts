@@ -1,6 +1,6 @@
 // Deep import: the pi-utils barrel loads the host native addon, which is
 // absent on cross-compiling release runners.
-import { USER_AGENT } from "@oh-my-pi/pi-utils/dirs";
+import { USER_AGENT } from "@oh-my-soup/pi-utils/dirs";
 import { buildDocsIndexPayload } from "./generate-docs-index";
 import { createJsonParsePlugin } from "./json-parse-plugin";
 import { createLegacyPiVirtualModulePlugin } from "./legacy-pi-virtual-module";

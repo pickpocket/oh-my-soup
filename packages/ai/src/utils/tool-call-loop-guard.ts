@@ -1,4 +1,4 @@
-import { INTENT_FIELD } from "@oh-my-pi/pi-wire";
+import { INTENT_FIELD } from "@oh-my-soup/pi-wire";
 import type { AssistantMessage, ToolCall, ToolResultMessage } from "../types";
 
 const LEGACY_INTENT_FIELD = "__intent";

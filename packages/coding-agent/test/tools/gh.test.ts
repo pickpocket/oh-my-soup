@@ -2,10 +2,10 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { ToolCall } from "@oh-my-pi/pi-ai";
-import { validateToolArguments } from "@oh-my-pi/pi-ai/utils/validation";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import type { ToolSession } from "@oh-my-pi/pi-coding-agent/tools";
+import type { ToolCall } from "@oh-my-soup/pi-ai";
+import { validateToolArguments } from "@oh-my-soup/pi-ai/utils/validation";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import type { ToolSession } from "@oh-my-soup/pi-coding-agent/tools";
 import {
 	buildSearchDateQualifier,
 	GithubTool,
@@ -13,14 +13,14 @@ import {
 	parsePrUnifiedDiff,
 	parseSearchDateBound,
 	resolveDefaultRepoMemoized,
-} from "@oh-my-pi/pi-coding-agent/tools/gh";
-import { parseIssueUrl, parsePullRequestUrl } from "@oh-my-pi/pi-coding-agent/tools/gh-common";
-import { github } from "@oh-my-pi/pi-coding-agent/utils/github";
-import { ToolError } from "@oh-my-pi/pi-tui/tools/tool-errors";
-import { withRepoLock } from "@oh-my-pi/pi-coding-agent/utils/repo-lock";
-import type { VcsGitRepo } from "@oh-my-pi/pi-natives";
-import * as vcs from "@oh-my-pi/pi-natives/vcs";
-import { getAgentDir, hashPath, normalizePathForComparison, removeWithRetries, setAgentDir } from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-coding-agent/tools/gh";
+import { parseIssueUrl, parsePullRequestUrl } from "@oh-my-soup/pi-coding-agent/tools/gh-common";
+import { github } from "@oh-my-soup/pi-coding-agent/utils/github";
+import { ToolError } from "@oh-my-soup/pi-tui/tools/tool-errors";
+import { withRepoLock } from "@oh-my-soup/pi-coding-agent/utils/repo-lock";
+import type { VcsGitRepo } from "@oh-my-soup/pi-natives";
+import * as vcs from "@oh-my-soup/pi-natives/vcs";
+import { getAgentDir, hashPath, normalizePathForComparison, removeWithRetries, setAgentDir } from "@oh-my-soup/pi-utils";
 
 const TINY_PNG_BASE64 =
 	"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg==";
@@ -186,7 +186,7 @@ async function createPrFixture(): Promise<PrFixture> {
 /**
  * Stub `os.homedir()` AND rebuild the cached `dirs` resolver in pi-utils so
  * `getWorktreesDir()` resolves under an isolated temp home instead of the
- * user's real `~/.omp/wt`. Returns the temp home and a cleanup hook.
+ * user's real `~/.oms/wt`. Returns the temp home and a cleanup hook.
  */
 interface TempHome {
 	home: string;

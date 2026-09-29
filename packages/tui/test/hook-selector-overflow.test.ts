@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, it } from "bun:test";
-import { HookSelectorComponent } from "@oh-my-pi/pi-tui/overlays/hook-selector";
-import { getThemeByName, setThemeInstance, theme } from "@oh-my-pi/pi-tui/theme";
-import { visibleWidth } from "@oh-my-pi/pi-tui";
+import { HookSelectorComponent } from "@oh-my-soup/pi-tui/overlays/hook-selector";
+import { getThemeByName, setThemeInstance, theme } from "@oh-my-soup/pi-tui/theme";
+import { visibleWidth } from "@oh-my-soup/pi-tui";
 
 beforeAll(async () => {
 	const theme = await getThemeByName("dark");
@@ -47,7 +47,7 @@ describe("HookSelectorComponent", () => {
 
 	it("wraps outlined option text without omitting the tail", () => {
 		const options = [
-			"Option A: Move to OMP-native only by migrating reusable shared AI instructions into .omp/AGENTS.md, .omp/rules, .omp/skills, and .omp/agents while deliberately not creating a root .github directory.",
+			"Option A: Move to OMP-native only by migrating reusable shared AI instructions into .oms/AGENTS.md, .oms/rules, .oms/skills, and .oms/agents while deliberately not creating a root .github directory.",
 			"Option B: Keep dual support by migrating canonical instructions into .omp while also maintaining a root .github/copilot-instructions.md compatibility bridge for editors that do not understand OMP resources yet.",
 		];
 		const component = new HookSelectorComponent(

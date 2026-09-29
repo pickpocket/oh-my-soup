@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { fileURLToPath } from "node:url";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { initTelemetryExport, isTelemetryExportEnabled } from "@oh-my-pi/pi-coding-agent/telemetry-export";
-import { cfgTelemetryOtlpExportEnabled } from "@oh-my-pi/pi-coding-agent/telemetry-settings";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { initTelemetryExport, isTelemetryExportEnabled } from "@oh-my-soup/pi-coding-agent/telemetry-export";
+import { cfgTelemetryOtlpExportEnabled } from "@oh-my-soup/pi-coding-agent/telemetry-settings";
 
 /**
  * Gating contract for the OTLP export bootstrap. These cases all short-circuit

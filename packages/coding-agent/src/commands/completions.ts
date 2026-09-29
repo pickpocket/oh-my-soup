@@ -5,8 +5,8 @@
  * (see `cli/completion-gen.ts`), so it never drifts from the actual CLI surface.
  */
 
-import { APP_NAME, postmortem, VERSION } from "@oh-my-pi/pi-utils";
-import { Args, type CliConfig, Command, type CommandCtor } from "@oh-my-pi/pi-utils/cli";
+import { APP_NAME, postmortem, VERSION } from "@oh-my-soup/pi-utils";
+import { Args, type CliConfig, Command, type CommandCtor } from "@oh-my-soup/pi-utils/cli";
 import { completionsHelp as commandHelp } from "../cli/command-help";
 import { buildSpec, generateCompletion, type Shell } from "../cli/completion-gen";
 import { commands } from "../cli-commands";

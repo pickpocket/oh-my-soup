@@ -21,8 +21,8 @@
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { TUI } from "@oh-my-pi/pi-tui";
-import { isEnoent } from "@oh-my-pi/pi-utils";
+import type { TUI } from "@oh-my-soup/pi-tui";
+import { isEnoent } from "@oh-my-soup/pi-utils";
 import { STREAM_FLUSH_INTERVAL_MS, StreamPaintEncoder } from "./paint-encoder";
 import { isDimension, isSessionFrame, type StreamScreenFrame } from "./protocol";
 import type { StreamRedactor } from "./redactor";

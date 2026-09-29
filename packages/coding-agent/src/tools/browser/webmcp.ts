@@ -1,4 +1,4 @@
-import { truncateHeadBytes } from "@oh-my-pi/pi-tui/tools/streaming-output";
+import { truncateHeadBytes } from "@oh-my-soup/pi-tui/tools/streaming-output";
 import type { CDPSession, Frame, NewDocumentScriptEvaluation, Page, Realm, WebMCPTool } from "puppeteer-core";
 
 declare module "puppeteer-core" {

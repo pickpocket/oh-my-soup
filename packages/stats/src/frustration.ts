@@ -14,12 +14,12 @@
  *
  * Verdicts come from a single process-wide judge run over the unjudged prose,
  * using the judge the omp host registered through `startServer`. Standalone
- * `omp-stats` has none and only shows the regex fallback.
+ * `oms-stats` has none and only shows the regex fallback.
  */
-import type { ChoiceQuestion, Judge, Model, ScoreQuestion } from "@oh-my-pi/pi-ai";
-import { compareRevision, parseRevision } from "@oh-my-pi/pi-catalog/compat/revision";
-import { classifyModel } from "@oh-my-pi/pi-catalog/compat/taxonomy";
-import { logger } from "@oh-my-pi/pi-utils";
+import type { ChoiceQuestion, Judge, Model, ScoreQuestion } from "@oh-my-soup/pi-ai";
+import { compareRevision, parseRevision } from "@oh-my-soup/pi-catalog/compat/revision";
+import { classifyModel } from "@oh-my-soup/pi-catalog/compat/taxonomy";
+import { logger } from "@oh-my-soup/pi-utils";
 import { getTimeRangeConfig } from "./aggregator";
 import {
 	type FrustrationModelRow,
@@ -101,7 +101,7 @@ const ATTEMPTS_PER_TEXT = 3;
 const CIRCUIT_BREAKER_FAILURES = 25;
 
 const NO_PROVIDER_REASON =
-	"This dashboard was started without a judge (standalone omp-stats). Run `omp stats` to classify.";
+	"This dashboard was started without a judge (standalone oms-stats). Run `omp stats` to classify.";
 const NO_MODEL_REASON = "No judge model is available. Configure the `judge` model role.";
 
 let judgeProvider: StatsJudgeProvider | undefined;

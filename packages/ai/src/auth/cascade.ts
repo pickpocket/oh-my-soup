@@ -1,5 +1,5 @@
-import { authPolicyFor } from "@oh-my-pi/pi-catalog/compat/auth";
-import { $env, $envExact } from "@oh-my-pi/pi-utils";
+import { authPolicyFor } from "@oh-my-soup/pi-catalog/compat/auth";
+import { $env, $envExact } from "@oh-my-soup/pi-utils";
 import { type ApiKeyResolver, markAfterSiblingWait, type ResolvedApiKey } from "../auth-retry";
 import * as AIError from "../error";
 import { isUsageLimitOutcome } from "../error/rate-limit";

@@ -13,9 +13,9 @@
  */
 import { afterEach, describe, expect, it, spyOn, vi } from "bun:test";
 import * as path from "node:path";
-import * as mcpTimeout from "@oh-my-pi/pi-coding-agent/mcp/timeout";
-import { HttpTransport } from "@oh-my-pi/pi-coding-agent/mcp/transports/http";
-import { LegacySseTransport } from "@oh-my-pi/pi-coding-agent/mcp/transports/sse";
+import * as mcpTimeout from "@oh-my-soup/pi-coding-agent/mcp/timeout";
+import { HttpTransport } from "@oh-my-soup/pi-coding-agent/mcp/transports/http";
+import { LegacySseTransport } from "@oh-my-soup/pi-coding-agent/mcp/transports/sse";
 
 const PROBE_PATH = path.join(import.meta.dir, "fixtures", "mcp-idle-wait-probe.ts");
 const REPO_ROOT = path.resolve(import.meta.dir, "../../..");

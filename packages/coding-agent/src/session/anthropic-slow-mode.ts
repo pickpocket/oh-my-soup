@@ -28,8 +28,8 @@ import type {
 	AnthropicSlowModeRetry,
 	AnthropicSlowModeSignal,
 	Model,
-} from "@oh-my-pi/pi-ai";
-import { logger } from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-ai";
+import { logger } from "@oh-my-soup/pi-utils";
 import type { AuthStorage } from "./auth-storage";
 
 /** Why an active slow-mode window ended. */

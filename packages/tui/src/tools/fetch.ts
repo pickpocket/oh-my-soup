@@ -4,7 +4,7 @@ import { Text } from "../components/text";
 import type { RenderResultOptions } from "./renderer";
 import { type Theme, theme } from "../theme/theme";
 import type { OutputMeta } from "./output-meta";
-import { truncate } from "@oh-my-pi/pi-utils";
+import { truncate } from "@oh-my-soup/pi-utils";
 import { renderStatusLine, urlHyperlink } from "../render";
 import { framedToolCard } from "../render/tool-card";
 import { formatExpandHint, getDomain, sanitizeDisplayLines } from "../render/render-utils";

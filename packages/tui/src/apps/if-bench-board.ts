@@ -10,7 +10,7 @@
 
 import { replaceTabs, truncateToWidth } from "../utils";
 import { renderTableRow, type TableColumn } from "../components/table";
-import { formatDuration, formatNumber } from "@oh-my-pi/pi-utils";
+import { formatDuration, formatNumber } from "@oh-my-soup/pi-utils";
 import { fgOrPlain, theme } from "../theme/theme";
 import { createLiveBoard, type LiveBoardOutput } from "../chrome/live-board";
 

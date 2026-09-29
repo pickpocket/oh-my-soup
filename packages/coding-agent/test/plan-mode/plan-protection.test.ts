@@ -1,11 +1,11 @@
 import { describe, expect, it } from "bun:test";
-import { type AgentToolCall, Tokenizer } from "@oh-my-pi/pi-agent-core";
-import type { SessionMessageEntry } from "@oh-my-pi/pi-agent-core/compaction/entries";
-import { DEFAULT_PRUNE_CONFIG, pruneToolOutputs } from "@oh-my-pi/pi-agent-core/compaction/pruning";
-import { AGGRESSIVE_SHAKE_CONFIG, collectShakeRegions } from "@oh-my-pi/pi-agent-core/compaction/shake";
-import type { ProtectedToolContext } from "@oh-my-pi/pi-agent-core/compaction/tool-protection";
-import type { AssistantMessage, TextContent, ToolResultMessage, Usage } from "@oh-my-pi/pi-ai";
-import { createPlanReadMatcher } from "@oh-my-pi/pi-coding-agent/plan-mode/plan-protection";
+import { type AgentToolCall, Tokenizer } from "@oh-my-soup/pi-agent-core";
+import type { SessionMessageEntry } from "@oh-my-soup/pi-agent-core/compaction/entries";
+import { DEFAULT_PRUNE_CONFIG, pruneToolOutputs } from "@oh-my-soup/pi-agent-core/compaction/pruning";
+import { AGGRESSIVE_SHAKE_CONFIG, collectShakeRegions } from "@oh-my-soup/pi-agent-core/compaction/shake";
+import type { ProtectedToolContext } from "@oh-my-soup/pi-agent-core/compaction/tool-protection";
+import type { AssistantMessage, TextContent, ToolResultMessage, Usage } from "@oh-my-soup/pi-ai";
+import { createPlanReadMatcher } from "@oh-my-soup/pi-coding-agent/plan-mode/plan-protection";
 
 const tokenizer = new Tokenizer();
 

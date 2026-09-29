@@ -6,7 +6,7 @@
 - Entry: `packages/coding-agent/src/tools/write.ts`
 - Model-facing prompt: `packages/coding-agent/src/prompts/tools/write.md`
 - Key collaborators:
-  - `packages/utils/src/ar` (`@oh-my-pi/pi-utils/ar`) — unified archive registry: `parseArchivePathCandidates()` parses archive selectors, `readArchiveEntries()`/`writeArchive()` rewrite containers atomically.
+  - `packages/utils/src/ar` (`@oh-my-soup/pi-utils/ar`) — unified archive registry: `parseArchivePathCandidates()` parses archive selectors, `readArchiveEntries()`/`writeArchive()` rewrite containers atomically.
   - `packages/coding-agent/src/tools/sqlite-reader.ts` — detect SQLite paths and perform row insert/update/delete.
   - `packages/coding-agent/src/tools/conflict-detect.ts` — parse `conflict://` URIs, register/validate regions, and expand side tokens.
   - `packages/coding-agent/src/internal-urls/router.ts` / `packages/coding-agent/src/tools/xdev.ts` — writable internal resources and `xd://` tool-device dispatch.

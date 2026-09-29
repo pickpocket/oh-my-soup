@@ -1,4 +1,4 @@
-import { logger, Snowflake } from "@oh-my-pi/pi-utils";
+import { logger, Snowflake } from "@oh-my-soup/pi-utils";
 import type { Subprocess } from "bun";
 import { type KernelDisplayOutput, renderKernelDisplay } from "./py/display";
 import type { ShadowBarrier, ShadowControlNode, ShadowOperation } from "./speculation/types";

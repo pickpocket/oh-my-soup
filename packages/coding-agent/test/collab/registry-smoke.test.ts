@@ -10,8 +10,8 @@ import { afterEach, describe, expect, it } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { CollabListJsonOutput } from "@oh-my-pi/pi-coding-agent/cli/collab-cli";
-import { COLLAB_REGISTRY_VERSION, listCollabHosts } from "@oh-my-pi/pi-coding-agent/collab/registry";
+import type { CollabListJsonOutput } from "@oh-my-soup/pi-coding-agent/cli/collab-cli";
+import { COLLAB_REGISTRY_VERSION, listCollabHosts } from "@oh-my-soup/pi-coding-agent/collab/registry";
 
 const HELPER_PATH = path.resolve(import.meta.dir, "helpers/registry-host-process.ts");
 const CLI_PATH = path.resolve(import.meta.dir, "../../src/cli.ts");

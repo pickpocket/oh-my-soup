@@ -2,13 +2,13 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from "bun:test";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { getBundledModel } from "@oh-my-pi/pi-catalog/models";
-import { ModelRegistry } from "@oh-my-pi/pi-coding-agent/config/model-registry";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { type CreateAgentSessionOptions, createAgentSession, discoverAuthStorage } from "@oh-my-pi/pi-coding-agent/sdk";
-import type { AgentSession } from "@oh-my-pi/pi-coding-agent/session/agent-session";
-import { SessionManager } from "@oh-my-pi/pi-coding-agent/session/session-manager";
-import { removeSyncWithRetries, Snowflake } from "@oh-my-pi/pi-utils";
+import { getBundledModel } from "@oh-my-soup/pi-catalog/models";
+import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { type CreateAgentSessionOptions, createAgentSession, discoverAuthStorage } from "@oh-my-soup/pi-coding-agent/sdk";
+import type { AgentSession } from "@oh-my-soup/pi-coding-agent/session/agent-session";
+import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
+import { removeSyncWithRetries, Snowflake } from "@oh-my-soup/pi-utils";
 
 import {
 	cfgIncludeWorkspaceTree,
@@ -17,11 +17,11 @@ import {
 	cfgTemperature,
 	cfgTierOpenai,
 	cfgTopP,
-} from "@oh-my-pi/pi-coding-agent/session/settings";
-import { cfgTtsrEnabled } from "@oh-my-pi/pi-coding-agent/export/ttsr-settings";
-import { cfgToolsFormat } from "@oh-my-pi/pi-coding-agent/session/context-settings";
-import { cfgInterruptMode } from "@oh-my-pi/pi-coding-agent/modes/settings";
-import { cfgSteeringMode } from "@oh-my-pi/pi-coding-agent/modes/settings";
+} from "@oh-my-soup/pi-coding-agent/session/settings";
+import { cfgTtsrEnabled } from "@oh-my-soup/pi-coding-agent/export/ttsr-settings";
+import { cfgToolsFormat } from "@oh-my-soup/pi-coding-agent/session/context-settings";
+import { cfgInterruptMode } from "@oh-my-soup/pi-coding-agent/modes/settings";
+import { cfgSteeringMode } from "@oh-my-soup/pi-coding-agent/modes/settings";
 
 describe("AgentSession live settings", () => {
 	const tempDirs: string[] = [];

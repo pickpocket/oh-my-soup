@@ -5,14 +5,14 @@
  */
 import { randomBytes, randomUUID } from "node:crypto";
 import { scheduler } from "node:timers/promises";
-import { type } from "@oh-my-pi/omptype";
-import { calculateCost } from "@oh-my-pi/pi-catalog/models";
+import { type } from "@oh-my-soup/omstype";
+import { calculateCost } from "@oh-my-soup/pi-catalog/models";
 import {
 	getAntigravityModelWireProfile,
 	getAntigravityUserAgent,
 	getGeminiCliHeaders,
-} from "@oh-my-pi/pi-catalog/wire/gemini-headers";
-import { extractHttpStatusFromError, fetchWithRetry, readSseJson } from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-catalog/wire/gemini-headers";
+import { extractHttpStatusFromError, fetchWithRetry, readSseJson } from "@oh-my-soup/pi-utils";
 import * as AIError from "../error";
 import type {
 	Api,

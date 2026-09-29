@@ -12,18 +12,18 @@
  * delivered through the newly installed subscription.
  */
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
-import type { AgentMessage } from "@oh-my-pi/pi-agent-core";
-import type { AssistantMessage, ToolResultMessage } from "@oh-my-pi/pi-ai";
-import { resetSettingsForTest, Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { EventController } from "@oh-my-pi/pi-coding-agent/modes/controllers/event-controller";
-import { SessionFocusController } from "@oh-my-pi/pi-coding-agent/modes/controllers/session-focus-controller";
-import { initTheme } from "@oh-my-pi/pi-tui/theme";
-import { UiHelpers } from "@oh-my-pi/pi-coding-agent/modes/utils/ui-helpers";
-import { AgentLifecycleManager } from "@oh-my-pi/pi-coding-agent/registry/agent-lifecycle";
-import { AgentRegistry, MAIN_AGENT_ID } from "@oh-my-pi/pi-coding-agent/registry/agent-registry";
-import type { AgentSession, AgentSessionEvent } from "@oh-my-pi/pi-coding-agent/session/agent-session";
-import type { SessionContext } from "@oh-my-pi/pi-coding-agent/session/session-context";
-import type { AgentProgress, TaskToolDetails } from "@oh-my-pi/pi-tui/tools/task";
+import type { AgentMessage } from "@oh-my-soup/pi-agent-core";
+import type { AssistantMessage, ToolResultMessage } from "@oh-my-soup/pi-ai";
+import { resetSettingsForTest, Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { EventController } from "@oh-my-soup/pi-coding-agent/modes/controllers/event-controller";
+import { SessionFocusController } from "@oh-my-soup/pi-coding-agent/modes/controllers/session-focus-controller";
+import { initTheme } from "@oh-my-soup/pi-tui/theme";
+import { UiHelpers } from "@oh-my-soup/pi-coding-agent/modes/utils/ui-helpers";
+import { AgentLifecycleManager } from "@oh-my-soup/pi-coding-agent/registry/agent-lifecycle";
+import { AgentRegistry, MAIN_AGENT_ID } from "@oh-my-soup/pi-coding-agent/registry/agent-registry";
+import type { AgentSession, AgentSessionEvent } from "@oh-my-soup/pi-coding-agent/session/agent-session";
+import type { SessionContext } from "@oh-my-soup/pi-coding-agent/session/session-context";
+import type { AgentProgress, TaskToolDetails } from "@oh-my-soup/pi-tui/tools/task";
 import { createInteractiveModeContext } from "./helpers/interactive-mode-context";
 
 const usage = {

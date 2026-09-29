@@ -17,17 +17,17 @@ import {
 	type UsageLimit,
 	type UsageReport,
 	type UsageUnit,
-} from "@oh-my-pi/pi-ai";
-import { AuthBrokerClient } from "@oh-my-pi/pi-ai/auth-broker";
-import type { ClientUsageClientSummary } from "@oh-my-pi/pi-ai/usage";
-import { formatProviderName } from "@oh-my-pi/pi-tui/chrome/format";
-import { formatDuration, formatNumber, getProjectDir, sanitizeText } from "@oh-my-pi/pi-utils";
-import chalk from "@oh-my-pi/pi-utils/chalk";
+} from "@oh-my-soup/pi-ai";
+import { AuthBrokerClient } from "@oh-my-soup/pi-ai/auth-broker";
+import type { ClientUsageClientSummary } from "@oh-my-soup/pi-ai/usage";
+import { formatProviderName } from "@oh-my-soup/pi-tui/chrome/format";
+import { formatDuration, formatNumber, getProjectDir, sanitizeText } from "@oh-my-soup/pi-utils";
+import chalk from "@oh-my-soup/pi-utils/chalk";
 import { ModelRegistry } from "../config/model-registry";
 import { Settings } from "../config/settings";
 import { discoverAuthStorage, loadCliExtensionProviders } from "../sdk";
 import { resolveAuthBrokerConfig } from "../session/auth-broker-config";
-import { collapseSharedUsageReports, summarizeUsageResetCredits } from "@oh-my-pi/pi-tui/overlays/usage-display";
+import { collapseSharedUsageReports, summarizeUsageResetCredits } from "@oh-my-soup/pi-tui/overlays/usage-display";
 import { formatCodexUsageReportLabel } from "../slash-commands/helpers/active-oauth-account";
 import {
 	accountIdentityLabel,

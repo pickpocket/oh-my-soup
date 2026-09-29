@@ -1,4 +1,4 @@
-import { isRecord } from "@oh-my-pi/pi-utils";
+import { isRecord } from "@oh-my-soup/pi-utils";
 
 /**
  * One `task.agentCompactionThresholdOverrides` entry: a positive token count

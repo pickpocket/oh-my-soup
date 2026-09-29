@@ -4,7 +4,7 @@
  * bridge, mirroring codex-rs ToolMode::CodeModeOnly.
  */
 
-import { logger } from "@oh-my-pi/pi-utils";
+import { logger } from "@oh-my-soup/pi-utils";
 
 /**
  * Tool names that always stay directly model-visible under code mode. The

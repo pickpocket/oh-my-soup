@@ -26,9 +26,9 @@
  * built on the shared plumbing in `dispatch.ts`.
  */
 
-import { Effort } from "@oh-my-pi/pi-catalog/effort";
-import { type ModelKind, modelKind } from "@oh-my-pi/pi-catalog/types";
-import { logger } from "@oh-my-pi/pi-utils";
+import { Effort } from "@oh-my-soup/pi-catalog/effort";
+import { type ModelKind, modelKind } from "@oh-my-soup/pi-catalog/types";
+import { logger } from "@oh-my-soup/pi-utils";
 import type { AuthStorage } from "../auth-storage";
 import { classifyGatewayError } from "../error/gateway";
 import * as anthropicMessages from "../providers/anthropic-messages-server";

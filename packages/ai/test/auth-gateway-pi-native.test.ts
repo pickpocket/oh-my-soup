@@ -2,19 +2,19 @@ import { describe, expect, it, vi } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { clearCustomApis } from "@oh-my-pi/pi-ai/api-registry";
-import { startAuthGateway } from "@oh-my-pi/pi-ai/auth-gateway";
-import { AuthStorage } from "@oh-my-pi/pi-ai/auth-storage";
-import { createMockModel, registerMockApi } from "@oh-my-pi/pi-ai/providers/mock";
-import { encodeStream, formatError, parseRequest } from "@oh-my-pi/pi-ai/providers/pi-native-server";
+import { clearCustomApis } from "@oh-my-soup/pi-ai/api-registry";
+import { startAuthGateway } from "@oh-my-soup/pi-ai/auth-gateway";
+import { AuthStorage } from "@oh-my-soup/pi-ai/auth-storage";
+import { createMockModel, registerMockApi } from "@oh-my-soup/pi-ai/providers/mock";
+import { encodeStream, formatError, parseRequest } from "@oh-my-soup/pi-ai/providers/pi-native-server";
 import type {
 	AssistantMessage,
 	AssistantMessageEvent,
 	AssistantMessageEventStream,
 	Context,
 	Usage,
-} from "@oh-my-pi/pi-ai/types";
-import { Effort } from "@oh-my-pi/pi-catalog/effort";
+} from "@oh-my-soup/pi-ai/types";
+import { Effort } from "@oh-my-soup/pi-catalog/effort";
 
 function makeEventStream(events: AssistantMessageEvent[], final: AssistantMessage): AssistantMessageEventStream {
 	async function* iter() {
@@ -358,9 +358,9 @@ describe("pi-native gateway usage attribution", () => {
 				headers: {
 					Authorization: "Bearer test-token",
 					"Content-Type": "application/json",
-					"x-omp-install-id": "robomp-install",
-					"x-omp-hostname": "robomp-box",
-					"x-omp-app": "robomp",
+					"x-omp-install-id": "roboms-install",
+					"x-omp-hostname": "roboms-box",
+					"x-omp-app": "roboms",
 				},
 				body: JSON.stringify({ modelId: "pi-native-usage", context: baseContext, stream: false }),
 			});
@@ -372,7 +372,7 @@ describe("pi-native gateway usage attribution", () => {
 				model: "pi-native-usage",
 				usage: { input: 100, output: 20, cacheRead: 5, cacheWrite: 2 },
 				costUsd: 0.75,
-				client: { installId: "robomp-install", hostname: "robomp-box", app: "robomp" },
+				client: { installId: "roboms-install", hostname: "roboms-box", app: "roboms" },
 			});
 
 			// No identity headers → the burn still lands somewhere: the gateway

@@ -16,7 +16,7 @@ import {
 	type AgentTelemetryConfig,
 	recordJudgmentTelemetry,
 	resolveTelemetry,
-} from "@oh-my-pi/pi-agent-core";
+} from "@oh-my-soup/pi-agent-core";
 import {
 	type Answer,
 	type AssistantMessage,
@@ -36,10 +36,10 @@ import {
 	TypeSafeJudge,
 	tokenUsage,
 	type Usage,
-} from "@oh-my-pi/pi-ai";
-import * as AIError from "@oh-my-pi/pi-ai/error";
-import { calculateCost } from "@oh-my-pi/pi-catalog/models";
-import { logger, prompt } from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-ai";
+import * as AIError from "@oh-my-soup/pi-ai/error";
+import { calculateCost } from "@oh-my-soup/pi-catalog/models";
+import { logger, prompt } from "@oh-my-soup/pi-utils";
 import type { ModelRegistry } from "../config/model-registry";
 import { formatModelStringWithRouting, resolveRoleChain, type RoleChainCandidate } from "../config/model-resolver";
 import { roleCandidatePool } from "../config/model-roles";

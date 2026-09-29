@@ -39,7 +39,7 @@
 		"packages/catalog/src/discovery/devin-proto.ts",
 		".worktrees/**",
 		".wt/**",
-		".omp/**",
+		".oms/**",
 		"crates/**",
 		"docs/**",
 		"python/**",

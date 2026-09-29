@@ -10,7 +10,7 @@
 import type { Stats } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { getStatsDbPath, isEnoent, logger } from "@oh-my-pi/pi-utils";
+import { getStatsDbPath, isEnoent, logger } from "@oh-my-soup/pi-utils";
 import { getTimeRangeConfig } from "./aggregator";
 import { initDb } from "./db";
 import type { GainDashboardStats, GainSourceTotals, GainTimeSeriesPoint } from "./shared-types";

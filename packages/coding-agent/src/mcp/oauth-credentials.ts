@@ -1,7 +1,7 @@
-import { REMOTE_REFRESH_SENTINEL, type StoredOAuthRefreshResult } from "@oh-my-pi/pi-ai";
-import { isDefinitiveOAuthFailure } from "@oh-my-pi/pi-ai/error";
-import type { OAuthCredentials } from "@oh-my-pi/pi-ai/oauth/types";
-import { getActiveProfile } from "@oh-my-pi/pi-utils/dirs";
+import { REMOTE_REFRESH_SENTINEL, type StoredOAuthRefreshResult } from "@oh-my-soup/pi-ai";
+import { isDefinitiveOAuthFailure } from "@oh-my-soup/pi-ai/error";
+import type { OAuthCredentials } from "@oh-my-soup/pi-ai/oauth/types";
+import { getActiveProfile } from "@oh-my-soup/pi-utils/dirs";
 import { expandEnvVarsDeep } from "../discovery/helpers";
 import type { AuthStorage } from "../session/auth-storage";
 import {

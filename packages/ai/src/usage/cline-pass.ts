@@ -1,4 +1,4 @@
-import { CLINEPASS_API_BASE_URL, clinePassClientHeaders } from "@oh-my-pi/pi-catalog/wire/cline-pass";
+import { CLINEPASS_API_BASE_URL, clinePassClientHeaders } from "@oh-my-soup/pi-catalog/wire/cline-pass";
 import { ProviderHttpError } from "../error";
 import type {
 	UsageFetchContext,

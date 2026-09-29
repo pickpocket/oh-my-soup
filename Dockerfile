@@ -4,8 +4,8 @@
 #
 # Stages:
 #   natives-builder — Rust + Bun → pi_natives.linux-<arch>.node
-#   wheel-builder   — omp_rpc Python wheel
-#   pi-base         — python + bun + rustup launcher + natives + omp_rpc
+#   wheel-builder   — oms_rpc Python wheel
+#   pi-base         — python + bun + rustup launcher + natives + oms_rpc
 #                     + /usr/local/bin/omp shim
 #   pi-runtime      — pi-base + pi source + bun install      (DEFAULT, runnable)
 #
@@ -17,7 +17,7 @@
 #     docker run --rm oh-my-pi/pi:dev --help
 #     docker run --rm -it -v "$PWD":/work oh-my-pi/pi:dev cli    # interactive omp
 #
-# Consume as a base in another Dockerfile (see Dockerfile.robomp):
+# Consume as a base in another Dockerfile (see Dockerfile.roboms):
 #     ARG PI_BASE=oh-my-pi/pi:dev
 #     FROM ${PI_BASE} AS pi-base
 ###############################################################################
@@ -69,7 +69,7 @@ COPY --parents \
     Cargo.toml Cargo.lock rust-toolchain.toml \
     packages/*/package.json \
     packages/tsconfig.workspace.json \
-    python/robomp/web/package.json \
+    python/roboms/web/package.json \
     crates/*/Cargo.toml \
     /pi/
 
@@ -93,7 +93,7 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
     cp packages/natives/native/pi_natives.linux-*.node /out/
 
 ############################
-# 2) wheel-builder — omp-rpc wheel
+# 2) wheel-builder — oms-rpc wheel
 ############################
 FROM python:3.12-slim-bookworm AS wheel-builder
 
@@ -104,13 +104,13 @@ RUN apt-get update \
 RUN pip install --upgrade pip build
 
 WORKDIR /src
-COPY python/omp-rpc /src
+COPY python/oms-rpc /src
 RUN python -m build --wheel --outdir /out
 
 ############################
-# 3) pi-base — python + bun + rustup + natives + omp_rpc + omp shim
+# 3) pi-base — python + bun + rustup + natives + oms_rpc + omp shim
 #
-# Sharable runtime base. Derived images (pi-runtime below, Dockerfile.robomp)
+# Sharable runtime base. Derived images (pi-runtime below, Dockerfile.roboms)
 # extend this and overlay their own source tree. Default PI_ROOT=/work/pi is
 # friendly to derived images that mount a host pi checkout there; pi-runtime
 # overrides it to /pi because its source is baked in.
@@ -142,7 +142,7 @@ RUN curl -fsSL https://bun.sh/install | bash -s "bun-v${BUN_VERSION}" \
 # `#!/usr/bin/env node` package bins (oxlint, oxfmt, …) run for every uid.
 # Bun's own fallback is a /tmp/bun-node-<hash> dir created 0700 by the first
 # user that needs it; the image build runs as root, so it would bake a dir
-# no robomp slot user can enter.
+# no roboms slot user can enter.
 RUN mkdir -p /usr/local/bun-node-fallback-bin \
     && ln -s /opt/bun/bin/bun /usr/local/bun-node-fallback-bin/node
 
@@ -159,9 +159,9 @@ RUN curl -fsSL https://sh.rustup.rs -o /tmp/rustup-init.sh \
 # pi-natives addon: pi's loader probes /opt/bun/bin as a fallback path.
 COPY --from=natives-builder /out/pi_natives.linux-*.node /opt/bun/bin/
 
-# omp-rpc Python wheel.
+# oms-rpc Python wheel.
 COPY --from=wheel-builder /out/*.whl /tmp/wheels/
-RUN pip install /tmp/wheels/omp_rpc-*.whl && rm -rf /tmp/wheels
+RUN pip install /tmp/wheels/oms_rpc-*.whl && rm -rf /tmp/wheels
 
 # Legal payload for the reusable SDKs and the OMP product installed in this image.
 COPY LICENSE  THIRD-PARTY-NOTICES.txt /usr/share/doc/omp/
@@ -199,7 +199,7 @@ COPY --parents \
     tsconfig.base.json tsconfig.json \
     packages/*/package.json \
     packages/tsconfig.workspace.json \
-    python/robomp/web/package.json \
+    python/roboms/web/package.json \
     /pi/
 
 RUN bun install --frozen-lockfile --ignore-scripts

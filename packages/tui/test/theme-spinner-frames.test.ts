@@ -2,10 +2,10 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { sharedSpinnerFrame } from "@oh-my-pi/pi-tui/chat/tool-execution";
-import { SPINNER_ADVANCE_MS } from "@oh-my-pi/pi-tui/components/loader";
-import { getThemeByName } from "@oh-my-pi/pi-tui/theme";
-import { getConfigRootDir, getCustomThemesDir, removeWithRetries, setAgentDir } from "@oh-my-pi/pi-utils";
+import { sharedSpinnerFrame } from "@oh-my-soup/pi-tui/chat/tool-execution";
+import { SPINNER_ADVANCE_MS } from "@oh-my-soup/pi-tui/components/loader";
+import { getThemeByName } from "@oh-my-soup/pi-tui/theme";
+import { getConfigRootDir, getCustomThemesDir, removeWithRetries, setAgentDir } from "@oh-my-soup/pi-utils";
 
 // Path of the built-in dark theme JSON, used as a known-valid base we can
 // extend with custom `symbols.spinnerFrames` shapes.

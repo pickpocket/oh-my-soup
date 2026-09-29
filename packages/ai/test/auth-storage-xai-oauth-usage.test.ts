@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import { type AuthCredentialStore, AuthStorage, type StoredAuthCredential } from "@oh-my-pi/pi-ai/auth-storage";
-import type { UsageFetchParams, UsageProvider, UsageReport } from "@oh-my-pi/pi-ai/usage";
+import { type AuthCredentialStore, AuthStorage, type StoredAuthCredential } from "@oh-my-soup/pi-ai/auth-storage";
+import type { UsageFetchParams, UsageProvider, UsageReport } from "@oh-my-soup/pi-ai/usage";
 import { defaultRankingStrategy } from "../src/usage/registry";
 import { withEnv } from "./helpers";
 

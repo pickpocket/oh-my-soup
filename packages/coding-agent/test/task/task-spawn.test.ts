@@ -13,22 +13,22 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import * as fs from "node:fs/promises";
-import { ThinkingLevel } from "@oh-my-pi/pi-agent-core";
-import { type AsyncJob, AsyncJobManager } from "@oh-my-pi/pi-coding-agent/async/job-manager";
-import { ModelRegistry } from "@oh-my-pi/pi-coding-agent/config/model-registry";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { createAgentsHubDeps } from "@oh-my-pi/pi-coding-agent/modes/agents-hub-deps";
-import { AgentLifecycleManager } from "@oh-my-pi/pi-coding-agent/registry/agent-lifecycle";
-import { AgentRegistry } from "@oh-my-pi/pi-coding-agent/registry/agent-registry";
-import { TaskTool } from "@oh-my-pi/pi-coding-agent/task";
-import * as discoveryModule from "@oh-my-pi/pi-coding-agent/task/discovery";
-import * as executorModule from "@oh-my-pi/pi-coding-agent/task/executor";
-import * as isolationRunner from "@oh-my-pi/pi-coding-agent/task/isolation-runner";
-import type { AgentDefinition } from "@oh-my-pi/pi-coding-agent/task/types";
-import type { AgentProgress, SingleResult, TaskParams } from "@oh-my-pi/pi-tui/tools/task";
-import type { ToolSession } from "@oh-my-pi/pi-coding-agent/tools";
-import { snapshotJobs } from "@oh-my-pi/pi-coding-agent/async/job-control";
-import { cfgTaskAgentModelOverrides, cfgTaskMaxConcurrency } from "@oh-my-pi/pi-coding-agent/task/settings";
+import { ThinkingLevel } from "@oh-my-soup/pi-agent-core";
+import { type AsyncJob, AsyncJobManager } from "@oh-my-soup/pi-coding-agent/async/job-manager";
+import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { createAgentsHubDeps } from "@oh-my-soup/pi-coding-agent/modes/agents-hub-deps";
+import { AgentLifecycleManager } from "@oh-my-soup/pi-coding-agent/registry/agent-lifecycle";
+import { AgentRegistry } from "@oh-my-soup/pi-coding-agent/registry/agent-registry";
+import { TaskTool } from "@oh-my-soup/pi-coding-agent/task";
+import * as discoveryModule from "@oh-my-soup/pi-coding-agent/task/discovery";
+import * as executorModule from "@oh-my-soup/pi-coding-agent/task/executor";
+import * as isolationRunner from "@oh-my-soup/pi-coding-agent/task/isolation-runner";
+import type { AgentDefinition } from "@oh-my-soup/pi-coding-agent/task/types";
+import type { AgentProgress, SingleResult, TaskParams } from "@oh-my-soup/pi-tui/tools/task";
+import type { ToolSession } from "@oh-my-soup/pi-coding-agent/tools";
+import { snapshotJobs } from "@oh-my-soup/pi-coding-agent/async/job-control";
+import { cfgTaskAgentModelOverrides, cfgTaskMaxConcurrency } from "@oh-my-soup/pi-coding-agent/task/settings";
 import { createInMemoryAuthStorage } from "../helpers/agent-session-setup";
 
 const taskAgent: AgentDefinition = {

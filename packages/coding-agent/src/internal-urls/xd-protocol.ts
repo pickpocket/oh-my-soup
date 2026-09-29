@@ -1,9 +1,9 @@
-import type { ToolApprovalDecision } from "@oh-my-pi/pi-agent-core";
-import { isRecord } from "@oh-my-pi/pi-utils";
-import { REPORT_ISSUE_DEVICE_NAME } from "@oh-my-pi/pi-tui/tools/report-tool-issue";
-import { isResolutionDeviceName } from "@oh-my-pi/pi-tui/tools/resolve";
-import { ToolError } from "@oh-my-pi/pi-tui/tools/tool-errors";
-import { parseXdTopicUrl, parseXdUrl } from "@oh-my-pi/pi-tui/tools/xd-url";
+import type { ToolApprovalDecision } from "@oh-my-soup/pi-agent-core";
+import { isRecord } from "@oh-my-soup/pi-utils";
+import { REPORT_ISSUE_DEVICE_NAME } from "@oh-my-soup/pi-tui/tools/report-tool-issue";
+import { isResolutionDeviceName } from "@oh-my-soup/pi-tui/tools/resolve";
+import { ToolError } from "@oh-my-soup/pi-tui/tools/tool-errors";
+import { parseXdTopicUrl, parseXdUrl } from "@oh-my-soup/pi-tui/tools/xd-url";
 import type { ToolSession } from "../tools";
 import { resolveToolTier } from "../tools/approval";
 import { dispatchReportIssueDevice, reportIssueDeviceUsage } from "../tools/report-tool-issue";

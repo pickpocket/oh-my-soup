@@ -1,6 +1,6 @@
 import * as fs from "node:fs/promises";
 import * as net from "node:net";
-import { isRecord, logger, postmortem, ptree, setProcessName } from "@oh-my-pi/pi-utils";
+import { isRecord, logger, postmortem, ptree, setProcessName } from "@oh-my-soup/pi-utils";
 import { MessageFramer } from "../../jsonrpc/message-framing";
 import type { LspJsonRpcId, LspJsonRpcNotification, LspJsonRpcRequest, LspJsonRpcResponse } from "../types";
 import {

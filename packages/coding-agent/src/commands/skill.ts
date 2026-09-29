@@ -1,8 +1,8 @@
 /**
  * Install, publish, and manage skills on a Skillshare registry (skills.omp.sh).
  */
-import { Args, Command, Flags } from "@oh-my-pi/pi-utils/cli";
-import type { SkillSearchSort } from "@oh-my-pi/pi-wire/skillshare";
+import { Args, Command, Flags } from "@oh-my-soup/pi-utils/cli";
+import type { SkillSearchSort } from "@oh-my-soup/pi-wire/skillshare";
 import { skillHelp as commandHelp } from "../cli/command-help";
 import { runSkillCommand, SKILL_ACTIONS, SKILL_USAGE, type SkillAction } from "../cli/skill-cli";
 

@@ -1,7 +1,7 @@
 /**
  * `omp browser-relay` — drive the user's own Chrome tabs.
  */
-import { Args, Command, Flags } from "@oh-my-pi/pi-utils/cli";
+import { Args, Command, Flags } from "@oh-my-soup/pi-utils/cli";
 import {
 	BROWSER_RELAY_ACTIONS,
 	type BrowserRelayAction,
@@ -24,7 +24,7 @@ export default class BrowserRelay extends Command {
 		port: Flags.integer({ char: "p", description: "Port to listen on", default: DEFAULT_RELAY_PORT }),
 		token: Flags.string({ description: "Require the extension to present this token" }),
 		dir: Flags.string({
-			description: "Extension install directory (install; default ~/.omp/browser-relay/extension)",
+			description: "Extension install directory (install; default ~/.oms/browser-relay/extension)",
 		}),
 		"no-group": Flags.boolean({
 			description: "Don't gather controllable tabs into an 'omp' tab group",

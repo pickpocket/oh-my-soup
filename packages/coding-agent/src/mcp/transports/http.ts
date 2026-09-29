@@ -5,8 +5,8 @@
  * The negotiated protocol revision is carried in the `MCP-Protocol-Version`
  * header on every request (see `MCP_PROTOCOL_VERSION`).
  */
-import * as AIError from "@oh-my-pi/pi-ai/error";
-import { isRecord, logger, postmortem, readSseEvents, readSseJson, untilAborted } from "@oh-my-pi/pi-utils";
+import * as AIError from "@oh-my-soup/pi-ai/error";
+import { isRecord, logger, postmortem, readSseEvents, readSseJson, untilAborted } from "@oh-my-soup/pi-utils";
 import type {
 	JsonRpcError,
 	JsonRpcMessage,

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { editDescription } from "@oh-my-pi/pi-natives";
-import { resolveEditToolDescription } from "@oh-my-pi/pi-coding-agent/edit";
+import { editDescription } from "@oh-my-soup/pi-natives";
+import { resolveEditToolDescription } from "@oh-my-soup/pi-coding-agent/edit";
 
 describe("resolveEditToolDescription", () => {
 	test("renders the compact prompt for models whose catalog policy selects it", () => {

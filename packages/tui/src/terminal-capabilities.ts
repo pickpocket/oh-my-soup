@@ -1,5 +1,5 @@
-import { encodeSixel } from "@oh-my-pi/pi-natives";
-import { $env, isBunTestRuntime, isTerminalHeadless, isWsl } from "@oh-my-pi/pi-utils/env";
+import { encodeSixel } from "@oh-my-soup/pi-natives";
+import { $env, isBunTestRuntime, isTerminalHeadless, isWsl } from "@oh-my-soup/pi-utils/env";
 import { sendDesktopNotification, shouldDeliverDesktopNotification } from "./desktop-notify";
 import {
 	detectKittyUnicodePlaceholdersSupport,

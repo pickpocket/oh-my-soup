@@ -15,18 +15,18 @@
  *   with `{ summary, shortSummary? }`.
  */
 
-import { attach, create, Flag, ProviderHttpError } from "@oh-my-pi/pi-ai/error";
-import { getCodexAttestationHeader } from "@oh-my-pi/pi-ai/providers/openai-codex-attestation";
-import { createOpenAICodexCompactionRequestContext } from "@oh-my-pi/pi-ai/providers/openai-codex-compaction";
-import { applyCodexResponsesLiteShape } from "@oh-my-pi/pi-ai/providers/openai-codex/request-transformer";
-import { createOpenAICodexCompatibilityMetadata } from "@oh-my-pi/pi-ai/providers/openai-codex-responses";
+import { attach, create, Flag, ProviderHttpError } from "@oh-my-soup/pi-ai/error";
+import { getCodexAttestationHeader } from "@oh-my-soup/pi-ai/providers/openai-codex-attestation";
+import { createOpenAICodexCompactionRequestContext } from "@oh-my-soup/pi-ai/providers/openai-codex-compaction";
+import { applyCodexResponsesLiteShape } from "@oh-my-soup/pi-ai/providers/openai-codex/request-transformer";
+import { createOpenAICodexCompatibilityMetadata } from "@oh-my-soup/pi-ai/providers/openai-codex-responses";
 import {
 	encodeResponsesToolResultOutput,
 	hoistInterleavedResponsesToolBatchMessages,
 	parseAzureDeploymentNameMap,
 	parseTextSignature,
-} from "@oh-my-pi/pi-ai/providers/openai-shared";
-import { transformMessages } from "@oh-my-pi/pi-ai/providers/transform-messages";
+} from "@oh-my-soup/pi-ai/providers/openai-shared";
+import { transformMessages } from "@oh-my-soup/pi-ai/providers/transform-messages";
 import type {
 	Api,
 	AssistantMessage,
@@ -35,14 +35,14 @@ import type {
 	Message,
 	Model,
 	ProviderSessionState,
-} from "@oh-my-pi/pi-ai/types";
+} from "@oh-my-soup/pi-ai/types";
 import {
 	getOpenAIResponsesHistoryItems,
 	getOpenAIResponsesHistoryPayload,
 	normalizeResponsesToolCallId,
 	stripOpenAIResponsesOutputOnlyStatusesForReplay,
-} from "@oh-my-pi/pi-ai/utils";
-import { captureOpenAIHttpError } from "@oh-my-pi/pi-ai/utils/openai-http";
+} from "@oh-my-soup/pi-ai/utils";
+import { captureOpenAIHttpError } from "@oh-my-soup/pi-ai/utils/openai-http";
 import {
 	applyCodexResidencyHeader,
 	CODEX_BASE_URL,
@@ -50,8 +50,8 @@ import {
 	getCodexAccountId,
 	OPENAI_HEADER_VALUES,
 	OPENAI_HEADERS,
-} from "@oh-my-pi/pi-catalog/wire/codex";
-import { $env, isRecord, logger, prompt, stringifyJson, structuredCloneJSON } from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-catalog/wire/codex";
+import { $env, isRecord, logger, prompt, stringifyJson, structuredCloneJSON } from "@oh-my-soup/pi-utils";
 import { Tokenizer } from "../tokenizer";
 import contextWindowTruncatedOutputPrompt from "./prompts/context-window-truncated-output.md" with { type: "text" };
 

@@ -17,7 +17,7 @@
  * 4. Clearing the provider falls back to the eager slot.
  */
 import { describe, expect, it } from "bun:test";
-import { Editor, type EditorTopBorder } from "@oh-my-pi/pi-tui/components/editor";
+import { Editor, type EditorTopBorder } from "@oh-my-soup/pi-tui/components/editor";
 import { defaultEditorTheme } from "./test-themes";
 
 function stubTopBorder(label: string): EditorTopBorder {

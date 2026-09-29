@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { postmortem } from "@oh-my-pi/pi-utils";
+import { postmortem } from "@oh-my-soup/pi-utils";
 
 // Regression for #11789: host-owned hard exits (composer double-Ctrl-C,
 // input-controller stuck-teardown) can fire while an extension-load

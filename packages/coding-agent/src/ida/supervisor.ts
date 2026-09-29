@@ -8,8 +8,8 @@
  */
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { type FileLockHandle, logger, readLines, untilAborted } from "@oh-my-pi/pi-utils";
-import { ToolError } from "@oh-my-pi/pi-tui/tools/tool-errors";
+import { type FileLockHandle, logger, readLines, untilAborted } from "@oh-my-soup/pi-utils";
+import { ToolError } from "@oh-my-soup/pi-tui/tools/tool-errors";
 import type { Subprocess } from "bun";
 import { hostHasInheritableConsole, shouldHideKernelWindow } from "../eval/py/spawn-options";
 import { stageRunnerScript } from "../eval/runner-cache";

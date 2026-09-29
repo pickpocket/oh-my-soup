@@ -1,8 +1,8 @@
 import { describe, expect, it } from "bun:test";
 import * as path from "node:path";
-import { AgentOutputManager } from "@oh-my-pi/pi-coding-agent/task/output-manager";
-import { PINNED_HUD_TOGGLE_ID } from "@oh-my-pi/pi-tui/prompt/composer";
-import { TempDir } from "@oh-my-pi/pi-utils";
+import { AgentOutputManager } from "@oh-my-soup/pi-coding-agent/task/output-manager";
+import { PINNED_HUD_TOGGLE_ID } from "@oh-my-soup/pi-tui/prompt/composer";
+import { TempDir } from "@oh-my-soup/pi-utils";
 
 // Contract: subagent output ids are the requested name, used verbatim the first
 // time and suffixed (`-2`, `-3`, …) only when the same name recurs. A parent

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { AuthStorage, REMOTE_REFRESH_SENTINEL, SqliteAuthCredentialStore } from "@oh-my-pi/pi-ai";
+import { AuthStorage, REMOTE_REFRESH_SENTINEL, SqliteAuthCredentialStore } from "@oh-my-soup/pi-ai";
 import {
 	AuthBrokerClient,
 	type AuthBrokerServerHandle,
@@ -11,7 +11,7 @@ import {
 	RemoteAuthCredentialStore,
 	type SnapshotResponse,
 	startAuthBroker,
-} from "@oh-my-pi/pi-ai/auth-broker";
+} from "@oh-my-soup/pi-ai/auth-broker";
 import { removeWithRetries } from "../../utils/src/temp";
 import { withEnv } from "./helpers";
 
@@ -328,14 +328,14 @@ describe("RemoteAuthCredentialStore SSE integration", () => {
 					costUsd: 0.05,
 				},
 			],
-			{ installId: "robomp-install", hostname: "robomp-box", app: "robomp" },
+			{ installId: "roboms-install", hostname: "roboms-box", app: "roboms" },
 		);
 		await waitUntil(() => storage!.usage.clientSummary(0).clients.length === 2);
-		const attributed = storage!.usage.clientSummary(0).clients.find(c => c.installId === "robomp-install");
-		expect(attributed?.hostname).toBe("robomp-box");
+		const attributed = storage!.usage.clientSummary(0).clients.find(c => c.installId === "roboms-install");
+		expect(attributed?.hostname).toBe("roboms-box");
 		expect(attributed?.providers).toEqual([
 			{
-				app: "robomp",
+				app: "roboms",
 				provider: "anthropic",
 				requests: 1,
 				inputTokens: 7,

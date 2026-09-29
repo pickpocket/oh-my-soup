@@ -1,4 +1,4 @@
-import { APP_NAME, APP_URL, USER_AGENT } from "@oh-my-pi/pi-utils";
+import { APP_NAME, APP_URL, USER_AGENT } from "@oh-my-soup/pi-utils";
 
 export function getOpenRouterHeaders(): Record<string, string> {
 	return {

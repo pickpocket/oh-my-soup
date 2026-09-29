@@ -1,4 +1,4 @@
-import type { ImageContent } from "@oh-my-pi/pi-ai";
+import type { ImageContent } from "@oh-my-soup/pi-ai";
 import {
 	type Component,
 	getImageDimensions,

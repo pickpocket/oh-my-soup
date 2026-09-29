@@ -1,5 +1,5 @@
 import { afterAll, describe, expect, it } from "bun:test";
-import { cachingByteSource, encodeArchive, httpByteSource, openArchive } from "@oh-my-pi/pi-utils/ar";
+import { cachingByteSource, encodeArchive, httpByteSource, openArchive } from "@oh-my-soup/pi-utils/ar";
 
 // The remote-source contract: an archive served over HTTP with Range support
 // must be listable and member-readable through ranged requests only (no full

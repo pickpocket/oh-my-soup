@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { findCompactMode, parseCompactArgs } from "@oh-my-pi/pi-coding-agent/session/compact-modes";
+import { findCompactMode, parseCompactArgs } from "@oh-my-soup/pi-coding-agent/session/compact-modes";
 
 describe("compact mode registry", () => {
 	it("resolves mode names case-insensitively and rejects unknowns", () => {

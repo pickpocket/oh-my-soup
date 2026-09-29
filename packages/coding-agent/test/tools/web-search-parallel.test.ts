@@ -1,11 +1,11 @@
 import { afterAll, afterEach, beforeEach, describe, expect, it, setSystemTime, vi } from "bun:test";
-import { AuthStorage, type FetchImpl } from "@oh-my-pi/pi-ai";
-import { ModelRegistry } from "@oh-my-pi/pi-coding-agent/config/model-registry";
-import { resolveConfigValue } from "@oh-my-pi/pi-coding-agent/config/resolve-config-value";
-import type { AgentStorage } from "@oh-my-pi/pi-coding-agent/session/agent-storage";
-import { searchWithParallel } from "@oh-my-pi/pi-coding-agent/web/parallel";
-import { ParallelProvider, searchParallel } from "@oh-my-pi/pi-coding-agent/web/search/providers/parallel";
-import { USER_AGENT } from "@oh-my-pi/pi-utils";
+import { AuthStorage, type FetchImpl } from "@oh-my-soup/pi-ai";
+import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
+import { resolveConfigValue } from "@oh-my-soup/pi-coding-agent/config/resolve-config-value";
+import type { AgentStorage } from "@oh-my-soup/pi-coding-agent/session/agent-storage";
+import { searchWithParallel } from "@oh-my-soup/pi-coding-agent/web/parallel";
+import { ParallelProvider, searchParallel } from "@oh-my-soup/pi-coding-agent/web/search/providers/parallel";
+import { USER_AGENT } from "@oh-my-soup/pi-utils";
 import { createInMemoryAuthStorage } from "../helpers/agent-session-setup";
 
 const anonymousAuthStorage = createInMemoryAuthStorage();

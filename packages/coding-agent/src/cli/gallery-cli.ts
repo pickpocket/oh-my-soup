@@ -7,13 +7,13 @@
  * rendered output to stdout. It exists for visual QA of tool renderers without
  * having to provoke each state through a live agent session.
  */
-import type { AgentTool } from "@oh-my-pi/pi-agent-core";
-import type { TUI } from "@oh-my-pi/pi-tui";
-import { getProjectDir } from "@oh-my-pi/pi-utils";
+import type { AgentTool } from "@oh-my-soup/pi-agent-core";
+import type { TUI } from "@oh-my-soup/pi-tui";
+import { getProjectDir } from "@oh-my-soup/pi-utils";
 import { Settings } from "../config/settings";
-import { ToolExecutionComponent } from "@oh-my-pi/pi-tui/chat/tool-execution";
-import { initTheme, theme } from "@oh-my-pi/pi-tui/theme";
-import { toolRenderers } from "@oh-my-pi/pi-tui/tools";
+import { ToolExecutionComponent } from "@oh-my-soup/pi-tui/chat/tool-execution";
+import { initTheme, theme } from "@oh-my-soup/pi-tui/theme";
+import { toolRenderers } from "@oh-my-soup/pi-tui/tools";
 import {
 	type GalleryFixture,
 	type GalleryPreviewEntry,

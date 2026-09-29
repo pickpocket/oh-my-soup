@@ -16,7 +16,7 @@ import {
 	Spacer,
 	Text,
 } from "../index";
-import { logger } from "@oh-my-pi/pi-utils";
+import { logger } from "@oh-my-soup/pi-utils";
 import { getSelectListTheme, getSettingsListTheme, theme } from "../theme/theme";
 import { shortenPath } from "../render/render-utils";
 import { OverlayPanel } from "../chrome/overlay-box";

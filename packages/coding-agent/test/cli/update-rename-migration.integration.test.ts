@@ -20,7 +20,7 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { $which, TempDir } from "@oh-my-pi/pi-utils";
+import { $which, TempDir } from "@oh-my-soup/pi-utils";
 import { $ } from "bun";
 import {
 	type InstalledVersionVerification,
@@ -28,7 +28,7 @@ import {
 	type ReleaseInfo,
 	type RenameMigrationSteps,
 } from "../../src/cli/update-cli";
-import { initTheme } from "@oh-my-pi/pi-tui/theme";
+import { initTheme } from "@oh-my-soup/pi-tui/theme";
 
 const OLD_PKG = "omp-rename-fixture-old";
 const NEW_PKG = "omp-rename-fixture-new";
@@ -78,7 +78,7 @@ async function verifyLauncher(binDir: string, expectedVersion: string): Promise<
 const RELEASE: ReleaseInfo = {
 	tag: `v${NEW_VERSION}`,
 	version: NEW_VERSION,
-	packages: { pkg: NEW_PKG, natives: "@oh-my-pi/pi-natives" },
+	packages: { pkg: NEW_PKG, natives: "@oh-my-soup/pi-natives" },
 	registry: "https://registry.npmjs.org/",
 };
 

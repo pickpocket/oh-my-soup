@@ -4,7 +4,7 @@
  * and options.
  */
 
-import { type } from "@oh-my-pi/omptype";
+import { type } from "@oh-my-soup/omstype";
 import type {
 	ContentBlockParam,
 	ImageBlockParam,

@@ -1,4 +1,4 @@
-import { LRUCache } from "@oh-my-pi/pi-utils/lru";
+import { LRUCache } from "@oh-my-soup/pi-utils/lru";
 import {
 	Lexer,
 	Marked,
@@ -6,8 +6,8 @@ import {
 	Tokenizer,
 	type TokenizerAndRendererExtension,
 	type Tokens,
-} from "@oh-my-pi/pi-utils/marked";
-import { mathBlockAt, mathSpanAt, mathStartIndex } from "@oh-my-pi/pi-utils/math-delimiters";
+} from "@oh-my-soup/pi-utils/marked";
+import { mathBlockAt, mathSpanAt, mathStartIndex } from "@oh-my-soup/pi-utils/math-delimiters";
 import { latexToBlock } from "../latex-block";
 import { isBareMathEnvironment, latexToUnicode } from "../latex-to-unicode";
 import type { SymbolTheme } from "../symbols";
@@ -583,7 +583,7 @@ const customHrExtension: TokenizerAndRendererExtension = {
 	},
 };
 
-// Delimiters come from `@oh-my-pi/pi-utils/math-delimiters`; rendering policy stays here.
+// Delimiters come from `@oh-my-soup/pi-utils/math-delimiters`; rendering policy stays here.
 const mathExtension: TokenizerAndRendererExtension = {
 	name: "math",
 	level: "inline",

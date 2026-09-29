@@ -8,10 +8,10 @@ import {
 } from "../config/compaction-threshold";
 import { effect, register } from "../config/registry";
 import { type ServiceTierInheritSettingValue, validateAgentServiceTierOverrides } from "../config/service-tier";
-import { THINKING_EFFORTS } from "@oh-my-pi/pi-catalog/effort";
-import { logger, setWorktreesDir } from "@oh-my-pi/pi-utils";
-import { setFeedModelBadgeEnabled } from "@oh-my-pi/pi-tui/render/render-utils";
-import { getThinkingLevelMetadata } from "@oh-my-pi/pi-tui/thinking";
+import { THINKING_EFFORTS } from "@oh-my-soup/pi-catalog/effort";
+import { logger, setWorktreesDir } from "@oh-my-soup/pi-utils";
+import { setFeedModelBadgeEnabled } from "@oh-my-soup/pi-tui/render/render-utils";
+import { getThinkingLevelMetadata } from "@oh-my-soup/pi-tui/thinking";
 
 const EMPTY_AGENT_SERVICE_TIER_OVERRIDES: Record<string, ServiceTierInheritSettingValue> = {};
 const EMPTY_AGENT_COMPACTION_THRESHOLD_OVERRIDES: Record<string, AgentCompactionThresholdOverride> = {};
@@ -157,7 +157,7 @@ export const cfgWorktreeBase = register({
 		group: "Isolation",
 		label: "Worktree Base Directory",
 		description:
-			"Base directory for agent-managed worktrees — task-isolation copies, `github` PR checkouts, and `omp worktree` cleanup all live here. Unset uses ~/.omp/wt. Must be an absolute or ~-relative path; relative paths are ignored. The OMP_WORKTREE_DIR env var overrides this.",
+			"Base directory for agent-managed worktrees — task-isolation copies, `github` PR checkouts, and `omp worktree` cleanup all live here. Unset uses ~/.oms/wt. Must be an absolute or ~-relative path; relative paths are ignored. The OMP_WORKTREE_DIR env var overrides this.",
 	},
 });
 effect(cfgWorktreeBase, value => {

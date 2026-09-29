@@ -13,12 +13,12 @@
  * the visible viewport brightened; clicking it seeks. Long lines either pan
  * horizontally (`←`/`→`) or soft-wrap when word wrap is enabled.
  */
-import type { DiffStreamResult, HighlightStream } from "@oh-my-pi/pi-natives";
-import { diffWords, structuredPatchHunks } from "@oh-my-pi/pi-natives";
+import type { DiffStreamResult, HighlightStream } from "@oh-my-soup/pi-natives";
+import { diffWords, structuredPatchHunks } from "@oh-my-soup/pi-natives";
 import { Image, type ImageBudget } from "../../components/image";
 import { clampScrollOffset, scrollOffsetForRow, viewportRange } from "../../components/scroll-viewport";
 import { centerLine, sliceWithWidth, truncateToWidth, visibleWidth } from "../../utils";
-import { formatBytes } from "@oh-my-pi/pi-utils";
+import { formatBytes } from "@oh-my-soup/pi-utils";
 import { sanitizeDisplayText } from "../../overlays/extensions/display-text";
 import { getLanguageFromPath } from "../../lang-from-path";
 import { createHighlightStream, theme } from "../../theme/theme";

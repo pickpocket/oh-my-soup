@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { cfgEditFuzzyMatch } from "@oh-my-pi/pi-coding-agent/edit/settings";
-import { type EditMode } from "@oh-my-pi/pi-tui/tools/edit";
-import { type EditModeSessionLike, resolveEditMode } from "@oh-my-pi/pi-coding-agent/utils/edit-mode";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { cfgEditFuzzyMatch } from "@oh-my-soup/pi-coding-agent/edit/settings";
+import { type EditMode } from "@oh-my-soup/pi-tui/tools/edit";
+import { type EditModeSessionLike, resolveEditMode } from "@oh-my-soup/pi-coding-agent/utils/edit-mode";
 
 const originalEditVariant = Bun.env.PI_EDIT_VARIANT;
 const originalStrictEditMode = Bun.env.PI_STRICT_EDIT_MODE;

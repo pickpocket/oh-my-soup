@@ -1,7 +1,7 @@
 import * as path from "node:path";
 import { createInterface } from "node:readline/promises";
-import * as vcs from "@oh-my-pi/pi-natives/vcs";
-import { $env, getProjectDir, isEnoent, prompt } from "@oh-my-pi/pi-utils";
+import * as vcs from "@oh-my-soup/pi-natives/vcs";
+import { $env, getProjectDir, isEnoent, prompt } from "@oh-my-soup/pi-utils";
 import { applyChangelogProposals } from "../../commit/changelog";
 import { detectChangelogBoundaries } from "../../commit/changelog/detect";
 import { parseUnreleasedSection } from "../../commit/changelog/parse";

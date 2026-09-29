@@ -1,13 +1,13 @@
 import * as path from "node:path";
 import { afterEach, describe, expect, it, spyOn } from "bun:test";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { callTool } from "@oh-my-pi/pi-coding-agent/mcp/client";
-import { MCPManager } from "@oh-my-pi/pi-coding-agent/mcp/manager";
-import { resolveMCPStartupTimeoutMs } from "@oh-my-pi/pi-coding-agent/mcp/timeout";
-import type { MCPStdioServerConfig } from "@oh-my-pi/pi-coding-agent/mcp/types";
-import { runPrintMode } from "@oh-my-pi/pi-coding-agent/modes/print-mode";
-import type { AgentSession } from "@oh-my-pi/pi-coding-agent/session/agent-session";
-import { TempDir } from "@oh-my-pi/pi-utils";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { callTool } from "@oh-my-soup/pi-coding-agent/mcp/client";
+import { MCPManager } from "@oh-my-soup/pi-coding-agent/mcp/manager";
+import { resolveMCPStartupTimeoutMs } from "@oh-my-soup/pi-coding-agent/mcp/timeout";
+import type { MCPStdioServerConfig } from "@oh-my-soup/pi-coding-agent/mcp/types";
+import { runPrintMode } from "@oh-my-soup/pi-coding-agent/modes/print-mode";
+import type { AgentSession } from "@oh-my-soup/pi-coding-agent/session/agent-session";
+import { TempDir } from "@oh-my-soup/pi-utils";
 
 const FIXTURE = path.join(import.meta.dir, "fixtures", "readiness-mcp.ts");
 const SLOW_START_MS = 1_100;

@@ -15,9 +15,9 @@
  */
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { AstMatchStrictness, astMatch, FileType, type GlobMatch, glob } from "@oh-my-pi/pi-natives";
-import chalk from "@oh-my-pi/pi-utils/chalk";
-import { getProjectDir } from "@oh-my-pi/pi-utils/dirs";
+import { AstMatchStrictness, astMatch, FileType, type GlobMatch, glob } from "@oh-my-soup/pi-natives";
+import chalk from "@oh-my-soup/pi-utils/chalk";
+import { getProjectDir } from "@oh-my-soup/pi-utils/dirs";
 import {
 	BUILTIN_DEFAULTS_PROVIDER_ID,
 	compileRuleCondition,

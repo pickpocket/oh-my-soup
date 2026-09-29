@@ -1,8 +1,8 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { $which, getToolsDir, logger, ptree, TempDir, USER_AGENT } from "@oh-my-pi/pi-utils";
-import { extractArchive } from "@oh-my-pi/pi-utils/ar";
+import { $which, getToolsDir, logger, ptree, TempDir, USER_AGENT } from "@oh-my-soup/pi-utils";
+import { extractArchive } from "@oh-my-soup/pi-utils/ar";
 import { type DownloadTracker, trackDownload, withDownload } from "../downloads/activity";
 
 const TOOLS_DIR = getToolsDir();

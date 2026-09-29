@@ -1,6 +1,6 @@
-import type { AgentToolResult } from "@oh-my-pi/pi-agent-core";
-import type { IrcMessage } from "@oh-my-pi/pi-tui/tools/irc";
-import type { CoordinationDetails } from "@oh-my-pi/pi-tui/tools/wait";
+import type { AgentToolResult } from "@oh-my-soup/pi-agent-core";
+import type { IrcMessage } from "@oh-my-soup/pi-tui/tools/irc";
+import type { CoordinationDetails } from "@oh-my-soup/pi-tui/tools/wait";
 import type { Settings } from "../config/settings";
 import { IrcBus } from "./bus";
 import { type AgentRegistry, MAIN_AGENT_ID } from "../registry/agent-registry";

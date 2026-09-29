@@ -7,17 +7,17 @@
  * the depth it reaches before it either loses the array or drops the cat sound,
  * which makes the two failure modes separable from a single reply.
  */
-import { streamSimple } from "@oh-my-pi/pi-ai";
-import chalk from "@oh-my-pi/pi-utils/chalk";
+import { streamSimple } from "@oh-my-soup/pi-ai";
+import chalk from "@oh-my-soup/pi-utils/chalk";
 import {
 	type BenchRuntime,
 	createDefaultBenchRuntime,
 	resolveBenchTargets,
 	type StreamSimpleFn,
 } from "../cli/bench-runtime";
-import type { LiveBoardOutput } from "@oh-my-pi/pi-tui/chrome/live-board";
+import type { LiveBoardOutput } from "@oh-my-soup/pi-tui/chrome/live-board";
 import { initialArray } from "./actions";
-import { createIfBenchBoard, formatIfBenchScoreboard } from "@oh-my-pi/pi-tui/apps/if-bench-board";
+import { createIfBenchBoard, formatIfBenchScoreboard } from "@oh-my-soup/pi-tui/apps/if-bench-board";
 import { DEFAULT_NYA_MAX } from "./protocol";
 import { type IfBenchSummary, runIfBench } from "./runner";
 

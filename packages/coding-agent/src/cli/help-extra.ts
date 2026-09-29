@@ -1,6 +1,6 @@
-import "@oh-my-pi/pi-utils/env";
-import chalk from "@oh-my-pi/pi-utils/chalk";
-import { APP_NAME, CONFIG_DIR_NAME } from "@oh-my-pi/pi-utils/dirs";
+import "@oh-my-soup/pi-utils/env";
+import chalk from "@oh-my-soup/pi-utils/chalk";
+import { APP_NAME, CONFIG_DIR_NAME } from "@oh-my-soup/pi-utils/dirs";
 
 export function getExtraHelpText(): string {
 	return `${chalk.bold("Environment Variables:")}
@@ -92,6 +92,6 @@ ${chalk.bold("Plugin Options:")}
   --plugin-dir <path>        Load plugin from directory (repeatable)
 
 ${chalk.bold("Useful Commands:")}
-  omp agents unpack           - Export bundled subagents to ~/.omp/agent/agents (default)
-  omp agents unpack --project - Export bundled subagents to ./.omp/agents`;
+  omp agents unpack           - Export bundled subagents to ~/.oms/agent/agents (default)
+  omp agents unpack --project - Export bundled subagents to ./.oms/agents`;
 }

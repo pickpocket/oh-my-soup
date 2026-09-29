@@ -5,13 +5,13 @@ import {
 	HL_FILE_HASH_SEP,
 	HL_FILE_PREFIX,
 	HL_FILE_SUFFIX,
-} from "@oh-my-pi/pi-tui/tools/hashline-format";
-import { isEnoent } from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-tui/tools/hashline-format";
+import { isEnoent } from "@oh-my-soup/pi-utils";
 import { InternalUrlRouter } from "../internal-urls";
 import { sessionResolveContext } from "../internal-urls/context";
 import type { ToolSession } from ".";
 import { resolveToCwd } from "./path-utils";
-import { ToolError } from "@oh-my-pi/pi-tui/tools/tool-errors";
+import { ToolError } from "@oh-my-soup/pi-tui/tools/tool-errors";
 
 const HL_TRAILING_TAG_RE = new RegExp(`${HL_FILE_HASH_SEP}[0-9A-Fa-f]{${HL_FILE_HASH_LENGTH}}$`);
 

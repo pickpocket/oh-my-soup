@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { extractTemporal, parseNlDate } from "@oh-my-pi/pi-mnemopi/core/temporal-parser";
+import { extractTemporal, parseNlDate } from "@oh-my-soup/pi-mnemopi/core/temporal-parser";
 
 const REF = new Date("2026-05-20T15:30:00Z"); // Wednesday
 

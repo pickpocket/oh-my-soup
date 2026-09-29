@@ -10,7 +10,7 @@ import {
 	getProjectPluginOverridesPath,
 	isEnoent,
 	logger,
-} from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-utils";
 import { resolveActiveProjectRegistryPath } from "../../discovery/helpers";
 import { loadExtensions } from "../extensions/loader";
 import { refreshBunGitCache } from "./bun-git-cache";
@@ -752,7 +752,7 @@ export class PluginManager {
 
 	/**
 	 * Resolve a plugin from the active project plugin root
-	 * (`<anchor>/.omp/plugins`). Project npm/link/marketplace installs all record
+	 * (`<anchor>/.oms/plugins`). Project npm/link/marketplace installs all record
 	 * their runtime state and `node_modules` symlink there — invisible to the
 	 * user-root lookup — so this reads the project's own `package.json`
 	 * dependencies plus `omp-plugins.lock.json`, and resolves the package from

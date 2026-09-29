@@ -15,7 +15,7 @@ import {
 	isEnoent,
 	logger,
 	MAIN_CONFIG_FILENAMES,
-} from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-utils";
 import { YAML } from "bun";
 import {
 	type AuthAccountPolicies,

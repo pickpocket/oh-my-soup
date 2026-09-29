@@ -11,7 +11,7 @@
  */
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { isEnoent } from "@oh-my-pi/pi-utils";
+import { isEnoent } from "@oh-my-soup/pi-utils";
 import artifactDoc from "../prompts/internal-urls/artifact.md" with { type: "text" };
 import { artifactsDirsFromRegistry } from "./registry-helpers";
 import type {

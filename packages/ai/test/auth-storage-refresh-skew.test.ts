@@ -2,8 +2,8 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { type AuthCredentialStore, AuthStorage, SqliteAuthCredentialStore } from "@oh-my-pi/pi-ai/auth-storage";
-import { registerOAuthProvider, unregisterOAuthProviders } from "@oh-my-pi/pi-ai/registry/oauth";
+import { type AuthCredentialStore, AuthStorage, SqliteAuthCredentialStore } from "@oh-my-soup/pi-ai/auth-storage";
+import { registerOAuthProvider, unregisterOAuthProviders } from "@oh-my-soup/pi-ai/registry/oauth";
 import { removeWithRetries } from "../../utils/src/temp";
 
 describe("AuthStorage OAuth refresh skew", () => {

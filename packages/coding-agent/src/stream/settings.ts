@@ -3,7 +3,7 @@
  * settings-panel order; `config/all-settings.ts` registers every domain.
  */
 import { register } from "../config/registry";
-import { DEFAULT_STREAM_URL } from "@oh-my-pi/pi-wire";
+import { DEFAULT_STREAM_URL } from "@oh-my-soup/pi-wire";
 
 const EMPTY_STRING_ARRAY: string[] = [];
 

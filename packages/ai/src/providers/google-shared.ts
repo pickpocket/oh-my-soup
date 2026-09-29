@@ -3,8 +3,8 @@
  */
 
 import { scheduler } from "node:timers/promises";
-import { calculateCost } from "@oh-my-pi/pi-catalog/models";
-import { readSseJson, type SseEventObserver } from "@oh-my-pi/pi-utils";
+import { calculateCost } from "@oh-my-soup/pi-catalog/models";
+import { readSseJson, type SseEventObserver } from "@oh-my-soup/pi-utils";
 import { renderDemotedThinking } from "../dialect/demotion";
 import { ThinkingFenceStripper } from "../dialect/thinking-fence-strip";
 import * as AIError from "../error";

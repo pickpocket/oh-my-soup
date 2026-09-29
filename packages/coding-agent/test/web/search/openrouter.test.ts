@@ -1,8 +1,8 @@
 import { describe, expect, it } from "bun:test";
-import type { FetchImpl } from "@oh-my-pi/pi-ai/types";
-import { ModelRegistry } from "@oh-my-pi/pi-coding-agent/config/model-registry";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
-import { searchOpenRouterGrounded } from "@oh-my-pi/pi-coding-agent/web/search/providers/openrouter";
+import type { FetchImpl } from "@oh-my-soup/pi-ai/types";
+import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
+import { searchOpenRouterGrounded } from "@oh-my-soup/pi-coding-agent/web/search/providers/openrouter";
 import { createInMemoryAuthStorage } from "../../helpers/agent-session-setup";
 
 function createFixture() {

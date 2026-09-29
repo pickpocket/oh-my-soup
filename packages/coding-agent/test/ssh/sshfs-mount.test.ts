@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "bun:test";
 import * as path from "node:path";
-import * as piUtils from "@oh-my-pi/pi-utils";
+import * as piUtils from "@oh-my-soup/pi-utils";
 import * as connectionManager from "../../src/ssh/connection-manager";
 import { isMounted, mountRemote } from "../../src/ssh/sshfs-mount";
 

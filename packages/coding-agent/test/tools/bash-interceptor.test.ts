@@ -1,12 +1,12 @@
 import { describe, expect, it } from "bun:test";
-import type { AgentToolContext } from "@oh-my-pi/pi-agent-core";
-import { validateToolArguments } from "@oh-my-pi/pi-ai/utils/validation";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import type { BashInterceptorRule } from "@oh-my-pi/pi-coding-agent/exec/settings";
-import type { ToolSession } from "@oh-my-pi/pi-coding-agent/tools";
-import { BashTool, type BashToolInput } from "@oh-my-pi/pi-coding-agent/tools/bash";
-import { checkBashInterception } from "@oh-my-pi/pi-coding-agent/tools/bash-interceptor";
-import { DEFAULT_BASH_INTERCEPTOR_RULES } from "@oh-my-pi/pi-coding-agent/exec/settings";
+import type { AgentToolContext } from "@oh-my-soup/pi-agent-core";
+import { validateToolArguments } from "@oh-my-soup/pi-ai/utils/validation";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import type { BashInterceptorRule } from "@oh-my-soup/pi-coding-agent/exec/settings";
+import type { ToolSession } from "@oh-my-soup/pi-coding-agent/tools";
+import { BashTool, type BashToolInput } from "@oh-my-soup/pi-coding-agent/tools/bash";
+import { checkBashInterception } from "@oh-my-soup/pi-coding-agent/tools/bash-interceptor";
+import { DEFAULT_BASH_INTERCEPTOR_RULES } from "@oh-my-soup/pi-coding-agent/exec/settings";
 
 function createBashTool(rules: BashInterceptorRule[]): BashTool {
 	const session = {

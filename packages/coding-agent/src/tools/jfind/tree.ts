@@ -6,9 +6,9 @@
  * obvious credential material.
  */
 import * as path from "node:path";
-import * as natives from "@oh-my-pi/pi-natives";
-import { ToolError } from "@oh-my-pi/pi-tui/tools/tool-errors";
-import { buildPathTree, type PathTreeInput, walkPathTree } from "@oh-my-pi/pi-utils";
+import * as natives from "@oh-my-soup/pi-natives";
+import { ToolError } from "@oh-my-soup/pi-tui/tools/tool-errors";
+import { buildPathTree, type PathTreeInput, walkPathTree } from "@oh-my-soup/pi-utils";
 import { InternalUrlRouter } from "../../internal-urls/router";
 import { type InternalUrlFilesystem, type UrlFileStat, UrlFsError } from "../../internal-urls/url-filesystem";
 import { resolveSearchBase, resolveSearchResultPath } from "../path-utils";

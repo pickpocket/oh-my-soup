@@ -1,6 +1,6 @@
-import type { AgentMessage } from "@oh-my-pi/pi-agent-core";
-import { ConcatSink, getBlobsDir, isEnoent, isEnotdir, parseJsonlLenient } from "@oh-my-pi/pi-utils";
-import * as snapcompact from "@oh-my-pi/snapcompact";
+import type { AgentMessage } from "@oh-my-soup/pi-agent-core";
+import { ConcatSink, getBlobsDir, isEnoent, isEnotdir, parseJsonlLenient } from "@oh-my-soup/pi-utils";
+import * as snapcompact from "@oh-my-soup/snapcompact";
 import { Semaphore } from "../task/parallel";
 import { BlobStore, isBlobRef, lazyImageDataSync, resolveImageData, resolveImageDataUrl } from "./blob-store";
 import { buildSessionContext } from "./session-context";

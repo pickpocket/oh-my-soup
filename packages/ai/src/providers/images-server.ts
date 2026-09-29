@@ -1,4 +1,4 @@
-import { type } from "@oh-my-pi/omptype";
+import { type } from "@oh-my-soup/omstype";
 import * as AIError from "../error";
 import type { ImageGenerationRequest, ImageGenerationResult } from "../images/types";
 

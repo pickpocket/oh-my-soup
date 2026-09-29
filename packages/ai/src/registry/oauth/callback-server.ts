@@ -11,7 +11,7 @@
  * - exchangeToken(): Exchange authorization code for tokens
  */
 import * as os from "node:os";
-import { logger } from "@oh-my-pi/pi-utils";
+import { logger } from "@oh-my-soup/pi-utils";
 import * as AIError from "../../error";
 import * as nativeSchemeCallback from "./native-scheme-callback";
 import type { NativeSchemeCallbackReceiver } from "./native-scheme-callback";

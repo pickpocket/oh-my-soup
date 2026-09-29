@@ -2,8 +2,8 @@ import { afterEach, describe, expect, it, spyOn, vi } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import * as collabCli from "@oh-my-pi/pi-coding-agent/cli/collab-cli";
-import * as registry from "@oh-my-pi/pi-coding-agent/collab/registry";
+import * as collabCli from "@oh-my-soup/pi-coding-agent/cli/collab-cli";
+import * as registry from "@oh-my-soup/pi-coding-agent/collab/registry";
 import {
 	COLLAB_REGISTRY_VERSION,
 	type CollabHostPublication,
@@ -11,9 +11,9 @@ import {
 	CollabLinkError,
 	publishCollabHost,
 	resolveCollabHostLink,
-} from "@oh-my-pi/pi-coding-agent/collab/registry";
-import Collab from "@oh-my-pi/pi-coding-agent/commands/collab";
-import { type CliConfig, CliUsageError } from "@oh-my-pi/pi-utils/cli";
+} from "@oh-my-soup/pi-coding-agent/collab/registry";
+import Collab from "@oh-my-soup/pi-coding-agent/commands/collab";
+import { type CliConfig, CliUsageError } from "@oh-my-soup/pi-utils/cli";
 
 interface HostFixture {
 	snapshot: CollabHostSnapshot;

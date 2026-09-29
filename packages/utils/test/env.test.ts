@@ -10,7 +10,7 @@ import {
 	parseEnvFile,
 	setInteractiveHost,
 	stripGitRepoLocationEnv,
-} from "@oh-my-pi/pi-utils/env";
+} from "@oh-my-soup/pi-utils/env";
 
 const tempDirs: string[] = [];
 const runtimeProbePath = path.join(import.meta.dir, "fixtures", "test-runtime-probe.ts");

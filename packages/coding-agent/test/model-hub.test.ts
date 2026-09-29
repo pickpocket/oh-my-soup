@@ -4,24 +4,24 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { stripVTControlCharacters } from "node:util";
-import { ThinkingLevel } from "@oh-my-pi/pi-agent-core";
-import type { Model } from "@oh-my-pi/pi-ai";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
-import { getBundledModel } from "@oh-my-pi/pi-catalog/models";
-import type { ModelRegistry } from "@oh-my-pi/pi-coding-agent/config/model-registry";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
+import { ThinkingLevel } from "@oh-my-soup/pi-agent-core";
+import type { Model } from "@oh-my-soup/pi-ai";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
+import { getBundledModel } from "@oh-my-soup/pi-catalog/models";
+import type { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
 import {
 	type ModelHubCallbacks,
 	ModelHubComponent,
 	type ModelHubOptions,
 	resetProviderAutoRefreshGuard,
-} from "@oh-my-pi/pi-tui/overlays/model-hub";
-import { getThemeByName, setThemeInstance, theme } from "@oh-my-pi/pi-tui/theme";
-import { AUTO_THINKING } from "@oh-my-pi/pi-tui/thinking";
-import type { TUI } from "@oh-my-pi/pi-tui";
+} from "@oh-my-soup/pi-tui/overlays/model-hub";
+import { getThemeByName, setThemeInstance, theme } from "@oh-my-soup/pi-tui/theme";
+import { AUTO_THINKING } from "@oh-my-soup/pi-tui/thinking";
+import type { TUI } from "@oh-my-soup/pi-tui";
 
-import { cfgCycleOrder } from "@oh-my-pi/pi-coding-agent/config/model-settings";
-import { cfgRetryFallbackChains } from "@oh-my-pi/pi-coding-agent/session/settings";
+import { cfgCycleOrder } from "@oh-my-soup/pi-coding-agent/config/model-settings";
+import { cfgRetryFallbackChains } from "@oh-my-soup/pi-coding-agent/session/settings";
 
 function normalize(lines: readonly string[]): string {
 	return stripVTControlCharacters(lines.join("\n")).replace(/\s+/g, " ").trim();

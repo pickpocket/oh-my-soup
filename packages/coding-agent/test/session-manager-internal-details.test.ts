@@ -12,9 +12,9 @@
  * `__`-prefixed fields not in the allowlist) is preserved verbatim.
  */
 import { describe, expect, it } from "bun:test";
-import { type SkillPromptDetails, stripInternalDetailsFields } from "@oh-my-pi/pi-coding-agent/session/messages";
-import type { CustomMessageEntry } from "@oh-my-pi/pi-coding-agent/session/session-entries";
-import { SessionManager } from "@oh-my-pi/pi-coding-agent/session/session-manager";
+import { type SkillPromptDetails, stripInternalDetailsFields } from "@oh-my-soup/pi-coding-agent/session/messages";
+import type { CustomMessageEntry } from "@oh-my-soup/pi-coding-agent/session/session-entries";
+import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
 
 const SKILL_TYPE = "skill-prompt";
 

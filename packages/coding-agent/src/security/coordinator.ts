@@ -1,9 +1,9 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import type { Model } from "@oh-my-pi/pi-ai";
-import type { VcsGitRepo } from "@oh-my-pi/pi-natives";
-import * as vcs from "@oh-my-pi/pi-natives/vcs";
-import { logger, prompt } from "@oh-my-pi/pi-utils";
+import type { Model } from "@oh-my-soup/pi-ai";
+import type { VcsGitRepo } from "@oh-my-soup/pi-natives";
+import * as vcs from "@oh-my-soup/pi-natives/vcs";
+import { logger, prompt } from "@oh-my-soup/pi-utils";
 import type { AsyncJobManager } from "../async/job-manager";
 import type { ModelRegistry } from "../config/model-registry";
 import type { Settings } from "../config/settings";

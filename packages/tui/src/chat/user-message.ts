@@ -2,7 +2,7 @@ import { applyBackgroundToLine, padding, visibleWidth } from "../utils";
 import { type Component, Container } from "../tui";
 import { Disclosure } from "../components/disclosure";
 import { Markdown } from "../components/markdown";
-import { formatBytes } from "@oh-my-pi/pi-utils";
+import { formatBytes } from "@oh-my-soup/pi-utils";
 import { ensureThemeSync, getMarkdownTheme, theme } from "../theme";
 import {
 	attachmentSgr,

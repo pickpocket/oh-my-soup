@@ -2,7 +2,7 @@
 /**
  * Publish workspace packages.
  *
- * The default mode publishes public JS packages and the `@oh-my-pi/pi-natives`
+ * The default mode publishes public JS packages and the `@oh-my-soup/pi-natives`
  * core package. Generated native leaf packages are published separately with
  * `--native-leaf <tag>` from the release_binary matrix after that matrix entry
  * downloads the matching `.node` artifacts.
@@ -15,7 +15,7 @@
  *      `dist/types` (plus `dist/client` for `stats`) is added to `files`,
  *      and packages with a `publishBin` override get their `bin` swapped to
  *      the prepack bundle (coding-agent: `src/cli.ts` → `dist/cli.js`).
- *      Packages flagged `publishJs` (omptype) additionally emit transpiled
+ *      Packages flagged `publishJs` (omstype) additionally emit transpiled
  *      per-module JS into `dist/js/` and get their runtime entries (`main`,
  *      `exports[*]` import paths) repointed there, with a `bun` condition
  *      keeping TS-source resolution for Bun consumers — so the published
@@ -164,7 +164,7 @@ const STATS_CLIENT_LOCK = "stats-client";
 export const packages: PublishPackage[] = [
 	{ dir: "packages/utils", kind: "typescript" },
 	{ dir: "packages/wire", kind: "typescript" },
-	{ dir: "packages/omptype", kind: "typescript", publishJs: true },
+	{ dir: "packages/omstype", kind: "typescript", publishJs: true },
 	{ dir: "packages/catalog", kind: "typescript" },
 	{ dir: "packages/ai", kind: "typescript" },
 	{ dir: "packages/natives", kind: "native" },
@@ -306,7 +306,7 @@ export async function applyPublishBin(pkgRelDir: string, write: boolean): Promis
 function buildNativeOptionalDependencies(version: string): JsonObject {
 	const optionalDependencies: JsonObject = {};
 	for (const target of LEAF_TARGETS) {
-		optionalDependencies[`@oh-my-pi/pi-natives-${target.tag}`] = version;
+		optionalDependencies[`@oh-my-soup/pi-natives-${target.tag}`] = version;
 	}
 	return optionalDependencies;
 }

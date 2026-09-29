@@ -1,7 +1,7 @@
 import { Database } from "bun:sqlite";
 import { afterEach, beforeEach, expect, it } from "bun:test";
-import { HistoryStorage } from "@oh-my-pi/pi-coding-agent/session/history-storage";
-import { TempDir } from "@oh-my-pi/pi-utils";
+import { HistoryStorage } from "@oh-my-soup/pi-coding-agent/session/history-storage";
+import { TempDir } from "@oh-my-soup/pi-utils";
 import { readTableSql } from "./helpers/sqlite-inspect";
 
 const LEGACY_TIMESTAMP = 1_700_000_000;

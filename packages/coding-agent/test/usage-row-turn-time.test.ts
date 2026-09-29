@@ -7,31 +7,31 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { AgentMessage } from "@oh-my-pi/pi-agent-core";
-import { Agent } from "@oh-my-pi/pi-agent-core";
-import type { Usage } from "@oh-my-pi/pi-ai";
-import { createMockModel } from "@oh-my-pi/pi-ai/providers/mock";
-import { getBundledModel } from "@oh-my-pi/pi-catalog/models";
-import { ModelRegistry } from "@oh-my-pi/pi-coding-agent/config/model-registry";
-import { resetSettingsForTest, Settings, settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import type { ExtensionRunner } from "@oh-my-pi/pi-coding-agent/extensibility/extensions/runner";
-import { ChatTranscriptBuilder } from "@oh-my-pi/pi-tui/chat/chat-transcript-builder";
-import { formatUsageRow } from "@oh-my-pi/pi-tui/overlays/usage-row";
-import { EventController } from "@oh-my-pi/pi-coding-agent/modes/controllers/event-controller";
-import { initTheme, theme } from "@oh-my-pi/pi-tui/theme";
-import type { InteractiveModeContext } from "@oh-my-pi/pi-coding-agent/modes/types";
-import { UiHelpers } from "@oh-my-pi/pi-coding-agent/modes/utils/ui-helpers";
-import type { AgentSessionEvent } from "@oh-my-pi/pi-coding-agent/session/agent-session";
-import { AgentSession } from "@oh-my-pi/pi-coding-agent/session/agent-session";
-import { AuthStorage } from "@oh-my-pi/pi-coding-agent/session/auth-storage";
-import { convertToLlm } from "@oh-my-pi/pi-coding-agent/session/messages";
-import type { SessionContext } from "@oh-my-pi/pi-coding-agent/session/session-context";
-import { SessionManager } from "@oh-my-pi/pi-coding-agent/session/session-manager";
-import { Container, type TUI } from "@oh-my-pi/pi-tui";
-import { removeSyncWithRetries, Snowflake } from "@oh-my-pi/pi-utils";
+import type { AgentMessage } from "@oh-my-soup/pi-agent-core";
+import { Agent } from "@oh-my-soup/pi-agent-core";
+import type { Usage } from "@oh-my-soup/pi-ai";
+import { createMockModel } from "@oh-my-soup/pi-ai/providers/mock";
+import { getBundledModel } from "@oh-my-soup/pi-catalog/models";
+import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
+import { resetSettingsForTest, Settings, settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import type { ExtensionRunner } from "@oh-my-soup/pi-coding-agent/extensibility/extensions/runner";
+import { ChatTranscriptBuilder } from "@oh-my-soup/pi-tui/chat/chat-transcript-builder";
+import { formatUsageRow } from "@oh-my-soup/pi-tui/overlays/usage-row";
+import { EventController } from "@oh-my-soup/pi-coding-agent/modes/controllers/event-controller";
+import { initTheme, theme } from "@oh-my-soup/pi-tui/theme";
+import type { InteractiveModeContext } from "@oh-my-soup/pi-coding-agent/modes/types";
+import { UiHelpers } from "@oh-my-soup/pi-coding-agent/modes/utils/ui-helpers";
+import type { AgentSessionEvent } from "@oh-my-soup/pi-coding-agent/session/agent-session";
+import { AgentSession } from "@oh-my-soup/pi-coding-agent/session/agent-session";
+import { AuthStorage } from "@oh-my-soup/pi-coding-agent/session/auth-storage";
+import { convertToLlm } from "@oh-my-soup/pi-coding-agent/session/messages";
+import type { SessionContext } from "@oh-my-soup/pi-coding-agent/session/session-context";
+import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
+import { Container, type TUI } from "@oh-my-soup/pi-tui";
+import { removeSyncWithRetries, Snowflake } from "@oh-my-soup/pi-utils";
 import { createInteractiveModeContext } from "./helpers/interactive-mode-context";
 
-import { cfgDisplayShowTokenUsage, cfgDisplayShowTurnTime } from "@oh-my-pi/pi-coding-agent/modes/settings";
+import { cfgDisplayShowTokenUsage, cfgDisplayShowTurnTime } from "@oh-my-soup/pi-coding-agent/modes/settings";
 
 // 60s of elapsed: 30s between the prompt and the final response's creation,
 // plus a 30s provider request — formatDuration renders this as "1m".

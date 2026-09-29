@@ -14,7 +14,7 @@ import {
 	type SkillToken,
 	type SkillTokenCreated,
 	type SkillVersionManifest,
-} from "@oh-my-pi/pi-wire/skillshare";
+} from "@oh-my-soup/pi-wire/skillshare";
 import { Settings } from "../config/settings";
 import { StencilCredential } from "../stencil/credential";
 

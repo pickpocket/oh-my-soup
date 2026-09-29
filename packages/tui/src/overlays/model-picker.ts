@@ -4,7 +4,7 @@
  * Model entries switch the current session only; a search beginning with `@`
  * exposes the configured ctrl+p quick roles.
  */
-import type { Model } from "@oh-my-pi/pi-ai";
+import type { Model } from "@oh-my-soup/pi-ai";
 import { addKeyAliases, canonicalKeyId } from "../keybindings";
 import { type KeyId, parseKey } from "../keys";
 import type { Component, TUI } from "../tui";

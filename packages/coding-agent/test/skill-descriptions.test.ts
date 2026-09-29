@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { TempDir } from "@oh-my-pi/pi-utils";
+import { TempDir } from "@oh-my-soup/pi-utils";
 import { SkillDescriptionCatalog } from "../src/extensibility/skill-descriptions";
 import type { Skill } from "../src/extensibility/skills";
 import { buildSystemPrompt } from "../src/system-prompt";

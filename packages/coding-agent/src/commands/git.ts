@@ -3,12 +3,12 @@
  * staging sidebar, and generated or manual commit composer.
  */
 
-import { getProjectDir } from "@oh-my-pi/pi-utils";
-import { Args, Command, Flags } from "@oh-my-pi/pi-utils/cli";
+import { getProjectDir } from "@oh-my-soup/pi-utils";
+import { Args, Command, Flags } from "@oh-my-soup/pi-utils/cli";
 import { gitHelp as commandHelp } from "../cli/command-help";
 import { runGitTui } from "../cli/git-tui";
 import { Settings, settings } from "../config/settings";
-import { initTheme } from "@oh-my-pi/pi-tui/theme";
+import { initTheme } from "@oh-my-soup/pi-tui/theme";
 
 import { cfgColorBlindMode, cfgSymbolPreset, cfgThemeDark, cfgThemeLight } from "../modes/settings";
 

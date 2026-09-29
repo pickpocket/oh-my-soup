@@ -12,24 +12,24 @@
  * helper itself is exercised directly.
  */
 import { afterEach, describe, expect, it, vi } from "bun:test";
-import type { AuthStorage, FetchImpl } from "@oh-my-pi/pi-ai";
-import { ModelRegistry } from "@oh-my-pi/pi-coding-agent/config/model-registry";
-import { resetSettingsForTest, Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { ToolAbortError } from "@oh-my-pi/pi-coding-agent/tools/tool-errors";
-import { runSearchQuery } from "@oh-my-pi/pi-coding-agent/web/search";
-import * as provider from "@oh-my-pi/pi-coding-agent/web/search/provider";
-import { searchAnthropic } from "@oh-my-pi/pi-coding-agent/web/search/providers/anthropic";
-import type { SearchParams } from "@oh-my-pi/pi-coding-agent/web/search/providers/base";
-import { searchBrave } from "@oh-my-pi/pi-coding-agent/web/search/providers/brave";
-import { withHardTimeout } from "@oh-my-pi/pi-coding-agent/web/search/providers/utils";
-import { SearchProviderError } from "@oh-my-pi/pi-coding-agent/web/search/types";
-import { type SearchProviderId, type SearchResponse } from "@oh-my-pi/pi-coding-agent/web/search/types";
+import type { AuthStorage, FetchImpl } from "@oh-my-soup/pi-ai";
+import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
+import { resetSettingsForTest, Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { ToolAbortError } from "@oh-my-soup/pi-coding-agent/tools/tool-errors";
+import { runSearchQuery } from "@oh-my-soup/pi-coding-agent/web/search";
+import * as provider from "@oh-my-soup/pi-coding-agent/web/search/provider";
+import { searchAnthropic } from "@oh-my-soup/pi-coding-agent/web/search/providers/anthropic";
+import type { SearchParams } from "@oh-my-soup/pi-coding-agent/web/search/providers/base";
+import { searchBrave } from "@oh-my-soup/pi-coding-agent/web/search/providers/brave";
+import { withHardTimeout } from "@oh-my-soup/pi-coding-agent/web/search/providers/utils";
+import { SearchProviderError } from "@oh-my-soup/pi-coding-agent/web/search/types";
+import { type SearchProviderId, type SearchResponse } from "@oh-my-soup/pi-coding-agent/web/search/types";
 import { createInMemoryAuthStorage } from "../../helpers/agent-session-setup";
 
 import {
 	cfgProvidersWebSearchTimeoutSeconds,
 	cfgRetryFallbackChains,
-} from "@oh-my-pi/pi-coding-agent/session/settings";
+} from "@oh-my-soup/pi-coding-agent/session/settings";
 
 const openAuthStorages: AuthStorage[] = [];
 

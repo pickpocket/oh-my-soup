@@ -4,10 +4,10 @@
  * Run with: npx tsx test/streaming-render-debug.ts
  */
 import * as path from "node:path";
-import type { AssistantMessage } from "@oh-my-pi/pi-ai";
-import { AssistantMessageComponent } from "@oh-my-pi/pi-tui/chat/assistant-message";
-import { initTheme } from "@oh-my-pi/pi-tui/theme";
-import { ProcessTerminal, TUI } from "@oh-my-pi/pi-tui";
+import type { AssistantMessage } from "@oh-my-soup/pi-ai";
+import { AssistantMessageComponent } from "@oh-my-soup/pi-tui/chat/assistant-message";
+import { initTheme } from "@oh-my-soup/pi-tui/theme";
+import { ProcessTerminal, TUI } from "@oh-my-soup/pi-tui";
 import { sleep } from "bun";
 
 // Initialize dark theme with full color support

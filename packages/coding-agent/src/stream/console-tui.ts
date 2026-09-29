@@ -9,10 +9,10 @@ import {
 	type Component,
 	type Focusable,
 	TUI,
-} from "@oh-my-pi/pi-tui";
-import { formatKeyHint, formatKeyHints } from "@oh-my-pi/pi-tui/app-keybindings";
-import chalk from "@oh-my-pi/pi-utils/chalk";
-import type { StreamChatMessage } from "@oh-my-pi/pi-wire";
+} from "@oh-my-soup/pi-tui";
+import { formatKeyHint, formatKeyHints } from "@oh-my-soup/pi-tui/app-keybindings";
+import chalk from "@oh-my-soup/pi-utils/chalk";
+import type { StreamChatMessage } from "@oh-my-soup/pi-wire";
 import type { StreamConsoleEvent, StreamMuxHost } from "./streamer";
 
 const HISTORY_LIMIT = 50;

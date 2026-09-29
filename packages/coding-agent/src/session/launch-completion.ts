@@ -1,10 +1,10 @@
-import { prompt } from "@oh-my-pi/pi-utils";
+import { prompt } from "@oh-my-soup/pi-utils";
 import type { DaemonCompletionNotification } from "../launch/protocol";
 import launchCompletionTemplate from "../prompts/session/launch-completion.md" with { type: "text" };
 import type { CustomMessage } from "./messages";
 
-import { LAUNCH_COMPLETION_MESSAGE_TYPE } from "@oh-my-pi/pi-tui/chat/messages";
-export { LAUNCH_COMPLETION_MESSAGE_TYPE } from "@oh-my-pi/pi-tui/chat/messages";
+import { LAUNCH_COMPLETION_MESSAGE_TYPE } from "@oh-my-soup/pi-tui/chat/messages";
+export { LAUNCH_COMPLETION_MESSAGE_TYPE } from "@oh-my-soup/pi-tui/chat/messages";
 
 /** One broker completion awaiting injection into its owning session. */
 export type LaunchCompletionEntry = DaemonCompletionNotification;

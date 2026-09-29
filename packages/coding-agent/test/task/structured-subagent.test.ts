@@ -2,31 +2,31 @@ import { afterEach, describe, expect, it, vi } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import path from "node:path";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import type { AgentCompactionThresholdOverride } from "@oh-my-pi/pi-coding-agent/config/compaction-threshold";
-import type { BeforeSubagentSpawnEvent } from "@oh-my-pi/pi-coding-agent/extensibility/extensions/types";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import type { AgentCompactionThresholdOverride } from "@oh-my-soup/pi-coding-agent/config/compaction-threshold";
+import type { BeforeSubagentSpawnEvent } from "@oh-my-soup/pi-coding-agent/extensibility/extensions/types";
 import {
 	artifactsDirsFromRegistry,
 	resetRegisteredArtifactDirsForTests,
-} from "@oh-my-pi/pi-coding-agent/internal-urls/registry-helpers";
-import * as planHandoff from "@oh-my-pi/pi-coding-agent/plan-mode/plan-handoff";
-import * as discoveryModule from "@oh-my-pi/pi-coding-agent/task/discovery";
-import { createEvalCustomTools } from "@oh-my-pi/pi-coding-agent/task/eval-tools";
-import * as executorModule from "@oh-my-pi/pi-coding-agent/task/executor";
-import * as isolationRunner from "@oh-my-pi/pi-coding-agent/task/isolation-runner";
+} from "@oh-my-soup/pi-coding-agent/internal-urls/registry-helpers";
+import * as planHandoff from "@oh-my-soup/pi-coding-agent/plan-mode/plan-handoff";
+import * as discoveryModule from "@oh-my-soup/pi-coding-agent/task/discovery";
+import { createEvalCustomTools } from "@oh-my-soup/pi-coding-agent/task/eval-tools";
+import * as executorModule from "@oh-my-soup/pi-coding-agent/task/executor";
+import * as isolationRunner from "@oh-my-soup/pi-coding-agent/task/isolation-runner";
 import {
 	buildStructuredSubagentRecoveryHint,
 	resolveEffectiveSubagentPolicy,
 	runStructuredSubagent,
 	StructuredSubagentError,
 	type StructuredSubagentRequest,
-} from "@oh-my-pi/pi-coding-agent/task/structured-subagent";
-import type { AgentDefinition } from "@oh-my-pi/pi-coding-agent/task/types";
-import type { SingleResult } from "@oh-my-pi/pi-tui/tools/task";
-import type { ToolSession } from "@oh-my-pi/pi-coding-agent/tools";
+} from "@oh-my-soup/pi-coding-agent/task/structured-subagent";
+import type { AgentDefinition } from "@oh-my-soup/pi-coding-agent/task/types";
+import type { SingleResult } from "@oh-my-soup/pi-tui/tools/task";
+import type { ToolSession } from "@oh-my-soup/pi-coding-agent/tools";
 
-import { cfgRetryModelFallback } from "@oh-my-pi/pi-coding-agent/session/settings";
-import { cfgTaskAgentModelOverrides, cfgTaskEnableEffort } from "@oh-my-pi/pi-coding-agent/task/settings";
+import { cfgRetryModelFallback } from "@oh-my-soup/pi-coding-agent/session/settings";
+import { cfgTaskAgentModelOverrides, cfgTaskEnableEffort } from "@oh-my-soup/pi-coding-agent/task/settings";
 
 const AGENT: AgentDefinition = {
 	name: "worker",

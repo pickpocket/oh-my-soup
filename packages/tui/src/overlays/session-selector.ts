@@ -13,7 +13,7 @@ import {
 	truncateToWidth,
 	visibleWidth,
 } from "../index";
-import { formatBytes } from "@oh-my-pi/pi-utils";
+import { formatBytes } from "@oh-my-soup/pi-utils";
 import { theme } from "../theme/theme";
 import { contentRowWidth } from "../chrome/selector-helpers";
 import { matchesAppInterrupt, matchesSelectDown, matchesSelectUp } from "../keybinding-matchers";

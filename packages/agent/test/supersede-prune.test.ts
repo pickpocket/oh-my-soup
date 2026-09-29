@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { type AgentMessage, Tokenizer } from "@oh-my-pi/pi-agent-core";
-import type { SessionEntry, SessionMessageEntry } from "@oh-my-pi/pi-agent-core/compaction";
+import { type AgentMessage, Tokenizer } from "@oh-my-soup/pi-agent-core";
+import type { SessionEntry, SessionMessageEntry } from "@oh-my-soup/pi-agent-core/compaction";
 import {
 	DEFAULT_PRUNE_CONFIG,
 	pruneSupersededToolResults,
@@ -9,9 +9,9 @@ import {
 	SUPERSEDED_NOTICE,
 	type SupersedePruneConfig,
 	USELESS_NOTICE,
-} from "@oh-my-pi/pi-agent-core/compaction";
-import type { ProtectedToolContext } from "@oh-my-pi/pi-agent-core/compaction/tool-protection";
-import type { AssistantMessage, TextContent, ToolResultMessage } from "@oh-my-pi/pi-ai";
+} from "@oh-my-soup/pi-agent-core/compaction";
+import type { ProtectedToolContext } from "@oh-my-soup/pi-agent-core/compaction/tool-protection";
+import type { AssistantMessage, TextContent, ToolResultMessage } from "@oh-my-soup/pi-ai";
 
 const tokenizer = new Tokenizer();
 

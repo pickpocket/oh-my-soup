@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import type { Component } from "@oh-my-pi/pi-tui";
-import { Text } from "@oh-my-pi/pi-tui";
-import { getThemeByName, type Theme } from "@oh-my-pi/pi-tui/theme";
+import type { Component } from "@oh-my-soup/pi-tui";
+import { Text } from "@oh-my-soup/pi-tui";
+import { getThemeByName, type Theme } from "@oh-my-soup/pi-tui/theme";
 import { ExtensionRuntime, loadExtensionFromFactory } from "../src/extensibility/extensions/loader";
 import { ExtensionRunner } from "../src/extensibility/extensions/runner";
 import type { ToolRenderResultOptions } from "../src/extensibility/extensions/types";

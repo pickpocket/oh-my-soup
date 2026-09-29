@@ -1,8 +1,8 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { adjustHsv } from "@oh-my-pi/pi-utils/color";
-import { getCustomThemesDir } from "@oh-my-pi/pi-utils/dirs";
-import { isEnoent } from "@oh-my-pi/pi-utils/fs-error";
+import { adjustHsv } from "@oh-my-soup/pi-utils/color";
+import { getCustomThemesDir } from "@oh-my-soup/pi-utils/dirs";
+import { isEnoent } from "@oh-my-soup/pi-utils/fs-error";
 import { detectColorMode, resolveThemeColors } from "./color";
 import darkThemeJson from "./dark.json" with { type: "json" };
 import { defaultThemes } from "./defaults";
@@ -83,7 +83,7 @@ function parseThemeJson(name: string, content: string): ThemeJson {
 	let parsed: ThemeJson;
 	try {
 		// Custom-theme-only boundary: built-in first-frame themes do not need to
-		// load or construct the omptype validation graph.
+		// load or construct the omstype validation graph.
 		const { validateThemeJson } = require("./schema-validation");
 		parsed = validateThemeJson(json);
 	} catch (error) {

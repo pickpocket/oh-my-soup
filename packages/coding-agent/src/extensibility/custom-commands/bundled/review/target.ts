@@ -1,4 +1,4 @@
-import * as vcs from "@oh-my-pi/pi-natives/vcs";
+import * as vcs from "@oh-my-soup/pi-natives/vcs";
 import { parseReviewDiffSnapshot, type ReviewDiffSnapshot } from "./diff";
 
 export type LocalReviewKind = "base-branch" | "uncommitted" | "commit";

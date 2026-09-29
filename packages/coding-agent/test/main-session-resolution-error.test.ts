@@ -9,13 +9,13 @@ import { describe, expect, it, vi } from "bun:test";
 import * as fsp from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { Args } from "@oh-my-pi/pi-coding-agent/cli/args";
-import type { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { createSessionManager, SessionResolutionError, writeStartupNotice } from "@oh-my-pi/pi-coding-agent/main";
-import * as sessionListingModule from "@oh-my-pi/pi-coding-agent/session/session-listing";
-import { loadSessionFile } from "@oh-my-pi/pi-coding-agent/session/session-loader";
-import { ForkSourceNotFoundError, SessionManager } from "@oh-my-pi/pi-coding-agent/session/session-manager";
-import { FileSessionStorage } from "@oh-my-pi/pi-coding-agent/session/session-storage";
+import type { Args } from "@oh-my-soup/pi-coding-agent/cli/args";
+import type { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { createSessionManager, SessionResolutionError, writeStartupNotice } from "@oh-my-soup/pi-coding-agent/main";
+import * as sessionListingModule from "@oh-my-soup/pi-coding-agent/session/session-listing";
+import { loadSessionFile } from "@oh-my-soup/pi-coding-agent/session/session-loader";
+import { ForkSourceNotFoundError, SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
+import { FileSessionStorage } from "@oh-my-soup/pi-coding-agent/session/session-storage";
 
 function buildResumeArgs(resume: string, sessionDir?: string): Args {
 	return {

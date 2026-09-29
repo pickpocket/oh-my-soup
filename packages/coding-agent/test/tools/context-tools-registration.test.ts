@@ -1,15 +1,15 @@
 import { describe, expect, test, vi } from "bun:test";
-import { AuthStorage } from "@oh-my-pi/pi-ai";
-import { getBundledModel } from "@oh-my-pi/pi-catalog/models";
-import { ModelRegistry } from "@oh-my-pi/pi-coding-agent/config/model-registry";
+import { AuthStorage } from "@oh-my-soup/pi-ai";
+import { getBundledModel } from "@oh-my-soup/pi-catalog/models";
+import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
 import { Settings } from "../../src/config/settings";
 import { createAgentSession } from "../../src/sdk";
 import { SessionManager } from "../../src/session/session-manager";
 import { createTools, type ToolSession } from "../../src/tools";
-import { TempDir } from "@oh-my-pi/pi-utils";
+import { TempDir } from "@oh-my-soup/pi-utils";
 
-import { cfgAstGrepEnabled, cfgToolsXdev } from "@oh-my-pi/pi-coding-agent/tools/settings";
-import { cfgCompactionExperimentalContextManagement } from "@oh-my-pi/pi-coding-agent/session/context-settings";
+import { cfgAstGrepEnabled, cfgToolsXdev } from "@oh-my-soup/pi-coding-agent/tools/settings";
+import { cfgCompactionExperimentalContextManagement } from "@oh-my-soup/pi-coding-agent/session/context-settings";
 
 function createSession(enabled: boolean, restricted = false): ToolSession {
 	const settings = Settings.isolated();

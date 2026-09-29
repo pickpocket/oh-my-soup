@@ -12,11 +12,11 @@
 import { randomUUID } from "node:crypto";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { getProjectDir, prompt, sanitizeText } from "@oh-my-pi/pi-utils";
+import { getProjectDir, prompt, sanitizeText } from "@oh-my-soup/pi-utils";
 import { createProgressReporter } from "../cli/progress-reporter";
 import type { AgentSession } from "../session/agent-session";
 import { mapWithConcurrencyLimitAllSettled } from "../task/parallel";
-import { shortenPath } from "@oh-my-pi/pi-tui/render/render-utils";
+import { shortenPath } from "@oh-my-soup/pi-tui/render/render-utils";
 import requestPrompt from "./prompts/request.md" with { type: "text" };
 import reviewPrompt from "./prompts/review.md" with { type: "text" };
 import { CompressProtocol } from "./protocol";
@@ -55,7 +55,7 @@ export async function resolveCompressTargets(patterns: readonly string[], cwd: s
 	const found = new Set<string>();
 	for (const pattern of patterns) {
 		if (/[*?[\]{}]/.test(pattern)) {
-			// `dot: true` — prompt corpora live under dot directories such as `.omp/commands`.
+			// `dot: true` — prompt corpora live under dot directories such as `.oms/commands`.
 			const matches = new Bun.Glob(pattern).scanSync({ cwd, absolute: true, onlyFiles: true, dot: true });
 			let matched = 0;
 			for (const match of matches) {

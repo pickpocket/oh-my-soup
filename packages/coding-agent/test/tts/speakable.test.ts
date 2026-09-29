@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { SpeakableStream } from "@oh-my-pi/pi-coding-agent/tts/speakable";
+import { SpeakableStream } from "@oh-my-soup/pi-coding-agent/tts/speakable";
 
 /** Push each delta in order, then flush; returns per-push segments plus the flush tail. */
 function speak(...deltas: string[]): { pushed: string[][]; all: string[] } {

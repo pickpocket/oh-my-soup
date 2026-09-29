@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import type { FileDiagnosticsResult } from "@oh-my-pi/pi-tui/tools/lsp";
-import { DiagnosticsLedger, diagnosticIdentity } from "@oh-my-pi/pi-coding-agent/lsp/diagnostics-ledger";
+import type { FileDiagnosticsResult } from "@oh-my-soup/pi-tui/tools/lsp";
+import { DiagnosticsLedger, diagnosticIdentity } from "@oh-my-soup/pi-coding-agent/lsp/diagnostics-ledger";
 
 const FILE_A = "/repo/src/a.ts";
 const FILE_B = "/repo/src/b.ts";

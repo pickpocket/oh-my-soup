@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
-import { type } from "@oh-my-pi/omptype";
-import type { Tool } from "@oh-my-pi/pi-ai/types";
-import { validateToolArguments } from "@oh-my-pi/pi-ai/utils/validation";
+import { type } from "@oh-my-soup/omstype";
+import type { Tool } from "@oh-my-soup/pi-ai/types";
+import { validateToolArguments } from "@oh-my-soup/pi-ai/utils/validation";
 
 // Issue #8886 — some providers (notably Gemini) serialize array arguments as
 // flattened property paths (`questions[0].id`) instead of a nested array.

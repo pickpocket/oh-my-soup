@@ -12,7 +12,7 @@ import {
 	stripMemoryTags,
 	stripRetentionProtocolMarkers,
 	truncateRecallQuery,
-} from "@oh-my-pi/pi-coding-agent/hindsight/content";
+} from "@oh-my-soup/pi-coding-agent/hindsight/content";
 
 describe("stripMemoryTags", () => {
 	it("removes both <memories> and legacy memory blocks", () => {

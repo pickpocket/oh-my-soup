@@ -14,7 +14,7 @@ this runs the working tree at `/work/pi`. Install modes (`OMP_BENCH_INSTALL`):
     external deps + the platform native addon, and run `bun .../dist/cli.js`.
   * binary (`--binary`): a self-contained compiled omp binary is uploaded.
 
-Auth never enters the container: a generated `~/.omp/agent/models.yml` routes the
+Auth never enters the container: a generated `~/.oms/agent/models.yml` routes the
 configured providers' `baseUrl` at the host's pm2 auth-gateway (default
 `http://host.docker.internal:4000`, `transport: pi-native`), so the gateway
 resolves credentials host-side. No provider API keys are passed in.
@@ -321,7 +321,7 @@ class OmpLocal(BaseInstalledAgent):
                     "if command -v apt-get >/dev/null 2>&1; then "
                     "  apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y curl unzip ca-certificates tar; "
                     "elif command -v apk >/dev/null 2>&1; then "
-                    "  echo 'ERROR: Alpine/musl base image; @oh-my-pi/pi-natives ships no musl prebuilt' >&2; exit 3; "
+                    "  echo 'ERROR: Alpine/musl base image; @oh-my-soup/pi-natives ships no musl prebuilt' >&2; exit 3; "
                     "elif command -v dnf >/dev/null 2>&1; then dnf install -y curl unzip tar; "
                     "elif command -v yum >/dev/null 2>&1; then yum install -y curl unzip tar; "
                     "fi"
@@ -343,7 +343,7 @@ class OmpLocal(BaseInstalledAgent):
             else:
                 self._cli = await self._install_local(environment)
 
-        # 3) Auth + model config under $HOME/.omp/agent.
+        # 3) Auth + model config under $HOME/.oms/agent.
         if self._gateway_on:
             # Gateway routing — no provider keys ever enter the container.
             await self._write_models_yaml(environment)
@@ -409,8 +409,8 @@ class OmpLocal(BaseInstalledAgent):
                 # Native leaf MUST match the bundle version exactly (loader/API skew
                 # otherwise). Read it straight from the packed package.json.
                 'ver=$(bun -e "process.stdout.write(require(\\"./package.json\\").version)"); '
-                'echo "pinning native @oh-my-pi/pi-natives-linux-$na@$ver"; '
-                'bun add --production "@oh-my-pi/pi-natives-linux-$na@$ver"'
+                'echo "pinning native @oh-my-soup/pi-natives-linux-$na@$ver"; '
+                'bun add --production "@oh-my-soup/pi-natives-linux-$na@$ver"'
             ),
             timeout_sec=900,
         )
@@ -447,7 +447,7 @@ class OmpLocal(BaseInstalledAgent):
 
     async def _install_published(self, environment: BaseEnvironment) -> str:
         app = f"{self._home}/.omp-bench/app"
-        spec = f"@oh-my-pi/pi-coding-agent@{self._pkg_version}"
+        spec = f"@oh-my-soup/pi-coding-agent@{self._pkg_version}"
         await self.exec_as_agent(
             environment,
             command=self._wrap(
@@ -458,7 +458,7 @@ class OmpLocal(BaseInstalledAgent):
             ),
             timeout_sec=900,
         )
-        return f"{app}/node_modules/@oh-my-pi/pi-coding-agent/dist/cli.js"
+        return f"{app}/node_modules/@oh-my-soup/pi-coding-agent/dist/cli.js"
 
     async def _write_models_yaml(self, environment: BaseEnvironment) -> None:
         if self._models_yaml_path and os.path.isfile(self._models_yaml_path):
@@ -474,8 +474,8 @@ class OmpLocal(BaseInstalledAgent):
         await self.exec_as_agent(
             environment,
             command=(
-                f'mkdir -p "$HOME/.omp/agent"; '
-                f'cp {shlex.quote(staged)} "$HOME/.omp/agent/models.yml"'
+                f'mkdir -p "$HOME/.oms/agent"; '
+                f'cp {shlex.quote(staged)} "$HOME/.oms/agent/models.yml"'
             ),
         )
 
@@ -495,7 +495,7 @@ class OmpLocal(BaseInstalledAgent):
         return "\n".join(lines)
 
     async def _write_config(self, environment: BaseEnvironment) -> None:
-        """Write $HOME/.omp/agent/config.yml: the web_search and find toggles.
+        """Write $HOME/.oms/agent/config.yml: the web_search and find toggles.
 
         web_search can't authenticate through the gateway, so it's off by default.
         find is off by default in omp; it is enabled only when the tool allowlist
@@ -519,8 +519,8 @@ class OmpLocal(BaseInstalledAgent):
         await self.exec_as_agent(
             environment,
             command=(
-                f'mkdir -p "$HOME/.omp/agent"; '
-                f'cp {shlex.quote(_CONFIG_DST)} "$HOME/.omp/agent/config.yml"'
+                f'mkdir -p "$HOME/.oms/agent"; '
+                f'cp {shlex.quote(_CONFIG_DST)} "$HOME/.oms/agent/config.yml"'
             ),
         )
 

@@ -1,6 +1,6 @@
-import type { AssistantMessage } from "@oh-my-pi/pi-ai";
-import { formatDoubleTap } from "@oh-my-pi/pi-tui/app-keybindings";
-import { appKey } from "@oh-my-pi/pi-tui/chrome/keybinding-hints";
+import type { AssistantMessage } from "@oh-my-soup/pi-ai";
+import { formatDoubleTap } from "@oh-my-soup/pi-tui/app-keybindings";
+import { appKey } from "@oh-my-soup/pi-tui/chrome/keybinding-hints";
 import { AgentLifecycleManager } from "../../registry/agent-lifecycle";
 import { AgentRegistry, MAIN_AGENT_ID, type AgentRef, type RegistryEvent } from "../../registry/agent-registry";
 import type { AgentSession } from "../../session/agent-session";

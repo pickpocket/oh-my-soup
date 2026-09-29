@@ -1,5 +1,5 @@
 {
-  "name": "@oh-my-pi/pi-natives",
+  "name": "@oh-my-soup/pi-natives",
   "version": "18.4.3",
   "description": "Native Rust bindings for PDF conversion, audio, WebRTC, grep, clipboard, image processing, syntax highlighting, PTY, and shell operations via N-API",
   "type": "module",

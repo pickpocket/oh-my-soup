@@ -4,8 +4,8 @@
  */
 
 import { describe, expect, it } from "bun:test";
-import { buildScale, buildTicks } from "@oh-my-pi/omp-stats/client/traces/time-scale";
-import type { TraceSpan, TraceTrack } from "@oh-my-pi/omp-stats/types";
+import { buildScale, buildTicks } from "@oh-my-soup/oms-stats/client/traces/time-scale";
+import type { TraceSpan, TraceTrack } from "@oh-my-soup/oms-stats/types";
 
 const B = 1_700_000_000_000;
 

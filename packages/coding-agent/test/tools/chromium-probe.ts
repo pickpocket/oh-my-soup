@@ -1,9 +1,9 @@
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { findFreeCdpPort, waitForCdp } from "@oh-my-pi/pi-coding-agent/tools/browser/attach";
-import { type ChildProcess, ptree } from "@oh-my-pi/pi-utils";
-import { ensureChromiumExecutable } from "@oh-my-pi/pi-coding-agent/tools/browser/launch";
+import { findFreeCdpPort, waitForCdp } from "@oh-my-soup/pi-coding-agent/tools/browser/attach";
+import { type ChildProcess, ptree } from "@oh-my-soup/pi-utils";
+import { ensureChromiumExecutable } from "@oh-my-soup/pi-coding-agent/tools/browser/launch";
 
 /**
  * Whether the Chromium puppeteer resolves can actually execute on this host.

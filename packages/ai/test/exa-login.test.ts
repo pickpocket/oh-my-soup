@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { getProviderDefinition } from "@oh-my-pi/pi-ai/registry";
+import { getProviderDefinition } from "@oh-my-soup/pi-ai/registry";
 
 const loginExa = getProviderDefinition("exa")?.login;
 if (!loginExa) throw new Error("Exa login is not registered");

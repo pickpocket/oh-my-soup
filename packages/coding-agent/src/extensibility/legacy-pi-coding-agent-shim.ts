@@ -1,6 +1,6 @@
 /**
  * Compatibility shim for legacy extensions importing the package root of
- * `@oh-my-pi/pi-coding-agent` (or one of its aliased scopes like
+ * `@oh-my-soup/pi-coding-agent` (or one of its aliased scopes like
  * `@earendil-works/pi-coding-agent` or `@mariozechner/pi-coding-agent`).
  *
  * The coding-agent package's own barrel (`./src/index.ts`) cannot be listed
@@ -9,7 +9,7 @@
  * Routing legacy plugin imports through this sibling shim sidesteps that
  * conflict: bun bundles a distinct entry whose path differs from the CLI
  * entry, while still re-exporting the canonical surface so plugins observe
- * the same module identity as a direct `@oh-my-pi/pi-coding-agent` import.
+ * the same module identity as a direct `@oh-my-soup/pi-coding-agent` import.
  */
 
 import { Database } from "bun:sqlite";
@@ -21,26 +21,26 @@ import {
 	type AgentToolUpdateCallback,
 	type MessageCountOptions,
 	Tokenizer,
-} from "@oh-my-pi/pi-agent-core";
-import { findCutPoint as computeCutPoint, type CutPointResult } from "@oh-my-pi/pi-agent-core/compaction";
-import type { SessionEntry as CompactionSessionEntry } from "@oh-my-pi/pi-agent-core/compaction/entries";
+} from "@oh-my-soup/pi-agent-core";
+import { findCutPoint as computeCutPoint, type CutPointResult } from "@oh-my-soup/pi-agent-core/compaction";
+import type { SessionEntry as CompactionSessionEntry } from "@oh-my-soup/pi-agent-core/compaction/entries";
 import {
 	createBranchSummaryMessage,
 	createCompactionSummaryMessage,
 	createCustomMessage,
-} from "@oh-my-pi/pi-agent-core/compaction/messages";
-import { type AuthCredential, SqliteAuthCredentialStore, type TSchema } from "@oh-my-pi/pi-ai";
-import { piEscapeRegexLiteral, piJoinPath } from "@oh-my-pi/pi-ai/providers/cursor-pi-args";
-import { getKeybindings, type Keybinding, Text } from "@oh-my-pi/pi-tui";
+} from "@oh-my-soup/pi-agent-core/compaction/messages";
+import { type AuthCredential, SqliteAuthCredentialStore, type TSchema } from "@oh-my-soup/pi-ai";
+import { piEscapeRegexLiteral, piJoinPath } from "@oh-my-soup/pi-ai/providers/cursor-pi-args";
+import { getKeybindings, type Keybinding, Text } from "@oh-my-soup/pi-tui";
 import {
 	getAgentDbPath,
 	getAgentDir,
 	getProjectDir,
 	isCompiledBinary,
 	parseFrontmatter as parseOmpFrontmatter,
-} from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-utils";
 import { getPackageDir as getOmpPackageDir } from "../config";
-import { formatKeyHints } from "@oh-my-pi/pi-tui/app-keybindings";
+import { formatKeyHints } from "@oh-my-soup/pi-tui/app-keybindings";
 import type { PromptTemplate } from "../config/prompt-templates";
 import { findScopedSettings, Settings } from "../config/settings";
 import { EditTool } from "../edit";
@@ -58,18 +58,18 @@ import {
 	type TruncationResult,
 	truncateHead,
 	truncateTail,
-} from "@oh-my-pi/pi-tui/tools/streaming-output";
+} from "@oh-my-soup/pi-tui/tools/streaming-output";
 import type { SessionEntry } from "../session/session-entries";
 import type { Tool, ToolSession } from "../tools";
 import { BashTool } from "../tools/bash";
 import { GlobTool } from "../tools/glob";
 import { GrepTool } from "../tools/grep";
 import { ReadTool } from "../tools/read";
-import { formatBytes } from "@oh-my-pi/pi-tui/render/render-utils";
+import { formatBytes } from "@oh-my-soup/pi-tui/render/render-utils";
 import { WriteTool } from "../tools/write";
 import { resolveToCwd } from "../tools/path-utils";
 import { EventBus } from "../utils/event-bus";
-import { convertImageToPng } from "@oh-my-pi/pi-tui/chat/image-loading";
+import { convertImageToPng } from "@oh-my-soup/pi-tui/chat/image-loading";
 import { discoverExtensionPaths, loadExtensionFromFactory, loadExtensions } from "./extensions";
 import { ExtensionRuntime } from "./extensions/loader";
 import type {
@@ -1484,10 +1484,10 @@ export function readStoredCredential(provider: string): AuthCredential | undefin
 }
 
 // Pi SDK path helpers. `export * from "../index"` above only forwards
-// `getAgentDir`; `getProjectDir` (a `@oh-my-pi/pi-utils` helper) and
+// `getAgentDir`; `getProjectDir` (a `@oh-my-soup/pi-utils` helper) and
 // `getPackageDir` are absent from that barrel, so legacy extensions importing
 // either fail Bun's static export check during validation (issue #5968).
-export { getProjectDir } from "@oh-my-pi/pi-utils";
+export { getProjectDir } from "@oh-my-soup/pi-utils";
 
 /**
  * Coding-agent package install directory, matching pi's string-valued
@@ -1510,10 +1510,10 @@ export function getPackageDir(): string {
 // Legacy pi's `@earendil-works/pi-coding-agent` re-exported `estimateTokens`,
 // `compact`, `serializeConversation`, and `calculateContextTokens` from its
 // package root (via `./core/compaction/index.ts`). In omp these live in
-// `@oh-my-pi/pi-agent-core/compaction`, and the coding-agent barrel below does
+// `@oh-my-soup/pi-agent-core/compaction`, and the coding-agent barrel below does
 // not forward them, so legacy extensions importing them fail Bun's static
 // export check during validation (issues #6583, #7174, #7403, #10278).
-export { calculateContextTokens, compact, serializeConversation } from "@oh-my-pi/pi-agent-core/compaction";
+export { calculateContextTokens, compact, serializeConversation } from "@oh-my-soup/pi-agent-core/compaction";
 
 const legacyTokenizer = new Tokenizer();
 
@@ -1530,7 +1530,7 @@ export function estimateTokens(message: AgentMessage, tokenizer?: Tokenizer, opt
 
 // Legacy pi's `@earendil-works/pi-coding-agent` also exported `findCutPoint` and
 // `sessionEntryToContextMessages` from its package root (upstream Pi 0.84.2
-// public API). In omp `findCutPoint` moved to `@oh-my-pi/pi-agent-core/compaction`
+// public API). In omp `findCutPoint` moved to `@oh-my-soup/pi-agent-core/compaction`
 // AND grew a required `Tokenizer` parameter, and `sessionEntryToContextMessages`
 // has no canonical equivalent, so neither reaches the barrel below and legacy
 // extensions importing them (e.g. NVlabs/SoL-Pi's online-context-compact) fail
@@ -1598,14 +1598,14 @@ export function sessionEntryToContextMessages(entry: SessionEntry): AgentMessage
 
 // Same barrel gap for two more legacy package-root exports: pi re-exported the
 // `CONFIG_DIR_NAME` constant and the CLI parser `parseArgs`. In omp
-// `CONFIG_DIR_NAME` lives in `@oh-my-pi/pi-utils` and `parseArgs` in
+// `CONFIG_DIR_NAME` lives in `@oh-my-soup/pi-utils` and `parseArgs` in
 // `../cli/args`, neither of which the barrel below forwards, so legacy
 // extensions importing either fail Bun's static export check during validation.
-export { CONFIG_DIR_NAME } from "@oh-my-pi/pi-utils";
+export { CONFIG_DIR_NAME } from "@oh-my-soup/pi-utils";
 export { parseArgs } from "../cli/args";
 
 export * from "../index";
-export { formatBytes as formatSize } from "@oh-my-pi/pi-tui/render/render-utils";
+export { formatBytes as formatSize } from "@oh-my-soup/pi-tui/render/render-utils";
 export { copyToClipboard } from "../utils/clipboard";
 export { Type } from "./legacy-typebox";
 

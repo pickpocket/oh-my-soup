@@ -3,7 +3,7 @@ import {
 	type WordCompletionEngine,
 	WordCompletionProvider,
 	type WordPredictionBackend,
-} from "@oh-my-pi/pi-tui/prompt/word-completion";
+} from "@oh-my-soup/pi-tui/prompt/word-completion";
 
 interface Request {
 	before: string;

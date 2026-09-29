@@ -1,5 +1,5 @@
-import { type } from "@oh-my-pi/omptype";
-import { once } from "@oh-my-pi/pi-utils";
+import { type } from "@oh-my-soup/omstype";
+import { once } from "@oh-my-soup/pi-utils";
 
 export const getSecurityContractSchemas = once(() => {
 	const stringRecordSchema = type({ "[string]": "string" });

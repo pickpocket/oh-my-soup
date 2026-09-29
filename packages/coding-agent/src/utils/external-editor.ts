@@ -4,7 +4,7 @@
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { $env, $which, Snowflake } from "@oh-my-pi/pi-utils";
+import { $env, $which, Snowflake } from "@oh-my-soup/pi-utils";
 
 /**
  * Returns the user's preferred editor command, or a platform default.

@@ -18,7 +18,7 @@
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { isEnoent, isRecord } from "@oh-my-pi/pi-utils";
+import { isEnoent, isRecord } from "@oh-my-soup/pi-utils";
 
 /** Public npm registry; used when no user configuration names another one. */
 export const DEFAULT_NPM_REGISTRY = "https://registry.npmjs.org/";

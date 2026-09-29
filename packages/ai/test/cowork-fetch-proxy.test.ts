@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { coworkFetch } from "@oh-my-pi/pi-ai/providers/cowork-fetch";
+import { coworkFetch } from "@oh-my-soup/pi-ai/providers/cowork-fetch";
 
 /**
  * `coworkFetch` runs on `node:https`, whose Bun shim ignores

@@ -1,9 +1,9 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 
-import { untilAborted } from "@oh-my-pi/pi-utils";
+import { untilAborted } from "@oh-my-soup/pi-utils";
 import type { HTTPRequest, HTTPResponse, Page } from "puppeteer-core";
-import { ToolError } from "@oh-my-pi/pi-tui/tools/tool-errors";
+import { ToolError } from "@oh-my-soup/pi-tui/tools/tool-errors";
 
 const REQUEST_LOG_LIMIT = 200;
 const RESPONSE_BODY_LIMIT_BYTES = 1024 * 1024;

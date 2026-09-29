@@ -6,19 +6,19 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import * as fs from "node:fs/promises";
 import path from "node:path";
-import { resetSettingsForTest, Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { AgentProtocolHandler } from "@oh-my-pi/pi-coding-agent/internal-urls/agent-protocol";
-import { parseInternalUrl } from "@oh-my-pi/pi-coding-agent/internal-urls/parse";
-import { resetRegisteredArtifactDirsForTests } from "@oh-my-pi/pi-coding-agent/internal-urls/registry-helpers";
-import { AgentLifecycleManager } from "@oh-my-pi/pi-coding-agent/registry/agent-lifecycle";
-import { AgentRegistry } from "@oh-my-pi/pi-coding-agent/registry/agent-registry";
-import { TaskTool } from "@oh-my-pi/pi-coding-agent/task";
-import * as discoveryModule from "@oh-my-pi/pi-coding-agent/task/discovery";
-import * as isolationRunner from "@oh-my-pi/pi-coding-agent/task/isolation-runner";
-import type { AgentDefinition } from "@oh-my-pi/pi-coding-agent/task/types";
-import type { TaskParams } from "@oh-my-pi/pi-tui/tools/task";
-import type { ToolSession } from "@oh-my-pi/pi-coding-agent/tools";
-import { TempDir } from "@oh-my-pi/pi-utils";
+import { resetSettingsForTest, Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { AgentProtocolHandler } from "@oh-my-soup/pi-coding-agent/internal-urls/agent-protocol";
+import { parseInternalUrl } from "@oh-my-soup/pi-coding-agent/internal-urls/parse";
+import { resetRegisteredArtifactDirsForTests } from "@oh-my-soup/pi-coding-agent/internal-urls/registry-helpers";
+import { AgentLifecycleManager } from "@oh-my-soup/pi-coding-agent/registry/agent-lifecycle";
+import { AgentRegistry } from "@oh-my-soup/pi-coding-agent/registry/agent-registry";
+import { TaskTool } from "@oh-my-soup/pi-coding-agent/task";
+import * as discoveryModule from "@oh-my-soup/pi-coding-agent/task/discovery";
+import * as isolationRunner from "@oh-my-soup/pi-coding-agent/task/isolation-runner";
+import type { AgentDefinition } from "@oh-my-soup/pi-coding-agent/task/types";
+import type { TaskParams } from "@oh-my-soup/pi-tui/tools/task";
+import type { ToolSession } from "@oh-my-soup/pi-coding-agent/tools";
+import { TempDir } from "@oh-my-soup/pi-utils";
 
 const AGENT: AgentDefinition = {
 	name: "worker",

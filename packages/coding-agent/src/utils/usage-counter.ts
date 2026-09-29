@@ -13,8 +13,8 @@
  * headless paths and tests that never load a counter never open agent.db.
  */
 
-import { logger } from "@oh-my-pi/pi-utils";
-import type { ComposerHintId } from "@oh-my-pi/pi-tui/prompt/composer-hints";
+import { logger } from "@oh-my-soup/pi-utils";
+import type { ComposerHintId } from "@oh-my-soup/pi-tui/prompt/composer-hints";
 import { AgentStorage, type UsageKind } from "../session/agent-storage";
 
 /** Process-wide use counts for one {@link UsageKind}, keyed by `Name`. */

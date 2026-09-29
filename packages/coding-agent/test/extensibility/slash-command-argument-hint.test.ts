@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { loadSlashCommands } from "@oh-my-pi/pi-coding-agent/extensibility/slash-commands";
+import { loadSlashCommands } from "@oh-my-soup/pi-coding-agent/extensibility/slash-commands";
 
 describe("loadSlashCommands argument-hint", () => {
 	test("parses argument-hint frontmatter into FileSlashCommand.argumentHint", async () => {

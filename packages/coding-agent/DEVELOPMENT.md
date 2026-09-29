@@ -1,4 +1,4 @@
-# Developing `@oh-my-pi/pi-coding-agent`
+# Developing `@oh-my-soup/pi-coding-agent`
 
 This package is the `omp` CLI. This file is a **developer's map**: where things live
 in `src/`, how to run the local loops, and — for each subsystem — which document in

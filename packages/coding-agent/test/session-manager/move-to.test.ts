@@ -3,12 +3,12 @@ import * as fs from "node:fs";
 import * as fsp from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { SessionHeader } from "@oh-my-pi/pi-coding-agent/session/session-entries";
-import { loadEntriesFromFile } from "@oh-my-pi/pi-coding-agent/session/session-loader";
-import { SessionManager } from "@oh-my-pi/pi-coding-agent/session/session-manager";
-import { resolveResumableSession } from "@oh-my-pi/pi-coding-agent/session/session-listing";
-import { stripOuterDoubleQuotes } from "@oh-my-pi/pi-coding-agent/tools/path-utils";
-import { getConfigRootDir, setAgentDir } from "@oh-my-pi/pi-utils";
+import type { SessionHeader } from "@oh-my-soup/pi-coding-agent/session/session-entries";
+import { loadEntriesFromFile } from "@oh-my-soup/pi-coding-agent/session/session-loader";
+import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
+import { resolveResumableSession } from "@oh-my-soup/pi-coding-agent/session/session-listing";
+import { stripOuterDoubleQuotes } from "@oh-my-soup/pi-coding-agent/tools/path-utils";
+import { getConfigRootDir, setAgentDir } from "@oh-my-soup/pi-utils";
 
 // -- helpers ----------------------------------------------------------------
 

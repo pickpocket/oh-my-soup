@@ -2,9 +2,9 @@ import { afterEach, describe, expect, it, vi } from "bun:test";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { parseArgs } from "@oh-my-pi/pi-coding-agent/cli/args";
-import { applyStartupCwd } from "@oh-my-pi/pi-coding-agent/cli/startup-cwd";
-import * as utils from "@oh-my-pi/pi-utils";
+import { parseArgs } from "@oh-my-soup/pi-coding-agent/cli/args";
+import { applyStartupCwd } from "@oh-my-soup/pi-coding-agent/cli/startup-cwd";
+import * as utils from "@oh-my-soup/pi-utils";
 
 const originalProjectDir = utils.getProjectDir();
 const platformDescriptor = Object.getOwnPropertyDescriptor(process, "platform");

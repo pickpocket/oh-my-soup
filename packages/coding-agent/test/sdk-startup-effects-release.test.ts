@@ -1,13 +1,13 @@
 import { afterEach, describe, expect, it } from "bun:test";
-import { isProviderEnabled } from "@oh-my-pi/pi-coding-agent/capability";
-import { ModelRegistry } from "@oh-my-pi/pi-coding-agent/config/model-registry";
-import { effectsSettings } from "@oh-my-pi/pi-coding-agent/config/registry";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { initializeWithSettings } from "@oh-my-pi/pi-coding-agent/discovery";
-import { createAgentSession } from "@oh-my-pi/pi-coding-agent/sdk";
-import type { AgentSession } from "@oh-my-pi/pi-coding-agent/session/agent-session";
-import { SessionManager } from "@oh-my-pi/pi-coding-agent/session/session-manager";
-import { TempDir } from "@oh-my-pi/pi-utils";
+import { isProviderEnabled } from "@oh-my-soup/pi-coding-agent/capability";
+import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
+import { effectsSettings } from "@oh-my-soup/pi-coding-agent/config/registry";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { initializeWithSettings } from "@oh-my-soup/pi-coding-agent/discovery";
+import { createAgentSession } from "@oh-my-soup/pi-coding-agent/sdk";
+import type { AgentSession } from "@oh-my-soup/pi-coding-agent/session/agent-session";
+import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
+import { TempDir } from "@oh-my-soup/pi-utils";
 import { createInMemoryAuthStorage } from "./helpers/agent-session-setup";
 
 // A top-level SDK session holds process-wide state on its settings until disposed: setting

@@ -8,12 +8,12 @@
  * (can1357/oh-my-pi#3639).
  */
 import { describe, expect, it } from "bun:test";
-import type { StreamFn } from "@oh-my-pi/pi-agent-core";
-import type { Context, Model, SimpleStreamOptions } from "@oh-my-pi/pi-ai";
-import { getBundledModel } from "@oh-my-pi/pi-catalog/models";
-import { AssistantMessageEventStream } from "@oh-my-pi/pi-ai/utils/event-stream";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { createSettingsAwareStreamFn } from "@oh-my-pi/pi-coding-agent/session/settings-stream-fn";
+import type { StreamFn } from "@oh-my-soup/pi-agent-core";
+import type { Context, Model, SimpleStreamOptions } from "@oh-my-soup/pi-ai";
+import { getBundledModel } from "@oh-my-soup/pi-catalog/models";
+import { AssistantMessageEventStream } from "@oh-my-soup/pi-ai/utils/event-stream";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { createSettingsAwareStreamFn } from "@oh-my-soup/pi-coding-agent/session/settings-stream-fn";
 
 function captureBase(): { fn: StreamFn; calls: Array<{ options?: SimpleStreamOptions }> } {
 	const calls: Array<{ options?: SimpleStreamOptions }> = [];

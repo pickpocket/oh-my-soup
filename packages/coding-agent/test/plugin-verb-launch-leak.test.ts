@@ -16,7 +16,7 @@
  * genuine prose prompts that merely begin with one of these words still fall
  * through to `launch`.
  *
- * Imported via a relative path (not the `@oh-my-pi/pi-coding-agent` alias) so the
+ * Imported via a relative path (not the `@oh-my-soup/pi-coding-agent` alias) so the
  * assertions exercise this checkout's `cli-commands.ts` directly.
  */
 import { describe, expect, test } from "bun:test";

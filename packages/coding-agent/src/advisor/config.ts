@@ -1,13 +1,13 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { type } from "@oh-my-pi/omptype";
-import { isEnoent, logger } from "@oh-my-pi/pi-utils";
+import { type } from "@oh-my-soup/omstype";
+import { isEnoent, logger } from "@oh-my-soup/pi-utils";
 import { YAML } from "bun";
 import { expandAtImports } from "../discovery/at-imports";
 import { BUILTIN_TOOL_NAMES, normalizeToolNames } from "../tools/builtin-names";
 import { collectConfigCandidates } from "./watchdog";
 
-import type { AdvisorConfig, AdvisorConfigScope, WatchdogConfigDoc } from "@oh-my-pi/pi-tui/overlays/advisor-config";
+import type { AdvisorConfig, AdvisorConfigScope, WatchdogConfigDoc } from "@oh-my-soup/pi-tui/overlays/advisor-config";
 
 /**
  * Runtime health of a single advisor, surfaced in stats and the status line.

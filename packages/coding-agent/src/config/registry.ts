@@ -23,8 +23,8 @@
  * Declaration order is significant: the settings panel lists a tab's settings in registration order
  * (sections follow `TAB_GROUPS`), and `config/all-settings.ts` imports every domain in that order.
  */
-import { logger, parseFlag } from "@oh-my-pi/pi-utils";
-import type { AnyUiMetadata, SubmenuOption, UiBase } from "@oh-my-pi/pi-tui/overlays/settings-defs";
+import { logger, parseFlag } from "@oh-my-soup/pi-utils";
+import type { AnyUiMetadata, SubmenuOption, UiBase } from "@oh-my-soup/pi-tui/overlays/settings-defs";
 import type { SettingProvenance, Settings } from "./settings";
 
 // ═══════════════════════════════════════════════════════════════════════════

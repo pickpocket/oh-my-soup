@@ -1,8 +1,8 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { getAgentDir, peekFile } from "@oh-my-pi/pi-utils";
-import { shortenPath } from "@oh-my-pi/pi-tui/render/render-utils";
-import { ToolError } from "@oh-my-pi/pi-tui/tools/tool-errors";
+import { getAgentDir, peekFile } from "@oh-my-soup/pi-utils";
+import { shortenPath } from "@oh-my-soup/pi-tui/render/render-utils";
+import { ToolError } from "@oh-my-soup/pi-tui/tools/tool-errors";
 
 /** Number of leading bytes needed by {@link isExecutableHeader} (a full 64-byte DOS header for PE). */
 export const EXECUTABLE_SNIFF_BYTES = 64;

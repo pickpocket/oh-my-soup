@@ -10,7 +10,7 @@ import {
 	joinAdditionalContext,
 	TOOL_RESULT_ADDITIONAL_CONTEXT,
 	type ToolResultWithAdditionalContext,
-} from "@oh-my-pi/pi-agent-core";
+} from "@oh-my-soup/pi-agent-core";
 import type {
 	CursorMcpCall,
 	CursorMcpResource,
@@ -19,7 +19,7 @@ import type {
 	CursorTodoSnapshot,
 	CursorExecHandlers as ICursorExecHandlers,
 	ToolResultMessage,
-} from "@oh-my-pi/pi-ai";
+} from "@oh-my-soup/pi-ai";
 import {
 	cursorRawReadPath,
 	omitUndefinedArgs,
@@ -31,8 +31,8 @@ import {
 	piReadPath,
 	piTimeout,
 	shellTimeoutSeconds,
-} from "@oh-my-pi/pi-ai/providers/cursor-pi-args";
-import { sanitizeText } from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-ai/providers/cursor-pi-args";
+import { sanitizeText } from "@oh-my-soup/pi-utils";
 import { cursorMcpPrefersReplaceEdit, normalizeCursorReplaceArgs } from "./cursor-bridge-tools";
 import type { MCPResourceReadResult } from "./mcp/types";
 import { resolveApproval, resolveApprovalFromContext } from "./tools/approval";
@@ -42,7 +42,7 @@ import {
 	resolveToCwd,
 	splitPathAndSelPreferringLiteral,
 } from "./tools/path-utils";
-import type { TodoPhase, TodoStatus } from "@oh-my-pi/pi-tui/tools/todo";
+import type { TodoPhase, TodoStatus } from "@oh-my-soup/pi-tui/tools/todo";
 
 /** Phase used for Cursor-owned tasks with no local phase grouping. */
 const CURSOR_TODO_PHASE = "Tasks";

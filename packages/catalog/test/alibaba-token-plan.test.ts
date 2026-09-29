@@ -1,13 +1,13 @@
 import { describe, expect, test } from "bun:test";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
-import { Effort } from "@oh-my-pi/pi-catalog/effort";
-import { getBundledModel } from "@oh-my-pi/pi-catalog/models";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
+import { Effort } from "@oh-my-soup/pi-catalog/effort";
+import { getBundledModel } from "@oh-my-soup/pi-catalog/models";
 import {
 	ALIBABA_TOKEN_PLAN_BASE_URL,
 	alibabaTokenPlanModelManagerOptions,
-} from "@oh-my-pi/pi-catalog/provider-models/openai-compat";
-import type { FetchImpl } from "@oh-my-pi/pi-catalog/types";
-import { serializeAlibabaTokenPlanCredential } from "@oh-my-pi/pi-catalog/wire/alibaba-token-plan";
+} from "@oh-my-soup/pi-catalog/provider-models/openai-compat";
+import type { FetchImpl } from "@oh-my-soup/pi-catalog/types";
+import { serializeAlibabaTokenPlanCredential } from "@oh-my-soup/pi-catalog/wire/alibaba-token-plan";
 
 describe("QwenCloud Token Plan provider", () => {
 	test("bundles curated capabilities before dynamic discovery", () => {

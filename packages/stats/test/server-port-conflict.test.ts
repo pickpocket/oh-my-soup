@@ -50,7 +50,7 @@ async function startBunHolder(responseExpr: string, options?: { hostname?: strin
 
 	const source = `Bun.serve({ port: ${port}, hostname: "${hostname}", fetch: () => ${responseExpr} }); process.stdout.write("ready"); await Promise.withResolvers().promise;`;
 	const args = [process.execPath, "-e", source];
-	if (options?.statsOwned) args.push("omp-stats");
+	if (options?.statsOwned) args.push("oms-stats");
 	const child = Bun.spawn(args, {
 		stdin: "ignore",
 		stdout: "pipe",

@@ -37,7 +37,7 @@ Does not cover `/tree` UI rendering behavior beyond semantics that affect sessio
 Default file-session location:
 
 ```text
-~/.omp/agent/sessions/<encoded-cwd>/<timestamp>_<sessionId>.jsonl
+~/.oms/agent/sessions/<encoded-cwd>/<timestamp>_<sessionId>.jsonl
 ```
 
 `<encoded-cwd>` is derived from the canonicalized cwd (so symlink aliases share a bucket): `-<relative>` for directories under home, `-tmp-<relative>` for directories under the temp root, and `--<encoded-absolute>--` for anything else, with path separators replaced by `-`.
@@ -47,13 +47,13 @@ On access, buckets written by the short-lived hashed scheme (`<scope>-<project-b
 Blob store location:
 
 ```text
-~/.omp/agent/blobs/<sha256>
+~/.oms/agent/blobs/<sha256>
 ```
 
 Terminal breadcrumb files are written under:
 
 ```text
-~/.omp/agent/terminal-sessions/<terminal-id>
+~/.oms/agent/terminal-sessions/<terminal-id>
 ```
 
 Breadcrumb content is original cwd and session file path, plus an optional third line `fresh`. A fresh breadcrumb preserves a `/new` boundary whose lazily-created JSONL file does not exist yet, preventing `continueRecent()` from reopening the previous session. Writes are synchronous, ordered, and best-effort.
@@ -550,7 +550,7 @@ Recent/most-recent scans read only a 4 KiB prefix. Full lists read that prefix p
 
 `HistoryStorage` (`history-storage.ts`) is a separate SQLite subsystem for prompt recall/search, not session replay.
 
-- DB: `~/.omp/agent/history.db`
+- DB: `~/.oms/agent/history.db`
 - Table: `history(id, prompt, created_at, cwd, session_id)`
 - FTS5 index: `history_fts` with trigger-maintained sync
 - Deduplicates consecutive identical prompts using in-memory last-prompt cache

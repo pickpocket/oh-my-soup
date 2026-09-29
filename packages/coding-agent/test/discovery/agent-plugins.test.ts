@@ -2,26 +2,26 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { loadCapability } from "@oh-my-pi/pi-coding-agent/capability";
-import { clearCache as clearFsCache } from "@oh-my-pi/pi-coding-agent/capability/fs";
+import { loadCapability } from "@oh-my-soup/pi-coding-agent/capability";
+import { clearCache as clearFsCache } from "@oh-my-soup/pi-coding-agent/capability/fs";
 import {
 	AGENT_PLUGIN_MANIFEST_SCHEMA,
 	AGENT_PLUGIN_MCP_SCHEMA,
 	clearAgentPluginRootCache,
 	parseAgentPluginManifest,
 	parseAgentPluginMcp,
-} from "@oh-my-pi/pi-coding-agent/discovery/agent-plugin-format";
+} from "@oh-my-soup/pi-coding-agent/discovery/agent-plugin-format";
 import {
 	clearClaudePluginRootsCache,
 	injectPluginDirRoots,
 	listClaudePluginRoots,
-} from "@oh-my-pi/pi-coding-agent/discovery/helpers";
-import { getPluginsDir, removeWithRetries } from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-coding-agent/discovery/helpers";
+import { getPluginsDir, removeWithRetries } from "@oh-my-soup/pi-utils";
 import { restoreEnvValue } from "../helpers/settings-test-state";
-import "@oh-my-pi/pi-coding-agent/discovery/agent-plugins";
-import "@oh-my-pi/pi-coding-agent/discovery/claude-plugins";
-import type { MCPServer } from "@oh-my-pi/pi-coding-agent/capability/mcp";
-import type { Skill } from "@oh-my-pi/pi-coding-agent/capability/skill";
+import "@oh-my-soup/pi-coding-agent/discovery/agent-plugins";
+import "@oh-my-soup/pi-coding-agent/discovery/claude-plugins";
+import type { MCPServer } from "@oh-my-soup/pi-coding-agent/capability/mcp";
+import type { Skill } from "@oh-my-soup/pi-coding-agent/capability/skill";
 
 // Concatenation avoids the noTemplateCurlyInString lint on literal placeholder names.
 const PLUGIN_ROOT_VAR = "$" + "{PLUGIN_ROOT}";

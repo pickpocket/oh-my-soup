@@ -21,11 +21,11 @@ import {
 	createMnemopiEmbedSubprocess,
 	MnemopiEmbedClient,
 	type MnemopiEmbedWorkerHandle,
-} from "@oh-my-pi/pi-coding-agent/mnemopi/embed-client";
+} from "@oh-my-soup/pi-coding-agent/mnemopi/embed-client";
 import type {
 	MnemopiEmbedWorkerInbound,
 	MnemopiEmbedWorkerOutbound,
-} from "@oh-my-pi/pi-coding-agent/mnemopi/embed-protocol";
+} from "@oh-my-soup/pi-coding-agent/mnemopi/embed-protocol";
 
 describe("issue #3031 — mnemopi embeddings live in an isolated subprocess", () => {
 	it("ping/pongs through the spawned worker subprocess and tears it down cleanly", async () => {
@@ -35,7 +35,7 @@ describe("issue #3031 — mnemopi embeddings live in an isolated subprocess", ()
 		// starve nested Bun subprocess IPC on some Bun builds.
 		const repoRoot = path.resolve(import.meta.dir, "../../..");
 		const script =
-			'const { smokeTestMnemopiEmbedWorker } = await import("@oh-my-pi/pi-coding-agent/mnemopi/embed-client"); await smokeTestMnemopiEmbedWorker({ timeoutMs: 15000 });';
+			'const { smokeTestMnemopiEmbedWorker } = await import("@oh-my-soup/pi-coding-agent/mnemopi/embed-client"); await smokeTestMnemopiEmbedWorker({ timeoutMs: 15000 });';
 		const proc = Bun.spawn([process.execPath, "-e", script], {
 			cwd: repoRoot,
 			stdout: "pipe",

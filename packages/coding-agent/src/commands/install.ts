@@ -20,10 +20,10 @@
 
 import { existsSync } from "node:fs";
 import * as path from "node:path";
-import { Args, Command, Flags } from "@oh-my-pi/pi-utils/cli";
+import { Args, Command, Flags } from "@oh-my-soup/pi-utils/cli";
 import { installHelp as commandHelp } from "../cli/command-help";
 import { type PluginAction, type PluginCommandArgs, runPluginCommand } from "../cli/plugin-cli";
-import { initTheme } from "@oh-my-pi/pi-tui/theme";
+import { initTheme } from "@oh-my-soup/pi-tui/theme";
 
 /**
  * Heuristic used to decide whether `omp install <target>` should `link` a

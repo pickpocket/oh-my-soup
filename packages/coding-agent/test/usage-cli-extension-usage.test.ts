@@ -8,12 +8,12 @@
 import { Database } from "bun:sqlite";
 import * as path from "node:path";
 import { afterEach, beforeEach, expect, test, vi } from "bun:test";
-import { AuthStorage, SqliteAuthCredentialStore, type UsageReport } from "@oh-my-pi/pi-ai";
-import { runUsageCommand } from "@oh-my-pi/pi-coding-agent/cli/usage-cli";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import * as sdkModule from "@oh-my-pi/pi-coding-agent/sdk";
-import * as utils from "@oh-my-pi/pi-utils";
-import { getProjectAgentDir, TempDir } from "@oh-my-pi/pi-utils";
+import { AuthStorage, SqliteAuthCredentialStore, type UsageReport } from "@oh-my-soup/pi-ai";
+import { runUsageCommand } from "@oh-my-soup/pi-coding-agent/cli/usage-cli";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import * as sdkModule from "@oh-my-soup/pi-coding-agent/sdk";
+import * as utils from "@oh-my-soup/pi-utils";
+import { getProjectAgentDir, TempDir } from "@oh-my-soup/pi-utils";
 
 const EXTENSION_SOURCE = `export default function (pi) {
 	pi.registerProvider("ext-usage", {

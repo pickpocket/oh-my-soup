@@ -6,8 +6,8 @@
  * with the draft object, until AgentSession creates the hidden companion message
  * that tells the model the path (and link materialization prefers it over a blob copy).
  */
-import type { ImageContent } from "@oh-my-pi/pi-ai";
-import { isRecord } from "@oh-my-pi/pi-utils";
+import type { ImageContent } from "@oh-my-soup/pi-ai";
+import { isRecord } from "@oh-my-soup/pi-utils";
 
 /** How an image attachment's backing file entered the session. */
 export type ImageAttachmentSourceKind = "image" | "video";

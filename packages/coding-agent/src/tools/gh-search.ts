@@ -1,7 +1,7 @@
-import type { AgentToolResult } from "@oh-my-pi/pi-agent-core";
+import type { AgentToolResult } from "@oh-my-soup/pi-agent-core";
 import { github } from "../utils/github";
 import type { ToolSession } from ".";
-import type { GhToolDetails } from "@oh-my-pi/pi-tui/tools/github";
+import type { GhToolDetails } from "@oh-my-soup/pi-tui/tools/github";
 import {
 	buildTextResult,
 	formatAuthor,
@@ -12,8 +12,8 @@ import {
 	requireNonEmpty,
 	tryResolveCurrentRepo,
 } from "./gh-common";
-import { pushLine } from "@oh-my-pi/pi-tui/tools/gh-format";
-import { formatShortSha } from "@oh-my-pi/pi-tui/tools/gh-format";
+import { pushLine } from "@oh-my-soup/pi-tui/tools/gh-format";
+import { formatShortSha } from "@oh-my-soup/pi-tui/tools/gh-format";
 import type {
 	GhApiLabel,
 	GhApiSearchCodeItem,
@@ -30,7 +30,7 @@ import type {
 	GhUser,
 	GithubInput,
 } from "./gh-types";
-import { ToolError } from "@oh-my-pi/pi-tui/tools/tool-errors";
+import { ToolError } from "@oh-my-soup/pi-tui/tools/tool-errors";
 
 export const SEARCH_LIMIT_DEFAULT = 10;
 export const SEARCH_LIMIT_MAX = 50;

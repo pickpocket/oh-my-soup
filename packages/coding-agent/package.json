@@ -1,5 +1,5 @@
 {
-	"name": "@oh-my-pi/pi-coding-agent",
+	"name": "@oh-my-soup/pi-coding-agent",
 	"version": "18.4.3",
 	"description": "Coding agent CLI with read, bash, edit, write tools and session management",
 	"keywords": [
@@ -25,7 +25,7 @@
 		"directory": "packages/coding-agent"
 	},
 	"bin": {
-		"omp": "src/cli.ts"
+		"oms": "src/cli.ts"
 	},
 	"files": [
 		"src",
@@ -537,17 +537,17 @@
 	},
 	"dependencies": {
 		"@babel/parser": "catalog:",
-		"@oh-my-pi/omp-stats": "catalog:",
-		"@oh-my-pi/omptype": "catalog:",
-		"@oh-my-pi/pi-agent-core": "catalog:",
-		"@oh-my-pi/pi-ai": "catalog:",
-		"@oh-my-pi/pi-catalog": "catalog:",
-		"@oh-my-pi/pi-mnemopi": "catalog:",
-		"@oh-my-pi/pi-natives": "catalog:",
-		"@oh-my-pi/pi-tui": "catalog:",
-		"@oh-my-pi/pi-utils": "catalog:",
-		"@oh-my-pi/pi-wire": "catalog:",
-		"@oh-my-pi/snapcompact": "catalog:",
+		"@oh-my-soup/oms-stats": "catalog:",
+		"@oh-my-soup/omstype": "catalog:",
+		"@oh-my-soup/pi-agent-core": "catalog:",
+		"@oh-my-soup/pi-ai": "catalog:",
+		"@oh-my-soup/pi-catalog": "catalog:",
+		"@oh-my-soup/pi-mnemopi": "catalog:",
+		"@oh-my-soup/pi-natives": "catalog:",
+		"@oh-my-soup/pi-tui": "catalog:",
+		"@oh-my-soup/pi-utils": "catalog:",
+		"@oh-my-soup/pi-wire": "catalog:",
+		"@oh-my-soup/snapcompact": "catalog:",
 		"@opentelemetry/api": "catalog:",
 		"@opentelemetry/api-logs": "catalog:",
 		"@opentelemetry/context-async-hooks": "catalog:",

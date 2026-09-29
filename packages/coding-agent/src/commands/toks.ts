@@ -4,10 +4,10 @@
  */
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import * as natives from "@oh-my-pi/pi-natives";
-import { formatBytes, pluralize } from "@oh-my-pi/pi-utils";
-import chalk from "@oh-my-pi/pi-utils/chalk";
-import { Args, CliUsageError, Command, Flags } from "@oh-my-pi/pi-utils/cli";
+import * as natives from "@oh-my-soup/pi-natives";
+import { formatBytes, pluralize } from "@oh-my-soup/pi-utils";
+import chalk from "@oh-my-soup/pi-utils/chalk";
+import { Args, CliUsageError, Command, Flags } from "@oh-my-soup/pi-utils/cli";
 import { toksHelp as commandHelp } from "../cli/command-help";
 
 /** Display name and served model lines per native encoding; `Record` keeps it exhaustive. */

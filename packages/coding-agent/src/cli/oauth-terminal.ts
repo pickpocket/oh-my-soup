@@ -14,7 +14,7 @@ import {
 	type OAuthProviderId,
 	type OAuthProviderInfo,
 	PASTE_CODE_LOGIN_PROVIDERS,
-} from "@oh-my-pi/pi-ai";
+} from "@oh-my-soup/pi-ai";
 import { openPath } from "../utils/open";
 
 /**

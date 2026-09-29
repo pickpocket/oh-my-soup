@@ -13,7 +13,7 @@ const clientFiles = {
 };
 
 async function startEmbeddedDashboard(): Promise<{ url: string; tmpDir: string }> {
-	const root = await fs.mkdtemp(path.join(os.tmpdir(), "omp-stats-embedded-"));
+	const root = await fs.mkdtemp(path.join(os.tmpdir(), "oms-stats-embedded-"));
 	tempDirs.push(root);
 	const tmpDir = path.join(root, "tmp");
 	await fs.mkdir(tmpDir);

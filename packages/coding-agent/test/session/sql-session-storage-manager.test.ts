@@ -7,10 +7,10 @@
  */
 
 import { describe, expect, it } from "bun:test";
-import type { Usage } from "@oh-my-pi/pi-ai";
-import { SessionManager } from "@oh-my-pi/pi-coding-agent/session/session-manager";
-import { SqlSessionStorage } from "@oh-my-pi/pi-coding-agent/session/sql-session-storage";
-import { SessionWriteConflictError } from "@oh-my-pi/pi-coding-agent/session/session-storage";
+import type { Usage } from "@oh-my-soup/pi-ai";
+import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
+import { SqlSessionStorage } from "@oh-my-soup/pi-coding-agent/session/sql-session-storage";
+import { SessionWriteConflictError } from "@oh-my-soup/pi-coding-agent/session/session-storage";
 import { SQL } from "bun";
 
 function fakeUsage(input: number, output: number): Usage {

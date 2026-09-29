@@ -1,9 +1,9 @@
 import { createModelBrowserSource } from "../src/modes/model-browser-source";
 import { beforeAll, describe, expect, test } from "bun:test";
-import { ThinkingLevel } from "@oh-my-pi/pi-agent-core";
-import type { Model } from "@oh-my-pi/pi-ai";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
+import { ThinkingLevel } from "@oh-my-soup/pi-agent-core";
+import type { Model } from "@oh-my-soup/pi-ai";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
 import {
 	buildBrowserItems,
 	buildSearchAffinity,
@@ -12,9 +12,9 @@ import {
 	type RoleAssignments,
 	resolveRoleAssignments,
 	sortModelItems,
-} from "@oh-my-pi/pi-tui/overlays/model-browser";
-import { initTheme, theme } from "@oh-my-pi/pi-tui/theme";
-import { createModelMentionSource } from "@oh-my-pi/pi-tui/prompt/model-mention-autocomplete";
+} from "@oh-my-soup/pi-tui/overlays/model-browser";
+import { initTheme, theme } from "@oh-my-soup/pi-tui/theme";
+import { createModelMentionSource } from "@oh-my-soup/pi-tui/prompt/model-mention-autocomplete";
 
 /** Optional presentation metadata a catalog or discovery source may attach. */
 type NativeMetadata = Pick<Model, "description" | "isNew" | "isBeta" | "isRecommended" | "int" | "tps"> &

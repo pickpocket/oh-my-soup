@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { ptree, TempDir } from "@oh-my-pi/pi-utils";
+import { ptree, TempDir } from "@oh-my-soup/pi-utils";
 import { selectShard } from "./ci-test-ts";
 
 describe("test runner watchdog", () => {

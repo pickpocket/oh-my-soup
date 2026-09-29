@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
-import { type } from "@oh-my-pi/omptype";
-import { Agent } from "@oh-my-pi/pi-agent-core";
-import { agentLoop } from "@oh-my-pi/pi-agent-core/agent-loop";
+import { type } from "@oh-my-soup/omstype";
+import { Agent } from "@oh-my-soup/pi-agent-core";
+import { agentLoop } from "@oh-my-soup/pi-agent-core/agent-loop";
 import type {
 	AgentContext,
 	AgentEvent,
@@ -10,10 +10,10 @@ import type {
 	AgentTool,
 	AgentToolContext,
 	StreamFn,
-} from "@oh-my-pi/pi-agent-core/types";
-import type { LiveSteering, Message } from "@oh-my-pi/pi-ai";
-import { createMockModel, type MockResponse } from "@oh-my-pi/pi-ai/providers/mock";
-import { AssistantMessageEventStream } from "@oh-my-pi/pi-ai/utils/event-stream";
+} from "@oh-my-soup/pi-agent-core/types";
+import type { LiveSteering, Message } from "@oh-my-soup/pi-ai";
+import { createMockModel, type MockResponse } from "@oh-my-soup/pi-ai/providers/mock";
+import { AssistantMessageEventStream } from "@oh-my-soup/pi-ai/utils/event-stream";
 import { createUserMessage } from "./helpers";
 
 /** Marks user text so tests can see the provider received the converted view. */

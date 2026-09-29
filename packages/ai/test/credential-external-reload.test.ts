@@ -4,7 +4,7 @@ import {
 	type AuthCredentialStore,
 	AuthStorage,
 	type StoredAuthCredential,
-} from "@oh-my-pi/pi-ai/auth-storage";
+} from "@oh-my-soup/pi-ai/auth-storage";
 
 /**
  * A session that is already running must see credentials another process

@@ -1,10 +1,10 @@
 import { afterAll, afterEach, describe, expect, it, vi } from "bun:test";
-import type { AuthStorage } from "@oh-my-pi/pi-ai";
-import type { FetchImpl } from "@oh-my-pi/pi-ai/types";
-import { ModelRegistry } from "@oh-my-pi/pi-coding-agent/config/model-registry";
-import type { SearchParams } from "@oh-my-pi/pi-coding-agent/web/search/providers/base";
-import { searchOllama } from "@oh-my-pi/pi-coding-agent/web/search/providers/ollama";
-import { parseSearchQuery } from "@oh-my-pi/pi-coding-agent/web/search/query";
+import type { AuthStorage } from "@oh-my-soup/pi-ai";
+import type { FetchImpl } from "@oh-my-soup/pi-ai/types";
+import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
+import type { SearchParams } from "@oh-my-soup/pi-coding-agent/web/search/providers/base";
+import { searchOllama } from "@oh-my-soup/pi-coding-agent/web/search/providers/ollama";
+import { parseSearchQuery } from "@oh-my-soup/pi-coding-agent/web/search/query";
 import { createInMemoryAuthStorage } from "../../helpers/agent-session-setup";
 
 const OLLAMA_SEARCH_URL = "https://ollama.com/api/web_search";

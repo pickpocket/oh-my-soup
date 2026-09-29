@@ -1,4 +1,4 @@
-import type { AvailableCommand } from "@oh-my-pi/pi-utils/acp";
+import type { AvailableCommand } from "@oh-my-soup/pi-utils/acp";
 import { BUILTIN_SLASH_COMMANDS_INTERNAL, lookupBuiltinSlashCommand } from "./builtin-registry";
 import { parseSlashCommand } from "./helpers/parse";
 import type { AcpBuiltinSlashCommandResult, SlashCommandRuntime } from "./types";

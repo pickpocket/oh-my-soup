@@ -1,7 +1,7 @@
 import { describe, expect, it, mock } from "bun:test";
-import { MacOSSpellingProvider, type SpellingBackend } from "@oh-my-pi/pi-tui/prompt/macos-spelling";
-import type { SpellingDecorationContext } from "@oh-my-pi/pi-tui/prompt/prose-gate";
-import { setMagicKeywords } from "@oh-my-pi/pi-tui/prompt/magic-keywords";
+import { MacOSSpellingProvider, type SpellingBackend } from "@oh-my-soup/pi-tui/prompt/macos-spelling";
+import type { SpellingDecorationContext } from "@oh-my-soup/pi-tui/prompt/prose-gate";
+import { setMagicKeywords } from "@oh-my-soup/pi-tui/prompt/magic-keywords";
 
 function backend(overrides: Partial<SpellingBackend>): SpellingBackend {
 	return {

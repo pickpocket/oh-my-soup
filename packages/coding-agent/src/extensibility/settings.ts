@@ -3,7 +3,7 @@
  * settings-panel order; `config/all-settings.ts` registers every domain.
  */
 import { combine, register, type SettingValueOf } from "../config/registry";
-import { DEFAULT_SKILLS_URL } from "@oh-my-pi/pi-wire/skillshare";
+import { DEFAULT_SKILLS_URL } from "@oh-my-soup/pi-wire/skillshare";
 
 const EMPTY_STRING_ARRAY: string[] = [];
 

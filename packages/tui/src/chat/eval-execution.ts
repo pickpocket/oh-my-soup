@@ -6,7 +6,7 @@
 import type { Loader } from "../components/loader";
 import { Text } from "../components/text";
 import { Container, type TUI } from "../tui";
-import { sanitizeText } from "@oh-my-pi/pi-utils";
+import { sanitizeText } from "@oh-my-soup/pi-utils";
 import { highlightCode, theme } from "../theme/theme";
 import type { OutputArtifactError } from "../tools/streaming-output";
 import type { TruncationMeta } from "../tools/output-meta";

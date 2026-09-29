@@ -14,7 +14,7 @@ import { Buffer } from "node:buffer";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { removeWithRetries, VERSION } from "@oh-my-pi/pi-utils";
+import { removeWithRetries, VERSION } from "@oh-my-soup/pi-utils";
 import { lookup } from "../../src/config/registry";
 import { Settings } from "../../src/config/settings";
 import {
@@ -36,7 +36,7 @@ import {
 	writeLastChangelogVersion,
 } from "../../src/utils/changelog";
 
-import { cfgStartupChangelogMode } from "@oh-my-pi/pi-coding-agent/modes/settings";
+import { cfgStartupChangelogMode } from "@oh-my-soup/pi-coding-agent/modes/settings";
 
 const CURRENT_VERSION = "2.0.0";
 const repoRoot = path.resolve(import.meta.dir, "..", "..", "..", "..");

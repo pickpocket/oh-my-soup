@@ -1,6 +1,6 @@
 import { gunzipSync, gzipSync } from "node:zlib";
 
-import { classifyModel } from "@oh-my-pi/pi-catalog/compat/taxonomy";
+import { classifyModel } from "@oh-my-soup/pi-catalog/compat/taxonomy";
 import {
 	AssignModelRequestSchema,
 	AssignModelResponseSchema,
@@ -26,12 +26,12 @@ import {
 	type ModelAssignment,
 	PromptCacheOptionsSchema,
 	StopReason,
-} from "@oh-my-pi/pi-catalog/discovery/devin-proto";
-import { create, fromBinary, toBinary } from "@oh-my-pi/pi-catalog/discovery/protobuf";
-import { calculateCost } from "@oh-my-pi/pi-catalog/models";
-import { DEVIN_DEFAULT_BASE_URL, devinCliMetadata, devinWireMetadata } from "@oh-my-pi/pi-catalog/wire/devin";
-import { decodeDevinUnaryMessage } from "@oh-my-pi/pi-catalog/wire/devin-proto";
-import { isRecord, logger, parseStreamingJson, parseStreamingJsonThrottled, sanitizeText } from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-catalog/discovery/devin-proto";
+import { create, fromBinary, toBinary } from "@oh-my-soup/pi-catalog/discovery/protobuf";
+import { calculateCost } from "@oh-my-soup/pi-catalog/models";
+import { DEVIN_DEFAULT_BASE_URL, devinCliMetadata, devinWireMetadata } from "@oh-my-soup/pi-catalog/wire/devin";
+import { decodeDevinUnaryMessage } from "@oh-my-soup/pi-catalog/wire/devin-proto";
+import { isRecord, logger, parseStreamingJson, parseStreamingJsonThrottled, sanitizeText } from "@oh-my-soup/pi-utils";
 import * as AIError from "../error";
 
 import type {

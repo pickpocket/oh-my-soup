@@ -24,23 +24,23 @@ import {
 	toolWireSchema,
 	type UserMessage,
 	validateToolArguments,
-} from "@oh-my-pi/pi-ai";
+} from "@oh-my-soup/pi-ai";
 import {
 	type Dialect,
 	encodeInbandToolHistory,
 	renderInbandToolPrompt,
 	renderToolExamples,
 	wrapInbandToolStream,
-} from "@oh-my-pi/pi-ai/dialect";
-import * as AIError from "@oh-my-pi/pi-ai/error";
+} from "@oh-my-soup/pi-ai/dialect";
+import * as AIError from "@oh-my-soup/pi-ai/error";
 import {
 	type CursorExecResolvedCarrier,
 	copyCursorExecResolved,
 	getStreamingPartialJson,
 	kCursorExecResolved,
-} from "@oh-my-pi/pi-ai/utils/block-symbols";
-import { schemaDefinesProperty } from "@oh-my-pi/pi-ai/utils/schema/json-schema-validator";
-import { stamp } from "@oh-my-pi/pi-ai/utils/schema/stamps";
+} from "@oh-my-soup/pi-ai/utils/block-symbols";
+import { schemaDefinesProperty } from "@oh-my-soup/pi-ai/utils/schema/json-schema-validator";
+import { stamp } from "@oh-my-soup/pi-ai/utils/schema/stamps";
 import {
 	createHarmonyAuditEvent,
 	detectHarmonyLeakInAssistantMessage,
@@ -50,9 +50,9 @@ import {
 	isHarmonyLeakMitigationTarget,
 	recoverHarmonyToolCall,
 	signalListLabel,
-} from "@oh-my-pi/pi-ai/utils/harmony-leak";
-import { cloneJsonTree, logger, sanitizeText, structuredCloneJSON } from "@oh-my-pi/pi-utils";
-import { INTENT_FIELD } from "@oh-my-pi/pi-wire";
+} from "@oh-my-soup/pi-ai/utils/harmony-leak";
+import { cloneJsonTree, logger, sanitizeText, structuredCloneJSON } from "@oh-my-soup/pi-utils";
+import { INTENT_FIELD } from "@oh-my-soup/pi-wire";
 import { LiveSteeringChannel } from "./live-steering";
 import { agentPauseGate } from "./pause";
 import { type AgentRunCoverage, type AgentRunSummary, ToolCallBlockedError } from "./run-collector";

@@ -7,7 +7,7 @@
  *
  * Run: bun packages/agent/bench/normalize-tools.bench.ts
  */
-import { type } from "@oh-my-pi/omptype";
+import { type } from "@oh-my-soup/omstype";
 import { normalizeTools } from "../src/agent-loop";
 import type { AgentTool } from "../src/types";
 

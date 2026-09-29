@@ -1,4 +1,4 @@
-# @oh-my-pi/pi-mnemopi
+# @oh-my-soup/pi-mnemopi
 
 Local SQLite memory engine for omp agents.
 
@@ -14,7 +14,7 @@ The package does not bundle or download a local GGUF LLM. LLM paths are host-bac
 ## Basic use
 
 ```ts
-import { Mnemopi } from "@oh-my-pi/pi-mnemopi";
+import { Mnemopi } from "@oh-my-soup/pi-mnemopi";
 
 const memory = new Mnemopi({ dbPath: "./mnemopi.db", bank: "project" });
 const id = memory.remember("The deployment target is stable-cluster.", {
@@ -36,8 +36,8 @@ Lexical recall matches whole tokens, declared synonyms, underscore-separated ide
 `Mnemopi` accepts LLM and embedding options directly. `MNEMOPI_*` environment variables remain fallbacks/defaults when the matching constructor option is omitted.
 
 ```ts
-import { Mnemopi } from "@oh-my-pi/pi-mnemopi";
-import type { Model } from "@oh-my-pi/pi-ai";
+import { Mnemopi } from "@oh-my-soup/pi-mnemopi";
+import type { Model } from "@oh-my-soup/pi-ai";
 
 const ftsOnly = new Mnemopi({ noEmbeddings: true });
 

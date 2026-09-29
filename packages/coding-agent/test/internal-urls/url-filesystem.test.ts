@@ -2,9 +2,9 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { type LocalProtocolOptions, resolveLocalRoot } from "@oh-my-pi/pi-coding-agent/internal-urls";
-import { InternalUrlFilesystem } from "@oh-my-pi/pi-coding-agent/internal-urls/url-filesystem";
-import { ShellFsFileType, ShellFsOp } from "@oh-my-pi/pi-natives";
+import { type LocalProtocolOptions, resolveLocalRoot } from "@oh-my-soup/pi-coding-agent/internal-urls";
+import { InternalUrlFilesystem } from "@oh-my-soup/pi-coding-agent/internal-urls/url-filesystem";
+import { ShellFsFileType, ShellFsOp } from "@oh-my-soup/pi-natives";
 
 const READ = { read: true, write: false, append: false, truncate: false, create: false, createNew: false };
 const CREATE = { read: false, write: true, append: false, truncate: true, create: true, createNew: false };

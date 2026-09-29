@@ -1,14 +1,14 @@
 import { describe, expect, it } from "bun:test";
-import { streamOpenAIResponses } from "@oh-my-pi/pi-ai/providers/openai-responses";
+import { streamOpenAIResponses } from "@oh-my-soup/pi-ai/providers/openai-responses";
 import {
 	convertResponsesAssistantMessage,
 	SYNTHETIC_REASONING_REPLAY_PLACEHOLDER,
-} from "@oh-my-pi/pi-ai/providers/openai-shared";
-import { createOpenAIResponsesHistoryPayload } from "@oh-my-pi/pi-ai/utils";
-import type { AssistantMessage, Context, Model } from "@oh-my-pi/pi-ai/types";
-import { Effort } from "@oh-my-pi/pi-catalog/effort";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
-import { getBundledModel } from "@oh-my-pi/pi-catalog/models";
+} from "@oh-my-soup/pi-ai/providers/openai-shared";
+import { createOpenAIResponsesHistoryPayload } from "@oh-my-soup/pi-ai/utils";
+import type { AssistantMessage, Context, Model } from "@oh-my-soup/pi-ai/types";
+import { Effort } from "@oh-my-soup/pi-catalog/effort";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
+import { getBundledModel } from "@oh-my-soup/pi-catalog/models";
 
 // Issue #10690: follow-up to #8248. The Responses reasoning synthesizer replays a
 // reasoning item for each assistant turn a DeepSeek-family target requires. When

@@ -1,10 +1,10 @@
-# @oh-my-pi/omp-stats
+# @oh-my-soup/oms-stats
 
 Local observability dashboard for AI usage statistics.
 
 ## Features
 
-- **Session log parsing**: Reads JSONL session logs from `~/.omp/agent/sessions/`
+- **Session log parsing**: Reads JSONL session logs from `~/.oms/agent/sessions/`
 - **SQLite aggregation**: Stats storage in `bun:sqlite`, with hourly rollups so any range queries in milliseconds
 - **Live web dashboard**: Opens instantly, ingests sessions in the background (newest first) and streams progress and updates to the page
 - **Incremental sync**: Only processes new/modified log entries; a watcher re-syncs transcripts as they are written
@@ -44,7 +44,7 @@ omp stats --json
 ### Programmatic
 
 ```typescript
-import { getDashboardStats, syncAllSessions } from "@oh-my-pi/omp-stats";
+import { getDashboardStats, syncAllSessions } from "@oh-my-soup/oms-stats";
 
 // Sync session logs to database
 const { processed, files } = await syncAllSessions();
@@ -69,8 +69,8 @@ console.log(stats.byModel[0].avgTokensPerSecond);
 
 ## Data Storage
 
-- **Session logs**: `~/.omp/agent/sessions/` (JSONL files)
-- **Stats database**: `~/.omp/stats.db` (SQLite)
+- **Session logs**: `~/.oms/agent/sessions/` (JSONL files)
+- **Stats database**: `~/.oms/stats.db` (SQLite)
 
 Synchronization fetches file metadata and saved cursors in bounded batches and overlaps transcript reads, including on macOS without worker threads. Statistics and cursors commit atomically; unchanged files are skipped, and interrupted batches are retried without double-counting usage.
 

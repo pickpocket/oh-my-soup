@@ -171,7 +171,7 @@ describe("published legal payloads", () => {
 			await Bun.write(
 				path.join(pkgDir, "package.json"),
 				JSON.stringify({
-					name: "@oh-my-pi/pi-natives",
+					name: "@oh-my-soup/pi-natives",
 					version: "15.5.15",
 					license: "MIT",
 				}),
@@ -206,9 +206,9 @@ describe("published legal payloads", () => {
 });
 
 describe("published manifest topology", () => {
-	it("repoints omptype runtime entries to dist/js with a bun source condition", async () => {
-		const pkg = packages.find(entry => entry.dir === "packages/omptype");
-		if (!pkg) throw new Error("omptype missing from publish set");
+	it("repoints omstype runtime entries to dist/js with a bun source condition", async () => {
+		const pkg = packages.find(entry => entry.dir === "packages/omstype");
+		if (!pkg) throw new Error("omstype missing from publish set");
 		expect(pkg.publishJs).toBe(true);
 
 		const manifest = await rewriteManifest(pkg, false);

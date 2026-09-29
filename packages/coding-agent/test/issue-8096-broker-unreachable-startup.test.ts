@@ -10,12 +10,12 @@
  * a silent fallback to local credentials.
  */
 import { describe, expect, it, vi } from "bun:test";
-import { AuthBrokerError } from "@oh-my-pi/pi-ai/auth-broker";
-import { MissingApiKeyError } from "@oh-my-pi/pi-ai/error";
-import { parseArgs } from "@oh-my-pi/pi-coding-agent/cli/args";
-import { runRootCommand } from "@oh-my-pi/pi-coding-agent/main";
-import { describeAuthBrokerStartupError } from "@oh-my-pi/pi-coding-agent/session/auth-broker-config";
-import { setInteractiveHost } from "@oh-my-pi/pi-utils";
+import { AuthBrokerError } from "@oh-my-soup/pi-ai/auth-broker";
+import { MissingApiKeyError } from "@oh-my-soup/pi-ai/error";
+import { parseArgs } from "@oh-my-soup/pi-coding-agent/cli/args";
+import { runRootCommand } from "@oh-my-soup/pi-coding-agent/main";
+import { describeAuthBrokerStartupError } from "@oh-my-soup/pi-coding-agent/session/auth-broker-config";
+import { setInteractiveHost } from "@oh-my-soup/pi-utils";
 
 class ProcessExitSignal extends Error {
 	constructor(readonly code: number) {

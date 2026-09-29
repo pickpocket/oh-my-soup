@@ -1,5 +1,5 @@
-import type { AssistantMessage } from "@oh-my-pi/pi-ai";
-import { classifyModel } from "@oh-my-pi/pi-catalog/identity";
+import type { AssistantMessage } from "@oh-my-soup/pi-ai";
+import { classifyModel } from "@oh-my-soup/pi-catalog/identity";
 import { MessageDividerComponent } from "../chrome/message-divider";
 import { theme } from "../theme";
 

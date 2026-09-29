@@ -34,4 +34,4 @@ export type {
 	MCPImageContent,
 	MCPResourceContent,
 	MCPContent,
-} from "@oh-my-pi/pi-tui/tools/mcp";
+} from "@oh-my-soup/pi-tui/tools/mcp";

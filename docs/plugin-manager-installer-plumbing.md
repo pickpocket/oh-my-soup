@@ -42,7 +42,7 @@ omp plugin install name@marketplace / omp install name@marketplace
 
 ## On-disk model
 
-User plugin state lives under the plugins data root (`~/.omp/plugins` by default). On Linux and macOS, `omp config init-xdg` initializes the XDG data, state, and cache roots but does not move existing data; with the XDG variables set, initialized roots store new user plugin state under `$XDG_DATA_HOME/omp/plugins`:
+User plugin state lives under the plugins data root (`~/.oms/plugins` by default). On Linux and macOS, `omp config init-xdg` initializes the XDG data, state, and cache roots but does not move existing data; with the XDG variables set, initialized roots store new user plugin state under `$XDG_DATA_HOME/omp/plugins`:
 
 - `package.json` — dependency manifest used by `bun install`/`bun uninstall` for npm-installed plugins
 - `node_modules/` — installed npm packages plus link and marketplace-cache symlinks
@@ -51,15 +51,15 @@ User plugin state lives under the plugins data root (`~/.omp/plugins` by default
   - selected feature set per plugin
   - persisted plugin settings
 
-When a project anchor (`.omp/` or `.git/`) exists at or above cwd, project runtime plugins live in `<anchor>/.omp/plugins/{node_modules,omp-plugins.lock.json}`. Marketplace project installs populate this root; enabled project packages shadow user packages with the same package name.
+When a project anchor (`.oms/` or `.git/`) exists at or above cwd, project runtime plugins live in `<anchor>/.oms/plugins/{node_modules,omp-plugins.lock.json}`. Marketplace project installs populate this root; enabled project packages shadow user packages with the same package name.
 
-Project-local overrides are searched through project config directories as `plugin-overrides.json` (normally `<project>/.omp/plugin-overrides.json`). Overrides are read-only from manager/loader perspective and can disable plugins or override features/settings.
+Project-local overrides are searched through project config directories as `plugin-overrides.json` (normally `<project>/.oms/plugin-overrides.json`). Overrides are read-only from manager/loader perspective and can disable plugins or override features/settings.
 
 Marketplace installs add registry and cache state alongside those runtime entries:
 
-- user data root `marketplaces.json` (`~/.omp/marketplaces.json` by default) — configured marketplace catalogs
-- user plugins data root `installed_plugins.json` (`~/.omp/plugins/installed_plugins.json` by default) — user-scoped marketplace installs
-- `<anchor>/.omp/plugins/installed_plugins.json` — project-scoped marketplace installs
+- user data root `marketplaces.json` (`~/.oms/marketplaces.json` by default) — configured marketplace catalogs
+- user plugins data root `installed_plugins.json` (`~/.oms/plugins/installed_plugins.json` by default) — user-scoped marketplace installs
+- `<anchor>/.oms/plugins/installed_plugins.json` — project-scoped marketplace installs
 - user plugins data root `cache/{marketplaces,plugins}/` — cached catalogs and plugin directories
 - `<scope>/plugins/node_modules/<package>` — symlink to the cached plugin, allowing its `package.json` `omp.extensions` and tools to load
 - `<scope>/plugins/omp-plugins.lock.json` — enablement and feature state shared with the runtime plugin loader
@@ -102,7 +102,7 @@ Malformed `package.json` JSON is a hard failure at read time; malformed manifest
 1. Parse feature bracket syntax from install spec.
 2. Validate the spec: git specs via `validateGitSpec`; npm specs against the package-name regex + shell-metacharacter denylist.
 3. Ensure plugin `package.json` exists (`omp-plugins`, private dependencies map).
-4. Run `bun install <packageSpec>` in `~/.omp/plugins`.
+4. Run `bun install <packageSpec>` in `~/.oms/plugins`.
 5. Resolve the installed package name (npm: strip version via `extractPackageName`; git: diff `dependencies` before/after) and read `node_modules/<name>/package.json`.
 6. Resolve manifest and compute `enabledFeatures`:
    - `[*]`: all declared features (or `null` if no feature map)
@@ -147,7 +147,7 @@ If uninstall command fails, runtime state is not changed.
 
 ## Link flow (`PluginManager.link`)
 
-`link` supports local plugin development by symlinking a local package into `~/.omp/plugins/node_modules/<pkg.name>`.
+`link` supports local plugin development by symlinking a local package into `~/.oms/plugins/node_modules/<pkg.name>`.
 
 Behavior:
 

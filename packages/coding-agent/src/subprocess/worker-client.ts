@@ -14,8 +14,8 @@ import {
 	stripWindowsExtendedLengthPathPrefix,
 	WhichCachePolicy,
 	workerHostEntry,
-} from "@oh-my-pi/pi-utils";
-import { stripGitRepoLocationEnv } from "@oh-my-pi/pi-utils/env";
+} from "@oh-my-soup/pi-utils";
+import { stripGitRepoLocationEnv } from "@oh-my-soup/pi-utils/env";
 import type { Subprocess } from "bun";
 
 /**
@@ -200,7 +200,7 @@ export function workerEnvFromParent(overlay?: Record<string, string>): Record<st
 
 /**
  * `LD_LIBRARY_PATH` overlay that lets a dlopen'd native addon find its C++
- * runtime. The ONNX addons installed on demand under `~/.omp/agent/cache/**`
+ * runtime. The ONNX addons installed on demand under `~/.oms/agent/cache/**`
  * are `process.dlopen`'d and need `libstdc++.so.6` / `libgcc_s.so.1`; because
  * each addon carries its own `DT_RUNPATH`, an RPATH on our executable cannot
  * satisfy them, so the path has to come from the environment. On distros where

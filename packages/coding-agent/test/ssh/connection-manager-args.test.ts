@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { getRemoteHostDir } from "@oh-my-pi/pi-utils";
+import { getRemoteHostDir } from "@oh-my-soup/pi-utils";
 import {
 	buildRemoteCommand,
 	extractProbePayload,

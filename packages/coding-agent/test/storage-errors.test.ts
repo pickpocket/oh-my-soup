@@ -2,10 +2,10 @@ import { Database } from "bun:sqlite";
 import { expect, test } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { SqliteAuthCredentialStore } from "@oh-my-pi/pi-ai";
-import { AgentStorage } from "@oh-my-pi/pi-coding-agent/session/agent-storage";
-import { HistoryStorage } from "@oh-my-pi/pi-coding-agent/session/history-storage";
-import { TempDir } from "@oh-my-pi/pi-utils";
+import { SqliteAuthCredentialStore } from "@oh-my-soup/pi-ai";
+import { AgentStorage } from "@oh-my-soup/pi-coding-agent/session/agent-storage";
+import { HistoryStorage } from "@oh-my-soup/pi-coding-agent/session/history-storage";
+import { TempDir } from "@oh-my-soup/pi-utils";
 
 async function corruptDatabase(dbPath: string): Promise<Uint8Array<ArrayBuffer>> {
 	const db = new Database(dbPath);

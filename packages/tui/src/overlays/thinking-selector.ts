@@ -1,4 +1,4 @@
-import type { Effort } from "@oh-my-pi/pi-ai";
+import type { Effort } from "@oh-my-soup/pi-ai";
 import { type SelectItem, SelectList, type SgrMouseEvent } from "../index";
 import { getSelectListTheme } from "../theme/theme";
 import { getThinkingLevelMetadata } from "../thinking";

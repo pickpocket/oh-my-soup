@@ -16,9 +16,9 @@ import type {
 	TextContent,
 	ToolResultMessage,
 	UserMessage,
-} from "@oh-my-pi/pi-ai";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
-import { dropUnreadableContextImages } from "@oh-my-pi/pi-coding-agent/session/provider-image-budget";
+} from "@oh-my-soup/pi-ai";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
+import { dropUnreadableContextImages } from "@oh-my-soup/pi-coding-agent/session/provider-image-budget";
 
 /**
  * 1x1 PNG whose chunk framing does not land exactly on `IEND`, yet every

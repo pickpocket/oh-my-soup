@@ -5,7 +5,7 @@
  * no file or shell access. Everything the agent needs arrives in the conversation,
  * so nothing outside the source text can influence the output.
  */
-import { getProjectDir } from "@oh-my-pi/pi-utils";
+import { getProjectDir } from "@oh-my-soup/pi-utils";
 import { ModelRegistry } from "../config/model-registry";
 import { formatModelString, resolveCliModel } from "../config/model-resolver";
 import { Settings } from "../config/settings";

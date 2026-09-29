@@ -4,12 +4,12 @@
  * tool binaries, browsers, side runtimes). Both render through
  * {@link renderHudProgressRow} so they read as one HUD.
  */
-import { type Component, renderProgressBar, visibleWidth } from "@oh-my-pi/pi-tui";
-import { sanitizeStatusText } from "@oh-my-pi/pi-tui/chrome/shared";
-import { formatCost } from "@oh-my-pi/pi-tui/overlays/agent-hub-renderer";
-import { truncateToWidth } from "@oh-my-pi/pi-tui/render/render-utils";
-import { theme } from "@oh-my-pi/pi-tui/theme";
-import { formatBytes } from "@oh-my-pi/pi-utils";
+import { type Component, renderProgressBar, visibleWidth } from "@oh-my-soup/pi-tui";
+import { sanitizeStatusText } from "@oh-my-soup/pi-tui/chrome/shared";
+import { formatCost } from "@oh-my-soup/pi-tui/overlays/agent-hub-renderer";
+import { truncateToWidth } from "@oh-my-soup/pi-tui/render/render-utils";
+import { theme } from "@oh-my-soup/pi-tui/theme";
+import { formatBytes } from "@oh-my-soup/pi-utils";
 import type { DownloadActivity } from "../downloads/activity";
 import type { JudgmentBatchProgress } from "../eval/judgment-batch-events";
 

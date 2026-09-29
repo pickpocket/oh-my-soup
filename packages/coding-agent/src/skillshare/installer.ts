@@ -10,8 +10,8 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import * as readline from "node:readline/promises";
-import { formatAge, formatNumber } from "@oh-my-pi/pi-utils";
-import chalk from "@oh-my-pi/pi-utils/chalk";
+import { formatAge, formatNumber } from "@oh-my-soup/pi-utils";
+import chalk from "@oh-my-soup/pi-utils/chalk";
 import {
 	SKILLS_ROUTES,
 	type SkillFile,
@@ -20,7 +20,7 @@ import {
 	type SkillSearchSort,
 	type SkillVersionManifest,
 	type SkillVersionSummary,
-} from "@oh-my-pi/pi-wire/skillshare";
+} from "@oh-my-soup/pi-wire/skillshare";
 import { parseSkillSpec, SkillshareClient, SkillshareError } from "./client";
 import {
 	formatSkillId,

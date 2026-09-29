@@ -2,7 +2,7 @@
  * `omp auth-gateway` — run a forward proxy that injects auth from the broker.
  */
 
-import { Args, Command, Flags, renderCommandHelp } from "@oh-my-pi/pi-utils/cli";
+import { Args, Command, Flags, renderCommandHelp } from "@oh-my-soup/pi-utils/cli";
 import {
 	AUTH_GATEWAY_ACTIONS,
 	type AuthGatewayAction,
@@ -10,7 +10,7 @@ import {
 	runAuthGatewayCommand,
 } from "../cli/auth-gateway-cli";
 import { authGatewayHelp as commandHelp } from "../cli/command-help";
-import { initTheme } from "@oh-my-pi/pi-tui/theme";
+import { initTheme } from "@oh-my-soup/pi-tui/theme";
 
 export default class AuthGateway extends Command {
 	static description = commandHelp.description;

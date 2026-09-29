@@ -2,8 +2,8 @@ import { afterEach, expect, it } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { getThemeByName } from "@oh-my-pi/pi-tui/theme";
-import { getAgentDir, getCustomThemesDir, removeWithRetries, setAgentDir } from "@oh-my-pi/pi-utils";
+import { getThemeByName } from "@oh-my-soup/pi-tui/theme";
+import { getAgentDir, getCustomThemesDir, removeWithRetries, setAgentDir } from "@oh-my-soup/pi-utils";
 
 const DARK_THEME_PATH = path.join(import.meta.dir, "..", "src", "theme", "dark.json");
 

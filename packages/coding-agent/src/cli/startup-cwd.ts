@@ -1,6 +1,6 @@
 import * as os from "node:os";
 import * as path from "node:path";
-import { directoryExists, getProjectDir, normalizePathForComparison, setProjectDir } from "@oh-my-pi/pi-utils";
+import { directoryExists, getProjectDir, normalizePathForComparison, setProjectDir } from "@oh-my-soup/pi-utils";
 import type { Args } from "./args";
 
 async function maybeAutoChdir(parsed: Args): Promise<void> {

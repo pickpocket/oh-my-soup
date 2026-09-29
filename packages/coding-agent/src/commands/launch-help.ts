@@ -1,7 +1,7 @@
-import { Args, type CommandMetadata, Flags } from "@oh-my-pi/pi-utils/cli";
-import { APP_NAME } from "@oh-my-pi/pi-utils/dirs";
-import { formatKeyHint } from "@oh-my-pi/pi-tui/key-hint-format";
-import { CLI_THINKING_LEVELS } from "@oh-my-pi/pi-tui/thinking";
+import { Args, type CommandMetadata, Flags } from "@oh-my-soup/pi-utils/cli";
+import { APP_NAME } from "@oh-my-soup/pi-utils/dirs";
+import { formatKeyHint } from "@oh-my-soup/pi-tui/key-hint-format";
+import { CLI_THINKING_LEVELS } from "@oh-my-soup/pi-tui/thinking";
 import { SERVICE_TIER_OPENAI_VALUES } from "../config/service-tier";
 
 export const launchHelp = {
@@ -122,6 +122,6 @@ export const launchHelp = {
 		`# Create a shell shortcut for a work profile\n  ${APP_NAME} --profile work --alias omp-work`,
 		`# Use different model (fuzzy matching)\n  ${APP_NAME} --model opus "Help me refactor this code"`,
 		`# Limit model cycling to specific models\n  ${APP_NAME} --models claude-sonnet,claude-haiku,gpt-4o`,
-		`# Export a session file to HTML\n  ${APP_NAME} --export ~/.omp/agent/sessions/--path--/session.jsonl`,
+		`# Export a session file to HTML\n  ${APP_NAME} --export ~/.oms/agent/sessions/--path--/session.jsonl`,
 	],
 } satisfies CommandMetadata;

@@ -4,20 +4,20 @@
  * Handles `omp setup` for onboarding and `omp setup <component>` for optional dependencies.
  */
 import * as path from "node:path";
-import { APP_NAME, getProjectDir, getPythonEnvDir } from "@oh-my-pi/pi-utils";
-import chalk from "@oh-my-pi/pi-utils/chalk";
-import { formatKeyHint } from "@oh-my-pi/pi-tui/key-hint-format";
+import { APP_NAME, getProjectDir, getPythonEnvDir } from "@oh-my-soup/pi-utils";
+import chalk from "@oh-my-soup/pi-utils/chalk";
+import { formatKeyHint } from "@oh-my-soup/pi-tui/key-hint-format";
 import { Settings } from "../config/settings";
 import { ModelRegistry } from "../config/model-registry";
 import { resolveRoleChain } from "../config/model-resolver";
 import { roleCandidatePool } from "../config/model-roles";
 import { checkPythonKernelAvailability } from "../eval/py/kernel";
 import { discoverAuthStorage } from "../sdk";
-import { theme } from "@oh-my-pi/pi-tui/theme";
+import { theme } from "@oh-my-soup/pi-tui/theme";
 import { downloadSttModel, isSttModelCached } from "../stt/downloader";
 import { isSttModelKey, STT_MODEL_OPTIONS } from "../stt/models";
 import { downloadTtsModel, isTtsLocalModelKey, isTtsModelCached, TTS_LOCAL_MODELS } from "../tts";
-import { selectSetupModel } from "@oh-my-pi/pi-tui/apps/setup-model-picker";
+import { selectSetupModel } from "@oh-my-soup/pi-tui/apps/setup-model-picker";
 
 import { cfgPythonInterpreter } from "../eval/settings";
 

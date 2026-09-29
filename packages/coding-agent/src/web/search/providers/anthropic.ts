@@ -18,10 +18,10 @@ import {
 	resolveAnthropicMetadataUserId,
 	stripClaudeToolPrefix,
 	withAuth,
-} from "@oh-my-pi/pi-ai";
-import { buildAnthropicSystemBlocks, wrapFetchForCch } from "@oh-my-pi/pi-ai/providers/anthropic";
-import { compareRevision, parseRevision } from "@oh-my-pi/pi-catalog/identity";
-import { $env } from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-ai";
+import { buildAnthropicSystemBlocks, wrapFetchForCch } from "@oh-my-soup/pi-ai/providers/anthropic";
+import { compareRevision, parseRevision } from "@oh-my-soup/pi-catalog/identity";
+import { $env } from "@oh-my-soup/pi-utils";
 import type { AnthropicApiResponse, AnthropicCitation } from "../../../web/search/types";
 import type { SearchCitation, SearchResponse, SearchSource } from "../types";
 import { SearchProviderError } from "../../../web/search/types";

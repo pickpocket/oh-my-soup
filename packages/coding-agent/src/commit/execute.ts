@@ -4,7 +4,7 @@
  * wrapper that keeps a requested `--push` honest.
  */
 
-import * as vcs from "@oh-my-pi/pi-natives/vcs";
+import * as vcs from "@oh-my-soup/pi-natives/vcs";
 
 /**
  * A commit or push failure that has already been reported to the user with a

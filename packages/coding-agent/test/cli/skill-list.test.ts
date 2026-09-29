@@ -5,8 +5,8 @@ import * as path from "node:path";
 import { handleSkillList, runSkillsCommand } from "../../src/cli/skill-list";
 import { resetSettingsForTest } from "../../src/config/settings";
 import { AgentStorage } from "../../src/session/agent-storage";
-import { getAgentDir, removeWithRetries, setAgentDir, Snowflake } from "@oh-my-pi/pi-utils";
-import { CliUsageError } from "@oh-my-pi/pi-utils/cli";
+import { getAgentDir, removeWithRetries, setAgentDir, Snowflake } from "@oh-my-soup/pi-utils";
+import { CliUsageError } from "@oh-my-soup/pi-utils/cli";
 
 // Every test below discovers skills through the real capability loader, which
 // walks `os.homedir()` and `getAgentDir()` for user-level providers (native

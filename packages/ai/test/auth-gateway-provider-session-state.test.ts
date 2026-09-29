@@ -6,25 +6,25 @@
  * flags, OpenAI's strict-tools and reasoning-effort fallbacks. The map holding
  * them is non-serializable, so `pi-native-client` strips it from the wire and
  * `pi-native-server` refuses it — a gateway client cannot supply one. Without a
- * server-side owner, every containerized / robomp turn re-pays the rejected
+ * server-side owner, every containerized / roboms turn re-pays the rejected
  * upstream round-trip that already taught the lesson.
  */
 import { describe, expect, it } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { clearCustomApis } from "@oh-my-pi/pi-ai/api-registry";
+import { clearCustomApis } from "@oh-my-soup/pi-ai/api-registry";
 import {
 	AUTH_GATEWAY_MAX_SESSION_STATES,
 	AuthGatewaySessionStateStore,
 	startAuthGateway,
-} from "@oh-my-pi/pi-ai/auth-gateway";
-import type { AuthGatewayServerHandle, AuthGatewaySessionStateRequest } from "@oh-my-pi/pi-ai/auth-gateway";
-import { AuthStorage } from "@oh-my-pi/pi-ai/auth-storage";
-import { ProviderHttpError } from "@oh-my-pi/pi-ai/error";
-import { createMockModel, registerMockApi } from "@oh-my-pi/pi-ai/providers/mock";
-import type { Api, Context, Model, ProviderSessionState } from "@oh-my-pi/pi-ai/types";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
+} from "@oh-my-soup/pi-ai/auth-gateway";
+import type { AuthGatewayServerHandle, AuthGatewaySessionStateRequest } from "@oh-my-soup/pi-ai/auth-gateway";
+import { AuthStorage } from "@oh-my-soup/pi-ai/auth-storage";
+import { ProviderHttpError } from "@oh-my-soup/pi-ai/error";
+import { createMockModel, registerMockApi } from "@oh-my-soup/pi-ai/providers/mock";
+import type { Api, Context, Model, ProviderSessionState } from "@oh-my-soup/pi-ai/types";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
 import { withOfficialAnthropicEndpoint } from "./helpers";
 
 function makeAnthropicModel(baseUrl: string): Model<"anthropic-messages"> {

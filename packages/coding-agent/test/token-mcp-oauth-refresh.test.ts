@@ -1,10 +1,10 @@
 import { Database } from "bun:sqlite";
 import { expect, test } from "bun:test";
 import * as path from "node:path";
-import { AuthStorage, SqliteAuthCredentialStore } from "@oh-my-pi/pi-ai";
-import { refreshStoredManagedMcpOAuthCredential } from "@oh-my-pi/pi-coding-agent/mcp/oauth-credentials";
-import type { MCPStoredOAuthCredential } from "@oh-my-pi/pi-coding-agent/mcp/oauth-flow";
-import { TempDir } from "@oh-my-pi/pi-utils";
+import { AuthStorage, SqliteAuthCredentialStore } from "@oh-my-soup/pi-ai";
+import { refreshStoredManagedMcpOAuthCredential } from "@oh-my-soup/pi-coding-agent/mcp/oauth-credentials";
+import type { MCPStoredOAuthCredential } from "@oh-my-soup/pi-coding-agent/mcp/oauth-flow";
+import { TempDir } from "@oh-my-soup/pi-utils";
 
 /** Capture the `resource` form field of the single refresh_token grant a helper call makes. */
 async function captureRefreshResource(

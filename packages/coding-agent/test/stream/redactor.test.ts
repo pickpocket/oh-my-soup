@@ -2,8 +2,8 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { StreamRedactor } from "@oh-my-pi/pi-coding-agent/stream/redactor";
-import { logger } from "@oh-my-pi/pi-utils";
+import { StreamRedactor } from "@oh-my-soup/pi-coding-agent/stream/redactor";
+import { logger } from "@oh-my-soup/pi-utils";
 
 let redactor: StreamRedactor;
 let cwd: string;

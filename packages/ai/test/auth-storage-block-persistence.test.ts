@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { AuthStorage, type OAuthCredential, SqliteAuthCredentialStore } from "@oh-my-pi/pi-ai";
+import { AuthStorage, type OAuthCredential, SqliteAuthCredentialStore } from "@oh-my-soup/pi-ai";
 import { removeWithRetries } from "../../utils/src/temp";
 
 const PROVIDER = "anthropic";

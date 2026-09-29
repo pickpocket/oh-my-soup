@@ -1,11 +1,11 @@
 import { describe, expect, it } from "bun:test";
-import type { Model } from "@oh-my-pi/pi-ai";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
+import type { Model } from "@oh-my-soup/pi-ai";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
 import {
 	RawSseDebugBuffer,
 	rawSseRecordLines,
 	resolveRawSseDebugBuffer,
-} from "@oh-my-pi/pi-tui/apps/debug/raw-sse-buffer";
+} from "@oh-my-soup/pi-tui/apps/debug/raw-sse-buffer";
 
 const model: Model<"anthropic-messages"> = buildModel({
 	id: "claude-test",

@@ -1,9 +1,9 @@
 import type { ModelIdentity } from "./compat/types";
 import type { Effort } from "./effort";
 
-// Re-exported from @oh-my-pi/pi-utils so the whole workspace shares one
+// Re-exported from @oh-my-soup/pi-utils so the whole workspace shares one
 // `fetch`-compatible signature (tls-fetch's wrappers produce/accept it).
-export type { FetchImpl } from "@oh-my-pi/pi-utils";
+export type { FetchImpl } from "@oh-my-soup/pi-utils";
 export type { KnownProvider } from "./provider-models/descriptors";
 
 export type KnownApi =
@@ -1345,7 +1345,7 @@ export interface Model<TApi extends Api = Api> {
 	 * (or compatible) host; `headers.Authorization` (or `apiKey` resolved by
 	 * the registry) carries the gateway bearer.
 	 *
-	 * Used by containerized omp installs (e.g. robomp slots) to route every
+	 * Used by containerized omp installs (e.g. roboms slots) to route every
 	 * LLM call through a sidecar gateway that holds the real provider
 	 * credentials. The model's other metadata (pricing, context window,
 	 * thinking config, …) still resolves locally; only the streaming

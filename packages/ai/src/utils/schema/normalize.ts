@@ -6,7 +6,7 @@
  * exposes one option-driven core plus thin dispatchers that pin the option set
  * for each target.
  */
-import { logger } from "@oh-my-pi/pi-utils";
+import { logger } from "@oh-my-soup/pi-utils";
 import * as AIError from "../../error";
 import { dereferenceJsonSchema } from "./dereference";
 import { upgradeJsonSchemaTo202012 } from "./draft";

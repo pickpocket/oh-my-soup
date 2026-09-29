@@ -2,20 +2,20 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { ModelRegistry } from "@oh-my-pi/pi-coding-agent/config/model-registry";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { getActiveSkills } from "@oh-my-pi/pi-coding-agent/extensibility/skills";
-import type { Skill } from "@oh-my-pi/pi-coding-agent/sdk";
-import { createAgentSession } from "@oh-my-pi/pi-coding-agent/sdk";
-import type { AgentSession } from "@oh-my-pi/pi-coding-agent/session/agent-session";
-import { AuthStorage } from "@oh-my-pi/pi-coding-agent/session/auth-storage";
-import { SessionManager } from "@oh-my-pi/pi-coding-agent/session/session-manager";
-import { removeSyncWithRetries } from "@oh-my-pi/pi-utils";
-import { getAgentDir, setAgentDir } from "@oh-my-pi/pi-utils/dirs";
+import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { getActiveSkills } from "@oh-my-soup/pi-coding-agent/extensibility/skills";
+import type { Skill } from "@oh-my-soup/pi-coding-agent/sdk";
+import { createAgentSession } from "@oh-my-soup/pi-coding-agent/sdk";
+import type { AgentSession } from "@oh-my-soup/pi-coding-agent/session/agent-session";
+import { AuthStorage } from "@oh-my-soup/pi-coding-agent/session/auth-storage";
+import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
+import { removeSyncWithRetries } from "@oh-my-soup/pi-utils";
+import { getAgentDir, setAgentDir } from "@oh-my-soup/pi-utils/dirs";
 import { cleanupTempHome } from "./helpers/temp-home-cleanup";
 
-import { cfgAutolearnEnabled } from "@oh-my-pi/pi-coding-agent/autolearn/settings";
-import { cfgSkillsCustomDirectories } from "@oh-my-pi/pi-coding-agent/extensibility/settings";
+import { cfgAutolearnEnabled } from "@oh-my-soup/pi-coding-agent/autolearn/settings";
+import { cfgSkillsCustomDirectories } from "@oh-my-soup/pi-coding-agent/extensibility/settings";
 
 function createIsolatedSkillsSettings(extensions: string[] = []): Settings {
 	return Settings.isolated({
@@ -69,7 +69,7 @@ describe("createAgentSession skills option", () => {
 
 	beforeEach(() => {
 		tempDir = path.join(os.tmpdir(), `pi-sdk-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
-		// Create skill in .omp/skills/ for native project-level discovery
+		// Create skill in .oms/skills/ for native project-level discovery
 		skillsDir = path.join(tempDir, ".omp", "skills", "test-skill");
 		fs.mkdirSync(skillsDir, { recursive: true });
 		originalHome = process.env.HOME;

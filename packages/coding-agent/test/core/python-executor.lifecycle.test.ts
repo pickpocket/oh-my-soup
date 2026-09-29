@@ -3,13 +3,13 @@ import {
 	disposeAllKernelSessions,
 	disposeKernelSessionsByOwner,
 	executePython,
-} from "@oh-my-pi/pi-coding-agent/eval/py/executor";
+} from "@oh-my-soup/pi-coding-agent/eval/py/executor";
 import {
 	type KernelExecuteOptions,
 	type KernelExecuteResult,
 	type KernelShutdownResult,
 	PythonKernel,
-} from "@oh-my-pi/pi-coding-agent/eval/py/kernel";
+} from "@oh-my-soup/pi-coding-agent/eval/py/kernel";
 
 Bun.env.PI_PYTHON_SKIP_CHECK = "1";
 

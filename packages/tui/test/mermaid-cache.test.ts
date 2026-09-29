@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
-import * as mermaidAscii from "@oh-my-pi/pi-utils/mermaid-ascii";
+import * as mermaidAscii from "@oh-my-soup/pi-utils/mermaid-ascii";
 import { clearMermaidCache, resolveMermaidAscii } from "../src/theme/mermaid-cache";
 
 describe("resolveMermaidAscii resize selection", () => {

@@ -6,7 +6,7 @@ import * as path from "node:path";
 import { loadNpmRegistryResolver } from "../../src/cli/npm-registry";
 import { buildBunInstallArgs, buildNpmInstallArgs } from "../../src/cli/update-cli";
 
-const PKG = "@oh-my-pi/pi-coding-agent";
+const PKG = "@oh-my-soup/pi-coding-agent";
 const dirs: string[] = [];
 
 async function home(files: Record<string, string>): Promise<string> {

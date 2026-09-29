@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from "bun:test";
 import {
 	createConfigHeaderResolver,
 	invalidateAllCommandConfigs,
-} from "@oh-my-pi/pi-coding-agent/config/resolve-config-value";
+} from "@oh-my-soup/pi-coding-agent/config/resolve-config-value";
 
 const TEMP_ENV_KEYS: string[] = [];
 

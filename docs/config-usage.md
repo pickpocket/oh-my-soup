@@ -30,7 +30,7 @@ Key integration points:
 ```text
          Generic helper order (`config.ts`)
 ┌───────────────────────────────────────┐
-│ 1) ~/.omp/agent, ~/.claude, ...       │
+│ 1) ~/.oms/agent, ~/.claude, ...       │
 │ 2) <cwd>/.omp, <cwd>/.claude, ...     │
 └───────────────────────────────────────┘
                     │
@@ -60,7 +60,7 @@ Key integration points:
 
 User-level bases:
 
-- OMP native: `~/<PI_CONFIG_DIR>/agent` (normally `~/.omp/agent`; a named profile changes this as described below)
+- OMP native: `~/<PI_CONFIG_DIR>/agent` (normally `~/.oms/agent`; a named profile changes this as described below)
 - `~/.claude`
 - `~/.codex`
 - `~/.gemini`
@@ -76,15 +76,15 @@ Project-level bases:
 
 ## Profiles
 
-A named profile (`omp --profile <name>`, `OMP_PROFILE`, or the legacy fallback `PI_PROFILE`) relocates the OMP user base. `OMP_PROFILE` wins when it is defined, including when it is explicitly empty; `default`, empty, or whitespace selects the default profile. When a profile is active, every OMP-native user-level path written here as `~/.omp/agent/...` normally resolves to `~/.omp/profiles/<name>/agent/...`. `--alias <command>` does not select a profile by itself: paired with `--profile`, it creates a shell shortcut for that profile.
+A named profile (`omp --profile <name>`, `OMP_PROFILE`, or the legacy fallback `PI_PROFILE`) relocates the OMP user base. `OMP_PROFILE` wins when it is defined, including when it is explicitly empty; `default`, empty, or whitespace selects the default profile. When a profile is active, every OMP-native user-level path written here as `~/.oms/agent/...` normally resolves to `~/.oms/profiles/<name>/agent/...`. `--alias <command>` does not select a profile by itself: paired with `--profile`, it creates a shell shortcut for that profile.
 
 The relocation is uniform across the native provider (`builtin.ts`) and the generic `config.ts` helpers, so it covers slash commands, rules, prompts, instructions, hooks, tools, extensions, settings, skills, and MCP, plus the top-level `SYSTEM.md` / `RULES.md` / `AGENTS.md` files and runtime state (sessions, blobs, `agent.db`). A profile sees only its own OMP config, never the default profile's agent config.
 
-Keybindings are the one exception: a named profile merges the default profile's `~/.omp/agent/keybindings.*` under its own `~/.omp/profiles/<name>/agent/keybindings.*`, with the profile file overriding per binding ([#4867](https://github.com/can1357/oh-my-pi/issues/4867)). Keybindings describe the terminal/keyboard in front of the user, which doesn't change with the active profile, so user-level remaps keep working in every profile unless the profile explicitly overrides them. The inherited file is read-only for the profile process — legacy-format migration of the default profile's file only happens when the default profile itself runs.
+Keybindings are the one exception: a named profile merges the default profile's `~/.oms/agent/keybindings.*` under its own `~/.oms/profiles/<name>/agent/keybindings.*`, with the profile file overriding per binding ([#4867](https://github.com/can1357/oh-my-pi/issues/4867)). Keybindings describe the terminal/keyboard in front of the user, which doesn't change with the active profile, so user-level remaps keep working in every profile unless the profile explicitly overrides them. The inherited file is read-only for the profile process — legacy-format migration of the default profile's file only happens when the default profile itself runs.
 
-On macOS and Linux, an existing `$XDG_DATA_HOME/omp`, `$XDG_STATE_HOME/omp`, or `$XDG_CACHE_HOME/omp` can relocate the corresponding data, state, or cache paths. For a named profile, OMP uses an XDG category only when that category already contains `omp/profiles/<name>`; otherwise that category remains under `~/.omp/profiles/<name>`. Run `omp config init-xdg` before relying on XDG paths.
+On macOS and Linux, an existing `$XDG_DATA_HOME/omp`, `$XDG_STATE_HOME/omp`, or `$XDG_CACHE_HOME/omp` can relocate the corresponding data, state, or cache paths. For a named profile, OMP uses an XDG category only when that category already contains `omp/profiles/<name>`; otherwise that category remains under `~/.oms/profiles/<name>`. Run `omp config init-xdg` before relying on XDG paths.
 
-The other source bases are not profile-scoped and load identically under every profile: the external-tool bases (`~/.claude`, `~/.codex`, `~/.gemini`) belong to those tools, and the project-level bases (`<cwd>/.omp`, `<cwd>/.claude`, ...) are keyed to the working directory. Throughout this document, read `~/.omp/agent` as shorthand for the active profile's agent directory unless an environment override or XDG path is being discussed.
+The other source bases are not profile-scoped and load identically under every profile: the external-tool bases (`~/.claude`, `~/.codex`, `~/.gemini`) belong to those tools, and the project-level bases (`<cwd>/.omp`, `<cwd>/.claude`, ...) are keyed to the working directory. Throughout this document, read `~/.oms/agent` as shorthand for the active profile's agent directory unless an environment override or XDG path is being discussed.
 
 ## Important constraint
 
@@ -133,7 +133,7 @@ Supported formats:
 
 Behavior:
 
-- Validates parsed data against a provided omptype schema.
+- Validates parsed data against a provided omstype schema.
 - Caches load result until `invalidate()`.
 - Returns tri-state result via `tryLoad()`:
   - `ok`
@@ -171,7 +171,7 @@ Effective precedence, highest first:
 2. Runtime overrides: in-memory, non-persistent
 3. Config overlays: `PI_CONFIG_FILES` (platform path-list), followed by repeated `omp --config <path>` files; all are loaded as `config.yml`-style YAML for this process only
 4. Project settings: discovered via the settings capability (`settings.json` and `config.yml` from providers)
-5. Global settings: the first present file among `~/.omp/agent/config.yml` and `config.yaml`
+5. Global settings: the first present file among `~/.oms/agent/config.yml` and `config.yaml`
 6. Definition default
 
 A definition may instead declare `env: { name, fallback: true }`: that variable only replaces the default, and any layer configuring a non-null value wins over it (used by `SEARXNG_BASIC_*`). `fallback: "blank"` also lets the variable win over a configured empty or whitespace string (used by `SEARXNG_ENDPOINT`, `SEARXNG_TOKEN`, and `MNEMOPI_EMBEDDING_MODEL`).
@@ -194,7 +194,7 @@ Project settings and config overlays are read-only from the settings API.
 
 On startup, if neither global `config.yml` nor `config.yaml` exists:
 
-1. Migrate from `~/.omp/agent/settings.json` (renamed to `.bak` on success)
+1. Migrate from `~/.oms/agent/settings.json` (renamed to `.bak` on success)
 2. Merge with legacy DB settings from `agent.db` (DB values win conflicts)
 3. Write merged result to `config.yml`
 
@@ -270,19 +270,19 @@ Relevant keys:
 
 Native provider (`id: native`) reads native config from:
 
-- project: `<cwd>/.omp/...`
-- user: `~/.omp/agent/...`
+- project: `<cwd>/.oms/...`
+- user: `~/.oms/agent/...`
 
 ### Directory admission rules
 
 - Slash commands, directory rules, prompts, instructions, hooks, tools, extensions, extension modules, and settings use a project/user root only when the root directory exists and is non-empty.
-- Skills scan `<ancestor>/.omp/skills` for each ancestor from the current working directory up to the repo root/home boundary, plus `~/.omp/agent/skills`, without requiring the root `.omp` directory itself to be non-empty.
-- `SYSTEM.md`, `RULES.md`, and `.omp/AGENTS.md` read user-level files directly and use the nearest non-empty ancestor `.omp` directory for project files. `RULES.md` becomes an always-apply sticky rule. See [`docs/system-prompt-customization.md`](./system-prompt-customization.md) for the full `SYSTEM.md` / `APPEND_SYSTEM.md` contract.
-- MCP does not use the non-empty-root admission helper. It reads project `.omp/mcp.json` then `.omp/.mcp.json`, followed by user `mcp.json` then `.mcp.json`, directly.
+- Skills scan `<ancestor>/.oms/skills` for each ancestor from the current working directory up to the repo root/home boundary, plus `~/.oms/agent/skills`, without requiring the root `.omp` directory itself to be non-empty.
+- `SYSTEM.md`, `RULES.md`, and `.oms/AGENTS.md` read user-level files directly and use the nearest non-empty ancestor `.omp` directory for project files. `RULES.md` becomes an always-apply sticky rule. See [`docs/system-prompt-customization.md`](./system-prompt-customization.md) for the full `SYSTEM.md` / `APPEND_SYSTEM.md` contract.
+- MCP does not use the non-empty-root admission helper. It reads project `.oms/mcp.json` then `.oms/.mcp.json`, followed by user `mcp.json` then `.mcp.json`, directly.
 
 ### Scope-specific loading
 
-- Skills: `<ancestor>/.omp/skills/*/SKILL.md` and `~/.omp/agent/skills/*/SKILL.md`
+- Skills: `<ancestor>/.oms/skills/*/SKILL.md` and `~/.oms/agent/skills/*/SKILL.md`
 - Slash commands: `commands/*.md`
 - Rules: `rules/*.{md,mdc}` plus top-level `RULES.md`
 - Prompts: `prompts/*.md`
@@ -292,11 +292,11 @@ Native provider (`id: native`) reads native config from:
 - Extension modules: discovered under `extensions/` (+ legacy `settings.json.extensions` string array)
 - Extensions: `extensions/<name>/gemini-extension.json`
 - Settings capability: `settings.json`, then `config.yml`
-- Context files: `.omp/AGENTS.md`; standalone ancestor `AGENTS.md` files are loaded separately by the low-priority `agents-md` provider
+- Context files: `.oms/AGENTS.md`; standalone ancestor `AGENTS.md` files are loaded separately by the low-priority `agents-md` provider
 
 ### Nearest-project lookup nuance
 
-For `SYSTEM.md`, `RULES.md`, and `.omp/AGENTS.md`, the native provider walks upward to the nearest non-empty project `.omp` directory.
+For `SYSTEM.md`, `RULES.md`, and `.oms/AGENTS.md`, the native provider walks upward to the nearest non-empty project `.omp` directory.
 
 ## 7) How major subsystems consume config
 
@@ -310,7 +310,7 @@ For `SYSTEM.md`, `RULES.md`, and `.omp/AGENTS.md`, the native provider walks upw
 Create `TITLE_SYSTEM.md` in any generic config base:
 
 ```text
-# ~/.omp/agent/TITLE_SYSTEM.md
+# ~/.oms/agent/TITLE_SYSTEM.md
 Generate a session name using lowercase `<type>:<primary-objective>`.
 ```
 
@@ -353,7 +353,7 @@ Use this mental model:
 
 ### Settings-specific caveat
 
-Settings capability items are not deduplicated; `Settings.#loadProjectSettings()` deep-merges project items in returned order, so later items override earlier ones. Providers are visited from highest to lowest priority, which means lower-priority provider settings can override higher-priority settings. Within the native provider, project `config.yml` follows and overrides `settings.json`. Native `.omp/config.yml` model roles are then reapplied as the authoritative project model-role layer.
+Settings capability items are not deduplicated; `Settings.#loadProjectSettings()` deep-merges project items in returned order, so later items override earlier ones. Providers are visited from highest to lowest priority, which means lower-priority provider settings can override higher-priority settings. Within the native provider, project `config.yml` follows and overrides `settings.json`. Native `.oms/config.yml` model roles are then reapplied as the authoritative project model-role layer.
 
 ---
 

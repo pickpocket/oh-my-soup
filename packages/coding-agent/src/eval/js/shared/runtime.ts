@@ -6,7 +6,7 @@ import * as path from "node:path";
 import { Writable } from "node:stream";
 import * as util from "node:util";
 
-import * as logger from "@oh-my-pi/pi-utils/logger";
+import * as logger from "@oh-my-soup/pi-utils/logger";
 
 import type { EvalPreludeSource } from "../worker-protocol";
 import { createHelpers, type HelperBundle } from "./helpers";

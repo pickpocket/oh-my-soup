@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { logger, postmortem, Snowflake, untilAborted } from "@oh-my-pi/pi-utils";
+import { logger, postmortem, Snowflake, untilAborted } from "@oh-my-soup/pi-utils";
 import { JsRuntime, type RuntimeHooks } from "../../../eval/js/shared/runtime";
 import { callSessionTool } from "../../../eval/js/tool-bridge";
 import { formatScreenshot, resizeImage } from "../../../utils/image-resize";
@@ -18,7 +18,7 @@ import {
 	withBrowserPromiseCombinatorTracking,
 } from "../../run-scope";
 import { ToolAbortError, throwIfAborted } from "../../tool-errors";
-import { ToolError } from "@oh-my-pi/pi-tui/tools/tool-errors";
+import { ToolError } from "@oh-my-soup/pi-tui/tools/tool-errors";
 import {
 	type BrowserCaptureResult,
 	type BrowserConsoleEntry,

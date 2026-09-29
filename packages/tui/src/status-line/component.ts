@@ -1,14 +1,14 @@
 import * as path from "node:path";
-import type { AgentMessage } from "@oh-my-pi/pi-agent-core";
-import type { AssistantMessage, UsageLimit, UsageReport } from "@oh-my-pi/pi-ai";
+import type { AgentMessage } from "@oh-my-soup/pi-agent-core";
+import type { AssistantMessage, UsageLimit, UsageReport } from "@oh-my-soup/pi-ai";
 import {
 	getAntigravityCounterKeyForModel,
 	scopeAntigravityLimitsForModel,
-} from "@oh-my-pi/pi-ai/usage/google-antigravity";
-import { getNextTimeBasedPricingTransition } from "@oh-my-pi/pi-catalog/models";
-import type { Model, ModelCost } from "@oh-my-pi/pi-catalog/types";
-import type { VcsGitRepo, VcsRepo } from "@oh-my-pi/pi-natives";
-import * as vcs from "@oh-my-pi/pi-natives/vcs";
+} from "@oh-my-soup/pi-ai/usage/google-antigravity";
+import { getNextTimeBasedPricingTransition } from "@oh-my-soup/pi-catalog/models";
+import type { Model, ModelCost } from "@oh-my-soup/pi-catalog/types";
+import type { VcsGitRepo, VcsRepo } from "@oh-my-soup/pi-natives";
+import * as vcs from "@oh-my-soup/pi-natives/vcs";
 import {
 	type Component,
 	type ComposerStyle,
@@ -18,7 +18,7 @@ import {
 	truncateToWidth,
 	visibleWidth,
 } from "../index";
-import { adjustHsv, formatNumber, getProjectDir, hexToRgb, rgbToHex } from "@oh-my-pi/pi-utils";
+import { adjustHsv, formatNumber, getProjectDir, hexToRgb, rgbToHex } from "@oh-my-soup/pi-utils";
 import type {
 	ActiveRepoContext,
 	StatusAccountIdentity as OAuthAccountIdentity,

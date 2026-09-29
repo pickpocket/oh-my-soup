@@ -1,17 +1,17 @@
-import type { AgentSource } from "@oh-my-pi/pi-tui/tools/task";
+import type { AgentSource } from "@oh-my-soup/pi-tui/tools/task";
 export {
 	TASK_SUBAGENT_PROGRESS_CHANNEL,
 	TASK_SUBAGENT_LIFECYCLE_CHANNEL,
-} from "@oh-my-pi/pi-tui/overlays/session-observer-registry";
+} from "@oh-my-soup/pi-tui/overlays/session-observer-registry";
 export type {
 	SubagentProgressPayload,
 	SubagentLifecyclePayload,
-} from "@oh-my-pi/pi-tui/overlays/session-observer-registry";
-import { type BaseType, type } from "@oh-my-pi/omptype";
-import { $env } from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-tui/overlays/session-observer-registry";
+import { type BaseType, type } from "@oh-my-soup/omstype";
+import { $env } from "@oh-my-soup/pi-utils";
 
 import type { AgentSessionEvent } from "../session/agent-session";
-import type { ConfiguredThinkingLevel } from "@oh-my-pi/pi-tui/thinking";
+import type { ConfiguredThinkingLevel } from "@oh-my-soup/pi-tui/thinking";
 
 const parseNumber = (value: string | undefined, defaultValue: number): number => {
 	if (value) {

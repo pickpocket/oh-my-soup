@@ -2,14 +2,14 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "bun:test";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { type completeSimple, Effort, type ImageContent, type Model } from "@oh-my-pi/pi-ai";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import type { ImageAttachmentEntry, ToolSession } from "@oh-my-pi/pi-coding-agent/tools";
-import { ReadTool } from "@oh-my-pi/pi-coding-agent/tools/read";
-import { removeSyncWithRetries } from "@oh-my-pi/pi-utils";
+import { type completeSimple, Effort, type ImageContent, type Model } from "@oh-my-soup/pi-ai";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import type { ImageAttachmentEntry, ToolSession } from "@oh-my-soup/pi-coding-agent/tools";
+import { ReadTool } from "@oh-my-soup/pi-coding-agent/tools/read";
+import { removeSyncWithRetries } from "@oh-my-soup/pi-utils";
 
-import { cfgImagesAutoResize } from "@oh-my-pi/pi-coding-agent/modes/settings";
+import { cfgImagesAutoResize } from "@oh-my-soup/pi-coding-agent/modes/settings";
 
 const TINY_PNG_BASE64 =
 	"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg==";

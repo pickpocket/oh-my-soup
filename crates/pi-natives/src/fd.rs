@@ -444,7 +444,7 @@ mod tests {
 		// Same-named directories at different depths all score identically
 		// (exact basename match + directory bonus); the shallow one must win.
 		fs::create_dir_all(root.path().join("scripts")).expect("create root scripts dir");
-		fs::create_dir_all(root.path().join(".omp/skills/opt/scripts"))
+		fs::create_dir_all(root.path().join(".oms/skills/opt/scripts"))
 			.expect("create hidden nested scripts dir");
 		fs::create_dir_all(root.path().join("packages/ai/scripts"))
 			.expect("create nested scripts dir");
@@ -519,7 +519,7 @@ mod tests {
 		let candidates = [
 			("packages/ai/scripts/", true, 130u32),
 			("scripts/", true, 130),
-			(".omp/skills/opt/scripts/", true, 130),
+			(".oms/skills/opt/scripts/", true, 130),
 			("src/scripts.ts", false, 120),
 			("src/deep/nested/scripts.ts", false, 120),
 			("a/scripts.ts", false, 120),

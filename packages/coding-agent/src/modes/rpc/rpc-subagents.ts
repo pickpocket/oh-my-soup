@@ -1,8 +1,8 @@
 import * as fs from "node:fs/promises";
-import { isEnoent } from "@oh-my-pi/pi-utils";
+import { isEnoent } from "@oh-my-soup/pi-utils";
 import type { FileEntry, SessionMessageEntry } from "../../session/session-entries";
 import { parseSessionEntries } from "../../session/session-loader";
-import { type AgentProgress } from "@oh-my-pi/pi-tui/tools/task";
+import { type AgentProgress } from "@oh-my-soup/pi-tui/tools/task";
 import {
 	type SubagentEventPayload,
 	type SubagentLifecyclePayload,

@@ -93,7 +93,7 @@ describe("advisor config editor warnings and synthetic default row", () => {
 
 		expect(warnings).toHaveLength(1);
 		expect(warnings[0]).toContain('advisor "Bad   Name" dropped');
-		expect(warnings[0]).toContain("~/.omp/WATCHDOG.yml");
+		expect(warnings[0]).toContain("~/.oms/WATCHDOG.yml");
 		expect(warnings[0]).not.toContain(path.join(os.homedir(), ".omp", "WATCHDOG.yml"));
 		// The toast is chat-mounted behind the fullscreen overlay, so the warning
 		// must also render inside the editor itself.

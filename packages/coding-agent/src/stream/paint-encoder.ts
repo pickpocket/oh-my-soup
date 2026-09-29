@@ -8,8 +8,8 @@
  * consumer last emitted. {@link StreamPaintEncoder} owns that pipeline;
  * callers only decide when to drain it and where the frames go.
  */
-import { STREAM_HISTORY_LIMIT, type StreamRow } from "@oh-my-pi/pi-wire";
-import type { TuiPaint } from "@oh-my-pi/pi-tui";
+import { STREAM_HISTORY_LIMIT, type StreamRow } from "@oh-my-soup/pi-wire";
+import type { TuiPaint } from "@oh-my-soup/pi-tui";
 import type { StreamScreenFrame } from "./protocol";
 import type { StreamRedactor } from "./redactor";
 

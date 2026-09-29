@@ -14,12 +14,12 @@
  * same append path over the host's byte-capped transcript reads.
  */
 import type * as fs from "node:fs";
-import type { AgentTool } from "@oh-my-pi/pi-agent-core";
+import type { AgentTool } from "@oh-my-soup/pi-agent-core";
 import type { Component, TUI } from "../tui";
 import { Editor } from "../components/editor";
 import { matchesKey } from "../keys";
 import { routeSgrMouseInput } from "../mouse";
-import { formatDuration, formatNumber, logger } from "@oh-my-pi/pi-utils";
+import { formatDuration, formatNumber, logger } from "@oh-my-soup/pi-utils";
 import { formatKeyHint, formatKeyHints, type KeyId } from "../app-keybindings";
 import { editorKey } from "../chrome/keybinding-hints";
 import type { MessageRenderer } from "../chat/extension-types";

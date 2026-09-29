@@ -1,12 +1,12 @@
 import { describe, expect, it } from "bun:test";
-import type { CompactionSettings } from "@oh-my-pi/pi-agent-core/compaction/compaction";
+import type { CompactionSettings } from "@oh-my-soup/pi-agent-core/compaction/compaction";
 import {
 	DEFAULT_COMPACTION_SETTINGS,
 	effectiveReserveTokens,
 	resolveBudgetReserveTokens,
 	resolveThresholdTokens,
 	shouldCompact,
-} from "@oh-my-pi/pi-agent-core/compaction/compaction";
+} from "@oh-my-soup/pi-agent-core/compaction/compaction";
 
 describe("compaction reserve provenance", () => {
 	it("honors an explicit reserve equal to the default on a small window", () => {

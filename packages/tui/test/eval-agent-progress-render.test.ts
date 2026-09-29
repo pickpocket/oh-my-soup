@@ -1,14 +1,14 @@
 import { afterEach, beforeAll, describe, expect, it } from "bun:test";
-import { ThinkingLevel } from "@oh-my-pi/pi-agent-core";
-import type { EvalStatusEvent, EvalToolDetails } from "@oh-my-pi/pi-tui/tools/eval";
-import { getThemeByName, setThemeInstance, type Theme } from "@oh-my-pi/pi-tui/theme";
-import { evalToolRenderer } from "@oh-my-pi/pi-tui/tools/eval";
+import { ThinkingLevel } from "@oh-my-soup/pi-agent-core";
+import type { EvalStatusEvent, EvalToolDetails } from "@oh-my-soup/pi-tui/tools/eval";
+import { getThemeByName, setThemeInstance, type Theme } from "@oh-my-soup/pi-tui/theme";
+import { evalToolRenderer } from "@oh-my-soup/pi-tui/tools/eval";
 import {
 	isFeedModelBadgeEnabled,
 	setFeedModelBadgeEnabled,
 	thinkingLevelGlyph,
-} from "@oh-my-pi/pi-tui/render/render-utils";
-import { visibleWidth } from "@oh-my-pi/pi-tui";
+} from "@oh-my-soup/pi-tui/render/render-utils";
+import { visibleWidth } from "@oh-my-soup/pi-tui";
 
 /**
  * Defends the contract that `agent()` calls inside an eval cell surface as a

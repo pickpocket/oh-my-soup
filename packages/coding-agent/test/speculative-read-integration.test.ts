@@ -2,15 +2,15 @@ import { afterEach, describe, expect, it } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { type AgentMessage, agentLoop } from "@oh-my-pi/pi-agent-core";
-import type { AssistantMessage, Context, Message } from "@oh-my-pi/pi-ai";
-import { createMockModel } from "@oh-my-pi/pi-ai/providers/mock";
-import { AssistantMessageEventStream } from "@oh-my-pi/pi-ai/utils/event-stream";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { CodingAgentSpeculativeExecutionHost } from "@oh-my-pi/pi-coding-agent/speculation/host";
-import type { ToolSession } from "@oh-my-pi/pi-coding-agent/tools";
-import { ReadTool } from "@oh-my-pi/pi-coding-agent/tools/read";
-import { removeWithRetries } from "@oh-my-pi/pi-utils";
+import { type AgentMessage, agentLoop } from "@oh-my-soup/pi-agent-core";
+import type { AssistantMessage, Context, Message } from "@oh-my-soup/pi-ai";
+import { createMockModel } from "@oh-my-soup/pi-ai/providers/mock";
+import { AssistantMessageEventStream } from "@oh-my-soup/pi-ai/utils/event-stream";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { CodingAgentSpeculativeExecutionHost } from "@oh-my-soup/pi-coding-agent/speculation/host";
+import type { ToolSession } from "@oh-my-soup/pi-coding-agent/tools";
+import { ReadTool } from "@oh-my-soup/pi-coding-agent/tools/read";
+import { removeWithRetries } from "@oh-my-soup/pi-utils";
 
 const temporaryDirectories: string[] = [];
 

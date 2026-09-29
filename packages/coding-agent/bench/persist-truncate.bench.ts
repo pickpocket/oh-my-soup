@@ -10,7 +10,7 @@
  */
 import { BlobStore } from "../src/session/blob-store";
 import { prepareEntryForPersistence } from "../src/session/session-persistence";
-import { TempDir } from "@oh-my-pi/pi-utils/temp";
+import { TempDir } from "@oh-my-soup/pi-utils/temp";
 
 using tempDir = TempDir.createSync("@persist-truncate-bench-");
 const blobStore = new BlobStore(tempDir.path());

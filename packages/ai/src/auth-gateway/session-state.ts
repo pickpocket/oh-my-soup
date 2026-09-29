@@ -13,7 +13,7 @@
  * The map is deliberately non-serializable — `Set`/`Map` fields, live sockets,
  * a `close()` method — so `pi-native-client` strips it from the wire and
  * `pi-native-server` never accepts it. Gateway clients therefore cannot bring
- * their own, and without a server-side owner every containerized / robomp turn
+ * their own, and without a server-side owner every containerized / roboms turn
  * re-learns every lesson from a fresh upstream rejection.
  *
  * A plain `Map<sessionId, …>` in a long-lived server process is a leak: nothing
@@ -24,7 +24,7 @@
  * state an in-flight stream is still streaming through.
  */
 
-import { logger } from "@oh-my-pi/pi-utils";
+import { logger } from "@oh-my-soup/pi-utils";
 import { resetAccountScopedProviderSessionState } from "../provider-session-state";
 import type { Api, Context, Model, ProviderSessionState } from "../types";
 

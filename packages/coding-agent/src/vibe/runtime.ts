@@ -5,7 +5,7 @@ import {
 	type VibeSendOutcome,
 	type VibeKillOutcome,
 	type VibeWaitOutcome,
-} from "@oh-my-pi/pi-tui/tools/vibe";
+} from "@oh-my-soup/pi-tui/tools/vibe";
 /**
  * Vibe mode worker-session runtime.
  *
@@ -24,7 +24,7 @@ import {
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { logger, prompt, Snowflake } from "@oh-my-pi/pi-utils";
+import { logger, prompt, Snowflake } from "@oh-my-soup/pi-utils";
 import type { AsyncJob, AsyncJobManager } from "../async/job-manager";
 import { resolveAgentModelSelection } from "../config/model-resolver";
 import { sessionLocalProtocolOptions } from "../internal-urls/context";
@@ -39,10 +39,10 @@ import { type ExecutorOptions, runSubagentFollowUpTurn, runSubprocess } from "..
 import { generateTaskName } from "../task/name-generator";
 import { AgentOutputManager } from "../task/output-manager";
 import { type AgentDefinition } from "../task/types";
-import { type AgentProgress, oneLineLabel, type SingleResult } from "@oh-my-pi/pi-tui/tools/task";
+import { type AgentProgress, oneLineLabel, type SingleResult } from "@oh-my-soup/pi-tui/tools/task";
 import type { ToolSession } from "../tools";
-import { formatDuration } from "@oh-my-pi/pi-tui/render/render-utils";
-import { ToolError } from "@oh-my-pi/pi-tui/tools/tool-errors";
+import { formatDuration } from "@oh-my-soup/pi-tui/render/render-utils";
+import { ToolError } from "@oh-my-soup/pi-tui/tools/tool-errors";
 import { calculateTokensPerSecond } from "../utils/token-rate";
 
 import {
@@ -54,7 +54,7 @@ import {
 	type VibeSpawnLifecycleEvent,
 	type VibeTombstoneReason,
 } from "./lifecycle";
-import { type VibeCli } from "@oh-my-pi/pi-tui/tools/vibe";
+import { type VibeCli } from "@oh-my-soup/pi-tui/tools/vibe";
 
 import { cfgTaskAgentModelOverrides, cfgTaskEnableLsp } from "../task/settings";
 /**

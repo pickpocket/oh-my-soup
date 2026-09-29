@@ -10,7 +10,7 @@
  * compare-and-set disable — only when no peer/login rotated the row first — so
  * the next snapshot pull surfaces a clean delete on the client.
  */
-import { logger } from "@oh-my-pi/pi-utils";
+import { logger } from "@oh-my-soup/pi-utils";
 import type { AuthStorage } from "../auth-storage";
 import { isDefinitiveOAuthFailure } from "../error/auth-classify";
 import { DEFAULT_REFRESH_INTERVAL_MS, DEFAULT_REFRESH_SKEW_MS } from "./types";

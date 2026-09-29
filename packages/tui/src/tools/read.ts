@@ -1,9 +1,9 @@
-import type { SummaryResult } from "@oh-my-pi/pi-natives";
+import type { SummaryResult } from "@oh-my-soup/pi-natives";
 import { formatNumberedLine } from "./hashline-format";
 import { LINE_RANGE_CHUNK_SOURCE, parseLineRanges } from "./line-ranges";
 import * as os from "node:os";
 import * as path from "node:path";
-import { parseArchivePathCandidates } from "@oh-my-pi/pi-utils/ar";
+import { parseArchivePathCandidates } from "@oh-my-soup/pi-utils/ar";
 import type { Component } from "../tui";
 import { Text } from "../components/text";
 import type { RenderResultOptions, ToolActivityContext, ToolActivitySummary, ToolRenderer } from "./renderer";

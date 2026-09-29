@@ -1,6 +1,6 @@
 import * as net from "node:net";
 import * as tls from "node:tls";
-import * as logger from "@oh-my-pi/pi-utils/logger";
+import * as logger from "@oh-my-soup/pi-utils/logger";
 import { AbortError } from "../error/abort";
 import { StreamTimeoutError, ValidationError } from "../error/validation";
 import type { FetchImpl } from "../types";

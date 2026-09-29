@@ -2,9 +2,9 @@ import { describe, expect, it } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import path from "node:path";
-import { validateAgentCompactionThresholdOverrides } from "@oh-my-pi/pi-coding-agent/config/compaction-threshold";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { cfgTaskAgentCompactionThresholdOverrides } from "@oh-my-pi/pi-coding-agent/task/settings";
+import { validateAgentCompactionThresholdOverrides } from "@oh-my-soup/pi-coding-agent/config/compaction-threshold";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { cfgTaskAgentCompactionThresholdOverrides } from "@oh-my-soup/pi-coding-agent/task/settings";
 
 async function withConfigDirs(run: (dirs: { root: string; agentDir: string; cwd: string }) => Promise<void>) {
 	const root = await fs.mkdtemp(path.join(os.tmpdir(), "omp-compaction-threshold-"));

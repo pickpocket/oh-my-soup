@@ -1,4 +1,4 @@
-import { type ClipUploadResponse, STREAM_ROUTES } from "@oh-my-pi/pi-wire";
+import { type ClipUploadResponse, STREAM_ROUTES } from "@oh-my-soup/pi-wire";
 import { parseRecording, type RecordingHeader } from "./recording";
 
 export interface ClipUploadOptions {

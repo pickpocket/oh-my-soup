@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import * as vcs from "@oh-my-pi/pi-natives/vcs";
+import * as vcs from "@oh-my-soup/pi-natives/vcs";
 import { $ } from "bun";
 
 const repos: string[] = [];

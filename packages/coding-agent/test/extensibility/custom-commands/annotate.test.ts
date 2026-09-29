@@ -2,39 +2,39 @@ import { afterEach, beforeAll, describe, expect, it, vi } from "bun:test";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { AgentMessage } from "@oh-my-pi/pi-agent-core";
-import { KeybindingsManager } from "@oh-my-pi/pi-tui/app-keybindings";
-import { TUI } from "@oh-my-pi/pi-tui";
+import type { AgentMessage } from "@oh-my-soup/pi-agent-core";
+import { KeybindingsManager } from "@oh-my-soup/pi-tui/app-keybindings";
+import { TUI } from "@oh-my-soup/pi-tui";
 import type {
 	ExtensionCustomOptions,
 	ExtensionUIContext,
 	ExtensionUiComponent,
-} from "@oh-my-pi/pi-coding-agent/extensibility/extensions/types";
-import type { Theme } from "@oh-my-pi/pi-tui/theme";
-import { initTheme, theme } from "@oh-my-pi/pi-tui/theme";
-import { CopySelectorComponent } from "@oh-my-pi/pi-tui/overlays/copy-selector";
-import type { SessionPick } from "@oh-my-pi/pi-coding-agent/extensibility/custom-commands/bundled/annotate/text-source";
+} from "@oh-my-soup/pi-coding-agent/extensibility/extensions/types";
+import type { Theme } from "@oh-my-soup/pi-tui/theme";
+import { initTheme, theme } from "@oh-my-soup/pi-tui/theme";
+import { CopySelectorComponent } from "@oh-my-soup/pi-tui/overlays/copy-selector";
+import type { SessionPick } from "@oh-my-soup/pi-coding-agent/extensibility/custom-commands/bundled/annotate/text-source";
 import {
 	AnnotateCommand,
 	runAnnotateCommand,
-} from "@oh-my-pi/pi-coding-agent/extensibility/custom-commands/bundled/annotate";
+} from "@oh-my-soup/pi-coding-agent/extensibility/custom-commands/bundled/annotate";
 import type {
 	CustomCommandAPI,
 	CustomCommandContext,
-} from "@oh-my-pi/pi-coding-agent/extensibility/custom-commands/types";
-import type { ReviewPrRef } from "@oh-my-pi/pi-coding-agent/extensibility/custom-commands/bundled/review";
+} from "@oh-my-soup/pi-coding-agent/extensibility/custom-commands/types";
+import type { ReviewPrRef } from "@oh-my-soup/pi-coding-agent/extensibility/custom-commands/bundled/review";
 import {
 	createResolvedReviewTarget,
 	type ResolvedReviewTarget,
 	type ReviewTargetUI,
-} from "@oh-my-pi/pi-coding-agent/extensibility/custom-commands/bundled/review/target";
-import { buildTextReviewPrompt } from "@oh-my-pi/pi-coding-agent/extensibility/custom-commands/bundled/annotate/text-review";
-import type { SessionMessageEntry } from "@oh-my-pi/pi-coding-agent/session/session-entries";
+} from "@oh-my-soup/pi-coding-agent/extensibility/custom-commands/bundled/review/target";
+import { buildTextReviewPrompt } from "@oh-my-soup/pi-coding-agent/extensibility/custom-commands/bundled/annotate/text-review";
+import type { SessionMessageEntry } from "@oh-my-soup/pi-coding-agent/session/session-entries";
 import type {
 	CodeReviewAnnotation,
 	TextReviewAnnotation,
 	TextReviewSource,
-} from "@oh-my-pi/pi-tui/overlays/annotation-types";
+} from "@oh-my-soup/pi-tui/overlays/annotation-types";
 import { VirtualTerminal } from "../../../../tui/test/virtual-terminal";
 
 const ENTER = "\r";

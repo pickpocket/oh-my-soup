@@ -14,39 +14,39 @@ import { afterEach, beforeEach, describe, expect, it, type Mock, spyOn, vi } fro
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { CollabController } from "@oh-my-pi/pi-coding-agent/collab/controller";
-import { importRoomKey } from "@oh-my-pi/pi-coding-agent/collab/crypto";
-import { CollabGuestLink } from "@oh-my-pi/pi-coding-agent/collab/guest";
-import { CollabHost, CollabHostStoppedError } from "@oh-my-pi/pi-coding-agent/collab/host";
-import { COLLAB_PROTO, type CollabFrame, parseCollabLink } from "@oh-my-pi/pi-coding-agent/collab/protocol";
-import * as registry from "@oh-my-pi/pi-coding-agent/collab/registry";
-import { CollabSocket } from "@oh-my-pi/pi-coding-agent/collab/relay-client";
-import { parseArgs } from "@oh-my-pi/pi-coding-agent/cli/args";
-import { ModelRegistry } from "@oh-my-pi/pi-coding-agent/config/model-registry";
-import { resetSettingsForTest, Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import * as pluginHelpers from "@oh-my-pi/pi-coding-agent/discovery/helpers";
-import { runRootCommand } from "@oh-my-pi/pi-coding-agent/main";
-import { Composer } from "@oh-my-pi/pi-tui/prompt/composer";
-import { InteractiveMode } from "@oh-my-pi/pi-coding-agent/modes/interactive-mode";
-import { beginStartupComposer, stopPendingStartupComposer } from "@oh-my-pi/pi-coding-agent/modes/startup-composer";
-import { initTheme } from "@oh-my-pi/pi-tui/theme";
-import type { InteractiveModeContext } from "@oh-my-pi/pi-coding-agent/modes/types";
-import { AuthStorage } from "@oh-my-pi/pi-coding-agent/session/auth-storage";
-import { executeBuiltinSlashCommand } from "@oh-my-pi/pi-coding-agent/slash-commands/builtin-registry";
-import { getProjectDir, setProjectDir } from "@oh-my-pi/pi-utils";
-import * as utils from "@oh-my-pi/pi-utils";
+import { CollabController } from "@oh-my-soup/pi-coding-agent/collab/controller";
+import { importRoomKey } from "@oh-my-soup/pi-coding-agent/collab/crypto";
+import { CollabGuestLink } from "@oh-my-soup/pi-coding-agent/collab/guest";
+import { CollabHost, CollabHostStoppedError } from "@oh-my-soup/pi-coding-agent/collab/host";
+import { COLLAB_PROTO, type CollabFrame, parseCollabLink } from "@oh-my-soup/pi-coding-agent/collab/protocol";
+import * as registry from "@oh-my-soup/pi-coding-agent/collab/registry";
+import { CollabSocket } from "@oh-my-soup/pi-coding-agent/collab/relay-client";
+import { parseArgs } from "@oh-my-soup/pi-coding-agent/cli/args";
+import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
+import { resetSettingsForTest, Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import * as pluginHelpers from "@oh-my-soup/pi-coding-agent/discovery/helpers";
+import { runRootCommand } from "@oh-my-soup/pi-coding-agent/main";
+import { Composer } from "@oh-my-soup/pi-tui/prompt/composer";
+import { InteractiveMode } from "@oh-my-soup/pi-coding-agent/modes/interactive-mode";
+import { beginStartupComposer, stopPendingStartupComposer } from "@oh-my-soup/pi-coding-agent/modes/startup-composer";
+import { initTheme } from "@oh-my-soup/pi-tui/theme";
+import type { InteractiveModeContext } from "@oh-my-soup/pi-coding-agent/modes/types";
+import { AuthStorage } from "@oh-my-soup/pi-coding-agent/session/auth-storage";
+import { executeBuiltinSlashCommand } from "@oh-my-soup/pi-coding-agent/slash-commands/builtin-registry";
+import { getProjectDir, setProjectDir } from "@oh-my-soup/pi-utils";
+import * as utils from "@oh-my-soup/pi-utils";
 import { VirtualTerminal } from "../../../tui/test/virtual-terminal";
 import { createTestSession, type TestSessionContext } from "../utilities";
 import { FakeWebSocket, installInMemoryRelay, uninstallInMemoryRelay } from "./helpers/in-memory-relay";
 
-import { cfgCollabAutoStart } from "@oh-my-pi/pi-coding-agent/collab/settings";
+import { cfgCollabAutoStart } from "@oh-my-soup/pi-coding-agent/collab/settings";
 import {
 	cfgMarketplaceAutoUpdate,
 	cfgStartupChangelogMode,
 	cfgStartupCheckUpdate,
 	cfgStartupSetupWizard,
 	cfgStartupShowSplash,
-} from "@oh-my-pi/pi-coding-agent/modes/settings";
+} from "@oh-my-soup/pi-coding-agent/modes/settings";
 
 const noRecentSessions = async () => [];
 const originalAgentDir = process.env.PI_CODING_AGENT_DIR;

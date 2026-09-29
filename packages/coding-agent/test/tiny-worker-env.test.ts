@@ -1,10 +1,10 @@
 import { describe, expect, it } from "bun:test";
 import * as path from "node:path";
-import { nativeLibraryPathOverlay, workerEnvFromParent } from "@oh-my-pi/pi-coding-agent/subprocess/worker-client";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { cfgProvidersTinyModelDevice } from "@oh-my-pi/pi-coding-agent/session/settings";
-import { tinyWorkerEnvOverlay } from "@oh-my-pi/pi-coding-agent/tiny/title-client";
-import { tinyWorkerEndpoint, tinyWorkerLogPath } from "@oh-my-pi/pi-coding-agent/tiny/title-protocol";
+import { nativeLibraryPathOverlay, workerEnvFromParent } from "@oh-my-soup/pi-coding-agent/subprocess/worker-client";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { cfgProvidersTinyModelDevice } from "@oh-my-soup/pi-coding-agent/session/settings";
+import { tinyWorkerEnvOverlay } from "@oh-my-soup/pi-coding-agent/tiny/title-client";
+import { tinyWorkerEndpoint, tinyWorkerLogPath } from "@oh-my-soup/pi-coding-agent/tiny/title-protocol";
 
 describe("workerEnvFromParent", () => {
 	it("drops inherited git repo-location overrides but keeps an explicit overlay", () => {

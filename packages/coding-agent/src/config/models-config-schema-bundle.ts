@@ -1,5 +1,5 @@
-import { type NarrowContext, type } from "@oh-my-pi/omptype";
-import { once } from "@oh-my-pi/pi-utils";
+import { type NarrowContext, type } from "@oh-my-soup/omstype";
+import { once } from "@oh-my-soup/pi-utils";
 
 function validateMaxContextWindow(
 	value: { maxContextWindow?: number; contextWindow?: number },

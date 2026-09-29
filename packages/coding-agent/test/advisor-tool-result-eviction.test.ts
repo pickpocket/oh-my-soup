@@ -5,15 +5,15 @@
  * reviewed stay verbatim. `advisor.evictStaleResults: false` turns it off.
  */
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "bun:test";
-import { type } from "@oh-my-pi/omptype";
-import { Agent, type AgentTool } from "@oh-my-pi/pi-agent-core";
-import { createMockModel, type MockResponse } from "@oh-my-pi/pi-ai/providers/mock";
-import { ModelRegistry } from "@oh-my-pi/pi-coding-agent/config/model-registry";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { AgentSession } from "@oh-my-pi/pi-coding-agent/session/agent-session";
-import type { AuthStorage } from "@oh-my-pi/pi-coding-agent/session/auth-storage";
-import { SessionManager } from "@oh-my-pi/pi-coding-agent/session/session-manager";
-import { TempDir } from "@oh-my-pi/pi-utils";
+import { type } from "@oh-my-soup/omstype";
+import { Agent, type AgentTool } from "@oh-my-soup/pi-agent-core";
+import { createMockModel, type MockResponse } from "@oh-my-soup/pi-ai/providers/mock";
+import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { AgentSession } from "@oh-my-soup/pi-coding-agent/session/agent-session";
+import type { AuthStorage } from "@oh-my-soup/pi-coding-agent/session/auth-storage";
+import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
+import { TempDir } from "@oh-my-soup/pi-utils";
 import { createInMemoryAuthStorage } from "./helpers/agent-session-setup";
 
 const FILE_CONTENTS = "export const retryBudget = 3; // advisor investigation payload\n".repeat(32);

@@ -8,20 +8,20 @@
  */
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "bun:test";
 import * as path from "node:path";
-import { Agent } from "@oh-my-pi/pi-agent-core";
-import { createMockModel } from "@oh-my-pi/pi-ai/providers/mock";
-import { AssistantMessageEventStream } from "@oh-my-pi/pi-ai/utils/event-stream";
-import { ModelRegistry } from "@oh-my-pi/pi-coding-agent/config/model-registry";
-import { resetSettingsForTest, Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { EventController } from "@oh-my-pi/pi-coding-agent/modes/controllers/event-controller";
-import { UiHelpers } from "@oh-my-pi/pi-coding-agent/modes/utils/ui-helpers";
-import { AgentSession } from "@oh-my-pi/pi-coding-agent/session/agent-session";
-import { AuthStorage } from "@oh-my-pi/pi-coding-agent/session/auth-storage";
-import { convertToLlm } from "@oh-my-pi/pi-coding-agent/session/messages";
-import { SessionManager } from "@oh-my-pi/pi-coding-agent/session/session-manager";
-import { Text } from "@oh-my-pi/pi-tui";
-import { initTheme } from "@oh-my-pi/pi-tui/theme";
-import { TempDir } from "@oh-my-pi/pi-utils";
+import { Agent } from "@oh-my-soup/pi-agent-core";
+import { createMockModel } from "@oh-my-soup/pi-ai/providers/mock";
+import { AssistantMessageEventStream } from "@oh-my-soup/pi-ai/utils/event-stream";
+import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
+import { resetSettingsForTest, Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { EventController } from "@oh-my-soup/pi-coding-agent/modes/controllers/event-controller";
+import { UiHelpers } from "@oh-my-soup/pi-coding-agent/modes/utils/ui-helpers";
+import { AgentSession } from "@oh-my-soup/pi-coding-agent/session/agent-session";
+import { AuthStorage } from "@oh-my-soup/pi-coding-agent/session/auth-storage";
+import { convertToLlm } from "@oh-my-soup/pi-coding-agent/session/messages";
+import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
+import { Text } from "@oh-my-soup/pi-tui";
+import { initTheme } from "@oh-my-soup/pi-tui/theme";
+import { TempDir } from "@oh-my-soup/pi-utils";
 import { createInteractiveModeContext } from "./helpers/interactive-mode-context";
 
 let tempDir: TempDir;

@@ -5,8 +5,8 @@
  * `/usage` heatmap load so the synchronous SQLite work never runs on the TUI
  * thread; the parent SIGKILLs the child once `done` arrives.
  */
-import { syncAllSessions } from "@oh-my-pi/omp-stats/aggregator";
-import { getDailyActivity } from "@oh-my-pi/omp-stats/db";
+import { syncAllSessions } from "@oh-my-soup/oms-stats/aggregator";
+import { getDailyActivity } from "@oh-my-soup/oms-stats/db";
 import type { StatsActivityTransport, StatsActivityWorkerInbound } from "./activity-protocol";
 
 async function handleLoad(

@@ -19,7 +19,7 @@
 import type { Database, Statement } from "bun:sqlite";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import type { Answer, JudgmentRequest, JudgmentResult, Question, Questions } from "@oh-my-pi/pi-ai";
+import type { Answer, JudgmentRequest, JudgmentResult, Question, Questions } from "@oh-my-soup/pi-ai";
 import {
 	checkpointWal,
 	getJudgmentCacheDbPath,
@@ -28,7 +28,7 @@ import {
 	openSqliteDatabaseSync,
 	postmortem,
 	stableStringifyJson,
-} from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-utils";
 
 const SCHEMA = `
 PRAGMA journal_mode=WAL;

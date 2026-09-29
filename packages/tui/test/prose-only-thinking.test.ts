@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { formatThinkingForDisplay, hasDisplayableThinking } from "@oh-my-pi/pi-tui/chat/thinking-display";
+import { formatThinkingForDisplay, hasDisplayableThinking } from "@oh-my-soup/pi-tui/chat/thinking-display";
 
 describe("formatThinkingForDisplay", () => {
 	it("should not format if proseOnly is false", () => {

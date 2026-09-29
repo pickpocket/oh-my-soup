@@ -374,7 +374,7 @@ export type AuthStorageOptions = {
 	 * so the TUI can show where a token came from (broker URL or local SQLite path).
 	 *
 	 * Examples:
-	 * - `"local ~/.omp/agent/agent.db"`
+	 * - `"local ~/.oms/agent/agent.db"`
 	 * - `"broker http://omp.internal:8765"`
 	 */
 	sourceLabel?: string;

@@ -14,8 +14,8 @@ import { matchesKey } from "../keys";
 import { ProcessTerminal } from "../terminal";
 import { type Component, TUI } from "../tui";
 import { truncateToWidth } from "../utils";
-import { formatDuration } from "@oh-my-pi/pi-utils";
-import chalk from "@oh-my-pi/pi-utils/chalk";
+import { formatDuration } from "@oh-my-soup/pi-utils";
+import chalk from "@oh-my-soup/pi-utils/chalk";
 import type { DaemonSnapshot, DaemonSpec } from "../tools/daemon";
 import {
 	collapseCommand,

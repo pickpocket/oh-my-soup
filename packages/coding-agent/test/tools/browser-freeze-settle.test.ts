@@ -17,11 +17,11 @@
  */
 
 import { afterEach, describe, expect, it, spyOn, vi } from "bun:test";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import type { CmuxKind } from "@oh-my-pi/pi-coding-agent/tools/browser/cmux/rpc";
-import { CmuxSocketClient } from "@oh-my-pi/pi-coding-agent/tools/browser/cmux/socket-client";
-import { acquireBrowser } from "@oh-my-pi/pi-coding-agent/tools/browser/registry";
-import type { BrowserHandle } from "@oh-my-pi/pi-coding-agent/tools/browser/registry";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import type { CmuxKind } from "@oh-my-soup/pi-coding-agent/tools/browser/cmux/rpc";
+import { CmuxSocketClient } from "@oh-my-soup/pi-coding-agent/tools/browser/cmux/socket-client";
+import { acquireBrowser } from "@oh-my-soup/pi-coding-agent/tools/browser/registry";
+import type { BrowserHandle } from "@oh-my-soup/pi-coding-agent/tools/browser/registry";
 import {
 	acquireTab,
 	armIdleCloseForOwner,
@@ -38,10 +38,10 @@ import {
 	runInTab,
 	setTabFrozenForTest,
 	unfreezeTabSessionForTest,
-} from "@oh-my-pi/pi-coding-agent/tools/browser/tab-supervisor";
-import { ToolAbortError } from "@oh-my-pi/pi-coding-agent/tools/tool-errors";
-import type { PendingRun, TabSession } from "@oh-my-pi/pi-coding-agent/tools/browser/tab-supervisor";
-import type { ToolSession } from "@oh-my-pi/pi-coding-agent/tools/index";
+} from "@oh-my-soup/pi-coding-agent/tools/browser/tab-supervisor";
+import { ToolAbortError } from "@oh-my-soup/pi-coding-agent/tools/tool-errors";
+import type { PendingRun, TabSession } from "@oh-my-soup/pi-coding-agent/tools/browser/tab-supervisor";
+import type { ToolSession } from "@oh-my-soup/pi-coding-agent/tools/index";
 import { chromiumAvailable } from "./chromium-probe";
 
 const CHROMIUM_AVAILABLE = await chromiumAvailable();

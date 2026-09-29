@@ -2,7 +2,7 @@
  * View, clean, and push reported tool issues from automated QA.
  */
 
-import { Args, Command, Flags } from "@oh-my-pi/pi-utils/cli";
+import { Args, Command, Flags } from "@oh-my-soup/pi-utils/cli";
 import { grievancesHelp as commandHelp } from "../cli/command-help";
 import { cleanGrievances, listGrievances, pushGrievances } from "../cli/grievances-cli";
 

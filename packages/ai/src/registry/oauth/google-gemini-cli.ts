@@ -3,8 +3,8 @@
  * Standard Gemini models only (gemini-2.0-flash, gemini-2.5-*)
  */
 
-import { getGeminiCliHeaders } from "@oh-my-pi/pi-catalog/wire/gemini-headers";
-import { $env } from "@oh-my-pi/pi-utils";
+import { getGeminiCliHeaders } from "@oh-my-soup/pi-catalog/wire/gemini-headers";
+import { $env } from "@oh-my-soup/pi-utils";
 import * as AIError from "../../error";
 import { extractGoogleValidationUrl, formatGoogleValidationRequiredMessage } from "../../utils/google-validation";
 import type { AfterExchangeHook } from "../hooks/types";

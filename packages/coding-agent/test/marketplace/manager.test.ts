@@ -3,18 +3,18 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 
-import { listOmpExtensionRoots } from "@oh-my-pi/pi-coding-agent/discovery/omp-extension-roots";
-import { getEnabledPlugins } from "@oh-my-pi/pi-coding-agent/extensibility/plugins/loader";
-import { PluginManager } from "@oh-my-pi/pi-coding-agent/extensibility/plugins/manager";
+import { listOmpExtensionRoots } from "@oh-my-soup/pi-coding-agent/discovery/omp-extension-roots";
+import { getEnabledPlugins } from "@oh-my-soup/pi-coding-agent/extensibility/plugins/loader";
+import { PluginManager } from "@oh-my-soup/pi-coding-agent/extensibility/plugins/manager";
 import {
 	getCachedPluginPath,
 	MarketplaceManager,
 	readInstalledPluginsRegistry,
 	readMarketplacesRegistry,
 	writeMarketplacesRegistry,
-} from "@oh-my-pi/pi-coding-agent/extensibility/plugins/marketplace";
-import * as piUtils from "@oh-my-pi/pi-utils";
-import { removeSyncWithRetries } from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-coding-agent/extensibility/plugins/marketplace";
+import * as piUtils from "@oh-my-soup/pi-utils";
+import { removeSyncWithRetries } from "@oh-my-soup/pi-utils";
 
 // Minimal marketplace fixture, built once into a temp dir (see beforeAll). It carries only
 // what these tests assert — one plugin entry plus a plugin.json for the version-fallback path —
@@ -95,7 +95,7 @@ function createTestContext(): TestContext {
 	const dirs = {
 		mktRegistry: path.join(tmpDir, "marketplaces.json"),
 		instRegistry: path.join(tmpDir, "installed_plugins.json"),
-		// Distinct runtime root from user scope, mirroring production (~/.omp/plugins vs <project>/.omp/plugins).
+		// Distinct runtime root from user scope, mirroring production (~/.oms/plugins vs <project>/.oms/plugins).
 		projectInstRegistry: path.join(tmpDir, "project", "installed_plugins.json"),
 		mktCache: path.join(tmpDir, "cache", "marketplaces"),
 		plugCache: path.join(tmpDir, "cache", "plugins"),
@@ -226,7 +226,7 @@ describe("MarketplaceManager", () => {
 
 		try {
 			const added = await ctx.manager.addMarketplace(FIXTURE_DIR);
-			const catalogPath = "~/.omp/plugins/cache/marketplaces/test-marketplace/marketplace.json";
+			const catalogPath = "~/.oms/plugins/cache/marketplaces/test-marketplace/marketplace.json";
 			const registry = await readMarketplacesRegistry(registryPath);
 			await writeMarketplacesRegistry(registryPath, {
 				...registry,

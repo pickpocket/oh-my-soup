@@ -2,8 +2,8 @@ import { afterEach, beforeAll, describe, expect, it } from "bun:test";
 import * as path from "node:path";
 import * as url from "node:url";
 import { applyHyperlinkSetting } from "../src/render/hyperlink";
-import { getThemeByName, initTheme } from "@oh-my-pi/pi-tui/theme";
-import { readToolRenderer } from "@oh-my-pi/pi-tui/tools/read";
+import { getThemeByName, initTheme } from "@oh-my-soup/pi-tui/theme";
+import { readToolRenderer } from "@oh-my-soup/pi-tui/tools/read";
 
 function extractLinkUris(text: string): string[] {
 	return [...text.matchAll(/\x1b\]8;[^;]*;([^\x1b]+)\x1b\\/g)].map(match => match[1]!);

@@ -1,7 +1,7 @@
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { CompactionCancelledError, type CompactionOutcome } from "@oh-my-pi/pi-agent-core/compaction";
+import { CompactionCancelledError, type CompactionOutcome } from "@oh-my-soup/pi-agent-core/compaction";
 import {
 	getEnvApiKey,
 	getProviderDetails,
@@ -9,9 +9,9 @@ import {
 	resolveUsedFraction,
 	type UsageLimit,
 	type UsageReport,
-} from "@oh-my-pi/pi-ai";
-import { Loader, Markdown, padding, Spacer, Text, visibleWidth } from "@oh-my-pi/pi-tui";
-import { formatDuration, logger, Snowflake, sanitizeText } from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-ai";
+import { Loader, Markdown, padding, Spacer, Text, visibleWidth } from "@oh-my-soup/pi-tui";
+import { formatDuration, logger, Snowflake, sanitizeText } from "@oh-my-soup/pi-utils";
 import { shouldEnableAppendOnlyContext } from "../../config/append-only-context-mode";
 import { type BashResult, isPersistentShellCdCommand } from "../../exec/bash-executor";
 import { type LoadedCustomShare, loadCustomShare } from "../../export/custom-share";
@@ -29,20 +29,20 @@ import {
 	summarizeMentalModel,
 } from "../../hindsight";
 import { memoryStatsUnavailableMessage, resolveMemoryBackend } from "../../memory-backend";
-import { BashExecutionComponent, bashPtyViewport } from "@oh-my-pi/pi-tui/chat/bash-execution";
-import { appKey } from "@oh-my-pi/pi-tui/chrome/keybinding-hints";
-import { BorderedLoader } from "@oh-my-pi/pi-tui/overlays/bordered-loader";
-import { DynamicBorder } from "@oh-my-pi/pi-tui/chrome/dynamic-border";
-import { EvalExecutionComponent } from "@oh-my-pi/pi-tui/chat/eval-execution";
-import { MoveOverlay, type MoveOverlayResult } from "@oh-my-pi/pi-tui/overlays/move-overlay";
+import { BashExecutionComponent, bashPtyViewport } from "@oh-my-soup/pi-tui/chat/bash-execution";
+import { appKey } from "@oh-my-soup/pi-tui/chrome/keybinding-hints";
+import { BorderedLoader } from "@oh-my-soup/pi-tui/overlays/bordered-loader";
+import { DynamicBorder } from "@oh-my-soup/pi-tui/chrome/dynamic-border";
+import { EvalExecutionComponent } from "@oh-my-soup/pi-tui/chat/eval-execution";
+import { MoveOverlay, type MoveOverlayResult } from "@oh-my-soup/pi-tui/overlays/move-overlay";
 import { moveDirectorySource } from "../move-directory-source";
-import { TranscriptBlock } from "@oh-my-pi/pi-tui/chrome/transcript-container";
-import { getMarkdownTheme, getSymbolTheme, theme, type Theme } from "@oh-my-pi/pi-tui/theme";
+import { TranscriptBlock } from "@oh-my-soup/pi-tui/chrome/transcript-container";
+import { getMarkdownTheme, getSymbolTheme, theme, type Theme } from "@oh-my-soup/pi-tui/theme";
 import type { InteractiveModeContext } from "../../modes/types";
-import { renderContextUsage } from "@oh-my-pi/pi-tui/status-line/context-usage";
+import { renderContextUsage } from "@oh-my-soup/pi-tui/status-line/context-usage";
 import { computeSessionContextBreakdown } from "../../session/context-usage-runtime";
-import { buildHotkeysMarkdown } from "@oh-my-pi/pi-tui/hotkeys-markdown";
-import { buildToolsMarkdown } from "@oh-my-pi/pi-tui/prompt/tools-markdown";
+import { buildHotkeysMarkdown } from "@oh-my-soup/pi-tui/hotkeys-markdown";
+import { buildToolsMarkdown } from "@oh-my-soup/pi-tui/prompt/tools-markdown";
 import type { AsyncJobSnapshotItem } from "../../session/agent-session";
 import type { AuthStorage, OAuthAccountIdentity } from "../../session/auth-storage";
 import type { CompactMode } from "../../session/compact-modes";
@@ -61,11 +61,11 @@ import {
 	formatCodexUsageReportLabel,
 	limitMatchesActiveAccount,
 } from "../../slash-commands/helpers/active-oauth-account";
-import { formatProviderName } from "@oh-my-pi/pi-tui/chrome/format";
-import { formatCompactQuota } from "@oh-my-pi/pi-tui/overlays/advisor-config";
+import { formatProviderName } from "@oh-my-soup/pi-tui/chrome/format";
+import { formatCompactQuota } from "@oh-my-soup/pi-tui/overlays/advisor-config";
 import { outputMeta } from "../../tools/output-meta";
 import { resolveToCwd, stripOuterDoubleQuotes } from "../../tools/path-utils";
-import { replaceTabs, truncateToWidth } from "@oh-my-pi/pi-tui/render/render-utils";
+import { replaceTabs, truncateToWidth } from "@oh-my-soup/pi-tui/render/render-utils";
 import {
 	getChangelogPath,
 	parseChangelog,
@@ -81,9 +81,9 @@ import {
 	collapseSharedUsageReports,
 	formatLimitTitle,
 	summarizeUsageResetCredits,
-} from "@oh-my-pi/pi-tui/overlays/usage-display";
-import { formatRemainingOnlyTotal, isUsedOnlyAbsoluteAmount } from "@oh-my-pi/pi-tui/prompt/usage-amounts";
-import type { UnavailableUsageAccount } from "@oh-my-pi/pi-tui/overlays/usage-dashboard";
+} from "@oh-my-soup/pi-tui/overlays/usage-display";
+import { formatRemainingOnlyTotal, isUsedOnlyAbsoluteAmount } from "@oh-my-soup/pi-tui/prompt/usage-amounts";
+import type { UnavailableUsageAccount } from "@oh-my-soup/pi-tui/overlays/usage-dashboard";
 
 import { cfgTerminalShowImages } from "../settings";
 import { cfgProviderAppendOnlyContext } from "../../session/settings";
@@ -186,7 +186,7 @@ export class CommandController {
 		try {
 			// Lazy: the stats dashboard (server + sqlite) loads on demand only,
 			// matching src/cli/stats-cli.ts, to keep CLI startup fast.
-			const { formatStatsDashboardUrl, startServer } = await import("@oh-my-pi/omp-stats");
+			const { formatStatsDashboardUrl, startServer } = await import("@oh-my-soup/oms-stats");
 			const { hostname, port } = await startServer();
 			const url = `${formatStatsDashboardUrl(hostname, port)}/#/traces?s=${encodeURIComponent(sessionFile)}`;
 			this.openInBrowser(url);

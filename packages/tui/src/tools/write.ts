@@ -1,4 +1,4 @@
-import type { HighlightStream } from "@oh-my-pi/pi-natives";
+import type { HighlightStream } from "@oh-my-soup/pi-natives";
 import type { Component } from "../tui";
 import { Text } from "../components/text";
 import { getLanguageFromPath } from "../lang-from-path";

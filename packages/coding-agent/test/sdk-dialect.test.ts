@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { resolveDialect } from "@oh-my-pi/pi-coding-agent/sdk";
+import { resolveDialect } from "@oh-my-soup/pi-coding-agent/sdk";
 
 describe("resolveDialect", () => {
 	it("uses preferred owned dialects in auto mode for models without native tools", () => {

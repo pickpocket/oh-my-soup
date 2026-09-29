@@ -9,7 +9,7 @@
  * Without SmolLM (weights still downloading, or it failed to load) the blend
  * degrades to n-gram at a ~0.17 threshold.
  */
-import type { PredictedWord } from "@oh-my-pi/pi-natives";
+import type { PredictedWord } from "@oh-my-soup/pi-natives";
 
 /** N-gram's share of the blend; SmolLM gets the rest. */
 const NGRAM_WEIGHT = 0.3;

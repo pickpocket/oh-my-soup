@@ -1,31 +1,31 @@
 import { Database } from "bun:sqlite";
 import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
 import * as path from "node:path";
-import { type } from "@oh-my-pi/omptype";
-import { Agent, type AgentTool } from "@oh-my-pi/pi-agent-core";
-import { createMockModel } from "@oh-my-pi/pi-ai/providers/mock";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
-import { ModelRegistry } from "@oh-my-pi/pi-coding-agent/config/model-registry";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { hindsightBackend, rebindMemoryBackendForCwd } from "@oh-my-pi/pi-coding-agent/hindsight/backend";
-import { MEMORY_BACKEND_TOOL_NAMES } from "@oh-my-pi/pi-coding-agent/memory-backend/tool-names";
-import { computeMnemopiBankScope } from "@oh-my-pi/pi-coding-agent/mnemopi/config";
-import { mnemopiBackend } from "@oh-my-pi/pi-coding-agent/mnemopi/backend";
-import { getMnemopiSessionState } from "@oh-my-pi/pi-coding-agent/mnemopi/state";
-import { AgentSession } from "@oh-my-pi/pi-coding-agent/session/agent-session";
-import { AgentStorage } from "@oh-my-pi/pi-coding-agent/session/agent-storage";
-import type { AuthStorage } from "@oh-my-pi/pi-coding-agent/session/auth-storage";
-import { SessionManager } from "@oh-my-pi/pi-coding-agent/session/session-manager";
-import { executeAcpBuiltinSlashCommand } from "@oh-my-pi/pi-coding-agent/slash-commands/acp-builtins";
-import { BUILTIN_TOOLS, type ToolSession } from "@oh-my-pi/pi-coding-agent/tools";
-import { resetMemoryForTests } from "@oh-my-pi/pi-mnemopi";
-import { getProjectAgentDir, getProjectDir, setProjectDir, TempDir } from "@oh-my-pi/pi-utils";
+import { type } from "@oh-my-soup/omstype";
+import { Agent, type AgentTool } from "@oh-my-soup/pi-agent-core";
+import { createMockModel } from "@oh-my-soup/pi-ai/providers/mock";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
+import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { hindsightBackend, rebindMemoryBackendForCwd } from "@oh-my-soup/pi-coding-agent/hindsight/backend";
+import { MEMORY_BACKEND_TOOL_NAMES } from "@oh-my-soup/pi-coding-agent/memory-backend/tool-names";
+import { computeMnemopiBankScope } from "@oh-my-soup/pi-coding-agent/mnemopi/config";
+import { mnemopiBackend } from "@oh-my-soup/pi-coding-agent/mnemopi/backend";
+import { getMnemopiSessionState } from "@oh-my-soup/pi-coding-agent/mnemopi/state";
+import { AgentSession } from "@oh-my-soup/pi-coding-agent/session/agent-session";
+import { AgentStorage } from "@oh-my-soup/pi-coding-agent/session/agent-storage";
+import type { AuthStorage } from "@oh-my-soup/pi-coding-agent/session/auth-storage";
+import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
+import { executeAcpBuiltinSlashCommand } from "@oh-my-soup/pi-coding-agent/slash-commands/acp-builtins";
+import { BUILTIN_TOOLS, type ToolSession } from "@oh-my-soup/pi-coding-agent/tools";
+import { resetMemoryForTests } from "@oh-my-soup/pi-mnemopi";
+import { getProjectAgentDir, getProjectDir, setProjectDir, TempDir } from "@oh-my-soup/pi-utils";
 import { createInMemoryAuthStorage } from "./helpers/agent-session-setup";
 
-import { cfgAutolearnEnabled } from "@oh-my-pi/pi-coding-agent/autolearn/settings";
-import { cfgHindsightApiUrl, cfgHindsightMentalModelsEnabled } from "@oh-my-pi/pi-coding-agent/hindsight/settings";
-import { cfgMemoryBackend } from "@oh-my-pi/pi-coding-agent/memory-backend/settings";
-import { cfgMnemopiBank, cfgMnemopiRecallLimit, cfgMnemopiScoping } from "@oh-my-pi/pi-coding-agent/mnemopi/settings";
+import { cfgAutolearnEnabled } from "@oh-my-soup/pi-coding-agent/autolearn/settings";
+import { cfgHindsightApiUrl, cfgHindsightMentalModelsEnabled } from "@oh-my-soup/pi-coding-agent/hindsight/settings";
+import { cfgMemoryBackend } from "@oh-my-soup/pi-coding-agent/memory-backend/settings";
+import { cfgMnemopiBank, cfgMnemopiRecallLimit, cfgMnemopiScoping } from "@oh-my-soup/pi-coding-agent/mnemopi/settings";
 
 function createTool(name: string): AgentTool {
 	return {

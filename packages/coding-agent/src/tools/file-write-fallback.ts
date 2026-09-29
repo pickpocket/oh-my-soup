@@ -128,7 +128,7 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { isEnoent, isFsError, logger } from "@oh-my-pi/pi-utils";
+import { isEnoent, isFsError, logger } from "@oh-my-soup/pi-utils";
 import type { BunFile } from "bun";
 import type { ExtensionContext } from "../extensibility/extensions/types";
 import { resolveSyscallTarget } from "./path-utils";

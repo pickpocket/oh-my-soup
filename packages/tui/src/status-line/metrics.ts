@@ -1,4 +1,4 @@
-import { formatNumber } from "@oh-my-pi/pi-utils";
+import { formatNumber } from "@oh-my-soup/pi-utils";
 import type { Theme } from "../theme";
 
 /** Inputs whose differences are intentionally preserved between current status segments and the legacy footer. */

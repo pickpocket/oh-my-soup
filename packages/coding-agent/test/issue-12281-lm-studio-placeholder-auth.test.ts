@@ -28,9 +28,9 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } fr
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { FetchImpl } from "@oh-my-pi/pi-ai/types";
-import { kNoAuth, ModelRegistry } from "@oh-my-pi/pi-coding-agent/config/model-registry";
-import { AuthStorage } from "@oh-my-pi/pi-coding-agent/session/auth-storage";
+import type { FetchImpl } from "@oh-my-soup/pi-ai/types";
+import { kNoAuth, ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
+import { AuthStorage } from "@oh-my-soup/pi-coding-agent/session/auth-storage";
 
 const LM_KEY = "sk-lm-12281-test-key";
 const LM_MODEL = { id: "qwen3-8b", object: "model", owned_by: "local" };

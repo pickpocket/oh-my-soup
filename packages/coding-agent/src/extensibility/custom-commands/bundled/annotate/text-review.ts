@@ -1,6 +1,6 @@
-import { prompt } from "@oh-my-pi/pi-utils";
+import { prompt } from "@oh-my-soup/pi-utils";
 import textReviewTemplate from "./prompts/text-review.md" with { type: "text" };
-import type { TextReviewAnnotation, TextReviewSource } from "@oh-my-pi/pi-tui/overlays/annotation-types";
+import type { TextReviewAnnotation, TextReviewSource } from "@oh-my-soup/pi-tui/overlays/annotation-types";
 
 const SHORT_SOURCE_CHARACTER_LIMIT = 1000;
 

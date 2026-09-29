@@ -11,7 +11,7 @@ An `omp` extension that demonstrates `tool_call` blocking. It intercepts `bash` 
 ## Install
 
 ```
-cp -r . ~/.omp/agent/extensions/safety-hook
+cp -r . ~/.oms/agent/extensions/safety-hook
 ```
 
 Restart `omp`. The hook is active for all sessions.

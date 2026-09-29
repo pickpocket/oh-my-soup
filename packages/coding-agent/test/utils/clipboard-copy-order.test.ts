@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "bun:test";
 import { Buffer } from "node:buffer";
-import { copyToClipboard } from "@oh-my-pi/pi-coding-agent/utils/clipboard";
-import * as natives from "@oh-my-pi/pi-natives/clipboard";
+import { copyToClipboard } from "@oh-my-soup/pi-coding-agent/utils/clipboard";
+import * as natives from "@oh-my-soup/pi-natives/clipboard";
 
 const platformDescriptor = Object.getOwnPropertyDescriptor(process, "platform");
 

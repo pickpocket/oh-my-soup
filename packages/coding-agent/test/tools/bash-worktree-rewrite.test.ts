@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { rewriteGitWorktreeAdd } from "@oh-my-pi/pi-coding-agent/tools/bash-worktree-rewrite";
+import { rewriteGitWorktreeAdd } from "@oh-my-soup/pi-coding-agent/tools/bash-worktree-rewrite";
 
 const OMP = ["bun", "/opt/omp cli.ts"] as const;
 

@@ -20,9 +20,9 @@ from pathlib import Path
 from typing import Any, Callable
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(REPO_ROOT / "python/omp-rpc/src"))
+sys.path.insert(0, str(REPO_ROOT / "python/oms-rpc/src"))
 
-from omp_rpc import (
+from oms_rpc import (
     MessageEndEvent,
     MessageStartEvent,
     MessageUpdateEvent,

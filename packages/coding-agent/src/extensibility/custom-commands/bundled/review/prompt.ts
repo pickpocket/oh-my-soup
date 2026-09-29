@@ -1,7 +1,7 @@
-import { prompt } from "@oh-my-pi/pi-utils";
+import { prompt } from "@oh-my-soup/pi-utils";
 import annotationsTemplate from "./prompts/annotations.md" with { type: "text" };
 import reviewRequestTemplate from "../../../../prompts/review-request.md" with { type: "text" };
-import type { CodeReviewAnnotation, ReviewDiffFile } from "@oh-my-pi/pi-tui/overlays/annotation-types";
+import type { CodeReviewAnnotation, ReviewDiffFile } from "@oh-my-soup/pi-tui/overlays/annotation-types";
 import { getRecommendedReviewAgentCount, getReviewDiffPreview } from "./diff";
 import type { ResolvedReviewTarget } from "./target";
 

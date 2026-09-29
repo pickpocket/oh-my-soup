@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { OmpErrors } from "@oh-my-pi/omptype";
-import { getModelsConfigSchema } from "@oh-my-pi/pi-coding-agent/config/models-config-schema-bundle";
-import { validateProviderConfiguration } from "@oh-my-pi/pi-coding-agent/config/models-config";
-import { type ModelsConfig, ModelsConfigSchema } from "@oh-my-pi/pi-coding-agent/config/models-config-schema";
+import { OmpErrors } from "@oh-my-soup/omstype";
+import { getModelsConfigSchema } from "@oh-my-soup/pi-coding-agent/config/models-config-schema-bundle";
+import { validateProviderConfiguration } from "@oh-my-soup/pi-coding-agent/config/models-config";
+import { type ModelsConfig, ModelsConfigSchema } from "@oh-my-soup/pi-coding-agent/config/models-config-schema";
 
 const models = [{ id: "grok-4", api: "openai-completions" as const }];
 const baseUrl = "https://api.example.invalid/v1";

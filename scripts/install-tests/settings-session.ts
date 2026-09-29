@@ -61,9 +61,9 @@ try {
 			String.raw`
 import assert from "node:assert/strict";
 import { SettingsManager } from "@mariozechner/pi-coding-agent";
-import { cfgExtensions } from "@oh-my-pi/pi-coding-agent/extensibility/settings";
-import { cfgTaskAgentModelOverrides } from "@oh-my-pi/pi-coding-agent/task/settings";
-import { hasMatch } from "@oh-my-pi/pi-natives";
+import { cfgExtensions } from "@oh-my-soup/pi-coding-agent/extensibility/settings";
+import { cfgTaskAgentModelOverrides } from "@oh-my-soup/pi-coding-agent/task/settings";
+import { hasMatch } from "@oh-my-soup/pi-natives";
 
 function registerFixtureProvider(api) {
 	// Same registration shape as sdk-default-role-extension-provider.test.ts.

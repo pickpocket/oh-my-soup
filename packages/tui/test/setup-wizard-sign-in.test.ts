@@ -1,10 +1,10 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from "bun:test";
-import type { AuthStorage } from "@oh-my-pi/pi-ai";
-import type { OAuthLoginCallbacks, OAuthProviderId } from "@oh-my-pi/pi-ai/oauth/types";
-import { SignInScene } from "@oh-my-pi/pi-tui/setup/scenes/sign-in";
-import type { SetupSceneHost } from "@oh-my-pi/pi-tui/setup/scenes/types";
-import { initTheme } from "@oh-my-pi/pi-tui/theme";
-import type { Component } from "@oh-my-pi/pi-tui";
+import type { AuthStorage } from "@oh-my-soup/pi-ai";
+import type { OAuthLoginCallbacks, OAuthProviderId } from "@oh-my-soup/pi-ai/oauth/types";
+import { SignInScene } from "@oh-my-soup/pi-tui/setup/scenes/sign-in";
+import type { SetupSceneHost } from "@oh-my-soup/pi-tui/setup/scenes/types";
+import { initTheme } from "@oh-my-soup/pi-tui/theme";
+import type { Component } from "@oh-my-soup/pi-tui";
 
 beforeAll(async () => {
 	await initTheme();

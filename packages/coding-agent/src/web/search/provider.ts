@@ -1,4 +1,4 @@
-import type { WebSearchGrounding } from "@oh-my-pi/pi-catalog/types";
+import type { WebSearchGrounding } from "@oh-my-soup/pi-catalog/types";
 import type { SearchProvider } from "./providers/base";
 import { getSearchProviderLabel, type SearchEngineId, SearchProviderError } from "./types";
 

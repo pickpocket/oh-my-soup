@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
-import { planSteeredRequest } from "@oh-my-pi/pi-ai/providers/openai-codex/live-steering";
-import { streamOpenAICodexResponses } from "@oh-my-pi/pi-ai/providers/openai-codex-responses";
+import { planSteeredRequest } from "@oh-my-soup/pi-ai/providers/openai-codex/live-steering";
+import { streamOpenAICodexResponses } from "@oh-my-soup/pi-ai/providers/openai-codex-responses";
 import type {
 	AssistantMessage,
 	Context,
@@ -11,9 +11,9 @@ import type {
 	ProviderSessionState,
 	ToolResultMessage,
 	UserMessage,
-} from "@oh-my-pi/pi-ai/types";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
-import * as piUtils from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-ai/types";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
+import * as piUtils from "@oh-my-soup/pi-utils";
 
 const { getAgentDir, setAgentDir, TempDir } = piUtils;
 const originalAgentDir = getAgentDir();

@@ -25,7 +25,7 @@ in
       type = lib.types.nullOr yaml.type;
       default = null;
       description = ''
-        Settings written declaratively to {file}`~/.omp/agent/config.yml`.
+        Settings written declaratively to {file}`~/.oms/agent/config.yml`.
         On each `home-manager switch` the declared settings are copied into
         place as a writable regular file (not a read-only store symlink), so
         OMP can acquire its config lock and rewrite the file when persisting
@@ -54,8 +54,8 @@ in
       before = [ ];
       after = [ "writeBoundary" ];
       data = ''
-        run mkdir -p "$HOME/.omp/agent"
-        run install -m 600 ${configFile} "$HOME/.omp/agent/config.yml"
+        run mkdir -p "$HOME/.oms/agent"
+        run install -m 600 ${configFile} "$HOME/.oms/agent/config.yml"
       '';
     };
   };

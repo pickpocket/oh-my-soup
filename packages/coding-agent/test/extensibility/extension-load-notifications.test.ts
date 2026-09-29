@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import * as os from "node:os";
 import * as path from "node:path";
-import { formatExtensionLoadNotifications } from "@oh-my-pi/pi-coding-agent/extensibility/extensions/load-errors";
+import { formatExtensionLoadNotifications } from "@oh-my-soup/pi-coding-agent/extensibility/extensions/load-errors";
 
 describe("extension load startup notifications", () => {
 	it("formats load failures as sanitized single-line warnings for TUI and print startup paths", () => {

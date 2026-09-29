@@ -97,7 +97,7 @@ a viewer link. Implementation: [`../packages/coding-agent/src/export/share.ts`](
 
 ### TUI phase 1: custom share handler (if present)
 
-The interactive TUI's `loadCustomShare()` checks `~/.omp/agent` for the first existing candidate:
+The interactive TUI's `loadCustomShare()` checks `~/.oms/agent` for the first existing candidate:
 
 - `share.ts`
 - `share.js`

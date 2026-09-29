@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "bun:test";
-import { YieldGate } from "@oh-my-pi/pi-agent-core/utils/yield";
+import { YieldGate } from "@oh-my-soup/pi-agent-core/utils/yield";
 
 const YIELD_INTERVAL_MS = 50;
 

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
-import { streamOpenAICompletions } from "@oh-my-pi/pi-ai/providers/openai-completions";
-import type { AssistantMessage, FetchImpl, Message, ModelSpec } from "@oh-my-pi/pi-ai/types";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
+import { streamOpenAICompletions } from "@oh-my-soup/pi-ai/providers/openai-completions";
+import type { AssistantMessage, FetchImpl, Message, ModelSpec } from "@oh-my-soup/pi-ai/types";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
 
 // LiteLLM serving Anthropic with thinking streams `thinking_blocks` (plus a
 // `provider_specific_fields` mirror) and requires them back verbatim on the

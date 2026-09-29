@@ -22,7 +22,7 @@
  */
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { isEnoent, logger } from "@oh-my-pi/pi-utils";
+import { isEnoent, logger } from "@oh-my-soup/pi-utils";
 import type { Browser } from "puppeteer-core";
 import { daemonRuntimeDir } from "../../launch/paths";
 

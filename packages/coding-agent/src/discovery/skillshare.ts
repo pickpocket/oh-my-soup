@@ -2,14 +2,14 @@
  * Skillshare Provider
  *
  * Loads registry skills pinned by `skills.lock.json` from the unpacked store
- * (`~/.omp/skillshare/@scope/name/<version>/`). Project locks are found by
- * walking up from cwd like native `.omp/skills` (closest first); the user lock
+ * (`~/.oms/skillshare/@scope/name/<version>/`). Project locks are found by
+ * walking up from cwd like native `.oms/skills` (closest first); the user lock
  * lives in the agent dir. Priority 95 sits just below native (100) so authored
  * skills win name collisions.
  */
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { getAgentDir, isEnoent, logger, parseFrontmatter } from "@oh-my-pi/pi-utils";
+import { getAgentDir, isEnoent, logger, parseFrontmatter } from "@oh-my-soup/pi-utils";
 import { registerProvider } from "../capability";
 import { type Skill, type SkillFrontmatter, skillCapability } from "../capability/skill";
 import type { LoadContext, LoadResult } from "../capability/types";

@@ -9,7 +9,7 @@
  * of the fixture JSONL — exactly the frames a real `omp /collab` host emits.
  */
 
-import type { AgentSnapshot, HostFrame, SessionEntry, SessionState, WireFrame } from "@oh-my-pi/pi-wire";
+import type { AgentSnapshot, HostFrame, SessionEntry, SessionState, WireFrame } from "@oh-my-soup/pi-wire";
 import { generateRoomKey, importRoomKey, open, seal } from "../src/lib/codec";
 import { COLLAB_PROTO, formatCollabLink, generateRoomId, packEnvelope, unpackEnvelope } from "../src/lib/link";
 import {

@@ -48,11 +48,11 @@ Parsing comes from frontmatter via `parseAgentFields()` (`src/discovery/helpers.
 
 ## Role-backed custom agents
 
-OMP discovers user agents from `~/.omp/agent/agents/*.md` and project agents from `.omp/agents/*.md`.
+OMP discovers user agents from `~/.oms/agent/agents/*.md` and project agents from `.oms/agents/*.md`.
 
 Give the agent a role alias in frontmatter, then dispatch it by name. For model routing, task dispatch sets only `agent`; it does not set a worker model:
 
-`~/.omp/agent/agents/reviewer.md`:
+`~/.oms/agent/agents/reviewer.md`:
 
 ```md
 ---
@@ -64,7 +64,7 @@ model: "@review"
 Review the assigned change and report concrete findings.
 ```
 
-Set the role mapping in `~/.omp/agent/config.yml`:
+Set the role mapping in `~/.oms/agent/config.yml`:
 
 ```yaml
 modelRoles:
@@ -143,8 +143,8 @@ Because bundled parsing uses `level: "fatal"`, malformed bundled frontmatter thr
 
 ### Discovery inputs and precedence
 
-1. Nearest project `.omp/agents` dir from `findAllNearestProjectConfigDirs("agents", cwd)` (first `.omp` hit only)
-2. User `.omp/agents` dir from `getConfigDirs("agents", { project: false })` (first `.omp` hit only)
+1. Nearest project `.oms/agents` dir from `findAllNearestProjectConfigDirs("agents", cwd)` (first `.omp` hit only)
+2. User `.oms/agents` dir from `getConfigDirs("agents", { project: false })` (first `.omp` hit only)
 3. `<extension-root>/agents` for every enabled OMP extension package returned by `listOmpExtensionRoots(...)`, in this order:
    - CLI `--extension` roots
    - project `extensions:` settings

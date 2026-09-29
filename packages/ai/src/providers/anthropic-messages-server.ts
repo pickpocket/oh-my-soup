@@ -1,6 +1,6 @@
-import { type } from "@oh-my-pi/omptype";
-import { Effort } from "@oh-my-pi/pi-catalog/effort";
-import { logger } from "@oh-my-pi/pi-utils";
+import { type } from "@oh-my-soup/omstype";
+import { Effort } from "@oh-my-soup/pi-catalog/effort";
+import { logger } from "@oh-my-soup/pi-utils";
 import { captureRequestHeaders, resolvePromptCacheKey } from "../auth-gateway/http";
 import * as AIError from "../error";
 import type {

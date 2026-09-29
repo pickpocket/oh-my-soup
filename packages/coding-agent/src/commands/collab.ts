@@ -1,7 +1,7 @@
 /**
  * Discover local Collab hosts and retrieve a link on explicit request.
  */
-import { Args, CliUsageError, Command, Flags } from "@oh-my-pi/pi-utils/cli";
+import { Args, CliUsageError, Command, Flags } from "@oh-my-soup/pi-utils/cli";
 import { runCollabLinkCommand, runCollabListCommand } from "../cli/collab-cli";
 import { collabHelp as commandHelp } from "../cli/command-help";
 import { CollabLinkError } from "../collab/registry";

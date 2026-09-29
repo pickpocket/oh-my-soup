@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { postmortem } from "@oh-my-pi/pi-utils";
+import { postmortem } from "@oh-my-soup/pi-utils";
 import { ToolAbortError, throwIfAborted } from "../../src/tools/tool-errors";
 
 describe("tool abort errors", () => {

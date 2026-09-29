@@ -1,6 +1,6 @@
 import { scheduler } from "node:timers/promises";
-import { type } from "@oh-my-pi/omptype";
-import { calculateCost } from "@oh-my-pi/pi-catalog/models";
+import { type } from "@oh-my-soup/omstype";
+import { calculateCost } from "@oh-my-soup/pi-catalog/models";
 import {
 	applyCodexResidencyHeader,
 	CODEX_BASE_URL,
@@ -9,7 +9,7 @@ import {
 	getCodexAccountId,
 	OPENAI_HEADER_VALUES,
 	OPENAI_HEADERS,
-} from "@oh-my-pi/pi-catalog/wire/codex";
+} from "@oh-my-soup/pi-catalog/wire/codex";
 import {
 	$env,
 	$flag,
@@ -21,7 +21,7 @@ import {
 	readSseJson,
 	structuredCloneJSON,
 	USER_AGENT,
-} from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-utils";
 import * as AIError from "../error";
 import { getEnvApiKey, isOfficialCodexApiUrl } from "../stream";
 import type {

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Plot token-usage trends for the top N tools from ~/.omp/stats.db.
+Plot token-usage trends for the top N tools from ~/.oms/stats.db.
 
 Reads ss_tool_calls + ss_tool_results and renders:
   1. daily total tokens (args + results)         -- stacked area

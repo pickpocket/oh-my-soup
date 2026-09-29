@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import type { AssistantMessage, Model } from "@oh-my-pi/pi-ai";
-import * as ai from "@oh-my-pi/pi-ai";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { startMemoryStartupTask } from "@oh-my-pi/pi-coding-agent/memories";
+import type { AssistantMessage, Model } from "@oh-my-soup/pi-ai";
+import * as ai from "@oh-my-soup/pi-ai";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { startMemoryStartupTask } from "@oh-my-soup/pi-coding-agent/memories";
 import {
 	claimStage1Jobs,
 	clearMemoryData,
@@ -15,8 +15,8 @@ import {
 	openMemoryDb,
 	tryClaimGlobalPhase2Job,
 	upsertThreads,
-} from "@oh-my-pi/pi-coding-agent/memories/storage";
-import { getAgentDbPath, TempDir } from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-coding-agent/memories/storage";
+import { getAgentDbPath, TempDir } from "@oh-my-soup/pi-utils";
 
 const GLOBAL_KIND = "memory_consolidate_global";
 const PROJECT_CWD = "/repo";

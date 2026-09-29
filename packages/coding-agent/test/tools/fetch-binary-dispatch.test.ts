@@ -3,14 +3,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { ImageContent, TextContent } from "@oh-my-pi/pi-ai";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import type { ToolSession } from "@oh-my-pi/pi-coding-agent/tools";
-import { ReadTool } from "@oh-my-pi/pi-coding-agent/tools/read";
-import * as scrapers from "@oh-my-pi/pi-coding-agent/web/scrapers/types";
-import * as scraperUtils from "@oh-my-pi/pi-coding-agent/web/scrapers/utils";
-import { removeSyncWithRetries, Snowflake } from "@oh-my-pi/pi-utils";
-import { encodeArchive } from "@oh-my-pi/pi-utils/ar";
+import type { ImageContent, TextContent } from "@oh-my-soup/pi-ai";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import type { ToolSession } from "@oh-my-soup/pi-coding-agent/tools";
+import { ReadTool } from "@oh-my-soup/pi-coding-agent/tools/read";
+import * as scrapers from "@oh-my-soup/pi-coding-agent/web/scrapers/types";
+import * as scraperUtils from "@oh-my-soup/pi-coding-agent/web/scrapers/utils";
+import { removeSyncWithRetries, Snowflake } from "@oh-my-soup/pi-utils";
+import { encodeArchive } from "@oh-my-soup/pi-utils/ar";
 
 function makeSession(testDir: string): ToolSession {
 	const sessionFile = path.join(testDir, "session.jsonl");

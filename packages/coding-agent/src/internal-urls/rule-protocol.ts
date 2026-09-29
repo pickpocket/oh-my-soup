@@ -5,7 +5,7 @@
  * - rule://<name> - Reads rule content
  */
 import * as fs from "node:fs/promises";
-import { isEnoent } from "@oh-my-pi/pi-utils";
+import { isEnoent } from "@oh-my-soup/pi-utils";
 import { getActiveRules, type Rule } from "../capability/rule";
 import ruleDoc from "../prompts/internal-urls/rule.md" with { type: "text" };
 import type {

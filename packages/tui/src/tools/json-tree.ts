@@ -1,8 +1,8 @@
 /**
  * JSON tree rendering utilities shared across tool renderers.
  */
-import { INTENT_FIELD } from "@oh-my-pi/pi-wire";
-import { sanitizeText } from "@oh-my-pi/pi-utils";
+import { INTENT_FIELD } from "@oh-my-soup/pi-wire";
+import { sanitizeText } from "@oh-my-soup/pi-utils";
 import { TreeView, treeRowPrefix } from "../components/tree-view";
 import { truncateToWidth } from "../render/render-utils";
 import type { Theme, ThemeColor } from "../theme/theme";

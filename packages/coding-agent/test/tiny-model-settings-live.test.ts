@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { resetSettingsForTest, Settings, settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { TinyTitleClient } from "@oh-my-pi/pi-coding-agent/tiny/title-client";
-import type { TinyWorkerRequest, TinyWorkerResponse } from "@oh-my-pi/pi-coding-agent/tiny/title-protocol";
+import { resetSettingsForTest, Settings, settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { TinyTitleClient } from "@oh-my-soup/pi-coding-agent/tiny/title-client";
+import type { TinyWorkerRequest, TinyWorkerResponse } from "@oh-my-soup/pi-coding-agent/tiny/title-protocol";
 
-import { cfgProvidersTinyModelDtype } from "@oh-my-pi/pi-coding-agent/session/settings";
+import { cfgProvidersTinyModelDtype } from "@oh-my-soup/pi-coding-agent/session/settings";
 
 /** Minimal worker that answers every chat with a fixed reply. */
 class ReplyingWorker {

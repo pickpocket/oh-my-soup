@@ -1,13 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import * as path from "node:path";
-import { AuthStorage, SqliteAuthCredentialStore } from "@oh-my-pi/pi-ai";
-import { type AuthBrokerServerHandle, startAuthBroker } from "@oh-my-pi/pi-ai/auth-broker";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { discoverAuthStorage } from "@oh-my-pi/pi-coding-agent/sdk";
-import { createAuthStorageSettingsSync } from "@oh-my-pi/pi-coding-agent/session/auth-broker-config";
-import { TempDir } from "@oh-my-pi/pi-utils";
+import { AuthStorage, SqliteAuthCredentialStore } from "@oh-my-soup/pi-ai";
+import { type AuthBrokerServerHandle, startAuthBroker } from "@oh-my-soup/pi-ai/auth-broker";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { discoverAuthStorage } from "@oh-my-soup/pi-coding-agent/sdk";
+import { createAuthStorageSettingsSync } from "@oh-my-soup/pi-coding-agent/session/auth-broker-config";
+import { TempDir } from "@oh-my-soup/pi-utils";
 
-import { cfgAuthBrokerUrl } from "@oh-my-pi/pi-coding-agent/config/model-settings";
+import { cfgAuthBrokerUrl } from "@oh-my-soup/pi-coding-agent/config/model-settings";
 
 const PROVIDER = "live-broker-test";
 const TOKEN = "live-broker-bearer";

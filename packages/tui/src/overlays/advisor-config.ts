@@ -15,10 +15,10 @@
  * {@link WatchdogConfigDoc} and only touches disk + the live advisors via the host
  * `save` callback.
  */
-import type { ThinkingLevel } from "@oh-my-pi/pi-agent-core";
-import { type Model, resolveUsedFraction, type UsageLimit, type UsageReport } from "@oh-my-pi/pi-ai";
-import { formatDuration } from "@oh-my-pi/pi-utils";
-import { getSupportedEfforts } from "@oh-my-pi/pi-catalog/model-thinking";
+import type { ThinkingLevel } from "@oh-my-soup/pi-agent-core";
+import { type Model, resolveUsedFraction, type UsageLimit, type UsageReport } from "@oh-my-soup/pi-ai";
+import { formatDuration } from "@oh-my-soup/pi-utils";
+import { getSupportedEfforts } from "@oh-my-soup/pi-catalog/model-thinking";
 import {
 	type Component,
 	Input,

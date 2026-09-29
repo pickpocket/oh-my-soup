@@ -2,16 +2,16 @@ import { afterAll, afterEach, describe, expect, it, vi } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
 import {
 	DefaultPackageManager,
 	DefaultResourceLoader,
 	createAgentSession as legacyCreateAgentSession,
-} from "@oh-my-pi/pi-coding-agent/extensibility/legacy-pi-coding-agent-shim";
-import type { Skill } from "@oh-my-pi/pi-coding-agent/extensibility/skills";
-import type { CreateAgentSessionOptions, CreateAgentSessionResult } from "@oh-my-pi/pi-coding-agent/sdk";
-import * as sdkModule from "@oh-my-pi/pi-coding-agent/sdk";
-import { removeWithRetries } from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-coding-agent/extensibility/legacy-pi-coding-agent-shim";
+import type { Skill } from "@oh-my-soup/pi-coding-agent/extensibility/skills";
+import type { CreateAgentSessionOptions, CreateAgentSessionResult } from "@oh-my-soup/pi-coding-agent/sdk";
+import * as sdkModule from "@oh-my-soup/pi-coding-agent/sdk";
+import { removeWithRetries } from "@oh-my-soup/pi-utils";
 
 // Issue #4567: every published version of pi-schedule-prompt (and every pi
 // extension spawning subagents) imports `DefaultResourceLoader` at module

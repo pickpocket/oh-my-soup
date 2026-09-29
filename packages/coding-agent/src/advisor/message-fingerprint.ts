@@ -1,4 +1,4 @@
-import type { AgentMessage } from "@oh-my-pi/pi-agent-core";
+import type { AgentMessage } from "@oh-my-soup/pi-agent-core";
 
 /**
  * Field-selective identity hash for an advisor-visible message.

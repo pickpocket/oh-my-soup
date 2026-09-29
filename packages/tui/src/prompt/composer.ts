@@ -16,7 +16,7 @@ import {
 	type ViewportSize,
 } from "../tui";
 import { sliceWithWidth, visibleWidth } from "../utils";
-import { postmortem } from "@oh-my-pi/pi-utils";
+import { postmortem } from "@oh-my-soup/pi-utils";
 import { CustomEditor } from "./custom-editor";
 import type { WordCompletionMethod } from "./word-completion";
 import { type AnimationFrame, TranscriptContainer } from "../chrome/transcript-container";

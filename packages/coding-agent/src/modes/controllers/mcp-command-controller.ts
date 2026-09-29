@@ -4,10 +4,10 @@
  * Handles /mcp subcommands for managing MCP servers.
  */
 import * as path from "node:path";
-import { type Component, replaceTabs, Spacer, Text } from "@oh-my-pi/pi-tui";
-import { getMCPConfigPath, getProjectDir } from "@oh-my-pi/pi-utils";
-import { formatKeyHint } from "@oh-my-pi/pi-tui/app-keybindings";
-import { appKey } from "@oh-my-pi/pi-tui/chrome/keybinding-hints";
+import { type Component, replaceTabs, Spacer, Text } from "@oh-my-soup/pi-tui";
+import { getMCPConfigPath, getProjectDir } from "@oh-my-soup/pi-utils";
+import { formatKeyHint } from "@oh-my-soup/pi-tui/app-keybindings";
+import { appKey } from "@oh-my-soup/pi-tui/chrome/keybinding-hints";
 import { clearCache as clearFsCache } from "../../capability/fs";
 import type { SourceMeta } from "../../capability/types";
 import { expandEnvVarsDeep } from "../../discovery/helpers";
@@ -59,17 +59,17 @@ import type {
 	MCPServerConfig,
 	MCPServerConnection,
 } from "../../mcp/types";
-import { shortenPath } from "@oh-my-pi/pi-tui/render/render-utils";
-import { urlHyperlinkAlways } from "@oh-my-pi/pi-tui/render";
+import { shortenPath } from "@oh-my-soup/pi-tui/render/render-utils";
+import { urlHyperlinkAlways } from "@oh-my-soup/pi-tui/render";
 import { copyToClipboard } from "../../utils/clipboard";
 import { isTimeoutError } from "../../utils/fetch-timeout";
 import { openPath } from "../../utils/open";
-import { ChatBlock } from "@oh-my-pi/pi-tui/chrome/chat-block";
-import { DynamicBorder } from "@oh-my-pi/pi-tui/chrome/dynamic-border";
-import { MCPAddWizard } from "@oh-my-pi/pi-tui/overlays/mcp-add-wizard";
-import { TranscriptBlock } from "@oh-my-pi/pi-tui/chrome/transcript-container";
+import { ChatBlock } from "@oh-my-soup/pi-tui/chrome/chat-block";
+import { DynamicBorder } from "@oh-my-soup/pi-tui/chrome/dynamic-border";
+import { MCPAddWizard } from "@oh-my-soup/pi-tui/overlays/mcp-add-wizard";
+import { TranscriptBlock } from "@oh-my-soup/pi-tui/chrome/transcript-container";
 import { parseCommandArgs } from "../../utils/command-args";
-import { theme } from "@oh-my-pi/pi-tui/theme";
+import { theme } from "@oh-my-soup/pi-tui/theme";
 import type { InteractiveModeContext } from "../types";
 import { groupBySource, parseRemoveArgs, readScopeFlag, showCommandMessage } from "./command-controller-shared";
 

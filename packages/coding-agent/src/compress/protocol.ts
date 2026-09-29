@@ -13,8 +13,8 @@
  * const tools = [protocol.rewriteTool(), protocol.approveTool()];
  * // …drive a session, then read protocol.latest / protocol.approved
  */
-import { type } from "@oh-my-pi/omptype";
-import { Tokenizer } from "@oh-my-pi/pi-agent-core";
+import { type } from "@oh-my-soup/omstype";
+import { Tokenizer } from "@oh-my-soup/pi-agent-core";
 import type { ToolDefinition } from "../extensibility/extensions";
 import approveDescription from "../prompts/tools/approve.md" with { type: "text" };
 import rewriteDescription from "../prompts/tools/rewrite.md" with { type: "text" };

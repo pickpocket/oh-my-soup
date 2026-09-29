@@ -2,11 +2,11 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { InternalUrlFilesystem } from "@oh-my-pi/pi-coding-agent/internal-urls/url-filesystem";
-import type { ToolSession } from "@oh-my-pi/pi-coding-agent/tools";
-import { resolveExplicitSearchPaths } from "@oh-my-pi/pi-coding-agent/tools/path-utils";
-import { removeWithRetries } from "@oh-my-pi/pi-utils";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { InternalUrlFilesystem } from "@oh-my-soup/pi-coding-agent/internal-urls/url-filesystem";
+import type { ToolSession } from "@oh-my-soup/pi-coding-agent/tools";
+import { resolveExplicitSearchPaths } from "@oh-my-soup/pi-coding-agent/tools/path-utils";
+import { removeWithRetries } from "@oh-my-soup/pi-utils";
 import { GrepTool } from "../../src/tools/grep";
 
 const testSettings = Settings.isolated();

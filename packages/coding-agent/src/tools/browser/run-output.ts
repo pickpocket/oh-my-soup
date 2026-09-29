@@ -1,4 +1,4 @@
-import type { ImageContent, TextContent } from "@oh-my-pi/pi-ai";
+import type { ImageContent, TextContent } from "@oh-my-soup/pi-ai";
 import type { JsDisplayOutput } from "../../eval/js/shared/types";
 
 /**

@@ -28,7 +28,7 @@ merged.
 ### Do not open an issue for work you are about to submit
 
 If you intend to implement a change yourself, **do not create an issue for it
-first**. robomp treats actionable issues as work to pick up and may start the
+first**. roboms treats actionable issues as work to pick up and may start the
 same fix in parallel, wasting compute and maintainer time.
 
 Open an issue when you are reporting a problem or proposing work that you are

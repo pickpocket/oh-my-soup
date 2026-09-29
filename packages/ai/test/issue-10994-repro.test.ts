@@ -1,9 +1,9 @@
 import { describe, expect, it } from "bun:test";
-import { streamAnthropic } from "@oh-my-pi/pi-ai/providers/anthropic";
-import type { Context, Model, ModelSpec } from "@oh-my-pi/pi-ai/types";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
-import { Effort } from "@oh-my-pi/pi-catalog/effort";
-import { mapEffortToAnthropicAdaptiveEffort } from "@oh-my-pi/pi-catalog/model-thinking";
+import { streamAnthropic } from "@oh-my-soup/pi-ai/providers/anthropic";
+import type { Context, Model, ModelSpec } from "@oh-my-soup/pi-ai/types";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
+import { Effort } from "@oh-my-soup/pi-catalog/effort";
+import { mapEffortToAnthropicAdaptiveEffort } from "@oh-my-soup/pi-catalog/model-thinking";
 
 /**
  * Custom `anthropic-messages` provider (issue #10994): unlike the built-in

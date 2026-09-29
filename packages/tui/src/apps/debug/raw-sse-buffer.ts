@@ -1,5 +1,5 @@
-import type { Model, ProviderResponseMetadata, RawSseEvent } from "@oh-my-pi/pi-ai";
-import { materializeString } from "@oh-my-pi/pi-utils";
+import type { Model, ProviderResponseMetadata, RawSseEvent } from "@oh-my-soup/pi-ai";
+import { materializeString } from "@oh-my-soup/pi-utils";
 
 const MAX_RAW_SSE_EVENTS = 1_000;
 const MAX_RAW_SSE_CHARS = 512_000;

@@ -1,4 +1,4 @@
-import type { Usage } from "@oh-my-pi/pi-catalog/types";
+import type { Usage } from "@oh-my-soup/pi-catalog/types";
 
 export interface RerankRequest {
 	query: string;

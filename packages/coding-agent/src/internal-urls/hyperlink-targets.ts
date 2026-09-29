@@ -1,8 +1,8 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import * as url from "node:url";
-import { getMarkdownLinkUrls, TERMINAL } from "@oh-my-pi/pi-tui";
-import { fileUriForTerminal } from "@oh-my-pi/pi-tui/render/hyperlink";
+import { getMarkdownLinkUrls, TERMINAL } from "@oh-my-soup/pi-tui";
+import { fileUriForTerminal } from "@oh-my-soup/pi-tui/render/hyperlink";
 import { extractUriScheme, InternalUrlRouter, parseInternalUrl, type ResolveContext } from "./index";
 import { expandPath } from "../tools/path-utils";
 

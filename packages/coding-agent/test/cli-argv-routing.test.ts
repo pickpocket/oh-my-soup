@@ -9,7 +9,7 @@
  * flags.
  */
 import { describe, expect, test } from "bun:test";
-import { resolveCliArgv } from "@oh-my-pi/pi-coding-agent/cli-commands";
+import { resolveCliArgv } from "@oh-my-soup/pi-coding-agent/cli-commands";
 
 describe("resolveCliArgv routes subcommands hidden behind leading global flags", () => {
 	test("`--approval-mode=yolo acp` dispatches the acp subcommand with the flag preserved", () => {

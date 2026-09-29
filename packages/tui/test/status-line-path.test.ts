@@ -5,14 +5,14 @@ import * as path from "node:path";
 import type { SegmentContext } from "../src/status-line/segments";
 import { renderSegment } from "../src/status-line/segments";
 import { initTheme, theme } from "../src/theme";
-import { getWindowsShortPath } from "@oh-my-pi/pi-natives/path";
+import { getWindowsShortPath } from "@oh-my-soup/pi-natives/path";
 import {
 	__resetProjectDirCacheForTests,
 	getProjectDir,
 	pathIsWithin,
 	removeSyncWithRetries,
 	setProjectDir,
-} from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-utils";
 
 const originalProjectDir = getProjectDir();
 const SCRATCH_ROOT_PREFIXES: readonly string[] = [

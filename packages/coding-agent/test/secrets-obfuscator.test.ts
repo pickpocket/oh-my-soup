@@ -7,20 +7,20 @@ import * as crypto from "node:crypto";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { type } from "@oh-my-pi/omptype";
-import type { AgentMessage } from "@oh-my-pi/pi-agent-core";
-import { buildOpenAiNativeHistory } from "@oh-my-pi/pi-agent-core/compaction";
-import type { AssistantMessage, Context, Message, TextContent } from "@oh-my-pi/pi-ai";
-import { buildParams } from "@oh-my-pi/pi-ai/providers/openai-responses";
+import { type } from "@oh-my-soup/omstype";
+import type { AgentMessage } from "@oh-my-soup/pi-agent-core";
+import { buildOpenAiNativeHistory } from "@oh-my-soup/pi-agent-core/compaction";
+import type { AssistantMessage, Context, Message, TextContent } from "@oh-my-soup/pi-ai";
+import { buildParams } from "@oh-my-soup/pi-ai/providers/openai-responses";
 import type {
 	ResponseFileSearchToolCall,
 	ResponseFunctionWebSearch,
 	ResponseInputItem,
 	ResponseToolSearchOutputItemParam,
-} from "@oh-my-pi/pi-ai/providers/openai-responses-wire";
-import { buildResponsesInput } from "@oh-my-pi/pi-ai/providers/openai-shared";
-import { isJsonSchemaValueValid } from "@oh-my-pi/pi-ai/utils/schema/json-schema-validator";
-import { getBundledModel } from "@oh-my-pi/pi-catalog/models";
+} from "@oh-my-soup/pi-ai/providers/openai-responses-wire";
+import { buildResponsesInput } from "@oh-my-soup/pi-ai/providers/openai-shared";
+import { isJsonSchemaValueValid } from "@oh-my-soup/pi-ai/utils/schema/json-schema-validator";
+import { getBundledModel } from "@oh-my-soup/pi-catalog/models";
 import {
 	builtinCredentialSecretEntries,
 	collectEnvSecrets,
@@ -28,7 +28,7 @@ import {
 	getSecretPlaceholderKey,
 	getSecretPlaceholderKeySync,
 	loadSecrets,
-} from "@oh-my-pi/pi-coding-agent/secrets";
+} from "@oh-my-soup/pi-coding-agent/secrets";
 import {
 	collectNativeReplayRegexSecretValues,
 	deobfuscateAgentMessages,
@@ -37,16 +37,16 @@ import {
 	obfuscateNativeReplay,
 	obfuscateProviderContext,
 	obfuscateToolArguments,
-} from "@oh-my-pi/pi-coding-agent/secrets/message-transform";
-import { type SecretEntry, SecretObfuscator } from "@oh-my-pi/pi-coding-agent/secrets/obfuscator";
+} from "@oh-my-soup/pi-coding-agent/secrets/message-transform";
+import { type SecretEntry, SecretObfuscator } from "@oh-my-soup/pi-coding-agent/secrets/obfuscator";
 import {
 	sanitizeSecretFriendlyName,
 	secretEntriesNeedPlaceholderKey,
 	secretEntryNeedsPlaceholderKey,
 	stripPendingSecretPlaceholderSuffix,
-} from "@oh-my-pi/pi-coding-agent/secrets/placeholder";
-import { compileSecretRegex } from "@oh-my-pi/pi-coding-agent/secrets/regex";
-import { getActiveProfile, getAgentDir, setProfile } from "@oh-my-pi/pi-utils/dirs";
+} from "@oh-my-soup/pi-coding-agent/secrets/placeholder";
+import { compileSecretRegex } from "@oh-my-soup/pi-coding-agent/secrets/regex";
+import { getActiveProfile, getAgentDir, setProfile } from "@oh-my-soup/pi-utils/dirs";
 
 describe("compileSecretRegex", () => {
 	it("adds global flag when not provided", () => {

@@ -1,6 +1,6 @@
 import type { Component } from "../index";
 import { Markdown, Text } from "../index";
-import { sanitizeText } from "@oh-my-pi/pi-utils";
+import { sanitizeText } from "@oh-my-soup/pi-utils";
 import type { RenderResultOptions, ToolRenderer } from "./renderer";
 import { renderAgentTreeRow } from "./agent-tree";
 import { truncateToVisualLines } from "../chrome/visual-truncate";
@@ -28,7 +28,7 @@ import {
 	truncateToWidth,
 	wrapBrackets,
 } from "../render/render-utils";
-import type { ImageContent } from "@oh-my-pi/pi-ai";
+import type { ImageContent } from "@oh-my-soup/pi-ai";
 import type { OutputMeta } from "./output-meta";
 import { type ConfiguredThinkingLevel, expandKeyHint } from "../render/render-utils";
 

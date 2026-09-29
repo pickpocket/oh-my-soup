@@ -1,11 +1,11 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it, spyOn } from "bun:test";
-import { resetSettingsForTest, Settings, settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { LoginDialogComponent } from "@oh-my-pi/pi-tui/overlays/login-dialog";
-import { initTheme } from "@oh-my-pi/pi-tui/theme";
-import * as openModule from "@oh-my-pi/pi-coding-agent/utils/open";
-import type { TUI } from "@oh-my-pi/pi-tui";
+import { resetSettingsForTest, Settings, settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { LoginDialogComponent } from "@oh-my-soup/pi-tui/overlays/login-dialog";
+import { initTheme } from "@oh-my-soup/pi-tui/theme";
+import * as openModule from "@oh-my-soup/pi-coding-agent/utils/open";
+import type { TUI } from "@oh-my-soup/pi-tui";
 
-import { cfgTuiHyperlinks } from "@oh-my-pi/pi-coding-agent/modes/settings";
+import { cfgTuiHyperlinks } from "@oh-my-soup/pi-coding-agent/modes/settings";
 
 beforeAll(async () => {
 	resetSettingsForTest();

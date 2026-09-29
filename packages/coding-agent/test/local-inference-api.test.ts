@@ -7,24 +7,24 @@ import {
 	streamSimple,
 	type Usage,
 	type UserMessage,
-} from "@oh-my-pi/pi-ai";
-import { unregisterCustomApis } from "@oh-my-pi/pi-ai/api-registry";
-import { getBundledModel } from "@oh-my-pi/pi-catalog/models";
+} from "@oh-my-soup/pi-ai";
+import { unregisterCustomApis } from "@oh-my-soup/pi-ai/api-registry";
+import { getBundledModel } from "@oh-my-soup/pi-catalog/models";
 import {
 	buildLocalInferenceMessages,
 	registerLocalInferenceApi,
-} from "@oh-my-pi/pi-coding-agent/tiny/local-inference-api";
-import { TINY_LOCAL_MODELS } from "@oh-my-pi/pi-coding-agent/tiny/models";
+} from "@oh-my-soup/pi-coding-agent/tiny/local-inference-api";
+import { TINY_LOCAL_MODELS } from "@oh-my-soup/pi-coding-agent/tiny/models";
 import {
 	type TinyModelChatOptions,
 	TinyTitleClient,
 	tinyModelClient,
-} from "@oh-my-pi/pi-coding-agent/tiny/title-client";
+} from "@oh-my-soup/pi-coding-agent/tiny/title-client";
 import type {
 	TinyChatMessage,
 	TinyWorkerRequest,
 	TinyWorkerResponse,
-} from "@oh-my-pi/pi-coding-agent/tiny/title-protocol";
+} from "@oh-my-soup/pi-coding-agent/tiny/title-protocol";
 
 const SOURCE_ID = "omp/local-inference";
 const model = getBundledModel("local", "lfm2.5-230m")!;

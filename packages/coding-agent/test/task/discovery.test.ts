@@ -2,16 +2,16 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { disableProvider, enableProvider } from "@oh-my-pi/pi-coding-agent/capability";
-import { clearCache as clearFsCache } from "@oh-my-pi/pi-coding-agent/capability/fs";
-import { clearAgentPluginRootCache } from "@oh-my-pi/pi-coding-agent/discovery/agent-plugin-format";
+import { disableProvider, enableProvider } from "@oh-my-soup/pi-coding-agent/capability";
+import { clearCache as clearFsCache } from "@oh-my-soup/pi-coding-agent/capability/fs";
+import { clearAgentPluginRootCache } from "@oh-my-soup/pi-coding-agent/discovery/agent-plugin-format";
 import {
 	clearOmpExtensionCliRoots,
 	injectOmpExtensionCliRoots,
-} from "@oh-my-pi/pi-coding-agent/discovery/omp-extension-roots";
-import { clearClaudePluginRootsCache, injectPluginDirRoots } from "@oh-my-pi/pi-coding-agent/discovery/helpers";
-import { discoverAgents } from "@oh-my-pi/pi-coding-agent/task/discovery";
-import { removeWithRetries } from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-coding-agent/discovery/omp-extension-roots";
+import { clearClaudePluginRootsCache, injectPluginDirRoots } from "@oh-my-soup/pi-coding-agent/discovery/helpers";
+import { discoverAgents } from "@oh-my-soup/pi-coding-agent/task/discovery";
+import { removeWithRetries } from "@oh-my-soup/pi-utils";
 
 const OMP_AGENT_MD = [
 	"---",
@@ -64,7 +64,7 @@ function agentMd(name: string, model: string): string {
 }
 
 // Register an omp-installed marketplace plugin via the OMP plugin registry
-// (`~/.omp/plugins/installed_plugins.json`), the path listClaudePluginRoots
+// (`~/.oms/plugins/installed_plugins.json`), the path listClaudePluginRoots
 // reads as origin "omp" — distinct from the node_modules path above. `manifest`
 // controls the declared plugin dialect: `.omp-plugin/plugin.json` (OMP-native),
 // `.claude-plugin/plugin.json` (Claude Code), `both` (OMP wins by precedence),
@@ -153,7 +153,7 @@ describe("discoverAgents", () => {
 		expect(projectAgentsDir).toBe(path.join(projectDir, ".omp", "agents"));
 	});
 
-	test("loads agents from OMP npm plugins under <home>/.omp/plugins/node_modules", async () => {
+	test("loads agents from OMP npm plugins under <home>/.oms/plugins/node_modules", async () => {
 		await writeOmpPluginAgent(tempHome);
 
 		const { agents } = await discoverAgents(projectDir, tempHome);

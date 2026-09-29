@@ -1,4 +1,4 @@
-import { CliUsageError, Command } from "@oh-my-pi/pi-utils/cli";
+import { CliUsageError, Command } from "@oh-my-soup/pi-utils/cli";
 import { predictHelp as commandHelp } from "../cli/command-help";
 import { runPredictCompare } from "../cli/predict-cli";
 

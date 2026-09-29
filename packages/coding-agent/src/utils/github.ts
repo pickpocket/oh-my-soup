@@ -1,7 +1,7 @@
-import { $which, isRecord } from "@oh-my-pi/pi-utils";
+import { $which, isRecord } from "@oh-my-soup/pi-utils";
 import { REJECT_PROMPT_COMMAND } from "../exec/non-interactive-env";
 import { ToolAbortError, throwIfAborted } from "../tools/tool-errors";
-import { ToolError } from "@oh-my-pi/pi-tui/tools/tool-errors";
+import { ToolError } from "@oh-my-soup/pi-tui/tools/tool-errors";
 
 /** Captured result of a completed `gh` invocation. */
 export interface GhCommandResult {

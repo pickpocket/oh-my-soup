@@ -1,4 +1,4 @@
-import { directoryExists } from "@oh-my-pi/pi-utils";
+import { directoryExists } from "@oh-my-soup/pi-utils";
 import { ClaudeSessionStore } from "./claude-session-store";
 import { CodexSessionStore } from "./codex-session-store";
 import type { ForeignSessionInfo, ForeignSessionSource, ForeignSessionStore } from "./foreign-session-store";

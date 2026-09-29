@@ -10,7 +10,7 @@ import {
 	parseVideoSelector,
 	parseVideoTimestamp,
 	splitVideoReadTarget,
-} from "@oh-my-pi/pi-coding-agent/utils/video";
+} from "@oh-my-soup/pi-coding-agent/utils/video";
 
 describe("parseVideoSelector", () => {
 	it("reads a bare integer as a frame index", () => {

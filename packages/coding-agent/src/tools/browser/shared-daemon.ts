@@ -10,11 +10,11 @@
  */
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { logger } from "@oh-my-pi/pi-utils";
+import { logger } from "@oh-my-soup/pi-utils";
 import { daemonClientForProject } from "../../launch/client";
 import { describeQuietly, stopQuietly, waitReady } from "../../launch/ensure";
 import { daemonRuntimeDir } from "../../launch/paths";
-import type { DaemonSnapshot } from "@oh-my-pi/pi-tui/tools/daemon";
+import type { DaemonSnapshot } from "@oh-my-soup/pi-tui/tools/daemon";
 import { throwIfAborted } from "../tool-errors";
 import { probeCdpStatus } from "./attach";
 import { resolveSharedBrowserLaunchSpec } from "./launch";

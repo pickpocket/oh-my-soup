@@ -11,11 +11,11 @@ import {
 	type Message,
 	type Model,
 	retryTransientCompletion,
-} from "@oh-my-pi/pi-ai";
-import { StreamMarkupHealing } from "@oh-my-pi/pi-ai/utils/stream-markup-healing";
-import { writeThroughActiveTerminal } from "@oh-my-pi/pi-tui";
-import { SPINNER_FRAMES } from "@oh-my-pi/pi-tui/theme/symbols";
-import { $env, isTerminalHeadless, isWsl, logger, prompt } from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-ai";
+import { StreamMarkupHealing } from "@oh-my-soup/pi-ai/utils/stream-markup-healing";
+import { writeThroughActiveTerminal } from "@oh-my-soup/pi-tui";
+import { SPINNER_FRAMES } from "@oh-my-soup/pi-tui/theme/symbols";
+import { $env, isTerminalHeadless, isWsl, logger, prompt } from "@oh-my-soup/pi-utils";
 import type { ModelRegistry } from "../config/model-registry";
 
 import { roleCandidatePool } from "../config/model-roles";

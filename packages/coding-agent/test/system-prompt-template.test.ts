@@ -1,14 +1,14 @@
 import { describe, expect, it, spyOn } from "bun:test";
 import * as os from "node:os";
 import * as path from "node:path";
-import { __resetDirsFromEnvForTests, CONFIG_DIR_NAME, getConfigAgentDirName, TempDir } from "@oh-my-pi/pi-utils";
+import { __resetDirsFromEnvForTests, CONFIG_DIR_NAME, getConfigAgentDirName, TempDir } from "@oh-my-soup/pi-utils";
 import {
 	buildSystemPrompt,
 	discoverSystemPromptOverride,
 	loadSystemPromptFiles,
 	type BuildSystemPromptOptions,
 	type BuildSystemPromptResult,
-} from "@oh-my-pi/pi-coding-agent/system-prompt";
+} from "@oh-my-soup/pi-coding-agent/system-prompt";
 import eagerTasksTemplate from "./fixtures/system-prompt-template/eager-tasks.md" with { type: "text" };
 import literalDataTemplate from "./fixtures/system-prompt-template/literal-data.md" with { type: "text" };
 import liveDataTemplate from "./fixtures/system-prompt-template/live-data.md" with { type: "text" };

@@ -1,7 +1,7 @@
 import * as os from "node:os";
 import * as path from "node:path";
-import { type } from "@oh-my-pi/omptype";
-import type { AgentToolResult } from "@oh-my-pi/pi-agent-core";
+import { type } from "@oh-my-soup/omstype";
+import type { AgentToolResult } from "@oh-my-soup/pi-agent-core";
 import {
 	type GeneratedImage,
 	generateImage,
@@ -10,9 +10,9 @@ import {
 	isImageGenerationApi,
 	type Model,
 	parseAntigravityCredentials,
-} from "@oh-my-pi/pi-ai";
-import { ProviderHttpError } from "@oh-my-pi/pi-ai/error";
-import { isEnoent, logger, parseImageMetadata, prompt, ptree, Snowflake, untilAborted } from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-ai";
+import { ProviderHttpError } from "@oh-my-soup/pi-ai/error";
+import { isEnoent, logger, parseImageMetadata, prompt, ptree, Snowflake, untilAborted } from "@oh-my-soup/pi-utils";
 import { type RoleChainCandidate, resolveModelRoleValue, resolveRoleChain } from "../config/model-resolver";
 import { roleCandidatePool } from "../config/model-roles";
 import { isAuthenticated, type ModelRegistry } from "../config/model-registry";

@@ -2,17 +2,17 @@ import { describe, expect, test } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { dispatchRpcSkillPrompt, tryRunRpcSkillCommand } from "@oh-my-pi/pi-coding-agent/modes/rpc/rpc-mode";
+import { dispatchRpcSkillPrompt, tryRunRpcSkillCommand } from "@oh-my-soup/pi-coding-agent/modes/rpc/rpc-mode";
 import {
 	RpcExtensionUserMessageTracker,
 	RpcPromptResults,
-} from "@oh-my-pi/pi-coding-agent/modes/rpc/rpc-prompt-results";
-import { type CustomMessage, SKILL_PROMPT_MESSAGE_TYPE } from "@oh-my-pi/pi-coding-agent/session/messages";
-import { removeWithRetries, Snowflake } from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-coding-agent/modes/rpc/rpc-prompt-results";
+import { type CustomMessage, SKILL_PROMPT_MESSAGE_TYPE } from "@oh-my-soup/pi-coding-agent/session/messages";
+import { removeWithRetries, Snowflake } from "@oh-my-soup/pi-utils";
 
 describe("tryRunRpcSkillCommand", () => {
 	test("dispatches registered /skill commands as skill prompt messages", async () => {
-		const dir = await fs.mkdtemp(path.join(os.tmpdir(), `omp-rpc-skill-${Snowflake.next()}-`));
+		const dir = await fs.mkdtemp(path.join(os.tmpdir(), `oms-rpc-skill-${Snowflake.next()}-`));
 		const skillPath = path.join(dir, "SKILL.md");
 		await Bun.write(
 			skillPath,
@@ -50,7 +50,7 @@ describe("tryRunRpcSkillCommand", () => {
 	});
 
 	test("honors the RPC prompt streaming behavior for registered /skill commands", async () => {
-		const dir = await fs.mkdtemp(path.join(os.tmpdir(), `omp-rpc-skill-${Snowflake.next()}-`));
+		const dir = await fs.mkdtemp(path.join(os.tmpdir(), `oms-rpc-skill-${Snowflake.next()}-`));
 		const skillPath = path.join(dir, "SKILL.md");
 		await Bun.write(
 			skillPath,
@@ -104,7 +104,7 @@ describe("tryRunRpcSkillCommand", () => {
 	});
 
 	test("does not steal builtin slash-command arguments that mention registered skills", async () => {
-		const dir = await fs.mkdtemp(path.join(os.tmpdir(), `omp-rpc-skill-${Snowflake.next()}-`));
+		const dir = await fs.mkdtemp(path.join(os.tmpdir(), `oms-rpc-skill-${Snowflake.next()}-`));
 		const skillPath = path.join(dir, "SKILL.md");
 		await Bun.write(
 			skillPath,
@@ -161,7 +161,7 @@ function promptResultsFor(id: string, frames: object[] = []) {
 
 describe("dispatchRpcSkillPrompt", () => {
 	test("answers the prompt command before the skill dispatch completes", async () => {
-		const dir = await fs.mkdtemp(path.join(os.tmpdir(), `omp-rpc-skill-${Snowflake.next()}-`));
+		const dir = await fs.mkdtemp(path.join(os.tmpdir(), `oms-rpc-skill-${Snowflake.next()}-`));
 		const skillPath = path.join(dir, "SKILL.md");
 		await Bun.write(
 			skillPath,
@@ -220,7 +220,7 @@ describe("dispatchRpcSkillPrompt", () => {
 	});
 
 	test("a late dispatch failure surfaces through onError, not the answer", async () => {
-		const dir = await fs.mkdtemp(path.join(os.tmpdir(), `omp-rpc-skill-${Snowflake.next()}-`));
+		const dir = await fs.mkdtemp(path.join(os.tmpdir(), `oms-rpc-skill-${Snowflake.next()}-`));
 		const skillPath = path.join(dir, "SKILL.md");
 		await Bun.write(skillPath, "---\nname: reviewer\ndescription: Review code\n---\n\nBody.\n");
 
@@ -249,7 +249,7 @@ describe("dispatchRpcSkillPrompt", () => {
 	});
 
 	test("rejects before answering when the skill file cannot be read", async () => {
-		const dir = await fs.mkdtemp(path.join(os.tmpdir(), `omp-rpc-skill-${Snowflake.next()}-`));
+		const dir = await fs.mkdtemp(path.join(os.tmpdir(), `oms-rpc-skill-${Snowflake.next()}-`));
 		const missingSkillPath = path.join(dir, "SKILL.md");
 
 		let promptCustomMessageCalls = 0;
@@ -284,7 +284,7 @@ describe("dispatchRpcSkillPrompt", () => {
 	});
 
 	test("emits a non-invoked completion frame when the dispatch bails before the turn starts", async () => {
-		const dir = await fs.mkdtemp(path.join(os.tmpdir(), `omp-rpc-skill-${Snowflake.next()}-`));
+		const dir = await fs.mkdtemp(path.join(os.tmpdir(), `oms-rpc-skill-${Snowflake.next()}-`));
 		const skillPath = path.join(dir, "SKILL.md");
 		await Bun.write(skillPath, "---\nname: reviewer\ndescription: Review code\n---\n\nBody.\n");
 

@@ -6,7 +6,7 @@ This reference describes OMP's implemented converter, not MiniMax's provider-nat
 
 ## Selection and request conversion
 
-Set the format explicitly in `~/.omp/agent/config.yml` or a project/overlay config:
+Set the format explicitly in `~/.oms/agent/config.yml` or a project/overlay config:
 
 ```yaml
 tools:

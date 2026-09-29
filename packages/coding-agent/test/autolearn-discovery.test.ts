@@ -2,12 +2,12 @@ import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { getManagedSkillsDir } from "@oh-my-pi/pi-coding-agent/autolearn/managed-skills";
-import { disableUserSource, enableUserSource } from "@oh-my-pi/pi-coding-agent/capability";
-import "@oh-my-pi/pi-coding-agent/discovery";
-import { loadSkills } from "@oh-my-pi/pi-coding-agent/extensibility/skills";
-import { removeWithRetries } from "@oh-my-pi/pi-utils";
-import { getAgentDir, setAgentDir } from "@oh-my-pi/pi-utils/dirs";
+import { getManagedSkillsDir } from "@oh-my-soup/pi-coding-agent/autolearn/managed-skills";
+import { disableUserSource, enableUserSource } from "@oh-my-soup/pi-coding-agent/capability";
+import "@oh-my-soup/pi-coding-agent/discovery";
+import { loadSkills } from "@oh-my-soup/pi-coding-agent/extensibility/skills";
+import { removeWithRetries } from "@oh-my-soup/pi-utils";
+import { getAgentDir, setAgentDir } from "@oh-my-soup/pi-utils/dirs";
 import { restoreEnvValue } from "./helpers/settings-test-state";
 
 async function writeSkill(dir: string, name: string, description: string): Promise<void> {

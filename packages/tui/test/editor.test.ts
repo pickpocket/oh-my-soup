@@ -10,11 +10,11 @@ import {
 	type EditorTheme,
 	registerComposerStyle,
 	TUI,
-} from "@oh-my-pi/pi-tui";
-import { CombinedAutocompleteProvider } from "@oh-my-pi/pi-tui/autocomplete";
-import { KeybindingsManager, setKeybindings, TUI_KEYBINDINGS } from "@oh-my-pi/pi-tui/keybindings";
-import { setKittyProtocolActive } from "@oh-my-pi/pi-tui/keys";
-import { visibleWidth } from "@oh-my-pi/pi-tui/utils";
+} from "@oh-my-soup/pi-tui";
+import { CombinedAutocompleteProvider } from "@oh-my-soup/pi-tui/autocomplete";
+import { KeybindingsManager, setKeybindings, TUI_KEYBINDINGS } from "@oh-my-soup/pi-tui/keybindings";
+import { setKittyProtocolActive } from "@oh-my-soup/pi-tui/keys";
+import { visibleWidth } from "@oh-my-soup/pi-tui/utils";
 import { defaultEditorTheme } from "./test-themes";
 import { VirtualTerminal } from "./virtual-terminal";
 

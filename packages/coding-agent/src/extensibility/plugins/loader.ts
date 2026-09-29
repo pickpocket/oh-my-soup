@@ -6,7 +6,7 @@
  */
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { getPluginsDir, getPluginsLockfile, hasFsCode, isEacces, isEnoent, logger } from "@oh-my-pi/pi-utils";
+import { getPluginsDir, getPluginsLockfile, hasFsCode, isEacces, isEnoent, logger } from "@oh-my-soup/pi-utils";
 import { getConfigDirPaths } from "../../config";
 import { registerPluginCacheInvalidator, resolveActiveProjectRegistryPath } from "../../discovery/helpers";
 import { findExtensionDirectoryIndex, resolveExtensionDirectory } from "../extensions/directory-resolution";
@@ -215,9 +215,9 @@ async function collectPluginsAtRoot(
  * Get list of enabled plugins with their resolved configurations.
  *
  * Enumerates two plugin roots in order: the user root
- * (`getPluginsDir(home)`) and, when a project anchor (`.omp/` or `.git/`)
+ * (`getPluginsDir(home)`) and, when a project anchor (`.oms/` or `.git/`)
  * exists at or above `cwd`, the project root
- * (`<projectAnchor>/.omp/plugins`). Each root contributes the union of its
+ * (`<projectAnchor>/.oms/plugins`). Each root contributes the union of its
  * `package.json#dependencies` and `omp-plugins.lock.json#plugins`. Project
  * entries shadow user entries with the same package name, matching the
  * shadow semantics of `MarketplaceManager.listInstalledPlugins`.

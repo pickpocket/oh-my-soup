@@ -2,12 +2,12 @@ import { describe, expect, it } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { startAuthGateway } from "@oh-my-pi/pi-ai/auth-gateway";
-import { AuthStorage } from "@oh-my-pi/pi-ai/auth-storage";
-import { AnthropicApiError } from "@oh-my-pi/pi-ai/providers/anthropic-client";
-import { AnthropicUserProfilesClient, type UserProfile } from "@oh-my-pi/pi-ai/providers/anthropic-user-profiles";
-import type { Model } from "@oh-my-pi/pi-ai/types";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
+import { startAuthGateway } from "@oh-my-soup/pi-ai/auth-gateway";
+import { AuthStorage } from "@oh-my-soup/pi-ai/auth-storage";
+import { AnthropicApiError } from "@oh-my-soup/pi-ai/providers/anthropic-client";
+import { AnthropicUserProfilesClient, type UserProfile } from "@oh-my-soup/pi-ai/providers/anthropic-user-profiles";
+import type { Model } from "@oh-my-soup/pi-ai/types";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
 
 const profile: UserProfile = {
 	type: "user_profile",

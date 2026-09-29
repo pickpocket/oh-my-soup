@@ -6,8 +6,8 @@
  * `/v1/healthz` require a bearer token.
  */
 
-import { type } from "@oh-my-pi/omptype";
-import { readSseEvents } from "@oh-my-pi/pi-utils";
+import { type } from "@oh-my-soup/omstype";
+import { readSseEvents } from "@oh-my-soup/pi-utils";
 import type { AuthCredential, DisabledCredentialSummary, OAuthRefreshReason } from "../auth-storage";
 import type {
 	ClientUsageReportRequest,

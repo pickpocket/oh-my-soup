@@ -8,7 +8,7 @@
  * timeout.
  */
 import * as path from "node:path";
-import { $flag, isBunTestRuntime, logger, Snowflake } from "@oh-my-pi/pi-utils";
+import { $flag, isBunTestRuntime, logger, Snowflake } from "@oh-my-soup/pi-utils";
 import { Settings } from "../../config/settings";
 import {
 	BaseKernel,

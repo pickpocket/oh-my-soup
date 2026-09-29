@@ -8,7 +8,7 @@ import {
 	isReadToolResult,
 	isWriteToolResult,
 	type ToolResultEvent,
-} from "@oh-my-pi/pi-coding-agent/extensibility/legacy-pi-coding-agent-shim";
+} from "@oh-my-soup/pi-coding-agent/extensibility/legacy-pi-coding-agent-shim";
 
 // Issue #8161: pi-lean-ctx@3.9.18 imports `isEditToolResult`/`isWriteToolResult`
 // from `@earendil-works/pi-coding-agent`, which aliases to this shim. The shim's

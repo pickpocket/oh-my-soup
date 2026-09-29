@@ -2,9 +2,9 @@ import { afterEach, describe, expect, it } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { MCPTransportError } from "@oh-my-pi/pi-coding-agent/mcp/errors";
-import { resolveStdioSpawnCommand, StdioTransport, writeFrame } from "@oh-my-pi/pi-coding-agent/mcp/transports/stdio";
-import { removeWithRetries } from "@oh-my-pi/pi-utils";
+import { MCPTransportError } from "@oh-my-soup/pi-coding-agent/mcp/errors";
+import { resolveStdioSpawnCommand, StdioTransport, writeFrame } from "@oh-my-soup/pi-coding-agent/mcp/transports/stdio";
+import { removeWithRetries } from "@oh-my-soup/pi-utils";
 
 describe("resolveStdioSpawnCommand", () => {
 	it("resolves bare Windows commands through PATHEXT and wraps .cmd shims with cmd.exe", async () => {

@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { getAgentDir, isEnoent, logger } from "@oh-my-pi/pi-utils";
-import { withFileLock } from "@oh-my-pi/pi-utils/file-lock";
+import { getAgentDir, isEnoent, logger } from "@oh-my-soup/pi-utils";
+import { withFileLock } from "@oh-my-soup/pi-utils/file-lock";
 import { replaceFileAtomically } from "../utils/atomic-file";
 import type { SessionInfo } from "./session-listing";
 
@@ -13,7 +13,7 @@ function pinsPath(agentDir: string): string {
 }
 
 /**
- * Read the global set of pinned session ids (`~/.omp/session-pins.json`). Pins
+ * Read the global set of pinned session ids (`~/.oms/session-pins.json`). Pins
  * are keyed by session id, not file path, so they survive `/move` renames.
  * A missing file yields an empty set; a corrupt one degrades to empty with a
  * warning rather than breaking the resume picker.

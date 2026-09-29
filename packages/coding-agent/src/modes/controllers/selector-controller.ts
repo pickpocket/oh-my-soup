@@ -1,20 +1,20 @@
-import { type AgentMessage, type AgentToolResult, ThinkingLevel } from "@oh-my-pi/pi-agent-core";
-import type { CompactionOutcome } from "@oh-my-pi/pi-agent-core/compaction";
-import type { Model, PASTE_CODE_LOGIN_PROVIDERS as PasteCodeLoginProviders, UsageReport } from "@oh-my-pi/pi-ai";
-import type { getOAuthProviders as GetOAuthProviders } from "@oh-my-pi/pi-ai/oauth";
-import type { OAuthProvider } from "@oh-my-pi/pi-ai/oauth/types";
-import * as vcs from "@oh-my-pi/pi-natives/vcs";
-import type { Component, OverlayHandle } from "@oh-my-pi/pi-tui";
-import { Loader, Spacer, Text } from "@oh-my-pi/pi-tui";
-import { formatKeyHint } from "@oh-my-pi/pi-tui/app-keybindings";
-import { appKey, editorKey } from "@oh-my-pi/pi-tui/chrome/keybinding-hints";
+import { type AgentMessage, type AgentToolResult, ThinkingLevel } from "@oh-my-soup/pi-agent-core";
+import type { CompactionOutcome } from "@oh-my-soup/pi-agent-core/compaction";
+import type { Model, PASTE_CODE_LOGIN_PROVIDERS as PasteCodeLoginProviders, UsageReport } from "@oh-my-soup/pi-ai";
+import type { getOAuthProviders as GetOAuthProviders } from "@oh-my-soup/pi-ai/oauth";
+import type { OAuthProvider } from "@oh-my-soup/pi-ai/oauth/types";
+import * as vcs from "@oh-my-soup/pi-natives/vcs";
+import type { Component, OverlayHandle } from "@oh-my-soup/pi-tui";
+import { Loader, Spacer, Text } from "@oh-my-soup/pi-tui";
+import { formatKeyHint } from "@oh-my-soup/pi-tui/app-keybindings";
+import { appKey, editorKey } from "@oh-my-soup/pi-tui/chrome/keybinding-hints";
 import {
 	getAgentDbPath,
 	getAgentDir,
 	getProjectDir,
 	normalizePathForComparison,
 	sanitizeText,
-} from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-utils";
 import {
 	ADVISOR_DEFAULT_TOOL_NAMES,
 	discoverAdvisorConfigs,
@@ -23,11 +23,11 @@ import {
 	saveWatchdogConfigFile,
 } from "../../advisor";
 import { reset as resetCapabilities } from "../../capability";
-import type { AdvisorConfigScope } from "@oh-my-pi/pi-tui/overlays/advisor-config";
+import type { AdvisorConfigScope } from "@oh-my-soup/pi-tui/overlays/advisor-config";
 import { showGitOverlay } from "../../cli/git-tui";
 import { formatLoginIdentity } from "../../cli/oauth-terminal";
 import { resolveAdvisorRoleSelection, resolveModelRoleValue } from "../../config/model-resolver";
-import { formatModelSelectorValue } from "@oh-my-pi/pi-tui/overlays/model-selector";
+import { formatModelSelectorValue } from "@oh-my-soup/pi-tui/overlays/model-selector";
 import { getRoleInfo } from "../../config/model-roles";
 import { settings } from "../../config/settings";
 import { createSettingsHost } from "../../config/settings-ui";
@@ -40,7 +40,7 @@ import {
 	getPluginsCacheDir,
 	MarketplaceManager,
 } from "../../extensibility/plugins/marketplace";
-import { getAvailableThemes, getSymbolTheme, previewTheme, theme } from "@oh-my-pi/pi-tui/theme";
+import { getAvailableThemes, getSymbolTheme, previewTheme, theme } from "@oh-my-soup/pi-tui/theme";
 import type { AgentHubOpenOptions, InteractiveModeContext } from "../../modes/types";
 import type { SessionOAuthAccountList } from "../../session/agent-session-types";
 import type { ResetCreditAccountStatus, ResetCreditRedeemOutcome } from "../../session/auth-storage";
@@ -52,14 +52,14 @@ import {
 } from "../../session/foreign-session-import";
 import type { ForeignSessionInfo, ForeignSessionSource } from "../../session/foreign-session-store";
 import { isTranscriptEntry, type TranscriptEntry } from "../../session/session-context";
-import { isUserRequestEntry } from "@oh-my-pi/pi-tui/chat/transcript-entry";
+import { isUserRequestEntry } from "@oh-my-soup/pi-tui/chat/transcript-entry";
 import type { SessionEntry, SessionTreeNode } from "../../session/session-entries";
 import type { SessionInfo } from "../../session/session-listing";
 import { SessionManager } from "../../session/session-manager";
 import { loadPinnedSessionIds } from "../../session/session-pins";
 import { FileSessionStorage } from "../../session/session-storage";
 import { toLogoutAccounts } from "../../slash-commands/helpers/logout";
-import type { LogoutAccount } from "@oh-my-pi/pi-tui/overlays/logout-account-selector";
+import type { LogoutAccount } from "@oh-my-soup/pi-tui/overlays/logout-account-selector";
 import { describeRedeemOutcome, toResetUsageAccounts } from "../../slash-commands/helpers/reset-usage";
 import { toSessionPinAccounts } from "../../slash-commands/helpers/session-pin";
 import {
@@ -74,51 +74,51 @@ import {
 	type ConfiguredThinkingLevel,
 	concreteThinkingLevel,
 	parseConfiguredThinkingLevel,
-} from "@oh-my-pi/pi-tui/thinking";
+} from "@oh-my-soup/pi-tui/thinking";
 import type { ToolSession } from "../../tools";
 import { AskTool, type AskToolInput } from "../../tools/ask";
-import { type AskToolDetails } from "@oh-my-pi/pi-tui/tools/ask";
-import { sanitizeDisplayWarnings, shortenPath } from "@oh-my-pi/pi-tui/render/render-utils";
+import { type AskToolDetails } from "@oh-my-soup/pi-tui/tools/ask";
+import { sanitizeDisplayWarnings, shortenPath } from "@oh-my-soup/pi-tui/render/render-utils";
 import { ToolAbortError } from "../../tools/tool-errors";
 import { captureBrowserSession } from "../../utils/browser-session";
 import { copyToClipboard } from "../../utils/clipboard";
 import { openPath } from "../../utils/open";
 import { setSessionTerminalTitle } from "../../utils/title-generator";
-import { getAssistantMessageLinkTargets } from "@oh-my-pi/pi-tui/prompt/interactive-context-helpers";
-import { type AdvisorConfigDeps, AdvisorConfigOverlayComponent } from "@oh-my-pi/pi-tui/overlays/advisor-config";
+import { getAssistantMessageLinkTargets } from "@oh-my-soup/pi-tui/prompt/interactive-context-helpers";
+import { type AdvisorConfigDeps, AdvisorConfigOverlayComponent } from "@oh-my-soup/pi-tui/overlays/advisor-config";
 import { createAgentsHubDeps } from "../agents-hub-deps";
 import { getEditorCommand, openInEditor } from "../../utils/external-editor";
-import { collapseSharedUsageReports } from "@oh-my-pi/pi-tui/overlays/usage-display";
+import { collapseSharedUsageReports } from "@oh-my-soup/pi-tui/overlays/usage-display";
 import { limitMatchesActiveAccount } from "../../slash-commands/helpers/active-oauth-account";
-import { AgentHubOverlayComponent } from "@oh-my-pi/pi-tui/overlays/agent-hub";
+import { AgentHubOverlayComponent } from "@oh-my-soup/pi-tui/overlays/agent-hub";
 import { createAgentHubRuntime } from "../agent-hub-runtime";
-import { AgentsHubComponent } from "@oh-my-pi/pi-tui/overlays/agents-hub";
-import { CopySelectorComponent } from "@oh-my-pi/pi-tui/overlays/copy-selector";
-import { ExtensionDashboard } from "@oh-my-pi/pi-tui/overlays/extensions/extension-dashboard";
-import { listLiveToolRecords, liveToolRecordFromSession } from "@oh-my-pi/pi-tui/overlays/extensions/live-tool-session";
+import { AgentsHubComponent } from "@oh-my-soup/pi-tui/overlays/agents-hub";
+import { CopySelectorComponent } from "@oh-my-soup/pi-tui/overlays/copy-selector";
+import { ExtensionDashboard } from "@oh-my-soup/pi-tui/overlays/extensions/extension-dashboard";
+import { listLiveToolRecords, liveToolRecordFromSession } from "@oh-my-soup/pi-tui/overlays/extensions/live-tool-session";
 import { createExtensionDashboardRuntime } from "../components/extensions/dashboard-runtime";
-import { HistorySearchComponent } from "@oh-my-pi/pi-tui/overlays/history-search";
-import type { LoginDialogComponent as LoginDialogComponentType } from "@oh-my-pi/pi-tui/overlays/login-dialog";
-import type { LogoutAccountSelectorComponent as LogoutAccountSelectorComponentType } from "@oh-my-pi/pi-tui/overlays/logout-account-selector";
+import { HistorySearchComponent } from "@oh-my-soup/pi-tui/overlays/history-search";
+import type { LoginDialogComponent as LoginDialogComponentType } from "@oh-my-soup/pi-tui/overlays/login-dialog";
+import type { LogoutAccountSelectorComponent as LogoutAccountSelectorComponentType } from "@oh-my-soup/pi-tui/overlays/logout-account-selector";
 import type {
 	ModelHubComponent as ModelHubComponentType,
 	ModelRoleSelectionScope,
-} from "@oh-my-pi/pi-tui/overlays/model-hub";
+} from "@oh-my-soup/pi-tui/overlays/model-hub";
 import { createModelBrowserSource } from "../model-browser-source";
-import type { ModelPickerComponent as ModelPickerComponentType } from "@oh-my-pi/pi-tui/overlays/model-picker";
-import type { OAuthSelectorComponent as OAuthSelectorComponentType } from "@oh-my-pi/pi-tui/overlays/oauth-selector";
-import { PluginSelectorComponent } from "@oh-my-pi/pi-tui/overlays/plugin-selector";
-import { type ResetUsageAccount, ResetUsageSelectorComponent } from "@oh-my-pi/pi-tui/overlays/reset-usage-selector";
-import { type BranchVariantPath, RewindSelectorComponent } from "@oh-my-pi/pi-tui/overlays/rewind-selector";
-import { renderSegmentTrack } from "@oh-my-pi/pi-tui/chrome/segment-track";
-import { SessionAccountSelectorComponent } from "@oh-my-pi/pi-tui/overlays/session-account-selector";
-import { SessionSelectorComponent, type SessionSelectorOptions } from "@oh-my-pi/pi-tui/overlays/session-selector";
-import { SettingsSelectorComponent } from "@oh-my-pi/pi-tui/overlays/settings-selector";
-import { TranscriptBlock } from "@oh-my-pi/pi-tui/chrome/transcript-container";
-import { TreeSelectorComponent } from "@oh-my-pi/pi-tui/overlays/tree-selector";
-import { UsageDashboardComponent } from "@oh-my-pi/pi-tui/overlays/usage-dashboard";
+import type { ModelPickerComponent as ModelPickerComponentType } from "@oh-my-soup/pi-tui/overlays/model-picker";
+import type { OAuthSelectorComponent as OAuthSelectorComponentType } from "@oh-my-soup/pi-tui/overlays/oauth-selector";
+import { PluginSelectorComponent } from "@oh-my-soup/pi-tui/overlays/plugin-selector";
+import { type ResetUsageAccount, ResetUsageSelectorComponent } from "@oh-my-soup/pi-tui/overlays/reset-usage-selector";
+import { type BranchVariantPath, RewindSelectorComponent } from "@oh-my-soup/pi-tui/overlays/rewind-selector";
+import { renderSegmentTrack } from "@oh-my-soup/pi-tui/chrome/segment-track";
+import { SessionAccountSelectorComponent } from "@oh-my-soup/pi-tui/overlays/session-account-selector";
+import { SessionSelectorComponent, type SessionSelectorOptions } from "@oh-my-soup/pi-tui/overlays/session-selector";
+import { SettingsSelectorComponent } from "@oh-my-soup/pi-tui/overlays/settings-selector";
+import { TranscriptBlock } from "@oh-my-soup/pi-tui/chrome/transcript-container";
+import { TreeSelectorComponent } from "@oh-my-soup/pi-tui/overlays/tree-selector";
+import { UsageDashboardComponent } from "@oh-my-soup/pi-tui/overlays/usage-dashboard";
 import { renderUsageReports } from "./command-controller";
-import type { SessionObserverRegistry } from "@oh-my-pi/pi-tui/overlays/session-observer-registry";
+import type { SessionObserverRegistry } from "@oh-my-soup/pi-tui/overlays/session-observer-registry";
 
 import { cfgBranchSummaryEnabled } from "../../session/context-settings";
 import { cfgCycleOrder, cfgDisabledProviders, cfgModelRoleStorage } from "../../config/model-settings";
@@ -146,8 +146,8 @@ interface ModelOverlayModules {
 /** Synchronous first-use boundary for model overlays; key callbacks require immediate mounting. */
 function loadModelOverlayComponents(): ModelOverlayModules {
 	return {
-		ModelHubComponent: require("@oh-my-pi/pi-tui/overlays/model-hub.js").ModelHubComponent,
-		ModelPickerComponent: require("@oh-my-pi/pi-tui/overlays/model-picker.js").ModelPickerComponent,
+		ModelHubComponent: require("@oh-my-soup/pi-tui/overlays/model-hub.js").ModelHubComponent,
+		ModelPickerComponent: require("@oh-my-soup/pi-tui/overlays/model-picker.js").ModelPickerComponent,
 	};
 }
 
@@ -162,12 +162,12 @@ interface ProviderAuthUiModules {
 /** Synchronous first-use boundary for provider auth catalog and dialog components. */
 function loadProviderAuthUi(): ProviderAuthUiModules {
 	return {
-		PASTE_CODE_LOGIN_PROVIDERS: require("@oh-my-pi/pi-ai/index.js").PASTE_CODE_LOGIN_PROVIDERS,
-		getOAuthProviders: require("@oh-my-pi/pi-ai/registry/oauth/index.js").getOAuthProviders,
-		LoginDialogComponent: require("@oh-my-pi/pi-tui/overlays/login-dialog.js").LoginDialogComponent,
-		LogoutAccountSelectorComponent: require("@oh-my-pi/pi-tui/overlays/logout-account-selector.js")
+		PASTE_CODE_LOGIN_PROVIDERS: require("@oh-my-soup/pi-ai/index.js").PASTE_CODE_LOGIN_PROVIDERS,
+		getOAuthProviders: require("@oh-my-soup/pi-ai/registry/oauth/index.js").getOAuthProviders,
+		LoginDialogComponent: require("@oh-my-soup/pi-tui/overlays/login-dialog.js").LoginDialogComponent,
+		LogoutAccountSelectorComponent: require("@oh-my-soup/pi-tui/overlays/logout-account-selector.js")
 			.LogoutAccountSelectorComponent,
-		OAuthSelectorComponent: require("@oh-my-pi/pi-tui/overlays/oauth-selector.js").OAuthSelectorComponent,
+		OAuthSelectorComponent: require("@oh-my-soup/pi-tui/overlays/oauth-selector.js").OAuthSelectorComponent,
 	};
 }
 

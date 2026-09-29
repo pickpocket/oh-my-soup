@@ -14,7 +14,7 @@ import {
 	isCompiledBinary,
 	logger,
 	stripWindowsExtendedLengthPathPrefix,
-} from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-utils";
 import { registerPluginCacheInvalidator } from "../../discovery/helpers";
 
 const USE_BUNDLED_PI_MODULES = isCompiledBinary() || Boolean(process.env.PI_BUNDLED);
@@ -865,8 +865,8 @@ function clearLegacyPiResolutionCaches(): void {
 registerPluginCacheInvalidator(clearLegacyPiResolutionCaches);
 const PACKAGE_IMPORT_EXCLUDED = Symbol("packageImportExcluded");
 
-// Extensions importing TypeBox directly are redirected to omptype's TypeBox
-// facade, keeping legacy builders while producing callable omptype schemas at
+// Extensions importing TypeBox directly are redirected to omstype's TypeBox
+// facade, keeping legacy builders while producing callable omstype schemas at
 // the tool wire boundary. Submodules such as `@sinclair/typebox/compiler` are
 // intentionally not remapped: plugins relying on those TypeBox-only APIs must
 // vendor TypeBox directly.
@@ -886,7 +886,7 @@ const TYPEBOX_SPECIFIER_FILTER = /^(?:@sinclair\/typebox|typebox)$/;
  *
  * `bundle-dist.ts` defines `process.env.PI_BUNDLED="true"`; after bundling,
  * `import.meta.dir` points at `<package>/dist`. Do not resolve the package via
- * bare `@oh-my-pi/pi-coding-agent` here: from a global install Bun can pick an
+ * bare `@oh-my-soup/pi-coding-agent` here: from a global install Bun can pick an
  * older cache entry, recreating mixed-runtime plugin loading.
  */
 export function __computeBundledSelfPackageRoot(metaDir: string, pathImpl: typeof path = path): string {
@@ -917,7 +917,7 @@ function sourceShimPath(file: string): string {
 }
 
 /**
- * Resolve the coding-agent compatibility surface that composes omptype's
+ * Resolve the coding-agent compatibility surface that composes omstype's
  * TypeBox facade with legacy `Type.Unsafe`, then drop the remap when that
  * entrypoint is missing.
  *
@@ -945,8 +945,8 @@ const TYPEBOX_SHIM_PATH = __resolveTypeBoxShimPath(USE_BUNDLED_PI_MODULES, sourc
 // export (see `packages/ai/CHANGELOG.md`), so the bare canonical specifier no
 // longer satisfies those imports. The override below redirects only the bare
 // pi-ai package root onto a sibling shim that re-exports the canonical surface
-// plus the borrowed `Type` runtime from the omptype TypeBox facade. Subpath
-// imports such as `@oh-my-pi/pi-ai/oauth` continue to resolve directly
+// plus the borrowed `Type` runtime from the omstype TypeBox facade. Subpath
+// imports such as `@oh-my-soup/pi-ai/oauth` continue to resolve directly
 // against the bundled pi-ai package.
 const LEGACY_PI_AI_SHIM_PATH = USE_BUNDLED_PI_MODULES
 	? bundledModuleVirtualSpecifier(`${CANONICAL_PI_SCOPE}/pi-ai`)
@@ -977,7 +977,7 @@ const LEGACY_PI_TUI_SHIM_PATH = USE_BUNDLED_PI_MODULES
 // in-process module instance — in dev / source-link / source SDK mode the
 // canonical specifier resolves cleanly through `Bun.resolveSync`; hardcoding a
 // source-tree path would miss installs where bundled packages live at
-// `node_modules/@oh-my-pi/pi-*`.
+// `node_modules/@oh-my-soup/pi-*`.
 //
 // Bundled entries are `omp-legacy-pi-bundled:<key>` specifiers handed to the
 // synthetic onLoad in `installLegacyPiSpecifierShim()`. Filesystem-shaped
@@ -1080,7 +1080,7 @@ function getResolvedSpecifier(specifier: string): string {
 }
 
 /**
- * Resolve a canonical `@oh-my-pi/*` specifier to a filesystem path, preferring
+ * Resolve a canonical `@oh-my-soup/*` specifier to a filesystem path, preferring
  * a bundled compat shim when one is registered for the package root.
  *
  * Falls back to `getResolvedSpecifier` (which may throw under compiled binary
@@ -2671,7 +2671,7 @@ function resolveLegacyPiSpecifier(args: { path: string; importer: string }): Leg
 		const resolved = resolveRemappedLegacyPiSpecifier(remappedSpecifier, args);
 		// A canonical specifier that remaps to itself and already resolves to the
 		// same host file from its importer (host code, e.g. `/login` requiring
-		// `@oh-my-pi/pi-ai/index.js`) has nothing to rewrite: decline and let Bun
+		// `@oh-my-soup/pi-ai/index.js`) has nothing to rewrite: decline and let Bun
 		// resolve it natively. Answering it anyway breaks `require()` on Bun
 		// 1.3.x, which reads the returned path back as `file:<path>` and, on
 		// source-link/dev installs, recurses into `NameTooLong reading
@@ -2696,7 +2696,7 @@ function resolveRemappedLegacyPiSpecifier(
 	remappedSpecifier: string,
 	args: { path: string; importer: string },
 ): LegacyPiResolveResult | undefined {
-	// Primary: resolve the canonical @oh-my-pi/* specifier from the host binary
+	// Primary: resolve the canonical @oh-my-soup/* specifier from the host binary
 	// location. Works in dev mode and in source-link installs.
 	try {
 		return toLegacyPiResolveResult(resolveCanonicalPiSpecifier(remappedSpecifier));

@@ -10,8 +10,8 @@
  */
 import * as fs from "node:fs";
 import * as net from "node:net";
-import { acquireFileLock, logger, postmortem, setProcessName } from "@oh-my-pi/pi-utils";
-import { ToolError } from "@oh-my-pi/pi-tui/tools/tool-errors";
+import { acquireFileLock, logger, postmortem, setProcessName } from "@oh-my-soup/pi-utils";
+import { ToolError } from "@oh-my-soup/pi-tui/tools/tool-errors";
 import {
 	errorMessage,
 	IDA_HOST_CONFIG_ENV,

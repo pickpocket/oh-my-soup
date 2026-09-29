@@ -2,15 +2,15 @@
  * Built-in model roles and role metadata helpers.
  */
 
-import { modelKind, type Model } from "@oh-my-pi/pi-catalog/types";
+import { modelKind, type Model } from "@oh-my-soup/pi-catalog/types";
 import {
 	KIND_ROLE_IDS,
 	MODEL_ROLE_IDS,
 	type ModelBrowserRegistry,
 	type ModelBrowserRoleInfo,
 	type ModelRole,
-} from "@oh-my-pi/pi-tui/overlays/model-browser";
-import { isValidThemeColor } from "@oh-my-pi/pi-tui/theme";
+} from "@oh-my-soup/pi-tui/overlays/model-browser";
+import { isValidThemeColor } from "@oh-my-soup/pi-tui/theme";
 import type { Settings } from "./settings";
 
 import { cfgCycleOrder, cfgModelTags } from "./model-settings";
@@ -29,8 +29,8 @@ export function formatModelRoleAlias(role: string): string {
 	return `${MODEL_ROLE_ALIAS_PREFIX}${role}`;
 }
 
-export type { ModelRole } from "@oh-my-pi/pi-tui/overlays/model-browser";
-export { CHAT_MODEL_ROLE_IDS, KIND_ROLE_IDS, MODEL_ROLE_IDS } from "@oh-my-pi/pi-tui/overlays/model-browser";
+export type { ModelRole } from "@oh-my-soup/pi-tui/overlays/model-browser";
+export { CHAT_MODEL_ROLE_IDS, KIND_ROLE_IDS, MODEL_ROLE_IDS } from "@oh-my-soup/pi-tui/overlays/model-browser";
 
 export type ModelRoleInfo = ModelBrowserRoleInfo;
 

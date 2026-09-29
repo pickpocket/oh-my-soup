@@ -4,7 +4,7 @@ import * as path from "node:path";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { createGunzip, createGzip } from "node:zlib";
-import { withStatsSyncLock } from "@oh-my-pi/omp-stats/aggregator";
+import { withStatsSyncLock } from "@oh-my-soup/oms-stats/aggregator";
 import {
 	formatBytes,
 	getAgentDir,
@@ -17,7 +17,7 @@ import {
 	getTerminalSessionsDir,
 	normalizePathForComparison,
 	readLines,
-} from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-utils";
 import { Settings } from "../config/settings";
 import type { Setting } from "../config/registry";
 

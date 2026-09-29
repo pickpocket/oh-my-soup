@@ -1,9 +1,9 @@
-export { truncate } from "@oh-my-pi/pi-utils";
+export { truncate } from "@oh-my-soup/pi-utils";
 
 import * as fs from "node:fs/promises";
 import path from "node:path";
-import { isEnoent } from "@oh-my-pi/pi-utils";
-import { type Theme, theme } from "@oh-my-pi/pi-tui/theme";
+import { isEnoent } from "@oh-my-soup/pi-utils";
+import { type Theme, theme } from "@oh-my-soup/pi-tui/theme";
 import { formatPathRelativeToCwd, resolveToCwd } from "../tools/path-utils";
 import type {
 	CodeAction,
@@ -18,7 +18,7 @@ import type {
 	WorkspaceEdit,
 } from "./types";
 
-export { detectLanguageId } from "@oh-my-pi/pi-tui/lang-from-path";
+export { detectLanguageId } from "@oh-my-soup/pi-tui/lang-from-path";
 
 // =============================================================================
 // URI Handling (Cross-Platform)

@@ -10,7 +10,7 @@
  * async `node:zlib` threadpool) lazily, once, on the first actual read. When the
  * placeholder is empty (running from TypeScript source), the index falls back to
  * the embed file shipped in the npm package (`dist/docs-index.generated.txt`,
- * written by `gen:bundle`) — so `@oh-my-pi/pi-coding-agent/*` SDK consumers
+ * written by `gen:bundle`) — so `@oh-my-soup/pi-coding-agent/*` SDK consumers
  * resolve docs and never probe the consumer's `node_modules/docs` — and then to
  * the repo `docs/` directory on disk for a monorepo checkout.
  */
@@ -18,7 +18,7 @@ import { readFileSync } from "node:fs";
 import * as path from "node:path";
 import { promisify } from "node:util";
 import { gunzip } from "node:zlib";
-import { isEnoent, logger } from "@oh-my-pi/pi-utils";
+import { isEnoent, logger } from "@oh-my-soup/pi-utils";
 import { Glob } from "bun";
 
 const docsEmbed = process.env.PI_DOCS_EMBED ?? "";
@@ -88,7 +88,7 @@ function readDocsFromDisk(): DocsIndex | null {
 /**
  * Prepacked npm package: the docs embed is written to `dist/docs-index.generated.txt`
  * during `gen:bundle` (compiled binaries inline it via `PI_DOCS_EMBED` instead).
- * SDK consumers importing `@oh-my-pi/pi-coding-agent/*` load TypeScript source, where
+ * SDK consumers importing `@oh-my-soup/pi-coding-agent/*` load TypeScript source, where
  * the build-time placeholder is empty, so this shipped file is their only reachable
  * corpus. Returns `null` when the file is absent (dev tree before a bundle build).
  */

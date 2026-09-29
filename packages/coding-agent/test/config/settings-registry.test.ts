@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from "bun:test";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { orderedSettings } from "@oh-my-pi/pi-coding-agent/config/all-settings";
-import { all, bindEffects, combine, effect, lookup } from "@oh-my-pi/pi-coding-agent/config/registry";
-import { resetSettingsForTest, Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { logger, TempDir } from "@oh-my-pi/pi-utils";
+import { orderedSettings } from "@oh-my-soup/pi-coding-agent/config/all-settings";
+import { all, bindEffects, combine, effect, lookup } from "@oh-my-soup/pi-coding-agent/config/registry";
+import { resetSettingsForTest, Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { logger, TempDir } from "@oh-my-soup/pi-utils";
 import { YAML } from "bun";
 
 import {
@@ -12,13 +12,13 @@ import {
 	cfgTemperature,
 	cfgTopK,
 	cfgTopP,
-} from "@oh-my-pi/pi-coding-agent/session/settings";
-import { cfgSteeringMode } from "@oh-my-pi/pi-coding-agent/modes/settings";
-import { cfgEditFuzzyMatch, cfgEditModelVariants } from "@oh-my-pi/pi-coding-agent/edit/settings";
-import { cfgTaskMaxConcurrency } from "@oh-my-pi/pi-coding-agent/task/settings";
-import { cfgEvalPy } from "@oh-my-pi/pi-coding-agent/eval/settings";
-import { cfgModelRoles } from "@oh-my-pi/pi-coding-agent/config/model-settings";
-import { cfgSearxngBasicPassword, cfgSearxngEndpoint } from "@oh-my-pi/pi-coding-agent/web/settings";
+} from "@oh-my-soup/pi-coding-agent/session/settings";
+import { cfgSteeringMode } from "@oh-my-soup/pi-coding-agent/modes/settings";
+import { cfgEditFuzzyMatch, cfgEditModelVariants } from "@oh-my-soup/pi-coding-agent/edit/settings";
+import { cfgTaskMaxConcurrency } from "@oh-my-soup/pi-coding-agent/task/settings";
+import { cfgEvalPy } from "@oh-my-soup/pi-coding-agent/eval/settings";
+import { cfgModelRoles } from "@oh-my-soup/pi-coding-agent/config/model-settings";
+import { cfgSearxngBasicPassword, cfgSearxngEndpoint } from "@oh-my-soup/pi-coding-agent/web/settings";
 
 const tick = () => Promise.resolve();
 

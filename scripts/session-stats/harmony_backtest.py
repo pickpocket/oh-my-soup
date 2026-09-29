@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Backtest GPT-5 Harmony-header leak handling against ~/.omp/stats.db.
+Backtest GPT-5 Harmony-header leak handling against ~/.oms/stats.db.
 
 This is a dry-run analysis tool. It does not mutate stats.db or session JSONL.
 It scans stored assistant/tool-call surfaces, applies a selected detection and

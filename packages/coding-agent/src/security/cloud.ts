@@ -1,5 +1,5 @@
-import { decodeJwt } from "@oh-my-pi/pi-ai/registry/oauth/openai-codex";
-import * as vcs from "@oh-my-pi/pi-natives/vcs";
+import { decodeJwt } from "@oh-my-soup/pi-ai/registry/oauth/openai-codex";
+import * as vcs from "@oh-my-soup/pi-natives/vcs";
 import type { AuthStorage } from "../session/auth-storage";
 import { resolveExactSecurityOAuthAccess } from "./auth";
 import {

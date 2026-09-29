@@ -1,6 +1,6 @@
-import type { UsageResetCreditDetail } from "@oh-my-pi/pi-ai";
+import type { UsageResetCreditDetail } from "@oh-my-soup/pi-ai";
 import { Container, matchesKey, ScrollView, Spacer, Text, TruncatedText } from "../index";
-import { formatDuration, sanitizeText } from "@oh-my-pi/pi-utils";
+import { formatDuration, sanitizeText } from "@oh-my-soup/pi-utils";
 import { theme } from "../theme/theme";
 import { matchesSelectCancel, matchesSelectDown, matchesSelectUp } from "../keybinding-matchers";
 import { OverlayPanel } from "../chrome/overlay-box";

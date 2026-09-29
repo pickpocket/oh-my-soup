@@ -6,7 +6,7 @@ This reference describes the converter implemented by `packages/ai/src/dialect/x
 
 ## Selection and request conversion
 
-Select the dialect in `~/.omp/agent/config.yml`, project config, or an overlay:
+Select the dialect in `~/.oms/agent/config.yml`, project config, or an overlay:
 
 ```yaml
 tools:
@@ -133,7 +133,7 @@ Visible prose may appear before or between unwrapped invokes. Inside a recognize
 A direct API consumer can request DSML parsing:
 
 ```ts
-import { createInbandScanner } from "@oh-my-pi/pi-ai/dialect";
+import { createInbandScanner } from "@oh-my-soup/pi-ai/dialect";
 
 const scanner = createInbandScanner("xml", {
   xmlTagset: "dsml",

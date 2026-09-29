@@ -7,9 +7,9 @@
  * the next session sees the models the credential unlocked.
  */
 import * as readline from "node:readline";
-import { getOAuthProviders } from "@oh-my-pi/pi-ai";
-import { APP_NAME, getAgentDbPath, getProjectDir } from "@oh-my-pi/pi-utils";
-import chalk from "@oh-my-pi/pi-utils/chalk";
+import { getOAuthProviders } from "@oh-my-soup/pi-ai";
+import { APP_NAME, getAgentDbPath, getProjectDir } from "@oh-my-soup/pi-utils";
+import chalk from "@oh-my-soup/pi-utils/chalk";
 import { ModelRegistry } from "../config/model-registry";
 import { Settings } from "../config/settings";
 import { discoverAuthStorage, loadCliExtensionProviders } from "../sdk";

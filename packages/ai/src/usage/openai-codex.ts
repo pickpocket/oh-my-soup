@@ -1,7 +1,7 @@
 import { Buffer } from "node:buffer";
-import { planRequirementFor, quotaTierFor } from "@oh-my-pi/pi-catalog/compat/behavior";
-import { toNumber } from "@oh-my-pi/pi-catalog/utils";
-import { USER_AGENT } from "@oh-my-pi/pi-utils";
+import { planRequirementFor, quotaTierFor } from "@oh-my-soup/pi-catalog/compat/behavior";
+import { toNumber } from "@oh-my-soup/pi-catalog/utils";
+import { USER_AGENT } from "@oh-my-soup/pi-utils";
 import type {
 	CredentialRankingContext,
 	CredentialRankingStrategy,

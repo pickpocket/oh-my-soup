@@ -1,19 +1,19 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import * as os from "node:os";
 import * as path from "node:path";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
-import { resetSettingsForTest, Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { resolveLocalUrlToPath } from "@oh-my-pi/pi-coding-agent/internal-urls";
-import { getSettingsForTab } from "@oh-my-pi/pi-tui/overlays/settings-defs";
-import { createSettingsHost } from "@oh-my-pi/pi-coding-agent/config/settings-ui";
-import { autosaveApprovedPlan, resolvePlanAutosaveDir } from "@oh-my-pi/pi-coding-agent/plan-mode/plan-autosave";
-import type { PlanModeState } from "@oh-my-pi/pi-coding-agent/plan-mode/state";
-import type { PlanYolo } from "@oh-my-pi/pi-coding-agent/session/agent-session-types";
-import { PrewalkCoordinator, type PrewalkCoordinatorHost } from "@oh-my-pi/pi-coding-agent/session/prewalk";
-import type { SessionManager } from "@oh-my-pi/pi-coding-agent/session/session-manager";
-import { TempDir } from "@oh-my-pi/pi-utils";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
+import { resetSettingsForTest, Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { resolveLocalUrlToPath } from "@oh-my-soup/pi-coding-agent/internal-urls";
+import { getSettingsForTab } from "@oh-my-soup/pi-tui/overlays/settings-defs";
+import { createSettingsHost } from "@oh-my-soup/pi-coding-agent/config/settings-ui";
+import { autosaveApprovedPlan, resolvePlanAutosaveDir } from "@oh-my-soup/pi-coding-agent/plan-mode/plan-autosave";
+import type { PlanModeState } from "@oh-my-soup/pi-coding-agent/plan-mode/state";
+import type { PlanYolo } from "@oh-my-soup/pi-coding-agent/session/agent-session-types";
+import { PrewalkCoordinator, type PrewalkCoordinatorHost } from "@oh-my-soup/pi-coding-agent/session/prewalk";
+import type { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
+import { TempDir } from "@oh-my-soup/pi-utils";
 
-import { cfgPlanAutosave, cfgPlanEnabled } from "@oh-my-pi/pi-coding-agent/plan-mode/settings";
+import { cfgPlanAutosave, cfgPlanEnabled } from "@oh-my-soup/pi-coding-agent/plan-mode/settings";
 
 let tempDir: TempDir | undefined;
 

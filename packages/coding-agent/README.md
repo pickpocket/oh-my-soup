@@ -1,4 +1,4 @@
-# @oh-my-pi/pi-coding-agent
+# @oh-my-soup/pi-coding-agent
 
 Core implementation package for the `omp` coding agent in the `omp` monorepo.
 
@@ -15,7 +15,7 @@ Package-specific references:
 
 ## Memory backends
 
-The agent supports three mutually-exclusive memory backends, selected via the `memory.backend` setting (Settings → Memory tab, or `~/.omp/config.yml`):
+The agent supports three mutually-exclusive memory backends, selected via the `memory.backend` setting (Settings → Memory tab, or `~/.oms/config.yml`):
 
 - `off` (default) — no memory subsystem runs.
 - `local` — existing rollout-summarisation pipeline; writes `memory_summary.md` and consolidated artifacts under the agent dir.

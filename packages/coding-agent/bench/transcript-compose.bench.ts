@@ -12,11 +12,11 @@
  * is an export path and intentionally renders committed blocks.
  */
 
-import type { AssistantMessage } from "@oh-my-pi/pi-ai";
+import type { AssistantMessage } from "@oh-my-soup/pi-ai";
 import { Settings } from "../src/config/settings";
-import { AssistantMessageComponent } from "@oh-my-pi/pi-tui/chat/assistant-message";
-import { TranscriptContainer } from "@oh-my-pi/pi-tui/chrome/transcript-container";
-import { initTheme } from "@oh-my-pi/pi-tui/theme";
+import { AssistantMessageComponent } from "@oh-my-soup/pi-tui/chat/assistant-message";
+import { TranscriptContainer } from "@oh-my-soup/pi-tui/chrome/transcript-container";
+import { initTheme } from "@oh-my-soup/pi-tui/theme";
 
 const WIDTH = 100;
 const SIZES = [500, 5000, 50_000];

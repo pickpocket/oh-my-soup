@@ -2,22 +2,22 @@ import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { resetSettingsForTest, Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { EditTool } from "@oh-my-pi/pi-coding-agent/edit";
-import type { ToolSession } from "@oh-my-pi/pi-coding-agent/tools";
+import { resetSettingsForTest, Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { EditTool } from "@oh-my-soup/pi-coding-agent/edit";
+import type { ToolSession } from "@oh-my-soup/pi-coding-agent/tools";
 import {
 	expandPath,
 	probeLiteralPathExists,
 	resolveToCwd,
 	splitPathAndSelPreferringLiteral,
 	splitPathAndSelPreferringLiteralSync,
-} from "@oh-my-pi/pi-coding-agent/tools/path-utils";
-import { splitPathAndSel } from "@oh-my-pi/pi-tui/tools/read";
-import { ReadTool } from "@oh-my-pi/pi-coding-agent/tools/read";
-import { GrepOutputMode } from "@oh-my-pi/pi-natives";
-import { removeWithRetries } from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-coding-agent/tools/path-utils";
+import { splitPathAndSel } from "@oh-my-soup/pi-tui/tools/read";
+import { ReadTool } from "@oh-my-soup/pi-coding-agent/tools/read";
+import { GrepOutputMode } from "@oh-my-soup/pi-natives";
+import { removeWithRetries } from "@oh-my-soup/pi-utils";
 import { runGrepCommand } from "../../src/cli/grep-cli";
-import { initTheme } from "@oh-my-pi/pi-tui/theme";
+import { initTheme } from "@oh-my-soup/pi-tui/theme";
 import { GrepTool } from "../../src/tools/grep";
 
 function getText(result: { content: Array<{ type: string; text?: string }> }): string {

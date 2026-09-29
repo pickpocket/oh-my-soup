@@ -1,10 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import type { AgentMessage } from "@oh-my-pi/pi-agent-core";
+import type { AgentMessage } from "@oh-my-soup/pi-agent-core";
 import {
 	RpcExtensionUserMessageTracker,
 	RpcPromptResults,
 	reportPromptResult,
-} from "@oh-my-pi/pi-coding-agent/modes/rpc/rpc-prompt-results";
+} from "@oh-my-soup/pi-coding-agent/modes/rpc/rpc-prompt-results";
 import type { ExtensionActions } from "../src/extensibility/extensions/types";
 import { initializeExtensions } from "../src/modes/runtime-init";
 import type { AgentSession, AgentSessionEvent } from "../src/session/agent-session";
@@ -147,7 +147,7 @@ describe("RpcPromptResults", () => {
 					stopReason: "error",
 					errorStatus: 400,
 					errorMessage:
-						"400 invalid_request_error: messages.0: bad block\nraw-http-request=/home/u/.omp/logs/x.json",
+						"400 invalid_request_error: messages.0: bad block\nraw-http-request=/home/u/.oms/logs/x.json",
 				}),
 			]),
 		);

@@ -1,4 +1,4 @@
-import { logger } from "@oh-my-pi/pi-utils";
+import { logger } from "@oh-my-soup/pi-utils";
 import { embed } from "../../embeddings";
 import { classifyGatewayError } from "../../error/gateway";
 import * as embeddings from "../../providers/embeddings-server";

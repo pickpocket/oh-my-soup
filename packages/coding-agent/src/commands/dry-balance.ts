@@ -1,4 +1,4 @@
-import { Args, Command, Flags } from "@oh-my-pi/pi-utils/cli";
+import { Args, Command, Flags } from "@oh-my-soup/pi-utils/cli";
 import { dryBalanceHelp as commandHelp } from "../cli/command-help";
 import { runDryBalanceCommand } from "../cli/dry-balance-cli";
 

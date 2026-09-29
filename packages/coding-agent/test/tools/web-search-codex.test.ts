@@ -1,10 +1,10 @@
 import { Database } from "bun:sqlite";
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
-import { AuthStorage, type FetchImpl, type Model, SqliteAuthCredentialStore } from "@oh-my-pi/pi-ai";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
-import { ModelRegistry } from "@oh-my-pi/pi-coding-agent/config/model-registry";
-import type { SearchParams } from "@oh-my-pi/pi-coding-agent/web/search/providers/base";
-import { hasCodexSearch, searchCodex } from "@oh-my-pi/pi-coding-agent/web/search/providers/codex";
+import { AuthStorage, type FetchImpl, type Model, SqliteAuthCredentialStore } from "@oh-my-soup/pi-ai";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
+import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
+import type { SearchParams } from "@oh-my-soup/pi-coding-agent/web/search/providers/base";
+import { hasCodexSearch, searchCodex } from "@oh-my-soup/pi-coding-agent/web/search/providers/codex";
 
 type CapturedRequest = {
 	url: string;

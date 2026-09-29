@@ -1,5 +1,5 @@
 import { parentPort } from "node:worker_threads";
-import { consumeWorkerInbox } from "@oh-my-pi/pi-utils/worker-host";
+import { consumeWorkerInbox } from "@oh-my-soup/pi-utils/worker-host";
 import { WorkerCore } from "./worker-core";
 import type { Transport, WorkerInbound, WorkerOutbound } from "./worker-protocol";
 

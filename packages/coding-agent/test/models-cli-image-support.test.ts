@@ -1,10 +1,10 @@
 import { afterEach, describe, expect, it, spyOn, vi } from "bun:test";
-import type { Api, Model, ModelSpec } from "@oh-my-pi/pi-ai/types";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
-import { MODEL_KINDS, modelKind, type ModelKind } from "@oh-my-pi/pi-catalog/types";
-import { renderProviderModels } from "@oh-my-pi/pi-coding-agent/cli/models-cli";
-import Models from "@oh-my-pi/pi-coding-agent/commands/models";
-import type { CliConfig } from "@oh-my-pi/pi-utils/cli";
+import type { Api, Model, ModelSpec } from "@oh-my-soup/pi-ai/types";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
+import { MODEL_KINDS, modelKind, type ModelKind } from "@oh-my-soup/pi-catalog/types";
+import { renderProviderModels } from "@oh-my-soup/pi-coding-agent/cli/models-cli";
+import Models from "@oh-my-soup/pi-coding-agent/commands/models";
+import type { CliConfig } from "@oh-my-soup/pi-utils/cli";
 
 const TEST_CONFIG: CliConfig = { bin: "omp", version: "test", commands: new Map() };
 

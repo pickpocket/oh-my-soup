@@ -1,4 +1,4 @@
-import { resolveExtraCa, withExtraCaInit } from "@oh-my-pi/pi-utils";
+import { resolveExtraCa, withExtraCaInit } from "@oh-my-soup/pi-utils";
 import { coworkFetch } from "../providers/cowork-fetch";
 import { withInferenceUserAgent } from "../providers/inference-headers";
 import type { Api, FetchImpl, Model } from "../types";

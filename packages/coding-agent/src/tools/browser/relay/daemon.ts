@@ -12,7 +12,7 @@
  * the global broker lease before probing, then adopt that external server
  * without attempting another bind.
  */
-import { logger } from "@oh-my-pi/pi-utils";
+import { logger } from "@oh-my-soup/pi-utils";
 import { daemonClientForGlobal } from "../../../launch/client";
 import { describeQuietly, stopQuietly, waitReady } from "../../../launch/ensure";
 import { resolveWorkerSpawnCmd } from "../../../subprocess/worker-client";

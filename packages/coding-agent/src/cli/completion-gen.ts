@@ -14,7 +14,7 @@
  * — see `commands/complete.ts`. The flag→source mapping below is the only manual
  * knob and is keyed by flag name so it stays stable as flags are added.
  */
-import type { ArgDescriptor, CliConfig, CommandMetadata, FlagDescriptor } from "@oh-my-pi/pi-utils/cli";
+import type { ArgDescriptor, CliConfig, CommandMetadata, FlagDescriptor } from "@oh-my-soup/pi-utils/cli";
 import { BUILTIN_TOOL_NAMES } from "../tools/builtin-names";
 
 export type Shell = "bash" | "zsh" | "fish";

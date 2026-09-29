@@ -7,9 +7,9 @@ import {
 	hasPositiveMovedProjectEvidence,
 	readCwdIdentity,
 	writeTerminalBreadcrumb,
-} from "@oh-my-pi/pi-coding-agent/session/session-paths";
-import { FileSessionStorage } from "@oh-my-pi/pi-coding-agent/session/session-storage";
-import { getAgentDir, getCustomSessionFilesDir, getSessionsDir, hashPath, setAgentDir } from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-coding-agent/session/session-paths";
+import { FileSessionStorage } from "@oh-my-soup/pi-coding-agent/session/session-storage";
+import { getAgentDir, getCustomSessionFilesDir, getSessionsDir, hashPath, setAgentDir } from "@oh-my-soup/pi-utils";
 
 const cleanup: string[] = [];
 

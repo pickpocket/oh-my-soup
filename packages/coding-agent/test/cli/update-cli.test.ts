@@ -61,7 +61,7 @@ describe("getLatestRelease rename pointers", () => {
 	it("follows omp.rename to the new package and resolves version, dist, and names from its manifest", async () => {
 		const urls = stubRegistry({
 			"@new/omp": { version: "999.1.0", omp: { dist: "npm" } },
-			"@oh-my-pi/pi-coding-agent": {
+			"@oh-my-soup/pi-coding-agent": {
 				version: "999.0.0",
 				omp: { dist: "binary", rename: { package: "@new/omp", natives: "@new/natives" } },
 			},
@@ -79,7 +79,7 @@ describe("getLatestRelease rename pointers", () => {
 	});
 	it("fetches the canary dist-tag when checking the canary channel", async () => {
 		const urls = stubRegistry({
-			"@oh-my-pi/pi-coding-agent": { version: "999.0.0-canary.1" },
+			"@oh-my-soup/pi-coding-agent": { version: "999.0.0-canary.1" },
 		});
 
 		await getLatestRelease({ channel: "canary", registries: npmjs });
@@ -89,9 +89,9 @@ describe("getLatestRelease rename pointers", () => {
 
 	it("ignores a rename pointer that cycles back to an already-visited package", async () => {
 		const urls = stubRegistry({
-			"@oh-my-pi/pi-coding-agent": {
+			"@oh-my-soup/pi-coding-agent": {
 				version: "999.0.0",
-				omp: { rename: { package: "@oh-my-pi/pi-coding-agent" } },
+				omp: { rename: { package: "@oh-my-soup/pi-coding-agent" } },
 			},
 		});
 
@@ -99,7 +99,7 @@ describe("getLatestRelease rename pointers", () => {
 
 		expect(urls).toHaveLength(1);
 		expect(release.version).toBe("999.0.0");
-		expect(release.packages).toEqual({ pkg: "@oh-my-pi/pi-coding-agent", natives: "@oh-my-pi/pi-natives" });
+		expect(release.packages).toEqual({ pkg: "@oh-my-soup/pi-coding-agent", natives: "@oh-my-soup/pi-natives" });
 	});
 });
 
@@ -190,7 +190,7 @@ describe("getLatestRelease proxy errors", () => {
 		const fetchStub = Object.assign(
 			async () => {
 				throw new Error(
-					'UnsupportedProxyProtocol fetching "https://registry.npmjs.org/@oh-my-pi/pi-coding-agent/latest". ' +
+					'UnsupportedProxyProtocol fetching "https://registry.npmjs.org/@oh-my-soup/pi-coding-agent/latest". ' +
 						"For more information, pass `verbose: true` in the second argument to fetch()",
 				);
 			},

@@ -1,5 +1,5 @@
-import type { Model } from "@oh-my-pi/pi-ai";
-import type { SessionState } from "@oh-my-pi/pi-wire";
+import type { Model } from "@oh-my-soup/pi-ai";
+import type { SessionState } from "@oh-my-soup/pi-wire";
 import type { ContextLineMode, StatusLinePreset, StatusLineSegmentId, StatusLineSeparatorStyle } from "./schema";
 import type { ActiveRepoContext, StatusLineSession } from "./host";
 import type { LoopConditionConfig, LoopLimitRuntime } from "./loop";

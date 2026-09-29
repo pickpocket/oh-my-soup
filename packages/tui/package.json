@@ -1,6 +1,6 @@
 {
   "type": "module",
-  "name": "@oh-my-pi/pi-tui",
+  "name": "@oh-my-soup/pi-tui",
   "version": "18.4.3",
   "description": "Terminal User Interface library with differential rendering for efficient text-based applications",
   "homepage": "https://omp.sh",
@@ -38,14 +38,14 @@
     "gen:glyphs": "bun scripts/gen-glyphs.ts"
   },
   "dependencies": {
-    "@oh-my-pi/omptype": "catalog:",
-    "@oh-my-pi/pi-agent-core": "catalog:",
-    "@oh-my-pi/pi-ai": "catalog:",
-    "@oh-my-pi/pi-catalog": "catalog:",
-    "@oh-my-pi/pi-natives": "catalog:",
-    "@oh-my-pi/pi-utils": "catalog:",
-    "@oh-my-pi/pi-wire": "catalog:",
-    "@oh-my-pi/snapcompact": "catalog:"
+    "@oh-my-soup/omstype": "catalog:",
+    "@oh-my-soup/pi-agent-core": "catalog:",
+    "@oh-my-soup/pi-ai": "catalog:",
+    "@oh-my-soup/pi-catalog": "catalog:",
+    "@oh-my-soup/pi-natives": "catalog:",
+    "@oh-my-soup/pi-utils": "catalog:",
+    "@oh-my-soup/pi-wire": "catalog:",
+    "@oh-my-soup/snapcompact": "catalog:"
   },
   "devDependencies": {
     "kitty-vt-wasm": "catalog:"

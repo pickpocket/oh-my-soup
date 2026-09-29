@@ -8,7 +8,7 @@
  * whatever `preload` the directory you launched from declares (and crashes if
  * that preload can't resolve). This shim is loaded before the entrypoint's
  * imports run, so it restores the user's real working directory in time for
- * import-time snapshots (e.g. `getProjectDir()` in `@oh-my-pi/pi-utils/dirs`).
+ * import-time snapshots (e.g. `getProjectDir()` in `@oh-my-soup/pi-utils/dirs`).
  */
 const launchCwd = process.env.OMP_LAUNCH_CWD;
 if (launchCwd) {

@@ -3,7 +3,7 @@ import {
 	diffAriaSnapshot,
 	parseAriaRefSelector,
 	postProcessAriaSnapshot,
-} from "@oh-my-pi/pi-coding-agent/tools/browser";
+} from "@oh-my-soup/pi-coding-agent/tools/browser";
 
 describe("parseAriaRefSelector", () => {
 	it("accepts the explicit aria-ref prefixes and returns the bare id", () => {

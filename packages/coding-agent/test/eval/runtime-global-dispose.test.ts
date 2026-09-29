@@ -4,7 +4,7 @@ import {
 	type RuntimeCallIdentity,
 	type RuntimeHooks,
 	shadowSnapshotDigest,
-} from "@oh-my-pi/pi-coding-agent/eval/js/shared/runtime";
+} from "@oh-my-soup/pi-coding-agent/eval/js/shared/runtime";
 
 const GLOBAL_KEYS = ["__omp_import__", "read"] as const;
 

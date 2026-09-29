@@ -7,15 +7,15 @@
  * reads as something the human typed.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
-import { AsyncJobManager } from "@oh-my-pi/pi-coding-agent/async/job-manager";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { AgentRegistry } from "@oh-my-pi/pi-coding-agent/registry/agent-registry";
-import type { AgentSession } from "@oh-my-pi/pi-coding-agent/session/agent-session";
-import type { ExecutorOptions } from "@oh-my-pi/pi-coding-agent/task/executor";
-import * as executorModule from "@oh-my-pi/pi-coding-agent/task/executor";
-import type { SingleResult } from "@oh-my-pi/pi-tui/tools/task";
-import type { ToolSession } from "@oh-my-pi/pi-coding-agent/tools";
-import { VibeSessionRegistry } from "@oh-my-pi/pi-coding-agent/vibe/runtime";
+import { AsyncJobManager } from "@oh-my-soup/pi-coding-agent/async/job-manager";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { AgentRegistry } from "@oh-my-soup/pi-coding-agent/registry/agent-registry";
+import type { AgentSession } from "@oh-my-soup/pi-coding-agent/session/agent-session";
+import type { ExecutorOptions } from "@oh-my-soup/pi-coding-agent/task/executor";
+import * as executorModule from "@oh-my-soup/pi-coding-agent/task/executor";
+import type { SingleResult } from "@oh-my-soup/pi-tui/tools/task";
+import type { ToolSession } from "@oh-my-soup/pi-coding-agent/tools";
+import { VibeSessionRegistry } from "@oh-my-soup/pi-coding-agent/vibe/runtime";
 
 const ATTRIBUTION_OWNER = "vibe-parent";
 

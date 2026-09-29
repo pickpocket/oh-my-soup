@@ -8,7 +8,7 @@
  * response; responses may arrive out of order.
  */
 import * as path from "node:path";
-import type { PredictedWord } from "@oh-my-pi/pi-natives";
+import type { PredictedWord } from "@oh-my-soup/pi-natives";
 export { TEXT_PREDICT_WORKER_ARG } from "../cli/worker-selectors";
 
 /** Global broker scope owning the daemon. */

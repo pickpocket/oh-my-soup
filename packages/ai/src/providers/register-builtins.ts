@@ -2,7 +2,7 @@
  * Built-in provider stream dispatch with shared error, cancellation, and timeout handling.
  */
 
-import type { CompatOf } from "@oh-my-pi/pi-catalog/types";
+import type { CompatOf } from "@oh-my-soup/pi-catalog/types";
 import * as AIError from "../error";
 import type { Api, AssistantMessage, AssistantMessageEvent, Context, Model, OptionsForApi } from "../types";
 import { type AbortSourceTracker, createAbortSourceTracker } from "../utils/abort";

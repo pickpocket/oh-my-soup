@@ -10,11 +10,11 @@
  * through {@link InternalUrlRouter.normalize}.
  */
 import * as path from "node:path";
-import type { ToolApprovalDecision, ToolTier } from "@oh-my-pi/pi-agent-core";
-import { setInternalUrlCompletionHost } from "@oh-my-pi/pi-tui/prompt/internal-url-autocomplete";
-import { splitInternalUrlSel } from "@oh-my-pi/pi-tui/tools/read";
-import { setInternalUrlSchemeHost, splitUrlScheme } from "@oh-my-pi/pi-tui/tools/url-scheme-host";
-import { ToolError } from "@oh-my-pi/pi-tui/tools/tool-errors";
+import type { ToolApprovalDecision, ToolTier } from "@oh-my-soup/pi-agent-core";
+import { setInternalUrlCompletionHost } from "@oh-my-soup/pi-tui/prompt/internal-url-autocomplete";
+import { splitInternalUrlSel } from "@oh-my-soup/pi-tui/tools/read";
+import { setInternalUrlSchemeHost, splitUrlScheme } from "@oh-my-soup/pi-tui/tools/url-scheme-host";
+import { ToolError } from "@oh-my-soup/pi-tui/tools/tool-errors";
 import type { ToolSession } from "../tools";
 import { TIER_RANK } from "../tools/approval";
 import { AgentProtocolHandler } from "./agent-protocol";

@@ -3,7 +3,7 @@ import * as net from "node:net";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it, spyOn } from "bun:test";
-import { TUI, type TuiPaint } from "@oh-my-pi/pi-tui";
+import { TUI, type TuiPaint } from "@oh-my-soup/pi-tui";
 import { VirtualTerminal } from "../../../tui/test/virtual-terminal";
 import { streamSocketEndpoint } from "../../src/stream/paths";
 import { StreamPublisher } from "../../src/stream/publisher";

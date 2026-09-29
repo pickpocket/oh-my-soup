@@ -2,15 +2,15 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, spyOn, test, vi } from "bun:test";
-import type { FetchImpl, Model } from "@oh-my-pi/pi-ai";
-import { type GeneratedProvider, getBundledModel } from "@oh-my-pi/pi-catalog/models";
-import { ModelRegistry } from "@oh-my-pi/pi-coding-agent/config/model-registry";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import type { CustomToolContext } from "@oh-my-pi/pi-coding-agent/extensibility/custom-tools/types";
-import { AuthStorage } from "@oh-my-pi/pi-coding-agent/session/auth-storage";
-import { SessionManager } from "@oh-my-pi/pi-coding-agent/session/session-manager";
-import { resolveSpeechCandidates, ttsTool } from "@oh-my-pi/pi-coding-agent/tools/tts";
-import { ttsClient } from "@oh-my-pi/pi-coding-agent/tts/tts-client";
+import type { FetchImpl, Model } from "@oh-my-soup/pi-ai";
+import { type GeneratedProvider, getBundledModel } from "@oh-my-soup/pi-catalog/models";
+import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import type { CustomToolContext } from "@oh-my-soup/pi-coding-agent/extensibility/custom-tools/types";
+import { AuthStorage } from "@oh-my-soup/pi-coding-agent/session/auth-storage";
+import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
+import { resolveSpeechCandidates, ttsTool } from "@oh-my-soup/pi-coding-agent/tools/tts";
+import { ttsClient } from "@oh-my-soup/pi-coding-agent/tts/tts-client";
 
 function requireModel(provider: GeneratedProvider, id: string): Model {
 	const model = getBundledModel(provider, id);

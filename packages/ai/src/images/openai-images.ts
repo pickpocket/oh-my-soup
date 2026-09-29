@@ -1,4 +1,4 @@
-import type { Model } from "@oh-my-pi/pi-catalog/types";
+import type { Model } from "@oh-my-soup/pi-catalog/types";
 import * as AIError from "../error";
 import {
 	decodeImageResponse,

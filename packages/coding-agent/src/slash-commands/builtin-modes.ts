@@ -1,5 +1,5 @@
 import * as path from "node:path";
-import { formatKeyHint } from "@oh-my-pi/pi-tui/app-keybindings";
+import { formatKeyHint } from "@oh-my-soup/pi-tui/app-keybindings";
 import {
 	formatModelString,
 	getModelMatchPreferences,

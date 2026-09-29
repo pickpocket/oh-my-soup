@@ -3,8 +3,8 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import * as url from "node:url";
-import { __rewriteLegacyExtensionSourceForTests } from "@oh-my-pi/pi-coding-agent/extensibility/plugins/legacy-pi-compat";
-import { removeWithRetries } from "@oh-my-pi/pi-utils";
+import { __rewriteLegacyExtensionSourceForTests } from "@oh-my-soup/pi-coding-agent/extensibility/plugins/legacy-pi-compat";
+import { removeWithRetries } from "@oh-my-soup/pi-utils";
 
 interface RewriteCase {
 	name: string;

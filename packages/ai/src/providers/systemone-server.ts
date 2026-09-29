@@ -8,7 +8,7 @@
  * structured `instructions`/`criteria` and forward-compatible fields reach
  * the upstream untouched. Validation failures answer `422` like TypeSafe.
  */
-import { type } from "@oh-my-pi/omptype";
+import { type } from "@oh-my-soup/omstype";
 import * as AIError from "../error";
 import type { JudgmentRequest, JudgmentResult } from "../judgment/types";
 

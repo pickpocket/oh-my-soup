@@ -7,9 +7,9 @@
 import type { Database, Statement } from "bun:sqlite";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { authPolicyFor } from "@oh-my-pi/pi-catalog/compat/auth";
-import { parseAlibabaTokenPlanCredential } from "@oh-my-pi/pi-catalog/wire/alibaba-token-plan";
-import { parseCloudflareAiGatewayCredential } from "@oh-my-pi/pi-catalog/wire/cloudflare-ai-gateway";
+import { authPolicyFor } from "@oh-my-soup/pi-catalog/compat/auth";
+import { parseAlibabaTokenPlanCredential } from "@oh-my-soup/pi-catalog/wire/alibaba-token-plan";
+import { parseCloudflareAiGatewayCredential } from "@oh-my-soup/pi-catalog/wire/cloudflare-ai-gateway";
 import {
 	getAgentDbPath,
 	getDbBusyTimeoutMs,
@@ -17,7 +17,7 @@ import {
 	isSqliteCorruptionError,
 	logger,
 	openSqliteDatabase,
-} from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-utils";
 import type { AuthCredentialStore, CredentialRefreshLeaseFence } from "./store";
 import type {
 	AuthCredential,
@@ -96,7 +96,7 @@ const CODEX_METER_BLOCK_SCOPES = ["chat", "spark"] as const;
 
 // SQLite error classifiers live in pi-utils so the credential store and the
 // model cache share one implementation; re-exported here to preserve the
-// pre-existing `@oh-my-pi/pi-ai/auth-storage` surface.
+// pre-existing `@oh-my-soup/pi-ai/auth-storage` surface.
 export { isSqliteBusyError, isSqliteCorruptionError };
 
 function normalizeStoredAccountId(accountId: string | null | undefined): string | null {

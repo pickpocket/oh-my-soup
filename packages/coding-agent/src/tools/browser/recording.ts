@@ -1,10 +1,10 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 
-import { ToolError } from "@oh-my-pi/pi-tui/tools/tool-errors";
-import { untilAborted } from "@oh-my-pi/pi-utils/abortable";
-import type { HTMLElement } from "@oh-my-pi/pi-utils/dom";
-import { TempDir } from "@oh-my-pi/pi-utils/temp";
+import { ToolError } from "@oh-my-soup/pi-tui/tools/tool-errors";
+import { untilAborted } from "@oh-my-soup/pi-utils/abortable";
+import type { HTMLElement } from "@oh-my-soup/pi-utils/dom";
+import { TempDir } from "@oh-my-soup/pi-utils/temp";
 import type { Protocol } from "devtools-protocol";
 import type { CDPSession, Page } from "puppeteer-core";
 import { resizeImage } from "../../utils/image-resize";

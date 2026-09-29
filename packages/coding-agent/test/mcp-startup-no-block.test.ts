@@ -20,7 +20,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { removeSyncWithRetries } from "@oh-my-pi/pi-utils";
+import { removeSyncWithRetries } from "@oh-my-soup/pi-utils";
 import { MCPManager } from "../src/mcp/manager";
 import type { MCPStdioServerConfig } from "../src/mcp/types";
 

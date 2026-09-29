@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "bun:test";
-import { getThemeByName } from "@oh-my-pi/pi-tui/theme";
-import { findToolRenderer, type FindToolDetails } from "@oh-my-pi/pi-tui/tools/find";
-import { sanitizeText } from "@oh-my-pi/pi-utils";
+import { getThemeByName } from "@oh-my-soup/pi-tui/theme";
+import { findToolRenderer, type FindToolDetails } from "@oh-my-soup/pi-tui/tools/find";
+import { sanitizeText } from "@oh-my-soup/pi-utils";
 import { applyHyperlinkSetting } from "../src/render/hyperlink";
 
 function extractLinkUris(text: string): string[] {

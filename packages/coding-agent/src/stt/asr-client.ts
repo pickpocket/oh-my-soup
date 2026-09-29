@@ -1,4 +1,4 @@
-import { logger } from "@oh-my-pi/pi-utils";
+import { logger } from "@oh-my-soup/pi-utils";
 import { ModelDownloadActivity } from "../downloads/model-downloads";
 import {
 	createUnavailableWorker,

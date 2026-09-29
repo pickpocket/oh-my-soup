@@ -106,7 +106,7 @@ export function suppressTerminalStderr(options?: SuppressTerminalStderrOptions):
 	try {
 		const redirectPath = options?.redirectPath ?? redirectTarget ?? getLogPath();
 		// getLogsDir() only computes the path; the logger creates it lazily, so
-		// on a fresh profile ~/.omp/logs may not exist yet. Create it here so
+		// on a fresh profile ~/.oms/logs may not exist yet. Create it here so
 		// diagnostics land in the log instead of falling through to /dev/null.
 		fs.mkdirSync(path.dirname(redirectPath), { recursive: true });
 		redirectFd = fs.openSync(redirectPath, "a");

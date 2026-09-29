@@ -2,10 +2,10 @@
  * Interactive shell console.
  */
 
-import { Command, Flags } from "@oh-my-pi/pi-utils/cli";
+import { Command, Flags } from "@oh-my-soup/pi-utils/cli";
 import { shellHelp as commandHelp } from "../cli/command-help";
 import { runShellCommand, type ShellCommandArgs } from "../cli/shell-cli";
-import { initTheme } from "@oh-my-pi/pi-tui/theme";
+import { initTheme } from "@oh-my-soup/pi-tui/theme";
 
 export default class Shell extends Command {
 	static description = commandHelp.description;

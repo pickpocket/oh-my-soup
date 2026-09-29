@@ -12,10 +12,10 @@
  * - Extension UI: Extension UI requests are emitted, client responds with extension_ui_response
  */
 import * as path from "node:path";
-import { ThinkingLevel } from "@oh-my-pi/pi-agent-core";
-import { getOAuthProviders } from "@oh-my-pi/pi-ai/oauth";
-import { toolWireSchema } from "@oh-my-pi/pi-ai/utils/schema";
-import { $env, isRecord, logger, Snowflake } from "@oh-my-pi/pi-utils";
+import { ThinkingLevel } from "@oh-my-soup/pi-agent-core";
+import { getOAuthProviders } from "@oh-my-soup/pi-ai/oauth";
+import { toolWireSchema } from "@oh-my-soup/pi-ai/utils/schema";
+import { $env, isRecord, logger, Snowflake } from "@oh-my-soup/pi-utils";
 import { clearPluginRootsAndCaches, resolveActiveProjectRegistryPath } from "../../discovery/helpers";
 import {
 	type ExtensionUIContext,
@@ -31,7 +31,7 @@ import {
 	type Skill,
 	type SkillPromptInput,
 } from "../../extensibility/skills";
-import { type Theme, theme } from "@oh-my-pi/pi-tui/theme";
+import { type Theme, theme } from "@oh-my-soup/pi-tui/theme";
 import type { AgentSession } from "../../session/agent-session";
 import { findMostRecentNonEmptySession } from "../../session/session-listing";
 import { SKILL_PROMPT_MESSAGE_TYPE, USER_INTERRUPT_LABEL } from "../../session/messages";

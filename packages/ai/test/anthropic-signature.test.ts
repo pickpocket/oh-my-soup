@@ -7,14 +7,14 @@
  */
 import { afterEach, describe, expect, it, vi } from "bun:test";
 import { spawnSync } from "node:child_process";
-import { streamAnthropic } from "@oh-my-pi/pi-ai/providers/anthropic";
-import { AnthropicMessages } from "@oh-my-pi/pi-ai/providers/anthropic-client";
+import { streamAnthropic } from "@oh-my-soup/pi-ai/providers/anthropic";
+import { AnthropicMessages } from "@oh-my-soup/pi-ai/providers/anthropic-client";
 import {
 	servedModelFromAnthropicSignature,
 	servedModelFromOpenRouterReasoning,
-} from "@oh-my-pi/pi-ai/providers/anthropic-signature";
-import type { Context, Model } from "@oh-my-pi/pi-ai/types";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
+} from "@oh-my-soup/pi-ai/providers/anthropic-signature";
+import type { Context, Model } from "@oh-my-soup/pi-ai/types";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
 
 // Captured from OpenRouter → "Claude Platform on AWS" for anthropic/claude-opus-5 (2026-09-15).
 const OPUS_5_SIGNATURE =
@@ -42,7 +42,7 @@ describe("servedModelFromAnthropicSignature", () => {
 
 	it("rejects a length above signed 32-bit range without looping", () => {
 		const signature = Buffer.from([0x1a, 0x80, 0x80, 0x80, 0x80, 0x08]).toString("base64");
-		const module = import.meta.resolve("@oh-my-pi/pi-ai/providers/anthropic-signature");
+		const module = import.meta.resolve("@oh-my-soup/pi-ai/providers/anthropic-signature");
 		// A synchronous parser loop cannot be interrupted by the test runner's timeout.
 		const result = spawnSync(
 			process.execPath,

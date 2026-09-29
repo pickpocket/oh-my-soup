@@ -1,6 +1,6 @@
 #!/usr/bin/env julia
 # bash_corpus_stats.jl
-# Extract every bash execution from ~/.omp/stats.db and analyze it.
+# Extract every bash execution from ~/.oms/stats.db and analyze it.
 #   sources: (1) bash-tool calls   (2) full-file writes to *.sh
 # Reports: (1) bash constructs   (2) CLI utilities   (3) flags per utility
 #

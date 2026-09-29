@@ -29,16 +29,16 @@
  * `id`/`parentId` so the guest's branch chain stays connected.
  */
 import { afterEach, describe, expect, it } from "bun:test";
-import { importRoomKey } from "@oh-my-pi/pi-coding-agent/collab/crypto";
-import { CollabHost } from "@oh-my-pi/pi-coding-agent/collab/host";
+import { importRoomKey } from "@oh-my-soup/pi-coding-agent/collab/crypto";
+import { CollabHost } from "@oh-my-soup/pi-coding-agent/collab/host";
 import {
 	COLLAB_PROTO,
 	type CollabFrame,
 	parseCollabLink,
 	rewriteEnvelopePeer,
 	unpackEnvelope,
-} from "@oh-my-pi/pi-coding-agent/collab/protocol";
-import { CollabSocket } from "@oh-my-pi/pi-coding-agent/collab/relay-client";
+} from "@oh-my-soup/pi-coding-agent/collab/protocol";
+import { CollabSocket } from "@oh-my-soup/pi-coding-agent/collab/relay-client";
 import {
 	COLLAB_ENTRY_OMITTED_CUSTOM_TYPE,
 	copyForReplication,
@@ -47,12 +47,12 @@ import {
 	replicationByteLength,
 	shrinkReplicatedEntry,
 	shrinkReplicatedEvent,
-} from "@oh-my-pi/pi-coding-agent/collab/replication-shrink";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import type { InteractiveModeContext } from "@oh-my-pi/pi-coding-agent/modes/types";
-import type { AgentSessionEvent } from "@oh-my-pi/pi-coding-agent/session/agent-session";
-import { SessionManager } from "@oh-my-pi/pi-coding-agent/session/session-manager";
-import type { SessionEntry } from "@oh-my-pi/pi-coding-agent/session/session-entries";
+} from "@oh-my-soup/pi-coding-agent/collab/replication-shrink";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import type { InteractiveModeContext } from "@oh-my-soup/pi-coding-agent/modes/types";
+import type { AgentSessionEvent } from "@oh-my-soup/pi-coding-agent/session/agent-session";
+import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
+import type { SessionEntry } from "@oh-my-soup/pi-coding-agent/session/session-entries";
 
 interface RelayData {
 	role: "host" | "guest";

@@ -17,7 +17,7 @@
  */
 import * as os from "node:os";
 import * as path from "node:path";
-import { isRecord, logger, parseFrontmatter } from "@oh-my-pi/pi-utils";
+import { isRecord, logger, parseFrontmatter } from "@oh-my-soup/pi-utils";
 import { JSONC } from "bun";
 import { registerProvider } from "../capability";
 import { type ContextFile, contextFileCapability } from "../capability/context-file";
@@ -27,7 +27,7 @@ import { type MCPServer, mcpCapability } from "../capability/mcp";
 import { type Settings, settingsCapability } from "../capability/settings";
 import { type Skill, skillCapability } from "../capability/skill";
 import { type SlashCommand, slashCommandCapability } from "../capability/slash-command";
-import { slashCommandFrontmatterDisplay } from "@oh-my-pi/pi-tui/overlays/extensions/inspector-model";
+import { slashCommandFrontmatterDisplay } from "@oh-my-soup/pi-tui/overlays/extensions/inspector-model";
 import type { LoadContext, LoadResult, SourceMeta } from "../capability/types";
 import { settings } from "../config/settings";
 

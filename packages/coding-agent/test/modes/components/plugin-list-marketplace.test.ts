@@ -1,22 +1,22 @@
 import { beforeAll, describe, expect, it, spyOn } from "bun:test";
 import * as os from "node:os";
 import { stripVTControlCharacters } from "node:util";
-import { PluginManager } from "@oh-my-pi/pi-coding-agent/extensibility/plugins";
+import { PluginManager } from "@oh-my-soup/pi-coding-agent/extensibility/plugins";
 import {
 	type InstalledPluginSummary,
 	MarketplaceManager,
 	parsePluginId,
-} from "@oh-my-pi/pi-coding-agent/extensibility/plugins/marketplace";
-import { createPluginSettingsHost } from "@oh-my-pi/pi-coding-agent/extensibility/plugins/settings-host";
-import type { InstalledPlugin } from "@oh-my-pi/pi-coding-agent/extensibility/plugins/types";
+} from "@oh-my-soup/pi-coding-agent/extensibility/plugins/marketplace";
+import { createPluginSettingsHost } from "@oh-my-soup/pi-coding-agent/extensibility/plugins/settings-host";
+import type { InstalledPlugin } from "@oh-my-soup/pi-coding-agent/extensibility/plugins/types";
 import {
 	type InstalledPluginSummary as MarketplaceSettingsPlugin,
 	MarketplacePluginDetailComponent,
 	PluginListComponent,
 	type PluginListEntry,
 	PluginSettingsComponent,
-} from "@oh-my-pi/pi-tui/overlays/plugin-settings";
-import { initTheme } from "@oh-my-pi/pi-tui/theme";
+} from "@oh-my-soup/pi-tui/overlays/plugin-settings";
+import { initTheme } from "@oh-my-soup/pi-tui/theme";
 
 beforeAll(async () => {
 	await initTheme();
@@ -354,7 +354,7 @@ describe("MarketplacePluginDetailComponent", () => {
 
 	it("shortens home-relative install paths to ~ before rendering", async () => {
 		const home = os.homedir();
-		const installPath = `${home}/.omp/cache/plugins/sample@mkt`;
+		const installPath = `${home}/.oms/cache/plugins/sample@mkt`;
 		const plugin = marketplace("sample@mkt", { entry: { installPath } });
 		const manager = new PluginManager(process.cwd());
 		spyOn(manager, "getPlugin").mockResolvedValue(undefined);
@@ -366,7 +366,7 @@ describe("MarketplacePluginDetailComponent", () => {
 			onBack: () => {},
 		});
 
-		const text = await renderMarketplaceDetail(component, "~/.omp/cache/plugins/sample@mkt");
+		const text = await renderMarketplaceDetail(component, "~/.oms/cache/plugins/sample@mkt");
 		expect(text).not.toContain(home);
 	});
 });

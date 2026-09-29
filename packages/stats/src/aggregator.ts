@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { getAgentDbPath, getStatsDbPath, workerHostEntry } from "@oh-my-pi/pi-utils";
-import { withFileLock } from "@oh-my-pi/pi-utils/file-lock";
+import { getAgentDbPath, getStatsDbPath, workerHostEntry } from "@oh-my-soup/pi-utils";
+import { withFileLock } from "@oh-my-soup/pi-utils/file-lock";
 import {
 	applySessionParseResults,
 	completeSessionSync,
@@ -44,7 +44,7 @@ import {
 import type { SyncWorkerRequest, SyncWorkerResponse } from "./sync-worker";
 // Coding-agent binary/bundle workers route through the CLI entrypoint with a
 // hidden argv mode, so the compiled binary and npm bundle only need one
-// JavaScript entry. Standalone source `omp-stats` keeps using this package's
+// JavaScript entry. Standalone source `oms-stats` keeps using this package's
 // own sync-worker source file.
 import type {
 	DashboardStats,
@@ -133,8 +133,8 @@ interface WorkerHandle {
  * Create a fresh sync worker. When the process was started from a
  * self-dispatching CLI entry (omp in source, npm-bundle, or compiled form),
  * re-enter that entry with a worker argv selector; otherwise (standalone
- * omp-stats, bun test, SDK embedding) load the worker module directly, so this
- * package keeps zero runtime dependency on `@oh-my-pi/pi-coding-agent`.
+ * oms-stats, bun test, SDK embedding) load the worker module directly, so this
+ * package keeps zero runtime dependency on `@oh-my-soup/pi-coding-agent`.
  */
 function createSyncWorker(): Worker {
 	const hostEntry = workerHostEntry();

@@ -11,7 +11,7 @@ import {
 	openMemoryDb,
 	tryClaimGlobalPhase2Job,
 	upsertThreads,
-} from "@oh-my-pi/pi-coding-agent/memories/storage";
+} from "@oh-my-soup/pi-coding-agent/memories/storage";
 
 const CWD_A = "/projects/alpha";
 const CWD_B = "/projects/beta";

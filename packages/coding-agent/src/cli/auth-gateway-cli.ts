@@ -2,7 +2,7 @@
  * `omp auth-gateway` command handlers.
  *
  * Boots a forward-proxy server that lets less-trusted clients (the macOS
- * usage widget, robomp containers, …) make provider API calls without ever
+ * usage widget, roboms containers, …) make provider API calls without ever
  * seeing the access token. The gateway is itself a broker client and
  * resolves credentials through the configured broker (via the same
  * `OMP_AUTH_BROKER_URL` / `auth.broker.url` precedence used elsewhere).
@@ -23,18 +23,18 @@ import {
 	type CredentialCompletionResult,
 	completeSimple,
 	type Model,
-} from "@oh-my-pi/pi-ai";
+} from "@oh-my-soup/pi-ai";
 import {
 	AuthBrokerClient,
 	loadAuthBrokerAccountPool,
 	RemoteAuthCredentialStore,
 	type SnapshotResponse,
-} from "@oh-my-pi/pi-ai/auth-broker";
-import { DEFAULT_AUTH_GATEWAY_BIND, startAuthGateway } from "@oh-my-pi/pi-ai/auth-gateway";
-import { type GeneratedProvider, getBundledModels } from "@oh-my-pi/pi-catalog/models";
-import { type ModelKind, modelKind } from "@oh-my-pi/pi-catalog/types";
-import { getConfigRootDir, isEnoent, logger, VERSION } from "@oh-my-pi/pi-utils";
-import chalk from "@oh-my-pi/pi-utils/chalk";
+} from "@oh-my-soup/pi-ai/auth-broker";
+import { DEFAULT_AUTH_GATEWAY_BIND, startAuthGateway } from "@oh-my-soup/pi-ai/auth-gateway";
+import { type GeneratedProvider, getBundledModels } from "@oh-my-soup/pi-catalog/models";
+import { type ModelKind, modelKind } from "@oh-my-soup/pi-catalog/types";
+import { getConfigRootDir, isEnoent, logger, VERSION } from "@oh-my-soup/pi-utils";
+import chalk from "@oh-my-soup/pi-utils/chalk";
 import { ModelRegistry } from "../config/model-registry";
 import {
 	type AuthBrokerClientConfig,

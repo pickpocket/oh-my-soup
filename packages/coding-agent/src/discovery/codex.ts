@@ -7,7 +7,7 @@
  * User directory: ~/.codex
  */
 import * as path from "node:path";
-import { logger, parseFrontmatter } from "@oh-my-pi/pi-utils";
+import { logger, parseFrontmatter } from "@oh-my-soup/pi-utils";
 import { isUserSourceEnabled, registerProvider } from "../capability";
 import type { ContextFile } from "../capability/context-file";
 import { contextFileCapability } from "../capability/context-file";
@@ -26,7 +26,7 @@ import type { Skill } from "../capability/skill";
 import { skillCapability } from "../capability/skill";
 import { type SlashCommand, slashCommandCapability } from "../capability/slash-command";
 import { type SystemPrompt, systemPromptCapability } from "../capability/system-prompt";
-import { slashCommandFrontmatterDisplay } from "@oh-my-pi/pi-tui/overlays/extensions/inspector-model";
+import { slashCommandFrontmatterDisplay } from "@oh-my-soup/pi-tui/overlays/extensions/inspector-model";
 import type { CustomTool } from "../capability/tool";
 import { toolCapability } from "../capability/tool";
 import type { LoadContext, LoadResult, SourceMeta } from "../capability/types";

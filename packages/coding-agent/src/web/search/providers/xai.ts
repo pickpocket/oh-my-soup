@@ -1,4 +1,4 @@
-import { type Api, type AuthStorage, type Model, withAuth } from "@oh-my-pi/pi-ai";
+import { type Api, type AuthStorage, type Model, withAuth } from "@oh-my-soup/pi-ai";
 import type { XAIHttpTransport } from "../../../lib/xai-http";
 import type { SearchCitation, SearchResponse, SearchSource, SearchUsage } from "../types";
 import { SearchProviderError } from "../../../web/search/types";

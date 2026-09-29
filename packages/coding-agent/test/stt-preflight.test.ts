@@ -2,12 +2,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { getBundledModel } from "@oh-my-pi/pi-catalog/models";
-import { Settings, settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import * as asrClient from "@oh-my-pi/pi-coding-agent/stt/asr-client";
-import * as downloader from "@oh-my-pi/pi-coding-agent/stt/downloader";
-import { STTController, type STTControllerDependencies } from "@oh-my-pi/pi-coding-agent/stt/stt-controller";
-import { getTinyModelsCacheDir, removeWithRetries, setAgentDir } from "@oh-my-pi/pi-utils";
+import { getBundledModel } from "@oh-my-soup/pi-catalog/models";
+import { Settings, settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import * as asrClient from "@oh-my-soup/pi-coding-agent/stt/asr-client";
+import * as downloader from "@oh-my-soup/pi-coding-agent/stt/downloader";
+import { STTController, type STTControllerDependencies } from "@oh-my-soup/pi-coding-agent/stt/stt-controller";
+import { getTinyModelsCacheDir, removeWithRetries, setAgentDir } from "@oh-my-soup/pi-utils";
 import { beginSettingsTest, restoreSettingsTestState, type SettingsTestState } from "./helpers/settings-test-state";
 
 const WHISPER_BASE_REPO = "onnx-community/whisper-base";

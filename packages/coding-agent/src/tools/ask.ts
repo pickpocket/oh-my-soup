@@ -1,4 +1,4 @@
-import type { AskToolDetails, QuestionResult } from "@oh-my-pi/pi-tui/tools/ask";
+import type { AskToolDetails, QuestionResult } from "@oh-my-soup/pi-tui/tools/ask";
 /**
  * Ask Tool - Interactive user prompting during execution
  *
@@ -16,16 +16,16 @@ import type { AskToolDetails, QuestionResult } from "@oh-my-pi/pi-tui/tools/ask"
  *   - Questions may time out and auto-select the recommended option (configurable, disabled in plan mode)
  */
 
-import { type as arkType } from "@oh-my-pi/omptype";
-import type { AgentTool, AgentToolContext, AgentToolResult, AgentToolUpdateCallback } from "@oh-my-pi/pi-agent-core";
-import { type ToolExample, validateToolArguments } from "@oh-my-pi/pi-ai";
-import { replaceTabs, TERMINAL, truncateToWidth } from "@oh-my-pi/pi-tui";
-import { isRecord, prompt, untilAborted } from "@oh-my-pi/pi-utils";
+import { type as arkType } from "@oh-my-soup/omstype";
+import type { AgentTool, AgentToolContext, AgentToolResult, AgentToolUpdateCallback } from "@oh-my-soup/pi-agent-core";
+import { type ToolExample, validateToolArguments } from "@oh-my-soup/pi-ai";
+import { replaceTabs, TERMINAL, truncateToWidth } from "@oh-my-soup/pi-tui";
+import { isRecord, prompt, untilAborted } from "@oh-my-soup/pi-utils";
 
 import type { ExtensionUISelectItem } from "../extensibility/extensions";
-import { formatKeyHint, formatKeyHints } from "@oh-my-pi/pi-tui/app-keybindings";
-import { editorKey, editorKeys } from "@oh-my-pi/pi-tui/chrome/keybinding-hints";
-import { theme } from "@oh-my-pi/pi-tui/theme";
+import { formatKeyHint, formatKeyHints } from "@oh-my-soup/pi-tui/app-keybindings";
+import { editorKey, editorKeys } from "@oh-my-soup/pi-tui/chrome/keybinding-hints";
+import { theme } from "@oh-my-soup/pi-tui/theme";
 import askDescription from "../prompts/tools/ask.md" with { type: "text" };
 import { vocalizer } from "../tts/vocalizer";
 
@@ -34,7 +34,7 @@ import {
 	disambiguateDisplayLabels,
 	sanitizeCarriageReturns,
 	TRUNCATE_LENGTHS,
-} from "@oh-my-pi/pi-tui/render/render-utils";
+} from "@oh-my-soup/pi-tui/render/render-utils";
 import { ToolAbortError } from "./tool-errors";
 
 import { cfgAskNotify, cfgAskTimeout } from "../modes/settings";

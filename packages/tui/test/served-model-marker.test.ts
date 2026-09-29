@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import type { AssistantMessage } from "@oh-my-pi/pi-ai/types";
-import { detectServedModelMismatch, ServedModelTracker } from "@oh-my-pi/pi-tui/chat/served-model-marker";
+import type { AssistantMessage } from "@oh-my-soup/pi-ai/types";
+import { detectServedModelMismatch, ServedModelTracker } from "@oh-my-soup/pi-tui/chat/served-model-marker";
 
 function turn(parts: {
 	model: string;

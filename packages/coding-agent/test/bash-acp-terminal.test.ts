@@ -1,10 +1,10 @@
 import { afterEach, describe, expect, it, mock, spyOn } from "bun:test";
 import * as os from "node:os";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import type { ClientBridge, ClientBridgeTerminalHandle } from "@oh-my-pi/pi-coding-agent/session/client-bridge";
-import type { ToolSession } from "@oh-my-pi/pi-coding-agent/tools";
-import { BashTool } from "@oh-my-pi/pi-coding-agent/tools/bash";
-import { encodeTerminalImage } from "@oh-my-pi/pi-coding-agent/utils/terminal-graphics";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import type { ClientBridge, ClientBridgeTerminalHandle } from "@oh-my-soup/pi-coding-agent/session/client-bridge";
+import type { ToolSession } from "@oh-my-soup/pi-coding-agent/tools";
+import { BashTool } from "@oh-my-soup/pi-coding-agent/tools/bash";
+import { encodeTerminalImage } from "@oh-my-soup/pi-coding-agent/utils/terminal-graphics";
 
 function makeSession(bridge: ClientBridge): ToolSession {
 	return {

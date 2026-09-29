@@ -1,5 +1,5 @@
-import type { ThinkingLevel } from "@oh-my-pi/pi-agent-core";
-import type { Effort } from "@oh-my-pi/pi-ai";
+import type { ThinkingLevel } from "@oh-my-soup/pi-agent-core";
+import type { Effort } from "@oh-my-soup/pi-ai";
 import {
 	type Component,
 	Container,
@@ -22,7 +22,7 @@ import {
 	truncateToWidth,
 	visibleWidth,
 } from "../index";
-import type { ShapeTarget } from "@oh-my-pi/snapcompact";
+import type { ShapeTarget } from "@oh-my-soup/snapcompact";
 import type {
 	ContextLineMode,
 	StatusLinePreset,

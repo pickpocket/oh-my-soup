@@ -25,7 +25,7 @@
  * earlier turns without changing selection (stepping above the oldest replayed
  * turn loads them too), Esc cancels.
  */
-import type { AgentTool } from "@oh-my-pi/pi-agent-core";
+import type { AgentTool } from "@oh-my-soup/pi-agent-core";
 import {
 	type Component,
 	extractPrintableText,

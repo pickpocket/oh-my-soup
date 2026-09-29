@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, it } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { TempDir } from "@oh-my-pi/pi-utils";
+import { TempDir } from "@oh-my-soup/pi-utils";
 import { pruneDeadDaemonRuntimeDirs } from "../../src/launch/presence";
 
 const STALE = new Date(Date.now() - 30 * 60_000);

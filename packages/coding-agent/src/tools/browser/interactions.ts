@@ -1,6 +1,6 @@
 import * as path from "node:path";
-import { untilAborted } from "@oh-my-pi/pi-utils";
-import { ToolError } from "@oh-my-pi/pi-tui/tools/tool-errors";
+import { untilAborted } from "@oh-my-soup/pi-utils";
+import { ToolError } from "@oh-my-soup/pi-tui/tools/tool-errors";
 import type { ElementHandle, KeyInput, MouseButton, Page } from "puppeteer-core";
 import { throwIfAborted } from "../tool-errors";
 

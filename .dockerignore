@@ -1,8 +1,8 @@
 # Default build context filter, used by every build whose Dockerfile has no
 # `<dockerfile>.dockerignore` shadow next to it — today the install smokes in
 # scripts/install-tests (`podman build -f scripts/install-tests/*.dockerfile .`).
-# The pi and robomp images shadow this file with Dockerfile.dockerignore and
-# Dockerfile.robomp.dockerignore; keep the three roughly in sync.
+# The pi and roboms images shadow this file with Dockerfile.dockerignore and
+# Dockerfile.roboms.dockerignore; keep the three roughly in sync.
 #
 # Patterns are depth-agnostic (`**/`) to match .gitignore semantics: dockerignore
 # anchors a bare `target/` at the context root only, so nested build dirs
@@ -29,7 +29,7 @@ packages/snapcompact/research/results/
 .wt/
 .opencode/
 .pi_config/
-.omp/plugins/
+.oms/plugins/
 
 # VCS, editors, IDEs.
 .git/
@@ -62,11 +62,11 @@ changes/
 
 # Generated, regenerated in-image.
 packages/ai/test/.temp-images/
-python/omp-rpc/src/omp_rpc.egg-info/
-python/robomp/data/
-python/robomp/.cache/
-python/robomp/src/robomp/static/
-python/robomp/web/dist/
+python/oms-rpc/src/oms_rpc.egg-info/
+python/roboms/data/
+python/roboms/.cache/
+python/roboms/src/roboms/static/
+python/roboms/web/dist/
 
 # Scratch files the repo creates ad-hoc.
 syntax.jsonl
@@ -78,5 +78,5 @@ pi-*.html
 **/.venv/
 
 # Secrets. Should never be in an image regardless. Depth-agnostic: a bare
-# `.env` misses nested ones such as `python/robomp/.env`.
+# `.env` misses nested ones such as `python/roboms/.env`.
 **/.env

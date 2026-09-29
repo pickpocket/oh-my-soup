@@ -3,7 +3,7 @@
  * Replaces per-provider JSON files with a single cache.db.
  */
 import type { Database } from "bun:sqlite";
-import { getModelDbPath, isSqliteCorruptionError, openSqliteDatabaseSync, VERSION } from "@oh-my-pi/pi-utils";
+import { getModelDbPath, isSqliteCorruptionError, openSqliteDatabaseSync, VERSION } from "@oh-my-soup/pi-utils";
 import RULES from "./compat/rules.json" with { type: "json" };
 import type { Api, Model } from "./types";
 

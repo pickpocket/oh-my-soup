@@ -1,6 +1,6 @@
 # AI tool-schema normalization
 
-`@oh-my-pi/pi-ai` exposes one unified schema normalizer that providers consume
+`@oh-my-soup/pi-ai` exposes one unified schema normalizer that providers consume
 before tools are sent on the wire. All walkers live in
 `packages/ai/src/utils/schema/normalize.ts`; the operational contract is
 `packages/ai/src/utils/schema/CONSTRAINTS.md`.
@@ -12,7 +12,7 @@ share the same option-driven walk.
 
 ## Entry points
 
-All exports live under `@oh-my-pi/pi-ai/utils/schema`:
+All exports live under `@oh-my-soup/pi-ai/utils/schema`:
 
 - `normalizeSchema(value, options)` — generic option-driven walker.
 - `normalizeSchemaForGoogle(value)` — Gemini / Vertex / Gemini CLI.
@@ -44,7 +44,7 @@ Removed in the unified-flow refactor:
 - `strict-mode.ts` (merged into `normalize.ts`).
 - `sanitize-google.ts` and `normalize-cca.ts` (replaced by
   `normalizeSchemaFor*` dispatchers).
-- `StringEnum` helper — use `type.enumerated(...)`; omptype emits
+- `StringEnum` helper — use `type.enumerated(...)`; omstype emits
   provider-compatible JSON Schema.
 - `sanitizeSchemaFor{Google,CCA,MCP}` / `prepareSchemaForCCA` — renamed to
   `normalizeSchemaFor{Google,CCA,MCP}`.

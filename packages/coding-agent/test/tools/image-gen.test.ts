@@ -1,17 +1,17 @@
 import { afterAll, describe, expect, it } from "bun:test";
-import { type Api, type FetchImpl, type Model } from "@oh-my-pi/pi-ai";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
-import { modelKind } from "@oh-my-pi/pi-catalog/types";
-import { ModelRegistry } from "@oh-my-pi/pi-coding-agent/config/model-registry";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import type { CustomToolContext, CustomToolResult } from "@oh-my-pi/pi-coding-agent/extensibility/custom-tools";
-import { SessionManager } from "@oh-my-pi/pi-coding-agent/session/session-manager";
+import { type Api, type FetchImpl, type Model } from "@oh-my-soup/pi-ai";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
+import { modelKind } from "@oh-my-soup/pi-catalog/types";
+import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import type { CustomToolContext, CustomToolResult } from "@oh-my-soup/pi-coding-agent/extensibility/custom-tools";
+import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
 import {
 	getImageGenTools,
 	getImageGenToolsWithRegistry,
 	imageGenTool,
-} from "@oh-my-pi/pi-coding-agent/tools/image-gen";
-import { removeWithRetries } from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-coding-agent/tools/image-gen";
+import { removeWithRetries } from "@oh-my-soup/pi-utils";
 import { createInMemoryAuthStorage } from "../helpers/agent-session-setup";
 
 const generatedImagePaths: string[] = [];

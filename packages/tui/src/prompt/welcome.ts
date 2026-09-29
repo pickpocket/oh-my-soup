@@ -1,7 +1,7 @@
 import { TERMINAL } from "../terminal-capabilities";
 import type { Component } from "../tui";
 import { padding, replaceTabs, truncateToWidth, visibleWidth, wrapTextWithAnsi } from "../utils";
-import { APP_NAME } from "@oh-my-pi/pi-utils/dirs";
+import { APP_NAME } from "@oh-my-soup/pi-utils/dirs";
 import { theme } from "../theme/theme";
 import { formatDoubleTap, formatKeyHint, formatKeyHints, type KeyName } from "../app-keybindings";
 import { editorKey } from "../chrome/keybinding-hints";

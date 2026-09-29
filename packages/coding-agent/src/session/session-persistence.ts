@@ -1,5 +1,5 @@
-import { isAnthropicServerToolHistoryBlock } from "@oh-my-pi/pi-ai/providers/anthropic-wire";
-import { countNewlines, isRecord } from "@oh-my-pi/pi-utils";
+import { isAnthropicServerToolHistoryBlock } from "@oh-my-soup/pi-ai/providers/anthropic-wire";
+import { countNewlines, isRecord } from "@oh-my-soup/pi-utils";
 import {
 	type BlobStore,
 	externalizeImageDataSync,

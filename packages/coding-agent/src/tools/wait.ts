@@ -1,11 +1,11 @@
-import { type } from "@oh-my-pi/omptype";
+import { type } from "@oh-my-soup/omstype";
 import {
 	type AgentTool,
 	type AgentToolResult,
 	type AgentToolUpdateCallback,
 	TOOL_INTERRUPT_ABORT_REASON,
-} from "@oh-my-pi/pi-agent-core";
-import { formatDuration, prompt } from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-agent-core";
+import { formatDuration, prompt } from "@oh-my-soup/pi-utils";
 import { IrcBus } from "../irc/bus";
 import waitDescription from "../prompts/tools/wait.md" with { type: "text" };
 import waitNoMessageTemplate from "../prompts/tools/wait-no-message.md" with { type: "text" };
@@ -15,8 +15,8 @@ import { buildJobResult, nothingToWaitForResult, snapshotJobs, undeliveredJobs }
 import { hasLiveOwnedService, listServices, waitForOwnedServiceCompletion } from "../launch/services";
 import { drainPendingInbox, messageResult } from "../irc/messaging";
 import type { AgentRegistry } from "../registry/agent-registry";
-import type { IrcMessage } from "@oh-my-pi/pi-tui/tools/irc";
-import type { CoordinationDetails } from "@oh-my-pi/pi-tui/tools/wait";
+import type { IrcMessage } from "@oh-my-soup/pi-tui/tools/irc";
+import type { CoordinationDetails } from "@oh-my-soup/pi-tui/tools/wait";
 import { throwIfAborted } from "./tool-errors";
 
 import { cfgLaunchEnabled } from "./settings";

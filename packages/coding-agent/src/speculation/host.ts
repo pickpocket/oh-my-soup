@@ -12,8 +12,8 @@ import type {
 	SpeculativeOperationContext,
 	SpeculativeToolExecutionConfig,
 	SpeculativeToolReference,
-} from "@oh-my-pi/pi-agent-core";
-import { BINARY_SNIFF_BYTES, isProbablyBinaryHeader, readImageMetadata } from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-agent-core";
+import { BINARY_SNIFF_BYTES, isProbablyBinaryHeader, readImageMetadata } from "@oh-my-soup/pi-utils";
 import type { Settings } from "../config/settings";
 import { normalizeToLF } from "../edit/normalize";
 import type { ToolSession } from "../tools";
@@ -22,7 +22,7 @@ import { CONVERTIBLE_EXTENSIONS } from "../utils/markit";
 import { type LocalReadSpeculationEvidence, resolveSpeculativeReadTarget, SNAPSHOT_MAX_BYTES } from "../tools/read";
 import { isCpuProfilePath } from "../utils/cpuprofile";
 import { isSampleProfilePath } from "../utils/sample-profile";
-import { isVideoPath } from "@oh-my-pi/pi-tui/prompt/video";
+import { isVideoPath } from "@oh-my-soup/pi-tui/prompt/video";
 import { cfgTaskSpeculativeLaunch } from "../task/settings";
 
 import {

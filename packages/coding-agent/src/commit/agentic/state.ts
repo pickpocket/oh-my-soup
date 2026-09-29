@@ -1,4 +1,4 @@
-import type { VcsHunkSelection } from "@oh-my-pi/pi-natives";
+import type { VcsHunkSelection } from "@oh-my-soup/pi-natives";
 import type { CommitType, ConventionalAnalysis, ConventionalDetail, NumstatEntry } from "../../commit/types";
 
 export interface GitOverviewSnapshot {

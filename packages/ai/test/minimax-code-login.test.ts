@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import { getProviderDefinition } from "@oh-my-pi/pi-ai/registry/registry";
-import type { FetchImpl } from "@oh-my-pi/pi-ai/types";
+import { getProviderDefinition } from "@oh-my-soup/pi-ai/registry/registry";
+import type { FetchImpl } from "@oh-my-soup/pi-ai/types";
 
 const loginMiniMaxCode = getProviderDefinition("minimax-code")!.login!;
 const loginMiniMaxCodeCn = getProviderDefinition("minimax-code-cn")!.login!;

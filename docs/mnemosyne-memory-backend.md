@@ -1,6 +1,6 @@
 # Mnemopi memory backend
 
-omp can use `@oh-my-pi/pi-mnemopi` as a local long-term memory backend.
+omp can use `@oh-my-soup/pi-mnemopi` as a local long-term memory backend.
 
 Set:
 
@@ -78,7 +78,7 @@ The coding-agent wrapper applies scoping on top of the underlying `Mnemopi` pack
 
 Under `global` and `per-project-tagged`, the `retain` and `learn` tools also accept `scope: "global"`, which writes an item or lesson to the shared bank so every project recalls it. Under `per-project` the option is not offered, because no bank is recalled by every project.
 
-The combined project-plus-global behavior lives in the wrapper. The `@oh-my-pi/pi-mnemopi` package itself still exposes banks and constructor options directly, including `bank` for selecting a bank name. Project-local banks other than the shared bank are stored as sibling bank databases managed by Mnemopi's `BankManager`.
+The combined project-plus-global behavior lives in the wrapper. The `@oh-my-soup/pi-mnemopi` package itself still exposes banks and constructor options directly, including `bank` for selecting a bank name. Project-local banks other than the shared bank are stored as sibling bank databases managed by Mnemopi's `BankManager`.
 
 ## Recall previews and full-row reads
 

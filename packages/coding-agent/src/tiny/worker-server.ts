@@ -1,6 +1,6 @@
 import * as fs from "node:fs/promises";
 import * as net from "node:net";
-import { logger, postmortem, withFileLock } from "@oh-my-pi/pi-utils";
+import { logger, postmortem, withFileLock } from "@oh-my-soup/pi-utils";
 import { LineParser, writeJsonLine } from "./jsonl-socket";
 import type { TinyWorkerRequest, TinyWorkerResponse } from "./title-protocol";
 

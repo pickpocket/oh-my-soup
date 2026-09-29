@@ -22,7 +22,7 @@
  */
 
 import { describe, expect, it } from "bun:test";
-import { SessionManager } from "@oh-my-pi/pi-coding-agent/session/session-manager";
+import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
 import {
 	SessionWriteConflictError,
 	type SessionStorage,
@@ -30,7 +30,7 @@ import {
 	type SessionStorageWriteOptions,
 	type SessionStorageWriter,
 	type WriteTextAtomicOptions,
-} from "@oh-my-pi/pi-coding-agent/session/session-storage";
+} from "@oh-my-soup/pi-coding-agent/session/session-storage";
 
 /**
  * Minimal in-memory `SessionStorage` whose `openWriter()` captures the

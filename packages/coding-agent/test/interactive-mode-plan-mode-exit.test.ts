@@ -10,18 +10,18 @@
  * abort the streaming turn (mirroring `#exitVibeMode`).
  */
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "bun:test";
-import { Agent, type StreamFn } from "@oh-my-pi/pi-agent-core";
-import { AssistantMessageEventStream } from "@oh-my-pi/pi-ai/utils/event-stream";
-import { ModelRegistry } from "@oh-my-pi/pi-coding-agent/config/model-registry";
-import { resetSettingsForTest, Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { InteractiveMode } from "@oh-my-pi/pi-coding-agent/modes/interactive-mode";
-import { initTheme } from "@oh-my-pi/pi-tui/theme";
-import { AgentSession } from "@oh-my-pi/pi-coding-agent/session/agent-session";
-import type { AuthStorage } from "@oh-my-pi/pi-coding-agent/session/auth-storage";
-import { USER_INTERRUPT_LABEL } from "@oh-my-pi/pi-coding-agent/session/messages";
-import { SessionManager } from "@oh-my-pi/pi-coding-agent/session/session-manager";
-import { EventBus } from "@oh-my-pi/pi-coding-agent/utils/event-bus";
-import { TempDir } from "@oh-my-pi/pi-utils";
+import { Agent, type StreamFn } from "@oh-my-soup/pi-agent-core";
+import { AssistantMessageEventStream } from "@oh-my-soup/pi-ai/utils/event-stream";
+import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
+import { resetSettingsForTest, Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { InteractiveMode } from "@oh-my-soup/pi-coding-agent/modes/interactive-mode";
+import { initTheme } from "@oh-my-soup/pi-tui/theme";
+import { AgentSession } from "@oh-my-soup/pi-coding-agent/session/agent-session";
+import type { AuthStorage } from "@oh-my-soup/pi-coding-agent/session/auth-storage";
+import { USER_INTERRUPT_LABEL } from "@oh-my-soup/pi-coding-agent/session/messages";
+import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
+import { EventBus } from "@oh-my-soup/pi-coding-agent/utils/event-bus";
+import { TempDir } from "@oh-my-soup/pi-utils";
 import { createAssistantMessage, createInMemoryAuthStorage } from "./helpers/agent-session-setup";
 
 describe("InteractiveMode plan mode exit", () => {

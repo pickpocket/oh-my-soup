@@ -1,5 +1,5 @@
 {
-	"name": "@oh-my-pi/pi-utils",
+	"name": "@oh-my-soup/pi-utils",
 	"version": "18.4.3",
 	"description": "Shared utilities for pi packages",
 	"keywords": [
@@ -51,7 +51,7 @@
 		"fmt": "oxfmt --no-error-on-unmatched-pattern 'src/**/*.{ts,tsx}' '{test,bench,examples,scripts}/**/*.ts' '*.ts'"
 	},
 	"dependencies": {
-		"@oh-my-pi/pi-natives": "catalog:"
+		"@oh-my-soup/pi-natives": "catalog:"
 	},
 	"devDependencies": {
 		"@types/bun": "catalog:"

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { pollOAuthDeviceCodeFlow } from "@oh-my-pi/pi-ai/oauth";
+import { pollOAuthDeviceCodeFlow } from "@oh-my-soup/pi-ai/oauth";
 
 describe("OAuth device-code polling", () => {
 	it("exports the legacy device-code poll helper for external providers", async () => {

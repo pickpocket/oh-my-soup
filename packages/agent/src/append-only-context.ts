@@ -15,8 +15,8 @@
  */
 
 import type { AgentTool } from "./types";
-import type { Context, Message, Tool } from "@oh-my-pi/pi-ai";
-import { toolWireSchema } from "@oh-my-pi/pi-ai";
+import type { Context, Message, Tool } from "@oh-my-soup/pi-ai";
+import { toolWireSchema } from "@oh-my-soup/pi-ai";
 import { normalizeTools } from "./agent-loop";
 import { messageEstimateVersion } from "./compaction/message-cache";
 import type { AgentContext, AgentMessage } from "./types";

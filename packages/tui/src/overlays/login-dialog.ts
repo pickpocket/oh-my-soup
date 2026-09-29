@@ -1,5 +1,5 @@
-import { getOAuthProviders } from "@oh-my-pi/pi-ai/oauth";
-import type { OAuthPrompt } from "@oh-my-pi/pi-ai/oauth/types";
+import { getOAuthProviders } from "@oh-my-soup/pi-ai/oauth";
+import type { OAuthPrompt } from "@oh-my-soup/pi-ai/oauth/types";
 import { Container, getKeybindings, Spacer, Text, type TUI, wrapTextWithAnsi } from "../index";
 import { theme } from "../theme/theme";
 import { urlHyperlinkAlways, WidthAwareText } from "../render/index";

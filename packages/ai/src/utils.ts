@@ -1,4 +1,4 @@
-import { $env } from "@oh-my-pi/pi-utils";
+import { $env } from "@oh-my-soup/pi-utils";
 import type { ResponseInput, ResponseInputItem } from "./providers/openai-responses-wire";
 import { redactSensitiveCredentials } from "./providers/transform-messages";
 import type { CacheRetention, OpenAIResponsesHistoryPayload, ProviderPayload } from "./types";
@@ -6,7 +6,7 @@ import type { CacheRetention, OpenAIResponsesHistoryPayload, ProviderPayload } f
 type OpenAIResponsesReplayItem = ResponseInput[number];
 const NON_WHITESPACE_RE = /\S/;
 
-export { isRecord } from "@oh-my-pi/pi-utils";
+export { isRecord } from "@oh-my-soup/pi-utils";
 /**
  * Read a header value ignoring key casing. HTTP header names are
  * case-insensitive, but `Record<string, string>` header bags are not, so a

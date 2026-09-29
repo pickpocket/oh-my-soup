@@ -9,7 +9,7 @@ import {
 	type StreamHostFrame,
 	type StreamPaneFrame,
 	type StreamServerToHost,
-} from "@oh-my-pi/pi-wire";
+} from "@oh-my-soup/pi-wire";
 
 const INITIAL_RECONNECT_MS = 1_000;
 const MAX_RECONNECT_MS = 30_000;

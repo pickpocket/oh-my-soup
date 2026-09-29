@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { BUILTIN_TOOL_NAMES } from "@oh-my-pi/pi-coding-agent/tools/builtin-names";
+import { BUILTIN_TOOL_NAMES } from "@oh-my-soup/pi-coding-agent/tools/builtin-names";
 
 // Every shipped built-in tool that is exposed to the model in normal sessions
 // must have a docs/tools/<name>.md root doc served by `omp://`. File names use

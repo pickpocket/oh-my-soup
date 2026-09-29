@@ -1,4 +1,4 @@
-import { type MermaidRenderOptions, renderMermaidAscii } from "@oh-my-pi/pi-natives";
+import { type MermaidRenderOptions, renderMermaidAscii } from "@oh-my-soup/pi-natives";
 
 /**
  * Native Mermaid → ASCII/Unicode renderer (flowchart, state, sequence, class,

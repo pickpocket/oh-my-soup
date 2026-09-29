@@ -2,15 +2,15 @@
  * Resolve auth-broker connection configuration for the local omp client.
  *
  * This is a thin coding-agent wrapper around the shared resolver in
- * `@oh-my-pi/pi-ai/auth-broker/discover` that preserves the process-lifetime
+ * `@oh-my-soup/pi-ai/auth-broker/discover` that preserves the process-lifetime
  * memoization expected by the CLI and injects the full `resolveConfigValue`
  * (including `!command` config indirection) from coding-agent's config layer.
  *
  * Precedence (highest first):
  *   1. `OMP_AUTH_BROKER_URL` / `OMP_AUTH_BROKER_TOKEN` env vars.
- *   2. `auth.broker.url` / `auth.broker.token` in `~/.omp/agent/config.yml`
+ *   2. `auth.broker.url` / `auth.broker.token` in `~/.oms/agent/config.yml`
  *      (hidden from the settings UI; `!command` resolution supported).
- *   3. Token file `~/.omp/auth-broker.token` (paired with URL from env or config).
+ *   3. Token file `~/.oms/auth-broker.token` (paired with URL from env or config).
  *
  * Returns null when no broker URL is configured — caller falls back to the
  * local SQLite store.
@@ -24,7 +24,7 @@ import {
 	type AuthAccountPolicyConfig,
 	AuthBrokerError,
 	loadAuthAccountPolicyConfig,
-} from "@oh-my-pi/pi-ai/auth-broker";
+} from "@oh-my-soup/pi-ai/auth-broker";
 import {
 	type AuthBrokerClientConfig,
 	type DiscoverAuthStorageOptions,
@@ -32,9 +32,9 @@ import {
 	getAuthBrokerTokenFilePath,
 	openAuthCredentialStore,
 	resolveAuthBrokerConfig as resolveAuthBrokerConfigShared,
-} from "@oh-my-pi/pi-ai/auth-broker/discover";
-import { MissingApiKeyError } from "@oh-my-pi/pi-ai/error";
-import { getAgentDir, logger } from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-ai/auth-broker/discover";
+import { MissingApiKeyError } from "@oh-my-soup/pi-ai/error";
+import { getAgentDir, logger } from "@oh-my-soup/pi-utils";
 import { combine, type ScopeLike } from "../config/registry";
 import { resolveConfigValue } from "../config/resolve-config-value";
 import { Settings } from "../config/settings";

@@ -42,7 +42,7 @@ describe("startup composer prepaint graph", () => {
 			/node:inspector/,
 			/node:readline/,
 			/node:worker_threads/,
-			/omptype/,
+			/omstype/,
 		]);
 	});
 });

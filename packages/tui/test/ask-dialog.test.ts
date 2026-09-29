@@ -1,10 +1,10 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "bun:test";
 import { stripVTControlCharacters } from "node:util";
-import { KeybindingsManager } from "@oh-my-pi/pi-tui/app-keybindings";
-import type { ExtensionAskDialogQuestion } from "@oh-my-pi/pi-tui/overlays/ask-dialog";
-import { AskDialogComponent } from "@oh-my-pi/pi-tui/overlays/ask-dialog";
-import { getThemeByName, setThemeInstance } from "@oh-my-pi/pi-tui/theme";
-import { setKeybindings } from "@oh-my-pi/pi-tui";
+import { KeybindingsManager } from "@oh-my-soup/pi-tui/app-keybindings";
+import type { ExtensionAskDialogQuestion } from "@oh-my-soup/pi-tui/overlays/ask-dialog";
+import { AskDialogComponent } from "@oh-my-soup/pi-tui/overlays/ask-dialog";
+import { getThemeByName, setThemeInstance } from "@oh-my-soup/pi-tui/theme";
+import { setKeybindings } from "@oh-my-soup/pi-tui";
 
 const DOWN = "\x1b[B";
 const UP = "\x1b[A";

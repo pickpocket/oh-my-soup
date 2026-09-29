@@ -18,7 +18,7 @@
  */
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import type { ToolTier } from "@oh-my-pi/pi-agent-core";
+import type { ToolTier } from "@oh-my-soup/pi-agent-core";
 import {
 	type ShellFilesystem,
 	ShellFsFileType,
@@ -28,8 +28,8 @@ import {
 	type ShellFsRequest,
 	ShellFsResolve,
 	type ShellFsResponse,
-} from "@oh-my-pi/pi-natives";
-import { isFsError } from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-natives";
+import { isFsError } from "@oh-my-soup/pi-utils";
 import { TIER_RANK } from "../tools/approval";
 import { UrlContainmentError } from "./filesystem-resource";
 import { parseInternalUrl } from "./parse";

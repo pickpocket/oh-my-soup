@@ -3,7 +3,7 @@
  * Used by registry-smoke.test.ts for discovery, explicit link retrieval,
  * crash cleanup, and the real CLI path.
  *
- * argv[2]  metadata dir override; empty/absent → default `~/.omp/run/collab-hosts`.
+ * argv[2]  metadata dir override; empty/absent → default `~/.oms/run/collab-hosts`.
  * argv[3]  URL marker; falls back to OMP_SMOKE_MARKER, then "smoke".
  * argv[4]  instance ID; falls back to OMP_SMOKE_INSTANCE_ID, then "smoke-host".
  *

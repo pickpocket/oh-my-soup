@@ -487,7 +487,7 @@ export const githubToolRenderer = {
 } satisfies ToolRenderer<GithubToolRenderArgs, GhToolDetails>;
 
 import type { OutputMeta } from "./output-meta";
-import type { IsoBackendKind } from "@oh-my-pi/pi-natives";
+import type { IsoBackendKind } from "@oh-my-soup/pi-natives";
 /** Display metadata for GitHub operations. */
 export interface GhToolDetails {
 	meta?: OutputMeta;

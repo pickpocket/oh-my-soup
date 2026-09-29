@@ -1,30 +1,30 @@
-import type { GrepToolDetails } from "@oh-my-pi/pi-tui/tools/grep";
+import type { GrepToolDetails } from "@oh-my-soup/pi-tui/tools/grep";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import * as path from "node:path";
-import { type } from "@oh-my-pi/omptype";
+import { type } from "@oh-my-soup/omstype";
 import type {
 	AgentTool,
 	AgentToolContext,
 	AgentToolResult,
 	AgentToolUpdateCallback,
 	ToolTier,
-} from "@oh-my-pi/pi-agent-core";
-import { type GrepMatch, GrepOutputMode, type GrepResult, grep } from "@oh-my-pi/pi-natives";
-import { prompt, untilAborted } from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-agent-core";
+import { type GrepMatch, GrepOutputMode, type GrepResult, grep } from "@oh-my-soup/pi-natives";
+import { prompt, untilAborted } from "@oh-my-soup/pi-utils";
 import {
 	type ArchiveReader,
 	type ExtractedArchiveFile,
 	openArchive,
 	parseArchivePathCandidates,
-} from "@oh-my-pi/pi-utils/ar";
+} from "@oh-my-soup/pi-utils/ar";
 import { getEditStore } from "../edit/store";
-import { formatHashlineHeader } from "@oh-my-pi/pi-tui/tools/hashline-format";
+import { formatHashlineHeader } from "@oh-my-soup/pi-tui/tools/hashline-format";
 import { sessionResolveContext } from "../internal-urls/context";
 import { InternalUrlRouter } from "../internal-urls/router";
 import { InternalUrlFilesystem } from "../internal-urls/url-filesystem";
 import grepDescription from "../prompts/tools/grep.md" with { type: "text" };
-import { DEFAULT_MAX_COLUMN, truncateHead } from "@oh-my-pi/pi-tui/tools/streaming-output";
+import { DEFAULT_MAX_COLUMN, truncateHead } from "@oh-my-soup/pi-tui/tools/streaming-output";
 import { sessionDelegationBias } from "../task/prompt-policy";
 import { isScoutSpawnable } from "../task/spawn-policy";
 import { resolveFileDisplayMode } from "../utils/file-display-mode";
@@ -32,8 +32,8 @@ import type { ToolSession } from ".";
 import { resolveToolTier } from "./approval";
 import { materializeReadUrlToFile, parseReadUrlTarget } from "./fetch";
 import { createFileRecorder, formatResultPath, resultSnapshotPath } from "./file-recorder";
-import { formatGroupedFiles } from "@oh-my-pi/pi-tui/tools/grouped-file-output";
-import { formatMatchLine } from "@oh-my-pi/pi-tui/tools/match-line-format";
+import { formatGroupedFiles } from "@oh-my-soup/pi-tui/tools/grouped-file-output";
+import { formatMatchLine } from "@oh-my-soup/pi-tui/tools/match-line-format";
 import { isFindEnabled } from "./jfind";
 import {
 	expandDelimitedPathEntries,
@@ -47,12 +47,12 @@ import {
 	resolveToolSearchScope,
 	splitPathAndSelPreferringLiteral,
 } from "./path-utils";
-import { type LineRange, parseLineRanges, selectorLineRanges } from "@oh-my-pi/pi-tui/tools/line-ranges";
-import { splitPathAndSel } from "@oh-my-pi/pi-tui/tools/read";
-import { toPathList } from "@oh-my-pi/pi-tui/render/render-utils";
+import { type LineRange, parseLineRanges, selectorLineRanges } from "@oh-my-soup/pi-tui/tools/line-ranges";
+import { splitPathAndSel } from "@oh-my-soup/pi-tui/tools/read";
+import { toPathList } from "@oh-my-soup/pi-tui/render/render-utils";
 import { isRawSelector } from "./read-selector";
-import { formatCodeFrameLine } from "@oh-my-pi/pi-tui/render/render-utils";
-import { ToolError } from "@oh-my-pi/pi-tui/tools/tool-errors";
+import { formatCodeFrameLine } from "@oh-my-soup/pi-tui/render/render-utils";
+import { ToolError } from "@oh-my-soup/pi-tui/tools/tool-errors";
 import { toolResult } from "./tool-result";
 
 import { cfgGrepContextAfter, cfgGrepContextBefore } from "./settings";

@@ -13,7 +13,7 @@
 // mutated by scenarios A/B, so its presence proves the whole history was
 // re-rendered (full replay); absence means only the new tail shipped.
 import { describe, expect, it } from "bun:test";
-import type { AgentMessage } from "@oh-my-pi/pi-agent-core";
+import type { AgentMessage } from "@oh-my-soup/pi-agent-core";
 
 import { type AdvisorAgent, AdvisorRuntime, type AdvisorRuntimeHost } from "../../src/advisor/runtime";
 

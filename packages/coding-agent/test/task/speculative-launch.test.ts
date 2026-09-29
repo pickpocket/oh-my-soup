@@ -11,19 +11,19 @@
  *    extension lifecycle handlers.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
-import type { AgentToolCall, SpeculativeOperationSink } from "@oh-my-pi/pi-agent-core";
-import { AsyncJobManager } from "@oh-my-pi/pi-coding-agent/async/job-manager";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { AgentLifecycleManager } from "@oh-my-pi/pi-coding-agent/registry/agent-lifecycle";
-import { AgentRegistry } from "@oh-my-pi/pi-coding-agent/registry/agent-registry";
-import { createSpeculativeToolExecutionConfig } from "@oh-my-pi/pi-coding-agent/speculation/host";
-import { TaskTool } from "@oh-my-pi/pi-coding-agent/task";
-import * as discoveryModule from "@oh-my-pi/pi-coding-agent/task/discovery";
-import * as executorModule from "@oh-my-pi/pi-coding-agent/task/executor";
-import { BatchArgsScanner, type TaskLaunchSession } from "@oh-my-pi/pi-coding-agent/task/speculative-launch";
-import type { AgentDefinition } from "@oh-my-pi/pi-coding-agent/task/types";
-import type { ToolSession } from "@oh-my-pi/pi-coding-agent/tools";
-import type { SingleResult } from "@oh-my-pi/pi-tui/tools/task";
+import type { AgentToolCall, SpeculativeOperationSink } from "@oh-my-soup/pi-agent-core";
+import { AsyncJobManager } from "@oh-my-soup/pi-coding-agent/async/job-manager";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { AgentLifecycleManager } from "@oh-my-soup/pi-coding-agent/registry/agent-lifecycle";
+import { AgentRegistry } from "@oh-my-soup/pi-coding-agent/registry/agent-registry";
+import { createSpeculativeToolExecutionConfig } from "@oh-my-soup/pi-coding-agent/speculation/host";
+import { TaskTool } from "@oh-my-soup/pi-coding-agent/task";
+import * as discoveryModule from "@oh-my-soup/pi-coding-agent/task/discovery";
+import * as executorModule from "@oh-my-soup/pi-coding-agent/task/executor";
+import { BatchArgsScanner, type TaskLaunchSession } from "@oh-my-soup/pi-coding-agent/task/speculative-launch";
+import type { AgentDefinition } from "@oh-my-soup/pi-coding-agent/task/types";
+import type { ToolSession } from "@oh-my-soup/pi-coding-agent/tools";
+import type { SingleResult } from "@oh-my-soup/pi-tui/tools/task";
 
 const taskAgent: AgentDefinition = {
 	name: "task",

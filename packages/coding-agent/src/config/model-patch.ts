@@ -1,10 +1,10 @@
-import type { Api, Model, ModelSpec, RemoteCompactionConfig, ThinkingConfig } from "@oh-my-pi/pi-ai/types";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
-import { isVertexExpressOpenAIUrl } from "@oh-my-pi/pi-catalog/hosts";
-import { PROVIDER_DESCRIPTORS } from "@oh-my-pi/pi-catalog/provider-models";
-import { toModelSpec } from "@oh-my-pi/pi-catalog/provider-models/bundled-references";
-import { modelKind, type ModelKind } from "@oh-my-pi/pi-catalog/types";
-import { isRecord } from "@oh-my-pi/pi-utils";
+import type { Api, Model, ModelSpec, RemoteCompactionConfig, ThinkingConfig } from "@oh-my-soup/pi-ai/types";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
+import { isVertexExpressOpenAIUrl } from "@oh-my-soup/pi-catalog/hosts";
+import { PROVIDER_DESCRIPTORS } from "@oh-my-soup/pi-catalog/provider-models";
+import { toModelSpec } from "@oh-my-soup/pi-catalog/provider-models/bundled-references";
+import { modelKind, type ModelKind } from "@oh-my-soup/pi-catalog/types";
+import { isRecord } from "@oh-my-soup/pi-utils";
 import { createConfigHeaderResolver } from "./resolve-config-value";
 import type { ModelOverride } from "./models-config-schema";
 /** Provider override config (baseUrl, headers, apiKey, compat, transport). */

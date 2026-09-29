@@ -6,7 +6,7 @@
  * Project-level discovery walks up from cwd to repoRoot.
  */
 import * as path from "node:path";
-import { isWsl, windowsPathToWslMount } from "@oh-my-pi/pi-utils";
+import { isWsl, windowsPathToWslMount } from "@oh-my-soup/pi-utils";
 import { registerProvider } from "../capability";
 import { type ContextFile, contextFileCapability } from "../capability/context-file";
 import { readFile } from "../capability/fs";

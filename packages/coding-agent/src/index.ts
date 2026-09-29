@@ -2,13 +2,13 @@ import { HookEditorComponent, HookInputComponent, HookSelectorComponent } from "
 
 // Core session management
 
-export * as zod from "@oh-my-pi/omptype/zod";
-export { z } from "@oh-my-pi/omptype/zod";
+export * as zod from "@oh-my-soup/omstype/zod";
+export { z } from "@oh-my-soup/omstype/zod";
 // Re-export TUI components for custom tool rendering
-export { Container, Markdown, Spacer, Text } from "@oh-my-pi/pi-tui";
+export { Container, Markdown, Spacer, Text } from "@oh-my-soup/pi-tui";
 // Logging
-export { getAgentDir, logger, VERSION } from "@oh-my-pi/pi-utils";
-export * from "@oh-my-pi/pi-tui/app-keybindings";
+export { getAgentDir, logger, VERSION } from "@oh-my-soup/pi-utils";
+export * from "@oh-my-soup/pi-tui/app-keybindings";
 export * from "./config/model-registry";
 // Prompt templates
 export type * from "./config/prompt-templates";
@@ -35,7 +35,7 @@ export * from "./main";
 export * from "./modes";
 export * from "./modes/components";
 // Theme utilities for custom tools
-export * from "@oh-my-pi/pi-tui/theme";
+export * from "@oh-my-soup/pi-tui/theme";
 // SDK for programmatic usage
 export * from "./sdk";
 export * from "./session/agent-session";
@@ -70,7 +70,7 @@ export type {
 	AgentProgress,
 	SingleResult,
 	TaskToolDetails,
-} from "@oh-my-pi/pi-tui/tools/task";
+} from "@oh-my-soup/pi-tui/tools/task";
 // Tools (detail types and utilities)
 export * from "./tools";
 export * from "./utils/github";

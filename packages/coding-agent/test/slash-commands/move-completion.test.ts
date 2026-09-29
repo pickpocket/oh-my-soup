@@ -2,8 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { BUILTIN_SLASH_COMMANDS } from "@oh-my-pi/pi-coding-agent/slash-commands/builtin-registry";
-import * as piUtils from "@oh-my-pi/pi-utils";
+import { BUILTIN_SLASH_COMMANDS } from "@oh-my-soup/pi-coding-agent/slash-commands/builtin-registry";
+import * as piUtils from "@oh-my-soup/pi-utils";
 
 describe("/move directory completion", () => {
 	let tempDir: string;

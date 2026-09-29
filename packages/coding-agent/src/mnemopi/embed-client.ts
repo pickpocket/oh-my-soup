@@ -1,6 +1,6 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { getFastembedCacheDir, logger } from "@oh-my-pi/pi-utils";
+import { getFastembedCacheDir, logger } from "@oh-my-soup/pi-utils";
 import { trackDownload } from "../downloads/activity";
 import {
 	createUnavailableWorker,

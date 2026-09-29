@@ -1,4 +1,4 @@
-import { Args, Command, Flags } from "@oh-my-pi/pi-utils/cli";
+import { Args, Command, Flags } from "@oh-my-soup/pi-utils/cli";
 import { runBenchCommand } from "../cli/bench-cli";
 import { benchHelp as commandHelp } from "../cli/command-help";
 import { SERVICE_TIER_OPENAI_VALUES } from "../config/service-tier";

@@ -1,6 +1,6 @@
 import { type Component, Container, type HistoryBatch } from "../tui";
-import * as logger from "@oh-my-pi/pi-utils/logger";
-import { popLoopPhase, pushLoopPhase } from "@oh-my-pi/pi-utils";
+import * as logger from "@oh-my-soup/pi-utils/logger";
+import { popLoopPhase, pushLoopPhase } from "@oh-my-soup/pi-utils";
 import { isToolActivityComponent } from "./tool-activity";
 
 /** Shared animation time supplied by the constrained transcript root. */

@@ -7,9 +7,9 @@
 import type { Dirent } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import type { WorkProfile } from "@oh-my-pi/pi-natives";
-import { APP_NAME, getLogPath, getLogsDir, getReportsDir, isEnoent, localDay } from "@oh-my-pi/pi-utils";
-import { writeArchive } from "@oh-my-pi/pi-utils/ar";
+import type { WorkProfile } from "@oh-my-soup/pi-natives";
+import { APP_NAME, getLogPath, getLogsDir, getReportsDir, isEnoent, localDay } from "@oh-my-soup/pi-utils";
+import { writeArchive } from "@oh-my-soup/pi-utils/ar";
 import type { CpuProfile, MemoryStats } from "./profiler";
 import { collectSystemInfo, sanitizeEnv } from "./system-info";
 

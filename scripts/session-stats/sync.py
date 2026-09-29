@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Sync ~/.omp/agent/sessions/**/*.jsonl into ~/.omp/stats.db (ss_* tables).
+Sync ~/.oms/agent/sessions/**/*.jsonl into ~/.oms/stats.db (ss_* tables).
 
 Incremental: per-file byte offset + mtime is tracked in ss_sessions. Only new
 bytes are parsed on re-runs. Tokenization (o200k_base) and the hashline edit

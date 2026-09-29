@@ -1,5 +1,5 @@
 import * as nodeCrypto from "node:crypto";
-import { getInstallId } from "@oh-my-pi/pi-utils";
+import { getInstallId } from "@oh-my-soup/pi-utils";
 import { claudeToolPrefix } from "./claude-code-fingerprint";
 
 const CLAUDE_CLOAKING_USER_ID_REGEX =

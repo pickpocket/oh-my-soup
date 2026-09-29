@@ -10,12 +10,12 @@ import type {
 	OAuthAccess,
 	OAuthAccessResolution,
 	SimpleStreamOptions,
-} from "@oh-my-pi/pi-ai";
-import { streamSimple } from "@oh-my-pi/pi-ai";
-import { replaceTabs, truncateToWidth } from "@oh-my-pi/pi-tui";
-import { SPINNER_FRAMES } from "@oh-my-pi/pi-tui/theme/symbols";
-import { formatDuration, getProjectDir } from "@oh-my-pi/pi-utils";
-import chalk from "@oh-my-pi/pi-utils/chalk";
+} from "@oh-my-soup/pi-ai";
+import { streamSimple } from "@oh-my-soup/pi-ai";
+import { replaceTabs, truncateToWidth } from "@oh-my-soup/pi-tui";
+import { SPINNER_FRAMES } from "@oh-my-soup/pi-tui/theme/symbols";
+import { formatDuration, getProjectDir } from "@oh-my-soup/pi-utils";
+import chalk from "@oh-my-soup/pi-utils/chalk";
 import { ModelRegistry } from "../config/model-registry";
 import {
 	formatModelString,

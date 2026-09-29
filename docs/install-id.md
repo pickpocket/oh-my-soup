@@ -4,7 +4,7 @@ A persistent per-install UUID shared across sessions and profiles. It supplies a
 
 ## API
 
-Exported from `@oh-my-pi/pi-utils` (`packages/utils/src/dirs.ts`):
+Exported from `@oh-my-soup/pi-utils` (`packages/utils/src/dirs.ts`):
 
 | Symbol                                  | Purpose                                                                                                                           |
 | --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
@@ -15,10 +15,10 @@ Generated IDs are lowercase RFC 4122 UUIDs. Existing persisted values are accept
 
 ## Storage
 
-- Path: `<base-config-root>/install-id` — i.e. `~/.omp/install-id` by default, respecting `PI_CONFIG_DIR`. Resolved against the base config root (`getBaseConfigRoot()`) regardless of the active profile, so every profile on a host shares one install ID (install identity is per-install, not per-profile).
+- Path: `<base-config-root>/install-id` — i.e. `~/.oms/install-id` by default, respecting `PI_CONFIG_DIR`. Resolved against the base config root (`getBaseConfigRoot()`) regardless of the active profile, so every profile on a host shares one install ID (install identity is per-install, not per-profile).
 - Format: a single UUID line (trailing `\n`).
 - Permissions: file is created with mode `0o600`.
-- Lifecycle: independent of `~/.omp/agent/`. Wiping agent state (sessions, settings, DB) does NOT regenerate the install ID; only deleting the `install-id` file itself does.
+- Lifecycle: independent of `~/.oms/agent/`. Wiping agent state (sessions, settings, DB) does NOT regenerate the install ID; only deleting the `install-id` file itself does.
 
 ## Generation and lifecycle
 

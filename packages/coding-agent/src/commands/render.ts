@@ -2,8 +2,8 @@
  * Draw a session's entire thread through the production transcript pipeline.
  */
 
-import { postmortem } from "@oh-my-pi/pi-utils";
-import { Args, Command, Flags } from "@oh-my-pi/pi-utils/cli";
+import { postmortem } from "@oh-my-soup/pi-utils";
+import { Args, Command, Flags } from "@oh-my-soup/pi-utils/cli";
 import { renderHelp as commandHelp } from "../cli/command-help";
 import { runRenderCommand } from "../cli/render-cli";
 import { CliUsageError } from "../cli/usage-error";
@@ -27,7 +27,7 @@ export default class Render extends Command {
 	static examples = [
 		"omp render",
 		"omp render 01a0285c --plain",
-		"omp render ~/.omp/agent/sessions/--work-pi--/big.jsonl -q -t --repaint 5",
+		"omp render ~/.oms/agent/sessions/--work-pi--/big.jsonl -q -t --repaint 5",
 		"omp render -w 200 > thread.ansi",
 	];
 

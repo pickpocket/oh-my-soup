@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import type { AssistantMessage } from "@oh-my-pi/pi-ai";
-import { demoteInterruptedThinking } from "@oh-my-pi/pi-coding-agent/session/messages";
+import type { AssistantMessage } from "@oh-my-soup/pi-ai";
+import { demoteInterruptedThinking } from "@oh-my-soup/pi-coding-agent/session/messages";
 
 function demoteContent(content: AssistantMessage["content"]) {
 	return demoteInterruptedThinking({ content });

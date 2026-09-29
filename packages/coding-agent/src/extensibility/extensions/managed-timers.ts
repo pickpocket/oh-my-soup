@@ -14,7 +14,7 @@
  * outstanding handle is `unref`'d (never keeps the process alive) and cleared
  * on session teardown via {@link clearAll}.
  */
-import { logger } from "@oh-my-pi/pi-utils";
+import { logger } from "@oh-my-soup/pi-utils";
 
 /** Callback invoked when a managed timer's callback throws or rejects. */
 export type ManagedTimerErrorHandler = (event: string, error: string, stack?: string) => void;

@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from "bun:test";
 import * as path from "node:path";
-import { isRecord, readJsonl, TempDir } from "@oh-my-pi/pi-utils";
+import { isRecord, readJsonl, TempDir } from "@oh-my-soup/pi-utils";
 import {
 	type PendingExtensionRequest,
 	requestRpcDialog,
 	requestRpcSelect,
-} from "@oh-my-pi/pi-coding-agent/modes/rpc/rpc-mode";
+} from "@oh-my-soup/pi-coding-agent/modes/rpc/rpc-mode";
 
 function requireRequest(frame: object | undefined): { id: string } {
 	if (!frame || !("id" in frame)) {

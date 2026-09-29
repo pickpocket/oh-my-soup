@@ -1,6 +1,6 @@
 import * as path from "node:path";
-import { getLastChangelogVersionPath, isEnoent, logger } from "@oh-my-pi/pi-utils";
-import { Lexer } from "@oh-my-pi/pi-utils/marked";
+import { getLastChangelogVersionPath, isEnoent, logger } from "@oh-my-soup/pi-utils";
+import { Lexer } from "@oh-my-soup/pi-utils/marked";
 import type { BunFile } from "bun";
 import bundledChangelogPath from "../../CHANGELOG.md" with { type: "file" };
 import type { SettingValueOf } from "../config/registry";
@@ -477,7 +477,7 @@ export { getChangelogPath } from "../config";
 
 /**
  * Last omp version whose changelog the user has seen. Stored as a plain-text
- * marker file (`~/.omp/agent/last-changelog-version`) rather than in
+ * marker file (`~/.oms/agent/last-changelog-version`) rather than in
  * `config.yml`, so version bumps never dirty user-tracked config files.
  */
 export async function readLastChangelogVersion(agentDir?: string): Promise<string | undefined> {

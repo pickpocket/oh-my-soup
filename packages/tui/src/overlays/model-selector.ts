@@ -1,4 +1,4 @@
-import { ThinkingLevel } from "@oh-my-pi/pi-agent-core/thinking";
+import { ThinkingLevel } from "@oh-my-soup/pi-agent-core/thinking";
 import { AUTO_THINKING, type ConfiguredThinkingLevel, parseThinkingLevel } from "../thinking";
 
 /** Opt-in selectors that can otherwise be literal model-id suffixes. */

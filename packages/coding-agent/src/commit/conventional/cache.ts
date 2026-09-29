@@ -1,7 +1,7 @@
 import { Database } from "bun:sqlite";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import type { Usage } from "@oh-my-pi/pi-ai";
+import type { Usage } from "@oh-my-soup/pi-ai";
 
 const SCHEMA_VERSION = 3;
 const PRUNE_DIVISOR = 64;

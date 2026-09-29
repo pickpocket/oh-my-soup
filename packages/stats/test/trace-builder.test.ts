@@ -8,9 +8,9 @@
 import { describe, expect, it } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { syncAllSessions } from "@oh-my-pi/omp-stats/aggregator";
-import { buildSessionTrace, getTraceEntry, listSessionSummaries, TracePathError } from "@oh-my-pi/omp-stats/trace";
-import { getSessionsDir } from "@oh-my-pi/pi-utils";
+import { syncAllSessions } from "@oh-my-soup/oms-stats/aggregator";
+import { buildSessionTrace, getTraceEntry, listSessionSummaries, TracePathError } from "@oh-my-soup/oms-stats/trace";
+import { getSessionsDir } from "@oh-my-soup/pi-utils";
 import { installStatsTestIsolation } from "./helpers/temp-agent";
 
 installStatsTestIsolation("@pi-stats-trace-");

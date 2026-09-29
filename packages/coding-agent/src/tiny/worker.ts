@@ -13,7 +13,7 @@ import type {
 	TextGenerationStringOutput,
 	StoppingCriteria as TransformersStoppingCriteria,
 } from "@huggingface/transformers";
-import { getTinyModelsCacheDir, logger, setProcessName } from "@oh-my-pi/pi-utils";
+import { getTinyModelsCacheDir, logger, setProcessName } from "@oh-my-soup/pi-utils";
 import {
 	errorMessage,
 	errorText,

@@ -1,8 +1,8 @@
 import { describe, expect, it } from "bun:test";
-import * as AIError from "@oh-my-pi/pi-ai/error";
-import { streamGoogle } from "@oh-my-pi/pi-ai/providers/google";
-import type { Context, FetchImpl, Model } from "@oh-my-pi/pi-ai/types";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
+import * as AIError from "@oh-my-soup/pi-ai/error";
+import { streamGoogle } from "@oh-my-soup/pi-ai/providers/google";
+import type { Context, FetchImpl, Model } from "@oh-my-soup/pi-ai/types";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
 
 // Google reuses 429 for an account billing ceiling (replays identically forever)
 // and for a per-minute throttle (retry is correct). Only `error.status` plus the

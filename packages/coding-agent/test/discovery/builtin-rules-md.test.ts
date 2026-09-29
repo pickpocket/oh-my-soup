@@ -2,20 +2,20 @@
  * Regression tests for top-level `RULES.md` sticky rules.
  *
  * `RULES.md` (singular, top-level) MUST be loaded as a sticky always-apply rule
- * from both `~/.omp/agent/RULES.md` (user) and the nearest `.omp/RULES.md`
+ * from both `~/.oms/agent/RULES.md` (user) and the nearest `.oms/RULES.md`
  * (project, walked up from cwd to repoRoot).
  */
 import { afterEach, beforeEach, expect, test } from "bun:test";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { getCapability } from "@oh-my-pi/pi-coding-agent/capability";
-import { clearCache } from "@oh-my-pi/pi-coding-agent/capability/fs";
-import { type Rule, ruleCapability } from "@oh-my-pi/pi-coding-agent/capability/rule";
-import type { LoadContext } from "@oh-my-pi/pi-coding-agent/capability/types";
+import { getCapability } from "@oh-my-soup/pi-coding-agent/capability";
+import { clearCache } from "@oh-my-soup/pi-coding-agent/capability/fs";
+import { type Rule, ruleCapability } from "@oh-my-soup/pi-coding-agent/capability/rule";
+import type { LoadContext } from "@oh-my-soup/pi-coding-agent/capability/types";
 // Importing discovery registers all providers as a side effect.
-import { loadCapability } from "@oh-my-pi/pi-coding-agent/discovery";
-import { getConfigRootDir, removeSyncWithRetries, setAgentDir } from "@oh-my-pi/pi-utils";
+import { loadCapability } from "@oh-my-soup/pi-coding-agent/discovery";
+import { getConfigRootDir, removeSyncWithRetries, setAgentDir } from "@oh-my-soup/pi-utils";
 
 let tempDir: string;
 let home: string;
@@ -142,7 +142,7 @@ test("enabled false omits a discovered rule", async () => {
 });
 
 test("absent RULES.md does not produce a rule", async () => {
-	// No RULES.md anywhere — only a sibling .omp/rules/ to make sure the directory exists.
+	// No RULES.md anywhere — only a sibling .oms/rules/ to make sure the directory exists.
 	writeFile(path.join(home, ".omp", "agent", "rules", "other.md"), "# Unrelated rule\n");
 
 	const rules = await loadNativeRules({ cwd: project, home, repoRoot: project });

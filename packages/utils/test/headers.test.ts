@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { HeaderGenerator, type Headers, type OperatingSystem } from "@oh-my-pi/pi-utils/headers";
+import { HeaderGenerator, type Headers, type OperatingSystem } from "@oh-my-soup/pi-utils/headers";
 
 // Captured from header-generator 2.1.82 for desktop navigation requests. Client hints
 // are the three additional fields emitted for Chromium profiles.

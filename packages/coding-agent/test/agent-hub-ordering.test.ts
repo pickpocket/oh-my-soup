@@ -1,4 +1,4 @@
-import { createAgentHubRuntime } from "@oh-my-pi/pi-coding-agent/modes/agent-hub-runtime";
+import { createAgentHubRuntime } from "@oh-my-soup/pi-coding-agent/modes/agent-hub-runtime";
 /**
  * Regression: the agent hub row order must be stable while the hub is open.
  *
@@ -7,15 +7,15 @@ import { createAgentHubRuntime } from "@oh-my-pi/pi-coding-agent/modes/agent-hub
  * agents that appear while the hub is open are appended at the end.
  */
 import { afterEach, beforeAll, describe, expect, it, setSystemTime, vi } from "bun:test";
-import { ThinkingLevel } from "@oh-my-pi/pi-agent-core";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { IrcBus } from "@oh-my-pi/pi-coding-agent/irc/bus";
-import { type AgentHubDeps, AgentHubOverlayComponent } from "@oh-my-pi/pi-tui/overlays/agent-hub";
-import { SessionObserverRegistry } from "@oh-my-pi/pi-tui/overlays/session-observer-registry";
-import { initTheme, theme } from "@oh-my-pi/pi-tui/theme";
-import { AgentRegistry } from "@oh-my-pi/pi-coding-agent/registry/agent-registry";
-import type { AgentSession } from "@oh-my-pi/pi-coding-agent/session/agent-session";
-import { visibleWidth } from "@oh-my-pi/pi-tui/utils";
+import { ThinkingLevel } from "@oh-my-soup/pi-agent-core";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { IrcBus } from "@oh-my-soup/pi-coding-agent/irc/bus";
+import { type AgentHubDeps, AgentHubOverlayComponent } from "@oh-my-soup/pi-tui/overlays/agent-hub";
+import { SessionObserverRegistry } from "@oh-my-soup/pi-tui/overlays/session-observer-registry";
+import { initTheme, theme } from "@oh-my-soup/pi-tui/theme";
+import { AgentRegistry } from "@oh-my-soup/pi-coding-agent/registry/agent-registry";
+import type { AgentSession } from "@oh-my-soup/pi-coding-agent/session/agent-session";
+import { visibleWidth } from "@oh-my-soup/pi-tui/utils";
 import { AgentActivityIndex, type AgentActivityRow } from "../src/activity";
 
 interface GeometryStub {

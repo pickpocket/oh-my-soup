@@ -8,7 +8,7 @@ blocks inside `Context` and `AssistantMessageEvent`.
 
 Use this transport when the client already speaks pi-ai and the gateway owns
 provider credentials—for example, a containerized omp talking to a host
-gateway or a robomp slot talking to its sidecar. OpenAI/Anthropic-compatible
+gateway or a roboms slot talking to its sidecar. OpenAI/Anthropic-compatible
 routes translate and can lose pi-specific fields; pi-native sends the
 canonical types directly, preserving service tier, cache markers, thinking
 budgets, tool-choice variants, images, and tool-call IDs.

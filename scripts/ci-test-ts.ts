@@ -86,7 +86,7 @@ const codingAgentBucketPlans: Record<CodingAgentBucket, { label: string; paralle
 // their short TS suites can run together. CI still downloads the Linux x64 native
 // addon before this bucket: shared utility barrels may load native-backed modules.
 const fastWorkspacePackages = [
-	"packages/omptype",
+	"packages/omstype",
 	"packages/utils",
 	"packages/catalog",
 	"packages/ai",
@@ -106,8 +106,8 @@ const nativeAndIntegrationPackages = [
 ];
 
 // Packages the CI buckets deliberately skip but a local full run should still
-// cover. robomp-web lives under python/robomp and is outside every CI TS bucket.
-const localOnlyWorkspacePackages = ["python/robomp/web"];
+// cover. roboms-web lives under python/roboms and is outside every CI TS bucket.
+const localOnlyWorkspacePackages = ["python/roboms/web"];
 
 const codingAgentNativePathPatterns = [
 	/(^|\/)[^/]*(bash|native|browser|cmux|mnemopi|hindsight|memory)[^/]*\.test\.ts$/i,
@@ -144,7 +144,7 @@ const codingAgentRuntimePathPatterns = [
 ];
 
 const codingAgentNativeContentMarkers = [
-	"@oh-my-pi/pi-natives",
+	"@oh-my-soup/pi-natives",
 	"pi-natives",
 	"native",
 	"readImageMetadata",
@@ -180,7 +180,7 @@ const codingAgentSingletonContentPatterns = [
 ];
 
 const codingAgentUiContentMarkers = [
-	"@oh-my-pi/pi-tui",
+	"@oh-my-soup/pi-tui",
 	"InteractiveMode",
 	"InputController",
 	"StatusLine",
@@ -351,7 +351,7 @@ async function commandsForMode(mode: Mode): Promise<TestCommand[]> {
 			];
 		// `local-ts` is the full local TypeScript run that root `bun run test:ts`
 		// drives: every package the old `--workspaces` fan-out covered (the CI
-		// `all` set plus robomp-web, which CI omits), routed through
+		// `all` set plus roboms-web, which CI omits), routed through
 		// this one quiet runner so the whole suite shares one progress stream and
 		// one failure report. Repo script tests remain available via `test:scripts`.
 		case "local-ts":

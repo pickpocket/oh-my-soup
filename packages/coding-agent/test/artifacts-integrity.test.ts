@@ -2,8 +2,8 @@ import { afterEach, describe, expect, it, vi } from "bun:test";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { ArtifactManager, writeArtifact } from "@oh-my-pi/pi-coding-agent/session/artifacts";
-import { removeSyncWithRetries } from "@oh-my-pi/pi-utils";
+import { ArtifactManager, writeArtifact } from "@oh-my-soup/pi-coding-agent/session/artifacts";
+import { removeSyncWithRetries } from "@oh-my-soup/pi-utils";
 
 describe("ArtifactManager write integrity", () => {
 	const dirs: string[] = [];

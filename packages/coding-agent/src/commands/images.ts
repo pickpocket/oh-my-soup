@@ -1,6 +1,6 @@
 /** Inspect and maintain image publication backends. */
 
-import { Args, Command, Flags } from "@oh-my-pi/pi-utils/cli";
+import { Args, Command, Flags } from "@oh-my-soup/pi-utils/cli";
 import { imagesHelp as commandHelp } from "../cli/command-help";
 import { IMAGES_ACTIONS, type ImagesAction, type ImagesCommandArgs, runImagesCommand } from "../cli/images-cli";
 

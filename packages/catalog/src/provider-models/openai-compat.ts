@@ -1,5 +1,5 @@
-import { USER_AGENT, getInstallId } from "@oh-my-pi/pi-utils";
-import * as logger from "@oh-my-pi/pi-utils/logger";
+import { USER_AGENT, getInstallId } from "@oh-my-soup/pi-utils";
+import * as logger from "@oh-my-soup/pi-utils/logger";
 import { toClinePassPublicModelId } from "../cline-pass-model-id";
 import {
 	apiRouteExactModelIds,

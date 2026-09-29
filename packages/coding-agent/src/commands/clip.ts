@@ -1,7 +1,7 @@
 import * as path from "node:path";
-import { CLIP_DESCRIPTION_MAX, STREAM_TITLE_MAX } from "@oh-my-pi/pi-wire";
-import { isEnoent } from "@oh-my-pi/pi-utils";
-import { Args, CliUsageError, Command, Flags } from "@oh-my-pi/pi-utils/cli";
+import { CLIP_DESCRIPTION_MAX, STREAM_TITLE_MAX } from "@oh-my-soup/pi-wire";
+import { isEnoent } from "@oh-my-soup/pi-utils";
+import { Args, CliUsageError, Command, Flags } from "@oh-my-soup/pi-utils/cli";
 import { clipHelp as commandHelp } from "../cli/command-help";
 import { Settings } from "../config/settings";
 import { StencilCredential } from "../stencil/credential";

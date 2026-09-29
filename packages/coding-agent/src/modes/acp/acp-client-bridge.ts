@@ -11,7 +11,7 @@ import type {
 	ClientCapabilities,
 	RequestPermissionRequest,
 	ToolCallUpdate,
-} from "@oh-my-pi/pi-utils/acp";
+} from "@oh-my-soup/pi-utils/acp";
 import type {
 	ClientBridge,
 	ClientBridgeCapabilities,

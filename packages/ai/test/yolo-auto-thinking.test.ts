@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import type { Context, FetchImpl, Model } from "@oh-my-pi/pi-ai/types";
+import type { Context, FetchImpl, Model } from "@oh-my-soup/pi-ai/types";
 import { buildModel } from "../../catalog/src/build";
 import { Effort } from "../../catalog/src/effort";
 import { seedModels } from "../../catalog/src/compat/providers";

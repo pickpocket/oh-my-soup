@@ -1,5 +1,5 @@
-import { untilAborted } from "@oh-my-pi/pi-utils";
-import { ToolError } from "@oh-my-pi/pi-tui/tools/tool-errors";
+import { untilAborted } from "@oh-my-soup/pi-utils";
+import { ToolError } from "@oh-my-soup/pi-tui/tools/tool-errors";
 import type { Page } from "puppeteer-core";
 
 /** Options controlling Web Vitals collection. */

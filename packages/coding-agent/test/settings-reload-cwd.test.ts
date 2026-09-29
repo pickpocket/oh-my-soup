@@ -2,14 +2,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { resetSettingsForTest, Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { AgentStorage } from "@oh-my-pi/pi-coding-agent/session/agent-storage";
-import { getProjectAgentDir, removeSyncWithRetries, Snowflake } from "@oh-my-pi/pi-utils";
+import { resetSettingsForTest, Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { AgentStorage } from "@oh-my-soup/pi-coding-agent/session/agent-storage";
+import { getProjectAgentDir, removeSyncWithRetries, Snowflake } from "@oh-my-soup/pi-utils";
 import { YAML } from "bun";
 import { beginSettingsTest, restoreSettingsTestState, type SettingsTestState } from "./helpers/settings-test-state";
 
-import { cfgCompactionEnabled } from "@oh-my-pi/pi-coding-agent/session/context-settings";
-import { cfgEnabledModels, cfgModelRoleStorage } from "@oh-my-pi/pi-coding-agent/config/model-settings";
+import { cfgCompactionEnabled } from "@oh-my-soup/pi-coding-agent/session/context-settings";
+import { cfgEnabledModels, cfgModelRoleStorage } from "@oh-my-soup/pi-coding-agent/config/model-settings";
 
 it("applies project role mutations over active runtime overrides", () => {
 	const settings = Settings.isolated({});

@@ -30,9 +30,9 @@ import {
 	IndexedSessionStorage,
 	type SessionStorageBackend,
 	type SessionStorageIndexEntry,
-} from "@oh-my-pi/pi-coding-agent/session/indexed-session-storage";
-import { SessionManager } from "@oh-my-pi/pi-coding-agent/session/session-manager";
-import { MemorySessionStorage, SessionWriteConflictError } from "@oh-my-pi/pi-coding-agent/session/session-storage";
+} from "@oh-my-soup/pi-coding-agent/session/indexed-session-storage";
+import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
+import { MemorySessionStorage, SessionWriteConflictError } from "@oh-my-soup/pi-coding-agent/session/session-storage";
 
 /** Real-shape indexed backend: local index is set synchronously by the
  * caller (`IndexedSessionStorage`) before this backend is ever invoked, so no

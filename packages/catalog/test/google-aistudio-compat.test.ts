@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import { resolveModelPolicy } from "@oh-my-pi/pi-catalog/compat/resolve";
-import type { ModelSpec } from "@oh-my-pi/pi-catalog/types";
+import { resolveModelPolicy } from "@oh-my-soup/pi-catalog/compat/resolve";
+import type { ModelSpec } from "@oh-my-soup/pi-catalog/types";
 
 /**
  * Google AI Studio's OpenAI-compatible endpoint

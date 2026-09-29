@@ -1,6 +1,6 @@
-import { type } from "@oh-my-pi/omptype";
-import { prompt } from "@oh-my-pi/pi-utils";
-import type { AgentTool, AgentToolResult } from "@oh-my-pi/pi-agent-core";
+import { type } from "@oh-my-soup/omstype";
+import { prompt } from "@oh-my-soup/pi-utils";
+import type { AgentTool, AgentToolResult } from "@oh-my-soup/pi-agent-core";
 import memoryEditDescription from "../prompts/tools/memory-edit.md" with { type: "text" };
 import { sessionMemoryToolRefs } from "../memory-backend/tool-names";
 import type { ToolSession } from ".";

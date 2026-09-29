@@ -13,7 +13,7 @@ import {
 	listCollabHosts,
 	publishCollabHost,
 	resolveCollabHostLink,
-} from "@oh-my-pi/pi-coding-agent/collab/registry";
+} from "@oh-my-soup/pi-coding-agent/collab/registry";
 
 const cleanupDirs: string[] = [];
 const openPublications: CollabHostPublication[] = [];

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { type TerminalFramePlan, type TerminalFrameProvider, TUI, type ViewportSize } from "@oh-my-pi/pi-tui";
+import { type TerminalFramePlan, type TerminalFrameProvider, TUI, type ViewportSize } from "@oh-my-soup/pi-tui";
 import { VirtualTerminal } from "./virtual-terminal";
 
 // Regression coverage for a resize on Warp under Windows ConPTY leaving the

@@ -161,7 +161,7 @@ Side-channel artifacts outside the model tool result:
   - `attach`: explicit `adapter` wins; otherwise remote `port` prefers `debugpy`, then native debuggers, then first available adapter.
 - **Custom adapter config**
   - Debug adapters can be added or overridden with `dap.json`, `.dap.json`, `dap.yaml`, `.dap.yaml`, `dap.yml`, or `.dap.yml`.
-  - Search order mirrors LSP config: project root, project config dirs (`.omp/`, `.claude/`, `.codex/`, `.gemini/`), user config dirs (`~/.omp/agent/`, `~/.claude/`, `~/.codex/`, `~/.gemini/`), plugin roots, then home-root fallback. Files are merged from lowest to highest priority.
+  - Search order mirrors LSP config: project root, project config dirs (`.oms/`, `.claude/`, `.codex/`, `.gemini/`), user config dirs (`~/.oms/agent/`, `~/.claude/`, `~/.codex/`, `~/.gemini/`), plugin roots, then home-root fallback. Files are merged from lowest to highest priority.
   - Config shape may be either `{ "adapters": { ... } }` or a top-level adapter map.
   - Adapter fields:
     - `command`: executable name or path. Required.
@@ -174,7 +174,7 @@ Side-channel artifacts outside the model tool result:
     - `connectMode`: `"stdio"` (default), `"socket"` (Delve-style platform-dependent socket/callback), or `"tcp"` (spawn a local DAP server with `${port}` substituted into `args`).
     - `acceptsDirectoryProgram`: set `true` for adapters such as `dlv` that can launch a package/project directory.
 
-Example `.omp/dap.json`:
+Example `.oms/dap.json`:
 
 ```json
 {
@@ -276,8 +276,8 @@ GDB example for an OpenOCD remote target:
 - Subprocesses / native bindings
   - Spawns debugger adapters (`gdb`, `lldb-dap`, `python -m debugpy.adapter`, `dlv`, and others from `defaults.json`) detached.
   - Reverse DAP `runInTerminal` requests spawn the debuggee detached via `ptree.spawn()`.
-  - `getWorkProfile(30)` comes from `@oh-my-pi/pi-natives`.
-  - CPU profiling uses `node:inspector/promises`; memory statistics use `process.memoryUsage()` and numeric counters from `bun:jsc`'s `heapStats()` after GC; raw/log viewers sanitize text via `sanitizeText()` from `@oh-my-pi/pi-utils`.
+  - `getWorkProfile(30)` comes from `@oh-my-soup/pi-natives`.
+  - CPU profiling uses `node:inspector/promises`; memory statistics use `process.memoryUsage()` and numeric counters from `bun:jsc`'s `heapStats()` after GC; raw/log viewers sanitize text via `sanitizeText()` from `@oh-my-soup/pi-utils`.
   - `openPath()` launches the OS default file/browser handler for artifact dirs and SVGs.
   - Log/raw-SSE viewers can call `copyToClipboard()`.
 - Session state (transcript, memory, jobs, checkpoints, registries)

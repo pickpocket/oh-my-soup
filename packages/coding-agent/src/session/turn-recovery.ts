@@ -4,7 +4,7 @@ import {
 	type AgentMessage,
 	isSyntheticToolResultMessage,
 	type ThinkingLevel,
-} from "@oh-my-pi/pi-agent-core";
+} from "@oh-my-soup/pi-agent-core";
 import type {
 	AssistantMessage,
 	AssistantRetryRecovery,
@@ -17,15 +17,15 @@ import type {
 	ThinkingContent,
 	ToolChoice,
 	AnthropicFallbackCreditHandle,
-} from "@oh-my-pi/pi-ai";
-import { calculateRateLimitBackoffMs, parseRateLimitReason } from "@oh-my-pi/pi-ai";
-import * as AIError from "@oh-my-pi/pi-ai/error";
-import { extractProviderRetryHint } from "@oh-my-pi/pi-ai/utils/retry-after";
-import { fallbackCreditTargets } from "@oh-my-pi/pi-catalog/compat/fallback-credit";
-import { resolveModelPolicy } from "@oh-my-pi/pi-catalog/compat/resolve";
-import { isFireworksFastModelId, toFireworksBaseModelId } from "@oh-my-pi/pi-catalog/fireworks-model-id";
-import { modelsAreEqual } from "@oh-my-pi/pi-catalog/models";
-import { isUnexpectedSocketCloseMessage, logger, prompt, sleepLong } from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-ai";
+import { calculateRateLimitBackoffMs, parseRateLimitReason } from "@oh-my-soup/pi-ai";
+import * as AIError from "@oh-my-soup/pi-ai/error";
+import { extractProviderRetryHint } from "@oh-my-soup/pi-ai/utils/retry-after";
+import { fallbackCreditTargets } from "@oh-my-soup/pi-catalog/compat/fallback-credit";
+import { resolveModelPolicy } from "@oh-my-soup/pi-catalog/compat/resolve";
+import { isFireworksFastModelId, toFireworksBaseModelId } from "@oh-my-soup/pi-catalog/fireworks-model-id";
+import { modelsAreEqual } from "@oh-my-soup/pi-catalog/models";
+import { isUnexpectedSocketCloseMessage, logger, prompt, sleepLong } from "@oh-my-soup/pi-utils";
 import type { ModelRegistry } from "../config/model-registry";
 import { formatModelStringWithRouting, resolveModelOverride } from "../config/model-resolver";
 
@@ -42,8 +42,8 @@ import {
 	clampThinkingLevelToCeiling,
 	modelSupportsEffortCeiling,
 	resolveThinkingLevelForModel,
-} from "@oh-my-pi/pi-tui/thinking";
-import type { EditMode } from "@oh-my-pi/pi-tui/tools/edit";
+} from "@oh-my-soup/pi-tui/thinking";
+import type { EditMode } from "@oh-my-soup/pi-tui/tools/edit";
 import type { AgentSessionEvent } from "./agent-session-events";
 import type { ResetRecoveryResult } from "./codex-auto-reset";
 import type {

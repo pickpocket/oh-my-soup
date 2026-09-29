@@ -5,7 +5,7 @@ import {
 	type CommandMetadata,
 	renderCommandHelp,
 	renderRootHelp,
-} from "@oh-my-pi/pi-utils/cli";
+} from "@oh-my-soup/pi-utils/cli";
 import { commands } from "../src/cli-commands";
 
 function captureStdout(render: () => void): string {

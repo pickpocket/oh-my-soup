@@ -2,21 +2,21 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "bun:te
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { type } from "@oh-my-pi/omptype";
-import { Agent, type AgentTool } from "@oh-my-pi/pi-agent-core";
-import { Effort } from "@oh-my-pi/pi-ai";
-import { getBundledModel } from "@oh-my-pi/pi-catalog/models";
-import * as autoThinkingClassifier from "@oh-my-pi/pi-coding-agent/auto-thinking/classifier";
-import { ModelRegistry } from "@oh-my-pi/pi-coding-agent/config/model-registry";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { AgentSession } from "@oh-my-pi/pi-coding-agent/session/agent-session";
-import { AuthStorage } from "@oh-my-pi/pi-coding-agent/session/auth-storage";
-import { SessionManager } from "@oh-my-pi/pi-coding-agent/session/session-manager";
-import { AUTO_THINKING } from "@oh-my-pi/pi-tui/thinking";
-import { removeWithRetries } from "@oh-my-pi/pi-utils";
+import { type } from "@oh-my-soup/omstype";
+import { Agent, type AgentTool } from "@oh-my-soup/pi-agent-core";
+import { Effort } from "@oh-my-soup/pi-ai";
+import { getBundledModel } from "@oh-my-soup/pi-catalog/models";
+import * as autoThinkingClassifier from "@oh-my-soup/pi-coding-agent/auto-thinking/classifier";
+import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { AgentSession } from "@oh-my-soup/pi-coding-agent/session/agent-session";
+import { AuthStorage } from "@oh-my-soup/pi-coding-agent/session/auth-storage";
+import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
+import { AUTO_THINKING } from "@oh-my-soup/pi-tui/thinking";
+import { removeWithRetries } from "@oh-my-soup/pi-utils";
 
-import { cfgMagicKeyword, cfgMagicKeywordsEnabled } from "@oh-my-pi/pi-coding-agent/modes/settings";
-import { cfgTaskDisabledAgents } from "@oh-my-pi/pi-coding-agent/task/settings";
+import { cfgMagicKeyword, cfgMagicKeywordsEnabled } from "@oh-my-soup/pi-coding-agent/modes/settings";
+import { cfgTaskDisabledAgents } from "@oh-my-soup/pi-coding-agent/task/settings";
 
 const mockTaskTool: AgentTool = {
 	name: "task",

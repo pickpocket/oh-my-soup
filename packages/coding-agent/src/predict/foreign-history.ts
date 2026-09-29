@@ -6,7 +6,7 @@
  */
 import * as os from "node:os";
 import * as path from "node:path";
-import { isEnoent, logger } from "@oh-my-pi/pi-utils";
+import { isEnoent, logger } from "@oh-my-soup/pi-utils";
 import { resolveClaudePaths } from "../config/claude-paths";
 import { readForeignJsonRecords } from "../session/foreign-session-jsonl";
 

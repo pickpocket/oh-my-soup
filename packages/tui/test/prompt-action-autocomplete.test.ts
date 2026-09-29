@@ -1,11 +1,11 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "bun:test";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
-import { KeybindingsManager as AppKeybindingsManager, setKeyHintPlatform } from "@oh-my-pi/pi-tui/app-keybindings";
-import type { ModelBrowserItem } from "@oh-my-pi/pi-tui/overlays/model-browser";
-import { setInternalUrlCompletionHost } from "@oh-my-pi/pi-tui/prompt/internal-url-autocomplete";
-import { createPromptActionAutocompleteProvider } from "@oh-my-pi/pi-tui/prompt/prompt-action-autocomplete";
-import { getSelectListTheme, initTheme, theme } from "@oh-my-pi/pi-tui/theme";
-import { KeybindingsManager, SelectList, setKeybindings, TUI_KEYBINDINGS } from "@oh-my-pi/pi-tui";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
+import { KeybindingsManager as AppKeybindingsManager, setKeyHintPlatform } from "@oh-my-soup/pi-tui/app-keybindings";
+import type { ModelBrowserItem } from "@oh-my-soup/pi-tui/overlays/model-browser";
+import { setInternalUrlCompletionHost } from "@oh-my-soup/pi-tui/prompt/internal-url-autocomplete";
+import { createPromptActionAutocompleteProvider } from "@oh-my-soup/pi-tui/prompt/prompt-action-autocomplete";
+import { getSelectListTheme, initTheme, theme } from "@oh-my-soup/pi-tui/theme";
+import { KeybindingsManager, SelectList, setKeybindings, TUI_KEYBINDINGS } from "@oh-my-soup/pi-tui";
 
 function modelMentionItem(provider: string, id: string, name: string): ModelBrowserItem {
 	return {

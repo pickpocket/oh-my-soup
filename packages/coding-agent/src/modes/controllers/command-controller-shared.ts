@@ -7,11 +7,11 @@
  * wording, and add-flow logic stay in the per-controller files because they
  * diverge in workflow.
  */
-import { Text } from "@oh-my-pi/pi-tui";
+import { Text } from "@oh-my-soup/pi-tui";
 import type { SourceMeta } from "../../capability/types";
-import { shortenPath } from "@oh-my-pi/pi-tui/render/render-utils";
-import { DynamicBorder } from "@oh-my-pi/pi-tui/chrome/dynamic-border";
-import { TranscriptBlock } from "@oh-my-pi/pi-tui/chrome/transcript-container";
+import { shortenPath } from "@oh-my-soup/pi-tui/render/render-utils";
+import { DynamicBorder } from "@oh-my-soup/pi-tui/chrome/dynamic-border";
+import { TranscriptBlock } from "@oh-my-soup/pi-tui/chrome/transcript-container";
 import { parseCommandArgs } from "../../utils/command-args";
 import type { InteractiveModeContext } from "../types";
 

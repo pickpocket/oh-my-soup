@@ -1,7 +1,7 @@
-import { classifyModel } from "@oh-my-pi/pi-catalog/identity";
-import { $flag } from "@oh-my-pi/pi-utils";
+import { classifyModel } from "@oh-my-soup/pi-catalog/identity";
+import { $flag } from "@oh-my-soup/pi-utils";
 
-import type { EditMode } from "@oh-my-pi/pi-tui/tools/edit";
+import type { EditMode } from "@oh-my-soup/pi-tui/tools/edit";
 import type { Settings } from "../config/settings";
 import { cfgEditMode, editModelVariants } from "../edit/settings";
 

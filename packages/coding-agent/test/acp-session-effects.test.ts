@@ -1,17 +1,17 @@
 import { afterAll, describe, expect, it } from "bun:test";
-import type { Api, Model, ModelSpec } from "@oh-my-pi/pi-ai";
-import { clearCustomApis, registerCustomApi } from "@oh-my-pi/pi-ai";
-import { redactSensitiveCredentials } from "@oh-my-pi/pi-ai/providers/transform-messages";
-import { AssistantMessageEventStream } from "@oh-my-pi/pi-ai/utils/event-stream";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
-import { ModelRegistry } from "@oh-my-pi/pi-coding-agent/config/model-registry";
-import { bindEffects } from "@oh-my-pi/pi-coding-agent/config/registry";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { createAcpSessionFactory } from "@oh-my-pi/pi-coding-agent/main";
-import { createAgentSession } from "@oh-my-pi/pi-coding-agent/sdk";
-import type { AgentSession } from "@oh-my-pi/pi-coding-agent/session/agent-session";
-import { AgentStorage } from "@oh-my-pi/pi-coding-agent/session/agent-storage";
-import { TempDir } from "@oh-my-pi/pi-utils";
+import type { Api, Model, ModelSpec } from "@oh-my-soup/pi-ai";
+import { clearCustomApis, registerCustomApi } from "@oh-my-soup/pi-ai";
+import { redactSensitiveCredentials } from "@oh-my-soup/pi-ai/providers/transform-messages";
+import { AssistantMessageEventStream } from "@oh-my-soup/pi-ai/utils/event-stream";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
+import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
+import { bindEffects } from "@oh-my-soup/pi-coding-agent/config/registry";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { createAcpSessionFactory } from "@oh-my-soup/pi-coding-agent/main";
+import { createAgentSession } from "@oh-my-soup/pi-coding-agent/sdk";
+import type { AgentSession } from "@oh-my-soup/pi-coding-agent/session/agent-session";
+import { AgentStorage } from "@oh-my-soup/pi-coding-agent/session/agent-storage";
+import { TempDir } from "@oh-my-soup/pi-utils";
 import { createAssistantMessage, createInMemoryAuthStorage } from "./helpers/agent-session-setup";
 
 const authStorage = createInMemoryAuthStorage();
@@ -44,7 +44,7 @@ describe("concurrent ACP sessions", () => {
 	it("redact each session's requests per its own project's secrets.enabled", async () => {
 		using launchDir = TempDir.createSync("@pi-acp-effects-launch-");
 		using projectDir = TempDir.createSync("@pi-acp-effects-project-");
-		await Bun.write(projectDir.join(".omp/config.yml"), "secrets:\n  enabled: true\n");
+		await Bun.write(projectDir.join(".oms/config.yml"), "secrets:\n  enabled: true\n");
 		// What the provider's credential-redaction pass does to a token in each request it builds.
 		const requests: Array<{ context: string; credential: string }> = [];
 		registerCustomApi(API, (_model, context) => {

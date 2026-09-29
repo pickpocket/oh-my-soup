@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { isEnoent, isEnotdir } from "@oh-my-pi/pi-utils";
-import { CliUsageError } from "@oh-my-pi/pi-utils/cli";
+import { isEnoent, isEnotdir } from "@oh-my-soup/pi-utils";
+import { CliUsageError } from "@oh-my-soup/pi-utils/cli";
 import { Settings } from "../config/settings";
 import type { EffectiveExtensionRoots } from "../capability/types";
 import { initializeWithSettings } from "../discovery";

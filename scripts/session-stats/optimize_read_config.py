@@ -2,7 +2,7 @@
 """
 Replay-based optimizer for the read tool's config.
 
-Inputs (from ~/.omp/stats.db, since --since):
+Inputs (from ~/.oms/stats.db, since --since):
   * every `read` call's args  (selector / offset / limit / bare)
   * every result's `[Showing lines A-B of N]` footer  → actual returned
     range AND the file's total line count

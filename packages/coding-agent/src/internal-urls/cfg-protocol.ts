@@ -17,10 +17,10 @@
  *
  * Credential values are always redacted.
  */
-import { isRecord, prompt } from "@oh-my-pi/pi-utils";
-import { fuzzyFilter } from "@oh-my-pi/pi-tui/fuzzy";
-import { type CfgWriteDetails, type CfgWriteOutcome } from "@oh-my-pi/pi-tui/tools/cfg-render";
-import { CFG_SAVE_SEGMENT, CFG_URL_PREFIX, parseCfgUrl } from "@oh-my-pi/pi-tui/tools/cfg-url";
+import { isRecord, prompt } from "@oh-my-soup/pi-utils";
+import { fuzzyFilter } from "@oh-my-soup/pi-tui/fuzzy";
+import { type CfgWriteDetails, type CfgWriteOutcome } from "@oh-my-soup/pi-tui/tools/cfg-render";
+import { CFG_SAVE_SEGMENT, CFG_URL_PREFIX, parseCfgUrl } from "@oh-my-soup/pi-tui/tools/cfg-url";
 import { type AnySetting, all } from "../config/registry";
 import type { SettingProvenance, Settings } from "../config/settings";
 import cfgPromptDoc from "../prompts/internal-urls/cfg.md" with { type: "text" };

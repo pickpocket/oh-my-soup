@@ -2,11 +2,11 @@ import { describe, expect, it, vi } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { startAuthGateway } from "@oh-my-pi/pi-ai/auth-gateway";
-import { AuthStorage } from "@oh-my-pi/pi-ai/auth-storage";
-import { generateImage } from "@oh-my-pi/pi-ai/images";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
-import type { Api, FetchImpl, Model } from "@oh-my-pi/pi-catalog/types";
+import { startAuthGateway } from "@oh-my-soup/pi-ai/auth-gateway";
+import { AuthStorage } from "@oh-my-soup/pi-ai/auth-storage";
+import { generateImage } from "@oh-my-soup/pi-ai/images";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
+import type { Api, FetchImpl, Model } from "@oh-my-soup/pi-catalog/types";
 
 const IMAGE_DATA = Buffer.from("gateway-image").toString("base64");
 

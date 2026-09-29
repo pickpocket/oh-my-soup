@@ -4,7 +4,7 @@ Run `/hotkeys` inside an `omp` session to see the active chords for your current
 
 ## Customize keybindings
 
-User remaps live in `~/.omp/agent/keybindings.yml`. The file is a YAML mapping whose keys are keybinding action IDs and whose values are either one chord string or an array of chord strings. It is not read from `~/.omp/agent/config.yml`, and there is no nested `keybindings` object.
+User remaps live in `~/.oms/agent/keybindings.yml`. The file is a YAML mapping whose keys are keybinding action IDs and whose values are either one chord string or an array of chord strings. It is not read from `~/.oms/agent/config.yml`, and there is no nested `keybindings` object.
 
 With a named profile, bindings from the default profile's agent directory are loaded first and the active profile's `keybindings.yml` overrides them action by action. The inherited file is read-only during that profile's startup.
 

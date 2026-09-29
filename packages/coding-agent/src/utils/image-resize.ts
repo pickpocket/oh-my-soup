@@ -1,5 +1,5 @@
-import type { ImageContent } from "@oh-my-pi/pi-ai";
-import { shortenPath } from "@oh-my-pi/pi-tui/render/render-utils";
+import type { ImageContent } from "@oh-my-soup/pi-ai";
+import { shortenPath } from "@oh-my-soup/pi-tui/render/render-utils";
 
 export interface ImageResizeOptions {
 	maxWidth?: number;

@@ -21,8 +21,8 @@ import type {
 	Question,
 	Questions,
 	ScoreQuestion,
-} from "@oh-my-pi/pi-ai";
-import { isRecord } from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-ai";
+import { isRecord } from "@oh-my-soup/pi-utils";
 import {
 	type ChainJudge,
 	type JudgmentUsage,
@@ -30,7 +30,7 @@ import {
 	resolveJudge,
 	sharedJudgmentCache,
 } from "../judgment";
-import { ToolError } from "@oh-my-pi/pi-tui/tools/tool-errors";
+import { ToolError } from "@oh-my-soup/pi-tui/tools/tool-errors";
 import { withBridgeTimeoutPause } from "./bridge-timeout";
 import { type EvalCompletionBridgeOptions, evalRequestSlots } from "./completion-bridge";
 

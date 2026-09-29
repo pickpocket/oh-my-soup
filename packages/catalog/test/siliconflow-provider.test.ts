@@ -1,13 +1,13 @@
 import { describe, expect, test } from "bun:test";
-import { getBundledModelReferenceIndex } from "@oh-my-pi/pi-catalog/identity/bundled";
-import { resolveModelReference } from "@oh-my-pi/pi-catalog/identity/reference";
-import { providerEntry } from "@oh-my-pi/pi-catalog/compat/providers";
+import { getBundledModelReferenceIndex } from "@oh-my-soup/pi-catalog/identity/bundled";
+import { resolveModelReference } from "@oh-my-soup/pi-catalog/identity/reference";
+import { providerEntry } from "@oh-my-soup/pi-catalog/compat/providers";
 import {
 	MODELS_DEV_PROVIDER_DESCRIPTORS,
 	siliconflowCnModelManagerOptions,
 	siliconflowModelManagerOptions,
-} from "@oh-my-pi/pi-catalog/provider-models/openai-compat";
-import type { FetchImpl } from "@oh-my-pi/pi-catalog/types";
+} from "@oh-my-soup/pi-catalog/provider-models/openai-compat";
+import type { FetchImpl } from "@oh-my-soup/pi-catalog/types";
 
 const MODELS_DEV_STUB_PAYLOAD = {
 	siliconflow: {

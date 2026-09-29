@@ -1,4 +1,4 @@
-import { pdfToMarkdown } from "@oh-my-pi/pi-natives";
+import { pdfToMarkdown } from "@oh-my-soup/pi-natives";
 import type { ConversionResult, Converter, StreamInfo } from "../../types";
 
 const EXTENSIONS = [".pdf"];

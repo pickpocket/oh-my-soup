@@ -2,11 +2,11 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { discoverAuthStorage, loadAuthAccountPolicyConfig, resolveAuthBrokerConfig } from "@oh-my-pi/pi-ai/auth-broker";
-import { type AuthAccountPolicies, DEFAULT_USAGE_RESERVE_PCT } from "@oh-my-pi/pi-ai/auth-storage";
-import { writeAuthBrokerSnapshotCache } from "@oh-my-pi/pi-ai/auth-broker/snapshot-cache";
-import type { SnapshotResponse } from "@oh-my-pi/pi-ai/auth-broker/types";
-import * as oauthUtils from "@oh-my-pi/pi-ai/registry/oauth";
+import { discoverAuthStorage, loadAuthAccountPolicyConfig, resolveAuthBrokerConfig } from "@oh-my-soup/pi-ai/auth-broker";
+import { type AuthAccountPolicies, DEFAULT_USAGE_RESERVE_PCT } from "@oh-my-soup/pi-ai/auth-storage";
+import { writeAuthBrokerSnapshotCache } from "@oh-my-soup/pi-ai/auth-broker/snapshot-cache";
+import type { SnapshotResponse } from "@oh-my-soup/pi-ai/auth-broker/types";
+import * as oauthUtils from "@oh-my-soup/pi-ai/registry/oauth";
 import { removeWithRetries } from "../../utils/src/temp";
 import { withEnv } from "./helpers";
 

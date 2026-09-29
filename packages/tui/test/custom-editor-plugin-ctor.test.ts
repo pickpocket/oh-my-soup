@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
-import { ProcessTerminal, TUI } from "@oh-my-pi/pi-tui";
-import { CustomEditor } from "@oh-my-pi/pi-tui/prompt/custom-editor";
-import { getEditorTheme, initTheme } from "@oh-my-pi/pi-tui/theme";
+import { ProcessTerminal, TUI } from "@oh-my-soup/pi-tui";
+import { CustomEditor } from "@oh-my-soup/pi-tui/prompt/custom-editor";
+import { getEditorTheme, initTheme } from "@oh-my-soup/pi-tui/theme";
 
 /**
  * Regression for issue #4766: plugins written against upstream pi subclass

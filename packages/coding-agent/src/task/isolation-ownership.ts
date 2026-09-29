@@ -1,5 +1,5 @@
 /**
- * Ownership marker for task-isolation sandboxes under `~/.omp/wt/`.
+ * Ownership marker for task-isolation sandboxes under `~/.oms/wt/`.
  *
  * Each isolation base dir (`ensureIsolation` in {@link ./worktree}) holds a
  * compact `m` mount plus this marker file naming the omp process that created
@@ -7,7 +7,7 @@
  * subagent's sandbox from a crashed run's leftover instead of deleting both.
  */
 import * as path from "node:path";
-import * as natives from "@oh-my-pi/pi-natives";
+import * as natives from "@oh-my-soup/pi-natives";
 import { $ } from "bun";
 
 const { IsoBackendKind } = natives;

@@ -2,11 +2,11 @@ import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { discoverAndLoadExtensions } from "@oh-my-pi/pi-coding-agent/extensibility/extensions/loader";
-import { getAgentDir, getPluginsDir, removeSyncWithRetries, setAgentDir, TempDir } from "@oh-my-pi/pi-utils";
+import { discoverAndLoadExtensions } from "@oh-my-soup/pi-coding-agent/extensibility/extensions/loader";
+import { getAgentDir, getPluginsDir, removeSyncWithRetries, setAgentDir, TempDir } from "@oh-my-soup/pi-utils";
 
-const currentPiCodingAgentPath = Bun.resolveSync("@oh-my-pi/pi-coding-agent", import.meta.dir);
-const currentPiExtensionsPath = Bun.resolveSync("@oh-my-pi/pi-coding-agent/extensibility/extensions", import.meta.dir);
+const currentPiCodingAgentPath = Bun.resolveSync("@oh-my-soup/pi-coding-agent", import.meta.dir);
+const currentPiExtensionsPath = Bun.resolveSync("@oh-my-soup/pi-coding-agent/extensibility/extensions", import.meta.dir);
 
 describe("plugin extension discovery", () => {
 	let projectDir: TempDir;
@@ -18,10 +18,10 @@ describe("plugin extension discovery", () => {
 	beforeEach(() => {
 		projectDir = TempDir.createSync("@pi-plugin-ext-");
 		// Redirect the whole config root to an isolated temp home so plugin discovery
-		// resolves into `<tempHome>/.omp/plugins` on every platform. Two things are needed:
+		// resolves into `<tempHome>/.oms/plugins` on every platform. Two things are needed:
 		//  - mock os.homedir() so configRoot = `<tempHome>/.omp` (the previous
 		//    XDG_DATA_HOME redirect was a no-op on Windows, where these tests then wrote
-		//    into and rm'd the developer's real `~/.omp/plugins`);
+		//    into and rm'd the developer's real `~/.oms/plugins`);
 		//  - clear the XDG_* vars, because on Linux/macOS the resolver prefers
 		//    `$XDG_DATA_HOME/omp` over the home config root when that dir exists, so an
 		//    XDG-migrated environment would otherwise still resolve the real plugins dir.

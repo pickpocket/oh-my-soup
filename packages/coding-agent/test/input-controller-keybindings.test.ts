@@ -1,15 +1,15 @@
 import { beforeAll, describe, expect, it, type Mock, vi } from "bun:test";
-import type { ImageContent } from "@oh-my-pi/pi-ai";
-import { AskDialogComponent } from "@oh-my-pi/pi-tui/overlays/ask-dialog";
-import { HookEditorComponent } from "@oh-my-pi/pi-tui/overlays/hook-editor";
-import { TreeSelectorComponent } from "@oh-my-pi/pi-tui/overlays/tree-selector";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { InputController } from "@oh-my-pi/pi-coding-agent/modes/controllers/input-controller";
-import { SpaceHoldGesture } from "@oh-my-pi/pi-tui/space-hold";
-import { initTheme } from "@oh-my-pi/pi-tui/theme";
-import type { InteractiveModeContext } from "@oh-my-pi/pi-coding-agent/modes/types";
-import type { SessionTreeNode } from "@oh-my-pi/pi-coding-agent/session/session-entries";
-import { type KeyId, matchesKey } from "@oh-my-pi/pi-tui";
+import type { ImageContent } from "@oh-my-soup/pi-ai";
+import { AskDialogComponent } from "@oh-my-soup/pi-tui/overlays/ask-dialog";
+import { HookEditorComponent } from "@oh-my-soup/pi-tui/overlays/hook-editor";
+import { TreeSelectorComponent } from "@oh-my-soup/pi-tui/overlays/tree-selector";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { InputController } from "@oh-my-soup/pi-coding-agent/modes/controllers/input-controller";
+import { SpaceHoldGesture } from "@oh-my-soup/pi-tui/space-hold";
+import { initTheme } from "@oh-my-soup/pi-tui/theme";
+import type { InteractiveModeContext } from "@oh-my-soup/pi-coding-agent/modes/types";
+import type { SessionTreeNode } from "@oh-my-soup/pi-coding-agent/session/session-entries";
+import { type KeyId, matchesKey } from "@oh-my-soup/pi-tui";
 import manualContinuePrompt from "../src/prompts/system/manual-continue.md" with { type: "text" };
 
 type FakeEditor = {

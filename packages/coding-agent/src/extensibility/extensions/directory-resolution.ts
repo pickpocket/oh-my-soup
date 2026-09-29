@@ -1,6 +1,6 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { hasFsCode, isEacces, isEnoent, isRecord } from "@oh-my-pi/pi-utils";
+import { hasFsCode, isEacces, isEnoent, isRecord } from "@oh-my-soup/pi-utils";
 
 /** Selected extension files and whether a manifest suppresses convention fallback. */
 export interface ExtensionDirectoryResolution {

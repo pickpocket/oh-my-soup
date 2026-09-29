@@ -1,6 +1,6 @@
 # Porting Hot Paths to `pi-natives`
 
-This is the contributor path for moving a measured JS/TS hot path into `crates/pi-natives` and exposing it through `@oh-my-pi/pi-natives`.
+This is the contributor path for moving a measured JS/TS hot path into `crates/pi-natives` and exposing it through `@oh-my-soup/pi-natives`.
 
 ## Decide whether to port
 
@@ -15,7 +15,7 @@ The package has no `packages/natives/src/<module>` wrapper layer. Its entrypoint
 - eager root: `native/index.js` with generated `native/index.d.ts`;
 - lazy desktop wrapper: `native/desktop.js` / `desktop.d.ts`;
 - lazy clipboard wrapper: `native/clipboard.js` / `clipboard.d.ts`;
-- lazy vcs wrapper: `native/vcs.js` / `vcs.d.ts` (`@oh-my-pi/pi-natives/vcs`).
+- lazy vcs wrapper: `native/vcs.js` / `vcs.d.ts` (`@oh-my-soup/pi-natives/vcs`).
 
 The vcs subpath exposes the backend-neutral `Vcs*` repository API (added in
 18.0.9, with `VcsGitRepo.mergeBase()` following in 18.0.10): discovery and
@@ -87,7 +87,7 @@ Do not add a wrapper merely to rename a generated root export.
 
 ### 4. Migrate consumers cleanly
 
-- Import the generated root symbol or intentional lazy subpath from `@oh-my-pi/pi-natives`.
+- Import the generated root symbol or intentional lazy subpath from `@oh-my-soup/pi-natives`.
 - Compare results and errors against the JS baseline on boundary cases.
 - Switch every intended caller and remove the obsolete implementation in the same change.
 - Keep user-facing policy and rendering in the consumer when the native primitive does not own it.

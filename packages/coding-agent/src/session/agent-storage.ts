@@ -6,7 +6,7 @@ import {
 	type AuthCredentialStore,
 	SqliteAuthCredentialStore,
 	type StoredAuthCredential,
-} from "@oh-my-pi/pi-ai";
+} from "@oh-my-soup/pi-ai";
 import {
 	AsyncDrain,
 	checkpointWal,
@@ -17,7 +17,7 @@ import {
 	logger,
 	openSqliteDatabase,
 	postmortem,
-} from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-utils";
 import type { RawSettings as Settings } from "../config/settings";
 
 /** Row shape for settings table queries */
@@ -143,7 +143,7 @@ let cancelExitCleanup: (() => void) | undefined;
 
 /**
  * Unified SQLite storage for agent settings, model usage, and auth credentials.
- * Delegates auth credential operations to AuthCredentialStore from @oh-my-pi/pi-ai.
+ * Delegates auth credential operations to AuthCredentialStore from @oh-my-soup/pi-ai.
  * Uses singleton pattern per database path; access via AgentStorage.open().
  */
 export class AgentStorage {
@@ -601,7 +601,7 @@ FROM model_usage_legacy
 
 	/**
 	 * One-time, non-blocking import of historical request timings from the
-	 * `omp stats` database (`~/.omp/stats.db`) into model_perf. Fire-and-forget:
+	 * `omp stats` database (`~/.oms/stats.db`) into model_perf. Fire-and-forget:
 	 * the walk runs in bounded chunks with event-loop yields between them
 	 * (bun:sqlite is synchronous — an unbounded scan here froze the TUI for
 	 * ~30s on multi-million-row stats databases), and the persistent meta

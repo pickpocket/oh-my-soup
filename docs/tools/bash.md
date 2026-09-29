@@ -189,7 +189,7 @@ Choose the setting by the desired outcome:
   - May allocate and write artifact files for full local output (`bash`) and minimizer-preserved raw output (`bash-original`).
   - `scheme://` paths are served per operation by `InternalUrlFilesystem`: file-backed schemes redirect to their backing files (writes only for mutable file-written schemes such as `local://`, within the approved tier); rendered resources are read-only; `realpath`/`readlink` print the physical backing path of file-backed URLs.
 - Subprocesses / native bindings / client terminal
-  - Non-PTY local execution uses native shell execution via `@oh-my-pi/pi-natives` (`Shell.run()` or `executeShell()`).
+  - Non-PTY local execution uses native shell execution via `@oh-my-soup/pi-natives` (`Shell.run()` or `executeShell()`).
   - PTY uses native `PtySession.start()`.
   - Client-terminal mode delegates process execution to the connected client terminal capability.
   - Named services run in the project-scoped launch broker and retain logs/status for `proc://`.

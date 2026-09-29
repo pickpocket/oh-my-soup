@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
-import { ProcessTerminal } from "@oh-my-pi/pi-tui/terminal";
-import { setTerminalHeadless } from "@oh-my-pi/pi-utils";
+import { ProcessTerminal } from "@oh-my-soup/pi-tui/terminal";
+import { setTerminalHeadless } from "@oh-my-soup/pi-utils";
 
 // ProcessTerminal dedupes cursor-visibility writes: hideCursor()/showCursor()
 // skip the ?25l/?25h escape when the terminal already holds that state. The

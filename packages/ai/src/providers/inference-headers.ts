@@ -1,6 +1,6 @@
 /** Shared inference request identity headers. */
 
-import { APP_NAME, APP_URL, USER_AGENT } from "@oh-my-pi/pi-utils";
+import { APP_NAME, APP_URL, USER_AGENT } from "@oh-my-soup/pi-utils";
 
 /** Options controlling provider and protocol inference headers. */
 export interface InferenceHeaderOptions {

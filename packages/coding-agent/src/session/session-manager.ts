@@ -8,8 +8,8 @@ import type {
 	ServiceTierByFamily,
 	TextContent,
 	Usage,
-} from "@oh-my-pi/pi-ai";
-import { createSyntheticToolResultMessage } from "@oh-my-pi/pi-agent-core";
+} from "@oh-my-soup/pi-ai";
+import { createSyntheticToolResultMessage } from "@oh-my-soup/pi-agent-core";
 import {
 	directoryIsEnterable,
 	getBlobsDir,
@@ -24,8 +24,8 @@ import {
 	pathIsWithin,
 	stringifyJson,
 	toError,
-} from "@oh-my-pi/pi-utils";
-import type { StructuredSubagentSchemaMode } from "@oh-my-pi/pi-tui/tools/task";
+} from "@oh-my-soup/pi-utils";
+import type { StructuredSubagentSchemaMode } from "@oh-my-soup/pi-tui/tools/task";
 import { moveFileAcrossDevices } from "../utils/atomic-file";
 import { ArtifactManager } from "./artifacts";
 import { type BlobPutOptions, type BlobPutResult, BlobStore, lazyImageDataSync } from "./blob-store";

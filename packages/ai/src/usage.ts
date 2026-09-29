@@ -4,7 +4,7 @@
  * Provides a normalized schema to represent multiple limit windows, model tiers,
  * and shared quotas across providers.
  */
-import { type } from "@oh-my-pi/omptype";
+import { type } from "@oh-my-soup/omstype";
 import type { FetchImpl, Provider } from "./types";
 export type UsageUnit = "percent" | "tokens" | "requests" | "credits" | "usd" | "minutes" | "bytes" | "unknown";
 
@@ -229,7 +229,7 @@ export interface ClientUsageReport {
 	installId: string;
 	/** Human-readable machine name for display surfaces. */
 	hostname?: string;
-	/** Application label for the process that burned the tokens (e.g. `omp`, `robomp`). */
+	/** Application label for the process that burned the tokens (e.g. `omp`, `roboms`). */
 	app?: string;
 	entries: ObservedUsageEntry[];
 }

@@ -21,11 +21,11 @@ import { afterEach, describe, expect, it } from "bun:test";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { MCPManager, type MCPReconnectPolicy } from "@oh-my-pi/pi-coding-agent/mcp/manager";
-import type { McpConnectionStatusEvent } from "@oh-my-pi/pi-coding-agent/mcp/startup-events";
-import type { MCPTool } from "@oh-my-pi/pi-coding-agent/mcp/tool-bridge";
-import type { MCPHttpServerConfig } from "@oh-my-pi/pi-coding-agent/mcp/types";
-import { removeSyncWithRetries } from "@oh-my-pi/pi-utils";
+import { MCPManager, type MCPReconnectPolicy } from "@oh-my-soup/pi-coding-agent/mcp/manager";
+import type { McpConnectionStatusEvent } from "@oh-my-soup/pi-coding-agent/mcp/startup-events";
+import type { MCPTool } from "@oh-my-soup/pi-coding-agent/mcp/tool-bridge";
+import type { MCPHttpServerConfig } from "@oh-my-soup/pi-coding-agent/mcp/types";
+import { removeSyncWithRetries } from "@oh-my-soup/pi-utils";
 import { type FlakyHttpMcpServer, startFlakyHttpMcpServer } from "./fixtures/flaky-http-mcp";
 
 /** Short ladder, fast schedule: three attempts per reconnect, retries at 20/40/80/80… ms. */

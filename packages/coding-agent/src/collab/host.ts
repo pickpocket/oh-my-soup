@@ -11,8 +11,8 @@
 
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import * as fs from "node:fs/promises";
-import type { ImageContent, TextContent } from "@oh-my-pi/pi-ai";
-import { logger } from "@oh-my-pi/pi-utils";
+import type { ImageContent, TextContent } from "@oh-my-soup/pi-ai";
+import { logger } from "@oh-my-soup/pi-utils";
 import type {
 	BusChannel,
 	CollabUiRequest,
@@ -20,7 +20,7 @@ import type {
 	CollabUiResponseValue,
 	AgentEvent as WireAgentEvent,
 	SessionEntry as WireSessionEntry,
-} from "@oh-my-pi/pi-wire";
+} from "@oh-my-soup/pi-wire";
 import type { InteractiveModeContext } from "../modes/types";
 import { AgentLifecycleManager } from "../registry/agent-lifecycle";
 import { type AgentRef, AgentRegistry } from "../registry/agent-registry";

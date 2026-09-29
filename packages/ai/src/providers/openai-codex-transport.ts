@@ -1,4 +1,4 @@
-import { $env, $flag } from "@oh-my-pi/pi-utils";
+import { $env, $flag } from "@oh-my-soup/pi-utils";
 import type { Model } from "../types";
 
 /** Read the optional process-wide Codex WebSocket override. */

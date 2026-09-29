@@ -2,18 +2,18 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { clearCache as clearFsCache } from "@oh-my-pi/pi-coding-agent/capability/fs";
-import { disableUserSource, enableProvider, loadCapability } from "@oh-my-pi/pi-coding-agent/capability";
+import { clearCache as clearFsCache } from "@oh-my-soup/pi-coding-agent/capability/fs";
+import { disableUserSource, enableProvider, loadCapability } from "@oh-my-soup/pi-coding-agent/capability";
 import {
 	clearClaudePluginRootsCache,
 	listClaudePluginRoots,
 	parseClaudePluginsRegistry,
-} from "@oh-my-pi/pi-coding-agent/discovery/helpers";
-import type { Skill } from "@oh-my-pi/pi-coding-agent/capability/skill";
-import { loadSkills } from "@oh-my-pi/pi-coding-agent/extensibility/skills";
-import { loadAllExtensions } from "@oh-my-pi/pi-coding-agent/modes/components/extensions/state-manager";
-import { __resetDirsFromEnvForTests, removeWithRetries, setAgentDir } from "@oh-my-pi/pi-utils";
-import "@oh-my-pi/pi-coding-agent/discovery/claude-plugins";
+} from "@oh-my-soup/pi-coding-agent/discovery/helpers";
+import type { Skill } from "@oh-my-soup/pi-coding-agent/capability/skill";
+import { loadSkills } from "@oh-my-soup/pi-coding-agent/extensibility/skills";
+import { loadAllExtensions } from "@oh-my-soup/pi-coding-agent/modes/components/extensions/state-manager";
+import { __resetDirsFromEnvForTests, removeWithRetries, setAgentDir } from "@oh-my-soup/pi-utils";
+import "@oh-my-soup/pi-coding-agent/discovery/claude-plugins";
 
 describe("parseClaudePluginsRegistry", () => {
 	test("returns null for invalid JSON", () => {
@@ -69,7 +69,7 @@ describe("listClaudePluginRoots", () => {
 		process.env.HOME = tempDir;
 		vi.spyOn(os, "homedir").mockReturnValue(tempDir);
 		// Point the agent dir at a temp dir so user-scope discovery (native MCP
-		// config, skills, etc.) cannot read the real ~/.omp/agent profile.
+		// config, skills, etc.) cannot read the real ~/.oms/agent profile.
 		setAgentDir(testAgentDir);
 		enableProvider("claude-plugins");
 		disableUserSource("claude-plugins");
@@ -595,7 +595,7 @@ describe("listClaudePluginRoots", () => {
 	});
 
 	test("dashboard marks omp-origin plugin capabilities active without enabling the Claude source (#12776)", async () => {
-		// Regression (#12776): the loader exempts ~/.omp/plugins marketplace roots
+		// Regression (#12776): the loader exempts ~/.oms/plugins marketplace roots
 		// (origin !== "claude") from the foreign user opt-in gate, but the
 		// /extensions dashboard's resolveState re-dropped them as "user-opt-in".
 		// The omp-origin skill AND rule must render active; the claude-origin skill

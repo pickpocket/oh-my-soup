@@ -40,7 +40,7 @@ uplinks:
   npmjs:
     url: https://registry.npmjs.org/
 packages:
-  '@oh-my-pi/*':
+  '@oh-my-soup/*':
     access: $all
     publish: $all
     unpublish: $all
@@ -128,7 +128,7 @@ RUN verdaccio --config /root/.config/verdaccio/config.yaml &>/dev/null & \
 WORKDIR /test
 RUN verdaccio --config /root/.config/verdaccio/config.yaml &>/dev/null & \
     sleep 3 && \
-    bun add @oh-my-pi/pi-coding-agent --registry http://localhost:4873 && \
+    bun add @oh-my-soup/pi-coding-agent --registry http://localhost:4873 && \
     pkill -f verdaccio
 
 # Verify the installed package works

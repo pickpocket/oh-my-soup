@@ -1,4 +1,4 @@
-import { format } from "@oh-my-pi/pi-utils/dates";
+import { format } from "@oh-my-soup/pi-utils/dates";
 import { type ReactNode, useMemo, useState } from "react";
 import { getProviderDashboardStats, getProviderWindowStats } from "../api";
 import { Chart, type ChartSeries, Legend, ShareBar, TimeChart, useHiddenSeries } from "../charts";

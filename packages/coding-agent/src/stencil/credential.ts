@@ -1,4 +1,4 @@
-import { STREAM_AUTH_ENV, STREAM_AUTH_PROVIDER } from "@oh-my-pi/pi-wire";
+import { STREAM_AUTH_ENV, STREAM_AUTH_PROVIDER } from "@oh-my-soup/pi-wire";
 import { discoverAuthStorage } from "../sdk";
 import type { AuthStorage } from "../session/auth-storage";
 

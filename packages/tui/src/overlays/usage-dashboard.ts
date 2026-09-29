@@ -6,7 +6,7 @@
  * Enter flips into the classic full per-account report, scrollable in place.
  */
 import * as os from "node:os";
-import { resolveUsedFraction, type UsageLimit, type UsageReport } from "@oh-my-pi/pi-ai";
+import { resolveUsedFraction, type UsageLimit, type UsageReport } from "@oh-my-soup/pi-ai";
 import {
 	type Component,
 	matchesKey,
@@ -17,7 +17,7 @@ import {
 	visibleWidth,
 	wrapTextWithAnsi,
 } from "../index";
-import { colorLuma, formatDuration, hexToRgb, rgbToHex, sanitizeText } from "@oh-my-pi/pi-utils";
+import { colorLuma, formatDuration, hexToRgb, rgbToHex, sanitizeText } from "@oh-my-soup/pi-utils";
 import { formatProviderName } from "../chrome/format";
 import {
 	collapseSharedUsageReports,

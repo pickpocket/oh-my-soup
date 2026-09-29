@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { authPolicyFor } from "@oh-my-pi/pi-catalog/compat/auth";
+import { authPolicyFor } from "@oh-my-soup/pi-catalog/compat/auth";
 
 describe("Stencil OAuth callback", () => {
 	it("uses a port-flexible IPv4 loopback redirect", () => {

@@ -2,19 +2,19 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { AuthStorage, SqliteAuthCredentialStore, withAuth, withOAuthAccess } from "@oh-my-pi/pi-ai";
+import { AuthStorage, SqliteAuthCredentialStore, withAuth, withOAuthAccess } from "@oh-my-soup/pi-ai";
 import {
 	AuthBrokerClient,
 	AuthBrokerRefresher,
 	type AuthBrokerServerHandle,
 	RemoteAuthCredentialStore,
 	startAuthBroker,
-} from "@oh-my-pi/pi-ai/auth-broker";
-import { buildGatewayApiKeyResolver } from "@oh-my-pi/pi-ai/auth-gateway/dispatch";
-import { OAuthError } from "@oh-my-pi/pi-ai/error";
-import { registerOAuthProvider, unregisterOAuthProviders } from "@oh-my-pi/pi-ai/registry/oauth";
-import type { OAuthCredentials } from "@oh-my-pi/pi-ai/registry/oauth/types";
-import type { Api, Model } from "@oh-my-pi/pi-ai/types";
+} from "@oh-my-soup/pi-ai/auth-broker";
+import { buildGatewayApiKeyResolver } from "@oh-my-soup/pi-ai/auth-gateway/dispatch";
+import { OAuthError } from "@oh-my-soup/pi-ai/error";
+import { registerOAuthProvider, unregisterOAuthProviders } from "@oh-my-soup/pi-ai/registry/oauth";
+import type { OAuthCredentials } from "@oh-my-soup/pi-ai/registry/oauth/types";
+import type { Api, Model } from "@oh-my-soup/pi-ai/types";
 import { removeWithRetries } from "../../utils/src/temp";
 
 const PROVIDER = "unit-broker-refresh-backoff";

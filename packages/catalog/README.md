@@ -1,4 +1,4 @@
-# @oh-my-pi/pi-catalog
+# @oh-my-soup/pi-catalog
 
 Model catalog for [omp](https://github.com/can1357/oh-my-pi): bundled model database, provider discovery, model identity, classification, and equivalence.
 
@@ -17,7 +17,7 @@ Model catalog for [omp](https://github.com/can1357/oh-my-pi): bundled model data
 | `wire`                          | Wire-level helpers: Codex, Gemini headers, GitHub Copilot                                                                                                                                                                                    |
 | `effort`                        | Reasoning-effort level definitions                                                                                                                                                                                                           |
 
-Import from subpaths (`@oh-my-pi/pi-catalog/<module>`) or the root barrel.
+Import from subpaths (`@oh-my-soup/pi-catalog/<module>`) or the root barrel.
 
 ## models.json and rules.json are generated
 
@@ -33,7 +33,7 @@ Model- or provider-conditional policy (identity, effort ladders, wire quirks, mo
 ## Install
 
 ```sh
-bun add @oh-my-pi/pi-catalog
+bun add @oh-my-soup/pi-catalog
 ```
 
 Ships TypeScript source directly (no build step); requires Bun ≥ 1.3.14.

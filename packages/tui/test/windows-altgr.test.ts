@@ -7,7 +7,7 @@ import {
 	RIGHT_ALT_LATCH_MS,
 	readAltGrLayer,
 	translateWindowsAltGrSequence,
-} from "@oh-my-pi/pi-tui/windows-altgr";
+} from "@oh-my-soup/pi-tui/windows-altgr";
 
 // Hungarian AltGr layer subset, keyed `<base codepoint>:<shift>` as the kitty encoder reports the base key.
 const HUNGARIAN_LAYER = new Map([

@@ -1,8 +1,8 @@
 import { beforeAll, describe, expect, it } from "bun:test";
-import type { AgentTool, AgentToolContext } from "@oh-my-pi/pi-agent-core";
-import { TempDir } from "@oh-my-pi/pi-utils";
-import { getThemeByName, initTheme } from "@oh-my-pi/pi-tui/theme";
-import { type MCPToolDetails, renderMCPResult } from "@oh-my-pi/pi-tui/tools/mcp";
+import type { AgentTool, AgentToolContext } from "@oh-my-soup/pi-agent-core";
+import { TempDir } from "@oh-my-soup/pi-utils";
+import { getThemeByName, initTheme } from "@oh-my-soup/pi-tui/theme";
+import { type MCPToolDetails, renderMCPResult } from "@oh-my-soup/pi-tui/tools/mcp";
 
 import { resetSettingsForTest, Settings } from "../../src/config/settings";
 import type { CustomToolContext, CustomToolResult } from "../../src/extensibility/custom-tools/types";

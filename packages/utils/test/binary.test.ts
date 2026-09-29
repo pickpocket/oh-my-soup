@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { isProbablyBinary, isProbablyBinaryHeader, isProbablyBinarySync } from "@oh-my-pi/pi-utils/binary";
+import { isProbablyBinary, isProbablyBinaryHeader, isProbablyBinarySync } from "@oh-my-soup/pi-utils/binary";
 
 describe("isProbablyBinaryHeader", () => {
 	it("treats empty input as text", () => {

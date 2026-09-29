@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import { renderDemotedThinking } from "@oh-my-pi/pi-ai/dialect";
-import { convertAnthropicMessages, streamAnthropic } from "@oh-my-pi/pi-ai/providers/anthropic";
+import { renderDemotedThinking } from "@oh-my-soup/pi-ai/dialect";
+import { convertAnthropicMessages, streamAnthropic } from "@oh-my-soup/pi-ai/providers/anthropic";
 import type {
 	AssistantMessage,
 	Message,
@@ -8,8 +8,8 @@ import type {
 	ModelSpec,
 	ToolResultMessage,
 	UserMessage,
-} from "@oh-my-pi/pi-ai/types";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
+} from "@oh-my-soup/pi-ai/types";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
 
 /**
  * Regression: Anthropic-compatible reasoning endpoints often emit `thinking`

@@ -1,5 +1,5 @@
-import type { ImageContent, Model } from "@oh-my-pi/pi-ai";
-import { formatBytes, parseImageMetadata, SUPPORTED_IMAGE_MIME_TYPES } from "@oh-my-pi/pi-utils";
+import type { ImageContent, Model } from "@oh-my-soup/pi-ai";
+import { formatBytes, parseImageMetadata, SUPPORTED_IMAGE_MIME_TYPES } from "@oh-my-soup/pi-utils";
 
 export const MAX_IMAGE_INPUT_BYTES = 20 * 1024 * 1024;
 

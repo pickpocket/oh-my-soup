@@ -3,29 +3,29 @@ import * as fs from "node:fs";
 import * as fsp from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { AgentToolResult, RenderResultOptions } from "@oh-my-pi/pi-agent-core";
-import { arkToWireSchema } from "@oh-my-pi/pi-ai/utils/schema";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { preloadPluginRoots } from "@oh-my-pi/pi-coding-agent/discovery/helpers";
+import type { AgentToolResult, RenderResultOptions } from "@oh-my-soup/pi-agent-core";
+import { arkToWireSchema } from "@oh-my-soup/pi-ai/utils/schema";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { preloadPluginRoots } from "@oh-my-soup/pi-coding-agent/discovery/helpers";
 import { restoreEnvValue } from "../helpers/settings-test-state";
-import { createLspWritethrough, LspTool } from "@oh-my-pi/pi-coding-agent/lsp";
-import * as lspClient from "@oh-my-pi/pi-coding-agent/lsp/client";
-import * as lspConfig from "@oh-my-pi/pi-coding-agent/lsp/config";
+import { createLspWritethrough, LspTool } from "@oh-my-soup/pi-coding-agent/lsp";
+import * as lspClient from "@oh-my-soup/pi-coding-agent/lsp/client";
+import * as lspConfig from "@oh-my-soup/pi-coding-agent/lsp/config";
 import {
 	configCache,
 	getConfig,
 	getServersForFile,
 	type LspConfig,
 	loadConfig,
-} from "@oh-my-pi/pi-coding-agent/lsp/config";
-import { waitForDiagnostics } from "@oh-my-pi/pi-coding-agent/lsp/diagnostics";
+} from "@oh-my-soup/pi-coding-agent/lsp/config";
+import { waitForDiagnostics } from "@oh-my-soup/pi-coding-agent/lsp/diagnostics";
 import {
 	applyTextEditsToString,
 	applyWorkspaceEdit,
 	type ExecutedWorkspaceChange,
 	sortAndValidateTextEdits,
-} from "@oh-my-pi/pi-coding-agent/lsp/edits";
-import { renderCall, renderResult } from "@oh-my-pi/pi-tui/tools/lsp";
+} from "@oh-my-soup/pi-coding-agent/lsp/edits";
+import { renderCall, renderResult } from "@oh-my-soup/pi-tui/tools/lsp";
 import {
 	type CodeAction,
 	type CreateFile,
@@ -38,8 +38,8 @@ import {
 	type SymbolInformation,
 	type TextDocumentEdit,
 	type WorkspaceEdit,
-} from "@oh-my-pi/pi-coding-agent/lsp/types";
-import { type LspToolDetails } from "@oh-my-pi/pi-tui/tools/lsp";
+} from "@oh-my-soup/pi-coding-agent/lsp/types";
+import { type LspToolDetails } from "@oh-my-soup/pi-tui/tools/lsp";
 import {
 	applyCodeAction,
 	collectGlobMatches,
@@ -51,17 +51,17 @@ import {
 	resolveDiagnosticTargets,
 	resolveSymbolColumn,
 	uriToFile,
-} from "@oh-my-pi/pi-coding-agent/lsp/utils";
-import { getThemeByName, initTheme } from "@oh-my-pi/pi-tui/theme";
-import type { ToolSession } from "@oh-my-pi/pi-coding-agent/tools";
-import { ToolAbortError } from "@oh-my-pi/pi-coding-agent/tools/tool-errors";
-import { clampTimeout } from "@oh-my-pi/pi-coding-agent/tools/tool-timeouts";
-import * as piUtils from "@oh-my-pi/pi-utils";
-import { sanitizeText, TempDir } from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-coding-agent/lsp/utils";
+import { getThemeByName, initTheme } from "@oh-my-soup/pi-tui/theme";
+import type { ToolSession } from "@oh-my-soup/pi-coding-agent/tools";
+import { ToolAbortError } from "@oh-my-soup/pi-coding-agent/tools/tool-errors";
+import { clampTimeout } from "@oh-my-soup/pi-coding-agent/tools/tool-timeouts";
+import * as piUtils from "@oh-my-soup/pi-utils";
+import { sanitizeText, TempDir } from "@oh-my-soup/pi-utils";
 import type { Subprocess } from "bun";
 import DEFAULTS from "../../src/lsp/defaults.json" with { type: "json" };
-import { renderResult as renderLocalResult } from "@oh-my-pi/pi-tui/tools/lsp";
-import { getLanguageFromPath } from "@oh-my-pi/pi-tui/lang-from-path";
+import { renderResult as renderLocalResult } from "@oh-my-soup/pi-tui/tools/lsp";
+import { getLanguageFromPath } from "@oh-my-soup/pi-tui/lang-from-path";
 
 const lspTestSettings = Settings.isolated();
 
@@ -319,7 +319,7 @@ function textResult(result: AgentToolResult<LspToolDetails>): string {
 }
 
 /**
- * `loadConfig` walks the user config directories (~/.omp/agent, ~/.pi/agent,
+ * `loadConfig` walks the user config directories (~/.oms/agent, ~/.pi/agent,
  * ~/.claude), which resolve from os.homedir(). A developer with a real
  * lsp.json there flips loadConfig off its auto-detect path onto the override
  * path, where their rootMarkers replace the packaged ones — so these tests
@@ -4946,9 +4946,9 @@ describe("lsp regressions", () => {
 		expect(output).toContain("typescript-language-server (ready)");
 	});
 
-	it("reload * invalidates the per-cwd config cache so newly written .omp/lsp.json is observed", async () => {
+	it("reload * invalidates the per-cwd config cache so newly written .oms/lsp.json is observed", async () => {
 		// #3546: `getConfig` caches the first `loadConfig` result per cwd
-		// permanently. Creating `.omp/lsp.json` after the first LSP call left
+		// permanently. Creating `.oms/lsp.json` after the first LSP call left
 		// the tool stuck on "No language servers configured" until the process
 		// restarted. `reload *` (the user's explicit refresh) must invalidate
 		// that cache so subsequent calls observe the fresh config from disk.

@@ -7,7 +7,7 @@ import { buildArchiveBase64 } from "../scripts/generate-client-bundle";
 const tempDirs: string[] = [];
 
 async function createFixture(order: readonly string[]): Promise<string> {
-	const root = await fs.mkdtemp(path.join(os.tmpdir(), "omp-stats-archive-"));
+	const root = await fs.mkdtemp(path.join(os.tmpdir(), "oms-stats-archive-"));
 	tempDirs.push(root);
 	for (const relativePath of order) {
 		const filePath = path.join(root, relativePath);

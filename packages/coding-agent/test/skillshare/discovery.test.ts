@@ -2,21 +2,21 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import "@oh-my-pi/pi-coding-agent/discovery";
-import { clearCache as clearFsCache } from "@oh-my-pi/pi-coding-agent/capability/fs";
-import { loadSkillshareSkills } from "@oh-my-pi/pi-coding-agent/discovery/skillshare";
-import { loadSkills } from "@oh-my-pi/pi-coding-agent/extensibility/skills";
-import { SkillProtocolHandler } from "@oh-my-pi/pi-coding-agent/internal-urls/skill-protocol";
-import { parseInternalUrl } from "@oh-my-pi/pi-coding-agent/internal-urls/parse";
+import "@oh-my-soup/pi-coding-agent/discovery";
+import { clearCache as clearFsCache } from "@oh-my-soup/pi-coding-agent/capability/fs";
+import { loadSkillshareSkills } from "@oh-my-soup/pi-coding-agent/discovery/skillshare";
+import { loadSkills } from "@oh-my-soup/pi-coding-agent/extensibility/skills";
+import { SkillProtocolHandler } from "@oh-my-soup/pi-coding-agent/internal-urls/skill-protocol";
+import { parseInternalUrl } from "@oh-my-soup/pi-coding-agent/internal-urls/parse";
 import {
 	getSkillshareStoreDir,
 	getSkillStorePath,
 	STORE_INTEGRITY_FILE,
 	type SkillsLock,
 	writeSkillsLock,
-} from "@oh-my-pi/pi-coding-agent/skillshare/manifest";
-import { removeWithRetries } from "@oh-my-pi/pi-utils";
-import { getAgentDir, setAgentDir } from "@oh-my-pi/pi-utils/dirs";
+} from "@oh-my-soup/pi-coding-agent/skillshare/manifest";
+import { removeWithRetries } from "@oh-my-soup/pi-utils";
+import { getAgentDir, setAgentDir } from "@oh-my-soup/pi-utils/dirs";
 
 function lockEntry(scope: string, name: string, version: string) {
 	return {

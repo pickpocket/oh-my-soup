@@ -21,7 +21,7 @@
  */
 
 import * as fs from "node:fs/promises";
-import { logger, untilAborted } from "@oh-my-pi/pi-utils";
+import { logger, untilAborted } from "@oh-my-soup/pi-utils";
 import type { AgentSession } from "../session/agent-session";
 import { trackLateCleanup } from "../utils/late-cleanup";
 import {

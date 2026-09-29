@@ -6,7 +6,7 @@ import {
 	isVertexRawPredictUrl,
 	modelMatchesHost,
 	resolveVertexEndpointHost,
-} from "@oh-my-pi/pi-catalog/hosts";
+} from "@oh-my-soup/pi-catalog/hosts";
 
 describe("hostMatchesUrl", () => {
 	test("matches OpenRouter URLs and rejects other or missing URLs", () => {

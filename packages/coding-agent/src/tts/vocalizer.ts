@@ -37,8 +37,8 @@
  * questions); the event controller wires the per-session model source and
  * enhancer via {@link Vocalizer.setModelSource} and {@link Vocalizer.setEnhancer}.
  */
-import type { ModelBrowserRegistry } from "@oh-my-pi/pi-tui/overlays/model-browser";
-import { logger } from "@oh-my-pi/pi-utils";
+import type { ModelBrowserRegistry } from "@oh-my-soup/pi-tui/overlays/model-browser";
+import { logger } from "@oh-my-soup/pi-utils";
 import { resolveRoleChain } from "../config/model-resolver";
 import { roleCandidatePool } from "../config/model-roles";
 import { type Settings, settings } from "../config/settings";

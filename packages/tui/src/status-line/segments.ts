@@ -1,7 +1,7 @@
 import * as os from "node:os";
 import * as path from "node:path";
-import { ThinkingLevel } from "@oh-my-pi/pi-agent-core";
-import { getTimeBasedPricingPeriod } from "@oh-my-pi/pi-catalog/models";
+import { ThinkingLevel } from "@oh-my-soup/pi-agent-core";
+import { getTimeBasedPricingPeriod } from "@oh-my-soup/pi-catalog/models";
 import { SPINNER_ADVANCE_MS, TERMINAL } from "../index";
 import {
 	formatDuration,
@@ -9,7 +9,7 @@ import {
 	getProjectDir,
 	normalizePathForComparison,
 	relativePathWithinNormalizedRoot,
-} from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-utils";
 import { type SymbolKey, type Theme, type ThemeColor, theme } from "../theme";
 import { shortenPath, TRUNCATE_LENGTHS, truncateToWidth } from "../render/render-utils";
 import { fileHyperlink } from "../render/hyperlink";

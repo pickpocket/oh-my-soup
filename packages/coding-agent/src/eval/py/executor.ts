@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 
-import { getProjectDir, logger, Snowflake } from "@oh-my-pi/pi-utils";
-import type { OutputArtifactError } from "@oh-my-pi/pi-tui/tools/streaming-output";
+import { getProjectDir, logger, Snowflake } from "@oh-my-soup/pi-utils";
+import type { OutputArtifactError } from "@oh-my-soup/pi-tui/tools/streaming-output";
 import type { ToolSession } from "../../tools";
 import {
 	buildManagedKernelEnv,

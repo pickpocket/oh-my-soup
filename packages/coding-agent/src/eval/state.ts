@@ -1,6 +1,6 @@
 import * as path from "node:path";
 
-import { escapeXmlText, prompt } from "@oh-my-pi/pi-utils";
+import { escapeXmlText, prompt } from "@oh-my-soup/pi-utils";
 import evalStateContextPrompt from "../prompts/system/eval-state-context.md" with { type: "text" };
 import type { ToolSession } from "../tools";
 import { defaultEvalSessionId } from "./session-id";

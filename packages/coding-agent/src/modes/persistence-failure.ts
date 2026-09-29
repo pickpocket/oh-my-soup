@@ -1,5 +1,5 @@
-import { sanitizeText } from "@oh-my-pi/pi-utils";
-import { replaceTabs, TRUNCATE_LENGTHS, truncateToWidth } from "@oh-my-pi/pi-tui/render/render-utils";
+import { sanitizeText } from "@oh-my-soup/pi-utils";
+import { replaceTabs, TRUNCATE_LENGTHS, truncateToWidth } from "@oh-my-soup/pi-tui/render/render-utils";
 
 /**
  * First-failure notice. The store keeps the unlanded entries in memory and

@@ -120,9 +120,9 @@ export async function embedNativeAddon({
 		// identify their release by the legacy export, which the loader accepts.
 		if (!containsVersionStamp(bytes, version) && !containsLegacyVersionSentinel(bytes, version)) {
 			throw new Error(
-				`Native addon ${addon.path} does not carry the @oh-my-pi/pi-natives@${version} version stamp ` +
+				`Native addon ${addon.path} does not carry the @oh-my-soup/pi-natives@${version} version stamp ` +
 					`\`${VERSION_STAMP_MAGIC}${version}\`. Rebuild it (installs stamp automatically), run ` +
-					`\`bun scripts/stamp-native-version.ts ${addon.path}\`, or fetch @oh-my-pi/pi-natives-${platformTag}@${version} before embedding.`,
+					`\`bun scripts/stamp-native-version.ts ${addon.path}\`, or fetch @oh-my-soup/pi-natives-${platformTag}@${version} before embedding.`,
 			);
 		}
 		archiveEntries[addon.filename] = bytes;

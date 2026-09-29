@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { InternalUrlRouter } from "@oh-my-pi/pi-coding-agent/internal-urls";
+import { InternalUrlRouter } from "@oh-my-soup/pi-coding-agent/internal-urls";
 
 describe("OmpProtocolHandler", () => {
 	it("treats omp://docs as the documentation root", async () => {

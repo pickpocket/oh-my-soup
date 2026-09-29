@@ -1,8 +1,8 @@
 import { Database } from "bun:sqlite";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { type Api, completeSimple, type Model } from "@oh-my-pi/pi-ai";
-import { getAgentDir, logger, prompt } from "@oh-my-pi/pi-utils";
+import { type Api, completeSimple, type Model } from "@oh-my-soup/pi-ai";
+import { getAgentDir, logger, prompt } from "@oh-my-soup/pi-utils";
 import type { ModelRegistry } from "../config/model-registry";
 import { getModelMatchPreferences, parseModelPattern, resolveRoleSelection } from "../config/model-resolver";
 import type { Settings } from "../config/settings";

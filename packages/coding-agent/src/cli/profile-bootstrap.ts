@@ -2,7 +2,7 @@
  * Bootstrap-time argv preparser for the global `--profile` / `--alias` flags.
  *
  * Profile selection MUST happen before any module reads `getAgentDir()` (notably
- * `@oh-my-pi/pi-utils/env`, which eagerly loads `.env` from the agent directory
+ * `@oh-my-soup/pi-utils/env`, which eagerly loads `.env` from the agent directory
  * during its own import). The full `parseArgs` from `./args.ts` lives downstream
  * of those imports, so we can't rely on it for profile bootstrap — we have to
  * crack open argv before the lazy command modules load.

@@ -1,4 +1,4 @@
-import { toNumber } from "@oh-my-pi/pi-catalog/utils";
+import { toNumber } from "@oh-my-soup/pi-catalog/utils";
 import type { UsageFetchContext, UsageFetchParams, UsageLimit, UsageProvider, UsageReport } from "../usage";
 import { isRecord } from "../utils";
 import { HOUR_MS, parsePositiveTimestamp, usageStatus } from "./shared";

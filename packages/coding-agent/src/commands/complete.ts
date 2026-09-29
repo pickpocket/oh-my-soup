@@ -8,8 +8,8 @@
  * first field. The import surface is kept deliberately narrow so a TAB press
  * doesn't pay for the full agent boot.
  */
-import { type GeneratedProvider, getBundledModels, getBundledProviders } from "@oh-my-pi/pi-catalog/models";
-import { Command } from "@oh-my-pi/pi-utils/cli";
+import { type GeneratedProvider, getBundledModels, getBundledProviders } from "@oh-my-soup/pi-catalog/models";
+import { Command } from "@oh-my-soup/pi-utils/cli";
 import { completeHelp as commandHelp } from "../cli/command-help";
 import { SessionManager } from "../session/session-manager";
 

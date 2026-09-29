@@ -2,12 +2,12 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { type ContextFile, contextFileCapability } from "@oh-my-pi/pi-coding-agent/capability/context-file";
-import { resetSettingsForTest, Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { initializeWithSettings, loadCapability } from "@oh-my-pi/pi-coding-agent/discovery";
-import { isShadowedExtension } from "@oh-my-pi/pi-tui/overlays/extensions/types";
-import { loadAllExtensions } from "@oh-my-pi/pi-coding-agent/modes/components/extensions/state-manager";
-import { __resetDirsFromEnvForTests, removeWithRetries, setAgentDir } from "@oh-my-pi/pi-utils";
+import { type ContextFile, contextFileCapability } from "@oh-my-soup/pi-coding-agent/capability/context-file";
+import { resetSettingsForTest, Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { initializeWithSettings, loadCapability } from "@oh-my-soup/pi-coding-agent/discovery";
+import { isShadowedExtension } from "@oh-my-soup/pi-tui/overlays/extensions/types";
+import { loadAllExtensions } from "@oh-my-soup/pi-coding-agent/modes/components/extensions/state-manager";
+import { __resetDirsFromEnvForTests, removeWithRetries, setAgentDir } from "@oh-my-soup/pi-utils";
 
 function restoreEnvValue(key: string, value: string | undefined): void {
 	if (value === undefined) {
@@ -143,7 +143,7 @@ describe("disabledExtensions runtime filtering", () => {
 	});
 
 	test("marks a disabled lower-priority row shadowed when an enabled higher-priority item owns the key", async () => {
-		// Enabled builtin .omp/AGENTS.md (priority 100) already exists at project
+		// Enabled builtin .oms/AGENTS.md (priority 100) already exists at project
 		// depth 0 from beforeEach; add a lower-priority .gemini/GEMINI.md at the
 		// same depth and disable it.
 		await fs.mkdir(path.join(tempDir, ".gemini"), { recursive: true });

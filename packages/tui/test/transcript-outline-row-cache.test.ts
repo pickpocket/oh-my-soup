@@ -7,8 +7,8 @@
  * it had before.
  */
 import { describe, expect, it } from "bun:test";
-import { OutlineRowCache } from "@oh-my-pi/pi-tui/chat/transcript-outline";
-import type { Component } from "@oh-my-pi/pi-tui";
+import { OutlineRowCache } from "@oh-my-soup/pi-tui/chat/transcript-outline";
+import type { Component } from "@oh-my-soup/pi-tui";
 
 /** A child that honors the render contract: same array until its rows change. */
 function child(initial: string): Component & { update(text: string): void; strips: number } {

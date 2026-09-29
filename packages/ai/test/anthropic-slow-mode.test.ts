@@ -1,14 +1,14 @@
 import { describe, expect, it } from "bun:test";
-import { streamAnthropic } from "@oh-my-pi/pi-ai/providers/anthropic";
+import { streamAnthropic } from "@oh-my-soup/pi-ai/providers/anthropic";
 import {
 	type AnthropicSlowModeFailure,
 	type AnthropicSlowModeHooks,
 	type AnthropicSlowModeRetry,
 	type AnthropicSlowModeSignal,
 	parseAnthropicSlowModeHeaders,
-} from "@oh-my-pi/pi-ai/providers/anthropic-slow-mode";
-import type { Context, Model } from "@oh-my-pi/pi-ai/types";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
+} from "@oh-my-soup/pi-ai/providers/anthropic-slow-mode";
+import type { Context, Model } from "@oh-my-soup/pi-ai/types";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
 import { withOfficialAnthropicEndpoint } from "./helpers";
 
 withOfficialAnthropicEndpoint();

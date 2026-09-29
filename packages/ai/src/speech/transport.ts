@@ -1,6 +1,6 @@
-import { calculateCost } from "@oh-my-pi/pi-catalog/models";
-import type { Api, Model, Usage } from "@oh-my-pi/pi-catalog/types";
-import { USER_AGENT } from "@oh-my-pi/pi-utils";
+import { calculateCost } from "@oh-my-soup/pi-catalog/models";
+import type { Api, Model, Usage } from "@oh-my-soup/pi-catalog/types";
+import { USER_AGENT } from "@oh-my-soup/pi-utils";
 import { withAuth } from "../auth-retry";
 import * as AIError from "../error";
 import { SPEECH_FORMAT_MIME_TYPES, type SpeechFormat, type SpeechOptions, type SpeechResult } from "./types";

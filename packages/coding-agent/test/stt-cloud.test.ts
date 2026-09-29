@@ -1,15 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
-import * as transcription from "@oh-my-pi/pi-ai/transcription";
-import type { TranscriptionResult } from "@oh-my-pi/pi-ai/transcription";
-import { getBundledModel } from "@oh-my-pi/pi-catalog/models";
-import type { Model } from "@oh-my-pi/pi-catalog/types";
-import { Settings, settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import * as asrClient from "@oh-my-pi/pi-coding-agent/stt/asr-client";
-import * as downloader from "@oh-my-pi/pi-coding-agent/stt/downloader";
-import { STTController } from "@oh-my-pi/pi-coding-agent/stt/stt-controller";
+import * as transcription from "@oh-my-soup/pi-ai/transcription";
+import type { TranscriptionResult } from "@oh-my-soup/pi-ai/transcription";
+import { getBundledModel } from "@oh-my-soup/pi-catalog/models";
+import type { Model } from "@oh-my-soup/pi-catalog/types";
+import { Settings, settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import * as asrClient from "@oh-my-soup/pi-coding-agent/stt/asr-client";
+import * as downloader from "@oh-my-soup/pi-coding-agent/stt/downloader";
+import { STTController } from "@oh-my-soup/pi-coding-agent/stt/stt-controller";
 import { beginSettingsTest, restoreSettingsTestState, type SettingsTestState } from "./helpers/settings-test-state";
 
-import { cfgSttLanguage, cfgSttSubmitTrigger } from "@oh-my-pi/pi-coding-agent/stt/settings";
+import { cfgSttLanguage, cfgSttSubmitTrigger } from "@oh-my-soup/pi-coding-agent/stt/settings";
 
 const ZERO_USAGE = {
 	input: 0,

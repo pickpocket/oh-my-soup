@@ -3,21 +3,21 @@ import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 // Browser global read inside page.evaluate callbacks; absent from bun-types.
 declare const devicePixelRatio: number;
 
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
 import {
 	acquireBrowser,
 	type BrowserHandle,
 	holdBrowser,
 	releaseBrowser,
-} from "@oh-my-pi/pi-coding-agent/tools/browser/registry";
-import type { ReadyInfo, WorkerInbound, WorkerOutbound } from "@oh-my-pi/pi-coding-agent/tools/browser/tab-protocol";
+} from "@oh-my-soup/pi-coding-agent/tools/browser/registry";
+import type { ReadyInfo, WorkerInbound, WorkerOutbound } from "@oh-my-soup/pi-coding-agent/tools/browser/tab-protocol";
 import {
 	acquireTab,
 	initializeTabWorkerForTest,
 	releaseTab,
 	runInTab,
-} from "@oh-my-pi/pi-coding-agent/tools/browser/tab-supervisor";
-import type { ToolSession } from "@oh-my-pi/pi-coding-agent/tools/index";
+} from "@oh-my-soup/pi-coding-agent/tools/browser/tab-supervisor";
+import type { ToolSession } from "@oh-my-soup/pi-coding-agent/tools/index";
 import { chromiumAvailable, visibleBrowserAvailable } from "./chromium-probe";
 
 const CHROMIUM_AVAILABLE = await chromiumAvailable();

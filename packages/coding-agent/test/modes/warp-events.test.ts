@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "bun:test";
 import * as path from "node:path";
-import * as terminalCapabilities from "@oh-my-pi/pi-tui/terminal-capabilities";
-import { VERSION } from "@oh-my-pi/pi-utils/dirs";
+import * as terminalCapabilities from "@oh-my-soup/pi-tui/terminal-capabilities";
+import { VERSION } from "@oh-my-soup/pi-utils/dirs";
 import type {
 	AgentEndEvent,
 	AgentStartEvent,

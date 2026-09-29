@@ -53,19 +53,19 @@
 	"skipped": [
 		{
 			"name": "declares only `input` as the model-facing field",
-			"reason": "omptype/schema validation is TypeScript-owned and outside Rust engine parity."
+			"reason": "omstype/schema validation is TypeScript-owned and outside Rust engine parity."
 		},
 		{
 			"name": "tolerates provider extra fields without declaring `path`",
-			"reason": "omptype/schema validation is TypeScript-owned and outside Rust engine parity."
+			"reason": "omstype/schema validation is TypeScript-owned and outside Rust engine parity."
 		},
 		{
 			"name": "rejects `_input` as an alias for `input`",
-			"reason": "omptype/schema validation is TypeScript-owned and outside Rust engine parity."
+			"reason": "omstype/schema validation is TypeScript-owned and outside Rust engine parity."
 		},
 		{
 			"name": "still requires `input`",
-			"reason": "omptype/schema validation is TypeScript-owned and outside Rust engine parity."
+			"reason": "omstype/schema validation is TypeScript-owned and outside Rust engine parity."
 		}
 	]
 }

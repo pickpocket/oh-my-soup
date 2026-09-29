@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * Token-usage audit over the local omp session corpus (~/.omp/agent/sessions/).
+ * Token-usage audit over the local omp session corpus (~/.oms/agent/sessions/).
  *
  * Phase 1 (scan, no LLM): walks recent sessions, sums *real* per-request usage
  * (input/output/cacheRead/cacheWrite + nominal cost recorded in each assistant
@@ -9,7 +9,7 @@
  * failures, compactions).
  *
  * Phase 2 (classify): for the costliest sessions, builds a compact digest and
- * asks a small model (default: anthropic/claude-sonnet-4-6 via @oh-my-pi/pi-ai)
+ * asks a small model (default: anthropic/claude-sonnet-4-6 via @oh-my-soup/pi-ai)
  * to judge:
  *   a) session hygiene — multiple topics in one chat, missed handoff points,
  *   b) task-spawn quality — wasteful spawns, context-transfer failures,
@@ -23,7 +23,7 @@
  *   bun scripts/session-stats/audit.ts --json out.json
  *
  * Auth: resolves an API key for the classifier provider through omp's auth
- * storage (~/.omp/agent/agent.db: stored key, OAuth, or env var fallback).
+ * storage (~/.oms/agent/agent.db: stored key, OAuth, or env var fallback).
  */
 
 import type { Dirent } from "node:fs";
@@ -39,9 +39,9 @@ import {
 	SqliteAuthCredentialStore,
 	type Tool,
 	type ToolCall,
-} from "@oh-my-pi/pi-ai";
-import { type GeneratedProvider, getBundledModel } from "@oh-my-pi/pi-catalog/models";
-import { getAgentDbPath, isEnoent } from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-ai";
+import { type GeneratedProvider, getBundledModel } from "@oh-my-soup/pi-catalog/models";
+import { getAgentDbPath, isEnoent } from "@oh-my-soup/pi-utils";
 import SYSTEM_PROMPT from "./audit-prompt.md" with { type: "text" };
 
 const SESSIONS_ROOT = path.join(os.homedir(), ".omp", "agent", "sessions");
@@ -106,7 +106,7 @@ function parseCli(argv: string[]): CliOptions {
 	});
 	if (values.help) {
 		console.log(
-			`session audit — token usage analysis over ~/.omp/agent/sessions\n\n` +
+			`session audit — token usage analysis over ~/.oms/agent/sessions\n\n` +
 				`  --since <12h|3d|1w|1mo>  window by session mtime (default 1w)\n` +
 				`  --folder <substr>        only folders containing substring\n` +
 				`  --exclude <substr>       drop folders containing substring\n` +
@@ -117,7 +117,7 @@ function parseCli(argv: string[]): CliOptions {
 				`  --json <file>            write full machine-readable results\n` +
 				`  --digest-dir <dir>       dump per-session digests fed to the model\n` +
 				`  --session <substr>       classify sessions whose id/title matches (ignores --min-cost)\n` +
-				`  --no-cache               skip the verdict cache (~/.omp/stats-audit-cache.json)\n` +
+				`  --no-cache               skip the verdict cache (~/.oms/stats-audit-cache.json)\n` +
 				`  --no-llm                 scan + report only\n` +
 				`  --limit <n>              scan at most n session groups (debug)`,
 		);

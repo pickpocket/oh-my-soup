@@ -2,11 +2,11 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 
-import { Snowflake, untilAborted } from "@oh-my-pi/pi-utils";
+import { Snowflake, untilAborted } from "@oh-my-soup/pi-utils";
 import type { ElementHandle, ElementScreenshotOptions, Frame, KeyInput, Page } from "puppeteer-core";
 import { formatScreenshot, resizeImage } from "../../utils/image-resize";
 import { throwIfAborted } from "../tool-errors";
-import { ToolError } from "@oh-my-pi/pi-tui/tools/tool-errors";
+import { ToolError } from "@oh-my-soup/pi-tui/tools/tool-errors";
 import { type AriaSnapshotOptions, buildAriaSnapshotScript } from "./aria/aria-snapshot";
 import { clickElement, fillViaHandle } from "./interactions";
 import { RunOutput } from "./run-output";

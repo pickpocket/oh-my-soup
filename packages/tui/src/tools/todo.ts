@@ -2,8 +2,8 @@ import type { ToolRenderer } from "./renderer";
 
 import type { Component } from "../index";
 import { Text } from "../index";
-import { sanitizeText } from "@oh-my-pi/pi-utils";
-import chalk from "@oh-my-pi/pi-utils/chalk";
+import { sanitizeText } from "@oh-my-soup/pi-utils";
+import chalk from "@oh-my-soup/pi-utils/chalk";
 import type { RenderResultOptions } from "./renderer";
 import type { Theme } from "../theme/theme";
 

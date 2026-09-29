@@ -17,14 +17,14 @@ import {
 	replaceTabs,
 	truncateToWidth,
 	TUI,
-} from "@oh-my-pi/pi-tui";
-import { formatKeyHint } from "@oh-my-pi/pi-tui/app-keybindings";
+} from "@oh-my-soup/pi-tui";
+import { formatKeyHint } from "@oh-my-soup/pi-tui/app-keybindings";
 import {
 	type WordCompletionEngine,
 	WordCompletionProvider,
 	type WordPredictionBackend,
-} from "@oh-my-pi/pi-tui/prompt/word-completion";
-import chalk from "@oh-my-pi/pi-utils/chalk";
+} from "@oh-my-soup/pi-tui/prompt/word-completion";
+import chalk from "@oh-my-soup/pi-utils/chalk";
 import { closeDaemonClients } from "../launch/client";
 import type { TextPredictMethod } from "../predict/protocol";
 import { closeTextPrediction, requestTextPrediction } from "../predict/client";

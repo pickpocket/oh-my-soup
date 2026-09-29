@@ -1,8 +1,8 @@
-import { toClinePassWireModelId } from "@oh-my-pi/pi-catalog/cline-pass-model-id";
-import type { Effort } from "@oh-my-pi/pi-catalog/effort";
-import { toFirepassWireModelId, toFireworksWireModelId } from "@oh-my-pi/pi-catalog/fireworks-model-id";
-import { getSupportedEfforts } from "@oh-my-pi/pi-catalog/model-thinking";
-import { calculateCost } from "@oh-my-pi/pi-catalog/models";
+import { toClinePassWireModelId } from "@oh-my-soup/pi-catalog/cline-pass-model-id";
+import type { Effort } from "@oh-my-soup/pi-catalog/effort";
+import { toFirepassWireModelId, toFireworksWireModelId } from "@oh-my-soup/pi-catalog/fireworks-model-id";
+import { getSupportedEfforts } from "@oh-my-soup/pi-catalog/model-thinking";
+import { calculateCost } from "@oh-my-soup/pi-catalog/models";
 import type {
 	OpenAICompat,
 	OpenAIReasoningDisableMode,
@@ -12,15 +12,15 @@ import type {
 	ResolvedOpenAIResponsesCompat,
 	ResolvedOpenAISharedCompat,
 	VercelGatewayRouting,
-} from "@oh-my-pi/pi-catalog/types";
-import { parseAlibabaTokenPlanCredential } from "@oh-my-pi/pi-catalog/wire/alibaba-token-plan";
+} from "@oh-my-soup/pi-catalog/types";
+import { parseAlibabaTokenPlanCredential } from "@oh-my-soup/pi-catalog/wire/alibaba-token-plan";
 import {
 	COREWEAVE_PROJECT_HEADER,
 	coreWeaveProjectHeaders,
 	hasCoreWeaveProjectHeader,
 	removeBlankCoreWeaveProjectHeaders,
-} from "@oh-my-pi/pi-catalog/wire/coreweave";
-import { parseGitHubCopilotApiKey } from "@oh-my-pi/pi-catalog/wire/github-copilot";
+} from "@oh-my-soup/pi-catalog/wire/coreweave";
+import { parseGitHubCopilotApiKey } from "@oh-my-soup/pi-catalog/wire/github-copilot";
 import {
 	$env,
 	classifyJsonPrefix,
@@ -33,7 +33,7 @@ import {
 	stringifyJson,
 	structuredCloneJSON,
 	USER_AGENT,
-} from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-utils";
 import { NO_AUTH_SENTINEL } from "../auth-retry";
 import * as AIError from "../error";
 import {

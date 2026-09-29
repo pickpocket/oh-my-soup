@@ -1,9 +1,9 @@
 import { describe, expect, it } from "bun:test";
-import { type } from "@oh-my-pi/omptype";
-import { streamOpenAICompletions } from "@oh-my-pi/pi-ai/providers/openai-completions";
-import { streamOpenAIResponses } from "@oh-my-pi/pi-ai/providers/openai-responses";
-import type { Context, Model, ModelSpec, Tool, ToolChoice } from "@oh-my-pi/pi-ai/types";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
+import { type } from "@oh-my-soup/omstype";
+import { streamOpenAICompletions } from "@oh-my-soup/pi-ai/providers/openai-completions";
+import { streamOpenAIResponses } from "@oh-my-soup/pi-ai/providers/openai-responses";
+import type { Context, Model, ModelSpec, Tool, ToolChoice } from "@oh-my-soup/pi-ai/types";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
 
 interface ChatCompletionsPayload {
 	tool_choice?: unknown;

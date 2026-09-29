@@ -1,14 +1,14 @@
 import { describe, expect, it } from "bun:test";
-import { convertAnthropicMessages } from "@oh-my-pi/pi-ai/providers/anthropic";
-import { transformMessages } from "@oh-my-pi/pi-ai/providers/transform-messages";
-import type { AssistantMessage, Message, Model, UserMessage } from "@oh-my-pi/pi-ai/types";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
+import { convertAnthropicMessages } from "@oh-my-soup/pi-ai/providers/anthropic";
+import { transformMessages } from "@oh-my-soup/pi-ai/providers/transform-messages";
+import type { AssistantMessage, Message, Model, UserMessage } from "@oh-my-soup/pi-ai/types";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
 
 /**
  * Regression test for: "messages.X.content.Y: `thinking` or `redacted_thinking` blocks in
  * the latest assistant message cannot be modified."
  *
- * Reproduces the shape captured in `~/.omp/logs/http-400-requests/*.json` after Claude
+ * Reproduces the shape captured in `~/.oms/logs/http-400-requests/*.json` after Claude
  * returns `stop_reason: "max_tokens"` mid-thinking. The provider records an assistant
  * message containing only a signed `thinking` block (no `text`, no `tool_use`). When the
  * next assistant turn lands without a real user message between them (the user typed an

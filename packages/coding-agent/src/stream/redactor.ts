@@ -1,4 +1,4 @@
-import { getAgentDir, getDotenvEnvValues, logger } from "@oh-my-pi/pi-utils";
+import { getAgentDir, getDotenvEnvValues, logger } from "@oh-my-soup/pi-utils";
 import { builtinCredentialSecretEntries, collectEnvSecrets, loadSecrets } from "../secrets";
 import { CREDENTIAL_PREFIX_RULES } from "../secrets/patterns";
 

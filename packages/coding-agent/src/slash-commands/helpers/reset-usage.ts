@@ -4,8 +4,8 @@
  * outcome code to a human message.
  */
 import type { ResetCreditAccountStatus, ResetCreditRedeemOutcome, ResetCreditTarget } from "../../session/auth-storage";
-import type { ResetUsageAccount } from "@oh-my-pi/pi-tui/overlays/reset-usage-selector";
-import { summarizeUsageResetCredits } from "@oh-my-pi/pi-tui/overlays/usage-display";
+import type { ResetUsageAccount } from "@oh-my-soup/pi-tui/overlays/reset-usage-selector";
+import { summarizeUsageResetCredits } from "@oh-my-soup/pi-tui/overlays/usage-display";
 
 const CODEX_PROVIDER_ID = "openai-codex";
 const CLAUDE_PROVIDER_ID = "anthropic";

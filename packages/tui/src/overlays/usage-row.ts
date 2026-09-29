@@ -1,6 +1,6 @@
-import type { Usage } from "@oh-my-pi/pi-ai";
+import type { Usage } from "@oh-my-soup/pi-ai";
 import { Container, Spacer } from "../index";
-import { formatDuration, formatNumber } from "@oh-my-pi/pi-utils";
+import { formatDuration, formatNumber } from "@oh-my-soup/pi-utils";
 import { theme } from "../theme/theme";
 import { formatMetricRow, MetricRow, type MetricSpec } from "../components/metric";
 

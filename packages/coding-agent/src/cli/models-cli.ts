@@ -5,18 +5,18 @@
  * - `ls` (default): list available chat models grouped by provider.
  * - `find <substring>`: list models of the selected kind whose provider, id, or name contains the substring.
  * - `refresh`: force an online catalog re-fetch (ignoring the model cache TTL),
- *   then list. This is the supported replacement for `rm -rf ~/.omp/models.db`
+ *   then list. This is the supported replacement for `rm -rf ~/.oms/models.db`
  *   when a provider ships a new model that the 24h cache has not picked up yet.
  *
  * `ls`/`find` use the cache when fresh (`online-if-uncached`); only `refresh`
  * forces the network (`online`).
  */
-import type { Api, Effort, Model } from "@oh-my-pi/pi-ai";
-import { sendsImageInputOnWire } from "@oh-my-pi/pi-ai/providers/vision-guard";
-import { getSupportedEfforts } from "@oh-my-pi/pi-catalog/model-thinking";
-import { modelKind, type ModelKind } from "@oh-my-pi/pi-catalog/types";
-import { formatNumber, getProjectDir } from "@oh-my-pi/pi-utils";
-import chalk from "@oh-my-pi/pi-utils/chalk";
+import type { Api, Effort, Model } from "@oh-my-soup/pi-ai";
+import { sendsImageInputOnWire } from "@oh-my-soup/pi-ai/providers/vision-guard";
+import { getSupportedEfforts } from "@oh-my-soup/pi-catalog/model-thinking";
+import { modelKind, type ModelKind } from "@oh-my-soup/pi-catalog/types";
+import { formatNumber, getProjectDir } from "@oh-my-soup/pi-utils";
+import chalk from "@oh-my-soup/pi-utils/chalk";
 import type { ConfigError } from "../config/config-file";
 import { ModelRegistry } from "../config/model-registry";
 import { Settings } from "../config/settings";

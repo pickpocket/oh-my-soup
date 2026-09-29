@@ -20,9 +20,9 @@
  */
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import type * as natives from "@oh-my-pi/pi-natives";
-import * as vcs from "@oh-my-pi/pi-natives/vcs";
-import { prompt } from "@oh-my-pi/pi-utils";
+import type * as natives from "@oh-my-soup/pi-natives";
+import * as vcs from "@oh-my-soup/pi-natives/vcs";
+import { prompt } from "@oh-my-soup/pi-utils";
 import isolationErrorTemplate from "../prompts/tools/isolation-error.md" with { type: "text" };
 import isolationSummaryTemplate from "../prompts/tools/isolation-summary.md" with { type: "text" };
 import { AgentLifecycleManager } from "../registry/agent-lifecycle";
@@ -33,7 +33,7 @@ import { trackLateCleanup } from "../utils/late-cleanup";
 import type { ExecutorOptions } from "./executor";
 import { runSubprocess } from "./executor";
 import { needsNativeTeardown, writeRetainedBackend } from "./isolation-ownership";
-import type { NestedRepoPatch, SingleResult } from "@oh-my-pi/pi-tui/tools/task";
+import type { NestedRepoPatch, SingleResult } from "@oh-my-soup/pi-tui/tools/task";
 import {
 	applyNestedPatches,
 	captureBaseline,

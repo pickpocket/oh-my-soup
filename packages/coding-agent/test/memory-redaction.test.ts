@@ -1,13 +1,13 @@
 import { describe, expect, it } from "bun:test";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
 import {
 	redactMemorySecrets,
 	redactMemoryTextFields,
 	redactRememberWrite,
-} from "@oh-my-pi/pi-coding-agent/memory-backend/redact";
-import { loadMnemopiConfig } from "@oh-my-pi/pi-coding-agent/mnemopi/config";
-import { loadMnemopi, loadMnemopiCore, MnemopiSessionState } from "@oh-my-pi/pi-coding-agent/mnemopi/state";
-import { TempDir } from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-coding-agent/memory-backend/redact";
+import { loadMnemopiConfig } from "@oh-my-soup/pi-coding-agent/mnemopi/config";
+import { loadMnemopi, loadMnemopiCore, MnemopiSessionState } from "@oh-my-soup/pi-coding-agent/mnemopi/state";
+import { TempDir } from "@oh-my-soup/pi-utils";
 
 const NPM_TOKEN = `npm_${"a1B2c3D4e5F6g7H8i9J0kLmNoPqRsTuVwXy".slice(0, 36)}`;
 const AWS_KEY = "AKIAIOSFODNN7EXAMPLE";

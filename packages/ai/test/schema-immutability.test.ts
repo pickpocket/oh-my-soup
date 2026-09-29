@@ -4,7 +4,7 @@ import {
 	schemaNeedsDraft202012Upgrade,
 	stripSchemaDescriptions,
 	toolWireSchema,
-} from "@oh-my-pi/pi-ai/utils/schema";
+} from "@oh-my-soup/pi-ai/utils/schema";
 
 it("normalizes frozen tool parameters without modifying caller-owned required fields", () => {
 	const parameters = Object.freeze({

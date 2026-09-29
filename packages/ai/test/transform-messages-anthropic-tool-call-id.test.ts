@@ -1,9 +1,9 @@
 // Custom same-model endpoints own opaque tool-call IDs; cross-model replay must
 // normalize them for the Anthropic target.
 import { describe, expect, it } from "bun:test";
-import { transformMessages } from "@oh-my-pi/pi-ai/providers/transform-messages";
-import type { AssistantMessage, Message, Model, ModelSpec, ToolResultMessage } from "@oh-my-pi/pi-ai/types";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
+import { transformMessages } from "@oh-my-soup/pi-ai/providers/transform-messages";
+import type { AssistantMessage, Message, Model, ModelSpec, ToolResultMessage } from "@oh-my-soup/pi-ai/types";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
 
 const ANTHROPIC_TOOL_CALL_ID = /^[a-zA-Z0-9_-]{1,64}$/;
 

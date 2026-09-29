@@ -93,7 +93,7 @@ describe("issue 823: standalone-binary native loader path resolution", () => {
 	});
 
 	it("places embedded-extracted candidates ahead of build-host candidates for linux-x64 standalone", () => {
-		const versionedDir = "/home/u/.omp/natives/14.5.2";
+		const versionedDir = "/home/u/.oms/natives/14.5.2";
 		const userDataDir = "/home/u/.local/bin";
 		const nativeDir = "/build-host/packages/natives/native";
 		const execDir = "/home/u/.local/bin";
@@ -112,7 +112,7 @@ describe("issue 823: standalone-binary native loader path resolution", () => {
 		const buildHostModern = path.join(nativeDir, "pi_natives.linux-x64-modern.node");
 
 		// Versioned cache and user-data dir candidates must exist for compiled binaries —
-		// these are where the embedded-addon extraction lands (~/.omp/natives/<v>) and where
+		// these are where the embedded-addon extraction lands (~/.oms/natives/<v>) and where
 		// `omp update` writes the standalone binary on linux (~/.local/bin).
 		expect(candidates).toContain(versionedModern);
 		expect(candidates).toContain(versionedBaseline);
@@ -124,15 +124,15 @@ describe("issue 823: standalone-binary native loader path resolution", () => {
 	});
 
 	it("prefers platform leaf package candidates ahead of core nativeDir candidates on npm installs", () => {
-		const leafPackageDir = "/app/node_modules/@oh-my-pi/pi-natives-linux-x64";
-		const nativeDir = "/app/node_modules/@oh-my-pi/pi-natives/native";
+		const leafPackageDir = "/app/node_modules/@oh-my-soup/pi-natives-linux-x64";
+		const nativeDir = "/app/node_modules/@oh-my-soup/pi-natives/native";
 		const candidates = resolveLoaderCandidates({
 			addonFilenames: getAddonFilenames({ tag: "linux-x64", arch: "x64", variant: "baseline" }),
 			isCompiledBinary: false,
 			leafPackageDir,
 			nativeDir,
 			execDir: "/app/node_modules/.bin",
-			versionedDir: "/home/u/.omp/natives/15.5.15",
+			versionedDir: "/home/u/.oms/natives/15.5.15",
 			userDataDir: "/home/u/.local/bin",
 		});
 
@@ -143,9 +143,9 @@ describe("issue 823: standalone-binary native loader path resolution", () => {
 	});
 
 	it("keeps Windows staging ahead of leaf package and core nativeDir candidates", () => {
-		const versionedDir = "/home/u/.omp/natives/15.5.15";
-		const leafPackageDir = "/app/node_modules/@oh-my-pi/pi-natives-win32-x64";
-		const nativeDir = "/app/node_modules/@oh-my-pi/pi-natives/native";
+		const versionedDir = "/home/u/.oms/natives/15.5.15";
+		const leafPackageDir = "/app/node_modules/@oh-my-soup/pi-natives-win32-x64";
+		const nativeDir = "/app/node_modules/@oh-my-soup/pi-natives/native";
 		const candidates = resolveLoaderCandidates({
 			addonFilenames: getAddonFilenames({ tag: "win32-x64", arch: "x64", variant: "baseline" }),
 			isCompiledBinary: false,
@@ -173,7 +173,7 @@ describe("issue 823: standalone-binary native loader path resolution", () => {
 			isCompiledBinary: false,
 			nativeDir,
 			execDir,
-			versionedDir: "/home/u/.omp/natives/15.5.15",
+			versionedDir: "/home/u/.oms/natives/15.5.15",
 			userDataDir: "/home/u/.local/bin",
 		});
 

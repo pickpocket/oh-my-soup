@@ -9,7 +9,7 @@
   - `packages/coding-agent/src/ida/settings.ts` — `ida.enabled`, `ida.python`, `ida.installDir`, `ida.maxOpen`, `ida.idleCloseSec` settings
   - `packages/coding-agent/src/ida/install.ts` — local install detection (`cfgIdaAvailable`, `cfgIdaInstall`)
   - `packages/coding-agent/src/ida/runtime.ts` — Python interpreter discovery (must import `ida_domain` + `idapro`)
-  - `packages/coding-agent/src/ida/store.ts` — executable sniffing, universal Mach-O slice selection, IDB location (`~/.omp/agent/idbs/<sha16>-<name>[.<arch>]/` or in place)
+  - `packages/coding-agent/src/ida/store.ts` — executable sniffing, universal Mach-O slice selection, IDB location (`~/.oms/agent/idbs/<sha16>-<name>[.<arch>]/` or in place)
   - `packages/coding-agent/src/ida/client.ts` — omp-side registry: starts/attaches hosts via the project broker, LRU eviction, request forwarding, flush on exit
   - `packages/coding-agent/src/ida/host.ts` — `omp.ida.<id>` daemon (`__omp_worker_ida_host`): IDB lock, socket server, SIGTERM save/close
   - `packages/coding-agent/src/ida/protocol.ts` — daemon naming, endpoints, host config and NDJSON wire schemas

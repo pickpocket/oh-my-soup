@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "bun:test";
-import { ProcessTerminal } from "@oh-my-pi/pi-tui/terminal";
-import { setTerminalHeadless } from "@oh-my-pi/pi-utils";
+import { ProcessTerminal } from "@oh-my-soup/pi-tui/terminal";
+import { setTerminalHeadless } from "@oh-my-soup/pi-utils";
 
 // #8542: a terminal Device-Attributes reply to omp's startup capability probe
 // leaks into the composer as literal text (`1;22;...;52c`) when it arrives

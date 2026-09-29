@@ -14,11 +14,11 @@
  *   against `bun:sqlite`.
  *
  * Tool artifacts and image blobs are out of scope: `ArtifactManager` /
- * `BlobStore` keep writing to `~/.omp/agent/...`. Reach for object storage
+ * `BlobStore` keep writing to `~/.oms/agent/...`. Reach for object storage
  * if you need those off-host too.
  */
 
-import { createAgentSession, SessionManager, SqlSessionStorage } from "@oh-my-pi/pi-coding-agent";
+import { createAgentSession, SessionManager, SqlSessionStorage } from "@oh-my-soup/pi-coding-agent";
 import { SQL } from "bun";
 
 // Pick one — Bun.SQL auto-detects the dialect from the URL scheme.

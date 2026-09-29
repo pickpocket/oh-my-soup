@@ -2,7 +2,7 @@
  * Inspect and control daemon-broker supervised processes from outside the harness.
  */
 
-import { Args, Command, Flags } from "@oh-my-pi/pi-utils/cli";
+import { Args, Command, Flags } from "@oh-my-soup/pi-utils/cli";
 import { psHelp as commandHelp } from "../cli/command-help";
 import { type PsAction, type PsCommandArgs, runPsCommand } from "../cli/ps-cli";
 

@@ -1,5 +1,5 @@
 import type { Page } from "puppeteer-core";
-import { ToolError } from "@oh-my-pi/pi-tui/tools/tool-errors";
+import { ToolError } from "@oh-my-soup/pi-tui/tools/tool-errors";
 
 /** Serializable description of an init script registered on one tab. */
 export interface InitScriptInfo {

@@ -10,8 +10,8 @@
  * only, so the cost is priced from the catalog model for the response header
  * and the broker's observed-usage ledger.
  */
-import { calculateCost } from "@oh-my-pi/pi-catalog/models";
-import { logger } from "@oh-my-pi/pi-utils";
+import { calculateCost } from "@oh-my-soup/pi-catalog/models";
+import { logger } from "@oh-my-soup/pi-utils";
 import { classifyGatewayError } from "../../error/gateway";
 import { isJudgmentApi, TypeSafeJudge } from "../../judgment/typesafe";
 import * as systemOne from "../../providers/systemone-server";

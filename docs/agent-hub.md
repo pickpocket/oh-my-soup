@@ -12,7 +12,7 @@ The Hub also discovers parked subagents from the current session's persisted art
 | `Ctrl+S`       | Open or close the same Hub through the legacy `app.session.observe` action.                    |
 | Double-tap `←` | Open the Hub from an empty main-session editor when the current session has an agent to show.  |
 
-Run `/hotkeys` to see the active chords. Remap either action in `~/.omp/agent/keybindings.yml`:
+Run `/hotkeys` to see the active chords. Remap either action in `~/.oms/agent/keybindings.yml`:
 
 ```yaml
 app.agents.hub: Alt+A

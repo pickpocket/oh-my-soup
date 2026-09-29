@@ -1,10 +1,10 @@
 import { dlopen, FFIType, ptr } from "bun:ffi";
 import * as fs from "node:fs";
-import { TtyWriter } from "@oh-my-pi/pi-natives";
-import { $env, isBunTestRuntime, isTerminalHeadless, isWsl } from "@oh-my-pi/pi-utils/env";
-import * as logger from "@oh-my-pi/pi-utils/logger";
-import * as postmortem from "@oh-my-pi/pi-utils/postmortem";
-import { restoreTerminalStderr, suppressTerminalStderr } from "@oh-my-pi/pi-utils/stderr-guard";
+import { TtyWriter } from "@oh-my-soup/pi-natives";
+import { $env, isBunTestRuntime, isTerminalHeadless, isWsl } from "@oh-my-soup/pi-utils/env";
+import * as logger from "@oh-my-soup/pi-utils/logger";
+import * as postmortem from "@oh-my-soup/pi-utils/postmortem";
+import { restoreTerminalStderr, suppressTerminalStderr } from "@oh-my-soup/pi-utils/stderr-guard";
 import {
 	encodeBundledGlyphRegistrations,
 	encodeGlyphCoverageQuery,

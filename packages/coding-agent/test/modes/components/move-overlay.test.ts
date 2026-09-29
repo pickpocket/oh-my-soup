@@ -3,15 +3,15 @@ import * as fs from "node:fs";
 import * as fsp from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { visibleWidth } from "@oh-my-pi/pi-tui";
+import { visibleWidth } from "@oh-my-soup/pi-tui";
 import { Settings } from "../../../src/config/settings";
-import { MoveOverlay, type MoveOverlayResult } from "@oh-my-pi/pi-tui/overlays/move-overlay";
+import { MoveOverlay, type MoveOverlayResult } from "@oh-my-soup/pi-tui/overlays/move-overlay";
 import {
 	moveDirectorySource,
 	resolveExistingDirectory,
 	resolveMovePath,
 } from "../../../src/modes/move-directory-source";
-import { getThemeByName, setThemeInstance, type Theme } from "@oh-my-pi/pi-tui/theme";
+import { getThemeByName, setThemeInstance, type Theme } from "@oh-my-soup/pi-tui/theme";
 
 // Strip SGR colors so assertions see visible text only.
 const stripAnsi = (text: string): string => text.replace(/\x1b\[[0-9;]*m/g, "");

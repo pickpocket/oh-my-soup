@@ -1,6 +1,6 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { getDaemonRuntimeDir } from "@oh-my-pi/pi-utils";
+import { getDaemonRuntimeDir } from "@oh-my-soup/pi-utils";
 import { canonicalProjectDir } from "../launch/paths";
 
 /**

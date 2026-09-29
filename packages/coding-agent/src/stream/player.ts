@@ -6,8 +6,8 @@
  * rows scroll into the terminal's native scrollback above it, so the output
  * stays inspectable after playback ends.
  */
-import { replaceTabs, truncateToWidth } from "@oh-my-pi/pi-tui";
-import type { StreamRow } from "@oh-my-pi/pi-wire";
+import { replaceTabs, truncateToWidth } from "@oh-my-soup/pi-tui";
+import type { StreamRow } from "@oh-my-soup/pi-wire";
 import { applyScreenFrame, type StreamScreen, type StreamScreenFrame } from "./protocol";
 import type { Recording } from "./recording";
 

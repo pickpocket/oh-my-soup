@@ -1,6 +1,6 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { getTinyModelsCacheDir, isEnoent, logger, withFileLock } from "@oh-my-pi/pi-utils";
+import { getTinyModelsCacheDir, isEnoent, logger, withFileLock } from "@oh-my-soup/pi-utils";
 import { withDownload } from "../downloads/activity";
 import { downloadFile } from "../utils/tools-manager";
 

@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
-import { streamOpenAICodexResponses } from "@oh-my-pi/pi-ai/providers/openai-codex-responses";
-import type { Context, FetchImpl, Model } from "@oh-my-pi/pi-ai/types";
-import { __resetProxyCache } from "@oh-my-pi/pi-ai/utils/proxy";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
-import * as piUtils from "@oh-my-pi/pi-utils";
+import { streamOpenAICodexResponses } from "@oh-my-soup/pi-ai/providers/openai-codex-responses";
+import type { Context, FetchImpl, Model } from "@oh-my-soup/pi-ai/types";
+import { __resetProxyCache } from "@oh-my-soup/pi-ai/utils/proxy";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
+import * as piUtils from "@oh-my-soup/pi-utils";
 import { withEnv } from "./helpers";
 
 const TEST_INSTALLATION_ID = "00000000-0000-4000-8000-000000000001";

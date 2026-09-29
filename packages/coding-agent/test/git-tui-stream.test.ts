@@ -2,17 +2,17 @@ import { beforeAll, describe, expect, test } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { DiffSide, DiffStream } from "@oh-my-pi/pi-natives";
-import { sanitizeText } from "@oh-my-pi/pi-utils";
+import { DiffSide, DiffStream } from "@oh-my-soup/pi-natives";
+import { sanitizeText } from "@oh-my-soup/pi-utils";
 import { $ } from "bun";
 import {
 	buildDiffDocument,
 	buildLineSelectionPatch,
 	type DiffBuildOptions,
 	DiffPane,
-} from "@oh-my-pi/pi-tui/apps/git/diff-pane";
+} from "@oh-my-soup/pi-tui/apps/git/diff-pane";
 import { GitModel } from "../src/cli/git-tui/state";
-import { initTheme } from "@oh-my-pi/pi-tui/theme";
+import { initTheme } from "@oh-my-soup/pi-tui/theme";
 
 const RED_PNG = Buffer.from(
 	"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC",

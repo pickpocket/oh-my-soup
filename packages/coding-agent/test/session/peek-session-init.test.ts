@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it } from "bun:test";
 import * as path from "node:path";
-import { getBundledModel } from "@oh-my-pi/pi-catalog/models";
-import { SessionManager } from "@oh-my-pi/pi-coding-agent/session/session-manager";
-import { FileSessionStorage, MemorySessionStorage } from "@oh-my-pi/pi-coding-agent/session/session-storage";
-import { TempDir } from "@oh-my-pi/pi-utils";
+import { getBundledModel } from "@oh-my-soup/pi-catalog/models";
+import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
+import { FileSessionStorage, MemorySessionStorage } from "@oh-my-soup/pi-coding-agent/session/session-storage";
+import { TempDir } from "@oh-my-soup/pi-utils";
 
 const tempDirs: TempDir[] = [];
 const LARGE_SESSION_BYTES = 9 * 1024 * 1024;

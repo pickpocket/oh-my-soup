@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { MODELS_DEV_PROVIDER_DESCRIPTORS, mapModelsDevToModels } from "@oh-my-pi/pi-catalog/provider-models";
+import { MODELS_DEV_PROVIDER_DESCRIPTORS, mapModelsDevToModels } from "@oh-my-soup/pi-catalog/provider-models";
 
 /**
  * Contract: bare Anthropic Claude foundation rows from models.dev/stencil.so

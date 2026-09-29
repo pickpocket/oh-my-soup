@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://raw.githubusercontent.com/can1357/oh-my-pi/main/packages/coding-agent/src/config/mcp-schema.json",
   "title": "OMP MCP configuration",
-  "description": "Schema for mcp.json, .mcp.json, .omp/mcp.json, and ~/.omp/agent/mcp.json used by the OMP coding agent.",
+  "description": "Schema for mcp.json, .mcp.json, .oms/mcp.json, and ~/.oms/agent/mcp.json used by the OMP coding agent.",
   "type": "object",
   "additionalProperties": false,
   "properties": {
@@ -124,7 +124,7 @@
         "requestIdFormat": {
           "type": "string",
           "enum": ["string", "number"],
-          "description": "Encoding for outgoing JSON-RPC request ids (default: \"number\"). Use \"string\" for servers that need collision-resistant snowflake string ids instead of per-transport integers. OMP-specific: set it in an OMP-owned config (`.omp/mcp.json`, `~/.omp/agent/mcp.json`, a project `mcp.json`/`.mcp.json`, or an OMP plugin). Servers imported from another tool's config (Claude, Cursor, VS Code, Gemini, OpenCode, Windsurf) ignore it, since that key is not part of those formats."
+          "description": "Encoding for outgoing JSON-RPC request ids (default: \"number\"). Use \"string\" for servers that need collision-resistant snowflake string ids instead of per-transport integers. OMP-specific: set it in an OMP-owned config (`.oms/mcp.json`, `~/.oms/agent/mcp.json`, a project `mcp.json`/`.mcp.json`, or an OMP plugin). Servers imported from another tool's config (Claude, Cursor, VS Code, Gemini, OpenCode, Windsurf) ignore it, since that key is not part of those formats."
         },
         "instructions": {
           "type": "boolean",

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import type { FetchImpl } from "@oh-my-pi/pi-ai/types";
+import type { FetchImpl } from "@oh-my-soup/pi-ai/types";
 import {
 	analyzeAuthError,
 	discoverOAuthEndpoints,
@@ -7,7 +7,7 @@ import {
 	extractOAuthChallengeScopes,
 	fetchResourceMetadataScopes,
 	rfc9728ProtectedResourceMetadataUrl,
-} from "@oh-my-pi/pi-coding-agent/mcp/oauth-discovery";
+} from "@oh-my-soup/pi-coding-agent/mcp/oauth-discovery";
 import { type FetchInput, mockFetch } from "./helpers/fetch-mock";
 
 describe("mcp oauth discovery", () => {

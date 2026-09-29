@@ -1,5 +1,5 @@
-import { deriveClaudeDeviceId } from "@oh-my-pi/pi-ai";
-import { getInstallId } from "@oh-my-pi/pi-utils";
+import { deriveClaudeDeviceId } from "@oh-my-soup/pi-ai";
+import { getInstallId } from "@oh-my-soup/pi-utils";
 import type { AuthStorage } from "./auth-storage";
 
 /**

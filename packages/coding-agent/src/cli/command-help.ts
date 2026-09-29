@@ -1,4 +1,4 @@
-import type { CommandMetadata } from "@oh-my-pi/pi-utils/cli";
+import type { CommandMetadata } from "@oh-my-soup/pi-utils/cli";
 
 export const acpHelp = {
 	description: "Run omp as an ACP (Agent Client Protocol) server over stdio",

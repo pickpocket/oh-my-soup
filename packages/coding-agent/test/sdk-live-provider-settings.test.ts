@@ -1,22 +1,22 @@
 import { afterEach, describe, expect, it } from "bun:test";
-import type { Api, Context, Model, ModelSpec, SimpleStreamOptions } from "@oh-my-pi/pi-ai";
-import { clearCustomApis, registerCustomApi } from "@oh-my-pi/pi-ai";
-import { AssistantMessageEventStream } from "@oh-my-pi/pi-ai/utils/event-stream";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
-import { ModelRegistry } from "@oh-my-pi/pi-coding-agent/config/model-registry";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { createAgentSession } from "@oh-my-pi/pi-coding-agent/sdk";
-import { AuthStorage } from "@oh-my-pi/pi-coding-agent/session/auth-storage";
-import { SessionManager } from "@oh-my-pi/pi-coding-agent/session/session-manager";
-import { TempDir } from "@oh-my-pi/pi-utils";
+import type { Api, Context, Model, ModelSpec, SimpleStreamOptions } from "@oh-my-soup/pi-ai";
+import { clearCustomApis, registerCustomApi } from "@oh-my-soup/pi-ai";
+import { AssistantMessageEventStream } from "@oh-my-soup/pi-ai/utils/event-stream";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
+import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { createAgentSession } from "@oh-my-soup/pi-coding-agent/sdk";
+import { AuthStorage } from "@oh-my-soup/pi-coding-agent/session/auth-storage";
+import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
+import { TempDir } from "@oh-my-soup/pi-utils";
 import { createAssistantMessage } from "./helpers/agent-session-setup";
 
 import {
 	cfgProvidersKimiApiFormat,
 	cfgProvidersOpenaiWebsockets,
 	cfgThinkingBudgetsLow,
-} from "@oh-my-pi/pi-coding-agent/session/settings";
-import { cfgToolsFormat } from "@oh-my-pi/pi-coding-agent/session/context-settings";
+} from "@oh-my-soup/pi-coding-agent/session/settings";
+import { cfgToolsFormat } from "@oh-my-soup/pi-coding-agent/session/context-settings";
 
 describe("primary-agent provider settings changed mid-session", () => {
 	const sessions: Array<{ dispose(): Promise<void> }> = [];

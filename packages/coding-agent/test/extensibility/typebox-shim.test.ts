@@ -1,8 +1,8 @@
 import { describe, expect, it } from "bun:test";
-import type { Tool } from "@oh-my-pi/pi-ai/types";
-import { isValidJsonSchema, toolWireSchema } from "@oh-my-pi/pi-ai/utils/schema";
-import { validateToolArguments } from "@oh-my-pi/pi-ai/utils/validation";
-import { type TSchema, Type } from "@oh-my-pi/pi-coding-agent/extensibility/legacy-typebox";
+import type { Tool } from "@oh-my-soup/pi-ai/types";
+import { isValidJsonSchema, toolWireSchema } from "@oh-my-soup/pi-ai/utils/schema";
+import { validateToolArguments } from "@oh-my-soup/pi-ai/utils/validation";
+import { type TSchema, Type } from "@oh-my-soup/pi-coding-agent/extensibility/legacy-typebox";
 
 /**
  * Exercise the legacy `__validator` failure-marker contract independently of
@@ -193,7 +193,7 @@ describe("pi.typebox compatibility shim", () => {
 			expect((parsed.data as { extra?: unknown }).extra).toBe(1);
 		}
 	});
-	// Callable omptype schemas intentionally have no enumerable JSON Schema
+	// Callable omstype schemas intentionally have no enumerable JSON Schema
 	// keywords. Wire serialization consumes their explicit JSON Schema emitter.
 	describe("toJsonSchema produces valid wire JSON Schema", () => {
 		it("emits clean JSON Schema for a complex object", () => {
@@ -226,11 +226,11 @@ describe("pi.typebox compatibility shim", () => {
 		});
 	});
 
-	// Issue #8420: legacy extensions build raw documents that embed omptype
+	// Issue #8420: legacy extensions build raw documents that embed omstype
 	// schema builders. Those builders are callable values, so a document that
 	// nests or spreads them is neither structured-cloneable nor a plain TypeBox
 	// object; `Type.Unsafe` must lower them to wire JSON before use.
-	describe("lowers embedded omptype schemas inside Type.Unsafe documents", () => {
+	describe("lowers embedded omstype schemas inside Type.Unsafe documents", () => {
 		it("embeds sibling schema builders in an anyOf branch", () => {
 			const item = Type.Object({ agent: Type.String() });
 			const template = Type.Object({ agent: Type.String() }, { additionalProperties: false });
@@ -312,7 +312,7 @@ describe("pi.typebox compatibility shim", () => {
 					{ type: "boolean", enum: [false] },
 				],
 			});
-			// `{ ...base, description }` copies omptype's internal fields, not JSON
+			// `{ ...base, description }` copies omstype's internal fields, not JSON
 			// keywords; the shim must recover `anyOf` from the copied self-reference
 			// and overlay the caller's added `description`.
 			const schema = Type.Unsafe({ ...base, description: "mission object or false" });

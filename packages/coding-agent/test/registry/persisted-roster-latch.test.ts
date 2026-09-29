@@ -2,10 +2,10 @@ import { afterEach, describe, expect, it, vi } from "bun:test";
 import * as fs from "node:fs";
 import * as fsp from "node:fs/promises";
 import * as path from "node:path";
-import { AgentRegistry } from "@oh-my-pi/pi-coding-agent/registry/agent-registry";
-import { ensurePersistedRoster } from "@oh-my-pi/pi-coding-agent/registry/persisted-agents";
-import { CURRENT_SESSION_VERSION } from "@oh-my-pi/pi-coding-agent/session/session-entries";
-import { TempDir } from "@oh-my-pi/pi-utils";
+import { AgentRegistry } from "@oh-my-soup/pi-coding-agent/registry/agent-registry";
+import { ensurePersistedRoster } from "@oh-my-soup/pi-coding-agent/registry/persisted-agents";
+import { CURRENT_SESSION_VERSION } from "@oh-my-soup/pi-coding-agent/session/session-entries";
+import { TempDir } from "@oh-my-soup/pi-utils";
 import type { BunFile } from "bun";
 
 /** Latch-cache bound enforced by `ensurePersistedRoster` (see MAX_PERSISTED_ROSTER_LATCHES). */

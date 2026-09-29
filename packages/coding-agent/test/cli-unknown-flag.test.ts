@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import { parseArgs, reportUnrecognizedFlags } from "@oh-my-pi/pi-coding-agent/cli/args";
-import { applyExtensionFlags } from "@oh-my-pi/pi-coding-agent/cli/extension-flags";
+import { parseArgs, reportUnrecognizedFlags } from "@oh-my-soup/pi-coding-agent/cli/args";
+import { applyExtensionFlags } from "@oh-my-soup/pi-coding-agent/cli/extension-flags";
 
 // Regression coverage for issue #2459: `omp --list-models` (a stale flag) was
 // silently consumed as a prompt instead of failing fast — the agent started a

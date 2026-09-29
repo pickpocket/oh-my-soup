@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { extractRetryHint } from "@oh-my-pi/pi-utils";
+import { extractRetryHint } from "@oh-my-soup/pi-utils";
 
 describe("extractRetryHint – header parsing", () => {
 	it("reads retry-after header as seconds", () => {

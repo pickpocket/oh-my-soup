@@ -24,7 +24,7 @@ It focuses on current implementation behavior, including fallback paths and cave
 
 `SessionManager` stores file sessions under a canonical-cwd bucket by default:
 
-- `~/.omp/agent/sessions/<encoded-cwd>/*.jsonl`
+- `~/.oms/agent/sessions/<encoded-cwd>/*.jsonl`
 
 `<encoded-cwd>` is the path-encoded canonical cwd (`-<relative>` under home, `-tmp-<relative>` under the temp root, `--<encoded-absolute>--` otherwise; see [session.md](session.md#on-disk-layout)). Buckets from the reverted 17.2.5-17.2.8 hashed scheme are migrated best-effort. `SessionManager.list(cwd, sessionDir?)` reads only the resolved bucket unless an explicit `sessionDir` is provided.
 
@@ -66,7 +66,7 @@ For `SessionInfo` list entries:
 
 `SessionManager.continueRecent(cwd, sessionDir?)` resolves the target in this order:
 
-1. Read terminal-scoped breadcrumb (`~/.omp/agent/terminal-sessions/<terminal-id>`)
+1. Read terminal-scoped breadcrumb (`~/.oms/agent/terminal-sessions/<terminal-id>`)
 2. Validate the breadcrumb. A materialized target is usable; a missing target is usable only when its optional third line is `fresh`, denoting a lazily-unmaterialized `/new` boundary.
 3. A missing fresh target starts a new session instead of falling back and resurrecting the prior transcript.
 4. Resolve stale pre-fix subagent breadcrumbs to their interactive parent session.

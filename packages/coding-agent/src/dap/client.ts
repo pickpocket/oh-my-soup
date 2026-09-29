@@ -1,5 +1,5 @@
 import * as fs from "node:fs/promises";
-import { isEnoent, logger, ptree } from "@oh-my-pi/pi-utils";
+import { isEnoent, logger, ptree } from "@oh-my-soup/pi-utils";
 import { NON_INTERACTIVE_ENV } from "../exec/non-interactive-env";
 import { MessageFramer, MessageFramingError } from "../jsonrpc/message-framing";
 import { ToolAbortError } from "../tools/tool-errors";

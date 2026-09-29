@@ -1,4 +1,4 @@
-import { vectorIndexTopK } from "@oh-my-pi/pi-natives";
+import { vectorIndexTopK } from "@oh-my-soup/pi-natives";
 
 export interface ExactVectorSearchHit<TId> {
 	id: TId;

@@ -2,7 +2,7 @@
  * Settings declared by this domain (see `config/registry.ts`). Declaration order is the
  * settings-panel order; `config/all-settings.ts` registers every domain.
  */
-import type { EditMode } from "@oh-my-pi/pi-tui/tools/edit";
+import type { EditMode } from "@oh-my-soup/pi-tui/tools/edit";
 import { register } from "../config/registry";
 
 const EMPTY_STRING_RECORD: Record<string, string> = {};

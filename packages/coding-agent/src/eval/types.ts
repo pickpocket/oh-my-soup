@@ -1,4 +1,4 @@
-import type { EvalLanguage, EvalStatusEvent } from "@oh-my-pi/pi-tui/tools/eval";
+import type { EvalLanguage, EvalStatusEvent } from "@oh-my-soup/pi-tui/tools/eval";
 
 /** Kernel-defined tool metadata exposed to task subagents. */
 export interface EvalToolDescriptor {

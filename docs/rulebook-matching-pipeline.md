@@ -71,12 +71,12 @@ Consequence: precedence and deduplication are **name-based only**. Two different
 
 Loads `.omp` rules from:
 
-- project rules: `<cwd>/.omp/rules/*.{md,mdc}` when the cwd's `.omp/` directory is non-empty
+- project rules: `<cwd>/.oms/rules/*.{md,mdc}` when the cwd's `.oms/` directory is non-empty
 - user rules: `<active-native-agent-dir>/rules/*.{md,mdc}`
 - sticky user rule: `<active-native-agent-dir>/RULES.md`
-- sticky project rule: `RULES.md` from the nearest non-empty `.omp/` directory selected while walking from cwd toward the repository root; OMP does not continue farther when that directory lacks the file
+- sticky project rule: `RULES.md` from the nearest non-empty `.oms/` directory selected while walking from cwd toward the repository root; OMP does not continue farther when that directory lacks the file
 
-The active native agent directory is `~/.omp/agent` by default, follows named profiles, and honors `PI_CODING_AGENT_DIR`.
+The active native agent directory is `~/.oms/agent` by default, follows named profiles, and honors `PI_CODING_AGENT_DIR`.
 
 Normalization:
 
@@ -201,7 +201,7 @@ Within a provider, item order comes from `loadFilesFromDir` glob result ordering
 
 Notable source-order differences:
 
-- `native` appends project `.omp/rules`, user `~/.omp/agent/rules`, user `RULES.md`, then nearest project `RULES.md`.
+- `native` appends project `.oms/rules`, user `~/.oms/agent/rules`, user `RULES.md`, then nearest project `RULES.md`.
 - `omp-plugins` appends `rules/` results per configured extension package root.
 - `agents` appends project-walk `.agent`/`.agents` rule dirs before user home dirs.
 - `cursor` appends user then project results.

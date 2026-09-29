@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "bun:test";
-import { handleOllama } from "@oh-my-pi/pi-coding-agent/web/scrapers/ollama";
-import * as scrapers from "@oh-my-pi/pi-coding-agent/web/scrapers/types";
+import { handleOllama } from "@oh-my-soup/pi-coding-agent/web/scrapers/ollama";
+import * as scrapers from "@oh-my-soup/pi-coding-agent/web/scrapers/types";
 
 describe("handleOllama URL parsing & route rejection", () => {
 	afterEach(() => {

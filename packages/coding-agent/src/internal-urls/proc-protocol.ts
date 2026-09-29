@@ -1,4 +1,4 @@
-import { formatDuration } from "@oh-my-pi/pi-tui/render/render-utils";
+import { formatDuration } from "@oh-my-soup/pi-tui/render/render-utils";
 import type { AsyncJob } from "../async";
 import { cancelAgentRegistration, executeCancel, runningAgentsOutsideJobs, snapshotJobs } from "../async/job-control";
 import {
@@ -11,7 +11,7 @@ import {
 	serviceStatus,
 	stopService,
 } from "../launch/services";
-import type { ProcReadDetails } from "@oh-my-pi/pi-tui/tools/proc-render";
+import type { ProcReadDetails } from "@oh-my-soup/pi-tui/tools/proc-render";
 import procPromptDoc from "../prompts/internal-urls/proc.md" with { type: "text" };
 import type { ToolSession } from "../tools";
 import type {

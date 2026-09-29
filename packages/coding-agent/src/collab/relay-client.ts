@@ -9,8 +9,8 @@
  * failures never reconnect. Hosts discard undecryptable guest frames without
  * closing the room.
  */
-import { getProxyForUrl } from "@oh-my-pi/pi-ai/utils/proxy";
-import { logger } from "@oh-my-pi/pi-utils";
+import { getProxyForUrl } from "@oh-my-soup/pi-ai/utils/proxy";
+import { logger } from "@oh-my-soup/pi-utils";
 import { open, sealSerialized } from "./crypto";
 import type { CollabFrame, RelayControlMessage } from "./protocol";
 import { packEnvelope, unpackEnvelope } from "./protocol";

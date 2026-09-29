@@ -1,4 +1,4 @@
-import { type VibeCli } from "@oh-my-pi/pi-tui/tools/vibe";
+import { type VibeCli } from "@oh-my-soup/pi-tui/tools/vibe";
 /**
  * Vibe session lifecycle vocabulary: the persisted `vibe-session-lifecycle`
  * custom-entry schema and its parser.

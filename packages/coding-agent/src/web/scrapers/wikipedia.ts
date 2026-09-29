@@ -44,7 +44,7 @@ export const handleWikipedia: SpecialHandler = async (
 		const contentResult = await loadPage(contentUrl, { timeout, signal });
 
 		if (contentResult.ok) {
-			const { parseHTML } = await import("@oh-my-pi/pi-utils/dom");
+			const { parseHTML } = await import("@oh-my-soup/pi-utils/dom");
 			const doc = parseHTML(contentResult.content).document;
 
 			// Extract main content sections

@@ -33,6 +33,11 @@ async function main() {
 		}
 	});
 
+	client.onPromptResult(result => {
+		if (result.status === "error") console.error(`\n[Prompt failed: ${result.error?.message ?? "unknown error"}]`);
+		else if (result.status === "aborted") console.log("\n[Prompt aborted]");
+	});
+
 	await client.start();
 
 	const state = await client.getState();
@@ -60,10 +65,17 @@ async function main() {
 		}
 
 		isWaiting = true;
-		await client.promptAndWait(line);
-		console.log("\n");
-		isWaiting = false;
-		prompt();
+		try {
+			await client.promptAndWait(line);
+			// A prompt can yield while background tools still have follow-up work pending.
+			await client.waitForSettled();
+		} catch (error) {
+			console.error("\n[RPC error]", error);
+		} finally {
+			console.log("\n");
+			isWaiting = false;
+			prompt();
+		}
 	});
 
 	rl.on("SIGINT", () => {

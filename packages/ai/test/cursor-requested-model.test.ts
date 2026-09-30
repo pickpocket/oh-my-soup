@@ -205,7 +205,7 @@ describe("Cursor requestedModel wire shape", () => {
 		expect(payload.requestedModel?.parameters).toEqual([]);
 	});
 
-	it("pins the Standard tier for bare composer-2.5 (#9012)", async () => {
+	it("pins the Standard tier for bare composer-2.5 from the catalog rule (#9012)", async () => {
 		const payload = await capture(cursorModel("composer-2.5"));
 		expect(payload.requestedModel?.modelId).toBe("composer-2.5");
 		expect(payload.requestedModel?.parameters).toEqual([expect.objectContaining({ id: "fast", value: "false" })]);

@@ -11,9 +11,11 @@
  *
  * The generated prompt appears as a draft in the editor for review/editing.
  */
+import { serializeConversation } from "@oh-my-soup/pi-agent-core/compaction";
 import { complete, type Message } from "@oh-my-soup/pi-ai";
-import type { HookAPI, SessionEntry } from "@oh-my-soup/pi-coding-agent";
-import { BorderedLoader, convertToLlm, serializeConversation } from "@oh-my-soup/pi-coding-agent";
+import { convertToLlm, type SessionEntry } from "@oh-my-soup/pi-coding-agent";
+import type { HookAPI } from "@oh-my-soup/pi-coding-agent/extensibility/hooks";
+import { BorderedLoader } from "@oh-my-soup/pi-tui/overlays/bordered-loader";
 
 const SYSTEM_PROMPT = `You are a context transfer assistant. Given a conversation history and the user's goal for a new thread, generate a focused prompt that:
 
@@ -74,7 +76,7 @@ export default function (pi: HookAPI) {
 			const currentSessionFile = ctx.sessionManager.getSessionFile();
 
 			// Generate the handoff prompt with loader UI
-			const result = await ctx.ui.custom<string | null>((tui, theme, done) => {
+			const result = await ctx.ui.custom<string | null>((tui, theme, _keybindings, done) => {
 				const loader = new BorderedLoader(tui, theme, `Generating handoff prompt...`);
 				loader.onAbort = () => done(null);
 

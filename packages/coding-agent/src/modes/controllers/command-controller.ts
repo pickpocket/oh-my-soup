@@ -40,9 +40,11 @@ import { TranscriptBlock } from "@oh-my-soup/pi-tui/chrome/transcript-container"
 import { getMarkdownTheme, getSymbolTheme, theme, type Theme } from "@oh-my-soup/pi-tui/theme";
 import { IMPORTANT_NOTES_CUSTOM_TYPE } from "../../session/important-notes";
 import type { InteractiveModeContext } from "../../modes/types";
-import { renderContextUsage } from "@oh-my-soup/pi-tui/status-line/context-usage";
+import { ContextUsageView } from "@oh-my-soup/pi-tui/status-line/context-usage";
+import { JobsPanel } from "@oh-my-soup/pi-tui/overlays/jobs-panel";
 import { computeSessionContextBreakdown } from "../../session/context-usage-runtime";
-import { buildHotkeysMarkdown } from "@oh-my-soup/pi-tui/hotkeys-markdown";
+import { buildHotkeysMarkdown, HotkeysSheetComponent } from "@oh-my-soup/pi-tui/hotkeys-markdown";
+import { isNativeRendering } from "@oh-my-soup/pi-tui/native/state";
 import { buildToolsMarkdown } from "@oh-my-soup/pi-tui/prompt/tools-markdown";
 import type { AsyncJobSnapshotItem } from "../../session/agent-session";
 import type { AuthStorage, OAuthAccountIdentity } from "../../session/auth-storage";
@@ -461,7 +463,7 @@ export class CommandController {
 			}
 		}
 
-		this.ctx.showSessionInfo(info);
+		this.ctx.showSessionInfo(info, this.ctx.session.getContextUsage());
 	}
 
 	static readonly #advisorStatusGlyph: Record<string, string> = {
@@ -611,7 +613,7 @@ export class CommandController {
 
 		if (snapshot.running.length === 0 && snapshot.recent.length === 0) {
 			info += `\n${theme.fg("dim", "No async jobs yet.")}\n`;
-			this.ctx.presentCommandOutput([new Spacer(1), new Text(info, 1, 0)]);
+			this.ctx.presentCommandOutput(new JobsPanel(snapshot, now, [new Spacer(1), new Text(info, 1, 0)]));
 			return;
 		}
 
@@ -631,7 +633,7 @@ export class CommandController {
 			}
 		}
 
-		this.ctx.presentCommandOutput([new Spacer(1), new Text(info.trimEnd(), 1, 0)]);
+		this.ctx.presentCommandOutput(new JobsPanel(snapshot, now, [new Spacer(1), new Text(info.trimEnd(), 1, 0)]));
 	}
 
 	async handleUsageCommand(reports?: UsageReport[] | null): Promise<void> {
@@ -688,8 +690,20 @@ export class CommandController {
 	}
 
 	handleHotkeysCommand(): void {
-		const hotkeys = buildHotkeysMarkdown({ keybindings: this.ctx.keybindings });
-		showMarkdownPanel(this.ctx, "Keyboard Shortcuts", hotkeys);
+		const bindings = { keybindings: this.ctx.keybindings };
+		if (isNativeRendering()) {
+			// A native terminal gets a dismissable sheet with keycaps instead of a transcript table.
+			const sheet = new HotkeysSheetComponent(bindings, () => {
+				handle.hide();
+				this.ctx.ui.setFocus(this.ctx.editorContainer.children[0] ?? this.ctx.editor);
+				this.ctx.ui.requestRender();
+			});
+			const handle = this.ctx.ui.showOverlay(sheet, { anchor: "center", width: "90%", maxHeight: "90%" });
+			this.ctx.ui.setFocus(sheet);
+			this.ctx.ui.requestRender();
+			return;
+		}
+		showMarkdownPanel(this.ctx, "Keyboard Shortcuts", buildHotkeysMarkdown(bindings));
 	}
 
 	handleToolsCommand(): void {
@@ -706,14 +720,7 @@ export class CommandController {
 			this.ctx.showWarning("Context usage is unavailable: no model is selected for this session.");
 			return;
 		}
-		const output = renderContextUsage(breakdown, theme);
-		const block = new TranscriptBlock();
-		block.addChild(new DynamicBorder());
-		block.addChild(new Text(theme.bold(theme.fg("accent", "Context Usage")), 1, 0));
-		block.addChild(new Spacer(1));
-		block.addChild(new Text(output, 1, 0));
-		block.addChild(new DynamicBorder());
-		this.ctx.presentCommandOutput(block);
+		this.ctx.presentCommandOutput(new ContextUsageView(breakdown, theme));
 	}
 
 	async handleMemoryCommand(text: string): Promise<void> {
@@ -1616,6 +1623,16 @@ export class CommandController {
 			text => theme.fg("muted", text),
 			label,
 			getSymbolTheme().spinnerFrames,
+		);
+		const compactionStartMs = Date.now();
+		compactingLoader.setWorkingRow(
+			() => ({
+				label: isAuto ? "Auto-compacting context…" : "Compacting context…",
+				startedAt: compactionStartMs,
+				variant: { kind: "compaction" },
+				interruptKey: this.ctx.maintenanceInterruptKey(),
+			}),
+			() => this.ctx.interruptFromPointer(),
 		);
 		this.ctx.statusContainer.addChild(compactingLoader);
 		this.ctx.ui.requestRender();

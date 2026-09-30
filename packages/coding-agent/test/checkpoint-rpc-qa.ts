@@ -49,6 +49,8 @@ async function main() {
 	});
 
 	try {
+		fs.mkdirSync(sessionDir, { recursive: true });
+		fs.writeFileSync(path.join(sessionDir, "config.yml"), "checkpoint:\n  enabled: true\n");
 		await client.start();
 		const availableModels = await client.getAvailableModels();
 		const providerKeyMap: Record<string, string | undefined> = {
@@ -76,7 +78,7 @@ async function main() {
 			[
 				"QA instruction. Follow exactly:",
 				"1) Call checkpoint with goal 'Validate rewind context behavior in RPC mode'.",
-				"2) During that checkpoint, call find with pattern 'src/modes/rpc/*.ts'.",
+				"2) During that checkpoint, call glob with path 'src/modes/rpc/*.ts'.",
 				"3) Call read on 'src/modes/rpc/rpc-mode.ts' with limit 20.",
 				"4) Call rewind with report containing two bullet points: findings and risks.",
 				"5) Final assistant response must be exactly DONE.",
@@ -85,7 +87,7 @@ async function main() {
 				"You did not complete QA steps.",
 				"Now do only tool workflow:",
 				"- checkpoint(goal='Validate rewind context behavior in RPC mode')",
-				"- find(pattern='src/modes/rpc/*.ts')",
+				"- glob(path='src/modes/rpc/*.ts')",
 				"- read(path='src/modes/rpc/rpc-mode.ts', limit=20)",
 				"- rewind(report with bullets 'findings' and 'risks')",
 				"Then respond exactly DONE.",
@@ -98,6 +100,7 @@ async function main() {
 
 		for (const prompt of prompts) {
 			await client.promptAndWait(prompt, undefined, 120000);
+			await client.waitForSettled(120000);
 			const sequence = getToolSequence(streamedEvents);
 			if (sequence.includes("checkpoint") && sequence.includes("rewind")) {
 				break;
@@ -164,7 +167,7 @@ async function main() {
 			throw new Error("Agent did not execute both checkpoint and rewind.");
 		}
 		if (!hasGlob || !hasRead) {
-			throw new Error("Agent did not perform requested exploratory find/read inside checkpoint.");
+			throw new Error("Agent did not perform requested exploratory glob/read inside checkpoint.");
 		}
 		if (!activeHasRewindReport) {
 			throw new Error("Active context missing rewind-report custom message after rewind.");

@@ -1,5 +1,10 @@
 import { describe, expect, it } from "bun:test";
-import { type BlockState, handleServerMessage, type ToolCallState } from "@oh-my-soup/pi-ai/providers/cursor";
+import {
+	type BlockState,
+	handleServerMessage,
+	processInteractionUpdate,
+	type ToolCallState,
+} from "@oh-my-soup/pi-ai/providers/cursor";
 import type { AssistantMessage } from "@oh-my-soup/pi-ai/types";
 import { AssistantMessageEventStream } from "@oh-my-soup/pi-ai/utils/event-stream";
 import type { InteractionQuery, InteractionResponse } from "@oh-my-soup/pi-catalog/discovery/cursor-proto";
@@ -145,5 +150,27 @@ describe("Cursor interaction queries", () => {
 		expect(response.id).toBe(21);
 		expect(response.result.case).toBeUndefined();
 		expect(response.$unknown).toEqual([{ no: 12, wireType: 2, data: new Uint8Array([0x02, 0x0a, 0x00]) }]);
+	});
+});
+
+describe("Cursor hosted fetch tool calls", () => {
+	function startToolCall(toolCall: object): AssistantMessage {
+		const output = cursorAssistantMessage();
+		processInteractionUpdate(
+			{ message: { case: "toolCallStarted", value: { callId: "envelope-fetch", toolCall } } } as never,
+			output,
+			new AssistantMessageEventStream(),
+			newBlockState(),
+			{ sawTokenDelta: false },
+		);
+		return output;
+	}
+
+	it("detects an unnamed field-37 fetch call from a well-formed $unknown entry", () => {
+		const data = new TextEncoder().encode("\x15https://example.com/doc");
+		const output = startToolCall({ $unknown: [{ no: 37, wireType: 2, data }] });
+		const block = output.content.find((b): b is ToolCallState => b.type === "toolCall");
+		expect(block?.name).toBe("web_fetch");
+		expect(block?.arguments).toEqual({ url: "https://example.com/doc" });
 	});
 });

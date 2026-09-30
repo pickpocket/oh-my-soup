@@ -4,10 +4,11 @@
  * Prompts for confirmation before destructive session actions (clear, switch, branch).
  * Demonstrates how to cancel session events using the before_* events.
  */
-import type { HookAPI, SessionBeforeSwitchEvent, SessionMessageEntry } from "@oh-my-soup/pi-coding-agent";
+import type { SessionMessageEntry } from "@oh-my-soup/pi-coding-agent";
+import type { HookAPI } from "@oh-my-soup/pi-coding-agent/extensibility/hooks";
 
 export default function (pi: HookAPI) {
-	pi.on("session_before_switch", async (event: SessionBeforeSwitchEvent, ctx) => {
+	pi.on("session_before_switch", async (event, ctx) => {
 		if (!ctx.hasUI) return;
 
 		if (event.reason === "new") {

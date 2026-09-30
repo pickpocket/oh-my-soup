@@ -1,7 +1,7 @@
-import { tryParseJson } from "@oh-my-soup/pi-utils";
+import { isRecord, tryParseJson } from "@oh-my-soup/pi-utils";
 import type { RenderResult, SpecialHandler } from "./types";
 import { buildResult, formatNumber, loadPage } from "./types";
-import { asNumber, asString, isRecord } from "./utils";
+import { asNumber, asString } from "./utils";
 
 function formatLicenses(licenses: unknown): string[] {
 	if (!Array.isArray(licenses)) return [];

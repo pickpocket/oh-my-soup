@@ -9,7 +9,7 @@ import { type } from "@oh-my-soup/omstype";
 import type { AgentTool, AgentToolContext, AgentToolResult, AgentToolUpdateCallback } from "@oh-my-soup/pi-agent-core";
 import type { Api, AuthStorage, Model } from "@oh-my-soup/pi-ai";
 import { modelKind } from "@oh-my-soup/pi-catalog/types";
-import { formatAge, prompt } from "@oh-my-soup/pi-utils";
+import { formatAge, formatCount, prompt, truncate } from "@oh-my-soup/pi-utils";
 import { ModelRegistry } from "../../config/model-registry";
 import { type RoleChainCandidate, resolveModelRoleValue, resolveRoleChain } from "../../config/model-resolver";
 import { roleCandidatePool } from "../../config/model-roles";
@@ -63,16 +63,6 @@ export interface SearchQueryParams extends SearchToolParams {
 	model?: string;
 }
 
-/** Truncate text for tool output */
-function truncateText(text: string, maxLen: number): string {
-	if (text.length <= maxLen) return text;
-	return `${text.slice(0, Math.max(0, maxLen - 1))}…`;
-}
-
-function formatCount(label: string, count: number): string {
-	return `${count} ${label}${count === 1 ? "" : "s"}`;
-}
-
 /** Format response for LLM consumption. `notes` lead the output (e.g. relaxed-constraint warnings). */
 function formatForLLM(response: SearchResponse, notes: readonly string[] = []): string {
 	const parts: string[] = [];
@@ -93,7 +83,7 @@ function formatForLLM(response: SearchResponse, notes: readonly string[] = []): 
 		const agePart = age ? ` (${age})` : "";
 		parts.push(`[${i + 1}] ${src.title}${agePart}\n    ${src.url}`);
 		if (src.snippet) {
-			parts.push(`    ${truncateText(src.snippet, 240)}`);
+			parts.push(`    ${truncate(src.snippet, 240)}`);
 		}
 	}
 
@@ -104,7 +94,7 @@ function formatForLLM(response: SearchResponse, notes: readonly string[] = []): 
 			const title = citation.title || citation.url;
 			parts.push(`[${i + 1}] ${title}\n    ${citation.url}`);
 			if (citation.citedText) {
-				parts.push(`    ${truncateText(citation.citedText, 240)}`);
+				parts.push(`    ${truncate(citation.citedText, 240)}`);
 			}
 		}
 	}
@@ -120,7 +110,7 @@ function formatForLLM(response: SearchResponse, notes: readonly string[] = []): 
 	if (response.searchQueries && response.searchQueries.length > 0) {
 		parts.push(`Search queries: ${response.searchQueries.length}`);
 		for (const query of response.searchQueries.slice(0, 3)) {
-			parts.push(`- ${truncateText(query, 120)}`);
+			parts.push(`- ${truncate(query, 120)}`);
 		}
 	}
 

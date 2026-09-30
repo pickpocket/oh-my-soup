@@ -1,10 +1,6 @@
 import { describe, expect, it, vi } from "bun:test";
-import {
-	dispatchScroll,
-	normalizeSelector,
-	resolveOpTimeouts,
-	resolveWaitTimeout,
-} from "@oh-my-soup/pi-coding-agent/tools/browser/tab-worker";
+import { resolveOpTimeouts, resolveWaitTimeout } from "@oh-my-soup/pi-coding-agent/tools/browser/op-timeouts";
+import { dispatchScroll, normalizeSelector } from "@oh-my-soup/pi-coding-agent/tools/browser/tab-worker";
 import { resolvePredicateTimeout } from "@oh-my-soup/pi-coding-agent/tools/run-scope";
 
 // Regression coverage for the "weird timeouts" failure mode: interactive `tab.*` helpers

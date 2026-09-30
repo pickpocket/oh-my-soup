@@ -1,11 +1,18 @@
-import { TERMINAL } from "../terminal-capabilities";
-import type { Component } from "../tui";
-import { padding, replaceTabs, truncateToWidth, visibleWidth, wrapTextWithAnsi } from "../utils";
 import { APP_NAME } from "@oh-my-soup/pi-utils/dirs";
-import { theme } from "../theme/theme";
+import type { TspSpan } from "@oh-my-soup/pi-wire";
 import { formatDoubleTap, formatKeyHint, formatKeyHints, type KeyName } from "../app-keybindings";
 import { editorKey } from "../chrome/keybinding-hints";
 import { getKeybindings, type Keybinding } from "../keybindings";
+import { registerNativeBlob } from "../native/blobs";
+import { card, col, kbd, keyed, node, row, span, text } from "../native/describe";
+import type { DescribeContext, NativeChild, NativeNode, NativeUiEvent } from "../native/node";
+import { runTranscriptAction } from "../chat/transcript-actions";
+import { plainLine } from "../native/spans";
+import { isNativeRendering } from "../native/state";
+import { TERMINAL } from "../terminal-capabilities";
+import { theme } from "../theme/theme";
+import type { Component } from "../tui";
+import { padding, replaceTabs, truncateToWidth, visibleWidth, wrapTextWithAnsi } from "../utils";
 import { urlHyperlinkAlways } from "../render";
 import tipsText from "./tips.txt" with { type: "text" };
 
@@ -85,7 +92,12 @@ function renderNewTag(phase: number, encoding: ColorEncoding): string {
 /** Key placeholders in tips.txt: `{key:shift+tab}`, `{keys:up,down}`, `{tap:left}`, `{action:tui.editor.undo}`. */
 const TIP_KEY_PLACEHOLDER = /\{(key|keys|tap|action):([^}]+)\}/g;
 
-const MODIFIER_NAMES: Record<string, true | undefined> = { ctrl: true, shift: true, alt: true, super: true };
+const MODIFIER_NAMES: Record<string, true | undefined> = {
+	ctrl: true,
+	shift: true,
+	alt: true,
+	super: true,
+};
 
 /** A `+`-joined chord whose leading parts are modifiers (`ctrl+o`, `shift`, `left`). */
 function isKeyName(key: string): key is KeyName {
@@ -155,6 +167,8 @@ export function renderWelcomeTip(tip: string, boxWidth: number, phase = 0): stri
 export interface RecentSession {
 	name: string;
 	timeAgo: string;
+	/** Session file; a native click on the row resumes it. */
+	path?: string;
 }
 
 export interface LspServerInfo {
@@ -181,6 +195,7 @@ export class WelcomeComponent implements Component {
 	// Bypassed while the intro animation runs (every frame differs).
 	#cachedWidth = -1;
 	#cachedLines: string[] | undefined;
+	#native: { tip: string | undefined; node: NativeNode } | undefined;
 
 	constructor(
 		private version: string,
@@ -202,7 +217,154 @@ export class WelcomeComponent implements Component {
 	invalidate(): void {
 		this.#cachedWidth = -1;
 		this.#cachedLines = undefined;
+		this.#native = undefined;
 	}
+
+	/**
+	 * A `card` (`omp.welcome`) titled with the app version. The brand column
+	 * (`omp.welcome.brand`: greeting, the animated SVG mark, model, provider) sits
+	 * beside the info column (`omp.welcome.info`: prompt-sigil keycaps, LSP
+	 * servers, recent sessions); the tip of the session closes the card. Roles
+	 * carry the look (gradient logo, type scale, column hairline); a "[NEW]" tip
+	 * carries a terminal-clocked shimmering tag.
+	 */
+	describe(_cx: DescribeContext): NativeNode {
+		const tip = this.tip;
+		if (this.#native && this.#native.tip === tip) return this.#native.node;
+		const line = (spans: readonly TspSpan[], role?: string, key?: string): NativeNode =>
+			keyed(text(spans, { wrap: "none", truncate: "end", role }), key ?? role ?? "");
+		// Centered brand lines are short and fixed; the logo is multi-line art that must never truncate.
+		const art = (spans: readonly TspSpan[], role: string): NativeNode =>
+			keyed(text(spans, { wrap: "none", role }), role);
+		const brand = keyed(
+			col(
+				[
+					art([span("Welcome back!", "strong")], "omp.welcome.greeting"),
+					node(
+						"image",
+						{
+							blob: welcomeLogoBlob(),
+							alt: APP_NAME,
+							w: 128,
+							role: "omp.welcome.logo",
+						},
+						undefined,
+						"logo",
+					),
+					art([span(plainLine(this.modelName), "accent")], "omp.welcome.model"),
+					art([span(plainLine(this.providerName), "muted")], "omp.welcome.provider"),
+				],
+				{ align: "center", role: "omp.welcome.brand" },
+			),
+			"brand",
+		);
+		const section = (key: string, label: string, rows: readonly NativeChild[]): NativeNode =>
+			keyed(
+				col([line([span(label, "dim")], "omp.welcome.heading"), ...rows], {
+					gap: "xs",
+					role: `omp.welcome.${key}`,
+				}),
+				key,
+			);
+		const shortcut = (key: string, label: string): NativeNode =>
+			keyed(row([kbd(key), line([span(label, "muted")])], { gap: "sm" }), label);
+		const info: NativeChild[] = [
+			line([span(plainLine(this.version), "dim mono")], "omp.welcome.version"),
+			section("tips", "Tips", [
+				shortcut("#", "prompt actions"),
+				shortcut("/", "commands"),
+				shortcut("!", "run bash"),
+				shortcut("$", "run python"),
+			]),
+		];
+		if (this.lspServers !== null) {
+			const lsp: NativeChild[] = [];
+			if (this.lspServers.length === 0) lsp.push(line([span("No LSP servers", "dim")], undefined, "none"));
+			for (const server of this.lspServers.slice(0, WELCOME_LSP_SLOTS)) {
+				const [symbol, token] =
+					server.status === "ready"
+						? (["status.enabled", "success"] as const)
+						: server.status === "available"
+							? (["status.enabled", "dim"] as const)
+							: server.status === "connecting"
+								? (["status.pending", "muted"] as const)
+								: (["status.error", "error"] as const);
+				lsp.push(
+					keyed(
+						row(
+							[
+								text([span("●", token)], { role: "omp.welcome.lsp-dot", title: server.status, aria: symbol }),
+								line([span(plainLine(server.name))]),
+								...server.fileTypes
+									.slice(0, 3)
+									.map(type =>
+										node("badge", { text: plainLine(type), role: "omp.welcome.lsp-type" }, undefined, type),
+									),
+							],
+							{ gap: "sm", role: "omp.welcome.lsp-row" },
+						),
+						server.name,
+					),
+				);
+			}
+			info.push(section("lsp", "LSP servers", lsp));
+		}
+		const recents: NativeChild[] = [];
+		if (this.recentSessions.length === 0) recents.push(line([span("No recent sessions", "dim")], undefined, "none"));
+		for (const [index, session] of this.recentSessions.slice(0, WELCOME_SESSION_SLOTS).entries()) {
+			recents.push(
+				keyed(
+					row(
+						[
+							line([span(plainLine(session.name))], "omp.welcome.session"),
+							line([span(plainLine(session.timeAgo), "dim")], "omp.welcome.age"),
+						],
+						{
+							gap: "md",
+							justify: "between",
+							role: "omp.welcome.recent",
+							actions: session.path ? { click: "resume" } : undefined,
+							title: session.path ? `Resume ${plainLine(session.name)}` : undefined,
+						},
+					),
+					`s${index}`,
+				),
+			);
+		}
+		info.push(section("recents", "Recent sessions", recents));
+		const body: NativeChild[] = [
+			keyed(
+				row([brand, keyed(col(info, { gap: "md", role: "omp.welcome.info" }), "info")], {
+					align: "start",
+					wrap: true,
+					role: "omp.welcome.grid",
+				}),
+				"grid",
+			),
+		];
+		if (tip) {
+			const isNew = NEW_TIP_MARKER.test(tip);
+			const tipText = plainLine(expandTipKeys(isNew ? tip.replace(NEW_TIP_MARKER, "") : tip));
+			const tipRow: NativeChild[] = [
+				node("icon", { name: "lightbulb", role: "omp.welcome.tip-icon" }),
+				text(tipText, { wrap: "word", role: "omp.welcome.tip-text" }),
+			];
+			if (isNew) tipRow.push(node("shimmer", { text: "New", role: "omp.welcome.new" }));
+			body.push(node("row", { gap: "sm", align: "start", role: "omp.welcome.tip" }, tipRow, "tip"));
+		}
+		// No head row or chevron: the card is the hero; the version sits in the info column.
+		const described = card({ role: "omp.welcome" }, body);
+		this.#native = { tip, node: described };
+		return described;
+	}
+	/** A click on a recent session resumes it. */
+	handleNativeEvent(event: NativeUiEvent): void {
+		if (event.type !== "action" || event.act !== "resume") return;
+		const index = Number(/\/s(\d+)$/.exec(event.key)?.[1]);
+		const path = this.recentSessions[index]?.path;
+		if (path) runTranscriptAction({ act: "resume", path });
+	}
+
 	/** The intro keeps the welcome block mutable; settling lets it retire to history. */
 	isTranscriptBlockFinalized(): boolean {
 		return this.#animTimer == null;
@@ -215,6 +377,12 @@ export class WelcomeComponent implements Component {
 	 */
 	playIntro(requestRender: () => void): void {
 		this.#stopAnimation();
+		// The intro is a repaint-only gradient sweep; a TSP terminal shows the
+		// settled card right away.
+		if (isNativeRendering()) {
+			requestRender();
+			return;
+		}
 		this.#requestRender = requestRender;
 		this.#animStart = performance.now();
 		this.#requestRender();
@@ -333,8 +501,8 @@ export class WelcomeComponent implements Component {
 			"",
 			...logoColored.map(l => this.#centerText(l, leftCol)),
 			"",
-			this.#centerText(theme.fg("muted", this.modelName), leftCol),
-			this.#centerText(theme.fg("borderMuted", this.providerName), leftCol),
+			this.#centerText(theme.fg("muted", plainLine(this.modelName)), leftCol),
+			this.#centerText(theme.fg("borderMuted", plainLine(this.providerName)), leftCol),
 		];
 
 		// Right column separator
@@ -352,11 +520,12 @@ export class WelcomeComponent implements Component {
 			const bulletPrefix = ` ${theme.md.bullet} `;
 			const prefixWidth = visibleWidth(bulletPrefix);
 			for (const session of this.recentSessions.slice(0, WELCOME_SESSION_SLOTS)) {
-				const timeSuffixRaw = ` (${session.timeAgo})`;
+				const timeSuffixRaw = ` (${plainLine(session.timeAgo)})`;
 				const timeWidth = visibleWidth(timeSuffixRaw);
 				const nameBudget = Math.max(1, rightCol - prefixWidth - timeWidth);
-				const nameVis = visibleWidth(session.name);
-				const name = nameVis > nameBudget ? truncateToWidth(session.name, nameBudget) : session.name;
+				const safeName = plainLine(session.name);
+				const nameVis = visibleWidth(safeName);
+				const name = nameVis > nameBudget ? truncateToWidth(safeName, nameBudget) : safeName;
 				sessionLines.push(
 					`${theme.fg("dim", bulletPrefix)}${theme.fg("muted", name)}${theme.fg("dim", timeSuffixRaw)}`,
 				);
@@ -393,7 +562,7 @@ export class WelcomeComponent implements Component {
 		const lines: string[] = [];
 
 		// Top border with embedded title
-		const title = ` ${APP_NAME} v${this.version} `;
+		const title = ` ${APP_NAME} v${plainLine(this.version)} `;
 		const titlePrefixRaw = hChar.repeat(3);
 		const titleStyled = theme.fg("dim", titlePrefixRaw) + theme.fg("muted", title);
 		const titleVisLen = visibleWidth(titlePrefixRaw) + visibleWidth(title);
@@ -450,8 +619,8 @@ export class WelcomeComponent implements Component {
 							: server.status === "connecting"
 								? theme.styledSymbol("status.pending", "muted")
 								: theme.styledSymbol("status.error", "error");
-				const exts = server.fileTypes.slice(0, 3).join(" ");
-				lspLines.push(` ${icon} ${theme.fg("muted", server.name)} ${theme.fg("dim", exts)}`);
+				const exts = server.fileTypes.slice(0, 3).map(plainLine).join(" ");
+				lspLines.push(` ${icon} ${theme.fg("muted", plainLine(server.name))} ${theme.fg("dim", exts)}`);
 			}
 		}
 		// Pad to the fixed slot count so the box height doesn't depend on server count.
@@ -530,6 +699,47 @@ export const OMS_LOGO = [
 	"█   █ █   █     █",
 	"█████ █   █ █████",
 ];
+
+/** Outline/fill geometry from the same OMS glyphs painted by the ANSI welcome. */
+const OMS_LOGO_PATH = OMS_LOGO.flatMap((line, y) =>
+	[...line.matchAll(/█+/g)].map(match => {
+		const width = match[0].length * 3;
+		return `M${(match.index ?? 0) * 3} ${y * 6}h${width}v6h-${width}z`;
+	}),
+).join("");
+
+/**
+ * The native welcome mark on a 3×6-per-cell grid. Tern mounts SVG blobs as
+ * live DOM, so `trace` (pathLength=1), `mark`, and stops `s0`–`s2` are
+ * animation hooks. The artwork matches {@link OMS_LOGO}, not upstream's Pi.
+ */
+const WELCOME_LOGO_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="-2 -2 55 34">
+<defs><linearGradient id="g" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="51" y2="30">
+<stop class="s0" offset="0" stop-color="#ed4abf"/><stop class="s1" offset=".5" stop-color="#9b4dff"/><stop class="s2" offset="1" stop-color="#5ad8e6"/>
+</linearGradient></defs>
+<path class="mark" fill="url(#g)" d="${OMS_LOGO_PATH}"/>
+<path class="trace" fill="none" stroke="url(#g)" stroke-width="1" stroke-linejoin="round" pathLength="1" d="${OMS_LOGO_PATH}"/>
+</svg>`;
+
+let welcomeLogoId: string | undefined;
+
+/** The registered blob id of {@link WELCOME_LOGO_SVG}. */
+function welcomeLogoBlob(): string {
+	welcomeLogoId ??= registerNativeBlob(new TextEncoder().encode(WELCOME_LOGO_SVG), "image/svg+xml");
+	return welcomeLogoId;
+}
+
+/** The block-grid brand mark as accent lines; `shimmer` declares the terminal-clocked shine sweep. */
+export function logoNode(lines: readonly string[], shimmer: boolean): NativeNode {
+	return col(
+		lines.map(line =>
+			text([span(line, "accent", shimmer ? { fx: "shimmer" } : undefined)], {
+				wrap: "none",
+			}),
+		),
+		{ align: "center", role: "omp.setup.logo" },
+	);
+}
 
 /** Multi-stop palette for the diagonal gradient. */
 const GRADIENT_STOPS: ReadonlyArray<readonly [number, number, number]> = [

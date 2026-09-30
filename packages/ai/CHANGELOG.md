@@ -21,11 +21,28 @@
 - Updated the Anthropic OAuth Claude Code fingerprint to 2.1.280 so models requiring the newer client version are accepted.
 
 ## [18.3.0] - 2026-09-20
+### Added
+
+- `AuthStorage.keys.setConfig(provider, value, { fallback: true })` registers a key that is used only when no stored OAuth or `/login` credential exists, instead of overriding them; `removeConfig`/`clearConfig` also clear these fallbacks ([#13815](https://github.com/can1357/oh-my-pi/pull/13815) by [@H4vC](https://github.com/H4vC))
+
+## [18.4.4] - 2026-09-29
+
+### Added
+
+- Added the `ultrafast` service tier. It is sent to the OpenAI API as-is, and to Codex only for models that list it in their discovered service tiers; other providers never receive it. On Codex websockets, switching into or out of `ultrafast` starts a new response chain instead of reusing `previous_response_id`, matching the Codex CLI. Ultrafast turns are costed at standard rates because no Ultrafast price is published yet ([#13782](https://github.com/can1357/oh-my-pi/pull/13782) by [@H4vC](https://github.com/H4vC)).
+
+### Changed
+
+- Changed to fall back to adaptive thinking when between_tools is used with xhigh effort
+- xAI requests (`xai`, `xai-oauth` chat and image generation) honor `XAI_BASE_URL` again when the model uses the bundled `https://api.x.ai/v1` endpoint; a custom `baseUrl` from models.yml still wins, and `xai-oauth` OAuth access tokens always stay on the bundled endpoint.
 
 ### Fixed
 
+- Fixed Claude on Amazon Bedrock's Anthropic Messages routes (`/anthropic` on bedrock-runtime and bedrock-mantle): runtime requests no longer fail with a request-metadata 400, and both routes use Anthropic's on-demand compaction ([#13311](https://github.com/can1357/oh-my-pi/pull/13311) by [@mustafaabidali](https://github.com/mustafaabidali)).
 - `/usage` no longer shows an always-empty `gpt-4 requests` row for Cursor accounts on usage-based plans; the Cursor Models and Other Models meters remain ([#13726](https://github.com/can1357/oh-my-pi/pull/13726) by [@will-bogusz](https://github.com/will-bogusz)).
 - Cursor turns routed through an HTTP proxy now finish instead of hanging after the response completes ([#13724](https://github.com/can1357/oh-my-pi/pull/13724) by [@will-bogusz](https://github.com/will-bogusz)).
+- Fixed Codex requests sending `priority` (and `scale`) to models whose discovered service tiers list other tiers but not that one, matching the Codex CLI; an empty or missing list is treated as not reported, so `priority` is still sent and `/fast` keeps working on accounts whose `/models` lists no tiers (`flex` is always allowed) ([#13782](https://github.com/can1357/oh-my-pi/pull/13782) by [@H4vC](https://github.com/H4vC)).
+- Fixed Codex priority cost: a turn the backend reports as served at `default` is no longer billed at the priority multiplier ([#13782](https://github.com/can1357/oh-my-pi/pull/13782) by [@H4vC](https://github.com/H4vC)).
 
 ## [18.4.3] - 2026-09-28
 
@@ -2485,3 +2502,4 @@
 
 Older entries are archived in [packages/ai/CHANGELOG.md@2df5343ad888](https://github.com/pickpocket/oh-my-soup/blob/2df5343ad8885de6f4ae18b6b2aaf664033f1b9d/packages/ai/CHANGELOG.md).
 Older entries are archived in [packages/ai/CHANGELOG.md@689a3418cb45](https://github.com/can1357/oh-my-pi/blob/689a3418cb45d54a459cde2e1abf3f66f50e47a4/packages/ai/CHANGELOG.md).
+Older entries are archived in [packages\ai\CHANGELOG.md@07e9197a3012](https://github.com/can1357/oh-my-pi/blob/07e9197a3012f58c459f1faabeb324decc21f41d/packages\ai\CHANGELOG.md).

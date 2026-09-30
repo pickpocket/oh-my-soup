@@ -23,6 +23,7 @@ import {
 	getProjectDir,
 	getProjectAgentDir,
 	isEnoent,
+	isRecord,
 	logger,
 	MAIN_CONFIG_FILENAMES,
 	procmgr,
@@ -365,10 +366,6 @@ function stringArrayFromUnknown(value: unknown): string[] {
 	if (typeof value === "string") return [value];
 	if (Array.isArray(value)) return value.filter((item): item is string => typeof item === "string");
 	return [];
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return !!value && typeof value === "object" && !Array.isArray(value);
 }
 
 /**

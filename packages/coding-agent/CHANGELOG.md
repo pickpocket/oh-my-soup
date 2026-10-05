@@ -6,24 +6,24 @@
 
 - Added durable session notes with `/notes` show/search/edit, configurable context reinjection, and update reminders. ([#7](https://github.com/pickpocket/oh-my-soup/pull/7) by [@ReKon64](https://github.com/ReKon64))
 - Added `/thinking [<level>]` to show the configured thinking selector or set auto, off, or a model-supported effort directly, with argument completion. ([#8](https://github.com/pickpocket/oh-my-soup/pull/8) by [@ReKon64](https://github.com/ReKon64))
-- Added `/refusal` inspection, operator-initiated sanitized report export, and opt-in fresh-session recovery that restores the original request as an unsent draft when safe.
+- Added `/refusal` inspection, operator-initiated sanitized report export, and opt-in fresh-session recovery that restores the original request as an unsent draft when safe. ([#10](https://github.com/pickpocket/oh-my-soup/pull/10) by [@0neShot101](https://github.com/0neShot101))
 
 ### Changed
 
-- Repeated subagent names now allocate unique output IDs without rescanning all previously used suffixes.
+- Repeated subagent names now allocate unique output IDs without rescanning all previously used suffixes. ([#10](https://github.com/pickpocket/oh-my-soup/pull/10) by [@0neShot101](https://github.com/0neShot101))
 
 ### Fixed
 
 - Existing provider and model preferences now migrate to model roles and retry fallback chains instead of being lost when loading older configuration.
-- Subagents retain their enabled tools and `xd://` mounts when parked, resumed, or restarted, including tool selections changed during a run.
-- Subagent shutdown no longer waits on a stuck child after its cleanup deadline has already expired.
-- Parked and shut-down subagents now persist their stable system prompt rather than a one-turn extension override, wait for the snapshot to be durable before disposing, and no longer capture tool changes that are still being applied; cancelling or killing a parking subagent no longer waits on stalled storage.
-- Session listings on Windows no longer include files from sibling directories that share a name prefix, and bounded session streaming stops at the requested byte limit even when the file stream over-delivers.
-- Stopping a stream host no longer hangs when a local session never acknowledges the goodbye frame; sessions are closed after a one-second drain.
-- Resetting an eval kernel that another agent shares now forks a private kernel for the resetting owner, and that owner's tool calls, snapshots, and namespace probes follow the fork.
-- MCP servers that finish connecting after startup now contribute their current tool set instead of an earlier discovery snapshot.
-- Concurrent blob tunnel launches no longer overwrite each other's readiness logs.
-- Cached llama.cpp models regain their discovery policy on reload without a successful probe.
+- Subagents retain their enabled tools and `xd://` mounts when parked, resumed, or restarted, including tool selections changed during a run. ([#10](https://github.com/pickpocket/oh-my-soup/pull/10) by [@0neShot101](https://github.com/0neShot101))
+- Subagent shutdown no longer waits on a stuck child after its cleanup deadline has already expired. ([#10](https://github.com/pickpocket/oh-my-soup/pull/10) by [@0neShot101](https://github.com/0neShot101))
+- Parked and shut-down subagents now persist their stable system prompt rather than a one-turn extension override, wait for the snapshot to be durable before disposing, and no longer capture tool changes that are still being applied; cancelling or killing a parking subagent no longer waits on stalled storage. ([#10](https://github.com/pickpocket/oh-my-soup/pull/10) by [@0neShot101](https://github.com/0neShot101))
+- Session listings on Windows no longer include files from sibling directories that share a name prefix, and bounded session streaming stops at the requested byte limit even when the file stream over-delivers. ([#10](https://github.com/pickpocket/oh-my-soup/pull/10) by [@0neShot101](https://github.com/0neShot101))
+- Stopping a stream host no longer hangs when a local session never acknowledges the goodbye frame; sessions are closed after a one-second drain. ([#10](https://github.com/pickpocket/oh-my-soup/pull/10) by [@0neShot101](https://github.com/0neShot101))
+- Resetting an eval kernel that another agent shares now forks a private kernel for the resetting owner, and that owner's tool calls, snapshots, and namespace probes follow the fork. ([#10](https://github.com/pickpocket/oh-my-soup/pull/10) by [@0neShot101](https://github.com/0neShot101))
+- MCP servers that finish connecting after startup now contribute their current tool set instead of an earlier discovery snapshot. ([#10](https://github.com/pickpocket/oh-my-soup/pull/10) by [@0neShot101](https://github.com/0neShot101))
+- Concurrent blob tunnel launches no longer overwrite each other's readiness logs. ([#10](https://github.com/pickpocket/oh-my-soup/pull/10) by [@0neShot101](https://github.com/0neShot101))
+- Cached llama.cpp models regain their discovery policy on reload without a successful probe. ([#10](https://github.com/pickpocket/oh-my-soup/pull/10) by [@0neShot101](https://github.com/0neShot101))
 
 ## [18.4.3] - 2026-09-22
 

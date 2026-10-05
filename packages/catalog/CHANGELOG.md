@@ -4,7 +4,7 @@
 
 ### Changed
 
-- Baseten's default model is now Kimi K3 (Kimi K2.7 was retired), and Umans Coder no longer forces mandatory thinking.
+- Baseten's default model is now Kimi K3 (Kimi K2.7 was retired), and Umans Coder no longer forces mandatory thinking. ([#10](https://github.com/pickpocket/oh-my-soup/pull/10) by [@0neShot101](https://github.com/0neShot101))
 
 ## [18.4.3] - 2026-09-22
 

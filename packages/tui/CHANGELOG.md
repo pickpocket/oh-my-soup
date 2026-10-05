@@ -4,8 +4,8 @@
 
 ### Fixed
 
-- Fixed Windows shell previews showing full home paths when the project is on another drive.
-- Fixed composer cache files remaining locked after closing on Windows.
+- Fixed Windows shell previews showing full home paths when the project is on another drive. ([#10](https://github.com/pickpocket/oh-my-soup/pull/10) by [@0neShot101](https://github.com/0neShot101))
+- Fixed composer cache files remaining locked after closing on Windows. ([#10](https://github.com/pickpocket/oh-my-soup/pull/10) by [@0neShot101](https://github.com/0neShot101))
 
 ## [18.3.0] - 2026-09-20
 

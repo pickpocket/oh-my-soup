@@ -4,10 +4,10 @@
 
 ### Fixed
 
-- Fixed `bun run build` with `OMS_NATIVE_CARGO_PROFILE=dev` failing after compilation because napi-rs looked for the addon in a `dev` directory instead of Cargo's `debug` output.
-- Fixed Windows builtins: `mktemp` accepts forward-slash template directories, `rg --path-separator` replaces Windows backslashes, `wc -c` counts from the current file offset, and `timeout` terminates the Windows child process, accepts `KILL`, and reports timeout status instead of a Unix signal status.
-- Fixed hashline edits on Windows rejecting a recovered target path spelled with a `\\?\` verbatim prefix as outside the working directory.
-- Linked worktrees created through the native VCS API are now recorded under their clean absolute path, so `git worktree list` no longer shows `..` segments.
+- Fixed `bun run build` with `OMS_NATIVE_CARGO_PROFILE=dev` failing after compilation because napi-rs looked for the addon in a `dev` directory instead of Cargo's `debug` output. ([#10](https://github.com/pickpocket/oh-my-soup/pull/10) by [@0neShot101](https://github.com/0neShot101))
+- Fixed Windows builtins: `mktemp` accepts forward-slash template directories, `rg --path-separator` replaces Windows backslashes, `wc -c` counts from the current file offset, and `timeout` terminates the Windows child process, accepts `KILL`, and reports timeout status instead of a Unix signal status. ([#10](https://github.com/pickpocket/oh-my-soup/pull/10) by [@0neShot101](https://github.com/0neShot101))
+- Fixed hashline edits on Windows rejecting a recovered target path spelled with a `\\?\` verbatim prefix as outside the working directory. ([#10](https://github.com/pickpocket/oh-my-soup/pull/10) by [@0neShot101](https://github.com/0neShot101))
+- Linked worktrees created through the native VCS API are now recorded under their clean absolute path, so `git worktree list` no longer shows `..` segments. ([#10](https://github.com/pickpocket/oh-my-soup/pull/10) by [@0neShot101](https://github.com/0neShot101))
 
 ## [18.4.4] - 2026-09-29
 

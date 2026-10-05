@@ -4,11 +4,11 @@
 
 ### Added
 
-- Added Anthropic refusal diagnostics with request IDs, HTTP status, before/after-output timing, and request-block inventories, plus an in-memory snapshot for explicit sanitized local export.
+- Added Anthropic refusal diagnostics with request IDs, HTTP status, before/after-output timing, and request-block inventories, plus an in-memory snapshot for explicit sanitized local export. ([#10](https://github.com/pickpocket/oh-my-soup/pull/10) by [@0neShot101](https://github.com/0neShot101))
 
 ### Fixed
 
-- Fixed Anthropic streams over the Cowork transport treating a mid-response connection drop as a clean completion; the drop now surfaces as a retryable connection error while explicit cancellation keeps its own error.
+- Fixed Anthropic streams over the Cowork transport treating a mid-response connection drop as a clean completion; the drop now surfaces as a retryable connection error while explicit cancellation keeps its own error. ([#10](https://github.com/pickpocket/oh-my-soup/pull/10) by [@0neShot101](https://github.com/0neShot101))
 
 ## [18.4.3] - 2026-09-22
 

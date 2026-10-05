@@ -16,7 +16,7 @@ afterEach(() => {
 	for (;;) {
 		const root = roots.pop();
 		if (root === undefined) break;
-		rmSync(root, { recursive: true, force: true });
+		rmSync(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
 	}
 });
 
@@ -48,6 +48,7 @@ describe("telemetry and env follow-up parity", () => {
 			expect(typeof scores?.importance).toBe("number");
 			expect(typeof scores?.recency_decay).toBe("number");
 		} finally {
+			await beam.flushExtractions();
 			beam.close();
 		}
 	});
@@ -69,6 +70,7 @@ describe("telemetry and env follow-up parity", () => {
 			expect(typeof scores?.importance).toBe("number");
 			expect(typeof scores?.recency_decay).toBe("number");
 		} finally {
+			await beam.flushExtractions();
 			beam.close();
 		}
 	});

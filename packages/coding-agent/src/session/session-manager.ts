@@ -2982,6 +2982,7 @@ export class SessionManager {
 		systemPrompt: string;
 		task: string;
 		tools: string[];
+		mountedTools?: string[];
 		agent?: string;
 		modelRole?: string;
 		resolvedModel?: string;
@@ -3837,6 +3838,7 @@ export interface PersistedSessionInit {
 	systemPrompt: string;
 	task: string;
 	tools: string[];
+	mountedTools?: string[];
 	agent?: string;
 	modelRole?: string;
 	resolvedModel?: string;
@@ -3863,6 +3865,7 @@ export function extractSessionInit(entries: readonly FileEntry[]): PersistedSess
 			systemPrompt: entry.systemPrompt,
 			task: entry.task,
 			tools: entry.tools,
+			mountedTools: entry.mountedTools,
 			agent: entry.agent,
 			modelRole: entry.modelRole,
 			resolvedModel: entry.resolvedModel,

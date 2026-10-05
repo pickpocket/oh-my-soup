@@ -8,7 +8,6 @@ import unittest
 from oms_rpc import RpcClient, host_uri
 from oms_rpc.host_uris import normalize_read_result
 
-
 URI_SERVER = textwrap.dedent(
     """
     import json

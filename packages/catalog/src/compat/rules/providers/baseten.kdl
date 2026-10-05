@@ -1,7 +1,9 @@
 // Provider-wire compat for "baseten"; regenerated from the frozen census using deployment contract selectors.
 
 provider "baseten" {
-	default-model "moonshotai/Kimi-K2.7-Code"
+	// Baseten retired Kimi K2.7 on 2026-09-25; K3 is its active Model API.
+	// https://www.baseten.co/resources/changelog/model-api-deprecation-glm-47-kimi-k27-kimi-k26-inkling-inkling-small-deepseek-v4/
+	default-model "moonshotai/Kimi-K3"
 	env "BASETEN_API_KEY"
 	dynamic-models-authoritative #true
 	discovery label="Baseten"

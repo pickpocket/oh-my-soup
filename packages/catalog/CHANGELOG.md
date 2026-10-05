@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- Baseten's default model is now Kimi K3 (Kimi K2.7 was retired), and Umans Coder no longer forces mandatory thinking.
+
 ## [18.4.3] - 2026-09-22
 
 ### Added

@@ -44,6 +44,49 @@ async function persistAgentTombstone(sessionFile: string): Promise<void> {
 		if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
 	}
 }
+/** Snapshot the live grant before disposal; the newest session_init wins on any later revive. */
+async function persistSubagentToolPresentation(session: AgentSession): Promise<void> {
+	const manager = session.sessionManager;
+	if (!manager?.getSessionFile()) return;
+	const init = manager.getEntries().findLast(entry => entry.type === "session_init");
+	if (!init || init.type !== "session_init") return;
+	const writeGranted =
+		init.readOnly !== true &&
+		!session.isWriteTransportOnly &&
+		(init.tools.includes("write") || (init.restrictToolNames !== true && session.isRuntimeWriteSelected));
+	const tools = session
+		.getEnabledToolNames()
+		.filter(
+			name =>
+				(name !== "write" || writeGranted) &&
+				((init.restrictToolNames !== true && init.readOnly !== true) || init.tools.includes(name)),
+		);
+	const mountedTools = session.getMountedXdevToolNames().filter(name => tools.includes(name));
+	const systemPrompt = session.baseSystemPrompt.join("\n\n");
+	const sameNames = (a: readonly string[] | undefined, b: readonly string[]): boolean =>
+		(a?.length ?? 0) === b.length && b.every((name, index) => a?.[index] === name);
+	if (sameNames(init.tools, tools) && sameNames(init.mountedTools, mountedTools) && init.systemPrompt === systemPrompt)
+		return manager.flush();
+	manager.appendSessionInit({
+		systemPrompt,
+		task: init.task,
+		tools,
+		mountedTools,
+		agent: init.agent,
+		modelRole: init.modelRole,
+		resolvedModel: init.resolvedModel,
+		readOnly: init.readOnly,
+		outputSchema: init.outputSchema,
+		outputSchemaMode: init.outputSchemaMode,
+		restrictToolNames: init.restrictToolNames,
+		spawns: init.spawns,
+		readSummarize: init.readSummarize,
+		advisor: init.advisor,
+		compactionThreshold: init.compactionThreshold,
+		isolated: init.isolated,
+	});
+	await manager.flush();
+}
 
 /**
  * Builds a reviver for a `parked` ref restored from disk (Agent Hub scan,
@@ -281,6 +324,7 @@ export class AgentLifecycleManager {
 		}
 
 		let cancelled = false;
+		const cancellation = new AbortController();
 		const park: ParkInFlight = {
 			ref,
 			promise: undefined as unknown as Promise<void>,
@@ -290,6 +334,7 @@ export class AgentLifecycleManager {
 				if (park.detached || cancelled) return cancelled;
 				cancelled = true;
 				park.cancelled = true;
+				cancellation.abort();
 				return true;
 			},
 			cancelled: false,
@@ -303,22 +348,35 @@ export class AgentLifecycleManager {
 				await Promise.resolve();
 				if (cancelled) return;
 
-				// Re-check liveness: release/unregister/replace may have raced us.
-				const live = this.#registry.get(id);
-				if (live !== ref || !live.session || live.session !== session) return;
-				if (this.#adopted.get(id)?.ref !== ref) return;
-
-				// Commit: detach + parked *before* dispose so callers never see a
-				// dying session via ref.session / idle status.
-				park.detached = true;
-				this.#registry.detachSession(id, ref);
-				this.#registry.setStatus(id, "parked", ref);
-
+				const canPark = () =>
+					!cancelled &&
+					this.#registry.get(id) === ref &&
+					ref.session === session &&
+					this.#adopted.get(id) === adopted;
+				let disposal: Promise<void> | undefined;
 				try {
-					await session.dispose();
+					await session.runToolRegistryMutation(async () => {
+						if (!canPark()) return;
+						await persistSubagentToolPresentation(session);
+						// A caller may cancel or replace this ref while storage flushes.
+						if (!canPark()) return;
+
+						park.detached = true;
+						this.#registry.detachSession(id, ref);
+						this.#registry.setStatus(id, "parked", ref);
+						// Begin disposal while still owning the mutation queue, but do
+						// not await teardown here: it may drain this same queue.
+						disposal = session.dispose().catch(error => {
+							logger.warn("AgentLifecycleManager.park: session dispose failed", { id, error: String(error) });
+						});
+					}, cancellation.signal);
 				} catch (error) {
-					logger.warn("AgentLifecycleManager.park: session dispose failed", { id, error: String(error) });
+					if (cancelled) return;
+					logger.warn("AgentLifecycleManager.park: contract persistence failed", { id, error: String(error) });
+					if (!cancelled && this.#adopted.get(id) === adopted) this.#armTimer(id, adopted);
+					return;
 				}
+				await disposal;
 			} finally {
 				// Only clear if we are still the in-flight entry (a later park would
 				// have replaced us only after we resolved).
@@ -484,11 +542,28 @@ export class AgentLifecycleManager {
 			// Detaching removes the registry's only route to the live session. Always
 			// dispose the captured session, even when tombstone persistence fails.
 			if (live) {
-				try {
-					await live.dispose();
-				} catch (error) {
-					logger.warn("AgentLifecycleManager.release: session dispose failed", { id, error: String(error) });
+				let disposal: Promise<void> | undefined;
+				const startDisposal = () => {
+					disposal = live.dispose().catch(error => {
+						logger.warn("AgentLifecycleManager.release: session dispose failed", { id, error: String(error) });
+					});
+				};
+				if (options?.tombstone) {
+					startDisposal();
+				} else {
+					await live.runToolRegistryMutation(async () => {
+						try {
+							await persistSubagentToolPresentation(live);
+						} catch (error) {
+							logger.warn("AgentLifecycleManager.release: contract persistence failed", {
+								id,
+								error: String(error),
+							});
+						}
+						startDisposal();
+					});
 				}
+				await disposal;
 			}
 			try {
 				await onRelease?.();
@@ -513,7 +588,10 @@ export class AgentLifecycleManager {
 			ids.map(async id => {
 				const release = this.release(id).then(() => {});
 				try {
-					await untilAborted(AbortSignal.timeout(Math.max(0, deadlineAt - Date.now())), () => release);
+					const remainingMs = deadlineAt - Date.now();
+					// An expired deadline must not depend on another timer tick during shutdown.
+					const signal = remainingMs > 0 ? AbortSignal.timeout(remainingMs) : AbortSignal.abort();
+					await untilAborted(signal, () => release);
 				} catch (error) {
 					if (Date.now() >= deadlineAt) {
 						trackLateCleanup(release, { id, resource: "adopted-agent" });

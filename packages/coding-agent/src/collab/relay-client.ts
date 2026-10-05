@@ -82,6 +82,8 @@ export interface CollabSocketOptions {
 	wsUrl: string;
 	role: "host" | "guest";
 	key: CryptoKey;
+	/** Test seam; production uses capped exponential backoff with jitter. */
+	reconnectDelay?: (attempt: number, maxMs: number) => number;
 }
 
 export class CollabSocket {
@@ -691,8 +693,7 @@ export class CollabSocket {
 	}
 
 	#scheduleRetry(attempt: number, maxMs = BACKOFF_MAX_MS): void {
-		const base = Math.min(BACKOFF_BASE_MS * 2 ** attempt, maxMs);
-		const delay = base * (0.75 + Math.random() * 0.5);
+		const delay = this.#opts.reconnectDelay?.(attempt, maxMs) ?? jitteredBackoff(attempt, maxMs);
 		this.#retryTimer = setTimeout(() => {
 			this.#retryTimer = undefined;
 			if (this.#closed) return;
@@ -706,4 +707,9 @@ export class CollabSocket {
 			this.#retryTimer = undefined;
 		}
 	}
+}
+
+function jitteredBackoff(attempt: number, maxMs: number): number {
+	const base = Math.min(BACKOFF_BASE_MS * 2 ** attempt, maxMs);
+	return base * (0.75 + Math.random() * 0.5);
 }

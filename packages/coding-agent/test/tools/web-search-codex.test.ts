@@ -2,6 +2,7 @@ import { Database } from "bun:sqlite";
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import { AuthStorage, type FetchImpl, type Model, SqliteAuthCredentialStore } from "@oh-my-soup/pi-ai";
 import { buildModel } from "@oh-my-soup/pi-catalog/build";
+import { getBundledModel } from "@oh-my-soup/pi-catalog/models";
 import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
 import type { SearchParams } from "@oh-my-soup/pi-coding-agent/web/search/providers/base";
 import { hasCodexSearch, searchCodex } from "@oh-my-soup/pi-coding-agent/web/search/providers/codex";
@@ -315,15 +316,15 @@ describe("searchCodex model selection", () => {
 		expect(result.sources).toEqual([{ title: "Example Article", url: "https://example.com/article" }]);
 	});
 
-	it("uses GPT-6 Luna as the first bundled default", async () => {
-		delete process.env.PI_CODEX_WEB_SEARCH_MODEL;
-		const result = await searchCodex(makeSearchParams("default codex model", mockCodexFetch("gpt-6-luna")));
+	it("sends the selected bundled Codex model instead of a separate search default", async () => {
+		const model = getBundledModel<"openai-codex-responses">("openai-codex", "gpt-6-luna");
+		if (!model) throw new Error("Missing bundled Codex model");
+		const result = await searchCodex(makeSearchParams("bundled codex model", mockCodexFetch(model.id), model));
 
-		expect(capturedRequest).not.toBeNull();
 		expect(capturedRequest?.url).toBe("https://chatgpt.com/backend-api/codex/responses");
 		expect(new Headers(capturedRequest?.headers).get("x-openai-internal-codex-residency")).toBe("us");
-		expect(capturedRequest?.body?.model).toBe("gpt-6-luna");
-		expect(result.model).toBe("gpt-6-luna");
+		expect(capturedRequest?.body?.model).toBe(model.id);
+		expect(result.model).toBe(model.id);
 		expect(result.sources).toEqual([{ title: "Example Article", url: "https://example.com/article" }]);
 	});
 
@@ -448,54 +449,25 @@ describe("searchCodex model selection", () => {
 		expect(result.answer).toBe("Codex answer");
 	});
 
-	it("falls back to the default model when PI_CODEX_WEB_SEARCH_MODEL is blank", async () => {
-		process.env.PI_CODEX_WEB_SEARCH_MODEL = "   ";
-		const result = await searchCodex(makeSearchParams("blank codex model", mockCodexFetch("gpt-6-luna")));
-
-		expect(capturedRequest).not.toBeNull();
-		expect(capturedRequest?.body?.model).toBe("gpt-6-luna");
-		expect(result.model).toBe("gpt-6-luna");
-	});
-
-	it("retries the next bundled default when Codex rejects a model for ChatGPT accounts", async () => {
-		delete process.env.PI_CODEX_WEB_SEARCH_MODEL;
+	it("surfaces a ChatGPT account model rejection instead of silently switching the selected model", async () => {
 		let calls = 0;
-		capturedRequest = null;
-		const fetchMock: FetchImpl = (url, init) => {
-			calls += 1;
-			capturedRequest = {
-				url: typeof url === "string" ? url : url.toString(),
-				headers: init?.headers,
-				body: init?.body ? (JSON.parse(init.body as string) as Record<string, unknown>) : null,
-			};
-
-			const requestedModel = capturedRequest.body?.model;
-			if (calls === 1) {
-				expect(requestedModel).toBe("gpt-6-luna");
-				return Promise.resolve(
-					new Response(
-						JSON.stringify({
-							detail: "The 'gpt-6-luna' model is not supported when using Codex with a ChatGPT account.",
-						}),
-						{ status: 400, headers: { "Content-Type": "application/json" } },
-					),
-				);
-			}
-
-			expect(requestedModel).toBe("gpt-6-sol");
+		const fetchMock: FetchImpl = (_url, init) => {
+			calls++;
+			expect(JSON.parse(String(init?.body)).model).toBe(selectedCodexModel.id);
 			return Promise.resolve(
-				new Response(makeSseResponse("gpt-6-sol"), {
-					status: 200,
-					headers: { "Content-Type": "text/event-stream" },
-				}),
+				Response.json(
+					{
+						detail: `The '${selectedCodexModel.id}' model is not supported when using Codex with a ChatGPT account.`,
+					},
+					{ status: 400 },
+				),
 			);
 		};
 
-		const result = await searchCodex(makeSearchParams("retry unsupported default", fetchMock));
-
-		expect(calls).toBe(2);
-		expect(result.model).toBe("gpt-6-sol");
-		expect(result.sources).toEqual([{ title: "Example Article", url: "https://example.com/article" }]);
+		await expect(searchCodex(makeSearchParams("unsupported selected model", fetchMock))).rejects.toThrow(
+			/not supported when using Codex with a ChatGPT account/,
+		);
+		expect(calls).toBe(1);
 	});
 
 	it("keeps hosted web_search top-level for selected Responses-Lite catalog models (#7666)", async () => {
@@ -754,41 +726,6 @@ describe("searchCodex model selection", () => {
 		);
 	});
 
-	it("advances to the next default candidate when a lite model skips web search (#6988)", async () => {
-		delete process.env.PI_CODEX_WEB_SEARCH_MODEL;
-		let calls = 0;
-		const noSearchSse = [
-			`data: ${JSON.stringify({
-				type: "response.output_item.done",
-				item: { type: "message", content: [{ type: "output_text", text: "stale answer, no search" }] },
-			})}`,
-			"",
-			`data: ${JSON.stringify({ type: "response.completed", response: { id: "resp_skip", model: "gpt-6-luna" } })}`,
-			"",
-		].join("\n");
-		const fetchMock: FetchImpl = (_url, init) => {
-			calls += 1;
-			const body = init?.body ? (JSON.parse(init.body as string) as Record<string, unknown>) : null;
-			if (calls === 1) {
-				expect(body?.model).toBe("gpt-6-luna");
-				return Promise.resolve(
-					new Response(noSearchSse, { status: 200, headers: { "Content-Type": "text/event-stream" } }),
-				);
-			}
-			expect(body?.model).toBe("gpt-6-sol");
-			return Promise.resolve(
-				new Response(makeSseResponse("gpt-6-sol"), {
-					status: 200,
-					headers: { "Content-Type": "text/event-stream" },
-				}),
-			);
-		};
-
-		const result = await searchCodex(makeSearchParams("advance past skipped search", fetchMock));
-		expect(calls).toBe(2);
-		expect(result.model).toBe("gpt-6-sol");
-		expect(result.sources).toEqual([{ title: "Example Article", url: "https://example.com/article" }]);
-	});
 	it("preserves a nested type:error code and message instead of Unknown error (#7200)", async () => {
 		const sse = [
 			`data: ${JSON.stringify({

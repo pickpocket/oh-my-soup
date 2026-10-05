@@ -35,7 +35,16 @@ const sessions: net.Socket[] = [];
 const projectDirs: string[] = [];
 
 afterEach(async () => {
-	for (const session of sessions.splice(0)) session.destroy();
+	await Promise.all(
+		sessions.splice(0).map(
+			session =>
+				new Promise<void>(resolve => {
+					if (session.closed) return resolve();
+					session.once("close", resolve);
+					session.destroy();
+				}),
+		),
+	);
 	for (const host of hosts.splice(0)) await host.close();
 	for (const server of servers.splice(0)) await server.stop();
 	for (const projectDir of projectDirs.splice(0)) await fs.rm(projectDir, { recursive: true, force: true });

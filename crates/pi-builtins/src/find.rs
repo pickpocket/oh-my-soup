@@ -5309,7 +5309,7 @@ mod tests {
 				"-regextype".into(),
 				"posix-extended".into(),
 				"-regex".into(),
-				r".*/c|.*/c\.rs".into(),
+				r".*[\\/]c|.*[\\/]c\.rs".into(),
 			],
 		);
 		assert_eq!(code, 0, "stderr: {}", capture.err());

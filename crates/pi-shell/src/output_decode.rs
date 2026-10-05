@@ -268,6 +268,9 @@ mod tests {
 
 	#[test]
 	fn incomplete_utf8_at_eof_becomes_replacement() {
+		#[cfg(windows)]
+		let mut decoder = OutputDecoder::with_fallback_codepage(CP_UTF8);
+		#[cfg(not(windows))]
 		let mut decoder = OutputDecoder::new();
 		assert_eq!(decoder.push(&[0xe4]), "");
 		assert_eq!(decoder.finish(), "\u{FFFD}");

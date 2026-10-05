@@ -226,8 +226,8 @@ describe("FileSessionStorage.writeTextAtomic commitGuard cleanup", () => {
 describe("recoverOrphanedBackups", () => {
 	it("promotes an orphaned <basename>.jsonl.<snowflake>.bak back to the primary path when the primary is missing", async () => {
 		const storage = new MemorySessionStorage();
-		const dir = "/sessions/proj";
-		const primary = `${dir}/session-abc.jsonl`;
+		const dir = path.join("sessions", "proj");
+		const primary = path.join(dir, "session-abc.jsonl");
 		const backup = `${primary}.1700000000000.bak`;
 		storage.writeTextSync(backup, '{"type":"session","id":"abc"}\n');
 
@@ -240,8 +240,8 @@ describe("recoverOrphanedBackups", () => {
 
 	it("leaves the backup alone when the primary already exists", async () => {
 		const storage = new MemorySessionStorage();
-		const dir = "/sessions/proj";
-		const primary = `${dir}/session-xyz.jsonl`;
+		const dir = path.join("sessions", "proj");
+		const primary = path.join(dir, "session-xyz.jsonl");
 		const backup = `${primary}.1700000000000.bak`;
 		storage.writeTextSync(primary, '{"type":"session","id":"xyz","keep":true}\n');
 		storage.writeTextSync(backup, '{"type":"session","id":"xyz","stale":true}\n');
@@ -254,8 +254,8 @@ describe("recoverOrphanedBackups", () => {
 
 	it("picks the newest backup when multiple orphans exist for the same primary", async () => {
 		const storage = new MemorySessionStorage();
-		const dir = "/sessions/proj";
-		const primary = `${dir}/session-multi.jsonl`;
+		const dir = path.join("sessions", "proj");
+		const primary = path.join(dir, "session-multi.jsonl");
 		const older = `${primary}.100.bak`;
 		const newer = `${primary}.200.bak`;
 		storage.writeTextSync(older, "older");

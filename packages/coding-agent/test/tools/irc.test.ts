@@ -9,6 +9,7 @@ import { AgentSession, type AgentSessionEvent } from "@oh-my-soup/pi-coding-agen
 import { IrcBridge } from "@oh-my-soup/pi-coding-agent/session/irc-bridge";
 import type { CustomMessage } from "@oh-my-soup/pi-coding-agent/session/messages";
 import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
+import { createSessionDefaults } from "../helpers/session-defaults";
 
 interface FakeSession {
 	session: AgentSession;
@@ -53,6 +54,11 @@ function makeFakeSession(): FakeSession {
 			nextError = error;
 		},
 	};
+}
+
+/** Settle park's microtask chain (cancel window + grant snapshot) until the ref detaches. */
+async function untilParked(id: string): Promise<void> {
+	for (let i = 0; i < 50 && AgentRegistry.global().get(id)?.status !== "parked"; i++) await Promise.resolve();
 }
 
 function createRealSession(overrides: Record<string, unknown> = {}): {
@@ -257,6 +263,7 @@ describe("IRC", () => {
 			const { promise: disposeGate, resolve: resolveDispose } = Promise.withResolvers<void>();
 			let disposeCalls = 0;
 			const oldSession = {
+				...createSessionDefaults(),
 				deliverIrcMessage: async () => {
 					throw new Error("dying session must not receive mail");
 				},
@@ -286,9 +293,8 @@ describe("IRC", () => {
 			});
 
 			const parking = AgentLifecycleManager.global().park("0-Parking");
-			// Pass the cancel window so park detaches before send.
-			await Promise.resolve();
-			await Promise.resolve();
+			// Pass the cancel window and the grant snapshot so park detaches before send.
+			await untilParked("0-Parking");
 			expect(registry.get("0-Parking")?.status).toBe("parked");
 			expect(registry.get("0-Parking")?.session).toBeNull();
 			expect(disposeCalls).toBe(1);
@@ -319,6 +325,7 @@ describe("IRC", () => {
 		it("multiple concurrent sends during park coalesce revive and all deliver", async () => {
 			const { promise: disposeGate, resolve: resolveDispose } = Promise.withResolvers<void>();
 			const oldSession = {
+				...createSessionDefaults(),
 				deliverIrcMessage: async () => {
 					throw new Error("dying session must not receive mail");
 				},
@@ -347,8 +354,7 @@ describe("IRC", () => {
 			});
 
 			const parking = AgentLifecycleManager.global().park("0-Parking");
-			await Promise.resolve();
-			await Promise.resolve();
+			await untilParked("0-Parking");
 
 			const sends = Promise.all([
 				bus.send({ from: "0-Main", to: "0-Parking", body: "one" }),

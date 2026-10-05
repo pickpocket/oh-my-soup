@@ -425,8 +425,14 @@ const sessionRegistry = createKernelSessionRegistry<PythonKernel, PythonExecutor
 });
 
 /** Return a live retained Python kernel for post-compaction state probing. */
-export function peekLivePythonKernel(sessionId: string): PythonKernelExecutor | undefined {
-	return sessionRegistry.peekLiveKernelBySessionId(sessionId);
+export function peekLivePythonKernel(options: {
+	cwd: string;
+	sessionId: string;
+	interpreter?: string;
+	kernelOwnerId?: string;
+}): PythonKernelExecutor | undefined {
+	const cwd = normalizeKernelSessionCwd(options.cwd);
+	return sessionRegistry.peekLiveKernel(cwd, { ...options, cwd });
 }
 
 interface PythonToolRequestOutcome {

@@ -226,9 +226,10 @@ const napiArgs = [
 	"index.d.ts",
 	"-o",
 	buildOutputDir,
-	"--profile",
-	cargoProfile,
 ];
+// Cargo's built-in dev profile writes to `debug`, while napi-rs treats an
+// explicit profile name as the artifact directory. Its default already selects dev.
+if (cargoProfile !== "dev") napiArgs.push("--profile", cargoProfile);
 
 // napi-rs / cargo route much failure detail to stdout (e.g. `cargo metadata`
 // errors), so a stderr-only error collapses real failures to a bare message.

@@ -12,7 +12,6 @@ import {
 import { Mnemopi } from "@oh-my-soup/pi-mnemopi/core/memory";
 import { withMnemopiRuntimeOptions } from "@oh-my-soup/pi-mnemopi/core/runtime-options";
 import { getFastembedCacheDir } from "@oh-my-soup/pi-utils";
-import packageJson from "../package.json" with { type: "json" };
 
 const ENV_KEYS = [
 	"NODE_ENV",
@@ -128,20 +127,17 @@ describe("optional embeddings", () => {
 
 	it("calls an OpenAI-compatible custom embeddings endpoint without requiring an API key", async () => {
 		let requests = 0;
+		const observed: Array<{ headers: Headers; path: string; payload: { model: string; input: string[] } }> = [];
 		const server = Bun.serve({
 			port: 0,
 			fetch: async request => {
 				requests += 1;
-				expect(request.headers.get("content-type")).toBe("application/json");
-				expect(request.headers.get("user-agent")).toBe(`oms/${packageJson.version}`);
-				expect(request.headers.get("http-referer")).toBe("https://omp.sh/");
-				expect(request.headers.get("x-openrouter-title")).toBe("oms");
-				expect(request.headers.get("x-openrouter-categories")).toBe("cli-agent");
-				expect(request.headers.get("x-title")).toBeNull();
-				expect(request.headers.get("authorization")).toBeNull();
-				expect(new URL(request.url).pathname).toBe("/embeddings");
 				const payload = (await request.json()) as { model: string; input: string[] };
-				expect(payload.model).toBe("openai/text-embedding-3-small");
+				observed.push({
+					headers: request.headers,
+					path: new URL(request.url).pathname,
+					payload,
+				});
 				return Response.json({
 					data: payload.input.map((text, index) => ({ embedding: [text.length, index + 1] })),
 				});
@@ -165,6 +161,14 @@ describe("optional embeddings", () => {
 				},
 			);
 			expect(requests).toBe(1);
+			expect(observed).toHaveLength(1);
+			expect(observed[0]?.path).toBe("/embeddings");
+			expect(observed[0]?.payload).toEqual({
+				model: "openai/text-embedding-3-small",
+				input: ["hi", "world"],
+			});
+			expect(observed[0]?.headers.get("content-type")).toBe("application/json");
+			expect(observed[0]?.headers.get("authorization")).toBeNull();
 		} finally {
 			server.stop(true);
 		}

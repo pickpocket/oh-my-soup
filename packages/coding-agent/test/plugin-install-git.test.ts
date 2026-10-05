@@ -549,7 +549,7 @@ describe("PluginManager.install with git sources", () => {
 		await Bun.write(
 			pluginsPkgJson,
 			JSON.stringify(
-				{ name: "omp-plugins", private: true, dependencies: { "ida-mcp": "github:HexRaysSA/ida-mcp#latest" } },
+				{ name: "oms-plugins", private: true, dependencies: { "ida-mcp": "github:HexRaysSA/ida-mcp#latest" } },
 				null,
 				2,
 			),
@@ -558,7 +558,7 @@ describe("PluginManager.install with git sources", () => {
 		await fs.mkdir(seedDir, { recursive: true });
 		await Bun.write(path.join(seedDir, "package.json"), JSON.stringify({ name: "ida-mcp", version: "1.0.0" }));
 		await Bun.write(
-			path.join(tmpRoot, "omp-plugins.lock.json"),
+			path.join(tmpRoot, "oms-plugins.lock.json"),
 			JSON.stringify({
 				plugins: { "ida-mcp": { version: "1.0.0", enabledFeatures: null, enabled: false } },
 				settings: {},
@@ -588,7 +588,7 @@ describe("PluginManager.install with git sources", () => {
 			["bun", "pm", "cache"],
 			["bun", "update", "ida-mcp"],
 		]);
-		const lock = await Bun.file(path.join(tmpRoot, "omp-plugins.lock.json")).json();
+		const lock = await Bun.file(path.join(tmpRoot, "oms-plugins.lock.json")).json();
 		expect(lock.plugins["ida-mcp"]).toEqual({ version: "2.0.0", enabledFeatures: null, enabled: false });
 	});
 

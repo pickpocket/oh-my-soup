@@ -21,6 +21,7 @@ import {
 } from "@oh-my-soup/pi-coding-agent/task/executor";
 import type { AgentDefinition } from "@oh-my-soup/pi-coding-agent/task/types";
 import { EventBus } from "@oh-my-soup/pi-coding-agent/utils/event-bus";
+import { createSessionDefaults } from "../helpers/session-defaults";
 
 const AGENT_ID = "accepted-result";
 
@@ -93,11 +94,12 @@ function createHarness(options?: { hangPrompt?: boolean; asyncJobManager?: Async
 		} as AgentSessionEvent);
 	};
 	const session = {
+		...createSessionDefaults(),
 		state: { messages },
 		agent: { state: { systemPrompt: ["test"] } },
 		model: undefined,
 		extensionRunner: undefined,
-		sessionManager: { appendSessionInit: () => {} },
+		sessionManager: { appendSessionInit: () => {}, getSessionFile: () => undefined },
 		getActiveToolNames: () => ["read", "yield"],
 		getEnabledToolNames: () => ["read", "yield"],
 		getToolByName: () => undefined,

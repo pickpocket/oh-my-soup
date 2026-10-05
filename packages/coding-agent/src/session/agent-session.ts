@@ -3349,7 +3349,34 @@ export class AgentSession implements SettingsScope {
 		if (this.#sessionMessageAlreadyPersisted(message)) return;
 		if (message.role === "assistant") {
 			const assistantMsg = message as AssistantMessage;
-			if (this.#recovery.isClassifierRefusal(assistantMsg)) return;
+			if (this.#recovery.isClassifierRefusal(assistantMsg)) {
+				if (assistantMsg.refusalDiagnostics) {
+					// Preserve evidence for resume without replaying incomplete output,
+					// opaque provider state, or fallback-credit credentials.
+					const evidence: AssistantMessage = {
+						role: "assistant",
+						content: [],
+						api: assistantMsg.api,
+						provider: assistantMsg.provider,
+						model: assistantMsg.model,
+						responseId: assistantMsg.responseId,
+						usage: assistantMsg.usage,
+						stopReason: "error",
+						stopDetails: {
+							type: assistantMsg.stopDetails?.type ?? "refusal",
+							category: assistantMsg.stopDetails?.category,
+							explanation: assistantMsg.stopDetails?.explanation,
+						},
+						errorMessage: assistantMsg.errorMessage,
+						refusalDiagnostics: assistantMsg.refusalDiagnostics,
+						timestamp: assistantMsg.timestamp,
+						duration: assistantMsg.duration,
+						ttft: assistantMsg.ttft,
+					};
+					if (!this.#sessionMessageAlreadyPersisted(evidence)) this.#appendSessionMessage(evidence);
+				}
+				return;
+			}
 			if (isEmptyErrorTurn(assistantMsg)) return;
 			if (assistantMsg.contextSnapshot?.importantNotesTokens === undefined) {
 				this.#captureAssistantContextSnapshot(assistantMsg);
@@ -4205,11 +4232,9 @@ export class AgentSession implements SettingsScope {
 					return;
 				}
 			}
-			// Classifier refusals are persisted-skipped above; also prune the trailing
-			// stub from active context so the next turn's prompt does not replay it.
-			// Keep a reference for post-settle readers (print mode, task executor via
-			// getLastAssistantMessage) — pruning made the terminal error invisible to
-			// anything inspecting agent state after prompt() resolved.
+			// Refusal evidence is persisted without content above; prune the
+			// incomplete response from active context so the next turn never replays it.
+			// Keep the original for post-settle readers and the in-memory request snapshot.
 			// Fall through to the standard error tail so `session_stop` hooks (block,
 			// continue, telemetry) still fire — matching the pre-fix flow for
 			// `stopReason === "error"`.
@@ -5999,6 +6024,11 @@ export class AgentSession implements SettingsScope {
 		return this.agent.state.systemPrompt;
 	}
 
+	/** Stable base prompt, excluding one-turn extension overrides. */
+	get baseSystemPrompt(): readonly string[] {
+		return this.#tools.baseSystemPrompt;
+	}
+
 	/** Marks streamed text as committed or buffered for turn-recovery replay decisions. */
 	setTextOutputCommitted(committed: boolean): void {
 		this.#textOutputCommitted = committed;
@@ -6187,6 +6217,15 @@ export class AgentSession implements SettingsScope {
 	/** Current Code Mode `tool_namespaces_info` snapshot, or `undefined` when inactive. */
 	get codeModeNamespacesInfo(): unknown {
 		return this.#codeModeState.namespacesInfo;
+	}
+
+	/** Whether write is limited to the xd:// transport rather than a filesystem grant. */
+	get isWriteTransportOnly(): boolean {
+		return this.#tools.isWriteTransportOnly;
+	}
+	/** Whether a runtime selection explicitly granted filesystem write. */
+	get isRuntimeWriteSelected(): boolean {
+		return this.#tools.isRuntimeWriteSelected;
 	}
 
 	/** Selects enabled tools, ignoring names absent from the registry. */

@@ -299,7 +299,11 @@ export class ComposerCache {
 	}
 
 	close(): void {
-		this.#db.close();
+		// Release prepared statements before closing: otherwise Bun's SQLite
+		// connection can retain its WAL/SHM handles on Windows after close.
+		this.#select.finalize();
+		this.#upsert.finalize();
+		this.#db.close(true);
 	}
 
 	/** Best-effort upsert: a failed write only costs the next launch its speculation. */

@@ -5,17 +5,21 @@ import { AgentLifecycleManager } from "@oh-my-soup/pi-coding-agent/registry/agen
 import { AgentRegistry, MAIN_AGENT_ID } from "@oh-my-soup/pi-coding-agent/registry/agent-registry";
 import { registerPersistedSubagents } from "@oh-my-soup/pi-coding-agent/registry/persisted-agents";
 import type { AgentSession } from "@oh-my-soup/pi-coding-agent/session/agent-session";
-import { TempDir } from "@oh-my-soup/pi-utils";
+import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
+import { MemorySessionStorage } from "@oh-my-soup/pi-coding-agent/session/session-storage";
+import { TempDir, untilAborted, withTimeout } from "@oh-my-soup/pi-utils";
 
 interface SessionStub {
 	session: AgentSession;
 	disposeCalls: () => number;
 }
 
-/** Minimal session: the lifecycle manager only ever calls dispose() on it. */
+/** Minimal session with the lifecycle mutation boundary and disposal hook. */
 function makeSessionStub(dispose?: () => Promise<void>): SessionStub {
 	let calls = 0;
 	const stub = {
+		runToolRegistryMutation: <T>(mutation: () => Promise<T>, signal?: AbortSignal): Promise<T> =>
+			untilAborted(signal, mutation),
 		dispose: async () => {
 			calls++;
 			await dispose?.();
@@ -619,6 +623,199 @@ describe("AgentLifecycleManager", () => {
 		expect(registry.get("Race-Revive")?.session).toBe(revived.session);
 		expect(stub.disposeCalls()).toBe(1);
 	});
+
+	async function makePersistedToolSession(tools: string[]) {
+		const storage = new MemorySessionStorage();
+		const manager = SessionManager.create(path.resolve("."), path.resolve("sessions"), storage);
+		manager.appendSessionInit({ systemPrompt: "base", task: "task", tools: [...tools], mountedTools: [] });
+		await manager.ensureOnDisk();
+		const stub = makeSessionStub(() => manager.close());
+		Object.assign(stub.session, {
+			sessionManager: manager,
+			baseSystemPrompt: ["base"],
+			getEnabledToolNames: () => tools,
+			getMountedXdevToolNames: () => [],
+		});
+		return { ...stub, manager, storage };
+	}
+
+	it.each(["append", "drain"] as const)("keeps the live grant when snapshot %s fails", async phase => {
+		const tools = ["read", "write"];
+		const { session, manager, storage, disposeCalls } = await makePersistedToolSession(tools);
+		const file = manager.getSessionFile()!;
+		const ref = registerIdleSub("Snapshot-Failure", session, file);
+		lifecycle.adopt(ref.id, { idleTtlMs: 0 });
+		tools.pop();
+		const failure = Object.assign(new Error("no space left on device"), { code: "ENOSPC" });
+		if (phase === "append") {
+			vi.spyOn(storage, "appendSync").mockImplementation(() => {
+				throw failure;
+			});
+		} else {
+			vi.spyOn(storage, "drain").mockRejectedValue(failure);
+		}
+		try {
+			await lifecycle.park(ref.id);
+			expect(ref.session).toBe(session);
+			expect(ref.status).toBe("idle");
+			expect(disposeCalls()).toBe(0);
+			expect(session.getEnabledToolNames()).toEqual(["read"]);
+			await expect(manager.flush()).rejects.toBe(failure);
+		} finally {
+			await lifecycle.release(ref.id);
+		}
+	});
+
+	it("waits for a pending tool mutation to roll back before snapshotting", async () => {
+		const tools = ["read", "write"];
+		const { session, manager, storage } = await makePersistedToolSession(tools);
+		const file = manager.getSessionFile()!;
+		const gate = Promise.withResolvers<void>();
+		session.runToolRegistryMutation = async mutation => {
+			await gate.promise;
+			return mutation();
+		};
+		const ref = registerIdleSub("Snapshot-Rollback", session, file);
+		lifecycle.adopt(ref.id, { idleTtlMs: 0 });
+		tools.pop();
+		const parking = lifecycle.park(ref.id);
+		try {
+			await flushAsync();
+			expect(ref.session).toBe(session);
+			tools.push("write");
+		} finally {
+			gate.resolve();
+			await parking;
+		}
+		expect(ref.status).toBe("parked");
+		const peek = await SessionManager.peekSessionInit(file, storage);
+		expect(peek?.init?.tools).toEqual(["read", "write"]);
+	});
+
+	it("cancels parking when a caller arrives during snapshot publication", async () => {
+		const tools = ["read", "write"];
+		const { session, manager, storage, disposeCalls } = await makePersistedToolSession(tools);
+		const ref = registerIdleSub("Snapshot-Cancel", session, manager.getSessionFile());
+		lifecycle.adopt(ref.id, { idleTtlMs: 0 });
+		const entered = Promise.withResolvers<void>();
+		const gate = Promise.withResolvers<void>();
+		vi.spyOn(storage, "drain").mockImplementationOnce(() => {
+			entered.resolve();
+			return gate.promise;
+		});
+		const parking = lifecycle.park(ref.id);
+		try {
+			await entered.promise;
+			expect(await withTimeout(lifecycle.ensureLive(ref.id), 1_000, "park cancellation stalled")).toBe(session);
+		} finally {
+			gate.resolve();
+			await parking;
+		}
+		expect(ref.session).toBe(session);
+		expect(ref.status).toBe("idle");
+		expect(disposeCalls()).toBe(0);
+		await lifecycle.release(ref.id);
+	});
+
+	it.each(["queue", "drain"] as const)("kills before a cancelled park's %s settles", async phase => {
+		const { session, storage } = await makePersistedToolSession(["read"]);
+		const ref = registerIdleSub("Snapshot-Kill", session, null);
+		lifecycle.adopt(ref.id, { idleTtlMs: 0 });
+		const entered = Promise.withResolvers<void>();
+		const gate = Promise.withResolvers<void>();
+		if (phase === "queue") {
+			session.runToolRegistryMutation = (mutation, signal) =>
+				untilAborted(signal, async () => {
+					entered.resolve();
+					await gate.promise;
+					signal?.throwIfAborted();
+					return mutation();
+				});
+		} else {
+			vi.spyOn(storage, "drain").mockImplementationOnce(() => {
+				entered.resolve();
+				return gate.promise;
+			});
+		}
+		const terminal = Promise.withResolvers<void>();
+		const unsubscribe = registry.onChange(event => {
+			if (event.type === "status_changed" && event.ref === ref && event.ref.status === "aborted") {
+				terminal.resolve();
+			}
+		});
+		const parking = lifecycle.park(ref.id);
+		let releasing: Promise<boolean> | undefined;
+		try {
+			await entered.promise;
+			releasing = lifecycle.release(ref.id, ref, { tombstone: true });
+			await withTimeout(terminal.promise, 1_000, "kill waited for the cancelled park");
+			expect(ref.status).toBe("aborted");
+			expect(ref.session).toBeNull();
+		} finally {
+			gate.resolve();
+			await parking;
+			await releasing;
+			unsubscribe();
+		}
+	});
+
+	it.each(["park", "shutdown"] as const)(
+		"persists runtime tools before %s so a disk revive sees the latest grant",
+		async transition => {
+			const dir = TempDir.createSync("@pi-tool-park-");
+			try {
+				const manager = SessionManager.create(dir.path(), path.join(dir.path(), "sessions"));
+				const file = manager.getSessionFile();
+				if (!file) throw new Error("Missing session file");
+				manager.appendSessionInit({
+					systemPrompt: "subagent",
+					task: "task",
+					tools: ["read", "yield"],
+					mountedTools: [],
+				});
+				manager.appendMessage({
+					role: "assistant",
+					provider: "anthropic",
+					model: "claude-sonnet-4-5",
+					content: [{ type: "text", text: "Work to resume" }],
+					usage: {
+						input: 0,
+						output: 0,
+						cacheRead: 0,
+						cacheWrite: 0,
+						totalTokens: 0,
+						cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+					},
+					api: "anthropic-messages",
+					stopReason: "stop",
+					timestamp: Date.now(),
+				});
+				const granted = ["read", "write", "yield", "new_device"];
+				const session = {
+					sessionManager: manager,
+					baseSystemPrompt: ["stable base"],
+					agent: { state: { systemPrompt: ["one-turn override"] } },
+					runToolRegistryMutation: async <T>(mutation: () => Promise<T>): Promise<T> => mutation(),
+					getEnabledToolNames: () => granted,
+					getActiveToolNames: () => ["read", "write", "yield"],
+					getMountedXdevToolNames: () => ["new_device"],
+					isWriteTransportOnly: true,
+					dispose: () => manager.close(),
+				} as unknown as AgentSession;
+				registerIdleSub("Tool-Selection", session, file);
+				lifecycle.adopt("Tool-Selection", { idleTtlMs: 0 });
+				if (transition === "park") await lifecycle.park("Tool-Selection");
+				else await lifecycle.dispose();
+
+				const peek = await SessionManager.peekSessionInit(file);
+				expect(peek?.init?.tools).toEqual(["read", "yield", "new_device"]);
+				expect(peek?.init?.mountedTools).toEqual(["new_device"]);
+				expect(peek?.init?.systemPrompt).toBe("stable base");
+			} finally {
+				await dir.remove();
+			}
+		},
+	);
 
 	it("concurrent park calls coalesce into one dispose", async () => {
 		const stub = makeSessionStub();

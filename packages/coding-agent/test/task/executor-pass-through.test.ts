@@ -41,7 +41,7 @@ function createMockSession(onPrompt: (params: { emit: (event: AgentSessionEvent)
 		agent: { state: { systemPrompt: ["test"] } },
 		model: undefined,
 		extensionRunner: undefined,
-		sessionManager: { appendSessionInit: () => {} },
+		sessionManager: { appendSessionInit: () => {}, getSessionFile: () => undefined },
 		getActiveToolNames: () => ["read", "yield"],
 		getEnabledToolNames: () => ["read", "yield"],
 		subscribe: (listener: (event: AgentSessionEvent) => void) => {

@@ -2,6 +2,7 @@ import { afterEach, expect, mock, spyOn, test } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
+import { pathToFileURL } from "node:url";
 import { __rewriteLegacyExtensionSourceForTests } from "@oh-my-soup/pi-coding-agent/extensibility/plugins/legacy-pi-compat";
 import { removeWithRetries } from "@oh-my-soup/pi-utils";
 
@@ -55,7 +56,7 @@ test("bare workspace-member imports resolve through the workspace root manifest"
 		importer,
 	);
 
-	expect(rewritten).toContain(path.join("packages", "contracts", "src", "index.ts"));
+	expect(rewritten).toContain(pathToFileURL(path.join(memberRoot, "src", "index.ts")).href);
 });
 
 test("installed node_modules copies shadow workspace members at the same level", async () => {

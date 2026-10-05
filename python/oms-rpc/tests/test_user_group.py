@@ -3,7 +3,6 @@ from __future__ import annotations
 from unittest.mock import patch
 
 import pytest
-
 from oms_rpc import RpcClient
 
 
@@ -13,11 +12,13 @@ class _Sentinel(Exception):
 
 def _start_and_capture(**kwargs):
     client = RpcClient(**kwargs)
-    with patch(
-        "oms_rpc.client.subprocess.Popen", side_effect=_Sentinel("aborted")
-    ) as mock_popen:
-        with pytest.raises(_Sentinel):
-            client.start()
+    with (
+        patch(
+            "oms_rpc.client.subprocess.Popen", side_effect=_Sentinel("aborted")
+        ) as mock_popen,
+        pytest.raises(_Sentinel),
+    ):
+        client.start()
     assert mock_popen.call_count == 1
     return mock_popen.call_args
 

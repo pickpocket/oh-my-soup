@@ -746,6 +746,8 @@ export interface CreateAgentSessionOptions {
 	skipPythonPreflight?: boolean;
 	/** Tool names explicitly requested (enables disabled-by-default tools) */
 	toolNames?: string[];
+	/** Previously mounted subset of toolNames when rebuilding a persisted subagent. */
+	mountedToolNames?: string[];
 	/** Limit the session to explicitly supplied tool names, without discovered extras. */
 	restrictToolNames?: boolean;
 	/**
@@ -2481,7 +2483,7 @@ async function createAgentSessionScoped(options: CreateAgentSessionOptions): Pro
 							applyMCPEnvironment(mcpResult);
 							logMCPLoadErrors(mcpResult.errors);
 							// Connected MCP tools are enabled and mounted under xd:// devices.
-							await liveSession.refreshMCPTools(mcpResult.tools);
+							await liveSession.refreshMCPTools(deferredMCPManager.getTools());
 						} catch (error) {
 							logger.error("MCP tool load failed", {
 								path: ".mcp.json",
@@ -3986,7 +3988,7 @@ async function createAgentSessionScoped(options: CreateAgentSessionOptions): Pro
 		);
 		const requestedActiveToolNames = normalizedRequested.filter(name => name !== "goal");
 		const explicitlyRequestedToolNameSet = explicitlyRequestedToolNames
-			? new Set(explicitlyRequestedToolNames)
+			? new Set(explicitlyRequestedToolNames.filter(name => !options.mountedToolNames?.includes(name)))
 			: undefined;
 		const xdevReadAvailable =
 			builtInRegistryToolNames.has("read") &&

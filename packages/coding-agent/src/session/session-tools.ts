@@ -580,6 +580,15 @@ export class SessionTools {
 		return [...(this.#xdev?.mountedNames ?? [])];
 	}
 
+	/** Whether write currently serves only as the xd:// transport. */
+	get isWriteTransportOnly(): boolean {
+		return this.#isDeviceOnlyWrite?.() === true;
+	}
+	/** Runtime explicitly selected filesystem write (not an xd:// transport). */
+	get isRuntimeWriteSelected(): boolean {
+		return this.#runtimeSelectedToolNames?.has("write") === true && !this.isWriteTransportOnly;
+	}
+
 	/** Whether the edit tool is registered. */
 	get hasEditTool(): boolean {
 		return this.#toolRegistry.has("edit");

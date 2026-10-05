@@ -592,12 +592,21 @@ mod tests {
 	/// bash maps exit statuses above 128 back to the terminating signal:
 	/// `kill -l 137` prints `KILL`, while 128 and 265 stay invalid.
 	#[test]
+	#[cfg(unix)]
 	fn list_maps_exit_statuses_above_128() {
 		assert!(matches!(printed_signal("137"), Ok(PrintedSignal::Name("KILL"))));
 		assert!(matches!(printed_signal("9"), Ok(PrintedSignal::Name("KILL"))));
 		assert!(matches!(printed_signal("129"), Ok(PrintedSignal::Name("HUP"))));
 		assert!(printed_signal("128").is_err());
 		assert!(printed_signal("265").is_err());
+	}
+
+	#[cfg(windows)]
+	#[test]
+	fn list_rejects_unavailable_numeric_signals() {
+		for number in ["9", "137", "129", "128", "265"] {
+			assert!(printed_signal(number).is_err(), "{number} is not a Windows signal number");
+		}
 	}
 }
 

@@ -78,12 +78,12 @@ describe("umans provider catalog", () => {
 			baseUrl: "https://api.code.umans.ai",
 			reasoning: true,
 			input: ["text", "image"],
-			cost: { input: 0.95, output: 4, cacheRead: 0.19, cacheWrite: 0 },
 			contextWindow: 262_144,
 			maxTokens: 32_768,
 			thinking: { defaultLevel: "medium" },
 			compat: { escapeBuiltinToolNames: true },
 		});
+		expect(model?.thinking?.requiresEffort).toBeUndefined();
 		const mandatoryReasoningModel = models?.find(item => item.id === "umans-kimi-k2.7");
 		expect(mandatoryReasoningModel).toMatchObject({
 			id: "umans-kimi-k2.7",

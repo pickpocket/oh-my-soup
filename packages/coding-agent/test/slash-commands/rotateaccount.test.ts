@@ -39,7 +39,10 @@ function createRuntime(accounts: readonly AccountFixture[], initialCredentialId?
 			isStreaming: false,
 			sessionId: "session-rotate",
 			modelRegistry: {
-				authStorage: { listOAuthAccounts, getOAuthAccess, pinSessionOAuthAccount },
+				authStorage: {
+					oauth: { accounts: listOAuthAccounts, access: getOAuthAccess },
+					sessions: { pin: pinSessionOAuthAccount },
+				},
 			},
 		},
 		output,

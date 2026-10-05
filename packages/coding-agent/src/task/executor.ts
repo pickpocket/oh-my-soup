@@ -65,7 +65,12 @@ import { type ArtifactManager, writeArtifact } from "../session/artifacts";
 import { ASYNC_RESULT_MESSAGE_TYPE } from "../session/async-job-delivery";
 import type { AuthStorage } from "../session/auth-storage";
 import { SKILL_PROMPT_MESSAGE_TYPE, USER_INTERRUPT_LABEL } from "../session/messages";
-import { hasConversationalHistory, SessionManager } from "../session/session-manager";
+import {
+	extractSessionInit,
+	hasConversationalHistory,
+	SessionManager,
+	type PersistedSessionInit,
+} from "../session/session-manager";
 import { truncateTail } from "@oh-my-soup/pi-tui/tools/streaming-output";
 import {
 	type ConfiguredThinkingLevel,
@@ -3940,6 +3945,7 @@ export async function runSubprocess(options: ExecutorOptions): Promise<SingleRes
 				// while the replacement builds) and the revived prompt resurrects
 				// the launch-time pooled instructions against an ordinary runtime.
 				forRevive = false,
+				reviveInit?: PersistedSessionInit,
 			): CreateAgentSessionOptions => ({
 				cwd: worktree ?? cwd,
 				additionalDirectories: worktree !== undefined ? undefined : options.additionalDirectories,
@@ -3965,7 +3971,8 @@ export async function runSubprocess(options: ExecutorOptions): Promise<SingleRes
 				// tiers a provider rejected or an extension changed since spawn); only
 				// the fresh spawn resolves the per-agent override.
 				resolveServiceTierByFamily: forRevive ? undefined : resolveServiceTierByFamily,
-				toolNames,
+				toolNames: forRevive ? (reviveInit?.tools ?? persistedSubagentTools) : toolNames,
+				mountedToolNames: forRevive ? (reviveInit?.mountedTools ?? persistedMountedSubagentTools) : undefined,
 				outputSchema,
 				outputSchemaMode: options.outputSchemaMode,
 				restrictToolNames: options.restrictToolNames,
@@ -4124,6 +4131,16 @@ export async function runSubprocess(options: ExecutorOptions): Promise<SingleRes
 								`(truncated to header/session_init). The agent was not revived.`,
 						);
 					}
+					const persistedInit = extractSessionInit(reopened.getEntries());
+					const revivedToolNames = persistedInit?.readOnly
+						? persistedInit.tools.filter(name => name !== "write")
+						: (persistedInit?.tools ?? persistedSubagentTools);
+					const revivedMountedTools = (persistedInit?.mountedTools ?? persistedMountedSubagentTools).filter(name =>
+						revivedToolNames.includes(name),
+					);
+					const reviveInit = persistedInit
+						? { ...persistedInit, tools: revivedToolNames, mountedTools: revivedMountedTools }
+						: undefined;
 					if (options.parentArtifactManager) {
 						reopened.adoptArtifactManager(options.parentArtifactManager);
 					}
@@ -4136,9 +4153,14 @@ export async function runSubprocess(options: ExecutorOptions): Promise<SingleRes
 								AgentRegistry.global().get(MAIN_AGENT_ID)?.sessionFile,
 						);
 					}
+					// Replaying the actual grant avoids an unrestricted default rebuild
+					// silently dropping an initially activated defaultInactive tool.
 					const { session: revived } = await createAgentSession(
-						buildSubagentSessionOptions(reopened, expectedAgentRef, true),
+						buildSubagentSessionOptions(reopened, expectedAgentRef, true, reviveInit),
 					);
+					// A plain name selection pins xd:// devices as direct provider
+					// tools; restore only the original grant and its partition.
+					await revived.setActiveToolPresentation(revivedToolNames, revivedMountedTools);
 					// Re-run the executor's extension wiring on the rebuilt session.
 					// Skipping it leaves the runner pre-init, so a `tool_call` handler
 					// touching a runtime action trips the fail-closed gate and blocks
@@ -4190,11 +4212,15 @@ export async function runSubprocess(options: ExecutorOptions): Promise<SingleRes
 				toolNames !== undefined && !toolNames.includes("write")
 					? enabledSubagentTools.filter(name => name !== "write")
 					: enabledSubagentTools;
+			const persistedMountedSubagentTools = session
+				.getMountedXdevToolNames()
+				.filter(name => persistedSubagentTools.includes(name));
 
 			session.sessionManager.appendSessionInit({
 				systemPrompt: session.agent.state.systemPrompt.join("\n\n"),
 				task,
 				tools: persistedSubagentTools,
+				mountedTools: persistedMountedSubagentTools,
 				agent: agent.name,
 				modelRole: modelRole ?? resolveExplicitModelRole(modelOverride ?? agent.model, subagentSettings),
 				resolvedModel: progress.resolvedModel,

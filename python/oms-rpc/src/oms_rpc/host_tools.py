@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import threading
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable, Generic, TypeAlias, TypeVar, TypedDict, cast
+from typing import Generic, TypeAlias, TypedDict, TypeVar, cast
 
 from .protocol import ImageContent, JsonObject, JsonValue, TextContent
 

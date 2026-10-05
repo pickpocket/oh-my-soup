@@ -126,44 +126,95 @@ function decodedResponseStream(message: IncomingMessage): stream.Readable {
 }
 
 /**
- * Bun's `node:http` shim reports a response body cut off mid-stream (peer reset,
- * dead connection) as a bare `Error("aborted")` with code `ECONNRESET` — wording
- * indistinguishable from a cancellation, so retry classification treated every
- * mid-stream drop on this transport as terminal. Native `fetch` reports the same
- * failure as "The socket connection was closed unexpectedly", a recognized
- * transient. Re-raise with that wording, keeping the original as `cause`; a
- * caller abort keeps its own error.
+ * Bun's `node:http` shim can resolve `Readable.toWeb(message)` as a clean end
+ * when the peer drops a response mid-body, even though `IncomingMessage`
+ * emitted `error` / premature `close`. Follow the source independently so a
+ * truncated response cannot masquerade as a complete SSE stream.
  */
 function withFetchParityErrors(
-	body: ReadableStream<Uint8Array>,
+	source: stream.Readable,
+	message: IncomingMessage,
 	signal: AbortSignal | undefined,
 ): ReadableStream<Uint8Array> {
-	const reader = body.getReader();
+	let ended = false;
+	let settled = false;
+	let sourceError: unknown;
+	let webController: ReadableStreamDefaultController<Uint8Array> | undefined;
+	const release = (): void => {
+		message.off("end", onEnd);
+		message.off("error", onError);
+		message.off("close", onClose);
+	};
+	const interrupted = (): unknown =>
+		signal?.aborted
+			? signal.reason instanceof Error
+				? signal.reason
+				: new DOMException("The operation was aborted.", "AbortError")
+			: Object.assign(new Error("The socket connection was closed unexpectedly before the response completed"), {
+					code: "ECONNRESET",
+				});
+	const report = (error: unknown): void => {
+		if (settled) return;
+		settled = true;
+		const prematureClose =
+			error instanceof Error &&
+			error.message === "aborted" &&
+			(error as NodeJS.ErrnoException).code === "ECONNRESET";
+		sourceError = signal?.aborted
+			? interrupted()
+			: prematureClose
+				? Object.assign(
+						new Error("The socket connection was closed unexpectedly before the response completed", {
+							cause: error,
+						}),
+						{ code: "ECONNRESET" },
+					)
+				: error;
+		release();
+		webController?.error(sourceError);
+	};
+	const onEnd = (): void => {
+		ended = true;
+		release();
+	};
+	const onError = (error: Error): void => report(error);
+	const onClose = (): void => {
+		if (!ended) report(interrupted());
+		release();
+	};
+	message.on("end", onEnd);
+	message.on("error", onError);
+	message.on("close", onClose);
+	const reader = stream.Readable.toWeb(source).getReader();
 	return new ReadableStream<Uint8Array>({
+		start(controller) {
+			webController = controller;
+			if (settled) controller.error(sourceError);
+		},
 		async pull(controller) {
 			try {
 				const chunk = await reader.read();
-				if (chunk.done) controller.close();
-				else controller.enqueue(chunk.value);
+				if (settled) return;
+				if (chunk.done) {
+					if (!ended) {
+						report(interrupted());
+						return;
+					}
+					settled = true;
+					release();
+					controller.close();
+				} else {
+					controller.enqueue(chunk.value);
+				}
 			} catch (error) {
-				const prematureClose =
-					!signal?.aborted &&
-					error instanceof Error &&
-					error.message === "aborted" &&
-					(error as NodeJS.ErrnoException).code === "ECONNRESET";
-				controller.error(
-					prematureClose
-						? Object.assign(
-								new Error("The socket connection was closed unexpectedly before the response completed", {
-									cause: error,
-								}),
-								{ code: "ECONNRESET" },
-							)
-						: error,
-				);
+				report(error);
 			}
 		},
-		cancel: reason => reader.cancel(reason),
+		cancel: reason => {
+			settled = true;
+			release();
+			return reader.cancel(reason);
+		},
 	});
 }
 
@@ -171,7 +222,7 @@ function createResponse(message: IncomingMessage, method: string, signal: AbortS
 	const status = message.statusCode;
 	if (status === undefined) throw new Error("Cowork transport received a response without an HTTP status.");
 	const hasBody = method !== "HEAD" && status !== 204 && status !== 304;
-	const body = hasBody ? withFetchParityErrors(stream.Readable.toWeb(decodedResponseStream(message)), signal) : null;
+	const body = hasBody ? withFetchParityErrors(decodedResponseStream(message), message, signal) : null;
 	return new Response(body, {
 		status,
 		statusText: message.statusMessage,

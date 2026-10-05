@@ -204,6 +204,7 @@ export class EvalShadowCellSession implements ToolSpeculationStreamSession {
 			if (token.language === "js") {
 				const snapshot = await snapshotVmContext({
 					sessionKey: namespaceJavaScriptSessionId(this.#options.sessionId),
+					ownerId: this.#options.kernelOwnerId,
 					cwd: this.#options.cwd,
 					sessionId: namespaceJavaScriptSessionId(this.#options.sessionId),
 				});
@@ -324,6 +325,7 @@ export class EvalShadowCellSession implements ToolSpeculationStreamSession {
 		if (language === "js") {
 			const projected = await shadowPlanIfPresent({
 				sessionKey: namespaceJavaScriptSessionId(this.#options.sessionId),
+				ownerId: this.#options.kernelOwnerId,
 				cwd: this.#options.cwd,
 				sessionId: namespaceJavaScriptSessionId(this.#options.sessionId),
 				code,

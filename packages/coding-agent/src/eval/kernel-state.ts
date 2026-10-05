@@ -8,9 +8,10 @@
  * error, and the timeout all mean "skip silently" — a wedged kernel must
  * never stall compaction recovery.
  */
-import { namespaceSessionId as jsNamespaceSessionId } from "./js";
+import type { ToolSession } from "../tools";
+import { resolveJsKernelIdentity } from "./js";
 import { probeLiveVmGlobals } from "./js/context-manager";
-import { namespaceSessionId as pyNamespaceSessionId } from "./py";
+import { resolvePythonKernelIdentity } from "./py";
 import { type PythonKernelExecutor, peekLivePythonKernel } from "./py/executor";
 
 /** Custom-message type for the LLM-visible post-compaction kernel notice. */
@@ -56,17 +57,19 @@ async function probePythonNames(kernel: PythonKernelExecutor, timeoutMs: number)
  * agent session. Kernels that are absent, dead, or fail their bounded probe
  * are omitted — an empty array means "nothing to announce".
  */
-export async function collectPostCompactionKernelState(evalSessionId: string): Promise<KernelStateSnapshot[]> {
+export async function collectPostCompactionKernelState(session: ToolSession): Promise<KernelStateSnapshot[]> {
 	const snapshots: KernelStateSnapshot[] = [];
-	const pyKernel = peekLivePythonKernel(pyNamespaceSessionId(evalSessionId));
+	const pyKernel = peekLivePythonKernel(resolvePythonKernelIdentity(session));
 	if (pyKernel) {
 		const names = await probePythonNames(pyKernel, KERNEL_STATE_PROBE_TIMEOUT_MS).catch(() => null);
 		if (names !== null) snapshots.push({ language: "Python", names });
 	}
+	const { sessionKey, ownerId } = resolveJsKernelIdentity(session);
 	const jsNames = await probeLiveVmGlobals(
-		jsNamespaceSessionId(evalSessionId),
+		sessionKey,
 		KERNEL_STATE_PROBE_TIMEOUT_MS,
 		KERNEL_STATE_NAME_LIMIT,
+		ownerId,
 	).catch(() => null);
 	if (jsNames !== undefined && jsNames !== null) snapshots.push({ language: "JavaScript", names: jsNames });
 	return snapshots;

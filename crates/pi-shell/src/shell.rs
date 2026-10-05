@@ -4537,7 +4537,10 @@ mod tests {
 		assert_eq!(exit_code(&exec), 0, "rg recursive search should match");
 		let out = read("rg.txt");
 		assert!(out.contains("data.txt:needle"), "rg missed visible file: {out:?}");
-		assert!(out.contains("sub/nested.txt:needle"), "rg missed nested file: {out:?}");
+		assert!(
+			out.replace('\\', "/").contains("sub/nested.txt:needle"),
+			"rg missed nested file: {out:?}"
+		);
 		assert!(!out.contains(".hidden.txt"), "rg searched hidden file by default: {out:?}");
 		assert!(!out.contains("ignored.log"), "rg ignored .gitignore by default: {out:?}");
 		assert!(!out.contains("binary.bin"), "rg printed binary file by default: {out:?}");

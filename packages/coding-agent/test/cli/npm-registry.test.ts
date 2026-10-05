@@ -44,7 +44,7 @@ describe("loadNpmRegistryResolver", () => {
 
 	it("prefers a scoped registry for the package's scope over the default registry", async () => {
 		const homeDir = await home({
-			".npmrc": "registry=https://a.example/\n@oh-my-pi:registry=https://scoped.example/npm/\n",
+			".npmrc": "registry=https://a.example/\n@oh-my-soup:registry=https://scoped.example/npm/\n",
 		});
 		const resolve = await loadNpmRegistryResolver({ env: {}, homeDir });
 		expect(resolve(PKG).url).toBe("https://scoped.example/npm/");

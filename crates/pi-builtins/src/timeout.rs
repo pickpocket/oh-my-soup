@@ -205,10 +205,9 @@ impl builtins::Command for TimeoutCommand {
 		let child_cancel = CancellationToken::new();
 		let spawns = Arc::new(SpawnRecorder::default());
 		let mut params = context.params.clone();
-		// GNU runs the command in its own process group and signals the whole
-		// group; `--foreground` keeps it in the invoking group and signals
-		// only the direct children.
-		params.process_group_policy = if args.foreground {
+		// Unix can isolate the operand's process group; Windows termination
+		// accepts a PID only, so never hand it a negative process-group ID.
+		params.process_group_policy = if args.foreground || cfg!(windows) {
 			ProcessGroupPolicy::SameProcessGroup
 		} else {
 			ProcessGroupPolicy::NewProcessGroup
@@ -268,14 +267,14 @@ impl builtins::Command for TimeoutCommand {
 				args.command[0]
 			);
 		}
-		let signalled = spawns.signal(signal, !args.foreground);
+		let signalled = spawns.signal(signal, !args.foreground && cfg!(unix));
 		if !signalled {
 			// The operand ran in-process (a builtin, say) or the child is
 			// already gone; cancellation is the only remaining lever. For
 			// external children it degrades to SIGKILL — see `Process::wait`.
 			child_cancel.cancel();
 		}
-		let mut killed = signal.as_str() == "SIGKILL";
+		let mut killed = signal_display(signal) == "KILL";
 
 		// Wait for the command to finish, escalating to SIGKILL after
 		// `--kill-after`. Without `-k`, GNU waits indefinitely — a command
@@ -314,7 +313,7 @@ impl builtins::Command for TimeoutCommand {
 				}
 				killed = true;
 				let kill = TrapSignal::try_from("KILL").expect("SIGKILL must be a known signal");
-				spawns.signal(kill, !args.foreground);
+				spawns.signal(kill, !args.foreground && cfg!(unix));
 				child_cancel.cancel();
 				// SIGKILL can't be resisted; bound the reaping wait anyway so
 				// a wedged in-process operand can't hang the builtin forever.
@@ -331,18 +330,22 @@ impl builtins::Command for TimeoutCommand {
 			if signalled {
 				return Ok(child_result.unwrap_or_else(|| ExecutionResult::new(EXIT_KILLED)));
 			}
-			// Cancel-fallback path (in-process operand): the inner shell's own
-			// cancellation check races the operand's result, so its status is
-			// unreliable. Report death by the delivered signal (128+N, or 137
-			// after escalation) deterministically, matching GNU for a command
-			// taken down by the timeout signal.
-			let number = i32::try_from(signal).unwrap_or(15);
-			let code = if killed {
-				EXIT_KILLED
-			} else {
-				128_u8.wrapping_add(number as u8)
-			};
-			return Ok(ExecutionResult::new(code));
+			// A Windows in-process operand is retired by cancellation, not a
+			// Unix signal. It has no signal-derived exit status to preserve.
+			#[cfg(windows)]
+			return Ok(ExecutionResult::new(if killed { EXIT_KILLED } else { EXIT_TIMED_OUT }));
+			#[cfg(not(windows))]
+			{
+				// On Unix the inner shell's cancellation check races the
+				// operand's result. Report the delivered signal's status.
+				let number = i32::try_from(signal).unwrap_or(15);
+				let code = if killed {
+					EXIT_KILLED
+				} else {
+					128_u8.wrapping_add(number as u8)
+				};
+				return Ok(ExecutionResult::new(code));
+			}
 		}
 		if killed {
 			return Ok(ExecutionResult::new(EXIT_KILLED));
@@ -544,8 +547,16 @@ mod tests {
 	#[test]
 	fn signal_spellings_parse_and_display_without_prefix() {
 		// Failure mode: rejecting a signal spelling GNU accepts.
-		for spec in ["TERM", "term", "SIGTERM", "sigterm", "15", "KILL", "9", "INT", "2"] {
+		for spec in ["TERM", "term", "SIGTERM", "sigterm", "KILL", "INT"] {
 			assert!(parse_signal(spec).is_some(), "spec {spec:?} must parse");
+		}
+		#[cfg(unix)]
+		for spec in ["15", "9", "2"] {
+			assert!(parse_signal(spec).is_some(), "spec {spec:?} must parse");
+		}
+		#[cfg(windows)]
+		for spec in ["15", "9", "2"] {
+			assert!(parse_signal(spec).is_none(), "Windows has no numbered Unix signal {spec}");
 		}
 		// Shell-trap pseudo-signals and unknown names are invalid for kill(2).
 		for spec in ["NOSUCH", "EXIT", "DEBUG", "ERR", "64", "-5"] {
@@ -567,13 +578,12 @@ mod tests {
 
 	#[tokio::test]
 	async fn preserve_status_reports_death_by_the_timeout_signal() {
-		// In-process operands retire via the cancel fallback, where the inner
-		// shell's result is racy; --preserve-status must deterministically
-		// report death by the configured signal (TERM -> 143), like GNU does
-		// for a command killed by the timeout signal.
+		// In-process operands retire via the cancel fallback. On Unix this
+		// reports TERM's 143 status; Windows has no Unix signal exit status,
+		// so it reports the timeout status rather than inventing one.
 		let result = run_with_deadline("timeout --preserve-status 0.010 slow-test").await;
 
-		assert_eq!(u8::from(result.exit_code), 143);
+		assert_eq!(u8::from(result.exit_code), if cfg!(windows) { 124 } else { 143 });
 	}
 
 	#[tokio::test]

@@ -12,7 +12,7 @@ const DAYBREAK_EFFORTS = [Effort.Low, Effort.Medium, Effort.High, Effort.XHigh, 
 // Responses rows are Daybreak/GPT-5.6 chat models.
 const DAYBREAK_MODELS = seedModels("openai").filter(model => model.api === "openai-responses");
 
-describe("OpenAI Daybreak and GPT-5.6 models", () => {
+describe("OpenAI Daybreak and GPT-5.6/GPT-6 models", () => {
 	test("bakes off support and long-context pricing onto every first-party GPT-5.6 alias", () => {
 		const longContextCosts = {
 			"daybreak-blue-latest": { input: 10, output: 45, cacheRead: 1, cacheWrite: 12.5 },
@@ -36,7 +36,7 @@ describe("OpenAI Daybreak and GPT-5.6 models", () => {
 		}
 	});
 
-	test("exposes off and every GPT-5.6 wire effort on all Daybreak IDs", () => {
+	test("exposes off and every declared wire effort on first-party chat seeds", () => {
 		const generated: ModelSpec<Api>[] = DAYBREAK_MODELS.map(model => ({
 			...model,
 			cost: { ...model.cost },
@@ -53,7 +53,9 @@ describe("OpenAI Daybreak and GPT-5.6 models", () => {
 				reasoningDisableMode: "none-effort",
 			});
 			expect(model.applyPatchToolType).toBe("freeform");
-			expect(model.supportsComputerUse).toBe(spec.id === "gpt-5.6-cyber");
+			// Direct first-party GPT-5.4+ Responses IDs have GA computer use;
+			// opaque Daybreak aliases do not claim that GPT identity.
+			expect(model.supportsComputerUse).toBe(["gpt-5.6-cyber", "gpt-6-sol", "gpt-6-luna"].includes(spec.id));
 		}
 	});
 });

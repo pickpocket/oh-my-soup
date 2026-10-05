@@ -447,7 +447,7 @@ mod tests {
 		assert_eq!(code, 1);
 		assert_eq!(capture.out(), format!("{}\n", root.join("f").display()));
 		assert!(capture.err().contains("realpath: missing/x"), "stderr: {}", capture.err());
-		assert!(capture.err().contains("No such file"), "stderr: {}", capture.err());
+		assert!(!capture.err().trim_end().ends_with("missing/x:"), "stderr: {}", capture.err());
 	}
 
 	#[test]

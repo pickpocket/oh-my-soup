@@ -206,7 +206,7 @@ function workspaceTestCommand(pkg: string, parallel: number, options: { extraArg
 	return {
 		label: pkg,
 		cwd: pkg,
-		command: ["bun", "test", ...extraArgs],
+		command: ["bun", "test", "--pass-with-no-tests", ...extraArgs],
 		parallel,
 	};
 }

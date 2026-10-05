@@ -21,7 +21,7 @@ beforeEach(async () => {
 	originalAgentDir = getAgentDir();
 	tempHome = await fs.mkdtemp(path.join(os.tmpdir(), "omp-skill-list-home-"));
 	spyOn(os, "homedir").mockReturnValue(tempHome);
-	setAgentDir(path.join(tempHome, ".omp", "agent"));
+	setAgentDir(path.join(tempHome, ".oms", "agent"));
 });
 
 afterEach(async () => {
@@ -115,7 +115,7 @@ describe("handleSkillList", () => {
 			);
 		}
 		await Bun.write(
-			path.join(directory, ".omp", "config.yml"),
+			path.join(directory, ".oms", "config.yml"),
 			"skills:\n  customDirectories:\n    - first\n    - second\n",
 		);
 
@@ -139,7 +139,7 @@ describe("handleSkillList", () => {
 			await removeWithRetries(directory);
 		}
 
-		// `omp skill list | cut -f1` must see skill rows only.
+		// `oms skill list | cut -f1` must see skill rows only.
 		const rows = stdout.split("\n").filter(Boolean);
 		expect(rows).toContain("calendar\tfirst calendar.");
 		for (const row of rows) expect(row).toMatch(/^[^\t]+\t/);

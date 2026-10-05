@@ -96,6 +96,9 @@ function createRevivedSession(activeToolNames: string[][], extensionRunner?: unk
 		setActiveToolsByName: async (names: string[]) => {
 			activeToolNames.push(names);
 		},
+		setActiveToolPresentation: async (names: string[]) => {
+			activeToolNames.push(names);
+		},
 		subscribe: (_listener: (event: AgentSessionEvent) => void) => () => {},
 		setIrcWakeTurnObserver: (next: IrcWakeObserver | undefined) => {
 			observer = next;
@@ -134,6 +137,7 @@ async function createPersistedSession(
 	advisor?: string,
 	contract?: {
 		tools?: string[];
+		mountedTools?: string[];
 		readOnly?: boolean;
 		agent?: string;
 		isolated?: boolean;
@@ -147,6 +151,7 @@ async function createPersistedSession(
 		systemPrompt: "persisted prompt",
 		task: "persisted task",
 		tools: contract?.tools ?? ["read", "yield"],
+		mountedTools: contract?.mountedTools,
 		restrictToolNames,
 		modelRole,
 		resolvedModel: modelRole ? "anthropic/claude-sonnet-4-5" : undefined,
@@ -407,6 +412,71 @@ describe("persisted subagent revival", () => {
 		expect(capturedArtifactsDir).toBe(path.dirname(sessionFile));
 		expect(capturedArtifactsDir).not.toBe(path.join(cwd, "parent"));
 		AgentRegistry.resetGlobalForTests();
+	});
+
+	it("executes restored direct and xd:// grants without activating unrelated extension tools", async () => {
+		const cwd = makeTempDir("@pi-revive-tool-grants-");
+		const sessionFile = await createPersistedSession(cwd, false, "default", undefined, {
+			tools: ["read", "yield", "direct_probe", "device_probe"],
+			mountedTools: ["device_probe"],
+		});
+		const preparedExtensions: PreparedExtension[] = [
+			{
+				path: "<owner-tools>",
+				resolvedPath: "<owner-tools>",
+				factory: pi => {
+					for (const [name, inactive] of [
+						["direct_probe", true],
+						["device_probe", false],
+						["unrelated_probe", false],
+					] as const) {
+						pi.registerTool({
+							name,
+							label: name,
+							description: `Executable ${name}`,
+							parameters: type({}),
+							defaultInactive: inactive,
+							async execute() {
+								return { content: [{ type: "text", text: `executed ${name}` }] };
+							},
+						});
+					}
+				},
+				error: null,
+			},
+		];
+		const authStorage = await AuthStorage.create(path.join(cwd, "auth.db"));
+		authStorage.keys.setRuntime("anthropic", "test-key");
+		const modelRegistry = new ModelRegistry(authStorage, path.join(cwd, "models.yml"));
+		const ref = AgentRegistry.global().register(createRef(sessionFile));
+		const reviver = await createFactory(cwd, undefined, {
+			preparedExtensions,
+			authStorage,
+			modelRegistry,
+		})(ref);
+		if (!reviver) throw new Error("Expected a persisted reviver");
+
+		let revived: AgentSession | undefined;
+		try {
+			revived = await reviver(ref);
+			expect(revived.getActiveToolNames()).toContain("direct_probe");
+			expect(revived.getMountedXdevToolNames()).toContain("device_probe");
+			expect(revived.getEnabledToolNames()).not.toContain("unrelated_probe");
+			const direct = revived.agent.state.tools.find(tool => tool.name === "direct_probe");
+			const write = revived.agent.state.tools.find(tool => tool.name === "write");
+			if (!direct || !write) throw new Error("Missing restored executable tools");
+			const directResult = await direct.execute("direct-revive", {});
+			expect(directResult.content).toContainEqual({ type: "text", text: "executed direct_probe" });
+			const deviceResult = await write.execute("device-revive", { path: "xd://device_probe", content: "{}" });
+			expect(
+				deviceResult.content.some(
+					part => part.type === "text" && part.text?.includes("executed device_probe") === true,
+				),
+			).toBe(true);
+		} finally {
+			await revived?.dispose();
+			authStorage.close();
+		}
 	});
 
 	it("cold-revives a restricted contract without loading hostile same-name capabilities", async () => {

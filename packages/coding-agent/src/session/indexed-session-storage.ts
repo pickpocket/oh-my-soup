@@ -243,14 +243,16 @@ export class IndexedSessionStorage implements SessionStorage {
 	}
 
 	listFilesSync(dir: string, pattern: string): string[] {
-		const prefix = dir.endsWith("/") ? dir : `${dir}/`;
+		const slashPrefix = dir.endsWith("/") ? dir : `${dir}/`;
+		const backslashPrefix = dir.endsWith("\\") ? dir : `${dir}\\`;
 		const out: string[] = [];
-		for (const path of this.#index.keys()) {
-			if (!path.startsWith(prefix)) continue;
-			const name = path.slice(prefix.length);
+		for (const filePath of this.#index.keys()) {
+			const prefix = filePath.startsWith(slashPrefix) ? slashPrefix : backslashPrefix;
+			if (!filePath.startsWith(prefix)) continue;
+			const name = filePath.slice(prefix.length);
 			if (name.includes("/") || name.includes("\\")) continue;
 			if (!matchesGlob(name, pattern)) continue;
-			out.push(path);
+			out.push(filePath);
 		}
 		return out;
 	}

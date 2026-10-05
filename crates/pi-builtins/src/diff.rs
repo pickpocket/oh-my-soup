@@ -1177,10 +1177,10 @@ mod tests {
 	fn missing_operand_file_is_trouble() {
 		let dir = tempfile::tempdir().unwrap();
 		fs::write(dir.path().join("a.txt"), "x\n").unwrap();
-		assert_eq!(
-			run_in(dir.path(), "", &["a.txt", "nope.txt"]),
-			(2, String::new(), "diff: nope.txt: No such file or directory\n".to_string())
-		);
+		let (code, stdout, stderr) = run_in(dir.path(), "", &["a.txt", "nope.txt"]);
+		assert_eq!((code, stdout.as_str()), (2, ""));
+		assert!(stderr.starts_with("diff: nope.txt: "), "{stderr}");
+		assert!(!stderr.trim_end().ends_with("nope.txt:"), "{stderr}");
 	}
 
 	#[test]
@@ -1228,7 +1228,7 @@ mod tests {
 		fs::write(b.join("sub/inner.txt"), "new\n").unwrap();
 		assert_eq!(
 			run_in(dir.path(), "", &["a", "b"]),
-			(0, "Common subdirectories: a/sub and b/sub\n".to_string(), String::new())
+			(0, format!("Common subdirectories: a{sub}sub and b{sub}sub\n", sub = std::path::MAIN_SEPARATOR), String::new())
 		);
 	}
 
@@ -1250,7 +1250,7 @@ mod tests {
 		assert!(stdout.contains("Only in a: only.txt\n"), "got: {stdout}");
 		assert!(stdout.contains("Only in b: other.txt\n"), "got: {stdout}");
 		assert!(
-			stdout.contains("diff -r a/sub/inner.txt b/sub/inner.txt\n1c1\n< old\n---\n> new\n"),
+			stdout.contains(&format!("diff -r a{sub}sub{sub}inner.txt b{sub}sub{sub}inner.txt\n1c1\n< old\n---\n> new\n", sub = std::path::MAIN_SEPARATOR)),
 			"got: {stdout}"
 		);
 		assert!(!stdout.contains("common.txt"), "got: {stdout}");
@@ -1272,7 +1272,7 @@ mod tests {
 		let (code, stdout, stderr) =
 			run_in(dir.path(), "", &["-r", "-x", "*.log", "-x", ".git", "a", "b"]);
 		assert_eq!((code, stderr.as_str()), (1, ""));
-		assert!(stdout.contains("diff -r a/keep.txt b/keep.txt\n1c1\n< old\n---\n> new\n"), "got: {stdout}");
+		assert!(stdout.contains(&format!("diff -r a{sub}keep.txt b{sub}keep.txt\n1c1\n< old\n---\n> new\n", sub = std::path::MAIN_SEPARATOR)), "got: {stdout}");
 		assert!(!stdout.contains(".git"), "got: {stdout}");
 		assert!(!stdout.contains(".log"), "got: {stdout}");
 	}

@@ -1739,7 +1739,13 @@ export class EventController {
 				this.#pinnedErrorComponent = this.#lastAssistantComponent;
 				this.#pinnedErrorMessage = event.message;
 				this.#restorePinnedErrorInline = !recoverableEmptyOutput;
-				if (!recoverableEmptyOutput) this.ctx.showPinnedError(event.message.errorMessage);
+				if (!recoverableEmptyOutput) {
+					const refusalHint =
+						event.message.stopDetails?.type === "refusal"
+							? "\nInspect with /refusal; /refusal fix starts fresh context for review without resending."
+							: "";
+					this.ctx.showPinnedError(`${event.message.errorMessage}${refusalHint}`);
+				}
 			}
 			this.ctx.statusLine.invalidate();
 			this.ctx.ui.requestRender();

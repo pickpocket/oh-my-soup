@@ -30,6 +30,7 @@ async function repository() {
 	const root = await mkdtemp(join(tmpdir(), "pi-natives-vcs-"));
 	roots.push(root);
 	await git(root, "init", "-b", "main");
+	await git(root, "config", "core.autocrlf", "false");
 	await git(root, "config", "user.name", "Native Test");
 	await git(root, "config", "user.email", "native@example.test");
 	await writeFile(join(root, "tracked.txt"), "one\ntwo\n");

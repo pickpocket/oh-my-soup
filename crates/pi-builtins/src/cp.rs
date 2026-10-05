@@ -3480,7 +3480,8 @@ mod tests {
 		let (code, capture) = run_util::<Cp>(&["missing", "present", "dir"], "", fixture.path());
 
 		assert_eq!(code, 1);
-		assert_eq!(capture.err(), "cp: cannot stat 'missing': No such file or directory\n");
+		assert!(capture.err().starts_with("cp: cannot stat 'missing': "), "{}", capture.err());
+		assert!(!capture.err().trim_end().ends_with("missing':"), "{}", capture.err());
 		assert_eq!(fs::read(fixture.path().join("dir/present")).unwrap(), b"here");
 	}
 

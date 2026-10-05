@@ -3,6 +3,7 @@ import * as path from "node:path";
 import { logger } from "@oh-my-soup/pi-utils";
 import {
 	attachSessionOwner,
+	createOwnerScopedSessionKeys,
 	type CancelledErrorClass,
 	getRemainingTimeoutMs,
 	isCancellationError,
@@ -96,7 +97,6 @@ interface KernelSessionRegistry<
 	disposeByOwner(ownerId: string): Promise<void>;
 	executeOnSession(code: string, cwd: string, options: TOptions): Promise<R>;
 	peekLiveKernel(cwd: string, options: TOptions): TKernel | undefined;
-	peekLiveKernelBySessionId(sessionId: string): TKernel | undefined;
 	getPresentSession(cwd: string, options: TOptions): TSession | undefined;
 }
 
@@ -143,6 +143,7 @@ export function createKernelSessionRegistry<
 	const startingSessions = new Map<string, StartingKernelSession<TSession>>();
 	const resettingSessions = new Map<string, Promise<void>>();
 	const replacingSessionKernels = new Map<TSession, { kernel: TKernel; promise: Promise<TKernel> }>();
+	const ownerKeys = createOwnerScopedSessionKeys();
 
 	const context: KernelSessionRegistryContext<TKernel, TOptions, TSession> = {
 		sessions,
@@ -322,6 +323,7 @@ export function createKernelSessionRegistry<
 	}
 
 	async function disposeAll(): Promise<void> {
+		ownerKeys.clear();
 		const pending = [...startingSessions.values()].map(starting => starting.promise);
 		startingSessions.clear();
 		if (descriptor.clearResetsOnDisposeAll) resettingSessions.clear();
@@ -358,6 +360,7 @@ export function createKernelSessionRegistry<
 	}
 
 	async function disposeByOwner(ownerId: string): Promise<void> {
+		ownerKeys.dispose(ownerId);
 		const toShutdown: TSession[] = [];
 		const startingToShutdown: StartingKernelSession<TSession>[] = [];
 		for (const session of Array.from(sessions.values())) {
@@ -412,27 +415,31 @@ export function createKernelSessionRegistry<
 
 	function peekLiveKernel(cwd: string, options: TOptions): TKernel | undefined {
 		const sessionId = options.sessionId ?? `session:${cwd}`;
-		const sessionKey = descriptor.buildSessionKey(sessionId, cwd, options.interpreter);
+		const sessionKey = ownerKeys.get(
+			descriptor.buildSessionKey(sessionId, cwd, options.interpreter),
+			options.kernelOwnerId,
+		);
 		const kernel = sessions.get(sessionKey)?.kernel;
 		return kernel?.isAlive() ? kernel : undefined;
 	}
 
-	function peekLiveKernelBySessionId(sessionId: string): TKernel | undefined {
-		for (const session of sessions.values()) {
-			if (session.sessionId !== sessionId || !session.kernel.isAlive()) continue;
-			return session.kernel;
-		}
-		return undefined;
-	}
-
 	function getPresentSession(cwd: string, options: TOptions): TSession | undefined {
 		const sessionId = options.sessionId ?? `session:${cwd}`;
-		return sessions.get(descriptor.buildSessionKey(sessionId, cwd, options.interpreter));
+		const sessionKey = ownerKeys.get(
+			descriptor.buildSessionKey(sessionId, cwd, options.interpreter),
+			options.kernelOwnerId,
+		);
+		return sessions.get(sessionKey);
 	}
 
 	async function executeOnSession(code: string, cwd: string, options: TOptions): Promise<R> {
 		const sessionId = options.sessionId ?? `session:${cwd}`;
-		const sessionKey = descriptor.buildSessionKey(sessionId, cwd, options.interpreter);
+		const sessionKey = ownerKeys.resolve(
+			descriptor.buildSessionKey(sessionId, cwd, options.interpreter),
+			options.kernelOwnerId,
+			options.reset === true,
+			key => sessions.get(key) ?? startingSessions.get(key),
+		);
 		if (options.bridge && !options.bridgeSessionId) {
 			options.bridgeSessionId = sessionId;
 		}
@@ -485,7 +492,6 @@ export function createKernelSessionRegistry<
 		disposeByOwner,
 		executeOnSession,
 		peekLiveKernel,
-		peekLiveKernelBySessionId,
 		getPresentSession,
 	};
 }

@@ -265,9 +265,9 @@ impl PathPolicy {
 		if !matches!(self.address(unwrap_hashline_header_path(authored)), Address::Path) {
 			return false;
 		}
-		let recovered = lexical_absolute(recovered, &self.cwd);
-		is_within(&recovered, &lexical_absolute(&self.cwd, &self.cwd))
-			|| self.in_plan_writable_root(&recovered)
+		let recovered = strip_windows_verbatim_path(lexical_absolute(recovered, &self.cwd));
+		let cwd = strip_windows_verbatim_path(lexical_absolute(&self.cwd, &self.cwd));
+		is_within(&recovered, &cwd) || self.in_plan_writable_root(&recovered)
 	}
 
 	/// Return the model-facing generated-file rejection, when applicable.
@@ -708,7 +708,7 @@ mod tests {
 		assert_eq!(p.resolve(":./x", &urls).unwrap().absolute, tmp.path().join("./x"));
 		assert_eq!(
 			p.resolve("file:///tmp/a%20b", &urls).unwrap().absolute,
-			PathBuf::from("/tmp/a b")
+			lexical_absolute(Path::new("/tmp/a b"), tmp.path())
 		);
 		// Scheme-colon names without a slash, Windows drives, and `./`-prefixed
 		// URI-shaped names are plain paths.
@@ -983,9 +983,11 @@ mod tests {
 		let missing = tmp.path().join("missing.txt");
 		assert_eq!(
 			canonical_key(&missing),
-			std::fs::canonicalize(tmp.path())
-				.unwrap()
-				.join("missing.txt")
+			strip_windows_verbatim_path(
+				std::fs::canonicalize(tmp.path())
+					.unwrap()
+					.join("missing.txt")
+			)
 		);
 	}
 }

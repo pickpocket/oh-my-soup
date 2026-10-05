@@ -400,6 +400,45 @@ export interface SessionOwners {
 	hasFallbackOwner: boolean;
 }
 
+/** Keep owner-specific reset forks sticky while allowing unreset owners to share a kernel. */
+export function createOwnerScopedSessionKeys() {
+	const forks = new Map<string, Map<string, string>>();
+	return {
+		get(base: string, owner: string | undefined): string {
+			return owner === undefined ? base : (forks.get(base)?.get(owner) ?? base);
+		},
+		resolve(
+			base: string,
+			owner: string | undefined,
+			reset: boolean,
+			owners: (key: string) => SessionOwners | undefined,
+		): string {
+			if (owner === undefined) return base;
+			const byOwner = forks.get(base);
+			const current = byOwner?.get(owner) ?? base;
+			if (!reset) return current;
+			const active = owners(current);
+			if (!active || (active.ownerIds.size === 1 && active.ownerIds.has(owner) && !active.hasFallbackOwner)) {
+				return current;
+			}
+			const fork = `${base}:owner:${crypto.randomUUID()}`;
+			const forksByOwner = byOwner ?? new Map<string, string>();
+			forksByOwner.set(owner, fork);
+			forks.set(base, forksByOwner);
+			return fork;
+		},
+		dispose(owner: string): void {
+			for (const [base, byOwner] of forks) {
+				byOwner.delete(owner);
+				if (byOwner.size === 0) forks.delete(base);
+			}
+		},
+		clear(): void {
+			forks.clear();
+		},
+	};
+}
+
 // ---------------------------------------------------------------------------
 // Base executor implementation
 // ---------------------------------------------------------------------------

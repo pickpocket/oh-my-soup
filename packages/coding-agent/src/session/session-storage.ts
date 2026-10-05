@@ -1215,14 +1215,16 @@ export class MemorySessionStorage implements SessionStorage {
 	}
 
 	listFilesSync(dir: string, pattern: string): string[] {
-		const prefix = dir.endsWith("/") ? dir : `${dir}/`;
+		const slashPrefix = dir.endsWith("/") ? dir : `${dir}/`;
+		const backslashPrefix = dir.endsWith("\\") ? dir : `${dir}\\`;
 		const files: string[] = [];
-		for (const path of this.#files.keys()) {
-			if (!path.startsWith(prefix)) continue;
-			const name = path.slice(prefix.length);
+		for (const filePath of this.#files.keys()) {
+			const prefix = filePath.startsWith(slashPrefix) ? slashPrefix : backslashPrefix;
+			if (!filePath.startsWith(prefix)) continue;
+			const name = filePath.slice(prefix.length);
 			if (name.includes("/") || name.includes("\\")) continue;
 			if (!matchesPattern(name, pattern)) continue;
-			files.push(path);
+			files.push(filePath);
 		}
 		return files;
 	}

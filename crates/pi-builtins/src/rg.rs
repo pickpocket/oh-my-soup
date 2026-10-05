@@ -814,14 +814,14 @@ fn trim_ascii_start(bytes: &[u8]) -> &[u8] {
 	&bytes[start..]
 }
 
-/// Writes a display path, substituting `separator` for `/` when requested via
-/// `--path-separator`.
+/// Writes a display path, substituting `separator` for path separators when
+/// requested via `--path-separator`.
 fn write_display_bytes<W: Write>(out: &mut W, bytes: &[u8], separator: Option<u8>) -> io::Result<()> {
 	let Some(separator) = separator else {
 		return out.write_all(bytes);
 	};
 	let mut rest = bytes;
-	while let Some(pos) = rest.iter().position(|&byte| byte == b'/') {
+	while let Some(pos) = rest.iter().position(|&byte| byte == b'/' || (cfg!(windows) && byte == b'\\')) {
 		out.write_all(&rest[..pos])?;
 		out.write_all(&[separator])?;
 		rest = &rest[pos + 1..];
@@ -2071,7 +2071,7 @@ mod tests {
 		std::fs::write(tree.path().join("sub/file.txt"), "x\n").unwrap();
 		let (code, capture) = run_util::<Rg>(&["--files", "sub"], "", tree.path());
 		assert_eq!(code, 0, "{}", capture.err());
-		assert_eq!(capture.out(), "sub/file.txt\n");
+		assert_eq!(capture.out(), format!("sub{}file.txt\n", std::path::MAIN_SEPARATOR));
 	}
 
 

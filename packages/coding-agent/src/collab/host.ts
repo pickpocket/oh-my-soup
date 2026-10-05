@@ -168,6 +168,8 @@ export interface CollabHostOptions {
 	 * `stop()`. Teardown has already begun; the owner may start a successor.
 	 */
 	onEnded?: () => void;
+	/** Test seam for the relay socket's retry backoff; production uses capped exponential backoff with jitter. */
+	reconnectDelay?: (attempt: number, maxMs: number) => number;
 }
 
 /**
@@ -233,6 +235,7 @@ export class CollabHost {
 	/** The in-flight or finished `stop()`; concurrent callers share it. */
 	#stopDone: Promise<void> | undefined;
 	#stopped = false;
+	readonly #reconnectDelay: CollabHostOptions["reconnectDelay"];
 
 	constructor(ctx: InteractiveModeContext, options: CollabHostOptions = {}) {
 		this.#ctx = ctx;
@@ -241,6 +244,7 @@ export class CollabHost {
 		this.#access = options.access ?? "control";
 		this.#guestActionsReady = options.guestActionsReady ?? (() => true);
 		this.#onEnded = options.onEnded;
+		this.#reconnectDelay = options.reconnectDelay;
 		// The room mirrors the session that is active when it is created; the
 		// frame guard and the registry snapshot compare against this from then on.
 		this.#sessionId = ctx.sessionManager.getSessionId();
@@ -379,7 +383,12 @@ export class CollabHost {
 		const key = await importRoomKey(rawKey);
 		if (this.ending) throw new CollabHostStoppedError("collab host stopped before connecting");
 
-		const socket = new CollabSocket({ wsUrl: parsed.wsUrl, role: "host", key });
+		const socket = new CollabSocket({
+			wsUrl: parsed.wsUrl,
+			role: "host",
+			key,
+			reconnectDelay: this.#reconnectDelay,
+		});
 		this.#socket = socket;
 
 		let opened = false;

@@ -1341,7 +1341,7 @@ describe("ModelRegistry runtime discovery", () => {
 		expect(llama?.input).toEqual(["text", "image"]);
 	});
 
-	test("llama.cpp discovery routes Qwen models to chat-completions with the top-level disable dialect", async () => {
+	test("llama.cpp discovery routes Qwen models to chat-completions with the chat-template disable dialect", async () => {
 		const fetchMock: FetchImpl = async input => {
 			const url = String(input);
 			if (url === "http://127.0.0.1:8080/models") {
@@ -1376,8 +1376,8 @@ describe("ModelRegistry runtime discovery", () => {
 			expect(qwen?.api).toBe("openai-completions");
 			expect(qwen?.baseUrl).toBe("http://127.0.0.1:8080/v1");
 			expect(qwen?.compat).toMatchObject({
-				thinkingFormat: "qwen",
-				reasoningDisableMode: "qwen-enable-thinking-false",
+				thinkingFormat: "qwen-chat-template",
+				reasoningDisableMode: "qwen-template-false",
 				qwenPreserveThinking: true,
 			});
 		}
@@ -1398,7 +1398,7 @@ describe("ModelRegistry runtime discovery", () => {
 		expect(plain?.reasoning).toBe(false);
 		expect(plain?.api).toBe("openai-responses");
 		expect(plain?.baseUrl).toBe("http://127.0.0.1:8080/v1");
-		expect(plain?.compat).not.toMatchObject({ reasoningDisableMode: "qwen-enable-thinking-false" });
+		expect(plain?.compat).not.toMatchObject({ reasoningDisableMode: "qwen-template-false" });
 	});
 
 	test("discovery timeout rejects even when fetch ignores abort", async () => {
@@ -1594,8 +1594,8 @@ describe("ModelRegistry runtime discovery", () => {
 			expect(model?.thinking?.efforts).toEqual([Effort.Low, Effort.Medium, Effort.XHigh]);
 			expect(model?.thinking?.requiresEffort).toBe(true);
 			expect(model?.compat).toMatchObject({
-				thinkingFormat: "qwen",
-				reasoningDisableMode: "qwen-enable-thinking-false",
+				thinkingFormat: "qwen-chat-template",
+				reasoningDisableMode: "qwen-template-false",
 				qwenTemplateReasoningEffort: true,
 			});
 		}

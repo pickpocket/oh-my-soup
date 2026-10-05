@@ -28,9 +28,11 @@ describe("SelectorController login", () => {
 		const loginSaved = Promise.withResolvers<void>();
 		const presentedBlocks: unknown[] = [];
 		const authStorage = {
-			login: vi.fn(async () => {
-				loginSaved.resolve();
-			}),
+			oauth: {
+				login: vi.fn(async () => {
+					loginSaved.resolve();
+				}),
+			},
 		} as unknown as AuthStorage;
 		const refresh = vi.fn(() => new Promise<void>(() => {}));
 		const refreshProvider = vi.fn(async () => {});
@@ -82,7 +84,7 @@ describe("SelectorController login", () => {
 					ctrl.signal?.addEventListener("abort", () => reject(new Error("aborted")));
 				}),
 		);
-		const authStorage = { login } as unknown as AuthStorage;
+		const authStorage = { oauth: { login } } as unknown as AuthStorage;
 		const editorSlot: unknown[] = [];
 		const editor = {};
 		const presentedBlocks: unknown[] = [];

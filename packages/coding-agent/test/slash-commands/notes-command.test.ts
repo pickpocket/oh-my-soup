@@ -20,16 +20,11 @@ import type { SlashCommandRuntime } from "@oh-my-soup/pi-coding-agent/slash-comm
 
 function createHarness(
 	manager: SessionManager,
-	settings: Settings | { get(path: string): unknown } = {
-		// searchModel "off" keeps /notes search deterministic: no model/network
-		// pass, so regex assertions never depend on a provider.
-		get: (path: string) =>
-			path === "notes.searchModel"
-				? "off"
-				: path === "notes.timestamps" || path === "notes.injectAfterCompaction"
-					? true
-					: undefined,
-	},
+	settings: Settings = Settings.isolated({
+		"notes.searchModel": "off",
+		"notes.timestamps": true,
+		"notes.injectAfterCompaction": true,
+	}),
 ) {
 	const requestNotesReference = vi.fn();
 	const outputs: string[] = [];

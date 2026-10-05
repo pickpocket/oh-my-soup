@@ -3,6 +3,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { Effort } from "@oh-my-soup/pi-ai";
+import type { AuthStorage } from "@oh-my-soup/pi-coding-agent/session/auth-storage";
 import { getBundledModel } from "@oh-my-soup/pi-catalog/models";
 import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
 import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
@@ -26,12 +27,14 @@ describe("defaultThinkingLevel on running sessions", () => {
 	const tempDirs: string[] = [];
 	const sessions: AgentSession[] = [];
 	let modelRegistry!: ModelRegistry;
+	let authStorage!: AuthStorage;
 	let authDir: string;
 
 	beforeAll(async () => {
 		authDir = path.join(os.tmpdir(), `pi-thinking-default-auth-${Snowflake.next()}`);
 		fs.mkdirSync(authDir, { recursive: true });
-		modelRegistry = new ModelRegistry(await discoverAuthStorage(authDir));
+		authStorage = await discoverAuthStorage(authDir);
+		modelRegistry = new ModelRegistry(authStorage);
 	});
 
 	afterEach(async () => {
@@ -40,6 +43,7 @@ describe("defaultThinkingLevel on running sessions", () => {
 	});
 
 	afterAll(() => {
+		authStorage.close();
 		removeSyncWithRetries(authDir);
 	});
 

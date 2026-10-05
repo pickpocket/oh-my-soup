@@ -1,6 +1,6 @@
-# Session Operations: export, dump, share, fresh, clear, fork, resume/continue
+# Session Operations: export, dump, share, refusal, fresh, clear, fork, resume/continue
 
-This document describes operator-visible behavior for session export, sharing, conversation reset, lifecycle, fork, and resume operations as currently implemented.
+This document describes operator-visible behavior for session export, sharing, refusal inspection/recovery, conversation reset, lifecycle, fork, and resume operations as currently implemented.
 
 ## Implementation files
 
@@ -10,6 +10,8 @@ This document describes operator-visible behavior for session export, sharing, c
 - [`../src/export/html/index.ts`](../packages/coding-agent/src/export/html/index.ts)
 - [`../src/export/custom-share.ts`](../packages/coding-agent/src/export/custom-share.ts)
 - [`../src/main.ts`](../packages/coding-agent/src/main.ts)
+- [`../src/session/refusal-report.ts`](../packages/coding-agent/src/session/refusal-report.ts)
+- [`../src/slash-commands/builtin-refusal.ts`](../packages/coding-agent/src/slash-commands/builtin-refusal.ts)
 
 ## Operation matrix
 
@@ -19,6 +21,9 @@ This document describes operator-visible behavior for session export, sharing, c
 | `/export [--themes] [path]`             | Slash command (TUI/headless) | No                                            | No                                                                                         | HTML file                                                                           |
 | `--export <session.jsonl> [outputPath]` | CLI startup fast-path        | No runtime session mutation                   | No active session; reads target file                                                       | HTML file                                                                           |
 | `/share`                                | Slash command (TUI/headless) | No                                            | No                                                                                         | Encrypted share link (gist or share server); temp HTML only for TUI custom handlers |
+| `/refusal`                              | Slash command (TUI/RPC/ACP)   | No                                            | No                                                                                         | Local evidence report                                                               |
+| `/refusal export [path]`                | Slash command (TUI/RPC/ACP)   | No                                            | No                                                                                         | Sanitized local JSON report; never overwrites an existing file                       |
+| `/refusal fix`                          | Slash command (TUI/RPC/ACP)   | Yes (starts an empty conversation)            | Preserves the original transcript and switches to a new session                           | Recovered unsent draft in TUI; request text in headless output                       |
 | `/new`                                  | Interactive slash command    | Yes (starts an empty conversation)            | Switches identity; assigns a new transcript path in persistent mode                        | None                                                                                |
 | `/fresh`                                | Slash command (TUI/headless) | Yes (provider-facing in-memory id/state only) | No; keeps current session file/header                                                      | None                                                                                |
 | `/clear`                                | Interactive slash command    | Yes (clears live/model conversation context)  | No; retains session identity, metadata, transcript file, and full on-disk history          | Appends a durable `reset_boundary`                                                  |
@@ -185,6 +190,48 @@ differs from `/clear` (clear the live/model conversation in place), `/new`
 (start a brand-new empty session), and `/delete` (attempt to delete the current
 session and start a new one). Only `/fresh` preserves the existing conversation
 while giving the provider stream state a clean slate.
+
+## Refusal inspection and recovery
+
+`/refusal` inspects the latest captured Anthropic refusal on the current branch.
+It displays the provider's category and explanation, request ID, HTTP status,
+whether refusal occurred before or after output, and a content-free inventory
+of request blocks. Inventory locations are provider JSON paths, not source-file
+or extension provenance. Hypotheses are labeled separately: neither the category
+nor a local keyword scan establishes which passage triggered the classifier.
+
+Newly captured refusals retain diagnostic-only journal entries across resume;
+partial model output, provider payloads, fallback-credit tokens, and the request
+body are not persisted in those entries or replayed into later model requests.
+Older sessions without captured diagnostics cannot reconstruct the refused
+payload retrospectively.
+
+`/refusal export [path]` explicitly writes a local JSON report. While the
+captured request is still in memory, the report includes a structurally
+sanitized provider-shaped snapshot: transport headers, credential fields,
+opaque signatures, signed-URL secrets, and binary image data are removed or
+redacted. It is not an exact wire-byte dump. After process restart, the report
+contains retained metadata and states that the request snapshot is unavailable.
+Existing files are never overwritten. Private code, conversation, and secrets
+may remain in freeform text; review the file before sharing. Export does not
+upload anything or call another model.
+
+`/refusal fix` requires a settled, current refusal and a preserved source
+session. It flushes the original transcript, starts a new session without the
+old conversation or compaction history, and restores the original user request
+and images as an **unsent draft** in the TUI. RPC/ACP print the recovered text;
+images remain in the original session and are reported rather than silently
+discarded. A stale refusal, active turn, foreground execution, or unavailable
+original request blocks recovery. The source session ID/path remains available
+for resume; no request is automatically resent.
+
+Normal system instructions, project rules, and tools remain in fresh sessions.
+Recovery does not bypass safeguards or guarantee acceptance. For provider-side
+review, retain the request ID and consult
+[Anthropic's streaming-refusal guidance](https://platform.claude.com/docs/en/test-and-evaluate/strengthen-guardrails/handle-streaming-refusals)
+and [Cyber Verification/false-positive appeal guidance](https://support.claude.com/en/articles/14604842-real-time-cyber-safeguards-on-claude).
+These commands use the TUI or RPC/ACP slash-command dispatcher; print-mode
+positional input is a model prompt, not a builtin command.
 
 ## Clear
 

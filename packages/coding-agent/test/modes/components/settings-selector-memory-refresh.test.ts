@@ -91,8 +91,13 @@ describe("SettingsSelectorComponent memory tab", () => {
 		const after = comp.render(70).join("\n");
 		expect(after).toContain("Memory Backend");
 		expect(after).toContain("Hindsight API URL");
-		expect(after).toContain("Hindsight API Token");
-		expect(after).toContain("Hindsight Auto Recall");
+		// The 40-row viewport clips later Hindsight settings. Search each row to
+		// verify it was added to the live list without enlarging the terminal.
+		for (const label of ["Hindsight API Token", "Hindsight Auto Recall"]) {
+			for (const ch of label) comp.handleInput(ch);
+			expect(comp.render(70).join("\n")).toContain(label);
+			comp.handleInput("\x1b");
+		}
 	});
 
 	it("saves a pasted Hindsight API token from its settings row", () => {

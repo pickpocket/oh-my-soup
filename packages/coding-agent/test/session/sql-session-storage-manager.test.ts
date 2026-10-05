@@ -12,6 +12,7 @@ import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-mana
 import { SqlSessionStorage } from "@oh-my-soup/pi-coding-agent/session/sql-session-storage";
 import { SessionWriteConflictError } from "@oh-my-soup/pi-coding-agent/session/session-storage";
 import { SQL } from "bun";
+import * as path from "node:path";
 
 function fakeUsage(input: number, output: number): Usage {
 	return {
@@ -28,7 +29,7 @@ describe("SessionManager + SqlSessionStorage (SQLite)", () => {
 	it("persists appended assistant messages into SQL and reloads via open()", async () => {
 		const client = new SQL("sqlite::memory:");
 		const storage = await SqlSessionStorage.create({ client });
-		const sessionDir = "/sessions/proj";
+		const sessionDir = path.resolve("sessions", "proj");
 
 		const manager = SessionManager.create("/cwd", sessionDir, storage);
 		manager.appendMessage({
@@ -81,7 +82,7 @@ describe("SessionManager + SqlSessionStorage (SQLite)", () => {
 	it("SessionManager.list returns SQL-backed sessions for the cwd", async () => {
 		const client = new SQL("sqlite::memory:");
 		const storage = await SqlSessionStorage.create({ client });
-		const sessionDir = "/sessions/list-proj";
+		const sessionDir = path.resolve("sessions", "list-proj");
 
 		const a = SessionManager.create("/cwd", sessionDir, storage);
 		a.appendMessage({
@@ -128,13 +129,14 @@ describe("SessionManager + SqlSessionStorage (SQLite)", () => {
 	it("rejects a stale rewrite after another SQL storage appends", async () => {
 		const client = new SQL("sqlite::memory:");
 		const firstStorage = await SqlSessionStorage.create({ client });
-		const first = SessionManager.create("/cwd", "/sessions/shared", firstStorage);
+		const sessionDir = path.resolve("sessions", "shared");
+		const first = SessionManager.create("/cwd", sessionDir, firstStorage);
 		await first.ensureOnDisk();
 		const sessionFile = first.getSessionFile();
 		if (!sessionFile) throw new Error("Expected session file");
 
 		const secondStorage = await SqlSessionStorage.create({ client });
-		const second = await SessionManager.open(sessionFile, "/sessions/shared", secondStorage);
+		const second = await SessionManager.open(sessionFile, sessionDir, secondStorage);
 		second.appendMessage({ role: "user", content: "durable SQL peer turn", timestamp: Date.now() });
 		await second.close();
 

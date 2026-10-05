@@ -937,21 +937,24 @@ describe("InteractiveMode subagent observer UI sync", () => {
 		await mode.init({ suppressWelcomeIntro: true });
 		vi.spyOn(mode.ui, "requestRender").mockImplementation(() => {});
 		vi.useFakeTimers();
-		setSystemTime(1_000_000);
+		let nowMs = 1_000_000;
+		vi.spyOn(Date, "now").mockImplementation(() => nowMs);
 		const payload = makeProgressPayload("Sleeper", 0, "Run sleep", true);
 		payload.progress = {
 			...payload.progress,
 			currentTool: "bash",
 			currentToolArgs: "sleep 40",
-			currentToolStartMs: 1_000_000 - 20_000,
+			currentToolStartMs: nowMs - 20_000,
 		};
 		eventBus.emit(TASK_SUBAGENT_PROGRESS_CHANNEL, payload);
 		await Promise.resolve();
+		nowMs += 100;
 		vi.advanceTimersByTime(100); // observer UI coalesce window
 		const hudText = () => Bun.stripANSI(mode.subagentContainer.render(120).join("\n"));
 		const hud = mode.subagentContainer.children[0];
 		expect(hudText()).toContain("bash: sleep 40 · 20.1s");
 
+		nowMs += 1_000;
 		vi.advanceTimersByTime(1_000);
 		expect(mode.subagentContainer.children[0]).toBe(hud);
 		expect(hudText()).toContain("bash: sleep 40 · 21.1s");

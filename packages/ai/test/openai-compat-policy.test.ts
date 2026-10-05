@@ -9,6 +9,7 @@ import {
 } from "@oh-my-soup/pi-ai/providers/openai-shared";
 import type { Model, ModelSpec, OpenAICompat } from "@oh-my-soup/pi-ai/types";
 import { buildModel } from "@oh-my-soup/pi-catalog/build";
+import { seedModels } from "@oh-my-soup/pi-catalog/compat/providers";
 import { Effort } from "@oh-my-soup/pi-catalog/effort";
 import { getBundledModel } from "@oh-my-soup/pi-catalog/models";
 
@@ -158,10 +159,13 @@ describe("OpenAI compat policy", () => {
 	});
 
 	it("keeps Token Plan qwen3.8-max-preview on the enable_thinking dialect", () => {
-		// The preview rides Alibaba's binary enable_thinking toggle, not the
-		// OpenAI reasoning_effort control, so effort selections must not leak an
-		// unsupported reasoning_effort onto the wire.
-		const model = getBundledModel<"openai-completions">("alibaba-token-plan", "qwen3.8-max-preview");
+		// The preview is a fallback seed: a successful credentialed catalog refresh
+		// can omit it without changing its binary thinking contract.
+		const preview = seedModels<"openai-completions">("alibaba-token-plan").find(
+			model => model.id === "qwen3.8-max-preview",
+		);
+		if (!preview) throw new Error("Missing Token Plan preview fallback seed");
+		const model = buildModel(preview);
 		const params = chatParams();
 		applyChatCompletionsCompatPolicy(
 			params,

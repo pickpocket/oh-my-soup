@@ -1,4 +1,7 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "bun:test";
+import * as os from "node:os";
+import * as path from "node:path";
+import * as url from "node:url";
 import type { ImageContent } from "@oh-my-soup/pi-ai";
 import { CURSOR_MARKER } from "@oh-my-soup/pi-tui";
 import { setKittyProtocolActive } from "@oh-my-soup/pi-tui/keys";
@@ -480,15 +483,15 @@ describe("CustomEditor bracketed path paste", () => {
 		// `public.file-url` representation when the user does Finder→Copy
 		// then Cmd+V. Without decoding, `loadImageInput` would try to read a
 		// literal `file:///…` path and fail.
-		expect(extractBracketedImagePastePaths(bracketedPaste("file:///Users/me/Pictures/photo.png"))).toEqual([
-			"/Users/me/Pictures/photo.png",
-		]);
+		const localPath = path.join(os.homedir(), "Pictures", "photo.png");
+		expect(extractBracketedImagePastePaths(bracketedPaste(url.pathToFileURL(localPath).href))).toEqual([localPath]);
 	});
 
 	it("percent-decodes spaces inside `file://` URLs", () => {
-		expect(extractBracketedImagePastePaths(bracketedPaste("file:///Users/me/My%20Pictures/photo.png"))).toEqual([
-			"/Users/me/My Pictures/photo.png",
-		]);
+		const localPath = path.join(os.homedir(), "My Pictures", "photo.png");
+		const fileUrl = url.pathToFileURL(localPath).href;
+		expect(fileUrl).toContain("My%20Pictures");
+		expect(extractBracketedImagePastePaths(bracketedPaste(fileUrl))).toEqual([localPath]);
 	});
 
 	it("extracts explicit non-image paths without classifying them as image paths", () => {
@@ -600,7 +603,8 @@ describe("extractImagePathFromText (issue #3506)", () => {
 	});
 
 	it("decodes a `file://` URL to its filesystem path", () => {
-		expect(extractImagePathFromText("file:///Users/me/Pictures/photo.png")).toBe("/Users/me/Pictures/photo.png");
+		const localPath = path.join(os.homedir(), "Pictures", "photo.png");
+		expect(extractImagePathFromText(url.pathToFileURL(localPath).href)).toBe(localPath);
 	});
 
 	it("recovers a single anchored image path containing unescaped spaces (macOS screenshot name)", () => {

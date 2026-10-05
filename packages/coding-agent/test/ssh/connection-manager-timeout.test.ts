@@ -1,60 +1,38 @@
 /**
- * Regression for #4232: `runSshSync` / `runSshCaptureSync` sit on the
- * `ensureHostInfo` → `probeHostInfo` / `ensureConnection` path that runs before
- * `SshTool.execute` applies the user's command timeout. Previously they invoked
- * `ssh` through `$`ssh ${args}`.quiet().nothrow()` with no timeout and no
- * abort signal, so an unreachable host or wedged control-master hung forever.
- *
- * The contract now is: each helper is bounded by `timeoutMs`, aborts a stalled
- * child, and returns a failure result (`exitCode !== 0`, non-empty
- * `stderr`) instead of throwing or blocking.
+ * Regression for #4232: SSH pre-command helpers must bound a wedged child
+ * before the user's command timeout applies. Substitute only the executable:
+ * the real ptree.exec still starts and aborts a live subprocess on every OS.
  */
-import { afterAll, beforeAll, describe, expect, it } from "bun:test";
-import * as fs from "node:fs/promises";
-import * as os from "node:os";
-import * as path from "node:path";
+import { afterEach, describe, expect, it, mock, spyOn } from "bun:test";
+import { ptree } from "@oh-my-soup/pi-utils";
 import { _sshHelpersForTests } from "../../src/ssh/connection-manager";
 
 const { runSshSync, runSshCaptureSync } = _sshHelpersForTests;
+const realExec = ptree.exec;
 
-let binDir: string;
-let originalPath: string | undefined;
+afterEach(() => mock.restore());
 
-beforeAll(async () => {
-	binDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-ssh-timeout-"));
-	// Fake `ssh` that traps SIGTERM and sleeps far past any test bound.
-	// Simulates a wedged control-master / unreachable host.
-	const fake = path.join(binDir, "ssh");
-	await fs.writeFile(fake, "#!/usr/bin/env bash\ntrap '' TERM\nsleep 300\n", { mode: 0o755 });
-	originalPath = process.env.PATH;
-	process.env.PATH = `${binDir}${path.delimiter}${originalPath ?? ""}`;
-});
-
-afterAll(async () => {
-	if (originalPath === undefined) delete process.env.PATH;
-	else process.env.PATH = originalPath;
-	await fs.rm(binDir, { recursive: true, force: true });
-});
+function wedgeSsh(): void {
+	spyOn(ptree, "exec").mockImplementation((cmd, opts) => {
+		expect(cmd[0]).toBe("ssh");
+		return realExec([process.execPath, "-e", "setInterval(() => {}, 1000)"], opts);
+	});
+}
 
 describe("SSH pre-command helpers bound their own runtime (#4232)", () => {
 	it("runSshSync returns a failure result within the timeout on a wedged host", async () => {
-		const timeoutMs = 200;
+		wedgeSsh();
 		const started = Date.now();
-		const result = await runSshSync(["-o", "BatchMode=yes", "unreachable", "true"], timeoutMs);
-		const elapsed = Date.now() - started;
-
-		expect(elapsed).toBeLessThan(5_000);
-		// timeout → aborted child, so exit code is null (aborted) or non-zero.
+		const result = await runSshSync(["-o", "BatchMode=yes", "unreachable", "true"], 200);
+		expect(Date.now() - started).toBeLessThan(5_000);
 		expect(result.exitCode).not.toBe(0);
 	}, 10_000);
 
 	it("runSshCaptureSync returns a failure result within the timeout on a wedged host", async () => {
-		const timeoutMs = 200;
+		wedgeSsh();
 		const started = Date.now();
-		const result = await runSshCaptureSync(["-o", "BatchMode=yes", "unreachable", "true"], timeoutMs);
-		const elapsed = Date.now() - started;
-
-		expect(elapsed).toBeLessThan(5_000);
+		const result = await runSshCaptureSync(["-o", "BatchMode=yes", "unreachable", "true"], 200);
+		expect(Date.now() - started).toBeLessThan(5_000);
 		expect(result.exitCode).not.toBe(0);
 		expect(result.stdout).toBe("");
 	}, 10_000);

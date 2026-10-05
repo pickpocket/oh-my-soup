@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixed `bun run build` with `OMS_NATIVE_CARGO_PROFILE=dev` failing after compilation because napi-rs looked for the addon in a `dev` directory instead of Cargo's `debug` output.
+- Fixed Windows builtins: `mktemp` accepts forward-slash template directories, `rg --path-separator` replaces Windows backslashes, `wc -c` counts from the current file offset, and `timeout` terminates the Windows child process, accepts `KILL`, and reports timeout status instead of a Unix signal status.
+- Fixed hashline edits on Windows rejecting a recovered target path spelled with a `\\?\` verbatim prefix as outside the working directory.
+- Linked worktrees created through the native VCS API are now recorded under their clean absolute path, so `git worktree list` no longer shows `..` segments.
+
 ## [18.4.4] - 2026-09-29
 
 ### Fixed

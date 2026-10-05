@@ -1613,16 +1613,34 @@ mod tests {
 	}
 
 	/// A pid outside our ancestry must stay signallable, or `kill` becomes useless.
-	/// Guards against over-broad protection (a whole session, say).
+	/// Guards against over-broad protection (a whole session, say). A child we
+	/// spawn is a descendant, never an ancestor, so it proves the point even in a
+	/// container whose whole pid namespace is our own ancestry chain.
 	#[test]
 	fn leaves_unrelated_processes_out_of_the_chain() {
-		let host = HostProcesses::resolve();
+		// Blocked on a pipe it never reads a byte from, so it is alive and visible
+		// while the chain resolves.
+		let (program, args): (&str, &[&str]) = if cfg!(windows) { ("cmd", &["/c", "pause"]) } else { ("cat", &[]) };
+		let mut child = std::process::Command::new(program)
+			.args(args)
+			.stdin(std::process::Stdio::piped())
+			.stdout(std::process::Stdio::null())
+			.stderr(std::process::Stdio::null())
+			.spawn()
+			.expect("spawn a descendant process");
+		let child_pid = i32::try_from(child.id()).expect("pid fits in i32");
+		let all = ProcInfo::all();
+		let host = HostProcesses::resolve_in(&all);
+		let _ = child.kill();
+		let _ = child.wait();
 		assert!(
-			ProcInfo::all()
-				.iter()
-				.map(ProcInfo::pid)
-				.any(|pid| !host.pids.contains(&pid)),
-			"every visible process is in the chain, which cannot be right"
+			all.iter().any(|process| process.pid() == child_pid),
+			"the live descendant {child_pid} must appear in the snapshot"
+		);
+		assert!(
+			!host.pids.contains(&child_pid),
+			"a descendant {child_pid} must not be protected as an ancestor: {:?}",
+			host.pids
 		);
 	}
 

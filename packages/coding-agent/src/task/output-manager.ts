@@ -26,6 +26,8 @@ export class AgentOutputManager {
 	#initializing: Promise<void> | undefined;
 	/** Final ids already handed out, relative to this manager's scope. */
 	readonly #taken = new Set<string>();
+	/** Taken IDs never expire, so a repeated base can resume its suffix scan. */
+	readonly #nextSuffix = new Map<string, number>();
 	readonly #getArtifactsDir: () => string | null;
 	readonly #parentPrefix: string | undefined;
 
@@ -83,9 +85,11 @@ export class AgentOutputManager {
 	/** Pick the first free name (base, then `base-2`, `base-3`, …) and reserve it. */
 	#allocateUnique(id: string): string {
 		let candidate = id;
-		for (let n = 2; this.#taken.has(candidate); n++) {
-			candidate = `${id}-${n}`;
+		let suffix = this.#nextSuffix.get(id) ?? 2;
+		while (this.#taken.has(candidate)) {
+			candidate = `${id}-${suffix++}`;
 		}
+		if (candidate !== id) this.#nextSuffix.set(id, suffix);
 		this.#taken.add(candidate);
 		return this.#parentPrefix ? `${this.#parentPrefix}.${candidate}` : candidate;
 	}

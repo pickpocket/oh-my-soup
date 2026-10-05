@@ -1611,6 +1611,7 @@ mod tests {
 		git(temp.path(), &["init", "-q"]);
 		git(temp.path(), &["config", "user.name", "Patch Test"]);
 		git(temp.path(), &["config", "user.email", "patch@example.com"]);
+		git(temp.path(), &["config", "core.autocrlf", "false"]);
 		for (path, bytes) in files {
 			let absolute = temp.path().join(path);
 			if let Some(parent) = absolute.parent() {

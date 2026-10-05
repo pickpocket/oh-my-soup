@@ -1136,6 +1136,22 @@ export interface ContextSnapshot {
 	lastMessageTimestamp?: number;
 }
 
+/** A content-free inventory entry at its location in the provider's wire JSON. */
+export interface RefusalRequestBlock {
+	location: string;
+	kind: string;
+	characters?: number;
+}
+
+/** Persisted refusal metadata; the request snapshot itself remains in memory only. */
+export interface RefusalDiagnostics {
+	requestId?: string | null;
+	httpStatus?: number;
+	stage: "before-output" | "after-output";
+	capturedAt: number;
+	inventory: RefusalRequestBlock[];
+}
+
 export interface AssistantMessage {
 	role: "assistant";
 	content: (
@@ -1175,6 +1191,8 @@ export interface AssistantMessage {
 	stopReason: StopReason;
 	stopDetails?: StopDetails | null;
 	errorMessage?: string;
+	/** Persisted content-free refusal metadata; exact request snapshot is ephemeral. */
+	refusalDiagnostics?: RefusalDiagnostics;
 	/** Stable recovery-classification text when errorMessage includes display-only diagnostics. */
 	errorClassificationMessage?: string;
 	/** True only when an exact request-body-read timeout failed on a full Responses replay, not a previous-response delta. */

@@ -21,7 +21,7 @@ async function withDirtyRepo(run: (harness: SidebarHarness) => Promise<void>): P
 		await $`git config user.email "test@example.com"`.cwd(repo).quiet();
 		await Bun.write(path.join(repo, "seed.txt"), "seed\n");
 		await $`git add seed.txt`.cwd(repo).quiet();
-		await $`git commit -m base`.cwd(repo).quiet();
+		await $`git -c commit.gpgsign=false commit -m base`.cwd(repo).quiet();
 		await Bun.write(path.join(repo, "a/one.txt"), "one\n");
 		await Bun.write(path.join(repo, "a/two.txt"), "two\n");
 		await Bun.write(path.join(repo, "b/three.txt"), "three\n");
@@ -40,7 +40,7 @@ async function withMixedRepo(run: (harness: SidebarHarness) => Promise<void>): P
 		await $`git config user.email "test@example.com"`.cwd(repo).quiet();
 		await Bun.write(path.join(repo, "a/tracked.txt"), "before\n");
 		await $`git add a/tracked.txt`.cwd(repo).quiet();
-		await $`git commit -m base`.cwd(repo).quiet();
+		await $`git -c commit.gpgsign=false commit -m base`.cwd(repo).quiet();
 		await Bun.write(path.join(repo, "a/tracked.txt"), "after\n");
 		await Bun.write(path.join(repo, "a/new.txt"), "new\n");
 		await run(await SidebarHarness.create(repo));

@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixed Windows shell previews showing full home paths when the project is on another drive.
+- Fixed composer cache files remaining locked after closing on Windows.
+
 ## [18.3.0] - 2026-09-20
 
 ### Fixed

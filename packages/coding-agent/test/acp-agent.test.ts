@@ -21,6 +21,7 @@ import type {
 } from "@oh-my-soup/pi-coding-agent/session/agent-session";
 import { SILENT_ABORT_MARKER } from "@oh-my-soup/pi-coding-agent/session/messages";
 import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
+import { resetSessionIndexForTests } from "@oh-my-soup/pi-coding-agent/session/session-index";
 import { TaskTool } from "@oh-my-soup/pi-coding-agent/task";
 import type { ToolSession } from "@oh-my-soup/pi-coding-agent/tools";
 import { getConfigRootDir, setAgentDir } from "@oh-my-soup/pi-utils";
@@ -114,6 +115,8 @@ function makeAssistantMessage(text: string, thinking?: string) {
 	};
 }
 
+const createdSessions = new Set<FakeAgentSession>();
+
 class FakeAgentSession {
 	sessionManager: SessionManager;
 	sessionId: string;
@@ -154,6 +157,7 @@ class FakeAgentSession {
 		private readonly models: Model[] = TEST_MODELS,
 	) {
 		this.sessionManager = SessionManager.create(cwd);
+		createdSessions.add(this);
 		this.sessionId = this.sessionManager.getSessionId();
 		this.agent = {
 			sessionId: this.sessionId,
@@ -466,6 +470,11 @@ const fallbackAgentDir = path.join(getConfigRootDir(), "agent");
 
 afterEach(async () => {
 	vi.useRealTimers();
+	for (const session of createdSessions) {
+		if (!session.disposed) await session.dispose();
+	}
+	createdSessions.clear();
+	resetSessionIndexForTests();
 	if (originalAgentDir) {
 		setAgentDir(originalAgentDir);
 	} else {

@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { BunPlugin } from "bun";
+import { changelogUtilsStubPlugin } from "../fixtures/changelog-utils-stub-plugin";
 import { resolveBundledChangelogPath } from "../../src/utils/changelog";
 
 interface HeapProbeResult {
@@ -18,6 +18,7 @@ const repoRoot = path.resolve(import.meta.dir, "..", "..", "..", "..");
 const heapProbePath = path.resolve(import.meta.dir, "..", "fixtures", "changelog-static-import-heap-probe.ts");
 const bundleProbePath = path.resolve(import.meta.dir, "..", "fixtures", "changelog-bundle-fallback-probe.ts");
 const utilsStubPath = path.resolve(import.meta.dir, "..", "fixtures", "changelog-utils-stub.ts");
+const compileBuildPath = path.resolve(import.meta.dir, "..", "fixtures", "changelog-compile-build.ts");
 
 async function runProbe(command: string[], cwd?: string): Promise<BundleProbeResult> {
 	const proc = Bun.spawn(command, {
@@ -32,25 +33,6 @@ async function runProbe(command: string[], cwd?: string): Promise<BundleProbeRes
 	]);
 	expect(exitCode, stderr).toBe(0);
 	return JSON.parse(stdout) as BundleProbeResult;
-}
-
-/**
- * Swap `@oh-my-soup/pi-utils` and the changelog module's `../config` import for a
- * dependency-free stub. Both pull the native addon loader into the bundle graph, and
- * that loader resolves `pi_natives.<platform>.node` relative to the emitted artifact,
- * so any probe written outside the repo fails to start. The subject under test is
- * emitted-asset resolution, not native loading.
- */
-function changelogUtilsStubPlugin(): BunPlugin {
-	return {
-		name: "changelog-utils-stub",
-		setup(build) {
-			build.onResolve({ filter: /^@oh-my-soup\/pi-utils$/ }, () => ({ path: utilsStubPath }));
-			build.onResolve({ filter: /^\.\.\/config$/ }, args =>
-				args.importer.endsWith("/utils/changelog.ts") ? { path: utilsStubPath } : undefined,
-			);
-		},
-	};
 }
 
 describe("bundled changelog asset path resolution", () => {
@@ -101,7 +83,7 @@ describe("changelog static import resources", () => {
 				outdir: bundleDir,
 				target: "bun",
 				external: ["oms-legacy-pi-modules"],
-				plugins: [changelogUtilsStubPlugin()],
+				plugins: [changelogUtilsStubPlugin(utilsStubPath)],
 			});
 			expect(buildOutput.success, buildOutput.logs.map(log => log.message).join("\n")).toBe(true);
 
@@ -130,20 +112,15 @@ describe("changelog static import resources", () => {
 			await fs.mkdir(unrelatedCwd);
 			const sourceResult = await runProbe([process.execPath, bundleProbePath, missingPackageChangelogPath]);
 
-			const buildOutput = await Bun.build({
-				entrypoints: [bundleProbePath],
-				root: repoRoot,
-				external: ["oms-legacy-pi-modules"],
-				plugins: [changelogUtilsStubPlugin()],
-				compile: {
-					outfile: binaryPath,
-					autoloadBunfig: false,
-					autoloadDotenv: false,
-					autoloadTsconfig: false,
-					autoloadPackageJson: false,
-				},
-			});
-			expect(buildOutput.success, buildOutput.logs.map(log => log.message).join("\n")).toBe(true);
+			// Compiling inside the test process trips Bun 1.3.14's "Unexpected reading
+			// file" check for workspace modules already loaded here; a fresh process
+			// performs the identical build.
+			const build = Bun.spawn(
+				[process.execPath, compileBuildPath, bundleProbePath, binaryPath, repoRoot, utilsStubPath],
+				{ stderr: "pipe", stdout: "ignore" },
+			);
+			const [buildStderr, buildExit] = await Promise.all([new Response(build.stderr).text(), build.exited]);
+			expect(buildExit, buildStderr).toBe(0);
 
 			const result = await runProbe([binaryPath, missingPackageChangelogPath], unrelatedCwd);
 			expect(result.entries).toBe(sourceResult.entries);

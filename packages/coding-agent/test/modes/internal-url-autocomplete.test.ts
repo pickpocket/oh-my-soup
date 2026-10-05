@@ -151,6 +151,7 @@ describe("internal-url-autocomplete", () => {
 			expect(schemes).toEqual([
 				"agent",
 				"artifact",
+				"cfg",
 				"history",
 				"local",
 				"memory",

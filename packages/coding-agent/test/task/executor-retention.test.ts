@@ -22,6 +22,7 @@ import { finalizeSubagentLifecycle, runSubprocess } from "@oh-my-soup/pi-coding-
 import type { TaskToolDetails } from "@oh-my-soup/pi-coding-agent/task";
 import type { AgentDefinition } from "@oh-my-soup/pi-coding-agent/task/types";
 import { EventBus } from "@oh-my-soup/pi-coding-agent/utils/event-bus";
+import { createSessionDefaults } from "../helpers/session-defaults";
 
 const agent: AgentDefinition = {
 	name: "task",
@@ -86,11 +87,12 @@ function createScriptedSession(script: (emit: (event: AgentSessionEvent) => void
 		for (const listener of listeners.slice()) listener(event);
 	};
 	const session = {
+		...createSessionDefaults(),
 		state: { messages: [] },
 		agent: { state: { systemPrompt: ["test"] } },
 		model: undefined,
 		extensionRunner: undefined,
-		sessionManager: { appendSessionInit: () => {} },
+		sessionManager: { appendSessionInit: () => {}, getSessionFile: () => undefined },
 		getActiveToolNames: () => ["task", "yield"],
 		getEnabledToolNames: () => ["task", "yield"],
 		setActiveToolsByName: async (_toolNames: string[]) => {},
@@ -168,6 +170,7 @@ describe("keep-alive idle adoption", () => {
 		let cleared = 0;
 		let disposed = 0;
 		const session = {
+			...createSessionDefaults(),
 			dispose: async () => {
 				disposed++;
 			},

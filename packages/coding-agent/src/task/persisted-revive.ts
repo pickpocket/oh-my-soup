@@ -144,6 +144,7 @@ export function createPersistedSubagentReviverFactory(
 				init.readOnly === true && init.tools.includes("write")
 					? init.tools.filter(name => name !== "write")
 					: init.tools;
+			const revivedMountedTools = init.mountedTools?.filter(name => revivedToolNames.includes(name)) ?? [];
 			const artifactManager = ctx.session.sessionManager.getArtifactManager();
 			if (artifactManager) reopened.adoptArtifactManager(artifactManager);
 			// A restricted persisted contract must not consult process-global MCP
@@ -187,6 +188,7 @@ export function createPersistedSubagentReviverFactory(
 				expectedAgentRef: expectedRef,
 				taskDepth,
 				toolNames: revivedToolNames,
+				mountedToolNames: revivedMountedTools,
 				outputSchema: init.outputSchema,
 				outputSchemaMode: init.outputSchemaMode,
 				restrictToolNames: restrictToolNames || undefined,
@@ -213,10 +215,12 @@ export function createPersistedSubagentReviverFactory(
 							customTools: mcpProxyTools.length > 0 ? mcpProxyTools : undefined,
 						}),
 			});
-			// Clamp the active set to the persisted list: createAgentSession's
-			// `alwaysInclude` can re-add non-defaultInactive extension/custom tools
-			// the original run didn't carry. Unknown/missing names are ignored.
-			await session.setActiveToolsByName([...revivedToolNames, ...session.getMountedXdevToolNames()]);
+			// Clamp to the persisted grant, including its direct/xd:// partition:
+			// SDK startup may auto-include new extensions, while a plain name
+			// selection pins previously mounted devices as direct provider tools.
+			// Unknown/missing names are ignored; the transcript never supplies
+			// executable tool implementations.
+			await session.setActiveToolPresentation(revivedToolNames, revivedMountedTools);
 			// Wire the extension runtime exactly as the live executor does. Without
 			// this the runner stays pre-init, every action method throws
 			// `ExtensionRuntimeNotInitializedError`, and a `tool_call` handler that

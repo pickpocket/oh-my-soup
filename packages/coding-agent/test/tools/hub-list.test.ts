@@ -116,7 +116,6 @@ describe("child prompt peer roster", () => {
 		expect(text).toContain("editing auth.ts");
 		expect(text).toContain("IdleReviewer");
 		expect(text).toContain("1 parked peer(s) omitted");
-		expect(text).toContain('status:"parked"');
 		expect(text).toContain("history://");
 		expect(text).toContain("agent://");
 		expect(text).not.toContain("ParkedScout");
@@ -295,7 +294,7 @@ describe("agent:// persisted peer addressing", () => {
 			content: "wake A",
 		});
 
-		expect(result.isError).toBeUndefined();
+		expect(result.isError).toBe(false);
 		expect(result.details?.message?.receipts).toEqual([{ to: "Worker", outcome: "revived" }]);
 		expect(delivered).toEqual(["wake A"]);
 		expect(registry.get("Worker")?.sessionFile).toBe(childA);

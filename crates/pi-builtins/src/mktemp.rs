@@ -8,7 +8,7 @@ use std::{
 	ffi::{OsStr, OsString},
 	io::{self, ErrorKind, Write},
 	iter,
-	path::{MAIN_SEPARATOR, Path, PathBuf},
+	path::{Path, PathBuf},
 };
 
 use brush_core::{ShellExtensions, builtins::Registration};
@@ -200,14 +200,14 @@ impl Params {
 		// component, which matters for URL directories.
 		let tmpdir = options.tmpdir;
 		let prefix_from_template = &template_str[..i];
-		if options.treat_as_template && prefix_from_template.contains(MAIN_SEPARATOR) {
+		if options.treat_as_template && prefix_from_template.contains(std::path::is_separator) {
 			return Err(MkTempError::PrefixContainsDirSeparator(template_str));
 		}
 		if tmpdir.is_some() && Path::new(prefix_from_template).is_absolute() {
 			return Err(MkTempError::InvalidTemplate(template_str.into()));
 		}
-		let (template_dir, prefix) = match prefix_from_template.rfind(MAIN_SEPARATOR) {
-			Some(pos) => prefix_from_template.split_at(pos + MAIN_SEPARATOR.len_utf8()),
+		let (template_dir, prefix) = match prefix_from_template.rfind(std::path::is_separator) {
+			Some(pos) => prefix_from_template.split_at(pos + 1),
 			None => ("", prefix_from_template),
 		};
 		let prefix = prefix.to_owned();
@@ -224,7 +224,7 @@ impl Params {
 			.unwrap_or_default();
 		let suffix_from_template = &template_str[j..];
 		let suffix = format!("{suffix_from_template}{suffix_from_option}");
-		if suffix.contains(MAIN_SEPARATOR) {
+		if suffix.contains(std::path::is_separator) {
 			return Err(MkTempError::SuffixContainsDirSeparator(suffix));
 		}
 
@@ -580,8 +580,8 @@ mod tests {
 		(code, capture.out(), capture.err())
 	}
 
-	fn tmpdir_env(dir: &Path) -> [(&str, &str); 1] {
-		[("TMPDIR", dir.to_str().unwrap())]
+	fn tmpdir_env(dir: &Path) -> [(&'static str, &str); 1] {
+		[(super::TMPDIR_ENV_VAR, dir.to_str().unwrap())]
 	}
 
 	#[test]
@@ -743,10 +743,10 @@ mod tests {
 			run_in(root, &[], &["-p", "missing-dir", "foo.XXXX"]);
 		assert_eq!(code, 1);
 		assert_eq!(stdout, "");
-		assert_eq!(
-			stderr,
-			"mktemp: failed to create file via template 'missing-dir/foo.XXXX': No such file or directory\n"
-		);
+		let template = Path::new("missing-dir").join("foo.XXXX");
+		let prefix = format!("mktemp: failed to create file via template '{}': ", template.display());
+		assert!(stderr.starts_with(&prefix), "{stderr}");
+		assert!(!stderr.trim_end().ends_with(&prefix), "{stderr}");
 	}
 
 	#[test]

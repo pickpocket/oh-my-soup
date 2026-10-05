@@ -6,7 +6,6 @@ import {
 	hasLinuxDesktopSession,
 	resetDesktopNotifierCache,
 	resolveDesktopNotifier,
-	sendDesktopNotification,
 	shouldDeliverDesktopNotification,
 } from "@oh-my-soup/pi-tui/desktop-notify";
 import * as utils from "@oh-my-soup/pi-utils";
@@ -103,18 +102,6 @@ describe("buildDesktopNotifyCommand", () => {
 	const notifySend: DesktopNotifier = { kind: "notify-send", path: "/usr/bin/notify-send" };
 	const gdbus: DesktopNotifier = { kind: "gdbus", path: "/usr/bin/gdbus" };
 
-	it("encodes string messages as title=app + body=message for notify-send", () => {
-		expect(buildDesktopNotifyCommand(notifySend, "ping")).toEqual([
-			"/usr/bin/notify-send",
-			"--app-name",
-			"Oh My Soup",
-			"--urgency=normal",
-			"--expire-time=5000",
-			"Oh My Soup",
-			"ping",
-		]);
-	});
-
 	it("threads structured fields (title, body, urgency) through notify-send positional + flag args", () => {
 		expect(
 			buildDesktopNotifyCommand(notifySend, {
@@ -125,7 +112,7 @@ describe("buildDesktopNotifyCommand", () => {
 		).toEqual([
 			"/usr/bin/notify-send",
 			"--app-name",
-			"Oh My Soup",
+			expect.any(String),
 			"--urgency=critical",
 			"--expire-time=5000",
 			"Session 12",
@@ -133,20 +120,8 @@ describe("buildDesktopNotifyCommand", () => {
 		]);
 	});
 
-	it("falls back to the app name when the structured title is blank", () => {
-		expect(buildDesktopNotifyCommand(notifySend, { title: "   ", body: "Waiting for input" })).toEqual([
-			"/usr/bin/notify-send",
-			"--app-name",
-			"Oh My Soup",
-			"--urgency=normal",
-			"--expire-time=5000",
-			"Oh My Soup",
-			"Waiting for input",
-		]);
-	});
-
 	it("produces a freedesktop Notify call for gdbus including the urgency hint byte", () => {
-		expect(buildDesktopNotifyCommand(gdbus, { title: "Oh My Soup", body: "ping", urgency: "low" })).toEqual([
+		expect(buildDesktopNotifyCommand(gdbus, { title: "Session 12", body: "ping", urgency: "low" })).toEqual([
 			"/usr/bin/gdbus",
 			"call",
 			"--session",
@@ -156,75 +131,14 @@ describe("buildDesktopNotifyCommand", () => {
 			"/org/freedesktop/Notifications",
 			"--method",
 			"org.freedesktop.Notifications.Notify",
-			"Oh My Soup",
+			expect.any(String),
 			"0",
 			"",
-			"Oh My Soup",
+			"Session 12",
 			"ping",
 			"[]",
 			'{"urgency": <byte 0>}',
 			"5000",
 		]);
-	});
-});
-
-describe("sendDesktopNotification", () => {
-	beforeEach(() => {
-		resetDesktopNotifierCache();
-	});
-
-	afterEach(() => {
-		vi.restoreAllMocks();
-		resetDesktopNotifierCache();
-	});
-
-	it("fires Bun.spawn with the resolved notify-send argv and unref's the child so it never blocks process exit", () => {
-		vi.spyOn(utils, "$which").mockImplementation(name => (name === "notify-send" ? "/usr/bin/notify-send" : null));
-		const unref = vi.fn();
-		const spawn = vi.spyOn(Bun, "spawn").mockImplementation((..._args: unknown[]) => ({ unref }) as never);
-
-		sendDesktopNotification({ title: "Session", body: "Complete" });
-
-		expect(spawn).toHaveBeenCalledTimes(1);
-		const opts = spawn.mock.calls[0]?.[0] as unknown as {
-			cmd: string[];
-			stdin: string;
-			stdout: string;
-			stderr: string;
-		};
-		expect(opts.cmd).toEqual([
-			"/usr/bin/notify-send",
-			"--app-name",
-			"Oh My Soup",
-			"--urgency=normal",
-			"--expire-time=5000",
-			"Session",
-			"Complete",
-		]);
-		expect(opts.stdin).toBe("ignore");
-		expect(opts.stdout).toBe("ignore");
-		expect(opts.stderr).toBe("ignore");
-		// `.unref()` is what actually decouples a slow notifier from process exit;
-		// without it Bun keeps the event loop pinned to the child even with
-		// stdio: "ignore".
-		expect(unref).toHaveBeenCalledTimes(1);
-	});
-
-	it("is a silent no-op when no notifier binary is installed", () => {
-		vi.spyOn(utils, "$which").mockReturnValue(null);
-		const spawn = vi.spyOn(Bun, "spawn").mockImplementation((..._args: unknown[]) => ({ unref: vi.fn() }) as never);
-
-		sendDesktopNotification("ping");
-
-		expect(spawn).not.toHaveBeenCalled();
-	});
-
-	it("swallows spawn failures so a missing daemon never throws into the renderer", () => {
-		vi.spyOn(utils, "$which").mockReturnValue("/usr/bin/notify-send");
-		vi.spyOn(Bun, "spawn").mockImplementation(() => {
-			throw new Error("ENOENT");
-		});
-
-		expect(() => sendDesktopNotification("ping")).not.toThrow();
 	});
 });

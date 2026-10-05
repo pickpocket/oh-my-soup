@@ -132,7 +132,7 @@ describe("auth-gateway POST /v1/audio/transcriptions", () => {
 		form.append("language", "en");
 		const response = await fetch(`${harness.url}/v1/audio/transcriptions`, {
 			method: "POST",
-			headers: { Authorization: "Bearer gw-token", "x-omp-app": "dictation-client" },
+			headers: { Authorization: "Bearer gw-token", "x-oms-app": "dictation-client" },
 			body: form,
 		});
 

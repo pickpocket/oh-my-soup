@@ -173,6 +173,10 @@ describe("getLatestRelease GitHub resolution", () => {
 		const urls = stubRegistry({
 			"@oh-my-soup/pi-coding-agent": {
 				version: "999.0.0",
+				oms: { rename: { package: "@new/oms" } },
+			},
+			"@new/oms": {
+				version: "999.1.0",
 				oms: { rename: { package: "@oh-my-soup/pi-coding-agent" } },
 			},
 		});
@@ -180,8 +184,8 @@ describe("getLatestRelease GitHub resolution", () => {
 		const release = await getLatestRelease({ registries: npmjs });
 
 		expect(urls).toHaveLength(2);
-		expect(release.version).toBe("999.0.0");
-		expect(release.packages).toEqual({ pkg: "@oh-my-soup/pi-coding-agent", natives: "@oh-my-soup/pi-natives" });
+		expect(release.version).toBe("999.1.0");
+		expect(release.packages).toEqual({ pkg: "@new/oms", natives: "@oh-my-soup/pi-natives" });
 	});
 });
 

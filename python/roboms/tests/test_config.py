@@ -96,12 +96,12 @@ def test_blank_bot_login_rejected(monkeypatch: pytest.MonkeyPatch, env: dict[str
 @pytest.mark.parametrize(
     "raw_login",
     [
-        "robooms",
-        " @robooms ",
-        " @ROBOOMP ",
-        "robooms[bot]",
-        "@robooms[bot]",
-        " @ROBOOMP[BOT] ",
+        "octobot",
+        " @octobot ",
+        " @OCTOBOT ",
+        "octobot[bot]",
+        "@octobot[bot]",
+        " @OCTOBOT[BOT] ",
     ],
 )
 def test_bot_login_normalizes_mention_case_and_app_suffix(
@@ -110,25 +110,25 @@ def test_bot_login_normalizes_mention_case_and_app_suffix(
     monkeypatch.setenv("ROBOMS_BOT_LOGIN", raw_login)
     reset_settings_cache()
     cfg = Settings()  # type: ignore[call-arg]
-    assert cfg.bot_login == "robooms"
+    assert cfg.bot_login == "octobot"
 
 
 def test_maintainer_logins_normalize_csv_entries(monkeypatch: pytest.MonkeyPatch, env: dict[str, str]) -> None:
-    monkeypatch.setenv("ROBOMS_MAINTAINER_LOGINS", " can1357, @ROBOOMP , @Alice[bot] ,, ")
+    monkeypatch.setenv("ROBOMS_MAINTAINER_LOGINS", " alice, @OCTOBOT , @Casey[bot] ,, ")
     reset_settings_cache()
     cfg = Settings()  # type: ignore[call-arg]
-    assert cfg.maintainer_logins == frozenset({"can1357", "robooms", "alice"})
+    assert cfg.maintainer_logins == frozenset({"alice", "octobot", "casey"})
 
 
 @pytest.mark.parametrize(
     ("raw_login", "expected"),
     [
-        ("robooms", "robooms"),
-        (" @robooms ", "robooms"),
-        (" @ROBOOMP ", "robooms"),
-        ("robooms[bot]", "robooms"),
-        ("@robooms[bot]", "robooms"),
-        (" @ROBOOMP[BOT] ", "robooms"),
+        ("octobot", "octobot"),
+        (" @octobot ", "octobot"),
+        (" @OCTOBOT ", "octobot"),
+        ("octobot[bot]", "octobot"),
+        ("@octobot[bot]", "octobot"),
+        (" @OCTOBOT[BOT] ", "octobot"),
     ],
 )
 def test_maintainer_logins_common_entry_forms(

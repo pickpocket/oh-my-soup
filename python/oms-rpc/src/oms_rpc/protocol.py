@@ -75,7 +75,9 @@ _EFFORT_VALUES: Final[frozenset[str]] = frozenset(
 _THINKING_LEVEL_VALUES: Final[frozenset[str]] = _EFFORT_VALUES | frozenset({"off"})
 _STEERING_MODE_VALUES: Final[frozenset[str]] = frozenset({"all", "one-at-a-time"})
 _INTERRUPT_MODE_VALUES: Final[frozenset[str]] = frozenset({"immediate", "wait"})
-_CACHE_WARMING_MODE_VALUES: Final[frozenset[str]] = frozenset({"off", "streaming", "idle"})
+_CACHE_WARMING_MODE_VALUES: Final[frozenset[str]] = frozenset(
+    {"off", "streaming", "idle"}
+)
 _STOP_REASON_VALUES: Final[frozenset[str]] = frozenset(
     {"stop", "length", "toolUse", "error", "aborted"}
 )
@@ -156,7 +158,7 @@ def _clone_json_value(value: object, *, field: str) -> JsonValue:
         cloned: JsonObject = {}
         for key, item in value.items():
             if not isinstance(key, str):
-                raise ValueError(f"{field} must contain string keys")
+                raise TypeError(f"{field} must contain string keys")
             cloned[key] = _clone_json_value(item, field=field)
         return cloned
     raise ValueError(f"{field} must be JSON-serializable")
@@ -164,7 +166,7 @@ def _clone_json_value(value: object, *, field: str) -> JsonValue:
 
 def _clone_json_object(value: object, *, field: str) -> JsonObject:
     if not isinstance(value, dict):
-        raise ValueError(f"{field} must be an object")
+        raise TypeError(f"{field} must be an object")
     return cast(JsonObject, _clone_json_value(value, field=field))
 
 
@@ -180,7 +182,7 @@ def _optional_json_objects(
     if values is None:
         return None
     if not isinstance(values, list):
-        raise ValueError(f"{field} must be a list")
+        raise TypeError(f"{field} must be a list")
     return tuple(_clone_json_object(item, field=f"{field}[]") for item in values)
 
 
@@ -188,7 +190,7 @@ def _clone_json_objects(values: object, *, field: str) -> tuple[JsonObject, ...]
     if values is None:
         return ()
     if not isinstance(values, list):
-        raise ValueError(f"{field} must be a list")
+        raise TypeError(f"{field} must be a list")
     return tuple(_clone_json_object(item, field=f"{field}[]") for item in values)
 
 
@@ -210,14 +212,14 @@ def _optional_literal(
 def _require_str(payload: JsonObject, field: str) -> str:
     value = payload.get(field)
     if not isinstance(value, str):
-        raise ValueError(f"{field} must be a string")
+        raise TypeError(f"{field} must be a string")
     return value
 
 
 def _require_bool(payload: JsonObject, field: str) -> bool:
     value = payload.get(field)
     if not isinstance(value, bool):
-        raise ValueError(f"{field} must be a boolean")
+        raise TypeError(f"{field} must be a boolean")
     return value
 
 
@@ -226,7 +228,7 @@ def _optional_str(payload: JsonObject, field: str) -> str | None:
     if value is None:
         return None
     if not isinstance(value, str):
-        raise ValueError(f"{field} must be a string")
+        raise TypeError(f"{field} must be a string")
     return value
 
 
@@ -247,10 +249,10 @@ def _optional_str_list(payload: JsonObject, field: str) -> tuple[str, ...]:
         items: list[str] = []
         for index, item in enumerate(value):
             if not isinstance(item, str):
-                raise ValueError(f"{field}[{index}] must be a string")
+                raise TypeError(f"{field}[{index}] must be a string")
             items.append(item)
         return tuple(items)
-    raise ValueError(f"{field} must be a string or an array of strings")
+    raise TypeError(f"{field} must be a string or an array of strings")
 
 
 def _optional_bool(payload: JsonObject, field: str) -> bool | None:
@@ -258,7 +260,7 @@ def _optional_bool(payload: JsonObject, field: str) -> bool | None:
     if value is None:
         return None
     if not isinstance(value, bool):
-        raise ValueError(f"{field} must be a boolean")
+        raise TypeError(f"{field} must be a boolean")
     return value
 
 
@@ -267,7 +269,7 @@ def _optional_int(payload: JsonObject, field: str) -> int | None:
     if value is None:
         return None
     if isinstance(value, bool) or not isinstance(value, int):
-        raise ValueError(f"{field} must be an integer")
+        raise TypeError(f"{field} must be an integer")
     return value
 
 
@@ -276,7 +278,7 @@ def _optional_float(payload: JsonObject, field: str) -> float | None:
     if value is None:
         return None
     if isinstance(value, bool) or not isinstance(value, (int, float)):
-        raise ValueError(f"{field} must be a number")
+        raise TypeError(f"{field} must be a number")
     return float(value)
 
 
@@ -284,12 +286,12 @@ def _tuple_of_strings(values: object, *, field: str) -> tuple[str, ...] | None:
     if values is None:
         return None
     if not isinstance(values, list):
-        raise ValueError(f"{field} must be a list")
+        raise TypeError(f"{field} must be a list")
 
     result: list[str] = []
     for item in values:
         if not isinstance(item, str):
-            raise ValueError(f"{field} must contain only strings")
+            raise TypeError(f"{field} must contain only strings")
         result.append(item)
     return tuple(result) or None
 
@@ -319,7 +321,7 @@ def parse_agent_messages(payload: JsonValue | None) -> tuple[AgentMessage, ...]:
     if payload is None:
         return ()
     if not isinstance(payload, list):
-        raise ValueError("messages must be a list")
+        raise TypeError("messages must be a list")
 
     messages: list[AgentMessage] = []
     for index, item in enumerate(payload):
@@ -1344,7 +1346,7 @@ def _parse_thinking_config(payload: object) -> ThinkingConfig | None:
         return None
     raw_efforts = payload.get("efforts")
     if not isinstance(raw_efforts, list):
-        raise ValueError("model.thinking.efforts must be a list")
+        raise TypeError("model.thinking.efforts must be a list")
     efforts: tuple[Effort, ...] = tuple(
         cast(
             Effort,
@@ -1483,9 +1485,13 @@ def parse_queued_messages_state(
 ) -> QueuedMessagesState:
     payload = payload or {}
     return QueuedMessagesState(
-        steering=_tuple_of_strings(payload.get("steering"), field="queuedMessages.steering")
+        steering=_tuple_of_strings(
+            payload.get("steering"), field="queuedMessages.steering"
+        )
         or (),
-        follow_up=_tuple_of_strings(payload.get("followUp"), field="queuedMessages.followUp")
+        follow_up=_tuple_of_strings(
+            payload.get("followUp"), field="queuedMessages.followUp"
+        )
         or (),
     )
 
@@ -1585,7 +1591,9 @@ def parse_cache_warming_mode(payload: JsonObject) -> CacheWarmingMode:
     return cast(
         CacheWarmingMode,
         _require_literal(
-            payload.get("mode"), _CACHE_WARMING_MODE_VALUES, field="set_cache_warming.mode"
+            payload.get("mode"),
+            _CACHE_WARMING_MODE_VALUES,
+            field="set_cache_warming.mode",
         ),
     )
 
@@ -1639,7 +1647,9 @@ def parse_open_session_result(payload: JsonObject) -> OpenSessionResult:
     )
 
 
-def parse_remove_queued_message_result(payload: JsonObject) -> RemoveQueuedMessageResult:
+def parse_remove_queued_message_result(
+    payload: JsonObject,
+) -> RemoveQueuedMessageResult:
     return RemoveQueuedMessageResult(removed=_require_bool(payload, "removed"))
 
 
@@ -1654,7 +1664,7 @@ def parse_branch_result(payload: JsonObject | None) -> BranchResult:
 def parse_branch_messages(payload: JsonObject | None) -> tuple[BranchMessage, ...]:
     messages = (payload or {}).get("messages") or []
     if not isinstance(messages, list):
-        raise ValueError("messages must be a list")
+        raise TypeError("messages must be a list")
     return tuple(
         BranchMessage(
             entry_id=str(
@@ -2006,9 +2016,13 @@ def parse_notification(payload: JsonObject) -> RpcNotification:
         return TodoAutoClearEvent()
     if event_type == "queue_update":
         return QueueUpdateEvent(
-            steering=_tuple_of_strings(payload.get("steering"), field="queue_update.steering")
+            steering=_tuple_of_strings(
+                payload.get("steering"), field="queue_update.steering"
+            )
             or (),
-            follow_up=_tuple_of_strings(payload.get("followUp"), field="queue_update.followUp")
+            follow_up=_tuple_of_strings(
+                payload.get("followUp"), field="queue_update.followUp"
+            )
             or (),
         )
     return UnknownNotification(

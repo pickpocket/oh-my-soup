@@ -75,9 +75,7 @@ class ProtocolParsingTests(unittest.TestCase):
 
         self.assertIsInstance(events[0], MessageStartEvent)
         self.assertIsInstance(events[2], MessageEndEvent)
-        self.assertEqual(
-            [getattr(event, "message_id") for event in events], ["m-7"] * 3
-        )
+        self.assertEqual([event.message_id for event in events], ["m-7"] * 3)
         legacy = parse_notification({"type": "message_end", "message": assistant})
         assert isinstance(legacy, MessageEndEvent)
         self.assertIsNone(legacy.message_id)
@@ -525,7 +523,7 @@ class ProtocolParsingTests(unittest.TestCase):
     def test_parse_session_state_rejects_non_string_in_system_prompt_array(
         self,
     ) -> None:
-        with self.assertRaises(ValueError):
+        with self.assertRaises(TypeError):
             parse_session_state(
                 {
                     "sessionId": "session-abc",
@@ -537,7 +535,7 @@ class ProtocolParsingTests(unittest.TestCase):
             )
 
     def test_parse_session_state_rejects_invalid_system_prompt_shape(self) -> None:
-        with self.assertRaises(ValueError):
+        with self.assertRaises(TypeError):
             parse_session_state(
                 {
                     "sessionId": "session-abc",

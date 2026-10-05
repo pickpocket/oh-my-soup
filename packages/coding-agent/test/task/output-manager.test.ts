@@ -20,6 +20,19 @@ describe("AgentOutputManager", () => {
 		expect(await mgr.allocate("Bob")).toBe("Bob");
 	});
 
+	it("skips newly reserved suffixes without reusing earlier allocations", async () => {
+		const mgr = new AgentOutputManager(() => null);
+
+		expect(await mgr.allocate("Worker")).toBe("Worker");
+		expect(await mgr.allocate("Worker")).toBe("Worker-2");
+		expect(await mgr.allocate("Worker-3")).toBe("Worker-3");
+		await mgr.reserve(["Worker-5", "Worker-6.child"]);
+
+		expect(await mgr.allocate("Worker")).toBe("Worker-4");
+		expect(await mgr.allocate("Worker")).toBe("Worker-7");
+		expect(await mgr.allocate("Worker-3")).toBe("Worker-3-2");
+	});
+
 	it("nests ids under a parent prefix and still suffixes repeats", async () => {
 		const mgr = new AgentOutputManager(() => null, { parentPrefix: "Anna" });
 

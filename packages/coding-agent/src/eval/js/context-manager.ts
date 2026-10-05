@@ -12,7 +12,12 @@ import { ToolError } from "@oh-my-soup/pi-tui/tools/tool-errors";
 import { safeSend as safeSendIpc } from "../../utils/ipc";
 import { EVAL_TIMEOUT_PAUSE_OP, EVAL_TIMEOUT_RESUME_OP } from "../bridge-timeout";
 import { getEnabledEvalPreludes } from "../preludes";
-import { attachSessionOwner, EvalKernelNotRunningError, type SessionOwners } from "../executor-base";
+import {
+	attachSessionOwner,
+	createOwnerScopedSessionKeys,
+	EvalKernelNotRunningError,
+	type SessionOwners,
+} from "../executor-base";
 import { shouldDetachKernel } from "../py/spawn-options";
 import { updateEvalState } from "../state";
 import type { EvalShadowCellSession } from "../speculation/cell-session";
@@ -115,6 +120,7 @@ interface StartingJsSession extends SessionOwners {
 const sessions = new Map<string, JsSession>();
 const startingSessions = new Map<string, StartingJsSession>();
 const resettingSessions = new Map<string, Promise<void>>();
+const ownerKeys = createOwnerScopedSessionKeys();
 // Worker startup (module-graph import + WorkerCore construction) is infrastructure
 // cost, not user compute. Floor it independently of Bun's 5s default per-test timeout
 // so a slow cold-start under load isn't aborted mid-init — terminating a still-
@@ -163,7 +169,12 @@ export async function executeInVmContext(options: {
 	timeoutMs?: number;
 	runState: VmRunState;
 }): Promise<{ value: unknown }> {
-	const { sessionKey } = options;
+	const sessionKey = ownerKeys.resolve(
+		options.sessionKey,
+		options.ownerId,
+		options.reset === true,
+		key => sessions.get(key) ?? startingSessions.get(key),
+	);
 	if (options.reset) {
 		// Coalesce concurrent resets: an existing in-flight reset already
 		// produces a fresh context, so a follow-up `reset: true` cell should
@@ -222,11 +233,12 @@ export async function invokeJsTool(
 	request: JsToolRequest,
 	options: {
 		sessionKey: string;
+		ownerId?: string;
 		session: ToolSession;
 		signal?: AbortSignal;
 	},
 ): Promise<EvalToolInvokeResult | { ok: true; tools: EvalToolDescriptor[]; missing: string[] }> {
-	const session = sessions.get(options.sessionKey);
+	const session = sessions.get(ownerKeys.get(options.sessionKey, options.ownerId));
 	if (!session || session.state !== "alive") throw new EvalKernelNotRunningError("JavaScript");
 
 	const runId = `tool-${crypto.randomUUID()}`;
@@ -299,12 +311,13 @@ export async function invokeJsTool(
  */
 export async function snapshotVmContext(options: {
 	sessionKey: string;
+	ownerId?: string;
 	cwd: string;
 	sessionId: string;
 	localRoots?: Record<string, string>;
 	timeoutMs?: number;
 }): Promise<ShadowSnapshot | null> {
-	const session = sessions.get(options.sessionKey);
+	const session = sessions.get(ownerKeys.get(options.sessionKey, options.ownerId));
 	if (session?.state !== "alive") return null;
 	const id = `snapshot-${Snowflake.next()}`;
 	const deferred = Promise.withResolvers<Extract<WorkerOutbound, { type: "shadow-snapshot" }>>();
@@ -343,16 +356,10 @@ export async function probeLiveVmGlobals(
 	sessionId: string,
 	timeoutMs: number,
 	limit: number,
+	ownerId?: string,
 ): Promise<string[] | null | undefined> {
-	let target: JsSession | undefined;
-	for (const session of sessions.values()) {
-		if (session.state === "alive" && session.sessionId === sessionId) {
-			target = session;
-			break;
-		}
-	}
-	if (!target) return undefined;
-	const session = target;
+	const session = sessions.get(ownerKeys.get(sessionId, ownerId));
+	if (session?.state !== "alive") return undefined;
 	const runId = `probe-${Snowflake.next()}`;
 	let names: string[] | null = null;
 	const { promise, resolve, reject } = Promise.withResolvers<{ value: unknown }>();
@@ -403,6 +410,7 @@ export interface JavaScriptShadowPlanningResult {
  */
 export async function shadowPlanIfPresent(options: {
 	sessionKey: string;
+	ownerId?: string;
 	cwd: string;
 	sessionId: string;
 	code: string;
@@ -428,6 +436,7 @@ export async function shadowPlanIfPresent(options: {
  */
 export async function runIfSnapshotMatches(options: {
 	sessionKey: string;
+	ownerId?: string;
 	sessionId: string;
 	cwd: string;
 	session: ToolSession;
@@ -438,7 +447,7 @@ export async function runIfSnapshotMatches(options: {
 	expectedRevision: number;
 	expectedDigest: string;
 }): Promise<{ value: unknown } | null> {
-	const session = sessions.get(options.sessionKey);
+	const session = sessions.get(ownerKeys.get(options.sessionKey, options.ownerId));
 	if (session?.state !== "alive") return null;
 	try {
 		return await runOnce(session, options);
@@ -456,6 +465,7 @@ export async function resetVmContext(sessionKey: string): Promise<void> {
 }
 
 export async function disposeAllVmContexts(): Promise<void> {
+	ownerKeys.clear();
 	const pending = [...startingSessions.values()].map(starting => starting.promise);
 	startingSessions.clear();
 	const started = await Promise.allSettled(pending);
@@ -473,6 +483,7 @@ export async function disposeAllVmContexts(): Promise<void> {
  * owners (e.g. an in-memory session keyed only by cwd) just drop the registration.
  */
 export async function disposeVmContextsByOwner(ownerId: string): Promise<void> {
+	ownerKeys.dispose(ownerId);
 	const toKill: JsSession[] = [];
 	for (const session of Array.from(sessions.values())) {
 		if (!session.ownerIds.has(ownerId)) continue;

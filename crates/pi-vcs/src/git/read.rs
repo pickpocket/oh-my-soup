@@ -1649,7 +1649,7 @@ mod tests {
 		let worktrees = repo.worktrees()?;
 		assert_eq!(worktrees.len(), 2);
 		assert_eq!(worktrees[0].path, dir.path());
-		assert_eq!(worktrees[1].path, linked.canonicalize()?);
+		assert_eq!(worktrees[1].path.canonicalize()?, linked.canonicalize()?);
 		assert_eq!(worktrees[1].branch.as_deref(), Some("refs/heads/linked-branch"));
 		Ok(())
 	}

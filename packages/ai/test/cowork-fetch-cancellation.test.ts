@@ -60,56 +60,72 @@ describe("coworkFetch response cancellation", () => {
 // session with no retry. It must reach the reader as a retryable socket close,
 // while a caller abort keeps its own error.
 describe("coworkFetch premature response close", () => {
-	async function streamingResponse(signal?: AbortSignal) {
-		const message = new http.IncomingMessage(new net.Socket());
-		message.statusCode = 200;
-		message.statusMessage = "OK";
-		message.headers = { "content-type": "text/event-stream" };
-		message.rawHeaders = ["content-type", "text/event-stream"];
-		message.push("event: ping\ndata: {}\n\n");
-		vi.spyOn(https, "request").mockImplementation((_options, callback) => {
-			if (typeof callback === "function") callback(message);
-			return new StubClientRequest();
+	async function withStreamingResponse(
+		signal: AbortSignal | undefined,
+		check: (reader: Pick<ReadableStreamDefaultReader<Uint8Array>, "read">, socket: net.Socket) => Promise<void>,
+	): Promise<void> {
+		let serverSocket: net.Socket | undefined;
+		const server = http.createServer((_request, response) => {
+			serverSocket = response.socket ?? undefined;
+			response.writeHead(200, { "content-type": "text/event-stream" });
+			response.write("event: ping\ndata: {}\n\n");
 		});
-		const response = await coworkFetch("https://api.anthropic.com/v1/messages", {
-			headers: { accept: "text/event-stream" },
-			signal,
+		await new Promise<void>((resolve, reject) => {
+			server.once("error", reject);
+			server.listen(0, "127.0.0.1", resolve);
 		});
-		if (!response.body) throw new Error("Expected a streaming response body.");
-		const reader = response.body.getReader();
-		await reader.read();
-		return { message, reader };
-	}
-
-	function cutOff(message: http.IncomingMessage): void {
-		message.destroy(Object.assign(new Error("aborted"), { code: "ECONNRESET" }));
+		try {
+			const address = server.address();
+			if (!address || typeof address === "string") throw new Error("Expected a local TCP listener.");
+			// Only substitute the transport: IncomingMessage and its socket are real,
+			// unlike a detached message whose destroy() cannot emulate a peer disconnect.
+			vi.spyOn(https, "request").mockImplementation(((
+				options: https.RequestOptions,
+				callback?: (response: http.IncomingMessage) => void,
+			) => http.request({ ...options, protocol: "http:", agent: undefined }, callback)) as typeof https.request);
+			const response = await coworkFetch(`https://127.0.0.1:${address.port}/v1/messages`, {
+				headers: { accept: "text/event-stream" },
+				signal,
+			});
+			if (!response.body) throw new Error("Expected a streaming response body.");
+			const reader = response.body.getReader();
+			const chunk = await reader.read();
+			expect(new TextDecoder().decode(chunk.value)).toContain("event: ping");
+			if (!serverSocket) throw new Error("Expected an active server socket.");
+			await check(reader, serverSocket);
+		} finally {
+			server.closeAllConnections();
+			await new Promise<void>(resolve => server.close(() => resolve()));
+		}
 	}
 
 	it("surfaces a mid-body connection drop as a retryable socket close", async () => {
-		const { message, reader } = await streamingResponse();
-		cutOff(message);
-		const error = await reader.read().then(
-			() => undefined,
-			(reason: unknown) => reason,
-		);
+		await withStreamingResponse(undefined, async (reader, socket) => {
+			socket.destroy();
+			const error = await reader.read().then(
+				() => undefined,
+				(reason: unknown) => reason,
+			);
 
-		expect(error).toBeInstanceOf(Error);
-		expect((error as Error).message).toContain("socket connection was closed unexpectedly");
-		const finalized = await AIError.finalize(error, { api: "anthropic-messages", provider: "anthropic" });
-		expect(finalized.stopReason).toBe("error");
-		expect(AIError.retriable(finalized.id)).toBe(true);
+			expect(error).toBeInstanceOf(Error);
+			expect((error as NodeJS.ErrnoException).code).toBe("ECONNRESET");
+			const finalized = await AIError.finalize(error, { api: "anthropic-messages", provider: "anthropic" });
+			expect(finalized.stopReason).toBe("error");
+			expect(AIError.retriable(finalized.id)).toBe(true);
+		});
 	});
 
 	it("keeps the original error when the caller aborted the request", async () => {
 		const controller = new AbortController();
-		const { message, reader } = await streamingResponse(controller.signal);
-		controller.abort();
-		cutOff(message);
-		const error = await reader.read().then(
-			() => undefined,
-			(reason: unknown) => reason,
-		);
+		await withStreamingResponse(controller.signal, async reader => {
+			const original = new Error("caller abort");
+			controller.abort(original);
+			const error = await reader.read().then(
+				() => undefined,
+				(reason: unknown) => reason,
+			);
 
-		expect((error as Error).message).toBe("aborted");
+			expect(error).toBe(original);
+		});
 	});
 });

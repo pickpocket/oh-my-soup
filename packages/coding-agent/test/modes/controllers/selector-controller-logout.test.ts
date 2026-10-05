@@ -57,12 +57,16 @@ describe("SelectorController logout", () => {
 			return true;
 		});
 		const authStorage = {
-			reload: vi.fn(async () => undefined),
-			listStoredCredentials: (_provider?: string) => credentials,
-			getOAuthAccountIdentity: (_provider: string, _sessionId?: string) => ({ accountId: "acct-a" }),
-			getCredentialOrigin: (_provider: string) => ({ kind: "oauth" }),
-			describeCredentialSource: (_provider: string, _sessionId?: string) => undefined,
-			removeCredential,
+			credentials: {
+				reload: vi.fn(async () => undefined),
+				list: (_provider?: string) => credentials,
+				removeById: removeCredential,
+			},
+			oauth: { identity: (_provider: string, _sessionId?: string) => ({ accountId: "acct-a" }) },
+			keys: {
+				source: (_provider: string) => ({ kind: "oauth" }),
+				describe: (_provider: string, _sessionId?: string) => undefined,
+			},
 		} as unknown as AuthStorage;
 		const refreshProvider = vi.fn(async (_providerId: string, _mode: string) => undefined);
 		const presented = Promise.withResolvers<void>();

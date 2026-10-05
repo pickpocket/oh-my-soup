@@ -111,7 +111,8 @@ it("settles an outstanding guest ask when the room is recreated", async () => {
 	const probe = instrumentRelay(relay, { throttle: false });
 	const snapshot = makeSnapshot();
 	const seen: HostObservations = { notices: [], participantCounts: [] };
-	const host = new CollabHost(makeHostContext(snapshot, seen));
+	// Retry immediately: the contract is the ask's settlement, not the backoff.
+	const host = new CollabHost(makeHostContext(snapshot, seen), { reconnectDelay: () => 0 });
 	cleanups.push(() => void host.stop("test done"));
 
 	await host.start("ws://localhost:8788");

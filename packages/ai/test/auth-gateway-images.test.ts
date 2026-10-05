@@ -198,9 +198,9 @@ describe("auth gateway images", () => {
 					response_format: "b64_json",
 				},
 				{
-					"x-omp-install-id": "image-client",
-					"x-omp-hostname": "render-box",
-					"x-omp-app": "image-suite",
+					"x-oms-install-id": "image-client",
+					"x-oms-hostname": "render-box",
+					"x-oms-app": "image-suite",
 				},
 			);
 			expect(response.status).toBe(200);

@@ -1593,6 +1593,11 @@ fn git_metadata_path(path: &Path) -> Cow<'_, str> {
 
 fn register_worktree(path: &Path, common: &Path, head: &str) -> Result<PathBuf> {
 	fs::create_dir_all(path)?;
+	// Record the clean absolute spelling, as `git worktree add` does: the
+	// `gitdir` back-pointer is what `git worktree list` displays and what
+	// later prune/remove calls compare against.
+	let path = std::path::absolute(path).map(|absolute| normalize_path(&absolute))?;
+	let path = path.as_path();
 	let name = worktree_admin_name(common, path);
 	let admin = common.join("worktrees").join(name);
 	fs::create_dir_all(&admin)?;
@@ -1807,6 +1812,7 @@ mod tests {
 		git(temp.path(), &["init", "-q", "-b", "main"]);
 		git(temp.path(), &["config", "user.name", "Test"]);
 		git(temp.path(), &["config", "user.email", "test@example.com"]);
+		git(temp.path(), &["config", "core.autocrlf", "false"]);
 		// gix reads the developer's `~/.gitconfig`, where a global
 		// `core.hooksPath` would redirect hook lookup away from this fixture.
 		git(temp.path(), &["config", "core.hooksPath", ".git/hooks"]);
@@ -2651,10 +2657,9 @@ mod tests {
 				keep_changes: false,
 			})
 			.unwrap();
-		assert!(
-			git(temp.path(), &["worktree", "list", "--porcelain"])
-				.contains(linked.to_string_lossy().as_ref())
-		);
+		let listed = git(temp.path(), &["worktree", "list", "--porcelain"]);
+		let expected = format!("worktree {}", git_metadata_path(&normalize_path(&linked)));
+		assert!(listed.lines().any(|line| line == expected), "{listed}");
 		assert!(repo.worktree_remove(&linked, true).unwrap());
 
 		let linked = temp.path().join("../linked-detach");

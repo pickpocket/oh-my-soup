@@ -42,6 +42,20 @@ mod tests {
 			.expect("spawn matching process")
 	}
 
+	#[cfg(windows)]
+	fn matching_process() -> std::process::Child {
+		use std::process::Stdio;
+
+		// Keep a real child alive by leaving its command input pipe open.
+		std::process::Command::new("cmd.exe")
+			.args(["/Q", "/K"])
+			.stdin(Stdio::piped())
+			.stdout(Stdio::null())
+			.stderr(Stdio::null())
+			.spawn()
+			.expect("spawn matching process")
+	}
+
 	use super::PgrepCommand;
 
 	async fn execute(argv: Vec<String>) -> (brush_core::ExecutionResult, String) {
@@ -94,8 +108,11 @@ mod tests {
 
 	#[tokio::test]
 	async fn quiet_suppresses_matching_output() {
-		let pid = std::process::id();
+		let mut child = matching_process();
+		let pid = child.id();
 		let (result, output) = execute(vec!["-q".into(), "-p".into(), pid.to_string()]).await;
+		child.kill().expect("kill matching process");
+		child.wait().expect("reap matching process");
 		assert_eq!(u8::from(result.exit_code), 0);
 		assert!(output.is_empty());
 	}

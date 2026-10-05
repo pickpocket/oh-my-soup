@@ -4,6 +4,7 @@ import * as fs from "node:fs/promises";
 import * as Module from "node:module";
 import * as os from "node:os";
 import * as path from "node:path";
+import { encodeArchive } from "../src/ar";
 import { isEnoent } from "../src/fs-error";
 import {
 	ensureRuntimeInstalled,
@@ -302,16 +303,20 @@ describe("writeRuntimeManifest", () => {
 // `${runtimeDir}.lock` mkdir *directory* must not permanently break the new
 // file-backed lock path.
 describe("ensureRuntimeInstalled install lock", () => {
-	// A local `file:` dependency keeps the real `bun install` offline and
-	// deterministic — no registry, no network.
-	async function makeFileDependency(): Promise<{ spec: string; probe: string }> {
-		const src = await fs.mkdtemp(path.join(os.tmpdir(), "oms-runtime-dep-"));
-		tempDirs.push(src);
+	// A local package tarball keeps the real `bun install` offline and
+	// deterministic. Bun 1.3.14 on Windows fails to copy a `file:` directory
+	// dependency into node_modules (EPERM), but installs its tarball normally.
+	async function makeTarballDependency(): Promise<{ spec: string; probe: string }> {
+		const fixtureDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-runtime-dep-"));
+		tempDirs.push(fixtureDir);
+		const tarball = path.join(fixtureDir, "oms-runtime-fixture.tgz");
 		await fs.writeFile(
-			path.join(src, "package.json"),
-			JSON.stringify({ name: "oms-runtime-fixture", version: "1.0.0" }),
+			tarball,
+			await encodeArchive("tar.gz", [
+				["package/package.json", JSON.stringify({ name: "oms-runtime-fixture", version: "1.0.0" })],
+			]),
 		);
-		return { spec: `file:${src}`, probe: "oms-runtime-fixture" };
+		return { spec: `file:${tarball}`, probe: "oms-runtime-fixture" };
 	}
 
 	async function makeRuntimeDir(): Promise<string> {
@@ -321,7 +326,7 @@ describe("ensureRuntimeInstalled install lock", () => {
 	}
 
 	test("a stale legacy .lock directory does not block install and is cleared", async () => {
-		const { spec, probe } = await makeFileDependency();
+		const { spec, probe } = await makeTarballDependency();
 		const runtimeDir = await makeRuntimeDir();
 		// A pre-18.x crash orphan, older than any live install: reclaimed at once.
 		await fs.mkdir(`${runtimeDir}.lock`, { recursive: true });
@@ -341,7 +346,7 @@ describe("ensureRuntimeInstalled install lock", () => {
 	}, 15_000);
 
 	test("a live legacy .lock owner is waited out, never reclaimed on retry exhaustion", async () => {
-		const { spec, probe } = await makeFileDependency();
+		const { spec, probe } = await makeTarballDependency();
 		const runtimeDir = await makeRuntimeDir();
 		// A recently created directory may still belong to a live pre-18.x
 		// installer. Retry exhaustion must NOT reclaim it — that would race two
@@ -375,7 +380,7 @@ describe("ensureRuntimeInstalled install lock", () => {
 	}, 15_000);
 
 	test("reserves the legacy namespace before the new install starts", async () => {
-		const { spec, probe } = await makeFileDependency();
+		const { spec, probe } = await makeTarballDependency();
 		const runtimeDir = await makeRuntimeDir();
 		let observedDownload = false;
 
@@ -400,7 +405,7 @@ describe("ensureRuntimeInstalled install lock", () => {
 	}, 15_000);
 
 	test("a crashed installer does not wedge a later install", async () => {
-		const { spec, probe } = await makeFileDependency();
+		const { spec, probe } = await makeTarballDependency();
 		const runtimeDir = await makeRuntimeDir();
 		await fs.mkdir(path.dirname(runtimeDir), { recursive: true });
 		const readyPath = `${runtimeDir}.holder-ready`;

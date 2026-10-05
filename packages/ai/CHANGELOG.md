@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### Added
+
+- Added Anthropic refusal diagnostics with request IDs, HTTP status, before/after-output timing, and request-block inventories, plus an in-memory snapshot for explicit sanitized local export.
+
+### Fixed
+
+- Fixed Anthropic streams over the Cowork transport treating a mid-response connection drop as a clean completion; the drop now surfaces as a retryable connection error while explicit cancellation keeps its own error.
+
 ## [18.4.3] - 2026-09-22
 
 ### Changed

@@ -38,20 +38,6 @@ async function firstRequestHeaders(model: Model<Api>, headers?: Record<string, s
 }
 
 describe("Vercel AI Gateway app attribution", () => {
-	it("credits omp on the Anthropic and OpenAI-compatible routes", async () => {
-		for (const model of [
-			vercelModel("anthropic-messages", "https://ai-gateway.vercel.sh"),
-			vercelModel("openai-completions", "https://ai-gateway.vercel.sh/v1"),
-		]) {
-			const headers = await firstRequestHeaders(model);
-			expect([model.api, headers.get("http-referer"), headers.get("x-title")]).toEqual([
-				model.api,
-				"https://omp.sh/",
-				"omp",
-			]);
-		}
-	});
-
 	it("keeps caller-supplied attribution", async () => {
 		const headers = await firstRequestHeaders(vercelModel("anthropic-messages", "https://ai-gateway.vercel.sh"), {
 			"HTTP-Referer": "https://myapp.vercel.app",

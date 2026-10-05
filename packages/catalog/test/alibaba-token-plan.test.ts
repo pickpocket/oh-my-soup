@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { buildModel } from "@oh-my-soup/pi-catalog/build";
 import { Effort } from "@oh-my-soup/pi-catalog/effort";
-import { getBundledModel } from "@oh-my-soup/pi-catalog/models";
+import { seedModels } from "@oh-my-soup/pi-catalog/compat/providers";
 import {
 	ALIBABA_TOKEN_PLAN_BASE_URL,
 	alibabaTokenPlanModelManagerOptions,
@@ -10,8 +10,10 @@ import type { FetchImpl } from "@oh-my-soup/pi-catalog/types";
 import { serializeAlibabaTokenPlanCredential } from "@oh-my-soup/pi-catalog/wire/alibaba-token-plan";
 
 describe("QwenCloud Token Plan provider", () => {
-	test("bundles curated capabilities before dynamic discovery", () => {
-		expect(getBundledModel<"openai-completions">("alibaba-token-plan", "qwen3.8-max-preview")).toMatchObject({
+	test("keeps curated preview capabilities available as a fallback seed", () => {
+		const preview = seedModels("alibaba-token-plan").find(model => model.id === "qwen3.8-max-preview");
+		if (!preview) throw new Error("Missing Token Plan preview fallback seed");
+		expect(buildModel(preview)).toMatchObject({
 			reasoning: true,
 			input: ["text", "image"],
 			contextWindow: 983_616,

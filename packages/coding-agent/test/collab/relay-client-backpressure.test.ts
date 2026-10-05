@@ -68,6 +68,7 @@ describe("CollabSocket send backpressure", () => {
 	afterEach(() => {
 		globalThis.WebSocket = ORIGINAL_WEBSOCKET;
 		vi.restoreAllMocks();
+		// Three tests below drive the drain retry with fake timers; a leak here stalls every later file.
 		vi.useRealTimers();
 	});
 
@@ -101,7 +102,12 @@ describe("CollabSocket send backpressure", () => {
 		// Real sealing: the enveloped size has to cross the high-water mark for the
 		// batch to still be queued when the transport drops.
 		const key = await importRoomKey(generateRoomKey());
-		const socket = new CollabSocket({ wsUrl: "ws://localhost:8788/r/rejoin", role: "host", key });
+		const socket = new CollabSocket({
+			wsUrl: "ws://localhost:8788/r/rejoin",
+			role: "host",
+			key,
+			reconnectDelay: () => 0,
+		});
 		let generated = 0;
 		function* chunks(): Generator<CollabFrame> {
 			for (let i = 0; i < 60; i++) {
@@ -140,10 +146,11 @@ describe("CollabSocket send backpressure", () => {
 			// relay it comes back to is a new room with reissued peer ids.
 			const generatedAtDrop = generated;
 			first.close();
-			const appeared = Date.now() + 3_000;
-			while (BackpressuredWebSocket.instances.length < 2 && Date.now() < appeared) await Bun.sleep(20);
-			const second = BackpressuredWebSocket.instances[1];
-			if (!second) throw new Error("socket never retried after the transient drop");
+			await waitUntil(
+				() => BackpressuredWebSocket.instances.length > 1,
+				"socket never retried after the transient drop",
+			);
+			const second = BackpressuredWebSocket.instances[1]!;
 			second.openAccepted();
 			socket.send({ t: "error", message: "welcome stand-in for the new guest" }, 9);
 
@@ -167,7 +174,13 @@ describe("CollabSocket send backpressure", () => {
 		BackpressuredWebSocket.instances = [];
 		BackpressuredWebSocket.initialBufferedAmount = 0;
 		globalThis.WebSocket = BackpressuredWebSocket as unknown as typeof WebSocket;
-		const socket = new CollabSocket({ wsUrl: "ws://localhost:8788/r/reissue", role: "host", key: {} as CryptoKey });
+		// Retry immediately: the contract is the retirement's lifetime, not the backoff.
+		const socket = new CollabSocket({
+			wsUrl: "ws://localhost:8788/r/reissue",
+			role: "host",
+			key: {} as CryptoKey,
+			reconnectDelay: () => 0,
+		});
 		try {
 			socket.connect();
 			const first = BackpressuredWebSocket.instances[0]!;
@@ -176,10 +189,11 @@ describe("CollabSocket send backpressure", () => {
 			expect(socket.isServing(1)).toBe(false);
 
 			first.close();
-			const appeared = Date.now() + 3_000;
-			while (BackpressuredWebSocket.instances.length < 2 && Date.now() < appeared) await Bun.sleep(20);
-			const second = BackpressuredWebSocket.instances[1];
-			if (!second) throw new Error("socket never retried after the transient drop");
+			await waitUntil(
+				() => BackpressuredWebSocket.instances.length > 1,
+				"socket never retried after the transient drop",
+			);
+			const second = BackpressuredWebSocket.instances[1]!;
 			second.openAccepted();
 
 			// The recreated room hands out ids from 1 again, so retiring an id must
@@ -256,7 +270,12 @@ describe("CollabSocket send backpressure", () => {
 				}
 				return realDecrypt(...args);
 			});
-		const socket = new CollabSocket({ wsUrl: "ws://localhost:8788/r/rooms", role: "host", key });
+		const socket = new CollabSocket({
+			wsUrl: "ws://localhost:8788/r/rooms",
+			role: "host",
+			key,
+			reconnectDelay: () => 0,
+		});
 		// What the owner would decide with: `CollabHost#handleFrame` rejects a frame
 		// whose sender the socket no longer serves, so this is the authority the
 		// dispatch carries.
@@ -330,7 +349,12 @@ describe("CollabSocket send backpressure", () => {
 				}
 				return realDecrypt(...args);
 			});
-		const socket = new CollabSocket({ wsUrl: "ws://localhost:8788/r/reuse", role: "host", key });
+		const socket = new CollabSocket({
+			wsUrl: "ws://localhost:8788/r/reuse",
+			role: "host",
+			key,
+			reconnectDelay: () => 0,
+		});
 		const dispatched: { peer: number; served: boolean }[] = [];
 		socket.onFrame = (_frame, fromPeer) => dispatched.push({ peer: fromPeer, served: socket.isServing(fromPeer) });
 		try {
@@ -381,7 +405,12 @@ describe("CollabSocket send backpressure", () => {
 			}
 			throw new Error("bad key");
 		});
-		const socket = new CollabSocket({ wsUrl: "ws://localhost:8788/r/stale-key", role: "host", key });
+		const socket = new CollabSocket({
+			wsUrl: "ws://localhost:8788/r/stale-key",
+			role: "host",
+			key,
+			reconnectDelay: () => 0,
+		});
 		const closes: { reason: string; willReconnect: boolean }[] = [];
 		socket.onClose = (reason, willReconnect) => closes.push({ reason, willReconnect });
 		try {

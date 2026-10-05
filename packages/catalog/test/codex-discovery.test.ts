@@ -369,14 +369,7 @@ describe("Codex model discovery", () => {
 				input: 2,
 				output: 10,
 				cacheRead: 0.2,
-				cacheWrite: 2.5,
-				longContext: {
-					inputThreshold: 272_000,
-					input: 4,
-					output: 15,
-					cacheRead: 0.4,
-					cacheWrite: 5,
-				},
+				cacheWrite: 0,
 			},
 		});
 		const luna = buildModel(result!.models.find(model => model.id === "gpt-6-luna")!);
@@ -386,14 +379,7 @@ describe("Codex model discovery", () => {
 				input: 0.1,
 				output: 0.5,
 				cacheRead: 0.01,
-				cacheWrite: 0.125,
-				longContext: {
-					inputThreshold: 272_000,
-					input: 0.2,
-					output: 0.75,
-					cacheRead: 0.02,
-					cacheWrite: 0.25,
-				},
+				cacheWrite: 0,
 			},
 		});
 	});

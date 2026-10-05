@@ -1,59 +1,46 @@
-import { describe, expect, it } from "bun:test";
-import * as path from "node:path";
+import { afterEach, describe, expect, it, mock, spyOn } from "bun:test";
+import { Settings } from "../../src/config/settings";
+import * as registry from "../../src/tools/browser/registry";
+import * as supervisor from "../../src/tools/browser/tab-supervisor";
+import { BrowserTool } from "../../src/tools/browser";
 
-const packageRoot = path.join(import.meta.dir, "../..");
+afterEach(() => mock.restore());
 
 describe("browser backend defaults", () => {
 	it("uses browser.cdpUrl before cmux or headless when app is omitted", async () => {
-		const script = [
-			'import { mock } from "bun:test";',
-			"let capturedKind;",
-			'const registryModule = import.meta.resolve("@oh-my-soup/pi-coding-agent/tools/browser/registry");',
-			"mock.module(registryModule, () => ({",
-			"  acquireBrowser: async kind => {",
-			"    capturedKind = kind;",
-			'    return { key: "configured", kind, refCount: 0, cdpUrl: kind.cdpUrl, browser: { connected: true } };',
-			"  },",
-			// browser.ts imports these statically from the same module, so the mock
-			// has to carry them or the import fails before the tool ever runs.
-			"  holdBrowser: handle => { handle.refCount++; },",
-			"  releaseBrowser: async handle => { handle.refCount = Math.max(0, handle.refCount - 1); },",
-			"}));",
-			'const supervisorModule = import.meta.resolve("@oh-my-soup/pi-coding-agent/tools/browser/tab-supervisor");',
-			"mock.module(supervisorModule, () => ({",
-			"  acquireTab: async (_name, browser) => ({",
-			"    created: true,",
-			'    tab: { browser, state: "alive", info: { url: "about:blank", title: "", viewport: { width: 800, height: 600, deviceScaleFactor: 1 } } },',
-			"  }),",
-			"  dropHeadlessTabs: async () => {},",
-			"  getTab: () => undefined,",
-			"  releaseAllTabs: async () => {},",
-			"  releaseTab: async () => {},",
-			"  runInTab: async () => ({}),",
-			"}));",
-			'const { BrowserTool } = await import("@oh-my-soup/pi-coding-agent/tools/browser");',
-			"const settings = new Map([",
-			'  ["browser.cdpUrl", " http://127.0.0.1:9222/ "],',
-			'  ["browser.cmux", false],',
-			'  ["browser.headless", true],',
-			"]);",
-			'const session = { cwd: "/tmp", settings: { get: key => settings.get(key) }, getSessionId: () => "test" };',
-			'await new BrowserTool(session).execute("call", { action: "open" });',
-			"process.stdout.write(JSON.stringify(capturedKind));",
-		].join("\n");
-		const proc = Bun.spawn([process.execPath, "--no-install", "--eval", script], {
-			cwd: packageRoot,
-			stdout: "pipe",
-			stderr: "pipe",
+		let capturedKind: registry.BrowserKind | undefined;
+		spyOn(registry, "acquireBrowser").mockImplementation(async kind => {
+			capturedKind = kind;
+			return {
+				key: "configured",
+				kind,
+				refCount: 0,
+				cdpUrl: "http://127.0.0.1:9222",
+				browser: { connected: true },
+			} as registry.BrowserHandle;
 		});
-		const [exitCode, stdout, stderr] = await Promise.all([
-			proc.exited,
-			new Response(proc.stdout).text(),
-			new Response(proc.stderr).text(),
-		]);
-
-		expect(exitCode).toBe(0);
-		expect(stderr).toBe("");
-		expect(JSON.parse(stdout)).toEqual({ kind: "connected", cdpUrl: "http://127.0.0.1:9222" });
+		spyOn(registry, "holdBrowser").mockImplementation(() => {});
+		spyOn(registry, "releaseBrowser").mockImplementation(async () => {});
+		spyOn(supervisor, "acquireTab").mockImplementation(
+			async (_name, browser) =>
+				({
+					created: true,
+					tab: {
+						browser,
+						state: "alive",
+						info: { url: "about:blank", title: "", viewport: { width: 800, height: 600, deviceScaleFactor: 1 } },
+					},
+				}) as never,
+		);
+		spyOn(supervisor, "releaseTab").mockImplementation(async () => true);
+		spyOn(supervisor, "getTab").mockReturnValue(undefined);
+		const settings = Settings.isolated({
+			"browser.cdpUrl": " http://127.0.0.1:9222/ ",
+			"browser.cmux": false,
+			"browser.headless": true,
+		});
+		const session = { cwd: "/tmp", settings, getSessionId: () => "test" };
+		await new BrowserTool(session as never).execute("call", { action: "open" });
+		expect(capturedKind).toEqual({ kind: "connected", cdpUrl: "http://127.0.0.1:9222" });
 	});
 });

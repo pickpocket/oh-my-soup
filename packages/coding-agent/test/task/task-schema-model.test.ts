@@ -13,11 +13,19 @@ interface BatchParsed {
 describe("task tool model field", () => {
 	it("survives the static flat and item schemas' unknown-key stripping", () => {
 		const flatSelector = "prov-a/model-a";
-		const flat = taskSchema({ task: "port the parser", model: flatSelector }) as FlatParsed;
+		const flat = taskSchema({
+			task: "port the parser",
+			solutionSpace: "one parser",
+			model: flatSelector,
+		}) as FlatParsed;
 		expect(flat.model).toBe(flatSelector);
 
 		const itemSelector = "role-b";
-		const item = taskItemSchema({ task: "scan the tree", model: itemSelector }) as FlatParsed;
+		const item = taskItemSchema({
+			task: "scan the tree",
+			solutionSpace: "one tree",
+			model: itemSelector,
+		}) as FlatParsed;
 		expect(item.model).toBe(itemSelector);
 	});
 
@@ -34,11 +42,11 @@ describe("task tool model field", () => {
 				if (batchEnabled) {
 					const parsed = schema({
 						context: "shared background",
-						tasks: [{ task: "do the work", model: selector }],
+						tasks: [{ task: "do the work", solutionSpace: "one fix", model: selector }],
 					}) as BatchParsed;
 					expect(parsed.tasks?.[0]?.model).toBe(selector);
 				} else {
-					const parsed = schema({ task: "do the work", model: selector }) as FlatParsed;
+					const parsed = schema({ task: "do the work", solutionSpace: "one fix", model: selector }) as FlatParsed;
 					expect(parsed.model).toBe(selector);
 				}
 			}
@@ -46,7 +54,7 @@ describe("task tool model field", () => {
 	});
 
 	it("keeps model optional", () => {
-		const parsed = taskSchema({ task: "no override here" }) as FlatParsed;
+		const parsed = taskSchema({ task: "no override here", solutionSpace: "one fix" }) as FlatParsed;
 		expect(parsed.model).toBeUndefined();
 		expect(parsed.task).toBe("no override here");
 	});

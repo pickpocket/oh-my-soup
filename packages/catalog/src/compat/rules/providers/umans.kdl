@@ -8,10 +8,13 @@ provider "umans" {
 
 	// Replaces resolve.ts's Umans provider baseline for Anthropic built-in tool names.
 	escape-builtin-tool-names #true
-	// residue: taxonomy ranks and exact globs do not isolate these models.
+	// Umans Coder reports `can_disable: true`; Kimi K2.7 and GLM 5.3
+	// deployments advertise mandatory reasoning in discovery.
 	models "umans-coder" "umans-kimi-k2.7" {
 		thinking-efforts "minimal" "low" "medium" "high" "xhigh"
 		thinking-mode "budget"
+	}
+	models "umans-kimi-k2.7" "umans-glm-5.3" "umans-glm-5.3-flash" {
 		thinking-requires-effort #true
 	}
 	// residue: taxonomy ranks and exact globs do not isolate these models.

@@ -3,16 +3,16 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { TempDir } from "@oh-my-soup/pi-utils";
 
-// Regression: `omp config set collab.autoStart control` on a fresh Windows profile over WinRM
+// Regression: `oms config set collab.autoStart control` on a fresh Windows profile over WinRM
 // exited 0 with no output and never wrote config.yml. The CLI entry is a floating `runCli()`
 // call (top-level await breaks `--bytecode` builds), so a one-shot command whose await never
 // settles and holds no live handle let the event loop drain, and Bun exited 0: an unfinished
 // command reported as success. The process entry now fails that drain with exit 1 and a
 // diagnostic. A preload makes `Settings.init` never settle to reach the same state. #12441
-// reports the same silent exit 0 for `omp auth-broker token` on a fresh Windows profile; the
+// reports the same silent exit 0 for `oms auth-broker token` on a fresh Windows profile; the
 // stalled await itself is still unidentified.
 //
-// Regression #13470: on Windows Bun emits `beforeExit` while `omp update` still has I/O in
+// Regression #13470: on Windows Bun emits `beforeExit` while `oms update` still has I/O in
 // flight, then keeps running the loop; the command completed but exited 1 with the diagnostic.
 // Preloads that resume work from a `beforeExit` listener reproduce that runtime state.
 
@@ -87,7 +87,7 @@ async function runConfigSet(tempDir: TempDir, settingsInit: SettingsInitMode): P
 		new Response(proc.stdout).text(),
 		new Response(proc.stderr).text(),
 	]);
-	return { exitCode, stdout, stderr, configPath: path.join(home, ".omp", "agent", "config.yml") };
+	return { exitCode, stdout, stderr, configPath: path.join(home, ".oms", "agent", "config.yml") };
 }
 
 // Each case cold-starts the CLI graph in a child process; the budget covers that transpile.
@@ -98,7 +98,7 @@ describe("one-shot CLI command settlement", () => {
 
 		expect(run.exitCode, run.stderr).toBe(1);
 		// Names the stalled subcommand so automation logs show what failed, without its arguments.
-		expect(run.stderr).toContain(`\`omp config\` ${DIAGNOSTIC}`);
+		expect(run.stderr).toContain(`\`oms config\` ${DIAGNOSTIC}`);
 		expect(run.stderr).not.toContain("collab.autoStart");
 		expect(run.stdout).toBe("");
 		expect(fs.existsSync(run.configPath)).toBe(false);

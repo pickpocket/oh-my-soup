@@ -95,13 +95,11 @@ export function rebakeModelThinking(model: ModelSpec<Api>): void {
 	}
 	if (model.provider === "cline-pass" && model.thinking) return;
 	if (model.provider === "openrouter" && model.thinking?.requiresEffort === true) return;
-	const requiresProviderAuthoredEffort =
-		model.provider === "umans" && (model.thinking?.requiresEffort === true || model.id === "umans-kimi-k2.7");
 	const thinking = resolveModelPolicy({ ...model, thinking: undefined }).thinking;
 	if (thinking) {
-		model.thinking = requiresProviderAuthoredEffort ? { ...thinking, requiresEffort: true } : thinking;
-		// Mirror `buildModel`: an exact `thinking-efforts` rule upgrades a
-		// neutral discovery default, so the bundled row stays reasoning-capable.
+		model.thinking = thinking;
+		// Mirror `buildModel`: a reviewed effort rule upgrades a neutral
+		// discovery default, so the bundled row stays reasoning-capable.
 		model.reasoning = true;
 	} else {
 		delete model.thinking;

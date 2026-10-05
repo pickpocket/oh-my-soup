@@ -33,14 +33,17 @@ describe("legacy pi compat compiled-mode subpath overrides (issue #3442)", () =>
 		await Bun.write(
 			registryPath,
 			`${registry}
-export const beforeAlpha = Reflect.get(globalThis, "__alphaLoads") ?? 0;
-export const beforeBeta = Reflect.get(globalThis, "__betaLoads") ?? 0;
-await BUNDLED_PI_MODULE_LOADERS.alpha();
-export const afterAlpha = Reflect.get(globalThis, "__alphaLoads") ?? 0;
-export const betaAfterAlpha = Reflect.get(globalThis, "__betaLoads") ?? 0;
-await BUNDLED_PI_MODULE_LOADERS.beta();
-export const finalAlpha = Reflect.get(globalThis, "__alphaLoads") ?? 0;
-export const finalBeta = Reflect.get(globalThis, "__betaLoads") ?? 0;
+export async function probe() {
+	const beforeAlpha = Reflect.get(globalThis, "__alphaLoads") ?? 0;
+	const beforeBeta = Reflect.get(globalThis, "__betaLoads") ?? 0;
+	await BUNDLED_PI_MODULE_LOADERS.alpha();
+	const afterAlpha = Reflect.get(globalThis, "__alphaLoads") ?? 0;
+	const betaAfterAlpha = Reflect.get(globalThis, "__betaLoads") ?? 0;
+	await BUNDLED_PI_MODULE_LOADERS.beta();
+	const finalAlpha = Reflect.get(globalThis, "__alphaLoads") ?? 0;
+	const finalBeta = Reflect.get(globalThis, "__betaLoads") ?? 0;
+	return [beforeAlpha, beforeBeta, afterAlpha, betaAfterAlpha, finalAlpha, finalBeta];
+}
 `,
 		);
 		Reflect.deleteProperty(globalThis, "__alphaLoads");
@@ -48,14 +51,7 @@ export const finalBeta = Reflect.get(globalThis, "__betaLoads") ?? 0;
 		try {
 			// The generated registry has a runtime-selected temp path; importing it is the loading boundary under test.
 			const observed = await import(url.pathToFileURL(registryPath).href);
-			expect([
-				observed.beforeAlpha,
-				observed.beforeBeta,
-				observed.afterAlpha,
-				observed.betaAfterAlpha,
-				observed.finalAlpha,
-				observed.finalBeta,
-			]).toEqual([0, 0, 1, 0, 1, 1]);
+			expect(await observed.probe()).toEqual([0, 0, 1, 0, 1, 1]);
 		} finally {
 			Reflect.deleteProperty(globalThis, "__alphaLoads");
 			Reflect.deleteProperty(globalThis, "__betaLoads");
@@ -105,17 +101,19 @@ export const finalBeta = Reflect.get(globalThis, "__betaLoads") ?? 0;
 		await Bun.write(
 			registryPath,
 			`${__renderLegacyPiVirtualModule([entry!])}
-const mod = await BUNDLED_PI_MODULE_LOADERS[${JSON.stringify(key)}]();
-export const observed = [
-	mod.piEscapeRegexLiteral("a.b*c"),
-	mod.piJoinPath("src", "*.ts"),
-];
+export async function probe() {
+	const mod = await BUNDLED_PI_MODULE_LOADERS[${JSON.stringify(key)}]();
+	return [
+		mod.piEscapeRegexLiteral("a.b*c"),
+		mod.piJoinPath("src", "*.ts"),
+	];
+}
 `,
 		);
 		try {
 			// The generated registry has a runtime-selected package-root path; importing it exercises bare resolution.
 			const registryModule = await import(url.pathToFileURL(registryPath).href);
-			expect(registryModule.observed).toEqual(["a\\.b\\*c", path.join("src", "*.ts")]);
+			expect(await registryModule.probe()).toEqual(["a\\.b\\*c", path.join("src", "*.ts")]);
 		} finally {
 			await fs.rm(registryPath, { force: true });
 		}

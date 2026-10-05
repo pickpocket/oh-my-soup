@@ -49,7 +49,7 @@ describe("rendering before theme initialization (#10864)", () => {
 	});
 
 	it("constructs and renders a tool component", async () => {
-		const entry = new URL("../src/chat/tool-execution.ts", import.meta.url).pathname;
+		const entry = Bun.resolveSync("@oh-my-soup/pi-tui/chat/tool-execution", import.meta.dir);
 		await expectFreshModuleRender(`
 			import { ToolExecutionComponent } from ${JSON.stringify(entry)};
 			const ui = { requestRender() {}, requestComponentRender() {}, resetDisplay() {} };
@@ -61,7 +61,7 @@ describe("rendering before theme initialization (#10864)", () => {
 	});
 
 	it("constructs and renders assistant Markdown", async () => {
-		const entry = new URL("../src/chat/assistant-message.ts", import.meta.url).pathname;
+		const entry = Bun.resolveSync("@oh-my-soup/pi-tui/chat/assistant-message", import.meta.dir);
 		await expectFreshModuleRender(`
 			import { AssistantMessageComponent } from ${JSON.stringify(entry)};
 			const message = {
@@ -81,7 +81,7 @@ describe("rendering before theme initialization (#10864)", () => {
 	});
 
 	it("constructs and renders a user message", async () => {
-		const entry = new URL("../src/chat/user-message.ts", import.meta.url).pathname;
+		const entry = Bun.resolveSync("@oh-my-soup/pi-tui/chat/user-message", import.meta.dir);
 		await expectFreshModuleRender(`
 			import { UserMessageComponent } from ${JSON.stringify(entry)};
 			const out = Bun.stripANSI(new UserMessageComponent("hello").render(80).join("\\n"));
@@ -91,7 +91,7 @@ describe("rendering before theme initialization (#10864)", () => {
 	});
 
 	it("constructs and renders the usage dashboard", async () => {
-		const entry = new URL("../src/overlays/usage-dashboard.ts", import.meta.url).pathname;
+		const entry = Bun.resolveSync("@oh-my-soup/pi-tui/overlays/usage-dashboard", import.meta.dir);
 		await expectFreshModuleRender(`
 			import { UsageDashboardComponent } from ${JSON.stringify(entry)};
 			const component = new UsageDashboardComponent({

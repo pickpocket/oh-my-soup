@@ -43,9 +43,17 @@ function contents(results: readonly { content: string }[]): string[] {
 	return results.map(result => result.content);
 }
 
-afterEach(() => {
-	for (const instance of open.splice(0)) instance.close();
-	for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
+afterEach(async () => {
+	for (const instance of open.splice(0)) {
+		try {
+			await instance.flushExtractions();
+		} finally {
+			instance.close();
+		}
+	}
+	for (const root of roots.splice(0)) {
+		rmSync(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+	}
 });
 
 describe("polyphonic recall wiring", () => {

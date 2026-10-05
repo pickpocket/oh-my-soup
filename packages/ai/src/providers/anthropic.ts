@@ -77,6 +77,7 @@ import { withReplaySafeStreamRetry } from "../utils/empty-completion-retry";
 import { AssistantMessageEventStream } from "../utils/event-stream";
 import { isFoundryEnabled } from "../utils/foundry";
 import { finalizeErrorMessage, type RawHttpRequestDump } from "../utils/http-inspector";
+import { captureRefusalDiagnostics } from "../utils/refusal-diagnostics";
 import { getStreamFirstEventTimeoutMs, getStreamIdleTimeoutMs, iterateWithIdleTimeout } from "../utils/idle-iterator";
 import {
 	ANTHROPIC_SLOW_USAGE_LIMIT,
@@ -2423,6 +2424,7 @@ const streamAnthropicOnce = (
 				output.responseId = undefined;
 				output.upstreamModel = undefined;
 				output.errorMessage = undefined;
+				delete output.refusalDiagnostics;
 				output.stopDetails = undefined;
 				output.inputTransformations = undefined;
 				output.providerPayload = undefined;
@@ -2577,6 +2579,7 @@ const streamAnthropicOnce = (
 						if (slowSignal) slowMode.observe(slowSignal, slowLane);
 					}
 					let sawEvent = false;
+					let sawRefusal = false;
 					let sawMessageStart = false;
 					let sawTerminalEnvelope = false;
 					let sawMessageStop = false;
@@ -2996,6 +2999,7 @@ const streamAnthropicOnce = (
 							if (output.stopReason === "error") {
 								const stopDetails = delta?.stop_details;
 								output.stopDetails = stopDetails ?? (rawStopReason ? { type: rawStopReason } : null);
+								sawRefusal = rawStopReason === "refusal" || stopDetails?.type === "refusal";
 								if (stopDetails?.type === "refusal") {
 									const explanation = stopDetails.explanation?.trim();
 									const category = stopDetails.category;
@@ -3057,6 +3061,17 @@ const streamAnthropicOnce = (
 								) {
 									calculateCost(model, output.usage, output.timestamp);
 								}
+							}
+							if (sawRefusal) {
+								captureRefusalDiagnostics(
+									output,
+									rawRequestDump && {
+										...rawRequestDump,
+										headers: { ...clientDefaultHeaders, ...perRequestHeaders },
+										body: { ...params, stream: true },
+									},
+									{ requestId, status: response.status },
+								);
 							}
 						} else if (event.type === "message_stop") {
 							sawTerminalEnvelope = true;
@@ -3432,6 +3447,7 @@ const streamAnthropicOnce = (
 					output.responseId = undefined;
 					output.errorMessage = undefined;
 					output.stopDetails = undefined;
+					delete output.refusalDiagnostics;
 					output.providerPayload = undefined;
 					output.usage = createEmptyUsage(copilotDynamicHeaders?.premiumRequests);
 					output.stopReason = "stop";

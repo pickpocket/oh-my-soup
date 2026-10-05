@@ -170,7 +170,7 @@ describe("glyph protocol probe", () => {
 			const before = writes.length;
 
 			process.stdin.emit("data", SUPPORT_REPLY);
-			expect(writes.slice(before)).toEqual([REGISTRATION_WRITE]);
+			expect(writes.slice(before).join("")).toBe(REGISTRATION_WRITE);
 			// Not confirmed yet: the bundle is in flight until the `q` answer lands.
 			expect(TERMINAL.glyphProtocol).toBe(false);
 			expect(reports).toEqual([]);
@@ -232,7 +232,7 @@ describe("glyph protocol probe", () => {
 			const before = writes.length;
 			process.stdin.emit("data", "\x1b_25a1;s;fmt=gl");
 			process.stdin.emit("data", "yf\x1b\\");
-			expect(writes.slice(before)).toEqual([REGISTRATION_WRITE]);
+			expect(writes.slice(before).join("")).toBe(REGISTRATION_WRITE);
 			expect(received).toEqual([]);
 		} finally {
 			terminal.stop();

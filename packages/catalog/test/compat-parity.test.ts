@@ -123,8 +123,6 @@ describe("compat parity", () => {
 				}
 				const exempt = keepsExplicitThinking(row);
 				if (!exempt) (rest as Record<string, unknown>).thinking = undefined;
-				const umansAuthored =
-					provider === "umans" && (row.thinking?.requiresEffort === true || row.id === "umans-kimi-k2.7");
 				let policy: ReturnType<typeof resolveModelPolicy>;
 				try {
 					policy = resolveModelPolicy(rest as unknown as ModelSpec<Api>);
@@ -132,8 +130,7 @@ describe("compat parity", () => {
 					diffs.push(`${label}: engine threw ${(error as Error).message}`);
 					continue;
 				}
-				let thinking = policy.thinking;
-				if (!exempt && umansAuthored && thinking) thinking = { ...thinking, requiresEffort: true };
+				const thinking = policy.thinking;
 				if (!NEW_COMPAT_APIS.has(row.api)) {
 					diffValues(`${label}.compat`, jsonClone(row.compat), jsonClone(policy.compat), diffs);
 				}

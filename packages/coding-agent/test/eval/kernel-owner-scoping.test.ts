@@ -1,11 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "bun:test";
 import { TempDir } from "@oh-my-soup/pi-utils";
 import { Settings } from "../../src/config/settings";
-import { disposeAllVmContexts, disposeVmContextsByOwner } from "../../src/eval/js/context-manager";
+import { namespaceSessionId } from "../../src/eval/js";
+import { disposeAllVmContexts, disposeVmContextsByOwner, snapshotVmContext } from "../../src/eval/js/context-manager";
 import { executeJs } from "../../src/eval/js/executor";
 import { disposeAllKernelSessions, executePython } from "../../src/eval/py/executor";
 import { PythonKernel } from "../../src/eval/py/kernel";
 import type { ToolSession } from "../../src/tools";
+import { createEvalCustomTools, describeEvalTools } from "../../src/task/eval-tools";
 
 function makeSession(cwd: string): ToolSession {
 	return {
@@ -65,6 +67,59 @@ describe("JS eval owner-scoped reset forking", () => {
 		// the context rather than needlessly forking another worker.
 		const reset = await run("return typeof shared;", "agent-a", true);
 		expect(reset.output.trim()).toBe("undefined");
+	});
+
+	it("routes forked tools and snapshots to their owner and forgets the fork on dispose", async () => {
+		using tempDir = TempDir.createSync("@oms-js-owner-tools-");
+		const evalSessionId = `js-owner-tools:${crypto.randomUUID()}`;
+		const sessionKey = namespaceSessionId(evalSessionId);
+		const base = makeSession(tempDir.path());
+		const ownerSession = (ownerId: string): ToolSession => ({
+			...base,
+			getEvalSessionId: () => evalSessionId,
+			getEvalKernelOwnerId: () => ownerId,
+		});
+		const a = ownerSession("agent-a");
+		const b = ownerSession("agent-b");
+		const run = (code: string, session: ToolSession, reset?: boolean) =>
+			executeJs(code, {
+				cwd: tempDir.path(),
+				sessionId: sessionKey,
+				session,
+				kernelOwnerId: session.getEvalKernelOwnerId?.() ?? undefined,
+				reset,
+			});
+		const snapshot = (session: ToolSession) =>
+			snapshotVmContext({
+				sessionKey,
+				sessionId: sessionKey,
+				cwd: tempDir.path(),
+				ownerId: session.getEvalKernelOwnerId?.() ?? undefined,
+			});
+
+		const sharedTool = 'tool(() => "old", { name: "version" }); globalThis.ownerMarker = "shared";';
+		expect((await run(sharedTool, a)).exitCode).toBe(0);
+		expect((await run("return ownerMarker;", b)).output.trim()).toBe("shared");
+		const forkedTool = 'tool(() => "new", { name: "version" }); globalThis.ownerMarker = "fork";';
+		expect((await run(forkedTool, a, true)).exitCode).toBe(0);
+
+		const [aDescriptor] = await describeEvalTools(a, ["version"]);
+		const [bDescriptor] = await describeEvalTools(b, ["version"]);
+		if (!aDescriptor || !bDescriptor) throw new Error("Expected both owners' retained tools");
+		const [aTool] = createEvalCustomTools(a, [aDescriptor]);
+		const [bTool] = createEvalCustomTools(b, [bDescriptor]);
+		if (!aTool || !bTool) throw new Error("Expected both owners' callable tools");
+		const call = (tool: typeof aTool) => Reflect.apply(tool.execute, tool, ["owner-call", {}, undefined, undefined]);
+		expect((await call(aTool)).content).toEqual([{ type: "text", text: "new" }]);
+		expect((await call(bTool)).content).toEqual([{ type: "text", text: "old" }]);
+		expect((await snapshot(a))?.values.ownerMarker).toBe("fork");
+		expect((await snapshot(b))?.values.ownerMarker).toBe("shared");
+
+		await disposeVmContextsByOwner("agent-a");
+		expect((await snapshot(b))?.values.ownerMarker).toBe("shared");
+		// A disposed fork must not keep redirecting later lookups away from B's surviving kernel.
+		expect((await run("return ownerMarker;", a)).output.trim()).toBe("shared");
+		expect((await snapshot(a))?.values.ownerMarker).toBe("shared");
 	});
 });
 

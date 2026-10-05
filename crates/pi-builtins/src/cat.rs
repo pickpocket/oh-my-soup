@@ -690,6 +690,7 @@ mod tests {
 		let (code, capture) = run_util::<Cat>(&["missing", "present"], "", directory.path());
 		assert_eq!(code, 1);
 		assert_eq!(capture.out(), "remaining\n");
-		assert_eq!(capture.err(), "cat: missing: No such file or directory\n");
+		assert!(capture.err().starts_with("cat: missing: "), "{}", capture.err());
+		assert!(!capture.err().trim_end().ends_with("missing:"), "{}", capture.err());
 	}
 }

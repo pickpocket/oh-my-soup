@@ -228,8 +228,13 @@ export async function visitEntriesFromFileStream(
 	try {
 		const file = Bun.file(filePath);
 		const source = Number.isFinite(maxBytes) ? file.slice(0, maxBytes) : file;
-		for await (const chunk of source.stream()) {
-			if (stopped) break;
+		let remainingBytes = maxBytes;
+		for await (const sourceChunk of source.stream()) {
+			if (stopped || remainingBytes === 0) break;
+			// Enforce the limit ourselves as well: some Bun file stream implementations
+			// yield a full chunk even when the sliced file ends partway through it.
+			const chunk = sourceChunk.byteLength > remainingBytes ? sourceChunk.subarray(0, remainingBytes) : sourceChunk;
+			remainingBytes -= chunk.byteLength;
 			bytesSinceYield += chunk.byteLength;
 			options.onBytesConsumed?.(chunk.byteLength);
 			// Parsing before the chunk closes a line re-scans the unfinished record
@@ -244,6 +249,7 @@ export async function visitEntriesFromFileStream(
 				}
 				sink.append(chunk);
 				await yieldToMacrotask();
+				if (remainingBytes === 0) break;
 				continue;
 			}
 			sink.append(chunk);
@@ -271,10 +277,38 @@ export async function visitEntriesFromFileStream(
 			// sink keeps that remainder for the next chunk.
 			await drain();
 			await yieldToMacrotask();
+			if (remainingBytes === 0) break;
 		}
-		// A trailing record without a final newline: terminate it so the parser
-		// can complete it (readline yielded it; parseChunk needs the delimiter).
-		if (!stopped && !sink.isEmpty) {
+		// A byte-limited read may cut a large JSON value in the middle of a UTF-8
+		// character or string. Bun.JSONL.parseChunk can spend unbounded time
+		// recovering from that synthetic delimiter; parse the sole trailing
+		// record directly instead. An ordinary EOF keeps JSONL's existing path.
+		if (!stopped && !sink.isEmpty && remainingBytes === 0) {
+			const trailing = decoder.decode(sink.flush()).trim();
+			if (trailing && recordsSeen < maxRecords && (!options.shouldContinue || options.shouldContinue())) {
+				let entry: FileEntry | undefined;
+				try {
+					entry = JSON.parse(trailing) as FileEntry;
+				} catch {
+					options.onMalformedRecord?.();
+					entry = undefined;
+				}
+				if (entry !== undefined) {
+					if (!sawFirstEntry) {
+						sawFirstEntry = true;
+						applyTitleSlot(entry, titleSlot);
+					}
+					try {
+						visit(entry);
+					} catch (error) {
+						visitorThrew = true;
+						throw error;
+					}
+				}
+			}
+		} else if (!stopped && !sink.isEmpty) {
+			// A trailing record without a final newline: terminate it so the parser
+			// can complete it (readline yielded it; parseChunk needs the delimiter).
 			sink.append(LF);
 			await drain();
 		}

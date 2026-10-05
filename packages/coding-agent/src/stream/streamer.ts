@@ -25,6 +25,8 @@ import { runStreamTui, type StreamTuiInfo } from "./console-tui";
 import { StreamServerClient, type StreamServerFatalError } from "./server-client";
 
 const MAX_LOCAL_LINE_BYTES = 4 * 1024 * 1024;
+/** How long `close()` lets local sessions drain the goodbye frame before destroying them. */
+const LOCAL_CLOSE_GRACE_MS = 1_000;
 
 interface PaneState extends StreamScreen {
 	id: number;
@@ -200,9 +202,10 @@ export class StreamMuxHost {
 		this.#closing = true;
 		process.off("exit", this.#removeSocketSync);
 		const bye: StreamStreamerFrame = { t: "bye", reason };
-		for (const connection of this.#connections) {
-			connection.socket.end(encodeStreamFrame(bye));
-			connection.socket.destroySoon();
+		const sockets = Array.from(this.#connections, connection => connection.socket);
+		for (const socket of sockets) {
+			socket.end(encodeStreamFrame(bye));
+			socket.destroySoon();
 		}
 		this.#connections.clear();
 		this.#panes.clear();
@@ -212,9 +215,16 @@ export class StreamMuxHost {
 		const server = this.#server;
 		this.#server = undefined;
 		if (server) {
+			// `server.close` waits for every accepted socket to finish. A peer that
+			// never drains the goodbye (or whose own close is not observed by the
+			// runtime) must not pin shutdown, so force-destroy after a flush grace.
 			const closed = Promise.withResolvers<void>();
 			server.close(() => closed.resolve());
+			const forceClose = setTimeout(() => {
+				for (const socket of sockets) socket.destroy();
+			}, LOCAL_CLOSE_GRACE_MS);
 			await closed.promise;
+			clearTimeout(forceClose);
 		}
 		if (process.platform !== "win32" && this.#endpoint) {
 			await fs.promises.rm(this.#endpoint, { force: true });

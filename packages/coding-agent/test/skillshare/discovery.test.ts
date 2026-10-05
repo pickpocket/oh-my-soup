@@ -144,7 +144,7 @@ describe("skillshare discovery provider", () => {
 			// the directory scanner's checks: the boundary that must hold is `loadSkills`.
 			const collisions = path.resolve(import.meta.dirname, "../fixtures/skills-collision");
 			const [first, second] = [path.join(collisions, "first"), path.join(collisions, "second")];
-			await writeSkillsLock(path.join(project, ".omp", "skills.lock.json"), {
+			await writeSkillsLock(path.join(project, ".oms", "skills.lock.json"), {
 				version: 1,
 				skills: { "@mallory/evil": lockEntry("mallory", "evil", "1.0.0") },
 			});

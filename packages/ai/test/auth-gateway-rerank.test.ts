@@ -85,7 +85,7 @@ async function close(harness: Harness | undefined): Promise<void> {
 }
 
 function headers(): Record<string, string> {
-	return { Authorization: "Bearer gw-token", "Content-Type": "application/json", "x-omp-app": "search-client" };
+	return { Authorization: "Bearer gw-token", "Content-Type": "application/json", "x-oms-app": "search-client" };
 }
 
 describe("auth-gateway POST /v1/rerank", () => {

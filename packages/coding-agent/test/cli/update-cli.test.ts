@@ -173,15 +173,22 @@ describe("getLatestRelease GitHub resolution", () => {
 		const urls = stubRegistry({
 			"@oh-my-soup/pi-coding-agent": {
 				version: "999.0.0",
-				oms: { rename: { package: "@oh-my-soup/pi-coding-agent" } },
+				oms: { rename: { package: "@new/oms", natives: "@new/natives" } },
+			},
+			"@new/oms": {
+				version: "999.1.0",
+				oms: { rename: { package: "@oh-my-soup/pi-coding-agent", natives: "@old/natives" } },
 			},
 		});
 
 		const release = await getLatestRelease({ registries: npmjs });
 
-		expect(urls).toHaveLength(2);
-		expect(release.version).toBe("999.0.0");
-		expect(release.packages).toEqual({ pkg: "@oh-my-soup/pi-coding-agent", natives: "@oh-my-soup/pi-natives" });
+		expect(urls).toEqual([
+			"https://registry.npmjs.org/@oh-my-soup%2fpi-coding-agent/latest",
+			"https://registry.npmjs.org/@new%2foms/latest",
+		]);
+		expect(release.version).toBe("999.1.0");
+		expect(release.packages).toEqual({ pkg: "@new/oms", natives: "@new/natives" });
 	});
 });
 

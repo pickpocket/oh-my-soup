@@ -7,6 +7,7 @@ describe("browser backend defaults", () => {
 	it("uses browser.cdpUrl before cmux or headless when app is omitted", async () => {
 		const script = [
 			'import { mock } from "bun:test";',
+			'import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";',
 			"let capturedKind;",
 			'const registryModule = import.meta.resolve("@oh-my-soup/pi-coding-agent/tools/browser/registry");',
 			"mock.module(registryModule, () => ({",
@@ -27,17 +28,18 @@ describe("browser backend defaults", () => {
 			"  }),",
 			"  dropHeadlessTabs: async () => {},",
 			"  getTab: () => undefined,",
+			"  listTabs: () => [],",
 			"  releaseAllTabs: async () => {},",
 			"  releaseTab: async () => {},",
 			"  runInTab: async () => ({}),",
 			"}));",
+			// Evaluate browser.ts only after its lifecycle dependencies have been mocked.
 			'const { BrowserTool } = await import("@oh-my-soup/pi-coding-agent/tools/browser");',
-			"const settings = new Map([",
-			'  ["browser.cdpUrl", " http://127.0.0.1:9222/ "],',
-			'  ["browser.cmux", false],',
-			'  ["browser.headless", true],',
-			"]);",
-			'const session = { cwd: "/tmp", settings: { get: key => settings.get(key) }, getSessionId: () => "test" };',
+			"const settings = await Settings.init({",
+			"  inMemory: true,",
+			'  overrides: { "browser.cdpUrl": " http://127.0.0.1:9222/ ", "browser.cmux": false, "browser.headless": true },',
+			"});",
+			'const session = { cwd: "/tmp", settings, getSessionId: () => "test" };',
 			'await new BrowserTool(session).execute("call", { action: "open" });',
 			"process.stdout.write(JSON.stringify(capturedKind));",
 		].join("\n");
@@ -52,7 +54,7 @@ describe("browser backend defaults", () => {
 			new Response(proc.stderr).text(),
 		]);
 
-		expect(exitCode).toBe(0);
+		expect(exitCode, stderr).toBe(0);
 		expect(stderr).toBe("");
 		expect(JSON.parse(stdout)).toEqual({ kind: "connected", cdpUrl: "http://127.0.0.1:9222" });
 	});

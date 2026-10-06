@@ -134,7 +134,7 @@ describe("optional embeddings", () => {
 				requests += 1;
 				expect(request.headers.get("content-type")).toBe("application/json");
 				expect(request.headers.get("user-agent")).toBe(`oms/${packageJson.version}`);
-				expect(request.headers.get("http-referer")).toBe("https://omp.sh/");
+				expect(request.headers.get("http-referer")).toBe("https://github.com/pickpocket/oh-my-soup/");
 				expect(request.headers.get("x-openrouter-title")).toBe("oms");
 				expect(request.headers.get("x-openrouter-categories")).toBe("cli-agent");
 				expect(request.headers.get("x-title")).toBeNull();

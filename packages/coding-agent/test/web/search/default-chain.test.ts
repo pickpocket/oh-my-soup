@@ -6,6 +6,7 @@ import { runSearchQuery } from "@oh-my-soup/pi-coding-agent/web/search";
 import * as provider from "@oh-my-soup/pi-coding-agent/web/search/provider";
 import { SearchProvider } from "@oh-my-soup/pi-coding-agent/web/search/provider";
 import type { SearchParams } from "@oh-my-soup/pi-coding-agent/web/search/providers/base";
+import { SearchProviderError } from "@oh-my-soup/pi-coding-agent/web/search/types";
 import type { SearchResponse } from "@oh-my-soup/pi-coding-agent/web/search/types";
 import { createInMemoryAuthStorage } from "../../helpers/agent-session-setup";
 
@@ -24,7 +25,7 @@ class RecordingProvider extends SearchProvider {
 
 	async search(params: SearchParams): Promise<SearchResponse> {
 		this.attempted.push(`${params.model.provider}/${params.model.id}`);
-		throw new Error("try next");
+		throw new SearchProviderError(this.id, "No sources for this candidate", 204);
 	}
 }
 

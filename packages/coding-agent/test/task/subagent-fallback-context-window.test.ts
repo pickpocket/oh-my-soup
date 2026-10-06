@@ -44,8 +44,9 @@ describe("subagent context window after a model swap", () => {
 	});
 
 	it("follows the serving model's window", async () => {
-		const primary = model("sub-omp", "k3-256k", 256_000);
-		const fallback = model("openai-codex", "gpt-6-sol", 500_000);
+		// Synthetic selectors keep model-specific catalog policy out of this gauge regression.
+		const primary = model("sub-oms", "primary-256k", 256_000);
+		const fallback = model("sub-oms", "fallback-500k", 500_000);
 		const snapshots: AgentProgress[] = [];
 		vi.spyOn(sdkModule, "createAgentSession").mockImplementation(async () => {
 			let activeModel = primary;
@@ -80,7 +81,7 @@ describe("subagent context window after a model swap", () => {
 					await recovery.onAssistantSettledSuccessfully(SERVED_TURN);
 					emit({
 						type: "retry_fallback_succeeded",
-						model: "openai-codex/gpt-6-sol",
+						model: "sub-oms/fallback-500k",
 						role: "subagent:context-window-swap",
 					});
 					emit({
@@ -101,14 +102,14 @@ describe("subagent context window after a model swap", () => {
 		});
 
 		const settings = Settings.isolated({});
-		settings.setModelRole("default", "sub-omp/k3-256k");
+		settings.setModelRole("default", "sub-oms/primary-256k");
 		const result = await runSubprocess({
 			cwd: "/tmp",
 			agent: { name: "task", description: "test", systemPrompt: "test", source: "bundled" },
 			task: "work",
 			index: 0,
 			id: "context-window-swap",
-			modelOverride: ["sub-omp/k3-256k", "openai-codex/gpt-6-sol"],
+			modelOverride: ["sub-oms/primary-256k", "sub-oms/fallback-500k"],
 			settings,
 			modelRegistry: {
 				refresh: async () => {},
@@ -121,11 +122,11 @@ describe("subagent context window after a model swap", () => {
 			},
 		});
 
-		expect(result.resolvedModelIdentity).toBe("openai-codex/gpt-6-sol");
+		expect(result.resolvedModelIdentity).toBe("sub-oms/fallback-500k");
 		expect(result.contextWindow).toBe(500_000);
 		// The hub polls streamed progress, not just the settled result.
 		expect(
-			snapshots.findLast(snapshot => snapshot.resolvedModelIdentity === "openai-codex/gpt-6-sol")?.contextWindow,
+			snapshots.findLast(snapshot => snapshot.resolvedModelIdentity === "sub-oms/fallback-500k")?.contextWindow,
 		).toBe(500_000);
 	});
 });

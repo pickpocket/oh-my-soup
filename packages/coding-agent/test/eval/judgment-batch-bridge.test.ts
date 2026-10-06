@@ -394,7 +394,7 @@ describe("judgeBatch() JS prelude", () => {
 			{ items: [] },
 		];
 		const sandbox: Record<string, unknown> = {
-			__omp_call_tool__: async (name: string, args: Record<string, unknown>) => {
+			__oms_call_tool__: async (name: string, args: Record<string, unknown>) => {
 				calls.push({ name, args });
 				if (name !== "__judge_batch__") throw new Error(`unexpected bridge call ${name}`);
 				if (args.op === "create") return { id: "jdgb-1", total: 2 };

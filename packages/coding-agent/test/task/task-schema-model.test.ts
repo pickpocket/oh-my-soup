@@ -13,11 +13,19 @@ interface BatchParsed {
 describe("task tool model field", () => {
 	it("survives the static flat and item schemas' unknown-key stripping", () => {
 		const flatSelector = "prov-a/model-a";
-		const flat = taskSchema({ task: "port the parser", model: flatSelector }) as FlatParsed;
+		const flat = taskSchema.assert({
+			task: "port the parser",
+			solutionSpace: "one fix: port the parser to the new API",
+			model: flatSelector,
+		});
 		expect(flat.model).toBe(flatSelector);
 
 		const itemSelector = "role-b";
-		const item = taskItemSchema({ task: "scan the tree", model: itemSelector }) as FlatParsed;
+		const item = taskItemSchema.assert({
+			task: "scan the tree",
+			solutionSpace: "read-only scan for parser callsites",
+			model: itemSelector,
+		});
 		expect(item.model).toBe(itemSelector);
 	});
 
@@ -32,13 +40,23 @@ describe("task tool model field", () => {
 				});
 				const selector = batchEnabled ? "prov-c/model-c" : "role-d";
 				if (batchEnabled) {
-					const parsed = schema({
+					const parsed = schema.assert({
 						context: "shared background",
-						tasks: [{ task: "do the work", model: selector }],
+						tasks: [
+							{
+								task: "do the work",
+								solutionSpace: "one fix: port the parser to the new API",
+								model: selector,
+							},
+						],
 					}) as BatchParsed;
 					expect(parsed.tasks?.[0]?.model).toBe(selector);
 				} else {
-					const parsed = schema({ task: "do the work", model: selector }) as FlatParsed;
+					const parsed = schema.assert({
+						task: "do the work",
+						solutionSpace: "one fix: port the parser to the new API",
+						model: selector,
+					}) as FlatParsed;
 					expect(parsed.model).toBe(selector);
 				}
 			}
@@ -46,7 +64,10 @@ describe("task tool model field", () => {
 	});
 
 	it("keeps model optional", () => {
-		const parsed = taskSchema({ task: "no override here" }) as FlatParsed;
+		const parsed = taskSchema.assert({
+			task: "no override here",
+			solutionSpace: "one fix: port the parser to the new API",
+		});
 		expect(parsed.model).toBeUndefined();
 		expect(parsed.task).toBe("no override here");
 	});

@@ -55,7 +55,7 @@ describe("report bundle logs", () => {
 		const utcToday = new Date().toISOString().slice(0, 10);
 		let staleUtcName: string | undefined;
 		if (utcToday !== today) {
-			staleUtcName = `omp.${utcToday}.4243.log`;
+			staleUtcName = `oms.${utcToday}.4243.log`;
 			await Bun.write(path.join(logsDir, staleUtcName), '{"pid":4243,"message":"stale utc-keyed"}\n');
 			await fs.utimes(path.join(logsDir, staleUtcName), 3, 3);
 		}

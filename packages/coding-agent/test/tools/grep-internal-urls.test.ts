@@ -364,13 +364,13 @@ describe("GrepTool internal URL resolution", () => {
 		expect(text).toContain("Grep file contents with a regex across files");
 	});
 
-	it("walks an oms://docs subdirectory and names hits by URL without edit anchors", async () => {
+	it("walks an oms:// docs subdirectory and names hits by URL without edit anchors", async () => {
 		const session = createSession({ hasEditTool: true });
 		const tool = new GrepTool(session);
 
 		const result = await tool.execute("test-call", {
 			pattern: "Read files, directories, archives",
-			path: "oms://docs",
+			path: "oms://tools",
 		});
 
 		const text = getResultText(result);

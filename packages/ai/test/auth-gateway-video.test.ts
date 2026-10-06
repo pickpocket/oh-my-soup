@@ -190,7 +190,7 @@ describe("auth-gateway asynchronous video generation", () => {
 		const submitted = await submit(harness);
 		const gatewayId = submitted.body.id as string;
 		const response = await fetch(`${harness.url}/v1/videos/${gatewayId}`, {
-			headers: { Authorization: "Bearer gw-token", "x-omp-app": "video-client" },
+			headers: { Authorization: "Bearer gw-token", "x-oms-app": "video-client" },
 		});
 		expect(response.status).toBe(200);
 		expect(await response.json()).toEqual({

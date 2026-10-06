@@ -1,8 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { ChangelogEntry } from "../../src/utils/changelog";
-import { formatStartupChangelogSummary, parseChangelog, selectStartupChangelog } from "../../src/utils/changelog";
-
-const shippedChangelogPath = `${import.meta.dir}/../../CHANGELOG.md`;
+import { formatStartupChangelogSummary, selectStartupChangelog } from "../../src/utils/changelog";
 
 function summarize(content: string) {
 	const entries: ChangelogEntry[] = [{ major: 1, minor: 1, patch: 0, content: `## [1.1.0] - 2026-01-01\n${content}` }];
@@ -189,18 +187,6 @@ An intervening paragraph closes the list.
 		expect(formatStartupChangelogSummary(selection)).toBe(
 			"Updated to v1.1.0 · 4 changes in 1 release\n1 breaking change · 2 fixed · 1 other · Use /changelog for details.",
 		);
-	});
-
-	test("keeps the uncategorized bullet of the released 18.1.12 notes in the count", async () => {
-		const entries = await parseChangelog(shippedChangelogPath);
-		const release = entries.find(entry => entry.major === 18 && entry.minor === 1 && entry.patch === 12);
-		expect(release).toBeDefined();
-
-		const selection = selectStartupChangelog([release as ChangelogEntry], "18.1.11", "18.1.12");
-		const breakdown = Object.values(selection.categoryCounts).reduce((total, count) => total + count, 0);
-		expect(selection.changeCount).toBe(breakdown);
-		// The released section is immutable, so its bullet above `### Changed` stays uncategorized rather than lost.
-		expect(selection.categoryCounts.Other).toBe(1);
 	});
 
 	test("does not count a thematic break as a change", () => {

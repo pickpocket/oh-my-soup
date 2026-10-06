@@ -332,7 +332,11 @@ jobs:
            if: github.event_name != 'pull_request' || steps.natives-cache.outputs.cache-matched-key == ''
            uses: ./.github/actions/bazel-cache
            with:
-              scope: linux
+              # Own scope, saved below: the shared `linux` key is saved first
+              # by rust_validate, which never builds the opt addons. Seeds from
+              # that archive (toolchains, exec-config deps) until one exists.
+              scope: natives-linux-x64
+              fallback-scope: linux
          - name: Build linux-x64 native addons
            if: github.event_name != 'pull_request' || steps.natives-cache.outputs.cache-matched-key == ''
            run: |
@@ -365,6 +369,17 @@ jobs:
               # the raw log.
               summary=$(sed -E 's/\x1b\[[0-9;]*m//g' "$RUNNER_TEMP/bazel-build.log" | grep -E '[0-9]+ processes:' | tail -1 || true)
               echo "::notice title=Bazel build summary::${summary:-no process summary found}"
+         # Hosted runners have no remote cache: save the archive this build
+         # refreshed (see rust_validate) so the next main run rebuilds only
+         # what changed instead of linking both addons cold.
+         - name: Save bazel disk cache
+           if: always() && steps.cache.outputs.save-needed == 'true'
+           uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+           with:
+              path: |
+                 ~/.cache/oms-bazel-disk
+                 ~/.cache/oms-bazel-repo
+              key: ${{ steps.cache.outputs.cache-key }}
 
          # ---- both paths ----
          # A corrupt download or cache entry must fail here, not as a
@@ -487,7 +502,7 @@ jobs:
    # release jobs consume them, so they build beside the TS fan-out instead of
    # ahead of it: serially after the pair they held every test job back ~10
    # min on native-changing main pushes. Non-PR only, like rust_validate;
-   # the build also keeps the remote cache warm for release runs.
+   # the build also keeps its disk cache warm for release runs.
    native_addons_cross:
       name: Build native addons (bazel, cross targets)
       if: github.event_name != 'pull_request'
@@ -497,7 +512,10 @@ jobs:
          - id: cache
            uses: ./.github/actions/bazel-cache
            with:
-              scope: linux
+              # Own scope for the same reason as native_addons; the save step
+              # below would otherwise lose the `linux` key to rust_validate.
+              scope: natives-linux-cross
+              fallback-scope: linux
          - name: Build cross-target native addons
            run: |
               set -eo pipefail

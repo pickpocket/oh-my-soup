@@ -26,10 +26,9 @@ afterEach(() => {
 	geometryStub = undefined;
 });
 
-function stubStdoutGeometry(cols: number): { restore(): void } {
+function stubStdoutGeometry(cols: number, rows = 40): { restore(): void } {
 	const rowsDesc = Object.getOwnPropertyDescriptor(process.stdout, "rows");
 	const colsDesc = Object.getOwnPropertyDescriptor(process.stdout, "columns");
-	const rows = 40;
 	Object.defineProperty(process.stdout, "rows", { configurable: true, get: () => rows, set: () => {} });
 	Object.defineProperty(process.stdout, "columns", { configurable: true, get: () => cols, set: () => {} });
 	const restoreOne = (key: "rows" | "columns", desc: PropertyDescriptor | undefined) => {
@@ -71,6 +70,10 @@ function focusMemoryTab(comp: SettingsSelectorComponent): void {
 describe("SettingsSelectorComponent memory tab", () => {
 	it("reveals condition-gated Hindsight rows the moment memory.backend changes via the submenu", () => {
 		cfgMemoryBackend.set(settings, "off");
+		// Beads, Auto-Learn, Refine, and Session Notes sections sit above Hindsight
+		// on this tab; a tall terminal keeps every gated Hindsight row on screen.
+		geometryStub?.restore();
+		geometryStub = stubStdoutGeometry(120, 80);
 		const comp = createSelector();
 		focusMemoryTab(comp);
 		// Width 70 keeps the flat single-column layout (the wide split layout

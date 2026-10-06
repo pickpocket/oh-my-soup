@@ -3,6 +3,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import { AuthStorage, type FetchImpl, type Model, SqliteAuthCredentialStore } from "@oh-my-soup/pi-ai";
 import { buildModel } from "@oh-my-soup/pi-catalog/build";
 import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
+import { resetSettingsForTest, Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { runSearchQuery } from "@oh-my-soup/pi-coding-agent/web/search";
+import * as provider from "@oh-my-soup/pi-coding-agent/web/search/provider";
 import type { SearchParams } from "@oh-my-soup/pi-coding-agent/web/search/providers/base";
 import { hasCodexSearch, searchCodex } from "@oh-my-soup/pi-coding-agent/web/search/providers/codex";
 
@@ -294,8 +297,31 @@ describe("searchCodex model selection", () => {
 		};
 	}
 
+	async function searchHostedCodex(query: string, fetch: FetchImpl, webRole?: string) {
+		const settings = await Settings.init({ inMemory: true });
+		if (webRole !== undefined) settings.setModelRole("web", webRole);
+		oauthAuthStorage.keys.setRuntime("openai-codex", "test-codex-key");
+		const registry = new ModelRegistry(oauthAuthStorage, undefined, { settings });
+		const sessionModel = registry.find("openai-codex", "gpt-6-sol");
+		if (!sessionModel) throw new Error("Missing bundled GPT-6 Sol");
+		vi.spyOn(provider, "getGroundedSearchProvider").mockResolvedValue({
+			id: "codex",
+			label: "OpenAI",
+			isAvailable: () => true,
+			isExplicitlyAvailable: () => true,
+			search: params => searchCodex({ ...params, fetch }),
+		});
+		const result = await runSearchQuery(
+			{ query, provider: "codex" },
+			{ authStorage: oauthAuthStorage, modelRegistry: registry, sessionModel },
+		);
+		expect(result.details.error).toBeUndefined();
+		return result.details.response;
+	}
+
 	afterEach(() => {
 		vi.restoreAllMocks();
+		resetSettingsForTest();
 		capturedRequest = null;
 		oauthAuthStorage.close();
 		emailOnlyAuthStorage.close();
@@ -315,9 +341,8 @@ describe("searchCodex model selection", () => {
 		expect(result.sources).toEqual([{ title: "Example Article", url: "https://example.com/article" }]);
 	});
 
-	it("uses GPT-6 Luna as the first bundled default", async () => {
-		delete process.env.PI_CODEX_WEB_SEARCH_MODEL;
-		const result = await searchCodex(makeSearchParams("default codex model", mockCodexFetch("gpt-6-luna")));
+	it("uses GPT-6 Luna as the first bundled hosted search model", async () => {
+		const result = await searchHostedCodex("default codex model", mockCodexFetch("gpt-6-luna"));
 
 		expect(capturedRequest).not.toBeNull();
 		expect(capturedRequest?.url).toBe("https://chatgpt.com/backend-api/codex/responses");
@@ -448,21 +473,18 @@ describe("searchCodex model selection", () => {
 		expect(result.answer).toBe("Codex answer");
 	});
 
-	it("falls back to the default model when PI_CODEX_WEB_SEARCH_MODEL is blank", async () => {
-		process.env.PI_CODEX_WEB_SEARCH_MODEL = "   ";
-		const result = await searchCodex(makeSearchParams("blank codex model", mockCodexFetch("gpt-6-luna")));
+	it("uses the default hosted model when the web role is blank", async () => {
+		const result = await searchHostedCodex("blank web role", mockCodexFetch("gpt-6-luna"), "   ");
 
 		expect(capturedRequest).not.toBeNull();
 		expect(capturedRequest?.body?.model).toBe("gpt-6-luna");
 		expect(result.model).toBe("gpt-6-luna");
 	});
 
-	it("retries the next bundled default when Codex rejects a model for ChatGPT accounts", async () => {
-		delete process.env.PI_CODEX_WEB_SEARCH_MODEL;
-		let calls = 0;
+	it("falls back to the session model when Codex rejects Luna for ChatGPT accounts", async () => {
+		const attempted = new Set<string>();
 		capturedRequest = null;
 		const fetchMock: FetchImpl = (url, init) => {
-			calls += 1;
 			capturedRequest = {
 				url: typeof url === "string" ? url : url.toString(),
 				headers: init?.headers,
@@ -470,8 +492,9 @@ describe("searchCodex model selection", () => {
 			};
 
 			const requestedModel = capturedRequest.body?.model;
-			if (calls === 1) {
-				expect(requestedModel).toBe("gpt-6-luna");
+			if (typeof requestedModel !== "string") throw new Error("Missing requested Codex model");
+			attempted.add(requestedModel);
+			if (requestedModel === "gpt-6-luna") {
 				return Promise.resolve(
 					new Response(
 						JSON.stringify({
@@ -491,9 +514,9 @@ describe("searchCodex model selection", () => {
 			);
 		};
 
-		const result = await searchCodex(makeSearchParams("retry unsupported default", fetchMock));
+		const result = await searchHostedCodex("retry unsupported default", fetchMock);
 
-		expect(calls).toBe(2);
+		expect([...attempted]).toEqual(["gpt-6-luna", "gpt-6-sol"]);
 		expect(result.model).toBe("gpt-6-sol");
 		expect(result.sources).toEqual([{ title: "Example Article", url: "https://example.com/article" }]);
 	});
@@ -754,9 +777,8 @@ describe("searchCodex model selection", () => {
 		);
 	});
 
-	it("advances to the next default candidate when a lite model skips web search (#6988)", async () => {
-		delete process.env.PI_CODEX_WEB_SEARCH_MODEL;
-		let calls = 0;
+	it("advances to the session model when Luna skips web search (#6988)", async () => {
+		const attempted = new Set<string>();
 		const noSearchSse = [
 			`data: ${JSON.stringify({
 				type: "response.output_item.done",
@@ -767,15 +789,15 @@ describe("searchCodex model selection", () => {
 			"",
 		].join("\n");
 		const fetchMock: FetchImpl = (_url, init) => {
-			calls += 1;
-			const body = init?.body ? (JSON.parse(init.body as string) as Record<string, unknown>) : null;
-			if (calls === 1) {
-				expect(body?.model).toBe("gpt-6-luna");
+			const requestedModel = init?.body ? (JSON.parse(init.body as string) as Record<string, unknown>).model : null;
+			if (typeof requestedModel !== "string") throw new Error("Missing requested Codex model");
+			attempted.add(requestedModel);
+			if (requestedModel === "gpt-6-luna") {
 				return Promise.resolve(
 					new Response(noSearchSse, { status: 200, headers: { "Content-Type": "text/event-stream" } }),
 				);
 			}
-			expect(body?.model).toBe("gpt-6-sol");
+			expect(requestedModel).toBe("gpt-6-sol");
 			return Promise.resolve(
 				new Response(makeSseResponse("gpt-6-sol"), {
 					status: 200,
@@ -784,8 +806,8 @@ describe("searchCodex model selection", () => {
 			);
 		};
 
-		const result = await searchCodex(makeSearchParams("advance past skipped search", fetchMock));
-		expect(calls).toBe(2);
+		const result = await searchHostedCodex("advance past skipped search", fetchMock);
+		expect([...attempted]).toEqual(["gpt-6-luna", "gpt-6-sol"]);
 		expect(result.model).toBe("gpt-6-sol");
 		expect(result.sources).toEqual([{ title: "Example Article", url: "https://example.com/article" }]);
 	});

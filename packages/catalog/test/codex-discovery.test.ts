@@ -433,12 +433,42 @@ describe("Codex model discovery", () => {
 			// Discovery has no rates; the generated KDL policy supplies them
 			// when the discovered spec becomes a usable model.
 			expect(model.cost).toEqual({ input: 0, output: 0, cacheRead: 0, cacheWrite: 0 });
+			// Plain GPT-6 aliases retain the fork's API-equivalent tariff.
+			// Workers and GPT-6.1 keep upstream's subscription pricing.
 			expect(buildModel(model).cost).toEqual(
-				model.id.startsWith("gpt-6.1-sol")
-					? { input: 2, output: 10, cacheRead: 0.1, cacheWrite: 0 }
-					: model.id.startsWith("gpt-6-sol")
-						? { input: 2, output: 10, cacheRead: 0.2, cacheWrite: 0 }
-						: { input: 0.1, output: 0.5, cacheRead: 0.01, cacheWrite: 0 },
+				model.id === "gpt-6-sol"
+					? {
+							input: 2,
+							output: 10,
+							cacheRead: 0.2,
+							cacheWrite: 2.5,
+							longContext: {
+								inputThreshold: 272_000,
+								input: 4,
+								output: 15,
+								cacheRead: 0.4,
+								cacheWrite: 5,
+							},
+						}
+					: model.id === "gpt-6-luna"
+						? {
+								input: 0.1,
+								output: 0.5,
+								cacheRead: 0.01,
+								cacheWrite: 0.125,
+								longContext: {
+									inputThreshold: 272_000,
+									input: 0.2,
+									output: 0.75,
+									cacheRead: 0.02,
+									cacheWrite: 0.25,
+								},
+							}
+						: model.id.startsWith("gpt-6.1-sol")
+							? { input: 2, output: 10, cacheRead: 0.1, cacheWrite: 0 }
+							: model.id.startsWith("gpt-6-sol")
+								? { input: 2, output: 10, cacheRead: 0.2, cacheWrite: 0 }
+								: { input: 0.1, output: 0.5, cacheRead: 0.01, cacheWrite: 0 },
 			);
 		}
 	});

@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- Reconciled bundled GPT-6 Sol and Luna entries with their authored policy after upstream merges, restoring configuration updates, the medium reasoning default, first-party `none` reasoning, service-tier multipliers, and long-context pricing.
+- Restored API-equivalent cache-write and >272K long-context pricing for the plain Codex GPT-6 Sol and Luna aliases while retaining upstream worker-route and GPT-6.1 Sol subscription pricing.
+- Preserved GPT-6 Luna as the preferred hosted Codex web-search model when routing searches through model roles.
+
 ## [18.4.3] - 2026-09-22
 
 ### Added

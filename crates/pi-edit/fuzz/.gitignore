@@ -1,0 +1,6 @@
+seeds/
+target/
+corpus/
+artifacts/
+coverage/
+*.min

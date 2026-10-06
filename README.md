@@ -615,6 +615,15 @@ bun dev       # run the CLI from source
 | `bun dev -- --version` | Non-interactive smoke check |
 | `bun check` | Typecheck (never use `tsc` directly) |
 | `bun run build:native` | Rebuild the Rust/N-API addon after crate changes |
+| `bash crates/pi-edit/fuzz/run.sh smoke 50` | Regenerate fixture-based edit seeds, sample staging success, and run both coverage-guided fuzz targets |
+
+Edit fuzzing requires `cargo-fuzz`, the pinned nightly with `rust-src` (`rustup component add rust-src --toolchain nightly-2026-08-12`), and a C++ compiler.
+On Windows, use Git Bash and add Visual Studio's C++ AddressSanitizer runtime directory to `PATH`.
+Always invoke the script through `bash` (it does not rely on the executable bit); `bash crates/pi-edit/fuzz/run.sh help` lists every command.
+Run `bash crates/pi-edit/fuzz/run.sh fuzz hashline_semantic 600` (or `hashline_stream`) for a bounded campaign; libFuzzer flags may follow the seconds, and when omitted the campaign stops after 600 seconds.
+`bash crates/pi-edit/fuzz/run.sh sample semantic --trials 3 --cases 300 --seed 1` reports the staging-success rate; libFuzzer reports actual instrumented `cov:`/`ft:`.
+`bash crates/pi-edit/fuzz/run.sh reduce semantic <artifact>` shrinks a failure into a choice input and a runnable `.fixture.json`; `bash crates/pi-edit/fuzz/run.sh keep semantic <artifact>.min` retains both for replay and promotion into `tests/fixtures/hashline/`.
+Path arguments (`<artifact>`, `--corpus DIR`, `--out FILE`) are relative to the directory you run the script from; an input missing there falls back to `crates/pi-edit`, so the `fuzz/artifacts/...` paths cargo-fuzz prints work unchanged.
 
 `PI_TIMING=x oms` prints a startup timing tree and exits; `PI_DEBUG_STARTUP=1` streams phase markers to stderr, which names the stuck phase if startup ever hangs. Architecture notes live in [packages/coding-agent/DEVELOPMENT.md](packages/coding-agent/DEVELOPMENT.md).
 

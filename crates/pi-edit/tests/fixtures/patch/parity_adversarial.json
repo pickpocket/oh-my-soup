@@ -14,9 +14,9 @@
   },
   {
    "name":"preserves context lines that look like diff metadata",
-   "files":{"metadata-context.txt":"diff --git a b\nalpha\nmid\ndiff --git a b\nalpha\n"},
+   "files":{"metadata-context.txt":"diff --git a b\nalpha\nmid\nalpha\n"},
    "args":{"path":"metadata-context.txt","edits":[{"op":"update","diff":"@@\n diff --git a b\n-alpha\n+ALPHA"}]},
-   "expect":{"files":{"metadata-context.txt":"diff --git a b\nALPHA\nmid\ndiff --git a b\nalpha\n"}}
+   "expect":{"files":{"metadata-context.txt":"diff --git a b\nALPHA\nmid\nalpha\n"}}
   },
   {
    "name":"rejects ambiguous changeContext matches",

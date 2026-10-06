@@ -56,9 +56,9 @@
   },
   {
    "name": "applies hunks regardless of order",
-   "files": {"order.txt":"first\nkeep\nsecond\nkeep\n"},
-   "args": {"path":"order.txt","edits":[{"op":"update","diff":"@@ second\n-keep\n+KEEP2\n@@ first\n-keep\n+KEEP1"}]},
-   "expect": {"files":{"order.txt":"first\nKEEP1\nsecond\nKEEP2\n"}}
+   "files": {"order.md":"# first\n\nkeep\n\n# second\n\nkeep\n"},
+   "args": {"path":"order.md","edits":[{"op":"update","diff":"@@ # second\n-keep\n+KEEP2\n@@ # first\n-keep\n+KEEP1"}]},
+   "expect": {"files":{"order.md":"# first\n\nKEEP1\n\n# second\n\nKEEP2\n"}}
   },
   {
    "name": "preserves CRLF endings and trailing newline",
@@ -91,10 +91,10 @@
    "expect":{"files":{"context-indent.js":"export function describeWithPointerEvent(message, describeFn) {\n  const pointerEvent = 'PointerEvent';\n  const fallback = 'MouseEvent/TouchEvent';\n  describe.each`\n    value    | name\n    $true  | $pointerEvent\n    $false | $fallback\n  `(`${message}: $name`, entry => {\n    const hasPointerEvents = entry.value;\n  });\n}\n"}}
   },
   {
-   "name":"duplicate context lines are resolved via adjacent match to @@ anchor",
+   "name":"duplicate lines under one @@ anchor are refused instead of guessed",
    "files":{"ReactFlightDOMClientNode.js":"const handleEnd = () => {\n  if (--streamEndedCount === 2) {\n    cleanup();\n  }\n  if (--streamEndedCount === 2) {\n    finalize();\n  }\n};\n"},
    "args":{"path":"ReactFlightDOMClientNode.js","edits":[{"op":"update","diff":"@@     const handleEnd = () => {\n       if (--streamEndedCount === 2) {\n-      if (--streamEndedCount === 2) {\n+      if (++streamEndedCount === 2) {"}]},
-   "expect":{"files":{"ReactFlightDOMClientNode.js":"const handleEnd = () => {\n  if (--streamEndedCount === 2) {\n    cleanup();\n  }\n  if (++streamEndedCount === 2) {\n    finalize();\n  }\n};\n"}}
+   "expect":{"files":{"ReactFlightDOMClientNode.js":"const handleEnd = () => {\n  if (--streamEndedCount === 2) {\n    cleanup();\n  }\n  if (--streamEndedCount === 2) {\n    finalize();\n  }\n};\n"},"error":"Found 2 matches","writes":0}
   }
  ]
 }

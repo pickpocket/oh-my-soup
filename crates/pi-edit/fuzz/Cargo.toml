@@ -1,0 +1,67 @@
+# Coverage-guided fuzzing for pi-edit's hashline engine (cargo-fuzz/libFuzzer).
+#
+# Deliberately NOT a member of the root workspace: the root lists members
+# explicitly and its check/lint/test tasks (`bun run check:rs`/`test:rs`)
+# must never see `libfuzzer-sys`. This manifest is its own workspace root, so
+# cargo stops here instead of walking up to /Cargo.toml. It still inherits
+# the repo's rust-toolchain.toml (pinned nightly) and .cargo/config.toml.
+#
+# Linux/WSL and native Windows MSVC; prerequisites and every command are in
+# run.sh (`bash crates/pi-edit/fuzz/run.sh help`).
+
+[package]
+name = "pi-edit-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2024"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4.13"
+pi-edit = { path = ".." }
+# Harness dependencies of ../tests/support/semantic_case.rs and
+# support/stream_case.rs (real Session + writer on a temp workspace).
+async-trait = "0.1"
+parking_lot = "0.12.5"
+serde_json = { version = "1.0", features = ["preserve_order"] }
+tempfile = "3"
+tokio = { version = "1", features = ["rt"] }
+
+# Mirrors the root pin (see /Cargo.toml `find-msvc-tools`): cc 1.2.x breaks
+# against find-msvc-tools 0.1.13 on MSVC, and pi-ast's tree-sitter grammars
+# build through cc. A plain dependency makes the pin participate in resolution.
+[target.'cfg(windows)'.dependencies]
+find-msvc-tools = "=0.1.12"
+
+[workspace]
+members = [".", "tools"]
+resolver = "3"
+
+# Only root patch reachable from pi-edit (pi-ast -> tree-sitter-go); keep the
+# fuzzed Go grammar identical to production.
+[patch.crates-io]
+tree-sitter-go = { path = "../../vendor/tree-sitter-go" }
+
+# cargo-fuzz builds targets with -Cdebug-assertions and overflow checks; the
+# uninstrumented seed/sample/reduce tools (`cargo run --release`) must match so
+# a debug_assert! or overflow crash found by libFuzzer replays under them too.
+[profile.release]
+debug = 1
+debug-assertions = true
+overflow-checks = true
+
+[[bin]]
+name = "hashline_semantic"
+path = "fuzz_targets/hashline_semantic.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "hashline_stream"
+path = "fuzz_targets/hashline_stream.rs"
+test = false
+doc = false
+bench = false

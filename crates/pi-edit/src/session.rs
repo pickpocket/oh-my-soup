@@ -4,15 +4,17 @@
 //! Threading and callbacks live in the napi layer; this type is single
 //! threaded and pure apart from file reads and the writer trait.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use async_trait::async_trait;
+use pi_ast::{SupportLang, parse_cache::parse_cached};
 
 use crate::{
 	diff_string::{CompactDiffOptions, build_compact_diff_preview},
 	engine::{EditMode, FileOp, FileOpIntent, HeaderKind, ModeEngine, PreviewFile, StagedFile},
 	error::{EditError, EditResult},
 	files::{FileCache, FileSource},
+	modes::apply_patch::ATOMICITY_NOTICE,
 	notebook,
 	path_policy::{PathPolicy, UrlResolution, canonical_key},
 	store::{EditStore, Snapshot, file_hash, seen_lines_from_body},
@@ -164,6 +166,43 @@ impl Session {
 		&self.config
 	}
 
+	/// Staging and the plan-mode guard run before the first write, so a
+	/// text-matching mode's refusal wrote nothing; say so exactly once, since
+	/// models otherwise retry believing part of the edit landed (SWE-agent,
+	/// `NeurIPS` 2024, Fig. 11). An unresolved URL stays typed for the host.
+	fn staging_refusal(mode: EditMode, error: EditError) -> EditError {
+		const NOTICE: &str = "No changes were applied.";
+		if !matches!(mode, EditMode::Replace | EditMode::Patch | EditMode::ApplyPatch) {
+			return error;
+		}
+		let notice = |message: String| {
+			// The message already says nothing was written (a multi-file
+			// `apply_patch` refusal, an empty payload).
+			if message.ends_with(ATOMICITY_NOTICE) || message.ends_with("No files were modified.") {
+				return message;
+			}
+			// A one-sentence message takes the notice as its next sentence; any
+			// other (quoted file text, a path, a list of lines) keeps it on its
+			// own line, apart from the quoted text.
+			let separator = if !message.contains('\n') && message.ends_with(['.', '!', '?']) {
+				" "
+			} else {
+				"\n"
+			};
+			message + separator + NOTICE
+		};
+		match error {
+			EditError::Apply(message) => EditError::Apply(notice(message)),
+			EditError::Match(message) => EditError::Match(notice(message)),
+			EditError::Plan(message) => EditError::Plan(notice(message)),
+			EditError::Parse { message, line } => EditError::Parse { message: notice(message), line },
+			error @ (EditError::InvalidUtf8 { .. } | EditError::Io { .. }) => {
+				EditError::Apply(notice(error.to_string()))
+			},
+			other @ (EditError::UnresolvedUrl(_) | EditError::Writer(_)) => other,
+		}
+	}
+
 	pub fn engine(&self) -> &dyn ModeEngine {
 		self.engine.as_ref()
 	}
@@ -292,16 +331,26 @@ impl Session {
 		self.begin_apply();
 		self.files.clear();
 		let snapshot = self.args.snapshot();
+		let mode = self.config.mode;
 		if !snapshot.complete {
-			return Err(EditError::parse("Edit arguments were incomplete"));
+			return Err(Self::staging_refusal(
+				mode,
+				EditError::parse("Edit arguments were incomplete"),
+			));
 		}
-		let staged = self.engine.stage(&snapshot, &mut self.files, &self.store)?;
+		let staged = self
+			.engine
+			.stage(&snapshot, &mut self.files, &self.store)
+			.map_err(|error| Self::staging_refusal(mode, error))?;
 		for file in &staged {
-			self.files.enforce_write(
-				&file.display,
-				file.op,
-				file.move_to.as_ref().map(|m| m.display.as_str()),
-			)?;
+			self
+				.files
+				.enforce_write(
+					&file.display,
+					file.op,
+					file.move_to.as_ref().map(|m| m.display.as_str()),
+				)
+				.map_err(|error| Self::staging_refusal(mode, error))?;
 		}
 
 		let last_write = staged.iter().rposition(|file| file.op != FileOp::Noop);
@@ -526,16 +575,11 @@ fn prune_snapshots(
 /// errors. Unknown languages never "parse", so they never regress.
 pub fn source_parses(code: &str, path: &str) -> bool {
 	let code = if code.is_empty() { "\n" } else { code };
-	pi_ast::summary::summarize_code(pi_ast::summary::SummaryOptions {
-		code:               code.to_owned(),
-		lang:               None,
-		path:               Some(path.to_owned()),
-		min_body_lines:     None,
-		min_comment_lines:  None,
-		unfold_until_lines: None,
-		unfold_limit_lines: None,
-	})
-	.is_ok_and(|summary| summary.parsed)
+	let Some(language) = SupportLang::from_path(Path::new(path)) else {
+		return false;
+	};
+	parse_cached(code, language)
+		.is_ok_and(|tree| tree.is_some_and(|tree| !tree.root_node().has_error()))
 }
 
 /// The persisted bytes differ from what was sent (an editor reformatted on

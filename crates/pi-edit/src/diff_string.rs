@@ -746,10 +746,16 @@ pub struct DiffHunk {
 	pub new_start_line:    Option<u32>,
 	/// Whether the hunk contains unchanged context.
 	pub has_context_lines: bool,
+	/// `(old index, new index)` of every context line, as the hunk wrote it:
+	/// text equality cannot tell a context line from a removed or added line
+	/// with the same text.
+	pub context_lines:     Vec<(usize, usize)>,
 	/// Expected old-file lines.
 	pub old_lines:         Vec<String>,
 	/// Replacement new-file lines.
 	pub new_lines:         Vec<String>,
+	/// Whether the header explicitly names the beginning-of-file boundary.
+	pub is_start_of_file:  bool,
 	/// Whether the hunk carries an end-of-file marker.
 	pub is_end_of_file:    bool,
 }
@@ -916,6 +922,7 @@ fn parse_one_hunk(
 	let mut change_contexts = Vec::new();
 	let mut old_start_line = None;
 	let mut new_start_line = None;
+	let mut is_start_of_file = false;
 	let mut start_index;
 	let header_line = lines[0];
 	let header_trimmed = header_line.trim_end();
@@ -961,6 +968,7 @@ fn parse_one_hunk(
 		} else if TOP_OF_FILE_REGEX.is_match(normalized_context_value) {
 			old_start_line = Some(1);
 			new_start_line = Some(1);
+			is_start_of_file = true;
 		} else if !trimmed_context_value.is_empty() {
 			change_contexts.push(context_value.to_owned());
 		}
@@ -1019,6 +1027,7 @@ fn parse_one_hunk(
 		change_context: (!change_contexts.is_empty()).then(|| change_contexts.join("\n")),
 		old_start_line,
 		new_start_line,
+		is_start_of_file,
 		..DiffHunk::default()
 	};
 	let mut parsed_lines = 0_usize;
@@ -1051,11 +1060,17 @@ fn parse_one_hunk(
 		match line.as_bytes().first().copied() {
 			None => {
 				hunk.has_context_lines = true;
+				hunk
+					.context_lines
+					.push((hunk.old_lines.len(), hunk.new_lines.len()));
 				hunk.old_lines.push(String::new());
 				hunk.new_lines.push(String::new());
 			},
 			Some(b' ') => {
 				hunk.has_context_lines = true;
+				hunk
+					.context_lines
+					.push((hunk.old_lines.len(), hunk.new_lines.len()));
 				hunk.old_lines.push(line[1..].to_owned());
 				hunk.new_lines.push(line[1..].to_owned());
 			},
@@ -1063,6 +1078,9 @@ fn parse_one_hunk(
 			Some(b'-') => hunk.old_lines.push(line[1..].to_owned()),
 			_ if !line.starts_with("@@") => {
 				hunk.has_context_lines = true;
+				hunk
+					.context_lines
+					.push((hunk.old_lines.len(), hunk.new_lines.len()));
 				hunk.old_lines.push(line.to_owned());
 				hunk.new_lines.push(line.to_owned());
 			},

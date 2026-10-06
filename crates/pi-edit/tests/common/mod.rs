@@ -223,7 +223,7 @@ pub async fn run_fixture(path: impl AsRef<Path>, default_mode: EditMode) {
 	);
 }
 
-async fn run_case(case: &Value, default_mode: EditMode) -> Result<(), String> {
+pub async fn run_case(case: &Value, default_mode: EditMode) -> Result<(), String> {
 	let mode = case["mode"]
 		.as_str()
 		.map_or(default_mode, |m| EditMode::parse(m).expect("valid mode"));

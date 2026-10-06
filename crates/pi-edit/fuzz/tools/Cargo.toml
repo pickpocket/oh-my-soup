@@ -1,0 +1,21 @@
+# Uninstrumented companions to the fuzz targets: fixture-derived seed
+# generation, deterministic validity sampling, and structural reduction.
+# No libfuzzer-sys: these build with any toolchain the repo pins, including
+# on Windows, and share the fuzz workspace's lockfile and patches.
+
+[package]
+name = "pi-edit-fuzz-tools"
+version = "0.0.0"
+publish = false
+edition = "2024"
+
+[dependencies]
+pi-edit = { path = "../.." }
+async-trait = "0.1"
+parking_lot = "0.12.5"
+serde_json = { version = "1.0", features = ["preserve_order"] }
+tempfile = "3"
+tokio = { version = "1", features = ["rt"] }
+
+[target.'cfg(windows)'.dependencies]
+find-msvc-tools = "=0.1.12"

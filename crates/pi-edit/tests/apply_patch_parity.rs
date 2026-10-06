@@ -93,8 +93,8 @@ fn seek_sequence_parity() {
 	);
 	assert_eq!(
 		seek_sequence(&["foo", "bar"], &[], 5, false, true).index,
-		Some(5),
-		"empty pattern returns start"
+		None,
+		"empty pattern past the end has no placement"
 	);
 	assert_eq!(
 		seek_sequence(&["a", "b", "c", "d", "e"], &["d", "e"], 0, true, true).index,

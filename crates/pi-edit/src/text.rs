@@ -289,6 +289,16 @@ pub fn normalize_unicode(text: &str) -> String {
 	out.into_nfc()
 }
 
+pub(crate) const fn fuzzy_character(ch: char) -> char {
+	match ch {
+		'"' | '\u{201E}' | '\u{201F}' | '\u{AB}' | '\u{BB}' => '"',
+		'\'' | '\u{201A}' | '\u{201B}' | '`' | '\u{B4}' => '\'',
+		'\u{2010}' | '\u{2011}' | '\u{2012}' | '\u{2013}' | '\u{2014}' | '\u{2212}' => '-',
+		' ' | '\t' => ' ',
+		other => other,
+	}
+}
+
 /// Normalize a line for fuzzy comparison: trim, fold quotes/dashes to ASCII,
 /// collapse runs of spaces and tabs.
 pub fn normalize_for_fuzzy(line: &str) -> String {
@@ -299,13 +309,7 @@ pub fn normalize_for_fuzzy(line: &str) -> String {
 	let mut out = String::with_capacity(trimmed.len());
 	let mut in_space = false;
 	for ch in trimmed.chars() {
-		let mapped = match ch {
-			'"' | '\u{201E}' | '\u{201F}' | '\u{AB}' | '\u{BB}' => '"',
-			'\'' | '\u{201A}' | '\u{201B}' | '`' | '\u{B4}' => '\'',
-			'\u{2010}' | '\u{2011}' | '\u{2012}' | '\u{2013}' | '\u{2014}' | '\u{2212}' => '-',
-			' ' | '\t' => ' ',
-			other => other,
-		};
+		let mapped = fuzzy_character(ch);
 		if mapped == ' ' {
 			if in_space {
 				continue;

@@ -32,6 +32,7 @@ Context: default 3 code lines immediately before and after each change. Changes 
 + [new_code]
 [3 lines of post-context]
 ```
+The `@@` line must be above the lines you change, or be one of the hunk's context lines. When syntax certifies a construct (function, class, method, Markdown section, TOML table, …) or payload boundary, a matched `@@` confines the whole hunk to it. Uncertain scope? Use bare `@@` with unique opening/closing context instead. Without recognized syntax, the hunk must be unique after the `@@` line.
 
 Grammar:
 ```

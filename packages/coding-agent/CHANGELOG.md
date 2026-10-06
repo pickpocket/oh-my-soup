@@ -7,9 +7,54 @@
 - Added durable session notes with `/notes` show/search/edit, configurable context reinjection, and update reminders. ([#7](https://github.com/pickpocket/oh-my-soup/pull/7) by [@ReKon64](https://github.com/ReKon64))
 - Added `/thinking [<level>]` to show the configured thinking selector or set auto, off, or a model-supported effort directly, with argument completion. ([#8](https://github.com/pickpocket/oh-my-soup/pull/8) by [@ReKon64](https://github.com/ReKon64))
 
+### Changed
+
+- Patch anchors confine every changed row and inserted gap to all certain selected ancestors, including uniquely matched and hint-selected scopes; an exact whole hunk can identify its own context header without escaping its construct.
+- Replace mode: fuzzy replace now also applies a match that is clearly closer than every other near match, and `replace_all` no longer applies several fuzzy matches.
+
 ### Fixed
 
 - Existing provider and model preferences now migrate to model roles and retry fallback chains instead of being lost when loading older configuration.
+- Replace mode refuses overlapping matches instead of editing one of them, and lists the candidate lines.
+- Patch mode refuses repeated context instead of editing one of the matching places, and lists the candidate lines with suggested `@@` anchors.
+- Edit refusals in replace and patch mode say that no changes were applied, and show each candidate's surrounding lines once, with overlapping previews merged, every candidate row marked and no empty row past the end of the file.
+- Patch mode no longer crashes on a hunk past the end of the file, and refuses a hunk re-sent after it was already applied instead of editing another copy.
+- Labelled, case and deeply nested native anchors terminate safely; required proofs beyond the supported 128-edge depth refuse before writing, including deeply nested JSON.
+- Patch mode inserts lines added under an `@@` anchor right after the anchor line, or at the top of the anchor's body when inserting after the line would break the syntax or join the anchor's header (a signature over several lines, a C or C++ declaration header); certified one-row constructs permit pure anchored appends, not context-bearing scope escapes.
+- Patch mode checks displaced syntax owners past leading comments and distinguishes fieldless branches, refusing insertions that move existing statements to another owner.
+- Patch and ApplyPatch check every semantic insertion run against retained and moved source identities, including mixed rewrites and stationary documentation pivots, before any request writes.
+- Patch mode distinguishes next-item, declared-item and enclosing-owner documentation, preserving Rust inner docs and Elixir module docs while refusing declared-type metadata capture.
+- Native function-valued and quoted forms allow valid sibling insertions; transparent Nix and YAML sequences preserve their real data or function owner without erasing branches.
+- Traditional case labels can share preserved statements across comments and blank lines; composed Go and Swift fallthrough is required, while break, return, type-switch and arrow-rule captures refuse.
+- Markdown sections own their parsed terminal blank rows and append gaps without crossing the next section, closed code block or payload delimiter; paragraph and YAML growth still preserve displaced owners.
+- Insertion refusals name the affected construct, including Allman-style methods and branches.
+- Patch mode keeps the file's own text for context lines when a hunk matches inexactly, instead of rewriting them with the hunk's spelling.
+- Patch mode requires independent evidence and a dropped-context veto for repaired hunks on every placement path, including overlap elimination and equal-effect assignment.
+- Supported payloads use mapped native syntax, including Docker ONBUILD, Vue directives, Make define shell calls, C/C++ replacement lists and JSON script data; unsupported payloads remain local and do not block unrelated supported edits.
+- Partial and fuzzy edits preserve escape/interpolation units, literal dialects and both logical-word boundaries, refusing splits or joins of untouched arguments while allowing safe interior value changes.
+- Safe partial edits preserve long raw delimiters, heredoc escape rules, INI-style directive terminators and CSV/TSV or Visual Basic quote units without inventing plain-text backslash escapes.
+- Make and Docker edits preserve effective shell ownership; Docker uses the same selected-escape, trailing-whitespace and whole-host-comment phase for instruction extent, execution forms and retained command bytes.
+- Created or removed C/C++, Python, shell, Make and Docker continuations preserve untouched logical successors and payload owners, even with trailing context; fully authored logical units remain editable, and a backslash without a following physical newline is not a continuation.
+- Patch mode recognizes Visual Basic `REM` comments after whitespace or `:` statement separators without treating their punctuation as code.
+- Patch mode keeps omitted suffixes with their original entry when a multiline prefix rewrite adds sibling entries, instead of moving or duplicating those suffixes on the new entry.
+- Patch mode resolves a diff's hunks independently of listing order. Each hunk's own hint selects only among its candidates; displacements proven by content, file boundaries or overlap elimination veto contradictory hints without selecting placements. Anchored insertions use their actual safe gap, while shared context gaps and real EOF blank rows stay intact.
+- Patch mode checks every hunk's context and added-row adjacency in the final splice, refusing context deletion, movement, reordering or separation before any write.
+- Patch and ApplyPatch preserve source-ordered row evidence through retained rows, duplicate moves and residual rewrites, refusing stale or ambiguous ancestry before any write.
+- Patch mode drops dead-row writer sets, reuses historical character searches and caches unanchored hint rankings to keep large edit batches responsive.
+- Patch and ApplyPatch no longer panic on sequential edits of empty files; original-row protection also covers normalized trailing rows and character edits that join existing lines.
+- Patch mode classifies exact row moves before in-place rewrites, preserving retained-row ancestry and refusing cross-hunk adjacency changes; certain one-row rewrites may be blank or token-disjoint.
+- Patch mode refuses when prior edits exclude every best-ranked candidate instead of promoting a weaker target.
+- Numeric appends after deleting a file's last row preserve BOM/CRLF and explicit top/EOF ordering without inventing a blank row or resolving otherwise ambiguous insertions.
+- Large-file placement and refusal avoid repeated anchor, label, closure and payload scans, including wide Markdown paragraphs and many anchored no-ops, without weakening ambiguity checks.
+- Composed insertion proofs cache bounded syntax and payload summaries, preventing deeply nested required proofs from multiplying work per hunk without weakening ambiguity or ownership checks.
+- Incomplete author-supplied nested anchors refuse rather than skipping an unresolved middle part; exact single-line hierarchies outrank weaker whole-text matches, preserve every ancestor's placement authority, and never promote a distractor to resolve ambiguity.
+- Fuzzy header anchors require the selected owner's actual code, so long comment or string mentions cannot authorize edits in another construct.
+- Case anchors refuse when their native section boundary is unprovable instead of searching a default or later case; supported clean labels remain editable.
+- Top-of-file insertions protect the first original syntax owner without inventing a predecessor, while safe sibling, comment and empty-file insertions remain available.
+- Declaration metadata checks evaluated attribute payloads, refusing nested definitions and active quote escapes while retaining proven declaration-free computed values and inert quoted data.
+- Unquoted shell heredoc continuations cannot capture retained terminators or downstream commands; quoted bodies and safe literal backslash pairs remain editable.
+- Python continuation proofs cover complete native statements and clause headers, refusing recovered or space-after-backslash boundaries without blocking unrelated clean edits.
+- Exact context-header placement preserves native proof strength: quoted headers and host-only payload bounds cannot redirect an edit away from an available native construct.
 
 ## [18.4.3] - 2026-09-22
 

@@ -215,7 +215,15 @@ impl LanguageExt for Html {
 		let mut map = HashMap::new();
 		let matcher = KindMatcher::new("script_element", lang.clone());
 		for script in root.find_all(matcher) {
-			let injected = find_html_lang(&script).unwrap_or_else(|| "js".into());
+			let alias = find_html_attribute(&script, "lang");
+			let mime = find_html_attribute(&script, "type");
+			let (Some(_), false) = markup_payload_language(false, alias.as_deref(), mime.as_deref())
+			else {
+				continue;
+			};
+			let injected = alias
+				.filter(|alias| !alias.trim().is_empty())
+				.unwrap_or_else(|| "js".into());
 			let content = script.children().find(|c| c.kind() == "raw_text");
 			if let Some(content) = content {
 				map.entry(injected)
@@ -225,7 +233,15 @@ impl LanguageExt for Html {
 		}
 		let matcher = KindMatcher::new("style_element", lang.clone());
 		for style in root.find_all(matcher) {
-			let injected = find_html_lang(&style).unwrap_or_else(|| "css".into());
+			let alias = find_html_attribute(&style, "lang");
+			let mime = find_html_attribute(&style, "type");
+			let (Some(_), false) = markup_payload_language(true, alias.as_deref(), mime.as_deref())
+			else {
+				continue;
+			};
+			let injected = alias
+				.filter(|alias| !alias.trim().is_empty())
+				.unwrap_or_else(|| "css".into());
 			let content = style.children().find(|c| c.kind() == "raw_text");
 			if let Some(content) = content {
 				map.entry(injected)
@@ -237,19 +253,71 @@ impl LanguageExt for Html {
 	}
 }
 
-fn find_html_lang<D: Doc>(node: &Node<D>) -> Option<String> {
+fn find_html_attribute<D: Doc>(node: &Node<D>, attribute: &str) -> Option<String> {
 	let html = node.lang();
 	let attr_matcher = KindMatcher::new("attribute", html.clone());
 	let name_matcher = KindMatcher::new("attribute_name", html.clone());
 	let val_matcher = KindMatcher::new("attribute_value", html.clone());
-	node.find_all(attr_matcher).find_map(|attr| {
-		let name = attr.find(&name_matcher)?;
-		if name.text() != "lang" {
-			return None;
+	let attr = node.find_all(attr_matcher).find(|attr| {
+		attr
+			.find(&name_matcher)
+			.is_some_and(|name| name.text().eq_ignore_ascii_case(attribute))
+	})?;
+	Some(
+		attr
+			.find(&val_matcher)
+			.map_or_else(String::new, |val| val.text().to_string()),
+	)
+}
+
+pub(crate) fn markup_payload_language(
+	style: bool,
+	alias: Option<&str>,
+	mime: Option<&str>,
+) -> (Option<SupportLang>, bool) {
+	if let Some(mime) = mime.filter(|mime| !mime.trim().is_empty()) {
+		let mime = mime.trim();
+		let executable = if style {
+			mime.eq_ignore_ascii_case("text/css")
+		} else {
+			[
+				"module",
+				"text/javascript",
+				"application/javascript",
+				"text/ecmascript",
+				"application/ecmascript",
+			]
+			.iter()
+			.any(|known| mime.eq_ignore_ascii_case(known))
+		};
+		if !executable {
+			if ["application/json", "application/ld+json"]
+				.iter()
+				.any(|known| mime.eq_ignore_ascii_case(known))
+			{
+				return (Some(SupportLang::Json), true);
+			}
+			return (None, mime.eq_ignore_ascii_case("text/plain"));
 		}
-		let val = attr.find(&val_matcher)?;
-		Some(val.text().to_string())
-	})
+	}
+	let language = alias.filter(|alias| !alias.trim().is_empty()).map_or(
+		Some(if style {
+			SupportLang::Css
+		} else {
+			SupportLang::JavaScript
+		}),
+		SupportLang::from_alias,
+	);
+	(
+		language.filter(|language| {
+			if style {
+				*language == SupportLang::Css
+			} else {
+				matches!(language, SupportLang::JavaScript | SupportLang::TypeScript | SupportLang::Tsx)
+			}
+		}),
+		false,
+	)
 }
 
 fn node_to_range<D: Doc>(node: &Node<D>) -> TSRange {
@@ -263,6 +331,15 @@ fn node_to_range<D: Doc>(node: &Node<D>) -> TSRange {
 	TSRange { start_byte: r.start, end_byte: r.end, start_point: sp, end_point: ep }
 }
 
+/// Quoting semantics for grammar-less lexical proofs.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum QuotePolicy {
+	PlainText,
+	Delimited(u8),
+	DoubledQuote,
+	Backslash,
+	Unknown,
+}
 // ── SupportLang enum ────────────────────────────────────────────────────
 
 /// All supported languages for ast-grep structural search/replace.
@@ -407,6 +484,273 @@ impl SupportLang {
 			Self::Yaml => "yaml",
 			Self::Zig => "zig",
 		}
+	}
+
+	/// The markers that open a comment running to the end of the line;
+	/// empty for languages without one (JSON, markup).
+	pub const fn line_comments(self) -> &'static [&'static str] {
+		match self {
+			Self::C
+			| Self::Cpp
+			| Self::CSharp
+			| Self::Dart
+			| Self::Go
+			| Self::Java
+			| Self::JavaScript
+			| Self::Kotlin
+			| Self::ObjC
+			| Self::Odin
+			| Self::Proto
+			| Self::Rust
+			| Self::Scala
+			| Self::Solidity
+			| Self::Swift
+			| Self::Tsx
+			| Self::TypeScript
+			| Self::Verilog
+			| Self::Zig => &["//"],
+			Self::Bash
+			| Self::Cmake
+			| Self::Dockerfile
+			| Self::Elixir
+			| Self::Graphql
+			| Self::Julia
+			| Self::Just
+			| Self::Make
+			| Self::Nix
+			| Self::Powershell
+			| Self::Python
+			| Self::R
+			| Self::Ruby
+			| Self::Starlark
+			| Self::Toml
+			| Self::Yaml => &["#"],
+			Self::Hcl | Self::Php => &["#", "//"],
+			Self::Haskell | Self::Lua | Self::Sql => &["--"],
+			Self::Clojure | Self::EmacsLisp => &[";"],
+			Self::Ini => &[";", "#", "!"],
+			Self::Erlang => &["%"],
+			Self::Fortran => &["!"],
+			Self::Tlaplus => &["\\*"],
+			Self::Astro
+			| Self::Css
+			| Self::Diff
+			| Self::Html
+			| Self::Json
+			| Self::Markdown
+			| Self::Ocaml
+			| Self::Regex
+			| Self::Svelte
+			| Self::Vue
+			| Self::Xml => &[],
+		}
+	}
+
+	/// Lexical comment markers, including dialects without a registered
+	/// grammar. This does not change the grammar selected for the path.
+	pub fn line_comments_for_path(path: &Path) -> &'static [&'static str] {
+		if path
+			.extension()
+			.is_some_and(|ext| ext.eq_ignore_ascii_case("scss") || ext.eq_ignore_ascii_case("less"))
+		{
+			&["//"]
+		} else if path
+			.extension()
+			.is_some_and(|ext| ext.eq_ignore_ascii_case("vb"))
+		{
+			&["'", "REM"]
+		} else {
+			Self::from_path(path).map_or(&[], Self::line_comments)
+		}
+	}
+
+	/// Dialect quoting belongs alongside the path's comment metadata.
+	pub fn quote_policy_for_path(path: &Path) -> QuotePolicy {
+		let extension = path
+			.extension()
+			.and_then(|ext| ext.to_str())
+			.unwrap_or_default();
+		if extension.eq_ignore_ascii_case("txt") {
+			QuotePolicy::PlainText
+		} else if extension.eq_ignore_ascii_case("csv") {
+			QuotePolicy::Delimited(b',')
+		} else if extension.eq_ignore_ascii_case("tsv") {
+			QuotePolicy::Delimited(b'\t')
+		} else if extension.eq_ignore_ascii_case("vb") {
+			QuotePolicy::DoubledQuote
+		} else if Self::from_path(path).is_some()
+			|| extension.eq_ignore_ascii_case("scss")
+			|| extension.eq_ignore_ascii_case("less")
+		{
+			QuotePolicy::Backslash
+		} else {
+			QuotePolicy::Unknown
+		}
+	}
+
+	/// Native sibling containers; lexical delimiters are checked by the caller.
+	pub(crate) fn tokenless_sequence_kind(self, kind: &str) -> bool {
+		matches!(
+			kind,
+			"statement_list"
+				| "statements"
+				| "body" | "indented_block"
+				| "block"
+				| "statement_block"
+				| "compound_statement"
+				| "body_statement"
+				| "do_block"
+				| "function_body"
+				| "declaration_list"
+				| "field_declaration_list"
+				| "class_body"
+				| "import_list"
+				| "hash_literal_body"
+		) || match self {
+			Self::Nix => kind == "binding_set",
+			Self::Yaml => {
+				matches!(kind, "document" | "block_node" | "block_mapping" | "block_sequence")
+			},
+			Self::Markdown => kind == "list",
+			_ => false,
+		}
+	}
+
+	/// Native value forms do not acquire declaration semantics by descent.
+	pub(crate) fn quoted_value_kind(self, kind: &str) -> bool {
+		match self {
+			Self::Clojure => matches!(
+				kind,
+				"quote_lit"
+					| "quoting_lit"
+					| "syntax_quote_lit"
+					| "syn_quoting_lit"
+					| "var_quoting_lit"
+					| "ns_map_lit"
+					| "quoted_form"
+			),
+			Self::EmacsLisp => matches!(kind, "quote" | "function_quote"),
+			Self::Julia => kind == "quote_statement",
+			_ => matches!(kind, "quoted_form" | "quote_expression"),
+		}
+	}
+
+	/// Positive installed statement/value kinds, never English word fragments.
+	pub(crate) fn attachment_executable_kind(self, kind: &str) -> bool {
+		matches!(
+			kind,
+			"call"
+				| "call_expression"
+				| "function_call"
+				| "method_invocation"
+				| "invocation_expression"
+				| "command"
+				| "command_call"
+				| "expression_statement"
+				| "assignment"
+				| "assignment_expression"
+				| "assignment_statement"
+				| "return_statement"
+				| "throw_statement"
+				| "break_statement"
+				| "continue_statement"
+				| "goto_statement"
+				| "yield_statement"
+				| "empty_statement"
+				| "if_statement"
+				| "if_expression"
+				| "while_statement"
+				| "for_statement"
+				| "for_in_statement"
+				| "for_expression"
+				| "do_statement"
+				| "switch_statement"
+				| "try_statement"
+				| "try_expression"
+				| "try_with_resources_statement"
+				| "with_statement"
+				| "match_statement"
+				| "repeat_statement"
+				| "assert_statement"
+				| "pass_statement"
+				| "raise_statement"
+				| "delete_statement"
+				| "print_statement"
+				| "exec_statement"
+				| "echo_statement"
+				| "unset_statement"
+				| "exit_statement"
+				| "send_statement"
+				| "receive_statement"
+				| "inc_statement"
+				| "dec_statement"
+				| "go_statement"
+				| "defer_statement"
+				| "identifier"
+				| "simple_identifier"
+				| "variable_expression"
+				| "integer"
+				| "integer_literal"
+				| "int_literal"
+				| "float_literal"
+				| "number"
+				| "string"
+				| "string_literal"
+				| "boolean"
+		) || self == Self::Sql && matches!(kind, "select" | "insert" | "update" | "delete")
+	}
+
+	pub(crate) fn function_value_kind(kind: &str) -> bool {
+		matches!(
+			kind,
+			"lambda"
+				| "lambda_expression"
+				| "lambda_literal"
+				| "anonymous_function"
+				| "function_expression"
+				| "function_literal"
+				| "arrow_function"
+				| "function_definition"
+				| "function_declaration"
+				| "function"
+		)
+	}
+
+	/// Whether a configured line-comment marker starts at a character
+	/// boundary outside strings. Dialect and marker boundary rules live here.
+	pub fn line_comment_marker_at(
+		language: Option<Self>,
+		marker: &str,
+		line: &str,
+		at: usize,
+	) -> bool {
+		let Some(tail) = line.get(at..) else {
+			return false;
+		};
+		let starts = if marker == "REM" {
+			tail
+				.get(..3)
+				.is_some_and(|text| text.eq_ignore_ascii_case("REM"))
+				&& tail
+					.get(3..)
+					.and_then(|tail| tail.chars().next())
+					.is_none_or(char::is_whitespace)
+				&& line[..at]
+					.chars()
+					.next_back()
+					.is_none_or(|ch| ch.is_whitespace() || ch == ':')
+		} else {
+			tail.starts_with(marker)
+		};
+		starts
+			&& !(language == Some(Self::Php) && marker == "#" && tail.starts_with("#["))
+			&& (language != Some(Self::Ini) || line[..at].trim().is_empty())
+			&& !(matches!(language, Some(Self::Bash | Self::Dockerfile))
+				&& marker == "#"
+				&& line[..at]
+					.chars()
+					.next_back()
+					.is_some_and(|ch| !ch.is_whitespace()))
 	}
 
 	pub fn from_alias(value: &str) -> Option<Self> {
@@ -588,7 +932,7 @@ const fn extensions(lang: SupportLang) -> &'static [&'static str] {
 		Powershell => &["ps1", "psm1"],
 		Proto => &["proto"],
 		Python => &["py", "py3", "pyi", "bzl"],
-		R => &["r"],
+		R => &["r", "R"],
 		Regex => &[],
 		Ruby => &["rb", "rbw", "gemspec"],
 		Rust => &["rs"],

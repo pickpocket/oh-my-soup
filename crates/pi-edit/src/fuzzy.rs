@@ -2,11 +2,14 @@
 //! `sloppy`: Levenshtein similarity, whole-block fuzzy search,
 //! line-sequence placement, and context-line placement.
 
+use std::{fmt::Write, ops::Range};
+
 use crate::{
 	error::EditError,
 	text::{
-		adjust_indentation, count_leading_whitespace, is_non_empty_line, js_trim, js_trim_end,
-		js_trim_start, normalize_for_fuzzy, normalize_to_lf, normalize_unicode, utf16_len,
+		adjust_indentation, count_leading_whitespace, fuzzy_character, is_non_empty_line, js_trim,
+		js_trim_end, js_trim_start, normalize_for_fuzzy, normalize_to_lf, normalize_unicode,
+		utf16_len,
 	},
 };
 
@@ -52,8 +55,14 @@ pub struct MatchOutcome {
 	pub matched:             Option<FuzzyMatch>,
 	pub closest:             Option<FuzzyMatch>,
 	pub occurrences:         Option<usize>,
+	/// 1-indexed start line of every ambiguous candidate: each exact
+	/// occurrence, or each above-threshold fuzzy window.
 	pub occurrence_lines:    Option<Vec<u32>>,
+	/// Previews of the first [`MAX_RECORDED_MATCHES`] candidates.
 	pub occurrence_previews: Option<Vec<String>>,
+	/// Some exact occurrences share bytes, so a non-overlapping
+	/// `replace_all` would replace fewer than `occurrences`.
+	pub overlapping:         bool,
 	pub fuzzy_matches:       Option<usize>,
 	pub dominant_fuzzy:      Option<bool>,
 }
@@ -94,8 +103,15 @@ pub enum SequenceMatchStrategy {
 pub struct SequenceSearchResult {
 	pub index:         Option<usize>,
 	pub confidence:    f64,
+	/// Placements found by the accepting pass. More than one means `index` is
+	/// only the first of several equally ranked candidates.
 	pub match_count:   Option<usize>,
+	/// Every placement counted in `match_count`, ascending.
 	pub match_indices: Option<Vec<usize>>,
+	/// Placements sharing the best rank, when the tier ranks its hits (the
+	/// fuzzy tier scores them); a line hint may choose only among these.
+	/// `None` means every placement in `match_indices` ranks equally.
+	pub top_indices:   Option<Vec<usize>>,
 	pub strategy:      Option<SequenceMatchStrategy>,
 }
 
@@ -107,6 +123,7 @@ pub enum ContextMatchStrategy {
 	Unicode,
 	Prefix,
 	Substring,
+	CaseFold,
 	Fuzzy,
 }
 
@@ -120,60 +137,160 @@ pub struct ContextLineResult {
 	pub strategy:      Option<ContextMatchStrategy>,
 }
 
-#[derive(Debug, Default)]
-struct IndexedMatches {
-	first_match:   Option<usize>,
-	match_count:   usize,
-	match_indices: Vec<usize>,
+/// Positional evidence belongs to an actual FILE occurrence, including a
+/// transformed function-name fallback. Whole-row fuzzy evidence is distinct.
+#[derive(Debug)]
+pub(crate) struct ContextOccurrence {
+	pub row:               usize,
+	pub span:              Range<usize>,
+	pub whole_row:         bool,
+	pub function_fallback: bool,
+	pub strategy:          ContextMatchStrategy,
+	/// A weaker same-row occurrence may veto ownership, never select it.
+	pub veto_only:         bool,
 }
 
+#[derive(Debug)]
+pub(crate) struct ContextEvidence {
+	pub result:      ContextLineResult,
+	pub occurrences: Vec<ContextOccurrence>,
+}
+
+pub(crate) fn anchor_case_eq(left: &str, right: &str) -> bool {
+	fn normalized(text: &str) -> impl Iterator<Item = char> + '_ {
+		let mut spaced = false;
+		js_trim(text).chars().filter_map(move |ch| {
+			if matches!(ch, ' ' | '\t') {
+				let duplicate = spaced;
+				spaced = true;
+				(!duplicate).then_some(' ')
+			} else {
+				spaced = false;
+				Some(ch.to_ascii_lowercase())
+			}
+		})
+	}
+	normalized(left).eq(normalized(right))
+}
+
+fn context_occurrences(
+	lines: &[&str],
+	context: &str,
+	result: &ContextLineResult,
+	function_fallback: bool,
+) -> Vec<ContextOccurrence> {
+	let Some(strategy) = result.strategy else {
+		return Vec::new();
+	};
+	let target = normalize_for_fuzzy(context);
+	let mut occurrences = Vec::new();
+	for &row in result.match_indices.as_deref().unwrap_or_default() {
+		let line = lines[row];
+		let leading = line.len() - js_trim_start(line).len();
+		let partial =
+			matches!(strategy, ContextMatchStrategy::Prefix | ContextMatchStrategy::Substring);
+		if !partial {
+			occurrences.push(ContextOccurrence {
+				row,
+				span: leading..js_trim_end(line).len(),
+				whole_row: true,
+				function_fallback,
+				strategy,
+				veto_only: false,
+			});
+			continue;
+		}
+		// Project the matcher's alphabet back to source bytes. Space folding
+		// retains the complete source run; no normalized scalar is an offset.
+		let mut normalized = String::with_capacity(line.len());
+		let mut offsets: Vec<(usize, Range<usize>)> = Vec::new();
+		for (at, ch) in js_trim(line).char_indices() {
+			let mapped = fuzzy_character(ch);
+			let source = leading + at..leading + at + ch.len_utf8();
+			if mapped == ' ' && normalized.ends_with(' ') {
+				if let Some((_, last)) = offsets.last_mut() {
+					last.end = source.end;
+				}
+				continue;
+			}
+			offsets.push((normalized.len(), source));
+			normalized.push(mapped);
+		}
+		for (at, _) in normalized.match_indices(&target) {
+			let veto_only = strategy == ContextMatchStrategy::Prefix && at != 0;
+			let begin = offsets.binary_search_by_key(&at, |(at, _)| *at).ok();
+			let end = offsets.partition_point(|(offset, _)| *offset < at + target.len());
+			if let Some(begin) = begin.filter(|begin| *begin < end) {
+				occurrences.push(ContextOccurrence {
+					row,
+					span: offsets[begin].1.start..offsets[end - 1].1.end,
+					whole_row: false,
+					function_fallback,
+					strategy: if veto_only {
+						ContextMatchStrategy::Substring
+					} else {
+						strategy
+					},
+					veto_only,
+				});
+			}
+		}
+	}
+	occurrences
+}
+
+/// One anchor ladder: literal tiers precede whole-row case-fold evidence,
+/// and each compatibility fallback carries its actual source occurrence.
+pub(crate) fn find_anchor_evidence(
+	lines: &[&str],
+	context: &str,
+	allow_fuzzy: bool,
+) -> ContextEvidence {
+	context_ladder(lines, context, 0, allow_fuzzy, false, false)
+}
+
+/// Every index in `start..=end_inclusive` accepted by `predicate`, ascending.
 fn collect_indexed_matches(
 	start: usize,
 	end_inclusive: usize,
 	mut predicate: impl FnMut(usize) -> bool,
-) -> IndexedMatches {
-	let mut matches = IndexedMatches::default();
+) -> Vec<usize> {
 	if start > end_inclusive {
-		return matches;
+		return Vec::new();
 	}
-	for index in start..=end_inclusive {
-		if !predicate(index) {
-			continue;
-		}
-		matches.first_match.get_or_insert(index);
-		matches.match_count += 1;
-		if matches.match_indices.len() < MAX_RECORDED_MATCHES {
-			matches.match_indices.push(index);
-		}
-	}
-	matches
+	(start..=end_inclusive)
+		.filter(|index| predicate(*index))
+		.collect()
 }
 
+/// The accepting pass reports every placement it found at its own
+/// normalization level, so callers can tell a unique hit from the first of
+/// several equally ranked ones.
 fn sequence_result(
-	matches: &IndexedMatches,
+	matches: Vec<usize>,
 	confidence: f64,
 	strategy: SequenceMatchStrategy,
-	ambiguous: bool,
 ) -> Option<SequenceSearchResult> {
 	Some(SequenceSearchResult {
-		index: Some(matches.first_match?),
+		index: Some(*matches.first()?),
 		confidence,
-		match_count: ambiguous.then_some(matches.match_count),
-		match_indices: ambiguous.then(|| matches.match_indices.clone()),
+		match_count: Some(matches.len()),
+		match_indices: Some(matches),
+		top_indices: None,
 		strategy: Some(strategy),
 	})
 }
 
 fn context_result(
-	matches: &IndexedMatches,
+	matches: Vec<usize>,
 	confidence: f64,
 	strategy: ContextMatchStrategy,
 ) -> Option<ContextLineResult> {
 	Some(ContextLineResult {
-		index: Some(matches.first_match?),
+		index: Some(*matches.first()?),
 		confidence,
-		match_count: Some(matches.match_count),
-		match_indices: Some(matches.match_indices.clone()),
+		match_count: Some(matches.len()),
+		match_indices: Some(matches),
 		strategy: Some(strategy),
 	})
 }
@@ -184,6 +301,7 @@ const fn no_sequence_match(confidence: f64, match_count: Option<usize>) -> Seque
 		confidence,
 		match_count,
 		match_indices: None,
+		top_indices: None,
 		strategy: None,
 	}
 }
@@ -265,35 +383,76 @@ pub fn similarity(a: &str, b: &str) -> f64 {
 	1.0 - levenshtein_chars(&a_chars, &b_chars) as f64 / max_len as f64
 }
 
-fn format_preview_window(lines: &[&str], center_index: usize) -> String {
-	let start = center_index.saturating_sub(OCCURRENCE_PREVIEW_CONTEXT);
-	let end = lines
-		.len()
-		.min(center_index + OCCURRENCE_PREVIEW_CONTEXT + 1);
-	lines[start..end]
+/// `line` cut to [`OCCURRENCE_PREVIEW_MAX_LEN`] UTF-16 units, marked `…`
+/// when cut.
+pub(crate) fn truncate_preview(line: &str) -> String {
+	if utf16_len(line) <= OCCURRENCE_PREVIEW_MAX_LEN {
+		return line.to_owned();
+	}
+	let mut units = 0;
+	let mut text = String::new();
+	for ch in line.chars() {
+		let width = ch.len_utf16();
+		if units + width > OCCURRENCE_PREVIEW_MAX_LEN - 1 {
+			break;
+		}
+		text.push(ch);
+		units += width;
+	}
+	text.push('…');
+	text
+}
+
+/// Addressable rows of LF-normalized file text. A final newline terminates
+/// the last row; empty text still has the one empty row line placement sees.
+pub(crate) fn file_lines(content: &str) -> std::str::Split<'_, char> {
+	content.strip_suffix('\n').unwrap_or(content).split('\n')
+}
+
+/// Numbered previews of candidate placements (0-based start rows into the
+/// file's real `lines`): `context` rows on either side of the first `shown`
+/// candidates, windows that overlap or touch merged into one block so no row
+/// prints twice, every displayed candidate row marked `>`, and line numbers
+/// right-aligned.
+pub(crate) fn preview_windows(
+	lines: &[&str],
+	candidates: &[usize],
+	shown: usize,
+	context: usize,
+) -> Vec<String> {
+	let mut starts = candidates
 		.iter()
-		.enumerate()
-		.map(|(offset, line)| {
-			let truncated = if utf16_len(line) > OCCURRENCE_PREVIEW_MAX_LEN {
-				let mut units = 0;
-				let mut text = String::new();
-				for ch in line.chars() {
-					let width = ch.len_utf16();
-					if units + width > OCCURRENCE_PREVIEW_MAX_LEN - 1 {
-						break;
-					}
-					text.push(ch);
-					units += width;
-				}
-				text.push('…');
-				text
-			} else {
-				(*line).to_owned()
-			};
-			format!("  {} | {truncated}", start + offset + 1)
+		.copied()
+		.filter(|row| *row < lines.len())
+		.collect::<Vec<_>>();
+	starts.sort_unstable();
+	starts.dedup();
+	let mut blocks: Vec<(usize, usize)> = Vec::new();
+	for &row in starts.iter().take(shown) {
+		let start = row.saturating_sub(context);
+		let end = lines.len().min(row + context + 1);
+		match blocks.last_mut() {
+			Some((_, last_end)) if start <= *last_end => *last_end = (*last_end).max(end),
+			_ => blocks.push((start, end)),
+		}
+	}
+	let width = blocks.last().map_or(1, |(_, end)| end.to_string().len());
+	blocks
+		.into_iter()
+		.map(|(start, end)| {
+			(start..end)
+				.map(|row| {
+					let mark = if starts.binary_search(&row).is_ok() {
+						'>'
+					} else {
+						' '
+					};
+					format!("{mark}  {:>width$} | {}", row + 1, truncate_preview(lines[row]))
+				})
+				.collect::<Vec<_>>()
+				.join("\n")
 		})
-		.collect::<Vec<_>>()
-		.join("\n")
+		.collect()
 }
 
 fn overlaps_excluded(start: usize, end: usize, ranges: &[ExcludedRange]) -> bool {
@@ -302,55 +461,81 @@ fn overlaps_excluded(start: usize, end: usize, ranges: &[ExcludedRange]) -> bool
 		.any(|range| start < range.end_index && end > range.start_index)
 }
 
+/// Every exact placement of `target`, including overlapping ones: two
+/// placements that share bytes are still two distinct candidate edits, so
+/// uniqueness must count both (`"aa"` occurs three times in `"aaaa"`; Wu &
+/// Manber, TR 91-11, §1 defines an occurrence as every start position).
+///
+/// Knuth–Morris–Pratt over bytes keeps this linear for periodic text; a
+/// match of valid UTF-8 inside valid UTF-8 always starts on a char boundary.
 fn find_exact_match_outcome(
 	content: &str,
 	target: &str,
 	excluded_ranges: &[ExcludedRange],
 ) -> Option<MatchOutcome> {
-	let mut first_index = None;
-	let mut occurrences = 0;
-	let mut recorded_indices = Vec::new();
-	let mut search_start = 0;
-	while search_start <= content.len().saturating_sub(target.len()) {
-		let Some(relative) = content[search_start..].find(target) else {
-			break;
-		};
-		let index = search_start + relative;
-		let end_index = index + target.len();
-		if !overlaps_excluded(index, end_index, excluded_ranges) {
-			first_index.get_or_insert(index);
-			occurrences += 1;
-			if recorded_indices.len() < MAX_RECORDED_MATCHES {
-				recorded_indices.push(index);
-			}
+	let needle = target.as_bytes();
+	let mut failure = vec![0usize; needle.len()];
+	let mut matched = 0;
+	for index in 1..needle.len() {
+		while matched > 0 && needle[index] != needle[matched] {
+			matched = failure[matched - 1];
 		}
-		search_start = end_index;
+		if needle[index] == needle[matched] {
+			matched += 1;
+		}
+		failure[index] = matched;
 	}
-	let first_index = first_index?;
-	if occurrences > 1 {
-		let content_lines: Vec<&str> = content.split('\n').collect();
-		let mut occurrence_lines = Vec::with_capacity(recorded_indices.len());
-		let mut occurrence_previews = Vec::with_capacity(recorded_indices.len());
-		for index in recorded_indices {
-			let line_number = content[..index]
-				.bytes()
-				.filter(|byte| *byte == b'\n')
-				.count() + 1;
-			occurrence_lines.push(line_number as u32);
-			occurrence_previews.push(format_preview_window(&content_lines, line_number - 1));
+	let target_newlines = line_breaks(needle);
+	// (byte start, 1-indexed start line) of every accepted placement.
+	let mut placements: Vec<(usize, u32)> = Vec::new();
+	let mut overlapping = false;
+	let mut newlines = 0;
+	matched = 0;
+	for (index, &byte) in content.as_bytes().iter().enumerate() {
+		newlines += usize::from(byte == b'\n');
+		while matched > 0 && byte != needle[matched] {
+			matched = failure[matched - 1];
 		}
+		if byte == needle[matched] {
+			matched += 1;
+		}
+		if matched < needle.len() {
+			continue;
+		}
+		matched = failure[matched - 1];
+		let start = index + 1 - needle.len();
+		if overlaps_excluded(start, index + 1, excluded_ranges) {
+			continue;
+		}
+		overlapping |= placements
+			.last()
+			.is_some_and(|(previous, _)| start < previous + needle.len());
+		placements.push((start, (newlines - target_newlines + 1) as u32));
+	}
+	let &(first_index, start_line) = placements.first()?;
+	if placements.len() > 1 {
+		let occurrence_lines: Vec<u32> = placements.iter().map(|(_, line)| *line).collect();
+		// Overlapping placements can share a line: preview each line once.
+		let mut distinct = occurrence_lines.clone();
+		distinct.dedup();
+		let starts = distinct
+			.iter()
+			.map(|line| *line as usize - 1)
+			.collect::<Vec<_>>();
+		let occurrence_previews = preview_windows(
+			&file_lines(content).collect::<Vec<_>>(),
+			&starts,
+			MAX_RECORDED_MATCHES,
+			OCCURRENCE_PREVIEW_CONTEXT,
+		);
 		return Some(MatchOutcome {
-			occurrences: Some(occurrences),
+			occurrences: Some(placements.len()),
 			occurrence_lines: Some(occurrence_lines),
 			occurrence_previews: Some(occurrence_previews),
+			overlapping,
 			..MatchOutcome::default()
 		});
 	}
-	let start_line = content[..first_index]
-		.bytes()
-		.filter(|byte| *byte == b'\n')
-		.count() as u32
-		+ 1;
 	Some(MatchOutcome {
 		matched: Some(FuzzyMatch {
 			actual_text: target.to_owned(),
@@ -360,6 +545,11 @@ fn find_exact_match_outcome(
 		}),
 		..MatchOutcome::default()
 	})
+}
+
+/// Line breaks in `bytes`.
+fn line_breaks(bytes: &[u8]) -> usize {
+	bytes.split(|byte| *byte == b'\n').count() - 1
 }
 
 fn relative_indent_depths(lines: &[&str]) -> Vec<usize> {
@@ -421,11 +611,21 @@ fn line_offsets(lines: &[&str]) -> Vec<usize> {
 	offsets
 }
 
+/// A window at or above the similarity threshold.
+#[derive(Debug)]
+struct FuzzyCandidate {
+	/// 0-based start line.
+	start:   usize,
+	/// Character edits between the target and the window, summed over lines
+	/// in the normalized scoring space.
+	errors:  usize,
+	matched: FuzzyMatch,
+}
+
 #[derive(Debug)]
 struct BestFuzzyMatch {
-	best:                  Option<FuzzyMatch>,
-	above_threshold_count: usize,
-	second_best_score:     f64,
+	best:            Option<FuzzyMatch>,
+	above_threshold: Vec<FuzzyCandidate>,
 }
 
 fn best_fuzzy_match_core(
@@ -436,11 +636,13 @@ fn best_fuzzy_match_core(
 	include_depth: bool,
 	excluded_ranges: &[ExcludedRange],
 ) -> BestFuzzyMatch {
-	let target_normalized = normalize_lines(target_lines, include_depth);
+	let target_normalized: Vec<Vec<char>> = normalize_lines(target_lines, include_depth)
+		.iter()
+		.map(|line| line.chars().collect())
+		.collect();
 	let mut best = None;
 	let mut best_score = -1.0;
-	let mut second_best_score = -1.0;
-	let mut above_threshold_count = 0;
+	let mut above_threshold = Vec::new();
 	for start in 0..=content_lines.len() - target_lines.len() {
 		let start_index = offsets[start];
 		let end_line = start + target_lines.len() - 1;
@@ -449,30 +651,38 @@ fn best_fuzzy_match_core(
 			continue;
 		}
 		let window = &content_lines[start..start + target_lines.len()];
-		let window_normalized = normalize_lines(window, include_depth);
-		let score = target_normalized
+		let mut errors = 0;
+		let mut total = 0.0;
+		for (target, actual) in target_normalized
 			.iter()
-			.zip(&window_normalized)
-			.map(|(target, actual)| similarity(target, actual))
-			.sum::<f64>()
-			/ target_lines.len() as f64;
+			.zip(normalize_lines(window, include_depth))
+		{
+			let actual: Vec<char> = actual.chars().collect();
+			let max_len = target.len().max(actual.len());
+			let distance = levenshtein_chars(target, &actual);
+			errors += distance;
+			total += if max_len == 0 {
+				1.0
+			} else {
+				1.0 - distance as f64 / max_len as f64
+			};
+		}
+		let score = total / target_lines.len() as f64;
+		let candidate = || FuzzyMatch {
+			actual_text: window.join("\n"),
+			start_index,
+			start_line: start as u32 + 1,
+			confidence: score,
+		};
 		if score >= threshold {
-			above_threshold_count += 1;
+			above_threshold.push(FuzzyCandidate { start, errors, matched: candidate() });
 		}
 		if score > best_score {
-			second_best_score = best_score;
 			best_score = score;
-			best = Some(FuzzyMatch {
-				actual_text: window.join("\n"),
-				start_index,
-				start_line: start as u32 + 1,
-				confidence: score,
-			});
-		} else if score > second_best_score {
-			second_best_score = score;
+			best = Some(candidate());
 		}
 	}
-	BestFuzzyMatch { best, above_threshold_count, second_best_score }
+	BestFuzzyMatch { best, above_threshold }
 }
 
 fn best_fuzzy_match(
@@ -484,11 +694,7 @@ fn best_fuzzy_match(
 	let content_lines: Vec<&str> = content.split('\n').collect();
 	let target_lines: Vec<&str> = target.split('\n').collect();
 	if target.is_empty() || target_lines.len() > content_lines.len() {
-		return BestFuzzyMatch {
-			best:                  None,
-			above_threshold_count: 0,
-			second_best_score:     0.0,
-		};
+		return BestFuzzyMatch { best: None, above_threshold: Vec::new() };
 	}
 	let offsets = line_offsets(&content_lines);
 	let mut result = best_fuzzy_match_core(
@@ -527,43 +733,112 @@ fn best_fuzzy_match(
 /// Locate `target` in `content`: exact first, then fuzzy when allowed.
 /// Excluded ranges are invisible to both passes.
 pub fn find_match(content: &str, target: &str, options: &FindMatchOptions<'_>) -> MatchOutcome {
+	find_ranked_match(content, target, options, true).0
+}
+
+/// [`find_match`], plus the 0-based start line and score of every
+/// above-threshold fuzzy window, so a caller can tell the best-ranked windows
+/// from the rest. Without `exact`, only whole-line windows are considered:
+/// a byte-level hit inside a line never becomes a line placement.
+fn find_ranked_match(
+	content: &str,
+	target: &str,
+	options: &FindMatchOptions<'_>,
+	exact: bool,
+) -> (MatchOutcome, Vec<(usize, f64)>) {
 	if target.is_empty() {
-		return MatchOutcome::default();
+		return (MatchOutcome::default(), Vec::new());
 	}
-	if let Some(exact) = find_exact_match_outcome(content, target, options.excluded_ranges) {
-		return exact;
+	if exact && let Some(found) = find_exact_match_outcome(content, target, options.excluded_ranges)
+	{
+		return (found, Vec::new());
 	}
 	let threshold = options.threshold.unwrap_or(DEFAULT_FUZZY_THRESHOLD);
 	let result = best_fuzzy_match(content, target, threshold, options.excluded_ranges);
 	let Some(best) = result.best else {
-		return MatchOutcome::default();
+		return (MatchOutcome::default(), Vec::new());
 	};
-	if options.allow_fuzzy && best.confidence >= threshold {
-		if result.above_threshold_count == 1 {
-			return MatchOutcome {
+	let ranks = result
+		.above_threshold
+		.iter()
+		.map(|candidate| (candidate.start, candidate.matched.confidence))
+		.collect();
+	let above_threshold_count = result.above_threshold.len();
+	if options.allow_fuzzy && best.confidence >= threshold && above_threshold_count == 1 {
+		return (
+			MatchOutcome {
 				matched: Some(best.clone()),
 				closest: Some(best),
 				..MatchOutcome::default()
-			};
-		}
-		if result.above_threshold_count > 1
-			&& best.confidence >= DOMINANT_FUZZY_MIN_CONFIDENCE
-			&& best.confidence - result.second_best_score >= DOMINANT_FUZZY_DELTA
+			},
+			ranks,
+		);
+	}
+	let (occurrence_lines, occurrence_previews) = if above_threshold_count > 1 {
+		let starts = result
+			.above_threshold
+			.iter()
+			.map(|candidate| candidate.start)
+			.collect::<Vec<_>>();
+		(
+			Some(
+				result
+					.above_threshold
+					.iter()
+					.map(|candidate| candidate.start as u32 + 1)
+					.collect(),
+			),
+			Some(preview_windows(
+				&file_lines(content).collect::<Vec<_>>(),
+				&starts,
+				MAX_RECORDED_MATCHES,
+				OCCURRENCE_PREVIEW_CONTEXT,
+			)),
+		)
+	} else {
+		(None, None)
+	};
+	// Several windows clear the threshold. Only the best-scoring one may be
+	// taken, and only when it clearly leads: either by the similarity gap, or
+	// as the sole window within 2·e*+1 character edits, e* being the fewest
+	// any window needs. The band adapts Wu & Manber's error schedule (TR
+	// 91-11, §3.3), used there for search cost; exact ties always stay
+	// ambiguous (Ratcliff & Metzener, DDJ 1988: weigh how closely grouped the
+	// candidates are).
+	let mut ranked = result.above_threshold.iter().collect::<Vec<_>>();
+	ranked.sort_by(|a, b| b.matched.confidence.total_cmp(&a.matched.confidence));
+	let fewest = ranked
+		.iter()
+		.map(|candidate| candidate.errors)
+		.min()
+		.unwrap_or(0);
+	let standout = match ranked.as_slice() {
+		[first, second, ..]
+			if options.allow_fuzzy && first.matched.confidence > second.matched.confidence =>
 		{
-			return MatchOutcome {
-				matched: Some(best.clone()),
-				closest: Some(best),
-				fuzzy_matches: Some(result.above_threshold_count),
-				dominant_fuzzy: Some(true),
-				..MatchOutcome::default()
-			};
-		}
-	}
-	MatchOutcome {
-		closest: Some(best),
-		fuzzy_matches: Some(result.above_threshold_count),
-		..MatchOutcome::default()
-	}
+			let gap = first.matched.confidence >= DOMINANT_FUZZY_MIN_CONFIDENCE
+				&& first.matched.confidence - second.matched.confidence >= DOMINANT_FUZZY_DELTA;
+			let band = ranked
+				.iter()
+				.filter(|candidate| candidate.errors <= 2 * fewest + 1)
+				.count() == 1
+				&& first.errors == fewest;
+			(gap || band).then(|| first.matched.clone())
+		},
+		_ => None,
+	};
+	(
+		MatchOutcome {
+			dominant_fuzzy: standout.is_some().then_some(true),
+			matched: standout,
+			closest: Some(best),
+			fuzzy_matches: Some(above_threshold_count),
+			occurrence_lines,
+			occurrence_previews,
+			..MatchOutcome::default()
+		},
+		ranks,
+	)
 }
 
 fn matches_at<T>(
@@ -661,35 +936,31 @@ fn run_sequence_passes(
 ) -> Option<SequenceSearchResult> {
 	let exact =
 		collect_indexed_matches(from, to, |index| matches_at(lines, pattern, index, |a, b| a == b));
-	if let Some(result) = sequence_result(&exact, 1.0, SequenceMatchStrategy::Exact, false) {
+	if let Some(result) = sequence_result(exact, 1.0, SequenceMatchStrategy::Exact) {
 		return Some(result);
 	}
 	let trailing = collect_indexed_matches(from, to, |index| {
 		matches_at(lines, pattern, index, |a, b| js_trim_end(a) == js_trim_end(b))
 	});
-	if let Some(result) =
-		sequence_result(&trailing, 0.99, SequenceMatchStrategy::TrimTrailing, false)
-	{
+	if let Some(result) = sequence_result(trailing, 0.99, SequenceMatchStrategy::TrimTrailing) {
 		return Some(result);
 	}
 	let trimmed = collect_indexed_matches(from, to, |index| {
 		matches_at(lines, pattern, index, |a, b| js_trim(a) == js_trim(b))
 	});
-	if let Some(result) = sequence_result(&trimmed, 0.98, SequenceMatchStrategy::Trim, false) {
+	if let Some(result) = sequence_result(trimmed, 0.98, SequenceMatchStrategy::Trim) {
 		return Some(result);
 	}
 	let comments = collect_indexed_matches(from, to, |index| {
 		matches_at(lines, pattern, index, |a, b| strip_comment_prefix(a) == strip_comment_prefix(b))
 	});
-	if let Some(result) =
-		sequence_result(&comments, 0.975, SequenceMatchStrategy::CommentPrefix, false)
-	{
+	if let Some(result) = sequence_result(comments, 0.975, SequenceMatchStrategy::CommentPrefix) {
 		return Some(result);
 	}
 	let unicode = collect_indexed_matches(from, to, |index| {
 		matches_at(lines, pattern, index, |a, b| normalize_unicode(a) == normalize_unicode(b))
 	});
-	if let Some(result) = sequence_result(&unicode, 0.97, SequenceMatchStrategy::Unicode, false) {
+	if let Some(result) = sequence_result(unicode, 0.97, SequenceMatchStrategy::Unicode) {
 		return Some(result);
 	}
 	if !allow_fuzzy {
@@ -698,13 +969,13 @@ fn run_sequence_passes(
 	let prefix = collect_indexed_matches(from, to, |index| {
 		matches_at(lines_normalized, pattern_normalized, index, |a, b| norm_starts_with(a, b))
 	});
-	if let Some(result) = sequence_result(&prefix, 0.965, SequenceMatchStrategy::Prefix, true) {
+	if let Some(result) = sequence_result(prefix, 0.965, SequenceMatchStrategy::Prefix) {
 		return Some(result);
 	}
 	let substring = collect_indexed_matches(from, to, |index| {
 		matches_at(lines_normalized, pattern_normalized, index, |a, b| norm_includes(a, b))
 	});
-	sequence_result(&substring, 0.94, SequenceMatchStrategy::Substring, true)
+	sequence_result(substring, 0.94, SequenceMatchStrategy::Substring)
 }
 
 /// Locate `pattern` lines through the exact-to-character fallback ladder.
@@ -715,25 +986,114 @@ pub fn seek_sequence(
 	eof: bool,
 	allow_fuzzy: bool,
 ) -> SequenceSearchResult {
+	seek_sequence_within(lines, pattern, start, lines.len(), eof, allow_fuzzy)
+}
+
+/// [`seek_sequence`] restricted to placements starting in `[start, end)`.
+///
+/// A scope such as an `@@` anchor's block is searched on its own, so a
+/// stricter-tier hit outside the scope cannot hide the scope's candidates.
+/// Every reported placement `index` satisfies `start <= index < end` and
+/// `index + pattern.len() <= lines.len()`; when no placement can start in
+/// the scope, no tier reports one. An empty pattern places at `start` when
+/// `start <= end`.
+pub fn seek_sequence_within(
+	lines: &[&str],
+	pattern: &[&str],
+	start: usize,
+	end: usize,
+	eof: bool,
+	allow_fuzzy: bool,
+) -> SequenceSearchResult {
 	if pattern.is_empty() {
+		if start > end {
+			return no_sequence_match(0.0, None);
+		}
 		return SequenceSearchResult {
 			index:         Some(start),
 			confidence:    1.0,
 			match_count:   None,
 			match_indices: None,
+			top_indices:   None,
 			strategy:      Some(SequenceMatchStrategy::Exact),
 		};
 	}
-	if pattern.len() > lines.len() {
+	if pattern.len() > lines.len() || end == 0 {
 		return no_sequence_match(0.0, None);
 	}
-	let max_start = lines.len() - pattern.len();
-	let search_start = if eof { max_start } else { start };
-	let lines_normalized: Vec<String> = lines.iter().map(|line| normalize_for_fuzzy(line)).collect();
-	let pattern_normalized: Vec<String> = pattern
-		.iter()
-		.map(|line| normalize_for_fuzzy(line))
-		.collect();
+	let last_start = lines.len() - pattern.len();
+	let max_start = last_start.min(end - 1);
+	if start > max_start {
+		return no_sequence_match(0.0, None);
+	}
+	// End-of-file placement only means something when the scope reaches it.
+	let eof = eof && max_start == last_start;
+	// Only the lines a placement in scope can cover are examined.
+	let mut result = seek_in_scope(
+		&lines[start..max_start + pattern.len()],
+		pattern,
+		max_start - start,
+		eof,
+		allow_fuzzy,
+	);
+	let shift = |indices: &mut Option<Vec<usize>>| {
+		for index in indices.iter_mut().flatten() {
+			*index += start;
+		}
+	};
+	result.index = result.index.map(|index| index + start);
+	shift(&mut result.match_indices);
+	shift(&mut result.top_indices);
+	result
+}
+
+/// Keep only locally best windows: a window is dropped when it overlaps a
+/// kept, strictly better one, so it is the same alignment shifted, not
+/// another occurrence (Navarro, ACM CSUR 33(1), 2001; Ukkonen 1993, "locally
+/// best approximate occurrences"). Greedy in score order, so a dropped window
+/// never suppresses anything, and equal scores never suppress each other.
+/// Returns the survivors by index, in O(k log k).
+fn locally_best(mut scored: Vec<(usize, f64)>, width: usize) -> Vec<(usize, f64)> {
+	scored.sort_by(|a, b| b.1.total_cmp(&a.1).then(a.0.cmp(&b.0)));
+	// Kept windows scoring strictly above the current score group.
+	let mut stronger = std::collections::BTreeSet::new();
+	let mut group = Vec::new();
+	let mut kept = Vec::new();
+	let mut current = None;
+	for (index, score) in scored {
+		if current != Some(score) {
+			stronger.extend(std::mem::take(&mut group));
+			current = Some(score);
+		}
+		let reach = index.saturating_sub(width - 1)..=index + (width - 1);
+		if stronger.range(reach).next().is_none() {
+			group.push(index);
+			kept.push((index, score));
+		}
+	}
+	kept.sort_by_key(|(index, _)| *index);
+	kept
+}
+
+/// The ladder over a scope whose first line is placement 0 and whose last
+/// possible placement is `max_start`.
+fn seek_in_scope(
+	lines: &[&str],
+	pattern: &[&str],
+	max_start: usize,
+	eof: bool,
+	allow_fuzzy: bool,
+) -> SequenceSearchResult {
+	let search_start = if eof { max_start } else { 0 };
+	let normalize = |items: &[&str]| -> Vec<String> {
+		if allow_fuzzy {
+			items.iter().map(|line| normalize_for_fuzzy(line)).collect()
+		} else {
+			Vec::new()
+		}
+	};
+	let lines_normalized = normalize(lines);
+	let pattern_normalized = normalize(pattern);
 	if let Some(result) = run_sequence_passes(
 		lines,
 		pattern,
@@ -745,12 +1105,11 @@ pub fn seek_sequence(
 	) {
 		return result;
 	}
-	if eof
-		&& search_start > start
+	if search_start > 0
 		&& let Some(result) = run_sequence_passes(
 			lines,
 			pattern,
-			start,
+			0,
 			max_start,
 			allow_fuzzy,
 			&lines_normalized,
@@ -762,50 +1121,47 @@ pub fn seek_sequence(
 		return no_sequence_match(0.0, None);
 	}
 
-	let mut best_score = 0.0;
-	let mut second_best_score = 0.0;
-	let mut best_index = None;
-	let mut fuzzy_matches = IndexedMatches::default();
-	let fuzzy_bail = SEQUENCE_FUZZY_THRESHOLD - DOMINANT_FUZZY_DELTA;
-	let mut score_range = |from: usize, to: usize| {
-		if from > to {
-			return;
-		}
-		for index in from..=to {
-			let score = fuzzy_score_at(&lines_normalized, &pattern_normalized, index, fuzzy_bail);
-			if score >= SEQUENCE_FUZZY_THRESHOLD {
-				fuzzy_matches.first_match.get_or_insert(index);
-				fuzzy_matches.match_count += 1;
-				if fuzzy_matches.match_indices.len() < MAX_RECORDED_MATCHES {
-					fuzzy_matches.match_indices.push(index);
-				}
-			}
-			if score > best_score {
-				second_best_score = best_score;
-				best_score = score;
-				best_index = Some(index);
-			} else if score > second_best_score {
-				second_best_score = score;
-			}
-		}
-	};
-	score_range(search_start, max_start);
-	if eof && search_start > start {
-		score_range(start, search_start - 1);
-	}
-	if let Some(index) = best_index.filter(|_| best_score >= SEQUENCE_FUZZY_THRESHOLD) {
-		let dominant = fuzzy_matches.match_count > 1
+	// Windows at or above the threshold, eof-first when anchored at EOF.
+	let scored: Vec<(usize, f64)> = (search_start..=max_start)
+		.chain(0..search_start)
+		.filter_map(|index| {
+			let score =
+				fuzzy_score_at(&lines_normalized, &pattern_normalized, index, SEQUENCE_FUZZY_THRESHOLD);
+			(score >= SEQUENCE_FUZZY_THRESHOLD).then_some((index, score))
+		})
+		.collect();
+	let survivors = locally_best(scored, pattern.len());
+	if !survivors.is_empty() {
+		let best_score = survivors
+			.iter()
+			.map(|(_, score)| *score)
+			.fold(0.0_f64, f64::max);
+		let top: Vec<usize> = survivors
+			.iter()
+			.filter(|(_, score)| *score == best_score)
+			.map(|(index, _)| *index)
+			.collect();
+		let second_best_score = survivors
+			.iter()
+			.map(|(_, score)| *score)
+			.filter(|score| *score < best_score)
+			.fold(0.0_f64, f64::max);
+		let index = top[0];
+		let dominant = survivors.len() > 1
+			&& top.len() == 1
 			&& best_score >= DOMINANT_FUZZY_MIN_CONFIDENCE
 			&& best_score - second_best_score >= DOMINANT_FUZZY_DELTA;
+		let indices: Vec<usize> = if dominant {
+			vec![index]
+		} else {
+			survivors.iter().map(|(index, _)| *index).collect()
+		};
 		return SequenceSearchResult {
 			index:         Some(index),
 			confidence:    best_score,
-			match_count:   Some(if dominant {
-				1
-			} else {
-				fuzzy_matches.match_count
-			}),
-			match_indices: Some(fuzzy_matches.match_indices),
+			match_count:   Some(indices.len()),
+			match_indices: Some(indices),
+			top_indices:   Some(if dominant { vec![index] } else { top }),
 			strategy:      Some(if dominant {
 				SequenceMatchStrategy::FuzzyDominant
 			} else {
@@ -815,27 +1171,67 @@ pub fn seek_sequence(
 	}
 
 	let pattern_text = pattern.join("\n");
-	let content_text = lines.get(start..).unwrap_or_default().join("\n");
-	let outcome = find_match(&content_text, &pattern_text, &FindMatchOptions {
-		allow_fuzzy:     true,
-		threshold:       Some(CHARACTER_MATCH_THRESHOLD),
-		excluded_ranges: &[],
-	});
-	if let Some(matched) = outcome.matched {
-		let line_index = start
-			+ content_text[..matched.start_index]
-				.bytes()
-				.filter(|byte| *byte == b'\n')
-				.count();
+	let content_text = lines.join("\n");
+	// Whole-line windows only: a byte-level hit inside a line is no placement
+	// of the pattern's lines.
+	let (outcome, ranks) = find_ranked_match(
+		&content_text,
+		&pattern_text,
+		&FindMatchOptions {
+			allow_fuzzy:     true,
+			threshold:       Some(CHARACTER_MATCH_THRESHOLD),
+			excluded_ranges: &[],
+		},
+		false,
+	);
+	let line_of = |byte: usize| content_text[..byte].bytes().filter(|b| *b == b'\n').count();
+	// `find_match` only returns a match that is unique or dominant.
+	if let Some(matched) = outcome.matched.as_ref()
+		&& line_of(matched.start_index) <= max_start
+	{
+		let line_index = line_of(matched.start_index);
 		return SequenceSearchResult {
 			index:         Some(line_index),
 			confidence:    matched.confidence,
-			match_count:   Some(outcome.occurrences.or(outcome.fuzzy_matches).unwrap_or(1)),
-			match_indices: None,
+			match_count:   Some(1),
+			match_indices: Some(vec![line_index]),
+			top_indices:   None,
 			strategy:      Some(SequenceMatchStrategy::Character),
 		};
 	}
-	no_sequence_match(best_score, outcome.occurrences.or(outcome.fuzzy_matches))
+	let Some(count) = outcome
+		.occurrences
+		.or(outcome.fuzzy_matches)
+		.filter(|count| *count > 1)
+	else {
+		return no_sequence_match(0.0, None);
+	};
+	let mut indices: Vec<usize> = outcome
+		.occurrence_lines
+		.unwrap_or_default()
+		.iter()
+		.map(|line| *line as usize - 1)
+		.filter(|index| *index <= max_start)
+		.collect();
+	indices.dedup();
+	// Fuzzy windows rank by score; a line hint may only choose among the best.
+	let best = ranks
+		.iter()
+		.map(|(_, score)| *score)
+		.fold(0.0_f64, f64::max);
+	let top = (!ranks.is_empty()).then(|| {
+		ranks
+			.iter()
+			.filter(|(_, score)| *score == best)
+			.map(|(index, _)| *index)
+			.collect()
+	});
+	SequenceSearchResult {
+		match_indices: Some(indices),
+		top_indices: top,
+		strategy: Some(SequenceMatchStrategy::Character),
+		..no_sequence_match(best, Some(count))
+	}
 }
 
 /// Best-scoring placement of `pattern` regardless of threshold.
@@ -882,45 +1278,50 @@ pub fn find_closest_sequence_match(
 	(best_index, best_score, SequenceMatchStrategy::Fuzzy)
 }
 
-/// Locate a single `@@ context` line at or after `start_from`.
-pub fn find_context_line(
+/// The accepting tier produces the source occurrence, not just a row.
+fn context_ladder(
 	lines: &[&str],
 	context: &str,
 	start_from: usize,
 	allow_fuzzy: bool,
 	skip_function_fallback: bool,
-) -> ContextLineResult {
+	function_fallback: bool,
+) -> ContextEvidence {
+	let evidence = |result: ContextLineResult| ContextEvidence {
+		occurrences: context_occurrences(lines, context, &result, function_fallback),
+		result,
+	};
 	if lines.is_empty() || start_from >= lines.len() {
-		return no_context_match(0.0);
+		return evidence(no_context_match(0.0));
 	}
 	let end = lines.len() - 1;
 	let trimmed_context = js_trim(context);
 	let exact = collect_indexed_matches(start_from, end, |index| lines[index] == context);
-	if let Some(result) = context_result(&exact, 1.0, ContextMatchStrategy::Exact) {
-		return result;
+	if let Some(result) = context_result(exact, 1.0, ContextMatchStrategy::Exact) {
+		return evidence(result);
 	}
 	let trimmed =
 		collect_indexed_matches(start_from, end, |index| js_trim(lines[index]) == trimmed_context);
-	if let Some(result) = context_result(&trimmed, 0.99, ContextMatchStrategy::Trim) {
-		return result;
+	if let Some(result) = context_result(trimmed, 0.99, ContextMatchStrategy::Trim) {
+		return evidence(result);
 	}
 	let normalized_context = normalize_unicode(context);
 	let unicode = collect_indexed_matches(start_from, end, |index| {
 		normalize_unicode(lines[index]) == normalized_context
 	});
-	if let Some(result) = context_result(&unicode, 0.98, ContextMatchStrategy::Unicode) {
-		return result;
+	if let Some(result) = context_result(unicode, 0.98, ContextMatchStrategy::Unicode) {
+		return evidence(result);
 	}
 	if !allow_fuzzy {
-		return no_context_match(0.0);
+		return evidence(no_context_match(0.0));
 	}
 	let context_normalized = normalize_for_fuzzy(context);
 	if !context_normalized.is_empty() {
 		let prefix = collect_indexed_matches(start_from, end, |index| {
 			normalize_for_fuzzy(lines[index]).starts_with(&context_normalized)
 		});
-		if let Some(result) = context_result(&prefix, 0.96, ContextMatchStrategy::Prefix) {
-			return result;
+		if let Some(result) = context_result(prefix, 0.96, ContextMatchStrategy::Prefix) {
+			return evidence(result);
 		}
 	}
 	if context_normalized.chars().count() >= PARTIAL_MATCH_MIN_LENGTH {
@@ -933,55 +1334,45 @@ pub fn find_context_line(
 					.then(|| (index, context_len as f64 / normalized.chars().count().max(1) as f64))
 			})
 			.collect();
-		let match_indices: Vec<usize> = all_substrings
-			.iter()
-			.take(MAX_RECORDED_MATCHES)
-			.map(|(index, _)| *index)
-			.collect();
-		if all_substrings.len() == 1 {
-			return ContextLineResult {
-				index:         Some(all_substrings[0].0),
-				confidence:    0.94,
-				match_count:   Some(1),
-				match_indices: Some(match_indices),
-				strategy:      Some(ContextMatchStrategy::Substring),
-			};
-		}
+		let all_indices: Vec<usize> = all_substrings.iter().map(|(index, _)| *index).collect();
 		let qualifying: Vec<usize> = all_substrings
 			.iter()
 			.filter_map(|(index, ratio)| (*ratio >= PARTIAL_MATCH_MIN_RATIO).then_some(*index))
 			.collect();
-		if let Some(&first) = qualifying.first() {
-			return ContextLineResult {
+		// Lines where the context is a substantial part count first; only when
+		// none qualifies do the weaker containments stand as candidates.
+		let candidates = if all_indices.len() == 1 || qualifying.is_empty() {
+			all_indices
+		} else {
+			qualifying
+		};
+		if let Some(&first) = candidates.first() {
+			return evidence(ContextLineResult {
 				index:         Some(first),
 				confidence:    0.94,
-				match_count:   Some(qualifying.len()),
-				match_indices: Some(match_indices),
+				match_count:   Some(candidates.len()),
+				match_indices: Some(candidates),
 				strategy:      Some(ContextMatchStrategy::Substring),
-			};
+			});
 		}
-		if all_substrings.len() > 1 {
-			return ContextLineResult {
-				index:         Some(all_substrings[0].0),
-				confidence:    0.94,
-				match_count:   Some(all_substrings.len()),
-				match_indices: Some(match_indices),
-				strategy:      Some(ContextMatchStrategy::Substring),
-			};
-		}
+	}
+	let case_rows = lines
+		.iter()
+		.enumerate()
+		.skip(start_from)
+		.filter_map(|(row, line)| anchor_case_eq(line, context).then_some(row))
+		.collect::<Vec<_>>();
+	if let Some(result) = context_result(case_rows, 1.0, ContextMatchStrategy::CaseFold) {
+		return evidence(result);
 	}
 
 	let mut best_index = None;
 	let mut best_score = 0.0;
-	let mut fuzzy_matches = IndexedMatches::default();
+	let mut fuzzy_matches = Vec::new();
 	for (index, &line) in lines.iter().enumerate().skip(start_from) {
 		let score = similarity(&normalize_for_fuzzy(line), &context_normalized);
 		if score >= CONTEXT_FUZZY_THRESHOLD {
-			fuzzy_matches.first_match.get_or_insert(index);
-			fuzzy_matches.match_count += 1;
-			if fuzzy_matches.match_indices.len() < MAX_RECORDED_MATCHES {
-				fuzzy_matches.match_indices.push(index);
-			}
+			fuzzy_matches.push(index);
 		}
 		if score > best_score {
 			best_score = score;
@@ -989,26 +1380,34 @@ pub fn find_context_line(
 		}
 	}
 	if let Some(index) = best_index.filter(|_| best_score >= CONTEXT_FUZZY_THRESHOLD) {
-		return ContextLineResult {
+		return evidence(ContextLineResult {
 			index:         Some(index),
 			confidence:    best_score,
-			match_count:   Some(fuzzy_matches.match_count),
-			match_indices: Some(fuzzy_matches.match_indices),
+			match_count:   Some(fuzzy_matches.len()),
+			match_indices: Some(fuzzy_matches),
 			strategy:      Some(ContextMatchStrategy::Fuzzy),
-		};
+		});
 	}
-	if !skip_function_fallback && trimmed_context.ends_with("()") {
-		let base = trimmed_context
-			.strip_suffix("()")
-			.unwrap_or(trimmed_context);
+	if !skip_function_fallback && let Some(base) = trimmed_context.strip_suffix("()") {
 		let with_paren = format!("{base}(");
-		let result = find_context_line(lines, &with_paren, start_from, allow_fuzzy, true);
-		if result.index.is_some() || result.match_count.unwrap_or(0) > 0 {
-			return result;
+		let found = context_ladder(lines, &with_paren, start_from, allow_fuzzy, true, true);
+		if found.result.index.is_some() {
+			return found;
 		}
-		return find_context_line(lines, base, start_from, allow_fuzzy, true);
+		return context_ladder(lines, base, start_from, allow_fuzzy, true, true);
 	}
-	no_context_match(best_score)
+	evidence(no_context_match(best_score))
+}
+
+/// Non-authorizing row-result adapter for public matcher callers.
+pub fn find_context_line(
+	lines: &[&str],
+	context: &str,
+	start_from: usize,
+	allow_fuzzy: bool,
+	skip_function_fallback: bool,
+) -> ContextLineResult {
+	context_ladder(lines, context, start_from, allow_fuzzy, skip_function_fallback, false).result
 }
 
 fn first_different_line<'a>(old_lines: &'a [&str], new_lines: &'a [&str]) -> (&'a str, &'a str) {
@@ -1026,12 +1425,12 @@ fn first_different_line<'a>(old_lines: &'a [&str], new_lines: &'a [&str]) -> (&'
 pub fn format_match_error(
 	path: &str,
 	search_text: &str,
-	closest: Option<&FuzzyMatch>,
+	outcome: &MatchOutcome,
 	allow_fuzzy: bool,
 	threshold: f64,
-	fuzzy_matches: Option<usize>,
 ) -> String {
-	let Some(closest) = closest else {
+	let fuzzy_matches = outcome.fuzzy_matches;
+	let Some(closest) = outcome.closest.as_ref() else {
 		return if allow_fuzzy {
 			format!("Could not find a close enough match in {path}.")
 		} else {
@@ -1049,8 +1448,9 @@ pub fn format_match_error(
 	let hint = if allow_fuzzy {
 		if fuzzy_matches.is_some_and(|count| count > 1) {
 			format!(
-				"Found {} high-confidence matches. Provide more context to make it unique.",
-				fuzzy_matches.unwrap_or(0)
+				"Found {} high-confidence matches. Provide more context to make it unique.{}",
+				fuzzy_matches.unwrap_or(0),
+				candidate_details(outcome, "fuzzy")
 			)
 		} else {
 			format!("Closest match was below the {threshold_percent}% similarity threshold.")
@@ -1072,22 +1472,106 @@ pub fn format_match_error(
 	)
 }
 
-/// Format `formatOccurrenceError` byte-for-byte.
-pub fn format_occurrence_error(path: &str, outcome: &MatchOutcome) -> String {
+/// Every candidate's start line and preview and the tier that matched them,
+/// so the model can disambiguate without re-reading (`OpenHands` lists every
+/// occurrence's line; SWE-agent, `NeurIPS` 2024, §2).
+pub(crate) fn candidate_details(outcome: &MatchOutcome, tier: &str) -> String {
+	let mut details = String::new();
+	if let Some(previews) = outcome
+		.occurrence_previews
+		.as_ref()
+		.filter(|items| !items.is_empty())
+	{
+		details.push_str("\n\n");
+		details.push_str(&previews.join("\n\n"));
+		details.push_str("\n\n");
+	} else {
+		details.push(' ');
+	}
+	if let Some(lines) = outcome
+		.occurrence_lines
+		.as_ref()
+		.filter(|lines| !lines.is_empty())
+	{
+		let _ = write!(details, "Candidates ({tier} match) start at lines {}.", line_list(lines));
+	}
+	if outcome.overlapping {
+		details.push_str(
+			" Some occurrences overlap, so replace_all would replace fewer of them than listed.",
+		);
+	}
+	details
+}
+
+/// Candidate lines listed in full before the rest are only counted.
+const LISTED_LINES: usize = 20;
+
+/// `1, 4 and 9`, collapsing repeats from placements that share a line, and
+/// counting the rest past [`LISTED_LINES`].
+pub(crate) fn line_list(lines: &[u32]) -> String {
+	let mut unique = lines.to_vec();
+	unique.dedup();
+	if unique.len() > LISTED_LINES {
+		let shown = unique[..LISTED_LINES]
+			.iter()
+			.map(u32::to_string)
+			.collect::<Vec<_>>()
+			.join(", ");
+		return format!("{shown} … and {} more", unique.len() - LISTED_LINES);
+	}
+	match unique.split_last() {
+		Some((last, rest)) if !rest.is_empty() => format!(
+			"{} and {last}",
+			rest
+				.iter()
+				.map(u32::to_string)
+				.collect::<Vec<_>>()
+				.join(", ")
+		),
+		Some((last, _)) => last.to_string(),
+		None => String::new(),
+	}
+}
+
+fn occurrence_error(location: &str, outcome: &MatchOutcome, replace_all_note: bool) -> String {
 	let occurrences = outcome.occurrences.unwrap_or(0);
 	let previews = outcome
 		.occurrence_previews
 		.as_ref()
 		.map_or_else(String::new, |items| items.join("\n\n"));
-	let more = if occurrences > MAX_RECORDED_MATCHES {
-		format!(" (showing first {MAX_RECORDED_MATCHES} of {occurrences})")
+	// Previews show each candidate line once, so the cap counts lines.
+	let mut distinct = outcome.occurrence_lines.clone().unwrap_or_default();
+	distinct.dedup();
+	let more = if distinct.len() > MAX_RECORDED_MATCHES {
+		format!(" (showing first {MAX_RECORDED_MATCHES} of {})", distinct.len())
 	} else {
 		String::new()
 	};
+	let lines = outcome
+		.occurrence_lines
+		.as_deref()
+		.map_or_else(String::new, |lines| {
+			format!(" Occurrences start at lines {}.", line_list(lines))
+		});
+	let overlap = if outcome.overlapping && replace_all_note {
+		" Some occurrences overlap, so replace_all would replace fewer of them than listed."
+	} else {
+		""
+	};
 	format!(
-		"Found {occurrences} occurrences in {path}{more}:\n\n{previews}\n\nAdd more context lines \
-		 to disambiguate."
+		"Found {occurrences} occurrences{location}{more}:\n\n{previews}\n\nAdd more context lines \
+		 to disambiguate.{lines}{overlap}"
 	)
+}
+
+/// Format the ambiguous-exact-text refusal for `path`.
+pub fn format_occurrence_error(path: &str, outcome: &MatchOutcome) -> String {
+	occurrence_error(&format!(" in {path}"), outcome, true)
+}
+
+/// [`format_occurrence_error`] for modes without `replace_all`.
+pub fn format_patch_occurrence_error(path: &str, outcome: &MatchOutcome) -> String {
+	occurrence_error(&format!(" in {path}"), outcome, false)
 }
 
 /// Result of [`replace_text`].
@@ -1095,30 +1579,6 @@ pub fn format_occurrence_error(path: &str, outcome: &MatchOutcome) -> String {
 pub struct ReplaceResult {
 	pub content: String,
 	pub count:   usize,
-}
-
-#[derive(Debug)]
-struct Replacement {
-	start: usize,
-	end:   usize,
-	text:  String,
-}
-
-fn pathless_occurrence_error(outcome: &MatchOutcome) -> String {
-	let occurrences = outcome.occurrences.unwrap_or(0);
-	let previews = outcome
-		.occurrence_previews
-		.as_ref()
-		.map_or_else(String::new, |items| items.join("\n\n"));
-	let more = if occurrences > MAX_RECORDED_MATCHES {
-		format!(" (showing first {MAX_RECORDED_MATCHES} of {occurrences})")
-	} else {
-		String::new()
-	};
-	format!(
-		"Found {occurrences} occurrences{more}:\n\n{previews}\n\nAdd more context lines to \
-		 disambiguate."
-	)
 }
 
 /// Find and replace text using the same exact/fuzzy behavior as `replaceText`.
@@ -1147,60 +1607,35 @@ pub fn replace_text(
 				count:   exact_count,
 			});
 		}
-		let mut replacements: Vec<Replacement> = Vec::new();
-		loop {
-			let excluded: Vec<ExcludedRange> = replacements
-				.iter()
-				.map(|replacement| ExcludedRange {
-					start_index: replacement.start,
-					end_index:   replacement.end,
-				})
-				.collect();
-			let outcome =
-				find_match(&normalized_content, normalized_old.as_ref(), &FindMatchOptions {
-					allow_fuzzy:     fuzzy,
-					threshold:       Some(threshold),
-					excluded_ranges: &excluded,
-				});
-			let should_use_closest = fuzzy
-				&& outcome
-					.closest
-					.as_ref()
-					.is_some_and(|matched| matched.confidence >= threshold)
-				&& outcome.fuzzy_matches.is_none_or(|count| count <= 1);
-			let matched = outcome
-				.matched
-				.or_else(|| should_use_closest.then_some(outcome.closest).flatten());
-			let Some(matched) = matched else {
-				break;
-			};
-			let adjusted = adjust_indentation(
-				normalized_old.as_ref(),
-				&matched.actual_text,
-				normalized_new.as_ref(),
-			);
-			if adjusted == matched.actual_text {
-				break;
-			}
-			replacements.push(Replacement {
-				start: matched.start_index,
-				// JavaScript's `substring` clamps this synthetic one-byte span
-				// when an empty fuzzy window lands at EOF.
-				end:   (matched.start_index + matched.actual_text.len().max(1))
-					.min(normalized_content.len()),
-				text:  adjusted,
-			});
+		// Without exact hits, `replace_all` edits at most one fuzzy window:
+		// several candidates are refused rather than each rewritten.
+		let outcome = find_match(&normalized_content, normalized_old.as_ref(), &FindMatchOptions {
+			allow_fuzzy:     fuzzy,
+			threshold:       Some(threshold),
+			excluded_ranges: &[],
+		});
+		if fuzzy && outcome.fuzzy_matches.is_some_and(|count| count > 1) {
+			return Err(EditError::apply(format!(
+				"Found {} high-confidence matches and no exact occurrence; replace_all does not apply \
+				 several fuzzy edits.{}",
+				outcome.fuzzy_matches.unwrap_or(0),
+				candidate_details(&outcome, "fuzzy")
+			)));
 		}
-		replacements.sort_by_key(|replacement| replacement.start);
-		let mut output = String::with_capacity(normalized_content.len());
-		let mut source_index = 0;
-		for replacement in &replacements {
-			output.push_str(&normalized_content[source_index..replacement.start]);
-			output.push_str(&replacement.text);
-			source_index = replacement.end;
+		let Some(matched) = outcome.matched else {
+			return Ok(ReplaceResult { content: normalized_content, count: 0 });
+		};
+		let adjusted =
+			adjust_indentation(normalized_old.as_ref(), &matched.actual_text, normalized_new.as_ref());
+		if adjusted == matched.actual_text {
+			return Ok(ReplaceResult { content: normalized_content, count: 0 });
 		}
-		output.push_str(&normalized_content[source_index..]);
-		return Ok(ReplaceResult { content: output, count: replacements.len() });
+		let end = matched.start_index + matched.actual_text.len();
+		let mut output = String::with_capacity(normalized_content.len() + adjusted.len());
+		output.push_str(&normalized_content[..matched.start_index]);
+		output.push_str(&adjusted);
+		output.push_str(&normalized_content[end..]);
+		return Ok(ReplaceResult { content: output, count: 1 });
 	}
 
 	let outcome = find_match(&normalized_content, normalized_old.as_ref(), &FindMatchOptions {
@@ -1209,7 +1644,7 @@ pub fn replace_text(
 		excluded_ranges: &[],
 	});
 	if outcome.occurrences.is_some_and(|count| count > 1) {
-		return Err(EditError::apply(pathless_occurrence_error(&outcome)));
+		return Err(EditError::apply(occurrence_error("", &outcome, true)));
 	}
 	let Some(matched) = outcome.matched else {
 		return Ok(ReplaceResult { content: normalized_content, count: 0 });
@@ -1232,17 +1667,40 @@ mod tests {
 		FindMatchOptions { allow_fuzzy, threshold: None, excluded_ranges: &[] }
 	}
 
+	/// Candidate previews never show a row past the last line, print each row
+	/// once where windows overlap or touch, and mark candidate rows.
+	#[test]
+	fn previews_merge_windows_and_stop_at_the_last_line() {
+		let lines = file_lines("x = 1\ny = 2\nx = 1\n").collect::<Vec<_>>();
+		assert_eq!(preview_windows(&lines, &[2, 0], 5, 2), [
+			">  1 | x = 1\n   2 | y = 2\n>  3 | x = 1"
+		]);
+		let lines = file_lines("a\nb\nc\nd\ne\nf\ng\n\n").collect::<Vec<_>>();
+		assert_eq!(preview_windows(&lines, &[0, 3], 5, 1), [
+			">  1 | a\n   2 | b\n   3 | c\n>  4 | d\n   5 | e"
+		]);
+		assert_eq!(preview_windows(&lines, &[0, 6], 5, 1), [
+			">  1 | a\n   2 | b",
+			"   6 | f\n>  7 | g\n   8 | "
+		]);
+	}
+
 	#[test]
 	fn exact_match_and_multiple_occurrences() {
 		let found = find_match("line1\nline2\nline3", "line2", &options(false));
 		assert_eq!(found.matched.as_ref().map(|matched| matched.start_line), Some(2));
 		assert_eq!(found.matched.as_ref().map(|matched| matched.confidence), Some(1.0));
 
-		let multiple = find_match("foo\nbar\nfoo", "foo", &options(false));
+		let multiple = find_match("foo\nbar\nfoo\n", "foo", &options(false));
 		assert!(multiple.matched.is_none());
 		assert_eq!(multiple.occurrences, Some(2));
 		assert_eq!(multiple.occurrence_lines, Some(vec![1, 3]));
-		assert_eq!(multiple.occurrence_previews.as_ref().map(Vec::len), Some(2));
+		// Windows that overlap merge into one block, each row printed once,
+		// with both candidate rows marked and no row past the last line.
+		assert_eq!(
+			multiple.occurrence_previews,
+			Some(vec![">  1 | foo\n   2 | bar\n>  3 | foo".to_owned()])
+		);
 	}
 
 	#[test]
@@ -1377,7 +1835,8 @@ mod tests {
 			.strategy,
 			Some(SequenceMatchStrategy::Unicode)
 		);
-		assert_eq!(seek_sequence(&["foo", "bar"], &[], 5, false, true).index, Some(5));
+		assert_eq!(seek_sequence(&["foo", "bar"], &[], 1, false, true).index, Some(1));
+		assert_eq!(seek_sequence(&["foo", "bar"], &[], 5, false, true).index, None);
 		assert_eq!(seek_sequence(&["one"], &["too", "many"], 0, false, true).index, None);
 		let minor = seek_sequence(
 			&["function greet() {", "  console.log(\"Hello!\");", "}"],
@@ -1462,51 +1921,35 @@ mod tests {
 
 	#[test]
 	fn match_error_matches_typescript_formatter() {
-		let closest = FuzzyMatch {
-			actual_text: "alpha\ngamma".to_owned(),
-			start_index: 10,
-			start_line:  4,
-			confidence:  0.874,
+		let closest = MatchOutcome {
+			closest: Some(FuzzyMatch {
+				actual_text: "alpha\ngamma".to_owned(),
+				start_index: 10,
+				start_line:  4,
+				confidence:  0.874,
+			}),
+			..MatchOutcome::default()
 		};
+		let missing = MatchOutcome::default();
 		assert_eq!(
-			format_match_error("src/a.ts", "alpha\nbeta", Some(&closest), true, 0.95, None),
+			format_match_error("src/a.ts", "alpha\nbeta", &closest, true, 0.95),
 			"Could not find a close enough match in src/a.ts.\n\nClosest match (87% similar) at line \
 			 4:\n  - beta\n  + gamma\nClosest match was below the 95% similarity threshold."
 		);
 		assert_eq!(
-			format_match_error("src/a.ts", "x", None, false, 0.95, None),
+			format_match_error("src/a.ts", "x", &missing, false, 0.95),
 			"Could not find the exact text in src/a.ts. The old text must match exactly including \
 			 all whitespace and newlines."
 		);
 		assert_eq!(
-			format_match_error("src/a.ts", "alpha\nbeta", Some(&closest), true, 0.95, Some(3)),
-			"Could not find a close enough match in src/a.ts.\n\nClosest match (87% similar) at line \
-			 4:\n  - beta\n  + gamma\nFound 3 high-confidence matches. Provide more context to make \
-			 it unique."
-		);
-		assert_eq!(
-			format_match_error("src/a.ts", "alpha\nbeta", Some(&closest), false, 0.95, None),
+			format_match_error("src/a.ts", "alpha\nbeta", &closest, false, 0.95),
 			"Could not find the exact text in src/a.ts.\n\nClosest match (87% similar) at line 4:\n  \
 			 - beta\n  + gamma\nFuzzy matching is disabled. Enable 'Edit fuzzy match' in settings to \
 			 accept high-confidence matches."
 		);
 		assert_eq!(
-			format_match_error("src/a.ts", "x", None, true, 0.95, None),
+			format_match_error("src/a.ts", "x", &missing, true, 0.95),
 			"Could not find a close enough match in src/a.ts."
-		);
-	}
-
-	#[test]
-	fn occurrence_error_includes_preview_limit_suffix() {
-		let outcome = MatchOutcome {
-			occurrences: Some(7),
-			occurrence_previews: Some(vec!["preview".to_owned()]),
-			..MatchOutcome::default()
-		};
-		assert_eq!(
-			format_occurrence_error("a.ts", &outcome),
-			"Found 7 occurrences in a.ts (showing first 5 of 7):\n\npreview\n\nAdd more context \
-			 lines to disambiguate."
 		);
 	}
 
@@ -1541,10 +1984,12 @@ mod tests {
 		let first = format!("{}b", "a".repeat(49));
 		let second = format!("{}cccccc", "a".repeat(44));
 		let new = format!("{old}\nexpanded");
-		assert_eq!(
-			replace_text(&format!("{first}\n{second}"), &old, &new, true, true, Some(0.8)).unwrap(),
-			ReplaceResult { content: format!("{new}\n{new}"), count: 2 }
-		);
+		// Two fuzzy windows and no exact occurrence: nothing is rewritten, and
+		// the refusal names both windows.
+		let error = replace_text(&format!("{first}\n{second}"), &old, &new, true, true, Some(0.8))
+			.unwrap_err()
+			.to_string();
+		assert!(error.contains("start at lines 1 and 2"), "{error}");
 	}
 
 	#[test]

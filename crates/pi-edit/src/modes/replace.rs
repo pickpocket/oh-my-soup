@@ -44,10 +44,12 @@ impl ReplaceEngine {
 			replace_all,
 			Some(self.fuzzy_threshold),
 		);
-		if let Ok(result) = result
-			&& result.count > 0
-		{
-			return Ok(result);
+		match result {
+			Ok(result) if result.count > 0 => return Ok(result),
+			// Only `replace_all` refuses inside the matcher (several fuzzy
+			// candidates); its message already lists them.
+			Err(error) if replace_all => return Err(error),
+			_ => {},
 		}
 
 		let outcome = find_match(content, old_string, &FindMatchOptions {
@@ -61,10 +63,9 @@ impl ReplaceEngine {
 		Err(EditError::matched(format_match_error(
 			path,
 			old_string,
-			outcome.closest.as_ref(),
+			&outcome,
 			self.allow_fuzzy,
 			self.fuzzy_threshold,
-			outcome.fuzzy_matches,
 		)))
 	}
 

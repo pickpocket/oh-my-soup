@@ -91,6 +91,16 @@ const targets: BinaryTarget[] = [
 		target: "bun-windows-x64-modern",
 		outfile: "packages/coding-agent/binaries/oms-windows-x64-modern.exe",
 	},
+	// Bun cross-compiles the native ARM64 build on Linux; the addon comes from
+	// the native_addons_cross bazel build, and CI smokes the binary on real
+	// Windows ARM64 hardware before publishing.
+	{
+		id: "win32-arm64",
+		platform: "win32",
+		arch: "arm64",
+		target: "bun-windows-arm64",
+		outfile: "packages/coding-agent/binaries/oms-windows-arm64.exe",
+	},
 ];
 
 function parseRequestedTargets(): Set<string> | null {

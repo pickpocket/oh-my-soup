@@ -629,6 +629,7 @@ jobs:
                 scripts/musl-release.test.ts \
                 scripts/install.test.ts \
                 scripts/ci-release-publish.test.ts \
+                scripts/ci-release-build-binaries.test.ts \
                 scripts/bazel-crate-features.test.ts
 
    test_coding_agent_singleton:

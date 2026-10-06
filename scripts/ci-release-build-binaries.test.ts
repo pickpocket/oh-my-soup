@@ -8,8 +8,8 @@ import { compileCodingAgent } from "../packages/coding-agent/scripts/compile-bin
 const repoRoot = path.join(import.meta.dir, "..");
 
 describe("Windows release binary target", () => {
-	it("builds baseline and modern Windows release assets from the win32-x64 id", async () => {
-		const result = await $`bun scripts/ci-release-build-binaries.ts --dry-run --targets win32-x64`
+	it("builds baseline, modern, and ARM64 Windows release assets", async () => {
+		const result = await $`bun scripts/ci-release-build-binaries.ts --dry-run --targets win32-x64,win32-arm64`
 			.cwd(repoRoot)
 			.quiet()
 			.nothrow();
@@ -27,10 +27,15 @@ describe("Windows release binary target", () => {
 		expect(output).toContain(
 			"DRY RUN Bun.build target=bun-windows-x64-modern outfile=packages/coding-agent/binaries/oms-windows-x64-modern.exe",
 		);
+		// ARM64 is its own release target with the native ARM64 runtime.
+		expect(output).toContain("Building packages/coding-agent/binaries/oms-windows-arm64.exe...");
+		expect(output).toContain(
+			"DRY RUN Bun.build target=bun-windows-arm64 outfile=packages/coding-agent/binaries/oms-windows-arm64.exe",
+		);
 		expect(output).toContain("external=fastembed,onnxruntime-node");
 	});
 
-	it("uses the baseline runtime for local Windows cross-build aliases", () => {
+	it("resolves local Windows cross-build aliases for both architectures", () => {
 		expect(resolveCrossBuild("win32-x64")).toEqual({
 			id: "win32-x64",
 			platform: "win32",
@@ -42,6 +47,18 @@ describe("Windows release binary target", () => {
 			platform: "win32",
 			arch: "x64",
 			target: "bun-windows-x64-baseline",
+		});
+		expect(resolveCrossBuild("win32-arm64")).toEqual({
+			id: "win32-arm64",
+			platform: "win32",
+			arch: "arm64",
+			target: "bun-windows-arm64",
+		});
+		expect(resolveCrossBuild("windows-arm64")).toEqual({
+			id: "windows-arm64",
+			platform: "win32",
+			arch: "arm64",
+			target: "bun-windows-arm64",
 		});
 	});
 });

@@ -14,6 +14,7 @@
 
 ### Fixed
 
+- Restored Camoufox-backed search fallback and late-abort cleanup after upstream merges, and repaired cached custom llama.cpp models with their backend's reasoning policy.
 - Existing provider and model preferences now migrate to model roles and retry fallback chains instead of being lost when loading older configuration.
 - Replace mode refuses overlapping matches instead of editing one of them, and lists the candidate lines.
 - Patch mode refuses repeated context instead of editing one of the matching places, and lists the candidate lines with suggested `@@` anchors.

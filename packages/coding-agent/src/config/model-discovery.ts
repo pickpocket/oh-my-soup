@@ -636,19 +636,22 @@ function isBonsaiQwenGguf(id: string): boolean {
  */
 export function applyLlamaCppQwenThinking(model: Model<Api>): Model<Api> {
 	if (model.identity.class !== "qwen" && !isBonsaiQwenGguf(model.id)) return model;
-	return buildModel({
-		...model,
-		api: "openai-completions",
-		baseUrl: model.transport ? model.baseUrl : ensureLlamaCppV1BaseUrl(normalizeLlamaCppBaseUrl(model.baseUrl)),
-		reasoning: true,
-		compat: {
-			...model.compatConfig,
-			supportsReasoningParams: true,
-			thinkingFormat: "qwen-chat-template",
-			reasoningDisableMode: "qwen-template-false",
-			qwenPreserveThinking: true,
-		},
-	} as unknown as ModelSpec<Api>);
+	return buildDiscoveredModel(
+		{
+			...model,
+			api: "openai-completions",
+			baseUrl: model.transport ? model.baseUrl : ensureLlamaCppV1BaseUrl(normalizeLlamaCppBaseUrl(model.baseUrl)),
+			reasoning: true,
+			compat: {
+				...model.compatConfig,
+				supportsReasoningParams: true,
+				thinkingFormat: "qwen-chat-template",
+				reasoningDisableMode: "qwen-template-false",
+				qwenPreserveThinking: true,
+			},
+		} as ModelSpec<Api>,
+		"llama.cpp",
+	);
 }
 export async function discoverLlamaCppModels(
 	providerConfig: DiscoveryProviderConfig,

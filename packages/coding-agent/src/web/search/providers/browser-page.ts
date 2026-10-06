@@ -1,8 +1,7 @@
 import type { FetchImpl } from "@oh-my-soup/pi-ai";
-import { getProjectDir, untilAborted } from "@oh-my-soup/pi-utils";
-import type { Page } from "puppeteer-core";
-import { applyStealthPatches, applyViewport } from "../../../tools/browser/launch";
-import { acquireBrowser, holdBrowser, releaseBrowser } from "../../../tools/browser/registry";
+import { untilAborted } from "@oh-my-soup/pi-utils";
+import type { Browser, Page } from "puppeteer-core";
+import { adoptInitialPage, launchCamoufoxBrowser, loadPuppeteer } from "../../../tools/browser/launch";
 import { runInSearchBrowserSession } from "../../../tools/browser/search-session";
 import { buildBrowserNavigationHeaders } from "./browser-headers";
 import { SEARCH_HARD_TIMEOUT_MS } from "./utils";
@@ -116,33 +115,35 @@ async function browseHtmlPage(
 		);
 	}
 
-	const handle = await untilAborted(signal, () =>
-		acquireBrowser(
-			{ kind: "headless", headless: true },
-			{
-				cwd: getProjectDir(),
-				signal,
-			},
-		),
-	);
-	if (!("browser" in handle)) {
-		await releaseBrowser(handle, { kill: false });
-		throw new Error("Headless browser acquisition returned a non-Puppeteer browser");
-	}
-
-	holdBrowser(handle);
+	const puppeteer = await untilAborted(signal, () => loadPuppeteer());
+	let browser: Browser | undefined;
 	let page: Page | undefined;
+	let claimed = false;
 	try {
-		const activePage = await untilAborted(signal, () => handle.browser.newPage());
-		page = activePage;
-		await untilAborted(signal, () => applyViewport(activePage));
-		await untilAborted(signal, () => applyStealthPatches(handle.browser, activePage, handle.stealth));
-		return await navigateBrowserPage(activePage, true, url, options, signal, timeoutMs);
+		const launch = launchCamoufoxBrowser(puppeteer, { headless: true });
+		// Cancellation cannot stop Puppeteer's launch; reap an unclaimed browser
+		// that arrives after abort instead of leaking its process.
+		void launch.then(
+			async lateBrowser => {
+				if (!claimed && signal.aborted) {
+					await untilAborted(AbortSignal.timeout(PAGE_CLOSE_TIMEOUT_MS), () => lateBrowser.close()).catch(
+						() => undefined,
+					);
+				}
+			},
+			() => undefined,
+		);
+		browser = await untilAborted(signal, () => launch);
+		claimed = true;
+		page = await untilAborted(signal, () => adoptInitialPage(browser!));
+		return await navigateBrowserPage(page, true, url, options, signal, timeoutMs);
 	} finally {
 		if (page) {
 			await untilAborted(AbortSignal.timeout(PAGE_CLOSE_TIMEOUT_MS), () => page!.close()).catch(() => undefined);
 		}
-		await releaseBrowser(handle, { kill: false });
+		if (browser) {
+			await untilAborted(AbortSignal.timeout(PAGE_CLOSE_TIMEOUT_MS), () => browser!.close()).catch(() => undefined);
+		}
 	}
 }
 

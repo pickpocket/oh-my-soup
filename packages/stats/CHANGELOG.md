@@ -2,9 +2,16 @@
 
 ## [Unreleased]
 
+## [18.4.5] - 2026-10-06
+
+### Changed
+
+- The session-sync worker re-enters the host CLI entry (`workerHostEntry()` + `__omp_stats_sync_worker` argv selector) when running inside omp — source, npm bundle, or compiled binary — and keeps loading its own `sync-worker.ts` module directly for standalone `oms-stats`, bun test, and SDK hosts
+
 ### Fixed
 
 - Fixed the `oms stats` dashboard title and guidance showing the upstream `omp` name.
+
 ## [18.4.4] - 2026-09-29
 
 ### Added
@@ -312,7 +319,6 @@
 
 - Bundled-model lookups (`getBundledModel`, `GeneratedProvider`) now import from the new `@oh-my-soup/pi-catalog` package instead of the `@oh-my-soup/pi-ai` barrel, which no longer re-exports catalog values
 - The session-sync worker re-enters the host CLI entry (`workerHostEntry()` + `__oms_stats_sync_worker` argv selector) when running inside oms — source, npm bundle, or compiled binary — and keeps loading its own `sync-worker.ts` module directly for standalone `oms-stats`, bun test, and SDK hosts
-- The session-sync worker re-enters the host CLI entry (`workerHostEntry()` + `__omp_stats_sync_worker` argv selector) when running inside omp — source, npm bundle, or compiled binary — and keeps loading its own `sync-worker.ts` module directly for standalone `oms-stats`, bun test, and SDK hosts
 
 ## [15.1.6] - 2026-05-19
 

@@ -2,11 +2,12 @@
 
 ## [Unreleased]
 
-## [18.3.0] - 2026-09-20
+## [18.4.5] - 2026-10-06
 
-### Changed
+### Added
 
-- Changed outbound User-Agent consumers to share the versioned `USER_AGENT` constant (`oms/<version>`).
+- Added `getBrowserProfilesDir()` (`~/.oms/browser-profiles`; XDG: `$XDG_STATE_HOME/omp/browser-profiles`) for profiles of Chromium browsers spawned by the browser tool.
+
 ## [18.4.4] - 2026-09-29
 
 ### Added
@@ -45,6 +46,12 @@
 ### Fixed
 
 - Fixed log rotation near local-day boundaries so dated log files are consistently assigned to the correct local date.
+
+## [18.3.0] - 2026-09-20
+
+### Changed
+
+- Changed outbound User-Agent consumers to share the versioned `USER_AGENT` constant (`oms/<version>`).
 
 ## [18.2.7] - 2026-09-21
 
@@ -136,7 +143,6 @@
 ### Added
 
 - Added `getBrowserProfilesDir()` (`~/.oms/browser-profiles`; XDG: `$XDG_STATE_HOME/oms/browser-profiles`) for profiles of Chromium browsers spawned by the browser tool.
-- Added `getBrowserProfilesDir()` (`~/.oms/browser-profiles`; XDG: `$XDG_STATE_HOME/omp/browser-profiles`) for profiles of Chromium browsers spawned by the browser tool.
 
 ### Fixed
 

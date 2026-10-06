@@ -2,12 +2,14 @@
 
 ## [Unreleased]
 
-## [18.3.0] - 2026-09-20
+## [18.4.5] - 2026-10-06
 
-### Fixed
+### Changed
 
-- Coalesced pending terminal paints while stdout is backpressured, keeping input responsive and preserving the latest frame, forced redraws, and resize state until output drains.
-- Stopped assuming Kitty graphics support from `TERM=screen*` or `TERM=tmux*`; unknown terminals use text image fallbacks unless a recognized terminal profile or explicit protocol override provides support.
+- Changed notification suppression environment variable from `OMP_NOTIFICATIONS` to `PI_NOTIFICATIONS`
+- Changed TUI write log environment variable from `OMP_TUI_WRITE_LOG` to `PI_TUI_WRITE_LOG`
+- Changed hardware cursor environment variable from `OMP_HARDWARE_CURSOR` to `PI_HARDWARE_CURSOR`
+
 ## [18.4.4] - 2026-09-29
 
 ### Added
@@ -163,6 +165,13 @@
 - Fixed dimmed blockquote styling after inline code spans.
 - Fixed rendering of tool calls and results for top-level extension and MCP tools invoked through `xd://` links.
 - Fixed file links in pending Read and Write cards so they open the correct local targets, including paths in the home directory, archives, and databases.
+
+## [18.3.0] - 2026-09-20
+
+### Fixed
+
+- Coalesced pending terminal paints while stdout is backpressured, keeping input responsive and preserving the latest frame, forced redraws, and resize state until output drains.
+- Stopped assuming Kitty graphics support from `TERM=screen*` or `TERM=tmux*`; unknown terminals use text image fallbacks unless a recognized terminal profile or explicit protocol override provides support.
 
 ## [18.3.0] - 2026-09-24
 
@@ -2225,9 +2234,6 @@
 - Changed notification suppression environment variable from `OMS_NOTIFICATIONS` to `PI_NOTIFICATIONS`
 - Changed TUI write log environment variable from `OMS_TUI_WRITE_LOG` to `PI_TUI_WRITE_LOG`
 - Changed hardware cursor environment variable from `OMS_HARDWARE_CURSOR` to `PI_HARDWARE_CURSOR`
-- Changed notification suppression environment variable from `OMP_NOTIFICATIONS` to `PI_NOTIFICATIONS`
-- Changed TUI write log environment variable from `OMP_TUI_WRITE_LOG` to `PI_TUI_WRITE_LOG`
-- Changed hardware cursor environment variable from `OMP_HARDWARE_CURSOR` to `PI_HARDWARE_CURSOR`
 - Updated environment variable access to use `getEnv()` utility function from `@oh-my-soup/pi-utils` for consistent handling
 - Renamed `TERMINAL_INFO` export to `TERMINAL` for clearer API semantics
 - Reorganized terminal image exports from `terminal-image` to `terminal-capabilities` module

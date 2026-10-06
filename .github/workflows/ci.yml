@@ -256,25 +256,25 @@ jobs:
 
    # Provides the linux-x64 addon pair every downstream TS job installs.
    #
-   # PRs never build. They restore the pair main built for the same native
-   # sources from actions/cache (key = hash of every native build input, the
-   # same file set as the bazel-cache action's config+source hashes). With no
-   # exact entry (the PR changes native inputs, or main has not built this
-   # state yet) they take main's newest entry, and with no entry at all the
-   # latest npm release. The workspace loader skips its version sentinel for
-   # workspace loads, so any of these load under a newer checkout. Testing
-   # against main's build instead of the last release keeps merged-but-
-   # unreleased native fixes from failing every PR that did not touch Rust
-   # (a merged grep fix plus its TS test failed 75 PR runs against the
-   # 18.3.1 addon). Only main saves; see the save step for why.
+   # PRs restore the pair main built for the same native sources from
+   # actions/cache (key = hash of every native build input, the same file
+   # set as the bazel-cache action's config+source hashes). With no exact
+   # entry (the PR changes native inputs, or main has not built this state
+   # yet) they take main's newest entry; with no entry at all they build the
+   # pair like main (this fork publishes no npm addon leaves to fall back
+   # on). The workspace loader skips its version sentinel for workspace
+   # loads, so any of these load under a newer checkout. Testing against
+   # main's build instead of the last release keeps merged-but-unreleased
+   # native fixes from failing every PR that did not touch Rust (a merged
+   # grep fix plus its TS test failed 75 PR runs against the 18.3.1 addon).
+   # Only main saves; see the save step for why.
    #
-   # Main (kata, cluster remote cache) builds only the pair here so the TS
-   # fan-out starts as soon as it links; native_addons_cross builds the other
-   # Linux-hosted targets in parallel. Job name says "bazel" for continuity
-   # with required checks.
+   # Main builds only the pair here so the TS fan-out starts as soon as it
+   # links; native_addons_cross builds the other Linux-hosted targets in
+   # parallel. Job name says "bazel" for continuity with required checks.
    native_addons:
       name: Build native addons (bazel)
-      runs-on: ${{ github.event_name == 'pull_request' && 'ubuntu-22.04' || 'oms-kata' }}
+      runs-on: ${{ vars.OMS_CI_RUNNER || 'ubuntu-22.04' }}
       # actions: write lets main prune superseded addon cache entries.
       permissions:
          contents: read
@@ -296,7 +296,7 @@ jobs:
               echo "prefix=natives-linux-x64-v1-" >> "$GITHUB_OUTPUT"
               echo "key=natives-linux-x64-v1-$NATIVE_INPUTS_HASH" >> "$GITHUB_OUTPUT"
 
-         # ---- PR path: main-built addons from actions/cache, else npm ----
+         # ---- PR path: main-built addons from actions/cache ----
          # `ci-natives` is a plain workspace-relative path on purpose: the
          # cache version hashes the literal path list, so kata (save) and
          # hosted (restore) must spell it identically, and upload-artifact
@@ -310,17 +310,6 @@ jobs:
               key: ${{ steps.natives-key.outputs.key }}
               restore-keys: |
                  ${{ steps.natives-key.outputs.prefix }}
-         - name: Fetch release native addons (npm)
-           if: github.event_name == 'pull_request' && steps.natives-cache.outputs.cache-matched-key == ''
-           shell: bash
-           run: |
-              set -euo pipefail
-              tarball="$(npm view @oh-my-soup/pi-natives-linux-x64@latest dist.tarball)"
-              echo "Fetching $tarball"
-              curl -fsSL --retry 3 "$tarball" | tar -xz -C "$RUNNER_TEMP"
-              mkdir -p ci-natives/natives-linux-x64-baseline ci-natives/natives-linux-x64-modern
-              cp "$RUNNER_TEMP/package/pi_natives.linux-x64-baseline.node" ci-natives/natives-linux-x64-baseline/
-              cp "$RUNNER_TEMP/package/pi_natives.linux-x64-modern.node" ci-natives/natives-linux-x64-modern/
          # Make the addon source visible whenever it is not source-matched,
          # instead of leaving a reviewer to wonder which addons the tests ran.
          - name: Report native addon source
@@ -335,17 +324,17 @@ jobs:
               elif [ -n "$MATCHED" ]; then
                 echo "::notice title=Native addons not source-matched::No main build matches this PR's native sources; testing against main's newest addon build ($MATCHED). Native changes are validated post-merge on main and at release."
               else
-                echo "::notice title=Native addons from npm::No main-built addon cache entry is available; testing against the latest npm release addons."
+                echo "::notice title=Native addons built from source::No main-built addon cache entry is available; building the linux-x64 pair with bazel."
               fi
 
-         # ---- main path: bazel build of the linux-x64 pair ----
+         # ---- build path (main, or a PR without a main-built entry): bazel build of the linux-x64 pair ----
          - id: cache
-           if: github.event_name != 'pull_request'
+           if: github.event_name != 'pull_request' || steps.natives-cache.outputs.cache-matched-key == ''
            uses: ./.github/actions/bazel-cache
            with:
               scope: linux
          - name: Build linux-x64 native addons
-           if: github.event_name != 'pull_request'
+           if: github.event_name != 'pull_request' || steps.natives-cache.outputs.cache-matched-key == ''
            run: |
               set -eo pipefail
               if [ "$(ulimit -Sn)" != unlimited ] && [ "$(ulimit -Sn)" -lt 65536 ]; then ulimit -Sn 65536 || true; fi
@@ -368,7 +357,7 @@ jobs:
          # thousands of actions is the failure mode that made CI slow — make
          # it visible in the run summary instead of discovering it weeks in.
          - name: Report bazel cache stats
-           if: github.event_name != 'pull_request'
+           if: github.event_name != 'pull_request' || steps.natives-cache.outputs.cache-matched-key == ''
            shell: bash
            run: |
               # Bazel runs with --color=yes (config=ci); strip ANSI before
@@ -502,7 +491,7 @@ jobs:
    native_addons_cross:
       name: Build native addons (bazel, cross targets)
       if: github.event_name != 'pull_request'
-      runs-on: oms-kata
+      runs-on: ${{ vars.OMS_CI_RUNNER || 'ubuntu-22.04' }}
       steps:
          - uses: actions/checkout@v4
          - id: cache
@@ -568,16 +557,12 @@ jobs:
 
    test_coding_agent_native:
       name: "Test coding-agent native/unit (TS) ${{ matrix.shard }}"
-      runs-on: ${{ github.event_name == 'pull_request' && 'ubuntu-22.04' || 'oms-kata' }}
+      runs-on: ${{ vars.OMS_CI_RUNNER || 'ubuntu-22.04' }}
       needs: [native_addons]
       if: ${{ !cancelled() && needs.native_addons.result == 'success' }}
       timeout-minutes: 25
-      # The longest PR job, so it runs as three shards on hosted PR runners
-      # (two left the slower shard ~25 s behind every other job). Main keeps
-      # one: oms-kata caps at 8 runners and the fan-out already fills it.
-      # Declared first among the test jobs: when the 8-runner pool is full
-      # the longest bucket should not be the one left queued (probe run
-      # 36238796966 queued it 1.9 min behind the shorter buckets).
+      # The longest PR job, so PRs split it into three shards (two left the
+      # slower shard ~25 s behind every other job); main runs one.
       # No required check keys on this job name (branch protection and
       # rulesets are off for main/omp2), so the per-shard names are safe.
       strategy:
@@ -762,8 +747,7 @@ jobs:
    # with the test fan-out; the needs are the two native_addons jobs, whose
    # artifacts supply their addons. Native-host builds live in
    # release_binary_hosted and start at release_metadata time instead.
-   # Publishing (npm leaves, GitHub release, core npm) is gated on
-   # release_gate downstream.
+   # Publishing (GitHub release) is gated on release_gate downstream.
    release_binary:
       name: "Release binary: ${{ matrix.target_id }}"
       if: ${{ needs.release_metadata.outputs.is-release == 'true' && !cancelled() &&
@@ -989,16 +973,6 @@ jobs:
               runtime_dir="$(mktemp -d)"
               HOME="$runtime_dir/home" XDG_DATA_HOME="$runtime_dir/xdg" "${{ matrix.binary_path }}" --version
               HOME="$runtime_dir/home" XDG_DATA_HOME="$runtime_dir/xdg" "${{ matrix.binary_path }}" --smoke-test
-         # Native-host addons exist only on these runners; export them so
-         # release_native_leaves can publish every leaf package after the
-         # validation gate. Other leaves reuse the native_addons artifacts.
-         - name: Upload native-host addon artifact
-           uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-           with:
-              name: native-addons-${{ matrix.target_id }}
-              path: packages/natives/native/pi_natives.${{ matrix.target_id }}*.node
-              if-no-files-found: error
-              retention-days: 1
          - name: Upload release binary artifact
            uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
            with:
@@ -1043,106 +1017,6 @@ jobs:
               & "packages/coding-agent/binaries/oms-windows-arm64.exe" --smoke-test
               if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-   # Publishes the six @oh-my-soup/pi-natives-<tag> leaf packages once
-   # validation passes and every binary built. Runs on one linux runner: leaf
-   # publishing is platform-agnostic file packaging (gen-npm-packages reads
-   # packages/natives/native), so no per-platform runners are needed.
-   release_native_leaves:
-      name: Publish native leaf packages
-      if: ${{ needs.release_metadata.outputs.is-release == 'true' && !cancelled() &&
-         needs.release_gate.result == 'success' &&
-         needs.release_binary.result == 'success' &&
-         needs.release_binary_hosted.result == 'success' &&
-         needs.release_smoke_win32_arm64.result == 'success' &&
-         !inputs.skip_npm }}
-      needs: [release_metadata, release_gate, release_binary, release_binary_hosted, release_smoke_win32_arm64]
-      runs-on: ubuntu-22.04
-      # id-token lets npm mint the OIDC token for trusted publishing; the
-      # NODE_AUTH_TOKEN below is the fallback for unconfigured packages.
-      permissions:
-         id-token: write
-         contents: read
-      steps:
-         - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
-         - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-         - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
-           with:
-              node-version: "24"
-              registry-url: "https://registry.npmjs.org"
-         # npm runs under Bun when invoked by the release script; npm 12
-         # requires a newer emulated Node version than Bun 1.3 provides.
-         - name: Ensure npm supports trusted publishing
-           run: npm install -g npm@11.17.0
-         - name: Restore bun store
-           id: bun-cache
-           uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
-           with:
-              path: ~/.bun/install/cache
-              key: bun-${{ runner.os }}-${{ hashFiles('**/bun.lock') }}
-              restore-keys: |
-                 bun-${{ runner.os }}-
-         - run: bun install --frozen-lockfile
-         # Main-only save: caches saved on a tag or branch are readable only by
-         # that ref yet count against the shared 10 GB quota (see bazel-cache).
-         - name: Save bun store
-           if: github.ref == 'refs/heads/main' && steps.bun-cache.outputs.cache-hit != 'true'
-           uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
-           with:
-              path: ~/.bun/install/cache
-              key: bun-${{ runner.os }}-${{ hashFiles('**/bun.lock') }}
-         # Linux + win32-x64 addons from the native_addons artifact (gnu targets
-         # only — musl reuses the linux filenames and has no leaf package).
-         - name: Install linux and win32-x64 native addons
-           uses: ./.github/actions/native-artifacts
-           with:
-              targets: linux-x64-baseline linux-x64-modern linux-arm64 win32-x64-baseline win32-arm64
-         # Native-host addons come flat (canonical filenames) from the
-         # release_binary_hosted legs.
-         - name: Install native-host addons
-           uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-           with:
-              pattern: native-addons-*
-              path: packages/natives/native
-              merge-multiple: true
-         - name: Publish native leaf packages
-           env:
-              # Fallback auth: setup-node wrote an .npmrc referencing
-              # NODE_AUTH_TOKEN; npm uses it only when OIDC has no trusted
-              # publisher for the package (or on a first publish).
-              NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-           # The six leaves are independent: each process generates its own
-           # packages/natives/npm/<tag> dir and packs into a private temp dir,
-           # and the legal payload is tracked in packages/natives, so nothing
-           # shared is written. Serially they cost ~140 s on the release
-           # critical path. Every leaf runs to completion so one failure does
-           # not strand the others half-published; reruns skip published ones.
-           run: |
-              set -uo pipefail
-              logs="$RUNNER_TEMP/native-leaf-logs"
-              mkdir -p "$logs"
-              tags=(linux-x64 linux-arm64 darwin-x64 darwin-arm64 win32-x64 win32-arm64)
-              pids=()
-              for tag in "${tags[@]}"; do
-                bun run ci:release:publish-native-leaf "$tag" >"$logs/$tag.log" 2>&1 &
-                pids+=("$!")
-              done
-              failed=()
-              for i in "${!tags[@]}"; do
-                tag="${tags[$i]}"
-                if wait "${pids[$i]}"; then
-                  status=ok
-                else
-                  status="failed (exit $?)"
-                  failed+=("$tag")
-                fi
-                echo "::group::$tag: $status"
-                cat "$logs/$tag.log"
-                echo "::endgroup::"
-              done
-              if [ "${#failed[@]}" -gt 0 ]; then
-                echo "::error title=Native leaf publish::failed: ${failed[*]}"
-                exit 1
-              fi
    release_github:
       name: Publish GitHub release
       if: ${{ needs.release_metadata.outputs.is-release == 'true' && !cancelled() &&
@@ -1230,69 +1104,6 @@ jobs:
               # Informational — a bare (unstapled) Mach-O relies on the online ticket
               # lookup, so surface the result without gating the release on it.
               spctl -a -t exec -vv ./oms-darwin-arm64 || echo "spctl non-zero (expected for unstapled bare binary; ticket served online)"
-
-   release_npm:
-      name: Publish to npm
-      if: ${{ needs.release_metadata.outputs.is-release == 'true' && !cancelled() &&
-         needs.release_binary.result == 'success' &&
-         needs.release_binary_hosted.result == 'success' &&
-         needs.release_smoke_win32_arm64.result == 'success' &&
-         needs.release_github_verify.result == 'success' &&
-         needs.release_native_leaves.result == 'success' &&
-         !inputs.skip_npm }}
-      # release_native_leaves must finish first: the core package lists the
-      # leaf packages as lockstep-versioned optionalDependencies, so installs
-      # resolve them the moment the core version is live.
-      needs: [release_metadata, release_binary, release_binary_hosted, release_smoke_win32_arm64, release_github_verify, release_native_leaves]
-      runs-on: ubuntu-22.04
-      # `id-token: write` lets npm mint the GitHub OIDC token it exchanges for a
-      # short-lived publish token (trusted publishing + provenance). When a
-      # package has no matching trusted publisher configured, npm silently falls
-      # back to NODE_AUTH_TOKEN below — which also covers first-ever publishes.
-      permissions:
-         id-token: write
-         contents: read
-      steps:
-         - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
-         - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-         - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
-           with:
-              node-version: "24"
-              registry-url: "https://registry.npmjs.org"
-         # npm runs under Bun when invoked by the release script; npm 12
-         # requires a newer emulated Node version than Bun 1.3 provides.
-         - name: Ensure npm supports trusted publishing
-           run: npm install -g npm@11.17.0
-         - name: Restore bun store
-           id: bun-cache
-           uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
-           with:
-              path: ~/.bun/install/cache
-              key: bun-${{ runner.os }}-${{ hashFiles('**/bun.lock') }}
-              restore-keys: |
-                 bun-${{ runner.os }}-
-         - run: bun install --frozen-lockfile
-         # Main-only save: caches saved on a tag or branch are readable only by
-         # that ref yet count against the shared 10 GB quota (see bazel-cache).
-         - name: Save bun store
-           if: github.ref == 'refs/heads/main' && steps.bun-cache.outputs.cache-hit != 'true'
-           uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
-           with:
-              path: ~/.bun/install/cache
-              key: bun-${{ runner.os }}-${{ hashFiles('**/bun.lock') }}
-         # The prepack executes workspace code which loads the Linux x64
-         # addon, so install the native_addons job's artifact before publishing.
-         - name: Install prebuilt native addons
-           uses: ./.github/actions/native-artifacts
-           with:
-              targets: linux-x64-baseline linux-x64-modern
-         - name: Publish to npm
-           env:
-              # Fallback auth: setup-node wrote an .npmrc referencing
-              # NODE_AUTH_TOKEN; npm uses it only when OIDC has no trusted
-              # publisher for the package (or on a first publish).
-              NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-           run: bun run ci:release:publish
 
    # Regenerate the Homebrew tap formula (can1357/homebrew-tap) from the freshly
    # published release assets and push it. Gated on release_github_verify so the

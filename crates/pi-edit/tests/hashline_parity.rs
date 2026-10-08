@@ -1096,9 +1096,12 @@ async fn edit_results_carry_unshifted_prior_provenance_only() {
 }
 
 #[tokio::test]
-async fn edit_of_first_line_with_prior_read_carries_no_provenance() {
-	let source: String = (1..=5).map(|n| format!("line{n}\n")).collect();
-	let all_lines = (1..=5).collect::<Vec<u32>>();
+async fn same_length_edit_keeps_unshifted_read_lines_anchorable() {
+	let source = (1..=40)
+		.map(|n| format!("line{n}\n"))
+		.collect::<Vec<_>>()
+		.concat();
+	let all_lines = (1..=40).collect::<Vec<u32>>();
 
 	let mut workspace = Workspace::new(EditMode::Hashline);
 	workspace.config.enforce_seen_lines = true;
@@ -1110,10 +1113,184 @@ async fn edit_of_first_line_with_prior_read_carries_no_provenance() {
 		.apply_json(&json!({ "input": format!("[a.txt#{read_tag}]\nPUT 1.=1:\n+LINE1") }), &writer)
 		.await
 		.expect("first-line edit with a prior read applies");
-	assert_eq!(
-		workspace.read("a.txt").as_deref(),
-		Some(source.replacen("line1\n", "LINE1\n", 1).as_str())
-	);
+	let edited_tag = file_hash(&workspace.read("a.txt").expect("edited file"));
+	workspace
+		.apply_json(
+			&json!({ "input": format!("[a.txt#{edited_tag}]\nPUT 30.=30:\n+LINE30") }),
+			&writer,
+		)
+		.await
+		.expect("line 30 kept its number and content, so the full read still covers it");
+	let expected = source
+		.replacen("line1\n", "LINE1\n", 1)
+		.replacen("line30\n", "LINE30\n", 1);
+	assert_eq!(workspace.read("a.txt").as_deref(), Some(expected.as_str()));
+}
+
+#[tokio::test]
+async fn edit_results_carry_read_lines_between_changes_that_net_out() {
+	let source = (1..=40)
+		.map(|n| format!("line{n}\n"))
+		.collect::<Vec<_>>()
+		.concat();
+	let all_lines = (1..=40).collect::<Vec<u32>>();
+
+	let mut workspace = Workspace::new(EditMode::Hashline);
+	workspace.config.enforce_seen_lines = true;
+	workspace.write("a.txt", &source);
+	let read_tag = workspace.snapshot("a.txt", &source, Some(&all_lines));
+	let writer = common::DiskWriter::default();
+
+	// The insertion after 10 and the cut of 20 shift only 11-19; 21-29 sit
+	// between two changes at their old numbers.
+	workspace
+		.apply_json(
+			&json!({
+				"input": format!(
+					"[a.txt#{read_tag}]\nPUT >10:\n+inserted\nCUT 20\nPUT 30.=30:\n+LINE30"
+				)
+			}),
+			&writer,
+		)
+		.await
+		.expect("applies the three-hunk edit");
+	let edited_tag = file_hash(&workspace.read("a.txt").expect("edited file"));
+
+	let shifted = workspace
+		.apply_json(
+			&json!({ "input": format!("[a.txt#{edited_tag}]\nPUT 15.=15:\n+LINE15") }),
+			&writer,
+		)
+		.await
+		.expect_err("line 15 now holds what the read showed as line 14");
+	assert!(shifted.to_string().contains("lines 15"), "{shifted}");
+
+	workspace
+		.apply_json(
+			&json!({ "input": format!("[a.txt#{edited_tag}]\nPUT 25.=25:\n+LINE25") }),
+			&writer,
+		)
+		.await
+		.expect("line 25 kept its number and content between the changes");
+	let expected = source
+		.replacen("line10\n", "line10\ninserted\n", 1)
+		.replacen("line20\n", "", 1)
+		.replacen("line25\n", "LINE25\n", 1)
+		.replacen("line30\n", "LINE30\n", 1);
+	assert_eq!(workspace.read("a.txt").as_deref(), Some(expected.as_str()));
+}
+
+#[tokio::test]
+async fn drifted_write_keeps_preview_rows_the_drift_left_in_place() {
+	let source = (1..=40)
+		.map(|n| format!("line{n}\n"))
+		.collect::<Vec<_>>()
+		.concat();
+
+	let mut workspace = Workspace::new(EditMode::Hashline);
+	workspace.config.enforce_seen_lines = true;
+	workspace.write("a.txt", &source);
+	let read_tag = workspace.snapshot("a.txt", &source, Some(&[5, 20]));
+	// A format-on-write hook rewrites line 22, which the edit preview displays.
+	let formatter = common::DiskWriter {
+		rewrite: Some(Box::new(|request| {
+			request
+				.content
+				.clone()
+				.unwrap_or_default()
+				.replacen("line22\n", "line22;\n", 1)
+		})),
+		..Default::default()
+	};
+	workspace
+		.apply_json(
+			&json!({ "input": format!("[a.txt#{read_tag}]\nPUT 20.=20:\n+LINE20") }),
+			&formatter,
+		)
+		.await
+		.expect("applies the edit");
+	let recorded_tag = file_hash(&workspace.read("a.txt").expect("formatted file"));
+	let writer = common::DiskWriter::default();
+
+	let rewritten = workspace
+		.apply_json(
+			&json!({ "input": format!("[a.txt#{recorded_tag}]\nPUT 22.=22:\n+LINE22") }),
+			&writer,
+		)
+		.await
+		.expect_err("the preview showed line 22 before the formatter rewrote it");
+	assert!(rewritten.to_string().contains("lines 22"), "{rewritten}");
+
+	workspace
+		.apply_json(
+			&json!({ "input": format!("[a.txt#{recorded_tag}]\nPUT 21.=21:\n+LINE21") }),
+			&writer,
+		)
+		.await
+		.expect("the formatter left preview row 21 in place");
+	let expected = source
+		.replacen("line20\n", "LINE20\n", 1)
+		.replacen("line21\n", "LINE21\n", 1)
+		.replacen("line22\n", "line22;\n", 1);
+	assert_eq!(workspace.read("a.txt").as_deref(), Some(expected.as_str()));
+}
+
+#[tokio::test]
+async fn seen_line_reveal_unblocks_retry_when_a_same_tag_version_is_newer() {
+	let spaced = "one  \ntwo\nthree\n";
+	let trimmed = "one\ntwo\nthree\n";
+
+	let mut workspace = Workspace::new(EditMode::Hashline);
+	workspace.config.enforce_seen_lines = true;
+	workspace.write("a.txt", spaced);
+	let tag = workspace.snapshot("a.txt", spaced, Some(&[1]));
+	// Tags ignore trailing whitespace, so this newer version shares the tag.
+	assert_eq!(workspace.snapshot("a.txt", trimmed, Some(&[1])), tag);
+	let writer = common::DiskWriter::default();
+	let args = json!({ "input": format!("[a.txt#{tag}]\nPUT 3.=3:\n+THREE") });
+
+	let error = workspace
+		.apply_json(&args, &writer)
+		.await
+		.expect_err("line 3 was never displayed");
+	assert!(error.to_string().contains("lines 3"), "{error}");
+	workspace
+		.apply_json(&args, &writer)
+		.await
+		.expect("the reveal unblocks a straight retry");
+	assert_eq!(workspace.read("a.txt").as_deref(), Some("one  \ntwo\nTHREE\n"));
+}
+
+#[tokio::test]
+async fn seen_line_reveal_does_not_authorize_another_version_with_a_colliding_tag() {
+	// These distinct texts collide under the four-hex content tag.
+	let original = "version 9\ntwo\nthree\n";
+	let collision = "version 321\ntwo\nthree\n";
+	let mut workspace = Workspace::new(EditMode::Hashline);
+	workspace.config.enforce_seen_lines = true;
+	workspace.write("a.txt", original);
+	let tag = workspace.snapshot("a.txt", original, Some(&[2]));
+	assert_eq!(workspace.snapshot("a.txt", collision, Some(&[2])), tag);
+	let writer = common::DiskWriter::default();
+	let args = json!({ "input": format!("[a.txt#{tag}]\nPUT 1.=1:\n+updated") });
+
+	workspace
+		.apply_json(&args, &writer)
+		.await
+		.expect_err("the original version's first line needs a reveal");
+	// An external write restores the colliding version. The previous reveal
+	// showed different content, so it must not authorize this version's line 1.
+	workspace.write("a.txt", collision);
+	workspace
+		.apply_json(&args, &writer)
+		.await
+		.expect_err("the colliding version's first line still needs its own reveal");
+	assert_eq!(workspace.read("a.txt").as_deref(), Some(collision));
+	workspace
+		.apply_json(&args, &writer)
+		.await
+		.expect("retry uses the reveal for the actual live version");
+	assert_eq!(workspace.read("a.txt").as_deref(), Some("updated\ntwo\nthree\n"));
 }
 
 fn preview_for(

@@ -12,6 +12,8 @@ export interface SSHHostConfig {
 	username?: string;
 	port?: number;
 	keyPath?: string;
+	/** Literal password or an `${ENV_VAR}` reference expanded at load time. */
+	password?: string;
 	description?: string;
 	compat?: boolean;
 }

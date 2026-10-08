@@ -219,10 +219,11 @@ describe("SshProtocolHandler", () => {
 		expect(spy.mock.calls[0]?.[1]).toEqual({ cwd: "/tmp/proj" });
 	});
 
-	it("shows a helpful message when no hosts are configured", async () => {
+	it("explains how to get a host when no sessions are open and nothing is configured", async () => {
 		mockHosts([]);
 		const res = await handler.resolve(parseInternalUrl("ssh://"));
-		expect(res.content).toMatch(/No SSH hosts are configured/);
+		expect(res.content).toMatch(/no hosts are configured/i);
+		expect(res.content).toContain("xd://ssh");
 	});
 
 	it("rejects a host-less ssh:// URL that carries a path", async () => {

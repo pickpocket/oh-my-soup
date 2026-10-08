@@ -29,6 +29,8 @@ export interface Args {
 	profile?: string;
 	alias?: string;
 	allowHome?: boolean;
+	/** Run in this terminal even when the OMS service is running (plain `oms` otherwise attaches to it). */
+	standalone?: boolean;
 	provider?: string;
 	model?: string;
 	config?: string[];
@@ -245,6 +247,8 @@ export function parseArgs(inputArgs: string[], extensionFlags?: Map<string, { ty
 			result.version = true;
 		} else if (arg === "--allow-home") {
 			result.allowHome = true;
+		} else if (arg === "--standalone") {
+			result.standalone = true;
 		} else if (arg === "--profile" && i + 1 < args.length) {
 			// Normally stripped by `extractProfileFlags` before parseArgs sees it;
 			// kept here as a fallback for direct parseArgs callers.

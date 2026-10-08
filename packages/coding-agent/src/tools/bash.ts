@@ -36,6 +36,8 @@ import {
 	TailBuffer,
 } from "@oh-my-soup/pi-tui/tools/streaming-output";
 import { resolveCliEntryCmd } from "../subprocess/worker-client";
+import { executeSSH } from "../ssh/ssh-executor";
+import { formatSshAddress, resolveSessionTarget } from "../ssh/sessions";
 import { TerminalGraphicsDecoder } from "../utils/terminal-graphics";
 import type { ToolSession } from ".";
 import { truncateForPrompt } from "./approval";
@@ -328,12 +330,15 @@ async function saveBashOriginalArtifact(session: ToolSession, originalText: stri
 }
 
 const BASH_TIMEOUT_DESCRIPTION = `timeout in seconds; 0 disables the command deadline; nonzero values are clamped to ${TOOL_TIMEOUTS.bash.min}-${TOOL_TIMEOUTS.bash.max}`;
+const BASH_TARGET_DESCRIPTION =
+	"run on this SSH target instead of locally: an open ssh-device session name or a configured ssh.json host (cwd is then a remote absolute path)";
 
 const bashSchemaBase = type({
 	command: type("string"),
 	"timeout?": type("number").describe(BASH_TIMEOUT_DESCRIPTION),
 	"cwd?": "string",
 	"pty?": "boolean",
+	"target?": type("string").describe(BASH_TARGET_DESCRIPTION),
 });
 
 const bashSchemaWithAsync = type({
@@ -342,6 +347,7 @@ const bashSchemaWithAsync = type({
 	"cwd?": "string",
 	"pty?": "boolean",
 	"async?": "boolean",
+	"target?": type("string").describe(BASH_TARGET_DESCRIPTION),
 });
 
 const bashSchemaWithService = type({
@@ -356,6 +362,7 @@ const bashSchemaWithService = type({
 		"host?": "string",
 		"timeout?": "number",
 	}),
+	"target?": type("string").describe(BASH_TARGET_DESCRIPTION),
 });
 
 const bashSchemaWithAsyncAndService = type({
@@ -371,6 +378,7 @@ const bashSchemaWithAsyncAndService = type({
 		"host?": "string",
 		"timeout?": "number",
 	}),
+	"target?": type("string").describe(BASH_TARGET_DESCRIPTION),
 });
 
 type BashToolSchema =
@@ -387,6 +395,8 @@ export interface BashToolInput {
 	ready?: ServiceReady;
 	async?: boolean;
 	pty?: boolean;
+	/** SSH target (open session or configured host); the command runs there instead of locally. */
+	target?: string;
 }
 
 /**
@@ -584,9 +594,11 @@ export class BashTool implements AgentTool<BashToolSchema, BashToolDetails> {
 		return "exec";
 	};
 	readonly formatApprovalDetails = (args: unknown): string[] => {
-		const rawCommand = (args as Partial<BashToolInput>).command;
+		const { command: rawCommand, target } = args as Partial<BashToolInput>;
 		const command = typeof rawCommand === "string" ? rawCommand : "(missing)";
-		return [`Command: ${truncateForPrompt(command)}`];
+		const lines = [`Command: ${truncateForPrompt(command)}`];
+		if (typeof target === "string" && target.trim()) lines.unshift(`SSH target: ${truncateForPrompt(target)}`);
+		return lines;
 	};
 	readonly label = "Bash";
 	readonly loadMode = "essential";
@@ -678,6 +690,64 @@ export class BashTool implements AgentTool<BashToolSchema, BashToolDetails> {
 		if (result.exitCode === undefined) {
 			throw new ToolError(`${outputText}\n\nCommand failed: missing exit status${captureNotice}`);
 		}
+	}
+
+	/**
+	 * `target=`: run the command on an SSH session or configured host. The
+	 * result goes through the same completion shaping as a local command; the
+	 * target name is echoed in the notices so the transcript records where
+	 * the command ran.
+	 */
+	async #executeRemote(
+		targetName: string,
+		command: string,
+		cwd: string | undefined,
+		rawTimeout: number | undefined,
+		pendingNotices: string[],
+		signal: AbortSignal | undefined,
+		onUpdate: AgentToolUpdateCallback<BashToolDetails> | undefined,
+	): Promise<AgentToolResult<BashToolDetails>> {
+		if (cwd === "~" || cwd?.startsWith("~/") || cwd?.startsWith("~\\")) {
+			throw new ToolError(
+				"Remote cwd must be an absolute path on the target; omit cwd to run in the login directory.",
+			);
+		}
+		const target = await resolveSessionTarget(targetName, this.session.cwd);
+		if (!target) {
+			throw new ToolError(
+				`Unknown SSH target "${targetName}". Open a session first (write xd://ssh {"op":"connect","host":"user@host",...}) or add the host to ssh.json; read xd://ssh lists both.`,
+			);
+		}
+		const requestedTimeoutSec = rawTimeout ?? 300;
+		const maxTimeout = cfgToolsMaxTimeout.get(this.session.settings);
+		const timeoutSec = requestedTimeoutSec === 0 ? undefined : clampTimeout("bash", requestedTimeoutSec, maxTimeout);
+		if (timeoutSec !== undefined) {
+			const timeoutClampNotice = formatTimeoutClampNotice(requestedTimeoutSec, timeoutSec, maxTimeout);
+			if (timeoutClampNotice) pendingNotices.push(timeoutClampNotice);
+		}
+		const tailBuffer = new TailBuffer(DEFAULT_MAX_BYTES);
+		const { path: artifactPath, id: artifactId } = (await this.session.allocateOutputArtifact?.("bash")) ?? {};
+		const wallTimeStart = performance.now();
+		const result = await executeSSH(target, command, {
+			timeout: timeoutSec === undefined ? undefined : timeoutSec * 1000,
+			signal,
+			cwd,
+			artifactPath,
+			artifactId,
+			onChunk: streamTailUpdates(tailBuffer, onUpdate),
+		});
+		const wallTimeMs = performance.now() - wallTimeStart;
+		if (result.cancelled && result.timedOut !== true) {
+			const out = normalizeResultOutput(result);
+			const message = out ? `${out}\n\n[Command aborted]` : "Command aborted";
+			if (signal?.aborted) throw new ToolAbortError(message);
+			throw new ToolError(message);
+		}
+		return this.#buildCompletedResult(result, timeoutSec, {
+			requestedTimeoutSec,
+			notices: [`[ran on ${targetName}: ${formatSshAddress(target)}]`, ...pendingNotices],
+			wallTimeMs,
+		});
 	}
 
 	async #buildCompletedResult(
@@ -935,6 +1005,7 @@ export class BashTool implements AgentTool<BashToolSchema, BashToolDetails> {
 			ready: rawReady,
 			async: rawAsync,
 			pty,
+			target: rawTarget,
 		}: BashToolInput,
 		signal?: AbortSignal,
 		onUpdate?: AgentToolUpdateCallback<BashToolDetails>,
@@ -974,6 +1045,16 @@ export class BashTool implements AgentTool<BashToolSchema, BashToolDetails> {
 		}
 		if (asyncRequested && !cfgAsyncEnabled.get(this.session.settings)) {
 			throw new ToolError("Async bash execution is disabled. Enable async.enabled to use async mode.");
+		}
+
+		// A remote target has no service manager, job manager, or terminal of
+		// ours: it is a plain foreground command on the other host.
+		const target = blankToUndefined(rawTarget);
+		if (target !== undefined) {
+			if (name !== undefined) throw new ToolError("Services run locally; drop target or name.");
+			if (asyncRequested) throw new ToolError("Async bash is local-only; drop target or async.");
+			if (pty) pendingNotices.push("pty is local-only; ran the remote command without a terminal.");
+			return this.#executeRemote(target, command, cwd, rawTimeout, pendingNotices, signal, onUpdate);
 		}
 
 		// Check both the original command and the cwd-normalized command so

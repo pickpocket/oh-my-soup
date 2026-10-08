@@ -15,7 +15,8 @@ import { MarketplaceManager } from "@oh-my-soup/pi-coding-agent/extensibility/pl
 import type { AgentSession } from "@oh-my-soup/pi-coding-agent/session/agent-session";
 import type { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
 import { executeAcpBuiltinSlashCommand } from "@oh-my-soup/pi-coding-agent/slash-commands/acp-builtins";
-import { getProjectDir, removeWithRetries, setProjectDir } from "@oh-my-soup/pi-utils";
+import { addSSHHost, readSSHConfigFile } from "@oh-my-soup/pi-coding-agent/ssh/config-writer";
+import { getProjectDir, getSSHConfigPath, removeWithRetries, setProjectDir } from "@oh-my-soup/pi-utils";
 
 import { cfgBrowserEnabled, cfgBrowserHeadless } from "@oh-my-soup/pi-coding-agent/tools/browser/settings";
 import { cfgExtendedContext } from "@oh-my-soup/pi-coding-agent/session/context-settings";
@@ -1387,23 +1388,57 @@ describe("wave 5 — adapters and polish", () => {
 		expect(output[0]).toContain("not found");
 	});
 
-	// /ssh add — spy on addSSHHost
-	it("/ssh add foo --host x --user y --scope user: calls addSSHHost", async () => {
-		const sshModule = await import("@oh-my-soup/pi-coding-agent/ssh/config-writer");
-		const spy = spyOn(sshModule, "addSSHHost").mockResolvedValue(undefined);
+	it("/ssh add persists a quoted password reference without expanding it", async () => {
+		const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "oms-ssh-password-add-"));
+		try {
+			const { runtime } = createRuntime();
+			runtime.cwd = cwd;
+			await executeAcpBuiltinSlashCommand(
+				"/ssh add password-host --host 10.0.0.1 --user root --password '${PROD_SSH_PASSWORD}' --scope project",
+				runtime,
+			);
+			const config = await readSSHConfigFile(getSSHConfigPath("project", cwd));
+			expect(config.hosts?.["password-host"]).toMatchObject({
+				host: "10.0.0.1",
+				username: "root",
+				password: "${PROD_SSH_PASSWORD}",
+			});
+		} finally {
+			await removeWithRetries(cwd);
+		}
+	});
+
+	it("/ssh list indicates password authentication without exposing the configured secret", async () => {
+		const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "oms-ssh-password-list-"));
+		const password = "ssh-list-sensitive-password";
+		try {
+			await addSSHHost(getSSHConfigPath("project", cwd), "password-host", { host: "10.0.0.1", password });
+			const { output, runtime } = createRuntime();
+			runtime.cwd = cwd;
+			await executeAcpBuiltinSlashCommand("/ssh list", runtime);
+			const listing = output.join("\n");
+			expect(listing).toContain("password-host");
+			expect(listing).toContain("password: set");
+			expect(listing).not.toContain(password);
+		} finally {
+			await removeWithRetries(cwd);
+		}
+	});
+
+	it("/ssh add rejects an empty password before a later flag without writing a host", async () => {
+		const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "oms-ssh-password-empty-"));
 		try {
 			const { output, runtime } = createRuntime();
-			const result = await executeAcpBuiltinSlashCommand("/ssh add foo --host x --user y --scope user", runtime);
-			expect(result).toEqual({ consumed: true });
-			expect(output[0]).toContain('Added SSH host "foo" (user).');
-			// Without this assertion, the command could succeed via a side-effect-free
-			// path that prints the success message without writing the host config.
-			expect(spy).toHaveBeenCalledTimes(1);
-			const [, name, hostConfig] = spy.mock.calls[0]!;
-			expect(name).toBe("foo");
-			expect(hostConfig).toMatchObject({ host: "x", username: "y" });
+			runtime.cwd = cwd;
+			await executeAcpBuiltinSlashCommand(
+				"/ssh add password-host --host 10.0.0.1 --password '' --scope project",
+				runtime,
+			);
+			expect(output.join("\n")).toContain("--password requires a value");
+			const config = await readSSHConfigFile(getSSHConfigPath("project", cwd));
+			expect(config.hosts?.["password-host"]).toBeUndefined();
 		} finally {
-			spy.mockRestore();
+			await removeWithRetries(cwd);
 		}
 	});
 

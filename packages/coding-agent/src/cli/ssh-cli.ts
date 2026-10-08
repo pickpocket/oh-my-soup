@@ -23,6 +23,7 @@ export interface SSHCommandArgs {
 		user?: string;
 		port?: string;
 		key?: string;
+		password?: string;
 		desc?: string;
 		compat?: boolean;
 		scope?: "project" | "user";
@@ -60,7 +61,10 @@ async function handleAdd(cmd: SSHCommandArgs): Promise<void> {
 	if (!name) {
 		process.stdout.write(chalk.red("Error: Host name required\n"));
 		process.stdout.write(
-			chalk.dim("Usage: oms ssh add <name> --host <address> [--user <user>] [--port <port>] [--key <path>]\n"),
+			chalk.dim(
+				"Usage: oms ssh add <name> --host <address> [--user <user>] [--port <port>] [--key <path>] [--password <value>]\n" +
+					"--password: ${ENV_VAR} references are expanded when the host is loaded; prefer them over literal passwords, especially in project-scope ssh.json.\n",
+			),
 		);
 		process.exitCode = 1;
 		return;
@@ -84,10 +88,17 @@ async function handleAdd(cmd: SSHCommandArgs): Promise<void> {
 		}
 	}
 
+	if (cmd.flags.password !== undefined && !cmd.flags.password) {
+		process.stdout.write(chalk.red("Error: --password requires a value\n"));
+		process.exitCode = 1;
+		return;
+	}
+
 	const hostConfig: SSHHostConfig = { host };
 	if (cmd.flags.user) hostConfig.username = cmd.flags.user;
 	if (cmd.flags.port) hostConfig.port = Number.parseInt(cmd.flags.port, 10);
 	if (cmd.flags.key) hostConfig.keyPath = cmd.flags.key;
+	if (cmd.flags.password !== undefined) hostConfig.password = cmd.flags.password;
 	if (cmd.flags.desc) hostConfig.description = cmd.flags.desc;
 	if (cmd.flags.compat) hostConfig.compat = true;
 
@@ -134,7 +145,13 @@ async function handleList(cmd: SSHCommandArgs): Promise<void> {
 	const userHosts = userConfig.hosts ?? {};
 
 	if (cmd.flags.json) {
-		process.stdout.write(JSON.stringify({ project: projectHosts, user: userHosts }, null, 2));
+		process.stdout.write(
+			JSON.stringify(
+				{ project: projectHosts, user: userHosts },
+				(key, value: unknown) => (key === "password" && typeof value === "string" ? "set" : value),
+				2,
+			),
+		);
 		process.stdout.write("\n");
 		return;
 	}
@@ -173,6 +190,7 @@ function printHosts(hosts: Record<string, SSHHostConfig>): void {
 		if (config.username) parts.push(chalk.dim(config.username));
 		if (config.port && config.port !== 22) parts.push(chalk.dim(`port:${config.port}`));
 		if (config.keyPath) parts.push(chalk.dim(config.keyPath));
+		if (config.password !== undefined) parts.push(chalk.dim("password: set"));
 		if (config.description) parts.push(chalk.dim(`- ${config.description}`));
 		process.stdout.write(`  ${parts.join("  ")}\n`);
 	}

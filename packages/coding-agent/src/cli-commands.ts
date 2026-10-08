@@ -207,6 +207,11 @@ export const commands: CommandEntry[] = [
 		help: commandHelp.setupHelp,
 	},
 	{
+		name: "service",
+		load: () => import("./commands/service").then(m => m.default),
+		help: commandHelp.serviceHelp,
+	},
+	{
 		name: "shell",
 		load: () => import("./commands/shell").then(m => m.default),
 		help: commandHelp.shellHelp,

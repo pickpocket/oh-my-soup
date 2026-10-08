@@ -375,8 +375,9 @@ impl Session {
 
 			let mut tag: Option<String> = None;
 			// Updated files register their response rows (plus still-valid prior
-			// provenance) against the minted tag: (store key, carried lines, drifted).
-			let mut provenance: Option<(PathBuf, Vec<u32>, bool)> = None;
+			// provenance) against the minted tag: (store key, carried lines, and —
+			// for a drifted write — the lines the drift left in place).
+			let mut provenance: Option<(PathBuf, Vec<u32>, Option<Vec<u32>>)> = None;
 			match file.op {
 				FileOp::Delete => self.store.invalidate(&canonical),
 				FileOp::Noop => {
@@ -405,7 +406,8 @@ impl Session {
 						tag = Some(self.store.record(&key, &recorded, None));
 						if track_provenance {
 							let carried = carried_seen_lines(&file.before, &recorded, prior.as_ref());
-							provenance = Some((key, carried, drifted));
+							let kept = drifted.then(|| unshifted_lines(&file.after, &recorded));
+							provenance = Some((key, carried, kept));
 						}
 					}
 					self.store.reset_noop(&canonical);
@@ -427,11 +429,19 @@ impl Session {
 				.as_ref()
 				.map_or_else(|| format!("[{header_path}]"), |tag| format!("[{header_path}#{tag}]"));
 			let text = format_file_text(&file, &header);
-			if let (Some((key, mut seen_lines, drifted)), Some(tag)) = (provenance, &response_tag) {
-				// A drifted write shows rows of the previewed text, not of the recorded
-				// version the tag names, so only carried lines stay anchorable.
-				if !drifted {
-					seen_lines.extend(seen_lines_from_body(&text));
+			if let (Some((key, mut seen_lines, kept)), Some(tag)) = (provenance, &response_tag) {
+				// Response rows are numbered against `after`. A drifted write recorded
+				// other text under the tag, so only rows it left in place stay anchorable.
+				let shown = seen_lines_from_body(&text);
+				match kept {
+					None => seen_lines.extend(shown),
+					Some(kept) => {
+						seen_lines.extend(
+							shown
+								.into_iter()
+								.filter(|line| kept.binary_search(line).is_ok()),
+						);
+					},
 				}
 				if !seen_lines.is_empty() {
 					self.store.record_seen_lines(&key, tag, &seen_lines);
@@ -497,24 +507,64 @@ fn recorded_view(file: &StagedFile, written: &str) -> String {
 	normalize_to_lf(strip_bom(written).1).into_owned()
 }
 
-/// Prior-snapshot lines that keep both their number and content in `after`:
-/// the unchanged leading run, filtered by what `prior` displayed. A missing or
-/// unrestricted prior snapshot let the edit anchor anywhere, so the whole run
-/// carries over. Lines after the first change shifted, so their old numbers
-/// never carry.
+/// Prior-snapshot lines that keep both their number and content in `after`,
+/// filtered by what `prior` displayed. A missing or unrestricted prior
+/// snapshot let the edit anchor anywhere, so every such line carries over. A
+/// shifted line's old number now names other content, so it never carries.
 fn carried_seen_lines(before: &str, after: &str, prior: Option<&Snapshot>) -> Vec<u32> {
-	let unchanged = before
-		.split('\n')
-		.zip(after.split('\n'))
+	let mut lines = unshifted_lines(before, after);
+	if let Some(seen) = prior
+		.and_then(|snapshot| snapshot.seen_lines.as_ref())
+		.filter(|seen| !seen.is_empty())
+	{
+		lines.retain(|line| seen.contains(line));
+	}
+	lines
+}
+
+/// Ascending one-based numbers of the lines `after` keeps from `before` with
+/// the same content under the same number. The shared head and tail match
+/// directly, so only the changed middle pays for a line diff.
+fn unshifted_lines(before: &str, after: &str) -> Vec<u32> {
+	let old = before.split('\n').collect::<Vec<_>>();
+	let new = after.split('\n').collect::<Vec<_>>();
+	let prefix = old
+		.iter()
+		.zip(&new)
 		.take_while(|(old, new)| old == new)
 		.count();
-	let unchanged = u32::try_from(unchanged).unwrap_or(u32::MAX);
-	match prior.and_then(|snapshot| snapshot.seen_lines.as_ref()) {
-		// `range(1..=0)` panics; a first-line change carries nothing.
-		_ if unchanged == 0 => Vec::new(),
-		Some(seen) if !seen.is_empty() => seen.range(1..=unchanged).copied().collect(),
-		_ => (1..=unchanged).collect(),
+	let suffix = old[prefix..]
+		.iter()
+		.rev()
+		.zip(new[prefix..].iter().rev())
+		.take_while(|(old, new)| old == new)
+		.count();
+	let number = |index: usize| u32::try_from(index).unwrap_or(u32::MAX);
+	let mut lines = (1..=number(prefix)).collect::<Vec<_>>();
+	let old_middle = &old[prefix..old.len() - suffix];
+	let new_middle = &new[prefix..new.len() - suffix];
+	if !old_middle.is_empty() && !new_middle.is_empty() {
+		let (old_ids, new_ids) = pi_diff::intern(old_middle, new_middle);
+		let mut old_line = number(prefix + 1);
+		let mut new_line = old_line;
+		for run in pi_diff::myers_diff(&old_ids, &new_ids) {
+			if run.added {
+				new_line += run.count;
+			} else if run.removed {
+				old_line += run.count;
+			} else {
+				if old_line == new_line {
+					lines.extend(old_line..old_line + run.count);
+				}
+				old_line += run.count;
+				new_line += run.count;
+			}
+		}
 	}
+	if old.len() == new.len() {
+		lines.extend(number(old.len() - suffix + 1)..=number(old.len()));
+	}
+	lines
 }
 
 /// Model-facing text for one file (`formatEditResultText`).

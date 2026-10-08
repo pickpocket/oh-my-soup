@@ -1,6 +1,10 @@
-/** Split command arguments, optionally enforcing complete quotes and shell-style escapes. */
-export function parseCommandArgs(argsString: string, options?: { strict?: boolean }): string[] {
+/** Split command arguments, optionally preserving quoted empty values or enforcing shell-style syntax. */
+export function parseCommandArgs(
+	argsString: string,
+	options?: { strict?: boolean; preserveEmpty?: boolean },
+): string[] {
 	const args: string[] = [];
+	const preserveEmpty = options?.strict || options?.preserveEmpty;
 	let current = "";
 	let inQuote: string | null = null;
 	let started = false;
@@ -27,7 +31,7 @@ export function parseCommandArgs(argsString: string, options?: { strict?: boolea
 			inQuote = char;
 			started = true;
 		} else if (char === " " || char === "\t") {
-			if (current || (options?.strict && started)) {
+			if (current || (preserveEmpty && started)) {
 				args.push(current);
 				current = "";
 				started = false;
@@ -39,7 +43,7 @@ export function parseCommandArgs(argsString: string, options?: { strict?: boolea
 	}
 
 	if (options?.strict && inQuote) throw new Error("Unterminated command quote.");
-	if (current || (options?.strict && started)) {
+	if (current || (preserveEmpty && started)) {
 		args.push(current);
 	}
 

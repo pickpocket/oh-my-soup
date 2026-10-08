@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- Added a transcript renderer for the `ssh` session device.
+
 ## [18.4.5] - 2026-10-06
 
 ### Changed

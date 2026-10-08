@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+### Added
+
+- Added `oms service` to keep interactive sessions alive across SSH disconnects: `install` registers a per-user, per-profile terminal service (a WinSW-wrapped Windows service, or a systemd user unit on Linux with lingering enabled when allowed), `start`/`stop`/`status`/`uninstall` manage it, and `run` hosts it in the foreground. Once the service runs, a plain `oms` in a terminal attaches to the persistent session for the current directory (Ctrl+] detaches); `oms --standalone` keeps running in the terminal instead.
+- Added the `ssh` device (`xd://ssh`) to open, list, and close sessions with username/password, a key file, or agent auth, plus password hosts in `ssh.json`, `/ssh add --password`, and `oms ssh add --password`.
+- Added `bash` `target` to run commands on an SSH session or configured host, with `ssh://<session>/<path>` for remote files.
+
+### Fixed
+
+- Fixed false "never displayed" edit rejections for previously read lines whose content and line numbers survive an edit, including unchanged preview rows after formatting.
+- Fixed repeated seen-line rejections after inline reveals when multiple snapshots share a tag, without authorizing content from a colliding snapshot.
+- Fixed edits on lines displayed by `@`-mentioned files after an earlier partial read; truncated mentions no longer number their notices as file content.
+
 ## [18.4.5] - 2026-10-06
 
 ### Added

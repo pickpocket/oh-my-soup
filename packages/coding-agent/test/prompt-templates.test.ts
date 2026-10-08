@@ -133,9 +133,10 @@ describe("parseCommandArgs", () => {
 		expect(parseCommandArgs("a\tb\tc")).toEqual(["a", "b", "c"]);
 	});
 
-	test("should handle quoted empty string", () => {
-		// Note: Empty quotes are skipped by current implementation
-		expect(parseCommandArgs('"" " "')).toEqual([" "]);
+	test("preserves quoted empty values only when requested", () => {
+		const input = "--password '' --scope user \"\"";
+		expect(parseCommandArgs(input)).toEqual(["--password", "--scope", "user"]);
+		expect(parseCommandArgs(input, { preserveEmpty: true })).toEqual(["--password", "", "--scope", "user", ""]);
 	});
 
 	test("should handle arguments with special characters", () => {

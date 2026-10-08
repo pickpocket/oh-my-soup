@@ -1,6 +1,7 @@
 Persistent shell: one fact command/pipeline; dependencies use `&&`.
 {{#if hasEval}}Scripts/heredocs/`$(…)`/complex pipelines → `eval`.{{else}}Scripts/heredocs/`$(…)`/complex flow → dedicated tool or checked-in script.{{/if}}
 `cwd`, not `cd`; `pty` only interactive.
+`target: "<name>"` runs on an open SSH session (`write xd://ssh {"op":"connect",...}`) or `ssh.json` host, not locally; `cwd` is then an absolute remote path.
 Internal URIs work as paths for builtins/coreutils, redirects, globs.
 {{#if asyncEnabled}}`async` defers finite results; timeout unchanged.{{/if}}
 No `head`/`tail`/redirection; output trunc by default, full result at `artifact://<id>`.

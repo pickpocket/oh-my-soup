@@ -30,6 +30,7 @@ import {
 	statRemotePath,
 	writeRemoteFile,
 } from "../ssh/file-transfer";
+import { configuredTarget, getSession, openSessions, type SSHSessionInfo } from "../ssh/sessions";
 import sshDoc from "../prompts/internal-urls/ssh.md" with { type: "text" };
 import { contentTypeForPath, formatDirectoryListing } from "./filesystem-resource";
 import type {
@@ -102,18 +103,29 @@ function hostAddress(host: SSHHost): string {
 	return `${host.username ? `${host.username}@` : ""}${host.host}${host.port ? `:${host.port}` : ""}`;
 }
 
-/** Render the configured-host index for a bare `ssh://` read (markdown with per-host links). */
-function formatHostIndex(hosts: readonly SSHHost[]): string {
-	if (hosts.length === 0) {
-		return "# SSH hosts\n\nNo SSH hosts are configured. Add hosts to an `ssh.json` capability file, or read `ssh://<host>/<path>` with any destination OpenSSH can resolve (e.g. a `~/.ssh/config` alias).\n";
+/** Render the host index for a bare `ssh://` read: open sessions first, then configured hosts (markdown with per-host links). */
+function formatHostIndex(hosts: readonly SSHHost[], sessions: readonly SSHSessionInfo[]): string {
+	if (hosts.length === 0 && sessions.length === 0) {
+		return "# SSH hosts\n\nNo SSH sessions are open and no hosts are configured. Open a session with the ssh device (`write xd://ssh`), add hosts to an `ssh.json` capability file, or read `ssh://<host>/<path>` with any destination OpenSSH can resolve (e.g. a `~/.ssh/config` alias).\n";
 	}
-	const lines = hosts.map(host => {
+	const sessionLines = sessions.map(
+		session =>
+			`- [${session.name}](ssh://${encodeURIComponent(session.name)}/) — \`${session.address}\` (${session.auth} auth)`,
+	);
+	const hostLines = hosts.map(host => {
 		const addr = hostAddress(host);
 		const suffix = addr === host.name ? "" : ` — \`${addr}\``;
 		const desc = host.description ? ` (${host.description})` : "";
 		return `- [${host.name}](ssh://${encodeURIComponent(host.name)}/)${suffix}${desc}`;
 	});
-	return `# SSH hosts\n\n${hosts.length} configured host${hosts.length === 1 ? "" : "s"}:\n\n${lines.join("\n")}\n`;
+	const sections: string[] = ["# SSH hosts", ""];
+	if (sessionLines.length > 0) {
+		sections.push(`${sessions.length} open session${sessions.length === 1 ? "" : "s"}:`, "", ...sessionLines, "");
+	}
+	if (hostLines.length > 0) {
+		sections.push(`${hosts.length} configured host${hosts.length === 1 ? "" : "s"}:`, "", ...hostLines, "");
+	}
+	return sections.join("\n");
 }
 
 /**
@@ -157,7 +169,7 @@ async function resolveTarget(url: InternalUrl, cwd?: string): Promise<SSHConnect
 	}
 	if (url.password) {
 		throw new Error(
-			"ssh://: password authentication is not supported; ssh:// uses key/agent auth — drop the ':<password>' from the URL",
+			'ssh://: a password does not belong in the URL; open a session with the ssh device (write xd://ssh {"op":"connect","host":"user@host","password":"…"}) and use ssh://<session-name>/<path>',
 		);
 	}
 	const isIpv6Literal = bareHost.startsWith("[") && bareHost.endsWith("]");
@@ -204,6 +216,11 @@ async function resolveTarget(url: InternalUrl, cwd?: string): Promise<SSHConnect
 			`ssh://: unsupported or malformed authority in "${url.href}"; use ssh://[user@]host[:1-65535]/<absolute-path>`,
 		);
 	}
+	// An open session (ssh device) is addressed by its name alone, like a
+	// configured host: its credentials live in the registry, so a user/port
+	// override would silently reconnect elsewhere.
+	const openSession = getSession(rawAuthority) ?? getSession(bareHost);
+	if (openSession && !username && port === undefined) return openSession;
 	const items = await loadConfiguredHosts(cwd);
 
 	// A literal user/port in the URL is an authority override. A configured alias
@@ -216,6 +233,11 @@ async function resolveTarget(url: InternalUrl, cwd?: string): Promise<SSHConnect
 				`ssh://: user/port overrides are not allowed for the configured host "${decodedBareHost}"; use ssh://${bareHost}/<path> or an unconfigured hostname`,
 			);
 		}
+		if (getSession(bareHost) ?? getSession(decodedBareHost)) {
+			throw new Error(
+				`ssh://: user/port overrides are not allowed for the open session "${decodedBareHost}"; use ssh://${bareHost}/<path>`,
+			);
+		}
 		const sshUser = username ? decodeOr(username) : undefined;
 		const sshTargetHost = decodeOr(sshHost);
 		const name = `${sshUser ? `${sshUser}@` : ""}${sshTargetHost}${port !== undefined ? `:${port}` : ""}`;
@@ -225,16 +247,7 @@ async function resolveTarget(url: InternalUrl, cwd?: string): Promise<SSHConnect
 	// No explicit user/port: match the full decoded authority against a
 	// configured name (so an encoded reserved-char alias resolves correctly).
 	const match = items.find(entry => entry.name === rawAuthority) ?? items.find(entry => entry.name === bareHost);
-	if (match) {
-		return {
-			name: match.name,
-			host: match.host,
-			username: match.username,
-			port: match.port,
-			keyPath: match.keyPath,
-			compat: match.compat,
-		};
-	}
+	if (match) return configuredTarget(match);
 	// Opaque OpenSSH destination (plain ~/.ssh/config alias, or any resolvable host).
 	return { name: rawAuthority, host: isIpv6Literal ? sshHost : rawAuthority };
 }
@@ -335,9 +348,9 @@ export class SshProtocolHandler implements ProtocolHandler {
 		};
 	}
 
-	/** Resolve a bare `ssh://` to a listing of configured hosts (immutable; plain virtual text, so `search` can still grep host names). */
+	/** Resolve a bare `ssh://` to a listing of open sessions and configured hosts (immutable; plain virtual text, so `search` can still grep host names). */
 	async #resolveHostIndex(url: InternalUrl, cwd?: string): Promise<InternalResource> {
-		const content = formatHostIndex(await loadConfiguredHosts(cwd));
+		const content = formatHostIndex(await loadConfiguredHosts(cwd), openSessions());
 		return {
 			url: url.href,
 			content,
@@ -347,14 +360,21 @@ export class SshProtocolHandler implements ProtocolHandler {
 		};
 	}
 
-	/** Autocomplete the host segment of `ssh://` with the configured SSH hosts. */
+	/** Autocomplete the host segment of `ssh://` with the open sessions and configured SSH hosts. */
 	async complete(_query?: string, context?: ResolveContext): Promise<UrlCompletion[]> {
 		const hosts = await loadConfiguredHosts(context?.cwd);
-		return hosts.map(host => ({
-			value: encodeURIComponent(host.name),
-			label: host.name,
-			description: host.description ?? hostAddress(host),
-		}));
+		return [
+			...openSessions().map(session => ({
+				value: encodeURIComponent(session.name),
+				label: session.name,
+				description: `${session.address} (open session)`,
+			})),
+			...hosts.map(host => ({
+				value: encodeURIComponent(host.name),
+				label: host.name,
+				description: host.description ?? hostAddress(host),
+			})),
+		];
 	}
 
 	async write(url: InternalUrl, content: string, context?: WriteContext): Promise<void> {

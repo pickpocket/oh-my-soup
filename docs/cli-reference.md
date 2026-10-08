@@ -60,6 +60,7 @@ Argument handling:
 | `--cwd <dir>` | Directory to start in (overrides the launch cwd). |
 | `--add-dir <dir>` | Add a workspace directory beyond the working directory (repeatable). |
 | `--allow-home` | Allow starting in `~` without auto-switching to a temp dir. |
+| `--standalone` | Run in this terminal even when the [`service`](#oms-service) is running; a plain `oms` attaches to it otherwise. |
 | `--profile <name>` | Use an isolated profile for auth, sessions, settings, and caches. |
 | `--alias <name>` | Create a shell shortcut for the selected profile and exit. |
 | `--config <file>` | Load an extra `config.yml`-style overlay for this run (repeatable). |
@@ -237,10 +238,11 @@ Run `oms <command> --help` for each command's own flags and examples.
 | `say` | Synthesize text with the local TTS engine and play it through the speakers. | [tts tool](./tools/tts.md) |
 | `share` | Share a saved session via an encrypted link (same as the `/share` slash command). | [session operations](./session-operations-export-share-fork-resume.md) |
 | `setup` | Run onboarding setup or install dependencies for optional features. | |
+| `service` | Manage the persistent terminal service that keeps sessions alive across SSH disconnects. | [`oms service`](#oms-service) |
 | `shell` | Interactive shell console. | |
 | `read` | Show what the read tool will return for a path, URL, or internal URI. (The [`read` tool](./tools/read.md) is a separate agent tool.) | |
 | `render` | Draw a session's entire thread through the production transcript pipeline (with repaint timing). | |
-| `ssh` | Manage SSH host configurations. | |
+| `ssh` | Manage SSH host configurations; `ssh add` accepts `--password <value>`. | [ssh device and hosts](./tools/ssh.md) |
 | `stats` | View usage statistics. | |
 | `update` | Check for and install updates; `--canary`/`--stable` switch release channels. | |
 | `usage` | Show provider usage limits for every authenticated account; `usage clients` breaks token burn down per client (with `--days`), `usage invalidate` drops cached reports. | |
@@ -254,3 +256,24 @@ Run `oms <command> --help` for each command's own flags and examples.
 > reachable through related mechanisms (the `plugin` command, the `/join` slash
 > command, and so on). The table lists each as it is registered in
 > `packages/coding-agent/src/cli-commands.ts`.
+
+### `oms service`
+
+`oms service install` registers a per-user, per-profile terminal host with the
+platform service manager and starts it; `start`, `stop`, `status`, and
+`uninstall` manage it afterwards, and `run` hosts it in the foreground without a
+service manager (any platform). While the service runs, a plain `oms` in a TTY
+attaches to the persistent session for the current directory — one session per
+project directory, created on first attach — and the session keeps running when
+the terminal or SSH connection drops. Press `Ctrl+]` to detach; run `oms` again
+to reattach. Any argument (`oms --standalone`, flags, prompts) or a non-TTY
+launch bypasses the service.
+
+| Platform | Service manager | Notes |
+| --- | --- | --- |
+| Windows | Windows service wrapped by [WinSW v2.12.0](https://github.com/winsw/winsw) | `install`/`uninstall` need an elevated terminal and prompt for the account's Windows password (passed to the SCM by WinSW, never stored). OMS never downloads WinSW: pass `--winsw <path>` or put `WinSW-x64.exe` on `PATH`; the SHA-256 is pinned. The service runs as the installing account and listens on a per-profile named pipe. |
+| Linux | systemd user service (`systemctl --user`) | No root. The unit is written to `~/.config/systemd/user/`, captures the installer's `PATH`, and is enabled at login; `install` also runs `loginctl enable-linger` so the service survives logout, and prints the command to run as an administrator when that is not permitted. Logs go to `journalctl --user -u <unit>`. The host listens on `~/.oms/agent/service/service.sock` (mode `0600`). |
+
+Attach requests are authenticated with a per-profile token in
+`~/.oms/agent/service/service.token`; `oms service status` shows the service
+state, endpoint, and log location.

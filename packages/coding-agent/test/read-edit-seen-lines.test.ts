@@ -5,8 +5,10 @@ import * as path from "node:path";
 import type { AgentToolResult } from "@oh-my-soup/pi-agent-core";
 import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
 import { EditTool } from "@oh-my-soup/pi-coding-agent/edit";
+import { getEditStore } from "@oh-my-soup/pi-coding-agent/edit/store";
 import type { ToolSession } from "@oh-my-soup/pi-coding-agent/tools";
 import { ReadTool } from "@oh-my-soup/pi-coding-agent/tools/read";
+import { generateFileMentionMessages } from "@oh-my-soup/pi-coding-agent/utils/file-mentions";
 import { removeWithRetries } from "@oh-my-soup/pi-utils";
 
 // A call whose arguments span several lines, so a structural read elides the
@@ -84,5 +86,25 @@ describe("read → edit seen-line guard under default settings", () => {
 		});
 
 		expect(await Bun.file(file).text()).toBe(SOURCE.replace("0.230", "0.240"));
+	});
+
+	it("applies a hunk on a line an @-mention displayed after a partial read", async () => {
+		const session = createSession(cwd);
+		const read = textOutput(await new ReadTool(session).execute("read", { path: "draw.py:7-7" }));
+		expect(read).not.toContain("beta),");
+		const [mention] = await generateFileMentionMessages(["draw.py"], cwd, {
+			useHashLines: true,
+			snapshotStore: getEditStore(session),
+		});
+		if (mention?.role !== "fileMention") throw new Error("expected a file mention");
+		const shown = mention.files[0]?.content ?? "";
+		expect(shown).toContain("4:            beta),");
+
+		const result = await new EditTool(session, "hashline").execute("edit", {
+			input: `${shown.split("\n")[0]}\nPUT 4.=4:\n+            beta, gamma),\n`,
+		});
+
+		expect(textOutput(result)).not.toContain("never displayed");
+		expect(await Bun.file(file).text()).toBe(SOURCE.replace("beta),", "beta, gamma),"));
 	});
 });

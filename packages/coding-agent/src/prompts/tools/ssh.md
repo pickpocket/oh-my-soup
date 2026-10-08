@@ -1,0 +1,7 @@
+Open, list, and close SSH sessions. A session is a named connection with its own credentials — a username and password, a key file, or your agent/`~/.ssh/config` identity — that `bash` runs on (`target: "<name>"`) and `ssh://<name>/<path>` reads, writes, and greps. Hosts already in `ssh.json` are targets without connecting; `list` shows both.
+
+- `connect`: `host` is `[user@]host[:port]`, an address, DNS name, or `~/.ssh/config` alias; `user`/`port` fill in parts the destination lacks (a conflicting value is an error); `name` is the target name (default `user@host[:port]`). Auth: `password` (password or keyboard-interactive login), `key` (local private key path, `~` expands), or neither (agent / default keys). The password stays in this process's memory; it is never written to disk or placed on a command line. `connect` authenticates once and reports the remote OS and shell; reconnecting the same name refreshes its credentials.
+- `disconnect`: close the session named `name` and forget its credentials.
+- `list`: open sessions and configured hosts with address, auth kind, and probed OS/shell.
+
+Rules: never guess credentials — use what the user supplied, or ask. Prefer a key or agent when one exists; a password is for hosts that only accept password login. Keep sessions open while a task needs them and disconnect when finished. Windows hosts run commands under cmd/PowerShell unless a POSIX compat shell is found (`compat`, default on); `ssh://` transfers need a POSIX remote.

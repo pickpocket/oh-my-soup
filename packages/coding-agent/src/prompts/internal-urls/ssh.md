@@ -1,1 +1,1 @@
-`ssh://host/<path>`: remote UTF-8 file/dir (max 1 MiB) for read/write/grep; bare lists hosts. Encode `:` `?` `#` as %3A %3F %23. Needs verified POSIX shell; else bash remote SSH or sshfs.
+`ssh://<session|host>/<path>`: remote UTF-8 file/dir (max 1 MiB) for read/write/grep; session = name opened with the `ssh` device, host = `ssh.json` entry or any OpenSSH destination; bare lists both. Encode `:` `?` `#` as %3A %3F %23. Needs verified POSIX shell; else `bash` with `target`.

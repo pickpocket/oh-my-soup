@@ -148,6 +148,95 @@ const objdumpToolRenderer = {
 	},
 } satisfies ToolRenderer<ObjdumpRenderArgs, ObjdumpRenderDetails>;
 
+/** Fork-owned SSH session-device transcript payload. */
+type SshRenderArgs = { op?: string; host?: string; name?: string; user?: string };
+type SshRenderDetails = {
+	op: string;
+	sessions: readonly {
+		name: string;
+		address: string;
+		auth: string;
+		adHoc: boolean;
+		hostInfo?: { os: string; shell: string; compatEnabled: boolean; compatShell?: string };
+	}[];
+};
+
+const sshToolRenderer = {
+	inline: true,
+	mergeCallAndResult: true,
+	renderCall(args: SshRenderArgs, _options, theme) {
+		const description = replaceTabs(sanitizeText(`${args?.op ?? ""} ${args?.name ?? args?.host ?? ""}`)).replace(
+			/\r\n?|\n/g,
+			" ",
+		);
+		return new Text(
+			renderStatusLine(
+				{ icon: "pending", title: "SSH", description: truncateToWidth(description, TRUNCATE_LENGTHS.TITLE) },
+				theme,
+			),
+			0,
+			0,
+		);
+	},
+	renderResult(result, options, theme, args) {
+		return framedToolCard(theme, ({ contentWidth }) => {
+			const sessions = result.details?.sessions ?? [];
+			const op = replaceTabs(sanitizeText(result.details?.op ?? args?.op ?? "request")).replace(/\r\n?|\n/g, " ");
+			const phase = options.isPartial ? "partial" : result.isError ? "error" : "success";
+			const header = renderStatusLine(
+				{
+					icon: options.isPartial ? "running" : result.isError ? "error" : "success",
+					spinnerFrame: options.spinnerFrame,
+					title: "SSH",
+					meta: [op, String(sessions.length)],
+				},
+				theme,
+			);
+			if (result.isError) {
+				const message = result.content.find(part => part.type === "text")?.text ?? "SSH failed";
+				const content = replaceTabs(sanitizeText(message))
+					.split(/\r\n?|\n/)
+					.slice(0, PREVIEW_LIMITS.OUTPUT_COLLAPSED)
+					.map(line => truncateToWidth(line, contentWidth));
+				return { header, phase, sections: [{ content }], applyBg: false };
+			}
+			const limit = options.expanded ? PREVIEW_LIMITS.OUTPUT_EXPANDED : PREVIEW_LIMITS.COLLAPSED_ITEMS;
+			const content = sessions.slice(0, limit).map(session => {
+				const info = session.hostInfo;
+				const platform = !info
+					? "probing"
+					: info.os === "windows"
+						? info.compatEnabled
+							? `windows/${info.compatShell ?? "bash"} (compat)`
+							: info.shell === "powershell"
+								? "windows/powershell"
+								: "windows/cmd"
+						: `${info.os}/${info.shell}`;
+				const line = replaceTabs(
+					sanitizeText(
+						`${session.name} → ${session.address} · ${session.auth} auth · ${platform} · ${session.adHoc ? "open session" : "configured host"}`,
+					),
+				).replace(/\r\n?|\n/g, " ");
+				return theme.fg("toolOutput", line);
+			});
+			if (sessions.length === 0) content.push(theme.fg("dim", "(no sessions)"));
+			if (sessions.length > limit)
+				content.push(
+					theme.fg(
+						"muted",
+						`… ${sessions.length - limit} more ${formatExpandHint(theme, options.expanded, true)}`,
+					),
+				);
+			return {
+				header,
+				phase,
+				sections: [{ content: content.map(line => truncateToWidth(line, contentWidth)) }],
+				applyBg: false,
+			};
+		});
+	},
+} satisfies ToolRenderer<SshRenderArgs, SshRenderDetails>;
+
 export * from "./renderer";
 
 /** Renderers keyed by tool name (plus `apply_patch`/`reject` aliases that share a renderer). */
@@ -179,6 +268,7 @@ export const toolRenderers: Record<string, ToolRenderer> = {
 	todo: todoToolRenderer,
 	notes: notesToolRenderer,
 	objdump: objdumpToolRenderer,
+	ssh: sshToolRenderer,
 	github: githubToolRenderer,
 	goal: goalToolRenderer,
 	web_search: webSearchToolRenderer,

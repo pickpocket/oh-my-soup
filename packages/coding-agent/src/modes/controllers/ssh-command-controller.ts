@@ -19,6 +19,12 @@ import {
 	showCommandMessage,
 } from "./command-controller-shared";
 
+const SSH_PASSWORD_HELP =
+	"--password: ${ENV_VAR} references are expanded when the host is loaded; prefer them over literal passwords, especially in project-scope ssh.json.";
+const SSH_ADD_USAGE =
+	"Usage: /ssh add <name> --host <host> [--user <user>] [--port <port>] [--key <keyPath>] [--password <value>] [--desc <description>] [--compat] [--scope project|user]\n" +
+	SSH_PASSWORD_HELP;
+
 export class SSHCommandController {
 	constructor(private ctx: InteractiveModeContext) {}
 
@@ -61,10 +67,12 @@ export class SSHCommandController {
 			"Manage SSH host configurations for remote command execution.",
 			"",
 			theme.fg("accent", "Commands:"),
-			"  /ssh add <name> --host <host> [--user <user>] [--port <port>] [--key <keyPath>] [--desc <description>] [--compat] [--scope project|user]",
+			"  /ssh add <name> --host <host> [--user <user>] [--port <port>] [--key <keyPath>] [--password <value>] [--desc <description>] [--compat] [--scope project|user]",
 			"  /ssh list             List all configured SSH hosts",
 			"  /ssh remove <name> [--scope project|user]    Remove an SSH host (default: project)",
 			"  /ssh help             Show this help message",
+			"",
+			SSH_PASSWORD_HELP,
 			"",
 		].join("\n");
 
@@ -78,17 +86,13 @@ export class SSHCommandController {
 		const prefixMatch = text.match(/^\/ssh\s+add\b\s*(.*)$/i);
 		const rest = prefixMatch?.[1]?.trim() ?? "";
 		if (!rest) {
-			this.ctx.showError(
-				"Usage: /ssh add <name> --host <host> [--user <user>] [--port <port>] [--key <keyPath>] [--desc <description>] [--compat] [--scope project|user]",
-			);
+			this.ctx.showError(SSH_ADD_USAGE);
 			return;
 		}
 
-		const tokens = parseCommandArgs(rest);
+		const tokens = parseCommandArgs(rest, { preserveEmpty: true });
 		if (tokens.length === 0) {
-			this.ctx.showError(
-				"Usage: /ssh add <name> --host <host> [--user <user>] [--port <port>] [--key <keyPath>] [--desc <description>] [--compat] [--scope project|user]",
-			);
+			this.ctx.showError(SSH_ADD_USAGE);
 			return;
 		}
 
@@ -98,6 +102,7 @@ export class SSHCommandController {
 		let username: string | undefined;
 		let port: number | undefined;
 		let keyPath: string | undefined;
+		let password: string | undefined;
 		let description: string | undefined;
 		let compat = false;
 
@@ -154,6 +159,16 @@ export class SSHCommandController {
 				i += 2;
 				continue;
 			}
+			if (argToken === "--password") {
+				const value = tokens[i + 1];
+				if (!value) {
+					this.ctx.showError("--password requires a value");
+					return;
+				}
+				password = value;
+				i += 2;
+				continue;
+			}
 			if (argToken === "--desc") {
 				const value = tokens[i + 1];
 				if (!value) {
@@ -201,6 +216,7 @@ export class SSHCommandController {
 			if (username) hostConfig.username = username;
 			if (port) hostConfig.port = port;
 			if (keyPath) hostConfig.keyPath = keyPath;
+			if (password !== undefined) hostConfig.password = password;
 			if (description) hostConfig.description = description;
 			if (compat) hostConfig.compat = true;
 
@@ -315,6 +331,7 @@ export class SSHCommandController {
 							host: host.host,
 							username: host.username,
 							port: host.port,
+							password: host.password,
 						});
 						lines.push(`  ${theme.fg("accent", host.name)} ${details}`);
 					}
@@ -329,13 +346,14 @@ export class SSHCommandController {
 	}
 
 	/**
-	 * Format host details (host, user, port) for display
+	 * Format host details for display without exposing passwords.
 	 */
-	#formatHostDetails(config: { host?: string; username?: string; port?: number }): string {
+	#formatHostDetails(config: { host?: string; username?: string; port?: number; password?: string }): string {
 		const parts: string[] = [];
 		if (config.host) parts.push(config.host);
 		if (config.username) parts.push(`user=${config.username}`);
 		if (config.port && config.port !== 22) parts.push(`port=${config.port}`);
+		if (config.password !== undefined) parts.push("password: set");
 		return theme.fg("dim", parts.length > 0 ? `[${parts.join(", ")}]` : "");
 	}
 

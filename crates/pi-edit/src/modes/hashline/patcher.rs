@@ -171,10 +171,12 @@ fn assert_seen_lines(
 	}
 	let truncated = unseen.len() > revealed.len() || column_truncated;
 	if !truncated {
-		store.record_seen_lines(
+		// The tag can also name a newer whitespace variant or a hash collision.
+		// Register the reveal on the exact live version the guard just checked.
+		store.record(
 			canonical,
-			expected,
-			&revealed.iter().map(|item| item.line).collect::<Vec<_>>(),
+			text,
+			Some(&revealed.iter().map(|item| item.line).collect::<Vec<_>>()),
 		);
 	}
 	Err(EditError::matched(unseen_lines_message(

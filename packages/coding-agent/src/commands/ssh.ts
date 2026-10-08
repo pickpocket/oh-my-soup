@@ -30,10 +30,16 @@ export default class SSH extends Command {
 		user: Flags.string({ description: "Username" }),
 		port: Flags.string({ description: "Port number" }),
 		key: Flags.string({ description: "Identity key path" }),
+		password: Flags.string({
+			description:
+				"Password or ${ENV_VAR} reference (expanded when the host is loaded; prefer references, especially in project-scope ssh.json)",
+		}),
 		desc: Flags.string({ description: "Host description" }),
 		compat: Flags.boolean({ description: "Enable compatibility mode" }),
 		scope: Flags.string({ description: "Config scope (project|user)", options: ["project", "user"] }),
 	};
+
+	static examples = ["oms ssh add prod --host prod.example.com --user root --password '${PROD_SSH_PASSWORD}'"];
 
 	async run(): Promise<void> {
 		const { args, flags } = await this.parse(SSH);
@@ -49,6 +55,7 @@ export default class SSH extends Command {
 				user: flags.user,
 				port: flags.port,
 				key: flags.key,
+				password: flags.password,
 				desc: flags.desc,
 				compat: flags.compat,
 				scope: flags.scope as "project" | "user" | undefined,

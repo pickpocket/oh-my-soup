@@ -129,6 +129,9 @@ export const setupHelp = {
 } satisfies CommandMetadata;
 
 export const shellHelp = { description: "Interactive shell console" } satisfies CommandMetadata;
+export const serviceHelp = {
+	description: "Manage the persistent terminal service (Windows service or systemd user unit) for SSH reattachment",
+} satisfies CommandMetadata;
 
 export const skillHelp = {
 	description: "Install, search, publish, and manage skills on the Skillshare registry (skills.omp.sh)",

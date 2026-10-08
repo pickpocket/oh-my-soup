@@ -40,7 +40,7 @@ describe("SSH pre-command helpers bound their own runtime (#4232)", () => {
 	it("runSshSync returns a failure result within the timeout on a wedged host", async () => {
 		const timeoutMs = 200;
 		const started = Date.now();
-		const result = await runSshSync(["-o", "BatchMode=yes", "unreachable", "true"], timeoutMs);
+		const result = await runSshSync({}, ["-o", "BatchMode=yes", "unreachable", "true"], timeoutMs);
 		const elapsed = Date.now() - started;
 
 		expect(elapsed).toBeLessThan(5_000);
@@ -51,7 +51,7 @@ describe("SSH pre-command helpers bound their own runtime (#4232)", () => {
 	it("runSshCaptureSync returns a failure result within the timeout on a wedged host", async () => {
 		const timeoutMs = 200;
 		const started = Date.now();
-		const result = await runSshCaptureSync(["-o", "BatchMode=yes", "unreachable", "true"], timeoutMs);
+		const result = await runSshCaptureSync({}, ["-o", "BatchMode=yes", "unreachable", "true"], timeoutMs);
 		const elapsed = Date.now() - started;
 
 		expect(elapsed).toBeLessThan(5_000);

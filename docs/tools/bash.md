@@ -1,6 +1,6 @@
 # bash
 
-> Execute a shell command in the session workspace, with optional PTY, background-job handling, or supervised service mode.
+> Execute a shell command locally in the session workspace or on an SSH target, with optional local PTY, background-job handling, or supervised service mode.
 
 ## Source
 - Entry: `packages/coding-agent/src/tools/bash.ts`
@@ -12,6 +12,8 @@
   - `packages/coding-agent/src/tools/bash-pty-selection.ts` — `canUseInteractiveBashPty()` decides whether a call may use the local PTY overlay.
   - `packages/coding-agent/src/tools/gh-cache-invalidation.ts` — drops `github-cache` rows for mutating `gh issue`/`gh pr` subcommands.
   - `packages/coding-agent/src/exec/bash-executor.ts` — non-PTY shell execution.
+  - `packages/coding-agent/src/ssh/ssh-executor.ts` — foreground SSH command execution.
+  - `packages/coding-agent/src/ssh/sessions.ts` — open-session and configured-host target resolution.
   - `packages/coding-agent/src/session/streaming-output.ts` — tail buffer, truncation, artifact spill.
   - `packages/coding-agent/src/tools/tool-timeouts.ts` — timeout clamp bounds.
   - `packages/coding-agent/src/exec/settings.ts` — default interceptor rules.
@@ -23,19 +25,32 @@
 | --- | --- | --- | --- |
 | `command` | `string` | Yes | Shell command text to execute. A leading `cd <path> && ...` is rewritten into `cwd` only when `cwd` was omitted. |
 | `timeout` | `number` | No | Timeout in seconds. Default `300`. `0` disables the deadline. Positive values are capped by `tools.maxTimeout` when that setting is positive, then clamped to the Bash range `1..3600`. |
-| `cwd` | `string` | No | Working directory, resolved against `session.cwd` via `resolveToCwd`. Must exist and be a directory. |
+| `cwd` | `string` | No | Local: resolved against `session.cwd` via `resolveToCwd`; must exist and be a directory. With `target`: an absolute path on the remote host; omitted means its login directory. |
+| `target` | `string` | No | Run on an open SSH-device session name or configured `ssh.json` host instead of locally. See [SSH targets](#ssh-targets) and the [ssh device](ssh.md). |
 | `pty` | `boolean` | No | Request PTY mode. Default `false`. Foreground PTY requires a UI and `PI_NO_PTY !== "1"`; named services forward this setting to the broker. |
 | `async` | `boolean` | No | Background execution request. Present only when `async.enabled` is true for the session. Returns immediately with a job id instead of waiting; it does not change the effective deadline, including a disabled deadline from `timeout: 0`. |
 | `name` | `string` | No | Supervised service name (≤48 characters; project-unique). Present only when `launch.enabled` and the session can launch. A live name restarts using the new spec. Incompatible with `async` and `timeout`. |
 | `ready` | `{ log?: string; port?: number; host?: string; timeout?: number }` | No | Service readiness: output regex and/or TCP port must pass; host defaults to `127.0.0.1`, timeout to 30 seconds. Only with `name`. |
 | `env` | `Record<string, string>` | No | Environment overrides for the service. Only with `name`. |
 
-Without `name`, `pty`, or a client terminal, commands run in the embedded POSIX-compatible brush shell, even when `shellPath` points to PowerShell or another external shell. `shellPath` selects the external shell for named services, supported terminal routes, and interactive `!` commands; a bash path may still supply environment and rc snapshots to the embedded session. To use PowerShell syntax in a plain tool call, invoke `pwsh -Command '...'` explicitly, quoting so brush preserves PowerShell's `$` variables.
+For local execution, without `name`, `pty`, or a client terminal, commands run in the embedded POSIX-compatible brush shell, even when `shellPath` points to PowerShell or another external shell. `shellPath` selects the external shell for named services, supported terminal routes, and interactive `!` commands; a bash path may still supply environment and rc snapshots to the embedded session. To use PowerShell syntax in a plain local tool call, invoke `pwsh -Command '...'` explicitly, quoting so brush preserves PowerShell's `$` variables.
 
 Named service example:
 ```json
 {"command":"python3 -m http.server 8765","name":"web","ready":{"port":8765}}
 ```
+
+## SSH targets
+
+Set `target` to an open SSH session name or a host name from `ssh.json`. Open ad hoc sessions through the [ssh device](ssh.md) (`write xd://ssh` with `op: "connect"`); configured hosts need no explicit connect.
+
+```json
+{"command":"uname -a","target":"build","cwd":"/srv/app"}
+```
+
+- The command runs on the target, not in the local persistent shell. `cwd` is an absolute remote path; `~`, `~/...`, and `~\...` are refused. Omit `cwd` to use the remote login directory.
+- SSH execution is foreground only: a service `name` or `async: true` is rejected. `pty: true` is ignored, with the notice `pty is local-only; ran the remote command without a terminal.`
+- Completed results include `[ran on <target>: <address>]`. Timeout clamping, merged stdout/stderr, output truncation, and full-output `artifact://<id>` spill behave as for local execution.
 
 ## Outputs
 The tool returns a single `text` content block plus optional `details`.
@@ -135,6 +150,8 @@ Choose the setting by the desired outcome:
 - Use `bash.patterns` when the question is **whether the command may execute**.
 - Use `bashInterceptor.patterns` when the question is **which tool should perform the operation**.
 
+The following execution steps describe local calls (`target` omitted). SSH calls dispatch to `#executeRemote()` after mode validation, before the local interceptor and execution routing.
+
 1. `BashTool.execute()` in `packages/coding-agent/src/tools/bash.ts` reads `command`. A `name` selects supervised service mode (through the user's shell and launch broker); normal Bash execution defaults `timeout` to `300`.
 2. If `cwd` is absent, it rewrites a leading `cd <path> && ...` into the structured `cwd` field and strips that prefix from `command`.
 3. If `async: true` is requested while `async.enabled` is off, it throws `ToolError` before any execution.
@@ -183,22 +200,27 @@ Choose the setting by the desired outcome:
    - No subprocess created.
    - Returns a `ToolError` pointing the model at the dedicated tool or named service mode.
 
+8. Foreground SSH target
+   - Resolves `target` to an open session or configured host and runs through `executeSSH()`.
+   - No supervised service, background-job, or PTY mode; uses the remote shell and the same output truncation/artifact path as local execution.
+
 ## Side Effects
 - Filesystem
-  - Validates `cwd` with `fs.stat()`.
-  - May allocate and write artifact files for full local output (`bash`) and minimizer-preserved raw output (`bash-original`).
+  - Validates local `cwd` with `fs.stat()`.
+  - May allocate and write artifact files for full local/SSH output (`bash`) and minimizer-preserved raw local output (`bash-original`).
   - `scheme://` paths are served per operation by `InternalUrlFilesystem`: file-backed schemes redirect to their backing files (writes only for mutable file-written schemes such as `local://`, within the approved tier); rendered resources are read-only; `realpath`/`readlink` print the physical backing path of file-backed URLs.
 - Subprocesses / native bindings / client terminal
   - Non-PTY local execution uses native shell execution via `@oh-my-soup/pi-natives` (`Shell.run()` or `executeShell()`).
   - PTY uses native `PtySession.start()`.
   - Client-terminal mode delegates process execution to the connected client terminal capability.
   - Named services run in the project-scoped launch broker and retain logs/status for `proc://`.
+  - SSH targets launch OpenSSH through `executeSSH()` and the shared connection manager.
 - Session state
   - Reads session settings for async, auto-background, interceptor, direnv, global timeout cap, tool availability, and shell configuration.
   - Registers jobs with `session.asyncJobManager` for explicit/auto background runs.
   - Uses `session.getSessionId()` to isolate shell reuse and async session keys.
   - Uses `session.allocateOutputArtifact()` for spill files.
-  - Invalidates `github-cache` rows before execution when the command contains a mutating `gh issue`/`gh pr` subcommand, so later `issue://`/`pr://` reads see post-mutation state (`invalidateGithubCacheForBashCommand`).
+  - Invalidates `github-cache` rows before local execution when the command contains a mutating `gh issue`/`gh pr` subcommand, so later `issue://`/`pr://` reads see post-mutation state (`invalidateGithubCacheForBashCommand`).
 - User-visible prompts / interactive UI
   - PTY mode opens a TUI overlay titled `Console` and forwards input to the PTY.
   - Background start messages note that the result is delivered automatically; use `wait` only when there is no other work.
@@ -221,6 +243,11 @@ Choose the setting by the desired outcome:
   - async requested while disabled -> `ToolError("Async bash execution is disabled...")`.
   - missing async job manager -> `ToolError("Background job manager unavailable for this session.")`.
   - missing/bad `cwd` -> `ToolError("Working directory does not exist: ...")` or `ToolError("Working directory is not a directory: ...")`.
+- SSH targets:
+  - unknown target -> `ToolError("Unknown SSH target ...")`, with instructions to connect through `xd://ssh` or add a host to `ssh.json`.
+  - service `name` -> `ToolError("Services run locally; drop target or name.")`.
+  - `async: true` -> `ToolError("Async bash is local-only; drop target or async.")` when async execution is enabled.
+  - `~`-based remote `cwd` -> `ToolError("Remote cwd must be an absolute path on the target; omit cwd to run in the login directory.")`.
 - Interceptor:
   - matched command -> `ToolError` with `Blocked: <rule.message>` and the original command.
   - invalid interceptor regexes are silently skipped by `compileRules()`.

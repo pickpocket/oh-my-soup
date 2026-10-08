@@ -794,6 +794,11 @@ export function getRemoteHostDir(): string {
 	return dirs.rootSubdir("remote-host", "data");
 }
 
+/** Get the directory of the SSH askpass helper OMS hands password-auth connections (~/.oms/ssh-askpass). */
+export function getSshAskpassDir(): string {
+	return dirs.rootSubdir("ssh-askpass", "state");
+}
+
 /** Get the managed Python venv directory (~/.oms/python-env). */
 export function getPythonEnvDir(): string {
 	return dirs.rootSubdir("python-env", "data");

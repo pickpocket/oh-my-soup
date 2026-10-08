@@ -12,13 +12,17 @@ interface ParsedSshAddArgs {
 	username?: string;
 	port?: number;
 	keyPath?: string;
+	password?: string;
 	error?: string;
 }
 
 type SshAddOptionParser = (parsed: ParsedSshAddArgs, value: string | undefined) => string | undefined;
 
+const SSH_PASSWORD_HELP =
+	"--password: ${ENV_VAR} references are expanded when the host is loaded; prefer them over literal passwords, especially in project-scope ssh.json.";
 const SSH_ADD_USAGE =
-	"Usage: /ssh add <name> --host <host> [--user <user>] [--port <port>] [--key <keyPath>] [--scope project|user]";
+	"Usage: /ssh add <name> --host <host> [--user <user>] [--port <port>] [--key <keyPath>] [--password <value>] [--scope project|user]\n" +
+	SSH_PASSWORD_HELP;
 
 const SSH_ADD_OPTION_PARSERS = new Map<string, SshAddOptionParser>([
 	[
@@ -64,6 +68,14 @@ const SSH_ADD_OPTION_PARSERS = new Map<string, SshAddOptionParser>([
 		},
 	],
 	[
+		"--password",
+		(parsed, value) => {
+			if (!value) return "--password requires a value";
+			parsed.password = value;
+			return undefined;
+		},
+	],
+	[
 		"--scope",
 		(parsed, value) => {
 			if (!value || (value !== "project" && value !== "user")) return "Invalid --scope value. Use project or user.";
@@ -74,7 +86,7 @@ const SSH_ADD_OPTION_PARSERS = new Map<string, SshAddOptionParser>([
 ]);
 
 function parseSshAddArgs(rest: string): ParsedSshAddArgs {
-	const tokens = parseCommandArgs(rest);
+	const tokens = parseCommandArgs(rest, { preserveEmpty: true });
 	const parsed: ParsedSshAddArgs = { scope: "project" };
 	let index = 0;
 	if (tokens.length > 0 && !tokens[0]!.startsWith("-")) {
@@ -94,10 +106,12 @@ function parseSshAddArgs(rest: string): ParsedSshAddArgs {
 
 const SSH_HELP_TEXT = [
 	"SSH host management (ACP mode)",
-	"  /ssh add <name> --host <host> [--user <user>] [--port <port>] [--key <keyPath>] [--scope project|user]",
+	"  /ssh add <name> --host <host> [--user <user>] [--port <port>] [--key <keyPath>] [--password <value>] [--scope project|user]",
 	"  /ssh list                                       List configured SSH hosts",
 	"  /ssh remove <name> [--scope project|user]       Remove an SSH host",
 	"  /ssh help                                        Show this help",
+	"",
+	SSH_PASSWORD_HELP,
 ].join("\n");
 
 async function handleListCommand(runtime: SlashCommandRuntime): Promise<SlashCommandResult> {
@@ -108,17 +122,38 @@ async function handleListCommand(runtime: SlashCommandRuntime): Promise<SlashCom
 			readSSHConfigFile(userPath),
 			readSSHConfigFile(projectPath),
 		]);
-		const entries: Array<{ name: string; host: string; user?: string; port?: number; scope: string }> = [];
+		const entries: Array<{
+			name: string;
+			host: string;
+			user?: string;
+			port?: number;
+			hasPassword: boolean;
+			scope: string;
+		}> = [];
 		// Capability loader resolves project before user, so list project hosts
 		// first and let the user-scope loop skip duplicates. Otherwise a host
 		// shared between scopes shows up under "user" when the project entry
 		// is the one actually in effect.
 		for (const [name, config] of Object.entries(projectConfig.hosts ?? {})) {
-			entries.push({ name, host: config.host, user: config.username, port: config.port, scope: "project" });
+			entries.push({
+				name,
+				host: config.host,
+				user: config.username,
+				port: config.port,
+				hasPassword: config.password !== undefined,
+				scope: "project",
+			});
 		}
 		for (const [name, config] of Object.entries(userConfig.hosts ?? {})) {
 			if (!entries.some(entry => entry.name === name)) {
-				entries.push({ name, host: config.host, user: config.username, port: config.port, scope: "user" });
+				entries.push({
+					name,
+					host: config.host,
+					user: config.username,
+					port: config.port,
+					hasPassword: config.password !== undefined,
+					scope: "user",
+				});
 			}
 		}
 		if (entries.length === 0) {
@@ -127,7 +162,10 @@ async function handleListCommand(runtime: SlashCommandRuntime): Promise<SlashCom
 		}
 		await runtime.output(
 			entries
-				.map(entry => `${entry.name} | ${entry.host} | ${entry.user ?? "-"} | ${entry.port ?? 22} [${entry.scope}]`)
+				.map(
+					entry =>
+						`${entry.name} | ${entry.host} | ${entry.user ?? "-"} | ${entry.port ?? 22} [${entry.scope}]${entry.hasPassword ? " | password: set" : ""}`,
+				)
 				.join("\n"),
 		);
 		return commandConsumed();
@@ -161,6 +199,7 @@ async function handleAddCommand(rest: string, runtime: SlashCommandRuntime): Pro
 	if (parsed.username) hostConfig.username = parsed.username;
 	if (parsed.port) hostConfig.port = parsed.port;
 	if (parsed.keyPath) hostConfig.keyPath = parsed.keyPath;
+	if (parsed.password !== undefined) hostConfig.password = parsed.password;
 	try {
 		const filePath = getSSHConfigPath(parsed.scope, runtime.cwd);
 		await addSSHHost(filePath, parsed.name, hostConfig);

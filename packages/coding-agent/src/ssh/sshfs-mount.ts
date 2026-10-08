@@ -3,9 +3,11 @@ import * as path from "node:path";
 import { $which, getRemoteDir, postmortem } from "@oh-my-soup/pi-utils";
 import { $ } from "bun";
 import {
+	authArgs,
 	ensureSshControlDir,
 	getControlPathTemplate,
 	type SSHConnectionTarget,
+	sshProcessEnv,
 	supportsSshControlMaster,
 } from "./connection-manager";
 import { buildSshTarget, sanitizeHostName } from "./utils";
@@ -51,9 +53,8 @@ function buildSshfsArgs(host: SSHConnectionTarget): string[] {
 		"-o",
 		"ServerAliveCountMax=3",
 		"-o",
-		"BatchMode=yes",
-		"-o",
 		"StrictHostKeyChecking=accept-new",
+		...authArgs(host),
 	];
 
 	if (supportsSshControlMaster()) {
@@ -128,7 +129,7 @@ export async function mountRemote(host: SSHConnectionTarget, remotePath = "/"): 
 
 	const target = `${buildSshTarget(host.username, host.host)}:${remotePath}`;
 	const args = buildSshfsArgs(host);
-	const result = await $`sshfs ${args} ${target} ${mountPath}`.nothrow();
+	const result = await $`sshfs ${args} ${target} ${mountPath}`.env(sshProcessEnv(host) ?? process.env).nothrow();
 
 	if (result.exitCode !== 0) {
 		const detail = result.stderr.toString().trim();

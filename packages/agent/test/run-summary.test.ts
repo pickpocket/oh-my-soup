@@ -16,7 +16,7 @@ import {
 	emptyAgentRunCoverage,
 	emptyAgentRunSummary,
 } from "@oh-my-soup/pi-agent-core/run-collector";
-import { EXECUTE_TOOL_STATUS_ATTR, GenAIAttr, OmpGenAIAggregateAttr } from "@oh-my-soup/pi-agent-core/telemetry";
+import { EXECUTE_TOOL_STATUS_ATTR, GenAIAttr, OmsGenAIAggregateAttr } from "@oh-my-soup/pi-agent-core/telemetry";
 import type { AgentEvent, AgentLoopConfig, AgentMessage, AgentTool } from "@oh-my-soup/pi-agent-core/types";
 import type { AssistantMessage, Message } from "@oh-my-soup/pi-ai";
 import { createMockModel } from "@oh-my-soup/pi-ai/providers/mock";
@@ -324,12 +324,12 @@ describe("AgentRunSummary aggregation", () => {
 		await detailed.detailed();
 		const invokeSpan = tracer.findSpan("invoke_agent");
 		expect(invokeSpan).toBeDefined();
-		expect(invokeSpan?.attributes[OmpGenAIAggregateAttr.ChatsCount]).toBe(2);
-		expect(invokeSpan?.attributes[OmpGenAIAggregateAttr.ToolsCount]).toBe(1);
-		expect(invokeSpan?.attributes[OmpGenAIAggregateAttr.ToolsOkCount]).toBe(1);
-		expect(invokeSpan?.attributes[OmpGenAIAggregateAttr.UsageInputTokensTotal]).toBe(6);
-		expect(invokeSpan?.attributes[OmpGenAIAggregateAttr.UsageTotalTokensTotal]).toBe(13);
-		expect(invokeSpan?.attributes[OmpGenAIAggregateAttr.ToolsInvoked]).toEqual(["alpha"]);
+		expect(invokeSpan?.attributes[OmsGenAIAggregateAttr.ChatsCount]).toBe(2);
+		expect(invokeSpan?.attributes[OmsGenAIAggregateAttr.ToolsCount]).toBe(1);
+		expect(invokeSpan?.attributes[OmsGenAIAggregateAttr.ToolsOkCount]).toBe(1);
+		expect(invokeSpan?.attributes[OmsGenAIAggregateAttr.UsageInputTokensTotal]).toBe(6);
+		expect(invokeSpan?.attributes[OmsGenAIAggregateAttr.UsageTotalTokensTotal]).toBe(13);
+		expect(invokeSpan?.attributes[OmsGenAIAggregateAttr.ToolsInvoked]).toEqual(["alpha"]);
 	});
 });
 

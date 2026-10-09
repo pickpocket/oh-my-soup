@@ -238,7 +238,7 @@ class GitFileTree {
 
 /** A quiet text button (`Stage all`): a clickable row the role sheet draws as `.btn.quiet`. */
 function quietButton(label: string, act: string, title: string): NativeNode {
-	return node("row", { role: "omp.app.qbtn", actions: { click: act }, title }, [text(label)], act);
+	return node("row", { role: "oms.app.qbtn", actions: { click: act }, title }, [text(label)], act);
 }
 
 /** A text field at rest: its value (or placeholder) as text; a click starts editing it. */
@@ -247,7 +247,7 @@ function fieldText(
 	placeholder: string,
 	act: string,
 	selected: boolean,
-	role = "omp.app.git.field",
+	role = "oms.app.git.field",
 ): NativeNode {
 	return text(value ? value : [span(placeholder, "dim")], {
 		truncate: "end",
@@ -988,13 +988,13 @@ export class Sidebar {
 										...this.#describeSection("unstaged", selectedKey, on, aiInput),
 										...this.#describeSection("staged", selectedKey, on, undefined),
 									],
-									{ role: "omp.app.git.changes", gap: "sm" },
+									{ role: "oms.app.git.changes", gap: "sm" },
 								),
 								"changes",
 							),
 							this.#describeCommit(on, summaryInput, descriptionEditor),
 						];
-				return col(children, { role: "omp.app.git.side" });
+				return col(children, { role: "oms.app.git.side" });
 			},
 		);
 	}
@@ -1003,10 +1003,23 @@ export class Sidebar {
 	 * Pointer actions on the changes sheet: list clicks select (a folder also
 	 * folds, a second click on the selected file stages it, as the ANSI click
 	 * does), double clicks activate, the segmented control switches Path/Tree,
-	 * and the quiet buttons run their row's action. False when not the
-	 * sidebar's event.
+	 * and the quiet buttons run their row's action; selection edits go to the
+	 * text field being edited. False when not the sidebar's event.
 	 */
 	handleNativeEvent(event: NativeUiEvent): boolean {
+		if (event.type === "edit" || event.type === "undo") {
+			const editing = this.editing ? this.selected?.kind : undefined;
+			const field =
+				editing === "summary"
+					? this.summary.input
+					: editing === "stage-ai-input"
+						? this.aiInput.input
+						: editing === "description"
+							? this.description
+							: undefined;
+			field?.handleNativeEvent(event);
+			return field !== undefined;
+		}
 		if (event.type === "select" || event.type === "activate") {
 			if (event.item === "path" || event.item === "tree") {
 				this.viewStyle = event.item;
@@ -1073,13 +1086,13 @@ export class Sidebar {
 						text([span(`${total} change${total === 1 ? "" : "s"}`, "strong")]),
 						this.#model.branch !== null && text([span("on", "muted")]),
 						this.#model.branch !== null &&
-							text([span(this.#model.branch, "mono")], { role: "omp.app.git.branch", truncate: "middle" }),
+							text([span(this.#model.branch, "mono")], { role: "oms.app.git.branch", truncate: "middle" }),
 					]),
-					{ gap: "xs", align: "center", role: "omp.app.git.title" },
+					{ gap: "xs", align: "center", role: "oms.app.git.title" },
 				),
 				this.#describeStyleToggle(),
 			],
-			{ justify: "between", align: "center", role: "omp.app.git.head" },
+			{ justify: "between", align: "center", role: "oms.app.git.head" },
 		);
 		return keyed(head, "head");
 	}
@@ -1093,7 +1106,7 @@ export class Sidebar {
 					{ id: "tree", label: "Tree" },
 				],
 				active: this.viewStyle,
-				role: "omp.app.seg",
+				role: "oms.app.seg",
 			},
 			undefined,
 			"style",
@@ -1118,7 +1131,7 @@ export class Sidebar {
 							"icon",
 							{
 								name: "wand",
-								role: "omp.app.ibtn",
+								role: "oms.app.ibtn",
 								title: "Stage by description…",
 								aria: "Stage by description",
 								actions: { click: "stage-ai" },
@@ -1134,16 +1147,16 @@ export class Sidebar {
 					[
 						node("icon", { name: folded ? "chev-r" : "chev" }),
 						text(area === "unstaged" ? "Unstaged" : "Staged"),
-						text([span(String(files.length), "num")], { role: "omp.app.git.count" }),
+						text([span(String(files.length), "num")], { role: "oms.app.git.count" }),
 					],
 					{ gap: "xs", align: "center", actions: { click: `fold-${area}` }, title: folded ? "Show" : "Hide" },
 				),
-				row(files.length > 0 ? actions : [], { gap: "xs", align: "center", role: "omp.app.git.acts" }),
+				row(files.length > 0 ? actions : [], { gap: "xs", align: "center", role: "oms.app.git.acts" }),
 			],
 			{
 				justify: "between",
 				align: "center",
-				role: on(section) ? "omp.app.git.sechead.on" : "omp.app.git.sechead",
+				role: on(section) ? "oms.app.git.sechead.on" : "oms.app.git.sechead",
 			},
 		);
 		const out: NativeChild[] = [keyed(head, `${area}-head`)];
@@ -1155,7 +1168,7 @@ export class Sidebar {
 						? node("input", {
 								...inputProps(aiInput),
 								placeholder: "What should we stage?",
-								role: "omp.app.git.field.on",
+								role: "oms.app.git.field.on",
 							})
 						: fieldText(this.aiInput.getValue(), "What should we stage?", "edit-ai", on(target)),
 					"ai",
@@ -1171,7 +1184,7 @@ export class Sidebar {
 					{
 						selected: selected ? this.#nativeKey(selected.target) : null,
 						empty: area === "unstaged" ? "Nothing to stage" : "Nothing staged yet",
-						role: "omp.app.git.files",
+						role: "oms.app.git.files",
 						actions: { click: "select", dblclick: "activate" },
 					},
 					area,
@@ -1190,7 +1203,7 @@ export class Sidebar {
 			return item(key, {
 				label: [span(entry.dirName ?? "")],
 				icon: "folder",
-				role: `omp.app.git.dir-d${depth}`,
+				role: `oms.app.git.dir-d${depth}`,
 				tone: entry.collapsed ? "muted" : undefined,
 			});
 		}
@@ -1208,7 +1221,7 @@ export class Sidebar {
 			value: stats.length > 0 ? stats : undefined,
 			hint: [KIND_LETTER[file.kind]],
 			tone: KIND_COLOR[file.kind],
-			role: `omp.app.git.file-d${this.viewStyle === "tree" ? depth : 0}`,
+			role: `oms.app.git.file-d${this.viewStyle === "tree" ? depth : 0}`,
 			title: `${file.kind}: ${file.path}`,
 		});
 	}
@@ -1230,24 +1243,24 @@ export class Sidebar {
 			? row(
 					[
 						node("input", { ...inputProps(summaryInput), placeholder: "Summary", grow: 1 }),
-						text([span(String(left), left < 0 ? "warning num" : "num")], { role: "omp.app.git.count" }),
+						text([span(String(left), left < 0 ? "warning num" : "num")], { role: "oms.app.git.count" }),
 					],
-					{ gap: "sm", align: "center", role: "omp.app.git.summary.on" },
+					{ gap: "sm", align: "center", role: "oms.app.git.summary.on" },
 				)
-			: fieldText(summary, "Summary", "edit-summary", on({ kind: "summary" }), "omp.app.git.summary");
+			: fieldText(summary, "Summary", "edit-summary", on({ kind: "summary" }), "oms.app.git.summary");
 		const bodyField = descriptionEditor
 			? node("editor", {
 					...editorProps(descriptionEditor),
 					placeholder: "Description",
 					maxLines: 5,
-					role: "omp.app.git.body.on",
+					role: "oms.app.git.body.on",
 				})
 			: fieldText(
 					description.split("\n", 1)[0] + (description.includes("\n") ? " …" : ""),
 					"Description",
 					"edit-description",
 					on({ kind: "description" }),
-					"omp.app.git.body",
+					"oms.app.git.body",
 				);
 		const hasChanges = this.#model.staged.length > 0 || this.#model.unstaged.length > 0 || this.amend;
 		const canCommit =
@@ -1259,7 +1272,7 @@ export class Sidebar {
 				: this.#model.staged.length > 0
 					? "Commit"
 					: "Stage all & commit";
-		// The panels' button (omp-panels.css `omp.btn`): accent while the keyboard is on it, muted when it can't run.
+		// The panels' button (oms-panels.css `oms.btn`): accent while the keyboard is on it, muted when it can't run.
 		const commitTone = !canCommit ? "muted" : on({ kind: "commit-button" }) ? "accent" : undefined;
 		return col(
 			[
@@ -1271,14 +1284,14 @@ export class Sidebar {
 							row([node("icon", { name: this.amend ? "check" : "commit" }), text("Amend")], {
 								gap: "xs",
 								align: "center",
-								role: `omp.app.git.toggle${this.amend ? ".set" : ""}${on({ kind: "amend" }) ? ".on" : ""}`,
+								role: `oms.app.git.toggle${this.amend ? ".set" : ""}${on({ kind: "amend" }) ? ".on" : ""}`,
 								actions: { click: "amend" },
 								title: "Amend the previous commit",
 							}),
 							row(compact([this.generating && node("spinner", { style: "dots" }), text(label)]), {
 								gap: "xs",
 								align: "center",
-								role: "omp.btn",
+								role: "oms.btn",
 								tone: commitTone,
 								actions: canCommit ? { click: "commit" } : undefined,
 								title:
@@ -1287,12 +1300,12 @@ export class Sidebar {
 										: "Stage everything, then commit",
 							}),
 						],
-						{ justify: "between", align: "center", role: "omp.app.git.foot" },
+						{ justify: "between", align: "center", role: "oms.app.git.foot" },
 					),
 					"foot",
 				),
 			],
-			{ gap: "sm", role: "omp.app.git.commit" },
+			{ gap: "sm", role: "oms.app.git.commit" },
 		);
 	}
 
@@ -1300,7 +1313,7 @@ export class Sidebar {
 	#describeHead(selectedKey: string | undefined): NativeChild[] {
 		const head = this.#model.headCommit;
 		if (!head) {
-			return [keyed(text([span("No commits yet", "muted")], { role: "omp.app.git.empty" }), "empty")];
+			return [keyed(text([span("No commits yet", "muted")], { role: "oms.app.git.empty" }), "empty")];
 		}
 		const when = head.authorDate ? new Date(head.authorDate) : null;
 		const initials = head.authorName
@@ -1311,11 +1324,11 @@ export class Sidebar {
 			.join("");
 		const commit = col(
 			compact([
-				text([span(head.subject, "strong")], { wrap: "word", role: "omp.app.git.subject" }),
-				head.body.trim() !== "" && text(head.body.trim(), { wrap: "word", lines: 8, role: "omp.app.git.message" }),
+				text([span(head.subject, "strong")], { wrap: "word", role: "oms.app.git.subject" }),
+				head.body.trim() !== "" && text(head.body.trim(), { wrap: "word", lines: 8, role: "oms.app.git.message" }),
 				row(
 					[
-						text(initials || "?", { role: "omp.app.git.avatar", title: head.authorEmail }),
+						text(initials || "?", { role: "oms.app.git.avatar", title: head.authorEmail }),
 						col(
 							compact([
 								text([span(head.authorName, "strong")], { truncate: "end" }),
@@ -1324,7 +1337,7 @@ export class Sidebar {
 							{ gap: "none" },
 						),
 					],
-					{ gap: "sm", align: "center", role: "omp.app.git.author" },
+					{ gap: "sm", align: "center", role: "oms.app.git.author" },
 				),
 				node("kv", {
 					items: compact([
@@ -1339,7 +1352,7 @@ export class Sidebar {
 					layout: "grid",
 				}),
 			]),
-			{ gap: "sm", role: "omp.app.git.commit-info" },
+			{ gap: "sm", role: "oms.app.git.commit-info" },
 		);
 		const out: NativeChild[] = [keyed(commit, "head")];
 		if (!head.filesLoaded) {
@@ -1362,7 +1375,7 @@ export class Sidebar {
 						]),
 						this.#describeStyleToggle(),
 					],
-					{ justify: "between", align: "center", role: "omp.app.git.head" },
+					{ justify: "between", align: "center", role: "oms.app.git.head" },
 				),
 				"files-head",
 			),
@@ -1374,7 +1387,7 @@ export class Sidebar {
 				entries.map(entry => this.#describeEntry(entry)),
 				{
 					selected: selected ? this.#nativeKey(selected.target) : null,
-					role: "omp.app.git.files",
+					role: "oms.app.git.files",
 					actions: { click: "select", dblclick: "activate" },
 				},
 				"commit-files",
@@ -1686,7 +1699,12 @@ export class Sidebar {
 					png,
 					"image/png",
 					{ fallbackColor: text => theme.fg("dim", text) },
-					{ maxHeightCells: 3, budget: this.#imageBudget, imageKey: `git-avatar:${email}` },
+					{
+						maxHeightCells: 3,
+						budget: this.#imageBudget,
+						imageKey: `git-avatar:${email}`,
+						requestRender: this.#requestRender,
+					},
 				),
 			};
 		}

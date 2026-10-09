@@ -179,10 +179,10 @@ export class CredentialPool implements CredentialsApi {
 	/**
 	 * Adopt credentials another process committed before selecting or rotating.
 	 *
-	 * The store is shared across every omp process, but the pool is an
+	 * The store is shared across every oms process, but the pool is an
 	 * in-process cache refreshed only by this process's own writes. Without
 	 * this a long-running session ranks a stale pool for its whole lifetime:
-	 * `omp auth` in another terminal is invisible, rotation reports no usable
+	 * `oms auth` in another terminal is invisible, rotation reports no usable
 	 * sibling while a freshly added account sits unblocked in SQLite, and the
 	 * turn degrades to the fallback chain. The auth-broker path already polls;
 	 * direct-store sessions had no equivalent.
@@ -467,7 +467,9 @@ export class CredentialPool implements CredentialsApi {
 	/**
 	 * Persist a refreshed credential by id only while the row still matches this
 	 * process's snapshot. A peer rotation wins the CAS and is reloaded instead of
-	 * being overwritten after this process releases its refresh lease.
+	 * being overwritten after this process releases its refresh lease. An
+	 * unchanged credential still runs the CAS check (stores skip rewriting
+	 * identical bytes), so peer rotations are detected without churning the row.
 	 *
 	 * Returns the row's current index, or -1 when it was disabled or removed.
 	 */
@@ -489,7 +491,9 @@ export class CredentialPool implements CredentialsApi {
 			return latest.findIndex(row => row.id === id);
 		}
 		if (!expected || !this.#store.tryUpdateAuthCredentialIfMatches) {
-			this.#store.updateAuthCredential(id, credential);
+			if (serializeCredential(provider, credential)?.data !== expected?.data) {
+				this.#store.updateAuthCredential(id, credential);
+			}
 		}
 		const updated = [...entries];
 		updated[index] = { id, credential };
@@ -720,7 +724,7 @@ export class CredentialPool implements CredentialsApi {
 	}
 
 	/**
-	 * Disabled credential tombstones for display surfaces (`omp usage`,
+	 * Disabled credential tombstones for display surfaces (`oms usage`,
 	 * broker `GET /v1/credentials/disabled`). Empty when the backing store
 	 * keeps no tombstones or the remote broker predates the endpoint.
 	 */
@@ -733,7 +737,7 @@ export class CredentialPool implements CredentialsApi {
 	 * Force the backing store to revalidate its credential snapshot, then
 	 * reload. Remote broker stores re-fetch the snapshot; local stores are
 	 * always current, so only the reload runs. Callers that pair live
-	 * per-credential data with stored identities (`omp usage`) use this so a
+	 * per-credential data with stored identities (`oms usage`) use this so a
 	 * disk-cached snapshot cannot misattribute fresh reports.
 	 */
 	async revalidate(): Promise<void> {

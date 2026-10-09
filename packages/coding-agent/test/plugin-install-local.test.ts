@@ -124,7 +124,7 @@ describe("runPluginCommand({ action: 'install', args: [<local>] })", () => {
 	test("link dry-run leaves filesystem state untouched", async () => {
 		const localPlugin = await createLocalPlugin(tmpRoot);
 		const linkTarget = path.join(tmpRoot, "plugins", "node_modules", "kimi-datasource");
-		const lockfile = path.join(tmpRoot, "omp-plugins.lock.json");
+		const lockfile = path.join(tmpRoot, "oms-plugins.lock.json");
 
 		await runPluginCommand({ action: "link", args: [localPlugin], flags: { dryRun: true, json: true } });
 

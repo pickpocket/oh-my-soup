@@ -3,7 +3,7 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { getOAuthProviders } from "@oh-my-soup/pi-ai/registry/oauth";
-import { getEnvApiKey } from "@oh-my-soup/pi-ai/stream";
+import { getEnvApiKey } from "@oh-my-soup/pi-ai/env-api-key";
 import { Effort } from "@oh-my-soup/pi-catalog/effort";
 import { resolveProviderModels } from "@oh-my-soup/pi-catalog/model-manager";
 import { getBundledModels } from "@oh-my-soup/pi-catalog/models";

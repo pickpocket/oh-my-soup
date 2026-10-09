@@ -37,9 +37,9 @@ async function loadLockedSkill(
 	// Ids are validated when the lock is parsed.
 	const { scope, name } = parseSkillId(id)!;
 	const storeDir = getSkillStorePath(scope, name, entry.version);
-	// Only a completed unpack of the locked bytes counts; anything else is restored by `omp skill update`.
+	// Only a completed unpack of the locked bytes counts; anything else is restored by `oms skill update`.
 	if ((await readStoredIntegrity(storeDir)) !== entry.integrity) {
-		logger.debug("Skillshare skill missing from store; run `omp skill update` to restore it", {
+		logger.debug("Skillshare skill missing from store; run `oms skill update` to restore it", {
 			id,
 			version: entry.version,
 			storeDir,
@@ -47,7 +47,7 @@ async function loadLockedSkill(
 		return null;
 	}
 	// Canonical so `skill://` containment (checked against the realpathed root) holds when the store
-	// sits behind a symlink, e.g. a dotfiles-managed ~/.omp.
+	// sits behind a symlink, e.g. a dotfiles-managed ~/.oms.
 	const realStoreDir = await fs.realpath(storeDir);
 	const skillPath = path.join(realStoreDir, "SKILL.md");
 	let text: string;
@@ -101,7 +101,7 @@ export async function loadSkillshareSkills(ctx: LoadContext): Promise<LoadResult
 registerProvider<Skill>(skillCapability.id, {
 	id: SKILLSHARE_PROVIDER_ID,
 	displayName: "Skillshare",
-	description: "Registry skills installed with `omp skill install` (skills.lock.json)",
+	description: "Registry skills installed with `oms skill install` (skills.lock.json)",
 	priority: PRIORITY,
 	load: loadSkillshareSkills,
 });

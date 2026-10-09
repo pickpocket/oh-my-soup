@@ -25,7 +25,7 @@ import { downloadFile } from "../utils/tools-manager";
  *
  * Only interactive processes download (the composer on first use through
  * {@link prefetchSmolLmWeights}, shown in the download HUD, or
- * `omp tiny-models download smollm`); the prediction daemon just checks
+ * `oms tiny-models download smollm`); the prediction daemon just checks
  * {@link smolLmWeightsReady} and serves ngram until then.
  */
 
@@ -37,7 +37,7 @@ const SMOLLM_REVISION = "93efa2f097d58c2a74874c7e644dbc9b0cee75a2";
 const GGUF_REPO = "QuantFactory/SmolLM2-135M-GGUF";
 const GGUF_REVISION = "d948db3614be18259a175aafd7689a70f1cb4e2f";
 const HF_RESOLVE_BASE = "https://huggingface.co";
-const READY_MARKER = ".omp-ready";
+const READY_MARKER = ".oms-ready";
 /** Whole-file transfer bound; the GGUF is 145 MB. */
 const DOWNLOAD_TIMEOUT_MS = 30 * 60_000;
 

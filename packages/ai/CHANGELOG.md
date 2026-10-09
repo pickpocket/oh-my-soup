@@ -3,10 +3,236 @@
 ## [Unreleased]
 
 ## [18.4.5] - 2026-10-06
+## [18.8.7] - 2026-10-09
+
+### Added
 
 ### Fixed
 
 - Fixed Kimi Code usage reports dropping the 5h window reset time (`omp usage` showed no "resets in …" for the 5h limit): the API returns `resetTime` on the limit `detail`, not on `window`, so the parsed row-level reset is now carried onto the window when the window itself has none.
+- Added routing-session cleanup for OpenAI Responses and Codex while preserving shared provider fallbacks ([#14334](https://github.com/can1357/oh-my-pi/pull/14334) by [@iliaal](https://github.com/iliaal)).
+
+### Fixed
+
+- Fixed Claude Haiku 5.5 requests silently enabling adaptive thinking when reasoning is off, on native Bedrock (main and helper calls) and the Anthropic API; conversations whose earlier effort controls rule out disabled thinking fall back to lowest-effort adaptive thinking instead of failing ([#14996](https://github.com/can1357/oh-my-pi/pull/14996) by [@bse-ai](https://github.com/bse-ai)).
+- Fixed `/session pin` being ignored when every stored account is quota-blocked, which routed the next request to a different exhausted account instead of the pinned one ([#14997](https://github.com/can1357/oh-my-pi/issues/14997)).
+- Fixed `minimax-code-cn` sessions staying pinned to a key whose Token Plan quota is exhausted (`用量上限` 429) instead of rotating to a sibling credential ([#15053](https://github.com/can1357/oh-my-pi/issues/15053)).
+
+## [18.8.6] - 2026-10-08
+
+### Fixed
+
+- Fixed Google Gemini and Cloud Code Assist (Antigravity) requests failing when tool schemas contain unsupported JSON Schema keywords or fields that allow multiple types.
+- Fixed auth broker account selection and usage-limit enforcement to consistently use the selected account’s quota when multiple accounts are present.
+- Fixed Anthropic-family model streaming so encoded marker tokens are decoded correctly in text, tool-call updates, partial messages, and completed tool calls.
+
+## [18.8.5] - 2026-10-08
+
+### Added
+
+- `oauth.refresh(id, signal, { reason: "auth-recovery" })` forwards provider-401 recovery intent to a delegated (auth broker) refresh, and `AuthStorageOptions.refreshOAuthCredentialMints` marks a `refreshOAuthCredential` hook that exchanges tokens itself so its tokens are reused for auth recovery ([#14752](https://github.com/can1357/oh-my-pi/pull/14752) by [@will-bogusz](https://github.com/will-bogusz))
+- `SessionsApi.inherit` accepts an optional filter, called with each provider and whether the source's affinity is an explicit user pin, to copy only the affinities it accepts ([#14749](https://github.com/can1357/oh-my-pi/pull/14749) by [@will-bogusz](https://github.com/will-bogusz))
+
+### Changed
+
+- `AuthApiKeyOptions.accountIds` also matches the login email, or else the project id, of credentials that carry no account id (see `oauthAccountKey`), so Antigravity requests prefer accounts that serve the requested model ([#14924](https://github.com/can1357/oh-my-pi/issues/14924)).
+
+### Fixed
+
+- Fixed accounts sitting exactly at their `reservePct` (e.g. 70% used with a 30% reserve) still being picked and reported healthy instead of being held in reserve ([#14765](https://github.com/can1357/oh-my-pi/pull/14765) by [@will-bogusz](https://github.com/will-bogusz))
+- Fixed `oauth.accessById` with `forceRefresh` returning the stored token unchanged while it was still valid; it now re-mints that one account (through the auth broker when configured) and returns that account's token even if another row is removed meanwhile ([#14752](https://github.com/can1357/oh-my-pi/pull/14752) by [@will-bogusz](https://github.com/will-bogusz))
+- Fixed `oms -p` and other short-lived auth-broker clients missing from `oms usage clients`: usage still waiting for the 10-second report batch is now sent to the broker before the process exits ([#14899](https://github.com/can1357/oh-my-pi/pull/14899) by [@will-bogusz](https://github.com/will-bogusz))
+- Fixed Cursor web fetches that were cut off by a dropped connection disappearing from resumed and rebuilt sessions; they now show as interrupted ([#14819](https://github.com/can1357/oh-my-pi/pull/14819) by [@jchanghong023](https://github.com/jchanghong023))
+- Anthropic hosted web search can honor custom providers' OAuth-style request shaping and configured headers consistently with conversations ([#14919](https://github.com/can1357/oh-my-pi/pull/14919) by [@farnoy](https://github.com/farnoy))
+
+## [18.8.4] - 2026-10-08
+
+### Breaking Changes
+
+- `AuthBrokerClient.notifyUsageStale` and `UsageLedgerStore.invalidateUsageCache` (including `RemoteAuthCredentialStore.invalidateUsageCache`) now take an optional leading `provider` argument: the signature is `(provider?: string, signal?: AbortSignal)` instead of `(signal?: AbortSignal)` ([#14761](https://github.com/can1357/oh-my-pi/pull/14761) by [@will-bogusz](https://github.com/will-bogusz))
+
+### Added
+
+- Auth gateway route option `excludeProviders` leaves those providers' accounts out of `/v1/usage` and `/v1/credentials/check` ([#14755](https://github.com/can1357/oh-my-pi/pull/14755) by [@will-bogusz](https://github.com/will-bogusz))
+
+### Fixed
+
+- Fixed a single-provider usage refresh from an auth broker client (`oms usage invalidate --provider`, Codex auto-redeem, a saved-reset redeem) wiping the broker's cached usage for every provider, so other accounts showed no usage on every client until their next successful probe ([#14761](https://github.com/can1357/oh-my-pi/pull/14761) by [@will-bogusz](https://github.com/will-bogusz))
+- Fixed Anthropic sessions missing the prompt cache a second time after the API dropped thinking blocks from a changed conversation ([#14748](https://github.com/can1357/oh-my-pi/pull/14748) by [@will-bogusz](https://github.com/will-bogusz))
+- Fixed Cursor logins never renewing: every refresh was rejected with "Invalid User API Key", so logins lapsed about 60 days after sign-in; a session Cursor has ended is now disabled with a re-login hint ([#14753](https://github.com/can1357/oh-my-pi/pull/14753) by [@will-bogusz](https://github.com/will-bogusz))
+- Fixed the auth broker logging caller-supplied `X-Forwarded-For` / `X-Real-IP` values and unknown request paths; peers come from the socket unless `trustProxyHeaders` is set ([#14762](https://github.com/can1357/oh-my-pi/pull/14762) by [@will-bogusz](https://github.com/will-bogusz))
+- Fixed false thinking-loop detections on Gemini, DeepSeek, and Grok when the model drafts or answers with repetitive code or markup (VRML, SVG, JSON); such output is no longer discarded and retried.
+- Fixed Cursor provider leaking conversation checkpoints, blob stores and abort listeners after requests end ([#14669](https://github.com/can1357/oh-my-pi/pull/14669) by [@H4vC](https://github.com/H4vC))
+- Fixed session-affinity pins growing without bound in long-lived gateways (now capped at 256 sessions per provider) ([#14672](https://github.com/can1357/oh-my-pi/pull/14672) by [@H4vC](https://github.com/H4vC))
+- Fixed completed Cursor turns failing with "Cursor stream ended before turnEnded" when the connection closed after the answer had fully arrived ([#14851](https://github.com/can1357/oh-my-pi/pull/14851) by [@kyle-elliott-asymptote](https://github.com/kyle-elliott-asymptote)).
+- Fixed Cursor provider errors that Cursor marks as not retryable being retried until the retry budget ran out ([#14851](https://github.com/can1357/oh-my-pi/pull/14851) by [@kyle-elliott-asymptote](https://github.com/kyle-elliott-asymptote)).
+
+## [18.8.3] - 2026-10-07
+
+### Added
+
+- Added `OAuthRefreshUnavailableError`, a retryable error that `keys.getWithCredential` and `oauth.access` reject with when every usable OAuth credential failed to refresh transiently; `keys.get` resolves `undefined` instead so availability probes move on to their next candidate ([#14843](https://github.com/can1357/oh-my-pi/pull/14843) by [@H4vC](https://github.com/H4vC))
+
+### Fixed
+
+- Fixed a single transient OAuth token-refresh failure (network blip, timeout, 5xx) ending a running session, including subagents restricted to an account pool, with a non-retryable "No API key for provider" error while the stored credential was still valid; the refresh error now surfaces and the request is retried ([#14843](https://github.com/can1357/oh-my-pi/pull/14843) by [@H4vC](https://github.com/H4vC))
+
+## [18.8.1] - 2026-10-07
+
+### Added
+
+- Added session restrictions for OAuth account pools via `AuthStorage.sessions.restrict`, limiting selection, fallback, rotation, and authentication to specified accounts until the returned lease is released with `sessions.unrestrict`. API keys and other accounts are not used when a session is restricted.
+- Exported `resolveCredentialIdentityKey` for determining the identity key used to match credentials with broker account pools and session restrictions.
+
+### Fixed
+
+- Fixed Codex Fast (`priority`) and Ultrafast usage being recorded, billed, and reported as Standard when the backend echoed a default service tier; the requested tier is now preserved in usage and performance records.
+
+## [18.8.0] - 2026-10-07
+
+### Breaking Changes
+
+- The environment API-key helpers (`getEnvApiKey`, `getEnvApiKeyName`, and `listProvidersWithEnvKey`) are no longer exported from `@oh-my-soup/pi-ai/stream`; import them from `@oh-my-soup/pi-ai` or `@oh-my-soup/pi-ai/env-api-key` instead.
+- `TranscriptionRequest.audio` now accepts `Uint8Array | Blob`. Consumers must handle `Blob` values when reading transcription requests.
+
+### Changed
+
+- Improved CPU and memory efficiency across streamed model responses, including Cursor, Devin, Codex, OpenAI Responses, and GitLab Duo Workflow.
+- Improved request and authentication performance, including account ranking, OAuth preflight, credential rate-limit checks, credential synchronization, and auth gateway requests.
+- Improved tool-call parsing performance for long calls and Apple Foundation Models requests.
+- Improved Cloudflare AI Gateway request performance and AWS credential-source detection.
+- Reduced memory usage when handling generated images and usage reports.
+
+### Fixed
+
+- Fixed false thinking-loop detections for Gemini, DeepSeek, and Grok when responses contain repetitive code or markup such as VRML, SVG, or JSON; valid output is no longer discarded and retried.
+- Fixed the Cursor provider retaining request resources after requests completed.
+- Fixed session-affinity pins growing without bound in long-lived gateways; pins are now capped at 256 sessions per provider.
+- Fixed Anthropic sessions failing every request with HTTP 400 ("role 'system' must precede an 'assistant' message") after a tool change coincided with compaction or an interrupted or failed reply; sessions already stuck this way recover on the next message ([#14746](https://github.com/can1357/oh-my-pi/issues/14746)).
+
+## [18.7.0] - 2026-10-06
+
+### Added
+
+- Added `getOAuthCredentialProvider()` to resolve login aliases, such as `openai-codex-device`, to the provider where their credentials are stored.
+
+### Fixed
+
+- Fixed Ultrafast service-tier billing and usage accounting: GPT-6 Astra now applies its published premium rates—6× on the OpenAI API and 8× included usage on Codex—and is counted toward the premium-request limit.
+- Fixed Vertex AI authentication on Windows when credentials are created with `gcloud auth application-default login`.
+- Fixed selecting Cursor accounts by email through `auth.accountPolicies` and `/session pin`; newly refreshed and existing accounts now retain the account email.
+
+## [18.6.3] - 2026-10-06
+
+### Added
+
+- Added per-model `compat.statefulResponses` to enable or disable stored Responses chaining (`previous_response_id` with `store: true`) for one endpoint without the official-only request fields that `compat.officialEndpoint` implies ([#13686](https://github.com/can1357/oh-my-pi/pull/13686) by [@alphastorm](https://github.com/alphastorm)).
+- Added Snowflake Cortex with browser OAuth, token refresh, PAT environment authentication, and streaming Claude/OpenAI models with local tool execution ([#14507](https://github.com/can1357/oh-my-pi/pull/14507) by [@jorgoose](https://github.com/jorgoose)).
+- `AuthStorage.health.check()` accepts `excludeProviders` to skip credentials of providers the caller does not serve ([#14234](https://github.com/can1357/oh-my-pi/pull/14234) by [@will-bogusz](https://github.com/will-bogusz))
+
+### Changed
+
+- Reduced CPU spent on thinking-loop detection while streaming long reasoning ([#14284](https://github.com/can1357/oh-my-pi/pull/14284) by [@abilliontokens](https://github.com/abilliontokens)).
+- Added `recordAffinity: false` to credential resolution options, selecting as the session would without pinning the choice to that session ([#14512](https://github.com/can1357/oh-my-pi/pull/14512) by [@will-bogusz](https://github.com/will-bogusz))
+
+### Fixed
+
+- Codex native-lane steering rejections (`unsupported_native_inflight_message`) now classify as retryable from their error text alone, matching the provider's own classification, and `AIError.isCodexSteerRejection()` identifies them so the agent retry can stay on the same model ([#14242](https://github.com/can1357/oh-my-pi/pull/14242) by [@alphastorm](https://github.com/alphastorm))
+- Fixed replayed Responses and Codex history, including persisted Codex user/developer and assistant items, sending `detail: "original"` images to endpoints whose `supportsImageDetailOriginal` is off ([#13687](https://github.com/can1357/oh-my-pi/pull/13687) by [@alphastorm](https://github.com/alphastorm)).
+- Fixed thinking in turns kept after Anthropic native compaction being rejected or dropped on the next request ([#14251](https://github.com/can1357/oh-my-pi/pull/14251) by [@will-bogusz](https://github.com/will-bogusz))
+- Fixed Claude usage being re-polled every 10 seconds while Anthropic rate-limits the account; a failed refresh now waits a minute before trying again ([#14515](https://github.com/can1357/oh-my-pi/pull/14515) by [@will-bogusz](https://github.com/will-bogusz))
+- Fixed Devin requests skipping the `onPayload` hook, so payload capture now sees each Devin chat request and a returned replacement is what gets sent ([#14506](https://github.com/can1357/oh-my-pi/pull/14506) by [@will-bogusz](https://github.com/will-bogusz))
+- An OpenAI Responses turn whose connection drops mid-stream can now recover the finished answer from the provider (on hosts that store results, such as Muse Code) instead of re-running the whole turn and discarding the reasoning already done. Storage is opt-in: pass `storeResponses: true`, set `PI_MUSE_STORE_RESPONSES=1`, or set a process-wide default with `configureProviderStoreResponses` ([#14293](https://github.com/can1357/oh-my-pi/pull/14293) and [#14534](https://github.com/can1357/oh-my-pi/pull/14534) by [@abilliontokens](https://github.com/abilliontokens)).
+- Fixed the auth broker exiting when a background OAuth refresh sweep cannot read the credential store; the failure is now logged and the next sweep retries ([#14538](https://github.com/can1357/oh-my-pi/issues/14538))
+- Fixed Anthropic OAuth billing headers changing during developer-first sessions and side turns, preserving the prompt-cache prefix ([#14495](https://github.com/can1357/oh-my-pi/issues/14495)).
+- Fixed OpenAI-compatible chat-completions gateways recording completed turns as client-cancelled because the connection closed before their `[DONE]` sentinel arrived ([#14481](https://github.com/can1357/oh-my-pi/issues/14481)).
+
+## [18.6.1] - 2026-10-04
+
+### Fixed
+
+- Fixed compatibility with Command Code DeepSeek and other DeepSeek-family models by preserving the reasoning context required for warm OpenAI Responses sessions and correctly handling incomplete DSML tool-call wrappers in visible output.
+
+## [18.6.0] - 2026-10-03
+
+### Fixed
+
+- Fixed Antigravity chat and image requests sending an outdated client version when the model list came from cache, which could make newer models such as Claude Opus 5.5 unavailable.
+- When a DeepSeek model writes a broken DSML tool call (for example with the opening `<｜DSML｜tool_calls>` and `<｜DSML｜invoke>` tags missing), its closing tags are now kept in the streamed text instead of being dropped. This lets the agent remove exactly the broken call while keeping any text after it ([#14202](https://github.com/can1357/oh-my-pi/pull/14202) by [@H4vC](https://github.com/H4vC)).
+
+## [18.5.1] - 2026-10-03
+
+### Fixed
+
+- Fixed DeepSeek and OpenAI Responses requests failing or entering retry loops when replayed tool calls contained repaired arguments, orphaned tool results, or missing reasoning context.
+- Fixed requests to models that do not support sampling parameters from failing with HTTP 400 errors when accessed through non-native providers. Sampling parameters are now omitted for incompatible models, including requests made by chat judging, title generation, skill descriptions, and memory extraction.
+- Fixed OpenRouter BYOK usage being reported as free; provider inference costs and applicable credits charges are now included in session and status-line cost reporting.
+- Fixed Claude background and long-running bash commands losing their requested timeout and being terminated at the default deadline.
+- Fixed cleared credential cooldowns being incorrectly restored by another concurrently running session.
+- Fixed retryable Cursor provider errors, such as “Unable to reach the model provider,” from prematurely ending a turn.
+- Fixed resumed OpenAI Responses sessions losing earlier plaintext reasoning, which could cause self-hosted Responses servers to reprocess the entire context after a restart.
+- Fixed non-retryable HTTP 4xx responses being retried when their error messages contained transient-error terms such as “server_error,” “timeout,” or “overloaded.”
+- Fixed Cursor models receiving earlier multi-step tool calls as if they occurred simultaneously instead of in their original execution order.
+
+## [18.5.0] - 2026-10-03
+
+### Fixed
+
+- Fixed AWS `credential_process` on Windows stripping backslashes from unquoted paths such as `C:\Users\me\helper.exe`; commands are now split with Windows command-line rules there, matching the AWS CLI.
+
+## [18.4.12] - 2026-10-02
+
+### Added
+
+- Added `createAuthGatewayRouter`, the auth-gateway's routes without the HTTP listener, and `serveAuthGatewayStdio`, which serves them as JSON lines (`{"id", "path", "body"}` in, `{"id", "status", "body"}` out) for a parent process.
+
+## [18.4.11] - 2026-10-02
+
+### Fixed
+
+- Fixed Cursor cached prompt token accounting to prevent duplicate input-token and cost reporting on cached turns.
+- Fixed auth-broker credential handling so late token-refresh responses cannot restore logged-out credentials or overwrite a newer login.
+
+## [18.4.10] - 2026-10-02
+
+### Fixed
+
+- Factory Droid login now reports the account's organization error instead of accepting a credential that every request rejects ([#14032](https://github.com/can1357/oh-my-pi/issues/14032)).
+- Fixed Cursor turns being aborted with "Provider stream stalled while waiting for the next event" right after a long local tool finished; the provider now gets a full idle window once local tool work completes ([#13682](https://github.com/can1357/oh-my-pi/pull/13682) by [@eggpeat](https://github.com/eggpeat))
+- Tool calls whose final argument JSON is cut off or followed by trailing text are no longer executed from an auto-closed preview. OpenAI Completions, Anthropic, Bedrock, Responses, Codex, Devin, Ollama, Apple, Cursor, GitLab Duo, and the in-band JSON dialects now give such a call the existing parse-error arguments, so the tool is not run and the model receives the parse error and can resend the call ([#13868](https://github.com/can1357/oh-my-pi/pull/13868) by [@alphastorm](https://github.com/alphastorm))
+- Fixed Cursor "prepaid balance is used up" (`USAGE_PRICING_REQUIRED`) failures repeating on the same account instead of rotating to a sibling Cursor credential ([#14053](https://github.com/can1357/oh-my-pi/issues/14053))
+- Sessions no longer get stuck on `400 string_above_max_length` after a model writes its whole tool invocation into the tool name. Tool calls with blank names, names longer than 128 characters, or names containing whitespace or control characters are dropped from replayed history, together with their tool results. This also applies when OpenAI Responses replays its stored native history ([#13985](https://github.com/can1357/oh-my-pi/pull/13985) by [@Xytronix](https://github.com/Xytronix)).
+- Fixed Bedrock Converse requests failing with a "bound to a different conversation" 400 after the system prompt changed under signed thinking: the request is retried once without replayed reasoning ([#14019](https://github.com/can1357/oh-my-pi/pull/14019) by [@nick-maderight](https://github.com/nick-maderight))
+
+## [18.4.9] - 2026-10-01
+
+### Fixed
+
+- Fixed rejected HTTP 400 requests from consuming unbounded disk space by automatically cleaning up old request logs and enforcing a size limit.
+- Fixed unnecessary credential and session updates that could trigger needless authentication reloads in other running processes.
+- Fixed context-overflow recovery for Strata requests that exceed the model context limit but return no usage information.
+
+## [18.4.6] - 2026-10-01
+
+### Fixed
+
+- Fixed forced tool calls failing for Claude Opus 5.5 and Sonnet 5.5 through Amazon Bedrock, including required-tool retries in plan mode.
+
+## [18.4.5] - 2026-09-30
+
+### Added
+
+- Added Factory Droid OAuth, HTTP streaming across Anthropic, OpenAI and Gemini protocols, and pool-aware usage reporting ([#8577](https://github.com/can1357/oh-my-pi/pull/8577) by [@will-bogusz](https://github.com/will-bogusz), continued in [#13276](https://github.com/can1357/oh-my-pi/pull/13276) by [@DusKing1](https://github.com/DusKing1)).
+- `AuthStorage.keys.setConfig(provider, value, { fallback: true })` registers a key that is used only when no stored OAuth or `/login` credential exists, instead of overriding them; `removeConfig`/`clearConfig` also clear these fallbacks ([#13815](https://github.com/can1357/oh-my-pi/pull/13815) by [@H4vC](https://github.com/H4vC))
+- Cursor turns now fall back to Cursor's HTTP/1 streaming transport when HTTP/2 is unavailable, surface Cursor's structured service errors, and resume from the last safe server checkpoint after a dropped stream ([#11613](https://github.com/can1357/oh-my-pi/pull/11613) by [@will-bogusz](https://github.com/will-bogusz)).
+
+### Fixed
+
+- Auth gateway checks for configured bearer tokens in URLs or forwarded/logged headers only after authentication; unauthorized requests use socket peers and redact unknown paths. Authenticated requests with misplaced tokens are rejected before provider dispatch ([#13827](https://github.com/can1357/oh-my-pi/pull/13827) by [@shawnkoh](https://github.com/shawnkoh)).
+- Codex sessions no longer keep spending an account's credits after its plan limit is reached while another logged-in account still has plan usage left; new and ongoing sessions switch to that account, and credits are used only when no account has plan usage left ([#13889](https://github.com/can1357/oh-my-pi/issues/13889)).
+- Runtime usage providers (`usage.setProvider`, extension `registerProvider({ usage })`) now key cached reports by their own `cacheVersion`, so reports written by processes without the override are no longer served to it ([#13814](https://github.com/can1357/oh-my-pi/issues/13814)).
+- xAI OAuth accounts with active weekly credits no longer switch away solely because an uncertain monthly counter exceeds its limit ([#13806](https://github.com/can1357/oh-my-pi/issues/13806)).
+- Cursor retries after a rejected conversation now keep the tool calls and results already completed in the turn, instead of re-sending the last message and redoing that work ([#11613](https://github.com/can1357/oh-my-pi/pull/11613) by [@will-bogusz](https://github.com/will-bogusz)).
 
 ## [18.4.4] - 2026-09-29
 
@@ -134,7 +360,7 @@
 - Added live steering support for GPT-6 models, allowing queued user messages to be delivered during an active streaming response.
 - Added the `anthropicSlowMode` stream option for first-party Claude OAuth requests, enabling slow-mode rate-limit handling, per-account rate-limit reporting, and server-paced retries during capacity limits.
 - Added support for capturing and redeeming Anthropic fallback credit tokens, including prompt-cache repricing for classifier refusals.
-- Added Vercel AI Gateway app attribution by sending `http-referer: https://omp.sh/` and `x-title: omp` by default; user-provided header values take precedence.
+- Added Vercel AI Gateway app attribution by sending `http-referer: https://omp.sh/` and `x-title: oms` by default; user-provided header values take precedence.
 
 ### Fixed
 
@@ -193,8 +419,8 @@
 - Fixed auth-broker usage reports incorrectly sharing usage limits between Team members with shared workspace and organization identifiers.
 - Fixed OpenAI Codex requests hanging when an error response body is delayed.
 - Fixed Kimi usage reporting so monthly totals and code quotas are shown alongside the five-hour usage window.
-- Bedrock no longer sends provider-invalid payloads when an errored tool result contains an image; the image is hoisted into a sibling block ([#12865](https://github.com/can1357/oh-my-pi/pull/12865) by [@roboomp](https://github.com/roboomp)).
-- Gemini, Vertex, and Cloud Code Assist requests no longer include the unsupported `minP`/`repetitionPenalty` sampling fields, which caused 400s when set globally ([#12850](https://github.com/can1357/oh-my-pi/pull/12850) by [@roboomp](https://github.com/roboomp)).
+- Bedrock no longer sends provider-invalid payloads when an errored tool result contains an image; the image is hoisted into a sibling block ([#12865](https://github.com/can1357/oh-my-pi/pull/12865) by [@robooms](https://github.com/robooms)).
+- Gemini, Vertex, and Cloud Code Assist requests no longer include the unsupported `minP`/`repetitionPenalty` sampling fields, which caused 400s when set globally ([#12850](https://github.com/can1357/oh-my-pi/pull/12850) by [@robooms](https://github.com/robooms)).
 
 ## [18.2.8] - 2026-09-21
 
@@ -2353,3 +2579,4 @@
 - Fixed OpenAI-family request builders dropping forced named `tool_choice` directives when the named tool is absent from the serialized `tools` array, preventing spec-strict providers from rejecting self-inconsistent requests. ([#1701](https://github.com/can1357/oh-my-pi/issues/1701))
 
 Older entries are archived in [packages/ai/CHANGELOG.md@21f9482c0fe2](https://github.com/pickpocket/oh-my-soup/blob/21f9482c0fe2aa7592cb7649ae7749f307c3a633/packages/ai/CHANGELOG.md).
+Older entries are archived in [packages/ai/CHANGELOG.md@0dd6aff5f282](https://github.com/pickpocket/oh-my-soup/blob/0dd6aff5f2821aec1e5b54c6a458e323667a949b/packages/ai/CHANGELOG.md).

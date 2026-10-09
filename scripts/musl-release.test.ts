@@ -102,8 +102,7 @@ describe("release artifacts and shell installation", () => {
 		);
 	});
 
-	// These tests drive the POSIX installer through sh with native-command
-	// fixtures. MSYS on Windows does not resolve these PATH shims reliably.
+	// MSYS sh prepends /usr/bin, so these POSIX PATH fixtures cannot win on Windows.
 	const posixOnly = test.skipIf(process.platform === "win32");
 
 	posixOnly("selects the musl asset and sets up objdump before reporting installation success", async () => {

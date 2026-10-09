@@ -423,7 +423,7 @@ interface TaggedReadImageBlock extends ReadImageBlock {
 function describeReadImage(block: TaggedReadImageBlock, alt: string): NativeNode {
 	const cached = block[kReadImageNode];
 	if (cached) return cached;
-	const described = base64ImageNode(block.data, block.mimeType, { alt: alt || "image", role: "omp.tool.read.image" });
+	const described = base64ImageNode(block.data, block.mimeType, { alt: alt || "image", role: "oms.tool.read.image" });
 	block[kReadImageNode] = described;
 	return described;
 }
@@ -601,6 +601,11 @@ export const readToolRenderer = {
 		let cachedWidth: number | undefined;
 		let cachedExpanded: boolean | undefined;
 		let cachedLines: string[] | undefined;
+		const dropCache = () => {
+			cachedWidth = undefined;
+			cachedExpanded = undefined;
+			cachedLines = undefined;
+		};
 		return markFramedBlockComponent({
 			render: (width: number) => {
 				const expanded = options.expanded;
@@ -635,11 +640,8 @@ export const readToolRenderer = {
 				cachedExpanded = expanded;
 				return cachedLines;
 			},
-			invalidate: () => {
-				cachedWidth = undefined;
-				cachedExpanded = undefined;
-				cachedLines = undefined;
-			},
+			invalidate: dropCache,
+			releaseRenderCaches: dropCache,
 		});
 	},
 	describeCall(args: ReadRenderArgs): NativeToolView {

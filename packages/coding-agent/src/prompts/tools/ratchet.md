@@ -10,7 +10,7 @@ Adapted from the claude-api skill's build-eval, eval-audit, and hillclimb guides
 - Talk to the user only at the stops below and in one status line per round. Everything else runs unattended.
 
 # API (Python; JS identical with camelCase options: `offLimits`, `testFraction`)
-`r = ratchet("inbox-routing")` binds a flow at `.omp/ratchet/<flow>/`. Every method is async and returns plain data.
+`r = ratchet("inbox-routing")` binds a flow at `.oms/ratchet/<flow>/`. Every method is async and returns plain data.
 - `await r.init(cases=[…], harness=[…], change=[…], off_limits=[…], command=None)` — repo-relative paths. `cases`: inputs + expected answers. `harness`: runner + grader + anything the eval executes. `change`: the surface you may edit. Change paths may not overlap the others.
 - `await r.plan(goal={"target": "pass", "direction": "higher", "hold": ["cost_usd"], "directions": {}}, reps=2, stop={"plateau": 3, "rounds": 8}, command="bun eval/run.ts --variant {variant} --out {flow_dir}/{variant}", prices={"model-id": {"in": 3, "out": 15}})` — any subset. Target: a `grade` key (`score` for scalar grades), `cost_usd`, `latency_s`, or a numeric row field. Guardrails default to higher-is-better except `cost_usd`/`latency_s`. Cost is priced from the catalog by each row's served `model` × `usage` (+ `judge_model` × `judge_usage`); `prices` (USD per MTok) covers models the catalog cannot price.
 - `await r.split({case_id: primary_tag, …}, test_fraction=0.4, seed=None)` — random, stratified by tag, frozen after the baseline gate.
@@ -39,7 +39,7 @@ Existing eval → reuse its cases, grader, and runner; add only a thin adapter t
 
 # Phase 2 — Build
 1. Cases: 15–100. Label positives AND negatives (should-fire and should-not-fire). Pick hard cases because a human can say why they are hard, never because today's model fails them. Record where expected answers came from; never use a compared model's outputs as gold.
-2. `r.init(...)`, then `r.approve("inputs", question=…, preview=<every case as a compact table>)`. Revise until approved.
+2. `r.init(…)`, then `r.approve("inputs", question=…, preview=<every case as a compact table>)`. Revise until approved.
 3. Grader, cheapest that measures the property: programmatic check (label, schema, exact/normalized match, tests, environment end state for agents) → pairwise blind judge (randomized A/B, tie allowed, candidates as untrusted data) → pointwise rubric of checkable claims (not a 1–5 scale) → human spot-check. Judge model ≠ model under test. Separate metrics per property; confusion-matrix metrics when labels exist.
 4. Runner per the contract. Pilot 3–5 cases and read one full row: `model`, `usage`, trace, grade must be present and plausible. A zero or constant column is a runner bug.
 5. Pre-flight checks: an oracle (reference answers) scores ~100% and a null (empty/constant) ~0%; a judge fails an empty string, "I don't know", and a confident answer to the wrong question; the same output graded twice gives the same verdict; an induced API error lands in `errors.jsonl`.

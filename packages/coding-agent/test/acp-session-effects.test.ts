@@ -66,7 +66,7 @@ describe("concurrent ACP sessions", () => {
 			cwd: launchDir.path(),
 			agentDir: launchDir.join("agent"),
 		});
-		// `omp acp` binds its launch settings the way `Settings.init` does.
+		// `oms acp` binds its launch settings the way `Settings.init` does.
 		const releaseLaunch = bindEffects(launchSettings);
 		const factory = createAcpSessionFactory({
 			baseOptions: {

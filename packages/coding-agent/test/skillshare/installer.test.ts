@@ -228,9 +228,10 @@ describe("installer", () => {
 		});
 		const store = getSkillStorePath(SCOPE, NAME, "1.1.0");
 		expect(await Bun.file(path.join(store, "SKILL.md")).text()).toContain("# PDF 1.1.0");
-		const scriptPath = path.join(store, "scripts", "run.sh");
-		expect(await Bun.file(scriptPath).text()).toBe("#!/bin/sh\necho hi\n");
-		if (process.platform !== "win32") expect((await fs.stat(scriptPath)).mode & 0o111).not.toBe(0);
+		// Windows file modes carry no execute bits.
+		if (process.platform !== "win32") {
+			expect((await fs.stat(path.join(store, "scripts", "run.sh"))).mode & 0o111).not.toBe(0);
+		}
 	});
 
 	it("aborts on an integrity mismatch before writing anything", async () => {

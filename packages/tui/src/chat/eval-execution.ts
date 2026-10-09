@@ -123,7 +123,7 @@ export class EvalExecutionComponent extends Container {
 	}
 
 	/**
-	 * The agent's eval `tool` frame (role `omp.eval`) with a `you` badge: the
+	 * The agent's eval `tool` frame (role `oms.eval`) with a `you` badge: the
 	 * cell source in the head, its output as an `ansi` mini terminal. Terminals
 	 * without the `tool` kind get a `card` with the cell as `code` over the output.
 	 */
@@ -133,7 +133,7 @@ export class EvalExecutionComponent extends Container {
 		return this.#native.get(key, () => {
 			const title = this.#language === "js" ? "JavaScript" : "Python";
 			const common = {
-				role: "omp.eval",
+				role: "oms.eval",
 				status: this.#status,
 				startedAt: this.#startedAt,
 				expanded: this.#expanded,

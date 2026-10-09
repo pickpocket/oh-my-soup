@@ -102,7 +102,7 @@ class GlyphSceneController implements SetupSceneController {
 		return this.#native.get([this.#selectList], () =>
 			col(
 				[text([span("If a row shows boxes, tofu, or misaligned icons, pick another.", "muted")]), this.#selectList],
-				{ gap: "sm", role: "omp.setup.glyph" },
+				{ gap: "sm", role: "oms.setup.glyph" },
 			),
 		);
 	}
@@ -129,7 +129,7 @@ class GlyphSceneController implements SetupSceneController {
 
 /**
  * Preview and persist the terminal glyph preset. Skipped once the Glyph
- * Protocol handshake confirmed the terminal renders omp's bundled icons: every
+ * Protocol handshake confirmed the terminal renders oms's bundled icons: every
  * row renders cleanly there, and the default `unicode` preset already upgrades
  * to nerd at runtime while staying safe on terminals without the protocol.
  */

@@ -33,7 +33,7 @@ it("classifies an interactive host before opening auth storage", async () => {
 });
 
 it("standalone auth discovery routes by PI_CONFIG_FILES policy over main config", async () => {
-	using tempDir = TempDir.createSync("@omp-standalone-policy-");
+	using tempDir = TempDir.createSync("@oms-standalone-policy-");
 	const overlayPath = tempDir.join("policy.yml");
 	await Bun.write(
 		tempDir.join("config.yml"),

@@ -33,7 +33,7 @@ async function chromiumCanLaunch(): Promise<boolean> {
 
 /** A disposable headless launch must actually answer CDP, not just --version. */
 export async function chromiumCdpAvailable(executable: string, timeoutMs = 5000): Promise<boolean> {
-	const userDataDir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-chromium-probe-"));
+	const userDataDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-chromium-probe-"));
 	let child: ChildProcess | undefined;
 	try {
 		const port = await findFreeCdpPort();

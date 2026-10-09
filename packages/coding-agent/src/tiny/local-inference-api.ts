@@ -14,7 +14,7 @@ import { tinyModelClient } from "./title-client";
 import type { TinyChatMessage } from "./title-protocol";
 
 const LOCAL_INFERENCE_API = "local-inference";
-const LOCAL_INFERENCE_SOURCE = "omp/local-inference";
+const LOCAL_INFERENCE_SOURCE = "oms/local-inference";
 const LOCAL_INFERENCE_NO_OUTPUT = "Local inference returned no output.";
 const LOCAL_INFERENCE_ABORTED = "Local inference request aborted.";
 

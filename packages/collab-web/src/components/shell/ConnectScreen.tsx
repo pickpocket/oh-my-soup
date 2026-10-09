@@ -1,7 +1,7 @@
 import { ArrowRight, Lock } from "lucide-react";
 import type { FormEvent, ReactNode } from "react";
 import { useState } from "react";
-import { OmpMark } from "./OmpMark";
+import { OmsMark } from "./OmsMark";
 import { ThemeToggle } from "./ThemeToggle";
 
 export interface ConnectScreenProps {
@@ -33,7 +33,7 @@ export function ConnectScreen({ defaultName, error, onConnect }: ConnectScreenPr
 			<div className="sh-ambient" />
 			<div className="sh-connect-top">
 				<div className="sh-brand">
-					<OmpMark />
+					<OmsMark />
 					<span>oms</span>
 					<span className="sh-brand-slash">/</span>
 					<span className="sh-brand-app">collab</span>

@@ -5,7 +5,7 @@ import * as path from "node:path";
 import type { AgentToolContext } from "@oh-my-soup/pi-agent-core";
 import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
 import type { EvalPreludeDefinition } from "@oh-my-soup/pi-coding-agent/eval";
-import { type ApprovalOutcome, createRatchetPrelude } from "@oh-my-soup/pi-coding-agent/ratchet/prelude";
+import { type ApprovalOutcome, createRatchetPrelude } from "@oh-my-soup/pi-coding-agent/ratchet/prelude-definition";
 import type { ApprovalStatus, GateResult, RatchetState } from "@oh-my-soup/pi-coding-agent/ratchet/ratchet";
 import type { ToolSession } from "@oh-my-soup/pi-coding-agent/tools";
 import type { ExtensionAskDialogQuestion, ExtensionAskDialogResult } from "@oh-my-soup/pi-tui/overlays/ask-dialog";

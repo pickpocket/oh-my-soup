@@ -15,7 +15,7 @@ const DEFAULT_MIN_BYTES = 256 * 1024;
  */
 export function createJsonParsePlugin(minBytes: number = DEFAULT_MIN_BYTES): BunPlugin {
 	return {
-		name: "omp-json-parse-embed",
+		name: "oms-json-parse-embed",
 		target: "bun",
 		setup(build) {
 			build.onLoad({ filter: /\.json$/ }, async ({ path }) => {

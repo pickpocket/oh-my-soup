@@ -1,5 +1,5 @@
 /**
- * Protocol handler for `cfg://` URLs: the agent's view of omp settings.
+ * Protocol handler for `cfg://` URLs: the agent's view of oms settings.
  *
  * Read forms (`/` and `.` both separate segments):
  * - `cfg://`                  every setting as a YAML-ish tree

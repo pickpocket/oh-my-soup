@@ -5,6 +5,7 @@ import * as path from "node:path";
 import { getGlobalDaemonRuntimeDir, isEexist, isEnoent, logger, postmortem } from "@oh-my-soup/pi-utils";
 import { hostHasInheritableConsole } from "../eval/py/spawn-options";
 import { resolveWorkerSpawnCmd, workerEnvFromParent } from "../subprocess/worker-client";
+import { resolveDaemonSpawnOptions } from "./spawn-options";
 import { canonicalProjectDir, daemonBrokerEndpoint, daemonRuntimeDir } from "./paths";
 import {
 	DAEMON_BROKER_WORKER_ARG,
@@ -18,7 +19,6 @@ import {
 	parseDaemonRpcResult,
 	parseDaemonWireMessage,
 } from "./protocol";
-import { resolveDaemonSpawnOptions } from "./spawn-options";
 
 const CONNECT_TIMEOUT_MS = 10_000;
 const CONNECT_RETRY_MS = 50;

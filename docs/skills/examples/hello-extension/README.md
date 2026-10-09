@@ -12,7 +12,7 @@ cp -r . ~/.oms/agent/extensions/hello-extension
 
 Restart `oms`. You will see the startup notification immediately.
 
-With `oms --profile <name>`, use `~/.oms/profiles/<name>/agent/extensions/hello-extension` instead. `PI_CODING_AGENT_DIR` likewise changes the agent directory.
+With `oms --profile <name>`, use `~/.oms/profiles/<name>/agent/extensions/hello-extension` under the default layout. `PI_CODING_AGENT_DIR` changes the default profile's agent directory, not a named profile's. Initialized XDG roots can change these locations.
 
 **Option B — point the settings `extensions` array at it:**
 

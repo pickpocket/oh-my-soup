@@ -47,10 +47,10 @@ describe("SessionManager workspace directories", () => {
 		const additionalDirectory = path.resolve("/some/other");
 		await session.setAdditionalDirectories([additionalDirectory, session.getCwd()]);
 		// cwd is filtered out of the additional set.
-		expect(session.getAdditionalDirectories()).toEqual([additionalDirectory]);
+		expect(session.getAdditionalDirectories()).toEqual([path.resolve("/some/other")]);
 		expect([session.getCwd(), ...session.getAdditionalDirectories()]).toEqual([
 			session.getCwd(),
-			additionalDirectory,
+			path.resolve("/some/other"),
 		]);
 	});
 

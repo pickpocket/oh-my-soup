@@ -94,6 +94,15 @@ describe("detectTerminalId", () => {
 		expect(detectTerminalId({ TERM_PROGRAM: "WarpTerminal", COLORTERM: "truecolor" })).toBe("warp");
 	});
 
+	it("recognizes Monstar by TERM and routes notifications through OSC 9", () => {
+		// Monstar exports TERM=monstar and COLORTERM=truecolor. The trueColor
+		// fallback uses BEL plus an action-less notify-send toast, so a click
+		// cannot focus the window. Monstar's own OSC 9 notification can.
+		const id = detectTerminalId({ TERM: "monstar", COLORTERM: "truecolor" });
+		expect(id).toBe("monstar");
+		expect(getTerminalInfo(id).notifyProtocol).toBe(NotifyProtocol.Osc9);
+	});
+
 	it("falls back to trueColor on VTE/Ptyxis environments — VTE OSC 9 is ConEmu progress, not a notification protocol", () => {
 		const env = { TERM: "xterm-256color", TERM_PROGRAM: "", COLORTERM: "truecolor", VTE_VERSION: "8400" };
 
@@ -103,7 +112,7 @@ describe("detectTerminalId", () => {
 
 describe("tmux client terminal resolution", () => {
 	it.skipIf(process.platform === "win32")("uses the attached client's terminal profile", async () => {
-		const binDir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-tmux-client-"));
+		const binDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-tmux-client-"));
 		try {
 			const tmux = path.join(binDir, "tmux");
 			await Bun.write(
@@ -176,7 +185,7 @@ describe("synchronizedOutputUserOverride", () => {
 
 describe("shouldEnableSynchronizedOutputByDefault", () => {
 	it("enables sync for every known direct terminal, including Alacritty and VS Code", () => {
-		for (const id of ["kitty", "ghostty", "wezterm", "iterm2", "alacritty", "vscode"] as const) {
+		for (const id of ["kitty", "ghostty", "monstar", "wezterm", "iterm2", "alacritty", "vscode"] as const) {
 			expect(shouldEnableSynchronizedOutputByDefault({}, id)).toBe(true);
 		}
 	});
@@ -727,6 +736,7 @@ describe("detectStyledUnderlineSupport", () => {
 	it("enables the colon form only on terminals that implement styled underlines", () => {
 		expect(detectStyledUnderlineSupport("kitty", {})).toBe(true);
 		expect(detectStyledUnderlineSupport("ghostty", {})).toBe(true);
+		expect(detectStyledUnderlineSupport("monstar", {})).toBe(true);
 		expect(detectStyledUnderlineSupport("wezterm", {})).toBe(true);
 		expect(detectStyledUnderlineSupport("iterm2", { TERM_PROGRAM_VERSION: "3.5.0" })).toBe(true);
 	});

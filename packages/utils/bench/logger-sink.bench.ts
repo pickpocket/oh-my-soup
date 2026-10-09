@@ -15,7 +15,7 @@ import { RotatingFileSink } from "../src/logger/rotating-file";
 
 const dir = await Bun.file(".")
 	.stat()
-	.then(() => fs.mkdtempSync(path.join(os.tmpdir(), "omp-logger-bench-")));
+	.then(() => fs.mkdtempSync(path.join(os.tmpdir(), "oms-logger-bench-")));
 const N = 20_000;
 const line = `{"timestamp":"2026-09-17T00:00:00.000+00:00","level":"info","pid":1,"message":"tool result received","tool":"read","ms":12}`;
 
@@ -25,7 +25,6 @@ const sink = new RotatingFileSink({
 	filenameSuffix: "test",
 	maxBytes: 100 * 1024 * 1024,
 	maxFiles: 2,
-	auditFile: path.join(dir, "audit.json"),
 });
 const start = Bun.nanoseconds();
 for (let i = 0; i < N; i++) sink.write(`${line} ${i}`);

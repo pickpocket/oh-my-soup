@@ -189,6 +189,29 @@ An intervening paragraph closes the list.
 		);
 	});
 
+	test("counts a bullet written above the first heading as Other, as the released 18.1.12 notes did", () => {
+		// Shape of the shipped 18.1.12 section: one bullet precedes `### Added`. Released
+		// sections are immutable, so that bullet must stay counted rather than be lost.
+		const selection = summarize(`
+- Fixed edit and write results to report the formatted bytes actually committed by LSP writethrough.
+
+### Added
+
+- Added \`/prewalk restart\`.
+
+### Changed
+
+- Ranged reads of text without bracket characters skip unnecessary lexical context scanning.
+
+### Fixed
+
+- Fixed frame skips while streaming long markdown Write previews.
+`);
+
+		const breakdown = Object.values(selection.categoryCounts).reduce((total, count) => total + count, 0);
+		expect(selection.changeCount).toBe(breakdown);
+		expect(selection.categoryCounts).toEqual({ Other: 1, Added: 1, Changed: 1, Fixed: 1 });
+	});
 	test("does not count a thematic break as a change", () => {
 		const selection = summarize(`
 ### Fixed

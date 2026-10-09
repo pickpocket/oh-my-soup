@@ -255,7 +255,7 @@ export async function pushGrievances(options: PushGrievancesOptions): Promise<vo
 		if (rejected > 0) {
 			console.log(
 				chalk.yellow(
-					`${rejected} grievance${rejected === 1 ? " was" : "s were"} refused by the server and marked rejected (see \`omp grievances list\`).`,
+					`${rejected} grievance${rejected === 1 ? " was" : "s were"} refused by the server and marked rejected (see \`oms grievances list\`).`,
 				),
 			);
 		}

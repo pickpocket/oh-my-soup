@@ -4,7 +4,7 @@
  *
  * @example
  * describe() {
- *   return card({ role: "omp.tool.bash", status: "running", head: [span("Bash", "toolTitle")] }, [
+ *   return card({ role: "oms.tool.bash", status: "running", head: [span("Bash", "toolTitle")] }, [
  *     ansi(this.#output, { follow: true, preview: { lines: 10 } }),
  *   ]);
  * }
@@ -42,7 +42,7 @@ export function card(p: TspProps<"card">, c: readonly NativeChild[]): NativeNode
 	return node("card", p, c);
 }
 
-/** Markdown source in omp's dialect. */
+/** Markdown source in oms's dialect. */
 export function md(source: string, p?: Omit<TspProps<"md">, "text">): NativeNode {
 	return node("md", { ...p, text: source });
 }

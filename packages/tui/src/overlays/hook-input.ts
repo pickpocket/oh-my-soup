@@ -35,7 +35,7 @@ export class HookInputComponent extends OverlayPanel {
 		onCancel: () => void,
 		opts?: HookInputOptions,
 	) {
-		super(title, "omp.overlay.hook-input");
+		super(title, "oms.overlay.hook-input");
 
 		this.#onSubmitCallback = onSubmit;
 		this.#onCancelCallback = onCancel;

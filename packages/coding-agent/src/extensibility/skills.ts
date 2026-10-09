@@ -120,7 +120,7 @@ interface CollisionResolution {
  * Resolve a same-name skill against what is already loaded.
  * - Precedence, when raw names collide:
  *   1. An authored skill always outranks a registry-installed package
- *      (`omp skill install`, the `skillshare` provider) — installed steps
+ *      (`oms skill install`, the `skillshare` provider) — installed steps
  *      aside regardless of admission order.
  *   2. A custom-directory skill always outranks a provider skill (#7190's
  *      override contract) — the provider skill steps aside even though it

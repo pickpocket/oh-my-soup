@@ -169,7 +169,7 @@ export class ModelWorkerHost<
 
 	/**
 	 * Workers start unreferenced so an idle warm model never blocks exit. A
-	 * short-lived command (`omp say`, STT setup/download) awaiting IPC would
+	 * short-lived command (`oms say`, STT setup/download) awaiting IPC would
 	 * otherwise let Bun drain the event loop and exit before the reply arrives,
 	 * so the worker is `ref`'d exactly while a request or stream is active.
 	 */

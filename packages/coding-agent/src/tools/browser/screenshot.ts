@@ -184,7 +184,7 @@ export function installAnnotationOverlayInPage(payload: {
 	const pageGlobal = globalThis as unknown as { document: AnnotationDocument };
 	const doc = pageGlobal.document;
 	const root = doc.createElement("div");
-	root.setAttribute("data-omp-screenshot-annotations", payload.token);
+	root.setAttribute("data-oms-screenshot-annotations", payload.token);
 	root.style.cssText = "position:absolute;left:0;top:0;z-index:2147483647;pointer-events:none";
 	for (const target of payload.targets) {
 		const outline = doc.createElement("div");
@@ -203,7 +203,7 @@ export function installAnnotationOverlayInPage(payload: {
 export function removeAnnotationOverlayInPage(token: string): void {
 	const pageGlobal = globalThis as unknown as { document: AnnotationDocument };
 	const doc = pageGlobal.document;
-	doc.querySelector(`[data-omp-screenshot-annotations="${token}"]`)?.remove();
+	doc.querySelector(`[data-oms-screenshot-annotations="${token}"]`)?.remove();
 }
 
 /** Install numbered annotation overlays and return an abort-aware cleanup function. */
@@ -212,7 +212,7 @@ export async function installScreenshotAnnotations(
 	targets: readonly ScreenshotAnnotationTarget[],
 	signal: AbortSignal | undefined,
 ): Promise<() => Promise<void>> {
-	const token = `omp-screenshot-${crypto.randomUUID()}`;
+	const token = `oms-screenshot-${crypto.randomUUID()}`;
 	await untilAborted(signal, () => page.evaluate(installAnnotationOverlayInPage, { token, targets: [...targets] }));
 	return async () => {
 		await page.evaluate(removeAnnotationOverlayInPage, token).catch(() => undefined);

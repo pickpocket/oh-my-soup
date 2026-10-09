@@ -104,7 +104,7 @@ RUN apt-get update \
 RUN pip install --upgrade pip build
 
 WORKDIR /src
-COPY python/oms-rpc /src
+COPY sdk/python/oms-rpc /src
 RUN python -m build --wheel --outdir /out
 
 ############################

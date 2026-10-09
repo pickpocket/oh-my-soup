@@ -12,7 +12,7 @@ The workspace `Cargo.toml` routes the registry dependency here through
   instead of re-parsing the body as words. Re-parsing let quotes and
   parentheses inside a quoted here-document body end the substitution early
   or swallow its closer; `"$(...)"` then fell back to literal text and ran
-  backtick spans from the body (oh-my-pi#13307). Upstream tracks this family
+  backtick spans from the body (oh-my-soup#13307). Upstream tracks this family
   as [reubeno/brush#1066](https://github.com/reubeno/brush/issues/1066).
 - `src/tokenizer.rs`: a newline token cut short by a construct's terminating
   char (`)` in `$(...)`) is delimited as a newline, not as the terminator, so

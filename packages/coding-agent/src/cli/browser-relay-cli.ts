@@ -64,6 +64,9 @@ async function runInstall(dirOverride: string | undefined): Promise<void> {
 	console.log("oms starts the relay automatically when the browser prelude needs it;");
 	console.log("run `oms browser-relay` yourself only for --token or --no-group.");
 	console.log("The extension badge shows 'on' once it reaches a relay.");
+	console.log(
+		"Old connection-refused entries in chrome://extensions > Errors may persist after reconnect; use Clear all.",
+	);
 }
 
 async function runServe(args: BrowserRelayCommandArgs): Promise<void> {

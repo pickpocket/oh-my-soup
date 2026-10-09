@@ -9,6 +9,7 @@ import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
 import { rebindMemoryBackendForCwd } from "@oh-my-soup/pi-coding-agent/hindsight/backend";
 import { createAgentSession } from "@oh-my-soup/pi-coding-agent/sdk";
 import type { AgentSession } from "@oh-my-soup/pi-coding-agent/session/agent-session";
+import { AgentStorage } from "@oh-my-soup/pi-coding-agent/session/agent-storage";
 import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
 import { executeAcpBuiltinSlashCommand } from "@oh-my-soup/pi-coding-agent/slash-commands/acp-builtins";
 import {
@@ -35,6 +36,8 @@ describe("createAgentSession cwd after /move", () => {
 	const tempDirs: string[] = [];
 
 	afterEach(() => {
+		// `Settings.loadIsolated` opened `<agentDir>/agent.db`; Windows cannot delete it while open.
+		AgentStorage.close();
 		for (const tempDir of tempDirs.splice(0)) {
 			removeSyncWithRetries(tempDir);
 		}

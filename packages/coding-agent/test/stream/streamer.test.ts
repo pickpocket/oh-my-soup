@@ -157,7 +157,7 @@ describe("resolveStreamUrls", () => {
 
 describe("StreamMuxHost", () => {
 	it("materializes patch, reset, and bounded history state across reconnect replays", async () => {
-		const projectDir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-stream-test-"));
+		const projectDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-stream-test-"));
 		projectDirs.push(projectDir);
 		const firstServer = startFakeStreamServer();
 		const port = firstServer.port;

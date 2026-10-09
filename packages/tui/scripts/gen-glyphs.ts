@@ -65,7 +65,7 @@ async function collectCodepoints(): Promise<number[]> {
 
 async function resolveFont(explicit: string | undefined): Promise<string> {
 	if (explicit) return path.resolve(explicit);
-	const cacheDir = path.join(os.homedir(), ".cache", "omp", "gen-glyphs");
+	const cacheDir = path.join(os.homedir(), ".cache", "oms", "gen-glyphs");
 	const cached = path.join(cacheDir, `${NERD_FONTS_VERSION}-${NERD_FONTS_MEMBER}`);
 	if (await Bun.file(cached).exists()) return cached;
 	console.error(`fetching ${NERD_FONTS_ARCHIVE}`);

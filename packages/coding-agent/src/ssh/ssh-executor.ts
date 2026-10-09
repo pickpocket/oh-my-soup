@@ -16,7 +16,8 @@ import {
 	type SSHHostInfo,
 	spawnSsh,
 } from "./connection-manager";
-import { quotePosixPath, wrapInPosixShell } from "./utils";
+import { quotePosixArgument } from "../utils/shell-quote";
+import { wrapInPosixShell } from "./utils";
 
 export interface SSHExecutorOptions {
 	/** Timeout in milliseconds; 0/undefined disables the deadline. */
@@ -50,7 +51,7 @@ export function withRemoteCwd(command: string, cwd: string | undefined, info: SS
 		if (info.shell === "powershell") return `Set-Location -Path ${quotePowerShellPath(cwd)}; ${command}`;
 		return `cd /d ${quoteCmdPath(cwd)} && ${command}`;
 	}
-	return `cd -- ${quotePosixPath(cwd)} && ${command}`;
+	return `cd -- ${quotePosixArgument(cwd)} && ${command}`;
 }
 
 type SSHExitEvent = { kind: "exit"; exitCode: number } | { kind: "error"; error: unknown };

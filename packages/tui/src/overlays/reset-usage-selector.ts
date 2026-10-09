@@ -76,7 +76,7 @@ export class ResetUsageSelectorComponent extends OverlayPanel {
 	#nativeRoot: NativeNode | undefined;
 
 	constructor(accounts: ResetUsageAccount[], onSelect: (account: ResetUsageAccount) => void, onCancel: () => void) {
-		super("Spend a saved rate-limit reset", "omp.overlay.reset-usage");
+		super("Spend a saved rate-limit reset", "oms.overlay.reset-usage");
 		this.#onSelectCallback = onSelect;
 		this.#onCancelCallback = onCancel;
 		const firstRedeemable = accounts.find(account => account.redeemableCount > 0);

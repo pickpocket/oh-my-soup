@@ -358,7 +358,7 @@ describe("installGlobalProxyFetch", () => {
 	it.skipIf(process.platform === "win32")(
 		"reaches a Unix-socket service instead of sending it to PI_PROXY",
 		async () => {
-			const socket = path.join(os.tmpdir(), `omp-proxy-${process.pid}.sock`);
+			const socket = path.join(os.tmpdir(), `oms-proxy-${process.pid}.sock`);
 			const connections = new Set<net.Socket>();
 			const server = net.createServer(connection => {
 				connections.add(connection);

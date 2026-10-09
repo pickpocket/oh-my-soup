@@ -3,6 +3,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { discoverAndLoadExtensions } from "@oh-my-soup/pi-coding-agent/extensibility/extensions/loader";
+import { __closeExtensionParseCacheForTests } from "@oh-my-soup/pi-coding-agent/extensibility/plugins/legacy-pi-compat";
 import { getAgentDir, getPluginsDir, removeSyncWithRetries, setAgentDir, TempDir } from "@oh-my-soup/pi-utils";
 
 const currentPiCodingAgentPath = Bun.resolveSync("@oh-my-soup/pi-coding-agent", import.meta.dir);
@@ -84,6 +85,9 @@ describe("plugin extension discovery", () => {
 		}
 		originalXdg.clear();
 		setAgentDir(originalAgentDir);
+		// The legacy Pi parse cache db lives under the temp home's `.oms/cache`;
+		// release it so Windows can delete the directory.
+		__closeExtensionParseCacheForTests();
 		removeSyncWithRetries(tempHome);
 	});
 

@@ -5,7 +5,7 @@
  * Same bearer auth, model resolution, broker credential lookup, and a/b/c
  * credential rotation as the chat routes, dispatched through
  * {@link TypeSafeJudge} — pi-ai's client for this wire — so 401 rotation and
- * 429/529 backoff match omp's own judgments. A judgment is one JSON
+ * 429/529 backoff match oms's own judgments. A judgment is one JSON
  * round-trip: no stream, no provider session state. TypeSafe reports tokens
  * only, so the cost is priced from the catalog model for the response header
  * and the broker's observed-usage ledger.
@@ -17,7 +17,7 @@ import { isJudgmentApi, TypeSafeJudge } from "../../judgment/typesafe";
 import * as systemOne from "../../providers/systemone-server";
 import { deterministicUuid } from "../../utils/deterministic-id";
 import {
-	type AuthGatewayBootOptions,
+	type AuthGatewayRouteOptions,
 	buildGatewayApiKeyResolver,
 	mirrorRequestAbort,
 	recordGatewayUsage,
@@ -25,7 +25,11 @@ import {
 } from "../dispatch";
 import { gatewayResponseHeaders, json, resolveClientIdentity } from "../http";
 
-export async function handleSystemOne(bootOpts: AuthGatewayBootOptions, req: Request, peer: string): Promise<Response> {
+export async function handleSystemOne(
+	bootOpts: AuthGatewayRouteOptions,
+	req: Request,
+	peer: string,
+): Promise<Response> {
 	const startedAt = performance.now();
 	const requestId = crypto.randomUUID();
 	const controller = mirrorRequestAbort(req);
@@ -69,7 +73,7 @@ export async function handleSystemOne(bootOpts: AuthGatewayBootOptions, req: Req
 
 	const apiKey = await resolveGatewayApiKey(bootOpts.storage, model, sessionId, controller.signal, peer);
 	if (controller.signal.aborted) return aborted();
-	if (typeof apiKey !== "string") return systemOne.formatError(apiKey.status, apiKey.type, apiKey.message);
+	if ("status" in apiKey) return systemOne.formatError(apiKey.status, apiKey.type, apiKey.message);
 
 	const judge = new TypeSafeJudge({
 		apiKey: buildGatewayApiKeyResolver(

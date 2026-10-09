@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, test, vi } from "bun:test";
-import { getEnvApiKey, stream, streamSimple } from "@oh-my-soup/pi-ai/stream";
+import { getEnvApiKey } from "@oh-my-soup/pi-ai/env-api-key";
+import { stream, streamSimple } from "@oh-my-soup/pi-ai/stream";
 import type { Context, Tool } from "@oh-my-soup/pi-ai/types";
 import { buildModel } from "@oh-my-soup/pi-catalog/build";
 import { Effort } from "@oh-my-soup/pi-catalog/effort";

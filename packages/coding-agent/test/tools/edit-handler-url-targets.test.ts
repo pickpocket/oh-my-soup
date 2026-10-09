@@ -34,7 +34,7 @@ function resultText(result: { content: Array<{ type: string; text?: string }> })
 
 beforeEach(async () => {
 	resetSettingsForTest();
-	tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-edit-handler-urls-"));
+	tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-edit-handler-urls-"));
 	artifactsDir = path.join(tmpDir, "artifacts");
 	await fs.mkdir(artifactsDir, { recursive: true });
 	await Settings.init({ inMemory: true, cwd: tmpDir });

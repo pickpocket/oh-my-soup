@@ -103,7 +103,7 @@ function validateRegistryFrontmatter(frontmatter: Record<string, unknown>): Regi
 	const version = metadata.version;
 	if (version === undefined) {
 		throw new Error(
-			`${SKILL_FILE}: "metadata.version" is required to publish (set it with \`omp skill version patch\`)`,
+			`${SKILL_FILE}: "metadata.version" is required to publish (set it with \`oms skill version patch\`)`,
 		);
 	}
 	if (!SEMVER_RE.test(version)) {

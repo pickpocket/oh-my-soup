@@ -16,11 +16,11 @@ This page indexes README-only user-facing package CLIs and features that need ro
 Sources: [`python/roboms/README.md`](../python/roboms/README.md), [`python/roboms/pyproject.toml`](../python/roboms/pyproject.toml), [`python/roboms/.env.example`](../python/roboms/.env.example), [`python/roboms/docker-compose.yml`](../python/roboms/docker-compose.yml).
 
 - Python package: `roboms` (Python 3.11 or newer); bin: `roboms`, with `serve`, `triage`, `replay`, `status`, and `cleanup` commands.
-- Feature: self-hosted service that receives GitHub webhooks for allowlisted repositories, classifies issues, resumes an `oms --mode rpc` session per issue, comments or opens a fix PR, and handles follow-up issue and PR conversations.
+- Feature: self-hosted service that receives GitHub webhooks for allowlisted repositories, classifies issues, resumes an `oms --mode rpc` session per issue, comments or opens a fix PR, and handles follow-up issue and PR conversations. Incoming PR review is enabled by default; the opt-in release sentinel handles failed release CI (`ROBOMS_RELEASE_SENTINEL_ENABLED`, default false).
 - Dashboard/API: FastAPI serves the operator dashboard at `/` alongside health, event, issue, and replay endpoints. The bundled Compose deployment publishes it at `http://localhost:6543/`; `bun run roboms:web:dev` runs the dashboard frontend in development, and `bun run roboms:web:build` rebuilds its static bundle.
-- Inputs/storage: configuration comes from `python/roboms/.env` and the mounted `~/.oms/agent/models.container.yml`; GitHub webhook events feed a SQLite-backed queue. The Compose deployment persists the database, per-issue worktrees, session transcripts, and logs in the `roboms_data` volume under `/data`.
+- Inputs/storage: Compose interpolates `python/roboms/.env` through explicit per-service environment allowlists and mounts `~/.oms/agent/models.container.yml` as agent `models.yml`. Host CLI configuration uses process environment and `.env` relative to cwd. GitHub webhook events feed a SQLite-backed queue; Compose persists the database, workspaces, session transcripts, and logs in the `roboms_data` volume under `/data`.
 - Root commands: `bun run roboms:install` installs the Python package for host development; `bun run roboms:serve` runs it on the host; `bun run roboms:build`/`bun run roboms:rebuild`, `bun run roboms:up`, `bun run roboms:down`, `bun run roboms:restart`, `bun run roboms:logs`, `bun run roboms:dev`, and `bun run roboms:reset` manage the container deployment.
-- Prerequisites: Docker Compose v2, a host-reachable LiteLLM-style model proxy, container model configuration, a GitHub webhook endpoint, and a bot PAT with write access to every allowlisted repository. The default two-container deployment keeps the PAT in an HMAC-authenticated `gh-proxy` sidecar rather than the orchestrator.
+- Prerequisites: Docker Compose v2 for the bundled deployment, a host-reachable model gateway matching the container model configuration, a GitHub webhook endpoint, and a bot PAT with write access to every allowlisted repository. The orchestrator requires an HMAC-authenticated `gh-proxy` and refuses to hold `GITHUB_TOKEN`; the bundled two-container deployment passes the PAT only to the sidecar. Host development must likewise keep the PAT out of the orchestrator environment and `.env`.
 
 ### `packages/stats` — local usage dashboard
 
@@ -28,17 +28,17 @@ Sources: [`packages/stats/README.md`](../packages/stats/README.md), [`packages/s
 
 - Package: `@oh-my-soup/oms-stats`; bin: `oms-stats`; main user path: `oms stats`.
 - Feature: local observability dashboard for AI usage statistics from session JSONL logs.
-- CLI modes: `oms stats` starts the dashboard server, opens `http://localhost:3847`, and keeps running; `oms stats --port <port>` changes the port; `oms stats --summary` prints a console summary; `oms stats --json` prints JSON and exits.
+- CLI modes: `oms stats` starts or reuses the dashboard at `http://127.0.0.1:3847`, opens it in the browser, and keeps running. `--port <port>` changes the port; `--host <host>` changes the bind address (loopback by default). `--summary` prints a console summary; `--json` prints JSON and exits. The standalone `oms-stats` uses `--sync` for its summary mode and does not automatically open a browser.
 - Programmatic API: exports helpers such as `syncAllSessions()` and `getDashboardStats()` for embedding.
-- Inputs/storage: reads `~/.oms/agent/sessions/`; stores aggregates in `~/.oms/stats.db`.
-- Outputs: dashboard metrics and API endpoints including `/api/stats`, `/api/stats/models`, `/api/stats/folders`, `/api/stats/timeseries`, and `/api/sync`.
-- Side effects/limits: syncs session files before output; long-running dashboard stops on `Ctrl+C` and closes the stats database.
+- Inputs/storage: scans the active profile's session directory recursively, including nested subagent transcripts; stores aggregates in that profile's stats database. Default paths are `~/.oms/agent/sessions/` and `~/.oms/stats.db`; initialized XDG data roots and named profiles change them through the shared directory resolver.
+- Outputs: request/token/cost, provider, model, folder, tool, gain, and frustration dashboards. API endpoints include `/api/stats`, `/api/stats/models`, `/api/stats/folders`, `/api/stats/timeseries`, `/api/stats/tools`, `/api/stats/gain`, `/api/status`, `/api/events` (SSE), and `/api/sync` (POST).
+- Side effects/limits: one-shot reports finish ingestion and rollups before printing. The dashboard binds immediately and starts background ingestion when a page connects to its event stream; `Ctrl+C` closes the CLI's stats database and exits. Frustration judging in `oms stats` lazily uses the configured `judge` role (telemetry purpose `stats_frustration`) and can make model calls; standalone `oms-stats` does not supply a judge.
 
 ### `packages/omstype` — schema validation library
 
 Sources: [`packages/omstype/README.md`](../packages/omstype/README.md), [`packages/omstype/package.json`](../packages/omstype/package.json), and the repository [omstype authoring guide](./omstype-guide.md).
 
-- Package: public `@oh-my-soup/omstype`; install with `bun add @oh-my-soup/omstype`; requires Bun 1.3.14 or newer.
+- Package: public `@oh-my-soup/omstype`; install with `bun add @oh-my-soup/omstype`. Its manifest declares Node 20 or newer and Bun 1.3.14 or newer.
 - Feature: callable ArkType-compatible schemas with cheap interpreted startup, lazy hot-path compilation, validation errors, defaults and morphs, and JSON Schema emission.
 - Public surfaces: `@oh-my-soup/omstype` for native authoring, `/typebox` and `/zod` for compatibility builders, and `/ark` for the alias-free ArkType compatibility facade.
 - Runtime behavior: schema calls return the validated value or `type.errors`; `.assert()` returns the value or throws; `.allows()` performs a boolean check.
@@ -50,19 +50,20 @@ Sources: [`packages/typescript-edit-benchmark/package.json`](../packages/typescr
 
 - Package: private `@oh-my-soup/typescript-edit-benchmark`; support library with no standalone bin.
 - Feature: generates, loads, formats, and verifies TypeScript mutation fixtures consumed by the metaharness edit adapter.
-- Fixture generation: `bun packages/typescript-edit-benchmark/src/generate.ts --typescript-dir <path> [generator options]` from the repository root.
+- Fixture generation: `bun packages/typescript-edit-benchmark/src/generate.ts [--typescript-dir <path>] [generator options]` from the repository root. It scans JS/JSX/TS/TSX; without a source path it shallow-clones `badlogic/pi-mono` into a temporary directory and scans `packages/`. Output defaults to `packages/typescript-edit-benchmark/fixtures.tar.gz`; current generator controls include `--count-scale`, `--seed`, `--categories`, and difficulty/score filters.
 - Benchmark execution: `bun run --cwd packages/metaharness bench:edit -- --model <provider/model> [options]`, or launch an `edit` run from the metaharness dashboard/API.
 - Runner inputs include provider/model, thinking level, runs per task, timeouts, concurrency, task IDs, fixture directory or `.tar.gz`, edit strategy, guided mode, retry/turn limits, output path/format, and fixture validation/listing flags.
-- Fixtures contain task metadata, a prompt, input files, and expected files. The runner copies each fixture to an isolated worktree, records optional conversation dumps, and writes Markdown or JSON results.
+- Fixtures contain task metadata, a prompt, input files, and expected files. The runner copies each run's inputs to an isolated working directory under `runs/rb-*/`, records optional conversation dumps, and writes Markdown or JSON results.
 
 ### `packages/metaharness` — unified benchmark manager
 
-Sources: [`packages/metaharness/README.md`](../packages/metaharness/README.md), [`packages/metaharness/package.json`](../packages/metaharness/package.json), [`packages/metaharness/src/server.ts`](../packages/metaharness/src/server.ts), [`packages/metaharness/src/runner.ts`](../packages/metaharness/src/runner.ts), and [`packages/metaharness/adapters/edit/cli.ts`](../packages/metaharness/adapters/edit/cli.ts).
+Sources: [`packages/metaharness/README.md`](../packages/metaharness/README.md), [`packages/metaharness/package.json`](../packages/metaharness/package.json), [`packages/metaharness/src/server.ts`](../packages/metaharness/src/server.ts), [`packages/metaharness/src/runner.ts`](../packages/metaharness/src/runner.ts), [`packages/metaharness/src/tb/cli.ts`](../packages/metaharness/src/tb/cli.ts), and [`packages/metaharness/adapters/edit/cli.ts`](../packages/metaharness/adapters/edit/cli.ts).
 
 - Package: private `@oh-my-soup/pi-metaharness`; bin: `metaharness`.
 - Feature: one dashboard, SQLite store, REST/SSE API, and normalized experiment → run → trace model for Harbor datasets (default `terminal-bench@2.0`), TypeScript edit, and SnapCompact benchmarks.
 - Dashboard/API: `bun run --cwd packages/metaharness serve -- --port 4700`; the launch form and `POST /api/runs` support all three benchmark adapters.
 - Direct runners: `bun packages/metaharness/src/runner.ts --model <provider/model> [Harbor options]` and `bun run --cwd packages/metaharness bench:edit -- --model <provider/model> [edit options]`.
+- Separate Terminal-Bench 2.1 runner: `bun run --cwd packages/metaharness bench:tb -- --model <provider/model> [options]` runs local OMS binaries in remote Vibemon microVMs, with a reachable host auth gateway. It supports task filters, repeated attempts/epochs, concurrency, spend budgets, tool/environment controls, and task listing. Its artifacts and `tb.sqlite` default to `runs/tb/`; it is not one of the dashboard's three adapters.
 - Harbor source mode bind-mounts the repository and a cached Linux dependency tree, while provider credentials stay on the host behind the auth gateway. Local-tarball, published-package, and prebuilt-binary install modes are also available.
 - Storage: normalized state lives under `<jobs-dir>/_manager/metaharness.sqlite`; benchmark-native artifacts remain the filesystem source of truth and historical runs are auto-discovered.
 - Outputs include Harbor trial directories, `_bench/<jobName>/report.md`, per-run logs, edit reports, normalized traces, dashboard metrics, and REST/SSE updates.
@@ -77,8 +78,10 @@ Sources: [`packages/browser-relay/README.md`](../packages/browser-relay/README.m
   `~/.oms/browser-relay/extension`, then opt in per call with `app.relay: true` — or set
   `browser.relay`, which makes the relay the profile-wide default across projects (scope
   details in the package README).
-- Behavior: the relay auto-starts through the global daemon broker; `app.target` selects a tab by
-  URL/title substring, otherwise the visible tab is adopted.
+- Behavior: the relay auto-starts through the profile-independent global daemon broker; consumers
+  across projects hold leases, and the relay stops after the last lease is released. `app.target`
+  selects a tab by URL/title substring, otherwise the visible tab is adopted. Supplying a URL
+  navigates that adopted tab. `oms browser-relay --no-group` disables automatic tab grouping.
 - Security/limits: it binds loopback; use `--token` when local processes are untrusted. Chrome
   internal pages, DevTools, Web Store, extension pages, and tabs with DevTools open cannot attach.
 
@@ -113,5 +116,6 @@ Sources: [`packages/mnemopi/README.md`](../packages/mnemopi/README.md), [`packag
 - Package: public `@oh-my-soup/pi-mnemopi`; bin: `mnemopi`; requires Bun 1.3.14 or newer. Install globally with `bun add --global @oh-my-soup/pi-mnemopi`, then run `mnemopi <command>`. From a source checkout, `bun packages/mnemopi/src/cli.ts <command>` runs the same entrypoint.
 - Store and search: `store`/`remember`, `recall`/`search`, `update`/`edit`, and `delete`/`forget`.
 - Inspect and maintain: `stats`, `sleep`/`consolidate`, `diagnose`/`doctor`, JSON `export` and `import`, `scratchpad`/`sp` with `read`, `write`, or `clear`, and `bank` with `list`, `create`, or `delete`.
+- Storage: standalone commands use `~/.hermes/mnemopi/data/mnemopi.db` by default; `MNEMOPI_DATA_DIR` selects a different data directory. This default is separate from OMS's session-managed memory location.
 - Integration: `mcp` starts the package's MCP server. The standalone CLI operates directly on Mnemopi storage; select `memory.backend: mnemopi` instead when integrating memory into OMS sessions, as described in the backend guide.
 - Discovery and errors: `mnemopi --help` lists primary command forms. Unknown commands and invalid arguments print a concise error and return a nonzero exit code.

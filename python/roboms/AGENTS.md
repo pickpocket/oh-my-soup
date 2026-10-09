@@ -27,10 +27,10 @@ Webhook → durable queue → async dispatcher → per-issue git worktree → om
 
 ## Development Commands
 
-Task runner is `bun` against the **monorepo root** `package.json`. robooms itself no longer ships a `package.json`; every recipe lives at the root under the `roboms:*` namespace. Local venv (no docker): `bun run roboms:install` runs `pip install -e 'python/roboms[dev]'`. From there:
+Task runner is `bun` against the **monorepo root** `package.json`. robooms itself no longer ships a `package.json`; every recipe lives at the root under the `roboms:*` namespace. Local venv (no docker): `bun run roboms:install` runs `pip install -e sdk/python/oms-rpc -e 'python/roboms[dev]'` (the local `oms-rpc` is not on the package index). From there:
 
 ```
-bun run test:py                   # pytest -x python/oms-rpc/tests python/roboms/tests
+bun run test:py                   # pytest -x sdk/python/oms-rpc/tests python/roboms/tests
 bun run roboms:test:integration   # ROBOMS_INTEGRATION=1, requires oms on PATH
 bun run roboms:serve              # python -m roboms serve on the host
 ```

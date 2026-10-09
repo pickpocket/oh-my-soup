@@ -547,7 +547,7 @@ export class Setting<T, Id extends string = string> extends Derived<T> {
 	}
 
 	/**
-	 * Parses user- or agent-supplied text (`omp config set`, `write cfg://…`) into a value of this
+	 * Parses user- or agent-supplied text (`oms config set`, `write cfg://…`) into a value of this
 	 * setting's type. Booleans accept true/false, yes/no, on/off, 1/0; arrays and records take JSON;
 	 * strings and enums accept bare text or a JSON-quoted string.
 	 *

@@ -38,7 +38,7 @@ export const cfgBrowserRelay = register({
 		group: "Grep & Browser",
 		label: "Browser Relay",
 		description:
-			"Drive your own Chrome tabs through the omp browser relay. Install the extension once (`omp browser-relay install`); the relay server auto-starts when the browser prelude needs it. Takes precedence over Browser CDP URL; set PI_BROWSER_RELAY=0 or PI_BROWSER_RELAY=1 to override.",
+			"Drive your own Chrome tabs through the oms browser relay. Install the extension once (`oms browser-relay install`); the relay server auto-starts when the browser prelude needs it. Takes precedence over Browser CDP URL; set PI_BROWSER_RELAY=0 or PI_BROWSER_RELAY=1 to override.",
 	},
 });
 
@@ -50,7 +50,7 @@ export const cfgBrowserRelayUrl = register({
 		tab: "tools",
 		group: "Grep & Browser",
 		label: "Browser Relay URL",
-		description: "omp browser relay endpoint (default http://127.0.0.1:9224).",
+		description: "oms browser relay endpoint (default http://127.0.0.1:9224).",
 	},
 });
 
@@ -88,7 +88,7 @@ export const cfgBrowserTern = register({
 		group: "Grep & Browser",
 		label: "Tern Browser",
 		description:
-			"Inside a Tern pane, open browser tabs as picture-in-pictures over omp's pane (native web view) instead of headless Chromium; falls back to Chromium when no Tern window can host them. Explicit app options, the relay and Browser CDP URL take precedence; headed:false or app.tern:false opts one open out. Set PI_BROWSER_TERN=0 or PI_BROWSER_TERN=1 to override.",
+			"Inside a Tern pane, open browser tabs as picture-in-pictures over oms's pane (native web view) instead of headless Chromium; falls back to Chromium when no Tern window can host them. Explicit app options, the relay and Browser CDP URL take precedence; app.tern:false opts one open out. Set PI_BROWSER_TERN=0 or PI_BROWSER_TERN=1 to override.",
 	},
 });
 
@@ -101,7 +101,7 @@ export const cfgBrowserFreezeOnTurnEnd = register({
 		group: "Grep & Browser",
 		label: "Freeze Browser Tabs On Turn End",
 		description:
-			"Freeze OMP-owned headless browser tabs when a turn settles so animated pages stop burning CPU/GPU while idle. Tabs unfreeze automatically on next use; pass persist:true on open to opt a tab out.",
+			"Freeze OMS-owned headless browser tabs when a turn settles so animated pages stop burning CPU/GPU while idle. Tabs unfreeze automatically on next use; pass persist:true on open to opt a tab out.",
 	},
 });
 
@@ -114,7 +114,7 @@ export const cfgBrowserIdleCloseSec = register({
 		group: "Grep & Browser",
 		label: "Browser Idle Close Timeout",
 		description:
-			"Close OMP-owned headless browser tabs and Tern browser picture-in-pictures idle longer than this many seconds (0 = never; session dispose still reaps). Never touches relay/CDP/spawned browsers or other sessions' tabs.",
+			"Close OMS-owned headless browser tabs and Tern browser picture-in-pictures idle longer than this many seconds (0 = never; session dispose still reaps). Never touches relay/CDP/spawned browsers or other sessions' tabs.",
 		options: [
 			{ value: "0", label: "Never" },
 			{ value: "900", label: "15 minutes" },

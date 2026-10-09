@@ -26,7 +26,7 @@ import type {
 	TinyWorkerResponse,
 } from "@oh-my-soup/pi-coding-agent/tiny/title-protocol";
 
-const SOURCE_ID = "omp/local-inference";
+const SOURCE_ID = "oms/local-inference";
 const model = getBundledModel("local", "lfm2.5-230m")!;
 
 function zeroUsage(): Usage {

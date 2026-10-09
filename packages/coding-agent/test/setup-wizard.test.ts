@@ -170,6 +170,7 @@ describe("setup wizard model selection", () => {
 						},
 					},
 					setModel,
+					effectiveServiceTier: () => undefined,
 				},
 				ui: { terminal: { rows: 30 } },
 			},

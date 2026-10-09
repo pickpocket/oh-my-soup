@@ -1,19 +1,19 @@
-// Apple Foundation Models bridge for omp, linked into the pi-natives addon.
+// Apple Foundation Models bridge for oms, linked into the pi-natives addon.
 //
 // Drives the on-device system language model through the stateless
 // `LanguageModelExecutor` API (macOS 27+): every generation request carries the
 // full transcript (instructions + tool definitions, prompts, responses, tool
 // calls, tool outputs) and streams exactly one model turn back. Tool calls are
-// surfaced to the caller instead of being executed, so omp's agent loop owns
+// surfaced to the caller instead of being executed, so oms's agent loop owns
 // tool execution and resumes by sending the tool outputs in the next request.
 //
 // C ABI (declared in `mod.rs`):
-//   char *omp_applefm_availability(void);                  // JSON, free with omp_applefm_free
-//   void  omp_applefm_generate(uint64_t handle, const char *request_json,
-//                              void *context, omp_applefm_emit emit);
-//   typedef void (*omp_applefm_emit)(void *context, const char *event_json, bool final);
-//   void  omp_applefm_cancel(uint64_t handle);
-//   void  omp_applefm_free(char *);
+//   char *oms_applefm_availability(void);                  // JSON, free with oms_applefm_free
+//   void  oms_applefm_generate(uint64_t handle, const char *request_json,
+//                              void *context, oms_applefm_emit emit);
+//   typedef void (*oms_applefm_emit)(void *context, const char *event_json, bool final);
+//   void  oms_applefm_cancel(uint64_t handle);
+//   void  oms_applefm_free(char *);
 //
 // `emit` runs on arbitrary threads, strictly sequentially per request. Events:
 // text · reasoning · toolCall · usage, then exactly one terminal `done` or
@@ -421,7 +421,7 @@ struct ChannelDecoder {
 
 // MARK: - Generation
 
-let sentinel = "omp.end"
+let sentinel = "oms.end"
 
 @available(macOS 27, *)
 func generate(_ request: Request, emit: Emitter) async throws {
@@ -535,14 +535,14 @@ func describe(_ error: NSError) -> String {
 }
 
 func log(_ message: String) {
-	FileHandle.standardError.write(Data("omp-applefm: \(message)\n".utf8))
+	FileHandle.standardError.write(Data("oms-applefm: \(message)\n".utf8))
 }
 
 let unsupportedOS = BridgeError(code: "unsupported_os", message: "Apple Foundation Models requires macOS 27 or later")
 
 // MARK: - C ABI
 
-@_cdecl("omp_applefm_availability")
+@_cdecl("oms_applefm_availability")
 public func ompAppleFmAvailability() -> UnsafeMutablePointer<CChar>? {
 	var event: Event
 	if #available(macOS 27, *) {
@@ -555,7 +555,7 @@ public func ompAppleFmAvailability() -> UnsafeMutablePointer<CChar>? {
 	return strdup(event.json)
 }
 
-@_cdecl("omp_applefm_generate")
+@_cdecl("oms_applefm_generate")
 public func ompAppleFmGenerate(
 	_ handle: UInt64,
 	_ requestJSON: UnsafePointer<CChar>,
@@ -590,12 +590,12 @@ public func ompAppleFmGenerate(
 	}
 }
 
-@_cdecl("omp_applefm_cancel")
+@_cdecl("oms_applefm_cancel")
 public func ompAppleFmCancel(_ handle: UInt64) {
 	Task { await registry.cancel(handle) }
 }
 
-@_cdecl("omp_applefm_free")
+@_cdecl("oms_applefm_free")
 public func ompAppleFmFree(_ pointer: UnsafeMutablePointer<CChar>?) {
 	free(pointer)
 }

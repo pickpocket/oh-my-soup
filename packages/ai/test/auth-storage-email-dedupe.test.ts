@@ -397,7 +397,7 @@ describe("AuthStorage openai-codex email dedupe", () => {
 				);
 			`);
 			legacyDb
-				.prepare(
+				.query(
 					"INSERT INTO auth_credentials (provider, credential_type, data, disabled_cause, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
 				)
 				.run(
@@ -473,7 +473,7 @@ describe("AuthStorage openai-codex email dedupe", () => {
 				PRIMARY KEY (credential_id, provider_key, block_scope)
 			);
 		`);
-		const insertCredential = legacyDb.prepare(
+		const insertCredential = legacyDb.query(
 			"INSERT INTO auth_credentials (provider, credential_type, data, identity_key, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
 		);
 		// One row per product, both stored under the retired shared id: the
@@ -495,7 +495,7 @@ describe("AuthStorage openai-codex email dedupe", () => {
 			LEGACY_TIMESTAMP,
 		);
 		legacyDb
-			.prepare(
+			.query(
 				"INSERT INTO auth_credential_blocks (credential_id, provider_key, block_scope, blocked_until_ms, updated_at) VALUES (?, ?, ?, ?, ?)",
 			)
 			.run(2, "singularityapi:api_key", "shared", LEGACY_TIMESTAMP, LEGACY_TIMESTAMP);
@@ -509,7 +509,7 @@ describe("AuthStorage openai-codex email dedupe", () => {
 				const readKeys = (provider: string): string[] => {
 					// Rows were inserted by this test above; the cast names their shape.
 					const rows = inspect
-						.prepare("SELECT data FROM auth_credentials WHERE provider = ? ORDER BY id ASC")
+						.query("SELECT data FROM auth_credentials WHERE provider = ? ORDER BY id ASC")
 						.all(provider) as Array<{ data: string }>;
 					return rows.map(row => {
 						const parsed: unknown = JSON.parse(row.data);
@@ -534,7 +534,7 @@ describe("AuthStorage openai-codex email dedupe", () => {
 				// the old provider key must not be dropped, nor outlive the rename.
 				// Rows were inserted by this test above; the cast names their shape.
 				const blockRows = inspect
-					.prepare("SELECT provider_key FROM auth_credential_blocks ORDER BY credential_id ASC")
+					.query("SELECT provider_key FROM auth_credential_blocks ORDER BY credential_id ASC")
 					.all() as Array<{ provider_key: string }>;
 				expect(blockRows.map(row => row.provider_key)).toEqual(["singularityapi-tech:api_key"]);
 			} finally {
@@ -610,7 +610,7 @@ describe("AuthStorage openai-codex email dedupe", () => {
 		// underivable NULL identity_key row) must not move it.
 		const observer = new Database(reopenDbPath, { readonly: true });
 		try {
-			const before = (observer.prepare("PRAGMA data_version").get() as { data_version: number }).data_version;
+			const before = (observer.query("PRAGMA data_version").get() as { data_version: number }).data_version;
 			const reopened = await SqliteAuthCredentialStore.open(reopenDbPath);
 			try {
 				expect(reopened.listAuthCredentials("openai")).toHaveLength(1);
@@ -618,7 +618,7 @@ describe("AuthStorage openai-codex email dedupe", () => {
 			} finally {
 				reopened.close();
 			}
-			const after = (observer.prepare("PRAGMA data_version").get() as { data_version: number }).data_version;
+			const after = (observer.query("PRAGMA data_version").get() as { data_version: number }).data_version;
 			expect(after).toBe(before);
 		} finally {
 			observer.close();
@@ -648,7 +648,7 @@ describe("AuthStorage openai-codex email dedupe", () => {
 			);
 		`);
 		legacyDb
-			.prepare(
+			.query(
 				"INSERT INTO auth_credentials (provider, credential_type, data, disabled_cause, identity_key, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
 			)
 			.run(
@@ -703,7 +703,7 @@ describe("AuthStorage openai-codex email dedupe", () => {
 			);
 		`);
 		legacyDb
-			.prepare(
+			.query(
 				"INSERT INTO auth_credentials (provider, credential_type, data, disabled_cause, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
 			)
 			.run(
@@ -749,7 +749,7 @@ describe("AuthStorage openai-codex email dedupe", () => {
 			);
 		`);
 		legacyDb
-			.prepare(
+			.query(
 				"INSERT INTO auth_credentials (provider, credential_type, data, disabled, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
 			)
 			.run(

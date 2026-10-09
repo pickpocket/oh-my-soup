@@ -1,16 +1,16 @@
 // stencil.so account. Not a model provider: the credential authorizes
-// omp-hosted Stencil services such as `omp stream` (live.omp.sh).
+// oms-hosted Stencil services such as `oms stream` (live.omp.sh).
 //
 // Two hosts: the Stencil API at api.stencil.so (`{base}`, STENCIL_BASE_URL)
 // and the OIDC issuer at auth.stencil.so (`{auth}`, STENCIL_AUTH_URL) which
 // serves the PKCE-mandatory authorization codes under /oauth/* and mints
-// ES256 access tokens. The public client id `omp` is code-defined in the
+// ES256 access tokens. The public client id `oms` is code-defined in the
 // issuer with a port-flexible 127.0.0.1 loopback callback.
 auth "stencil" {
 	name "Stencil (invite only)"
 	env "STENCIL_API_KEY"
 	login "oauth-code" {
-		client-id "omp" env="STENCIL_CLIENT_ID"
+		client-id "oms" env="STENCIL_CLIENT_ID"
 		base-url "https://api.stencil.so" {
 			env "STENCIL_BASE_URL"
 		}

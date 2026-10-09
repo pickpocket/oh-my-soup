@@ -13,6 +13,7 @@ import {
 import { RpcClient } from "@oh-my-soup/pi-coding-agent/modes/rpc/rpc-client";
 import type { BashExecutionMessage } from "@oh-my-soup/pi-coding-agent/session/messages";
 import { removeSyncWithRetries, Snowflake } from "@oh-my-soup/pi-utils";
+import { rejectionOf } from "./helpers/rejection";
 import { e2eApiKey } from "./utilities";
 
 type MessageEndEvent = Extract<AgentEvent, { type: "message_end" }>;
@@ -342,9 +343,9 @@ describe("RPC fast mode with unsupported Fireworks model and priority tier", () 
 	test("rejects enable but disable preserves Fireworks priority activity", async () => {
 		await client.start();
 
-		const enableError = await client.setFastMode(true).catch((error: unknown) => error);
-		expect(enableError).toBeInstanceOf(Error);
-		expect((enableError as Error).message).toBe("Fast mode is unavailable for the current model.");
+		expect(await rejectionOf(client.setFastMode(true))).toMatchObject({
+			message: "Fast mode is unavailable for the current model.",
+		});
 
 		const disabled = await client.setFastMode(false);
 		expect(disabled).toEqual({ enabled: false, active: true });

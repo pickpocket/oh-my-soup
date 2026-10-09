@@ -28,7 +28,7 @@ function createSession(
 	advertisedSessionAgents?: () => AgentDefinition[],
 ): ToolSession {
 	return {
-		cwd: "/tmp/omp-session-agent-description",
+		cwd: "/tmp/oms-session-agent-description",
 		hasUI: false,
 		settings: Settings.isolated(),
 		getSessionFile: () => null,

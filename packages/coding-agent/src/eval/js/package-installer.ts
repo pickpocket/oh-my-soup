@@ -62,7 +62,7 @@ export function resolveJsPackageEnvironment(
 	}
 	const key = Bun.hash(project).toString(16).padStart(16, "0");
 	const root = path.join(getAgentDir(), "cache", "eval-js", "environments", key);
-	return { mode, root, packageRoot: root, description: `OMP-managed environment at ${root}` };
+	return { mode, root, packageRoot: root, description: `OMS-managed environment at ${root}` };
 }
 
 async function ensureManagedManifest(
@@ -146,9 +146,9 @@ export async function installJsPackages(options: InstallJsPackagesOptions): Prom
 			const tracker = trackDownload("npm packages", { detail: packages.join(" ") });
 			const result = await ptree
 				.exec([resolveExecutablePath(), "add", "--cwd", environment.root, "--ignore-scripts", ...packages], {
-					// In a compiled distribution the resolved executable is omp.
+					// In a compiled distribution the resolved executable is oms.
 					// BUN_BE_BUN re-enters Bun's real package-manager
-					// CLI instead of recursively dispatching omp's command parser.
+					// CLI instead of recursively dispatching oms's command parser.
 					env: { ...Bun.env, BUN_BE_BUN: "1" },
 					signal: options.signal,
 					allowNonZero: true,

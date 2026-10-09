@@ -65,7 +65,7 @@ provider "singularityapi-dev" {
 	// low..max ladder with the wire-exact off switch, matching the
 	// first-party GPT-5.6 rows. `thinking-upgrade-neutral` is what makes the
 	// ladder real: the wire publishes no reasoning metadata, so without it the
-	// rows stay non-reasoning and omp sends no `reasoning_effort` at all —
+	// rows stay non-reasoning and oms sends no `reasoning_effort` at all —
 	// which the gateway rejects (400 from upstream) on chat completions
 	// whenever `tools` are present, exactly the case a coding agent hits.
 	models "gpt-5.6-sol" "gpt-5.6-terra" "gpt-5.6-luna" {

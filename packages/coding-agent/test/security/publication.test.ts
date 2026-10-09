@@ -111,9 +111,11 @@ describe("security publication", () => {
 			undefined,
 			undefined as never,
 		);
-		const outputStats = await fs.stat(plan.output.root);
-		expect(outputStats.isDirectory()).toBeTrue();
-		if (process.platform !== "win32") expect(outputStats.mode & 0o777).toBe(0o700);
+		expect((await fs.stat(plan.output.root)).isDirectory()).toBeTrue();
+		// Windows keeps no POSIX mode bits (directories read back 0666).
+		if (process.platform !== "win32") {
+			expect((await fs.stat(plan.output.root)).mode & 0o777).toBe(0o700);
+		}
 		expect((await fs.readdir(plan.output.root)).sort()).toEqual([
 			"findings.json",
 			"provenance.json",

@@ -487,8 +487,10 @@ kbd {
 	gap: 8px;
 }
 
-.topbar-menu {
-	display: none;
+@media (min-width: 901px) {
+	.btn.topbar-menu {
+		display: none;
+	}
 }
 
 /* Sync progress hairline along the bottom edge of the topbar. */
@@ -976,6 +978,7 @@ kbd {
 
 .btn[data-variant="accent"] {
 	background: var(--accent-gradient);
+	background-origin: border-box;
 	color: #fff;
 	border-color: transparent;
 }

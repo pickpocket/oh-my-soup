@@ -6,7 +6,7 @@
  * `OMS_NATIVE_BUILD_BACKEND=bazel` to opt into bazel. Flags after `--` are
  * appended to the native build invocation.
  *
- * On Windows the final `link omp` step runs natively in this file instead of
+ * On Windows the final `link oms` step runs natively in this file instead of
  * spawning `sh` (issue #12483): same target check, same global-bin lookup
  * order, symlink with copy fallback.
  */
@@ -33,19 +33,19 @@ interface Step {
 }
 
 /**
- * Native equivalent of `scripts/link-omp.sh` for Windows, where `sh` is
+ * Native equivalent of `scripts/link-oms.sh` for Windows, where `sh` is
  * unavailable (issue #12483). Same semantics: verify the wrapper target,
  * resolve Bun's global bin dir (`bun pm -g bin`, then
- * `${BUN_INSTALL:-$HOME/.bun}/bin`), and link `omp` to it — symlink first,
+ * `${BUN_INSTALL:-$HOME/.bun}/bin`), and link `oms` to it — symlink first,
  * plain copy as a fallback when links need privileges the user lacks.
  * Returns a process-like exit code for the shared runner below.
  */
-function linkOmpWindows(repoRoot: string): number {
-	const target = path.join(repoRoot, "packages", "coding-agent", "scripts", "omp");
+function linkOmsWindows(repoRoot: string): number {
+	const target = path.join(repoRoot, "packages", "coding-agent", "scripts", "oms");
 	try {
 		fs.accessSync(target, fs.constants.F_OK);
 	} catch {
-		console.error(`link-omp: target wrapper not found: ${target}`);
+		console.error(`link-oms: target wrapper not found: ${target}`);
 		return 1;
 	}
 	let globalBin = "";
@@ -56,7 +56,7 @@ function linkOmpWindows(repoRoot: string): number {
 		// fall through to the default below
 	}
 	if (!globalBin) globalBin = path.join(process.env.BUN_INSTALL ?? path.join(os.homedir(), ".bun"), "bin");
-	const linkPath = path.join(globalBin, "omp");
+	const linkPath = path.join(globalBin, "oms");
 	try {
 		fs.mkdirSync(globalBin, { recursive: true });
 		try {
@@ -65,16 +65,16 @@ function linkOmpWindows(repoRoot: string): number {
 			// nothing to replace
 		}
 		fs.symlinkSync(target, linkPath, "file");
-		console.log(`link-omp: linked ${linkPath} -> ${target}`);
+		console.log(`link-oms: linked ${linkPath} -> ${target}`);
 		return 0;
 	} catch (error) {
-		console.error(`link-omp: symlink failed (${error}), falling back to copy`);
+		console.error(`link-oms: symlink failed (${error}), falling back to copy`);
 		try {
 			fs.copyFileSync(target, linkPath);
-			console.log(`link-omp: copied ${target} -> ${linkPath}`);
+			console.log(`link-oms: copied ${target} -> ${linkPath}`);
 			return 0;
 		} catch (copyError) {
-			console.error(`link-omp: copy failed: ${copyError}`);
+			console.error(`link-oms: copy failed: ${copyError}`);
 			return 1;
 		}
 	}
@@ -89,8 +89,8 @@ const steps: Step[] = [
 
 for (const step of steps) {
 	console.log(`\n▶ ${step.label}`);
-	if (step.label === "link omp" && process.platform === "win32") {
-		const exitCode = linkOmpWindows(repoRoot);
+	if (step.label === "link oms" && process.platform === "win32") {
+		const exitCode = linkOmsWindows(repoRoot);
 		if (exitCode !== 0) {
 			console.error(`\nsetup step "${step.label}" failed (exit ${exitCode})`);
 			process.exit(exitCode);

@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it, spyOn } from "bun:test";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, spyOn } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -33,7 +33,7 @@ const expectedFixtureSkillOrder: string[] = [
 /**
  * Disable every named built-in skill source. Used by `loadSkills` option tests
  * that need to isolate a custom directory or assert "no built-in leakage".
- * Plugin providers (`omp-plugins`, `claude-plugins`, `agent-plugins`) have no
+ * Plugin providers (`oms-plugins`, `claude-plugins`, `agent-plugins`) have no
  * toggle; the file-wide isolated home below keeps the developer's real plugin
  * installs out of every assertion.
  */
@@ -49,34 +49,44 @@ const DISABLE_ALL_BUILTIN_SKILLS = {
 
 // Every provider resolves user-level roots from `os.homedir()` (HOME on POSIX,
 // USERPROFILE on Windows) and the agent dir; point both at an empty temp home
-// so real `~/.omp/plugins`, `~/.claude/plugins`, and `~/.agents/skills`
-// installs never leak into these tests.
+// so real `~/.oms/plugins`, `~/.claude/plugins`, and `~/.agents/skills`
+// installs never leak into these tests. On POSIX, Bun fixes `os.homedir()` at
+// process start, so setting HOME alone is not enough; spy on it as well.
 const isolatedEnvKeys = [
 	"HOME",
 	"USERPROFILE",
 	"CLAUDE_CONFIG_DIR",
 	"PI_CODING_AGENT_DIR",
-	"OMP_PROFILE",
+	"OMS_PROFILE",
 	"PI_PROFILE",
 ] as const;
 const originalEnv: Record<string, string | undefined> = Object.fromEntries(
 	isolatedEnvKeys.map(key => [key, process.env[key]]),
 );
 let isolatedHome = "";
+// Re-armed before every test: an inner test's `mockRestore()` on its own
+// `os.homedir` spy restores the real function, not this one.
+const isolateHomedir = () => spyOn(os, "homedir").mockReturnValue(isolatedHome);
 
 beforeAll(async () => {
 	isolatedHome = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), "pi-skills-home-")));
+	isolateHomedir();
 	for (const key of ["HOME", "USERPROFILE"] as const) {
 		process.env[key] = isolatedHome;
 		Bun.env[key] = isolatedHome;
 	}
 	delete process.env.CLAUDE_CONFIG_DIR;
 	delete Bun.env.CLAUDE_CONFIG_DIR;
-	setAgentDir(path.join(isolatedHome, ".omp", "agent"));
+	setAgentDir(path.join(isolatedHome, ".oms", "agent"));
+});
+
+beforeEach(() => {
+	isolateHomedir();
 });
 
 afterAll(async () => {
 	for (const key of isolatedEnvKeys) restoreEnvValue(key, originalEnv[key]);
+	isolateHomedir().mockRestore();
 	__resetDirsFromEnvForTests();
 	await removeWithRetries(isolatedHome);
 });
@@ -219,47 +229,52 @@ describe("skills", () => {
 			}
 		});
 
-		it("should load Windows host ~/.agents/skills when running under WSL (#3779)", async () => {
-			const tempHostHome = await fs.mkdtemp(path.join(os.tmpdir(), "pi-agents-wsl-host-"));
-			const tempCwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-agents-wsl-cwd-"));
-			const skillDir = path.join(tempHostHome, ".agents", "skills", "wsl-host-skill");
-			await fs.mkdir(skillDir, { recursive: true });
-			await fs.writeFile(
-				path.join(skillDir, "SKILL.md"),
-				["---", "description: Loaded from WSL host USERPROFILE", "---", "", "# wsl-host-skill"].join("\n"),
-			);
-			const previousWslDistroName = process.env.WSL_DISTRO_NAME;
-			const previousWslInterop = process.env.WSL_INTEROP;
-			const previousUserProfile = process.env.USERPROFILE;
-			const previousPlatform = process.platform;
-			Object.defineProperty(process, "platform", { value: "linux" });
-			process.env.WSL_DISTRO_NAME = "Ubuntu";
-			delete process.env.WSL_INTEROP;
-			process.env.USERPROFILE = tempHostHome;
-			try {
-				const { skills } = await loadSkills({
-					enableCodexUser: false,
-					enableClaudeUser: false,
-					enableClaudeProject: false,
-					enablePiUser: false,
-					enablePiProject: false,
-					cwd: tempCwd,
-				});
-				const skill = skills.find(s => s.name === "wsl-host-skill");
-				expect(skill?.source).toBe("agents:user");
-				expect(skill?.filePath).toBe(path.join(skillDir, "SKILL.md"));
-			} finally {
-				if (previousWslDistroName === undefined) delete process.env.WSL_DISTRO_NAME;
-				else process.env.WSL_DISTRO_NAME = previousWslDistroName;
-				if (previousWslInterop === undefined) delete process.env.WSL_INTEROP;
-				else process.env.WSL_INTEROP = previousWslInterop;
-				if (previousUserProfile === undefined) delete process.env.USERPROFILE;
-				else process.env.USERPROFILE = previousUserProfile;
-				Object.defineProperty(process, "platform", { value: previousPlatform });
-				await removeWithRetries(tempHostHome);
-				await removeWithRetries(tempCwd);
-			}
-		});
+		// The WSL candidate maps USERPROFILE to `/mnt/<drive>/...`, which a Windows
+		// host cannot resolve; the pure mapping is covered by the tests below.
+		it.skipIf(process.platform === "win32")(
+			"should load Windows host ~/.agents/skills when running under WSL (#3779)",
+			async () => {
+				const tempHostHome = await fs.mkdtemp(path.join(os.tmpdir(), "pi-agents-wsl-host-"));
+				const tempCwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-agents-wsl-cwd-"));
+				const skillDir = path.join(tempHostHome, ".agents", "skills", "wsl-host-skill");
+				await fs.mkdir(skillDir, { recursive: true });
+				await fs.writeFile(
+					path.join(skillDir, "SKILL.md"),
+					["---", "description: Loaded from WSL host USERPROFILE", "---", "", "# wsl-host-skill"].join("\n"),
+				);
+				const previousWslDistroName = process.env.WSL_DISTRO_NAME;
+				const previousWslInterop = process.env.WSL_INTEROP;
+				const previousUserProfile = process.env.USERPROFILE;
+				const previousPlatform = process.platform;
+				Object.defineProperty(process, "platform", { value: "linux" });
+				process.env.WSL_DISTRO_NAME = "Ubuntu";
+				delete process.env.WSL_INTEROP;
+				process.env.USERPROFILE = tempHostHome;
+				try {
+					const { skills } = await loadSkills({
+						enableCodexUser: false,
+						enableClaudeUser: false,
+						enableClaudeProject: false,
+						enablePiUser: false,
+						enablePiProject: false,
+						cwd: tempCwd,
+					});
+					const skill = skills.find(s => s.name === "wsl-host-skill");
+					expect(skill?.source).toBe("agents:user");
+					expect(skill?.filePath).toBe(path.join(skillDir, "SKILL.md"));
+				} finally {
+					if (previousWslDistroName === undefined) delete process.env.WSL_DISTRO_NAME;
+					else process.env.WSL_DISTRO_NAME = previousWslDistroName;
+					if (previousWslInterop === undefined) delete process.env.WSL_INTEROP;
+					else process.env.WSL_INTEROP = previousWslInterop;
+					if (previousUserProfile === undefined) delete process.env.USERPROFILE;
+					else process.env.USERPROFILE = previousUserProfile;
+					Object.defineProperty(process, "platform", { value: previousPlatform });
+					await removeWithRetries(tempHostHome);
+					await removeWithRetries(tempCwd);
+				}
+			},
+		);
 
 		it("converts Windows USERPROFILE paths to the default WSL mount (#3779)", () => {
 			const resolved = getWslWindowsHomeCandidate({
@@ -546,7 +561,7 @@ describe("collision handling", () => {
 	});
 
 	it("silently collapses identical bodies across different namespaces", async () => {
-		const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-skills-mirror-"));
+		const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-skills-mirror-"));
 		const thirdDir = path.join(tempDir, "third", "calendar");
 		await fs.mkdir(thirdDir, { recursive: true });
 		await fs.copyFile(path.join(second, "calendar", "SKILL.md"), path.join(thirdDir, "SKILL.md"));

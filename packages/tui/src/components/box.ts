@@ -135,6 +135,11 @@ export class Box implements Component {
 		}
 	}
 
+	releaseRenderCaches(): void {
+		this.#invalidateCache();
+		for (const child of this.children) child.releaseRenderCaches?.();
+	}
+
 	/**
 	 * A `card` when the box has a border or background: the background token
 	 * picks tone/role (user message, tool state, selection), a border colour
@@ -162,7 +167,7 @@ export class Box implements Component {
 			const chrome = backgroundChrome(bg);
 			described = card(
 				{
-					role: chrome.role ?? "omp.panel",
+					role: chrome.role ?? "oms.panel",
 					tone: borderColor !== undefined ? (colorTone(borderColor) ?? "neutral") : (chrome.tone ?? "neutral"),
 					selected: chrome.selected,
 					// Fill without a ring: a flat inset panel.

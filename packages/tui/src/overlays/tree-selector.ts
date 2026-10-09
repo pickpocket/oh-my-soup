@@ -2,7 +2,8 @@ import { ThinkingLevel } from "@oh-my-soup/pi-agent-core";
 import {
 	type Component,
 	Container,
-	fuzzyMatch,
+	FuzzyQuery,
+	FuzzyText,
 	Input,
 	matchesKey,
 	Spacer,
@@ -210,6 +211,8 @@ class TreeList implements Component {
 	#multipleRoots = false;
 	#activePathIds: Set<string> = new Set();
 	#containsActive: Map<TreeSelectorNode, boolean> = new Map();
+	/** Prepared search text per node; rebuilt when the node's label changes. */
+	#searchTextCache = new WeakMap<TreeSelectorNode, { label: string | undefined; text: FuzzyText }>();
 
 	onSelect?: (entryId: string, options: { summarize: boolean }) => void;
 	onCancel?: () => void;
@@ -373,7 +376,11 @@ class TreeList implements Component {
 	#buildFilter(): (node: TreeSelectorNode, row: TreeRow<TreeSelectorNode, string>) => boolean {
 		const filterMode = this.#filterMode;
 		const leafId = this.currentLeafId;
-		const searchTokens = this.getSearchQuery().toLowerCase().split(/\s+/).filter(Boolean);
+		const searchTokens = this.getSearchQuery()
+			.toLowerCase()
+			.split(/\s+/)
+			.filter(Boolean)
+			.map(token => new FuzzyQuery(token));
 		return node => {
 			const entry = node.entry;
 			const isCurrentLeaf = entry.id === leafId;
@@ -435,12 +442,21 @@ class TreeList implements Component {
 
 			// Apply fuzzy search filter
 			if (searchTokens.length > 0) {
-				const nodeText = this.#getSearchableText(node);
-				return searchTokens.every(token => fuzzyMatch(token, nodeText).matches);
+				const nodeText = this.#getFuzzyText(node);
+				return searchTokens.every(token => token.match(nodeText).matches);
 			}
 
 			return true;
 		};
+	}
+
+	/** Prepared fuzzy text for a node's searchable content, built once per label. */
+	#getFuzzyText(node: TreeSelectorNode): FuzzyText {
+		const cached = this.#searchTextCache.get(node);
+		if (cached !== undefined && cached.label === node.label) return cached.text;
+		const text = new FuzzyText(this.#getSearchableText(node));
+		this.#searchTextCache.set(node, { label: node.label, text });
+		return text;
 	}
 
 	/** Get searchable text content from a node */
@@ -622,9 +638,9 @@ class TreeList implements Component {
 		} else if (entry.type === "message") {
 			const message = entry.message;
 			if (message.role === "assistant") kind = "assistant";
-			else if (message.role === "toolResult") [kind, role] = ["tool", `omp.tool.${message.toolName}`];
-			else if (message.role === "bashExecution") [kind, role] = ["tool", "omp.tool.bash"];
-			else if (message.role === "pythonExecution") [kind, role] = ["tool", "omp.tool.eval"];
+			else if (message.role === "toolResult") [kind, role] = ["tool", `oms.tool.${message.toolName}`];
+			else if (message.role === "bashExecution") [kind, role] = ["tool", "oms.tool.bash"];
+			else if (message.role === "pythonExecution") [kind, role] = ["tool", "oms.tool.eval"];
 		}
 		return {
 			id: row.key,
@@ -662,11 +678,11 @@ class TreeList implements Component {
 					entries: [entry],
 				};
 				const copy = targetCopy(target, collectBlocks(target.entries));
-				preview.push(text(`${copy.label[0]!.toUpperCase()}${copy.label.slice(1)}`, { role: "omp.picker.title" }));
+				preview.push(text(`${copy.label[0]!.toUpperCase()}${copy.label.slice(1)}`, { role: "oms.picker.title" }));
 				if (selected.label) preview.push(text([span(plainText(selected.label), "warning")]));
 				preview.push(turnPreview(target, copy.content || parts));
 			} else {
-				preview.push(text(parts, { role: "omp.picker.title" }));
+				preview.push(text(parts, { role: "oms.picker.title" }));
 				if (selected.label) preview.push(text([span(plainText(selected.label), "warning")]));
 			}
 		}
@@ -676,7 +692,7 @@ class TreeList implements Component {
 
 	/**
 	 * The visible entries as a native `list` keyed `"list"`, items keyed by
-	 * entry id. Selection stays omp's; the terminal scrolls and virtualizes.
+	 * entry id. Selection stays oms's; the terminal scrolls and virtualizes.
 	 * Branch heads carry a `branch` icon and the active path an accent bullet
 	 * instead of drawn tree connectors.
 	 */
@@ -1289,7 +1305,7 @@ class LabelInput implements Component {
 	/** The picker preview while editing: the prompt and the label `Input` (save/cancel sit in the action bar). */
 	get preview(): readonly NativeChild[] {
 		this.#preview ??= [
-			text("Label", { role: "omp.picker.title" }),
+			text("Label", { role: "oms.picker.title" }),
 			text([span("Empty to remove", "muted")]),
 			this.#input,
 		];
@@ -1549,7 +1565,7 @@ export class TreeSelectorComponent extends OverlayPanel {
 				{ keys: ["ctrl+o"], label: "filter" },
 			]),
 		];
-		const result = overlayCard("omp.overlay.tree", "Session Tree", children);
+		const result = overlayCard("oms.overlay.tree", "Session Tree", children);
 		this.#nativeMemo = { content, query, cursor, filterMode, node: result };
 		return result;
 	}

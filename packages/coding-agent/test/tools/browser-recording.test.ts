@@ -13,7 +13,7 @@ import { chromiumAvailable } from "./chromium-probe";
 
 const CHROMIUM_AVAILABLE = await chromiumAvailable();
 const FFMPEG_AVAILABLE = Boolean($which("ffmpeg") && $which("ffprobe"));
-const root = await fs.mkdtemp(path.join(os.tmpdir(), "omp-browser-recording-"));
+const root = await fs.mkdtemp(path.join(os.tmpdir(), "oms-browser-recording-"));
 const session: ToolSession = {
 	cwd: root,
 	hasUI: false,
@@ -137,7 +137,7 @@ describe.skipIf(!CHROMIUM_AVAILABLE || !FFMPEG_AVAILABLE)("browser video recordi
 await page.mouse.down();
 await page.mouse.up();
 await wait(1550);
-const root = await page.$('#__omp_recording_cursor__');
+const root = await page.$('#__oms_recording_cursor__');
 if (!root) return { overlay: false };
 const transform = await root.evaluate(el => el.shadowRoot?.querySelector('.pointer')?.style.transform ?? '');
 return { overlay: true, transform };`,
@@ -147,7 +147,7 @@ return { overlay: true, transform };`,
 				transform: "translate(121px, 87px)",
 			});
 			const aria = await value<string>("ariaSnapshot");
-			expect(aria).not.toContain("OMP recording cursor overlay");
+			expect(aria).not.toContain("OMS recording cursor overlay");
 
 			const stoppedCall = await call("recordStop");
 			const stopped = valueFrom<StopResult>(stoppedCall);
@@ -157,7 +157,7 @@ return { overlay: true, transform };`,
 			expect(stopped.bytes).toBeGreaterThan(0);
 			expect(stoppedCall.content.some(block => block.type === "image")).toBe(true);
 			expect(
-				await value<boolean>("evaluate", ["document.getElementById('__omp_recording_cursor__') === null"]),
+				await value<boolean>("evaluate", ["document.getElementById('__oms_recording_cursor__') === null"]),
 			).toBe(true);
 
 			const webmProbe = await probeVideo(stopped.path);

@@ -291,7 +291,7 @@ export class SignInScene implements SetupSceneController {
 						),
 						...tail,
 					],
-					{ gap: "sm", role: "omp.setup.sign-in", tone: "pending" },
+					{ gap: "sm", role: "oms.setup.sign-in", tone: "pending" },
 				);
 			}
 			return col(
@@ -305,7 +305,7 @@ export class SignInScene implements SetupSceneController {
 					this.#selector,
 					...tail,
 				],
-				{ gap: "sm", role: "omp.setup.sign-in" },
+				{ gap: "sm", role: "oms.setup.sign-in" },
 			);
 		});
 	}

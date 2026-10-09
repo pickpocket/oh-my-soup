@@ -53,6 +53,10 @@ class DividerSummary implements Component {
 		this.#cache = undefined;
 	}
 
+	releaseRenderCaches(): void {
+		this.#cache = undefined;
+	}
+
 	render(width: number): readonly string[] {
 		width = Math.max(1, width);
 		if (this.#cache?.width === width) return this.#cache.lines;
@@ -150,6 +154,10 @@ class SummaryMessageComponent implements Component {
 		if (this.#ignoreTight !== undefined) this.#disclosure.setIgnoreTight(this.#ignoreTight);
 	}
 
+	releaseRenderCaches(): void {
+		this.#disclosure.releaseRenderCaches();
+	}
+
 	dispose(): void {
 		if (this.#disposed) return;
 		this.#disposed = true;
@@ -201,7 +209,7 @@ export class CompactionSummaryMessageComponent extends SummaryMessageComponent {
 			nativeLabel: () => compactionNativeLabel(message),
 			nativeDetail: () => compactionNativeDetail(message),
 			detailMarkdown: () => compactionDetailMarkdown(message),
-			role: "omp.compaction",
+			role: "oms.compaction",
 		});
 	}
 }
@@ -228,7 +236,7 @@ function compactionNativeDetail(message: CompactionSummaryMessage): NativeChild[
 		frames > 0
 			? `Summary · ${frames} snapcompact frame${frames === 1 ? "" : "s"} attached`
 			: "Summary of the earlier conversation";
-	const detail: NativeChild[] = [text([span(caption, "dim")], { role: "omp.compaction.caption", key: "caption" })];
+	const detail: NativeChild[] = [text([span(caption, "dim")], { role: "oms.compaction.caption", key: "caption" })];
 	if (message.warning) detail.push(text([span(message.warning, "warning")], { wrap: "word", key: "warning" }));
 	detail.push(md(message.summary, { key: "summary" }));
 	return detail;
@@ -269,7 +277,7 @@ export class HandoffSummaryMessageComponent extends SummaryMessageComponent {
 		super({
 			label: () => `${theme.icon.context} handed-off`,
 			nativeLabel: () => [span("Handed off", "muted")],
-			role: "omp.handoff",
+			role: "oms.handoff",
 			detailMarkdown: () => {
 				const document = extractHandoffDocument(getCustomMessageText(message));
 				return `**Handoff context**\n\n${document || "_No handoff content._"}`;
@@ -298,7 +306,7 @@ export class BranchSummaryMessageComponent extends SummaryMessageComponent {
 		super({
 			label: () => `${theme.icon.branch} branch`,
 			nativeLabel: () => [span("Branch summarized", "muted")],
-			role: "omp.branch",
+			role: "oms.branch",
 			detailMarkdown: () => `**Branch summary**\n\n${message.summary}`,
 		});
 	}

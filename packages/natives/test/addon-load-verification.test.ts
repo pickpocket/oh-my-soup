@@ -46,7 +46,7 @@ async function failureOf(operation: Promise<void>): Promise<unknown> {
 
 describe("verifyHostAddonLoads", () => {
 	test("rejects an installed addon the host loader refuses, naming the file and the loader message", async () => {
-		const directory = await mkdtemp(path.join(tmpdir(), "omp-addon-load-"));
+		const directory = await mkdtemp(path.join(tmpdir(), "oms-addon-load-"));
 		const addon = path.join(directory, `pi_natives.${process.platform}-${process.arch}.node`);
 		// Not a shared library: any host loader refuses it, which is the whole
 		// class this guard exists for — bytes that install fine and load never.
@@ -80,7 +80,7 @@ describe("verifyHostAddonLoads", () => {
 	test.skipIf(!existsSync(hostAddon) || !hasVersionStampSlot(readFileSync(hostAddon)))(
 		"requires the loaded addon to report the version stamped into it",
 		async () => {
-			const directory = await mkdtemp(path.join(tmpdir(), "omp-addon-load-"));
+			const directory = await mkdtemp(path.join(tmpdir(), "oms-addon-load-"));
 			const addon = path.join(directory, path.basename(hostAddon));
 			try {
 				await copyFile(hostAddon, addon);
@@ -102,7 +102,7 @@ describe("verifyHostAddonLoads", () => {
 	test.skipIf(process.platform === "win32")(
 		"fails a load that never finishes instead of hanging the build",
 		async () => {
-			const directory = await mkdtemp(path.join(tmpdir(), "omp-addon-load-"));
+			const directory = await mkdtemp(path.join(tmpdir(), "oms-addon-load-"));
 			const addon = path.join(directory, "pi_natives.hang.node");
 			expect(Bun.spawnSync(["mkfifo", addon]).exitCode).toBe(0);
 

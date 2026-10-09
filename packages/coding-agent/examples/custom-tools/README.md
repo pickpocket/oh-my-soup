@@ -40,7 +40,7 @@ Then in oms:
 
 ## Writing Custom Tools
 
-See [docs/custom-tools.md](../../docs/custom-tools.md) for full documentation.
+See [docs/custom-tools.md](../../../../docs/custom-tools.md) for full documentation.
 
 ### Key Points
 

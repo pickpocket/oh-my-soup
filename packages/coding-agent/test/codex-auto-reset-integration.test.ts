@@ -26,12 +26,12 @@
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import { Agent } from "@oh-my-soup/pi-agent-core";
 import type { ResetCreditAccountStatus, ResetCreditTarget, UsageReport } from "@oh-my-soup/pi-ai";
+import * as envApiKey from "@oh-my-soup/pi-ai/env-api-key";
 import { createMockModel } from "@oh-my-soup/pi-ai/providers/mock";
-import * as aiStream from "@oh-my-soup/pi-ai/stream";
-import { getBundledModel } from "@oh-my-soup/pi-catalog/models";
+import { getBundledModels } from "@oh-my-soup/pi-catalog/models";
 import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
 import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
 import { AgentSession } from "@oh-my-soup/pi-coding-agent/session/agent-session";
@@ -122,14 +122,11 @@ describe("codex saved-reset trigger integration", () => {
 	let lockRoot: string;
 	let extraStorages: AuthStorage[];
 
-	beforeAll(async () => {
-		authStorage = await AuthStorage.create(":memory:");
-		modelRegistry = new ModelRegistry(authStorage, undefined, { ignoreLocalModelConfig: true });
-	});
-
 	beforeEach(async () => {
 		lockRoot = await fs.mkdtemp(path.join(os.tmpdir(), "omp-codex-reset-"));
-		vi.spyOn(aiStream, "getEnvApiKey").mockReturnValue(undefined);
+		vi.spyOn(envApiKey, "getEnvApiKey").mockReturnValue(undefined);
+		authStorage = await AuthStorage.create(":memory:");
+		modelRegistry = new ModelRegistry(authStorage, undefined, { ignoreLocalModelConfig: true });
 		sessions = [];
 		managers = [];
 		extraStorages = [];
@@ -144,11 +141,8 @@ describe("codex saved-reset trigger integration", () => {
 		}
 		vi.restoreAllMocks();
 		for (const storage of extraStorages) storage.close();
-		await fs.rm(lockRoot, { recursive: true, force: true });
-	});
-
-	afterAll(() => {
 		authStorage.close();
+		await fs.rm(lockRoot, { recursive: true, force: true });
 	});
 
 	interface HarnessOpts {
@@ -168,8 +162,8 @@ describe("codex saved-reset trigger integration", () => {
 
 	function buildSession(opts: HarnessOpts): Harness {
 		const storage = opts.storage ?? authStorage;
-		const model = getBundledModel("openai-codex", "gpt-5.5");
-		if (!model) throw new Error("Expected bundled openai-codex/gpt-5.5 to exist");
+		const model = getBundledModels("openai-codex").find(model => model.kind !== "image");
+		if (!model) throw new Error("Expected a bundled Codex chat model");
 		storage.keys.setRuntime("openai-codex", "test-key");
 		vi.spyOn(storage.oauth, "identity").mockReturnValue({ accountId: opts.accountId ?? ACCOUNT_ID, email: EMAIL });
 		vi.spyOn(storage.usage, "reports").mockImplementation(async () => (opts.report ? [opts.report] : null));
@@ -378,18 +372,17 @@ describe("codex saved-reset trigger integration", () => {
 		expect(lastCredit.redeemTargets).toEqual([]);
 		expect(spends).toBe(1);
 		for (const { session } of [first, second, lastCredit]) {
-			expect(
-				session.sessionManager
-					.getEntries()
-					.some(
-						entry =>
-							entry.type === "message" &&
-							entry.message.role === "assistant" &&
-							entry.message.content.some(
-								block => block.type === "text" && block.text === "recovered after reset redemption",
-							),
-					),
-			).toBe(true);
+			expect(session.sessionManager.getEntries()).toContainEqual(
+				expect.objectContaining({
+					type: "message",
+					message: expect.objectContaining({
+						role: "assistant",
+						content: expect.arrayContaining([
+							expect.objectContaining({ type: "text", text: "recovered after reset redemption" }),
+						]),
+					}),
+				}),
+			);
 		}
 	});
 

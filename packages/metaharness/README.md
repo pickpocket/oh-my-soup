@@ -191,3 +191,9 @@ known-correct fix for a failed task), `--concurrency` (default 8).
 - **`--install local` reflects local TS changes** (inlined into `dist/cli.js`),
   but **not** uncommitted Rust natives — rebuild `packages/natives` per target
   first (the version sentinel must match).
+- **Agent-started services outlive oms.** The verifier runs after oms exits,
+  in the same container or VM, so both runners set
+  `OMS_DAEMON_IDLE_GRACE_MS` to 24 h for the oms process: services the agent
+  started with the bash tool's `name` stay up until teardown instead of
+  stopping 3 s after oms exits. An explicit `--env OMS_DAEMON_IDLE_GRACE_MS=<ms>`
+  wins.

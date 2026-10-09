@@ -806,8 +806,8 @@ function instrumentBindingAssignments(
 	if (edits.length === 0) return code;
 
 	const used = new Set<string>();
-	const valueName = uniqueInternalName(ast, "__omp_assignment_value__", used);
-	const globalName = uniqueInternalName(ast, "__omp_assignment_global__", used);
+	const valueName = uniqueInternalName(ast, "__oms_assignment_value__", used);
+	const globalName = uniqueInternalName(ast, "__oms_assignment_global__", used);
 	edits.sort((left, right) => right.start - left.start);
 	let result = code;
 	for (const assignment of edits) {

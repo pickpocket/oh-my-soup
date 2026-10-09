@@ -224,7 +224,7 @@ export function describeExecutionTool(input: ExecutionToolInput): NativeNode {
 	if (input.artifactError) notes.push(formatArtifactErrorNotice(input.artifactError));
 	if (notes.length > 0) {
 		body.push({
-			...text([span(notes.join(" · "), "muted")], { wrap: "word", role: "omp.tool.notice" }),
+			...text([span(notes.join(" · "), "muted")], { wrap: "word", role: "oms.tool.notice" }),
 			key: "foot",
 		});
 	}

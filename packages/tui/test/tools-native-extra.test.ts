@@ -89,7 +89,9 @@ describe("native task", () => {
 				progress("Alpha", {
 					task: "Complete assignment thoroughly:\n\n# Target\nFix the lexer",
 					currentTool: "read",
-					lastIntent: "Reading lexer",
+					// `lastIntent` is an earlier call's; the running call carries its own.
+					lastIntent: "Searching the lexer",
+					currentToolIntent: "Reading lexer",
 					currentToolStartMs: 1000,
 					contextTokens: 19_000,
 					contextWindow: 200_000,
@@ -105,7 +107,7 @@ describe("native task", () => {
 		expect(view?.tool).toMatchObject({ title: "Task", target: "2 agents" });
 		const all = nodes(view?.body);
 		expect(all.some(n => n.k === "card")).toBe(false);
-		expect(view?.body?.[0]).toMatchObject({ k: "text", p: { role: "omp.tool.context" } });
+		expect(view?.body?.[0]).toMatchObject({ k: "text", p: { role: "oms.tool.context" } });
 		const agents = all.filter(n => n.k === "agent");
 		expect(agents.map(n => n.key)).toEqual(["Alpha", "Beta"]);
 		const alpha = agents[0]!.p as TspAgentProps;

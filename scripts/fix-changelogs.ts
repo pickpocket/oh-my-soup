@@ -906,6 +906,7 @@ export async function changelogPaths(repoRoot: string): Promise<string[]> {
 	const paths: string[] = [];
 	for await (const changelogPath of glob.scan(repoRoot)) {
 		const relativePath = path.isAbsolute(changelogPath) ? path.relative(repoRoot, changelogPath) : changelogPath;
+		// These paths feed Git pathspecs and GitHub archive URLs.
 		paths.push(relativePath.replaceAll(path.sep, "/"));
 	}
 	paths.sort();

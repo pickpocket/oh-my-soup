@@ -22,8 +22,8 @@ use pi_ast::{
 
 use crate::{
 	diff_string::{
-		BlockContextSource, DiffHunk, generate_diff_string, generate_unified_diff_string,
-		normalize_create_content, parse_diff_hunks,
+		BlockContextSource, DiffHunk, LineDiff, generate_diff_string, normalize_create_content,
+		parse_diff_hunks,
 	},
 	engine::{
 		EditMode, FileOp, FileOpIntent, HeaderKind, Inspection, ModeEngine, PreviewFile, Resolved,
@@ -39,6 +39,7 @@ use crate::{
 		line_list, preview_windows, seek_sequence, seek_sequence_within, similarity,
 		truncate_preview,
 	},
+	notebook::is_notebook_path,
 	store::EditStore,
 	stream_json::{ArgSnapshot, EditEntry},
 	text::{
@@ -6512,6 +6513,14 @@ fn validate_rename(
 	Ok(Some(destination))
 }
 
+const fn engine_op(op: Operation) -> FileOp {
+	match op {
+		Operation::Create => FileOp::Create,
+		Operation::Delete => FileOp::Delete,
+		Operation::Update => FileOp::Update,
+	}
+}
+
 fn stage_from_parts(
 	input: &PatchInput<'_>,
 	resolved: Resolved,
@@ -6528,20 +6537,13 @@ fn stage_from_parts(
 	let source_path = move_to
 		.as_ref()
 		.map_or(input.path, |value| value.display.as_str());
-	let unified =
-		generate_unified_diff_string(&before, comparison_after, None, &BlockContextSource {
-			path: Some(source_path),
-			lang: None,
-		});
-	let preview = generate_diff_string(&before, comparison_after, None, &BlockContextSource {
-		path: Some(source_path),
-		lang: None,
-	});
-	let op = match input.op {
-		Operation::Create => FileOp::Create,
-		Operation::Delete => FileOp::Delete,
-		Operation::Update => FileOp::Update,
-	};
+	// Both renderings come from one Myers run over the same line tokens.
+	let source =
+		BlockContextSource { path: Some(source_path), lang: None, streaming: false };
+	let line_diff = LineDiff::new(&before, comparison_after);
+	let unified = line_diff.unified(None, &source);
+	let preview = line_diff.numbered(None, &source);
+	let op = engine_op(input.op);
 	let persisted = match after.as_deref() {
 		Some(text) if use_new_encoding || read.is_none() => Some(persist_new(&resolved, text)?),
 		Some(text) => Some(read.as_ref().unwrap().persist(text)?),
@@ -6562,17 +6564,29 @@ fn stage_from_parts(
 	Ok(staged)
 }
 
-/// Stage one patch entry without writing to disk.
-pub fn stage_patch(
-	input: PatchInput<'_>,
+/// One patch entry resolved and applied in memory, before it is staged or
+/// previewed.
+struct AppliedEntry {
+	resolved:         Resolved,
+	read:             Option<Arc<FileRead>>,
+	after:            Option<String>,
+	warnings:         Vec<String>,
+	move_to:          Option<Resolved>,
+	use_new_encoding: bool,
+	/// The target exists but could not be decoded; a delete needs no text.
+	undecodable:      bool,
+}
+
+fn apply_entry(
+	input: &PatchInput<'_>,
 	files: &mut dyn FileSource,
 	allow_fuzzy: bool,
 	threshold: f64,
 	allow_create_overwrite: bool,
-) -> Result<StagedFile, EditError> {
+) -> Result<AppliedEntry, EditError> {
 	let must_exist = input.op != Operation::Create;
 	let resolved = files.resolve(input.path, must_exist)?;
-	let move_to = validate_rename(&input, &resolved, files)?;
+	let move_to = validate_rename(input, &resolved, files)?;
 	match input.op {
 		Operation::Create => {
 			let diff = input
@@ -6609,28 +6623,39 @@ pub fn stage_patch(
 			} else {
 				format!("{normalized}\n")
 			};
-			stage_from_parts(&input, resolved, None, Some(content), Vec::new(), None, true)
+			Ok(AppliedEntry {
+				resolved,
+				read: None,
+				after: Some(content),
+				warnings: Vec::new(),
+				move_to: None,
+				use_new_encoding: true,
+				undecodable: false,
+			})
 		},
 		Operation::Delete => {
 			match files.try_read(&resolved) {
-				Ok(Some(read)) => stage_from_parts(
-					&input,
-					read.resolved.clone(),
-					Some(read),
-					None,
-					Vec::new(),
-					None,
-					false,
-				),
+				Ok(Some(read)) => Ok(AppliedEntry {
+					resolved:         read.resolved.clone(),
+					read:             Some(read),
+					after:            None,
+					warnings:         Vec::new(),
+					move_to:          None,
+					use_new_encoding: false,
+					undecodable:      false,
+				}),
 				Ok(None) => Err(EditError::apply(format!("File not found: {}", resolved.display))),
 				// Deleting needs existence, not text: the failed read already
 				// proved the file exists.
-				Err(err) if err.is_invalid_utf8() => {
-					let mut staged =
-						stage_from_parts(&input, resolved, None, None, Vec::new(), None, false)?;
-					staged.existed = true;
-					Ok(staged)
-				},
+				Err(err) if err.is_invalid_utf8() => Ok(AppliedEntry {
+					resolved,
+					read: None,
+					after: None,
+					warnings: Vec::new(),
+					move_to: None,
+					use_new_encoding: false,
+					undecodable: true,
+				}),
 				Err(err) => Err(err),
 			}
 		},
@@ -6645,42 +6670,103 @@ pub fn stage_patch(
 			}
 			let (after, warnings) =
 				apply_hunks(&read.text, input.path, &hunks, threshold, allow_fuzzy, None)?;
-			stage_from_parts(
-				&input,
-				read.resolved.clone(),
-				Some(read),
-				Some(after),
+			Ok(AppliedEntry {
+				resolved: read.resolved.clone(),
+				read: Some(read),
+				after: Some(after),
 				warnings,
 				move_to,
-				false,
-			)
+				use_new_encoding: false,
+				undecodable: false,
+			})
 		},
 	}
 }
 
+/// Stage one patch entry without writing to disk.
+pub fn stage_patch(
+	input: PatchInput<'_>,
+	files: &mut dyn FileSource,
+	allow_fuzzy: bool,
+	threshold: f64,
+	allow_create_overwrite: bool,
+) -> Result<StagedFile, EditError> {
+	let entry = apply_entry(&input, files, allow_fuzzy, threshold, allow_create_overwrite)?;
+	let mut staged = stage_from_parts(
+		&input,
+		entry.resolved,
+		entry.read,
+		entry.after,
+		entry.warnings,
+		entry.move_to,
+		entry.use_new_encoding,
+	)?;
+	staged.existed |= entry.undecodable;
+	Ok(staged)
+}
+
 /// Preview one patch entry, returning its error as model-facing text.
+/// `streaming` skips block context while arguments are still arriving.
 pub fn preview_patch(
 	input: PatchInput<'_>,
 	files: &mut dyn FileSource,
 	allow_fuzzy: bool,
 	threshold: f64,
 	allow_create_overwrite: bool,
+	streaming: bool,
 ) -> PreviewFile {
 	let display = input.path.to_owned();
 	let rename = input.rename.map(str::to_owned);
-	match stage_patch(input, files, allow_fuzzy, threshold, allow_create_overwrite) {
-		Ok(staged) => PreviewFile {
-			display:            staged.display,
-			diff:               staged.preview_diff,
-			first_changed_line: staged.first_changed_line,
-			error:              None,
-			op:                 Some(staged.op),
-			rename:             staged.move_to.map(|value| value.display),
-		},
+	match apply_entry(&input, files, allow_fuzzy, threshold, allow_create_overwrite)
+		.and_then(|entry| preview_entry(&input, entry, streaming))
+	{
+		Ok(preview) => preview,
 		Err(error) => {
 			PreviewFile { display, error: Some(error.to_string()), rename, ..PreviewFile::default() }
 		},
 	}
+}
+
+/// The part of [`stage_from_parts`] a preview shows: the numbered diff, plus
+/// the persist step only where it can fail (notebook re-serialization).
+fn preview_entry(
+	input: &PatchInput<'_>,
+	entry: AppliedEntry,
+	streaming: bool,
+) -> Result<PreviewFile, EditError> {
+	if let Some(text) = entry.after.as_deref() {
+		match &entry.read {
+			Some(read) if !entry.use_new_encoding => {
+				if read.is_notebook {
+					read.persist(text)?;
+				}
+			},
+			_ => {
+				if is_notebook_path(&entry.resolved.absolute) {
+					persist_new(&entry.resolved, text)?;
+				}
+			},
+		}
+	}
+	let before = entry.read.as_ref().map_or("", |read| read.text.as_str());
+	let source_path = entry
+		.move_to
+		.as_ref()
+		.map_or(input.path, |value| value.display.as_str());
+	let diff = generate_diff_string(
+		before,
+		entry.after.as_deref().unwrap_or(""),
+		None,
+		&BlockContextSource { path: Some(source_path), lang: None, streaming },
+	);
+	Ok(PreviewFile {
+		display:            entry.resolved.display,
+		diff:               Some(diff.diff),
+		first_changed_line: diff.first_changed_line,
+		error:              None,
+		op:                 Some(engine_op(input.op)),
+		rename:             entry.move_to.map(|value| value.display),
+	})
 }
 
 fn entry_input<'a>(path: &'a str, entry: &'a EditEntry) -> Result<PatchInput<'a>, EditError> {
@@ -6690,18 +6776,6 @@ fn entry_input<'a>(path: &'a str, entry: &'a EditEntry) -> Result<PatchInput<'a>
 		rename: entry.rename.as_deref(),
 		diff: entry.diff.as_deref(),
 	})
-}
-
-fn extract_added_lines(text: &str, whole_on_empty: bool) -> String {
-	let added = text
-		.split('\n')
-		.filter_map(|line| line.strip_prefix('+').filter(|_| !line.starts_with("+++ ")))
-		.collect::<Vec<_>>();
-	if added.is_empty() && whole_on_empty {
-		text.to_owned()
-	} else {
-		added.join("\n")
-	}
 }
 
 impl ModeEngine for PatchEngine {
@@ -6724,7 +6798,14 @@ impl ModeEngine for PatchEngine {
 		};
 		match entry_input(path, entry) {
 			Ok(input) => {
-				vec![preview_patch(input, files, self.allow_fuzzy, self.fuzzy_threshold, true)]
+				vec![preview_patch(
+					input,
+					files,
+					self.allow_fuzzy,
+					self.fuzzy_threshold,
+					true,
+					streaming,
+				)]
 			},
 			Err(error) => vec![PreviewFile {
 				display: path.to_owned(),
@@ -6891,11 +6972,22 @@ impl ModeEngine for PatchEngine {
 		let mut file_ops = Vec::new();
 		for entry in &args.edits {
 			if let Some(diff) = &entry.diff {
-				let added = extract_added_lines(diff, entry.op.as_deref() == Some("create"));
-				digest = Some(match digest {
-					Some(current) => format!("{current}\n{added}"),
-					None => added,
+				// Create bodies may omit `+` prefixes; their digest is then the
+				// whole text.
+				let added = super::added_lines(diff.split('\n')).unwrap_or_else(|| {
+					if entry.op.as_deref() == Some("create") {
+						diff.clone()
+					} else {
+						String::new()
+					}
 				});
+				match &mut digest {
+					Some(current) => {
+						current.push('\n');
+						current.push_str(&added);
+					},
+					None => digest = Some(added),
+				}
 			}
 			if entry.op.as_deref() == Some("delete") {
 				file_ops.push(FileOpIntent::Delete { path: path.clone() });
@@ -6908,9 +7000,7 @@ impl ModeEngine for PatchEngine {
 		}
 		Inspection {
 			paths: vec![path.clone()],
-			entries: digest
-				.map(|value| vec![(path.clone(), value)])
-				.unwrap_or_default(),
+			entries: digest.map_or_default(|value| vec![(path.clone(), value)]),
 			file_ops,
 		}
 	}
@@ -6921,9 +7011,23 @@ mod tests {
 	use super::*;
 
 	#[test]
-	fn strips_create_prefixes() {
-		assert_eq!(extract_added_lines("+one\n+two", true), "one\ntwo");
-		assert_eq!(extract_added_lines("one\ntwo", true), "one\ntwo");
+	fn inspect_digest_strips_create_prefixes() {
+		let inspect = |diff: &str| {
+			let args = ArgSnapshot {
+				path: Some("a.txt".into()),
+				edits: vec![EditEntry {
+					op: Some("create".into()),
+					diff: Some(diff.into()),
+					..EditEntry::default()
+				}],
+				..ArgSnapshot::default()
+			};
+			PatchEngine { allow_fuzzy: false, fuzzy_threshold: 0.95 }
+				.inspect(&args)
+				.entries
+		};
+		assert_eq!(inspect("+one\n+two"), vec![("a.txt".to_owned(), "one\ntwo".to_owned())]);
+		assert_eq!(inspect("one\ntwo"), vec![("a.txt".to_owned(), "one\ntwo".to_owned())]);
 	}
 
 	#[test]

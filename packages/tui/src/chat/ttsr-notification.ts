@@ -37,7 +37,7 @@ export class TtsrNotificationComponent extends Container {
 		this.#notice = new MessageNoticeComponent({
 			presentation: context => this.#presentation(context.expanded),
 			nativePresentation: () => this.#nativePresentation(),
-			role: "omp.notice.ttsr",
+			role: "oms.notice.ttsr",
 		});
 		this.addChild(this.#notice);
 	}

@@ -101,7 +101,7 @@ function renderIntraLineDiff(
 }
 
 /**
- * Native `diff` node for omp's compact diff text (`+12|added`, `-12|removed`,
+ * Native `diff` node for oms's compact diff text (`+12|added`, `-12|removed`,
  * ` 12|context`, blank or `…` rows between regions). Each contiguous region
  * becomes one hunk; the terminal draws gutters, word emphasis and highlighting.
  * Removed rows carry old line numbers, added rows new ones and context rows

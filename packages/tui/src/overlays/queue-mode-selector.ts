@@ -17,7 +17,7 @@ export class QueueModeSelectorComponent extends OverlayPanel {
 		onSelect: (mode: "all" | "one-at-a-time") => void,
 		onCancel: () => void,
 	) {
-		super("Queue Mode", "omp.overlay.queue-mode");
+		super("Queue Mode", "oms.overlay.queue-mode");
 
 		const queueModes: SelectItem[] = [
 			{

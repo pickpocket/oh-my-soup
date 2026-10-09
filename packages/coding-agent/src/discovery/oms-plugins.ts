@@ -317,7 +317,7 @@ async function loadMCPServers(ctx: LoadContext): Promise<LoadResult<MCPServer>> 
 		}
 		const servers = expandEnvVarsDeep(parsed.mcpServers, {
 			CLAUDE_PLUGIN_ROOT: root.path,
-			OMP_PLUGIN_ROOT: root.path,
+			OMS_PLUGIN_ROOT: root.path,
 		});
 		if (!servers || typeof servers !== "object" || Array.isArray(servers)) continue;
 
@@ -337,13 +337,13 @@ async function loadMCPServers(ctx: LoadContext): Promise<LoadResult<MCPServer>> 
 			const requestIdFormat = parseRequestIdFormat(cfg.requestIdFormat);
 			if (requestIdFormat === undefined && cfg.requestIdFormat != null) {
 				logger.warn(
-					`[omp-plugins] MCP server "${serverName}" in ${mcpPath}: invalid requestIdFormat ${JSON.stringify(cfg.requestIdFormat)}, ignoring`,
+					`[oms-plugins] MCP server "${serverName}" in ${mcpPath}: invalid requestIdFormat ${JSON.stringify(cfg.requestIdFormat)}, ignoring`,
 				);
 			}
 			const instructions = typeof cfg.instructions === "boolean" ? cfg.instructions : undefined;
 			if (instructions === undefined && cfg.instructions != null) {
 				logger.warn(
-					`[omp-plugins] MCP server "${serverName}" in ${mcpPath}: invalid instructions ${JSON.stringify(cfg.instructions)}, ignoring`,
+					`[oms-plugins] MCP server "${serverName}" in ${mcpPath}: invalid instructions ${JSON.stringify(cfg.instructions)}, ignoring`,
 				);
 			}
 			items.push({

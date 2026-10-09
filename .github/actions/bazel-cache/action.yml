@@ -5,7 +5,7 @@ description: >
    uses it.
 
    oms-kata jobs use the cluster remote cache. GitHub-hosted jobs use an
-   actions/cache-backed disk cache seeded by the bazel-cache-warm workflow
+   actions/cache-backed disk cache saved by the native build jobs
    on the same runner image — cross-host action keys never hit, so the disk
    cache is hosted-only and its key carries a schema version (v1 was
    poisoned by a kata-produced export that silently missed every action).

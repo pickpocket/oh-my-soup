@@ -170,7 +170,7 @@ describe.skipIf(!SHOULD_RUN)("python runner subprocess", () => {
 			expect(failed.output).toContain(filename);
 			expect(failed.output).toContain("raise RuntimeError('from loaded file')");
 
-			const missing = await executePythonWithKernel(kernel, "import omp_definitely_missing_module");
+			const missing = await executePythonWithKernel(kernel, "import oms_definitely_missing_module");
 			expect(missing.exitCode).toBe(1);
 			expect(missing.output).toContain("Distribution names can differ");
 			expect(missing.output).toContain("%pip install <distribution-name>");

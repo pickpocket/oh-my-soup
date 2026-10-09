@@ -18,9 +18,9 @@ export default class Stream extends Command {
 	};
 
 	static examples = [
-		"omp stream",
-		'omp stream --title "Building a parser"',
-		"omp stream --server https://live.example.com",
+		"oms stream",
+		'oms stream --title "Building a parser"',
+		"oms stream --server https://live.example.com",
 	];
 
 	async run(): Promise<void> {

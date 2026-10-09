@@ -399,7 +399,7 @@ describe("collab registry", () => {
 
 	it("lists a host that omits busy as unknown and drops one that reports garbage", async () => {
 		const dir = await tempDir();
-		// An omp older than the `busy` field: same protocol version, one key short.
+		// An oms older than the `busy` field: same protocol version, one key short.
 		const older = makeFixture({ sessionId: "older-host" });
 		const { busy: _busy, ...withoutBusy } = older.snapshot;
 		openPublications.push(

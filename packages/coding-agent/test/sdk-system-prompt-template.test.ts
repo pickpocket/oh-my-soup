@@ -18,7 +18,7 @@ async function withSession<T>(
 	fn: (session: AgentSession) => Promise<T>,
 	explicitSystemPromptOptions: ExplicitSystemPromptOptions = {},
 ): Promise<T> {
-	using tempDir = TempDir.createSync("@omp-sdk-system-prompt-template-");
+	using tempDir = TempDir.createSync("@oms-sdk-system-prompt-template-");
 	const cwd = tempDir.join("project");
 	await Bun.write(path.join(cwd, CONFIG_DIR_NAME, "SYSTEM_TEMPLATE.md"), nativeTemplate);
 

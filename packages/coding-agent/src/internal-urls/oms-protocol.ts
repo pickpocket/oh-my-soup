@@ -7,13 +7,13 @@
  * - oms:// - Lists all available documentation files
  * - oms://<file>.md - Reads a specific documentation file
  */
-import omsDoc from "../prompts/internal-urls/omp.md" with { type: "text" };
+import omsDoc from "../prompts/internal-urls/oms.md" with { type: "text" };
 import { getDocFilenames, getEmbeddedDoc } from "./docs-index";
 import {
 	ompDocFilename as docsFilename,
 	ompDocRel as sourceDocRel,
 	ompDocsScopeEntries as docsScopeEntries,
-} from "./omp-scope";
+} from "./oms-scope";
 import type {
 	InternalResource,
 	InternalUrl,

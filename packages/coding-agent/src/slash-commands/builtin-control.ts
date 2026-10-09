@@ -67,7 +67,7 @@ export const BUILTIN_CONTROL_SLASH_COMMANDS: ReadonlyArray<SlashCommandSpec> = [
 	{
 		name: "record",
 		icon: "export",
-		description: "Start or stop recording this screen to a replayable file (omp play)",
+		description: "Start or stop recording this screen to a replayable file (oms play)",
 		handleTui: async (_command, runtime) => {
 			clearSubmittedText(runtime);
 			await runtime.ctx.toggleRecording();

@@ -32,7 +32,7 @@ function startBroker(projectDir: string, runtimeDir: string): Promise<void> {
 
 describe("broker unknown operations", () => {
 	it("rejects an operation it cannot parse on the caller's request instead of stranding it until the client timeout", async () => {
-		using tempDir = TempDir.createSync("@omp-launch-unknown-op-");
+		using tempDir = TempDir.createSync("@oms-launch-unknown-op-");
 		const projectDir = path.join(tempDir.path(), "project");
 		const runtimeDir = path.join(tempDir.path(), "runtime");
 		await fs.mkdir(projectDir);
@@ -41,16 +41,16 @@ describe("broker unknown operations", () => {
 		const previousTitle = process.title;
 		const broker = startBroker(projectDir, runtimeDir);
 		try {
-			// After `omp update`, a newer client can reach a broker that predates one of its operations.
+			// After `oms update`, a newer client can reach a broker that predates one of its operations.
 			// A rejection without the request id leaves the call pending until the connection closes
 			// or the client's 30 s timeout fires, instead of surfacing the broker's error.
-			const fromNewerClient = { op: "from-a-newer-omp" } as unknown as DaemonOperation;
+			const fromNewerClient = { op: "from-a-newer-oms" } as unknown as DaemonOperation;
 			const error = await client.request(fromNewerClient).then(
 				() => undefined,
 				(rejection: unknown) => rejection,
 			);
 			expect(error).toBeInstanceOf(DaemonBrokerRejectedError);
-			expect((error as Error).message).toBe("Unknown daemon operation: from-a-newer-omp");
+			expect((error as Error).message).toBe("Unknown daemon operation: from-a-newer-oms");
 
 			// The rejection is scoped to that request; the connection keeps serving known operations.
 			expect((await client.request({ op: "ping" })).op).toBe("ping");

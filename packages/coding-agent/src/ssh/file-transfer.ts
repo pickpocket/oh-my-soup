@@ -14,7 +14,8 @@ import {
 	type SSHConnectionTarget,
 	spawnSsh,
 } from "./connection-manager";
-import { quotePosixPath, wrapInPosixShell } from "./utils";
+import { quotePosixArgument } from "../utils/shell-quote";
+import { wrapInPosixShell } from "./utils";
 
 /** Per-operation timeout for remote transfers (matches the ssh tool's grep window). */
 const DEFAULT_TIMEOUT_MS = 30_000;
@@ -79,7 +80,7 @@ export async function readRemoteFile(
 	opts: RemoteFileReadOptions,
 ): Promise<RemoteFileReadResult> {
 	const shell = await ensurePosixRemote(target);
-	const command = `head -c ${opts.maxBytes + 1} ${quotePosixPath(remotePath)}`;
+	const command = `head -c ${opts.maxBytes + 1} ${quotePosixArgument(remotePath)}`;
 	const args = await buildRemoteCommand(target, wrapInPosixShell(shell, command));
 	using child = spawnSsh(target, args, {
 		signal: ptree.combineSignals(opts.signal, opts.timeoutMs ?? DEFAULT_TIMEOUT_MS),
@@ -125,8 +126,8 @@ export async function writeRemoteFile(
 	if (remotePath.endsWith("/")) {
 		throw new Error("ssh://: destination is a directory path (trailing '/'); ssh:// write requires a file path");
 	}
-	const dest = quotePosixPath(remotePath);
-	const tmp = quotePosixPath(`${remotePath}.oms-tmp.${crypto.randomUUID()}`);
+	const dest = quotePosixArgument(remotePath);
+	const tmp = quotePosixArgument(`${remotePath}.oms-tmp.${crypto.randomUUID()}`);
 	// Stage stdin into the temp first (so the remote never blocks on an unread
 	// pipe and a dropped connection lands in the temp, never the destination).
 	// An EXIT trap removes the staged temp on every exit path (staging failure,
@@ -167,7 +168,7 @@ export async function statRemotePath(
 	opts: { signal?: AbortSignal; timeoutMs?: number } = {},
 ): Promise<RemotePathKind> {
 	const shell = await ensurePosixRemote(target);
-	const p = quotePosixPath(remotePath);
+	const p = quotePosixArgument(remotePath);
 	const command = `if [ -d ${p} ]; then echo directory; elif [ -f ${p} ]; then echo file; elif [ -e ${p} ]; then echo other; else echo missing; fi`;
 	const args = await buildRemoteCommand(target, wrapInPosixShell(shell, command));
 	using child = spawnSsh(target, args, {
@@ -200,7 +201,7 @@ export async function listRemoteDir(
 	opts: { signal?: AbortSignal; timeoutMs?: number } = {},
 ): Promise<RemoteDirEntry[]> {
 	const shell = await ensurePosixRemote(target);
-	const command = `LC_ALL=C ls -1Ap -- ${quotePosixPath(remotePath)}`;
+	const command = `LC_ALL=C ls -1Ap -- ${quotePosixArgument(remotePath)}`;
 	const args = await buildRemoteCommand(target, wrapInPosixShell(shell, command));
 	using child = spawnSsh(target, args, {
 		signal: ptree.combineSignals(opts.signal, opts.timeoutMs ?? DEFAULT_TIMEOUT_MS),

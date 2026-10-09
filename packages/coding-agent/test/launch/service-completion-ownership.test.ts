@@ -48,7 +48,7 @@ async function startBroker(projectDir: string, runtimeDir: string): Promise<Embe
 
 describe("session-owned supervised services", () => {
 	it("delivers a failed service only to its session when another session shares the broker", async () => {
-		using tempDir = TempDir.createSync("@omp-service-completion-");
+		using tempDir = TempDir.createSync("@oms-service-completion-");
 		const projectDir = path.join(tempDir.path(), "project");
 		const runtimeDir = path.join(tempDir.path(), "runtime");
 		await fs.mkdir(projectDir);
@@ -103,7 +103,7 @@ describe("session-owned supervised services", () => {
 	}, 15_000);
 
 	it("replays a completion to its session when that session is resumed after a switch", async () => {
-		using tempDir = TempDir.createSync("@omp-service-transition-");
+		using tempDir = TempDir.createSync("@oms-service-transition-");
 		const projectDir = path.join(tempDir.path(), "project");
 		const runtimeDir = path.join(tempDir.path(), "runtime");
 		await fs.mkdir(projectDir);
@@ -170,7 +170,7 @@ describe("session-owned supervised services", () => {
 	}, 15_000);
 
 	it("replays a detached service exit only when its original session resumes after broker restart", async () => {
-		using tempDir = TempDir.createSync("@omp-service-detached-");
+		using tempDir = TempDir.createSync("@oms-service-detached-");
 		const projectDir = path.join(tempDir.path(), "project");
 		const runtimeDir = path.join(tempDir.path(), "runtime");
 		await fs.mkdir(projectDir);

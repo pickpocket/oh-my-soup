@@ -46,6 +46,8 @@ describe("AgentSession live settings", () => {
 	});
 
 	afterAll(() => {
+		// The discovered auth DB lives in authDir; Windows cannot delete it while open.
+		modelRegistry.authStorage.close();
 		removeSyncWithRetries(authDir);
 	});
 

@@ -14,6 +14,13 @@ async function runProbe(cacheRoot: string, script: string = probePath, args: str
 	for (const key of ["PI_CODING_AGENT_DIR", "OMS_PROFILE", "PI_PROFILE", "PI_CONFIG_DIR"]) {
 		delete env[key];
 	}
+	// XDG is honored only on Linux/macOS; elsewhere point the config root
+	// (home/PI_CONFIG_DIR) at the same `<cacheRoot>/oms` layout.
+	if (process.platform === "win32") {
+		env.HOME = cacheRoot;
+		env.USERPROFILE = cacheRoot;
+		env.PI_CONFIG_DIR = "oms";
+	}
 	const proc = Bun.spawn([process.execPath, script, ...args], {
 		cwd: path.resolve(import.meta.dir, "../.."),
 		env,
@@ -51,7 +58,7 @@ test("warm CommonJS classification of type-less script dependencies does not rep
 	const tempDir = TempDir.createSync("@legacy-pi-extension-cjs-cache-");
 	tempDirs.push(tempDir);
 	const cacheRoot = path.join(tempDir.path(), "cache");
-	await fs.mkdir(path.join(cacheRoot, "omp"), { recursive: true });
+	await fs.mkdir(path.join(cacheRoot, "oms"), { recursive: true });
 	// No `type` in package.json forces the source-level CommonJS syntax check
 	// on `dep.js`, the path every type-less npm dependency takes.
 	const extensionDir = path.join(tempDir.path(), "extension");

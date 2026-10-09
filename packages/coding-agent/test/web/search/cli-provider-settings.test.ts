@@ -109,6 +109,8 @@ afterEach(async () => {
 	restoreEnv("PI_PROFILE", originalPiProfile);
 	__resetDirsFromEnvForTests();
 	setProjectDir(originalProjectDir);
+	// runSearchCommand opens <agentDir>/models.db; Windows cannot delete an open database.
+	closeModelCache();
 	if (tempAgentDir) {
 		await tempAgentDir.remove();
 		tempAgentDir = undefined;

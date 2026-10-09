@@ -77,8 +77,8 @@ Options:
       --epochs <n>              Epochs to run (default 1)
       --forever                 Run epochs until interrupted
       --budget <usd>            Stop scheduling in an epoch after this spend
-      --tools <a,b,c>           omp tool allowlist (default ${DEFAULT_TOOLS.join(",")})
-      --env <KEY[=VALUE]>       Extra env for the omp process only (repeatable; bare KEY forwards the host value)
+      --tools <a,b,c>           oms tool allowlist (default ${DEFAULT_TOOLS.join(",")})
+      --env <KEY[=VALUE]>       Extra env for the oms process only (repeatable; bare KEY forwards the host value)
       --jobs-dir <path>         Artifacts directory (default <repo>/runs/tb)
       --gateway-url <url>       Local oms auth gateway (default http://127.0.0.1:4000)
       --gateway-token <token>   Gateway token (default no-auth)

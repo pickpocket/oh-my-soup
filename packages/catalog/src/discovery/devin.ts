@@ -329,9 +329,7 @@ export async function fetchDevinModels(
 	const fetchCatalog = async (metadata: Metadata): Promise<ModelSpec<"devin-agent">[] | null> => {
 		try {
 			const request = create(GetCliModelConfigsRequestSchema, { metadata });
-			// `toBinary` always allocates a fresh ArrayBuffer-backed view; the DOM
-			// `BodyInit` typing just cannot see that through its ArrayBufferLike signature.
-			const body = toBinary(GetCliModelConfigsRequestSchema, request) as Uint8Array<ArrayBuffer>;
+			const body = toBinary(GetCliModelConfigsRequestSchema, request);
 			const response = await fetchImpl(requestUrl, {
 				method: "POST",
 				headers: {
@@ -477,7 +475,7 @@ function devinFusionLeadUid(uid: string, liveUids: ReadonlyMap<string, unknown>)
 }
 
 /**
- * Point a Fusion pairing at its lead. omp runs only the lead (the sidekick is
+ * Point a Fusion pairing at its lead. oms runs only the lead (the sidekick is
  * paired by the native client), so the limits and pricing a caller budgets
  * against are the lead's, not the composite card's.
  */

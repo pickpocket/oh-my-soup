@@ -185,11 +185,11 @@ describe("settings as a native prefs page", () => {
 	it("puts the status-line preview after its section on Appearance only", () => {
 		const { selector } = harness();
 		const roles = (n: NativeNode) => (n.c ?? []).map(c => ("k" in c && c.p && "role" in c.p ? c.p.role : undefined));
-		expect(roles(prefs(selector).node)).toContain("omp.prefs.preview.status");
+		expect(roles(prefs(selector).node)).toContain("oms.prefs.preview.status");
 		send(selector, { type: "action", key: "", act: "page", value: "shell", mods: [] });
 		const shell = prefs(selector);
 		expect(shell.props.page).toBe("shell");
-		expect(roles(shell.node)).not.toContain("omp.prefs.preview.status");
+		expect(roles(shell.node)).not.toContain("oms.prefs.preview.status");
 	});
 
 	it("maps number-like choices to a stepper and sets the chosen step like the submenu", () => {

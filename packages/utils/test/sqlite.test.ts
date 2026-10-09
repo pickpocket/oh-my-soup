@@ -218,7 +218,7 @@ async function corruptFreelist(dbPath: string) {
 }
 
 test("recovery still fires when a multi-statement script hides the corruption behind a later error", async () => {
-	await using dir = await TempDir.create("@omp-sqlite-hidden-corrupt-");
+	await using dir = await TempDir.create("@oms-sqlite-hidden-corrupt-");
 	const dbPath = dir.join("store.db");
 	const damaged = await corruptFreelist(dbPath);
 
@@ -242,7 +242,7 @@ test("recovery still fires when a multi-statement script hides the corruption be
 });
 
 test("a non-corruption init failure on a store that fails quick_check is preserved as corruption", async () => {
-	await using dir = await TempDir.create("@omp-sqlite-init-fails-on-corrupt-");
+	await using dir = await TempDir.create("@oms-sqlite-init-fails-on-corrupt-");
 	const dbPath = dir.join("store.db");
 	const damaged = await corruptFreelist(dbPath);
 	const initFailure = new Error("init failed");

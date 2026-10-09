@@ -31,7 +31,7 @@ import {
 	RemoteAuthCredentialStore,
 	startAuthBroker,
 } from "@oh-my-soup/pi-ai/auth-broker";
-import { refreshBrokerOAuthCredential } from "@oh-my-soup/pi-coding-agent/cli/auth-broker-cli";
+import { createBrokerAuthStorage } from "@oh-my-soup/pi-coding-agent/cli/auth-broker-cli";
 import { MCPManager } from "@oh-my-soup/pi-coding-agent/mcp/manager";
 import { mcpOAuthCredentialId } from "@oh-my-soup/pi-coding-agent/mcp/oauth-flow";
 import type { MCPServerConfig } from "@oh-my-soup/pi-coding-agent/mcp/types";
@@ -79,11 +79,7 @@ describe("broker-backed MCP OAuth refresh", () => {
 		const tokenUrl = `http://127.0.0.1:${server.port}/token`;
 
 		serverStore = await SqliteAuthCredentialStore.open(path.join(tempDir, "broker.db"));
-		// The serve process constructs AuthStorage with this exact override.
-		serverStorage = new AuthStorage(serverStore, {
-			refreshOAuthCredential: (provider, _credentialId, credential, signal) =>
-				refreshBrokerOAuthCredential(provider, credential, signal),
-		});
+		serverStorage = createBrokerAuthStorage(serverStore);
 		await serverStorage.credentials.reload();
 
 		// Expired MCP OAuth credential with embedded refresh material, as the

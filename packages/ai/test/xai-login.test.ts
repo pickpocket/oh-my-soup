@@ -1,8 +1,7 @@
 import { Database } from "bun:sqlite";
 import { afterEach, describe, expect, test, vi } from "bun:test";
 import { AuthStorage, SqliteAuthCredentialStore } from "@oh-my-soup/pi-ai/auth-storage";
-
-import { getEnvApiKey } from "@oh-my-soup/pi-ai/stream";
+import { getEnvApiKey } from "@oh-my-soup/pi-ai/env-api-key";
 import type { FetchImpl } from "@oh-my-soup/pi-ai/types";
 
 const originalXaiApiKey = Bun.env.XAI_API_KEY;

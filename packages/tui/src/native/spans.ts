@@ -4,7 +4,7 @@
  * Most components receive text that callers already styled for the ANSI
  * renderer (`theme.fg("toolTitle", x)`, opaque `(text) => string` stylers).
  * The native path must not carry escapes, so {@link styledSpans} parses SGR
- * and OSC 8 back into spans whose `s` tokens are the omp theme colour names
+ * and OSC 8 back into spans whose `s` tokens are the oms theme colour names
  * the escapes came from (reverse-mapped through the active theme), plus the
  * semantic attribute tokens (`strong`, `em`, `dim`, `del`, `mark`).
  *
@@ -233,7 +233,7 @@ function pushSpan(spans: TspSpan[], content: string, s: string | undefined, href
 
 /**
  * Convert ANSI-styled text into escape-free spans. SGR colours map back to
- * the omp theme tokens that produced them; OSC 8 becomes `href`; every other
+ * the oms theme tokens that produced them; OSC 8 becomes `href`; every other
  * escape (cursor moves, APC markers) is dropped.
  */
 export function styledSpans(styled: string): TspSpan[] {

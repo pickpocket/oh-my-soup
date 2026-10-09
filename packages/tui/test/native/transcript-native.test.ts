@@ -118,6 +118,49 @@ describe("native transcript", () => {
 		expect(h.errors).toEqual([]);
 	});
 
+	it("hands the terminal session-resolved targets for relative links once the segment closes", async () => {
+		const component = new AssistantMessageComponent();
+		const h = await startWith(h => h.tui.addChild(component));
+		const source = [
+			"| Board | Shot |",
+			"|---|---|",
+			"| 10×10 | [Open screenshot](artifacts/10x10.png) |",
+			"",
+			"See [the log][log] and [the crop](crop.png).",
+			"Code `[x](artifacts/10x10.png)` stays, [web](https://x.dev) and [gone](missing.md) too.",
+			"",
+			"[log]: logs/run.txt",
+		].join("\n");
+		component.updateContent(assistant([{ type: "text", text: source }]), { transient: true });
+		await h.render();
+		expect(h.find(node => node.k === "md")?.p).toMatchObject({ text: source, stream: true });
+
+		const wt = "file:///C:/Users/me/.oms/wt/cr2-43939c6";
+		component.updateContent(assistant([{ type: "text", text: source }]));
+		component.setLinkTargets(
+			new Map([
+				["artifacts/10x10.png", `${wt}/artifacts/10x10.png`],
+				["logs/run.txt", `${wt}/logs/run.txt`],
+				["crop.png", `${wt}/crop(1).png`],
+			]),
+		);
+		component.markTranscriptBlockFinalized();
+		await h.render();
+		expect(h.find(node => node.k === "md")?.p).toMatchObject({
+			text: [
+				"| Board | Shot |",
+				"|---|---|",
+				`| 10×10 | [Open screenshot](${wt}/artifacts/10x10.png) |`,
+				"",
+				`See [the log][log] and [the crop](<${wt}/crop(1).png>).`,
+				"Code `[x](artifacts/10x10.png)` stays, [web](https://x.dev) and [gone](missing.md) too.",
+				"",
+				`[log]: ${wt}/logs/run.txt`,
+			].join("\n"),
+		});
+		expect(h.errors).toEqual([]);
+	});
+
 	it("mirrors a native toggle into the tool card and re-collapses it on a transcript-wide collapse", async () => {
 		let builder: ChatTranscriptBuilder | undefined;
 		const h = await startWith(h => {
@@ -125,7 +168,7 @@ describe("native transcript", () => {
 			builder.append(toolTranscript());
 			h.tui.addChild(builder.container);
 		});
-		const cardNode = h.find(node => node.k === "tool" && node.p?.role === "omp.tool.lookup_thing");
+		const cardNode = h.find(node => node.k === "tool" && node.p?.role === "oms.tool.lookup_thing");
 		expect(cardNode?.p).toMatchObject({ status: "done", collapsible: true, collapsed: true });
 
 		h.event({ ev: "toggle", sf: h.terminal.surface!, id: cardNode!.id, collapsed: false });
@@ -135,6 +178,42 @@ describe("native transcript", () => {
 		await h.render();
 		expect(h.byId(cardNode!.id)?.p).toMatchObject({ collapsed: true });
 		expect(h.errors).toEqual([]);
+	});
+
+	it("keeps a streaming write open until it settles, then folds it like a finished thought", () => {
+		const ui = { requestRender: () => {}, requestComponentRender: () => {}, resetDisplay: () => {} };
+		const content = Array.from({ length: 40 }, (_, i) => `const v${i} = ${i};`).join("\n");
+		const tool = new ToolExecutionComponent("write", { path: "src/a.ts", content }, {}, undefined, ui);
+		try {
+			expect(tool.describe().p).toMatchObject({ status: "pending", collapsible: true, collapsed: false });
+			tool.setArgsComplete("call-1");
+			tool.setExecutionStarted("call-1");
+			expect(tool.describe().p).toMatchObject({ status: "running", collapsed: false });
+			tool.updateResult({ content: [{ type: "text", text: "Wrote 40 lines" }], isError: false });
+			expect(tool.describe().p).toMatchObject({ status: "done", collapsed: true });
+		} finally {
+			tool.dispose();
+		}
+	});
+
+	it("keeps a finished todo call's checklist open", () => {
+		const ui = { requestRender: () => {}, requestComponentRender: () => {}, resetDisplay: () => {} };
+		const tool = new ToolExecutionComponent("todo", { op: "start", task: "lex" }, {}, undefined, ui);
+		try {
+			tool.setArgsComplete("call-1");
+			tool.setExecutionStarted("call-1");
+			tool.updateResult({
+				content: [{ type: "text", text: "ok" }],
+				details: {
+					storage: "memory",
+					phases: [{ name: "Build", tasks: [{ content: "lex", status: "in_progress" }] }],
+				},
+				isError: false,
+			});
+			expect(tool.describe().p).toMatchObject({ status: "done", collapsible: true, collapsed: false });
+		} finally {
+			tool.dispose();
+		}
 	});
 
 	it("describes a custom tool (MCP) through the tool's own describe hooks", async () => {
@@ -174,7 +253,7 @@ describe("native transcript", () => {
 			builder.append(toolTranscript());
 			h.tui.addChild(builder.container);
 		});
-		const cardNode = h.find(node => node.k === "tool" && node.p?.role === "omp.tool.lookup_thing");
+		const cardNode = h.find(node => node.k === "tool" && node.p?.role === "oms.tool.lookup_thing");
 		expect(opsSince(h, 0)).toContainEqual(["settle", cardNode!.id]);
 
 		const before = h.frames.length;
@@ -295,21 +374,21 @@ describe("native transcript", () => {
 		const roles = h.findAll(node => typeof node.p?.role === "string").map(node => node.p!.role);
 		expect(roles).toEqual(
 			expect.arrayContaining([
-				"omp.tool.lookup_thing",
-				"omp.user",
-				"omp.user.synthetic",
-				"omp.assistant",
-				"omp.thinking",
-				"omp.bash",
-				"omp.eval",
-				"omp.compaction",
-				"omp.custom",
-				"omp.notice.ttsr",
-				"omp.notice.todo",
-				"omp.diagnostics.late",
-				"omp.marker.cache-miss",
-				"omp.status-block",
-				"omp.advisor",
+				"oms.tool.lookup_thing",
+				"oms.user",
+				"oms.user.synthetic",
+				"oms.assistant",
+				"oms.thinking",
+				"oms.bash",
+				"oms.eval",
+				"oms.compaction",
+				"oms.custom",
+				"oms.notice.ttsr",
+				"oms.notice.todo",
+				"oms.diagnostics.late",
+				"oms.marker.cache-miss",
+				"oms.status-block",
+				"oms.advisor",
 			]),
 		);
 		expect(h.errors).toEqual([]);

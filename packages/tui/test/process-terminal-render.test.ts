@@ -94,7 +94,9 @@ describe("ProcessTerminal geometry reflow through the renderer", () => {
 		expect(harness.terminal.columns).toBe(100);
 	});
 
-	it.skipIf(process.platform === "win32")("stops rendering and raises SIGHUP when terminal input ends", async () => {
+	it("stops rendering and raises SIGHUP when terminal input ends", async () => {
+		// SIGHUP is the POSIX exit path; Windows quits directly (covered below).
+		Object.defineProperty(process, "platform", { value: "linux", configurable: true });
 		harness = createProcessTerminalRenderHarness(100, 30);
 		await harness.settle();
 		const rendersBeforeDisconnect = harness.probe.widths.length;
@@ -119,7 +121,8 @@ describe("ProcessTerminal geometry reflow through the renderer", () => {
 		expect(harness.signals.some(({ signal }) => signal === "SIGHUP")).toBeFalse();
 	});
 
-	it.skipIf(process.platform === "win32")("stops rendering and raises SIGHUP when terminal output fails", async () => {
+	it("stops rendering and raises SIGHUP when terminal output fails", async () => {
+		Object.defineProperty(process, "platform", { value: "linux", configurable: true });
 		harness = createProcessTerminalRenderHarness(100, 30);
 		await harness.settle();
 		const rendersBeforeDisconnect = harness.probe.widths.length;

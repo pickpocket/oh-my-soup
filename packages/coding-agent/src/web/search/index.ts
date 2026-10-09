@@ -30,6 +30,7 @@ import {
 	getSearchProvider,
 	type SearchProvider,
 } from "./provider";
+import { rankXAIProviders, targetsX, xaiModelChain, xSearchAvailable } from "./providers/xai";
 import { applyQueryConstraints, parseSearchQuery } from "./query";
 import { renderSearchCall, renderSearchResult } from "@oh-my-soup/pi-tui/tools/web-search";
 import {
@@ -161,6 +162,17 @@ function expandHostedCandidate(
 	return models.map(model => ({ ...candidate, model }));
 }
 
+/**
+ * Move the chain's xAI-grounded candidates to the front, keeping their order,
+ * or prepend {@link xaiModelChain} when the chain has none. Unchanged without
+ * xAI credentials.
+ */
+function preferXAI(chain: RoleChainCandidate[], modelRegistry: ModelRegistry): RoleChainCandidate[] {
+	const xai = chain.filter(candidate => candidate.model.webSearch === "xai");
+	if (xai.length > 0) return [...xai, ...chain.filter(candidate => candidate.model.webSearch !== "xai")];
+	return [...xaiModelChain(modelRegistry, settings).map(model => ({ model, explicit: false })), ...chain];
+}
+
 /** Execute web search */
 async function executeSearch(
 	_toolCallId: string,
@@ -184,7 +196,7 @@ async function executeSearch(
 					: [];
 			})()
 		: resolveRoleChain("web", settings, pool);
-	const expanded = roleCandidates
+	let expanded = roleCandidates
 		.flatMap(candidate =>
 			expandHostedCandidate(candidate, options.sessionModel, pool).map(expandedCandidate => {
 				const model = expandedCandidate.model;
@@ -199,8 +211,10 @@ async function executeSearch(
 			...candidate,
 			explicit: candidate.explicit || (explicitProvider !== undefined && providerId === explicitProvider),
 		}));
-
 	const parsedQuery = parseSearchQuery(params.query);
+	expanded = rankXAIProviders(expanded, candidate => candidate.model, settings);
+	// Only xAI reaches X posts; X-only queries try it first even when the role prefers another engine.
+	if (!params.model && targetsX(parsedQuery)) expanded = preferXAI(expanded, modelRegistry);
 
 	let antigravityEndpointMode: "auto" | "production" | "sandbox" | undefined;
 	try {
@@ -394,6 +408,16 @@ export async function runSearchQuery(
 	}
 }
 
+/** Description without the X operators, for hosts without a model registry. */
+const plainDescription = prompt.render(webSearchDescription);
+
+/**
+ * Description rendered on first read with a model registry, then reused for
+ * the process: re-checking xAI auth per read would rewrite the tool
+ * description, and invalidate the prompt cache, whenever auth changes.
+ */
+let registryDescription: string | undefined;
+
 /**
  * Web search tool implementation.
  *
@@ -403,7 +427,6 @@ export class WebSearchTool implements AgentTool<typeof webSearchSchema, SearchRe
 	readonly name = "web_search";
 	readonly approval = "read" as const;
 	readonly label = "Web Search";
-	readonly description: string;
 	readonly parameters = webSearchSchema;
 	readonly strict = true;
 	readonly loadMode = "discoverable";
@@ -413,7 +436,14 @@ export class WebSearchTool implements AgentTool<typeof webSearchSchema, SearchRe
 
 	constructor(session: ToolSession) {
 		this.#session = session;
-		this.description = prompt.render(webSearchDescription);
+	}
+
+	/** Advertises X search operators when xAI credentials existed at the process's first read. */
+	get description(): string {
+		const modelRegistry = this.#session.modelRegistry;
+		if (!modelRegistry) return plainDescription;
+		registryDescription ??= prompt.render(webSearchDescription, { xSearch: xSearchAvailable(modelRegistry) });
+		return registryDescription;
 	}
 
 	async execute(
@@ -441,7 +471,7 @@ export class WebSearchTool implements AgentTool<typeof webSearchSchema, SearchRe
 export const webSearchCustomTool: CustomTool<typeof webSearchSchema, SearchResultDetails> = {
 	name: "web_search",
 	label: "Web Search",
-	description: prompt.render(webSearchDescription),
+	description: plainDescription,
 	parameters: webSearchSchema,
 
 	approval: "read",

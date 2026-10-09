@@ -4,7 +4,7 @@ import { readLines, TempDir } from "@oh-my-soup/pi-utils";
 
 describe("set_event_filter over RPC", () => {
 	test("rejects invalid replacements atomically and echoes projection resets in v1 and v2", async () => {
-		const dir = TempDir.createSync("@omp-rpc-filter-");
+		const dir = TempDir.createSync("@oms-rpc-filter-");
 		const model = "claude-sonnet-4-5";
 		const sse = [
 			{
@@ -45,7 +45,7 @@ describe("set_event_filter over RPC", () => {
 		});
 		const home = dir.path();
 		await Bun.write(
-			join(home, ".omp/agent/models.yml"),
+			join(home, ".oms/agent/models.yml"),
 			`providers:\n  anthropic:\n    baseUrl: http://127.0.0.1:${server.port}\n    apiKey: test-dummy-key\n`,
 		);
 		const child = Bun.spawn(
@@ -70,7 +70,7 @@ describe("set_event_filter over RPC", () => {
 					PATH: process.env.PATH,
 					XDG_CONFIG_HOME: home,
 					XDG_DATA_HOME: home,
-					PI_CODING_AGENT_DIR: join(home, ".omp/agent"),
+					PI_CODING_AGENT_DIR: join(home, ".oms/agent"),
 					NO_COLOR: "1",
 				},
 				stdin: "pipe",

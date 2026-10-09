@@ -36,7 +36,7 @@ export class BtwPanelComponent extends OverlayPanel {
 
 	constructor(options: BtwPanelComponentOptions) {
 		const baseTitle = `/btw ${replaceTabs(options.question)}`;
-		super(baseTitle, "omp.overlay.btw");
+		super(baseTitle, "oms.overlay.btw");
 		this.#baseTitle = baseTitle;
 		this.#question = replaceTabs(options.question);
 		this.#tui = options.tui;

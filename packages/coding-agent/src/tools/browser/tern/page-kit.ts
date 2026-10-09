@@ -106,7 +106,7 @@ export interface TernGeometry {
 }
 
 /**
- * Methods of `globalThis.__ompTernKit`, called by omp from the isolated world as
+ * Methods of `globalThis.__ompTernKit`, called by oms from the isolated world as
  * `kit[method](...args)`. Every argument and result is JSON; failures throw `Error`s with
  * agent-readable messages (a missing element: `No element matches <JSON selector>`).
  */
@@ -120,7 +120,7 @@ export interface TernKitApi {
 	/** Focus the first match without scrolling. */
 	focus(sel: TernSelector): void;
 	/**
-	 * Prepare a fill: text-like controls are focused with their content selected (`insert`: omp types
+	 * Prepare a fill: text-like controls are focused with their content selected (`insert`: oms types
 	 * the value); selects and date/time/color/range inputs are set directly (`done`).
 	 */
 	prepareFill(sel: TernSelector, value: string): { mode: "insert" } | { mode: "done" };
@@ -220,8 +220,8 @@ const EDIT_ACTIONS = new Set(["type", "fill"]);
 const SETTER_INPUT_TYPES = new Set(["date", "datetime-local", "month", "week", "time", "color", "range"]);
 const UNTYPABLE_INPUT_TYPES = new Set(["checkbox", "radio", "button", "submit", "reset", "image", "hidden", "file"]);
 const TRIVIAL_VALUE_INPUT_TYPES = new Set(["checkbox", "image", "radio"]);
-const HANDLE_ATTR = "data-omp-tern-handle";
-const OVERLAY_ATTR = "data-omp-tern-overlay";
+const HANDLE_ATTR = "data-oms-tern-handle";
+const OVERLAY_ATTR = "data-oms-tern-overlay";
 
 let registry = new Map();
 // Ref resolution is stateless (it scans _ariaRef expandos), so one instance serves every lookup.
@@ -1004,11 +1004,22 @@ const kit = {
 				return { ok: false, reason: "hidden", count, detail: "opacity:0" };
 			}
 		}
-		const left = Math.max(0, Math.min(innerWidth, rect.left));
-		const right = Math.max(0, Math.min(innerWidth, rect.right));
-		const top = Math.max(0, Math.min(innerHeight, rect.top));
-		const bottom = Math.max(0, Math.min(innerHeight, rect.bottom));
-		const inViewport = right - left >= 1 && bottom - top >= 1;
+		// A wrapped link's box centre can fall between its lines, on the parent; aim at its first visible line.
+		const fragments = Array.from(el.getClientRects());
+		const fragment =
+			fragments.length === 0
+				? rect
+				: fragments.find(
+						r =>
+							Math.min(innerWidth, r.right) - Math.max(0, r.left) >= 1 &&
+							Math.min(innerHeight, r.bottom) - Math.max(0, r.top) >= 1,
+					);
+		const box = fragment ?? rect;
+		const left = Math.max(0, Math.min(innerWidth, box.left));
+		const right = Math.max(0, Math.min(innerWidth, box.right));
+		const top = Math.max(0, Math.min(innerHeight, box.top));
+		const bottom = Math.max(0, Math.min(innerHeight, box.bottom));
+		const inViewport = fragment !== undefined && right - left >= 1 && bottom - top >= 1;
 		if ((pointer || action === "point") && !inViewport) return { ok: false, reason: "offViewport", count };
 		const x = inViewport ? Math.floor((left + right) / 2) : Math.floor(rect.left + rect.width / 2);
 		const y = inViewport ? Math.floor((top + bottom) / 2) : Math.floor(rect.top + rect.height / 2);
@@ -1089,11 +1100,17 @@ const kit = {
 		if (el.localName !== "select") throw new Error("tab.select() requires a <select> element");
 		const options = Array.from(el.options);
 		const wanted = new Set();
+		const missing = [];
 		for (const value of values.map(String)) {
 			const option =
 				options.find(candidate => candidate.value === value) ||
 				options.find(candidate => candidate.label === value || normalizeSpace(candidate.text) === value);
 			if (option) wanted.add(option);
+			else missing.push(value);
+		}
+		// A value that matches nothing leaves the select untouched rather than blanking it.
+		if (missing.length > 0) {
+			throw new Error("No <select> option matches " + missing.map(value => JSON.stringify(value)).join(", "));
 		}
 		if (el.multiple) {
 			for (const option of options) option.selected = wanted.has(option);
@@ -1188,10 +1205,10 @@ const kit = {
 		return { snapshot, hrefs };
 	},
 	annotate: ids => {
-		const token = "omp-screenshot-" + randomToken();
+		const token = "oms-screenshot-" + randomToken();
 		const boxes = [];
 		const root = document.createElement("div");
-		root.setAttribute("data-omp-screenshot-annotations", token);
+		root.setAttribute("data-oms-screenshot-annotations", token);
 		root.setAttribute(OVERLAY_ATTR, token);
 		root.style.cssText = "position:fixed;left:0;top:0;z-index:2147483647;pointer-events:none";
 		for (const id of ids) {
@@ -1285,7 +1302,7 @@ const kit = {
 
 Object.defineProperty(globalThis, "__ompTernKit", { value: kit, configurable: true });
 
-// Child frames announce their index path so omp can address them by name.
+// Child frames announce their index path so oms can address them by name.
 if (window !== window.parent) {
 	const path = [];
 	try {

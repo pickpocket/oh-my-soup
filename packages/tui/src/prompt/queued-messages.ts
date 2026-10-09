@@ -1,7 +1,7 @@
 import { Container } from "../tui";
 import { Spacer } from "../components/spacer";
 import { TruncatedText } from "../components/truncated-text";
-import { formatKeyHint } from "../key-hint-format";
+import { formatKeyHint, formatTooltipKey } from "../key-hint-format";
 import type { KeyId } from "../keys";
 import { kbd, node, text } from "../native/describe";
 import type { NativeNode, NativeUiEvent } from "../native/node";
@@ -39,8 +39,10 @@ export class QueuedMessagesBand extends Container {
 				this.addChild(new TruncatedText(theme.fg("dim", `  ${index + 1}. ${message}`), 1, 0));
 			}
 		}
-		const editKey = formatKeyHint(dequeueKey);
-		this.addChild(new TruncatedText(theme.fg("dim", `  ${theme.tree.hook} ${editKey} to edit`), 1, 0));
+		this.addChild(
+			new TruncatedText(theme.fg("dim", `  ${theme.tree.hook} ${formatKeyHint(dequeueKey)} to edit`), 1, 0),
+		);
+		const editTitle = `Edit  ${formatTooltipKey(dequeueKey)}`;
 
 		const count = groups.reduce((sum, group) => sum + group.messages.length, 0);
 		const pills: NativeNode[] = [];
@@ -61,16 +63,16 @@ export class QueuedMessagesBand extends Container {
 					),
 				];
 				if (pills.length === 0 && count > 1) {
-					children.push(node("badge", { text: `${count}`, role: "omp.queue.count" }, undefined, "count"));
+					children.push(node("badge", { text: `${count}`, role: "oms.queue.count" }, undefined, "count"));
 				}
 				children.push(
 					node(
 						"row",
 						{
-							role: "omp.queue.edit",
+							role: "oms.queue.edit",
 							gap: "xs",
 							align: "center",
-							title: `Edit  ${editKey}`,
+							title: editTitle,
 							actions: { click: "queue.edit" },
 						},
 						[kbd(dequeueKey), text("Edit")],
@@ -80,14 +82,14 @@ export class QueuedMessagesBand extends Container {
 				pills.push(
 					node(
 						"row",
-						{ role: "omp.queue.item", align: "center", gap: "sm", title: group.label },
+						{ role: "oms.queue.item", align: "center", gap: "sm", title: group.label },
 						children,
 						`${group.label}/${index}`,
 					),
 				);
 			});
 		}
-		this.#native = node("col", { role: "omp.queue", gap: "xs" }, pills);
+		this.#native = node("col", { role: "oms.queue", gap: "xs" }, pills);
 	}
 
 	override describe(): NativeNode {

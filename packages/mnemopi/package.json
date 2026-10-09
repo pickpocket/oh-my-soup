@@ -1,7 +1,7 @@
 {
   "type": "module",
   "name": "@oh-my-soup/pi-mnemopi",
-  "version": "18.4.5",
+  "version": "18.8.7",
   "description": "Local SQLite memory engine for Oh My Soup agents",
   "homepage": "https://github.com/pickpocket/oh-my-soup",
   "author": "Can Boluk",
@@ -45,7 +45,7 @@
     "@oh-my-soup/pi-utils": "catalog:"
   },
   "peerDependencies": {
-    "fastembed": "2.1.0",
+    "fastembed": "3.0.0",
     "onnxruntime-node": "1.21.0"
   },
   "peerDependenciesMeta": {

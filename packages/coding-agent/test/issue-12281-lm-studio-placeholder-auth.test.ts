@@ -137,7 +137,7 @@ beforeEach(() => {
 	wire.length = 0;
 	vllmProbeAuth.length = 0;
 	authRequired = true;
-	tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "omp-12281-"));
+	tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "oms-12281-"));
 });
 
 afterEach(() => {

@@ -99,7 +99,7 @@ describe("managed-skills discovery", () => {
 		await writeSkill(customDir, "foo", "Authored foo (custom).");
 		await writeSkill(managedDir, "foo", "Managed foo.");
 		const { skills } = await loadSkills({ cwd: tempCwd, customDirectories: [customDir] });
-		expect(skills.some(s => s.source === "omp-managed:user")).toBe(false);
+		expect(skills.some(s => s.source === "oms-managed:user")).toBe(false);
 		expect(skills.find(s => s.name === "foo")?.source).toBe("custom:user");
 		const nativeAliases = skills.filter(s => s.source === "native:user" && s.name.endsWith("/foo"));
 		expect(nativeAliases).toHaveLength(1);

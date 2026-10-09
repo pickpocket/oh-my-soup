@@ -11,7 +11,8 @@ import { formatKeyHint } from "../../app-keybindings";
 import type { KeyName } from "../../key-hint-format";
 import { matchesKey } from "../../keys";
 import { col, node, span } from "../../native/describe";
-import type { NativeNode } from "../../native/node";
+import type { NativeNode, NativeUiEvent } from "../../native/node";
+import { actionBar, actionButton } from "../../native/overlay";
 import { theme } from "../../theme/theme";
 import type { Component } from "../../tui";
 import { truncateToWidth, visibleWidth } from "../../utils";
@@ -67,7 +68,7 @@ const GROUPS: readonly { readonly title: string; readonly rows: readonly Shortcu
 
 /** The shortcuts overlay; any of `?`, escape or `q` closes it. */
 export class GitHelpSheet implements Component {
-	readonly nativeOverlay = { role: "omp.overlay.hotkeys", head: "Keyboard shortcuts", size: "lg" } as const;
+	readonly nativeOverlay = { role: "oms.overlay.hotkeys", head: "Keyboard shortcuts", size: "lg" } as const;
 	readonly #close: () => void;
 	#native: NativeNode | undefined;
 
@@ -79,29 +80,37 @@ export class GitHelpSheet implements Component {
 		if (data === "?" || data === "q" || matchesKey(data, "escape") || matchesKey(data, "ctrl+c")) this.#close();
 	}
 
+	/** Close runs what Esc runs. */
+	handleNativeEvent(event: NativeUiEvent): void {
+		if (event.type === "action" && event.act === "close") this.#close();
+	}
+
 	describe(): NativeNode {
 		this.#native ??= col(
-			GROUPS.map(group =>
-				node(
-					"section",
-					{ head: group.title, role: "omp.hotkeys.group" },
-					[
-						node("table", {
-							role: "omp.hotkeys.table",
-							cols: [
-								{ id: "keys", head: "Keys" },
-								{ id: "does", head: "Action", grow: 1 },
-							],
-							rows: group.rows.map((row, index) => ({
-								id: String(index),
-								cells: { keys: row.keys.map(key => span(formatKeyHint(key), "key")), does: row.label },
-							})),
-						}),
-					],
-					group.title,
+			[
+				...GROUPS.map(group =>
+					node(
+						"section",
+						{ head: group.title, role: "oms.hotkeys.group" },
+						[
+							node("table", {
+								role: "oms.hotkeys.table",
+								cols: [
+									{ id: "keys", head: "Keys" },
+									{ id: "does", head: "Action", grow: 1 },
+								],
+								rows: group.rows.map((row, index) => ({
+									id: String(index),
+									cells: { keys: row.keys.map(key => span(formatKeyHint(key), "key")), does: row.label },
+								})),
+							}),
+						],
+						group.title,
+					),
 				),
-			),
-			{ gap: "lg", role: "omp.app.git.help" },
+				actionBar([null, actionButton("Close", "close", { keys: "escape" })]),
+			],
+			{ gap: "lg", role: "oms.app.git.help" },
 		);
 		return this.#native;
 	}

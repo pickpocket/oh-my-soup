@@ -11,7 +11,7 @@ export const cfgExtensions = register({ id: "extensions", type: "array", default
 
 export const cfgDisabledExtensions = register({ id: "disabledExtensions", type: "array", default: EMPTY_STRING_ARRAY });
 
-// Skill registry (omp skill)
+// Skill registry (oms skill)
 export const cfgSkillsRegistryUrl = register({
 	id: "skills.registryUrl",
 	type: "string",
@@ -21,7 +21,7 @@ export const cfgSkillsRegistryUrl = register({
 		group: "Skills",
 		label: "Skill Registry",
 		description:
-			"Skillshare registry used by `omp skill` to install, search, and publish skills (https://host[:port])",
+			"Skillshare registry used by `oms skill` to install, search, and publish skills (https://host[:port])",
 	},
 });
 
@@ -80,7 +80,7 @@ export const cfgSkillsIncludeSkills = register({
 	default: EMPTY_STRING_ARRAY,
 });
 
-/** Skill discovery options (`skills.*` except the `omp skill` registry URL). */
+/** Skill discovery options (`skills.*` except the `oms skill` registry URL). */
 export const cfgSkills = combine({
 	enabled: cfgSkillsEnabled,
 	enableSkillCommands: cfgSkillsEnableSkillCommands,
@@ -157,6 +157,6 @@ export const cfgExtensionHandlersToolCallTimeoutMs = register({
 		group: "Extensions",
 		label: "Tool Call Handler Timeout (ms)",
 		description:
-			"Positive finite active-work timeout for extension tool_call handlers; invalid values use 30000ms, and time awaiting OMP-owned dialogs does not count",
+			"Positive finite active-work timeout for extension tool_call handlers; invalid values use 30000ms, and time awaiting OMS-owned dialogs does not count",
 	},
 });

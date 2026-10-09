@@ -301,7 +301,7 @@ function describeQuestionSection(id: string, question: string, rest: readonly Na
 function answerRow(key: string, label: TspSpan[], chosen: boolean): NativeNode {
 	return row(
 		compact([chosen ? node("icon", { name: "check", tone: "success" }) : undefined, text(label, { wrap: "word" })]),
-		{ gap: "sm", align: "baseline", role: chosen ? "omp.tool.answer" : "omp.tool.answer.off", key },
+		{ gap: "sm", align: "baseline", role: chosen ? "oms.tool.answer" : "oms.tool.answer.off", key },
 	);
 }
 
@@ -331,7 +331,7 @@ function describeAnswers(
 	return compact([
 		...rows,
 		note !== undefined
-			? text([span(plainText(note), "muted")], { wrap: "word", role: "omp.tool.context" })
+			? text([span(plainText(note), "muted")], { wrap: "word", role: "oms.tool.context" })
 			: undefined,
 	]);
 }
@@ -417,7 +417,7 @@ function describeAskResult(result: ToolRenderResult<AskToolDetails>, args: AskRe
 			details.timedOut
 				? text([span("auto-selected after timeout — not a user choice", "muted")], {
 						wrap: "word",
-						role: "omp.tool.notice",
+						role: "oms.tool.notice",
 					})
 				: undefined,
 		]),

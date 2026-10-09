@@ -112,7 +112,7 @@ class ComposerSceneController implements SetupSceneController {
 	}
 
 	/**
-	 * Intro, the shape list, and the live preview. The preview is omp's own
+	 * Intro, the shape list, and the live preview. The preview is oms's own
 	 * composer chrome for the highlighted shape — exactly what the classic
 	 * renderer paints — so it travels as `ansi` rendered at the surface width.
 	 */
@@ -130,7 +130,7 @@ class ComposerSceneController implements SetupSceneController {
 						}),
 					]),
 				],
-				{ gap: "sm", role: "omp.setup.composer" },
+				{ gap: "sm", role: "oms.setup.composer" },
 			),
 		);
 	}

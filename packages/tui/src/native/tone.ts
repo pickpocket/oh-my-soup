@@ -1,5 +1,5 @@
 /**
- * omp theme colours → TSP tones. Components that only hold ANSI stylers
+ * oms theme colours → TSP tones. Components that only hold ANSI stylers
  * (`(text) => string`) sample them with a probe string to recover the theme
  * token behind the escape, then map the token to a card/text tone.
  */
@@ -28,30 +28,30 @@ export interface BackgroundChrome {
 	selected?: boolean;
 }
 
-/** Map an omp background token to card tone/role. */
+/** Map an oms background token to card tone/role. */
 export function backgroundChrome(bg: ThemeBg | undefined): BackgroundChrome {
 	switch (bg) {
 		case "userMessageBg":
-			return { tone: "user", role: "omp.user" };
+			return { tone: "user", role: "oms.user" };
 		case "customMessageBg":
-			return { tone: "info", role: "omp.custom" };
+			return { tone: "info", role: "oms.custom" };
 		case "toolPendingBg":
-			return { tone: "pending", role: "omp.tool" };
+			return { tone: "pending", role: "oms.tool" };
 		case "toolSuccessBg":
-			return { tone: "success", role: "omp.tool" };
+			return { tone: "success", role: "oms.tool" };
 		case "toolErrorBg":
-			return { tone: "error", role: "omp.tool" };
+			return { tone: "error", role: "oms.tool" };
 		case "selectedBg":
 			return { tone: "accent", selected: true };
 		case "statusLineBg":
-			return { tone: "neutral", role: "omp.status" };
+			return { tone: "neutral", role: "oms.status" };
 		default:
 			return {};
 	}
 }
 
 /**
- * Tone of an omp colour used as a severity or border colour; undefined for
+ * Tone of an oms colour used as a severity or border colour; undefined for
  * colours that carry no tone (callers pick their own fallback).
  */
 export function colorTone(color: ThemeColor | undefined): TspTone | undefined {

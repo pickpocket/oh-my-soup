@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { TempDir } from "@oh-my-soup/pi-utils";
-import { SkillDescriptionCatalog } from "../src/extensibility/skill-descriptions";
+import { SkillDescriptionCatalog, SkillDescriptionStore } from "../src/extensibility/skill-descriptions";
 import type { Skill } from "../src/extensibility/skills";
 import { buildSystemPrompt } from "../src/system-prompt";
 
@@ -16,7 +16,7 @@ const original: Skill = {
 describe("system prompt skill descriptions", () => {
 	it("renders an immediate bounded preview, deduplicates in-flight work, and holds a session snapshot", async () => {
 		using temp = TempDir.createSync("omp-skill-description-");
-		const dbPath = temp.join("skills.db");
+		using store = SkillDescriptionStore.open(temp.join("skills.db"));
 		const { promise, resolve } = Promise.withResolvers<string>();
 		const started = Promise.withResolvers<void>();
 		let calls = 0;
@@ -26,7 +26,7 @@ describe("system prompt skill descriptions", () => {
 			expect(request).toContain(original.description);
 			return promise;
 		};
-		const session = new SkillDescriptionCatalog({ dbPath, compress });
+		const session = new SkillDescriptionCatalog({ store, compress });
 		const preview = session.render([original, original])[0]?.description;
 		expect(preview).toBeDefined();
 		expect(preview!.length).toBeLessThanOrEqual(100);
@@ -35,7 +35,7 @@ describe("system prompt skill descriptions", () => {
 		expect(calls).toBe(0);
 		await started.promise;
 		expect(calls).toBe(1);
-		const concurrent = new SkillDescriptionCatalog({ dbPath, compress });
+		const concurrent = new SkillDescriptionCatalog({ store, compress });
 		expect(concurrent.render([original])[0]?.description).toBe(preview);
 		await Promise.resolve();
 		expect(calls).toBe(1);
@@ -52,7 +52,7 @@ describe("system prompt skill descriptions", () => {
 		resolve(compressed);
 		await session.waitForPending();
 		expect(session.render([original])[0]?.description).toBe(preview);
-		const nextSession = new SkillDescriptionCatalog({ dbPath });
+		const nextSession = new SkillDescriptionCatalog({ store });
 		expect(nextSession.render([original])[0]?.description).toBe(compressed);
 		const after = await buildSystemPrompt({
 			skills: [original],
@@ -65,10 +65,10 @@ describe("system prompt skill descriptions", () => {
 
 	it("misses on a changed full description rather than serving stale cached text", async () => {
 		using temp = TempDir.createSync("omp-skill-description-change-");
-		const dbPath = temp.join("skills.db");
+		using store = SkillDescriptionStore.open(temp.join("skills.db"));
 		let calls = 0;
 		const first = new SkillDescriptionCatalog({
-			dbPath,
+			store,
 			compress: async () => {
 				calls++;
 				return "Use for interactive browser tasks.";
@@ -78,7 +78,7 @@ describe("system prompt skill descriptions", () => {
 		await first.waitForPending();
 		const changed = { ...original, description: `${original.description} Also inspect accessibility trees.` };
 		const next = new SkillDescriptionCatalog({
-			dbPath,
+			store,
 			compress: async () => {
 				calls++;
 				return "Use for interactive browser and accessibility tasks.";
@@ -91,18 +91,18 @@ describe("system prompt skill descriptions", () => {
 
 	it("does not cache malformed output and retries in a later session", async () => {
 		using temp = TempDir.createSync("omp-skill-description-invalid-");
-		const dbPath = temp.join("skills.db");
-		const failed = new SkillDescriptionCatalog({ dbPath, compress: async () => "line one\nline two" });
+		using store = SkillDescriptionStore.open(temp.join("skills.db"));
+		const failed = new SkillDescriptionCatalog({ store, compress: async () => "line one\nline two" });
 		const preview = failed.render([original])[0]?.description;
 		await failed.waitForPending();
 
 		const retry = new SkillDescriptionCatalog({
-			dbPath,
+			store,
 			compress: async () => "Use for interactive sites; not static pages.",
 		});
 		expect(retry.render([original])[0]?.description).toBe(preview);
 		await retry.waitForPending();
-		expect(new SkillDescriptionCatalog({ dbPath }).render([original])[0]?.description).toBe(
+		expect(new SkillDescriptionCatalog({ store }).render([original])[0]?.description).toBe(
 			"Use for interactive sites; not static pages.",
 		);
 	});

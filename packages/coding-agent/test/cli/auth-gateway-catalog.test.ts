@@ -6,9 +6,11 @@ import { TempDir } from "@oh-my-soup/pi-utils";
 import {
 	createSerializedRebuilder,
 	gatewayRoutableModels,
+	gatewayRoutableProviders,
 	indexModelsByRequestId,
 } from "../../src/cli/auth-gateway-cli";
 import { ModelRegistry } from "../../src/config/model-registry";
+import { Settings } from "../../src/config/settings";
 
 const authStores: AuthStorage[] = [];
 
@@ -116,8 +118,23 @@ describe("indexModelsByRequestId (auth-gateway catalog)", () => {
 		expect(index.get(`${foreignModel.provider}/${foreignModel.id}`)).toBeUndefined();
 	});
 
+	test("drops providers disabled in settings from the served catalog", async () => {
+		const storage = await createAuthStorage();
+		await storage.credentials.set("anthropic", { type: "api_key", key: "sk-test-anthropic" });
+		await storage.credentials.set("openrouter", { type: "api_key", key: "sk-test-openrouter" });
+		const settings = Settings.isolated({ disabledProviders: ["openrouter"] });
+		const registry = new ModelRegistry(storage, undefined, { ignoreLocalModelConfig: true, settings });
+
+		const routable = gatewayRoutableProviders(storage, settings);
+		const index = indexModelsByRequestId(gatewayRoutableModels(registry), routable);
+
+		expect([...routable].sort()).toEqual(["anthropic"]);
+		expect([...index.values()].some(model => model.provider === "openrouter")).toBe(false);
+		expect([...index.values()].some(model => model.provider === "anthropic")).toBe(true);
+	});
+
 	test("serves judge-kind models alongside chat and keeps unrouted kinds out", async () => {
-		using tempDir = TempDir.createSync("@omp-auth-gateway-catalog-");
+		using tempDir = TempDir.createSync("@oms-auth-gateway-catalog-");
 		const registry = new ModelRegistry(await createAuthStorage(), tempDir.join("models.yml"));
 		const routable = gatewayRoutableModels(registry);
 		// `getAll()` alone is chat-only, which is what left `/v1/systemone` with

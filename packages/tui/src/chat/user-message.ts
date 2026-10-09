@@ -24,7 +24,13 @@ import type { ReactionTarget } from "./reaction";
 import { card, md, node, row, span, text } from "../native/describe";
 import { base64ImageNode } from "../native/blobs";
 import { hasTranscriptActions, runTranscriptAction } from "./transcript-actions";
-import { type NativeChild, type NativeNode, type NativeUiEvent, rootToggleExpanded } from "../native/node";
+import {
+	type DescribeContext,
+	type NativeChild,
+	type NativeNode,
+	type NativeUiEvent,
+	rootToggleExpanded,
+} from "../native/node";
 import { Memo } from "../native/memo";
 
 // OSC 133 shell integration: marks prompt zones for terminal multiplexers.
@@ -51,7 +57,7 @@ const OSC133_ZONE_CLOSE = OSC133_ZONE_END + OSC133_COMMAND_START + OSC133_COMMAN
 
 /** How a user bubble styles its prose and chips (see {@link userBubbleColor}). */
 export interface UserBubbleOptions {
-	/** Materialized `file://` targets per attached image, indexed by chip number. */
+	/** Filesystem paths for attached image chips, indexed by chip number. */
 	imageLinks?: readonly (string | undefined)[];
 	/** The message's attached images in chip order (`#1` first); a native bubble shows them. */
 	images?: readonly ImageContent[];
@@ -137,6 +143,8 @@ export class UserMessageComponent extends Container implements ReactionTarget {
 	readonly #tokens: RegExp;
 	#reaction: string | undefined;
 	#native: NativeNode | undefined;
+	/** The terminal's clock {@link #native} was described with. */
+	#nativeHour12: boolean | undefined;
 
 	constructor(text: string, options: UserBubbleOptions = {}) {
 		super();
@@ -169,6 +177,12 @@ export class UserMessageComponent extends Container implements ReactionTarget {
 		this.addChild(markdown);
 	}
 
+	override releaseRenderCaches(): void {
+		this.#zoneSource = undefined;
+		this.#zoneLines = undefined;
+		super.releaseRenderCaches();
+	}
+
 	setReaction(emoji: string): void {
 		if (this.#reaction === emoji) return;
 		this.#reaction = emoji;
@@ -184,36 +198,39 @@ export class UserMessageComponent extends Container implements ReactionTarget {
 	 * agent's reaction are chips at the bottom-right, so a reaction landing
 	 * later updates the frame in place, even deep in scrollback.
 	 */
-	override describe(): NativeNode {
-		if (this.#native) return this.#native;
+	override describe(cx?: DescribeContext): NativeNode {
+		// The terminal's clock: Bun's own default locale ignores the user's.
+		const hour12 = cx?.hour12;
+		if (this.#native && this.#nativeHour12 === hour12) return this.#native;
+		this.#nativeHour12 = hour12;
 		const children: NativeChild[] = [];
 		if (!this.#synthetic && hasTranscriptActions()) {
 			const tools: NativeChild[] = [];
 			if (this.#timestamp !== undefined) {
 				const at = new Date(this.#timestamp);
 				tools.push(
-					text([span(at.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }), "dim mono")], {
-						role: "omp.user.time",
-						title: at.toLocaleString(),
+					text([span(at.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12 }), "dim mono")], {
+						role: "oms.user.time",
+						title: at.toLocaleString([], { hour12 }),
 					}),
 				);
 			}
 			tools.push(
 				// `copy-message`, not Tern's local `copy` (that would copy the label).
 				text("Copy", {
-					role: "omp.user.tool",
+					role: "oms.user.tool",
 					actions: { click: "copy-message" },
 					title: "Copy message",
 					key: "copy",
 				}),
 				text("Rewind", {
-					role: "omp.user.tool",
+					role: "oms.user.tool",
 					actions: { click: "rewind" },
 					title: "Rewind the conversation to an earlier message",
 					key: "rewind",
 				}),
 			);
-			children.push(node("row", { gap: "xs", role: "omp.user.tools" }, tools, "tools"));
+			children.push(node("row", { gap: "xs", role: "oms.user.tools" }, tools, "tools"));
 		}
 		// Videos keep their chip only: the native image node decodes stills.
 		const thumbs: NativeNode[] = [];
@@ -222,12 +239,13 @@ export class UserMessageComponent extends Container implements ReactionTarget {
 				if (!image.mimeType.startsWith("image/")) return;
 				const label = `#${i + 1}`;
 				const link = this.#imageLinks?.[i];
-				const open = link ? { href: link, actions: { click: "open" } } : {};
+				// A click zooms the image in the terminal; the file opens from its context menu.
+				const open = link ? { href: link, actions: { menu: ["open"] } } : {};
 				thumbs.push(base64ImageNode(image.data, image.mimeType, { alt: label, title: label, ...open }, label));
 			});
 		}
 		if (thumbs.length > 0) {
-			children.push(row(thumbs, { gap: "sm", wrap: true, align: "start", role: "omp.user.images" }));
+			children.push(row(thumbs, { gap: "sm", wrap: true, align: "start", role: "oms.user.images" }));
 		}
 		const marks = this.#synthetic ? [] : tokenMarks(this.#text, this.#tokens);
 		children.push(md(this.#text, marks.length > 0 ? { marks } : undefined));
@@ -241,17 +259,17 @@ export class UserMessageComponent extends Container implements ReactionTarget {
 				}),
 			);
 		}
-		if (this.#reaction !== undefined) badges.push(node("badge", { text: this.#reaction, role: "omp.reaction" }));
+		if (this.#reaction !== undefined) badges.push(node("badge", { text: this.#reaction, role: "oms.reaction" }));
 		if (badges.length > 0)
-			children.push(node("row", { gap: "xs", justify: "end", role: "omp.user.badges" }, badges, "badges"));
+			children.push(node("row", { gap: "xs", justify: "end", role: "oms.user.badges" }, badges, "badges"));
 		this.#native = card(
-			{ role: this.#synthetic ? "omp.user.synthetic" : "omp.user", tone: this.#synthetic ? "muted" : "user" },
+			{ role: this.#synthetic ? "oms.user.synthetic" : "oms.user", tone: this.#synthetic ? "muted" : "user" },
 			children,
 		);
 		return this.#native;
 	}
 
-	/** Hover toolbar clicks: omp's own copy and rewind commands. */
+	/** Hover toolbar clicks: oms's own copy and rewind commands. */
 	handleNativeEvent(event: NativeUiEvent): void {
 		if (event.type !== "action") return;
 		if (event.act === "copy-message") runTranscriptAction({ act: "copy", text: this.#text });
@@ -325,6 +343,10 @@ class SyntheticSummary implements Component {
 		this.#summary = summary;
 	}
 
+	releaseRenderCaches(): void {
+		this.#cache = undefined;
+	}
+
 	invalidate(): void {
 		this.#cache = undefined;
 	}
@@ -388,7 +410,7 @@ export class CollapsedSyntheticMessageComponent implements Component {
 		return this.#native.get([this.#expanded], () =>
 			card(
 				{
-					role: "omp.user.synthetic",
+					role: "oms.user.synthetic",
 					tone: "muted",
 					head: [span(summarizeSyntheticInput(this.#text), "dim")],
 					collapsible: true,
@@ -411,6 +433,10 @@ export class CollapsedSyntheticMessageComponent implements Component {
 
 	invalidate(): void {
 		this.#disclosure.invalidate();
+	}
+
+	releaseRenderCaches(): void {
+		this.#disclosure.releaseRenderCaches();
 	}
 
 	dispose(): void {

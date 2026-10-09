@@ -379,7 +379,7 @@ class CodexResetFireworksComponent implements Component {
 	}
 
 	/** A glass sheet at the pane's top edge. */
-	readonly nativeOverlay = { role: "omp.overlay.fireworks", anchor: "top", size: "md" } as const;
+	readonly nativeOverlay = { role: "oms.overlay.fireworks", anchor: "top", size: "md" } as const;
 
 	invalidate(): void {
 		this.#native = undefined;

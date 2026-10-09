@@ -17,7 +17,7 @@ describe("AgentStorage usage counters", () => {
 	});
 
 	it("accumulates per-name counts per kind and survives a reopen", async () => {
-		tempDir = TempDir.createSync("@omp-agent-storage-cmd-");
+		tempDir = TempDir.createSync("@oms-agent-storage-cmd-");
 		const dbPath = path.join(tempDir.path(), "agent.db");
 		const storage = await AgentStorage.open(dbPath);
 

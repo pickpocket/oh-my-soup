@@ -1,6 +1,6 @@
 /**
- * Terminal (readline) OAuth login primitives shared by `omp login` and
- * `omp auth-broker login`: a cancellable line prompt, a numbered provider
+ * Terminal (readline) OAuth login primitives shared by `oms login` and
+ * `oms auth-broker login`: a cancellable line prompt, a numbered provider
  * picker, and the stdout-driven OAuth flow itself.
  *
  * Callers own ONE `readline.Interface` for the whole command and pass it to
@@ -163,12 +163,12 @@ export async function runTerminalOAuthLogin(
 		onAuth({ url, launchUrl, instructions }) {
 			process.stdout.write("\nOpen this URL in your browser:\n");
 			// Full URL first so the CLI works from any machine, including SSH
-			// sessions where a `launchUrl` (loopback `/launch` on the OMP
+			// sessions where a `launchUrl` (loopback `/launch` on the OMS
 			// host) would resolve against the caller's browser and fail.
 			// Headless capture is unaffected: it reads the first URL line.
 			process.stdout.write(`${url}\n`);
 			if (launchUrl && launchUrl !== url) {
-				// Local shortcut for the machine running OMP. Terminals or
+				// Local shortcut for the machine running OMS. Terminals or
 				// screen-scrapers narrower than the full URL still get an
 				// unbroken copy target here.
 				process.stdout.write(`Local shortcut (this machine only): ${launchUrl}\n`);

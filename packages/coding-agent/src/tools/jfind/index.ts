@@ -72,7 +72,7 @@ export class FindTool implements AgentTool<typeof findSchema, FindToolDetails> {
 		if (query.length === 0) throw new ToolError("`query` must be a non-empty description");
 		const cwd = this.session.cwd;
 		const rawScopeInput = params.path === undefined ? "" : normalizePathLikeInput(params.path);
-		// Host paths stay native; internal URLs (`local://`, `omp://`, …) are
+		// Host paths stay native; internal URLs (`local://`, `oms://`, …) are
 		// listed, scanned, and read in place through the URL filesystem.
 		const filesystem = new InternalUrlFilesystem({
 			context: sessionResolveContext(this.session, { signal }),

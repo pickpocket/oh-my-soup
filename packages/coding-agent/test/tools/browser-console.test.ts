@@ -12,7 +12,7 @@ import type { ToolSession } from "@oh-my-soup/pi-coding-agent/tools/index";
 import { chromiumAvailable } from "./chromium-probe";
 
 const CHROMIUM_AVAILABLE = await chromiumAvailable();
-const root = await fs.mkdtemp(path.join(os.tmpdir(), "omp-browser-console-"));
+const root = await fs.mkdtemp(path.join(os.tmpdir(), "oms-browser-console-"));
 const session: ToolSession = {
 	cwd: root,
 	hasUI: false,

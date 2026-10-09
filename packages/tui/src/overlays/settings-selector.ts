@@ -4,7 +4,7 @@ import {
 	type Component,
 	Container,
 	extractPrintableText,
-	fuzzyRank,
+	FuzzyCorpus,
 	getKeybindings,
 	getSettingItemFilterText,
 	type ImageBudget,
@@ -68,9 +68,9 @@ import type { KeyName } from "../key-hint-format";
 /** The native page id of the plugins tab. */
 const PLUGINS_PAGE = "plugins";
 /** Role of the status-line preview child: the page places it after the status-line section. */
-const PREFS_STATUS_ROLE = "omp.prefs.preview.status";
+const PREFS_STATUS_ROLE = "oms.prefs.preview.status";
 /** Role of a sub-editor child without a native control: the page shows it in a card over itself. */
-const PREFS_EDITOR_ROLE = "omp.prefs.editor";
+const PREFS_EDITOR_ROLE = "oms.prefs.editor";
 /** Most choices a native popup menu lists; larger submenus open as a picker over the page. */
 const PREFS_MENU_MAX = 12;
 /** Text settings whose values are paths, ids or commands (drawn in mono). */
@@ -630,6 +630,12 @@ export class SettingsSelectorComponent implements Component {
 	#searchMatchCount = 0;
 	/** First matching item id per tab id, for Tab-key jumps while searching. */
 	#searchFirstMatch = new Map<string, string>();
+	/**
+	 * Per-tab search candidates prepared once per search session. Dropped on
+	 * search start/end and whenever a value or condition may have changed
+	 * (`#refreshItems`, `#onSearchSettingChange`); rebuilt lazily by `#setSearchQuery`.
+	 */
+	#searchCorpora: { tab: SettingTab; corpus: FuzzyCorpus<SettingItem> }[] | null = null;
 	#textInputActive = false;
 	#hasSectionJump = false;
 	// Frame geometry from the last render, for mouse hit-testing (the
@@ -872,7 +878,7 @@ export class SettingsSelectorComponent implements Component {
 		}
 
 		const props: TspPrefsProps = {
-			title: "omp settings",
+			title: "oms settings",
 			pages,
 			page: searching ? this.#preSearchTabId : this.#currentTabId,
 			lead: searching ? undefined : (pluginPage?.lead ?? (tab ? TAB_LEADS[tab] : undefined)),
@@ -1111,8 +1117,10 @@ export class SettingsSelectorComponent implements Component {
 
 	/** Rebuilds the visible items after a change made outside a list's own `onChange` (changed flags, conditions). */
 	#refreshItems(): void {
-		if (this.#searchList) this.#setSearchQuery(this.#searchQuery);
-		else if (this.#currentTabId !== "plugins")
+		if (this.#searchList) {
+			this.#searchCorpora = null;
+			this.#setSearchQuery(this.#searchQuery);
+		} else if (this.#currentTabId !== "plugins")
 			this.#refreshCurrentTabItems(getSettingsForTab(this.#context.settings.entries, this.#currentTabId));
 	}
 
@@ -1141,7 +1149,7 @@ export class SettingsSelectorComponent implements Component {
 					count,
 					node: node(
 						"row",
-						{ gap: "xs", align: "center", role: "omp.settings.search" },
+						{ gap: "xs", align: "center", role: "oms.settings.search" },
 						[
 							text([span(theme.symbol("icon.search"), "accent")]),
 							col([this.#searchInput], { grow: 1 }),
@@ -1190,7 +1198,7 @@ export class SettingsSelectorComponent implements Component {
 		children.push(memo.hints[mode]);
 
 		if (memo.root && sameItems(memo.root.children, children)) return memo.root.node;
-		const root = overlayCard("omp.overlay.settings", "Settings", children);
+		const root = overlayCard("oms.overlay.settings", "Settings", children);
 		memo.root = { children, node: root };
 		return root;
 	}
@@ -1281,6 +1289,7 @@ export class SettingsSelectorComponent implements Component {
 	/** Swap the tab content for the global search result list. */
 	#startSearch(initialQuery: string): void {
 		this.#preSearchTabId = this.#currentTabId;
+		this.#searchCorpora = null;
 		this.#searchInput = new Input();
 		this.#searchInput.prompt = "";
 		this.#searchInput.setValue(initialQuery);
@@ -1324,13 +1333,17 @@ export class SettingsSelectorComponent implements Component {
 		const tabResults: { tab: SettingTab; matched: SettingItem[]; bestScore: number; order: number }[] = [];
 		this.#searchFirstMatch.clear();
 		let total = 0;
-		for (const tab of SETTING_TABS) {
+		this.#searchCorpora ??= SETTING_TABS.map(tab => {
 			const candidates: SettingItem[] = [];
 			for (const def of getSettingsForTab(this.#context.settings.entries, tab)) {
 				const item = this.#defToItem(def);
 				if (item) candidates.push(item);
 			}
-			const ranked = fuzzyRank(candidates, query, getSettingItemFilterText);
+			return { tab, corpus: new FuzzyCorpus(candidates, getSettingItemFilterText) };
+		});
+		for (let order = 0; order < this.#searchCorpora.length; order++) {
+			const { tab, corpus } = this.#searchCorpora[order]!;
+			const ranked = corpus.rank(query);
 			const matched = ranked.map(result => result.item);
 			counts.set(tab, matched.length);
 			if (matched.length === 0) continue;
@@ -1339,7 +1352,7 @@ export class SettingsSelectorComponent implements Component {
 				tab,
 				matched,
 				bestScore: ranked[0]?.score ?? 0,
-				order: SETTING_TABS.indexOf(tab),
+				order,
 			});
 		}
 
@@ -1378,6 +1391,7 @@ export class SettingsSelectorComponent implements Component {
 		const targetTab: SettingTab | "plugins" = selectedDef?.tab ?? this.#preSearchTabId;
 
 		this.#searchQuery = "";
+		this.#searchCorpora = null;
 		this.#searchFirstMatch.clear();
 		this.#searchMatchCount = 0;
 		this.#tabs = getSettingsTabs();
@@ -1441,6 +1455,7 @@ export class SettingsSelectorComponent implements Component {
 		}
 		// Values feed the searchable text and condition gates may have flipped:
 		// recompute results in place (selection is preserved by item id).
+		this.#searchCorpora = null;
 		this.#setSearchQuery(this.#searchQuery);
 	}
 

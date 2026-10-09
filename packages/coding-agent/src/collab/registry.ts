@@ -86,7 +86,7 @@ export interface CollabHostSnapshot {
 	 * disappearing from discovery means the process died or became unreachable,
 	 * not that the agent finished.
 	 *
-	 * `null` when the host does not report it (an omp older than this field).
+	 * `null` when the host does not report it (an oms older than this field).
 	 * Unknown is not idle: a consumer must not read the absence as a session
 	 * that stopped.
 	 */

@@ -14,11 +14,25 @@ use common::{DiskWriter, Workspace};
 use pi_edit::{
 	EditMode,
 	diff_string::parse_diff_hunks,
-	fuzzy::{replace_text, seek_sequence, seek_sequence_within},
+	fuzzy::{ReplaceOutcome, ReplaceResult, format_occurrence_error, replace_text, seek_sequence, seek_sequence_within},
 };
 use serde_json::{Value, json};
 
 const PATH: &str = "target.txt";
+
+fn replaced(result: ReplaceOutcome) -> ReplaceResult {
+	match result {
+		ReplaceOutcome::Replaced(result) => result,
+		ReplaceOutcome::Missed(outcome) => panic!("expected replacement, missed: {outcome:?}"),
+	}
+}
+
+fn replace_miss(result: ReplaceOutcome) -> String {
+	match result {
+		ReplaceOutcome::Missed(outcome) => format_occurrence_error("", &outcome),
+		ReplaceOutcome::Replaced(result) => panic!("expected missed replacement: {result:?}"),
+	}
+}
 
 /// Asserts a refused call left the file byte-identical and never reached the
 /// writer, and returns the error text.
@@ -188,22 +202,22 @@ fn suggested_anchors(error: &str) -> Vec<String> {
 /// 1 and at line 2 of three identical lines.
 #[test]
 fn replace_text_counts_overlapping_placements_as_ambiguous() {
-	let error = replace_text(
+	let error = replace_miss(replace_text(
 		"foo();\nfoo();\nfoo();\n",
 		"foo();\nfoo();",
 		"bar();\nfoo();",
 		true,
 		false,
 		None,
-	)
-	.expect_err("two overlapping placements");
-	assert!(error.to_string().starts_with("Found 2 occurrences"), "{error}");
+	).expect("ambiguous outcome"));
+	assert!(error.starts_with("Found 2 occurrences"), "{error}");
 
-	let error = replace_text("aaaa", "aa", "b", false, false, None).expect_err("three placements");
-	assert!(error.to_string().starts_with("Found 3 occurrences"), "{error}");
+	let error = replace_miss(replace_text("aaaa", "aa", "b", false, false, None)
+		.expect("ambiguous outcome"));
+	assert!(error.starts_with("Found 3 occurrences"), "{error}");
 
 	// `replace_all` keeps its non-overlapping left-to-right semantics.
-	let all = replace_text("aaaa", "aa", "b", false, true, None).expect("replace all");
+	let all = replaced(replace_text("aaaa", "aa", "b", false, true, None).expect("replace all"));
 	assert_eq!((all.content.as_str(), all.count), ("bb", 2));
 }
 
@@ -227,18 +241,18 @@ fn replace_text_counts_periodic_placements_in_linear_time() {
 	let content = "a".repeat(1_000_000);
 	let target = "a".repeat(10_000);
 	let started = Instant::now();
-	let error = replace_text(&content, &target, "b", false, false, None).expect_err("ambiguous");
+	let error = replace_miss(replace_text(&content, &target, "b", false, false, None)
+		.expect("ambiguous outcome"));
 	assert!(started.elapsed() < Duration::from_secs(5), "took {:?}", started.elapsed());
-	assert!(error.to_string().starts_with("Found 990001 occurrences"), "{error}");
+	assert!(error.starts_with("Found 990001 occurrences"), "{error}");
 }
 
 /// A refusal over thousands of candidates keeps the exact count but lists
 /// only a bounded number of lines.
 #[test]
 fn replace_text_refusal_bounds_its_candidate_list() {
-	let error = replace_text(&"x\n".repeat(20_000), "x", "y", false, false, None)
-		.expect_err("ambiguous")
-		.to_string();
+	let error = replace_miss(replace_text(&"x\n".repeat(20_000), "x", "y", false, false, None)
+		.expect("ambiguous outcome"));
 	assert!(error.starts_with("Found 20000 occurrences"), "{error}");
 	assert!(error.len() < 4_000, "refusal is {} bytes", error.len());
 }
@@ -308,12 +322,9 @@ fn replace_text_never_takes_a_lower_scoring_fuzzy_window() {
 	           options.blendMode);";
 	let new = "  case 'red':\n    return paint(canvas, palette.primary, options.opacity, \
 	           options.blendMode ?? 'normal');";
-	let outcome = replace_text(content, old, new, true, false, None);
+	let outcome = replace_text(content, old, new, true, false, None).expect("match outcome");
 	assert!(
-		outcome
-			.as_ref()
-			.map_or(true, |result| result.count == 0 && result.content == content),
-		"{outcome:?}"
+		matches!(outcome, ReplaceOutcome::Missed(_)),
 	);
 }
 
@@ -326,7 +337,8 @@ fn replace_text_accepts_a_best_window_by_the_similarity_gap() {
 	               third, fourth, fifth, sixth);\n";
 	let old =
 		"let a = 1;\nconst message = format(template, first, second, third, fourth, fifth, sixth);";
-	let result = replace_text(content, old, "let a = 2;", true, false, Some(0.85)).expect("unique");
+	let result = replaced(replace_text(content, old, "let a = 2;", true, false, Some(0.85))
+		.expect("unique"));
 	assert_eq!(
 		result.content,
 		"let a = 2;\nlet xy = 9;\nconst message = format(template, first, second, third, fourth, \
@@ -3548,7 +3560,8 @@ async fn patch_variant_with_one_stale_context_line_applies() {
 /// `replace_all` over an empty fuzzy window replaces exactly that window.
 #[test]
 fn replace_all_empty_window_keeps_its_line_breaks() {
-	let result = replace_text("a\n\nb", "   ", "x", true, true, None).expect("one fuzzy window");
+	let result = replaced(replace_text("a\n\nb", "   ", "x", true, true, None)
+		.expect("one fuzzy window"));
 	assert_eq!(result.content, "a\nx\nb");
 }
 
@@ -3556,10 +3569,10 @@ fn replace_all_empty_window_keeps_its_line_breaks() {
 /// line gets a preview.
 #[test]
 fn replace_text_previews_each_candidate_line_once() {
-	let error =
+	let error = replace_miss(
 		replace_text(&format!("aaaaaa\n{}aa\n", "x\n".repeat(18)), "aa", "b", false, false, None)
-			.expect_err("six placements")
-			.to_string();
+			.expect("six placements"),
+	);
 	let marked = |row: &str| {
 		error
 			.lines()
@@ -3572,9 +3585,10 @@ fn replace_text_previews_each_candidate_line_once() {
 
 	// Past five previews, every displayed candidate row is still marked and
 	// the count stands apart from the file's rows.
-	let error = replace_text(&"x = 1\ny\n".repeat(7), "x = 1", "x = 2", false, false, None)
-		.expect_err("seven placements")
-		.to_string();
+	let error = replace_miss(
+		replace_text(&"x = 1\ny\n".repeat(7), "x = 1", "x = 2", false, false, None)
+			.expect("seven placements"),
+	);
 	let rows = error
 		.lines()
 		.filter(|line| line.contains(" | x = 1"))

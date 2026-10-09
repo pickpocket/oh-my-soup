@@ -11,7 +11,7 @@ import type { ToolSession } from "@oh-my-soup/pi-coding-agent/tools/index";
 import { chromiumAvailable } from "./chromium-probe";
 
 const CHROMIUM_AVAILABLE = await chromiumAvailable();
-const root = await fs.mkdtemp(path.join(os.tmpdir(), "omp-browser-storage-state-"));
+const root = await fs.mkdtemp(path.join(os.tmpdir(), "oms-browser-storage-state-"));
 const session: ToolSession = {
 	cwd: root,
 	hasUI: false,

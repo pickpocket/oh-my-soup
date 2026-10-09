@@ -1,6 +1,6 @@
 /**
  * Wire contract for Skillshare (`skills.omp.sh`): an npm-style registry for
- * omp skills. Shared by the omp CLI (`omp skill …`), the Go server
+ * oms skills. Shared by the oms CLI (`oms skill …`), the Go server
  * (`stencil/apps/skills`), and its web UI (which mirrors this file).
  *
  * Packages are scoped: `@scope/name`. A scope is a Stencil username claimed on

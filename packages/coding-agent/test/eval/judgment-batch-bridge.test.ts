@@ -518,7 +518,7 @@ process.exit(0);
 
 describe("judge_batch() Python prelude", () => {
 	it("drains across cells and re-attaches by id", async () => {
-		const tempDir = TempDir.createSync("@omp-eval-judge-batch-py-");
+		const tempDir = TempDir.createSync("@oms-eval-judge-batch-py-");
 		try {
 			const result = await runPythonJudgeBatchInSubprocess(tempDir);
 			expect(result.exitCode).toBe(0);

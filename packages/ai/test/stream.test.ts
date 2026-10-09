@@ -6,7 +6,8 @@ import * as path from "node:path";
 import { type } from "@oh-my-soup/omstype";
 import { Effort } from "@oh-my-soup/pi-ai";
 import { __resetVertexTokenCache } from "@oh-my-soup/pi-ai/providers/google-auth";
-import { complete, getEnvApiKey, stream } from "@oh-my-soup/pi-ai/stream";
+import { getEnvApiKey } from "@oh-my-soup/pi-ai/env-api-key";
+import { complete, stream } from "@oh-my-soup/pi-ai/stream";
 import type {
 	Api,
 	Context,
@@ -568,13 +569,13 @@ describe("Generate E2E Tests", () => {
 			const originalLocation = Bun.env.VERTEX_LOCATION;
 			const originalApiKey = Bun.env.GOOGLE_CLOUD_API_KEY;
 			const originalGac = Bun.env.GOOGLE_APPLICATION_CREDENTIALS;
+			const originalAppData = Bun.env.APPDATA;
 			// Force the GCE/Cloud Run metadata-server token path: neutralize any host
 			// ADC so resolveAccessTokenUncached() falls through to fetchMetadataToken().
-			// Without this the test reads ~/.config/gcloud/application_default_credentials.json
+			// Without this the test reads the user ADC (~/.config/gcloud or %APPDATA%\gcloud)
 			// when present and hangs on the OAuth exchange (form body, not JSON).
-			const homedirSpy = spyOn(os, "homedir").mockReturnValue(
-				path.join(os.tmpdir(), `vertex-adc-absent-${location}-${Date.now()}`),
-			);
+			const absentAdcHome = path.join(os.tmpdir(), `vertex-adc-absent-${location}-${Date.now()}`);
+			const homedirSpy = spyOn(os, "homedir").mockReturnValue(absentAdcHome);
 			const model: Model<"anthropic-messages"> = buildModel({
 				id: "claude-sonnet-4@20250514",
 				name: "Claude Sonnet 4",
@@ -605,6 +606,7 @@ describe("Generate E2E Tests", () => {
 				delete Bun.env.VERTEX_LOCATION;
 				delete Bun.env.GOOGLE_CLOUD_API_KEY;
 				delete Bun.env.GOOGLE_APPLICATION_CREDENTIALS;
+				Bun.env.APPDATA = absentAdcHome;
 
 				const events = stream(
 					model,
@@ -674,6 +676,8 @@ describe("Generate E2E Tests", () => {
 				else Bun.env.GOOGLE_CLOUD_API_KEY = originalApiKey;
 				if (originalGac === undefined) delete Bun.env.GOOGLE_APPLICATION_CREDENTIALS;
 				else Bun.env.GOOGLE_APPLICATION_CREDENTIALS = originalGac;
+				if (originalAppData === undefined) delete Bun.env.APPDATA;
+				else Bun.env.APPDATA = originalAppData;
 			}
 		});
 

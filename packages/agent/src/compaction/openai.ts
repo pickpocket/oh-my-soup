@@ -15,18 +15,18 @@
  *   with `{ summary, shortSummary? }`.
  */
 
-import { attach, create, Flag, ProviderHttpError } from "@oh-my-pi/pi-ai/error";
-import { getCodexAttestationHeader } from "@oh-my-pi/pi-ai/providers/openai-codex-attestation";
-import { createOpenAICodexCompactionRequestContext } from "@oh-my-pi/pi-ai/providers/openai-codex-compaction";
-import { applyCodexResponsesLiteShape } from "@oh-my-pi/pi-ai/providers/openai-codex/request-transformer";
-import { createOpenAICodexCompatibilityMetadata } from "@oh-my-pi/pi-ai/providers/openai-codex-responses";
+import { attach, create, Flag, ProviderHttpError } from "@oh-my-soup/pi-ai/error";
+import { getCodexAttestationHeader } from "@oh-my-soup/pi-ai/providers/openai-codex-attestation";
+import { createOpenAICodexCompactionRequestContext } from "@oh-my-soup/pi-ai/providers/openai-codex-compaction";
+import { applyCodexResponsesLiteShape } from "@oh-my-soup/pi-ai/providers/openai-codex/request-transformer";
+import { createOpenAICodexCompatibilityMetadata } from "@oh-my-soup/pi-ai/providers/openai-codex-responses";
 import {
 	encodeResponsesToolResultOutput,
 	hoistInterleavedResponsesToolBatchMessages,
 	parseAzureDeploymentNameMap,
 	parseTextSignature,
-} from "@oh-my-pi/pi-ai/providers/openai-shared";
-import { transformMessages } from "@oh-my-pi/pi-ai/providers/transform-messages";
+} from "@oh-my-soup/pi-ai/providers/openai-shared";
+import { transformMessages } from "@oh-my-soup/pi-ai/providers/transform-messages";
 import type {
 	AssistantMessage,
 	CodexCompactionContext,
@@ -34,16 +34,16 @@ import type {
 	Message,
 	Model,
 	ProviderSessionState,
-} from "@oh-my-pi/pi-ai/types";
+} from "@oh-my-soup/pi-ai/types";
 import {
 	dropMalformedOpenAIResponsesToolCalls,
 	getOpenAIResponsesHistoryItems,
 	getOpenAIResponsesHistoryPayload,
 	normalizeResponsesToolCallId,
 	stripOpenAIResponsesOutputOnlyStatusesForReplay,
-} from "@oh-my-pi/pi-ai/utils";
-import { captureOpenAIHttpError } from "@oh-my-pi/pi-ai/utils/openai-http";
-import { isBedrockOpenAIUrl } from "@oh-my-pi/pi-catalog/hosts";
+} from "@oh-my-soup/pi-ai/utils";
+import { captureOpenAIHttpError } from "@oh-my-soup/pi-ai/utils/openai-http";
+import { isBedrockOpenAIUrl } from "@oh-my-soup/pi-catalog/hosts";
 import {
 	applyCodexResidencyHeader,
 	CODEX_BASE_URL,
@@ -51,8 +51,8 @@ import {
 	getCodexAccountId,
 	OPENAI_HEADER_VALUES,
 	OPENAI_HEADERS,
-} from "@oh-my-pi/pi-catalog/wire/codex";
-import { $env, isRecord, logger, prompt, ptree, stringifyJson, structuredCloneJSON } from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-catalog/wire/codex";
+import { $env, isRecord, logger, prompt, ptree, stringifyJson, structuredCloneJSON } from "@oh-my-soup/pi-utils";
 import { dataUrlImageSize, estimateImageTokens } from "../image-tokens";
 import { Tokenizer } from "../tokenizer";
 import { appendAzureApiVersion, resolveAzureOpenAiBaseUrl } from "./azure-openai-endpoint";
@@ -961,10 +961,10 @@ export async function requestOpenAiRemoteCompaction(
 /**
  * Generic remote-compaction POST. Two wire shapes are auto-selected by
  * endpoint suffix so a single `compaction.remoteEndpoint` setting can point at
- * either a purpose-built omp summarizer (`{systemPrompt, prompt}` → `{summary}`)
+ * either a purpose-built oms summarizer (`{systemPrompt, prompt}` → `{summary}`)
  * or any OpenAI-compatible chat-completions server (`/chat/completions`,
  * `/v1/chat/completions`, …) as reported for llama.cpp / vLLM / etc. in
- * issue #4630: without this, the omp payload was rejected with
+ * issue #4630: without this, the oms payload was rejected with
  * HTTP 400 `"'messages' is required"`, compaction silently fell back to
  * local summarization, and context grew unbounded.
  *

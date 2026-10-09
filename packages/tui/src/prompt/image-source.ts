@@ -7,8 +7,8 @@
  * that tells the model the path. The model keeps `local://` references across
  * `/move`; chips for internal URLs instead use a stable blob copy.
  */
-import type { ImageContent } from "@oh-my-pi/pi-ai";
-import { isRecord } from "@oh-my-pi/pi-utils";
+import type { ImageContent } from "@oh-my-soup/pi-ai";
+import { isRecord } from "@oh-my-soup/pi-utils";
 
 /** How an image attachment's backing file entered the session. */
 export type ImageAttachmentSourceKind = "image" | "video";

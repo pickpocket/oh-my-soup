@@ -1,18 +1,18 @@
-# @oh-my-pi/pi-agent
+# @oh-my-soup/pi-agent
 
-Stateful agent with tool execution and event streaming. Built on `@oh-my-pi/pi-ai`.
+Stateful agent with tool execution and event streaming. Built on `@oh-my-soup/pi-ai`.
 
 ## Installation
 
 ```bash
-npm install @oh-my-pi/pi-agent
+npm install @oh-my-soup/pi-agent
 ```
 
 ## Quick Start
 
 ```typescript
-import { Agent } from "@oh-my-pi/pi-agent";
-import { getModel } from "@oh-my-pi/pi-ai";
+import { Agent } from "@oh-my-soup/pi-agent";
+import { getModel } from "@oh-my-soup/pi-ai";
 
 const agent = new Agent({
 	initialState: {
@@ -260,7 +260,7 @@ remain separate. `replaceQueue("steering" | "followUp", messages)` replaces only
 Extend `AgentMessage` via declaration merging:
 
 ```typescript
-declare module "@oh-my-pi/pi-agent" {
+declare module "@oh-my-soup/pi-agent" {
 	interface CustomAgentMessages {
 		notification: { role: "notification"; text: string; timestamp: number };
 	}
@@ -284,10 +284,10 @@ const agent = new Agent({
 
 ## Tools
 
-Define tools using `AgentTool` with an omptype parameter schema.
+Define tools using `AgentTool` with an omstype parameter schema.
 
 ```typescript
-import { type } from "@oh-my-pi/omptype";
+import { type } from "@oh-my-soup/omstype";
 
 const readFileTool: AgentTool = {
 	name: "read_file",
@@ -333,7 +333,7 @@ Thrown errors are caught by the agent and reported to the LLM as tool errors wit
 For browser apps that proxy through a backend:
 
 ```typescript
-import { Agent, streamProxy } from "@oh-my-pi/pi-agent";
+import { Agent, streamProxy } from "@oh-my-soup/pi-agent";
 
 const agent = new Agent({
 	streamFn: (model, context, options) =>
@@ -350,7 +350,7 @@ const agent = new Agent({
 For direct control without the Agent class:
 
 ```typescript
-import { agentLoop, agentLoopContinue } from "@oh-my-pi/pi-agent";
+import { agentLoop, agentLoopContinue } from "@oh-my-soup/pi-agent";
 
 const context: AgentContext = {
 	systemPrompt: ["You are helpful."],
@@ -450,7 +450,7 @@ fold N summaries with `aggregateAgentRunSummaries` / `aggregateAgentRunCoverage`
 import {
 	aggregateAgentRunSummaries,
 	aggregateAgentRunCoverage,
-} from "@oh-my-pi/pi-agent";
+} from "@oh-my-soup/pi-agent";
 
 const summaries: AgentRunSummary[] = [];
 const coverages: AgentRunCoverage[] = [];
@@ -466,7 +466,7 @@ const runCoverage = aggregateAgentRunCoverage(coverages);
 
 ### Tool status reporting
 
-`execute_tool` spans carry `omp.gen_ai.tool.status` ∈
+`execute_tool` spans carry `oms.gen_ai.tool.status` ∈
 `"ok" | "error" | "skipped" | "blocked" | "timeout" | "aborted"`.
 `beforeToolCall` blocks throw a distinguishable `ToolCallBlockedError`
 internally; the catch path reports `status: "blocked"` instead of conflating

@@ -1,4 +1,4 @@
-//! Regression tests for oh-my-pi issue #13325: `ulimit` in the embedded shell
+//! Regression tests for oh-my-soup issue #13325: `ulimit` in the embedded shell
 //! must never change the host process's own resource limits. The shell runs
 //! in-process and `( … )` subshells are clones, not forks, so limits live in
 //! shell state and apply only to the external commands the shell spawns.

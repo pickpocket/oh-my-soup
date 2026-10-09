@@ -6,13 +6,13 @@ import {
 	externalizeImageData,
 	parseBlobRef,
 	resolveImageData,
-} from "@oh-my-pi/pi-coding-agent/session/blob-store";
-import { blobExtensionForImageMimeType } from "@oh-my-pi/pi-tui/prompt/image-format";
-import { TempDir } from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-coding-agent/session/blob-store";
+import { blobExtensionForImageMimeType } from "@oh-my-soup/pi-tui/prompt/image-format";
+import { TempDir } from "@oh-my-soup/pi-utils";
 
 describe("BlobStore image display paths", () => {
 	it("creates an extension-bearing sidecar for image blobs while keeping canonical refs extensionless", async () => {
-		using tempDir = TempDir.createSync("@omp-blob-store-image-link-");
+		using tempDir = TempDir.createSync("@oms-blob-store-image-link-");
 		const store = new BlobStore(tempDir.path());
 		const data = Buffer.from("image-bytes");
 
@@ -25,7 +25,7 @@ describe("BlobStore image display paths", () => {
 	});
 
 	it("externalizes image data with a mime-derived display extension", async () => {
-		using tempDir = TempDir.createSync("@omp-blob-store-image-link-");
+		using tempDir = TempDir.createSync("@oms-blob-store-image-link-");
 		const store = new BlobStore(tempDir.path());
 		const data = Buffer.from("image-bytes");
 
@@ -46,7 +46,7 @@ describe("BlobStore image display paths", () => {
 
 describe("BlobStore content-addressed writes", () => {
 	it("writes a blob once, creates the store on demand, and repairs a torn blob", async () => {
-		using tempDir = TempDir.createSync("@omp-blob-store-dedupe-");
+		using tempDir = TempDir.createSync("@oms-blob-store-dedupe-");
 		// The store directory does not exist yet: the first put creates it.
 		const store = new BlobStore(path.join(tempDir.path(), "blobs"));
 		const data = Buffer.from("image-bytes");
@@ -71,7 +71,7 @@ describe("BlobStore content-addressed writes", () => {
 	});
 
 	it("never leaves a partial blob at its hash path when a write is interrupted", () => {
-		using tempDir = TempDir.createSync("@omp-blob-store-interrupted-");
+		using tempDir = TempDir.createSync("@oms-blob-store-interrupted-");
 		const store = new BlobStore(tempDir.path());
 		const data = Buffer.from("complete-image-bytes");
 		// A reader resolving the ref (or a later same-size put) must never see a
@@ -93,7 +93,7 @@ describe("BlobStore content-addressed writes", () => {
 	});
 
 	it("writes a copied display sidecar once and repairs it when torn", () => {
-		using tempDir = TempDir.createSync("@omp-blob-store-sidecar-copy-");
+		using tempDir = TempDir.createSync("@oms-blob-store-sidecar-copy-");
 		const store = new BlobStore(tempDir.path());
 		const data = Buffer.from("image-bytes");
 		// Filesystems without hardlinks (FAT/exFAT, some network shares) take the
@@ -116,7 +116,7 @@ describe("BlobStore content-addressed writes", () => {
 	});
 
 	it("refreshes a long-lived reused blob's mtime so gc's write grace still covers it", () => {
-		using tempDir = TempDir.createSync("@omp-blob-store-touch-");
+		using tempDir = TempDir.createSync("@oms-blob-store-touch-");
 		const store = new BlobStore(tempDir.path());
 		const data = Buffer.from("old-image-bytes");
 		const first = store.putSync(data);
@@ -124,7 +124,7 @@ describe("BlobStore content-addressed writes", () => {
 		fs.utimesSync(first.path, old, old);
 
 		// A new reference to an hour-old blob is not on disk yet; without a
-		// fresh mtime a concurrent `omp gc` would sweep the blob it points to.
+		// fresh mtime a concurrent `oms gc` would sweep the blob it points to.
 		store.putSync(data);
 
 		expect(Date.now() - fs.statSync(first.path).mtimeMs).toBeLessThan(60_000);

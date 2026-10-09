@@ -4,7 +4,7 @@ A persistent per-install UUID shared across sessions and profiles. It supplies a
 
 ## API
 
-Exported from `@oh-my-pi/pi-utils` (`packages/utils/src/dirs.ts`):
+Exported from `@oh-my-soup/pi-utils` (`packages/utils/src/dirs.ts`):
 
 | Symbol                                  | Purpose                                                                                                                           |
 | --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
@@ -15,10 +15,10 @@ Generated IDs are lowercase UUID v4 values. Existing persisted values are trimme
 
 ## Storage
 
-- Path: `<base-config-root>/install-id` — i.e. `~/.omp/install-id` by default, respecting `PI_CONFIG_DIR`. Resolved against the base config root (`getBaseConfigRoot()`) regardless of the active profile or XDG data/state/cache routing, so every profile using that base root shares one install ID.
+- Path: `<base-config-root>/install-id` — i.e. `~/.oms/install-id` by default, respecting `PI_CONFIG_DIR`. Resolved against the base config root (`getBaseConfigRoot()`) regardless of the active profile or XDG data/state/cache routing, so every profile using that base root shares one install ID.
 - Format: a single UUID line (trailing `\n`).
 - Permissions: file is created with mode `0o600`.
-- Lifecycle: independent of `~/.omp/agent/`. Wiping agent state (sessions, settings, DB) does NOT regenerate the install ID; only deleting the `install-id` file itself does.
+- Lifecycle: independent of `~/.oms/agent/`. Wiping agent state (sessions, settings, DB) does NOT regenerate the install ID; only deleting the `install-id` file itself does.
 
 ## Generation and lifecycle
 
@@ -36,7 +36,7 @@ Generated IDs are lowercase UUID v4 values. Existing persisted values are trimme
 | `packages/ai/src/providers/openai-codex-responses.ts`                                                | Sends the value as the OpenAI Codex compatibility `installationId`, alongside per-session/thread/window IDs.                                                                           |
 | `packages/ai/src/providers/anthropic-identity.ts` and `packages/coding-agent/src/session/session-metadata.ts` | Derives Claude-compatible `device_id` metadata from the install ID, scoped by the Anthropic account UUID when one is available. The raw install ID is not used as the device ID. |
 | `packages/ai/src/auth-broker/remote-store.ts` | Uses it in default observed-usage attribution sent to the auth broker, alongside hostname and application name; reports can instead carry an originating client's identity. |
-| `packages/ai/src/providers/pi-native-client.ts` and `packages/ai/src/auth-gateway/http.ts` | Sends `x-omp-install-id`, `x-omp-hostname`, and `x-omp-app` to the gateway for originating-client usage attribution. The gateway falls back to its own install ID when absent and does not forward these headers upstream. |
+| `packages/ai/src/providers/pi-native-client.ts` and `packages/ai/src/auth-gateway/http.ts` | Sends `x-oms-install-id`, `x-oms-hostname`, and `x-oms-app` to the gateway for originating-client usage attribution. The gateway falls back to its own install ID when absent and does not forward these headers upstream. |
 | `packages/ai/src/usage/opencode-go.ts` and `packages/catalog/src/provider-models/openai-compat.ts` | Sends it as `x-opencode-session` for OpenCode Go usage polling and OpenCode model discovery, respectively. |
 | `packages/coding-agent/src/tools/report-tool-issue.ts`                                               | Includes it as `installId` in auto-QA grievance pushes so the backend can correlate reports from the same installation.                                                                |
 

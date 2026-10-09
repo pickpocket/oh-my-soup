@@ -1,15 +1,15 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "bun:test";
-import type { ImageContent } from "@oh-my-pi/pi-ai";
-import { CURSOR_MARKER, getKeybindings, setKeybindings } from "@oh-my-pi/pi-tui";
-import { setKittyProtocolActive } from "@oh-my-pi/pi-tui/keys";
+import type { ImageContent } from "@oh-my-soup/pi-ai";
+import { CURSOR_MARKER, getKeybindings, setKeybindings } from "@oh-my-soup/pi-tui";
+import { setKittyProtocolActive } from "@oh-my-soup/pi-tui/keys";
 import { $ } from "bun";
-import { KeybindingsManager, getDefaultPasteImageKeys } from "@oh-my-pi/pi-tui/app-keybindings";
+import { KeybindingsManager, getDefaultPasteImageKeys } from "@oh-my-soup/pi-tui/app-keybindings";
 import {
 	chipLabel,
 	COMPOSER_TOKEN_REGEX,
 	modelMentionChipLabel,
 	skillChipLabel,
-} from "@oh-my-pi/pi-tui/prompt/composer-attachments";
+} from "@oh-my-soup/pi-tui/prompt/composer-attachments";
 import {
 	CustomEditor,
 	extractBracketedImagePastePaths,
@@ -17,14 +17,14 @@ import {
 	extractImagePastePathsFromText,
 	extractImagePathFromText,
 	extractPastePathsFromText,
-} from "@oh-my-pi/pi-tui/prompt/custom-editor";
+} from "@oh-my-soup/pi-tui/prompt/custom-editor";
 import {
 	SPACE_HOLD_MECHANICAL_RUN,
 	SPACE_HOLD_RELEASE_MS,
 	SPACE_HOLD_STALL_SLACK_MS,
 	SPACE_REPEAT_MAX_GAP_MS,
-} from "@oh-my-pi/pi-tui/space-hold";
-import { getEditorTheme, initTheme, theme } from "@oh-my-pi/pi-tui/theme";
+} from "@oh-my-soup/pi-tui/space-hold";
+import { getEditorTheme, initTheme, theme } from "@oh-my-soup/pi-tui/theme";
 
 function makeEditor(holdEnabled = true) {
 	const editor = new CustomEditor(getEditorTheme());
@@ -82,7 +82,7 @@ function feedKeyGaps(editor: CustomEditor, key: string, gaps: number[]): void {
 }
 
 async function decorateInFreshProcess(text: string, imageLinks?: readonly string[]): Promise<string> {
-	const customEditorUrl = import.meta.resolve("@oh-my-pi/pi-tui/prompt/custom-editor");
+	const customEditorUrl = import.meta.resolve("@oh-my-soup/pi-tui/prompt/custom-editor");
 	const script = `
 import { CustomEditor } from ${JSON.stringify(customEditorUrl)};
 const editor = new CustomEditor({});

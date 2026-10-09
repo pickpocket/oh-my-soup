@@ -847,7 +847,7 @@ fn build_pcre_matcher(host: &Host, patterns: &[String], cli: &Rg) -> Result<Pcre
 		.crlf(cli.crlf && !cli.no_crlf && !cli.null_data)
 		.utf(unicode)
 		.ucp(unicode)
-		.jit_if_available(pcre2_jit_enabled(host.var("OMP_PCRE2_JIT")));
+		.jit_if_available(pcre2_jit_enabled(host.var("OMS_PCRE2_JIT")));
 	builder
 		.build_many(patterns)
 		.map_err(|error| error.to_string())

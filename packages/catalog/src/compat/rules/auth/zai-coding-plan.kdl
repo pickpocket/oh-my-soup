@@ -10,7 +10,7 @@ auth "zai-coding-plan" {
 		// previous handler. Remote and unsupported sessions retain manual input.
 		// `redirect-uri-env` lets users adapt to further allowlist shifts without a release.
 		callback port=0 redirect-uri="zcode://zai-auth/callback" redirect-uri-env="ZAI_OAUTH_REDIRECT_URI" manual-only=#true native-scheme=#true
-		instructions "Complete Z.ai login in your browser. On supported local desktops, omp captures the zcode:// callback and restores its previous handler automatically. You can also paste the final redirect URL or authorization code when prompted."
+		instructions "Complete Z.ai login in your browser. On supported local desktops, oms captures the zcode:// callback and restores its previous handler automatically. You can also paste the final redirect URL or authorization code when prompted."
 		token url="https://zcode.z.ai/api/v1/oauth/token" url-env="ZAI_OAUTH_TOKEN_URL" body="json" standard=#false {
 			params {
 				provider "zai"
@@ -25,7 +25,7 @@ auth "zai-coding-plan" {
 			email "data.user.email"
 			account-id "data.user.id"
 		}
-		// Business login then provisions/reuses OMP's durable id.secret API key.
+		// Business login then provisions/reuses OMS's durable id.secret API key.
 		after-exchange hook="zai-mint-key"
 	}
 	store-as "zai"

@@ -1,4 +1,4 @@
-import { isRecord, tryParseJson } from "@oh-my-pi/pi-utils";
+import { isRecord, tryParseJson } from "@oh-my-soup/pi-utils";
 import type { RenderResult, SpecialHandler } from "./types";
 import { buildResult, formatNumber, loadPage } from "./types";
 import { asNumber, asString } from "./utils";

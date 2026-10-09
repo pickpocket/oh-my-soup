@@ -78,7 +78,7 @@ function describeGlobFiles(files: readonly string[], cwd: string | undefined): N
 	if (files.length <= NATIVE_LIST_MAX) {
 		return col(
 			files.map((file, i) => fileRow(file, { href: links[i] })),
-			{ role: "omp.tool.files", gap: "none" },
+			{ role: "oms.tool.files", gap: "none" },
 		);
 	}
 	return row(
@@ -92,12 +92,12 @@ function describeGlobFiles(files: readonly string[], cwd: string | undefined): N
 						node("icon", { name: isDir ? "folder" : "file" }),
 						text([span(name, "strong", link ? { href: link } : undefined)], { wrap: "none" }),
 					],
-					{ role: "omp.tool.chip", gap: "xs", align: "center", title: file },
+					{ role: "oms.tool.chip", gap: "xs", align: "center", title: file },
 				),
 				file,
 			);
 		}),
-		{ role: "omp.tool.files", gap: "xs", wrap: true },
+		{ role: "oms.tool.files", gap: "xs", wrap: true },
 	);
 }
 

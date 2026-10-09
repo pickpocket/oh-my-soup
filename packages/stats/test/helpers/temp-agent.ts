@@ -1,7 +1,7 @@
 /**
  * Shared test isolation for stats Bun tests.
  *
- * The default profile's stats.db is redirected to `$XDG_DATA_HOME/omp/stats.db`
+ * The default profile's stats.db is redirected to `$XDG_DATA_HOME/oms/stats.db`
  * by {@link DirResolver} whenever `agentDirOverride === defaultAgent`. Tests
  * that only set `PI_CONFIG_DIR` + `setAgentDir(<home>/<config>/agent)` resolve
  * to that default and silently share `stats.db` across files when an XDG
@@ -17,8 +17,8 @@
 import { afterEach, beforeEach } from "bun:test";
 import * as os from "node:os";
 import * as path from "node:path";
-import { closeDb } from "@oh-my-pi/omp-stats/db";
-import { getAgentDir, setAgentDir, TempDir } from "@oh-my-pi/pi-utils";
+import { closeDb } from "@oh-my-soup/oms-stats/db";
+import { getAgentDir, setAgentDir, TempDir } from "@oh-my-soup/pi-utils";
 
 const XDG_KEYS = ["XDG_DATA_HOME", "XDG_STATE_HOME", "XDG_CACHE_HOME"] as const;
 

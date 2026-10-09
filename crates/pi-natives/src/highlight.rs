@@ -36,7 +36,7 @@ thread_local! {
 
 fn get_syntax_set() -> &'static SyntaxSet {
 	SYNTAX_SET.get_or_init(|| {
-		syntect::dumps::from_uncompressed_data(include_bytes!(env!("OMP_SYNTAX_SET")))
+		syntect::dumps::from_uncompressed_data(include_bytes!(env!("OMS_SYNTAX_SET")))
 			.expect("bundled syntax set should match the syntect build")
 	})
 }

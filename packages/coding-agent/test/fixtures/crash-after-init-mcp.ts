@@ -11,12 +11,12 @@
  * agent's `bun` PID.
  *
  * Each invocation atomically appends the PID + timestamp to the path in
- * `$OMP_TEST_SPAWN_LOG`, so the test can count spawns without racing.
+ * `$OMS_TEST_SPAWN_LOG`, so the test can count spawns without racing.
  */
 import * as fs from "node:fs";
 import * as readline from "node:readline";
 
-const spawnLog = Bun.env.OMP_TEST_SPAWN_LOG;
+const spawnLog = Bun.env.OMS_TEST_SPAWN_LOG;
 if (spawnLog) {
 	fs.appendFileSync(spawnLog, `${process.pid} ${Date.now()}\n`);
 }

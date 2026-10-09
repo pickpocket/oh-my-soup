@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { type AuthCredentialStore, AuthStorage } from "@oh-my-pi/pi-ai/auth-storage";
+import { type AuthCredentialStore, AuthStorage } from "@oh-my-soup/pi-ai/auth-storage";
 
 describe("issue 3555 Ollama usage registration", () => {
 	it("registers Ollama and Ollama Cloud in the default usage resolver", async () => {

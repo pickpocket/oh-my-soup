@@ -1,17 +1,17 @@
 import { afterEach, describe, expect, it, vi } from "bun:test";
-import type { Api, ModelSpec } from "@oh-my-pi/pi-ai";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
-import { resetCapabilityForTests } from "@oh-my-pi/pi-coding-agent/capability";
-import { ModelRegistry } from "@oh-my-pi/pi-coding-agent/config/model-registry";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import * as lspClient from "@oh-my-pi/pi-coding-agent/lsp/client";
-import { cfgLspShared } from "@oh-my-pi/pi-coding-agent/lsp/settings";
-import { type CreateAgentSessionOptions, createAgentSession } from "@oh-my-pi/pi-coding-agent/sdk";
-import type { AgentSession } from "@oh-my-pi/pi-coding-agent/session/agent-session";
-import { AuthStorage } from "@oh-my-pi/pi-coding-agent/session/auth-storage";
-import { SessionManager } from "@oh-my-pi/pi-coding-agent/session/session-manager";
-import { createSubagentSettings } from "@oh-my-pi/pi-coding-agent/task/executor";
-import { TempDir } from "@oh-my-pi/pi-utils";
+import type { Api, ModelSpec } from "@oh-my-soup/pi-ai";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
+import { resetCapabilityForTests } from "@oh-my-soup/pi-coding-agent/capability";
+import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import * as lspClient from "@oh-my-soup/pi-coding-agent/lsp/client";
+import { cfgLspShared } from "@oh-my-soup/pi-coding-agent/lsp/settings";
+import { type CreateAgentSessionOptions, createAgentSession } from "@oh-my-soup/pi-coding-agent/sdk";
+import type { AgentSession } from "@oh-my-soup/pi-coding-agent/session/agent-session";
+import { AuthStorage } from "@oh-my-soup/pi-coding-agent/session/auth-storage";
+import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
+import { createSubagentSettings } from "@oh-my-soup/pi-coding-agent/task/executor";
+import { TempDir } from "@oh-my-soup/pi-utils";
 
 const modelSpec: ModelSpec<Api> = {
 	id: "shared-lsp-binding",

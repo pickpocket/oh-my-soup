@@ -4,7 +4,7 @@ import { fuzzyFilter } from "../fuzzy";
 import { getKeybindings } from "../keybindings";
 import { extractPrintableText } from "../keys";
 import type { MouseRoutable, SgrMouseEvent } from "../mouse";
-import type { TspPrefsControl, TspPrefsRow, TspPrefsSection, TspProps, TspSpan } from "@oh-my-pi/pi-wire";
+import type { TspPrefsControl, TspPrefsRow, TspPrefsSection, TspProps, TspSpan } from "@oh-my-soup/pi-wire";
 import { col, node, span } from "../native/describe";
 import { sameItems, sameProps } from "../native/memo";
 import { plainLine, plainText } from "../native/spans";
@@ -658,7 +658,7 @@ export class SettingsList implements Component {
 		if (cached && cached.body === body && cached.hint === hint) return cached.node;
 		const children: NativeChild[] = [body];
 		if (hint) children.push(node("text", { spans: [span(hint, "muted")] }, undefined, "hint"));
-		const root = col(children, { role: "omp.settings", gap: "sm" });
+		const root = col(children, { role: "oms.settings", gap: "sm" });
 		this.#nativeRoot = { body, hint, node: root };
 		return root;
 	}
@@ -706,7 +706,7 @@ export class SettingsList implements Component {
 		if (item.heading) {
 			described = node(
 				"item",
-				{ label: [span(plainLine(item.label), "strong")], disabled: true, role: "omp.settings.heading" },
+				{ label: [span(plainLine(item.label), "strong")], disabled: true, role: "oms.settings.heading" },
 				undefined,
 				item.id,
 			);

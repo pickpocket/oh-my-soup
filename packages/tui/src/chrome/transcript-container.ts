@@ -1,6 +1,6 @@
 import { type Component, Container, type HistoryBatch } from "../tui";
-import * as logger from "@oh-my-pi/pi-utils/logger";
-import { popLoopPhase, pushLoopPhase } from "@oh-my-pi/pi-utils";
+import * as logger from "@oh-my-soup/pi-utils/logger";
+import { popLoopPhase, pushLoopPhase } from "@oh-my-soup/pi-utils";
 import { renderForScrollback } from "../components/image";
 import { col } from "../native/describe";
 import type { NativeNode } from "../native/node";
@@ -808,7 +808,7 @@ export class TranscriptContainer extends Container {
 	/** Embedded as a child (transcript viewers): a stack of the {@link nativeBlocks}. */
 	override describe(): NativeNode {
 		const blocks = this.nativeBlocks();
-		this.#nativeNode ??= col(blocks, { role: "omp.transcript" });
+		this.#nativeNode ??= col(blocks, { role: "oms.transcript" });
 		return this.#nativeNode;
 	}
 

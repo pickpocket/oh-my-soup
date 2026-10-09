@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, it } from "bun:test";
-import { getThemeByName, setThemeInstance } from "@oh-my-pi/pi-tui/theme";
-import type { SingleResult, TaskToolDetails } from "@oh-my-pi/pi-tui/tools/task";
-import { taskToolRenderer } from "@oh-my-pi/pi-tui/tools/task";
+import { getThemeByName, setThemeInstance } from "@oh-my-soup/pi-tui/theme";
+import type { SingleResult, TaskToolDetails } from "@oh-my-soup/pi-tui/tools/task";
+import { taskToolRenderer } from "@oh-my-soup/pi-tui/tools/task";
 
 // Regression for PR #11343 review: sanitizing the isolation artifact rows
 // (shortenPath + width bound) dropped the `Patch:` / `Branch:` /
@@ -52,8 +52,8 @@ describe("task renderer: isolation artifact row labels", () => {
 	it("keeps the Patch and Nested patch labels on sanitized artifact rows", async () => {
 		const text = await renderResultText(
 			makeResult({
-				patchPath: "/home/user/.omp/artifacts/Worker.patch",
-				nestedPatchPaths: ["/home/user/.omp/artifacts/Worker.nested-0-inner.patch"],
+				patchPath: "/home/user/.oms/artifacts/Worker.patch",
+				nestedPatchPaths: ["/home/user/.oms/artifacts/Worker.nested-0-inner.patch"],
 			}),
 		);
 		expect(text).toContain("Patch:");
@@ -61,16 +61,16 @@ describe("task renderer: isolation artifact row labels", () => {
 	});
 
 	it("keeps the Branch label on sanitized artifact rows", async () => {
-		const text = await renderResultText(makeResult({ branchName: "omp/task/Worker" }));
+		const text = await renderResultText(makeResult({ branchName: "oms/task/Worker" }));
 		expect(text).toContain("Branch:");
 	});
 
 	it("hides the empty root Patch row for nested-only work", async () => {
 		const text = await renderResultText(
 			makeResult({
-				patchPath: "/home/user/.omp/artifacts/Worker.patch",
+				patchPath: "/home/user/.oms/artifacts/Worker.patch",
 				hasRootChanges: false,
-				nestedPatchPaths: ["/home/user/.omp/artifacts/Worker.nested-0-inner.patch"],
+				nestedPatchPaths: ["/home/user/.oms/artifacts/Worker.nested-0-inner.patch"],
 			}),
 		);
 		expect(text).not.toContain("Patch:");

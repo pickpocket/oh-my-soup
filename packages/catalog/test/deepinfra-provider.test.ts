@@ -2,13 +2,13 @@ import { describe, expect, test } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { Effort } from "@oh-my-pi/pi-catalog/effort";
-import { resolveProviderModels } from "@oh-my-pi/pi-catalog/model-manager";
-import { getBundledModels } from "@oh-my-pi/pi-catalog/models";
-import { DEEPINFRA_BASE_URL, deepinfraModelManagerOptions } from "@oh-my-pi/pi-catalog/provider-models/openai-compat";
-import type { ModelSpec } from "@oh-my-pi/pi-catalog/types";
+import { Effort } from "@oh-my-soup/pi-catalog/effort";
+import { resolveProviderModels } from "@oh-my-soup/pi-catalog/model-manager";
+import { getBundledModels } from "@oh-my-soup/pi-catalog/models";
+import { DEEPINFRA_BASE_URL, deepinfraModelManagerOptions } from "@oh-my-soup/pi-catalog/provider-models/openai-compat";
+import type { ModelSpec } from "@oh-my-soup/pi-catalog/types";
 
-const DISCOVERY_URL = "https://api.deepinfra.com/v1/openai/models?filter=with_meta&sort_by=omp";
+const DISCOVERY_URL = "https://api.deepinfra.com/v1/openai/models?filter=with_meta&sort_by=oms";
 
 function catalogFixture(): Response {
 	return Response.json({

@@ -3,7 +3,7 @@ import {
 	explainRecallDiagnostics,
 	RECALL_TIERS,
 	RecallDiagnostics,
-} from "@oh-my-pi/pi-mnemopi/core/recall-diagnostics";
+} from "@oh-my-soup/pi-mnemopi/core/recall-diagnostics";
 
 describe("recall diagnostics counters", () => {
 	it("starts with canonical tiers and zeroed JSON-serializable snapshot", () => {

@@ -1,4 +1,4 @@
-import type { AuthStorage } from "@oh-my-pi/pi-ai";
+import type { AuthStorage } from "@oh-my-soup/pi-ai";
 import type { SearchResponse, SearchSource } from "../types";
 import { SearchProviderError } from "../../../web/search/types";
 import type { QuerySyntax } from "../query";

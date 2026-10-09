@@ -13,7 +13,7 @@
  * so the graphics test needs no asset on disk and works across all three image
  * protocols, each of which decodes a standard PNG.
  */
-import { hsvToRgb } from "@oh-my-pi/pi-utils/color";
+import { hsvToRgb } from "@oh-my-soup/pi-utils/color";
 import * as zlib from "node:zlib";
 import { type Component, Container } from "../../tui";
 import { encodeTextSized, type TextSizingScale } from "../../utils";
@@ -208,7 +208,7 @@ export class ProtocolProbeComponent extends Container {
 			new Text(
 				[
 					`${theme.fg("muted", "Hyperlinks (OSC 8)")} — ${yesNo(hyperlinksOn)}`,
-					`  \x1b]8;;https://github.com/can1357/oh-my-pi\x07omp repo\x1b]8;;\x07`,
+					`  \x1b]8;;https://github.com/pickpocket/oh-my-soup\x07omp repo\x1b]8;;\x07`,
 				].join("\n"),
 				1,
 				0,

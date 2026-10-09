@@ -2,27 +2,27 @@ import { describe, expect, it } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import path from "node:path";
-import { resolveThresholdTokens } from "@oh-my-pi/pi-agent-core/compaction";
-import type { Model } from "@oh-my-pi/pi-ai";
-import { getProjectAgentDir } from "@oh-my-pi/pi-utils";
+import { resolveThresholdTokens } from "@oh-my-soup/pi-agent-core/compaction";
+import type { Model } from "@oh-my-soup/pi-ai";
+import { getProjectAgentDir } from "@oh-my-soup/pi-utils";
 import {
 	matchModelCompactionThreshold,
 	parseCompactionPointInput,
 	validateAgentCompactionThresholdOverrides,
-} from "@oh-my-pi/pi-coding-agent/config/compaction-threshold";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { cfgCompactionModelThresholds } from "@oh-my-pi/pi-coding-agent/session/context-settings";
+} from "@oh-my-soup/pi-coding-agent/config/compaction-threshold";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { cfgCompactionModelThresholds } from "@oh-my-soup/pi-coding-agent/session/context-settings";
 import {
 	planModelCompactionPoint,
 	previewModelCompactionPoint,
 	resolveModelCompactionSettings,
 	setModelCompactionPoint,
-} from "@oh-my-pi/pi-coding-agent/session/model-compaction-threshold";
-import { compactionThresholdSettings, createSubagentSettings } from "@oh-my-pi/pi-coding-agent/task/executor";
-import { cfgTaskAgentCompactionThresholdOverrides } from "@oh-my-pi/pi-coding-agent/task/settings";
+} from "@oh-my-soup/pi-coding-agent/session/model-compaction-threshold";
+import { compactionThresholdSettings, createSubagentSettings } from "@oh-my-soup/pi-coding-agent/task/executor";
+import { cfgTaskAgentCompactionThresholdOverrides } from "@oh-my-soup/pi-coding-agent/task/settings";
 
 async function withConfigDirs(run: (dirs: { root: string; agentDir: string; cwd: string }) => Promise<void>) {
-	const root = await fs.mkdtemp(path.join(os.tmpdir(), "omp-compaction-threshold-"));
+	const root = await fs.mkdtemp(path.join(os.tmpdir(), "oms-compaction-threshold-"));
 	const agentDir = path.join(root, "agent");
 	const cwd = path.join(root, "project");
 	await fs.mkdir(agentDir, { recursive: true });

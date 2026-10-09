@@ -421,7 +421,7 @@ function addOperation(
 	// reads only while the runtime reports its installed identity: a poisoned
 	// installation must degrade to unadmitted dependents, never to speculative
 	// I/O against a bridge the authoritative cell cannot reach.
-	if (!intrinsicIntact(state, "__omp_call_tool__")) return undefined;
+	if (!intrinsicIntact(state, "__oms_call_tool__")) return undefined;
 	const argument = call.arguments[0];
 	if (!argument || !isExpression(argument)) return undefined;
 	const projectedArgs = projectExpression(argument, state);

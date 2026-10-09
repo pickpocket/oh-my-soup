@@ -1,14 +1,14 @@
 import { afterEach, describe, expect, it } from "bun:test";
-import { clearCustomApis } from "@oh-my-pi/pi-ai/api-registry";
-import { createMockModel, registerMockApi } from "@oh-my-pi/pi-ai/providers/mock";
-import { streamSimple } from "@oh-my-pi/pi-ai/stream";
-import type { AssistantMessage, Context, CursorExecHandlers, ToolCall, ToolResultMessage } from "@oh-my-pi/pi-ai/types";
-import { getStreamingPartialJson, setStreamingPartialJson } from "@oh-my-pi/pi-ai/utils/block-symbols";
-import { AssistantMessageEventStream } from "@oh-my-pi/pi-ai/utils/event-stream";
-import { applyGlyphCodec, decodeGlyphText, encodeGlyphText } from "@oh-my-pi/pi-ai/utils/glyph-codec";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
-import { PiEditExecArgsSchema, PiEditReplacementSchema } from "@oh-my-pi/pi-catalog/discovery/cursor-proto";
-import { create } from "@oh-my-pi/pi-catalog/discovery/protobuf";
+import { clearCustomApis } from "@oh-my-soup/pi-ai/api-registry";
+import { createMockModel, registerMockApi } from "@oh-my-soup/pi-ai/providers/mock";
+import { streamSimple } from "@oh-my-soup/pi-ai/stream";
+import type { AssistantMessage, Context, CursorExecHandlers, ToolCall, ToolResultMessage } from "@oh-my-soup/pi-ai/types";
+import { getStreamingPartialJson, setStreamingPartialJson } from "@oh-my-soup/pi-ai/utils/block-symbols";
+import { AssistantMessageEventStream } from "@oh-my-soup/pi-ai/utils/event-stream";
+import { applyGlyphCodec, decodeGlyphText, encodeGlyphText } from "@oh-my-soup/pi-ai/utils/glyph-codec";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
+import { PiEditExecArgsSchema, PiEditReplacementSchema } from "@oh-my-soup/pi-catalog/discovery/cursor-proto";
+import { create } from "@oh-my-soup/pi-catalog/discovery/protobuf";
 
 const ZERO_USAGE: AssistantMessage["usage"] = {
 	input: 0,

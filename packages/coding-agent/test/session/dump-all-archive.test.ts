@@ -6,14 +6,14 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { Agent } from "@oh-my-pi/pi-agent-core";
-import { getBundledModel } from "@oh-my-pi/pi-catalog/models";
-import { ModelRegistry } from "@oh-my-pi/pi-coding-agent/config/model-registry";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { AgentSession } from "@oh-my-pi/pi-coding-agent/session/agent-session";
-import { SessionManager } from "@oh-my-pi/pi-coding-agent/session/session-manager";
-import { TempDir } from "@oh-my-pi/pi-utils";
-import { readArchiveEntries } from "@oh-my-pi/pi-utils/ar";
+import { Agent } from "@oh-my-soup/pi-agent-core";
+import { getBundledModel } from "@oh-my-soup/pi-catalog/models";
+import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { AgentSession } from "@oh-my-soup/pi-coding-agent/session/agent-session";
+import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
+import { TempDir } from "@oh-my-soup/pi-utils";
+import { readArchiveEntries } from "@oh-my-soup/pi-utils/ar";
 import { createInMemoryAuthStorage } from "../helpers/agent-session-setup";
 
 function subagentJsonl(id: string, userText: string | null): string {
@@ -47,7 +47,7 @@ describe("AgentSession.dumpSessionArchiveToTmpDir", () => {
 	const archives: string[] = [];
 
 	beforeEach(() => {
-		tempDir = TempDir.createSync("@omp-dump-all-");
+		tempDir = TempDir.createSync("@oms-dump-all-");
 		const model = getBundledModel("anthropic", "claude-sonnet-4-5");
 		if (!model) throw new Error("Expected bundled anthropic model");
 		const authStorage = createInMemoryAuthStorage();

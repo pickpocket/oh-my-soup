@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Sign a compiled macOS `omp` binary on Linux: with a Developer ID identity
+# Sign a compiled macOS `oms` binary on Linux: with a Developer ID identity
 # and notarization when the credentials are configured, ad hoc otherwise.
 #
 # The release build (`ci:release:build-binaries`) cross-compiles the binary on
@@ -18,7 +18,7 @@
 #     binary runs (forks and releases before the secrets exist).
 # Both go through rcodesign (github.com/indygreg/apple-platform-rs, pinned and
 # sha256-checked below), the open-source implementation of codesign and
-# notarytool. The signing identifier is the file name (omp-darwin-<arch>),
+# notarytool. The signing identifier is the file name (oms-darwin-<arch>),
 # as every release before had it.
 #
 # A bare Mach-O executable cannot be stapled (stapling only supports .app/.pkg/

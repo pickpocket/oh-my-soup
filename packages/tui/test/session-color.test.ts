@@ -1,8 +1,8 @@
 import { describe, expect, it } from "bun:test";
-import { getThemeByName } from "@oh-my-pi/pi-tui/theme";
+import { getThemeByName } from "@oh-my-soup/pi-tui/theme";
 
-import { getSessionAccentHex, type SessionAccentTheme } from "@oh-my-pi/pi-tui/theme/session-color";
-import { hexToOklch, oklchCusp, relativeLuminance } from "@oh-my-pi/pi-utils";
+import { getSessionAccentHex, type SessionAccentTheme } from "@oh-my-soup/pi-tui/theme/session-color";
+import { hexToOklch, oklchCusp, relativeLuminance } from "@oh-my-soup/pi-utils";
 
 const lum = (hex: string): number => relativeLuminance(hex) ?? 0;
 const contrast = (a: number, b: number): number => (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);

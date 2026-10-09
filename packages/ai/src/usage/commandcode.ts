@@ -12,7 +12,7 @@ import { HOUR_MS, parsePositiveTimestamp, usageStatus, WEEK_MS } from "./shared"
 
 const PROVIDER = "commandcode";
 const DEFAULT_ORIGIN = "https://api.commandcode.ai";
-// The CLI also sends `?limits=1` for its org spend-limit panel; omp reads no
+// The CLI also sends `?limits=1` for its org spend-limit panel; oms reads no
 // field from that, so the plain identity route is enough.
 const WHOAMI_PATH = "/alpha/whoami";
 const CREDITS_PATH = "/alpha/billing/credits";

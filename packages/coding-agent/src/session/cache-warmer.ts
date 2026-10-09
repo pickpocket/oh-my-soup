@@ -25,9 +25,9 @@ import {
 	resolveCacheRetention,
 	type SimpleStreamOptions,
 	type Usage,
-} from "@oh-my-pi/pi-ai";
-import { calculateCost } from "@oh-my-pi/pi-catalog/models";
-import { isAnthropicOAuthToken } from "@oh-my-pi/pi-catalog/utils";
+} from "@oh-my-soup/pi-ai";
+import { calculateCost } from "@oh-my-soup/pi-catalog/models";
+import { isAnthropicOAuthToken } from "@oh-my-soup/pi-catalog/utils";
 import type { CacheWarmingDecisionEvent, CacheWarmingDecisionEventResult } from "../extensibility/shared-events";
 
 export type { CacheWarmingDecisionEvent, CacheWarmingDecisionEventResult };

@@ -329,7 +329,7 @@ pub(super) fn uipi_block(hwnd: HWND) -> Option<String> {
 	(target > own).then(|| {
 		format!(
 			"process {pid} runs at {} integrity, above this process's {} integrity, so Windows UIPI \
-			 discards input sent to it; run omp at the same integrity level to drive it",
+			 discards input sent to it; run oms at the same integrity level to drive it",
 			integrity_name(target),
 			integrity_name(own),
 		)

@@ -136,8 +136,8 @@ Python `tab.run` accepts a JavaScript string only; it does not accept a Python c
 
 `browser.open` prefers explicit `app.cdp_url`, `app.path`, `app.relay: true`, then `app.tern: true`. Otherwise it considers configured relay, configured CDP, automatic Tern, cmux, then project-shared managed Chromium. Relay and Tern environment kill switches can disable those modes.
 
-- **Managed Chromium:** creates an omp-owned page in project-shared Chromium and applies stealth patches. Installation happens automatically on first use. `headed` overrides the default hidden mode.
-- **Spawned (`app.path`):** starts or reuses a CDP-enabled browser/Electron executable. `app.args` applies only here; Chromium-family processes use an omp-owned profile unless args specify `--user-data-dir`.
+- **Managed Chromium:** creates an oms-owned page in project-shared Chromium and applies stealth patches. Installation happens automatically on first use. `headed` overrides the default hidden mode.
+- **Spawned (`app.path`):** starts or reuses a CDP-enabled browser/Electron executable. `app.args` applies only here; Chromium-family processes use an oms-owned profile unless args specify `--user-data-dir`.
 - **Connected (`app.cdp_url`):** attaches to an existing HTTP CDP discovery endpoint.
 - **Relay (`app.relay: true`):** adopts the user's real Chrome tab. `app.target` selects by URL/title substring; without it the visible usable tab is adopted. Passing `url` navigates the adopted tab.
 - **Tern:** inside a Tern pane, opens a visible browser picture-in-picture over the pane using native WKWebView, not Chromium. `headed: false` or `app.tern: false` opts out; `app.tern: true` requires Tern. Automatic Tern selection falls back to Chromium with an explanatory result when Tern cannot host the page.
@@ -145,7 +145,7 @@ Python `tab.run` accepts a JavaScript string only; it does not accept a Python c
 
 The native-webview backends do not provide full Puppeteer/CDP capabilities. Tern provides fetch/XHR and navigation-response logging, not complete CDP subresource coverage; routing accepts only fetch/XHR resource types. CPU/network throttling, timezone/headers/reduced-motion emulation, CSS-transformed frame input, and tracing/profiling are unsupported; `metrics` returns navigation timing and DOM counts rather than full CDP metrics. Tern PDF accepts only `path`; storage loading restores only the current origin. Inspect backend-specific errors rather than assuming Chromium behavior.
 
-Reusing one tab name across browser kinds is rejected until the existing tab is closed. Closing omp-owned Chromium pages, Tern picture-in-pictures, and owned cmux surfaces closes them. Connected and relay pages remain open. Spawned browser processes remain open unless `kill: true` releases their last managed tab and terminates an application owned by this process; reused processes are never killed.
+Reusing one tab name across browser kinds is rejected until the existing tab is closed. Closing oms-owned Chromium pages, Tern picture-in-pictures, and owned cmux surfaces closes them. Connected and relay pages remain open. Spawned browser processes remain open unless `kill: true` releases their last managed tab and terminates an application owned by this process; reused processes are never killed.
 
 ## Screenshots and output
 
@@ -161,7 +161,7 @@ Relay and attached modes operate on real logged-in sessions; sites attribute act
 
 Each named tab permits one active run; Chromium-backed tabs have one worker, while Tern/cmux use their own backend. A timed-out or aborted run can recycle the worker and invalidate handles. `browser.close({ all: true })` releases all managed tabs; `kill` never closes or kills relay/CDP-attached browsers.
 
-By default, omp-owned managed Chromium tabs freeze at turn settle and unfreeze on next use (`browser.freezeOnTurnEnd = true`). Owned Chromium and Tern tabs idle for 1,800 seconds are closed (`browser.idleCloseSec`; `0` disables this). `persist: true` opts a tab out of both policies, but explicit close still releases it. Relay, connected, spawned, and cmux tabs are not auto-frozen or idle-closed.
+By default, oms-owned managed Chromium tabs freeze at turn settle and unfreeze on next use (`browser.freezeOnTurnEnd = true`). Owned Chromium and Tern tabs idle for 1,800 seconds are closed (`browser.idleCloseSec`; `0` disables this). `persist: true` opts a tab out of both policies, but explicit close still releases it. Relay, connected, spawned, and cmux tabs are not auto-frozen or idle-closed.
 
 ## Common recovery
 

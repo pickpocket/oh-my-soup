@@ -1,14 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import * as os from "node:os";
 import * as path from "node:path";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import * as pyKernel from "@oh-my-pi/pi-coding-agent/eval/py/kernel";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import * as pyKernel from "@oh-my-soup/pi-coding-agent/eval/py/kernel";
 import {
 	resolveFirstLaunchPythonEvalWarning,
 	resolvePythonEvalWarning,
-} from "@oh-my-pi/pi-coding-agent/eval/startup-warning";
+} from "@oh-my-soup/pi-coding-agent/eval/startup-warning";
 
-const FIX_HINT = "Install Python 3.8+ or set python.interpreter, then verify with `omp setup python --check`.";
+const FIX_HINT = "Install Python 3.8+ or set python.interpreter, then verify with `oms setup python --check`.";
 const CWD = "/tmp/eval-startup-warning";
 
 let savedPiPy: string | undefined;

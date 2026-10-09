@@ -2,9 +2,9 @@ import { applyBackgroundToLine, padding, visibleWidth } from "../utils";
 import { type Component, Container } from "../tui";
 import { Disclosure } from "../components/disclosure";
 import { Markdown } from "../components/markdown";
-import { formatBytes } from "@oh-my-pi/pi-utils";
-import type { ImageContent } from "@oh-my-pi/pi-ai";
-import type { TspSpan } from "@oh-my-pi/pi-wire";
+import { formatBytes } from "@oh-my-soup/pi-utils";
+import type { ImageContent } from "@oh-my-soup/pi-ai";
+import type { TspSpan } from "@oh-my-soup/pi-wire";
 import { ensureThemeSync, getMarkdownTheme, theme } from "../theme";
 import {
 	attachmentSgr,
@@ -41,7 +41,7 @@ import { Memo } from "../native/memo";
 // `cursorIsAtPrompt()` permanently true and tags every subsequently painted
 // cell as `.input`. Combined with `cursor-click-to-move = true` (Ghostty's
 // default) that turns every left-click inside the pane into a burst of
-// synthesized arrow keys on omp's pty, slamming the editor caret to column 0
+// synthesized arrow keys on oms's pty, slamming the editor caret to column 0
 // (#8030, #6115).
 //
 // `133;C` is therefore emitted immediately followed by `133;D;0` at the end of
@@ -210,7 +210,7 @@ export class UserMessageComponent extends Container implements ReactionTarget {
 				const at = new Date(this.#timestamp);
 				tools.push(
 					text([span(at.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12 }), "dim mono")], {
-						role: "omp.user.time",
+						role: "oms.user.time",
 						title: at.toLocaleString([], { hour12 }),
 					}),
 				);
@@ -218,19 +218,19 @@ export class UserMessageComponent extends Container implements ReactionTarget {
 			tools.push(
 				// `copy-message`, not Tern's local `copy` (that would copy the label).
 				text("Copy", {
-					role: "omp.user.tool",
+					role: "oms.user.tool",
 					actions: { click: "copy-message" },
 					title: "Copy message",
 					key: "copy",
 				}),
 				text("Rewind", {
-					role: "omp.user.tool",
+					role: "oms.user.tool",
 					actions: { click: "rewind" },
 					title: "Rewind the conversation to an earlier message",
 					key: "rewind",
 				}),
 			);
-			children.push(node("row", { gap: "xs", role: "omp.user.tools" }, tools, "tools"));
+			children.push(node("row", { gap: "xs", role: "oms.user.tools" }, tools, "tools"));
 		}
 		// Videos keep their chip only: the native image node decodes stills.
 		const thumbs: NativeNode[] = [];
@@ -245,7 +245,7 @@ export class UserMessageComponent extends Container implements ReactionTarget {
 			});
 		}
 		if (thumbs.length > 0) {
-			children.push(row(thumbs, { gap: "sm", wrap: true, align: "start", role: "omp.user.images" }));
+			children.push(row(thumbs, { gap: "sm", wrap: true, align: "start", role: "oms.user.images" }));
 		}
 		const marks = this.#synthetic ? [] : tokenMarks(this.#text, this.#tokens);
 		children.push(md(this.#text, marks.length > 0 ? { marks } : undefined));
@@ -259,17 +259,17 @@ export class UserMessageComponent extends Container implements ReactionTarget {
 				}),
 			);
 		}
-		if (this.#reaction !== undefined) badges.push(node("badge", { text: this.#reaction, role: "omp.reaction" }));
+		if (this.#reaction !== undefined) badges.push(node("badge", { text: this.#reaction, role: "oms.reaction" }));
 		if (badges.length > 0)
-			children.push(node("row", { gap: "xs", justify: "end", role: "omp.user.badges" }, badges, "badges"));
+			children.push(node("row", { gap: "xs", justify: "end", role: "oms.user.badges" }, badges, "badges"));
 		this.#native = card(
-			{ role: this.#synthetic ? "omp.user.synthetic" : "omp.user", tone: this.#synthetic ? "muted" : "user" },
+			{ role: this.#synthetic ? "oms.user.synthetic" : "oms.user", tone: this.#synthetic ? "muted" : "user" },
 			children,
 		);
 		return this.#native;
 	}
 
-	/** Hover toolbar clicks: omp's own copy and rewind commands. */
+	/** Hover toolbar clicks: oms's own copy and rewind commands. */
 	handleNativeEvent(event: NativeUiEvent): void {
 		if (event.type !== "action") return;
 		if (event.act === "copy-message") runTranscriptAction({ act: "copy", text: this.#text });
@@ -410,7 +410,7 @@ export class CollapsedSyntheticMessageComponent implements Component {
 		return this.#native.get([this.#expanded], () =>
 			card(
 				{
-					role: "omp.user.synthetic",
+					role: "oms.user.synthetic",
 					tone: "muted",
 					head: [span(summarizeSyntheticInput(this.#text), "dim")],
 					collapsible: true,

@@ -2,8 +2,8 @@
  * Headless `/btw` turn lifecycle shared by the TUI controller and RPC mode:
  * record bookkeeping for a new topic or follow-up, and the ephemeral model turn.
  */
-import type { AssistantMessage, Message } from "@oh-my-pi/pi-ai";
-import { prompt, Snowflake } from "@oh-my-pi/pi-utils";
+import type { AssistantMessage, Message } from "@oh-my-soup/pi-ai";
+import { prompt, Snowflake } from "@oh-my-soup/pi-utils";
 import btwUserPrompt from "../prompts/system/btw-user.md" with { type: "text" };
 import type { AgentSession } from "./agent-session";
 import { type BtwHistoryRecord, type BtwHistoryTurn, getBtwTurns } from "./btw-history";

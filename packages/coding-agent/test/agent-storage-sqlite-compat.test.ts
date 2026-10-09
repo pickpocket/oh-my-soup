@@ -1,8 +1,8 @@
 import { Database } from "bun:sqlite";
 import { afterEach, describe, expect, it } from "bun:test";
 import * as path from "node:path";
-import { AgentStorage, SCHEMA_VERSION } from "@oh-my-pi/pi-coding-agent/session/agent-storage";
-import { TempDir } from "@oh-my-pi/pi-utils";
+import { AgentStorage, SCHEMA_VERSION } from "@oh-my-soup/pi-coding-agent/session/agent-storage";
+import { TempDir } from "@oh-my-soup/pi-utils";
 import { readTableSql } from "./helpers/sqlite-inspect";
 
 const LEGACY_TIMESTAMP = 1_700_000_000;
@@ -46,7 +46,7 @@ describe("AgentStorage SQLite compatibility", () => {
 	});
 
 	it("creates fresh storage without unixepoch defaults", async () => {
-		tempDir = TempDir.createSync("@omp-agent-storage-fresh-");
+		tempDir = TempDir.createSync("@oms-agent-storage-fresh-");
 		const dbPath = path.join(tempDir.path(), "agent.db");
 
 		const storage = await AgentStorage.open(dbPath);
@@ -61,7 +61,7 @@ describe("AgentStorage SQLite compatibility", () => {
 	});
 
 	it("migrates legacy settings and model usage schemas away from unixepoch defaults", async () => {
-		tempDir = TempDir.createSync("@omp-agent-storage-legacy-");
+		tempDir = TempDir.createSync("@oms-agent-storage-legacy-");
 		const dbPath = path.join(tempDir.path(), "agent.db");
 		const legacyDb = new Database(dbPath);
 		legacyDb.exec(`
@@ -98,7 +98,7 @@ describe("AgentStorage SQLite compatibility", () => {
 	});
 
 	it("clears migrated settings rows", async () => {
-		tempDir = TempDir.createSync("@omp-agent-storage-clear-settings-");
+		tempDir = TempDir.createSync("@oms-agent-storage-clear-settings-");
 		const dbPath = path.join(tempDir.path(), "agent.db");
 		const seed = new Database(dbPath);
 		seed.exec(`

@@ -2,11 +2,11 @@ import { describe, expect, test } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { loadSlashCommands } from "@oh-my-pi/pi-coding-agent/extensibility/slash-commands";
+import { loadSlashCommands } from "@oh-my-soup/pi-coding-agent/extensibility/slash-commands";
 
 describe("loadSlashCommands argument-hint", () => {
 	test("parses argument-hint frontmatter into FileSlashCommand.argumentHint", async () => {
-		const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "omp-arg-hint-"));
+		const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "oms-arg-hint-"));
 		try {
 			const commandsDir = path.join(cwd, ".agent", "commands");
 			await fs.mkdir(commandsDir, { recursive: true });

@@ -3,7 +3,7 @@
  * turned into IDF weights and a file score that ranks candidates before any
  * judgment is spent.
  */
-import * as natives from "@oh-my-pi/pi-natives";
+import * as natives from "@oh-my-soup/pi-natives";
 import { countOccurrences } from "./text";
 
 export interface GrepIndex {

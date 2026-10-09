@@ -1,10 +1,10 @@
 import { afterEach, describe, expect, it } from "bun:test";
-import type { Agent, AgentMessage } from "@oh-my-pi/pi-agent-core";
-import type { Message } from "@oh-my-pi/pi-ai";
-import { AgentRegistry } from "@oh-my-pi/pi-coding-agent/registry/agent-registry";
-import { buildAsyncResultBatchMessage } from "@oh-my-pi/pi-coding-agent/session/async-job-delivery";
-import { IrcBridge, type IrcBridgeHost } from "@oh-my-pi/pi-coding-agent/session/irc-bridge";
-import { convertToLlm, wrapSteeringForModel } from "@oh-my-pi/pi-coding-agent/session/messages";
+import type { Agent, AgentMessage } from "@oh-my-soup/pi-agent-core";
+import type { Message } from "@oh-my-soup/pi-ai";
+import { AgentRegistry } from "@oh-my-soup/pi-coding-agent/registry/agent-registry";
+import { buildAsyncResultBatchMessage } from "@oh-my-soup/pi-coding-agent/session/async-job-delivery";
+import { IrcBridge, type IrcBridgeHost } from "@oh-my-soup/pi-coding-agent/session/irc-bridge";
+import { convertToLlm, wrapSteeringForModel } from "@oh-my-soup/pi-coding-agent/session/messages";
 
 // Markup an agent writes that is not a harness tag; it must reach the model as written.
 const CODE = "keep `Array<string>`, `a && b` and <placeholder> as written";

@@ -2,10 +2,10 @@ import { afterEach, describe, expect, it } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { clearCustomApis } from "@oh-my-pi/pi-ai/api-registry";
-import { createAuthGatewayRouter, serveAuthGatewayStdio } from "@oh-my-pi/pi-ai/auth-gateway";
-import { AuthStorage } from "@oh-my-pi/pi-ai/auth-storage";
-import { createMockModel, registerMockApi } from "@oh-my-pi/pi-ai/providers/mock";
+import { clearCustomApis } from "@oh-my-soup/pi-ai/api-registry";
+import { createAuthGatewayRouter, serveAuthGatewayStdio } from "@oh-my-soup/pi-ai/auth-gateway";
+import { AuthStorage } from "@oh-my-soup/pi-ai/auth-storage";
+import { createMockModel, registerMockApi } from "@oh-my-soup/pi-ai/providers/mock";
 
 /** Serves `lines` through `route`; the parsed output lines. */
 async function serve(lines: string[], route: (req: Request) => Promise<Response>): Promise<unknown[]> {

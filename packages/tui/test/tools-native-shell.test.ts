@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it } from "bun:test";
-import type { TspKind } from "@oh-my-pi/pi-wire";
+import type { TspKind } from "@oh-my-soup/pi-wire";
 import { BashExecutionComponent } from "../src/chat/bash-execution";
 import type { DescribeContext, NativeChild, NativeNode } from "../src/native/node";
 import { bashToolRenderer, formatExitCodeNotice, formatWallTimeNotice } from "../src/tools/bash";

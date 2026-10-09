@@ -1,24 +1,24 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, spyOn, vi } from "bun:test";
 import { stripVTControlCharacters } from "node:util";
-import { type } from "@oh-my-pi/omptype";
-import type { AgentToolContext } from "@oh-my-pi/pi-agent-core";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
+import { type } from "@oh-my-soup/omstype";
+import type { AgentToolContext } from "@oh-my-soup/pi-agent-core";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
 import type {
 	ExtensionAskDialogQuestion,
 	ExtensionAskDialogResult,
 	ExtensionUISelectItem,
-} from "@oh-my-pi/pi-coding-agent/extensibility/extensions";
-import { getThemeByName, initTheme, theme, type Theme } from "@oh-my-pi/pi-tui/theme";
-import type { ToolSession } from "@oh-my-pi/pi-coding-agent/tools";
-import { AskTool } from "@oh-my-pi/pi-coding-agent/tools/ask";
-import { askToolRenderer } from "@oh-my-pi/pi-tui/tools/ask";
-import { ToolAbortError } from "@oh-my-pi/pi-coding-agent/tools/tool-errors";
-import { TERMINAL } from "@oh-my-pi/pi-tui";
-import { tagImageAttachmentSource } from "@oh-my-pi/pi-tui/prompt/image-source";
-import * as ai from "@oh-my-pi/pi-ai";
-import type { Api, AssistantMessage, Model } from "@oh-my-pi/pi-ai";
-import { TempDir } from "@oh-my-pi/pi-utils";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
+} from "@oh-my-soup/pi-coding-agent/extensibility/extensions";
+import { getThemeByName, initTheme, theme, type Theme } from "@oh-my-soup/pi-tui/theme";
+import type { ToolSession } from "@oh-my-soup/pi-coding-agent/tools";
+import { AskTool } from "@oh-my-soup/pi-coding-agent/tools/ask";
+import { askToolRenderer } from "@oh-my-soup/pi-tui/tools/ask";
+import { ToolAbortError } from "@oh-my-soup/pi-coding-agent/tools/tool-errors";
+import { TERMINAL } from "@oh-my-soup/pi-tui";
+import { tagImageAttachmentSource } from "@oh-my-soup/pi-tui/prompt/image-source";
+import * as ai from "@oh-my-soup/pi-ai";
+import type { Api, AssistantMessage, Model } from "@oh-my-soup/pi-ai";
+import { TempDir } from "@oh-my-soup/pi-utils";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
 
 // 1x1 transparent PNG.
 const TINY_PNG_BASE64 =
@@ -428,7 +428,7 @@ describe("AskTool option descriptions", () => {
 		const select = vi.fn(async (_prompt: string, options: ExtensionUISelectItem[]) => {
 			expect(options[0]).toEqual({
 				label: "Use local credentials",
-				description: "Authenticate with provider keys already configured under ~/.omp.",
+				description: "Authenticate with provider keys already configured under ~/.oms.",
 			});
 			expect(options[1]).toEqual({
 				label: "Set up in terminal",
@@ -449,7 +449,7 @@ describe("AskTool option descriptions", () => {
 						options: [
 							{
 								label: "Use local credentials",
-								description: "Authenticate with provider keys already configured under ~/.omp.",
+								description: "Authenticate with provider keys already configured under ~/.oms.",
 							},
 							{
 								label: "Set up in terminal",
@@ -482,7 +482,7 @@ describe("AskTool option descriptions", () => {
 				options: [
 					{
 						label: "Use local credentials",
-						description: "Authenticate with provider keys already configured under ~/.omp.",
+						description: "Authenticate with provider keys already configured under ~/.oms.",
 					},
 					{
 						label: "Set up in terminal",
@@ -1627,7 +1627,7 @@ describe("AskTool rich ask dialog", () => {
 		let describeCalls: unknown[][];
 
 		beforeEach(async () => {
-			tempDir = await TempDir.create("@omp-ask-describe-");
+			tempDir = await TempDir.create("@oms-ask-describe-");
 			describeCalls = [];
 			vi.spyOn(ai, "completeSimple").mockImplementation(completeImpl);
 		});

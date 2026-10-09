@@ -1,5 +1,5 @@
 import { describe, expect, it, mock } from "bun:test";
-import { type } from "@oh-my-pi/omptype";
+import { type } from "@oh-my-soup/omstype";
 import { type FactoryDroidGeminiOptions, streamFactoryDroidGemini } from "../src/providers/factory-droid/gemini";
 import { SKIP_THOUGHT_SIGNATURE } from "../src/providers/google-shared";
 import { withCredentialRedaction } from "../src/providers/transform-messages";

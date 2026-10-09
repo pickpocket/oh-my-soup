@@ -56,7 +56,7 @@ export const cfgPlanAutosaveDir = register({
 		group: "Modes",
 		label: "Autosave Directory",
 		description:
-			"Directory for autosaved plans. Supports ~, absolute, and cwd-relative paths. Empty uses <project>/.omp/plans/.",
+			"Directory for autosaved plans. Supports ~, absolute, and cwd-relative paths. Empty uses <project>/.oms/plans/.",
 		condition: "planAutosaveEnabled",
 	},
 });

@@ -4,8 +4,8 @@ import {
 	aggregateMetrics,
 	hubFallbackStatsSession,
 	hubRowMetrics,
-} from "@oh-my-pi/pi-tui/overlays/agent-hub-projection";
-import type { AgentRecordLike } from "@oh-my-pi/pi-tui/overlays/agent-hub-types";
+} from "@oh-my-soup/pi-tui/overlays/agent-hub-projection";
+import type { AgentRecordLike } from "@oh-my-soup/pi-tui/overlays/agent-hub-types";
 
 function assistant(output: number) {
 	return {

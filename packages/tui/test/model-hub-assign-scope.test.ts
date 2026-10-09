@@ -7,7 +7,7 @@
  * surfaced its whole catalog; picking one persisted an unresolvable selector.
  */
 import { beforeAll, describe, expect, test } from "bun:test";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
 import {
 	ModelHubComponent,
 	type ModelHubCallbacks,

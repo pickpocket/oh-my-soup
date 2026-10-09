@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { refreshDirsFromEnv } from "@oh-my-pi/pi-utils";
+import { refreshDirsFromEnv } from "@oh-my-soup/pi-utils";
 import { Settings } from "../../src/config/settings";
 import { SecurityStore } from "../../src/security";
 import { handleSecurityCommand } from "../../src/slash-commands/helpers/security";
@@ -10,7 +10,7 @@ import type { SlashCommandRuntime } from "../../src/slash-commands/types";
 import type { ToolSession } from "../../src/tools";
 import { SecurityScanTool } from "../../src/tools/security-scan";
 
-import { cfgSecurityEnabled } from "@oh-my-pi/pi-coding-agent/tools/settings";
+import { cfgSecurityEnabled } from "@oh-my-soup/pi-coding-agent/tools/settings";
 
 const SARIF_FIXTURE = path.join(import.meta.dir, "..", "fixtures", "security", "generic-results.sarif");
 let temporaryRoot = "";
@@ -20,7 +20,7 @@ let settings: Settings;
 let output: string[] = [];
 
 beforeEach(async () => {
-	temporaryRoot = await fs.mkdtemp(path.join(os.tmpdir(), "omp-security-slash-"));
+	temporaryRoot = await fs.mkdtemp(path.join(os.tmpdir(), "oms-security-slash-"));
 	repositoryRoot = path.join(temporaryRoot, "repo");
 	await fs.mkdir(repositoryRoot);
 	previousStateHome = process.env.XDG_STATE_HOME;
@@ -135,7 +135,7 @@ describe("/security", () => {
 		expect(JSON.parse(await Bun.file(path.join(repositoryRoot, "exported.sarif")).text())).toHaveProperty("version");
 	});
 
-	test("validate returns a static OMP-native residual prompt", async () => {
+	test("validate returns a static OMS-native residual prompt", async () => {
 		const result = await command("validate secscan_fixture secf_fixture");
 		expect(result).toEqual({
 			prompt: expect.stringContaining("security://scans/secscan_fixture/findings/secf_fixture"),

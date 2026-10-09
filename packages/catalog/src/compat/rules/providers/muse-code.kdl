@@ -19,7 +19,7 @@ provider "muse-code" {
 	// against api.meta.ai/v1, a stored run keeps generating after the client
 	// socket dies and `GET /responses/{id}` returns it once finished (~60s for
 	// a high-effort turn), while `store: false` runs 404 forever. Storage is
-	// opt-in (privacy: stored runs retain prompts/outputs on Meta's side): omp
+	// opt-in (privacy: stored runs retain prompts/outputs on Meta's side): oms
 	// setting providers.muse-code.storeResponses or PI_MUSE_STORE_RESPONSES=1.
 	store-responses #true
 	// Subscription tier bills per request; the compact edit prompt cuts the

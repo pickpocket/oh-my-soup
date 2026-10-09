@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "bun:test";
 import * as path from "node:path";
 import * as vm from "node:vm";
-import type { Api, AssistantMessage, Model } from "@oh-my-pi/pi-ai";
-import * as ai from "@oh-my-pi/pi-ai";
-import { TempDir } from "@oh-my-pi/pi-utils";
+import type { Api, AssistantMessage, Model } from "@oh-my-soup/pi-ai";
+import * as ai from "@oh-my-soup/pi-ai";
+import { TempDir } from "@oh-my-soup/pi-utils";
 import { $ } from "bun";
 import { AsyncJobManager } from "../../src/async";
 import { ModelRegistry } from "../../src/config/model-registry";
@@ -394,7 +394,7 @@ describe("judgeBatch() JS prelude", () => {
 			{ items: [] },
 		];
 		const sandbox: Record<string, unknown> = {
-			__omp_call_tool__: async (name: string, args: Record<string, unknown>) => {
+			__oms_call_tool__: async (name: string, args: Record<string, unknown>) => {
 				calls.push({ name, args });
 				if (name !== "__judge_batch__") throw new Error(`unexpected bridge call ${name}`);
 				if (args.op === "create") return { id: "jdgb-1", total: 2 };
@@ -518,7 +518,7 @@ process.exit(0);
 
 describe("judge_batch() Python prelude", () => {
 	it("drains across cells and re-attaches by id", async () => {
-		const tempDir = TempDir.createSync("@omp-eval-judge-batch-py-");
+		const tempDir = TempDir.createSync("@oms-eval-judge-batch-py-");
 		try {
 			const result = await runPythonJudgeBatchInSubprocess(tempDir);
 			expect(result.exitCode).toBe(0);

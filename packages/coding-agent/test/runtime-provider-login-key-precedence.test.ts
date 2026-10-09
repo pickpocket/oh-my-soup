@@ -2,11 +2,11 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { clearCustomApis, type FetchImpl } from "@oh-my-pi/pi-ai";
-import { unregisterOAuthProviders } from "@oh-my-pi/pi-ai/oauth";
-import { ModelRegistry, type ProviderConfigInput } from "@oh-my-pi/pi-coding-agent/config/model-registry";
-import { AuthStorage } from "@oh-my-pi/pi-coding-agent/session/auth-storage";
-import { removeSyncWithRetries, Snowflake } from "@oh-my-pi/pi-utils";
+import { clearCustomApis, type FetchImpl } from "@oh-my-soup/pi-ai";
+import { unregisterOAuthProviders } from "@oh-my-soup/pi-ai/oauth";
+import { ModelRegistry, type ProviderConfigInput } from "@oh-my-soup/pi-coding-agent/config/model-registry";
+import { AuthStorage } from "@oh-my-soup/pi-coding-agent/session/auth-storage";
+import { removeSyncWithRetries, Snowflake } from "@oh-my-soup/pi-utils";
 
 // Extension providers (e.g. nexos-pi-provider) register `apiKey: "<ENV_NAME>"`
 // alongside a `/login` flow. With the env var unset, the name resolves to its

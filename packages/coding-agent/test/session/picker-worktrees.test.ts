@@ -2,10 +2,10 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { SessionManager } from "@oh-my-pi/pi-coding-agent/session/session-manager";
-import { createSessionWorktree } from "@oh-my-pi/pi-coding-agent/session/session-worktree";
-import { getConfigRootDir, removeSyncWithRetries, setAgentDir } from "@oh-my-pi/pi-utils";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
+import { createSessionWorktree } from "@oh-my-soup/pi-coding-agent/session/session-worktree";
+import { getConfigRootDir, removeSyncWithRetries, setAgentDir } from "@oh-my-soup/pi-utils";
 import { $ } from "bun";
 import { makeAssistantMessage } from "../session-manager/helpers";
 
@@ -17,7 +17,7 @@ const TEST_ENV_KEYS = [
 	"GIT_AUTHOR_EMAIL",
 	"GIT_COMMITTER_NAME",
 	"GIT_COMMITTER_EMAIL",
-	"OMP_WORKTREE_DIR",
+	"OMS_WORKTREE_DIR",
 ] as const;
 
 /**
@@ -33,7 +33,7 @@ describe.skipIf(process.platform === "win32")("resume picker across git worktree
 	let repo: string;
 
 	beforeEach(async () => {
-		root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "omp-picker-wt-")));
+		root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "oms-picker-wt-")));
 		Object.assign(process.env, {
 			GIT_CONFIG_GLOBAL: "/dev/null",
 			GIT_CONFIG_NOSYSTEM: "1",
@@ -41,7 +41,7 @@ describe.skipIf(process.platform === "win32")("resume picker across git worktree
 			GIT_AUTHOR_EMAIL: "test@example.com",
 			GIT_COMMITTER_NAME: "Test",
 			GIT_COMMITTER_EMAIL: "test@example.com",
-			OMP_WORKTREE_DIR: path.join(root, "wt-base"),
+			OMS_WORKTREE_DIR: path.join(root, "wt-base"),
 		});
 		setAgentDir(path.join(root, "agent"));
 		repo = path.join(root, "repo");
@@ -100,7 +100,7 @@ describe.skipIf(process.platform === "win32")("resume picker across git worktree
 
 	it("keeps a removed worktree's session listed and relocates it into the checkout on resume", async () => {
 		const moved = await sessionMovedByWt("wt/gone");
-		// `omp worktree clear` removes and prunes: git no longer knows the worktree.
+		// `oms worktree clear` removes and prunes: git no longer knows the worktree.
 		await $`git worktree remove --force ${moved.worktree} && git worktree prune`.cwd(repo).quiet();
 
 		const listed = (await SessionManager.listForPicker(repo)).find(s => s.id === moved.id);

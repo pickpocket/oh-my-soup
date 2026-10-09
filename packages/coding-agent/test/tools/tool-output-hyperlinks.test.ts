@@ -3,19 +3,19 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import * as url from "node:url";
-import { resetSettingsForTest, Settings, settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { editToolRenderer } from "@oh-my-pi/pi-tui/tools/edit";
-import { getThemeByName, initTheme } from "@oh-my-pi/pi-tui/theme";
-import type { ToolSession } from "@oh-my-pi/pi-coding-agent/tools";
-import { astGrepToolRenderer } from "@oh-my-pi/pi-tui/tools/ast-grep";
-import { ReadTool } from "@oh-my-pi/pi-coding-agent/tools/read";
-import { readToolRenderer } from "@oh-my-pi/pi-tui/tools/read";
-import { WriteTool } from "@oh-my-pi/pi-coding-agent/tools/write";
-import { writeToolRenderer } from "@oh-my-pi/pi-tui/tools/write";
-import { removeSyncWithRetries } from "@oh-my-pi/pi-utils";
-import { grepToolRenderer } from "@oh-my-pi/pi-tui/tools/grep";
+import { resetSettingsForTest, Settings, settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { editToolRenderer } from "@oh-my-soup/pi-tui/tools/edit";
+import { getThemeByName, initTheme } from "@oh-my-soup/pi-tui/theme";
+import type { ToolSession } from "@oh-my-soup/pi-coding-agent/tools";
+import { astGrepToolRenderer } from "@oh-my-soup/pi-tui/tools/ast-grep";
+import { ReadTool } from "@oh-my-soup/pi-coding-agent/tools/read";
+import { readToolRenderer } from "@oh-my-soup/pi-tui/tools/read";
+import { WriteTool } from "@oh-my-soup/pi-coding-agent/tools/write";
+import { writeToolRenderer } from "@oh-my-soup/pi-tui/tools/write";
+import { removeSyncWithRetries } from "@oh-my-soup/pi-utils";
+import { grepToolRenderer } from "@oh-my-soup/pi-tui/tools/grep";
 
-import { cfgTuiHyperlinks } from "@oh-my-pi/pi-coding-agent/modes/settings";
+import { cfgTuiHyperlinks } from "@oh-my-soup/pi-coding-agent/modes/settings";
 
 // 1x1 PNG so the read tool takes its image branch.
 const TINY_PNG_BASE64 =
@@ -53,7 +53,7 @@ describe("tool output OSC 8 file:// hyperlinks", () => {
 	it("links plain text and image read titles to the resolved filesystem path", async () => {
 		cfgTuiHyperlinks.override(settings, "always");
 		const theme = (await getThemeByName("dark"))!;
-		const dir = fs.mkdtempSync(path.join(os.tmpdir(), "omp-link-read-"));
+		const dir = fs.mkdtempSync(path.join(os.tmpdir(), "oms-link-read-"));
 		try {
 			const textPath = path.join(dir, "task.txt");
 			fs.writeFileSync(textPath, "hello\nworld\n");
@@ -93,7 +93,7 @@ describe("tool output OSC 8 file:// hyperlinks", () => {
 	it("links the write header to the absolute path it wrote", async () => {
 		cfgTuiHyperlinks.override(settings, "always");
 		const theme = (await getThemeByName("dark"))!;
-		const dir = fs.mkdtempSync(path.join(os.tmpdir(), "omp-link-write-"));
+		const dir = fs.mkdtempSync(path.join(os.tmpdir(), "oms-link-write-"));
 		try {
 			const filePath = path.join(dir, "out.ts");
 			const tool = new WriteTool(createTestToolSession(dir));
@@ -119,7 +119,7 @@ describe("tool output OSC 8 file:// hyperlinks", () => {
 		// Scoped search: scope dir (`searchPath`) is below cwd, and the grouped
 		// display paths are cwd-relative. Resolving against searchPath would double
 		// the `src` prefix (`/proj/src/src/...`).
-		const projectRoot = path.resolve("/tmp/omp-project");
+		const projectRoot = path.resolve("/tmp/oms-project");
 		const srcRoot = path.join(projectRoot, "src");
 		const interactiveModePath = path.join(srcRoot, "interactive-mode.ts");
 		const result = {
@@ -146,7 +146,7 @@ describe("tool output OSC 8 file:// hyperlinks", () => {
 	it("resolves scoped ast-grep links against cwd, not the (sub)scope path", async () => {
 		cfgTuiHyperlinks.override(settings, "always");
 		const theme = (await getThemeByName("dark"))!;
-		const projectRoot = path.resolve("/tmp/omp-project");
+		const projectRoot = path.resolve("/tmp/oms-project");
 		const srcRoot = path.join(projectRoot, "src");
 		const interactiveModePath = path.join(srcRoot, "interactive-mode.ts");
 		const result = {
@@ -175,7 +175,7 @@ describe("tool output OSC 8 file:// hyperlinks", () => {
 	it("links the edit header to the absolute details.path even when the arg path is relative", async () => {
 		cfgTuiHyperlinks.override(settings, "always");
 		const theme = (await getThemeByName("dark"))!;
-		const editPath = path.resolve("/tmp/omp-project/src/a.ts");
+		const editPath = path.resolve("/tmp/oms-project/src/a.ts");
 		const rendered = editToolRenderer
 			.renderResult(
 				{

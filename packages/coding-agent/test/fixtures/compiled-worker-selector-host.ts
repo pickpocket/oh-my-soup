@@ -1,5 +1,5 @@
 import { parentPort } from "node:worker_threads";
-import { installWorkerInbox, WORKER_HOST_SELECTOR_PREFIX } from "@oh-my-pi/pi-utils/worker-host";
+import { installWorkerInbox, WORKER_HOST_SELECTOR_PREFIX } from "@oh-my-soup/pi-utils/worker-host";
 import { COMPUTER_WORKER_ARG } from "../../src/tools/computer/protocol";
 
 const STATS_WORKER_ARG = `${WORKER_HOST_SELECTOR_PREFIX}stats_sync`;

@@ -1,4 +1,4 @@
-import type { UsageLimit, UsageReport, UsageResetCredits } from "@oh-my-pi/pi-ai";
+import type { UsageLimit, UsageReport, UsageResetCredits } from "@oh-my-soup/pi-ai";
 
 /** Include the usage tier in a limit title unless its label already names it. */
 export function formatLimitTitle(limit: UsageLimit): string {

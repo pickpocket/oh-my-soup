@@ -1,6 +1,6 @@
 # security_scan
 
-> Plan and run OMP-native security reviews, validate stored findings, and explicitly interact with Codex Security cloud scans.
+> Plan and run OMS-native security reviews, validate stored findings, and explicitly interact with Codex Security cloud scans.
 
 ## Availability and prerequisites
 
@@ -53,7 +53,7 @@ Unused optional fields are ignored by actions that do not read them.
 
 ## Outputs and execution model
 
-Every action returns one text content block plus structured `details` containing `action` and the action-specific object described below. The tool itself does not stream partial arguments or progress updates. `start` returns an operation immediately; an OMP job reports progress when a job manager is available, otherwise the coordinator runs its local background promise. Use `status` for durable operation state.
+Every action returns one text content block plus structured `details` containing `action` and the action-specific object described below. The tool itself does not stream partial arguments or progress updates. `start` returns an operation immediately; an OMS job reports progress when a job manager is available, otherwise the coordinator runs its local background promise. Use `status` for durable operation state.
 
 ## Action reference
 
@@ -80,7 +80,7 @@ The plan pins:
 
 For `repository`, `scoped_path`, and `working_tree`, the target digest covers in-scope tracked and untracked file paths and contents, executable bits, symlink targets, and the current HEAD (or `unborn`). `ref_diff` instead fingerprints the resolved base/head commits and their raw tree diff. Scope paths must be repository-relative, must exist and resolve inside the repository, and are normalized, deduplicated, and sorted.
 
-If `output_root` is omitted, preflight allocates a private unique directory under the project's OMP security state. A caller-supplied output directory is created during preflight if absent; its parent must already have a canonical identity. Nonempty directories require `archive_existing=true`.
+If `output_root` is omitted, preflight allocates a private unique directory under the project's OMS security state. A caller-supplied output directory is created during preflight if absent; its parent must already have a canonical identity. Nonempty directories require `archive_existing=true`.
 
 ### `start`
 
@@ -155,7 +155,7 @@ Requires `cloud_configuration_id`. It reports the current step and finished/pend
 
 ### `cloud_pull`
 
-Requires `cloud_configuration_id`. It fetches the configuration, status, and all attributed finding details, converts them to OMP's canonical schema, generates a report and SARIF, and persists a completed imported scan.
+Requires `cloud_configuration_id`. It fetches the configuration, status, and all attributed finding details, converts them to OMS's canonical schema, generates a report and SARIF, and persists a completed imported scan.
 
 Import fails closed unless the current project has an `origin` remote whose normalized repository identity matches the cloud configuration URL. Cloud coverage is recorded as `unknown` because the findings API does not expose coverage receipts. `details.importedScan` contains the new scan ID and finding count.
 
@@ -169,7 +169,7 @@ Import fails closed unless the current project has an `origin` remote whose norm
 
 Publication checks cited finding and evidence locations against real files and line counts in the reviewed tree (the pinned head worktree for `ref_diff`). Findings with missing/unreadable paths or out-of-range lines are withheld and reported in `details.droppedFindings`. Grounded paths must be repository-relative and in scope. Repeated findings with the same canonical fingerprint are deduplicated. A second successful publication call fails. If the scan session ends without publication, the scan is persisted as `partial`; a successful publication remains `completed` even if later metrics/output refresh fails.
 
-Canonical state is private and project-keyed under OMP's security state root. A completed native output directory contains:
+Canonical state is private and project-keyed under OMS's security state root. A completed native output directory contains:
 
 - `scan.json` — public scan manifest, written last as the commit marker;
 - `findings.json`;
@@ -218,7 +218,7 @@ Plan an exact revision diff with an external output directory:
   "target_kind": "ref_diff",
   "base_revision": "origin/main",
   "head_revision": "HEAD",
-  "output_root": "/tmp/omp-security-review"
+  "output_root": "/tmp/oms-security-review"
 }
 ```
 

@@ -1,5 +1,5 @@
 import type { MouseRoutable, SgrMouseEvent } from "../../mouse";
-import type { TspProps } from "@oh-my-pi/pi-wire";
+import type { TspProps } from "@oh-my-soup/pi-wire";
 import { col, node, row } from "../../native/describe";
 import type { DescribeContext, NativeNode } from "../../native/node";
 import type { Component } from "../../tui";

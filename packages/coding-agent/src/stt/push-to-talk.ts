@@ -1,6 +1,6 @@
-import type { Component, TUI } from "@oh-my-pi/pi-tui";
-import { theme } from "@oh-my-pi/pi-tui/theme";
-import { hsvToRgb, type RGB } from "@oh-my-pi/pi-utils";
+import type { Component, TUI } from "@oh-my-soup/pi-tui";
+import { theme } from "@oh-my-soup/pi-tui/theme";
+import { hsvToRgb, type RGB } from "@oh-my-soup/pi-utils";
 import type { SttTarget } from "./stt-controller";
 
 /** The cursor surface of a text input that push-to-talk paints its mic glyph onto. */

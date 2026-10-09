@@ -1,8 +1,8 @@
 import { describe, expect, it } from "bun:test";
 import * as path from "node:path";
-import { sumSubagentTreeCost } from "@oh-my-pi/pi-coding-agent/modes/agent-hub-runtime";
-import type { AgentMetricsSummary, AgentRef } from "@oh-my-pi/pi-coding-agent/registry/agent-registry";
-import { SessionObserverRegistry } from "@oh-my-pi/pi-tui/overlays/session-observer-registry";
+import { sumSubagentTreeCost } from "@oh-my-soup/pi-coding-agent/modes/agent-hub-runtime";
+import type { AgentMetricsSummary, AgentRef } from "@oh-my-soup/pi-coding-agent/registry/agent-registry";
+import { SessionObserverRegistry } from "@oh-my-soup/pi-tui/overlays/session-observer-registry";
 
 const root = path.resolve("sessions", "root.jsonl");
 const artifacts = path.resolve("sessions", "root");

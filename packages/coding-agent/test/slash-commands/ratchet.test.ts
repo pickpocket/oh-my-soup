@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "bun:test";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { executeAcpBuiltinSlashCommand } from "@oh-my-pi/pi-coding-agent/slash-commands/acp-builtins";
-import { cfgRatchetEnabled } from "@oh-my-pi/pi-coding-agent/tools/settings";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { executeAcpBuiltinSlashCommand } from "@oh-my-soup/pi-coding-agent/slash-commands/acp-builtins";
+import { cfgRatchetEnabled } from "@oh-my-soup/pi-coding-agent/tools/settings";
 
 function acpRuntime(options: { tools?: string[]; available?: boolean } = {}) {
 	const settings = Settings.isolated({ "ratchet.enabled": false });

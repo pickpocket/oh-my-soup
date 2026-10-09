@@ -1,10 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "bun:test";
-import * as BedrockProvider from "@oh-my-pi/pi-ai/providers/amazon-bedrock";
-import { setBedrockProviderModule, streamBedrock } from "@oh-my-pi/pi-ai/providers/register-builtins";
-import type { AssistantMessage, Context, Model } from "@oh-my-pi/pi-ai/types";
-import { AssistantMessageEventStream } from "@oh-my-pi/pi-ai/utils/event-stream";
-import { iterateWithIdleTimeout } from "@oh-my-pi/pi-ai/utils/idle-iterator";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
+import * as BedrockProvider from "@oh-my-soup/pi-ai/providers/amazon-bedrock";
+import { setBedrockProviderModule, streamBedrock } from "@oh-my-soup/pi-ai/providers/register-builtins";
+import type { AssistantMessage, Context, Model } from "@oh-my-soup/pi-ai/types";
+import { AssistantMessageEventStream } from "@oh-my-soup/pi-ai/utils/event-stream";
+import { iterateWithIdleTimeout } from "@oh-my-soup/pi-ai/utils/idle-iterator";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
 
 // Issue #4593: the generic lazy stream watchdog treats "no AssistantMessageEvent"
 // as "provider stalled". During a Cursor exec-channel round-trip the server is

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { shouldSkipHistory } from "@oh-my-pi/pi-coding-agent/modes/controllers/input-controller";
+import { shouldSkipHistory } from "@oh-my-soup/pi-coding-agent/modes/controllers/input-controller";
 
 describe("shouldSkipHistory — security filter for slash command history", () => {
 	it("skips /login with a redirect URL argument (contains OAuth code/state)", () => {
@@ -26,8 +26,8 @@ describe("shouldSkipHistory — security filter for slash command history", () =
 	});
 
 	it("skips /join with a link argument (carries 32-byte room key and write token)", () => {
-		expect(shouldSkipHistory("/join omp://share/abc123def456...")).toBe(true);
-		expect(shouldSkipHistory("/join omp:abc123def456...")).toBe(true);
+		expect(shouldSkipHistory("/join oms://share/abc123def456...")).toBe(true);
+		expect(shouldSkipHistory("/join oms:abc123def456...")).toBe(true);
 	});
 
 	it("does not skip /join without arguments", () => {

@@ -1,7 +1,7 @@
 /**
  * Pointer actions on transcript blocks in a native terminal (a user message's
  * hover toolbar, an error frame's action row). Blocks describe the controls;
- * the interactive host registers the one handler that runs omp's existing
+ * the interactive host registers the one handler that runs oms's existing
  * commands for them, so a click and the key binding take the same path.
  */
 export type TranscriptAction =

@@ -2,14 +2,14 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } fr
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { AgentTool } from "@oh-my-pi/pi-agent-core";
-import { resetSettingsForTest, Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { ToolExecutionComponent } from "@oh-my-pi/pi-tui/chat/tool-execution";
-import { theme as activeTheme, initTheme } from "@oh-my-pi/pi-tui/theme";
-import { previewWindowRows } from "@oh-my-pi/pi-tui/render/render-utils";
-import { editDiffString } from "@oh-my-pi/pi-natives";
-import { TUI, visibleWidth } from "@oh-my-pi/pi-tui";
-import { removeWithRetries } from "@oh-my-pi/pi-utils";
+import type { AgentTool } from "@oh-my-soup/pi-agent-core";
+import { resetSettingsForTest, Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { ToolExecutionComponent } from "@oh-my-soup/pi-tui/chat/tool-execution";
+import { theme as activeTheme, initTheme } from "@oh-my-soup/pi-tui/theme";
+import { previewWindowRows } from "@oh-my-soup/pi-tui/render/render-utils";
+import { editDiffString } from "@oh-my-soup/pi-natives";
+import { TUI, visibleWidth } from "@oh-my-soup/pi-tui";
+import { removeWithRetries } from "@oh-my-soup/pi-utils";
 import { VirtualTerminal } from "../../tui/test/virtual-terminal";
 import { withoutTerminalMultiplexer } from "../../tui/test/terminal-multiplexer-environment";
 

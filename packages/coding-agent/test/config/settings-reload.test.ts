@@ -1,15 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { AgentStorage } from "@oh-my-pi/pi-coding-agent/session/agent-storage";
-import { acquireFileLock, getProjectAgentDir, logger, TempDir } from "@oh-my-pi/pi-utils";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { AgentStorage } from "@oh-my-soup/pi-coding-agent/session/agent-storage";
+import { acquireFileLock, getProjectAgentDir, logger, TempDir } from "@oh-my-soup/pi-utils";
 import { YAML } from "bun";
 import { beginSettingsTest, restoreSettingsTestState, type SettingsTestState } from "../helpers/settings-test-state";
 
-import { cfgEditModelVariants } from "@oh-my-pi/pi-coding-agent/edit/settings";
-import { cfgCompactionEnabled } from "@oh-my-pi/pi-coding-agent/session/context-settings";
-import { cfgProvidersMaxInFlightRequests, cfgTemperature } from "@oh-my-pi/pi-coding-agent/session/settings";
+import { cfgEditModelVariants } from "@oh-my-soup/pi-coding-agent/edit/settings";
+import { cfgCompactionEnabled } from "@oh-my-soup/pi-coding-agent/session/context-settings";
+import { cfgProvidersMaxInFlightRequests, cfgTemperature } from "@oh-my-soup/pi-coding-agent/session/settings";
 
 describe("Settings layer refresh", () => {
 	let state: SettingsTestState | undefined;

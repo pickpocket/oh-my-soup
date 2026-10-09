@@ -1,14 +1,14 @@
 import { Database } from "bun:sqlite";
 import * as fs from "node:fs/promises";
-import type { ServiceTier, Usage } from "@oh-my-pi/pi-ai";
+import type { ServiceTier, Usage } from "@oh-my-soup/pi-ai";
 import {
 	calculateUncachedInputCost,
 	calculateUsageCost,
 	type GeneratedProvider,
 	getBundledModel,
-} from "@oh-my-pi/pi-catalog/models";
-import type { ModelCost } from "@oh-my-pi/pi-catalog/types";
-import { getConfigRootDir, getStatsDbPath, VERSION } from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-catalog/models";
+import type { ModelCost } from "@oh-my-soup/pi-catalog/types";
+import { getConfigRootDir, getStatsDbPath, VERSION } from "@oh-my-soup/pi-utils";
 import { classifyAgentType, type ParseSessionResult, type SessionParserState } from "./parser";
 import { ensureRollupSchema, getDailyActivityFromRollup } from "./rollup";
 import type {
@@ -835,7 +835,7 @@ export function applySessionParseResults(sessions: ParsedSession[]): {
 
 /**
  * SQLite `PRAGMA data_version` of the open connection, or null before
- * {@link initDb}. It moves only when another connection (another omp process)
+ * {@link initDb}. It moves only when another connection (another oms process)
  * commits, so a caller can detect foreign writes without scanning.
  */
 export function getDataVersion(): number | null {
@@ -855,7 +855,7 @@ export function completeSessionSync(reconcile: boolean): void {
  * Insert message stats into the database.
  *
  * Forked / branched sessions (see `SessionManager.fork()` and
- * `createBranchedSession()` in `@oh-my-pi/pi-coding-agent`) deep-copy a parent
+ * `createBranchedSession()` in `@oh-my-soup/pi-coding-agent`) deep-copy a parent
  * session's entries into a new JSONL — same `entry_id`, `timestamp`, `model`,
  * `provider`, token counts, and `responseId`. The `UNIQUE(session_file,
  * entry_id)` constraint alone keys each row by file, so without the guard

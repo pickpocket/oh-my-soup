@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import * as fs from "node:fs/promises";
-import { TempDir } from "@oh-my-pi/pi-utils/temp";
+import { TempDir } from "@oh-my-soup/pi-utils/temp";
 import { base64ImageNode, getNativeBlob } from "../../../src/native/blobs";
 import type { NativeNode } from "../../../src/native/node";
 import { settleNative } from "../../../src/native/settle";
@@ -45,7 +45,7 @@ async function expectReleased(reference: WeakRef<Uint8Array>): Promise<void> {
 }
 
 await initTheme(false);
-await using root = await TempDir.create("@omp-pending-blobs-");
+await using root = await TempDir.create("@oms-pending-blobs-");
 const cache = mode.startsWith("cache-") ? root.join("blobs") : undefined;
 if (cache) await fs.mkdir(cache);
 const record = mode === "cache-held" ? root.join("record.jsonl") : undefined;

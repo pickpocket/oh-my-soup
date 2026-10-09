@@ -32,7 +32,7 @@ const flag = (opts as { enabled: boolean })["enabled"];
 At a boundary, prefer a schema parse when a validator exists: validate once, then read a fully typed value.
 
 ```ts
-import { type } from "@oh-my-pi/omptype";
+import { type } from "@oh-my-soup/omstype";
 
 const Resp = type({ data: { id: "string" } });
 

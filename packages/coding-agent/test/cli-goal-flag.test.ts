@@ -1,18 +1,18 @@
 import { describe, expect, it, vi } from "bun:test";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { parseArgs, validateGoalLaunch, validateGoalStartup } from "@oh-my-pi/pi-coding-agent/cli/args";
-import { CliUsageError } from "@oh-my-pi/pi-coding-agent/cli/usage-error";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { createSessionManager, runRootCommand } from "@oh-my-pi/pi-coding-agent/main";
-import { AuthStorage } from "@oh-my-pi/pi-coding-agent/session/auth-storage";
-import { SessionManager } from "@oh-my-pi/pi-coding-agent/session/session-manager";
-import { setInteractiveHost, TempDir } from "@oh-my-pi/pi-utils";
+import { parseArgs, validateGoalLaunch, validateGoalStartup } from "@oh-my-soup/pi-coding-agent/cli/args";
+import { CliUsageError } from "@oh-my-soup/pi-coding-agent/cli/usage-error";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { createSessionManager, runRootCommand } from "@oh-my-soup/pi-coding-agent/main";
+import { AuthStorage } from "@oh-my-soup/pi-coding-agent/session/auth-storage";
+import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
+import { setInteractiveHost, TempDir } from "@oh-my-soup/pi-utils";
 
 const cliEntry = path.resolve(import.meta.dir, "../src/cli.ts");
 
 async function launch(args: string[], cwd?: string): Promise<{ exitCode: number; stderr: string }> {
-	using dir = TempDir.createSync("@omp-goal-flag-");
+	using dir = TempDir.createSync("@oms-goal-flag-");
 	const sessionArgs = cwd === undefined ? ["--no-session"] : [];
 	const proc = Bun.spawn([process.execPath, cliEntry, ...sessionArgs, ...args], {
 		cwd: cwd ?? dir.path(),
@@ -44,7 +44,7 @@ class ProcessExitSignal extends Error {
  * store, and session construction.
  */
 async function launchInteractive(rawArgs: string[]): Promise<{ thrown: unknown; touched: string[] }> {
-	using authDir = TempDir.createSync("@omp-goal-auth-");
+	using authDir = TempDir.createSync("@oms-goal-auth-");
 	const authStorage = await AuthStorage.create(path.join(authDir.path(), "auth.db"));
 	const touched: string[] = [];
 	const parsed = parseArgs(rawArgs);
@@ -115,7 +115,7 @@ describe("--goal launch option", () => {
 	}, 30_000);
 
 	it("rejects a non-interactive fork before writing the forked session", async () => {
-		using dir = TempDir.createSync("@omp-goal-fork-print-");
+		using dir = TempDir.createSync("@oms-goal-fork-print-");
 		const source = writeSourceSession(dir.path());
 		const result = await launch(
 			["--no-extensions", "--session-dir", dir.path(), "--fork", source, "-p", "--goal", "do thing"],
@@ -127,7 +127,7 @@ describe("--goal launch option", () => {
 	}, 30_000);
 
 	it("rejects resume, fork, and import shapes before session resolution acts on them", async () => {
-		using dir = TempDir.createSync("@omp-goal-fork-tty-");
+		using dir = TempDir.createSync("@oms-goal-fork-tty-");
 		const source = writeSourceSession(dir.path());
 		for (const shape of [
 			["--fork", source],
@@ -165,7 +165,7 @@ describe("--goal launch option", () => {
 	});
 
 	it("starts a fresh goal instead of implicitly resuming a previous transcript", async () => {
-		using dir = TempDir.createSync("@omp-goal-resume-");
+		using dir = TempDir.createSync("@oms-goal-resume-");
 		const previous = SessionManager.inMemory();
 		previous.appendMessage({ role: "user", content: "Earlier conversation", timestamp: Date.now() });
 		const resume = vi.spyOn(SessionManager, "continueRecent").mockResolvedValue(previous);

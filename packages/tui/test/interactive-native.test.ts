@@ -1,17 +1,17 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from "bun:test";
-import type { TspListProps } from "@oh-my-pi/pi-wire";
-import { CountdownTimer } from "@oh-my-pi/pi-tui/chrome/countdown-timer";
-import { Editor } from "@oh-my-pi/pi-tui/components/editor";
-import { Input } from "@oh-my-pi/pi-tui/components/input";
-import { Loader, type LoaderMessageColorFn } from "@oh-my-pi/pi-tui/components/loader";
-import { type SelectItem, SelectList } from "@oh-my-pi/pi-tui/components/select-list";
-import { type SettingItem, SettingsList } from "@oh-my-pi/pi-tui/components/settings-list";
-import type { DescribeContext, NativeNode } from "@oh-my-pi/pi-tui/native/node";
-import { setNativeRendering } from "@oh-my-pi/pi-tui/native/state";
-import { CustomEditor } from "@oh-my-pi/pi-tui/prompt/custom-editor";
-import { setMagicKeywords } from "@oh-my-pi/pi-tui/prompt/magic-keywords";
-import { getEditorTheme, getSelectListTheme, getSettingsListTheme, initTheme } from "@oh-my-pi/pi-tui/theme";
-import type { TUI } from "@oh-my-pi/pi-tui";
+import type { TspListProps } from "@oh-my-soup/pi-wire";
+import { CountdownTimer } from "@oh-my-soup/pi-tui/chrome/countdown-timer";
+import { Editor } from "@oh-my-soup/pi-tui/components/editor";
+import { Input } from "@oh-my-soup/pi-tui/components/input";
+import { Loader, type LoaderMessageColorFn } from "@oh-my-soup/pi-tui/components/loader";
+import { type SelectItem, SelectList } from "@oh-my-soup/pi-tui/components/select-list";
+import { type SettingItem, SettingsList } from "@oh-my-soup/pi-tui/components/settings-list";
+import type { DescribeContext, NativeNode } from "@oh-my-soup/pi-tui/native/node";
+import { setNativeRendering } from "@oh-my-soup/pi-tui/native/state";
+import { CustomEditor } from "@oh-my-soup/pi-tui/prompt/custom-editor";
+import { setMagicKeywords } from "@oh-my-soup/pi-tui/prompt/magic-keywords";
+import { getEditorTheme, getSelectListTheme, getSettingsListTheme, initTheme } from "@oh-my-soup/pi-tui/theme";
+import type { TUI } from "@oh-my-soup/pi-tui";
 
 const cx: DescribeContext = { cols: 80, reduceMotion: false, dark: true, supports: () => true, feature: () => true };
 
@@ -190,7 +190,7 @@ describe("native interactive primitives", () => {
 		editor.setText(text);
 		expect(editorNode(editor).p).toMatchObject({ cursor: text.length });
 		// Tern moves the caret between the rows it drew; an Up it hands over comes
-		// from its first row, which is on the first line whatever width omp assumes.
+		// from its first row, which is on the first line whatever width oms assumes.
 		editor.handleInput("\x1b[A");
 		expect(editorNode(editor).p).toMatchObject({ cursor: 0 });
 		editor.handleInput("\x1b[B");

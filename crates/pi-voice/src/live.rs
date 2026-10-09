@@ -176,7 +176,7 @@ impl LivePeerCore {
 		let track = Arc::new(TrackLocalStaticSample::new(
 			capability,
 			"audio".to_owned(),
-			"omp-live".to_owned(),
+			"oms-live".to_owned(),
 		));
 		let sender = match peer
 			.add_track(Arc::clone(&track) as Arc<dyn TrackLocal + Send + Sync>)

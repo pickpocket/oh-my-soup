@@ -2,11 +2,11 @@ import { afterEach, describe, expect, test, vi } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { Effort } from "@oh-my-pi/pi-catalog/effort";
-import { resolveProviderModels } from "@oh-my-pi/pi-catalog/model-manager";
-import { getBundledModels } from "@oh-my-pi/pi-catalog/models";
-import { helmcodeModelManagerOptions } from "@oh-my-pi/pi-catalog/provider-models/openai-compat";
-import type { FetchImpl, Model } from "@oh-my-pi/pi-catalog/types";
+import { Effort } from "@oh-my-soup/pi-catalog/effort";
+import { resolveProviderModels } from "@oh-my-soup/pi-catalog/model-manager";
+import { getBundledModels } from "@oh-my-soup/pi-catalog/models";
+import { helmcodeModelManagerOptions } from "@oh-my-soup/pi-catalog/provider-models/openai-compat";
+import type { FetchImpl, Model } from "@oh-my-soup/pi-catalog/types";
 
 /** helmcode.com/docs/models "Controlling reasoning"; host class ladders would send `xhigh`. */
 const DEEPSEEK_LADDER = [Effort.Minimal, Effort.Low, Effort.Medium, Effort.High, Effort.Max];

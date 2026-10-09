@@ -1,5 +1,5 @@
 /**
- * Descriptors omp holds for its own lifetime — session/advisor transcripts and
+ * Descriptors oms holds for its own lifetime — session/advisor transcripts and
  * the rotating log — must not reach the commands the bash tool runs.
  *
  * The bash tool executes through the natives brush shell, which `fork`/`exec`s
@@ -10,7 +10,7 @@
  * launched from for its whole life.
  *
  * Oracle: list the child's descriptor table. `sh -c` is required — a bare `ls`
- * resolves to an in-process builtin, whose `$$` is omp itself. A deliberately
+ * resolves to an in-process builtin, whose `$$` is oms itself. A deliberately
  * inheritable control descriptor (the exact `fs.openSync(path, "a")` the
  * pre-fix writer used) runs in the same child so the assertions cannot pass
  * vacuously. /proc makes this Linux-only; the helper's flag handling is
@@ -21,9 +21,9 @@ import * as fs from "node:fs";
 import * as fsp from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { Shell } from "@oh-my-pi/pi-natives";
-import { RotatingFileSink } from "@oh-my-pi/pi-utils/logger/rotating-file";
-import { removeWithRetries } from "@oh-my-pi/pi-utils";
+import { Shell } from "@oh-my-soup/pi-natives";
+import { RotatingFileSink } from "@oh-my-soup/pi-utils/logger/rotating-file";
+import { removeWithRetries } from "@oh-my-soup/pi-utils";
 import { FileSessionStorage } from "../src/session/session-storage";
 
 const ROOTS: string[] = [];
@@ -33,7 +33,7 @@ afterAll(async () => {
 });
 
 test.skipIf(process.platform !== "linux")("bash tool children never inherit session or log descriptors", async () => {
-	const root = await fsp.mkdtemp(path.join(os.tmpdir(), "omp-session-fd-"));
+	const root = await fsp.mkdtemp(path.join(os.tmpdir(), "oms-session-fd-"));
 	ROOTS.push(root);
 
 	const storage = new FileSessionStorage();
@@ -45,7 +45,7 @@ test.skipIf(process.platform !== "linux")("bash tool children never inherit sess
 	await fsp.mkdir(logsDir, { recursive: true });
 	const logSink = new RotatingFileSink({
 		directory: logsDir,
-		filenamePrefix: "omp",
+		filenamePrefix: "oms",
 		filenameSuffix: String(process.pid),
 		maxBytes: 1 << 20,
 		maxFiles: 2,
@@ -69,5 +69,5 @@ test.skipIf(process.platform !== "linux")("bash tool children never inherit sess
 	const inherited = output.split("\n").filter(line => line.includes(root));
 	expect(inherited.join("\n"), "control: an inheritable descriptor must reach the child").toContain(control);
 	expect(inherited.join("\n")).not.toContain(transcript);
-	expect(inherited.join("\n")).not.toMatch(/omp\.[\d-]+\.\d+\.log/);
+	expect(inherited.join("\n")).not.toMatch(/oms\.[\d-]+\.\d+\.log/);
 });

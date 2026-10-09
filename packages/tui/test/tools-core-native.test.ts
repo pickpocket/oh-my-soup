@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import type { TspSpan } from "@oh-my-pi/pi-wire";
+import type { TspSpan } from "@oh-my-soup/pi-wire";
 import type { NativeChild, NativeNode } from "../src/native/node";
 import { bashToolRenderer } from "../src/tools/bash";
 import { editToolRenderer } from "../src/tools/edit";

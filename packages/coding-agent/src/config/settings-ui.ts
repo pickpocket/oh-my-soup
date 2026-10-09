@@ -1,6 +1,6 @@
-import { TERMINAL } from "@oh-my-pi/pi-tui";
-import { isNativeRendering } from "@oh-my-pi/pi-tui/native/state";
-import { SETTING_TABS, type SettingsDisplayEntry, type SettingsHost } from "@oh-my-pi/pi-tui/overlays/settings-defs";
+import { TERMINAL } from "@oh-my-soup/pi-tui";
+import { isNativeRendering } from "@oh-my-soup/pi-tui/native/state";
+import { SETTING_TABS, type SettingsDisplayEntry, type SettingsHost } from "@oh-my-soup/pi-tui/overlays/settings-defs";
 import { isSettingsInitialized, Settings, settings } from "./settings";
 import { orderedSettings } from "./all-settings";
 import { type AnySetting, lookup } from "./registry";

@@ -1,5 +1,5 @@
 /**
- * `omp predict`: type a prompt and watch every word-completion engine's ghost
+ * `oms predict`: type a prompt and watch every word-completion engine's ghost
  * text side by side.
  *
  * Each lane runs the composer's own {@link WordCompletionProvider} (prose
@@ -17,19 +17,19 @@ import {
 	replaceTabs,
 	truncateToWidth,
 	TUI,
-} from "@oh-my-pi/pi-tui";
-import { formatKeyHint } from "@oh-my-pi/pi-tui/app-keybindings";
-import { col, compact, keyed, node, row, span, text } from "@oh-my-pi/pi-tui/native/describe";
-import { Memo } from "@oh-my-pi/pi-tui/native/memo";
-import type { NativeNode, NativeUiEvent } from "@oh-my-pi/pi-tui/native/node";
-import { actionBar, actionButton } from "@oh-my-pi/pi-tui/native/overlay";
+} from "@oh-my-soup/pi-tui";
+import { formatKeyHint } from "@oh-my-soup/pi-tui/app-keybindings";
+import { col, compact, keyed, node, row, span, text } from "@oh-my-soup/pi-tui/native/describe";
+import { Memo } from "@oh-my-soup/pi-tui/native/memo";
+import type { NativeNode, NativeUiEvent } from "@oh-my-soup/pi-tui/native/node";
+import { actionBar, actionButton } from "@oh-my-soup/pi-tui/native/overlay";
 import {
 	type WordCompletionEngine,
 	WordCompletionProvider,
 	type WordPredictionBackend,
-} from "@oh-my-pi/pi-tui/prompt/word-completion";
-import chalk from "@oh-my-pi/pi-utils/chalk";
-import type { TspSpan } from "@oh-my-pi/pi-wire";
+} from "@oh-my-soup/pi-tui/prompt/word-completion";
+import chalk from "@oh-my-soup/pi-utils/chalk";
+import type { TspSpan } from "@oh-my-soup/pi-wire";
 import { closeDaemonClients } from "../launch/client";
 import type { TextPredictMethod } from "../predict/protocol";
 import { closeTextPrediction, requestTextPrediction } from "../predict/client";
@@ -240,7 +240,7 @@ class PredictCompareComponent implements Component, Focusable {
 							actionButton("Quit", "quit", { keys: "escape" }),
 						]),
 					],
-					{ role: "omp.app.predict", gap: "md", grow: 1 },
+					{ role: "oms.app.predict", gap: "md", grow: 1 },
 				),
 		);
 	}
@@ -252,12 +252,12 @@ class PredictCompareComponent implements Component, Focusable {
 				[
 					row(
 						[
-							text("omp predict", { role: "omp.app.title" }),
+							text("oms predict", { role: "oms.app.title" }),
 							text([span(`${this.#lanes.length} engines · comparison typing never teaches them`, "muted")], {
 								truncate: "end",
 							}),
 						],
-						{ gap: "sm", align: "center", role: "omp.app.where" },
+						{ gap: "sm", align: "center", role: "oms.app.where" },
 					),
 					row(
 						compact([
@@ -265,20 +265,20 @@ class PredictCompareComponent implements Component, Focusable {
 								row([node("spinner", { style: "dots" }), text([span("predicting", "dim")])], {
 									gap: "xs",
 									align: "center",
-									role: "omp.app.fresh",
+									role: "oms.app.fresh",
 								}),
 							node("icon", {
 								name: "x",
-								role: "omp.app.ibtn",
+								role: "oms.app.ibtn",
 								title: "Quit  esc",
 								aria: "Quit",
 								actions: { click: "quit" },
 							}),
 						]),
-						{ gap: "md", align: "center", role: "omp.app.tools" },
+						{ gap: "md", align: "center", role: "oms.app.tools" },
 					),
 				],
-				{ justify: "between", align: "center", role: "omp.app.head" },
+				{ justify: "between", align: "center", role: "oms.app.head" },
 			),
 			"head",
 		);
@@ -312,7 +312,7 @@ class PredictCompareComponent implements Component, Focusable {
 
 	render(width: number): readonly string[] {
 		const value = this.#input.getValue();
-		const header = `${chalk.bold("omp predict")} ${chalk.dim(
+		const header = `${chalk.bold("oms predict")} ${chalk.dim(
 			`· type to compare engines · ${formatKeyHint("tab")} accepts ${ENGINES[0]} · ${formatKeyHint("enter")} clears · ${formatKeyHint("escape")} quits`,
 		)}`;
 		const textWidth = Math.max(8, width - LABEL_WIDTH - STATS_WIDTH - 2);

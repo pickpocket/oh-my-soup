@@ -6,11 +6,11 @@
  * `cache_creation_input_tokens` / `cache_read_input_tokens` in the response.
  *
  * Skips unless a local gateway is reachable at the default `127.0.0.1:4000`
- * (override via `OMP_E2E_GATEWAY_URL`) AND the bearer token file exists at
- * `~/.omp/auth-gateway.token`.
+ * (override via `OMS_E2E_GATEWAY_URL`) AND the bearer token file exists at
+ * `~/.oms/auth-gateway.token`.
  *
  * To run: `bun --cwd packages/ai test test/auth-gateway-anthropic-caching.test.ts`
- * with the gateway live (`omp auth-gateway serve` or pm2).
+ * with the gateway live (`oms auth-gateway serve` or pm2).
  */
 import { describe, expect, it } from "bun:test";
 import { AUTH_GATEWAY_E2E_URL, checkAuthGatewayE2EAvailable } from "./helpers";
@@ -30,7 +30,7 @@ interface AnthropicResponse {
 	error?: { type: string; message: string };
 }
 
-const MODEL = Bun.env.OMP_E2E_ANTHROPIC_MODEL ?? "claude-sonnet-4-5";
+const MODEL = Bun.env.OMS_E2E_ANTHROPIC_MODEL ?? "claude-sonnet-4-5";
 
 const gateway = await checkAuthGatewayE2EAvailable();
 
@@ -39,7 +39,7 @@ const gateway = await checkAuthGatewayE2EAvailable();
 // stable across runs of this test.
 const SYSTEM_PARAGRAPH = `
 You are a precise assistant participating in an automated end-to-end test of
-the omp auth-gateway's Anthropic prompt-caching pipeline. The same system
+the oms auth-gateway's Anthropic prompt-caching pipeline. The same system
 prompt will be reused across two turns; the gateway must place a cache
 breakpoint on the final system block so that the second request hits the
 ephemeral cache instead of being re-tokenized from scratch. Always respond

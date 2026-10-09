@@ -2,13 +2,13 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it, vi } from "bun:test";
-import type { Model } from "@oh-my-pi/pi-ai";
-import * as ai from "@oh-my-pi/pi-ai";
-import { getBundledModel } from "@oh-my-pi/pi-catalog/models";
-import { ModelRegistry } from "@oh-my-pi/pi-coding-agent/config/model-registry";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { AuthStorage } from "@oh-my-pi/pi-coding-agent/session/auth-storage";
-import { BlockAccumulator, SpeechEnhancer } from "@oh-my-pi/pi-coding-agent/tts/speech-enhancer";
+import type { Model } from "@oh-my-soup/pi-ai";
+import * as ai from "@oh-my-soup/pi-ai";
+import { getBundledModel } from "@oh-my-soup/pi-catalog/models";
+import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { AuthStorage } from "@oh-my-soup/pi-coding-agent/session/auth-storage";
+import { BlockAccumulator, SpeechEnhancer } from "@oh-my-soup/pi-coding-agent/tts/speech-enhancer";
 
 const authStorages: AuthStorage[] = [];
 const modelConfigDirs: string[] = [];
@@ -19,7 +19,7 @@ async function createRegistry(settings: Settings, models: Model[]): Promise<Mode
 	for (const model of models) {
 		authStorage.keys.setRuntime(model.provider, model.provider === "local" ? "local-inference" : "test-key");
 	}
-	const configDir = fs.mkdtempSync(path.join(os.tmpdir(), "omp-speech-enhancer-"));
+	const configDir = fs.mkdtempSync(path.join(os.tmpdir(), "oms-speech-enhancer-"));
 	modelConfigDirs.push(configDir);
 	const registry = new ModelRegistry(authStorage, path.join(configDir, "models.yml"), { settings });
 	vi.spyOn(registry, "getAvailable").mockReturnValue(models);

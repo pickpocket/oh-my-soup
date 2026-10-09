@@ -1,7 +1,7 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 
-import { RpcClient } from "@oh-my-pi/pi-coding-agent/modes/rpc/rpc-client";
+import { RpcClient } from "@oh-my-soup/pi-coding-agent/modes/rpc/rpc-client";
 
 import { installAgent } from "./agent";
 import type { AgentBinaries, AgentConfig, GatewayConfig, TbTask, TrialResult, TrialUsage, VmonConfig } from "./types";
@@ -17,12 +17,12 @@ const EMPTY_USAGE: TrialUsage = {
 };
 
 /**
- * omp's daemon broker stops the services the agent started (bash `name` + `ready`) once its last
- * client has been gone for `OMP_DAEMON_IDLE_GRACE_MS` (default 3 s). The verifier runs after omp
+ * oms's daemon broker stops the services the agent started (bash `name` + `ready`) once its last
+ * client has been gone for `OMS_DAEMON_IDLE_GRACE_MS` (default 3 s). The verifier runs after oms
  * exits, in the same guest, and grades those services, so keep them alive until the guest is
  * removed. An explicit `--env` value wins.
  */
-const SERVICE_GRACE_ENV: Record<string, string> = { OMP_DAEMON_IDLE_GRACE_MS: String(24 * 60 * 60 * 1_000) };
+const SERVICE_GRACE_ENV: Record<string, string> = { OMS_DAEMON_IDLE_GRACE_MS: String(24 * 60 * 60 * 1_000) };
 
 function elapsedMs(startedAt: number): number {
 	return Math.round(performance.now() - startedAt);

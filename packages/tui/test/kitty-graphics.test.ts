@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { visibleWidth } from "@oh-my-pi/pi-natives";
+import { visibleWidth } from "@oh-my-soup/pi-natives";
 import {
 	detectKittyUnicodePlaceholdersSupport,
 	encodeKittyPlaceholderGrid,
@@ -8,7 +8,7 @@ import {
 	KITTY_PLACEHOLDER_MAX_CELLS,
 	kittyPlaceholdersFit,
 	renderKittyPlaceholderLines,
-} from "@oh-my-pi/pi-tui/kitty-graphics";
+} from "@oh-my-soup/pi-tui/kitty-graphics";
 
 const ORIGINAL_TMUX = Bun.env.TMUX;
 

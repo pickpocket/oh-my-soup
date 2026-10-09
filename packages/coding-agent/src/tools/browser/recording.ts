@@ -1,10 +1,10 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 
-import { ToolError } from "@oh-my-pi/pi-tui/tools/tool-errors";
-import { untilAborted } from "@oh-my-pi/pi-utils/abortable";
-import type { HTMLElement } from "@oh-my-pi/pi-utils/dom";
-import { TempDir } from "@oh-my-pi/pi-utils/temp";
+import { ToolError } from "@oh-my-soup/pi-tui/tools/tool-errors";
+import { untilAborted } from "@oh-my-soup/pi-utils/abortable";
+import type { HTMLElement } from "@oh-my-soup/pi-utils/dom";
+import { TempDir } from "@oh-my-soup/pi-utils/temp";
 import type { Protocol } from "devtools-protocol";
 import type { CDPSession, Page } from "puppeteer-core";
 import { resizeImage } from "../../utils/image-resize";
@@ -242,17 +242,17 @@ export function installCursorOverlay(): void {
 		ripple.addEventListener("animationend", () => ripple.remove(), { once: true });
 	};
 	const mount = (): void => {
-		if (document.getElementById("__omp_recording_cursor__")) return;
+		if (document.getElementById("__oms_recording_cursor__")) return;
 		root = document.createElement("div");
-		root.id = "__omp_recording_cursor__";
-		root.setAttribute("aria-label", "OMP recording cursor overlay");
+		root.id = "__oms_recording_cursor__";
+		root.setAttribute("aria-label", "OMS recording cursor overlay");
 		root.setAttribute("aria-hidden", "true");
 		root.setAttribute("inert", "");
 		root.style.cssText = "position:fixed;inset:0;z-index:2147483647;pointer-events:none;overflow:hidden";
 		const shadow = root.attachShadow({ mode: "open" });
 		const style = document.createElement("style");
 		style.textContent =
-			".pointer{position:absolute;left:0;top:0;width:0;height:0;border-left:8px solid white;border-top:14px solid black;border-right:4px solid transparent;filter:drop-shadow(0 0 1px white);transform:translate(-100px,-100px);transform-origin:0 0}.ripple{position:absolute;width:8px;height:8px;margin:-4px;border:2px solid #fff;border-radius:999px;box-shadow:0 0 0 1px #000;animation:omp-recording-ripple .45s ease-out forwards}@keyframes omp-recording-ripple{to{width:34px;height:34px;margin:-17px;opacity:0}}";
+			".pointer{position:absolute;left:0;top:0;width:0;height:0;border-left:8px solid white;border-top:14px solid black;border-right:4px solid transparent;filter:drop-shadow(0 0 1px white);transform:translate(-100px,-100px);transform-origin:0 0}.ripple{position:absolute;width:8px;height:8px;margin:-4px;border:2px solid #fff;border-radius:999px;box-shadow:0 0 0 1px #000;animation:oms-recording-ripple .45s ease-out forwards}@keyframes oms-recording-ripple{to{width:34px;height:34px;margin:-17px;opacity:0}}";
 		pointer = document.createElement("div");
 		pointer.className = "pointer";
 		shadow.append(style, pointer);
@@ -267,7 +267,7 @@ export function installCursorOverlay(): void {
 		state.removeEventListener("mousemove", onMove, true);
 		state.removeEventListener("mousedown", onDown, true);
 		root?.remove();
-		document.getElementById("__omp_recording_cursor__")?.remove();
+		document.getElementById("__oms_recording_cursor__")?.remove();
 		delete state.__ompRecordingCursorCleanup;
 	};
 }
@@ -276,7 +276,7 @@ export function installCursorOverlay(): void {
 export function removeCursorOverlay(): void {
 	const state = globalThis as unknown as CursorPageGlobal;
 	state.__ompRecordingCursorCleanup?.();
-	state.document.getElementById("__omp_recording_cursor__")?.remove();
+	state.document.getElementById("__oms_recording_cursor__")?.remove();
 }
 
 class CdpRecordingSource implements RecordingFrameSource {
@@ -491,7 +491,7 @@ export class RecordingController {
 		this.#starting = true;
 		let spool: TempDir | undefined;
 		try {
-			spool = await TempDir.create("@omp-browser-recording-");
+			spool = await TempDir.create("@oms-browser-recording-");
 			if (validated.cursor) await source.installCursor(signal);
 			const viewport = await source.viewport(signal);
 			const active: ActiveRecording = {

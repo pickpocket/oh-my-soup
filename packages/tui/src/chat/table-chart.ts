@@ -9,8 +9,8 @@
  * terminal the SVG itself. Both resolve the figure tokens against the live
  * theme, so a chart follows theme switches like the prose around it.
  */
-import { logger } from "@oh-my-pi/pi-utils";
-import type { Token, Tokens } from "@oh-my-pi/pi-utils/marked";
+import { logger } from "@oh-my-soup/pi-utils";
+import type { Token, Tokens } from "@oh-my-soup/pi-utils/marked";
 import { type ChartPlan, buildChart, planChart, worthCharting } from "../charts/chart-plan";
 import { chartAlt, renderChartSvg } from "../charts/chart-svg";
 import { analyzeTable, type TableAnalysis } from "../charts/table-data";

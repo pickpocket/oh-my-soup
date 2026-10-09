@@ -1,11 +1,11 @@
-import type { ImageContent } from "@oh-my-pi/pi-ai";
+import type { ImageContent } from "@oh-my-soup/pi-ai";
 import {
 	type ImageSize,
 	type ImageTokenization,
 	imageTokens,
 	resolveImageTokenization,
-} from "@oh-my-pi/pi-catalog/compat/image-tokenization";
-import { parseImageMetadata } from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-catalog/compat/image-tokenization";
+import { parseImageMetadata } from "@oh-my-soup/pi-utils";
 
 /**
  * Dimension-based image token estimates shared by the local context counter
@@ -17,7 +17,7 @@ import { parseImageMetadata } from "@oh-my-pi/pi-utils";
  *
  * Follows the catalog's image rule for the OpenAI Responses wire (GPT-5.5's
  * 32px patches, a per-detail pixel limit and patch budget, x1.2 multiplier),
- * which is also a close upper estimate for other providers once omp has
+ * which is also a close upper estimate for other providers once oms has
  * downscaled the image (≤1568px by default).
  */
 

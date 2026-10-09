@@ -1,10 +1,10 @@
 import { describe, expect, it } from "bun:test";
 import * as path from "node:path";
-import { AgentRegistry } from "@oh-my-pi/pi-coding-agent/registry/agent-registry";
-import { registerPersistedSubagents } from "@oh-my-pi/pi-coding-agent/registry/persisted-agents";
-import type { AgentSession } from "@oh-my-pi/pi-coding-agent/session/agent-session";
-import { CURRENT_SESSION_VERSION } from "@oh-my-pi/pi-coding-agent/session/session-entries";
-import { TempDir } from "@oh-my-pi/pi-utils";
+import { AgentRegistry } from "@oh-my-soup/pi-coding-agent/registry/agent-registry";
+import { registerPersistedSubagents } from "@oh-my-soup/pi-coding-agent/registry/persisted-agents";
+import type { AgentSession } from "@oh-my-soup/pi-coding-agent/session/agent-session";
+import { CURRENT_SESSION_VERSION } from "@oh-my-soup/pi-coding-agent/session/session-entries";
+import { TempDir } from "@oh-my-soup/pi-utils";
 
 function sessionHeader(id: string): string {
 	return JSON.stringify({
@@ -24,7 +24,7 @@ async function registerFrom(dir: string): Promise<AgentRegistry> {
 
 describe("registerPersistedSubagents mid-spawn stubs", () => {
 	it("does not park a child that only has the SessionManager header", async () => {
-		using tempDir = TempDir.createSync("@omp-mid-spawn-stub-");
+		using tempDir = TempDir.createSync("@oms-mid-spawn-stub-");
 		const dir = tempDir.path();
 		await Bun.write(path.join(dir, "main.jsonl"), `${sessionHeader("main")}\n`);
 		await Bun.write(
@@ -37,7 +37,7 @@ describe("registerPersistedSubagents mid-spawn stubs", () => {
 	});
 
 	it("still parks a finished child that recorded session_init", async () => {
-		using tempDir = TempDir.createSync("@omp-mid-spawn-init-");
+		using tempDir = TempDir.createSync("@oms-mid-spawn-init-");
 		const dir = tempDir.path();
 		await Bun.write(path.join(dir, "main.jsonl"), `${sessionHeader("main")}\n`);
 		await Bun.write(
@@ -63,7 +63,7 @@ describe("registerPersistedSubagents mid-spawn stubs", () => {
 	});
 
 	it("still parks a legacy child that has messages but no session_init", async () => {
-		using tempDir = TempDir.createSync("@omp-mid-spawn-legacy-");
+		using tempDir = TempDir.createSync("@oms-mid-spawn-legacy-");
 		const dir = tempDir.path();
 		await Bun.write(path.join(dir, "main.jsonl"), `${sessionHeader("main")}\n`);
 		await Bun.write(
@@ -85,7 +85,7 @@ describe("registerPersistedSubagents mid-spawn stubs", () => {
 	});
 
 	it("does not replace a live generation claimed while metadata is being read", async () => {
-		using tempDir = TempDir.createSync("@omp-mid-spawn-claim-");
+		using tempDir = TempDir.createSync("@oms-mid-spawn-claim-");
 		const dir = tempDir.path();
 		const childFile = path.join(dir, "main", "Worker.jsonl");
 		await Bun.write(path.join(dir, "main.jsonl"), `${sessionHeader("main")}\n`);

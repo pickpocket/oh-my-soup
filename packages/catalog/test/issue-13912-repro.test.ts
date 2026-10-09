@@ -5,7 +5,7 @@
  * `max_prompt_tokens`, so the base row and its `-1m` sibling were both ~1M.
  */
 import { describe, expect, it, vi } from "bun:test";
-import { githubCopilotModelManagerOptions } from "@oh-my-pi/pi-catalog/provider-models/openai-compat";
+import { githubCopilotModelManagerOptions } from "@oh-my-soup/pi-catalog/provider-models/openai-compat";
 
 /** `/models` entry shaped like Copilot under `X-GitHub-Api-Version: 2026-08-01`. */
 function copilotEntry(

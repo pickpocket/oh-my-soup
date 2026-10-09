@@ -1,6 +1,6 @@
-import type { CredentialsApi, KeysApi } from "@oh-my-pi/pi-ai";
-import { getOAuthProviders } from "@oh-my-pi/pi-ai/oauth";
-import type { OAuthProviderInfo } from "@oh-my-pi/pi-ai/oauth/types";
+import type { CredentialsApi, KeysApi } from "@oh-my-soup/pi-ai";
+import { getOAuthProviders } from "@oh-my-soup/pi-ai/oauth";
+import type { OAuthProviderInfo } from "@oh-my-soup/pi-ai/oauth/types";
 import {
 	Container,
 	extractPrintableText,
@@ -17,7 +17,7 @@ import { OverlayPanel } from "../chrome/overlay-box";
 import { Input } from "../components/input";
 import { MenuSelection } from "../components/menu-selection";
 import { centeredViewportRange } from "../components/scroll-viewport";
-import type { TspPickerItem, TspSpan, TspTone } from "@oh-my-pi/pi-wire";
+import type { TspPickerItem, TspSpan, TspTone } from "@oh-my-soup/pi-wire";
 import { node, span, text } from "../native/describe";
 import type { DescribeContext, NativeNode, NativeUiEvent } from "../native/node";
 import { CLOSE_ACTION, dockedPicker, PICKER_KEY, pickerAction, pickerEvent, pickerQuery } from "../native/picker";
@@ -91,7 +91,7 @@ export class OAuthSelectorComponent extends OverlayPanel {
 			requestRender?: () => void;
 		},
 	) {
-		super(mode === "login" ? "Select provider to login" : "Select provider to logout", "omp.overlay.oauth");
+		super(mode === "login" ? "Select provider to login" : "Select provider to logout", "oms.overlay.oauth");
 		this.#mode = mode;
 		this.#authStorage = authStorage;
 		this.#onSelectCallback = onSelect;

@@ -64,7 +64,7 @@ describe("legacy native addon loading", () => {
 		const ctx = ctxFor("17.2.8");
 		const bindings = { __piNativesV17_2_7: () => {}, ...legacyCoreBindings, DesktopSession: LegacyDesktopSession };
 		await withCandidate(stamped("17.2.8"), candidate => {
-			expect(() => validateLoadedBindings(ctx, bindings, candidate)).toThrow("restart omp");
+			expect(() => validateLoadedBindings(ctx, bindings, candidate)).toThrow("restart oms");
 		});
 	});
 

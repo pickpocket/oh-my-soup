@@ -19,7 +19,7 @@ export class ThinkingSelectorComponent extends OverlayPanel {
 		onSelect: (level: ConfiguredThinkingLevel) => void,
 		onCancel: () => void,
 	) {
-		super("Thinking Level", "omp.overlay.thinking");
+		super("Thinking Level", "oms.overlay.thinking");
 
 		const thinkingLevels: SelectItem[] = availableLevels.map(getConfiguredThinkingLevelMetadata);
 

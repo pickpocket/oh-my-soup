@@ -2,7 +2,7 @@ import { afterEach, expect, it, mock, spyOn } from "bun:test";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { Writable } from "node:stream";
-import { TempDir } from "@oh-my-pi/pi-utils";
+import { TempDir } from "@oh-my-soup/pi-utils";
 import { RpcFrameDecoder, RpcFrameEncoder } from "../src/modes/rpc/rpc-frame";
 import { RpcOutputWriter } from "../src/modes/rpc/rpc-output";
 

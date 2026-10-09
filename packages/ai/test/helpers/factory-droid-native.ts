@@ -91,7 +91,7 @@ const SESSION_KEYS = new Set(["prompt_cache_key", "safety_identifier"]);
  * Headers that express routing, client identity or wire dialect. The Stainless
  * arch/OS entries describe the host and its timeout the transport budget, so
  * those are left out. The last two are headers droid never sends: their
- * presence on an OMP request is an identity leak.
+ * presence on an OMS request is an identity leak.
  */
 const DIALECT_HEADERS = new Set([
 	"x-api-provider",
@@ -111,7 +111,7 @@ const DIALECT_HEADERS = new Set([
 
 /**
  * Deliberate differences, dropped from both sides:
- * - OMP keeps prior thinking in context (`context_management` with
+ * - OMS keeps prior thinking in context (`context_management` with
  *   `clear_thinking` keep-all and its beta), which Anthropic documents as
  *   preserving prompt-cache hits; droid never sends it.
  * - Tool deferral (`defer_loading`, `execution`, the mid-conversation

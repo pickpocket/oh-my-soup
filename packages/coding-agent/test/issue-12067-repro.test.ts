@@ -1,7 +1,7 @@
 /**
  * Regression for https://github.com/can1357/oh-my-pi/issues/12067
  *
- * Headless `omp -p` could exit successfully with no output while first-turn
+ * Headless `oms -p` could exit successfully with no output while first-turn
  * mnemopi recall awaited an embedding response. The embeddings subprocess was
  * unref'd while idle, and a pending Promise is not an event-loop handle. Keep
  * the worker referenced for the exact lifetime of each pending request so the
@@ -9,11 +9,11 @@
  * shutdown behavior.
  */
 import { describe, expect, it } from "bun:test";
-import { MnemopiEmbedClient, type MnemopiEmbedWorkerHandle } from "@oh-my-pi/pi-coding-agent/mnemopi/embed-client";
+import { MnemopiEmbedClient, type MnemopiEmbedWorkerHandle } from "@oh-my-soup/pi-coding-agent/mnemopi/embed-client";
 import type {
 	MnemopiEmbedWorkerInbound,
 	MnemopiEmbedWorkerOutbound,
-} from "@oh-my-pi/pi-coding-agent/mnemopi/embed-protocol";
+} from "@oh-my-soup/pi-coding-agent/mnemopi/embed-protocol";
 
 class DelayedEmbedWorker implements MnemopiEmbedWorkerHandle {
 	readonly firstRequest = Promise.withResolvers<MnemopiEmbedWorkerInbound>();

@@ -1,8 +1,8 @@
 import { describe, expect, it } from "bun:test";
 
-import type { FetchImpl } from "@oh-my-pi/pi-ai/types";
-import type { UsageFetchContext, UsageFetchParams } from "@oh-my-pi/pi-ai/usage";
-import { syntheticUsageProvider } from "@oh-my-pi/pi-ai/usage/synthetic";
+import type { FetchImpl } from "@oh-my-soup/pi-ai/types";
+import type { UsageFetchContext, UsageFetchParams } from "@oh-my-soup/pi-ai/usage";
+import { syntheticUsageProvider } from "@oh-my-soup/pi-ai/usage/synthetic";
 
 const FULL_FIXTURE = {
 	subscription: { limit: 500, requests: 12, renewsAt: "2026-07-10T11:33:46.399Z" },

@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { isEnoent, isEnotdir } from "@oh-my-pi/pi-utils";
-import { CliUsageError } from "@oh-my-pi/pi-utils/cli";
+import { isEnoent, isEnotdir } from "@oh-my-soup/pi-utils";
+import { CliUsageError } from "@oh-my-soup/pi-utils/cli";
 import { Settings } from "../config/settings";
 import type { EffectiveExtensionRoots } from "../capability/types";
 import { initializeWithSettings } from "../discovery";
@@ -92,13 +92,13 @@ function toTerminalSafe(value: string): string {
 }
 
 /**
- * `omp skill list [dir] [--json]`: report the skills a session in `dir` would
+ * `oms skill list [dir] [--json]`: report the skills a session in `dir` would
  * resolve. Terminal output is one `name<TAB>description` row per skill on
  * stdout, with notices and warnings on stderr; `--json` emits the full result
  * including discovery warnings.
  */
 export async function handleSkillList(args: string[], cwd: string, json: boolean): Promise<number> {
-	if (args.length > 1) throw new CliUsageError("usage: omp skill list [dir] [--json]");
+	if (args.length > 1) throw new CliUsageError("usage: oms skill list [dir] [--json]");
 	const target = args[0] ? path.resolve(cwd, args[0]) : cwd;
 	let isDirectory = false;
 	try {

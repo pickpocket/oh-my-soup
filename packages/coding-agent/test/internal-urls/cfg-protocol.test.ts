@@ -1,19 +1,19 @@
 import { afterEach, describe, expect, it } from "bun:test";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
 import {
 	type CfgAppliedChange,
 	type CfgChangeRequest,
 	CfgProtocolHandler,
 	setCfgApprovalHost,
-} from "@oh-my-pi/pi-coding-agent/internal-urls/cfg-protocol";
-import { parseInternalUrl } from "@oh-my-pi/pi-coding-agent/internal-urls/parse";
-import type { ToolSession } from "@oh-my-pi/pi-coding-agent/tools";
+} from "@oh-my-soup/pi-coding-agent/internal-urls/cfg-protocol";
+import { parseInternalUrl } from "@oh-my-soup/pi-coding-agent/internal-urls/parse";
+import type { ToolSession } from "@oh-my-soup/pi-coding-agent/tools";
 
-import { cfgAdvisorEnabled, cfgAdvisorSyncBacklog } from "@oh-my-pi/pi-coding-agent/advisor/settings";
-import { cfgEditFuzzyMatch } from "@oh-my-pi/pi-coding-agent/edit/settings";
-import { cfgModelRoles } from "@oh-my-pi/pi-coding-agent/config/model-settings";
-import { cfgSearxngEndpoint } from "@oh-my-pi/pi-coding-agent/web/settings";
-import type { InternalWriteResult } from "@oh-my-pi/pi-coding-agent/internal-urls/types";
+import { cfgAdvisorEnabled, cfgAdvisorSyncBacklog } from "@oh-my-soup/pi-coding-agent/advisor/settings";
+import { cfgEditFuzzyMatch } from "@oh-my-soup/pi-coding-agent/edit/settings";
+import { cfgModelRoles } from "@oh-my-soup/pi-coding-agent/config/model-settings";
+import { cfgSearxngEndpoint } from "@oh-my-soup/pi-coding-agent/web/settings";
+import type { InternalWriteResult } from "@oh-my-soup/pi-coding-agent/internal-urls/types";
 
 function sessionWith(settings: Settings, caller: Partial<ToolSession> = {}): ToolSession {
 	return { settings, hasUI: true, settingsApproval: true, taskDepth: 0, ...caller } as unknown as ToolSession;

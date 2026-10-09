@@ -5,9 +5,9 @@
  * progress update and the owner's progress closures live as long as the signal.
  */
 import { expect, it } from "bun:test";
-import type { AgentToolResult } from "@oh-my-pi/pi-agent-core";
-import { SpawnRun } from "@oh-my-pi/pi-coding-agent/task/spawn-run";
-import type { TaskToolDetails } from "@oh-my-pi/pi-tui/tools/task";
+import type { AgentToolResult } from "@oh-my-soup/pi-agent-core";
+import { SpawnRun } from "@oh-my-soup/pi-coding-agent/task/spawn-run";
+import type { TaskToolDetails } from "@oh-my-soup/pi-tui/tools/task";
 
 const permit = { acquire: async () => {}, release: () => {} };
 const done = { content: [{ type: "text", text: "done" }] } as AgentToolResult<TaskToolDetails>;

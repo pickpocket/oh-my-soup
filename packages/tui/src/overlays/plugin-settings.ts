@@ -16,7 +16,7 @@ import {
 	Spacer,
 	Text,
 } from "../index";
-import { logger } from "@oh-my-pi/pi-utils";
+import { logger } from "@oh-my-soup/pi-utils";
 import { getSelectListTheme, getSettingsListTheme, theme } from "../theme/theme";
 import { shortenPath } from "../render/render-utils";
 import { OverlayPanel } from "../chrome/overlay-box";
@@ -26,10 +26,10 @@ import { type PrefsEditing, SettingsFormField, type SettingsList } from "../comp
 import { editorKey } from "../chrome/keybinding-hints";
 import type { DescribeContext, NativeChild, NativeNode, NativeUiEvent } from "../native/node";
 import { col, node, span, text } from "../native/describe";
-import type { TspPrefsControl, TspPrefsSection } from "@oh-my-pi/pi-wire";
+import type { TspPrefsControl, TspPrefsSection } from "@oh-my-soup/pi-wire";
 import { actionHint, hintsRow, overlayCard } from "../native/overlay";
 
-const PLUGIN_SETTINGS_ROLE = "omp.overlay.plugin-settings";
+const PLUGIN_SETTINGS_ROLE = "oms.overlay.plugin-settings";
 /** A plugin row's control on the native settings page: open the plugin's settings. */
 const PLUGIN_CONFIGURE: TspPrefsControl = { k: "action", label: "Configure", act: "open" };
 
@@ -66,7 +66,7 @@ function prefsDetailPage(title: string, lead: string, list: SettingsList | undef
 		})),
 		focus: list.prefsFocus().row ?? null,
 		editing: null,
-		editor: open ? col([open.component], { role: "omp.prefs.editor" }) : undefined,
+		editor: open ? col([open.component], { role: "oms.prefs.editor" }) : undefined,
 	};
 }
 
@@ -307,9 +307,9 @@ export class PluginListComponent extends OverlayPanel {
 		if (entries.length === 0) {
 			this.addChild(new Text(theme.fg("muted", "No plugins installed"), 0, 0));
 			this.addChild(new Spacer(1));
-			this.addChild(new Text(theme.fg("dim", "Install npm plugins:        omp plugin install <package>"), 0, 0));
+			this.addChild(new Text(theme.fg("dim", "Install npm plugins:        oms plugin install <package>"), 0, 0));
 			this.addChild(
-				new Text(theme.fg("dim", "Install marketplace plugins: omp plugin install <name>@<marketplace>"), 0, 0),
+				new Text(theme.fg("dim", "Install marketplace plugins: oms plugin install <name>@<marketplace>"), 0, 0),
 			);
 			this.addChild(new Spacer(1));
 
@@ -378,7 +378,7 @@ export class PluginListComponent extends OverlayPanel {
 			lead:
 				rows.length > 0
 					? "Plugins installed for you and this project. Configure one to turn it or its features on and off."
-					: "No plugins installed. Install one with omp plugin install <package>, or <name>@<marketplace>.",
+					: "No plugins installed. Install one with oms plugin install <package>, or <name>@<marketplace>.",
 			sections: rows.length > 0 ? [{ id: "installed", title: "Installed", rows }] : [],
 			focus: this.#selectList.getSelectedItem()?.value ?? null,
 			editing: null,
@@ -403,10 +403,10 @@ export class PluginListComponent extends OverlayPanel {
 						text([span("No plugins installed", "muted")]),
 						node("kv", {
 							items: [
-								{ k: "Install npm plugins", v: [span("omp plugin install <package>", "code")] },
+								{ k: "Install npm plugins", v: [span("oms plugin install <package>", "code")] },
 								{
 									k: "Install marketplace plugins",
-									v: [span("omp plugin install <name>@<marketplace>", "code")],
+									v: [span("oms plugin install <name>@<marketplace>", "code")],
 								},
 							],
 						}),

@@ -7,15 +7,15 @@ import type {
 	AgentLoopConfig,
 	SpeculativeCommitContext,
 	SpeculativeOperationContext,
-} from "@oh-my-pi/pi-agent-core";
-import { SpeculativeOperationCoordinator } from "@oh-my-pi/pi-agent-core";
-import type { Message } from "@oh-my-pi/pi-ai";
-import { createMockModel } from "@oh-my-pi/pi-ai/providers/mock";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { CodingAgentSpeculativeExecutionHost } from "@oh-my-pi/pi-coding-agent/speculation/host";
-import type { ToolSession } from "@oh-my-pi/pi-coding-agent/tools";
-import { ReadTool } from "@oh-my-pi/pi-coding-agent/tools/read";
-import { removeWithRetries } from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-agent-core";
+import { SpeculativeOperationCoordinator } from "@oh-my-soup/pi-agent-core";
+import type { Message } from "@oh-my-soup/pi-ai";
+import { createMockModel } from "@oh-my-soup/pi-ai/providers/mock";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { CodingAgentSpeculativeExecutionHost } from "@oh-my-soup/pi-coding-agent/speculation/host";
+import type { ToolSession } from "@oh-my-soup/pi-coding-agent/tools";
+import { ReadTool } from "@oh-my-soup/pi-coding-agent/tools/read";
+import { removeWithRetries } from "@oh-my-soup/pi-utils";
 
 const temporaryDirectories: string[] = [];
 

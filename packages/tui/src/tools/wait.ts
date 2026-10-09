@@ -1,7 +1,7 @@
 import type { Component } from "../tui";
 import { Text } from "../components/text";
 import { visibleWidth } from "../utils";
-import { formatAge } from "@oh-my-pi/pi-utils";
+import { formatAge } from "@oh-my-soup/pi-utils";
 import { shimmerEnabled, shimmerText } from "../theme/shimmer";
 import type { Theme } from "../theme/theme";
 import { Ellipsis, Hasher, type RenderCache, renderStatusLine, renderTreeList, truncateToWidth } from "../render/index";
@@ -26,7 +26,7 @@ import {
 import type { StructuredSubagentOutput } from "./task";
 import type { RenderResultOptions, ToolRenderer, ToolActivitySummary } from "./renderer";
 import type { IrcDeliveryReceipt, IrcMessage } from "./irc";
-import type { TspSpan } from "@oh-my-pi/pi-wire";
+import type { TspSpan } from "@oh-my-soup/pi-wire";
 import { card as cardNode, compact, elapsed, md, node, row, span, text } from "../native/describe";
 import type { NativeNode } from "../native/node";
 import { OwnerMemo } from "../native/memo";
@@ -570,7 +570,7 @@ export function createIrcMessageCard(
 	// Terminal-local collapse replaces `getExpanded`; the node never changes after creation.
 	const described = cardNode(
 		{
-			role: `omp.irc.${card.kind}`,
+			role: `oms.irc.${card.kind}`,
 			tone: "info",
 			head: [
 				span(plainText(title), "toolTitle strong"),
@@ -614,7 +614,7 @@ function describeJob(job: JobSnapshot, isPartial: boolean): NativeNode {
 	);
 	return node(
 		"col",
-		{ role: "omp.wait.job", tone },
+		{ role: "oms.wait.job", tone },
 		compact([
 			row(
 				compact([
@@ -682,7 +682,7 @@ function describeJobsResult(
 		body.push(
 			node(
 				"row",
-				{ gap: "sm", role: "omp.wait.agent" },
+				{ gap: "sm", role: "oms.wait.agent" },
 				[
 					node("badge", {
 						text: agent.live ? "agent" : "agent · no turn",

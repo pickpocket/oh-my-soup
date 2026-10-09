@@ -5,7 +5,7 @@ import type { AdvisorMessageDetails, AdvisorNote, AdvisorSeverity } from "./mess
 import { formatBadge, replaceTabs, type ToolUIColor, wrapTextWithAnsi } from "../render/render-utils";
 import { Ellipsis, truncateToWidth } from "../render";
 import { getThemeEpoch, type Theme } from "../theme";
-import type { TspSpan } from "@oh-my-pi/pi-wire";
+import type { TspSpan } from "@oh-my-soup/pi-wire";
 import { card, span, text } from "../native/describe";
 import { type NativeNode, type NativeUiEvent, rootToggleExpanded } from "../native/node";
 import { plainText } from "../native/spans";
@@ -199,11 +199,11 @@ export function createAdvisorMessageCard(
 		];
 		if (blockers > 0) head.push(span(`${uiTheme.sep.dot}${blockers} blocker${blockers === 1 ? "" : "s"}`, "error"));
 		const body = notes.map((entry, index) =>
-			text(advisorNoteSpans(entry), { wrap: "word", role: "omp.advisor.note", key: `n${index}` }),
+			text(advisorNoteSpans(entry), { wrap: "word", role: "oms.advisor.note", key: `n${index}` }),
 		);
 		return card(
 			{
-				role: "omp.advisor",
+				role: "oms.advisor",
 				tone: blockers > 0 ? "error" : "info",
 				head,
 				collapsible: notes.length > COLLAPSED_NOTES,

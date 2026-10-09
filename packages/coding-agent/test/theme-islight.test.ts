@@ -2,18 +2,18 @@ import { afterEach, describe, expect, it } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { generateThemeVars } from "@oh-my-pi/pi-coding-agent/export/html";
-import { defaultThemes } from "@oh-my-pi/pi-tui/theme/defaults";
-import { createTheme, getBuiltinThemes } from "@oh-my-pi/pi-tui/theme/loader";
+import { generateThemeVars } from "@oh-my-soup/pi-coding-agent/export/html";
+import { defaultThemes } from "@oh-my-soup/pi-tui/theme/defaults";
+import { createTheme, getBuiltinThemes } from "@oh-my-soup/pi-tui/theme/loader";
 import {
 	getEditorTheme,
 	getResolvedThemeColors,
 	getThemeByName,
 	isLightTheme,
 	setThemeInstance,
-} from "@oh-my-pi/pi-tui/theme";
-import { Editor } from "@oh-my-pi/pi-tui";
-import { getAgentDir, getCustomThemesDir, removeWithRetries, setAgentDir } from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-tui/theme";
+import { Editor } from "@oh-my-soup/pi-tui";
+import { getAgentDir, getCustomThemesDir, removeWithRetries, setAgentDir } from "@oh-my-soup/pi-utils";
 
 function createBaseThemes() {
 	const builtins = getBuiltinThemes();
@@ -199,7 +199,7 @@ describe("getResolvedThemeColors HTML export defaults", () => {
 	it("uses light text when a light-status custom theme derives dark export surfaces from userMessageBg", async () => {
 		originalAgentDir = getAgentDir();
 		originalAgentDirEnv = process.env.PI_CODING_AGENT_DIR;
-		tempAgentDir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-theme-export-"));
+		tempAgentDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-theme-export-"));
 		setAgentDir(tempAgentDir);
 
 		const { export: _ignoredExport, ...themeWithoutExport } = defaultThemes.porcelain;

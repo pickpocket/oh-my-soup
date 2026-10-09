@@ -418,7 +418,7 @@ export class ManagerServer {
 			benchmark,
 			jobName,
 			dataset,
-			agent: request.agent ?? "omp",
+			agent: request.agent ?? "oms",
 			models: [request.model],
 			prewalk: request.prewalk,
 			config: { ...request },

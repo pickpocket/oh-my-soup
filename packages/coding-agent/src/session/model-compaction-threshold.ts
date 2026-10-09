@@ -1,7 +1,7 @@
-import { resolveThresholdTokens } from "@oh-my-pi/pi-agent-core/compaction";
-import type { Model } from "@oh-my-pi/pi-ai";
-import type { ModelCompactionPoint } from "@oh-my-pi/pi-tui/overlays/model-browser";
-import { isRecord } from "@oh-my-pi/pi-utils";
+import { resolveThresholdTokens } from "@oh-my-soup/pi-agent-core/compaction";
+import type { Model } from "@oh-my-soup/pi-ai";
+import type { ModelCompactionPoint } from "@oh-my-soup/pi-tui/overlays/model-browser";
+import { isRecord } from "@oh-my-soup/pi-utils";
 import {
 	applyCompactionThresholdPair,
 	applyModelCompactionThreshold,

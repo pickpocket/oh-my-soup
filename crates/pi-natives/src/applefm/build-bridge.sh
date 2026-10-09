@@ -5,7 +5,7 @@
 #   build-bridge.sh detect
 #       Prints "<swiftc>\t<sdk>\t<fingerprint>" for the first toolchain able to
 #       build bridge.swift (Swift 6.4+ with the macOS 27+ SDK), or nothing.
-#       Candidates: $OMP_APPLEFM_SWIFTC and the xcode-select'ed toolchain with
+#       Candidates: $OMS_APPLEFM_SWIFTC and the xcode-select'ed toolchain with
 #       the selected SDK, then the Command Line Tools with their own SDK. A set
 #       $SDKROOT is the SDK for every candidate, so the bridge never links
 #       against a different SDK than the rest of the addon. Probes versions
@@ -23,7 +23,7 @@
 # dlopens them only on macOS 27+, so the Swift runtime and FoundationModels
 # never load on older systems (linking them in crashed every launch there).
 #
-# Swift module caches live in $OMP_APPLEFM_MODULE_CACHE (default: under
+# Swift module caches live in $OMS_APPLEFM_MODULE_CACHE (default: under
 # $TMPDIR) so repeated builds skip re-importing the SDK.
 set -eu
 
@@ -50,7 +50,7 @@ detect() {
 	selected_sdk=${SDKROOT:-$(/usr/bin/xcrun --sdk macosx --show-sdk-path 2>/dev/null || true)}
 	clt=/Library/Developer/CommandLineTools
 	for candidate in \
-		"${OMP_APPLEFM_SWIFTC:-}|$selected_sdk" \
+		"${OMS_APPLEFM_SWIFTC:-}|$selected_sdk" \
 		"$(/usr/bin/xcrun --find swiftc 2>/dev/null || true)|$selected_sdk" \
 		"$clt/usr/bin/swiftc|${SDKROOT:-$clt/SDKs/MacOSX.sdk}"; do
 		swiftc=${candidate%%|*}
@@ -72,10 +72,10 @@ build() {
 	shift $(($# < 4 ? $# : 4))
 	rm -f "$out"
 	if [ "$arch" = arm64 ] && [ -n "$swiftc" ]; then
-		cache=${OMP_APPLEFM_MODULE_CACHE:-${TMPDIR:-/tmp}/omp-applefm-module-cache}
+		cache=${OMS_APPLEFM_MODULE_CACHE:-${TMPDIR:-/tmp}/oms-applefm-module-cache}
 		# Loaded only on macOS 27+, so it targets 27 and needs no Swift
 		# back-deployment runtime.
-		"$swiftc" -emit-library -parse-as-library -module-name OmpAppleFm \
+		"$swiftc" -emit-library -parse-as-library -module-name OmsAppleFm \
 			-sdk "$sdk" -target arm64-apple-macos27.0 -swift-version 6 -O \
 			-module-cache-path "$cache" \
 			-Xlinker -install_name -Xlinker @rpath/libomp_applefm.dylib \

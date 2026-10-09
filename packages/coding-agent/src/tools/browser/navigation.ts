@@ -1,4 +1,4 @@
-import { untilAborted } from "@oh-my-pi/pi-utils";
+import { untilAborted } from "@oh-my-soup/pi-utils";
 import type { Page, WaitForOptions } from "puppeteer-core";
 
 declare module "puppeteer-core" {

@@ -1,6 +1,6 @@
 def _make_archive():
     async def _call(action, params, silent):
-        response = await _omp_prelude(
+        response = await _oms_prelude(
             "archive",
             {
                 **{key: value for key, value in params.items() if value is not None},

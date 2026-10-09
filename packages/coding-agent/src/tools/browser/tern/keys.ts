@@ -2,7 +2,7 @@
  * Puppeteer-style key names (`Enter`, `ArrowLeft`, `KeyA`, `Shift`, `a`, `Control+a`)
  * as Tern trusted-input steps (`{"type":"key","action","key","code","mods"}`).
  */
-import { ToolError } from "@oh-my-pi/pi-tui/tools/tool-errors";
+import { ToolError } from "@oh-my-soup/pi-tui/tools/tool-errors";
 
 /** A modifier as Tern's input steps name it. */
 export type TernModifier = "shift" | "ctrl" | "alt" | "meta";
@@ -59,7 +59,7 @@ const NAMED: Record<string, TernKey> = {
 	NumpadDecimal: { key: ".", code: "NumpadDecimal" },
 };
 
-/** Named DOM keys omp passes through unchanged. */
+/** Named DOM keys oms passes through unchanged. */
 const PASS_THROUGH_KEYS =
 	/^(?:Enter|Tab|Backspace|Delete|Escape|ArrowUp|ArrowDown|ArrowLeft|ArrowRight|Home|End|PageUp|PageDown|Insert|CapsLock|ContextMenu|F(?:[1-9]|1\d|2[0-4]))$/;
 

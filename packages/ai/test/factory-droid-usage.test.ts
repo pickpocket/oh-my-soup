@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import { quotaTierFor } from "@oh-my-pi/pi-catalog/compat/behavior";
-import { factoryDroidRegistry } from "@oh-my-pi/pi-catalog/compat/factory-droid";
+import { quotaTierFor } from "@oh-my-soup/pi-catalog/compat/behavior";
+import { factoryDroidRegistry } from "@oh-my-soup/pi-catalog/compat/factory-droid";
 import type { UsageFetchContext } from "../src/usage";
 import {
 	factoryDroidRankingStrategy,

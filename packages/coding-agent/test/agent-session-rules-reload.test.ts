@@ -2,7 +2,7 @@
  * Regression tests for sticky `RULES.md` reload on in-process session reset.
  *
  * `RULES.md` is a sticky always-apply rule rendered into the system prompt's
- * generic-rules section. Creating or editing it while omp runs and then
+ * generic-rules section. Creating or editing it while oms runs and then
  * resetting the context (`/clear`) or starting a new session (`/new`) MUST make
  * the next prompt observe the current file — otherwise the rule set stays frozen
  * at session creation until the process restarts (issue #10940).
@@ -10,15 +10,15 @@
 import { afterEach, describe, expect, it, vi } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import type { Api, Model, ModelSpec } from "@oh-my-pi/pi-ai";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
-import { ModelRegistry } from "@oh-my-pi/pi-coding-agent/config/model-registry";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { createAgentSession } from "@oh-my-pi/pi-coding-agent/sdk";
-import type { AgentSession } from "@oh-my-pi/pi-coding-agent/session/agent-session";
-import { AuthStorage } from "@oh-my-pi/pi-coding-agent/session/auth-storage";
-import { SessionManager } from "@oh-my-pi/pi-coding-agent/session/session-manager";
-import { getConfigRootDir, setAgentDir, TempDir } from "@oh-my-pi/pi-utils";
+import type { Api, Model, ModelSpec } from "@oh-my-soup/pi-ai";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
+import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { createAgentSession } from "@oh-my-soup/pi-coding-agent/sdk";
+import type { AgentSession } from "@oh-my-soup/pi-coding-agent/session/agent-session";
+import { AuthStorage } from "@oh-my-soup/pi-coding-agent/session/auth-storage";
+import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
+import { getConfigRootDir, setAgentDir, TempDir } from "@oh-my-soup/pi-utils";
 
 function buildLocalModel(api: string): Model<Api> {
 	return buildModel({
@@ -83,10 +83,10 @@ async function expectStickyRuleReload(
 	const original = `ORIGINAL_STICKY_${marker}`;
 	const updated = `UPDATED_STICKY_${marker}`;
 	// User scope: `<agentDir>/RULES.md` via the process-global getAgentDir().
-	// Project scope: nearest `.omp/RULES.md` walking up from cwd.
+	// Project scope: nearest `.oms/RULES.md` walking up from cwd.
 	if (opts.scope === "user") setAgentDir(tempDir.path());
 	const rulesMd =
-		opts.scope === "user" ? path.join(tempDir.path(), "RULES.md") : path.join(tempDir.path(), ".omp", "RULES.md");
+		opts.scope === "user" ? path.join(tempDir.path(), "RULES.md") : path.join(tempDir.path(), ".oms", "RULES.md");
 	if (opts.seedInitial) {
 		await fs.mkdir(path.dirname(rulesMd), { recursive: true });
 		await fs.writeFile(rulesMd, original);
@@ -152,8 +152,8 @@ describe("AgentSession session-local rule snapshot reload on session reset", () 
 		const marker = Bun.nanoseconds().toString(36);
 		const body = `RULEBOOK_BODY_${marker}`;
 		const ruleName = `reload-book-${marker}`;
-		// Empty `.omp/rules/` keeps the project config scope present without any rulebook rule yet.
-		const rulesDir = path.join(tempDir.path(), ".omp", "rules");
+		// Empty `.oms/rules/` keeps the project config scope present without any rulebook rule yet.
+		const rulesDir = path.join(tempDir.path(), ".oms", "rules");
 		await fs.mkdir(rulesDir, { recursive: true });
 
 		const { session, authStorage } = await createReloadSession(tempDir);

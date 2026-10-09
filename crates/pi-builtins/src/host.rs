@@ -459,7 +459,7 @@ impl ShellPaths {
 /// Virtual descriptors cannot share native `/dev/fd` numbers in the overlay.
 #[cfg(unix)]
 fn virtual_descriptor_path(fd: brush_core::ShellFd) -> PathBuf {
-	PathBuf::from(format!("omp-descriptor://{fd}"))
+	PathBuf::from(format!("oms-descriptor://{fd}"))
 }
 
 /// The host process umask, which builtins must never change: they run on

@@ -7,7 +7,7 @@ Subcommands:
   edits       — edit-tool reliability audit (port of cmd_edits.rs)
   followups   — five hashline-edit detectors (port of cmd_followups.rs)
 
-Each subcommand reads from ~/.omp/stats.db. Run sync.py first.
+Each subcommand reads from ~/.oms/stats.db. Run sync.py first.
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ import time
 from collections import Counter, defaultdict
 from pathlib import Path
 
-DB_PATH = Path.home() / ".omp" / "stats.db"
+DB_PATH = Path.home() / ".oms" / "stats.db"
 
 
 # --------------------------------------------------------------------------- #

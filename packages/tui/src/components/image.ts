@@ -1,4 +1,4 @@
-import { encodeSixelAsync } from "@oh-my-pi/pi-natives";
+import { encodeSixelAsync } from "@oh-my-soup/pi-natives";
 import { getKittyGraphics } from "../kitty-graphics";
 import {
 	encodeSixelNow,

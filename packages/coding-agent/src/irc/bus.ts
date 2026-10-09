@@ -9,8 +9,8 @@
  * boundary (see AgentSession.deliverIrcMessage).
  */
 
-import { type IrcDeliveryReceipt, type IrcMessage } from "@oh-my-pi/pi-tui/tools/irc";
-import { logger, Snowflake } from "@oh-my-pi/pi-utils";
+import { type IrcDeliveryReceipt, type IrcMessage } from "@oh-my-soup/pi-tui/tools/irc";
+import { logger, Snowflake } from "@oh-my-soup/pi-utils";
 import { AgentLifecycleManager } from "../registry/agent-lifecycle";
 import { AgentRegistry, MAIN_AGENT_ID } from "../registry/agent-registry";
 import type { CustomMessage } from "../session/messages";

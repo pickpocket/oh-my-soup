@@ -1,6 +1,6 @@
-import { formatDuration } from "@oh-my-pi/pi-tui/render/render-utils";
-import type { DaemonSnapshot } from "@oh-my-pi/pi-tui/tools/daemon";
-import { logger } from "@oh-my-pi/pi-utils";
+import { formatDuration } from "@oh-my-soup/pi-tui/render/render-utils";
+import type { DaemonSnapshot } from "@oh-my-soup/pi-tui/tools/daemon";
+import { logger } from "@oh-my-soup/pi-utils";
 import type { AsyncJob } from "../async";
 import {
 	agentStaleNote,
@@ -19,7 +19,7 @@ import {
 	serviceStatus,
 	stopService,
 } from "../launch/services";
-import type { ProcReadDetails } from "@oh-my-pi/pi-tui/tools/proc-render";
+import type { ProcReadDetails } from "@oh-my-soup/pi-tui/tools/proc-render";
 import procPromptDoc from "../prompts/internal-urls/proc.md" with { type: "text" };
 import type { ToolSession } from "../tools";
 import type {

@@ -1,5 +1,5 @@
 import * as path from "node:path";
-import type { ImageContent } from "@oh-my-pi/pi-ai";
+import type { ImageContent } from "@oh-my-soup/pi-ai";
 import { type SourceTaggedImage, imageAttachmentSource, tagImageAttachmentSource } from "./image-source";
 
 /** Container extensions treated as video. Mirrors the video subset of the local-protocol binary list. */

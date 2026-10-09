@@ -2,13 +2,13 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { resetSettingsForTest, Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { type EditMode, EditTool } from "@oh-my-pi/pi-coding-agent/edit";
-import { resolveLocalUrlToPath } from "@oh-my-pi/pi-coding-agent/internal-urls";
-import { InternalUrlRouter } from "@oh-my-pi/pi-coding-agent/internal-urls/router";
-import type { ProtocolHandler } from "@oh-my-pi/pi-coding-agent/internal-urls/types";
-import type { ToolSession } from "@oh-my-pi/pi-coding-agent/tools";
-import { removeWithRetries } from "@oh-my-pi/pi-utils";
+import { resetSettingsForTest, Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { type EditMode, EditTool } from "@oh-my-soup/pi-coding-agent/edit";
+import { resolveLocalUrlToPath } from "@oh-my-soup/pi-coding-agent/internal-urls";
+import { InternalUrlRouter } from "@oh-my-soup/pi-coding-agent/internal-urls/router";
+import type { ProtocolHandler } from "@oh-my-soup/pi-coding-agent/internal-urls/types";
+import type { ToolSession } from "@oh-my-soup/pi-coding-agent/tools";
+import { removeWithRetries } from "@oh-my-soup/pi-utils";
 
 let tmpDir: string;
 let artifactsDir: string;
@@ -35,7 +35,7 @@ function localFile(url: string): string {
 
 beforeEach(async () => {
 	resetSettingsForTest();
-	tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-edit-urls-"));
+	tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-edit-urls-"));
 	artifactsDir = path.join(tmpDir, "artifacts");
 	await Settings.init({ inMemory: true, cwd: tmpDir });
 });

@@ -1,6 +1,6 @@
 import { beforeAll, expect, test } from "bun:test";
 import * as fs from "node:fs";
-import type { TspKind, TspPickerProps } from "@oh-my-pi/pi-wire";
+import type { TspKind, TspPickerProps } from "@oh-my-soup/pi-wire";
 import type { DescribeContext, NativeChild, NativeNode } from "../src/native/node";
 import { AgentHubOverlayComponent } from "../src/overlays/agent-hub";
 import type { AgentRecordLike } from "../src/overlays/agent-hub-types";

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
-import type { ImageContent, Model } from "@oh-my-pi/pi-ai";
-import { getBundledModel } from "@oh-my-pi/pi-catalog/models";
-import * as snapcompact from "@oh-my-pi/snapcompact";
+import type { ImageContent, Model } from "@oh-my-soup/pi-ai";
+import { getBundledModel } from "@oh-my-soup/pi-catalog/models";
+import * as snapcompact from "@oh-my-soup/snapcompact";
 import { Agent } from "../src/agent";
 import { createCompactionSummaryMessage, defaultConvertToLlm } from "../src/compaction/messages";
 import { base64ImageSize } from "../src/image-tokens";

@@ -2,9 +2,9 @@ import { afterEach, describe, expect, test } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { RpcClient, RpcCommandError } from "@oh-my-pi/pi-coding-agent/modes/rpc/rpc-client";
-import type { BtwHistoryRecord } from "@oh-my-pi/pi-coding-agent/session/btw-history";
-import { isRecord, readJsonl, removeWithRetries } from "@oh-my-pi/pi-utils";
+import { RpcClient, RpcCommandError } from "@oh-my-soup/pi-coding-agent/modes/rpc/rpc-client";
+import type { BtwHistoryRecord } from "@oh-my-soup/pi-coding-agent/session/btw-history";
+import { isRecord, readJsonl, removeWithRetries } from "@oh-my-soup/pi-utils";
 
 /** Settle a request before `expect` sees it (see rpc-goal.test.ts). */
 async function rejectionOf(request: Promise<unknown>): Promise<Error> {
@@ -26,7 +26,7 @@ describe("RPC /btw", () => {
 	});
 
 	async function start() {
-		directory = await fs.mkdtemp(path.join(os.tmpdir(), "omp-rpc-btw-"));
+		directory = await fs.mkdtemp(path.join(os.tmpdir(), "oms-rpc-btw-"));
 		const rpc = new RpcClient({
 			command: [process.execPath, path.join(import.meta.dir, "fixtures", "btw-rpc-agent.ts")],
 			cwd: directory,
@@ -224,7 +224,7 @@ describe("RPC /btw", () => {
 	}, 30_000);
 
 	test("over raw stdio: the response precedes the turn's frames, and EOF saves a running question", async () => {
-		directory = await fs.mkdtemp(path.join(os.tmpdir(), "omp-rpc-btw-"));
+		directory = await fs.mkdtemp(path.join(os.tmpdir(), "oms-rpc-btw-"));
 		const child = Bun.spawn([process.execPath, path.join(import.meta.dir, "fixtures", "btw-rpc-agent.ts")], {
 			cwd: directory,
 			env: { ...process.env, PI_CODING_AGENT_DIR: directory, PI_NO_TITLE: "1" },

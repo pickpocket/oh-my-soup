@@ -1,9 +1,9 @@
-import { type } from "@oh-my-pi/omptype";
-import type { AgentToolResult, ToolApprovalDecision } from "@oh-my-pi/pi-agent-core";
-import type { ModelCost } from "@oh-my-pi/pi-catalog/types";
-import type { ExtensionAskDialogResult } from "@oh-my-pi/pi-tui/overlays/ask-dialog";
-import { ToolError } from "@oh-my-pi/pi-tui/tools/tool-errors";
-import { untilAborted } from "@oh-my-pi/pi-utils";
+import { type } from "@oh-my-soup/omstype";
+import type { AgentToolResult, ToolApprovalDecision } from "@oh-my-soup/pi-agent-core";
+import type { ModelCost } from "@oh-my-soup/pi-catalog/types";
+import type { ExtensionAskDialogResult } from "@oh-my-soup/pi-tui/overlays/ask-dialog";
+import { ToolError } from "@oh-my-soup/pi-tui/tools/tool-errors";
+import { untilAborted } from "@oh-my-soup/pi-utils";
 import type { EvalPreludeContext, EvalPreludeDefinition } from "../eval/preludes";
 import { cfgRatchetEnabled } from "../tools/settings";
 import ratchetDocumentation from "../prompts/tools/ratchet.md" with { type: "text" };
@@ -81,7 +81,7 @@ const paramsSchema = type({
 
 type RatchetParams = typeof paramsSchema.infer;
 
-/** Read-only actions never mutate flow state; everything else writes `.omp/ratchet/<flow>/`. */
+/** Read-only actions never mutate flow state; everything else writes `.oms/ratchet/<flow>/`. */
 export function ratchetApproval(args: unknown): ToolApprovalDecision {
 	if (args === null || typeof args !== "object" || !("action" in args)) return "write";
 	return args.action === "status" || args.action === "check" || args.action === "train" ? "read" : "write";

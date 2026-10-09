@@ -2,18 +2,18 @@ import { afterEach, describe, expect, it, vi } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { Skill } from "@oh-my-pi/pi-coding-agent/extensibility/skills";
-import { parseArgs } from "@oh-my-pi/pi-coding-agent/cli/args";
-import { ModelRegistry } from "@oh-my-pi/pi-coding-agent/config/model-registry";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { buildSessionOptions, readPipedInput, submitInteractiveInput } from "@oh-my-pi/pi-coding-agent/main";
-import type { SubmittedUserInput } from "@oh-my-pi/pi-coding-agent/modes/types";
-import { SKILL_PROMPT_MESSAGE_TYPE } from "@oh-my-pi/pi-coding-agent/session/messages";
-import { discoverTitleSystemPromptFile } from "@oh-my-pi/pi-coding-agent/system-prompt";
-import type { CreateAgentSessionOptions } from "@oh-my-pi/pi-coding-agent/sdk";
-import { AuthStorage } from "@oh-my-pi/pi-coding-agent/session/auth-storage";
-import { SessionManager } from "@oh-my-pi/pi-coding-agent/session/session-manager";
-import { removeWithRetries } from "@oh-my-pi/pi-utils";
+import type { Skill } from "@oh-my-soup/pi-coding-agent/extensibility/skills";
+import { parseArgs } from "@oh-my-soup/pi-coding-agent/cli/args";
+import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { buildSessionOptions, readPipedInput, submitInteractiveInput } from "@oh-my-soup/pi-coding-agent/main";
+import type { SubmittedUserInput } from "@oh-my-soup/pi-coding-agent/modes/types";
+import { SKILL_PROMPT_MESSAGE_TYPE } from "@oh-my-soup/pi-coding-agent/session/messages";
+import { discoverTitleSystemPromptFile } from "@oh-my-soup/pi-coding-agent/system-prompt";
+import type { CreateAgentSessionOptions } from "@oh-my-soup/pi-coding-agent/sdk";
+import { AuthStorage } from "@oh-my-soup/pi-coding-agent/session/auth-storage";
+import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
+import { removeWithRetries } from "@oh-my-soup/pi-utils";
 
 const cleanupDirs: string[] = [];
 
@@ -33,10 +33,10 @@ function createInput(overrides: Partial<SubmittedUserInput> = {}): SubmittedUser
 }
 
 describe("discoverTitleSystemPromptFile", () => {
-	it("discovers TITLE_SYSTEM.md from the project omp config directory", async () => {
-		const projectDir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-title-system-"));
+	it("discovers TITLE_SYSTEM.md from the project oms config directory", async () => {
+		const projectDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-title-system-"));
 		cleanupDirs.push(projectDir);
-		const configDir = path.join(projectDir, ".omp");
+		const configDir = path.join(projectDir, ".oms");
 		await fs.mkdir(configDir, { recursive: true });
 		const promptPath = path.join(configDir, "TITLE_SYSTEM.md");
 		await fs.writeFile(promptPath, "custom title prompt");
@@ -77,10 +77,10 @@ describe("system prompt template CLI resolution", () => {
 	}
 
 	it("discovers SYSTEM_TEMPLATE.md and preserves the raw template", async () => {
-		const projectDir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-system-template-"));
+		const projectDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-system-template-"));
 		cleanupDirs.push(projectDir);
-		await fs.mkdir(path.join(projectDir, ".omp"), { recursive: true });
-		await fs.writeFile(path.join(projectDir, ".omp", "SYSTEM_TEMPLATE.md"), "Hello {{model}}");
+		await fs.mkdir(path.join(projectDir, ".oms"), { recursive: true });
+		await fs.writeFile(path.join(projectDir, ".oms", "SYSTEM_TEMPLATE.md"), "Hello {{model}}");
 
 		const options = await buildPromptOptions(projectDir, []);
 
@@ -89,10 +89,10 @@ describe("system prompt template CLI resolution", () => {
 	});
 
 	it("lets an explicit literal prompt suppress discovered templates", async () => {
-		const projectDir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-system-prompt-"));
+		const projectDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-system-prompt-"));
 		cleanupDirs.push(projectDir);
-		await fs.mkdir(path.join(projectDir, ".omp"), { recursive: true });
-		await fs.writeFile(path.join(projectDir, ".omp", "SYSTEM_TEMPLATE.md"), "discovered");
+		await fs.mkdir(path.join(projectDir, ".oms"), { recursive: true });
+		await fs.writeFile(path.join(projectDir, ".oms", "SYSTEM_TEMPLATE.md"), "discovered");
 
 		const options = await buildPromptOptions(projectDir, ["--system-prompt", "inline literal"]);
 
@@ -290,7 +290,7 @@ describe("submitInteractiveInput", () => {
 	});
 
 	it("routes a resubmitted /skill: prompt through promptCustomMessage instead of raw text (regression for #8137-style loop resubmit)", async () => {
-		const skillDir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-skill-command-"));
+		const skillDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-skill-command-"));
 		cleanupDirs.push(skillDir);
 		const skillPath = path.join(skillDir, "recap.md");
 		await fs.writeFile(skillPath, "---\nname: recap\n---\nSummarize recent changes.\n");

@@ -2,12 +2,12 @@ import { afterEach, describe, expect, test, vi } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { getThemeByName } from "@oh-my-pi/pi-tui/theme";
-import { OutputSink } from "@oh-my-pi/pi-tui/tools/streaming-output";
-import { bashToolRenderer } from "@oh-my-pi/pi-tui/tools/bash";
-import { formatOutputNotice } from "@oh-my-pi/pi-tui/tools/output-meta";
-import { outputMeta } from "@oh-my-pi/pi-coding-agent/tools/output-meta";
-import { removeWithRetries, sanitizeText } from "@oh-my-pi/pi-utils";
+import { getThemeByName } from "@oh-my-soup/pi-tui/theme";
+import { OutputSink } from "@oh-my-soup/pi-tui/tools/streaming-output";
+import { bashToolRenderer } from "@oh-my-soup/pi-tui/tools/bash";
+import { formatOutputNotice } from "@oh-my-soup/pi-tui/tools/output-meta";
+import { outputMeta } from "@oh-my-soup/pi-coding-agent/tools/output-meta";
+import { removeWithRetries, sanitizeText } from "@oh-my-soup/pi-utils";
 
 const createdTempDirs: string[] = [];
 

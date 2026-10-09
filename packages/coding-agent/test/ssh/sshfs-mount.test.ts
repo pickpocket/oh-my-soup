@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "bun:test";
 import * as path from "node:path";
-import * as piUtils from "@oh-my-pi/pi-utils";
+import * as piUtils from "@oh-my-soup/pi-utils";
 import * as connectionManager from "../../src/ssh/connection-manager";
 import { isMounted, mountRemote } from "../../src/ssh/sshfs-mount";
 
@@ -12,7 +12,7 @@ describe("mountRemote", () => {
 	it("surfaces the shared ControlMaster directory guard before touching sshfs", async () => {
 		vi.spyOn(piUtils, "$which").mockImplementation(command => (command === "sshfs" ? "/bin/true" : null));
 		vi.spyOn(connectionManager, "ensureSshControlDir").mockImplementation(() => {
-			throw new Error("SSH control directory /tmp/omp-test is a symlink");
+			throw new Error("SSH control directory /tmp/oms-test is a symlink");
 		});
 
 		await expect(mountRemote({ name: "nixbox", host: "nixbox" })).rejects.toThrow("is a symlink");

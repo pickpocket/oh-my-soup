@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { INTENT_FIELD } from "@oh-my-pi/pi-wire";
-import { formatArgsInline } from "@oh-my-pi/pi-tui/tools/json-tree";
+import { INTENT_FIELD } from "@oh-my-soup/pi-wire";
+import { formatArgsInline } from "@oh-my-soup/pi-tui/tools/json-tree";
 
 describe("formatArgsInline", () => {
 	test("a trailing scalar grows into the available width instead of a fixed cap", () => {

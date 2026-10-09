@@ -1,10 +1,10 @@
 import { describe, expect, it } from "bun:test";
-import type { ResetCreditAccountStatus, UsageReport, UsageResetCredit } from "@oh-my-pi/pi-ai";
+import type { ResetCreditAccountStatus, UsageReport, UsageResetCredit } from "@oh-my-soup/pi-ai";
 import {
 	planClaudeResetRedemptions,
 	type ClaudeResetPlanInput,
 	type ClaudeResetSkipReason,
-} from "@oh-my-pi/pi-coding-agent/session/claude-auto-reset";
+} from "@oh-my-soup/pi-coding-agent/session/claude-auto-reset";
 
 const NOW = 1_700_000_040_000;
 const HOUR = 3_600_000;

@@ -715,9 +715,9 @@
       margin-left: 10px;
     }
 
-    /* Tool calls render inside the <omp-tool-view> web component, which draws
+    /* Tool calls render inside the <oms-tool-view> web component, which draws
        its own card chrome; the host box collapses to a plain block. */
-    omp-tool-view.tool-execution {
+    oms-tool-view.tool-execution {
       display: block;
       padding: 0;
       background: none;

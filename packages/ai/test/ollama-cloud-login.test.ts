@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import * as AIError from "@oh-my-pi/pi-ai/error";
-import { getProviderDefinition } from "@oh-my-pi/pi-ai/registry/registry";
+import * as AIError from "@oh-my-soup/pi-ai/error";
+import { getProviderDefinition } from "@oh-my-soup/pi-ai/registry/registry";
 
 const loginOllamaCloud = getProviderDefinition("ollama-cloud")!.login!;
 

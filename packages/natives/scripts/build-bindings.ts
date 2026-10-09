@@ -5,10 +5,10 @@
  * scripts/bazel-natives.ts); release addons build through Bazel with explicit
  * //:natives-* targets. Host target only — no cross-compilation.
  *
- * `OMP_NATIVE_CARGO_PROFILE` selects the cargo profile (default `local`:
+ * `OMS_NATIVE_CARGO_PROFILE` selects the cargo profile (default `local`:
  * incremental, unstripped). Image builds set `ci` for a stripped addon.
  *
- * `OMP_NATIVE_FEATURES` passes extra cargo features to `napi build --features`
+ * `OMS_NATIVE_FEATURES` passes extra cargo features to `napi build --features`
  * (e.g. `wayland-pipewire`). Cargo path only; Bazel builds ignore it.
  */
 
@@ -215,7 +215,7 @@ const napiBin = path.join(path.dirname(napiManifestPath), napiBinEntry);
 
 // Profiles live in the root Cargo.toml; `local` trades size for iteration
 // speed, `ci` strips and drops incremental state.
-const cargoProfile = Bun.env.OMP_NATIVE_CARGO_PROFILE?.trim() || "local";
+const cargoProfile = Bun.env.OMS_NATIVE_CARGO_PROFILE?.trim() || "local";
 
 const napiArgs = [
 	"build",
@@ -234,8 +234,8 @@ const napiArgs = [
 ];
 
 // Local-only opt-in: pass extra cargo features through to napi build, e.g.
-// OMP_NATIVE_FEATURES=wayland-pipewire bun --cwd=packages/natives run build
-const extraFeatures = Bun.env.OMP_NATIVE_FEATURES?.trim();
+// OMS_NATIVE_FEATURES=wayland-pipewire bun --cwd=packages/natives run build
+const extraFeatures = Bun.env.OMS_NATIVE_FEATURES?.trim();
 if (extraFeatures) {
 	napiArgs.push("--features", extraFeatures);
 }

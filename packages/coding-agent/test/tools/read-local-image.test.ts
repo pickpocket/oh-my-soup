@@ -11,13 +11,13 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { completeSimple } from "@oh-my-pi/pi-ai";
-import { createMockModel } from "@oh-my-pi/pi-ai/providers/mock";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { InternalUrlRouter, LocalProtocolHandler, parseInternalUrl } from "@oh-my-pi/pi-coding-agent/internal-urls";
-import type { ToolSession } from "@oh-my-pi/pi-coding-agent/tools";
-import { ReadTool } from "@oh-my-pi/pi-coding-agent/tools/read";
-import { $which, removeWithRetries } from "@oh-my-pi/pi-utils";
+import type { completeSimple } from "@oh-my-soup/pi-ai";
+import { createMockModel } from "@oh-my-soup/pi-ai/providers/mock";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { InternalUrlRouter, LocalProtocolHandler, parseInternalUrl } from "@oh-my-soup/pi-coding-agent/internal-urls";
+import type { ToolSession } from "@oh-my-soup/pi-coding-agent/tools";
+import { ReadTool } from "@oh-my-soup/pi-coding-agent/tools/read";
+import { $which, removeWithRetries } from "@oh-my-soup/pi-utils";
 
 const hasFfprobe = Boolean($which("ffprobe"));
 

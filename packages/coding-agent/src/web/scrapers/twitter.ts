@@ -1,4 +1,4 @@
-import { prompt } from "@oh-my-pi/pi-utils";
+import { prompt } from "@oh-my-soup/pi-utils";
 import { settings } from "../../config/settings";
 import xReadPrompt from "../../prompts/system/x-read.md" with { type: "text" };
 import { ToolAbortError } from "../../tools/tool-errors";

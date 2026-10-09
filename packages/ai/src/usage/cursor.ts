@@ -1,6 +1,6 @@
-import { quotaTierFor } from "@oh-my-pi/pi-catalog/compat/behavior";
-import { CURSOR_DEFAULT_BASE_URL } from "@oh-my-pi/pi-catalog/wire/cursor";
-import { toNumber } from "@oh-my-pi/pi-catalog/utils";
+import { quotaTierFor } from "@oh-my-soup/pi-catalog/compat/behavior";
+import { CURSOR_DEFAULT_BASE_URL } from "@oh-my-soup/pi-catalog/wire/cursor";
+import { toNumber } from "@oh-my-soup/pi-catalog/utils";
 import {
 	cursorSessionHeaders,
 	extractCursorAccessTokenUserId,

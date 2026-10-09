@@ -2,15 +2,15 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { resetSettingsForTest, Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { EditTool } from "@oh-my-pi/pi-coding-agent/edit";
+import { resetSettingsForTest, Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { EditTool } from "@oh-my-soup/pi-coding-agent/edit";
 import {
 	registerArtifactsDir,
 	resetRegisteredArtifactDirsForTests,
-} from "@oh-my-pi/pi-coding-agent/internal-urls/registry-helpers";
-import type { ToolSession } from "@oh-my-pi/pi-coding-agent/tools";
-import { AstEditTool } from "@oh-my-pi/pi-coding-agent/tools/ast-edit";
-import { removeWithRetries } from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-coding-agent/internal-urls/registry-helpers";
+import type { ToolSession } from "@oh-my-soup/pi-coding-agent/tools";
+import { AstEditTool } from "@oh-my-soup/pi-coding-agent/tools/ast-edit";
+import { removeWithRetries } from "@oh-my-soup/pi-utils";
 
 let tmpDir: string;
 let artifactsDir: string;
@@ -34,7 +34,7 @@ function resultText(result: { content: Array<{ type: string; text?: string }> })
 
 beforeEach(async () => {
 	resetSettingsForTest();
-	tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-edit-handler-urls-"));
+	tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-edit-handler-urls-"));
 	artifactsDir = path.join(tmpDir, "artifacts");
 	await fs.mkdir(artifactsDir, { recursive: true });
 	await Settings.init({ inMemory: true, cwd: tmpDir });

@@ -3,7 +3,7 @@
  * settings-panel order; `config/all-settings.ts` registers every domain.
  */
 import { register } from "../config/registry";
-import { DEFAULT_SHARE_URL } from "@oh-my-pi/pi-wire";
+import { DEFAULT_SHARE_URL } from "@oh-my-soup/pi-wire";
 
 export const cfgShareServerUrl = register({
 	id: "share.serverUrl",

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "bun:test";
-import { ThinkingLevel, Tokenizer } from "@oh-my-pi/pi-agent-core";
+import { ThinkingLevel, Tokenizer } from "@oh-my-soup/pi-agent-core";
 import {
 	type CompactionPreparation,
 	compact,
@@ -9,7 +9,7 @@ import {
 	NativeCompactionError,
 	prepareCompaction,
 	type SessionEntry,
-} from "@oh-my-pi/pi-agent-core/compaction";
+} from "@oh-my-soup/pi-agent-core/compaction";
 import {
 	buildCompactionV2Request,
 	buildOpenAiNativeHistory,
@@ -22,15 +22,15 @@ import {
 	shouldUseCompactionV2Streaming,
 	shouldUseOpenAiRemoteCompaction,
 	trimRemoteCompactionInputToContextWindow,
-} from "@oh-my-pi/pi-agent-core/compaction/openai";
-import * as ai from "@oh-my-pi/pi-ai";
-import { NO_AUTH_SENTINEL } from "@oh-my-pi/pi-ai/auth-retry";
-import * as AIError from "@oh-my-pi/pi-ai/error";
-import { clearAwsCredentialCache } from "@oh-my-pi/pi-ai/providers/aws-credentials";
+} from "@oh-my-soup/pi-agent-core/compaction/openai";
+import * as ai from "@oh-my-soup/pi-ai";
+import { NO_AUTH_SENTINEL } from "@oh-my-soup/pi-ai/auth-retry";
+import * as AIError from "@oh-my-soup/pi-ai/error";
+import { clearAwsCredentialCache } from "@oh-my-soup/pi-ai/providers/aws-credentials";
 import {
 	buildTransformedCodexRequestBody,
 	getOpenAICodexTransportDetails,
-} from "@oh-my-pi/pi-ai/providers/openai-codex-responses";
+} from "@oh-my-soup/pi-ai/providers/openai-codex-responses";
 import type {
 	AssistantMessage,
 	CodexCompactionContext,
@@ -39,11 +39,11 @@ import type {
 	ProviderSessionState,
 	ToolResultMessage,
 	UserMessage,
-} from "@oh-my-pi/pi-ai/types";
-import { __resetProxyCache } from "@oh-my-pi/pi-ai/utils/proxy";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
-import type { ModelSpec } from "@oh-my-pi/pi-catalog/types";
-import * as piUtils from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-ai/types";
+import { __resetProxyCache } from "@oh-my-soup/pi-ai/utils/proxy";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
+import type { ModelSpec } from "@oh-my-soup/pi-catalog/types";
+import * as piUtils from "@oh-my-soup/pi-utils";
 
 const { isRecord } = piUtils;
 const TEST_INSTALLATION_ID = "00000000-0000-4000-8000-000000000001";
@@ -2132,7 +2132,7 @@ describe("requestRemoteCompaction wire formats", () => {
 		});
 	});
 
-	test("keeps the generic omp summarizer format for other endpoints", async () => {
+	test("keeps the generic oms summarizer format for other endpoints", async () => {
 		let sentBody: unknown;
 		const fetchMock: FetchImpl = async (_input, init) => {
 			if (typeof init?.body !== "string") throw new Error("missing remote compaction request body");

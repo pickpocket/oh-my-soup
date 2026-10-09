@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, test } from "bun:test";
-import type { AgentMessage } from "@oh-my-pi/pi-agent-core";
-import type { TspKind, TspPickerProps, TspProps } from "@oh-my-pi/pi-wire";
+import type { AgentMessage } from "@oh-my-soup/pi-agent-core";
+import type { TspKind, TspPickerProps, TspProps } from "@oh-my-soup/pi-wire";
 import type { SessionMessageEntryLike } from "../src/chat/transcript-entry";
 import type { DescribeContext, NativeChild, NativeNode } from "../src/native/node";
 import { setNativeRendering } from "../src/native/state";
@@ -103,7 +103,7 @@ describe("rewind page", () => {
 		for (const child of children) {
 			const entry =
 				"k" in child
-					? child.p?.role === "omp.rewind.here"
+					? child.p?.role === "oms.rewind.here"
 						? (child.key ?? "here")
 						: (child.p?.role ?? child.k)
 					: (child.describe?.(pickerCx)?.p?.mark ?? "-");
@@ -113,13 +113,13 @@ describe("rewind page", () => {
 	}
 
 	function captionText(children: readonly NativeChild[]): string {
-		const caption = children.find(child => "k" in child && child.p?.role === "omp.rewind.here");
+		const caption = children.find(child => "k" in child && child.p?.role === "oms.rewind.here");
 		return JSON.stringify(caption);
 	}
 
 	test("opens on the newest turn: the transcript as blocks, the turn picked under its caption", () => {
 		const page = rewind().describeScreen(pickerCx);
-		expect(page.role).toBe("omp.rewind");
+		expect(page.role).toBe("oms.rewind");
 		expect(marks(page.main)).toEqual(["-", "here:main:u2", "pick"]);
 		expect(captionText(page.main)).toContain("nothing below to drop");
 		expect(page.dock).toHaveLength(1);
@@ -131,7 +131,7 @@ describe("rewind page", () => {
 		for (let i = 0; i < 3; i++) selector.handleInput(UP);
 		const { main } = selector.describeScreen(pickerCx);
 		expect(marks(main)).toEqual(["here:main:u1", "pick", "drop"]);
-		const caption = main.find(child => "k" in child && child.p?.role === "omp.rewind.here");
+		const caption = main.find(child => "k" in child && child.p?.role === "oms.rewind.here");
 		expect(caption && "k" in caption ? caption.reveal : undefined).toBe("start");
 		// A user turn rewinds past itself: its prompt returns to the editor.
 		expect(captionText(main)).toContain("the prompt returns to the editor");
@@ -164,7 +164,7 @@ describe("rewind page", () => {
 			typeText(selector, "thanks");
 			expect(marks(selector.describeScreen(pickerCx).main)).toEqual(["here:main:u2", "pick"]);
 			typeText(selector, "zzz");
-			expect(marks(selector.describeScreen(pickerCx).main)).toEqual(["omp.rewind.empty"]);
+			expect(marks(selector.describeScreen(pickerCx).main)).toEqual(["oms.rewind.empty"]);
 		} finally {
 			setNativeRendering(false);
 		}
@@ -189,18 +189,18 @@ describe("rewind page", () => {
 		const selector = rewind({ selected, siblings });
 		let { main } = selector.describeScreen(pickerCx);
 		const strip = main.at(-1);
-		if (!strip || !("k" in strip) || strip.p?.role !== "omp.rewind.strip")
+		if (!strip || !("k" in strip) || strip.p?.role !== "oms.rewind.strip")
 			throw new Error("expected the branch strip last");
 		const [current, other] = (strip.c ?? []) as NativeNode[];
 		expect([current?.p?.tone, other?.p?.tone]).toEqual(["accent", undefined]);
-		expect(marks(current?.c ?? [])).toEqual(["omp.rewind.branch.head", "here:main:u2", "pick"]);
-		expect(marks(other?.c ?? [])).toEqual(["omp.rewind.branch.head", "-"]);
+		expect(marks(current?.c ?? [])).toEqual(["oms.rewind.branch.head", "here:main:u2", "pick"]);
+		expect(marks(other?.c ?? [])).toEqual(["oms.rewind.branch.head", "-"]);
 
 		selector.handleInput(RIGHT);
 		main = selector.describeScreen(pickerCx).main;
 		const [, next] = ((main.at(-1) as NativeNode).c ?? []) as NativeNode[];
 		expect(next?.p?.tone).toBe("accent");
-		expect(marks(next?.c ?? [])).toEqual(["omp.rewind.branch.head", "here:u3:u3", "pick", "drop"]);
+		expect(marks(next?.c ?? [])).toEqual(["oms.rewind.branch.head", "here:u3:u3", "pick", "drop"]);
 		selector.handleInput("\r");
 		expect(selected).toEqual(["u3"]);
 	});
@@ -226,15 +226,15 @@ describe("copy picker", () => {
 		expect(
 			sections().map(section => [section.key, (section.p as TspProps<"section">).head, section.p?.role]),
 		).toEqual([
-			["whole", "Whole message", "omp.picker.block"],
-			["b0", expect.stringContaining("rust"), "omp.picker.block"],
+			["whole", "Whole message", "oms.picker.block"],
+			["b0", expect.stringContaining("rust"), "oms.picker.block"],
 		]);
 		expect(sections()[1]?.p?.actions?.click).toBe("copy");
 
 		selector.handleNativeEvent({ type: "action", key: "", act: "blocks", mods: [] });
 		root = selector.describe(pickerCx);
 		expect(props(root).focus).toBe("preview");
-		expect(sections()[1]?.p?.role).toBe("omp.picker.block.focused");
+		expect(sections()[1]?.p?.role).toBe("oms.picker.block.focused");
 		expect(props(root).actions?.find(action => action.id === "close")?.label).toBe("Back");
 	});
 

@@ -1,14 +1,14 @@
 import { describe, expect, it, vi } from "bun:test";
-import type { InteractiveModeContext } from "@oh-my-pi/pi-coding-agent/modes/types";
-import { executeAcpBuiltinSlashCommand } from "@oh-my-pi/pi-coding-agent/slash-commands/acp-builtins";
-import { executeBuiltinSlashCommand } from "@oh-my-pi/pi-coding-agent/slash-commands/builtin-registry";
-import type { SlashCommandRuntime } from "@oh-my-pi/pi-coding-agent/slash-commands/types";
+import type { InteractiveModeContext } from "@oh-my-soup/pi-coding-agent/modes/types";
+import { executeAcpBuiltinSlashCommand } from "@oh-my-soup/pi-coding-agent/slash-commands/acp-builtins";
+import { executeBuiltinSlashCommand } from "@oh-my-soup/pi-coding-agent/slash-commands/builtin-registry";
+import type { SlashCommandRuntime } from "@oh-my-soup/pi-coding-agent/slash-commands/types";
 import {
 	CHANGELOG_COMMAND_USAGE,
 	getChangelogPath,
 	parseChangelog,
 	RECENT_CHANGELOG_ENTRY_LIMIT,
-} from "@oh-my-pi/pi-coding-agent/utils/changelog";
+} from "@oh-my-soup/pi-coding-agent/utils/changelog";
 
 function versionHeadings(markdown: string): string[] {
 	return markdown.match(/^## \[[^\]]+\]/gm) ?? [];

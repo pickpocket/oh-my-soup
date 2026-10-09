@@ -15,7 +15,7 @@ import {
 	flushTelemetryExport,
 	initTelemetryExport,
 	isTelemetryExportEnabled,
-} from "@oh-my-pi/pi-coding-agent/telemetry-export";
+} from "@oh-my-soup/pi-coding-agent/telemetry-export";
 import { trace } from "@opentelemetry/api";
 
 let received = false;
@@ -42,7 +42,7 @@ const server = Bun.serve({
 
 process.env.OTEL_EXPORTER_OTLP_TRACES_ENDPOINT = `http://localhost:${server.port}/v1/traces`;
 process.env.OTEL_TRACES_EXPORTER = "OTLP";
-process.env.OTEL_SERVICE_NAME = "oh-my-pi-export-probe";
+process.env.OTEL_SERVICE_NAME = "oh-my-soup-export-probe";
 // Per the OTLP env contract, header values are percent-decoded and the
 // signal-specific list is merged over the common one.
 process.env.OTEL_EXPORTER_OTLP_HEADERS = "x-tenant=acme,authorization=Bearer%20common";
@@ -55,7 +55,7 @@ if (!isTelemetryExportEnabled()) {
 	process.exit(2);
 }
 
-const span = trace.getTracer("@oh-my-pi/pi-agent-core").startSpan("agent.llm_call");
+const span = trace.getTracer("@oh-my-soup/pi-agent-core").startSpan("agent.llm_call");
 span.setAttribute("gen_ai.system", "probe");
 span.setAttribute("gen_ai.request.model", "claude-haiku-4-5");
 span.end();

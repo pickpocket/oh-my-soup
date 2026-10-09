@@ -1,7 +1,7 @@
 /**
  * Regression for https://github.com/can1357/oh-my-pi/issues/3238.
  *
- * On macOS x64 (Intel), `omp stats` builds only the `modern`
+ * On macOS x64 (Intel), `oms stats` builds only the `modern`
  * (`pi_natives.darwin-x64-modern.node`) variant when the host has AVX2,
  * because `scripts/host-detect.ts` uses `Bun.spawnSync("sysctl", …)` from a
  * normal shell context and correctly resolves AVX2 → modern.

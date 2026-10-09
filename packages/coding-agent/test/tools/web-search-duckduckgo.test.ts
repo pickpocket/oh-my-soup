@@ -1,9 +1,9 @@
 import { afterAll, describe, expect, it } from "bun:test";
-import type { FetchImpl } from "@oh-my-pi/pi-ai";
-import { ModelRegistry } from "@oh-my-pi/pi-coding-agent/config/model-registry";
-import type { SearchParams } from "@oh-my-pi/pi-coding-agent/web/search/providers/base";
-import { searchDuckDuckGo } from "@oh-my-pi/pi-coding-agent/web/search/providers/duckduckgo";
-import { applyQueryConstraints, parseSearchQuery } from "@oh-my-pi/pi-coding-agent/web/search/query";
+import type { FetchImpl } from "@oh-my-soup/pi-ai";
+import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
+import type { SearchParams } from "@oh-my-soup/pi-coding-agent/web/search/providers/base";
+import { searchDuckDuckGo } from "@oh-my-soup/pi-coding-agent/web/search/providers/duckduckgo";
+import { applyQueryConstraints, parseSearchQuery } from "@oh-my-soup/pi-coding-agent/web/search/query";
 import { createInMemoryAuthStorage } from "../helpers/agent-session-setup";
 
 const sharedAuthStorage = createInMemoryAuthStorage();

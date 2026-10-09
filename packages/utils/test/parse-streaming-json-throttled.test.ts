@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { parseStreamingJsonThrottled, STREAMING_JSON_PARSE_MIN_GROWTH } from "@oh-my-pi/pi-utils/json-parse";
+import { parseStreamingJsonThrottled, STREAMING_JSON_PARSE_MIN_GROWTH } from "@oh-my-soup/pi-utils/json-parse";
 
 describe("parseStreamingJsonThrottled (F5)", () => {
 	it("parses the first non-empty buffer even when growth is below the threshold", () => {

@@ -1,10 +1,10 @@
 /** Session-scoped service supervision through the shared project broker. */
 import * as path from "node:path";
-import { TERMINAL_STATES } from "@oh-my-pi/pi-tui/apps/ps-data";
-import type { DaemonSnapshot, DaemonSpec } from "@oh-my-pi/pi-tui/tools/daemon";
-import { formatDuration, replaceTabs } from "@oh-my-pi/pi-tui/render/render-utils";
-import { ToolError } from "@oh-my-pi/pi-tui/tools/tool-errors";
-import { getDaemonRuntimeDir, logger, sanitizeText } from "@oh-my-pi/pi-utils";
+import { TERMINAL_STATES } from "@oh-my-soup/pi-tui/apps/ps-data";
+import type { DaemonSnapshot, DaemonSpec } from "@oh-my-soup/pi-tui/tools/daemon";
+import { formatDuration, replaceTabs } from "@oh-my-soup/pi-tui/render/render-utils";
+import { ToolError } from "@oh-my-soup/pi-tui/tools/tool-errors";
+import { getDaemonRuntimeDir, logger, sanitizeText } from "@oh-my-soup/pi-utils";
 import { type DaemonBrokerClient, daemonClientForProject } from "./client";
 import { canonicalProjectDir } from "./paths";
 import type { DaemonOperation, DaemonRpcResult } from "./protocol";

@@ -1,4 +1,4 @@
-import type { TspScrollBy } from "@oh-my-pi/pi-wire";
+import type { TspScrollBy } from "@oh-my-soup/pi-wire";
 import { formatKeyHint } from "../../app-keybindings";
 import type { Component } from "../../tui";
 import { matchesKey } from "../../keys";
@@ -269,7 +269,7 @@ export class RawSseViewerComponent implements Component {
 				? {
 						...node(
 							"ansi",
-							{ text: stream, follow: true, role: "omp.debug.stream", max: { h: 1 } },
+							{ text: stream, follow: true, role: "oms.debug.stream", max: { h: 1 } },
 							undefined,
 							"stream",
 						),
@@ -278,17 +278,17 @@ export class RawSseViewerComponent implements Component {
 				: keyed(
 						col(
 							[
-								text("No raw SSE frames captured yet", { role: "omp.app.empty-title" }),
+								text("No raw SSE frames captured yet", { role: "oms.app.empty-title" }),
 								text([
 									span("HTTP SSE providers populate this view while a model response is streaming.", "muted"),
 								]),
 							],
-							{ gap: "xs", align: "center", role: "omp.app.empty" },
+							{ gap: "xs", align: "center", role: "oms.app.empty" },
 						),
 						"empty",
 					),
 		);
-		return { role: "omp.debug", main: [head, body], dock: [this] };
+		return { role: "oms.debug", main: [head, body], dock: [this] };
 	}
 
 	/** The docked bar under the stream page: the copy status and the buttons. */
@@ -300,7 +300,7 @@ export class RawSseViewerComponent implements Component {
 						keyed(
 							text([span(this.#statusMessage, this.#statusFailed ? "error" : "success")], {
 								wrap: "word",
-								role: "omp.app.status",
+								role: "oms.app.status",
 							}),
 							"status",
 						),
@@ -310,7 +310,7 @@ export class RawSseViewerComponent implements Component {
 						actionButton("Close", "close", { keys: "escape" }),
 					]),
 				]),
-				{ role: "omp.debug.bar", gap: "sm" },
+				{ role: "oms.debug.bar", gap: "sm" },
 			),
 		);
 	}
@@ -331,10 +331,10 @@ export class RawSseViewerComponent implements Component {
 				: span("waiting for first frame", "muted"),
 		);
 		return keyed(
-			row([text("Raw provider stream", { role: "omp.app.title" }), text(stats, { truncate: "end" })], {
+			row([text("Raw provider stream", { role: "oms.app.title" }), text(stats, { truncate: "end" })], {
 				gap: "sm",
 				align: "center",
-				role: "omp.app.head",
+				role: "oms.app.head",
 			}),
 			"head",
 		);
@@ -366,7 +366,7 @@ export class RawSseViewerComponent implements Component {
 			if (record.sequence <= this.#nativeLast) continue;
 			for (const line of this.#prettyLinesFor(record)) fed += `${sanitizeDisplayText(line)}\n`;
 			if (record.kind === "event" && record.truncated) {
-				fed += `${theme.fg("warning", `: omp-debug-event-truncated originalChars=${record.originalChars}`)}\n`;
+				fed += `${theme.fg("warning", `: oms-debug-event-truncated originalChars=${record.originalChars}`)}\n`;
 			}
 			fed += "\n";
 		}
@@ -420,7 +420,7 @@ export class RawSseViewerComponent implements Component {
 			lines.push(
 				theme.fg(
 					"warning",
-					`: omp-debug-dropped records=${snapshot.droppedRecords} chars=${snapshot.droppedChars}`,
+					`: oms-debug-dropped records=${snapshot.droppedRecords} chars=${snapshot.droppedChars}`,
 				),
 			);
 			lines.push("");
@@ -431,7 +431,7 @@ export class RawSseViewerComponent implements Component {
 				lines.push(truncateToWidth(sanitizeDisplayText(line), innerWidth));
 			}
 			if (record.kind === "event" && record.truncated) {
-				lines.push(theme.fg("warning", `: omp-debug-event-truncated originalChars=${record.originalChars}`));
+				lines.push(theme.fg("warning", `: oms-debug-event-truncated originalChars=${record.originalChars}`));
 			}
 			lines.push("");
 		}

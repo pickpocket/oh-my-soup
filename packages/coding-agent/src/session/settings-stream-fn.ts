@@ -15,10 +15,10 @@ import {
 	type StreamFn,
 	Tokenizer,
 	tokenizerEncodingForModel,
-} from "@oh-my-pi/pi-agent-core";
-import { type Model, type SimpleStreamOptions, streamSimple } from "@oh-my-pi/pi-ai";
-import { serverSideFallbackModels } from "@oh-my-pi/pi-catalog/compat/server-side-fallback";
-import type { Encoding } from "@oh-my-pi/pi-natives";
+} from "@oh-my-soup/pi-agent-core";
+import { type Model, type SimpleStreamOptions, streamSimple } from "@oh-my-soup/pi-ai";
+import { serverSideFallbackModels } from "@oh-my-soup/pi-catalog/compat/server-side-fallback";
+import type { Encoding } from "@oh-my-soup/pi-natives";
 import type { Settings } from "../config/settings";
 import { type AnthropicSlowModeLanes, anthropicSlowModeLanes } from "./anthropic-slow-mode";
 

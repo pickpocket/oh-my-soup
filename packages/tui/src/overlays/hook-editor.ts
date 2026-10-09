@@ -7,7 +7,7 @@
  *   (Ctrl+Q / Ctrl+Enter) submits, bordered popup
  * - Prompt-style (ask): Enter submits, Shift+Enter inserts newline, legacy ask chrome
  */
-import type { ImageContent } from "@oh-my-pi/pi-ai";
+import type { ImageContent } from "@oh-my-soup/pi-ai";
 import { compactImageMarkers, formatVisionMarker, PLACEHOLDER_REGEX } from "../prompt/composer-attachments";
 import { extractImagePastePathsFromText } from "../prompt/custom-editor";
 import {
@@ -128,7 +128,7 @@ export class HookEditorComponent extends OverlayPanel implements Focusable {
 		const question = options?.question;
 		const terminalTitle = question === undefined ? title : boundPromptTitle(`${title}: `, question);
 		const [titleLine = "", ...detailLines] = terminalTitle.split("\n");
-		super(titleLine, "omp.overlay.hook-editor");
+		super(titleLine, "oms.overlay.hook-editor");
 
 		this.#tui = tui;
 		this.#onSubmitCallback = onSubmit;
@@ -195,7 +195,7 @@ export class HookEditorComponent extends OverlayPanel implements Focusable {
 			nativeChildren.push(
 				node(
 					"md",
-					{ text: replaceTabs(sanitizeCarriageReturns(question)), role: "omp.ask.question" },
+					{ text: replaceTabs(sanitizeCarriageReturns(question)), role: "oms.ask.question" },
 					undefined,
 					"question",
 				),

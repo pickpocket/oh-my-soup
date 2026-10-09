@@ -1,6 +1,6 @@
-import type { UsageResetCreditDetail } from "@oh-my-pi/pi-ai";
+import type { UsageResetCreditDetail } from "@oh-my-soup/pi-ai";
 import { Container, matchesKey, ScrollView, Spacer, Text, TruncatedText } from "../index";
-import { formatDuration, sanitizeText } from "@oh-my-pi/pi-utils";
+import { formatDuration, sanitizeText } from "@oh-my-soup/pi-utils";
 import { theme } from "../theme/theme";
 import { matchesSelectCancel, matchesSelectDown, matchesSelectUp } from "../keybinding-matchers";
 import { OverlayPanel } from "../chrome/overlay-box";
@@ -76,7 +76,7 @@ export class ResetUsageSelectorComponent extends OverlayPanel {
 	#nativeRoot: NativeNode | undefined;
 
 	constructor(accounts: ResetUsageAccount[], onSelect: (account: ResetUsageAccount) => void, onCancel: () => void) {
-		super("Spend a saved rate-limit reset", "omp.overlay.reset-usage");
+		super("Spend a saved rate-limit reset", "oms.overlay.reset-usage");
 		this.#onSelectCallback = onSelect;
 		this.#onCancelCallback = onCancel;
 		const firstRedeemable = accounts.find(account => account.redeemableCount > 0);

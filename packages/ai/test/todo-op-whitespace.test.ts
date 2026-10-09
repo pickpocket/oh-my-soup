@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
-import { type } from "@oh-my-pi/omptype";
-import type { Tool } from "@oh-my-pi/pi-ai/types";
-import { validateToolArguments } from "@oh-my-pi/pi-ai/utils/validation";
+import { type } from "@oh-my-soup/omstype";
+import type { Tool } from "@oh-my-soup/pi-ai/types";
+import { validateToolArguments } from "@oh-my-soup/pi-ai/utils/validation";
 
 describe("Tool argument whitespace normalization", () => {
 	it("trims trailing whitespace from enum strings before validation", () => {

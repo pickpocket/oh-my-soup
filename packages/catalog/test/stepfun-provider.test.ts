@@ -2,12 +2,12 @@ import { afterEach, describe, expect, test, vi } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { Effort } from "@oh-my-pi/pi-catalog/effort";
-import { resolveProviderModels } from "@oh-my-pi/pi-catalog/model-manager";
-import { providerEntry } from "@oh-my-pi/pi-catalog/compat/providers";
-import type { FetchImpl, ResolvedOpenAICompat } from "@oh-my-pi/pi-catalog/types";
-import { isStepfunChatModelId, stepfunModelManagerOptions } from "@oh-my-pi/pi-catalog/provider-models/openai-compat";
-import { getBundledModels } from "@oh-my-pi/pi-catalog/models";
+import { Effort } from "@oh-my-soup/pi-catalog/effort";
+import { resolveProviderModels } from "@oh-my-soup/pi-catalog/model-manager";
+import { providerEntry } from "@oh-my-soup/pi-catalog/compat/providers";
+import type { FetchImpl, ResolvedOpenAICompat } from "@oh-my-soup/pi-catalog/types";
+import { isStepfunChatModelId, stepfunModelManagerOptions } from "@oh-my-soup/pi-catalog/provider-models/openai-compat";
+import { getBundledModels } from "@oh-my-soup/pi-catalog/models";
 
 /** StepFun's documented three-tier ladder; the relay-host default spans minimal…xhigh. */
 const STEPFUN_LADDER = [Effort.Low, Effort.Medium, Effort.High];
@@ -50,7 +50,7 @@ describe("StepFun provider support", () => {
 		expect(byId.get("step-3.7-flash")?.cost).toEqual({ input: 0.2, output: 1.15, cacheRead: 0.04, cacheWrite: 0 });
 		expect(byId.get("step-3.5-flash")?.cost).toEqual({ input: 0.1, output: 0.3, cacheRead: 0.02, cacheWrite: 0 });
 
-		// Multimodal SKUs must carry image input so omp attaches screenshots.
+		// Multimodal SKUs must carry image input so oms attaches screenshots.
 		expect(byId.get("step-5-preview")?.input).toEqual(["text", "image"]);
 		expect(byId.get("step-3.7-flash")?.input).toEqual(["text", "image"]);
 		expect(byId.get("step-3.5-flash")?.input).toEqual(["text"]);

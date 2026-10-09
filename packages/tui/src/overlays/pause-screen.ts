@@ -11,7 +11,7 @@
  * Use case: freeze a busy session, hand-edit the repo, resume, then explain
  * the change via a normal steering message.
  */
-import { agentPauseGate } from "@oh-my-pi/pi-agent-core";
+import { agentPauseGate } from "@oh-my-soup/pi-agent-core";
 import { type Component, matchesKey, type OverlayFocusOwner, type OverlayHandle, type OverlayOptions } from "../index";
 import { formatCoarseDuration } from "../chrome/format";
 import { centerLine } from "../utils";
@@ -174,7 +174,7 @@ export class PauseScreenComponent implements Component, OverlayFocusOwner {
 	}
 
 	/** A glass sheet titled "Paused" (not the whole pane: the transcript stays visible, frozen). */
-	readonly nativeOverlay = { role: "omp.overlay.pause", size: "md", anchor: "center", head: "Paused" } as const;
+	readonly nativeOverlay = { role: "oms.overlay.pause", size: "md", anchor: "center", head: "Paused" } as const;
 
 	describe(): NativeNode {
 		if (this.#native) return this.#native;

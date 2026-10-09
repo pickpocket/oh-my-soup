@@ -1,5 +1,5 @@
-import type { ModelUsageHealth } from "@oh-my-pi/pi-ai";
-import { formatDuration } from "@oh-my-pi/pi-utils";
+import type { ModelUsageHealth } from "@oh-my-soup/pi-ai";
+import { formatDuration } from "@oh-my-soup/pi-utils";
 
 /** Describe the health snapshot that actually caused a preflight switch. */
 export function describeUsageFallback(health: ModelUsageHealth, reservePercent: number): string {

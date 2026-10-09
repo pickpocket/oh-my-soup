@@ -1,7 +1,7 @@
 /**
  * Render a code or markdown cell with optional output section.
  */
-import type { TspSpan } from "@oh-my-pi/pi-wire";
+import type { TspSpan } from "@oh-my-soup/pi-wire";
 import { Markdown } from "../components/markdown";
 import { styledSpans } from "../native/spans";
 import { code, md, span } from "../native/describe";
@@ -261,7 +261,7 @@ export function describeCodeCell(options: Omit<CodeCellOptions, "width">, theme:
 		head,
 		meta,
 		state: getState(options.status),
-		role: "omp.cell.code",
+		role: "oms.cell.code",
 		sections,
 		collapsible: true,
 		collapsed: !expanded,
@@ -281,7 +281,7 @@ export function describeMarkdownCell(options: Omit<MarkdownCellOptions, "width">
 		head,
 		meta,
 		state: getState(options.status),
-		role: "omp.cell.markdown",
+		role: "oms.cell.markdown",
 		sections,
 		collapsible: true,
 		collapsed: !expanded,

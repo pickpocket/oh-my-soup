@@ -1,6 +1,6 @@
-import type { ImageContent } from "@oh-my-pi/pi-ai";
-import { imageAttachmentSource } from "@oh-my-pi/pi-tui/prompt/image-source";
-import { prompt } from "@oh-my-pi/pi-utils";
+import type { ImageContent } from "@oh-my-soup/pi-ai";
+import { imageAttachmentSource } from "@oh-my-soup/pi-tui/prompt/image-source";
+import { prompt } from "@oh-my-soup/pi-utils";
 import imageAttachmentPrompt from "../prompts/system/image-attachment.md" with { type: "text" };
 import videoAttachmentPrompt from "../prompts/system/video-attachment.md" with { type: "text" };
 import { IMAGE_ATTACHMENT_TYPE, VIDEO_ATTACHMENT_TYPE } from "./queued-messages";

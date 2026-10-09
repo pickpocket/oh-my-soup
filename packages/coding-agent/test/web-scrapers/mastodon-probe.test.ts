@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "bun:test";
-import { handleDiscourse } from "@oh-my-pi/pi-coding-agent/web/scrapers/discourse";
-import { handleMastodon } from "@oh-my-pi/pi-coding-agent/web/scrapers/mastodon";
+import { handleDiscourse } from "@oh-my-soup/pi-coding-agent/web/scrapers/discourse";
+import { handleMastodon } from "@oh-my-soup/pi-coding-agent/web/scrapers/mastodon";
 
 type FetchArgs = Parameters<typeof fetch>;
 

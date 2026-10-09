@@ -2,12 +2,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { __resetDirsFromEnvForTests, getAgentDir, getNativesDir } from "@oh-my-pi/pi-utils/dirs";
+import { __resetDirsFromEnvForTests, getAgentDir, getNativesDir } from "@oh-my-soup/pi-utils/dirs";
 
 const ENV_KEYS = [
 	"HOME",
 	"USERPROFILE",
-	"OMP_PROFILE",
+	"OMS_PROFILE",
 	"PI_PROFILE",
 	"PI_CONFIG_DIR",
 	"PI_CODING_AGENT_DIR",
@@ -29,7 +29,7 @@ describe("native directory override", () => {
 			originalEnv[key] = process.env[key];
 			delete process.env[key];
 		}
-		tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "omp-utils-natives-dir-"));
+		tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "oms-utils-natives-dir-"));
 		home = path.join(tempRoot, "home");
 		await fs.mkdir(home);
 		process.env.HOME = home;
@@ -53,15 +53,15 @@ describe("native directory override", () => {
 		const cache = path.join(tempRoot, "cache");
 		const data = path.join(tempRoot, "data");
 		const shared = path.join(tempRoot, "shared");
-		await fs.mkdir(path.join(cache, "omp", "profiles", "isolated"), { recursive: true });
-		await fs.mkdir(path.join(data, "omp", "profiles", "isolated"), { recursive: true });
+		await fs.mkdir(path.join(cache, "oms", "profiles", "isolated"), { recursive: true });
+		await fs.mkdir(path.join(data, "oms", "profiles", "isolated"), { recursive: true });
 		process.env.XDG_CACHE_HOME = cache;
 		process.env.XDG_DATA_HOME = data;
 		process.env.PI_CONFIG_DIR = ".alternate";
-		process.env.OMP_PROFILE = "isolated";
+		process.env.OMS_PROFILE = "isolated";
 		__resetDirsFromEnvForTests();
 		const defaultNatives = path.join(
-			xdgPlatform ? path.join(cache, "omp") : path.join(home, ".alternate"),
+			xdgPlatform ? path.join(cache, "oms") : path.join(home, ".alternate"),
 			"profiles",
 			"isolated",
 			"natives",
@@ -90,6 +90,6 @@ describe("native directory override", () => {
 		["relative", "relative/natives"],
 	])("keeps the existing cache root when the override is %s", (_label, override) => {
 		process.env.PI_NATIVES_DIR = override;
-		expect(getNativesDir()).toBe(path.join(home, ".omp", "natives"));
+		expect(getNativesDir()).toBe(path.join(home, ".oms", "natives"));
 	});
 });

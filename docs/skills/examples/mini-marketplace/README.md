@@ -1,6 +1,6 @@
 # mini-marketplace
 
-A minimal `omp` marketplace catalog that demonstrates the `marketplace.json` format. It lists one plugin (`my-plugin`) using a relative path source.
+A minimal `oms` marketplace catalog that demonstrates the `marketplace.json` format. It lists one plugin (`my-plugin`) using a relative path source.
 
 ## Install command
 
@@ -12,11 +12,11 @@ A minimal `omp` marketplace catalog that demonstrates the `marketplace.json` for
 Or from the CLI:
 
 ```
-omp plugin marketplace add ./docs/skills/examples/mini-marketplace
-omp plugin install my-plugin@example-marketplace
+oms plugin marketplace add ./docs/skills/examples/mini-marketplace
+oms plugin install my-plugin@example-marketplace
 ```
 
-Run these paths from the repository root. Start or reload `omp` after CLI installation to load the extension; its `session_start` handler shows a notification in interactive mode.
+Run these paths from the repository root. Start or reload `oms` after CLI installation to load the extension; its `session_start` handler shows a notification in interactive mode.
 
 ## What it demonstrates
 
@@ -24,7 +24,7 @@ Run these paths from the repository root. Start or reload `omp` after CLI instal
 - Relative path plugin source using `./` prefix (`"source": "./my-plugin"`)
 - Plugin bundled inside the same directory tree as the marketplace catalog
 - Marketplace description in `metadata.description`
-- `package.json` with `omp.extensions` loads the bundled TypeScript factory after installation
+- `package.json` with `oms.extensions` loads the bundled TypeScript factory after installation
 
 ## Structure
 
@@ -34,8 +34,8 @@ mini-marketplace/
     marketplace.json      ← catalog
   README.md
   my-plugin/
-    package.json          ← omp.extensions manifest
+    package.json          ← oms.extensions manifest
     index.ts              ← extension entry point
 ```
 
-Published and local marketplaces use the same catalog location. omp loads `.omp-plugin/marketplace.json` first and falls back to `.claude-plugin/marketplace.json` (the Claude Code-compatible path this example ships) inside the marketplace root. Point `/marketplace add` at this folder to load the example.
+Published and local marketplaces use the same catalog location. oms loads `.oms-plugin/marketplace.json` first and falls back to `.claude-plugin/marketplace.json` (the Claude Code-compatible path this example ships) inside the marketplace root. Point `/marketplace add` at this folder to load the example.

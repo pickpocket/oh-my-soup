@@ -1,7 +1,7 @@
 import * as net from "node:net";
-import type { StreamChatMessage } from "@oh-my-pi/pi-wire";
-import type { TUI } from "@oh-my-pi/pi-tui";
-import { logger } from "@oh-my-pi/pi-utils";
+import type { StreamChatMessage } from "@oh-my-soup/pi-wire";
+import type { TUI } from "@oh-my-soup/pi-tui";
+import { logger } from "@oh-my-soup/pi-utils";
 import { STREAM_FLUSH_INTERVAL_MS, StreamPaintEncoder } from "./paint-encoder";
 import { streamSocketEndpoint } from "./paths";
 import {

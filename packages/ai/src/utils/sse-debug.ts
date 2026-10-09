@@ -1,4 +1,4 @@
-import type { ServerSentEvent } from "@oh-my-pi/pi-utils";
+import type { ServerSentEvent } from "@oh-my-soup/pi-utils";
 import type { RawSseEvent } from "../types";
 
 type RawSseObserver = (event: RawSseEvent) => void;

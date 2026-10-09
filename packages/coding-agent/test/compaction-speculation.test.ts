@@ -1,19 +1,19 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "bun:test";
-import { Agent, type AgentMessage } from "@oh-my-pi/pi-agent-core";
-import * as compactionModule from "@oh-my-pi/pi-agent-core/compaction";
-import type { AssistantMessage, Context, Model, UserMessage } from "@oh-my-pi/pi-ai";
-import * as AIError from "@oh-my-pi/pi-ai/error";
-import { getBundledModel } from "@oh-my-pi/pi-catalog/models";
-import { ModelRegistry } from "@oh-my-pi/pi-coding-agent/config/model-registry";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { AuthStorage } from "@oh-my-pi/pi-coding-agent/session/auth-storage";
-import type { CompactionMethod } from "@oh-my-pi/pi-coding-agent/session/compaction-methods";
-import { convertToLlm } from "@oh-my-pi/pi-coding-agent/session/messages";
-import { SessionMaintenance, type SessionMaintenanceHost } from "@oh-my-pi/pi-coding-agent/session/session-maintenance";
-import { SessionManager } from "@oh-my-pi/pi-coding-agent/session/session-manager";
-import * as snapcompactModule from "@oh-my-pi/snapcompact";
+import { Agent, type AgentMessage } from "@oh-my-soup/pi-agent-core";
+import * as compactionModule from "@oh-my-soup/pi-agent-core/compaction";
+import type { AssistantMessage, Context, Model, UserMessage } from "@oh-my-soup/pi-ai";
+import * as AIError from "@oh-my-soup/pi-ai/error";
+import { getBundledModel } from "@oh-my-soup/pi-catalog/models";
+import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { AuthStorage } from "@oh-my-soup/pi-coding-agent/session/auth-storage";
+import type { CompactionMethod } from "@oh-my-soup/pi-coding-agent/session/compaction-methods";
+import { convertToLlm } from "@oh-my-soup/pi-coding-agent/session/messages";
+import { SessionMaintenance, type SessionMaintenanceHost } from "@oh-my-soup/pi-coding-agent/session/session-maintenance";
+import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
+import * as snapcompactModule from "@oh-my-soup/snapcompact";
 
-import { cfgCompactionMethodOrder } from "@oh-my-pi/pi-coding-agent/session/context-settings";
+import { cfgCompactionMethodOrder } from "@oh-my-soup/pi-coding-agent/session/context-settings";
 
 const CONTEXT_WINDOW = 100_000;
 const THRESHOLD = 50_000;

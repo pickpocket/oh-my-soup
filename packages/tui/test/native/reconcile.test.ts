@@ -1,11 +1,11 @@
 import { describe, expect, it } from "bun:test";
-import { TspDocument } from "@oh-my-pi/pi-tui/native/apply";
-import { node } from "@oh-my-pi/pi-tui/native/describe";
-import type { DescribeContext, NativeChild, NativeNode } from "@oh-my-pi/pi-tui/native/node";
-import { type NativeRegions, nativeComponentId, Reconciler } from "@oh-my-pi/pi-tui/native/reconcile";
-import { settleNative } from "@oh-my-pi/pi-tui/native/settle";
-import type { Component } from "@oh-my-pi/pi-tui/tui";
-import type { TspKind, TspOp } from "@oh-my-pi/pi-wire";
+import { TspDocument } from "@oh-my-soup/pi-tui/native/apply";
+import { node } from "@oh-my-soup/pi-tui/native/describe";
+import type { DescribeContext, NativeChild, NativeNode } from "@oh-my-soup/pi-tui/native/node";
+import { type NativeRegions, nativeComponentId, Reconciler } from "@oh-my-soup/pi-tui/native/reconcile";
+import { settleNative } from "@oh-my-soup/pi-tui/native/settle";
+import type { Component } from "@oh-my-soup/pi-tui/tui";
+import type { TspKind, TspOp } from "@oh-my-soup/pi-wire";
 
 const cx: DescribeContext = { cols: 60, reduceMotion: false, dark: true, supports: () => true, feature: () => true };
 
@@ -78,7 +78,7 @@ describe("Reconciler", () => {
 			const kind = depth === 1 && random() < 0.08 ? "overlay" : pick(kinds);
 			const props: Record<string, unknown> = {};
 			if (random() < 0.5) props.tone = pick(["info", "error", "success"]);
-			if (random() < 0.3) props.role = pick(["omp.a", "omp.b"]);
+			if (random() < 0.3) props.role = pick(["oms.a", "oms.b"]);
 			if (kind === "list" && random() < 0.5) props.selected = pick(["a", "b", "c"]);
 			if (kind === "text" || kind === "md" || kind === "code")
 				props.text = pick(["x", "hello", "hello world", "é🙂"]);

@@ -2,12 +2,12 @@ import { Database } from "bun:sqlite";
 import { describe, expect, it, spyOn } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { syncAllSessions } from "@oh-my-pi/omp-stats/aggregator";
-import { closeDb, getRecentRequests, initDb, insertMessageStats } from "@oh-my-pi/omp-stats/db";
-import { getOverallStats } from "@oh-my-pi/omp-stats/rollup";
-import * as parser from "@oh-my-pi/omp-stats/parser";
-import type { MessageStats } from "@oh-my-pi/omp-stats/types";
-import { getSessionsDir, getStatsDbPath } from "@oh-my-pi/pi-utils";
+import { syncAllSessions } from "@oh-my-soup/oms-stats/aggregator";
+import { closeDb, getRecentRequests, initDb, insertMessageStats } from "@oh-my-soup/oms-stats/db";
+import { getOverallStats } from "@oh-my-soup/oms-stats/rollup";
+import * as parser from "@oh-my-soup/oms-stats/parser";
+import type { MessageStats } from "@oh-my-soup/oms-stats/types";
+import { getSessionsDir, getStatsDbPath } from "@oh-my-soup/pi-utils";
 import { installStatsTestIsolation } from "./helpers/temp-agent";
 
 installStatsTestIsolation("@pi-stats-fork-dedup-");

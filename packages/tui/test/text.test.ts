@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { Text } from "@oh-my-pi/pi-tui/components/text";
+import { Text } from "@oh-my-soup/pi-tui/components/text";
 
 describe("Text component", () => {
 	it("reports whether setText changed the stored text", () => {

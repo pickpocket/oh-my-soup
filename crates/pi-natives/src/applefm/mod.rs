@@ -73,7 +73,7 @@ mod platform {
 	type Emit = extern "C" fn(context: *mut c_void, event: *const c_char, is_final: bool);
 
 	/// The bridge dylib; empty when the build host could not compile it.
-	const DYLIB: &[u8] = include_bytes!(env!("OMP_APPLEFM_BRIDGE"));
+	const DYLIB: &[u8] = include_bytes!(env!("OMS_APPLEFM_BRIDGE"));
 	/// First macOS release shipping `FoundationModels` with the APIs the bridge
 	/// uses.
 	const MIN_MACOS_MAJOR: u32 = 27;
@@ -99,7 +99,7 @@ mod platform {
 		if DYLIB.is_empty() {
 			return Err(Unavailable {
 				reason:  "not_built",
-				message: "This omp build does not include Apple Foundation Models support".to_owned(),
+				message: "This oms build does not include Apple Foundation Models support".to_owned(),
 			});
 		}
 		if macos_major().is_none_or(|major| major < MIN_MACOS_MAJOR) {
@@ -142,17 +142,17 @@ mod platform {
 		unsafe {
 			Ok(Bridge {
 				availability: std::mem::transmute::<*mut c_void, unsafe extern "C" fn() -> *mut c_char>(
-					symbol(c"omp_applefm_availability")?,
+					symbol(c"oms_applefm_availability")?,
 				),
 				generate:     std::mem::transmute::<
 					*mut c_void,
 					unsafe extern "C" fn(u64, *const c_char, *mut c_void, Emit),
-				>(symbol(c"omp_applefm_generate")?),
+				>(symbol(c"oms_applefm_generate")?),
 				cancel:       std::mem::transmute::<*mut c_void, unsafe extern "C" fn(u64)>(symbol(
-					c"omp_applefm_cancel",
+					c"oms_applefm_cancel",
 				)?),
 				free:         std::mem::transmute::<*mut c_void, unsafe extern "C" fn(*mut c_char)>(
-					symbol(c"omp_applefm_free")?,
+					symbol(c"oms_applefm_free")?,
 				),
 			})
 		}
@@ -189,7 +189,7 @@ mod platform {
 		let hash = DYLIB.iter().fold(0xcbf2_9ce4_8422_2325_u64, |hash, &byte| {
 			(hash ^ u64::from(byte)).wrapping_mul(0x0100_0000_01b3)
 		});
-		let path = std::env::temp_dir().join(format!("omp-applefm-{hash:016x}.dylib"));
+		let path = std::env::temp_dir().join(format!("oms-applefm-{hash:016x}.dylib"));
 		if fs::read(&path).is_ok_and(|bytes| bytes == DYLIB) {
 			return Ok(path);
 		}

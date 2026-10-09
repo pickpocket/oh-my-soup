@@ -1,9 +1,9 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import type { WasmGrammarInfo } from "@oh-my-pi/pi-natives";
-import { installGrammar } from "@oh-my-pi/pi-coding-agent/utils/grammars";
-import { TempDir } from "@oh-my-pi/pi-utils";
+import type { WasmGrammarInfo } from "@oh-my-soup/pi-natives";
+import { installGrammar } from "@oh-my-soup/pi-coding-agent/utils/grammars";
+import { TempDir } from "@oh-my-soup/pi-utils";
 
 const RELEASE = "grammars-test";
 const WASM = new Uint8Array([
@@ -49,7 +49,7 @@ describe("wasm grammar install", () => {
 	});
 
 	it("installs the verified grammar at <dir>/<file>", async () => {
-		using tempDir = TempDir.createSync("@omp-grammar-install-");
+		using tempDir = TempDir.createSync("@oms-grammar-install-");
 		const info = grammarInfo("testlang-ok.wasm", WASM_SHA256);
 		const dest = path.join(tempDir.path(), info.file);
 
@@ -61,7 +61,7 @@ describe("wasm grammar install", () => {
 	});
 
 	it("rejects a digest mismatch without leaving files behind", async () => {
-		using tempDir = TempDir.createSync("@omp-grammar-mismatch-");
+		using tempDir = TempDir.createSync("@oms-grammar-mismatch-");
 		const info = grammarInfo("testlang-bad.wasm", "0".repeat(64));
 		const dest = path.join(tempDir.path(), info.file);
 

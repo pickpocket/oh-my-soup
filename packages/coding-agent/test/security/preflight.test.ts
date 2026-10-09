@@ -29,7 +29,7 @@ const adapter: SecurityGitAdapter = {
 };
 
 beforeEach(async () => {
-	temporaryRoot = await fs.mkdtemp(path.join(os.tmpdir(), "omp-security-preflight-"));
+	temporaryRoot = await fs.mkdtemp(path.join(os.tmpdir(), "oms-security-preflight-"));
 	repositoryRoot = path.join(temporaryRoot, "repo");
 	stateRoot = path.join(temporaryRoot, "output");
 	await fs.mkdir(path.join(repositoryRoot, "src"), { recursive: true });

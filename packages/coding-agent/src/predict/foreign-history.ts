@@ -2,11 +2,11 @@
  * Prompts other coding agents recorded on this machine: Claude Code's and
  * Codex's `history.jsonl`. The text-prediction daemon feeds them once into a
  * learning engine whose state starts empty, so a new install already knows the
- * user's vocabulary before omp has history of its own.
+ * user's vocabulary before oms has history of its own.
  */
 import * as os from "node:os";
 import * as path from "node:path";
-import { isEnoent, logger } from "@oh-my-pi/pi-utils";
+import { isEnoent, logger } from "@oh-my-soup/pi-utils";
 import { resolveClaudePaths } from "../config/claude-paths";
 import { readForeignJsonRecords } from "../session/foreign-session-jsonl";
 

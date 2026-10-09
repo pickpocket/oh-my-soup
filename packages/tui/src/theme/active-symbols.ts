@@ -1,7 +1,7 @@
 /**
  * Active theme's symbol lookup without importing `./theme` (which pulls the
- * native addon through `@oh-my-pi/pi-natives`). Key-hint formatting runs on
- * CLI paths that must stay addon-free (`omp --version`, help), so it reads the
+ * native addon through `@oh-my-soup/pi-natives`). Key-hint formatting runs on
+ * CLI paths that must stay addon-free (`oms --version`, help), so it reads the
  * active theme through this mirror; `./theme` publishes every assignment here.
  */
 import { SYMBOL_PRESETS, type SymbolKey } from "./symbols";

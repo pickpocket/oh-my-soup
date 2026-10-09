@@ -24,7 +24,7 @@ use grep_searcher::{
 use crate::bre;
 use crate::host::{Host, Utility, util};
 
-/// PCRE2 JIT toggle for an `OMP_PCRE2_JIT` value: `1` forces JIT on,
+/// PCRE2 JIT toggle for an `OMS_PCRE2_JIT` value: `1` forces JIT on,
 /// `0`/`false` forces it off. Unset or empty, JIT stays on everywhere except
 /// macOS, where PCRE2's SLJIT executable allocator can fault while compiling
 /// patterns (issue #7399). The caller reads the variable from its own
@@ -821,7 +821,7 @@ fn build_matcher(
 			.whole_line(cli.line_regexp)
 			.utf(true)
 			.ucp(true)
-			.jit_if_available(pcre2_jit_enabled(host.var("OMP_PCRE2_JIT")));
+			.jit_if_available(pcre2_jit_enabled(host.var("OMS_PCRE2_JIT")));
 		return builder
 			.build_many(patterns)
 			.map(CompiledMatcher::Pcre)

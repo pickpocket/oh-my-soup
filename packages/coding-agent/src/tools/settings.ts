@@ -743,7 +743,7 @@ export const cfgGithubCacheEnabled = register({
 		tab: "tools",
 		group: "GitHub",
 		label: "GitHub View Cache",
-		description: "Cache rendered issue/PR view output in ~/.omp/cache/github-cache.db so repeated reads are free",
+		description: "Cache rendered issue/PR view output in ~/.oms/cache/github-cache.db so repeated reads are free",
 	},
 });
 
@@ -793,7 +793,7 @@ export const cfgSecurityEnabled = register({
 		group: "Available Tools",
 		label: "Security",
 		description:
-			"Enable OMP-native security scan planning, execution, and the read-only security:// resource namespace",
+			"Enable OMS-native security scan planning, execution, and the read-only security:// resource namespace",
 	},
 });
 

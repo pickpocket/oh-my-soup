@@ -2,8 +2,8 @@ import { describe, expect, it } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { DynamicBorder } from "@oh-my-pi/pi-tui/chrome/dynamic-border";
-import { getThemeByName, setThemeInstance, theme } from "@oh-my-pi/pi-tui/theme";
+import { DynamicBorder } from "@oh-my-soup/pi-tui/chrome/dynamic-border";
+import { getThemeByName, setThemeInstance, theme } from "@oh-my-soup/pi-tui/theme";
 
 const componentPath = path.resolve(import.meta.dir, "../src/chrome/dynamic-border.ts");
 
@@ -16,7 +16,7 @@ describe("DynamicBorder", () => {
 	// the uninitialized state is only reachable in a fresh module graph — a
 	// subprocess reproduces the actual reported scenario deterministically.
 	it("renders plain glyphs when the module-level theme is uninitialized", async () => {
-		const dir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-dynamic-border-"));
+		const dir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-dynamic-border-"));
 		try {
 			const script = [
 				`import { DynamicBorder } from ${JSON.stringify(componentPath)};`,

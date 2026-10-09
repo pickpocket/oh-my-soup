@@ -2,11 +2,11 @@ import { afterAll, describe, expect, test } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { disposeAllVmContexts } from "@oh-my-pi/pi-coding-agent/eval/js/context-manager";
-import { createBrowserPrelude } from "@oh-my-pi/pi-coding-agent/tools/browser";
-import { releaseAllTabs } from "@oh-my-pi/pi-coding-agent/tools/browser/tab-supervisor";
-import type { ToolSession } from "@oh-my-pi/pi-coding-agent/tools/index";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { disposeAllVmContexts } from "@oh-my-soup/pi-coding-agent/eval/js/context-manager";
+import { createBrowserPrelude } from "@oh-my-soup/pi-coding-agent/tools/browser";
+import { releaseAllTabs } from "@oh-my-soup/pi-coding-agent/tools/browser/tab-supervisor";
+import type { ToolSession } from "@oh-my-soup/pi-coding-agent/tools/index";
 import { chromiumAvailable } from "./chromium-probe";
 
 const CHROMIUM_AVAILABLE = await chromiumAvailable();
@@ -34,7 +34,7 @@ const server = Bun.serve({
 });
 const baseUrl = `http://127.0.0.1:${server.port}`;
 const crossHostUrl = `http://localhost:${server.port}`;
-const harPath = path.join(os.tmpdir(), `omp-browser-network-${process.pid}-${Date.now()}.har`);
+const harPath = path.join(os.tmpdir(), `oms-browser-network-${process.pid}-${Date.now()}.har`);
 
 function createHost() {
 	const session: ToolSession = {

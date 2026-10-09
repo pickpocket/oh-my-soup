@@ -1,10 +1,10 @@
 import { beforeAll, describe, expect, it } from "bun:test";
 import { stripVTControlCharacters } from "node:util";
-import type { AssistantMessage } from "@oh-my-pi/pi-ai";
-import { renderSegment } from "@oh-my-pi/pi-tui/status-line/segments";
-import type { SegmentContext } from "@oh-my-pi/pi-tui/status-line/types";
-import { initTheme } from "@oh-my-pi/pi-tui/theme";
-import { calculateTokensPerSecond } from "@oh-my-pi/pi-coding-agent/utils/token-rate";
+import type { AssistantMessage } from "@oh-my-soup/pi-ai";
+import { renderSegment } from "@oh-my-soup/pi-tui/status-line/segments";
+import type { SegmentContext } from "@oh-my-soup/pi-tui/status-line/types";
+import { initTheme } from "@oh-my-soup/pi-tui/theme";
+import { calculateTokensPerSecond } from "@oh-my-soup/pi-coding-agent/utils/token-rate";
 
 beforeAll(async () => {
 	await initTheme();

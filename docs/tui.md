@@ -19,7 +19,7 @@ The runtime has two layers:
 
 If your extension/tool can run headless, guard with `ctx.hasUI` / `pi.hasUI`. RPC can expose `hasUI === true` for protocol-backed dialogs while still not supporting `custom()`; `hasUI` alone does not guarantee a component can be mounted.
 
-## Core component contract (`@oh-my-pi/pi-tui`)
+## Core component contract (`@oh-my-soup/pi-tui`)
 
 `packages/tui/src/tui.ts` defines:
 
@@ -64,7 +64,7 @@ Your `render(width)` output must be terminal-safe:
 Minimal pattern:
 
 ```ts
-import { replaceTabs, truncateToWidth } from "@oh-my-pi/pi-tui";
+import { replaceTabs, truncateToWidth } from "@oh-my-soup/pi-tui";
 
 render(width: number): readonly string[] {
   return this.lines.map(line => truncateToWidth(replaceTabs(line), width));
@@ -203,17 +203,17 @@ return loader;
 ## Realistic custom component example (extension command)
 
 ```ts
-import type { Component } from "@oh-my-pi/pi-tui";
+import type { Component } from "@oh-my-soup/pi-tui";
 import {
   SelectList,
   matchesKey,
   replaceTabs,
   truncateToWidth,
-} from "@oh-my-pi/pi-tui";
+} from "@oh-my-soup/pi-tui";
 import {
   getSelectListTheme,
   type ExtensionAPI,
-} from "@oh-my-pi/pi-coding-agent";
+} from "@oh-my-soup/pi-coding-agent";
 
 class Picker implements Component {
   list: SelectList;

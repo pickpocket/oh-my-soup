@@ -63,8 +63,8 @@ import {
 	StopRequestResponseSchema,
 	SubagentStartRequestResponseSchema,
 	SubagentStopRequestResponseSchema,
-} from "@oh-my-pi/pi-catalog/discovery/cursor-proto";
-import { create } from "@oh-my-pi/pi-catalog/discovery/protobuf";
+} from "@oh-my-soup/pi-catalog/discovery/cursor-proto";
+import { create } from "@oh-my-soup/pi-catalog/discovery/protobuf";
 import type { ToolResultMessage } from "../../types";
 
 /**

@@ -6,7 +6,7 @@ import {
 	logger,
 	type ServerSentEvent,
 	structuredCloneJSON,
-} from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-utils";
 import * as AIError from "../error";
 import { getEnvApiKey } from "../env-api-key";
 import type {

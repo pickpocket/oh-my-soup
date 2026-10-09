@@ -1,4 +1,4 @@
-import * as vcs from "@oh-my-pi/pi-natives/vcs";
+import * as vcs from "@oh-my-soup/pi-natives/vcs";
 import { throwIfAborted } from "../tools/tool-errors";
 
 // Git uses O_EXCL lock files (`index.lock`, `packed-refs.lock`, …) with no

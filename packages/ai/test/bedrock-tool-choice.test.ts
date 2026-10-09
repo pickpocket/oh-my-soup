@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { streamSimple } from "@oh-my-pi/pi-ai/stream";
-import type { Context, Model, SimpleStreamOptions } from "@oh-my-pi/pi-ai/types";
-import { Effort } from "@oh-my-pi/pi-catalog/effort";
-import { getBundledModel } from "@oh-my-pi/pi-catalog/models";
+import { streamSimple } from "@oh-my-soup/pi-ai/stream";
+import type { Context, Model, SimpleStreamOptions } from "@oh-my-soup/pi-ai/types";
+import { Effort } from "@oh-my-soup/pi-catalog/effort";
+import { getBundledModel } from "@oh-my-soup/pi-catalog/models";
 import { Type } from "@sinclair/typebox";
 
 const context: Context = {

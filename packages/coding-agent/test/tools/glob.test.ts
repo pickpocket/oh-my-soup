@@ -1,15 +1,15 @@
 import { describe, expect, test } from "bun:test";
 import * as path from "node:path";
-import { FileType } from "@oh-my-pi/pi-natives";
-import type { AgentToolResult } from "@oh-my-pi/pi-agent-core";
+import { FileType } from "@oh-my-soup/pi-natives";
+import type { AgentToolResult } from "@oh-my-soup/pi-agent-core";
 import { Settings } from "../../src/config/settings";
 import type { ToolSession } from "../../src/tools";
 import { GlobTool } from "../../src/tools/glob";
-import type { GlobToolDetails } from "@oh-my-pi/pi-tui/tools/glob";
+import type { GlobToolDetails } from "@oh-my-soup/pi-tui/tools/glob";
 import { findUniqueWorkspaceSuffixWithGlobForTest } from "../../src/tools/path-utils";
 import { ToolAbortError } from "../../src/tools/tool-errors";
-import { ToolError } from "@oh-my-pi/pi-tui/tools/tool-errors";
-import { formatOutputNotice, type OutputMeta } from "@oh-my-pi/pi-tui/tools/output-meta";
+import { ToolError } from "@oh-my-soup/pi-tui/tools/tool-errors";
+import { formatOutputNotice, type OutputMeta } from "@oh-my-soup/pi-tui/tools/output-meta";
 
 function createSession(cwd = process.cwd()): ToolSession {
 	return {

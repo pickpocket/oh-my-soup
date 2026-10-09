@@ -3,8 +3,8 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import * as url from "node:url";
-import { __rewriteLegacyExtensionSourceForTests } from "@oh-my-pi/pi-coding-agent/extensibility/plugins/legacy-pi-compat";
-import { removeWithRetries } from "@oh-my-pi/pi-utils";
+import { __rewriteLegacyExtensionSourceForTests } from "@oh-my-soup/pi-coding-agent/extensibility/plugins/legacy-pi-compat";
+import { removeWithRetries } from "@oh-my-soup/pi-utils";
 
 interface RewriteCase {
 	name: string;
@@ -20,7 +20,7 @@ const tempRoots: string[] = [];
 
 beforeAll(async () => {
 	// realpath: rewritten specifiers are canonical (macOS /var ↔ /private/var).
-	rewriteRoot = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), "omp-legacy-ast-rewrite-")));
+	rewriteRoot = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), "oms-legacy-ast-rewrite-")));
 	tempRoots.push(rewriteRoot);
 	const dependencyPath = path.join(rewriteRoot, "node_modules", "tracked-dep", "index.js");
 	await fs.mkdir(path.dirname(dependencyPath), { recursive: true });

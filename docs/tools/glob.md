@@ -19,7 +19,7 @@
 
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
-| `path` | `string` | No | Glob, file, directory, internal URL, or internal-URL glob; host paths can form a semicolon-delimited list (`"src/**/*.ts; test/**/*.ts"`). Omitted defaults to `.`; an explicit empty string is rejected. The registered built-in also treats slash-only inputs such as `/` as the session cwd. Existing delimiter-containing paths stay literal; otherwise semicolon splitting needs no existence check, while comma/whitespace splitting is existence-validated. Each target becomes its own walk root and multi-target scans run concurrently. Internal URLs glob below their root (`local://*.md`, `omp://**/*.md`); `ssh://` requires `exec` approval and is rejected at this tool's `read` tier. |
+| `path` | `string` | No | Glob, file, directory, internal URL, or internal-URL glob; host paths can form a semicolon-delimited list (`"src/**/*.ts; test/**/*.ts"`). Omitted defaults to `.`; an explicit empty string is rejected. The registered built-in also treats slash-only inputs such as `/` as the session cwd. Existing delimiter-containing paths stay literal; otherwise semicolon splitting needs no existence check, while comma/whitespace splitting is existence-validated. Each target becomes its own walk root and multi-target scans run concurrently. Internal URLs glob below their root (`local://*.md`, `oms://**/*.md`); `ssh://` requires `exec` approval and is rejected at this tool's `read` tier. |
 | `hidden` | `boolean` | No | Include hidden files. Defaults to `true`. |
 | `gitignore` | `boolean` | No | Respect `.gitignore` during local native globbing. Defaults to `true`; set `false` to include gitignored files. |
 | `limit` | `number` | No | Max returned paths. Defaults to `200`; finite positive inputs are floored then clamped to `1..200`. |
@@ -62,7 +62,7 @@ The tool returns a single text block plus structured `details`.
    - **Built-in local branch**: the tool stats each target's `searchPath` (URL targets through the URL filesystem). Exact-file inputs return immediately. Directory inputs call `natives.glob()` with `hidden`, `maxResults: effectiveLimit`, `sortByMtime: true`, `gitignore: useGitignore`, `recursive: false` (recursion comes from the `**/` prefix `parseFindPattern()` adds), the combined abort signal, and `filesystem: urlFilesystem.shellFilesystem()` so URL roots walk natively; multi-target calls run their globs concurrently.
 9. In the local branch, optional `onMatch` callbacks convert each match to a display path (cwd-relative for host paths, a full URL with percent-encoded segments below a URL root via `resolveSearchResultPath()`) and emit throttled progress updates.
 10. After native glob returns, JS merges per-target results, deduplicates repeated display paths, and sorts the merged list by `mtime` descending before formatting paths.
-11. `buildResult()` applies `applyListLimit()` to cap the array again at `effectiveLimit`, formats paths with `formatGroupedPaths()` (from `@oh-my-pi/pi-utils`), appends timeout/clamp/missing-path notices, then runs `truncateHead()` with `maxLines: Number.MAX_SAFE_INTEGER`. In practice this leaves the 50 KiB byte cap in place while disabling the default 3000-line cap.
+11. `buildResult()` applies `applyListLimit()` to cap the array again at `effectiveLimit`, formats paths with `formatGroupedPaths()` (from `@oh-my-soup/pi-utils`), appends timeout/clamp/missing-path notices, then runs `truncateHead()` with `maxLines: Number.MAX_SAFE_INTEGER`. In practice this leaves the 50 KiB byte cap in place while disabling the default 3000-line cap.
 12. `toolResult()` packages text plus `details`, and records result-limit / truncation metadata for renderers.
 
 ## Modes / Variants
@@ -71,7 +71,7 @@ The tool returns a single text block plus structured `details`.
 - **Single glob path**: one input parsed by `parseFindPattern()`.
 - **Multi-path search**: multiple inputs resolved by `resolveExplicitFindPatterns()` into per-entry targets, each walked as its own root concurrently and merged afterwards.
 - **Partial multi-path search with missing inputs**: local multi-path calls skip missing base paths and surface them as `missingPaths` / `Skipped missing paths: ...`.
-- **Internal URL input**: native glob walks URLs through the URL filesystem: file-backed schemes (`skill://<name>` walks the skill directory, `local://notes/*.md`, `memory://root/**/*.md`) redirect to their host files, virtual schemes list their rendered entries (`omp://tools/*.md`). Results are full URLs. Schemes above the `read` tier (`ssh://`) are refused before any handler resolves them, so remote hosts are never contacted.
+- **Internal URL input**: native glob walks URLs through the URL filesystem: file-backed schemes (`skill://<name>` walks the skill directory, `local://notes/*.md`, `memory://root/**/*.md`) redirect to their host files, virtual schemes list their rendered entries (`oms://tools/*.md`). Results are full URLs. Schemes above the `read` tier (`ssh://`) are refused before any handler resolves them, so remote hosts are never contacted.
 - **Custom delegated search**: uses injected `GlobOperations` instead of local fs + native glob.
 
 ## Side Effects
@@ -79,7 +79,7 @@ The tool returns a single text block plus structured `details`.
   - Stats the resolved base path, and in local multi-path mode stats every candidate base path up front.
   - Does not write files.
 - Subprocesses / native bindings
-  - Built-in local mode calls the native `@oh-my-pi/pi-natives` glob implementation.
+  - Built-in local mode calls the native `@oh-my-soup/pi-natives` glob implementation.
 - Session state (transcript, memory, jobs, checkpoints, registries)
   - Emits structured progress updates when `onUpdate` is provided.
   - Adds truncation / limit metadata to the tool result.

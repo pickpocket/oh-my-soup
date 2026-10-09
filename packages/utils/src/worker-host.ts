@@ -1,7 +1,7 @@
 import { stripWindowsExtendedLengthPathPrefix } from "./path";
 
 /** Prefix reserved for argv selectors dispatched by the shared CLI worker host. */
-export const WORKER_HOST_SELECTOR_PREFIX = "__omp_worker_";
+export const WORKER_HOST_SELECTOR_PREFIX = "__oms_worker_";
 
 /** Whether an argv value selects a worker hosted by the shared CLI entrypoint. */
 export function isWorkerHostSelector(value: string | undefined): value is string {
@@ -10,7 +10,7 @@ export function isWorkerHostSelector(value: string | undefined): value is string
 
 /**
  * Main-module path declared by self-dispatching CLI entrypoints — entries
- * whose top-level argv handling routes hidden `__omp_*` worker selectors.
+ * whose top-level argv handling routes hidden `__oms_*` worker selectors.
  * Worker spawn sites re-enter this module via `new Worker(entry, { argv })`,
  * so every distribution (source, npm bundle, compiled binary) needs exactly
  * one JavaScript entrypoint. Never set under `bun test`, SDK embedding, or

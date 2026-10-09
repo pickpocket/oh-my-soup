@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * Build the standalone share-viewer page the omp relay serves at `GET /s/<id>`.
+ * Build the standalone share-viewer page the oms relay serves at `GET /s/<id>`.
  *
  * Same template as HTML exports, but with no embedded session: share-loader.js
  * (injected right after the empty #session-data tag) fetches the sealed blob
@@ -19,12 +19,12 @@ if (!outPath) {
 }
 
 const loaderJs = await Bun.file(new URL("../src/export/html/share-loader.js", import.meta.url).pathname).text();
-// Public artifacts use the bundled omp web themes rather than TUI themes.
+// Public artifacts use the bundled oms web themes rather than TUI themes.
 const themeStyles = await generateThemeStyles("web");
 
 const html = getTemplate()
 	.replace("<theme-vars/>", () => `<style>${themeStyles}</style>`)
-	.replace("<title>Session Export</title>", () => "<title>omp session</title>")
+	.replace("<title>Session Export</title>", () => "<title>oms session</title>")
 	.replace("{{SESSION_DATA}}</script>", () => `</script>\n  <script>${loaderJs}</script>`);
 
 if (html.includes("{{SESSION_DATA}}")) throw new Error("session-data placeholder survived substitution");

@@ -13,8 +13,8 @@
  * the critical path is three dependent waves.
  */
 import * as path from "node:path";
-import type { Judge, JudgmentResult, NoulQuestion } from "@oh-my-pi/pi-ai";
-import type { FindHit, FindStats } from "@oh-my-pi/pi-tui/tools/find";
+import type { Judge, JudgmentResult, NoulQuestion } from "@oh-my-soup/pi-ai";
+import type { FindHit, FindStats } from "@oh-my-soup/pi-tui/tools/find";
 import type { InternalUrlFilesystem } from "../../internal-urls/url-filesystem";
 import { throwIfAborted } from "../tool-errors";
 import { fileScore, grepIndex, idf } from "./lexical";

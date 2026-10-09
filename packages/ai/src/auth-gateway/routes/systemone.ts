@@ -5,13 +5,13 @@
  * Same bearer auth, model resolution, broker credential lookup, and a/b/c
  * credential rotation as the chat routes, dispatched through
  * {@link TypeSafeJudge} — pi-ai's client for this wire — so 401 rotation and
- * 429/529 backoff match omp's own judgments. A judgment is one JSON
+ * 429/529 backoff match oms's own judgments. A judgment is one JSON
  * round-trip: no stream, no provider session state. TypeSafe reports tokens
  * only, so the cost is priced from the catalog model for the response header
  * and the broker's observed-usage ledger.
  */
-import { calculateCost } from "@oh-my-pi/pi-catalog/models";
-import { logger } from "@oh-my-pi/pi-utils";
+import { calculateCost } from "@oh-my-soup/pi-catalog/models";
+import { logger } from "@oh-my-soup/pi-utils";
 import { classifyGatewayError } from "../../error/gateway";
 import { isJudgmentApi, TypeSafeJudge } from "../../judgment/typesafe";
 import * as systemOne from "../../providers/systemone-server";

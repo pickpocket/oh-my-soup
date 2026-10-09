@@ -1,12 +1,12 @@
 /**
- * `omp skill <action>` handlers: publish and manage packages on a Skillshare
+ * `oms skill <action>` handlers: publish and manage packages on a Skillshare
  * registry, and dispatch install/update/uninstall/search/info to the installer.
  */
 import * as path from "node:path";
-import * as vcs from "@oh-my-pi/pi-natives/vcs";
-import { formatBytes, isEnoent, VERSION } from "@oh-my-pi/pi-utils";
-import chalk from "@oh-my-pi/pi-utils/chalk";
-import { CliUsageError } from "@oh-my-pi/pi-utils/cli";
+import * as vcs from "@oh-my-soup/pi-natives/vcs";
+import { formatBytes, isEnoent, VERSION } from "@oh-my-soup/pi-utils";
+import chalk from "@oh-my-soup/pi-utils/chalk";
+import { CliUsageError } from "@oh-my-soup/pi-utils/cli";
 import {
 	SKILL_LIMITS,
 	SKILL_SCOPE_RE,
@@ -15,7 +15,7 @@ import {
 	type SkillPublishResponse,
 	type SkillReportedProvenance,
 	type SkillSearchSort,
-} from "@oh-my-pi/pi-wire/skillshare";
+} from "@oh-my-soup/pi-wire/skillshare";
 import { StencilCredential } from "../stencil/credential";
 import { parseSkillSpec, type SkillSpec, SkillshareClient, SkillshareError } from "../skillshare/client";
 import { installSkills, searchSkills, showSkillInfo, uninstallSkills, updateSkills } from "../skillshare/installer";
@@ -75,7 +75,7 @@ export interface SkillCommandArgs {
 	};
 }
 
-export const SKILL_USAGE = `Usage: omp skill <action> [...]
+export const SKILL_USAGE = `Usage: oms skill <action> [...]
 
 Install and discover:
   install [@scope/name[@range]...] [-g] [--yes]   Install skills (no specs: install from skills.json)
@@ -275,7 +275,7 @@ async function handlePublish(cmd: SkillCommandArgs): Promise<number> {
 			});
 		} catch (error) {
 			if (error instanceof SkillshareError && error.status === 409) {
-				throw new Error(`${error.message} (versions are immutable; bump with \`omp skill version patch\`)`);
+				throw new Error(`${error.message} (versions are immutable; bump with \`oms skill version patch\`)`);
 			}
 			throw error;
 		}
@@ -292,7 +292,7 @@ async function handlePublish(cmd: SkillCommandArgs): Promise<number> {
 
 async function handleVersion(cmd: SkillCommandArgs): Promise<number> {
 	const kind = cmd.args[0];
-	if (!kind) throw new CliUsageError("usage: omp skill version <patch|minor|major|x.y.z> [dir]");
+	if (!kind) throw new CliUsageError("usage: oms skill version <patch|minor|major|x.y.z> [dir]");
 	const version = await bumpVersion(path.resolve(cmd.cwd, cmd.args[1] ?? "."), kind);
 	process.stdout.write(`v${version}\n`);
 	return 0;
@@ -300,7 +300,7 @@ async function handleVersion(cmd: SkillCommandArgs): Promise<number> {
 
 async function handleTag(cmd: SkillCommandArgs): Promise<number> {
 	if (cmd.args[0] === "rm" || cmd.args[0] === "remove") {
-		const usage = "usage: omp skill tag rm <@scope/name> <tag>";
+		const usage = "usage: oms skill tag rm <@scope/name> <tag>";
 		const spec = specOrThrow(cmd.args[1], usage);
 		const tag = cmd.args[2];
 		if (!tag) throw new CliUsageError(usage);
@@ -309,7 +309,7 @@ async function handleTag(cmd: SkillCommandArgs): Promise<number> {
 		process.stdout.write(`- ${tag}: @${spec.scope}/${spec.name}\n`);
 		return 0;
 	}
-	const usage = "usage: omp skill tag <@scope/name@version> <tag>";
+	const usage = "usage: oms skill tag <@scope/name@version> <tag>";
 	const spec = specOrThrow(cmd.args[0], usage);
 	const version = exactVersionOrThrow(spec, usage);
 	const tag = cmd.args[1];
@@ -323,7 +323,7 @@ async function handleTag(cmd: SkillCommandArgs): Promise<number> {
 }
 
 async function handleYank(cmd: SkillCommandArgs): Promise<number> {
-	const usage = "usage: omp skill yank <@scope/name@version> [--undo]";
+	const usage = "usage: oms skill yank <@scope/name@version> [--undo]";
 	const spec = specOrThrow(cmd.args[0], usage);
 	const version = exactVersionOrThrow(spec, usage);
 	const yanked = !cmd.flags.undo;
@@ -333,7 +333,7 @@ async function handleYank(cmd: SkillCommandArgs): Promise<number> {
 }
 
 async function handleDeprecate(cmd: SkillCommandArgs): Promise<number> {
-	const usage = "usage: omp skill deprecate <@scope/name[@range]> <message|--undo>";
+	const usage = "usage: oms skill deprecate <@scope/name[@range]> <message|--undo>";
 	const spec = specOrThrow(cmd.args[0], usage);
 	const text = cmd.args.slice(1).join(" ").trim();
 	if (cmd.flags.undo && text) throw new CliUsageError(`pass a message or --undo, not both; ${usage}`);
@@ -369,7 +369,7 @@ async function handleDeprecate(cmd: SkillCommandArgs): Promise<number> {
 }
 
 async function handleOwner(cmd: SkillCommandArgs): Promise<number> {
-	const usage = "usage: omp skill owner add|rm <@scope/name> <username>";
+	const usage = "usage: oms skill owner add|rm <@scope/name> <username>";
 	const op = cmd.args[0];
 	if (op !== "add" && op !== "rm" && op !== "remove") throw new CliUsageError(usage);
 	const spec = specOrThrow(cmd.args[1], usage);
@@ -390,7 +390,7 @@ async function handleOwner(cmd: SkillCommandArgs): Promise<number> {
 async function handleToken(cmd: SkillCommandArgs): Promise<number> {
 	const op = cmd.args[0];
 	if (op === "create") {
-		const usage = "usage: omp skill token create <name> [--package @scope/name]... [--expires days]";
+		const usage = "usage: oms skill token create <name> [--package @scope/name]... [--expires days]";
 		const name = cmd.args.slice(1).join(" ").trim();
 		if (!name) throw new CliUsageError(usage);
 		const packages = (cmd.flags.package ?? []).map(raw => {
@@ -438,17 +438,17 @@ async function handleToken(cmd: SkillCommandArgs): Promise<number> {
 	}
 	if (op === "revoke" || op === "rm") {
 		const id = cmd.args[1];
-		if (!id) throw new CliUsageError("usage: omp skill token revoke <id>");
+		if (!id) throw new CliUsageError("usage: oms skill token revoke <id>");
 		await withClient(cmd.flags, false, client => client.revokeToken(id));
 		process.stdout.write(`revoked ${id}\n`);
 		return 0;
 	}
-	throw new CliUsageError("usage: omp skill token create|ls|revoke");
+	throw new CliUsageError("usage: oms skill token create|ls|revoke");
 }
 
 async function handleImport(cmd: SkillCommandArgs): Promise<number> {
 	const file = cmd.args[0];
-	if (!file) throw new CliUsageError("usage: omp skill import <file.skill>");
+	if (!file) throw new CliUsageError("usage: oms skill import <file.skill>");
 	const resolved = path.resolve(cmd.cwd, file);
 	let zip: Uint8Array;
 	try {
@@ -492,25 +492,25 @@ async function dispatch(cmd: SkillCommandArgs): Promise<number> {
 		case "update":
 			return updateSkills({ names: args, global: flags.global === true, yes: flags.yes === true, cwd });
 		case "uninstall":
-			if (args.length === 0) throw new CliUsageError("usage: omp skill uninstall <name...> [-g]");
+			if (args.length === 0) throw new CliUsageError("usage: oms skill uninstall <name...> [-g]");
 			return uninstallSkills({ names: args, global: flags.global === true, cwd });
 		case "search": {
 			const query = args.join(" ").trim();
-			if (!query) throw new CliUsageError("usage: omp skill search <query>");
+			if (!query) throw new CliUsageError("usage: oms skill search <query>");
 			return searchSkills({ query, sort: flags.sort ?? "relevance", json: flags.json === true });
 		}
 		case "list":
 			return handleSkillList(args, cwd, flags.json === true);
 		case "info": {
 			const spec = args[0];
-			if (!spec) throw new CliUsageError("usage: omp skill info <@scope/name[@version]>");
+			if (!spec) throw new CliUsageError("usage: oms skill info <@scope/name[@version]>");
 			return showSkillInfo({ spec, json: flags.json === true });
 		}
 	}
 }
 
 /**
- * Run one `omp skill` action and return the process exit code. Usage mistakes
+ * Run one `oms skill` action and return the process exit code. Usage mistakes
  * propagate as {@link CliUsageError}; registry and validation failures are
  * printed as `skill <action>: <message>` and yield 1.
  */

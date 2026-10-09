@@ -1,14 +1,14 @@
-import type { AgentMessage, Tokenizer } from "@oh-my-pi/pi-agent-core";
-import type { CompactionSettings } from "@oh-my-pi/pi-agent-core/compaction";
-import { effectiveReserveTokens, resolveThresholdTokens } from "@oh-my-pi/pi-agent-core/compaction";
-import type { Tool as AiTool, Model } from "@oh-my-pi/pi-ai";
-import { renderToolExamples } from "@oh-my-pi/pi-ai/dialect";
-import { toolWireSchema } from "@oh-my-pi/pi-ai/utils/schema";
-import { formatNumber } from "@oh-my-pi/pi-utils";
+import type { AgentMessage, Tokenizer } from "@oh-my-soup/pi-agent-core";
+import type { CompactionSettings } from "@oh-my-soup/pi-agent-core/compaction";
+import { effectiveReserveTokens, resolveThresholdTokens } from "@oh-my-soup/pi-agent-core/compaction";
+import type { Tool as AiTool, Model } from "@oh-my-soup/pi-ai";
+import { renderToolExamples } from "@oh-my-soup/pi-ai/dialect";
+import { toolWireSchema } from "@oh-my-soup/pi-ai/utils/schema";
+import { formatNumber } from "@oh-my-soup/pi-utils";
 import type { Theme, ThemeColor } from "../theme";
 import { Container } from "../tui";
 import { Text } from "../components/text";
-import type { TspSpan, TspText } from "@oh-my-pi/pi-wire";
+import type { TspSpan, TspText } from "@oh-my-soup/pi-wire";
 import type { DescribeContext, NativeNode } from "../native/node";
 import { col, node, row, span, text } from "../native/describe";
 
@@ -783,10 +783,10 @@ function describeContextFrame(breakdown: ContextBreakdown): NativeNode {
 	const children = [
 		node(
 			"row",
-			{ role: "omp.context.body" },
+			{ role: "oms.context.body" },
 			[
 				node("meter", { value: used, style: "blocks", size: "lg", parts, aria: "Context usage by category" }),
-				node("kv", { items, layout: "grid", role: "omp.context.legend" }),
+				node("kv", { items, layout: "grid", role: "oms.context.legend" }),
 			],
 			"body",
 		),
@@ -808,7 +808,7 @@ function describeContextFrame(breakdown: ContextBreakdown): NativeNode {
 			),
 		);
 	}
-	return col(children, { gap: "md", role: "omp.context" });
+	return col(children, { gap: "md", role: "oms.context" });
 }
 
 /** The `/context` title: the model and its window once a model is selected. */
@@ -847,7 +847,7 @@ export function describeContextUsage(breakdown: ContextBreakdown): NativeNode {
 	return row([col(grid), col(legend)], {
 		gap: "lg",
 		wrap: true,
-		role: "omp.context.usage",
+		role: "oms.context.usage",
 	});
 }
 

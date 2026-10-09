@@ -1,4 +1,4 @@
-import { factoryDroidApiBaseUrl, resolveFactoryDroidInferenceRegion } from "@oh-my-pi/pi-catalog/wire/factory-droid";
+import { factoryDroidApiBaseUrl, resolveFactoryDroidInferenceRegion } from "@oh-my-soup/pi-catalog/wire/factory-droid";
 import * as AIError from "../../error";
 import { isRecord } from "../../utils";
 import type { AfterExchangeHook } from "../hooks/types";

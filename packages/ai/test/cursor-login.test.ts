@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { type AuthAccountPolicies, AuthStorage, SqliteAuthCredentialStore } from "@oh-my-pi/pi-ai/auth-storage";
+import { type AuthAccountPolicies, AuthStorage, SqliteAuthCredentialStore } from "@oh-my-soup/pi-ai/auth-storage";
 import { removeWithRetries } from "../../utils/src/temp";
 
 const EMAIL = "dev@example.com";
@@ -50,7 +50,7 @@ afterEach(async () => {
 
 describe("Cursor account email", () => {
 	test("a Cursor login stores the email an account policy selects", async () => {
-		dir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-cursor-login-"));
+		dir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-cursor-login-"));
 		const store = await SqliteAuthCredentialStore.open(path.join(dir, "agent.db"));
 		const auth = new AuthStorage(store, { accountPolicies: POLICIES });
 		try {
@@ -67,7 +67,7 @@ describe("Cursor account email", () => {
 	});
 
 	test("a Cursor login stored without an email gains it at the next token refresh", async () => {
-		dir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-cursor-refresh-"));
+		dir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-cursor-refresh-"));
 		const store = await SqliteAuthCredentialStore.open(path.join(dir, "agent.db"));
 		const stale = cursorAccessToken("stale");
 		await store.upsertAuthCredential("cursor", {
@@ -95,7 +95,7 @@ describe("Cursor account email", () => {
 	});
 
 	test("a stalled profile lookup still keeps the tokens a refresh minted", async () => {
-		dir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-cursor-stall-"));
+		dir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-cursor-stall-"));
 		const store = await SqliteAuthCredentialStore.open(path.join(dir, "agent.db"));
 		const stale = cursorAccessToken("stale");
 		await store.upsertAuthCredential("cursor", {
@@ -147,7 +147,7 @@ describe("Cursor session refresh", () => {
 	});
 
 	async function storeExpiredSession(session: string): Promise<SqliteAuthCredentialStore> {
-		dir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-cursor-session-"));
+		dir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-cursor-session-"));
 		const store = await SqliteAuthCredentialStore.open(path.join(dir, "agent.db"));
 		await store.upsertAuthCredential("cursor", {
 			type: "oauth",

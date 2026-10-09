@@ -1,5 +1,5 @@
 /**
- * `omp if-bench` — instruction-following and working-memory benchmark.
+ * `oms if-bench` — instruction-following and working-memory benchmark.
  *
  * One cacheable conversation per model: turn N issues N glyph actions over the
  * array the model itself reported last turn, while a `nya{1,N}` directive
@@ -7,17 +7,17 @@
  * the depth it reaches before it either loses the array or drops the cat sound,
  * which makes the two failure modes separable from a single reply.
  */
-import { streamSimple } from "@oh-my-pi/pi-ai";
-import chalk from "@oh-my-pi/pi-utils/chalk";
+import { streamSimple } from "@oh-my-soup/pi-ai";
+import chalk from "@oh-my-soup/pi-utils/chalk";
 import {
 	type BenchRuntime,
 	createDefaultBenchRuntime,
 	resolveBenchTargets,
 	type StreamSimpleFn,
 } from "../cli/bench-runtime";
-import type { LiveBoardOutput } from "@oh-my-pi/pi-tui/chrome/live-board";
+import type { LiveBoardOutput } from "@oh-my-soup/pi-tui/chrome/live-board";
 import { initialArray } from "./actions";
-import { createIfBenchBoard, formatIfBenchScoreboard } from "@oh-my-pi/pi-tui/apps/if-bench-board";
+import { createIfBenchBoard, formatIfBenchScoreboard } from "@oh-my-soup/pi-tui/apps/if-bench-board";
 import { DEFAULT_NYA_MAX } from "./protocol";
 import { type IfBenchSummary, runIfBench } from "./runner";
 
@@ -64,7 +64,7 @@ export async function runIfBenchCommand(
 	deps: IfBenchDependencies = {},
 ): Promise<IfBenchSummary> {
 	if (command.models.length === 0) {
-		throw new Error("Pass at least one model selector, e.g. `omp if-bench opus gpt-5.2`");
+		throw new Error("Pass at least one model selector, e.g. `oms if-bench opus gpt-5.2`");
 	}
 	const maxTurns = positiveInteger("turns", command.flags.turns, DEFAULT_TURNS);
 	const arrayLength = positiveInteger("length", command.flags.length, DEFAULT_ARRAY_LENGTH);

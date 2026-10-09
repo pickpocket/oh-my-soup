@@ -4,7 +4,7 @@
 //! [`Query`] and learns from submitted prompts. Engines are napi-free;
 //! `pi_natives::predict` runs each one on a dedicated thread behind the
 //! `TextPredictor` N-API class, which the machine-global text-prediction
-//! daemon serves to every omp process.
+//! daemon serves to every oms process.
 //!
 //! # Architecture
 //! ```text

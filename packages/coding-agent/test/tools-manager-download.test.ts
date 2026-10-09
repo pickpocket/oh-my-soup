@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "bun:test";
-import { downloadFile } from "@oh-my-pi/pi-coding-agent/utils/tools-manager";
-import { TempDir } from "@oh-my-pi/pi-utils";
+import { downloadFile } from "@oh-my-soup/pi-coding-agent/utils/tools-manager";
+import { TempDir } from "@oh-my-soup/pi-utils";
 
 function mockDownloadResponse(response: Response): void {
 	const fetchMock: typeof globalThis.fetch = Object.assign(async () => response, {
@@ -15,7 +15,7 @@ describe("tool asset downloads", () => {
 	});
 
 	it("writes a completed response body to disk", async () => {
-		using tempDir = TempDir.createSync("@omp-tool-download-");
+		using tempDir = TempDir.createSync("@oms-tool-download-");
 		const dest = tempDir.join("tool.bin");
 		mockDownloadResponse(new Response("tool-bytes"));
 
@@ -25,7 +25,7 @@ describe("tool asset downloads", () => {
 	});
 
 	it("aborts a stalled response body and removes the partial file", async () => {
-		using tempDir = TempDir.createSync("@omp-tool-download-stall-");
+		using tempDir = TempDir.createSync("@oms-tool-download-stall-");
 		const dest = tempDir.join("tool.bin");
 		const stalled = Promise.withResolvers<void>();
 		const body = new ReadableStream<Uint8Array>({

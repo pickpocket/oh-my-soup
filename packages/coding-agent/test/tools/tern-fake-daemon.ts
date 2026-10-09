@@ -103,7 +103,7 @@ export async function startFakeDaemon(
 				};
 				if (message.hello !== undefined) {
 					hellos.push(payload);
-					// A welcome with members omp does not know, then a message kind it does not know, to prove both are skipped.
+					// A welcome with members oms does not know, then a message kind it does not know, to prove both are skipped.
 					send(socket, jsonPayload({ welcome: opts.welcome ?? { version: 99 } }));
 					send(socket, jsonPayload({ id: 0, output: { pane: 7 } }));
 				} else if (message.browser !== undefined && message.id !== undefined) {

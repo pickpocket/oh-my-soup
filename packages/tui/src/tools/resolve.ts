@@ -5,7 +5,7 @@ import { Text } from "../index";
 
 import type { NativeToolView, RenderResultOptions } from "./renderer";
 
-import type { TspSpan } from "@oh-my-pi/pi-wire";
+import type { TspSpan } from "@oh-my-soup/pi-wire";
 import { span, text } from "../native/describe";
 import { OwnerMemo } from "../native/memo";
 import { plainText } from "../native/spans";

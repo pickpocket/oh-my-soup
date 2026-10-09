@@ -4,8 +4,8 @@
  * keys, and once a query is live, typing keeps editing it.
  */
 import { beforeAll, expect, test } from "bun:test";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
-import type { TspPickerProps } from "@oh-my-pi/pi-wire";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
+import type { TspPickerProps } from "@oh-my-soup/pi-wire";
 import type { DescribeContext } from "../src/native/node";
 import {
 	ModelHubComponent,

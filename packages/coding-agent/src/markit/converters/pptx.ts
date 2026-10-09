@@ -1,8 +1,8 @@
 // Adapted from markit-ai (MIT). See ../NOTICE.
 import * as path from "node:path";
-import { XMLParser } from "@oh-my-pi/pi-utils/xml";
+import { XMLParser } from "@oh-my-soup/pi-utils/xml";
 import type { ConversionResult, Converter, StreamInfo } from "../types";
-import { ZipPackage } from "@oh-my-pi/pi-utils/ar";
+import { ZipPackage } from "@oh-my-soup/pi-utils/ar";
 
 const EXTENSIONS = [".pptx"];
 const MIMETYPES = ["application/vnd.openxmlformats-officedocument.presentationml.presentation"];

@@ -23,7 +23,7 @@ class BenchLikeCommand extends Command {
 }
 
 describe("run() per-command help", () => {
-	// Contract: `omp <cmd> --help` must load only the requested command module.
+	// Contract: `oms <cmd> --help` must load only the requested command module.
 	// Loading the whole table would let any unrelated command whose import
 	// hangs or crashes take down every per-command help invocation.
 	it("loads only the requested command", async () => {
@@ -44,7 +44,7 @@ describe("run() per-command help", () => {
 			return true;
 		});
 		try {
-			await run({ bin: "omp", version: "0.0.0", argv: ["good", "--help"], commands });
+			await run({ bin: "oms", version: "0.0.0", argv: ["good", "--help"], commands });
 		} finally {
 			stdoutSpy.mockRestore();
 		}
@@ -57,7 +57,7 @@ describe("run() per-command help", () => {
 describe("run() root help", () => {
 	// Contract: root help renders registered metadata without importing command
 	// implementations. Heavy or unavailable optional commands must not make
-	// `omp --help` slow or crash.
+	// `oms --help` slow or crash.
 	it("renders static metadata without loading command modules", async () => {
 		let loads = 0;
 		const commands: CommandEntry[] = [
@@ -87,7 +87,7 @@ describe("run() root help", () => {
 			return true;
 		});
 		try {
-			await run({ bin: "omp", version: "0.0.0", argv: ["--help"], commands });
+			await run({ bin: "oms", version: "0.0.0", argv: ["--help"], commands });
 		} finally {
 			stdoutSpy.mockRestore();
 		}
@@ -104,7 +104,7 @@ describe("run() root help", () => {
 		let receivedConstructor = false;
 
 		await run({
-			bin: "omp",
+			bin: "oms",
 			version: "0.0.0",
 			argv: ["--help"],
 			commands,
@@ -134,14 +134,14 @@ describe("run() usage errors", () => {
 		});
 		const prevExitCode = process.exitCode;
 		try {
-			await expect(run({ bin: "omp", version: "0.0.0", argv: ["bench"], commands })).resolves.toBeUndefined();
+			await expect(run({ bin: "oms", version: "0.0.0", argv: ["bench"], commands })).resolves.toBeUndefined();
 		} finally {
 			stderrSpy.mockRestore();
 			process.exitCode = prevExitCode ?? 0;
 		}
 		const out = errs.join("");
 		expect(out).toContain("error: Missing required argument: models");
-		expect(out).toContain("$ omp bench MODELS... [FLAGS]");
+		expect(out).toContain("$ oms bench MODELS... [FLAGS]");
 		expect(out).not.toContain("dist/cli.js");
 	});
 
@@ -155,12 +155,12 @@ describe("run() usage errors", () => {
 			return true;
 		});
 		try {
-			await run({ bin: "omp", version: "0.0.0", argv: ["bench", "--help"], commands });
+			await run({ bin: "oms", version: "0.0.0", argv: ["bench", "--help"], commands });
 		} finally {
 			stdoutSpy.mockRestore();
 		}
 		const out = writes.join("");
-		expect(out).toContain("$ omp bench MODELS... [FLAGS]");
+		expect(out).toContain("$ oms bench MODELS... [FLAGS]");
 		expect(out).not.toContain("[MODELS]");
 	});
 
@@ -174,7 +174,7 @@ describe("run() usage errors", () => {
 		const prevExitCode = process.exitCode;
 		try {
 			await expect(
-				run({ bin: "omp", version: "0.0.0", argv: ["bench", "--unknown"], commands }),
+				run({ bin: "oms", version: "0.0.0", argv: ["bench", "--unknown"], commands }),
 			).resolves.toBeUndefined();
 		} finally {
 			stderrSpy.mockRestore();
@@ -182,6 +182,6 @@ describe("run() usage errors", () => {
 		}
 		const out = errs.join("");
 		expect(out).toContain("error: Unknown option '--unknown'");
-		expect(out).toContain("$ omp bench MODELS... [FLAGS]");
+		expect(out).toContain("$ oms bench MODELS... [FLAGS]");
 	});
 });

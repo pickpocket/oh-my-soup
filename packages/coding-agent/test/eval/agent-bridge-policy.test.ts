@@ -1,7 +1,7 @@
 import { afterAll, afterEach, describe, expect, it, vi } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { TempDir } from "@oh-my-pi/pi-utils";
+import { TempDir } from "@oh-my-soup/pi-utils";
 import { AsyncJobManager } from "../../src/async";
 import { Settings } from "../../src/config/settings";
 import { runEvalAgent, type EvalAgentBridgeOptions, type EvalAgentResult } from "../../src/eval/agent-bridge";
@@ -22,7 +22,7 @@ import * as taskExecutor from "../../src/task/executor";
 import * as isolationRunner from "../../src/task/isolation-runner";
 import { AgentOutputManager } from "../../src/task/output-manager";
 import type { AgentDefinition } from "../../src/task/types";
-import type { AgentProgress, SingleResult, StructuredSubagentOutput } from "@oh-my-pi/pi-tui/tools/task";
+import type { AgentProgress, SingleResult, StructuredSubagentOutput } from "@oh-my-soup/pi-tui/tools/task";
 import type { ToolSession } from "../../src/tools";
 
 const taskAgent = {
@@ -579,7 +579,7 @@ describe("agent() through eval runtimes", () => {
 	});
 
 	it("exposes agent() in JavaScript and parses structured output", async () => {
-		using tempDir = TempDir.createSync("@omp-eval-agent-js-");
+		using tempDir = TempDir.createSync("@oms-eval-agent-js-");
 		const { session, sessionFile } = makeEvalSession(tempDir, "js-agent");
 		mockAgents();
 		vi.spyOn(taskExecutor, "runSubprocess").mockImplementation(async options =>
@@ -618,7 +618,7 @@ describe("agent() through eval runtimes", () => {
 	});
 
 	it("runs JavaScript agent handles concurrently and returns results in input order", async () => {
-		using tempDir = TempDir.createSync("@omp-eval-agent-js-handles-");
+		using tempDir = TempDir.createSync("@oms-eval-agent-js-handles-");
 		const { session, sessionFile } = makeEvalSession(tempDir, "js-agent-handles");
 		mockAgents();
 		const overlap = spyOverlapBarrier(4);
@@ -634,7 +634,7 @@ describe("agent() through eval runtimes", () => {
 	});
 
 	it("propagates handle failures or returns them in place when requested", async () => {
-		using tempDir = TempDir.createSync("@omp-eval-agent-js-handle-errors-");
+		using tempDir = TempDir.createSync("@oms-eval-agent-js-handle-errors-");
 		const { session, sessionFile } = makeEvalSession(tempDir, "js-agent-handle-errors");
 		mockAgents();
 		vi.spyOn(taskExecutor, "runSubprocess").mockImplementation(async options => {
@@ -663,7 +663,7 @@ describe("agent() through eval runtimes", () => {
 	});
 
 	it("exposes agent() in the Python runtime", async () => {
-		using tempDir = TempDir.createSync("@omp-eval-agent-py-");
+		using tempDir = TempDir.createSync("@oms-eval-agent-py-");
 		const { session, sessionFile, sessionId } = makeEvalSession(tempDir, "py-agent");
 		mockAgents();
 		vi.spyOn(taskExecutor, "runSubprocess").mockImplementation(async options =>
@@ -707,7 +707,7 @@ describe("agent() through eval runtimes", () => {
 	});
 
 	it("runs Python agent handles concurrently and returns results in input order", async () => {
-		using tempDir = TempDir.createSync("@omp-eval-agent-py-handles-");
+		using tempDir = TempDir.createSync("@oms-eval-agent-py-handles-");
 		const { session, sessionFile, sessionId } = makeEvalSession(tempDir, "py-agent-handles");
 		mockAgents();
 		const overlap = spyOverlapBarrier(4);
@@ -726,7 +726,7 @@ describe("agent() through eval runtimes", () => {
 	});
 
 	it("streams the latest enriched agent progress through onStatus before the cell finishes", async () => {
-		using tempDir = TempDir.createSync("@omp-eval-agent-progress-");
+		using tempDir = TempDir.createSync("@oms-eval-agent-progress-");
 		const { session, sessionFile } = makeEvalSession(tempDir, "js-agent-progress");
 		mockAgents();
 		const releaseCompletion = Promise.withResolvers<void>();
@@ -827,7 +827,7 @@ describe("agent() through eval runtimes", () => {
 	});
 
 	it("pauses the idle watchdog while a quiet agent() runs past the budget", async () => {
-		using tempDir = TempDir.createSync("@omp-eval-agent-timeout-pause-");
+		using tempDir = TempDir.createSync("@oms-eval-agent-timeout-pause-");
 		const { session } = makeEvalSession(
 			tempDir,
 			"js-agent-timeout-pause",
@@ -895,7 +895,7 @@ describe("agent() through eval runtimes", () => {
 	});
 
 	it("keeps timeout paused despite agent() progress snapshots", async () => {
-		using tempDir = TempDir.createSync("@omp-eval-agent-progress-timeout-pause-");
+		using tempDir = TempDir.createSync("@oms-eval-agent-progress-timeout-pause-");
 		const { session } = makeEvalSession(tempDir, "js-agent-progress-timeout-pause");
 		mockAgents();
 
@@ -979,7 +979,7 @@ describe("agent() through eval runtimes", () => {
 		//
 		// Asserted as an ordering, not a duration: the agent call must finish
 		// before the cell settles. Killing early inverts the two.
-		using tempDir = TempDir.createSync("@omp-eval-agent-js-interrupt-");
+		using tempDir = TempDir.createSync("@oms-eval-agent-js-interrupt-");
 		const { session, sessionFile } = makeEvalSession(tempDir, "js-agent-interrupt");
 		mockAgents();
 
@@ -1315,11 +1315,11 @@ describe("runEvalAgent isolation", () => {
 		vi.spyOn(isolationRunner, "runIsolatedSubprocess").mockImplementation(async opts =>
 			singleResult(opts.baseOptions, {
 				output: "ran",
-				branchName: `omp/task/${opts.agentId}`,
+				branchName: `oms/task/${opts.agentId}`,
 			}),
 		);
 		vi.spyOn(isolationRunner, "mergeIsolatedChanges").mockResolvedValue({
-			summary: "\n\n<system-notification>Branch merge failed: omp/task/x.\nConflict: foo.ts</system-notification>",
+			summary: "\n\n<system-notification>Branch merge failed: oms/task/x.\nConflict: foo.ts</system-notification>",
 			changesApplied: false,
 			hadAnyChanges: false,
 			mergedBranchForNestedPatches: false,
@@ -1327,7 +1327,7 @@ describe("runEvalAgent isolation", () => {
 
 		const session = isolatedSession({ "task.isolation.merge": "branch" });
 		await expect(runEvalAgentAndWait({ prompt: "scout", isolated: true }, { session })).rejects.toThrow(
-			/isolated apply failed.*Branch merge failed.*Captured branch preserved as omp\/task\//s,
+			/isolated apply failed.*Branch merge failed.*Captured branch preserved as oms\/task\//s,
 		);
 	});
 
@@ -1434,7 +1434,7 @@ describe("runEvalAgent isolation", () => {
 		vi.spyOn(isolationRunner, "runIsolatedSubprocess").mockImplementation(async opts =>
 			singleResult(opts.baseOptions, {
 				output: "branched",
-				branchName: `omp/task/${opts.agentId}`,
+				branchName: `oms/task/${opts.agentId}`,
 			}),
 		);
 		const mergeSpy = vi.spyOn(isolationRunner, "mergeIsolatedChanges");
@@ -1443,8 +1443,8 @@ describe("runEvalAgent isolation", () => {
 		const result = await runEvalAgentAndWait({ prompt: "scout", isolated: true, apply: false }, { session });
 
 		expect(mergeSpy).not.toHaveBeenCalled();
-		expect(result.details.branchName).toMatch(/^omp\/task\//);
-		expect(result.text).toContain("omp/task/");
+		expect(result.details.branchName).toMatch(/^oms\/task\//);
+		expect(result.text).toContain("oms/task/");
 		expect(result.text).toContain("apply=false");
 	});
 
@@ -1510,7 +1510,7 @@ describe("runEvalAgent isolation", () => {
 
 		expect(result.details.patchPath).toMatch(/\.patch$/);
 		const removedArtifactsDir = rmSpy.mock.calls.some(
-			([target]) => typeof target === "string" && target.includes("omp-eval-agent-"),
+			([target]) => typeof target === "string" && target.includes("oms-eval-agent-"),
 		);
 		expect(removedArtifactsDir).toBe(false);
 	});
@@ -1532,7 +1532,7 @@ describe("runEvalAgent isolation", () => {
 		await runEvalAgentAndWait({ prompt: "scout", isolated: true }, { session: isolatedSession() });
 
 		const removedArtifactsDir = rmSpy.mock.calls.some(
-			([target]) => typeof target === "string" && target.includes("omp-eval-agent-"),
+			([target]) => typeof target === "string" && target.includes("oms-eval-agent-"),
 		);
 		expect(removedArtifactsDir).toBe(false);
 	});

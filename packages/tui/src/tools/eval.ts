@@ -1,6 +1,6 @@
 import type { Component } from "../index";
 import { Markdown, Text } from "../index";
-import { sanitizeText } from "@oh-my-pi/pi-utils";
+import { sanitizeText } from "@oh-my-soup/pi-utils";
 import type {
 	NativeToolHead,
 	NativeToolView,
@@ -8,7 +8,7 @@ import type {
 	RenderResultOptions,
 	ToolRenderer,
 } from "./renderer";
-import type { TspSpan } from "@oh-my-pi/pi-wire";
+import type { TspSpan } from "@oh-my-soup/pi-wire";
 import { ansi, code as codeNode, compact, keyed, md, node, span, text } from "../native/describe";
 import type { NativeChild, NativeNode } from "../native/node";
 import { plainText } from "../native/spans";
@@ -45,7 +45,7 @@ import {
 	truncateToWidth,
 	wrapBrackets,
 } from "../render/render-utils";
-import type { ImageContent } from "@oh-my-pi/pi-ai";
+import type { ImageContent } from "@oh-my-soup/pi-ai";
 import type { OutputMeta } from "./output-meta";
 import { type ConfiguredThinkingLevel, expandKeyHint } from "../render/render-utils";
 
@@ -604,7 +604,7 @@ function describeStatusEvent(event: EvalStatusEvent): NativeNode {
 			spans.push(span(` ${key}=`, "muted"), span(sanitizeText(String(value))));
 		}
 	}
-	return text(spans, { truncate: "end", role: "omp.tool.eval.status" });
+	return text(spans, { truncate: "end", role: "oms.tool.eval.status" });
 }
 
 /**
@@ -701,7 +701,7 @@ function evalOutputNodes(output: string, markdown: boolean, running: boolean, er
 	const tone = error ? "error" : undefined;
 	return splitConsoleTables(output).map(part =>
 		part.kind === "text"
-			? ansi(part.text, { follow: running, tone, role: "omp.tool.eval.output" })
+			? ansi(part.text, { follow: running, tone, role: "oms.tool.eval.output" })
 			: node("table", {
 					// Node's index column header is noise in a real table.
 					cols: part.head.map((head, i) => ({ id: `c${i}`, head: head === "(index)" ? "" : head })),
@@ -709,7 +709,7 @@ function evalOutputNodes(output: string, markdown: boolean, running: boolean, er
 						id: `r${r}`,
 						cells: Object.fromEntries(cells.map((cell, i) => [`c${i}`, cell])),
 					})),
-					role: "omp.tool.eval.table",
+					role: "oms.tool.eval.table",
 				}),
 	);
 }
@@ -726,7 +726,7 @@ interface EvalCellSection {
 
 /**
  * A notebook cell: a gutter mark beside the input (←, muted until the cell
- * runs, omp's thinking starburst while it does) and beside its output (→).
+ * runs, oms's thinking starburst while it does) and beside its output (→).
  * Only multi-cell calls repeat titles; marks never invent execution counts.
  */
 function evalCellSection(cell: EvalCellSection, index: number, total: number): NativeNode {
@@ -740,24 +740,24 @@ function evalCellSection(cell: EvalCellSection, index: number, total: number): N
 	}
 	const inputMark =
 		cell.status === "running"
-			? node("spinner", { style: "starburst", role: "omp.tool.eval.prompt", aria: "Running" })
+			? node("spinner", { style: "starburst", role: "oms.tool.eval.prompt", aria: "Running" })
 			: node("icon", {
 					name: "arrow-left",
-					role: "omp.tool.eval.prompt",
+					role: "oms.tool.eval.prompt",
 					aria: "Input",
 					tone: !cell.status || cell.status === "pending" ? "muted" : undefined,
 				});
 	return node(
 		"col",
 		{
-			role: "omp.tool.eval.cell",
+			role: "oms.tool.eval.cell",
 			tone: cell.status === "error" ? "error" : cell.status === "running" ? "pending" : undefined,
 		},
 		compact<NativeChild>([
-			head ? text(head, { role: "omp.tool.eval.caption" }) : undefined,
+			head ? text(head, { role: "oms.tool.eval.caption" }) : undefined,
 			node(
 				"row",
-				{ role: "omp.tool.eval.input", align: "start" },
+				{ role: "oms.tool.eval.input", align: "start" },
 				[
 					inputMark,
 					keyed(codeNode(cell.code, { lang: languageForHighlighter(cell.language), numbers: false }), "code"),
@@ -767,10 +767,10 @@ function evalCellSection(cell: EvalCellSection, index: number, total: number): N
 			cell.output?.length
 				? node(
 						"row",
-						{ role: "omp.tool.eval.result", align: "start" },
+						{ role: "oms.tool.eval.result", align: "start" },
 						[
-							node("icon", { name: "arrow-right", role: "omp.tool.eval.prompt", aria: "Output" }),
-							node("col", { role: "omp.tool.eval.outputs" }, cell.output),
+							node("icon", { name: "arrow-right", role: "oms.tool.eval.prompt", aria: "Output" }),
+							node("col", { role: "oms.tool.eval.outputs" }, cell.output),
 						],
 						"output",
 					)

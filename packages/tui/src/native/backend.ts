@@ -26,7 +26,7 @@
  */
 import * as fs from "node:fs";
 import * as path from "node:path";
-import * as logger from "@oh-my-pi/pi-utils/logger";
+import * as logger from "@oh-my-soup/pi-utils/logger";
 import {
 	TSP_DEFAULT_APC_LIMIT,
 	TSP_DEFAULT_CREDITS,
@@ -37,7 +37,7 @@ import {
 	type TspKind,
 	type TspNode,
 	type TspOp,
-} from "@oh-my-pi/pi-wire";
+} from "@oh-my-soup/pi-wire";
 import type { Terminal } from "../terminal";
 import {
 	bindTheme,
@@ -124,7 +124,7 @@ const RECENT_FRAMES = 64;
 /** An unanswered frame older than this no longer holds rendering back. */
 const STALLED_ACK_MS = 5000;
 /** Role of the session's surfaces; a screen page may name its own. */
-const SESSION_ROLE = "omp.session";
+const SESSION_ROLE = "oms.session";
 /** A `blobs` query unanswered this long counts its ids as missing: they go inline. */
 const BLOB_REPLY_MS = 3000;
 /** Expired queries kept to pair late replies with their queries, at most. */
@@ -205,7 +205,7 @@ function sameSet(a: ReadonlySet<string>, b: ReadonlySet<string>): boolean {
 /**
  * The reply a v1 terminal is assumed to give before its real `hello` arrives
  * (the `TERM_PROGRAM=tern` optimistic start): the whole vocabulary, the
- * default APC limit and credits, the terminal's width, the appearance omp
+ * default APC limit and credits, the terminal's width, the appearance oms
  * already detected, full motion, and `blobs`, so a resumed session's images
  * are asked about rather than resent before the reply comes.
  */
@@ -228,7 +228,7 @@ export function assumedTspHello(terminal: Terminal): TspHello {
 class Surface {
 	readonly id: string;
 	readonly mode: "inline" | "screen";
-	/** The `o` role: `omp.session`, or a screen page's own (`NativeScreen.role`). */
+	/** The `o` role: `oms.session`, or a screen page's own (`NativeScreen.role`). */
 	readonly role: string;
 	readonly reconciler: Reconciler;
 	readonly doc: TspDocument | null;
@@ -450,7 +450,7 @@ export class NativeBackend {
 		surface.acked = surface.seq;
 		surface.focus = null;
 		surface.dirty = false;
-		this.#write("o", { id: surface.id, mode: "inline", title: "omp", role: SESSION_ROLE, adopt: true });
+		this.#write("o", { id: surface.id, mode: "inline", title: "oms", role: SESSION_ROLE, adopt: true });
 		this.#sendPalette(surface);
 		// After the `o`, as in `start()`.
 		setNativeRendering(true);
@@ -592,7 +592,7 @@ export class NativeBackend {
 	}
 
 	#open(surface: Surface): void {
-		this.#write("o", { id: surface.id, mode: surface.mode, title: "omp", role: surface.role });
+		this.#write("o", { id: surface.id, mode: surface.mode, title: "oms", role: surface.role });
 		this.#sendPalette(surface);
 	}
 

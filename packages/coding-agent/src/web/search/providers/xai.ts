@@ -1,6 +1,6 @@
-import { type Api, type AuthStorage, type Model, withAuth } from "@oh-my-pi/pi-ai";
-import { resolveXaiBaseUrl, XAI_DEFAULT_BASE_URL } from "@oh-my-pi/pi-ai/providers/xai-base-url";
-import { buildModelProviderPriorityRank } from "@oh-my-pi/pi-catalog/identity";
+import { type Api, type AuthStorage, type Model, withAuth } from "@oh-my-soup/pi-ai";
+import { resolveXaiBaseUrl, XAI_DEFAULT_BASE_URL } from "@oh-my-soup/pi-ai/providers/xai-base-url";
+import { buildModelProviderPriorityRank } from "@oh-my-soup/pi-catalog/identity";
 import type { ModelRegistry } from "../../../config/model-registry";
 import { pickDefaultAvailableModel, resolveRoleChain } from "../../../config/model-resolver";
 import { roleCandidatePool } from "../../../config/model-roles";
@@ -72,7 +72,7 @@ interface XAIResponsesUsage {
 	server_side_tool_usage_details?: { x_posts_fetched?: number; x_users_fetched?: number } | null;
 }
 
-/** Body of a non-streaming xAI Responses API reply, as far as omp reads it. */
+/** Body of a non-streaming xAI Responses API reply, as far as oms reads it. */
 export interface XAIResponsesResponse {
 	id?: string;
 	model?: string;

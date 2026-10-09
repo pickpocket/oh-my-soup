@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, test } from "bun:test";
-import { TSP_KINDS, type TspNode, type TspPickerProps } from "@oh-my-pi/pi-wire";
+import { TSP_KINDS, type TspNode, type TspPickerProps } from "@oh-my-soup/pi-wire";
 import { ExtensionDashboard, type ExtensionDashboardRuntime } from "../src/overlays/extensions/extension-dashboard";
 import type { Extension, ExtensionProvider } from "../src/overlays/extensions/types";
 import { initTheme } from "../src/theme";
@@ -16,7 +16,7 @@ function extension(kind: Extension["kind"], name: string, provider: string): Ext
 		name,
 		displayName: name,
 		description: `${name} description`,
-		path: `/home/u/.omp/${kind}/${name}.md`,
+		path: `/home/u/.oms/${kind}/${name}.md`,
 		source: { provider, providerName: provider, level: "user" },
 		state: "active",
 		raw: { content: `# ${name}` },
@@ -31,7 +31,7 @@ interface Fixture {
 function fixture(): Fixture {
 	const disabled: string[] = [];
 	const providers: ExtensionProvider[] = [
-		{ id: "native", displayName: "OMP", enabled: true, userSourceEnabled: true, foreignUserSource: false },
+		{ id: "native", displayName: "OMS", enabled: true, userSourceEnabled: true, foreignUserSource: false },
 		{ id: "claude", displayName: "Claude Code", enabled: true, userSourceEnabled: true, foreignUserSource: false },
 	];
 	const extensions = [extension("skill", "alpha", "native"), extension("slash-command", "gamma", "claude")];

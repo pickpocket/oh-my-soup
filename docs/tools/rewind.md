@@ -65,7 +65,7 @@ The returned tool result is not the final rewind. `AgentSession` waits until `tu
   - Repositions the persisted session leaf to the checkpoint branch point and appends new session entries.
 - Filesystem
   - Persists the new `branch_summary` and `custom_message` entries into the session `.jsonl` file through normal `SessionManager` append persistence.
-  - Session files are named `<ISO-timestamp-with-:-and-.-replaced>_<uuidv7>.jsonl` in the session directory; default directory selection is `~/.omp/agent/sessions/<encoded-cwd>/` when no override is passed.
+  - Session files are named `<ISO-timestamp-with-:-and-.-replaced>_<uuidv7>.jsonl` in the session directory; default directory selection is `~/.oms/agent/sessions/<encoded-cwd>/` when no override is passed.
 - User-visible prompts / interactive UI
   - The tool result is visible before turn-end application.
   - The persisted `branch_summary` becomes an LLM-visible `branchSummary` message when context is rebuilt; compaction rendering presents it as a user-role `<summary>` block.

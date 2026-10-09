@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
-import { getBundledModel } from "@oh-my-pi/pi-catalog/models";
-import { selectorCandidates } from "@oh-my-pi/pi-coding-agent/cli/auth-gateway-stdio";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
+import { getBundledModel } from "@oh-my-soup/pi-catalog/models";
+import { selectorCandidates } from "@oh-my-soup/pi-coding-agent/cli/auth-gateway-stdio";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
 
 const fast = getBundledModel("google", "gemini-2.5-flash")!;
 const mini = getBundledModel("openai", "gpt-4o-mini")!;

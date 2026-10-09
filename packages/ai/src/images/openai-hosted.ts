@@ -1,4 +1,4 @@
-import { type Api, type Model, modelKind } from "@oh-my-pi/pi-catalog/types";
+import { type Api, type Model, modelKind } from "@oh-my-soup/pi-catalog/types";
 import {
 	applyCodexResidencyHeader,
 	CODEX_BASE_URL,
@@ -6,8 +6,8 @@ import {
 	OPENAI_HEADER_VALUES,
 	OPENAI_HEADERS,
 	URL_PATHS,
-} from "@oh-my-pi/pi-catalog/wire/codex";
-import { readSseJson, USER_AGENT } from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-catalog/wire/codex";
+import { readSseJson, USER_AGENT } from "@oh-my-soup/pi-utils";
 import { withAuth } from "../auth-retry";
 import * as AIError from "../error";
 import {

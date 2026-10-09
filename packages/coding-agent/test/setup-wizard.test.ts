@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, mock, vi } from "bun:test";
-import type { Model } from "@oh-my-pi/pi-ai";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
-import { runOnboardingSetup } from "@oh-my-pi/pi-coding-agent/commands/setup";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
+import type { Model } from "@oh-my-soup/pi-ai";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
+import { runOnboardingSetup } from "@oh-my-soup/pi-coding-agent/commands/setup";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
 import {
 	ALL_SCENES,
 	createSetupHost,
@@ -12,15 +12,15 @@ import {
 	type SetupScene,
 	type SetupSceneHost,
 	selectSetupScenes,
-} from "@oh-my-pi/pi-coding-agent/modes/setup";
-import { providersSetupScene } from "@oh-my-pi/pi-tui/setup/scenes/sign-in";
-import { themeSetupScene } from "@oh-my-pi/pi-tui/setup/scenes/theme";
-import { SetupWizardComponent } from "@oh-my-pi/pi-tui/setup/wizard-overlay";
-import { setTerminalGlyphProtocol } from "@oh-my-pi/pi-tui/terminal-capabilities";
-import { initTheme, theme } from "@oh-my-pi/pi-tui/theme";
-import type { InteractiveModeContext } from "@oh-my-pi/pi-coding-agent/modes/types";
+} from "@oh-my-soup/pi-coding-agent/modes/setup";
+import { providersSetupScene } from "@oh-my-soup/pi-tui/setup/scenes/sign-in";
+import { themeSetupScene } from "@oh-my-soup/pi-tui/setup/scenes/theme";
+import { SetupWizardComponent } from "@oh-my-soup/pi-tui/setup/wizard-overlay";
+import { setTerminalGlyphProtocol } from "@oh-my-soup/pi-tui/terminal-capabilities";
+import { initTheme, theme } from "@oh-my-soup/pi-tui/theme";
+import type { InteractiveModeContext } from "@oh-my-soup/pi-coding-agent/modes/types";
 
-import { cfgSetupVersion, cfgSymbolPreset } from "@oh-my-pi/pi-coding-agent/modes/settings";
+import { cfgSetupVersion, cfgSymbolPreset } from "@oh-my-soup/pi-coding-agent/modes/settings";
 
 type SetupApplicationSceneHost = Omit<SetupSceneHost, "ctx"> & { ctx: InteractiveModeContext };
 
@@ -105,7 +105,7 @@ describe("setup wizard scene selection", () => {
 		expect(await selectSetupScenes(0, ALL_SCENES, ctx, { isTTY: false, force: true })).toEqual([]);
 	});
 
-	it("drops the glyph scene once the terminal renders omp's bundled icons in-band", async () => {
+	it("drops the glyph scene once the terminal renders oms's bundled icons in-band", async () => {
 		setTerminalGlyphProtocol(true);
 		try {
 			const scenes = await selectSetupScenes(0, ALL_SCENES, fakeContextWithConfiguredModel(), { isTTY: true });
@@ -500,7 +500,7 @@ describe("setup wizard glyph scene", () => {
 	});
 });
 
-describe("omp setup onboarding trigger", () => {
+describe("oms setup onboarding trigger", () => {
 	it("starts the normal interactive command with forced setup wizard", async () => {
 		let forceSetupWizard: boolean | undefined;
 		await runOnboardingSetup({

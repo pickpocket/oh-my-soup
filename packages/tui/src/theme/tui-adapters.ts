@@ -4,14 +4,14 @@ import {
 	highlightCode as nativeHighlightCode,
 	supportsLanguage as nativeSupportsLanguage,
 	warmHighlighter as nativeWarmHighlighter,
-} from "@oh-my-pi/pi-natives";
+} from "@oh-my-soup/pi-natives";
 import type { EditorTheme } from "../components/editor";
 import type { MarkdownTheme } from "../components/markdown";
 import type { SelectListTheme } from "../components/select-list";
 import type { SettingsListTheme } from "../components/settings-list";
 import type { SymbolTheme } from "../symbols";
-import chalk from "@oh-my-pi/pi-utils/chalk";
-import { LRUCache } from "@oh-my-pi/pi-utils/lru";
+import chalk from "@oh-my-soup/pi-utils/chalk";
+import { LRUCache } from "@oh-my-soup/pi-utils/lru";
 import { resolveMermaidAscii } from "./mermaid-cache";
 import type { SlashCommandIconName } from "./symbols";
 import { ensureThemeSync, theme } from "./theme";

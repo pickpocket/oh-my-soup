@@ -1,4 +1,4 @@
-import { ThinkingLevel } from "@oh-my-pi/pi-agent-core";
+import { ThinkingLevel } from "@oh-my-soup/pi-agent-core";
 import {
 	type Component,
 	Container,
@@ -10,7 +10,7 @@ import {
 	TruncatedText,
 	truncateToWidth,
 } from "../index";
-import { isRecord, sanitizeText } from "@oh-my-pi/pi-utils";
+import { isRecord, sanitizeText } from "@oh-my-soup/pi-utils";
 /** Available session-tree display filters. */
 export const TREE_FILTER_MODES = ["default", "no-tools", "user-only", "labeled-only", "all"] as const;
 /** Session-tree display filter. */
@@ -57,7 +57,7 @@ import { OverlayPanel, PanelDivider } from "../chrome/overlay-box";
 import { TreeView, type TreeRow } from "../components/tree-view";
 import { formatKeyHint, formatKeyHints } from "../app-keybindings";
 import { boundKeys, editorKeys, interruptKey } from "../chrome/keybinding-hints";
-import type { TspPickerItem, TspPickerProps, TspSpan, TspText } from "@oh-my-pi/pi-wire";
+import type { TspPickerItem, TspPickerProps, TspSpan, TspText } from "@oh-my-soup/pi-wire";
 import type { ThemeColor } from "../theme/schema";
 import { col, keyed, node, span, text } from "../native/describe";
 import type { DescribeContext, NativeChild, NativeNode, NativeUiEvent } from "../native/node";
@@ -638,9 +638,9 @@ class TreeList implements Component {
 		} else if (entry.type === "message") {
 			const message = entry.message;
 			if (message.role === "assistant") kind = "assistant";
-			else if (message.role === "toolResult") [kind, role] = ["tool", `omp.tool.${message.toolName}`];
-			else if (message.role === "bashExecution") [kind, role] = ["tool", "omp.tool.bash"];
-			else if (message.role === "pythonExecution") [kind, role] = ["tool", "omp.tool.eval"];
+			else if (message.role === "toolResult") [kind, role] = ["tool", `oms.tool.${message.toolName}`];
+			else if (message.role === "bashExecution") [kind, role] = ["tool", "oms.tool.bash"];
+			else if (message.role === "pythonExecution") [kind, role] = ["tool", "oms.tool.eval"];
 		}
 		return {
 			id: row.key,
@@ -678,11 +678,11 @@ class TreeList implements Component {
 					entries: [entry],
 				};
 				const copy = targetCopy(target, collectBlocks(target.entries));
-				preview.push(text(`${copy.label[0]!.toUpperCase()}${copy.label.slice(1)}`, { role: "omp.picker.title" }));
+				preview.push(text(`${copy.label[0]!.toUpperCase()}${copy.label.slice(1)}`, { role: "oms.picker.title" }));
 				if (selected.label) preview.push(text([span(plainText(selected.label), "warning")]));
 				preview.push(turnPreview(target, copy.content || parts));
 			} else {
-				preview.push(text(parts, { role: "omp.picker.title" }));
+				preview.push(text(parts, { role: "oms.picker.title" }));
 				if (selected.label) preview.push(text([span(plainText(selected.label), "warning")]));
 			}
 		}
@@ -692,7 +692,7 @@ class TreeList implements Component {
 
 	/**
 	 * The visible entries as a native `list` keyed `"list"`, items keyed by
-	 * entry id. Selection stays omp's; the terminal scrolls and virtualizes.
+	 * entry id. Selection stays oms's; the terminal scrolls and virtualizes.
 	 * Branch heads carry a `branch` icon and the active path an accent bullet
 	 * instead of drawn tree connectors.
 	 */
@@ -1305,7 +1305,7 @@ class LabelInput implements Component {
 	/** The picker preview while editing: the prompt and the label `Input` (save/cancel sit in the action bar). */
 	get preview(): readonly NativeChild[] {
 		this.#preview ??= [
-			text("Label", { role: "omp.picker.title" }),
+			text("Label", { role: "oms.picker.title" }),
 			text([span("Empty to remove", "muted")]),
 			this.#input,
 		];
@@ -1565,7 +1565,7 @@ export class TreeSelectorComponent extends OverlayPanel {
 				{ keys: ["ctrl+o"], label: "filter" },
 			]),
 		];
-		const result = overlayCard("omp.overlay.tree", "Session Tree", children);
+		const result = overlayCard("oms.overlay.tree", "Session Tree", children);
 		this.#nativeMemo = { content, query, cursor, filterMode, node: result };
 		return result;
 	}

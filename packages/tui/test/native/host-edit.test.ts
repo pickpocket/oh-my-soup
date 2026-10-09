@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "bun:test";
-import { Editor } from "@oh-my-pi/pi-tui/components/editor";
-import { Input } from "@oh-my-pi/pi-tui/components/input";
-import type { NativeTextEdit } from "@oh-my-pi/pi-tui/native/node";
+import { Editor } from "@oh-my-soup/pi-tui/components/editor";
+import { Input } from "@oh-my-soup/pi-tui/components/input";
+import type { NativeTextEdit } from "@oh-my-soup/pi-tui/native/node";
 import { defaultEditorTheme } from "../test-themes";
 import { TspHarness } from "./tsp-harness";
 

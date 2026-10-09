@@ -149,7 +149,7 @@ echo
 echo "2. Runner pods need 'envFrom: [{secretRef: {name: bazel-remote-ci}}]'."
 echo "   infra/reload-runner.sh now inserts this into the ARC values file on the"
 echo "   next reload; to wire it without an image reload, add under"
-echo "   template.spec.containers[0].envFrom in /root/arc-omp-values.yaml:"
+echo "   template.spec.containers[0].envFrom in /root/arc-oms-values.yaml:"
 echo "         - secretRef:"
 echo "             name: bazel-remote-ci"
 echo "   then re-run the helm upgrade from infra/docs/04-arc-and-caching.md §3."

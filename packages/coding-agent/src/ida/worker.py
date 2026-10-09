@@ -1,4 +1,4 @@
-"""omp IDA worker: drives one idalib database over an NDJSON stdin/stdout protocol.
+"""oms IDA worker: drives one idalib database over an NDJSON stdin/stdout protocol.
 
 Request:  {"id": int, "method": str, "params": dict}
 Response: {"id", "ok": true, "result"} | {"id", "ok": false, "error": {"type", "message"}}
@@ -796,7 +796,7 @@ def _handle(line):
 
 def main():
     if _WINDOWS:
-        threading.Thread(target=_read_requests, name="omp-ida-stdin", daemon=True).start()
+        threading.Thread(target=_read_requests, name="oms-ida-stdin", daemon=True).start()
     while True:
         try:
             line = _requests.get() if _WINDOWS else sys.stdin.readline()

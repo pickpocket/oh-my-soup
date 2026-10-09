@@ -1,6 +1,6 @@
 # Porting Hot Paths to `pi-natives`
 
-This is the contributor path for moving a measured JS/TS hot path into `crates/pi-natives` and exposing it through `@oh-my-pi/pi-natives`.
+This is the contributor path for moving a measured JS/TS hot path into `crates/pi-natives` and exposing it through `@oh-my-soup/pi-natives`.
 
 ## Decide whether to port
 
@@ -15,8 +15,8 @@ The package has no `packages/natives/src/<module>` wrapper layer. Its entrypoint
 - eager root: `native/index.js` with generated `native/index.d.ts`;
 - lazy desktop wrapper: `native/desktop.js` / `desktop.d.ts`;
 - lazy clipboard wrapper: `native/clipboard.js` / `clipboard.d.ts`;
-- lazy Windows-path wrapper: `native/path.js` / `path.d.ts` (`@oh-my-pi/pi-natives/path`); other platforms return the input unchanged without loading;
-- lazy vcs wrapper: `native/vcs.js` / `vcs.d.ts` (`@oh-my-pi/pi-natives/vcs`).
+- lazy Windows-path wrapper: `native/path.js` / `path.d.ts` (`@oh-my-soup/pi-natives/path`); other platforms return the input unchanged without loading;
+- lazy vcs wrapper: `native/vcs.js` / `vcs.d.ts` (`@oh-my-soup/pi-natives/vcs`).
 
 The VCS subpath exposes discovery and Git/Jujutsu operations through `git`,
 `repo`, `repoForDisplay`, `require`, `requireGit`, and `jj`, plus metadata,
@@ -27,7 +27,7 @@ ties; Git-safe automation uses `repo` instead.
 Two commands serve different purposes:
 
 - `bun --cwd=packages/natives run build:bindings` runs napi-rs for the host, installs a local variant addon and generated declarations, and regenerates explicit ESM/enum exports. Use this when the Rust public type surface changes.
-- `bun --cwd=packages/natives run build` invokes `scripts/bazel-natives.ts host --dest native`. The host target builds through the local cargo/napi-rs backend by default and therefore also regenerates declarations and exports; `OMP_NATIVE_BUILD_BACKEND=bazel` opts into Bazel, which leaves those committed files unchanged.
+- `bun --cwd=packages/natives run build` invokes `scripts/bazel-natives.ts host --dest native`. The host target builds through the local cargo/napi-rs backend by default and therefore also regenerates declarations and exports; `OMS_NATIVE_BUILD_BACKEND=bazel` opts into Bazel, which leaves those committed files unchanged.
 
 Release builds use Bazel targets and publish `.node` files in platform leaf packages. The core publish rewrite removes addons and injects lockstep optional dependencies generated from `LEAF_TARGETS` in `gen-npm-packages.ts`.
 
@@ -85,7 +85,7 @@ Do not add a wrapper merely to rename a generated root export.
 
 ### 4. Migrate consumers cleanly
 
-- Import the generated root symbol or intentional lazy subpath from `@oh-my-pi/pi-natives`.
+- Import the generated root symbol or intentional lazy subpath from `@oh-my-soup/pi-natives`.
 - Compare results and errors against the JS baseline on boundary cases.
 - Switch every intended caller and remove the obsolete implementation in the same change.
 - Keep user-facing policy and rendering in the consumer when the native primitive does not own it.
@@ -127,7 +127,7 @@ Confirm the export is present and `__piNativesBuildVersion()` reports the packag
 
 ### Stale variant or cache wins
 
-x64 candidate order is modern → baseline → unsuffixed for a modern host, and baseline → unsuffixed for a baseline host. Compiled and staged Windows loads can also win from `<getNativesDir()>/<version>` before package paths. The root honors `PI_NATIVES_DIR` first (trimmed, `~`-expanded, and normalized; empty or relative values are ignored), then `$XDG_DATA_HOME/omp/natives` when `$XDG_DATA_HOME/omp` exists, otherwise `~/.omp/natives`.
+x64 candidate order is modern → baseline → unsuffixed for a modern host, and baseline → unsuffixed for a baseline host. Compiled and staged Windows loads can also win from `<getNativesDir()>/<version>` before package paths. The root honors `PI_NATIVES_DIR` first (trimmed, `~`-expanded, and normalized; empty or relative values are ignored), then `$XDG_DATA_HOME/oms/natives` when `$XDG_DATA_HOME/oms` exists, otherwise `~/.oms/natives`.
 
 Remove only the stale local artifacts/cache identified by loader diagnostics, then rebuild. The loader best-effort deletes older `major.minor.patch` cache directories after a successful load only when their mtime is at least ten minutes old; it preserves the current-version directory.
 

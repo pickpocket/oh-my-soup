@@ -1,5 +1,5 @@
 /**
- * Emits `sdk/go/omp-rpc/wire.go`: Go types, JSON codecs, and typed command methods
+ * Emits `sdk/go/oms-rpc/wire.go`: Go types, JSON codecs, and typed command methods
  * for the RPC wire bundle.
  *
  * Mapping:
@@ -789,7 +789,7 @@ class GoEmitter {
 	}
 }
 
-/** Renders `sdk/go/omp-rpc/wire.go`. */
+/** Renders `sdk/go/oms-rpc/wire.go`. */
 export function emitGo(model: WireModel): string {
 	return new GoEmitter(model).emit();
 }

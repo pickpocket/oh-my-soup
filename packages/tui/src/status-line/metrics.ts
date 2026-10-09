@@ -1,7 +1,7 @@
-import { formatNumber, normalizePremiumRequests } from "@oh-my-pi/pi-utils";
+import { formatNumber, normalizePremiumRequests } from "@oh-my-soup/pi-utils";
 import type { Theme } from "../theme";
 
-export { normalizePremiumRequests } from "@oh-my-pi/pi-utils";
+export { normalizePremiumRequests } from "@oh-my-soup/pi-utils";
 
 /** Inputs whose differences are intentionally preserved between current status segments and the legacy footer. */
 export interface BillingSummaryOptions {

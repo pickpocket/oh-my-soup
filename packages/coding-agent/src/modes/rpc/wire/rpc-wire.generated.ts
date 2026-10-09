@@ -664,7 +664,7 @@ export interface AvailableSlashCommand {
 	subcommands?: SlashSubcommand[];
 }
 
-/** OMP-native session entries in append order. */
+/** OMS-native session entries in append order. */
 export interface SessionEntries {
 	entries: Record<string, unknown>[];
 	leafId: string | null;
@@ -1004,7 +1004,7 @@ export type PromptStatus = "completed" | "aborted" | "error";
 /** Failure detail of a `prompt_result` with `status: "error"`. */
 export interface PromptError {
 	message: string;
-	/** Transient: resubmitting later may succeed (omp's own retries are exhausted). */
+	/** Transient: resubmitting later may succeed (oms's own retries are exhausted). */
 	retryable: boolean;
 	provider?: string;
 	model?: string;

@@ -3,7 +3,7 @@ description: >
    Downloads the native addons built once by the native_addons jobs and
    installs exact targets without invoking Bazel. The linux-x64 pair ships as
    its own small `natives-linux-x64` artifact; the rest (`native-addons`) is
-   fetched only when a requested target needs it. On omp-kata pods the pair is
+   fetched only when a requested target needs it. On oms-kata pods the pair is
    first restored from the in-cluster stash native_addons writes to the shared
    runner-cache PVC, skipping the artifact download.
 
@@ -55,7 +55,7 @@ runs:
            # Written by ci.yml native_addons ("Stage native addons for
            # consumers"); keep the directory in sync with it.
            stash_dir=/opt/bazel-repo-cache/ci-natives
-           out="$RUNNER_TEMP/omp-native-artifacts"
+           out="$RUNNER_TEMP/oms-native-artifacts"
            if [ "$x64" = true ] && [ -n "$NATIVE_STASH" ] && [ -d "$stash_dir" ]; then
              read -r -a entries <<< "$NATIVE_STASH"
              restored=true
@@ -85,14 +85,14 @@ runs:
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
            name: natives-linux-x64
-           path: ${{ runner.temp }}/omp-native-artifacts
+           path: ${{ runner.temp }}/oms-native-artifacts
 
       - name: Download remaining native addon artifacts
         if: steps.need.outputs.rest == 'true'
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
            name: native-addons
-           path: ${{ runner.temp }}/omp-native-artifacts
+           path: ${{ runner.temp }}/oms-native-artifacts
 
       - name: Install native addon targets
         shell: bash
@@ -103,5 +103,5 @@ runs:
            set -euo pipefail
            read -r -a targets <<< "$NATIVE_TARGETS"
            bun scripts/bazel-natives.ts "${targets[@]}" \
-             --source "$RUNNER_TEMP/omp-native-artifacts" \
+             --source "$RUNNER_TEMP/oms-native-artifacts" \
              --dest "$NATIVE_DEST"

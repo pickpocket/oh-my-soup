@@ -6,7 +6,7 @@ import {
 	matchesRawBackspace,
 	parseKey,
 	setKittyProtocolActive,
-} from "@oh-my-pi/pi-tui/keys";
+} from "@oh-my-soup/pi-tui/keys";
 
 describe("matchesKey", () => {
 	it("matches ctrl+letter sequences", () => {

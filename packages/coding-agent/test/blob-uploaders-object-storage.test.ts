@@ -315,7 +315,7 @@ describe("native Google Cloud Storage uploader", () => {
 		);
 		expect(upload.headers.get("authorization")).toBe("Bearer deterministic-oauth-token");
 		const contentType = upload.headers.get("content-type") ?? "";
-		const boundary = contentType.match(/^multipart\/related; boundary=(omp-[0-9a-f-]+)$/)?.[1];
+		const boundary = contentType.match(/^multipart\/related; boundary=(oms-[0-9a-f-]+)$/)?.[1];
 		expect(boundary).toBeDefined();
 		const multipart = new TextDecoder().decode(bytesOf(upload.body));
 		expect(multipart).toContain(

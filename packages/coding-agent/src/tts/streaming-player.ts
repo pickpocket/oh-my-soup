@@ -1,4 +1,4 @@
-import { AudioPlayback } from "@oh-my-pi/pi-natives";
+import { AudioPlayback } from "@oh-my-soup/pi-natives";
 
 /** Kokoro emits 24 kHz mono PCM when a chunk does not declare a rate. */
 const DEFAULT_SAMPLE_RATE = 24_000;

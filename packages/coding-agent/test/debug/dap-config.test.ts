@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import * as piUtils from "@oh-my-pi/pi-utils";
+import * as piUtils from "@oh-my-soup/pi-utils";
 import {
 	getAdapterConfigs,
 	type LaunchAdapterSelection,
@@ -13,8 +13,8 @@ import type { DapResolvedAdapter } from "../../src/dap/types";
 import { injectPluginDirRoots } from "../../src/discovery/helpers";
 
 const tempDirs: string[] = [];
-const ORIGINAL_OMP_PLUGIN_DIR = process.env.OMP_PLUGIN_DIR;
-const ORIGINAL_OMP_MARKETPLACE_DIR = process.env.OMP_MARKETPLACE_DIR;
+const ORIGINAL_OMP_PLUGIN_DIR = process.env.OMS_PLUGIN_DIR;
+const ORIGINAL_OMP_MARKETPLACE_DIR = process.env.OMS_MARKETPLACE_DIR;
 
 async function makeTempDir(prefix: string): Promise<string> {
 	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), prefix));
@@ -64,14 +64,14 @@ function requireSelectedAdapter(selection: LaunchAdapterSelection): DapResolvedA
 afterEach(async () => {
 	vi.restoreAllMocks();
 	if (ORIGINAL_OMP_PLUGIN_DIR === undefined) {
-		delete process.env.OMP_PLUGIN_DIR;
+		delete process.env.OMS_PLUGIN_DIR;
 	} else {
-		process.env.OMP_PLUGIN_DIR = ORIGINAL_OMP_PLUGIN_DIR;
+		process.env.OMS_PLUGIN_DIR = ORIGINAL_OMP_PLUGIN_DIR;
 	}
 	if (ORIGINAL_OMP_MARKETPLACE_DIR === undefined) {
-		delete process.env.OMP_MARKETPLACE_DIR;
+		delete process.env.OMS_MARKETPLACE_DIR;
 	} else {
-		process.env.OMP_MARKETPLACE_DIR = ORIGINAL_OMP_MARKETPLACE_DIR;
+		process.env.OMS_MARKETPLACE_DIR = ORIGINAL_OMP_MARKETPLACE_DIR;
 	}
 	await injectPluginDirRoots(os.homedir(), []);
 	await Promise.all(tempDirs.splice(0).map(dir => fs.rm(dir, { recursive: true, force: true })));
@@ -79,7 +79,7 @@ afterEach(async () => {
 
 describe("DAP adapter configuration", () => {
 	it("loads a custom adapter from dap.json and selects it by file extension", async () => {
-		const cwd = await makeTempDir("omp-dap-config-json-");
+		const cwd = await makeTempDir("oms-dap-config-json-");
 		await fs.writeFile(path.join(cwd, "pom.xml"), "<project />\n");
 		await fs.mkdir(path.join(cwd, "src"), { recursive: true });
 		await fs.writeFile(path.join(cwd, "src", "Main.java"), "class Main {}\n");
@@ -114,7 +114,7 @@ describe("DAP adapter configuration", () => {
 	});
 
 	it("merges partial user overrides over built-in adapters", async () => {
-		const cwd = await makeTempDir("omp-dap-config-override-");
+		const cwd = await makeTempDir("oms-dap-config-override-");
 		await fs.writeFile(path.join(cwd, "script.py"), "print('hi')\n");
 		await fs.writeFile(
 			path.join(cwd, "dap.json"),
@@ -136,12 +136,12 @@ describe("DAP adapter configuration", () => {
 	});
 
 	it("loads adapter config from project config directories and YAML", async () => {
-		const cwd = await makeTempDir("omp-dap-config-yaml-");
-		await fs.mkdir(path.join(cwd, ".omp"), { recursive: true });
+		const cwd = await makeTempDir("oms-dap-config-yaml-");
+		await fs.mkdir(path.join(cwd, ".oms"), { recursive: true });
 		await fs.writeFile(path.join(cwd, "build.gradle.kts"), "plugins {}\n");
 		await fs.writeFile(path.join(cwd, "Main.kt"), "fun main() {}\n");
 		await fs.writeFile(
-			path.join(cwd, ".omp", "dap.yaml"),
+			path.join(cwd, ".oms", "dap.yaml"),
 			[
 				"adapters:",
 				"  yaml-kotlin:",
@@ -168,7 +168,7 @@ describe("DAP adapter configuration", () => {
 	});
 
 	it("resolves relative adapter commands from the debug cwd", async () => {
-		const cwd = await makeTempDir("omp-dap-config-relative-command-");
+		const cwd = await makeTempDir("oms-dap-config-relative-command-");
 		const command = path.join(cwd, "tools", process.platform === "win32" ? "debug-adapter.cmd" : "debug-adapter");
 		await fs.mkdir(path.dirname(command), { recursive: true });
 		await fs.writeFile(command, "");
@@ -193,7 +193,7 @@ describe("DAP adapter configuration", () => {
 	});
 
 	it("loads plugin DAP adapters from plugin config files", async () => {
-		const cwd = await makeTempDir("omp-dap-config-plugin-");
+		const cwd = await makeTempDir("oms-dap-config-plugin-");
 		const pluginRoot = path.join(cwd, "plugins", "acme-debug");
 		await fs.mkdir(path.join(pluginRoot, ".claude-plugin"), { recursive: true });
 		await fs.writeFile(path.join(cwd, "app.rb"), "puts 'hi'\n");
@@ -212,15 +212,15 @@ describe("DAP adapter configuration", () => {
 				},
 			}),
 		);
-		process.env.OMP_PLUGIN_DIR = path.join(cwd, "plugins");
-		process.env.OMP_MARKETPLACE_DIR = path.join(cwd, "marketplaces");
+		process.env.OMS_PLUGIN_DIR = path.join(cwd, "plugins");
+		process.env.OMS_MARKETPLACE_DIR = path.join(cwd, "marketplaces");
 		await injectPluginDirRoots(cwd, [pluginRoot], cwd);
 
 		expect(getAdapterConfigs(cwd)["acme-ruby"]?.command).toBe("ruby-debug-adapter");
 	});
 
 	it("ignores invalid custom adapters without discarding valid configs", async () => {
-		const cwd = await makeTempDir("omp-dap-config-invalid-");
+		const cwd = await makeTempDir("oms-dap-config-invalid-");
 		await fs.writeFile(
 			path.join(cwd, "dap.json"),
 			JSON.stringify({
@@ -243,7 +243,7 @@ describe("DAP adapter configuration", () => {
 	});
 
 	it("reports missing dlv for Go source instead of falling back to a native debugger", async () => {
-		const cwd = await makeTempDir("omp-dap-go-source-missing-");
+		const cwd = await makeTempDir("oms-dap-go-source-missing-");
 		const missingCommand = await setupMissingDlvProject(cwd);
 		const program = path.join(cwd, "main.go");
 		await fs.writeFile(program, "package main\n\nfunc main() {}\n");
@@ -254,7 +254,7 @@ describe("DAP adapter configuration", () => {
 	});
 
 	it("reports missing dlv for Go package directories instead of selecting a native debugger", async () => {
-		const cwd = await makeTempDir("omp-dap-go-directory-missing-");
+		const cwd = await makeTempDir("oms-dap-go-directory-missing-");
 		const missingCommand = await setupMissingDlvProject(cwd);
 		const program = path.join(cwd, "cmd", "server");
 		await fs.mkdir(program, { recursive: true });
@@ -265,7 +265,7 @@ describe("DAP adapter configuration", () => {
 	});
 
 	it("prefers a nested module adapter over cwd and PATH for inferred launches", async () => {
-		const cwd = await makeTempDir("omp-dap-go-nested-local-");
+		const cwd = await makeTempDir("oms-dap-go-nested-local-");
 		const { moduleRoot, program } = await setupNestedGoProgram(cwd);
 		const nestedDlv = path.join(moduleRoot, "bin", "dlv");
 		await writeExecutable(nestedDlv);
@@ -280,7 +280,7 @@ describe("DAP adapter configuration", () => {
 	});
 
 	it("uses a nested module adapter when dlv is requested explicitly", async () => {
-		const cwd = await makeTempDir("omp-dap-go-nested-explicit-");
+		const cwd = await makeTempDir("oms-dap-go-nested-explicit-");
 		const { moduleRoot, program } = await setupNestedGoProgram(cwd);
 		const nestedDlv = path.join(moduleRoot, "bin", "dlv");
 		await writeExecutable(nestedDlv);
@@ -293,7 +293,7 @@ describe("DAP adapter configuration", () => {
 	});
 
 	it("prefers the session cwd adapter over PATH after a nested-root miss", async () => {
-		const cwd = await makeTempDir("omp-dap-go-nested-cwd-");
+		const cwd = await makeTempDir("oms-dap-go-nested-cwd-");
 		const { program } = await setupNestedGoProgram(cwd);
 		const cwdDlv = path.join(cwd, "bin", "dlv");
 		await fs.writeFile(path.join(cwd, "go.mod"), "module example.com/repo\n\ngo 1.22\n");
@@ -307,7 +307,7 @@ describe("DAP adapter configuration", () => {
 	});
 
 	it("resolves a local dlv for Go workspaces rooted by go.work", async () => {
-		const cwd = await makeTempDir("omp-dap-go-work-");
+		const cwd = await makeTempDir("oms-dap-go-work-");
 		const program = path.join(cwd, "cmd", "worker");
 		const localDlv = path.join(cwd, "bin", "dlv");
 		await fs.writeFile(path.join(cwd, "go.work"), "go 1.22\n\nuse ./cmd/worker\n");
@@ -320,7 +320,7 @@ describe("DAP adapter configuration", () => {
 	});
 
 	it("re-resolves an adapter installed after an earlier miss", async () => {
-		const cwd = await makeTempDir("omp-dap-go-fresh-");
+		const cwd = await makeTempDir("oms-dap-go-fresh-");
 		const program = path.join(cwd, "main.go");
 		const command = path.join(cwd, "tools", process.platform === "win32" ? "dlv.cmd" : "dlv");
 		await fs.writeFile(path.join(cwd, "go.mod"), "module example.com/cache\n\ngo 1.22\n");

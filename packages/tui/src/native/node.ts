@@ -14,7 +14,7 @@
  * the Tern SDK's Surface Protocol reference (`docs/sdk/src/protocol` in the
  * Stencil repository, https://docs.stencil.so/tern/protocol/) for the spec.
  */
-import type { TspEvent, TspKind, TspProps, TspScrollBy, TspSpan } from "@oh-my-pi/pi-wire";
+import type { TspEvent, TspKind, TspProps, TspScrollBy, TspSpan } from "@oh-my-soup/pi-wire";
 import type { Component } from "../tui";
 
 /** A described node: a wire node minus its id, with components allowed as children. */

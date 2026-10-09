@@ -2,12 +2,12 @@ import { afterEach, describe, expect, it, vi } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { startAuthGateway } from "@oh-my-pi/pi-ai/auth-gateway";
-import type { AuthGatewayServerHandle } from "@oh-my-pi/pi-ai/auth-gateway/types";
-import { AuthStorage } from "@oh-my-pi/pi-ai/auth-storage";
-import { decodeGatewayJobId, encodeGatewayJobId } from "@oh-my-pi/pi-ai/providers/video-server";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
-import type { Api, FetchImpl, Model, ModelSpec } from "@oh-my-pi/pi-catalog/types";
+import { startAuthGateway } from "@oh-my-soup/pi-ai/auth-gateway";
+import type { AuthGatewayServerHandle } from "@oh-my-soup/pi-ai/auth-gateway/types";
+import { AuthStorage } from "@oh-my-soup/pi-ai/auth-storage";
+import { decodeGatewayJobId, encodeGatewayJobId } from "@oh-my-soup/pi-ai/providers/video-server";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
+import type { Api, FetchImpl, Model, ModelSpec } from "@oh-my-soup/pi-catalog/types";
 
 const VIDEO_BYTES = new Uint8Array([0, 0, 0, 24, 0x66, 0x74, 0x79, 0x70]);
 
@@ -190,7 +190,7 @@ describe("auth-gateway asynchronous video generation", () => {
 		const submitted = await submit(harness);
 		const gatewayId = submitted.body.id as string;
 		const response = await fetch(`${harness.url}/v1/videos/${gatewayId}`, {
-			headers: { Authorization: "Bearer gw-token", "x-omp-app": "video-client" },
+			headers: { Authorization: "Bearer gw-token", "x-oms-app": "video-client" },
 		});
 		expect(response.status).toBe(200);
 		expect(await response.json()).toEqual({

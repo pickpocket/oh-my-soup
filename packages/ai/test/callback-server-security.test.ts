@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "bun:test";
 import * as os from "node:os";
-import { OAuthCallbackFlow } from "@oh-my-pi/pi-ai/registry/oauth/callback-server";
-import type { OAuthAuthInfo, OAuthCredentials } from "@oh-my-pi/pi-ai/registry/oauth/types";
+import { OAuthCallbackFlow } from "@oh-my-soup/pi-ai/registry/oauth/callback-server";
+import type { OAuthAuthInfo, OAuthCredentials } from "@oh-my-soup/pi-ai/registry/oauth/types";
 
 class CallbackProbeFlow extends OAuthCallbackFlow {
 	async generateAuthUrl(state: string, redirectUri: string): Promise<{ url: string }> {

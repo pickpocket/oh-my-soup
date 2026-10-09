@@ -1,4 +1,4 @@
-import { tryParseJson, untilAborted } from "@oh-my-pi/pi-utils";
+import { tryParseJson, untilAborted } from "@oh-my-soup/pi-utils";
 import type { LoadPageResult, RenderResult, SpecialHandler } from "./types";
 import { buildResult, formatNumber, htmlToBasicMarkdown, loadPage } from "./types";
 import { isConclusiveProbeStatus, PlatformProbeCache } from "./utils";

@@ -1,11 +1,11 @@
 import { describe, expect, it } from "bun:test";
 import { createHash } from "node:crypto";
-import { RelayBridge, type RelaySocket } from "@oh-my-pi/pi-coding-agent/tools/browser/relay/bridge";
+import { RelayBridge, type RelaySocket } from "@oh-my-soup/pi-coding-agent/tools/browser/relay/bridge";
 import type {
 	RelayRpcRequest,
 	RelayToExtMessage,
 	TabSnapshot,
-} from "@oh-my-pi/pi-coding-agent/tools/browser/relay/protocol";
+} from "@oh-my-soup/pi-coding-agent/tools/browser/relay/protocol";
 
 /** Same derivation as the bridge: target ids embed this per-instance code. */
 function instanceCode(instanceId: string): string {
@@ -164,7 +164,7 @@ async function attachPage(
 }
 
 /**
- * Emulate the omp tab worker adopting a tab: attach to its page target, then
+ * Emulate the oms tab worker adopting a tab: attach to its page target, then
  * claim it as this connection's drive target.
  */
 async function claimTab(
@@ -175,13 +175,13 @@ async function claimTab(
 	tabId: number,
 ): Promise<void> {
 	const sessionId = await attachPage(bridge, ext, cdp, connId, tabId);
-	bridge.cdpMessage(connId, JSON.stringify({ id: ++msgSeq, sessionId, method: "OMP.claimTarget" }));
+	bridge.cdpMessage(connId, JSON.stringify({ id: ++msgSeq, sessionId, method: "OMS.claimTarget" }));
 	await flush();
 }
 
 describe("RelayBridge target discovery", () => {
 	it("enumerates current eligible pages without attaching or claiming tabs", () => {
-		const bridge = new RelayBridge({ group: { title: "omp", color: "cyan" } });
+		const bridge = new RelayBridge({ group: { title: "oms", color: "cyan" } });
 		const ext = new FakeExtSocket();
 		connect(bridge, ext, [
 			tab({ tabId: 1 }),
@@ -209,8 +209,8 @@ describe("RelayBridge target discovery", () => {
 });
 
 describe("RelayBridge tab grouping", () => {
-	it("groups nothing on hello or tab lifecycle events — only claimed tabs join the omp group", () => {
-		const bridge = new RelayBridge({ group: { title: "omp", color: "cyan" } });
+	it("groups nothing on hello or tab lifecycle events — only claimed tabs join the oms group", () => {
+		const bridge = new RelayBridge({ group: { title: "oms", color: "cyan" } });
 		const socket = new FakeExtSocket();
 		connect(bridge, socket, [tab({ tabId: 1 }), tab({ tabId: 2 }), tab({ tabId: 3, url: "about:blank" })]);
 		bridge.extMessage(socket, JSON.stringify({ t: "tabCreated", tab: tab({ tabId: 9 }) }));
@@ -218,7 +218,7 @@ describe("RelayBridge tab grouping", () => {
 	});
 
 	it("never groups from command traffic: a discovery scan sending page commands to every tab is not driving", async () => {
-		const bridge = new RelayBridge({ group: { title: "omp", color: "cyan" } });
+		const bridge = new RelayBridge({ group: { title: "oms", color: "cyan" } });
 		const ext = new FakeExtSocket();
 		connect(bridge, ext, [tab({ tabId: 1 }), tab({ tabId: 2 })]);
 		const cdp = new FakeCdpSocket();
@@ -235,7 +235,7 @@ describe("RelayBridge tab grouping", () => {
 	});
 
 	it("groups exactly the tab a client claims", async () => {
-		const bridge = new RelayBridge({ group: { title: "omp", color: "cyan" } });
+		const bridge = new RelayBridge({ group: { title: "oms", color: "cyan" } });
 		const ext = new FakeExtSocket();
 		connect(bridge, ext, [tab({ tabId: 1 }), tab({ tabId: 2 })]);
 		const cdp = new FakeCdpSocket();
@@ -244,12 +244,12 @@ describe("RelayBridge tab grouping", () => {
 		const groups = ext.rpcs("group");
 		expect(groups).toHaveLength(1);
 		expect(groups[0]!.tabIds).toEqual([1]);
-		expect(groups[0]!.title).toBe("omp");
+		expect(groups[0]!.title).toBe("oms");
 		expect(groups[0]!.color).toBe("cyan");
 	});
 
 	it("never groups pinned tabs or tabs in a user group, even when claimed", async () => {
-		const bridge = new RelayBridge({ group: { title: "omp", color: "cyan" } });
+		const bridge = new RelayBridge({ group: { title: "oms", color: "cyan" } });
 		const ext = new FakeExtSocket();
 		connect(bridge, ext, [tab({ tabId: 3, pinned: true }), tab({ tabId: 4, groupId: 77 })]);
 		const cdp = new FakeCdpSocket();
@@ -270,7 +270,7 @@ describe("RelayBridge tab grouping", () => {
 	});
 
 	it("auto-claims a tab created through Target.createTarget", async () => {
-		const bridge = new RelayBridge({ group: { title: "omp", color: "cyan" } });
+		const bridge = new RelayBridge({ group: { title: "oms", color: "cyan" } });
 		const ext = new FakeExtSocket();
 		connect(bridge, ext, []);
 		const cdp = new FakeCdpSocket();
@@ -286,8 +286,8 @@ describe("RelayBridge tab grouping", () => {
 		expect(groups[0]!.tabIds).toEqual([9]);
 	});
 
-	it("never re-groups a tab the user pulled out of the omp group", async () => {
-		const bridge = new RelayBridge({ group: { title: "omp", color: "cyan" } });
+	it("never re-groups a tab the user pulled out of the oms group", async () => {
+		const bridge = new RelayBridge({ group: { title: "oms", color: "cyan" } });
 		const ext = new FakeExtSocket();
 		connect(bridge, ext, [tab({ tabId: 1 })]);
 		const cdp = new FakeCdpSocket();
@@ -308,7 +308,7 @@ describe("RelayBridge tab grouping", () => {
 	});
 
 	it("ungroups when the claiming client disconnects, even while another connection still holds sessions", async () => {
-		const bridge = new RelayBridge({ group: { title: "omp", color: "cyan" } });
+		const bridge = new RelayBridge({ group: { title: "oms", color: "cyan" } });
 		const ext = new FakeExtSocket();
 		connect(bridge, ext, [tab({ tabId: 1 })]);
 		// Long-lived registry connection: holds a session on the tab, never claims it.
@@ -328,7 +328,7 @@ describe("RelayBridge tab grouping", () => {
 	});
 
 	it("never overlaps group RPCs: a tab claimed mid-flight waits for the pending group", async () => {
-		const bridge = new RelayBridge({ group: { title: "omp", color: "cyan" } });
+		const bridge = new RelayBridge({ group: { title: "oms", color: "cyan" } });
 		const ext = new FakeExtSocket();
 		connect(bridge, ext, [tab({ tabId: 1 }), tab({ tabId: 2 })]);
 		const cdp = new FakeCdpSocket();
@@ -336,7 +336,7 @@ describe("RelayBridge tab grouping", () => {
 		await claimTab(bridge, ext, cdp, connId, 1);
 		expect(ext.rpcs("group")).toHaveLength(1);
 		// Concurrent group RPCs race Chrome's non-atomic query→create→set-title
-		// and mint duplicate "omp" groups; the second request must queue.
+		// and mint duplicate "oms" groups; the second request must queue.
 		await claimTab(bridge, ext, cdp, connId, 2);
 		expect(ext.rpcs("group")).toHaveLength(1);
 		ack(bridge, ext, "group", { grouped: { "1": 42 } });
@@ -347,7 +347,7 @@ describe("RelayBridge tab grouping", () => {
 	});
 
 	it("regroups claimed tabs after an extension reconnect instead of treating the dissolve as user opt-out", async () => {
-		const bridge = new RelayBridge({ group: { title: "omp", color: "cyan" } });
+		const bridge = new RelayBridge({ group: { title: "oms", color: "cyan" } });
 		const ext = new FakeExtSocket();
 		connect(bridge, ext, [tab({ tabId: 1 })]);
 		const cdp = new FakeCdpSocket();
@@ -355,7 +355,7 @@ describe("RelayBridge tab grouping", () => {
 		await claimTab(bridge, ext, cdp, connId, 1);
 		ack(bridge, ext, "group", { grouped: { "1": 42 } });
 		await flush();
-		// Relay/extension link drops: the extension dissolves the omp group on
+		// Relay/extension link drops: the extension dissolves the oms group on
 		// disconnect, so the next hello reports groupId -1 for every tab.
 		bridge.extClosed(ext);
 		const ext2 = new FakeExtSocket();
@@ -743,7 +743,7 @@ describe("RelayBridge Runtime sessions", () => {
 
 describe("RelayBridge attachment release", () => {
 	it("detaches cleanly on explicit last-session release and permits reattachment", async () => {
-		const bridge = new RelayBridge({ group: { title: "omp", color: "cyan" } });
+		const bridge = new RelayBridge({ group: { title: "oms", color: "cyan" } });
 		const ext = new FakeExtSocket();
 		connect(bridge, ext, [tab({ tabId: 1 })]);
 		const cdp = new FakeCdpSocket();
@@ -777,7 +777,7 @@ describe("RelayBridge attachment release", () => {
 	});
 
 	it("serializes immediate reattachment behind the detach RPC and its echo", async () => {
-		const bridge = new RelayBridge({ group: { title: "omp", color: "cyan" } });
+		const bridge = new RelayBridge({ group: { title: "oms", color: "cyan" } });
 		const ext = new FakeExtSocket();
 		connect(bridge, ext, [tab({ tabId: 1 })]);
 		const cdp = new FakeCdpSocket();
@@ -811,7 +811,7 @@ describe("RelayBridge attachment release", () => {
 	});
 
 	it("reuses an existing debugger attachment for a second connection", async () => {
-		const bridge = new RelayBridge({ group: { title: "omp", color: "cyan" } });
+		const bridge = new RelayBridge({ group: { title: "oms", color: "cyan" } });
 		const ext = new FakeExtSocket();
 		connect(bridge, ext, [tab({ tabId: 1 })]);
 		const registry = new FakeCdpSocket();
@@ -833,7 +833,7 @@ describe("RelayBridge attachment release", () => {
 	});
 
 	it("keeps the attachment while another connection still holds a session on the tab", async () => {
-		const bridge = new RelayBridge({ group: { title: "omp", color: "cyan" } });
+		const bridge = new RelayBridge({ group: { title: "oms", color: "cyan" } });
 		const ext = new FakeExtSocket();
 		connect(bridge, ext, [tab({ tabId: 1 })]);
 		// Long-lived registry connection: holds a session on the tab throughout.
@@ -852,7 +852,7 @@ describe("RelayBridge attachment release", () => {
 	});
 
 	it("detaches once the tab session released alongside the page session leaves no holder", async () => {
-		const bridge = new RelayBridge({ group: { title: "omp", color: "cyan" } });
+		const bridge = new RelayBridge({ group: { title: "oms", color: "cyan" } });
 		const ext = new FakeExtSocket();
 		connect(bridge, ext, [tab({ tabId: 1 })]);
 		const cdp = new FakeCdpSocket();
@@ -880,7 +880,7 @@ describe("RelayBridge attachment release", () => {
 	});
 
 	it("retracts held sessions when reconnect reattachment fails", async () => {
-		const bridge = new RelayBridge({ group: { title: "omp", color: "cyan" } });
+		const bridge = new RelayBridge({ group: { title: "oms", color: "cyan" } });
 		const ext = new FakeExtSocket();
 		connect(bridge, ext, [tab({ tabId: 1 })]);
 		const cdp = new FakeCdpSocket();
@@ -905,7 +905,7 @@ describe("RelayBridge attachment release", () => {
 	});
 
 	it("reconciles a delayed detach after replacement hello still reports the old attachment", async () => {
-		const bridge = new RelayBridge({ group: { title: "omp", color: "cyan" } });
+		const bridge = new RelayBridge({ group: { title: "oms", color: "cyan" } });
 		const ext = new FakeExtSocket();
 		connect(bridge, ext, [tab({ tabId: 1 })]);
 		const cdp = new FakeCdpSocket();
@@ -938,7 +938,7 @@ describe("RelayBridge attachment release", () => {
 	});
 
 	it("does not ban a tab when its in-flight attach is interrupted by extension replacement", async () => {
-		const bridge = new RelayBridge({ group: { title: "omp", color: "cyan" } });
+		const bridge = new RelayBridge({ group: { title: "oms", color: "cyan" } });
 		const ext = new FakeExtSocket();
 		connect(bridge, ext, [tab({ tabId: 1 })]);
 		const cdp = new FakeCdpSocket();
@@ -966,7 +966,7 @@ describe("RelayBridge attachment release", () => {
 	});
 
 	it("clears an in-flight detach immediately when the extension socket is replaced", async () => {
-		const bridge = new RelayBridge({ group: { title: "omp", color: "cyan" } });
+		const bridge = new RelayBridge({ group: { title: "oms", color: "cyan" } });
 		const ext = new FakeExtSocket();
 		connect(bridge, ext, [tab({ tabId: 1 })]);
 		const cdp = new FakeCdpSocket();
@@ -1036,7 +1036,7 @@ describe("RelayBridge attachment release", () => {
 
 		const cdp = new FakeCdpSocket();
 		const connId = bridge.cdpConnected(cdp);
-		// omp's own patched-puppeteer client pull-acquires contexts and never
+		// oms's own patched-puppeteer client pull-acquires contexts and never
 		// sends Runtime.enable, yet still waits on executionContextCreated.
 		const sessionId = await attachPage(bridge, ext, cdp, connId, 1);
 

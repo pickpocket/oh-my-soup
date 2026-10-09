@@ -1,6 +1,6 @@
 # AI tool-schema normalization
 
-`@oh-my-pi/pi-ai` exposes shared schema normalization helpers that providers
+`@oh-my-soup/pi-ai` exposes shared schema normalization helpers that providers
 consume before tools are sent on the wire. The shared walkers live in
 `packages/ai/src/utils/schema/normalize.ts`; native Anthropic tool normalization
 remains in `packages/ai/src/providers/anthropic.ts`. The operational contract is
@@ -15,7 +15,7 @@ Apple Foundation Models lowering lives in `foundation-models.ts`.
 
 ## Entry points
 
-All exports live under `@oh-my-pi/pi-ai/utils/schema`:
+All exports live under `@oh-my-soup/pi-ai/utils/schema`:
 
 - `normalizeSchema(value, options)` — generic option-driven walker.
 - `normalizeSchemaForGoogle(value)` — Gemini / Vertex / Gemini CLI.
@@ -54,7 +54,7 @@ Removed in the unified-flow refactor:
 - `strict-mode.ts` (merged into `normalize.ts`).
 - `sanitize-google.ts` and `normalize-cca.ts` (replaced by
   `normalizeSchemaFor*` dispatchers).
-- `StringEnum` helper — use `type.enumerated(...)`; omptype emits
+- `StringEnum` helper — use `type.enumerated(...)`; omstype emits
   provider-compatible JSON Schema.
 - `sanitizeSchemaFor{Google,CCA,MCP}` / `prepareSchemaForCCA` — renamed to
   `normalizeSchemaFor{Google,CCA,MCP}`.

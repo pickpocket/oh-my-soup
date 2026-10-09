@@ -5,7 +5,7 @@
       // SHARE VIEWER BOOTSTRAP
       // ============================================================
       //
-      // Served by the omp relay at /s/<id>; the AES-256-GCM key rides in the
+      // Served by the oms relay at /s/<id>; the AES-256-GCM key rides in the
       // URL fragment and never leaves the browser. Resolves the session JSON
       // and hands it to template.js via `window.__OMP_SESSION_DATA__`:
       //   1. hex ids -> secret GitHub gist holding base64(sealed blob)
@@ -89,7 +89,7 @@
           new Blob([plain]).stream().pipeThrough(new DecompressionStream('gzip'))
         ).json();
         if (data && data.header && data.header.title) {
-          document.title = data.header.title + ' — omp session';
+          document.title = data.header.title + ' — oms session';
         }
         return data;
       }

@@ -1,8 +1,8 @@
 import { Database } from "bun:sqlite";
 import { afterEach, describe, expect, it, vi } from "bun:test";
-import { StatsLive } from "@oh-my-pi/omp-stats/live";
-import type { LiveStatus } from "@oh-my-pi/omp-stats/shared-types";
-import { getStatsDbPath } from "@oh-my-pi/pi-utils";
+import { StatsLive } from "@oh-my-soup/oms-stats/live";
+import type { LiveStatus } from "@oh-my-soup/oms-stats/shared-types";
+import { getStatsDbPath } from "@oh-my-soup/pi-utils";
 import { installStatsTestIsolation } from "./helpers/temp-agent";
 
 installStatsTestIsolation("@pi-stats-live-external-");

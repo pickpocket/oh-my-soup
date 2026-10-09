@@ -1,5 +1,5 @@
-import type { ImageContent } from "@oh-my-pi/pi-ai";
-import type { AgentTool } from "@oh-my-pi/pi-agent-core";
+import type { ImageContent } from "@oh-my-soup/pi-ai";
+import type { AgentTool } from "@oh-my-soup/pi-agent-core";
 import { Box } from "../components/box";
 import { SPINNER_ADVANCE_MS } from "../components/loader";
 import { Image } from "../components/image";
@@ -8,7 +8,7 @@ import { Text } from "../components/text";
 import { getImageDimensions, ImageProtocol, imageFallback, TERMINAL } from "../terminal-capabilities";
 import { type Component, Container, type TUI } from "../tui";
 import { truncateToWidth } from "../utils";
-import { getProjectDir, isRecord, logger, sanitizeText } from "@oh-my-pi/pi-utils";
+import { getProjectDir, isRecord, logger, sanitizeText } from "@oh-my-soup/pi-utils";
 import type { Theme } from "../theme/theme";
 import { ensureThemeSync, getThemeEpoch, theme } from "../theme/theme";
 import {
@@ -20,7 +20,7 @@ import {
 	toolRenderers,
 } from "../tools/index";
 import { describeDefaultToolExecution, formatDefaultToolExecution } from "../tools/default-renderer";
-import { INTENT_FIELD, type TspCardStatus, type TspPreview, type TspText, type TspTone } from "@oh-my-pi/pi-wire";
+import { INTENT_FIELD, type TspCardStatus, type TspPreview, type TspText, type TspTone } from "@oh-my-soup/pi-wire";
 import { card, col, EMPTY_NODE, node, span, text, withHidden } from "../native/describe";
 import {
 	type DescribeContext,
@@ -928,7 +928,7 @@ export class ToolExecutionComponent extends Container {
 	}
 
 	/**
-	 * The tool card: `card` role `omp.tool.<name>` with the renderer's
+	 * The tool card: `card` role `oms.tool.<name>` with the renderer's
 	 * {@link NativeToolView} (head spans, body nodes), a status chip, an
 	 * `elapsed` timer in the head and terminal-local collapse clamped to the
 	 * view's preview. Renderers without describe hooks (and extension tools
@@ -988,7 +988,7 @@ export class ToolExecutionComponent extends Container {
 		const section =
 			sections.length === 1
 				? sections[0]
-				: node("col", { gap: "sm", role: "omp.tool.diagnostics" }, sections, "late");
+				: node("col", { gap: "sm", role: "oms.tool.diagnostics" }, sections, "late");
 		return {
 			section,
 			chip: { text: count === 1 ? "1 diagnostic" : `${count} diagnostics`, tone: errored ? "error" : "warning" },
@@ -1017,7 +1017,7 @@ export class ToolExecutionComponent extends Container {
 		return node(
 			"tool",
 			{
-				role: `omp.tool.${this.#toolName}`,
+				role: `oms.tool.${this.#toolName}`,
 				key: this.#toolCallId,
 				name: this.#toolName,
 				// `title` here is the head verb (TspToolProps), not the common tooltip.
@@ -1094,7 +1094,7 @@ export class ToolExecutionComponent extends Container {
 			...this.#nativeResultImages(),
 			...(late.section ? [late.section] : []),
 		];
-		const role = `omp.tool.${this.#toolName}`;
+		const role = `oms.tool.${this.#toolName}`;
 		if (view.inline) return col(children, { role });
 		const hasBody = children.length > 1;
 		return card(

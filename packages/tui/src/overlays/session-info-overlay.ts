@@ -4,8 +4,8 @@ import { matchesSelectCancel } from "../keybinding-matchers";
 import { OverlayPanel, PanelDivider, PanelRows } from "../chrome/overlay-box";
 import { formatKeyHints } from "../app-keybindings";
 import { editorKey } from "../chrome/keybinding-hints";
-import type { TspProps, TspSpan } from "@oh-my-pi/pi-wire";
-import { formatNumber } from "@oh-my-pi/pi-utils";
+import type { TspProps, TspSpan } from "@oh-my-soup/pi-wire";
+import { formatNumber } from "@oh-my-soup/pi-utils";
 import { col, node, row, span, text } from "../native/describe";
 import type { DescribeContext, NativeChild, NativeNode, NativeUiEvent } from "../native/node";
 import { actionBar, actionButton } from "../native/overlay";
@@ -73,13 +73,13 @@ function copyLine(
 			gap: "sm",
 			align: "center",
 			grow: 1,
-			role: "omp.info.copy",
+			role: "oms.info.copy",
 			actions: { click: "copy" },
 			title,
 		},
 		[
 			text(spans, { ...props, grow: 1, shrink: 1 }),
-			node("icon", { name: "copy", role: "omp.info.copy.ic", aria: title }),
+			node("icon", { name: "copy", role: "oms.info.copy.ic", aria: title }),
 		],
 		key,
 	);
@@ -96,7 +96,7 @@ export interface SessionInfoOverlayHost {
 export class SessionInfoOverlay implements Component {
 	/** The terminal draws the sheet: a centred `md` glass sheet titled Session info. */
 	readonly nativeOverlay = {
-		role: "omp.overlay.sessionInfo",
+		role: "oms.overlay.sessionInfo",
 		size: "md",
 		anchor: "center",
 		head: "Session info",
@@ -178,7 +178,7 @@ export class SessionInfoOverlay implements Component {
 			let items: { k: string; v: TspSpan[] }[] = [];
 			const flush = (): void => {
 				if (items.length === 0) return;
-				children.push(node("kv", { items, layout: "grid", role: "omp.info.kv" }));
+				children.push(node("kv", { items, layout: "grid", role: "oms.info.kv" }));
 				items = [];
 			};
 			for (const entry of section.entries) {
@@ -201,7 +201,7 @@ export class SessionInfoOverlay implements Component {
 							{
 								gap: "md",
 								align: "start",
-								role: "omp.info.file",
+								role: "oms.info.file",
 							},
 						),
 					);

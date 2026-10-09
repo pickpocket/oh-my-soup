@@ -4,7 +4,7 @@
  * submitted: the section labels or workpool item in the head, the data as a
  * JSON tree (Markdown when it is a string), and the reported or rejected error.
  */
-import { formatCount, isRecord, sanitizeText } from "@oh-my-pi/pi-utils";
+import { formatCount, isRecord, sanitizeText } from "@oh-my-soup/pi-utils";
 import { compact, md } from "../native/describe";
 import { OwnerMemo } from "../native/memo";
 import type { NativeChild } from "../native/node";

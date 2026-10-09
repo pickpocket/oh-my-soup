@@ -11,9 +11,9 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, test,
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import type { ToolSession } from "@oh-my-pi/pi-coding-agent/sdk";
-import { createBrowserPrelude } from "@oh-my-pi/pi-coding-agent/tools/browser";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import type { ToolSession } from "@oh-my-soup/pi-coding-agent/sdk";
+import { createBrowserPrelude } from "@oh-my-soup/pi-coding-agent/tools/browser";
 import {
 	attachPageWithTimeout,
 	findFreeCdpPort,
@@ -24,16 +24,16 @@ import {
 	shouldPreserveConnectedBrowserFocus,
 	waitForCdp,
 	waitForMainFrame,
-} from "@oh-my-pi/pi-coding-agent/tools/browser/attach";
-import { ensureChromiumExecutable } from "@oh-my-pi/pi-coding-agent/tools/browser/launch";
+} from "@oh-my-soup/pi-coding-agent/tools/browser/attach";
+import { ensureChromiumExecutable } from "@oh-my-soup/pi-coding-agent/tools/browser/launch";
 import {
 	acquireBrowser,
 	type BrowserHandle,
 	normalizeConnectedCdpUrl,
 	releaseBrowser,
-} from "@oh-my-pi/pi-coding-agent/tools/browser/registry";
-import { acquireTab, getTab } from "@oh-my-pi/pi-coding-agent/tools/browser/tab-supervisor";
-import { Process, ProcessStatus } from "@oh-my-pi/pi-natives";
+} from "@oh-my-soup/pi-coding-agent/tools/browser/registry";
+import { acquireTab, getTab } from "@oh-my-soup/pi-coding-agent/tools/browser/tab-supervisor";
+import { Process, ProcessStatus } from "@oh-my-soup/pi-natives";
 import type { Browser, HTTPRequest, Page, Target } from "puppeteer-core";
 import { rejectionOf } from "../helpers/rejection";
 import { chromiumAvailable } from "./chromium-probe";
@@ -140,7 +140,7 @@ interface DisposableExecutable {
 }
 
 async function spawnDisposableExecutable(args: string[] = []): Promise<DisposableExecutable> {
-	const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-browser-app-path-"));
+	const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-browser-app-path-"));
 	const executablePath = path.join(tempDir, path.basename(process.execPath));
 	await Bun.write(executablePath, Bun.file(process.execPath));
 	if (process.platform !== "win32") await fs.chmod(executablePath, 0o755);
@@ -207,7 +207,7 @@ describe("pickElectronTarget", () => {
 		async () => {
 			const exe = await ensureChromiumExecutable();
 			if (!exe) throw new Error("Expected a Chromium executable");
-			const root = await fs.mkdtemp(path.join(os.tmpdir(), "omp-attach-page-readiness-"));
+			const root = await fs.mkdtemp(path.join(os.tmpdir(), "oms-attach-page-readiness-"));
 			const port = await findFreeCdpPort();
 			const child = Bun.spawn(
 				[
@@ -353,7 +353,7 @@ describe("pickElectronTarget", () => {
 	}, 10_000);
 
 	test("rejects a user-data-dir already used by the running executable", async () => {
-		const profile = path.join(os.tmpdir(), `omp-browser-profile-${process.pid}-${Date.now()}`);
+		const profile = path.join(os.tmpdir(), `oms-browser-profile-${process.pid}-${Date.now()}`);
 		const existing = await spawnDisposableExecutable([`--user-data-dir=${profile}`]);
 		try {
 			await expect(
@@ -419,7 +419,7 @@ describe("pickElectronTarget", () => {
 
 	test("does not reuse a live CDP endpoint belonging to a different profile", async () => {
 		const cdp = Bun.serve({ hostname: "127.0.0.1", port: 0, fetch: () => new Response("{}") });
-		const profile = path.join(os.tmpdir(), `omp-cdp-profile-${crypto.randomUUID()}`);
+		const profile = path.join(os.tmpdir(), `oms-cdp-profile-${crypto.randomUUID()}`);
 		const existing = await spawnDisposableExecutable([
 			`--user-data-dir=${profile}`,
 			`--remote-debugging-port=${cdp.port}`,
@@ -437,7 +437,7 @@ describe("pickElectronTarget", () => {
 	});
 
 	test.skipIf(process.platform !== "linux")("reuses Chromium launched through a distro wrapper", async () => {
-		const root = await fs.mkdtemp(path.join(os.tmpdir(), "omp-browser-wrapper-"));
+		const root = await fs.mkdtemp(path.join(os.tmpdir(), "oms-browser-wrapper-"));
 		const wrapper = path.join(root, "google-chrome");
 		const target = path.join(root, "chrome");
 		const profile = path.join(root, "profile");
@@ -477,7 +477,7 @@ describe("pickElectronTarget", () => {
 		async () => {
 			const exe = await ensureChromiumExecutable();
 			if (!exe) throw new Error("Expected a Chromium executable");
-			const root = await fs.mkdtemp(path.join(os.tmpdir(), "omp-profile-isolation-"));
+			const root = await fs.mkdtemp(path.join(os.tmpdir(), "oms-profile-isolation-"));
 			const borrowedProfile = path.join(root, "borrowed");
 			const port = await findFreeCdpPort();
 			// Explicit profiles keep the real OS keystore, so bypass it here or macOS
@@ -544,7 +544,7 @@ describe("pickElectronTarget", () => {
 		async () => {
 			const exe = await ensureChromiumExecutable();
 			if (!exe) throw new Error("Expected a Chromium executable");
-			const root = await fs.mkdtemp(path.join(os.tmpdir(), "omp-connected-viewport-"));
+			const root = await fs.mkdtemp(path.join(os.tmpdir(), "oms-connected-viewport-"));
 			const port = await findFreeCdpPort();
 			const child = Bun.spawn(
 				[
@@ -755,7 +755,7 @@ describe("resolveSpawnArgs", () => {
 		expect(resolveSpawnArgs("/Applications/Slack.app/Contents/MacOS/Slack", ["--foo"])).toEqual(["--foo"]);
 	});
 
-	test("bypasses the OS keystore only for omp-owned Chromium profiles", () => {
+	test("bypasses the OS keystore only for oms-owned Chromium profiles", () => {
 		const owned = resolveSpawnArgs("/usr/bin/google-chrome-stable", ["--password-store=gnome"]);
 		expect(owned).toContain("--use-mock-keychain");
 		expect(owned).toContain("--password-store=gnome");

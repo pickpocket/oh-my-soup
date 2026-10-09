@@ -5,7 +5,7 @@
  *
  * Pipeline under test:
  *   client → POST /v1/messages (Anthropic shape, cache_control markers)
- *     → anthropic-messages parser → omp Context (cacheRetention derived)
+ *     → anthropic-messages parser → oms Context (cacheRetention derived)
  *     → pi-ai openai-codex-responses provider
  *     → upstream Codex (ChatGPT-subscription Responses API)
  *     → assistant stream → anthropic-messages encoder
@@ -19,8 +19,8 @@
  * implicit session reuse). If that path breaks, this test catches it.
  *
  * Skips unless a local gateway is reachable at the default `127.0.0.1:4000`
- * (override via `OMP_E2E_GATEWAY_URL`) AND the bearer token file exists at
- * `~/.omp/auth-gateway.token`.
+ * (override via `OMS_E2E_GATEWAY_URL`) AND the bearer token file exists at
+ * `~/.oms/auth-gateway.token`.
  *
  * To run: `bun --cwd packages/ai test test/auth-gateway-anthropic-to-codex-caching.test.ts`
  */
@@ -42,7 +42,7 @@ interface AnthropicResponse {
 	error?: { type: string; message: string };
 }
 
-const MODEL = Bun.env.OMP_E2E_CODEX_MODEL ?? "gpt-5.3-codex";
+const MODEL = Bun.env.OMS_E2E_CODEX_MODEL ?? "gpt-5.3-codex";
 
 const gateway = await checkAuthGatewayE2EAvailable();
 
@@ -50,7 +50,7 @@ const gateway = await checkAuthGatewayE2EAvailable();
 // cache floor with headroom.
 const SYSTEM_PARAGRAPH = `
 You are a precise assistant participating in an automated end-to-end test of
-the omp auth-gateway's cross-protocol prompt-caching pipeline. The request
+the oms auth-gateway's cross-protocol prompt-caching pipeline. The request
 arrives over the Anthropic Messages wire format but is fulfilled by an
 OpenAI Codex backend, so the gateway must preserve the cached prefix across
 the translation. Always respond with extreme brevity: a single short word or

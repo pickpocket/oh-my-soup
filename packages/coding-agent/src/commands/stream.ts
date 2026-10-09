@@ -1,6 +1,6 @@
 import * as path from "node:path";
-import { STREAM_TITLE_MAX } from "@oh-my-pi/pi-wire";
-import { CliUsageError, Command, Flags } from "@oh-my-pi/pi-utils/cli";
+import { STREAM_TITLE_MAX } from "@oh-my-soup/pi-wire";
+import { CliUsageError, Command, Flags } from "@oh-my-soup/pi-utils/cli";
 import { streamHelp as commandHelp } from "../cli/command-help";
 import { Settings } from "../config/settings";
 import { StencilCredential } from "../stencil/credential";
@@ -18,9 +18,9 @@ export default class Stream extends Command {
 	};
 
 	static examples = [
-		"omp stream",
-		'omp stream --title "Building a parser"',
-		"omp stream --server https://live.example.com",
+		"oms stream",
+		'oms stream --title "Building a parser"',
+		"oms stream --server https://live.example.com",
 	];
 
 	async run(): Promise<void> {

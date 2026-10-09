@@ -1,4 +1,4 @@
-import { HeaderGenerator } from "@oh-my-pi/pi-utils/headers";
+import { HeaderGenerator } from "@oh-my-soup/pi-utils/headers";
 
 const generator = new HeaderGenerator({
 	browserListQuery: "last 3 versions",

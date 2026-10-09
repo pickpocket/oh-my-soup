@@ -1,4 +1,4 @@
-import type { IsoBackendKind } from "@oh-my-pi/pi-natives";
+import type { IsoBackendKind } from "@oh-my-soup/pi-natives";
 import type { IsolationHandle, WorktreeBaseline } from "../task/worktree";
 import { captureBaseline, cleanupIsolation, ensureIsolation, getRepoRoot } from "../task/worktree";
 

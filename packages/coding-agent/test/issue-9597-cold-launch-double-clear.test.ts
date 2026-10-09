@@ -1,13 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
-import { resetSettingsForTest, Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import type { ComposerPreferences } from "@oh-my-pi/pi-tui/prompt/composer";
-import { InteractiveMode } from "@oh-my-pi/pi-coding-agent/modes/interactive-mode";
+import { resetSettingsForTest, Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import type { ComposerPreferences } from "@oh-my-soup/pi-tui/prompt/composer";
+import { InteractiveMode } from "@oh-my-soup/pi-coding-agent/modes/interactive-mode";
 import {
 	beginStartupComposer,
 	stopPendingStartupComposer,
 	takeStartupComposerLease,
-} from "@oh-my-pi/pi-coding-agent/modes/startup-composer";
-import { initTheme } from "@oh-my-pi/pi-tui/theme";
+} from "@oh-my-soup/pi-coding-agent/modes/startup-composer";
+import { initTheme } from "@oh-my-soup/pi-tui/theme";
 import { VirtualTerminal } from "../../tui/test/virtual-terminal";
 import { assistantMsg, createTestSession, userMsg } from "./utilities";
 
@@ -22,7 +22,7 @@ import {
 	cfgTuiImeSafeCursor,
 	cfgTuiMaxInlineImages,
 	cfgTuiResizeScrollback,
-} from "@oh-my-pi/pi-coding-agent/modes/settings";
+} from "@oh-my-soup/pi-coding-agent/modes/settings";
 
 // Every destructive reset emits one erase-scrollback (ED3). Count that
 // operation without coupling this regression to the ED2/ED3 ordering.
@@ -75,7 +75,7 @@ describe("issue #9597 — cold-launch welcome duplication", () => {
 		resetSettingsForTest();
 	});
 
-	// `resuming` mirrors `main.ts` `runInteractiveMode`: `false` on a plain `omp`
+	// `resuming` mirrors `main.ts` `runInteractiveMode`: `false` on a plain `oms`
 	// launch, `true` for --continue/--resume/--fork.
 	async function coldLaunch(resuming: boolean): Promise<{
 		resets: number;

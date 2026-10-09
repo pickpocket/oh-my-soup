@@ -1,18 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import * as path from "node:path";
-import { AuthStorage, SqliteAuthCredentialStore } from "@oh-my-pi/pi-ai";
-import { type AuthBrokerServerHandle, startAuthBroker } from "@oh-my-pi/pi-ai/auth-broker";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { discoverAuthStorage } from "@oh-my-pi/pi-coding-agent/sdk";
-import { AgentStorage } from "@oh-my-pi/pi-coding-agent/session/agent-storage";
-import { createAuthStorageSettingsSync } from "@oh-my-pi/pi-coding-agent/session/auth-broker-config";
-import { TempDir } from "@oh-my-pi/pi-utils";
+import { AuthStorage, SqliteAuthCredentialStore } from "@oh-my-soup/pi-ai";
+import { type AuthBrokerServerHandle, startAuthBroker } from "@oh-my-soup/pi-ai/auth-broker";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { discoverAuthStorage } from "@oh-my-soup/pi-coding-agent/sdk";
+import { AgentStorage } from "@oh-my-soup/pi-coding-agent/session/agent-storage";
+import { createAuthStorageSettingsSync } from "@oh-my-soup/pi-coding-agent/session/auth-broker-config";
+import { TempDir } from "@oh-my-soup/pi-utils";
 
-import { cfgAuthBrokerUrl } from "@oh-my-pi/pi-coding-agent/config/model-settings";
+import { cfgAuthBrokerUrl } from "@oh-my-soup/pi-coding-agent/config/model-settings";
 
 const PROVIDER = "live-broker-test";
 const TOKEN = "live-broker-bearer";
-const BROKER_ENV = ["OMP_AUTH_BROKER_URL", "OMP_AUTH_BROKER_TOKEN", "OMP_AUTH_BROKER_SNAPSHOT_TTL_MS"] as const;
+const BROKER_ENV = ["OMS_AUTH_BROKER_URL", "OMS_AUTH_BROKER_TOKEN", "OMS_AUTH_BROKER_SNAPSHOT_TTL_MS"] as const;
 
 interface Broker {
 	handle: AuthBrokerServerHandle;
@@ -40,7 +40,7 @@ describe("auth broker settings take effect live", () => {
 			delete process.env[key];
 		}
 		// No snapshot cache: every connection must hit its broker.
-		process.env.OMP_AUTH_BROKER_SNAPSHOT_TTL_MS = "0";
+		process.env.OMS_AUTH_BROKER_SNAPSHOT_TTL_MS = "0";
 	});
 
 	afterEach(async () => {

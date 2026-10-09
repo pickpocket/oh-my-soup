@@ -204,7 +204,7 @@ fn grab_pipewire_frame(node: u32, fd: OwnedFd, pixels: bool) -> CoreResult<Captu
 	let core = context
 		.connect_fd_rc(fd, None)
 		.map_err(|err| DesktopError::capture_failed(format!("PipeWire remote: {err}")))?;
-	let stream = pw::stream::StreamBox::new(&core, "omp-computer-capture", properties! {
+	let stream = pw::stream::StreamBox::new(&core, "oms-computer-capture", properties! {
 		*pw::keys::MEDIA_TYPE => "Video",
 		*pw::keys::MEDIA_CATEGORY => "Capture",
 		*pw::keys::MEDIA_ROLE => "Screen",

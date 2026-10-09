@@ -2,11 +2,11 @@ import { describe, expect, test } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { buildSkillPromptMessage, type Skill } from "@oh-my-pi/pi-coding-agent/extensibility/skills";
-import { removeWithRetries, Snowflake } from "@oh-my-pi/pi-utils";
+import { buildSkillPromptMessage, type Skill } from "@oh-my-soup/pi-coding-agent/extensibility/skills";
+import { removeWithRetries, Snowflake } from "@oh-my-soup/pi-utils";
 
 async function createSkill(body: string): Promise<{ dir: string; skill: Skill }> {
-	const dir = await fs.mkdtemp(path.join(os.tmpdir(), `omp-skill-prompt-${Snowflake.next()}-`));
+	const dir = await fs.mkdtemp(path.join(os.tmpdir(), `oms-skill-prompt-${Snowflake.next()}-`));
 	const filePath = path.join(dir, "SKILL.md");
 	await Bun.write(filePath, `---\nname: reviewer\ndescription: Review code\n---\n\n${body}\n`);
 	return {

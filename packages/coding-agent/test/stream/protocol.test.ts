@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { StreamLineReader } from "@oh-my-pi/pi-coding-agent/stream/protocol";
+import { StreamLineReader } from "@oh-my-soup/pi-coding-agent/stream/protocol";
 
 function collect(reader: StreamLineReader, chunks: Buffer[]): { lines: string[]; ok: boolean } {
 	const lines: string[] = [];

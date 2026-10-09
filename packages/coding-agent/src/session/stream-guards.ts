@@ -4,11 +4,11 @@ import {
 	type AgentMessage,
 	type AgentTurnEndContext,
 	createToolScopedAbortReason,
-} from "@oh-my-pi/pi-agent-core";
-import type { AssistantMessage, AssistantMessageEvent, Model } from "@oh-my-pi/pi-ai";
-import { GeminiHeaderRunDetector } from "@oh-my-pi/pi-ai/utils/thinking-loop";
-import { type RepeatedToolCallDetection, ToolCallLoopGuard } from "@oh-my-pi/pi-ai/utils/tool-call-loop-guard";
-import { logger, prompt } from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-agent-core";
+import type { AssistantMessage, AssistantMessageEvent, Model } from "@oh-my-soup/pi-ai";
+import { GeminiHeaderRunDetector } from "@oh-my-soup/pi-ai/utils/thinking-loop";
+import { type RepeatedToolCallDetection, ToolCallLoopGuard } from "@oh-my-soup/pi-ai/utils/tool-call-loop-guard";
+import { logger, prompt } from "@oh-my-soup/pi-utils";
 import type { Settings } from "../config/settings";
 import geminiToolReminderTemplate from "../prompts/system/gemini-tool-call-reminder.md" with { type: "text" };
 import type { CustomMessage } from "./messages";

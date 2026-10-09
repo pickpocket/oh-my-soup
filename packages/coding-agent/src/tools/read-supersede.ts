@@ -1,5 +1,5 @@
-import type { ToolResultMessage } from "@oh-my-pi/pi-ai";
-import type { ReadToolDetails } from "@oh-my-pi/pi-tui/tools/read";
+import type { ToolResultMessage } from "@oh-my-soup/pi-ai";
+import type { ReadToolDetails } from "@oh-my-soup/pi-tui/tools/read";
 
 /**
  * Whether a successful `read` result shows its whole file, so a bare-path read

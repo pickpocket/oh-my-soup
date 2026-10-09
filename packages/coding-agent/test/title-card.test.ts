@@ -4,7 +4,7 @@ import {
 	parseCardReply,
 	parseCardTitleReply,
 	splitCardTitle,
-} from "@oh-my-pi/pi-coding-agent/utils/title-card";
+} from "@oh-my-soup/pi-coding-agent/utils/title-card";
 
 describe("parseCardTitleReply", () => {
 	const reply = '<title nf="nf-md-flask" emoji="🧪" code="FLAKY">Fix flaky park tests</title>';

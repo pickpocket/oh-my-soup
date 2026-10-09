@@ -7,7 +7,7 @@
  * for the whole load when it ran inline. See `activity-client.ts` for the
  * spawn/kill glue.
  */
-import type { DailyActivityPoint } from "@oh-my-pi/omp-stats/shared-types";
+import type { DailyActivityPoint } from "@oh-my-soup/oms-stats/shared-types";
 import type { WorkerLogMessage } from "../subprocess/worker-client";
 
 export { STATS_ACTIVITY_WORKER_ARG } from "../cli/worker-selectors";

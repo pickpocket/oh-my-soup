@@ -1,10 +1,10 @@
 import { beforeAll, describe, expect, it } from "bun:test";
-import { COMPOSER_DEFAULTS, Composer } from "@oh-my-pi/pi-tui/prompt/composer";
-import { TranscriptContainer } from "@oh-my-pi/pi-tui/chrome/transcript-container";
-import { initTheme } from "@oh-my-pi/pi-tui/theme";
-import { Container, type Component } from "@oh-my-pi/pi-tui";
+import { COMPOSER_DEFAULTS, Composer } from "@oh-my-soup/pi-tui/prompt/composer";
+import { TranscriptContainer } from "@oh-my-soup/pi-tui/chrome/transcript-container";
+import { initTheme } from "@oh-my-soup/pi-tui/theme";
+import { Container, type Component } from "@oh-my-soup/pi-tui";
 import { VirtualTerminal } from "./virtual-terminal";
-import { routeViewportClick, type ViewportClickSpan } from "@oh-my-pi/pi-tui/prompt/composer";
+import { routeViewportClick, type ViewportClickSpan } from "@oh-my-soup/pi-tui/prompt/composer";
 
 function span(start: number, end: number, ids: string[]): ViewportClickSpan {
 	return { start, end, candidates: () => ids };

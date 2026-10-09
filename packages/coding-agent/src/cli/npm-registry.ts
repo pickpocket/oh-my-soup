@@ -1,5 +1,5 @@
 /**
- * Resolve the npm registry `omp update` talks to from the user's own package
+ * Resolve the npm registry `oms update` talks to from the user's own package
  * manager configuration, so a configured feed (corporate proxy, Artifactory,
  * Verdaccio, …) is honored for both the release lookup and the install.
  *
@@ -12,13 +12,13 @@
  *    (`$XDG_CONFIG_HOME/.bunfig.toml`, then `~/.bunfig.toml`).
  * 5. {@link DEFAULT_NPM_REGISTRY}.
  *
- * Project-level config is deliberately ignored: `omp update` modifies a global
+ * Project-level config is deliberately ignored: `oms update` modifies a global
  * install, and the working directory it runs from is incidental.
  */
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { isEnoent, isRecord } from "@oh-my-pi/pi-utils";
+import { isEnoent, isRecord } from "@oh-my-soup/pi-utils";
 
 /** Public npm registry; used when no user configuration names another one. */
 export const DEFAULT_NPM_REGISTRY = "https://registry.npmjs.org/";
@@ -252,7 +252,7 @@ function envLookup(env: Env, name: string): string | undefined {
 /**
  * Read a config file that usually does not exist. Uses `node:fs/promises` rather
  * than `Bun.file().text()`: on Windows, Bun's rejected read of a missing file
- * holds no loop handle, so the loop drains mid-await and `omp update` trips
+ * holds no loop handle, so the loop drains mid-await and `oms update` trips
  * the unsettled-entry guard (exit 1) before the release lookup completes.
  */
 async function readOptional(file: string): Promise<string | undefined> {

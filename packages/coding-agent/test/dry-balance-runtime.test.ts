@@ -1,15 +1,15 @@
 import { expect, test } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
-import { writeModelCache } from "@oh-my-pi/pi-catalog/model-cache";
-import { resolveModelCacheProviderId } from "@oh-my-pi/pi-catalog/provider-models";
-import { getModelDbPath, TempDir } from "@oh-my-pi/pi-utils";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
+import { writeModelCache } from "@oh-my-soup/pi-catalog/model-cache";
+import { resolveModelCacheProviderId } from "@oh-my-soup/pi-catalog/provider-models";
+import { getModelDbPath, TempDir } from "@oh-my-soup/pi-utils";
 
 const cliEntry = path.join(import.meta.dir, "..", "src", "cli.ts");
 
-test("omp dry-balance resolves credential-scoped models from the model cache", async () => {
-	const tempDir = TempDir.createSync("@omp-dry-balance-runtime-");
+test("oms dry-balance resolves credential-scoped models from the model cache", async () => {
+	const tempDir = TempDir.createSync("@oms-dry-balance-runtime-");
 	const apiKey = "dry-balance-cache-test-key";
 	const modelId = "cached-dry-balance-model";
 	const cacheDbPath = getModelDbPath(tempDir.path());

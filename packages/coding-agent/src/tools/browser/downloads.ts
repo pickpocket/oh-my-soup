@@ -1,9 +1,9 @@
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { hasFsCode, isEnoent, toError, untilAborted } from "@oh-my-pi/pi-utils";
+import { hasFsCode, isEnoent, toError, untilAborted } from "@oh-my-soup/pi-utils";
 import type { Browser, CDPSession, Page } from "puppeteer-core";
-import { ToolError } from "@oh-my-pi/pi-tui/tools/tool-errors";
+import { ToolError } from "@oh-my-soup/pi-tui/tools/tool-errors";
 import { replaceFileAcrossDevices, replaceFileAtomically } from "../../utils/atomic-file";
 import { devtoolsFrameId } from "./frames";
 
@@ -67,7 +67,7 @@ export class DownloadManager {
 	constructor(browser: Browser, page: Page, tabId: string, options: { perTab: boolean }) {
 		this.#browser = browser;
 		this.#page = page;
-		this.#defaultDirectory = path.join(os.tmpdir(), `omp-downloads-${tabId}`);
+		this.#defaultDirectory = path.join(os.tmpdir(), `oms-downloads-${tabId}`);
 		this.#perTab = options.perTab;
 	}
 

@@ -238,7 +238,7 @@ export const stateDefs = {
 	},
 	SessionEntries: doc(
 		{ entries: `${JSON_OBJECT}[]`, leafId: "string | null" },
-		"OMP-native session entries in append order.",
+		"OMS-native session entries in append order.",
 	),
 	SessionTree: doc({ tree: `${JSON_OBJECT}[]`, leafId: "string | null" }, "Raw session tree roots."),
 	SubagentSnapshot: {

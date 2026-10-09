@@ -53,13 +53,13 @@ export const cfgCollabAutoStart = register({
 		group: "Collab",
 		label: "Auto Start",
 		description:
-			"Host every interactive session via collab.relayUrl as it starts and publish it to the local registry (omp collab list); rooms rotate on session switch",
+			"Host every interactive session via collab.relayUrl as it starts and publish it to the local registry (oms collab list); rooms rotate on session switch",
 		options: [
 			{ value: "off", label: "Off", description: "Share only when /collab is run" },
 			{
 				value: "view",
 				label: "View",
-				description: "Auto-host; the registry hands out view-only links (omp collab link --view)",
+				description: "Auto-host; the registry hands out view-only links (oms collab link --view)",
 			},
 			{
 				value: "control",

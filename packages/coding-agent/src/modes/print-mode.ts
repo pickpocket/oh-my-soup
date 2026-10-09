@@ -2,12 +2,12 @@
  * Print mode (single-shot): Send prompts, output result, exit.
  *
  * Used for:
- * - `omp -p "prompt"` - text output
- * - `omp --mode json "prompt"` - JSON event stream
+ * - `oms -p "prompt"` - text output
+ * - `oms --mode json "prompt"` - JSON event stream
  */
-import type { AgentMessage } from "@oh-my-pi/pi-agent-core";
-import type { ImageContent } from "@oh-my-pi/pi-ai";
-import { $flag, logger, postmortem, sanitizeText } from "@oh-my-pi/pi-utils";
+import type { AgentMessage } from "@oh-my-soup/pi-agent-core";
+import type { ImageContent } from "@oh-my-soup/pi-ai";
+import { $flag, logger, postmortem, sanitizeText } from "@oh-my-soup/pi-utils";
 import type { MCPManager } from "../mcp/manager";
 import { resolveMCPTimeoutMs } from "../mcp/timeout";
 import { type AgentSession, type AgentSessionEvent, SHUTDOWN_CONSOLIDATE_BUDGET_MS } from "../session/agent-session";
@@ -262,7 +262,7 @@ async function runPrintModeCore(
 				`Warning: MCP server "${server}" failed to connect: ${singleLine(error)}; its tools are unavailable for this run.`,
 			);
 		}
-		if ($flag("OMP_MCP_REQUIRE_READY") && unavailable.length > 0) {
+		if ($flag("OMS_MCP_REQUIRE_READY") && unavailable.length > 0) {
 			writeStderrLine(`Error: MCP servers not ready: ${unavailable.join(", ")}`);
 			strictMCPFailure = true;
 		}
@@ -356,7 +356,7 @@ async function runPrintModeCore(
 	await stdoutTail;
 	// Dispose before returning the status instead of hard-exiting ahead of it:
 	// the awaited `dispose()` runs the browser reaper (releaseTabsForOwner), so
-	// an OMP-owned Chromium cannot survive the exit (issue #5643).
+	// an OMS-owned Chromium cannot survive the exit (issue #5643).
 	//
 	// A latched store failure rethrows from `dispose()`; report it as lost
 	// durability rather than letting it escape as a raw fatal dump.

@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 //
-// Publish an omp release's binaries to the build service (build.stencil.so),
+// Publish an oms release's binaries to the build service (build.stencil.so),
 // which serves them, with binary patches between releases, to update
 // clients. Canary releases (`v<semver>-canary.<n>`) are uploaded with channel
 // `canary`, everything else with channel `stable`.
@@ -26,7 +26,7 @@ import * as path from "node:path";
 import { $ } from "bun";
 import { enumerateChangelogVersions } from "./ci-release-notes";
 
-const PRODUCT = "omp";
+const PRODUCT = "oms";
 const AUDIENCE = "build.stencil.so";
 const SERVICE_URL = (process.env.BUILD_URL ?? "https://build.stencil.so").replace(/\/+$/, "");
 const CHANGELOG = path.join(import.meta.dir, "..", "packages", "coding-agent", "CHANGELOG.md");
@@ -37,14 +37,14 @@ const ATTEMPTS = 3;
 
 /** Release asset name → build-service target. Only these are uploaded. */
 export const ASSETS: Readonly<Record<string, { platform: string; arch: string }>> = {
-	"omp-darwin-arm64": { platform: "macos", arch: "arm64" },
-	"omp-darwin-x64": { platform: "macos", arch: "x86_64" },
-	"omp-linux-x64": { platform: "linux", arch: "x86_64" },
-	"omp-linux-arm64": { platform: "linux", arch: "arm64" },
-	"omp-linux-musl-x64": { platform: "linux-musl", arch: "x86_64" },
-	"omp-linux-musl-arm64": { platform: "linux-musl", arch: "arm64" },
-	"omp-windows-x64.exe": { platform: "windows", arch: "x86_64" },
-	"omp-windows-arm64.exe": { platform: "windows", arch: "arm64" },
+	"oms-darwin-arm64": { platform: "macos", arch: "arm64" },
+	"oms-darwin-x64": { platform: "macos", arch: "x86_64" },
+	"oms-linux-x64": { platform: "linux", arch: "x86_64" },
+	"oms-linux-arm64": { platform: "linux", arch: "arm64" },
+	"oms-linux-musl-x64": { platform: "linux-musl", arch: "x86_64" },
+	"oms-linux-musl-arm64": { platform: "linux-musl", arch: "arm64" },
+	"oms-windows-x64.exe": { platform: "windows", arch: "x86_64" },
+	"oms-windows-arm64.exe": { platform: "windows", arch: "arm64" },
 };
 
 const RELEASE_TAG = /^v(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?)$/;

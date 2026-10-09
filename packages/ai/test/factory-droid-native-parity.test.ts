@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import { type } from "@oh-my-pi/omptype";
-import type { Effort } from "@oh-my-pi/pi-catalog/effort";
+import { type } from "@oh-my-soup/omstype";
+import type { Effort } from "@oh-my-soup/pi-catalog/effort";
 import { streamFactoryDroid } from "../src/providers/factory-droid";
 import type { Context, Message } from "../src/types";
 import corpus from "./fixtures/factory-droid-native-requests.json" with { type: "json" };
@@ -65,7 +65,7 @@ async function encode(capture: NativeCapture, turn: 0 | 1): Promise<NativeReques
 	const disabled = capture.effort === "off" || capture.effort === "none";
 	const context: Context = {
 		messages: turn === 0 ? opening : followUp(capture, !disabled),
-		// `bash` is one of the tools omp's Anthropic encoder marks strict; native never does.
+		// `bash` is one of the tools oms's Anthropic encoder marks strict; native never does.
 		tools: [
 			{ name: "Read", description: "Read a file", parameters: type({ path: "string" }) },
 			{ name: "bash", description: "Run a command", parameters: type({ command: "string" }) },

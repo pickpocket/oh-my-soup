@@ -5,7 +5,7 @@
  *
  * Persistence keeps two promises at once:
  * - **Resume-stable links.** The key→token index survives restarts in
- *   `~/.omp/agent/blobs/urls-index-<project>.json`, and eager bytes live in
+ *   `~/.oms/agent/blobs/urls-index-<project>.json`, and eager bytes live in
  *   the same content-addressed session blob store conversation images are
  *   already externalized to — so re-decorating a resumed conversation yields
  *   byte-identical URLs without copying anything.
@@ -21,8 +21,8 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { identifyImageFetcher } from "@oh-my-pi/pi-catalog/wire/image-fetchers";
-import { isEnoent, logger } from "@oh-my-pi/pi-utils";
+import { identifyImageFetcher } from "@oh-my-soup/pi-catalog/wire/image-fetchers";
+import { isEnoent, logger } from "@oh-my-soup/pi-utils";
 import { BlobStore as SessionBlobStore } from "../session/blob-store";
 import {
 	BLOB_FETCH_EVENT_LIMIT,

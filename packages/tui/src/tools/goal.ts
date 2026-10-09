@@ -4,7 +4,7 @@ import type { Theme, ThemeColor } from "../theme/theme";
 import { formatDuration, formatErrorDetail, formatNumber, TRUNCATE_LENGTHS } from "../render/render-utils";
 import { renderStatusLine, truncateToWidth } from "../render/index";
 import { framedToolCard } from "../render/tool-card";
-import type { TspSpan } from "@oh-my-pi/pi-wire";
+import type { TspSpan } from "@oh-my-soup/pi-wire";
 import { compact, node, span, text } from "../native/describe";
 import { OwnerMemo } from "../native/memo";
 import { errorView, noteText, resultText, toolHead } from "./native-view";

@@ -5,7 +5,7 @@
  * that toggles the entire provider. All items below are dimmed when the
  * master switch is off.
  */
-import type { TspPickerGroup, TspPickerItem, TspProps, TspSpan, TspTone } from "@oh-my-pi/pi-wire";
+import type { TspPickerGroup, TspPickerItem, TspProps, TspSpan, TspTone } from "@oh-my-soup/pi-wire";
 import type { Component } from "../../tui";
 import { formatKeyHint } from "../../app-keybindings";
 import { node, span, stableKey } from "../../native/describe";

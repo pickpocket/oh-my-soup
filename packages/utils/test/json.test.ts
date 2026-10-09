@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { stableStringifyJson, stringifyJson } from "@oh-my-pi/pi-utils/json";
+import { stableStringifyJson, stringifyJson } from "@oh-my-soup/pi-utils/json";
 
 describe("stableStringifyJson", () => {
 	it("canonicalizes nested object key order while preserving array order", () => {

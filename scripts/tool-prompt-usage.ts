@@ -17,8 +17,8 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { parseArgs } from "node:util";
-import { countTokens, Encoding } from "@oh-my-pi/pi-natives";
-import { prompt } from "@oh-my-pi/pi-utils";
+import { countTokens, Encoding } from "@oh-my-soup/pi-natives";
+import { prompt } from "@oh-my-soup/pi-utils";
 import { loadBundledAgents } from "../packages/coding-agent/src/task/agents";
 import { isReadOnlyAgent } from "../packages/coding-agent/src/task/read-only-policy";
 

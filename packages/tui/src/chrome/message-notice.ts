@@ -1,7 +1,7 @@
 import { Box } from "../components/box";
 import { Spacer } from "../components/spacer";
 import { Text } from "../components/text";
-import type { TspPreview, TspText } from "@oh-my-pi/pi-wire";
+import type { TspPreview, TspText } from "@oh-my-soup/pi-wire";
 import { type Component, Container } from "../tui";
 import { type ThemeColor, theme } from "../theme";
 import { card, node, text, withHidden } from "../native/describe";
@@ -45,7 +45,7 @@ export interface MessageNoticeOptions {
 	readonly presentation: (context: MessageNoticeContext) => MessageNoticePresentation;
 	/** Card content for native terminals; the full content, since collapse is the terminal's. */
 	readonly nativePresentation: () => MessageNoticeNativePresentation;
-	/** Semantic role of the native card (`omp.notice.<name>`). */
+	/** Semantic role of the native card (`oms.notice.<name>`). */
 	readonly role: string;
 	readonly severity?: ThemeColor;
 	readonly background?: (text: string) => string;

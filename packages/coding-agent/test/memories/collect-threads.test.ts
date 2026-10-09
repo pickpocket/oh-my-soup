@@ -2,8 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { AgentSession } from "@oh-my-pi/pi-coding-agent/session/agent-session";
-import { collectThreads } from "@oh-my-pi/pi-coding-agent/memories";
+import type { AgentSession } from "@oh-my-soup/pi-coding-agent/session/agent-session";
+import { collectThreads } from "@oh-my-soup/pi-coding-agent/memories";
 
 function makeFakeSession(sessionDir: string): AgentSession {
 	return {
@@ -19,7 +19,7 @@ describe("collectThreads", () => {
 	let tempDir: string;
 
 	beforeEach(async () => {
-		tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-collect-threads-test-"));
+		tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-collect-threads-test-"));
 	});
 
 	afterEach(async () => {

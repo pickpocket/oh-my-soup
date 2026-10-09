@@ -1,4 +1,4 @@
-import { ToolError } from "@oh-my-pi/pi-tui/tools/tool-errors";
+import { ToolError } from "@oh-my-soup/pi-tui/tools/tool-errors";
 
 export function assertTabPressArgs(key: unknown, options?: unknown): void {
 	if (typeof options === "string") {

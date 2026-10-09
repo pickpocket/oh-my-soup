@@ -1,4 +1,4 @@
-import { type ToolCall, validateToolArguments } from "@oh-my-pi/pi-ai";
+import { type ToolCall, validateToolArguments } from "@oh-my-soup/pi-ai";
 import type { AgentTool } from "./types";
 
 /**

@@ -1,14 +1,14 @@
 import { describe, expect, spyOn, test } from "bun:test";
-import { AuthStorage } from "@oh-my-pi/pi-ai/auth-storage";
-import * as AIError from "@oh-my-pi/pi-ai/error";
-import { getProviderDefinition } from "@oh-my-pi/pi-ai/registry";
-import { getOAuthApiKey } from "@oh-my-pi/pi-ai/registry/oauth";
-import { loginSnowflake, refreshSnowflakeToken } from "@oh-my-pi/pi-ai/registry/oauth/snowflake";
-import type { OAuthController, OAuthCredentials } from "@oh-my-pi/pi-ai/registry/oauth/types";
-import { normalizeSnowflakeAccountUrl } from "@oh-my-pi/pi-ai/registry/snowflake";
-import { stream } from "@oh-my-pi/pi-ai/stream";
-import type { Context, FetchImpl } from "@oh-my-pi/pi-ai/types";
-import { getBundledModel } from "@oh-my-pi/pi-catalog/models";
+import { AuthStorage } from "@oh-my-soup/pi-ai/auth-storage";
+import * as AIError from "@oh-my-soup/pi-ai/error";
+import { getProviderDefinition } from "@oh-my-soup/pi-ai/registry";
+import { getOAuthApiKey } from "@oh-my-soup/pi-ai/registry/oauth";
+import { loginSnowflake, refreshSnowflakeToken } from "@oh-my-soup/pi-ai/registry/oauth/snowflake";
+import type { OAuthController, OAuthCredentials } from "@oh-my-soup/pi-ai/registry/oauth/types";
+import { normalizeSnowflakeAccountUrl } from "@oh-my-soup/pi-ai/registry/snowflake";
+import { stream } from "@oh-my-soup/pi-ai/stream";
+import type { Context, FetchImpl } from "@oh-my-soup/pi-ai/types";
+import { getBundledModel } from "@oh-my-soup/pi-catalog/models";
 import { withEnv } from "./helpers";
 
 const ACCOUNT = "https://myorg-acct.snowflakecomputing.com";

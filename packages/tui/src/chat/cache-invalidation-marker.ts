@@ -1,5 +1,5 @@
-import type { Usage } from "@oh-my-pi/pi-ai";
-import { formatNumber } from "@oh-my-pi/pi-utils";
+import type { Usage } from "@oh-my-soup/pi-ai";
+import { formatNumber } from "@oh-my-soup/pi-utils";
 import { MessageDividerComponent } from "../chrome/message-divider";
 import { theme } from "../theme";
 
@@ -87,7 +87,7 @@ export class CacheInvalidationMarkerComponent extends MessageDividerComponent {
 			labelColor: "muted",
 			ruleColor: "dim",
 			ruleWidth: 10,
-			role: "omp.marker.cache-miss",
+			role: "oms.marker.cache-miss",
 			native: {
 				icon: "database",
 				label: () =>

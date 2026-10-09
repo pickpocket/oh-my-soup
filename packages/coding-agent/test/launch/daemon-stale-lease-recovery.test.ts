@@ -40,7 +40,7 @@ describe("daemon broker lease recovery", () => {
 	it(
 		"starts a broker when broker.pid records a live but unrelated PID (issue #11080)",
 		async () => {
-			const root = await fs.mkdtemp(path.join(os.tmpdir(), "omp-stale-lease-"));
+			const root = await fs.mkdtemp(path.join(os.tmpdir(), "oms-stale-lease-"));
 			const pidPath = path.join(root, "run", "broker.pid");
 			try {
 				await fs.mkdir(path.join(root, "run"), { recursive: true });
@@ -71,7 +71,7 @@ describe("daemon broker lease recovery", () => {
 	it(
 		"starts a broker from a cold scope with no broker.pid",
 		async () => {
-			const root = await fs.mkdtemp(path.join(os.tmpdir(), "omp-cold-lease-"));
+			const root = await fs.mkdtemp(path.join(os.tmpdir(), "oms-cold-lease-"));
 			try {
 				await withScope(path.join(root, "project"), path.join(root, "run"), async client => {
 					const ping = await client.request({ op: "ping" });

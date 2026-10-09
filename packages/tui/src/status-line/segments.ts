@@ -1,7 +1,7 @@
 import * as os from "node:os";
 import * as path from "node:path";
-import { ThinkingLevel } from "@oh-my-pi/pi-agent-core";
-import { getTimeBasedPricingPeriod } from "@oh-my-pi/pi-catalog/models";
+import { ThinkingLevel } from "@oh-my-soup/pi-agent-core";
+import { getTimeBasedPricingPeriod } from "@oh-my-soup/pi-catalog/models";
 import { SPINNER_ADVANCE_MS, TERMINAL } from "../index";
 import {
 	formatDuration,
@@ -9,7 +9,7 @@ import {
 	getProjectDir,
 	normalizePathForComparison,
 	relativePathWithinNormalizedRoot,
-} from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-utils";
 import { type SymbolKey, type Theme, type ThemeColor, theme } from "../theme";
 import { shortenPath, TRUNCATE_LENGTHS, truncateToWidth } from "../render/render-utils";
 import { fileHyperlink } from "../render/hyperlink";
@@ -24,7 +24,7 @@ import {
 	getContextUsageThemeColor,
 	getContextUsageTone,
 } from "../chrome/context-thresholds";
-import type { TspSpan, TspTone } from "@oh-my-pi/pi-wire";
+import type { TspSpan, TspTone } from "@oh-my-soup/pi-wire";
 import { node, span } from "../native/describe";
 import { thinkingLevelToken } from "../theme/theme-class";
 import type { StatusLineSession } from "./host";
@@ -216,21 +216,21 @@ const piSegment: StatusLineSegment = {
 		// turn edges; the component samples the tween into `brandFgAnsi`.
 		const fgAnsi = ctx.brandFgAnsi ?? theme.getFgAnsi("dim");
 		// While a turn runs the brand icon becomes a braille spinner plus a
-		// whole-unit turn timer (port of rust omp's status-band active brand).
+		// whole-unit turn timer (port of rust oms's status-band active brand).
 		// No trailing pad: the group renderer owns inter-segment spacing, so a
 		// trailing space here would double the gap at the first separator (#11103).
 		const content =
 			ctx.turnElapsedMs != null
 				? `${brandSpinnerFrame(ctx.now?.getTime())} ${brandTimer(ctx.turnElapsedMs)}`
-				: theme.icon.omp
-					? theme.icon.omp
+				: theme.icon.oms
+					? theme.icon.oms
 					: "";
 		return { content: `${fgAnsi}${content}\x1b[39m`, visible: true };
 	},
 	describe(ctx) {
 		if (ctx.focusedAgentId) return segView([span(ctx.focusedAgentId, "warning")], "ghost", "warning");
 		// The dock's working row owns activity natively: the brand stays still.
-		return segView([], "omp", "muted");
+		return segView([], "oms", "muted");
 	},
 };
 /** Current braille-spinner glyph on the shared clock, at the Loader's 80ms cadence. */
@@ -239,7 +239,7 @@ function brandSpinnerFrame(nowMs = Date.now()): string {
 	return frames[Math.floor(nowMs / SPINNER_ADVANCE_MS) % frames.length] ?? "";
 }
 
-/** Turn timer in omp's brand format: whole seconds → minutes → hours (capped at 99h). */
+/** Turn timer in oms's brand format: whole seconds → minutes → hours (capped at 99h). */
 function brandTimer(elapsedMs: number): string {
 	const seconds = Math.floor(elapsedMs / 1000);
 	if (seconds < 60) return `${seconds}s`;

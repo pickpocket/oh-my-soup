@@ -55,7 +55,7 @@ Later cells reuse its definitions. Calling `%load` again executes the current fi
 
 Python dependencies install with `%pip install pillow`: the runner's pip magic runs `python -m pip` for the kernel's own interpreter, pauses the cell watchdog while it runs, and keeps kernel variables. A missing-module error reminds that distribution names can differ from import names (`PIL` belongs to `pillow`).
 
-JavaScript dependencies install with `%bun add csv-parse` into an OMP-managed package environment shared by sessions in the same project; each worker keeps its own variables. Installation does not restart the worker; already imported modules stay cached until an explicit reset. Lifecycle scripts are disabled; packages needing native builds/postinstall must be prepared explicitly. `%environment project` selects the repository itself for package/lockfile changes; `%environment managed` returns to OMP-managed dependencies. The selection persists for later calls through that eval tool.
+JavaScript dependencies install with `%bun add csv-parse` into an OMS-managed package environment shared by sessions in the same project; each worker keeps its own variables. Installation does not restart the worker; already imported modules stay cached until an explicit reset. Lifecycle scripts are disabled; packages needing native builds/postinstall must be prepared explicitly. `%environment project` selects the repository itself for package/lockfile changes; `%environment managed` returns to OMS-managed dependencies. The selection persists for later calls through that eval tool.
 
 Percent commands are standalone cells, not extra tool arguments; quote requirements containing spaces.
 
@@ -180,7 +180,7 @@ display(page.next_cursor);
 ```
 
 Python callers use `result["details"].get("structuredContent")`. The property is
-absent when the server supplies no structured result; OMP does not infer it from
+absent when the server supplies no structured result; OMS does not infer it from
 JSON-looking text. Error results can also carry structured data, so check
 `hasError` before treating a payload as a successful result.
 

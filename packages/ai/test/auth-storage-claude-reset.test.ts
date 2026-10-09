@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "bun:test";
-import { AuthStorage, type OAuthCredential, type ResetCreditTarget } from "@oh-my-pi/pi-ai/auth-storage";
-import { claudeUsageProvider } from "@oh-my-pi/pi-ai/usage/claude";
-import { isRecord } from "@oh-my-pi/pi-ai/utils";
+import { AuthStorage, type OAuthCredential, type ResetCreditTarget } from "@oh-my-soup/pi-ai/auth-storage";
+import { claudeUsageProvider } from "@oh-my-soup/pi-ai/usage/claude";
+import { isRecord } from "@oh-my-soup/pi-ai/utils";
 
 interface ResetPost {
 	path: string;

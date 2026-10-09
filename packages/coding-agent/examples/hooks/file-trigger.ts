@@ -8,7 +8,7 @@
  *   echo "Run the tests" > /tmp/agent-trigger.txt
  */
 import * as fs from "node:fs";
-import type { HookAPI } from "@oh-my-pi/pi-coding-agent/extensibility/hooks";
+import type { HookAPI } from "@oh-my-soup/pi-coding-agent/extensibility/hooks";
 
 export default function (pi: HookAPI) {
 	pi.on("session_start", async (_event, ctx) => {

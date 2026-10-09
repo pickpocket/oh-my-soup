@@ -50,7 +50,7 @@ export const TAB_LEADS: Record<SettingTab, string> = {
 	model: "Thinking, sampling, the system prompt, retries and the helper models.",
 	interaction: "Input, approvals, notifications, speech and what happens at startup.",
 	context: "What the model sees, and when and how the conversation compacts.",
-	memory: "What omp remembers across sessions and where it keeps it.",
+	memory: "What oms remembers across sessions and where it keeps it.",
 	files: "How files are read, summarized and edited, and the language servers.",
 	shell: "The bash tool and the eval runtimes.",
 	tools: "Which tools the model has, their limits and the external integrations.",

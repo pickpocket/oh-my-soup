@@ -1,4 +1,4 @@
-import { logger } from "@oh-my-pi/pi-utils";
+import { logger } from "@oh-my-soup/pi-utils";
 import {
 	type ModelWorkerMessage,
 	ModelWorkerHost,
@@ -135,7 +135,7 @@ class AudioChunkChannel {
  * Hidden subcommand on the main CLI that boots the TTS worker in the spawned
  * subprocess. Kept in sync with the dispatch in `cli.ts` (Main-owned).
  */
-export const TTS_WORKER_ARG = "__omp_worker_tts";
+export const TTS_WORKER_ARG = "__oms_worker_tts";
 
 /**
  * Spawn the TTS worker as a subprocess. Exported for tests and the smoke probe;

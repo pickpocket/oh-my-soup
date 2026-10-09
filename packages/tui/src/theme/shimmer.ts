@@ -1,4 +1,4 @@
-import type { TspSpan } from "@oh-my-pi/pi-wire";
+import type { TspSpan } from "@oh-my-soup/pi-wire";
 import { node } from "../native/describe";
 import type { NativeNode } from "../native/node";
 import { isNativeRendering } from "../native/state";

@@ -1,5 +1,5 @@
 import type { ElementHandle, JSHandle, Page } from "puppeteer-core";
-import { ToolError } from "@oh-my-pi/pi-tui/tools/tool-errors";
+import { ToolError } from "@oh-my-soup/pi-tui/tools/tool-errors";
 import {
 	type AriaHrefMap,
 	collectAriaSnapshotRefs,

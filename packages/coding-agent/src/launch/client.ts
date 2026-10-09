@@ -2,7 +2,7 @@ import * as fs from "node:fs/promises";
 import * as net from "node:net";
 import * as os from "node:os";
 import * as path from "node:path";
-import { getGlobalDaemonRuntimeDir, isEexist, isEnoent, logger, postmortem } from "@oh-my-pi/pi-utils";
+import { getGlobalDaemonRuntimeDir, isEexist, isEnoent, logger, postmortem } from "@oh-my-soup/pi-utils";
 import { resolveWorkerSpawnCmd, workerEnvFromParent } from "../subprocess/worker-client";
 import { canonicalProjectDir, daemonBrokerEndpoint, daemonRuntimeDir } from "./paths";
 import {
@@ -22,7 +22,7 @@ const CONNECT_TIMEOUT_MS = 10_000;
 const CONNECT_RETRY_MS = 50;
 const TOKEN_FILE = "broker.token";
 /**
- * The broker must outlive whichever omp process happened to spawn it: other
+ * The broker must outlive whichever oms process happened to spawn it: other
  * clients (and persistent daemons) still hold its lease. Bun on Windows puts
  * every non-detached child in a kill-on-close job object owned by the parent,
  * so an undetached broker died with its spawner and took the scope's daemons
@@ -73,7 +73,7 @@ async function readOrCreateToken(runtimeDir: string): Promise<string> {
 		try {
 			// node:fs, not Bun.file().text(): on Windows (Bun 1.4.2) a Bun.file
 			// read that rejects with ENOENT holds no event-loop ref, so the loop
-			// drains mid-await — `omp --smoke-test` exited 1 via the unsettled-entry
+			// drains mid-await — `oms --smoke-test` exited 1 via the unsettled-entry
 			// guard, and a bare script silently stops at that await.
 			const token = (await fs.readFile(tokenPath, "utf8")).trim();
 			if (token.length > 0) return token;
@@ -311,7 +311,7 @@ class SocketDaemonClient implements DaemonBrokerClient {
 		throw new Error(
 			`Failed to start daemon broker at ${this.#endpoint} after ${CONNECT_TIMEOUT_MS / 1000}s: ` +
 				`${lastError?.message ?? "socket unavailable"}. Scope: ${this.#runtimeDir}. ` +
-				"Run `omp --smoke-test` to verify broker startup, or `omp ps` to inspect supervised processes.",
+				"Run `oms --smoke-test` to verify broker startup, or `oms ps` to inspect supervised processes.",
 		);
 	}
 
@@ -505,7 +505,7 @@ export async function daemonClientForGlobal(service: string): Promise<DaemonBrok
 	);
 }
 
-/** Close every project and machine-global broker connection held by this omp process. */
+/** Close every project and machine-global broker connection held by this oms process. */
 export async function closeDaemonClients(): Promise<void> {
 	const pending = [...sharedClients.values()];
 	sharedClients.clear();
@@ -520,7 +520,7 @@ export async function smokeTestDaemonBroker(): Promise<void> {
 	// the broker's dead-scope sweep (pruneDeadDaemonRuntimeDirs, fired on startup)
 	// can only ever reclaim siblings inside it — never unrelated neighbours in
 	// os.tmpdir() such as tmux/ssh sockets or build trees (issue #8721).
-	const smokeRoot = await fs.mkdtemp(path.join(os.tmpdir(), "omp-daemon-smoke-"));
+	const smokeRoot = await fs.mkdtemp(path.join(os.tmpdir(), "oms-daemon-smoke-"));
 	const projectDir = path.join(smokeRoot, "project");
 	const runtimeDir = path.join(smokeRoot, "run");
 	await fs.mkdir(projectDir, { recursive: true });

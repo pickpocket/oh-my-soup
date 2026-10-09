@@ -1,26 +1,26 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from "bun:test";
-import type { AgentTool } from "@oh-my-pi/pi-agent-core";
-import { createCompactionSummaryMessage, createCustomMessage } from "@oh-my-pi/pi-agent-core/compaction/messages";
-import type { AssistantMessage } from "@oh-my-pi/pi-ai";
-import { createAdvisorMessageCard } from "@oh-my-pi/pi-tui/chat/advisor-message";
-import { AssistantMessageComponent } from "@oh-my-pi/pi-tui/chat/assistant-message";
-import { BashExecutionComponent } from "@oh-my-pi/pi-tui/chat/bash-execution";
-import { ChatTranscriptBuilder } from "@oh-my-pi/pi-tui/chat/chat-transcript-builder";
-import { CompactionSummaryMessageComponent } from "@oh-my-pi/pi-tui/chat/compaction-summary-message";
-import { CustomMessageComponent } from "@oh-my-pi/pi-tui/chat/custom-message";
-import { EvalExecutionComponent } from "@oh-my-pi/pi-tui/chat/eval-execution";
-import { LateDiagnosticsMessageComponent } from "@oh-my-pi/pi-tui/chat/late-diagnostics-message";
-import { StrippedToolCallsPlaceholder } from "@oh-my-pi/pi-tui/chat/stripped-tool-calls-placeholder";
-import { stopSharedSpinnerTicker, ToolExecutionComponent } from "@oh-my-pi/pi-tui/chat/tool-execution";
-import type { TranscriptEntryLike } from "@oh-my-pi/pi-tui/chat/transcript-entry";
-import { buildAsyncResultBlock, buildFileMentionBlock } from "@oh-my-pi/pi-tui/chat/transcript-render-helpers";
-import { TodoReminderComponent } from "@oh-my-pi/pi-tui/chat/todo-reminder";
-import { TtsrNotificationComponent } from "@oh-my-pi/pi-tui/chat/ttsr-notification";
-import { CollapsedSyntheticMessageComponent, UserMessageComponent } from "@oh-my-pi/pi-tui/chat/user-message";
-import { text } from "@oh-my-pi/pi-tui/native/describe";
-import { setNativeRendering } from "@oh-my-pi/pi-tui/native/state";
-import { initTheme, theme } from "@oh-my-pi/pi-tui/theme";
-import type { TspNode, TspOp } from "@oh-my-pi/pi-wire";
+import type { AgentTool } from "@oh-my-soup/pi-agent-core";
+import { createCompactionSummaryMessage, createCustomMessage } from "@oh-my-soup/pi-agent-core/compaction/messages";
+import type { AssistantMessage } from "@oh-my-soup/pi-ai";
+import { createAdvisorMessageCard } from "@oh-my-soup/pi-tui/chat/advisor-message";
+import { AssistantMessageComponent } from "@oh-my-soup/pi-tui/chat/assistant-message";
+import { BashExecutionComponent } from "@oh-my-soup/pi-tui/chat/bash-execution";
+import { ChatTranscriptBuilder } from "@oh-my-soup/pi-tui/chat/chat-transcript-builder";
+import { CompactionSummaryMessageComponent } from "@oh-my-soup/pi-tui/chat/compaction-summary-message";
+import { CustomMessageComponent } from "@oh-my-soup/pi-tui/chat/custom-message";
+import { EvalExecutionComponent } from "@oh-my-soup/pi-tui/chat/eval-execution";
+import { LateDiagnosticsMessageComponent } from "@oh-my-soup/pi-tui/chat/late-diagnostics-message";
+import { StrippedToolCallsPlaceholder } from "@oh-my-soup/pi-tui/chat/stripped-tool-calls-placeholder";
+import { stopSharedSpinnerTicker, ToolExecutionComponent } from "@oh-my-soup/pi-tui/chat/tool-execution";
+import type { TranscriptEntryLike } from "@oh-my-soup/pi-tui/chat/transcript-entry";
+import { buildAsyncResultBlock, buildFileMentionBlock } from "@oh-my-soup/pi-tui/chat/transcript-render-helpers";
+import { TodoReminderComponent } from "@oh-my-soup/pi-tui/chat/todo-reminder";
+import { TtsrNotificationComponent } from "@oh-my-soup/pi-tui/chat/ttsr-notification";
+import { CollapsedSyntheticMessageComponent, UserMessageComponent } from "@oh-my-soup/pi-tui/chat/user-message";
+import { text } from "@oh-my-soup/pi-tui/native/describe";
+import { setNativeRendering } from "@oh-my-soup/pi-tui/native/state";
+import { initTheme, theme } from "@oh-my-soup/pi-tui/theme";
+import type { TspNode, TspOp } from "@oh-my-soup/pi-wire";
 import { TspHarness } from "./tsp-harness";
 
 beforeAll(async () => {
@@ -135,7 +135,7 @@ describe("native transcript", () => {
 		await h.render();
 		expect(h.find(node => node.k === "md")?.p).toMatchObject({ text: source, stream: true });
 
-		const wt = "file:///C:/Users/me/.omp/wt/cr2-43939c6";
+		const wt = "file:///C:/Users/me/.oms/wt/cr2-43939c6";
 		component.updateContent(assistant([{ type: "text", text: source }]));
 		component.setLinkTargets(
 			new Map([
@@ -168,7 +168,7 @@ describe("native transcript", () => {
 			builder.append(toolTranscript());
 			h.tui.addChild(builder.container);
 		});
-		const cardNode = h.find(node => node.k === "tool" && node.p?.role === "omp.tool.lookup_thing");
+		const cardNode = h.find(node => node.k === "tool" && node.p?.role === "oms.tool.lookup_thing");
 		expect(cardNode?.p).toMatchObject({ status: "done", collapsible: true, collapsed: true });
 
 		h.event({ ev: "toggle", sf: h.terminal.surface!, id: cardNode!.id, collapsed: false });
@@ -253,7 +253,7 @@ describe("native transcript", () => {
 			builder.append(toolTranscript());
 			h.tui.addChild(builder.container);
 		});
-		const cardNode = h.find(node => node.k === "tool" && node.p?.role === "omp.tool.lookup_thing");
+		const cardNode = h.find(node => node.k === "tool" && node.p?.role === "oms.tool.lookup_thing");
 		expect(opsSince(h, 0)).toContainEqual(["settle", cardNode!.id]);
 
 		const before = h.frames.length;
@@ -374,21 +374,21 @@ describe("native transcript", () => {
 		const roles = h.findAll(node => typeof node.p?.role === "string").map(node => node.p!.role);
 		expect(roles).toEqual(
 			expect.arrayContaining([
-				"omp.tool.lookup_thing",
-				"omp.user",
-				"omp.user.synthetic",
-				"omp.assistant",
-				"omp.thinking",
-				"omp.bash",
-				"omp.eval",
-				"omp.compaction",
-				"omp.custom",
-				"omp.notice.ttsr",
-				"omp.notice.todo",
-				"omp.diagnostics.late",
-				"omp.marker.cache-miss",
-				"omp.status-block",
-				"omp.advisor",
+				"oms.tool.lookup_thing",
+				"oms.user",
+				"oms.user.synthetic",
+				"oms.assistant",
+				"oms.thinking",
+				"oms.bash",
+				"oms.eval",
+				"oms.compaction",
+				"oms.custom",
+				"oms.notice.ttsr",
+				"oms.notice.todo",
+				"oms.diagnostics.late",
+				"oms.marker.cache-miss",
+				"oms.status-block",
+				"oms.advisor",
 			]),
 		);
 		expect(h.errors).toEqual([]);

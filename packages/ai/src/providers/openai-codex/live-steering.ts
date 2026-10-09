@@ -16,7 +16,7 @@
  * const { accepted } = await pump.finish(); // after the terminal event
  * ```
  */
-import { logger } from "@oh-my-pi/pi-utils";
+import { logger } from "@oh-my-soup/pi-utils";
 import type { LiveSteering, UserMessage } from "../../types";
 import type { InputItem } from "./request-transformer";
 

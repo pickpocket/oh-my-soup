@@ -155,7 +155,7 @@ At each call, the executor loads settings shell config (`shell`, `env`, optional
 
 Unless `bash.direnv` is `"off"`, preflight attempts to load the cwd's direnv/devenv changes within `bash.direnvLoadTimeoutMs`, additionally bounded by a positive command timeout. Direnv-provided variables are merged below explicit caller `env`; safe variables removed by direnv are prepended as `unset -v ...`. ACP-terminal and PTY routes run the same preflight before their backend; the non-PTY executor runs it internally.
 
-Successful exports retain their loaded environment and `DIRENV_*` state per `.envrc` directory. Each call still runs `direnv export json` to check direnv's watched inputs and authorization state, but an unchanged environment avoids re-running `.envrc` and devenv setup. OMP returns the complete diff relative to its process environment. A change to that process environment, or to the nanosecond timestamp, size, or existence of the `.envrc` or any direnv-watched path (including direnv's allow/deny files), restarts the load from a clean baseline; so does a warm export that reports any change. This cache does not modify OMP's process environment.
+Successful exports retain their loaded environment and `DIRENV_*` state per `.envrc` directory. Each call still runs `direnv export json` to check direnv's watched inputs and authorization state, but an unchanged environment avoids re-running `.envrc` and devenv setup. OMS returns the complete diff relative to its process environment. A change to that process environment, or to the nanosecond timestamp, size, or existence of the `.envrc` or any direnv-watched path (including direnv's allow/deny files), restarts the load from a clean baseline; so does a warm export that reports any change. This cache does not modify OMS's process environment.
 
 If the selected shell includes `bash`, it attempts `getOrCreateSnapshot()`:
 
@@ -293,7 +293,7 @@ Built-in tool wrapping appends the model-facing recovery notice automatically, f
 
 This component is wired by `CommandController.handleBashCommand()` and fed from `AgentSession.executeBash()`.
 
-Interactive `!` calls request configured user-shell execution. zsh/fish commands can run on a headless PTY and replay ANSI output in the component; bash uses the snapshot/embedded-shell path. A simple successful `cd` command runs through the persistent shell and can relocate the OMP session cwd; this relocation is refused while an agent response is streaming. `!!` excludes the execution message from model context.
+Interactive `!` calls request configured user-shell execution. zsh/fish commands can run on a headless PTY and replay ANSI output in the component; bash uses the snapshot/embedded-shell path. A simple successful `cd` command runs through the persistent shell and can relocate the OMS session cwd; this relocation is refused while an agent response is streaming. `!!` excludes the execution message from model context.
 
 ## Mode-specific behavior differences
 

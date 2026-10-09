@@ -250,7 +250,7 @@ class tool {}
 		expect(plan.barrier?.reason).toBe("unsupported JavaScript statement");
 	});
 	it("rejects helper syntax that disables runtime instrumentation", async () => {
-		const plan = await projectJavaScriptShadowPlan('await tool.read({ path: "a.txt" });\n__omp_with_call_site__();');
+		const plan = await projectJavaScriptShadowPlan('await tool.read({ path: "a.txt" });\n__oms_with_call_site__();');
 		expect(plan.operations).toEqual([]);
 		expect(plan.barrier?.reason).toBe("JavaScript call-site helper present");
 
@@ -384,7 +384,7 @@ tool.read({ path: selected });
 			"JSON.stringify": true,
 			"Array.prototype.join": true,
 			"Object.prototype.toString": true,
-			__omp_call_tool__: true,
+			__oms_call_tool__: true,
 		};
 		const control = await projectJavaScriptShadowPlan('await tool.read({ path: "note.txt" })', {
 			snapshot: {},
@@ -392,12 +392,12 @@ tool.read({ path: selected });
 		});
 		expect(control.barrier).toBeUndefined();
 		expect(control.operations).toHaveLength(1);
-		// The prelude tool proxy resolves `__omp_call_tool__` per call, so a
+		// The prelude tool proxy resolves `__oms_call_tool__` per call, so a
 		// poisoned installation must refuse admission even though the
 		// syntactic `tool.read` match still looks intact.
 		const spoofed = await projectJavaScriptShadowPlan('await tool.read({ path: "note.txt" })', {
 			snapshot: {},
-			initialGlobals: { ...intact, __omp_call_tool__: false },
+			initialGlobals: { ...intact, __oms_call_tool__: false },
 		});
 		expect(spoofed.operations).toEqual([]);
 		expect(spoofed.barrier).toBeDefined();
@@ -409,7 +409,7 @@ tool.read({ path: selected });
 			"JSON.stringify": true,
 			"Array.prototype.join": true,
 			"Object.prototype.toString": true,
-			__omp_call_tool__: true,
+			__oms_call_tool__: true,
 		};
 		// Pristine realm: array templates, snapshot templates, and plus-concat
 		// all project from identical host/authoritative conversions.
@@ -457,7 +457,7 @@ tool.read({ path: selected });
 			"JSON.stringify": true,
 			"Array.prototype.join": true,
 			"Object.prototype.toString": true,
-			__omp_call_tool__: true,
+			__oms_call_tool__: true,
 		};
 		// Pristine realm: explicit transforms over any input project.
 		for (const code of [

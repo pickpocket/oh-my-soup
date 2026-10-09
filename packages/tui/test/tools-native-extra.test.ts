@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, spyOn } from "bun:test";
-import type { TspAgentProps, TspChecklistProps } from "@oh-my-pi/pi-wire";
+import type { TspAgentProps, TspChecklistProps } from "@oh-my-soup/pi-wire";
 import type { NativeChild, NativeNode } from "../src/native/node";
 import { setNativeRendering } from "../src/native/state";
 import type { AgentProgress, TaskToolDetails } from "../src/tools/task";
@@ -107,7 +107,7 @@ describe("native task", () => {
 		expect(view?.tool).toMatchObject({ title: "Task", target: "2 agents" });
 		const all = nodes(view?.body);
 		expect(all.some(n => n.k === "card")).toBe(false);
-		expect(view?.body?.[0]).toMatchObject({ k: "text", p: { role: "omp.tool.context" } });
+		expect(view?.body?.[0]).toMatchObject({ k: "text", p: { role: "oms.tool.context" } });
 		const agents = all.filter(n => n.k === "agent");
 		expect(agents.map(n => n.key)).toEqual(["Alpha", "Beta"]);
 		const alpha = agents[0]!.p as TspAgentProps;

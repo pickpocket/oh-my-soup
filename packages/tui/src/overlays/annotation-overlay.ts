@@ -16,7 +16,7 @@ import { wrapLiteralLine } from "../utils";
 import { appKey, editorKey } from "../chrome/keybinding-hints";
 import { formatKeyHint, formatKeyHints, type KeybindingsManager } from "../app-keybindings";
 import type { Keybinding } from "../keybindings";
-import { sanitizeText } from "@oh-my-pi/pi-utils";
+import { sanitizeText } from "@oh-my-soup/pi-utils";
 import { type Theme } from "../theme/theme";
 import type {
 	CodeReviewAnnotation,
@@ -155,7 +155,7 @@ function isTextSource(value: readonly ReviewDiffFile[] | TextReviewSource): valu
 	return !Array.isArray(value);
 }
 
-/** A fullscreen, annotated diff picker that only relies on public OMP APIs. */
+/** A fullscreen, annotated diff picker that only relies on public OMS APIs. */
 export class AnnotationOverlay implements Focusable {
 	focused = false;
 	#scrollView: ScrollView;
@@ -1275,7 +1275,7 @@ export class AnnotationOverlay implements Focusable {
 			selected: this.#focus === "diff" ? `l${this.#sourceIndex}` : null,
 			virtual: true,
 			empty: [span(this.#textSource ? "No text" : "No reviewable files", "dim")],
-			role: this.#textSource ? "omp.overlay.annotateText.lines" : "omp.overlay.codeReview.diff",
+			role: this.#textSource ? "oms.overlay.annotateText.lines" : "oms.overlay.codeReview.diff",
 			tone: this.#focus === "diff" ? "accent" : undefined,
 		});
 		// The header row ends in a clickable `esc` at the top right.
@@ -1297,7 +1297,7 @@ export class AnnotationOverlay implements Focusable {
 				}),
 				{
 					selected: this.#files.length > 0 ? `f${this.#fileIndex}` : null,
-					role: "omp.overlay.codeReview.files",
+					role: "oms.overlay.codeReview.files",
 					tone: this.#focus === "files" ? "accent" : undefined,
 				},
 			);
@@ -1321,7 +1321,7 @@ export class AnnotationOverlay implements Focusable {
 		this.#nativeSig = sig;
 		this.#nativeRootBody = body;
 		this.#nativeRoot = overlayCard(
-			this.#textSource ? "omp.overlay.annotateText" : "omp.overlay.codeReview",
+			this.#textSource ? "oms.overlay.annotateText" : "oms.overlay.codeReview",
 			this.#textSource ? TEXT_OVERLAY_TITLE : OVERLAY_TITLE,
 			children,
 		);
@@ -1389,7 +1389,7 @@ export class AnnotationOverlay implements Focusable {
 					label: noteSpans(label, sanitizeText(body)),
 					disabled: true,
 					tone: "warning",
-					role: "omp.overlay.codeReview.note",
+					role: "oms.overlay.codeReview.note",
 				}),
 			);
 		if (this.#textSource) {

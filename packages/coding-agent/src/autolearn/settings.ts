@@ -5,7 +5,7 @@
 import { register } from "../config/registry";
 
 // Auto-Learn (experimental): post-stop nudge to capture lessons to memory
-// and mint/enhance isolated managed skills under ~/.omp/agent/managed-skills.
+// and mint/enhance isolated managed skills under ~/.oms/agent/managed-skills.
 // Master flag is default-off → inert (read live at every stop); sub-flags gate behaviour.
 export const cfgAutolearnEnabled = register({
 	id: "autolearn.enabled",

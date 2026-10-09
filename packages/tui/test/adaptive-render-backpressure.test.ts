@@ -1,5 +1,5 @@
 /**
- * Regression for oh-my-pi#4145 (TUI busy loop during long-running eval).
+ * Regression for oh-my-soup#4145 (TUI busy loop during long-running eval).
  *
  * When a rendered frame exceeded the 33ms cadence budget, the previous
  * scheduler collapsed the cadence delay to zero and scheduled the next frame
@@ -18,7 +18,7 @@
  *    UI indefinitely.
  */
 import { describe, expect, it } from "bun:test";
-import { type Component, type RenderTimer, TUI } from "@oh-my-pi/pi-tui";
+import { type Component, type RenderTimer, TUI } from "@oh-my-soup/pi-tui";
 import { VirtualTerminal } from "./virtual-terminal";
 
 const MIN_RENDER_INTERVAL_MS = 1000 / 30;

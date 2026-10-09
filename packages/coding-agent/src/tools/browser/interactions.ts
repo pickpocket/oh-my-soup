@@ -1,6 +1,6 @@
 import * as path from "node:path";
-import { untilAborted } from "@oh-my-pi/pi-utils";
-import { ToolError } from "@oh-my-pi/pi-tui/tools/tool-errors";
+import { untilAborted } from "@oh-my-soup/pi-utils";
+import { ToolError } from "@oh-my-soup/pi-tui/tools/tool-errors";
 import type { ElementHandle, KeyInput, KeyPressOptions, MouseButton, Page } from "puppeteer-core";
 import { ToolAbortError, throwIfAborted } from "../tool-errors";
 import { splitKeyCombo, ternKey } from "./tern/keys";
@@ -37,7 +37,7 @@ export interface ScrollOptions {
 	selector?: string;
 }
 
-/** A browser element handle with omp's additional interaction methods. */
+/** A browser element handle with oms's additional interaction methods. */
 export type InteractionHandle = ElementHandle & {
 	dblclick(): Promise<void>;
 	check(): Promise<void>;
@@ -517,7 +517,7 @@ export async function highlightElement(
 	const duration = options.duration ?? 2_000;
 	if (!Number.isFinite(duration) || duration < 0)
 		throw new ToolError("highlight duration must be a non-negative number");
-	const id = `omp-highlight-${crypto.randomUUID()}`;
+	const id = `oms-highlight-${crypto.randomUUID()}`;
 	await untilAborted(signal, () =>
 		handle.evaluate((el, overlayId) => {
 			const element = el as unknown as PageElement;

@@ -1,4 +1,4 @@
-import type { MCPContent, MCPImageContent, MCPResourceContent, MCPTextContent } from "@oh-my-pi/pi-tui/tools/mcp";
+import type { MCPContent, MCPImageContent, MCPResourceContent, MCPTextContent } from "@oh-my-soup/pi-tui/tools/mcp";
 /**
  * MCP (Model Context Protocol) type definitions.
  *
@@ -76,14 +76,14 @@ interface MCPServerConfigBase {
 	 * ids instead of per-transport integers. See `RequestIdAllocator` in
 	 * `./request-id`.
 	 *
-	 * OMP-specific, so only the OMP-owned discovery providers parse it (native,
-	 * standalone `mcp.json`, OMP plugins). Providers that translate another
+	 * OMS-specific, so only the OMS-owned discovery providers parse it (native,
+	 * standalone `mcp.json`, OMS plugins). Providers that translate another
 	 * tool's config do not, since the key is not part of those formats.
 	 */
 	requestIdFormat?: MCPRequestIdFormat;
 	/**
 	 * Include server-provided instructions in the system prompt (default: true).
-	 * OMP-specific: only native config, standalone `mcp.json`, and OMP plugins
+	 * OMS-specific: only native config, standalone `mcp.json`, and OMS plugins
 	 * parse this option; providers for other tools' formats ignore it.
 	 */
 	instructions?: boolean;
@@ -145,7 +145,7 @@ export interface MCPSseServerConfig extends MCPServerConfigBase {
 export type MCPServerConfig = MCPStdioServerConfig | MCPHttpServerConfig | MCPSseServerConfig;
 
 export const MCP_CONFIG_SCHEMA_URL =
-	"https://raw.githubusercontent.com/can1357/oh-my-pi/main/packages/coding-agent/src/config/mcp-schema.json";
+	"https://raw.githubusercontent.com/pickpocket/oh-my-soup/main/packages/coding-agent/src/config/mcp-schema.json";
 
 /** Root mcp.json/.mcp.json file structure */
 export interface MCPConfigFile {

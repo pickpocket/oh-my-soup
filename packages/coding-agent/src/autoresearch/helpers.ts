@@ -1,5 +1,5 @@
-import * as vcs from "@oh-my-pi/pi-natives/vcs";
-import type { ASIData, ASIValue, NumericMetricMap } from "@oh-my-pi/pi-tui/tools/autoresearch";
+import * as vcs from "@oh-my-soup/pi-natives/vcs";
+import type { ASIData, ASIValue, NumericMetricMap } from "@oh-my-soup/pi-tui/tools/autoresearch";
 
 export const METRIC_LINE_PREFIX = "METRIC";
 export const ASI_LINE_PREFIX = "ASI";

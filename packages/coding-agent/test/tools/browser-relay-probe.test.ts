@@ -1,13 +1,13 @@
 import { afterEach, describe, expect, it } from "bun:test";
-import { VERSION } from "@oh-my-pi/pi-utils/dirs";
-import { findFreeCdpPort } from "@oh-my-pi/pi-coding-agent/tools/browser/attach";
-import { waitForRelayExtension } from "@oh-my-pi/pi-coding-agent/tools/browser/relay/probe";
-import { DISCARDED_TABS_PROTOCOL_VERSION } from "@oh-my-pi/pi-coding-agent/tools/browser/relay/protocol";
+import { VERSION } from "@oh-my-soup/pi-utils/dirs";
+import { findFreeCdpPort } from "@oh-my-soup/pi-coding-agent/tools/browser/attach";
+import { waitForRelayExtension } from "@oh-my-soup/pi-coding-agent/tools/browser/relay/probe";
+import { DISCARDED_TABS_PROTOCOL_VERSION } from "@oh-my-soup/pi-coding-agent/tools/browser/relay/protocol";
 import {
 	type RelayServer,
 	type RelayUnavailableInfo,
 	startRelayServer,
-} from "@oh-my-pi/pi-coding-agent/tools/browser/relay/server";
+} from "@oh-my-soup/pi-coding-agent/tools/browser/relay/server";
 
 const EXTENSION_HELLO = {
 	t: "hello",
@@ -156,7 +156,7 @@ describe("waitForRelayExtension", () => {
 		expect(await waitForRelayExtension(`http://127.0.0.1:${fake.port}`)).toBe("outdated-relay");
 	});
 
-	it("accepts a compatible relay from another OMP version", async () => {
+	it("accepts a compatible relay from another OMS version", async () => {
 		fake = Bun.serve({
 			hostname: "127.0.0.1",
 			port: 0,

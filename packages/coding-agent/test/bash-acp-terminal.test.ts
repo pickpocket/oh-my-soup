@@ -1,17 +1,17 @@
 import { afterAll, afterEach, describe, expect, it, mock, spyOn } from "bun:test";
 import * as fs from "node:fs";
 import * as os from "node:os";
-import { TempDir } from "@oh-my-pi/pi-utils";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import type { ClientBridge, ClientBridgeTerminalHandle } from "@oh-my-pi/pi-coding-agent/session/client-bridge";
-import type { ToolSession } from "@oh-my-pi/pi-coding-agent/tools";
-import { BashTool } from "@oh-my-pi/pi-coding-agent/tools/bash";
-import { encodeTerminalImage } from "@oh-my-pi/pi-coding-agent/utils/terminal-graphics";
+import { TempDir } from "@oh-my-soup/pi-utils";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import type { ClientBridge, ClientBridgeTerminalHandle } from "@oh-my-soup/pi-coding-agent/session/client-bridge";
+import type { ToolSession } from "@oh-my-soup/pi-coding-agent/tools";
+import { BashTool } from "@oh-my-soup/pi-coding-agent/tools/bash";
+import { encodeTerminalImage } from "@oh-my-soup/pi-coding-agent/utils/terminal-graphics";
 
 // `getShellConfig()` validates that `shellPath` exists, and `/bin/bash` does not
 // on Windows. The ACP route only forwards the path to the stubbed client
 // terminal, so an empty `bash` file stands in for the resolved shell everywhere.
-const stubShellDir = TempDir.createSync("@omp-acp-shell-");
+const stubShellDir = TempDir.createSync("@oms-acp-shell-");
 const STUB_BASH = stubShellDir.join(process.platform === "win32" ? "bash.exe" : "bash");
 fs.writeFileSync(STUB_BASH, "");
 afterAll(() => stubShellDir.removeSync());

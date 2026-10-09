@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "bun:test";
-import type { AnthropicSlowModeFailure, AnthropicSlowModeHooks, AnthropicSlowModeSignal, Model } from "@oh-my-pi/pi-ai";
+import type { AnthropicSlowModeFailure, AnthropicSlowModeHooks, AnthropicSlowModeSignal, Model } from "@oh-my-soup/pi-ai";
 import { Settings } from "../src/config/settings";
 import {
 	type AnthropicSlowModeController,

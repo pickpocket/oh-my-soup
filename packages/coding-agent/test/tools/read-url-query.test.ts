@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "bun:test";
 import * as os from "node:os";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { type InternalUrl, VaultProtocolHandler } from "@oh-my-pi/pi-coding-agent/internal-urls";
-import type { ToolSession } from "@oh-my-pi/pi-coding-agent/tools";
-import { ReadTool } from "@oh-my-pi/pi-coding-agent/tools/read";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { type InternalUrl, VaultProtocolHandler } from "@oh-my-soup/pi-coding-agent/internal-urls";
+import type { ToolSession } from "@oh-my-soup/pi-coding-agent/tools";
+import { ReadTool } from "@oh-my-soup/pi-coding-agent/tools/read";
 
 function createSession(): ToolSession {
 	return {

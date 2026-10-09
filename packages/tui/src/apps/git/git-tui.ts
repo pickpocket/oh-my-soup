@@ -1,5 +1,5 @@
 /**
- * `omp git` — fullscreen repository TUI.
+ * `oms git` — fullscreen repository TUI.
  *
  * Layout: header (file path, encoding, stage-file button, close), toolbar
  * (scope chip, file/diff toggle, hunk navigation, hunk/inline/split view
@@ -25,7 +25,7 @@
  * every file underneath it.
  */
 
-import type { TspSpan } from "@oh-my-pi/pi-wire";
+import type { TspSpan } from "@oh-my-soup/pi-wire";
 import { formatKeyHint, formatKeyHints, formatTooltipKey } from "../../app-keybindings";
 import { SplitPane } from "../../components/layout/split-pane";
 import { Stack } from "../../components/layout/stack";
@@ -94,7 +94,7 @@ type StatusTone = "success" | "warning" | "error" | "accent" | "dim";
 /** Columns below which the native layout stacks the changes under the diff. */
 const NARROW_COLS = 100;
 
-/** The views of the native segmented control, in omp's `1`–`4` order. */
+/** The views of the native segmented control, in oms's `1`–`4` order. */
 const VIEW_TABS: readonly { id: ViewMode; label: string }[] = [
 	{ id: "file", label: "File" },
 	{ id: "split", label: "Split" },
@@ -941,15 +941,15 @@ class GitTuiComponent implements Component {
 						keyed(
 							text([span(this.#status, this.#statusTone === "dim" ? "muted" : this.#statusTone)], {
 								truncate: "end",
-								role: "omp.app.status",
+								role: "oms.app.status",
 							}),
 							"status",
 						),
 					body,
 				]),
-				{ role: "omp.app.git.main" },
+				{ role: "oms.app.git.main" },
 			);
-			return node(narrow ? "col" : "row", { role: narrow ? "omp.app.git-narrow" : "omp.app.git" }, [
+			return node(narrow ? "col" : "row", { role: narrow ? "oms.app.git-narrow" : "oms.app.git" }, [
 				keyed(main, "main"),
 				keyed(side, "side"),
 			]);
@@ -999,14 +999,14 @@ class GitTuiComponent implements Component {
 			left.push(
 				text([span(file.path.slice(0, slash + 1), "dim"), span(file.path.slice(slash + 1), "strong")], {
 					truncate: "start",
-					role: "omp.app.git.path",
+					role: "oms.app.git.path",
 					title: file.origPath ? `${file.origPath} → ${file.path}` : file.path,
 				}),
 			);
 			if (doc) {
 				left.push(
 					text([span(`+${doc.additions}`, "ins num"), span(" "), span(`−${doc.deletions}`, "del num")], {
-						role: "omp.app.git.stat",
+						role: "oms.app.git.stat",
 					}),
 				);
 			}
@@ -1018,12 +1018,12 @@ class GitTuiComponent implements Component {
 						: { text: this.#model.headCommit?.shortSha ?? "commit", tone: "accent" as const };
 			left.push(node("badge", { text: scope.text, tone: scope.tone }));
 		} else {
-			left.push(text([span(this.#model.branch ?? "detached", "muted")], { role: "omp.app.git.path" }));
+			left.push(text([span(this.#model.branch ?? "detached", "muted")], { role: "oms.app.git.path" }));
 		}
 		const iconButton = (name: string, act: string, title: string, on?: boolean): NativeNode =>
 			node(
 				"icon",
-				{ name, title, aria: title, role: on ? "omp.app.ibtn.set" : "omp.app.ibtn", actions: { click: act } },
+				{ name, title, aria: title, role: on ? "oms.app.ibtn.set" : "oms.app.ibtn", actions: { click: act } },
 				undefined,
 				act,
 			);
@@ -1040,7 +1040,7 @@ class GitTuiComponent implements Component {
 				{
 					items: VIEW_TABS.map(tab => ({ id: tab.id, label: tab.label })),
 					active: this.#pane.mode,
-					role: "omp.app.seg",
+					role: "oms.app.seg",
 				},
 				undefined,
 				"views",
@@ -1076,10 +1076,10 @@ class GitTuiComponent implements Component {
 		return keyed(
 			row(
 				[
-					row(left, { gap: "sm", align: "center", role: "omp.app.git.where" }),
-					row(right, { gap: "sm", align: "center", role: "omp.app.git.tools" }),
+					row(left, { gap: "sm", align: "center", role: "oms.app.git.where" }),
+					row(right, { gap: "sm", align: "center", role: "oms.app.git.tools" }),
 				],
-				{ justify: "between", align: "center", role: "omp.app.git.bar" },
+				{ justify: "between", align: "center", role: "oms.app.git.bar" },
 			),
 			"bar",
 		);
@@ -1096,7 +1096,7 @@ class GitTuiComponent implements Component {
 					text: unifiedDiff(doc, this.#pane.mode === "file"),
 					path: doc.filePath,
 					mode: this.#pane.mode === "split" ? "split" : "unified",
-					role: "omp.app.git.diff",
+					role: "oms.app.git.diff",
 				},
 				undefined,
 				"diff",
@@ -1116,7 +1116,7 @@ class GitTuiComponent implements Component {
 							layout: "grid",
 						}),
 					],
-					{ gap: "sm", role: "omp.app.git.state" },
+					{ gap: "sm", role: "oms.app.git.state" },
 				),
 				"asset",
 			);
@@ -1126,7 +1126,7 @@ class GitTuiComponent implements Component {
 				row([node("spinner", { style: "dots" }), text([span(`Loading ${file?.path ?? "diff"}…`, "muted")])], {
 					gap: "sm",
 					align: "center",
-					role: "omp.app.git.state",
+					role: "oms.app.git.state",
 				}),
 				"loading",
 			);
@@ -1142,7 +1142,7 @@ class GitTuiComponent implements Component {
 						),
 					]),
 				],
-				{ gap: "xs", role: "omp.app.git.empty" },
+				{ gap: "xs", role: "oms.app.git.empty" },
 			),
 			"empty",
 		);
@@ -1235,7 +1235,7 @@ export async function showGitOverlay(ui: TUI, host: GitTuiHost): Promise<void> {
 	}
 }
 
-/** Run the fullscreen git TUI standalone (`omp git`) until the user quits. */
+/** Run the fullscreen git TUI standalone (`oms git`) until the user quits. */
 export async function runGitTui(host: GitTuiHost): Promise<void> {
 	const ui = new TUI(new ProcessTerminal());
 	ui.start();

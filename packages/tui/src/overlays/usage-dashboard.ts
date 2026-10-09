@@ -6,7 +6,7 @@
  * Enter flips into the classic full per-account report, scrollable in place.
  */
 import * as os from "node:os";
-import { resolveUsedFraction, type UsageLimit, type UsageReport } from "@oh-my-pi/pi-ai";
+import { resolveUsedFraction, type UsageLimit, type UsageReport } from "@oh-my-soup/pi-ai";
 import {
 	type Component,
 	matchesKey,
@@ -17,7 +17,7 @@ import {
 	visibleWidth,
 	wrapTextWithAnsi,
 } from "../index";
-import { colorLuma, formatDuration, hexToRgb, rgbToHex, sanitizeText } from "@oh-my-pi/pi-utils";
+import { colorLuma, formatDuration, hexToRgb, rgbToHex, sanitizeText } from "@oh-my-soup/pi-utils";
 import { formatProviderName } from "../chrome/format";
 import {
 	collapseSharedUsageReports,
@@ -40,7 +40,7 @@ import {
 import { OverlayPanel, PanelDivider, PanelRows } from "../chrome/overlay-box";
 import { formatKeyHint } from "../app-keybindings";
 import { editorKey, editorKeys } from "../chrome/keybinding-hints";
-import type { TspSpan, TspTableColumn, TspText, TspTone } from "@oh-my-pi/pi-wire";
+import type { TspSpan, TspTableColumn, TspText, TspTone } from "@oh-my-soup/pi-wire";
 import { col, elapsed, node, span, text } from "../native/describe";
 import { type DescribeContext, leafKey, type NativeChild, type NativeNode, type NativeUiEvent } from "../native/node";
 import { actionBar, actionButton } from "../native/overlay";
@@ -375,7 +375,7 @@ export function buildHeatmapLayout(points: DailyActivityPoint[], weeks: number, 
 const NATIVE_HEATMAP_WEEKS = 53;
 /** Span tokens for heatmap intensity levels 1..4 (the `table` fallback). */
 const HEAT_LEVEL_TOKENS = ["dim", "accent dim", "accent", "accent strong"];
-/** Heatmap row labels, Monday first like omp's grid: M/W/F only. */
+/** Heatmap row labels, Monday first like oms's grid: M/W/F only. */
 const HEATMAP_ROW_LABELS = ["M", "", "W", "", "F", "", ""];
 const WEEKDAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -541,7 +541,7 @@ interface CardRowLayout {
 
 export class UsageDashboardComponent implements Component {
 	/** The terminal draws the sheet: a large glass overlay titled Usage. */
-	readonly nativeOverlay = { role: "omp.overlay.usage", size: "lg", anchor: "center", head: "Usage" } as const;
+	readonly nativeOverlay = { role: "oms.overlay.usage", size: "lg", anchor: "center", head: "Usage" } as const;
 	#options: UsageDashboardOptions;
 	#reports: UsageReport[];
 	#cards: ProviderCard[];
@@ -1013,14 +1013,14 @@ export class UsageDashboardComponent implements Component {
 			),
 		];
 		if (this.#options.refresh) children.push(actionButton("Refresh", "refresh", { keys: "r" }));
-		return node("row", { role: "omp.usage.head", gap: "sm", align: "center" }, children, "head");
+		return node("row", { role: "oms.usage.head", gap: "sm", align: "center" }, children, "head");
 	}
 
 	#describeOverview(meter: boolean, chart: boolean): NativeChild[] {
 		const children: NativeChild[] = [];
 		if (this.#cards.length === 0) {
 			children.push(
-				node("text", { spans: [span("No usage data available.")], role: "omp.usage.untouched" }, undefined, "none"),
+				node("text", { spans: [span("No usage data available.")], role: "oms.usage.untouched" }, undefined, "none"),
 			);
 		} else {
 			// Unlimited providers keep a frame reading "No limits"; only untouched ones collapse.
@@ -1030,7 +1030,7 @@ export class UsageDashboardComponent implements Component {
 				children.push(
 					node(
 						"row",
-						{ wrap: true, gap: "md", role: "omp.usage.grid" },
+						{ wrap: true, gap: "md", role: "oms.usage.grid" },
 						active.map(entry => this.#describeCard(entry, meter)),
 						"providers",
 					),
@@ -1043,7 +1043,7 @@ export class UsageDashboardComponent implements Component {
 						{
 							spans: [span(`Untouched: ${idle.map(entry => entry.name).join(", ")}`)],
 							wrap: "word",
-							role: "omp.usage.untouched",
+							role: "oms.usage.untouched",
 						},
 						undefined,
 						"idle",
@@ -1066,7 +1066,7 @@ export class UsageDashboardComponent implements Component {
 		if (entry.accounts > 1) head.push(text([span(`${entry.accounts} accounts`, "muted")]));
 		head.push(node("spacer", { grow: 1 }), statusDot(cardStatus));
 		const children: NativeChild[] = [
-			node("row", { role: "omp.usage.provider.head", gap: "sm", align: "center" }, head, "title"),
+			node("row", { role: "oms.usage.provider.head", gap: "sm", align: "center" }, head, "title"),
 		];
 		for (const account of entry.daybreakAccounts ?? []) {
 			children.push(text([span(`Daybreak · ${sanitizeDisplayLine(account)}`, "success")], { truncate: "end" }));
@@ -1109,7 +1109,7 @@ export class UsageDashboardComponent implements Component {
 				const label: TspSpan[] = [span(sanitizeDisplayLine(window.label))];
 				if (window.windowTag) label.push(span(` ${sanitizeDisplayLine(window.windowTag)}`, "dim"));
 				const cells: NativeChild[] = [
-					text(label, { role: "omp.usage.label", truncate: "middle", title: sanitizeDisplayLine(window.label) }),
+					text(label, { role: "oms.usage.label", truncate: "middle", title: sanitizeDisplayLine(window.label) }),
 				];
 				if (window.fraction === undefined) {
 					cells.push(text([span(window.usedText ?? "No data", "muted")], { truncate: "end" }));
@@ -1118,21 +1118,21 @@ export class UsageDashboardComponent implements Component {
 						window.status === "exhausted" ? "error" : window.status === "warning" ? "warning" : undefined;
 					cells.push(
 						usageMeter(window.fraction, window.status, meter),
-						text([span(leftText(window.fraction), token)], { role: "omp.usage.pct" }),
+						text([span(leftText(window.fraction), token)], { role: "oms.usage.pct" }),
 					);
 					if (window.resetMs !== undefined) {
 						const reset = resetLabel(this.#nowMs, window.resetMs);
-						cells.push(text([span(reset.text, "dim")], { role: "omp.usage.reset", title: reset.title }));
+						cells.push(text([span(reset.text, "dim")], { role: "oms.usage.reset", title: reset.title }));
 					}
 				}
-				children.push(node("row", { role: "omp.usage.window", gap: "sm", align: "center" }, cells, `w${index}`));
+				children.push(node("row", { role: "oms.usage.window", gap: "sm", align: "center" }, cells, `w${index}`));
 			}
 			const hidden = entry.windows.length - CARD_MAX_WINDOWS;
 			if (hidden > 0) children.push(mutedText(`+${hidden} more`));
 		}
 		return node(
 			"card",
-			{ role: "omp.usage.provider", grow: 1, min: { w: `${CARD_MIN_WIDTH}ch` } },
+			{ role: "oms.usage.provider", grow: 1, min: { w: `${CARD_MIN_WIDTH}ch` } },
 			children,
 			entry.provider,
 		);
@@ -1158,7 +1158,7 @@ export class UsageDashboardComponent implements Component {
 					: `No activity in the last ${NATIVE_HEATMAP_WEEKS} weeks`;
 			children.push(chart ? this.#heatmapChart(layout, points, summary) : this.#heatmapTable(layout, summary));
 		}
-		return node("col", { role: "omp.usage.activity", gap: "sm" }, children, "activity");
+		return node("col", { role: "oms.usage.activity", gap: "sm" }, children, "activity");
 	}
 
 	/** The heatmap as a `chart`: 0–1 intensities, month columns, M/W/F rows, per-day tooltips. */
@@ -1326,7 +1326,7 @@ export class UsageDashboardComponent implements Component {
 			sections.push(
 				node(
 					"section",
-					{ head: [span(entry.name, "strong")], role: "omp.usage.report" },
+					{ head: [span(entry.name, "strong")], role: "oms.usage.report" },
 					[col(children, { gap: "sm" })],
 					entry.provider,
 				),

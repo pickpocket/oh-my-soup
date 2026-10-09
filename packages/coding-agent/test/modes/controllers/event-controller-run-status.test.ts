@@ -4,15 +4,15 @@
  * move the run between `blocked` and `working`.
  */
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "bun:test";
-import type { AgentTool } from "@oh-my-pi/pi-agent-core";
-import type { AssistantMessage } from "@oh-my-pi/pi-ai";
-import { resetSettingsForTest, Settings, settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { EventController } from "@oh-my-pi/pi-coding-agent/modes/controllers/event-controller";
-import type { AgentSessionEvent } from "@oh-my-pi/pi-coding-agent/session/agent-session";
-import { cfgToolsApproval } from "@oh-my-pi/pi-coding-agent/tools/settings";
-import * as runStatus from "@oh-my-pi/pi-coding-agent/utils/run-status";
-import { TERMINAL } from "@oh-my-pi/pi-tui";
-import { initTheme } from "@oh-my-pi/pi-tui/theme";
+import type { AgentTool } from "@oh-my-soup/pi-agent-core";
+import type { AssistantMessage } from "@oh-my-soup/pi-ai";
+import { resetSettingsForTest, Settings, settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { EventController } from "@oh-my-soup/pi-coding-agent/modes/controllers/event-controller";
+import type { AgentSessionEvent } from "@oh-my-soup/pi-coding-agent/session/agent-session";
+import { cfgToolsApproval } from "@oh-my-soup/pi-coding-agent/tools/settings";
+import * as runStatus from "@oh-my-soup/pi-coding-agent/utils/run-status";
+import { TERMINAL } from "@oh-my-soup/pi-tui";
+import { initTheme } from "@oh-my-soup/pi-tui/theme";
 import { createInteractiveModeContext } from "../../helpers/interactive-mode-context";
 
 beforeAll(() => {

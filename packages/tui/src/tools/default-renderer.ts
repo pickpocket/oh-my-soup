@@ -1,5 +1,5 @@
 import type { Component } from "../index";
-import { isRecord } from "@oh-my-pi/pi-utils";
+import { isRecord } from "@oh-my-soup/pi-utils";
 import type { NativeToolHead, NativeToolView, RenderResultOptions } from "./renderer";
 import { ansi } from "../native/describe";
 import { noteText } from "./native-view";

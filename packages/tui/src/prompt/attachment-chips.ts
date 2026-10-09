@@ -1,4 +1,4 @@
-import type { ImageContent } from "@oh-my-pi/pi-ai";
+import type { ImageContent } from "@oh-my-soup/pi-ai";
 import {
 	type Component,
 	getImageDimensions,
@@ -32,7 +32,7 @@ const RESET_FG = "\x1b[39m";
  *  probe cache): Kitty's `f=100` transmit accepts only PNG, so non-PNG attachments
  *  (pastes are usually re-encoded JPEG/WebP) convert before transmit — the same pipeline
  *  the transcript uses. `null` = conversion in flight or failed. */
-const kImagePng = Symbol("omp.imagePng");
+const kImagePng = Symbol("oms.imagePng");
 
 interface ImageContentWithPng extends ImageContent {
 	[kImagePng]?: ImageContent | null;
@@ -59,7 +59,7 @@ export class AttachmentChipsBand implements Component {
 		| undefined;
 
 	/**
-	 * A wrapping `row` of chip `card`s (`omp.composer.chip`) titled with the
+	 * A wrapping `row` of chip `card`s (`oms.composer.chip`) titled with the
 	 * buffer token (`<icon> #N`): images and videos show the image itself,
 	 * pastes their leading lines; the caption carries pixel size or line/char
 	 * count. Hidden while nothing is staged.
@@ -105,10 +105,10 @@ export class AttachmentChipsBand implements Component {
 			const children: NativeNode[] = [content];
 			if (caption) children.push(node("text", { spans: [span(caption, "dim")], wrap: "none" }));
 			cards.push(
-				node("card", { role: "omp.composer.chip", tone: "accent", head }, children, `${chip.kind}:${chip.n}`),
+				node("card", { role: "oms.composer.chip", tone: "accent", head }, children, `${chip.kind}:${chip.n}`),
 			);
 		}
-		const described = row(cards, { gap: "sm", wrap: true, role: "omp.composer.chips", hidden: cards.length === 0 });
+		const described = row(cards, { gap: "sm", wrap: true, role: "oms.composer.chips", hidden: cards.length === 0 });
 		this.#native = { chips, node: described, images };
 		return described;
 	}

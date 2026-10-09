@@ -2,9 +2,9 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { MCPManager } from "@oh-my-pi/pi-coding-agent/mcp/manager";
-import type { MCPServerConfig } from "@oh-my-pi/pi-coding-agent/mcp/types";
-import { removeSyncWithRetries } from "@oh-my-pi/pi-utils";
+import { MCPManager } from "@oh-my-soup/pi-coding-agent/mcp/manager";
+import type { MCPServerConfig } from "@oh-my-soup/pi-coding-agent/mcp/types";
+import { removeSyncWithRetries } from "@oh-my-soup/pi-utils";
 import { CUSTOM_NOTIFICATION_METHOD, CUSTOM_NOTIFICATION_PAYLOAD } from "./fixtures/notifications-mcp";
 
 const FIXTURE_PATH = path.join(import.meta.dir, "fixtures", "notifications-mcp.ts");
@@ -57,7 +57,7 @@ describe("MCPManager notification listeners", () => {
 	let workDir: string;
 
 	beforeEach(() => {
-		workDir = fs.mkdtempSync(path.join(os.tmpdir(), "omp-mcp-notif-"));
+		workDir = fs.mkdtempSync(path.join(os.tmpdir(), "oms-mcp-notif-"));
 	});
 
 	afterEach(() => {

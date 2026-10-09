@@ -8,9 +8,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { Api, Model, ModelSpec } from "@oh-my-pi/pi-ai/types";
-import * as buildModule from "@oh-my-pi/pi-catalog/build";
-import { resolveProviderModels } from "@oh-my-pi/pi-catalog/model-manager";
+import type { Api, Model, ModelSpec } from "@oh-my-soup/pi-ai/types";
+import * as buildModule from "@oh-my-soup/pi-catalog/build";
+import { resolveProviderModels } from "@oh-my-soup/pi-catalog/model-manager";
 import { removeWithRetries } from "../../utils/src/temp";
 
 const UNBUILDABLE = "unbuildable-model";

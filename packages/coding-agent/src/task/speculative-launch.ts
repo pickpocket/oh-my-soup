@@ -23,8 +23,8 @@ import {
 	type SpeculativeToolReference,
 	type ToolSpeculationAssessmentContext,
 	type ToolSpeculationStreamSession,
-} from "@oh-my-pi/pi-agent-core";
-import type { TaskParams } from "@oh-my-pi/pi-tui/tools/task";
+} from "@oh-my-soup/pi-agent-core";
+import type { TaskParams } from "@oh-my-soup/pi-tui/tools/task";
 import type { SpawnRun } from "./spawn-run";
 
 /**

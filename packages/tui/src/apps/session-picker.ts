@@ -1,4 +1,4 @@
-import { logger } from "@oh-my-pi/pi-utils";
+import { logger } from "@oh-my-soup/pi-utils";
 import {
 	SessionSelectorComponent,
 	type SessionSelectorEntry,
@@ -28,7 +28,7 @@ export interface SessionPickerOptions<T extends SessionSelectorEntry = SessionSe
 
 /**
  * Show the TUI session selector and return the selected session, or null if
- * cancelled. The default OMP picker supports deletion, transcript-history
+ * cancelled. The default OMS picker supports deletion, transcript-history
  * search, and an all-projects scope; foreign import pickers disable those
  * source-owned capabilities.
  */

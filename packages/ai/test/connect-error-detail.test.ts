@@ -3,7 +3,7 @@ import {
 	formatConnectEndStreamError,
 	hasRetryableCursorErrorDetail,
 	summarizeConnectErrorDetails,
-} from "@oh-my-pi/pi-ai/providers/connect-error-detail";
+} from "@oh-my-soup/pi-ai/providers/connect-error-detail";
 
 describe("formatConnectEndStreamError", () => {
 	it("keeps the legacy prefix for a plain code/message error", () => {

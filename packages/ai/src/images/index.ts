@@ -1,4 +1,4 @@
-import { type Api, IMAGE_GENERATION_APIS, type ImageGenerationApi, type Model } from "@oh-my-pi/pi-catalog/types";
+import { type Api, IMAGE_GENERATION_APIS, type ImageGenerationApi, type Model } from "@oh-my-soup/pi-catalog/types";
 import * as AIError from "../error";
 import { generateAntigravityImage } from "./google-antigravity";
 import { generateGoogleImage } from "./google-generative-ai";
@@ -14,7 +14,7 @@ export * from "./openai-images";
 export * from "./openrouter-images";
 export * from "./types";
 
-export type { ImageGenerationApi } from "@oh-my-pi/pi-catalog/types";
+export type { ImageGenerationApi } from "@oh-my-soup/pi-catalog/types";
 
 /** Whether a catalog API generates images through one of the pi-ai image clients. */
 export function isImageGenerationApi(api: Api): api is ImageGenerationApi {

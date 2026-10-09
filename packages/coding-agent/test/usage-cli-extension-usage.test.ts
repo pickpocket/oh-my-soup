@@ -1,19 +1,19 @@
 /**
  * Regression test for issue #13579.
  *
- * `omp usage` never loaded extensions, so a usage provider registered via
+ * `oms usage` never loaded extensions, so a usage provider registered via
  * `pi.registerProvider(name, { usage })` was never consulted and the account
  * landed in `accountsWithoutUsage` instead of producing a report.
  */
 import { Database } from "bun:sqlite";
 import * as path from "node:path";
 import { afterEach, beforeEach, expect, test, vi } from "bun:test";
-import { AuthStorage, SqliteAuthCredentialStore, type UsageReport } from "@oh-my-pi/pi-ai";
-import { runUsageCommand } from "@oh-my-pi/pi-coding-agent/cli/usage-cli";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import * as sdkModule from "@oh-my-pi/pi-coding-agent/sdk";
-import * as utils from "@oh-my-pi/pi-utils";
-import { getProjectAgentDir, TempDir } from "@oh-my-pi/pi-utils";
+import { AuthStorage, SqliteAuthCredentialStore, type UsageReport } from "@oh-my-soup/pi-ai";
+import { runUsageCommand } from "@oh-my-soup/pi-coding-agent/cli/usage-cli";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import * as sdkModule from "@oh-my-soup/pi-coding-agent/sdk";
+import * as utils from "@oh-my-soup/pi-utils";
+import { getProjectAgentDir, TempDir } from "@oh-my-soup/pi-utils";
 
 const EXTENSION_SOURCE = `export default function (pi) {
 	pi.registerProvider("ext-usage", {
@@ -75,7 +75,7 @@ async function usageJson(options: { extensions?: string[]; noExtensions?: boolea
 	return JSON.parse(chunks.join(""));
 }
 
-test("omp usage reports accounts through an extension-registered usage provider (issue #13579)", async () => {
+test("oms usage reports accounts through an extension-registered usage provider (issue #13579)", async () => {
 	const output = await usageJson({ extensions: [extPath], noExtensions: true });
 	expect(output.reports.map(report => [report.provider, report.limits.map(limit => limit.id)])).toEqual([
 		["ext-usage", ["credits"]],
@@ -83,7 +83,7 @@ test("omp usage reports accounts through an extension-registered usage provider 
 	expect(output.accountsWithoutUsage).toEqual([]);
 });
 
-test("omp usage fetches extension usage without discovering the extension's model catalog", async () => {
+test("oms usage fetches extension usage without discovering the extension's model catalog", async () => {
 	const marker = tmp.join("catalog-fetched");
 	const catalogExtPath = tmp.join("catalog-ext.ts");
 	await Bun.write(
@@ -113,7 +113,7 @@ test("omp usage fetches extension usage without discovering the extension's mode
 	expect(await Bun.file(marker).exists()).toBe(false);
 });
 
-test("omp usage skips ambient hook factories but retains configured usage providers", async () => {
+test("oms usage skips ambient hook factories but retains configured usage providers", async () => {
 	const marker = tmp.join("hook-loaded");
 	const hookPath = path.join(getProjectAgentDir(tmp.path()), "hooks", "pre", "usage-hook.ts");
 	await Bun.write(hookPath, `await Bun.write(${JSON.stringify(marker)}, "loaded"); export default function () {}`);
@@ -125,7 +125,7 @@ test("omp usage skips ambient hook factories but retains configured usage provid
 	expect(await Bun.file(marker).exists()).toBe(false);
 });
 
-test("omp usage combines broker reports with locally registered extension usage", async () => {
+test("oms usage combines broker reports with locally registered extension usage", async () => {
 	authStorage.close();
 	authStorage = new AuthStorage(new BrokerUsageStore(new Database(":memory:")));
 	await authStorage.credentials.reload();

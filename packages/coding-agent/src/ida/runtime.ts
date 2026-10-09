@@ -1,5 +1,5 @@
-import { $env, logger } from "@oh-my-pi/pi-utils";
-import { ToolError } from "@oh-my-pi/pi-tui/tools/tool-errors";
+import { $env, logger } from "@oh-my-soup/pi-utils";
+import { ToolError } from "@oh-my-soup/pi-tui/tools/tool-errors";
 import { $ } from "bun";
 import { Settings } from "../config/settings";
 import {

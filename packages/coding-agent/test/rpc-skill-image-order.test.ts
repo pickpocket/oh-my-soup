@@ -2,10 +2,10 @@ import { afterEach, beforeEach, expect, test } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { AgentMessage } from "@oh-my-pi/pi-agent-core";
-import { RpcClient } from "@oh-my-pi/pi-coding-agent/modes/rpc/rpc-client";
-import type { RpcPromptResultFrame } from "@oh-my-pi/pi-coding-agent/modes/rpc/rpc-types";
-import { removeWithRetries } from "@oh-my-pi/pi-utils";
+import type { AgentMessage } from "@oh-my-soup/pi-agent-core";
+import { RpcClient } from "@oh-my-soup/pi-coding-agent/modes/rpc/rpc-client";
+import type { RpcPromptResultFrame } from "@oh-my-soup/pi-coding-agent/modes/rpc/rpc-types";
+import { removeWithRetries } from "@oh-my-soup/pi-utils";
 import { ONE_PIXEL_PNG as PNG, waitForFile } from "./helpers/skill-image-vision";
 
 function submissionOrder(messages: AgentMessage[]): string[] {
@@ -24,7 +24,7 @@ let client: RpcClient;
 let directory: string;
 
 beforeEach(async () => {
-	directory = await fs.mkdtemp(path.join(os.tmpdir(), "omp-rpc-skill-image-"));
+	directory = await fs.mkdtemp(path.join(os.tmpdir(), "oms-rpc-skill-image-"));
 	client = new RpcClient({
 		command: [process.execPath, path.join(import.meta.dir, "fixtures", "skill-image-rpc-agent.ts")],
 		cwd: directory,

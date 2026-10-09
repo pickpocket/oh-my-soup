@@ -189,7 +189,7 @@ interface JudgePanelProps {
 }
 
 const UNAVAILABLE_HINT =
-	"Judging needs the omp host process: open the dashboard with omp stats and configure a judge model. Until then messages are classified by regex signals.";
+	"Judging needs the oms host process: open the dashboard with oms stats and configure a judge model. Until then messages are classified by regex signals.";
 
 function JudgePanel({ active, range, judgeAvailable, job, onRunStarted, onRunChanged }: JudgePanelProps) {
 	const [modalOpen, setModalOpen] = useState(false);

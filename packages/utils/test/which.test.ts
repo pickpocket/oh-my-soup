@@ -17,11 +17,11 @@ describe("$which", () => {
 	});
 
 	it.skipIf(process.platform === "win32")("uses the current process PATH for each cached lookup", () => {
-		const firstDir = fs.mkdtempSync(path.join(os.tmpdir(), "omp-which-first-"));
-		const secondDir = fs.mkdtempSync(path.join(os.tmpdir(), "omp-which-second-"));
+		const firstDir = fs.mkdtempSync(path.join(os.tmpdir(), "oms-which-first-"));
+		const secondDir = fs.mkdtempSync(path.join(os.tmpdir(), "oms-which-second-"));
 		tempDirs.push(firstDir, secondDir);
 
-		const command = `omp-which-${process.pid}`;
+		const command = `oms-which-${process.pid}`;
 		const firstExecutable = path.join(firstDir, command);
 		const secondExecutable = path.join(secondDir, command);
 		fs.writeFileSync(firstExecutable, "#!/bin/sh\n");
@@ -44,10 +44,10 @@ describe("$which", () => {
 	it.skipIf(process.platform === "win32")(
 		"resolves absolute PATH entries while ignoring relative ones when requireAbsolutePaths is true",
 		() => {
-			const testDir = fs.mkdtempSync(path.join(os.tmpdir(), "omp-which-abs-"));
+			const testDir = fs.mkdtempSync(path.join(os.tmpdir(), "oms-which-abs-"));
 			tempDirs.push(testDir);
 
-			const command = `omp-test-cmd-${process.pid}`;
+			const command = `oms-test-cmd-${process.pid}`;
 			const executable = path.join(testDir, command);
 			fs.writeFileSync(executable, "#!/bin/sh\n");
 			fs.chmodSync(executable, 0o755);
@@ -60,8 +60,8 @@ describe("$which", () => {
 	// captured the original function at import, such a stub would be bypassed and
 	// host binaries would leak into the result.
 	it("honours a Bun.which stub installed after import", () => {
-		const command = `omp-which-stubbed-${process.pid}`;
-		const stubbedPath = path.join(os.tmpdir(), "omp-which-stub", command);
+		const command = `oms-which-stubbed-${process.pid}`;
+		const stubbedPath = path.join(os.tmpdir(), "oms-which-stub", command);
 		const whichSpy = vi.spyOn(Bun, "which").mockReturnValue(stubbedPath);
 
 		expect($which(command, { cache: WhichCachePolicy.Bypass })).toBe(stubbedPath);

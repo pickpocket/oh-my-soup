@@ -2,14 +2,14 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "bun:test";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { handleRpcSteerSubagent } from "@oh-my-pi/pi-coding-agent/modes/rpc/rpc-mode";
-import { RpcSubagentRegistry } from "@oh-my-pi/pi-coding-agent/modes/rpc/rpc-subagents";
-import { AgentLifecycleManager } from "@oh-my-pi/pi-coding-agent/registry/agent-lifecycle";
-import { AgentRegistry } from "@oh-my-pi/pi-coding-agent/registry/agent-registry";
-import { PromptDroppedError } from "@oh-my-pi/pi-coding-agent/session/agent-session";
-import { type SubagentLifecyclePayload, TASK_SUBAGENT_LIFECYCLE_CHANNEL } from "@oh-my-pi/pi-coding-agent/task/types";
-import { EventBus } from "@oh-my-pi/pi-coding-agent/utils/event-bus";
-import { removeSyncWithRetries } from "@oh-my-pi/pi-utils";
+import { handleRpcSteerSubagent } from "@oh-my-soup/pi-coding-agent/modes/rpc/rpc-mode";
+import { RpcSubagentRegistry } from "@oh-my-soup/pi-coding-agent/modes/rpc/rpc-subagents";
+import { AgentLifecycleManager } from "@oh-my-soup/pi-coding-agent/registry/agent-lifecycle";
+import { AgentRegistry } from "@oh-my-soup/pi-coding-agent/registry/agent-registry";
+import { PromptDroppedError } from "@oh-my-soup/pi-coding-agent/session/agent-session";
+import { type SubagentLifecyclePayload, TASK_SUBAGENT_LIFECYCLE_CHANNEL } from "@oh-my-soup/pi-coding-agent/task/types";
+import { EventBus } from "@oh-my-soup/pi-coding-agent/utils/event-bus";
+import { removeSyncWithRetries } from "@oh-my-soup/pi-utils";
 
 interface SentMessage {
 	id: string;
@@ -35,7 +35,7 @@ describe("handleRpcSteerSubagent", () => {
 		AgentRegistry.resetGlobalForTests();
 		AgentLifecycleManager.resetGlobalForTests();
 		sent = [];
-		sessionDir = fs.mkdtempSync(path.join(os.tmpdir(), "omp-rpc-steer-"));
+		sessionDir = fs.mkdtempSync(path.join(os.tmpdir(), "oms-rpc-steer-"));
 		ownSessionFile = path.join(sessionDir, "SubagentA.jsonl");
 		eventBus = new EventBus();
 		registry = new RpcSubagentRegistry(eventBus, () => {});

@@ -5,8 +5,8 @@
  * facades in scope. Guest promise rejections are attributed to the run whose
  * guest file appears in their stack.
  */
-import { logger, postmortem } from "@oh-my-pi/pi-utils";
-import { ToolError } from "@oh-my-pi/pi-tui/tools/tool-errors";
+import { logger, postmortem } from "@oh-my-soup/pi-utils";
+import { ToolError } from "@oh-my-soup/pi-tui/tools/tool-errors";
 import { JsRuntime, type RuntimeHooks } from "../../eval/js/shared/runtime";
 import { callSessionTool } from "../../eval/js/tool-bridge";
 import type { ToolSession } from "../index";

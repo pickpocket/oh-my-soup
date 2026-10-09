@@ -1,14 +1,14 @@
 import { afterEach, describe, expect, test, vi } from "bun:test";
-import { getOAuthProviders } from "@oh-my-pi/pi-ai/registry/oauth";
-import { getProviderDefinition } from "@oh-my-pi/pi-ai/registry";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
-import { resolveModelCacheProviderId } from "@oh-my-pi/pi-catalog/provider-models";
-import { singularityApiDevModelManagerOptions } from "@oh-my-pi/pi-catalog/provider-models/openai-compat";
-import type { FetchImpl, ModelSpec } from "@oh-my-pi/pi-catalog/types";
+import { getOAuthProviders } from "@oh-my-soup/pi-ai/registry/oauth";
+import { getProviderDefinition } from "@oh-my-soup/pi-ai/registry";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
+import { resolveModelCacheProviderId } from "@oh-my-soup/pi-catalog/provider-models";
+import { singularityApiDevModelManagerOptions } from "@oh-my-soup/pi-catalog/provider-models/openai-compat";
+import type { FetchImpl, ModelSpec } from "@oh-my-soup/pi-catalog/types";
 import {
 	SINGULARITYAPI_DEV_API_BASE_URL,
 	normalizeSingularityApiBaseUrl,
-} from "@oh-my-pi/pi-catalog/wire/singularityapi";
+} from "@oh-my-soup/pi-catalog/wire/singularityapi";
 
 afterEach(() => {
 	vi.restoreAllMocks();

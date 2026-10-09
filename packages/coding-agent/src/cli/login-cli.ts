@@ -1,5 +1,5 @@
 /**
- * `omp login [provider]` — the terminal counterpart of the in-session `/login`.
+ * `oms login [provider]` — the terminal counterpart of the in-session `/login`.
  *
  * Authenticates against the same credential store sessions read (local
  * `agent.db`, or the configured auth broker), including OAuth providers
@@ -7,9 +7,9 @@
  * the next session sees the models the credential unlocked.
  */
 import * as readline from "node:readline";
-import { getOAuthProviders } from "@oh-my-pi/pi-ai";
-import { APP_NAME, getAgentDbPath, getProjectDir } from "@oh-my-pi/pi-utils";
-import chalk from "@oh-my-pi/pi-utils/chalk";
+import { getOAuthProviders } from "@oh-my-soup/pi-ai";
+import { APP_NAME, getAgentDbPath, getProjectDir } from "@oh-my-soup/pi-utils";
+import chalk from "@oh-my-soup/pi-utils/chalk";
 import { ModelRegistry } from "../config/model-registry";
 import { Settings } from "../config/settings";
 import { discoverAuthStorage, loadCliExtensionProviders } from "../sdk";

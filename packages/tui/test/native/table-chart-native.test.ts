@@ -1,9 +1,9 @@
 import { afterEach, beforeAll, describe, expect, it } from "bun:test";
-import type { AssistantMessage } from "@oh-my-pi/pi-ai";
-import { AssistantMessageComponent } from "@oh-my-pi/pi-tui/chat/assistant-message";
-import { setTableCharts } from "@oh-my-pi/pi-tui/chat/table-chart";
-import { setNativeRendering } from "@oh-my-pi/pi-tui/native/state";
-import { initTheme, setTheme, theme } from "@oh-my-pi/pi-tui/theme";
+import type { AssistantMessage } from "@oh-my-soup/pi-ai";
+import { AssistantMessageComponent } from "@oh-my-soup/pi-tui/chat/assistant-message";
+import { setTableCharts } from "@oh-my-soup/pi-tui/chat/table-chart";
+import { setNativeRendering } from "@oh-my-soup/pi-tui/native/state";
+import { initTheme, setTheme, theme } from "@oh-my-soup/pi-tui/theme";
 import { TspHarness } from "./tsp-harness";
 
 const ANSWER = `Where the time goes:

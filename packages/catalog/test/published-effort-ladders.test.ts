@@ -9,13 +9,13 @@
  * complementary case: an unrecognized id with a provider-wide class default.
  */
 import { expect, test } from "bun:test";
-import { hasModelScopedEffortLadder, resolveModelPolicy } from "@oh-my-pi/pi-catalog/compat/resolve";
-import { Effort } from "@oh-my-pi/pi-catalog/effort";
+import { hasModelScopedEffortLadder, resolveModelPolicy } from "@oh-my-soup/pi-catalog/compat/resolve";
+import { Effort } from "@oh-my-soup/pi-catalog/effort";
 import {
 	moonshotModelManagerOptions,
 	novitaModelManagerOptions,
-} from "@oh-my-pi/pi-catalog/provider-models/openai-compat";
-import type { FetchImpl, ModelSpec } from "@oh-my-pi/pi-catalog/types";
+} from "@oh-my-soup/pi-catalog/provider-models/openai-compat";
+import type { FetchImpl, ModelSpec } from "@oh-my-soup/pi-catalog/types";
 
 const SHARED_CATALOG_URL = "https://catalog.stencil.so/models.json.zstd";
 const MOONSHOT_BASE_URL = "https://api.moonshot.ai/v1";

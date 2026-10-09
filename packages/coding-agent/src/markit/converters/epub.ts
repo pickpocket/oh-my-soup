@@ -1,9 +1,9 @@
 // Adapted from markit-ai (MIT). See ../NOTICE.
 
-import { XMLParser } from "@oh-my-pi/pi-utils/xml";
+import { XMLParser } from "@oh-my-soup/pi-utils/xml";
 import { createTurndown, normalizeTablesHtml } from "../../utils/turndown";
 import type { ConversionResult, Converter, StreamInfo } from "../types";
-import { ZipPackage } from "@oh-my-pi/pi-utils/ar";
+import { ZipPackage } from "@oh-my-soup/pi-utils/ar";
 
 const EXTENSIONS = [".epub"];
 const MIMETYPES = ["application/epub", "application/epub+zip", "application/x-epub+zip"];

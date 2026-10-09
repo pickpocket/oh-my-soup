@@ -2,14 +2,14 @@ import { afterEach, describe, expect, it, vi } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { AgentLifecycleManager } from "@oh-my-pi/pi-coding-agent/registry/agent-lifecycle";
-import { AgentRegistry } from "@oh-my-pi/pi-coding-agent/registry/agent-registry";
-import type { AgentSession } from "@oh-my-pi/pi-coding-agent/session/agent-session";
-import * as executorModule from "@oh-my-pi/pi-coding-agent/task/executor";
-import { runIsolatedSubprocess } from "@oh-my-pi/pi-coding-agent/task/isolation-runner";
-import * as worktreeModule from "@oh-my-pi/pi-coding-agent/task/worktree";
-import * as natives from "@oh-my-pi/pi-natives";
-import type { SingleResult } from "@oh-my-pi/pi-tui/tools/task";
+import { AgentLifecycleManager } from "@oh-my-soup/pi-coding-agent/registry/agent-lifecycle";
+import { AgentRegistry } from "@oh-my-soup/pi-coding-agent/registry/agent-registry";
+import type { AgentSession } from "@oh-my-soup/pi-coding-agent/session/agent-session";
+import * as executorModule from "@oh-my-soup/pi-coding-agent/task/executor";
+import { runIsolatedSubprocess } from "@oh-my-soup/pi-coding-agent/task/isolation-runner";
+import * as worktreeModule from "@oh-my-soup/pi-coding-agent/task/worktree";
+import * as natives from "@oh-my-soup/pi-natives";
+import type { SingleResult } from "@oh-my-soup/pi-tui/tools/task";
 
 const tempRoots: string[] = [];
 
@@ -42,7 +42,7 @@ function result(id: string): SingleResult {
  * returns how many times a task branch was committed.
  */
 async function commitsAcrossRelease(id: string, runEndPatch: string, releasePatch: string): Promise<number> {
-	const artifactsDir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-isolation-release-"));
+	const artifactsDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-isolation-release-"));
 	tempRoots.push(artifactsDir);
 	const baseline = {
 		root: { repoRoot: "/repo", headCommit: "base", staged: "", unstaged: "", untracked: [], untrackedPatch: "" },
@@ -58,7 +58,7 @@ async function commitsAcrossRelease(id: string, runEndPatch: string, releasePatc
 	vi.spyOn(worktreeModule, "cleanupIsolation").mockResolvedValue();
 	vi.spyOn(worktreeModule, "captureDeltaPatch").mockResolvedValue({ rootPatch: releasePatch, nestedPatches: [] });
 	const commitSpy = vi.spyOn(worktreeModule, "commitToBranch").mockResolvedValue({
-		branchName: `omp/task/${id}`,
+		branchName: `oms/task/${id}`,
 		baseSha: "base",
 		rootPatch: runEndPatch,
 		nestedPatches: [],

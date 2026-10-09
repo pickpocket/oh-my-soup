@@ -1,12 +1,12 @@
 import { beforeAll, describe, expect, it } from "bun:test";
-import type { UsageReport } from "@oh-my-pi/pi-ai";
-import type { NativeChild, NativeNode } from "@oh-my-pi/pi-tui/native/node";
-import { SessionInfoOverlay } from "@oh-my-pi/pi-tui/overlays/session-info-overlay";
-import { UsageDashboardComponent } from "@oh-my-pi/pi-tui/overlays/usage-dashboard";
-import { createUsageRowBlock } from "@oh-my-pi/pi-tui/overlays/usage-row";
-import { computeContextBreakdown, ContextUsageView } from "@oh-my-pi/pi-tui/status-line/context-usage";
-import { DEFAULT_COMPACTION_SETTINGS } from "@oh-my-pi/pi-agent-core/compaction";
-import { initTheme, theme } from "@oh-my-pi/pi-tui/theme";
+import type { UsageReport } from "@oh-my-soup/pi-ai";
+import type { NativeChild, NativeNode } from "@oh-my-soup/pi-tui/native/node";
+import { SessionInfoOverlay } from "@oh-my-soup/pi-tui/overlays/session-info-overlay";
+import { UsageDashboardComponent } from "@oh-my-soup/pi-tui/overlays/usage-dashboard";
+import { createUsageRowBlock } from "@oh-my-soup/pi-tui/overlays/usage-row";
+import { computeContextBreakdown, ContextUsageView } from "@oh-my-soup/pi-tui/status-line/context-usage";
+import { DEFAULT_COMPACTION_SETTINGS } from "@oh-my-soup/pi-agent-core/compaction";
+import { initTheme, theme } from "@oh-my-soup/pi-tui/theme";
 
 const cx = { cols: 100, reduceMotion: false, dark: true, supports: () => true, feature: () => true };
 /** An older terminal without the data-first kinds. */
@@ -161,7 +161,7 @@ describe("SessionInfoOverlay.describe", () => {
 		const overlay = new SessionInfoOverlay({ terminal: { rows: 20 } }, info, () => {});
 		const root = overlay.describe(cx);
 		const kvs = findAll(root, n => n.k === "kv").map(n => n.p);
-		const copies = findAll(root, n => n.p?.role === "omp.info.copy");
+		const copies = findAll(root, n => n.p?.role === "oms.info.copy");
 		expect(copies.map(n => n.p?.title)).toEqual(["Copy file path"]);
 		expect(JSON.stringify(copies[0])).toContain("/tmp/s.jsonl");
 		expect(kvs).toEqual([
@@ -226,7 +226,7 @@ describe("ContextUsageView.describe", () => {
 	it("keeps the glyph grid on terminals without `meter`", () => {
 		const described = new ContextUsageView(breakdown, theme).describe(plainCx);
 		expect(findAll(described, n => n.k === "meter")).toEqual([]);
-		expect(findAll(described, n => n.p?.role === "omp.context.usage")).toHaveLength(1);
+		expect(findAll(described, n => n.p?.role === "oms.context.usage")).toHaveLength(1);
 	});
 });
 

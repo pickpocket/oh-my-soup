@@ -1,5 +1,5 @@
-import { APP_NAME } from "@oh-my-pi/pi-utils/dirs";
-import type { TspSpan } from "@oh-my-pi/pi-wire";
+import { APP_NAME } from "@oh-my-soup/pi-utils/dirs";
+import type { TspSpan } from "@oh-my-soup/pi-wire";
 import { formatDoubleTap, formatKeyHint, formatKeyHints, type KeyName } from "../app-keybindings";
 import { editorKey } from "../chrome/keybinding-hints";
 import { getKeybindings, type Keybinding } from "../keybindings";
@@ -190,7 +190,7 @@ export function renderWelcomeTip(tip: string, width: number, phase = 0): string[
 
 /**
  * The session's welcome banner. In a terminal: the gradient logo beside the
- * `omp` wordmark with the version under it (the logo alone when the lockup does
+ * `oms` wordmark with the version under it (the logo alone when the lockup does
  * not fit) and the tip of the session (dropped below {@link TIP_MIN_COLUMNS}
  * columns). Natively: a card with the same logo, wordmark, version and tip
  * ({@link WelcomeComponent.describe}).
@@ -230,8 +230,8 @@ export class WelcomeComponent implements Component {
 	}
 
 	/**
-	 * A `card` (`omp.welcome`) mirroring the terminal banner: the lockup
-	 * (`omp.welcome.lockup`: the terminal's builtin `omp` mark, which it animates,
+	 * A `card` (`oms.welcome`) mirroring the terminal banner: the lockup
+	 * (`oms.welcome.lockup`: the terminal's builtin `oms` mark, which it animates,
 	 * beside the wordmark with the version under it) and the tip of the session.
 	 * Roles carry the look (gradient logo, type scale); a "[NEW]" tip
 	 * carries a terminal-clocked shimmering tag.
@@ -248,10 +248,10 @@ export class WelcomeComponent implements Component {
 					node(
 						"image",
 						{
-							builtin: "omp",
+							builtin: "oms",
 							alt: APP_NAME,
 							w: 128,
-							role: "omp.welcome.logo",
+							role: "oms.welcome.logo",
 						},
 						undefined,
 						"logo",
@@ -259,15 +259,15 @@ export class WelcomeComponent implements Component {
 					keyed(
 						col(
 							[
-								art([span(APP_NAME, "strong")], "omp.welcome.wordmark"),
-								art([span(`v${this.version}`, "dim mono")], "omp.welcome.version"),
+								art([span(APP_NAME, "strong")], "oms.welcome.wordmark"),
+								art([span(`v${this.version}`, "dim mono")], "oms.welcome.version"),
 							],
-							{ role: "omp.welcome.mark" },
+							{ role: "oms.welcome.mark" },
 						),
 						"mark",
 					),
 				],
-				{ align: "center", gap: "md", role: "omp.welcome.lockup" },
+				{ align: "center", gap: "md", role: "oms.welcome.lockup" },
 			),
 			"lockup",
 		);
@@ -276,14 +276,14 @@ export class WelcomeComponent implements Component {
 			const isNew = NEW_TIP_MARKER.test(tip);
 			const tipText = compactText(tipSpans(expandTipKeys(isNew ? tip.replace(NEW_TIP_MARKER, "") : tip)));
 			const tipRow: NativeChild[] = [
-				node("icon", { name: "lightbulb", role: "omp.welcome.tip-icon" }),
-				text(tipText, { wrap: "word", role: "omp.welcome.tip-text" }),
+				node("icon", { name: "lightbulb", role: "oms.welcome.tip-icon" }),
+				text(tipText, { wrap: "word", role: "oms.welcome.tip-text" }),
 			];
-			if (isNew) tipRow.push(node("shimmer", { text: "New", role: "omp.welcome.new" }));
-			body.push(node("row", { gap: "sm", align: "start", role: "omp.welcome.tip" }, tipRow, "tip"));
+			if (isNew) tipRow.push(node("shimmer", { text: "New", role: "oms.welcome.new" }));
+			body.push(node("row", { gap: "sm", align: "start", role: "oms.welcome.tip" }, tipRow, "tip"));
 		}
 		// No head row or chevron: the card is the hero; the version sits under the wordmark.
-		const described = card({ role: "omp.welcome" }, body);
+		const described = card({ role: "oms.welcome" }, body);
 		this.#native = { tip, node: described };
 		return described;
 	}
@@ -415,7 +415,7 @@ export const PI_LOGO = ["████████████", "   ██  █�
 const LOGO_WIDTH = Math.max(...PI_LOGO.map(row => row.length));
 
 /**
- * The `omp` wordmark in half-blocks, set beside {@link PI_LOGO} from its second
+ * The `oms` wordmark in half-blocks, set beside {@link PI_LOGO} from its second
  * row: the `p` descends into the fourth, the version takes the fifth.
  */
 const WORDMARK = ["▄▀▀▄ █▀▄▀▄ █▀▀▄", "▀▄▄▀ █ █ █ █▄▄▀", "           █"];
@@ -456,7 +456,7 @@ export function logoNode(lines: readonly string[], shimmer: boolean): NativeNode
 				wrap: "none",
 			}),
 		),
-		{ align: "center", role: "omp.setup.logo" },
+		{ align: "center", role: "oms.setup.logo" },
 	);
 }
 

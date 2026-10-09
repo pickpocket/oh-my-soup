@@ -2,10 +2,10 @@ import * as os from "node:os";
 import * as path from "node:path";
 import * as url from "node:url";
 import { afterEach, describe, expect, it } from "bun:test";
-import { TERMINAL, setTerminalHyperlinks } from "@oh-my-pi/pi-tui";
-import { applyHyperlinkSetting } from "@oh-my-pi/pi-tui/render/hyperlink";
-import * as themeModule from "@oh-my-pi/pi-tui/theme";
-import { readToolRenderer } from "@oh-my-pi/pi-tui/tools/read";
+import { TERMINAL, setTerminalHyperlinks } from "@oh-my-soup/pi-tui";
+import { applyHyperlinkSetting } from "@oh-my-soup/pi-tui/render/hyperlink";
+import * as themeModule from "@oh-my-soup/pi-tui/theme";
+import { readToolRenderer } from "@oh-my-soup/pi-tui/tools/read";
 
 const ORIGINAL_HYPERLINKS = TERMINAL.hyperlinks;
 

@@ -1,4 +1,4 @@
-import type { Usage } from "@oh-my-pi/pi-catalog/types";
+import type { Usage } from "@oh-my-soup/pi-catalog/types";
 
 export type VideoResolution = "360p" | "480p" | "720p" | "768p" | "1080p" | "1K" | "2K" | "4K";
 export type VideoAspectRatio = "16:9" | "9:16" | "1:1" | "4:3" | "3:4" | "3:2" | "2:3" | "21:9" | "9:21";

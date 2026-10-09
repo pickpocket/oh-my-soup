@@ -40,7 +40,7 @@ Current behavior is implemented in
   also fail the helper's eligibility check and use abort/retry when bounded
   detection is supplied.
 
-Raw removed content is included in audit events only when `OMP_HARMONY_DEBUG=1`;
+Raw removed content is included in audit events only when `OMS_HARMONY_DEBUG=1`;
 normal audit events keep the hash and a redacted preview.
 
 The corpus tables below describe the historical input formats present in that
@@ -91,7 +91,7 @@ non-Latin token through the next clean structural boundary is corruption.
 
 ## 2. Observed statistics & failure modes
 
-Source: `~/.omp/stats.db` (`ss_tool_calls`, `ss_assistant_msgs`), through
+Source: `~/.oms/stats.db` (`ss_tool_calls`, `ss_assistant_msgs`), through
 2026-05-10. 1.05M tool calls scanned.
 
 ### 2.1 Rate

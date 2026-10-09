@@ -1,10 +1,10 @@
 import { beforeAll, describe, expect, it } from "bun:test";
-import type { TspPrefsProps } from "@oh-my-pi/pi-wire";
-import type { DescribeContext, NativeNode, NativeUiEvent } from "@oh-my-pi/pi-tui/native/node";
-import type { PluginSettingsHost } from "@oh-my-pi/pi-tui/overlays/plugin-settings";
-import type { SettingsDisplayEntry, SettingsHost } from "@oh-my-pi/pi-tui/overlays/settings-defs";
-import { SettingsSelectorComponent } from "@oh-my-pi/pi-tui/overlays/settings-selector";
-import { getThemeByName, setThemeInstance } from "@oh-my-pi/pi-tui/theme";
+import type { TspPrefsProps } from "@oh-my-soup/pi-wire";
+import type { DescribeContext, NativeNode, NativeUiEvent } from "@oh-my-soup/pi-tui/native/node";
+import type { PluginSettingsHost } from "@oh-my-soup/pi-tui/overlays/plugin-settings";
+import type { SettingsDisplayEntry, SettingsHost } from "@oh-my-soup/pi-tui/overlays/settings-defs";
+import { SettingsSelectorComponent } from "@oh-my-soup/pi-tui/overlays/settings-selector";
+import { getThemeByName, setThemeInstance } from "@oh-my-soup/pi-tui/theme";
 
 const ENTER = "\n";
 const DOWN = "\x1b[B";
@@ -185,11 +185,11 @@ describe("settings as a native prefs page", () => {
 	it("puts the status-line preview after its section on Appearance only", () => {
 		const { selector } = harness();
 		const roles = (n: NativeNode) => (n.c ?? []).map(c => ("k" in c && c.p && "role" in c.p ? c.p.role : undefined));
-		expect(roles(prefs(selector).node)).toContain("omp.prefs.preview.status");
+		expect(roles(prefs(selector).node)).toContain("oms.prefs.preview.status");
 		send(selector, { type: "action", key: "", act: "page", value: "shell", mods: [] });
 		const shell = prefs(selector);
 		expect(shell.props.page).toBe("shell");
-		expect(roles(shell.node)).not.toContain("omp.prefs.preview.status");
+		expect(roles(shell.node)).not.toContain("oms.prefs.preview.status");
 	});
 
 	it("maps number-like choices to a stepper and sets the chosen step like the submenu", () => {

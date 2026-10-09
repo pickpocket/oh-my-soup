@@ -1,6 +1,6 @@
 # Mnemopi memory backend
 
-omp can use `@oh-my-pi/pi-mnemopi` as a local long-term memory backend.
+oms can use `@oh-my-soup/pi-mnemopi` as a local long-term memory backend.
 
 Set:
 
@@ -80,7 +80,7 @@ Under `global` and `per-project-tagged`, the `retain` and `learn` tools also acc
 
 Non-global modes also recall legacy sibling banks whose working-memory rows all carry the current absolute cwd in `metadata.cwd`; mixed-cwd, empty, corrupt, or unreadable banks are excluded. Startup probes at most 64 additional bank directories. New writes still use the current project bank.
 
-The combined project-plus-global behavior lives in the wrapper. The `@oh-my-pi/pi-mnemopi` package itself still exposes banks and constructor options directly, including `bank` for selecting a bank name. Project-local banks other than the shared bank are stored as sibling bank databases managed by Mnemopi's `BankManager`.
+The combined project-plus-global behavior lives in the wrapper. The `@oh-my-soup/pi-mnemopi` package itself still exposes banks and constructor options directly, including `bank` for selecting a bank name. Project-local banks other than the shared bank are stored as sibling bank databases managed by Mnemopi's `BankManager`.
 
 ## Recall previews and full-row reads
 

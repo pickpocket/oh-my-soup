@@ -1,10 +1,10 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { detectMacOSAppearance, MacAppearanceObserver } from "@oh-my-pi/pi-natives";
+import { detectMacOSAppearance, MacAppearanceObserver } from "@oh-my-soup/pi-natives";
 import type { Terminal, TerminalAppearance } from "../terminal";
-import { colorLuma } from "@oh-my-pi/pi-utils/color";
-import { getCustomThemesDir } from "@oh-my-pi/pi-utils/dirs";
-import * as logger from "@oh-my-pi/pi-utils/logger";
+import { colorLuma } from "@oh-my-soup/pi-utils/color";
+import { getCustomThemesDir } from "@oh-my-soup/pi-utils/dirs";
+import * as logger from "@oh-my-soup/pi-utils/logger";
 import { setActiveSymbolTheme } from "./active-symbols";
 import { ansi256ToHex, resolveThemeColors, resolveVarRefs } from "./color";
 import {
@@ -811,7 +811,7 @@ export async function getResolvedThemeColors(themeName?: string): Promise<Record
 /** One appearance variant of {@link NativeThemePalette}: token name → `#rrggbb`. */
 export type NativeThemeVariant = Record<string, string>;
 
-/** omp's resolved theme for a Tern Surface Protocol terminal (the `t` verb body minus `sf`). */
+/** oms's resolved theme for a Tern Surface Protocol terminal (the `t` verb body minus `sf`). */
 export interface NativeThemePalette {
 	dark?: NativeThemeVariant;
 	light?: NativeThemeVariant;
@@ -847,7 +847,7 @@ function nativeThemeVariant(name: string): { light: boolean; colors: NativeTheme
 }
 
 /**
- * omp's theme for a native surface: with auto theme, the configured dark and
+ * oms's theme for a native surface: with auto theme, the configured dark and
  * light themes; otherwise (or while the theme selector previews one) the
  * active theme under its own appearance only. Themes without a loadable
  * definition (in-memory instances) contribute nothing.

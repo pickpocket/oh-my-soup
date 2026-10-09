@@ -1,19 +1,19 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import * as os from "node:os";
 import * as path from "node:path";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
-import { resetSettingsForTest, Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { resolveLocalUrlToPath } from "@oh-my-pi/pi-coding-agent/internal-urls";
-import { getSettingsForTab } from "@oh-my-pi/pi-tui/overlays/settings-defs";
-import { createSettingsHost } from "@oh-my-pi/pi-coding-agent/config/settings-ui";
-import { autosaveApprovedPlan, resolvePlanAutosaveDir } from "@oh-my-pi/pi-coding-agent/plan-mode/plan-autosave";
-import type { PlanModeState } from "@oh-my-pi/pi-coding-agent/plan-mode/state";
-import type { PlanYolo } from "@oh-my-pi/pi-coding-agent/session/agent-session-types";
-import { PrewalkCoordinator, type PrewalkCoordinatorHost } from "@oh-my-pi/pi-coding-agent/session/prewalk";
-import type { SessionManager } from "@oh-my-pi/pi-coding-agent/session/session-manager";
-import { TempDir } from "@oh-my-pi/pi-utils";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
+import { resetSettingsForTest, Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { resolveLocalUrlToPath } from "@oh-my-soup/pi-coding-agent/internal-urls";
+import { getSettingsForTab } from "@oh-my-soup/pi-tui/overlays/settings-defs";
+import { createSettingsHost } from "@oh-my-soup/pi-coding-agent/config/settings-ui";
+import { autosaveApprovedPlan, resolvePlanAutosaveDir } from "@oh-my-soup/pi-coding-agent/plan-mode/plan-autosave";
+import type { PlanModeState } from "@oh-my-soup/pi-coding-agent/plan-mode/state";
+import type { PlanYolo } from "@oh-my-soup/pi-coding-agent/session/agent-session-types";
+import { PrewalkCoordinator, type PrewalkCoordinatorHost } from "@oh-my-soup/pi-coding-agent/session/prewalk";
+import type { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
+import { TempDir } from "@oh-my-soup/pi-utils";
 
-import { cfgPlanAutosave, cfgPlanEnabled } from "@oh-my-pi/pi-coding-agent/plan-mode/settings";
+import { cfgPlanAutosave, cfgPlanEnabled } from "@oh-my-soup/pi-coding-agent/plan-mode/settings";
 
 let tempDir: TempDir | undefined;
 
@@ -67,7 +67,7 @@ describe("resolvePlanAutosaveDir", () => {
 			path.join(cwd, "docs", "plans"),
 		);
 		expect(resolvePlanAutosaveDir(Settings.isolated({ "plan.autosaveDir": "   " }), cwd)).toBe(
-			path.join(cwd, ".omp", "plans"),
+			path.join(cwd, ".oms", "plans"),
 		);
 	});
 });
@@ -83,7 +83,7 @@ describe("autosaveApprovedPlan", () => {
 			planContent: "# Plan\n",
 		});
 		expect(result).toBeNull();
-		expect(await Bun.file(path.join(cwd, ".omp", "plans", "AUTH_PLAN.md")).exists()).toBe(false);
+		expect(await Bun.file(path.join(cwd, ".oms", "plans", "AUTH_PLAN.md")).exists()).toBe(false);
 	});
 
 	it("saves the approved plan under the default dir", async () => {
@@ -95,7 +95,7 @@ describe("autosaveApprovedPlan", () => {
 			title: "Auth storage",
 			planContent: "# Plan\n\nShip it.\n",
 		});
-		expect(result).toBe(path.join(cwd, ".omp", "plans", "AUTH_STORAGE_PLAN.md"));
+		expect(result).toBe(path.join(cwd, ".oms", "plans", "AUTH_STORAGE_PLAN.md"));
 		expect(await Bun.file(result!).text()).toBe("# Plan\n\nShip it.\n");
 	});
 
@@ -104,8 +104,8 @@ describe("autosaveApprovedPlan", () => {
 		const settings = Settings.isolated({ "plan.autosave": true });
 		const first = await autosaveApprovedPlan({ settings, cwd, title: "Auth", planContent: "# v1\n" });
 		const second = await autosaveApprovedPlan({ settings, cwd, title: "Auth", planContent: "# v2\n" });
-		expect(first).toBe(path.join(cwd, ".omp", "plans", "AUTH_PLAN.md"));
-		expect(second).toBe(path.join(cwd, ".omp", "plans", "AUTH_PLAN-1.md"));
+		expect(first).toBe(path.join(cwd, ".oms", "plans", "AUTH_PLAN.md"));
+		expect(second).toBe(path.join(cwd, ".oms", "plans", "AUTH_PLAN-1.md"));
 		expect(await Bun.file(first!).text()).toBe("# v1\n");
 		expect(await Bun.file(second!).text()).toBe("# v2\n");
 	});
@@ -202,7 +202,7 @@ describe("plan-yolo approval autosave", () => {
 		expect(result.details).toMatchObject({ planFilePath: "local://auth-plan.md", title: "auth", planExists: true });
 		expect(result.content[0]?.text).toBe(`Plan approved. Implementing now with ${target.id}.`);
 		expect(result.content[0]?.text).not.toContain(cwd);
-		expect(await Bun.file(path.join(cwd, ".omp", "plans", "AUTH_PLAN.md")).text()).toBe("# Plan\n\nYolo.\n");
+		expect(await Bun.file(path.join(cwd, ".oms", "plans", "AUTH_PLAN.md")).text()).toBe("# Plan\n\nYolo.\n");
 		expect(t.notices).toContainEqual({
 			level: "info",
 			message: expect.stringContaining("Plan autosaved to"),

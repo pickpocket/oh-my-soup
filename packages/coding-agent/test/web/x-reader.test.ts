@@ -1,10 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "bun:test";
-import type { AuthStorage } from "@oh-my-pi/pi-ai";
-import { ModelRegistry } from "@oh-my-pi/pi-coding-agent/config/model-registry";
-import { resetSettingsForTest, Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { cfgRetryFallbackChains } from "@oh-my-pi/pi-coding-agent/session/settings";
-import { handleTwitter } from "@oh-my-pi/pi-coding-agent/web/scrapers/twitter";
-import { parseXUrl, type XTarget } from "@oh-my-pi/pi-coding-agent/web/x";
+import type { AuthStorage } from "@oh-my-soup/pi-ai";
+import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
+import { resetSettingsForTest, Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { cfgRetryFallbackChains } from "@oh-my-soup/pi-coding-agent/session/settings";
+import { handleTwitter } from "@oh-my-soup/pi-coding-agent/web/scrapers/twitter";
+import { parseXUrl, type XTarget } from "@oh-my-soup/pi-coding-agent/web/x";
 import { createInMemoryAuthStorage } from "../helpers/agent-session-setup";
 import { asGlobalFetch } from "../helpers/fetch-mock";
 
@@ -14,8 +14,8 @@ describe("parseXUrl", () => {
 		["https://twitter.com/i/web/status/20", { kind: "post", id: "20" }],
 		["https://mobile.x.com/jack", { kind: "profile", handle: "jack", tab: "posts" }],
 		["https://x.com/jack/with_replies", { kind: "profile", handle: "jack", tab: "replies" }],
-		["https://x.com/search?q=omp%20tern&f=live", { kind: "search", query: "omp tern", latest: true }],
-		["https://x.com/search?q=omp&f=media", { kind: "search", query: "omp filter:media", latest: true }],
+		["https://x.com/search?q=oms%20tern&f=live", { kind: "search", query: "oms tern", latest: true }],
+		["https://x.com/search?q=oms&f=media", { kind: "search", query: "oms filter:media", latest: true }],
 		["https://x.com/search?q=can&f=user", { kind: "users", query: "can" }],
 		["https://x.com/hashtag/rustlang", { kind: "search", query: "#rustlang", latest: false }],
 		["https://x.com/home", { kind: "unsupported" }],

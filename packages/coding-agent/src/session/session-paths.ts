@@ -1,8 +1,8 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import * as vcs from "@oh-my-pi/pi-natives/vcs";
-import { getTerminalId } from "@oh-my-pi/pi-tui/ttyid";
+import * as vcs from "@oh-my-soup/pi-natives/vcs";
+import { getTerminalId } from "@oh-my-soup/pi-tui/ttyid";
 import {
 	getCustomSessionFilesDir,
 	getSessionsDir,
@@ -11,9 +11,9 @@ import {
 	hashPath,
 	pathIsWithin,
 	resolveEquivalentPath,
-} from "@oh-my-pi/pi-utils/dirs";
-import { isEnoent } from "@oh-my-pi/pi-utils/fs-error";
-import * as logger from "@oh-my-pi/pi-utils/logger";
+} from "@oh-my-soup/pi-utils/dirs";
+import { isEnoent } from "@oh-my-soup/pi-utils/fs-error";
+import * as logger from "@oh-my-soup/pi-utils/logger";
 import type { SessionStorage } from "./session-storage";
 
 const migratedSessionRoots = new Set<string>();
@@ -416,7 +416,7 @@ function writeIfChangedSync(file: string, content: string): void {
  * absolute path. Best-effort — a failure here must never break session
  * creation.
  *
- * `sessionFile` may be relative (e.g. `--session .omp-sessions/work`); it is
+ * `sessionFile` may be relative (e.g. `--session .oms-sessions/work`); it is
  * resolved against the recorded `cwd`, matching how the breadcrumb stores it.
  */
 function recordCustomSessionFile(cwd: string, sessionFile: string, scope: CustomSessionFileScope | undefined): void {

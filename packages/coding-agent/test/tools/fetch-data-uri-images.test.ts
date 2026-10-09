@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { renderHtmlToText } from "@oh-my-pi/pi-coding-agent/tools/fetch";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { renderHtmlToText } from "@oh-my-soup/pi-coding-agent/tools/fetch";
 
 const ICON_PATH = "M0 0h32v32H0z ".repeat(40);
 const PNG_BASE64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";

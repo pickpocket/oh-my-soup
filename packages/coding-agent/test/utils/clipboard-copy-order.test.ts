@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "bun:test";
 import { Buffer } from "node:buffer";
-import { copyToClipboard } from "@oh-my-pi/pi-coding-agent/utils/clipboard";
-import * as natives from "@oh-my-pi/pi-natives/clipboard";
+import { copyToClipboard } from "@oh-my-soup/pi-coding-agent/utils/clipboard";
+import * as natives from "@oh-my-soup/pi-natives/clipboard";
 
 const platformDescriptor = Object.getOwnPropertyDescriptor(process, "platform");
 
@@ -67,10 +67,10 @@ describe("copyToClipboard local backend order", () => {
 		const calls: SpawnCall[] = [];
 		captureSpawns(calls, () => fakeProcess(0));
 
-		await copyToClipboard("omp-clipboard-order-probe");
+		await copyToClipboard("oms-clipboard-order-probe");
 
 		expect(calls.map(call => call.cmd[0])).toEqual(["pbcopy"]);
-		expect(calls[0]?.stdin).toBe("omp-clipboard-order-probe");
+		expect(calls[0]?.stdin).toBe("oms-clipboard-order-probe");
 		expect(nativeCopy).not.toHaveBeenCalled();
 	});
 

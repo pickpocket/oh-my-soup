@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { resolveModelPolicy } from "@oh-my-pi/pi-catalog/compat/resolve";
-import { MODELS_DEV_PROVIDER_DESCRIPTORS, mapModelsDevToModels } from "@oh-my-pi/pi-catalog/provider-models";
-import { filterModelsDevCatalogRows } from "@oh-my-pi/pi-catalog/provider-models/models-dev-policies";
-import type { ModelSpec } from "@oh-my-pi/pi-catalog/types";
+import { resolveModelPolicy } from "@oh-my-soup/pi-catalog/compat/resolve";
+import { MODELS_DEV_PROVIDER_DESCRIPTORS, mapModelsDevToModels } from "@oh-my-soup/pi-catalog/provider-models";
+import { filterModelsDevCatalogRows } from "@oh-my-soup/pi-catalog/provider-models/models-dev-policies";
+import type { ModelSpec } from "@oh-my-soup/pi-catalog/types";
 
 // AWS's Bedrock model card for Claude Opus 5 lists these commercial/geo
 // Programmatic Access IDs — the bare model ID plus the us./eu./au. Geo and

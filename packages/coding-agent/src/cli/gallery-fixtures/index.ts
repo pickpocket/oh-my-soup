@@ -1,5 +1,5 @@
 /**
- * Aggregated sample data for the `omp gallery` command.
+ * Aggregated sample data for the `oms gallery` command.
  *
  * Each fixture drives one tool's renderer through the four lifecycle states the
  * gallery showcases: arguments streaming in, arguments complete but awaiting a

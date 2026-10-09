@@ -1,11 +1,11 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "bun:test";
-import { KeybindingsManager } from "@oh-my-pi/pi-tui/app-keybindings";
-import { getKeybindings, setKeybindings, type TUI } from "@oh-my-pi/pi-tui";
-import type { NativeChild, NativeNode } from "@oh-my-pi/pi-tui/native/node";
-import { AnnotationOverlay } from "@oh-my-pi/pi-tui/overlays/annotation-overlay";
-import type { CodeReviewOverlayResult, ReviewDiffFile } from "@oh-my-pi/pi-tui/overlays/annotation-types";
-import { PlanReviewOverlay } from "@oh-my-pi/pi-tui/overlays/plan-review-overlay";
-import { getThemeByName, setThemeInstance, type Theme } from "@oh-my-pi/pi-tui/theme";
+import { KeybindingsManager } from "@oh-my-soup/pi-tui/app-keybindings";
+import { getKeybindings, setKeybindings, type TUI } from "@oh-my-soup/pi-tui";
+import type { NativeChild, NativeNode } from "@oh-my-soup/pi-tui/native/node";
+import { AnnotationOverlay } from "@oh-my-soup/pi-tui/overlays/annotation-overlay";
+import type { CodeReviewOverlayResult, ReviewDiffFile } from "@oh-my-soup/pi-tui/overlays/annotation-types";
+import { PlanReviewOverlay } from "@oh-my-soup/pi-tui/overlays/plan-review-overlay";
+import { getThemeByName, setThemeInstance, type Theme } from "@oh-my-soup/pi-tui/theme";
 
 const ENTER = "\r";
 

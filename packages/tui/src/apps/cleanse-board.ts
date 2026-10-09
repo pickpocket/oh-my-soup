@@ -1,5 +1,5 @@
 /**
- * Live status board for `omp cleanse`.
+ * Live status board for `oms cleanse`.
  *
  * Interactive terminals get a transient board repainted in place: a phase
  * spinner (model resolution, checker discovery), one row per running checker,
@@ -10,14 +10,14 @@
  * Non-TTY output keeps the original plain-line protocol
  * (`[start]`/`[done]`/`[fail]`), so scripted callers see unchanged output.
  */
-import { formatDuration, formatNumber } from "@oh-my-pi/pi-utils";
+import { formatDuration, formatNumber } from "@oh-my-soup/pi-utils";
 import { sanitizeDisplaySingleLine } from "../overlays/extensions/display-text";
 import { truncateToWidth } from "../utils";
 import { renderProgressBar, type ProgressBarStyle } from "../components/progress-bar";
 import { fgOrPlain, theme } from "../theme/theme";
 import { createLiveBoard, type LiveBoardOutput } from "../chrome/live-board";
 import type { AgentProgress } from "../tools/task";
-import type { TspSpan } from "@oh-my-pi/pi-wire";
+import type { TspSpan } from "@oh-my-soup/pi-wire";
 import { col, elapsed, keyed, node, row, span, stableKey, text } from "../native/describe";
 import type { DescribeContext, NativeNode } from "../native/node";
 import { Memo } from "../native/memo";
@@ -59,7 +59,7 @@ const REPAIR_BAR_STYLE: ProgressBarStyle = {
 	styleEmpty: text => fgOrPlain("dim", text),
 };
 
-/** Rendering surface for one `omp cleanse` run. */
+/** Rendering surface for one `oms cleanse` run. */
 export interface CleanseStatusBoard {
 	readonly interactive: boolean;
 	/** Print a permanent line above the live area (plain write when non-TTY). */
@@ -132,7 +132,7 @@ export class CleanseBoardModel {
 				span(count === 0 ? "clean" : `${count} issue${count === 1 ? "" : "s"}`, tone),
 				span(` · ${formatDuration(durationMs)}`, "dim"),
 			],
-			{ wrap: "word", role: "omp.cleanse.verdict" },
+			{ wrap: "word", role: "oms.cleanse.verdict" },
 		);
 		const verdict =
 			count === 0 ? fgOrPlain("success", "clean") : fgOrPlain("warning", `${count} issue${count === 1 ? "" : "s"}`);
@@ -216,7 +216,7 @@ export class CleanseBoardModel {
 					rows.push(
 						node(
 							"col",
-							{ role: "omp.cleanse.lanes", gap: "sm" },
+							{ role: "oms.cleanse.lanes", gap: "sm" },
 							agents.map(([name, agent]) => describeAgentLane(name, agent, now)),
 							"lanes",
 						),
@@ -225,7 +225,7 @@ export class CleanseBoardModel {
 					for (const [name, agent] of agents) rows.push(describeAgentRow(name, agent));
 				}
 			}
-			return col(rows, { role: "omp.cleanse.live", gap: lanes ? "sm" : "xs" });
+			return col(rows, { role: "oms.cleanse.live", gap: lanes ? "sm" : "xs" });
 		});
 	}
 
@@ -251,13 +251,13 @@ export class CleanseBoardModel {
 						size: "md",
 						label: `${label} lanes`,
 						title: `${this.#repairDone} of ${this.#repairTotal} repair lanes finished`,
-						role: "omp.cleanse.meter",
+						role: "oms.cleanse.meter",
 					})
 				: node("progress", { value, label, tone: "accent" }),
 		];
 		if (parts.length > 0) children.push(text([span(parts.join(" · "), "muted")]));
 		children.push(elapsed(Date.now() - this.#repairStartedAt));
-		return keyed(row(children, { gap: "sm", align: "center", role: "omp.cleanse.head" }), "repair");
+		return keyed(row(children, { gap: "sm", align: "center", role: "oms.cleanse.head" }), "repair");
 	}
 
 	/** Render the transient live rows for the current spinner frame. */
@@ -439,7 +439,7 @@ function describeAgentLane(agentName: string, agent: RunningAgent, now: number):
 				cost: progress && progress.cost > 0 ? progress.cost : undefined,
 				age: now - agent.startedAt,
 			},
-			role: "omp.cleanse.lane",
+			role: "oms.cleanse.lane",
 		},
 		undefined,
 		`agent-${stableKey(agentName)}`,
@@ -481,7 +481,7 @@ function describeOutcome(
 			.trim();
 		return text([span("✗ ", "error"), span(`${outcome.name} `), span(files, "path"), span(` ${message}`, "error")], {
 			wrap: "word",
-			role: "omp.cleanse.outcome",
+			role: "oms.cleanse.outcome",
 			tone: "error",
 		});
 	}
@@ -492,7 +492,7 @@ function describeOutcome(
 	if (agent) meta.push(formatDuration(Date.now() - agent.startedAt));
 	const spans = [span("✓ ", "success"), span(`${outcome.name} `), span(files, "path")];
 	if (meta.length > 0) spans.push(span(` · ${meta.join(" · ")}`, "dim"));
-	return text(spans, { wrap: "word", role: "omp.cleanse.outcome" });
+	return text(spans, { wrap: "word", role: "oms.cleanse.outcome" });
 }
 
 function renderOutcomeLine(

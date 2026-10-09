@@ -2,10 +2,10 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { AuthStorage, SqliteAuthCredentialStore } from "@oh-my-pi/pi-ai";
-import { type AuthBrokerServerHandle, startAuthBroker } from "@oh-my-pi/pi-ai/auth-broker";
-import { runAuthBrokerCommand } from "@oh-my-pi/pi-coding-agent/cli/auth-broker-cli";
-import { getAgentDbPath, removeWithRetries, setAgentDir } from "@oh-my-pi/pi-utils";
+import { AuthStorage, SqliteAuthCredentialStore } from "@oh-my-soup/pi-ai";
+import { type AuthBrokerServerHandle, startAuthBroker } from "@oh-my-soup/pi-ai/auth-broker";
+import { runAuthBrokerCommand } from "@oh-my-soup/pi-coding-agent/cli/auth-broker-cli";
+import { getAgentDbPath, removeWithRetries, setAgentDir } from "@oh-my-soup/pi-utils";
 
 const ORIGINAL_STDOUT_WRITE = process.stdout.write.bind(process.stdout);
 
@@ -25,23 +25,23 @@ describe("auth-broker import (CLIProxyAPI)", () => {
 	const savedEnv: Record<string, string | undefined> = {};
 
 	beforeEach(async () => {
-		originalAgentDir = process.env.OMP_AGENT_DIR;
-		savedEnv.OMP_AUTH_BROKER_URL = process.env.OMP_AUTH_BROKER_URL;
-		savedEnv.OMP_AUTH_BROKER_TOKEN = process.env.OMP_AUTH_BROKER_TOKEN;
-		delete process.env.OMP_AUTH_BROKER_URL;
-		delete process.env.OMP_AUTH_BROKER_TOKEN;
-		agentDir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-import-agent-"));
-		cliproxyDir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-import-cliproxy-"));
+		originalAgentDir = process.env.OMS_AGENT_DIR;
+		savedEnv.OMS_AUTH_BROKER_URL = process.env.OMS_AUTH_BROKER_URL;
+		savedEnv.OMS_AUTH_BROKER_TOKEN = process.env.OMS_AUTH_BROKER_TOKEN;
+		delete process.env.OMS_AUTH_BROKER_URL;
+		delete process.env.OMS_AUTH_BROKER_TOKEN;
+		agentDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-import-agent-"));
+		cliproxyDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-import-cliproxy-"));
 		setAgentDir(agentDir);
 	});
 
 	afterEach(async () => {
 		process.stdout.write = ORIGINAL_STDOUT_WRITE;
-		if (originalAgentDir === undefined) delete process.env.OMP_AGENT_DIR;
-		else process.env.OMP_AGENT_DIR = originalAgentDir;
+		if (originalAgentDir === undefined) delete process.env.OMS_AGENT_DIR;
+		else process.env.OMS_AGENT_DIR = originalAgentDir;
 		await removeWithRetries(agentDir);
 		await removeWithRetries(cliproxyDir);
-		for (const key of ["OMP_AUTH_BROKER_URL", "OMP_AUTH_BROKER_TOKEN"] as const) {
+		for (const key of ["OMS_AUTH_BROKER_URL", "OMS_AUTH_BROKER_TOKEN"] as const) {
 			if (savedEnv[key] === undefined) delete process.env[key];
 			else process.env[key] = savedEnv[key];
 		}
@@ -53,7 +53,7 @@ describe("auth-broker import (CLIProxyAPI)", () => {
 		return file;
 	}
 
-	test("imports a directory of CLIProxyAPI JSONs and maps types to omp providers", async () => {
+	test("imports a directory of CLIProxyAPI JSONs and maps types to oms providers", async () => {
 		await writeCliProxyJson("claude-sample.json", {
 			type: "claude",
 			access_token: "claude-access-1",
@@ -207,11 +207,11 @@ describe("auth-broker import (broker-routed)", () => {
 	const savedEnv: Record<string, string | undefined> = {};
 
 	beforeEach(async () => {
-		savedEnv.OMP_AUTH_BROKER_URL = process.env.OMP_AUTH_BROKER_URL;
-		savedEnv.OMP_AUTH_BROKER_TOKEN = process.env.OMP_AUTH_BROKER_TOKEN;
-		agentDir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-import-client-"));
-		brokerAgentDir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-import-broker-"));
-		cliproxyDir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-import-cliproxy-broker-"));
+		savedEnv.OMS_AUTH_BROKER_URL = process.env.OMS_AUTH_BROKER_URL;
+		savedEnv.OMS_AUTH_BROKER_TOKEN = process.env.OMS_AUTH_BROKER_TOKEN;
+		agentDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-import-client-"));
+		brokerAgentDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-import-broker-"));
+		cliproxyDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-import-cliproxy-broker-"));
 		setAgentDir(agentDir);
 
 		brokerStore = await SqliteAuthCredentialStore.open(path.join(brokerAgentDir, "agent.db"));
@@ -223,8 +223,8 @@ describe("auth-broker import (broker-routed)", () => {
 			bearerTokens: [token],
 			disableRefresher: true,
 		});
-		process.env.OMP_AUTH_BROKER_URL = handle.url;
-		process.env.OMP_AUTH_BROKER_TOKEN = token;
+		process.env.OMS_AUTH_BROKER_URL = handle.url;
+		process.env.OMS_AUTH_BROKER_TOKEN = token;
 	});
 
 	afterEach(async () => {
@@ -234,7 +234,7 @@ describe("auth-broker import (broker-routed)", () => {
 		await removeWithRetries(agentDir);
 		await removeWithRetries(brokerAgentDir);
 		await removeWithRetries(cliproxyDir);
-		for (const key of ["OMP_AUTH_BROKER_URL", "OMP_AUTH_BROKER_TOKEN"] as const) {
+		for (const key of ["OMS_AUTH_BROKER_URL", "OMS_AUTH_BROKER_TOKEN"] as const) {
 			if (savedEnv[key] === undefined) delete process.env[key];
 			else process.env[key] = savedEnv[key];
 		}

@@ -1,11 +1,11 @@
 import { extractUriScheme } from "../internal-urls/parse";
-import { type LineRange } from "@oh-my-pi/pi-tui/tools/line-ranges";
-import { splitPathAndSel, isReadableUrlPath } from "@oh-my-pi/pi-tui/tools/read";
+import { type LineRange } from "@oh-my-soup/pi-tui/tools/line-ranges";
+import { splitPathAndSel, isReadableUrlPath } from "@oh-my-soup/pi-tui/tools/read";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import * as url from "node:url";
-import { glob } from "@oh-my-pi/pi-natives";
+import { glob } from "@oh-my-soup/pi-natives";
 import {
 	hasFsCode,
 	isEnoent,
@@ -13,11 +13,11 @@ import {
 	isWsl,
 	stripWindowsExtendedLengthPathPrefix,
 	windowsPathToWslMount,
-} from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-utils";
 import { InternalUrlRouter } from "../internal-urls";
 import { type InternalUrlFilesystem, joinUrlPath, UrlFsError } from "../internal-urls/url-filesystem";
 import { ToolAbortError } from "./tool-errors";
-import { ToolError } from "@oh-my-pi/pi-tui/tools/tool-errors";
+import { ToolError } from "@oh-my-soup/pi-tui/tools/tool-errors";
 
 const UNICODE_SPACES = /[\u00A0\u2000-\u200A\u202F\u205F\u3000]/g;
 
@@ -728,7 +728,7 @@ export async function splitDelimitedPathEntry(
 
 /**
  * Split a `;` list that names URLs alongside local paths
- * (`https://x;src/a.ts:1-20`, `omp://;Makefile:1-3`). Engages only when URL
+ * (`https://x;src/a.ts:1-20`, `oms://;Makefile:1-3`). Engages only when URL
  * detection would otherwise claim the whole entry; everything else keeps the
  * normal image/sqlite/archive/literal ordering. Every part must be a URL (per
  * `isUrl`) or an existing literal path without glob characters, so a URL that

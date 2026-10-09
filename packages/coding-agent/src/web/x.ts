@@ -82,7 +82,7 @@ export function xHandle(segment: string | undefined): string | undefined {
  *
  * @example
  * parseXUrl("https://x.com/jack/status/20/photo/1"); // { kind: "post", id: "20" }
- * parseXUrl("https://x.com/search?q=omp&f=live"); // { kind: "search", query: "omp", latest: true }
+ * parseXUrl("https://x.com/search?q=oms&f=live"); // { kind: "search", query: "oms", latest: true }
  */
 export function parseXUrl(url: string): XTarget | null {
 	let parsed: URL;

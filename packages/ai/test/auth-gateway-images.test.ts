@@ -2,11 +2,11 @@ import { describe, expect, it, vi } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { startAuthGateway } from "@oh-my-pi/pi-ai/auth-gateway";
-import { AuthStorage } from "@oh-my-pi/pi-ai/auth-storage";
-import { generateImage } from "@oh-my-pi/pi-ai/images";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
-import type { Api, FetchImpl, Model } from "@oh-my-pi/pi-catalog/types";
+import { startAuthGateway } from "@oh-my-soup/pi-ai/auth-gateway";
+import { AuthStorage } from "@oh-my-soup/pi-ai/auth-storage";
+import { generateImage } from "@oh-my-soup/pi-ai/images";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
+import type { Api, FetchImpl, Model } from "@oh-my-soup/pi-catalog/types";
 
 const IMAGE_DATA = Buffer.from("gateway-image").toString("base64");
 
@@ -198,9 +198,9 @@ describe("auth gateway images", () => {
 					response_format: "b64_json",
 				},
 				{
-					"x-omp-install-id": "image-client",
-					"x-omp-hostname": "render-box",
-					"x-omp-app": "image-suite",
+					"x-oms-install-id": "image-client",
+					"x-oms-hostname": "render-box",
+					"x-oms-app": "image-suite",
 				},
 			);
 			expect(response.status).toBe(200);

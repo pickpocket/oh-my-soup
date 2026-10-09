@@ -3,9 +3,9 @@ import { afterEach, describe, expect, it, vi } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { collectMemoryStats } from "@oh-my-pi/pi-coding-agent/debug/profiler";
-import { createReportBundle } from "@oh-my-pi/pi-coding-agent/debug/report-bundle";
-import { getConfigRootDir, removeWithRetries, setAgentDir } from "@oh-my-pi/pi-utils";
+import { collectMemoryStats } from "@oh-my-soup/pi-coding-agent/debug/profiler";
+import { createReportBundle } from "@oh-my-soup/pi-coding-agent/debug/report-bundle";
+import { getConfigRootDir, removeWithRetries, setAgentDir } from "@oh-my-soup/pi-utils";
 
 const originalAgentDir = process.env.PI_CODING_AGENT_DIR;
 const originalXdgStateHome = process.env.XDG_STATE_HOME;
@@ -37,9 +37,9 @@ async function archiveMembers(archivePath: string): Promise<string[]> {
 }
 
 async function setupReportDirectory(): Promise<string> {
-	cleanupRoot = await fs.mkdtemp(path.join(os.tmpdir(), "omp-report-"));
+	cleanupRoot = await fs.mkdtemp(path.join(os.tmpdir(), "oms-report-"));
 	const xdgStateHome = path.join(cleanupRoot, "state");
-	await fs.mkdir(path.join(xdgStateHome, "omp"), { recursive: true });
+	await fs.mkdir(path.join(xdgStateHome, "oms"), { recursive: true });
 	process.env.XDG_STATE_HOME = xdgStateHome;
 	setAgentDir(fallbackAgentDir);
 	return cleanupRoot;

@@ -37,7 +37,7 @@
 
 ### Fixed
 
-- Added package exports for the native Tern/TSP modules, allowing extensions in compiled `omp` binaries to import them.
+- Added package exports for the native Tern/TSP modules, allowing extensions in compiled `oms` binaries to import them.
 - Fixed the Tern `/model` picker's Roles tab so typing and Backspace consistently edit the search field without triggering role commands.
 - Fixed the session picker so sessions retain and display their directory when switching between the current folder and all-project views.
 
@@ -60,7 +60,7 @@
 
 ### Fixed
 
-- Fixed relative file links in Tern assistant replies opening against the folder omp was started in; they now open the file in the session's working directory ([#14879](https://github.com/can1357/oh-my-pi/pull/14879) by [@H4vC](https://github.com/H4vC))
+- Fixed relative file links in Tern assistant replies opening against the folder oms was started in; they now open the file in the session's working directory ([#14879](https://github.com/can1357/oh-my-pi/pull/14879) by [@H4vC](https://github.com/H4vC))
 - Fixed Tern modals with no clickable exit: BTW history, git shortcuts and autoresearch gain a Close button, plan review a Cancel button, the agent transcript viewer and `/annotate` review a top-right `esc` that runs Esc, and the `/move` dialog Accept, Cancel and Confirm buttons; new `escCloseButton()` builds the `esc` keycap button ([#14894](https://github.com/can1357/oh-my-pi/pull/14894) by [@H4vC](https://github.com/H4vC))
 
 ## [18.8.2] - 2026-10-07
@@ -205,7 +205,7 @@
 ### Changed
 
 - `ContextUsageView` is now a bare report body without its own title, rules or card; `setBreakdown()` was removed ([#14136](https://github.com/can1357/oh-my-pi/pull/14136) by [@H4vC](https://github.com/H4vC)).
-- The terminal welcome banner is the gradient logo beside the `omp` wordmark with the version under it and the tip, centered in the terminal; the logo stands alone when the lockup does not fit, and the tip drops below 50 columns. It no longer greets with "Welcome back!", natively either.
+- The terminal welcome banner is the gradient logo beside the `oms` wordmark with the version under it and the tip, centered in the terminal; the logo stands alone when the lockup does not fit, and the tip drops below 50 columns. It no longer greets with "Welcome back!", natively either.
 
 ### Fixed
 
@@ -253,7 +253,7 @@
 - Fixed long Markdown paragraphs, such as a read preview of a file with no blank line, stalling rendering: a 44 KB paragraph now renders in about 8 ms instead of 95 ms ([#13961](https://github.com/can1357/oh-my-pi/pull/13961) by [@sjawhar](https://github.com/sjawhar)).
 - Fixed Markdown paragraphs with many unclosed `[`, `*` or `_`, or with a long address-like word, stalling rendering for seconds ([#13961](https://github.com/can1357/oh-my-pi/pull/13961) by [@sjawhar](https://github.com/sjawhar)).
 - Fixed Markdown paragraphs with many unclosed `~~`, `$`, `\(` or `\[`, nested brackets or emphasis, or unclosed HTML, stalling rendering for seconds: 40 KB of unclosed `~~` took 85 s. Emphasis or links nested a thousand levels deep still render slowly, for seconds per few KB: each level restyles the text inside it ([#13961](https://github.com/can1357/oh-my-pi/pull/13961) by [@sjawhar](https://github.com/sjawhar)).
-- Fixed arrow keys acting as Escape and terminal query replies appearing as typed text when running omp on Windows over SSH ([#14034](https://github.com/can1357/oh-my-pi/issues/14034)).
+- Fixed arrow keys acting as Escape and terminal query replies appearing as typed text when running oms on Windows over SSH ([#14034](https://github.com/can1357/oh-my-pi/issues/14034)).
 - Fixed `/model` under an `enabledModels`/`--models` scope hiding every judge, search, image, and speech model and dropping their configured role assignments (JUDGE, WEB, IMAGE, …) ([#14016](https://github.com/can1357/oh-my-pi/issues/14016))
 
 ### Removed
@@ -352,11 +352,11 @@
 
 - Added the native composer and dock redesign for Tern: the composer carries its attachment chips, a `bash`/`python` mode chip (with an eye-off mark for `!!`/`$$`), a thinking-effort chip that cycles on click, and a send keycap that turns into Stop while a turn runs; the working row shows the intent, elapsed time and an `esc Stop` button (a countdown ring and Cancel while retrying, indeterminate progress while compacting); queued messages are pills with a count and an Edit button; todos and running subagents are HUD pills; the status strip draws context as a ring meter with the auto-compaction tick, splits the path into a dim parent and strong leaf, keeps model, context and git longest, and opens the model picker, `/context`, `/git`, `/usage` or the project folder on click; autocomplete items carry named icons, the matched prefix, the full description, live state as a value, and scroll the selection into view
 - Added the native transcript redesign for Tern: a failed request is one error frame (HTTP status chip, the message once, Retry / Copy error / Switch model), a recovered retry is a quiet disclosable row, user messages drop their header for a hover toolbar (time, Copy, Rewind), thinking streams under a live starburst, timer and rate and folds to "Thought for 12s" when done, status notices are toasts instead of transcript lines, compaction is a centred divider chip, TTSR rules are an inline notice (the rewound text dims with a `rewound` tag), served-model and cache-miss markers are inline notices, late LSP diagnostics join the edit/write frame they belong to, and clicking a recent session on the welcome card resumes it
-- Added native rendering in terminals that speak the Tern Surface Protocol (such as Tern): omp describes its UI as semantic components the terminal lays out, draws and animates in your omp theme (both light and dark variants, updated live when you switch or preview themes), so there is no resize replay or repaint flicker and past transcript entries (tool cards, reactions, collapse state) stay live even after they scroll away; `PI_TUI_NATIVE=0` keeps the classic renderer, `PI_TUI_TSP_RECORD=<file>` records the protocol, and the `OMP_TUI_DEBUG` socket gains `doc`/`tsp` ops
+- Added native rendering in terminals that speak the Tern Surface Protocol (such as Tern): oms describes its UI as semantic components the terminal lays out, draws and animates in your oms theme (both light and dark variants, updated live when you switch or preview themes), so there is no resize replay or repaint flicker and past transcript entries (tool cards, reactions, collapse state) stay live even after they scroll away; `PI_TUI_NATIVE=0` keeps the classic renderer, `PI_TUI_TSP_RECORD=<file>` records the protocol, and the `OMS_TUI_DEBUG` socket gains `doc`/`tsp` ops
 - Added Tern Surface Protocol views for `/usage` and `/session`: quota windows are native progress meters on per-provider cards, the activity heatmap is a native table that drops its oldest weeks when narrow, the Details tab lists every account's meters, `/session` details are key/value sections, and per-turn token throughput is a native rate
 - Added Tern Surface Protocol views for the remaining tool cards (task, todo, wait, ask, web search, GitHub, goal, LSP, memory, debug, think, vibe, autoresearch, resolve and `xd://` devices): subagents are nested cards, todos are native lists that strike completed items without an animation timer, and job, tool and retry timers are terminal-clocked instead of repainted
 - Added Tern Surface Protocol views for the core tool cards (bash, eval, read, write, edit, AST edit/grep, grep, find, glob, process reads/writes, and the generic fallback card): command and file content, diffs, and search hits with their line numbers are sent as semantic nodes instead of rendered rows
-- Added Tern Surface Protocol views for `omp ps` monitor, the autoresearch dashboard, the live voice call panel and the `/cleanse` live board: processes are native selectable lists (click selects, double-click opens info), experiment runs are a native table, mic level and repair progress are native meters, and spinners/uptimes are terminal-clocked instead of repainted
+- Added Tern Surface Protocol views for `oms ps` monitor, the autoresearch dashboard, the live voice call panel and the `/cleanse` live board: processes are native selectable lists (click selects, double-click opens info), experiment runs are a native table, mic level and repair progress are native meters, and spinners/uptimes are terminal-clocked instead of repainted
 - Added Tern Surface Protocol views for the `/btw`, `/btw` history, `/omfg` and `/cleanse` panels, the `/move` dialog, the `/pause` screen, the pinned error banner, hook loaders, the Codex reset celebration and the composer/snapcompact shape previews: answers stream as native markdown, history and directory suggestions are native selectable lists (click selects, double-click follows up or confirms), the snapcompact sample is a native image, and the pause clock, celebration shimmer and cleanse spinners are terminal-clocked instead of repainted
 - Added Tern Surface Protocol views for the prompt editor, inputs, pickers and loaders: the composer is a native editor (caret, Vim selection and mode, ghost completion, placeholder, chip/mention/typo decorations, shimmering magic keywords) with autocomplete as a caret-anchored native list, select and settings lists are native lists where clicking an item does what Enter does, forms, the welcome card and composer attachment chips are semantic nodes, and loader spinners, working-message shimmer and dialog countdowns are terminal-clocked instead of repainted
 - Added Tern Surface Protocol views for the content primitives: text, boxes (cards toned by their background or border), disclosures and sections (collapsible sections that mirror terminal toggles), markdown (streamed append-only as native markdown), images (native blobs), key/value lists, metric rows (priority-dropping segments), tables (column priorities kept), trees, progress bars, tab bars (clicking a tab selects it), wizard steps, scroll views, row/stack/split layouts, output panes (streamed raw output), tool cards, code and markdown cells, file and tree lists, link spans and LaTeX; theme-styled text becomes theme-token spans instead of escape sequences
@@ -366,9 +366,9 @@
 - Added a native settings page for `/settings`, plugin settings and advisor configuration in Tern: tabs are pages in a side nav with a count of changed settings, each tab has a one-line lead and its groups as sections, settings are real controls (switches, segmented choices, popup menus that preview themes and status-line styles while you hover, steppers for numeric choices, text fields that show your draft and caret, chips and a drag-to-reorder list for multi-selects), changed settings show a dot with the default and a Reset button, risky ones their warning, search results group by page and section, and the status-line preview sits under its section; every pointer action runs the same code as its key
 - Added native picker sheets for rewind, `/tree` and `/copy` in Tern: rewind and copy are a timeline of turns (user prompts with their time, tool turns with the tool's icon) over the transcript; the rewind preview is the turn itself as the transcript draws it under an "everything below is dropped" warning with the count, with branch tabs at a fork and the `f` filter as the search field; `/tree` is an indented tree with the active path marked, labels as badges, filter-mode tabs and the entry's content beside it, and Label edits in the preview; `/copy` previews the turn's code blocks, quotes and links as sections you click to copy, with the focused block highlighted; every button and row click runs the same code as its key
 - Added native picker sheets for the agent hub and `/agents` in Tern: the hub's roster shows each agent's status, task, model and cost/time/request/tool/token/context columns (flat or by parent) with the selected agent's facts, context meter and recent activity beside it, the Activity tab filters the cross-agent log from a side column with a Follow toggle, and `/agents` lists agents by source with their model, prewalk and advisor overrides and previews the description and system prompt; every button runs the same action as its key
-- Added native sheets for omp's dialogs in Tern: plan review is a large sheet titled by the plan's own heading with the Contents as nav rows, annotations as margin notes, Copy / Edit in $EDITOR head buttons and a decision bar whose first option is the hero; the ask dialog is a bottom sheet over the composer with radio/check rows, a Recommended badge, question tabs plus Review, a countdown ring and Submit / Note / Skip buttons; login shows numbered steps (Open sign-in page and Copy link over a one-line URL, a large click-to-copy device code, a live wait, the paste field) with Cancel; `/hotkeys` opens a "Keyboard shortcuts" sheet whose keys are keycaps; the `/btw`, `/omfg`, `/cleanse`, `/btw` history, pause, plan-save, MCP wizard and Codex reset panels are role-styled sheets, and the pinned error banner is an error strip with Details; every button runs the same code as its key
-- Added native full-screen apps in Tern: `omp git`/`/git` is a native diff (File / Split / Inline / Hunks segmented control, change navigation, whitespace and wrap toggles, Stage file) beside a changes sheet with Path/Tree lists, tinted status pills and hover `Stage all`/`Unstage all`, and a docked commit composer (borderless summary with a counter while typing, body, Amend toggle, Commit button); `?` opens a keyboard shortcuts sheet in both renderers; `omp ps` is a page with a scope control, state-toned process rows and an Info / Logs / Restart / Stop / Kill action bar (a pointer Kill asks first); `/cleanse` shows repair lanes as live agent rows under a lane meter; the autoresearch dashboard charts the metric per run and opens as a sheet; the live call panel has a mic meter and Mute / End call buttons; and the `omp cleanse` and `omp setup` pickers are native picker sheets
-- Added native picker sheets for `/resume`, `omp --resume` and ⌃R history search in Tern: sessions are two-line cards (title, first prompt or project folder, age, size, status dot, pin, fork and current badges) grouped Pinned / Today / Yesterday / This week / Earlier and ranked flat while you search (prompt-history matches get a `history` badge), with This folder / All projects tabs, a preview of the selected session's facts and conversation, an inline delete confirmation and Resume / Delete / All projects / Close buttons; `omp --resume` fills the screen; history search is a compact sheet of past prompts with the matches marked, their age and folder, and an Insert button
+- Added native sheets for oms's dialogs in Tern: plan review is a large sheet titled by the plan's own heading with the Contents as nav rows, annotations as margin notes, Copy / Edit in $EDITOR head buttons and a decision bar whose first option is the hero; the ask dialog is a bottom sheet over the composer with radio/check rows, a Recommended badge, question tabs plus Review, a countdown ring and Submit / Note / Skip buttons; login shows numbered steps (Open sign-in page and Copy link over a one-line URL, a large click-to-copy device code, a live wait, the paste field) with Cancel; `/hotkeys` opens a "Keyboard shortcuts" sheet whose keys are keycaps; the `/btw`, `/omfg`, `/cleanse`, `/btw` history, pause, plan-save, MCP wizard and Codex reset panels are role-styled sheets, and the pinned error banner is an error strip with Details; every button runs the same code as its key
+- Added native full-screen apps in Tern: `oms git`/`/git` is a native diff (File / Split / Inline / Hunks segmented control, change navigation, whitespace and wrap toggles, Stage file) beside a changes sheet with Path/Tree lists, tinted status pills and hover `Stage all`/`Unstage all`, and a docked commit composer (borderless summary with a counter while typing, body, Amend toggle, Commit button); `?` opens a keyboard shortcuts sheet in both renderers; `oms ps` is a page with a scope control, state-toned process rows and an Info / Logs / Restart / Stop / Kill action bar (a pointer Kill asks first); `/cleanse` shows repair lanes as live agent rows under a lane meter; the autoresearch dashboard charts the metric per run and opens as a sheet; the live call panel has a mic meter and Mute / End call buttons; and the `oms cleanse` and `oms setup` pickers are native picker sheets
+- Added native picker sheets for `/resume`, `oms --resume` and ⌃R history search in Tern: sessions are two-line cards (title, first prompt or project folder, age, size, status dot, pin, fork and current badges) grouped Pinned / Today / Yesterday / This week / Earlier and ranked flat while you search (prompt-history matches get a `history` badge), with This folder / All projects tabs, a preview of the selected session's facts and conversation, an inline delete confirmation and Resume / Delete / All projects / Close buttons; `oms --resume` fills the screen; history search is a compact sheet of past prompts with the matches marked, their age and folder, and an Insert button
 - Added native picker sheets for `/model` and the alt+p / `/switch` model picker in Tern: the model hub is a large sheet with Roles, All models and provider scopes (initials marks, live per-query counts, discovery-state dots, signed-out providers grouped under "Not signed in"), kind tabs with counts, right-aligned Int / t/s / context / $/M columns, a Recent group then one group per provider, role chips with thinking-level dots, a preview pane (copyable id, context, output, price, speed, intelligence, the roles the model can fill, description), the role-assignment strip, the Roles view with fallback chains, and loading/empty states; the quick picker is a compact sheet with the model summary and role chips below the list and a Task model toggle; every row, scope, tab, chip and button runs the same path as its key
 - Added Tern Surface Protocol views for the startup splash and setup wizard: the brand mark shimmers natively, every scene (sign-in, model, glyph, composer, theme) is sent as semantic text, spinners, links and inputs, and the splash and outro advance on their deadlines without per-frame repaints
 
@@ -384,8 +384,8 @@
 - Fixed streaming bash previews showing fields that follow the `env` object (e.g. `command`) as environment assignments ([#13650](https://github.com/can1357/oh-my-pi/pull/13650) by [@H4vC](https://github.com/H4vC)).
 - Fixed model picker latency by avoiding unnecessary catalog rebuilds
 - Fixed search and filter fields in pickers and lists (model switcher, model and agent hubs, session, history, rewind, tree, hook, sign-in, extension and select lists, the log viewer) ignoring the editor's text keys: every field is now a full single-line input, so word jumps (ctrl/alt+←/→, alt+b/f), line start/end (ctrl+a/e), word and line deletion (ctrl+w/u/k, alt+d), yank, forward delete and undo work everywhere, follow your `tui.editor.*` keybindings, and in Tern the caret is drawn where it actually is in the picker and settings search
-- Fixed omp in Tern showing the classic renderer for the first seconds of startup before switching to the native view: with `TERM_PROGRAM=tern` (outside tmux/screen/zellij, unless `PI_TUI_NATIVE=0`) the very first frame is native, the `hello` handshake confirms it in the background, and a terminal that never confirms falls back to the classic renderer with a clean repaint after 1 s
-- Fixed the welcome card's logo in Tern not matching omp's terminal mark: the bar now overhangs both legs equally, the legs and gap have the terminal proportions, and the left leg ends in the same faded tail
+- Fixed oms in Tern showing the classic renderer for the first seconds of startup before switching to the native view: with `TERM_PROGRAM=tern` (outside tmux/screen/zellij, unless `PI_TUI_NATIVE=0`) the very first frame is native, the `hello` handshake confirms it in the background, and a terminal that never confirms falls back to the classic renderer with a clean repaint after 1 s
+- Fixed the welcome card's logo in Tern not matching oms's terminal mark: the bar now overhangs both legs equally, the legs and gap have the terminal proportions, and the left leg ends in the same faded tail
 - Fixed the `@` completion popup showing a `Searching…` placeholder while a refreshed file search is pending; the popup now stays hidden until results arrive, and Escape is no longer swallowed by it
 - Fixed multi-line IME and dictation input (for example, voice input in Ghostty or cmux) being sent as one message per line; it now lands in the prompt as a single multi-line draft, while Enter typed during a UI freeze still submits ([#13378](https://github.com/can1357/oh-my-pi/pull/13378) by [@goransh-walia](https://github.com/goransh-walia))
 
@@ -670,7 +670,7 @@
 
 ### Fixed
 
-- Stopped long flicker when moving or resizing an omp pane in Warp. Resize repaints in place there after the drag settles (override with `PI_TUI_RESIZE_IN_PLACE=0`), with no alternate-screen borrow, no scrollback replay, blanked live rows so shrink drags cannot archive unfinished rows, and overlay toggle echoes repainting the modal instead of probing ([#11247](https://github.com/can1357/oh-my-pi/pull/11247) by [@H4vC](https://github.com/H4vC)).
+- Stopped long flicker when moving or resizing an oms pane in Warp. Resize repaints in place there after the drag settles (override with `PI_TUI_RESIZE_IN_PLACE=0`), with no alternate-screen borrow, no scrollback replay, blanked live rows so shrink drags cannot archive unfinished rows, and overlay toggle echoes repainting the modal instead of probing ([#11247](https://github.com/can1357/oh-my-pi/pull/11247) by [@H4vC](https://github.com/H4vC)).
 
 ## [18.1.14] - 2026-09-07
 
@@ -750,7 +750,7 @@
 
 - Exported TuiDebugServer for programmatic headless control
 - Added debug demonstration script to examples
-- Added an `OMP_TUI_DEBUG` Unix socket for headless TUI driving and structured inspection.
+- Added an `OMS_TUI_DEBUG` Unix socket for headless TUI driving and structured inspection.
 
 ### Changed
 
@@ -777,7 +777,7 @@
 
 ### Breaking Changes
 
-- Removed the `inlineMathSpanEnd` and `mathStartIndex` exports; the math delimiter grammar now lives in `@oh-my-pi/pi-utils/math-delimiters`.
+- Removed the `inlineMathSpanEnd` and `mathStartIndex` exports; the math delimiter grammar now lives in `@oh-my-soup/pi-utils/math-delimiters`.
 
 ### Fixed
 
@@ -1057,7 +1057,7 @@
 
 ### Fixed
 
-- Fixed omp dying with an uncaught `setRawMode failed with errno: 2` instead of exiting 129 when the terminal disconnects. A recycled terminal pane revokes the pty, so the raw-mode restore in `stop()` hit an fd that is no longer a tty; the throw escaped `#markTerminalDisconnected()` and preempted its own SIGHUP. Terminal teardown on the disconnect path is now best-effort, matching `emergencyTerminalRestore()`, so the exit added in [#5837](https://github.com/can1357/oh-my-pi/pull/5837) always runs.
+- Fixed oms dying with an uncaught `setRawMode failed with errno: 2` instead of exiting 129 when the terminal disconnects. A recycled terminal pane revokes the pty, so the raw-mode restore in `stop()` hit an fd that is no longer a tty; the throw escaped `#markTerminalDisconnected()` and preempted its own SIGHUP. Terminal teardown on the disconnect path is now best-effort, matching `emergencyTerminalRestore()`, so the exit added in [#5837](https://github.com/can1357/oh-my-pi/pull/5837) always runs.
 - Fixed the multi-line prompt editor bypassing the keybindings registry for word/line delete and yank: `ctrl+backspace` (a declared default of `tui.editor.deleteWordBackward`) never fired and `keybindings.yml` remaps of `deleteWordBackward`, `deleteWordForward`, `deleteToLineStart`, `deleteToLineEnd`, `yank`, and `yankPop` were ignored, because those actions were matched with hardcoded chords instead of `keybindings.matches(...)` like cursor motion and the single-line `Input` already do ([#6782](https://github.com/can1357/oh-my-pi/issues/6782)).
 - Restored the Windows Terminal raw `0x08` → `ctrl+backspace` disambiguation (`WT_SESSION` set, `SSH_*` unset) by routing the exported `matchesRawBackspace` helper through the `matchesKey`/`parseKey` seam. Remote SSH/container sessions where terminal identity is unavailable can opt in with `PI_TUI_RAW_BACKSPACE_IS_CTRL=1` ([#6782](https://github.com/can1357/oh-my-pi/issues/6782)).
 - Fixed plain Backspace deleting a whole word inside tmux/GNU screen/Zellij panes launched from Windows Terminal: multiplexers inherit `WT_SESSION` but emit raw `0x08` for plain Backspace, so the automatic raw-backspace → `ctrl+backspace` heuristic misfired. The heuristic now skips multiplexer sessions (`TMUX`/`STY`/`ZELLIJ` or `TERM` starting with `tmux`/`screen`); `PI_TUI_RAW_BACKSPACE_IS_CTRL=1` remains the explicit opt-in everywhere ([#6784](https://github.com/can1357/oh-my-pi/pull/6784)).
@@ -1411,7 +1411,7 @@
 - Removed the 30-second OSC 11 background-color poll that ran on terminals without DEC Mode 2031 support (macOS Terminal.app, Warp, VS Code's built-in terminal, older Alacritty/WezTerm). Each poll's OSC 11 + DA1 write wiped the user's active text selection on several of those terminals, causing intermittent "can't copy" failures whenever a poll fired mid-drag — most visibly during the Ask tool dialog when the user wants to quote text back from the conversation ([#3297](https://github.com/can1357/oh-my-pi/issues/3297)). Theme detection now relies on the initial startup probe plus Mode 2031 push notifications; affected terminals pick up OS-theme changes on next launch.
 - Fixed `@`-path autocomplete failing on Windows for paths outside the cwd. Windows absolute paths (e.g. `C:\\Users\\...`) were not detected as absolute — only `/` was checked — so they were incorrectly joined with the base directory, producing invalid search paths and empty suggestions. Path-join calls also introduced backslashes into suggestion values, breaking round-trip insertion. Absolute path detection now uses `path.isAbsolute()` (handles drive letters) and suggestion paths are normalized to forward slashes (valid on all platforms).
 - Fixed settings rows crashing native text truncation when a malformed config value reaches the renderer as a non-string ([#3338](https://github.com/can1357/oh-my-pi/issues/3338)).
-- Fixed desktop notifications being silently lost under tmux on the common stack of tmux + kitty/ghostty/wezterm/iTerm2. `TERMINAL_ID` resolves to the inner terminal (whose markers leak into the tmux session env), which maps to `NotifyProtocol.Osc9` / `NotifyProtocol.Osc99`, and `sendNotification()` wrote that raw OSC straight to stdout — tmux dropped it on the floor and `monitor-bell` / `monitor-activity` never fired, so a backgrounded omp pane had no way to flag completion or `ask` blockage. Under `TMUX`, OSC-protocol notifications are now wrapped in tmux's `\x1bPtmux;…\x1b\\` DCS passthrough envelope (so users with `set -g allow-passthrough on` still get the real toast on the outer terminal) and followed by a `\x07` BEL (so `set -g monitor-bell on` reliably flags the window otherwise). The OSC 99 capability probe in `terminal.ts` is wrapped the same way so rich notifications keep working across tmux. `NotifyProtocol.Bell` paths are unchanged. ([#3395](https://github.com/can1357/oh-my-pi/issues/3395))
+- Fixed desktop notifications being silently lost under tmux on the common stack of tmux + kitty/ghostty/wezterm/iTerm2. `TERMINAL_ID` resolves to the inner terminal (whose markers leak into the tmux session env), which maps to `NotifyProtocol.Osc9` / `NotifyProtocol.Osc99`, and `sendNotification()` wrote that raw OSC straight to stdout — tmux dropped it on the floor and `monitor-bell` / `monitor-activity` never fired, so a backgrounded oms pane had no way to flag completion or `ask` blockage. Under `TMUX`, OSC-protocol notifications are now wrapped in tmux's `\x1bPtmux;…\x1b\\` DCS passthrough envelope (so users with `set -g allow-passthrough on` still get the real toast on the outer terminal) and followed by a `\x07` BEL (so `set -g monitor-bell on` reliably flags the window otherwise). The OSC 99 capability probe in `terminal.ts` is wrapped the same way so rich notifications keep working across tmux. `NotifyProtocol.Bell` paths are unchanged. ([#3395](https://github.com/can1357/oh-my-pi/issues/3395))
 
 ## [16.1.10] - 2026-06-21
 
@@ -1972,7 +1972,7 @@
 - Added `ImageBudget`, an inline-image cap that keeps only the most recent N images as live terminal graphics and demotes older ones to their text fallback. Once a new image pushes the count past the cap, the renderer hides the oldest via a full redraw plus an explicit Kitty graphics purge (`a=d,d=I`) — text-clear escapes (`CSI 2 J`/`CSI 3 J`) do not remove Kitty images. Configure the cap via `TUI#setMaxInlineImages` (`0` disables it).
 - Changed Kitty inline images to a transmit-once + placement scheme: the base64 data is sent a single time (`a=t`) keyed by a stable image id, then every repaint emits only the tiny placement (`a=p,i=…,p=…`). Repaints — including full redraws — no longer re-send image data or stack duplicate placements, and the diff/line buffers and render caches hold short placement strings instead of multi-KB base64. The `ImageBudget` doubles as the transmit store (it tracks which ids are loaded and re-transmits after a purge frees the data). iTerm2/Sixel, which have no addressable image store, keep sending inline data as before.
 - Added a renderer-level DECCARA rectangular-SGR optimizer that paints solid background panels/rows (Box/Text/Markdown fills, status bars, any full-width `theme.bg` row) as a single coalesced rectangle escape (`CSI 2*x` / `CSI Pt;Pl;Pb;Pr;<sgr>$r` / `CSI *x`) instead of emitting a full-width run of background-styled spaces on every visible row. It operates at emit time on the final ANSI strings — components are unchanged — and strips only trailing padding it can prove sits under a single non-default background span, coalescing vertically adjacent identical fills into one rectangle and falling back to the original bytes whenever the rectangle would not save bytes. Enabled only on Kitty, which implements the SGR-background extension (`docs/deccara.rst`); **Ghostty is intentionally excluded** because its `CSI $r` is unimplemented (ghostty-org/ghostty#632) and would drop the background entirely. Scrollback-bound rows and the append/scroll paths always keep the padded representation so native history preserves colored cells, and the `PI_NO_DECCARA` kill switch (plus tmux/screen/zellij detection) forces the fallback.
-- Added `CMUX_SURFACE_ID` environment variable support to `getTerminalId()`, so cmux terminal surfaces get a stable identifier alongside kitty, tmux, macOS Terminal.app, and Windows Terminal — enabling per-surface session breadcrumbs for `omp -c` in cmux.
+- Added `CMUX_SURFACE_ID` environment variable support to `getTerminalId()`, so cmux terminal surfaces get a stable identifier alongside kitty, tmux, macOS Terminal.app, and Windows Terminal — enabling per-surface session breadcrumbs for `oms -c` in cmux.
 
 ### Changed
 
@@ -2146,7 +2146,7 @@
 
 ### Added
 
-- Restored the `Key` runtime helper on `@oh-my-pi/pi-tui` to mirror upstream `@mariozechner/pi-tui`'s surface. `Key.enter`, `Key.escape`, `Key.tab`, … return the canonical key-name strings; modifier methods (`Key.ctrl(k)`, `Key.shift(k)`, `Key.ctrlShift(k)`, etc.) build precisely-typed `KeyId` literals like `"ctrl+c"`. Pure runtime convenience for typed key-id construction — plugins built against the upstream package surface that import `Key` (e.g. `@plannotator/pi-extension`, `@juicesharp/rpiv-ask-user-question`) load again now that the specifier shim remaps them onto this package.
+- Restored the `Key` runtime helper on `@oh-my-soup/pi-tui` to mirror upstream `@mariozechner/pi-tui`'s surface. `Key.enter`, `Key.escape`, `Key.tab`, … return the canonical key-name strings; modifier methods (`Key.ctrl(k)`, `Key.shift(k)`, `Key.ctrlShift(k)`, etc.) build precisely-typed `KeyId` literals like `"ctrl+c"`. Pure runtime convenience for typed key-id construction — plugins built against the upstream package surface that import `Key` (e.g. `@plannotator/pi-extension`, `@juicesharp/rpiv-ask-user-question`) load again now that the specifier shim remaps them onto this package.
 
 ## [15.0.1] - 2026-05-14
 
@@ -2227,7 +2227,7 @@
 - Simplified cache key computation in Box component by removing intermediate hash updates and consolidating hash operations
 - Wrapped native text utility functions (`sliceWithWidth`, `truncateToWidth`, `wrapTextWithAnsi`, `extractSegments`) to automatically pass the current default tab width, simplifying the API for consumers
 - Added `getIndentationNoescape` wrapper that uses `process.cwd()` as the project root for relative file paths
-- Re-export `getDefaultTabWidth`, `getIndentation`, and `setDefaultTabWidth` from `@oh-my-pi/pi-utils`; native text helpers still receive tab width via wrappers that read the JS default
+- Re-export `getDefaultTabWidth`, `getIndentation`, and `setDefaultTabWidth` from `@oh-my-soup/pi-utils`; native text helpers still receive tab width via wrappers that read the JS default
 
 ## [13.16.1] - 2026-03-27
 
@@ -2526,15 +2526,15 @@
 - Introduced `terminal-capabilities.ts` module consolidating terminal detection and image protocol support
 - Added `TerminalInfo` class with methods for detecting image lines and formatting notifications
 - Added `NotifyProtocol` enum supporting Bell, OSC 99, and OSC 9 notification protocols
-- Added `isNotificationSuppressed()` function to check `OMP_NOTIFICATIONS` environment variable
+- Added `isNotificationSuppressed()` function to check `OMS_NOTIFICATIONS` environment variable
 - Added `TERMINAL` constant providing detected terminal capabilities at runtime
 
 ### Changed
 
-- Changed notification suppression environment variable from `OMP_NOTIFICATIONS` to `PI_NOTIFICATIONS`
-- Changed TUI write log environment variable from `OMP_TUI_WRITE_LOG` to `PI_TUI_WRITE_LOG`
-- Changed hardware cursor environment variable from `OMP_HARDWARE_CURSOR` to `PI_HARDWARE_CURSOR`
-- Updated environment variable access to use `getEnv()` utility function from `@oh-my-pi/pi-utils` for consistent handling
+- Changed notification suppression environment variable from `OMS_NOTIFICATIONS` to `PI_NOTIFICATIONS`
+- Changed TUI write log environment variable from `OMS_TUI_WRITE_LOG` to `PI_TUI_WRITE_LOG`
+- Changed hardware cursor environment variable from `OMS_HARDWARE_CURSOR` to `PI_HARDWARE_CURSOR`
+- Updated environment variable access to use `getEnv()` utility function from `@oh-my-soup/pi-utils` for consistent handling
 - Renamed `TERMINAL_INFO` export to `TERMINAL` for clearer API semantics
 - Reorganized terminal image exports from `terminal-image` to `terminal-capabilities` module
 - Updated all internal references to use `TERMINAL` instead of `TERMINAL_INFO`
@@ -2553,7 +2553,7 @@
 
 ### Changed
 
-- Moved `wrapTextWithAnsi` export to `@oh-my-pi/pi-natives` package
+- Moved `wrapTextWithAnsi` export to `@oh-my-soup/pi-natives` package
 
 ### Fixed
 
@@ -2582,7 +2582,7 @@
 
 ### Removed
 
-- Removed `truncateToWidth`, `sliceWithWidth`, and `extractSegments` functions from public API (now re-exported directly from @oh-my-pi/pi-natives)
+- Removed `truncateToWidth`, `sliceWithWidth`, and `extractSegments` functions from public API (now re-exported directly from @oh-my-soup/pi-natives)
 - Removed `ellipsis` property from `SymbolTheme` interface
 - Removed `extractAnsiCode` function from public API
 
@@ -2905,7 +2905,7 @@
 
 ### Changed
 
-- Forked to @oh-my-pi scope with unified versioning across all packages
+- Forked to @oh-my-soup scope with unified versioning across all packages
 
 ### Fixed
 
@@ -2915,7 +2915,7 @@
 
 ## [1.337.0] - 2026-01-02
 
-Initial release under @oh-my-pi scope. See previous releases at [badlogic/pi-mono](https://github.com/badlogic/pi-mono).
+Initial release under @oh-my-soup scope. See previous releases at [badlogic/pi-mono](https://github.com/badlogic/pi-mono).
 
 ## [1.5.0] - 2026-01-03
 
@@ -3050,4 +3050,4 @@ Initial release under @oh-my-pi scope. See previous releases at [badlogic/pi-mon
 - Cursor now moves to end of content on exit, preventing status line from being overwritten ([#629](https://github.com/badlogic/pi-mono/pull/629) by [@tallshort](https://github.com/tallshort))
 - Reset ANSI styles after each rendered line to prevent style leakage
 
-Older entries are archived in [packages/tui/CHANGELOG.md@4787659281ba](https://github.com/can1357/oh-my-pi/blob/4787659281ba47f5a3707bbf5ee61742e9373c42/packages/tui/CHANGELOG.md).
+Older entries are archived in [packages/tui/CHANGELOG.md@4787659281ba](https://github.com/pickpocket/oh-my-soup/blob/4787659281ba47f5a3707bbf5ee61742e9373c42/packages/tui/CHANGELOG.md).

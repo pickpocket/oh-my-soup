@@ -17,7 +17,7 @@ import { DynamicBorder } from "../chrome/dynamic-border";
 import { Ellipsis, truncateToWidth, visibleWidth } from "../utils";
 import { interruptKey } from "../chrome/keybinding-hints";
 import { DEFAULT_TERMINAL_PREVIEW_LINES, expandKeyHint } from "../render/render-utils";
-import type { TspCardStatus, TspSpan, TspText, TspTone } from "@oh-my-pi/pi-wire";
+import type { TspCardStatus, TspSpan, TspText, TspTone } from "@oh-my-soup/pi-wire";
 import { card, node, span, text } from "../native/describe";
 import type { NativeChild, NativeNode } from "../native/node";
 
@@ -224,7 +224,7 @@ export function describeExecutionTool(input: ExecutionToolInput): NativeNode {
 	if (input.artifactError) notes.push(formatArtifactErrorNotice(input.artifactError));
 	if (notes.length > 0) {
 		body.push({
-			...text([span(notes.join(" · "), "muted")], { wrap: "word", role: "omp.tool.notice" }),
+			...text([span(notes.join(" · "), "muted")], { wrap: "word", role: "oms.tool.notice" }),
 			key: "foot",
 		});
 	}

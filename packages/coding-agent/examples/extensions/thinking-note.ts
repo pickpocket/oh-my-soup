@@ -1,5 +1,5 @@
-import type { ExtensionFactory } from "@oh-my-pi/pi-coding-agent";
-import { Container, Text } from "@oh-my-pi/pi-tui";
+import type { ExtensionFactory } from "@oh-my-soup/pi-coding-agent";
+import { Container, Text } from "@oh-my-soup/pi-tui";
 
 const extension: ExtensionFactory = pi => {
 	pi.setLabel("Thinking note");

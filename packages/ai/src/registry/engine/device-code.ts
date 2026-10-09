@@ -3,7 +3,7 @@
  * user code, show the verification URL, poll the token endpoint until the
  * grant completes, then project / enrich the credentials.
  */
-import type { CompiledDeviceCodeLogin } from "@oh-my-pi/pi-catalog/compat/types";
+import type { CompiledDeviceCodeLogin } from "@oh-my-soup/pi-catalog/compat/types";
 import * as AIError from "../../error";
 import { type OAuthDeviceCodePollResult, pollOAuthDeviceCodeFlow } from "../oauth/device-code";
 import type { OAuthController, OAuthCredentials } from "../oauth/types";

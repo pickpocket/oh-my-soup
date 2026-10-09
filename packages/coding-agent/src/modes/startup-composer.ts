@@ -1,17 +1,17 @@
-import type { Terminal } from "@oh-my-pi/pi-tui";
+import type { Terminal } from "@oh-my-soup/pi-tui";
 import {
 	COMPOSER_DEFAULTS,
 	Composer,
 	type ComposerPreferences,
 	type ComposerWelcomeUpdate,
-} from "@oh-my-pi/pi-tui/prompt/composer";
+} from "@oh-my-soup/pi-tui/prompt/composer";
 import {
 	type ComposerCache,
 	type ComposerThemePreferences,
 	sharedComposerCache,
-} from "@oh-my-pi/pi-tui/prompt/composer-cache";
-import { setMagicKeywords } from "@oh-my-pi/pi-tui/prompt/magic-keywords";
-import { initThemeSync } from "@oh-my-pi/pi-tui/theme";
+} from "@oh-my-soup/pi-tui/prompt/composer-cache";
+import { setMagicKeywords } from "@oh-my-soup/pi-tui/prompt/magic-keywords";
+import { initThemeSync } from "@oh-my-soup/pi-tui/theme";
 import { MAGIC_KEYWORDS } from "./magic-keywords";
 
 /** Inputs available at the CLI prepaint boundary before command modules load. */

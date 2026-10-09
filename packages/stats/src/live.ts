@@ -12,7 +12,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { getSessionsDir, logger } from "@oh-my-pi/pi-utils";
+import { getSessionsDir, logger } from "@oh-my-soup/pi-utils";
 import { syncAllSessions } from "./aggregator";
 import { getDataVersion, initDb } from "./db";
 import { getRollupStatus, refreshRollups } from "./rollup";
@@ -24,7 +24,7 @@ const WATCH_DEBOUNCE_MS = 800;
 const FULL_SYNC_INTERVAL_MS = 5 * 60 * 1000;
 /** Minimum spacing of `version` bumps; each bump makes open pages refetch. */
 const VERSION_THROTTLE_MS = 1000;
-/** Delay before retrying a failed sync (typically a lock held by another omp process). */
+/** Delay before retrying a failed sync (typically a lock held by another oms process). */
 const SYNC_RETRY_MS = 10_000;
 /** Minimum spacing of progress-only status events. */
 const PROGRESS_THROTTLE_MS = 150;
@@ -156,7 +156,7 @@ export class StatsLive {
 		} catch (error) {
 			logger.warn("Stats live sync failed", { error: String(error) });
 			this.#sync = { ...this.#sync, phase: "error", error: error instanceof Error ? error.message : String(error) };
-			// Usually lock contention with another omp process writing the same
+			// Usually lock contention with another oms process writing the same
 			// database; committed batches are kept, so a retry resumes where it stopped.
 			if (this.#started) {
 				clearTimeout(this.#retryTimer ?? undefined);

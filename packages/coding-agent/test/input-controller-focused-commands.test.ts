@@ -8,10 +8,10 @@
  * agent) in a focused view, or `/export` writes the main session instead of the viewed one.
  */
 import { afterEach, describe, expect, it, vi } from "bun:test";
-import { AgentBusyError } from "@oh-my-pi/pi-agent-core";
-import { CommandController } from "@oh-my-pi/pi-coding-agent/modes/controllers/command-controller";
-import { InputController } from "@oh-my-pi/pi-coding-agent/modes/controllers/input-controller";
-import type { InteractiveModeContext } from "@oh-my-pi/pi-coding-agent/modes/types";
+import { AgentBusyError } from "@oh-my-soup/pi-agent-core";
+import { CommandController } from "@oh-my-soup/pi-coding-agent/modes/controllers/command-controller";
+import { InputController } from "@oh-my-soup/pi-coding-agent/modes/controllers/input-controller";
+import type { InteractiveModeContext } from "@oh-my-soup/pi-coding-agent/modes/types";
 import manualContinuePrompt from "../src/prompts/system/manual-continue.md" with { type: "text" };
 
 function createFocusedContext() {

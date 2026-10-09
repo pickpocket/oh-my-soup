@@ -1,13 +1,13 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "bun:test";
-import { TOOL_INTERRUPT_ABORT_REASON } from "@oh-my-pi/pi-agent-core";
-import { AsyncJobManager } from "@oh-my-pi/pi-coding-agent/async/job-manager";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { IrcBus } from "@oh-my-pi/pi-coding-agent/irc/bus";
-import * as daemonClient from "@oh-my-pi/pi-coding-agent/launch/client";
-import type { DaemonBrokerClient } from "@oh-my-pi/pi-coding-agent/launch/client";
-import { AgentRegistry } from "@oh-my-pi/pi-coding-agent/registry/agent-registry";
-import type { ToolSession } from "@oh-my-pi/pi-coding-agent/tools";
-import { WaitTool } from "@oh-my-pi/pi-coding-agent/tools/wait";
+import { TOOL_INTERRUPT_ABORT_REASON } from "@oh-my-soup/pi-agent-core";
+import { AsyncJobManager } from "@oh-my-soup/pi-coding-agent/async/job-manager";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { IrcBus } from "@oh-my-soup/pi-coding-agent/irc/bus";
+import * as daemonClient from "@oh-my-soup/pi-coding-agent/launch/client";
+import type { DaemonBrokerClient } from "@oh-my-soup/pi-coding-agent/launch/client";
+import { AgentRegistry } from "@oh-my-soup/pi-coding-agent/registry/agent-registry";
+import type { ToolSession } from "@oh-my-soup/pi-coding-agent/tools";
+import { WaitTool } from "@oh-my-soup/pi-coding-agent/tools/wait";
 
 function session(manager?: AsyncJobManager, agentId = "Main", launch = false): ToolSession {
 	return {

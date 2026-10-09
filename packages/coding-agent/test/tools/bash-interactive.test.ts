@@ -1,12 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import * as fs from "node:fs";
-import type { AgentToolContext } from "@oh-my-pi/pi-agent-core";
-import { resetSettingsForTest, Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { runInteractiveBashPty } from "@oh-my-pi/pi-coding-agent/tools/bash-interactive";
-import { KeybindingsManager } from "@oh-my-pi/pi-tui/app-keybindings";
-import { initTheme, type Theme, theme } from "@oh-my-pi/pi-tui/theme";
-import { TUI } from "@oh-my-pi/pi-tui";
-import { TempDir } from "@oh-my-pi/pi-utils";
+import type { AgentToolContext } from "@oh-my-soup/pi-agent-core";
+import { resetSettingsForTest, Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { runInteractiveBashPty } from "@oh-my-soup/pi-coding-agent/tools/bash-interactive";
+import { KeybindingsManager } from "@oh-my-soup/pi-tui/app-keybindings";
+import { initTheme, type Theme, theme } from "@oh-my-soup/pi-tui/theme";
+import { TUI } from "@oh-my-soup/pi-tui";
+import { TempDir } from "@oh-my-soup/pi-utils";
 import { VirtualTerminal } from "../../../tui/test/virtual-terminal";
 
 type InteractiveUi = Pick<NonNullable<AgentToolContext["ui"]>, "custom">;
@@ -34,7 +34,7 @@ describe("runInteractiveBashPty", () => {
 
 	beforeEach(async () => {
 		initTheme();
-		tempDir = TempDir.createSync("@omp-bash-pty-env-");
+		tempDir = TempDir.createSync("@oms-bash-pty-env-");
 		resetSettingsForTest();
 		await Settings.init({ inMemory: true, cwd: tempDir.path() });
 		// The spawn env is filtered `Bun.env` plus procmgr's fixed keys. Those keys
@@ -56,8 +56,8 @@ describe("runInteractiveBashPty", () => {
 				// call has a user at the keyboard.
 				GIT_EDITOR: "shell-git-editor",
 				GPG_TTY: "shell-gpg-tty",
-				OMP_PTY_RUNTIME_PROBE: "from-shell-env",
-				OMP_PTY_LAYER: "shell",
+				OMS_PTY_RUNTIME_PROBE: "from-shell-env",
+				OMS_PTY_LAYER: "shell",
 			},
 			prefix: undefined,
 		});
@@ -72,7 +72,7 @@ describe("runInteractiveBashPty", () => {
 	/** Run the env probe on a real PTY with `direnvEnv` as the command's overrides. */
 	async function probe(direnvEnv: Record<string, string>): Promise<string> {
 		const result = await runInteractiveBashPty(headlessUi(), {
-			command: `printf 'probe=%s layer=%s term=%s ci=%s no_color=%s git_editor=%s gpg_tty=%s\\n' "\${OMP_PTY_RUNTIME_PROBE-unset}" "\${OMP_PTY_LAYER-unset}" "$TERM" "\${CI-unset}" "\${NO_COLOR-unset}" "\${GIT_EDITOR-unset}" "\${GPG_TTY-unset}"`,
+			command: `printf 'probe=%s layer=%s term=%s ci=%s no_color=%s git_editor=%s gpg_tty=%s\\n' "\${OMS_PTY_RUNTIME_PROBE-unset}" "\${OMS_PTY_LAYER-unset}" "$TERM" "\${CI-unset}" "\${NO_COLOR-unset}" "\${GIT_EDITOR-unset}" "\${GPG_TTY-unset}"`,
 			cwd: tempDir.path(),
 			timeoutMs: 15_000,
 			env: direnvEnv,
@@ -84,7 +84,7 @@ describe("runInteractiveBashPty", () => {
 	it.skipIf(ptyUnavailable)(
 		"runs the command with the shell spawn env minus its non-interactive guards, direnv overrides on top, and a real TERM",
 		async () => {
-			const output = await probe({ OMP_PTY_LAYER: "direnv" });
+			const output = await probe({ OMS_PTY_LAYER: "direnv" });
 
 			expect(output).toContain("probe=from-shell-env layer=direnv term=xterm-256color");
 			// The native environ underneath may hold its own values for these

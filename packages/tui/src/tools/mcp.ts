@@ -7,7 +7,7 @@
 import { type Component, Markdown } from "../index";
 
 import type { NativeToolHead, NativeToolView, RenderResultOptions } from "./renderer";
-import { INTENT_FIELD } from "@oh-my-pi/pi-wire";
+import { INTENT_FIELD } from "@oh-my-soup/pi-wire";
 import { ansi, md } from "../native/describe";
 import type { NativeChild } from "../native/node";
 import { OwnerMemo } from "../native/memo";

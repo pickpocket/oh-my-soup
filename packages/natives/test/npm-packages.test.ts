@@ -15,7 +15,7 @@ describe("generated native npm leaf packages", () => {
 			version: "15.5.15",
 		});
 
-		expect(manifest.name).toBe("@oh-my-pi/pi-natives-linux-x64");
+		expect(manifest.name).toBe("@oh-my-soup/pi-natives-linux-x64");
 		expect(manifest.version).toBe("15.5.15");
 		expect(manifest.os).toEqual(["linux"]);
 		expect(manifest.cpu).toEqual(["x64"]);
@@ -25,7 +25,7 @@ describe("generated native npm leaf packages", () => {
 		expect(manifest.license).toBe("MIT");
 		expect(manifest.repository).toEqual({
 			type: "git",
-			url: "git+https://github.com/can1357/oh-my-pi.git",
+			url: "git+https://github.com/pickpocket/oh-my-soup.git",
 			directory: "packages/natives",
 		});
 		expect("exports" in manifest).toBe(false);
@@ -41,7 +41,7 @@ describe("generated native npm leaf packages", () => {
 			version: "15.5.15",
 		});
 
-		expect(manifest.name).toBe("@oh-my-pi/pi-natives-darwin-arm64");
+		expect(manifest.name).toBe("@oh-my-soup/pi-natives-darwin-arm64");
 		expect(manifest.os).toEqual(["darwin"]);
 		expect(manifest.cpu).toEqual(["arm64"]);
 		expect(manifest.main).toBe("./pi_natives.darwin-arm64.node");

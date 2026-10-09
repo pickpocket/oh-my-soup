@@ -1,5 +1,5 @@
 /**
- * List-continuation grammar of `@oh-my-pi/pi-utils/marked`, for streaming
+ * List-continuation grammar of `@oh-my-soup/pi-utils/marked`, for streaming
  * renderers that freeze a lexed prefix at blank-line boundaries (TUI and
  * collab web).
  *

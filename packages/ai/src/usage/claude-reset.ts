@@ -1,4 +1,4 @@
-import { extractRetryHint } from "@oh-my-pi/pi-utils/fetch-retry";
+import { extractRetryHint } from "@oh-my-soup/pi-utils/fetch-retry";
 import type { UsageReport, UsageResetCredit, UsageResetCredits } from "../usage";
 import { isUsageLimitReached } from "../auth/usage-report";
 import { claudeRankingStrategy, parseClaudeUsagePayload } from "./claude";

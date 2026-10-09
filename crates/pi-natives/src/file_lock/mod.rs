@@ -36,7 +36,7 @@ fn memory_lock_name(path: &str) -> String {
 	let bytes = path.as_bytes();
 	let high = xxhash_rust::xxh64::xxh64(bytes, HIGH_SEED);
 	let low = xxhash_rust::xxh64::xxh64(bytes, LOW_SEED);
-	format!("omp-file-lock-{high:016x}{low:016x}")
+	format!("oms-file-lock-{high:016x}{low:016x}")
 }
 
 /// Process-owned cross-platform advisory lock.

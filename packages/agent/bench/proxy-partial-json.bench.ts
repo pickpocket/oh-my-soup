@@ -9,7 +9,7 @@
  *
  * Run: bun packages/agent/bench/proxy-partial-json.bench.ts
  */
-import { parseStreamingJson, parseStreamingJsonThrottled } from "@oh-my-pi/pi-utils";
+import { parseStreamingJson, parseStreamingJsonThrottled } from "@oh-my-soup/pi-utils";
 
 const TOTAL = 100 * 1024;
 const DELTA = 1024;

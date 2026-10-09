@@ -295,7 +295,7 @@ function createGoogleDriveUploader(config: DestinationRuntimeConfig): BlobUpload
 	return {
 		destination: "google-drive",
 		async upload(request) {
-			const boundary = `omp-${crypto.randomUUID()}`;
+			const boundary = `oms-${crypto.randomUUID()}`;
 			const metadata: { name: string; parents?: string[] } = { name: fileNameFor(request) };
 			if (folderId) metadata.parents = [folderId];
 			const body = new Blob([
@@ -437,7 +437,7 @@ function createPushbulletUploader(config: DestinationRuntimeConfig): BlobUploade
 			if (deviceId) pushForm.set("device_iden", deviceId);
 			pushForm.set("type", "file");
 			pushForm.set("file_url", fileUrl);
-			pushForm.set("body", "Sent via omp");
+			pushForm.set("body", "Sent via oms");
 			pushForm.set("file_type", fileType);
 			const pushResponse = await expectOk(
 				await fetchImpl(`${PUSHBULLET_API}/pushes`, {

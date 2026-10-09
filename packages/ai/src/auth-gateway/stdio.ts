@@ -17,7 +17,7 @@
  * status 400 with the `id` it carried, if any. Serving ends once input ends
  * and every request has been answered.
  */
-import { logger, readLines } from "@oh-my-pi/pi-utils";
+import { logger, readLines } from "@oh-my-soup/pi-utils";
 
 /** Request ids are opaque to the transport: echoed back as received. */
 type StdioId = string | number;

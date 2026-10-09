@@ -1,4 +1,4 @@
-import { calculateUsageCost } from "@oh-my-pi/pi-catalog/models";
+import { calculateUsageCost } from "@oh-my-soup/pi-catalog/models";
 import { describe, expect, it } from "bun:test";
 import {
 	type ApiKeyResolveContext,
@@ -12,7 +12,7 @@ import {
 	TextJudge,
 	TypeSafeApiError,
 	TypeSafeJudge,
-} from "@oh-my-pi/pi-ai";
+} from "@oh-my-soup/pi-ai";
 
 const LEVELS = ["low", "medium", "high", "xhigh", "max"] as const;
 

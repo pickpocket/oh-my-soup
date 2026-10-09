@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it } from "bun:test";
-import type { TspSpan } from "@oh-my-pi/pi-wire";
+import type { TspSpan } from "@oh-my-soup/pi-wire";
 import { Box } from "../src/components/box";
 import { Disclosure } from "../src/components/disclosure";
 import { Markdown } from "../src/components/markdown";
@@ -49,10 +49,10 @@ describe("Box.describe", () => {
 	it("maps background fills to card tone and role", () => {
 		const errorBox = new Box(1, 1, t => theme.bg("toolErrorBg", t));
 		expect(errorBox.describe(CX).k).toBe("card");
-		expect(props(errorBox.describe(CX))).toMatchObject({ tone: "error", role: "omp.tool", inset: true });
+		expect(props(errorBox.describe(CX))).toMatchObject({ tone: "error", role: "oms.tool", inset: true });
 
 		const userBox = new Box(1, 1, t => theme.bg("userMessageBg", t));
-		expect(props(userBox.describe(CX))).toMatchObject({ tone: "user", role: "omp.user" });
+		expect(props(userBox.describe(CX))).toMatchObject({ tone: "user", role: "oms.user" });
 	});
 
 	it("maps a border colour to the ring tone and drops glyph chrome", () => {

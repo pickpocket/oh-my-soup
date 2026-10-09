@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import { type Component, TUI } from "@oh-my-pi/pi-tui";
-import type { Terminal, TerminalAppearance } from "@oh-my-pi/pi-tui/terminal";
+import { type Component, TUI } from "@oh-my-soup/pi-tui";
+import type { Terminal, TerminalAppearance } from "@oh-my-soup/pi-tui/terminal";
 
 const TRACKING_ON = "\x1b[?1000h\x1b[?1003h\x1b[?1006h";
 const TRACKING_OFF = "\x1b[?1006l\x1b[?1003l\x1b[?1000l";

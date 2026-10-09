@@ -10,7 +10,7 @@ export function isInsideHerdr(env: NodeJS.ProcessEnv = Bun.env): boolean {
 	return false;
 }
 
-/** Terminal multiplexers omp recognizes as owning the screen grid. */
+/** Terminal multiplexers oms recognizes as owning the screen grid. */
 export type TerminalMultiplexer = "herdr" | "tmux" | "screen" | "zellij" | "cmux" | "wmux";
 
 /**

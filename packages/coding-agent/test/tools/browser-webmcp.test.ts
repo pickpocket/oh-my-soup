@@ -1,14 +1,14 @@
 import { afterAll, describe, expect, it } from "bun:test";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { disposeAllVmContexts } from "@oh-my-pi/pi-coding-agent/eval/js/context-manager";
-import { createBrowserPrelude } from "@oh-my-pi/pi-coding-agent/tools/browser";
-import { releaseAllTabs } from "@oh-my-pi/pi-coding-agent/tools/browser/tab-supervisor";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { disposeAllVmContexts } from "@oh-my-soup/pi-coding-agent/eval/js/context-manager";
+import { createBrowserPrelude } from "@oh-my-soup/pi-coding-agent/tools/browser";
+import { releaseAllTabs } from "@oh-my-soup/pi-coding-agent/tools/browser/tab-supervisor";
 import type {
 	WebMcpEventsResult,
 	WebMcpInvokeResult,
 	WebMcpListResult,
-} from "@oh-my-pi/pi-coding-agent/tools/browser/webmcp";
-import type { ToolSession } from "@oh-my-pi/pi-coding-agent/tools/index";
+} from "@oh-my-soup/pi-coding-agent/tools/browser/webmcp";
+import type { ToolSession } from "@oh-my-soup/pi-coding-agent/tools/index";
 import { chromiumAvailable } from "./chromium-probe";
 
 const CHROMIUM_AVAILABLE = await chromiumAvailable();

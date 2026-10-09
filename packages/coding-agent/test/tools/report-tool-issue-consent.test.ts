@@ -10,14 +10,14 @@
  * 4. A persisted `"denied"` short-circuits the handler AND no-ops the tool.
  */
 import { afterEach, describe, expect, it } from "bun:test";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
 import {
 	__resetAutoQaConsentForTests,
 	resolveAutoQaConsent,
 	setAutoQaConsentHandler,
-} from "@oh-my-pi/pi-coding-agent/tools/report-tool-issue";
+} from "@oh-my-soup/pi-coding-agent/tools/report-tool-issue";
 
-import { cfgDevAutoqaConsent } from "@oh-my-pi/pi-coding-agent/tools/settings";
+import { cfgDevAutoqaConsent } from "@oh-my-soup/pi-coding-agent/tools/settings";
 
 afterEach(() => {
 	__resetAutoQaConsentForTests();

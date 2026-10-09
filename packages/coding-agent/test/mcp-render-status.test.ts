@@ -1,17 +1,17 @@
 import { beforeAll, describe, expect, it } from "bun:test";
-import type { AgentTool } from "@oh-my-pi/pi-agent-core";
-import type { TSchema } from "@oh-my-pi/pi-ai";
-import { resetSettingsForTest, Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { renderMCPResult } from "@oh-my-pi/pi-tui/tools/mcp";
-import { DeferredMCPTool, MCPTool } from "@oh-my-pi/pi-coding-agent/mcp/tool-bridge";
-import { type MCPToolDetails } from "@oh-my-pi/pi-tui/tools/mcp";
-import type { MCPServerConnection, MCPToolDefinition, MCPTransport } from "@oh-my-pi/pi-coding-agent/mcp/types";
-import { ToolExecutionComponent } from "@oh-my-pi/pi-tui/chat/tool-execution";
-import { theme as activeTheme, getThemeByName, initTheme } from "@oh-my-pi/pi-tui/theme";
-import { type OutputMeta } from "@oh-my-pi/pi-tui/tools/output-meta";
-import { formatOutputNotice } from "@oh-my-pi/pi-tui/tools/output-meta";
-import { formatStatusIcon } from "@oh-my-pi/pi-tui/render/render-utils";
-import { TUI } from "@oh-my-pi/pi-tui";
+import type { AgentTool } from "@oh-my-soup/pi-agent-core";
+import type { TSchema } from "@oh-my-soup/pi-ai";
+import { resetSettingsForTest, Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { renderMCPResult } from "@oh-my-soup/pi-tui/tools/mcp";
+import { DeferredMCPTool, MCPTool } from "@oh-my-soup/pi-coding-agent/mcp/tool-bridge";
+import { type MCPToolDetails } from "@oh-my-soup/pi-tui/tools/mcp";
+import type { MCPServerConnection, MCPToolDefinition, MCPTransport } from "@oh-my-soup/pi-coding-agent/mcp/types";
+import { ToolExecutionComponent } from "@oh-my-soup/pi-tui/chat/tool-execution";
+import { theme as activeTheme, getThemeByName, initTheme } from "@oh-my-soup/pi-tui/theme";
+import { type OutputMeta } from "@oh-my-soup/pi-tui/tools/output-meta";
+import { formatOutputNotice } from "@oh-my-soup/pi-tui/tools/output-meta";
+import { formatStatusIcon } from "@oh-my-soup/pi-tui/render/render-utils";
+import { TUI } from "@oh-my-soup/pi-tui";
 import { VirtualTerminal } from "../../tui/test/virtual-terminal";
 
 beforeAll(async () => {

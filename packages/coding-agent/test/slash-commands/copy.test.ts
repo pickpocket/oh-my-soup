@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it, spyOn, vi } from "bun:test";
-import type { AgentMessage } from "@oh-my-pi/pi-agent-core";
-import type { InteractiveModeContext } from "@oh-my-pi/pi-coding-agent/modes/types";
-import { executeBuiltinSlashCommand } from "@oh-my-pi/pi-coding-agent/slash-commands/builtin-registry";
-import * as clipboard from "@oh-my-pi/pi-coding-agent/utils/clipboard";
-import * as opener from "@oh-my-pi/pi-coding-agent/utils/open";
+import type { AgentMessage } from "@oh-my-soup/pi-agent-core";
+import type { InteractiveModeContext } from "@oh-my-soup/pi-coding-agent/modes/types";
+import { executeBuiltinSlashCommand } from "@oh-my-soup/pi-coding-agent/slash-commands/builtin-registry";
+import * as clipboard from "@oh-my-soup/pi-coding-agent/utils/clipboard";
+import * as opener from "@oh-my-soup/pi-coding-agent/utils/open";
 
 function assistantText(text: string): AgentMessage {
 	return { role: "assistant", content: [{ type: "text", text }] } as unknown as AgentMessage;

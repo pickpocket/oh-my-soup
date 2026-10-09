@@ -1,7 +1,7 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from "bun:test";
-import type { DownloadActivity } from "@oh-my-pi/pi-coding-agent/downloads/activity";
-import { DownloadActivityHud } from "@oh-my-pi/pi-coding-agent/modes/progress-hud";
-import { initTheme } from "@oh-my-pi/pi-tui/theme";
+import type { DownloadActivity } from "@oh-my-soup/pi-coding-agent/downloads/activity";
+import { DownloadActivityHud } from "@oh-my-soup/pi-coding-agent/modes/progress-hud";
+import { initTheme } from "@oh-my-soup/pi-tui/theme";
 
 beforeAll(async () => {
 	await initTheme(false);

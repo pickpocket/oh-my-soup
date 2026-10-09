@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
-import { convertAnthropicMessages } from "@oh-my-pi/pi-ai/providers/anthropic";
-import type { AssistantMessage, Model, ModelSpec, ToolResultMessage, UserMessage } from "@oh-my-pi/pi-ai/types";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
+import { convertAnthropicMessages } from "@oh-my-soup/pi-ai/providers/anthropic";
+import type { AssistantMessage, Model, ModelSpec, ToolResultMessage, UserMessage } from "@oh-my-soup/pi-ai/types";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
 
 /**
  * Issue #814: Z.AI returns 500
@@ -10,7 +10,7 @@ import { buildModel } from "@oh-my-pi/pi-catalog/build";
  *
  * Z.AI's Python proxy at api.z.ai/api/anthropic deserializes tool_result
  * blocks into a class that accesses `.id`, even though Anthropic's API only
- * carries `tool_use_id`. As a workaround, OMP must include `id` (aliased to
+ * carries `tool_use_id`. As a workaround, OMS must include `id` (aliased to
  * `tool_use_id`) on tool_result blocks targeted at z.ai. Standard Anthropic
  * endpoints must remain unchanged (no `id` field).
  */

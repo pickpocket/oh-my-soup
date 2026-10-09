@@ -1,7 +1,7 @@
 import { describe, expect, it, mock } from "bun:test";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
-import { buildFactoryDroidModel } from "@oh-my-pi/pi-catalog/discovery";
-import { Effort } from "@oh-my-pi/pi-catalog/effort";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
+import { buildFactoryDroidModel } from "@oh-my-soup/pi-catalog/discovery";
+import { Effort } from "@oh-my-soup/pi-catalog/effort";
 import { streamFactoryDroid } from "../src/providers/factory-droid";
 import { streamSimple } from "../src/stream";
 import {
@@ -233,7 +233,7 @@ describe("Factory Droid completions wire (Droid Core)", () => {
 		const captured: CapturedRequest[] = [];
 		const result = await streamFactoryDroid(
 			model(),
-			{ systemPrompt: ["OMP system prompt"], messages: [{ role: "user", content: "hello", timestamp: 1 }] },
+			{ systemPrompt: ["OMS system prompt"], messages: [{ role: "user", content: "hello", timestamp: 1 }] },
 			{ apiKey: WORKOS_TOKEN, fetch: captureFetch(captured, [...chunks]), sessionId: "019fd-test-session" },
 		).result();
 
@@ -242,7 +242,7 @@ describe("Factory Droid completions wire (Droid Core)", () => {
 		expect(request.url.split("?")[0]).toBe(`https://api.factory.ai/api/llm${path}`);
 		expect(request.headers.authorization).toBe(`Bearer ${WORKOS_TOKEN}`);
 		expect(request.headers["x-factory-org-id"]).toBe("org-1");
-		// droid sends random v4 UUIDs; the OMP session id must not leak its v7 shape.
+		// droid sends random v4 UUIDs; the OMS session id must not leak its v7 shape.
 		expect(request.headers["x-session-id"]).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
 		expect(request.headers["x-session-id"]).not.toContain("019fd");
 		// The identity leads the wire's system channel and the caller's prompt follows it.
@@ -251,7 +251,7 @@ describe("Factory Droid completions wire (Droid Core)", () => {
 			instructions ?? system ?? systemInstruction ?? (messages as Array<{ role: string }>)[0],
 		);
 		expect(systemChannel).toContain(DROID_IDENTITY);
-		expect(systemChannel).toContain("OMP system prompt");
+		expect(systemChannel).toContain("OMS system prompt");
 		// Toolless requests leave parallel tool calls at the API default.
 		expect(request.body.parallel_tool_calls).toBeUndefined();
 	});

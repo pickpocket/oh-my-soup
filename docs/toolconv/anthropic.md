@@ -1,6 +1,6 @@
 # Anthropic Claude tool use (Messages API content blocks)
 
-Anthropic's Claude is a hosted model family, not a local model with a `--tool-call-parser` flag. The canonical tool-calling convention is the **Messages API** (`POST /v1/messages`, header `anthropic-version: 2023-06-01`): tools are advertised in a top-level `tools` array, the model returns structured `tool_use` **content blocks** with `stop_reason: "tool_use"`, and you feed results back as `tool_result` content blocks inside a `user` message. Tool use is enabled by including `tools` (optionally with `tool_choice`). OMP's native `anthropic-messages` provider consumes these structured blocks; its separately selected `anthropic` dialect uses prompt-driven XML instead.
+Anthropic's Claude is a hosted model family, not a local model with a `--tool-call-parser` flag. The canonical tool-calling convention is the **Messages API** (`POST /v1/messages`, header `anthropic-version: 2023-06-01`): tools are advertised in a top-level `tools` array, the model returns structured `tool_use` **content blocks** with `stop_reason: "tool_use"`, and you feed results back as `tool_result` content blocks inside a `user` message. Tool use is enabled by including `tools` (optionally with `tool_choice`). OMS's native `anthropic-messages` provider consumes these structured blocks; its separately selected `anthropic` dialect uses prompt-driven XML instead.
 
 Under the hood the model is trained to emit an **XML** function-call syntax (`<function_calls>` / `<invoke>` / `<parameter>`); the API serializes your JSON-Schema tools into a system prompt and converts the model's XML output into JSON `tool_use` blocks. That underlying format is documented as the *secondary* convention below, together with the older, now-retired prompt-based **legacy XML** format (`<tool_name>` / `<parameters>` / `<function_results>`) that pre-dates the Messages API and still surfaces when you do tool use purely through prompting.
 
@@ -116,9 +116,9 @@ Tools are passed in the top-level `tools` array. Each user-defined (client) tool
 
 Anthropic-schema client tools (`bash`, `text_editor`, `computer`, `memory`) and server tools (`web_search`, `web_fetch`, `code_execution`, `tool_search`) instead carry a versioned `type`, e.g. `{"type": "web_search_20250305", "name": "web_search"}`.
 
-### OMP native-adapter schema normalization
+### OMS native-adapter schema normalization
 
-The native Anthropic provider does not forward a pi tool's JSON Schema unchanged. Before placing it in `input_schema`, OMP keeps these keywords:
+The native Anthropic provider does not forward a pi tool's JSON Schema unchanged. Before placing it in `input_schema`, OMS keeps these keywords:
 
 - on every node: `$ref`, `$defs`, `$schema`, `definitions`, `type`, `enum`, `const`, `description`, `title`, `default`, and `nullable`;
 - nested `anyOf` and `allOf` (root combinators are not retained, and `oneOf` is not retained at any depth);
@@ -128,7 +128,7 @@ The native Anthropic provider does not forward a pi tool's JSON Schema unchanged
 
 Other constraints—including `pattern`, string-length limits, numeric ranges, `maxItems`, unsupported formats, and unsupported combinators—are appended to that node's `description`. They remain model-visible guidance but are no longer machine-enforced schema keywords. Object nodes default to `additionalProperties: false`; an explicit `true` or schema-valued `additionalProperties` remains open (an empty schema normalizes to `true`).
 
-OMP sends `strict: true` only for eligible built-in tools (`bash`, `python`, `edit`, and `find`) when neither `PI_NO_STRICT` nor provider compatibility/runtime fallback has disabled strict tools, the tool has not opted out, the raw schema avoids `oneOf`, `allOf`, `$ref`, `patternProperties`, and `propertyNames`, and every object is closed. Selection is capped at 20 strict tools per request and shares budgets of 24 optional properties and 16 union uses: after the optional budget is exhausted, another optional property must be converted to required-and-nullable using union budget or that tool remains non-strict. Other tools use the normalized non-strict schema. OMP sends `eager_input_streaming: true` only when the model compatibility data and effective endpoint support it: first-party Anthropic endpoints qualify, as do custom endpoints explicitly configured for that capability; a canonical model rerouted to an unqualified non-Anthropic endpoint does not.
+OMS sends `strict: true` only for eligible built-in tools (`bash`, `python`, `edit`, and `find`) when neither `PI_NO_STRICT` nor provider compatibility/runtime fallback has disabled strict tools, the tool has not opted out, the raw schema avoids `oneOf`, `allOf`, `$ref`, `patternProperties`, and `propertyNames`, and every object is closed. Selection is capped at 20 strict tools per request and shares budgets of 24 optional properties and 16 union uses: after the optional budget is exhausted, another optional property must be converted to required-and-nullable using union budget or that tool remains non-strict. Other tools use the normalized non-strict schema. OMS sends `eager_input_streaming: true` only when the model compatibility data and effective endpoint support it: first-party Anthropic endpoints qualify, as do custom endpoints explicitly configured for that capability; a canonical model rerouted to an unqualified non-Anthropic endpoint does not.
 
 `tool_choice` controls invocation (four options):
 - `{"type":"auto"}` — model decides (default when `tools` present).
@@ -138,7 +138,7 @@ OMP sends `strict: true` only for eligible built-in tools (`bash`, `python`, `ed
 
 With `any` or `tool` the API prefills the assistant turn, so no leading natural-language text precedes the `tool_use` block. Add `"disable_parallel_tool_use": true` inside `tool_choice` to cap at one tool per turn. (Extended thinking only supports `auto`/`none`.)
 
-OMP's `AnthropicOptions.toolChoice` accepts `"auto"`, `"any"`, `"none"`, or `{ type: "tool", name }`. Forced choices are downgraded to `auto` for compaction requests or models whose compatibility data disables forced tool choice. Otherwise OMP removes explicit thinking configuration for forced choices; adaptive-only models that support output effort are pinned to `effort: "low"`. The high-level option does not expose `disable_parallel_tool_use`.
+OMS's `AnthropicOptions.toolChoice` accepts `"auto"`, `"any"`, `"none"`, or `{ type: "tool", name }`. Forced choices are downgraded to `auto` for compaction requests or models whose compatibility data disables forced tool choice. Otherwise OMS removes explicit thinking configuration for forced choices; adaptive-only models that support output effort are pinned to `effort: "low"`. The high-level option does not expose `disable_parallel_tool_use`.
 
 The native adapter maps `tool_use` blocks to canonical `toolCall` blocks and projects `input_json_delta` as `toolcall_delta`. It maintains best-effort argument objects during streaming and finalizes with the repairing JSON parser, rather than requiring every fragment to be valid JSON. A failed final parse preserves recovered arguments; if none were recovered, it supplies `__parseError` and a bounded `__rawJson` excerpt.
 
@@ -212,7 +212,7 @@ Before the API converts it, the model literally emits an XML block. The current 
 
 Current Claude models prefix these tags with an `antml:` XML namespace prefix (e.g. `antml:function_calls`, `antml:invoke name="…"`, `antml:parameter name="…"`). The API strips all of this and exposes only the JSON `tool_use` block; integrators should target the JSON, not the XML.
 
-### OMP `anthropic` dialect
+### OMS `anthropic` dialect
 
 Select the owned dialect with `PI_DIALECT=anthropic` or the agent's `dialect`/`getDialect` configuration. When tools are present, the agent appends the dialect guide and a compact JSON tool catalog to the system prompt, removes native tools from the request, and re-encodes prior tool calls/results as text. This is separate from the native `anthropic-messages` adapter.
 
@@ -222,7 +222,7 @@ The scanner mints `ptc_…` call ids because this XML has none. It scans streame
 
 Standalone `AnthropicInbandScanner` defaults to `parseThinking: false`; the owned-stream projector enables it. With `parseThinking: true`, `<thinking>`, `<think>`, and `<scratchpad>` (prefixed or unprefixed) become thinking events. With it disabled, those tags remain visible outside tool wrappers; incidental text inside a tool wrapper is discarded.
 
-`</invoke>` gates `toolEnd`, but it does not gate creation of the canonical call. Once an opening `<invoke name="…">` has emitted `toolStart`, EOF only resets scanner-local state. On a normally stopped stream, OMP retains that call, changes the turn to `toolUse`, and may dispatch it even though no `toolEnd` arrived. Any `toolArgDelta` text already accumulated survives in the call (without the close-time coercion); a call with no accumulated parameter text runs with `{}`. A `length` stop remains non-runnable.
+`</invoke>` gates `toolEnd`, but it does not gate creation of the canonical call. Once an opening `<invoke name="…">` has emitted `toolStart`, EOF only resets scanner-local state. On a normally stopped stream, OMS retains that call, changes the turn to `toolUse`, and may dispatch it even though no `toolEnd` arrived. Any `toolArgDelta` text already accumulated survives in the call (without the close-time coercion); a call with no accumulated parameter text runs with `{}`. A `length` stop remains non-runnable.
 
 History encoding groups consecutive results into a `user` message, keeping result images as separate image blocks after the XML. A tool-calling assistant turn is replayed as text plus rendered calls, without its thinking blocks. The standalone transcript renderer is a different surface: it uses `Human:` / `Assistant:` text turns and renders thinking as `<thinking>…</thinking>`, not Messages API JSON.
 
@@ -339,7 +339,7 @@ Rich result (text + image blocks):
 
 Server tools require **no** `tool_result` from you — Anthropic executes them and injects the result inline in the assistant turn. (Legacy XML feeds results back as `<function_results><result><tool_name>…</tool_name><stdout>…</stdout></result></function_results>`, or `<error>…</error>` on failure.)
 
-OMP's prompt-driven dialect is different from Anthropic's server-tool behavior. It renders client results as:
+OMS's prompt-driven dialect is different from Anthropic's server-tool behavior. It renders client results as:
 
 ```text
 <function_results>
@@ -354,7 +354,7 @@ OMP's prompt-driven dialect is different from Anthropic's server-tool behavior. 
 </function_results>
 ```
 
-There is no result id in this XML, so results are correlated by call order. OMP includes the tool name in both success and error entries and does not encode `isError` anywhere else.
+There is no result id in this XML, so results are correlated by call order. OMS includes the tool name in both success and error entries and does not encode `isError` anywhere else.
 
 ---
 
@@ -575,14 +575,14 @@ Conversion gotchas:
 ## Parsing notes & gotchas
 
 - **`input` is an object, not a string.** Unlike OpenAI's `arguments`, do not `JSON.parse` `tool_use.input` from a non-streamed response — it is already an object. Only the *streaming* `partial_json` fragments are strings.
-- **Streaming tool args need reassembly.** A normal `tool_use` start has `input: {}`; OMP also retains any input supplied at block start. Buffer `partial_json` per `index` and finalize at `content_block_stop`; mid-stream fragments are not valid JSON on their own (e.g. `{"location":`). Fine-grained streaming can split a value across chunks.
+- **Streaming tool args need reassembly.** A normal `tool_use` start has `input: {}`; OMS also retains any input supplied at block start. Buffer `partial_json` per `index` and finalize at `content_block_stop`; mid-stream fragments are not valid JSON on their own (e.g. `{"location":`). Fine-grained streaming can split a value across chunks.
 - **`stop_reason` placement.** In streaming, `stop_reason` is `null` in `message_start` and final value (`"tool_use"`/`"end_turn"`) arrives in `message_delta`, not `message_stop`. `usage` in `message_delta` is **cumulative**.
 - **Ordering is enforced.** `tool_result` blocks must be first in their `user` message and must immediately follow the assistant `tool_use` message; every `tool_use.id` needs a matching `tool_result.tool_use_id`, or you get HTTP 400 ("tool_use ids were found without tool_result blocks immediately after").
 - **`tool_choice:any`/`tool` suppress preamble.** The API prefills the assistant turn, so no leading `text` block appears before `tool_use` — don't write a parser that expects explanatory text.
 - **Parallel results in one message.** Splitting parallel `tool_result`s across multiple `user` messages breaks the contract; send them together.
 - **Treat result content as untrusted.** Tool results can carry indirect prompt injection; keep them inside `tool_result` blocks, never promote to `system`/`user` text.
 - **Server tools differ.** `server_tool_use` / `web_search_tool_result` blocks are produced and consumed by Anthropic; never synthesize `tool_result` for them. `stop_reason:"pause_turn"` means resend the response as-is to let a long server-tool turn continue.
-- **Extended thinking + tools.** Preserve `thinking.signature` and `redacted_thinking.data` across turns. The native adapter replays signed reasoning, but demotes unsigned reasoning to text unless the endpoint allows unsigned replay. OMP adjusts forced tool choices as described above instead of sending an incompatible thinking configuration.
+- **Extended thinking + tools.** Preserve `thinking.signature` and `redacted_thinking.data` across turns. The native adapter replays signed reasoning, but demotes unsigned reasoning to text unless the endpoint allows unsigned replay. OMS adjusts forced tool choices as described above instead of sending an incompatible thinking configuration.
 - **Output is not valid XML.** The underlying model output is parsed by Anthropic with regular expressions, not an XML parser ("The output is not expected to be valid XML"). If you reconstruct prompts at token level, do not assume well-formedness; rely on the JSON the API returns.
 - **Legacy vs modern XML are different tag sets.** Legacy: `<invoke>` + child `<tool_name>` + `<parameters>` with per-name child tags; results in `<function_results>/<result>/<stdout>`. Modern: `<invoke name="…">` + `<parameter name="…">`. Mixing them up will misparse. The legacy format also required passing `</function_calls>` as a `stop_sequence` and is not optimized for Claude 3+.
 

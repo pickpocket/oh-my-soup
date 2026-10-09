@@ -2,7 +2,7 @@
  * Repro for #2375: remote (SSH) image attachment surfaces only the local path.
  *
  * When a user attaches an image in their LOCAL terminal (e.g. drag/drop into
- * iTerm2 on macOS) while the omp process actually runs on a remote host (Pi
+ * iTerm2 on macOS) while the oms process actually runs on a remote host (Pi
  * over SSH), the terminal forwards a bracketed-paste containing the local
  * macOS path. The remote `handleImagePathPaste` tries to read that path on
  * the remote filesystem, fails (ENOENT), then falls through to pasting the
@@ -17,12 +17,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { ImageContent } from "@oh-my-pi/pi-ai";
-import { resetSettingsForTest, Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { InputController } from "@oh-my-pi/pi-coding-agent/modes/controllers/input-controller";
-import { chipLabel } from "@oh-my-pi/pi-tui/prompt/composer-attachments";
-import type { InteractiveModeContext } from "@oh-my-pi/pi-coding-agent/modes/types";
-import { $which } from "@oh-my-pi/pi-utils";
+import type { ImageContent } from "@oh-my-soup/pi-ai";
+import { resetSettingsForTest, Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { InputController } from "@oh-my-soup/pi-coding-agent/modes/controllers/input-controller";
+import { chipLabel } from "@oh-my-soup/pi-tui/prompt/composer-attachments";
+import type { InteractiveModeContext } from "@oh-my-soup/pi-coding-agent/modes/types";
+import { $which } from "@oh-my-soup/pi-utils";
 
 // A clipboard with no image on it — the deterministic default for the
 // not-found assertions so a real screenshot on the dev's clipboard cannot
@@ -107,7 +107,7 @@ describe("InputController.handleImagePathPaste (issue #2375)", () => {
 	it("locally: still avoids the misleading path-as-text fallback when the file is unreachable", async () => {
 		const { ctx, spies } = createContext();
 		const controller = new InputController(ctx, EMPTY_CLIPBOARD);
-		const missing = "/tmp/definitely-does-not-exist-omp-2375.png";
+		const missing = "/tmp/definitely-does-not-exist-oms-2375.png";
 
 		await controller.handleImagePathPaste(missing);
 
@@ -145,7 +145,7 @@ describe("InputController.handleImagePathPaste (issue #2375)", () => {
 	it("locally: attaches the clipboard image when the pasted path is a stale transient file (Win+Shift+S)", async () => {
 		// Windows 11 Win+Shift+S leaves the bitmap on the clipboard, but the
 		// terminal pastes the snip's packaged-app TempState path, which is
-		// already gone by the time omp reads it. The bytes are still on the
+		// already gone by the time oms reads it. The bytes are still on the
 		// clipboard, so the paste must succeed from there instead of dead-ending
 		// on "Image not found".
 		const { ctx, spies } = createContext();

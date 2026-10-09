@@ -8,7 +8,7 @@
  * in full.
  */
 
-import type { TextContent } from "@oh-my-pi/pi-ai";
+import type { TextContent } from "@oh-my-soup/pi-ai";
 import { Box } from "../components/box";
 import { Markdown } from "../components/markdown";
 import { Spacer } from "../components/spacer";

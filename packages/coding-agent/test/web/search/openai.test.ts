@@ -1,11 +1,11 @@
 import { describe, expect, it } from "bun:test";
-import type { AuthStorage } from "@oh-my-pi/pi-ai";
-import type { Api, FetchImpl, Model } from "@oh-my-pi/pi-ai/types";
-import { ModelRegistry } from "@oh-my-pi/pi-coding-agent/config/model-registry";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
-import { getGroundedSearchProvider } from "@oh-my-pi/pi-coding-agent/web/search/provider";
-import type { SearchParams } from "@oh-my-pi/pi-coding-agent/web/search/providers/base";
-import { searchOpenAIResponses } from "@oh-my-pi/pi-coding-agent/web/search/providers/openai";
+import type { AuthStorage } from "@oh-my-soup/pi-ai";
+import type { Api, FetchImpl, Model } from "@oh-my-soup/pi-ai/types";
+import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
+import { getGroundedSearchProvider } from "@oh-my-soup/pi-coding-agent/web/search/provider";
+import type { SearchParams } from "@oh-my-soup/pi-coding-agent/web/search/providers/base";
+import { searchOpenAIResponses } from "@oh-my-soup/pi-coding-agent/web/search/providers/openai";
 import { createInMemoryAuthStorage } from "../../helpers/agent-session-setup";
 
 const API_KEY = "selected-openai-api-key";

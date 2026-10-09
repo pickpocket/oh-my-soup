@@ -1,15 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { AuthStorage, SqliteAuthCredentialStore } from "@oh-my-pi/pi-ai";
-import { resolveAgentModelSelection } from "@oh-my-pi/pi-coding-agent/config/model-resolver";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { AgentStorage } from "@oh-my-pi/pi-coding-agent/session/agent-storage";
-import { createAuthStorageSettingsSync } from "@oh-my-pi/pi-coding-agent/session/auth-broker-config";
-import { getRetryFallbackChains } from "@oh-my-pi/pi-coding-agent/session/retry-fallback-chains";
-import { cfgRetryUsageReservePct } from "@oh-my-pi/pi-coding-agent/session/settings";
-import { cfgTaskAgentModelOverrides } from "@oh-my-pi/pi-coding-agent/task/settings";
-import { logger, TempDir } from "@oh-my-pi/pi-utils";
+import { AuthStorage, SqliteAuthCredentialStore } from "@oh-my-soup/pi-ai";
+import { resolveAgentModelSelection } from "@oh-my-soup/pi-coding-agent/config/model-resolver";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { AgentStorage } from "@oh-my-soup/pi-coding-agent/session/agent-storage";
+import { createAuthStorageSettingsSync } from "@oh-my-soup/pi-coding-agent/session/auth-broker-config";
+import { getRetryFallbackChains } from "@oh-my-soup/pi-coding-agent/session/retry-fallback-chains";
+import { cfgRetryUsageReservePct } from "@oh-my-soup/pi-coding-agent/session/settings";
+import { cfgTaskAgentModelOverrides } from "@oh-my-soup/pi-coding-agent/task/settings";
+import { logger, TempDir } from "@oh-my-soup/pi-utils";
 import { YAML } from "bun";
 import { beginSettingsTest, restoreSettingsTestState, type SettingsTestState } from "./helpers/settings-test-state";
 

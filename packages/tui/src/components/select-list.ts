@@ -1,4 +1,4 @@
-import { popLoopPhase, pushLoopPhase } from "@oh-my-pi/pi-utils";
+import { popLoopPhase, pushLoopPhase } from "@oh-my-soup/pi-utils";
 import { Input } from "./input";
 import { getMenuWindow, MenuSelection } from "./menu-selection";
 import { getKeybindings } from "../keybindings";
@@ -7,7 +7,7 @@ import { type MouseRoutable, routeSelectListMouse, type SgrMouseEvent } from "..
 import { col, node, span } from "../native/describe";
 import { sameItems, sameProps } from "../native/memo";
 import { plainLine } from "../native/spans";
-import type { TspProps } from "@oh-my-pi/pi-wire";
+import type { TspProps } from "@oh-my-soup/pi-wire";
 import type { DescribeContext, NativeChild, NativeNode, NativeUiEvent } from "../native/node";
 import type { SymbolTheme } from "../symbols";
 import type { Component } from "../tui";
@@ -324,7 +324,7 @@ export class SelectList implements Component, MouseRoutable {
 		if (cachedRoot && cachedRoot.list === list && cachedRoot.status === status) return cachedRoot.node;
 		const children: NativeChild[] = [list];
 		if (status) children.push(node("text", { spans: [span(status, "muted")], wrap: "none" }, undefined, "status"));
-		const root = col(children, { role: "omp.select" });
+		const root = col(children, { role: "oms.select" });
 		this.#nativeRoot = { list, status, node: root };
 		return root;
 	}

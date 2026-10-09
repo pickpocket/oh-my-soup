@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { Image, ImageBudget } from "@oh-my-pi/pi-tui/components/image";
-import { getKittyGraphics, setKittyGraphics } from "@oh-my-pi/pi-tui/kitty-graphics";
+import { Image, ImageBudget } from "@oh-my-soup/pi-tui/components/image";
+import { getKittyGraphics, setKittyGraphics } from "@oh-my-soup/pi-tui/kitty-graphics";
 import {
 	type CellDimensions,
 	encodeKittyPlacementLine,
@@ -10,7 +10,7 @@ import {
 	setCellDimensions,
 	TERMINAL,
 	wrapTmuxPassthrough,
-} from "@oh-my-pi/pi-tui/terminal-capabilities";
+} from "@oh-my-soup/pi-tui/terminal-capabilities";
 import { withoutTerminalMultiplexer } from "./helpers/terminal-multiplexer";
 
 withoutTerminalMultiplexer();

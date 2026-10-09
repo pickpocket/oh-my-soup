@@ -2,15 +2,15 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { type BtwHistoryRecord, BtwHistoryStore, getBtwCopyText } from "@oh-my-pi/pi-coding-agent/session/btw-history";
-import { acquireFileLock, withFileLock } from "@oh-my-pi/pi-utils";
+import { type BtwHistoryRecord, BtwHistoryStore, getBtwCopyText } from "@oh-my-soup/pi-coding-agent/session/btw-history";
+import { acquireFileLock, withFileLock } from "@oh-my-soup/pi-utils";
 
 describe("BtwHistoryStore", () => {
 	let directory: string;
 	let artifactsDir: string;
 
 	beforeEach(async () => {
-		directory = await fs.mkdtemp(path.join(os.tmpdir(), "omp-btw-history-"));
+		directory = await fs.mkdtemp(path.join(os.tmpdir(), "oms-btw-history-"));
 		artifactsDir = path.join(directory, "session");
 	});
 

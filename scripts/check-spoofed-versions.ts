@@ -14,7 +14,7 @@
  */
 
 import * as path from "node:path";
-import { USER_AGENT } from "@oh-my-pi/pi-utils";
+import { USER_AGENT } from "@oh-my-soup/pi-utils";
 
 const REPO_ROOT = path.join(import.meta.dir, "..");
 const SEMVER_RE = /(\d+\.\d+\.\d+)/;

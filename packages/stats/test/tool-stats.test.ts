@@ -1,12 +1,12 @@
 import { describe, expect, it } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { getToolDashboardStats, syncAllSessions } from "@oh-my-pi/omp-stats/aggregator";
-import { getFrustrationByModel, getRecentRequests, initDb, setFileOffset } from "@oh-my-pi/omp-stats/db";
-import { getToolStats, getToolStatsByModel } from "@oh-my-pi/omp-stats/rollup";
-import { parseSessionFile } from "@oh-my-pi/omp-stats/parser";
-import type { ToolUsageStats } from "@oh-my-pi/omp-stats/types";
-import { getSessionsDir } from "@oh-my-pi/pi-utils";
+import { getToolDashboardStats, syncAllSessions } from "@oh-my-soup/oms-stats/aggregator";
+import { getFrustrationByModel, getRecentRequests, initDb, setFileOffset } from "@oh-my-soup/oms-stats/db";
+import { getToolStats, getToolStatsByModel } from "@oh-my-soup/oms-stats/rollup";
+import { parseSessionFile } from "@oh-my-soup/oms-stats/parser";
+import type { ToolUsageStats } from "@oh-my-soup/oms-stats/types";
+import { getSessionsDir } from "@oh-my-soup/pi-utils";
 import { installStatsTestIsolation } from "./helpers/temp-agent";
 
 installStatsTestIsolation("@pi-stats-tool-stats-");

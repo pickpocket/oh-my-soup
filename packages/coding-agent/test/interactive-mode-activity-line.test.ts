@@ -1,18 +1,18 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "bun:test";
 import * as path from "node:path";
-import { Agent } from "@oh-my-pi/pi-agent-core";
-import { ModelRegistry } from "@oh-my-pi/pi-coding-agent/config/model-registry";
-import { resetSettingsForTest, Settings, settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { InteractiveMode } from "@oh-my-pi/pi-coding-agent/modes/interactive-mode";
-import { cfgComposerTokenRate } from "@oh-my-pi/pi-coding-agent/modes/settings";
-import { AgentSession } from "@oh-my-pi/pi-coding-agent/session/agent-session";
-import { AuthStorage } from "@oh-my-pi/pi-coding-agent/session/auth-storage";
-import { SessionManager } from "@oh-my-pi/pi-coding-agent/session/session-manager";
-import type { TspKind } from "@oh-my-pi/pi-wire";
-import type { DescribeContext, NativeChild, NativeNode } from "@oh-my-pi/pi-tui/native/node";
-import { initTheme } from "@oh-my-pi/pi-tui/theme";
-import type { TodoPhase } from "@oh-my-pi/pi-tui/tools/todo";
-import { TempDir } from "@oh-my-pi/pi-utils";
+import { Agent } from "@oh-my-soup/pi-agent-core";
+import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
+import { resetSettingsForTest, Settings, settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { InteractiveMode } from "@oh-my-soup/pi-coding-agent/modes/interactive-mode";
+import { cfgComposerTokenRate } from "@oh-my-soup/pi-coding-agent/modes/settings";
+import { AgentSession } from "@oh-my-soup/pi-coding-agent/session/agent-session";
+import { AuthStorage } from "@oh-my-soup/pi-coding-agent/session/auth-storage";
+import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
+import type { TspKind } from "@oh-my-soup/pi-wire";
+import type { DescribeContext, NativeChild, NativeNode } from "@oh-my-soup/pi-tui/native/node";
+import { initTheme } from "@oh-my-soup/pi-tui/theme";
+import type { TodoPhase } from "@oh-my-soup/pi-tui/tools/todo";
+import { TempDir } from "@oh-my-soup/pi-utils";
 
 const context = (supports: (kind: TspKind) => boolean): DescribeContext => ({
 	cols: 100,
@@ -92,15 +92,15 @@ describe("InteractiveMode native dock activity line", () => {
 	it("holds the todo in the activity line, not the HUD pills row, between turns", () => {
 		mode.setTodos(PLAN);
 		const line = activity();
-		expect(role(line)).toBe("omp.hud.activity");
+		expect(role(line)).toBe("oms.hud.activity");
 		expect(keys(line)).toEqual(["todo"]);
 		const todo = (line.c ?? []).filter(isNode)[0]!;
-		expect(todo).toMatchObject({ k: "checklist", p: { mode: "hud", role: "omp.hud.todo" } });
+		expect(todo).toMatchObject({ k: "checklist", p: { mode: "hud", role: "oms.hud.todo" } });
 		expect(mode.describeHudPills()).toMatchObject({ p: { hidden: true }, c: [] });
 
 		// A terminal without `checklist` gets the phase tree in the same slot.
 		const fallback = (activity(context(kind => kind !== "checklist")).c ?? []).filter(isNode)[0]!;
-		expect(fallback).toMatchObject({ k: "col", key: "todo", p: { role: "omp.hud.todo" } });
+		expect(fallback).toMatchObject({ k: "col", key: "todo", p: { role: "oms.hud.todo" } });
 		expect(nodes(fallback).some(n => n.k === "tree")).toBe(true);
 	});
 
@@ -109,7 +109,7 @@ describe("InteractiveMode native dock activity line", () => {
 		const statusOnly = activity();
 		expect(keys(statusOnly)).toEqual(["status"]);
 		const status = (statusOnly.c ?? []).filter(isNode)[0]!;
-		expect(role(status)).toBe("omp.hud.status");
+		expect(role(status)).toBe("oms.hud.status");
 		expect(status.c).toEqual([mode.loadingAnimation!]);
 
 		mode.setTodos(PLAN);
@@ -117,7 +117,7 @@ describe("InteractiveMode native dock activity line", () => {
 	});
 
 	it("shows tok/s in the composer bar only with the setting on and a reading", () => {
-		const rate = () => nodes(mode.editor.describe(cx)).find(n => role(n) === "omp.composer.rate");
+		const rate = () => nodes(mode.editor.describe(cx)).find(n => role(n) === "oms.composer.rate");
 		session.tokenRate.seed(1_000, 10_000);
 		expect(rate()).toBeUndefined();
 

@@ -74,7 +74,7 @@ export function ToolsRoute({ active, range }: ToolsRouteProps) {
 		<div className="page">
 			<PageHeader
 				title="Tools"
-				description={`Which tools omp called in ${meta.windowLabel}, how often they failed, and what they cost.`}
+				description={`Which tools oms called in ${meta.windowLabel}, how often they failed, and what they cost.`}
 			/>
 
 			<QueryView query={tools} skeleton={<ChartSkeleton height={112} />}>

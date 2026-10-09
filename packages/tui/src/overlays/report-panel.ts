@@ -1,4 +1,4 @@
-import type { TspScrollBy, TspText } from "@oh-my-pi/pi-wire";
+import type { TspScrollBy, TspText } from "@oh-my-soup/pi-wire";
 import { OverlayPanel } from "../chrome/overlay-box";
 import { editorKey } from "../chrome/keybinding-hints";
 import { Ellipsis } from "../index";
@@ -72,9 +72,9 @@ export class ReportPanel extends OverlayPanel {
 	#native: { scroll: NativeScroll | undefined; node: NativeNode } | undefined;
 
 	constructor(options: ReportPanelOptions) {
-		super(options.title, "omp.overlay.report");
+		super(options.title, "oms.overlay.report");
 		this.nativeOverlay = {
-			role: "omp.overlay.report",
+			role: "oms.overlay.report",
 			size: "lg",
 			anchor: "center",
 			head: options.head ?? options.title,

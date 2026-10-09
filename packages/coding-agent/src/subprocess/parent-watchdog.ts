@@ -1,4 +1,4 @@
-import { workerHostEntry } from "@oh-my-pi/pi-utils/worker-host";
+import { workerHostEntry } from "@oh-my-soup/pi-utils/worker-host";
 import { PARENT_WATCHDOG_WORKER_ARG } from "../cli/worker-selectors";
 
 /**

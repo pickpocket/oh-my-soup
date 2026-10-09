@@ -37,7 +37,7 @@
 
 ### Added
 
-- Added the Tern Surface Protocol wire contract (`@oh-my-pi/pi-wire`): message framing constants, the component vocabulary, document ops, frames, the handshake and terminal events that let omp render natively in terminals that speak it
+- Added the Tern Surface Protocol wire contract (`@oh-my-soup/pi-wire`): message framing constants, the component vocabulary, document ops, frames, the handshake and terminal events that let oms render natively in terminals that speak it
 
 ## [18.2.11] - 2026-09-23
 
@@ -49,7 +49,7 @@
 
 ### Added
 
-- Added the `omp stream` wire contract (`@oh-my-pi/pi-wire/stream`) for pane screen updates, viewer snapshots and chat, channel metadata, and `live.omp.sh` stream routes.
+- Added the `oms stream` wire contract (`@oh-my-soup/pi-wire/stream`) for pane screen updates, viewer snapshots and chat, channel metadata, and `live.omp.sh` stream routes.
 - Added authentication support for stencil.so streams, including user identity in welcome messages, channel ownership metadata, and explicit unauthorized and forbidden close codes.
 
 ### Changed

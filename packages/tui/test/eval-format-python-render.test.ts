@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { formatPythonForDisplay } from "@oh-my-pi/pi-tui/tools/eval-format/python";
+import { formatPythonForDisplay } from "@oh-my-soup/pi-tui/tools/eval-format/python";
 
 const compact =
 	'class Classifier:def classify(self,value):if value>0:return "positive";elif value<0:return "negative";else:return "zero"';

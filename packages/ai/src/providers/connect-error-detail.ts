@@ -1,4 +1,4 @@
-import { isRecord, truncate } from "@oh-my-pi/pi-utils";
+import { isRecord, truncate } from "@oh-my-soup/pi-utils";
 
 /**
  * Connect-protocol end-stream error formatting.

@@ -1,16 +1,16 @@
 import { Database } from "bun:sqlite";
 import { describe, expect, it } from "bun:test";
-import { closeDb, getRecentRequests, initDb, insertMessageStats } from "@oh-my-pi/omp-stats/db";
+import { closeDb, getRecentRequests, initDb, insertMessageStats } from "@oh-my-soup/oms-stats/db";
 import {
 	getCostTimeSeries,
 	getOverallStats,
 	getSessionRollups,
 	getStatsByModel,
 	getStatsByProvider,
-} from "@oh-my-pi/omp-stats/rollup";
-import type { MessageStats } from "@oh-my-pi/omp-stats/types";
-import { getBundledModel, getBundledModels } from "@oh-my-pi/pi-catalog/models";
-import { getStatsDbPath, VERSION } from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/oms-stats/rollup";
+import type { MessageStats } from "@oh-my-soup/oms-stats/types";
+import { getBundledModel, getBundledModels } from "@oh-my-soup/pi-catalog/models";
+import { getStatsDbPath, VERSION } from "@oh-my-soup/pi-utils";
 import { installStatsTestIsolation } from "./helpers/temp-agent";
 
 installStatsTestIsolation("@pi-stats-db-");

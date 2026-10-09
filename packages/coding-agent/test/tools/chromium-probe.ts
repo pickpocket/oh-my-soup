@@ -1,9 +1,9 @@
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { findFreeCdpPort, waitForCdp } from "@oh-my-pi/pi-coding-agent/tools/browser/attach";
-import { type ChildProcess, ptree } from "@oh-my-pi/pi-utils";
-import { ensureChromiumExecutable } from "@oh-my-pi/pi-coding-agent/tools/browser/launch";
+import { findFreeCdpPort, waitForCdp } from "@oh-my-soup/pi-coding-agent/tools/browser/attach";
+import { type ChildProcess, ptree } from "@oh-my-soup/pi-utils";
+import { ensureChromiumExecutable } from "@oh-my-soup/pi-coding-agent/tools/browser/launch";
 
 /**
  * Whether the Chromium puppeteer resolves can actually execute on this host.
@@ -33,7 +33,7 @@ async function chromiumCanLaunch(): Promise<boolean> {
 
 /** A disposable headless launch must actually answer CDP, not just --version. */
 export async function chromiumCdpAvailable(executable: string, timeoutMs = 5000): Promise<boolean> {
-	const userDataDir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-chromium-probe-"));
+	const userDataDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-chromium-probe-"));
 	let child: ChildProcess | undefined;
 	try {
 		const port = await findFreeCdpPort();

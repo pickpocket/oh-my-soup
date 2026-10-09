@@ -1,6 +1,6 @@
-import type { AgentMessage } from "@oh-my-pi/pi-agent-core";
-import { stableStringifyJson } from "@oh-my-pi/pi-utils";
-import { type Goal } from "@oh-my-pi/pi-tui/tools/goal";
+import type { AgentMessage } from "@oh-my-soup/pi-agent-core";
+import { stableStringifyJson } from "@oh-my-soup/pi-utils";
+import { type Goal } from "@oh-my-soup/pi-tui/tools/goal";
 import type { UsageStatistics } from "../session/session-entries";
 
 export interface GoalModeState {

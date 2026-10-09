@@ -1,17 +1,17 @@
 import { afterEach, beforeAll, beforeEach, expect, it } from "bun:test";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { Settings, settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { createSettingsHost } from "@oh-my-pi/pi-coding-agent/config/settings-ui";
-import { createPluginSettingsHost } from "@oh-my-pi/pi-coding-agent/extensibility/plugins/settings-host";
-import { AgentStorage } from "@oh-my-pi/pi-coding-agent/session/agent-storage";
-import { TempDir } from "@oh-my-pi/pi-utils";
-import { SettingsSelectorComponent } from "@oh-my-pi/pi-tui/overlays/settings-selector";
-import { initTheme } from "@oh-my-pi/pi-tui/theme";
+import { Settings, settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { createSettingsHost } from "@oh-my-soup/pi-coding-agent/config/settings-ui";
+import { createPluginSettingsHost } from "@oh-my-soup/pi-coding-agent/extensibility/plugins/settings-host";
+import { AgentStorage } from "@oh-my-soup/pi-coding-agent/session/agent-storage";
+import { TempDir } from "@oh-my-soup/pi-utils";
+import { SettingsSelectorComponent } from "@oh-my-soup/pi-tui/overlays/settings-selector";
+import { initTheme } from "@oh-my-soup/pi-tui/theme";
 import { YAML } from "bun";
 import { beginSettingsTest, restoreSettingsTestState, type SettingsTestState } from "../helpers/settings-test-state";
 
-import { cfgSearxngEndpoint } from "@oh-my-pi/pi-coding-agent/web/settings";
+import { cfgSearxngEndpoint } from "@oh-my-soup/pi-coding-agent/web/settings";
 
 let state: SettingsTestState | undefined;
 let tempDir: TempDir;

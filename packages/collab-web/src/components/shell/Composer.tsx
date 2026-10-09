@@ -1,4 +1,4 @@
-import type { CollabUiRequest } from "@oh-my-pi/pi-wire";
+import type { CollabUiRequest } from "@oh-my-soup/pi-wire";
 import { SendHorizontal, Square } from "lucide-react";
 import type { KeyboardEvent, ReactNode, RefObject } from "react";
 import { memo, useCallback, useLayoutEffect, useRef, useState } from "react";

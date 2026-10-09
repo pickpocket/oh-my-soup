@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from "bun:test";
-import type { FetchImpl } from "@oh-my-pi/pi-ai/types";
-import { resolveCodexResponsesUrl } from "@oh-my-pi/pi-ai/providers/openai-codex-responses";
-import { CODEX_BASE_URL } from "@oh-my-pi/pi-catalog/wire/codex";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
-import { ModelRegistry } from "@oh-my-pi/pi-coding-agent/config/model-registry";
-import { AgentStorage } from "@oh-my-pi/pi-coding-agent/session/agent-storage";
-import type { SearchParams } from "@oh-my-pi/pi-coding-agent/web/search/providers/base";
-import { searchCodex } from "@oh-my-pi/pi-coding-agent/web/search/providers/codex";
+import type { FetchImpl } from "@oh-my-soup/pi-ai/types";
+import { resolveCodexResponsesUrl } from "@oh-my-soup/pi-ai/providers/openai-codex-responses";
+import { CODEX_BASE_URL } from "@oh-my-soup/pi-catalog/wire/codex";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
+import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
+import { AgentStorage } from "@oh-my-soup/pi-coding-agent/session/agent-storage";
+import type { SearchParams } from "@oh-my-soup/pi-coding-agent/web/search/providers/base";
+import { searchCodex } from "@oh-my-soup/pi-coding-agent/web/search/providers/codex";
 import { createInMemoryAuthStorage } from "../../helpers/agent-session-setup";
 
 function makeSseResponse(): string {

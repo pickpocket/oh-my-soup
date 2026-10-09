@@ -1,6 +1,6 @@
-import type { AgentMessage, ThinkingLevel } from "@oh-my-pi/pi-agent-core";
-import type { Tool, UsageLimit, UsageReport } from "@oh-my-pi/pi-ai";
-import type { Model } from "@oh-my-pi/pi-catalog/types";
+import type { AgentMessage, ThinkingLevel } from "@oh-my-soup/pi-agent-core";
+import type { Tool, UsageLimit, UsageReport } from "@oh-my-soup/pi-ai";
+import type { Model } from "@oh-my-soup/pi-catalog/types";
 import type { CompactionBoundaries } from "./context-usage";
 import type { StatusLineSettings } from "./types";
 

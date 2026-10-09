@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, it } from "bun:test";
-import type { TspKind, TspPickerProps } from "@oh-my-pi/pi-wire";
-import { getOAuthProviders } from "@oh-my-pi/pi-ai/oauth";
+import type { TspKind, TspPickerProps } from "@oh-my-soup/pi-wire";
+import { getOAuthProviders } from "@oh-my-soup/pi-ai/oauth";
 import type { DescribeContext, NativeNode } from "../src/native/node";
 import { HookSelectorComponent } from "../src/overlays/hook-selector";
 import { OAuthSelectorComponent, type OAuthSelectorAuthSource } from "../src/overlays/oauth-selector";

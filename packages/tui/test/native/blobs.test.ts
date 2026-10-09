@@ -2,11 +2,11 @@ import { afterEach, describe, expect, it } from "bun:test";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { TempDir } from "@oh-my-pi/pi-utils/temp";
-import { registerNativeBlob } from "@oh-my-pi/pi-tui/native/blobs";
-import { node } from "@oh-my-pi/pi-tui/native/describe";
-import type { NativeNode } from "@oh-my-pi/pi-tui/native/node";
-import type { Component } from "@oh-my-pi/pi-tui/tui";
+import { TempDir } from "@oh-my-soup/pi-utils/temp";
+import { registerNativeBlob } from "@oh-my-soup/pi-tui/native/blobs";
+import { node } from "@oh-my-soup/pi-tui/native/describe";
+import type { NativeNode } from "@oh-my-soup/pi-tui/native/node";
+import type { Component } from "@oh-my-soup/pi-tui/tui";
 import { TspHarness } from "./tsp-harness";
 
 describe("native image blob lifetime", () => {
@@ -49,7 +49,7 @@ describe("native image blob lifetime", () => {
 		it(
 			name,
 			async () => {
-				await using root = await TempDir.create("@omp-native-blobs-");
+				await using root = await TempDir.create("@oms-native-blobs-");
 				const env: NodeJS.ProcessEnv = {
 					...process.env,
 					PI_CONFIG_DIR: path.relative(os.homedir(), root.join("config")),
@@ -61,10 +61,10 @@ describe("native image blob lifetime", () => {
 					XDG_CACHE_HOME: root.join("cache"),
 					PI_TUI_NATIVE: "1",
 				};
-				delete env.OMP_PROFILE;
+				delete env.OMS_PROFILE;
 				delete env.PI_PROFILE;
 				await Promise.all(
-					["config", "agent", "session-owners", "xdg-config", "data/omp", "state/omp", "cache/omp"].map(dir =>
+					["config", "agent", "session-owners", "xdg-config", "data/oms", "state/oms", "cache/oms"].map(dir =>
 						fs.promises.mkdir(root.join(dir), { recursive: true }),
 					),
 				);

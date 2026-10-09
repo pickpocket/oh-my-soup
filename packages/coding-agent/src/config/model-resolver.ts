@@ -4,7 +4,7 @@ import {
 	splitThinkingSuffix,
 	parseModelString,
 	splitUpstreamRouting,
-} from "@oh-my-pi/pi-tui/overlays/model-selector";
+} from "@oh-my-soup/pi-tui/overlays/model-selector";
 /**
  * Model resolution, scoping, and initial selection.
  *
@@ -22,22 +22,22 @@ import {
  *   CLI flags, scope globs — onto that pipeline.
  */
 
-import { ThinkingLevel } from "@oh-my-pi/pi-agent-core";
-import type { ModelRoleLookup } from "@oh-my-pi/pi-tui/overlays/model-browser";
-import type { Api, Effort, KnownProvider, Model, ModelSpec } from "@oh-my-pi/pi-ai";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
-import { resolveBareVariantSelector, resolveVariantSelector } from "@oh-my-pi/pi-catalog/compat/collapse";
-import { providerEntry } from "@oh-my-pi/pi-catalog/compat/providers";
-import { collapseVariantId, stripThinkingVariantSuffix } from "@oh-my-pi/pi-catalog/compat/taxonomy";
-import { modelMatchesHost } from "@oh-my-pi/pi-catalog/hosts";
-import { buildModelProviderPriorityRank } from "@oh-my-pi/pi-catalog/identity";
-import { clampThinkingLevelForModel } from "@oh-my-pi/pi-catalog/model-thinking";
-import { type GeneratedProvider, getBundledModels, modelsAreEqual } from "@oh-my-pi/pi-catalog/models";
-import { modelKind } from "@oh-my-pi/pi-catalog/types";
-import { DEFAULT_MODEL_PER_PROVIDER } from "@oh-my-pi/pi-catalog/provider-models";
-import { fuzzyMatch } from "@oh-my-pi/pi-tui";
-import { logger } from "@oh-my-pi/pi-utils";
-import chalk from "@oh-my-pi/pi-utils/chalk";
+import { ThinkingLevel } from "@oh-my-soup/pi-agent-core";
+import type { ModelRoleLookup } from "@oh-my-soup/pi-tui/overlays/model-browser";
+import type { Api, Effort, KnownProvider, Model, ModelSpec } from "@oh-my-soup/pi-ai";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
+import { resolveBareVariantSelector, resolveVariantSelector } from "@oh-my-soup/pi-catalog/compat/collapse";
+import { providerEntry } from "@oh-my-soup/pi-catalog/compat/providers";
+import { collapseVariantId, stripThinkingVariantSuffix } from "@oh-my-soup/pi-catalog/compat/taxonomy";
+import { modelMatchesHost } from "@oh-my-soup/pi-catalog/hosts";
+import { buildModelProviderPriorityRank } from "@oh-my-soup/pi-catalog/identity";
+import { clampThinkingLevelForModel } from "@oh-my-soup/pi-catalog/model-thinking";
+import { type GeneratedProvider, getBundledModels, modelsAreEqual } from "@oh-my-soup/pi-catalog/models";
+import { modelKind } from "@oh-my-soup/pi-catalog/types";
+import { DEFAULT_MODEL_PER_PROVIDER } from "@oh-my-soup/pi-catalog/provider-models";
+import { fuzzyMatch } from "@oh-my-soup/pi-tui";
+import { logger } from "@oh-my-soup/pi-utils";
+import chalk from "@oh-my-soup/pi-utils/chalk";
 import MODEL_PRIO from "../priority.json" with { type: "json" };
 import {
 	AUTO_THINKING,
@@ -45,7 +45,7 @@ import {
 	concreteThinkingLevel,
 	parseConfiguredThinkingLevel,
 	resolveThinkingLevelForModel,
-} from "@oh-my-pi/pi-tui/thinking";
+} from "@oh-my-soup/pi-tui/thinking";
 import { isAuthenticated, kNoAuth, type ModelRegistry } from "./model-registry";
 import {
 	DEFAULT_MODEL_ROLE_ALIAS,
@@ -2150,7 +2150,7 @@ function resolveCliModelInScope(
 			model: undefined,
 			selector: undefined,
 			warning: undefined,
-			error: `Unknown provider "${cliProvider}". Run "omp models" to see available providers/models.`,
+			error: `Unknown provider "${cliProvider}". Run "oms models" to see available providers/models.`,
 		};
 	}
 
@@ -2239,7 +2239,7 @@ function resolveCliModelInScope(
 					selector: undefined,
 					thinkingLevel: undefined,
 					warning: resolved.warning,
-					error: `Model "${trimmedModel}" not found. Run "omp models" to see available models.`,
+					error: `Model "${trimmedModel}" not found. Run "oms models" to see available models.`,
 				};
 			}
 		}
@@ -2299,7 +2299,7 @@ function resolveCliModelInScope(
 			selector: undefined,
 			thinkingLevel: undefined,
 			warning,
-			error: `Model "${display}" not found. Run "omp models" to see available models.`,
+			error: `Model "${display}" not found. Run "oms models" to see available models.`,
 		};
 	}
 

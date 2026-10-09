@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { procmgr, setProcessName, TempDir } from "@oh-my-pi/pi-utils";
+import { procmgr, setProcessName, TempDir } from "@oh-my-soup/pi-utils";
 import { Settings } from "../../src/config/settings";
 import { AsyncJobManager } from "../../src/async/job-manager";
 import { ProcProtocolHandler } from "../../src/internal-urls/proc-protocol";
@@ -270,7 +270,7 @@ describe("proc:// background jobs", () => {
 	});
 
 	it("requires file content instead of silently truncating a file", async () => {
-		using temp = TempDir.createSync("@omp-proc-write-");
+		using temp = TempDir.createSync("@oms-proc-write-");
 		const file = path.join(temp.path(), "keep.txt");
 		await Bun.write(file, "keep this");
 		const write = new WriteTool(toolSession(temp.path(), undefined, { launch: false }));
@@ -369,7 +369,7 @@ describe("proc:// background jobs", () => {
 
 describe("bash services via proc://", () => {
 	it("starts at log readiness, delivers stdin, switches persistence, and restarts a live name", async () => {
-		using temp = TempDir.createSync("@omp-proc-service-");
+		using temp = TempDir.createSync("@oms-proc-service-");
 		const cwd = path.join(temp.path(), "project");
 		const runtimeDir = path.join(temp.path(), "runtime");
 		await fs.mkdir(cwd);

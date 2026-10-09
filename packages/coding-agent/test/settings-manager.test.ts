@@ -3,24 +3,24 @@ import { Database } from "bun:sqlite";
 import * as fs from "node:fs";
 import * as fsp from "node:fs/promises";
 import * as path from "node:path";
-import { Effort } from "@oh-my-pi/pi-ai";
-import { clearCustomApis } from "@oh-my-pi/pi-ai/api-registry";
-import { createMockModel, registerMockApi } from "@oh-my-pi/pi-ai/providers/mock";
-import { __providerInFlightForTesting, streamSimple } from "@oh-my-pi/pi-ai/stream";
-import type { Context } from "@oh-my-pi/pi-ai/types";
+import { Effort } from "@oh-my-soup/pi-ai";
+import { clearCustomApis } from "@oh-my-soup/pi-ai/api-registry";
+import { createMockModel, registerMockApi } from "@oh-my-soup/pi-ai/providers/mock";
+import { __providerInFlightForTesting, streamSimple } from "@oh-my-soup/pi-ai/stream";
+import type { Context } from "@oh-my-soup/pi-ai/types";
 import {
 	__physicalTargetSegmentsForTesting,
 	resetSettingsForTest,
 	Settings,
-} from "@oh-my-pi/pi-coding-agent/config/settings";
-import { bindEffects } from "@oh-my-pi/pi-coding-agent/config/registry";
+} from "@oh-my-soup/pi-coding-agent/config/settings";
+import { bindEffects } from "@oh-my-soup/pi-coding-agent/config/registry";
 
-import * as discovery from "@oh-my-pi/pi-coding-agent/discovery";
-import { editVariantForModel } from "@oh-my-pi/pi-coding-agent/utils/edit-mode";
+import * as discovery from "@oh-my-soup/pi-coding-agent/discovery";
+import { editVariantForModel } from "@oh-my-soup/pi-coding-agent/utils/edit-mode";
 import MODEL_PRIO from "../src/priority.json" with { type: "json" };
-import { AgentStorage } from "@oh-my-pi/pi-coding-agent/session/agent-storage";
-import { getAgentDbPath, getProjectAgentDir, logger, TempDir } from "@oh-my-pi/pi-utils";
-import * as fileLock from "@oh-my-pi/pi-utils/file-lock";
+import { AgentStorage } from "@oh-my-soup/pi-coding-agent/session/agent-storage";
+import { getAgentDbPath, getProjectAgentDir, logger, TempDir } from "@oh-my-soup/pi-utils";
+import * as fileLock from "@oh-my-soup/pi-utils/file-lock";
 import { YAML } from "bun";
 import { beginSettingsTest, restoreSettingsTestState, type SettingsTestState } from "./helpers/settings-test-state";
 import {
@@ -32,8 +32,8 @@ import {
 	cfgSetupVersion,
 	cfgStatusLineLeftSegments,
 	cfgSpellingAutocomplete,
-} from "@oh-my-pi/pi-coding-agent/modes/settings";
-import { cfgExtensions } from "@oh-my-pi/pi-coding-agent/extensibility/settings";
+} from "@oh-my-soup/pi-coding-agent/modes/settings";
+import { cfgExtensions } from "@oh-my-soup/pi-coding-agent/extensibility/settings";
 import {
 	cfgProvidersMaxInFlightRequests,
 	cfgPowerSleepPrevention,
@@ -46,7 +46,7 @@ import {
 	cfgProvidersOpenaiCodexCodeMode,
 	cfgProvidersOpenaiCodexCodeModeDirectTools,
 	cfgRetryModelFallback,
-} from "@oh-my-pi/pi-coding-agent/session/settings";
+} from "@oh-my-soup/pi-coding-agent/session/settings";
 import {
 	cfgToolsXdev,
 	cfgTodoReminders,
@@ -61,7 +61,7 @@ import {
 	cfgTodoEager,
 	cfgComputerEnabled,
 	cfgImagesQuestionTimeoutMs,
-} from "@oh-my-pi/pi-coding-agent/tools/settings";
+} from "@oh-my-soup/pi-coding-agent/tools/settings";
 import {
 	cfgTaskEager,
 	cfgIsolationBackend,
@@ -69,19 +69,19 @@ import {
 	cfgTaskMaxConcurrency,
 	cfgTaskEnableEffort,
 	cfgTaskAgentModelOverrides,
-} from "@oh-my-pi/pi-coding-agent/task/settings";
-import { cfgMnemopiDbPath, cfgMnemopiScoping } from "@oh-my-pi/pi-coding-agent/mnemopi/settings";
-import { cfgMemoryBackend } from "@oh-my-pi/pi-coding-agent/memory-backend/settings";
-import { cfgHindsightBankId, cfgHindsightScoping } from "@oh-my-pi/pi-coding-agent/hindsight/settings";
-import { cfgEditMode } from "@oh-my-pi/pi-coding-agent/edit/settings";
-import { cfgExaEnabled } from "@oh-my-pi/pi-coding-agent/web/settings";
+} from "@oh-my-soup/pi-coding-agent/task/settings";
+import { cfgMnemopiDbPath, cfgMnemopiScoping } from "@oh-my-soup/pi-coding-agent/mnemopi/settings";
+import { cfgMemoryBackend } from "@oh-my-soup/pi-coding-agent/memory-backend/settings";
+import { cfgHindsightBankId, cfgHindsightScoping } from "@oh-my-soup/pi-coding-agent/hindsight/settings";
+import { cfgEditMode } from "@oh-my-soup/pi-coding-agent/edit/settings";
+import { cfgExaEnabled } from "@oh-my-soup/pi-coding-agent/web/settings";
 import {
 	cfgCompactionMethodOrder,
 	cfgSnapcompactSystemPrompt,
-} from "@oh-my-pi/pi-coding-agent/session/context-settings";
-import { cfgModelRoles, cfgDisabledProviders, cfgEnabledModels } from "@oh-my-pi/pi-coding-agent/config/model-settings";
-import { cfgShellPath } from "@oh-my-pi/pi-coding-agent/exec/settings";
-import { cfgEvalJs } from "@oh-my-pi/pi-coding-agent/eval/settings";
+} from "@oh-my-soup/pi-coding-agent/session/context-settings";
+import { cfgModelRoles, cfgDisabledProviders, cfgEnabledModels } from "@oh-my-soup/pi-coding-agent/config/model-settings";
+import { cfgShellPath } from "@oh-my-soup/pi-coding-agent/exec/settings";
+import { cfgEvalJs } from "@oh-my-soup/pi-coding-agent/eval/settings";
 
 /** Lets microtask-coalesced setting listeners run. */
 const tick = () => Promise.resolve();
@@ -392,7 +392,7 @@ describe("Settings", () => {
 
 		it("backs up a corrupted project config and retains the pending project role for retry", async () => {
 			await writeSettings({});
-			const projectConfigPath = path.join(projectDir, ".omp", "config.yml");
+			const projectConfigPath = path.join(projectDir, ".oms", "config.yml");
 			await Bun.write(
 				projectConfigPath,
 				YAML.stringify({ modelRoles: { default: "keep/default" }, custom: { keep: true } }, null, 2),
@@ -1075,7 +1075,7 @@ describe("Settings", () => {
 
 		it("leaves an unreadable project config untouched and retains its pending role", async () => {
 			await writeSettings({});
-			const projectConfigPath = path.join(projectDir, ".omp", "config.yml");
+			const projectConfigPath = path.join(projectDir, ".oms", "config.yml");
 			const original = YAML.stringify({ modelRoles: { default: "keep/default" }, custom: { keep: true } }, null, 2);
 			await Bun.write(projectConfigPath, original);
 			const settings = await Settings.init({ cwd: projectDir, agentDir });
@@ -1101,7 +1101,7 @@ describe("Settings", () => {
 			const malformed = 'modelRoles:\n  default: "unterminated\n';
 			await Promise.all([
 				Bun.write(getConfigPath(), malformed),
-				Bun.write(path.join(projectDir, ".omp", "config.yml"), malformed),
+				Bun.write(path.join(projectDir, ".oms", "config.yml"), malformed),
 			]);
 			const unhandled: unknown[] = [];
 			const onUnhandled = (reason: unknown): void => {
@@ -1113,7 +1113,7 @@ describe("Settings", () => {
 				expect(unhandled).toEqual([]);
 				expect(fs.readdirSync(agentDir).some(name => name.startsWith("config.yml.broken-"))).toBe(true);
 				expect(
-					fs.readdirSync(path.join(projectDir, ".omp")).some(name => name.startsWith("config.yml.broken-")),
+					fs.readdirSync(path.join(projectDir, ".oms")).some(name => name.startsWith("config.yml.broken-")),
 				).toBe(true);
 			} finally {
 				process.removeListener("unhandledRejection", onUnhandled);
@@ -1123,7 +1123,7 @@ describe("Settings", () => {
 
 	describe("live persisted reload", () => {
 		it("rejects malformed live configs without moving them aside or replacing effective settings", async () => {
-			const projectConfigPath = path.join(projectDir, ".omp", "config.yml");
+			const projectConfigPath = path.join(projectDir, ".oms", "config.yml");
 			await writeSettings({
 				setupVersion: 1,
 				modelRoles: { global_role: "openai/global" },
@@ -1718,7 +1718,7 @@ describe("Settings", () => {
 			// Process loads its #global snapshot.
 			const settings = await Settings.init({ cwd: projectDir, agentDir });
 
-			// External edit (another omp instance / manual edit): changes advisor,
+			// External edit (another oms instance / manual edit): changes advisor,
 			// adds vision. This process's #global is now stale.
 			await writeSettings({
 				modelRoles: {

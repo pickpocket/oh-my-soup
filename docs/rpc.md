@@ -19,7 +19,7 @@ Primary implementation:
 ## Startup
 
 ```bash
-omp --mode rpc [regular CLI options]
+oms --mode rpc [regular CLI options]
 ```
 
 Behavior notes:
@@ -68,7 +68,7 @@ After the success response, oversized stdout objects use an uninterrupted sequen
 }
 ```
 
-Clients MUST validate `chunkId`, `index`, `count`, and `byteLength`, reject interleaved or interrupted sequences, enforce the advertised reassembly limit, concatenate decoded bytes in index order, decode them as strict UTF-8, and parse the result as one JSON object. The TypeScript `RpcFrameDecoder`, exported from `@oh-my-pi/pi-coding-agent/modes/rpc/rpc-frame`, implements this validation. The bundled TypeScript and Python `RpcClient` implementations and the Rust and Go clients negotiate v2 automatically when the ready frame advertises it.
+Clients MUST validate `chunkId`, `index`, `count`, and `byteLength`, reject interleaved or interrupted sequences, enforce the advertised reassembly limit, concatenate decoded bytes in index order, decode them as strict UTF-8, and parse the result as one JSON object. The TypeScript `RpcFrameDecoder`, exported from `@oh-my-soup/pi-coding-agent/modes/rpc/rpc-frame`, implements this validation. The bundled TypeScript and Python `RpcClient` implementations and the Rust and Go clients negotiate v2 automatically when the ready frame advertises it.
 
 For an oversized `agent_end` in either version, the encoder first removes the leading messages already delivered unchanged in `message_end` frames and adds `messageCount` with the original count. Hosts must retain streamed messages rather than treating `agent_end.messages` as a complete transcript.
 
@@ -335,7 +335,7 @@ Data payloads are command-specific and defined in `rpc-types.ts`.
 - `agentInvoked: false`: the prompt finished locally (an extension or custom command that started no turn) or failed before reaching the agent.
 - `agentInvoked: true`: the prompt was dispatched or queued for agent work; normal completion reports when the agent **yielded** — see [Yield vs settled](#yield-vs-settled). An abort that wins before dispatch can still report `true` with `status: "aborted"`. A prompt dispatched as a fresh turn reports the first run that started after it was accepted, so a late `agent_end` from an earlier run never completes it. A prompt queued into a live run (`streamingBehavior`) reports at the first yield after its message left the queue. An `agent_end` with `yielded: false` (the agent is retrying, compacting, or answering a stop-time reminder) never completes a prompt.
 - `status`: `"completed"`, `"aborted"` (interrupted by `abort`, `abort_and_prompt`, or a session transition, or dropped by an abort before dispatch), or `"error"`.
-- `error` (only with `status: "error"`): `{ message, provider?, model?, httpStatus?, retryable }`. `message` is the provider's error text with OMP-local diagnostics (such as saved request-dump paths) removed. `retryable` marks a transient failure; OMP's own automatic retries have already been exhausted. A prompt that fails before reaching the agent also gets the legacy error response with the same `id` before its `prompt_result`.
+- `error` (only with `status: "error"`): `{ message, provider?, model?, httpStatus?, retryable }`. `message` is the provider's error text with OMS-local diagnostics (such as saved request-dump paths) removed. `retryable` marks a transient failure; OMS's own automatic retries have already been exhausted. A prompt that fails before reaching the agent also gets the legacy error response with the same `id` before its `prompt_result`.
 - `sessionSettled`: whether the session is already done when the result is written — see [Yield vs settled](#yield-vs-settled). `false` means background work can still wake the agent; a `session_settled` frame follows once it has.
 
 A failed provider turn is not a failed command: the prompt response is still `success: true`, and the turn ends with a normal terminal `agent_end` whose last assistant message has `stopReason: "error"`. Use `prompt_result.status` rather than parsing that message.
@@ -346,7 +346,7 @@ Local-only slash commands may emit `command_output` frames before completing. Th
 
 For agent-invoking work, a prompt's `prompt_result` reports the **agent yield**: it finished its turn (`agent_end` with `yielded: true`), or the prompt was aborted before dispatch or by a session transition. Local-only results and pre-dispatch errors do not require an `agent_end`. The **session is done** only when nothing can wake it again — no run is live or admitted, no steer/follow-up is queued, and no background job (auto-backgrounded `bash`, async `task`, `eval`) or pending delivery will inject its result and start a follow-up turn.
 
-- `session_settled` is written once per stretch of agent activity, when the session becomes done. If background work was pending at the yield, OMP waits it out; any follow-up runs it triggers stream normally (`agent_start` … `agent_end`) before `session_settled`. It always follows the `prompt_result` frames of the final yield, and is not emitted for prompts that never reached the agent.
+- `session_settled` is written once per stretch of agent activity, when the session becomes done. If background work was pending at the yield, OMS waits it out; any follow-up runs it triggers stream normally (`agent_start` … `agent_end`) before `session_settled`. It always follows the `prompt_result` frames of the final yield, and is not emitted for prompts that never reached the agent.
 - `prompt_result.sessionSettled` answers the same question at the yield, so a host can tear down immediately when it is `true`.
 - `get_state` reports `isSettled` (same predicate) and `hasPendingAsyncWork`, for hosts that attach mid-stream.
 
@@ -816,7 +816,7 @@ unregistered; an empty list clears all host schemes.
 
 Every built-in scheme (`local://`, `skill://`, `artifact://`, `security://`,
 `mcp://`, …) is reserved: RPC hosts cannot register or shadow one, and the
-request fails with `Host URI scheme is reserved by OMP: <scheme>://`.
+request fails with `Host URI scheme is reserved by OMS: <scheme>://`.
 
 ## Event Stream Schema
 
@@ -873,7 +873,7 @@ Extension runner errors are emitted separately as:
 
 `message_start`, `message_update`, and `message_end` carry a `messageId` string assigned by RPC mode. One message keeps the same id from its start through every update to its end; ids are unique within the process. Records injected mid-stream (advisor cards, IRC messages) get their own id and do not disturb the id of the reply streaming around them.
 
-`set_event_filter` restricts which session event frames are written: pass the event `type` strings to forward, or `null` to forward everything (the default). The response echoes the active selection as `{ events, messageUpdates }`. The filter applies to all events emitted through the session subscription, not just the common types listed above; every other outbound category (responses, `prompt_result`, `session_settled`, extension UI and host tool/URI requests, `extension_error`, `available_commands_update`, subagent frames, side-question frames, builtin slash-command side channels, and session-persistence and `btw-history` `notice` frames) is unaffected by this filter. Hosts that fail closed on unknown event kinds can pin the set they understand here instead of breaking when OMP adds an event.
+`set_event_filter` restricts which session event frames are written: pass the event `type` strings to forward, or `null` to forward everything (the default). The response echoes the active selection as `{ events, messageUpdates }`. The filter applies to all events emitted through the session subscription, not just the common types listed above; every other outbound category (responses, `prompt_result`, `session_settled`, extension UI and host tool/URI requests, `extension_error`, `available_commands_update`, subagent frames, side-question frames, builtin slash-command side channels, and session-persistence and `btw-history` `notice` frames) is unaffected by this filter. Hosts that fail closed on unknown event kinds can pin the set they understand here instead of breaking when OMS adds an event.
 
 The optional `messageUpdates: "delta"` projects only `message_update` frames to `{ type: "message_update", messageId, message: { role }, assistantMessageEvent }`: `assistantMessageEvent.partial` is omitted, while all other event fields (including subtype, `delta`, and `contentIndex`) are preserved. `message_start`, `message_end`, and all other frames are unchanged; `message_end` still carries the full message. Block-ending events such as `text_end`, `thinking_end`, and `toolcall_end` retain their block content or tool call, so hosts must still accept chunked protocol-v2 frames for large blocks and full messages. Switching modes mid-message does not change its `messageId`. The projection applies to the session's own frames only: `subagent_event` payloads forwarded under `set_subagent_subscription` level `"events"` keep their full `message_update` snapshots.
 
@@ -956,18 +956,18 @@ in `available_commands_update` frames at startup and after command metadata
 changes. Each command has `name`, `source`, and optional `aliases`,
 `description`, `input.hint`, and `subcommands`.
 
-Command discovery is intentionally an OMP dialect: Pi's `get_commands` (a
+Command discovery is intentionally an OMS dialect: Pi's `get_commands` (a
 `RpcSlashCommand[]` projection over extensions → prompt templates → skills) is
-not served because OMP's richer catalog (builtins/custom/MCP/file commands,
+not served because OMS's richer catalog (builtins/custom/MCP/file commands,
 broader `source` enum, no Pi `sourceInfo`) is not wire-compatible with it.
 
-### Pi-compatible history/tree commands with OMP-native entry payloads
+### Pi-compatible history/tree commands with OMS-native entry payloads
 
 The commands and reconciliation semantics below are Pi-compatible, but the
-returned `SessionEntry` payload union is OMP-native, not wire-identical to
-Pi. Concretely: Pi `model_change` carries `provider` + `modelId` while OMP
+returned `SessionEntry` payload union is OMS-native, not wire-identical to
+Pi. Concretely: Pi `model_change` carries `provider` + `modelId` while OMS
 carries a combined `model` plus role/fallback metadata; Pi uses a `usage`
-entry where OMP uses `model_usage`; and OMP has additional entry types (for
+entry where OMS uses `model_usage`; and OMS has additional entry types (for
 example service-tier, title, mode, credential, and reset records). A
 permissive client that consumes the common structural subset
 (`id`/`parentId` plus message entries) can share one durable-history
@@ -983,14 +983,14 @@ durable entry id. An unknown `since` fails explicitly with
 
 `get_available_thinking_levels` returns `{ levels }`: the selectable levels
 for the live model with `"off"` first (it is accepted by
-`set_thinking_level` but excluded from the effort-only model helper). OMP-only
+`set_thinking_level` but excluded from the effort-only model helper). OMS-only
 `auto`/`inherit` selectors are intentionally omitted from discovery.
 
-Lifecycle stays OMP: `agent_end` carries `isTerminal`, `yielded`, and optional
+Lifecycle stays OMS: `agent_end` carries `isTerminal`, `yielded`, and optional
 `awaitingAsyncWork`; `prompt_result` correlates prompt completion and
 `session_settled` reports quiescence. There is no Pi `agent_settled` frame.
 These, `agentInvoked`, `open_session`, `set_event_filter`, `messageId`, `ready`,
-negotiation, chunking, host tools, and subagents are OMP extensions a
+negotiation, chunking, host tools, and subagents are OMS extensions a
 Pi-family adapter must dialect around.
 
 ### Subagent subscriptions
@@ -1023,7 +1023,7 @@ When `set_subagent_subscription` is `"progress"` or `"events"`, a
 `subagent_lifecycle` frame with `status: "aborted"` follows.
 
 ```json
-{ "id": "req_1", "type": "cancel_subagent", "subagentId": "OmpWorker" }
+{ "id": "req_1", "type": "cancel_subagent", "subagentId": "OmsWorker" }
 { "id": "req_1", "type": "response", "command": "cancel_subagent", "success": true, "data": { "cancelled": true } }
 ```
 
@@ -1044,7 +1044,7 @@ and the parent sees only the subagent's eventual result. Isolated (worktree)
 subagents run in-process and are steered the same way.
 
 ```json
-{ "id": "req_1", "type": "steer_subagent", "subagentId": "OmpWorker", "message": "Drop the glob, keep the direct path." }
+{ "id": "req_1", "type": "steer_subagent", "subagentId": "OmsWorker", "message": "Drop the glob, keep the direct path." }
 { "id": "req_1", "type": "response", "command": "steer_subagent", "success": true }
 ```
 
@@ -1264,7 +1264,7 @@ Presentation methods and `open_url` are fire-and-forget and require no response.
 
 If a dialog has a timeout, RPC mode resolves to a default value when timeout/abort fires, and emits
 `{ method: "cancel", targetId }` so the host closes the dialog; a later answer to it is ignored. For `ask`, a timeout
-(omp's timer or a host `cancelled: true, timedOut: true` reply) answers every question with its recommended
+(oms's timer or a host `cancelled: true, timedOut: true` reply) answers every question with its recommended
 option, else its first.
 
 `answers` must list one entry per question in request order, with each `id` equal to that question's `id`.
@@ -1576,7 +1576,7 @@ stdin:
 
 `packages/coding-agent/src/modes/rpc/wire` describes every command (parameters,
 success `data`, nullability, timeouts), every unsolicited frame, and every shared
-type as omptype schemas. `bun run gen:rpc` emits:
+type as omstype schemas. `bun run gen:rpc` emits:
 
 - `rpc-wire.schema.json`: a JSON Schema 2020-12 bundle plus an `x-rpc` section:
   the command table, the stdout frame union (`serverFrame`: responses, host
@@ -1595,12 +1595,12 @@ type as omptype schemas. `bun run gen:rpc` emits:
     frame, and `x-scalar-or-array` marks an array older servers sent as a bare
     scalar.
 - `rpc-wire.generated.ts`: the wire types in TypeScript.
-- `sdk/python/omp-rpc/src/omp_rpc/_wire.py`: Python types, decoders, command methods,
-  and frame listeners for the `omp-rpc` package.
-- `sdk/rust/omp-rpc/src/wire.rs`: Rust serde types, frame decoders, and a `Command`
-  trait implemented by one params struct per command (crate `omp-rpc`).
-- `sdk/go/omp-rpc/wire.go`: Go types, frame decoders, and one `Commands` method per
-  command (module `github.com/can1357/oh-my-pi/sdk/go/omp-rpc`).
+- `sdk/python/oms-rpc/src/oms_rpc/_wire.py`: Python types, decoders, command methods,
+  and frame listeners for the `oms-rpc` package.
+- `sdk/rust/oms-rpc/src/wire.rs`: Rust serde types, frame decoders, and a `Command`
+  trait implemented by one params struct per command (crate `oms-rpc`).
+- `sdk/go/oms-rpc/wire.go`: Go types, frame decoders, and one `Commands` method per
+  command (module `github.com/pickpocket/oh-my-soup/sdk/go/oms-rpc`).
 
 The Rust and Go packages ship hand-written process transports on top of the
 generated types: they negotiate v2 and reassemble chunks, page message history,
@@ -1629,10 +1629,10 @@ Current helper characteristics:
 
 ### Python package
 
-The bundled [`omp-rpc`](../sdk/python/omp-rpc/pyproject.toml) distribution provides the process-backed Python client. Its import package is `omp_rpc`; the package API, typed commands and events, host-tool/host-URI helpers, and orchestration examples are maintained in the [`omp-rpc` README](../sdk/python/omp-rpc/README.md).
+The bundled [`oms-rpc`](../sdk/python/oms-rpc/pyproject.toml) distribution provides the process-backed Python client. Its import package is `oms_rpc`; the package API, typed commands and events, host-tool/host-URI helpers, and orchestration examples are maintained in the [`oms-rpc` README](../sdk/python/oms-rpc/README.md).
 
 ```python
-from omp_rpc import RpcClient
+from oms_rpc import RpcClient
 
 with RpcClient(provider="anthropic", model="claude-sonnet-4-5") as client:
     state = client.get_state()
@@ -1640,4 +1640,4 @@ with RpcClient(provider="anthropic", model="claude-sonnet-4-5") as client:
     print(turn.require_assistant_text())
 ```
 
-By default, `RpcClient` starts `omp --mode rpc`; pass `command=[...]` to own the exact child command. It handles request correlation, typed notifications, v2 negotiation and chunk reassembly, message pagination, extension UI (including the opt-in `ask` dialog), and host-owned tools and URI schemes. Its command methods and `on_<frame type>` listeners are generated from the wire schema, so it wraps every command above; the `messageUpdates: "delta"` projection stays raw-protocol only. The Python package owns that client API and process lifecycle; this document and `rpc-types.ts` remain the canonical wire contract. Use raw protocol frames when a client library does not wrap the surface you need.
+By default, `RpcClient` starts `oms --mode rpc`; pass `command=[...]` to own the exact child command. It handles request correlation, typed notifications, v2 negotiation and chunk reassembly, message pagination, extension UI (including the opt-in `ask` dialog), and host-owned tools and URI schemes. Its command methods and `on_<frame type>` listeners are generated from the wire schema, so it wraps every command above; the `messageUpdates: "delta"` projection stays raw-protocol only. The Python package owns that client API and process lifecycle; this document and `rpc-types.ts` remain the canonical wire contract. Use raw protocol frames when a client library does not wrap the surface you need.

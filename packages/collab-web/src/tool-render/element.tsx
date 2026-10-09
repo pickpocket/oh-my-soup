@@ -1,5 +1,5 @@
 /**
- * `<omp-tool-view>` — web-component wrapper around ToolView for non-React
+ * `<oms-tool-view>` — web-component wrapper around ToolView for non-React
  * hosts (the exported-session HTML page).
  *
  * Payload sources, in priority order:
@@ -17,7 +17,7 @@ import { ToolView, type ToolViewProps } from "./ToolView";
 
 type PayloadStore = { get(key: string): ToolViewProps | undefined };
 
-export class OmpToolViewElement extends HTMLElement {
+export class OmsToolViewElement extends HTMLElement {
 	#root: Root | null = null;
 	#data: ToolViewProps | null = null;
 
@@ -66,6 +66,6 @@ export class OmpToolViewElement extends HTMLElement {
 	}
 }
 
-export function defineToolViewElement(tag = "omp-tool-view"): void {
-	if (!customElements.get(tag)) customElements.define(tag, OmpToolViewElement);
+export function defineToolViewElement(tag = "oms-tool-view"): void {
+	if (!customElements.get(tag)) customElements.define(tag, OmsToolViewElement);
 }

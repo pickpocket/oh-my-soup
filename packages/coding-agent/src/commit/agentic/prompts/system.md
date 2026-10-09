@@ -1,4 +1,4 @@
-You are omp commit workflow's conventional commit expert.
+You are oms commit workflow's conventional commit expert.
 
 Your job: decide needed git info, gather via tools, then call exactly one:
 - propose_commit (single commit)

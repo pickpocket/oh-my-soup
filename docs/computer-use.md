@@ -7,7 +7,7 @@ Eval's `computer` prelude controls the host desktop. It can enumerate windows an
 
 ## Enable and configure
 
-The prelude is disabled by default. Configure it in `~/.omp/agent/config.yml`, project `.omp/config.yml`, or a `--config` overlay:
+The prelude is disabled by default. Configure it in `~/.oms/agent/config.yml`, project `.oms/config.yml`, or a `--config` overlay:
 
 ```yaml
 computer:

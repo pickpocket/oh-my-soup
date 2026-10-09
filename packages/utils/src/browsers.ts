@@ -131,7 +131,7 @@ export async function install(options: InstallOptions): Promise<InstalledBrowser
 	return withFileLock(
 		`${installPath}.install`,
 		async () => {
-			// The in-process launch promise cannot serialize separate OMP sessions.
+			// The in-process launch promise cannot serialize separate OMS sessions.
 			// Recheck under the OS lock: never replace a winner's running Chrome.
 			if (!(await pathExists(executablePath))) {
 				const nonce = `${process.pid}-${crypto.randomUUID()}`;

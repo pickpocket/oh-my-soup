@@ -1,4 +1,4 @@
-import { LRUCache } from "@oh-my-pi/pi-utils/lru";
+import { LRUCache } from "@oh-my-soup/pi-utils/lru";
 import type { EvalLanguage } from "../eval";
 import { formatJavaScriptForDisplay } from "./javascript";
 import { formatPythonForDisplay } from "./python";

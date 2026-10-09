@@ -36,7 +36,7 @@ import { contentRowWidth, renderScrollableList } from "../chrome/selector-helper
 import { MenuSelection } from "../components/menu-selection";
 import { centeredViewportRange } from "../components/scroll-viewport";
 import type { KeyName } from "../key-hint-format";
-import type { TspPickerItem } from "@oh-my-pi/pi-wire";
+import type { TspPickerItem } from "@oh-my-soup/pi-wire";
 import { col, keyed, node, span } from "../native/describe";
 import type { DescribeContext, NativeNode, NativeUiEvent } from "../native/node";
 import { actionHint, hintsRow, overlayCard } from "../native/overlay";
@@ -209,7 +209,7 @@ export class HistorySearchComponent extends OverlayPanel {
 	#onRequestRender?: () => void;
 
 	constructor(historyStorage: HistorySource, onSelect: (prompt: string) => void, onCancel: () => void) {
-		super("History", "omp.overlay.history");
+		super("History", "oms.overlay.history");
 		this.#historyStorage = historyStorage;
 		this.#onSelect = prompt => {
 			this.#cancelPendingSearch();

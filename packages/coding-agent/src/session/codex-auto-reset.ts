@@ -64,7 +64,7 @@ import type {
 	UsageLimit,
 	UsageReport,
 	UsageResetCreditDetail,
-} from "@oh-my-pi/pi-ai";
+} from "@oh-my-soup/pi-ai";
 import type { ResetAutoRedeemMode } from "./settings";
 import { reportMatchesActiveAccount } from "../slash-commands/helpers/active-oauth-account";
 

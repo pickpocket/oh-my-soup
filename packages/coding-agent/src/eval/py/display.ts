@@ -2,8 +2,8 @@
  * Display bundle rendering shared between the Python runner output and the
  * legacy Jupyter MIME conventions. Pure function, no kernel coupling.
  */
-import type { ImageContent } from "@oh-my-pi/pi-ai";
-import { isRecord } from "@oh-my-pi/pi-utils";
+import type { ImageContent } from "@oh-my-soup/pi-ai";
+import { isRecord } from "@oh-my-soup/pi-utils";
 import { htmlToBasicMarkdown } from "../../web/scrapers/types";
 import { evalImageMetadata } from "../types";
 
@@ -37,15 +37,15 @@ export async function renderKernelDisplay(content: Record<string, unknown>): Pro
 	const outputs: KernelDisplayOutput[] = [];
 
 	// Status events bypass the text path entirely — they exist only for TUI hooks.
-	if (data["application/x-omp-status"] !== undefined) {
-		const statusData = data["application/x-omp-status"];
+	if (data["application/x-oms-status"] !== undefined) {
+		const statusData = data["application/x-oms-status"];
 		if (statusData && typeof statusData === "object" && "op" in statusData) {
 			outputs.push({ type: "status", event: statusData as PythonStatusEvent });
 		}
 		return { text: "", outputs };
 	}
 
-	const image = data["application/x-omp-image"];
+	const image = data["application/x-oms-image"];
 	if (isRecord(image) && typeof image.data === "string" && typeof image.mimeType === "string") {
 		outputs.push({
 			type: "image",

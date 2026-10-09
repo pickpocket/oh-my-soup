@@ -17,7 +17,7 @@ import {
 	synchronizedOutputUserOverride,
 	isInsideHerdr,
 	isInsideTerminalMultiplexer,
-} from "@oh-my-pi/pi-tui/terminal-capabilities";
+} from "@oh-my-soup/pi-tui/terminal-capabilities";
 
 describe("isInsideHerdr", () => {
 	it("is true for HERDR_ENV=1", () => {
@@ -112,7 +112,7 @@ describe("detectTerminalId", () => {
 
 describe("tmux client terminal resolution", () => {
 	it.skipIf(process.platform === "win32")("uses the attached client's terminal profile", async () => {
-		const binDir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-tmux-client-"));
+		const binDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-tmux-client-"));
 		try {
 			const tmux = path.join(binDir, "tmux");
 			await Bun.write(
@@ -139,7 +139,7 @@ printf "%s\\n" "WezTerm 20260905-175422-0f4b5596"
 				cmd: [
 					process.execPath,
 					"--eval",
-					`import { TERMINAL, TERMINAL_ID } from "@oh-my-pi/pi-tui/terminal-capabilities";
+					`import { TERMINAL, TERMINAL_ID } from "@oh-my-soup/pi-tui/terminal-capabilities";
 console.log(JSON.stringify({ id: TERMINAL_ID, notifyProtocol: TERMINAL.notifyProtocol }));`,
 				],
 				env,
@@ -294,7 +294,7 @@ describe("Warp terminal capabilities", () => {
 			cmd: [
 				process.execPath,
 				"--eval",
-				`import { ImageProtocol, TERMINAL, TERMINAL_ID } from "@oh-my-pi/pi-tui/terminal-capabilities";
+				`import { ImageProtocol, TERMINAL, TERMINAL_ID } from "@oh-my-soup/pi-tui/terminal-capabilities";
 console.log(JSON.stringify({ id: TERMINAL_ID, imageProtocol: TERMINAL.imageProtocol, expected: ImageProtocol.Kitty }));`,
 			],
 			env,
@@ -433,7 +433,7 @@ describe("otty terminal capabilities", () => {
 			cmd: [
 				process.execPath,
 				"--eval",
-				`import { ImageProtocol, TERMINAL, TERMINAL_ID } from "@oh-my-pi/pi-tui/terminal-capabilities";
+				`import { ImageProtocol, TERMINAL, TERMINAL_ID } from "@oh-my-soup/pi-tui/terminal-capabilities";
 console.log(JSON.stringify({ id: TERMINAL_ID, imageProtocol: TERMINAL.imageProtocol, expected: ImageProtocol.Kitty }));`,
 			],
 			env,
@@ -505,7 +505,7 @@ describe("Paseo embedder carve-out", () => {
 			cmd: [
 				process.execPath,
 				"--eval",
-				`import { ImageProtocol, TERMINAL, TERMINAL_ID } from "@oh-my-pi/pi-tui/terminal-capabilities";
+				`import { ImageProtocol, TERMINAL, TERMINAL_ID } from "@oh-my-soup/pi-tui/terminal-capabilities";
 console.log(JSON.stringify({ id: TERMINAL_ID, imageProtocol: TERMINAL.imageProtocol, expected: ImageProtocol.Kitty }));`,
 			],
 			env,
@@ -534,7 +534,7 @@ console.log(JSON.stringify({ id: TERMINAL_ID, imageProtocol: TERMINAL.imageProto
 			cmd: [
 				process.execPath,
 				"--eval",
-				`import { ImageProtocol, TERMINAL, TERMINAL_ID } from "@oh-my-pi/pi-tui/terminal-capabilities";
+				`import { ImageProtocol, TERMINAL, TERMINAL_ID } from "@oh-my-soup/pi-tui/terminal-capabilities";
 console.log(JSON.stringify({ id: TERMINAL_ID, imageProtocol: TERMINAL.imageProtocol, expected: ImageProtocol.Kitty }));`,
 			],
 			env,

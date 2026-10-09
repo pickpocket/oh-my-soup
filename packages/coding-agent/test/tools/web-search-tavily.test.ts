@@ -1,8 +1,8 @@
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
-import type { FetchImpl } from "@oh-my-pi/pi-ai";
-import { ModelRegistry } from "@oh-my-pi/pi-coding-agent/config/model-registry";
-import { searchTavily } from "@oh-my-pi/pi-coding-agent/web/search/providers/tavily";
-import type { SearchProviderError } from "@oh-my-pi/pi-coding-agent/web/search/types";
+import type { FetchImpl } from "@oh-my-soup/pi-ai";
+import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
+import { searchTavily } from "@oh-my-soup/pi-coding-agent/web/search/providers/tavily";
+import type { SearchProviderError } from "@oh-my-soup/pi-coding-agent/web/search/types";
 import { createInMemoryAuthStorage } from "../helpers/agent-session-setup";
 
 const authStorage = createInMemoryAuthStorage();
@@ -133,7 +133,7 @@ describe("Tavily web search provider", () => {
 		};
 
 		const response = await searchTavily({
-			...makeParams("omp latest release notes advisor"),
+			...makeParams("oms latest release notes advisor"),
 			numSearchResults: 5,
 			recency: "month",
 			fetch: fetchMock,
@@ -141,12 +141,12 @@ describe("Tavily web search provider", () => {
 
 		expect(requestBodies).toHaveLength(2);
 		expect(requestBodies[0]).toMatchObject({
-			query: "omp latest release notes advisor",
+			query: "oms latest release notes advisor",
 			max_results: 5,
 			time_range: "month",
 		});
 		expect(requestBodies[1]).toMatchObject({
-			query: "omp latest release notes advisor",
+			query: "oms latest release notes advisor",
 			max_results: 5,
 		});
 		expect(requestBodies[1]).not.toHaveProperty("time_range");

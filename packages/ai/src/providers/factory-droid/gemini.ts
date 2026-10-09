@@ -1,7 +1,7 @@
-import type { RequestPolicy } from "@oh-my-pi/pi-catalog/compat/types";
-import type { Effort } from "@oh-my-pi/pi-catalog/effort";
-import { calculateCost } from "@oh-my-pi/pi-catalog/models";
-import { readSseJson } from "@oh-my-pi/pi-utils";
+import type { RequestPolicy } from "@oh-my-soup/pi-catalog/compat/types";
+import type { Effort } from "@oh-my-soup/pi-catalog/effort";
+import { calculateCost } from "@oh-my-soup/pi-catalog/models";
+import { readSseJson } from "@oh-my-soup/pi-utils";
 import * as AIError from "../../error";
 import type { AssistantMessage, Context, Message, Model, StreamOptions, Tool, ToolCall } from "../../types";
 import { createAbortSourceTracker } from "../../utils/abort";
@@ -27,7 +27,7 @@ import { transformMessages } from "../transform-messages";
 
 /** Factory's Gemini endpoint speaks native generateContent SSE at `/api/llm/g/v1/generate`. */
 
-/** OMP effort → Gemini thinkingLevel (low/minimal→LOW, medium→MEDIUM when supported, else HIGH). */
+/** OMS effort → Gemini thinkingLevel (low/minimal→LOW, medium→MEDIUM when supported, else HIGH). */
 function geminiThinkingLevel(effort: string | undefined, supportsMedium: boolean): "LOW" | "MEDIUM" | "HIGH" {
 	switch (effort) {
 		case "low":
@@ -81,7 +81,7 @@ const FACTORY_DROID_BLOCK_REASONS: Record<string, true> = {
 };
 
 /**
- * Map a generateContent `finishReason` to OMP's StopReason using the CLI's
+ * Map a generateContent `finishReason` to OMS's StopReason using the CLI's
  * table: STOP→stop, MAX_TOKENS→length, content-filter family→error (with a
  * category), MALFORMED_FUNCTION_CALL→error, anything else→error. The CLI's
  * "unknown" bucket has no StopReason equivalent, so unknown terminators

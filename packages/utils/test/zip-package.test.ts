@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { ArchiveError, encodeArchive, ZipPackage } from "@oh-my-pi/pi-utils/ar";
+import { ArchiveError, encodeArchive, ZipPackage } from "@oh-my-soup/pi-utils/ar";
 
 describe("ZipPackage", () => {
 	it("caps the bytes inflated across all member reads, not just per member", async () => {

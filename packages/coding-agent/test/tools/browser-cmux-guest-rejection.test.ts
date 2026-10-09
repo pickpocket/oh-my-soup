@@ -4,9 +4,9 @@ import * as path from "node:path";
 const repoRoot = path.resolve(import.meta.dir, "../../../..");
 
 const probe = `
-import { CmuxTab } from "@oh-my-pi/pi-coding-agent/tools/browser/cmux/cmux-tab";
-import { runInProcessTab } from "@oh-my-pi/pi-coding-agent/tools/browser/in-process-run";
-import { CmuxSocketClient } from "@oh-my-pi/pi-coding-agent/tools/browser/cmux/socket-client";
+import { CmuxTab } from "@oh-my-soup/pi-coding-agent/tools/browser/cmux/cmux-tab";
+import { runInProcessTab } from "@oh-my-soup/pi-coding-agent/tools/browser/in-process-run";
+import { CmuxSocketClient } from "@oh-my-soup/pi-coding-agent/tools/browser/cmux/socket-client";
 
 const cwd = process.cwd();
 const tab = new CmuxTab({

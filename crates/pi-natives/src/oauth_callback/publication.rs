@@ -117,7 +117,7 @@ mod tests {
 				.expect("system clock should follow the Unix epoch")
 				.as_nanos();
 			let path = std::env::temp_dir()
-				.join(format!("omp-oauth-relay-{label}-{}-{nonce}", std::process::id()));
+				.join(format!("oms-oauth-relay-{label}-{}-{nonce}", std::process::id()));
 			fs::create_dir(&path).expect("create test transaction directory");
 			Self(path)
 		}
@@ -133,7 +133,7 @@ mod tests {
 	fn publishes_exact_utf8_without_a_byte_order_mark_or_newline() {
 		let directory = TestDirectory::new("utf8");
 		let callback = directory.0.join("callback.url");
-		let value = "omp-test://oauth/callback?name=Jörg&check=✓";
+		let value = "oms-test://oauth/callback?name=Jörg&check=✓";
 
 		publish_once(&callback, value.as_bytes()).expect("publish callback");
 

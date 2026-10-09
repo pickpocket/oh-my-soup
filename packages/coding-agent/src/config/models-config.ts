@@ -2,11 +2,11 @@
  * Custom model/provider config file handle and validation.
  */
 
-import type { FluentType } from "@oh-my-pi/omptype";
-import type { Api, ModelSpec } from "@oh-my-pi/pi-ai/types";
-import { AXES } from "@oh-my-pi/pi-catalog/compat/axes";
-import { type ModelKind, servedKinds } from "@oh-my-pi/pi-catalog/types";
-import { isRecord, once } from "@oh-my-pi/pi-utils";
+import type { FluentType } from "@oh-my-soup/omstype";
+import type { Api, ModelSpec } from "@oh-my-soup/pi-ai/types";
+import { AXES } from "@oh-my-soup/pi-catalog/compat/axes";
+import { type ModelKind, servedKinds } from "@oh-my-soup/pi-catalog/types";
+import { isRecord, once } from "@oh-my-soup/pi-utils";
 import { ConfigFile } from "./config-file";
 import type { ModelsConfig, ProviderAuthMode, ProviderDiscovery } from "./models-config-schema";
 import { getModelsConfigSchema, getModelsConfigSchemaBundle } from "./models-config-schema-bundle";

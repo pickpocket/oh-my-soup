@@ -4,7 +4,7 @@ import { Stack } from "../components/layout/stack";
 import { matchesKey } from "../keys";
 import { theme } from "../theme/theme";
 import { truncateToWidth, visibleWidth } from "../utils";
-import type { TspText } from "@oh-my-pi/pi-wire";
+import type { TspText } from "@oh-my-soup/pi-wire";
 import { node, span, text } from "../native/describe";
 import type { NativeChild, NativeNode } from "../native/node";
 import { overlayCard } from "../native/overlay";

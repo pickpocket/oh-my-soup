@@ -1,10 +1,10 @@
-import type { SessionHeader, SessionState } from "@oh-my-pi/pi-wire";
+import type { SessionHeader, SessionState } from "@oh-my-soup/pi-wire";
 import { LogOut, PanelRight } from "lucide-react";
 import type { ReactNode } from "react";
 import { memo } from "react";
 import type { ConnectionPhase } from "../../lib/client";
 import { fmtPercent, shortenPath } from "../../lib/format";
-import { OmpMark } from "./OmpMark";
+import { OmsMark } from "./OmsMark";
 import { ThemeToggle } from "./ThemeToggle";
 
 const PHASE_LABEL: Record<ConnectionPhase, string> = {
@@ -51,8 +51,8 @@ export const HeaderBar = memo(function HeaderBar({
 	return (
 		<header className="sh-header">
 			<div className="sh-header-left">
-				<span className="sh-brand" aria-label="omp collab">
-					<OmpMark />
+				<span className="sh-brand" aria-label="oms collab">
+					<OmsMark />
 					<span className="sh-brand-slash">/</span>
 				</span>
 				<span className="sh-title" title={title}>

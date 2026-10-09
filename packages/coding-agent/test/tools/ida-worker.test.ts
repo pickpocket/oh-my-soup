@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { $which, acquireFileLock } from "@oh-my-pi/pi-utils";
+import { $which, acquireFileLock } from "@oh-my-soup/pi-utils";
 import type { IdbLocation } from "../../src/ida/store";
 import { IdaWorker } from "../../src/ida/supervisor";
 
@@ -29,7 +29,7 @@ def module_getattr(name):
         raise AttributeError(name)
     return type(name, (_Any,), {})
 `;
-const STUB_MODULE = "from _omp_ida_stub import _Any, module_getattr as __getattr__\n";
+const STUB_MODULE = "from _oms_ida_stub import _Any, module_getattr as __getattr__\n";
 const STUB_MODULES = [
 	"idapro",
 	"ida_auto",
@@ -75,7 +75,7 @@ describe("IDA worker protocol", () => {
 	beforeAll(async () => {
 		dir = await fs.mkdtemp(path.join(os.tmpdir(), "ida-worker-"));
 		const stubs = path.join(dir, "stubs");
-		await Bun.write(path.join(stubs, "_omp_ida_stub.py"), STUB);
+		await Bun.write(path.join(stubs, "_oms_ida_stub.py"), STUB);
 		for (const name of STUB_MODULES) await Bun.write(path.join(stubs, `${name}.py`), STUB_MODULE);
 		await Bun.write(path.join(stubs, "ida_domain", "__init__.py"), STUB_DATABASE);
 		await Bun.write(path.join(stubs, "ida_domain", "database.py"), STUB_MODULE);

@@ -1,4 +1,4 @@
-import { workerHostEntry } from "@oh-my-pi/pi-utils/worker-host";
+import { workerHostEntry } from "@oh-my-soup/pi-utils/worker-host";
 import type { TerminalOutputOptions } from "./terminal-output";
 import {
 	TERMINAL_OUTPUT_WORKER_ARG,

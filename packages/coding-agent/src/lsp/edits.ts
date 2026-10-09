@@ -1,8 +1,8 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { isEexist, isEnoent, logger } from "@oh-my-pi/pi-utils";
+import { isEexist, isEnoent, logger } from "@oh-my-soup/pi-utils";
 import { formatPathRelativeToCwd } from "../tools/path-utils";
-import { ToolError } from "@oh-my-pi/pi-tui/tools/tool-errors";
+import { ToolError } from "@oh-my-soup/pi-tui/tools/tool-errors";
 import type {
 	CreateFile,
 	CreateFileOptions,
@@ -376,7 +376,7 @@ export async function applyWorkspaceEdit(
 						// source, so let fs.rename change the case in place instead.
 						const sourceStat = await fs.lstat(oldPath);
 						if (sourceStat.dev !== targetStat.dev || sourceStat.ino !== targetStat.ino) {
-							const holdDir = await fs.mkdtemp(path.join(path.dirname(newPath), ".omp-displaced-"));
+							const holdDir = await fs.mkdtemp(path.join(path.dirname(newPath), ".oms-displaced-"));
 							const holdFile = path.join(holdDir, path.basename(newPath));
 							try {
 								await fs.rename(newPath, holdFile);

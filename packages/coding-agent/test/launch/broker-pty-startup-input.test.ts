@@ -5,7 +5,7 @@
 import { describe, expect, it } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { TempDir } from "@oh-my-pi/pi-utils";
+import { TempDir } from "@oh-my-soup/pi-utils";
 import { startDaemonBrokerFromEnvironment } from "../../src/launch/broker";
 import { createDaemonBrokerClient } from "../../src/launch/client";
 import { DAEMON_IDLE_GRACE_ENV, DAEMON_PROJECT_DIR_ENV, DAEMON_RUNTIME_DIR_ENV } from "../../src/launch/protocol";
@@ -47,7 +47,7 @@ function startBroker(projectDir: string, runtimeDir: string): Promise<void> {
  */
 describe("supervised PTY startup input", () => {
 	it("reports only the client's byte as the program's first input", async () => {
-		using tempDir = TempDir.createSync("@omp-launch-pty-stdin-");
+		using tempDir = TempDir.createSync("@oms-launch-pty-stdin-");
 		const projectDir = path.join(tempDir.path(), "project");
 		const runtimeDir = path.join(tempDir.path(), "runtime");
 		await fs.mkdir(projectDir);

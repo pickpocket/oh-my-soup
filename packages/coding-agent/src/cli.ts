@@ -16,8 +16,8 @@ try {
  */
 import type * as WorkerThreads from "node:worker_threads";
 import type { MessagePort } from "node:worker_threads";
-import type { CliConfig, CommandMetadata } from "@oh-my-pi/pi-utils/cli";
-import type * as Postmortem from "@oh-my-pi/pi-utils/postmortem";
+import type { CliConfig, CommandMetadata } from "@oh-my-soup/pi-utils/cli";
+import type * as Postmortem from "@oh-my-soup/pi-utils/postmortem";
 import {
 	APP_NAME,
 	getActiveProfile,
@@ -25,9 +25,9 @@ import {
 	resolveProfileEnv,
 	setProfile,
 	VERSION,
-} from "@oh-my-pi/pi-utils/dirs";
+} from "@oh-my-soup/pi-utils/dirs";
 
-import { declareWorkerHostEntry, installWorkerInbox, isWorkerHostSelector } from "@oh-my-pi/pi-utils/worker-host";
+import { declareWorkerHostEntry, installWorkerInbox, isWorkerHostSelector } from "@oh-my-soup/pi-utils/worker-host";
 import { extractProfileFlags } from "./cli/profile-bootstrap";
 import {
 	BLOB_BROKER_WORKER_ARG,
@@ -93,28 +93,28 @@ const PREPAINT_SAFE_FLAGS: Record<string, true> = {
 /** Complete the OS-visible process-name setup after speculative first paint. */
 async function setFullProcessName(): Promise<void> {
 	// Latency boundary: bun:ffi/node:os are unnecessary before the first frame.
-	const { setProcessName } = await import("@oh-my-pi/pi-utils/process-name");
+	const { setProcessName } = await import("@oh-my-soup/pi-utils/process-name");
 	setProcessName(APP_NAME);
 }
 
 /** Install PI_PROXY handling before any command implementation can make a provider request. */
 async function installNetworkBootstrap(): Promise<void> {
 	// Latency boundary: proxy socket/error modules are unnecessary before the first frame.
-	const { installGlobalProxyFetch } = await import("@oh-my-pi/pi-ai/utils/proxy");
+	const { installGlobalProxyFetch } = await import("@oh-my-soup/pi-ai/utils/proxy");
 	installGlobalProxyFetch();
 }
 
 // Worker-host entry declaration (Worker threads and worker subprocesses
 // re-enter `Bun.main` with a hidden argv selector instead of loading separate
 // worker entrypoints) happens inside `runCli` after profile bootstrap:
-// `@oh-my-pi/pi-utils/env` eagerly loads `.env` from the agent directory at
+// `@oh-my-soup/pi-utils/env` eagerly loads `.env` from the agent directory at
 // import time, so it must not be imported before `setProfile` runs.
 
 async function showHelp(config: CliConfig<CommandMetadata>): Promise<void> {
 	// Root help historically loads the selected profile's environment. The
 	// lazily loaded help module imports it statically after profile bootstrap.
 	const [{ renderRootHelp }, { getExtraHelpText }] = await Promise.all([
-		import("@oh-my-pi/pi-utils/cli"),
+		import("@oh-my-soup/pi-utils/cli"),
 		import("./cli/help-extra"),
 	]);
 	renderRootHelp(config);
@@ -135,7 +135,7 @@ async function showHelp(config: CliConfig<CommandMetadata>): Promise<void> {
  * tarball installs all exercise it on every CI run.
  */
 async function runSmokeTest(): Promise<void> {
-	const { smokeTestSyncWorker, startServer } = await import("@oh-my-pi/omp-stats");
+	const { smokeTestSyncWorker, startServer } = await import("@oh-my-soup/oms-stats");
 	const { smokeTestTinyTitleWorker } = await import("./tiny/title-client");
 	const { smokeTestSttWorker } = await import("./stt/asr-client");
 	const { smokeTestTtsWorker } = await import("./tts/tts-client");
@@ -180,14 +180,14 @@ async function runSmokeTest(): Promise<void> {
 	process.stdout.write("smoke-test: ok\n");
 }
 
-const TINY_WORKER_ARG = "__omp_worker_tiny_inference";
-const STATS_SYNC_WORKER_ARG = "__omp_worker_stats_sync";
-const TAB_WORKER_ARG = "__omp_worker_tab";
-const JS_EVAL_WORKER_ARG = "__omp_worker_js_eval";
-const JS_EVAL_PROCESS_ARG = "__omp_worker_js_eval_process";
-const STT_WORKER_ARG = "__omp_worker_stt";
-const TTS_WORKER_ARG = "__omp_worker_tts";
-const MNEMOPI_EMBED_WORKER_ARG = "__omp_worker_mnemopi_embed";
+const TINY_WORKER_ARG = "__oms_worker_tiny_inference";
+const STATS_SYNC_WORKER_ARG = "__oms_worker_stats_sync";
+const TAB_WORKER_ARG = "__oms_worker_tab";
+const JS_EVAL_WORKER_ARG = "__oms_worker_js_eval";
+const JS_EVAL_PROCESS_ARG = "__oms_worker_js_eval_process";
+const STT_WORKER_ARG = "__oms_worker_stt";
+const TTS_WORKER_ARG = "__oms_worker_tts";
+const MNEMOPI_EMBED_WORKER_ARG = "__oms_worker_mnemopi_embed";
 
 async function runWorkerEntrypoint(arg: string | undefined): Promise<boolean> {
 	if (arg === TINY_WORKER_ARG) {
@@ -209,7 +209,7 @@ async function runWorkerEntrypoint(arg: string | undefined): Promise<boolean> {
 			pending.push(event);
 		};
 		scope.onmessage = buffer;
-		await import("@oh-my-pi/omp-stats/sync-worker");
+		await import("@oh-my-soup/oms-stats/sync-worker");
 		const handler = scope.onmessage;
 		if (handler && handler !== buffer) {
 			for (const event of pending) handler.call(scope, event);
@@ -246,7 +246,7 @@ async function runWorkerEntrypoint(arg: string | undefined): Promise<boolean> {
 		// putting an await ahead of the subprocess message handler.
 		const { startJsEvalProcess }: typeof JsProcessEntry = require("./eval/js/process-entry");
 		// The .js subpath is the package's unconditional export for synchronous loading.
-		const { interceptUnhandledRejections }: typeof Postmortem = require("@oh-my-pi/pi-utils/postmortem.js");
+		const { interceptUnhandledRejections }: typeof Postmortem = require("@oh-my-soup/pi-utils/postmortem.js");
 		// The JS evaluator forwards user-controlled payloads (tool-call args,
 		// display outputs); a non-serializable one must fail that cell, not
 		// SIGKILL the kernel and erase the eval session's state.
@@ -419,10 +419,10 @@ async function runIpcSubprocessWorker<In, Out>(
 
 /**
  * Hidden subcommand that boots the ONNX tiny-model worker for one model: a
- * detached process owning that model's socket (`OMP_TINY_WORKER_SOCKET`),
- * shared by every omp process on the machine and exiting on its own when
+ * detached process owning that model's socket (`OMS_TINY_WORKER_SOCKET`),
+ * shared by every oms process on the machine and exiting on its own when
  * idle. It exists so `onnxruntime-node` (loaded transitively by
- * `@huggingface/transformers`) never runs in an omp address space — its NAPI
+ * `@huggingface/transformers`) never runs in an oms address space — its NAPI
  * finalizer segfaults Bun on Windows (issue #1606).
  */
 async function runTinyWorker(): Promise<void> {
@@ -442,22 +442,22 @@ export async function runCli(argv: string[]): Promise<void> {
 		if (extracted.profile !== undefined) {
 			setProfile(extracted.profile);
 		} else {
-			// No explicit --profile: activate any OMP_PROFILE/PI_PROFILE inherited
+			// No explicit --profile: activate any OMS_PROFILE/PI_PROFILE inherited
 			// from the environment. Module-load resolution deliberately swallows an
 			// invalid value to avoid an uncaught throw before this try/catch is in
 			// scope (see `readProfileFromEnvSafe` in dirs.ts), and callers may set
-			// OMP_PROFILE after importing this module (profile aliases/tests). Surfacing
-			// validation here turns `OMP_PROFILE=.. omp --version` into a clean error;
+			// OMS_PROFILE after importing this module (profile aliases/tests). Surfacing
+			// validation here turns `OMS_PROFILE=.. oms --version` into a clean error;
 			// calling setProfile keeps every later path helper on the env-selected
 			// profile instead of the default agent directory.
-			setProfile(resolveProfileEnv(process.env.OMP_PROFILE, process.env.PI_PROFILE));
+			setProfile(resolveProfileEnv(process.env.OMS_PROFILE, process.env.PI_PROFILE));
 		}
 		if (extracted.aliasName !== undefined) {
 			// Command boundary: shell/path setup is used only by --alias.
 			const { installProfileAlias, resolveProfileAliasCommandFromProcess } = await import("./cli/profile-alias");
 			const profile = extracted.profile ?? getActiveProfile();
 			if (!profile) {
-				throw new Error("--alias requires --profile <name> or OMP_PROFILE");
+				throw new Error("--alias requires --profile <name> or OMS_PROFILE");
 			}
 			const result = await installProfileAlias({
 				profile,
@@ -480,7 +480,7 @@ export async function runCli(argv: string[]): Promise<void> {
 
 	// Declare this module as the worker-host entry now that the active profile
 	// is resolved. The worker-host module is side-effect-free; importing
-	// `@oh-my-pi/pi-utils/env` here would snapshot the wrong agent `.env`.
+	// `@oh-my-soup/pi-utils/env` here would snapshot the wrong agent `.env`.
 	// Gated on `isProcessEntry`: only the real CLI process entry is a valid
 	// worker host. Worker-thread re-entry has `!Bun.isMainThread` (isProcessEntry === false),
 	// and importers (`runCli` in profile-CLI tests, SDK embedding) have `import.meta.main === false`
@@ -545,7 +545,7 @@ export async function runCli(argv: string[]): Promise<void> {
 
 	try {
 		const [{ run }, { commands, resolveCliArgv }] = await Promise.all([
-			import("@oh-my-pi/pi-utils/cli"),
+			import("@oh-my-soup/pi-utils/cli"),
 			import("./cli-commands"),
 		]);
 		// --help and --version are handled by run() directly; --license returned above.
@@ -576,9 +576,9 @@ export async function runCli(argv: string[]): Promise<void> {
 // is admitted via `!Bun.isMainThread`.
 if (isProcessEntry || !Bun.isMainThread) {
 	const postmortem: typeof Postmortem | undefined = isProcessEntry
-		? require("@oh-my-pi/pi-utils/postmortem.js")
+		? require("@oh-my-soup/pi-utils/postmortem.js")
 		: undefined;
-	// A one-shot CLI run (`omp --help | head`, `omp --version | true`, `omp <sub> | grep -m1`)
+	// A one-shot CLI run (`oms --help | head`, `oms --version | true`, `oms <sub> | grep -m1`)
 	// whose stdout consumer closes before the write drains gets an EPIPE that Bun surfaces as
 	// an unhandled rejection. Treat a vanished stdout peer as an ordinary Unix disconnect
 	// (graceful exit) rather than the fatal path. Interactive launches register their own
@@ -589,7 +589,7 @@ if (isProcessEntry || !Bun.isMainThread) {
 	postmortem?.reportUnsettledEntry(entry, () => runningCommand);
 	entry.catch(async error => {
 		// Failure boundary: inspector/postmortem is irrelevant to successful startup.
-		const { fatal } = await import("@oh-my-pi/pi-utils/postmortem");
+		const { fatal } = await import("@oh-my-soup/pi-utils/postmortem");
 		fatal(error);
 	});
 }

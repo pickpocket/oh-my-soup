@@ -1,6 +1,6 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, spyOn, vi } from "bun:test";
-import type { Component } from "@oh-my-pi/pi-tui";
-import { initTheme } from "@oh-my-pi/pi-tui/theme";
+import type { Component } from "@oh-my-soup/pi-tui";
+import { initTheme } from "@oh-my-soup/pi-tui/theme";
 import type { DescribeContext, NativeChild, NativeNode } from "../src/native/node";
 import { setNativeRendering } from "../src/native/state";
 import type { SetupHost, SetupScene, SetupSceneController, SetupUiHost } from "../src/setup/scenes/types";

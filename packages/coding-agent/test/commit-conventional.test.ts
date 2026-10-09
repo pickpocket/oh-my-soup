@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import * as path from "node:path";
-import { TempDir } from "@oh-my-pi/pi-utils";
+import { TempDir } from "@oh-my-soup/pi-utils";
 import { CommitInferenceCache, computeCommitCacheKey } from "../src/commit/conventional/cache";
 import { type ConventionalGenerationConfig, conventionalGenerationConfig } from "../src/commit/conventional/config";
 import {
@@ -304,7 +304,7 @@ describe("commit inference cache", () => {
 		expect(computeCommitCacheKey(material)).toBe(computeCommitCacheKey(material));
 		expect(computeCommitCacheKey({ ...material, userPrompt: "different" })).not.toBe(computeCommitCacheKey(material));
 
-		using tempDir = TempDir.createSync("@omp-commit-cache-");
+		using tempDir = TempDir.createSync("@oms-commit-cache-");
 		const cache = await CommitInferenceCache.open(path.join(tempDir.path(), "cache.db"), 0);
 		if (!cache) throw new Error("cache failed to open");
 		expect(cache.get("k")).toBeNull();

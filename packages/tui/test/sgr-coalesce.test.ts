@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { coalesceAdjacentSgr } from "@oh-my-pi/pi-tui";
+import { coalesceAdjacentSgr } from "@oh-my-soup/pi-tui";
 import { VirtualTerminal } from "./virtual-terminal";
 
 const SGR = /\x1b\[([0-9;:]*)m/g;

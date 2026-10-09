@@ -22,7 +22,7 @@ retry:
 
 An explicit empty chain keeps each workload local. Leaving a model-kind chain unset instead uses that role's built-in priority list. The `default` fallback chain does not apply to `speech`, `dictation`, or `judge`.
 
-Inspect the catalog with `omp models --kind tiny`, `omp models --kind tts`, and `omp models --kind stt`. Download tiny models with `omp tiny-models list`, `omp tiny-models download <model-id>`, or `omp tiny-models download all`. Run `omp setup speech` to choose, persist, and download the local speech and dictation models selected by their roles.
+Inspect the catalog with `oms models --kind tiny`, `oms models --kind tts`, and `oms models --kind stt`. Download tiny models with `oms tiny-models list`, `oms tiny-models download <model-id>`, or `oms tiny-models download all`. Run `oms setup speech` to choose, persist, and download the local speech and dictation models selected by their roles.
 
 The tiny-model CLI and source registry retain **title** and **memory** groupings because those are the workloads used to benchmark and recommend model sizes. They are not runtime model classes: every entry in both groups has catalog kind `tiny`, and any compatible entry can be assigned to `tiny`, `memory`, or `judge`. Choose based on quality and resource needs rather than the CLI grouping alone.
 
@@ -34,22 +34,22 @@ The tiny-model CLI and source registry retain **title** and **memory** groupings
 - **Non-FHS distros (NixOS, and any host without `libstdc++.so.6` on the loader path)**: the
   on-demand `onnxruntime-node` / `sherpa-onnx-node` / `sharp` addons are prebuilt binaries that
   `dlopen` `libstdc++.so.6` and `libgcc_s.so.1`, and they carry their own `DT_RUNPATH`, so nothing in
-  the omp executable's own RPATH can resolve them. Set `OMP_NATIVE_LIBRARY_PATH` to the
-  colon-separated directories holding those libraries; omp appends it to `LD_LIBRARY_PATH` for the
+  the oms executable's own RPATH can resolve them. Set `OMS_NATIVE_LIBRARY_PATH` to the
+  colon-separated directories holding those libraries; oms appends it to `LD_LIBRARY_PATH` for the
   inference worker subprocesses only (never for shell/eval/daemon children). The Nix package
   (`nix/package.nix`) sets this by default.
 - **One text worker per model/backend, keep-alive not persistent**: each tiny text model/backend
   pair is served by one machine-wide worker owning
-  `~/.omp/run/tiny/<model>-<backend>.sock` (Windows: a named pipe).
-  ONNX and MLX workers for the same model can coexist. The first omp process that needs
+  `~/.oms/run/tiny/<model>-<backend>.sock` (Windows: a named pipe).
+  ONNX and MLX workers for the same model can coexist. The first oms process that needs
   the pair spawns it detached (log next to the socket, `<model>-<backend>.log`);
-  other omp processes connect, so weights are not duplicated per omp instance.
+  other oms processes connect, so weights are not duplicated per oms instance.
   Nothing supervises it: the worker exits on its own
-  after 15 minutes without a request (`OMP_TINY_WORKER_IDLE_MS` overrides the window for tests),
-  unlinks its socket, and the next request from any omp process spawns a fresh one. Concurrent
+  after 15 minutes without a request (`OMS_TINY_WORKER_IDLE_MS` overrides the window for tests),
+  unlinks its socket, and the next request from any oms process spawns a fresh one. Concurrent
   spawns race on a `.bind.lock` file lock: the loser sees a live socket and exits while its parent
-  adopts the winner. `ping` returns a launch tag (`<omp version>|onnx|<device>|<dtype>` or
-  `mlx|<mlx-lm version>|<script crc>`), so an omp upgrade or a changed
+  adopts the winner. `ping` returns a launch tag (`<oms version>|onnx|<device>|<dtype>` or
+  `mlx|<mlx-lm version>|<script crc>`), so an oms upgrade or a changed
   `providers.tinyModelDevice`/`providers.tinyModelDtype` replaces a stale ONNX worker;
   MLX replacement follows its runtime version/script tag. Concurrent ONNX clients with
   conflicting device/dtype settings can replace each other's worker, so agree on those settings.
@@ -71,15 +71,15 @@ The tiny-model CLI and source registry retain **title** and **memory** groupings
     default.
 - **MLX backend (Apple silicon)**: `PI_TINY_DEVICE=mlx` (or `metal`) swaps the worker itself, not
   the ONNX provider: the per-model worker is `mlx-server.py` running from a pinned `mlx-lm` venv
-  that omp installs under `~/.omp/agent/cache/tiny-mlx-runtime/` on first use (via `uv`, else
+  that oms installs under `~/.oms/agent/cache/tiny-mlx-runtime/` on first use (via `uv`, else
   `python3 -m venv` with Python ≥ 3.10). It downloads the model's pre-quantized 4-bit MLX export
-  (`mlxRepo` in the registry) into `~/.omp/agent/cache/tiny-models/mlx/` with per-byte progress,
+  (`mlxRepo` in the registry) into `~/.oms/agent/cache/tiny-models/mlx/` with per-byte progress,
   loads it with `mlx_lm.load`, and speaks the exact protocol the ONNX worker speaks, so titles,
   memory completions, and local typed judgments use the same backend. Inference runs in the
   Python worker. `PI_TINY_DTYPE` is ignored by MLX. If the venv bootstrap fails (no Python,
-  install error, non-Apple host) omp logs a warning and uses the ONNX CPU worker for the rest of
+  install error, non-Apple host) oms logs a warning and uses the ONNX CPU worker for the rest of
   the process. Measured on an M4 Max: cold venv install + LFM2.5-230M download + load 15.7s; a
-  second omp instance attaches to a running worker in well under a second; titles 15–60ms after
+  second oms instance attaches to a running worker in well under a second; titles 15–60ms after
   warmup; Qwen3-1.7B (blocked on onnxruntime-node) downloads 984MB and answers a memory
   extraction in ~200ms.
 - **Quantization: q4 is the sweet spot** — smaller on disk, faster to load, and fast at inference.
@@ -132,7 +132,7 @@ The tiny-model CLI and source registry retain **title** and **memory** groupings
 | LFM2.5-350M        | 292MB |     166 / 266ms |        4/30 | Aggressively terse, often a one-word label       |
 
 **Shipped local options**: `lfm2.5-230m`, `lfm2.5-350m`, `falcon-h1-90m`.
-When `modelRoles.tiny` is unset, title generation resolves its built-in online role path; no local weights are downloaded automatically. A local primary is an explicit no-billing boundary: if its worker fails or returns no title, the session stays untitled instead of falling through to an online model. The default download for a bare `omp tiny-models` command is `lfm2.5-230m`.
+When `modelRoles.tiny` is unset, title generation resolves its built-in online role path; no local weights are downloaded automatically. A local primary is an explicit no-billing boundary: if its worker fails or returns no title, the session stays untitled instead of falling through to an online model. The default download for a bare `oms tiny-models` command is `lfm2.5-230m`.
 
 ## Task 2: Mnemopi memory (`modelRoles.memory`)
 
@@ -185,7 +185,7 @@ The experiments favored **Qwen3-1.7B** for extraction precision. Its shipped ONN
 disabled because `onnxruntime-node` does not support its RotaryEmbedding cache updates;
 the ONNX worker rejects it before loading the runtime. It is available through the MLX
 backend on Apple silicon (`providers.tinyModelDevice: mlx` or `PI_TINY_DEVICE=mlx`).
-`omp tiny-models download all` skips ONNX-disabled models unless MLX is active.
+`oms tiny-models download all` skips ONNX-disabled models unless MLX is active.
 
 Of the runnable options, `lfm2-1.2b` loads fastest and is a solid all-rounder; nothing selects it automatically.
 `gemma-3-1b` favors consolidation quality, while `qwen2.5-1.5b` favors fine-grained extraction.
@@ -204,7 +204,7 @@ fallback still ignores lines of 10 characters or fewer, so a short fact such as
 
 ## Local speech and dictation models
 
-The `speech` role accepts TTS catalog models and the `dictation` role accepts STT catalog models. `omp setup speech` offers the local entries accepted by those roles, persists the selected `modelRoles.speech` and `modelRoles.dictation` values, and downloads their model/runtime files.
+The `speech` role accepts TTS catalog models and the `dictation` role accepts STT catalog models. `oms setup speech` offers the local entries accepted by those roles, persists the selected `modelRoles.speech` and `modelRoles.dictation` values, and downloads their model/runtime files.
 
 ### Text to speech
 
@@ -212,7 +212,7 @@ The `speech` role accepts TTS catalog models and the `dictation` role accepts ST
 | -------------- | ----------------------------------------- | --------- | -------- | -------------------------------------- |
 | `local/kokoro` | `onnx-community/Kokoro-82M-v1.0-ONNX`    | q8        | ~100 MB  | 24 kHz Kokoro-82M, fully local ONNX TTS |
 
-Kokoro voice selection remains independent of the model role. Set `tts.localVoice` for the `tts` tool and `speech.voice` for assistant-output vocalization. Available local voice ids are `af_heart` (default), `af_bella`, `af_nicole`, `af_aoede`, `af_kore`, `af_sarah`, `am_michael`, `am_fenrir`, `am_puck`, `bf_emma`, `bm_george`, and `bm_fable`. Changing voices does not download another model. Speaking rate is likewise split: `tts.localSpeed` for the `tts` tool and `omp say`, `speech.speed` for vocalization (both default `1`, clamped to `0.5`–`2.5`).
+Kokoro voice selection remains independent of the model role. Set `tts.localVoice` for the `tts` tool and `speech.voice` for assistant-output vocalization. Available local voice ids are `af_heart` (default), `af_bella`, `af_nicole`, `af_aoede`, `af_kore`, `af_sarah`, `am_michael`, `am_fenrir`, `am_puck`, `bf_emma`, `bm_george`, and `bm_fable`. Changing voices does not download another model. Speaking rate is likewise split: `tts.localSpeed` for the `tts` tool and `oms say`, `speech.speed` for vocalization (both default `1`, clamped to `0.5`–`2.5`).
 
 ### Speech to text
 
@@ -230,7 +230,7 @@ Kokoro and the transformers.js Whisper models read `providers.tinyModelDevice` /
 ## Integration notes
 
 - Local tiny inference for title, memory, or judgment workloads is selected with a `local/<model-id>` role assignment. An unset `tiny` role stays on its online default; an unset `memory` role follows the effective `tiny` role and can therefore become local when `tiny` is local. Unset `speech` and `dictation` roles use their own built-in priority lists, whose first candidates are local.
-- Local inference runs **in a worker** (off the main thread); weights are downloaded only when a local candidate is used or explicitly prefetched with `omp tiny-models` or `omp setup speech`, then cached on disk.
+- Local inference runs **in a worker** (off the main thread); weights are downloaded only when a local candidate is used or explicitly prefetched with `oms tiny-models` or `oms setup speech`, then cached on disk.
 - Session-title generation uses `modelRoles.tiny`; Mnemopi extraction and consolidation use `modelRoles.memory` when its LLM mode is enabled. Their distinct prompts and benchmark groups do not impose separate runtime model types.
 - Auto-thinking, Smart unexpected-stop detection, typed Eval judgments, and AI-assisted git staging use the `judge` role. Assign `typesafe/jev-latest` for TypeSafe or a compatible local tiny model for on-device judgment; order alternatives under `retry.fallbackChains.judge`.
 - Managed memory extraction uses the shared line-format, small-talk-guarded system prompt on both local and online transports. A local primary additionally selects the local consolidation prompt. Explicit external Mnemopi endpoints remain authoritative instead of being replaced by the memory role.

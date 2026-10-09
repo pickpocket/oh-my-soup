@@ -1,7 +1,7 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { inflateSync } from "node:zlib";
-import { $which, isEnoent, logger } from "@oh-my-pi/pi-utils";
+import { $which, isEnoent, logger } from "@oh-my-soup/pi-utils";
 
 /** Default cap on a single `direnv` invocation. The first export for a devenv
  *  `.envrc` can build a shell; callers may raise this via `bash.direnvLoadTimeoutMs`. */
@@ -302,7 +302,7 @@ async function direnvDenied(
  * allow list, or the export fails/times out.
  *
  * direnv's own allow list is honored — an `.envrc` the user has not
- * `direnv allow`ed is NEVER executed or auto-allowed. This keeps OMP's trust
+ * `direnv allow`ed is NEVER executed or auto-allowed. This keeps OMS's trust
  * boundary identical to the user's own shell: cloning a repo with a poisoned
  * `.envrc` grants it nothing until the user explicitly allows it.
  *

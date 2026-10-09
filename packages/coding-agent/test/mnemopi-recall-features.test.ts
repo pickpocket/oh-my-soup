@@ -4,18 +4,18 @@
  * Mnemopi instances -> `recallEnhanced`.
  */
 import { afterEach, describe, expect, it } from "bun:test";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { loadMnemopiConfig } from "@oh-my-pi/pi-coding-agent/mnemopi/config";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { loadMnemopiConfig } from "@oh-my-soup/pi-coding-agent/mnemopi/config";
 import {
 	loadMnemopi,
 	loadMnemopiCore,
 	MnemopiSessionState,
 	setMnemopiSessionState,
-} from "@oh-my-pi/pi-coding-agent/mnemopi/state";
-import type { ToolSession } from "@oh-my-pi/pi-coding-agent/tools/index";
-import { MemoryRecallTool } from "@oh-my-pi/pi-coding-agent/tools/memory-recall";
-import { MemoryRetainTool } from "@oh-my-pi/pi-coding-agent/tools/memory-retain";
-import { TempDir } from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-coding-agent/mnemopi/state";
+import type { ToolSession } from "@oh-my-soup/pi-coding-agent/tools/index";
+import { MemoryRecallTool } from "@oh-my-soup/pi-coding-agent/tools/memory-recall";
+import { MemoryRetainTool } from "@oh-my-soup/pi-coding-agent/tools/memory-retain";
+import { TempDir } from "@oh-my-soup/pi-utils";
 
 // Mnemopi is lazy-loaded at runtime; preload it for synchronous state construction.
 await Promise.all([loadMnemopi(), loadMnemopiCore()]);

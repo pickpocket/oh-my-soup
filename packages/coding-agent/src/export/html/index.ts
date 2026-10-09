@@ -1,8 +1,8 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import type { AgentState } from "@oh-my-pi/pi-agent-core";
-import { APP_NAME, isEnoent } from "@oh-my-pi/pi-utils";
-import { getResolvedThemeColors, getThemeExportColors } from "@oh-my-pi/pi-tui/theme";
+import type { AgentState } from "@oh-my-soup/pi-agent-core";
+import { APP_NAME, isEnoent } from "@oh-my-soup/pi-utils";
+import { getResolvedThemeColors, getThemeExportColors } from "@oh-my-soup/pi-tui/theme";
 import type { SessionEntry, SessionHeader } from "../../session/session-entries";
 import { SessionManager } from "../../session/session-manager";
 import { collectSubSessions, type SubSession } from "../../session/sub-sessions";
@@ -53,7 +53,7 @@ export function getTemplate(): string {
 
 export interface ExportOptions {
 	outputPath?: string;
-	/** `"web"` bundles the omp web themes; `"theme"` bundles TUI themes. */
+	/** `"web"` bundles the oms web themes; `"theme"` bundles TUI themes. */
 	palette?: "web" | "theme";
 	/** Legacy single TUI theme name. Prefer `themeNames` for dual-theme exports. */
 	themeName?: string;

@@ -3,8 +3,8 @@
 // reached this worker's stdout and the native backend. The worker has its own
 // `process`, so the fakes below do not touch the test runner.
 import { spyOn } from "bun:test";
-import { copyToClipboard } from "@oh-my-pi/pi-coding-agent/utils/clipboard";
-import * as natives from "@oh-my-pi/pi-natives/clipboard";
+import { copyToClipboard } from "@oh-my-soup/pi-coding-agent/utils/clipboard";
+import * as natives from "@oh-my-soup/pi-natives/clipboard";
 
 declare const self: Worker;
 

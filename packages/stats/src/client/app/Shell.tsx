@@ -58,15 +58,15 @@ export function Shell({ section, onSectionChange, range, onRangeChange, children
 				<div className="topbar-brand">
 					<svg className="topbar-mark" viewBox="0 0 64 64" width="22" height="22" aria-hidden="true">
 						<defs>
-							<linearGradient id="omp-mark-grad" x1="0" y1="0" x2="1" y2="1">
+							<linearGradient id="oms-mark-grad" x1="0" y1="0" x2="1" y2="1">
 								<stop offset="0" stopColor="oklch(0.7 0.24 340)" />
 								<stop offset=".5" stopColor="oklch(0.62 0.21 295)" />
 								<stop offset="1" stopColor="oklch(0.81 0.14 200)" />
 							</linearGradient>
 						</defs>
-						<path fill="url(#omp-mark-grad)" d="M10 14h44v9H43v33h-9V23h-9v22h-9V23H10z" />
+						<path fill="url(#oms-mark-grad)" d="M10 14h44v9H43v33h-9V23h-9v22h-9V23H10z" />
 					</svg>
-					<span>omp</span>
+					<span>oms</span>
 					<span className="topbar-slash">/</span>
 					<span className="topbar-title">stats</span>
 				</div>

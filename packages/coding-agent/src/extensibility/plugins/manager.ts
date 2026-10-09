@@ -11,7 +11,7 @@ import {
 	isEnoent,
 	logger,
 	normalizePathForComparison,
-} from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-utils";
 import { JSONC } from "bun";
 import { resolveActiveProjectRegistryPath } from "../../discovery/helpers";
 import { loadExtensions } from "../extensions/loader";
@@ -125,7 +125,7 @@ interface PluginPackageSnapshot {
 interface RuntimePackageJson {
 	name?: unknown;
 	version: string;
-	omp?: PluginManifest;
+	oms?: PluginManifest;
 	pi?: PluginManifest;
 }
 // =============================================================================
@@ -200,7 +200,7 @@ export class PluginManager {
 					pkgJsonPath,
 					JSON.stringify(
 						{
-							name: "omp-plugins",
+							name: "oms-plugins",
 							private: true,
 							dependencies: {},
 						},
@@ -273,7 +273,7 @@ export class PluginManager {
 		}
 
 		const name = typeof pluginPkg.name === "string" && pluginPkg.name.length > 0 ? pluginPkg.name : fallbackName;
-		const manifest: PluginManifest = pluginPkg.omp || pluginPkg.pi || { version: pluginPkg.version };
+		const manifest: PluginManifest = pluginPkg.oms || pluginPkg.pi || { version: pluginPkg.version };
 		manifest.version = pluginPkg.version;
 		const runtimeState = config.plugins[name] || {
 			version: pluginPkg.version,
@@ -364,7 +364,7 @@ export class PluginManager {
 			throw err;
 		}
 
-		const backupRoot = await fs.promises.mkdtemp(path.join(os.tmpdir(), "omp-plugin-backup-"));
+		const backupRoot = await fs.promises.mkdtemp(path.join(os.tmpdir(), "oms-plugin-backup-"));
 		const backupPath = path.join(backupRoot, "package");
 		await fs.promises.cp(packagePath, backupPath, { recursive: true, verbatimSymlinks: true });
 		return { actualName, packagePath, backupRoot, backupPath };
@@ -630,7 +630,7 @@ export class PluginManager {
 			}
 
 			const pkgPath = path.join(getPluginsNodeModules(), actualName, "package.json");
-			let pkg: { name: string; version: string; omp?: PluginManifest; pi?: PluginManifest };
+			let pkg: { name: string; version: string; oms?: PluginManifest; pi?: PluginManifest };
 			try {
 				pkg = await Bun.file(pkgPath).json();
 			} catch (err) {
@@ -639,7 +639,7 @@ export class PluginManager {
 				}
 				throw err;
 			}
-			const manifest: PluginManifest = pkg.omp || pkg.pi || { version: pkg.version };
+			const manifest: PluginManifest = pkg.oms || pkg.pi || { version: pkg.version };
 			manifest.version = pkg.version;
 
 			// Resolve enabled features
@@ -828,10 +828,10 @@ export class PluginManager {
 
 	/**
 	 * Resolve a plugin from the active project plugin root
-	 * (`<anchor>/.omp/plugins`). Project npm/link/marketplace installs all record
+	 * (`<anchor>/.oms/plugins`). Project npm/link/marketplace installs all record
 	 * their runtime state and `node_modules` symlink there — invisible to the
 	 * user-root lookup — so this reads the project's own `package.json`
-	 * dependencies plus `omp-plugins.lock.json`, and resolves the package from
+	 * dependencies plus `oms-plugins.lock.json`, and resolves the package from
 	 * the project `node_modules`. Returns undefined when there is no active
 	 * project, when it coincides with the user root, or when the package is not
 	 * installed there.
@@ -846,7 +846,7 @@ export class PluginManager {
 		if (normalizePathForComparison(projectRoot) === normalizePathForComparison(getPluginsDir())) return undefined;
 		const [projectDeps, projectConfig] = await Promise.all([
 			this.#readDeps(path.join(projectRoot, "package.json")),
-			this.#readRuntimeConfigAt(path.join(projectRoot, "omp-plugins.lock.json")),
+			this.#readRuntimeConfigAt(path.join(projectRoot, "oms-plugins.lock.json")),
 		]);
 		if (!this.#collectInstalledNames(projectDeps, projectConfig).has(name)) return undefined;
 		return this.#resolvePlugin(name, path.join(projectRoot, "node_modules", name), projectConfig, projectOverrides);
@@ -891,7 +891,7 @@ export class PluginManager {
 		const absolutePath = path.resolve(this.#cwd, localPath);
 
 		const pkgFilePath = path.join(absolutePath, "package.json");
-		let pkg: { name?: string; version: string; omp?: PluginManifest; pi?: PluginManifest };
+		let pkg: { name?: string; version: string; oms?: PluginManifest; pi?: PluginManifest };
 		try {
 			pkg = await Bun.file(pkgFilePath).json();
 		} catch (err) {
@@ -921,7 +921,7 @@ export class PluginManager {
 		// link in marketplace/manager.ts).
 		await fs.promises.symlink(absolutePath, linkPath, process.platform === "win32" ? "junction" : "dir");
 
-		const manifest: PluginManifest = pkg.omp || pkg.pi || { version: pkg.version };
+		const manifest: PluginManifest = pkg.oms || pkg.pi || { version: pkg.version };
 		manifest.version = pkg.version;
 
 		// Add to runtime config
@@ -1099,7 +1099,7 @@ export class PluginManager {
 			const pluginPkgPath = path.join(pluginPath, "package.json");
 			const fromDependencies = name in deps;
 
-			let pluginPkg: { version: string; description?: string; omp?: PluginManifest; pi?: PluginManifest };
+			let pluginPkg: { version: string; description?: string; oms?: PluginManifest; pi?: PluginManifest };
 			try {
 				pluginPkg = await Bun.file(pluginPkgPath).json();
 			} catch (err) {
@@ -1147,7 +1147,7 @@ export class PluginManager {
 					status: fixed ? "ok" : "error",
 					message: fixed
 						? `Reconciled version drift: node_modules now matches lock v${recordedVersion}`
-						: `Version drift: lock records v${recordedVersion} but node_modules has v${pluginPkg.version} (run \`omp plugin install ${name} --force\`)`,
+						: `Version drift: lock records v${recordedVersion} but node_modules has v${pluginPkg.version} (run \`oms plugin install ${name} --force\`)`,
 					fixed,
 				});
 				if (fixed) {
@@ -1159,15 +1159,15 @@ export class PluginManager {
 				}
 			}
 
-			const hasManifest = !!(pluginPkg.omp || pluginPkg.pi);
-			const manifest: PluginManifest | undefined = pluginPkg.omp || pluginPkg.pi;
+			const hasManifest = !!(pluginPkg.oms || pluginPkg.pi);
+			const manifest: PluginManifest | undefined = pluginPkg.oms || pluginPkg.pi;
 
 			checks.push({
 				name: `plugin:${name}`,
 				status: hasManifest ? "ok" : "warning",
 				message: hasManifest
 					? `v${pluginPkg.version}${pluginPkg.description ? ` - ${pluginPkg.description}` : ""}`
-					: `v${pluginPkg.version} - No omp/pi manifest (not an omp plugin)`,
+					: `v${pluginPkg.version} - No oms/pi manifest (not an oms plugin)`,
 			});
 
 			// Check tools path exists if specified

@@ -97,7 +97,7 @@ export interface MCPFetchInit {
  * surface. MCP calls are long-poll shaped — a server may stay silent for as
  * long as the work takes — and that timer would end such a wait even where the
  * operator disabled MCP deadlines outright (`timeout: 0`,
- * `OMP_MCP_TIMEOUT_MS=0`). Deadlines and cancellation stay with `init.signal`,
+ * `OMS_MCP_TIMEOUT_MS=0`). Deadlines and cancellation stay with `init.signal`,
  * which each transport composes from the configured per-request deadline,
  * caller cancellation, and transport close.
  */

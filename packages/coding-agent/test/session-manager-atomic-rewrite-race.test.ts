@@ -1,25 +1,25 @@
 import { describe, expect, it, vi } from "bun:test";
 import * as path from "node:path";
 import * as fs from "node:fs/promises";
-import { getBundledModel } from "@oh-my-pi/pi-catalog/models";
+import { getBundledModel } from "@oh-my-soup/pi-catalog/models";
 import {
 	IndexedSessionStorage,
 	type SessionStorageBackend,
-} from "@oh-my-pi/pi-coding-agent/session/indexed-session-storage";
+} from "@oh-my-soup/pi-coding-agent/session/indexed-session-storage";
 import {
 	SessionManager,
 	SessionPersistenceIndeterminateError,
 	type SessionPersistenceNotice,
-} from "@oh-my-pi/pi-coding-agent/session/session-manager";
+} from "@oh-my-soup/pi-coding-agent/session/session-manager";
 import {
 	FileSessionStorage,
 	MemorySessionStorage,
 	type SessionStorageWriter,
 	type WriteTextAtomicOptions,
-} from "@oh-my-pi/pi-coding-agent/session/session-storage";
-import { TempDir } from "@oh-my-pi/pi-utils";
-import type { SessionEntry } from "@oh-my-pi/pi-coding-agent/session/session-entries";
-import type { SessionTitleUpdate } from "@oh-my-pi/pi-coding-agent/session/session-title-slot";
+} from "@oh-my-soup/pi-coding-agent/session/session-storage";
+import { TempDir } from "@oh-my-soup/pi-utils";
+import type { SessionEntry } from "@oh-my-soup/pi-coding-agent/session/session-entries";
+import type { SessionTitleUpdate } from "@oh-my-soup/pi-coding-agent/session/session-title-slot";
 
 interface DetachableWriter extends SessionStorageWriter {
 	detach(): void;
@@ -338,7 +338,7 @@ describe("SessionManager cross-process rewrite freshness", () => {
 		);
 	const ourTurnsAfter = Array.from({ length: 5 }, (_, turn) => `our turn ${turn} after the conflict`);
 
-	/** Reports session `ownedElsewhere` as held by another live process, as `claimSession` does for a session a second omp writes. */
+	/** Reports session `ownedElsewhere` as held by another live process, as `claimSession` does for a session a second oms writes. */
 	class OwnedElsewhereStorage extends FileSessionStorage {
 		readonly #ownedElsewhere: string;
 
@@ -365,7 +365,7 @@ describe("SessionManager cross-process rewrite freshness", () => {
 			rewrite: undefined,
 		},
 	])("keeps another writer's entries in the file it owns after $path", async ({ tornTail, rewrite }) => {
-		using tempDir = TempDir.createSync("@omp-session-rewrite-conflict-");
+		using tempDir = TempDir.createSync("@oms-session-rewrite-conflict-");
 		const creator = SessionManager.create(tempDir.path(), tempDir.path(), new FileSessionStorage());
 		await creator.ensureOnDisk();
 		const contested = creator.getSessionFile();
@@ -377,7 +377,7 @@ describe("SessionManager cross-process rewrite freshness", () => {
 
 		const storage = new FileSessionStorage();
 		const ours = await SessionManager.open(contested, tempDir.path(), storage, { suppressBreadcrumb: true });
-		// Another writer without the ownership lease (an older omp, an external
+		// Another writer without the ownership lease (an older oms, an external
 		// tool) appends to the same file.
 		const theirs = await SessionManager.open(contested, tempDir.path(), new FileSessionStorage(), {
 			suppressBreadcrumb: true,
@@ -428,7 +428,7 @@ describe("SessionManager cross-process rewrite freshness", () => {
 	}
 
 	it("moves to a sibling instead of re-serializing forever when a writer without the lease races every retry", async () => {
-		using tempDir = TempDir.createSync("@omp-session-rewrite-raced-");
+		using tempDir = TempDir.createSync("@oms-session-rewrite-raced-");
 		const creator = SessionManager.create(tempDir.path(), tempDir.path(), new FileSessionStorage());
 		await creator.ensureOnDisk();
 		const contested = creator.getSessionFile();
@@ -518,7 +518,7 @@ describe("SessionManager cross-process rewrite freshness", () => {
 	])(
 		"moves to one sibling instead of writing a file another process owns, on $path",
 		async ({ firstTurns, firstWrite }) => {
-			using tempDir = TempDir.createSync("@omp-session-owned-elsewhere-");
+			using tempDir = TempDir.createSync("@oms-session-owned-elsewhere-");
 			const creator = SessionManager.create(tempDir.path(), tempDir.path(), new FileSessionStorage());
 			await creator.ensureOnDisk();
 			creator.appendMessage(userTurn("our turn before the conflict"));

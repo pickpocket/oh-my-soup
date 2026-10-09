@@ -4,10 +4,10 @@ import {
 	handleServerMessage,
 	processInteractionUpdate,
 	type ToolCallState,
-} from "@oh-my-pi/pi-ai/providers/cursor";
-import type { AssistantMessage } from "@oh-my-pi/pi-ai/types";
-import { AssistantMessageEventStream } from "@oh-my-pi/pi-ai/utils/event-stream";
-import type { InteractionQuery, InteractionResponse } from "@oh-my-pi/pi-catalog/discovery/cursor-proto";
+} from "@oh-my-soup/pi-ai/providers/cursor";
+import type { AssistantMessage } from "@oh-my-soup/pi-ai/types";
+import { AssistantMessageEventStream } from "@oh-my-soup/pi-ai/utils/event-stream";
+import type { InteractionQuery, InteractionResponse } from "@oh-my-soup/pi-catalog/discovery/cursor-proto";
 import {
 	type AgentClientMessage,
 	AgentClientMessageSchema,
@@ -15,8 +15,8 @@ import {
 	FetchArgsSchema,
 	InteractionQuerySchema,
 	WebFetchRequestQuerySchema,
-} from "@oh-my-pi/pi-catalog/discovery/cursor-proto";
-import { create, fromBinary, toBinary } from "@oh-my-pi/pi-catalog/discovery/protobuf";
+} from "@oh-my-soup/pi-catalog/discovery/cursor-proto";
+import { create, fromBinary, toBinary } from "@oh-my-soup/pi-catalog/discovery/protobuf";
 
 function cursorAssistantMessage(): AssistantMessage {
 	return {

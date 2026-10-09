@@ -22,13 +22,13 @@
  * after the `settle` hint; only a weak identity, its root kind, root prop
  * names and child ids survive. A later change is sent as targeted ops by id
  * (`set` of the root props, `del` + `add` of its children), never by diffing
- * against state omp no longer keeps.
+ * against state oms no longer keeps.
  *
  * `overlay` nodes described anywhere but directly under `layer` are hoisted
  * into `layer`; their anchor keypaths are rewritten to wire ids.
  */
-import * as logger from "@oh-my-pi/pi-utils/logger";
-import { TSP_TEXT_KINDS, type TspKind, type TspNode, type TspOp, type TspScrollBy } from "@oh-my-pi/pi-wire";
+import * as logger from "@oh-my-soup/pi-utils/logger";
+import { TSP_TEXT_KINDS, type TspKind, type TspNode, type TspOp, type TspScrollBy } from "@oh-my-soup/pi-wire";
 import { type Component, Container, CURSOR_MARKER } from "../tui";
 import { getNativeBlob } from "./blobs";
 import { normalizeIconProps } from "./icons";

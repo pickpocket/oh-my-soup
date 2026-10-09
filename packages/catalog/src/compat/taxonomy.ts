@@ -8,7 +8,7 @@
  * with token byte length as tiebreak; equal cross-class or cross-family ranks
  * throw unless classification is `lenient` (discovery normalization).
  */
-import { LRUCache } from "@oh-my-pi/pi-utils/lru";
+import { LRUCache } from "@oh-my-soup/pi-utils/lru";
 import type { Effort } from "../effort";
 import { globMatch } from "./cascade";
 import { formatRevision, parseRevisionPrefix } from "./revision";

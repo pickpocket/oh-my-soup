@@ -1,12 +1,12 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from "bun:test";
-import type { AuthStorage } from "@oh-my-pi/pi-ai";
-import type { OAuthLoginCallbacks, OAuthProviderId } from "@oh-my-pi/pi-ai/oauth/types";
-import { providersSetupScene, SignInScene } from "@oh-my-pi/pi-tui/setup/scenes/sign-in";
-import type { SetupHost, SetupSceneHost } from "@oh-my-pi/pi-tui/setup/scenes/types";
-import { initTheme } from "@oh-my-pi/pi-tui/theme";
-import { type Component, TUI } from "@oh-my-pi/pi-tui";
-import { Input } from "@oh-my-pi/pi-tui/components/input";
-import { SetupWizardComponent } from "@oh-my-pi/pi-tui/setup/wizard-overlay";
+import type { AuthStorage } from "@oh-my-soup/pi-ai";
+import type { OAuthLoginCallbacks, OAuthProviderId } from "@oh-my-soup/pi-ai/oauth/types";
+import { providersSetupScene, SignInScene } from "@oh-my-soup/pi-tui/setup/scenes/sign-in";
+import type { SetupHost, SetupSceneHost } from "@oh-my-soup/pi-tui/setup/scenes/types";
+import { initTheme } from "@oh-my-soup/pi-tui/theme";
+import { type Component, TUI } from "@oh-my-soup/pi-tui";
+import { Input } from "@oh-my-soup/pi-tui/components/input";
+import { SetupWizardComponent } from "@oh-my-soup/pi-tui/setup/wizard-overlay";
 import { withoutTerminalMultiplexer } from "./helpers/terminal-multiplexer";
 import { VirtualRenderScheduler } from "./virtual-render-scheduler";
 import { VirtualTerminal } from "./virtual-terminal";
@@ -23,7 +23,7 @@ afterEach(() => {
 
 describe("SignInScene", () => {
 	it("masks secret input and keeps the OSC8 login link and manual-code prompt above clipped rows", async () => {
-		const url = `https://example.com/oauth/authorize?client_id=omp&redirect_uri=http%3A%2F%2Flocalhost%3A45454%2Fcallback&state=${"a".repeat(96)}`;
+		const url = `https://example.com/oauth/authorize?client_id=oms&redirect_uri=http%3A%2F%2Flocalhost%3A45454%2Fcallback&state=${"a".repeat(96)}`;
 		const loginGate = Promise.withResolvers<void>();
 		const secretReceived = Promise.withResolvers<string>();
 		const secretValue = crypto.randomUUID();
@@ -107,7 +107,7 @@ describe("SignInScene", () => {
 	});
 
 	it("clears manual input after a native callback path settles", async () => {
-		const url = "https://example.com/oauth/authorize?client_id=omp&state=native";
+		const url = "https://example.com/oauth/authorize?client_id=oms&state=native";
 		const loginCompleted = Promise.withResolvers<void>();
 		const copySpy = vi.fn(async (_text: string): Promise<void> => {});
 		const authStorage = {
@@ -152,7 +152,7 @@ describe("SignInScene", () => {
 	});
 
 	it("copies the active login URL from the keyboard while the setup TUI owns selection", async () => {
-		const url = "https://example.com/oauth/authorize?client_id=omp&state=copy";
+		const url = "https://example.com/oauth/authorize?client_id=oms&state=copy";
 		const loginGate = Promise.withResolvers<void>();
 		const copySpy = vi.fn(async (_text: string): Promise<void> => {});
 

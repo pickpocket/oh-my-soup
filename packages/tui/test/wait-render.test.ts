@@ -5,10 +5,10 @@
  * passes through unchanged.
  */
 import { beforeAll, describe, expect, it } from "bun:test";
-import { initTheme, theme } from "@oh-my-pi/pi-tui/theme";
-import { prompt } from "@oh-my-pi/pi-utils";
+import { initTheme, theme } from "@oh-my-soup/pi-tui/theme";
+import { prompt } from "@oh-my-soup/pi-utils";
 import taskSummaryTemplate from "../../coding-agent/src/prompts/tools/task-summary.md" with { type: "text" };
-import { waitToolRenderer } from "@oh-my-pi/pi-tui/tools/wait";
+import { waitToolRenderer } from "@oh-my-soup/pi-tui/tools/wait";
 
 function renderLines(resultText: string): string {
 	const result = {

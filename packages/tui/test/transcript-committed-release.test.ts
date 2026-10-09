@@ -1,24 +1,24 @@
 import { afterEach, beforeAll, describe, expect, it, spyOn, vi } from "bun:test";
-import type { AssistantMessage } from "@oh-my-pi/pi-ai";
-import { Lexer, type Token } from "@oh-my-pi/pi-utils/marked";
-import { AssistantMessageComponent } from "@oh-my-pi/pi-tui/chat/assistant-message";
-import { ToolExecutionComponent, type ToolExecutionUi } from "@oh-my-pi/pi-tui/chat/tool-execution";
-import { FramedMessageComponent } from "@oh-my-pi/pi-tui/chrome/message-frame";
-import { UserMessageComponent } from "@oh-my-pi/pi-tui/chat/user-message";
-import { Box } from "@oh-my-pi/pi-tui/components/box";
-import { Disclosure } from "@oh-my-pi/pi-tui/components/disclosure";
-import { Row } from "@oh-my-pi/pi-tui/components/layout/row";
-import { Stack } from "@oh-my-pi/pi-tui/components/layout/stack";
-import { clearRenderCache, Markdown } from "@oh-my-pi/pi-tui/components/markdown";
-import { Section } from "@oh-my-pi/pi-tui/components/section";
-import { TranscriptContainer, trimBlankEdges } from "@oh-my-pi/pi-tui/chrome/transcript-container";
-import { getMarkdownTheme, getThemeByName, initTheme, type Theme } from "@oh-my-pi/pi-tui/theme";
-import * as renderUtils from "@oh-my-pi/pi-tui/render/render-utils";
-import { OutputPane } from "@oh-my-pi/pi-tui/render/output-pane";
-import { editToolRenderer } from "@oh-my-pi/pi-tui/tools/edit";
-import { renderMCPResult, setMcpRenderMarkdownResults } from "@oh-my-pi/pi-tui/tools/mcp";
-import { writeToolRenderer } from "@oh-my-pi/pi-tui/tools/write";
-import { type Component, Container, Text } from "@oh-my-pi/pi-tui";
+import type { AssistantMessage } from "@oh-my-soup/pi-ai";
+import { Lexer, type Token } from "@oh-my-soup/pi-utils/marked";
+import { AssistantMessageComponent } from "@oh-my-soup/pi-tui/chat/assistant-message";
+import { ToolExecutionComponent, type ToolExecutionUi } from "@oh-my-soup/pi-tui/chat/tool-execution";
+import { FramedMessageComponent } from "@oh-my-soup/pi-tui/chrome/message-frame";
+import { UserMessageComponent } from "@oh-my-soup/pi-tui/chat/user-message";
+import { Box } from "@oh-my-soup/pi-tui/components/box";
+import { Disclosure } from "@oh-my-soup/pi-tui/components/disclosure";
+import { Row } from "@oh-my-soup/pi-tui/components/layout/row";
+import { Stack } from "@oh-my-soup/pi-tui/components/layout/stack";
+import { clearRenderCache, Markdown } from "@oh-my-soup/pi-tui/components/markdown";
+import { Section } from "@oh-my-soup/pi-tui/components/section";
+import { TranscriptContainer, trimBlankEdges } from "@oh-my-soup/pi-tui/chrome/transcript-container";
+import { getMarkdownTheme, getThemeByName, initTheme, type Theme } from "@oh-my-soup/pi-tui/theme";
+import * as renderUtils from "@oh-my-soup/pi-tui/render/render-utils";
+import { OutputPane } from "@oh-my-soup/pi-tui/render/output-pane";
+import { editToolRenderer } from "@oh-my-soup/pi-tui/tools/edit";
+import { renderMCPResult, setMcpRenderMarkdownResults } from "@oh-my-soup/pi-tui/tools/mcp";
+import { writeToolRenderer } from "@oh-my-soup/pi-tui/tools/write";
+import { type Component, Container, Text } from "@oh-my-soup/pi-tui";
 
 const frame = { tick: 0, now: 0 };
 
@@ -282,7 +282,7 @@ describe("committed transcript blocks release render caches", () => {
 		const frameCalls = { count: 0 };
 		const framed = () =>
 			new FramedMessageComponent({
-				role: "omp.note",
+				role: "oms.note",
 				message: { customType: "note", content: "" },
 				customRenderer: () => {
 					frameCalls.count++;

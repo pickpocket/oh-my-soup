@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "bun:test";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { type AgentDefinition, TaskTool } from "@oh-my-pi/pi-coding-agent/task";
-import * as discoveryModule from "@oh-my-pi/pi-coding-agent/task/discovery";
-import type { ToolSession } from "@oh-my-pi/pi-coding-agent/tools";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { type AgentDefinition, TaskTool } from "@oh-my-soup/pi-coding-agent/task";
+import * as discoveryModule from "@oh-my-soup/pi-coding-agent/task/discovery";
+import type { ToolSession } from "@oh-my-soup/pi-coding-agent/tools";
 
 const DISCOVERED: AgentDefinition[] = [
 	{
@@ -28,7 +28,7 @@ function createSession(
 	advertisedSessionAgents?: () => AgentDefinition[],
 ): ToolSession {
 	return {
-		cwd: "/tmp/omp-session-agent-description",
+		cwd: "/tmp/oms-session-agent-description",
 		hasUI: false,
 		settings: Settings.isolated(),
 		getSessionFile: () => null,

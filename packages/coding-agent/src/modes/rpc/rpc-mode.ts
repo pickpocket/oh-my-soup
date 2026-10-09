@@ -13,13 +13,13 @@
  */
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { ThinkingLevel } from "@oh-my-pi/pi-agent-core";
-import type { Model } from "@oh-my-pi/pi-ai";
-import { getOAuthProviders } from "@oh-my-pi/pi-ai/oauth";
-import type { ImageContent } from "@oh-my-pi/pi-ai";
-import { toolWireSchema } from "@oh-my-pi/pi-ai/utils/schema";
-import { modelsAreEqual } from "@oh-my-pi/pi-catalog/models";
-import { $env, isRecord, logger, Snowflake, toError } from "@oh-my-pi/pi-utils";
+import { ThinkingLevel } from "@oh-my-soup/pi-agent-core";
+import type { Model } from "@oh-my-soup/pi-ai";
+import { getOAuthProviders } from "@oh-my-soup/pi-ai/oauth";
+import type { ImageContent } from "@oh-my-soup/pi-ai";
+import { toolWireSchema } from "@oh-my-soup/pi-ai/utils/schema";
+import { modelsAreEqual } from "@oh-my-soup/pi-catalog/models";
+import { $env, isRecord, logger, Snowflake, toError } from "@oh-my-soup/pi-utils";
 import { clearPluginRootsAndCaches, resolveActiveProjectRegistryPath } from "../../discovery/helpers";
 import {
 	type ExtensionAskDialogQuestion,
@@ -39,14 +39,14 @@ import {
 	type Skill,
 	type SkillPromptInput,
 } from "../../extensibility/skills";
-import { type Theme, theme } from "@oh-my-pi/pi-tui/theme";
+import { type Theme, theme } from "@oh-my-soup/pi-tui/theme";
 import { AgentLifecycleManager } from "../../registry/agent-lifecycle";
 import {
 	type WordCompletionEngine,
 	type WordCompletionMethod,
 	type WordCompletionQuery,
 	wordCompletionQuery,
-} from "@oh-my-pi/pi-tui/prompt/word-completion";
+} from "@oh-my-soup/pi-tui/prompt/word-completion";
 import { requestTextPrediction, textPredictionBackend } from "../../predict/client";
 import { type AgentSession, SessionBusyError } from "../../session/agent-session";
 import type { RestoredQueuedMessage } from "../../session/agent-session-types";
@@ -1232,7 +1232,7 @@ export function requestRpcDialog<T>(
 		opts?.signal?.removeEventListener("abort", onAbort);
 		pendingRequests.delete(id);
 	};
-	// Tells the host to close a dialog omp has already settled, so a late answer
+	// Tells the host to close a dialog oms has already settled, so a late answer
 	// cannot look actionable after abort or timeout.
 	const cancelHostDialog = () =>
 		output({
@@ -2301,8 +2301,8 @@ export async function runRpcMode(session: AgentSession, options: RpcModeOptions 
 			case "get_available_thinking_levels": {
 				// Pi-compatible discovery: the selectable levels for the live model,
 				// including `off` (which `set_thinking_level` accepts but the
-				// effort-only helper excludes). OMP-only `auto`/`inherit` are
-				// intentionally omitted — that selector stays an OMP dialect.
+				// effort-only helper excludes). OMS-only `auto`/`inherit` are
+				// intentionally omitted — that selector stays an OMS dialect.
 				return success(id, "get_available_thinking_levels", {
 					levels: [ThinkingLevel.Off, ...session.getAvailableThinkingLevels()],
 				});
@@ -2640,7 +2640,7 @@ export async function runRpcMode(session: AgentSession, options: RpcModeOptions 
 			// reaper (releaseTabsForOwner) and other bounded teardown run before
 			// the process exits. dispose() also emits `session_shutdown`, so we
 			// must NOT emit it separately here or the event fires twice. Skipping
-			// dispose left OMP-owned Chromium alive after RPC shutdown (#5643).
+			// dispose left OMS-owned Chromium alive after RPC shutdown (#5643).
 			await disposeAndExit();
 		},
 	});

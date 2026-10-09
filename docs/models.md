@@ -11,7 +11,7 @@ Primary implementation files:
 - `packages/coding-agent/src/config/model-settings.ts` — model selection settings (`modelRoles`, `enabledModels`, `enabledProviders`/`disabledProviders`, `modelProviderOrder`, `cycleOrder`)
 - `packages/coding-agent/src/session/settings.ts` — provider transport preferences (`providers.*`)
 - `packages/coding-agent/src/config/models-config.ts` and `models-config-schema-bundle.ts` — custom provider/model validation
-- `packages/coding-agent/src/session/auth-storage.ts` — re-exports `AuthStorage` from `@oh-my-pi/pi-ai`; credential precedence is implemented in `packages/ai/src/auth/cascade.ts`
+- `packages/coding-agent/src/session/auth-storage.ts` — re-exports `AuthStorage` from `@oh-my-soup/pi-ai`; credential precedence is implemented in `packages/ai/src/auth/cascade.ts`
 - `packages/catalog/src/compat/resolve.ts` and `compat/rules/` — compatibility and model policy resolution
 - `packages/catalog/src/models.ts` and `packages/catalog/src/types.ts` — built-in providers/models and public model types
 
@@ -19,11 +19,11 @@ Primary implementation files:
 
 Default-profile config paths, in precedence order:
 
-- `~/.omp/agent/models.yml`
-- `~/.omp/agent/models.yaml`
+- `~/.oms/agent/models.yml`
+- `~/.oms/agent/models.yaml`
 
 These are relative to the active agent directory returned by `getAgentDir()`. Named profiles use
-`~/.omp/profiles/<name>/agent/`; `PI_CONFIG_DIR` changes the config-root directory name, and
+`~/.oms/profiles/<name>/agent/`; `PI_CONFIG_DIR` changes the config-root directory name, and
 `PI_CODING_AGENT_DIR` can override the default-profile agent directory. A programmatic
 `ModelRegistry` path overrides the directory-derived location.
 
@@ -69,7 +69,7 @@ providers:
         api: openai-completions
         reasoning: false
         input: [text]
-        imageInputDecoder: stb # local STB decoder; OMP converts WebP before dispatch
+        imageInputDecoder: stb # local STB decoder; OMS converts WebP before dispatch
         cost:
           input: 0
           output: 0
@@ -98,7 +98,7 @@ providers:
 Set `contextWindow` to the normal prompt window and `maxContextWindow` to the
 larger prompt window accepted by the provider. `/extended-context on` selects
 the larger window; `off` restores the normal one. An override specifying only
-`contextWindow` remains fixed in both modes, as before. This changes OMP's
+`contextWindow` remains fixed in both modes, as before. This changes OMS's
 local context budget, not the provider's server-side limit; verify the endpoint
 accepts requests of the configured size.
 Configured maxima do not replace provider-advertised capacity. Models governed
@@ -167,8 +167,8 @@ Loading models.yml checks a `modelOverrides` `kind` only against an api the file
 - `auth`: `apiKey` (default), `none`, or `oauth`. `none` and `oauth` waive the custom-provider `apiKey` requirement, but `oauth` does not create credentials or register a login flow. It forces OAuth-style request shaping; a usable credential must come from stored auth, environment, or a configured key. Custom `anthropic-messages` models also use OAuth-style shaping when `auth` is omitted; set `auth: apiKey` for plain API-key shaping.
 - `discovery.type`: `ollama`, `llama.cpp`, `lm-studio`, `openai-models-list`, `proxy`, `litellm`, or `apple-foundation-models`. Apple's transport is registered implicitly on supported Macs; `apple-foundation-models` is not an allowed `api` value in this YAML schema.
 - `discovery.injectV1`: optional boolean, default `true`, for `openai-models-list`. Set `false` to fetch the model list from `{baseUrl}/models` without injecting `/v1` — for gateways that root their OpenAI-compatible surface at a versioned path (e.g. `https://api.opper.ai/v3/compat`) where the forced `/v1/models` returns a different, smaller model list. Query strings in `baseUrl` are ignored, matching the default mode.
-- `transport`: `pi-native` only. When set, every model under that provider is sent to an `omp auth-gateway` compatible `baseUrl` via `POST /v1/pi/stream`; `apiKey` is the gateway bearer.
-- `imageInputDecoder`: `stb` only. Set this on a custom model or `modelOverrides` entry when the serving backend uses an STB-compatible image decoder that cannot accept WebP; OMP converts attached and historical WebP images before provider dispatch.
+- `transport`: `pi-native` only. When set, every model under that provider is sent to an `oms auth-gateway` compatible `baseUrl` via `POST /v1/pi/stream`; `apiKey` is the gateway bearer.
+- `imageInputDecoder`: `stb` only. Set this on a custom model or `modelOverrides` entry when the serving backend uses an STB-compatible image decoder that cannot accept WebP; OMS converts attached and historical WebP images before provider dispatch.
 - `tokenizer`: opt into a specific embedded local tokenizer when a proxy's model id is ambiguous or noncanonical. Allowed values: `claude-v3`, `claude-v47`, `claude-v5`, `claude-v5-sonnet`, `qwen3`, `deepseek-v3`, `kimi-k2`, and `glm5`. Omit it to use catalog identity policy; unknown models retain the fast local estimate.
 
 ## Validation rules (current)
@@ -239,7 +239,7 @@ providers:
   openai:
     apiKey: "!op read op://dev/openai/api-key"
     headers:
-      X-Team-Key: "!bw get password omp-team-key"
+      X-Team-Key: "!bw get password oms-team-key"
 ```
 
 Successful command outputs are cached for the process lifetime, and concurrent requests share an in-flight execution. Failures back off for 30 seconds. Refresh callers that request `refreshCommandCredentials` (including the model hub's explicit refresh) and 401 credential recovery invalidate the relevant cached API keys and headers; an ordinary catalog refresh does not. Runtime API-key overrides, including `--api-key`, take precedence over configured credentials.
@@ -249,7 +249,7 @@ Successful command outputs are cached for the process lifetime, and concurrent r
 ModelRegistry composition order:
 
 1. Load `models.yml` / `models.yaml` to establish provider overrides, custom models, model overrides, and discovery configuration.
-2. Load built-in models from `@oh-my-pi/pi-catalog` (`getBundledProviders` / `getBundledModels`), applying provider overrides and context policies.
+2. Load built-in models from `@oh-my-soup/pi-catalog` (`getBundledProviders` / `getBundledModels`), applying provider overrides and context policies.
 3. Merge cached and runtime-discovered rows. Authoritative provider catalogs can replace their bundled chat roster.
 4. Merge configured custom `models`, then extension-registered models:
    - a matching `provider + id` replaces transport metadata and patches defined model fields
@@ -276,11 +276,11 @@ non-authoritative snapshots use a five-minute retry interval.
 
 ### Shared catalog refresh
 
-The bundled catalog remains the startup and offline baseline. Startup loads configuration and cached rows, materializing provider slices lazily; a local-only credential-scoped hydration pass precedes selector validation. Background refresh fetches the shared models.dev catalog through `https://catalog.stencil.so/models.json.zstd` for supported providers. New model IDs are merged additively into each provider's bundled slice, normalized through that provider's catalog descriptor, and persisted in the model-cache database. This allows newly published models to appear without waiting for a new OMP binary.
+The bundled catalog remains the startup and offline baseline. Startup loads configuration and cached rows, materializing provider slices lazily; a local-only credential-scoped hydration pass precedes selector validation. Background refresh fetches the shared models.dev catalog through `https://catalog.stencil.so/models.json.zstd` for supported providers. New model IDs are merged additively into each provider's bundled slice, normalized through that provider's catalog descriptor, and persisted in the model-cache database. This allows newly published models to appear without waiting for a new OMS binary.
 
 Remote rows can supply current limits, pricing, modalities, and capability flags for newly added IDs, but they cannot introduce code, arbitrary headers, or an unregistered provider. Providers whose descriptors declare endpoint discovery authoritative use that result for their available chat roster. The shared catalog is not authoritative: it does not remove bundled models when a remote row disappears.
 
-Fresh cached snapshots avoid a network request. If refresh fails, OMP keeps the last usable cached snapshot and marks it stale; without a cache, it falls back to the bundled catalog. Provider discovery state records `source` (`bundled`, `models.dev`, `provider`, or `cache`) and `fetchedAt` so callers can distinguish current remote data from an offline fallback.
+Fresh cached snapshots avoid a network request. If refresh fails, OMS keeps the last usable cached snapshot and marks it stale; without a cache, it falls back to the bundled catalog. Provider discovery state records `source` (`bundled`, `models.dev`, `provider`, or `cache`) and `fetchedAt` so callers can distinguish current remote data from an offline fallback.
 
 ## Provider and model identity
 
@@ -302,7 +302,7 @@ Provider defaults vs per-model overrides:
 ## Prompt cache lifetimes
 
 `promptCache` states how long the provider keeps a prompt cache entry alive for each retention tier
-OMP can request (`short` is normally the default; Anthropic OAuth subscriber requests default to
+OMS can request (`short` is normally the default; Anthropic OAuth subscriber requests default to
 `long` where supported, unless an explicit retention setting or `PI_CACHE_RETENTION` overrides it). Values are seconds and are
 estimates: providers publish ranges, so pick the conservative end.
 
@@ -340,7 +340,7 @@ with `promptCache` once the backing cache behavior is known. See `providers.cach
 
 ## Usage costs and time-based pricing
 
-OMP estimates token costs from the selected provider/model's catalog pricing, preferring server-reported monetary costs when available. Completed messages retain their recorded costs: crossing a pricing boundary, switching models, or reopening a session does not reprice accumulated usage.
+OMS estimates token costs from the selected provider/model's catalog pricing, preferring server-reported monetary costs when available. Completed messages retain their recorded costs: crossing a pricing boundary, switching models, or reopening a session does not reprice accumulated usage.
 
 For the first-party `deepseek` provider, the catalog follows [DeepSeek's official pricing](https://api-docs.deepseek.com/quick_start/pricing):
 
@@ -348,7 +348,7 @@ For the first-party `deepseek` provider, the catalog follows [DeepSeek's officia
 - Flash pricing covers `deepseek-flash` and the retired-but-still-accepted `deepseek-v4-flash` and `deepseek-v4-flash-vision-exp` ids, all billed at the Flash card. Peak rates per million tokens are $0.30 uncached input, $0.006 cached input, and $1.20 output.
 - `deepseek-v4-pro` initially uses peak rates of $1.32 uncached input, $0.044 cached input, and $3.96 output per million tokens. From **2026-09-14 04:00 UTC**, its estimates use the Flash rate card, with the same peak/off-peak schedule.
 
-Local estimates use the assistant message's **request-start timestamp** to choose both the rate card and tariff for the whole request. This is OMP's estimation convention: DeepSeek's pricing page does not specify how its server bills a request spanning a boundary. When importing historical usage without recorded cost, the stats importer leaves scheduled pricing unpriced if no request timestamp can be recovered, rather than choosing a wall-clock tariff.
+Local estimates use the assistant message's **request-start timestamp** to choose both the rate card and tariff for the whole request. This is OMS's estimation convention: DeepSeek's pricing page does not specify how its server bills a request spanning a boundary. When importing historical usage without recorded cost, the stats importer leaves scheduled pricing unpriced if no request timestamp can be recovered, rather than choosing a wall-clock tariff.
 
 The status line's `cost` segment appends **↑** for peak or **↓** for off-peak pricing on the **currently active provider/model**, using the current wall clock. It refreshes at tariff boundaries even while idle; the arrow is not a label for the accumulated session total. Models without scheduled pricing, including explicit flat-price overrides, show no arrow.
 
@@ -390,7 +390,7 @@ Runtime discovery calls llama.cpp model endpoints and synthesizes model entries 
 
 The provider `api` is the default for discovered models; catalog rules can override it per model class. Qwen-class models on any `discovery.type: llama.cpp` provider (implicit or explicit) are discovered as `openai-completions`, because the Responses API cannot carry the chat template's thinking controls (`enable_thinking` / `chat_template_kwargs`). The override lives in `packages/catalog/src/compat/rules/providers/llama.cpp.kdl` (`discovery-api`).
 
-After a first response loads a lazy llama.cpp model, OMP re-probes its runtime context and input
+After a first response loads a lazy llama.cpp model, OMS re-probes its runtime context and input
 metadata. Explicit custom-model and `modelOverrides` limits take precedence over that probe.
 The implicit provider is keyless only when no credential source is configured.
 
@@ -405,7 +405,7 @@ If `lm-studio` is not explicitly configured, registry adds an implicit discovera
 
 Runtime discovery fetches the OpenAI-compatible model list and native LM Studio metadata when
 available. Native `loaded_context_length` takes precedence over the training window; after a first
-response JIT-loads a model, OMP refreshes that runtime metadata. Explicit custom-model and
+response JIT-loads a model, OMS refreshes that runtime metadata. Explicit custom-model and
 `modelOverrides` limits remain authoritative. Discovered LM Studio models use `imageInputDecoder: stb`.
 
 This path also works for local OpenAI-compatible servers that are not LM Studio. For example, if oMLX is bound to Ollama's usual port, set `LM_STUDIO_BASE_URL=http://127.0.0.1:11434/v1` to discover it through the existing `/v1/models` flow. Running oMLX and Ollama side by side requires assigning a different port to one of them. Do not configure oMLX as `ollama`: Ollama discovery uses native `/api/tags` and `/api/show` endpoints, not OpenAI `/v1/models`.
@@ -449,7 +449,7 @@ Anthropic-routed models use an 8,192-token fallback output cap.
 
 A row advertising only image output becomes an image-generation runner; embedding-only output
 becomes an embedding runner. Mixed outputs remain chat models. These runners are visible with
-`omp models --kind all`, not the default chat listing.
+`oms models --kind all`, not the default chat listing.
 
 ### Explicit provider discovery
 
@@ -550,7 +550,7 @@ If `authHeader: true` and provider `apiKey` is set, models get:
 Resolution does not fail for a missing variable: with `apiKey: MY_PROVIDER_API_KEY`
 and `authHeader: true`, an unset or empty `MY_PROVIDER_API_KEY` produces
 `Authorization: Bearer MY_PROVIDER_API_KEY`. Launchers using env-backed keys must
-check that the variable is set and non-empty before starting OMP.
+check that the variable is set and non-empty before starting OMS.
 
 [Command-resolved secrets](#command-resolved-secrets) do not use this literal
 fallback: a failing command or empty trimmed stdout resolves to no value, so it
@@ -563,9 +563,9 @@ Keyless providers:
 
 ### Broker mode
 
-When `OMP_AUTH_BROKER_URL` (or `auth.broker.url`) is set, the local SQLite credential store is replaced by `RemoteAuthCredentialStore`. Layers 3, 4, and 7 above (stored OAuth and API-key credentials) are served from a broker-supplied snapshot whose `refresh` tokens are redacted; expiry triggers `POST /v1/credential/:id/refresh` on the broker rather than a local refresh.
+When `OMS_AUTH_BROKER_URL` (or `auth.broker.url`) is set, the local SQLite credential store is replaced by `RemoteAuthCredentialStore`. Layers 3, 4, and 7 above (stored OAuth and API-key credentials) are served from a broker-supplied snapshot whose `refresh` tokens are redacted; expiry triggers `POST /v1/credential/:id/refresh` on the broker rather than a local refresh.
 
-`AuthStorage.keys.setConfig` lets a `models.yml` `apiKey` win over a broker-resolved OAuth token without overriding a runtime `--api-key`. See [`auth-broker-gateway.md`](./auth-broker-gateway.md) for the full broker / gateway design and env surface (`OMP_AUTH_BROKER_URL`, `OMP_AUTH_BROKER_TOKEN`, `auth.broker.url`, `auth.broker.token`).
+`AuthStorage.keys.setConfig` lets a `models.yml` `apiKey` win over a broker-resolved OAuth token without overriding a runtime `--api-key`. See [`auth-broker-gateway.md`](./auth-broker-gateway.md) for the full broker / gateway design and env surface (`OMS_AUTH_BROKER_URL`, `OMS_AUTH_BROKER_TOKEN`, `auth.broker.url`, `auth.broker.token`).
 
 ## Model availability vs all models
 
@@ -711,13 +711,13 @@ disabledProviders:
 
 String entries apply everywhere. Scoped entries apply when the current working directory is the configured path or one of its subdirectories. Use `path`, `paths`, `pathPrefix`, or `pathPrefixes`; use `models` for `enabledModels`, `providers` for either provider setting, or `values` for any of them.
 
-## `/model` and `omp models`
+## `/model` and `oms models`
 
 Both surfaces keep provider-prefixed concrete models visible and selectable.
 
 - `/model` / `/models` opens the model hub with role assignments and provider catalogs; the session-only picker changes the active model without saving a role assignment.
-- `omp models` (default `ls` action) prints provider-grouped tables of available **chat** models; `--kind <kind>` selects another catalog kind and `--kind all` includes every kind.
-- `omp models find <substring>` filters by provider, id, or name; `omp models refresh` forces an online catalog re-fetch ignoring the model cache TTL; a provider name doubles as an `ls` filter (e.g. `omp models openai-codex`).
+- `oms models` (default `ls` action) prints provider-grouped tables of available **chat** models; `--kind <kind>` selects another catalog kind and `--kind all` includes every kind.
+- `oms models find <substring>` filters by provider, id, or name; `oms models refresh` forces an online catalog re-fetch ignoring the model cache TTL; a provider name doubles as an `ls` filter (e.g. `oms models openai-codex`).
 - Other flags: `--json`, `-e <path>` / `--extension <path>` (repeatable), `--no-extensions` (skip ambient discovery; explicit `-e` still loads), and `--config <overlay>` (repeatable).
 
 JSON includes `provider`, `kind`, `id`, `selector`, `name`, limits, reasoning/thinking metadata,
@@ -955,11 +955,11 @@ private DNS enabled needs no change: it answers on the public hostnames
 
 Define the model under the provider shown in the table, with `api: anthropic-messages`. Those two
 provider ids carry the catalog rule that enables Claude's on-demand compaction
-([Compaction](./compaction.md)). Set `auth: apiKey` so OMP sends plain API-key requests; without
+([Compaction](./compaction.md)). Set `auth: apiKey` so OMS sends plain API-key requests; without
 it, custom `anthropic-messages` models get Claude Code request shaping. The examples authenticate
 with an [Amazon Bedrock API key](https://docs.aws.amazon.com/bedrock/latest/userguide/api-keys.html);
-OMP does not sign runtime-route requests with SigV4. Write the region into the runtime URL. Mantle
-URLs may keep `{region}`, which OMP fills in from your AWS region settings.
+OMS does not sign runtime-route requests with SigV4. Write the region into the runtime URL. Mantle
+URLs may keep `{region}`, which OMS fills in from your AWS region settings.
 
 ```yaml
 providers:
@@ -985,13 +985,13 @@ providers:
         input: [text, image]
 ```
 
-Requests on these routes are shaped by `compat.bedrockMessagesApi`, which OMP detects from a Bedrock
-`/anthropic` `baseUrl` under any provider id. Both routes reject the tool `strict` field, so OMP drops
-it. OMP also fits `metadata.user_id` to
+Requests on these routes are shaped by `compat.bedrockMessagesApi`, which OMS detects from a Bedrock
+`/anthropic` `baseUrl` under any provider id. Both routes reject the tool `strict` field, so OMS drops
+it. OMS also fits `metadata.user_id` to
 Bedrock's [request-metadata pattern](https://docs.aws.amazon.com/bedrock/latest/APIReference/API_runtime_Converse.html),
 which the runtime route enforces: a value that fits is kept, otherwise its session id is sent,
 otherwise it is left out. Both run after any `onPayload` hook. Both routes verify thinking
-signatures, so by default OMP does not replay unsigned thinking to them.
+signatures, so by default OMS does not replay unsigned thinking to them.
 
 The URL check cannot see a Bedrock route behind a proxy or an `ANTHROPIC_BASE_URL` reroute of the
 first-party `anthropic` provider; those keep plain Anthropic requests unless you opt in. Set the flag
@@ -1011,7 +1011,7 @@ not acquire that capability just from `bedrockMessagesApi`.
 
 ### Strict tool schemas (`disableStrictTools`)
 
-Anthropic's API supports a `strict` field on tool definitions that forces the model to always follow the provided schema exactly. OMP enables it by default for a small allowlist of high-frequency built-in `anthropic-messages` tools (`python`, `edit`, and `find`) whose schemas fit Anthropic's strict grammar limits; other tools still send normalized schemas but omit `strict`. `bash` is left out: strict decoding fixes property order, so once a call has written `async`, the `timeout` declared before it can no longer be emitted.
+Anthropic's API supports a `strict` field on tool definitions that forces the model to always follow the provided schema exactly. OMS enables it by default for a small allowlist of high-frequency built-in `anthropic-messages` tools (`python`, `edit`, and `find`) whose schemas fit Anthropic's strict grammar limits; other tools still send normalized schemas but omit `strict`. `bash` is left out: strict decoding fixes property order, so once a call has written `async`, the `timeout` declared before it can no longer be emitted.
 
 Third-party providers that front the Anthropic API (AWS Bedrock, Azure, self-hosted proxies) do not always implement this field and will reject requests that include it. Set `disableStrictTools: true` at the provider level to opt out of strict mode for the allowlisted tools:
 
@@ -1035,7 +1035,7 @@ providers:
           cacheWrite: 3.75
 ```
 
-`disableStrictTools` is a provider-level flag that applies to all models in the provider. It disables the Anthropic `strict` marker only for tools that OMP would otherwise mark strict; it does not change runtime tool argument validation. OMP can automatically retry without strict tools after Anthropic reports a strict-grammar-too-large error before the first streamed token, but proxies that reject the `strict` field for other reasons should set this flag explicitly.
+`disableStrictTools` is a provider-level flag that applies to all models in the provider. It disables the Anthropic `strict` marker only for tools that OMS would otherwise mark strict; it does not change runtime tool argument validation. OMS can automatically retry without strict tools after Anthropic reports a strict-grammar-too-large error before the first streamed token, but proxies that reject the `strict` field for other reasons should set this flag explicitly.
 
 Tool schemas going on the wire are normalized by the unified flow in
 `packages/ai/src/utils/schema/normalize.ts` (Google/CCA/MCP dispatchers
@@ -1072,7 +1072,7 @@ providers:
       type: openai-models-list
 ```
 
-The built-in vLLM provider can be pointed at a non-default endpoint without declaring a custom discovery type. OMP uses vLLM's `/v1/models` metadata and preserves vLLM's `max_model_len` field as the discovered context window.
+The built-in vLLM provider can be pointed at a non-default endpoint without declaring a custom discovery type. OMS uses vLLM's `/v1/models` metadata and preserves vLLM's `max_model_len` field as the discovered context window.
 
 ```yaml
 providers:

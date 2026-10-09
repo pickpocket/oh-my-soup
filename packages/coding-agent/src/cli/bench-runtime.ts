@@ -1,5 +1,5 @@
 /**
- * Shared plumbing for the benchmark-style CLI commands (`omp bench`, `omp if-bench`).
+ * Shared plumbing for the benchmark-style CLI commands (`oms bench`, `oms if-bench`).
  *
  * Owns the three pieces every benchmark command needs before it can talk to a
  * provider: the auth/settings/model-registry runtime, selector → model
@@ -7,7 +7,7 @@
  * landing on an unauthenticated provider), and the injectable `streamSimple`
  * signature tests substitute for a synthetic stream.
  */
-import type { ResolvedThinkingLevel } from "@oh-my-pi/pi-agent-core";
+import type { ResolvedThinkingLevel } from "@oh-my-soup/pi-agent-core";
 import type {
 	Api,
 	ApiKeyResolver,
@@ -15,16 +15,16 @@ import type {
 	Context,
 	Model,
 	SimpleStreamOptions,
-} from "@oh-my-pi/pi-ai";
-import { buildModelProviderPriorityRank } from "@oh-my-pi/pi-catalog/identity";
-import { getProjectDir, logger } from "@oh-my-pi/pi-utils";
-import chalk from "@oh-my-pi/pi-utils/chalk";
+} from "@oh-my-soup/pi-ai";
+import { buildModelProviderPriorityRank } from "@oh-my-soup/pi-catalog/identity";
+import { getProjectDir, logger } from "@oh-my-soup/pi-utils";
+import chalk from "@oh-my-soup/pi-utils/chalk";
 import type { ApiKeyResolverModel } from "../config/api-key-resolver";
 import { ModelRegistry } from "../config/model-registry";
 import { formatModelString, getModelMatchPreferences, resolveCliModel } from "../config/model-resolver";
 import { Settings } from "../config/settings";
 import { discoverAuthStorage, loadCliExtensionProviders } from "../sdk";
-import { concreteThinkingLevel, resolveThinkingLevelForModel } from "@oh-my-pi/pi-tui/thinking";
+import { concreteThinkingLevel, resolveThinkingLevelForModel } from "@oh-my-soup/pi-tui/thinking";
 
 /** Injection point for the provider call; tests pass a synthetic event stream. */
 export type StreamSimpleFn = (

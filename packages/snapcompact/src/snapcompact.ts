@@ -51,18 +51,18 @@
  * re-attached to the compaction summary message on every context rebuild.
  */
 
-import type { Api, ImageContent, Message, TextContent } from "@oh-my-pi/pi-ai";
+import type { Api, ImageContent, Message, TextContent } from "@oh-my-soup/pi-ai";
 import {
 	type ImageSize,
 	type ImageTokenization,
 	type ImageTokenizationTarget,
 	imageTokens,
 	resolveImageTokenization,
-} from "@oh-my-pi/pi-catalog/compat/image-tokenization";
-import { classifyModel, compareRevision, parseRevision } from "@oh-my-pi/pi-catalog/identity";
-import { renderSnapcompactPng, snapcompactSupportedChars } from "@oh-my-pi/pi-natives";
-import { formatGroupedPaths, prompt } from "@oh-my-pi/pi-utils";
-import { INTENT_FIELD } from "@oh-my-pi/pi-wire";
+} from "@oh-my-soup/pi-catalog/compat/image-tokenization";
+import { classifyModel, compareRevision, parseRevision } from "@oh-my-soup/pi-catalog/identity";
+import { renderSnapcompactPng, snapcompactSupportedChars } from "@oh-my-soup/pi-natives";
+import { formatGroupedPaths, prompt } from "@oh-my-soup/pi-utils";
+import { INTENT_FIELD } from "@oh-my-soup/pi-wire";
 import fileOperationsTemplate from "./prompts/file-operations.md" with { type: "text" };
 import snapcompactSummaryPrompt from "./prompts/snapcompact-summary.md" with { type: "text" };
 

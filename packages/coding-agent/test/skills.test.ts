@@ -2,20 +2,20 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, spyOn } from "bu
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { disableUserSource, enableUserSource } from "@oh-my-pi/pi-coding-agent/capability";
-import { type Skill as CapabilitySkill, skillCapability } from "@oh-my-pi/pi-coding-agent/capability/skill";
-import { getCapability } from "@oh-my-pi/pi-coding-agent/discovery";
-import { getWslWindowsHomeCandidate, runHostProbe } from "@oh-my-pi/pi-coding-agent/discovery/agents";
+import { disableUserSource, enableUserSource } from "@oh-my-soup/pi-coding-agent/capability";
+import { type Skill as CapabilitySkill, skillCapability } from "@oh-my-soup/pi-coding-agent/capability/skill";
+import { getCapability } from "@oh-my-soup/pi-coding-agent/discovery";
+import { getWslWindowsHomeCandidate, runHostProbe } from "@oh-my-soup/pi-coding-agent/discovery/agents";
 import {
 	type LoadSkillsResult,
 	loadSkills,
 	loadSkillsFromDir,
 	parseSkillInvocation,
-} from "@oh-my-pi/pi-coding-agent/extensibility/skills";
-import { parseInternalUrl } from "@oh-my-pi/pi-coding-agent/internal-urls/parse";
-import { SkillProtocolHandler } from "@oh-my-pi/pi-coding-agent/internal-urls/skill-protocol";
-import { CombinedAutocompleteProvider } from "@oh-my-pi/pi-tui/autocomplete";
-import { __resetDirsFromEnvForTests, removeWithRetries, setAgentDir } from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-coding-agent/extensibility/skills";
+import { parseInternalUrl } from "@oh-my-soup/pi-coding-agent/internal-urls/parse";
+import { SkillProtocolHandler } from "@oh-my-soup/pi-coding-agent/internal-urls/skill-protocol";
+import { CombinedAutocompleteProvider } from "@oh-my-soup/pi-tui/autocomplete";
+import { __resetDirsFromEnvForTests, removeWithRetries, setAgentDir } from "@oh-my-soup/pi-utils";
 import { restoreEnvValue } from "./helpers/settings-test-state";
 const fixturesDir = path.resolve(import.meta.dirname, "fixtures/skills");
 const collisionFixturesDir = path.resolve(import.meta.dirname, "fixtures/skills-collision");
@@ -33,7 +33,7 @@ const expectedFixtureSkillOrder: string[] = [
 /**
  * Disable every named built-in skill source. Used by `loadSkills` option tests
  * that need to isolate a custom directory or assert "no built-in leakage".
- * Plugin providers (`omp-plugins`, `claude-plugins`, `agent-plugins`) have no
+ * Plugin providers (`oms-plugins`, `claude-plugins`, `agent-plugins`) have no
  * toggle; the file-wide isolated home below keeps the developer's real plugin
  * installs out of every assertion.
  */
@@ -49,7 +49,7 @@ const DISABLE_ALL_BUILTIN_SKILLS = {
 
 // Every provider resolves user-level roots from `os.homedir()` (HOME on POSIX,
 // USERPROFILE on Windows) and the agent dir; point both at an empty temp home
-// so real `~/.omp/plugins`, `~/.claude/plugins`, and `~/.agents/skills`
+// so real `~/.oms/plugins`, `~/.claude/plugins`, and `~/.agents/skills`
 // installs never leak into these tests. On POSIX, Bun fixes `os.homedir()` at
 // process start, so setting HOME alone is not enough; spy on it as well.
 const isolatedEnvKeys = [
@@ -57,7 +57,7 @@ const isolatedEnvKeys = [
 	"USERPROFILE",
 	"CLAUDE_CONFIG_DIR",
 	"PI_CODING_AGENT_DIR",
-	"OMP_PROFILE",
+	"OMS_PROFILE",
 	"PI_PROFILE",
 ] as const;
 const originalEnv: Record<string, string | undefined> = Object.fromEntries(
@@ -77,7 +77,7 @@ beforeAll(async () => {
 	}
 	delete process.env.CLAUDE_CONFIG_DIR;
 	delete Bun.env.CLAUDE_CONFIG_DIR;
-	setAgentDir(path.join(isolatedHome, ".omp", "agent"));
+	setAgentDir(path.join(isolatedHome, ".oms", "agent"));
 });
 
 beforeEach(() => {
@@ -198,7 +198,7 @@ describe("skills", () => {
 
 		// Regression for issue #2401: a user who disables the named third-party
 		// CLI toggles (codex/claude/native) MUST still see skills from the
-		// canonical OMP-native `~/.agent[s]/skills` (the `agents` provider).
+		// canonical OMS-native `~/.agent[s]/skills` (the `agents` provider).
 		// Pre-fix `loadSkills` gated `agents` on `anyBuiltInSkillSourceEnabled`,
 		// so flipping the five third-party toggles off silently disabled it.
 		it("should still load ~/.agents/skills when codex/claude/native toggles are off (#2401)", async () => {
@@ -341,7 +341,7 @@ describe("skills", () => {
 
 		// Regression for PR #2405 review: the fall-through gate used by
 		// unknown third-party providers (opencode/github/claude-plugins/...)
-		// MUST NOT consider the OMP-native `enableAgentsUser`/`...Project`
+		// MUST NOT consider the OMS-native `enableAgentsUser`/`...Project`
 		// toggles. Otherwise a user who disables Codex/Claude/Pi to silence
 		// third-party CLI noise but keeps the default agents toggles on still
 		// sees opencode skills resurface via the fallback branch.
@@ -392,7 +392,7 @@ describe("skills", () => {
 		});
 
 		it("should skip skills disabled via frontmatter", async () => {
-			const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-disabled-skill-"));
+			const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-disabled-skill-"));
 			const skillDir = path.join(tempDir, "disabled-skill");
 			await fs.mkdir(skillDir, { recursive: true });
 			await fs.writeFile(
@@ -416,7 +416,7 @@ enabled: false
 		});
 
 		it("should hide skills with disable-model-invocation frontmatter (Agent Skills spec)", async () => {
-			const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-dmi-skill-"));
+			const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-dmi-skill-"));
 			const skillDir = path.join(tempDir, "hidden-by-spec");
 			await fs.mkdir(skillDir, { recursive: true });
 			await fs.writeFile(
@@ -561,7 +561,7 @@ describe("collision handling", () => {
 	});
 
 	it("silently collapses identical bodies across different namespaces", async () => {
-		const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-skills-mirror-"));
+		const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-skills-mirror-"));
 		const thirdDir = path.join(tempDir, "third", "calendar");
 		await fs.mkdir(thirdDir, { recursive: true });
 		await fs.copyFile(path.join(second, "calendar", "SKILL.md"), path.join(thirdDir, "SKILL.md"));

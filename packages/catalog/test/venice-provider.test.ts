@@ -2,8 +2,8 @@ import { describe, expect, it } from "bun:test";
 import {
 	KIMI_K27_CODE_RECOMMENDED_MAX_TOKENS,
 	veniceModelManagerOptions,
-} from "@oh-my-pi/pi-catalog/provider-models/openai-compat";
-import type { FetchImpl } from "@oh-my-pi/pi-catalog/types";
+} from "@oh-my-soup/pi-catalog/provider-models/openai-compat";
+import type { FetchImpl } from "@oh-my-soup/pi-catalog/types";
 
 describe("Venice provider catalog", () => {
 	it("caps Kimi K2.7 Code during runtime discovery", async () => {

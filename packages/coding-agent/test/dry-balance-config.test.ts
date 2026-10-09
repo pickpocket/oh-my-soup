@@ -1,12 +1,12 @@
 import { expect, test } from "bun:test";
 import * as path from "node:path";
-import { AuthStorage } from "@oh-my-pi/pi-ai/auth-storage";
-import { TempDir } from "@oh-my-pi/pi-utils";
+import { AuthStorage } from "@oh-my-soup/pi-ai/auth-storage";
+import { TempDir } from "@oh-my-soup/pi-utils";
 
 const cliEntry = path.join(import.meta.dir, "..", "src", "cli.ts");
 
-test("omp dry-balance routes by account policies from a --config overlay", async () => {
-	const agentDir = TempDir.createSync("@omp-dry-balance-config-");
+test("oms dry-balance routes by account policies from a --config overlay", async () => {
+	const agentDir = TempDir.createSync("@oms-dry-balance-config-");
 	try {
 		await Bun.write(
 			path.join(agentDir.path(), "models.yml"),

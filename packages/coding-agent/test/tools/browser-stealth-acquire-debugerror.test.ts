@@ -6,7 +6,7 @@
  * `puppeteer:error` debug channel is disabled (the default). A transient CDP
  * failure during world re-acquire then threw `TypeError: debugError is not a
  * function` from `#doAcquireWorlds`, escaped as an `unhandledRejection`, and the
- * postmortem handler killed the whole OMP process (parent session + every
+ * postmortem handler killed the whole OMS process (parent session + every
  * subagent).
  *
  * The test drives the real patched `FrameManager` with a `send()` that always

@@ -1,8 +1,8 @@
 import * as os from "node:os";
 import * as path from "node:path";
 
-import { isRecord, untilAborted } from "@oh-my-pi/pi-utils";
-import { ToolError } from "@oh-my-pi/pi-tui/tools/tool-errors";
+import { isRecord, untilAborted } from "@oh-my-soup/pi-utils";
+import { ToolError } from "@oh-my-soup/pi-tui/tools/tool-errors";
 import type { Cookie, CookieParam, Page } from "puppeteer-core";
 import { resolveToCwd } from "../path-utils";
 import { throwIfAborted } from "../tool-errors";
@@ -72,7 +72,7 @@ export interface ClearCookiesOptions {
 	names?: string[];
 }
 
-/** One origin's Web Storage entries in an omp storage state file. */
+/** One origin's Web Storage entries in an oms storage state file. */
 export interface StorageStateOrigin {
 	/** Serialized origin. */
 	origin: string;
@@ -82,7 +82,7 @@ export interface StorageStateOrigin {
 	sessionStorage?: Array<{ name: string; value: string }>;
 }
 
-/** Playwright-compatible browser state with sessionStorage as an omp extension. */
+/** Playwright-compatible browser state with sessionStorage as an oms extension. */
 export interface BrowserStorageState {
 	/** Serialized browser cookies. */
 	cookies: BrowserCookie[];
@@ -461,13 +461,13 @@ export async function clearPageStorage(page: Page, kind: string, signal?: AbortS
 	await untilAborted(signal, () => page.evaluate(clearStorageInPage, kind));
 }
 
-/** Where `tab.saveState()` writes: the requested path, else `~/.omp/browser-state/<tab>.json`. */
+/** Where `tab.saveState()` writes: the requested path, else `~/.oms/browser-state/<tab>.json`. */
 export function storageStatePath(tabName: string, requestedPath: string | undefined, cwd: string): string {
 	const safeName = tabName.replace(/[^A-Za-z0-9._-]/g, "_");
 	const fileName = safeName === "." || safeName === ".." ? "_" : safeName || "main";
 	return requestedPath
 		? resolveToCwd(requestedPath, cwd)
-		: path.join(os.homedir(), ".omp", "browser-state", `${fileName}.json`);
+		: path.join(os.homedir(), ".oms", "browser-state", `${fileName}.json`);
 }
 
 /** Save cookies and current-origin Web Storage to a Playwright-compatible state file. */

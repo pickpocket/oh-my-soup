@@ -1,4 +1,4 @@
-# @oh-my-pi/pi-ai
+# @oh-my-soup/pi-ai
 
 Unified LLM API with automatic model discovery, provider configuration, token and cost tracking, and simple context persistence and hand-off to other models mid-session.
 
@@ -90,18 +90,18 @@ Unified LLM API with automatic model discovery, provider configuration, token an
 ## Installation
 
 ```bash
-npm install @oh-my-pi/pi-ai
+npm install @oh-my-soup/pi-ai
 ```
 
 ## Quick Start
 
 ```typescript
-import { getModel, stream, complete, Context, Tool, type } from "@oh-my-pi/pi-ai";
+import { getModel, stream, complete, Context, Tool, type } from "@oh-my-soup/pi-ai";
 
 // Fully typed with auto-complete support for both providers and models
 const model = getModel("openai", "gpt-4o-mini");
 
-// Define tools with omptype schemas for type safety and validation
+// Define tools with omstype schemas for type safety and validation
 const tools: Tool[] = [
 	{
 		name: "get_time",
@@ -220,12 +220,12 @@ for (const block of response.content) {
 
 ## Tools
 
-Tools enable LLMs to interact with external systems. Omptype schemas provide type-safe definitions, runtime validation, and JSON Schema conversion for providers.
+Tools enable LLMs to interact with external systems. Omstype schemas provide type-safe definitions, runtime validation, and JSON Schema conversion for providers.
 
 ### Defining Tools
 
 ```typescript
-import { type Tool, type } from "@oh-my-pi/pi-ai";
+import { type Tool, type } from "@oh-my-soup/pi-ai";
 
 const weatherTool: Tool = {
 	name: "get_weather",
@@ -343,12 +343,12 @@ for await (const event of s) {
 
 ### Validating Tool Arguments
 
-When using `agentLoop`, tool arguments are automatically validated against their omptype schemas before execution. Validation failures are returned to the model as tool results so it can retry.
+When using `agentLoop`, tool arguments are automatically validated against their omstype schemas before execution. Validation failures are returned to the model as tool results so it can retry.
 
 When implementing your own tool execution loop with `stream()` or `complete()`, use `validateToolCall` to validate arguments before passing them to your tools:
 
 ```typescript
-import { stream, validateToolCall, Tool } from "@oh-my-pi/pi-ai";
+import { stream, validateToolCall, Tool } from "@oh-my-soup/pi-ai";
 
 const tools: Tool[] = [weatherTool, calculatorTool];
 const s = stream(model, { messages, tools });
@@ -402,7 +402,7 @@ Models with vision capabilities can process images. You can check if a model sup
 
 ```typescript
 import * as fs from "node:fs";
-import { getModel, complete } from "@oh-my-pi/pi-ai";
+import { getModel, complete } from "@oh-my-soup/pi-ai";
 
 const model = getModel("openai", "gpt-4o-mini");
 
@@ -441,7 +441,7 @@ Many models support thinking/reasoning capabilities where they can show their in
 ### Unified Interface (streamSimple/completeSimple)
 
 ```typescript
-import { getModel, streamSimple, completeSimple } from "@oh-my-pi/pi-ai";
+import { getModel, streamSimple, completeSimple } from "@oh-my-soup/pi-ai";
 
 // Many models across providers support thinking/reasoning
 const model = getModel("anthropic", "claude-sonnet-4-20250514");
@@ -483,7 +483,7 @@ for (const block of response.content) {
 For fine-grained control, use the provider-specific options:
 
 ```typescript
-import { getModel, complete } from "@oh-my-pi/pi-ai";
+import { getModel, complete } from "@oh-my-soup/pi-ai";
 
 // OpenAI Reasoning (o1, o3, gpt-5)
 const openaiModel = getModel("openai", "gpt-5-mini");
@@ -570,7 +570,7 @@ if (message.stopReason === "error" || message.stopReason === "aborted") {
 The abort signal allows you to cancel in-progress requests. Aborted requests have `stopReason === 'aborted'`:
 
 ```typescript
-import { getModel, stream } from "@oh-my-pi/pi-ai";
+import { getModel, stream } from "@oh-my-soup/pi-ai";
 
 const model = getModel("openai", "gpt-4o-mini");
 
@@ -671,7 +671,7 @@ A **provider** offers models through a specific API. For example:
 ### Querying Providers and Models
 
 ```typescript
-import { getProviders, getModels, getModel } from "@oh-my-pi/pi-ai";
+import { getProviders, getModels, getModel } from "@oh-my-soup/pi-ai";
 
 // Get all available providers
 const providers = getProviders();
@@ -699,7 +699,7 @@ You can create custom models for local inference servers or custom endpoints.
 For local Ollama, `OLLAMA_API_KEY` is optional and mainly needed for authenticated/self-hosted gateways. `ollama` remains the local OpenAI-compatible runtime integration.
 
 ```typescript
-import { Model, stream } from "@oh-my-pi/pi-ai";
+import { Model, stream } from "@oh-my-soup/pi-ai";
 
 // Example: local Ollama using the OpenAI-compatible API
 const ollamaModel: Model<"openai-completions"> = {
@@ -825,7 +825,7 @@ When messages from one provider are sent to a different provider, the library au
 ### Example: Multi-Provider Conversation
 
 ```typescript
-import { getModel, complete, Context } from "@oh-my-pi/pi-ai";
+import { getModel, complete, Context } from "@oh-my-soup/pi-ai";
 
 // Start with Claude
 const claude = getModel("anthropic", "claude-sonnet-4-20250514");
@@ -872,7 +872,7 @@ This enables flexible workflows where you can:
 The `Context` object can be easily serialized and deserialized using standard JSON methods, making it simple to persist conversations, implement chat history, or transfer contexts between services:
 
 ```typescript
-import { Context, getModel, complete } from "@oh-my-pi/pi-ai";
+import { Context, getModel, complete } from "@oh-my-soup/pi-ai";
 
 // Create and use a context
 const context: Context = {
@@ -907,7 +907,7 @@ const continuation = await complete(newModel, restored);
 The library supports browser environments. You must pass the API key explicitly since environment variables are not available in browsers:
 
 ```typescript
-import { getModel, complete } from "@oh-my-pi/pi-ai";
+import { getModel, complete } from "@oh-my-soup/pi-ai";
 
 // API key must be passed explicitly in browser
 const model = getModel("anthropic", "claude-haiku-4-5-20251001");
@@ -965,7 +965,7 @@ In Node.js environments, you can set environment variables to avoid passing API 
 | Snowflake Cortex      | `SNOWFLAKE_PAT` + `SNOWFLAKE_ACCOUNT`                                                                               |
 | GitHub Copilot        | `COPILOT_GITHUB_TOKEN` or `GH_TOKEN` or `GITHUB_TOKEN`                                                              |
 
-`/login cloudflare-ai-gateway` collects and stores the gateway token, account ID, and gateway ID. For environment configuration, set all three Cloudflare values above. OMP derives provider endpoints from the account and gateway IDs.
+`/login cloudflare-ai-gateway` collects and stores the gateway token, account ID, and gateway ID. For environment configuration, set all three Cloudflare values above. OMS derives provider endpoints from the account and gateway IDs.
 
 For Anthropic Foundry routing, set `CLAUDE_CODE_USE_FOUNDRY=true` plus:
 `FOUNDRY_BASE_URL`, `ANTHROPIC_FOUNDRY_API_KEY`, optional `ANTHROPIC_CUSTOM_HEADERS`,
@@ -974,7 +974,7 @@ and optional mTLS material (`CLAUDE_CODE_CLIENT_CERT`, `CLAUDE_CODE_CLIENT_KEY`)
 `NODE_EXTRA_CA_CERTS` (PEM file path or inline PEM, mirroring Node's contract)
 is honoured on every provider fetch — OpenAI-compatible, Codex, Ollama, Azure
 Responses, Google, and Anthropic alike — for corporate relays or private CA
-bundles. Bun's `fetch` does not consume the env var natively, so omp injects
+bundles. Bun's `fetch` does not consume the env var natively, so oms injects
 the bundle into `RequestInit.tls.ca` and seeds the system root store
 alongside it.
 
@@ -1015,7 +1015,7 @@ const response = await complete(model, context, {
 ### Checking Environment Variables
 
 ```typescript
-import { getEnvApiKey } from "@oh-my-pi/pi-ai";
+import { getEnvApiKey } from "@oh-my-soup/pi-ai";
 
 // Check if an API key is set in environment variables
 const key = getEnvApiKey("openai"); // checks OPENAI_API_KEY
@@ -1039,11 +1039,11 @@ For paid Cloud Code Assist subscriptions, set `GOOGLE_CLOUD_PROJECT` or `GOOGLE_
 
 `/login snowflake` prompts for an account identifier (for example, `myorg-myaccount`), an HTTPS Snowflake account URL, or a Snowsight account link. It opens Snowflake's built-in `SNOWFLAKE$LOCAL_APPLICATION` OAuth flow using PKCE and a `127.0.0.1` callback (port 54551, with an ephemeral-port fallback). The stored account selects the inference endpoint; OAuth credentials cannot be sent to a different account through a custom model endpoint.
 
-The default inference role must hold either `SNOWFLAKE.CORTEX_USER` or the narrower, REST-only `SNOWFLAKE.CORTEX_REST_API_USER` (recommended for least privilege). `CORTEX_REST_API_USER` cannot be granted to a user directly; grant it to a custom role, and revoke `CORTEX_USER` from users who already hold it so the narrower control applies. The Cortex REST API is not available in China-region (`.snowflakecomputing.cn`) accounts. An administrator can check local-app availability with `SHOW SECURITY INTEGRATIONS LIKE 'SNOWFLAKE$LOCAL_APPLICATION'` and enable the integration or refresh issuance if necessary. When Snowflake issues a refresh token, omp refreshes the access token automatically. Without one, login remains valid until expiry; then sign in again or use the PAT environment alternative.
+The default inference role must hold either `SNOWFLAKE.CORTEX_USER` or the narrower, REST-only `SNOWFLAKE.CORTEX_REST_API_USER` (recommended for least privilege). `CORTEX_REST_API_USER` cannot be granted to a user directly; grant it to a custom role, and revoke `CORTEX_USER` from users who already hold it so the narrower control applies. The Cortex REST API is not available in China-region (`.snowflakecomputing.cn`) accounts. An administrator can check local-app availability with `SHOW SECURITY INTEGRATIONS LIKE 'SNOWFLAKE$LOCAL_APPLICATION'` and enable the integration or refresh issuance if necessary. When Snowflake issues a refresh token, oms refreshes the access token automatically. Without one, login remains valid until expiry; then sign in again or use the PAT environment alternative.
 
 For PAT authentication, set both `SNOWFLAKE_ACCOUNT` and `SNOWFLAKE_PAT`. Prefer a short-lived PAT restricted to a dedicated inference role and the required user-scoped network allowlist; do not disable network-policy enforcement. See [Snowflake PAT setup](https://docs.snowflake.com/en/user-guide/programmatic-access-tokens) and [local-application OAuth](https://docs.snowflake.com/en/user-guide/oauth-local-applications).
 
-Claude models use `/api/v2/cortex/v1/messages`; OpenAI models use `/api/v2/cortex/v1/chat/completions`. Both reuse omp's streaming transports and local tool execution. The 15 bundled models are a documented roster, not an account entitlement check: availability still depends on Cortex REST API enablement, role grants, model allowlists, and region. If authentication succeeds but Cortex returns `003001` ("This account is not allowed to access this endpoint"), Snowflake has not enabled Cortex REST for the account. [Self-service trial accounts disable AI features until a credit card is added](https://docs.snowflake.com/en/user-guide/admin-trial-account#label-trial-account-ai-features) (adding one does not end the trial); REST access can remain disabled even after AI SQL functions work, in which case Snowflake support must enable it. Cross-region inference requires an account administrator's explicit decision. `omp models snowflake --json` lists available models only after credentials are configured.
+Claude models use `/api/v2/cortex/v1/messages`; OpenAI models use `/api/v2/cortex/v1/chat/completions`. Both reuse oms's streaming transports and local tool execution. The 15 bundled models are a documented roster, not an account entitlement check: availability still depends on Cortex REST API enablement, role grants, model allowlists, and region. If authentication succeeds but Cortex returns `003001` ("This account is not allowed to access this endpoint"), Snowflake has not enabled Cortex REST for the account. [Self-service trial accounts disable AI features until a credit card is added](https://docs.snowflake.com/en/user-guide/admin-trial-account#label-trial-account-ai-features) (adding one does not end the trial); REST access can remain disabled even after AI SQL functions work, in which case Snowflake support must enable it. Cross-region inference requires an account administrator's explicit decision. `oms models snowflake --json` lists available models only after credentials are configured.
 
 This provider uses the [public, account-billed Cortex REST API](https://docs.snowflake.com/en/user-guide/snowflake-cortex/cortex-rest-api). CoCo-subscription coverage is unverified. Catalog prices are per-million-token estimates from [Consumption Table 6(b)](https://www.snowflake.com/legal-files/CreditConsumptionTable.pdf) at [$2 per AI Credit](https://docs.snowflake.com/en/user-guide/snowflake-cortex/pricing) for on-demand global routing, not your contract price. Output is capped at the REST API's documented 16,384-token maximum; context windows are conservative AI_COMPLETE limits, not verified REST maxima. Cortex compatibility rules limit explicit cache retention to five minutes. Paste an account identifier or current Snowsight link; legacy `app.snowflake.com/<region>/<locator>` links are rejected because they don't map uniformly to an account host.
 
@@ -1069,7 +1069,7 @@ export GOOGLE_APPLICATION_CREDENTIALS="/path/to/service-account.json"
 ```
 
 ```typescript
-import { getModel, complete } from "@oh-my-pi/pi-ai";
+import { getModel, complete } from "@oh-my-soup/pi-ai";
 
 (async () => {
 	const model = getModel("google-vertex", "gemini-2.5-flash");
@@ -1087,14 +1087,14 @@ Official docs: [Application Default Credentials](https://cloud.google.com/docs/a
 
 ### CLI Login
 
-Authenticate via the [`omp`](https://omp.sh) coding-agent CLI, which drives this library's OAuth/API-key flows in-process and persists into `agent.db`:
+Authenticate via the [`oms`](https://omp.sh) coding-agent CLI, which drives this library's OAuth/API-key flows in-process and persists into `agent.db`:
 
 ```bash
-omp auth-broker login              # interactive provider selection
-omp auth-broker login anthropic    # login to a specific provider
-omp auth-broker login vllm         # store vLLM API key (or placeholder for local no-auth)
-omp auth-broker list               # list supported providers
-omp auth-broker logout             # interactive — pick a stored credential to remove
+oms auth-broker login              # interactive provider selection
+oms auth-broker login anthropic    # login to a specific provider
+oms auth-broker login vllm         # store vLLM API key (or placeholder for local no-auth)
+oms auth-broker list               # list supported providers
+oms auth-broker logout             # interactive — pick a stored credential to remove
 ```
 
 Credentials are saved to `agent.db` in the agent directory. `/login qianfan` opens the Qianfan console and stores the pasted API key.
@@ -1116,7 +1116,7 @@ import {
 	getOAuthApiKey, // (provider, credentialsMap) => { newCredentials, apiKey } | null
 	type OAuthProvider,
 	type OAuthCredentials,
-} from "@oh-my-pi/pi-ai";
+} from "@oh-my-soup/pi-ai";
 
 const provider = getProviderDefinition("openai-codex");
 const credentials = await provider?.login?.({
@@ -1127,7 +1127,7 @@ const credentials = await provider?.login?.({
 ### Login Flow Example
 
 ```typescript
-import { getProviderDefinition } from "@oh-my-pi/pi-ai";
+import { getProviderDefinition } from "@oh-my-soup/pi-ai";
 import * as fs from "node:fs";
 
 const credentials = await getProviderDefinition("github-copilot")?.login?.({
@@ -1151,7 +1151,7 @@ fs.writeFileSync("credentials.json", JSON.stringify(auth, null, 2));
 Use `getOAuthApiKey()` to get an API key, automatically refreshing if expired:
 
 ```typescript
-import { getModel, complete, getOAuthApiKey } from "@oh-my-pi/pi-ai";
+import { getModel, complete, getOAuthApiKey } from "@oh-my-soup/pi-ai";
 import * as fs from "node:fs";
 
 // Load your stored credentials

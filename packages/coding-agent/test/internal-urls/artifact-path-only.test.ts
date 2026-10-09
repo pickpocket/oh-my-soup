@@ -2,15 +2,15 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { ArtifactProtocolHandler } from "@oh-my-pi/pi-coding-agent/internal-urls/artifact-protocol";
-import { parseInternalUrl } from "@oh-my-pi/pi-coding-agent/internal-urls/parse";
+import { ArtifactProtocolHandler } from "@oh-my-soup/pi-coding-agent/internal-urls/artifact-protocol";
+import { parseInternalUrl } from "@oh-my-soup/pi-coding-agent/internal-urls/parse";
 import {
 	registerArtifactsDir,
 	resetRegisteredArtifactDirsForTests,
-} from "@oh-my-pi/pi-coding-agent/internal-urls/registry-helpers";
-import { InternalUrlRouter } from "@oh-my-pi/pi-coding-agent/internal-urls/router";
-import { InternalUrlFilesystem } from "@oh-my-pi/pi-coding-agent/internal-urls/url-filesystem";
-import { resolveToolSearchScope } from "@oh-my-pi/pi-coding-agent/tools/path-utils";
+} from "@oh-my-soup/pi-coding-agent/internal-urls/registry-helpers";
+import { InternalUrlRouter } from "@oh-my-soup/pi-coding-agent/internal-urls/router";
+import { InternalUrlFilesystem } from "@oh-my-soup/pi-coding-agent/internal-urls/url-filesystem";
+import { resolveToolSearchScope } from "@oh-my-soup/pi-coding-agent/tools/path-utils";
 
 /**
  * Path consumers (search/grep, the bash shell filesystem) only need the artifact's

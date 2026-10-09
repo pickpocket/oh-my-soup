@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, it } from "bun:test";
 import { stripVTControlCharacters } from "node:util";
-import { getBundledModel } from "@oh-my-pi/pi-catalog/models";
-import type { Model } from "@oh-my-pi/pi-catalog/types";
+import { getBundledModel } from "@oh-my-soup/pi-catalog/models";
+import type { Model } from "@oh-my-soup/pi-catalog/types";
 import { renderSegment } from "../src/status-line/segments";
 import type { SegmentContext } from "../src/status-line/types";
 import { initTheme } from "../src/theme";

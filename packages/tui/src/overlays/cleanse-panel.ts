@@ -6,7 +6,7 @@ import { theme } from "../theme/theme";
 import { OverlayPanel } from "../chrome/overlay-box";
 import { StreamingPanelContent, type StreamingPanelPresentation } from "../chrome/streaming-panel";
 import { boundKeys, interruptKey } from "../chrome/keybinding-hints";
-import type { TspTone } from "@oh-my-pi/pi-wire";
+import type { TspTone } from "@oh-my-soup/pi-wire";
 import type { DescribeContext, NativeNode } from "../native/node";
 import { col, node, span, text } from "../native/describe";
 import { hintsRow, type NativeHint, statusHintsRow } from "../native/overlay";
@@ -63,7 +63,7 @@ export class CleansePanelComponent extends OverlayPanel {
 	readonly #content: StreamingPanelContent;
 
 	constructor(options: CleansePanelComponentOptions) {
-		super(options.request ? `/cleanse ${replaceTabs(options.request)}` : "/cleanse", "omp.overlay.cleanse");
+		super(options.request ? `/cleanse ${replaceTabs(options.request)}` : "/cleanse", "oms.overlay.cleanse");
 		this.#tui = options.tui;
 		this.#model = options.model;
 		this.#request = options.request === undefined ? undefined : replaceTabs(options.request);

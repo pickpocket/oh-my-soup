@@ -1,9 +1,9 @@
 import { describe, expect, it } from "bun:test";
-import { convertMessages } from "@oh-my-pi/pi-ai/providers/google-shared";
-import type { Context, Model, ToolCall, Usage } from "@oh-my-pi/pi-ai/types";
-import { resolveModelPolicy } from "@oh-my-pi/pi-catalog/compat/resolve";
-import { getBundledModel } from "@oh-my-pi/pi-catalog/models";
-import type { ModelSpec } from "@oh-my-pi/pi-catalog/types";
+import { convertMessages } from "@oh-my-soup/pi-ai/providers/google-shared";
+import type { Context, Model, ToolCall, Usage } from "@oh-my-soup/pi-ai/types";
+import { resolveModelPolicy } from "@oh-my-soup/pi-catalog/compat/resolve";
+import { getBundledModel } from "@oh-my-soup/pi-catalog/models";
+import type { ModelSpec } from "@oh-my-soup/pi-catalog/types";
 
 const ZERO_USAGE: Usage = {
 	input: 0,

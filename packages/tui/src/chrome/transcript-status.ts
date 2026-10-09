@@ -1,4 +1,4 @@
-import type { TspSpan } from "@oh-my-pi/pi-wire";
+import type { TspSpan } from "@oh-my-soup/pi-wire";
 import { Text } from "../components/text";
 import { col, span, text } from "../native/describe";
 import type { NativeNode } from "../native/node";
@@ -49,7 +49,7 @@ export class TranscriptStatusBlock extends TranscriptBlock {
 	override describe(): NativeNode {
 		this.#native ??= col(
 			this.#rows.map(spans => text(spans, { wrap: "word" })),
-			{ role: "omp.status-block" },
+			{ role: "oms.status-block" },
 		);
 		return this.#native;
 	}

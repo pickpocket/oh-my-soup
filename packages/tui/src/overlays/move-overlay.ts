@@ -198,7 +198,7 @@ export class MoveOverlay implements Component, Focusable {
 			actionButton("Cancel", "cancel", { keys: getKeybindings().getKeys("tui.select.cancel")[0] ?? "escape" }),
 			actionButton("Confirm", "confirm", { keys: "enter", tone: "accent" }),
 		]);
-		const described = overlayCard("omp.dialog.move", "Move to directory", [this.#field, list, hints, actions]);
+		const described = overlayCard("oms.dialog.move", "Move to directory", [this.#field, list, hints, actions]);
 		this.#native = { revision: this.#revision, node: described };
 		return described;
 	}

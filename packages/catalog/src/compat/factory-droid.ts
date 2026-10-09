@@ -5,7 +5,7 @@
  * account-scoped specs from it and the pi-ai provider re-reads it per request
  * to bind a model to the account serving it.
  */
-import { isRecord, once } from "@oh-my-pi/pi-utils";
+import { isRecord, once } from "@oh-my-soup/pi-utils";
 import type { Api, ModelSpec } from "../types";
 import { FACTORY_DROID_WIRES, type FactoryDroidRegion, type FactoryDroidWire } from "../wire/factory-droid";
 import { apiRouteFor } from "./behavior";

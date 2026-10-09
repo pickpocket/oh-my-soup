@@ -4,10 +4,10 @@
  */
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import * as natives from "@oh-my-pi/pi-natives";
-import { formatBytes, pluralize } from "@oh-my-pi/pi-utils";
-import chalk from "@oh-my-pi/pi-utils/chalk";
-import { Args, CliUsageError, Command, Flags } from "@oh-my-pi/pi-utils/cli";
+import * as natives from "@oh-my-soup/pi-natives";
+import { formatBytes, pluralize } from "@oh-my-soup/pi-utils";
+import chalk from "@oh-my-soup/pi-utils/chalk";
+import { Args, CliUsageError, Command, Flags } from "@oh-my-soup/pi-utils/cli";
 import { toksHelp as commandHelp } from "../cli/command-help";
 
 /** Display name and served model lines per native encoding; `Record` keeps it exhaustive. */
@@ -71,9 +71,9 @@ export default class Toks extends Command {
 	};
 
 	static examples = [
-		"omp toks README.md",
-		'omp toks "The quick brown fox jumps over the lazy dog"',
-		"omp toks src/main.ts --json",
+		"oms toks README.md",
+		'oms toks "The quick brown fox jumps over the lazy dog"',
+		"oms toks src/main.ts --json",
 	];
 
 	async run(): Promise<void> {

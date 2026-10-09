@@ -6,7 +6,7 @@
  * engine wraps every overlay-stack component in an `overlay` node. An overlay
  * component's root is a `card` whose `head` carries the title.
  */
-import type { TspProps, TspSpan, TspText } from "@oh-my-pi/pi-wire";
+import type { TspProps, TspSpan, TspText } from "@oh-my-soup/pi-wire";
 import { formatTooltipKey, type KeyName } from "../key-hint-format";
 import { getKeybindings, type Keybinding } from "../keybindings";
 import { card, kbd, list, node, row, span, text } from "./describe";
@@ -47,7 +47,7 @@ export function hintsRow(hints: readonly (NativeHint | undefined)[], key = "hint
 		group.push(text([span(hint.label, "muted")]));
 		children.push(row(group, { gap: "xs", align: "center" }));
 	}
-	return node("row", { gap: "md", wrap: true, role: "omp.overlay.hints" }, children, key);
+	return node("row", { gap: "md", wrap: true, role: "oms.overlay.hints" }, children, key);
 }
 
 /** A wrapping footer: a status line (`✓ Clean`, `⚠ Cancelled`) followed by key hints. */
@@ -57,7 +57,7 @@ export function statusHintsRow(status: TspText, hints: readonly (NativeHint | un
 
 /**
  * Root card of an overlay. `head` is the overlay title (whitespace runs
- * collapse; empty means no head); `role` is `omp.overlay.<name>`.
+ * collapse; empty means no head); `role` is `oms.overlay.<name>`.
  */
 export function overlayCard(
 	role: string,
@@ -96,7 +96,7 @@ export interface ActionButtonOptions {
 }
 
 /**
- * A native button (role `omp.btn`): a label plus an optional keycap. A click
+ * A native button (role `oms.btn`): a label plus an optional keycap. A click
  * sends `act` back as an `action` event (or runs a terminal-local `open`/`copy`),
  * which the component routes to the same code path as the key.
  */
@@ -106,7 +106,7 @@ export function actionButton(label: string, act: string, options: ActionButtonOp
 	return node(
 		"row",
 		{
-			role: "omp.btn",
+			role: "oms.btn",
 			gap: "xs",
 			align: "center",
 			actions: { click: act },
@@ -126,16 +126,16 @@ export function actionButton(label: string, act: string, options: ActionButtonOp
 export function escCloseButton(act = "close", key = "esc-close"): NativeNode {
 	return node(
 		"row",
-		{ role: "omp.btn", align: "center", actions: { click: act }, title: `Close  ${formatTooltipKey("escape")}` },
+		{ role: "oms.btn", align: "center", actions: { click: act }, title: `Close  ${formatTooltipKey("escape")}` },
 		[kbd("escape")],
 		key,
 	);
 }
 
-/** A row of {@link actionButton}s (role `omp.actions`); `null` entries become the spacer that end-aligns what follows. */
+/** A row of {@link actionButton}s (role `oms.actions`); `null` entries become the spacer that end-aligns what follows. */
 export function actionBar(buttons: readonly (NativeNode | null)[], key = "actions"): NativeNode {
 	const children = buttons.map(button => button ?? node("spacer", { grow: 1 }));
-	return node("row", { role: "omp.actions", gap: "sm", align: "center" }, children, key);
+	return node("row", { role: "oms.actions", gap: "sm", align: "center" }, children, key);
 }
 
 /** Spans of an annotation callout: a dim `label:` then the note. */

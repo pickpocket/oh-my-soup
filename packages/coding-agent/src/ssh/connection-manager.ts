@@ -1,6 +1,6 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { $which, getRemoteHostDir, getSshControlDir, isEnoent, logger, postmortem, ptree } from "@oh-my-pi/pi-utils";
+import { $which, getRemoteHostDir, getSshControlDir, isEnoent, logger, postmortem, ptree } from "@oh-my-soup/pi-utils";
 import { assertOwnerPrivateDir } from "../utils/owner-private-dir";
 import { buildSshTarget, sanitizeHostName } from "./utils";
 
@@ -26,7 +26,7 @@ export interface SSHHostInfo {
 	os: SSHHostOs;
 	shell: SSHHostShell;
 	/**
-	 * Shell name OMP verified can execute the POSIX transfer snippets
+	 * Shell name OMS verified can execute the POSIX transfer snippets
 	 * (`head`/`cat`/`mv`/`test`/`ls`) `ssh://` uses. Probed by running
 	 * `sh -lc` / `bash -lc` / `zsh -lc` against the remote and keeping the
 	 * first one that round-trips a known marker. Independent of `shell`
@@ -83,7 +83,7 @@ export function sshControlFallbackDir(canonicalDir: string, uid: number, tmpBase
 		.digest("hex")
 		.slice(0, 20);
 	// Only ControlMaster (POSIX) platforms reach this, so the socket dir is a POSIX path.
-	return path.posix.join(tmpBase, `omp-${key}`);
+	return path.posix.join(tmpBase, `oms-${key}`);
 }
 
 interface ControlDirChoice {

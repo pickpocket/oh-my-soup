@@ -1,5 +1,5 @@
 //! `hashline` mode: `[path#TAG]` sections of line-anchored ops.
-//! Port of the `@oh-my-pi/hashline` engine package plus the coding-agent
+//! Port of the `@oh-my-soup/hashline` engine package plus the coding-agent
 //! runner (`edit/hashline/*`).
 
 pub mod apply;

@@ -1,7 +1,7 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { hasFsCode, isEnoent, isEnotdir } from "@oh-my-pi/pi-utils";
-import { isMarkdownPath } from "@oh-my-pi/pi-tui/lang-from-path";
+import { hasFsCode, isEnoent, isEnotdir } from "@oh-my-soup/pi-utils";
+import { isMarkdownPath } from "@oh-my-soup/pi-tui/lang-from-path";
 import type { InternalResource } from "./types";
 
 /** Resource content type inferred from a file extension: markdown, JSON, or plain text. */

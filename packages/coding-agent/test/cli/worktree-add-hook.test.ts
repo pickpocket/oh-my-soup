@@ -12,7 +12,7 @@ describe.skipIf(process.platform === "win32")("worktree add checkout hooks", () 
 	let hooks: string;
 
 	beforeEach(async () => {
-		root = await fs.mkdtemp(path.join(os.tmpdir(), "omp-wt-hook-"));
+		root = await fs.mkdtemp(path.join(os.tmpdir(), "oms-wt-hook-"));
 		repo = path.join(root, "repo");
 		await $`git init -q ${repo}`.quiet();
 		await $`git -C ${repo} -c user.name=Probe -c user.email=probe@example.invalid -c commit.gpgsign=false commit --allow-empty -qm probe`.quiet();

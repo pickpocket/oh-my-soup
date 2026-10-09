@@ -155,7 +155,7 @@ impl X11 {
 							let name = String::from_utf8_lossy(&device.name);
 							device.type_ == DeviceType::SLAVE_KEYBOARD
 								&& !name.contains("XTEST")
-								&& !name.starts_with("OMP MPX ")
+								&& !name.starts_with("OMS MPX ")
 						}) {
 							emergency.cancel();
 						}

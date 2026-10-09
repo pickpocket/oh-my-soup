@@ -1,5 +1,5 @@
 import { heapStats } from "bun:jsc";
-import { SessionManager } from "@oh-my-pi/pi-coding-agent/session/session-manager";
+import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
 
 const manager = SessionManager.inMemory();
 

@@ -4,7 +4,7 @@ import * as path from "node:path";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { createGunzip, createGzip } from "node:zlib";
-import { withStatsSyncLock } from "@oh-my-pi/omp-stats/aggregator";
+import { withStatsSyncLock } from "@oh-my-soup/oms-stats/aggregator";
 import {
 	formatBytes,
 	getAgentDir,
@@ -21,7 +21,7 @@ import {
 	normalizePathForComparison,
 	readLines,
 	type FileLockHandle,
-} from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-utils";
 import { Settings } from "../config/settings";
 import type { Setting } from "../config/registry";
 
@@ -759,7 +759,7 @@ async function runStaleGc(options: ResolvedGcOptions): Promise<StaleGcResult> {
  * Take the ownership lease of the session in `sessionFile`, or null while a
  * running process holds it (or the lease cannot be probed: an unknown owner is
  * treated as live). The lease is keyed by the header's session id. Undefined
- * when the file has no session header: omp writes the header with the first
+ * when the file has no session header: oms writes the header with the first
  * bytes of a session, so no running writer owns such a file (and candidates
  * are past the write grace, so none is mid-write).
  */

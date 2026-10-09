@@ -1,10 +1,10 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { clearCustomApis, registerCustomApi } from "@oh-my-pi/pi-ai/api-registry";
-import { stream, streamSimple } from "@oh-my-pi/pi-ai/stream";
-import type { Api, Context, Model, SimpleStreamOptions } from "@oh-my-pi/pi-ai/types";
-import { AssistantMessageEventStream } from "@oh-my-pi/pi-ai/utils/event-stream";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
-import { type GeneratedProvider, getBundledModel } from "@oh-my-pi/pi-catalog/models";
+import { clearCustomApis, registerCustomApi } from "@oh-my-soup/pi-ai/api-registry";
+import { stream, streamSimple } from "@oh-my-soup/pi-ai/stream";
+import type { Api, Context, Model, SimpleStreamOptions } from "@oh-my-soup/pi-ai/types";
+import { AssistantMessageEventStream } from "@oh-my-soup/pi-ai/utils/event-stream";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
+import { type GeneratedProvider, getBundledModel } from "@oh-my-soup/pi-catalog/models";
 
 // Whether a model accepts `temperature`/`top_p` is a property of the model
 // lineage, not of the provider serving it: GPT-5+/GPT-6 and adaptive Claude

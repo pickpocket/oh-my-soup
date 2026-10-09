@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import type { Model } from "@oh-my-pi/pi-catalog/types";
+import type { Model } from "@oh-my-soup/pi-catalog/types";
 import { generateOpenAIImage } from "../src/images/openai-images";
 import { resolveOpenAIRequestSetup } from "../src/providers/openai-shared";
 import type { FetchImpl } from "../src/types";

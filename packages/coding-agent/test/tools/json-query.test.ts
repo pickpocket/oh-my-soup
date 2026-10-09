@@ -41,7 +41,7 @@ describe("JSON query in read tool", () => {
 	let readTool: ReadTool;
 
 	beforeAll(async () => {
-		tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-json-test-"));
+		tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-json-test-"));
 		jsonFile = path.join(tempDir, "data.json");
 		jsonlFile = path.join(tempDir, "events.jsonl");
 		numbersFile = path.join(tempDir, "numbers.json");

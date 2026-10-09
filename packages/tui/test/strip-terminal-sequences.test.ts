@@ -6,7 +6,7 @@
  * OSC and APC with BEL or ST terminators.
  */
 import { describe, expect, it } from "bun:test";
-import { stripTerminalSequences } from "@oh-my-pi/pi-tui/utils";
+import { stripTerminalSequences } from "@oh-my-soup/pi-tui/utils";
 
 const ESC = "\x1b";
 const BEL = "\x07";

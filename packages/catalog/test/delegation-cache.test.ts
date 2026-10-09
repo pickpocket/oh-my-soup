@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, spyOn, vi } from "bun:test";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
-import { resolveDelegationBias } from "@oh-my-pi/pi-catalog/compat/delegation";
-import * as cascade from "@oh-my-pi/pi-catalog/compat/cascade";
-import type { Model, ModelSpec } from "@oh-my-pi/pi-catalog/types";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
+import { resolveDelegationBias } from "@oh-my-soup/pi-catalog/compat/delegation";
+import * as cascade from "@oh-my-soup/pi-catalog/compat/cascade";
+import type { Model, ModelSpec } from "@oh-my-soup/pi-catalog/types";
 
 function openAiModel(id: string): Model<"openai-responses"> {
 	return buildModel({

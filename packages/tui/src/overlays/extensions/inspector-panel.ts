@@ -6,7 +6,7 @@
  * kind-specific surface → contents → boring config.
  */
 import * as os from "node:os";
-import type { TspSpan, TspText } from "@oh-my-pi/pi-wire";
+import type { TspSpan, TspText } from "@oh-my-soup/pi-wire";
 import type { Component } from "../../tui";
 import { code, col, compact, keyed, kv, node, span, stableKey, text } from "../../native/describe";
 import type { NativeChild, NativeNode } from "../../native/node";
@@ -182,7 +182,7 @@ export class InspectorPanel implements Component {
 			],
 		]);
 		const out: NativeNode[] = compact<NativeNode>([
-			node("text", { text: name, role: "omp.picker.title" }, undefined, "title"),
+			node("text", { text: name, role: "oms.picker.title" }, undefined, "title"),
 			title && title !== name ? node("text", { spans: [span(title, "muted")] }, undefined, "subtitle") : undefined,
 			facts && keyed(facts, "facts"),
 			this.#nativeShortText(view.description, "description"),

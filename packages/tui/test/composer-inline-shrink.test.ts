@@ -1,9 +1,9 @@
 import { beforeAll, describe, expect, it } from "bun:test";
-import { COMPOSER_DEFAULTS, Composer } from "@oh-my-pi/pi-tui/prompt/composer";
-import { TranscriptContainer } from "@oh-my-pi/pi-tui/chrome/transcript-container";
-import { initTheme } from "@oh-my-pi/pi-tui/theme";
-import { type Component, Container, Text } from "@oh-my-pi/pi-tui";
-import { AskDialogComponent } from "@oh-my-pi/pi-tui/overlays/ask-dialog";
+import { COMPOSER_DEFAULTS, Composer } from "@oh-my-soup/pi-tui/prompt/composer";
+import { TranscriptContainer } from "@oh-my-soup/pi-tui/chrome/transcript-container";
+import { initTheme } from "@oh-my-soup/pi-tui/theme";
+import { type Component, Container, Text } from "@oh-my-soup/pi-tui";
+import { AskDialogComponent } from "@oh-my-soup/pi-tui/overlays/ask-dialog";
 import { VirtualRenderScheduler } from "./virtual-render-scheduler";
 import { VirtualTerminal } from "./virtual-terminal";
 import { withoutTerminalMultiplexer } from "./terminal-multiplexer-environment";

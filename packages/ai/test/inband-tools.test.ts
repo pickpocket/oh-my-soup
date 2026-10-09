@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import type { AssistantMessage, Context, ToolCall, ToolResultMessage, Usage } from "@oh-my-pi/pi-ai";
-import { validateToolArguments } from "@oh-my-pi/pi-ai/utils/validation";
+import type { AssistantMessage, Context, ToolCall, ToolResultMessage, Usage } from "@oh-my-soup/pi-ai";
+import { validateToolArguments } from "@oh-my-soup/pi-ai/utils/validation";
 import {
 	createInbandScanner,
 	type Dialect,
@@ -9,7 +9,7 @@ import {
 	getDialectDefinition,
 	type InbandScanEvent,
 	parseInbandToolMessage,
-} from "@oh-my-pi/pi-ai/dialect";
+} from "@oh-my-soup/pi-ai/dialect";
 
 describe("final in-band JSON arguments", () => {
 	const raw = '{"path":"repaired.txt","content":"hello';

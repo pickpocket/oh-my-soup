@@ -1,14 +1,14 @@
 import { afterAll, describe, expect, it } from "bun:test";
-import type { ImageContent, Message } from "@oh-my-pi/pi-ai";
-import { getBundledModels } from "@oh-my-pi/pi-catalog/models";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import type { EvalPreludeDefinition } from "@oh-my-pi/pi-coding-agent/eval/preludes";
-import { executeJs } from "@oh-my-pi/pi-coding-agent/eval/js/executor";
-import { disposeAllVmContexts } from "@oh-my-pi/pi-coding-agent/eval/js/context-manager";
-import { disposeAllKernelSessions, executePython } from "@oh-my-pi/pi-coding-agent/eval/py/executor";
-import type { ToolSession } from "@oh-my-pi/pi-coding-agent/tools";
-import { EvalTool } from "@oh-my-pi/pi-coding-agent/tools/eval";
-import { normalizeModelContextMessages } from "@oh-my-pi/pi-coding-agent/utils/image-loading";
+import type { ImageContent, Message } from "@oh-my-soup/pi-ai";
+import { getBundledModels } from "@oh-my-soup/pi-catalog/models";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import type { EvalPreludeDefinition } from "@oh-my-soup/pi-coding-agent/eval/preludes";
+import { executeJs } from "@oh-my-soup/pi-coding-agent/eval/js/executor";
+import { disposeAllVmContexts } from "@oh-my-soup/pi-coding-agent/eval/js/context-manager";
+import { disposeAllKernelSessions, executePython } from "@oh-my-soup/pi-coding-agent/eval/py/executor";
+import type { ToolSession } from "@oh-my-soup/pi-coding-agent/tools";
+import { EvalTool } from "@oh-my-soup/pi-coding-agent/tools/eval";
+import { normalizeModelContextMessages } from "@oh-my-soup/pi-coding-agent/utils/image-loading";
 
 const IMAGE_DATA = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]).toString("base64");
 
@@ -23,14 +23,14 @@ function definition(
 		javascript: `{
 			globalThis.fixture = {
 				version: ${JSON.stringify(version)},
-				invoke: parameters => __omp_prelude__("fixture", parameters),
+				invoke: parameters => __oms_prelude__("fixture", parameters),
 			};
 		}`,
 		python: `class _FixturePrelude:
     version = ${JSON.stringify(version)}
 
     async def invoke(self, **parameters):
-        return await _omp_prelude("fixture", parameters)
+        return await _oms_prelude("fixture", parameters)
 
 fixture = _FixturePrelude()
 del _FixturePrelude`,
@@ -170,7 +170,7 @@ describe("eval prelude runtime", () => {
 		expect(captured.output).toContain('Eval prelude "fixture" is not enabled');
 		expect(calls).toHaveLength(2);
 
-		const missing = await executeJs("await __omp_prelude__('missing', {})", options);
+		const missing = await executeJs("await __oms_prelude__('missing', {})", options);
 		expect(missing.exitCode).toBe(1);
 		expect(missing.output).toContain('Eval prelude "missing" is not enabled');
 	});
@@ -214,7 +214,7 @@ describe("eval prelude runtime", () => {
 		expect(captured.output).toContain('Eval prelude "fixture" is not enabled');
 		expect(calls).toHaveLength(2);
 
-		const missing = await executePython("await _omp_prelude('missing', {})", options);
+		const missing = await executePython("await _oms_prelude('missing', {})", options);
 		expect(missing.exitCode).toBe(1);
 		expect(missing.output).toContain('Eval prelude "missing" is not enabled');
 	});

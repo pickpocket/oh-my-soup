@@ -1,14 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import { stripVTControlCharacters } from "node:util";
-import { closeModelCache } from "@oh-my-pi/pi-catalog/model-cache";
-import { resetSettingsForTest, Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { __resetDirsFromEnvForTests, setAgentDir, TempDir } from "@oh-my-pi/pi-utils";
+import { closeModelCache } from "@oh-my-soup/pi-catalog/model-cache";
+import { resetSettingsForTest, Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { __resetDirsFromEnvForTests, setAgentDir, TempDir } from "@oh-my-soup/pi-utils";
 import { runSearchCommand } from "../../../src/cli/web-search-cli";
 
-import { cfgRetryFallbackChains } from "@oh-my-pi/pi-coding-agent/session/settings";
+import { cfgRetryFallbackChains } from "@oh-my-soup/pi-coding-agent/session/settings";
 
 const originalAgentDir = process.env.PI_CODING_AGENT_DIR;
-const originalOmpProfile = process.env.OMP_PROFILE;
+const originalOmsProfile = process.env.OMS_PROFILE;
 const originalPiProfile = process.env.PI_PROFILE;
 
 let tempAgentDir: TempDir | undefined;
@@ -51,7 +51,7 @@ beforeEach(async () => {
 	originalExitCode = process.exitCode;
 	process.exitCode = undefined;
 	resetSettingsForTest();
-	tempAgentDir = TempDir.createSync("@omp-search-cli-");
+	tempAgentDir = TempDir.createSync("@oms-search-cli-");
 	setAgentDir(tempAgentDir.path());
 	const settings = await Settings.init({ inMemory: true, cwd: tempAgentDir.path() });
 	settings.setModelRole("web", "web/startpage");
@@ -63,7 +63,7 @@ afterEach(async () => {
 	resetSettingsForTest();
 	process.exitCode = originalExitCode;
 	restoreEnv("PI_CODING_AGENT_DIR", originalAgentDir);
-	restoreEnv("OMP_PROFILE", originalOmpProfile);
+	restoreEnv("OMS_PROFILE", originalOmsProfile);
 	restoreEnv("PI_PROFILE", originalPiProfile);
 	__resetDirsFromEnvForTests();
 	// runSearchCommand opens <agentDir>/models.db; Windows cannot delete an open database.

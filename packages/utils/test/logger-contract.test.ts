@@ -29,7 +29,7 @@ async function runScenario(
 	scenario: string,
 	options: { logLevel?: string; probe?: string; exitCode?: number } = {},
 ): Promise<ScenarioResult> {
-	const root = await fs.mkdtemp(path.join(os.tmpdir(), "omp-logger-contract-"));
+	const root = await fs.mkdtemp(path.join(os.tmpdir(), "oms-logger-contract-"));
 	roots.push(root);
 	const primaryDir = path.join(root, "primary");
 	const secondaryDir = path.join(root, "secondary");
@@ -55,8 +55,8 @@ async function runScenario(
 				// os.homedir() on Windows reads USERPROFILE, not HOME: without
 				// this the default-file scenario logs into the real profile.
 				USERPROFILE: primaryDir,
-				PI_CONFIG_DIR: ".omp",
-				OMP_PROFILE: "",
+				PI_CONFIG_DIR: ".oms",
+				OMS_PROFILE: "",
 				PI_PROFILE: "",
 				XDG_DATA_HOME: "",
 				XDG_STATE_HOME: "",
@@ -64,8 +64,8 @@ async function runScenario(
 				// Empty XDG_CACHE_HOME makes Bun's transpiler cache path relative,
 				// spewing bun/@t@/*.pile into the repo root (the child's cwd) — disable it.
 				BUN_RUNTIME_TRANSPILER_CACHE_PATH: "0",
-				OMP_LOGGER_TEST_NOW: fixedNow,
-				OMP_LOG_LEVEL: options.logLevel ?? "",
+				OMS_LOGGER_TEST_NOW: fixedNow,
+				OMS_LOG_LEVEL: options.logLevel ?? "",
 				TZ: "Etc/GMT+5",
 			},
 			stdout: Bun.file(stdoutPath),
@@ -80,7 +80,7 @@ async function runScenario(
 
 async function logFileNames(directory: string): Promise<string[]> {
 	return (await fs.readdir(directory))
-		.filter(name => /^omp\.\d{4}-\d{2}-\d{2}\.\d+\.log(?:\.\d+)?$/.test(name))
+		.filter(name => /^oms\.\d{4}-\d{2}-\d{2}\.\d+\.log(?:\.\d+)?$/.test(name))
 		.sort();
 }
 
@@ -121,7 +121,7 @@ describe("central logger byte contract", () => {
 		expect(result.stdout).toBe("");
 		expect(result.stderr).toBe("");
 		const log = await readSingleLog(result.primaryDir);
-		expect(log.name).toBe(`omp.2026-01-01.${result.pid}.log`);
+		expect(log.name).toBe(`oms.2026-01-01.${result.pid}.log`);
 		const expected = [
 			expectedLine(result.pid, "error", "level-error", { ordinal: 1 }),
 			expectedLine(result.pid, "warn", "level-warn", { ordinal: 2 }),
@@ -208,7 +208,7 @@ describe("central logger file level and batching", () => {
 		);
 	});
 
-	test("OMP_LOG_LEVEL=warn gates info and debug while warn and error stay on disk", async () => {
+	test("OMS_LOG_LEVEL=warn gates info and debug while warn and error stay on disk", async () => {
 		const result = await runScenario("matrix", { logLevel: "WARN" });
 		expect((await readLogEntries(result.primaryDir)).map(entry => entry.message)).toEqual([
 			"level-error",
@@ -242,7 +242,7 @@ describe("central logger transport lifecycle", () => {
 		const result = await runScenario("default-file");
 		expect(result.stdout).toBe("");
 		expect(result.stderr).toBe("");
-		const defaultLogsDir = path.join(result.primaryDir, ".omp", "logs");
+		const defaultLogsDir = path.join(result.primaryDir, ".oms", "logs");
 		const log = await readSingleLog(defaultLogsDir);
 		expect(log.text).toBe(expectedLine(result.pid, "info", "mode-default", { mode: "default" }));
 	});
@@ -345,7 +345,7 @@ describe("DailyRotateFile option and retention contract", () => {
 		const result = await runScenario("date-retention");
 		expect(result.stdout).toBe("");
 		expect(result.stderr).toBe("");
-		const expectedNames = [2, 3, 4, 5, 6].map(day => `omp.2026-01-0${day}.${result.pid}.log`);
+		const expectedNames = [2, 3, 4, 5, 6].map(day => `oms.2026-01-0${day}.${result.pid}.log`);
 		expect(await logFileNames(result.primaryDir)).toEqual(expectedNames);
 		for (const [offset, name] of expectedNames.entries()) {
 			const day = offset + 2;
@@ -361,7 +361,7 @@ describe("DailyRotateFile option and retention contract", () => {
 		const result = await runScenario("size-rotation");
 		expect(result.stdout).toBe("");
 		expect(result.stderr).toBe("");
-		const baseName = `omp.2026-01-01.${result.pid}.log`;
+		const baseName = `oms.2026-01-01.${result.pid}.log`;
 		const rotatedName = `${baseName}.1`;
 		expect(await logFileNames(result.primaryDir)).toEqual([baseName, rotatedName]);
 		const basePath = path.join(result.primaryDir, baseName);

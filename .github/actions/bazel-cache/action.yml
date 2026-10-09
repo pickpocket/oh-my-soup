@@ -1,7 +1,7 @@
 name: "Compose bazel cache config"
 description: >
    Emits a bazelrc fragment wiring the cluster remote cache. Every Bazel job
-   runs on omp-kata, where the pod env carries the bazel-remote credentials;
+   runs on oms-kata, where the pod env carries the bazel-remote credentials;
    elsewhere (no credentials) the fragment carries only --config=ci and the
    build runs uncached.
 
@@ -45,7 +45,7 @@ runs:
                echo "startup --output_user_root=$RUNNER_TEMP/bazel-root"
                echo "common --config=ci"
                echo "common --repository_cache=/opt/bazel-repo-cache"
-               echo "common --repo_env=OMP_XWIN_CACHE_DIR=/opt/bazel-repo-cache/xwin"
+               echo "common --repo_env=OMS_XWIN_CACHE_DIR=/opt/bazel-repo-cache/xwin"
                echo "common --config=cache-rw"
                echo "common --remote_cache=grpcs://bazel-remote.bazel-cache.svc.cluster.local:9092"
                echo "common --tls_certificate=infra/bazel-remote/ca.crt"

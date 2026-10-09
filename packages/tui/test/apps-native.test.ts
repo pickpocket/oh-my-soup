@@ -1,5 +1,5 @@
 import { describe, expect, it, spyOn } from "bun:test";
-import { TUI } from "@oh-my-pi/pi-tui";
+import { TUI } from "@oh-my-soup/pi-tui";
 import { CleanseBoardModel } from "../src/apps/cleanse-board";
 import { showGitOverlay } from "../src/apps/git/git-tui";
 import type { ChangedFile, GitTuiModel } from "../src/apps/git/state";
@@ -8,7 +8,7 @@ import { TspHarness } from "./native/tsp-harness";
 import type { PsScope, PsScopeReport } from "../src/apps/ps-data";
 import { type PsTopHost, PsTopComponent } from "../src/apps/ps-top";
 import type { DescribeContext, NativeChild, NativeNode } from "../src/native/node";
-import type { TspKind } from "@oh-my-pi/pi-wire";
+import type { TspKind } from "@oh-my-soup/pi-wire";
 import type { DaemonSnapshot, DaemonSpec } from "../src/tools/daemon";
 import { VirtualTerminal } from "./virtual-terminal";
 
@@ -20,7 +20,7 @@ function nodes(children: readonly NativeChild[] | undefined): NativeNode[] {
 	return out;
 }
 
-const scope: PsScope = { kind: "project", runtimeDir: "/tmp/omp/run", projectDir: "/work/app", brokerPid: 42 };
+const scope: PsScope = { kind: "project", runtimeDir: "/tmp/oms/run", projectDir: "/work/app", brokerPid: 42 };
 
 function snapshot(name: string): DaemonSnapshot {
 	return {
@@ -90,7 +90,7 @@ describe("ps-top native", () => {
 			component.handleNativeEvent({ type: "activate", key: "", item: web.key ?? "" });
 			await rendered.promise;
 			expect(described).toEqual(["web"]);
-			expect(nodes([component.describe()]).some(n => n.p?.role === "omp.ps.info")).toBe(true);
+			expect(nodes([component.describe()]).some(n => n.p?.role === "oms.ps.info")).toBe(true);
 		} finally {
 			component.dispose();
 		}
@@ -144,7 +144,7 @@ describe("git native", () => {
 			await settle();
 			const sf = h.terminal.surface ?? "";
 			const diff = () => h.find(n => n.k === "diff");
-			const path = () => h.find(n => (n.p as { role?: string } | undefined)?.role === "omp.app.git.path");
+			const path = () => h.find(n => (n.p as { role?: string } | undefined)?.role === "oms.app.git.path");
 			expect(diff()?.p).toMatchObject({ mode: "split", path: "src/a.ts" });
 
 			const views = h.find(n => n.k === "tabs" && (n.p as { active?: string }).active === "split");
@@ -265,7 +265,7 @@ describe("cleanse board native", () => {
 		expect(next).not.toBe(first);
 		const progress = nodes(next ? [next] : []).find(n => n.k === "progress");
 		expect(progress?.p).toMatchObject({ value: 0.5 });
-		expect(model.lastSettled?.p).toMatchObject({ role: "omp.cleanse.outcome" });
+		expect(model.lastSettled?.p).toMatchObject({ role: "oms.cleanse.outcome" });
 	});
 
 	it("draws running lanes as agent rows under a meter when the terminal has those kinds", () => {

@@ -10,11 +10,11 @@
  * `--config` overlay, a project config in global mode, or the global config in
  * project mode) are reported back instead of being silently kept.
  */
-import type { Model } from "@oh-my-pi/pi-ai";
-import { ThinkingLevel } from "@oh-my-pi/pi-agent-core";
-import { THINKING_EFFORTS } from "@oh-my-pi/pi-catalog/effort";
-import { AUTO_THINKING, type ConfiguredThinkingLevel, parseConfiguredThinkingLevel } from "@oh-my-pi/pi-tui/thinking";
-import { isRecord } from "@oh-my-pi/pi-utils";
+import type { Model } from "@oh-my-soup/pi-ai";
+import { ThinkingLevel } from "@oh-my-soup/pi-agent-core";
+import { THINKING_EFFORTS } from "@oh-my-soup/pi-catalog/effort";
+import { AUTO_THINKING, type ConfiguredThinkingLevel, parseConfiguredThinkingLevel } from "@oh-my-soup/pi-tui/thinking";
+import { isRecord } from "@oh-my-soup/pi-utils";
 import type { AgentSession } from "../session/agent-session";
 import { cfgDefaultThinkingLevel } from "../session/settings";
 import { pickDefaultAvailableModel, resolveModelRoleValue } from "./model-resolver";

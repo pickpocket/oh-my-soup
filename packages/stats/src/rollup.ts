@@ -8,7 +8,7 @@
  * thousand rows.
  *
  * Freshness is trigger-driven: any INSERT/UPDATE/DELETE on the raw tables — from
- * this process, a sync worker, or another omp process sharing the database —
+ * this process, a sync worker, or another oms process sharing the database —
  * records the touched hour in `rollup_dirty`. {@link refreshRollups} recomputes
  * dirty hours newest-first in short immediate transactions.
  *
@@ -183,7 +183,7 @@ export function ensureRollupSchema(database: Database): void {
 		(database.query("SELECT value FROM meta WHERE key = ?").get(key) as { value: string } | undefined)?.value;
 	const fresh = readMeta(ROLLUP_VERSION_KEY) !== ROLLUP_VERSION;
 	// Steady state touches no schema: DDL on every open would contend with
-	// other omp processes writing the same database.
+	// other oms processes writing the same database.
 	if (!fresh && readMeta(TRIGGER_VERSION_KEY) === TRIGGER_VERSION) return;
 	database
 		.transaction(() => {

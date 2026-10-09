@@ -13,7 +13,7 @@
  *   nothing is coming and the open fails at once instead of burning the
  *   whole window every call.
  */
-import { VERSION } from "@oh-my-pi/pi-utils/dirs";
+import { VERSION } from "@oh-my-soup/pi-utils/dirs";
 import { throwIfAborted } from "../../tool-errors";
 import { probeCdpResponse } from "../attach";
 import type { RelayUnavailableInfo } from "./server";
@@ -42,7 +42,7 @@ export type RelayWaitOutcome =
 	/** The relay extension is older than the running server. */
 	| "outdated-extension";
 
-/** The OMP version a parsed `/json/version` body (ready or waiting) reports; empty when it reports none. */
+/** The OMS version a parsed `/json/version` body (ready or waiting) reports; empty when it reports none. */
 export function relayVersionOf(parsed: object): string {
 	return "ompRelayVersion" in parsed && typeof parsed.ompRelayVersion === "string" ? parsed.ompRelayVersion : "";
 }
@@ -89,7 +89,7 @@ function readyOutcome(body: string): RelayWaitOutcome {
 			!("ompExtensionDiscardedTabsProtocol" in parsed) ||
 			parsed.ompExtensionDiscardedTabsProtocol !== String(DISCARDED_TABS_PROTOCOL_VERSION)
 		) {
-			// A relay from another OMP version is the likelier culprit than the extension.
+			// A relay from another OMS version is the likelier culprit than the extension.
 			if (relayVersionOf(parsed) !== VERSION) return "outdated-relay";
 			return "outdated-extension";
 		}

@@ -7,7 +7,7 @@ import type {
 	InstalledPluginsRegistry,
 	MarketplaceRegistryEntry,
 	MarketplacesRegistry,
-} from "@oh-my-pi/pi-coding-agent/extensibility/plugins/marketplace";
+} from "@oh-my-soup/pi-coding-agent/extensibility/plugins/marketplace";
 import {
 	addInstalledPlugin,
 	addMarketplaceEntry,
@@ -22,8 +22,8 @@ import {
 	removeMarketplaceEntry,
 	writeInstalledPluginsRegistry,
 	writeMarketplacesRegistry,
-} from "@oh-my-pi/pi-coding-agent/extensibility/plugins/marketplace";
-import { removeSyncWithRetries } from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-coding-agent/extensibility/plugins/marketplace";
+import { removeSyncWithRetries } from "@oh-my-soup/pi-utils";
 
 // ── ID helpers ───────────────────────────────────────────────────────
 
@@ -177,7 +177,7 @@ describe("registry file I/O", () => {
 	let installedPath: string;
 
 	beforeEach(() => {
-		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "omp-mkt-test-"));
+		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "oms-mkt-test-"));
 		marketplacesPath = path.join(tmpDir, "marketplaces.json");
 		installedPath = path.join(tmpDir, "installed_plugins.json");
 	});

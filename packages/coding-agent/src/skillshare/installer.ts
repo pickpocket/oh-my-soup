@@ -3,15 +3,15 @@
  * into the shared store, and maintain `skills.json` / `skills.lock.json`.
  *
  * The `*SkillPackages` / `format*` / `listInstalledSkills` functions return
- * data and report through {@link SkillInstallHooks}, so both the `omp skill`
+ * data and report through {@link SkillInstallHooks}, so both the `oms skill`
  * CLI (the exit-code wrappers at the bottom) and the TUI `/skills` command
  * share one implementation.
  */
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import * as readline from "node:readline/promises";
-import { formatAge, formatNumber } from "@oh-my-pi/pi-utils";
-import chalk from "@oh-my-pi/pi-utils/chalk";
+import { formatAge, formatNumber } from "@oh-my-soup/pi-utils";
+import chalk from "@oh-my-soup/pi-utils/chalk";
 import {
 	SKILLS_ROUTES,
 	type SkillFile,
@@ -20,7 +20,7 @@ import {
 	type SkillSearchSort,
 	type SkillVersionManifest,
 	type SkillVersionSummary,
-} from "@oh-my-pi/pi-wire/skillshare";
+} from "@oh-my-soup/pi-wire/skillshare";
 import { parseSkillSpec, SkillshareClient, SkillshareError } from "./client";
 import {
 	formatSkillId,
@@ -150,7 +150,7 @@ export async function storeSkillVersion(
 /**
  * Remove store dirs this operation stopped referencing, unless the global or
  * current project lock still uses them. Other projects' dirs are restored on
- * their next `omp skill update` / `omp skill install`.
+ * their next `oms skill update` / `oms skill install`.
  */
 async function pruneReleased(
 	released: ReadonlyArray<{ id: string; version: string }>,

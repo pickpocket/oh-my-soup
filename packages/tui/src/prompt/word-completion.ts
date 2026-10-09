@@ -1,4 +1,4 @@
-import { logger } from "@oh-my-pi/pi-utils";
+import { logger } from "@oh-my-soup/pi-utils";
 import type { EditorTextAssistProvider } from "../components/editor";
 import { maskNonProse } from "./markdown-prose";
 import { isProseWord, lineContext, ProseSource } from "./prose-gate";

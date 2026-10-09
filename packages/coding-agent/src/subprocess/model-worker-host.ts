@@ -1,4 +1,4 @@
-import { logger } from "@oh-my-pi/pi-utils";
+import { logger } from "@oh-my-soup/pi-utils";
 import { ModelDownloadActivity, type ModelLoadProgressEvent } from "../downloads/model-downloads";
 import { tinyModelEnvKey } from "../tiny/title-client";
 import { safeSend } from "../utils/ipc";
@@ -169,7 +169,7 @@ export class ModelWorkerHost<
 
 	/**
 	 * Workers start unreferenced so an idle warm model never blocks exit. A
-	 * short-lived command (`omp say`, STT setup/download) awaiting IPC would
+	 * short-lived command (`oms say`, STT setup/download) awaiting IPC would
 	 * otherwise let Bun drain the event loop and exit before the reply arrives,
 	 * so the worker is `ref`'d exactly while a request or stream is active.
 	 */

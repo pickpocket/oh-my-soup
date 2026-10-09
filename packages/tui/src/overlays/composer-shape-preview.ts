@@ -44,7 +44,7 @@ export interface ComposerShapePreviewOptions {
 	status?: ComposerPreviewStatusSource;
 }
 /** Stand-in session title shown while the previewed session is unnamed. */
-const PREVIEW_TITLE = "omp";
+const PREVIEW_TITLE = "oms";
 
 export function renderComposerShapePreview(
 	shape: ComposerShape,
@@ -151,7 +151,7 @@ export class ComposerShapePreview implements Component {
 				node("editor", { placeholder: "Ask anything, edit files, run tools", readonly: true, maxLines: 1 }),
 				text(caption, { wrap: "word" }),
 			],
-			{ role: "omp.preview.composer-shape", gap: "xs" },
+			{ role: "oms.preview.composer-shape", gap: "xs" },
 		);
 		this.#native = { shape: this.#shape, node: described };
 		return described;

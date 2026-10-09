@@ -5,7 +5,7 @@
  *
  * Why explicit ESM exports matter (issue #892):
  *
- * Consumers import named symbols from `@oh-my-pi/pi-natives`. The native addon
+ * Consumers import named symbols from `@oh-my-soup/pi-natives`. The native addon
  * loader returns most values dynamically, while napi-rs `#[napi(string_enum)]`
  * emits `const enum` in the .d.ts — a TypeScript-only construct with no JS
  * runtime value. This script renders the ESM loader template and emits one

@@ -1,7 +1,7 @@
 {
-	"name": "omp collab",
-	"short_name": "omp collab",
-	"description": "Live guest client for omp collab sessions: streaming transcript, tool cards, subagent panel, and a composer that prompts the host agent — end-to-end encrypted.",
+	"name": "oms collab",
+	"short_name": "oms collab",
+	"description": "Live guest client for oms collab sessions: streaming transcript, tool cards, subagent panel, and a composer that prompts the host agent — end-to-end encrypted.",
 	"start_url": "/",
 	"scope": "/",
 	"display": "standalone",

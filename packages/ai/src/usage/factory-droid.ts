@@ -1,7 +1,7 @@
-import { quotaTierFor } from "@oh-my-pi/pi-catalog/compat/behavior";
-import type { FetchImpl } from "@oh-my-pi/pi-catalog/types";
-import { toNumber } from "@oh-my-pi/pi-catalog/utils";
-import { factoryDroidApiBaseUrl, factoryDroidClientHeaders } from "@oh-my-pi/pi-catalog/wire/factory-droid";
+import { quotaTierFor } from "@oh-my-soup/pi-catalog/compat/behavior";
+import type { FetchImpl } from "@oh-my-soup/pi-catalog/types";
+import { toNumber } from "@oh-my-soup/pi-catalog/utils";
+import { factoryDroidApiBaseUrl, factoryDroidClientHeaders } from "@oh-my-soup/pi-catalog/wire/factory-droid";
 import { ProviderHttpError } from "../error";
 import type {
 	CredentialRankingContext,

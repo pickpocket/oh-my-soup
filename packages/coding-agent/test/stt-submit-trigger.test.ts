@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
-import { getBundledModel } from "@oh-my-pi/pi-catalog/models";
+import { getBundledModel } from "@oh-my-soup/pi-catalog/models";
 import { Settings, settings } from "../src/config/settings";
 import * as asrClient from "../src/stt/asr-client";
 import * as downloader from "../src/stt/downloader";
@@ -7,7 +7,7 @@ import { STTController, type STTControllerDependencies } from "../src/stt/stt-co
 import { evaluateSubmitTrigger, type SttSubmitTrigger } from "../src/stt/submit-trigger";
 import { beginSettingsTest, restoreSettingsTestState, type SettingsTestState } from "./helpers/settings-test-state";
 
-import { cfgSttSubmitTrigger } from "@oh-my-pi/pi-coding-agent/stt/settings";
+import { cfgSttSubmitTrigger } from "@oh-my-soup/pi-coding-agent/stt/settings";
 
 const DICTATION_MODELS = [getBundledModel("local", "whisper-base")];
 const registry: STTControllerDependencies["registry"] = {

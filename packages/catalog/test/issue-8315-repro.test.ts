@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test";
 import { fetchOpenAICompatibleModels } from "../src/discovery/openai-compatible";
 import type { FetchImpl } from "../src/types";
 
-// Issue #8315: `omp` hung at startup in `resolveModelDiscoveryFallback`.
+// Issue #8315: `oms` hung at startup in `resolveModelDiscoveryFallback`.
 // Built-in OpenAI-compatible provider managers (openrouter, xAI, DeepSeek, …)
 // call `fetchOpenAICompatibleModels` with neither a `signal` nor a `timeoutMs`,
 // and the no-timeout branch issued the request with `signal: undefined` — so a

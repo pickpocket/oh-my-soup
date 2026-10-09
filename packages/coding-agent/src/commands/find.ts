@@ -1,8 +1,8 @@
 /**
- * Semantic search from the shell: `omp find "<query>" [path]`.
+ * Semantic search from the shell: `oms find "<query>" [path]`.
  */
 
-import { Args, Command, Flags } from "@oh-my-pi/pi-utils/cli";
+import { Args, Command, Flags } from "@oh-my-soup/pi-utils/cli";
 import { findHelp as commandHelp } from "../cli/command-help";
 import { runFindCommand } from "../cli/find-cli";
 
@@ -10,7 +10,7 @@ export default class Find extends Command {
 	static description = commandHelp.description;
 	static args = {
 		query: Args.string({ description: "What to find, in plain language", required: false }),
-		path: Args.string({ description: "Directory or omp:// docs scope to search", required: false }),
+		path: Args.string({ description: "Directory or oms:// docs scope to search", required: false }),
 	};
 
 	static flags = {

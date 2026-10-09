@@ -1,7 +1,7 @@
 import { Text } from "../components/text";
 import type { Theme } from "../theme/theme";
 import { replaceTabs, truncateToWidth, shortenPath } from "../render/render-utils";
-import type { TspTone } from "@oh-my-pi/pi-wire";
+import type { TspTone } from "@oh-my-soup/pi-wire";
 import { ansi, compact, kv, node, row, span, text } from "../native/describe";
 import type { NativeNode } from "../native/node";
 import { OwnerMemo } from "../native/memo";

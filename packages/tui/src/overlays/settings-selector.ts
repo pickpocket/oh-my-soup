@@ -1,5 +1,5 @@
-import type { ThinkingLevel } from "@oh-my-pi/pi-agent-core";
-import type { Effort } from "@oh-my-pi/pi-ai";
+import type { ThinkingLevel } from "@oh-my-soup/pi-agent-core";
+import type { Effort } from "@oh-my-soup/pi-ai";
 import {
 	type Component,
 	Container,
@@ -22,7 +22,7 @@ import {
 	truncateToWidth,
 	visibleWidth,
 } from "../index";
-import type { ShapeTarget } from "@oh-my-pi/snapcompact";
+import type { ShapeTarget } from "@oh-my-soup/snapcompact";
 import type {
 	ContextLineMode,
 	StatusLinePreset,
@@ -40,7 +40,7 @@ import {
 	type SettingsHost,
 	type SettingsDisplayEntry,
 } from "./settings-defs";
-import type { TspPrefsControl, TspPrefsProps } from "@oh-my-pi/pi-wire";
+import type { TspPrefsControl, TspPrefsProps } from "@oh-my-soup/pi-wire";
 import { prefsSectionId } from "../components/settings-list";
 import { getCurrentThemeName, getSelectListTheme, getSettingsListTheme, theme } from "../theme/theme";
 import { AUTO_THINKING, type ConfiguredThinkingLevel } from "../thinking";
@@ -68,9 +68,9 @@ import type { KeyName } from "../key-hint-format";
 /** The native page id of the plugins tab. */
 const PLUGINS_PAGE = "plugins";
 /** Role of the status-line preview child: the page places it after the status-line section. */
-const PREFS_STATUS_ROLE = "omp.prefs.preview.status";
+const PREFS_STATUS_ROLE = "oms.prefs.preview.status";
 /** Role of a sub-editor child without a native control: the page shows it in a card over itself. */
-const PREFS_EDITOR_ROLE = "omp.prefs.editor";
+const PREFS_EDITOR_ROLE = "oms.prefs.editor";
 /** Most choices a native popup menu lists; larger submenus open as a picker over the page. */
 const PREFS_MENU_MAX = 12;
 /** Text settings whose values are paths, ids or commands (drawn in mono). */
@@ -878,7 +878,7 @@ export class SettingsSelectorComponent implements Component {
 		}
 
 		const props: TspPrefsProps = {
-			title: "omp settings",
+			title: "oms settings",
 			pages,
 			page: searching ? this.#preSearchTabId : this.#currentTabId,
 			lead: searching ? undefined : (pluginPage?.lead ?? (tab ? TAB_LEADS[tab] : undefined)),
@@ -1149,7 +1149,7 @@ export class SettingsSelectorComponent implements Component {
 					count,
 					node: node(
 						"row",
-						{ gap: "xs", align: "center", role: "omp.settings.search" },
+						{ gap: "xs", align: "center", role: "oms.settings.search" },
 						[
 							text([span(theme.symbol("icon.search"), "accent")]),
 							col([this.#searchInput], { grow: 1 }),
@@ -1198,7 +1198,7 @@ export class SettingsSelectorComponent implements Component {
 		children.push(memo.hints[mode]);
 
 		if (memo.root && sameItems(memo.root.children, children)) return memo.root.node;
-		const root = overlayCard("omp.overlay.settings", "Settings", children);
+		const root = overlayCard("oms.overlay.settings", "Settings", children);
 		memo.root = { children, node: root };
 		return root;
 	}

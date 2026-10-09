@@ -106,7 +106,7 @@ export interface TernGeometry {
 }
 
 /**
- * Methods of `globalThis.__ompTernKit`, called by omp from the isolated world as
+ * Methods of `globalThis.__ompTernKit`, called by oms from the isolated world as
  * `kit[method](...args)`. Every argument and result is JSON; failures throw `Error`s with
  * agent-readable messages (a missing element: `No element matches <JSON selector>`).
  */
@@ -120,7 +120,7 @@ export interface TernKitApi {
 	/** Focus the first match without scrolling. */
 	focus(sel: TernSelector): void;
 	/**
-	 * Prepare a fill: text-like controls are focused with their content selected (`insert`: omp types
+	 * Prepare a fill: text-like controls are focused with their content selected (`insert`: oms types
 	 * the value); selects and date/time/color/range inputs are set directly (`done`).
 	 */
 	prepareFill(sel: TernSelector, value: string): { mode: "insert" } | { mode: "done" };
@@ -220,8 +220,8 @@ const EDIT_ACTIONS = new Set(["type", "fill"]);
 const SETTER_INPUT_TYPES = new Set(["date", "datetime-local", "month", "week", "time", "color", "range"]);
 const UNTYPABLE_INPUT_TYPES = new Set(["checkbox", "radio", "button", "submit", "reset", "image", "hidden", "file"]);
 const TRIVIAL_VALUE_INPUT_TYPES = new Set(["checkbox", "image", "radio"]);
-const HANDLE_ATTR = "data-omp-tern-handle";
-const OVERLAY_ATTR = "data-omp-tern-overlay";
+const HANDLE_ATTR = "data-oms-tern-handle";
+const OVERLAY_ATTR = "data-oms-tern-overlay";
 
 let registry = new Map();
 // Ref resolution is stateless (it scans _ariaRef expandos), so one instance serves every lookup.
@@ -1205,10 +1205,10 @@ const kit = {
 		return { snapshot, hrefs };
 	},
 	annotate: ids => {
-		const token = "omp-screenshot-" + randomToken();
+		const token = "oms-screenshot-" + randomToken();
 		const boxes = [];
 		const root = document.createElement("div");
-		root.setAttribute("data-omp-screenshot-annotations", token);
+		root.setAttribute("data-oms-screenshot-annotations", token);
 		root.setAttribute(OVERLAY_ATTR, token);
 		root.style.cssText = "position:fixed;left:0;top:0;z-index:2147483647;pointer-events:none";
 		for (const id of ids) {
@@ -1302,7 +1302,7 @@ const kit = {
 
 Object.defineProperty(globalThis, "__ompTernKit", { value: kit, configurable: true });
 
-// Child frames announce their index path so omp can address them by name.
+// Child frames announce their index path so oms can address them by name.
 if (window !== window.parent) {
 	const path = [];
 	try {

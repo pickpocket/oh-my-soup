@@ -2,8 +2,8 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { applyEditsThenRename } from "@oh-my-pi/pi-coding-agent/lsp/edits";
-import type { TextEdit } from "@oh-my-pi/pi-coding-agent/lsp/types";
+import { applyEditsThenRename } from "@oh-my-soup/pi-coding-agent/lsp/edits";
+import type { TextEdit } from "@oh-my-soup/pi-coding-agent/lsp/types";
 
 // Rewrite `./moved` → `./renamed` on line 0 of the reference file below.
 const importEdit: TextEdit[] = [

@@ -1,4 +1,4 @@
-import { hslToHex } from "@oh-my-pi/pi-utils/color";
+import { hslToHex } from "@oh-my-soup/pi-utils/color";
 
 /** Cached author photos supplied by the command host. */
 export interface AvatarSource {

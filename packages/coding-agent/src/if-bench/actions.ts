@@ -1,5 +1,5 @@
 /**
- * The character-array machine `omp if-bench` drives.
+ * The character-array machine `oms if-bench` drives.
  *
  * Every action is generated from its absolute index, so a run is fully
  * reproducible: turn N of a run with array length L always issues the same

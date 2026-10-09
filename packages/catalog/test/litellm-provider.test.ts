@@ -1,13 +1,13 @@
 import { afterEach, describe, expect, test, vi } from "bun:test";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
 import {
 	fetchLiteLLMRichModels,
 	litellmModelManagerOptions,
 	resolveLiteLLMApi,
-} from "@oh-my-pi/pi-catalog/provider-models/openai-compat";
-import type { Api, FetchImpl, ModelSpec } from "@oh-my-pi/pi-catalog/types";
-import * as logger from "@oh-my-pi/pi-utils/logger";
-import { sendsImageInputOnWire } from "@oh-my-pi/pi-ai/providers/vision-guard";
+} from "@oh-my-soup/pi-catalog/provider-models/openai-compat";
+import type { Api, FetchImpl, ModelSpec } from "@oh-my-soup/pi-catalog/types";
+import * as logger from "@oh-my-soup/pi-utils/logger";
+import { sendsImageInputOnWire } from "@oh-my-soup/pi-ai/providers/vision-guard";
 
 const ORIGINAL_LITELLM_BASE_URL = Bun.env.LITELLM_BASE_URL;
 const MODELS_DEV_URL = "https://catalog.stencil.so/models.json.zstd";

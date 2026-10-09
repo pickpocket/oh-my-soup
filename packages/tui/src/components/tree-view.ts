@@ -1,4 +1,4 @@
-import type { TspSpan, TspTreeNode } from "@oh-my-pi/pi-wire";
+import type { TspSpan, TspTreeNode } from "@oh-my-soup/pi-wire";
 import { styledSpans } from "../native/spans";
 import { node } from "../native/describe";
 import type { DescribeContext, NativeNode } from "../native/node";

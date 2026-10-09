@@ -25,7 +25,7 @@ export const frameDefs = {
 			"provider?": "string",
 			"model?": "string",
 			"httpStatus?": "number.integer",
-			retryable: doc("boolean", "Transient: resubmitting later may succeed (omp's own retries are exhausted)."),
+			retryable: doc("boolean", "Transient: resubmitting later may succeed (oms's own retries are exhausted)."),
 		},
 		'Failure detail of a `prompt_result` with `status: "error"`.',
 	),

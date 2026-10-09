@@ -8,7 +8,7 @@
  */
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { isEnoent, logger, postmortem } from "@oh-my-pi/pi-utils";
+import { isEnoent, logger, postmortem } from "@oh-my-soup/pi-utils";
 import { asStrict } from "../providers/aws-sigv4";
 import type { SnapshotResponse } from "./types";
 
@@ -52,7 +52,7 @@ export interface WriteAuthBrokerSnapshotCacheOptions {
 /**
  * Cheap structural guard for a decrypted cache payload. The bytes are already
  * AES-256-GCM authenticated, so this only rejects shape/version drift (a cache
- * written by a different omp build, or a buggy write) — not tampering. A
+ * written by a different oms build, or a buggy write) — not tampering. A
  * mismatch returns null so the caller refetches a fresh snapshot.
  */
 function isSnapshotResponseShape(v: unknown): v is SnapshotResponse {

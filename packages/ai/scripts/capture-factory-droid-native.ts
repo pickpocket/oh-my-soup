@@ -67,7 +67,7 @@ const server = Bun.serve({
 	async fetch(request) {
 		const url = new URL(request.url);
 		// The Responses WebSocket cannot upgrade through this proxy; refusing it
-		// sends the CLI down its HTTP path, the transport OMP uses.
+		// sends the CLI down its HTTP path, the transport OMS uses.
 		if (url.pathname.endsWith("/ws")) return new Response(null, { status: 400 });
 		const body = request.method === "GET" || request.method === "HEAD" ? undefined : await request.arrayBuffer();
 		if (body && url.pathname.startsWith("/api/llm/") && requests.length < 2) {

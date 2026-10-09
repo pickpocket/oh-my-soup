@@ -1,11 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import * as path from "node:path";
-import { runConfigCommand } from "@oh-my-pi/pi-coding-agent/cli/config-cli";
-import { resetSettingsForTest } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { AgentStorage } from "@oh-my-pi/pi-coding-agent/session/agent-storage";
-import { getConfigRootDir, setAgentDir, TempDir } from "@oh-my-pi/pi-utils";
-import { all, lookup } from "@oh-my-pi/pi-coding-agent/config/registry";
-import { getSettingDef } from "@oh-my-pi/pi-tui/overlays/settings-defs";
+import { runConfigCommand } from "@oh-my-soup/pi-coding-agent/cli/config-cli";
+import { resetSettingsForTest } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { AgentStorage } from "@oh-my-soup/pi-coding-agent/session/agent-storage";
+import { getConfigRootDir, setAgentDir, TempDir } from "@oh-my-soup/pi-utils";
+import { all, lookup } from "@oh-my-soup/pi-coding-agent/config/registry";
+import { getSettingDef } from "@oh-my-soup/pi-tui/overlays/settings-defs";
 import { createSettingsHost } from "../src/config/settings-ui";
 
 describe("credential settings", () => {
@@ -81,7 +81,7 @@ describe("config list output", () => {
 
 	beforeEach(() => {
 		resetSettingsForTest();
-		agentDir = TempDir.createSync("@omp-config-credentials-");
+		agentDir = TempDir.createSync("@oms-config-credentials-");
 		setAgentDir(agentDir.path());
 	});
 

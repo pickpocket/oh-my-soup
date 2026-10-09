@@ -29,7 +29,7 @@ use crate::desktop::{
 };
 
 const CAPTURE_TIMEOUT: Duration = Duration::from_secs(5);
-const HELPER: &[u8] = include_bytes!(env!("OMP_CAPTURE_DARWIN_HELPER"));
+const HELPER: &[u8] = include_bytes!(env!("OMS_CAPTURE_DARWIN_HELPER"));
 static MODERN_CAPTURE: LazyLock<bool> = LazyLock::new(|| {
 	NSProcessInfo::processInfo()
 		.operatingSystemVersion()
@@ -111,8 +111,8 @@ struct CaptureClient {
 impl CaptureClient {
 	fn start() -> CoreResult<Self> {
 		control::check()?;
-		let directory = HelperDirectory::create("omp-capture")?;
-		let executable = directory.write("omp-capture-helper", HELPER, 0o700)?;
+		let directory = HelperDirectory::create("oms-capture")?;
+		let executable = directory.write("oms-capture-helper", HELPER, 0o700)?;
 		let mut child = Command::new(executable)
 			.stdin(Stdio::piped())
 			.stdout(Stdio::piped())

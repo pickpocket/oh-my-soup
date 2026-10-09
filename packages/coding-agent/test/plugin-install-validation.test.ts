@@ -2,9 +2,9 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { PluginManager } from "@oh-my-pi/pi-coding-agent/extensibility/plugins/manager";
-import * as piUtils from "@oh-my-pi/pi-utils";
-import { removeWithRetries } from "@oh-my-pi/pi-utils";
+import { PluginManager } from "@oh-my-soup/pi-coding-agent/extensibility/plugins/manager";
+import * as piUtils from "@oh-my-soup/pi-utils";
+import { removeWithRetries } from "@oh-my-soup/pi-utils";
 import type { Subprocess } from "bun";
 
 function emptyStream(): ReadableStream<Uint8Array> {
@@ -51,7 +51,7 @@ async function writePluginPackage(pluginsNodeModules: string, name: string, fixt
 				name,
 				version: fixture.version,
 				...(fixture.peerDependencies ? { peerDependencies: fixture.peerDependencies } : {}),
-				omp: { extensions: ["./dist/extension.ts"] },
+				oms: { extensions: ["./dist/extension.ts"] },
 			},
 			null,
 			2,
@@ -68,7 +68,7 @@ describe("PluginManager.install load validation", () => {
 	let pluginsPkgJson: string;
 
 	beforeEach(async () => {
-		tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), "omp-plugin-validation-"));
+		tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), "oms-plugin-validation-"));
 		pluginsDir = path.join(tmpRoot, "plugins");
 		pluginsNodeModules = path.join(pluginsDir, "node_modules");
 		pluginsPkgJson = path.join(pluginsDir, "package.json");
@@ -77,7 +77,7 @@ describe("PluginManager.install load validation", () => {
 		vi.spyOn(piUtils, "getPluginsDir").mockReturnValue(pluginsDir);
 		vi.spyOn(piUtils, "getPluginsNodeModules").mockReturnValue(pluginsNodeModules);
 		vi.spyOn(piUtils, "getPluginsPackageJson").mockReturnValue(pluginsPkgJson);
-		vi.spyOn(piUtils, "getPluginsLockfile").mockReturnValue(path.join(tmpRoot, "omp-plugins.lock.json"));
+		vi.spyOn(piUtils, "getPluginsLockfile").mockReturnValue(path.join(tmpRoot, "oms-plugins.lock.json"));
 		vi.spyOn(piUtils, "getProjectDir").mockReturnValue(tmpRoot);
 		vi.spyOn(piUtils, "getProjectPluginOverridesPath").mockReturnValue(path.join(tmpRoot, "plugin-overrides.json"));
 	});
@@ -96,7 +96,7 @@ describe("PluginManager.install load validation", () => {
 					pluginsPkgJson,
 					JSON.stringify(
 						{
-							name: "omp-plugins",
+							name: "oms-plugins",
 							private: true,
 							dependencies: { "pi-figma-remote-auth": "npm:pi-figma-remote-auth" },
 						},
@@ -139,7 +139,7 @@ describe("PluginManager.install load validation", () => {
 				await Bun.write(
 					pluginsPkgJson,
 					JSON.stringify(
-						{ name: "omp-plugins", private: true, dependencies: { "welcome-plugin": "0.1.9" } },
+						{ name: "oms-plugins", private: true, dependencies: { "welcome-plugin": "0.1.9" } },
 						null,
 						2,
 					),
@@ -170,7 +170,7 @@ describe("PluginManager.install load validation", () => {
 			source: 'export default function(pi) { pi.registerCommand("scoped", { handler: async () => {} }); }\n',
 		});
 		const packageJson = JSON.stringify({
-			name: "omp-plugins",
+			name: "oms-plugins",
 			private: true,
 			dependencies: { [name]: "^1.0.3" },
 		});
@@ -216,7 +216,7 @@ describe("PluginManager.install load validation", () => {
 					pluginsPkgJson,
 					JSON.stringify(
 						{
-							name: "omp-plugins",
+							name: "oms-plugins",
 							private: true,
 							dependencies: { "factory-failure-plugin": "1.0.0" },
 						},
@@ -257,7 +257,7 @@ describe("PluginManager.install load validation", () => {
 				await Bun.write(
 					pluginsPkgJson,
 					JSON.stringify(
-						{ name: "omp-plugins", private: true, dependencies: { "broken-plugin": "1.0.0" } },
+						{ name: "oms-plugins", private: true, dependencies: { "broken-plugin": "1.0.0" } },
 						null,
 						2,
 					),
@@ -283,16 +283,16 @@ describe("PluginManager.install load validation", () => {
 		const pluginsPackage = await Bun.file(pluginsPkgJson).json();
 		expect(pluginsPackage.dependencies ?? {}).toEqual({});
 		expect(await Bun.file(path.join(pluginsNodeModules, "broken-plugin", "package.json")).exists()).toBe(false);
-		expect(await Bun.file(path.join(tmpRoot, "omp-plugins.lock.json")).exists()).toBe(false);
+		expect(await Bun.file(path.join(tmpRoot, "oms-plugins.lock.json")).exists()).toBe(false);
 	});
 
 	test("restores the previous package tree when reinstall validation fails", async () => {
 		await Bun.write(
 			pluginsPkgJson,
-			JSON.stringify({ name: "omp-plugins", private: true, dependencies: { "broken-plugin": "1.0.0" } }, null, 2),
+			JSON.stringify({ name: "oms-plugins", private: true, dependencies: { "broken-plugin": "1.0.0" } }, null, 2),
 		);
 		await Bun.write(
-			path.join(tmpRoot, "omp-plugins.lock.json"),
+			path.join(tmpRoot, "oms-plugins.lock.json"),
 			JSON.stringify(
 				{ plugins: { "broken-plugin": { version: "1.0.0", enabledFeatures: null, enabled: true } }, settings: {} },
 				null,
@@ -311,7 +311,7 @@ describe("PluginManager.install load validation", () => {
 				await Bun.write(
 					pluginsPkgJson,
 					JSON.stringify(
-						{ name: "omp-plugins", private: true, dependencies: { "broken-plugin": "2.0.0" } },
+						{ name: "oms-plugins", private: true, dependencies: { "broken-plugin": "2.0.0" } },
 						null,
 						2,
 					),
@@ -343,7 +343,7 @@ describe("PluginManager.install load validation", () => {
 		).text();
 		expect(restoredExtension).toContain("old-ok");
 		expect(restoredExtension).not.toContain("missing-peer");
-		const lock = await Bun.file(path.join(tmpRoot, "omp-plugins.lock.json")).json();
+		const lock = await Bun.file(path.join(tmpRoot, "oms-plugins.lock.json")).json();
 		expect(lock.plugins["broken-plugin"]).toEqual({ version: "1.0.0", enabledFeatures: null, enabled: true });
 	});
 
@@ -351,13 +351,13 @@ describe("PluginManager.install load validation", () => {
 		await Bun.write(
 			pluginsPkgJson,
 			JSON.stringify(
-				{ name: "omp-plugins", private: true, dependencies: { "git-plugin": "github:org/plugin#v1" } },
+				{ name: "oms-plugins", private: true, dependencies: { "git-plugin": "github:org/plugin#v1" } },
 				null,
 				2,
 			),
 		);
 		await Bun.write(
-			path.join(tmpRoot, "omp-plugins.lock.json"),
+			path.join(tmpRoot, "oms-plugins.lock.json"),
 			JSON.stringify(
 				{ plugins: { "git-plugin": { version: "1.0.0", enabledFeatures: null, enabled: true } }, settings: {} },
 				null,
@@ -377,7 +377,7 @@ describe("PluginManager.install load validation", () => {
 					await Bun.write(
 						pluginsPkgJson,
 						JSON.stringify(
-							{ name: "omp-plugins", private: true, dependencies: { "git-plugin": "github:org/plugin#v2" } },
+							{ name: "oms-plugins", private: true, dependencies: { "git-plugin": "github:org/plugin#v2" } },
 							null,
 							2,
 						),
@@ -421,7 +421,7 @@ describe("PluginManager.install load validation", () => {
 		).text();
 		expect(restoredExtension).toContain("git-old-ok");
 		expect(restoredExtension).not.toContain("missing-peer");
-		const lock = await Bun.file(path.join(tmpRoot, "omp-plugins.lock.json")).json();
+		const lock = await Bun.file(path.join(tmpRoot, "oms-plugins.lock.json")).json();
 		expect(lock.plugins["git-plugin"]).toEqual({ version: "1.0.0", enabledFeatures: null, enabled: true });
 	});
 
@@ -433,7 +433,7 @@ describe("PluginManager.install load validation", () => {
 				await Bun.write(
 					pluginsPkgJson,
 					JSON.stringify(
-						{ name: "omp-plugins", private: true, dependencies: { "partial-plugin": "1.0.0" } },
+						{ name: "oms-plugins", private: true, dependencies: { "partial-plugin": "1.0.0" } },
 						null,
 						2,
 					),
@@ -446,7 +446,7 @@ describe("PluginManager.install load validation", () => {
 						{
 							name: "partial-plugin",
 							version: "1.0.0",
-							omp: { extensions: ["./dist/valid.ts", "./dist/missing.ts"] },
+							oms: { extensions: ["./dist/valid.ts", "./dist/missing.ts"] },
 						},
 						null,
 						2,
@@ -471,7 +471,7 @@ describe("PluginManager.install load validation", () => {
 		const pluginsPackage = await Bun.file(pluginsPkgJson).json();
 		expect(pluginsPackage.dependencies ?? {}).toEqual({});
 		expect(await Bun.file(path.join(pluginsNodeModules, "partial-plugin", "package.json")).exists()).toBe(false);
-		expect(await Bun.file(path.join(tmpRoot, "omp-plugins.lock.json")).exists()).toBe(false);
+		expect(await Bun.file(path.join(tmpRoot, "oms-plugins.lock.json")).exists()).toBe(false);
 	});
 
 	test("restores bun.lock when a git reinstall fails validation (#3069 follow-up)", async () => {
@@ -484,7 +484,7 @@ describe("PluginManager.install load validation", () => {
 		await Bun.write(
 			pluginsPkgJson,
 			JSON.stringify(
-				{ name: "omp-plugins", private: true, dependencies: { "git-plugin": "github:org/plugin#v1" } },
+				{ name: "oms-plugins", private: true, dependencies: { "git-plugin": "github:org/plugin#v1" } },
 				null,
 				2,
 			),
@@ -493,7 +493,7 @@ describe("PluginManager.install load validation", () => {
 		const ORIGINAL_LOCK = '# bun.lock\n"git-plugin": "github:org/plugin#sha-v1"\n';
 		await Bun.write(bunLockPath, ORIGINAL_LOCK);
 		await Bun.write(
-			path.join(tmpRoot, "omp-plugins.lock.json"),
+			path.join(tmpRoot, "oms-plugins.lock.json"),
 			JSON.stringify(
 				{ plugins: { "git-plugin": { version: "1.0.0", enabledFeatures: null, enabled: true } }, settings: {} },
 				null,
@@ -514,7 +514,7 @@ describe("PluginManager.install load validation", () => {
 					await Bun.write(
 						pluginsPkgJson,
 						JSON.stringify(
-							{ name: "omp-plugins", private: true, dependencies: { "git-plugin": "github:org/plugin" } },
+							{ name: "oms-plugins", private: true, dependencies: { "git-plugin": "github:org/plugin" } },
 							null,
 							2,
 						),
@@ -572,7 +572,7 @@ describe("PluginManager.install load validation", () => {
 				await Bun.write(
 					pluginsPkgJson,
 					JSON.stringify(
-						{ name: "omp-plugins", private: true, dependencies: { "broken-plugin": "1.0.0" } },
+						{ name: "oms-plugins", private: true, dependencies: { "broken-plugin": "1.0.0" } },
 						null,
 						2,
 					),
@@ -605,7 +605,7 @@ describe("PluginManager.install load validation", () => {
 		await Bun.write(
 			pluginsPkgJson,
 			JSON.stringify(
-				{ name: "omp-plugins", private: true, dependencies: { "git-plugin": "github:org/plugin" } },
+				{ name: "oms-plugins", private: true, dependencies: { "git-plugin": "github:org/plugin" } },
 				null,
 				2,
 			),
@@ -625,7 +625,7 @@ describe("PluginManager.install load validation", () => {
 				{
 					name: "git-plugin",
 					version: "1.0.0",
-					omp: {
+					oms: {
 						extensions: ["./dist/extension.ts"],
 						features: { keep: { description: "keep me" } },
 					},

@@ -37,7 +37,7 @@ describe("web_search native view", () => {
 		const [answer, sources] = nodes(view?.body);
 		expect(answer?.k).toBe("md");
 		const rowNode = nodes(sources?.c)[0]!;
-		expect(rowNode.p).toMatchObject({ role: "omp.tool.source", href: "https://www.example.com/a" });
+		expect(rowNode.p).toMatchObject({ role: "oms.tool.source", href: "https://www.example.com/a" });
 		const [mark, title, meta] = nodes(rowNode.c);
 		expect(mark?.p).toMatchObject({ text: "E" });
 		expect(title?.p).toMatchObject({ spans: [{ href: "https://www.example.com/a" }] });
@@ -64,7 +64,7 @@ describe("ask native view", () => {
 		const roles = nodes(view?.body)
 			.filter(n => n.k === "row")
 			.map(n => n.p?.role);
-		expect(roles).toEqual(["omp.tool.answer.off", "omp.tool.answer", "omp.tool.answer"]);
+		expect(roles).toEqual(["oms.tool.answer.off", "oms.tool.answer", "oms.tool.answer"]);
 		const custom = nodes(view?.body).at(-1)!;
 		expect(JSON.stringify(custom)).toContain("\u201cown\u201d");
 	});

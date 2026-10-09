@@ -1,8 +1,8 @@
 import { stripVTControlCharacters } from "node:util";
-import { ThinkingLevel } from "@oh-my-pi/pi-agent-core";
-import * as vcs from "@oh-my-pi/pi-natives/vcs";
+import { ThinkingLevel } from "@oh-my-soup/pi-agent-core";
+import * as vcs from "@oh-my-soup/pi-natives/vcs";
 import { type Component, padding, truncateToWidth, visibleWidth } from "../index";
-import { formatNumber, getProjectDir } from "@oh-my-pi/pi-utils";
+import { formatNumber, getProjectDir } from "@oh-my-soup/pi-utils";
 import { theme } from "../theme";
 import type { FooterHost, FooterSession } from "./host";
 import { shortenPath } from "../render/render-utils";
@@ -15,7 +15,7 @@ import {
 	getContextUsageThemeColor,
 	getContextUsageTone,
 } from "../chrome/context-thresholds";
-import type { TspProps, TspSpan } from "@oh-my-pi/pi-wire";
+import type { TspProps, TspSpan } from "@oh-my-soup/pi-wire";
 import type { NativeNode } from "../native/node";
 import { col, node, span } from "../native/describe";
 
@@ -194,7 +194,7 @@ export class FooterComponent implements Component {
 		}
 		const segs: NativeNode[] = [];
 		const seg = (key: string, props: TspProps<"seg">): void => {
-			segs.push(node("seg", { role: `omp.footer.${key}`, ...props }, undefined, key));
+			segs.push(node("seg", { role: `oms.footer.${key}`, ...props }, undefined, key));
 		};
 		const pathSpans: TspSpan[] = [span(shortenPath(getProjectDir()), "path dim")];
 		const branch = this.#getCurrentBranch();
@@ -236,16 +236,16 @@ export class FooterComponent implements Component {
 			model += ` • ${level}`;
 		}
 		seg("model", { side: "right", priority: 5, icon: "model", spans: [span(model, "dim")] });
-		const bar = node("status", { role: "omp.footer" }, segs, "bar");
+		const bar = node("status", { role: "oms.footer" }, segs, "bar");
 		const children: NativeNode[] = [bar];
 		if (this.#extensionStatuses.size > 0) {
 			const statuses = Array.from(this.#extensionStatuses.entries())
 				.sort(([a], [b]) => a.localeCompare(b))
 				.map(([, value]) => sanitizeStatusText(value))
 				.join(" ");
-			children.push(node("text", { text: statuses, wrap: "none", role: "omp.footer.extensions" }, undefined, "ext"));
+			children.push(node("text", { text: statuses, wrap: "none", role: "oms.footer.extensions" }, undefined, "ext"));
 		}
-		const built = children.length === 1 ? bar : col(children, { role: "omp.footer.panel" });
+		const built = children.length === 1 ? bar : col(children, { role: "oms.footer.panel" });
 		const fingerprint = JSON.stringify(built);
 		if (this.#nativeMemo?.fingerprint === fingerprint) return this.#nativeMemo.node;
 		this.#nativeMemo = { node: built, fingerprint };

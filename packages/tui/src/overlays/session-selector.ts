@@ -14,8 +14,8 @@ import {
 	visibleWidth,
 } from "../index";
 import * as path from "node:path";
-import { formatBytes, getProjectDir } from "@oh-my-pi/pi-utils";
-import type { TspPickerGroup, TspPickerItem, TspSpan, TspText, TspTone } from "@oh-my-pi/pi-wire";
+import { formatBytes, getProjectDir } from "@oh-my-soup/pi-utils";
+import type { TspPickerGroup, TspPickerItem, TspSpan, TspText, TspTone } from "@oh-my-soup/pi-wire";
 import { compact, kv, md, node, span } from "../native/describe";
 import {
 	picker,
@@ -166,7 +166,7 @@ function sessionPreview(session: SessionSelectorEntry, forkedFrom: string | unde
 		rest.length > 0 && md(rest.length > PREVIEW_EXCERPT_CHARS ? `…${rest.slice(-PREVIEW_EXCERPT_CHARS)}` : rest),
 	]);
 	return compact([
-		node("text", { text: sessionLabel(session), role: "omp.picker.title" }),
+		node("text", { text: sessionLabel(session), role: "oms.picker.title" }),
 		kv([
 			["Folder", session.cwd ? cwdSpans(session.cwd) : undefined],
 			["Created", created && pickerDate(created)],
@@ -1363,7 +1363,7 @@ export interface SessionSelectorOptions<T extends SessionSelectorEntry = Session
 	/** Path of the live session, or a getter so detach/newSession stays accurate. */
 	currentSessionPath?: string | (() => string | undefined);
 	/**
-	 * The picker is the whole program (`omp --resume`): the native picker
+	 * The picker is the whole program (`oms --resume`): the native picker
 	 * fills the screen surface (`size:"screen"`) instead of floating as a
 	 * sheet over the transcript.
 	 */
@@ -1732,7 +1732,7 @@ export class SessionSelectorComponent<T extends SessionSelectorEntry = SessionSe
 			hints.push({ keys: ["tab"], label: this.#scope === "all" ? "current folder" : "all projects" });
 		}
 		hints.push({ keys: [boundKeys("app.interrupt", ["escape"])[0] ?? "escape"], label: "cancel" });
-		const result = overlayCard("omp.overlay.sessions", tabs ? this.#title : this.title, [
+		const result = overlayCard("oms.overlay.sessions", tabs ? this.#title : this.title, [
 			...children,
 			hintsRow(hints),
 		]);

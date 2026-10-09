@@ -10,7 +10,7 @@ import {
 	type StreamChatMessage,
 	type StreamPaneFrame,
 	type StreamServerToHost,
-} from "@oh-my-pi/pi-wire";
+} from "@oh-my-soup/pi-wire";
 import {
 	applyScreenFrame,
 	encodeStreamFrame,
@@ -461,7 +461,7 @@ export async function runStreamConsole(options: StreamConsoleOptions): Promise<n
 async function clearStaleSocket(endpoint: string): Promise<void> {
 	const status = await probeSocket(endpoint);
 	if (status === "live")
-		throw new Error(`another omp stream process is already running for this directory (${endpoint})`);
+		throw new Error(`another oms stream process is already running for this directory (${endpoint})`);
 	if (status === "stale") await fs.promises.unlink(endpoint);
 }
 

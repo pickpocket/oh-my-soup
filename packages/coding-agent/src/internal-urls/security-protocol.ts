@@ -1,5 +1,5 @@
 import * as path from "node:path";
-import { sanitizeText } from "@oh-my-pi/pi-utils";
+import { sanitizeText } from "@oh-my-soup/pi-utils";
 import { isSettingsInitialized, settings } from "../config/settings";
 
 import securityDoc from "../prompts/internal-urls/security.md" with { type: "text" };
@@ -133,7 +133,7 @@ export class SecurityProtocolHandler implements ProtocolHandler {
 				content: [
 					"# Security",
 					"",
-					"OMP-owned software-security analysis resources. The namespace is read-only; use explicit security commands or tools for mutations.",
+					"OMS-owned software-security analysis resources. The namespace is read-only; use explicit security commands or tools for mutations.",
 					"",
 					"- `security://scans` — list scans",
 					"",

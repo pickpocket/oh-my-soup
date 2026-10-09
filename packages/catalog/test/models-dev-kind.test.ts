@@ -3,7 +3,7 @@ import {
 	MODELS_DEV_PROVIDER_DESCRIPTORS,
 	mapModelsDevToModels,
 	type ModelsDevProviderDescriptor,
-} from "@oh-my-pi/pi-catalog/provider-models/openai-compat";
+} from "@oh-my-soup/pi-catalog/provider-models/openai-compat";
 
 function descriptorFor(providerId: string): ModelsDevProviderDescriptor {
 	const descriptor = MODELS_DEV_PROVIDER_DESCRIPTORS.find(candidate => candidate.providerId === providerId);

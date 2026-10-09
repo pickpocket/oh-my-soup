@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
-import type { Api, ModelSpec } from "@oh-my-pi/pi-catalog/types";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
+import type { Api, ModelSpec } from "@oh-my-soup/pi-catalog/types";
 
 function proxyModel(id: string, api: Api): ModelSpec<Api> {
 	return {

@@ -1,7 +1,7 @@
 /**
  * Typed accessors over the compiled auth stratum (`rules/auth/*.kdl`): per
  * provider display metadata, env-var fallbacks and the declarative login /
- * refresh flow that `@oh-my-pi/pi-ai`'s registry engines interpret.
+ * refresh flow that `@oh-my-soup/pi-ai`'s registry engines interpret.
  */
 import rules from "./rules.json";
 import type { CompiledAuthProvider } from "./types";

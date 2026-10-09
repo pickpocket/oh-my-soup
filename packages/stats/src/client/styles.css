@@ -1,5 +1,5 @@
 /* ==========================================================================
-   omp stats — design system
+   oms stats — design system
    Pure-black chassis, one inset panel, hairline edges, one accent gradient.
    Page-specific styles live next to their route (`routes/*.css`).
    ========================================================================== */
@@ -30,7 +30,7 @@
 	--ink-4: #46464c;
 	--ink-inverse: #0a0a0b;
 
-	/* Accent: omp cyan → pink. Solid `--accent` for text/strokes, gradient for hero marks. */
+	/* Accent: oms cyan → pink. Solid `--accent` for text/strokes, gradient for hero marks. */
 	--accent-a: #5ad8e6;
 	--accent-b: #ed4abf;
 	--accent: #f068c8;

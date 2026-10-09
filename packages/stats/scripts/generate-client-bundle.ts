@@ -75,7 +75,7 @@ function normalizeTarMetadata(bytes: Uint8Array): void {
 	}
 }
 
-/** Build a byte-stable gzip archive of a directory for embedding in the OMP binary. */
+/** Build a byte-stable gzip archive of a directory for embedding in the OMS binary. */
 export async function buildArchiveBase64(dir: string): Promise<string> {
 	const files = await collectFiles(dir);
 	const entries: Record<string, Uint8Array> = {};

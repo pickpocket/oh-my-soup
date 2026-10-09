@@ -2,11 +2,11 @@ import { afterEach, describe, expect, it, vi } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { startAuthGateway } from "@oh-my-pi/pi-ai/auth-gateway";
-import type { AuthGatewayServerHandle } from "@oh-my-pi/pi-ai/auth-gateway/types";
-import { AuthStorage } from "@oh-my-pi/pi-ai/auth-storage";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
-import type { Api, FetchImpl, Model, ModelSpec } from "@oh-my-pi/pi-catalog/types";
+import { startAuthGateway } from "@oh-my-soup/pi-ai/auth-gateway";
+import type { AuthGatewayServerHandle } from "@oh-my-soup/pi-ai/auth-gateway/types";
+import { AuthStorage } from "@oh-my-soup/pi-ai/auth-storage";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
+import type { Api, FetchImpl, Model, ModelSpec } from "@oh-my-soup/pi-catalog/types";
 
 const AUDIO = new Uint8Array([0x52, 0x49, 0x46, 0x46, 0x01, 0x02, 0x03, 0x04]);
 const UPSTREAM_RESULT = {
@@ -132,7 +132,7 @@ describe("auth-gateway POST /v1/audio/transcriptions", () => {
 		form.append("language", "en");
 		const response = await fetch(`${harness.url}/v1/audio/transcriptions`, {
 			method: "POST",
-			headers: { Authorization: "Bearer gw-token", "x-omp-app": "dictation-client" },
+			headers: { Authorization: "Bearer gw-token", "x-oms-app": "dictation-client" },
 			body: form,
 		});
 

@@ -2,14 +2,14 @@
  * Component for displaying bash command execution with streaming output.
  */
 
-import type { ImageContent } from "@oh-my-pi/pi-ai";
+import type { ImageContent } from "@oh-my-soup/pi-ai";
 import { Image } from "../components/image";
 import type { Loader } from "../components/loader";
 import { Text } from "../components/text";
 import { getImageDimensions, imageFallback, ImageProtocol, TERMINAL } from "../terminal-capabilities";
 import { Container, type TUI } from "../tui";
-import { sanitizeText } from "@oh-my-pi/pi-utils";
-import type { Terminal as XtermTerminalType } from "@oh-my-pi/pi-utils/vterm";
+import { sanitizeText } from "@oh-my-soup/pi-utils";
+import type { Terminal as XtermTerminalType } from "@oh-my-soup/pi-utils/vterm";
 import { theme } from "../theme/theme";
 import type { OutputArtifactError } from "../tools/streaming-output";
 import type { TruncationMeta } from "../tools/output-meta";
@@ -157,7 +157,7 @@ export class BashExecutionComponent extends Container {
 	}
 
 	/**
-	 * The agent's bash `tool` frame (role `omp.bash`) with a `you` badge: the
+	 * The agent's bash `tool` frame (role `oms.bash`) with a `you` badge: the
 	 * command in the head, the output as an `ansi` mini terminal following its
 	 * tail. Terminals without the `tool` kind get a `card` headed by the
 	 * command.
@@ -185,7 +185,7 @@ export class BashExecutionComponent extends Container {
 						]),
 			);
 			const common = {
-				role: "omp.bash",
+				role: "oms.bash",
 				status: this.#status,
 				startedAt: this.#startedAt,
 				expanded: this.#expanded,

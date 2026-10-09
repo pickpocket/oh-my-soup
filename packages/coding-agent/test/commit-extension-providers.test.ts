@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "bun:test";
 import * as path from "node:path";
-import { closeModelCache } from "@oh-my-pi/pi-catalog/model-cache";
-import { runCommitCommand } from "@oh-my-pi/pi-coding-agent/commit";
-import { AgentStorage } from "@oh-my-pi/pi-coding-agent/session/agent-storage";
-import { getProjectAgentDir, setAgentDir, setProjectDir, TempDir } from "@oh-my-pi/pi-utils";
+import { closeModelCache } from "@oh-my-soup/pi-catalog/model-cache";
+import { runCommitCommand } from "@oh-my-soup/pi-coding-agent/commit";
+import { AgentStorage } from "@oh-my-soup/pi-coding-agent/session/agent-storage";
+import { getProjectAgentDir, setAgentDir, setProjectDir, TempDir } from "@oh-my-soup/pi-utils";
 import { $ } from "bun";
 import { beginSettingsTest, restoreSettingsTestState, type SettingsTestState } from "./helpers/settings-test-state";
 

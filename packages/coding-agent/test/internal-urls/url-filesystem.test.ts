@@ -2,9 +2,9 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { type LocalProtocolOptions, resolveLocalRoot } from "@oh-my-pi/pi-coding-agent/internal-urls";
-import { InternalUrlFilesystem } from "@oh-my-pi/pi-coding-agent/internal-urls/url-filesystem";
-import { executeShell, ShellFsFileType, ShellFsOp } from "@oh-my-pi/pi-natives";
+import { type LocalProtocolOptions, resolveLocalRoot } from "@oh-my-soup/pi-coding-agent/internal-urls";
+import { InternalUrlFilesystem } from "@oh-my-soup/pi-coding-agent/internal-urls/url-filesystem";
+import { executeShell, ShellFsFileType, ShellFsOp } from "@oh-my-soup/pi-natives";
 
 const READ = { read: true, write: false, append: false, truncate: false, create: false, createNew: false };
 const CREATE = { read: false, write: true, append: false, truncate: true, create: true, createNew: false };
@@ -105,7 +105,7 @@ describe("InternalUrlFilesystem local://", () => {
 
 	it("applies the link target's write policy when writing through a URL symlink", async () => {
 		await fs.mkdir(localRoot, { recursive: true });
-		await nativeSymlink("omp://README.md", path.join(localRoot, "doc"));
+		await nativeSymlink("oms://README.md", path.join(localRoot, "doc"));
 
 		const response = await shellFs().handle({ op: ShellFsOp.Open, path: "local://doc", open: CREATE });
 
@@ -122,7 +122,7 @@ describe("InternalUrlFilesystem local://", () => {
 			path: path.join(localRoot, "dir", "new", "file.txt"),
 		});
 		await expect(fs.stat(path.join(localRoot, "dir", "new"))).rejects.toThrow();
-		await expect(shellFs().handle({ op: ShellFsOp.BackingPath, path: "omp://" })).resolves.toEqual({});
+		await expect(shellFs().handle({ op: ShellFsOp.BackingPath, path: "oms://" })).resolves.toEqual({});
 	});
 
 	it("refuses renames that leave the URL namespace", async () => {
@@ -173,12 +173,12 @@ describe("InternalUrlFilesystem policy", () => {
 });
 
 describe("InternalUrlFilesystem rendered resources", () => {
-	it("serves omp:// as a read-only tree whose files hold the rendered bytes", async () => {
+	it("serves oms:// as a read-only tree whose files hold the rendered bytes", async () => {
 		const filesystem = shellFs();
-		const listing = await filesystem.handle({ op: ShellFsOp.ReadDir, path: "omp://" });
+		const listing = await filesystem.handle({ op: ShellFsOp.ReadDir, path: "oms://" });
 		const entry = listing.entries?.find(item => item.fileType === ShellFsFileType.File);
-		if (!entry) throw new Error("omp:// listed no documents");
-		const url = `omp://${entry.name}`;
+		if (!entry) throw new Error("oms:// listed no documents");
+		const url = `oms://${entry.name}`;
 
 		const opened = await filesystem.handle({ op: ShellFsOp.Open, path: url, open: READ });
 		const handle = opened.handle;

@@ -6,23 +6,23 @@
  *
  * Stands up a loopback OTLP/proto receiver, points the standard env vars at it,
  * registers the providers, drives a log record through the bridged
- * `@oh-my-pi/pi-utils` logger and metric instruments through the agent
+ * `@oh-my-soup/pi-utils` logger and metric instruments through the agent
  * telemetry hooks, flushes, and exits 0 only if the receiver got a non-empty
  * protobuf POST at both /v1/logs and /v1/metrics.
  */
 
-import { agentLoop } from "@oh-my-pi/pi-agent-core/agent-loop";
-import type { AgentContext, AgentMessage, AgentTool } from "@oh-my-pi/pi-agent-core/types";
-import { type } from "@oh-my-pi/omptype";
-import type { Message } from "@oh-my-pi/pi-ai";
-import { createMockModel } from "@oh-my-pi/pi-ai/providers/mock";
+import { agentLoop } from "@oh-my-soup/pi-agent-core/agent-loop";
+import type { AgentContext, AgentMessage, AgentTool } from "@oh-my-soup/pi-agent-core/types";
+import { type } from "@oh-my-soup/omstype";
+import type { Message } from "@oh-my-soup/pi-ai";
+import { createMockModel } from "@oh-my-soup/pi-ai/providers/mock";
 import {
 	createTelemetryExportConfig,
 	flushTelemetryExport,
 	initTelemetryExport,
 	isTelemetryExportEnabled,
-} from "@oh-my-pi/pi-coding-agent/telemetry-export";
-import { logger } from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-coding-agent/telemetry-export";
+import { logger } from "@oh-my-soup/pi-utils";
 
 const seen = new Set<string>();
 const metricPayloads: Uint8Array[] = [];
@@ -137,7 +137,7 @@ const server = Bun.serve({
 const base = `http://localhost:${server.port}`;
 process.env.OTEL_EXPORTER_OTLP_LOGS_ENDPOINT = `${base}/v1/logs`;
 process.env.OTEL_EXPORTER_OTLP_METRICS_ENDPOINT = `${base}/v1/metrics`;
-process.env.OTEL_SERVICE_NAME = "oh-my-pi-signals-probe";
+process.env.OTEL_SERVICE_NAME = "oh-my-soup-signals-probe";
 
 await initTelemetryExport(true);
 if (!isTelemetryExportEnabled()) {
@@ -193,10 +193,10 @@ for await (const _event of agentLoop(
 }
 
 await flushTelemetryExport();
-assertSingleMetricPoint("omp.agent.chat.cost.estimated_usd");
-assertMetricPresent("omp.agent.chat.calls");
-assertSingleMetricPoint("omp.agent.tool.calls");
-assertSingleMetricPoint("omp.agent.tool.duration");
+assertSingleMetricPoint("oms.agent.chat.cost.estimated_usd");
+assertMetricPresent("oms.agent.chat.calls");
+assertSingleMetricPoint("oms.agent.tool.calls");
+assertSingleMetricPoint("oms.agent.tool.duration");
 await server.stop(true);
 
 const ok = seen.has("logs") && seen.has("metrics");

@@ -12,8 +12,8 @@
 import * as crypto from "node:crypto";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import * as vcs from "@oh-my-pi/pi-natives/vcs";
-import { isEnoent, pathIsWithin } from "@oh-my-pi/pi-utils";
+import * as vcs from "@oh-my-soup/pi-natives/vcs";
+import { isEnoent, pathIsWithin } from "@oh-my-soup/pi-utils";
 
 import type { MarketplaceCatalogMetadata, MarketplacePluginEntry, PluginSource } from "./types";
 
@@ -65,7 +65,7 @@ export async function validatePluginSource(
 		case "github":
 			return undefined;
 		case "git-subdir": {
-			const syntheticRoot = path.join(path.parse(process.cwd()).root, "omp-marketplace-validation");
+			const syntheticRoot = path.join(path.parse(process.cwd()).root, "oms-marketplace-validation");
 			const resolved = path.resolve(syntheticRoot, source.path);
 			if (!pathIsWithin(syntheticRoot, resolved)) {
 				throw new Error(`git-subdir path "${source.path}" escapes the cloned repository`);

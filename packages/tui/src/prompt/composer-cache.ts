@@ -1,10 +1,10 @@
 /**
  * Speculative composer state for the next first frame, kept in one SQLite store
- * (`~/.omp/agent/cache/composer.db`).
+ * (`~/.oms/agent/cache/composer.db`).
  *
  * Each row is one JSON payload keyed by project (the resolved cwd) and kind.
  * Settings-derived kinds (theme/composer preferences, status-bar inputs) are
- * also written under the empty project, so a folder that never ran omp still
+ * also written under the empty project, so a folder that never ran oms still
  * paints with the user's theme and status bar: those are rarely
  * project-specific, and path/branch render live.
  *
@@ -18,12 +18,12 @@
 import type { Database, Statement } from "bun:sqlite";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { getComposerCacheDbPath } from "@oh-my-pi/pi-utils/dirs";
-import { isBunTestRuntime } from "@oh-my-pi/pi-utils/env";
-import * as logger from "@oh-my-pi/pi-utils/logger";
-import * as postmortem from "@oh-my-pi/pi-utils/postmortem";
-import { openSqliteDatabaseSync } from "@oh-my-pi/pi-utils/sqlite";
-import { isRecord } from "@oh-my-pi/pi-utils/type-guards";
+import { getComposerCacheDbPath } from "@oh-my-soup/pi-utils/dirs";
+import { isBunTestRuntime } from "@oh-my-soup/pi-utils/env";
+import * as logger from "@oh-my-soup/pi-utils/logger";
+import * as postmortem from "@oh-my-soup/pi-utils/postmortem";
+import { openSqliteDatabaseSync } from "@oh-my-soup/pi-utils/sqlite";
+import { isRecord } from "@oh-my-soup/pi-utils/type-guards";
 import type { ComposerPreferences, ComposerStatusCache } from "./composer";
 import { readStatusLineStartupData } from "../status-line/startup";
 import type { SymbolPreset } from "../theme/theme";

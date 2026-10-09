@@ -98,7 +98,7 @@ static BOOL PublishCallbackURL(NSString *configuredPath, NSString *callback, NSE
 	if (![configuredPath isKindOfClass:NSString.class] || configuredPath.length == 0 ||
 		!configuredPath.isAbsolutePath) {
 		if (resultError != NULL) {
-			*resultError = [NSError errorWithDomain:@"dev.omp.oauth-callback" code:1
+			*resultError = [NSError errorWithDomain:@"dev.oms.oauth-callback" code:1
 				userInfo:@{NSLocalizedDescriptionKey:
 					@"missing absolute OMPCallbackPath in application Info.plist"}];
 		}
@@ -117,7 +117,7 @@ static BOOL PublishCallbackURL(NSString *configuredPath, NSString *callback, NSE
 	if (lstat(resolvedParent, &directoryStatus) != 0 || !S_ISDIR(directoryStatus.st_mode) ||
 		directoryStatus.st_uid != getuid() || (directoryStatus.st_mode & 0077) != 0) {
 		if (resultError != NULL) {
-			*resultError = [NSError errorWithDomain:@"dev.omp.oauth-callback" code:2
+			*resultError = [NSError errorWithDomain:@"dev.oms.oauth-callback" code:2
 				userInfo:@{NSLocalizedDescriptionKey:
 					@"callback directory is not private to the current user"}];
 		}

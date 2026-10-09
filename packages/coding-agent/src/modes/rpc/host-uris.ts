@@ -1,4 +1,4 @@
-import { Snowflake } from "@oh-my-pi/pi-utils";
+import { Snowflake } from "@oh-my-soup/pi-utils";
 import { InternalUrlRouter } from "../../internal-urls";
 import type {
 	InternalResource,
@@ -101,10 +101,10 @@ export class RpcHostUriBridge {
 			if (!/^[a-z][a-z0-9+.-]*$/.test(scheme)) {
 				throw new Error(`Host URI scheme contains invalid characters: ${raw.scheme}`);
 			}
-			// Built-in schemes are OMP-owned: a host shadowing one would change its semantics for
+			// Built-in schemes are OMS-owned: a host shadowing one would change its semantics for
 			// the whole process, and `clear()` would then delete it for later sessions.
 			if (this.#router.isBuiltin(scheme)) {
-				throw new Error(`Host URI scheme is reserved by OMP: ${scheme}://`);
+				throw new Error(`Host URI scheme is reserved by OMS: ${scheme}://`);
 			}
 			normalized.set(scheme, {
 				scheme,

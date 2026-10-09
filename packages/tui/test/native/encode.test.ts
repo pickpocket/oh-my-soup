@@ -5,8 +5,8 @@ import {
 	parseTspMessage,
 	splitTspMessage,
 	TspReader,
-} from "@oh-my-pi/pi-tui/native/encode";
-import type { TspEvent } from "@oh-my-pi/pi-wire";
+} from "@oh-my-soup/pi-tui/native/encode";
+import type { TspEvent } from "@oh-my-soup/pi-wire";
 
 const encoder = new TextEncoder();
 
@@ -24,7 +24,7 @@ describe("TSP framing", () => {
 		expect(JSON.parse(raw.body)).toEqual({
 			q: "hello",
 			v: [1],
-			app: "omp",
+			app: "oms",
 			features: ["edit", "undo", "send"],
 			ver: "test",
 		});

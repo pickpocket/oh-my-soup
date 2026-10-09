@@ -1,5 +1,5 @@
 /**
- * Anthropic subscription slow mode — omp's port of Claude Code's `/low-priority`,
+ * Anthropic subscription slow mode — oms's port of Claude Code's `/low-priority`,
  * enabled on Anthropic models by `/slow on` (`providers.anthropic.slowMode: auto`).
  *
  * Past a Claude subscription's usage limit, requests move through two stages:
@@ -28,8 +28,8 @@ import type {
 	AnthropicSlowModeRetry,
 	AnthropicSlowModeSignal,
 	Model,
-} from "@oh-my-pi/pi-ai";
-import { logger } from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-ai";
+import { logger } from "@oh-my-soup/pi-utils";
 import type { AuthStorage } from "./auth-storage";
 import type { UsageLimitState } from "./usage-limit";
 

@@ -1,17 +1,17 @@
 import { afterEach, describe, expect, it, vi } from "bun:test";
 import { Database } from "bun:sqlite";
 import * as path from "node:path";
-import type { ChatUsageEvent } from "@oh-my-pi/pi-agent-core";
-import type { Api, AssistantMessage, ChoiceQuestion, Model, NoulQuestion } from "@oh-my-pi/pi-ai";
-import * as ai from "@oh-my-pi/pi-ai";
-import { getBundledModel } from "@oh-my-pi/pi-catalog/models";
-import { cfgModelRoles } from "@oh-my-pi/pi-coding-agent/config/model-settings";
-import { ModelRegistry } from "@oh-my-pi/pi-coding-agent/config/model-registry";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { ChainJudge, hasNativeJudge, JudgmentCache, journalJudgmentUsage } from "@oh-my-pi/pi-coding-agent/judgment";
-import { SessionManager } from "@oh-my-pi/pi-coding-agent/session/session-manager";
-import { tinyModelClient } from "@oh-my-pi/pi-coding-agent/tiny/title-client";
-import { TempDir } from "@oh-my-pi/pi-utils";
+import type { ChatUsageEvent } from "@oh-my-soup/pi-agent-core";
+import type { Api, AssistantMessage, ChoiceQuestion, Model, NoulQuestion } from "@oh-my-soup/pi-ai";
+import * as ai from "@oh-my-soup/pi-ai";
+import { getBundledModel } from "@oh-my-soup/pi-catalog/models";
+import { cfgModelRoles } from "@oh-my-soup/pi-coding-agent/config/model-settings";
+import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { ChainJudge, hasNativeJudge, JudgmentCache, journalJudgmentUsage } from "@oh-my-soup/pi-coding-agent/judgment";
+import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
+import { tinyModelClient } from "@oh-my-soup/pi-coding-agent/tiny/title-client";
+import { TempDir } from "@oh-my-soup/pi-utils";
 import { createInMemoryAuthStorage } from "./helpers/agent-session-setup";
 import { asGlobalFetch } from "./helpers/fetch-mock";
 
@@ -387,7 +387,7 @@ describe("ChainJudge", () => {
 	});
 
 	it("answers repeated questions from the cache and sends only the unanswered ones", async () => {
-		using tempDir = TempDir.createSync("@omp-judgment-cache-");
+		using tempDir = TempDir.createSync("@oms-judgment-cache-");
 		const dbPath = path.join(tempDir.path(), "judgment-cache.db");
 		const cache = JudgmentCache.open(dbPath);
 		// $1000/M input tokens: 10 tokens per question bill $0.01 each.

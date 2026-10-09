@@ -7,7 +7,7 @@
  * turn is checkpointed into the session's BTW history sidecar, so the TUI and
  * RPC hosts read and continue the same topics.
  */
-import { logger, toError } from "@oh-my-pi/pi-utils";
+import { logger, toError } from "@oh-my-soup/pi-utils";
 import type { AgentSession } from "../../session/agent-session";
 import {
 	type BtwHistoryRecord,

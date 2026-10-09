@@ -8,8 +8,8 @@ import {
 	__collectLegacyPiExtensionSourcesForTests,
 	__rewriteLegacyExtensionSourceForTests,
 	loadLegacyPiModule,
-} from "@oh-my-pi/pi-coding-agent/extensibility/plugins/legacy-pi-compat";
-import { isRecord, removeWithRetries } from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-coding-agent/extensibility/plugins/legacy-pi-compat";
+import { isRecord, removeWithRetries } from "@oh-my-soup/pi-utils";
 
 // Issue #1674: legacy Pi extensions load browser-UI assets (HTML/CSS) at module
 // init via `readFileSync(join(__dirname, "ui.html"))`. The compat layer must run
@@ -27,7 +27,7 @@ afterAll(async () => {
 });
 
 async function writePackage(files: Record<string, string>): Promise<string> {
-	const dir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-legacy-inplace-"));
+	const dir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-legacy-inplace-"));
 	tempRoots.push(dir);
 	for (const rel in files) {
 		const abs = path.join(dir, rel);
@@ -147,7 +147,7 @@ describe("legacy-pi in-place module loading (issue #1674)", () => {
 			}),
 			"node_modules/direct/index.js": 'module.exports = require("@mariozechner/pi-ai").Type;\n',
 			"index.ts": [
-				'import { Type } from "@oh-my-pi/pi-ai";',
+				'import { Type } from "@oh-my-soup/pi-ai";',
 				'import requiredType from "direct";',
 				"export const sharesHostType = requiredType === Type;",
 				"export default function (pi) { void pi; }",

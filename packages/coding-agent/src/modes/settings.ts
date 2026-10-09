@@ -1,23 +1,23 @@
 import { combine, effect, register, type Setting } from "../config/registry";
-import { formatKeyHint, formatKeyHints } from "@oh-my-pi/pi-tui/app-keybindings";
+import { formatKeyHint, formatKeyHints } from "@oh-my-soup/pi-tui/app-keybindings";
 import { cfgReadToolResultPreview } from "../tools/settings";
 import { MAGIC_KEYWORDS, type MagicKeywordId } from "./magic-keywords";
-import { TREE_FILTER_MODES } from "@oh-my-pi/pi-tui/overlays/tree-selector";
+import { TREE_FILTER_MODES } from "@oh-my-soup/pi-tui/overlays/tree-selector";
 import {
 	CONTEXT_LINE_MODE_VALUES,
 	CUSTOM_STATUS_LINE_DEFAULTS,
 	STATUS_LINE_PRESET_VALUES,
 	STATUS_LINE_SEGMENT_IDS,
 	STATUS_LINE_SEPARATOR_VALUES,
-} from "@oh-my-pi/pi-tui/status-line/schema";
-import { setChatTranscriptDisplayPreferences } from "@oh-my-pi/pi-tui/chat/display-preferences";
-import { setEditorGapComposerShape } from "@oh-my-pi/pi-tui/prompt/editor-top-gap";
-import { setEmojiAutocompleteEnabled } from "@oh-my-pi/pi-tui/prompt/prompt-action-autocomplete";
-import { WORD_COMPLETION_METHODS } from "@oh-my-pi/pi-tui/prompt/word-completion";
-import { applyHyperlinkSetting } from "@oh-my-pi/pi-tui/render/hyperlink";
-import { setInlineImageMaxColumns, setInlineImageMaxRows } from "@oh-my-pi/pi-tui/render/render-utils";
-import { setShimmerMode } from "@oh-my-pi/pi-tui/theme/shimmer";
-import { setAutoThemeMapping, setColorBlindMode, setSymbolPreset } from "@oh-my-pi/pi-tui/theme/theme";
+} from "@oh-my-soup/pi-tui/status-line/schema";
+import { setChatTranscriptDisplayPreferences } from "@oh-my-soup/pi-tui/chat/display-preferences";
+import { setEditorGapComposerShape } from "@oh-my-soup/pi-tui/prompt/editor-top-gap";
+import { setEmojiAutocompleteEnabled } from "@oh-my-soup/pi-tui/prompt/prompt-action-autocomplete";
+import { WORD_COMPLETION_METHODS } from "@oh-my-soup/pi-tui/prompt/word-completion";
+import { applyHyperlinkSetting } from "@oh-my-soup/pi-tui/render/hyperlink";
+import { setInlineImageMaxColumns, setInlineImageMaxRows } from "@oh-my-soup/pi-tui/render/render-utils";
+import { setShimmerMode } from "@oh-my-soup/pi-tui/theme/shimmer";
+import { setAutoThemeMapping, setColorBlindMode, setSymbolPreset } from "@oh-my-soup/pi-tui/theme/theme";
 
 const EMPTY_UNKNOWN_RECORD: Record<string, unknown> = {};
 
@@ -1086,7 +1086,7 @@ export const cfgStartupCheckUpdate = register({
 		tab: "interaction",
 		group: "Startup & Updates",
 		label: "Check for Updates",
-		description: "Check for omp updates on startup",
+		description: "Check for oms updates on startup",
 	},
 });
 
@@ -1099,7 +1099,7 @@ export const cfgUpdateChannel = register({
 		tab: "interaction",
 		group: "Startup & Updates",
 		label: "Update Channel",
-		description: "Update channel used by omp update and the startup update check",
+		description: "Update channel used by oms update and the startup update check",
 		options: [
 			{ value: "stable", label: "Stable" },
 			{ value: "canary", label: "Canary" },

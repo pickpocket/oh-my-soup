@@ -1,4 +1,4 @@
-import { isRecord } from "@oh-my-pi/pi-utils";
+import { isRecord } from "@oh-my-soup/pi-utils";
 import {
 	type FactoryDroidRegistryModel,
 	factoryDroidRegionalLimits,
@@ -125,7 +125,7 @@ function isModelAvailable(
 }
 
 export interface FactoryDroidModelDiscoveryOptions extends AccountScope {
-	/** OMP-stored WorkOS access token (from `/login factory-droid`), when present. */
+	/** OMS-stored WorkOS access token (from `/login factory-droid`), when present. */
 	apiKey?: string;
 	fetch?: FetchImpl;
 }

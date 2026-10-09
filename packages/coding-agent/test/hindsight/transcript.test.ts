@@ -1,8 +1,8 @@
 import { describe, expect, it } from "bun:test";
-import type { AgentMessage } from "@oh-my-pi/pi-agent-core";
-import { countUserTurns, extractMessages } from "@oh-my-pi/pi-coding-agent/hindsight/transcript";
-import { stripImagesFromMessage } from "@oh-my-pi/pi-coding-agent/session/messages";
-import type { SessionMessageEntry } from "@oh-my-pi/pi-coding-agent/session/session-entries";
+import type { AgentMessage } from "@oh-my-soup/pi-agent-core";
+import { countUserTurns, extractMessages } from "@oh-my-soup/pi-coding-agent/hindsight/transcript";
+import { stripImagesFromMessage } from "@oh-my-soup/pi-coding-agent/session/messages";
+import type { SessionMessageEntry } from "@oh-my-soup/pi-coding-agent/session/session-entries";
 
 describe("countUserTurns", () => {
 	it("recounts a user message after its images are stripped in place", () => {

@@ -7,11 +7,11 @@
  * state, while the advisor config overlay embeds it as a plain "pick one
  * model" list.
  */
-import { ThinkingLevel } from "@oh-my-pi/pi-agent-core";
-import type { Model } from "@oh-my-pi/pi-ai";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
-import { getModelPricingStatus, modelsAreEqual } from "@oh-my-pi/pi-catalog/models";
-import type { ModelKind, ModelPricingStatus } from "@oh-my-pi/pi-catalog/types";
+import { ThinkingLevel } from "@oh-my-soup/pi-agent-core";
+import type { Model } from "@oh-my-soup/pi-ai";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
+import { getModelPricingStatus, modelsAreEqual } from "@oh-my-soup/pi-catalog/models";
+import type { ModelKind, ModelPricingStatus } from "@oh-my-soup/pi-catalog/types";
 import type { Component } from "../tui";
 import { FuzzyCorpus, fuzzyRank } from "../fuzzy";
 import { Input } from "../components/input";
@@ -19,7 +19,7 @@ import { ScrollView } from "../components/scroll-view";
 import { matchesKey } from "../keys";
 import type { SgrMouseEvent } from "../mouse";
 import { replaceTabs, truncateToWidth, visibleWidth } from "../utils";
-import { formatNumber, sanitizeText } from "@oh-my-pi/pi-utils";
+import { formatNumber, sanitizeText } from "@oh-my-soup/pi-utils";
 import {
 	AUTO_THINKING,
 	type ConfiguredThinkingLevel,
@@ -37,7 +37,7 @@ import {
 } from "../keybinding-matchers";
 import { MenuSelection } from "../components/menu-selection";
 import { clampScrollOffset, scrollOffsetForRow } from "../components/scroll-viewport";
-import type { TspPickerColumn, TspPickerGroup, TspPickerItem, TspSpan, TspText } from "@oh-my-pi/pi-wire";
+import type { TspPickerColumn, TspPickerGroup, TspPickerItem, TspSpan, TspText } from "@oh-my-soup/pi-wire";
 import { col, md, node, row, span, text } from "../native/describe";
 import { pickerFuzzyHits } from "../native/picker";
 import type { NativeChild, NativeNode, NativeUiEvent } from "../native/node";
@@ -773,7 +773,7 @@ function previewPrice(model: Model): string {
 	return withCreditBadge(model, parts.join(" · "));
 }
 
-/** The omp theme token of a thinking level's dot (`thinkingHigh`); none for inherit and auto. */
+/** The oms theme token of a thinking level's dot (`thinkingHigh`); none for inherit and auto. */
 export function thinkingDotToken(level: ConfiguredThinkingLevel): string | undefined {
 	if (level === ThinkingLevel.Inherit || level === AUTO_THINKING) return undefined;
 	return `thinking${level.charAt(0).toUpperCase()}${level.slice(1)}`;
@@ -1739,7 +1739,7 @@ export class ModelBrowser implements Component {
 		const listNode = node(
 			"list",
 			{
-				role: "omp.model-browser.list",
+				role: "oms.model-browser.list",
 				selected,
 				filter: filter || undefined,
 				empty: empty ? [span(empty, "muted")] : undefined,
@@ -1850,7 +1850,7 @@ export class ModelBrowser implements Component {
 				if (chips.length > 0) children.push(text(chips, { wrap: "word" }));
 			}
 		}
-		const detailNode = node("col", { role: "omp.model-browser.detail", gap: "none" }, children, "detail");
+		const detailNode = node("col", { role: "oms.model-browser.detail", gap: "none" }, children, "detail");
 		this.#nativeDetail = { item: selected, epoch: this.#nativeEpoch, roles: this.#roles, node: detailNode };
 		return detailNode;
 	}
@@ -2142,7 +2142,7 @@ export class ModelBrowser implements Component {
 		}
 
 		const children: NativeChild[] = [
-			text(model.name, { role: "omp.picker.title" }),
+			text(model.name, { role: "oms.picker.title" }),
 			text([span(selector, "mono")], { actions: { click: "copy" }, title: "Copy model id", truncate: "middle" }),
 		];
 		const badges: NativeChild[] = [];

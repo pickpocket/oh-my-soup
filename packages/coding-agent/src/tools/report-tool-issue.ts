@@ -33,16 +33,16 @@
 import { Database } from "bun:sqlite";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import type { AgentToolResult } from "@oh-my-pi/pi-agent-core";
-import type { FetchImpl } from "@oh-my-pi/pi-ai";
-import { $env, $flag, getAutoQaDbPath, getInstallId, logger, VERSION } from "@oh-my-pi/pi-utils";
+import type { AgentToolResult } from "@oh-my-soup/pi-agent-core";
+import type { FetchImpl } from "@oh-my-soup/pi-ai";
+import { $env, $flag, getAutoQaDbPath, getInstallId, logger, VERSION } from "@oh-my-soup/pi-utils";
 import type { Settings } from "..";
 import type { ToolSession } from "./index";
-import { ToolError } from "@oh-my-pi/pi-tui/tools/tool-errors";
+import { ToolError } from "@oh-my-soup/pi-tui/tools/tool-errors";
 import type { XdevDispatch } from "./xdev";
 
-import { REPORT_ISSUE_DEVICE_NAME, REPORT_ISSUE_DEVICE_PATH } from "@oh-my-pi/pi-tui/tools/report-tool-issue";
-import { truncateHeadBytes } from "@oh-my-pi/pi-tui/tools/streaming-output";
+import { REPORT_ISSUE_DEVICE_NAME, REPORT_ISSUE_DEVICE_PATH } from "@oh-my-soup/pi-tui/tools/report-tool-issue";
+import { truncateHeadBytes } from "@oh-my-soup/pi-tui/tools/streaming-output";
 
 import { cfgDevAutoqa, cfgDevAutoqaConsent, cfgDevAutoqaPushEndpoint, cfgDevAutoqaPushToken } from "./settings";
 
@@ -237,7 +237,7 @@ let cachedDb: Database | null = null;
 
 /**
  * Open (or return the cached handle for) the auto-QA SQLite database at
- * `~/.omp/autoqa.db` (XDG: `$XDG_DATA_HOME/omp/autoqa.db`), creating the
+ * `~/.oms/autoqa.db` (XDG: `$XDG_DATA_HOME/oms/autoqa.db`), creating the
  * schema lazily. Returns `null` when the path cannot be resolved or opened.
  */
 export function openAutoQaDb(): Database | null {
@@ -306,7 +306,7 @@ export interface FlushResult {
 }
 
 /**
- * Optional per-flush controls. Used by `omp grievances push` to surface
+ * Optional per-flush controls. Used by `oms grievances push` to surface
  * progress to a TTY and to skip the user-facing consent gate (manual
  * pushes are the user's explicit intent, not a side effect of a device write).
  */
@@ -373,7 +373,7 @@ function resolvePushConfig(settings: Settings | undefined, bypassConsent: boolea
 	if (!isAutoQaEnabled(settings)) return null;
 
 	// Consent IS the push opt-in for the auto-flush path. `bypassConsent`
-	// covers explicit user-driven pushes (`omp grievances push`) where the
+	// covers explicit user-driven pushes (`oms grievances push`) where the
 	// user clearly intends to ship regardless of dialog state. The
 	// `PI_AUTO_QA_PUSH` env flag stays as a CI/headless override too.
 	if (!bypassConsent) {
@@ -438,7 +438,7 @@ async function performFlush(db: Database, config: PushConfig, options: FlushOpti
 
 	const postBatch = async (batch: GrievanceRow[]): Promise<BatchOutcome> => {
 		const body = JSON.stringify({
-			agent: { name: "omp", version: VERSION },
+			agent: { name: "oms", version: VERSION },
 			installId: getInstallId(),
 			// Coarse host fingerprint for triage — `darwin`/`linux`/`win32` +
 			// `arm64`/`x64`. Useful for "is this bug arch-specific?" without

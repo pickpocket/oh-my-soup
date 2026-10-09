@@ -40,9 +40,9 @@ use crate::{glob_util, iofs, shell::vfs::ShellFilesystem, task};
 
 const MAX_FILE_BYTES: u64 = 4 * 1024 * 1024;
 /// PCRE2 JIT toggle read once from the process environment; see
-/// [`pi_builtins::pcre2_jit_enabled`] for the `OMP_PCRE2_JIT` values.
+/// [`pi_builtins::pcre2_jit_enabled`] for the `OMS_PCRE2_JIT` values.
 static PCRE2_JIT_ENABLED: LazyLock<bool> =
-	LazyLock::new(|| pi_builtins::pcre2_jit_enabled(std::env::var("OMP_PCRE2_JIT").ok().as_deref()));
+	LazyLock::new(|| pi_builtins::pcre2_jit_enabled(std::env::var("OMS_PCRE2_JIT").ok().as_deref()));
 
 /// Upper bound on entries per streamed `onMatches` batch; a file with more
 /// content matches streams several batches while it is still being searched.

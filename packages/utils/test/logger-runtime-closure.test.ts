@@ -20,7 +20,7 @@ async function makeRoot(prefix: string): Promise<string> {
 }
 
 async function runProbe(scenario: "import" | "console" | "file"): Promise<LoggerCacheSnapshot> {
-	const root = await makeRoot("omp-logger-cache-");
+	const root = await makeRoot("oms-logger-cache-");
 	const outputPath = path.join(root, "result.json");
 	const logsDir = path.join(root, "logs");
 	await fs.mkdir(logsDir);
@@ -36,7 +36,7 @@ async function runProbe(scenario: "import" | "console" | "file"): Promise<Logger
 }
 
 async function runPositiveControl(): Promise<LoggerCacheSnapshot> {
-	const root = await makeRoot("omp-logger-cache-control-");
+	const root = await makeRoot("oms-logger-cache-control-");
 	const outputPath = path.join(root, "result.json");
 	const proc = Bun.spawn([process.execPath, positiveControlPath, outputPath], {
 		cwd: path.resolve(import.meta.dir, "../../.."),

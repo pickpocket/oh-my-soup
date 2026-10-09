@@ -3,10 +3,10 @@ import { beforeEach, describe, expect, it, spyOn } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { syncAllSessions } from "@oh-my-pi/omp-stats/aggregator";
-import { closeDb, getFileOffset, getRecentRequests, initDb } from "@oh-my-pi/omp-stats/db";
-import { getOverallStats } from "@oh-my-pi/omp-stats/rollup";
-import { getSessionsDir, getStatsDbPath } from "@oh-my-pi/pi-utils";
+import { syncAllSessions } from "@oh-my-soup/oms-stats/aggregator";
+import { closeDb, getFileOffset, getRecentRequests, initDb } from "@oh-my-soup/oms-stats/db";
+import { getOverallStats } from "@oh-my-soup/oms-stats/rollup";
+import { getSessionsDir, getStatsDbPath } from "@oh-my-soup/pi-utils";
 import { installStatsTestIsolation } from "./helpers/temp-agent";
 
 const isolation = installStatsTestIsolation("@pi-stats-tail-");

@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "bun:test";
 import * as path from "node:path";
-import { ProcessTerminal } from "@oh-my-pi/pi-tui/terminal";
-import { TempDir } from "@oh-my-pi/pi-utils";
+import { ProcessTerminal } from "@oh-my-soup/pi-tui/terminal";
+import { TempDir } from "@oh-my-soup/pi-utils";
 
 const originalWriteLog = Bun.env.PI_TUI_WRITE_LOG;
 
@@ -17,7 +17,7 @@ describe("PI_TUI_WRITE_LOG", () => {
 		["BEL", "\x07"],
 		["ST", "\x1b\\"],
 	] as const)("records an OSC 52 clipboard write ended by %s as its payload length", async (_terminator, end) => {
-		using dir = TempDir.createSync("@omp-tui-write-log-");
+		using dir = TempDir.createSync("@oms-tui-write-log-");
 		const logPath = path.join(dir.path(), "writes.log");
 		Bun.env.PI_TUI_WRITE_LOG = logPath;
 		const terminal = new ProcessTerminal({ conpty: false });

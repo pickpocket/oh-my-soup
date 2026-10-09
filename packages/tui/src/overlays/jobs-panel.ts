@@ -5,8 +5,8 @@
  * `elapsed`, lists every job and inspects the selected one (command, cwd, live
  * pids, exit code, output tail).
  */
-import type { TspAgentProps, TspSpan } from "@oh-my-pi/pi-wire";
-import { formatDuration } from "@oh-my-pi/pi-utils";
+import type { TspAgentProps, TspSpan } from "@oh-my-soup/pi-wire";
+import { formatDuration } from "@oh-my-soup/pi-utils";
 import type { Component } from "../tui";
 import { matchesSelectCancel, matchesSelectDown, matchesSelectUp } from "../keybinding-matchers";
 import { matchesKey } from "../keys";
@@ -102,7 +102,7 @@ const FALLBACK_TAIL_LINES = 8;
  */
 export class JobsSheet implements Component {
 	readonly nativeOverlay = {
-		role: "omp.overlay.jobs",
+		role: "oms.overlay.jobs",
 		size: "lg",
 		anchor: "center",
 		head: "Background jobs",
@@ -276,7 +276,7 @@ function describeJob(job: JobsPanelJob, nowMs: number, agent: boolean): NativeNo
 	}
 	return node(
 		"row",
-		{ role: "omp.jobs.row", gap: "sm", align: "center", title: `${job.id} · ${job.type} · ${job.status}` },
+		{ role: "oms.jobs.row", gap: "sm", align: "center", title: `${job.id} · ${job.type} · ${job.status}` },
 		[
 			text([DOT[job.status]], { aria: job.status, shrink: 0 }),
 			text([span(collapseCommand(job.label))], { wrap: "none", truncate: "end", grow: 1 }),
@@ -342,8 +342,8 @@ function describeDetail(
 				)
 			: undefined,
 		detail?.output
-			? ansi(detail.output, { follow: !settled, role: "omp.jobs.output", max: { h: "16lines" } })
+			? ansi(detail.output, { follow: !settled, role: "oms.jobs.output", max: { h: "16lines" } })
 			: text([span(settled ? "No output" : "No output yet", "dim")]),
 	]);
-	return node("col", { gap: "sm", role: "omp.jobs.detail" }, children, stableKey(job.id));
+	return node("col", { gap: "sm", role: "oms.jobs.detail" }, children, stableKey(job.id));
 }

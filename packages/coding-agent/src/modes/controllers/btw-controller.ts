@@ -1,6 +1,6 @@
-import type { AssistantMessage } from "@oh-my-pi/pi-ai";
-import { type OverlayHandle, replaceTabs } from "@oh-my-pi/pi-tui";
-import { logger, toError, withTimeout } from "@oh-my-pi/pi-utils";
+import type { AssistantMessage } from "@oh-my-soup/pi-ai";
+import { type OverlayHandle, replaceTabs } from "@oh-my-soup/pi-tui";
+import { logger, toError, withTimeout } from "@oh-my-soup/pi-utils";
 import {
 	type BtwHistoryRecord,
 	type BtwHistoryTurn,
@@ -9,11 +9,11 @@ import {
 	getBtwLatestTurn,
 } from "../../session/btw-history";
 import { beginBtwTurn, patchLatestBtwTurn, runBtwTurn } from "../../session/btw-turn";
-import { TRUNCATE_LENGTHS } from "@oh-my-pi/pi-tui/render/render-utils";
+import { TRUNCATE_LENGTHS } from "@oh-my-soup/pi-tui/render/render-utils";
 import { copyToClipboard } from "../../utils/clipboard";
-import { BtwHistoryPanel } from "@oh-my-pi/pi-tui/overlays/btw-history-panel";
-import { BtwPanelComponent } from "@oh-my-pi/pi-tui/overlays/btw-panel";
-import { sanitizeErrorLine } from "@oh-my-pi/pi-tui/chrome/error-block";
+import { BtwHistoryPanel } from "@oh-my-soup/pi-tui/overlays/btw-history-panel";
+import { BtwPanelComponent } from "@oh-my-soup/pi-tui/overlays/btw-panel";
+import { sanitizeErrorLine } from "@oh-my-soup/pi-tui/chrome/error-block";
 import type { InteractiveModeContext } from "../types";
 
 interface BtwRequest {

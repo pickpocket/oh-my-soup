@@ -7,12 +7,12 @@ import {
 } from "../src/cli/profile-alias";
 
 describe("profile alias installer", () => {
-	it("writes a bash-compatible function that forwards subcommands through omp", async () => {
+	it("writes a bash-compatible function that forwards subcommands through oms", async () => {
 		const files = new Map<string, string>();
 
 		const result = await installProfileAlias({
 			profile: "work",
-			aliasName: "omp-work",
+			aliasName: "oms-work",
 			shellPath: "/bin/bash",
 			platform: "linux",
 			homeDir: "/home/me",
@@ -23,9 +23,9 @@ describe("profile alias installer", () => {
 		});
 
 		expect(result.configPath).toBe("/home/me/.bashrc");
-		expect(result.command).toBe("omp --profile=work");
-		expect(files.get("/home/me/.bashrc")).toContain("omp-work() {");
-		expect(files.get("/home/me/.bashrc")).toContain('command omp --profile=work "$@"');
+		expect(result.command).toBe("oms --profile=work");
+		expect(files.get("/home/me/.bashrc")).toContain("oms-work() {");
+		expect(files.get("/home/me/.bashrc")).toContain('command oms --profile=work "$@"');
 	});
 
 	it("resolves source invocations without forcing the source checkout as cwd", () => {
@@ -52,10 +52,10 @@ describe("profile alias installer", () => {
 		});
 
 		expect(command).toEqual({
-			display: "omp",
-			posix: "omp",
-			fish: "omp",
-			powerShell: "omp",
+			display: "oms",
+			posix: "oms",
+			fish: "oms",
+			powerShell: "oms",
 		});
 	});
 
@@ -78,12 +78,12 @@ describe("profile alias installer", () => {
 		expect(command.powerShell).toBe(`'${runtime}' '${expectedScriptPath}'`);
 	});
 
-	it("can target the current source invocation instead of the installed omp binary", async () => {
+	it("can target the current source invocation instead of the installed oms binary", async () => {
 		const files = new Map<string, string>();
 
 		const result = await installProfileAlias({
 			profile: "work",
-			aliasName: "omp-work",
+			aliasName: "oms-work",
 			shellPath: "/bin/zsh",
 			platform: "darwin",
 			homeDir: "/Users/me",
@@ -101,7 +101,7 @@ describe("profile alias installer", () => {
 		});
 
 		expect(result.command).toBe("bun /repo/packages/coding-agent/src/cli.ts --profile=work");
-		expect(files.get("/Users/me/.zshrc")).toContain("omp-work() {");
+		expect(files.get("/Users/me/.zshrc")).toContain("oms-work() {");
 		expect(files.get("/Users/me/.zshrc")).toContain(
 			`command bun '/repo/packages/coding-agent/src/cli.ts' --profile=work "$@"`,
 		);
@@ -112,7 +112,7 @@ describe("profile alias installer", () => {
 
 		const result = await installProfileAlias({
 			profile: "work",
-			aliasName: "omp-work",
+			aliasName: "oms-work",
 			shellPath: "/bin/zsh",
 			platform: "darwin",
 			homeDir: "/Users/me",
@@ -124,7 +124,7 @@ describe("profile alias installer", () => {
 		});
 
 		expect(result.configPath).toBe("/Users/me/.config/zsh/.zshrc");
-		expect(files.get(result.configPath)).toContain("omp-work() {");
+		expect(files.get(result.configPath)).toContain("oms-work() {");
 	});
 
 	it("writes a fish function that forwards argv", async () => {
@@ -132,7 +132,7 @@ describe("profile alias installer", () => {
 
 		await installProfileAlias({
 			profile: "work",
-			aliasName: "omp-work",
+			aliasName: "oms-work",
 			shellPath: "/opt/homebrew/bin/fish",
 			platform: "darwin",
 			homeDir: "/Users/me",
@@ -143,9 +143,9 @@ describe("profile alias installer", () => {
 			},
 		});
 
-		const content = files.get("/Users/me/.config/fish/conf.d/omp-profiles.fish") ?? "";
-		expect(content).toContain("function omp-work --wraps omp");
-		expect(content).toContain("command omp --profile=work $argv");
+		const content = files.get("/Users/me/.config/fish/conf.d/oms-profiles.fish") ?? "";
+		expect(content).toContain("function oms-work --wraps oms");
+		expect(content).toContain("command oms --profile=work $argv");
 	});
 
 	it("installs the fish alias under XDG_CONFIG_HOME when set", async () => {
@@ -153,7 +153,7 @@ describe("profile alias installer", () => {
 
 		const result = await installProfileAlias({
 			profile: "work",
-			aliasName: "omp-work",
+			aliasName: "oms-work",
 			shellPath: "/usr/bin/fish",
 			platform: "linux",
 			homeDir: "/home/me",
@@ -164,8 +164,8 @@ describe("profile alias installer", () => {
 			},
 		});
 
-		expect(result.configPath).toBe("/home/me/.dotfiles/config/fish/conf.d/omp-profiles.fish");
-		expect(files.get(result.configPath)).toContain("function omp-work --wraps omp");
+		expect(result.configPath).toBe("/home/me/.dotfiles/config/fish/conf.d/oms-profiles.fish");
+		expect(files.get(result.configPath)).toContain("function oms-work --wraps oms");
 	});
 
 	it("writes a PowerShell function because aliases cannot carry arguments", async () => {
@@ -173,7 +173,7 @@ describe("profile alias installer", () => {
 
 		await installProfileAlias({
 			profile: "work",
-			aliasName: "omp-work",
+			aliasName: "oms-work",
 			shellPath: "pwsh.exe",
 			platform: "win32",
 			homeDir: "C:\\Users\\me",
@@ -185,8 +185,8 @@ describe("profile alias installer", () => {
 
 		const psConfigPath = path.join("C:\\Users\\me", "Documents", "PowerShell", "Microsoft.PowerShell_profile.ps1");
 		const content = files.get(psConfigPath) ?? "";
-		expect(content).toContain("function omp-work");
-		expect(content).toContain("& omp --profile=work @args");
+		expect(content).toContain("function oms-work");
+		expect(content).toContain("& oms --profile=work @args");
 	});
 
 	it("detects pwsh from PSModulePath when SHELL is unset on Windows", async () => {
@@ -194,7 +194,7 @@ describe("profile alias installer", () => {
 
 		const result = await installProfileAlias({
 			profile: "work",
-			aliasName: "omp-work",
+			aliasName: "oms-work",
 			platform: "win32",
 			homeDir: "C:\\Users\\me",
 			env: {
@@ -210,7 +210,7 @@ describe("profile alias installer", () => {
 		expect(result.shell).toBe("pwsh");
 		const psConfigPath = path.join("C:\\Users\\me", "Documents", "PowerShell", "Microsoft.PowerShell_profile.ps1");
 		expect(result.configPath).toBe(psConfigPath);
-		expect(files.get(result.configPath)).toContain("& omp --profile=work @args");
+		expect(files.get(result.configPath)).toContain("& oms --profile=work @args");
 	});
 
 	it("selects Windows PowerShell when only WindowsPowerShell modules are present", async () => {
@@ -218,7 +218,7 @@ describe("profile alias installer", () => {
 
 		const result = await installProfileAlias({
 			profile: "work",
-			aliasName: "omp-work",
+			aliasName: "oms-work",
 			platform: "win32",
 			homeDir: "C:\\Users\\me",
 			env: {
@@ -246,7 +246,7 @@ describe("profile alias installer", () => {
 
 		const result = await installProfileAlias({
 			profile: "work",
-			aliasName: "omp-work",
+			aliasName: "oms-work",
 			platform: "win32",
 			homeDir: "C:\\Users\\me",
 			env: { POWERSHELL_DISTRIBUTION_CHANNEL: "MSI:Windows 10 Pro" },
@@ -267,9 +267,9 @@ describe("profile alias installer", () => {
 				"/home/me/.zshrc",
 				[
 					"before",
-					"# >>> omp profile alias: omp-work >>>",
-					"alias omp-work='command omp --profile=old'",
-					"# <<< omp profile alias: omp-work <<<",
+					"# >>> oms profile alias: oms-work >>>",
+					"alias oms-work='command oms --profile=old'",
+					"# <<< oms profile alias: oms-work <<<",
 					"after",
 				].join("\n"),
 			],
@@ -277,7 +277,7 @@ describe("profile alias installer", () => {
 
 		await installProfileAlias({
 			profile: "work",
-			aliasName: "omp-work",
+			aliasName: "oms-work",
 			shellPath: "/bin/zsh",
 			platform: "darwin",
 			homeDir: "/home/me",
@@ -291,7 +291,7 @@ describe("profile alias installer", () => {
 		const content = files.get("/home/me/.zshrc") ?? "";
 		expect(content).toContain("before");
 		expect(content).toContain("after");
-		expect(content).toContain('command omp --profile=work "$@"');
+		expect(content).toContain('command oms --profile=work "$@"');
 		expect(content).not.toContain("--profile=old");
 	});
 
@@ -300,14 +300,14 @@ describe("profile alias installer", () => {
 		// was interrupted or hand-edited. Appending a fresh block would let the
 		// *next* install splice from the stale start through the new end, deleting
 		// the user config in between. Refuse and preserve the file untouched.
-		const original = ["# >>> omp profile alias: omp-work >>>", "omp-work() {", "export SECRET=keepme"].join("\n");
+		const original = ["# >>> oms profile alias: oms-work >>>", "oms-work() {", "export SECRET=keepme"].join("\n");
 		const files = new Map<string, string>([["/home/me/.zshrc", original]]);
 		let wrote = false;
 
 		await expect(
 			installProfileAlias({
 				profile: "work",
-				aliasName: "omp-work",
+				aliasName: "oms-work",
 				shellPath: "/bin/zsh",
 				platform: "darwin",
 				homeDir: "/home/me",
@@ -324,8 +324,8 @@ describe("profile alias installer", () => {
 		expect(files.get("/home/me/.zshrc")).toBe(original);
 	});
 
-	it("refuses to shadow the base omp command case-insensitively", async () => {
-		for (const aliasName of ["omp", "OMP"]) {
+	it("refuses to shadow the base oms command case-insensitively", async () => {
+		for (const aliasName of ["oms", "OMS"]) {
 			await expect(
 				installProfileAlias({
 					profile: "work",
@@ -359,7 +359,7 @@ describe("profile alias installer", () => {
 		await expect(
 			installProfileAlias({
 				profile: "work",
-				aliasName: "omp-work",
+				aliasName: "oms-work",
 				shellPath: "/bin/sh",
 				platform: "linux",
 				homeDir: "/home/me",
@@ -387,7 +387,7 @@ describe("profile alias installer", () => {
 		await expect(
 			installProfileAlias({
 				profile: "work'; touch /tmp/pwn; #",
-				aliasName: "omp-work",
+				aliasName: "oms-work",
 				shellPath: "/bin/bash",
 				platform: "linux",
 				homeDir: "/home/me",
@@ -396,7 +396,7 @@ describe("profile alias installer", () => {
 					files.set(filePath, content);
 				},
 			}),
-		).rejects.toThrow("Invalid OMP profile");
+		).rejects.toThrow("Invalid OMS profile");
 		expect(files.size).toBe(0);
 	});
 
@@ -405,7 +405,7 @@ describe("profile alias installer", () => {
 
 		const result = await installProfileAlias({
 			profile: "work",
-			aliasName: "omp-work",
+			aliasName: "oms-work",
 			shellPath: "/bin/bash",
 			platform: "win32",
 			homeDir: "C:\\Users\\me",
@@ -426,7 +426,7 @@ describe("profile alias installer", () => {
 
 		const result = await installProfileAlias({
 			profile: "work",
-			aliasName: "omp-work",
+			aliasName: "oms-work",
 			shellPath: "/bin/zsh",
 			platform: "win32",
 			homeDir: "C:\\Users\\me",
@@ -446,7 +446,7 @@ describe("profile alias installer", () => {
 
 		const result = await installProfileAlias({
 			profile: "work",
-			aliasName: "omp-work",
+			aliasName: "oms-work",
 			shellPath: "/bin/fish",
 			platform: "win32",
 			homeDir: "C:\\Users\\me",
@@ -457,8 +457,8 @@ describe("profile alias installer", () => {
 			},
 		});
 
-		expect(result.configPath).toBe("D:/xdg/fish/conf.d/omp-profiles.fish");
-		expect(result.reloadedWith).toBe("source 'D:/xdg/fish/conf.d/omp-profiles.fish'");
+		expect(result.configPath).toBe("D:/xdg/fish/conf.d/oms-profiles.fish");
+		expect(result.reloadedWith).toBe("source 'D:/xdg/fish/conf.d/oms-profiles.fish'");
 	});
 
 	it("preserves UNC path roots when normalizing POSIX shell config paths", async () => {
@@ -466,7 +466,7 @@ describe("profile alias installer", () => {
 
 		const result = await installProfileAlias({
 			profile: "work",
-			aliasName: "omp-work",
+			aliasName: "oms-work",
 			shellPath: "/bin/bash",
 			platform: "win32",
 			homeDir: "\\\\server\\share\\me",

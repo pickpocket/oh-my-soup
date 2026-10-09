@@ -1,9 +1,9 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 
-import { untilAborted } from "@oh-my-pi/pi-utils";
+import { untilAborted } from "@oh-my-soup/pi-utils";
 import type { HTTPRequest, HTTPResponse, Page } from "puppeteer-core";
-import { ToolError } from "@oh-my-pi/pi-tui/tools/tool-errors";
+import { ToolError } from "@oh-my-soup/pi-tui/tools/tool-errors";
 
 /** Maximum number of request records retained per tab; the oldest are evicted first. */
 export const REQUEST_LOG_LIMIT = 200;
@@ -11,7 +11,7 @@ export const REQUEST_LOG_LIMIT = 200;
 export const RESPONSE_BODY_LIMIT_BYTES = 1024 * 1024;
 const ROUTE_INTERCEPT_PRIORITY = 10;
 const PASS_THROUGH_INTERCEPT_PRIORITY = 0;
-const REQUEST_RECORD = Symbol("omp.browser.requestRecord");
+const REQUEST_RECORD = Symbol("oms.browser.requestRecord");
 
 /** URL pattern accepted by persistent tab routes and request filters. */
 export type NetworkPattern = string | RegExp;
@@ -513,7 +513,7 @@ export function buildHarLog(entries: Record<string, unknown>[]): object {
 	return {
 		log: {
 			version: "1.2",
-			creator: { name: "omp-browser", version: "1" },
+			creator: { name: "oms-browser", version: "1" },
 			pages: [],
 			entries,
 		},

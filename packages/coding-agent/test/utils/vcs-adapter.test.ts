@@ -2,13 +2,13 @@ import { afterEach, describe, expect, test } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import * as vcs from "@oh-my-pi/pi-natives/vcs";
+import * as vcs from "@oh-my-soup/pi-natives/vcs";
 import { $ } from "bun";
 
 const repos: string[] = [];
 
 async function createRepo(): Promise<string> {
-	const repo = await fs.mkdtemp(path.join(os.tmpdir(), "omp-git-vcs-adapter-"));
+	const repo = await fs.mkdtemp(path.join(os.tmpdir(), "oms-git-vcs-adapter-"));
 	repos.push(repo);
 	await $`git init --initial-branch=main`.cwd(repo).quiet();
 	await $`git config user.name "Test User"`.cwd(repo).quiet();

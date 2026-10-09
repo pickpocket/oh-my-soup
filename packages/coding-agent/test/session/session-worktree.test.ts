@@ -2,8 +2,8 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { shortenPath } from "@oh-my-pi/pi-tui/render/render-utils";
-import { setWorktreesDir } from "@oh-my-pi/pi-utils";
+import { shortenPath } from "@oh-my-soup/pi-tui/render/render-utils";
+import { setWorktreesDir } from "@oh-my-soup/pi-utils";
 import { Settings } from "../../src/config/settings";
 import {
 	canAutoCreateWorktree,
@@ -84,12 +84,12 @@ describe("session worktree helpers (real git)", () => {
 	const branch = "wt/test-session";
 
 	beforeEach(async () => {
-		root = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), "omp-session-wt-")));
+		root = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), "oms-session-wt-")));
 		repo = path.join(root, "repo");
 		await fs.mkdir(repo);
-		savedEnv = process.env.OMP_WORKTREE_DIR;
+		savedEnv = process.env.OMS_WORKTREE_DIR;
 		savedCwd = process.cwd();
-		delete process.env.OMP_WORKTREE_DIR;
+		delete process.env.OMS_WORKTREE_DIR;
 		setWorktreesDir(path.join(root, "wt"));
 		git(repo, "init", "-q", "-b", "main");
 		git(repo, "config", "core.autocrlf", "false");
@@ -101,8 +101,8 @@ describe("session worktree helpers (real git)", () => {
 	afterEach(async () => {
 		process.chdir(savedCwd);
 		setWorktreesDir(undefined);
-		if (savedEnv === undefined) delete process.env.OMP_WORKTREE_DIR;
-		else process.env.OMP_WORKTREE_DIR = savedEnv;
+		if (savedEnv === undefined) delete process.env.OMS_WORKTREE_DIR;
+		else process.env.OMS_WORKTREE_DIR = savedEnv;
 		await fs.rm(root, { recursive: true, force: true });
 	});
 
@@ -213,7 +213,7 @@ describe("session worktree helpers (real git)", () => {
 		expect(plan.map(p => p.worktree.branch)).toEqual(["wt/newer", "wt/older"]);
 		process.chdir(newer.path);
 		expect(await removeExitWorktrees(plan)).toEqual([
-			`Removed worktree ${shortenPath(newer.path)}. Resuming opens in the directory you launch omp from.`,
+			`Removed worktree ${shortenPath(newer.path)}. Resuming opens in the directory you launch oms from.`,
 		]);
 		expect(await fs.realpath(process.cwd())).toBe(repo);
 		expect(worktreePaths(repo)).toEqual([repo]);
@@ -268,7 +268,7 @@ describe("session worktree helpers (real git)", () => {
 		expect(plan.map(p => p.worktree)).toEqual([wt]);
 		process.chdir(wt.path);
 		expect(await removeExitWorktrees(plan)).toEqual([
-			`Removed worktree ${shortenPath(wt.path)}. Resuming opens in the directory you launch omp from; its commits are on branch ${branch}.`,
+			`Removed worktree ${shortenPath(wt.path)}. Resuming opens in the directory you launch oms from; its commits are on branch ${branch}.`,
 		]);
 		expect(await exists(wt.path)).toBe(false);
 		expect(branchSha(repo, branch)).toBe(tip);

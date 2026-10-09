@@ -16,11 +16,11 @@ import type {
 	Model,
 	SimpleStreamOptions,
 	Usage,
-} from "@oh-my-pi/pi-ai";
-import * as AIError from "@oh-my-pi/pi-ai/error";
-import { resolveAnthropicCompactionEffort } from "@oh-my-pi/pi-ai/providers/anthropic";
-import { supportsAnthropicCompaction } from "@oh-my-pi/pi-ai/providers/anthropic-compaction";
-import { isRecord, prompt } from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-ai";
+import * as AIError from "@oh-my-soup/pi-ai/error";
+import { resolveAnthropicCompactionEffort } from "@oh-my-soup/pi-ai/providers/anthropic";
+import { supportsAnthropicCompaction } from "@oh-my-soup/pi-ai/providers/anthropic-compaction";
+import { isRecord, prompt } from "@oh-my-soup/pi-utils";
 import { type InstrumentedChatSpanOptions, instrumentedCompleteSimple } from "../telemetry";
 import type { AgentMessage } from "../types";
 import anthropicCompactionInstructionsPrompt from "./prompts/anthropic-compaction-instructions.md" with { type: "text" };

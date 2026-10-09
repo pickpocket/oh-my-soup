@@ -1,5 +1,5 @@
 {
-	"name": "@oh-my-pi/pi-utils",
+	"name": "@oh-my-soup/pi-utils",
 	"version": "18.8.7",
 	"description": "Shared utilities for pi packages",
 	"keywords": [
@@ -8,15 +8,15 @@
 		"streams",
 		"utilities"
 	],
-	"homepage": "https://omp.sh",
+	"homepage": "https://github.com/pickpocket/oh-my-soup",
 	"bugs": {
-		"url": "https://github.com/can1357/oh-my-pi/issues"
+		"url": "https://github.com/pickpocket/oh-my-soup/issues"
 	},
 	"license": "MIT",
 	"author": { "name": "Stencil Labs, Inc.", "url": "https://stencil.so" },
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/can1357/oh-my-pi.git",
+		"url": "git+https://github.com/pickpocket/oh-my-soup.git",
 		"directory": "packages/utils"
 	},
 	"files": [
@@ -51,7 +51,7 @@
 		"fmt": "oxfmt --no-error-on-unmatched-pattern 'src/**/*.{ts,tsx}' '{test,bench,examples,scripts}/**/*.ts' '*.ts'"
 	},
 	"dependencies": {
-		"@oh-my-pi/pi-natives": "catalog:"
+		"@oh-my-soup/pi-natives": "catalog:"
 	},
 	"devDependencies": {
 		"@types/bun": "catalog:"

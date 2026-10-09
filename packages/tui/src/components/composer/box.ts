@@ -1,5 +1,5 @@
 /**
- * The classic omp composer: rounded frame, status line embedded in the top
+ * The classic oms composer: rounded frame, status line embedded in the top
  * border, and the last content row merged into the bottom border
  * (`╰─ text … ─╯`), keeping a one-line prompt at two rows total.
  */

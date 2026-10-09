@@ -101,7 +101,7 @@ export type TspEffect = "shimmer" | "pulse" | "none";
  * One styled run of text. `s` holds space-separated semantic tokens
  * (`muted`, `dim`, `strong`, `em`, `accent`, `success`, `warning`, `error`,
  * `info`, `code`, `mono`, `path`, `key`, `link`, `num`, `ins`, `del`, `mark`,
- * `typo`, `icon`, `hide`) or omp theme token names (`thinkingText`,
+ * `typo`, `icon`, `hide`) or oms theme token names (`thinkingText`,
  * `toolTitle`, …). `mark` highlights (a match, the selected row); `typo` is a
  * misspelled word, which the terminal underlines as its own spell checker does.
  * `icon` marks a run of icon glyphs (Nerd Font / Private Use Area codepoints):
@@ -185,7 +185,7 @@ export interface TspSectionProps {
 	head?: TspText;
 	collapsible?: boolean;
 	collapsed?: boolean;
-	/** A finished thinking section (`omp.thinking*`): how long it thought, in ms, like a tool card's `took`. */
+	/** A finished thinking section (`oms.thinking*`): how long it thought, in ms, like a tool card's `took`. */
 	took?: number;
 }
 export interface TspRuleProps {
@@ -244,8 +244,8 @@ export interface TspMathProps {
 	text?: string;
 	display?: boolean;
 }
-/** Images the terminal ships (`image.p.builtin`): `omp` is omp's gradient mark. */
-export type TspBuiltinImage = "omp";
+/** Images the terminal ships (`image.p.builtin`): `oms` is oms's gradient mark. */
+export type TspBuiltinImage = "oms";
 export interface TspImageProps {
 	/** Content address (sha256 hex) of a blob sent with verb `b`. */
 	blob?: string;
@@ -430,7 +430,7 @@ export interface TspPickerItem {
 	node?: "user" | "assistant" | "tool" | "marker";
 	depth?: number;
 	open?: boolean;
-	/** Leading glyph slot for tree/timeline rows (omp role → icon, e.g. `omp.tool.grep`). */
+	/** Leading glyph slot for tree/timeline rows (oms role → icon, e.g. `oms.tool.grep`). */
 	role?: string;
 	title?: string;
 }

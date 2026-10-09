@@ -1,4 +1,4 @@
-import { logger } from "@oh-my-pi/pi-utils";
+import { logger } from "@oh-my-soup/pi-utils";
 import { classifyGatewayError } from "../../error/gateway";
 import * as rerankWire from "../../providers/rerank-server";
 import { rerank } from "../../rerank";

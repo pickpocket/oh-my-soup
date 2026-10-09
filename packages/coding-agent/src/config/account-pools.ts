@@ -1,6 +1,6 @@
-import type { AuthApiKeyOptions, AuthStorage, SessionRestrictionLease } from "@oh-my-pi/pi-ai/auth-storage";
-import type { Api, Model } from "@oh-my-pi/pi-ai/types";
-import { isRecord } from "@oh-my-pi/pi-utils";
+import type { AuthApiKeyOptions, AuthStorage, SessionRestrictionLease } from "@oh-my-soup/pi-ai/auth-storage";
+import type { Api, Model } from "@oh-my-soup/pi-ai/types";
+import { isRecord } from "@oh-my-soup/pi-utils";
 import { type ApiKeyResolverModel, type ApiKeyResolverOptions, createApiKeyResolver } from "./api-key-resolver";
 import type { ModelRegistry } from "./model-registry";
 

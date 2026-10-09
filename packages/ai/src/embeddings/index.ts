@@ -1,4 +1,4 @@
-import type { Api, Model } from "@oh-my-pi/pi-catalog/types";
+import type { Api, Model } from "@oh-my-soup/pi-catalog/types";
 import * as AIError from "../error";
 import { embedOpenAI, type EmbeddingOptions } from "./openai-embeddings";
 import type { EmbeddingRequest, EmbeddingResult } from "./types";

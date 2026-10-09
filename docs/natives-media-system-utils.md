@@ -1,6 +1,6 @@
 # Natives media + system utilities
 
-This document covers the media/system/conversion exports in `@oh-my-pi/pi-natives`: audio capture/playback and live WebRTC media, terminal SIXEL conversion, SVG rasterization, snapcompact PNG rendering, HTML/PDF conversion, clipboard access, token counting, DeviceCheck, macOS appearance/power helpers, and work profiling.
+This document covers the media/system/conversion exports in `@oh-my-soup/pi-natives`: audio capture/playback and live WebRTC media, terminal SIXEL conversion, SVG rasterization, snapcompact PNG rendering, HTML/PDF conversion, clipboard access, token counting, DeviceCheck, macOS appearance/power helpers, and work profiling.
 
 ## Implementation files
 
@@ -120,7 +120,7 @@ There is no current `packages/natives` TS wrapper that emits OSC52, handles Term
 - `detectMacOSAppearance()` returns `"dark"`, `"light"`, or `null` on non-macOS.
 - `MacAppearanceObserver.start(callback)` returns a handle with `stop()`; on macOS it reports the initial appearance, then changes via distributed notifications plus a 2-second polling fallback, deduplicating repeated values. On non-macOS it is a no-op observer.
 - `PowerAssertion.start(options?)` returns a handle with idempotent `stop()` and drop-time release. It uses IOKit on macOS, login1 inhibition on Linux (plus best-effort ScreenSaver inhibition for `display`), and thread-affine execution state on Windows. Unsupported platforms receive a no-op handle.
-- Options are `{ reason?, idle?, system?, user?, display? }`; the default reason is `"omp agent session"`. If no boolean is true, idle-sleep prevention is enabled even when `idle: false` was supplied. `user` is macOS-only. Linux login1 failures reject, while display-inhibitor failures are soft.
+- Options are `{ reason?, idle?, system?, user?, display? }`; the default reason is `"oms agent session"`. If no boolean is true, idle-sleep prevention is enabled even when `idle: false` was supplied. `user` is macOS-only. Linux login1 failures reject, while display-inhibitor failures are soft.
 
 ### Work profiling (`prof`)
 

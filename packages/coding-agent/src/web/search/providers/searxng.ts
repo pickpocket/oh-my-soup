@@ -33,7 +33,7 @@
  * Reference: https://docs.searxng.org/dev/search_api.html
  */
 
-import type { AuthStorage, FetchImpl } from "@oh-my-pi/pi-ai";
+import type { AuthStorage, FetchImpl } from "@oh-my-soup/pi-ai";
 
 import type { Setting } from "../../../config/registry";
 import { isSettingsInitialized, settings } from "../../../config/settings";

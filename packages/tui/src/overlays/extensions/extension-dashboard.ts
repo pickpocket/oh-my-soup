@@ -18,7 +18,7 @@
  * Expand / Close actions; without `picker` it describes a page with the same
  * parts. Pointer events run the key paths above.
  */
-import type { TspPickerAction, TspPickerColumn, TspPickerScope } from "@oh-my-pi/pi-wire";
+import type { TspPickerAction, TspPickerColumn, TspPickerScope } from "@oh-my-soup/pi-wire";
 import type { Component } from "../../tui";
 import { col, keyed, node, span, text } from "../../native/describe";
 import { Memo } from "../../native/memo";
@@ -31,7 +31,7 @@ import { SplitPane, type SplitPaneHit } from "../../components/layout/split-pane
 import { Stack } from "../../components/layout/stack";
 import { ScrollView } from "../../components/scroll-view";
 import { TabBar, type Tab } from "../../components/tab-bar";
-import { logger } from "@oh-my-pi/pi-utils";
+import { logger } from "@oh-my-soup/pi-utils";
 import { getTabBarTheme } from "../../chrome/shared";
 import { theme } from "../../theme";
 import {
@@ -444,7 +444,7 @@ export class ExtensionDashboard implements Component {
 
 	#handleExtensionToggle(extensionId: string, enabled: boolean): void {
 		// MCP toggles route through the canonical denylist in
-		// `~/.omp/agent/mcp.json` so `/mcp list`, the MCP runtime, and this
+		// `~/.oms/agent/mcp.json` so `/mcp list`, the MCP runtime, and this
 		// dashboard agree on every server's enabled state (issue #3827).
 		if (extensionId.startsWith("mcp:")) {
 			void this.#toggleMcpExtension(extensionId, enabled);
@@ -705,15 +705,15 @@ export class ExtensionDashboard implements Component {
 		const total = this.#state.tabFiltered.length;
 		const head = node(
 			"row",
-			{ justify: "between", align: "center", role: "omp.app.head" },
+			{ justify: "between", align: "center", role: "oms.app.head" },
 			[
-				node("row", { gap: "sm", align: "center", role: "omp.app.where" }, [
-					text(DASHBOARD_TITLE, { role: "omp.app.title" }),
+				node("row", { gap: "sm", align: "center", role: "oms.app.where" }, [
+					text(DASHBOARD_TITLE, { role: "oms.app.title" }),
 					text([span(query ? `${shown} of ${total}` : `${total} extensions`, "muted")], { truncate: "end" }),
 				]),
 				node("icon", {
 					name: "x",
-					role: "omp.app.ibtn",
+					role: "oms.app.ibtn",
 					title: `Close  ${formatTooltipKey(boundKeys("app.interrupt", ["escape"])[0] ?? "escape")}`,
 					aria: "Close",
 					actions: { click: "close" },

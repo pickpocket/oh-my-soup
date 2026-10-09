@@ -2,9 +2,9 @@ import { expect, test } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { Effort } from "@oh-my-pi/pi-catalog/effort";
-import { resolveProviderModels } from "@oh-my-pi/pi-catalog/model-manager";
-import type { ModelSpec } from "@oh-my-pi/pi-catalog/types";
+import { Effort } from "@oh-my-soup/pi-catalog/effort";
+import { resolveProviderModels } from "@oh-my-soup/pi-catalog/model-manager";
+import type { ModelSpec } from "@oh-my-soup/pi-catalog/types";
 
 test("authoritative reasoning keeps a live false over the bundled dial through a failed-refresh cache merge", async () => {
 	const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "reasoning-authority-"));

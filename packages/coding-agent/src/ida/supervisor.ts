@@ -8,8 +8,8 @@
  */
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { type FileLockHandle, logger, readLines, untilAborted } from "@oh-my-pi/pi-utils";
-import { ToolError } from "@oh-my-pi/pi-tui/tools/tool-errors";
+import { type FileLockHandle, logger, readLines, untilAborted } from "@oh-my-soup/pi-utils";
+import { ToolError } from "@oh-my-soup/pi-tui/tools/tool-errors";
 import type { Subprocess } from "bun";
 import { hostHasInheritableConsole, shouldHideKernelWindow } from "../eval/py/spawn-options";
 import { stageRunnerScript } from "../eval/runner-cache";
@@ -164,7 +164,7 @@ export class IdaWorker {
 		lock: FileLockHandle,
 		idleCloseMs: number,
 	): Promise<IdaWorker> {
-		const script = await stageRunnerScript("omp-ida-worker", "py", IDA_WORKER);
+		const script = await stageRunnerScript("oms-ida-worker", "py", IDA_WORKER);
 		const proc = Bun.spawn([runtime.pythonPath, "-u", script], {
 			cwd: loc.dir,
 			env: runtime.env,
@@ -466,7 +466,7 @@ export class IdaWorker {
 
 	#appendStderr(text: string): void {
 		if (!text) return;
-		// The host's output is the daemon log (`omp ps logs`).
+		// The host's output is the daemon log (`oms ps logs`).
 		process.stderr.write(text);
 		const tail = this.#stderrTail + text;
 		this.#stderrTail = tail.length > STDERR_TAIL_CHARS ? tail.slice(-STDERR_TAIL_CHARS) : tail;

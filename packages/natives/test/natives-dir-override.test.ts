@@ -25,7 +25,7 @@ describe("native addon directory override", () => {
 			originalEnv[key] = process.env[key];
 			delete process.env[key];
 		}
-		tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "omp-natives-dir-"));
+		tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "oms-natives-dir-"));
 		home = path.join(tempRoot, "home");
 		await fs.mkdir(home);
 		process.env.HOME = home;
@@ -47,7 +47,7 @@ describe("native addon directory override", () => {
 	it("places the versioned cache outside a fresh HOME and takes precedence over initialized XDG", async () => {
 		const shared = path.join(tempRoot, "shared");
 		const xdgData = path.join(tempRoot, "data");
-		await fs.mkdir(path.join(xdgData, "omp"), { recursive: true });
+		await fs.mkdir(path.join(xdgData, "oms"), { recursive: true });
 		process.env.PI_NATIVES_DIR = ` ${shared} `;
 
 		const ctx = initLoaderContext({ isCompiledBinary: true });
@@ -58,7 +58,7 @@ describe("native addon directory override", () => {
 		expect(initLoaderContext({ isCompiledBinary: true }).versionedDir).toBe(ctx.versionedDir);
 		expect(await fs.readdir(shared)).toEqual([packageJson.version]);
 		expect(await fs.readdir(home)).toEqual([]);
-		expect(await fs.readdir(path.join(xdgData, "omp"))).toEqual([]);
+		expect(await fs.readdir(path.join(xdgData, "oms"))).toEqual([]);
 	});
 
 	it("expands home-relative overrides before appending the package version", () => {
@@ -77,12 +77,12 @@ describe("native addon directory override", () => {
 		["relative", "relative/natives"],
 	])("falls back to XDG when the override is %s", async (_label, override) => {
 		const xdgData = path.join(tempRoot, "data");
-		await fs.mkdir(path.join(xdgData, "omp"), { recursive: true });
+		await fs.mkdir(path.join(xdgData, "oms"), { recursive: true });
 		process.env.XDG_DATA_HOME = xdgData;
 		process.env.PI_NATIVES_DIR = override;
 
 		expect(initLoaderContext({ isCompiledBinary: true }).versionedDir).toBe(
-			path.join(xdgData, "omp", "natives", packageJson.version),
+			path.join(xdgData, "oms", "natives", packageJson.version),
 		);
 	});
 });

@@ -1,6 +1,6 @@
-import type { Context, Model, Tool } from "@oh-my-pi/pi-ai";
-import { stopsOutputAtContextWindow } from "@oh-my-pi/pi-catalog/compat/output-limits";
-import { stringifyJson } from "@oh-my-pi/pi-utils";
+import type { Context, Model, Tool } from "@oh-my-soup/pi-ai";
+import { stopsOutputAtContextWindow } from "@oh-my-soup/pi-catalog/compat/output-limits";
+import { stringifyJson } from "@oh-my-soup/pi-utils";
 import { findRequestUsageAnchor } from "./compaction/transcript-tokens";
 import type { Tokenizer } from "./tokenizer";
 

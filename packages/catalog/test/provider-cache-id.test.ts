@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import { PROVIDER_DESCRIPTORS, resolveModelCacheProviderId } from "@oh-my-pi/pi-catalog/provider-models";
-import { openaiCodexModelManagerOptions } from "@oh-my-pi/pi-catalog/provider-models/special";
+import { PROVIDER_DESCRIPTORS, resolveModelCacheProviderId } from "@oh-my-soup/pi-catalog/provider-models";
+import { openaiCodexModelManagerOptions } from "@oh-my-soup/pi-catalog/provider-models/special";
 
 test("lightweight cache resolver matches every descriptor default", () => {
 	for (const descriptor of PROVIDER_DESCRIPTORS) {

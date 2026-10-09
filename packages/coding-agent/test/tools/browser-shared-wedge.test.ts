@@ -1,6 +1,6 @@
 /**
  * Regression tests for the wedged shared browser (field incident 2026-09-27,
- * omp 18.3.1): under memory pressure the project-shared broker-owned Chromium
+ * oms 18.3.1): under memory pressure the project-shared broker-owned Chromium
  * stopped answering CDP, so every tab close ended at the bounded
  * `orphan CDP target … (Page.close)` timeout.
  *
@@ -13,7 +13,7 @@
  *   (`ensureSharedBrowser`), and `acquireBrowser` reuses a cached handle while
  *   `browser.connected` is still true — so nothing re-probed an unreachable
  *   browser while a session lived. The 9.1 GB / 44-process tree survived 19 h
- *   until the last omp client in the project exited.
+ *   until the last oms client in the project exited.
  *
  * Contract pinned here: a timed-out target close keeps the ownership record and
  * re-checks the shared browser, and that check stops the daemon only when the
@@ -23,32 +23,32 @@
 import { afterEach, describe, expect, it, spyOn, vi } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { withTimeout } from "@oh-my-pi/pi-utils";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import type { DaemonBrokerClient } from "@oh-my-pi/pi-coding-agent/launch/client";
-import { daemonRuntimeDir } from "@oh-my-pi/pi-coding-agent/launch/paths";
-import type { DaemonOperation } from "@oh-my-pi/pi-coding-agent/launch/protocol";
+import { withTimeout } from "@oh-my-soup/pi-utils";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import type { DaemonBrokerClient } from "@oh-my-soup/pi-coding-agent/launch/client";
+import { daemonRuntimeDir } from "@oh-my-soup/pi-coding-agent/launch/paths";
+import type { DaemonOperation } from "@oh-my-soup/pi-coding-agent/launch/protocol";
 import {
 	forgetSharedTarget,
 	recordSharedTarget,
 	resetOrphanRegistryForTest,
 	type SharedTargetScope,
-} from "@oh-my-pi/pi-coding-agent/tools/browser/orphan-registry";
-import type { BrowserHandle } from "@oh-my-pi/pi-coding-agent/tools/browser/registry";
-import * as sharedDaemon from "@oh-my-pi/pi-coding-agent/tools/browser/shared-daemon";
-import { stopSharedBrowserIfUnreachable } from "@oh-my-pi/pi-coding-agent/tools/browser/shared-daemon";
-import { getTabsMapForTest, releaseTab, runInTab } from "@oh-my-pi/pi-coding-agent/tools/browser/tab-supervisor";
-import type { TabSession } from "@oh-my-pi/pi-coding-agent/tools/browser/tab-supervisor";
-import type { ToolSession } from "@oh-my-pi/pi-coding-agent/tools/index";
-import type { DaemonSnapshot } from "@oh-my-pi/pi-tui/tools/daemon";
+} from "@oh-my-soup/pi-coding-agent/tools/browser/orphan-registry";
+import type { BrowserHandle } from "@oh-my-soup/pi-coding-agent/tools/browser/registry";
+import * as sharedDaemon from "@oh-my-soup/pi-coding-agent/tools/browser/shared-daemon";
+import { stopSharedBrowserIfUnreachable } from "@oh-my-soup/pi-coding-agent/tools/browser/shared-daemon";
+import { getTabsMapForTest, releaseTab, runInTab } from "@oh-my-soup/pi-coding-agent/tools/browser/tab-supervisor";
+import type { TabSession } from "@oh-my-soup/pi-coding-agent/tools/browser/tab-supervisor";
+import type { ToolSession } from "@oh-my-soup/pi-coding-agent/tools/index";
+import type { DaemonSnapshot } from "@oh-my-soup/pi-tui/tools/daemon";
 
-const DAEMON_NAME = "omp.browser.headless";
+const DAEMON_NAME = "oms.browser.headless";
 /** The target id the incident log names for the tab whose close never landed. */
 const TARGET_ID = "D6895F960DB1F4D842FD7B0286F3F818";
 
 /** Unique per-test scope so registry dirs never collide across the suite. */
 function makeScope(): SharedTargetScope {
-	return { projectDir: path.join("/tmp", `omp-wedge-test-${crypto.randomUUID()}`), daemonName: DAEMON_NAME };
+	return { projectDir: path.join("/tmp", `oms-wedge-test-${crypto.randomUUID()}`), daemonName: DAEMON_NAME };
 }
 
 /** Scopes created since the last sweep; `afterEach` removes them even when a test fails. */
@@ -156,7 +156,7 @@ function makeWedgeTab(scope: SharedTargetScope, options: WedgeOptions = {}): Tab
 /** Minimal tool session for the `runInTab` entry point. */
 function makeSession(): ToolSession {
 	return {
-		cwd: "/tmp/omp-wedge-session",
+		cwd: "/tmp/oms-wedge-session",
 		hasUI: false,
 		settings: Settings.isolated(),
 		getSessionFile: () => null,
@@ -190,7 +190,7 @@ function makeBroker(
 	stops: string[],
 ): DaemonBrokerClient {
 	return {
-		projectDir: "/tmp/omp-wedge-broker",
+		projectDir: "/tmp/oms-wedge-broker",
 		close: () => undefined,
 		onCompletion: () => () => undefined,
 		request: async (operation: DaemonOperation) => {
@@ -398,7 +398,7 @@ describe("shared browser reachability check", () => {
 		const broker = makeBroker({ snapshot: makeSnapshot(READY_MATCH) }, stops);
 
 		const stopped = await stopSharedBrowserIfUnreachable(
-			{ projectDir: "/tmp/omp-wedge-a", daemonName: DAEMON_NAME },
+			{ projectDir: "/tmp/oms-wedge-a", daemonName: DAEMON_NAME },
 			{
 				client: broker,
 				probe: async wsEndpoint => {
@@ -422,7 +422,7 @@ describe("shared browser reachability check", () => {
 		let describeCount = 0;
 		let current = makeSnapshot(READY_MATCH);
 		const broker = {
-			projectDir: "/tmp/omp-wedge-replaced",
+			projectDir: "/tmp/oms-wedge-replaced",
 			close: () => undefined,
 			onCompletion: () => () => undefined,
 			request: async (operation: DaemonOperation) => {
@@ -439,7 +439,7 @@ describe("shared browser reachability check", () => {
 		} as unknown as DaemonBrokerClient;
 
 		const stopped = await stopSharedBrowserIfUnreachable(
-			{ projectDir: "/tmp/omp-wedge-replaced", daemonName: DAEMON_NAME },
+			{ projectDir: "/tmp/oms-wedge-replaced", daemonName: DAEMON_NAME },
 			{
 				client: broker,
 				probe: async wsEndpoint => {
@@ -502,7 +502,7 @@ describe("shared browser reachability check", () => {
 			const broker = makeBroker({ snapshot: makeSnapshot(READY_MATCH), ...opts }, stops);
 
 			const stopped = await stopSharedBrowserIfUnreachable(
-				{ projectDir: "/tmp/omp-wedge-unconfirmed", daemonName: DAEMON_NAME },
+				{ projectDir: "/tmp/oms-wedge-unconfirmed", daemonName: DAEMON_NAME },
 				{ client: broker, probe: async () => false },
 			);
 
@@ -517,7 +517,7 @@ describe("shared browser reachability check", () => {
 		const broker = makeBroker({ snapshot: makeSnapshot(READY_MATCH) }, stops);
 
 		const stopped = await stopSharedBrowserIfUnreachable(
-			{ projectDir: "/tmp/omp-wedge-single", daemonName: DAEMON_NAME },
+			{ projectDir: "/tmp/oms-wedge-single", daemonName: DAEMON_NAME },
 			{
 				client: broker,
 				probe: async () => ++probes > 1,
@@ -556,7 +556,7 @@ describe("shared browser reachability check", () => {
 		);
 		try {
 			const stopped = await stopSharedBrowserIfUnreachable(
-				{ projectDir: "/tmp/omp-wedge-slow", daemonName: DAEMON_NAME },
+				{ projectDir: "/tmp/oms-wedge-slow", daemonName: DAEMON_NAME },
 				{ client: broker },
 			);
 
@@ -574,7 +574,7 @@ describe("shared browser reachability check", () => {
 		const broker = makeBroker({ snapshot: makeSnapshot(READY_MATCH) }, stops);
 
 		const stopped = await stopSharedBrowserIfUnreachable(
-			{ projectDir: "/tmp/omp-wedge-b", daemonName: DAEMON_NAME },
+			{ projectDir: "/tmp/oms-wedge-b", daemonName: DAEMON_NAME },
 			{
 				client: broker,
 				probe: async () => {
@@ -594,7 +594,7 @@ describe("shared browser reachability check", () => {
 		const broker = makeBroker({ snapshot: makeSnapshot(undefined) }, stops);
 
 		const stopped = await stopSharedBrowserIfUnreachable(
-			{ projectDir: "/tmp/omp-wedge-c", daemonName: DAEMON_NAME },
+			{ projectDir: "/tmp/oms-wedge-c", daemonName: DAEMON_NAME },
 			{ client: broker, probe: async () => false },
 		);
 
@@ -607,7 +607,7 @@ describe("shared browser reachability check", () => {
 		const broker = makeBroker({ fail: true }, stops);
 
 		const stopped = await stopSharedBrowserIfUnreachable(
-			{ projectDir: "/tmp/omp-wedge-d", daemonName: DAEMON_NAME },
+			{ projectDir: "/tmp/oms-wedge-d", daemonName: DAEMON_NAME },
 			{ client: broker, probe: async () => false },
 		);
 
@@ -621,7 +621,7 @@ describe("shared browser reachability check", () => {
 
 		await expect(
 			stopSharedBrowserIfUnreachable(
-				{ projectDir: "/tmp/omp-wedge-e", daemonName: DAEMON_NAME },
+				{ projectDir: "/tmp/oms-wedge-e", daemonName: DAEMON_NAME },
 				{
 					client: broker,
 					probe: async () => {

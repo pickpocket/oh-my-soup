@@ -1,10 +1,10 @@
 import { beforeAll, describe, expect, it } from "bun:test";
-import { Container, Text } from "@oh-my-pi/pi-tui";
-import { TranscriptContainer } from "@oh-my-pi/pi-tui/chrome/transcript-container";
-import { ReportPanel } from "@oh-my-pi/pi-tui/overlays/report-panel";
-import { editorKey } from "@oh-my-pi/pi-tui/chrome/keybinding-hints";
-import { COMPOSER_DEFAULTS, Composer } from "@oh-my-pi/pi-tui/prompt/composer";
-import { initTheme } from "@oh-my-pi/pi-tui/theme";
+import { Container, Text } from "@oh-my-soup/pi-tui";
+import { TranscriptContainer } from "@oh-my-soup/pi-tui/chrome/transcript-container";
+import { ReportPanel } from "@oh-my-soup/pi-tui/overlays/report-panel";
+import { editorKey } from "@oh-my-soup/pi-tui/chrome/keybinding-hints";
+import { COMPOSER_DEFAULTS, Composer } from "@oh-my-soup/pi-tui/prompt/composer";
+import { initTheme } from "@oh-my-soup/pi-tui/theme";
 import { withoutTerminalMultiplexer } from "./terminal-multiplexer-environment";
 import { VirtualRenderScheduler } from "./virtual-render-scheduler";
 import { VirtualTerminal } from "./virtual-terminal";

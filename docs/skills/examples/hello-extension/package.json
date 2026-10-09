@@ -1,9 +1,9 @@
 {
   "name": "hello-extension",
   "version": "1.0.0",
-  "description": "Minimal omp extension example",
-  "homepage": "https://omp.sh",
-  "omp": {
+  "description": "Minimal oms extension example",
+  "homepage": "https://github.com/pickpocket/oh-my-soup",
+  "oms": {
     "extensions": ["./index.ts"]
   }
 }

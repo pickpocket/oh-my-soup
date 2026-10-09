@@ -7,10 +7,10 @@ import {
 	GLYPH_CONFIRMATION_CODEPOINT,
 	isPrivateUseCodepoint,
 	parseGlyphProtocolReply,
-} from "@oh-my-pi/pi-tui/glyph-protocol";
-import { ProcessTerminal } from "@oh-my-pi/pi-tui/terminal";
-import { setTerminalGlyphProtocol, TERMINAL } from "@oh-my-pi/pi-tui/terminal-capabilities";
-import { setTerminalHeadless } from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-tui/glyph-protocol";
+import { ProcessTerminal } from "@oh-my-soup/pi-tui/terminal";
+import { setTerminalGlyphProtocol, TERMINAL } from "@oh-my-soup/pi-tui/terminal-capabilities";
+import { setTerminalHeadless } from "@oh-my-soup/pi-utils";
 
 const SUPPORT_QUERY = "\x1b_25a1;s\x1b\\";
 const DA1_REPLY = "\x1b[?1;2c";

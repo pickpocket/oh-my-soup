@@ -1,5 +1,5 @@
-import { type } from "@oh-my-pi/omptype";
-import * as vcs from "@oh-my-pi/pi-natives/vcs";
+import { type } from "@oh-my-soup/omstype";
+import * as vcs from "@oh-my-soup/pi-natives/vcs";
 import type { CommitAgentState, GitOverviewSnapshot } from "../../../commit/agentic/state";
 import { DEFAULT_CONVENTIONAL_GENERATION_CONFIG } from "../../../commit/conventional/config";
 import { extractScopeCandidates } from "../../../commit/conventional/scope";

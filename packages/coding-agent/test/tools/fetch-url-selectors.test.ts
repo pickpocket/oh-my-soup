@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { type ParsedReadUrlTarget, parseReadUrlTarget } from "@oh-my-pi/pi-coding-agent/tools/fetch";
+import { type ParsedReadUrlTarget, parseReadUrlTarget } from "@oh-my-soup/pi-coding-agent/tools/fetch";
 
 describe("parseReadUrlTarget", () => {
 	it("returns null for non-URL paths", () => {

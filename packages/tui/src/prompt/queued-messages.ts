@@ -63,13 +63,13 @@ export class QueuedMessagesBand extends Container {
 					),
 				];
 				if (pills.length === 0 && count > 1) {
-					children.push(node("badge", { text: `${count}`, role: "omp.queue.count" }, undefined, "count"));
+					children.push(node("badge", { text: `${count}`, role: "oms.queue.count" }, undefined, "count"));
 				}
 				children.push(
 					node(
 						"row",
 						{
-							role: "omp.queue.edit",
+							role: "oms.queue.edit",
 							gap: "xs",
 							align: "center",
 							title: editTitle,
@@ -82,14 +82,14 @@ export class QueuedMessagesBand extends Container {
 				pills.push(
 					node(
 						"row",
-						{ role: "omp.queue.item", align: "center", gap: "sm", title: group.label },
+						{ role: "oms.queue.item", align: "center", gap: "sm", title: group.label },
 						children,
 						`${group.label}/${index}`,
 					),
 				);
 			});
 		}
-		this.#native = node("col", { role: "omp.queue", gap: "xs" }, pills);
+		this.#native = node("col", { role: "oms.queue", gap: "xs" }, pills);
 	}
 
 	override describe(): NativeNode {

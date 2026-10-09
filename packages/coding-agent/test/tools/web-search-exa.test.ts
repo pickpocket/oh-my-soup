@@ -1,9 +1,9 @@
 import type { BodyInit } from "bun";
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
-import type { FetchImpl } from "@oh-my-pi/pi-ai/types";
-import { ModelRegistry } from "@oh-my-pi/pi-coding-agent/config/model-registry";
-import { resetSettingsForTest, Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { AuthStorage } from "@oh-my-pi/pi-coding-agent/session/auth-storage";
+import type { FetchImpl } from "@oh-my-soup/pi-ai/types";
+import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
+import { resetSettingsForTest, Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { AuthStorage } from "@oh-my-soup/pi-coding-agent/session/auth-storage";
 import {
 	buildExaRequestBody,
 	ExaProvider,
@@ -11,8 +11,8 @@ import {
 	resetExaSearchThrottleForTest,
 	searchExa,
 	synthesizeAnswer,
-} from "@oh-my-pi/pi-coding-agent/web/search/providers/exa";
-import { isRecord } from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-coding-agent/web/search/providers/exa";
+import { isRecord } from "@oh-my-soup/pi-utils";
 import { createInMemoryAuthStorage } from "../helpers/agent-session-setup";
 
 type PostedMcpRequest = Record<string, unknown> & { id: string | number };
@@ -574,7 +574,7 @@ describe("searchExa", () => {
 			fetch: fetchMock,
 		});
 
-		expect(headers?.get("x-exa-source")).toBe("oh-my-pi");
+		expect(headers?.get("x-exa-source")).toBe("oh-my-soup");
 		expect(capturedRequestBody?.params).toEqual({
 			name: "web_search_exa",
 			arguments: {

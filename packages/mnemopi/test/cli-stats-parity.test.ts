@@ -2,9 +2,9 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { cmdRemember, cmdStats, memoryStats, runCli } from "@oh-my-pi/pi-mnemopi/cli";
-import { BeamMemory } from "@oh-my-pi/pi-mnemopi/core/beam";
-import { runDiagnostics } from "@oh-my-pi/pi-mnemopi/diagnose";
+import { cmdRemember, cmdStats, memoryStats, runCli } from "@oh-my-soup/pi-mnemopi/cli";
+import { BeamMemory } from "@oh-my-soup/pi-mnemopi/core/beam";
+import { runDiagnostics } from "@oh-my-soup/pi-mnemopi/diagnose";
 
 let root: string;
 

@@ -2,13 +2,13 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { AgentToolContext } from "@oh-my-pi/pi-agent-core";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import type { EvalPreludeDefinition } from "@oh-my-pi/pi-coding-agent/eval";
-import { type ApprovalOutcome, createRatchetPrelude } from "@oh-my-pi/pi-coding-agent/ratchet/prelude-definition";
-import type { ApprovalStatus, GateResult, RatchetState } from "@oh-my-pi/pi-coding-agent/ratchet/ratchet";
-import type { ToolSession } from "@oh-my-pi/pi-coding-agent/tools";
-import type { ExtensionAskDialogQuestion, ExtensionAskDialogResult } from "@oh-my-pi/pi-tui/overlays/ask-dialog";
+import type { AgentToolContext } from "@oh-my-soup/pi-agent-core";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import type { EvalPreludeDefinition } from "@oh-my-soup/pi-coding-agent/eval";
+import { type ApprovalOutcome, createRatchetPrelude } from "@oh-my-soup/pi-coding-agent/ratchet/prelude-definition";
+import type { ApprovalStatus, GateResult, RatchetState } from "@oh-my-soup/pi-coding-agent/ratchet/ratchet";
+import type { ToolSession } from "@oh-my-soup/pi-coding-agent/tools";
+import type { ExtensionAskDialogQuestion, ExtensionAskDialogResult } from "@oh-my-soup/pi-tui/overlays/ask-dialog";
 
 const FLOW = "router";
 const CASES = Array.from({ length: 10 }, (_, index) => `case_${index}`);
@@ -30,7 +30,7 @@ interface Harness {
 let root: string;
 
 beforeEach(async () => {
-	root = await fs.mkdtemp(path.join(os.tmpdir(), "omp-ratchet-"));
+	root = await fs.mkdtemp(path.join(os.tmpdir(), "oms-ratchet-"));
 	await Bun.write(path.join(root, "eval/cases.jsonl"), CASES.map(id => JSON.stringify({ id })).join("\n"));
 	await Bun.write(path.join(root, "eval/run.ts"), "// runner\n");
 	await Bun.write(path.join(root, "src/prompt.md"), "route emails\n");
@@ -40,7 +40,7 @@ afterEach(async () => {
 	await fs.rm(root, { recursive: true, force: true });
 });
 
-const flowPath = (...parts: string[]) => path.join(root, ".omp/ratchet", FLOW, ...parts);
+const flowPath = (...parts: string[]) => path.join(root, ".oms/ratchet", FLOW, ...parts);
 
 async function setup(options: { hold?: string[]; models?: unknown[] } = {}): Promise<Harness> {
 	const session = {

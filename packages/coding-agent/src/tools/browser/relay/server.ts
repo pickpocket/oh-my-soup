@@ -1,7 +1,7 @@
 /**
  * HTTP + WebSocket server for the browser relay.
  *
- * Impersonates Chrome's CDP discovery endpoint so the omp browser tool (and
+ * Impersonates Chrome's CDP discovery endpoint so the oms browser tool (and
  * any puppeteer client) can connect with a plain `browserURL`:
  * - `GET /json/version` → 200 with `webSocketDebuggerUrl` once the extension
  *   is connected, 503 with a {@link RelayUnavailableInfo} body before that
@@ -13,7 +13,7 @@
  * Binds loopback only: anything that can reach this port can drive the
  * user's logged-in browser.
  */
-import { VERSION } from "@oh-my-pi/pi-utils/dirs";
+import { VERSION } from "@oh-my-soup/pi-utils/dirs";
 import { RelayBridge } from "./bridge";
 
 /** Options for {@link startRelayServer}. */
@@ -28,7 +28,7 @@ export interface RelayServerOptions {
 
 /** Body of the 503 `/json/version` answer while no extension is connected. */
 export interface RelayUnavailableInfo {
-	/** Version of the OMP binary serving this relay. */
+	/** Version of the OMS binary serving this relay. */
 	ompRelayVersion: string;
 	error: string;
 	/** An extension completed the hello handshake at least once in this server's lifetime. */
@@ -56,8 +56,8 @@ type RelayWebSocket = Bun.ServerWebSocket<SocketData>;
 const WS_KEEPALIVE_MS = 30_000;
 /** Screenshots travel base64-encoded through both websocket legs. */
 const MAX_PAYLOAD_BYTES = 256 * 1024 * 1024;
-/** Default appearance of the omp tab group. */
-const DEFAULT_GROUP = { title: "omp", color: "cyan" } as const;
+/** Default appearance of the oms tab group. */
+const DEFAULT_GROUP = { title: "oms", color: "cyan" } as const;
 /** True when `raw` can serve as the authority of a `ws://` URL: no whitespace,
  *  slashes, userinfo, fragments, or control characters, and URL-parseable. */
 function isWsAuthority(raw: string): boolean {

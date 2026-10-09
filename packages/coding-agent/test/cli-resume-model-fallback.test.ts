@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import * as path from "node:path";
-import { readJsonl, TempDir } from "@oh-my-pi/pi-utils";
+import { readJsonl, TempDir } from "@oh-my-soup/pi-utils";
 
 const cliEntry = path.resolve(import.meta.dir, "../src/cli.ts");
 
@@ -8,7 +8,7 @@ describe("headless startup resume", () => {
 	test.each(["print", "json", "rpc", "rpc-ui"])(
 		"does not send a saved transcript to the settings default in %s mode",
 		async mode => {
-			using tempDir = TempDir.createSync("@omp-resume-model-");
+			using tempDir = TempDir.createSync("@oms-resume-model-");
 			const requests: string[] = [];
 			const server = Bun.serve({
 				hostname: "127.0.0.1",
@@ -19,7 +19,7 @@ describe("headless startup resume", () => {
 				},
 			});
 			try {
-				const agentDir = tempDir.join("home", ".omp", "agent");
+				const agentDir = tempDir.join("home", ".oms", "agent");
 				await Bun.write(
 					path.join(agentDir, "models.yml"),
 					JSON.stringify({
@@ -171,7 +171,7 @@ describe("headless runtime session switch", () => {
 			waitFor: (type: string) => Promise<RpcFrame>;
 		}) => Promise<void>,
 	): Promise<void> {
-		using tempDir = TempDir.createSync("@omp-switch-model-");
+		using tempDir = TempDir.createSync("@oms-switch-model-");
 		const cwd = tempDir.path();
 		const requests: { provider: string; body: string }[] = [];
 		const server = Bun.serve({
@@ -182,7 +182,7 @@ describe("headless runtime session switch", () => {
 				return Response.json({ error: { message: "Loopback provider" } }, { status: 400 });
 			},
 		});
-		const agentDir = path.join(cwd, "home", ".omp", "agent");
+		const agentDir = path.join(cwd, "home", ".oms", "agent");
 		await Bun.write(
 			path.join(agentDir, "models.yml"),
 			JSON.stringify({

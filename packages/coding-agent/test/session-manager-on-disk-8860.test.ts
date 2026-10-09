@@ -8,11 +8,11 @@
  */
 import { describe, expect, it } from "bun:test";
 import { join } from "node:path";
-import { SessionManager } from "@oh-my-pi/pi-coding-agent/session/session-manager";
-import { MemorySessionStorage } from "@oh-my-pi/pi-coding-agent/session/session-storage";
+import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
+import { MemorySessionStorage } from "@oh-my-soup/pi-coding-agent/session/session-storage";
 
 function freshSession(): SessionManager {
-	const cwd = join("/tmp", `omp-on-disk-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+	const cwd = join("/tmp", `oms-on-disk-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
 	return SessionManager.create(cwd, join(cwd, "sessions"), new MemorySessionStorage());
 }
 

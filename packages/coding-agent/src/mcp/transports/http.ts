@@ -5,8 +5,8 @@
  * The negotiated protocol revision is carried in the `MCP-Protocol-Version`
  * header on every request (see `MCP_PROTOCOL_VERSION`).
  */
-import * as AIError from "@oh-my-pi/pi-ai/error";
-import { isRecord, logger, postmortem, readSseEvents, readSseJson, untilAborted } from "@oh-my-pi/pi-utils";
+import * as AIError from "@oh-my-soup/pi-ai/error";
+import { isRecord, logger, postmortem, readSseEvents, readSseJson, untilAborted } from "@oh-my-soup/pi-utils";
 import type {
 	JsonRpcError,
 	JsonRpcMessage,
@@ -67,7 +67,7 @@ async function waitForSSERetry(ms: number, signal: AbortSignal): Promise<void> {
  * Best-effort startup deadline for the optional Streamable HTTP GET SSE listener.
  *
  * Returns `0` (disabled) when the operator has explicitly disabled MCP client-side
- * timeouts via `timeout: 0` or `OMP_MCP_TIMEOUT_MS=0`, mirroring the rest of the
+ * timeouts via `timeout: 0` or `OMS_MCP_TIMEOUT_MS=0`, mirroring the rest of the
  * MCP timeout surface. Otherwise caps the wait at one second and scales below
  * short request timeouts so connect-time never exceeds the request budget.
  */

@@ -8,8 +8,8 @@
  * {@link SpawnRun.attach}, and the latest progress update replays on attach so
  * a run that advanced before adoption is not rendered as pending.
  */
-import type { AgentToolResult, AgentToolUpdateCallback } from "@oh-my-pi/pi-agent-core";
-import type { TaskToolDetails } from "@oh-my-pi/pi-tui/tools/task";
+import type { AgentToolResult, AgentToolUpdateCallback } from "@oh-my-soup/pi-agent-core";
+import type { TaskToolDetails } from "@oh-my-soup/pi-tui/tools/task";
 
 /** Wall-clock stamps a spawn reports to the executor: call time and permit time. */
 export interface SpawnLaunchTiming {

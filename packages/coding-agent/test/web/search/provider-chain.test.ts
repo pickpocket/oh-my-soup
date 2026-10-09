@@ -1,10 +1,10 @@
 import { afterEach, describe, expect, it } from "bun:test";
-import { ModelRegistry } from "@oh-my-pi/pi-coding-agent/config/model-registry";
-import { resolveModelRoleValue, resolveRoleChain } from "@oh-my-pi/pi-coding-agent/config/model-resolver";
-import { roleCandidatePool } from "@oh-my-pi/pi-coding-agent/config/model-roles";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import type { AuthStorage } from "@oh-my-pi/pi-coding-agent/session/auth-storage";
-import { getSearchProvider } from "@oh-my-pi/pi-coding-agent/web/search/provider";
+import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
+import { resolveModelRoleValue, resolveRoleChain } from "@oh-my-soup/pi-coding-agent/config/model-resolver";
+import { roleCandidatePool } from "@oh-my-soup/pi-coding-agent/config/model-roles";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import type { AuthStorage } from "@oh-my-soup/pi-coding-agent/session/auth-storage";
+import { getSearchProvider } from "@oh-my-soup/pi-coding-agent/web/search/provider";
 import { createInMemoryAuthStorage } from "../../helpers/agent-session-setup";
 
 const originalPerplexityApiKey = process.env.PERPLEXITY_API_KEY;

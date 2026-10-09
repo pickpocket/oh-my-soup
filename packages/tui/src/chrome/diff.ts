@@ -1,6 +1,6 @@
-import { diffWords } from "@oh-my-pi/pi-natives";
-import { DEFAULT_TAB_WIDTH, sanitizeText } from "@oh-my-pi/pi-utils";
-import type { TspDiffHunk, TspProps } from "@oh-my-pi/pi-wire";
+import { diffWords } from "@oh-my-soup/pi-natives";
+import { DEFAULT_TAB_WIDTH, sanitizeText } from "@oh-my-soup/pi-utils";
+import type { TspDiffHunk, TspProps } from "@oh-my-soup/pi-wire";
 import { theme as activeTheme, getLanguageFromPath, highlightCode, type Theme } from "../theme/index";
 import { type CodeFrameMarker, formatCodeFrameLine, replaceTabs, shortenPath } from "../render/render-utils";
 import { node } from "../native/describe";
@@ -101,7 +101,7 @@ function renderIntraLineDiff(
 }
 
 /**
- * Native `diff` node for omp's compact diff text (`+12|added`, `-12|removed`,
+ * Native `diff` node for oms's compact diff text (`+12|added`, `-12|removed`,
  * ` 12|context`, blank or `…` rows between regions). Each contiguous region
  * becomes one hunk; the terminal draws gutters, word emphasis and highlighting.
  * Removed rows carry old line numbers, added rows new ones and context rows

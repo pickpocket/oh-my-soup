@@ -106,7 +106,7 @@ export function RequestsRoute({ active, range, onRequestClick }: RequestsRoutePr
 		<div className="page">
 			<PageHeader
 				title="Requests"
-				description={`Every model call omp made in ${meta.windowLabel}, newest first. Open a row for its full payload.`}
+				description={`Every model call oms made in ${meta.windowLabel}, newest first. Open a row for its full payload.`}
 			/>
 
 			<QueryView query={log} skeleton={<Skeleton height={96} style={{ borderRadius: 12 }} />}>

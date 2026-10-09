@@ -1,9 +1,9 @@
-import type { Model } from "@oh-my-pi/pi-ai";
-import type { ModelTokenizer } from "@oh-my-pi/pi-catalog/types";
-import * as natives from "@oh-my-pi/pi-natives";
-import { materializeString, stringifyJson } from "@oh-my-pi/pi-utils";
-import { LRUCache } from "@oh-my-pi/pi-utils/lru";
-import * as snapcompact from "@oh-my-pi/snapcompact";
+import type { Model } from "@oh-my-soup/pi-ai";
+import type { ModelTokenizer } from "@oh-my-soup/pi-catalog/types";
+import * as natives from "@oh-my-soup/pi-natives";
+import { materializeString, stringifyJson } from "@oh-my-soup/pi-utils";
+import { LRUCache } from "@oh-my-soup/pi-utils/lru";
+import * as snapcompact from "@oh-my-soup/snapcompact";
 import { isEstimateCacheable, messageEstimateVersion } from "./compaction/message-cache";
 import { base64ImageSize, estimateImageContentTokens } from "./image-tokens";
 import type { AgentMessage } from "./types";

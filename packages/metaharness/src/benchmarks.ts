@@ -254,7 +254,7 @@ export function readBenchmarkSnapshot(benchmark: BenchmarkKind, jobDir: string):
 			costUsd: trial.costUsd,
 			durationMs: trial.durationMs,
 			detail: trial.detail,
-			tracePath: path.join(trial.name, "agent", "omp.txt"),
+			tracePath: path.join(trial.name, "agent", "oms.txt"),
 		})),
 		total: totals.total,
 		done: totals.done,

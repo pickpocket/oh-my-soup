@@ -1,8 +1,8 @@
-import { getOAuthCredentialProvider } from "@oh-my-pi/pi-ai/oauth";
+import { getOAuthCredentialProvider } from "@oh-my-soup/pi-ai/oauth";
 import type { ModelRegistry } from "../../config/model-registry";
 import type { AuthStorage, OAuthAccountIdentity, StoredAuthCredential } from "../../session/auth-storage";
 
-import type { LogoutAccount } from "@oh-my-pi/pi-tui/overlays/logout-account-selector";
+import type { LogoutAccount } from "@oh-my-soup/pi-tui/overlays/logout-account-selector";
 
 interface LogoutAccountOptions {
 	activeIdentity?: OAuthAccountIdentity;

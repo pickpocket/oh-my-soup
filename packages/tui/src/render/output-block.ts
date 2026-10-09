@@ -1,7 +1,7 @@
 /**
  * Bordered output container with optional header and sections.
  */
-import type { TspCardStatus, TspPreview, TspSpan, TspText, TspTone } from "@oh-my-pi/pi-wire";
+import type { TspCardStatus, TspPreview, TspSpan, TspText, TspTone } from "@oh-my-soup/pi-wire";
 import { node, span } from "../native/describe";
 import type { NativeChild, NativeNode } from "../native/node";
 import { ImageProtocol, TERMINAL } from "../terminal-capabilities";
@@ -259,7 +259,7 @@ export interface NativeOutputBlockOptions {
 	head?: TspText;
 	meta?: TspText;
 	state?: State;
-	/** Card role (`omp.tool.bash`, `omp.eval.cell`, …). Defaults to `omp.output`. */
+	/** Card role (`oms.tool.bash`, `oms.eval.cell`, …). Defaults to `oms.output`. */
 	role?: string;
 	/** Override the state-derived tone (the ANSI path's `borderColor`). */
 	tone?: TspTone;
@@ -302,7 +302,7 @@ export function describeOutputBlock(options: NativeOutputBlockOptions): NativeNo
 	return node(
 		"card",
 		{
-			role: options.role ?? "omp.output",
+			role: options.role ?? "oms.output",
 			tone: options.tone ?? outputStateTone(options.state),
 			status: outputStateStatus(options.state),
 			head,

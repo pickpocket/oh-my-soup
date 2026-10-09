@@ -1,14 +1,14 @@
-import { MCP_TOOL_NAME_PREFIX, type MCPToolDetails } from "@oh-my-pi/pi-tui/tools/mcp";
+import { MCP_TOOL_NAME_PREFIX, type MCPToolDetails } from "@oh-my-soup/pi-tui/tools/mcp";
 /**
  * MCP to CustomTool bridge.
  *
  * Converts MCP tool definitions to CustomTool format for the agent.
  */
-import type { AgentToolUpdateCallback } from "@oh-my-pi/pi-agent-core";
-import type { ImageContent, TextContent, TSchema } from "@oh-my-pi/pi-ai";
-import { normalizeSchemaForMCP } from "@oh-my-pi/pi-ai/utils/schema";
-import { logger, untilAborted } from "@oh-my-pi/pi-utils";
-import { INTENT_FIELD } from "@oh-my-pi/pi-wire";
+import type { AgentToolUpdateCallback } from "@oh-my-soup/pi-agent-core";
+import type { ImageContent, TextContent, TSchema } from "@oh-my-soup/pi-ai";
+import { normalizeSchemaForMCP } from "@oh-my-soup/pi-ai/utils/schema";
+import { logger, untilAborted } from "@oh-my-soup/pi-utils";
+import { INTENT_FIELD } from "@oh-my-soup/pi-wire";
 import type { SourceMeta } from "../capability/types";
 import type {
 	CustomTool,
@@ -18,12 +18,12 @@ import type {
 } from "../extensibility/custom-tools/types";
 import { extractUriScheme } from "../internal-urls/parse";
 import { InternalUrlRouter } from "../internal-urls/router";
-import type { Theme } from "@oh-my-pi/pi-tui/theme";
+import type { Theme } from "@oh-my-soup/pi-tui/theme";
 import { ToolAbortError, throwIfAborted } from "../tools/tool-errors";
 import { schemaDeclaresIntentField } from "../utils/tool-schema";
 import { callTool } from "./client";
 import { formatMCPToolFailure, MCPTransportError } from "./errors";
-import { describeMCPCall, describeMCPResult, renderMCPCall, renderMCPResult } from "@oh-my-pi/pi-tui/tools/mcp";
+import { describeMCPCall, describeMCPResult, renderMCPCall, renderMCPResult } from "@oh-my-soup/pi-tui/tools/mcp";
 import type {
 	MCPAuthChallenge,
 	MCPServerConnection,
@@ -31,7 +31,7 @@ import type {
 	MCPToolCallResult,
 	MCPToolDefinition,
 } from "./types";
-import type { MCPContent } from "@oh-my-pi/pi-tui/tools/mcp";
+import type { MCPContent } from "@oh-my-soup/pi-tui/tools/mcp";
 
 /** Reconnect callback: tears down a stale connection, optionally authorizing first. */
 export type MCPReconnect = (options?: { authChallenge?: MCPAuthChallenge }) => Promise<MCPServerConnection | null>;
@@ -474,7 +474,7 @@ export function createMCPToolName(serverName: string, toolName: string): string 
  * order. Empty when the name is not `mcp__`-prefixed or is already canonical.
  *
  * {@link createMCPToolName} joins the sanitized server and tool with a SINGLE
- * underscore, but OMP presents itself as Claude Code, whose convention is
+ * underscore, but OMS presents itself as Claude Code, whose convention is
  * `mcp__<server>__<tool>` — so a primed model reliably emits the doubled
  * separator, often keeping the raw unsanitized server spelling as well
  * (`mcp__seedpatch-client__bank` for a server named `seedpatch-client`). Those

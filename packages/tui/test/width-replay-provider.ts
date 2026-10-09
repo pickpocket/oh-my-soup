@@ -1,4 +1,4 @@
-import type { TerminalFramePlan, TerminalFrameProvider, ViewportSize } from "@oh-my-pi/pi-tui";
+import type { TerminalFramePlan, TerminalFrameProvider, ViewportSize } from "@oh-my-soup/pi-tui";
 
 /**
  * Frame provider for resize-replay tests: streams a history batch plus an

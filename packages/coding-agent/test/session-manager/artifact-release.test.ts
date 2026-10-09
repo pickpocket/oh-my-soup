@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import * as path from "node:path";
-import { ArtifactManager } from "@oh-my-pi/pi-coding-agent/session/artifacts";
-import { SessionManager } from "@oh-my-pi/pi-coding-agent/session/session-manager";
-import { TempDir } from "@oh-my-pi/pi-utils";
+import { ArtifactManager } from "@oh-my-soup/pi-coding-agent/session/artifacts";
+import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
+import { TempDir } from "@oh-my-soup/pi-utils";
 
 interface RetentionProbeResult {
 	baselineBytes: number;
@@ -16,7 +16,7 @@ describe("SessionManager artifact terminal release", () => {
 	const managers: SessionManager[] = [];
 
 	beforeEach(() => {
-		tempDir = TempDir.createSync("@omp-artifact-release-");
+		tempDir = TempDir.createSync("@oms-artifact-release-");
 	});
 
 	afterEach(async () => {

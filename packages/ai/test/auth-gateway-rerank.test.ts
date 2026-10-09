@@ -2,11 +2,11 @@ import { afterEach, describe, expect, it, vi } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { startAuthGateway } from "@oh-my-pi/pi-ai/auth-gateway";
-import type { AuthGatewayServerHandle } from "@oh-my-pi/pi-ai/auth-gateway/types";
-import { AuthStorage } from "@oh-my-pi/pi-ai/auth-storage";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
-import type { Api, FetchImpl, Model, ModelSpec } from "@oh-my-pi/pi-catalog/types";
+import { startAuthGateway } from "@oh-my-soup/pi-ai/auth-gateway";
+import type { AuthGatewayServerHandle } from "@oh-my-soup/pi-ai/auth-gateway/types";
+import { AuthStorage } from "@oh-my-soup/pi-ai/auth-storage";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
+import type { Api, FetchImpl, Model, ModelSpec } from "@oh-my-soup/pi-catalog/types";
 
 interface UpstreamRequest {
 	url: string;
@@ -85,7 +85,7 @@ async function close(harness: Harness | undefined): Promise<void> {
 }
 
 function headers(): Record<string, string> {
-	return { Authorization: "Bearer gw-token", "Content-Type": "application/json", "x-omp-app": "search-client" };
+	return { Authorization: "Bearer gw-token", "Content-Type": "application/json", "x-oms-app": "search-client" };
 }
 
 describe("auth-gateway POST /v1/rerank", () => {

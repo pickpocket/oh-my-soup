@@ -2,7 +2,7 @@
 
 This document covers how the coding-agent discovers and parses Gemini-style manifest extensions (`gemini-extension.json`) into the `extensions` capability.
 
-It does **not** cover TypeScript/JavaScript extension module loading (`extensions/*.ts`, `index.ts`, `package.json omp.extensions`), which is documented in [Extension Loading](./extension-loading.md).
+It does **not** cover TypeScript/JavaScript extension module loading (`extensions/*.ts`, `index.ts`, `package.json oms.extensions`), which is documented in [Extension Loading](./extension-loading.md).
 
 ## Implementation files
 
@@ -164,7 +164,7 @@ Because dedup is “first seen wins”, provider-local item order matters.
 - Gemini loader appends **user first**, then **project**.
 - Therefore, duplicate names between `~/.gemini/extensions` and `<cwd>/.gemini/extensions` keep the user entry and shadow the project entry.
 
-By contrast, the native provider scans `<cwd>/.omp/extensions` before
+By contrast, the native provider scans `<cwd>/.oms/extensions` before
 `<getAgentDir()>/extensions`, so native intra-provider shadowing is
 project-first. It also reads `gemini-extension.json`, but skips dot-prefixed
 child directories and uses `manifest.name || directoryName` rather than `??`.
@@ -189,7 +189,7 @@ does **not** identify a runnable TS/JS entry point.
 
 The Gemini provider separately populates the `extension-module` capability by
 scanning the enabled roots for direct `.ts`/`.js` files,
-`<name>/index.ts` / `index.js`, and `package.json` `omp`/`pi` extension entries.
+`<name>/index.ts` / `index.js`, and `package.json` `oms`/`pi` extension entries.
 Declared package entries take precedence over an implicit index; otherwise
 `index.ts` wins over `index.js`. The shared module scanner also supports
 top-level symlinked extension directories. Those module records are independent

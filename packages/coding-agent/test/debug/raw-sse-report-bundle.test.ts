@@ -2,11 +2,11 @@ import { afterEach, describe, expect, it } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { Model } from "@oh-my-pi/pi-ai";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
-import { RawSseDebugBuffer } from "@oh-my-pi/pi-tui/apps/debug/raw-sse-buffer";
-import { createReportBundle } from "@oh-my-pi/pi-coding-agent/debug/report-bundle";
-import { getConfigRootDir, removeWithRetries, setAgentDir } from "@oh-my-pi/pi-utils";
+import type { Model } from "@oh-my-soup/pi-ai";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
+import { RawSseDebugBuffer } from "@oh-my-soup/pi-tui/apps/debug/raw-sse-buffer";
+import { createReportBundle } from "@oh-my-soup/pi-coding-agent/debug/report-bundle";
+import { getConfigRootDir, removeWithRetries, setAgentDir } from "@oh-my-soup/pi-utils";
 
 const model: Model<"anthropic-messages"> = buildModel({
 	id: "claude-test",
@@ -46,9 +46,9 @@ afterEach(async () => {
 
 describe("raw SSE report bundle", () => {
 	it("includes captured raw SSE text and dropped-record disclosure", async () => {
-		cleanupRoot = await fs.mkdtemp(path.join(os.tmpdir(), "omp-raw-sse-report-"));
+		cleanupRoot = await fs.mkdtemp(path.join(os.tmpdir(), "oms-raw-sse-report-"));
 		const xdgStateHome = path.join(cleanupRoot, "state");
-		await fs.mkdir(path.join(xdgStateHome, "omp"), { recursive: true });
+		await fs.mkdir(path.join(xdgStateHome, "oms"), { recursive: true });
 		process.env.XDG_STATE_HOME = xdgStateHome;
 		setAgentDir(fallbackAgentDir);
 
@@ -64,7 +64,7 @@ describe("raw SSE report bundle", () => {
 			);
 		}
 		const rawSseText = buffer.toRawText();
-		expect(rawSseText).toContain(": omp-debug-dropped records=");
+		expect(rawSseText).toContain(": oms-debug-dropped records=");
 		expect(rawSseText).toContain("event: message_delta");
 
 		const result = await createReportBundle({ sessionFile: undefined, rawSseText });

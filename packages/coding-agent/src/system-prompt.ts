@@ -4,11 +4,11 @@
 
 import * as os from "node:os";
 import * as path from "node:path";
-import type { AgentTool } from "@oh-my-pi/pi-agent-core";
-import type { ToolExample, TSchema } from "@oh-my-pi/pi-ai";
-import { renderToolInventory } from "@oh-my-pi/pi-ai/dialect";
-import type { DelegationBias } from "@oh-my-pi/pi-catalog/compat/delegation";
-import { $env, getAgentDir, getProjectDir, hasFsCode, isEnoent, logger, prompt } from "@oh-my-pi/pi-utils";
+import type { AgentTool } from "@oh-my-soup/pi-agent-core";
+import type { ToolExample, TSchema } from "@oh-my-soup/pi-ai";
+import { renderToolInventory } from "@oh-my-soup/pi-ai/dialect";
+import type { DelegationBias } from "@oh-my-soup/pi-catalog/compat/delegation";
+import { $env, getAgentDir, getProjectDir, hasFsCode, isEnoent, logger, prompt } from "@oh-my-soup/pi-utils";
 import { contextFileCapability } from "./capability/context-file";
 import { systemPromptCapability } from "./capability/system-prompt";
 import { findConfigFile } from "./config";
@@ -30,8 +30,8 @@ import projectPromptTemplate from "./prompts/system/project-prompt.md" with { ty
 import systemPromptTemplate from "./prompts/system/system-prompt.md" with { type: "text" };
 import userAppendPromptTemplate from "./prompts/system/user-append.md" with { type: "text" };
 import { normalizeConcurrencyLimit } from "./task/parallel";
-import type { ActiveRepoContext } from "@oh-my-pi/pi-tui/status-line/host";
-import { XD_URL_PREFIX } from "@oh-my-pi/pi-tui/tools/xd-url";
+import type { ActiveRepoContext } from "@oh-my-soup/pi-tui/status-line/host";
+import { XD_URL_PREFIX } from "@oh-my-soup/pi-tui/tools/xd-url";
 import { resolveActiveRepoContext } from "./utils/active-repo-context";
 import { normalizePromptPath } from "./utils/prompt-path";
 import { AGENTS_MD_LIMIT, buildWorkspaceTree, type WorkspaceTree } from "./workspace-tree";
@@ -100,7 +100,7 @@ const PERSONALITY_SPECS: Record<Exclude<Personality, "none">, string> = {
 
 /**
  * Load the user-level PERSONALITY.md override for the system prompt's
- * personality block from `<agentDir>/PERSONALITY.md` (`~/.omp/agent` by
+ * personality block from `<agentDir>/PERSONALITY.md` (`~/.oms/agent` by
  * default; profile, XDG, and `PI_CODING_AGENT_DIR` aware). Returns null when
  * the file is absent, empty, or unreadable; callers then render the configured
  * preset. Read failures other than a missing file warn instead of failing the

@@ -1,4 +1,4 @@
-import type { TextContent } from "@oh-my-pi/pi-ai";
+import type { TextContent } from "@oh-my-soup/pi-ai";
 import { Container } from "../tui";
 import { Markdown } from "../components/markdown";
 import { Text } from "../components/text";
@@ -34,7 +34,7 @@ export class CollabPromptMessageComponent extends Container {
 		});
 		markdown.setIgnoreTight(true);
 		this.addChild(markdown);
-		this.#native = card({ role: "omp.user.collab", tone: "user", head: [span(`«${from}» ›`, "accent strong")] }, [
+		this.#native = card({ role: "oms.user.collab", tone: "user", head: [span(`«${from}» ›`, "accent strong")] }, [
 			md(text),
 		]);
 	}

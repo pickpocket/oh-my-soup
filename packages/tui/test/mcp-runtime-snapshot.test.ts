@@ -13,8 +13,8 @@ import {
 
 const source = {
 	provider: "native",
-	providerName: "OMP (User)",
-	path: "/home/sf/.omp/agent/mcp.json",
+	providerName: "OMS (User)",
+	path: "/home/sf/.oms/agent/mcp.json",
 	level: "user",
 };
 

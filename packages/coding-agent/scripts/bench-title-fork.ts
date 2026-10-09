@@ -41,9 +41,9 @@ import { Database } from "bun:sqlite";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { type AssistantMessage, completeSimple, type Model, type Usage } from "@oh-my-pi/pi-ai";
-import { type ConfiguredThinkingLevel, parseConfiguredThinkingLevel } from "@oh-my-pi/pi-tui/thinking";
-import { isEnoent, prompt } from "@oh-my-pi/pi-utils";
+import { type AssistantMessage, completeSimple, type Model, type Usage } from "@oh-my-soup/pi-ai";
+import { type ConfiguredThinkingLevel, parseConfiguredThinkingLevel } from "@oh-my-soup/pi-tui/thinking";
+import { isEnoent, prompt } from "@oh-my-soup/pi-utils";
 import { resolveRoleSelection } from "../src/config/model-resolver";
 import { roleCandidatePool } from "../src/config/model-roles";
 import { createAgentSession } from "../src/sdk";
@@ -201,8 +201,8 @@ function parseArgs(argv: string[]): Config {
 	};
 	const home = (value: string): string => value.replace(/^~(?=$|\/)/, os.homedir());
 	return {
-		dbPath: home(get("--db") ?? "~/.omp/agent/history.db"),
-		sessionsDir: home(get("--sessions") ?? "~/.omp/agent/sessions"),
+		dbPath: home(get("--db") ?? "~/.oms/agent/history.db"),
+		sessionsDir: home(get("--sessions") ?? "~/.oms/agent/sessions"),
 		dir: home(get("--dir") ?? path.join(os.tmpdir(), "title-fork")),
 		count: Number(get("--count") ?? 500),
 		resample: argv.includes("--resample"),

@@ -1,7 +1,7 @@
-import type { OAuthAccess } from "@oh-my-pi/pi-ai";
-import type { Api, Model } from "@oh-my-pi/pi-ai/types";
-import type { ModelResolutionSource } from "@oh-my-pi/pi-catalog/model-manager";
-import { MODELS_DEV_CATALOG_PROVIDER_IDS, PROVIDER_DESCRIPTORS } from "@oh-my-pi/pi-catalog/provider-models";
+import type { OAuthAccess } from "@oh-my-soup/pi-ai";
+import type { Api, Model } from "@oh-my-soup/pi-ai/types";
+import type { ModelResolutionSource } from "@oh-my-soup/pi-catalog/model-manager";
+import { MODELS_DEV_CATALOG_PROVIDER_IDS, PROVIDER_DESCRIPTORS } from "@oh-my-soup/pi-catalog/provider-models";
 import type { AuthStorage, OAuthCredential } from "../session/auth-storage";
 
 /**

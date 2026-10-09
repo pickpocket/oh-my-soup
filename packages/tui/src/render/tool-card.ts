@@ -1,4 +1,4 @@
-import type { TspSpan, TspText } from "@oh-my-pi/pi-wire";
+import type { TspSpan, TspText } from "@oh-my-soup/pi-wire";
 import { Text } from "../components/text";
 import { compactText, rowsText, styledSpans } from "../native/spans";
 import { sameItems } from "../native/memo";
@@ -335,7 +335,7 @@ export class ToolCard implements Component {
 			head: headSpans,
 			meta: snapshot.headerMeta ? compactText(styledSpans(snapshot.headerMeta)) : undefined,
 			state,
-			role: "omp.tool",
+			role: "oms.tool",
 			tone:
 				snapshot.borderColor !== undefined
 					? (colorTone(snapshot.borderColor) ?? "neutral")

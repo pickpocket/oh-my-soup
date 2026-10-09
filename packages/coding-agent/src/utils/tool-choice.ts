@@ -1,4 +1,4 @@
-import type { Api, Model, ToolChoice } from "@oh-my-pi/pi-ai";
+import type { Api, Model, ToolChoice } from "@oh-my-soup/pi-ai";
 
 /**
  * Build a provider-aware tool choice that targets one specific tool when supported.

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import { parseReviewDiffSnapshot } from "@oh-my-pi/pi-coding-agent/extensibility/custom-commands/bundled/review/diff";
-import type { ReviewDiffRow, ReviewSourceRow } from "@oh-my-pi/pi-tui/overlays/annotation-types";
+import { parseReviewDiffSnapshot } from "@oh-my-soup/pi-coding-agent/extensibility/custom-commands/bundled/review/diff";
+import type { ReviewDiffRow, ReviewSourceRow } from "@oh-my-soup/pi-tui/overlays/annotation-types";
 
 function rowOfKind(rows: readonly ReviewDiffRow[], kind: "context" | "added" | "removed"): ReviewSourceRow;
 function rowOfKind(

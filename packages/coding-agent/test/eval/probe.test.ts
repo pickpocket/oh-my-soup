@@ -34,7 +34,7 @@ describe("runBoundedProbe", () => {
 	});
 
 	test("kills descendants spawned by an interpreter shim", async () => {
-		const pidFile = join(tmpdir(), `omp-probe-grandchild-${process.pid}-${Date.now()}.pid`);
+		const pidFile = join(tmpdir(), `oms-probe-grandchild-${process.pid}-${Date.now()}.pid`);
 		let grandchildPid: number | undefined;
 		const wrapper = [
 			bun,

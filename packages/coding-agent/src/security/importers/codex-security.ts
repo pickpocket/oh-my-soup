@@ -360,7 +360,7 @@ export async function importCodexSecurityBundle(
 	if (typeof target.baseRevision === "string") canonicalTarget.baseRevision = target.baseRevision;
 	if (typeof target.headRevision === "string") canonicalTarget.headRevision = target.headRevision;
 	const scan: SecurityScan = {
-		documentType: "omp-security.scan",
+		documentType: "oms-security.scan",
 		schemaVersion: "1.0",
 		id: scanId,
 		projectKey: encodeSecurityProjectKey(canonicalRoot),

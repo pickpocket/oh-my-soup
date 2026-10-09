@@ -1,14 +1,14 @@
 /**
  * Skillshare install manifest (`skills.json`) and lockfile (`skills.lock.json`).
  *
- * Project files live in the active project's `.omp/` directory (the same root
+ * Project files live in the active project's `.oms/` directory (the same root
  * the plugin registry uses); user-global files live in the agent dir. Unpacked
  * packages live in a shared store: `<config root>/skillshare/@scope/name/<version>/`.
  */
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { OmpErrors, type } from "@oh-my-pi/omptype";
-import { getAgentDir, hasFsCode, isEnoent } from "@oh-my-pi/pi-utils";
+import { OmsErrors, type } from "@oh-my-soup/omstype";
+import { getAgentDir, hasFsCode, isEnoent } from "@oh-my-soup/pi-utils";
 import { resolveOrDefaultProjectRegistryPath } from "../discovery/helpers";
 import { replaceFileAtomically } from "../utils/atomic-file";
 
@@ -62,22 +62,22 @@ export function parseSkillId(id: string): { scope: string; name: string } | null
 	return { scope: id.slice(1, slash), name: id.slice(slash + 1) };
 }
 
-/** Manifest + lock paths for the user-global install (`~/.omp/agent/`). */
+/** Manifest + lock paths for the user-global install (`~/.oms/agent/`). */
 export function getGlobalSkillsInstallPaths(): SkillsInstallPaths {
 	return installPathsIn(getAgentDir());
 }
 
 /**
- * Manifest + lock paths for a project: the nearest `.omp/` walking up from
- * `cwd`, else the git root's `.omp/`, else `<cwd>/.omp/`. Throws when `cwd` is
- * the home directory, whose `.omp/` is the user config root, not a project.
+ * Manifest + lock paths for a project: the nearest `.oms/` walking up from
+ * `cwd`, else the git root's `.oms/`, else `<cwd>/.oms/`. Throws when `cwd` is
+ * the home directory, whose `.oms/` is the user config root, not a project.
  */
 export async function getProjectSkillsInstallPaths(cwd: string): Promise<SkillsInstallPaths> {
 	const registryPath = await resolveOrDefaultProjectRegistryPath(cwd);
 	if (!registryPath) {
 		throw new Error("The home directory is not a project; pass --global to install for your user.");
 	}
-	// `<root>/.omp/plugins/installed_plugins.json` → `<root>/.omp`
+	// `<root>/.oms/plugins/installed_plugins.json` → `<root>/.oms`
 	return installPathsIn(path.dirname(path.dirname(registryPath)));
 }
 
@@ -135,7 +135,7 @@ function assertSkillIds(ids: Record<string, unknown>, file: string): void {
 /** Parse `skills.json` text; throws with the file path on malformed content. */
 export function parseSkillsManifest(text: string, file: string): SkillsManifest {
 	const checked = ManifestSchema(parseJson(text, file));
-	if (checked instanceof OmpErrors) throw new Error(`${file}: ${checked.summary}`);
+	if (checked instanceof OmsErrors) throw new Error(`${file}: ${checked.summary}`);
 	const skills = checked.skills ?? {};
 	assertSkillIds(skills, file);
 	return { skills };
@@ -144,7 +144,7 @@ export function parseSkillsManifest(text: string, file: string): SkillsManifest 
 /** Parse `skills.lock.json` text; throws with the file path on malformed content. */
 export function parseSkillsLock(text: string, file: string): SkillsLock {
 	const checked = LockSchema(parseJson(text, file));
-	if (checked instanceof OmpErrors) throw new Error(`${file}: ${checked.summary}`);
+	if (checked instanceof OmsErrors) throw new Error(`${file}: ${checked.summary}`);
 	const skills = checked.skills ?? {};
 	assertSkillIds(skills, file);
 	for (const id in skills) {

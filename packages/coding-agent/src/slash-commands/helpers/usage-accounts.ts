@@ -1,4 +1,4 @@
-import type { AuthStorage, UsageReport } from "@oh-my-pi/pi-ai";
+import type { AuthStorage, UsageReport } from "@oh-my-soup/pi-ai";
 
 /** Identity slice of a stored credential, for "every account" coverage. */
 export interface UsageAccountIdentity {
@@ -53,7 +53,7 @@ export function collectStoredAccounts(authStorage: AuthStorage): UsageAccountIde
  * `hasUsageProvider` is injected (in practice {@link AuthStorage.usage.providerFor})
  * so custom/broker resolvers stay authoritative — no provider list is duplicated
  * here. An explicit `--provider` request bypasses the cull, so
- * `omp usage --provider xai` can still confirm the stored credential has no
+ * `oms usage --provider xai` can still confirm the stored credential has no
  * usage endpoint.
  */
 export function selectReportableAccounts(

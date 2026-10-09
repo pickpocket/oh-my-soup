@@ -34,7 +34,7 @@ import { bottomBorder, row, topBorder } from "../chrome/overlay-box";
 import { padToWidth } from "../render/utils";
 import { SplitPane } from "../components/layout/split-pane";
 import { clampSelection, contentRowWidth, padLinesToHeight, renderScrollableList } from "../chrome/selector-helpers";
-import type { TspScrollBy, TspSpan } from "@oh-my-pi/pi-wire";
+import type { TspScrollBy, TspSpan } from "@oh-my-soup/pi-wire";
 import type { NativeChild, NativeNode, NativeScroll, NativeUiEvent } from "../native/node";
 import { col, md, node, span, text } from "../native/describe";
 import { actionBar, actionButton, actionHint, hintsRow, type NativeHint, statusHintsRow } from "../native/overlay";
@@ -423,7 +423,7 @@ export class BtwHistoryPanel implements Component, Focusable {
 	}
 
 	/** A large glass sheet titled "BTW history". */
-	readonly nativeOverlay = { role: "omp.overlay.btwHistory", size: "lg", head: "BTW history" } as const;
+	readonly nativeOverlay = { role: "oms.overlay.btwHistory", size: "lg", head: "BTW history" } as const;
 
 	describe(): NativeNode {
 		const record = this.#selected();

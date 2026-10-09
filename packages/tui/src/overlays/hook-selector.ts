@@ -38,7 +38,7 @@ import type { DescribeContext, NativeChild, NativeNode, NativeUiEvent } from "..
 import { actionHint, hintsRow, overlayCard } from "../native/overlay";
 import { plainText } from "../native/spans";
 import { CLOSE_ACTION, dockedPicker, PICKER_KEY, pickerAction, pickerEvent, pickerQuery } from "../native/picker";
-import type { TspPickerItem } from "@oh-my-pi/pi-wire";
+import type { TspPickerItem } from "@oh-my-soup/pi-wire";
 
 /** One segment of a {@link HookSelectorSlider} — a label and an optional
  *  detail line (e.g. the resolved model name) shown beneath the track while
@@ -239,7 +239,7 @@ export class HookSelectorComponent extends OverlayPanel {
 		onCancel: () => void,
 		opts?: HookSelectorOptions,
 	) {
-		super(title.split(/\r?\n/, 1)[0] ?? "", "omp.overlay.hook-select");
+		super(title.split(/\r?\n/, 1)[0] ?? "", "oms.overlay.hook-select");
 
 		this.#options = options.map(normalizeHookSelectorOption);
 		this.#disabledIndices = new Set(

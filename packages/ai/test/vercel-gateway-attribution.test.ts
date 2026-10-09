@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "bun:test";
-import { streamSimple } from "@oh-my-pi/pi-ai";
-import type { Api, Context, FetchImpl, Model, ModelSpec } from "@oh-my-pi/pi-ai/types";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
+import { streamSimple } from "@oh-my-soup/pi-ai";
+import type { Api, Context, FetchImpl, Model, ModelSpec } from "@oh-my-soup/pi-ai/types";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
 
 const context: Context = { messages: [{ role: "user", content: "Hello", timestamp: 0 }] };
 
@@ -38,7 +38,7 @@ async function firstRequestHeaders(model: Model<Api>, headers?: Record<string, s
 }
 
 describe("Vercel AI Gateway app attribution", () => {
-	it("credits omp on the Anthropic and OpenAI-compatible routes", async () => {
+	it("credits oms on the Anthropic and OpenAI-compatible routes", async () => {
 		for (const model of [
 			vercelModel("anthropic-messages", "https://ai-gateway.vercel.sh"),
 			vercelModel("openai-completions", "https://ai-gateway.vercel.sh/v1"),
@@ -47,7 +47,7 @@ describe("Vercel AI Gateway app attribution", () => {
 			expect([model.api, headers.get("http-referer"), headers.get("x-title")]).toEqual([
 				model.api,
 				"https://omp.sh/",
-				"omp",
+				"oms",
 			]);
 		}
 	});

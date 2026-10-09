@@ -9,8 +9,8 @@ import {
 	getInstallId,
 	setAgentDir,
 	setProfile,
-} from "@oh-my-pi/pi-utils/dirs";
-import { Snowflake } from "@oh-my-pi/pi-utils/snowflake";
+} from "@oh-my-soup/pi-utils/dirs";
+import { Snowflake } from "@oh-my-soup/pi-utils/snowflake";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -22,7 +22,7 @@ describe("getInstallId", () => {
 	beforeEach(async () => {
 		originalAgentDir = getAgentDir();
 		originalConfigDir = process.env.PI_CONFIG_DIR;
-		const slug = `omp-install-id-${Snowflake.next()}`;
+		const slug = `oms-install-id-${Snowflake.next()}`;
 		tempRoot = path.join(os.tmpdir(), slug);
 		await fs.mkdir(tempRoot, { recursive: true });
 		// Point the resolver's config root at the temp dir. Using PI_CONFIG_DIR

@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, it } from "bun:test";
-import { getThemeByName, initTheme } from "@oh-my-pi/pi-tui/theme";
-import { renderStatusLine } from "@oh-my-pi/pi-tui/render";
-import { sanitizeText } from "@oh-my-pi/pi-utils";
+import { getThemeByName, initTheme } from "@oh-my-soup/pi-tui/theme";
+import { renderStatusLine } from "@oh-my-soup/pi-tui/render";
+import { sanitizeText } from "@oh-my-soup/pi-utils";
 
 beforeAll(async () => {
 	await initTheme();

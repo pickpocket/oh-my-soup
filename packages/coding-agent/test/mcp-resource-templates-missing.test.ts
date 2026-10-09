@@ -14,7 +14,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { removeSyncWithRetries } from "@oh-my-pi/pi-utils";
+import { removeSyncWithRetries } from "@oh-my-soup/pi-utils";
 import { listResourceTemplates } from "../src/mcp/client";
 import { MCPManager } from "../src/mcp/manager";
 import type { MCPServerConnection, MCPStdioServerConfig, MCPTransport } from "../src/mcp/types";
@@ -76,7 +76,7 @@ describe("MCPManager loads resources for a templates-less server", () => {
 	let workDir: string;
 
 	beforeEach(() => {
-		workDir = fs.mkdtempSync(path.join(os.tmpdir(), "omp-mcp-templates-"));
+		workDir = fs.mkdtempSync(path.join(os.tmpdir(), "oms-mcp-templates-"));
 	});
 
 	afterEach(() => {

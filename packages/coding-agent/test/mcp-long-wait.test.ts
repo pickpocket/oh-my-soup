@@ -13,9 +13,9 @@
  */
 import { afterEach, describe, expect, it, spyOn, vi } from "bun:test";
 import * as path from "node:path";
-import * as mcpTimeout from "@oh-my-pi/pi-coding-agent/mcp/timeout";
-import { HttpTransport } from "@oh-my-pi/pi-coding-agent/mcp/transports/http";
-import { LegacySseTransport } from "@oh-my-pi/pi-coding-agent/mcp/transports/sse";
+import * as mcpTimeout from "@oh-my-soup/pi-coding-agent/mcp/timeout";
+import { HttpTransport } from "@oh-my-soup/pi-coding-agent/mcp/transports/http";
+import { LegacySseTransport } from "@oh-my-soup/pi-coding-agent/mcp/transports/sse";
 
 const PROBE_PATH = path.join(import.meta.dir, "fixtures", "mcp-idle-wait-probe.ts");
 const REPO_ROOT = path.resolve(import.meta.dir, "../../..");
@@ -108,7 +108,7 @@ async function connected(server: Bun.Server<undefined>, timeout: number): Promis
 
 /**
  * State the deadline a transport resolves instead of inheriting it from
- * `OMP_MCP_TIMEOUT_MS`. A spy on the module the transports read keeps the run
+ * `OMS_MCP_TIMEOUT_MS`. A spy on the module the transports read keeps the run
  * hermetic without mutating any global; `vi.restoreAllMocks()` undoes it.
  */
 function pinDeadline(ms: number): void {
@@ -128,7 +128,7 @@ describe("MCP waits that outlast the socket idle timer", () => {
 					BUN_CONFIG_HTTP_IDLE_TIMEOUT: CHILD_IDLE_SECONDS,
 					// Pin the configuration under test so an inherited override
 					// cannot give the probe a deadline of its own.
-					OMP_MCP_TIMEOUT_MS: "0",
+					OMS_MCP_TIMEOUT_MS: "0",
 				},
 				stdin: "ignore",
 				stdout: "pipe",

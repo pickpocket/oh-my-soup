@@ -4,9 +4,9 @@
  * Outputs (all committed; `test/rpc-wire/generated.test.ts` fails when stale):
  * - `src/modes/rpc/wire/rpc-wire.schema.json`: the language-neutral bundle
  * - `src/modes/rpc/wire/rpc-wire.generated.ts`: TypeScript wire types
- * - `sdk/python/omp-rpc/src/omp_rpc/_wire.py`: Python types, parsers, and client methods
- * - `sdk/rust/omp-rpc/src/wire.rs`: Rust serde types, frame decoders, and `Command` impls
- * - `sdk/go/omp-rpc/wire.go`: Go types, frame decoders, and `Commands` methods
+ * - `sdk/python/oms-rpc/src/oms_rpc/_wire.py`: Python types, parsers, and client methods
+ * - `sdk/rust/oms-rpc/src/wire.rs`: Rust serde types, frame decoders, and `Command` impls
+ * - `sdk/go/oms-rpc/wire.go`: Go types, frame decoders, and `Commands` methods
  */
 import * as path from "node:path";
 import { buildRpcWireBundle } from "../../src/modes/rpc/wire";
@@ -27,9 +27,9 @@ export function generateRpcArtifacts(): Map<string, string> {
 	return new Map([
 		[path.join(WIRE_DIR, "rpc-wire.schema.json"), `${JSON.stringify(bundle, null, "\t")}\n`],
 		[path.join(WIRE_DIR, "rpc-wire.generated.ts"), emitTypeScript(model)],
-		[path.join(SDK_DIR, "python/omp-rpc/src/omp_rpc/_wire.py"), emitPython(model)],
-		[path.join(SDK_DIR, "rust/omp-rpc/src/wire.rs"), emitRust(model)],
-		[path.join(SDK_DIR, "go/omp-rpc/wire.go"), emitGo(model)],
+		[path.join(SDK_DIR, "python/oms-rpc/src/oms_rpc/_wire.py"), emitPython(model)],
+		[path.join(SDK_DIR, "rust/oms-rpc/src/wire.rs"), emitRust(model)],
+		[path.join(SDK_DIR, "go/oms-rpc/wire.go"), emitGo(model)],
 	]);
 }
 

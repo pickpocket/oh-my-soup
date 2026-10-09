@@ -1,14 +1,14 @@
 import * as path from "node:path";
-import { createMockModel, type MockResponse } from "@oh-my-pi/pi-ai/providers/mock";
-import { getBundledModel } from "@oh-my-pi/pi-catalog/models";
-import { ModelRegistry } from "@oh-my-pi/pi-coding-agent/config/model-registry";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { cfgGoalContinuationModes } from "@oh-my-pi/pi-coding-agent/goals/settings";
-import { runRpcMode } from "@oh-my-pi/pi-coding-agent/modes/rpc/rpc-mode";
-import { createAgentSession } from "@oh-my-pi/pi-coding-agent/sdk";
-import { AuthStorage } from "@oh-my-pi/pi-coding-agent/session/auth-storage";
-import { SessionManager } from "@oh-my-pi/pi-coding-agent/session/session-manager";
-import { cfgAsyncEnabled } from "@oh-my-pi/pi-coding-agent/tools/settings";
+import { createMockModel, type MockResponse } from "@oh-my-soup/pi-ai/providers/mock";
+import { getBundledModel } from "@oh-my-soup/pi-catalog/models";
+import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { cfgGoalContinuationModes } from "@oh-my-soup/pi-coding-agent/goals/settings";
+import { runRpcMode } from "@oh-my-soup/pi-coding-agent/modes/rpc/rpc-mode";
+import { createAgentSession } from "@oh-my-soup/pi-coding-agent/sdk";
+import { AuthStorage } from "@oh-my-soup/pi-coding-agent/session/auth-storage";
+import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
+import { cfgAsyncEnabled } from "@oh-my-soup/pi-coding-agent/tools/settings";
 
 // Real SDK session (goal tool registered as in production), RPC dispatch and goal
 // runtime; only the model is scripted.

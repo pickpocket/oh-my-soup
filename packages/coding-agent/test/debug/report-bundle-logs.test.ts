@@ -2,8 +2,8 @@ import { afterEach, describe, expect, it } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { createReportBundle } from "@oh-my-pi/pi-coding-agent/debug/report-bundle";
-import { getConfigRootDir, getLogsDir, localDay, logger, removeWithRetries, setAgentDir } from "@oh-my-pi/pi-utils";
+import { createReportBundle } from "@oh-my-soup/pi-coding-agent/debug/report-bundle";
+import { getConfigRootDir, getLogsDir, localDay, logger, removeWithRetries, setAgentDir } from "@oh-my-soup/pi-utils";
 
 const originalAgentDir = process.env.PI_CODING_AGENT_DIR;
 const originalXdgStateHome = process.env.XDG_STATE_HOME;
@@ -19,11 +19,11 @@ function restoreEnv(name: string, value: string | undefined): void {
 
 // Points the logs dir at `root`. XDG_STATE_HOME is only honored on Linux/macOS;
 // elsewhere the config root follows the home dir, so redirect that instead —
-// otherwise the test reads and writes the user's real ~/.omp/logs.
+// otherwise the test reads and writes the user's real ~/.oms/logs.
 async function isolateLogsRoot(root: string): Promise<void> {
 	if (process.platform === "linux" || process.platform === "darwin") {
 		const xdgStateHome = path.join(root, "state");
-		await fs.mkdir(path.join(xdgStateHome, "omp"), { recursive: true });
+		await fs.mkdir(path.join(xdgStateHome, "oms"), { recursive: true });
 		process.env.XDG_STATE_HOME = xdgStateHome;
 	} else {
 		process.env.HOME = root;
@@ -50,7 +50,7 @@ afterEach(async () => {
 
 describe("report bundle logs", () => {
 	it("collects every same-day PID log, not only the current process", async () => {
-		cleanupRoot = await fs.mkdtemp(path.join(os.tmpdir(), "omp-report-logs-"));
+		cleanupRoot = await fs.mkdtemp(path.join(os.tmpdir(), "oms-report-logs-"));
 		await isolateLogsRoot(cleanupRoot);
 
 		const logsDir = getLogsDir();
@@ -58,9 +58,9 @@ describe("report bundle logs", () => {
 		// Log files are named with the local day (RotatingFileSink naming); same-day
 		// collection must match them with the local day too, not the UTC key.
 		const today = localDay(new Date());
-		const crashedName = `omp.${today}.4242.log`;
+		const crashedName = `oms.${today}.4242.log`;
 		const rotatedName = `${crashedName}.1`;
-		const currentName = `omp.${today}.${process.pid}.log`;
+		const currentName = `oms.${today}.${process.pid}.log`;
 		await Bun.write(path.join(logsDir, crashedName), '{"pid":4242,"message":"fatal in crashed pid"}\n');
 		await fs.utimes(path.join(logsDir, crashedName), 1, 1);
 		await Bun.write(path.join(logsDir, rotatedName), '{"pid":4242,"message":"earlier rotated crash output"}\n');
@@ -72,7 +72,7 @@ describe("report bundle logs", () => {
 		const utcToday = new Date().toISOString().slice(0, 10);
 		let staleUtcName: string | undefined;
 		if (utcToday !== today) {
-			staleUtcName = `omp.${utcToday}.4243.log`;
+			staleUtcName = `oms.${utcToday}.4243.log`;
 			await Bun.write(path.join(logsDir, staleUtcName), '{"pid":4243,"message":"stale utc-keyed"}\n');
 			await fs.utimes(path.join(logsDir, staleUtcName), 3, 3);
 		}
@@ -94,7 +94,7 @@ describe("report bundle logs", () => {
 	});
 
 	it("includes this process's records still buffered by the batching file transport", async () => {
-		cleanupRoot = await fs.mkdtemp(path.join(os.tmpdir(), "omp-report-buffered-"));
+		cleanupRoot = await fs.mkdtemp(path.join(os.tmpdir(), "oms-report-buffered-"));
 		await isolateLogsRoot(cleanupRoot);
 		const logsDir = getLogsDir();
 		logger.setTransports({ console: false, file: logsDir });
@@ -108,7 +108,7 @@ describe("report bundle logs", () => {
 		const archive = new Bun.Archive(await Bun.file(result.path).bytes());
 		const logsText = (await (await archive.files()).get("logs.txt")?.text()) ?? "";
 		await fs.rm(result.path, { force: true });
-		expect(logsText).toContain(`omp.${localDay(new Date())}.${process.pid}.log`);
+		expect(logsText).toContain(`oms.${localDay(new Date())}.${process.pid}.log`);
 		expect(logsText).toContain(marker);
 	});
 });

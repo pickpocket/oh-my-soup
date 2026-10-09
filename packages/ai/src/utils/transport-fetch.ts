@@ -1,4 +1,4 @@
-import { resolveExtraCa, withExtraCaInit } from "@oh-my-pi/pi-utils";
+import { resolveExtraCa, withExtraCaInit } from "@oh-my-soup/pi-utils";
 import { coworkFetch } from "../providers/cowork-fetch";
 import { withInferenceUserAgent } from "../providers/inference-headers";
 import type { Api, FetchImpl, Model } from "../types";
@@ -6,7 +6,7 @@ import { getProxyForProvider, withProxyInit } from "./proxy";
 import { createFetchRequestDebugSession, isRequestDebugEnabled } from "./request-debug";
 
 /** Stamped on a fetch already built by {@link transportFetch}. */
-const TRANSPORT_FETCH = Symbol("omp.transportFetch");
+const TRANSPORT_FETCH = Symbol("oms.transportFetch");
 
 type TransportFetch = FetchImpl & { [TRANSPORT_FETCH]?: true };
 

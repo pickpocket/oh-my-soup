@@ -1,5 +1,5 @@
 import { parentPort } from "node:worker_threads";
-import { consumeWorkerInbox } from "@oh-my-pi/pi-utils/worker-host";
+import { consumeWorkerInbox } from "@oh-my-soup/pi-utils/worker-host";
 import { renderTerminalOutput } from "./terminal-output";
 import type { TerminalOutputWorkerRequest, TerminalOutputWorkerResult } from "./terminal-output-worker-protocol";
 

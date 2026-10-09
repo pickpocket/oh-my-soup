@@ -21,7 +21,7 @@ function runRow(overrides: Partial<RunRow>): RunRow {
 		benchmark: "harbor",
 		jobName: "exp-arm",
 		dataset: "d",
-		agent: "omp",
+		agent: "oms",
 		models: "anthropic/claude-opus-4-8",
 		label: "",
 		prewalk: null,

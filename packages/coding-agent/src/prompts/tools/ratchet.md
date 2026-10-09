@@ -10,7 +10,7 @@ Adapted from the claude-api skill's build-eval, eval-audit, and hillclimb guides
 - Talk to the user only at the stops below and in one status line per round. Everything else runs unattended.
 
 # API (Python; JS identical with camelCase options: `offLimits`, `testFraction`)
-`r = ratchet("inbox-routing")` binds a flow at `.omp/ratchet/<flow>/`. Every method is async and returns plain data.
+`r = ratchet("inbox-routing")` binds a flow at `.oms/ratchet/<flow>/`. Every method is async and returns plain data.
 - `await r.init(cases=[…], harness=[…], change=[…], off_limits=[…], command=None)` — repo-relative paths. `cases`: inputs + expected answers. `harness`: runner + grader + anything the eval executes. `change`: the surface you may edit. Change paths may not overlap the others.
 - `await r.plan(goal={"target": "pass", "direction": "higher", "hold": ["cost_usd"], "directions": {}}, reps=2, stop={"plateau": 3, "rounds": 8}, command="bun eval/run.ts --variant {variant} --out {flow_dir}/{variant}", prices={"model-id": {"in": 3, "out": 15}})` — any subset. Target: a `grade` key (`score` for scalar grades), `cost_usd`, `latency_s`, or a numeric row field. Guardrails default to higher-is-better except `cost_usd`/`latency_s`. Cost is priced from the catalog by each row's served `model` × `usage` (+ `judge_model` × `judge_usage`); `prices` (USD per MTok) covers models the catalog cannot price.
 - `await r.split({case_id: primary_tag, …}, test_fraction=0.4, seed=None)` — random, stratified by tag, frozen after the baseline gate.

@@ -5,9 +5,9 @@ import {
 	AuthStorage,
 	type CredentialDisabledEvent,
 	type StoredAuthCredential,
-} from "@oh-my-pi/pi-ai/auth-storage";
-import * as oauthUtils from "@oh-my-pi/pi-ai/registry/oauth";
-import { logger } from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-ai/auth-storage";
+import * as oauthUtils from "@oh-my-soup/pi-ai/registry/oauth";
+import { logger } from "@oh-my-soup/pi-utils";
 
 // Env vars short-circuit AuthStorage.keys.get before the OAuth refresh path runs; suppress
 // them for every test in this file so the credential-disable code path can be exercised.

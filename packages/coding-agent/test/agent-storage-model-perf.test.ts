@@ -1,17 +1,17 @@
 import { Database } from "bun:sqlite";
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import * as path from "node:path";
-import { Agent } from "@oh-my-pi/pi-agent-core";
-import { createMockModel } from "@oh-my-pi/pi-ai/providers/mock";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
-import { ModelRegistry } from "@oh-my-pi/pi-coding-agent/config/model-registry";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { AgentSession } from "@oh-my-pi/pi-coding-agent/session/agent-session";
-import { AgentStorage } from "@oh-my-pi/pi-coding-agent/session/agent-storage";
-import { AuthStorage } from "@oh-my-pi/pi-coding-agent/session/auth-storage";
-import { SessionManager } from "@oh-my-pi/pi-coding-agent/session/session-manager";
-import { createSubagentSettings } from "@oh-my-pi/pi-coding-agent/task/executor";
-import { TempDir } from "@oh-my-pi/pi-utils";
+import { Agent } from "@oh-my-soup/pi-agent-core";
+import { createMockModel } from "@oh-my-soup/pi-ai/providers/mock";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
+import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { AgentSession } from "@oh-my-soup/pi-coding-agent/session/agent-session";
+import { AgentStorage } from "@oh-my-soup/pi-coding-agent/session/agent-storage";
+import { AuthStorage } from "@oh-my-soup/pi-coding-agent/session/auth-storage";
+import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
+import { createSubagentSettings } from "@oh-my-soup/pi-coding-agent/task/executor";
+import { TempDir } from "@oh-my-soup/pi-utils";
 
 const MODEL_PERF_FLUSH_DELAY_MS = 60_000;
 const REPO_ROOT = path.resolve(import.meta.dir, "../../..");
@@ -50,7 +50,7 @@ describe("AgentStorage model perf aggregates", () => {
 	});
 
 	async function openStorage(): Promise<AgentStorage> {
-		tempDir = TempDir.createSync("@omp-agent-storage-perf-");
+		tempDir = TempDir.createSync("@oms-agent-storage-perf-");
 		return AgentStorage.open(path.join(tempDir.path(), "agent.db"));
 	}
 
@@ -110,7 +110,7 @@ describe("AgentStorage model perf aggregates", () => {
 		// The session's turn loop schedules real timers; only the deferred perf
 		// batch needs the fake clock, and closing the storage flushes it.
 		vi.useRealTimers();
-		tempDir = TempDir.createSync("@omp-served-tier-perf-");
+		tempDir = TempDir.createSync("@oms-served-tier-perf-");
 		const dbPath = path.join(tempDir.path(), "agent.db");
 		const storage = await AgentStorage.open(dbPath);
 		const settings = Settings.isolated({ "tier.openai": "ultrafast" }, { storage });
@@ -188,7 +188,7 @@ describe("AgentStorage model perf aggregates", () => {
 	});
 
 	it("records task subagent samples in the shared model performance aggregate", async () => {
-		tempDir = TempDir.createSync("@omp-subagent-perf-");
+		tempDir = TempDir.createSync("@oms-subagent-perf-");
 		const parent = await Settings.loadIsolated({ cwd: tempDir.path(), agentDir: tempDir.path() });
 		const subagent = createSubagentSettings(parent);
 
@@ -283,7 +283,7 @@ describe("AgentStorage model perf aggregates", () => {
 		expect(stats?.ttftMs).toBeNull();
 	});
 
-	it("backfills perf aggregates from an omp stats database, excluding errored and stale turns", async () => {
+	it("backfills perf aggregates from an oms stats database, excluding errored and stale turns", async () => {
 		const storage = await openStorage();
 
 		// Minimal stats.db fixture: only the columns the backfill query reads.
@@ -374,16 +374,16 @@ describe("AgentStorage model perf aggregates", () => {
 	});
 
 	it("keeps live aggregates and skips the re-import when the v1 import already ran", async () => {
-		tempDir = TempDir.createSync("@omp-agent-storage-perf-v1-");
+		tempDir = TempDir.createSync("@oms-agent-storage-perf-v1-");
 		const homeDir = tempDir.join("home");
 		const agentDir = tempDir.join("agent");
 		const env = {
 			...process.env,
 			HOME: homeDir,
 			USERPROFILE: homeDir,
-			OMP_PROFILE: "",
+			OMS_PROFILE: "",
 			PI_CODING_AGENT_DIR: agentDir,
-			PI_CONFIG_DIR: ".omp",
+			PI_CONFIG_DIR: ".oms",
 			PI_PROFILE: "",
 			XDG_CACHE_HOME: tempDir.join("xdg-cache"),
 			XDG_CONFIG_HOME: tempDir.join("xdg-config"),
@@ -395,7 +395,7 @@ describe("AgentStorage model perf aggregates", () => {
 				'import { Database } from "bun:sqlite";',
 				'import * as fs from "node:fs";',
 				'import * as path from "node:path";',
-				'import { getAgentDbPath, getStatsDbPath } from "@oh-my-pi/pi-utils";',
+				'import { getAgentDbPath, getStatsDbPath } from "@oh-my-soup/pi-utils";',
 				`import { AgentStorage } from ${JSON.stringify(AGENT_STORAGE_MODULE)};`,
 				// A stale stats.db that never saw the live Astra turns.
 				"const statsPath = getStatsDbPath();",
@@ -436,16 +436,16 @@ describe("AgentStorage model perf aggregates", () => {
 	});
 
 	it("does not start the stats backfill while flushing a live batch on exit", async () => {
-		tempDir = TempDir.createSync("@omp-agent-storage-exit-backfill-");
+		tempDir = TempDir.createSync("@oms-agent-storage-exit-backfill-");
 		const homeDir = tempDir.join("home");
 		const agentDir = tempDir.join("agent");
 		const env = {
 			...process.env,
 			HOME: homeDir,
 			USERPROFILE: homeDir,
-			OMP_PROFILE: "",
+			OMS_PROFILE: "",
 			PI_CODING_AGENT_DIR: agentDir,
-			PI_CONFIG_DIR: ".omp",
+			PI_CONFIG_DIR: ".oms",
 			PI_PROFILE: "",
 			XDG_CACHE_HOME: tempDir.join("xdg-cache"),
 			XDG_CONFIG_HOME: tempDir.join("xdg-config"),
@@ -457,7 +457,7 @@ describe("AgentStorage model perf aggregates", () => {
 				'import { Database } from "bun:sqlite";',
 				'import * as fs from "node:fs";',
 				'import * as path from "node:path";',
-				'import { getStatsDbPath } from "@oh-my-pi/pi-utils";',
+				'import { getStatsDbPath } from "@oh-my-soup/pi-utils";',
 				`import { AgentStorage } from ${JSON.stringify(AGENT_STORAGE_MODULE)};`,
 				"const statsPath = getStatsDbPath();",
 				"fs.mkdirSync(path.dirname(statsPath), { recursive: true });",
@@ -503,7 +503,7 @@ describe("AgentStorage model perf aggregates", () => {
 	});
 
 	it("lets a process exit naturally mid-window and still persists the pending batch", async () => {
-		tempDir = TempDir.createSync("@omp-agent-storage-natural-exit-");
+		tempDir = TempDir.createSync("@oms-agent-storage-natural-exit-");
 		const dbPath = tempDir.join("agent.db");
 		const startedAt = Date.now();
 		const exiting = await runProbe(

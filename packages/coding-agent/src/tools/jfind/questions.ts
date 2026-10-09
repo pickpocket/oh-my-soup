@@ -7,8 +7,8 @@
  * match the reference implementation (which serializes through sorted maps);
  * judgment quality was benchmarked against that exact layout.
  */
-import type { JsonValue, NoulQuestion } from "@oh-my-pi/pi-ai";
-import { prompt } from "@oh-my-pi/pi-utils";
+import type { JsonValue, NoulQuestion } from "@oh-my-soup/pi-ai";
+import { prompt } from "@oh-my-soup/pi-utils";
 import nameQuestionTemplate from "../../prompts/tools/find-name-question.md" with { type: "text" };
 import passageQuestionTemplate from "../../prompts/tools/find-passage-question.md" with { type: "text" };
 import sketchQuestionTemplate from "../../prompts/tools/find-sketch-question.md" with { type: "text" };

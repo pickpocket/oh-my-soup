@@ -1,6 +1,6 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { Process, ProcessStatus } from "@oh-my-pi/pi-natives";
+import { Process, ProcessStatus } from "@oh-my-soup/pi-natives";
 import type { Subprocess } from "bun";
 import { getAgentDir, getProjectDir, MAIN_CONFIG_FILENAMES } from "./dirs";
 import { $env, filterChildShellEnv } from "./env";
@@ -32,7 +32,7 @@ let capturedChildShellEnv: Record<string, string> | undefined;
 /**
  * Project whose dotenv values the spawn environment filters out: the one current
  * when it was first built or captured.
- * That is normally the launch project, whose dotenv files Bun and omp load into
+ * That is normally the launch project, whose dotenv files Bun and oms load into
  * `process.env`; a later session in another project must not receive them.
  */
 let spawnEnvProjectDir: string | undefined;

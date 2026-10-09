@@ -1,5 +1,5 @@
-import { authPolicyFor } from "@oh-my-pi/pi-catalog/compat/auth";
-import { isRecord } from "@oh-my-pi/pi-utils";
+import { authPolicyFor } from "@oh-my-soup/pi-catalog/compat/auth";
+import { isRecord } from "@oh-my-soup/pi-utils";
 import * as AIError from "../../error";
 import { normalizeSnowflakeAccountUrl } from "../snowflake";
 import { OAuthCallbackFlow } from "./callback-server";
@@ -103,7 +103,7 @@ class SnowflakeOAuthFlow extends OAuthCallbackFlow {
 		});
 		return {
 			url: `${this.#accountUrl}/oauth/authorize?${params.toString()}`,
-			instructions: "Sign in to Snowflake in your browser and approve access for omp.",
+			instructions: "Sign in to Snowflake in your browser and approve access for oms.",
 		};
 	}
 

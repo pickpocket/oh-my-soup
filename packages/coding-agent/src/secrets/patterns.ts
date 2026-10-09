@@ -1,4 +1,4 @@
-import { SENSITIVE_TOKEN_RE } from "@oh-my-pi/pi-ai/providers/transform-messages";
+import { SENSITIVE_TOKEN_RE } from "@oh-my-soup/pi-ai/providers/transform-messages";
 
 export interface CredentialPattern {
 	/** Model-visible friendly label for reversible placeholders. */

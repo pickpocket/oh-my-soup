@@ -20,7 +20,7 @@ function isStringArray(value: unknown): value is string[] {
 	return Array.isArray(value) && value.every(item => typeof item === "string");
 }
 
-/** Build the exact two-line `omp://` docs embed from the source `docs` Markdown corpus. */
+/** Build the exact two-line `oms://` docs embed from the source `docs` Markdown corpus. */
 export async function buildDocsIndexPayload(): Promise<DocsIndexPayload> {
 	const glob = new Glob("**/*.md");
 	const files: string[] = [];

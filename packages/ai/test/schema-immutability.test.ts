@@ -4,7 +4,7 @@ import {
 	schemaNeedsDraft202012Upgrade,
 	stripSchemaDescriptions,
 	toolWireSchema,
-} from "@oh-my-pi/pi-ai/utils/schema";
+} from "@oh-my-soup/pi-ai/utils/schema";
 
 it("normalizes frozen tool parameters without modifying caller-owned required fields", () => {
 	const parameters = Object.freeze({
@@ -80,7 +80,7 @@ it("sends schemas carrying non-cloneable metadata to the wire without the metada
 		type: "object",
 		properties: { path: { type: "string" } },
 		required: ["path"],
-		"x-omp-coerce": (value: unknown) => value,
+		"x-oms-coerce": (value: unknown) => value,
 	};
 	const wire = toolWireSchema({ name: "t", description: "", parameters });
 	expect(wire).toEqual({
@@ -88,8 +88,8 @@ it("sends schemas carrying non-cloneable metadata to the wire without the metada
 		properties: { path: { type: "string" } },
 		required: ["path"],
 	});
-	expect(Object.hasOwn(wire, "x-omp-coerce")).toBe(false);
-	expect(typeof parameters["x-omp-coerce"]).toBe("function");
+	expect(Object.hasOwn(wire, "x-oms-coerce")).toBe(false);
+	expect(typeof parameters["x-oms-coerce"]).toBe("function");
 });
 
 function deepFreeze(value: unknown, seen = new WeakSet<object>()): void {

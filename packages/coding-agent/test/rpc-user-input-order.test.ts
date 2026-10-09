@@ -3,8 +3,8 @@ import {
 	RpcInputDispatcher,
 	type RpcInputFrameDeps,
 	RpcUserInputGate,
-} from "@oh-my-pi/pi-coding-agent/modes/rpc/rpc-mode";
-import type { RpcCommand, RpcResponse } from "@oh-my-pi/pi-coding-agent/modes/rpc/rpc-types";
+} from "@oh-my-soup/pi-coding-agent/modes/rpc/rpc-mode";
+import type { RpcCommand, RpcResponse } from "@oh-my-soup/pi-coding-agent/modes/rpc/rpc-types";
 
 const flush = () => new Promise<void>(resolve => setImmediate(resolve));
 

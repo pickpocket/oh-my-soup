@@ -9,7 +9,7 @@ import {
 } from "../index";
 import { type ThemeColor, theme } from "../theme/theme";
 import { formatKeyHint } from "../app-keybindings";
-import type { TspSpan } from "@oh-my-pi/pi-wire";
+import type { TspSpan } from "@oh-my-soup/pi-wire";
 import type { NativeNode, NativeUiEvent } from "../native/node";
 import { col, node, span, text } from "../native/describe";
 import { actionBar, actionButton } from "../native/overlay";
@@ -379,7 +379,7 @@ class CodexResetFireworksComponent implements Component {
 	}
 
 	/** A glass sheet at the pane's top edge. */
-	readonly nativeOverlay = { role: "omp.overlay.fireworks", anchor: "top", size: "md" } as const;
+	readonly nativeOverlay = { role: "oms.overlay.fireworks", anchor: "top", size: "md" } as const;
 
 	invalidate(): void {
 		this.#native = undefined;

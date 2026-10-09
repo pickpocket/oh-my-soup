@@ -1,8 +1,8 @@
 import { Database, type Statement } from "bun:sqlite";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { type AgentTelemetry, instrumentedCompleteSimple } from "@oh-my-pi/pi-agent-core";
-import type { Api, Model } from "@oh-my-pi/pi-ai";
+import { type AgentTelemetry, instrumentedCompleteSimple } from "@oh-my-soup/pi-agent-core";
+import type { Api, Model } from "@oh-my-soup/pi-ai";
 import {
 	getAgentDir,
 	getSkillDescriptionsDbPath,
@@ -11,7 +11,7 @@ import {
 	logger,
 	postmortem,
 	prompt,
-} from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-utils";
 import type { ModelRegistry } from "../config/model-registry";
 import { getModelMatchPreferences, parseModelPattern, resolveRoleSelection } from "../config/model-resolver";
 import type { Settings } from "../config/settings";
@@ -170,7 +170,7 @@ function resolveSkillDescriptionsDbPath(agentDir?: string): string {
  * atomically and never clobbers a database another process adopted or created
  * first. Where hard links are unsupported (some FUSE, exFAT, or network
  * mounts) an exclusive copy keeps the no-clobber guarantee. The legacy file
- * stays for older omp versions sharing the profile.
+ * stays for older oms versions sharing the profile.
  */
 function adoptLegacyDatabase(legacyPath: string, dbPath: string): void {
 	if (legacyPath === dbPath || fs.existsSync(dbPath) || !fs.existsSync(legacyPath)) return;

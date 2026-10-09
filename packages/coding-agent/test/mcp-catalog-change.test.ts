@@ -2,14 +2,14 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it } from "bun:test
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { resetSettingsForTest, Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { MCPManager } from "@oh-my-pi/pi-coding-agent/mcp/manager";
-import type { MCPStdioServerConfig } from "@oh-my-pi/pi-coding-agent/mcp/types";
-import { ExtensionDashboard } from "@oh-my-pi/pi-tui/overlays/extensions/extension-dashboard";
-import { snapshotMcpRuntime } from "@oh-my-pi/pi-tui/overlays/extensions/mcp-runtime";
-import { createExtensionDashboardRuntime } from "@oh-my-pi/pi-coding-agent/modes/components/extensions/dashboard-runtime";
-import { initTheme } from "@oh-my-pi/pi-tui/theme";
-import { removeSyncWithRetries } from "@oh-my-pi/pi-utils";
+import { resetSettingsForTest, Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { MCPManager } from "@oh-my-soup/pi-coding-agent/mcp/manager";
+import type { MCPStdioServerConfig } from "@oh-my-soup/pi-coding-agent/mcp/types";
+import { ExtensionDashboard } from "@oh-my-soup/pi-tui/overlays/extensions/extension-dashboard";
+import { snapshotMcpRuntime } from "@oh-my-soup/pi-tui/overlays/extensions/mcp-runtime";
+import { createExtensionDashboardRuntime } from "@oh-my-soup/pi-coding-agent/modes/components/extensions/dashboard-runtime";
+import { initTheme } from "@oh-my-soup/pi-tui/theme";
+import { removeSyncWithRetries } from "@oh-my-soup/pi-utils";
 import { PROMPT_NAME, RESOURCE_NAME, RESOURCE_URI, TOOL_NAME } from "./fixtures/delayed-catalog-mcp";
 
 const FIXTURE_PATH = path.join(import.meta.dir, "fixtures", "delayed-catalog-mcp.ts");
@@ -53,7 +53,7 @@ describe("MCP catalog-change after connect", () => {
 
 	beforeEach(() => {
 		resetSettingsForTest();
-		workDir = fs.mkdtempSync(path.join(os.tmpdir(), "omp-mcp-catalog-"));
+		workDir = fs.mkdtempSync(path.join(os.tmpdir(), "oms-mcp-catalog-"));
 		gate = path.join(workDir, "release-catalog");
 		manager = new MCPManager(workDir);
 	});
@@ -102,7 +102,7 @@ describe("MCP catalog-change after connect", () => {
 			{
 				name: SERVER,
 				command: process.execPath,
-				_source: { provider: "native", providerName: "OMP", level: "user", path: workDir },
+				_source: { provider: "native", providerName: "OMS", level: "user", path: workDir },
 			},
 			manager,
 		);

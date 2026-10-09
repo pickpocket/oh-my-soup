@@ -3,7 +3,7 @@
  * RPC AgentSession (so delegated work runs with the host's tools) and forwards its
  * callbacks as unsolicited `live_*` frames.
  */
-import type { AssistantMessage } from "@oh-my-pi/pi-ai";
+import type { AssistantMessage } from "@oh-my-soup/pi-ai";
 import { LiveSessionController, type LiveSessionControllerOptions } from "../../live/controller";
 import { cfgLiveVoice } from "../../live/settings";
 import { DEFAULT_LIVE_VOICE } from "../../live/voices";

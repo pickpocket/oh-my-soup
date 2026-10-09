@@ -1,5 +1,5 @@
-import { enclosingBlockBoundaries, warmBlockParse } from "@oh-my-pi/pi-natives";
-import { logger } from "@oh-my-pi/pi-utils";
+import { enclosingBlockBoundaries, warmBlockParse } from "@oh-my-soup/pi-natives";
+import { logger } from "@oh-my-soup/pi-utils";
 import { ensureGrammar } from "./grammars";
 
 const OPEN_TO_CLOSE: Record<string, string> = {

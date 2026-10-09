@@ -5,7 +5,7 @@ import { type KeyId, matchesKey } from "../keys";
 import { sliceWithWidth, truncateToWidth, visibleWidth } from "../utils";
 import { sanitizeDisplaySingleLine } from "../overlays/extensions/display-text";
 import { type ThemeColor, theme } from "../theme/theme";
-import type { TspTone } from "@oh-my-pi/pi-wire";
+import type { TspTone } from "@oh-my-soup/pi-wire";
 import { card, node, row, span, text } from "../native/describe";
 import type { DescribeContext, NativeNode, NativeUiEvent } from "../native/node";
 import { actionBar, actionButton } from "../native/overlay";
@@ -175,7 +175,7 @@ export class LiveVisualizer implements Component {
 					? node("spinner", { label: [span(phase, PHASE_COLORS[phase])], tone: PHASE_TONES[phase] })
 					: text([span(`${PHASE_ICONS[phase]} ${phase}`, PHASE_COLORS[phase])]);
 			const tone = phase === "muted" ? "muted" : phase === "error" ? "error" : "success";
-			return card({ role: "omp.app.live", tone: PHASE_TONES[phase] }, [
+			return card({ role: "oms.app.live", tone: PHASE_TONES[phase] }, [
 				node("row", { gap: "sm", align: "center" }, [status], "head"),
 				meter
 					? row(
@@ -186,7 +186,7 @@ export class LiveVisualizer implements Component {
 							{
 								gap: "sm",
 								align: "center",
-								role: "omp.app.live.level",
+								role: "oms.app.live.level",
 							},
 						)
 					: node("progress", { value: level, tone, label: [span("mic", "muted")] }),

@@ -1,5 +1,5 @@
 /* Design tokens — pure-black chassis, one inset panel, alpha hairlines, and
- * one omp accent gradient (cyan → pink). Dark is the default;
+ * one oms accent gradient (cyan → pink). Dark is the default;
  * `[data-theme="light"]` and the prefers-color-scheme fallback flip to light.
  * The ONLY file allowed to contain raw color values. */
 :root {
@@ -21,7 +21,7 @@
 	--fg-faint: #6c6c74;
 	--fg-inverse: #0a0a0b;
 
-	/* accent: omp cyan → pink; solid pink for text and strokes */
+	/* accent: oms cyan → pink; solid pink for text and strokes */
 	--accent-a: #5ad8e6;
 	--accent-b: #ed4abf;
 	--accent: #f068c8;
@@ -31,7 +31,7 @@
 	--ambient-a: rgba(90, 216, 230, 0.07);
 	--ambient-b: rgba(237, 74, 191, 0.06);
 
-	/* omp mark gradient stops (magenta → iris → cyan) */
+	/* oms mark gradient stops (magenta → iris → cyan) */
 	--mark-a: oklch(0.7 0.24 340);
 	--mark-b: oklch(0.62 0.21 295);
 	--mark-c: oklch(0.81 0.14 200);

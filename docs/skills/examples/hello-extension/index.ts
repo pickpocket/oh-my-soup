@@ -1,4 +1,4 @@
-import type { ExtensionAPI } from "@oh-my-pi/pi-coding-agent";
+import type { ExtensionAPI } from "@oh-my-soup/pi-coding-agent";
 
 export default function helloExtension(pi: ExtensionAPI) {
   // Show a greeting whenever a session starts.

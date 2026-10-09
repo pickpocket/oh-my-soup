@@ -3,7 +3,7 @@ import {
 	applyEmojiCompletion,
 	getEmojiSuggestions,
 	tryEmojiInlineReplace,
-} from "@oh-my-pi/pi-tui/prompt/emoji-autocomplete";
+} from "@oh-my-soup/pi-tui/prompt/emoji-autocomplete";
 
 describe("emoji autocomplete", () => {
 	describe("getEmojiSuggestions", () => {

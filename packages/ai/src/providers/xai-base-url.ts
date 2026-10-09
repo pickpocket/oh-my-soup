@@ -1,4 +1,4 @@
-import { $env } from "@oh-my-pi/pi-utils";
+import { $env } from "@oh-my-soup/pi-utils";
 import { parseXAIAccessTokenPayload } from "../registry/oauth/xai-oauth";
 
 /** Bundled xAI API endpoint for the `xai` and `xai-oauth` providers. */

@@ -40,7 +40,7 @@
 		"packages/coding-agent/src/modes/rpc/wire/rpc-wire.generated.ts",
 		".worktrees/**",
 		".wt/**",
-		".omp/**",
+		".oms/**",
 		"crates/**",
 		"docs/**",
 		"python/**",

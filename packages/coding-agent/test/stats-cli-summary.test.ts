@@ -2,22 +2,22 @@ import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { closeDb } from "@oh-my-pi/omp-stats";
-import { getAgentDir, getSessionsDir, setAgentDir, TempDir } from "@oh-my-pi/pi-utils";
+import { closeDb } from "@oh-my-soup/oms-stats";
+import { getAgentDir, getSessionsDir, setAgentDir, TempDir } from "@oh-my-soup/pi-utils";
 import { runStatsCommand } from "../src/cli/stats-cli";
 
 const XDG_KEYS = ["XDG_DATA_HOME", "XDG_STATE_HOME", "XDG_CACHE_HOME"] as const;
 
-// Regression: `omp stats --summary` carried its own printer copy that lacked the
+// Regression: `oms stats --summary` carried its own printer copy that lacked the
 // unpriced-usage fix, so subscription-only usage with no reference price (e.g.
 // SuperGrok) printed as a real `$0.0000` charge instead of `N/A`.
-describe("omp stats --summary", () => {
+describe("oms stats --summary", () => {
 	const originalAgentDir = getAgentDir();
 	const originalEnv: Record<string, string | undefined> = {};
 	let tempDir: TempDir;
 
 	beforeEach(() => {
-		tempDir = TempDir.createSync("@omp-stats-summary-");
+		tempDir = TempDir.createSync("@oms-stats-summary-");
 		for (const key of [...XDG_KEYS, "PI_CONFIG_DIR"]) {
 			originalEnv[key] = process.env[key];
 			delete process.env[key];

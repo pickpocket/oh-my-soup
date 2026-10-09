@@ -1,10 +1,10 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "bun:test";
 import { stripVTControlCharacters } from "node:util";
-import { KeybindingsManager } from "@oh-my-pi/pi-tui/app-keybindings";
-import { getKeybindings, setKeybindings, type TUI, visibleWidth } from "@oh-my-pi/pi-tui";
-import { getThemeByName, setThemeInstance, type Theme } from "@oh-my-pi/pi-tui/theme";
-import { AnnotationOverlay } from "@oh-my-pi/pi-tui/overlays/annotation-overlay";
-import type { ReviewDiffFile } from "@oh-my-pi/pi-tui/overlays/annotation-types";
+import { KeybindingsManager } from "@oh-my-soup/pi-tui/app-keybindings";
+import { getKeybindings, setKeybindings, type TUI, visibleWidth } from "@oh-my-soup/pi-tui";
+import { getThemeByName, setThemeInstance, type Theme } from "@oh-my-soup/pi-tui/theme";
+import { AnnotationOverlay } from "@oh-my-soup/pi-tui/overlays/annotation-overlay";
+import type { ReviewDiffFile } from "@oh-my-soup/pi-tui/overlays/annotation-types";
 
 const DOWN = "\x1b[B";
 const TAB = "\t";

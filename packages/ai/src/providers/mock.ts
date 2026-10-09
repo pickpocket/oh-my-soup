@@ -6,7 +6,7 @@
  *
  * Usage:
  *
- *   import { createMockModel, registerMockApi } from "@oh-my-pi/pi-ai/providers/mock";
+ *   import { createMockModel, registerMockApi } from "@oh-my-soup/pi-ai/providers/mock";
  *
  *   // 1. Array of responses, one per call.
  *   const mock = createMockModel({
@@ -42,7 +42,7 @@
  *   expect(mock.calls).toHaveLength(2);
  */
 
-import { classifyModel } from "@oh-my-pi/pi-catalog/compat/taxonomy";
+import { classifyModel } from "@oh-my-soup/pi-catalog/compat/taxonomy";
 import { registerCustomApi } from "../api-registry";
 import * as AIError from "../error";
 import type {

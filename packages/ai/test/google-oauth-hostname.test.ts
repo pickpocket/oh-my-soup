@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { authPolicyFor } from "@oh-my-pi/pi-catalog/compat/auth";
+import { authPolicyFor } from "@oh-my-soup/pi-catalog/compat/auth";
 
 describe("Google OAuth callback hostname", () => {
 	it("uses 127.0.0.1 to avoid IPv6 and proxy delays", () => {

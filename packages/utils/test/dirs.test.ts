@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, spyOn, vi } from "bun:test";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import * as nativePath from "@oh-my-pi/pi-natives/path";
+import * as nativePath from "@oh-my-soup/pi-natives/path";
 import {
 	__resetProjectDirCacheForTests,
 	directoryIsMissing,
@@ -11,7 +11,7 @@ import {
 	localDay,
 	relativePathWithinRoot,
 	setProjectDir,
-} from "@oh-my-pi/pi-utils/dirs";
+} from "@oh-my-soup/pi-utils/dirs";
 
 const originalProjectDir = fs.realpathSync(process.cwd()).replace(/^\/private(?=\/)/, "");
 
@@ -63,7 +63,7 @@ describe("project directory state", () => {
 	});
 
 	it("normalizes each containment operand only once", () => {
-		const root = fs.mkdtempSync(path.join(os.tmpdir(), "omp-dirs-containment-"));
+		const root = fs.mkdtempSync(path.join(os.tmpdir(), "oms-dirs-containment-"));
 		const candidate = path.join(root, "child");
 		fs.mkdirSync(candidate);
 		const realpath = spyOn(fs, "realpathSync");
@@ -93,7 +93,7 @@ describe("dated log path", () => {
 		// sink (logger/rotating-file.ts) never creates.
 		const date = new Date(2026, 4, 31, 2, 30);
 		expect(localDay(date)).toBe("2026-05-31");
-		expect(path.basename(getLogPath(date, 123))).toBe("omp.2026-05-31.123.log");
+		expect(path.basename(getLogPath(date, 123))).toBe("oms.2026-05-31.123.log");
 	});
 
 	it("keeps the local-day key under a forced non-UTC timezone", () => {

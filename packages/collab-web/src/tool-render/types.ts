@@ -6,7 +6,7 @@
  * - `Body` — expanded detail view (args, outputs, diffs, images).
  *
  * Renderers are host-agnostic: they run inside the collab-web React app and
- * inside the `<omp-tool-view>` web component bundled into HTML session exports.
+ * inside the `<oms-tool-view>` web component bundled into HTML session exports.
  * They must never import host-specific modules (wire types, coding-agent
  * runtime, node builtins) and must tolerate partial/malformed `args` and
  * `details` — these arrive as plain JSON over the wire.

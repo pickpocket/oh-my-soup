@@ -1,5 +1,5 @@
-import type { ImageContent, TextContent } from "@oh-my-pi/pi-ai";
-import type { CaptureRegion, DesktopCapabilities } from "@oh-my-pi/pi-natives";
+import type { ImageContent, TextContent } from "@oh-my-soup/pi-ai";
+import type { CaptureRegion, DesktopCapabilities } from "@oh-my-soup/pi-natives";
 
 export { COMPUTER_WORKER_ARG } from "../../cli/worker-selectors";
 

@@ -1,8 +1,8 @@
 import { beforeAll, describe, expect, it, vi } from "bun:test";
-import { KeybindingsManager } from "@oh-my-pi/pi-tui/app-keybindings";
-import { getKeybindings, setKeybindings } from "@oh-my-pi/pi-tui";
-import { CustomEditor } from "@oh-my-pi/pi-tui/prompt/custom-editor";
-import { getEditorTheme, initTheme } from "@oh-my-pi/pi-tui/theme";
+import { KeybindingsManager } from "@oh-my-soup/pi-tui/app-keybindings";
+import { getKeybindings, setKeybindings } from "@oh-my-soup/pi-tui";
+import { CustomEditor } from "@oh-my-soup/pi-tui/prompt/custom-editor";
+import { getEditorTheme, initTheme } from "@oh-my-soup/pi-tui/theme";
 
 describe("CustomEditor keybindings", () => {
 	beforeAll(async () => {

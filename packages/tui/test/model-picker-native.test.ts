@@ -1,7 +1,7 @@
 import { afterEach, beforeAll, expect, test } from "bun:test";
-import type { Model } from "@oh-my-pi/pi-ai";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
-import type { TspPickerGroup, TspPickerProps } from "@oh-my-pi/pi-wire";
+import type { Model } from "@oh-my-soup/pi-ai";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
+import type { TspPickerGroup, TspPickerProps } from "@oh-my-soup/pi-wire";
 import type { DescribeContext, NativeChild, NativeNode } from "../src/native/node";
 import { ModelHubComponent, type ModelHubRegistry, type ModelHubSource } from "../src/overlays/model-hub";
 import { ModelPickerComponent } from "../src/overlays/model-picker";
@@ -130,7 +130,7 @@ function prop(child: NativeChild, name: string): unknown {
 }
 
 function titleOf(children: readonly NativeChild[] | undefined): unknown {
-	const title = children?.find(child => prop(child, "role") === "omp.picker.title");
+	const title = children?.find(child => prop(child, "role") === "oms.picker.title");
 	return title ? prop(title, "text") : undefined;
 }
 

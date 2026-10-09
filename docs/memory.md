@@ -1,6 +1,6 @@
 # Autonomous Memory
 
-omp supports five memory modes. Memory is disabled by default; select one backend via `/settings` or `config.yml`:
+oms supports five memory modes. Memory is disabled by default; select one backend via `/settings` or `config.yml`:
 
 | `memory.backend` | Storage and behavior                                                   | Guide                                                   |
 | ---------------- | ---------------------------------------------------------------------- | ------------------------------------------------------- |

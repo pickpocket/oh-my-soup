@@ -11,9 +11,9 @@
  * directory, and `undefined` spans every project.
  */
 import * as path from "node:path";
-import { previewLine, shortenPath, TRUNCATE_LENGTHS } from "@oh-my-pi/pi-tui/render/render-utils";
-import { ToolError } from "@oh-my-pi/pi-tui/tools/tool-errors";
-import { formatAge, formatCount } from "@oh-my-pi/pi-utils";
+import { previewLine, shortenPath, TRUNCATE_LENGTHS } from "@oh-my-soup/pi-tui/render/render-utils";
+import { ToolError } from "@oh-my-soup/pi-tui/tools/tool-errors";
+import { formatAge, formatCount } from "@oh-my-soup/pi-utils";
 import { type HistoryEntry, HistoryStorage } from "../session/history-storage";
 import { listSessionRecaps, type SessionRecap } from "../session/session-index";
 import {

@@ -2,7 +2,7 @@ import {
 	ALIBABA_TOKEN_PLAN_BASE_URL,
 	ALIBABA_TOKEN_PLAN_CN_BASE_URL,
 	serializeAlibabaTokenPlanCredential,
-} from "@oh-my-pi/pi-catalog/wire/alibaba-token-plan";
+} from "@oh-my-soup/pi-catalog/wire/alibaba-token-plan";
 import * as AIError from "../../error";
 import { validateApiKeyAgainstModelsEndpoint } from "../api-key-validation";
 import type { OAuthController } from "./types";

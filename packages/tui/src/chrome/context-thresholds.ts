@@ -1,5 +1,5 @@
-import { formatNumber } from "@oh-my-pi/pi-utils";
-import type { TspTone } from "@oh-my-pi/pi-wire";
+import { formatNumber } from "@oh-my-soup/pi-utils";
+import type { TspTone } from "@oh-my-soup/pi-wire";
 import type { ThemeColor } from "../theme/index";
 export type ContextUsageLevel = "normal" | "warning" | "purple" | "error";
 

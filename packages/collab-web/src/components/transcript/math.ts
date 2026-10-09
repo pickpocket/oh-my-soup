@@ -1,10 +1,10 @@
-import type { MarkedExtension, Tokens } from "@oh-my-pi/pi-utils/marked";
+import type { MarkedExtension, Tokens } from "@oh-my-soup/pi-utils/marked";
 import {
 	type MathSpan,
 	mathBlockInContext,
 	mathSpanInContext,
 	mathStartIndex,
-} from "@oh-my-pi/pi-utils/math-delimiters";
+} from "@oh-my-soup/pi-utils/math-delimiters";
 import { renderToString } from "katex";
 import { escapeHtml } from "../../lib/format";
 
@@ -44,7 +44,7 @@ function renderMath(token: Tokens.Generic): string | false {
 /**
  * Renders LaTeX in transcript Markdown: `$…$` and `\(…\)` inline, `$$…$$` and
  * `\[…\]` in display mode, plus own-line `$$`/`\[` blocks. Delimiters and the
- * scan hint come from `@oh-my-pi/pi-utils/math-delimiters`, so this renderer and
+ * scan hint come from `@oh-my-soup/pi-utils/math-delimiters`, so this renderer and
  * the TUI agree on what counts as math; only presentation policy lives here.
  *
  * Two limits follow from that shared behavior, both matching the TUI: a rejected

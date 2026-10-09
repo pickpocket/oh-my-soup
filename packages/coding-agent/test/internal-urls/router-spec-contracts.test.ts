@@ -2,16 +2,16 @@ import { afterEach, beforeAll, describe, expect, it } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
 import {
 	type InternalResource,
 	InternalUrlRouter,
 	type ProtocolHandler,
 	type SchemeSpec,
-} from "@oh-my-pi/pi-coding-agent/internal-urls";
-import type { ToolSession } from "@oh-my-pi/pi-coding-agent/tools";
-import { resolveApproval } from "@oh-my-pi/pi-coding-agent/tools/approval";
-import { WriteTool } from "@oh-my-pi/pi-coding-agent/tools/write";
+} from "@oh-my-soup/pi-coding-agent/internal-urls";
+import type { ToolSession } from "@oh-my-soup/pi-coding-agent/tools";
+import { resolveApproval } from "@oh-my-soup/pi-coding-agent/tools/approval";
+import { WriteTool } from "@oh-my-soup/pi-coding-agent/tools/write";
 
 const resolveNothing = async (): Promise<InternalResource> => {
 	throw new Error("fixture:// never resolves");

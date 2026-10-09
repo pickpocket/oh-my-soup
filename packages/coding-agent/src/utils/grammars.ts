@@ -1,7 +1,7 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { type WasmGrammarInfo, type WasmGrammarQuery, wasmGrammarFor } from "@oh-my-pi/pi-natives";
-import { getNativeGrammarsDir, logger, withFileLock } from "@oh-my-pi/pi-utils";
+import { type WasmGrammarInfo, type WasmGrammarQuery, wasmGrammarFor } from "@oh-my-soup/pi-natives";
+import { getNativeGrammarsDir, logger, withFileLock } from "@oh-my-soup/pi-utils";
 import { withDownload } from "../downloads/activity";
 import { downloadFile } from "./tools-manager";
 

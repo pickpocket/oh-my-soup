@@ -1,5 +1,5 @@
 import { clearSubmittedText } from "./helpers/draft";
-import { getOAuthProviders } from "@oh-my-pi/pi-ai/oauth";
+import { getOAuthProviders } from "@oh-my-soup/pi-ai/oauth";
 import { journalJudgmentUsage, resolveJudge, sharedJudgmentCache } from "../judgment";
 import type { AgentSession } from "../session/agent-session";
 import type { SessionOAuthAccountList } from "../session/agent-session-types";
@@ -12,14 +12,14 @@ import {
 } from "../utils/changelog";
 import { formatTokenCount, refreshStatusLine } from "./builtin-modes";
 import { buildContextReportText } from "./helpers/context-report";
-import { formatCoarseDuration } from "@oh-my-pi/pi-tui/chrome/format";
-import { truncateToWidth } from "@oh-my-pi/pi-tui/render/render-utils";
-import { sanitizeText } from "@oh-my-pi/pi-utils";
+import { formatCoarseDuration } from "@oh-my-soup/pi-tui/chrome/format";
+import { truncateToWidth } from "@oh-my-soup/pi-tui/render/render-utils";
+import { sanitizeText } from "@oh-my-soup/pi-utils";
 import { handleMcpAcp } from "./helpers/mcp";
 import { markdownFenceFor } from "../utils/markdown-fence";
 import { commandConsumed, errorMessage, parseSubcommand, usage } from "./helpers/parse";
 import { describeRedeemOutcome, toResetUsageAccounts } from "./helpers/reset-usage";
-import type { ResetUsageAccount } from "@oh-my-pi/pi-tui/overlays/reset-usage-selector";
+import type { ResetUsageAccount } from "@oh-my-soup/pi-tui/overlays/reset-usage-selector";
 import { matchSessionPinAccounts, toSessionPinAccounts } from "./helpers/session-pin";
 import {
 	launchStatsDashboard,
@@ -27,7 +27,7 @@ import {
 	type StatsDashboardArgs,
 	type StatsDashboardLaunchResult,
 } from "./helpers/stats-dashboard";
-import { StatsNotice } from "@oh-my-pi/pi-tui/overlays/stats-notice";
+import { StatsNotice } from "@oh-my-soup/pi-tui/overlays/stats-notice";
 import { handleTodoAcp } from "./helpers/todo";
 import { buildUsageReportText } from "./helpers/usage-report";
 import type { SlashCommandRuntime, SlashCommandSpec } from "./types";

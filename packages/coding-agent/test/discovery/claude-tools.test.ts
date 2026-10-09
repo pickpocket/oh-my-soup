@@ -2,12 +2,12 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { clearCache as clearFsCache } from "@oh-my-pi/pi-coding-agent/capability/fs";
-import { type CustomTool, toolCapability } from "@oh-my-pi/pi-coding-agent/capability/tool";
-import { resetSettingsForTest, Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { initializeWithSettings, loadCapability } from "@oh-my-pi/pi-coding-agent/discovery";
-import { clearClaudePluginRootsCache } from "@oh-my-pi/pi-coding-agent/discovery/helpers";
-import { removeWithRetries } from "@oh-my-pi/pi-utils";
+import { clearCache as clearFsCache } from "@oh-my-soup/pi-coding-agent/capability/fs";
+import { type CustomTool, toolCapability } from "@oh-my-soup/pi-coding-agent/capability/tool";
+import { resetSettingsForTest, Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { initializeWithSettings, loadCapability } from "@oh-my-soup/pi-coding-agent/discovery";
+import { clearClaudePluginRootsCache } from "@oh-my-soup/pi-coding-agent/discovery/helpers";
+import { removeWithRetries } from "@oh-my-soup/pi-utils";
 
 describe("Claude Code custom tool discovery", () => {
 	let root = "";
@@ -23,7 +23,7 @@ describe("Claude Code custom tool discovery", () => {
 		originalHome = process.env.HOME;
 		originalClaudeConfigDir = process.env.CLAUDE_CONFIG_DIR;
 		delete process.env.CLAUDE_CONFIG_DIR;
-		root = await fs.mkdtemp(path.join(os.tmpdir(), "omp-claude-tools-"));
+		root = await fs.mkdtemp(path.join(os.tmpdir(), "oms-claude-tools-"));
 		home = path.join(root, "home");
 		project = path.join(root, "project");
 		process.env.HOME = home;

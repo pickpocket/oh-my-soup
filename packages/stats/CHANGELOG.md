@@ -34,19 +34,19 @@
 
 ### Added
 
-- Added the `printStatsSummary` export, shared by `omp-stats --sync` and `omp stats --summary`.
+- Added the `printStatsSummary` export, shared by `oms-stats --sync` and `oms stats --summary`.
 
 ## [18.4.3] - 2026-09-28
 
 ### Fixed
 
-- Fixed `omp stats` dashboard numbers following the browser locale while the rest of the UI is English (e.g. `546 B` meaning 546 thousand and `$38.003,33` on a Turkish browser); figures now always use en-US formatting ([#13640](https://github.com/can1357/oh-my-pi/pull/13640) by [@NaC-L](https://github.com/NaC-L))
+- Fixed `oms stats` dashboard numbers following the browser locale while the rest of the UI is English (e.g. `546 B` meaning 546 thousand and `$38.003,33` on a Turkish browser); figures now always use en-US formatting ([#13640](https://github.com/can1357/oh-my-pi/pull/13640) by [@NaC-L](https://github.com/NaC-L))
 
 ## [18.4.1] - 2026-09-28
 
 ### Fixed
 
-- Fixed `/trace` and `omp stats` dashboards failing to load after operating-system temporary-file cleanup ([#13487](https://github.com/can1357/oh-my-pi/pull/13487) by [@Peter-Tam](https://github.com/Peter-Tam)).
+- Fixed `/trace` and `oms stats` dashboards failing to load after operating-system temporary-file cleanup ([#13487](https://github.com/can1357/oh-my-pi/pull/13487) by [@Peter-Tam](https://github.com/Peter-Tam)).
 
 ## [18.4.0] - 2026-09-28
 
@@ -62,7 +62,7 @@
 ### Fixed
 
 - Made session-statistics synchronization atomic to prevent duplicate entries when synchronization is interrupted.
-- Improved the speed and reliability of initial and repeat `omp stats` imports, including large session histories and already-indexed histories.
+- Improved the speed and reliability of initial and repeat `oms stats` imports, including large session histories and already-indexed histories.
 
 ## [18.2.9] - 2026-09-22
 
@@ -85,7 +85,7 @@
 - Fixed garbage tool names from provider-side parse failures (e.g. a gateway returning the model's whole invocation text as the tool name) polluting the tools dashboard's per-tool rows and filter dropdown; such names now collapse to their leading identifier, and existing databases re-ingest cleaned on next sync.
 - Reduced repeat stats-sync reads to appended transcript data while preserving service-tier accounting across restarts.
 - Rebuilt stats for replaced or truncated session files instead of retaining stale totals.
-- Reclaimed lingering stats dashboards from older releases using their versioned HTTP identity when process command lines are unavailable, so upgrades no longer leave `omp stats` blocked by an opaque Bun listener.
+- Reclaimed lingering stats dashboards from older releases using their versioned HTTP identity when process command lines are unavailable, so upgrades no longer leave `oms stats` blocked by an opaque Bun listener.
 
 ## [18.1.17] - 2026-09-10
 
@@ -112,7 +112,7 @@
 
 ### Fixed
 
-- Fixed `omp stats` omitting usage from online auto-thinking classifier calls.
+- Fixed `oms stats` omitting usage from online auto-thinking classifier calls.
 
 ## [18.0.9] - 2026-08-28
 
@@ -163,7 +163,7 @@
 
 ### Changed
 
-- Optimized package dependencies by replacing `date-fns` with `@oh-my-pi/pi-utils/dates` and removing unused test dependencies.
+- Optimized package dependencies by replacing `date-fns` with `@oh-my-soup/pi-utils/dates` and removing unused test dependencies.
 
 ## [17.2.9] - 2026-08-05
 
@@ -239,7 +239,7 @@
 
 ### Added
 
-- Added a Tools tab to the `omp stats` dashboard (`/#/tools`): per-tool call counts, error rates, result/argument payload sizes, per-model breakdown, and a stacked calls-over-time chart. Token and cost columns attribute each invoking turn's real provider usage evenly across that turn's tool calls. Existing databases re-parse sessions once on the next sync to backfill historical tool calls.
+- Added a Tools tab to the `oms stats` dashboard (`/#/tools`): per-tool call counts, error rates, result/argument payload sizes, per-model breakdown, and a stacked calls-over-time chart. Token and cost columns attribute each invoking turn's real provider usage evenly across that turn's tool calls. Existing databases re-parse sessions once on the next sync to backfill historical tool calls.
 
 ## [16.2.7] - 2026-06-30
 
@@ -251,7 +251,7 @@
 
 ### Fixed
 
-- Fixed application crashes and Bun aborts on macOS and when parsing large stats session files, including during `omp --smoke-test` runs, by utilizing a more resilient serial parser and lenient line scanner.
+- Fixed application crashes and Bun aborts on macOS and when parsing large stats session files, including during `oms --smoke-test` runs, by utilizing a more resilient serial parser and lenient line scanner.
 
 ## [16.2.3] - 2026-06-28
 
@@ -263,13 +263,13 @@
 
 ### Added
 
-- Added a Gain tab to the `omp stats` dashboard (`/#/gain`) to display snapcompact token-savings with project scoping from synced session folders.
+- Added a Gain tab to the `oms stats` dashboard (`/#/gain`) to display snapcompact token-savings with project scoping from synced session folders.
 
 ## [16.1.17] - 2026-06-24
 
 ### Fixed
 
-- Stats sync counted the same provider request multiple times when a forked or branched session file copied the parent's entries verbatim. Inserts now skip rows whose `(entry_id, timestamp)` already exists under a different `session_file`, and a one-shot migration on the next `omp stats` run collapses any pre-existing duplicates ([#3370](https://github.com/can1357/oh-my-pi/issues/3370)).
+- Stats sync counted the same provider request multiple times when a forked or branched session file copied the parent's entries verbatim. Inserts now skip rows whose `(entry_id, timestamp)` already exists under a different `session_file`, and a one-shot migration on the next `oms stats` run collapses any pre-existing duplicates ([#3370](https://github.com/can1357/oh-my-pi/issues/3370)).
 
 ## [16.1.15] - 2026-06-22
 
@@ -296,7 +296,7 @@
 
 ### Changed
 
-- Redesigned the local stats dashboard with an OMP-themed product shell, dedicated per-section views, accessible loading/empty/error states, and flicker-free navigation between screens and time ranges.
+- Redesigned the local stats dashboard with an OMS-themed product shell, dedicated per-section views, accessible loading/empty/error states, and flicker-free navigation between screens and time ranges.
 
 ### Fixed
 
@@ -306,7 +306,7 @@
 
 ### Changed
 
-- Renamed `__omp_stats_sync_worker` to `__omp_worker_stats_sync`.
+- Renamed `__oms_stats_sync_worker` to `__oms_worker_stats_sync`.
 
 ## [15.13.1] - 2026-06-15
 
@@ -318,7 +318,7 @@
 
 ### Fixed
 
-- Fixed the stats dashboard's SQLite init never setting `PRAGMA busy_timeout`, so a concurrent `omp` startup hitting WAL recovery could crash `initDb()` with `SQLITE_BUSY` instead of waiting through it. The busy handler is now installed before `PRAGMA journal_mode=WAL` ([#2421](https://github.com/can1357/oh-my-pi/issues/2421)).
+- Fixed the stats dashboard's SQLite init never setting `PRAGMA busy_timeout`, so a concurrent `oms` startup hitting WAL recovery could crash `initDb()` with `SQLITE_BUSY` instead of waiting through it. The busy handler is now installed before `PRAGMA journal_mode=WAL` ([#2421](https://github.com/can1357/oh-my-pi/issues/2421)).
 
 ## [15.11.0] - 2026-06-10
 
@@ -335,14 +335,14 @@
 
 ### Changed
 
-- Bundled-model lookups (`getBundledModel`, `GeneratedProvider`) now import from the new `@oh-my-pi/pi-catalog` package instead of the `@oh-my-pi/pi-ai` barrel, which no longer re-exports catalog values
-- The session-sync worker re-enters the host CLI entry (`workerHostEntry()` + `__omp_stats_sync_worker` argv selector) when running inside omp — source, npm bundle, or compiled binary — and keeps loading its own `sync-worker.ts` module directly for standalone `omp-stats`, bun test, and SDK hosts
+- Bundled-model lookups (`getBundledModel`, `GeneratedProvider`) now import from the new `@oh-my-soup/pi-catalog` package instead of the `@oh-my-soup/pi-ai` barrel, which no longer re-exports catalog values
+- The session-sync worker re-enters the host CLI entry (`workerHostEntry()` + `__oms_stats_sync_worker` argv selector) when running inside oms — source, npm bundle, or compiled binary — and keeps loading its own `sync-worker.ts` module directly for standalone `oms-stats`, bun test, and SDK hosts
 
 ## [15.1.6] - 2026-05-19
 
 ### Fixed
 
-- Fixed `omp stats` crashing on first session sync in published `omp-{linux,darwin,windows}-*` binaries with `BuildMessage: ModuleNotFound resolving "./packages/stats/src/sync-worker.ts"`; the release build script now lists the stats sync, browser tab, and JS eval workers as explicit `--compile` entrypoints so Bun emits them into bunfs, matching the dev build script and the AGENTS.md worker spawn contract. ([#1150](https://github.com/can1357/oh-my-pi/issues/1150))
+- Fixed `oms stats` crashing on first session sync in published `oms-{linux,darwin,windows}-*` binaries with `BuildMessage: ModuleNotFound resolving "./packages/stats/src/sync-worker.ts"`; the release build script now lists the stats sync, browser tab, and JS eval workers as explicit `--compile` entrypoints so Bun emits them into bunfs, matching the dev build script and the AGENTS.md worker spawn contract. ([#1150](https://github.com/can1357/oh-my-pi/issues/1150))
 
 ## [15.1.0] - 2026-05-15
 
@@ -358,7 +358,7 @@
 
 ### Changed
 
-- Changed the "Premium Reqs" dashboard card to also include OpenAI priority service-tier requests (`serviceTier: "priority"`), counting each as 1 premium request alongside GitHub Copilot premium calls. Pre-existing sessions are backfilled on the next `omp stats` run: a one-shot `premium_requests_priority_v1` sentinel wipes `file_offsets` so every session re-parses, and `insertMessageStats` now `UPSERT`s `premium_requests` (other columns untouched) using the `service_tier_change` entries already in the session log to retroactively credit priority traffic.
+- Changed the "Premium Reqs" dashboard card to also include OpenAI priority service-tier requests (`serviceTier: "priority"`), counting each as 1 premium request alongside GitHub Copilot premium calls. Pre-existing sessions are backfilled on the next `oms stats` run: a one-shot `premium_requests_priority_v1` sentinel wipes `file_offsets` so every session re-parses, and `insertMessageStats` now `UPSERT`s `premium_requests` (other columns untouched) using the `service_tier_change` entries already in the session log to retroactively credit priority traffic.
 
 ## [14.9.9] - 2026-05-12
 
@@ -368,7 +368,7 @@
 
 ### Fixed
 
-- Fixed `omp stats` in compiled binaries by using the serial sync path instead of spawning a raw file-asset worker that cannot import bundled parser code.
+- Fixed `oms stats` in compiled binaries by using the serial sync path instead of spawning a raw file-asset worker that cannot import bundled parser code.
 - Fixed behavior backfills after failed compiled-binary sync attempts by marking the backfill sentinel only after a successful full sync.
 
 ## [14.9.7] - 2026-05-12
@@ -415,7 +415,7 @@
 ### Fixed
 
 - Fixed handling of unknown `range` values by falling back to the last 24h instead of returning unscoped data
-- Fixed `omp stats` failing to build the client on globally-installed installs by promoting `tailwindcss` from `devDependencies` to `dependencies` (the client build runs at runtime)
+- Fixed `oms stats` failing to build the client on globally-installed installs by promoting `tailwindcss` from `devDependencies` to `dependencies` (the client build runs at runtime)
 
 ## [14.5.4] - 2026-04-28
 

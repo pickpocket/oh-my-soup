@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { InternalUrlRouter } from "@oh-my-pi/pi-coding-agent/internal-urls/router";
+import { InternalUrlRouter } from "@oh-my-soup/pi-coding-agent/internal-urls/router";
 
 const split = (input: string) => InternalUrlRouter.instance().split(input);
 const peelWriteSelector = (input: string) => InternalUrlRouter.instance().peelWriteSelector(input, "write");

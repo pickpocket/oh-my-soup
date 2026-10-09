@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import { type } from "@oh-my-pi/omptype";
-import { Effort } from "@oh-my-pi/pi-catalog/effort";
+import { type } from "@oh-my-soup/omstype";
+import { Effort } from "@oh-my-soup/pi-catalog/effort";
 import { streamFactoryDroid } from "../src/providers/factory-droid";
 import type { Tool } from "../src/types";
 import { type CapturedRequest, captureFetch, factoryModel, responsesChunks, workosJwt } from "./helpers/factory-droid";
@@ -21,7 +21,7 @@ const WORKOS_TOKEN_WITH_USER = workosJwt({ sub: "user_123", external_org_id: "or
 
 function context() {
 	return {
-		systemPrompt: ["OMP prompt"],
+		systemPrompt: ["OMS prompt"],
 		messages: [{ role: "user" as const, content: "hello", timestamp: 1 }],
 		tools: [readTool],
 	};

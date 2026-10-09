@@ -1,7 +1,7 @@
 import * as fs from "node:fs/promises";
-import type { AgentToolResult } from "@oh-my-pi/pi-agent-core";
-import type { ReadToolDetails } from "@oh-my-pi/pi-tui/tools/read";
-import { ToolError } from "@oh-my-pi/pi-tui/tools/tool-errors";
+import type { AgentToolResult } from "@oh-my-soup/pi-agent-core";
+import type { ReadToolDetails } from "@oh-my-soup/pi-tui/tools/read";
+import { ToolError } from "@oh-my-soup/pi-tui/tools/tool-errors";
 import { acquireIdaDatabase, cfgIdaAvailable, isExecutableFile, isIdaDatabasePath, SLICE_SEPARATOR } from "../ida";
 import type { ToolSession } from "../sdk";
 import { formatPathRelativeToCwd, resolveReadPath } from "./path-utils";

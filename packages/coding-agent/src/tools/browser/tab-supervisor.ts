@@ -6,15 +6,15 @@ import {
 	Snowflake,
 	withTimeout,
 	workerHostEntry,
-} from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-utils";
 import type { CDPSession, Page, Target } from "puppeteer-core";
 import { callSessionTool } from "../../eval/js/tool-bridge";
-import { webpExclusionForModel } from "@oh-my-pi/pi-tui/chat/image-loading";
+import { webpExclusionForModel } from "@oh-my-soup/pi-tui/chat/image-loading";
 import type { ToolSession } from "../index";
 import { expandPath } from "../path-utils";
 import { CELL_BUDGET_SLACK_MS } from "../run-scope";
 import { ToolAbortError, toWorkerErrorPayload } from "../tool-errors";
-import { ToolError } from "@oh-my-pi/pi-tui/tools/tool-errors";
+import { ToolError } from "@oh-my-soup/pi-tui/tools/tool-errors";
 import { gracefulKillTreeOnce, pickElectronTarget, shouldPreserveConnectedBrowserFocus } from "./attach";
 import { CmuxTab } from "./cmux/cmux-tab";
 import { mapWaitUntil } from "./cmux/rpc";
@@ -131,7 +131,7 @@ export interface CmuxTabSession extends TabSessionBase<CmuxBrowserHandle> {
 	cmuxAttachedSurface?: string;
 }
 
-/** A tab shown as a Tern browser picture-in-picture over omp's pane. */
+/** A tab shown as a Tern browser picture-in-picture over oms's pane. */
 export interface TernTabSession extends TabSessionBase<TernBrowserHandle> {
 	backend: "tern";
 	/** The PiP's driver. */
@@ -532,7 +532,7 @@ async function acquireTabImpl(
 	};
 	worker.onMessage(msg => handleTabMessage(tab, msg));
 	tabs.set(name, tab);
-	// Durably record ownership so another live omp process can reap this page if
+	// Durably record ownership so another live oms process can reap this page if
 	// this process dies abnormally before its own teardown closes the tab.
 	const scope = sharedScopeOf(browser);
 	if (scope) void recordSharedTarget(scope, info.targetId);
@@ -682,7 +682,7 @@ async function acquireCmuxTab(
 }
 
 /**
- * Open a Tern browser PiP over omp's pane and configure it before its first
+ * Open a Tern browser PiP over oms's pane and configure it before its first
  * real navigation. The PiP closes again when anything after `open` fails.
  */
 async function acquireTernTab(
@@ -1130,7 +1130,7 @@ async function releaseTabInner(tab: TabSession, name: string, opts: ReleaseTabOp
 				// that was never closed, and re-check the browser itself: a
 				// Chromium that stopped answering its CDP endpoint holds every
 				// unclosable target and must be replaced, not left to grow until
-				// the last omp client in the project exits.
+				// the last oms client in the project exits.
 				recheckSharedBrowser(scope);
 			} else {
 				void forgetSharedTarget(scope, tab.targetId);
@@ -1179,7 +1179,7 @@ export async function releaseTabsForOwner(ownerId: string, opts: ReleaseTabOptio
 }
 
 /**
- * Tabs this settle machinery may ever touch: OMP-launched headless puppeteer
+ * Tabs this settle machinery may ever touch: OMS-launched headless puppeteer
  * tabs (`kindTag === "headless"` covers hidden and visible shared-daemon
  * tabs) that are alive and not opted out with `persist`. Connected, relay,
  * and spawned tabs drive the user's own pages/apps, and cmux surfaces are a
@@ -1192,7 +1192,7 @@ function isSettleManaged(tab: TabSession): boolean {
 }
 
 /**
- * Tabs idle-close may reap: every settle-managed tab plus OMP-opened Tern
+ * Tabs idle-close may reap: every settle-managed tab plus OMS-opened Tern
  * PiPs (live, visible pages never frozen, but closed when abandoned like
  * headless tabs), minus `persist` opt-outs.
  */
@@ -1500,7 +1500,7 @@ async function buildInitPayload(browser: PuppeteerBrowserHandle, opts: AcquireTa
 			mode: "headless",
 			browserWSEndpoint,
 			safeDir,
-			// Visible launches still need an OMP-owned page, stealth setup, and
+			// Visible launches still need an OMS-owned page, stealth setup, and
 			// independent lifecycle; only their fixed device emulation is disabled.
 			emulateViewport: browser.kind.headless,
 			viewport: opts.viewport,
@@ -1890,7 +1890,7 @@ async function spawnTabWorker(): Promise<WorkerHandle> {
 	try {
 		const hostEntry = workerHostEntry();
 		const worker = hostEntry
-			? new Worker(hostEntry, { type: "module", argv: ["__omp_worker_tab"] })
+			? new Worker(hostEntry, { type: "module", argv: ["__oms_worker_tab"] })
 			: new Worker(new URL("./tab-worker-entry.ts", import.meta.url).href, { type: "module" });
 		return wrapBunWorker(worker);
 	} catch (err) {

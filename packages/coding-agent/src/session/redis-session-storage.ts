@@ -1,4 +1,4 @@
-import { logger, toError } from "@oh-my-pi/pi-utils";
+import { logger, toError } from "@oh-my-soup/pi-utils";
 import {
 	IndexedSessionStorage,
 	type SessionStorageBackend,
@@ -32,7 +32,7 @@ export interface RedisSessionStorageOptions {
 	/** A connected `bun:redis` RedisClient (or any compatible adapter). */
 	client: RedisSessionStorageClient;
 	/**
-	 * Key prefix applied to every Redis key this storage owns. Default `omp:sessions:`.
+	 * Key prefix applied to every Redis key this storage owns. Default `oms:sessions:`.
 	 * Trailing colon is preserved verbatim — set to a project-scoped prefix to share
 	 * one Redis instance between multiple agents.
 	 */
@@ -44,10 +44,10 @@ export interface RedisSessionStorageOptions {
 	scanCount?: number;
 }
 
-const DEFAULT_PREFIX = "omp:sessions:";
+const DEFAULT_PREFIX = "oms:sessions:";
 const DEFAULT_SCAN_COUNT = 500;
 
-const WRITE_FULL_SCRIPT = `-- OMP_WRITE_FULL
+const WRITE_FULL_SCRIPT = `-- OMS_WRITE_FULL
 local expected = ARGV[6]
 if expected ~= "" then
 	local actual = -1
@@ -67,12 +67,12 @@ else
 end
 return {1, string.len(ARGV[1])}`;
 
-const APPEND_SCRIPT = `-- OMP_APPEND
+const APPEND_SCRIPT = `-- OMS_APPEND
 local size = redis.call("APPEND", KEYS[1], ARGV[1])
 redis.call("HSET", KEYS[2], ARGV[2], ARGV[3])
 return size`;
 
-const UPDATE_TITLE_SCRIPT = `-- OMP_UPDATE_TITLE
+const UPDATE_TITLE_SCRIPT = `-- OMS_UPDATE_TITLE
 redis.call("HSET", KEYS[1], ARGV[1], ARGV[2])
 redis.call("HSET", KEYS[2], ARGV[1], ARGV[3])
 return 1`;

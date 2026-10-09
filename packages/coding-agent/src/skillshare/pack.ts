@@ -9,8 +9,8 @@
  */
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { isEnoent, parseFrontmatter } from "@oh-my-pi/pi-utils";
-import { SKILL_DEFAULT_IGNORES, SKILL_LIMITS, SKILL_NAME_MAX, SKILL_NAME_RE } from "@oh-my-pi/pi-wire/skillshare";
+import { isEnoent, parseFrontmatter } from "@oh-my-soup/pi-utils";
+import { SKILL_DEFAULT_IGNORES, SKILL_LIMITS, SKILL_NAME_MAX, SKILL_NAME_RE } from "@oh-my-soup/pi-wire/skillshare";
 import { validateAgentSkillFrontmatter } from "../discovery/agent-plugin-format";
 import { CREDENTIAL_PATTERNS } from "../secrets/patterns";
 import { type TarEntry, writeTar } from "./tar";
@@ -81,7 +81,7 @@ interface RegistryFrontmatter {
 	description: string;
 }
 
-/** Agent Skills spec validation plus the registry's stricter rules (see `@oh-my-pi/pi-wire/skillshare`). */
+/** Agent Skills spec validation plus the registry's stricter rules (see `@oh-my-soup/pi-wire/skillshare`). */
 function validateRegistryFrontmatter(frontmatter: Record<string, unknown>): RegistryFrontmatter {
 	const rawName = typeof frontmatter.name === "string" ? frontmatter.name : "";
 	// The package id comes from `name`, not the checkout directory (CI clones
@@ -103,7 +103,7 @@ function validateRegistryFrontmatter(frontmatter: Record<string, unknown>): Regi
 	const version = metadata.version;
 	if (version === undefined) {
 		throw new Error(
-			`${SKILL_FILE}: "metadata.version" is required to publish (set it with \`omp skill version patch\`)`,
+			`${SKILL_FILE}: "metadata.version" is required to publish (set it with \`oms skill version patch\`)`,
 		);
 	}
 	if (!SEMVER_RE.test(version)) {

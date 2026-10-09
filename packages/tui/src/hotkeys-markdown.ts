@@ -1,4 +1,4 @@
-import type { TspSpan } from "@oh-my-pi/pi-wire";
+import type { TspSpan } from "@oh-my-soup/pi-wire";
 import { type AppKeybinding, formatKeyHint, type KeybindingsManager, keyHintPlatform } from "./app-keybindings";
 import { Markdown } from "./components/markdown";
 import { matchesSelectCancel } from "./keybinding-matchers";
@@ -226,7 +226,7 @@ function actionSpans(action: string): TspSpan[] {
  * without the native surface get the transcript markdown panel instead.
  */
 export class HotkeysSheetComponent implements Component {
-	readonly nativeOverlay = { role: "omp.overlay.hotkeys", size: "lg", head: "Keyboard shortcuts" } as const;
+	readonly nativeOverlay = { role: "oms.overlay.hotkeys", size: "lg", head: "Keyboard shortcuts" } as const;
 	readonly #bindings: HotkeysMarkdownBindings;
 	readonly #onClose: () => void;
 	#native: NativeNode | undefined;
@@ -242,10 +242,10 @@ export class HotkeysSheetComponent implements Component {
 		const sections = hotkeyGroups(this.#bindings).map((group, index) =>
 			node(
 				"section",
-				{ head: group.title, role: "omp.hotkeys.group" },
+				{ head: group.title, role: "oms.hotkeys.group" },
 				[
 					node("table", {
-						role: "omp.hotkeys.table",
+						role: "oms.hotkeys.table",
 						cols: [
 							{ id: "keys", head: "Key" },
 							{ id: "action", head: "Action", grow: 1 },

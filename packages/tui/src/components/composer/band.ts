@@ -1,5 +1,5 @@
 /**
- * Soft status band composer (the rust omp default): the full status line sits
+ * Soft status band composer (the rust oms default): the full status line sits
  * flush against the terminal's left edge as a filled powerline band with a
  * soft opening cap — no frame, rules, or corners — above an unboxed prompt
  * anchored by a single curved `╰─ ` cue.

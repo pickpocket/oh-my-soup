@@ -77,7 +77,7 @@ const WARM_UP_KEYCODE: u8 = 240 + X_KEYCODE_OFFSET;
 /// Gives clients time to process the hierarchy change after the warm-up.
 const WARM_UP_SETTLE: Duration = Duration::from_millis(120);
 /// Master names that encode an owner incarnation (see [`Owner`]).
-const OWNER_PREFIX: &str = "OMP MPX v1.";
+const OWNER_PREFIX: &str = "OMS MPX v1.";
 
 static NONCE: AtomicU16 = AtomicU16::new(1);
 
@@ -145,7 +145,7 @@ impl Mpx {
 		}
 		let nonce = NONCE.fetch_add(1, Ordering::Relaxed);
 		let name = owner.as_ref().map_or_else(
-			|| format!("OMP MPX {}.{nonce:x}", std::process::id()),
+			|| format!("OMS MPX {}.{nonce:x}", std::process::id()),
 			|owner| owner.master_name(nonce),
 		);
 		// The non-X resource first: a late uinput failure must not leave a
@@ -1082,7 +1082,7 @@ mod tests {
 		let pointer = format!("{} pointer", owner.master_name(u16::MAX));
 		assert_eq!(Owner::from_pointer_name(&pointer), Some(owner));
 		assert!(format!("{} uinput keyboard", owner.master_name(u16::MAX)).len() < 80);
-		assert_eq!(Owner::from_pointer_name("OMP MPX 4242.1 pointer"), None);
+		assert_eq!(Owner::from_pointer_name("OMS MPX 4242.1 pointer"), None);
 	}
 
 	#[test]

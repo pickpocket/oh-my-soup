@@ -1,5 +1,5 @@
 /** Shared assistant transcript construction and model-authored link caching. */
-import type { AssistantMessage, Model, TextContent } from "@oh-my-pi/pi-ai";
+import type { AssistantMessage, Model, TextContent } from "@oh-my-soup/pi-ai";
 import { getMarkdownLinkUrls } from "../index";
 import { EMPTY_LINK_TARGETS } from "../render/render-utils";
 import type { ImageBudget } from "../components/image";

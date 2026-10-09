@@ -18,7 +18,7 @@ import {
 import { wrapLiteralLine } from "../utils";
 import type { NativeChild, NativeSurface, NativeSurfaceProvider } from "../native/node";
 import { sameItems } from "../native/memo";
-import { postmortem } from "@oh-my-pi/pi-utils";
+import { postmortem } from "@oh-my-soup/pi-utils";
 import { CustomEditor } from "./custom-editor";
 import type { WordCompletionMethod } from "./word-completion";
 import { type AnimationFrame, TranscriptContainer } from "../chrome/transcript-container";
@@ -77,7 +77,7 @@ export interface ComposerStatusCache {
 /** Optional dependencies and initial state for a standalone composer. */
 export interface ComposerOptions {
 	readonly terminal?: Terminal;
-	/** Extra TUI construction options (render scheduler injection for tests and `omp render`). */
+	/** Extra TUI construction options (render scheduler injection for tests and `oms render`). */
 	readonly tuiOptions?: TUIOptions;
 	readonly preferences?: Partial<ComposerPreferences>;
 	readonly welcome?: ComposerWelcomeUpdate;
@@ -172,7 +172,7 @@ export function routeViewportClick(spans: readonly ViewportClickSpan[], index: n
  * any registry lookup: its `@…:…` charset cannot collide with generated agent
  * ids (word names, numeric and `-N` suffixes, dotted nesting).
  */
-export const PINNED_HUD_TOGGLE_ID = "@omp:toggle-pinned-hud";
+export const PINNED_HUD_TOGGLE_ID = "@oms:toggle-pinned-hud";
 
 /**
  * Nested background opens inside a hovered row. The band wraps the line, so a

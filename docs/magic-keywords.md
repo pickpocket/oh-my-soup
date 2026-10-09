@@ -42,13 +42,13 @@ Open `/settings` and use **Interaction → Magic Keywords**, or change the setti
 
 ```bash
 # Disable every magic keyword
-omp config set magicKeywords.enabled false
+oms config set magicKeywords.enabled false
 
 # Disable one keyword while leaving the others enabled
-omp config set magicKeywords.ultrathink false
-omp config set magicKeywords.orchestrate false
-omp config set magicKeywords.workflow false
-omp config set magicKeywords.jevify false
+oms config set magicKeywords.ultrathink false
+oms config set magicKeywords.orchestrate false
+oms config set magicKeywords.workflow false
+oms config set magicKeywords.jevify false
 ```
 
-The global switch and four per-keyword switches default to `true`. The global switch gates every hidden notice and editor animation; a per-keyword switch gates only that notice (and ultrathink's maximum-auto-thinking override). Static highlighting and spelling exemptions remain. `workflowz` uses the settings key `magicKeywords.workflow`; its notice adapts to the active task batching, scout availability, and Eval kernel-tool settings. Run `omp config list` to inspect every setting and its current value. See [Settings](./settings.md) for configuration scopes, precedence, and project-local overrides.
+The global switch and four per-keyword switches default to `true`. The global switch gates every hidden notice and editor animation; a per-keyword switch gates only that notice (and ultrathink's maximum-auto-thinking override). Static highlighting and spelling exemptions remain. `workflowz` uses the settings key `magicKeywords.workflow`; its notice adapts to the active task batching, scout availability, and Eval kernel-tool settings. Run `oms config list` to inspect every setting and its current value. See [Settings](./settings.md) for configuration scopes, precedence, and project-local overrides.

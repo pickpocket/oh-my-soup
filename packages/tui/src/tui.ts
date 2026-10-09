@@ -14,11 +14,11 @@
  */
 import * as fs from "node:fs";
 import { performance } from "node:perf_hooks";
-import { getDebugLogPath } from "@oh-my-pi/pi-utils/dirs";
-import { $flag } from "@oh-my-pi/pi-utils/env";
-import * as logger from "@oh-my-pi/pi-utils/logger";
-import * as postmortem from "@oh-my-pi/pi-utils/postmortem";
-import type { TspFrame, TspNode, TspText } from "@oh-my-pi/pi-wire";
+import { getDebugLogPath } from "@oh-my-soup/pi-utils/dirs";
+import { $flag } from "@oh-my-soup/pi-utils/env";
+import * as logger from "@oh-my-soup/pi-utils/logger";
+import * as postmortem from "@oh-my-soup/pi-utils/postmortem";
+import type { TspFrame, TspNode, TspText } from "@oh-my-soup/pi-wire";
 import { DEFAULT_MAX_INLINE_IMAGES, ImageBudget } from "./components/image";
 import { TuiDebugServer } from "./debug-server";
 import { isKeyRelease, matchesKey } from "./keys";
@@ -261,7 +261,7 @@ export interface Component {
 
 	/**
 	 * Props for the native `overlay` wrapper when this component is shown as
-	 * an overlay: the sheet's `role` (Tern styles `omp.overlay.*` roles as
+	 * an overlay: the sheet's `role` (Tern styles `oms.overlay.*` roles as
 	 * glass sheets, so the component's own root must not draw a second frame),
 	 * `head` spans for the sheet's title row, and `size`/`anchor` overriding
 	 * the ones derived from the overlay options.
@@ -1424,7 +1424,7 @@ export class TUI extends Container {
 		this.#debugPaint = undefined;
 		this.#debugServer?.stop();
 		this.#debugServer = undefined;
-		const debugPath = process.env.OMP_TUI_DEBUG;
+		const debugPath = process.env.OMS_TUI_DEBUG;
 		if (debugPath !== undefined && debugPath.length > 0) {
 			this.#debugServer = new TuiDebugServer(this, debugPath);
 			this.#debugServer.start();

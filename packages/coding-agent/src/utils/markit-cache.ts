@@ -1,7 +1,7 @@
 import type { Stats } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { getDocumentConversionCacheDir, isEnoent, logger } from "@oh-my-pi/pi-utils";
+import { getDocumentConversionCacheDir, isEnoent, logger } from "@oh-my-soup/pi-utils";
 import packageJson from "../../package.json" with { type: "json" };
 
 /**

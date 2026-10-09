@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "bun:test";
-import type { AssistantMessage, AssistantMessageEvent, Context, FetchImpl, Model, Usage } from "@oh-my-pi/pi-ai/types";
-import { streamSimple } from "@oh-my-pi/pi-ai/stream";
+import type { AssistantMessage, AssistantMessageEvent, Context, FetchImpl, Model, Usage } from "@oh-my-soup/pi-ai/types";
+import { streamSimple } from "@oh-my-soup/pi-ai/stream";
 import { encodeBedrockFrame as encodeBedrockTestFrame } from "../../ai/test/helpers/bedrock-stream";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
-import { Effort } from "@oh-my-pi/pi-catalog/effort";
-import { isRecord } from "@oh-my-pi/pi-utils";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
+import { Effort } from "@oh-my-soup/pi-catalog/effort";
+import { isRecord } from "@oh-my-soup/pi-utils";
 import { CacheWarmer, type CacheWarmStream, type CacheWarmingRefreshEnd } from "../src/session/cache-warmer";
 
 const PROMPT_TOKENS = 100_000;

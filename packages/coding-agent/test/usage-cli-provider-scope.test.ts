@@ -1,9 +1,9 @@
 import { Database } from "bun:sqlite";
 import { afterEach, beforeEach, expect, test, vi } from "bun:test";
-import { AuthStorage, SqliteAuthCredentialStore } from "@oh-my-pi/pi-ai";
-import { runUsageCommand } from "@oh-my-pi/pi-coding-agent/cli/usage-cli";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import * as sdkModule from "@oh-my-pi/pi-coding-agent/sdk";
+import { AuthStorage, SqliteAuthCredentialStore } from "@oh-my-soup/pi-ai";
+import { runUsageCommand } from "@oh-my-soup/pi-coding-agent/cli/usage-cli";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import * as sdkModule from "@oh-my-soup/pi-coding-agent/sdk";
 
 let db: Database;
 let authStorage: AuthStorage;
@@ -41,20 +41,20 @@ function expectNoCredentialsError(provider: string): void {
 	expect(message).not.toContain("usage endpoint");
 }
 
-test("omp usage --provider with no stored credentials names the providers that have them", async () => {
+test("oms usage --provider with no stored credentials names the providers that have them", async () => {
 	await runUsageCommand({ provider: "claude", noExtensions: true });
 	expectNoCredentialsError("claude");
 	expect(process.exitCode).toBe(1);
 });
 
-test("omp usage invalidate refuses a provider with no stored credentials", async () => {
+test("oms usage invalidate refuses a provider with no stored credentials", async () => {
 	await runUsageCommand({ action: "invalidate", provider: "nosuch", noExtensions: true });
 	expect(stdout).toBe("");
 	expectNoCredentialsError("nosuch");
 	expect(process.exitCode).toBe(1);
 });
 
-test("omp usage invalidate accepts a provider with stored credentials", async () => {
+test("oms usage invalidate accepts a provider with stored credentials", async () => {
 	await runUsageCommand({ action: "invalidate", provider: "groq", noExtensions: true });
 	expect(stderr).toBe("");
 	expect(stdout).toBe('Invalidated cached usage reports for provider "groq".\n');
@@ -66,7 +66,7 @@ test.each([
 	["a provider with a usage endpoint but no stored credential", "anthropic"],
 	// Another process stored this credential after the snapshot was loaded.
 	["a credential missing from a stale snapshot", "xai"],
-])("omp usage invalidate accepts %s", async (_name, provider) => {
+])("oms usage invalidate accepts %s", async (_name, provider) => {
 	const writer = new AuthStorage(new SqliteAuthCredentialStore(db));
 	await writer.credentials.reload();
 	await writer.credentials.set("xai", { type: "api_key", key: "xai-test" });

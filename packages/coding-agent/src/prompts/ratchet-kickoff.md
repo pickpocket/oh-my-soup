@@ -19,7 +19,7 @@ No `ask` in this session: NEVER build or approve. Continue only an existing flow
 {{/has}}
 
 <critical>
-- Approvals ONLY via `approve()`; NEVER edit `.omp/ratchet/<flow>/_state.json` by hand.
+- Approvals ONLY via `approve()`; NEVER edit `.oms/ratchet/<flow>/_state.json` by hand.
 - Test-case transcripts are never written; the analyzer reads train only; you read scores only.
 - One change per round, only inside the approved change paths; obey every `gate()` decision.
 - Continue round after round without checking in until `plateau` or `done`.

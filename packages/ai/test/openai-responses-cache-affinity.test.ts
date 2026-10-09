@@ -2,19 +2,19 @@ import { afterEach, describe, expect, it, vi } from "bun:test";
 import {
 	type AzureOpenAIResponsesOptions,
 	streamAzureOpenAIResponses,
-} from "@oh-my-pi/pi-ai/providers/azure-openai-responses";
+} from "@oh-my-soup/pi-ai/providers/azure-openai-responses";
 import {
 	buildParams,
 	type OpenAIResponsesOptions,
 	streamOpenAIResponses,
-} from "@oh-my-pi/pi-ai/providers/openai-responses";
-import { stream as streamModel, streamSimple } from "@oh-my-pi/pi-ai/stream";
-import type { Context, FetchImpl, Model, ProviderSessionState, SimpleStreamOptions } from "@oh-my-pi/pi-ai/types";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
-import { resolveModelPolicy } from "@oh-my-pi/pi-catalog/compat/resolve";
-import { classifyModel } from "@oh-my-pi/pi-catalog/compat/taxonomy";
+} from "@oh-my-soup/pi-ai/providers/openai-responses";
+import { stream as streamModel, streamSimple } from "@oh-my-soup/pi-ai/stream";
+import type { Context, FetchImpl, Model, ProviderSessionState, SimpleStreamOptions } from "@oh-my-soup/pi-ai/types";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
+import { resolveModelPolicy } from "@oh-my-soup/pi-catalog/compat/resolve";
+import { classifyModel } from "@oh-my-soup/pi-catalog/compat/taxonomy";
 
-import { getBundledModel } from "@oh-my-pi/pi-catalog/models";
+import { getBundledModel } from "@oh-my-soup/pi-catalog/models";
 import { withEnv } from "./helpers";
 
 interface ResponsesCompatTestSpec {

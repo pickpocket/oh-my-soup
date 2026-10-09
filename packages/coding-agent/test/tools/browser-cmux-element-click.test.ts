@@ -1,7 +1,7 @@
 import { expect, it, spyOn } from "bun:test";
-import { CmuxTab } from "@oh-my-pi/pi-coding-agent/tools/browser/cmux/cmux-tab";
-import { CmuxSocketClient } from "@oh-my-pi/pi-coding-agent/tools/browser/cmux/socket-client";
-import { ToolError } from "@oh-my-pi/pi-tui/tools/tool-errors";
+import { CmuxTab } from "@oh-my-soup/pi-coding-agent/tools/browser/cmux/cmux-tab";
+import { CmuxSocketClient } from "@oh-my-soup/pi-coding-agent/tools/browser/cmux/socket-client";
+import { ToolError } from "@oh-my-soup/pi-tui/tools/tool-errors";
 
 it("cmux element click refuses a button or click count it cannot press instead of clicking once", async () => {
 	const methods: string[] = [];

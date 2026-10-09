@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import type { AssistantMessage, Context, Message, Model } from "@oh-my-pi/pi-ai";
-import { getBundledModel } from "@oh-my-pi/pi-catalog/models";
+import type { AssistantMessage, Context, Message, Model } from "@oh-my-soup/pi-ai";
+import { getBundledModel } from "@oh-my-soup/pi-catalog/models";
 import {
 	fitOutputTokensToContextWindow,
 	MIN_FITTED_OUTPUT_TOKENS,

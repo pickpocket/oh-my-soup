@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { isLspmuxSupported, wrapWithLspmux } from "@oh-my-pi/pi-coding-agent/lsp/lspmux";
+import { isLspmuxSupported, wrapWithLspmux } from "@oh-my-soup/pi-coding-agent/lsp/lspmux";
 
 const running = { available: true, running: true, binaryPath: "C:\\bin\\lspmux.exe", config: null };
 

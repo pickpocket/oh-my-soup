@@ -5,11 +5,11 @@
  * contract and the model-facing report.
  */
 import * as path from "node:path";
-import { type } from "@oh-my-pi/omptype";
-import type { AgentTool, AgentToolResult, AgentToolUpdateCallback } from "@oh-my-pi/pi-agent-core";
-import type { FindToolDetails } from "@oh-my-pi/pi-tui/tools/find";
-import { ToolError } from "@oh-my-pi/pi-tui/tools/tool-errors";
-import { formatBytes, formatDuration, formatNumber } from "@oh-my-pi/pi-utils";
+import { type } from "@oh-my-soup/omstype";
+import type { AgentTool, AgentToolResult, AgentToolUpdateCallback } from "@oh-my-soup/pi-agent-core";
+import type { FindToolDetails } from "@oh-my-soup/pi-tui/tools/find";
+import { ToolError } from "@oh-my-soup/pi-tui/tools/tool-errors";
+import { formatBytes, formatDuration, formatNumber } from "@oh-my-soup/pi-utils";
 import { sessionResolveContext } from "../../internal-urls/context";
 import { InternalUrlFilesystem } from "../../internal-urls/url-filesystem";
 import { hasNativeJudge, journalJudgmentUsage, resolveJudge, sharedJudgmentCache } from "../../judgment";
@@ -72,7 +72,7 @@ export class FindTool implements AgentTool<typeof findSchema, FindToolDetails> {
 		if (query.length === 0) throw new ToolError("`query` must be a non-empty description");
 		const cwd = this.session.cwd;
 		const rawScopeInput = params.path === undefined ? "" : normalizePathLikeInput(params.path);
-		// Host paths stay native; internal URLs (`local://`, `omp://`, …) are
+		// Host paths stay native; internal URLs (`local://`, `oms://`, …) are
 		// listed, scanned, and read in place through the URL filesystem.
 		const filesystem = new InternalUrlFilesystem({
 			context: sessionResolveContext(this.session, { signal }),

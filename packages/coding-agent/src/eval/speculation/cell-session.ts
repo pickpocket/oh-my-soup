@@ -4,7 +4,7 @@ import type {
 	SpeculativeChildHandle,
 	SpeculativeOperationSink,
 	ToolSpeculationStreamSession,
-} from "@oh-my-pi/pi-agent-core";
+} from "@oh-my-soup/pi-agent-core";
 import type { ToolSession } from "../../tools";
 import { namespaceSessionId as namespaceJavaScriptSessionId } from "../js";
 import { shadowPlanIfPresent, snapshotVmContext } from "../js/context-manager";

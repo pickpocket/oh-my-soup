@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from "bun:test";
-import type { Agent, AgentEvent } from "@oh-my-pi/pi-agent-core";
-import type { AssistantMessage, Judge, JudgmentRequest, NoulAnswer } from "@oh-my-pi/pi-ai";
-import type { Rule } from "@oh-my-pi/pi-coding-agent/capability/rule";
-import type { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { JUDGED_CONTENT_MAX_TOKENS, TtsrManager } from "@oh-my-pi/pi-coding-agent/export/ttsr";
-import type { SessionManager } from "@oh-my-pi/pi-coding-agent/session/session-manager";
-import { TtsrCoordinator, type TtsrCoordinatorHost } from "@oh-my-pi/pi-coding-agent/session/ttsr-coordinator";
-import { countTokens, Encoding } from "@oh-my-pi/pi-natives";
+import type { Agent, AgentEvent } from "@oh-my-soup/pi-agent-core";
+import type { AssistantMessage, Judge, JudgmentRequest, NoulAnswer } from "@oh-my-soup/pi-ai";
+import type { Rule } from "@oh-my-soup/pi-coding-agent/capability/rule";
+import type { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { JUDGED_CONTENT_MAX_TOKENS, TtsrManager } from "@oh-my-soup/pi-coding-agent/export/ttsr";
+import type { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
+import { TtsrCoordinator, type TtsrCoordinatorHost } from "@oh-my-soup/pi-coding-agent/session/ttsr-coordinator";
+import { countTokens, Encoding } from "@oh-my-soup/pi-natives";
 
 function judgedRule(name: string, fields: Partial<Rule>): Rule {
 	return {

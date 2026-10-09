@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { createAbortSourceTracker } from "@oh-my-pi/pi-ai/utils/abort";
+import { createAbortSourceTracker } from "@oh-my-soup/pi-ai/utils/abort";
 
 /**
  * Defends the contract `AssistantMessageEventStream` providers depend on: caller

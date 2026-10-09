@@ -1,7 +1,7 @@
 /**
- * Helpers for authoring the RPC wire schema in omptype's definition syntax.
+ * Helpers for authoring the RPC wire schema in omstype's definition syntax.
  *
- * Wire definitions are plain omptype definitions (strings, object literals,
+ * Wire definitions are plain omstype definitions (strings, object literals,
  * tuple expressions) that name each other through the shared scope built in
  * `./index.ts`. These helpers only wrap the tuple operators so field-level
  * documentation and decoder defaults read as intent.

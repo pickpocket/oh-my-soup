@@ -1,4 +1,4 @@
-import { authPolicyFor } from "@oh-my-pi/pi-catalog/compat/auth";
+import { authPolicyFor } from "@oh-my-soup/pi-catalog/compat/auth";
 import { resolveUsedFraction } from "../usage";
 import type {
 	CredentialRankingContext,

@@ -1,7 +1,7 @@
-import type { AssistantMessage, Usage } from "@oh-my-pi/pi-ai";
+import type { AssistantMessage, Usage } from "@oh-my-soup/pi-ai";
 import { Container } from "../tui";
 import { Spacer } from "../components/spacer";
-import { formatDuration, formatNumber } from "@oh-my-pi/pi-utils";
+import { formatDuration, formatNumber } from "@oh-my-soup/pi-utils";
 import { theme } from "../theme/theme";
 import { formatMetricRow, MetricRow, type MetricSpec } from "../components/metric";
 import { node, row, span, text } from "../native/describe";
@@ -37,7 +37,7 @@ export function turnElapsedMs(
 	return elapsed > 0 ? Math.round(elapsed) : undefined;
 }
 
-/** A finished turn's totals, the native `omp.turn.usage` line under its last answer. */
+/** A finished turn's totals, the native `oms.turn.usage` line under its last answer. */
 export interface TurnUsageSummary {
 	/** Prompt→yield wall time; undefined when either end is unknown. */
 	readonly elapsedMs: number | undefined;
@@ -222,7 +222,7 @@ class UsageRowBlock extends Container {
 			);
 		}
 		this.#nativeNode = row(children, {
-			role: "omp.usage.turn",
+			role: "oms.usage.turn",
 			gap: "none",
 			align: "baseline",
 			...(stamped ? { title: formatUsageTimestamp(timestamp, hour12) } : {}),

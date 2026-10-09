@@ -1,6 +1,6 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { $which } from "@oh-my-pi/pi-utils";
+import { $which } from "@oh-my-soup/pi-utils";
 import { isSettingsInitialized, settings } from "../config/settings";
 
 import vaultDoc from "../prompts/internal-urls/vault.md" with { type: "text" };

@@ -7,14 +7,14 @@
  * of the run.
  */
 import { afterEach, describe, expect, it, vi } from "bun:test";
-import type { AssistantMessage, Model } from "@oh-my-pi/pi-ai";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import * as sdkModule from "@oh-my-pi/pi-coding-agent/sdk";
-import type { AgentSession } from "@oh-my-pi/pi-coding-agent/session/agent-session";
-import { TurnRecovery, type TurnRecoveryHost } from "@oh-my-pi/pi-coding-agent/session/turn-recovery";
-import { runSubprocess } from "@oh-my-pi/pi-coding-agent/task/executor";
-import type { AgentProgress } from "@oh-my-pi/pi-tui/tools/task";
+import type { AssistantMessage, Model } from "@oh-my-soup/pi-ai";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import * as sdkModule from "@oh-my-soup/pi-coding-agent/sdk";
+import type { AgentSession } from "@oh-my-soup/pi-coding-agent/session/agent-session";
+import { TurnRecovery, type TurnRecoveryHost } from "@oh-my-soup/pi-coding-agent/session/turn-recovery";
+import { runSubprocess } from "@oh-my-soup/pi-coding-agent/task/executor";
+import type { AgentProgress } from "@oh-my-soup/pi-tui/tools/task";
 import { createSessionDefaults } from "../helpers/session-defaults";
 
 function model(provider: string, id: string, contextWindow: number): Model {
@@ -44,7 +44,7 @@ describe("subagent context window after a model swap", () => {
 	});
 
 	it("follows the serving model's window", async () => {
-		const primary = model("sub-omp", "k3-256k", 256_000);
+		const primary = model("sub-oms", "k3-256k", 256_000);
 		const fallback = model("openai-codex", "gpt-6-sol", 500_000);
 		const snapshots: AgentProgress[] = [];
 		vi.spyOn(sdkModule, "createAgentSession").mockImplementation(async () => {
@@ -101,14 +101,14 @@ describe("subagent context window after a model swap", () => {
 		});
 
 		const settings = Settings.isolated({});
-		settings.setModelRole("default", "sub-omp/k3-256k");
+		settings.setModelRole("default", "sub-oms/k3-256k");
 		const result = await runSubprocess({
 			cwd: "/tmp",
 			agent: { name: "task", description: "test", systemPrompt: "test", source: "bundled" },
 			task: "work",
 			index: 0,
 			id: "context-window-swap",
-			modelOverride: ["sub-omp/k3-256k", "openai-codex/gpt-6-sol"],
+			modelOverride: ["sub-oms/k3-256k", "openai-codex/gpt-6-sol"],
 			settings,
 			modelRegistry: {
 				refresh: async () => {},

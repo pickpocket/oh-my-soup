@@ -10,7 +10,7 @@
  * never where the next chunk would lead with a `key=value;` segment the
  * receiver would read as a parameter (Tern's `tsp_chunks`).
  */
-import { isRecord } from "@oh-my-pi/pi-utils/type-guards";
+import { isRecord } from "@oh-my-soup/pi-utils/type-guards";
 import {
 	TSP_APC_ID,
 	TSP_DEFAULT_APC_LIMIT,
@@ -18,7 +18,7 @@ import {
 	type TspEvent,
 	type TspReply,
 	type TspVerb,
-} from "@oh-my-pi/pi-wire";
+} from "@oh-my-soup/pi-wire";
 
 const APC = "\x1b_";
 const ST = "\x1b\\";
@@ -135,9 +135,9 @@ export function encodeTspJson(verb: TspVerb, value: unknown, params?: TspParams,
 
 /**
  * The `hello` query; callers follow it with a DA1 sentinel. `features: ["edit"]`
- * tells the terminal that omp applies its `edit` events (Tern SDK,
- * `protocol/input.md`), so it may keep a native selection in omp's editors;
- * without it, every key stays omp's. `"undo"` says omp applies `undo` events,
+ * tells the terminal that oms applies its `edit` events (Tern SDK,
+ * `protocol/input.md`), so it may keep a native selection in oms's editors;
+ * without it, every key stays oms's. `"undo"` says oms applies `undo` events,
  * so the terminal may turn ⌃Z in a field into one.
  * `"send"` accepts an explicit prompt for a live composer without simulating keys.
  */
@@ -145,7 +145,7 @@ export function encodeTspHelloQuery(version?: string): string {
 	return encodeTspJson("q", {
 		q: "hello",
 		v: [TSP_VERSION],
-		app: "omp",
+		app: "oms",
 		features: ["edit", "undo", "send"],
 		ver: version,
 	});

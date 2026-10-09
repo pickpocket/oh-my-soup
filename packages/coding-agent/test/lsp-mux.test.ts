@@ -196,7 +196,7 @@ describe("LspMuxServer", () => {
 	const clients: MuxTestClient[] = [];
 
 	beforeEach(async () => {
-		tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-lsp-mux-test-"));
+		tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-lsp-mux-test-"));
 		socketPath = path.join(tmpDir, "mux.sock");
 		connectParams = { command: process.execPath, args: ["run", fixturePath], cwd: tmpDir };
 		server = new LspMuxServer();

@@ -2,29 +2,29 @@ import { afterEach, describe, expect, it, spyOn, vi } from "bun:test";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { AgentBusyError } from "@oh-my-pi/pi-agent-core";
-import type { Model } from "@oh-my-pi/pi-ai";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
-import { resetSettingsForTest, Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import type { ExtensionUIContext } from "@oh-my-pi/pi-coding-agent/extensibility/extensions";
-import { resolveLocalUrlToPath } from "@oh-my-pi/pi-coding-agent/internal-urls";
+import { AgentBusyError } from "@oh-my-soup/pi-agent-core";
+import type { Model } from "@oh-my-soup/pi-ai";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
+import { resetSettingsForTest, Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import type { ExtensionUIContext } from "@oh-my-soup/pi-coding-agent/extensibility/extensions";
+import { resolveLocalUrlToPath } from "@oh-my-soup/pi-coding-agent/internal-urls";
 import {
 	ACP_BOOTSTRAP_RACE_GUARD_MS,
 	AcpAgent,
 	createAcpExtensionUiContext,
-} from "@oh-my-pi/pi-coding-agent/modes/acp/acp-agent";
-import type { PlanModeState } from "@oh-my-pi/pi-coding-agent/plan-mode/state";
+} from "@oh-my-soup/pi-coding-agent/modes/acp/acp-agent";
+import type { PlanModeState } from "@oh-my-soup/pi-coding-agent/plan-mode/state";
 import type {
 	AgentSession,
 	AgentSessionEvent,
 	UsageFallbackConfirmation,
-} from "@oh-my-pi/pi-coding-agent/session/agent-session";
-import { SILENT_ABORT_MARKER } from "@oh-my-pi/pi-coding-agent/session/messages";
-import { resetSessionIndexForTests } from "@oh-my-pi/pi-coding-agent/session/session-index";
-import { SessionManager } from "@oh-my-pi/pi-coding-agent/session/session-manager";
-import { TaskTool } from "@oh-my-pi/pi-coding-agent/task";
-import type { ToolSession } from "@oh-my-pi/pi-coding-agent/tools";
-import { getConfigRootDir, setAgentDir } from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-coding-agent/session/agent-session";
+import { SILENT_ABORT_MARKER } from "@oh-my-soup/pi-coding-agent/session/messages";
+import { resetSessionIndexForTests } from "@oh-my-soup/pi-coding-agent/session/session-index";
+import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
+import { TaskTool } from "@oh-my-soup/pi-coding-agent/task";
+import type { ToolSession } from "@oh-my-soup/pi-coding-agent/tools";
+import { getConfigRootDir, setAgentDir } from "@oh-my-soup/pi-utils";
 import type {
 	AgentSideConnection,
 	ClientCapabilities,
@@ -33,7 +33,7 @@ import type {
 	PromptRequest,
 	SessionNotification,
 	Validator,
-} from "@oh-my-pi/pi-utils/acp";
+} from "@oh-my-soup/pi-utils/acp";
 import {
 	RequestError,
 	zForkSessionResponse,
@@ -41,10 +41,10 @@ import {
 	zNewSessionResponse,
 	zPromptResponse,
 	zSessionNotification,
-} from "@oh-my-pi/pi-utils/acp";
+} from "@oh-my-soup/pi-utils/acp";
 import { TOOL_NAME as DELAYED_MCP_TOOL_NAME } from "./fixtures/delayed-tool-mcp";
 
-import { cfgPlanAutosave, cfgPlanAutosaveDir, cfgPlanEnabled } from "@oh-my-pi/pi-coding-agent/plan-mode/settings";
+import { cfgPlanAutosave, cfgPlanAutosaveDir, cfgPlanEnabled } from "@oh-my-soup/pi-coding-agent/plan-mode/settings";
 
 /** Validates an ACP wire payload against the in-house protocol schemas. */
 function expectAcpStructure(schema: Validator<unknown>, value: unknown): void {
@@ -494,7 +494,7 @@ async function createHarness(
 		sessionUpdateHook?: (notification: SessionNotification) => Promise<void> | void;
 	} = {},
 ): Promise<AgentHarness> {
-	const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), "omp-acp-test-"));
+	const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), "oms-acp-test-"));
 	cleanupRoots.push(root);
 	const agentDir = path.join(root, "agent");
 	const cwdA = path.join(root, "cwd-a");
@@ -793,7 +793,7 @@ describe("ACP agent", () => {
 		expect(result.content[0]?.text).toMatch(/Plan approved/);
 		expect(result.content[0]?.text).not.toContain(harness.cwdA);
 		expect(result.content[0]?.text).not.toContain("autosaved to");
-		const saved = path.join(harness.cwdA, ".omp", "plans", "WORDS_COUNTER_PLAN.md");
+		const saved = path.join(harness.cwdA, ".oms", "plans", "WORDS_COUNTER_PLAN.md");
 		expect(await Bun.file(saved).text()).toBe("# Words Counter\n\nFile contents.");
 		expect(session.planModeState).toBeUndefined();
 
@@ -1270,14 +1270,14 @@ describe("ACP agent", () => {
 		await Bun.sleep(0);
 	});
 
-	it("accepts OMP extension methods and rejects unknown unprefixed methods", async () => {
+	it("accepts OMS extension methods and rejects unknown unprefixed methods", async () => {
 		const harness = await createHarness();
 
 		const result = await harness.agent.extMethod("_omp/sessions/listAll", { limit: 2 });
 
 		expect(Array.isArray(result.sessions)).toBe(true);
 		expect(typeof result.total).toBe("number");
-		await expect(harness.agent.extMethod("omp/sessions/listAll", { limit: 2 })).rejects.toThrow(
+		await expect(harness.agent.extMethod("oms/sessions/listAll", { limit: 2 })).rejects.toThrow(
 			"Unknown ACP ext method",
 		);
 
@@ -1921,7 +1921,7 @@ describe("ACP agent", () => {
 
 	it("refreshes task agent descriptions on ACP /reload-plugins", async () => {
 		const harness = await createHarness();
-		const agentDir = path.join(harness.cwdA, ".omp", "agents");
+		const agentDir = path.join(harness.cwdA, ".oms", "agents");
 		const agentFile = path.join(agentDir, "acp-reload-agent.md");
 		await fs.promises.mkdir(agentDir, { recursive: true });
 		await fs.promises.writeFile(

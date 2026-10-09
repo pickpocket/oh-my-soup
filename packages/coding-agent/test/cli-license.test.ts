@@ -4,7 +4,7 @@ import * as path from "node:path";
 const repoRoot = path.resolve(import.meta.dir, "../../..");
 const cliEntry = path.join(repoRoot, "packages/coding-agent/src/cli.ts");
 
-it("prints the embedded OMP license and aggregate notices on the exact top-level flag path", async () => {
+it("prints the embedded OMS license and aggregate notices on the exact top-level flag path", async () => {
 	const proc = Bun.spawn([process.execPath, cliEntry, "--license"], {
 		cwd: repoRoot,
 		stdout: "pipe",
@@ -20,5 +20,5 @@ it("prints the embedded OMP license and aggregate notices on the exact top-level
 
 	expect(exitCode).toBe(0);
 	expect(stderr).toBe("");
-	expect(stdout).toBe(`OMP License and Third-Party Notices\n\n${license.trimEnd()}\n\n${notices.trimEnd()}\n`);
+	expect(stdout).toBe(`OMS License and Third-Party Notices\n\n${license.trimEnd()}\n\n${notices.trimEnd()}\n`);
 });

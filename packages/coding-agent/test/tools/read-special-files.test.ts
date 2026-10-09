@@ -2,11 +2,11 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import type { ToolSession } from "@oh-my-pi/pi-coding-agent/tools";
-import { ReadTool } from "@oh-my-pi/pi-coding-agent/tools/read";
-import { ToolError } from "@oh-my-pi/pi-tui/tools/tool-errors";
-import { hasFsCode, removeSyncWithRetries, Snowflake } from "@oh-my-pi/pi-utils";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import type { ToolSession } from "@oh-my-soup/pi-coding-agent/tools";
+import { ReadTool } from "@oh-my-soup/pi-coding-agent/tools/read";
+import { ToolError } from "@oh-my-soup/pi-tui/tools/tool-errors";
+import { hasFsCode, removeSyncWithRetries, Snowflake } from "@oh-my-soup/pi-utils";
 
 function makeSession(cwd: string): ToolSession {
 	return {

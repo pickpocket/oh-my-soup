@@ -1,10 +1,10 @@
-# @oh-my-pi/omp-stats
+# @oh-my-soup/oms-stats
 
 Local observability dashboard for AI usage statistics.
 
 ## Features
 
-- **Session log parsing**: Reads JSONL session logs from `~/.omp/agent/sessions/`
+- **Session log parsing**: Reads JSONL session logs from `~/.oms/agent/sessions/`
 - **SQLite aggregation**: Stats storage in `bun:sqlite`, with hourly rollups so any range queries in milliseconds
 - **Live web dashboard**: Opens instantly, ingests sessions in the background (newest first) and streams progress and updates to the page
 - **Incremental sync**: Only processes new/modified log entries; a watcher re-syncs transcripts as they are written
@@ -29,22 +29,22 @@ Subscription-backed models use matching public API prices when an exact public m
 
 ```bash
 # Start dashboard server (default: http://localhost:3847)
-omp stats
+oms stats
 
 # Custom port
-omp stats --port 8080
+oms stats --port 8080
 
 # Print summary to console
-omp stats --summary
+oms stats --summary
 
 # Output as JSON (for scripting)
-omp stats --json
+oms stats --json
 ```
 
 ### Programmatic
 
 ```typescript
-import { getDashboardStats, syncAllSessions } from "@oh-my-pi/omp-stats";
+import { getDashboardStats, syncAllSessions } from "@oh-my-soup/oms-stats";
 
 // Sync session logs to database
 const { processed, files } = await syncAllSessions();
@@ -69,14 +69,14 @@ console.log(stats.byModel[0].avgTokensPerSecond);
 
 ## Data Storage
 
-- **Session logs**: `~/.omp/agent/sessions/` (JSONL files)
-- **Stats database**: `~/.omp/stats.db` (SQLite)
+- **Session logs**: `~/.oms/agent/sessions/` (JSONL files)
+- **Stats database**: `~/.oms/stats.db` (SQLite)
 
 Synchronization fetches file metadata and saved cursors in bounded batches and overlaps transcript reads, including on macOS without worker threads. Statistics and cursors commit atomically; unchanged files are skipped, and interrupted batches are retried without double-counting usage.
 
 Full reconciliation replays still scan every transcript. Unchanged transcripts retain their indexed rows while missing or stale records and unfinished links are repaired; modified transcripts are rebuilt. Parsing discards message bodies after extracting statistics rather than retaining entire decoded transcripts.
 
-Range queries read `message_rollup` / `tool_rollup` / `session_rollup`, maintained from the raw tables: triggers mark touched hours and transcripts dirty (from any omp process), and the dashboard re-rolls them newest-first in short transactions. Reads stay exact by aggregating the few dirty hours raw; during an initial build the header shows the indexing backlog.
+Range queries read `message_rollup` / `tool_rollup` / `session_rollup`, maintained from the raw tables: triggers mark touched hours and transcripts dirty (from any oms process), and the dashboard re-rolls them newest-first in short transactions. Reads stay exact by aggregating the few dirty hours raw; during an initial build the header shows the indexing backlog.
 
 ## Dashboard
 

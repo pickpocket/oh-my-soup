@@ -7,7 +7,7 @@
  * - Grouped references and symbols
  * - Collapsible/expandable views
  */
-import type { TspSpan, TspText, TspTone, TspTreeNode } from "@oh-my-pi/pi-wire";
+import type { TspSpan, TspText, TspTone, TspTreeNode } from "@oh-my-soup/pi-wire";
 import type { NativeToolHead, NativeToolView, RenderResultOptions, ToolRenderer, ToolRenderResult } from "./renderer";
 import type { Component } from "../tui";
 import { Text } from "../components/text";
@@ -847,7 +847,7 @@ function severityTone(severity: ParsedDiagnostic["severity"]): TspTone {
 	}
 }
 
-/** One diagnostic row (role `omp.tool.diagnostic`): severity icon, mono `file:line:col`, source chip, message. */
+/** One diagnostic row (role `oms.tool.diagnostic`): severity icon, mono `file:line:col`, source chip, message. */
 function diagnosticRow(diag: ParsedDiagnostic, key: string): NativeNode {
 	const message: TspSpan[] = [span(diag.message)];
 	if (diag.code) message.push(span(` ${diag.code}`, "muted"));
@@ -859,7 +859,7 @@ function diagnosticRow(diag: ParsedDiagnostic, key: string): NativeNode {
 				diag.source ? node("badge", { text: diag.source }) : undefined,
 				text(message, { wrap: "word", grow: 1 }),
 			]),
-			{ role: "omp.tool.diagnostic" },
+			{ role: "oms.tool.diagnostic" },
 		),
 		key,
 	);
@@ -869,7 +869,7 @@ function diagnosticRow(diag: ParsedDiagnostic, key: string): NativeNode {
 function statusRow(message: string, tone: "error" | "warning", key: string): NativeNode {
 	return keyed(
 		row([diagnosticGlyph(tone), text([span(plainText(message), tone)], { wrap: "word", grow: 1 })], {
-			role: tone === "error" ? "omp.tool.error" : "omp.tool.diagnostic",
+			role: tone === "error" ? "oms.tool.error" : "oms.tool.diagnostic",
 		}),
 		key,
 	);

@@ -2,7 +2,7 @@
  * Normalizes the RPC wire bundle (JSON Schema 2020-12 + `x-rpc`) into a small
  * type model shared by every language emitter.
  *
- * Emitters read only the bundle, never the omptype source, so the bundle is
+ * Emitters read only the bundle, never the omstype source, so the bundle is
  * proven sufficient for generators written in other languages.
  */
 import type { RpcWireBundle, RpcWireCommand } from "../../src/modes/rpc/wire";

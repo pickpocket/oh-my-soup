@@ -1,14 +1,14 @@
 import { describe, expect, it } from "bun:test";
 import { gunzipSync } from "node:zlib";
-import { streamDevin } from "@oh-my-pi/pi-ai/providers/devin";
-import type { AssistantMessage, Context, Model, StreamOptions } from "@oh-my-pi/pi-ai/types";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
+import { streamDevin } from "@oh-my-soup/pi-ai/providers/devin";
+import type { AssistantMessage, Context, Model, StreamOptions } from "@oh-my-soup/pi-ai/types";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
 import {
 	type GetChatMessageRequest,
 	GetChatMessageRequestSchema,
 	GetUserJwtResponseSchema,
-} from "@oh-my-pi/pi-catalog/discovery/devin-proto";
-import { create, fromBinary, toBinary } from "@oh-my-pi/pi-catalog/discovery/protobuf";
+} from "@oh-my-soup/pi-catalog/discovery/devin-proto";
+import { create, fromBinary, toBinary } from "@oh-my-soup/pi-catalog/discovery/protobuf";
 
 const devinModel: Model<"devin-agent"> = buildModel({
 	id: "devin-test",

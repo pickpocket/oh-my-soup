@@ -1,6 +1,6 @@
-import type * as XtermModule from "@oh-my-pi/pi-utils/vterm";
-import type { Terminal as XtermTerminalType } from "@oh-my-pi/pi-utils/vterm";
-import type { TspSpan } from "@oh-my-pi/pi-wire";
+import type * as XtermModule from "@oh-my-soup/pi-utils/vterm";
+import type { Terminal as XtermTerminalType } from "@oh-my-soup/pi-utils/vterm";
+import type { TspSpan } from "@oh-my-soup/pi-wire";
 import type { Component } from "../tui";
 import { ansi, col, row, span, text } from "../native/describe";
 import { Memo } from "../native/memo";
@@ -88,7 +88,7 @@ function normalizeInputForPty(data: string, applicationCursorKeysMode: boolean):
 /** Interactive terminal overlay driven by an external PTY controller. */
 export class BashInteractiveOverlayComponent implements Component {
 	/** Native sheet: a full-pane glass overlay titled Console. */
-	readonly nativeOverlay = { role: "omp.overlay.console", size: "full", head: "Console" } as const;
+	readonly nativeOverlay = { role: "oms.overlay.console", size: "full", head: "Console" } as const;
 	#terminal: XtermTerminalType;
 	#state: "running" | "complete" | "timed_out" | "killed" = "running";
 	#exitCode: number | undefined;

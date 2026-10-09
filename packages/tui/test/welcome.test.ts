@@ -1,7 +1,7 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from "bun:test";
-import { pickWeightedTip, WelcomeComponent } from "@oh-my-pi/pi-tui/prompt/welcome";
-import { initTheme, theme } from "@oh-my-pi/pi-tui/theme";
-import { visibleWidth } from "@oh-my-pi/pi-tui";
+import { pickWeightedTip, WelcomeComponent } from "@oh-my-soup/pi-tui/prompt/welcome";
+import { initTheme, theme } from "@oh-my-soup/pi-tui/theme";
+import { visibleWidth } from "@oh-my-soup/pi-tui";
 
 describe("WelcomeComponent", () => {
 	beforeAll(async () => {
@@ -16,15 +16,15 @@ describe("WelcomeComponent", () => {
 		const tree = new WelcomeComponent("18.4.12").describe({} as never);
 		expect(tree.c?.[0]).toMatchObject({
 			key: "lockup",
-			p: { role: "omp.welcome.lockup" },
+			p: { role: "oms.welcome.lockup" },
 			c: [
 				{ k: "image", key: "logo" },
 				{
 					k: "col",
-					p: { role: "omp.welcome.mark" },
+					p: { role: "oms.welcome.mark" },
 					c: [
-						{ p: { role: "omp.welcome.wordmark" } },
-						{ p: { role: "omp.welcome.version", spans: [{ t: "v18.4.12" }] } },
+						{ p: { role: "oms.welcome.wordmark" } },
+						{ p: { role: "oms.welcome.version", spans: [{ t: "v18.4.12" }] } },
 					],
 				},
 			],

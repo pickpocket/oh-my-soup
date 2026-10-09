@@ -1,5 +1,5 @@
 import * as nodeCrypto from "node:crypto";
-import { getInstallId } from "@oh-my-pi/pi-utils";
+import { getInstallId } from "@oh-my-soup/pi-utils";
 import { claudeToolPrefix } from "./claude-code-fingerprint";
 
 const CLAUDE_CLOAKING_USER_ID_REGEX =
@@ -48,8 +48,8 @@ export function generateClaudeCloakingUserId(): string {
 	return `user_${userHash}_account_${accountId}_session_${sessionId}`;
 }
 
-const CLAUDE_DEVICE_ID_INSTALL_HASH_DOMAIN = "omp-claude-device-id-v1:";
-const CLAUDE_DEVICE_ID_ACCOUNT_HASH_DOMAIN = "omp-claude-device-id-v2";
+const CLAUDE_DEVICE_ID_INSTALL_HASH_DOMAIN = "oms-claude-device-id-v1:";
+const CLAUDE_DEVICE_ID_ACCOUNT_HASH_DOMAIN = "oms-claude-device-id-v2";
 
 /** Derive the stable Claude device id for an installation and optional account. */
 export function deriveClaudeDeviceId(installId: string, accountId?: string): string {

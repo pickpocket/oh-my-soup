@@ -12,7 +12,7 @@ import {
 	getTinyModelsCacheDir,
 	isCompiledBinary,
 	resolveRuntimeModule,
-} from "@oh-my-pi/pi-utils";
+} from "@oh-my-soup/pi-utils";
 import packageJson from "../../package.json" with { type: "json" };
 import {
 	errorMessage,

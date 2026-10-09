@@ -17,7 +17,7 @@
 import type { Dirent, Stats } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { getPluginsDir, isEnoent, normalizeFrontmatterKeys, parseFrontmatter } from "@oh-my-pi/pi-utils";
+import { getPluginsDir, isEnoent, normalizeFrontmatterKeys, parseFrontmatter } from "@oh-my-soup/pi-utils";
 import { registerProvider } from "../capability";
 import { readFile } from "../capability/fs";
 import { type MCPServer, mcpCapability } from "../capability/mcp";
@@ -31,7 +31,7 @@ import {
 } from "./agent-plugin-format";
 import { resolveContainedPath } from "./contained-path";
 import { compareSkillOrder, createSourceMeta, listClaudePluginRoots } from "./helpers";
-import { listOmpExtensionRoots } from "./omp-extension-roots";
+import { listOmsExtensionRoots } from "./oms-extension-roots";
 
 const PROVIDER_ID = "agent-plugins";
 const DISPLAY_NAME = "Agent Plugins";
@@ -60,7 +60,7 @@ interface CandidateRoot {
 async function listCandidateRoots(ctx: LoadContext): Promise<CandidateRoot[]> {
 	const [marketplace, extensionRoots] = await Promise.all([
 		listClaudePluginRoots(ctx.home, ctx.cwd),
-		listOmpExtensionRoots(ctx),
+		listOmsExtensionRoots(ctx),
 	]);
 	const seen = new Set<string>();
 	const candidates: CandidateRoot[] = [];

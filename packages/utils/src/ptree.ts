@@ -7,7 +7,7 @@
  * - Convenience helpers: captureText / execText, AbortSignal, timeouts.
  */
 
-import { Process } from "@oh-my-pi/pi-natives";
+import { Process } from "@oh-my-soup/pi-natives";
 import type { Spawn, Subprocess } from "bun";
 
 type InMask = "pipe" | "ignore" | Buffer | Uint8Array | null;
@@ -15,8 +15,8 @@ type InMask = "pipe" | "ignore" | Buffer | Uint8Array | null;
 /** A Bun subprocess with stdout/stderr always piped (stdin may vary). */
 type PipedSubprocess<In extends InMask = InMask> = Subprocess<In, "pipe", "pipe">;
 
-const LINUX_SUBREAPER_COMMAND_ENV = "OMP_PTREE_SUBREAPER_COMMAND";
-const LINUX_SUBREAPER_BUN_BE_BUN_ENV = "OMP_PTREE_SUBREAPER_BUN_BE_BUN";
+const LINUX_SUBREAPER_COMMAND_ENV = "OMS_PTREE_SUBREAPER_COMMAND";
+const LINUX_SUBREAPER_BUN_BE_BUN_ENV = "OMS_PTREE_SUBREAPER_BUN_BE_BUN";
 const SUBREAPER_KILL_WINDOW_MS = 100;
 const SUBREAPER_KILL_POLL_MS = 5;
 

@@ -1,11 +1,11 @@
 /**
  * SSH JSON Provider
  *
- * Discovers SSH hosts from managed omp config paths and legacy root ssh.json files.
+ * Discovers SSH hosts from managed oms config paths and legacy root ssh.json files.
  * Priority: 5 (low, project/user config discovery)
  */
 import * as path from "node:path";
-import { getSSHConfigPath, tryParseJson } from "@oh-my-pi/pi-utils";
+import { getSSHConfigPath, tryParseJson } from "@oh-my-soup/pi-utils";
 import { registerProvider } from "../capability";
 import { readFile } from "../capability/fs";
 import { type SSHHost, sshCapability } from "../capability/ssh";
@@ -147,7 +147,7 @@ async function load(ctx: LoadContext): Promise<LoadResult<SSHHost>> {
 registerProvider(sshCapability.id, {
 	id: PROVIDER_ID,
 	displayName: DISPLAY_NAME,
-	description: "Load SSH hosts from managed omp paths and legacy ssh.json/.ssh.json files",
+	description: "Load SSH hosts from managed oms paths and legacy ssh.json/.ssh.json files",
 	priority: 5,
 	load,
 });

@@ -1,18 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
-import { clearCache } from "@oh-my-pi/pi-coding-agent/capability/fs";
-import { ModelRegistry } from "@oh-my-pi/pi-coding-agent/config/model-registry";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { createAgentSession } from "@oh-my-pi/pi-coding-agent/sdk";
-import { AuthStorage } from "@oh-my-pi/pi-coding-agent/session/auth-storage";
-import { SessionManager } from "@oh-my-pi/pi-coding-agent/session/session-manager";
-import { __resetDirsFromEnvForTests, setAgentDir, TempDir } from "@oh-my-pi/pi-utils";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
+import { clearCache } from "@oh-my-soup/pi-coding-agent/capability/fs";
+import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { createAgentSession } from "@oh-my-soup/pi-coding-agent/sdk";
+import { AuthStorage } from "@oh-my-soup/pi-coding-agent/session/auth-storage";
+import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
+import { __resetDirsFromEnvForTests, setAgentDir, TempDir } from "@oh-my-soup/pi-utils";
 
 const originalEnv = {
 	PI_CODING_AGENT_DIR: process.env.PI_CODING_AGENT_DIR,
-	OMP_PROFILE: process.env.OMP_PROFILE,
+	OMS_PROFILE: process.env.OMS_PROFILE,
 	PI_PROFILE: process.env.PI_PROFILE,
 };
 

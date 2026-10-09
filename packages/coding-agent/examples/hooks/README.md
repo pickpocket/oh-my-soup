@@ -1,15 +1,15 @@
 # Hooks Examples
 
-Example hooks for omp-coding-agent. Hook modules load through the extension runner, so every `pi.on(...)` handler here behaves like an extension handler.
+Example hooks for oms-coding-agent. Hook modules load through the extension runner, so every `pi.on(...)` handler here behaves like an extension handler.
 
 ## Usage
 
 ```bash
 # Load a hook with --hook flag
-omp --hook examples/hooks/permission-gate.ts
+oms --hook examples/hooks/permission-gate.ts
 
 # Or copy to a hooks/pre (or hooks/post) directory for auto-discovery
-cp permission-gate.ts ~/.omp/agent/hooks/pre/
+cp permission-gate.ts ~/.oms/agent/hooks/pre/
 ```
 
 ## Examples
@@ -33,7 +33,7 @@ cp permission-gate.ts ~/.omp/agent/hooks/pre/
 See [docs/hooks.md](../../../../docs/hooks.md) for full documentation.
 
 ```typescript
-import type { HookAPI } from "@oh-my-pi/pi-coding-agent/extensibility/hooks";
+import type { HookAPI } from "@oh-my-soup/pi-coding-agent/extensibility/hooks";
 
 export default function (pi: HookAPI) {
 	// Subscribe to events

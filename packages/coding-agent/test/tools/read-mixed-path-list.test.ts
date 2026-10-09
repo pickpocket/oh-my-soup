@@ -2,11 +2,11 @@ import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import type { ToolSession } from "@oh-my-pi/pi-coding-agent/tools";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import type { ToolSession } from "@oh-my-soup/pi-coding-agent/tools";
 import { Database } from "bun:sqlite";
-import { ReadTool } from "@oh-my-pi/pi-coding-agent/tools/read";
-import { removeWithRetries } from "@oh-my-pi/pi-utils";
+import { ReadTool } from "@oh-my-soup/pi-coding-agent/tools/read";
+import { removeWithRetries } from "@oh-my-soup/pi-utils";
 
 let cwd: string;
 let session: ToolSession;
@@ -51,7 +51,7 @@ describe("read with a `;` list mixing URLs and local paths", () => {
 	});
 
 	it("splits an internal URL followed by a local path", async () => {
-		const text = await readText("omp://;a.ts:1-1");
+		const text = await readText("oms://;a.ts:1-1");
 		expect(text).toContain("interpreted as 2 paths");
 		expect(text).toContain("export const a = 1;");
 		expect(text).not.toContain("Documentation file not found");

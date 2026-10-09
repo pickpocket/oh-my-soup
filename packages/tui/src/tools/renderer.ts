@@ -3,7 +3,7 @@
  * transcript components. Built-in renderers live beside this file; the
  * coding-agent tools implement the matching `*Details` payloads.
  */
-import type { TspPreview, TspText, TspTone, TspToolProps } from "@oh-my-pi/pi-wire";
+import type { TspPreview, TspText, TspTone, TspToolProps } from "@oh-my-soup/pi-wire";
 import type { NativeChild } from "../native/node";
 import type { Component } from "../tui";
 import type { Theme } from "../theme/theme";
@@ -104,7 +104,7 @@ export interface NativeToolHead {
 /**
  * A tool's semantic presentation for Tern Surface Protocol terminals.
  * `ToolExecutionComponent` wraps it in a `tool` node (terminals that list
- * the kind) or, as the fallback, a `card` (role `omp.tool.<name>`, status,
+ * the kind) or, as the fallback, a `card` (role `oms.tool.<name>`, status,
  * elapsed timer, collapse): the renderer supplies only the head data and the
  * body nodes, never frames, padding or width math.
  */

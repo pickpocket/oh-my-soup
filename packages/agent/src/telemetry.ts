@@ -2,7 +2,7 @@
  * OpenTelemetry instrumentation for the agent loop.
  *
  * Implements the OpenTelemetry GenAI semantic conventions
- * (https://opentelemetry.io/docs/specs/semconv/gen-ai/) plus `omp.gen_ai.*`
+ * (https://opentelemetry.io/docs/specs/semconv/gen-ai/) plus `oms.gen_ai.*`
  * extension attributes for run summaries, dashboard summaries, and cost hints
  * that are useful to downstream observability UIs.
  *
@@ -38,7 +38,7 @@ import {
 	shouldSendServiceTier,
 	type ToolChoice,
 	type Usage,
-} from "@oh-my-pi/pi-ai";
+} from "@oh-my-soup/pi-ai";
 import {
 	type Attributes,
 	type AttributeValue,
@@ -54,7 +54,7 @@ import type { AgentTool } from "./types";
 import { EventLoopKeepalive } from "./utils/yield";
 
 /** Default tracer name. Override via {@link AgentTelemetryConfig.tracerName}. */
-export const DEFAULT_TRACER_NAME = "@oh-my-pi/pi-agent-core";
+export const DEFAULT_TRACER_NAME = "@oh-my-soup/pi-agent-core";
 
 /** Env var matching the OTEL semconv content-capture toggle. */
 const CONTENT_CAPTURE_ENV = "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT";
@@ -125,48 +125,48 @@ export const enum OpenAIAttr {
 }
 
 /** Project extension attributes. Kept out of the reserved `gen_ai.*` namespace. */
-export const enum OmpGenAIAttr {
-	AgentStepNumber = "omp.gen_ai.agent.step.number",
-	AgentStepCount = "omp.gen_ai.agent.step.count",
-	RequestReasoningEffort = "omp.gen_ai.request.reasoning.effort",
-	RequestToolChoice = "omp.gen_ai.request.tool.choice",
-	RequestAvailableTools = "omp.gen_ai.request.available_tools",
-	RequestMessages = "omp.gen_ai.request.messages",
-	ResponseText = "omp.gen_ai.response.text",
-	ResponseToolCalls = "omp.gen_ai.response.tool_calls",
-	ResponseUpstreamProvider = "omp.gen_ai.response.upstream_provider",
-	UsageTotalTokens = "omp.gen_ai.usage.total_tokens",
-	UsageServerSideTools = "omp.gen_ai.usage.server_tool_requests",
-	CostEstimatedUsd = "omp.gen_ai.cost.estimated_usd",
-	CostInputUsd = "omp.gen_ai.cost.input_usd",
-	CostOutputUsd = "omp.gen_ai.cost.output_usd",
-	CostUnavailableReason = "omp.gen_ai.cost.unavailable_reason",
-	ToolStatus = "omp.gen_ai.tool.status",
-	ToolCallIntent = "omp.gen_ai.tool.call.intent",
-	HandoffFromAgentName = "omp.gen_ai.handoff.from_agent.name",
-	HandoffFromAgentId = "omp.gen_ai.handoff.from_agent.id",
-	HandoffToAgentName = "omp.gen_ai.handoff.to_agent.name",
-	HandoffToAgentId = "omp.gen_ai.handoff.to_agent.id",
+export const enum OmsGenAIAttr {
+	AgentStepNumber = "oms.gen_ai.agent.step.number",
+	AgentStepCount = "oms.gen_ai.agent.step.count",
+	RequestReasoningEffort = "oms.gen_ai.request.reasoning.effort",
+	RequestToolChoice = "oms.gen_ai.request.tool.choice",
+	RequestAvailableTools = "oms.gen_ai.request.available_tools",
+	RequestMessages = "oms.gen_ai.request.messages",
+	ResponseText = "oms.gen_ai.response.text",
+	ResponseToolCalls = "oms.gen_ai.response.tool_calls",
+	ResponseUpstreamProvider = "oms.gen_ai.response.upstream_provider",
+	UsageTotalTokens = "oms.gen_ai.usage.total_tokens",
+	UsageServerSideTools = "oms.gen_ai.usage.server_tool_requests",
+	CostEstimatedUsd = "oms.gen_ai.cost.estimated_usd",
+	CostInputUsd = "oms.gen_ai.cost.input_usd",
+	CostOutputUsd = "oms.gen_ai.cost.output_usd",
+	CostUnavailableReason = "oms.gen_ai.cost.unavailable_reason",
+	ToolStatus = "oms.gen_ai.tool.status",
+	ToolCallIntent = "oms.gen_ai.tool.call.intent",
+	HandoffFromAgentName = "oms.gen_ai.handoff.from_agent.name",
+	HandoffFromAgentId = "oms.gen_ai.handoff.from_agent.id",
+	HandoffToAgentName = "oms.gen_ai.handoff.to_agent.name",
+	HandoffToAgentId = "oms.gen_ai.handoff.to_agent.id",
 	// Marks chat spans emitted outside the agent loop (compaction, handoff, branch
 	// summary, image inspection, …). Lets dashboards split oneshot cost / latency
 	// from main-turn cost without overloading the semconv `gen_ai.operation.name`.
-	OneshotKind = "omp.gen_ai.oneshot.kind",
+	OneshotKind = "oms.gen_ai.oneshot.kind",
 	// Gateway / proxy (LiteLLM, Helicone, Portkey, …) — populated when a known
 	// gateway header pattern is detected on the upstream response. The base
 	// `gen_ai.provider.name` continues to track the *upstream* provider (e.g.
 	// `anthropic`) that the gateway routed to.
-	GatewayName = "omp.gen_ai.gateway.name",
-	GatewayEndpoint = "omp.gen_ai.gateway.endpoint",
-	GatewayCallId = "omp.gen_ai.gateway.call_id",
-	GatewayRoutedTo = "omp.gen_ai.gateway.routed_to",
+	GatewayName = "oms.gen_ai.gateway.name",
+	GatewayEndpoint = "oms.gen_ai.gateway.endpoint",
+	GatewayCallId = "oms.gen_ai.gateway.call_id",
+	GatewayRoutedTo = "oms.gen_ai.gateway.routed_to",
 	/** Cloudflare AI Gateway response-cache status (`cf-aig-cache-status`), never prompt-cache. */
-	GatewayResponseCacheStatus = "omp.gen_ai.gateway.response_cache.status",
+	GatewayResponseCacheStatus = "oms.gen_ai.gateway.response_cache.status",
 	/** Caller-level reason a judgment ran (`find`, `ttsr`, `judge_batch`, …). */
-	JudgmentPurpose = "omp.gen_ai.judgment.purpose",
+	JudgmentPurpose = "oms.gen_ai.judgment.purpose",
 	/** Questions the caller asked in one judgment request. */
-	JudgmentQuestions = "omp.gen_ai.judgment.questions",
+	JudgmentQuestions = "oms.gen_ai.judgment.questions",
 	/** Questions answered from the local judgment cache instead of the provider. */
-	JudgmentCachedQuestions = "omp.gen_ai.judgment.cached_questions",
+	JudgmentCachedQuestions = "oms.gen_ai.judgment.cached_questions",
 }
 
 /** GenAI operation names — values for {@link GenAIAttr.OperationName}. */
@@ -220,9 +220,9 @@ export interface CostEstimatorContext {
 
 /**
  * Cost estimator result.
- *   { usd: number }                — cost is known; emitted as omp.gen_ai.cost.estimated_usd
+ *   { usd: number }                — cost is known; emitted as oms.gen_ai.cost.estimated_usd
  *   { unavailable: string }        — cost is intentionally unknown; emitted as
- *                                    omp.gen_ai.cost.unavailable_reason
+ *                                    oms.gen_ai.cost.unavailable_reason
  *   undefined                      — no opinion; nothing emitted
  */
 export type CostEstimate =
@@ -271,7 +271,7 @@ export interface ChatUsageEvent {
 	 *
 	 * Use this to reconcile gateway-issued ids (e.g. `x-litellm-call-id`) with
 	 * downstream billing / spend dashboards. Known gateway patterns are also
-	 * auto-stamped on the chat span as `omp.gen_ai.gateway.*` attributes.
+	 * auto-stamped on the chat span as `oms.gen_ai.gateway.*` attributes.
 	 */
 	readonly headers: Readonly<Record<string, string>> | undefined;
 }
@@ -709,7 +709,7 @@ export function startInvokeAgentSpan(telemetry: AgentTelemetry | undefined, mode
 /** Stamp the final step count on the `invoke_agent` span. */
 export function applyInvokeAgentFinish(span: Span | undefined, stepCount: number): void {
 	if (!span) return;
-	span.setAttribute(OmpGenAIAttr.AgentStepCount, stepCount);
+	span.setAttribute(OmsGenAIAttr.AgentStepCount, stepCount);
 }
 
 /**
@@ -766,7 +766,7 @@ export interface ChatRequestSnapshot {
 
 function buildChatRequestAttributes(stepNumber: number, request: ChatRequestSnapshot, model: Model): Attributes {
 	const attrs: Attributes = {
-		[OmpGenAIAttr.AgentStepNumber]: stepNumber,
+		[OmsGenAIAttr.AgentStepNumber]: stepNumber,
 		[GenAIAttr.OutputType]: "text",
 		[GenAIAttr.RequestStream]: true,
 	};
@@ -784,11 +784,11 @@ function buildChatRequestAttributes(stepNumber: number, request: ChatRequestSnap
 	if (request.serviceTier && shouldSendServiceTier(request.serviceTier, model)) {
 		attrs[OpenAIAttr.RequestServiceTier] = request.serviceTier;
 	}
-	if (request.reasoningEffort) attrs[OmpGenAIAttr.RequestReasoningEffort] = request.reasoningEffort;
+	if (request.reasoningEffort) attrs[OmsGenAIAttr.RequestReasoningEffort] = request.reasoningEffort;
 	const toolChoice = serializeToolChoice(request.toolChoice);
-	if (toolChoice) attrs[OmpGenAIAttr.RequestToolChoice] = toolChoice;
+	if (toolChoice) attrs[OmsGenAIAttr.RequestToolChoice] = toolChoice;
 	if (request.tools && request.tools.length > 0) {
-		attrs[OmpGenAIAttr.RequestAvailableTools] = request.tools.map(tool => tool.name);
+		attrs[OmsGenAIAttr.RequestAvailableTools] = request.tools.map(tool => tool.name);
 	}
 	return attrs;
 }
@@ -806,7 +806,7 @@ function serializeToolChoice(toolChoice: ToolChoice | undefined): string | undef
 
 function applyContentCaptureForRequest(telemetry: AgentTelemetry, span: Span, request: ChatRequestSnapshot): void {
 	const requestMessages = serializeRequestMessagesForTelemetry(telemetry, request);
-	if (requestMessages) span.setAttribute(OmpGenAIAttr.RequestMessages, requestMessages);
+	if (requestMessages) span.setAttribute(OmsGenAIAttr.RequestMessages, requestMessages);
 	if (telemetry.contentCapture !== "full") return;
 	const systemInstructions = serializeFullSystemInstructionsForTelemetry(request);
 	if (systemInstructions) span.setAttribute(GenAIAttr.SystemInstructions, systemInstructions);
@@ -816,9 +816,9 @@ function applyContentCaptureForRequest(telemetry: AgentTelemetry, span: Span, re
 
 function applyContentCaptureForResponse(telemetry: AgentTelemetry, span: Span, message: AssistantMessage): void {
 	const responseText = serializeResponseTextForTelemetry(telemetry, message);
-	if (responseText) span.setAttribute(OmpGenAIAttr.ResponseText, responseText);
+	if (responseText) span.setAttribute(OmsGenAIAttr.ResponseText, responseText);
 	const responseToolCalls = serializeResponseToolCallsForTelemetry(telemetry, message);
-	if (responseToolCalls) span.setAttribute(OmpGenAIAttr.ResponseToolCalls, responseToolCalls);
+	if (responseToolCalls) span.setAttribute(OmsGenAIAttr.ResponseToolCalls, responseToolCalls);
 	if (telemetry.contentCapture === "full") {
 		const outputMessages = serializeFullOutputMessagesForTelemetry(message);
 		if (outputMessages) span.setAttribute(GenAIAttr.OutputMessages, outputMessages);
@@ -1230,7 +1230,7 @@ function applyChatResponseAttributes(span: Span, message: AssistantMessage): voi
 	span.setAttribute(GenAIAttr.ResponseModel, message.model);
 	if (message.responseId) span.setAttribute(GenAIAttr.ResponseId, message.responseId);
 	if (message.upstreamProvider) {
-		span.setAttribute(OmpGenAIAttr.ResponseUpstreamProvider, message.upstreamProvider);
+		span.setAttribute(OmsGenAIAttr.ResponseUpstreamProvider, message.upstreamProvider);
 	}
 	if (message.ttft != null) span.setAttribute(GenAIAttr.ResponseTimeToFirstChunk, message.ttft / 1000);
 	const finishReason = mapStopReason(message.stopReason);
@@ -1246,7 +1246,7 @@ function applyUsageAttributes(span: Span, usage: Usage | undefined): void {
 	span.setAttribute(GenAIAttr.UsageInputTokens, inputTokens);
 	span.setAttribute(GenAIAttr.UsageOutputTokens, outputTokens);
 	const total = usage.totalTokens ?? inputTokens + outputTokens;
-	span.setAttribute(OmpGenAIAttr.UsageTotalTokens, total);
+	span.setAttribute(OmsGenAIAttr.UsageTotalTokens, total);
 	if (usage.cacheRead != null) span.setAttribute(GenAIAttr.UsageCacheReadInputTokens, usage.cacheRead);
 	if (usage.cacheWrite != null) span.setAttribute(GenAIAttr.UsageCacheCreationInputTokens, usage.cacheWrite);
 	if (usage.reasoningTokens != null) {
@@ -1254,7 +1254,7 @@ function applyUsageAttributes(span: Span, usage: Usage | undefined): void {
 	}
 	if (usage.server) {
 		const sums = (usage.server.webSearch ?? 0) + (usage.server.webFetch ?? 0);
-		if (sums > 0) span.setAttribute(OmpGenAIAttr.UsageServerSideTools, sums);
+		if (sums > 0) span.setAttribute(OmsGenAIAttr.UsageServerSideTools, sums);
 	}
 }
 
@@ -1315,7 +1315,7 @@ export function detectGatewayFromHeaders(
 
 /**
  * Bounded Cloudflare AI Gateway response-cache statuses emitted on
- * {@link OmpGenAIAttr.GatewayResponseCacheStatus}. Distinct from provider
+ * {@link OmsGenAIAttr.GatewayResponseCacheStatus}. Distinct from provider
  * prompt-cache token counters (`gen_ai.usage.cache_*`).
  *
  * Cloudflare documents `HIT` / `MISS` on `cf-aig-cache-status`; `bypass` covers
@@ -1354,14 +1354,14 @@ function applyGatewayAttributes(
 ): void {
 	const gateway = detectGatewayFromHeaders(headers);
 	if (gateway) {
-		span.setAttribute(OmpGenAIAttr.GatewayName, gateway.name);
-		if (baseUrl) span.setAttribute(OmpGenAIAttr.GatewayEndpoint, baseUrl);
-		if (gateway.callId) span.setAttribute(OmpGenAIAttr.GatewayCallId, gateway.callId);
-		if (gateway.routedTo) span.setAttribute(OmpGenAIAttr.GatewayRoutedTo, gateway.routedTo);
+		span.setAttribute(OmsGenAIAttr.GatewayName, gateway.name);
+		if (baseUrl) span.setAttribute(OmsGenAIAttr.GatewayEndpoint, baseUrl);
+		if (gateway.callId) span.setAttribute(OmsGenAIAttr.GatewayCallId, gateway.callId);
+		if (gateway.routedTo) span.setAttribute(OmsGenAIAttr.GatewayRoutedTo, gateway.routedTo);
 	}
 	const responseCacheStatus = classifyGatewayResponseCacheStatus(headers);
 	if (responseCacheStatus) {
-		span.setAttribute(OmpGenAIAttr.GatewayResponseCacheStatus, responseCacheStatus);
+		span.setAttribute(OmsGenAIAttr.GatewayResponseCacheStatus, responseCacheStatus);
 	}
 }
 
@@ -1429,7 +1429,7 @@ function applyCostEstimateForUsage(
 	}
 	if (!result) return EMPTY_COST;
 	if ("unavailable" in result) {
-		span.setAttribute(OmpGenAIAttr.CostUnavailableReason, result.unavailable);
+		span.setAttribute(OmsGenAIAttr.CostUnavailableReason, result.unavailable);
 		const cost: AppliedCostEstimate = {
 			costUsd: undefined,
 			inputUsd: undefined,
@@ -1451,9 +1451,9 @@ function applyCostEstimateForUsage(
 		});
 		return cost;
 	}
-	span.setAttribute(OmpGenAIAttr.CostEstimatedUsd, result.usd);
-	if (result.inputUsd != null) span.setAttribute(OmpGenAIAttr.CostInputUsd, result.inputUsd);
-	if (result.outputUsd != null) span.setAttribute(OmpGenAIAttr.CostOutputUsd, result.outputUsd);
+	span.setAttribute(OmsGenAIAttr.CostEstimatedUsd, result.usd);
+	if (result.inputUsd != null) span.setAttribute(OmsGenAIAttr.CostInputUsd, result.inputUsd);
+	if (result.outputUsd != null) span.setAttribute(OmsGenAIAttr.CostOutputUsd, result.outputUsd);
 	const cost: AppliedCostEstimate = {
 		costUsd: result.usd,
 		inputUsd: result.inputUsd,
@@ -1627,7 +1627,7 @@ export async function recordManualChatTelemetry(
 		});
 	if (!span) return undefined;
 	if (options.span && options.attributes) span.setAttributes(options.attributes);
-	if (options.stepNumber != null) span.setAttribute(OmpGenAIAttr.AgentStepNumber, options.stepNumber);
+	if (options.stepNumber != null) span.setAttribute(OmsGenAIAttr.AgentStepNumber, options.stepNumber);
 	span.setAttribute(GenAIAttr.ResponseModel, options.responseModel ?? options.model.name);
 	if (options.responseId) span.setAttribute(GenAIAttr.ResponseId, options.responseId);
 	const finishReason = mapStopReason(options.finishReason);
@@ -1662,7 +1662,7 @@ export async function recordManualChatTelemetry(
 	}
 	if (options.responseText) {
 		const responseText = stringifyJsonAttribute(summarizeTelemetryTexts([options.responseText]));
-		if (responseText) span.setAttribute(OmpGenAIAttr.ResponseText, responseText);
+		if (responseText) span.setAttribute(OmsGenAIAttr.ResponseText, responseText);
 	}
 	if (options.responseToolCalls && options.responseToolCalls.length > 0) {
 		const calls = options.responseToolCalls.map(call => ({
@@ -1671,7 +1671,7 @@ export async function recordManualChatTelemetry(
 			input: summarizeTelemetryValue(call.input),
 		}));
 		const responseToolCalls = stringifyJsonAttribute(limitTelemetryToolCalls(calls));
-		if (responseToolCalls) span.setAttribute(OmpGenAIAttr.ResponseToolCalls, responseToolCalls);
+		if (responseToolCalls) span.setAttribute(OmsGenAIAttr.ResponseToolCalls, responseToolCalls);
 	}
 	applyTerminalStatus(span, options.finishReason, undefined);
 	if (options.endSpan ?? options.span === undefined) span.end();
@@ -1689,7 +1689,7 @@ export interface JudgmentTelemetryOptions {
 	readonly model: string;
 	/** Model that answered, when the provider resolves an alias (`jev-latest` → `jev-1.13.0`). */
 	readonly responseModel?: string;
-	/** Caller-level reason the judgment ran; stamped as {@link OmpGenAIAttr.JudgmentPurpose}. */
+	/** Caller-level reason the judgment ran; stamped as {@link OmsGenAIAttr.JudgmentPurpose}. */
 	readonly purpose: string;
 	/** Priced usage of this attempt — the same amount the session ledger bills. */
 	readonly usage: Usage;
@@ -1718,13 +1718,13 @@ export async function recordJudgmentTelemetry(
 	if (!telemetry) return;
 	const attributes: Attributes = {
 		[GenAIAttr.RequestModel]: options.model,
-		[OmpGenAIAttr.JudgmentPurpose]: options.purpose,
+		[OmsGenAIAttr.JudgmentPurpose]: options.purpose,
 	};
 	const provider = normalizeProviderName(telemetry, options.provider);
 	if (provider) attributes[GenAIAttr.ProviderName] = provider;
-	if (options.questions !== undefined) attributes[OmpGenAIAttr.JudgmentQuestions] = options.questions;
+	if (options.questions !== undefined) attributes[OmsGenAIAttr.JudgmentQuestions] = options.questions;
 	if (options.cachedQuestions !== undefined) {
-		attributes[OmpGenAIAttr.JudgmentCachedQuestions] = options.cachedQuestions;
+		attributes[OmsGenAIAttr.JudgmentCachedQuestions] = options.cachedQuestions;
 	}
 	const span = startSpan(telemetry, "judgment", `judgment ${options.model}`, {
 		spanKind: SpanKind.CLIENT,
@@ -1738,9 +1738,9 @@ export async function recordJudgmentTelemetry(
 	if (finishReason) span.setAttribute(GenAIAttr.ResponseFinishReasons, [finishReason]);
 	applyUsageAttributes(span, options.usage);
 	const { cost } = options.usage;
-	span.setAttribute(OmpGenAIAttr.CostEstimatedUsd, cost.total);
-	span.setAttribute(OmpGenAIAttr.CostInputUsd, cost.input);
-	span.setAttribute(OmpGenAIAttr.CostOutputUsd, cost.output);
+	span.setAttribute(OmsGenAIAttr.CostEstimatedUsd, cost.total);
+	span.setAttribute(OmsGenAIAttr.CostInputUsd, cost.input);
+	span.setAttribute(OmsGenAIAttr.CostOutputUsd, cost.output);
 	if (options.usage.totalTokens > 0 || cost.total > 0) {
 		const applied: AppliedCostEstimate = {
 			costUsd: cost.total,
@@ -1789,7 +1789,7 @@ export interface InstrumentedChatSpanOptions {
 	/** Step index recorded on the span; defaults to `-1` for non-loop calls. */
 	readonly stepNumber?: number;
 	/**
-	 * Tag stamped onto `omp.gen_ai.oneshot.kind`. Values used by the agent:
+	 * Tag stamped onto `oms.gen_ai.oneshot.kind`. Values used by the agent:
 	 * `compaction_summary`, `compaction_short_summary`, `compaction_turn_prefix`,
 	 * `handoff`, `branch_summary`, `image_question`, `skill_description`. Free-form
 	 * to allow callers outside this package to add new kinds without bumping the helper.
@@ -1799,7 +1799,7 @@ export interface InstrumentedChatSpanOptions {
 	readonly attributes?: Attributes;
 	/**
 	 * Override for the underlying {@link completeSimple} call. Defaults to
-	 * `completeSimple` from `@oh-my-pi/pi-ai`. Use to retain a test injection
+	 * `completeSimple` from `@oh-my-soup/pi-ai`. Use to retain a test injection
 	 * seam while still going through the chat-span lifecycle.
 	 */
 	readonly completeImpl?: <TApi extends Api>(
@@ -1868,7 +1868,7 @@ export async function instrumentedCompleteSimple<TApi extends Api>(
 		},
 	});
 	if (chatSpan) {
-		if (oneshotKind) chatSpan.setAttribute(OmpGenAIAttr.OneshotKind, oneshotKind);
+		if (oneshotKind) chatSpan.setAttribute(OmsGenAIAttr.OneshotKind, oneshotKind);
 		if (span.attributes) chatSpan.setAttributes(span.attributes);
 	}
 
@@ -2024,7 +2024,7 @@ export function finishExecuteToolSpan(
 }
 
 /** Span attribute carrying the terminal {@link ToolStatus}. */
-export const EXECUTE_TOOL_STATUS_ATTR = OmpGenAIAttr.ToolStatus;
+export const EXECUTE_TOOL_STATUS_ATTR = OmsGenAIAttr.ToolStatus;
 
 /**
  * Mapping from non-ok {@link ToolStatus} values to the `error.type` attribute
@@ -2117,66 +2117,66 @@ export function fireOnRunEnd(telemetry: AgentTelemetry, summary: AgentRunSummary
 	}
 }
 
-/** Aggregate `omp.gen_ai.agent.*` attributes stamped on the `invoke_agent` span. */
-export const enum OmpGenAIAggregateAttr {
-	ChatsCount = "omp.gen_ai.agent.chats.count",
-	ChatsTotalLatencyMs = "omp.gen_ai.agent.chats.total_latency_ms",
-	ChatsStopReasonPrefix = "omp.gen_ai.agent.chats.stop_reason.",
-	ToolsCount = "omp.gen_ai.agent.tools.count",
-	ToolsOkCount = "omp.gen_ai.agent.tools.ok.count",
-	ToolsErrorCount = "omp.gen_ai.agent.tools.error.count",
-	ToolsSkippedCount = "omp.gen_ai.agent.tools.skipped.count",
-	ToolsBlockedCount = "omp.gen_ai.agent.tools.blocked.count",
-	ToolsTimeoutCount = "omp.gen_ai.agent.tools.timeout.count",
-	ToolsAbortedCount = "omp.gen_ai.agent.tools.aborted.count",
-	ToolsTotalLatencyMs = "omp.gen_ai.agent.tools.total_latency_ms",
-	ToolsInvoked = "omp.gen_ai.agent.tools.invoked",
-	ToolsAvailable = "omp.gen_ai.agent.tools.available",
-	ToolsUnused = "omp.gen_ai.agent.tools.unused",
-	UsageInputTokensTotal = "omp.gen_ai.agent.usage.input_tokens.total",
-	UsageOutputTokensTotal = "omp.gen_ai.agent.usage.output_tokens.total",
-	UsageCacheReadInputTokensTotal = "omp.gen_ai.agent.usage.cache_read.input_tokens.total",
-	UsageCacheCreationInputTokensTotal = "omp.gen_ai.agent.usage.cache_creation.input_tokens.total",
-	UsageReasoningOutputTokensTotal = "omp.gen_ai.agent.usage.reasoning.output_tokens.total",
-	UsageTotalTokensTotal = "omp.gen_ai.agent.usage.total_tokens.total",
-	CostEstimatedUsdTotal = "omp.gen_ai.agent.cost.estimated_usd.total",
-	ErrorsCount = "omp.gen_ai.agent.errors.count",
+/** Aggregate `oms.gen_ai.agent.*` attributes stamped on the `invoke_agent` span. */
+export const enum OmsGenAIAggregateAttr {
+	ChatsCount = "oms.gen_ai.agent.chats.count",
+	ChatsTotalLatencyMs = "oms.gen_ai.agent.chats.total_latency_ms",
+	ChatsStopReasonPrefix = "oms.gen_ai.agent.chats.stop_reason.",
+	ToolsCount = "oms.gen_ai.agent.tools.count",
+	ToolsOkCount = "oms.gen_ai.agent.tools.ok.count",
+	ToolsErrorCount = "oms.gen_ai.agent.tools.error.count",
+	ToolsSkippedCount = "oms.gen_ai.agent.tools.skipped.count",
+	ToolsBlockedCount = "oms.gen_ai.agent.tools.blocked.count",
+	ToolsTimeoutCount = "oms.gen_ai.agent.tools.timeout.count",
+	ToolsAbortedCount = "oms.gen_ai.agent.tools.aborted.count",
+	ToolsTotalLatencyMs = "oms.gen_ai.agent.tools.total_latency_ms",
+	ToolsInvoked = "oms.gen_ai.agent.tools.invoked",
+	ToolsAvailable = "oms.gen_ai.agent.tools.available",
+	ToolsUnused = "oms.gen_ai.agent.tools.unused",
+	UsageInputTokensTotal = "oms.gen_ai.agent.usage.input_tokens.total",
+	UsageOutputTokensTotal = "oms.gen_ai.agent.usage.output_tokens.total",
+	UsageCacheReadInputTokensTotal = "oms.gen_ai.agent.usage.cache_read.input_tokens.total",
+	UsageCacheCreationInputTokensTotal = "oms.gen_ai.agent.usage.cache_creation.input_tokens.total",
+	UsageReasoningOutputTokensTotal = "oms.gen_ai.agent.usage.reasoning.output_tokens.total",
+	UsageTotalTokensTotal = "oms.gen_ai.agent.usage.total_tokens.total",
+	CostEstimatedUsdTotal = "oms.gen_ai.agent.cost.estimated_usd.total",
+	ErrorsCount = "oms.gen_ai.agent.errors.count",
 }
 
-/** Stamp the aggregate `omp.gen_ai.agent.*` attributes on the given span. */
+/** Stamp the aggregate `oms.gen_ai.agent.*` attributes on the given span. */
 function applyAggregateAttributes(span: Span, summary: AgentRunSummary, coverage: AgentRunCoverage): void {
-	span.setAttribute(OmpGenAIAggregateAttr.ChatsCount, summary.chats.total);
-	span.setAttribute(OmpGenAIAggregateAttr.ChatsTotalLatencyMs, summary.chats.totalLatencyMs);
+	span.setAttribute(OmsGenAIAggregateAttr.ChatsCount, summary.chats.total);
+	span.setAttribute(OmsGenAIAggregateAttr.ChatsTotalLatencyMs, summary.chats.totalLatencyMs);
 	for (const [reason, count] of Object.entries(summary.chats.byStopReason)) {
-		span.setAttribute(`${OmpGenAIAggregateAttr.ChatsStopReasonPrefix}${reason}.count`, count);
+		span.setAttribute(`${OmsGenAIAggregateAttr.ChatsStopReasonPrefix}${reason}.count`, count);
 	}
-	span.setAttribute(OmpGenAIAggregateAttr.ToolsCount, summary.tools.total);
-	span.setAttribute(OmpGenAIAggregateAttr.ToolsOkCount, summary.tools.ok);
-	span.setAttribute(OmpGenAIAggregateAttr.ToolsErrorCount, summary.tools.error);
-	span.setAttribute(OmpGenAIAggregateAttr.ToolsSkippedCount, summary.tools.skipped);
-	span.setAttribute(OmpGenAIAggregateAttr.ToolsBlockedCount, summary.tools.blocked);
-	span.setAttribute(OmpGenAIAggregateAttr.ToolsTimeoutCount, summary.tools.timeout);
-	span.setAttribute(OmpGenAIAggregateAttr.ToolsAbortedCount, summary.tools.aborted);
-	span.setAttribute(OmpGenAIAggregateAttr.ToolsTotalLatencyMs, summary.tools.totalLatencyMs);
+	span.setAttribute(OmsGenAIAggregateAttr.ToolsCount, summary.tools.total);
+	span.setAttribute(OmsGenAIAggregateAttr.ToolsOkCount, summary.tools.ok);
+	span.setAttribute(OmsGenAIAggregateAttr.ToolsErrorCount, summary.tools.error);
+	span.setAttribute(OmsGenAIAggregateAttr.ToolsSkippedCount, summary.tools.skipped);
+	span.setAttribute(OmsGenAIAggregateAttr.ToolsBlockedCount, summary.tools.blocked);
+	span.setAttribute(OmsGenAIAggregateAttr.ToolsTimeoutCount, summary.tools.timeout);
+	span.setAttribute(OmsGenAIAggregateAttr.ToolsAbortedCount, summary.tools.aborted);
+	span.setAttribute(OmsGenAIAggregateAttr.ToolsTotalLatencyMs, summary.tools.totalLatencyMs);
 	if (coverage.toolsInvoked.length > 0) {
-		span.setAttribute(OmpGenAIAggregateAttr.ToolsInvoked, [...coverage.toolsInvoked]);
+		span.setAttribute(OmsGenAIAggregateAttr.ToolsInvoked, [...coverage.toolsInvoked]);
 	}
 	if (coverage.toolsAvailable.length > 0) {
-		span.setAttribute(OmpGenAIAggregateAttr.ToolsAvailable, [...coverage.toolsAvailable]);
+		span.setAttribute(OmsGenAIAggregateAttr.ToolsAvailable, [...coverage.toolsAvailable]);
 	}
 	if (coverage.toolsUnused.length > 0) {
-		span.setAttribute(OmpGenAIAggregateAttr.ToolsUnused, [...coverage.toolsUnused]);
+		span.setAttribute(OmsGenAIAggregateAttr.ToolsUnused, [...coverage.toolsUnused]);
 	}
-	span.setAttribute(OmpGenAIAggregateAttr.UsageInputTokensTotal, summary.usage.inputTokens);
-	span.setAttribute(OmpGenAIAggregateAttr.UsageOutputTokensTotal, summary.usage.outputTokens);
-	span.setAttribute(OmpGenAIAggregateAttr.UsageCacheReadInputTokensTotal, summary.usage.cachedInputTokens);
-	span.setAttribute(OmpGenAIAggregateAttr.UsageCacheCreationInputTokensTotal, summary.usage.cacheWriteTokens);
-	span.setAttribute(OmpGenAIAggregateAttr.UsageReasoningOutputTokensTotal, summary.usage.reasoningOutputTokens);
-	span.setAttribute(OmpGenAIAggregateAttr.UsageTotalTokensTotal, summary.usage.totalTokens);
+	span.setAttribute(OmsGenAIAggregateAttr.UsageInputTokensTotal, summary.usage.inputTokens);
+	span.setAttribute(OmsGenAIAggregateAttr.UsageOutputTokensTotal, summary.usage.outputTokens);
+	span.setAttribute(OmsGenAIAggregateAttr.UsageCacheReadInputTokensTotal, summary.usage.cachedInputTokens);
+	span.setAttribute(OmsGenAIAggregateAttr.UsageCacheCreationInputTokensTotal, summary.usage.cacheWriteTokens);
+	span.setAttribute(OmsGenAIAggregateAttr.UsageReasoningOutputTokensTotal, summary.usage.reasoningOutputTokens);
+	span.setAttribute(OmsGenAIAggregateAttr.UsageTotalTokensTotal, summary.usage.totalTokens);
 	if (summary.cost.estimatedUsd > 0) {
-		span.setAttribute(OmpGenAIAggregateAttr.CostEstimatedUsdTotal, summary.cost.estimatedUsd);
+		span.setAttribute(OmsGenAIAggregateAttr.CostEstimatedUsdTotal, summary.cost.estimatedUsd);
 	}
-	span.setAttribute(OmpGenAIAggregateAttr.ErrorsCount, summary.errors.total);
+	span.setAttribute(OmsGenAIAggregateAttr.ErrorsCount, summary.errors.total);
 }
 
 /**
@@ -2211,10 +2211,10 @@ export function recordHandoff(
 	const attrs: Attributes = {};
 	const fromAgent = options.fromAgent ? normalizeAgentIdentity(telemetry, options.fromAgent) : undefined;
 	const toAgent = normalizeAgentIdentity(telemetry, options.toAgent);
-	if (fromAgent?.name) attrs[OmpGenAIAttr.HandoffFromAgentName] = fromAgent.name;
-	if (fromAgent?.id) attrs[OmpGenAIAttr.HandoffFromAgentId] = fromAgent.id;
-	if (toAgent.name) attrs[OmpGenAIAttr.HandoffToAgentName] = toAgent.name;
-	if (toAgent.id) attrs[OmpGenAIAttr.HandoffToAgentId] = toAgent.id;
+	if (fromAgent?.name) attrs[OmsGenAIAttr.HandoffFromAgentName] = fromAgent.name;
+	if (fromAgent?.id) attrs[OmsGenAIAttr.HandoffFromAgentId] = fromAgent.id;
+	if (toAgent.name) attrs[OmsGenAIAttr.HandoffToAgentName] = toAgent.name;
+	if (toAgent.id) attrs[OmsGenAIAttr.HandoffToAgentId] = toAgent.id;
 	const name = toAgent.name
 		? fromAgent?.name
 			? `handoff ${fromAgent.name} → ${toAgent.name}`

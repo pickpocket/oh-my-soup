@@ -4,7 +4,7 @@ import {
 } from "../config/compaction-threshold";
 import { combine, register, type SettingValueOf } from "../config/registry";
 import { COMPACTION_METHOD_CHOICES, DEFAULT_COMPACTION_METHOD_ORDER } from "./compaction-methods";
-import { SHAPE_VARIANT_NAMES } from "@oh-my-pi/snapcompact";
+import { SHAPE_VARIANT_NAMES } from "@oh-my-soup/snapcompact";
 
 const EMPTY_STRING_ARRAY: string[] = [];
 const EMPTY_MODEL_COMPACTION_THRESHOLDS: Record<string, AgentCompactionThresholdOverride> = {};

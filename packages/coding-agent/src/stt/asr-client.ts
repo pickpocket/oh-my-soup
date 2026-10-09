@@ -71,7 +71,7 @@ interface StreamState {
  * Hidden subcommand on the main CLI that boots the speech-recognition worker in
  * the spawned subprocess. Kept in sync with the dispatch in `cli.ts`.
  */
-export const STT_WORKER_ARG = "__omp_worker_stt";
+export const STT_WORKER_ARG = "__oms_worker_stt";
 
 /**
  * Spawn the speech worker as a subprocess. Exported for tests and the smoke

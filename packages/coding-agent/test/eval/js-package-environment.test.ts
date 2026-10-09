@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from "bun:test";
 import * as fsSync from "node:fs";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { TempDir } from "@oh-my-pi/pi-utils";
+import { TempDir } from "@oh-my-soup/pi-utils";
 import { Settings } from "../../src/config/settings";
 import { disposeAllVmContexts } from "../../src/eval/js/context-manager";
 import { executeJs } from "../../src/eval/js/executor";
@@ -46,9 +46,9 @@ function canResolve(specifier: string, fromDir: string): boolean {
 }
 
 /**
- * Picks a package OMP itself resolves but the workspace cannot. Prefers `@babel/parser`; a stray
+ * Picks a package OMS itself resolves but the workspace cannot. Prefers `@babel/parser`; a stray
  * `node_modules` above the temp dir (e.g. `npm i` run in the Windows profile dir) legitimately puts
- * it in the workspace's ancestry, so fall back to any other package installed for OMP.
+ * it in the workspace's ancestry, so fall back to any other package installed for OMS.
  */
 function ompOnlyPackage(workspaceDir: string): string {
 	const ompDir = path.resolve(import.meta.dir, "../..");
@@ -58,7 +58,7 @@ function ompOnlyPackage(workspaceDir: string): string {
 		...fsSync.readdirSync(repoModules).filter(name => !name.startsWith(".") && !name.startsWith("@")),
 	];
 	const picked = candidates.find(name => canResolve(name, ompDir) && !canResolve(name, workspaceDir));
-	if (!picked) throw new Error(`Every OMP dependency is also resolvable from ${workspaceDir}`);
+	if (!picked) throw new Error(`Every OMS dependency is also resolvable from ${workspaceDir}`);
 	return picked;
 }
 
@@ -78,7 +78,7 @@ describe("persistent JavaScript package environments", () => {
 	});
 
 	it("refuses an implicit managed environment bootstrap when auto-provisioning is disabled", async () => {
-		using workspace = TempDir.createSync("@omp-js-package-policy-");
+		using workspace = TempDir.createSync("@oms-js-package-policy-");
 		const sessionId = `js-package-policy:${crypto.randomUUID()}`;
 		const session = makeSession(workspace.path(), sessionId, { autoProvision: false });
 		const environment = resolveJsPackageEnvironment(workspace.path());
@@ -94,8 +94,8 @@ describe("persistent JavaScript package environments", () => {
 	});
 
 	it("resolves file imports from the filename while preserving cwd and repeat execution", async () => {
-		using workspace = TempDir.createSync("@omp-js-file-workspace-");
-		using scriptDir = TempDir.createSync("@omp-js-file-script-");
+		using workspace = TempDir.createSync("@oms-js-file-workspace-");
+		using scriptDir = TempDir.createSync("@oms-js-file-script-");
 		const filename = path.join(scriptDir.path(), "loaded.ts");
 		const source = [
 			'import { amount } from "./sibling.ts";',
@@ -127,10 +127,10 @@ describe("persistent JavaScript package environments", () => {
 		expect(JSON.parse(retained.output.trim())).toEqual([13, await fs.realpath(workspace.path()), 2]);
 	});
 
-	it("does not resolve a missing project package from OMP's own dependencies", async () => {
+	it("does not resolve a missing project package from OMS's own dependencies", async () => {
 		// Dynamic import is the behavior under test: a static import would be
 		// resolved by this test module's own dependency graph.
-		using workspace = TempDir.createSync("@omp-js-package-missing-");
+		using workspace = TempDir.createSync("@oms-js-package-missing-");
 		const sessionId = `js-package-missing:${crypto.randomUUID()}`;
 		const session = makeSession(workspace.path(), sessionId);
 		const specifier = ompOnlyPackage(workspace.path());

@@ -1,4 +1,4 @@
-/** Launch-broker daemon types shared by services, `proc://`, and `omp ps`. */
+/** Launch-broker daemon types shared by services, `proc://`, and `oms ps`. */
 
 /** Stable lifecycle states exposed by the launch broker. */
 export type DaemonState = "starting" | "running" | "ready" | "restarting" | "stopping" | "exited" | "failed";

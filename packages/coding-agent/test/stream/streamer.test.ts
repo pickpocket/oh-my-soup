@@ -3,7 +3,7 @@ import * as fs from "node:fs/promises";
 import * as net from "node:net";
 import * as os from "node:os";
 import * as path from "node:path";
-import { STREAM_HISTORY_LIMIT, STREAM_PROTO, type StreamHostFrame, type StreamServerToHost } from "@oh-my-pi/pi-wire";
+import { STREAM_HISTORY_LIMIT, STREAM_PROTO, type StreamHostFrame, type StreamServerToHost } from "@oh-my-soup/pi-wire";
 import { STREAM_LOCAL_PROTO, type StreamStreamerFrame } from "../../src/stream/protocol";
 import { resolveStreamUrls, StreamMuxHost, type StreamConsoleEvent } from "../../src/stream/streamer";
 
@@ -157,7 +157,7 @@ describe("resolveStreamUrls", () => {
 
 describe("StreamMuxHost", () => {
 	it("materializes patch, reset, and bounded history state across reconnect replays", async () => {
-		const projectDir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-stream-test-"));
+		const projectDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-stream-test-"));
 		projectDirs.push(projectDir);
 		const firstServer = startFakeStreamServer();
 		const port = firstServer.port;

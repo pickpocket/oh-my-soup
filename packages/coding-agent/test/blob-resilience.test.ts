@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "bun:test";
-import type { Context, ImageContent, Model } from "@oh-my-pi/pi-ai";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
-import * as snapcompact from "@oh-my-pi/snapcompact";
+import type { Context, ImageContent, Model } from "@oh-my-soup/pi-ai";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
+import * as snapcompact from "@oh-my-soup/snapcompact";
 import { type BlobBackend, LocalBlobBackend } from "../src/blob-broker/broker";
 import { probeExposureHealth } from "../src/blob-broker/exposure";
 import type { BlobBrokerWorkerConfig } from "../src/blob-broker/protocol";
@@ -69,7 +69,7 @@ function startUploadEdge(): UploadEdge {
 		port: 0,
 		fetch: async request => {
 			const url = new URL(request.url);
-			if (url.pathname === "/.well-known/omp-blob-health") {
+			if (url.pathname === "/.well-known/oms-blob-health") {
 				return new Response(null, { status: 204 });
 			}
 			if (url.pathname === "/upload" && request.method === "POST") {
@@ -126,7 +126,7 @@ describe("public exposure health", () => {
 
 		const baseUrl = await backend.ensureStarted();
 		expect(baseUrl).not.toBeNull();
-		expect((await fetch(`${baseUrl}/.well-known/omp-blob-health?nonce=test`)).status).toBe(204);
+		expect((await fetch(`${baseUrl}/.well-known/oms-blob-health?nonce=test`)).status).toBe(204);
 	});
 
 	it("waits for delayed readiness and cache-busts every attempt", async () => {
@@ -150,9 +150,9 @@ describe("public exposure health", () => {
 
 		expect(urls).toHaveLength(3);
 		expect(urls.map(value => new URL(value).pathname)).toEqual([
-			"/.well-known/omp-blob-health",
-			"/.well-known/omp-blob-health",
-			"/.well-known/omp-blob-health",
+			"/.well-known/oms-blob-health",
+			"/.well-known/oms-blob-health",
+			"/.well-known/oms-blob-health",
 		]);
 		expect(new Set(urls.map(value => new URL(value).searchParams.get("nonce"))).size).toBe(3);
 	});

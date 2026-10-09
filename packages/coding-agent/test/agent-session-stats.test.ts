@@ -1,12 +1,12 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "bun:test";
-import { Agent } from "@oh-my-pi/pi-agent-core";
-import type { AssistantMessage, Message, Model, Usage, UserMessage } from "@oh-my-pi/pi-ai";
-import { ModelRegistry } from "@oh-my-pi/pi-coding-agent/config/model-registry";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { AgentSession } from "@oh-my-pi/pi-coding-agent/session/agent-session";
-import { AuthStorage } from "@oh-my-pi/pi-coding-agent/session/auth-storage";
-import { SessionManager } from "@oh-my-pi/pi-coding-agent/session/session-manager";
-import { TempDir } from "@oh-my-pi/pi-utils";
+import { Agent } from "@oh-my-soup/pi-agent-core";
+import type { AssistantMessage, Message, Model, Usage, UserMessage } from "@oh-my-soup/pi-ai";
+import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { AgentSession } from "@oh-my-soup/pi-coding-agent/session/agent-session";
+import { AuthStorage } from "@oh-my-soup/pi-coding-agent/session/auth-storage";
+import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
+import { TempDir } from "@oh-my-soup/pi-utils";
 
 describe("AgentSession session stats", () => {
 	let authStorage: AuthStorage;
@@ -97,7 +97,7 @@ describe("AgentSession session stats", () => {
 	it("keeps mixed peak and off-peak charges in session and footer totals after resume", async () => {
 		const target = modelRegistry.find("deepseek", "deepseek-v4-flash");
 		if (!target) throw new Error("Expected bundled DeepSeek Flash");
-		using tempDir = TempDir.createSync("@omp-session-mixed-cost-");
+		using tempDir = TempDir.createSync("@oms-session-mixed-cost-");
 		const manager = SessionManager.create(tempDir.path(), tempDir.path());
 		manager.appendMessage({ role: "user", content: "First request", timestamp: 1 });
 		for (const [timestamp, inputCost, outputCost] of [
@@ -246,7 +246,7 @@ describe("AgentSession session stats", () => {
 			throw new Error("Expected bundled model with a context window");
 		}
 
-		using tempDir = TempDir.createSync("@omp-session-stats-");
+		using tempDir = TempDir.createSync("@oms-session-stats-");
 		const sessionFile = `${tempDir.path()}/repro.jsonl`;
 		await Bun.write(
 			sessionFile,

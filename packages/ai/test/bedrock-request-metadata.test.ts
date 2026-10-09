@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
-import { streamBedrock } from "@oh-my-pi/pi-ai/providers/amazon-bedrock";
-import { streamSimple } from "@oh-my-pi/pi-ai/stream";
-import type { Model } from "@oh-my-pi/pi-ai/types";
+import { streamBedrock } from "@oh-my-soup/pi-ai/providers/amazon-bedrock";
+import { streamSimple } from "@oh-my-soup/pi-ai/stream";
+import type { Model } from "@oh-my-soup/pi-ai/types";
 import {
 	bedrockTestModel,
 	BEDROCK_TEST_CONTEXT,

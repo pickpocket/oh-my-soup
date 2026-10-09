@@ -3,18 +3,18 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { parseCodexRateLimitHeaders } from "@oh-my-pi/pi-ai";
-import { openaiCodexUsageProvider } from "@oh-my-pi/pi-ai/usage/openai-codex";
+import { parseCodexRateLimitHeaders } from "@oh-my-soup/pi-ai";
+import { openaiCodexUsageProvider } from "@oh-my-soup/pi-ai/usage/openai-codex";
 import {
 	AuthBrokerClient,
 	RemoteAuthCredentialStore,
 	type SnapshotResponse,
 	startAuthBroker,
-} from "@oh-my-pi/pi-ai/auth-broker";
-import { type AuthCredentialStore, AuthStorage, SqliteAuthCredentialStore } from "@oh-my-pi/pi-ai/auth-storage";
-import * as oauthUtils from "@oh-my-pi/pi-ai/registry/oauth";
-import type { OAuthCredentials } from "@oh-my-pi/pi-ai/registry/oauth/types";
-import type { UsageLimit, UsageProvider, UsageReport } from "@oh-my-pi/pi-ai/usage";
+} from "@oh-my-soup/pi-ai/auth-broker";
+import { type AuthCredentialStore, AuthStorage, SqliteAuthCredentialStore } from "@oh-my-soup/pi-ai/auth-storage";
+import * as oauthUtils from "@oh-my-soup/pi-ai/registry/oauth";
+import type { OAuthCredentials } from "@oh-my-soup/pi-ai/registry/oauth/types";
+import type { UsageLimit, UsageProvider, UsageReport } from "@oh-my-soup/pi-ai/usage";
 import { OAuthRefresher } from "../src/auth/refresh";
 import { removeWithRetries } from "../../utils/src/temp";
 

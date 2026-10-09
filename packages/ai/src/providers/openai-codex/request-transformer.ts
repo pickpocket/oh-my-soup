@@ -1,6 +1,6 @@
-import { Effort } from "@oh-my-pi/pi-catalog/effort";
-import { requireSupportedEffort } from "@oh-my-pi/pi-catalog/model-thinking";
-import { $env } from "@oh-my-pi/pi-utils";
+import { Effort } from "@oh-my-soup/pi-catalog/effort";
+import { requireSupportedEffort } from "@oh-my-soup/pi-catalog/model-thinking";
+import { $env } from "@oh-my-soup/pi-utils";
 import type { Model } from "../../types";
 import { mapOpenAIReasoningEffort } from "../openai-shared";
 

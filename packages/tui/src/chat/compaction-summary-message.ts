@@ -2,11 +2,11 @@ import { Box } from "../components/box";
 import { Disclosure } from "../components/disclosure";
 import { type Component } from "../tui";
 import { Markdown } from "../components/markdown";
-import { formatNumber } from "@oh-my-pi/pi-utils";
+import { formatNumber } from "@oh-my-soup/pi-utils";
 import { getMarkdownTheme, getThemeEpoch, theme } from "../theme";
 import { expandKeyHint } from "../render/render-utils";
 import type { BranchSummaryMessage, CompactionSummaryMessage, CustomMessage } from "./messages";
-import type { TspSpan } from "@oh-my-pi/pi-wire";
+import type { TspSpan } from "@oh-my-soup/pi-wire";
 import { md, node, span, text } from "../native/describe";
 import { type NativeChild, type NativeNode, type NativeUiEvent, rootToggleExpanded } from "../native/node";
 import { Memo } from "../native/memo";
@@ -209,7 +209,7 @@ export class CompactionSummaryMessageComponent extends SummaryMessageComponent {
 			nativeLabel: () => compactionNativeLabel(message),
 			nativeDetail: () => compactionNativeDetail(message),
 			detailMarkdown: () => compactionDetailMarkdown(message),
-			role: "omp.compaction",
+			role: "oms.compaction",
 		});
 	}
 }
@@ -236,7 +236,7 @@ function compactionNativeDetail(message: CompactionSummaryMessage): NativeChild[
 		frames > 0
 			? `Summary · ${frames} snapcompact frame${frames === 1 ? "" : "s"} attached`
 			: "Summary of the earlier conversation";
-	const detail: NativeChild[] = [text([span(caption, "dim")], { role: "omp.compaction.caption", key: "caption" })];
+	const detail: NativeChild[] = [text([span(caption, "dim")], { role: "oms.compaction.caption", key: "caption" })];
 	if (message.warning) detail.push(text([span(message.warning, "warning")], { wrap: "word", key: "warning" }));
 	detail.push(md(message.summary, { key: "summary" }));
 	return detail;
@@ -277,7 +277,7 @@ export class HandoffSummaryMessageComponent extends SummaryMessageComponent {
 		super({
 			label: () => `${theme.icon.context} handed-off`,
 			nativeLabel: () => [span("Handed off", "muted")],
-			role: "omp.handoff",
+			role: "oms.handoff",
 			detailMarkdown: () => {
 				const document = extractHandoffDocument(getCustomMessageText(message));
 				return `**Handoff context**\n\n${document || "_No handoff content._"}`;
@@ -306,7 +306,7 @@ export class BranchSummaryMessageComponent extends SummaryMessageComponent {
 		super({
 			label: () => `${theme.icon.branch} branch`,
 			nativeLabel: () => [span("Branch summarized", "muted")],
-			role: "omp.branch",
+			role: "oms.branch",
 			detailMarkdown: () => `**Branch summary**\n\n${message.summary}`,
 		});
 	}

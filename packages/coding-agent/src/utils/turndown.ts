@@ -1,4 +1,4 @@
-import TurndownService, { gfm } from "@oh-my-pi/pi-utils/turndown";
+import TurndownService, { gfm } from "@oh-my-soup/pi-utils/turndown";
 
 type TurndownListParent = {
 	nodeName: string;
@@ -7,7 +7,7 @@ type TurndownListParent = {
 };
 
 /**
- * Build a Turndown instance configured for GFM with the fixes omp relies on:
+ * Build a Turndown instance configured for GFM with the fixes oms relies on:
  * `~~strikethrough~~`, unescaped heading periods, and single-space list markers.
  *
  * Shared by the web scrapers (HTML → markdown) and the markit document engine

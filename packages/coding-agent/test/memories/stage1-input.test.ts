@@ -2,8 +2,8 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { buildStage1RolloutItems } from "@oh-my-pi/pi-coding-agent/memories";
-import { parseJsonlLenient } from "@oh-my-pi/pi-utils";
+import { buildStage1RolloutItems } from "@oh-my-soup/pi-coding-agent/memories";
+import { parseJsonlLenient } from "@oh-my-soup/pi-utils";
 
 /** Reference: the whole-file read + stringify + head/tail truncation the streaming builder replaces. */
 function referenceItems(raw: string, tokenLimit: number): string {
@@ -43,7 +43,7 @@ describe("buildStage1RolloutItems", () => {
 	let tempDir: string;
 
 	beforeEach(async () => {
-		tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-stage1-input-test-"));
+		tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-stage1-input-test-"));
 	});
 
 	afterEach(async () => {

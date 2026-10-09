@@ -1,9 +1,9 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it, spyOn, vi } from "bun:test";
-import { resetSettingsForTest, Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { SelectorController } from "@oh-my-pi/pi-coding-agent/modes/controllers/selector-controller";
-import type { Component, OverlayHandle, OverlayOptions, TUI } from "@oh-my-pi/pi-tui";
-import { AgentsHubComponent } from "@oh-my-pi/pi-tui/overlays/agents-hub";
-import * as themeModule from "@oh-my-pi/pi-tui/theme";
+import { resetSettingsForTest, Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { SelectorController } from "@oh-my-soup/pi-coding-agent/modes/controllers/selector-controller";
+import type { Component, OverlayHandle, OverlayOptions, TUI } from "@oh-my-soup/pi-tui";
+import { AgentsHubComponent } from "@oh-my-soup/pi-tui/overlays/agents-hub";
+import * as themeModule from "@oh-my-soup/pi-tui/theme";
 import { createInteractiveModeContext } from "./helpers/interactive-mode-context";
 
 /** The overlay members of `ui` the single-instance guard reads and drives. */

@@ -9,12 +9,12 @@ import {
 	type Component,
 	type Focusable,
 	TUI,
-} from "@oh-my-pi/pi-tui";
-import { formatKeyHint, formatKeyHints } from "@oh-my-pi/pi-tui/app-keybindings";
-import chalk from "@oh-my-pi/pi-utils/chalk";
-import type { StreamChatMessage, TspSpan } from "@oh-my-pi/pi-wire";
-import type { NativeNode } from "@oh-my-pi/pi-tui/native/node";
-import { col, kbd, node, row, span, text } from "@oh-my-pi/pi-tui/native/describe";
+} from "@oh-my-soup/pi-tui";
+import { formatKeyHint, formatKeyHints } from "@oh-my-soup/pi-tui/app-keybindings";
+import chalk from "@oh-my-soup/pi-utils/chalk";
+import type { StreamChatMessage, TspSpan } from "@oh-my-soup/pi-wire";
+import type { NativeNode } from "@oh-my-soup/pi-tui/native/node";
+import { col, kbd, node, row, span, text } from "@oh-my-soup/pi-tui/native/describe";
 import type { StreamConsoleEvent, StreamMuxHost } from "./streamer";
 
 const HISTORY_LIMIT = 50;
@@ -162,17 +162,17 @@ class StreamConsoleComponent implements Component, Focusable {
 				kbd("ctrl+c", "quit"),
 				text([span("quit", "dim")]),
 			],
-			{ gap: "xs", align: "center", role: "omp.hint" },
+			{ gap: "xs", align: "center", role: "oms.hint" },
 		);
 		const consoleNode = col(
 			[
 				text(header, { wrap: "none" }),
 				text(details, { wrap: "none" }),
-				col(this.#logNodes.slice(), { grow: 1, role: "omp.stream.log" }),
+				col(this.#logNodes.slice(), { grow: 1, role: "oms.stream.log" }),
 				this.#input,
 				hint,
 			],
-			{ role: "omp.stream.console" },
+			{ role: "oms.stream.console" },
 		);
 		this.#native = { revision: this.#revision, node: consoleNode };
 		return consoleNode;

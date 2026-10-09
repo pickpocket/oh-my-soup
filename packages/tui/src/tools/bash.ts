@@ -1,5 +1,5 @@
 import type { Component } from "../tui";
-import { getProjectDir } from "@oh-my-pi/pi-utils";
+import { getProjectDir } from "@oh-my-soup/pi-utils";
 import { highlightCode, type Theme } from "../theme/theme";
 import { renderStatusLine } from "../render/status-line";
 import { framedToolCard, type ToolCardSnapshot } from "../render/tool-card";
@@ -642,7 +642,7 @@ export function createShellRenderer<TArgs>(config: ShellRendererConfig<TArgs>) {
 			const meta = details?.meta;
 			const body: NativeChild[] = compact([
 				output.trim().length > 0 &&
-					keyed(ansi(output, { follow: isPartial, role: "omp.tool.bash.output" }), "output"),
+					keyed(ansi(output, { follow: isPartial, role: "oms.tool.bash.output" }), "output"),
 				footnoteText(shellFootParts(details, stripped.artifactId), {
 					...meta,
 					truncation: showingFullOutput ? undefined : meta?.truncation,

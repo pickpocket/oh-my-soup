@@ -1,5 +1,5 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "bun:test";
-import { SvgFigure } from "@oh-my-pi/pi-tui/chat/svg-figure";
+import { SvgFigure } from "@oh-my-soup/pi-tui/chat/svg-figure";
 import {
 	type CellDimensions,
 	getCellDimensions,
@@ -7,8 +7,8 @@ import {
 	setCellDimensions,
 	setTerminalImageProtocol,
 	TERMINAL,
-} from "@oh-my-pi/pi-tui/terminal-capabilities";
-import { initTheme } from "@oh-my-pi/pi-tui/theme";
+} from "@oh-my-soup/pi-tui/terminal-capabilities";
+import { initTheme } from "@oh-my-soup/pi-tui/theme";
 
 /** A HiDPI cell; 838 units at 2.25 px/unit is 1885.5 px, not a whole number of cells. */
 const CELL: CellDimensions = { widthPx: 16, heightPx: 36 };

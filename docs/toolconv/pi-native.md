@@ -1,26 +1,26 @@
 # pi-native auth-gateway transport
 
 `pi-native` is the lossless transport between a pi-ai client and an
-`omp auth-gateway`. It is **not a textual tool-call dialect**: there is no
+`oms auth-gateway`. It is **not a textual tool-call dialect**: there is no
 `<call:NAME>` grammar, parser, renderer, or `PI_DIALECT=pi-native` value in the
 current implementation. Tool calls remain canonical pi-ai `ToolCall` content
 blocks inside `Context` and `AssistantMessageEvent`.
 
 Use this transport when the client already speaks pi-ai and the gateway owns
-provider credentials—for example, a containerized omp talking to a host
-gateway or a robomp slot talking to its sidecar. OpenAI/Anthropic-compatible
+provider credentials—for example, a containerized oms talking to a host
+gateway or a roboms slot talking to its sidecar. OpenAI/Anthropic-compatible
 routes translate and can lose pi-specific fields; pi-native sends the
 canonical types directly, preserving service tier, cache markers, thinking
 budgets, tool-choice variants, images, and tool-call IDs.
 
-### Removed omp tool-call dialect
+### Removed oms tool-call dialect
 
 Historically, "pi-native" named an in-band tool-call serialization: an XML
 dialect of `<call:NAME …>` blocks, replaced by a sigil-delimited format
 (v16.0.10, `f743ddc`, 2026-06-18), then deleted outright (v16.2.2,
 `053da98`, 2026-06-27) along with its selection knobs (`tools.format: "pi"`,
 `PI_DIALECT=pi`). Nothing in `packages/ai` emits or parses either spelling.
-Old references to `<call:…>` blocks or `§` headers as "the omp tool-call
+Old references to `<call:…>` blocks or `§` headers as "the oms tool-call
 format" describe a format that no longer exists; the in-band dialects that
 remain serve third-party model families (the live list is the registry in
 `packages/ai/src/dialect/factory.ts`).
@@ -38,7 +38,7 @@ The provider's `transport` and gateway `baseUrl` apply to every model under
 that provider, including custom models. The resolved model carries
 `transport: "pi-native"`; this is independent of `tools.format`.
 
-`baseUrl` MUST identify an `omp auth-gateway` (or compatible service). Missing
+`baseUrl` MUST identify an `oms auth-gateway` (or compatible service). Missing
 `baseUrl` fails with:
 
 ```text
@@ -54,7 +54,7 @@ The gateway bearer is the resolved model/API key. It is sent as
 forwarded; an explicit `model.headers.Authorization` takes precedence over the
 resolved key.
 
-The client also sends `x-omp-install-id`, `x-omp-hostname`, and `x-omp-app`
+The client also sends `x-oms-install-id`, `x-oms-hostname`, and `x-oms-app`
 for usage attribution. Those identity headers are not forwarded upstream.
 
 `transport` changes only dispatch. Pricing, context window, maximum-token and

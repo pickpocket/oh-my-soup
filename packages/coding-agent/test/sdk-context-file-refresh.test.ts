@@ -1,18 +1,18 @@
 import { describe, expect, it } from "bun:test";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { AuthStorage } from "@oh-my-pi/pi-ai";
-import { getBundledModel } from "@oh-my-pi/pi-catalog/models";
-import { ModelRegistry } from "@oh-my-pi/pi-coding-agent/config/model-registry";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { initializeWithSettings } from "@oh-my-pi/pi-coding-agent/discovery";
-import { createAgentSession } from "@oh-my-pi/pi-coding-agent/sdk";
-import type { AgentSession } from "@oh-my-pi/pi-coding-agent/session/agent-session";
-import { SessionManager } from "@oh-my-pi/pi-coding-agent/session/session-manager";
-import { TempDir } from "@oh-my-pi/pi-utils";
+import { AuthStorage } from "@oh-my-soup/pi-ai";
+import { getBundledModel } from "@oh-my-soup/pi-catalog/models";
+import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { initializeWithSettings } from "@oh-my-soup/pi-coding-agent/discovery";
+import { createAgentSession } from "@oh-my-soup/pi-coding-agent/sdk";
+import type { AgentSession } from "@oh-my-soup/pi-coding-agent/session/agent-session";
+import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
+import { TempDir } from "@oh-my-soup/pi-utils";
 
-import { cfgAdvisorEnabled } from "@oh-my-pi/pi-coding-agent/advisor/settings";
-import { cfgDisabledExtensions } from "@oh-my-pi/pi-coding-agent/extensibility/settings";
+import { cfgAdvisorEnabled } from "@oh-my-soup/pi-coding-agent/advisor/settings";
+import { cfgDisabledExtensions } from "@oh-my-soup/pi-coding-agent/extensibility/settings";
 
 const INITIAL_CONTEXT = "reload-context-initial-marker";
 const UPDATED_CONTEXT = "reload-context-updated-marker";
@@ -53,7 +53,7 @@ async function createContextSession(
 
 describe("context-file prompt refresh", () => {
 	it("replaces edited context-file content in the current system prompt", async () => {
-		using tempDir = TempDir.createSync("@omp-context-refresh-edit-");
+		using tempDir = TempDir.createSync("@oms-context-refresh-edit-");
 		const contextPath = tempDir.join("AGENTS.md");
 		await Bun.write(contextPath, INITIAL_CONTEXT);
 		const { session, authStorage } = await createContextSession(tempDir.path(), Settings.isolated({}));
@@ -74,7 +74,7 @@ describe("context-file prompt refresh", () => {
 	});
 
 	it("removes a disabled context file from the current system prompt", async () => {
-		using tempDir = TempDir.createSync("@omp-context-refresh-disable-");
+		using tempDir = TempDir.createSync("@oms-context-refresh-disable-");
 		await Bun.write(tempDir.join("AGENTS.md"), INITIAL_CONTEXT);
 		const settings = Settings.isolated({});
 		const { session, authStorage } = await createContextSession(tempDir.path(), settings);
@@ -93,7 +93,7 @@ describe("context-file prompt refresh", () => {
 	});
 
 	it("honors the session's own disabledExtensions, not the process-global settings", async () => {
-		using tempDir = TempDir.createSync("@omp-context-refresh-isolation-");
+		using tempDir = TempDir.createSync("@oms-context-refresh-isolation-");
 		await Bun.write(tempDir.join("AGENTS.md"), INITIAL_CONTEXT);
 		const settings = Settings.isolated({});
 		const { session, authStorage } = await createContextSession(tempDir.path(), settings);
@@ -117,7 +117,7 @@ describe("context-file prompt refresh", () => {
 	});
 
 	it("refreshes the advisor context prompt when context files change", async () => {
-		using tempDir = TempDir.createSync("@omp-context-refresh-advisor-");
+		using tempDir = TempDir.createSync("@oms-context-refresh-advisor-");
 		const contextPath = tempDir.join("AGENTS.md");
 		await Bun.write(contextPath, INITIAL_CONTEXT);
 		const { session, authStorage } = await createContextSession(tempDir.path(), Settings.isolated({}), {
@@ -142,7 +142,7 @@ describe("context-file prompt refresh", () => {
 	});
 
 	it("recomputes active repo context after the session cwd changes", async () => {
-		using tempDir = TempDir.createSync("@omp-context-refresh-cwd-");
+		using tempDir = TempDir.createSync("@oms-context-refresh-cwd-");
 		const cwdA = tempDir.join("cwd-a");
 		const cwdB = tempDir.join("cwd-b");
 		fs.mkdirSync(path.join(cwdA, "old-repo", ".git"), { recursive: true });

@@ -74,7 +74,7 @@ async function main(): Promise<void> {
 		process.platform === "darwin" &&
 		(!crossBuild || crossBuild.platform === "darwin") &&
 		Bun.env.BUN_NO_CODESIGN_MACHO_BINARY !== "1";
-	const outName = crossBuild ? `omp-${crossBuild.id}` : "omp";
+	const outName = crossBuild ? `oms-${crossBuild.id}` : "oms";
 	const outputPath = path.join(packageDir, "dist", outName);
 	// Generate inside the try so the finally always restores the empty checked-in
 	// placeholders (stats client archive, docs index) even on failure.

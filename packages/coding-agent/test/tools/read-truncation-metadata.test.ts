@@ -3,16 +3,16 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it } from "bun:test
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { AgentToolResult } from "@oh-my-pi/pi-agent-core";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { getThemeByName, initTheme, type Theme } from "@oh-my-pi/pi-tui/theme";
-import { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES } from "@oh-my-pi/pi-tui/tools/streaming-output";
-import type { ToolSession } from "@oh-my-pi/pi-coding-agent/tools";
-import type { ReadToolDetails, ReadTruncationStats } from "@oh-my-pi/pi-tui/tools/read";
-import { formatTruncationMetaNotice } from "@oh-my-pi/pi-tui/tools/output-meta";
-import { ReadTool } from "@oh-my-pi/pi-coding-agent/tools/read";
-import { readToolRenderer } from "@oh-my-pi/pi-tui/tools/read";
-import { writeArchive } from "@oh-my-pi/pi-utils/ar";
+import type { AgentToolResult } from "@oh-my-soup/pi-agent-core";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { getThemeByName, initTheme, type Theme } from "@oh-my-soup/pi-tui/theme";
+import { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES } from "@oh-my-soup/pi-tui/tools/streaming-output";
+import type { ToolSession } from "@oh-my-soup/pi-coding-agent/tools";
+import type { ReadToolDetails, ReadTruncationStats } from "@oh-my-soup/pi-tui/tools/read";
+import { formatTruncationMetaNotice } from "@oh-my-soup/pi-tui/tools/output-meta";
+import { ReadTool } from "@oh-my-soup/pi-coding-agent/tools/read";
+import { readToolRenderer } from "@oh-my-soup/pi-tui/tools/read";
+import { writeArchive } from "@oh-my-soup/pi-utils/ar";
 
 function textOutput(result: AgentToolResult<ReadToolDetails>): string {
 	return result.content

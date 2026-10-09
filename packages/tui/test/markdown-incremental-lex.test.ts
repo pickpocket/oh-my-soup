@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "bun:test";
-import { clearRenderCache, Markdown, type MarkdownTheme } from "@oh-my-pi/pi-tui/components/markdown";
-import { getMarkdownTheme, getMarkdownThemeWithLinkTargets, theme } from "@oh-my-pi/pi-tui/theme";
-import { TERMINAL } from "@oh-my-pi/pi-tui/terminal-capabilities";
-import { Lexer } from "@oh-my-pi/pi-utils/marked";
+import { clearRenderCache, Markdown, type MarkdownTheme } from "@oh-my-soup/pi-tui/components/markdown";
+import { getMarkdownTheme, getMarkdownThemeWithLinkTargets, theme } from "@oh-my-soup/pi-tui/theme";
+import { TERMINAL } from "@oh-my-soup/pi-tui/terminal-capabilities";
+import { Lexer } from "@oh-my-soup/pi-utils/marked";
 import { defaultMarkdownTheme } from "./test-themes.js";
 
 // E2 contract: the streaming incremental lexer (lex(prefix) ++ lex(tail), reusing

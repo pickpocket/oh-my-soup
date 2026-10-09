@@ -186,12 +186,12 @@ routing, model ids, or usage accounting.
 
 ### ClinePass
 
-- Requests carry the official Cline CLI client identity (`X-CLIENT-TYPE`, `X-CLIENT-VERSION`, `X-PLATFORM`, `X-CORE-VERSION`, `User-Agent`, and related headers). Inference also carries OMP's stable session key as `X-Task-ID`; account and discovery calls omit it. This is the supported identification contract for Cline-gated roster entries.
+- Requests carry the official Cline CLI client identity (`X-CLIENT-TYPE`, `X-CLIENT-VERSION`, `X-PLATFORM`, `X-CORE-VERSION`, `User-Agent`, and related headers). Inference also carries OMS's stable session key as `X-Task-ID`; account and discovery calls omit it. This is the supported identification contract for Cline-gated roster entries.
 - Public catalog ids omit the gateway's `cline-pass/` namespace; Chat Completions adds it on the wire. Free-tier ids retain their full OpenRouter-style namespace because the gateway already receives them in wire form.
 - The public `recommended-models` endpoint is authoritative for membership. The required `clinePass` bucket supplies subscription models and the optional `free` bucket supplies free models. A missing subscription bucket or one with no valid IDs is rejected so the generated fallback survives; invalid individual entries are skipped.
 - Known IDs use a Cline-authored metadata snapshot for exact limits, subscription pricing, input modalities, and reasoning controls. Unknown IDs are enriched from bundled upstream references and live OpenRouter metadata, then fall back to conservative limits without invented reasoning controls.
 - Subscription models display Cline's API-equivalent list price, but streamed `usage.cost` is the authoritative billed/discounted charge. Free-tier models remain genuinely $0.
-- Reasoning is model-specific: effort models send only their advertised wire tiers, Qwen3.7 Plus maps OMP efforts to Cline's nested `reasoning.max_tokens` budget, and thinking-off sends `reasoning: { enabled: false }` where Cline advertises a toggle.
+- Reasoning is model-specific: effort models send only their advertised wire tiers, Qwen3.7 Plus maps OMS efforts to Cline's nested `reasoning.max_tokens` budget, and thinking-off sends `reasoning: { enabled: false }` where Cline advertises a toggle.
 - Cline-hosted Qwen and Anthropic routes receive Anthropic-style ephemeral cache breakpoints. Required reasoning history replays in assistant `reasoning`; incoming reasoning text is read from `delta.reasoning`.
 - Login validates the key against `/users/me`, without a completion probe or subscription-quota charge. It does not prove access to every roster model.
 - Subscription-window exhaustion (`clinepass limit`) and free-tier caps (`free limit reached on model ...`) classify as usage limits. Roster rotation and account-policy errors receive provider-specific recovery guidance.

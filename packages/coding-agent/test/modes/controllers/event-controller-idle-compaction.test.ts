@@ -1,17 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
-import type { AssistantMessage } from "@oh-my-pi/pi-ai";
-import { resetSettingsForTest, Settings, settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import type { GoalModeState } from "@oh-my-pi/pi-coding-agent/goals/state";
-import { EventController } from "@oh-my-pi/pi-coding-agent/modes/controllers/event-controller";
-import type { Component } from "@oh-my-pi/pi-tui";
-import { RecapNotice } from "@oh-my-pi/pi-tui/chat/recap-notice";
-import { initTheme } from "@oh-my-pi/pi-tui/theme";
-import type { InteractiveModeContext } from "@oh-my-pi/pi-coding-agent/modes/types";
-import type { AgentSession } from "@oh-my-pi/pi-coding-agent/session/agent-session";
+import type { AssistantMessage } from "@oh-my-soup/pi-ai";
+import { resetSettingsForTest, Settings, settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import type { GoalModeState } from "@oh-my-soup/pi-coding-agent/goals/state";
+import { EventController } from "@oh-my-soup/pi-coding-agent/modes/controllers/event-controller";
+import type { Component } from "@oh-my-soup/pi-tui";
+import { RecapNotice } from "@oh-my-soup/pi-tui/chat/recap-notice";
+import { initTheme } from "@oh-my-soup/pi-tui/theme";
+import type { InteractiveModeContext } from "@oh-my-soup/pi-coding-agent/modes/types";
+import type { AgentSession } from "@oh-my-soup/pi-coding-agent/session/agent-session";
 import { createInteractiveModeContext } from "../../helpers/interactive-mode-context";
 
-import { cfgCompactionIdleEnabled } from "@oh-my-pi/pi-coding-agent/session/context-settings";
-import { cfgRecapEnabled, cfgRecapIdleSeconds } from "@oh-my-pi/pi-coding-agent/modes/settings";
+import { cfgCompactionIdleEnabled } from "@oh-my-soup/pi-coding-agent/session/context-settings";
+import { cfgRecapEnabled, cfgRecapIdleSeconds } from "@oh-my-soup/pi-coding-agent/modes/settings";
 
 async function flushMicrotasks(): Promise<void> {
 	for (let i = 0; i < 10; i++) {

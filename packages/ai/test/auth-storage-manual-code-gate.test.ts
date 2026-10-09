@@ -1,8 +1,8 @@
 import { Database } from "bun:sqlite";
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
-import { AuthStorage, SqliteAuthCredentialStore } from "@oh-my-pi/pi-ai/auth-storage";
-import { registerOAuthProvider, unregisterOAuthProviders } from "@oh-my-pi/pi-ai/registry/oauth";
-import type { OAuthLoginCallbacks, OAuthProviderInterface } from "@oh-my-pi/pi-ai/registry/oauth/types";
+import { AuthStorage, SqliteAuthCredentialStore } from "@oh-my-soup/pi-ai/auth-storage";
+import { registerOAuthProvider, unregisterOAuthProviders } from "@oh-my-soup/pi-ai/registry/oauth";
+import type { OAuthLoginCallbacks, OAuthProviderInterface } from "@oh-my-soup/pi-ai/registry/oauth/types";
 
 const TEST_SOURCE = "manual-code-gate-test";
 

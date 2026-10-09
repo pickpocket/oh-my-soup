@@ -1,4 +1,4 @@
-import { parseJsonWithRepair } from "@oh-my-pi/pi-utils";
+import { parseJsonWithRepair } from "@oh-my-soup/pi-utils";
 import type { Message, ToolCall } from "../types";
 import { parseToolCallArguments } from "../utils/tool-call-arguments";
 import { asRecord, mintToolCallId, partialSuffixOverlapAny } from "./coercion";

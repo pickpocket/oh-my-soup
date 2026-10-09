@@ -13,7 +13,7 @@ import {
 	listCollabHosts,
 	publishCollabHost,
 	resolveCollabHostLink,
-} from "@oh-my-pi/pi-coding-agent/collab/registry";
+} from "@oh-my-soup/pi-coding-agent/collab/registry";
 
 const cleanupDirs: string[] = [];
 const openPublications: CollabHostPublication[] = [];
@@ -40,7 +40,7 @@ afterEach(async () => {
 });
 
 async function tempDir(): Promise<string> {
-	const dir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-collab-registry-"));
+	const dir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-collab-registry-"));
 	cleanupDirs.push(dir);
 	return dir;
 }
@@ -126,7 +126,7 @@ function rawRequest(endpoint: string, request: object): Promise<string> {
 function auxEndpoint(dir: string, label: string): string {
 	const id = crypto.randomBytes(4).toString("hex");
 	return process.platform === "win32"
-		? `\\\\.\\pipe\\omp-collab-test-${label}-${id}`
+		? `\\\\.\\pipe\\oms-collab-test-${label}-${id}`
 		: path.join(dir, `${label}-${id}.sock`);
 }
 
@@ -399,7 +399,7 @@ describe("collab registry", () => {
 
 	it("lists a host that omits busy as unknown and drops one that reports garbage", async () => {
 		const dir = await tempDir();
-		// An omp older than the `busy` field: same protocol version, one key short.
+		// An oms older than the `busy` field: same protocol version, one key short.
 		const older = makeFixture({ sessionId: "older-host" });
 		const { busy: _busy, ...withoutBusy } = older.snapshot;
 		openPublications.push(
@@ -715,7 +715,7 @@ describe("collab registry", () => {
 			// Relocated under the (short, in production `/tmp`) fallback base, in a
 			// deterministic owner-only directory keyed by this registry directory.
 			expect(path.dirname(path.dirname(pub.endpoint))).toBe(fallbackBase);
-			expect(path.basename(path.dirname(pub.endpoint))).toMatch(/^omp-collab-[0-9a-f]{20}$/);
+			expect(path.basename(path.dirname(pub.endpoint))).toMatch(/^oms-collab-[0-9a-f]{20}$/);
 			expect((await fs.stat(path.dirname(pub.endpoint))).mode & 0o777).toBe(0o700);
 			expect(await listCollabHosts({ dir })).toMatchObject([{ instanceId: "deep-config-root" }]);
 			expect(await resolveCollabHostLink("deep-config-root", "control", { dir })).toMatchObject({

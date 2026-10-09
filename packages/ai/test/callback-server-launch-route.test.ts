@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "bun:test";
 import * as vm from "node:vm";
-import { OAuthCallbackFlow } from "@oh-my-pi/pi-ai/registry/oauth/callback-server";
-import type { OAuthAuthInfo, OAuthCredentials } from "@oh-my-pi/pi-ai/registry/oauth/types";
-import { parseHTML } from "@oh-my-pi/pi-utils/dom";
+import { OAuthCallbackFlow } from "@oh-my-soup/pi-ai/registry/oauth/callback-server";
+import type { OAuthAuthInfo, OAuthCredentials } from "@oh-my-soup/pi-ai/registry/oauth/types";
+import { parseHTML } from "@oh-my-soup/pi-utils/dom";
 
 /**
  * Regression harness for #4418 — the `/launch` route the callback server hosts
@@ -172,7 +172,7 @@ describe("OAuthCallbackFlow /launch route", () => {
 				},
 				signal: abort.signal,
 			},
-			// Caller pins the provider redirect at `/launch` — an OMP config
+			// Caller pins the provider redirect at `/launch` — an OMS config
 			// setting `oauth.callbackPath: "/launch"` or a matching
 			// `oauth.redirectUri`. Callback resolution MUST win the route
 			// collision, and no self-redirecting launchUrl should be advertised.

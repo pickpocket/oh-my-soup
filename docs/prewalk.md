@@ -9,10 +9,10 @@ Prewalk is off by default. Its default target is the model assigned to the `@smo
 Enable prewalk persistently in the global config:
 
 ```bash
-omp config set prewalk.enabled true
+oms config set prewalk.enabled true
 ```
 
-The equivalent YAML in `~/.omp/agent/config.yml` or a project `.omp/config.yml` is:
+The equivalent YAML in `~/.oms/agent/config.yml` or a project `.oms/config.yml` is:
 
 ```yaml
 prewalk:
@@ -30,12 +30,12 @@ The configured setting arms new sessions, not resumed/imported sessions. Explici
 For example:
 
 ```bash
-omp --prewalk
-omp --prewalk-into @smol
-omp --prewalk-into openai/gpt-5-mini
+oms --prewalk
+oms --prewalk-into @smol
+oms --prewalk-into openai/gpt-5-mini
 ```
 
-At startup, OMP resolves the target with the normal model-role and model-matching rules, trying configured role candidates in order for an authenticated, enabled provider. Extension-provided targets may resolve after extension registration. If no usable target remains, OMP prints a warning and starts with prewalk unarmed.
+At startup, OMS resolves the target with the normal model-role and model-matching rules, trying configured role candidates in order for an authenticated, enabled provider. Extension-provided targets may resolve after extension registration. If no usable target remains, OMS prints a warning and starts with prewalk unarmed.
 
 `--no-prewalk` cannot be combined with `--prewalk` or `--prewalk-into`. An explicit `--prewalk-into @default` resolves against the default role from before `--model` overrides it.
 
@@ -47,7 +47,7 @@ Any model or thinking-level change made after the handoff counts as a replacemen
 
 An armed prewalk injects a planning nudge. When the `todo` tool is active, any successful `todo` call—including the read-only `view` operation—opens the handoff gate. Without an active `todo` tool, the gate is already open.
 
-OMP switches at the completed assistant-turn boundary containing the first eligible `edit` or `write` result, after persisting that turn's assistant message and tool results. Unlike the todo gate, the edit/write trigger does not require a successful result.
+OMS switches at the completed assistant-turn boundary containing the first eligible `edit` or `write` result, after persisting that turn's assistant message and tool results. Unlike the todo gate, the edit/write trigger does not require a successful result.
 
 Calls to other tools do not trigger the handoff. A read-only `xd://` device request routed through `write`, such as LSP navigation, also does not count; only device operations classified as workspace writes or execution count.
 
@@ -59,7 +59,7 @@ In a top-level session, changing `prewalk.enabled` live also takes effect:
 turning it on arms the current `@smol` target when none is armed; turning it off
 disarms a pending handoff. This does not control subagent prewalk.
 
-Run these slash commands without restarting OMP:
+Run these slash commands without restarting OMS:
 
 ```text
 /prewalk

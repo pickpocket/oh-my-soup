@@ -1,19 +1,19 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "bun:test";
 import * as path from "node:path";
-import { Agent, AgentBusyError } from "@oh-my-pi/pi-agent-core";
-import type { ApiKey, AssistantMessage, AssistantRetryRecovery, Model, Usage } from "@oh-my-pi/pi-ai";
-import { createMockModel, type MockResponse } from "@oh-my-pi/pi-ai/providers/mock";
-import * as envApiKey from "@oh-my-pi/pi-ai/env-api-key";
-import { getBundledModel } from "@oh-my-pi/pi-catalog/models";
-import { ModelRegistry } from "@oh-my-pi/pi-coding-agent/config/model-registry";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { resolveAssistantErrorPresentation } from "@oh-my-pi/pi-tui/chat/transcript-render-helpers";
-import { AgentSession, type AgentSessionEvent } from "@oh-my-pi/pi-coding-agent/session/agent-session";
-import { AuthStorage } from "@oh-my-pi/pi-coding-agent/session/auth-storage";
-import { SILENT_ABORT_MARKER } from "@oh-my-pi/pi-coding-agent/session/messages";
-import type { SessionMessageEntry } from "@oh-my-pi/pi-coding-agent/session/session-entries";
-import { SessionManager } from "@oh-my-pi/pi-coding-agent/session/session-manager";
-import { TempDir } from "@oh-my-pi/pi-utils";
+import { Agent, AgentBusyError } from "@oh-my-soup/pi-agent-core";
+import type { ApiKey, AssistantMessage, AssistantRetryRecovery, Model, Usage } from "@oh-my-soup/pi-ai";
+import { createMockModel, type MockResponse } from "@oh-my-soup/pi-ai/providers/mock";
+import * as envApiKey from "@oh-my-soup/pi-ai/env-api-key";
+import { getBundledModel } from "@oh-my-soup/pi-catalog/models";
+import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { resolveAssistantErrorPresentation } from "@oh-my-soup/pi-tui/chat/transcript-render-helpers";
+import { AgentSession, type AgentSessionEvent } from "@oh-my-soup/pi-coding-agent/session/agent-session";
+import { AuthStorage } from "@oh-my-soup/pi-coding-agent/session/auth-storage";
+import { SILENT_ABORT_MARKER } from "@oh-my-soup/pi-coding-agent/session/messages";
+import type { SessionMessageEntry } from "@oh-my-soup/pi-coding-agent/session/session-entries";
+import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
+import { TempDir } from "@oh-my-soup/pi-utils";
 import { mockSchedulerWaitWithClock } from "./helpers/mock-scheduler-clock";
 
 type AutoRetryEndEvent = Extract<AgentSessionEvent, { type: "auto_retry_end" }>;
@@ -689,7 +689,7 @@ describe("AgentSession retry recovery", () => {
 	};
 
 	it("retries a Codex steering rejection on the same model instead of consulting the fallback chain", async () => {
-		// Codex dropped the response because omp steered it mid-stream, after
+		// Codex dropped the response because oms steered it mid-stream, after
 		// reasoning had streamed. The provider already stopped steering the
 		// session, so the primary replays cleanly; switching models fixes nothing.
 		const { primary, requestedModels, fallbackEvents, sessionManager } = await runFallbackChainRecovery(

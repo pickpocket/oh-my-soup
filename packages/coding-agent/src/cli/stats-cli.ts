@@ -1,12 +1,12 @@
 /**
  * Stats CLI command handlers.
  *
- * Handles `omp stats` subcommand for viewing AI usage statistics.
+ * Handles `oms stats` subcommand for viewing AI usage statistics.
  */
 
-import { formatKeyHint } from "@oh-my-pi/pi-tui/key-hint-format";
-import { truncateToWidth } from "@oh-my-pi/pi-tui/utils";
-import chalk from "@oh-my-pi/pi-utils/chalk";
+import { formatKeyHint } from "@oh-my-soup/pi-tui/key-hint-format";
+import { truncateToWidth } from "@oh-my-soup/pi-tui/utils";
+import chalk from "@oh-my-soup/pi-utils/chalk";
 import { openStandaloneJudge } from "../judgment/standalone";
 import { openPath } from "../utils/open";
 
@@ -78,7 +78,7 @@ export async function runStatsCommand(cmd: StatsCommandArgs): Promise<void> {
 		refreshRollups,
 		startServer,
 		syncAllSessions,
-	} = await import("@oh-my-pi/omp-stats");
+	} = await import("@oh-my-soup/oms-stats");
 
 	// One-shot reports need fully ingested, fully rolled-up data before printing.
 	if (cmd.json || cmd.summary) {

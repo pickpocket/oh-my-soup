@@ -1,8 +1,8 @@
 import { expect, it } from "bun:test";
 import * as http2 from "node:http2";
-import { streamCursor } from "@oh-my-pi/pi-ai/providers/cursor";
-import type { Context, Model } from "@oh-my-pi/pi-ai/types";
-import { buildModel } from "@oh-my-pi/pi-catalog/build";
+import { streamCursor } from "@oh-my-soup/pi-ai/providers/cursor";
+import type { Context, Model } from "@oh-my-soup/pi-ai/types";
+import { buildModel } from "@oh-my-soup/pi-catalog/build";
 import {
 	AgentClientMessageSchema,
 	type AgentRunRequest,
@@ -14,8 +14,8 @@ import {
 	ReadArgsSchema,
 	TextDeltaUpdateSchema,
 	TurnEndedUpdateSchema,
-} from "@oh-my-pi/pi-catalog/discovery/cursor-proto";
-import { create, fromBinary, toBinary } from "@oh-my-pi/pi-catalog/discovery/protobuf";
+} from "@oh-my-soup/pi-catalog/discovery/cursor-proto";
+import { create, fromBinary, toBinary } from "@oh-my-soup/pi-catalog/discovery/protobuf";
 
 function frameConnectMessage(data: Uint8Array): Buffer {
 	const frame = Buffer.alloc(5 + data.length);

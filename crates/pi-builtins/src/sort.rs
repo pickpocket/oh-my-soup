@@ -6162,7 +6162,7 @@ mod tests {
 	}
 
 	// Failure mode: collation used uucore's single collator, built from the
-	// omp process's locale, so `LC_ALL=sv_SE.UTF-8 sort` ordered text by the
+	// oms process's locale, so `LC_ALL=sv_SE.UTF-8 sort` ordered text by the
 	// process locale (or by bytes) and `--debug` named the process locale.
 	#[test]
 	fn collation_follows_the_shell_locale() {

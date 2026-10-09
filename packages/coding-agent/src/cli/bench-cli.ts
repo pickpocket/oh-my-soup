@@ -1,4 +1,4 @@
-import type { ResolvedThinkingLevel } from "@oh-my-pi/pi-agent-core";
+import type { ResolvedThinkingLevel } from "@oh-my-soup/pi-agent-core";
 import type {
 	Api,
 	ApiKeyResolver,
@@ -10,8 +10,8 @@ import type {
 	ProviderSessionState,
 	ServiceTier,
 	ServiceTierByFamily,
-} from "@oh-my-pi/pi-ai";
-import { resolveModelServiceTier, streamSimple } from "@oh-my-pi/pi-ai";
+} from "@oh-my-soup/pi-ai";
+import { resolveModelServiceTier, streamSimple } from "@oh-my-soup/pi-ai";
 import {
 	renderTableRow,
 	replaceTabs,
@@ -19,10 +19,10 @@ import {
 	type TableColumn,
 	truncateToWidth,
 	visibleWidth,
-} from "@oh-my-pi/pi-tui";
-import { formatDuration, formatNumber, prompt } from "@oh-my-pi/pi-utils";
-import chalk from "@oh-my-pi/pi-utils/chalk";
-import { formatModelSelectorValue } from "@oh-my-pi/pi-tui/overlays/model-selector";
+} from "@oh-my-soup/pi-tui";
+import { formatDuration, formatNumber, prompt } from "@oh-my-soup/pi-utils";
+import chalk from "@oh-my-soup/pi-utils/chalk";
+import { formatModelSelectorValue } from "@oh-my-soup/pi-tui/overlays/model-selector";
 import { formatModelStringWithRouting } from "../config/model-resolver";
 import { buildServiceTierByFamily, serviceTierForAllFamilies, serviceTierSettingToTier } from "../config/service-tier";
 import cachePrefixTemplate from "../prompts/bench/cache-prefix.md" with { type: "text" };
@@ -31,7 +31,7 @@ import cacheSuffixTemplate from "../prompts/bench/cache-suffix.md" with { type: 
 import chatTemplate from "../prompts/bench/chat.md" with { type: "text" };
 import generationTemplate from "../prompts/bench/generation.md" with { type: "text" };
 import prefillInstruction from "../prompts/bench/prefill-instruction.md" with { type: "text" };
-import { shouldDisableReasoning, toReasoningEffort } from "@oh-my-pi/pi-tui/thinking";
+import { shouldDisableReasoning, toReasoningEffort } from "@oh-my-soup/pi-tui/thinking";
 import {
 	type BenchRuntime,
 	type BenchTarget,
@@ -39,8 +39,8 @@ import {
 	resolveBenchTargets,
 	type StreamSimpleFn,
 } from "./bench-runtime";
-import { createLiveBoard, type LiveBoardOutput } from "@oh-my-pi/pi-tui/chrome/live-board";
-import { formatCost } from "@oh-my-pi/pi-tui/overlays/agent-hub-renderer";
+import { createLiveBoard, type LiveBoardOutput } from "@oh-my-soup/pi-tui/chrome/live-board";
+import { formatCost } from "@oh-my-soup/pi-tui/overlays/agent-hub-renderer";
 
 import { cfgTierAnthropic, cfgTierGoogle, cfgTierOpenai } from "../session/settings";
 
@@ -647,7 +647,7 @@ function formatCachePairLine(pair: BenchCachePairReport, index: number, total: n
 interface BenchRequestOptions {
 	apiKey: ApiKeyResolver;
 	sessionId: string;
-	/** Native OMP messages; cache mode splits the stable prefix from the suffix. */
+	/** Native OMS messages; cache mode splits the stable prefix from the suffix. */
 	messages: Context["messages"];
 	maxTokens: number;
 	/** Explicit effort from a `:level` selector suffix; absent = provider default. */
@@ -1115,7 +1115,7 @@ export async function runBenchCommand(command: BenchCommandArgs, deps: BenchDepe
 	const now = deps.now ?? (() => performance.now());
 	const interactive = deps.stdoutIsTTY ?? process.stdout.isTTY === true;
 	if (command.models.length === 0) {
-		throw new Error("Pass at least one model selector, e.g. `omp bench opus gpt-5.2`");
+		throw new Error("Pass at least one model selector, e.g. `oms bench opus gpt-5.2`");
 	}
 	// One row per model, filled as runs finish. Outside cache mode the comparison
 	// table doubles as the live footer; cache mode shows a one-line status.
@@ -1190,7 +1190,7 @@ export async function runBenchCommand(command: BenchCommandArgs, deps: BenchDepe
 			if (!preflightKey) {
 				const failure: BenchRunFailure = {
 					ok: false,
-					error: `No credentials for provider "${model.provider}". Run \`omp\` and use /login, or set the provider API key.`,
+					error: `No credentials for provider "${model.provider}". Run \`oms\` and use /login, or set the provider API key.`,
 				};
 				results.push(failure);
 				if (!json) print(formatRunLine(failure, 0, runs, { tagKind }));

@@ -1,4 +1,4 @@
-import { Args, Command, Flags } from "@oh-my-pi/pi-utils/cli";
+import { Args, Command, Flags } from "@oh-my-soup/pi-utils/cli";
 import { runBenchCommand } from "../cli/bench-cli";
 import { benchHelp as commandHelp } from "../cli/command-help";
 import { SERVICE_TIER_OPENAI_VALUES } from "../config/service-tier";
@@ -54,15 +54,15 @@ export default class Bench extends Command {
 	};
 
 	static examples = [
-		"# Compare TTFT and tok/s of two models\n  omp bench anthropic/claude-opus-4-5 openai/gpt-5.2",
-		"# Fuzzy selectors work\n  omp bench opus sonnet",
-		"# Average over 3 runs each\n  omp bench opus gpt-5.2 --runs 3",
-		"# Rotate chat, prefill, and generation challenges in one run\n  omp bench opus sonnet --profile mix",
-		"# Isolate prompt-ingestion speed with a 64 KiB cache-busted input\n  omp bench opus sonnet --profile prefill --prefill-bytes 65536",
-		"# Isolate sustained decode throughput\n  omp bench opus sonnet --profile generation",
-		"# Compare single-user vs 8 concurrent users, plus prefill speed\n  omp bench apple --detailed --par 8",
-		"# Force priority serving tier\n  omp bench openai-codex/gpt-5.5:low --runs 10 --service-tier priority",
-		"# Measure one cold/warm prompt-cache pair\n  omp bench openai/gpt-5.6 --cache --json",
+		"# Compare TTFT and tok/s of two models\n  oms bench anthropic/claude-opus-4-5 openai/gpt-5.2",
+		"# Fuzzy selectors work\n  oms bench opus sonnet",
+		"# Average over 3 runs each\n  oms bench opus gpt-5.2 --runs 3",
+		"# Rotate chat, prefill, and generation challenges in one run\n  oms bench opus sonnet --profile mix",
+		"# Isolate prompt-ingestion speed with a 64 KiB cache-busted input\n  oms bench opus sonnet --profile prefill --prefill-bytes 65536",
+		"# Isolate sustained decode throughput\n  oms bench opus sonnet --profile generation",
+		"# Compare single-user vs 8 concurrent users, plus prefill speed\n  oms bench apple --detailed --par 8",
+		"# Force priority serving tier\n  oms bench openai-codex/gpt-5.5:low --runs 10 --service-tier priority",
+		"# Measure one cold/warm prompt-cache pair\n  oms bench openai/gpt-5.6 --cache --json",
 	];
 
 	async run(): Promise<void> {

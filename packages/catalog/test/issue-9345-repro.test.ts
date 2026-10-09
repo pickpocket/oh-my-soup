@@ -1,5 +1,5 @@
 /**
- * Issue #9345 — `Can't use qwen3-6-35b-a3b on Venice because OMP sends some
+ * Issue #9345 — `Can't use qwen3-6-35b-a3b on Venice because OMS sends some
  * incorrect params.`
  *
  * Reporter: with `venice/qwen3-6-35b-a3b` configured as the `smol` model role,
@@ -19,13 +19,13 @@
  * carries `reasoning_effort` instead of `enable_thinking`.
  */
 import { describe, expect, it } from "bun:test";
-import { streamOpenAICompletions } from "@oh-my-pi/pi-ai/providers/openai-completions";
-import type { Context } from "@oh-my-pi/pi-ai/types";
-import { resolveModelPolicy } from "@oh-my-pi/pi-catalog/compat/resolve";
-import { Effort } from "@oh-my-pi/pi-catalog/effort";
-import { getBundledModel } from "@oh-my-pi/pi-catalog/models";
-import type { FetchImpl, ModelSpec } from "@oh-my-pi/pi-catalog/types";
-import { isRecord } from "@oh-my-pi/pi-utils";
+import { streamOpenAICompletions } from "@oh-my-soup/pi-ai/providers/openai-completions";
+import type { Context } from "@oh-my-soup/pi-ai/types";
+import { resolveModelPolicy } from "@oh-my-soup/pi-catalog/compat/resolve";
+import { Effort } from "@oh-my-soup/pi-catalog/effort";
+import { getBundledModel } from "@oh-my-soup/pi-catalog/models";
+import type { FetchImpl, ModelSpec } from "@oh-my-soup/pi-catalog/types";
+import { isRecord } from "@oh-my-soup/pi-utils";
 
 function veniceQwenSpec(overrides: Partial<ModelSpec<"openai-completions">> = {}): ModelSpec<"openai-completions"> {
 	return {

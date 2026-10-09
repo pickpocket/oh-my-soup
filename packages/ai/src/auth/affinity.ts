@@ -1,5 +1,5 @@
-import { logger } from "@oh-my-pi/pi-utils";
-import { LRUCache } from "@oh-my-pi/pi-utils/lru";
+import { logger } from "@oh-my-soup/pi-utils";
+import { LRUCache } from "@oh-my-soup/pi-utils/lru";
 import { getEnvApiKey } from "../env-api-key";
 import type { AuthCredential, OAuthCredential, SessionRestrictionLease, SessionsApi } from "./types";
 import type { AuthCredentialStore } from "./store";

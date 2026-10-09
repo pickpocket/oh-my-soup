@@ -1,4 +1,4 @@
-import type { FetchImpl, Usage } from "@oh-my-pi/pi-catalog/types";
+import type { FetchImpl, Usage } from "@oh-my-soup/pi-catalog/types";
 import type { ApiKey } from "../auth-retry";
 
 export const SPEECH_FORMATS = ["mp3", "wav", "pcm", "opus", "aac", "flac"] as const;

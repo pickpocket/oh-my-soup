@@ -22,7 +22,7 @@ export interface ModuleLoadEvent {
  * Registry-global key under which the preload accumulates module-load events.
  * `Symbol.for` so both modules resolve the same symbol independently.
  */
-const KEY: symbol = Symbol.for("omp.moduleLoadBuffer");
+const KEY: symbol = Symbol.for("oms.moduleLoadBuffer");
 
 type Store = Record<symbol, ModuleLoadEvent[] | undefined>;
 

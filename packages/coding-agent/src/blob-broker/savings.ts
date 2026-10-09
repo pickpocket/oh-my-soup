@@ -1,6 +1,6 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { getBlobsDir, isEnoent, logger } from "@oh-my-pi/pi-utils";
+import { getBlobsDir, isEnoent, logger } from "@oh-my-soup/pi-utils";
 import type { Settings } from "../config/settings";
 
 /** One request-level group of image references written to the provider wire. */
@@ -28,7 +28,7 @@ export interface BlobBrokerSavingsCounters {
 	readonly savedBytes: number;
 }
 
-/** Durable savings summary exposed by `omp images status`. */
+/** Durable savings summary exposed by `oms images status`. */
 export interface BlobBrokerSavingsStatus extends BlobBrokerSavingsCounters {
 	readonly journalPath: string;
 	readonly byDestination: Readonly<Record<string, BlobBrokerSavingsCounters>>;

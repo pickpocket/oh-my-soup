@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { FileSessionStorage } from "@oh-my-pi/pi-coding-agent/session/session-storage";
+import { FileSessionStorage } from "@oh-my-soup/pi-coding-agent/session/session-storage";
 
 describe("FileSessionStorage.deleteSessionWithArtifacts", () => {
 	let tmpRoot = "";
@@ -13,7 +13,7 @@ describe("FileSessionStorage.deleteSessionWithArtifacts", () => {
 	});
 
 	it("removes stale .bak siblings so the picker cannot resurrect the session (issue #11499)", async () => {
-		tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), "omp-delete-bak-"));
+		tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), "oms-delete-bak-"));
 		const sessionPath = path.join(tmpRoot, "2026-09-21T00-00-00-000Z_abc123.jsonl");
 		await Bun.write(sessionPath, '{"type":"session"}\n');
 		const ownBak = `${sessionPath}.999.bak`;

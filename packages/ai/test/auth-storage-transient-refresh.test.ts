@@ -5,9 +5,9 @@
  * "No API key for provider" while the stored credential was still valid.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
-import { AuthStorage, SqliteAuthCredentialStore } from "@oh-my-pi/pi-ai/auth-storage";
-import * as AIError from "@oh-my-pi/pi-ai/error";
-import * as oauthUtils from "@oh-my-pi/pi-ai/registry/oauth";
+import { AuthStorage, SqliteAuthCredentialStore } from "@oh-my-soup/pi-ai/auth-storage";
+import * as AIError from "@oh-my-soup/pi-ai/error";
+import * as oauthUtils from "@oh-my-soup/pi-ai/registry/oauth";
 
 const ENV_KEYS = ["ANTHROPIC_API_KEY", "ANTHROPIC_OAUTH_TOKEN"] as const;
 

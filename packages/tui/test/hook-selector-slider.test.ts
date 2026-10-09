@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, it } from "bun:test";
-import { HookSelectorComponent, type HookSelectorSlider } from "@oh-my-pi/pi-tui/overlays/hook-selector";
-import { initTheme } from "@oh-my-pi/pi-tui/theme";
+import { HookSelectorComponent, type HookSelectorSlider } from "@oh-my-soup/pi-tui/overlays/hook-selector";
+import { initTheme } from "@oh-my-soup/pi-tui/theme";
 
 const LEFT = "\x1b[D";
 const RIGHT = "\x1b[C";

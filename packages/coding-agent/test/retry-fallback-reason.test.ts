@@ -1,5 +1,5 @@
 import { expect, test, vi } from "bun:test";
-import { describeUsageFallback } from "@oh-my-pi/pi-coding-agent/session/retry-fallback-reason";
+import { describeUsageFallback } from "@oh-my-soup/pi-coding-agent/session/retry-fallback-reason";
 
 test("does not describe plan-ineligible accounts as exhausted quota", () => {
 	// Health drops plan-ineligible accounts before computing the depleted state.

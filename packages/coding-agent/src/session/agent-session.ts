@@ -43,7 +43,7 @@ import {
 	TERMINAL_TOOL_RESULT_ABORT_REASON,
 	type ThinkingLevel,
 	type ToolChoiceDirective,
-} from "@oh-my-pi/pi-agent-core";
+} from "@oh-my-soup/pi-agent-core";
 import {
 	type CompactionPreparation,
 	type CompactionResult,
@@ -51,7 +51,7 @@ import {
 	collectEntriesForBranchSummary,
 	generateBranchSummary,
 	type ShakeConfig,
-} from "@oh-my-pi/pi-agent-core/compaction";
+} from "@oh-my-soup/pi-agent-core/compaction";
 import type {
 	AnthropicFallbackCreditHandle,
 	AssistantMessage,
@@ -78,17 +78,17 @@ import type {
 	ToolResultMessage,
 	UsageReport,
 	UserMessage,
-} from "@oh-my-pi/pi-ai";
-import { type Effort, serviceTierFamily, streamSimple } from "@oh-my-pi/pi-ai";
-import * as AIError from "@oh-my-pi/pi-ai/error";
-import { resetOpenAICodexHistoryAfterCompaction } from "@oh-my-pi/pi-ai/providers/openai-codex-responses";
-import { withCredentialRedaction } from "@oh-my-pi/pi-ai/providers/transform-messages";
-import { toolWireSchema } from "@oh-my-pi/pi-ai/utils/schema";
-import { supportsOutputTokenLimit } from "@oh-my-pi/pi-catalog/compat/output-limits";
-import { requiresNativeTools, requiresToolFreeHistoryForToolOptOut } from "@oh-my-pi/pi-catalog/compat/tools";
-import { preferredDialect } from "@oh-my-pi/pi-catalog/identity";
-import { modelsAreEqual } from "@oh-my-pi/pi-catalog/models";
-import { type EditStore, PowerAssertion, type PowerAssertionOptions } from "@oh-my-pi/pi-natives";
+} from "@oh-my-soup/pi-ai";
+import { type Effort, serviceTierFamily, streamSimple } from "@oh-my-soup/pi-ai";
+import * as AIError from "@oh-my-soup/pi-ai/error";
+import { resetOpenAICodexHistoryAfterCompaction } from "@oh-my-soup/pi-ai/providers/openai-codex-responses";
+import { withCredentialRedaction } from "@oh-my-soup/pi-ai/providers/transform-messages";
+import { toolWireSchema } from "@oh-my-soup/pi-ai/utils/schema";
+import { supportsOutputTokenLimit } from "@oh-my-soup/pi-catalog/compat/output-limits";
+import { requiresNativeTools, requiresToolFreeHistoryForToolOptOut } from "@oh-my-soup/pi-catalog/compat/tools";
+import { preferredDialect } from "@oh-my-soup/pi-catalog/identity";
+import { modelsAreEqual } from "@oh-my-soup/pi-catalog/models";
+import { type EditStore, PowerAssertion, type PowerAssertionOptions } from "@oh-my-soup/pi-natives";
 import {
 	$env,
 	escapeXmlText,
@@ -106,10 +106,10 @@ import {
 	toError,
 	withTimeout,
 	withFileLock,
-} from "@oh-my-pi/pi-utils";
-import { writeArchive } from "@oh-my-pi/pi-utils/ar";
-import type { AdvisorConfig } from "@oh-my-pi/pi-tui/overlays/advisor-config";
-import { formatUsageResetWindow } from "@oh-my-pi/pi-tui/overlays/usage-display";
+} from "@oh-my-soup/pi-utils";
+import { writeArchive } from "@oh-my-soup/pi-utils/ar";
+import type { AdvisorConfig } from "@oh-my-soup/pi-tui/overlays/advisor-config";
+import { formatUsageResetWindow } from "@oh-my-soup/pi-tui/overlays/usage-display";
 import { loadAdvisorTranscriptCosts } from "../advisor";
 import { ASYNC_JOB_MANAGER_SHUTDOWN_REASON, type AsyncJob, AsyncJobManager } from "../async";
 import { reset as resetCapabilities } from "../capability";
@@ -130,7 +130,7 @@ import { expandPromptTemplate, type PromptTemplate } from "../config/prompt-temp
 import { buildServiceTierByFamily, isServiceTierForFamily, serviceTierSettingToTier } from "../config/service-tier";
 import { combine, type SettingsScope } from "../config/registry";
 import type { Settings } from "../config/settings";
-import { RawSseDebugBuffer } from "@oh-my-pi/pi-tui/apps/debug/raw-sse-buffer";
+import { RawSseDebugBuffer } from "@oh-my-soup/pi-tui/apps/debug/raw-sse-buffer";
 import { getEditStore } from "../edit/store";
 import { releaseCompletionHandles } from "../eval/completion-bridge";
 import { releaseJudgmentBatches } from "../eval/judgment-batch-bridge";
@@ -169,15 +169,15 @@ import type { GoalModeState, GoalTokenUsage } from "../goals/state";
 import type { HindsightSessionState } from "../hindsight/state";
 import { InternalUrlRouter, type LocalProtocolOptions } from "../internal-urls";
 import { type ChainJudge, hasNativeJudge, journalJudgmentUsage, resolveJudge, sharedJudgmentCache } from "../judgment";
-import type { IrcMessage } from "@oh-my-pi/pi-tui/tools/irc";
+import type { IrcMessage } from "@oh-my-soup/pi-tui/tools/irc";
 import type { DaemonCompletionNotification } from "../launch/protocol";
 import { shutdownMnemopiEmbedClient } from "../mnemopi/embed-client";
 import { getMnemopiSessionState, type MnemopiSessionState, setMnemopiSessionState } from "../mnemopi/state";
 import { MAGIC_KEYWORDS, type MagicKeywordContext, type MagicKeywordId } from "../modes/magic-keywords";
-import { containsMagicKeyword } from "@oh-my-pi/pi-tui/prompt/magic-keywords";
-import { theme } from "@oh-my-pi/pi-tui/theme";
+import { containsMagicKeyword } from "@oh-my-soup/pi-tui/prompt/magic-keywords";
+import { theme } from "@oh-my-soup/pi-tui/theme";
 import { parseTurnBudget } from "../modes/turn-budget";
-import { computeNonMessageTokens } from "@oh-my-pi/pi-tui/status-line/context-usage";
+import { computeNonMessageTokens } from "@oh-my-soup/pi-tui/status-line/context-usage";
 import { type PlanApprovalDetails, resolveApprovedPlan } from "../plan-mode/approved-plan";
 import { listPlanFiles, readPlanFile, resolvePlanFilePath } from "../plan-mode/plan-files";
 import { loadOverallPlanReference } from "../plan-mode/plan-handoff";
@@ -215,11 +215,11 @@ import {
 	parseConfiguredThinkingLevel,
 	shouldDisableReasoning,
 	toReasoningEffort,
-} from "@oh-my-pi/pi-tui/thinking";
+} from "@oh-my-soup/pi-tui/thinking";
 import { isAttachmentOnlyTitleInput, isLowSignalTitleInput } from "../tiny/text";
 import type { ImageAttachmentEntry, ToolSession } from "../tools";
 import { resolveApproval } from "../tools/approval";
-import { type AskToolDetails } from "@oh-my-pi/pi-tui/tools/ask";
+import { type AskToolDetails } from "@oh-my-soup/pi-tui/tools/ask";
 import { type AskToolInput, recoverAskQuestions } from "../tools/ask";
 import {
 	armIdleCloseForOwner,
@@ -238,16 +238,16 @@ import {
 	type PlanProposalHandler,
 	writeDeviceDispatch,
 } from "../tools/resolve";
-import { PROPOSE_DEVICE_NAME } from "@oh-my-pi/pi-tui/tools/resolve";
+import { PROPOSE_DEVICE_NAME } from "@oh-my-soup/pi-tui/tools/resolve";
 import { supportsExternalThinking } from "../tools/think";
-import type { TodoPhase } from "@oh-my-pi/pi-tui/tools/todo";
-import { ToolError } from "@oh-my-pi/pi-tui/tools/tool-errors";
+import type { TodoPhase } from "@oh-my-soup/pi-tui/tools/todo";
+import { ToolError } from "@oh-my-soup/pi-tui/tools/tool-errors";
 import type { WorkPoolYieldItem } from "../task/workpool-yield";
 import type { AgentDefinition } from "../task/types";
-import type { ModelMention } from "@oh-my-pi/pi-tui/prompt/model-mention-syntax";
+import type { ModelMention } from "@oh-my-soup/pi-tui/prompt/model-mention-syntax";
 import { ModelMentionRegistry } from "./model-mentions";
 import { parseCommandArgs } from "../utils/command-args";
-import type { EditMode } from "@oh-my-pi/pi-tui/tools/edit";
+import type { EditMode } from "@oh-my-soup/pi-tui/tools/edit";
 import { resolveFileDisplayMode } from "../utils/file-display-mode";
 import { extractFileMentions, generateFileMentionMessages } from "../utils/file-mentions";
 import { normalizeModelContextImages } from "../utils/image-loading";
@@ -294,8 +294,8 @@ import type {
 } from "./agent-session-types";
 import { writeArtifact } from "./artifacts";
 import { renderAttachmentSourceNotice } from "./attachment-source-notice";
-import { formatArtifactErrorNotice, type OutputMeta, stripOutputNotice } from "@oh-my-pi/pi-tui/tools/output-meta";
-import { truncateMiddle } from "@oh-my-pi/pi-tui/tools/streaming-output";
+import { formatArtifactErrorNotice, type OutputMeta, stripOutputNotice } from "@oh-my-soup/pi-tui/tools/output-meta";
+import { truncateMiddle } from "@oh-my-soup/pi-tui/tools/streaming-output";
 import {
 	ASYNC_INLINE_RESULT_MAX_CHARS,
 	ASYNC_PREVIEW_MAX_CHARS,
@@ -404,7 +404,7 @@ import {
 import type { BuildSessionContextOptions, SessionContext } from "./session-context";
 import { buildSessionContext, getRestorableSessionModels, isTranscriptEntry } from "./session-context";
 import type { CacheWarmer, CacheWarmingMode, CacheWarmingStatus } from "./cache-warmer";
-import { isUserRequestEntry, transcriptEntryMessage, userTurnDraft } from "@oh-my-pi/pi-tui/chat/transcript-entry";
+import { isUserRequestEntry, transcriptEntryMessage, userTurnDraft } from "@oh-my-soup/pi-tui/chat/transcript-entry";
 import { formatSessionDumpText, formatSubagentDumpText, type SessionDumpArchive } from "./session-dump-format";
 import { collectSubSessions, type SubSession } from "./sub-sessions";
 import type { BranchSummaryEntry, NewSessionOptions } from "./session-entries";
@@ -696,7 +696,7 @@ const SESSION_CWD_CHANGE_REJECTED = Symbol("sessionCwdChangeRejected");
 export function powerAssertionOptions(mode: "off" | "idle" | "display" | "system"): PowerAssertionOptions | undefined {
 	if (mode === "off") return undefined;
 	return {
-		reason: "omp agent session",
+		reason: "oms agent session",
 		idle: true,
 		display: mode === "display" || mode === "system",
 		system: mode === "system",
@@ -1391,7 +1391,7 @@ export class AgentSession implements SettingsScope {
 	 * Finishes a turn observation once the turn's owned async work has settled.
 	 * Call only after the turn released its in-flight bracket: the bracket
 	 * withholds the yield-queue's idle flush, so settling inside it would deadlock
-	 * the very delivery the settle awaits (robomp review on #13703).
+	 * the very delivery the settle awaits (roboms review on #13703).
 	 *
 	 * Owner-scoped background work continues past the turn: the async-result
 	 * continuation is where the agent may finally yield. Keeping the observer
@@ -5297,7 +5297,7 @@ export class AgentSession implements SettingsScope {
 	 * `metadata.user_id` shaped like real Claude Code's `getAPIMetadata` output:
 	 * `{ session_id, account_uuid, device_id }`. `account_uuid` is included only
 	 * when an Anthropic OAuth credential with a known account UUID is loaded;
-	 * `device_id` is derived from both the persistent omp install id and that
+	 * `device_id` is derived from both the persistent oms install id and that
 	 * account UUID. Resolving live keeps the value in sync with auth-state changes
 	 * (login/logout, token refresh that surfaces a new account UUID) without
 	 * needing to re-call `#syncAgentSessionId()` on every such event.
@@ -5493,7 +5493,7 @@ export class AgentSession implements SettingsScope {
 	 * Turn-settle checkpoint for owned headless browser tabs (issue #8246).
 	 * Close tabs idle past `browser.idleCloseSec` as the memory backstop,
 	 * then freeze the survivors so idle animated pages stop burning CPU/GPU
-	 * while keeping their state for millisecond resume. Scoped to OMP-owned
+	 * while keeping their state for millisecond resume. Scoped to OMS-owned
 	 * headless tabs of this session only — relay/CDP/spawned tabs, other
 	 * sessions' tabs, and `persist` tabs are never touched. Best-effort:
 	 * never throws, so teardown cannot break the event flow.
@@ -8013,7 +8013,7 @@ export class AgentSession implements SettingsScope {
 				// Await the idempotent dispose() before exiting so the browser
 				// reaper and other bounded teardown complete — a fire-and-forget
 				// `void this.dispose()` raced process.exit() and could leave an
-				// OMP-owned Chromium alive (#5643).
+				// OMS-owned Chromium alive (#5643).
 				void this.dispose().finally(() => process.exit(0));
 			},
 			getContextUsage: () => this.getContextUsage(),
@@ -11921,7 +11921,7 @@ export class AgentSession implements SettingsScope {
 			 * (extensions, hooks, ACP, session-extension actions) leaves this
 			 * unset and gets the pre-#5642 plain leaf move onto `ask`
 			 * toolResults instead — they have no picker to re-open and would
-			 * otherwise report a successful no-op navigation (roboomp review on
+			 * otherwise report a successful no-op navigation (robooms review on
 			 * #5895).
 			 */
 			allowAskReopen?: boolean;
@@ -12000,7 +12000,7 @@ export class AgentSession implements SettingsScope {
 		// the actual sibling-branch construction once the caller has an answer.
 		// Gated on `allowAskReopen` — callers that don't understand `reopenAsk`
 		// fall straight through to the plain leaf move below instead of
-		// reporting a successful no-op (roboomp review on #5895).
+		// reporting a successful no-op (robooms review on #5895).
 		if (
 			options.allowAskReopen &&
 			!options.reanswerAskResult &&
@@ -12271,7 +12271,7 @@ export class AgentSession implements SettingsScope {
 	 * up from the toolResult's parent past any interleaved ancestor entries
 	 * — sibling toolResults from other tool calls in the same turn (`ask`
 	 * runs `exclusive`, which only serializes *execution*, not persistence
-	 * order — roboomp review on #5895), and bookkeeping entries such as the
+	 * order — robooms review on #5895), and bookkeeping entries such as the
 	 * `tool_execution_start` custom entry `#recordToolExecutionStart()`
 	 * appends before every toolResult in real persisted sessions (chatgpt-codex
 	 * review on #5895) — until it finds the assistant entry that actually
@@ -12312,7 +12312,7 @@ export class AgentSession implements SettingsScope {
 	 * so this mirrors `refreshMCPTools()`'s `getCustomToolContext` factory
 	 * with real session state instead of a `{ ... } as unknown as
 	 * AgentToolContext` cast that could silently compile with an incomplete
-	 * context (roboomp review on #5895) — every `CustomToolContext` field is
+	 * context (robooms review on #5895) — every `CustomToolContext` field is
 	 * backed by live session state, so a future required field fails to
 	 * compile here instead of surfacing as `undefined` at runtime.
 	 */
@@ -13134,7 +13134,7 @@ export class AgentSession implements SettingsScope {
 			entries.push([`subagents/${key}.md`, `${text}\n`]);
 			subagentCount++;
 		}
-		const filePath = path.join(os.tmpdir(), `omp-dump-${Snowflake.next()}.zip`);
+		const filePath = path.join(os.tmpdir(), `oms-dump-${Snowflake.next()}.zip`);
 		await writeArchive(filePath, "zip", entries);
 		return { path: filePath, files: entries.map(([name]) => name), subagentCount, subagentError };
 	}
@@ -13154,7 +13154,7 @@ export class AgentSession implements SettingsScope {
 	async dumpLlmRequestToTmpDir(): Promise<string | undefined> {
 		const messages = this.messages;
 		if (messages.length === 0) return undefined;
-		const filePath = path.join(os.tmpdir(), `omp-llm-request-${Snowflake.next()}.json`);
+		const filePath = path.join(os.tmpdir(), `oms-llm-request-${Snowflake.next()}.json`);
 		await Bun.write(filePath, await this.#formatLlmRequestJson(messages));
 		return filePath;
 	}

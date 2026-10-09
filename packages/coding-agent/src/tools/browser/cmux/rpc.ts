@@ -1,5 +1,5 @@
-import { parseFlag } from "@oh-my-pi/pi-utils";
-import { ToolError } from "@oh-my-pi/pi-tui/tools/tool-errors";
+import { parseFlag } from "@oh-my-soup/pi-utils";
+import { ToolError } from "@oh-my-soup/pi-tui/tools/tool-errors";
 import type { Observation, ObservationEntry } from "../tab-protocol";
 
 export interface CmuxKind {

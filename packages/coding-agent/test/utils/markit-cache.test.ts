@@ -10,10 +10,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { Markit } from "@oh-my-pi/pi-coding-agent/markit";
-import { convertBufferWithMarkit, convertFileWithMarkit } from "@oh-my-pi/pi-coding-agent/utils/markit";
-import { pruneMarkitConversionCache } from "@oh-my-pi/pi-coding-agent/utils/markit-cache";
-import { __resetDirsFromEnvForTests, getAgentDir, Snowflake, setAgentDir } from "@oh-my-pi/pi-utils";
+import { Markit } from "@oh-my-soup/pi-coding-agent/markit";
+import { convertBufferWithMarkit, convertFileWithMarkit } from "@oh-my-soup/pi-coding-agent/utils/markit";
+import { pruneMarkitConversionCache } from "@oh-my-soup/pi-coding-agent/utils/markit-cache";
+import { __resetDirsFromEnvForTests, getAgentDir, Snowflake, setAgentDir } from "@oh-my-soup/pi-utils";
 
 function restoreEnv(key: string, value: string | undefined): void {
 	if (value === undefined) {
@@ -26,13 +26,13 @@ function restoreEnv(key: string, value: string | undefined): void {
 describe("document conversion cache", () => {
 	let testDir: string;
 	let originalPiCodingAgentDir: string | undefined;
-	let originalOmpProfile: string | undefined;
+	let originalOmsProfile: string | undefined;
 	let originalPiProfile: string | undefined;
 	let originalXdgCacheHome: string | undefined;
 
 	beforeEach(async () => {
 		originalPiCodingAgentDir = process.env.PI_CODING_AGENT_DIR;
-		originalOmpProfile = process.env.OMP_PROFILE;
+		originalOmsProfile = process.env.OMS_PROFILE;
 		originalPiProfile = process.env.PI_PROFILE;
 		originalXdgCacheHome = process.env.XDG_CACHE_HOME;
 		testDir = path.join(os.tmpdir(), `markit-cache-${Snowflake.next()}`);
@@ -43,7 +43,7 @@ describe("document conversion cache", () => {
 	afterEach(async () => {
 		vi.restoreAllMocks();
 		restoreEnv("PI_CODING_AGENT_DIR", originalPiCodingAgentDir);
-		restoreEnv("OMP_PROFILE", originalOmpProfile);
+		restoreEnv("OMS_PROFILE", originalOmsProfile);
 		restoreEnv("PI_PROFILE", originalPiProfile);
 		restoreEnv("XDG_CACHE_HOME", originalXdgCacheHome);
 		__resetDirsFromEnvForTests();

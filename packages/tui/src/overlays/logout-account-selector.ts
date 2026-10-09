@@ -9,7 +9,7 @@ import { editorKey, editorKeys } from "../chrome/keybinding-hints";
 import { node, span } from "../native/describe";
 import type { DescribeContext, NativeNode, NativeUiEvent } from "../native/node";
 import { CLOSE_ACTION, dockedPicker, PICKER_KEY, pickerAction, pickerEvent } from "../native/picker";
-import type { TspPickerItem } from "@oh-my-pi/pi-wire";
+import type { TspPickerItem } from "@oh-my-soup/pi-wire";
 import { actionHint, hintsRow, overlayCard } from "../native/overlay";
 
 const LOGOUT_SELECTOR_MAX_VISIBLE = 10;
@@ -43,7 +43,7 @@ export class LogoutAccountSelectorComponent extends OverlayPanel {
 		onSelect: (account: LogoutAccount) => void,
 		onCancel: () => void,
 	) {
-		super(`Select ${providerName} account to log out`, "omp.overlay.logout");
+		super(`Select ${providerName} account to log out`, "oms.overlay.logout");
 		this.#onSelectCallback = onSelect;
 		this.#onCancelCallback = onCancel;
 		this.#providerName = providerName;

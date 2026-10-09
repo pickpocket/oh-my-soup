@@ -1,19 +1,19 @@
 import { describe, expect, it } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { ThinkingLevel } from "@oh-my-pi/pi-agent-core";
-import { getBundledModel } from "@oh-my-pi/pi-catalog/models";
-import { type Args, parseArgs } from "@oh-my-pi/pi-coding-agent/cli/args";
-import { ModelRegistry } from "@oh-my-pi/pi-coding-agent/config/model-registry";
-import type { ScopedModel } from "@oh-my-pi/pi-coding-agent/config/model-resolver";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { buildSessionOptions } from "@oh-my-pi/pi-coding-agent/main";
-import { type CreateAgentSessionOptions, createAgentSession } from "@oh-my-pi/pi-coding-agent/sdk";
-import type { AgentSession } from "@oh-my-pi/pi-coding-agent/session/agent-session";
-import { AuthStorage } from "@oh-my-pi/pi-coding-agent/session/auth-storage";
-import { CURRENT_SESSION_VERSION, type SessionHeader } from "@oh-my-pi/pi-coding-agent/session/session-entries";
-import { SessionManager } from "@oh-my-pi/pi-coding-agent/session/session-manager";
-import { TempDir } from "@oh-my-pi/pi-utils";
+import { ThinkingLevel } from "@oh-my-soup/pi-agent-core";
+import { getBundledModel } from "@oh-my-soup/pi-catalog/models";
+import { type Args, parseArgs } from "@oh-my-soup/pi-coding-agent/cli/args";
+import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
+import type { ScopedModel } from "@oh-my-soup/pi-coding-agent/config/model-resolver";
+import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { buildSessionOptions } from "@oh-my-soup/pi-coding-agent/main";
+import { type CreateAgentSessionOptions, createAgentSession } from "@oh-my-soup/pi-coding-agent/sdk";
+import type { AgentSession } from "@oh-my-soup/pi-coding-agent/session/agent-session";
+import { AuthStorage } from "@oh-my-soup/pi-coding-agent/session/auth-storage";
+import { CURRENT_SESSION_VERSION, type SessionHeader } from "@oh-my-soup/pi-coding-agent/session/session-entries";
+import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
+import { TempDir } from "@oh-my-soup/pi-utils";
 
 const OPENAI_TEST_MODEL = getBundledModel("openai", "gpt-4o-mini");
 
@@ -103,7 +103,7 @@ describe("provider prompt-cache key session affinity", () => {
 	});
 
 	it("creates an agent whose prompt-cache key can differ from provider request lineage", async () => {
-		using tempDir = TempDir.createSync("@omp-prompt-cache-sdk-");
+		using tempDir = TempDir.createSync("@oms-prompt-cache-sdk-");
 		let session: AgentSession | undefined;
 		let authStorage: AuthStorage | undefined;
 		try {
@@ -125,7 +125,7 @@ describe("provider prompt-cache key session affinity", () => {
 	});
 
 	it("initializes a full fork with child request lineage and parent prompt-cache affinity", async () => {
-		using tempDir = TempDir.createSync("@omp-prompt-cache-fork-");
+		using tempDir = TempDir.createSync("@oms-prompt-cache-fork-");
 		const source = await createSourceSessionFixture(tempDir, "parent-cache-session");
 		const forkedManager = await SessionManager.forkFrom(source.sourceFile, source.cwd, source.forkSessionDir);
 		let session: AgentSession | undefined;
@@ -172,7 +172,7 @@ describe("provider prompt-cache key session affinity", () => {
 		];
 
 		for (const entry of cases) {
-			using tempDir = TempDir.createSync(`@omp-prompt-cache-fork-${entry.name}-`);
+			using tempDir = TempDir.createSync(`@oms-prompt-cache-fork-${entry.name}-`);
 			const source = await createSourceSessionFixture(tempDir, `parent-cache-session-${entry.name}`);
 			const forkedManager = await SessionManager.forkFrom(source.sourceFile, source.cwd, source.forkSessionDir);
 			let session: AgentSession | undefined;
@@ -196,7 +196,7 @@ describe("provider prompt-cache key session affinity", () => {
 	});
 
 	it("does not pre-pin parent prompt-cache affinity when a scoped model selects the startup route", async () => {
-		using tempDir = TempDir.createSync("@omp-prompt-cache-scoped-model-");
+		using tempDir = TempDir.createSync("@oms-prompt-cache-scoped-model-");
 		const source = await createSourceSessionFixture(tempDir, "parent-cache-session-scoped");
 		const forkedManager = await SessionManager.forkFrom(source.sourceFile, source.cwd, source.forkSessionDir);
 		const authStorage = await AuthStorage.create(tempDir.join("scoped-auth.db"));

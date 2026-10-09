@@ -1,20 +1,20 @@
 /**
  * Shared automation Chromium owned by the per-project daemon broker.
  *
- * Instead of every omp process launching (and sometimes orphaning) a private
+ * Instead of every oms process launching (and sometimes orphaning) a private
  * Chromium, the headless browser kind attaches to one broker-supervised Chrome
  * per project directory — sessions and subagents each open their own tabs in
- * it. The broker stops the daemon when the last omp client in the project
- * exits, so Chrome can never outlive omp, and concurrent acquisitions across
+ * it. The broker stops the daemon when the last oms client in the project
+ * exits, so Chrome can never outlive oms, and concurrent acquisitions across
  * processes converge on a single launch instead of a launch storm.
  */
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { logger, withTimeout } from "@oh-my-pi/pi-utils";
+import { logger, withTimeout } from "@oh-my-soup/pi-utils";
 import { type DaemonBrokerClient, daemonClientForProject } from "../../launch/client";
 import { describeQuietly, stopQuietly, waitReady } from "../../launch/ensure";
 import { daemonRuntimeDir } from "../../launch/paths";
-import type { DaemonSnapshot } from "@oh-my-pi/pi-tui/tools/daemon";
+import type { DaemonSnapshot } from "@oh-my-soup/pi-tui/tools/daemon";
 import { throwIfAborted } from "../tool-errors";
 import { probeCdpStatus } from "./attach";
 import { resolveSharedBrowserLaunchSpec } from "./launch";
@@ -42,7 +42,7 @@ const PROBE_ATTEMPT_CAP_MS = PROBE_TIMEOUT_MS + 1_500;
 /** Marker for a probe the cap abandoned, as opposed to a probe that failed on its own terms. */
 const PROBE_STALLED = "Shared browser probe did not settle";
 
-/** Broker-owned browser endpoint one omp process can attach to. */
+/** Broker-owned browser endpoint one oms process can attach to. */
 export interface SharedBrowserEndpoint {
 	wsEndpoint: string;
 	daemonName: string;
@@ -52,7 +52,7 @@ export interface SharedBrowserEndpoint {
 
 /** Stable broker daemon name for the shared automation browser. */
 export function sharedBrowserDaemonName(headless: boolean): string {
-	return headless ? "omp.browser.headless" : "omp.browser.headed";
+	return headless ? "oms.browser.headless" : "oms.browser.headed";
 }
 
 function wsEndpointOf(snapshot: DaemonSnapshot | undefined): string | undefined {
@@ -171,7 +171,7 @@ const reachabilityChecks = new Map<string, Promise<boolean>>();
  *
  * `ensureSharedBrowser` makes this decision only while attaching, so a Chromium
  * that wedges *after* a session attached kept its whole process tree — and
- * every target whose close timed out — alive until the last omp client in the
+ * every target whose close timed out — alive until the last oms client in the
  * project exited (a 9.1 GB, 44-process browser survived 19 h in the
  * 2026-09-27 incident). Cleanup failures re-run the same decision off the
  * acquire path: stop the daemon, so the next attach launches a fresh Chromium

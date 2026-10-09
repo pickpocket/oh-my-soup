@@ -5,7 +5,7 @@ import { matchesKey } from "../keys";
 import { centerLine, padding } from "../utils";
 import { padToWidth } from "../render/utils";
 import { routeSgrMouseInput, type SgrMouseEvent } from "../mouse";
-import { APP_NAME } from "@oh-my-pi/pi-utils";
+import { APP_NAME } from "@oh-my-soup/pi-utils";
 import { gradientLogo, logoNode, PI_LOGO } from "../prompt/welcome";
 import { theme } from "../theme/theme";
 import { col, node, span, text } from "../native/describe";
@@ -232,7 +232,7 @@ export class SetupWizardComponent implements Component, OverlayFocusOwner {
 		return this.#nativeRoot.get([content], () =>
 			col([{ ...content, key: this.#phase === "transition" ? "scene" : this.#phase }], {
 				grow: 1,
-				role: "omp.app.setup",
+				role: "oms.app.setup",
 			}),
 		);
 	}
@@ -269,7 +269,7 @@ export class SetupWizardComponent implements Component, OverlayFocusOwner {
 					node("col", { grow: 1 }, active ? [active] : [], `body:${scene?.id ?? this.#sceneIndex}`),
 					col([text([span(footer, "dim")])], { align: "center" }),
 				],
-				{ gap: "md", grow: 1, role: "omp.setup.scene" },
+				{ gap: "md", grow: 1, role: "oms.setup.scene" },
 			);
 		});
 	}

@@ -1,5 +1,5 @@
 /**
- * Emits `sdk/rust/omp-rpc/src/wire.rs`: serde types and command descriptors for the
+ * Emits `sdk/rust/oms-rpc/src/wire.rs`: serde types and command descriptors for the
  * RPC wire bundle.
  *
  * Mapping:

@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "bun:test";
-import { type AuthCredentialStore, AuthStorage, type StoredAuthCredential } from "@oh-my-pi/pi-ai/auth-storage";
-import type { UsageLimit, UsageProvider, UsageReport } from "@oh-my-pi/pi-ai/usage";
-import { zaiRankingStrategy } from "@oh-my-pi/pi-ai/usage/zai";
+import { type AuthCredentialStore, AuthStorage, type StoredAuthCredential } from "@oh-my-soup/pi-ai/auth-storage";
+import type { UsageLimit, UsageProvider, UsageReport } from "@oh-my-soup/pi-ai/usage";
+import { zaiRankingStrategy } from "@oh-my-soup/pi-ai/usage/zai";
 
 function creditLimit(windowId: string, fraction: number): UsageLimit {
 	return {

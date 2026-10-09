@@ -12,10 +12,10 @@ import {
 	resolveCopilotIntegrationIdOverride,
 	resolveCopilotRequestIdentity,
 	wrapFetchForCopilotFallback,
-} from "@oh-my-pi/pi-ai/providers/github-copilot-headers";
-import { COPILOT_CHAT_INTEGRATION_ID } from "@oh-my-pi/pi-catalog/wire/github-copilot";
-import type { Message } from "@oh-my-pi/pi-ai/types";
-import { getBundledModel } from "@oh-my-pi/pi-catalog/models";
+} from "@oh-my-soup/pi-ai/providers/github-copilot-headers";
+import { COPILOT_CHAT_INTEGRATION_ID } from "@oh-my-soup/pi-catalog/wire/github-copilot";
+import type { Message } from "@oh-my-soup/pi-ai/types";
+import { getBundledModel } from "@oh-my-soup/pi-catalog/models";
 
 describe("inferCopilotInitiator", () => {
 	it("returns 'user' when there are no messages", () => {

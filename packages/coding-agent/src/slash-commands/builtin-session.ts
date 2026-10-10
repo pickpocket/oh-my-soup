@@ -20,7 +20,7 @@ import { collectOnlineTinyCandidates } from "../tiny/online-candidates";
 import searchNotesTemplate from "../prompts/system/important-notes-search.md" with { type: "text" };
 import searchNotesInputTemplate from "../prompts/system/important-notes-search-input.md" with { type: "text" };
 import { findBeadsWorkspaceRoot, NativeBeadsRepository } from "../beads/repository";
-import { buildNotesArgumentCompletions, buildThinkingLevelCompletions, NOTES_SUBCOMMANDS } from "./builtin-completions";
+import { buildNotesArgumentCompletions, NOTES_SUBCOMMANDS } from "./builtin-completions";
 
 import {
 	type ModelPromptBinding,
@@ -36,7 +36,6 @@ import {
 	selectChangelogEntries,
 } from "../utils/changelog";
 import { formatTokenCount, refreshStatusLine } from "./builtin-modes";
-import { parseConfiguredThinkingLevel } from "@oh-my-soup/pi-tui/thinking";
 import { buildContextReportText } from "./helpers/context-report";
 import { formatCoarseDuration } from "@oh-my-soup/pi-tui/chrome/format";
 import { truncateToWidth } from "@oh-my-soup/pi-tui/render/render-utils";
@@ -1290,49 +1289,6 @@ export const BUILTIN_SESSION_SLASH_COMMANDS: ReadonlyArray<SlashCommandSpec> = [
 			}
 			if (shouldInject) parts.push(armInjection());
 			await runtime.output(safeNotesOutput(parts.join("\n\n")));
-			return commandConsumed();
-		},
-	},
-	{
-		name: "thinking",
-		icon: "brain",
-		description: "Show or set the model thinking level (levels follow the active model)",
-		acpDescription: "Show or set thinking level",
-		inlineHint: "[<level>]",
-		allowArgs: true,
-		argumentCompletions: buildThinkingLevelCompletions,
-		handle: async (command, runtime) => {
-			const selector = command.args.trim().toLowerCase();
-			if (!selector) {
-				const available = runtime.session.getAvailableThinkingLevels();
-				const availableText = `off, auto${available.length ? `, ${available.join(", ")}` : ""}`;
-				const current = runtime.session.configuredThinkingLevel() ?? "model default";
-				const reasoningNote =
-					runtime.session.model?.reasoning === false ? " Current model does not support reasoning." : "";
-				await runtime.output(
-					`Current thinking level: ${current}. Available: ${availableText}. Use /thinking <level>.${reasoningNote}`,
-				);
-				return commandConsumed();
-			}
-			const level = parseConfiguredThinkingLevel(selector);
-			if (level === "off") {
-				runtime.session.setThinkingLevel("off", false);
-				await runtime.output("Thinking disabled.");
-				return commandConsumed();
-			}
-			if (level === "auto") {
-				runtime.session.setThinkingLevel("auto", false);
-				await runtime.output("Thinking level set to auto.");
-				return commandConsumed();
-			}
-			const available = runtime.session.getAvailableThinkingLevels();
-			if (!level || level === "inherit" || !available.includes(level)) {
-				const availableText = `off, auto${available.length ? `, ${available.join(", ")}` : ""}`;
-				await runtime.output(`Unknown thinking level "${selector}". Available: ${availableText}.`);
-				return commandConsumed();
-			}
-			runtime.session.setThinkingLevel(level, false);
-			await runtime.output(`Thinking level set to ${level}.`);
 			return commandConsumed();
 		},
 	},

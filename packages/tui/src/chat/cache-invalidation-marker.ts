@@ -87,7 +87,7 @@ export class CacheInvalidationMarkerComponent extends MessageDividerComponent {
 			labelColor: "muted",
 			ruleColor: "dim",
 			ruleWidth: 10,
-			role: "oms.marker.cache-miss",
+			role: "omp.marker.cache-miss",
 			native: {
 				icon: "database",
 				label: () =>

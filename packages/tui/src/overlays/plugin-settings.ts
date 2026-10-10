@@ -29,7 +29,7 @@ import { col, node, span, text } from "../native/describe";
 import type { TspPrefsControl, TspPrefsSection } from "@oh-my-soup/pi-wire";
 import { actionHint, hintsRow, overlayCard } from "../native/overlay";
 
-const PLUGIN_SETTINGS_ROLE = "oms.overlay.plugin-settings";
+const PLUGIN_SETTINGS_ROLE = "omp.overlay.plugin-settings";
 /** A plugin row's control on the native settings page: open the plugin's settings. */
 const PLUGIN_CONFIGURE: TspPrefsControl = { k: "action", label: "Configure", act: "open" };
 
@@ -66,7 +66,7 @@ function prefsDetailPage(title: string, lead: string, list: SettingsList | undef
 		})),
 		focus: list.prefsFocus().row ?? null,
 		editing: null,
-		editor: open ? col([open.component], { role: "oms.prefs.editor" }) : undefined,
+		editor: open ? col([open.component], { role: "omp.prefs.editor" }) : undefined,
 	};
 }
 

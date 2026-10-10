@@ -13,7 +13,7 @@ export class HookMessageComponent extends FramedMessageComponent<HookMessage<unk
 	constructor(message: HookMessage<unknown>, customRenderer?: HookMessageRenderer) {
 		super({
 			message,
-			role: "oms.hook",
+			role: "omp.hook",
 			collapseAfterLines: HOOK_COLLAPSED_LINES,
 			customRenderer,
 		});

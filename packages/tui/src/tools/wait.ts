@@ -570,7 +570,7 @@ export function createIrcMessageCard(
 	// Terminal-local collapse replaces `getExpanded`; the node never changes after creation.
 	const described = cardNode(
 		{
-			role: `oms.irc.${card.kind}`,
+			role: `omp.irc.${card.kind}`,
 			tone: "info",
 			head: [
 				span(plainText(title), "toolTitle strong"),
@@ -614,7 +614,7 @@ function describeJob(job: JobSnapshot, isPartial: boolean): NativeNode {
 	);
 	return node(
 		"col",
-		{ role: "oms.wait.job", tone },
+		{ role: "omp.wait.job", tone },
 		compact([
 			row(
 				compact([
@@ -682,7 +682,7 @@ function describeJobsResult(
 		body.push(
 			node(
 				"row",
-				{ gap: "sm", role: "oms.wait.agent" },
+				{ gap: "sm", role: "omp.wait.agent" },
 				[
 					node("badge", {
 						text: agent.live ? "agent" : "agent · no turn",

@@ -104,7 +104,8 @@ it("releases a parked subagent's persistent shell so a revive starts a fresh one
 		const result = await runSubprocess({
 			cwd,
 			artifactsDir,
-			agent: { name: "task", description: "test", systemPrompt: "test", tools: ["read", "bash"], source: "bundled" },
+			toolNames: ["read", "bash"],
+			agent: { name: "task", description: "test", systemPrompt: "test", source: "bundled" },
 			task: "report done",
 			index: 0,
 			id: AGENT_ID,

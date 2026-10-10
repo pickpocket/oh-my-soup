@@ -48,10 +48,10 @@ describe("standard OpenAI Responses service-tier cost", () => {
 		expect(billed.cost.total).toBeCloseTo(0.00036);
 	});
 
-	it("leaves a model with no published ultrafast price at 1x", () => {
+	it("keeps published flex/priority prices without inventing an ultrafast price", () => {
 		const luna = model("gpt-6-luna");
-		expect(luna.serviceTierCost).toBeUndefined();
-
+		expect(luna.serviceTierCost).toEqual({ flex: 0.5, priority: 2 });
+		expect(luna.serviceTierCost?.ultrafast).toBeUndefined();
 		const billed = usage();
 		applyOpenAIResponsesServiceTierCost(luna, billed, "ultrafast", "ultrafast");
 		expect(billed.cost.input).toBeCloseTo(0.00001);

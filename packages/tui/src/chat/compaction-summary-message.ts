@@ -209,7 +209,7 @@ export class CompactionSummaryMessageComponent extends SummaryMessageComponent {
 			nativeLabel: () => compactionNativeLabel(message),
 			nativeDetail: () => compactionNativeDetail(message),
 			detailMarkdown: () => compactionDetailMarkdown(message),
-			role: "oms.compaction",
+			role: "omp.compaction",
 		});
 	}
 }
@@ -236,7 +236,7 @@ function compactionNativeDetail(message: CompactionSummaryMessage): NativeChild[
 		frames > 0
 			? `Summary · ${frames} snapcompact frame${frames === 1 ? "" : "s"} attached`
 			: "Summary of the earlier conversation";
-	const detail: NativeChild[] = [text([span(caption, "dim")], { role: "oms.compaction.caption", key: "caption" })];
+	const detail: NativeChild[] = [text([span(caption, "dim")], { role: "omp.compaction.caption", key: "caption" })];
 	if (message.warning) detail.push(text([span(message.warning, "warning")], { wrap: "word", key: "warning" }));
 	detail.push(md(message.summary, { key: "summary" }));
 	return detail;
@@ -277,7 +277,7 @@ export class HandoffSummaryMessageComponent extends SummaryMessageComponent {
 		super({
 			label: () => `${theme.icon.context} handed-off`,
 			nativeLabel: () => [span("Handed off", "muted")],
-			role: "oms.handoff",
+			role: "omp.handoff",
 			detailMarkdown: () => {
 				const document = extractHandoffDocument(getCustomMessageText(message));
 				return `**Handoff context**\n\n${document || "_No handoff content._"}`;
@@ -306,7 +306,7 @@ export class BranchSummaryMessageComponent extends SummaryMessageComponent {
 		super({
 			label: () => `${theme.icon.branch} branch`,
 			nativeLabel: () => [span("Branch summarized", "muted")],
-			role: "oms.branch",
+			role: "omp.branch",
 			detailMarkdown: () => `**Branch summary**\n\n${message.summary}`,
 		});
 	}

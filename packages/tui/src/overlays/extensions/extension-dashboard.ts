@@ -705,15 +705,15 @@ export class ExtensionDashboard implements Component {
 		const total = this.#state.tabFiltered.length;
 		const head = node(
 			"row",
-			{ justify: "between", align: "center", role: "oms.app.head" },
+			{ justify: "between", align: "center", role: "omp.app.head" },
 			[
-				node("row", { gap: "sm", align: "center", role: "oms.app.where" }, [
-					text(DASHBOARD_TITLE, { role: "oms.app.title" }),
+				node("row", { gap: "sm", align: "center", role: "omp.app.where" }, [
+					text(DASHBOARD_TITLE, { role: "omp.app.title" }),
 					text([span(query ? `${shown} of ${total}` : `${total} extensions`, "muted")], { truncate: "end" }),
 				]),
 				node("icon", {
 					name: "x",
-					role: "oms.app.ibtn",
+					role: "omp.app.ibtn",
 					title: `Close  ${formatTooltipKey(boundKeys("app.interrupt", ["escape"])[0] ?? "escape")}`,
 					aria: "Close",
 					actions: { click: "close" },

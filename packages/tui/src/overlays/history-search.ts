@@ -209,7 +209,7 @@ export class HistorySearchComponent extends OverlayPanel {
 	#onRequestRender?: () => void;
 
 	constructor(historyStorage: HistorySource, onSelect: (prompt: string) => void, onCancel: () => void) {
-		super("History", "oms.overlay.history");
+		super("History", "omp.overlay.history");
 		this.#historyStorage = historyStorage;
 		this.#onSelect = prompt => {
 			this.#cancelPendingSearch();

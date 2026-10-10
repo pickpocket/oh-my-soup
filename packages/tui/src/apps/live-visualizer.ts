@@ -175,7 +175,7 @@ export class LiveVisualizer implements Component {
 					? node("spinner", { label: [span(phase, PHASE_COLORS[phase])], tone: PHASE_TONES[phase] })
 					: text([span(`${PHASE_ICONS[phase]} ${phase}`, PHASE_COLORS[phase])]);
 			const tone = phase === "muted" ? "muted" : phase === "error" ? "error" : "success";
-			return card({ role: "oms.app.live", tone: PHASE_TONES[phase] }, [
+			return card({ role: "omp.app.live", tone: PHASE_TONES[phase] }, [
 				node("row", { gap: "sm", align: "center" }, [status], "head"),
 				meter
 					? row(
@@ -186,7 +186,7 @@ export class LiveVisualizer implements Component {
 							{
 								gap: "sm",
 								align: "center",
-								role: "oms.app.live.level",
+								role: "omp.app.live.level",
 							},
 						)
 					: node("progress", { value: level, tone, label: [span("mic", "muted")] }),

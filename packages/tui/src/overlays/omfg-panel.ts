@@ -48,7 +48,7 @@ export class OmfgPanelComponent extends OverlayPanel {
 	#native: NativeNode | undefined;
 
 	constructor(options: OmfgPanelComponentOptions) {
-		super(`/omfg ${replaceTabs(options.complaint)}`, "oms.overlay.omfg");
+		super(`/omfg ${replaceTabs(options.complaint)}`, "omp.overlay.omfg");
 		this.#tui = options.tui;
 		this.#complaint = replaceTabs(options.complaint);
 		this.#content = new StreamingPanelContent(() => ({

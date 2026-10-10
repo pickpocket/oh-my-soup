@@ -68,7 +68,7 @@ export class SkillMessageComponent extends Container {
 	}
 
 	/**
-	 * A user-toned card (role `oms.skill`): the skill chip (linked to its
+	 * A user-toned card (role `omp.skill`): the skill chip (linked to its
 	 * SKILL.md) and prompt size in the head, the user's draft as markdown, and
 	 * the loaded skill prompt, described only while expanded because it can
 	 * be large.
@@ -104,14 +104,14 @@ export class SkillMessageComponent extends Container {
 				children.push(
 					node(
 						"section",
-						{ head: [span("prompt", "muted")], role: "oms.skill.prompt" },
+						{ head: [span("prompt", "muted")], role: "omp.skill.prompt" },
 						[md(promptText)],
 						"prompt",
 					),
 				);
 			}
 			return card(
-				{ role: "oms.skill", tone: "user", head, collapsible: true, collapsed: !this.#expanded },
+				{ role: "omp.skill", tone: "user", head, collapsible: true, collapsed: !this.#expanded },
 				children.length > 0 ? children : [text([span(label, "muted")])],
 			);
 		});

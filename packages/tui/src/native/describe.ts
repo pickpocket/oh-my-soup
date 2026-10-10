@@ -4,7 +4,7 @@
  *
  * @example
  * describe() {
- *   return card({ role: "oms.tool.bash", status: "running", head: [span("Bash", "toolTitle")] }, [
+ *   return card({ role: "omp.tool.bash", status: "running", head: [span("Bash", "toolTitle")] }, [
  *     ansi(this.#output, { follow: true, preview: { lines: 10 } }),
  *   ]);
  * }

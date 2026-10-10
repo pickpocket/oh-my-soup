@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixed native terminal controls using inconsistent role names, restoring Tern styling and pointer interactions.
+
 ## [18.8.8] - 2026-10-10
 
 ### Added

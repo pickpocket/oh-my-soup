@@ -42,7 +42,7 @@ export class BorderedLoader extends Container {
 	}
 
 	override describe(): NativeNode {
-		this.#native ??= card({ role: "oms.hook.loader" }, [
+		this.#native ??= card({ role: "omp.hook.loader" }, [
 			this.#loader,
 			hintsRow([actionHint("tui.select.cancel", "cancel")]),
 		]);

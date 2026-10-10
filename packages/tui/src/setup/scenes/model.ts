@@ -106,7 +106,7 @@ class ModelSceneController implements SetupSceneController {
 			} else {
 				intro = text([span(`Type to search. ${enter} saves the highlighted model as your default.`, "muted")]);
 			}
-			return col([{ ...intro, key: "intro" }, this.#browser], { gap: "sm", role: "oms.setup.model" });
+			return col([{ ...intro, key: "intro" }, this.#browser], { gap: "sm", role: "omp.setup.model" });
 		});
 	}
 

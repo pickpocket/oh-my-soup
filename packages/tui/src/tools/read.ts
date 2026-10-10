@@ -423,7 +423,7 @@ interface TaggedReadImageBlock extends ReadImageBlock {
 function describeReadImage(block: TaggedReadImageBlock, alt: string): NativeNode {
 	const cached = block[kReadImageNode];
 	if (cached) return cached;
-	const described = base64ImageNode(block.data, block.mimeType, { alt: alt || "image", role: "oms.tool.read.image" });
+	const described = base64ImageNode(block.data, block.mimeType, { alt: alt || "image", role: "omp.tool.read.image" });
 	block[kReadImageNode] = described;
 	return described;
 }

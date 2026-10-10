@@ -226,7 +226,7 @@ function actionSpans(action: string): TspSpan[] {
  * without the native surface get the transcript markdown panel instead.
  */
 export class HotkeysSheetComponent implements Component {
-	readonly nativeOverlay = { role: "oms.overlay.hotkeys", size: "lg", head: "Keyboard shortcuts" } as const;
+	readonly nativeOverlay = { role: "omp.overlay.hotkeys", size: "lg", head: "Keyboard shortcuts" } as const;
 	readonly #bindings: HotkeysMarkdownBindings;
 	readonly #onClose: () => void;
 	#native: NativeNode | undefined;
@@ -242,10 +242,10 @@ export class HotkeysSheetComponent implements Component {
 		const sections = hotkeyGroups(this.#bindings).map((group, index) =>
 			node(
 				"section",
-				{ head: group.title, role: "oms.hotkeys.group" },
+				{ head: group.title, role: "omp.hotkeys.group" },
 				[
 					node("table", {
-						role: "oms.hotkeys.table",
+						role: "omp.hotkeys.table",
 						cols: [
 							{ id: "keys", head: "Key" },
 							{ id: "action", head: "Action", grow: 1 },

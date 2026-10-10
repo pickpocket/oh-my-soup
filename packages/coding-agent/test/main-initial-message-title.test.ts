@@ -21,7 +21,7 @@ describe.skipIf(!hasPtyHarness)("CLI initial-message title generation", () => {
 			await fs.mkdir(agentDir, { recursive: true });
 			await Bun.write(
 				path.join(agentDir, "config.yml"),
-				"setupVersion: 1\nstartup:\n  setupWizard: false\n  showSplash: false\n  checkUpdate: false\nproviders:\n  tinyModel: online\n",
+				"setupVersion: 1\nstartup:\n  setupWizard: false\n  showSplash: false\n  checkUpdate: false\nproviders:\n  tinyModel: online\ntitle:\n  generator: tiny\n",
 			);
 			const command = [
 				JSON.stringify(process.execPath),
@@ -45,7 +45,6 @@ describe.skipIf(!hasPtyHarness)("CLI initial-message title generation", () => {
 					NO_COLOR: "1",
 					OMS_TITLE_PROBE_PATH: outputPath,
 					PI_CODING_AGENT_DIR: agentDir,
-					PI_NO_TITLE: "",
 					TERM: "xterm-256color",
 				},
 			});

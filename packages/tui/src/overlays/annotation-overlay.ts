@@ -1275,7 +1275,7 @@ export class AnnotationOverlay implements Focusable {
 			selected: this.#focus === "diff" ? `l${this.#sourceIndex}` : null,
 			virtual: true,
 			empty: [span(this.#textSource ? "No text" : "No reviewable files", "dim")],
-			role: this.#textSource ? "oms.overlay.annotateText.lines" : "oms.overlay.codeReview.diff",
+			role: this.#textSource ? "omp.overlay.annotateText.lines" : "omp.overlay.codeReview.diff",
 			tone: this.#focus === "diff" ? "accent" : undefined,
 		});
 		// The header row ends in a clickable `esc` at the top right.
@@ -1297,7 +1297,7 @@ export class AnnotationOverlay implements Focusable {
 				}),
 				{
 					selected: this.#files.length > 0 ? `f${this.#fileIndex}` : null,
-					role: "oms.overlay.codeReview.files",
+					role: "omp.overlay.codeReview.files",
 					tone: this.#focus === "files" ? "accent" : undefined,
 				},
 			);
@@ -1321,7 +1321,7 @@ export class AnnotationOverlay implements Focusable {
 		this.#nativeSig = sig;
 		this.#nativeRootBody = body;
 		this.#nativeRoot = overlayCard(
-			this.#textSource ? "oms.overlay.annotateText" : "oms.overlay.codeReview",
+			this.#textSource ? "omp.overlay.annotateText" : "omp.overlay.codeReview",
 			this.#textSource ? TEXT_OVERLAY_TITLE : OVERLAY_TITLE,
 			children,
 		);
@@ -1389,7 +1389,7 @@ export class AnnotationOverlay implements Focusable {
 					label: noteSpans(label, sanitizeText(body)),
 					disabled: true,
 					tone: "warning",
-					role: "oms.overlay.codeReview.note",
+					role: "omp.overlay.codeReview.note",
 				}),
 			);
 		if (this.#textSource) {

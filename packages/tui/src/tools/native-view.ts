@@ -53,7 +53,7 @@ export function fileDiffSection(
 }
 
 /**
- * One 22px file row (role `oms.tool.file`) for read groups, grep files, glob
+ * One 22px file row (role `omp.tool.file`) for read groups, grep files, glob
  * lists and find hits: a leading glyph (the file icon unless `lead` replaces
  * it), the path with a dim directory and a strong name (cut in the middle),
  * a quiet `range` suffix (`:13-36`), then an optional count `chip` and a
@@ -89,7 +89,7 @@ export function fileRow(
 		const detail = typeof p.detail === "string" ? [span(plainText(p.detail), "muted")] : p.detail;
 		children.push(text(detail, { lines: 1, truncate: "end", shrink: 1 }));
 	}
-	return keyed(row(children, { role: "oms.tool.file", tone: p.tone }), p.key ?? filePath);
+	return keyed(row(children, { role: "omp.tool.file", tone: p.tone }), p.key ?? filePath);
 }
 
 /** Longest error excerpt an inline head carries before the body takes the full message. */
@@ -140,8 +140,8 @@ export function toolHead(title: string, ...details: readonly (TspSpan | string |
 export function errorText(message: string): NativeNode {
 	const body = plainText(message).trim();
 	return body.includes("\n") && /^[{[]/.test(body)
-		? code(body, { lang: "json", tone: "error", role: "oms.tool.error" })
-		: text([span(body, "error")], { wrap: "word", role: "oms.tool.error" });
+		? code(body, { lang: "json", tone: "error", role: "omp.tool.error" })
+		: text([span(body, "error")], { wrap: "word", role: "omp.tool.error" });
 }
 
 /** Error card view: error tone, the tool head and the error body (`<title> failed` when empty). */
@@ -161,7 +161,7 @@ export function noteText(message: string, token = "muted", lines?: number): Nati
 /** Muted `a · b · c` metadata line, or undefined when there are no parts. */
 export function statsText(parts: readonly string[]): NativeNode | undefined {
 	if (parts.length === 0) return undefined;
-	return text([span(parts.join(" · "), "muted")], { wrap: "word", role: "oms.tool.stats" });
+	return text([span(parts.join(" · "), "muted")], { wrap: "word", role: "omp.tool.stats" });
 }
 
 /** Warning line for truncation / artifact capture failures, or undefined. */
@@ -170,7 +170,7 @@ export function truncationNotice(meta: OutputMeta | undefined): NativeNode | und
 	const parts: string[] = [];
 	if (meta.truncation) parts.push(formatTruncationMetaNotice(meta.truncation, meta.source));
 	if (meta.artifactError) parts.push(formatArtifactErrorNotice(meta.artifactError));
-	return text([span(parts.join(". "), "warning")], { wrap: "word", role: "oms.tool.notice" });
+	return text([span(parts.join(". "), "warning")], { wrap: "word", role: "omp.tool.notice" });
 }
 
 /**
@@ -184,7 +184,7 @@ export function footnoteText(parts: readonly string[], meta?: OutputMeta): Nativ
 	if (all.length === 0) return undefined;
 	const notice = meta?.truncation !== undefined || meta?.artifactError !== undefined;
 	return {
-		...text([span(all.join(" · "), "muted")], { wrap: "word", role: notice ? "oms.tool.notice" : "oms.tool.stats" }),
+		...text([span(all.join(" · "), "muted")], { wrap: "word", role: notice ? "omp.tool.notice" : "omp.tool.stats" }),
 		key: "foot",
 	};
 }
@@ -227,7 +227,7 @@ function diagnosticRow(diagnostic: ParsedDiagnostic, withPath: boolean, key: str
 			text([span(where, "muted")], { wrap: "none" }),
 			text(message, { wrap: "word" }),
 		],
-		{ role: "oms.tool.diagnostic", key },
+		{ role: "omp.tool.diagnostic", key },
 	);
 }
 
@@ -256,20 +256,20 @@ export function diagnosticsSection(
 	const rows: NativeNode[] = [
 		...parsed.map((d, i) => diagnosticRow(d, withPath, `d${i}`)),
 		...unparsed.map((message, i) =>
-			text([span(message)], { wrap: "word", role: "oms.tool.diagnostic", key: `u${i}` }),
+			text([span(message)], { wrap: "word", role: "omp.tool.diagnostic", key: `u${i}` }),
 		),
 	];
 	const shown = rows.slice(0, DIAGNOSTIC_ROWS);
 	const hidden = rows.length - shown.length;
 	if (hidden > 0) {
-		shown.push(text([span(`+${hidden} more`, "muted")], { role: "oms.tool.stats", key: "more" }));
+		shown.push(text([span(`+${hidden} more`, "muted")], { role: "omp.tool.stats", key: "more" }));
 	}
 	return node(
 		"section",
 		{
 			head: [span("Diagnostics")],
 			tone: diagnostics.errored ? "error" : "warning",
-			role: "oms.tool.diagnostics",
+			role: "omp.tool.diagnostics",
 		},
 		shown,
 		"diagnostics",

@@ -88,7 +88,7 @@ function normalizeInputForPty(data: string, applicationCursorKeysMode: boolean):
 /** Interactive terminal overlay driven by an external PTY controller. */
 export class BashInteractiveOverlayComponent implements Component {
 	/** Native sheet: a full-pane glass overlay titled Console. */
-	readonly nativeOverlay = { role: "oms.overlay.console", size: "full", head: "Console" } as const;
+	readonly nativeOverlay = { role: "omp.overlay.console", size: "full", head: "Console" } as const;
 	#terminal: XtermTerminalType;
 	#state: "running" | "complete" | "timed_out" | "killed" = "running";
 	#exitCode: number | undefined;

@@ -57,7 +57,7 @@ export class ToolActivityContainer extends Container implements ToolActivityComp
 			return cached.node;
 		}
 		const snapshot = children.slice();
-		const node = col(snapshot, this.#visible ? { role: "oms.activity" } : { role: "oms.activity", hidden: true });
+		const node = col(snapshot, this.#visible ? { role: "omp.activity" } : { role: "omp.activity", hidden: true });
 		this.#native = { children: snapshot, visible: this.#visible, node };
 		return node;
 	}

@@ -108,7 +108,7 @@ export class AttachmentChipsBand implements Component {
 				node("card", { role: "omp.composer.chip", tone: "accent", head }, children, `${chip.kind}:${chip.n}`),
 			);
 		}
-		const described = row(cards, { gap: "sm", wrap: true, role: "oms.composer.chips", hidden: cards.length === 0 });
+		const described = row(cards, { gap: "sm", wrap: true, role: "omp.composer.chips", hidden: cards.length === 0 });
 		this.#native = { chips, node: described, images };
 		return described;
 	}

@@ -34,7 +34,7 @@ export class CollabPromptMessageComponent extends Container {
 		});
 		markdown.setIgnoreTight(true);
 		this.addChild(markdown);
-		this.#native = card({ role: "oms.user.collab", tone: "user", head: [span(`«${from}» ›`, "accent strong")] }, [
+		this.#native = card({ role: "omp.user.collab", tone: "user", head: [span(`«${from}» ›`, "accent strong")] }, [
 			md(text),
 		]);
 	}

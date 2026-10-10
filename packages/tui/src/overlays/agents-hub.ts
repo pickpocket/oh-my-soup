@@ -1289,7 +1289,7 @@ export class AgentsHubComponent implements Component {
 		if (strip) footer.push(strip);
 		footer.push(hintsRow(this.#footerHints()));
 		const described = describeHubFrame(
-			"oms.hub.agents",
+			"omp.hub.agents",
 			"Agents",
 			describeHubSidebar(this.#entries, this.#activeEntryId, this.#sidebarStyle, "scopes"),
 			this.#describeBody(),
@@ -1528,7 +1528,7 @@ export class AgentsHubComponent implements Component {
 		if (!rowDef) return [];
 		if (rowDef.kind === "new") {
 			return [
-				text("New agent", { role: "oms.picker.title" }),
+				text("New agent", { role: "omp.picker.title" }),
 				md(
 					"Describe what the agent should do; the architect drafts its name, when to use it and its system prompt.",
 				),
@@ -1554,7 +1554,7 @@ export class AgentsHubComponent implements Component {
 			facts.push({ k: "File", v: [span(shortenPath(agent.filePath), "path", href)] });
 		}
 		const out: NativeChild[] = [
-			node("text", { text: agent.name, role: "oms.picker.title" }, undefined, "title"),
+			node("text", { text: agent.name, role: "omp.picker.title" }, undefined, "title"),
 			node("md", { text: agent.description }, undefined, "description"),
 			node("kv", { items: facts, layout: "grid" }, undefined, "facts"),
 		];
@@ -1562,7 +1562,7 @@ export class AgentsHubComponent implements Component {
 			out.push(
 				node(
 					"section",
-					{ head: "System prompt", role: "oms.agents.prompt" },
+					{ head: "System prompt", role: "omp.agents.prompt" },
 					[code(agent.systemPrompt, { lang: "md", wrap: true })],
 					"prompt",
 				),

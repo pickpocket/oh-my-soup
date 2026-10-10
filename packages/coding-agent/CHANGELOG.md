@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixed extension lifecycle events being delivered twice after the upstream merge.
+- Fixed switching models retaining the previous model's inline tool-description policy.
+- Fixed an empty native HUD row remaining visible when only the separate todo activity line was populated.
+- Fixed identical streamed replacements incorrectly aborting the assistant turn as a missing-match error.
+
 ## [18.8.8] - 2026-10-10
 
 ### Added

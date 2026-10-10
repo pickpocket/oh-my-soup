@@ -32,19 +32,19 @@ export interface BackgroundChrome {
 export function backgroundChrome(bg: ThemeBg | undefined): BackgroundChrome {
 	switch (bg) {
 		case "userMessageBg":
-			return { tone: "user", role: "oms.user" };
+			return { tone: "user", role: "omp.user" };
 		case "customMessageBg":
-			return { tone: "info", role: "oms.custom" };
+			return { tone: "info", role: "omp.custom" };
 		case "toolPendingBg":
-			return { tone: "pending", role: "oms.tool" };
+			return { tone: "pending", role: "omp.tool" };
 		case "toolSuccessBg":
-			return { tone: "success", role: "oms.tool" };
+			return { tone: "success", role: "omp.tool" };
 		case "toolErrorBg":
-			return { tone: "error", role: "oms.tool" };
+			return { tone: "error", role: "omp.tool" };
 		case "selectedBg":
 			return { tone: "accent", selected: true };
 		case "statusLineBg":
-			return { tone: "neutral", role: "oms.status" };
+			return { tone: "neutral", role: "omp.status" };
 		default:
 			return {};
 	}

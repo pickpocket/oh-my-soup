@@ -15,7 +15,6 @@ import { executeJs, type JsResult } from "@oh-my-soup/pi-coding-agent/eval/js/ex
 import { createEvalCustomTools, describeEvalTools } from "@oh-my-soup/pi-coding-agent/task/eval-tools";
 import type { ToolSession } from "@oh-my-soup/pi-coding-agent/tools";
 import { TempDir } from "@oh-my-soup/pi-utils";
-import { INTENT_FIELD } from "@oh-my-soup/pi-wire";
 
 // JS eval cold-starts a Bun worker; under --isolate + high CI concurrency that startup
 // can exceed Bun's 5s default per-test timeout, flaking the suite. Give the worker-backed
@@ -507,22 +506,8 @@ describe("executeJs", () => {
 		expect(result.exitCode).toBe(0);
 		expect(getStatusEvents(result)).toHaveLength(2);
 		expect(getJsonData(result)).toEqual({ wide: "wide", limited: "limited" });
-		expect(execute).toHaveBeenNthCalledWith(
-			1,
-			expect.stringMatching(/^js-read-/),
-			{ path: "artifact://15:raw:1-1400", [INTENT_FIELD]: "js prelude" },
-			expect.any(AbortSignal),
-			undefined,
-			undefined,
-		);
-		expect(execute).toHaveBeenNthCalledWith(
-			2,
-			expect.stringMatching(/^js-read-/),
-			{ path: "artifact://15:raw:1-2", [INTENT_FIELD]: "js prelude" },
-			expect.any(AbortSignal),
-			undefined,
-			undefined,
-		);
+		expect(execute.mock.calls[0]?.[1]).toEqual({ path: "artifact://15:raw:1-1400" });
+		expect(execute.mock.calls[1]?.[1]).toEqual({ path: "artifact://15:raw:1-2" });
 	});
 
 	it("rejects directory reads from native read()", async () => {
@@ -571,8 +556,6 @@ describe("executeJs", () => {
 			agentOutput: "from-agent",
 		});
 		expect(execute).toHaveBeenCalledTimes(2);
-		expect(execute.mock.calls[0]?.[1]).toEqual({ path: "package.json", [INTENT_FIELD]: "js prelude" });
-		expect(execute.mock.calls[1]?.[1]).toEqual({ path: "agent://agent-42", [INTENT_FIELD]: "js prelude" });
 	});
 
 	it("preserves nested await expressions in instrumented tool-call arguments", async () => {

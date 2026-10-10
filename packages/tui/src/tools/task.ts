@@ -1787,13 +1787,13 @@ function thinkingToken(level: ConfiguredThinkingLevel | undefined): string | und
 function describeContext(raw: unknown): NativeNode | undefined {
 	const source = typeof raw === "string" ? sanitizeText(repairDoubleEncodedJsonString(raw)) : "";
 	const line = source.replace(/\s+/g, " ").trim();
-	return line ? text([span(line, "muted")], { wrap: "word", lines: 2, role: "oms.tool.context" }) : undefined;
+	return line ? text([span(line, "muted")], { wrap: "word", lines: 2, role: "omp.tool.context" }) : undefined;
 }
 
 /** The full assignment, markdown, as the first expanded child of an agent. */
 function describeAssignment(raw: string | undefined): NativeNode | undefined {
 	const source = raw ? sanitizeText(repairDoubleEncodedJsonString(raw)).trim() : "";
-	return source ? md(source, { role: "oms.task.assignment" }) : undefined;
+	return source ? md(source, { role: "omp.task.assignment" }) : undefined;
 }
 
 /** Context-window stats: the fill fraction and its `19K / 200K` label. */
@@ -1916,7 +1916,7 @@ function describeProgressAgent(progress: AgentProgress, state: AgentDescribeStat
 								"error",
 							),
 						],
-						{ wrap: "word", role: "oms.tool.error" },
+						{ wrap: "word", role: "omp.tool.error" },
 					)
 				: undefined,
 			...describeNestedTasks(progress, state, depth),
@@ -1934,7 +1934,7 @@ function describeResultAgent(result: SingleResult, state: AgentDescribeState, de
 	const structured = result.structuredOutput?.data;
 	const output = sanitizeText(stripGeneratedOutputNotice(rest)).trim();
 	const errorLine = (message: string, token = "error"): NativeNode =>
-		text([span(plainText(message), token)], { wrap: "word", role: "oms.tool.error" });
+		text([span(plainText(message), token)], { wrap: "word", role: "omp.tool.error" });
 	const badges: { text: string; tone?: TspTone }[] = [...(agentBadges(state.background, result.isolated) ?? [])];
 	if (mergeFailed) badges.push({ text: "merge failed", tone: "warning" });
 	else if (warning && success) badges.push({ text: "warning", tone: "warning" });
@@ -1972,7 +1972,7 @@ function describeResultAgent(result: SingleResult, state: AgentDescribeState, de
 			structured !== undefined
 				? describeJsonTree(structured)
 				: output
-					? md(output, { role: "oms.task.output" })
+					? md(output, { role: "omp.task.output" })
 					: undefined,
 			result.stderr.trim() && !success ? node("ansi", { text: result.stderr, preview: { lines: 6 } }) : undefined,
 			kv([
@@ -2135,7 +2135,7 @@ function describeTaskResult(
 			context,
 			...agents,
 			count === 0 ? noteText(fallback.trim() || "No results", "dim") : undefined,
-			trailer ? text([span(plainText(trailer), "muted")], { wrap: "word", role: "oms.tool.stats" }) : undefined,
+			trailer ? text([span(plainText(trailer), "muted")], { wrap: "word", role: "omp.tool.stats" }) : undefined,
 		]),
 	};
 }

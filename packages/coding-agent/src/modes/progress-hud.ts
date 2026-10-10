@@ -68,7 +68,7 @@ function describeHudRow(key: string, label: string, tail: readonly TspSpan[], ba
 	];
 	if (bar !== undefined) children.push(node("progress", { value: Math.min(1, Math.max(0, bar)), max: { w: "18ch" } }));
 	children.push(text(tail, { wrap: "none" }));
-	return node("row", { justify: "end", gap: "sm", align: "center", role: "oms.hud.progress" }, children, key);
+	return node("row", { justify: "end", gap: "sm", align: "center", role: "omp.hud.progress" }, children, key);
 }
 
 /** Progress rows for concurrent judge batches. */
@@ -100,7 +100,7 @@ export class JudgmentBatchProgressHud implements Component {
 				if (progress.failed > 0) tail.push(span(` · ${progress.failed} failed`, "warning"));
 				return describeHudRow(progress.id, progress.intent, tail, progress.done / Math.max(1, progress.total));
 			}),
-			{ role: "oms.hud.judge" },
+			{ role: "omp.hud.judge" },
 		);
 		return this.#native;
 	}
@@ -217,7 +217,7 @@ export class DownloadActivityHud implements Component {
 		if (this.#native?.revision === this.#revision && this.#native.shown === signature) return this.#native.node;
 		const nodeOut = col(
 			shown.map(row => this.#describeRow(row.activity)),
-			{ role: "oms.hud.downloads" },
+			{ role: "omp.hud.downloads" },
 		);
 		this.#native = { node: nodeOut, revision: this.#revision, shown: signature };
 		return nodeOut;

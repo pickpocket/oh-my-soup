@@ -107,7 +107,7 @@ describe("native task", () => {
 		expect(view?.tool).toMatchObject({ title: "Task", target: "2 agents" });
 		const all = nodes(view?.body);
 		expect(all.some(n => n.k === "card")).toBe(false);
-		expect(view?.body?.[0]).toMatchObject({ k: "text", p: { role: "oms.tool.context" } });
+		expect(view?.body?.[0]).toMatchObject({ k: "text", p: { role: "omp.tool.context" } });
 		const agents = all.filter(n => n.k === "agent");
 		expect(agents.map(n => n.key)).toEqual(["Alpha", "Beta"]);
 		const alpha = agents[0]!.p as TspAgentProps;

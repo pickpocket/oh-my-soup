@@ -21,6 +21,7 @@ import * as fs from "node:fs";
 import * as fsp from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
+import { dlopen, FFIType } from "bun:ffi";
 import { Shell } from "@oh-my-soup/pi-natives";
 import { RotatingFileSink } from "@oh-my-soup/pi-utils/logger/rotating-file";
 import { removeWithRetries } from "@oh-my-soup/pi-utils";
@@ -54,14 +55,22 @@ test.skipIf(process.platform !== "linux")("bash tool children never inherit sess
 
 	const control = path.join(root, "control.jsonl");
 	const controlFd = fs.openSync(control, "a");
-
+	// Make the positive control explicitly inheritable, independent of Bun's
+	// default close-on-exec flags.
+	const libc = dlopen("libc.so.6", {
+		fcntl: { args: [FFIType.i32, FFIType.i32, FFIType.i32], returns: FFIType.i32 },
+	});
 	let output = "";
 	try {
+		if (libc.symbols.fcntl(controlFd, 2, 0) !== 0) {
+			throw new Error("fcntl(F_SETFD, 0) failed for control descriptor");
+		}
 		await new Shell().run({ command: "sh -c 'ls -l /proc/$$/fd'", cwd: root }, (_err, chunk) => {
 			output += chunk;
 		});
 	} finally {
 		fs.closeSync(controlFd);
+		libc.close();
 		logSink.close();
 		await writer.close();
 	}

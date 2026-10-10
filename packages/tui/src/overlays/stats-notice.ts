@@ -20,7 +20,7 @@ export class StatsNotice extends Container {
 		this.addChild(new Spacer(1));
 		this.addChild(new Text(message, 1, 0).setStyleFn(line => theme.fg("dim", line)));
 		this.#native = node("row", { gap: "md", align: "center", wrap: true }, [
-			node("text", { spans: [span(message)], role: "oms.stats", wrap: "word", grow: 1 }),
+			node("text", { spans: [span(message)], role: "omp.stats", wrap: "word", grow: 1 }),
 			actionButton("Open dashboard ↗", "open", { href: url, title: url }),
 		]);
 	}

@@ -1454,7 +1454,7 @@ describe("AgentSession TTSR resume gate", () => {
 		collapseSchedulerSettleDelays();
 		// A bundled Harmony-mitigation target, so the leak marker takes the
 		// abort_retry path instead of streaming through as ordinary text.
-		const model = getBundledModel("openai-codex", "gpt-5.6-sol")!;
+		const model = getBundledModel("openai-codex", "gpt-6-luna")!;
 		const splitRule: Rule = {
 			name: "split-phrase",
 			path: "/tmp/split-phrase.md",

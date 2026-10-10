@@ -1073,7 +1073,7 @@ export class CustomEditor extends Editor {
 		| undefined;
 
 	/**
-	 * The TSP composer: role `oms.editor[.bash|.python]` (tone `pending` while
+	 * The TSP composer: role `omp.editor[.bash|.python]` (tone `pending` while
 	 * a turn runs) over the context hairline, the viewing header while a
 	 * subagent is focused, the attachment chips, a `line` row of the
 	 * shell-mode chip and the input, and the `bar`: model chip, effort chip
@@ -1131,7 +1131,7 @@ export class CustomEditor extends Editor {
 								rate !== undefined &&
 									node(
 										"rate",
-										{ value: rate, unit: "tok/s", role: "oms.composer.rate", title: "Generation rate" },
+										{ value: rate, unit: "tok/s", role: "omp.composer.rate", title: "Generation rate" },
 										undefined,
 										"rate",
 									),
@@ -1140,12 +1140,12 @@ export class CustomEditor extends Editor {
 								facts?.usage,
 								controls.submit,
 							]),
-							{ role: "oms.composer.bar", gap: "sm", align: "center" },
+							{ role: "omp.composer.bar", gap: "sm", align: "center" },
 						),
 						"bar",
 					);
 		const line = keyed(
-			row(compact([controls.mode, input]), { role: "oms.composer.line", align: "start", gap: "sm" }),
+			row(compact([controls.mode, input]), { role: "omp.composer.line", align: "start", gap: "sm" }),
 			"line",
 		);
 		const layout: NativeEditorLayout = {
@@ -1159,10 +1159,10 @@ export class CustomEditor extends Editor {
 	};
 
 	/**
-	 * The viewing header (`oms.composer.focus`) while a subagent is focused:
-	 * an eye, the agent's ancestors as `oms.composer.crumb` links, the agent
-	 * itself (`oms.composer.agent`), then the way back to the main session
-	 * (`oms.composer.exit`, the interrupt key's keycap: Esc on an empty draft).
+	 * The viewing header (`omp.composer.focus`) while a subagent is focused:
+	 * an eye, the agent's ancestors as `omp.composer.crumb` links, the agent
+	 * itself (`omp.composer.agent`), then the way back to the main session
+	 * (`omp.composer.exit`, the interrupt key's keycap: Esc on an empty draft).
 	 */
 	#describeViewing(viewing: readonly string[], interruptKey: KeyId): NativeNode | undefined {
 		const agent = viewing.at(-1);
@@ -1172,7 +1172,7 @@ export class CustomEditor extends Editor {
 			node(
 				"text",
 				{
-					role: "oms.composer.crumb",
+					role: "omp.composer.crumb",
 					text: id,
 					wrap: "none",
 					title: `View ${id}`,
@@ -1188,11 +1188,11 @@ export class CustomEditor extends Editor {
 					node("icon", { name: "eye" }, undefined, "icon"),
 					node("text", { text: "Viewing", wrap: "none" }, undefined, "label"),
 					...crumbs,
-					node("text", { role: "oms.composer.agent", text: agent, wrap: "none" }, undefined, "agent"),
+					node("text", { role: "omp.composer.agent", text: agent, wrap: "none" }, undefined, "agent"),
 					node(
 						"row",
 						{
-							role: "oms.composer.exit",
+							role: "omp.composer.exit",
 							gap: "xs",
 							align: "center",
 							title: `Back to the main session  ${back}`,
@@ -1206,7 +1206,7 @@ export class CustomEditor extends Editor {
 					),
 				],
 				{
-					role: "oms.composer.focus",
+					role: "omp.composer.focus",
 					gap: "xs",
 					align: "center",
 					title: `Viewing subagent ${agent}: what you send goes to it`,
@@ -1236,7 +1236,7 @@ export class CustomEditor extends Editor {
 						"effort",
 						{
 							level: thinking,
-							role: "oms.composer.model.effort",
+							role: "omp.composer.model.effort",
 							title: `Thinking effort: ${thinking}${thinkingHint}`,
 							actions: { click: "thinking.cycle" },
 						},
@@ -1269,7 +1269,7 @@ export class CustomEditor extends Editor {
 				? node(
 						"row",
 						{
-							role: "oms.composer.effort",
+							role: "omp.composer.effort",
 							gap: "xs",
 							align: "center",
 							title: `Thinking effort${thinkingHint}`,

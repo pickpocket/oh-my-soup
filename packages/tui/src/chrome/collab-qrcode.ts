@@ -73,7 +73,7 @@ export class CollabQrCodeComponent implements Component, TranscriptPresentationT
 				text([{ t: this.url.replace(/^https?:\/\//, ""), s: "accent link", href: this.url }], { wrap: "none" }),
 				code(qr, { lang: "text", wrap: false }),
 			],
-			{ role: "oms.collab.qrcode" },
+			{ role: "omp.collab.qrcode" },
 		);
 		this.#native = { dark: cx.dark, node };
 		return node;

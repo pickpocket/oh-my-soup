@@ -71,7 +71,7 @@ export class PlanSaveOverlay implements Component, Focusable {
 	}
 
 	/** A small glass sheet titled "Save and quit". */
-	readonly nativeOverlay = { role: "oms.overlay.planSave", size: "sm", head: "Save and quit" } as const;
+	readonly nativeOverlay = { role: "omp.overlay.planSave", size: "sm", head: "Save and quit" } as const;
 
 	describe(): NativeNode {
 		this.#input.focused = this.#focused;

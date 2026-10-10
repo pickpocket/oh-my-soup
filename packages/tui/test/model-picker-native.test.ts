@@ -130,7 +130,7 @@ function prop(child: NativeChild, name: string): unknown {
 }
 
 function titleOf(children: readonly NativeChild[] | undefined): unknown {
-	const title = children?.find(child => prop(child, "role") === "oms.picker.title");
+	const title = children?.find(child => prop(child, "role") === "omp.picker.title");
 	return title ? prop(title, "text") : undefined;
 }
 

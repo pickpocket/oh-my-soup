@@ -36,7 +36,7 @@ export const thinkToolRenderer = {
 		return (
 			thinkCallMemo.get(args, [streaming, thoughts], () => ({
 				inline: true,
-				body: thoughts ? [md(thoughts, { role: "oms.think", tone: "muted", stream: streaming })] : [],
+				body: thoughts ? [md(thoughts, { role: "omp.think", tone: "muted", stream: streaming })] : [],
 			})) ?? { inline: true }
 		);
 	},

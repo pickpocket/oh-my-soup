@@ -124,7 +124,7 @@ const RECENT_FRAMES = 64;
 /** An unanswered frame older than this no longer holds rendering back. */
 const STALLED_ACK_MS = 5000;
 /** Role of the session's surfaces; a screen page may name its own. */
-const SESSION_ROLE = "oms.session";
+const SESSION_ROLE = "omp.session";
 /** A `blobs` query unanswered this long counts its ids as missing: they go inline. */
 const BLOB_REPLY_MS = 3000;
 /** Expired queries kept to pair late replies with their queries, at most. */
@@ -228,7 +228,7 @@ export function assumedTspHello(terminal: Terminal): TspHello {
 class Surface {
 	readonly id: string;
 	readonly mode: "inline" | "screen";
-	/** The `o` role: `oms.session`, or a screen page's own (`NativeScreen.role`). */
+	/** The `o` role: `omp.session`, or a screen page's own (`NativeScreen.role`). */
 	readonly role: string;
 	readonly reconciler: Reconciler;
 	readonly doc: TspDocument | null;

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -76,6 +76,25 @@ async function seedFooRepo(finalContent: string): Promise<{ repoRoot: string; pa
 	return { repoRoot, patchPath };
 }
 
+function emptyBaseline(repoRoot: string): worktreeModule.WorktreeBaseline {
+	return {
+		root: {
+			repoRoot,
+			headCommit: "base",
+			staged: "",
+			unstaged: "",
+			untracked: [],
+			untrackedPatch: "",
+		},
+		nested: [],
+	};
+}
+
+beforeEach(() => {
+	vi.spyOn(worktreeModule, "captureIsolationBaseline").mockImplementation(async (_isolationDir, repoRoot) =>
+		emptyBaseline(repoRoot),
+	);
+});
 describe("runIsolatedSubprocess", () => {
 	afterEach(async () => {
 		vi.restoreAllMocks();
@@ -125,6 +144,9 @@ describe("runIsolatedSubprocess", () => {
 		// No branch was ever created, so the rescue probe finds nothing to keep.
 		const deleteSpy = vi.fn(async () => true);
 		const repository = {
+			headSha: async () => "base",
+			diffText: async () => "",
+			lsFiles: async () => [],
 			deleteBranch: deleteSpy,
 			refExists: async () => false,
 			revListRange: async () => {
@@ -176,17 +198,6 @@ describe("runIsolatedSubprocess", () => {
 		tempRoots.push(repoRoot);
 		const isolationDir = path.join(repoRoot, "isolated");
 		const artifactsDir = path.join(repoRoot, "artifacts");
-		const baseline = {
-			root: {
-				repoRoot,
-				headCommit: "base",
-				staged: "",
-				unstaged: "",
-				untracked: [],
-				untrackedPatch: "",
-			},
-			nested: [],
-		};
 
 		vi.spyOn(worktreeModule, "ensureIsolation").mockResolvedValue({
 			mergedDir: isolationDir,
@@ -213,6 +224,9 @@ describe("runIsolatedSubprocess", () => {
 		const refSpy = vi.fn(async () => true);
 		const deleteSpy = vi.fn(async () => true);
 		const repository = {
+			headSha: async () => "base",
+			diffText: async () => "",
+			lsFiles: async () => [],
 			deleteBranch: deleteSpy,
 			refExists: refSpy,
 			revListRange: rangeSpy,
@@ -461,17 +475,6 @@ describe("runIsolatedSubprocess", () => {
 		const artifactsDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-isolation-oneshot-"));
 		tempRoots.push(artifactsDir);
 		const rootPatch = "diff --git a/task.txt b/task.txt\n+captured\n";
-		const baseline = {
-			root: {
-				repoRoot: "/repo",
-				headCommit: "base",
-				staged: "",
-				unstaged: "",
-				untracked: [],
-				untrackedPatch: "",
-			},
-			nested: [],
-		};
 		const order: string[] = [];
 		vi.spyOn(worktreeModule, "ensureIsolation").mockResolvedValue({
 			mergedDir: isolationDir,
@@ -628,6 +631,7 @@ describe("runIsolatedSubprocess", () => {
 				},
 			],
 		};
+		vi.spyOn(worktreeModule, "captureIsolationBaseline").mockResolvedValue(baseline);
 		vi.spyOn(worktreeModule, "ensureIsolation").mockResolvedValue({
 			mergedDir: "/repo/isolated",
 			backend: natives.IsoBackendKind.Rcopy,

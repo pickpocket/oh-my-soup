@@ -741,7 +741,7 @@ interface RunningPillSpec {
 function describeRunningPill(spec: RunningPillSpec, running: number): NativeNode {
 	return node(
 		"row",
-		{ role: "oms.hud.pill", gap: "xs", align: "center", title: spec.title, actions: { click: spec.act } },
+		{ role: "omp.hud.pill", gap: "xs", align: "center", title: spec.title, actions: { click: spec.act } },
 		[
 			node("icon", { name: spec.icon }, undefined, "icon"),
 			node("spinner", { style: "dots", tone: "accent" }, undefined, "spinner"),
@@ -1408,7 +1408,7 @@ export class InteractiveMode implements InteractiveModeContext {
 	interruptFromPointer(): void {
 		this.editor.onEscape?.();
 	}
-	/** The native HUD pills row: the todo HUD, the subagent pill, then the jobs pill; hidden while all are empty. */
+	/** The native subagent and background-job pills row, hidden while both are empty. */
 	describeHudPills(): NativeNode {
 		// Agents count as the status-line badge counts them, from the agent
 		// registry: the observer registry only hears task-executor lifecycles,
@@ -1436,14 +1436,10 @@ export class InteractiveMode implements InteractiveModeContext {
 		if (this.#agentsPill) children.push(this.#agentsPill.node);
 		if (this.#jobsPill) children.push(this.#jobsPill.node);
 		const memo = this.#hudPillsNative;
-		const empty =
-			this.#todoHudNative === undefined &&
-			this.subagentContainer.children.length === 0 &&
-			this.#agentsPill === undefined &&
-			this.#jobsPill === undefined;
+		const empty = children.length === 0;
 		if (memo && memo.empty === empty && sameItems(memo.children, children)) return memo.node;
 		const described = row(children, {
-			role: "oms.hud",
+			role: "omp.hud",
 			justify: "end",
 			gap: "sm",
 			hidden: empty || undefined,
@@ -1452,9 +1448,9 @@ export class InteractiveMode implements InteractiveModeContext {
 		return described;
 	}
 	/**
-	 * Native activity line (`oms.hud.activity`): the status rows (the working,
+	 * Native activity line (`omp.hud.activity`): the status rows (the working,
 	 * retry and compaction loaders describe themselves as the working row;
-	 * other rows describe themselves) in an `oms.hud.status` column, then the
+	 * other rows describe themselves) in an `omp.hud.status` column, then the
 	 * todo HUD, so the todo holds its place as the turn starts and ends.
 	 * Nothing to show describes the empty HUD.
 	 */
@@ -1464,10 +1460,10 @@ export class InteractiveMode implements InteractiveModeContext {
 		const memo = this.#statusHudNative;
 		if (memo && memo.todo === todo && sameItems(memo.children, children)) return memo.node;
 		const parts: NativeChild[] = [];
-		if (children.length > 0) parts.push(node("col", { role: "oms.hud.status" }, children.slice(), "status"));
+		if (children.length > 0) parts.push(node("col", { role: "omp.hud.status" }, children.slice(), "status"));
 		if (todo) parts.push(todo);
 		const described =
-			parts.length === 0 ? EMPTY_HUD : row(parts, { role: "oms.hud.activity", align: "center", gap: "sm" });
+			parts.length === 0 ? EMPTY_HUD : row(parts, { role: "omp.hud.activity", align: "center", gap: "sm" });
 		this.#statusHudNative = { children: children.slice(), todo, node: described };
 		return described;
 	}
@@ -4388,7 +4384,7 @@ export class InteractiveMode implements InteractiveModeContext {
 		}
 		const fallback = node(
 			"col",
-			{ role: "oms.hud.todo" },
+			{ role: "omp.hud.todo" },
 			[
 				row(
 					[
@@ -4428,7 +4424,7 @@ export class InteractiveMode implements InteractiveModeContext {
 		this.#todoHudNative = {
 			checklist: node(
 				"checklist",
-				{ phases: checklistPhases, mode: "hud", role: "oms.hud.todo" },
+				{ phases: checklistPhases, mode: "hud", role: "omp.hud.todo" },
 				undefined,
 				"todo",
 			),

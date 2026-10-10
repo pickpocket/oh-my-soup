@@ -231,8 +231,8 @@ export class WelcomeComponent implements Component {
 	}
 
 	/**
-	 * A `card` (`oms.welcome`) mirroring the terminal banner: the lockup
-	 * (`oms.welcome.lockup`: the terminal's builtin `oms` mark, which it animates,
+	 * A `card` (`omp.welcome`) mirroring the terminal banner: the lockup
+	 * (`omp.welcome.lockup`: the terminal's builtin `omp` mark, which it animates,
 	 * beside the wordmark with the version under it) and the tip of the session.
 	 * Roles carry the look (gradient logo, type scale); a "[NEW]" tip
 	 * carries a terminal-clocked shimmering tag.
@@ -261,15 +261,15 @@ export class WelcomeComponent implements Component {
 					keyed(
 						col(
 							[
-								art([span(APP_NAME, "strong")], "oms.welcome.wordmark"),
-								art([span(`v${this.version}`, "dim mono")], "oms.welcome.version"),
+								art([span(APP_NAME, "strong")], "omp.welcome.wordmark"),
+								art([span(`v${this.version}`, "dim mono")], "omp.welcome.version"),
 							],
-							{ role: "oms.welcome.mark" },
+							{ role: "omp.welcome.mark" },
 						),
 						"mark",
 					),
 				],
-				{ align: "center", gap: "md", role: "oms.welcome.lockup" },
+				{ align: "center", gap: "md", role: "omp.welcome.lockup" },
 			),
 			"lockup",
 		);
@@ -285,7 +285,7 @@ export class WelcomeComponent implements Component {
 			body.push(node("row", { gap: "sm", align: "start", role: "omp.welcome.tip" }, tipRow, "tip"));
 		}
 		// No head row or chevron: the card is the hero; the version sits under the wordmark.
-		const described = card({ role: "oms.welcome" }, body);
+		const described = card({ role: "omp.welcome" }, body);
 		this.#native = { tip, node: described };
 		return described;
 	}

@@ -48,7 +48,7 @@ import type {
 	TurnEndEvent,
 	TurnStartEvent,
 } from "./types";
-import type { GoalUpdatedEvent } from "../shared-events";
+import type { BeadsReminderEvent, GoalUpdatedEvent } from "../shared-events";
 
 /**
  * Clone one top-level notification field without ever returning an object
@@ -100,6 +100,7 @@ export type MappedExtensionEvent =
 	| RetryFallbackSucceededEvent
 	| TtsrTriggeredEvent
 	| TodoReminderEvent
+	| BeadsReminderEvent
 	| GoalUpdatedEvent;
 /**
  * Map a session event onto the extension event `AgentSession` emits for it
@@ -225,6 +226,13 @@ export function extensionEventFromSessionEvent(
 			return {
 				type: "todo_reminder",
 				todos: event.todos,
+				attempt: event.attempt,
+				maxAttempts: event.maxAttempts,
+			};
+		case "beads_reminder":
+			return {
+				type: "beads_reminder",
+				issues: event.issues,
 				attempt: event.attempt,
 				maxAttempts: event.maxAttempts,
 			};

@@ -63,7 +63,7 @@ export class CleansePanelComponent extends OverlayPanel {
 	readonly #content: StreamingPanelContent;
 
 	constructor(options: CleansePanelComponentOptions) {
-		super(options.request ? `/cleanse ${replaceTabs(options.request)}` : "/cleanse", "oms.overlay.cleanse");
+		super(options.request ? `/cleanse ${replaceTabs(options.request)}` : "/cleanse", "omp.overlay.cleanse");
 		this.#tui = options.tui;
 		this.#model = options.model;
 		this.#request = options.request === undefined ? undefined : replaceTabs(options.request);

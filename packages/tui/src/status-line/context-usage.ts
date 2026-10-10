@@ -809,7 +809,7 @@ function describeContextFrame(breakdown: ContextBreakdown): NativeNode {
 			),
 		);
 	}
-	return col(children, { gap: "md", role: "oms.context" });
+	return col(children, { gap: "md", role: "omp.context" });
 }
 
 /** The `/context` title: the model and its window once a model is selected. */

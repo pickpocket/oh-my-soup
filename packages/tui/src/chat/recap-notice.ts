@@ -9,7 +9,7 @@ import { Container } from "../tui";
  * The idle recap (`recap.*`): where the session stands, written while the user
  * was away. Stays in the transcript like a thought: a dim italic `※ recap:`
  * line in ANSI, a history icon beside the italic thought-coloured text in a
- * native terminal (`oms.recap`).
+ * native terminal (`omp.recap`).
  */
 export class RecapNotice extends Container {
 	readonly #recap: string;
@@ -22,7 +22,7 @@ export class RecapNotice extends Container {
 	}
 
 	override describe(): NativeNode {
-		return node("row", { gap: "sm", align: "start", role: "oms.recap", title: "Recap while you were away" }, [
+		return node("row", { gap: "sm", align: "start", role: "omp.recap", title: "Recap while you were away" }, [
 			node("icon", { name: "history" }, undefined, "icon"),
 			text(this.#recap, { wrap: "word" }),
 		]);

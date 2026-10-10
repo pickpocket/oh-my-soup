@@ -185,7 +185,7 @@ export interface TspSectionProps {
 	head?: TspText;
 	collapsible?: boolean;
 	collapsed?: boolean;
-	/** A finished thinking section (`oms.thinking*`): how long it thought, in ms, like a tool card's `took`. */
+	/** A finished thinking section (`omp.thinking*`): how long it thought, in ms, like a tool card's `took`. */
 	took?: number;
 }
 export interface TspRuleProps {
@@ -430,7 +430,7 @@ export interface TspPickerItem {
 	node?: "user" | "assistant" | "tool" | "marker";
 	depth?: number;
 	open?: boolean;
-	/** Leading glyph slot for tree/timeline rows (oms role → icon, e.g. `oms.tool.grep`). */
+	/** Leading glyph slot for tree/timeline rows (omp role → icon, e.g. `omp.tool.grep`). */
 	role?: string;
 	title?: string;
 }

@@ -314,7 +314,7 @@ function jobItem(job: JobSnapshot, badge?: { text: string; tone: TspTone }): Nat
 
 function quotedPreview(body: string, tone = "muted"): NativeNode | undefined {
 	if (!body.trim()) return undefined;
-	return text([span(body, tone)], { wrap: "word", role: "oms.tool.proc.preview" });
+	return text([span(body, tone)], { wrap: "word", role: "omp.tool.proc.preview" });
 }
 
 const RECEIPT_TONE: Record<IrcDeliveryReceipt["outcome"], TspTone> = {
@@ -353,7 +353,7 @@ export function describeAgentWrite(
 		(receipts.length > 1 || failed > 0) &&
 			node(
 				"list",
-				{ role: "oms.tool.irc.receipts" },
+				{ role: "omp.tool.irc.receipts" },
 				receipts.map(receipt =>
 					node(
 						"item",
@@ -395,7 +395,7 @@ export function describeProcWrite(
 		body.push(
 			node(
 				"list",
-				{ role: "oms.tool.proc.cancelled" },
+				{ role: "omp.tool.proc.cancelled" },
 				(details.cancelled ?? []).map(outcome => {
 					const job = jobs.find(item => item.id === outcome.id);
 					const badge = {
@@ -436,13 +436,13 @@ export function describeProcRead(
 			head,
 			body: compact<NativeChild>([
 				node("list", {}, [jobItem(details.job)]),
-				log.trim().length > 0 && ansi(log, { role: "oms.tool.proc.log" }),
+				log.trim().length > 0 && ansi(log, { role: "omp.tool.proc.log" }),
 			]),
 		};
 	}
 	if (daemon) {
 		const output = details.terminalRows?.join("\n") ?? details.log ?? "";
-		return { head, body: [ansi(output, { follow: daemon.exitedAt === undefined, role: "oms.tool.proc.log" })] };
+		return { head, body: [ansi(output, { follow: daemon.exitedAt === undefined, role: "omp.tool.proc.log" })] };
 	}
 	if (id && !details?.jobs && !details?.daemons && !details?.agents) {
 		return { head, body: compact<NativeChild>([quotedPreview(firstText(result), "toolOutput")]) };
@@ -485,6 +485,6 @@ export function describeProcRead(
 	if (agents.length) counts.push(`${agents.length} agents`);
 	return {
 		head: toolHead(title, id ? span(safe(id), "accent") : undefined, counts.join(" · ")),
-		body: [node("list", { empty: "No background jobs or services.", role: "oms.tool.proc.table" }, items)],
+		body: [node("list", { empty: "No background jobs or services.", role: "omp.tool.proc.table" }, items)],
 	};
 }

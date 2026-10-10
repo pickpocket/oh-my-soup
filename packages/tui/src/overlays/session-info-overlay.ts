@@ -73,13 +73,13 @@ function copyLine(
 			gap: "sm",
 			align: "center",
 			grow: 1,
-			role: "oms.info.copy",
+			role: "omp.info.copy",
 			actions: { click: "copy" },
 			title,
 		},
 		[
 			text(spans, { ...props, grow: 1, shrink: 1 }),
-			node("icon", { name: "copy", role: "oms.info.copy.ic", aria: title }),
+			node("icon", { name: "copy", role: "omp.info.copy.ic", aria: title }),
 		],
 		key,
 	);
@@ -201,7 +201,7 @@ export class SessionInfoOverlay implements Component {
 							{
 								gap: "md",
 								align: "start",
-								role: "oms.info.file",
+								role: "omp.info.file",
 							},
 						),
 					);

@@ -49,6 +49,12 @@ impl ReplaceEngine {
 		if outcome.occurrences.is_some_and(|count| count > 1) {
 			return Err(EditError::apply(format_occurrence_error(path, &outcome)));
 		}
+		// A missed replacement with a unique match is an unchanged edit, not a search failure.
+		if outcome.matched.is_some() {
+			return Err(EditError::apply(format!(
+				"No changes would be made to {path}. The replacement produces identical content."
+			)));
+		}
 		Err(EditError::matched(format_match_error(
 			path,
 			old_string,

@@ -159,7 +159,7 @@ function writeFigure(
 function describeFigure(figure: ToolFigure | undefined): NativeNode | undefined {
 	if (!figure || (figure.lang === "mermaid" && !figure.closed)) return undefined;
 	const text = fencedCode(figure.lang, figure.source, { open: !figure.closed });
-	return { ...md(text, { role: "oms.tool.write.figure", stream: !figure.closed }), key: "figure" };
+	return { ...md(text, { role: "omp.tool.write.figure", stream: !figure.closed }), key: "figure" };
 }
 
 /** The written content as numbered code, keyed so it keeps its node as the figure above it comes and goes. */

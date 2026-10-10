@@ -1,3 +1,4 @@
+import { createMockModel } from "@oh-my-soup/pi-ai/providers/mock";
 import { AgentSession } from "../../src/session/agent-session";
 
 const outputPath = Bun.env.OMS_TITLE_PROBE_PATH;
@@ -12,10 +13,13 @@ AgentSession.prototype.generateTitle = (firstMessage: string): Promise<string | 
 	return Promise.resolve("CLI Initial Title");
 };
 
-AgentSession.prototype.prompt = async function (): Promise<boolean> {
-	void Bun.sleep(100).then(async () => {
-		await Bun.write(outputPath, JSON.stringify({ generatedFrom, sessionName: this.sessionName }));
-		process.exit(0);
-	});
-	return true;
+const prompt = AgentSession.prototype.prompt;
+AgentSession.prototype.prompt = async function (message, options): Promise<boolean> {
+	this.modelRegistry.authStorage.keys.setRuntime("anthropic", "test-key");
+	this.agent.streamFn = createMockModel({ handler: () => ({ content: ["Implemented X."] }) }).stream;
+	const result = await prompt.call(this, message, options);
+	await this.waitForIdle();
+	await Bun.write(outputPath, JSON.stringify({ generatedFrom, sessionName: this.sessionName }));
+	process.exit(0);
+	return result;
 };

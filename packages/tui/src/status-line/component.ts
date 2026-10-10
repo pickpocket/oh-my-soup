@@ -3597,7 +3597,7 @@ export class StatusLineComponent<TSession extends StatusLineSession = StatusLine
 		const context = node(
 			"meter",
 			{
-				role: "oms.composer.context",
+				role: "omp.composer.context",
 				value: used,
 				style: "bar",
 				thresholds: getContextMeterThresholds(window),
@@ -3622,7 +3622,7 @@ export class StatusLineComponent<TSession extends StatusLineSession = StatusLine
 		const usage = node(
 			"text",
 			{
-				role: "oms.composer.usage",
+				role: "omp.composer.usage",
 				text: cost,
 				wrap: "none",
 				...(cost ? { title: `Session cost ${cost}` } : {}),

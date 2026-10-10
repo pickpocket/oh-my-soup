@@ -182,7 +182,7 @@ export class InspectorPanel implements Component {
 			],
 		]);
 		const out: NativeNode[] = compact<NativeNode>([
-			node("text", { text: name, role: "oms.picker.title" }, undefined, "title"),
+			node("text", { text: name, role: "omp.picker.title" }, undefined, "title"),
 			title && title !== name ? node("text", { spans: [span(title, "muted")] }, undefined, "subtitle") : undefined,
 			facts && keyed(facts, "facts"),
 			this.#nativeShortText(view.description, "description"),

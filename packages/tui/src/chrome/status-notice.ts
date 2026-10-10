@@ -58,7 +58,7 @@ export class StatusNotice extends Container {
 		const plain = styledSpans(this.#message)
 			.map(run => run.t)
 			.join("");
-		this.#native = node("toast", { text: plain, ttl: TOAST_TTL, role: "oms.toast.status" });
+		this.#native = node("toast", { text: plain, ttl: TOAST_TTL, role: "omp.toast.status" });
 		return this.#native;
 	}
 }

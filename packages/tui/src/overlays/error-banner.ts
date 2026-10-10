@@ -75,7 +75,7 @@ export class ErrorBannerComponent extends Container {
 		if (this.#onDismiss) children.push(actionButton("Dismiss", "dismiss"));
 		this.#native = node(
 			"row",
-			{ role: "oms.errorBanner", tone: "error", gap: "sm", align: this.#expanded ? "start" : "center" },
+			{ role: "omp.errorBanner", tone: "error", gap: "sm", align: this.#expanded ? "start" : "center" },
 			children,
 		);
 		return this.#native;

@@ -3023,13 +3023,20 @@ describe("Anthropic request fingerprint alignment", () => {
 				toolChoice: { type: "tool", name: "think" },
 			},
 		)) as {
-			thinking?: { type?: string; display?: string };
+			thinking?: {
+				type?: string;
+				display?: string;
+				block_binding?: { prefix_mismatch_behavior?: string };
+			};
 			tool_choice?: { type?: string; name?: string };
 			output_config?: { effort?: string };
 		};
-
 		expect(payload.tool_choice).toEqual({ type: "auto" });
-		expect(payload.thinking).toEqual({ type: "adaptive", display: "summarized" });
+		expect(payload.thinking).toEqual({
+			type: "adaptive",
+			display: "summarized",
+			block_binding: { prefix_mismatch_behavior: "drop_block" },
+		});
 		expect(payload.output_config).toEqual({ effort: "low" });
 	});
 

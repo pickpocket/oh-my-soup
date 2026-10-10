@@ -130,7 +130,7 @@ class ComposerSceneController implements SetupSceneController {
 						}),
 					]),
 				],
-				{ gap: "sm", role: "oms.setup.composer" },
+				{ gap: "sm", role: "omp.setup.composer" },
 			),
 		);
 	}

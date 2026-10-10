@@ -429,24 +429,3 @@ function buildDirectoryCompletionDisplayValue(prefix: string, absoluteValue: str
 	const relative = path.relative(cwd, normalized);
 	return `${relative.replaceAll("\\", "/")}/`;
 }
-
-/** /thinking <level>: the session model's available efforts plus auto/off, prefix-filtered. */
-export function buildThinkingLevelCompletions(
-	runtime: TuiSlashCommandRuntime,
-): (prefix: string) => AutocompleteItem[] | null {
-	return argumentPrefix => {
-		if (argumentPrefix.includes(" ")) return null;
-		const lower = argumentPrefix.toLowerCase();
-		const items: AutocompleteItem[] = [];
-		const push = (value: string, description: string) => {
-			if (!value.startsWith(lower)) return;
-			items.push({ value: `${value} `, label: value, description });
-		};
-		push("auto", "Automatic thinking level (model decides)");
-		for (const level of runtime.ctx.session.getAvailableThinkingLevels()) {
-			push(level, `${level} thinking effort`);
-		}
-		push("off", "Disable thinking");
-		return items.length > 0 ? items : null;
-	};
-}

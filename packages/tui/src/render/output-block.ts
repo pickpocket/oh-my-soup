@@ -259,7 +259,7 @@ export interface NativeOutputBlockOptions {
 	head?: TspText;
 	meta?: TspText;
 	state?: State;
-	/** Card role (`oms.tool.bash`, `oms.eval.cell`, …). Defaults to `oms.output`. */
+	/** Card role (`omp.tool.bash`, `omp.eval.cell`, …). Defaults to `omp.output`. */
 	role?: string;
 	/** Override the state-derived tone (the ANSI path's `borderColor`). */
 	tone?: TspTone;
@@ -302,7 +302,7 @@ export function describeOutputBlock(options: NativeOutputBlockOptions): NativeNo
 	return node(
 		"card",
 		{
-			role: options.role ?? "oms.output",
+			role: options.role ?? "omp.output",
 			tone: options.tone ?? outputStateTone(options.state),
 			status: outputStateStatus(options.state),
 			head,

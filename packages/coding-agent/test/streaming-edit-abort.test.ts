@@ -173,7 +173,7 @@ describe("streaming edit abort", () => {
 				getPlanModeState: () => undefined,
 			} as unknown as ToolSession;
 			const tool = new EditTool(toolSession, "replace");
-			const args = { path: "sample.txt", old_string: "alpha\n", new_string: "alpha\n" };
+			const args = { path: "sample.txt", old_string: "alpha", new_string: "alpha" };
 			const finalPreview = Promise.withResolvers<string | undefined>();
 			const stream = tool.openArgStream({
 				toolCallId: "native-noop-stream",

@@ -212,7 +212,7 @@ function collapseTitle(title: string): string {
  * stay valid — and content is inset two columns on each side.
  *
  * Natively the panel is a root `card` (`head` = title, `role` =
- * `oms.overlay.<name>`) over its children; the frame is the terminal's.
+ * `omp.overlay.<name>`) over its children; the frame is the terminal's.
  * Subclasses whose body is not a plain child list override `describe`.
  */
 export class OverlayPanel implements Component {
@@ -222,7 +222,7 @@ export class OverlayPanel implements Component {
 	#memo: OverlayPanelMemo | undefined;
 	#nativeMemo: OverlayPanelNativeMemo | undefined;
 
-	constructor(title = "", role = "oms.overlay") {
+	constructor(title = "", role = "omp.overlay") {
 		this.#title = collapseTitle(title);
 		this.#role = role;
 	}

@@ -161,7 +161,7 @@ describe("SessionInfoOverlay.describe", () => {
 		const overlay = new SessionInfoOverlay({ terminal: { rows: 20 } }, info, () => {});
 		const root = overlay.describe(cx);
 		const kvs = findAll(root, n => n.k === "kv").map(n => n.p);
-		const copies = findAll(root, n => n.p?.role === "oms.info.copy");
+		const copies = findAll(root, n => n.p?.role === "omp.info.copy");
 		expect(copies.map(n => n.p?.title)).toEqual(["Copy file path"]);
 		expect(JSON.stringify(copies[0])).toContain("/tmp/s.jsonl");
 		expect(kvs).toEqual([

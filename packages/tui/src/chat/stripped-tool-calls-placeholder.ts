@@ -30,7 +30,7 @@ export class StrippedToolCallsPlaceholder extends Text {
 	override describe(): NativeNode {
 		this.#native ??= text([span(this.#label, "dim em")], {
 			wrap: "word",
-			role: "oms.tool.elided",
+			role: "omp.tool.elided",
 			hidden: this.#toolActivityVisible ? undefined : true,
 		});
 		return this.#native;

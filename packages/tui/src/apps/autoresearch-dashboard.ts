@@ -119,7 +119,7 @@ export function createDashboardController(): DashboardController {
 						...renderDashboardLines(runtime, width, theme, 8),
 					];
 					return new DashboardWidget(lines.join("\n"), cx =>
-						card({ role: "oms.widget.autoresearch", head: describeTitle(runtime) }, [
+						card({ role: "omp.widget.autoresearch", head: describeTitle(runtime) }, [
 							...describeDashboard(runtime, 8, cx.supports("chart")),
 							hintsRow([
 								{ keys: ["ctrl+x"], label: "collapse" },
@@ -151,7 +151,7 @@ export function createDashboardController(): DashboardController {
 					return {
 						/** A glass sheet titled by the experiment (the panels' sheet style); the body is borderless. */
 						get nativeOverlay() {
-							return { role: "oms.overlay.autoresearch", head: describeTitle(runtime), size: "lg" as const };
+							return { role: "omp.overlay.autoresearch", head: describeTitle(runtime), size: "lg" as const };
 						},
 						describe(cx: DescribeContext): NativeNode {
 							const state = runtime.state;
@@ -193,7 +193,7 @@ export function createDashboardController(): DashboardController {
 										]),
 									);
 									children.push(actionBar([null, actionButton("Close", "close", { keys: "escape" })]));
-									return col(children, { gap: "md", role: "oms.app.autoresearch" });
+									return col(children, { gap: "md", role: "omp.app.autoresearch" });
 								},
 							);
 						},
@@ -272,12 +272,12 @@ function describeRunningOnly(runtime: AutoresearchDashboardRuntime, state: Exper
 	if (state.name) details.push(span(`| ${replaceTabs(state.name)}`, "dim"));
 	if (runtime.runningExperiment) details.push(span(` | ${replaceTabs(runtime.runningExperiment.command)}`, "dim"));
 	if (details.length > 0) children.push(text(details, { truncate: "end" }));
-	return row(children, { gap: "sm", role: "oms.widget.autoresearch" });
+	return row(children, { gap: "sm", role: "omp.widget.autoresearch" });
 }
 
 /** One-line collapsed widget: run counts, best/baseline, confidence and mode. */
 function describeCollapsed(runtime: AutoresearchDashboardRuntime, state: ExperimentState): NativeNode {
-	const role = "oms.widget.autoresearch";
+	const role = "omp.widget.autoresearch";
 	const hint = hintsRow([{ keys: ["ctrl+x"], label: "expand" }]);
 	if (runtime.lastRunSummary) {
 		const spans = [
@@ -499,7 +499,7 @@ function describeDashboard(runtime: AutoresearchDashboardRuntime, maxRows: numbe
 						...(best ? [span(` · best ${formatNum(best.result.metric, state.metricUnit)}`, "success")] : []),
 					],
 					size: "md",
-					role: "oms.autoresearch.trend",
+					role: "omp.autoresearch.trend",
 				},
 				undefined,
 				"trend",
@@ -509,7 +509,7 @@ function describeDashboard(runtime: AutoresearchDashboardRuntime, maxRows: numbe
 	if (visible.length < indexed.length) {
 		children.push(keyed(text([span(`… ${indexed.length - visible.length} earlier runs hidden`, "dim")]), "hidden"));
 	}
-	children.push(node("table", { cols, rows, role: "oms.autoresearch.runs" }, undefined, "runs"));
+	children.push(node("table", { cols, rows, role: "omp.autoresearch.runs" }, undefined, "runs"));
 	return [keyed(col(children, { gap: "sm" }), "dashboard")];
 }
 

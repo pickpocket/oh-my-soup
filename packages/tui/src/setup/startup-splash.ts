@@ -69,7 +69,7 @@ class StartupSplashComponent implements Component, OverlayFocusOwner {
 
 	describe(): NativeNode {
 		const splash = describeSetupSplash();
-		return this.#native.get([splash], () => col([splash], { grow: 1, role: "oms.app.startup-splash" }));
+		return this.#native.get([splash], () => col([splash], { grow: 1, role: "omp.app.startup-splash" }));
 	}
 
 	handleNativeEvent(event: NativeUiEvent): void {

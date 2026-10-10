@@ -47,7 +47,7 @@ export class MessageDividerComponent implements Component {
 		const inline = this.#options.native;
 		if (inline) {
 			return this.#native.get([getThemeEpoch()], () =>
-				node("row", { gap: "sm", role: this.#options.role ?? "oms.divider" }, [
+				node("row", { gap: "sm", role: this.#options.role ?? "omp.divider" }, [
 					node("icon", { name: inline.icon }),
 					text([span(inline.label(), this.#options.labelColor)], { truncate: "end" }),
 				]),
@@ -55,7 +55,7 @@ export class MessageDividerComponent implements Component {
 		}
 		return this.#native.get([getThemeEpoch()], () =>
 			node("rule", {
-				role: this.#options.role ?? "oms.divider",
+				role: this.#options.role ?? "omp.divider",
 				label: [span(plainText(this.#options.label()), this.#options.labelColor)],
 			}),
 		);

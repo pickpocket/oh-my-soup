@@ -49,10 +49,10 @@ describe("Box.describe", () => {
 	it("maps background fills to card tone and role", () => {
 		const errorBox = new Box(1, 1, t => theme.bg("toolErrorBg", t));
 		expect(errorBox.describe(CX).k).toBe("card");
-		expect(props(errorBox.describe(CX))).toMatchObject({ tone: "error", role: "oms.tool", inset: true });
+		expect(props(errorBox.describe(CX))).toMatchObject({ tone: "error", role: "omp.tool", inset: true });
 
 		const userBox = new Box(1, 1, t => theme.bg("userMessageBg", t));
-		expect(props(userBox.describe(CX))).toMatchObject({ tone: "user", role: "oms.user" });
+		expect(props(userBox.describe(CX))).toMatchObject({ tone: "user", role: "omp.user" });
 	});
 
 	it("maps a border colour to the ring tone and drops glyph chrome", () => {

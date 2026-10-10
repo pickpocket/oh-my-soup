@@ -73,7 +73,7 @@ describe("refreshShellConfigCache", () => {
 	it.skipIf(process.platform !== "linux")(
 		"keeps a launcher-exported value the project's dotenv file repeats, and drops dotenv-only values",
 		async () => {
-			const project = tempProject("OMS_REFRESH_SHARED=same\nOMP_REFRESH_DOTENV_ONLY=from-dotenv\n");
+			const project = tempProject("OMS_REFRESH_SHARED=same\nOMS_REFRESH_DOTENV_ONLY=from-dotenv\n");
 			const result = await probe(project, { OMS_REFRESH_SHARED: "same", OMS_REFRESH_DOTENV_ONLY: undefined }, [
 				"refreshShellConfigCache();",
 				"const env = getShellConfig().env;",

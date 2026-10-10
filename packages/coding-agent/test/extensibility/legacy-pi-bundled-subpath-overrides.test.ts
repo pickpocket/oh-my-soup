@@ -280,7 +280,7 @@ export const observed = buildModel({
 const { plainLine } = await BUNDLED_PI_MODULE_LOADERS["@oh-my-soup/pi-tui/native/spans"]();
 export const observed = { role: actionBar([actionButton("Go", "go")]).p.role, line: plainLine("\\x1b[1ma\\n b\\x1b[0m") };`,
 		);
-		expect(observed).toEqual({ role: "oms.actions", line: "a b" });
+		expect(observed).toEqual({ role: "omp.actions", line: "a b" });
 		const overrides = __buildLegacyPiPackageRootOverrides(true, bundledModuleKeys);
 		for (const key of keys) expect(overrides[key]).toBe(`oms-legacy-pi-bundled:${key}`);
 	});

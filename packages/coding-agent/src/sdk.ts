@@ -3810,11 +3810,9 @@ async function createAgentSessionScoped(options: CreateAgentSessionOptions): Pro
 					toolSession.deviceOnlyWrite !== true),
 		});
 
-		// Resolve live inline-descriptor policy against the session-start model.
-		// Prompt metadata and agent pruning must use the same policy.
-		const inlineToolDescriptorsModelId = model?.id;
+		// Prompt metadata and agent pruning must follow the active model together.
 		const resolveInlineToolDescriptors = (): boolean =>
-			shouldInlineToolDescriptors(cfgInlineToolDescriptors.get(settings), inlineToolDescriptorsModelId);
+			shouldInlineToolDescriptors(cfgInlineToolDescriptors.get(settings), (agent?.state.model ?? model)?.id);
 		const resolveImportantNotesTool = (toolNames: readonly string[]): "notes" | "xd" | "eval" | undefined => {
 			const hasBuiltInNotes = hasSession ? session.hasBuiltInTool("notes") : builtInRegistryToolNames.has("notes");
 			if (!hasBuiltInNotes) return undefined;

@@ -1180,7 +1180,7 @@ export const editToolRenderer = {
 					fileDiffSection(
 						{ path: preview.path, added: stats?.added, removed: stats?.removed },
 						[preview.error ? errorText(preview.error) : editDiff(preview.diff ?? "", preview.path)],
-						{ role: "oms.tool.edit.file", tone: preview.error ? "error" : undefined },
+						{ role: "omp.tool.edit.file", tone: preview.error ? "error" : undefined },
 					),
 				);
 			}
@@ -1235,7 +1235,7 @@ export const editToolRenderer = {
 				added += file.added;
 				removed += file.removed;
 				return fileDiffSection(file, file.body, {
-					role: "oms.tool.edit.file",
+					role: "omp.tool.edit.file",
 					tone: file.isError ? "error" : undefined,
 				});
 			});

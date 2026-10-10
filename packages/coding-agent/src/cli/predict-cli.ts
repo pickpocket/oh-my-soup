@@ -240,7 +240,7 @@ class PredictCompareComponent implements Component, Focusable {
 							actionButton("Quit", "quit", { keys: "escape" }),
 						]),
 					],
-					{ role: "oms.app.predict", gap: "md", grow: 1 },
+					{ role: "omp.app.predict", gap: "md", grow: 1 },
 				),
 		);
 	}
@@ -252,12 +252,12 @@ class PredictCompareComponent implements Component, Focusable {
 				[
 					row(
 						[
-							text("oms predict", { role: "oms.app.title" }),
+							text("oms predict", { role: "omp.app.title" }),
 							text([span(`${this.#lanes.length} engines · comparison typing never teaches them`, "muted")], {
 								truncate: "end",
 							}),
 						],
-						{ gap: "sm", align: "center", role: "oms.app.where" },
+						{ gap: "sm", align: "center", role: "omp.app.where" },
 					),
 					row(
 						compact([
@@ -265,20 +265,20 @@ class PredictCompareComponent implements Component, Focusable {
 								row([node("spinner", { style: "dots" }), text([span("predicting", "dim")])], {
 									gap: "xs",
 									align: "center",
-									role: "oms.app.fresh",
+									role: "omp.app.fresh",
 								}),
 							node("icon", {
 								name: "x",
-								role: "oms.app.ibtn",
+								role: "omp.app.ibtn",
 								title: "Quit  esc",
 								aria: "Quit",
 								actions: { click: "quit" },
 							}),
 						]),
-						{ gap: "md", align: "center", role: "oms.app.tools" },
+						{ gap: "md", align: "center", role: "omp.app.tools" },
 					),
 				],
-				{ justify: "between", align: "center", role: "oms.app.head" },
+				{ justify: "between", align: "center", role: "omp.app.head" },
 			),
 			"head",
 		);

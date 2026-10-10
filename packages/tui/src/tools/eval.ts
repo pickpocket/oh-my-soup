@@ -604,7 +604,7 @@ function describeStatusEvent(event: EvalStatusEvent): NativeNode {
 			spans.push(span(` ${key}=`, "muted"), span(sanitizeText(String(value))));
 		}
 	}
-	return text(spans, { truncate: "end", role: "oms.tool.eval.status" });
+	return text(spans, { truncate: "end", role: "omp.tool.eval.status" });
 }
 
 /**
@@ -701,7 +701,7 @@ function evalOutputNodes(output: string, markdown: boolean, running: boolean, er
 	const tone = error ? "error" : undefined;
 	return splitConsoleTables(output).map(part =>
 		part.kind === "text"
-			? ansi(part.text, { follow: running, tone, role: "oms.tool.eval.output" })
+			? ansi(part.text, { follow: running, tone, role: "omp.tool.eval.output" })
 			: node("table", {
 					// Node's index column header is noise in a real table.
 					cols: part.head.map((head, i) => ({ id: `c${i}`, head: head === "(index)" ? "" : head })),
@@ -709,7 +709,7 @@ function evalOutputNodes(output: string, markdown: boolean, running: boolean, er
 						id: `r${r}`,
 						cells: Object.fromEntries(cells.map((cell, i) => [`c${i}`, cell])),
 					})),
-					role: "oms.tool.eval.table",
+					role: "omp.tool.eval.table",
 				}),
 	);
 }
@@ -740,24 +740,24 @@ function evalCellSection(cell: EvalCellSection, index: number, total: number): N
 	}
 	const inputMark =
 		cell.status === "running"
-			? node("spinner", { style: "starburst", role: "oms.tool.eval.prompt", aria: "Running" })
+			? node("spinner", { style: "starburst", role: "omp.tool.eval.prompt", aria: "Running" })
 			: node("icon", {
 					name: "arrow-left",
-					role: "oms.tool.eval.prompt",
+					role: "omp.tool.eval.prompt",
 					aria: "Input",
 					tone: !cell.status || cell.status === "pending" ? "muted" : undefined,
 				});
 	return node(
 		"col",
 		{
-			role: "oms.tool.eval.cell",
+			role: "omp.tool.eval.cell",
 			tone: cell.status === "error" ? "error" : cell.status === "running" ? "pending" : undefined,
 		},
 		compact<NativeChild>([
-			head ? text(head, { role: "oms.tool.eval.caption" }) : undefined,
+			head ? text(head, { role: "omp.tool.eval.caption" }) : undefined,
 			node(
 				"row",
-				{ role: "oms.tool.eval.input", align: "start" },
+				{ role: "omp.tool.eval.input", align: "start" },
 				[
 					inputMark,
 					keyed(codeNode(cell.code, { lang: languageForHighlighter(cell.language), numbers: false }), "code"),
@@ -767,10 +767,10 @@ function evalCellSection(cell: EvalCellSection, index: number, total: number): N
 			cell.output?.length
 				? node(
 						"row",
-						{ role: "oms.tool.eval.result", align: "start" },
+						{ role: "omp.tool.eval.result", align: "start" },
 						[
-							node("icon", { name: "arrow-right", role: "oms.tool.eval.prompt", aria: "Output" }),
-							node("col", { role: "oms.tool.eval.outputs" }, cell.output),
+							node("icon", { name: "arrow-right", role: "omp.tool.eval.prompt", aria: "Output" }),
+							node("col", { role: "omp.tool.eval.outputs" }, cell.output),
 						],
 						"output",
 					)

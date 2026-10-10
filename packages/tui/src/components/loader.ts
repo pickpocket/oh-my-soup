@@ -63,8 +63,8 @@ export function describeWorkingRow(spec: WorkingRowSpec, cx: DescribeContext, no
 	const label = describeShimmer([{ text: spec.label, palette: spec.palette }], "label");
 	children.push(
 		keyed(elapsed(now - spec.startedAt), "elapsed"),
-		node("text", { text: "·", role: "oms.working.sep" }, undefined, "sep"),
-		node(label.k, { ...label.p, role: "oms.working.label" } as TspProps, label.c, label.key),
+		node("text", { text: "·", role: "omp.working.sep" }, undefined, "sep"),
+		node(label.k, { ...label.p, role: "omp.working.label" } as TspProps, label.c, label.key),
 		node("row", { grow: 1 }, undefined, "fill"),
 	);
 	if (variant?.kind === "compaction") children.push(node("progress", { value: null }, undefined, "progress"));

@@ -49,7 +49,7 @@ export class LoginDialogComponent extends OverlayPanel {
 	) {
 		const providerInfo = getOAuthProviders().find(p => p.id === providerId);
 		const providerName = providerInfo?.name || providerId;
-		super(`Login to ${providerName}`, "oms.overlay.login");
+		super(`Login to ${providerName}`, "omp.overlay.login");
 		this.#providerName = providerName;
 		this.#tui = tui;
 		this.#onComplete = onComplete;
@@ -292,7 +292,7 @@ export class LoginDialogComponent extends OverlayPanel {
 			if (step.kind === "progress") {
 				const line =
 					index === live
-						? node("row", { role: "oms.login.waiting", gap: "sm", align: "center" }, [
+						? node("row", { role: "omp.login.waiting", gap: "sm", align: "center" }, [
 								node("spinner", { label: step.message, tone: "muted" }),
 							])
 						: text([span(step.message, "dim")], { wrap: "word" });
@@ -300,7 +300,7 @@ export class LoginDialogComponent extends OverlayPanel {
 					progress.push(line);
 				} else {
 					progress = [line];
-					steps.push(node("col", { role: "oms.login.step", gap: "xs" }, progress, `p${index}`));
+					steps.push(node("col", { role: "omp.login.step", gap: "xs" }, progress, `p${index}`));
 				}
 				continue;
 			}
@@ -310,8 +310,8 @@ export class LoginDialogComponent extends OverlayPanel {
 			}
 			const children: NativeChild[] = [text(step.message, { wrap: "word" })];
 			if (step.placeholder) children.push(text([span(`e.g., ${step.placeholder}`, "dim")]));
-			children.push(node("col", { role: "oms.login.paste" }, [step.field], "field"));
-			steps.push(node("col", { role: "oms.login.step", gap: "xs" }, children, `i${index}`));
+			children.push(node("col", { role: "omp.login.paste" }, [step.field], "field"));
+			steps.push(node("col", { role: "omp.login.step", gap: "xs" }, children, `i${index}`));
 		}
 		const cancelKey = getKeybindings().getKeys("tui.select.cancel")[0];
 		const buttons: (NativeNode | null)[] = [
@@ -334,7 +334,7 @@ export class LoginDialogComponent extends OverlayPanel {
 				modal: true,
 			},
 			[
-				col([node("col", { role: "oms.login.steps", gap: "md" }, steps, "steps"), actionBar(buttons)], {
+				col([node("col", { role: "omp.login.steps", gap: "md" }, steps, "steps"), actionBar(buttons)], {
 					gap: "lg",
 				}),
 			],
@@ -355,7 +355,7 @@ export class LoginDialogComponent extends OverlayPanel {
 				"links",
 			),
 			text([span(url, "dim mono", { href: url })], {
-				role: "oms.login.url",
+				role: "omp.login.url",
 				truncate: "middle",
 				lines: 1,
 				title: url,
@@ -372,7 +372,7 @@ export class LoginDialogComponent extends OverlayPanel {
 				),
 			);
 		}
-		return node("col", { role: "oms.login.step", gap: "sm" }, children, "link");
+		return node("col", { role: "omp.login.step", gap: "sm" }, children, "link");
 	}
 
 	/** Step 2: a device code large and click-to-copy, or the provider's instructions as they came. */
@@ -382,13 +382,13 @@ export class LoginDialogComponent extends OverlayPanel {
 			? [
 					text(device[1]!.trimEnd()),
 					text([span(device[2]!, "mono")], {
-						role: "oms.login.code",
+						role: "omp.login.code",
 						actions: { click: "copy" },
 						title: "Copy code",
 					}),
 				]
 			: [text([span(instructions, "warning")], { wrap: "word" })];
-		return node("col", { role: "oms.login.step", gap: "sm" }, children, "code");
+		return node("col", { role: "omp.login.step", gap: "sm" }, children, "code");
 	}
 
 	/** The input field still waiting for an answer, if any. */

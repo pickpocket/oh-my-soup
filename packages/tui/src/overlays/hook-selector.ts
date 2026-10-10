@@ -239,7 +239,7 @@ export class HookSelectorComponent extends OverlayPanel {
 		onCancel: () => void,
 		opts?: HookSelectorOptions,
 	) {
-		super(title.split(/\r?\n/, 1)[0] ?? "", "oms.overlay.hook-select");
+		super(title.split(/\r?\n/, 1)[0] ?? "", "omp.overlay.hook-select");
 
 		this.#options = options.map(normalizeHookSelectorOption);
 		this.#disabledIndices = new Set(

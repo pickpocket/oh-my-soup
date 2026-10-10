@@ -2,9 +2,9 @@ import { describe, expect, it } from "bun:test";
 import { ThinkingLevel } from "@oh-my-soup/pi-agent-core/thinking";
 import { Effort } from "@oh-my-soup/pi-catalog/effort";
 import type { Model } from "@oh-my-soup/pi-catalog/types";
+import type { InteractiveModeContext } from "@oh-my-soup/pi-coding-agent/modes/types";
 import type { AgentSession } from "@oh-my-soup/pi-coding-agent/session/agent-session";
 import { ModelControls, type ModelControlsHost } from "@oh-my-soup/pi-coding-agent/session/model-controls";
-import type { InteractiveModeContext } from "@oh-my-soup/pi-coding-agent/modes/types";
 import {
 	BUILTIN_SLASH_COMMANDS,
 	buildTuiBuiltinSlashCommands,
@@ -94,10 +94,13 @@ describe("/effort slash command", () => {
 			expect(resolved).toContain("effort");
 		}
 		const h = harness();
-		expect(await executeBuiltinSlashCommand("/thinking high", { ...h.tuiRuntime, draftDetached: true })).toBe(false);
+		const runtime = {
+			...h.tuiRuntime,
+			draftDetached: true,
+		};
+		expect(await executeBuiltinSlashCommand("/thinking high", runtime)).toBe(false);
 		expect(h.level()).toBeUndefined();
 	});
-
 	it("completes only effort levels exposed by the active model", async () => {
 		const h = harness({ efforts: [Effort.Low, Effort.Medium] });
 		const effort = buildTuiBuiltinSlashCommands(h.tuiRuntime).find(item => item.name === "effort");

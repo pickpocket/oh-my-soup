@@ -56,7 +56,7 @@ export function resolveSegmentPalette(count: number): ThemeColor[] {
 
 /**
  * Native {@link renderSegmentTrack}: a row of position-colored labels, the
- * active one roled `oms.track.active` so the terminal fills it as a chip in
+ * active one roled `omp.track.active` so the terminal fills it as a chip in
  * its own color. No caps or separators travel; the terminal draws them.
  */
 export function describeSegmentTrack(segments: readonly TrackSegment[], activeIndex: number): NativeNode {
@@ -68,13 +68,13 @@ export function describeSegmentTrack(segments: readonly TrackSegment[], activeIn
 				{
 					spans: [{ t: segment.label, s: palette[index % palette.length] }],
 					wrap: "none",
-					role: index === activeIndex ? "oms.track.active" : "oms.track.item",
+					role: index === activeIndex ? "omp.track.active" : "omp.track.item",
 				},
 				undefined,
 				`${index}`,
 			),
 		),
-		{ gap: "sm", align: "center", role: "oms.track" },
+		{ gap: "sm", align: "center", role: "omp.track" },
 	);
 }
 

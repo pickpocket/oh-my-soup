@@ -132,7 +132,7 @@ export class CleanseBoardModel {
 				span(count === 0 ? "clean" : `${count} issue${count === 1 ? "" : "s"}`, tone),
 				span(` · ${formatDuration(durationMs)}`, "dim"),
 			],
-			{ wrap: "word", role: "oms.cleanse.verdict" },
+			{ wrap: "word", role: "omp.cleanse.verdict" },
 		);
 		const verdict =
 			count === 0 ? fgOrPlain("success", "clean") : fgOrPlain("warning", `${count} issue${count === 1 ? "" : "s"}`);
@@ -216,7 +216,7 @@ export class CleanseBoardModel {
 					rows.push(
 						node(
 							"col",
-							{ role: "oms.cleanse.lanes", gap: "sm" },
+							{ role: "omp.cleanse.lanes", gap: "sm" },
 							agents.map(([name, agent]) => describeAgentLane(name, agent, now)),
 							"lanes",
 						),
@@ -225,7 +225,7 @@ export class CleanseBoardModel {
 					for (const [name, agent] of agents) rows.push(describeAgentRow(name, agent));
 				}
 			}
-			return col(rows, { role: "oms.cleanse.live", gap: lanes ? "sm" : "xs" });
+			return col(rows, { role: "omp.cleanse.live", gap: lanes ? "sm" : "xs" });
 		});
 	}
 
@@ -251,13 +251,13 @@ export class CleanseBoardModel {
 						size: "md",
 						label: `${label} lanes`,
 						title: `${this.#repairDone} of ${this.#repairTotal} repair lanes finished`,
-						role: "oms.cleanse.meter",
+						role: "omp.cleanse.meter",
 					})
 				: node("progress", { value, label, tone: "accent" }),
 		];
 		if (parts.length > 0) children.push(text([span(parts.join(" · "), "muted")]));
 		children.push(elapsed(Date.now() - this.#repairStartedAt));
-		return keyed(row(children, { gap: "sm", align: "center", role: "oms.cleanse.head" }), "repair");
+		return keyed(row(children, { gap: "sm", align: "center", role: "omp.cleanse.head" }), "repair");
 	}
 
 	/** Render the transient live rows for the current spinner frame. */
@@ -439,7 +439,7 @@ function describeAgentLane(agentName: string, agent: RunningAgent, now: number):
 				cost: progress && progress.cost > 0 ? progress.cost : undefined,
 				age: now - agent.startedAt,
 			},
-			role: "oms.cleanse.lane",
+			role: "omp.cleanse.lane",
 		},
 		undefined,
 		`agent-${stableKey(agentName)}`,
@@ -481,7 +481,7 @@ function describeOutcome(
 			.trim();
 		return text([span("✗ ", "error"), span(`${outcome.name} `), span(files, "path"), span(` ${message}`, "error")], {
 			wrap: "word",
-			role: "oms.cleanse.outcome",
+			role: "omp.cleanse.outcome",
 			tone: "error",
 		});
 	}
@@ -492,7 +492,7 @@ function describeOutcome(
 	if (agent) meta.push(formatDuration(Date.now() - agent.startedAt));
 	const spans = [span("✓ ", "success"), span(`${outcome.name} `), span(files, "path")];
 	if (meta.length > 0) spans.push(span(` · ${meta.join(" · ")}`, "dim"));
-	return text(spans, { wrap: "word", role: "oms.cleanse.outcome" });
+	return text(spans, { wrap: "word", role: "omp.cleanse.outcome" });
 }
 
 function renderOutcomeLine(

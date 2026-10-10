@@ -92,15 +92,15 @@ describe("InteractiveMode native dock activity line", () => {
 	it("holds the todo in the activity line, not the HUD pills row, between turns", () => {
 		mode.setTodos(PLAN);
 		const line = activity();
-		expect(role(line)).toBe("oms.hud.activity");
+		expect(role(line)).toBe("omp.hud.activity");
 		expect(keys(line)).toEqual(["todo"]);
 		const todo = (line.c ?? []).filter(isNode)[0]!;
-		expect(todo).toMatchObject({ k: "checklist", p: { mode: "hud", role: "oms.hud.todo" } });
+		expect(todo).toMatchObject({ k: "checklist", p: { mode: "hud", role: "omp.hud.todo" } });
 		expect(mode.describeHudPills()).toMatchObject({ p: { hidden: true }, c: [] });
 
 		// A terminal without `checklist` gets the phase tree in the same slot.
 		const fallback = (activity(context(kind => kind !== "checklist")).c ?? []).filter(isNode)[0]!;
-		expect(fallback).toMatchObject({ k: "col", key: "todo", p: { role: "oms.hud.todo" } });
+		expect(fallback).toMatchObject({ k: "col", key: "todo", p: { role: "omp.hud.todo" } });
 		expect(nodes(fallback).some(n => n.k === "tree")).toBe(true);
 	});
 
@@ -109,7 +109,7 @@ describe("InteractiveMode native dock activity line", () => {
 		const statusOnly = activity();
 		expect(keys(statusOnly)).toEqual(["status"]);
 		const status = (statusOnly.c ?? []).filter(isNode)[0]!;
-		expect(role(status)).toBe("oms.hud.status");
+		expect(role(status)).toBe("omp.hud.status");
 		expect(status.c).toEqual([mode.loadingAnimation!]);
 
 		mode.setTodos(PLAN);
@@ -117,7 +117,7 @@ describe("InteractiveMode native dock activity line", () => {
 	});
 
 	it("shows tok/s in the composer bar only with the setting on and a reading", () => {
-		const rate = () => nodes(mode.editor.describe(cx)).find(n => role(n) === "oms.composer.rate");
+		const rate = () => nodes(mode.editor.describe(cx)).find(n => role(n) === "omp.composer.rate");
 		session.tokenRate.seed(1_000, 10_000);
 		expect(rate()).toBeUndefined();
 

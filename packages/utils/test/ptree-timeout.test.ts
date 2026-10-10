@@ -84,7 +84,7 @@ describe("ptree timeout", () => {
 		child.kill(new AbortError("streaming caller cancelled", ""), -1);
 		const result = await child.wait({ stdout: "consumed", allowAbort: true });
 		expect(result.exitError?.aborted).toBe(true);
-		expect(child.proc.exitCode).not.toBeNull();
+		expect(child.proc.signalCode).not.toBeNull();
 	});
 
 	it.skipIf(process.platform !== "linux")(

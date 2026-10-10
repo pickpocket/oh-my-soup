@@ -129,8 +129,8 @@ describe("dialogs under a native surface", () => {
 			expect(harness.region("layer")?.c ?? []).toEqual([]);
 			const dock = harness.region("dock")!;
 			// Framed as the prompt composer (its root role), so Tern spaces it the same way.
-			const root = dock.c?.find(node => node.p?.role === "oms.editor");
-			expect(root?.c?.some(node => node.p?.role === "oms.ask.options")).toBe(true);
+			const root = dock.c?.find(node => node.p?.role === "omp.editor");
+			expect(root?.c?.some(node => node.p?.role === "omp.ask.options")).toBe(true);
 			expect(harness.findAll(node => node.k === "overlay")).toEqual([]);
 		} finally {
 			harness.stop();

@@ -103,7 +103,7 @@ export class LateDiagnosticsMessageComponent extends Container {
 	}
 
 	/**
-	 * A severity-toned card (role `oms.diagnostics.late`) with one wrapped line
+	 * A severity-toned card (role `omp.diagnostics.late`) with one wrapped line
 	 * per diagnostic, clamped by the terminal while collapsed.
 	 */
 	override describe(): NativeNode {
@@ -115,7 +115,7 @@ export class LateDiagnosticsMessageComponent extends Container {
 			if (input?.summary) head.push(span(` (${plainText(input.summary)})`, "dim"));
 			const diagnostics = card(
 				{
-					role: "oms.diagnostics.late",
+					role: "omp.diagnostics.late",
 					tone: input?.errored ? "error" : "warning",
 					head,
 					collapsible: true,

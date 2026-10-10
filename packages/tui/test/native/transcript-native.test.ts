@@ -168,7 +168,7 @@ describe("native transcript", () => {
 			builder.append(toolTranscript());
 			h.tui.addChild(builder.container);
 		});
-		const cardNode = h.find(node => node.k === "tool" && node.p?.role === "oms.tool.lookup_thing");
+		const cardNode = h.find(node => node.k === "tool" && node.p?.role === "omp.tool.lookup_thing");
 		expect(cardNode?.p).toMatchObject({ status: "done", collapsible: true, collapsed: true });
 
 		h.event({ ev: "toggle", sf: h.terminal.surface!, id: cardNode!.id, collapsed: false });
@@ -253,7 +253,7 @@ describe("native transcript", () => {
 			builder.append(toolTranscript());
 			h.tui.addChild(builder.container);
 		});
-		const cardNode = h.find(node => node.k === "tool" && node.p?.role === "oms.tool.lookup_thing");
+		const cardNode = h.find(node => node.k === "tool" && node.p?.role === "omp.tool.lookup_thing");
 		expect(opsSince(h, 0)).toContainEqual(["settle", cardNode!.id]);
 
 		const before = h.frames.length;
@@ -374,21 +374,21 @@ describe("native transcript", () => {
 		const roles = h.findAll(node => typeof node.p?.role === "string").map(node => node.p!.role);
 		expect(roles).toEqual(
 			expect.arrayContaining([
-				"oms.tool.lookup_thing",
-				"oms.user",
-				"oms.user.synthetic",
-				"oms.assistant",
-				"oms.thinking",
-				"oms.bash",
-				"oms.eval",
-				"oms.compaction",
-				"oms.custom",
-				"oms.notice.ttsr",
-				"oms.notice.todo",
-				"oms.diagnostics.late",
-				"oms.marker.cache-miss",
-				"oms.status-block",
-				"oms.advisor",
+				"omp.tool.lookup_thing",
+				"omp.user",
+				"omp.user.synthetic",
+				"omp.assistant",
+				"omp.thinking",
+				"omp.bash",
+				"omp.eval",
+				"omp.compaction",
+				"omp.custom",
+				"omp.notice.ttsr",
+				"omp.notice.todo",
+				"omp.diagnostics.late",
+				"omp.marker.cache-miss",
+				"omp.status-block",
+				"omp.advisor",
 			]),
 		);
 		expect(h.errors).toEqual([]);

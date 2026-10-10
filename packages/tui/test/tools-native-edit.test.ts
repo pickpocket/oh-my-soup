@@ -72,7 +72,7 @@ describe("edit native views", () => {
 		];
 		const diagnostics: FileDiagnosticsResult = { messages, summary: "1 error(s), 5 warning(s)", errored: true };
 		const children = (diagnosticsSection(diagnostics)?.c ?? []).filter(isNode);
-		const rows = children.filter(child => prop(child, "role") === "oms.tool.diagnostic");
+		const rows = children.filter(child => prop(child, "role") === "omp.tool.diagnostic");
 		expect(rows).toHaveLength(5);
 		expect(collect(rows[0]!.c, "icon")[0]!.p).toMatchObject({ name: "x-circle", tone: "error" });
 		expect(collect(rows[0]!.c, "text").map(t => spanText(t, "spans"))).toEqual(["40:3", "Type mismatch ts 2322"]);

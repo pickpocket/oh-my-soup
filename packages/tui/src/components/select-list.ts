@@ -315,7 +315,7 @@ export class SelectList implements Component, MouseRoutable {
 		if (cachedRoot && cachedRoot.list === list && cachedRoot.status === status) return cachedRoot.node;
 		const children: NativeChild[] = [list];
 		if (status) children.push(node("text", { spans: [span(status, "muted")], wrap: "none" }, undefined, "status"));
-		const root = col(children, { role: "oms.select" });
+		const root = col(children, { role: "omp.select" });
 		this.#nativeRoot = { list, status, node: root };
 		return root;
 	}

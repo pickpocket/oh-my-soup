@@ -104,7 +104,7 @@ export interface NativeToolHead {
 /**
  * A tool's semantic presentation for Tern Surface Protocol terminals.
  * `ToolExecutionComponent` wraps it in a `tool` node (terminals that list
- * the kind) or, as the fallback, a `card` (role `oms.tool.<name>`, status,
+ * the kind) or, as the fallback, a `card` (role `omp.tool.<name>`, status,
  * elapsed timer, collapse): the renderer supplies only the head data and the
  * body nodes, never frames, padding or width math.
  */

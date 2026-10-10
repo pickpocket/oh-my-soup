@@ -41,7 +41,13 @@ xxhash-rust.workspace = true
 [dev-dependencies]
 # Natively compiled stand-ins for wasm grammars the tests parse (see
 # `language::grammar::WasmGrammar::register`).
+tree-sitter-c-sharp.workspace = true
 tree-sitter-elisp.workspace = true
 tree-sitter-fortran.workspace = true
+tree-sitter-kotlin-sg.workspace = true
+tree-sitter-odin.workspace = true
+tree-sitter-php.workspace = true
 tree-sitter-ruby.workspace = true
 tree-sitter-swift.workspace = true
+tree-sitter-verilog.workspace = true
+tree-sitter-xml.workspace = true

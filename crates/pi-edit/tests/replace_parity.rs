@@ -3,6 +3,8 @@ mod common;
 use std::collections::HashMap;
 
 use common::run_fixture;
+#[cfg(unix)]
+use pi_edit::EditStore;
 use pi_edit::{
 	EditMode, PathPolicy,
 	fuzzy::{FindMatchOptions, find_match},

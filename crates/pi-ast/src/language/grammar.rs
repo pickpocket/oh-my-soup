@@ -179,10 +179,16 @@ impl WasmGrammar {
 #[cfg(test)]
 fn test_stand_in(language: &str) -> Option<Language> {
 	Some(match language {
+		"csharp" => tree_sitter_c_sharp::LANGUAGE.into(),
 		"emacs-lisp" => tree_sitter_elisp::LANGUAGE.into(),
 		"fortran" => tree_sitter_fortran::LANGUAGE.into(),
+		"kotlin" => tree_sitter_kotlin_sg::LANGUAGE.into(),
+		"odin" => tree_sitter_odin::LANGUAGE.into(),
+		"php" => tree_sitter_php::LANGUAGE_PHP_ONLY.into(),
 		"ruby" => tree_sitter_ruby::LANGUAGE.into(),
 		"swift" => tree_sitter_swift::LANGUAGE.into(),
+		"verilog" => tree_sitter_verilog::LANGUAGE.into(),
+		"xml" => tree_sitter_xml::LANGUAGE_XML.into(),
 		_ => return None,
 	})
 }

@@ -98,6 +98,12 @@ bun scripts/gen-bazel-lock.ts --check   # bazel fetch --repo=@crates --lockfile_
 
 ## Local development
 
+### Rust test grammars
+
+Language-aware Rust fixtures must run without network downloads. Keep their native grammar crates in `[dev-dependencies]`: `pi-ast` unit tests use `test_stand_in` in `src/language/grammar.rs`, while `pi-edit` integration tests register the grammars through `tests/common/mod.rs`. A grammar moving to on-demand WASM in production does not remove the fixture's parser requirement.
+
+Run `bun run test:rs` for the Cargo unit, integration, and doctest suite. Bazel's `//crates/...` test targets do not include every Cargo integration-test binary; after changing shared edit fixtures, exercise those integration tests as well. Regenerate `Cargo.lock` and `MODULE.bazel.lock` when their development dependencies change.
+
 ### Building addons
 
 ```bash
@@ -160,7 +166,7 @@ build --tls_certificate=infra/bazel-remote/ca.crt
 On non-PR events all three jobs run on `oms-kata` pods against the cluster remote cache. `rust_validate` runs:
 
 ```bash
-bazelisk --bazelrc="$rc" test //crates/...                 # full Rust suite
+bazelisk --bazelrc="$rc" test //crates/...                 # Bazel Rust test targets
 # clippy scope mirrors `cargo clippy --workspace` (libraries only), split by
 # lint policy via a query kind filter:
 bazelisk query "kind('rust_library|rust_shared_library', //crates/pi-ast/... + //crates/pi-diff/... + //crates/pi-edit/... + //crates/pi-iso/... + //crates/pi-natives/... + //crates/pi-shell/... + //crates/pi-vcs/... + //crates/pi-voice/... + //crates/pi-walker/...)" \

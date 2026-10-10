@@ -30,15 +30,50 @@
 //! ```
 #![allow(dead_code, reason = "each test binary uses a subset of the harness")]
 
-use std::path::{Path, PathBuf};
+use std::{
+	path::{Path, PathBuf},
+	sync::Once,
+};
 
 use async_trait::async_trait;
 use parking_lot::Mutex;
+use pi_ast::language::wasm_grammars;
 use pi_edit::{
 	ApplyOutcome, ApplyRequest, EditError, EditMode, EditResult, EditStore, EditWriter, FileOp,
 	PathPolicy, Session, WriteRequest, WriteResponse, session::SessionConfig, store::Clipboard,
 };
 use serde_json::Value;
+
+/// Install offline native stand-ins for the fixtures' on-demand wasm grammars.
+fn register_fixture_grammars() {
+	static GRAMMARS: Once = Once::new();
+	GRAMMARS.call_once(|| {
+		wasm_grammars::CSHARP.register(tree_sitter_c_sharp::LANGUAGE.into());
+		wasm_grammars::CLOJURE.register(tree_sitter_clojure::LANGUAGE.into());
+		wasm_grammars::DOCKERFILE.register(tree_sitter_dockerfile_updated::language());
+		wasm_grammars::ELIXIR.register(tree_sitter_elixir::LANGUAGE.into());
+		wasm_grammars::FORTRAN.register(tree_sitter_fortran::LANGUAGE.into());
+		wasm_grammars::HCL.register(tree_sitter_hcl::LANGUAGE.into());
+		wasm_grammars::INI.register(tree_sitter_ini::LANGUAGE.into());
+		wasm_grammars::JULIA.register(tree_sitter_julia::LANGUAGE.into());
+		wasm_grammars::KOTLIN.register(tree_sitter_kotlin_sg::LANGUAGE.into());
+		wasm_grammars::LUA.register(tree_sitter_lua::LANGUAGE.into());
+		wasm_grammars::MAKE.register(tree_sitter_make::LANGUAGE.into());
+		wasm_grammars::NIX.register(tree_sitter_nix::LANGUAGE.into());
+		wasm_grammars::ODIN.register(tree_sitter_odin::LANGUAGE.into());
+		wasm_grammars::PHP.register(tree_sitter_php::LANGUAGE_PHP_ONLY.into());
+		wasm_grammars::POWERSHELL.register(tree_sitter_powershell::LANGUAGE.into());
+		wasm_grammars::R.register(tree_sitter_r::LANGUAGE.into());
+		wasm_grammars::RUBY.register(tree_sitter_ruby::LANGUAGE.into());
+		wasm_grammars::SCALA.register(tree_sitter_scala::LANGUAGE.into());
+		wasm_grammars::SQL.register(tree_sitter_sequel::LANGUAGE.into());
+		wasm_grammars::SVELTE.register(tree_sitter_svelte_next::LANGUAGE.into());
+		wasm_grammars::SWIFT.register(tree_sitter_swift::LANGUAGE.into());
+		wasm_grammars::VERILOG.register(tree_sitter_verilog::LANGUAGE.into());
+		wasm_grammars::VUE.register(tree_sitter_vue_next::LANGUAGE.into());
+		wasm_grammars::XML.register(tree_sitter_xml::LANGUAGE_XML.into());
+	});
+}
 
 pub type RewriteFn = Box<dyn Fn(&WriteRequest) -> String + Send + Sync>;
 
@@ -103,6 +138,7 @@ pub struct Workspace {
 
 impl Workspace {
 	pub fn new(mode: EditMode) -> Self {
+		register_fixture_grammars();
 		let dir = tempfile::tempdir().expect("tempdir");
 		let cwd = dir.path().canonicalize().expect("canonical tempdir");
 		let config = SessionConfig {

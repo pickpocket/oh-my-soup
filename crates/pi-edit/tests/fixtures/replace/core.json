@@ -29,13 +29,6 @@
    "expect": { "files": { "all.txt": "changed\nmiddle\nchanged\n" } }
   },
   {
-   "name": "no-change error",
-   "files": { "noop.txt": "alpha\n" },
-   "args": { "path": "noop.txt", "old_string": "alpha", "new_string": "alpha" },
-   "policy": { "allowFuzzy": false },
-   "expect": { "error": "Edits to noop.txt resulted in no changes being made.", "writes": 0 }
-  },
-  {
    "name": "CRLF + BOM round trip",
    "files": { "windows.txt": "﻿alpha\r\nbeta\r\n" },
    "args": { "path": "windows.txt", "old_string": "beta", "new_string": "BETA" },

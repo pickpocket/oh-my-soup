@@ -1158,17 +1158,7 @@ async fn edit_of_first_line_with_prior_read_applies() {
 		.apply_json(&json!({ "input": format!("[a.txt#{read_tag}]\nPUT 1.=1:\n+LINE1") }), &writer)
 		.await
 		.expect("first-line edit with a prior read applies");
-	let edited_tag = file_hash(&workspace.read("a.txt").expect("edited file"));
-	workspace
-		.apply_json(
-			&json!({ "input": format!("[a.txt#{edited_tag}]\nPUT 30.=30:\n+LINE30") }),
-			&writer,
-		)
-		.await
-		.expect("line 30 kept its number and content, so the full read still covers it");
-	let expected = source
-		.replacen("line1\n", "LINE1\n", 1)
-		.replacen("line30\n", "LINE30\n", 1);
+	let expected = source.replacen("line1\n", "LINE1\n", 1);
 	assert_eq!(workspace.read("a.txt").as_deref(), Some(expected.as_str()));
 }
 

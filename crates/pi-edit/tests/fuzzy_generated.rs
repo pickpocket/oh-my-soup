@@ -63,8 +63,8 @@ use common::{DiskWriter, Workspace};
 use pi_edit::{
 	EditMode,
 	fuzzy::{
-		FindMatchOptions, SequenceSearchResult, find_match, levenshtein_distance, replace_text,
-		seek_sequence,
+		FindMatchOptions, ReplaceOutcome, SequenceSearchResult, find_match, levenshtein_distance,
+		replace_text, seek_sequence,
 	},
 };
 use proptest::{
@@ -877,11 +877,14 @@ fn replace_text_outcome(case: &Case) -> Result<Observed, TestCaseError> {
 		Some(case.threshold),
 	) {
 		Err(_) => Observed::Refused,
-		Ok(result) if result.content == case.content => {
-			prop_assert_eq!(result.count, 0, "reported an edit without changing bytes");
-			Observed::Unchanged
+		Ok(ReplaceOutcome::Missed(outcome)) => {
+			if outcome.occurrences.is_some_and(|count| count > 1) {
+				Observed::Refused
+			} else {
+				Observed::Unchanged
+			}
 		},
-		Ok(result) => {
+		Ok(ReplaceOutcome::Replaced(result)) => {
 			prop_assert_eq!(result.count, 1);
 			check_target_edit(case, &result.content, &case.replacement)
 				.map_err(TestCaseError::fail)?;

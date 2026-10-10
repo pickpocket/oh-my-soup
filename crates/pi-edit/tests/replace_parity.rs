@@ -4,7 +4,7 @@ use std::collections::HashMap;
 
 use common::run_fixture;
 use pi_edit::{
-	EditMode, EditStore, PathPolicy,
+	EditMode, PathPolicy,
 	fuzzy::{FindMatchOptions, find_match},
 	path_policy::canonical_key,
 	text::adjust_indentation,

@@ -2161,17 +2161,15 @@ mod tests {
 	}
 
 	#[test]
-
 	fn replace_text_adjusts_indentation() {
-		let result = replaced(
+		assert_eq!(
 			replace_text("    foo\n    bar", "foo\nbar", "foo\nbaz\nbar", true, false, None).unwrap(),
+			ReplaceOutcome::Replaced(ReplaceResult {
+				content: "    foo\n    baz\n    bar".to_owned(),
+				count:   1,
+			})
 		);
-		assert_eq!(result, ReplaceResult {
-			content: "    foo\n    baz\n    bar".to_owned(),
-			count:   1,
-		});
-
-		let deindented = replaced(
+		assert_eq!(
 			replace_text(
 				"    foo\n    bar",
 				"        foo\n        bar",
@@ -2181,15 +2179,18 @@ mod tests {
 				Some(0.9),
 			)
 			.unwrap(),
+			ReplaceOutcome::Replaced(ReplaceResult {
+				content: "    foo\n    baz".to_owned(),
+				count:   1,
+			})
 		);
-		assert_eq!(deindented.content, "    foo\n    baz");
 	}
 
 	#[test]
 	fn replace_text_all_exact_and_fuzzy() {
 		assert_eq!(
-			replaced(replace_text("foo foo", "foo", "bar", false, true, None).unwrap()),
-			ReplaceResult { content: "bar bar".to_owned(), count: 2 }
+			replace_text("foo foo", "foo", "bar", false, true, None).unwrap(),
+			ReplaceOutcome::Replaced(ReplaceResult { content: "bar bar".to_owned(), count: 2 })
 		);
 		let old = "a".repeat(50);
 		let first = format!("{}b", "a".repeat(49));
@@ -2212,8 +2213,8 @@ mod tests {
 		};
 		assert_eq!(ambiguous.occurrences, Some(2));
 		assert_eq!(
-			replaced(replace_text("a\r\nb", "a\r\nb", "c\r\nd", false, false, None).unwrap()),
-			ReplaceResult { content: "c\nd".to_owned(), count: 1 }
+			replace_text("a\r\nb", "a\r\nb", "c\r\nd", false, false, None).unwrap(),
+			ReplaceOutcome::Replaced(ReplaceResult { content: "c\nd".to_owned(), count: 1 })
 		);
 		let ReplaceOutcome::Missed(missing) =
 			replace_text("abc", "missing", "x", false, false, None).unwrap()

@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [18.8.9] - 2026-10-10
+
 ### Fixed
 
 - Fixed extension lifecycle events being delivered twice after the upstream merge.

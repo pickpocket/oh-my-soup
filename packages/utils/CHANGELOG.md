@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [18.8.9] - 2026-10-10
+
 ### Added
 
 - Added a filesystem timestamp guard for caches that must detect rapid same-size file rewrites.

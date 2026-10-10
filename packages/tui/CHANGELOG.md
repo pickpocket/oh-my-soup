@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [18.8.9] - 2026-10-10
+
 ### Changed
 
 - Restored the original soup pixel art on welcome and setup screens in classic and native terminals.

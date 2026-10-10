@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [18.8.9] - 2026-10-10
+
 ### Fixed
 
 - Fixed AI test runs hanging under Bun 1.4.3 memory pressure by bounding process lifetimes while retaining per-file isolation.

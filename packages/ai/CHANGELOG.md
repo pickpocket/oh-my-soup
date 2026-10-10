@@ -4,7 +4,7 @@
 
 ### Fixed
 
-- Fixed AI test runs hanging under Bun 1.4.3 memory pressure while retaining per-file isolation.
+- Fixed AI test runs hanging under Bun 1.4.3 memory pressure by bounding process lifetimes while retaining per-file isolation.
 
 ## [18.8.8] - 2026-10-10
 

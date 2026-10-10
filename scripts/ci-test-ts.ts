@@ -9,6 +9,7 @@ type Mode =
 	| "local"
 	| "local-ts"
 	| "workspace"
+	| "ai"
 	| "native"
 	| "coding-agent-singleton"
 	| "coding-agent-ui"
@@ -53,6 +54,7 @@ const validModes: Record<Mode, true> = {
 	local: true,
 	"local-ts": true,
 	workspace: true,
+	ai: true,
 	native: true,
 	"coding-agent-singleton": true,
 	"coding-agent-ui": true,
@@ -200,23 +202,23 @@ function shellQuote(value: string): string {
 	return `'${value.replaceAll("'", `'\\''`)}'`;
 }
 
-function workspaceTestCommand(pkg: string, parallel: number, options: { extraArgs?: string[] } = {}): TestCommand {
+async function workspaceTestCommands(
+	pkg: string,
+	parallel: number,
+	options: { extraArgs?: string[] } = {},
+): Promise<TestCommand[]> {
 	const { extraArgs = [] } = options;
-	// Bun 1.4.3's worker pool can hang after the AI suite finishes under GC
-	// pressure. Keep per-file isolation without worker processes; no tests skip.
+	// Bun 1.4.3 can stall partway through the AI suite in both its worker pool
+	// and a single isolated process. Bound each heap as with coding-agent.
 	if (pkg === "packages/ai") {
-		return {
-			label: pkg,
-			cwd: pkg,
-			command: ["bun", "test", "--isolate", `--timeout=${testTimeoutMs()}`, ...extraArgs],
-		};
+		const testFiles = await collectTestsUnder(path.join(repoRoot, pkg, "test"), path.join(repoRoot, pkg));
+		return testFileCommands(
+			{ label: pkg, cwd: pkg, command: ["bun", "test", "--isolate", `--timeout=${testTimeoutMs()}`, ...extraArgs] },
+			testFiles,
+			10,
+		);
 	}
-	return {
-		label: pkg,
-		cwd: pkg,
-		command: ["bun", "test", ...extraArgs],
-		parallel,
-	};
+	return [{ label: pkg, cwd: pkg, command: ["bun", "test", ...extraArgs], parallel }];
 }
 
 // The Rust suite as one pooled command, so root `bun run test` reports TS and
@@ -308,6 +310,21 @@ async function getCodingAgentTestPartition(): Promise<CodingAgentTestPartition> 
 	return codingAgentTestPartitionPromise;
 }
 
+function testFileCommands(base: TestCommand, testFiles: string[], chunkSize: number): TestCommand[] {
+	const chunkCount = Math.ceil(testFiles.length / chunkSize);
+	const commands: TestCommand[] = [];
+	for (let i = 0; i < testFiles.length; i += chunkSize) {
+		const chunk = testFiles.slice(i, i + chunkSize);
+		const chunkLabel = chunkCount > 1 ? ` chunk ${commands.length + 1}/${chunkCount}` : "";
+		commands.push({
+			...base,
+			label: `${base.label} (${testFiles.length} files${chunkLabel}; ${chunk.length} files)`,
+			command: [...base.command, ...chunk],
+		});
+	}
+	return commands;
+}
+
 async function codingAgentTestCommands(bucket: CodingAgentBucket): Promise<TestCommand[]> {
 	const partition = await getCodingAgentTestPartition();
 	const testFiles = partition[bucket];
@@ -315,30 +332,37 @@ async function codingAgentTestCommands(bucket: CodingAgentBucket): Promise<TestC
 		throw new Error(`No coding-agent ${bucket} tests matched`);
 	}
 	const plan = codingAgentBucketPlans[bucket];
-	const chunkSize = plan.chunkSize ?? testFiles.length;
-	const chunkCount = Math.ceil(testFiles.length / chunkSize);
-	const commands: TestCommand[] = [];
-	for (let i = 0; i < testFiles.length; i += chunkSize) {
-		const chunk = testFiles.slice(i, i + chunkSize);
-		const chunkLabel = chunkCount > 1 ? ` chunk ${commands.length + 1}/${chunkCount}` : "";
-		commands.push({
-			label: `packages/coding-agent (${plan.label}; ${testFiles.length} files; parallel=${plan.parallel}${chunkLabel}; ${chunk.length} files)`,
+	return testFileCommands(
+		{
+			label: `packages/coding-agent (${plan.label}; parallel=${plan.parallel})`,
 			cwd: "packages/coding-agent",
-			command: ["bun", "test", ...onlyFailuresArgs, ...chunk],
+			command: ["bun", "test", ...onlyFailuresArgs],
 			parallel: plan.parallel,
-		});
-	}
-	return commands;
+		},
+		testFiles,
+		plan.chunkSize ?? testFiles.length,
+	);
 }
 
 async function commandsForMode(mode: Mode): Promise<TestCommand[]> {
 	switch (mode) {
 		case "workspace":
-			return fastWorkspacePackages.map(pkg => workspaceTestCommand(pkg, 8));
+			return (await Promise.all(fastWorkspacePackages.map(pkg => workspaceTestCommands(pkg, 8)))).flat();
+		case "ai":
+			return await workspaceTestCommands("packages/ai", 1, {
+				extraArgs: [
+					...onlyFailuresArgs,
+					...args.slice(1).filter(arg => arg !== "--full" && arg !== "--only-failures" && arg !== "--dry-run"),
+				],
+			});
 		case "native":
-			return nativeAndIntegrationPackages.map(pkg =>
-				workspaceTestCommand(pkg, process.platform === "win32" && pkg === "packages/tui" ? 1 : 4),
-			);
+			return (
+				await Promise.all(
+					nativeAndIntegrationPackages.map(pkg =>
+						workspaceTestCommands(pkg, process.platform === "win32" && pkg === "packages/tui" ? 1 : 4),
+					),
+				)
+			).flat();
 		case "coding-agent-singleton":
 			return await codingAgentTestCommands("singleton");
 		case "coding-agent-ui":
@@ -367,13 +391,19 @@ async function commandsForMode(mode: Mode): Promise<TestCommand[]> {
 		// one failure report. Repo script tests remain available via `test:scripts`.
 		case "local-ts":
 			return [
-				...fastWorkspacePackages.map(pkg => workspaceTestCommand(pkg, 8, { extraArgs: onlyFailuresArgs })),
-				...nativeAndIntegrationPackages.map(pkg =>
-					workspaceTestCommand(pkg, process.platform === "win32" && pkg === "packages/tui" ? 1 : 4, {
-						extraArgs: onlyFailuresArgs,
-					}),
-				),
-				...localOnlyWorkspacePackages.map(pkg => workspaceTestCommand(pkg, 4, { extraArgs: onlyFailuresArgs })),
+				...(
+					await Promise.all([
+						...fastWorkspacePackages.map(pkg => workspaceTestCommands(pkg, 8, { extraArgs: onlyFailuresArgs })),
+						...nativeAndIntegrationPackages.map(pkg =>
+							workspaceTestCommands(pkg, process.platform === "win32" && pkg === "packages/tui" ? 1 : 4, {
+								extraArgs: onlyFailuresArgs,
+							}),
+						),
+						...localOnlyWorkspacePackages.map(pkg =>
+							workspaceTestCommands(pkg, 4, { extraArgs: onlyFailuresArgs }),
+						),
+					])
+				).flat(),
 				...(await commandsForMode("coding-agent-heavy")),
 			];
 		// `local` is what root `bun run test` drives: the full TS suite plus the

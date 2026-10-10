@@ -13,6 +13,7 @@ import type {
 import { type EditStore, type GrepMatch, GrepOutputMode, type GrepResult, grep } from "@oh-my-soup/pi-natives";
 import { prompt, untilAborted } from "@oh-my-soup/pi-utils";
 import { LRUCache } from "@oh-my-soup/pi-utils/lru";
+import { isStatOutsideRacyWindow } from "@oh-my-soup/pi-utils/fs-stat";
 import {
 	type ArchiveReader,
 	type ExtractedArchiveFile,
@@ -322,12 +323,6 @@ interface SnapshotStamp {
 }
 
 const SNAPSHOT_STAMP_MAX = 256;
-/**
- * Stats younger than this are never memoized (git's racy-clean rule): on
- * coarse-timestamp filesystems a same-size rewrite inside one timestamp
- * granule leaves the stamp unchanged.
- */
-const RACY_STAMP_WINDOW_NS = 2_000_000_000n;
 const snapshotStampsByStore = new WeakMap<EditStore, LRUCache<string, SnapshotStamp>>();
 
 /**
@@ -361,8 +356,7 @@ async function recordSnapshotTags(store: EditStore, snapshotPaths: readonly stri
 			return prior.tag;
 		}
 		const tag = store.recordSnapshotFile(filePath);
-		const changedNs = st.mtimeNs > st.ctimeNs ? st.mtimeNs : st.ctimeNs;
-		if (tag && BigInt(Date.now()) * 1_000_000n - changedNs >= RACY_STAMP_WINDOW_NS) {
+		if (tag && isStatOutsideRacyWindow(st)) {
 			stamps.set(filePath, { size: st.size, mtimeNs: st.mtimeNs, ctimeNs: st.ctimeNs, ino: st.ino, tag });
 		} else {
 			stamps.delete(filePath);

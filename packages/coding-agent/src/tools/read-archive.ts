@@ -1,3 +1,4 @@
+import * as fs from "node:fs/promises";
 import type { AgentToolResult } from "@oh-my-soup/pi-agent-core";
 import type { TextContent } from "@oh-my-soup/pi-ai";
 import {
@@ -8,6 +9,7 @@ import {
 	parseArchivePathCandidates,
 } from "@oh-my-soup/pi-utils/ar";
 import { LRUCache } from "@oh-my-soup/pi-utils/lru";
+import { isStatOutsideRacyWindow } from "@oh-my-soup/pi-utils/fs-stat";
 import type { ToolSession } from "../sdk";
 import { truncateHead } from "@oh-my-soup/pi-tui/tools/streaming-output";
 import { applyListLimit } from "@oh-my-soup/pi-tui/tools/list-limit";
@@ -47,11 +49,10 @@ const CACHEABLE_ARCHIVE_FORMATS: Partial<Record<ArchiveFormat, true>> = { zip: t
 
 interface CachedArchiveReader {
 	reader: ArchiveReader;
-	ino: number;
-	mtimeMs: number;
-	/** Change time: moves on every write and permission change and cannot be set back, unlike mtime. */
-	ctimeMs: number;
-	size: number;
+	ino: bigint;
+	mtimeNs: bigint;
+	ctimeNs: bigint;
+	size: bigint;
 	entryCount: number;
 }
 
@@ -59,7 +60,8 @@ interface CachedArchiveReader {
  * Recently opened archives, so paging through members does not re-read and
  * re-index the archive per read. Bounded by count and by total indexed entries;
  * an entry is reused only while the file's identity (inode, mtime, ctime, size)
- * holds, so a rewrite or a permission change reopens the archive.
+ * holds. Recent timestamps are not cached: a rewrite in the same filesystem
+ * timestamp granule may leave that identity unchanged.
  */
 const archiveReaderCache = new LRUCache<string, CachedArchiveReader>({
 	max: 4,
@@ -69,22 +71,20 @@ const archiveReaderCache = new LRUCache<string, CachedArchiveReader>({
 
 async function openArchiveCached(absolutePath: string): Promise<ArchiveReader> {
 	// A vanished or unreadable archive is reported by the opener, as it always has been.
-	const stat = await Bun.file(absolutePath)
-		.stat()
-		.catch(() => null);
+	const stat = await fs.stat(absolutePath, { bigint: true }).catch(() => null);
 	if (!stat) return openArchive(absolutePath);
 	const cached = archiveReaderCache.get(absolutePath);
 	if (
 		cached &&
 		cached.ino === stat.ino &&
-		cached.mtimeMs === stat.mtimeMs &&
-		cached.ctimeMs === stat.ctimeMs &&
+		cached.mtimeNs === stat.mtimeNs &&
+		cached.ctimeNs === stat.ctimeNs &&
 		cached.size === stat.size
 	) {
 		return cached.reader;
 	}
 	const reader = await openArchive(absolutePath);
-	if (!CACHEABLE_ARCHIVE_FORMATS[reader.format]) {
+	if (!CACHEABLE_ARCHIVE_FORMATS[reader.format] || !isStatOutsideRacyWindow(stat)) {
 		archiveReaderCache.delete(absolutePath);
 		return reader;
 	}
@@ -93,8 +93,8 @@ async function openArchiveCached(absolutePath: string): Promise<ArchiveReader> {
 	archiveReaderCache.set(absolutePath, {
 		reader,
 		ino: stat.ino,
-		mtimeMs: stat.mtimeMs,
-		ctimeMs: stat.ctimeMs,
+		mtimeNs: stat.mtimeNs,
+		ctimeNs: stat.ctimeNs,
 		size: stat.size,
 		entryCount,
 	});

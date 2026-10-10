@@ -144,7 +144,7 @@
 		"check": "oxlint . && oxfmt --check --no-error-on-unmatched-pattern 'src/**/*.{ts,tsx}' '{test,bench,examples,scripts}/**/*.ts' '*.ts' && bun run check:types",
 		"check:types": "tsgo -p tsconfig.json --noEmit",
 		"lint": "oxlint .",
-		"test": "bun test --isolate",
+		"test": "bun ../../scripts/ci-test-ts.ts ai --full",
 		"fix": "oxlint --fix --fix-suggestions . && bun run fmt",
 		"fmt": "oxfmt --no-error-on-unmatched-pattern 'src/**/*.{ts,tsx}' '{test,bench,examples,scripts}/**/*.ts' '*.ts'"
 	},

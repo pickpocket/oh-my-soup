@@ -1765,6 +1765,8 @@ describe("Coding Agent Tools", () => {
 			const pinnedMtime = new Date("2024-01-01T00:00:00Z");
 			fs.writeFileSync(archivePath, createZipArchive([{ path: "alpha.txt", content: "first\n" }]));
 			fs.utimesSync(archivePath, pinnedMtime, pinnedMtime);
+			// A coarse filesystem can report identical recent stamps across both writes.
+			vi.spyOn(fs.promises, "stat").mockResolvedValue(await fs.promises.stat(archivePath, { bigint: true }));
 			expect(getTextOutput(await readTool.execute("test-call-zip-before", { path: archivePath }))).toContain(
 				"alpha.txt",
 			);

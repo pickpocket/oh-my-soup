@@ -48,7 +48,9 @@ beforeAll(() => {
 	server = Bun.serve({
 		hostname: "127.0.0.1",
 		port: 0,
-		fetch() {
+		fetch(request) {
+			// A late favicon response must not recreate a cookie after clearCookies.
+			if (new URL(request.url).pathname !== "/") return new Response(null, { status: 404 });
 			return new Response("<!doctype html><title>storage fixture</title>", {
 				headers: { "Set-Cookie": "server_cookie=from_header; Path=/; HttpOnly; SameSite=Lax" },
 			});

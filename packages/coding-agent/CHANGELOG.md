@@ -5,19 +5,32 @@
 ### Added
 
 - Added `oms service` to keep interactive sessions alive across SSH disconnects: `install` registers a per-user, per-profile terminal service (a WinSW-wrapped Windows service, or a systemd user unit on Linux with lingering enabled when allowed), `start`/`stop`/`status`/`uninstall` manage it, and `run` hosts it in the foreground. Once the service runs, a plain `oms` in a terminal attaches to the persistent session for the current directory (Ctrl+] detaches); `oms --standalone` keeps running in the terminal instead.
+- Added live-session resume with in-progress status and concurrent terminal handles; joining or detaching a handle preserves the running session and its current work.
 - Added the `ssh` device (`xd://ssh`) to open, list, and close sessions with username/password, a key file, or agent auth, plus password hosts in `ssh.json`, `/ssh add --password`, and `oms ssh add --password`.
 - Added `bash` `target` to run commands on an SSH session or configured host, with `ssh://<session>/<path>` for remote files.
+- Added read-only recovery of subagent session notes through `agent://<id>?view=notes`, with completion links and retained-journal access after parent resume.
+- Added `agent.fork()` in JavaScript and Python eval to give a new subagent a snapshot of the parent's conversation and an independent assignment.
+- Added per-subagent `toolNames` selection (`tool_names` in Python); omitted selections inherit the parent's enabled tools, including mounted and custom capabilities.
+- Added TRAMP-style `/ssh:user@host#port:/path` paths for remote files and Bash working directories, with lazy SSH connections and remote-home resolution.
 - Added `/jobs kill <id>|all` to cancel a running background job (or every one this session owns) from the command line, even while the agent is busy ([#14160](https://github.com/can1357/oh-my-pi/pull/14160) by [@KanwarGill](https://github.com/KanwarGill))
 
 ### Changed
 
 - Updated to upstream 18.8.7 features while retaining Soup's providers, SSH sessions, persistent terminal service, and code-mode tools.
+- Documented the disasm input schema, backend-specific SQL discovery and examples, and output limits.
+- SSH commands now retain POSIX shell variables, functions, and working directories per agent and authenticated destination, including on Windows clients.
 - A `/models` compaction limit set past a model's standard context window now runs that model on its extended window instead of being silently clamped; the hub warns (noting long-context pricing) and saves on a second Enter, in the terminal and in Tern, and rejects limits past the model's largest window ([#15048](https://github.com/can1357/oh-my-pi/pull/15048) by [@H4vC](https://github.com/H4vC))
 - A token compaction limit set in `/models` (or `compaction.modelThresholds`) is now the base oms scales with its usual policy, as if it were the model's window (85% of it by default for bases above ~109k, or `compaction.thresholdPercent` of it), instead of the exact point. Plain numbers saved since 18.8.5 therefore compact earlier; rewrite one as `"f<tokens>"` (or type `f400k` in the hub) to keep it an exact trigger. The `/models` limit field shows where the model would compact as you type (`compacts at 340K · 85% of 400K base`), the preview's **Compacts at** row says why, and the saved message repeats it ([#15065](https://github.com/can1357/oh-my-pi/pull/15065) by [@H4vC](https://github.com/H4vC))
 
 ### Fixed
 
+- Fixed Windows ARM64 installations selecting an x64 executable, including when running PowerShell under emulation.
+- Fixed `oms update` to upgrade Soup's Homebrew formula instead of targeting the upstream tap.
+- Fixed updates from Bun/npm installations attempting to install unpublished packages; Soup releases now explicitly select verified standalone binaries.
 - RPC clients now receive typed Beads reminders, including issue dependencies and mixed blocker references.
+- Fixed circular IRC waits between agents, including chains through the main agent, by reporting the cycle instead of waiting for a timeout.
+- Fixed subagents losing selected tools after compaction, parking, or restart, while preserving their permission ceilings and rejecting unavailable capability sources.
+- Fixed `--no-session --resume` to load saved history by ID, path, or picker without modifying the original transcript.
 - Fixed false "never displayed" edit rejections for previously read lines whose content and line numbers survive an edit, including unchanged preview rows after formatting.
 - Fixed repeated seen-line rejections after inline reveals when multiple snapshots share a tag, without authorizing content from a colliding snapshot.
 - Fixed edits on lines displayed by `@`-mentioned files after an earlier partial read; truncated mentions no longer number their notices as file content.

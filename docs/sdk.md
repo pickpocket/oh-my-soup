@@ -313,6 +313,13 @@ Only after work capable of appending session entries has settled does disposal c
 - Built-ins come from `createTools(...)` and `BUILTIN_TOOLS`.
 - `toolNames` requests named tools and can enable tools that are disabled by
   default; by itself it is **not** an allowlist.
+- `toolAllowlist` supplies an immutable capability ceiling without disabling named
+  extension, SDK-custom, or MCP tools. Use it with `toolNames` for a selected child
+  toolset; `[]` grants no ordinary capabilities. Required `yield` and device-only
+  transport remain available where needed, without granting filesystem writes.
+- Child sessions persist enabled and mounted tool state. `restoreToolState: true`
+  restores it within the saved and current capability ceilings; fresh conversation
+  forks leave this false so the parent's recorded contract cannot override the child.
 - Set `restrictToolNames: true` to limit the session to the names in
   `toolNames`. Restricted sessions disable ambient MCP, extensions, custom
   commands, and LSP by default.
@@ -353,6 +360,7 @@ const { session } = await createAgentSession({
 `AgentSession` supports runtime activation updates:
 
 - `getActiveToolNames()`
+- `getEnabledToolNames()` — includes mounted and Code Mode capabilities, not just top-level schemas
 - `getAllToolNames()`
 - `setActiveToolsByName(names)`
 - `refreshMCPTools(mcpTools)`

@@ -17,6 +17,34 @@ async function withLooseKey<T>(run: (keyPath: string) => Promise<T>): Promise<T>
 	}
 }
 
+describe("SSH endpoint/auth identity", () => {
+	it("shares equivalent aliases and default ports, but never shares distinct credentials or endpoints", () => {
+		const target: connectionManager.SSHConnectionTarget = {
+			name: "configured",
+			host: "example.invalid",
+			username: "agent",
+			keyPath: "/test/key",
+			password: "in-memory-test-password",
+		};
+		const alias = { ...target, name: "ad-hoc", port: 22, compat: true };
+		expect(connectionManager.sameSshTarget(target, alias)).toBe(true);
+		expect(connectionManager.getSshTargetIdentity(target)).toBe(connectionManager.getSshTargetIdentity(alias));
+		for (const different of [
+			{ ...target, host: "other.invalid" },
+			{ ...target, username: "other" },
+			{ ...target, port: 2222 },
+			{ ...target, keyPath: "/test/other-key" },
+			{ ...target, password: "replacement-password" },
+			{ ...target, password: undefined },
+		]) {
+			expect(connectionManager.sameSshTarget(target, different)).toBe(false);
+			expect(connectionManager.getSshTargetIdentity(target)).not.toBe(
+				connectionManager.getSshTargetIdentity(different),
+			);
+		}
+	});
+});
+
 describe("buildRemoteCommand", () => {
 	it("includes -n and OpenSSH ControlMaster options on Unix-like platforms", async () => {
 		const args = await connectionManager.buildRemoteCommand(

@@ -1,0 +1,83 @@
+{
+  "type": "object",
+  "properties": {
+    "action": {
+      "enum": ["backends", "open", "list", "query", "execute", "reset", "save", "close"],
+      "type": "string"
+    },
+    "backend": {
+      "type": "string",
+      "description": "native adapter id; defaults to disasm.defaultBackend"
+    },
+    "endpoint": {
+      "type": "string",
+      "description": "one-call IDA bridge endpoint override"
+    },
+    "file": {
+      "type": "string",
+      "description": "open only: binary or existing IDA, Ghidra, or Binary Ninja database"
+    },
+    "output_db": {
+      "type": "string",
+      "description": "open only: persistent backend database path for a raw binary"
+    },
+    "program": {
+      "type": "string",
+      "description": "open only: domain path inside an existing Ghidra project"
+    },
+    "python": {
+      "type": "string",
+      "description": "open only: one-call Python executable override for IDA or Binary Ninja"
+    },
+    "ida_dir": {
+      "type": "string",
+      "description": "open only: one-call IDA installation directory override"
+    },
+    "java_home": {
+      "type": "string",
+      "description": "open only: one-call Java home override for Ghidra"
+    },
+    "ghidra_dir": {
+      "type": "string",
+      "description": "open only: one-call Ghidra installation directory override"
+    },
+    "binaryninja_dir": {
+      "type": "string",
+      "description": "open only: one-call Binary Ninja installation directory override"
+    },
+    "target": {
+      "type": "string",
+      "description": "target id returned by list"
+    },
+    "sql": {
+      "type": "string",
+      "description": "shared SQL analysis interface; writable relations use same-table INSERT, UPDATE, and DELETE"
+    },
+    "code": {
+      "type": "string",
+      "description": "backend-native code (IDAPython, Ghidra Java, or Binary Ninja Python)"
+    },
+    "stateful": {
+      "type": "boolean",
+      "description": "persist the backend execution namespace between calls"
+    },
+    "session_id": {
+      "type": "string",
+      "description": "stateful namespace owner id"
+    },
+    "takeover": {
+      "type": "boolean",
+      "description": "reset only: replace a foreign stateful owner; user-directed only"
+    },
+    "release": {
+      "type": "boolean",
+      "description": "reset only: clear stateful ownership after reset"
+    },
+    "timeout": {
+      "type": "number",
+      "description": "operation timeout seconds (default 60; range 5-600)"
+    }
+  },
+  "required": ["action"],
+  "additionalProperties": false
+}

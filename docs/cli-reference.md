@@ -73,19 +73,19 @@ Argument handling:
 | `--cwd <dir>` | Directory to start in (overrides the launch cwd). |
 | `--add-dir <dir>` | Add a workspace directory beyond the working directory (repeatable). |
 | `--allow-home` | Allow starting in `~` without auto-switching to a temp dir. |
-| `--standalone` | Run in this terminal even when the [`service`](#oms-service) is running; a plain `oms` attaches to it otherwise. |
+| `--standalone` | Start locally instead of automatically attaching to the [`service`](#oms-service). Explicitly resuming a live service session still attaches to that session. |
 | `--profile <name>` | Use an isolated profile for auth, sessions, settings, and caches. |
 | `--alias <name>` | Create a shell shortcut for a named profile and exit; requires `--profile` or `OMS_PROFILE`. |
 | `--config <file>` | Load an extra `config.yml`-style overlay for this run (repeatable). |
 | `--session-dir <dir>` | Directory for session storage and lookup. |
-| `--no-session` | Don't save the session (ephemeral). |
+| `--no-session` | Don't save the session (ephemeral). With `--resume`, load a saved snapshot without modifying its source or attaching to the service. |
 
 #### Session history
 
 | Flag | Description |
 | --- | --- |
 | `--continue`, `-c` | Continue the previous session. |
-| `--resume [id]`, `-r`, `--session [id]` | Resume a session by ID prefix or path, or open the picker when no value is given. |
+| `--resume [id]`, `-r`, `--session [id]` | Resume by ID prefix or path, or open the picker without a value. In a TTY, a live service session is attached rather than reopened. |
 | `--fork <session>` | Fork a saved session (by ID prefix or path) into a new session. See [session operations](./session-operations-export-share-fork-resume.md). |
 | `--from-claude` | Import a Claude Code session into OMS. |
 | `--from-codex` | Import a Codex session into OMS. |
@@ -302,11 +302,23 @@ Run `oms <command> --help` for each command's own flags and examples.
 platform service manager and starts it; `start`, `stop`, `status`, and
 `uninstall` manage it afterwards, and `run` hosts it in the foreground without a
 service manager (any platform). While the service runs, a plain `oms` in a TTY
-attaches to the persistent session for the current directory — one session per
-project directory, created on first attach — and the session keeps running when
-the terminal or SSH connection drops. Press `Ctrl+]` to detach; run `oms` again
-to reattach. Any argument (`oms --standalone`, flags, prompts) or a non-TTY
-launch bypasses the service.
+attaches to a persistent session for the current directory, creating one on
+first attach. Multiple terminals can attach at once: they share the same
+transcript, editor, input, and terminal size. The session keeps running when a
+terminal or SSH connection drops. Press `Ctrl+]` to detach only this handle.
+
+`/resume` and `oms --resume` mark service-owned sessions **in progress**, including
+sessions that have not saved their first turn. Selecting one attaches to its
+current runtime instead of opening a second writer. This also works from a
+standalone terminal; an explicit live resume takes precedence over
+`--standalone`. From a service-owned session, `/resume` moves all its attached
+handles together; the previous session remains running detached.
+
+Other arguments and non-TTY launches bypass automatic service attachment.
+Without a service, saved-session resume works locally as usual.
+`--no-session --resume [id|path]` always loads an ephemeral saved snapshot:
+subsequent changes are not saved, and the source transcript is untouched.
+A live session with no saved transcript has no snapshot to load in this mode.
 
 | Platform | Service manager | Notes |
 | --- | --- | --- |

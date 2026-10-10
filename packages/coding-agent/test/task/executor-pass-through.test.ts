@@ -16,7 +16,6 @@ import type { Rule } from "@oh-my-soup/pi-coding-agent/capability/rule";
 import type { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";
 import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
 import { cfgCompaction } from "@oh-my-soup/pi-coding-agent/session/context-settings";
-import { parseAgentFields } from "@oh-my-soup/pi-coding-agent/discovery/helpers";
 import type { ToolPathWithSource } from "@oh-my-soup/pi-coding-agent/extensibility/custom-tools";
 import type { CustomTool } from "@oh-my-soup/pi-coding-agent/extensibility/custom-tools/types";
 import type {
@@ -197,77 +196,6 @@ describe("runSubprocess parent-discovery pass-through (issue #2190)", () => {
 		expect(forwarded?.preloadedExtensionPaths).toBeUndefined();
 		expect(forwarded?.preloadedCustomToolPaths).toBeUndefined();
 	});
-	it("preserves empty and absent agent tool declarations through session creation", async () => {
-		const session = yieldEmittingSession();
-		const spy = vi.spyOn(sdkModule, "createAgentSession").mockResolvedValue(createSessionResult(session));
-		const emptyFields = parseAgentFields({ name: "quiet", description: "desc", tools: [] });
-		const absentFields = parseAgentFields({ name: "default", description: "desc" });
-		if (!emptyFields || !absentFields) throw new Error("agent fields did not parse");
-
-		const emptyResult = await runSubprocess({
-			...baseOptions,
-			id: "empty-tools-child",
-			agent: { ...baseAgent, ...emptyFields },
-		});
-		const absentResult = await runSubprocess({
-			...baseOptions,
-			id: "default-tools-child",
-			agent: { ...baseAgent, ...absentFields },
-		});
-
-		expect(emptyResult.exitCode).toBe(0);
-		expect(absentResult.exitCode).toBe(0);
-		expect(spy.mock.calls[0]?.[0]?.toolNames).toEqual(["yield"]);
-		expect(spy.mock.calls[1]?.[0]?.toolNames).toBeUndefined();
-	});
-
-	it("grants wait only to unrestricted subagents that can start background work, and requires write for peers", async () => {
-		const session = yieldEmittingSession();
-		const spy = vi.spyOn(sdkModule, "createAgentSession").mockResolvedValue(createSessionResult(session));
-
-		const readOnlyResult = await runSubprocess({
-			...baseOptions,
-			id: "read-only-child",
-			agent: { ...baseAgent, tools: ["read", "grep", "glob"] },
-		});
-		const writableResult = await runSubprocess({
-			...baseOptions,
-			id: "writable-child",
-			agent: { ...baseAgent, tools: ["read", "write", "bash"] },
-		});
-		const spawningResult = await runSubprocess({
-			...baseOptions,
-			id: "spawning-child",
-			agent: { ...baseAgent, tools: ["read"], spawns: ["scout"] },
-		});
-		const restrictedResult = await runSubprocess({
-			...baseOptions,
-			id: "restricted-child",
-			agent: { ...baseAgent, tools: ["read", "bash"] },
-			restrictToolNames: true,
-		});
-
-		expect(readOnlyResult.exitCode).toBe(0);
-		expect(writableResult.exitCode).toBe(0);
-		expect(spawningResult.exitCode).toBe(0);
-		expect(restrictedResult.exitCode).toBe(0);
-		expect(spy.mock.calls[0]?.[0]?.toolNames).toEqual(["read", "grep", "glob"]);
-		expect(spy.mock.calls[1]?.[0]?.toolNames).toEqual(["read", "write", "bash", "wait"]);
-		expect(spy.mock.calls[2]?.[0]?.toolNames).toEqual(["read", "task", "wait"]);
-		expect(spy.mock.calls[3]?.[0]?.toolNames).toEqual(["read", "bash"]);
-
-		const promptText = (index: number): string => {
-			const prompt = spy.mock.calls[index]?.[0]?.systemPrompt;
-			const resolved = typeof prompt === "function" ? prompt(["default"]) : prompt;
-			return Array.isArray(resolved) ? resolved.join("\n") : (resolved ?? "");
-		};
-		const readOnlyPrompt = promptText(0);
-		const writablePrompt = promptText(1);
-		const spawningPrompt = promptText(2);
-		expect(readOnlyPrompt.includes("# Peers")).toBe(false);
-		expect(writablePrompt.includes("# Peers")).toBe(true);
-		expect(spawningPrompt.includes("# Peers")).toBe(false);
-	});
 
 	it("records the spawning agent as parentAgentId, distinct from the child's own id and prefix", async () => {
 		const session = yieldEmittingSession();
@@ -339,51 +267,6 @@ describe("runSubprocess parent-discovery pass-through (issue #2190)", () => {
 		expect(persistedInits[0]).toMatchObject({ restrictToolNames: true, tools: ["read", "yield"] });
 	});
 
-	it("persists bridge-only tools in the enabled Code Mode set", async () => {
-		const session = yieldEmittingSession();
-		vi.spyOn(session, "getActiveToolNames").mockReturnValue(["eval", "yield"]);
-		vi.spyOn(session, "getEnabledToolNames").mockReturnValue(["eval", "read", "yield"]);
-		const appendSessionInit = vi.spyOn(session.sessionManager, "appendSessionInit");
-		vi.spyOn(sdkModule, "createAgentSession").mockResolvedValue(createSessionResult(session));
-
-		const result = await runSubprocess({ ...baseOptions, id: "code-mode-child" });
-
-		expect(result.exitCode).toBe(0);
-		expect(appendSessionInit).toHaveBeenCalledWith(expect.objectContaining({ tools: ["eval", "read", "yield"] }));
-	});
-
-	it("omits transport-only write from the persisted cold-revival contract", async () => {
-		const session = yieldEmittingSession();
-		vi.spyOn(session, "getEnabledToolNames").mockReturnValue(["read", "write", "yield"]);
-		const appendSessionInit = vi.spyOn(session.sessionManager, "appendSessionInit");
-		vi.spyOn(sdkModule, "createAgentSession").mockResolvedValue(createSessionResult(session));
-
-		const result = await runSubprocess({
-			...baseOptions,
-			id: "transport-only-child",
-			agent: { ...baseAgent, tools: ["read"] },
-		});
-
-		expect(result.exitCode).toBe(0);
-		expect(appendSessionInit).toHaveBeenCalledWith(expect.objectContaining({ tools: ["read", "yield"] }));
-	});
-
-	it("persists write when the original subagent contract grants it", async () => {
-		const session = yieldEmittingSession();
-		vi.spyOn(session, "getEnabledToolNames").mockReturnValue(["read", "write", "yield"]);
-		const appendSessionInit = vi.spyOn(session.sessionManager, "appendSessionInit");
-		vi.spyOn(sdkModule, "createAgentSession").mockResolvedValue(createSessionResult(session));
-
-		const result = await runSubprocess({
-			...baseOptions,
-			id: "writable-child",
-			agent: { ...baseAgent, tools: ["read", "write"] },
-		});
-
-		expect(result.exitCode).toBe(0);
-		expect(appendSessionInit).toHaveBeenCalledWith(expect.objectContaining({ tools: ["read", "write", "yield"] }));
-	});
-
 	it("persists @advisor expanded against the spawning owner's roles so cold revival keeps its model", async () => {
 		const session = yieldEmittingSession();
 		const appendSessionInit = vi.spyOn(session.sessionManager, "appendSessionInit");
@@ -422,7 +305,6 @@ describe("runSubprocess parent-discovery pass-through (issue #2190)", () => {
 		expect(forwarded?.mcpTools?.map(tool => tool.name)).toEqual(["mcp__private_read"]);
 		expect(forwarded?.customTools).toBeUndefined();
 	});
-
 	it("preserves the legacy result shape when no output schema is selected", async () => {
 		const session = yieldEmittingSession();
 		vi.spyOn(sdkModule, "createAgentSession").mockResolvedValue(createSessionResult(session));

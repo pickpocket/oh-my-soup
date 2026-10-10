@@ -334,6 +334,7 @@ function resolveSpawnItems(params: TaskParams): TaskItem[] {
 	if ("outputSchema" in params) item.outputSchema = params.outputSchema;
 	if ("schemaMode" in params) item.schemaMode = params.schemaMode;
 	if ("tools" in params) item.tools = params.tools;
+	if ("toolNames" in params) item.toolNames = params.toolNames;
 	if ("effort" in params) item.effort = params.effort;
 	if ("isolated" in params) item.isolated = params.isolated;
 	return [item];
@@ -357,6 +358,7 @@ function spawnParamsFor(params: TaskParams, item: TaskItem, defaultAgent: string
 	if ("outputSchema" in item) spawn.outputSchema = item.outputSchema;
 	if ("schemaMode" in item) spawn.schemaMode = item.schemaMode;
 	if ("tools" in item) spawn.tools = item.tools;
+	if ("toolNames" in item) spawn.toolNames = item.toolNames;
 	if ("effort" in item) spawn.effort = item.effort;
 	if ("model" in item) spawn.model = item.model;
 	if (item.isolated !== undefined) {
@@ -782,6 +784,8 @@ export class TaskTool implements AgentTool<TaskToolSchemaInstance, TaskToolDetai
 		agentId?: string;
 		detached: boolean;
 	}): SpawnRun {
+		const parentToolNames = spawn.params.toolNames ??
+			this.session.getEnabledToolNames?.() ?? [...(this.session.getEvalBridgeToolNames?.() ?? [])];
 		return new SpawnRun(
 			this.#permit,
 			run =>
@@ -795,6 +799,7 @@ export class TaskTool implements AgentTool<TaskToolSchemaInstance, TaskToolDetai
 					spawn.detached,
 					run.timing,
 					spawn.detached ? run.onArtifactsRetained : undefined,
+					parentToolNames,
 				),
 			{ agentId: spawn.agentId, detached: spawn.detached },
 		);
@@ -812,9 +817,14 @@ export class TaskTool implements AgentTool<TaskToolSchemaInstance, TaskToolDetai
 		signal: AbortSignal,
 	): Promise<SpawnRun | undefined> {
 		if (spawn.tools?.length && this.session.getPlanModeState?.()?.enabled === true) return undefined;
+		const parentToolNames = this.session.getEnabledToolNames?.() ?? [
+			...(this.session.getEvalBridgeToolNames?.() ?? []),
+		];
 		let blocking: boolean;
 		try {
-			blocking = (await this.#resolveSpawnPreflight(spawn)).effectiveAgent.blocking === true;
+			const policy = await this.#resolveSpawnPreflight(spawn, parentToolNames);
+			blocking = policy.effectiveAgent.blocking === true;
+			spawn = { ...spawn, toolNames: policy.toolNames };
 		} catch {
 			return undefined;
 		}
@@ -845,13 +855,15 @@ export class TaskTool implements AgentTool<TaskToolSchemaInstance, TaskToolDetai
 	 * normalized task params rather than smuggling internal policy over the
 	 * task wire contract.
 	 */
-	#resolveSpawnPreflight(params: TaskParams) {
+	#resolveSpawnPreflight(params: TaskParams, parentToolNames?: string[]) {
 		return resolveEffectiveSubagentPolicy({
 			session: this.session,
 			invocationKind: "task",
 			assignment: (params.task ?? "").trim(),
 			context: this.#isBatchEnabled() ? params.context?.trim() || undefined : undefined,
 			agent: params.agent,
+			toolNames: params.toolNames,
+			parentToolNames,
 			...(Object.hasOwn(params, "outputSchema") ? { outputSchema: params.outputSchema } : {}),
 			...(params.model !== undefined ? { model: params.model } : {}),
 			...(Object.hasOwn(params, "schemaMode") ? { schemaMode: params.schemaMode } : {}),
@@ -905,6 +917,9 @@ export class TaskTool implements AgentTool<TaskToolSchemaInstance, TaskToolDetai
 			return createTaskModeError(plan);
 		}
 		const { params, items: spawnItems, spawns: normalizedSpawnParams } = plan;
+		const parentToolNames = this.session.getEnabledToolNames?.() ?? [
+			...(this.session.getEvalBridgeToolNames?.() ?? []),
+		];
 		const evalToolNames = spawnItems.flatMap(item => item.tools ?? []);
 		if (evalToolNames.length > 0) {
 			if (this.session.getPlanModeState?.()?.enabled === true) {
@@ -924,7 +939,7 @@ export class TaskTool implements AgentTool<TaskToolSchemaInstance, TaskToolDetai
 		const preflights = await Promise.all(
 			normalizedSpawnParams.map(async spawn => {
 				try {
-					return { policy: await this.#resolveSpawnPreflight(spawn) };
+					return { policy: await this.#resolveSpawnPreflight(spawn, parentToolNames) };
 				} catch (error) {
 					return { error: error instanceof StructuredSubagentError ? error.message : String(error) };
 				}
@@ -959,7 +974,11 @@ export class TaskTool implements AgentTool<TaskToolSchemaInstance, TaskToolDetai
 		// Runs started while the call streamed. An item runs detached iff it
 		// becomes a background job here; a run launched under the other mode
 		// (settings flipped mid-stream) cannot be re-homed and starts over.
+		// Compare streamed arguments before adding resolved capability snapshots.
 		const adopted = launchSession ? await launchSession.adopt(normalizedSpawnParams) : new Map<number, SpawnRun>();
+		for (let index = 0; index < normalizedSpawnParams.length; index++) {
+			normalizedSpawnParams[index].toolNames = policies[index].toolNames;
+		}
 		for (const [index, run] of adopted) {
 			if (run.identity.detached === (manager !== undefined && !itemBlocking[index])) continue;
 			run.discard("task execution mode changed after speculative launch");
@@ -994,7 +1013,7 @@ export class TaskTool implements AgentTool<TaskToolSchemaInstance, TaskToolDetai
 			const result = await this.#executeSyncFanout(
 				toolCallId,
 				params,
-				spawnItems.map((item, index) => ({ item, index, run: adopted.get(index) })),
+				normalizedSpawnParams.map((item, index) => ({ item, index, run: adopted.get(index) })),
 				defaultAgent,
 				signal,
 				onUpdate,
@@ -1054,7 +1073,7 @@ export class TaskTool implements AgentTool<TaskToolSchemaInstance, TaskToolDetai
 			run: SpawnRun | undefined;
 			progress: AgentProgress;
 		}> = [];
-		for (const [index, item] of spawnItems.entries()) {
+		for (const [index, item] of normalizedSpawnParams.entries()) {
 			const agentType = resolvedAgents[index]!;
 			const policy = policies[index]!;
 			const agentSource = policy.agent.source;
@@ -1655,6 +1674,7 @@ export class TaskTool implements AgentTool<TaskToolSchemaInstance, TaskToolDetai
 		detached = false,
 		launchTiming?: { invokedAt: number; acquiredAt: number },
 		onArtifactsRetained?: (cleanup: () => Promise<void>) => void,
+		parentToolNames?: string[],
 	): Promise<AgentToolResult<TaskToolDetails>> {
 		const startTime = Date.now();
 		const assignment = (params.task ?? "").trim();
@@ -1667,6 +1687,8 @@ export class TaskTool implements AgentTool<TaskToolSchemaInstance, TaskToolDetai
 				assignment,
 				context,
 				agent: params.agent,
+				toolNames: params.toolNames,
+				parentToolNames,
 				...(params.model !== undefined ? { model: params.model } : {}),
 				...(Object.hasOwn(params, "outputSchema") ? { outputSchema: params.outputSchema } : {}),
 				...(Object.hasOwn(params, "schemaMode") ? { schemaMode: params.schemaMode } : {}),

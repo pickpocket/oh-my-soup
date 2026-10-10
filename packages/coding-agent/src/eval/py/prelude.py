@@ -992,40 +992,52 @@ if "__oms_prelude_loaded__" not in globals():
 
     judge_batch.attach = _attach_judge_batch
 
-    def agent(
-        prompt,
-        *,
-        agent=None,
-        label=None,
-        schema=None,
-        schema_mode=None,
-        isolated=None,
-        apply=None,
-        merge=None,
-        tools=None,
-    ):
-        """Start a background subagent and return its handle."""
-        args = {"prompt": prompt}
-        if agent is not None:
-            args["agent"] = agent
-        if label is not None:
-            args["label"] = label
-        if schema is not None:
-            args["schema"] = schema
-        if schema_mode is not None:
-            args["schemaMode"] = schema_mode
-        if isolated is not None:
-            args["isolated"] = bool(isolated)
-        if apply is not None:
-            args["apply"] = bool(apply)
-        if merge is not None:
-            args["merge"] = bool(merge)
-        if tools is not None:
-            args["tools"] = list(tools)
-        result = _bridge_call("__agent__", args)
-        if not isinstance(result, dict) or not isinstance(result.get("id"), str):
-            raise RuntimeError("agent() did not return a handle")
-        return AgentHandle(result["id"], result.get("agent"), schema)
+    def _agent_factory(fork):
+        def spawn(
+            prompt,
+            *,
+            agent=None,
+            label=None,
+            schema=None,
+            schema_mode=None,
+            isolated=None,
+            apply=None,
+            merge=None,
+            tools=None,
+            tool_names=None,
+        ):
+            """Start a background subagent; agent.fork() also inherits the current conversation."""
+            args = {"prompt": prompt}
+            if fork:
+                args["fork"] = True
+            if agent is not None:
+                args["agent"] = agent
+            if label is not None:
+                args["label"] = label
+            if schema is not None:
+                args["schema"] = schema
+            if schema_mode is not None:
+                args["schemaMode"] = schema_mode
+            if isolated is not None:
+                args["isolated"] = bool(isolated)
+            if apply is not None:
+                args["apply"] = bool(apply)
+            if merge is not None:
+                args["merge"] = bool(merge)
+            if tools is not None:
+                args["tools"] = list(tools)
+            if tool_names is not None:
+                args["toolNames"] = list(tool_names)
+            result = _bridge_call("__agent__", args)
+            if not isinstance(result, dict) or not isinstance(result.get("id"), str):
+                name = "agent.fork" if fork else "agent"
+                raise RuntimeError(f"{name}() did not return a handle")
+            return AgentHandle(result["id"], result.get("agent"), schema)
+
+        return spawn
+
+    agent = _agent_factory(False)
+    agent.fork = _agent_factory(True)
 
     class WorkPool:
         """Pool of keep-alive subagents fed through the host workpool bridge."""

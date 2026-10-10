@@ -6,6 +6,8 @@ import { logger, setProjectDir } from "@oh-my-soup/pi-utils";
 import { clearClaudePluginRootsCache } from "../discovery/helpers";
 import { rebindMemoryBackendForCwd } from "../hindsight/backend";
 import { memoryStatsUnavailableMessage, resolveMemoryBackend } from "../memory-backend";
+import { listServiceSessions } from "../service/control";
+import { liveSessionForIdentifier } from "../service/resume";
 import type { FreshSessionResult, HandoffResult } from "../session/agent-session";
 import { COMPACT_MODES, parseCompactArgs } from "../session/compact-modes";
 import { USER_INTERRUPT_LABEL } from "../session/messages";
@@ -389,11 +391,16 @@ export const BUILTIN_LIFECYCLE_SLASH_COMMANDS: ReadonlyArray<SlashCommandSpec> =
 			const match = await resolveResumableSession(
 				sessionArg,
 				runtime.ctx.sessionManager.getCwd(),
-				runtime.ctx.sessionManager.getSessionDir(),
+				runtime.ctx.sessionManager.getSessionDir() || undefined,
 				{ allowGlobalFallback: true },
 			);
 			if (!match) {
-				runtime.ctx.showError(`Session "${sessionArg}" not found`);
+				const live = liveSessionForIdentifier(sessionArg, await listServiceSessions());
+				if (!live) {
+					runtime.ctx.showError(`Session "${sessionArg}" not found`);
+					return;
+				}
+				await runtime.ctx.handleResumeSession(live.sessionPath);
 				return;
 			}
 			try {

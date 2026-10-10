@@ -29,6 +29,35 @@ export interface SSHConnectionTarget {
 	compat?: boolean;
 }
 
+/** Endpoint and credentials, independent of the configured/ad-hoc alias. */
+export function sameSshTarget(left: SSHConnectionTarget, right: SSHConnectionTarget): boolean {
+	return (
+		left.host === right.host &&
+		left.username === right.username &&
+		(left.port ?? 22) === (right.port ?? 22) &&
+		left.keyPath === right.keyPath &&
+		left.password === right.password
+	);
+}
+
+const SSH_IDENTITY_SALT = crypto.randomUUID();
+
+/** In-memory identity only: neither credentials nor a reusable password digest reach disk. */
+export function getSshTargetIdentity(host: SSHConnectionTarget): string {
+	return new Bun.CryptoHasher("sha256")
+		.update(SSH_IDENTITY_SALT)
+		.update(
+			JSON.stringify([
+				host.host,
+				host.username ?? null,
+				host.port ?? 22,
+				host.keyPath ?? null,
+				host.password ?? null,
+			]),
+		)
+		.digest("hex");
+}
+
 export type SSHHostOs = "windows" | "linux" | "macos" | "unknown";
 export type SSHHostShell = "cmd" | "powershell" | "bash" | "zsh" | "sh" | "unknown";
 export type SshPlatform = typeof process.platform;
@@ -136,13 +165,39 @@ const HOST_INFO_DIR = getRemoteHostDir();
 const HOST_INFO_VERSION = 4;
 
 const activeHosts = new Map<string, SSHConnectionTarget>();
-const pendingConnections = new Map<string, Promise<void>>();
+const pendingConnections = new Map<string, { identity: string; promise: Promise<void> }>();
 const hostInfoCache = new Map<string, SSHHostInfo>();
+const connectionEpochs = new Map<string, number>();
+let allConnectionsEpoch = 0;
+const invalidatingHosts = new Map<string, number>();
+let allConnectionsClosing = 0;
+
+export type SSHConnectionCloseReason = "close" | "credentials";
+export type SSHConnectionCloseListener = (
+	hostNames: ReadonlySet<string> | undefined,
+	reason: SSHConnectionCloseReason,
+) => Promise<void> | void;
+const connectionCloseListeners = new Set<SSHConnectionCloseListener>();
+
+/** Retained transports subscribe here without creating a connection-manager → executor import cycle. */
+export function registerSSHConnectionCloseListener(listener: SSHConnectionCloseListener): () => void {
+	connectionCloseListeners.add(listener);
+	return () => connectionCloseListeners.delete(listener);
+}
+
+async function notifyConnectionClose(
+	hostNames?: ReadonlySet<string>,
+	reason: SSHConnectionCloseReason = "close",
+): Promise<void> {
+	await Promise.all(Array.from(connectionCloseListeners, listener => listener(hostNames, reason)));
+}
 
 interface SSHArgsOptions {
 	platform?: SshPlatform;
 	/** When true, omit `-n` so the remote command can read from our piped stdin. */
 	allowStdin?: boolean;
+	/** Retained shells authenticate independently instead of inheriting another credential's master. */
+	multiplex?: boolean;
 }
 
 /**
@@ -217,7 +272,9 @@ function authHint(host: SSHConnectionTarget, stderr: string): string {
 function buildCommonArgs(host: SSHConnectionTarget, options?: SSHArgsOptions): string[] {
 	const args = options?.allowStdin ? [] : ["-n"];
 
-	if (supportsSshControlMaster(options?.platform)) {
+	if (options?.multiplex === false) {
+		args.push("-o", "ControlMaster=no", "-o", "ControlPath=none", "-o", "ControlPersist=no");
+	} else if (supportsSshControlMaster(options?.platform)) {
 		args.push("-o", "ControlMaster=auto", "-o", `ControlPath=${CONTROL_PATH}`, "-o", "ControlPersist=3600");
 	}
 
@@ -352,6 +409,7 @@ export interface SshSpawnOptions {
 	signal?: AbortSignal;
 	timeout?: number;
 	stdin?: "pipe" | "ignore" | Uint8Array;
+	detached?: boolean;
 	stderr?: "full" | null;
 }
 
@@ -360,6 +418,12 @@ export interface SshSpawnOptions {
  * a password target rides along automatically, so a transfer or command
  * runner can never spawn a prompt that has nowhere to go.
  */
+export function spawnSsh(
+	host: SSHConnectionTarget,
+	args: string[],
+	options: SshSpawnOptions & { stdin: "pipe" },
+): ptree.ChildProcess<"pipe">;
+export function spawnSsh(host: SSHConnectionTarget, args: string[], options?: SshSpawnOptions): ptree.ChildProcess;
 export function spawnSsh(host: SSHConnectionTarget, args: string[], options?: SshSpawnOptions): ptree.ChildProcess {
 	return ptree.spawn(["ssh", ...args], { ...options, env: sshProcessEnv(host) });
 }
@@ -789,6 +853,9 @@ const verifiedConnections = new Map<string, { at: number; fingerprint: string }>
 
 export async function ensureConnection(host: SSHConnectionTarget): Promise<void> {
 	const key = host.name;
+	if (allConnectionsClosing || invalidatingHosts.has(key)) {
+		throw new ptree.AbortError(`SSH connection "${key}" is closing`, "");
+	}
 	const fingerprint = `${host.username ?? ""}@${host.host}:${host.port ?? ""}\0${host.keyPath ?? ""}`;
 	const verified = verifiedConnections.get(key);
 	if (
@@ -803,16 +870,37 @@ export async function ensureConnection(host: SSHConnectionTarget): Promise<void>
 		ensureSshControlDir();
 		return;
 	}
+	const identity = getSshTargetIdentity(host);
 	const pending = pendingConnections.get(key);
 	if (pending) {
-		await pending;
-		return;
+		if (pending.identity === identity) {
+			await pending.promise;
+			return;
+		}
+		await pending.promise.catch(() => {});
+		return ensureConnection(host);
 	}
+	const active = activeHosts.get(key);
+	if (active && sameSshTarget(active, host)) return;
 
 	const promise = (async () => {
+		let epoch = connectionEpochs.get(key) ?? 0;
+		const allEpoch = allConnectionsEpoch;
+		const assertCurrent = async (): Promise<void> => {
+			if ((connectionEpochs.get(key) ?? 0) === epoch && allConnectionsEpoch === allEpoch) return;
+			await closeConnectionInternal(host);
+			throw new ptree.AbortError(`SSH connection "${key}" was closed while connecting`, "");
+		};
 		ensureSshBinary();
 		ensureSshControlDir();
 		await validateKeyPermissions(host.keyPath);
+		await assertCurrent();
+		if (active) {
+			const invalidation = invalidateHostMetadataInternal([key], "credentials");
+			epoch++;
+			await invalidation;
+			await assertCurrent();
+		}
 
 		if (!registered) {
 			registered = true;
@@ -832,19 +920,23 @@ export async function ensureConnection(host: SSHConnectionTarget): Promise<void>
 				const detail = check.stderr ? `: ${check.stderr}` : "";
 				throw new Error(`Failed to connect to ${target}${detail}${authHint(host, check.stderr)}`);
 			}
-			activeHosts.set(key, host);
+			await assertCurrent();
+			activeHosts.set(key, { ...host });
 			if (!hostInfoCache.has(key) && !(await loadHostInfoFromDisk(host))) {
 				await probeHostInfo(host);
 			}
+			await assertCurrent();
 			return;
 		}
 
 		const check = await runSshSync(host, ["-O", "check", ...buildCommonArgs(host), target]);
 		if (check.exitCode === 0) {
-			activeHosts.set(key, host);
+			await assertCurrent();
+			activeHosts.set(key, { ...host });
 			if (!hostInfoCache.has(key) && !(await loadHostInfoFromDisk(host))) {
 				await probeHostInfo(host);
 			}
+			await assertCurrent();
 			return;
 		}
 
@@ -854,37 +946,62 @@ export async function ensureConnection(host: SSHConnectionTarget): Promise<void>
 			throw new Error(`Failed to start SSH master for ${target}${detail}${authHint(host, start.stderr)}`);
 		}
 
-		activeHosts.set(key, host);
+		await assertCurrent();
+		activeHosts.set(key, { ...host });
 		if (!hostInfoCache.has(key) && !(await loadHostInfoFromDisk(host))) {
 			await probeHostInfo(host);
 		}
+		await assertCurrent();
 	})();
 
-	pendingConnections.set(key, promise);
+	const record = { identity, promise };
+	pendingConnections.set(key, record);
 	try {
 		await promise;
 		verifiedConnections.set(key, { at: Date.now(), fingerprint });
 	} finally {
-		pendingConnections.delete(key);
+		if (pendingConnections.get(key) === record) pendingConnections.delete(key);
 	}
 }
 
-export async function invalidateHostMetadata(hostNames: Iterable<string>): Promise<void> {
-	const names = [...hostNames];
+async function invalidateHostMetadataInternal(
+	hostNames: Iterable<string>,
+	reason: SSHConnectionCloseReason,
+): Promise<void> {
+	const names = [...new Set(hostNames)];
 	for (const hostName of names) {
 		verifiedConnections.delete(hostName);
 		hostInfoCache.delete(hostName);
 		await deleteHostInfoFromDisk(hostName);
+		connectionEpochs.set(hostName, (connectionEpochs.get(hostName) ?? 0) + 1);
+		invalidatingHosts.set(hostName, (invalidatingHosts.get(hostName) ?? 0) + 1);
 	}
-	for (const hostName of names) {
-		const activeHost = activeHosts.get(hostName);
-		if (activeHost) {
-			await closeConnectionInternal(activeHost);
-			activeHosts.delete(hostName);
-			continue;
+	try {
+		await notifyConnectionClose(new Set(names), reason);
+		for (const hostName of names) {
+			hostInfoCache.delete(hostName);
+			await deleteHostInfoFromDisk(hostName);
 		}
-		await closeConnectionInternal({ name: hostName, host: hostName });
+		for (const hostName of names) {
+			const activeHost = activeHosts.get(hostName);
+			if (activeHost) {
+				await closeConnectionInternal(activeHost);
+				activeHosts.delete(hostName);
+				continue;
+			}
+			await closeConnectionInternal({ name: hostName, host: hostName });
+		}
+	} finally {
+		for (const hostName of names) {
+			const remaining = (invalidatingHosts.get(hostName) ?? 1) - 1;
+			if (remaining) invalidatingHosts.set(hostName, remaining);
+			else invalidatingHosts.delete(hostName);
+		}
 	}
+}
+
+export async function invalidateHostMetadata(hostNames: Iterable<string>): Promise<void> {
+	await invalidateHostMetadataInternal(hostNames, "close");
 }
 
 async function closeConnectionInternal(host: SSHConnectionTarget): Promise<void> {
@@ -898,10 +1015,17 @@ export async function closeConnection(hostName: string): Promise<void> {
 }
 
 export async function closeAllConnections(): Promise<void> {
-	for (const [name, host] of Array.from(activeHosts.entries())) {
-		await closeConnectionInternal(host);
-		activeHosts.delete(name);
-		verifiedConnections.delete(name);
+	allConnectionsEpoch++;
+	allConnectionsClosing++;
+	try {
+		await notifyConnectionClose();
+		for (const [name, host] of Array.from(activeHosts.entries())) {
+			await closeConnectionInternal(host);
+			activeHosts.delete(name);
+			verifiedConnections.delete(name);
+		}
+	} finally {
+		allConnectionsClosing--;
 	}
 }
 

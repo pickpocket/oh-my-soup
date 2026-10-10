@@ -30,9 +30,11 @@ import {
 	type ShellFsResponse,
 } from "@oh-my-soup/pi-natives";
 import { isFsError } from "@oh-my-soup/pi-utils";
+import { resolveSshLocation } from "../ssh/remote-path";
+import { parseTrampSshPath, trampPathMethod, trampSshUrl } from "../ssh/tramp-path";
 import { TIER_RANK } from "../tools/approval";
 import { UrlContainmentError } from "./filesystem-resource";
-import { parseInternalUrl } from "./parse";
+import { extractUriScheme, parseInternalUrl } from "./parse";
 import { InternalUrlRouter } from "./router";
 import type { InternalResource, ProtocolHandler, ResolveContext, SchemeSpec } from "./types";
 
@@ -46,9 +48,9 @@ const DENIED_MESSAGE_RE = /\b(?:not allowed|escapes|outside)\b/i;
 const INVALID_MESSAGE_RE = /\b(?:requires? an?|invalid|malformed)\b/i;
 const MISSING_MESSAGE_RE = /\b(?:not found|unknown|does not exist|no such|unavailable)\b/i;
 
-/** Whether `input` is spelled `scheme://…`: the only form the shell filesystem hands to URL handlers. */
+/** Whether `input` is a URL or recognized TRAMP name, including malformed remote targets. */
 export function isUrlPath(input: string): boolean {
-	return URL_PATH_RE.test(input);
+	return URL_PATH_RE.test(input) || trampPathMethod(input) !== undefined;
 }
 
 /** A filesystem failure carrying the errno name the shell reports. */
@@ -130,6 +132,15 @@ function encodeSegment(name: string): string {
  * walk's root-relative result), each name percent-encoded as `pi_vfs::child_path` does.
  */
 export function joinUrlPath(base: string, relative: string): string {
+	const tramp = parseTrampSshPath(base);
+	if (tramp) {
+		const tail = relative
+			.split("/")
+			.filter(name => name.length > 0)
+			.join("/");
+		if (!tail) return base;
+		return tramp.remotePath === "" ? `${base}${tail}` : `${base.replace(/\/+$/, "")}/${tail}`;
+	}
 	return appendSegments(
 		base,
 		relative
@@ -140,7 +151,7 @@ export function joinUrlPath(base: string, relative: string): string {
 }
 
 function schemeOf(url: string): string {
-	return URL_PATH_RE.exec(url)?.[1].toLowerCase() ?? url;
+	return extractUriScheme(url) ?? url;
 }
 
 /** Host path outside every URL namespace (two-path ops may pair one with a URL). */
@@ -472,6 +483,7 @@ export class InternalUrlFilesystem {
 	 * work without creating anything.
 	 */
 	async #backingPath(input: string): Promise<string | undefined> {
+		input = await this.#normalizeRemotePath(input);
 		let node: FsNode;
 		try {
 			node = await this.#node(input, true, false);
@@ -492,6 +504,7 @@ export class InternalUrlFilesystem {
 	 * they resolve inside their mount; a host symlink leaving it yields the host path.
 	 */
 	async #canonicalize(input: string, missing: ShellFsMissing, resolve: ShellFsResolve): Promise<string> {
+		input = await this.#normalizeRemotePath(input);
 		if (!isUrlPath(input)) return input;
 		const target = parseUrlPath(input, this.#route(input).spec);
 		const lexical = formatUrlPath(target);
@@ -536,6 +549,17 @@ export class InternalUrlFilesystem {
 		return appendSegments(target.root, relative.split(path.sep).map(encodeSegment));
 	}
 
+	/** Resolve TRAMP home names before URL lexical normalization can discard leading '..'. */
+	async #normalizeRemotePath(input: string): Promise<string> {
+		const tramp = parseTrampSshPath(input);
+		if (!tramp) return input;
+		this.#route(input); // Approval precedes any remote-home probe.
+		const remotePath = tramp.remotePath.startsWith("/")
+			? tramp.remotePath
+			: (await resolveSshLocation(input, this.#context.cwd)).remotePath;
+		return trampSshUrl(tramp, remotePath);
+	}
+
 	/**
 	 * Resolve `input` to the node it names. `follow: false` stops at a final
 	 * symlink (lstat/readlink/unlink/rename); `create` addresses a write target
@@ -543,6 +567,7 @@ export class InternalUrlFilesystem {
 	 */
 	async #node(input: string, follow: boolean, create: boolean, hops = 0): Promise<FsNode> {
 		this.#throwIfAborted();
+		input = await this.#normalizeRemotePath(input);
 		if (!isUrlPath(input)) return { kind: "native", path: input };
 		if (hops > MAX_SYMLINK_HOPS) throw new UrlFsError("ELOOP", `Too many levels of symbolic links: ${input}`);
 		const route = this.#route(input);
@@ -618,7 +643,9 @@ export class InternalUrlFilesystem {
 				if (isFsError(error) && error.code === "EINVAL") continue;
 				return undefined;
 			}
-			if (isUrlPath(link)) return appendSegments(link, target.segments.slice(index + 1));
+			if (isUrlPath(link)) {
+				return appendSegments(await this.#normalizeRemotePath(link), target.segments.slice(index + 1));
+			}
 		}
 		return undefined;
 	}

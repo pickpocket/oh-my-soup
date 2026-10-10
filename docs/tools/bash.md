@@ -28,7 +28,7 @@
 | --- | --- | --- | --- |
 | `command` | `string` | Yes | Shell command text to execute. A leading `cd <path> && ...` is rewritten into `cwd` only when `cwd` was omitted. |
 | `timeout` | `number` | No | Timeout in seconds. Default `300`. `0` disables the deadline. Positive values are capped by `tools.maxTimeout` when that setting is positive, then clamped to the Bash range `1..3600`. |
-| `cwd` | `string` | No | Local: resolved against `session.cwd` via `resolveToCwd`; must exist and be a directory. With `target`: an absolute path on the remote host; omitted means its login directory. |
+| `cwd` | `string` | No | Local: resolved against `session.cwd`; must be a directory. A TRAMP path `/ssh:user@host#2222:/srv/app` or `ssh://host/srv/app` selects remote execution. With `target`, a plain `cwd` must be an absolute remote path; omission preserves the remote shell's current directory. |
 | `target` | `string` | No | Run on an open SSH-device session name or configured `ssh.json` host instead of locally. See [SSH targets](#ssh-targets) and the [ssh device](ssh.md). |
 | `pty` | `boolean` | No | Request PTY mode. Default `false`. Foreground PTY requires a UI and `PI_NO_PTY !== "1"`; named services forward this setting to the broker. |
 | `async` | `boolean` | No | Background execution request. Present only when `async.enabled` is true for the session. Returns immediately with a job id instead of waiting; it does not change the effective deadline, including a disabled deadline from `timeout: 0`. |
@@ -52,7 +52,16 @@ Set `target` to an open SSH session name or a host name from `ssh.json`. Open ad
 {"command":"uname -a","target":"build","cwd":"/srv/app"}
 ```
 
-- The command runs on the target, not in the local persistent shell. `cwd` is an absolute remote path; `~`, `~/...`, and `~\...` are refused. Omit `cwd` to use the remote login directory.
+A TRAMP-style `cwd` selects and connects to a remote destination without a separate `connect`:
+
+```json
+{"command":"pwd","cwd":"/ssh:deploy@build.example#2222:/srv/app"}
+```
+
+- TRAMP syntax is `/ssh:[user@]host[#port]:path`; a named session or configured host can replace `host`. Empty, relative, and `~/` paths resolve from the remote login user's home; absolute paths remain absolute. Only single-hop SSH is supported. `ssh://host/path` also selects remote execution, with an absolute URL path.
+- A simultaneous `target` must resolve to the same destination and credentials as `cwd`; conflicts are rejected before execution. Named targets cannot have their user or port overridden in a path.
+- POSIX commands reuse a retained shell per agent owner, authenticated destination, and selected shell, on both Windows and Unix clients. Calls to the same shell serialize; environment variables, functions, and working directory survive. A supplied `cwd` changes it; omission starts in the login directory on the first call and retains it thereafter. Plain `~` paths with `target` are refused; use a TRAMP `~/` path instead.
+- Timeout, cancellation, shell exit, disconnect, credential replacement, or owner disposal closes the retained shell. The next call creates a fresh one; commands are never replayed automatically. Native cmd/PowerShell remote commands remain one-shot.
 - SSH execution is foreground only: a service `name` or `async: true` is rejected. `pty: true` is ignored, with the notice `pty is local-only; ran the remote command without a terminal.`
 - Completed results include `[ran on <target>: <address>]`. Timeout clamping, merged stdout/stderr, output truncation, and full-output `artifact://<id>` spill behave as for local execution.
 

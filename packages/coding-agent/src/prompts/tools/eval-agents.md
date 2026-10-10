@@ -1,7 +1,10 @@
 ```
-agent(prompt, agent?="{{spawnDefaultAgent}}", label?=None, schema?=None, schema{{#if js}}Mode{{else}}_mode{{/if}}?="permissive", isolated?=None, apply?=None, merge?=None{{#if evalTools}}, tools?=None{{/if}}) → AgentHandle
+agent(prompt, agent?="{{spawnDefaultAgent}}", label?=None, schema?=None, schema{{#if js}}Mode{{else}}_mode{{/if}}?="permissive", isolated?=None, apply?=None, merge?=None, tool{{#if js}}Names{{else}}_names{{/if}}?=None{{#if evalTools}}, tools?=None{{/if}}) → AgentHandle
     Spawns a background subagent and returns immediately. `agent` selects a discovered agent; omit it to use `{{spawnDefaultAgent}}`.{{#if spawnAllowedAgentsText}} Allowed agents: {{spawnAllowedAgentsText}}.{{/if}} Handle: `.id`, `.handle` ("agent://<id>"), `.status`, `.done()`, `.wait(timeout?)` → final text (parsed with `schema`), `.send(message)`, `.cancel()`, `.output()`. Unwaited results auto-deliver like async jobs. `schema` overrides agent/session schemas; `isolated` requests a worktree; `apply`/`merge` control its changes.{{#if evalTools}} `tools`: names of your @tool-defined tools the child may call.{{/if}}
-{{#if js}}    JS: ONE trailing object — agent(prompt, { agent, label, schema, schemaMode, isolated, apply, merge{{#if evalTools}}, tools{{/if}} }).{{/if}}
+{{#if js}}    JS: ONE trailing object — agent(prompt, { agent, label, schema, schemaMode, isolated, apply, merge, toolNames{{#if evalTools}}, tools{{/if}} }).{{/if}}
+    `tool{{#if js}}Names{{else}}_names{{/if}}`: selected enabled host tools; omitted = parent's full enabled toolset, [] = no host tools beyond required completion/transport. Read-only/plan/spawn limits still apply.{{#if evalTools}} Separate from kernel-defined `tools`.{{/if}}
+agent.fork(prompt, same options) → AgentHandle
+    Inherits a call-time snapshot of the parent's conversation for a NEW assignment. Independent history/todos/kernel; later parent messages excluded. Shared workspace unless isolated. Use when the task needs existing context; ordinary agent() starts blank.
 workpool(agent?=None, name?=None, context?=None{{#if evalTools}}, tools?=None{{/if}}) → WorkPool
     {{#if eagerDelegation}}Default for 2+ independent items.{{else}}Keep-alive worker pool for a batch of independent items.{{/if}} `.push(*items)`; `.status()`; `.peek()`; `.close()`. Pool name = async job id; results auto-deliver.{{#if waitTool}} Completely blocked? Leave `eval` and call `wait`;{{/if}} NEVER poll. `eval.workpool.freshAgents=true` uses a new agent per item.
 ```

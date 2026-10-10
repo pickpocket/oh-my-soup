@@ -158,6 +158,7 @@ import type {
 	MessageEndEvent,
 	MessageStartEvent,
 	MessageUpdateEvent,
+	ToolDefinition,
 	ToolExecutionEndEvent,
 	ToolExecutionStartEvent,
 	ToolExecutionUpdateEvent,
@@ -227,6 +228,7 @@ import {
 	toReasoningEffort,
 } from "@oh-my-soup/pi-tui/thinking";
 import { isAttachmentOnlyTitleInput, isLowSignalTitleInput } from "../tiny/text";
+import { closeSSHSessionsByOwner } from "../ssh/ssh-executor";
 import type { ImageAttachmentEntry, ToolSession } from "../tools";
 import { resolveApproval } from "../tools/approval";
 import { type AskToolDetails } from "@oh-my-soup/pi-tui/tools/ask";
@@ -2082,6 +2084,9 @@ export class AgentSession implements SettingsScope {
 			builtInToolNames: config.builtInToolNames,
 			mcpManagerToolNames: config.mcpManagerToolNames,
 			presentationPinnedToolNames: config.presentationPinnedToolNames,
+			toolAllowlist: config.toolAllowlist,
+			persistToolState: config.persistToolState,
+			requireYieldTool: config.evalToolSession?.requireYieldTool,
 			ensureWriteRegistered: config.ensureWriteRegistered,
 			isDeviceOnlyWrite: config.isDeviceOnlyWrite,
 			setDeviceOnlyWrite: config.setDeviceOnlyWrite,
@@ -5903,6 +5908,7 @@ export class AgentSession implements SettingsScope {
 			this.#eval.disposeKernels(),
 			this.#releaseOwnedBrowserTabs(this.sessionManager.getSessionId()),
 			this.#releaseOwnedComputerSessions(this.#eval.getKernelOwnerId()),
+			closeSSHSessionsByOwner(this.#eval.getKernelOwnerId()),
 			this.#disconnectOwnedMcp(),
 			advisorRecorderClosed,
 			hindsightState?.flushRetainQueue() ?? Promise.resolve(),
@@ -6446,6 +6452,31 @@ export class AgentSession implements SettingsScope {
 	/** Enabled top-level and discoverable tool names. */
 	getEnabledToolNames(): string[] {
 		return this.#tools.getEnabledToolNames();
+	}
+
+	/** Host-supplied definitions that can be rebound into a child session. */
+	getCustomTools(): readonly (CustomTool | ToolDefinition)[] {
+		return this.#evalToolSession?.getCustomTools?.() ?? [];
+	}
+
+	/** Whether write is infrastructure-only rather than a filesystem grant. */
+	isDeviceOnlyWrite(): boolean {
+		return this.#evalToolSession?.deviceOnlyWrite === true;
+	}
+
+	/** LSP navigation-only authority inherited by children and retained on revival. */
+	isLspReadOnly(): boolean {
+		return this.#evalToolSession?.lspReadOnly === true;
+	}
+
+	/** Current host spawn ceiling, independent of a child's recorded spawn policy. */
+	getSessionSpawns(): string | null {
+		return this.#evalToolSession?.getSessionSpawns() ?? null;
+	}
+
+	/** Security lockdown is separate from a selected child capability allowlist. */
+	isRestrictedToolSession(): boolean {
+		return this.#evalToolSession?.restrictToolNames === true;
 	}
 
 	/** Names of dynamic tools mounted under `xd://`. */

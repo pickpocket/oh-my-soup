@@ -206,13 +206,29 @@ A stateless, tool-free one-shot model call that returns a `CompletionHandle` imm
 
 Registers one background subagent job and returns an `AgentHandle` immediately:
 
-- JS: `await agent(prompt, { agent?, label?, schema?, schemaMode?, isolated?, apply?, merge?, tools? })`; Python uses keyword arguments (`schema_mode`).
-- Preflight (spawn policy, unknown agent, `task.maxRecursionDepth`, hard turn budget, plan-mode isolation controls, unknown `tools` names) fails handle allocation; Python raises directly, JS's pending handle rejects when awaited/used. Execution failures surface from `.wait()`.
+- JS: `await agent(prompt, { agent?, label?, schema?, schemaMode?, isolated?, apply?, merge?, tools?, toolNames? })`; Python uses keyword arguments (`schema_mode`, `tool_names`).
+- Preflight (spawn policy, unknown agent, `task.maxRecursionDepth`, hard turn budget, plan-mode isolation controls, unknown `tools` or `toolNames` names) fails handle allocation synchronously; Python raises directly, JS's pending handle rejects when awaited/used. Execution failures surface from `.wait()`.
 - `agent` defaults from the current spawn policy; the selected agent's frontmatter model and settings always apply (no per-call `model`). `schema` overrides agent/session schemas; `schemaMode`/`schema_mode` chooses `permissive` or `strict`.
 - `isolated` requests isolation. `apply` controls whether captured changes are integrated; `merge=false` selects patch mode while the normal setting controls branch mode.
 - `tools`: names of kernel-defined tools (see below) the child may call; each call executes inside the caller's kernel.
+- `toolNames` / `tool_names`: enabled host tools to give the child (built-ins, custom tools, extensions, and MCP), including mounted `xd://` capabilities. Omit it to inherit the parent's enabled toolset at invocation; `[]` grants no host tools except required completion/device transport. Read-only, plan-mode, and spawn-depth limits still apply. Explicit unavailable or disallowed names fail preflight. This is separate from kernel-defined `tools`.
+- The selected capability ceiling and current enabled/mounted state survive compaction, parking, and process restart. Restart restores source-backed tools from the current host; a missing or changed source fails explicitly rather than silently dropping tools or substituting a same-named capability. Kernel-defined callbacks require their original live kernel and cannot survive its process exiting.
 - Handle surface: `.id`, `.agent`, `.handle` (`agent://<id>`), `.status`, `.done()`, `.wait(timeout?)`, `.send(message)`, `.cancel()`, `.output()`. Python handles are awaitable; JavaScript uses `await handle.wait()`.
 - The job is a regular async job owned by the calling agent: an unwaited result auto-delivers like a backgrounded `task`, and handle `.wait()` consumes the delivery so it is not replayed. Eval subagents are kept alive (message with `write agent://<id>`, read transcripts at `history://<id>`) and get their own eval executors, like every subagent.
+
+### `agent.fork()`
+
+Use `agent.fork(prompt, options)` (Python: `agent.fork(prompt, **options)`) when the new assignment needs the parent's conversation. Options and handles match `agent()`.
+
+```js
+const review = await agent.fork("Review the changes discussed above for correctness.", {
+  agent: "reviewer",
+  toolNames: ["read", "grep", "glob"],
+});
+const result = await review.wait();
+```
+
+The fork captures the active conversation branch at invocation, before asynchronous preflight: messages, tool results, compaction context, and saved contextual entries. Later parent messages and sibling branches are excluded. The child gets independent history, billing, active todos, and eval kernels; it runs its new assignment under its own agent role and permissions. The workspace and artifact references remain shared unless isolation is requested. This is not a filesystem or kernel-memory snapshot. Ordinary `agent()` and `task` still start without inherited conversation.
 
 ### `wait()`
 

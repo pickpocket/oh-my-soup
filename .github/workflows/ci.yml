@@ -1045,7 +1045,7 @@ jobs:
               # lookup, so surface the result without gating the release on it.
               spctl -a -t exec -vv ./oms-darwin-arm64 || echo "spctl non-zero (expected for unstapled bare binary; ticket served online)"
 
-   # Regenerate the Homebrew tap formula (can1357/homebrew-tap) from the freshly
+   # Regenerate the Homebrew tap formula (pickpocket/homebrew-tap) from the freshly
    # published release assets and push it. Gated on release_github_verify so the
    # tap only cuts over to a release whose published binary was verified. No-ops
    # when HOMEBREW_TAP_DEPLOY_KEY is unset, so a release never blocks on tap

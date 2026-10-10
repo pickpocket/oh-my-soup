@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "bun:test";
-import { getLatestRelease, runUpdateCommand } from "../../src/cli/update-cli";
+import { getLatestRelease, runUpdateCommand, shouldForceBinaryUpdate } from "../../src/cli/update-cli";
 
 type FetchInput = string | URL | Request;
 type FetchInit = RequestInit | BunFetchRequestInit;
@@ -80,11 +80,23 @@ describe("getLatestRelease GitHub resolution", () => {
 		expect(release.tag).toBe("v999.1.0");
 		expect(release.dist).toBe("npm");
 		expect(release.packages).toEqual({ pkg: "@new/oms", natives: "@new/natives" });
+		expect(shouldForceBinaryUpdate(release, "998.0.0")).toBe(false);
 		expect(urls).toEqual([
 			"https://api.github.com/repos/pickpocket/oh-my-soup/releases/latest",
 			"https://raw.githubusercontent.com/pickpocket/oh-my-soup/v999.1.0/packages/coding-agent/package.json",
 		]);
 	});
+
+	for (const manifest of [undefined, { version: "18.8.8" }]) {
+		it(`keeps same-major Soup upgrades off npm when release metadata ${manifest ? "omits dist" : "cannot be fetched"}`, async () => {
+			stubGithub({
+				latest: { tag_name: "v18.8.8" },
+				manifests: manifest ? { "v18.8.8": manifest } : undefined,
+			});
+			const release = await getLatestRelease();
+			expect(shouldForceBinaryUpdate(release, "18.4.5")).toBe(true);
+		});
+	}
 
 	it("resolves the canary channel from the newest non-draft GitHub prerelease", async () => {
 		const urls = stubGithub({

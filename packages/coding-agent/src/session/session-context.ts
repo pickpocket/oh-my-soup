@@ -230,6 +230,22 @@ export function isTranscriptEntry(entry: SessionEntry): entry is TranscriptEntry
 	return entry.type === "message" || entry.type === "custom_message";
 }
 
+/** Root-to-leaf journal path, stopping at the first repeated id in corrupt files. */
+export function walkSessionBranch(
+	leaf: SessionEntry | undefined,
+	byId: ReadonlyMap<string, SessionEntry>,
+): SessionEntry[] {
+	const branch: SessionEntry[] = [];
+	const seen = new Set<string>();
+	let current = leaf;
+	while (current && !seen.has(current.id)) {
+		seen.add(current.id);
+		branch.push(current);
+		current = current.parentId ? byId.get(current.parentId) : undefined;
+	}
+	return branch.reverse();
+}
+
 export function buildSessionContext(
 	entries: SessionEntry[],
 	leafId?: string | null,
@@ -276,17 +292,7 @@ export function buildSessionContext(
 		};
 	}
 
-	// Walk from leaf to root, collecting path. Corrupt/pre-fix files can contain
-	// parent cycles; stop at the first repeat so session load is bounded.
-	const path: SessionEntry[] = [];
-	const seenPathIds = new Set<string>();
-	let current: SessionEntry | undefined = leaf;
-	while (current && !seenPathIds.has(current.id)) {
-		seenPathIds.add(current.id);
-		path.push(current);
-		current = current.parentId ? byId.get(current.parentId) : undefined;
-	}
-	path.reverse();
+	const path = walkSessionBranch(leaf, byId);
 
 	// Extract settings and find compaction
 	let thinkingLevel: string | undefined = "off";

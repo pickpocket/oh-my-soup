@@ -1,6 +1,6 @@
 Save important reference facts. `scope` defaults to `session`.
 
-- `session` is this machine/session's working state: it survives compaction and resume, follows the current journal branch, and is not shared with other sessions. Use `list`, `set`, `delete`, or `clear`; keep at most 32 notes and 16,000 total key-plus-text characters.
+- `session` is this machine/session's working state: it survives compaction and resume and follows the current journal branch. Notebooks stay separate; read a child's saved notes via `agent://<id>?view=notes` without merging them. Use `list`, `set`, `delete`, or `clear`; keep at most 32 notes and 16,000 total key-plus-text characters.
 - `project` is shared, durable workspace working state: commands, conventions, gotchas, and in-flight decisions for everyone using the Beads board.
 - `issue` is shared, durable working state for one piece of work. Supply `issue` to select it; the issue must already exist and notes survive its close.
 

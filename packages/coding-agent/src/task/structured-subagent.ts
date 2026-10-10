@@ -28,9 +28,11 @@ import subagentUserPromptTemplate from "../prompts/system/subagent-user-prompt.m
 import isolationRecoveryHintTemplate from "../prompts/tools/isolation-recovery-hint.md" with { type: "text" };
 import salvagedChildHintTemplate from "../prompts/tools/salvaged-child-hint.md" with { type: "text" };
 import { MAIN_AGENT_ID } from "../registry/agent-registry";
+import type { SessionForkSnapshot } from "../session/session-manager";
 import type { TaskEffort } from "@oh-my-soup/pi-tui/thinking";
 import type { ToolSession } from "../tools";
 import { isIrcEnabled } from "../irc/messaging";
+import { normalizeToolNames } from "../tools/builtin-names";
 import { buildOutputValidator } from "../tools/output-schema-validator";
 import { trackLateCleanup } from "../utils/late-cleanup";
 import { type DiscoveryResult, discoverAgents, getAgent } from "./discovery";
@@ -48,6 +50,7 @@ import {
 import { generateTaskName } from "./name-generator";
 import { AgentOutputManager } from "./output-manager";
 import { resolveSpawnPolicy } from "./spawn-policy";
+import { isReadOnlyAgent, READ_ONLY_TOOL_NAMES } from "./read-only-policy";
 import { type AgentDefinition, canSpawnAtDepth } from "./types";
 import type {
 	AgentProgress,
@@ -108,8 +111,14 @@ export interface StructuredSubagentRequest {
 	invocationKind: "task" | "eval";
 	assignment: string;
 	context?: string;
+	/** Detached parent branch captured at invocation, before asynchronous preflight. */
+	forkSnapshot?: SessionForkSnapshot;
 	agent?: string;
 	model?: string | string[];
+	/** Host capability grants; omitted snapshots every enabled parent capability. */
+	toolNames?: string[];
+	/** Call-time parent snapshot supplied by asynchronous frontends; not an explicit child selection. */
+	parentToolNames?: string[];
 	/** Presence, rather than truthiness, makes this the highest-priority schema. */
 	outputSchema?: unknown;
 	schemaMode?: StructuredSubagentSchemaMode;
@@ -172,6 +181,10 @@ export interface EffectiveSubagentPolicy {
 	parentActiveModelPattern?: string;
 	schema: StructuredSubagentSchemaResolution;
 	planMode: boolean;
+	/** Detached enabled capability snapshot, already clamped to parent and child authority. */
+	toolNames: string[];
+	toolSources?: Record<string, string>;
+	mountedToolNames: string[];
 	isIsolated: boolean;
 	mergeMode: "patch" | "branch";
 	applyChanges: boolean;
@@ -208,6 +221,57 @@ export class StructuredSubagentError extends Error {
 }
 
 const PLAN_MODE_TOOLS = ["read", "grep", "glob", "web_search"] as const;
+
+function parentToolNames(session: ToolSession): string[] {
+	const names =
+		session.getEnabledToolNames?.() ??
+		session.getEvalBridgeToolNames?.() ??
+		[...(session.toolRegistry?.keys() ?? [])].filter(
+			name => session.isToolActive?.(name) === true || session.xdev?.mountedNames.has(name) === true,
+		);
+	return normalizeToolNames(names).filter(name => name !== "write" || session.deviceOnlyWrite !== true);
+}
+
+function readOnlyTool(name: string, session: ToolSession, source: string | undefined): boolean {
+	const tool = session.getToolByName?.(name) ?? session.toolRegistry?.get(name);
+	if (!tool) return READ_ONLY_TOOL_NAMES.has(name);
+	// Native readers classify URI-specific authority per invocation. Their
+	// dynamic approval function does not make local reads a write capability.
+	if (READ_ONLY_TOOL_NAMES.has(name) && source?.startsWith("builtin\0")) return true;
+	const approval = tool.approval;
+	return approval === "read" || (typeof approval === "object" && approval.tier === "read");
+}
+
+function resolveChildToolNames(
+	request: StructuredSubagentRequest,
+	agent: AgentDefinition,
+	enabled: readonly string[],
+	planMode: boolean,
+	toolSources: Record<string, string> | undefined,
+): string[] {
+	const available = new Set(enabled);
+	const readOnly = isReadOnlyAgent(agent);
+	const allowed = (name: string): boolean =>
+		(!planMode || PLAN_MODE_TOOLS.includes(name as (typeof PLAN_MODE_TOOLS)[number]) || name === "ast_grep") &&
+		(!readOnly || readOnlyTool(name, request.session, toolSources?.[name]));
+	if (readOnly && request.customTools?.length) {
+		throw new StructuredSubagentError("preflight", "Eval-defined tools are unavailable for a read-only agent.");
+	}
+	if (request.session.restrictToolNames && request.customTools?.length) {
+		throw new StructuredSubagentError("preflight", "Eval-defined tools are unavailable in restricted sessions.");
+	}
+	const selected = normalizeToolNames(request.toolNames ?? enabled);
+	if (request.toolNames !== undefined) {
+		const unavailable = selected.filter(name => !available.has(name) || !allowed(name));
+		if (unavailable.length > 0) {
+			throw new StructuredSubagentError(
+				"preflight",
+				`Unavailable child tool capabilities: ${unavailable.join(", ")}. Select enabled parent tools permitted by the child policy.`,
+			);
+		}
+	}
+	return selected.filter(allowed);
+}
 
 function renderSubagentPrompt(assignment: string): string {
 	return prompt.render(subagentUserPromptTemplate, { assignment: assignment.trim() });
@@ -332,6 +396,10 @@ function discoverAgentsShared(cwd: string, extensionRoots?: EffectiveExtensionRo
 export async function resolveEffectiveSubagentPolicy(
 	request: StructuredSubagentRequest,
 ): Promise<EffectiveSubagentPolicy> {
+	const enabledTools = request.parentToolNames
+		? normalizeToolNames(request.parentToolNames)
+		: parentToolNames(request.session);
+	const parentToolSources = request.session.getToolSources?.();
 	await request.session.settings.reloadFromDisk();
 	const spawnPolicy = resolveSpawnPolicy(request.session.getSessionSpawns());
 	const agentName = request.agent?.trim() || spawnPolicy.defaultAgent;
@@ -361,7 +429,17 @@ export async function resolveEffectiveSubagentPolicy(
 		);
 	}
 
-	const effectiveAgent = planMode ? createPlanModeAgent(agent) : agent;
+	let effectiveAgent = planMode ? createPlanModeAgent(agent) : agent;
+	if (spawnPolicy.allowedAgents !== null && effectiveAgent.spawns !== undefined) {
+		effectiveAgent = {
+			...effectiveAgent,
+			spawns:
+				effectiveAgent.spawns === "*"
+					? [...spawnPolicy.allowedAgents]
+					: effectiveAgent.spawns.filter(name => spawnPolicy.allowedAgents?.includes(name)),
+		};
+	}
+	const toolNames = resolveChildToolNames(request, effectiveAgent, enabledTools, planMode, parentToolSources);
 	const schema = resolveSchema(request, effectiveAgent);
 	if (schema.source === "caller" || (schema.source !== "none" && schema.mode === "strict")) {
 		const { error } = buildOutputValidator(schema.schema);
@@ -420,6 +498,13 @@ export async function resolveEffectiveSubagentPolicy(
 		parentActiveModelPattern,
 		schema,
 		planMode,
+		toolNames,
+		toolSources: parentToolSources
+			? Object.fromEntries(
+					toolNames.flatMap(name => (parentToolSources[name] ? [[name, parentToolSources[name]]] : [])),
+				)
+			: undefined,
+		mountedToolNames: [...(request.session.xdev?.mountedNames ?? [])].filter(name => toolNames.includes(name)),
 		isIsolated,
 		mergeMode: request.isolation?.merge ?? cfgTaskIsolationMerge.get(request.session.settings),
 		applyChanges:
@@ -427,6 +512,7 @@ export async function resolveEffectiveSubagentPolicy(
 			(request.invocationKind === "task" ? cfgTaskIsolationApply.get(request.session.settings) : true),
 		enableLsp:
 			!planMode &&
+			request.session.enableLsp !== false &&
 			(request.enableLsp ?? ((request.session.enableLsp ?? true) && cfgTaskEnableLsp.get(request.session.settings))),
 		enableIrc:
 			!planMode &&
@@ -537,6 +623,7 @@ function buildExecutorOptions(
 		task: renderSubagentPrompt(request.assignment),
 		assignment: request.assignment.trim(),
 		context: request.context?.trim() || undefined,
+		forkSnapshot: request.forkSnapshot,
 		planReference: undefined,
 		// Task `name` is the spawn handle (id allocation). Eval `label` is a
 		// real UI description. Copy it only for eval so generateTaskLabel can run.
@@ -550,6 +637,9 @@ function buildExecutorOptions(
 		acquiredAt: request.acquiredAt,
 		modelOverride: policy.modelOverride,
 		modelRole: policy.modelRole,
+		toolNames: policy.toolNames,
+		toolSources: policy.toolSources,
+		mountedToolNames: policy.mountedToolNames,
 		modelRoute: policy.modelRoute,
 		serviceTierOverride: policy.serviceTierOverride,
 		compactionThresholdOverride: policy.compactionThresholdOverride,
@@ -570,6 +660,7 @@ function buildExecutorOptions(
 		persistArtifacts: !lease.temporary,
 		artifactsDir: lease.artifactsDir,
 		enableLsp: policy.enableLsp,
+		lspReadOnly: session.lspReadOnly,
 		enableIrc: policy.enableIrc,
 		maxRuntimeMs: request.maxRuntimeMs,
 		restrictToolNames,
@@ -584,7 +675,10 @@ function buildExecutorOptions(
 		inheritedSessionAgents: session.getSessionAgents?.(),
 		mcpManager: enableMCP ? (session.mcpManager ?? MCPManager.instance()) : undefined,
 		enableMCP,
-		customTools: request.customTools,
+		customTools: [
+			...(session.getCustomTools?.().filter(tool => policy.toolNames.includes(tool.name)) ?? []),
+			...(request.customTools ?? []),
+		],
 		workPoolYieldItems: request.workPoolYieldItems,
 		contextFiles: session.contextFiles?.filter(file => path.basename(file.path).toLowerCase() !== "agents.md"),
 		skills,

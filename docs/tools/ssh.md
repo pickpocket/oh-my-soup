@@ -1,6 +1,6 @@
 # ssh
 
-> Open, list, and close named SSH sessions with a username/password, a local private key, or agent/default-key authentication. Run commands with [`bash` `target`](bash.md#ssh-targets) and access remote text files through `ssh://<name>/<path>`.
+> Open, list, and close named SSH sessions with a username/password, a local private key, or agent/default-key authentication. Run commands with [`bash` `target`](bash.md#ssh-targets) or a TRAMP-style `cwd`; access remote text files through `/ssh:user@host#port:/path` or `ssh://host/path`.
 
 ## Source
 
@@ -8,8 +8,8 @@
 - Model-facing prompt: `packages/coding-agent/src/prompts/tools/ssh.md`
 - Session registry and target resolution: `packages/coding-agent/src/ssh/sessions.ts`
 - Authentication, connection reuse, and host probing: `packages/coding-agent/src/ssh/connection-manager.ts`
-- Remote command execution: `packages/coding-agent/src/tools/bash.ts` (`#executeRemote`) and `packages/coding-agent/src/ssh/ssh-executor.ts`
-- File URL resolution: `packages/coding-agent/src/internal-urls/ssh-protocol.ts` (`resolveTarget`); transfers: `packages/coding-agent/src/ssh/file-transfer.ts`
+- Remote command execution: `packages/coding-agent/src/tools/bash.ts` (`#executeRemote`), `packages/coding-agent/src/ssh/ssh-executor.ts`, and `packages/coding-agent/src/ssh/persistent-shell.ts`
+- Shared remote path resolution: `packages/coding-agent/src/ssh/remote-path.ts`; TRAMP parsing: `packages/coding-agent/src/ssh/tramp-path.ts`; transfers: `packages/coding-agent/src/ssh/file-transfer.ts`
 - Configured hosts: `packages/coding-agent/src/discovery/ssh.ts`, `packages/coding-agent/src/capability/ssh.ts`, and `packages/coding-agent/src/ssh/config-writer.ts`
 - Device transport: `packages/coding-agent/src/internal-urls/xd-protocol.ts`
 
@@ -68,7 +68,9 @@ For password authentication, OMS installs a secret-free OpenSSH `SSH_ASKPASS` he
 
 Password targets allow one password prompt and try `publickey`, then `keyboard-interactive`, then `password`. A working key or agent identity can therefore authenticate before the supplied password is needed. Without a password, OpenSSH runs in `BatchMode=yes` so a missing key/agent identity fails instead of prompting.
 
-On non-Windows clients, commands and transfers reuse OpenSSH ControlMaster connections (`ControlPersist=3600`, one hour). Windows clients do not use ControlMaster: `connect` verifies authentication, and subsequent OpenSSH invocations authenticate again using the credentials retained in memory. This client-platform distinction is independent of the remote host's OS.
+POSIX command execution keeps one SSH shell per agent owner, authenticated destination, and selected shell, on Windows and Unix clients. Commands serialize and retain environment variables, functions, and working directory. Aliases with identical connection credentials share that shell within an owner; different owners or credentials do not. These shells disable ControlMaster reuse to avoid crossing authentication identities.
+
+Timeout, cancellation, shell termination, disconnect, credential replacement, and owner disposal close retained shells. A later command opens a fresh shell; an interrupted command is never replayed automatically. File transfers still use OpenSSH ControlMaster on non-Windows clients (`ControlPersist=3600`); Windows transfers authenticate on each invocation. Native cmd/PowerShell commands remain one-shot.
 
 ## Configured hosts and passwords
 
@@ -101,11 +103,21 @@ After connecting `build`, run a command with the `bash` tool:
 {"command":"uname -a","target":"build","cwd":"/srv/app"}
 ```
 
-`target` is the session/configured-host name, not an arbitrary new destination. `cwd` is an absolute remote path; omit it for the remote login directory. `~`-based paths are refused. Remote calls are foreground-only: `name` and `async: true` are rejected, while `pty: true` is ignored with a notice. Results include `[ran on <target>: <address>]` and use the same output truncation/artifact behavior as local Bash. See [bash](bash.md#ssh-targets) for the full contract.
+`target` is the session/configured-host name, not an arbitrary new destination. A plain `cwd` must be an absolute remote path. Omit it to retain the POSIX shell's working directory (the login directory on first use). Remote calls are foreground-only: `name` and `async: true` are rejected, while `pty: true` is ignored with a notice. Results include `[ran on <target>: <address>]` and use the same output truncation/artifact behavior as local Bash. See [bash](bash.md#ssh-targets) for the full contract.
+
+A TRAMP-style `cwd` selects the remote destination and connects lazily:
+
+```json
+{"command":"pwd","cwd":"/ssh:deploy@build.example#2222:~/app"}
+```
+
+The syntax is `/ssh:[user@]host[#port]:path`. Named sessions, configured hosts, and unconfigured OpenSSH destinations are supported. Empty, relative, and `~/` paths start at the remote login user's home; `~other` is unsupported. Absolute paths stay absolute. An explicit `target` must agree with the path's destination and credentials. Only single-hop SSH is supported; other TRAMP methods and multi-hop paths are rejected.
 
 Use `read`, `write`, and file search on `ssh://build/etc/hosts`. The URL path is absolute on the remote host. File reads support regular UTF-8 text files up to 1 MiB; a directory read returns a one-level listing. File transfers require a verified POSIX remote shell.
 
 Percent-encode reserved characters in session names used as URL authorities. For a default session name `deploy@build.example:2222`, use `ssh://deploy%40build.example%3A2222/etc/hosts` so the URL resolves the named session and its retained credentials. A separate literal `user@` or `:port` override on a session/configured-host name is refused. Never put a password in an `ssh://` URL; open a password session through the device instead. Encode literal `?` and `#` in file paths as `%3F` and `%23`.
+
+TRAMP paths also work in `read`, `write`, file search, and the embedded Bash filesystem. `/ssh:build:/srv/a b?#%:name.txt` preserves the filename literally: do not percent-encode it, and do not append read selectors. Use `ssh://` when URL encoding or read selectors are needed. Both path forms use the same named-session credentials and reject user/port overrides on named targets. Home-relative TRAMP paths require a verified POSIX remote; `ssh://host/~/file` instead names a literal absolute `/~/file`.
 
 Unlike `bash target`, `ssh://` can also address an unconfigured destination that OpenSSH resolves (such as a `~/.ssh/config` alias), using its normal key/agent identity.
 
@@ -119,7 +131,7 @@ Close the session when finished:
 
 Commands use the detected native cmd/PowerShell shell unless a POSIX compatibility shell is found. With compatibility enabled (the default), OMS probes `bash`, then `sh`, and runs commands under the detected shell. `compat: false` preserves native-shell command syntax. Session descriptions distinguish `windows/cmd`, `windows/powershell`, and `windows/bash (compat)` or `windows/sh (compat)`.
 
-Compatibility mode does not enable `ssh://` file transfers on Windows hosts: that path supports POSIX remotes only. Use `bash` with `target` for Windows remote file operations.
+Compatibility mode does not enable TRAMP or `ssh://` file transfers on Windows hosts: transfers and remote-home resolution require a verified POSIX remote. Use `bash` with `target` for Windows remote file operations. A detected POSIX compatibility shell can retain command state; native cmd/PowerShell execution does not.
 
 ## Outputs and errors
 

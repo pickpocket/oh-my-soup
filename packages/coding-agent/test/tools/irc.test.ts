@@ -401,6 +401,93 @@ describe("IRC", () => {
 			expect(msg?.body).toBe("for the waiter");
 		});
 
+		it("rejects reciprocal filtered waits even when another peer is running", async () => {
+			for (const id of ["A", "B", "Unrelated"]) {
+				registry.register({
+					id,
+					displayName: id,
+					kind: "sub",
+					session: makeFakeSession().session,
+					status: "running",
+				});
+			}
+			const controller = new AbortController();
+			const first = bus.wait("A", { from: "B" }, 1000, controller.signal);
+			try {
+				await expect(bus.wait("B", { from: "A" }, 1000)).rejects.toThrow("B -> A -> B");
+				await bus.send({ from: "B", to: "A", body: "breaking the cycle" });
+				expect((await first)?.body).toBe("breaking the cycle");
+
+				// The rejected B wait must not leave a phantom dependency behind.
+				const again = bus.wait("A", { from: "B" }, 1000, controller.signal);
+				await bus.send({ from: "B", to: "A", body: "continued" });
+				expect((await again)?.body).toBe("continued");
+			} finally {
+				controller.abort();
+				await first.catch(() => {});
+			}
+		});
+
+		it("allows an active sender to break a wait chain, then detects loss of that escape", async () => {
+			for (const id of ["A", "B", "Active"]) {
+				registry.register({
+					id,
+					displayName: id,
+					kind: "sub",
+					session: makeFakeSession().session,
+					status: "running",
+				});
+			}
+			const controller = new AbortController();
+			const first = bus.wait("A", {}, 1000, controller.signal);
+			const second = bus.wait("B", {}, 1000, controller.signal);
+			const secondOutcome = second.catch(error => error as Error);
+			try {
+				await bus.send({ from: "Active", to: "A", body: "work can proceed" });
+				expect((await first)?.body).toBe("work can proceed");
+				const again = bus.wait("A", {}, 1000, controller.signal);
+				registry.setStatus("Active", "idle");
+				expect(await secondOutcome).toMatchObject({
+					name: "IrcWaitCycleError",
+					message: expect.stringContaining("B -> A -> B"),
+				});
+				await bus.send({ from: "B", to: "A", body: "released" });
+				expect((await again)?.body).toBe("released");
+			} finally {
+				controller.abort();
+				await Promise.allSettled([first, second]);
+			}
+		});
+
+		it.each(["abort", "timeout"] as const)("removes a %s dependency before a reversed wait", async mode => {
+			for (const id of ["A", "B"]) {
+				registry.register({ id, displayName: id, kind: "sub", session: makeFakeSession().session });
+			}
+			const controller = new AbortController();
+			const first = bus.wait("A", { from: "B" }, mode === "timeout" ? 5 : 1000, controller.signal);
+			if (mode === "abort") {
+				controller.abort(new Error("cancelled"));
+				await expect(first).rejects.toThrow("cancelled");
+			} else {
+				expect(await first).toBeNull();
+			}
+			const reversed = bus.wait("B", { from: "A" }, 1000);
+			await bus.send({ from: "A", to: "B", body: "no stale cycle" });
+			expect((await reversed)?.body).toBe("no stale cycle");
+		});
+
+		it("consumes buffered mail before checking a would-be cycle", async () => {
+			const a = makeFakeSession();
+			registry.register({ id: "A", displayName: "A", kind: "sub", session: a.session });
+			registry.register({ id: "B", displayName: "B", kind: "sub", session: makeFakeSession().session });
+			const waiting = bus.wait("B", { from: "A" }, 1000);
+			a.setError(new Error("handoff failed"));
+			await bus.send({ from: "B", to: "A", body: "already available" });
+			expect((await bus.wait("A", { from: "B" }, 1000))?.body).toBe("already available");
+			await bus.send({ from: "A", to: "B", body: "answer" });
+			expect((await waiting)?.body).toBe("answer");
+		});
+
 		it("wait drains an already-pending mailbox message first", async () => {
 			const main = makeFakeSession();
 			registry.register({ id: "0-Main", displayName: "main", kind: "main", session: main.session });

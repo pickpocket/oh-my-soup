@@ -14,7 +14,10 @@ use common::{DiskWriter, Workspace};
 use pi_edit::{
 	EditMode,
 	diff_string::parse_diff_hunks,
-	fuzzy::{ReplaceOutcome, ReplaceResult, format_occurrence_error, replace_text, seek_sequence, seek_sequence_within},
+	fuzzy::{
+		ReplaceOutcome, ReplaceResult, format_occurrence_error, replace_text, seek_sequence,
+		seek_sequence_within,
+	},
 };
 use serde_json::{Value, json};
 
@@ -202,18 +205,21 @@ fn suggested_anchors(error: &str) -> Vec<String> {
 /// 1 and at line 2 of three identical lines.
 #[test]
 fn replace_text_counts_overlapping_placements_as_ambiguous() {
-	let error = replace_miss(replace_text(
-		"foo();\nfoo();\nfoo();\n",
-		"foo();\nfoo();",
-		"bar();\nfoo();",
-		true,
-		false,
-		None,
-	).expect("ambiguous outcome"));
+	let error = replace_miss(
+		replace_text(
+			"foo();\nfoo();\nfoo();\n",
+			"foo();\nfoo();",
+			"bar();\nfoo();",
+			true,
+			false,
+			None,
+		)
+		.expect("ambiguous outcome"),
+	);
 	assert!(error.starts_with("Found 2 occurrences"), "{error}");
 
-	let error = replace_miss(replace_text("aaaa", "aa", "b", false, false, None)
-		.expect("ambiguous outcome"));
+	let error =
+		replace_miss(replace_text("aaaa", "aa", "b", false, false, None).expect("ambiguous outcome"));
 	assert!(error.starts_with("Found 3 occurrences"), "{error}");
 
 	// `replace_all` keeps its non-overlapping left-to-right semantics.
@@ -241,8 +247,9 @@ fn replace_text_counts_periodic_placements_in_linear_time() {
 	let content = "a".repeat(1_000_000);
 	let target = "a".repeat(10_000);
 	let started = Instant::now();
-	let error = replace_miss(replace_text(&content, &target, "b", false, false, None)
-		.expect("ambiguous outcome"));
+	let error = replace_miss(
+		replace_text(&content, &target, "b", false, false, None).expect("ambiguous outcome"),
+	);
 	assert!(started.elapsed() < Duration::from_secs(5), "took {:?}", started.elapsed());
 	assert!(error.starts_with("Found 990001 occurrences"), "{error}");
 }
@@ -251,8 +258,9 @@ fn replace_text_counts_periodic_placements_in_linear_time() {
 /// only a bounded number of lines.
 #[test]
 fn replace_text_refusal_bounds_its_candidate_list() {
-	let error = replace_miss(replace_text(&"x\n".repeat(20_000), "x", "y", false, false, None)
-		.expect("ambiguous outcome"));
+	let error = replace_miss(
+		replace_text(&"x\n".repeat(20_000), "x", "y", false, false, None).expect("ambiguous outcome"),
+	);
 	assert!(error.starts_with("Found 20000 occurrences"), "{error}");
 	assert!(error.len() < 4_000, "refusal is {} bytes", error.len());
 }
@@ -323,9 +331,7 @@ fn replace_text_never_takes_a_lower_scoring_fuzzy_window() {
 	let new = "  case 'red':\n    return paint(canvas, palette.primary, options.opacity, \
 	           options.blendMode ?? 'normal');";
 	let outcome = replace_text(content, old, new, true, false, None).expect("match outcome");
-	assert!(
-		matches!(outcome, ReplaceOutcome::Missed(_)),
-	);
+	assert!(matches!(outcome, ReplaceOutcome::Missed(_)),);
 }
 
 /// A best window well clear of the runner-up by similarity is accepted even
@@ -337,8 +343,8 @@ fn replace_text_accepts_a_best_window_by_the_similarity_gap() {
 	               third, fourth, fifth, sixth);\n";
 	let old =
 		"let a = 1;\nconst message = format(template, first, second, third, fourth, fifth, sixth);";
-	let result = replaced(replace_text(content, old, "let a = 2;", true, false, Some(0.85))
-		.expect("unique"));
+	let result =
+		replaced(replace_text(content, old, "let a = 2;", true, false, Some(0.85)).expect("unique"));
 	assert_eq!(
 		result.content,
 		"let a = 2;\nlet xy = 9;\nconst message = format(template, first, second, third, fourth, \
@@ -3560,8 +3566,8 @@ async fn patch_variant_with_one_stale_context_line_applies() {
 /// `replace_all` over an empty fuzzy window replaces exactly that window.
 #[test]
 fn replace_all_empty_window_keeps_its_line_breaks() {
-	let result = replaced(replace_text("a\n\nb", "   ", "x", true, true, None)
-		.expect("one fuzzy window"));
+	let result =
+		replaced(replace_text("a\n\nb", "   ", "x", true, true, None).expect("one fuzzy window"));
 	assert_eq!(result.content, "a\nx\nb");
 }
 

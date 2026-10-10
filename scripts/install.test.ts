@@ -178,6 +178,14 @@ describe("PowerShell installation", () => {
 				setupExit: 0,
 				whatIf: false,
 			},
+			{
+				name: "native ARM64 asset",
+				variant: "modern",
+				help: "supported",
+				setupExit: 0,
+				whatIf: false,
+				nativeArchitecture: "ARM64",
+			},
 			{ name: "legacy release without objdump", variant: "modern", help: "legacy", setupExit: 0, whatIf: false },
 			{
 				name: "objdump substring is not a component",
@@ -226,6 +234,7 @@ describe("PowerShell installation", () => {
 					dir,
 					{
 						...process.env,
+						...(scenario.nativeArchitecture ? { PROCESSOR_ARCHITEW6432: scenario.nativeArchitecture } : {}),
 						OMS_INSTALL_DIR: installDir,
 						OMS_TEST_INSTALLER: path.join(repoRoot, "scripts/install.ps1"),
 						OMS_TEST_NATIVE_FIXTURE: nativeFixture,
@@ -258,9 +267,11 @@ describe("PowerShell installation", () => {
 					expect(call.Path).toBe(path.join(installDir, "oms.exe"));
 				}
 				expect(observed.Downloads.map(url => path.posix.basename(url))).toEqual(
-					scenario.variant === "modern"
-						? ["oms-windows-x64-modern.exe"]
-						: ["oms-windows-x64-modern.exe", "oms-windows-x64.exe"],
+					scenario.nativeArchitecture === "ARM64"
+						? ["oms-windows-arm64.exe"]
+						: scenario.variant === "modern"
+							? ["oms-windows-x64-modern.exe"]
+							: ["oms-windows-x64-modern.exe", "oms-windows-x64.exe"],
 				);
 				expect(observed.Installed).toBe(true);
 				const steps = observed.Steps.join("\n");

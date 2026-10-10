@@ -1,7 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "bun:test";
 import type { SSHConnectionTarget } from "../../src/ssh/connection-manager";
 import * as connectionManager from "../../src/ssh/connection-manager";
-import { listRemoteDir, readRemoteFile, statRemotePath, writeRemoteFile } from "../../src/ssh/file-transfer";
+import {
+	listRemoteDir,
+	readRemoteFile,
+	readRemoteHome,
+	statRemotePath,
+	writeRemoteFile,
+} from "../../src/ssh/file-transfer";
 
 describe("ssh file-transfer POSIX guard", () => {
 	afterEach(() => {
@@ -25,6 +31,7 @@ describe("ssh file-transfer POSIX guard", () => {
 		await expect(writeRemoteFile(target, "C:/x.txt", new Uint8Array([1]), {})).rejects.toThrow(
 			/Windows host.*use `bash` with a remote SSH command/,
 		);
+		await expect(readRemoteHome(target)).rejects.toThrow(/Windows host/);
 		// Prove the guard ran through the stubbed transport rather than failing early
 		// for an unrelated reason (e.g. a future import refactor bypassing the mocks).
 		expect(ensureConnectionSpy).toHaveBeenCalled();
@@ -50,6 +57,7 @@ describe("ssh file-transfer POSIX guard", () => {
 		await expect(writeRemoteFile(target, "/tmp/x", new Uint8Array([1]), {})).rejects.toThrow(
 			/no verified POSIX shell.*use `bash` with a remote SSH command/,
 		);
+		await expect(readRemoteHome(target)).rejects.toThrow(/no verified POSIX shell/);
 	});
 
 	it("dispatches transfer commands through the verified transferShell, not the login shell", async () => {

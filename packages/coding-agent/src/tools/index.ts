@@ -10,11 +10,12 @@ import type { PromptTemplate } from "../config/prompt-templates";
 import type { Settings } from "../config/settings";
 import { EditTool } from "../edit";
 import { checkPythonKernelAvailability } from "../eval/py/kernel";
-import type { ToolPathWithSource } from "../extensibility/custom-tools";
+import type { CustomTool, ToolPathWithSource } from "../extensibility/custom-tools";
 import type {
 	BeforeSubagentSpawnEvent,
 	BeforeSubagentSpawnEventResult,
 	PreparedExtension,
+	ToolDefinition,
 } from "../extensibility/extensions/types";
 import type { Skill } from "../extensibility/skills";
 import type { GoalModeState, GoalRuntime } from "../goals";
@@ -330,6 +331,8 @@ export interface ToolSession {
 	 * required yield tool). Suppresses automatic tool-set expansion.
 	 */
 	restrictToolNames?: boolean;
+	/** Capability admission ceiling, without disabling selected extension/MCP sources. */
+	toolAllowlist?: readonly string[];
 	/** Task recursion depth (0 = top-level, 1 = first child, etc.) */
 	taskDepth?: number;
 	/** Get this agent's eval executor session ID; keys its retained JS/Python/Ruby/Julia state. */
@@ -348,6 +351,7 @@ export interface ToolSession {
 		| "getEntries"
 		| "getSessionId"
 		| "getBranchGeneration"
+		| "snapshotForFork"
 	> &
 		Partial<Pick<SessionManager, "getLeafId" | "appendModelUsage">>;
 	/** Get eval kernel owner ID for session-scoped retained-kernel cleanup. */
@@ -382,6 +386,12 @@ export interface ToolSession {
 	getToolContext?: () => AgentToolContext | undefined;
 	/** Names currently authorized for invocation through the eval bridge. */
 	getEvalBridgeToolNames?: () => readonly string[];
+	/** Full enabled capability grants, including mounted tools but excluding device-only write transport. */
+	getEnabledToolNames?: () => string[];
+	/** SDK definitions rebound through the child's custom-tool wrappers, never parent-bound AgentTool instances. */
+	getCustomTools?: () => readonly (CustomTool | ToolDefinition)[];
+	/** Stable source identities for enabled grants, used to reject replacement sources on revival. */
+	getToolSources?: () => Record<string, string>;
 	/** Direct partition of the active Code Mode surface; undefined when Code Mode is inactive. */
 	getCodeModeDirectToolNames?: () => readonly string[] | undefined;
 	/** Return whether a built-in tool is active in this turn's tool set. */
@@ -664,6 +674,7 @@ export interface BuiltinToolPlan {
 export async function resolveBuiltinToolPlan(session: ToolSession, toolNames?: string[]): Promise<BuiltinToolPlan> {
 	const restrictToolNames = session.restrictToolNames === true;
 	const includeYield = session.requireYieldTool === true;
+	const toolAllowlist = session.toolAllowlist ? new Set(normalizeToolNames(session.toolAllowlist)) : undefined;
 	const enableLsp = session.enableLsp ?? true;
 	const requestedTools = restrictToolNames
 		? normalizeToolNames(toolNames ?? [])
@@ -671,7 +682,11 @@ export async function resolveBuiltinToolPlan(session: ToolSession, toolNames?: s
 			? normalizeToolNames(toolNames)
 			: undefined;
 	const goalEnabled = cfgGoalEnabled.get(session.settings);
-	const goalModeActive = !restrictToolNames && goalEnabled && session.getGoalModeState?.()?.enabled === true;
+	const goalModeActive =
+		!restrictToolNames &&
+		(!toolAllowlist || toolAllowlist.has("goal")) &&
+		goalEnabled &&
+		session.getGoalModeState?.()?.enabled === true;
 	const activeModel = session.getActiveModel?.();
 	const thinkToolEnabled = cfgThinkingToolEnabled.get(session.settings);
 	const externalThinking = cfgExternalThinking.get(session.settings);
@@ -713,7 +728,7 @@ export async function resolveBuiltinToolPlan(session: ToolSession, toolNames?: s
 	// the sister tool so a one-sided frontmatter `tools:` entry still works.
 	// Unlike the AST/auto-learn convenience auto-includes below, this is a
 	// safety pairing — it applies to restricted sessions too.
-	if (requestedTools && cfgCheckpointEnabled.get(session.settings)) {
+	if (requestedTools && !toolAllowlist && cfgCheckpointEnabled.get(session.settings)) {
 		if (requestedTools.includes("checkpoint") && !requestedTools.includes("rewind")) {
 			requestedTools.push("rewind");
 		} else if (requestedTools.includes("rewind") && !requestedTools.includes("checkpoint")) {
@@ -722,7 +737,7 @@ export async function resolveBuiltinToolPlan(session: ToolSession, toolNames?: s
 	}
 	// Auto-include AST counterparts when their text-based sibling is present.
 	// Restricted callers own the active list and must not have it widened.
-	if (requestedTools && !restrictToolNames) {
+	if (requestedTools && !restrictToolNames && !toolAllowlist) {
 		if (
 			cfgCompactionExperimentalContextManagement.get(session.settings) &&
 			requestedTools.includes("read") &&
@@ -776,6 +791,7 @@ export async function resolveBuiltinToolPlan(session: ToolSession, toolNames?: s
 		}
 	}
 	const isToolAllowed = (name: string) => {
+		if (toolAllowlist && !toolAllowlist.has(name) && !(includeYield && name === "yield")) return false;
 		// Never in the default set. Explicitly activatable while goal.enabled and
 		// no goal record exists yet — /guided-goal enables it so the agent can
 		// finish the interview with `goal create`, which turns goal mode on. Once
@@ -793,7 +809,10 @@ export async function resolveBuiltinToolPlan(session: ToolSession, toolNames?: s
 		if (name === "debug") return cfgDebugEnabled.get(session.settings);
 		if (name === "ida") return cfgIdaAvailable.get(session.settings);
 		if (name === "todo")
-			return (!includeYield || session.prewalkArmed === true) && cfgTodoEnabled.get(session.settings);
+			return (
+				(!includeYield || session.prewalkArmed === true || toolAllowlist?.has("todo") === true) &&
+				cfgTodoEnabled.get(session.settings)
+			);
 		if (name === "glob") return cfgGlobEnabled.get(session.settings);
 		if (name === "grep") return cfgGrepEnabled.get(session.settings);
 		if (name === "find") return isFindEnabled(session);

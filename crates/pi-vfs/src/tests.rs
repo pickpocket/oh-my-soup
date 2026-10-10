@@ -241,6 +241,53 @@ fn raw_names_round_trip_through_url_segments() {
 }
 
 #[test]
+fn tramp_paths_preserve_authorities_and_literal_names() {
+	let p = Path::new;
+	let root = p("/ssh:user@[::1]#2222:/");
+	let dir = p("/ssh:user@[::1]#2222:/srv/app");
+	let raw = OsStr::new("a b?#%2F:12");
+	let child = child_path(dir, raw);
+	assert!(is_virtual_path(dir));
+	assert_eq!(url_scheme(dir), Some("ssh"));
+	assert_eq!(parent_path(root), None);
+	assert_eq!(parent_path(p("/ssh:user@[::1]#2222:/srv")), Some(root));
+	assert_eq!(child, p("/ssh:user@[::1]#2222:/srv/app/a b?#%2F:12"));
+	assert_eq!(file_name(&child).as_deref(), Some(raw));
+	assert_eq!(
+		with_file_name(&child, "next%3A:raw"),
+		p("/ssh:user@[::1]#2222:/srv/app/next%3A:raw")
+	);
+	assert_eq!(join_path(dir, p("x y/z?")), p("/ssh:user@[::1]#2222:/srv/app/x y/z?"));
+	assert_eq!(join_path(p("/ssh:host:"), p("child")), p("/ssh:host:child"));
+	assert_eq!(join_path(p("/ssh:host:"), p("")), p("/ssh:host:"));
+	assert_eq!(child_path(p("/ssh:host:"), raw), p("/ssh:host:a b?#%2F:12"));
+	assert_eq!(normalize_lexically(p("/ssh:host:../sibling")), p("/ssh:host:../sibling"));
+	assert_eq!(normalize_lexically(p("/ssh:host:~/../sibling")), p("/ssh:host:~/../sibling"));
+	assert_eq!(normalize_lexically(p("/ssh:host:/a/../b")), p("/ssh:host:/b"));
+	assert_eq!(relative_path(p("/ssh:user@host:/x"), p("/ssh:other@host:/x")), None);
+	assert_eq!(relative_path(p("/ssh:host#2222:/x"), p("/ssh:host#22:/x")), None);
+}
+
+#[test]
+fn tramp_recognition_keeps_local_false_positives_native() {
+	let p = Path::new;
+	for local in ["/ssh-cache/x", "/ssh:cache/x", "/ssh:cache", "/ssh/host:file", "/ssh:[cache]/x"] {
+		assert!(!is_virtual_path(p(local)), "{local}");
+	}
+	// These must reach the provider, which returns an explicit parse error.
+	for remote in [
+		"/ssh:",
+		"/ssh::/x",
+		"/ssh:host#bad:/x",
+		"/ssh:[::1:/x",
+		"/ssh:jump|ssh:host:/x",
+		"/sudo:root@host:/x",
+	] {
+		assert!(is_virtual_path(p(remote)), "{remote}");
+	}
+}
+
+#[test]
 fn native_backend_never_resolves_urls_against_the_process_cwd() {
 	let fs = BlockingFs::native();
 	let err = fs.create("vfs-kernel-test://x").unwrap_err();

@@ -710,7 +710,8 @@ fn fallback_variants(hunk: &DiffHunk, aggressive: bool) -> Vec<HunkVariant> {
 			|| !matches!(
 				variant.kind,
 				HunkVariantKind::CollapseRepeated | HunkVariantKind::SingleLine
-			)) && seen.insert((variant.view.old_refs(hunk), variant.view.new_refs(hunk)))
+			))
+			&& seen.insert((variant.view.old_refs(hunk), variant.view.new_refs(hunk)))
 	});
 	variants
 }
@@ -1149,7 +1150,8 @@ fn variant_is_evidenced(lines: &[&str], variant: &[&str], found: usize, allow_fu
 			&& lines
 				.iter()
 				.filter(|actual| js_trim(actual) == text)
-				.count() == 1
+				.count()
+				== 1
 	})
 }
 
@@ -1230,17 +1232,15 @@ fn already_applied(lines: &[&str], hunk: &DiffHunk, anchor: Option<&Anchor>) -> 
 		.collect::<Vec<_>>();
 	// Windows a hunk containing its anchor line proves start `k` lines above
 	// the anchor when its `k`-th new line is the anchor line.
-	let proven = anchor
-		.map(|anchor| {
-			let text = normalize_for_fuzzy(lines[anchor.line]);
-			expected
-				.iter()
-				.enumerate()
-				.filter(|(_, line)| **line == text)
-				.filter_map(|(offset, _)| anchor.line.checked_sub(offset))
-				.collect::<Vec<_>>()
-		})
-		.unwrap_or_default();
+	let proven = anchor.map_or_else(Vec::new, |anchor| {
+		let text = normalize_for_fuzzy(lines[anchor.line]);
+		expected
+			.iter()
+			.enumerate()
+			.filter(|(_, line)| **line == text)
+			.filter_map(|(offset, _)| anchor.line.checked_sub(offset))
+			.collect::<Vec<_>>()
+	});
 	let low = proven.iter().copied().fold(from, usize::min);
 	let high = lines
 		.len()
@@ -2472,7 +2472,8 @@ impl PlacedHunk {
 							|| *gap == end
 								&& (owned_end_gap
 									|| hunk.old_lines.is_empty()
-										&& end == row + 1 && at == end
+										&& end == row + 1
+										&& at == end
 										&& lookup
 											.scope
 											.as_ref()
@@ -5180,7 +5181,8 @@ fn compute_replacements(
 			}
 			obligations.push((number, expected));
 			// Zero rows have one real boundary, even when a numeric header names
-			// it. This supplies append-side evidence, not a fabricated context row.
+			// it. This supplies append-side evidence, not a fabricated context
+			// row.
 			let empty_boundary =
 				lines.is_empty() && insertion == 0 && hints.raw == Some(0) && !hunk.is_start_of_file;
 			replacements.push(Replacement {
@@ -6132,7 +6134,8 @@ impl Consumption {
 					.is_some_and(|writers| !writers.is_disjoint(&policy.touching));
 				written |= local;
 				local
-			}) && written
+			})
+			&& written
 	}
 
 	fn check_character(
@@ -6152,8 +6155,7 @@ impl Consumption {
 				|| {
 					old.matched
 						.as_ref()
-						.map(|found| vec![found.start_line as usize - 1])
-						.unwrap_or_default()
+						.map_or_else(Vec::new, |found| vec![found.start_line as usize - 1])
 				},
 				|rows| rows.iter().map(|row| *row as usize - 1).collect::<Vec<_>>(),
 			);
@@ -6248,8 +6250,7 @@ impl Consumption {
 			let prefix = old
 				.scope
 				.as_ref()
-				.map(|scope| scope.parts.as_slice())
-				.unwrap_or_default();
+				.map_or(&[][..], |scope| scope.parts.as_slice());
 			let mut parents = None;
 			for (depth, part) in parts.iter().enumerate() {
 				let current_part = depth.min(anchor.parts.len() - 1);

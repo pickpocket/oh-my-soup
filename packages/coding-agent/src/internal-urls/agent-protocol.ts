@@ -17,6 +17,8 @@
  * - agent://<id>/<path> - JSON extraction: each segment is an object key, or
  *   an array index when the current value is an array
  *   (`agent://Parent.Child/reports/0/data`)
+ * - agent://<id>?view=notes - Saved session notes on the child's active branch,
+ *   live or recovered read-only from its retained journal.
  */
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
@@ -29,8 +31,10 @@ import { executeSend, isIrcEnabled } from "../irc/messaging";
 import agentPromptDoc from "../prompts/internal-urls/agent.md" with { type: "text" };
 import agentProgressTemplate from "../prompts/tools/agent-url-progress.md" with { type: "text" };
 import agentSupersededTemplate from "../prompts/tools/agent-url-superseded.md" with { type: "text" };
-import { loadSessionMessagesReadOnly } from "../session/session-loader";
-import { artifactsDirsFromRegistry } from "./registry-helpers";
+import { loadSessionMessagesReadOnly, loadSessionBranchReadOnly } from "../session/session-loader";
+import { getImportantNotesFromEntries, type ImportantNote } from "../session/important-notes";
+import { cfgNotesTimestamps } from "../session/settings";
+import { artifactsDirsFromRegistry, findAgentSessionFile, lookupAgent } from "./registry-helpers";
 import type {
 	InternalResource,
 	InternalWriteResult,
@@ -56,6 +60,12 @@ interface OutputScan {
 /** True when the URL extracts a `/<json-path>` value instead of naming the whole output. */
 function hasPathExtraction(url: InternalUrl): boolean {
 	return url.pathname !== "" && url.pathname !== "/";
+}
+
+function isNotesView(url: InternalUrl): boolean {
+	if (url.searchParams.get("view") !== "notes") return false;
+	if (hasPathExtraction(url)) throw new Error("agent:// notes view cannot have a JSON-path suffix.");
+	return true;
 }
 
 /**
@@ -154,15 +164,14 @@ export class AgentProtocolHandler implements ProtocolHandler {
 	}
 
 	/**
-	 * The `<id>.md` output file. JSON-path URLs (`/<json-path>`) render a value
-	 * rather than the file, so they locate to null, as do missing ids. So does an
-	 * output superseded by a running turn: a located file is read directly by
-	 * `read`, which would skip the previous-run banner {@link resolve} adds.
+	 * The `<id>.md` output file. JSON-path and notes views render virtual content,
+	 * so they locate to null, as do missing ids. Superseded outputs also locate
+	 * to null so reads preserve the previous-run banner from resolve().
 	 */
 	async locate(url: InternalUrl, context?: ResolveContext): Promise<string | null> {
 		const outputId = url.rawHost || url.hostname;
 		if (!outputId) throw new Error("agent:// URL requires an output ID: agent://<id>");
-		if (outputId === "all" || hasPathExtraction(url)) return null;
+		if (outputId === "all" || isNotesView(url) || hasPathExtraction(url)) return null;
 		if (isSuperseded(context?.agentRegistry ?? AgentRegistry.global(), outputId)) return null;
 		const dirs = await this.#outputDirs(context);
 		if (dirs.length === 0) return null;
@@ -170,6 +179,7 @@ export class AgentProtocolHandler implements ProtocolHandler {
 	}
 
 	async write(url: InternalUrl, content: string, context?: WriteContext): Promise<InternalWriteResult> {
+		if (isNotesView(url)) throw new Error("Subagent notes are read-only; message the agent to update its notes.");
 		const session = context?.session;
 		if (!session) throw new Error("agent:// messaging requires a tool session");
 		const registry = session.agentRegistry;
@@ -210,6 +220,7 @@ export class AgentProtocolHandler implements ProtocolHandler {
 		if (!outputId) {
 			throw new Error("agent:// URL requires an output ID: agent://<id>");
 		}
+		if (isNotesView(url)) return this.#resolveNotes(url, outputId, context);
 
 		const extraction = hasPathExtraction(url);
 
@@ -303,6 +314,37 @@ export class AgentProtocolHandler implements ProtocolHandler {
 			sourcePath: extractedFrom,
 			notes,
 			shape: extraction ? "value" : "document",
+		};
+	}
+
+	async #resolveNotes(url: InternalUrl, agentId: string, context?: ResolveContext): Promise<InternalResource> {
+		const { ref, preferredArtifactDir } = await lookupAgent(agentId, context);
+		const manager = ref?.session?.sessionManager;
+		let sourcePath = ref?.sessionFile ?? undefined;
+		let notes: readonly ImportantNote[];
+		if (manager) {
+			notes = await manager.readEntriesAtomically(() => getImportantNotesFromEntries(manager.getBranch()));
+		} else {
+			sourcePath ??= (await findAgentSessionFile(ref?.id ?? agentId, preferredArtifactDir))?.file;
+			if (!sourcePath) {
+				throw new Error(
+					`No saved session notes available for agent ${agentId}: no live session or retained journal.`,
+				);
+			}
+			notes = getImportantNotesFromEntries(await loadSessionBranchReadOnly(sourcePath));
+		}
+		const timestamps = context?.settings ? cfgNotesTimestamps.get(context.settings) : true;
+		const content = JSON.stringify(timestamps ? notes : notes.map(({ key, text }) => ({ key, text })), null, 2);
+		return {
+			url: url.href,
+			content,
+			contentType: "application/json",
+			size: Buffer.byteLength(content, "utf-8"),
+			sourcePath,
+			shape: "document",
+			notes: [
+				`Session notes for ${ref?.id ?? agentId} (${manager ? "live branch" : "retained journal"}; read-only)`,
+			],
 		};
 	}
 

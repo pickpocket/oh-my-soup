@@ -48,6 +48,29 @@ async function ensurePosixRemote(target: SSHConnectionTarget): Promise<"sh" | "b
 	return info.transferShell;
 }
 
+/** Connected user's home from the verified POSIX shell, without interpolating any filename. */
+export async function readRemoteHome(
+	target: SSHConnectionTarget,
+	opts: { signal?: AbortSignal; timeoutMs?: number } = {},
+): Promise<string> {
+	const shell = await ensurePosixRemote(target);
+	// NUL framing ignores login banners without trimming valid spaces/newlines
+	// out of HOME. The remote filename never participates in shell evaluation.
+	const command = wrapInPosixShell(shell, `printf '\\000%s\\000' "$HOME"`);
+	const args = await buildRemoteCommand(target, command);
+	using child = spawnSsh(target, args, {
+		signal: ptree.combineSignals(opts.signal, opts.timeoutMs ?? DEFAULT_TIMEOUT_MS),
+	});
+	const bytes = await child.bytes();
+	await child.exitedCleanly;
+	const first = bytes.indexOf(0);
+	const last = first === -1 ? -1 : bytes.indexOf(0, first + 1);
+	if (first === -1 || last === -1) throw new Error(`ssh://: ${target.name} did not return a remote home path`);
+	const home = new TextDecoder("utf-8", { fatal: true }).decode(bytes.subarray(first + 1, last));
+	if (!home.startsWith("/")) throw new Error(`ssh://: ${target.name} returned a non-absolute remote home path`);
+	return home;
+}
+
 export interface RemoteFileReadOptions {
 	/** Maximum bytes to materialize; the helper fetches one extra byte to detect truncation. */
 	maxBytes: number;

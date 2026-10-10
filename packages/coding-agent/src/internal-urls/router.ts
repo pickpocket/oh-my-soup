@@ -17,6 +17,7 @@ import { setInternalUrlSchemeHost, splitUrlScheme } from "@oh-my-soup/pi-tui/too
 import { ToolError } from "@oh-my-soup/pi-tui/tools/tool-errors";
 import type { ToolSession } from "../tools";
 import { TIER_RANK } from "../tools/approval";
+import { parseTrampSshPath } from "../ssh/tramp-path";
 import { AgentProtocolHandler } from "./agent-protocol";
 import { ArtifactProtocolHandler } from "./artifact-protocol";
 import { AttachmentProtocolHandler } from "./attachment-protocol";
@@ -201,6 +202,8 @@ export class InternalUrlRouter {
 	 * (`/home/me/repo/local://x`). Other inputs pass through.
 	 */
 	normalize(input: string): string {
+		// Keep literal TRAMP filenames and remote-home semantics in rawHref.
+		if (parseTrampSshPath(input)) return input;
 		if (!URL_PREFIX_RE.test(input)) {
 			// The first eligible scheme wins: later `local://` text belongs to the URL's own path.
 			for (const segment of input.matchAll(PREFIXED_URL_SEGMENT_RE)) {
@@ -258,6 +261,7 @@ export class InternalUrlRouter {
 	 * Non-URLs and unknown schemes pass through unchanged.
 	 */
 	split(input: string): { path: string; sel?: string } {
+		if (parseTrampSshPath(input)) return { path: input };
 		return splitInternalUrlSel(this.normalize(input), scheme => this.spec(scheme));
 	}
 
@@ -415,7 +419,7 @@ export class InternalUrlRouter {
 		for (const [scheme, handler] of this.#handlers) {
 			const schemeTier = handler.spec.readTier ?? "read";
 			if (TIER_RANK[schemeTier] <= TIER_RANK[tier]) continue;
-			if (lower.includes(`${scheme}://`)) tier = schemeTier;
+			if (lower.includes(`${scheme}://`) || (scheme === "ssh" && lower.includes("/ssh:"))) tier = schemeTier;
 		}
 		return tier;
 	}
@@ -441,6 +445,10 @@ export class InternalUrlRouter {
 	/** Normalized hierarchical URL of a registered scheme, with its handler; undefined otherwise. */
 	#registered(input: string): RegisteredUrl | undefined {
 		const url = this.normalize(input);
+		if (parseTrampSshPath(url)) {
+			const handler = this.#handlers.get("ssh");
+			return handler && { url, scheme: "ssh", handler };
+		}
 		const split = splitUrlScheme(url);
 		const handler = split && this.#handlers.get(split.scheme);
 		return handler && split ? { url, scheme: split.scheme, handler } : undefined;
@@ -453,7 +461,8 @@ export class InternalUrlRouter {
 	#globSegments(input: string): (RegisteredUrl & { segments: string[]; firstGlob: number }) | undefined {
 		const registered = this.#registered(input);
 		if (!registered) return undefined;
-		const rest = registered.url.slice(registered.scheme.length + 3);
+		const canonical = parseTrampSshPath(registered.url)?.url ?? registered.url;
+		const rest = canonical.slice(registered.scheme.length + 3);
 		const fragment = rest.indexOf("#");
 		const beforeFragment = fragment === -1 ? rest : rest.slice(0, fragment);
 		const query = beforeFragment.search(QUERY_START_RE);

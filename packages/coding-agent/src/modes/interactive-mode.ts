@@ -68,6 +68,7 @@ import {
 import chalk from "@oh-my-soup/pi-utils/chalk";
 import { pickTableChart } from "../auto-graph/planner";
 import { restartArgv } from "../cli/flag-tables";
+import { reportServiceSession, watchServiceRepaints } from "../service/control";
 import type { CollabGuestLink } from "../collab/guest";
 import { CollabController } from "../collab/controller";
 import type { CollabHost } from "../collab/host";
@@ -1725,6 +1726,7 @@ export class InteractiveMode implements InteractiveModeContext {
 	#eventBus?: EventBus;
 	#subagentEventBus?: EventBus;
 	#eventBusUnsubscribers: Array<() => void> = [];
+	#serviceReportTail: Promise<void> = Promise.resolve();
 	/** Mirror of `tui.mouse`, read by the TUI's per-frame inline mouse tracking probe. */
 	#mouseCapture = false;
 	#observerUiSyncTimer?: NodeJS.Timeout;
@@ -2325,6 +2327,15 @@ export class InteractiveMode implements InteractiveModeContext {
 			// Fork and branch adopt a new session file without retitling.
 			this.session.registerSessionChangeCallback(reportTernSession),
 		);
+		if (process.env.OMS_SERVICE_CHILD === "1") {
+			this.#eventBusUnsubscribers.push(
+				await watchServiceRepaints(() => this.ui.resetDisplay()),
+				this.session.registerSessionChangeCallback(() => {
+					void this.reportLiveSession();
+				}),
+			);
+			void this.reportLiveSession();
+		}
 		this.#syncEditorMaxHeight();
 		this.isInitialized = true;
 		// The startup composer is already visible. Commit the complete runtime
@@ -6930,7 +6941,8 @@ export class InteractiveMode implements InteractiveModeContext {
 	/**
 	 * Tear down like {@link shutdown}, then relaunch the CLI with the original
 	 * launch argv (session-source flags and positional prompts stripped, see
-	 * {@link restartArgv}), resuming this session when it exists on disk.
+	 * {@link restartArgv}). A selected live session path instead redirects this
+	 * terminal to the service without retaining the explicit --standalone flag.
 	 *
 	 * On POSIX the relaunch is a true `execvp(3)` image replacement: same PID,
 	 * same terminal, no lingering parent. Postmortem cleanups and stdout are
@@ -6938,7 +6950,7 @@ export class InteractiveMode implements InteractiveModeContext {
 	 * exec. On Windows (no exec semantics) or on exec failure, falls back to
 	 * spawning the replacement and lingering only to forward its exit code.
 	 */
-	async restart(): Promise<void> {
+	async restart(resumeSessionPath?: string): Promise<void> {
 		if (this.#isShuttingDown) return;
 		this.#beginClose();
 		try {
@@ -6948,7 +6960,12 @@ export class InteractiveMode implements InteractiveModeContext {
 			return;
 		}
 
-		const cmd = [...resolveCliEntryCmd(), ...restartArgv(process.argv.slice(2), this.#resumableSessionId())];
+		const argv = restartArgv(process.argv.slice(2), resumeSessionPath ?? this.#resumableSessionId());
+		if (resumeSessionPath) {
+			const standalone = argv.indexOf("--standalone");
+			if (standalone !== -1) argv.splice(standalone, 1);
+		}
+		const cmd = [...resolveCliEntryCmd(), ...argv];
 		await postmortem.cleanup();
 		await postmortem.drainStdout();
 		if (process.platform !== "win32") {
@@ -8010,6 +8027,18 @@ export class InteractiveMode implements InteractiveModeContext {
 
 	showSessionSelector(source?: ForeignSessionSource): void {
 		void this.#selectorController.showSessionSelector(source);
+	}
+
+	/** Publish the current file and project in order, including same-ID relocations. */
+	reportLiveSession(): Promise<void> {
+		if (process.env.OMS_SERVICE_CHILD !== "1") return Promise.resolve();
+		const file = this.sessionManager.getSessionFile();
+		const id = this.sessionManager.getSessionId();
+		const cwd = this.sessionManager.getCwd();
+		this.#serviceReportTail = this.#serviceReportTail
+			.then(() => reportServiceSession(file, id, cwd))
+			.catch(error => logger.warn("Could not report live service session", { error: String(error) }));
+		return this.#serviceReportTail;
 	}
 
 	async handleResumeSession(sessionPath: string): Promise<void> {

@@ -54,10 +54,11 @@ import { type OverlayLayers, Settings } from "../config/settings";
 
 import type { ToolPathWithSource } from "../extensibility/custom-tools";
 import type { CustomTool } from "../extensibility/custom-tools/types";
-import type { PreparedExtension } from "../extensibility/extensions/types";
+import type { PreparedExtension, ToolDefinition } from "../extensibility/extensions/types";
 import { buildSkillPromptMessage, type Skill } from "../extensibility/skills";
 import type { HindsightSessionState } from "../hindsight/state";
 import type { LocalProtocolOptions } from "../internal-urls";
+import { hasResolvableTranscript } from "../internal-urls/registry-helpers";
 import { IrcBus } from "../irc/bus";
 import type { MCPManager } from "../mcp/manager";
 import type { MnemopiSessionState } from "../mnemopi/state";
@@ -85,7 +86,7 @@ import { type ArtifactManager, writeArtifact } from "../session/artifacts";
 import { ASYNC_RESULT_MESSAGE_TYPE } from "../session/async-job-delivery";
 import type { AuthStorage } from "../session/auth-storage";
 import { SKILL_PROMPT_MESSAGE_TYPE } from "../session/messages";
-import { hasConversationalHistory, SessionManager } from "../session/session-manager";
+import { hasConversationalHistory, type SessionForkSnapshot, SessionManager } from "../session/session-manager";
 import { truncateTail } from "@oh-my-soup/pi-tui/tools/streaming-output";
 import {
 	type ConfiguredThinkingLevel,
@@ -93,14 +94,14 @@ import {
 	resolveTaskEffortLevel,
 	type TaskEffort,
 } from "@oh-my-soup/pi-tui/thinking";
-import type { ContextFileEntry, ToolSession } from "../tools";
-import { resolveEvalBackends } from "../tools/eval-backends";
+import type { ContextFileEntry } from "../tools";
 import { isIrcEnabled } from "../irc/messaging";
 import { LIST_STATUS_ORDER } from "@oh-my-soup/pi-tui/tools/irc";
 import { DEFAULT_PEER_ROSTER_LIMIT } from "@oh-my-soup/pi-tui/tools/irc";
 import { normalizeSchema } from "../tools/jtd-to-json-schema";
 import { buildOutputValidator, summarizeValidationFailure } from "../tools/output-schema-validator";
 import { ToolAbortError } from "../tools/tool-errors";
+import { USER_TODO_EDIT_CUSTOM_TYPE } from "../tools/todo";
 import { resetYieldTurnState } from "../tools/yield";
 import { type EventBus, emitSubagentFrame } from "../utils/event-bus";
 import { trackLateCleanup } from "../utils/late-cleanup";
@@ -113,6 +114,7 @@ import { resolveAgentPrewalkDefault } from "./prewalk";
 import { isReadOnlyAgent } from "./read-only-policy";
 import { formatTaskResultSummary } from "./result-summary";
 import { subprocessToolRegistry } from "./subprocess-tool-registry";
+import { captureSubagentToolSources } from "./tool-contract";
 import type { WorkPoolYieldItem } from "./workpool-yield";
 import {
 	type AgentDefinition,
@@ -410,6 +412,8 @@ export interface ExecutorOptions {
 	assignment?: string;
 	/** Shared background from the task call (`task.batch`), rendered into the subagent's system prompt. */
 	context?: string;
+	/** Point-in-time parent context for a fresh child; revival opens the child's own journal. */
+	forkSnapshot?: SessionForkSnapshot;
 	/**
 	 * The session's active overall plan, handed off so subagents spawned during
 	 * plan execution share the same plan context as the main agent. Omitted when
@@ -466,14 +470,19 @@ export interface ExecutorOptions {
 	/** Include IRC only when the invocation policy permits collaboration. */
 	enableIrc?: boolean;
 	enableLsp?: boolean;
+	lspReadOnly?: boolean;
 	/**
 	 * Enable MCP capabilities for this child. `false` suppresses both inherited
 	 * MCP proxy tools and session MCP discovery; it never consults the
 	 * process-global MCP manager. Defaults to `true`.
 	 */
 	enableMCP?: boolean;
-	/** Kernel-defined tools explicitly exposed by the parent eval session. */
-	customTools?: CustomTool[];
+	/** Selected host capabilities; an omitted standalone invocation has no implicit agent-definition grants. */
+	toolNames?: string[];
+	mountedToolNames?: string[];
+	toolSources?: Record<string, string>;
+	/** Kernel exports and SDK custom definitions explicitly exposed by the parent. */
+	customTools?: (CustomTool | ToolDefinition)[];
 	/** Workpool items accepted by the child yield tool during this turn. */
 	workPoolYieldItems?: WorkPoolYieldItem[];
 	/**
@@ -2906,6 +2915,7 @@ async function finalizeRunResult(args: FinalizeRunArgs): Promise<SingleResult> {
 		abortReason: finalAbortReason,
 		usage: monitor.hasUsage() ? monitor.accumulatedUsage : undefined,
 		outputPath,
+		notesUri: (await hasResolvableTranscript(id)) ? `agent://${id}?view=notes` : undefined,
 		extractedToolData: progress.extractedToolData,
 		retryFailure: progress.retryFailure,
 		outputMeta,
@@ -3667,6 +3677,7 @@ interface SubagentPromptInputs {
 	id: string;
 	agentSystemPrompt: string;
 	context: string;
+	forked: boolean;
 	planReference: string;
 	planReferencePath: string;
 	worktree: string;
@@ -3726,6 +3737,7 @@ function buildSubagentSessionOptions(
 		settings,
 		sessionManager,
 		expectedAgentRef,
+		restoreToolState: launch === undefined,
 		resolveServiceTierByFamily: launch?.resolveServiceTierByFamily,
 		onFirstChatDispatch: launch?.onFirstChatDispatch,
 		systemPrompt: defaultPrompt => {
@@ -3735,6 +3747,7 @@ function buildSubagentSessionOptions(
 			const subagentPrompt = prompt.render(subagentSystemPromptTemplate, {
 				agent: inputs.agentSystemPrompt,
 				context: inputs.context,
+				forked: inputs.forked,
 				planReference: inputs.planReference,
 				planReferencePath: inputs.planReferencePath,
 				worktree: inputs.worktree,
@@ -3801,7 +3814,7 @@ interface WarmReviveCapture {
 	/** Re-captured whenever the live session is disposed, so a revive restores its latest settings writes. */
 	settings: SubagentSettingsRecipe;
 	parentArtifactManager: ArtifactManager | undefined;
-	/** Todos are parent-owned and stripped from subagents, except under prewalk (its todo gate needs them). */
+	/** Preserve explicitly granted todos and the prewalk plan gate across warm revival. */
 	keepTodo: boolean;
 	wake: IrcWakeTurnMonitorOptions;
 	/** Exact agent name the live `task.agentAccountPools` entry is looked up by on revive. */
@@ -3978,43 +3991,13 @@ export async function runSubprocess(options: ExecutorOptions): Promise<SingleRes
 	const childDepth = parentDepth + 1;
 	const atMaxDepth = maxRecursionDepth >= 0 && childDepth >= maxRecursionDepth;
 
-	// Add tools if specified
-	let toolNames: string[] | undefined;
-	if (agent.tools) {
-		toolNames = agent.tools;
-		// Auto-include task tool if spawns defined but task not in tools
-		if (agent.spawns !== undefined && !toolNames.includes("task") && !atMaxDepth) {
-			toolNames = [...toolNames, "task"];
-		}
-	}
-
-	if (atMaxDepth && toolNames?.includes("task")) {
-		toolNames = toolNames.filter(name => name !== "task");
-	}
-	if (toolNames?.includes("exec")) {
-		const backends = resolveEvalBackends({ settings } as ToolSession);
-		const expanded = toolNames.filter(name => name !== "exec");
-		if (backends.python || backends.js) expanded.push("eval");
-		expanded.push("bash");
-		toolNames = Array.from(new Set(expanded));
-	}
-	// Agents that can start background work (`task`, `bash`) need `wait` to block on it;
-	// without it they `sleep`. Runs after `exec` expansion and the max-depth `task` strip.
-	// `createTools` still drops it when no wake source (async/IRC/services) is enabled.
-	// Restricted sessions own their explicit list and are never widened.
-	if (
-		toolNames &&
-		!options.restrictToolNames &&
-		!toolNames.includes("wait") &&
-		(toolNames.includes("task") || toolNames.includes("bash"))
-	) {
-		toolNames = [...toolNames, "wait"];
-	}
+	// The shared runtime supplies a detached parent snapshot. Agent-definition
+	// defaults are guidance, not authority to re-enable deselected host tools.
+	let toolNames = [...(options.toolNames ?? [])];
+	if (atMaxDepth) toolNames = toolNames.filter(name => name !== "task");
 	// Inbound steering works without messaging; outbound peer coordination requires write.
 	const ircEnabled =
-		options.enableIrc !== false &&
-		isIrcEnabled(subagentSettings, childDepth) &&
-		(toolNames === undefined || toolNames.includes("write"));
+		options.enableIrc !== false && isIrcEnabled(subagentSettings, childDepth) && toolNames.includes("write");
 
 	const modelPatterns = normalizeModelPatterns(modelOverride ?? agent.model);
 	const sessionFile = subtaskSessionFile ?? null;
@@ -4027,7 +4010,7 @@ export async function runSubprocess(options: ExecutorOptions): Promise<SingleRes
 				: agent.spawns.join(",");
 
 	const lspEnabled = enableLsp ?? true;
-	const skipPythonPreflight = Array.isArray(toolNames) && !toolNames.includes("eval");
+	const skipPythonPreflight = !toolNames.includes("eval");
 
 	const monitor = createSubagentRunMonitor({
 		index,
@@ -4237,13 +4220,23 @@ export async function runSubprocess(options: ExecutorOptions): Promise<SingleRes
 				effortLevel ?? (explicitThinkingLevel ? resolvedThinkingLevel : (thinkingLevel ?? resolvedThinkingLevel));
 			resolvedAt = performance.now();
 			const effectiveCwd = worktree ?? cwd;
-			const sessionManagerPromise = sessionFile
-				? SessionManager.open(sessionFile, undefined, undefined, {
-						initialCwd: effectiveCwd,
-						parentSession: options.sessionFile ?? undefined,
+			const forked = options.forkSnapshot !== undefined;
+			const sessionManagerPromise = options.forkSnapshot
+				? SessionManager.forkFromSnapshot(options.forkSnapshot, effectiveCwd, undefined, undefined, {
+						sessionFile: sessionFile ?? undefined,
+						inMemory: sessionFile === null,
+						copyArtifacts: false,
 						suppressBreadcrumb: true,
+						resetInheritedCost: true,
+						repairInterruptedTail: true,
 					})
-				: Promise.resolve(SessionManager.inMemory(effectiveCwd));
+				: sessionFile
+					? SessionManager.open(sessionFile, undefined, undefined, {
+							initialCwd: effectiveCwd,
+							parentSession: options.sessionFile ?? undefined,
+							suppressBreadcrumb: true,
+						})
+					: Promise.resolve(SessionManager.inMemory(effectiveCwd));
 			// Setup below can fail before this promise's consumption boundary.
 			// Observe rejection immediately while preserving it for the later await.
 			sessionManagerPromise.catch(() => {});
@@ -4284,7 +4277,9 @@ export async function runSubprocess(options: ExecutorOptions): Promise<SingleRes
 			const restrictToolNames = options.restrictToolNames === true;
 			const enableMCP = !restrictToolNames && (options.enableMCP ?? true);
 			const mcpManager = enableMCP ? options.mcpManager : undefined;
-
+			const grantedToolNames = [
+				...new Set([...toolNames, ...(options.customTools ?? []).map(tool => tool.name), "yield"]),
+			];
 			// Derive subagent-scoped telemetry from the parent's config so the
 			// child loop's spans nest under the parent's active execute_tool span
 			// (OTEL context propagation handles parent linkage automatically),
@@ -4345,10 +4340,14 @@ export async function runSubprocess(options: ExecutorOptions): Promise<SingleRes
 					thinkingLevelCeiling: spawnEffortCeiling,
 					// Subagents are short-lived; never schedule background warm requests.
 					cacheWarming: false,
-					toolNames,
+					toolNames: grantedToolNames,
+					toolAllowlist: grantedToolNames,
+					mountedToolNames: options.mountedToolNames,
+					toolSources: options.toolSources,
 					outputSchema,
 					outputSchemaMode: options.outputSchemaMode,
 					restrictToolNames: options.restrictToolNames,
+					allowRestrictedCustomTools: restrictToolNames && (options.customTools?.length ?? 0) > 0,
 					requireYieldTool: true,
 					contextFiles: options.contextFiles,
 					skills: options.skills,
@@ -4375,6 +4374,7 @@ export async function runSubprocess(options: ExecutorOptions): Promise<SingleRes
 					agentDisplayName: agent.name,
 					agentName: agent.name,
 					enableLsp: lspEnabled,
+					lspReadOnly: options.lspReadOnly,
 					enableIrc: options.enableIrc,
 					skipPythonPreflight,
 					enableMCP,
@@ -4388,6 +4388,7 @@ export async function runSubprocess(options: ExecutorOptions): Promise<SingleRes
 					id,
 					agentSystemPrompt: agent.systemPrompt,
 					context: options.context?.trim() ?? "",
+					forked,
 					planReference: options.planReference?.content ?? "",
 					planReferencePath: options.planReference?.path ?? "",
 					worktree: worktree ?? "",
@@ -4402,10 +4403,14 @@ export async function runSubprocess(options: ExecutorOptions): Promise<SingleRes
 			if (options.parentArtifactManager) {
 				sessionManager.adoptArtifactManager(options.parentArtifactManager);
 			}
+			if (forked) {
+				// Keep inherited todos as historical context, not this child's active work.
+				sessionManager.appendCustomEntry(USER_TODO_EDIT_CUSTOM_TYPE, { phases: [] });
+			}
 			sessionOpenedAt = performance.now();
 			await refreshSubagentIrcRoot(sessionSpec.prompt, sessionManager, sessionFile);
 
-			const hasExistingModelRole = sessionManager.getLastModelChangeRole() !== undefined;
+			const hasExistingModelRole = !forked && sessionManager.getLastModelChangeRole() !== undefined;
 			// Subscribe before the builder mints proxies so a manager change during
 			// session startup is replayed on bind instead of lost.
 			const mcpFollower = mcpManager
@@ -4475,17 +4480,17 @@ export async function runSubprocess(options: ExecutorOptions): Promise<SingleRes
 				// createAgentSession was returning.
 				if (runRef.status === "aborted") monitor.requestAbort("signal");
 			}
-			// Todos are parent-owned bookkeeping and stripped from subagents —
-			// except under prewalk, whose plan nudge + todo gate require the
-			// subagent to commit its own todo list before the hand-off.
-			const isParentOwnedTool = (name: string): boolean => !prewalk && name === "todo";
+			// The child owns its explicitly granted todo list; prewalk also needs
+			// todos for its plan gate. Do not inherit incidental SDK defaults.
+			const keepTodo = prewalk !== undefined || toolNames.includes("todo");
+			const isParentOwnedTool = (name: string): boolean => !keepTodo && name === "todo";
 			if (sessionFile !== null) {
 				const reviveCapture: WarmReviveCapture = {
 					sessionFile,
 					spec: sessionSpec,
 					settings: captureSubagentSettings(settings, subagentSettings),
 					parentArtifactManager: options.parentArtifactManager,
-					keepTodo: prewalk !== undefined,
+					keepTodo,
 					wake: wakeOptions,
 					agentName: agent.name,
 				};
@@ -4516,20 +4521,21 @@ export async function runSubprocess(options: ExecutorOptions): Promise<SingleRes
 				await awaitAbortable(session.setWorkPoolYieldItems(options.workPoolYieldItems));
 			}
 			const enabledSubagentTools = session.getEnabledToolNames();
-			// The enabled set includes the synthetic write transport injected for
-			// explicit tool lists that omitted write. `session_init.tools` is later
-			// replayed as an explicit grant during cold revival, so persist write
-			// only when the original agent contract granted it.
-			const persistedSubagentTools =
-				toolNames !== undefined && !toolNames.includes("write")
-					? enabledSubagentTools.filter(name => name !== "write")
-					: enabledSubagentTools;
+			const persistedSubagentTools = enabledSubagentTools.filter(
+				name => name !== "write" || toolNames.includes("write"),
+			);
+			const persistedToolSources = captureSubagentToolSources(session);
+			sessionSpec.options.toolSources = persistedToolSources;
 
 			session.sessionManager.appendSessionInit({
 				// Blocks as sent; the session appends a newer session_init whenever a model call's base changes.
 				systemPrompt: session.agent.state.systemPrompt,
 				task,
 				tools: persistedSubagentTools,
+				toolAllowlist: grantedToolNames,
+				mountedTools: session.getMountedXdevToolNames(),
+				deviceOnlyWrite: session.isDeviceOnlyWrite?.() || undefined,
+				toolSources: persistedToolSources,
 				agent: agent.name,
 				modelRole: modelRole ?? resolveExplicitModelRole(modelOverride ?? agent.model, subagentSettings),
 				resolvedModel: progress.resolvedModel,
@@ -4537,6 +4543,7 @@ export async function runSubprocess(options: ExecutorOptions): Promise<SingleRes
 				// so read it back from the settings both install paths write.
 				retryFallback: getRetryFallbackRole(subagentSettings, subagentRetryFallbackRole(id)),
 				readOnly: isReadOnlyAgent(agent),
+				lspReadOnly: options.lspReadOnly,
 				spawns: spawnsEnv,
 				readSummarize: agent.readSummarize,
 				advisor: advisorSelection ? (advisorRolePattern ?? "on") : undefined,

@@ -1,5 +1,12 @@
 import { expect, test } from "bun:test";
-import { encodeServiceFrame, SERVICE_INPUT, SERVICE_RESIZE, ServiceFrameDecoder } from "../src/service/protocol";
+import {
+	encodeServiceFrame,
+	SERVICE_CONTROL,
+	SERVICE_INPUT,
+	SERVICE_MAX_REQUEST_BYTES,
+	SERVICE_RESIZE,
+	ServiceFrameDecoder,
+} from "../src/service/protocol";
 
 test("service frames survive split headers, split UTF-8 bytes, and coalesced writes", () => {
 	const received: Array<{ type: number; text: string }> = [];
@@ -24,4 +31,31 @@ test("oversized service frames fail before their payload is buffered", () => {
 	header[0] = SERVICE_INPUT;
 	header.writeUInt32BE(1024 * 1024 + 1, 1);
 	expect(() => new ServiceFrameDecoder().push(header, () => {})).toThrow("Service frame exceeds 1 MiB");
+});
+
+test("negotiation and control requests are bounded before their payload is buffered", () => {
+	const header = Buffer.alloc(5);
+	header[0] = SERVICE_CONTROL;
+	header.writeUInt32BE(SERVICE_MAX_REQUEST_BYTES + 1, 1);
+	expect(() => new ServiceFrameDecoder(SERVICE_MAX_REQUEST_BYTES).push(header, () => {})).toThrow(
+		"Service frame exceeds the request limit",
+	);
+});
+
+test("authenticated relays permit large pasted input after the negotiation limit is lifted", () => {
+	const decoder = new ServiceFrameDecoder(SERVICE_MAX_REQUEST_BYTES);
+	const control = Buffer.from(JSON.stringify({ type: "list", token: "a".repeat(64) }));
+	const paste = Buffer.from("x".repeat(SERVICE_MAX_REQUEST_BYTES + 1));
+	const received: Array<{ type: number; payload: Buffer }> = [];
+	decoder.push(encodeServiceFrame(SERVICE_CONTROL, control), (type, payload) => {
+		received.push({ type, payload });
+	});
+	decoder.setMaxFrameBytes(1024 * 1024);
+	decoder.push(encodeServiceFrame(SERVICE_INPUT, paste), (type, payload) => {
+		received.push({ type, payload });
+	});
+	expect(received).toEqual([
+		{ type: SERVICE_CONTROL, payload: control },
+		{ type: SERVICE_INPUT, payload: paste },
+	]);
 });

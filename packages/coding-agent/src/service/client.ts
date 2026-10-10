@@ -3,26 +3,26 @@
  * service-owned interactive OMS over the profile's authenticated frame pipe.
  */
 import { dlopen, FFIType, ptr } from "bun:ffi";
-import * as net from "node:net";
+import type * as net from "node:net";
 import { APP_NAME } from "@oh-my-soup/pi-utils/dirs";
 import { stopPendingStartupComposer } from "../modes/startup-composer";
-import { servicePaths } from "./paths";
+import { connectService, readServiceToken } from "./control";
 import {
 	encodeServiceFrame,
 	SERVICE_HELLO,
 	SERVICE_INPUT,
 	SERVICE_OUTPUT,
 	SERVICE_RESIZE,
+	SERVICE_RESET,
 	ServiceFrameDecoder,
 } from "./protocol";
 
-const CONNECT_TIMEOUT_MS = 5_000;
 /** Covers the host spawning the interactive child on the first attach. */
 const HELLO_TIMEOUT_MS = 30_000;
 /** Ctrl+] — detach locally, leaving the service session running. */
 const DETACH_BYTE = 0x1d;
 const CTRL_C = Buffer.from([0x03]);
-/** The service replays onto a blank viewport (startup output, or the child's Ctrl+L repaint on reattach). */
+/** The service replays onto a blank viewport (startup output, or a full child repaint on reattach). */
 const CLEAR_SCREEN = "\x1b[H\x1b[2J";
 /**
  * Terminal modes the remote TUI may have left enabled on this terminal when
@@ -55,22 +55,16 @@ type RelayEnd = "service" | "detach" | "terminal";
 /**
  * Attach this terminal to the running OMS service and relay it until the
  * service session ends or the user detaches with Ctrl+].
+ * An exact sessionPath attaches only to its live published PTY and never starts a child.
  *
  * Returns false only when no service is running: the named pipe does not
  * exist (Windows) or the Unix socket is missing or stale with nobody listening
  * behind it. Every other failure — transport, token, rejection, protocol —
  * throws so the caller never silently starts a second, local session.
  */
-export async function tryAttachService(cwd: string): Promise<boolean> {
-	const { endpoint, token: tokenPath } = servicePaths();
-	let socket: net.Socket;
-	try {
-		socket = await connect(endpoint);
-	} catch (error) {
-		const code = (error as NodeJS.ErrnoException).code;
-		if (code === "ENOENT" || (code === "ECONNREFUSED" && process.platform !== "win32")) return false;
-		throw new Error(`Cannot connect to the OMS service at ${endpoint}: ${(error as Error).message}`);
-	}
+export async function tryAttachService(cwd: string, sessionPath?: string): Promise<boolean> {
+	const socket = await connectService();
+	if (!socket) return false;
 	try {
 		// A plain interactive launch is exactly the argv cli.ts speculatively
 		// prepaints, and that composer owns stdin/raw mode until stopped. The
@@ -78,44 +72,17 @@ export async function tryAttachService(cwd: string): Promise<boolean> {
 		// taking the terminal. Without a service (ENOENT above) it stays live for
 		// the local InteractiveMode.
 		stopPendingStartupComposer();
-		let token: string;
-		try {
-			token = (await Bun.file(tokenPath).text()).trim();
-		} catch (error) {
-			throw new Error(`Cannot read the OMS service token at ${tokenPath}: ${(error as Error).message}`);
-		}
-		await relay(socket, token, cwd);
+		const token = await readServiceToken();
+		if (socket.destroyed) throw new Error("OMS service closed the connection before accepting the terminal");
+		await relay(socket, token, cwd, sessionPath);
 		return true;
 	} finally {
 		socket.destroy();
 	}
 }
 
-function connect(endpoint: string): Promise<net.Socket> {
-	const { promise, resolve, reject } = Promise.withResolvers<net.Socket>();
-	const socket = net.createConnection({ path: endpoint });
-	const timer = setTimeout(() => {
-		socket.destroy();
-		reject(new Error(`timed out after ${CONNECT_TIMEOUT_MS} ms`));
-	}, CONNECT_TIMEOUT_MS);
-	const onConnect = (): void => {
-		clearTimeout(timer);
-		socket.off("error", onError);
-		resolve(socket);
-	};
-	const onError = (error: Error): void => {
-		clearTimeout(timer);
-		socket.off("connect", onConnect);
-		socket.destroy();
-		reject(error);
-	};
-	socket.once("connect", onConnect);
-	socket.once("error", onError);
-	return promise;
-}
-
 /** Run one authenticated attachment; resolves on service end, local detach, or terminal loss. */
-function relay(socket: net.Socket, token: string, cwd: string): Promise<void> {
+function relay(socket: net.Socket, token: string, cwd: string, sessionPath?: string): Promise<void> {
 	const { promise, resolve, reject } = Promise.withResolvers<void>();
 	const frames = new ServiceFrameDecoder();
 	let releaseTerminal: (() => void) | undefined;
@@ -198,6 +165,11 @@ function relay(socket: net.Socket, token: string, cwd: string): Promise<void> {
 			process.stdout.write(CLEAR_SCREEN);
 			return;
 		}
+		if (type === SERVICE_RESET && attached && payload.byteLength === 0) {
+			process.stdout.write(CLEAR_SCREEN);
+			send(SERVICE_RESIZE, sizePayload());
+			return;
+		}
 		if (type === SERVICE_OUTPUT && attached) {
 			if (process.stdout.write(payload) || outputBlocked) return;
 			outputBlocked = true;
@@ -230,7 +202,7 @@ function relay(socket: net.Socket, token: string, cwd: string): Promise<void> {
 		HELLO_TIMEOUT_MS,
 	);
 	const { cols, rows } = terminalSize();
-	send(SERVICE_HELLO, Buffer.from(JSON.stringify({ type: "attach", token, cwd, cols, rows })));
+	send(SERVICE_HELLO, Buffer.from(JSON.stringify({ type: "attach", token, cwd, sessionPath, cols, rows })));
 	return promise;
 }
 

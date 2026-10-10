@@ -9,6 +9,7 @@
  * All code that parses internal URLs (router, protocol handlers, tools)
  * MUST use this function instead of calling `new URL()` directly.
  */
+import { parseTrampSshPath, trampPathMethod } from "../ssh/tramp-path";
 import type { InternalUrl } from "./types";
 
 const SCHEME_HOST_RE = /^([a-z][a-z0-9+.-]*):\/\/([^/?#]*)/i;
@@ -33,6 +34,9 @@ const SELECTOR_CHAIN_RE = new RegExp(`^${SELECTOR_CHUNK_SRC}(?::${SELECTOR_CHUNK
  * - Read-tool selector tails (`Makefile:12`, `README:raw:1-20`).
  */
 export function extractUriScheme(input: string): string | undefined {
+	const trampMethod = trampPathMethod(input);
+	if (trampMethod === "ssh") return "ssh";
+	if (trampMethod !== undefined) parseTrampSshPath(input); // Reject recognized unsupported transports.
 	const hierarchical = input.match(SCHEME_HOST_RE);
 	if (hierarchical) return hierarchical[1].toLowerCase();
 	const opaque = input.match(OPAQUE_URI_RE);
@@ -51,6 +55,9 @@ export function extractUriScheme(input: string): string | undefined {
  * where the colon is not a port separator).
  */
 export function parseInternalUrl(input: string): InternalUrl {
+	const originalInput = input;
+	const tramp = parseTrampSshPath(input);
+	if (tramp) input = tramp.url;
 	const hostMatch = input.match(SCHEME_HOST_RE);
 	const pathMatch = input.match(PATHNAME_RE);
 
@@ -98,6 +105,6 @@ export function parseInternalUrl(input: string): InternalUrl {
 	const result = parsed as InternalUrl;
 	result.rawHost = rawHost;
 	result.rawPathname = pathMatch?.[1] ?? parsed.pathname;
-	result.rawHref = input;
+	result.rawHref = originalInput;
 	return result;
 }

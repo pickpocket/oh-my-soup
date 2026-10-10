@@ -660,7 +660,8 @@ impl SupportLang {
 			kind,
 			"statement_list"
 				| "statements"
-				| "body" | "indented_block"
+				| "body"
+				| "indented_block"
 				| "block"
 				| "statement_block"
 				| "compound_statement"

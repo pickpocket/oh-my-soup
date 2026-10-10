@@ -310,6 +310,10 @@ export interface AgentSessionConfig {
 	xdev?: XdevState;
 	/** Names pinned top-level during runtime repartitioning. */
 	presentationPinnedToolNames?: ReadonlySet<string>;
+	/** Immutable selected-child authority ceiling, including explicit custom exports and required yield. */
+	toolAllowlist?: ReadonlySet<string>;
+	/** Persist committed subagent enabled/presentation changes for park and restart. */
+	persistToolState?: boolean;
 	/** Accessor for live MCP server instructions. */
 	getMcpServerInstructions?: () => Map<string, string> | undefined;
 	/** Time-traveling stream-rule manager. */

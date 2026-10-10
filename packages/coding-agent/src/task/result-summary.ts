@@ -73,6 +73,7 @@ export function formatTaskResultSummary(
 		abortReason: result.aborted ? escapeHarnessTags(result.abortReason ?? "") || undefined : undefined,
 		error: error === undefined ? undefined : escapeHarnessTags(error),
 		resumable,
+		notesUri: result.notesUri === undefined ? undefined : escapeHarnessTags(result.notesUri),
 		preview: escapeHarnessTags(preview),
 		truncated,
 		meta: result.outputMeta

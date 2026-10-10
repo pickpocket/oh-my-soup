@@ -347,26 +347,60 @@ Use `--prompt-cache-key <key>` to pin the provider prompt-cache identity explici
 
 Without an argument:
 
-1. Opens the session selector populated via `SessionManager.listForPicker(currentCwd, currentSessionDir)`. Pinned sessions come first; untitled, prompt-less zero-turn stubs are hidden unless pinned. The picker always opens in current-folder scope; the empty state invites Tab into all-projects instead of auto-switching.
-2. Tab toggles to all-projects scope, lazily loading and caching `SessionManager.listAllForPicker()`.
-3. On selection, `SelectorController.handleResumeSession(sessionPath)` calls `session.switchSession(sessionPath)`. If the switch is rejected, it returns `false` and the selector stops without applying the new-session UI state.
-4. After a successful switch, UI clears/rebuilds chat and todos, then reports `Resumed session` (or `Resumed session in <dir>` when the resumed session belongs to another project, in which case the process cwd and cwd-derived caches are re-pointed via `applyCwdChange`).
+13: 1. Opens the session selector populated via `SessionManager.listForPicker(currentCwd, currentSessionDir)`, overlaid with the profile's live service sessions. Pinned sessions come first among saved sessions; untitled, prompt-less zero-turn stubs are hidden unless pinned. Live rows show **in progress** even before their first transcript write. The picker always opens in current-folder scope; the empty state invites Tab into all-projects instead of auto-switching.
+2. Tab toggles to all-projects scope, lazily loading and caching `SessionManager.listAllForPicker()` and the live service list.
+3. Selecting a live session attaches to its existing runtime. Inside the service, all handles on the source session move to the target together, leaving the source running detached. A standalone TUI closes its local session and reattaches through the service. No second writer is opened, and the target's current editor, tools, and work remain intact.
+4. A saved session that is not live uses `session.switchSession(sessionPath)`. If the switch is rejected, the selector leaves the existing session/UI unchanged. After success, UI clears/rebuilds chat and todos, then reports `Resumed session` (or `Resumed session in <dir>` for a cross-project switch via `applyCwdChange`).
+
+Service handles share one terminal view and input state; they are not independent agent runs. `Ctrl+]` detaches only the current handle. The **in progress** marker means the service process is alive, not necessarily that a model is streaming. Running sessions cannot be deleted from the picker.
+14: - `main.ts` lists sessions for the current cwd/sessionDir and opens the picker in current-folder scope. When that list is empty it preloads `SessionManager.listAllForPicker()` and the live service list so a user-initiated Tab switch to all-projects scope is immediate; it does not auto-switch scopes. `No sessions found` is printed only when the global list is also empty.
+- A selected live service session attaches directly in a TTY, including when launched with `--standalone`; its file is never opened as a second writer. Other selected paths are opened with `SessionManager.open(selectedPath)` before session creation; the process/project scope then switches to the resumed session's cwd (`switchToResumedProject`), reloading cwd-scoped settings and plugin caches and re-resolving scoped models.
+15: Path-valued resume opens directly rather than using the missing-directory move prompt. If its recorded cwd is missing or permission-blocked, startup retains the launch cwd without relocating the transcript; a failed cwd switch/rescope also prints a fallback warning. The same enterability policy applies to picker selections. A missing direct path fails with `Session "<path>" not found.`; an existing empty file or malformed non-empty headers fail closed without modifying the file.
+
+### `--no-session --resume [value]`
+
+- With an ID/path or the picker, startup loads the saved transcript into memory and keeps the launch cwd and extension scope.
+- Subsequent messages, title changes, drafts, migrations, and `/new` do not write a session file, artifacts, or terminal breadcrumb. The original transcript remains unchanged.
+- In-session `/resume` also works with an in-memory session manager. It follows the normal cwd-switch policy while keeping the loaded conversation nonpersistent.
+- A live service session is read only as a saved snapshot, never attached in this mode. If its transcript has not been materialized yet, there is no snapshot to load.
+- `--continue` and `--fork` still require persistence. Saved-session resume, persistent or ephemeral, does not require a running service.
 
 With an argument:
 
-- `/resume <id>` resolves an id/filename prefix with local-first, then global fallback and switches directly to the matched file; an unknown value reports `Session "<value>" not found`.
+- `/resume <id>` resolves an id/filename prefix with local-first, then global fallback. It also accepts a unique live-session ID prefix before a transcript exists. Live matches attach as above; other matches load the saved file. Unknown and ambiguous IDs report an error.
 - `/resume @claude` and `/resume @codex` open a foreign-session picker. Selecting one converts and persists it under a fresh OMS session identity, then switches to that new session.
 
 ## CLI `--resume`
 
 ### `--resume` (no value)
 
-- `main.ts` uses `SessionManager.listForPicker()` for the current cwd/sessionDir and opens the picker in current-folder scope. When that list is empty it preloads `SessionManager.listAllForPicker()` so a user-initiated Tab switch is immediate; it does not auto-switch scopes. `No sessions found` is printed only when the global picker list is also empty.
-- Selected path is opened with `SessionManager.open(selectedPath)` before session creation; the process/project scope then switches to the resumed session's cwd (`switchToResumedProject`), reloading cwd-scoped settings and plugin caches and re-resolving scoped models.
+13: 1. Opens the session selector populated via `SessionManager.listForPicker(currentCwd, currentSessionDir)`, overlaid with the profile's live service sessions. Pinned sessions come first among saved sessions; untitled, prompt-less zero-turn stubs are hidden unless pinned. Live rows show **in progress** even before their first transcript write. The picker always opens in current-folder scope; the empty state invites Tab into all-projects instead of auto-switching.
+2. Tab toggles to all-projects scope, lazily loading and caching `SessionManager.listAllForPicker()` and the live service list.
+3. Selecting a live session attaches to its existing runtime. Inside the service, all handles on the source session move to the target together, leaving the source running detached. A standalone TUI closes its local session and reattaches through the service. No second writer is opened, and the target's current editor, tools, and work remain intact.
+4. A saved session that is not live uses `session.switchSession(sessionPath)`. If the switch is rejected, the selector leaves the existing session/UI unchanged. After success, UI clears/rebuilds chat and todos, then reports `Resumed session` (or `Resumed session in <dir>` for a cross-project switch via `applyCwdChange`).
+
+Service handles share one terminal view and input state; they are not independent agent runs. `Ctrl+]` detaches only the current handle. The **in progress** marker means the service process is alive, not necessarily that a model is streaming. Running sessions cannot be deleted from the picker.
+14: - `main.ts` lists sessions for the current cwd/sessionDir and opens the picker in current-folder scope. When that list is empty it preloads `SessionManager.listAllForPicker()` and the live service list so a user-initiated Tab switch to all-projects scope is immediate; it does not auto-switch scopes. `No sessions found` is printed only when the global list is also empty.
+- A selected live service session attaches directly in a TTY, including when launched with `--standalone`; its file is never opened as a second writer. Other selected paths are opened with `SessionManager.open(selectedPath)` before session creation; the process/project scope then switches to the resumed session's cwd (`switchToResumedProject`), reloading cwd-scoped settings and plugin caches and re-resolving scoped models.
+15: Path-valued resume opens directly rather than using the missing-directory move prompt. If its recorded cwd is missing or permission-blocked, startup retains the launch cwd without relocating the transcript; a failed cwd switch/rescope also prints a fallback warning. The same enterability policy applies to picker selections. A missing direct path fails with `Session "<path>" not found.`; an existing empty file or malformed non-empty headers fail closed without modifying the file.
+
+### `--no-session --resume [value]`
+
+- With an ID/path or the picker, startup loads the saved transcript into memory and keeps the launch cwd and extension scope.
+- Subsequent messages, title changes, drafts, migrations, and `/new` do not write a session file, artifacts, or terminal breadcrumb. The original transcript remains unchanged.
+- In-session `/resume` also works with an in-memory session manager. It follows the normal cwd-switch policy while keeping the loaded conversation nonpersistent.
+- A live service session is read only as a saved snapshot, never attached in this mode. If its transcript has not been materialized yet, there is no snapshot to load.
+- `--continue` and `--fork` still require persistence. Saved-session resume, persistent or ephemeral, does not require a running service.
 
 ### `--resume <value>`
 
-`createSessionManager()` resolution order:
+Interactive startup first checks live service identities by path or unique ID
+prefix, before opening a session file. A live match attaches to the existing
+runtime after CLI flag validation, including with `--standalone`. If that
+process ends before attachment, resume fails rather than creating a replacement
+writer. Live attachment keeps the running session's configuration.
+
+For saved sessions, `createSessionManager()` uses this resolution order:
 
 1. If value looks like path (`/`, `\`, or `.jsonl`), open directly. A path that does not exist fails with `Session "<path>" not found.` rather than creating a session there.
 2. Else `resolveResumableSession(...)` searches:
@@ -381,13 +415,23 @@ Id/filename-prefix match behavior (local or global):
   - On no, startup is cancelled. In non-TTY mode, startup fails with an error directing the user to run interactively.
 - If the recorded directory still exists, the matched session is opened directly. Startup later changes the process/project scope to the resumed session's cwd and reloads cwd-scoped settings and plugin caches. It is not implicitly forked.
 
-Path-valued resume opens directly rather than using the missing-directory move
-prompt. If its recorded cwd is missing or permission-blocked, startup retains
-the launch cwd without relocating the transcript; a failed cwd switch/rescope
-also prints a fallback warning.
-The same enterability policy applies to picker selections. A missing direct path
-fails with `Session "<path>" not found.`; an existing empty file or malformed
-non-empty headers fail closed without modifying the file.
+13: 1. Opens the session selector populated via `SessionManager.listForPicker(currentCwd, currentSessionDir)`, overlaid with the profile's live service sessions. Pinned sessions come first among saved sessions; untitled, prompt-less zero-turn stubs are hidden unless pinned. Live rows show **in progress** even before their first transcript write. The picker always opens in current-folder scope; the empty state invites Tab into all-projects instead of auto-switching.
+2. Tab toggles to all-projects scope, lazily loading and caching `SessionManager.listAllForPicker()` and the live service list.
+3. Selecting a live session attaches to its existing runtime. Inside the service, all handles on the source session move to the target together, leaving the source running detached. A standalone TUI closes its local session and reattaches through the service. No second writer is opened, and the target's current editor, tools, and work remain intact.
+4. A saved session that is not live uses `session.switchSession(sessionPath)`. If the switch is rejected, the selector leaves the existing session/UI unchanged. After success, UI clears/rebuilds chat and todos, then reports `Resumed session` (or `Resumed session in <dir>` for a cross-project switch via `applyCwdChange`).
+
+Service handles share one terminal view and input state; they are not independent agent runs. `Ctrl+]` detaches only the current handle. The **in progress** marker means the service process is alive, not necessarily that a model is streaming. Running sessions cannot be deleted from the picker.
+14: - `main.ts` lists sessions for the current cwd/sessionDir and opens the picker in current-folder scope. When that list is empty it preloads `SessionManager.listAllForPicker()` and the live service list so a user-initiated Tab switch to all-projects scope is immediate; it does not auto-switch scopes. `No sessions found` is printed only when the global list is also empty.
+- A selected live service session attaches directly in a TTY, including when launched with `--standalone`; its file is never opened as a second writer. Other selected paths are opened with `SessionManager.open(selectedPath)` before session creation; the process/project scope then switches to the resumed session's cwd (`switchToResumedProject`), reloading cwd-scoped settings and plugin caches and re-resolving scoped models.
+15: Path-valued resume opens directly rather than using the missing-directory move prompt. If its recorded cwd is missing or permission-blocked, startup retains the launch cwd without relocating the transcript; a failed cwd switch/rescope also prints a fallback warning. The same enterability policy applies to picker selections. A missing direct path fails with `Session "<path>" not found.`; an existing empty file or malformed non-empty headers fail closed without modifying the file.
+
+### `--no-session --resume [value]`
+
+- With an ID/path or the picker, startup loads the saved transcript into memory and keeps the launch cwd and extension scope.
+- Subsequent messages, title changes, drafts, migrations, and `/new` do not write a session file, artifacts, or terminal breadcrumb. The original transcript remains unchanged.
+- In-session `/resume` also works with an in-memory session manager. It follows the normal cwd-switch policy while keeping the loaded conversation nonpersistent.
+- A live service session is read only as a saved snapshot, never attached in this mode. If its transcript has not been materialized yet, there is no snapshot to load.
+- `--continue` and `--fork` still require persistence. Saved-session resume, persistent or ephemeral, does not require a running service.
 
 ## CLI `--continue`
 

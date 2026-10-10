@@ -433,21 +433,27 @@ if (!globalThis.__oms_js_prelude_loaded__) {
 	judgeBatch.attach = async id =>
 		judgeBatchFrom(await globalThis.__oms_call_tool__("__judge_batch__", { op: "attach", id: String(id) }));
 
-	const agent = (prompt, opts, ...rest) => {
+	const agentFactory = fork => (prompt, opts, ...rest) => {
 		const promise = (async () => {
 			const options = optionsArg(
-				"agent",
+				fork ? "agent.fork" : "agent",
 				opts,
 				rest,
-				["agent", "label", "schema", "isolated", "apply", "merge", "schemaMode", "tools"],
-				"{ agent, label, schema, schemaMode, isolated, apply, merge, tools }",
+				["agent", "label", "schema", "isolated", "apply", "merge", "schemaMode", "tools", "toolNames"],
+				"{ agent, label, schema, schemaMode, isolated, apply, merge, tools, toolNames }",
 			);
-			const result = await globalThis.__oms_call_tool__("__agent__", { prompt, ...options });
-			if (!result || typeof result.id !== "string") throw new Error("agent() did not return a handle");
+			const result = await globalThis.__oms_call_tool__("__agent__", {
+				prompt, ...options, ...(fork ? { fork: true } : {}),
+			});
+			if (!result || typeof result.id !== "string") {
+				throw new Error(`${fork ? "agent.fork" : "agent"}() did not return a handle`);
+			}
 			return new AgentHandle(result.id, result.agent, options.schema);
 		})();
 		return new PendingHandle(promise);
 	};
+	const agent = agentFactory(false);
+	agent.fork = agentFactory(true);
 
 	class WorkPool {
 		constructor(name, agentName, limit) {

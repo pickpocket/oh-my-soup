@@ -72,6 +72,8 @@ import { SessionManager } from "../../session/session-manager";
 import { loadPinnedSessionIds } from "../../session/session-pins";
 import { FileSessionStorage } from "../../session/session-storage";
 import { listLogoutAccounts, logoutCredential } from "../../slash-commands/helpers/logout";
+import { handoffServiceSession, listServiceSessions } from "../../service/control";
+import { liveSessionForPath, markLiveSessions } from "../../service/resume";
 import type { LogoutAccount } from "@oh-my-soup/pi-tui/overlays/logout-account-selector";
 import { describeRedeemOutcome, toResetUsageAccounts } from "../../slash-commands/helpers/reset-usage";
 import { toSessionPinAccounts } from "../../slash-commands/helpers/session-pin";
@@ -1789,18 +1791,38 @@ export class SelectorController {
 				showCwd: true,
 			};
 		} else {
+			await this.ctx.reportLiveSession?.();
+			let liveSessions;
+			try {
+				liveSessions = await listServiceSessions();
+			} catch (error) {
+				this.ctx.showError(
+					`Could not list live service sessions: ${error instanceof Error ? error.message : String(error)}`,
+				);
+				return;
+			}
+			const folderDir =
+				this.ctx.sessionManager.getSessionDir() ||
+				SessionManager.getDefaultSessionDir(this.ctx.sessionManager.getCwd());
 			const [loadedSessions, pinnedIds] = await Promise.all([
-				SessionManager.listForPicker(this.ctx.sessionManager.getCwd(), this.ctx.sessionManager.getSessionDir()),
+				SessionManager.listForPicker(
+					this.ctx.sessionManager.getCwd(),
+					this.ctx.sessionManager.getSessionDir() || undefined,
+				),
 				loadPinnedSessionIds(),
 			]);
-			sessions = loadedSessions;
+			sessions = markLiveSessions(loadedSessions, liveSessions, folderDir);
 			const historyStorage = this.ctx.historyStorage;
 			const historyMatcher = historyStorage
 				? (query: string) => historyStorage.matchingSessionIds(query)
 				: undefined;
-			onSelectSession = session => this.handleResumeSession(session.path);
+			onSelectSession = session =>
+				this.handleResumeSession(session.path, { selectedLive: session.status === "running" });
 			selectorOptions = {
 				onDelete: async (session: SessionInfo) => {
+					if (liveSessionForPath(session.path, await listServiceSessions())) {
+						throw new Error("Cannot delete a session while it is running in the OMS service");
+					}
 					if (!(await this.#detachActiveSessionBeforeDeletion(session.path))) {
 						return false;
 					}
@@ -1816,7 +1838,8 @@ export class SelectorController {
 					}
 				},
 				historyMatcher,
-				loadAllSessions: () => SessionManager.listAllForPicker(),
+				loadAllSessions: async () =>
+					markLiveSessions(await SessionManager.listAllForPicker(), await listServiceSessions()),
 				pinnedIds,
 				// Live getter so detach/newSession stays accurate; tolerant of partial
 				// contexts and in-memory sessions (undefined file means no marker).
@@ -1908,7 +1931,18 @@ export class SelectorController {
 		return true;
 	}
 
-	async handleResumeSession(sessionPath: string, options?: { settingsFlushed?: boolean }): Promise<boolean> {
+	async handleResumeSession(
+		sessionPath: string,
+		options?: { settingsFlushed?: boolean; selectedLive?: boolean },
+	): Promise<boolean> {
+		await this.ctx.reportLiveSession?.();
+		const active = liveSessionForPath(sessionPath, await listServiceSessions());
+		if (options?.selectedLive && !active && !(await Bun.file(sessionPath).exists())) {
+			throw new Error("Live session ended before it was saved; choose another session");
+		}
+		if (active && !this.ctx.sessionManager.isPersistent() && !(await Bun.file(sessionPath).exists())) {
+			throw new Error("This live session has not been saved yet; --no-session cannot load its snapshot");
+		}
 		const previousCwd = this.ctx.sessionManager.getCwd();
 		// Flush pending settings writes before switching sessions so a save
 		// failure leaves the session, process project dir, and Settings in the
@@ -1923,6 +1957,17 @@ export class SelectorController {
 		}
 		const target = await this.#relocateFromRemovedWorktree(sessionPath);
 		if (!target) return false;
+		if (active && this.ctx.sessionManager.isPersistent()) {
+			if (process.env.OMS_SERVICE_CHILD === "1") {
+				const current = this.ctx.sessionManager.getSessionFile();
+				if (current && normalizePathForComparison(current) === normalizePathForComparison(active.sessionPath))
+					return true;
+				await handoffServiceSession(active.sessionPath);
+				return true;
+			}
+			await this.ctx.restart(active.sessionPath);
+			return true;
+		}
 		await this.ctx.prepareSessionSwitch();
 		this.ctx.resetObserverRegistry();
 		// AgentSession owns the transaction. It restores the complete source state
@@ -1941,6 +1986,7 @@ export class SelectorController {
 		) {
 			return false;
 		}
+		await this.ctx.reportLiveSession?.();
 		this.ctx.clearTransientSessionUi();
 		const newCwd = this.ctx.sessionManager.getCwd();
 		const movedProject = normalizePathForComparison(newCwd) !== normalizePathForComparison(previousCwd);

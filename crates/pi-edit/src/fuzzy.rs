@@ -3,6 +3,7 @@
 //! line-sequence placement, and context-line placement.
 
 use std::{collections::HashMap, fmt::Write, ops::Range};
+
 use crate::{
 	error::EditError,
 	text::{
@@ -974,7 +975,8 @@ fn find_ranked_match(
 			let band = ranked
 				.iter()
 				.filter(|candidate| candidate.errors <= 2 * fewest + 1)
-				.count() == 1
+				.count()
+				== 1
 				&& first.errors == fewest;
 			(gap || band).then(|| first.matched.clone())
 		},

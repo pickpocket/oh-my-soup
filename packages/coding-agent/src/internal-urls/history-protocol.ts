@@ -20,9 +20,9 @@
 import type { AgentMessage } from "@oh-my-soup/pi-agent-core";
 import type { AssistantMessage } from "@oh-my-soup/pi-ai";
 import { LRUCache } from "@oh-my-soup/pi-utils/lru";
+import historyPromptDoc from "../prompts/internal-urls/history.md" with { type: "text" };
 import type { AgentRef } from "../registry/agent-registry";
 import { AgentRegistry } from "../registry/agent-registry";
-import { ensurePersistedRoster } from "../registry/persisted-agents";
 import { formatSessionHistoryMarkdown } from "../session/session-history-format";
 import {
 	bashExecutionToText,
@@ -37,8 +37,8 @@ import {
 } from "../session/messages";
 import { loadSessionMessagesReadOnly } from "../session/session-loader";
 import type { SessionEntry } from "../session/session-entries";
-import historyPromptDoc from "../prompts/internal-urls/history.md" with { type: "text" };
-import { artifactsDirsFromRegistry, sessionFilesFromDisk } from "./registry-helpers";
+import { ensurePersistedRoster } from "../registry/persisted-agents";
+import { artifactsDirsFromRegistry, findAgentSessionFile, lookupAgent, sessionFilesFromDisk } from "./registry-helpers";
 import type {
 	InternalResource,
 	InternalUrl,
@@ -65,15 +65,12 @@ function diskIdsForCompletion(): Promise<string[]> {
 	return ids;
 }
 
-/** Registry lookup for a `history://<id>` URL, bound to the caller's root. */
+/** Caller-root-aware registry roster used by the history index. */
 interface RefLookup {
 	ref?: AgentRef;
-	/** Registered, non-advisor refs. */
 	visible: AgentRef[];
-	/** Caller root's artifact dir, scanned first by on-disk fallbacks. */
 	preferredArtifactDir?: string;
 }
-
 /** True for `history://current/<path>`; throws unless the route is exactly `current/full`. */
 function isCurrentFullRoute(url: InternalUrl): boolean {
 	const agentId = url.rawHost || url.hostname;
@@ -322,50 +319,24 @@ export class HistoryProtocolHandler implements ProtocolHandler {
 		if (isCurrentFullRoute(url)) return null;
 		const agentId = url.rawHost || url.hostname;
 		if (!agentId) return null;
-		const { ref, preferredArtifactDir } = await this.#lookup(agentId, context);
+		const { ref, preferredArtifactDir } = await lookupAgent(agentId, context);
 		if (ref?.sessionFile) return ref.sessionFile;
 		if (ref?.session) return null;
-		return (await this.#findOnDisk(ref?.id ?? agentId, preferredArtifactDir))?.file ?? null;
+		return (await findAgentSessionFile(agentId, preferredArtifactDir))?.file ?? null;
 	}
 
 	/**
 	 * The registry roster as the caller sees it: the caller root's persisted
 	 * roster is refreshed first, and its artifact dir leads every on-disk scan.
-	 * Both the bare index and `history://<id>` lookups read this one source.
 	 */
 	async #roster(context: ResolveContext | undefined): Promise<Omit<RefLookup, "ref">> {
 		const registry = AgentRegistry.global();
-		// A caller resolving a possibly-parked id refreshes its own root's
-		// persisted roster first: a same-named parked ref restored by another
-		// root's scan must not be served (or listed as known) in its place.
-		// The refresh is latched per root, so a settled roster never re-scans.
 		const rootSessionFile = context?.sessionFile
 			? await ensurePersistedRoster(registry, context.sessionFile)
 			: undefined;
-		// On-disk fallbacks scan the caller root's artifact directory first, so a
-		// same-named transcript restored by another root's scan never shadows
-		// this caller's own on-disk transcript.
 		const preferredArtifactDir = rootSessionFile?.slice(0, -".jsonl".length);
-		// Advisor transcripts are observability-only — surfaced in the Agent Hub, never
-		// in the agent-facing roster. Hide them from the index, lookup, and completions.
 		const visible = registry.list().filter(ref => ref.kind !== "advisor");
 		return { visible, preferredArtifactDir };
-	}
-
-	/**
-	 * Find the registry ref for `agentId` (exact, then case-insensitive),
-	 * skipping advisor transcripts.
-	 */
-	async #lookup(agentId: string, context: ResolveContext | undefined): Promise<RefLookup> {
-		const { visible, preferredArtifactDir } = await this.#roster(context);
-		let ref = AgentRegistry.global().get(agentId);
-		if (ref?.kind === "advisor") ref = undefined;
-		if (!ref) {
-			// Case-insensitive fallback: agent ids are human-typed (e.g. AuthLoader).
-			const lower = agentId.toLowerCase();
-			ref = visible.find(candidate => candidate.id.toLowerCase() === lower);
-		}
-		return { ref, visible, preferredArtifactDir };
 	}
 
 	#resolveCurrentFull(url: InternalUrl, context: ResolveContext | undefined): InternalResource {
@@ -401,7 +372,7 @@ export class HistoryProtocolHandler implements ProtocolHandler {
 			};
 		}
 
-		const { ref, visible, preferredArtifactDir } = await this.#lookup(agentId, context);
+		const { ref, visible, preferredArtifactDir } = await lookupAgent(agentId, context);
 		if (!ref) {
 			// Registry miss — the agent may have been unregistered or lost on resume.
 			// Serve its transcript straight from disk if the session file persists.
@@ -448,7 +419,7 @@ export class HistoryProtocolHandler implements ProtocolHandler {
 	 * transcript from another root cannot shadow the caller's own.
 	 */
 	async #resolveFromDisk(agentId: string, preferredArtifactDir?: string): Promise<InternalResource | undefined> {
-		const match = await this.#findOnDisk(agentId, preferredArtifactDir);
+		const match = await findAgentSessionFile(agentId, preferredArtifactDir);
 		if (!match) return undefined;
 		const messages = await loadSessionMessagesReadOnly(match.file);
 		const content = formatSessionHistoryMarkdown(messages, { title: `${match.id} (on disk)` });
@@ -460,23 +431,6 @@ export class HistoryProtocolHandler implements ProtocolHandler {
 			sourcePath: match.file,
 			notes: ["Source: session file (read-only, unregistered)"],
 		};
-	}
-
-	/** On-disk `<id>.jsonl` for `agentId`: exact id wins, else the last case-insensitive match. */
-	async #findOnDisk(
-		agentId: string,
-		preferredArtifactDir?: string,
-	): Promise<{ id: string; file: string } | undefined> {
-		const files = await sessionFilesFromDisk(preferredArtifactDir);
-		const lower = agentId.toLowerCase();
-		let match: { id: string; file: string } | undefined;
-		for (const [id, file] of files) {
-			if (id === agentId || id.toLowerCase() === lower) {
-				match = { id, file };
-				if (id === agentId) break;
-			}
-		}
-		return match;
 	}
 
 	async #renderIndex(refs: AgentRef[], preferredArtifactDir: string | undefined): Promise<string> {

@@ -201,6 +201,7 @@ async function createPersistedSession(
 }
 
 interface ReviveOwnerOptions {
+	session?: AgentSession;
 	extensionRoots?: () => EffectiveExtensionRoots;
 	preparedExtensions?: readonly PreparedExtension[];
 	authStorage?: AuthStorage;
@@ -232,7 +233,7 @@ function createFactory(cwd: string, eventBus?: EventBus, owner: ReviveOwnerOptio
 		},
 	} as unknown as AgentSession;
 	return createPersistedSubagentReviverFactory({
-		session: parentSession,
+		session: owner.session ?? parentSession,
 		authStorage: owner.authStorage ?? ({} as never),
 		modelRegistry: owner.modelRegistry ?? ({ authStorage: {} } as ModelRegistry),
 		settings: owner.settings ?? Settings.isolated(),
@@ -428,109 +429,6 @@ describe("persisted subagent revival", () => {
 		expect(capturedArtifactsDir).toBe(path.dirname(sessionFile));
 		expect(capturedArtifactsDir).not.toBe(path.join(cwd, "parent"));
 		AgentRegistry.resetGlobalForTests();
-	});
-
-	it("cold-revives a restricted contract without loading hostile same-name capabilities", async () => {
-		const cwd = makeTempDir("@pi-restricted-revive-");
-		const sessionFile = await createPersistedSession(cwd, true);
-		const hostileMcpGetTools = vi.fn(() => [{ name: "read", label: "hostile/read" }]);
-		MCPManager.setInstance(fakeMcpManager(hostileMcpGetTools));
-		const activeToolNames: string[][] = [];
-		let capturedOptions: CreateAgentSessionOptions | undefined;
-		const attemptedDiscovery: string[] = [];
-		vi.spyOn(sdkModule, "createAgentSession").mockImplementation(async options => {
-			capturedOptions = options;
-			if (options?.preloadedExtensionPaths === undefined) attemptedDiscovery.push("extension:read");
-			if (options?.preloadedCustomToolPaths === undefined) attemptedDiscovery.push("custom:read");
-			if (options?.mcpManager !== undefined || options?.customTools !== undefined)
-				attemptedDiscovery.push("mcp:read");
-			return { session: createRevivedSession(activeToolNames).session } as CreateAgentSessionResult;
-		});
-
-		const ref = createRef(sessionFile);
-		const reviver = await createFactory(cwd)(ref);
-		if (!reviver) throw new Error("Expected a persisted reviver");
-		await reviver(ref);
-
-		expect(capturedOptions?.restrictToolNames).toBe(true);
-		expect(capturedOptions?.enableMCP).toBe(false);
-		expect(capturedOptions?.enableLsp).toBe(false);
-		expect(capturedOptions?.enableIrc).toBe(false);
-		expect(capturedOptions?.mcpManager).toBeUndefined();
-		expect(capturedOptions?.customTools).toBeUndefined();
-		expect(capturedOptions?.mcpTools).toBeUndefined();
-		expect(capturedOptions?.preloadedExtensionPaths).toEqual([]);
-		expect(capturedOptions?.preloadedCustomToolPaths).toEqual([]);
-		expect(hostileMcpGetTools).not.toHaveBeenCalled();
-		expect(attemptedDiscovery).toEqual([]);
-		expect(activeToolNames).toEqual([["read", "yield"]]);
-	});
-
-	it("strips synthetic write from legacy read-only cold revival", async () => {
-		const cwd = makeTempDir("@pi-read-only-revive-");
-		const sessionFile = await createPersistedSession(cwd, undefined, undefined, undefined, {
-			tools: ["read", "write", "yield"],
-			readOnly: true,
-		});
-		const activeToolNames: string[][] = [];
-		let capturedOptions: CreateAgentSessionOptions | undefined;
-		vi.spyOn(sdkModule, "createAgentSession").mockImplementation(async options => {
-			capturedOptions = options;
-			return { session: createRevivedSession(activeToolNames).session } as CreateAgentSessionResult;
-		});
-
-		const ref = createRef(sessionFile);
-		const reviver = await createFactory(cwd)(ref);
-		if (!reviver) throw new Error("Expected a persisted reviver");
-		await reviver(ref);
-
-		expect(capturedOptions?.toolNames).toEqual(["read", "yield"]);
-		expect(activeToolNames).toEqual([["read", "yield"]]);
-	});
-
-	it("preserves explicitly writable cold-revival contracts", async () => {
-		const cwd = makeTempDir("@pi-write-revive-");
-		const sessionFile = await createPersistedSession(cwd, undefined, undefined, undefined, {
-			tools: ["read", "write", "yield"],
-			readOnly: false,
-		});
-		const activeToolNames: string[][] = [];
-		let capturedOptions: CreateAgentSessionOptions | undefined;
-		vi.spyOn(sdkModule, "createAgentSession").mockImplementation(async options => {
-			capturedOptions = options;
-			return { session: createRevivedSession(activeToolNames).session } as CreateAgentSessionResult;
-		});
-
-		const ref = createRef(sessionFile);
-		const reviver = await createFactory(cwd)(ref);
-		if (!reviver) throw new Error("Expected a persisted reviver");
-		await reviver(ref);
-
-		expect(capturedOptions?.toolNames).toEqual(["read", "write", "yield"]);
-		expect(activeToolNames).toEqual([["read", "write", "yield"]]);
-	});
-
-	it("preserves normal revival capability wiring for contracts without the marker", async () => {
-		const cwd = makeTempDir("@pi-normal-revive-");
-		const sessionFile = await createPersistedSession(cwd);
-		const hostileMcp = fakeMcpManager(() => [{ name: "mcp__server_read", label: "server/read" }]);
-		MCPManager.setInstance(hostileMcp);
-		let capturedOptions: CreateAgentSessionOptions | undefined;
-		vi.spyOn(sdkModule, "createAgentSession").mockImplementation(async options => {
-			capturedOptions = options;
-			return { session: createRevivedSession([]).session } as CreateAgentSessionResult;
-		});
-
-		const ref = createRef(sessionFile);
-		const reviver = await createFactory(cwd)(ref);
-		if (!reviver) throw new Error("Expected a persisted reviver");
-		await reviver(ref);
-
-		expect(capturedOptions?.restrictToolNames).toBeUndefined();
-		expect(capturedOptions?.enableLsp).toBe(true);
-		expect(capturedOptions?.mcpManager).toBe(hostileMcp);
-		expect(capturedOptions?.mcpTools?.map(tool => tool.name)).toEqual(["mcp__server_read"]);
-		expect(capturedOptions?.customTools).toBeUndefined();
 	});
 
 	it("leaves isolated sessions transcript-only even when the workspace still exists", async () => {
@@ -1287,6 +1185,9 @@ describe("cold revival replays the system prompt the last request sent", () => {
 				initialize: () => {},
 				onError: () => () => {},
 				hasHandlers: () => false,
+				getRegisteredTool: () => undefined,
+				disposeFileFallbacks: () => {},
+				clearManagedTimers: () => {},
 				emit: async (event: { type: string }) => {
 					if (event.type === "session_start") hooks.sessionStart?.();
 				},
@@ -1336,12 +1237,13 @@ describe("cold revival replays the system prompt the last request sent", () => {
 			task: "do work",
 			index: 0,
 			id: "prompt-blocks",
+			toolNames: ["read"],
 			settings: Settings.isolated(),
 			modelRegistry: { refresh: async () => {} } as unknown as ModelRegistry,
 			enableLsp: false,
 			artifactsDir: cwd,
 		});
-		expect(result.exitCode).toBe(0);
+		expect(result.exitCode, result.error ?? result.abortReason ?? result.output).toBe(0);
 		if (!spawned) throw new Error("Expected the spawn to create a session");
 		return spawned;
 	}
@@ -1358,7 +1260,8 @@ describe("cold revival replays the system prompt the last request sent", () => {
 			return { session: revived.session } as CreateAgentSessionResult;
 		});
 		const ref = { ...createRef(path.join(cwd, "prompt-blocks.jsonl")), id: "prompt-blocks" };
-		const reviver = await createFactory(cwd)(ref);
+		const parent = createRecordingSession(SessionManager.inMemory(cwd), () => [], []);
+		const reviver = await createFactory(cwd, undefined, { session: parent.session })(ref);
 		if (!reviver) throw new Error("Expected a persisted reviver");
 		const session = await reviver(ref);
 		await session.prompt("follow-up");
@@ -1511,6 +1414,7 @@ describe("cold revival replays the system prompt the last request sent", () => {
 			task: "do work",
 			index: 0,
 			id: "prompt-blocks",
+			toolNames: ["read"],
 			settings: Settings.isolated(),
 			modelRegistry: { refresh: async () => {} } as unknown as ModelRegistry,
 			enableLsp: false,

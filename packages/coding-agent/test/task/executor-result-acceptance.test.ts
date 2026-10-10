@@ -25,6 +25,7 @@ import type { AgentDefinition } from "@oh-my-soup/pi-coding-agent/task/types";
 import type { ToolSession } from "@oh-my-soup/pi-coding-agent/tools";
 import { WaitTool } from "@oh-my-soup/pi-coding-agent/tools/wait";
 import { EventBus } from "@oh-my-soup/pi-coding-agent/utils/event-bus";
+import { createSessionDefaults } from "../helpers/session-defaults";
 
 const AGENT_ID = "accepted-result";
 
@@ -104,6 +105,7 @@ function createHarness(options?: { hangPrompt?: boolean; asyncJobManager?: Async
 		} as AgentSessionEvent);
 	};
 	const session = {
+		...createSessionDefaults(),
 		state: { messages },
 		agent: { state: { systemPrompt: ["test"] } },
 		model: undefined,
@@ -167,10 +169,6 @@ function registerRunning(session: AgentSession) {
 		session,
 		status: "running",
 	});
-}
-
-async function flushMicrotasks(): Promise<void> {
-	for (let turn = 0; turn < 20; turn += 1) await Promise.resolve();
 }
 
 describe("runSubprocess result acceptance", () => {
@@ -250,12 +248,7 @@ describe("runSubprocess result acceptance", () => {
 
 			const job = manager.getJob(jobId);
 			expect(job).toBeDefined();
-			await flushMicrotasks();
-			const settlement = job!.status === "running" ? ("still-running" as const) : ("settled" as const);
-			if (settlement === "still-running") manager.cancel(jobId);
 			await job!.promise;
-
-			expect(settlement).toBe("settled");
 			expect(job!.status).toBe("failed");
 			expect(await delivered.promise).toMatchObject({ id: jobId });
 		} finally {

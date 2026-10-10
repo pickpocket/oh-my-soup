@@ -10,11 +10,11 @@ There are two different bash execution surfaces in coding-agent:
 
 1. **Tool-call surface** (`toolName: "bash"`): used when the model calls the bash tool.
    - Entry point: `BashTool.execute()`.
-   - Parameters include `command`, optional `timeout`, `cwd`, `pty`, and, when `async.enabled` is true, `async`. With `launch.enabled` (default `true`), `name` and `ready` select managed service execution. There is no model-facing `env` parameter.
+   - Parameters include `command`, optional `timeout`, `cwd`, `pty`, and, when `async.enabled` is true, `async`. With `launch.enabled` (default `true`), `name` and `ready` select managed service execution; `target` selects remote SSH execution. There is no model-facing `env` parameter.
 2. **User bang-command surface** (`!cmd` from interactive input or RPC `bash` command): session-level helper path.
    - Entry point: `AgentSession.executeBash()`.
 
-Both eventually use `executeBash()` in `src/exec/bash-executor.ts` for non-PTY execution, but only the tool-call path runs normalization/interception, optional managed background-job handling, and tool renderer logic.
+Local non-PTY execution uses `executeBash()` in `src/exec/bash-executor.ts`. The tool-call path also supports remote execution through `src/ssh/ssh-executor.ts`; only the tool-call path runs normalization/interception, optional managed background-job handling, and tool renderer logic.
 
 Set `bash.enabled: false` in settings to remove the model-facing `bash` tool from the active tool registry. This does not disable user-initiated bang commands or RPC `bash` requests.
 
@@ -32,6 +32,8 @@ Set `bash.enabled: false` in settings to remove the model-facing `bash` tool fro
 - ignores `ready` without a nonblank `name`, adding a notice.
 
 There are no structured `head` or `tail` parameters. Command text is never rewritten for internal URLs. The embedded shell and its in-process coreutils resolve `scheme://` paths through an injected async filesystem (`InternalUrlFilesystem`) at the moment of each operation, so URLs built from variables, redirections, globs, `cd`, and a URL `cwd` all work. File-backed schemes operate on their backing files; rendered resources are read-only; external programs never see virtual paths and cannot start in a virtual working directory. `xargs`, `find -exec`/`-execdir`, and `ifne` run their commands through the shell's own dispatch in a subshell, so `… | xargs cat` reaches the in-process `cat` and its URL arguments. The finite-command routes also load configured direnv/devenv changes. SDK callers of the executor can supply an `env` overlay; the bash tool itself uses shell assignments for per-command variables.
+
+SSH is special when used as `cwd`: `/ssh:user@host#2222:/srv/app` and `ssh://host/srv/app` select remote command execution rather than a local virtual working directory. In ordinary file arguments, TRAMP paths route through the same filesystem as SSH URLs, preserving literal filename characters. Only single-hop `/ssh:` paths are supported; unsupported methods and malformed remote paths fail instead of becoming local paths.
 
 ### Approval policy
 
@@ -122,6 +124,14 @@ A nonblank `name` routes to `startService()` before finite-command timeout, asyn
 - `read proc://<name>` inspects state and logs; `write proc://<name>` sends input (empty content sends Enter), `write proc://<name>/kill` stops it, and `/mode` accepts `persist`, `session`, or `detached`.
 
 The result carries `details.service` (`name`, `state`, `ready`, `timedOut`, optional `pid`), not finite-command timeout/async metadata.
+
+## Remote SSH execution
+
+`BashTool.#executeRemote()` resolves `target` and/or a TRAMP/SSH `cwd` through the shared SSH location resolver. A path can connect lazily to an OpenSSH destination. If both forms are supplied, their destination and credentials must match. TRAMP empty, relative, and `~/` paths are resolved against the verified POSIX login user's home; URL paths remain absolute.
+
+POSIX commands use `src/ssh/persistent-shell.ts`: one retained SSH process per agent owner, full authentication identity, and selected shell, with serialized calls and incremental output framing. Environment, functions, and cwd survive calls; explicit `cwd` changes the directory, while omission preserves it. Calls have closed stdin and merged stdout/stderr; the existing output sink handles truncation and artifact spill.
+
+Timeout, abort, shell exit, disconnect, credential replacement, or owner disposal invalidates the shell. Queued cancellation does not kill an unrelated active command. The next call reconnects without replaying an uncertain command. Retained shells work on Windows clients without ControlMaster. Native cmd/PowerShell remotes remain one-shot. Remote execution does not support PTY, named services, or async jobs.
 
 ## Non-interactive execution engine (`executeBash`)
 

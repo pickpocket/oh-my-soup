@@ -1,7 +1,7 @@
 Persistent shell: one fact command/pipeline; dependencies use `&&`.
 {{#if hasEval}}Scripts/heredocs/`$(…)`/complex pipelines → `eval`.{{else}}Scripts/heredocs/`$(…)`/complex flow → dedicated tool or checked-in script.{{/if}}
 `cwd`, not `cd`; `pty` only interactive.
-`target: "<name>"` runs on an open SSH session (`write xd://ssh {"op":"connect",...}`) or `ssh.json` host, not locally; `cwd` is then an absolute remote path.
+Remote: `cwd: "/ssh:user@host#2222:/path"` connects lazily; or `target: "<name>"` uses an SSH session/`ssh.json` host. POSIX shell state persists per owner/connection; omitted `cwd` retains it. TRAMP `~/` resolves remote home. Target/cwd conflicts fail; remote service/async/PTY unsupported. Timeout/abort closes the shell; next call starts fresh, never replays.
 Internal URIs work as paths for builtins/coreutils, redirects, globs.
 {{#if asyncEnabled}}`async` defers finite results but keeps the deadline (default {{defaultTimeoutSec}}s); `timeout: 0` for watchers and long jobs.{{/if}}
 No `head`/`tail`/redirection; output trunc by default, full result at `artifact://<id>`.

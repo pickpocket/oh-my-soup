@@ -1,5 +1,5 @@
 /**
- * Host-side handler for the eval `agent()` helper.
+ * Host-side handler for the eval `agent()` and `agent.fork()` helpers.
  */
 import { type } from "@oh-my-soup/omstype";
 import { MAIN_AGENT_ID } from "../registry/agent-registry";
@@ -32,6 +32,8 @@ const agentArgsSchema = type({
 	"apply?": "boolean",
 	"merge?": "boolean",
 	"tools?": "string[]",
+	"toolNames?": "string[]",
+	"fork?": "boolean",
 	"+": "delete",
 });
 
@@ -45,6 +47,8 @@ interface EvalAgentArgs {
 	apply?: boolean;
 	merge?: boolean;
 	tools?: string[];
+	toolNames?: string[];
+	fork?: boolean;
 }
 
 export interface EvalAgentBridgeOptions {
@@ -177,6 +181,12 @@ export async function runEvalAgent(args: unknown, options: EvalAgentBridgeOption
 	if (parsed.tools?.length && options.session.getPlanModeState?.()?.enabled === true) {
 		throw new ToolError("Eval-defined tools are unavailable in plan mode.");
 	}
+	const forkSnapshot = parsed.fork ? options.session.sessionManager?.snapshotForFork() : undefined;
+	if (parsed.fork && !forkSnapshot) {
+		throw new ToolError("agent.fork() requires the parent session context; unavailable here.");
+	}
+	const toolNames = parsed.toolNames ? [...parsed.toolNames] : undefined;
+	const parentToolNames = options.session.getEnabledToolNames?.();
 
 	const isolation: StructuredSubagentIsolationControls | undefined =
 		Object.hasOwn(parsed, "isolated") || Object.hasOwn(parsed, "apply") || Object.hasOwn(parsed, "merge")
@@ -200,6 +210,8 @@ export async function runEvalAgent(args: unknown, options: EvalAgentBridgeOption
 			...(parsed.schemaMode !== undefined ? { schemaMode: parsed.schemaMode } : {}),
 			...(isolation ? { isolation } : {}),
 			...(customTools ? { customTools } : {}),
+			...(toolNames !== undefined ? { toolNames } : {}),
+			...(parentToolNames !== undefined ? { parentToolNames } : {}),
 		});
 		const manager = options.session.asyncJobManager;
 		if (!manager) {
@@ -224,6 +236,9 @@ export async function runEvalAgent(args: unknown, options: EvalAgentBridgeOption
 						identity: { id, label: parsed.label },
 						...(isolation ? { isolation } : {}),
 						...(customTools ? { customTools } : {}),
+						...(toolNames !== undefined ? { toolNames } : {}),
+						...(parentToolNames !== undefined ? { parentToolNames } : {}),
+						...(forkSnapshot ? { forkSnapshot } : {}),
 						retainArtifacts: true,
 						keepAlive: true,
 						signal,

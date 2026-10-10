@@ -23,6 +23,7 @@ import { MEMORY_BACKEND_TOOL_NAMES } from "../memory-backend/tool-names";
 import { invalidateToolSchemaMetadata } from "@oh-my-soup/pi-tui/status-line/context-usage";
 import type { MemoryBackendStartOptions } from "../memory-backend/types";
 import type { AgentDefinition } from "../task/types";
+import { SUBAGENT_TOOL_STATE_TYPE } from "../task/tool-contract";
 import evalPreludeNoticePrompt from "../prompts/system/eval-prelude-notice.md" with { type: "text" };
 import sessionAgentNoticePrompt from "../prompts/system/session-agent-notice.md" with { type: "text" };
 import toolRosterNoticePrompt from "../prompts/system/tool-roster-notice.md" with { type: "text" };
@@ -112,6 +113,9 @@ interface SessionToolsOptions {
 	createThinkTool?: () => Promise<AgentTool | null>;
 	builtInToolNames?: Iterable<string>;
 	presentationPinnedToolNames?: ReadonlySet<string>;
+	toolAllowlist?: ReadonlySet<string>;
+	persistToolState?: boolean;
+	requireYieldTool?: boolean;
 	/** MCP tool names whose current registry entries came from the manager snapshot. */
 	mcpManagerToolNames?: Iterable<string>;
 	ensureWriteRegistered?: () => Promise<boolean>;
@@ -349,6 +353,10 @@ export class SessionTools {
 	#announcedMounts = new Set<string>();
 	#announcedMountsSeeded = false;
 	#presentationPinnedToolNames: ReadonlySet<string> | undefined;
+	readonly #toolAllowlist: ReadonlySet<string> | undefined;
+	readonly #persistToolState: boolean;
+	readonly #requireYieldTool: boolean;
+	#persistedToolStateSignature: string | undefined;
 	#runtimeSelectedToolNames: ReadonlySet<string> | undefined;
 	#baseSystemPrompt: string[];
 	/**
@@ -456,6 +464,9 @@ export class SessionTools {
 			}
 		}
 		this.#presentationPinnedToolNames = options.presentationPinnedToolNames;
+		this.#toolAllowlist = options.toolAllowlist;
+		this.#persistToolState = options.persistToolState === true;
+		this.#requireYieldTool = options.requireYieldTool === true;
 		this.#ensureWriteRegistered = options.ensureWriteRegistered;
 		this.#isDeviceOnlyWrite = options.isDeviceOnlyWrite;
 		this.#deviceOnlyWriteTransportAvailable = this.#isDeviceOnlyWrite?.() === true;
@@ -483,12 +494,8 @@ export class SessionTools {
 		this.#skillsSettings = options.skillsSettings;
 		this.#skillsReloadable = options.skillsReloadable ?? true;
 		this.#promptSurface = this.#derivePromptSurface();
-		// Seed from the construction slate (top-level tools plus xd:// mounts).
-		// Left empty, getEnabledToolNames() falls back to live agent.state.tools,
-		// so an early reconcile (think/Code Mode after the startup model
-		// resolution) landing while the live set is transiently narrow
-		// commits that narrow set as the sticky slate — the session keeps almost
-		// no tools and the prompt rebuild without `read` empties the skill list.
+		// Seed the authoritative slate once, before provider presentation can
+		// transiently narrow it. An explicitly empty slate stays empty.
 		for (const tool of host.agent.state.tools) this.#enabledToolNames.add(tool.name);
 		for (const name of this.#xdev?.mountedNames ?? []) this.#enabledToolNames.add(name);
 		this.#promptModelKey = this.#currentPromptModelKey();
@@ -623,9 +630,17 @@ export class SessionTools {
 		// Union live xd:// mounts so devices mounted out-of-band (plugins writing
 		// to xdev state directly) survive the next apply.
 		const mountedNames = this.#xdev?.mountedNames;
-		const base = this.#enabledToolNames.size > 0 ? [...this.#enabledToolNames] : this.getActiveToolNames();
+		const base = [...this.#enabledToolNames];
 		if (!mountedNames || mountedNames.size === 0) return base;
-		return [...new Set([...base, ...mountedNames])];
+		return [...new Set([...base, ...mountedNames])].filter(name => this.#capabilityAllowed(name));
+	}
+
+	#capabilityAllowed(name: string): boolean {
+		return (
+			!this.#toolAllowlist ||
+			this.#toolAllowlist.has(name) ||
+			(name === "write" && this.#isDeviceOnlyWrite?.() === true)
+		);
 	}
 
 	/** Names currently presented as `xd://` devices. */
@@ -653,8 +668,10 @@ export class SessionTools {
 	getToolByName(name: string): AgentTool | undefined {
 		const bareName = stripXdUrlPrefix(name);
 		const direct = this.#toolRegistry.get(name) ?? this.#toolRegistry.get(bareName);
-		if (direct) return direct;
-		return resolveMCPToolAlias(bareName, candidate => this.#toolRegistry.get(candidate));
+		if (direct) return this.#capabilityAllowed(direct.name) ? direct : undefined;
+		return resolveMCPToolAlias(bareName, candidate =>
+			this.#capabilityAllowed(candidate) ? this.#toolRegistry.get(candidate) : undefined,
+		);
 	}
 
 	/** Looks up an enabled tool through the same ACP permission gate as direct calls. */
@@ -1078,7 +1095,8 @@ export class SessionTools {
 
 	async #applyActiveToolsByName(toolNames: string[], forcePromptRefresh = false, signal?: AbortSignal): Promise<void> {
 		signal?.throwIfAborted();
-		toolNames = normalizeToolNames(toolNames);
+		toolNames = normalizeToolNames(toolNames).filter(name => this.#capabilityAllowed(name));
+		if (this.#requireYieldTool && !toolNames.includes("yield")) toolNames.push("yield");
 		const codeMode = resolveCodeMode({
 			provider: this.#host.model()?.provider ?? "",
 			toolMode: this.#host.model()?.toolMode,
@@ -1090,6 +1108,7 @@ export class SessionTools {
 		let builtInWriteAvailable = this.#builtInToolNames.has("write");
 		const fullWriteSelected =
 			toolNames.includes("write") &&
+			(!this.#toolAllowlist || this.#toolAllowlist.has("write")) &&
 			(this.#presentationPinnedToolNames?.has("write") === true ||
 				this.#runtimeSelectedToolNames?.has("write") === true);
 		if (fullWriteSelected) {
@@ -1380,6 +1399,18 @@ export class SessionTools {
 				this.#setDeviceOnlyWrite?.(true);
 			} else if (upgradeDeviceOnlyWrite || deactivateDeviceOnlyWrite) {
 				this.#setDeviceOnlyWrite?.(false);
+			}
+			if (this.#persistToolState) {
+				const state = {
+					tools: [...this.#enabledToolNames],
+					mountedTools: this.getMountedXdevToolNames(),
+					deviceOnlyWrite: this.#isDeviceOnlyWrite?.() === true,
+				};
+				const signature = JSON.stringify(state);
+				if (signature !== this.#persistedToolStateSignature) {
+					this.#host.sessionManager.appendCustomEntry(SUBAGENT_TOOL_STATE_TYPE, state);
+					this.#persistedToolStateSignature = signature;
+				}
 			}
 		} finally {
 			if (upgradeDeviceOnlyWrite) this.#setPendingFullWriteDescription?.(false);
@@ -2049,6 +2080,7 @@ export class SessionTools {
 
 	#setThinkToolActive(enabled: boolean): Promise<boolean> {
 		return this.runToolRegistryMutation(async () => {
+			if (enabled && !this.#capabilityAllowed("think")) return false;
 			const active = this.getEnabledToolNames();
 			if (!enabled) {
 				if (active.includes("think")) {
@@ -2370,12 +2402,14 @@ export class SessionTools {
 		};
 
 		const extensionRunner = this.#host.extensionRunner();
-		const managerTools = deduplicateMCPToolsByName(mcpTools).map(customTool => {
-			const wrapped = wrapToolWithMetaNotice(
-				CustomToolAdapter.wrap(customTool, this.#getCustomToolContext) as AgentTool,
-			);
-			return (extensionRunner ? new ExtensionToolWrapper(wrapped, extensionRunner) : wrapped) as AgentTool;
-		});
+		const managerTools = deduplicateMCPToolsByName(mcpTools)
+			.filter(tool => this.#capabilityAllowed(tool.name))
+			.map(customTool => {
+				const wrapped = wrapToolWithMetaNotice(
+					CustomToolAdapter.wrap(customTool, this.#getCustomToolContext) as AgentTool,
+				);
+				return (extensionRunner ? new ExtensionToolWrapper(wrapped, extensionRunner) : wrapped) as AgentTool;
+			});
 		const managerToolSet = new Set(managerTools);
 		const reconciledTools = deduplicateMCPToolsByName([...this.#extensionMcpTools.values(), ...managerTools]);
 
@@ -2422,6 +2456,7 @@ export class SessionTools {
 	}
 
 	async #applyRpcHostToolRefresh(rpcTools: AgentTool[]): Promise<void> {
+		rpcTools = rpcTools.filter(tool => this.#capabilityAllowed(tool.name));
 		const nextToolNames = rpcTools.map(tool => tool.name);
 		const uniqueToolNames = new Set(nextToolNames);
 		if (uniqueToolNames.size !== nextToolNames.length) {

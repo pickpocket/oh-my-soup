@@ -139,8 +139,8 @@ async fn round8_placement_contracts() {
 	let f = &mut fails;
 
 	// ---- R8RegionReview
-	// RX0 (P1 claim): a chain whose next link starts on a later row must not get a
-	// region that stops at the first callback.
+	// RX0 (P1 claim): a chain whose next link starts on a later row must not get
+	// a region that stops at the first callback.
 	let s_js = "db.save(user).then(() => {\n  res.sendStatus(200);\n})\n.catch(() => {\n  \
 	            res.sendStatus(500);\n});\n";
 	p(
@@ -174,7 +174,8 @@ async fn round8_placement_contracts() {
 		f,
 	)
 	.await;
-	// RX1 (P2): the statement's own continuation lines stay in the anchor's region.
+	// RX1 (P2): the statement's own continuation lines stay in the anchor's
+	// region.
 	let s2 = "db.save(user).then(() => {\n  ok();\n})\n.catch(handleError);\n";
 	p(
 		"RX1a_CHAIN_CONTINUATION_LINE_JS",
@@ -332,8 +333,8 @@ async fn round8_placement_contracts() {
 		f,
 	)
 	.await;
-	// IR8c (P2): a case label inserted under a case falls through instead of being
-	// refused.
+	// IR8c (P2): a case label inserted under a case falls through instead of
+	// being refused.
 	let sw = "function f(kind) {\n  switch (kind) {\n    case \"a\":\n      return 1;\n    \
 	          default:\n      return 0;\n  }\n}\n";
 	p(
@@ -365,8 +366,8 @@ async fn round8_placement_contracts() {
 
 	// ---- R8TokenGuardReview
 	let cfg = "CONFIG = dict(\n    timeout=30,\n    retries=3,\n)\n";
-	// TX0 (P1 claim): a trailing separator must not be substituted for a respelled
-	// last token.
+	// TX0 (P1 claim): a trailing separator must not be substituted for a
+	// respelled last token.
 	p("TX0a_PY_SEPARATOR_SUBSTITUTED", EditMode::Patch, "c.py", "def make(user_name, age):\n    return dict(\n        name=user_name,\n        age=age,\n    )\n",
 		patch("c.py", "@@\n     return dict(\n-        name=usr_name\n+        name=user_name.strip()\n         age=age,\n     )"),
 		Want::Refuse, f).await;
@@ -481,8 +482,8 @@ async fn round8_placement_contracts() {
 	p("TX5_MULTILINE_REWRITE_SEPARATOR_ON_CLOSING_LINE", EditMode::Patch, "c.py", cfg,
 		patch("c.py", "@@\n CONFIG = dict(\n-    timeout=30\n+    timeout=max(30,\n+        MIN_TIMEOUT),\n     retries=3,\n )"),
 		Want::Bytes("CONFIG = dict(\n    timeout=max(30,\n        MIN_TIMEOUT),\n    retries=3,\n)\n".into()), f).await;
-	// TX6 (P2): a comment-only added line quoting the old code is not the rewrite's
-	// counterpart.
+	// TX6 (P2): a comment-only added line quoting the old code is not the
+	// rewrite's counterpart.
 	p(
 		"TX6_COMMENT_LINE_NOT_COUNTERPART",
 		EditMode::Patch,
@@ -500,8 +501,8 @@ async fn round8_placement_contracts() {
 		f,
 	)
 	.await;
-	// TX7 (P2): a new trailing comment repeating a removed token must not capture
-	// the alignment.
+	// TX7 (P2): a new trailing comment repeating a removed token must not
+	// capture the alignment.
 	p(
 		"TX7a_PY_COMMENT_REPEATS_OLD_VALUE",
 		EditMode::Patch,
@@ -525,8 +526,8 @@ async fn round8_placement_contracts() {
 		f,
 	)
 	.await;
-	// TX8 (P3 kill row, should apply now): a quoted bracket does not count toward
-	// depth.
+	// TX8 (P3 kill row, should apply now): a quoted bracket does not count
+	// toward depth.
 	p(
 		"TX8_QUOTED_BRACKET_DEPTH",
 		EditMode::Patch,

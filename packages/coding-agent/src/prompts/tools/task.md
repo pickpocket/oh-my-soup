@@ -4,6 +4,7 @@
 # Results
 `outputSchema` parsed payload, even invalid: `agent://<id>` (field `/<field>`, nested `/reports/0/data`); invalid preview inline.
 {{/if}}
+Saved child session notes: `agent://<id>?view=notes` (live, completed, or resumed with retained journal); separate from `outputSchema` payload.
 
 # Delegation
 Use most specific agent.{{#if scoutAvailable}} Read-only research MUST use `scout` only when files unknown.{{/if}} Prefer one agent to investigate + edit. Omit `agent` only for default (`{{defaultAgent}}`); NEVER specify it.
@@ -19,6 +20,7 @@ Shared edits need one integration owner{{#if ircEnabled}}; siblings coordinate v
     NEVER pass the spawn-policy default explicitly. Only omit it after checking the available agents below.
   - `task`: Complete, self-contained instructions. One-liners or missing acceptance criteria are PROHIBITED.
   - `solutionSpace`: Describe how open-ended the child's problem is: whether the fix or design is given, or which causes or designs remain open. Volume of work does not widen it; NEVER mention sibling agents or coordination. (`one fix: rename, names given`; `one fix: slice end in paginate`; `single-flight cache load; races easy to miss`; `several retry API shapes; error classes to choose`; `deadlock cause open, no repro`)
+  - `toolNames`: Host tools to grant from your enabled toolset (including mounted devices). Omitted = same enabled tools; [] = only required completion/transport. Read-only/plan/spawn limits still apply. Separate from eval-defined `tools`.
 {{#if evalToolsEnabled}}  - `tools`: Names of eval-defined tools (`@tool` in Python, `tool(fn, {…})` in JS) to expose to this subagent; each runs inside your kernel when the subagent calls it.
 {{/if}}
 {{#if effortEnabled}}  - `effort`: Scale by how open-ended the problem is: `"lo"`|`"med"`|`"hi"`
@@ -40,6 +42,7 @@ Shared edits need one integration owner{{#if ircEnabled}}; siblings coordinate v
   NEVER pass the spawn-policy default explicitly. Only omit it after checking the available agents below.
 - `task`: Complete, self-contained instructions. One-liners or missing acceptance criteria are PROHIBITED.
 - `solutionSpace`: Describe how open-ended the child's problem is: whether the fix or design is given, or which causes or designs remain open. Volume of work does not widen it; NEVER mention sibling agents or coordination. (`one fix: rename, names given`; `one fix: slice end in paginate`; `single-flight cache load; races easy to miss`; `several retry API shapes; error classes to choose`; `deadlock cause open, no repro`)
+- `toolNames`: Host tools to grant from your enabled toolset (including mounted devices). Omitted = same enabled tools; [] = only required completion/transport. Read-only/plan/spawn limits still apply. Separate from eval-defined `tools`.
 {{#if evalToolsEnabled}}- `tools`: Names of eval-defined tools (`@tool` in Python, `tool(fn, {…})` in JS) to expose to this subagent; each runs inside your kernel when the subagent calls it.
 {{/if}}
 {{#if effortEnabled}}- `effort`: Scale by how open-ended the problem is: `"lo"`|`"med"`|`"hi"`

@@ -36,7 +36,7 @@ import { cfgUpdateChannel } from "../modes/settings";
 
 const REPO = "pickpocket/oh-my-soup";
 const PACKAGE = "@oh-my-soup/pi-coding-agent";
-const HOMEBREW_FORMULA = "can1357/tap/oms";
+const HOMEBREW_FORMULA = "pickpocket/tap/oms";
 const MISE_TOOL = "github:pickpocket/oh-my-soup";
 const NIX_STORE_DIR = "/nix/store";
 const GITHUB_API = "https://api.github.com";
@@ -1005,7 +1005,7 @@ export async function getLatestRelease(
 	return {
 		tag: `v${latest.version}`,
 		version: latest.version,
-		dist: resolveReleaseDist(latest.manifest),
+		dist: resolveReleaseDist(latest.manifest) ?? "binary",
 		packages,
 		registry: registry.url,
 	};

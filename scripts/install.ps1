@@ -417,15 +417,25 @@ function Install-Oms {
     $Stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
 
     $Repo = 'pickpocket/oh-my-soup'
-    # Asset preference order. The smoke test below is the CPU-capability
-    # detector: a pre-AVX2 CPU kills the modern build at launch with
-    # STATUS_ILLEGAL_INSTRUCTION (0xC000001D, surfacing as a negative exit
-    # code), which triggers the baseline fallback. Releases that predate the
-    # modern asset 404 and fall back the same way.
-    $Variants = @(
-        [pscustomobject]@{ Name = 'oms-windows-x64-modern.exe'; Label = 'modern'; IsFallback = $false },
-        [pscustomobject]@{ Name = 'oms-windows-x64.exe'; Label = 'baseline'; IsFallback = $true }
-    )
+    # PROCESSOR_ARCHITEW6432 identifies the native machine when this installer
+    # runs under x64 emulation on Windows ARM64. Native ARM64 processes report
+    # ARM64 through PROCESSOR_ARCHITECTURE instead.
+    $NativeArchitecture = $env:PROCESSOR_ARCHITEW6432
+    if ([string]::IsNullOrWhiteSpace($NativeArchitecture)) {
+        $NativeArchitecture = $env:PROCESSOR_ARCHITECTURE
+    }
+    if ($NativeArchitecture -eq 'ARM64') {
+        $Variants = @(
+            [pscustomobject]@{ Name = 'oms-windows-arm64.exe'; Label = 'arm64'; IsFallback = $false }
+        )
+    } else {
+        # x64 CPUs prefer AVX2, falling back to the baseline for older CPUs
+        # and releases predating the modern asset.
+        $Variants = @(
+            [pscustomobject]@{ Name = 'oms-windows-x64-modern.exe'; Label = 'modern'; IsFallback = $false },
+            [pscustomobject]@{ Name = 'oms-windows-x64.exe'; Label = 'baseline'; IsFallback = $true }
+        )
+    }
     $InstallDir = $env:OMS_INSTALL_DIR
     if ([string]::IsNullOrWhiteSpace($InstallDir)) {
         $InstallDir = $env:PI_INSTALL_DIR

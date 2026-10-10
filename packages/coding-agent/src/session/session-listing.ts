@@ -13,7 +13,8 @@ import { FileSessionStorage, type SessionStorage, type SessionStorageStat } from
 import { lookupSessionTitle, recordSessionTitle } from "./session-index";
 
 /**
- * Coarse lifecycle status of a session, derived from its last persisted message.
+ * Coarse lifecycle status of a session. `running` comes only from a live
+ * service host; scanning a saved transcript cannot prove the process is alive.
  *
  * - `complete` — the last assistant turn ended with no unanswered tool calls, i.e.
  *   the agent yielded control back to the user.
@@ -26,7 +27,7 @@ import { lookupSessionTitle, recordSessionTitle } from "./session-index";
  * - `unknown` — status could not be determined (empty/header-only session, or the
  *   final message was larger than the tail window that was read).
  */
-export type SessionStatus = "complete" | "interrupted" | "aborted" | "error" | "pending" | "unknown";
+export type SessionStatus = "running" | "complete" | "interrupted" | "aborted" | "error" | "pending" | "unknown";
 
 export interface SessionInfo {
 	path: string;
@@ -46,8 +47,8 @@ export interface SessionInfo {
 	firstMessage: string;
 	allMessagesText: string;
 	/**
-	 * Coarse lifecycle status from the session's last persisted message. Optional:
-	 * synthesized {@link SessionInfo}s (cross-project stubs, tests) leave it unset.
+	 * Coarse lifecycle status from the last persisted message or from a live
+	 * service host. Optional for synthesized sessions and older callers.
 	 */
 	status?: SessionStatus;
 }

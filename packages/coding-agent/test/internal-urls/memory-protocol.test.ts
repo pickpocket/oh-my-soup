@@ -144,6 +144,7 @@ describe("MemoryProtocolHandler", () => {
 				getEntries: manager.getEntries.bind(manager),
 				getSessionId: manager.getSessionId.bind(manager),
 				readEntriesAtomically: manager.readEntriesAtomically.bind(manager),
+				snapshotForFork: manager.snapshotForFork.bind(manager),
 			};
 			const agentRegistry = new AgentRegistry();
 			agentRegistry.register({

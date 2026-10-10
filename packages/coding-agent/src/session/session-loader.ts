@@ -11,7 +11,7 @@ import {
 	resolveImageDataUrl,
 	resolveImageDataUrlSync,
 } from "./blob-store";
-import { buildSessionContext } from "./session-context";
+import { buildSessionContext, walkSessionBranch } from "./session-context";
 import type { FileEntry, RawFileEntry, SessionEntry, SessionHeader } from "./session-entries";
 import { migrateToCurrentVersion } from "./session-migrations";
 import { isExternalizableImagePosition, isPersistenceTruncatedString } from "./session-persistence";
@@ -474,6 +474,20 @@ export async function loadEntriesFromFile(
 	options?: { throwIfMissing?: boolean },
 ): Promise<FileEntry[]> {
 	return (await loadSessionFile(filePath, storage, options)).entries;
+}
+
+/** Active persisted branch without a writer, lock, or transcript/blob hydration. */
+export async function loadSessionBranchReadOnly(filePath: string): Promise<SessionEntry[]> {
+	const entries = await loadEntriesFromFile(filePath, undefined, { throwIfMissing: true });
+	migrateToCurrentVersion(entries);
+	const byId = new Map<string, SessionEntry>();
+	let leaf: SessionEntry | undefined;
+	for (const entry of entries) {
+		if (entry.type === "session") continue;
+		byId.set(entry.id, entry);
+		leaf = entry;
+	}
+	return walkSessionBranch(leaf, byId);
 }
 
 /**

@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixed process teardown trying to read stdout again after a streaming consumer had already consumed or cancelled it.
+
 ## [18.4.5] - 2026-10-06
 
 ### Added

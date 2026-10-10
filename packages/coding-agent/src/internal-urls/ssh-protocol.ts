@@ -30,7 +30,8 @@ import {
 	statRemotePath,
 	writeRemoteFile,
 } from "../ssh/file-transfer";
-import { configuredTarget, getSession, openSessions, type SSHSessionInfo } from "../ssh/sessions";
+import { resolveSshLocation } from "../ssh/remote-path";
+import { openSessions, type SSHSessionInfo } from "../ssh/sessions";
 import sshDoc from "../prompts/internal-urls/ssh.md" with { type: "text" };
 import { contentTypeForPath, formatDirectoryListing } from "./filesystem-resource";
 import type {
@@ -54,42 +55,6 @@ function decodeUtf8Text(bytes: Uint8Array): string | null {
 	} catch {
 		return null;
 	}
-}
-
-/**
- * Remote absolute path from the URL. Uses `rawPathname` (pre-normalization) so
- * `..`/`//` and percent-escapes survive verbatim to the remote shell; the
- * authority (host/user/port) stays on the WHATWG fields, which preserve case for
- * the non-special `ssh` scheme.
- */
-function remotePathFromUrl(url: InternalUrl): string {
-	// `?`/`#` are URL delimiters, so parseInternalUrl strips them from the path
-	// (`ssh://h/tmp/a?draft` → `/tmp/a`). Reject the unsupported suffix instead of
-	// silently operating on the truncated path; a literal `?`/`#` in a filename
-	// must be percent-encoded (`%3F`/`%23`).
-	if (url.search) {
-		throw new Error(
-			`ssh:// does not support URL query strings; percent-encode a literal '?' as %3F in the path: ${url.href}`,
-		);
-	}
-	if (url.hash) {
-		throw new Error(
-			`ssh:// does not support URL fragments; percent-encode a literal '#' as %23 in the path: ${url.href}`,
-		);
-	}
-	const raw = url.rawPathname ?? url.pathname;
-	let decoded: string;
-	try {
-		decoded = decodeURIComponent(raw);
-	} catch {
-		throw new Error(`Invalid URL encoding in ssh:// path: ${url.href}`);
-	}
-	if (!decoded) {
-		throw new Error(
-			"ssh:// requires an absolute path, e.g. ssh://host/etc/hosts or ssh://host/ for the root directory",
-		);
-	}
-	return decoded;
 }
 
 /** Load the configured SSH hosts from the `ssh` capability (managed/project `ssh.json`). */
@@ -128,130 +93,6 @@ function formatHostIndex(hosts: readonly SSHHost[], sessions: readonly SSHSessio
 	return sections.join("\n");
 }
 
-/**
- * Resolve the URL authority to an SSH connection target. With no explicit
- * user/port, the full DECODED authority (`url.rawHost`) is matched against a
- * configured host name, so percent-encoded reserved-char aliases (e.g.
- * `alice%40prod` → `alice@prod`) resolve correctly. A literal `user@`/`:port`
- * in the URL is an override: it is rejected on a configured bare name (the
- * ControlMaster/host-info caches key on `name` alone) and otherwise treated as
- * an opaque OpenSSH destination so plain `~/.ssh/config` aliases work.
- */
-async function resolveTarget(url: InternalUrl, cwd?: string): Promise<SSHConnectionTarget> {
-	// `parseInternalUrl` falls back to a lenient regex parse when WHATWG `new URL`
-	// rejects the input. For ssh:// that only happens on a malformed authority — an
-	// invalid or out-of-range port (`prod:abc`, `host:65536`) or a bad IPv6 literal —
-	// which would otherwise be mis-read as an opaque host and silently connect to the
-	// default port. Reject it before resolving.
-	if (!URL.canParse(url.href)) {
-		throw new Error(`ssh://: invalid host or port in "${url.href}"; use ssh://host[:1-65535]/<absolute-path>`);
-	}
-	// WHATWG `hostname` is bracketed only for a *valid* IPv6 literal, so a bracketed
-	// host is unambiguously IPv6 — hand OpenSSH the bare address. Percent-encoded
-	// bracketed aliases (e.g. `%5Bprod%3A2222%5D`) keep their literal brackets in the
-	// decoded `rawHost`, so they are matched and forwarded verbatim, never stripped.
-	const bareHost = url.hostname;
-	const rawAuthority = url.rawHost || bareHost;
-	if (!bareHost && !rawAuthority) {
-		throw new Error("ssh:// requires a host: ssh://<host>/<absolute-path>");
-	}
-	// `decodeOr` fails open, so a malformed percent-escape (`%ZZ`) in the authority
-	// would otherwise pass the canonical check below and reach OpenSSH literally.
-	// Reject it up front — the path decoder fails closed for the same bad escapes.
-	for (const part of [url.username, bareHost]) {
-		if (part.includes("%")) {
-			try {
-				decodeURIComponent(part);
-			} catch {
-				throw new Error(`ssh://: invalid percent-escape in authority "${url.href}"`);
-			}
-		}
-	}
-	if (url.password) {
-		throw new Error(
-			'ssh://: a password does not belong in the URL; open a session with the ssh device (write xd://ssh {"op":"connect","host":"user@host","password":"…"}) and use ssh://<session-name>/<path>',
-		);
-	}
-	const isIpv6Literal = bareHost.startsWith("[") && bareHost.endsWith("]");
-	const sshHost = isIpv6Literal ? bareHost.slice(1, -1) : bareHost;
-	const username = url.username || undefined;
-	const port = url.port ? Number(url.port) : undefined;
-	if (port === 0) {
-		throw new Error("ssh://: port 0 is not a valid SSH port; use ssh://host:<1-65535>/<path> or omit the port");
-	}
-	// An empty port (`ssh://prod:/path`, `ssh://user@host:/path`, including
-	// percent-encoded authority parts) parses cleanly with `url.port === ""`, so it
-	// slips past the malformed-authority guard and would be read as "no port" —
-	// silently using the default/configured target. `url.rawHost` is the decoded
-	// authority and uniquely retains the trailing `:`; comparing it to the decoded
-	// host (+ user) catches the empty port, while a percent-encoded alias like
-	// `prod%3A` (whose decoded host already ends in `:`) reconstructs to `prod::`
-	// and is left alone.
-	const decodeOr = (s: string): string => {
-		try {
-			return decodeURIComponent(s);
-		} catch {
-			return s;
-		}
-	};
-	if (port === undefined && url.rawHost === `${username ? `${decodeOr(username)}@` : ""}${decodeOr(bareHost)}:`) {
-		throw new Error(`ssh://: empty port in "${url.href}"; use ssh://host:<1-65535>/<path> or drop the colon`);
-	}
-	// A literal but empty userinfo (`ssh://@host`) sets username to "" — WHATWG drops
-	// the `@` from hostname, but rawHost keeps the leading `@`. A percent-encoded
-	// alias like `%40prod` decodes to `@prod` in rawHost too, but its hostname keeps
-	// `%40`, so the reconstruction is `@@prod` and is left alone.
-	if (username === undefined && url.rawHost === `@${decodeOr(bareHost)}${port !== undefined ? `:${port}` : ""}`) {
-		throw new Error(`ssh://: empty username in "${url.href}"; drop the leading '@' or provide a username before it`);
-	}
-	// Backstop for any remaining stray/empty authority marker the explicit checks
-	// above do not name — notably an empty password (`ssh://user:@host`, `ssh://:@host`,
-	// where `url.password === ""`). `rawHost` keeps the literal marker, so it differs
-	// from the canonical decoded `[user@]host[:port]` WHATWG actually parsed. Every
-	// valid authority — including percent-encoded reserved-char aliases — reconstructs
-	// to exactly `rawHost`, so only malformed userinfo trips this.
-	const canonicalAuthority = `${url.username ? `${decodeOr(url.username)}@` : ""}${decodeOr(bareHost)}${port !== undefined ? `:${port}` : ""}`;
-	if (url.rawHost !== canonicalAuthority) {
-		throw new Error(
-			`ssh://: unsupported or malformed authority in "${url.href}"; use ssh://[user@]host[:1-65535]/<absolute-path>`,
-		);
-	}
-	// An open session (ssh device) is addressed by its name alone, like a
-	// configured host: its credentials live in the registry, so a user/port
-	// override would silently reconnect elsewhere.
-	const openSession = getSession(rawAuthority) ?? getSession(bareHost);
-	if (openSession && !username && port === undefined) return openSession;
-	const items = await loadConfiguredHosts(cwd);
-
-	// A literal user/port in the URL is an authority override. A configured alias
-	// is addressed only by its (percent-encoded) name, never with a separate
-	// user/port — so reject an override on a configured bare name, else opaque.
-	if (username || port !== undefined) {
-		const decodedBareHost = decodeOr(bareHost);
-		if (items.some(entry => entry.name === bareHost || entry.name === decodedBareHost)) {
-			throw new Error(
-				`ssh://: user/port overrides are not allowed for the configured host "${decodedBareHost}"; use ssh://${bareHost}/<path> or an unconfigured hostname`,
-			);
-		}
-		if (getSession(bareHost) ?? getSession(decodedBareHost)) {
-			throw new Error(
-				`ssh://: user/port overrides are not allowed for the open session "${decodedBareHost}"; use ssh://${bareHost}/<path>`,
-			);
-		}
-		const sshUser = username ? decodeOr(username) : undefined;
-		const sshTargetHost = decodeOr(sshHost);
-		const name = `${sshUser ? `${sshUser}@` : ""}${sshTargetHost}${port !== undefined ? `:${port}` : ""}`;
-		return { name, host: sshTargetHost, username: sshUser, port };
-	}
-
-	// No explicit user/port: match the full decoded authority against a
-	// configured name (so an encoded reserved-char alias resolves correctly).
-	const match = items.find(entry => entry.name === rawAuthority) ?? items.find(entry => entry.name === bareHost);
-	if (match) return configuredTarget(match);
-	// Opaque OpenSSH destination (plain ~/.ssh/config alias, or any resolvable host).
-	return { name: rawAuthority, host: isIpv6Literal ? sshHost : rawAuthority };
-}
-
 export class SshProtocolHandler implements ProtocolHandler {
 	readonly scheme = "ssh";
 	readonly spec: SchemeSpec = {
@@ -281,8 +122,7 @@ export class SshProtocolHandler implements ProtocolHandler {
 			}
 			return this.#resolveHostIndex(url, context?.cwd);
 		}
-		const target = await resolveTarget(url, context?.cwd);
-		const remotePath = remotePathFromUrl(url);
+		const { target, remotePath } = await resolveSshLocation(url.rawHref ?? url.href, context?.cwd);
 		// Classify before reading. A FIFO with no writer would block `head` until the
 		// timeout, and a device (e.g. /dev/zero) would stream the whole probe, so a
 		// special file must fail fast. Only a regular file is read; a directory lists.
@@ -320,7 +160,7 @@ export class SshProtocolHandler implements ProtocolHandler {
 		// No `sourcePath`: keeps search on the virtual-resource path so the
 		// displayed/searched resource stays `ssh://…` instead of a temp path.
 		return {
-			url: url.href,
+			url: url.rawHref ?? url.href,
 			content,
 			contentType: contentTypeForPath(remotePath),
 			size: fileResult.bytes.length,
@@ -339,7 +179,7 @@ export class SshProtocolHandler implements ProtocolHandler {
 		// to avoid draining a full remote `ls` we would only discard.
 		const content = skipListing ? "" : formatDirectoryListing(await listRemoteDir(target, remotePath, { signal }));
 		return {
-			url: url.href,
+			url: url.rawHref ?? url.href,
 			content,
 			contentType: "text/plain",
 			size: Buffer.byteLength(content, "utf-8"),
@@ -352,7 +192,7 @@ export class SshProtocolHandler implements ProtocolHandler {
 	async #resolveHostIndex(url: InternalUrl, cwd?: string): Promise<InternalResource> {
 		const content = formatHostIndex(await loadConfiguredHosts(cwd), openSessions());
 		return {
-			url: url.href,
+			url: url.rawHref ?? url.href,
 			content,
 			contentType: "text/markdown",
 			size: Buffer.byteLength(content, "utf-8"),
@@ -378,8 +218,7 @@ export class SshProtocolHandler implements ProtocolHandler {
 	}
 
 	async write(url: InternalUrl, content: string, context?: WriteContext): Promise<void> {
-		const target = await resolveTarget(url, context?.cwd);
-		const remotePath = remotePathFromUrl(url);
+		const { target, remotePath } = await resolveSshLocation(url.rawHref ?? url.href, context?.cwd);
 		await writeRemoteFile(target, remotePath, new TextEncoder().encode(content), { signal: context?.signal });
 	}
 }

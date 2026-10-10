@@ -205,6 +205,7 @@ describe("createSessionManager — missing session (#2084)", () => {
 		const cwd = await fsp.mkdtemp(path.join(os.tmpdir(), "oms-fork-missing-path-"));
 		const sessionDir = path.join(cwd, "sessions");
 		const missingPath = path.join(cwd, "ghost-zz9q.jsonl");
+		await fsp.mkdir(sessionDir);
 		try {
 			await expect(
 				createSessionManager(buildForkArgs(missingPath, false, sessionDir), cwd, stubSettings),
@@ -223,6 +224,7 @@ describe("createSessionManager — missing session (#2084)", () => {
 		const cwd = await fsp.mkdtemp(path.join(os.tmpdir(), "oms-fork-missing-path-"));
 		const sessionDir = path.join(cwd, "sessions");
 		const missingPath = path.join(cwd, "ghost-zz9q.jsonl");
+		await fsp.mkdir(sessionDir);
 		try {
 			const caught = await SessionManager.forkFrom(missingPath, cwd, sessionDir).catch((err: unknown) => err);
 			expect(caught).toBeInstanceOf(ForkSourceNotFoundError);
@@ -239,6 +241,7 @@ describe("createSessionManager — missing session (#2084)", () => {
 		const cwd = await fsp.mkdtemp(path.join(os.tmpdir(), "oms-fork-missing-path-"));
 		const sessionDir = path.join(cwd, "sessions");
 		const missingPath = path.join(cwd, "ghost-zz9q.jsonl");
+		await fsp.mkdir(sessionDir);
 		const storage = new FileSessionStorage();
 		const realStatSync = storage.statSync.bind(storage);
 		vi.spyOn(storage, "statSync").mockImplementation(((filePath: string) =>
@@ -262,6 +265,7 @@ describe("createSessionManager — missing session (#2084)", () => {
 		const sessionDir = path.join(cwd, "sessions");
 		const vanishedPath = path.join(cwd, "vanished.jsonl");
 		const forkId = "019ea530-0000-7000-0000-000000000000";
+		await fsp.mkdir(sessionDir);
 		const session: sessionListingModule.SessionInfo = {
 			id: forkId,
 			path: vanishedPath,
@@ -299,6 +303,7 @@ describe("createSessionManager — missing session (#2084)", () => {
 		const regularFile = path.join(cwd, "file.txt");
 		await Bun.write(regularFile, "not a directory");
 		const enotdirChild = path.join(regularFile, "child.jsonl");
+		await fsp.mkdir(sessionDir);
 		try {
 			await expect(
 				createSessionManager(buildForkArgs(enotdirChild, false, sessionDir), cwd, stubSettings),
@@ -331,45 +336,42 @@ describe("createSessionManager — missing session (#2084)", () => {
 		},
 	);
 
-	it("rejects --resume combined with --no-session instead of silently discarding it (#12008)", async () => {
-		await expect(
-			createSessionManager({ ...buildResumeArgs("019ea530"), noSession: true }, "/current/project", stubSettings),
-		).rejects.toMatchObject({
-			name: "SessionResolutionError",
-			message: "--resume requires session persistence",
-			hint: undefined,
-		});
-	});
-
-	it("defers --resume + --no-session rejection while extension flag ownership is unresolved", async () => {
-		const manager = await createSessionManager(
-			{ ...buildResumeArgs("019ea530"), noSession: true },
-			"/current/project",
-			stubSettings,
-			async () => "unavailable",
-			{ nativeFlagOwnership: "preliminary" },
-		);
-
-		expect(manager?.getEntries()).toEqual([]);
-	});
-
-	it("rejects the --resume picker (no value) combined with --no-session (#12008)", async () => {
-		await expect(
-			createSessionManager(
-				{ ...buildResumeArgs("019ea530"), resume: true, noSession: true },
-				"/current/project",
-				stubSettings,
-			),
-		).rejects.toMatchObject({
-			name: "SessionResolutionError",
-			message: "--resume requires session persistence",
-		});
+	it("rejects an unknown --no-session --resume id without creating a session file", async () => {
+		const cwd = await fsp.mkdtemp(path.join(os.tmpdir(), "oms-memory-resume-missing-id-"));
+		const sessionDir = path.join(cwd, "sessions");
+		const missingId = crypto.randomUUID();
+		await fsp.mkdir(sessionDir);
+		try {
+			await expect(
+				createSessionManager({ ...buildResumeArgs(missingId, sessionDir), noSession: true }, cwd, stubSettings),
+			).rejects.toMatchObject({
+				name: "SessionResolutionError",
+				message: `Session "${missingId}" not found.`,
+				hint: expect.stringContaining("oms --resume"),
+			});
+			await expect(fsp.readdir(sessionDir)).resolves.toEqual([]);
+		} finally {
+			await fsp.rm(cwd, { recursive: true, force: true });
+		}
 	});
 
 	it("rejects --continue combined with --no-session (#12008)", async () => {
 		await expect(
 			createSessionManager(
 				{ ...buildContinueArgs("hello there"), noSession: true },
+				"/current/project",
+				stubSettings,
+			),
+		).rejects.toMatchObject({
+			name: "SessionResolutionError",
+			message: "--continue requires session persistence",
+		});
+	});
+
+	it("keeps --continue <id> unsupported under --no-session", async () => {
+		await expect(
+			createSessionManager(
+				{ ...buildContinueArgs("019ea530-ffff-7000-8000-000000000000"), noSession: true },
 				"/current/project",
 				stubSettings,
 			),

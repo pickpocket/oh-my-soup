@@ -1,9 +1,8 @@
 /**
- * Run one command on an SSH target (`bash target=…`) with the same streaming,
- * truncation, and artifact spill the local bash executor applies, so a remote
- * command's result reads exactly like a local one.
+ * Run SSH commands with local BashResult streaming/truncation/artifacts.
+ * POSIX remotes retain an owner-isolated shell; native Windows shells remain one-shot.
  */
-import { logger, ptree } from "@oh-my-soup/pi-utils";
+import { postmortem, ptree } from "@oh-my-soup/pi-utils";
 import { OutputSink } from "@oh-my-soup/pi-tui/tools/streaming-output";
 import { Settings } from "../config/settings";
 import type { BashResult } from "../exec/bash-executor";
@@ -12,14 +11,17 @@ import {
 	buildRemoteCommand,
 	ensureConnection,
 	ensureHostInfo,
+	registerSSHConnectionCloseListener,
 	type SSHConnectionTarget,
 	type SSHHostInfo,
 	spawnSsh,
 } from "./connection-manager";
 import { quotePosixArgument } from "../utils/shell-quote";
-import { wrapInPosixShell } from "./utils";
+import { type PosixSshShell, SshShellSessions } from "./persistent-shell";
 
 export interface SSHExecutorOptions {
+	/** Shell state is private to this tool/session owner. */
+	ownerId?: string;
 	/** Timeout in milliseconds; 0/undefined disables the deadline. */
 	timeout?: number;
 	/** Callback for streaming output chunks (already sanitized). */
@@ -54,6 +56,29 @@ export function withRemoteCwd(command: string, cwd: string | undefined, info: SS
 	return `cd -- ${quotePosixArgument(cwd)} && ${command}`;
 }
 
+const DEFAULT_SSH_OWNER = "ssh:default";
+const retainedSessions = new SshShellSessions(async (host, shell, signal) => {
+	const args = await buildRemoteCommand(host, `${shell} -s 2>&1`, { allowStdin: true, multiplex: false });
+	if (signal?.aborted) throw new ptree.AbortError(signal.reason, "");
+	return spawnSsh(host, ["-T", ...args], { stdin: "pipe", detached: true });
+});
+
+registerSSHConnectionCloseListener((hostNames, reason) =>
+	retainedSessions.closeByHostNames(hostNames, reason !== "credentials"),
+);
+postmortem.register("ssh-retained-shell-cleanup", () => retainedSessions.closeByHostNames(undefined));
+
+/** Session disposal releases only its own retained SSH shells and cancels queued work. */
+export async function closeSSHSessionsByOwner(ownerId: string): Promise<void> {
+	await retainedSessions.closeByOwner(ownerId);
+}
+
+function persistentShellForHost(info: SSHHostInfo): PosixSshShell | undefined {
+	if (info.os === "windows") return info.compatEnabled ? info.compatShell : undefined;
+	if (info.shell === "bash" || info.shell === "sh" || info.shell === "zsh") return info.shell;
+	return info.transferShell;
+}
+
 type SSHExitEvent = { kind: "exit"; exitCode: number } | { kind: "error"; error: unknown };
 
 /** Run `command` on `host`; the result mirrors the local executor's shape, including a `cancelled` outcome. */
@@ -62,21 +87,8 @@ export async function executeSSH(
 	command: string,
 	options: SSHExecutorOptions = {},
 ): Promise<BashResult> {
-	await ensureConnection(host);
-	const info = await ensureHostInfo(host);
-	let resolvedCommand = withRemoteCwd(command, options.cwd, info);
-	if (info.compatEnabled) {
-		if (info.compatShell) resolvedCommand = wrapInPosixShell(info.compatShell, resolvedCommand);
-		else logger.warn("SSH compat enabled without detected compat shell", { host: host.name });
-	}
-
-	using child = spawnSsh(host, await buildRemoteCommand(host, resolvedCommand), {
-		signal: options.signal,
-		timeout: options.timeout,
-		stdin: "pipe",
-		stderr: "full",
-	});
-
+	const ownerId = options.ownerId ?? DEFAULT_SSH_OWNER;
+	const epoch = retainedSessions.getExecutionEpoch(ownerId, host.name);
 	const settings = await Settings.init();
 	const sink = new OutputSink({
 		onChunk: options.onChunk,
@@ -84,6 +96,48 @@ export async function executeSSH(
 		artifactId: options.artifactId,
 		headBytes: resolveOutputSinkHeadBytes(settings),
 		maxColumns: resolveOutputMaxColumns(settings),
+	});
+	if (options.signal?.aborted) {
+		return { exitCode: undefined, cancelled: true, ...(await sink.dump("Command cancelled")) };
+	}
+	let info: SSHHostInfo;
+	try {
+		await ensureConnection(host);
+		info = await ensureHostInfo(host);
+	} catch (error) {
+		if (error instanceof ptree.Exception && error.aborted) {
+			return { exitCode: undefined, cancelled: true, ...(await sink.dump("Command cancelled")) };
+		}
+		throw error;
+	}
+	const resolvedCommand = withRemoteCwd(command, options.cwd, info);
+	const shell = persistentShellForHost(info);
+	if (shell) {
+		try {
+			const { notice, ...result } = await retainedSessions.execute(host, resolvedCommand, {
+				ownerId,
+				epoch,
+				shell,
+				sink,
+				timeout: options.timeout,
+				signal: options.signal,
+			});
+			return { ...result, ...(await sink.dump(notice)) };
+		} catch (error) {
+			if (error instanceof ptree.Exception && error.aborted) {
+				return { exitCode: undefined, cancelled: true, ...(await sink.dump("Command cancelled")) };
+			}
+			throw error;
+		}
+	}
+
+	// cmd/PowerShell have no verified POSIX shell: preserve their existing dialect
+	// and process-per-command behavior rather than pretending they share POSIX state.
+	using child = spawnSsh(host, await buildRemoteCommand(host, resolvedCommand), {
+		signal: options.signal,
+		timeout: options.timeout,
+		stdin: "pipe",
+		stderr: "full",
 	});
 
 	const streamAbort = new AbortController();

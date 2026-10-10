@@ -18,9 +18,22 @@ import type { AgentSession, AgentSessionEvent, PromptOptions } from "@oh-my-soup
 import { runSubprocess } from "@oh-my-soup/pi-coding-agent/task/executor";
 import type { AgentDefinition } from "@oh-my-soup/pi-coding-agent/task/types";
 import { EventBus } from "@oh-my-soup/pi-coding-agent/utils/event-bus";
+import { AgentProtocolHandler } from "@oh-my-soup/pi-coding-agent/internal-urls/agent-protocol";
+import { parseInternalUrl } from "@oh-my-soup/pi-coding-agent/internal-urls/parse";
+import {
+	registerArtifactsDir,
+	resetRegisteredArtifactDirsForTests,
+} from "@oh-my-soup/pi-coding-agent/internal-urls/registry-helpers";
+import { AgentRegistry } from "@oh-my-soup/pi-coding-agent/registry/agent-registry";
+import type { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
+import { formatTaskResultSummary } from "@oh-my-soup/pi-coding-agent/task/result-summary";
+import { NotesTool } from "@oh-my-soup/pi-coding-agent/tools/notes";
 import { createSessionDefaults } from "../helpers/session-defaults";
 
-function createMockSession(onPrompt: (params: { emit: (event: AgentSessionEvent) => void }) => void): AgentSession {
+function createMockSession(
+	onPrompt: (params: { emit: (event: AgentSessionEvent) => void }) => void | Promise<void>,
+	manager?: SessionManager,
+): AgentSession {
 	const listeners: Array<(event: AgentSessionEvent) => void> = [];
 	const emit = (event: AgentSessionEvent) => {
 		for (const listener of listeners) listener(event);
@@ -31,7 +44,8 @@ function createMockSession(onPrompt: (params: { emit: (event: AgentSessionEvent)
 		agent: { state: { systemPrompt: ["test"] } },
 		model: undefined,
 		extensionRunner: undefined,
-		sessionManager: { appendSessionInit: () => {} },
+		sessionManager: manager ?? { appendSessionInit: () => {} },
+		dispose: async () => manager?.close(),
 		getActiveToolNames: () => ["read", "yield"],
 		getEnabledToolNames: () => ["read", "yield"],
 		subscribe: (listener: (event: AgentSessionEvent) => void) => {
@@ -42,7 +56,7 @@ function createMockSession(onPrompt: (params: { emit: (event: AgentSessionEvent)
 			};
 		},
 		prompt: async (_text: string, _options?: PromptOptions) => {
-			onPrompt({ emit });
+			await onPrompt({ emit });
 			return true;
 		},
 	};
@@ -85,8 +99,62 @@ describe("structured output sidecar lifecycle", () => {
 
 	afterEach(async () => {
 		vi.restoreAllMocks();
+		AgentRegistry.resetGlobalForTests();
+		resetRegisteredArtifactDirsForTests();
 		if (artifactsDir) await fs.rm(artifactsDir, { recursive: true, force: true });
 		artifactsDir = undefined;
+	});
+
+	it("delivers a recoverable notes link after child disposal without changing the schema payload", async () => {
+		artifactsDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-notes-completion-"));
+		registerArtifactsDir(artifactsDir);
+		const data = { notes: "schema result, not saved session notes" };
+		vi.spyOn(sdkModule, "createAgentSession").mockImplementation(async options => {
+			const manager = options?.sessionManager;
+			if (!manager) throw new Error("Missing child session manager");
+			const notes = new NotesTool({
+				cwd: manager.getCwd(),
+				hasUI: false,
+				getSessionFile: () => manager.getSessionFile() ?? null,
+				getSessionSpawns: () => "*",
+				sessionManager: manager,
+				settings: Settings.isolated(),
+			});
+			const session = createMockSession(async ({ emit }) => {
+				await notes.execute("save", { op: "set", key: "recovery", text: "address 0x402000; retained evidence" });
+				emit({
+					type: "tool_execution_end",
+					toolCallId: "yield-notes",
+					toolName: "yield",
+					result: { content: [], details: { status: "success", data } },
+					isError: false,
+				});
+			}, manager);
+			return createSessionResult(session);
+		});
+		const result = await runSubprocess({
+			cwd: artifactsDir,
+			agent: baseAgent,
+			task: "save findings",
+			index: 0,
+			id: "NotesWorker",
+			settings: Settings.isolated(),
+			modelRegistry: { refresh: async () => {} } as unknown as ModelRegistry,
+			enableLsp: false,
+			keepAlive: false,
+			artifactsDir,
+			outputSchema: { type: "object", properties: { notes: { type: "string" } }, required: ["notes"] },
+		});
+		const summary = formatTaskResultSummary(result, { totalDurationMs: result.durationMs });
+		const uri = /<notes href="([^"]+)"/.exec(summary)?.[1];
+		if (!uri) throw new Error("Completion did not expose saved notes");
+		AgentRegistry.resetGlobalForTests();
+		const handler = new AgentProtocolHandler();
+		const recovered = await handler.resolve(parseInternalUrl(uri), {
+			settings: Settings.isolated({ "notes.timestamps": false }),
+		});
+		expect(JSON.parse(recovered.content)).toEqual([{ key: "recovery", text: "address 0x402000; retained evidence" }]);
+		expect((await handler.resolve(parseInternalUrl("agent://NotesWorker/notes"))).content).toBe(data.notes);
 	});
 
 	it("drops a stale sidecar instead of leaving it behind when the replacement write fails", async () => {

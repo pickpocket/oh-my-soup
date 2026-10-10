@@ -2,7 +2,12 @@ import { describe, expect, it } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { isSyntheticToolResultMessage } from "@oh-my-soup/pi-agent-core";
+import type { AssistantMessage } from "@oh-my-soup/pi-ai";
 import { collectPendingToolCalls } from "@oh-my-soup/pi-coding-agent/session/exit-diagnostics";
+import {
+	getImportantNotesFromEntries,
+	IMPORTANT_NOTES_CUSTOM_TYPE,
+} from "@oh-my-soup/pi-coding-agent/session/important-notes";
 import {
 	CURRENT_SESSION_VERSION,
 	type SessionEntry,
@@ -14,6 +19,7 @@ import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-mana
 import { FileSessionStorage, MemorySessionStorage } from "@oh-my-soup/pi-coding-agent/session/session-storage";
 import { getTerminalId } from "@oh-my-soup/pi-tui";
 import { getAgentDir, getTerminalSessionsDir, removeWithRetries, setAgentDir, TempDir } from "@oh-my-soup/pi-utils";
+import * as snapcompact from "@oh-my-soup/snapcompact";
 
 interface JsonlMessageEntry {
 	type: "message";
@@ -55,6 +61,26 @@ async function createSessionWithArtifacts(root: string): Promise<{
 async function loadHistory(file: string): Promise<SessionEntry[]> {
 	const entries = await loadEntriesFromFile(file);
 	return entries.filter((entry): entry is SessionEntry => entry.type !== "session");
+}
+
+function forkAssistant(content: AssistantMessage["content"]): AssistantMessage {
+	return {
+		role: "assistant",
+		content,
+		api: "anthropic-messages",
+		provider: "anthropic",
+		model: "claude",
+		stopReason: content.some(block => block.type === "toolCall") ? "toolUse" : "stop",
+		timestamp: 2,
+		usage: {
+			input: 10,
+			output: 5,
+			cacheRead: 0,
+			cacheWrite: 0,
+			totalTokens: 15,
+			cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+		},
+	};
 }
 
 describe("SessionManager.forkFrom", () => {
@@ -570,5 +596,332 @@ describe("SessionManager.forkFrom", () => {
 		expect(forkedEntries.some(entry => entry.type === "message" && isSyntheticToolResultMessage(entry.message))).toBe(
 			false,
 		);
+	});
+});
+
+describe("SessionManager context snapshots", () => {
+	it("captures only the selected branch and detaches its context and header from later parent edits", async () => {
+		using tempDir = TempDir.createSync("@oms-session-context-fork-");
+		const cwd = tempDir.path();
+		const parent = SessionManager.create(cwd, path.join(cwd, "sessions"));
+		let child: SessionManager | undefined;
+		try {
+			const rootId = parent.appendMessage({ role: "user", content: "shared root", timestamp: 1 });
+			const injected = [{ type: "text" as const, text: "captured injected context" }];
+			const details = { routing: { workspace: "captured" } };
+			const customId = parent.appendCustomMessageEntry("extension-context", injected, false, details);
+			const notes = [{ key: "server", text: "bun run dev" }];
+			const noteId = parent.appendCustomEntry(IMPORTANT_NOTES_CUSTOM_TYPE, { version: 1, notes });
+			await parent.setSessionName("Captured title", "user");
+			await parent.setAdditionalDirectories([path.join(cwd, "captured-extra")]);
+			parent.getHeader()!.providerPromptCacheKey = "captured-cache-key";
+			const selectedLeaf = parent.appendMessage({ role: "user", content: "selected request", timestamp: 3 });
+			const selectedIds = parent.getBranch().map(entry => entry.id);
+
+			parent.branch(rootId);
+			parent.appendCustomEntry(IMPORTANT_NOTES_CUSTOM_TYPE, {
+				version: 1,
+				notes: [{ key: "server", text: "sibling command" }],
+			});
+			const siblingLeaf = parent.appendMessage({ role: "user", content: "sibling request", timestamp: 4 });
+			await parent.ensureOnDisk();
+			parent.branch(selectedLeaf);
+			const snapshot = parent.snapshotForFork();
+
+			parent.branch(siblingLeaf);
+			parent.appendMessage({ role: "user", content: "later parent work", timestamp: 5 });
+			await parent.setSessionName("Later title", "user");
+			await parent.setAdditionalDirectories([path.join(cwd, "later-extra")]);
+			parent.getHeader()!.providerPromptCacheKey = "later-cache-key";
+			injected[0]!.text = "mutated parent context";
+			details.routing.workspace = "mutated";
+			notes[0]!.text = "mutated parent note";
+
+			const childFile = path.join(cwd, "children", "captured.jsonl");
+			child = await SessionManager.forkFromSnapshot(snapshot, cwd, path.dirname(childFile), undefined, {
+				sessionFile: childFile,
+				copyArtifacts: false,
+				suppressBreadcrumb: true,
+			});
+			expect(child.getSessionFile()).toBe(childFile);
+			expect(child.getSessionId()).not.toBe(parent.getSessionId());
+			expect(child.getHeader()).toMatchObject({
+				parentSession: parent.getSessionId(),
+				title: "Captured title",
+				providerPromptCacheKey: "captured-cache-key",
+			});
+			expect(child.getAdditionalDirectories()).toEqual([path.join(cwd, "captured-extra")]);
+			expect(child.getEntries().map(entry => entry.id)).toEqual(selectedIds);
+			expect(child.buildSessionContext().messages).toMatchObject([
+				{ role: "user", content: "shared root" },
+				{ role: "custom", content: [{ type: "text", text: "captured injected context" }] },
+				{ role: "user", content: "selected request" },
+			]);
+			expect(getImportantNotesFromEntries(child.getBranch())).toEqual([{ key: "server", text: "bun run dev" }]);
+			expect(child.getEntry(customId)).toMatchObject({ details: { routing: { workspace: "captured" } } });
+			expect(child.getEntry(noteId)).toMatchObject({ data: { notes: [{ key: "server", text: "bun run dev" }] } });
+			expect((await loadHistory(childFile)).map(entry => entry.id)).toEqual(selectedIds);
+		} finally {
+			await child?.close();
+			await parent.close();
+		}
+	});
+
+	it("preserves compaction anchors, native replay, context notes, and blob-backed archived frames", async () => {
+		using tempDir = TempDir.createSync("@oms-session-context-fork-compaction-");
+		const previousAgentDir = getAgentDir();
+		setAgentDir(path.join(tempDir.path(), "agent"));
+		let parent: SessionManager | undefined;
+		let child: SessionManager | undefined;
+		try {
+			const cwd = tempDir.path();
+			const sessionDir = path.join(cwd, "sessions");
+			const source = SessionManager.create(cwd, sessionDir);
+			source.appendMessage({ role: "user", content: "old request represented by summary", timestamp: 1 });
+			source.appendCustomEntry("experimental_context_notes", { version: 1, text: "Keep the rollback plan." });
+			const retainedId = source.appendMessage({ role: "user", content: "retained request", timestamp: 2 });
+			source.appendMessage(forkAssistant([{ type: "text", text: "retained reply" }]));
+			const frameBytes = Buffer.from("captured archived frame");
+			const frameRef = source.putBlobSync(frameBytes).ref;
+			const compactionId = source.appendCompaction("Captured summary", undefined, retainedId, 900, {
+				preserveData: {
+					anthropicCompaction: { provider: "anthropic", content: "Captured summary", signature: "captured-sig" },
+					[snapcompact.PRESERVE_KEY]: {
+						frames: [
+							{
+								data: frameRef,
+								mimeType: "image/png",
+								cols: 10,
+								rows: 2,
+								chars: 23,
+								font: "8x13",
+								variant: "bw",
+							},
+						],
+						totalChars: 23,
+						truncatedChars: 0,
+						textHead: "",
+						textTail: "",
+					},
+				},
+			});
+			source.appendMessage({ role: "user", content: "post-compaction request", timestamp: 3 });
+			const sourceFile = source.getSessionFile()!;
+			await source.close();
+			parent = await SessionManager.open(sourceFile, sessionDir, undefined, { suppressBreadcrumb: true });
+			const snapshot = parent.snapshotForFork();
+			const newerId = parent.appendMessage({ role: "user", content: "later compacted request", timestamp: 4 });
+			parent.appendCompaction("Later summary", undefined, newerId, 1200);
+			const oldCompaction = parent.getEntry(compactionId);
+			if (oldCompaction?.type !== "compaction") throw new Error("Expected original compaction");
+			oldCompaction.summary = "mutated parent summary";
+			oldCompaction.preserveData = {};
+
+			child = await SessionManager.forkFromSnapshot(snapshot, cwd, undefined, undefined, { inMemory: true });
+			const context = child.buildSessionContext();
+			expect(context.messages.map(message => message.role)).toEqual([
+				"compactionSummary",
+				"custom",
+				"user",
+				"assistant",
+				"user",
+			]);
+			const summary = context.messages[0];
+			if (summary?.role !== "compactionSummary") throw new Error("Expected captured compaction summary");
+			expect(summary.summary).toBe("Captured summary");
+			expect(summary.providerPayload).toMatchObject({
+				type: "anthropicCompaction",
+				signature: "captured-sig",
+			});
+			expect(summary.blocks).toContainEqual({
+				type: "image",
+				data: frameBytes.toString("base64"),
+				mimeType: "image/png",
+			});
+			expect(context.messages[1]).toMatchObject({
+				role: "custom",
+				customType: "experimental_context_notes",
+				content: expect.stringContaining("Keep the rollback plan."),
+			});
+			expect(context.messages.slice(2)).toMatchObject([
+				{ role: "user", content: "retained request" },
+				{ role: "assistant", content: [{ type: "text", text: "retained reply" }] },
+				{ role: "user", content: "post-compaction request" },
+			]);
+			expect(child.getEntry(compactionId)).toMatchObject({ firstKeptEntryId: retainedId, tokensBefore: 900 });
+		} finally {
+			await child?.close();
+			await parent?.close();
+			setAgentDir(previousAgentDir);
+		}
+	});
+
+	it("repairs captured in-flight calls without borrowing later parent or sibling results", async () => {
+		const parent = SessionManager.inMemory("/snapshot-repair");
+		const assistantId = parent.appendMessage(
+			forkAssistant([
+				{ type: "toolCall", id: "done-call", name: "read", arguments: { path: "done.txt" } },
+				{ type: "toolCall", id: "live-call", name: "bash", arguments: { command: "sleep 40" } },
+			]),
+		);
+		parent.appendMessage({
+			role: "toolResult",
+			toolCallId: "live-call",
+			toolName: "bash",
+			content: [{ type: "text", text: "sibling completion" }],
+			isError: false,
+			timestamp: 3,
+		});
+		parent.branch(assistantId);
+		parent.appendMessage({
+			role: "toolResult",
+			toolCallId: "done-call",
+			toolName: "read",
+			content: [{ type: "text", text: "captured completion" }],
+			isError: false,
+			timestamp: 4,
+		});
+		parent.appendCustomEntry("tool_execution_start", { toolCallId: "live-call", toolName: "bash" });
+		const snapshot = parent.snapshotForFork();
+		parent.appendMessage({
+			role: "toolResult",
+			toolCallId: "live-call",
+			toolName: "bash",
+			content: [{ type: "text", text: "later parent completion" }],
+			isError: false,
+			timestamp: 5,
+		});
+
+		const untouched = await SessionManager.forkFromSnapshot(snapshot, parent.getCwd(), undefined, undefined, {
+			inMemory: true,
+		});
+		const repaired = await SessionManager.forkFromSnapshot(snapshot, parent.getCwd(), undefined, undefined, {
+			inMemory: true,
+			repairInterruptedTail: true,
+		});
+		expect(collectPendingToolCalls(untouched.getBranch()).map(call => call.toolCallId)).toEqual(["live-call"]);
+		expect(collectPendingToolCalls(repaired.getBranch())).toEqual([]);
+		const results = repaired
+			.getBranch()
+			.filter(
+				(entry): entry is SessionMessageEntry => entry.type === "message" && entry.message.role === "toolResult",
+			);
+		expect(results.map(entry => entry.message)).toMatchObject([
+			{ toolCallId: "done-call", content: [{ type: "text", text: "captured completion" }], isError: false },
+			{ toolCallId: "live-call", isError: true },
+		]);
+		expect(isSyntheticToolResultMessage(results[1]!.message)).toBe(true);
+		expect(collectPendingToolCalls(snapshot.entries).map(call => call.toolCallId)).toEqual(["live-call"]);
+		expect(collectPendingToolCalls(parent.getBranch())).toEqual([]);
+	});
+
+	it("reuses a snapshot with independent identities and billing while retaining token context", async () => {
+		const parent = SessionManager.inMemory("/snapshot-billing");
+		const assistant = forkAssistant([{ type: "toolCall", id: "task-call", name: "task", arguments: {} }]);
+		assistant.usage.cost = { input: 1, output: 4, cacheRead: 0.5, cacheWrite: 0.5, total: 6 };
+		assistant.usage.premiumRequests = 2;
+		assistant.usage.credits = { cost: 3, committedCost: 3, acuCost: 1 };
+		const assistantId = parent.appendMessage(assistant);
+		const taskUsage = structuredClone(assistant.usage);
+		taskUsage.cost = { input: 0, output: 2, cacheRead: 0, cacheWrite: 0, total: 2 };
+		const resultId = parent.appendMessage({
+			role: "toolResult",
+			toolCallId: "task-call",
+			toolName: "task",
+			content: [{ type: "text", text: "completed task" }],
+			details: { usage: taskUsage },
+			isError: false,
+			timestamp: 3,
+		});
+		const snapshot = parent.snapshotForFork();
+		const reset = await SessionManager.forkFromSnapshot(snapshot, parent.getCwd(), undefined, undefined, {
+			inMemory: true,
+			resetInheritedCost: true,
+		});
+		expect(reset.getUsageStatistics()).toMatchObject({ cost: 0, totalTokens: 30, premiumRequests: 0 });
+		expect(reset.getEntry(assistantId)).toMatchObject({
+			message: { usage: { totalTokens: 15, credits: undefined, premiumRequests: undefined } },
+		});
+		expect(reset.getEntry(resultId)).toMatchObject({
+			message: { details: { usage: { totalTokens: 15, credits: undefined, premiumRequests: undefined } } },
+		});
+		const childReply = forkAssistant([{ type: "text", text: "child's own work" }]);
+		childReply.usage.cost.output = 4;
+		childReply.usage.cost.total = 4;
+		reset.appendMessage(childReply);
+		const retained = await SessionManager.forkFromSnapshot(snapshot, parent.getCwd(), undefined, undefined, {
+			inMemory: true,
+		});
+		expect(new Set([parent.getSessionId(), reset.getSessionId(), retained.getSessionId()]).size).toBe(3);
+		expect(reset.getHeader()?.parentSession).toBe(parent.getSessionId());
+		expect(retained.getHeader()?.parentSession).toBe(parent.getSessionId());
+		expect(reset.getUsageStatistics()).toMatchObject({ cost: 4, totalTokens: 45 });
+		expect(retained.getUsageStatistics()).toMatchObject({ cost: 8, totalTokens: 30, premiumRequests: 4 });
+		expect(parent.getUsageStatistics()).toMatchObject({ cost: 8, totalTokens: 30, premiumRequests: 4 });
+		expect(retained.getEntry(assistantId)).toMatchObject({
+			message: { usage: { cost: { total: 6 }, credits: { cost: 3 }, premiumRequests: 2 } },
+		});
+	});
+
+	it("forks memory-only parents without a source file and preserves an explicitly empty selected branch", async () => {
+		using tempDir = TempDir.createSync("@oms-session-memory-context-fork-");
+		const parent = SessionManager.inMemory(tempDir.path());
+		parent.appendMessage({ role: "user", content: "memory-only request", timestamp: 1 });
+		parent.appendCustomMessageEntry("memory-context", "memory-only context", false);
+		const snapshot = parent.snapshotForFork();
+		const persisted = await SessionManager.forkFromSnapshot(snapshot, tempDir.path(), tempDir.path(), undefined, {
+			suppressBreadcrumb: true,
+		});
+		try {
+			expect(parent.getSessionFile()).toBeUndefined();
+			expect(persisted.getHeader()?.parentSession).toBe(parent.getSessionId());
+			expect(persisted.buildSessionContext().messages).toMatchObject([
+				{ role: "user", content: "memory-only request" },
+				{ role: "custom", content: "memory-only context" },
+			]);
+			const reopened = await SessionManager.open(persisted.getSessionFile()!, tempDir.path(), undefined, {
+				suppressBreadcrumb: true,
+			});
+			try {
+				expect(reopened.buildSessionContext().messages).toEqual(persisted.buildSessionContext().messages);
+			} finally {
+				await reopened.close();
+			}
+
+			parent.resetLeaf();
+			const emptySnapshot = parent.snapshotForFork();
+			parent.appendMessage({ role: "user", content: "new root after capture", timestamp: 2 });
+			const emptyChild = await SessionManager.forkFromSnapshot(emptySnapshot, tempDir.path(), undefined, undefined, {
+				inMemory: true,
+			});
+			expect(emptyChild.getSessionFile()).toBeUndefined();
+			expect(emptyChild.buildSessionContext().messages).toEqual([]);
+			expect(emptyChild.getHeader()?.parentSession).toBe(parent.getSessionId());
+		} finally {
+			await persisted.close();
+		}
+	});
+
+	it("keeps the captured artifact source when the parent later starts a different session", async () => {
+		using tempDir = TempDir.createSync("@oms-session-context-fork-artifacts-");
+		const { cwd, sessionDir, sourceFile } = await createSessionWithArtifacts(tempDir.path());
+		const parent = await SessionManager.open(sourceFile, sessionDir, undefined, { suppressBreadcrumb: true });
+		let child: SessionManager | undefined;
+		try {
+			const parentId = parent.getSessionId();
+			const snapshot = parent.snapshotForFork();
+			await parent.newSession();
+			child = await SessionManager.forkFromSnapshot(snapshot, cwd, sessionDir, undefined, {
+				suppressBreadcrumb: true,
+			});
+			expect(child.getHeader()?.parentSession).toBe(parentId);
+			const artifactDir = child.getArtifactsDir();
+			if (!artifactDir) throw new Error("Expected fork artifact directory");
+			expect(await Bun.file(path.join(artifactDir, "1.read.log")).text()).toBe("tool output");
+			expect(await Bun.file(path.join(artifactDir, "nested", "result.txt")).text()).toBe("nested output");
+		} finally {
+			await child?.close();
+			await parent.close();
+		}
 	});
 });

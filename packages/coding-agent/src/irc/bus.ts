@@ -15,8 +15,23 @@ import { AgentLifecycleManager } from "../registry/agent-lifecycle";
 import { AgentRegistry, MAIN_AGENT_ID } from "../registry/agent-registry";
 import type { CustomMessage } from "../session/messages";
 
+interface IrcWakeSources {
+	/** Any one of these agents can wake the caller. */
+	agents: readonly string[];
+	/** A non-agent job, service, or already-settled result can wake it independently. */
+	independent: boolean;
+}
+
+export class IrcWaitCycleError extends Error {
+	constructor(readonly cycle: readonly string[]) {
+		super(`IRC wait cycle detected: ${cycle.join(" -> ")}.`);
+		this.name = "IrcWaitCycleError";
+	}
+}
+
 interface IrcWaiter {
 	from?: string;
+	wakeSources: () => IrcWakeSources;
 	resolve: (msg: IrcMessage) => void;
 	cancel: () => void;
 }
@@ -188,16 +203,21 @@ export class IrcBus {
 	/**
 	 * Block until a message for `agentId` (optionally from `filter.from`)
 	 * arrives; consume + return it. Null on timeout (`timeoutMs <= 0` waits
-	 * forever). Rejects when `signal` aborts. By default, already-buffered
-	 * mail satisfies the wait before parking a future waiter; callers that
-	 * need a strictly future reply can disable that drain.
+	 * forever). Rejects on abort or a circular wait with no independent wake
+	 * source. By default, already-buffered mail satisfies the wait before
+	 * parking a future waiter; callers needing a future reply can disable that drain.
 	 */
 	async wait(
 		agentId: string,
 		filter: { from?: string },
 		timeoutMs: number,
 		signal?: AbortSignal,
-		options?: { drainPending?: boolean },
+		options?: {
+			drainPending?: boolean;
+			liveness?: { registry: AgentRegistry; senderId: string };
+			/** All wake sources when this mailbox wait races jobs or services. */
+			wakeSources?: { registry: AgentRegistry; read: () => IrcWakeSources };
+		},
 	): Promise<IrcMessage | null> {
 		if (signal?.aborted) {
 			throw signal.reason instanceof Error ? signal.reason : new Error("IRC wait aborted");
@@ -212,10 +232,19 @@ export class IrcBus {
 		const { promise, resolve, reject } = Promise.withResolvers<IrcMessage | null>();
 		let timer: NodeJS.Timeout | undefined;
 		let onAbort: (() => void) | undefined;
+		let settled = false;
+
+		const liveness = options?.liveness;
+		const registry = options?.wakeSources?.registry ?? liveness?.registry ?? this.#registry;
+		const livenessReason = filter.from
+			? `IRC wait aborted: agent "${filter.from}" is not running`
+			: "IRC wait aborted: no running peers remain";
 
 		const settle = (
 			outcome: { kind: "message"; msg: IrcMessage } | { kind: "timeout" } | { kind: "abort"; error: Error },
 		): void => {
+			if (settled) return;
+			settled = true;
 			cleanup();
 			if (outcome.kind === "message") {
 				resolve(outcome.msg);
@@ -230,10 +259,22 @@ export class IrcBus {
 			this.#removeWaiter(agentId, waiter);
 			clearTimeout(timer);
 			if (signal && onAbort) signal.removeEventListener("abort", onAbort);
+			unsubscribeRegistry();
 		};
 
 		const waiter: IrcWaiter = {
 			from: filter.from,
+			wakeSources:
+				options?.wakeSources?.read ??
+				(() => ({
+					agents: filter.from
+						? [filter.from]
+						: registry
+								.listVisibleTo(agentId)
+								.filter(ref => registry.isRunning(ref))
+								.map(ref => ref.id),
+					independent: false,
+				})),
 			resolve: msg => settle({ kind: "message", msg }),
 			cancel: () => cleanup(),
 		};
@@ -258,7 +299,69 @@ export class IrcBus {
 		}
 		waiters.push(waiter);
 
+		const check = (): void => {
+			if (settled) return;
+			if (
+				liveness &&
+				!liveness.registry
+					.listVisibleTo(liveness.senderId)
+					.some(ref => liveness.registry.isRunning(ref) && (!filter.from || ref.id === filter.from))
+			) {
+				settle({ kind: "abort", error: new Error(livenessReason) });
+				return;
+			}
+			const cycle = this.#findWaitCycle(agentId);
+			if (cycle) settle({ kind: "abort", error: new IrcWaitCycleError(cycle) });
+		};
+		const unsubscribeRegistry = registry.onChange(check);
+		check();
+
 		return promise;
+	}
+
+	/**
+	 * Waits race their wake sources (OR, not AND). Repeatedly remove agents
+	 * with an escape to independent work; only a closed blocked set is cyclic.
+	 * Delivery watches never enter this graph — only pending bus waits do.
+	 */
+	#findWaitCycle(agentId: string): string[] | undefined {
+		const blocked = new Map<string, Set<string>>();
+		for (const [id, waiters] of this.#waiters) {
+			const dependencies = new Set<string>();
+			let independent = false;
+			for (const waiter of waiters) {
+				const sources = waiter.wakeSources();
+				if (sources.independent) {
+					independent = true;
+					break;
+				}
+				for (const peer of sources.agents) dependencies.add(peer);
+			}
+			if (!independent && dependencies.size > 0) blocked.set(id, dependencies);
+		}
+		let removed: boolean;
+		do {
+			removed = false;
+			for (const [id, dependencies] of blocked) {
+				for (const peer of dependencies) {
+					if (blocked.has(peer)) continue;
+					blocked.delete(id);
+					removed = true;
+					break;
+				}
+			}
+		} while (removed);
+		if (!blocked.has(agentId)) return undefined;
+
+		const path: string[] = [];
+		const positions = new Map<string, number>();
+		let current = agentId;
+		while (!positions.has(current)) {
+			positions.set(current, path.length);
+			path.push(current);
+			current = blocked.get(current)!.values().next().value!;
+		}
+		return [...path.slice(positions.get(current)!), current];
 	}
 
 	/**

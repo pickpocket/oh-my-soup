@@ -27,6 +27,8 @@ import {
 } from "./executor";
 import { cfgTaskAgentAccountPools } from "./settings";
 import type { AgentDefinition } from "./types";
+import { resolveSpawnPolicy } from "./spawn-policy";
+import { captureSubagentToolSources, readSubagentToolState } from "./tool-contract";
 
 /**
  * Ambient context the reviver needs at revive time. The top-level session is
@@ -162,21 +164,57 @@ export function createPersistedSubagentReviverFactory(
 				init.modelRole && init.modelRole !== "default"
 					? [formatModelRoleAlias(init.modelRole), ...(init.resolvedModel ? [init.resolvedModel] : [])]
 					: init.resolvedModel;
-			// Older session files persisted the synthetic xd:// write transport in the
-			// enabled set. A read-only agent definition could never grant full write,
-			// so remove that transport name before replaying tools as explicit grants.
-			const revivedToolNames =
-				init.readOnly === true && init.tools.includes("write")
-					? init.tools.filter(name => name !== "write")
-					: init.tools;
+			const toolState = readSubagentToolState(entries, init);
+			if (!toolState) {
+				await reopened.close();
+				throw new Error(`Cannot revive subagent "${ref.id}": persisted tool state is unavailable.`);
+			}
+			const revivedToolNames = toolState.tools;
+			const currentOwnerTools = ctx.session.getEnabledToolNames?.();
+			const ownerToolSet = currentOwnerTools
+				? new Set(currentOwnerTools.filter(name => name !== "write" || ctx.session.isDeviceOnlyWrite?.() !== true))
+				: undefined;
+			const ownerSources = captureSubagentToolSources(ctx.session);
+			const unavailable = revivedToolNames.filter(
+				name =>
+					name !== "yield" &&
+					((ownerToolSet && !ownerToolSet.has(name)) ||
+						(init.toolSources?.[name] !== undefined && init.toolSources[name] !== ownerSources[name])),
+			);
+			if (unavailable.length > 0) {
+				await reopened.close();
+				const retainedKernelTools = unavailable.filter(name =>
+					init.toolSources?.[name]?.startsWith("eval-kernel\0"),
+				);
+				throw new Error(
+					`Cannot revive subagent "${ref.id}": unavailable authorized tool capabilities: ${unavailable.join(", ")}.` +
+						(retainedKernelTools.length > 0
+							? ` Retained eval-kernel tools (${retainedKernelTools.join(", ")}) require the original live parent kernel; they cannot survive process exit.`
+							: ""),
+				);
+			}
+			const toolAllowlist = toolState.toolAllowlist.filter(name => !ownerToolSet || ownerToolSet.has(name));
+			if (!toolAllowlist.includes("yield")) toolAllowlist.push("yield");
+			const savedSpawns = resolveSpawnPolicy(init.spawns ?? "");
+			const ownerSpawns = resolveSpawnPolicy(ctx.session.getSessionSpawns?.());
+			const revivedSpawns =
+				savedSpawns.allowedAgents === null
+					? (ownerSpawns.allowedAgents?.join(",") ?? "*")
+					: savedSpawns.allowedAgents
+							.filter(name => ownerSpawns.allowedAgents === null || ownerSpawns.allowedAgents.includes(name))
+							.join(",");
 			const artifactManager = ctx.session.sessionManager.getArtifactManager();
 			if (artifactManager) reopened.adoptArtifactManager(artifactManager);
 			// A restricted persisted contract must not consult process-global MCP
 			// state: same-name MCP tools are untrusted capability sources.
-			const restrictToolNames = init.restrictToolNames === true;
+			const restrictToolNames = init.restrictToolNames === true || ctx.session.isRestrictedToolSession?.() === true;
 			const mcpManager = restrictToolNames ? undefined : MCPManager.instance();
+			const inheritedCustomTools =
+				ctx.session.getCustomTools?.().filter(tool => toolAllowlist.includes(tool.name)) ?? [];
 			// Subscribe before minting proxies so a manager change during startup is replayed on bind.
-			const mcpFollower = mcpManager ? followMCPTools(mcpManager) : undefined;
+			const mcpFollower = mcpManager
+				? followMCPTools(mcpManager, new Set(inheritedCustomTools.map(tool => tool.name)))
+				: undefined;
 			const mcpProxyTools = mcpManager ? createMCPProxyTools(mcpManager) : [];
 			let session: AgentSession;
 			try {
@@ -217,6 +255,12 @@ export function createPersistedSubagentReviverFactory(
 					expectedAgentRef: expectedRef,
 					taskDepth,
 					toolNames: revivedToolNames,
+					toolAllowlist,
+					mountedToolNames: toolState.mountedTools,
+					toolSources: init.toolSources,
+					restoreToolState: true,
+					allowRestrictedCustomTools: inheritedCustomTools.length > 0,
+					customTools: inheritedCustomTools,
 					outputSchema: init.outputSchema,
 					outputSchemaMode: init.outputSchemaMode,
 					restrictToolNames: restrictToolNames || undefined,
@@ -227,9 +271,10 @@ export function createPersistedSubagentReviverFactory(
 					preloadedPreparedExtensions: ctx.session.preparedExtensions,
 					// Old files predate persisted spawns: deny re-spawning rather than let
 					// createAgentSession default to wildcard ("*").
-					spawns: init.spawns ?? "",
+					spawns: revivedSpawns,
 					hasUI: false,
 					enableLsp: restrictToolNames ? false : ctx.enableLsp,
+					lspReadOnly: init.lspReadOnly === true || ctx.session.isLspReadOnly?.() === true,
 					...(restrictToolNames
 						? {
 								enableIrc: false,
@@ -245,6 +290,7 @@ export function createPersistedSubagentReviverFactory(
 				}));
 			} catch (error) {
 				mcpFollower?.dispose();
+				await reopened.close();
 				throw error;
 			}
 			mcpFollower?.bind(session);

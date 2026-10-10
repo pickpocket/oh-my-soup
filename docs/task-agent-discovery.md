@@ -47,6 +47,8 @@ Parsing comes from frontmatter via `parseAgentFields()` (`src/discovery/helpers.
 - `prewalk: true` starts the subagent on its resolved model and hands off to the default prewalk target (the `smol` role) at its first edit/write, exactly like the session-level `--prewalk`; a string value (e.g. `prewalk: "@smol"` or `prewalk: "openai/gpt-5-mini"`) picks a custom target. The `task.agentPrewalk` settings record (agent name → `"on"` / `"off"` / pattern, configured per agent from the `/agents` hub via its prewalk strip) overrides the frontmatter. Resolution happens in `runSubprocess` (`src/task/executor.ts`). An unavailable target is skipped instead of failing the spawn. A resolved target is skipped only when both its model identity and its effective thinking mode/level match the starting selection after model clamping; a same-model effort downgrade is a real hand-off and still arms and switches at the first edit/write.
 - `advisor: true` pairs spawned sessions of the agent with an advisor running the model resolved for the `advisor` role; a string value (e.g. `advisor: "deepseek/deepseek-v4-flash"` or `advisor: "@smol:high"`) sets an explicit advisor model pattern (optional `:level` suffix), applied as the spawned session's `modelRoles.advisor`. The `task.agentAdvisor` settings record (agent name → `"on"` / `"off"` / pattern, configured per agent from the `/agents` hub via its advisor strip) overrides the frontmatter. Resolution happens in `runSubprocess` (`src/task/executor.ts`); subagents default to no advisor, and the effective opt-in is persisted in `session_init` so cold revival restores it.
 
+Spawn-time `toolNames` selects from the parent's enabled capabilities. Omission snapshots the full enabled set, including mounted devices, custom/extension tools, and MCP tools; `[]` requests no optional capabilities. An agent definition's `tools` list still classifies read-only agents but does not grant capabilities absent from the parent. Read-only, plan-mode, restricted-session, and recursion ceilings remain authoritative. The selected ceiling and later enabled/mounted state survive compaction and session revival.
+
 ## Role-backed custom agents
 
 OMS discovers user agents from `~/.oms/agent/agents/*.md` and project agents from `.oms/agents/*.md`.
@@ -317,14 +319,14 @@ If denied: `Cannot spawn '...'. Allowed: ...`.
 
 `task.maxRecursionDepth` defaults to `2`; a negative value disables the cap. The shared policy rejects a spawn when the current task depth has already reached the cap. When a child reaches the cap, `runSubprocess` also removes `task` from its tool list and sets its spawn policy empty.
 
-For an explicit agent tool list, `runSubprocess` auto-adds `task` when `spawns` is declared and depth permits it. The legacy `exec` entry expands to `bash` plus `eval` when an eval backend is available. A list containing `task` or `bash` also gains `wait` unless the parent requires an exact restricted tool list; tool construction still omits `wait` when there is no async, IRC, or service wake source. Outbound peer messaging requires `write` in the child tool list and IRC enabled; inbound steering does not.
+Spawning, peer messaging, and waiting do not expand the selected capability ceiling. `yield` and minimal device-dispatch transport are retained when required; a dispatch-only `write` cannot write files or invoke unselected devices.
 
 ## Plan mode behavior
 
 When parent plan mode is enabled, `resolveEffectiveSubagentPolicy()` builds an `effectiveAgent` before launching subprocesses:
 
 - prepends the plan-mode subagent system prompt
-- restricts tools to `read`, `grep`, `glob`, and `web_search`, plus `ast_grep` when the agent's own tool list declares it
+- intersects the selected parent capabilities with `read`, `grep`, `glob`, `web_search`, and `ast_grep`
 - clears child spawns
 - clears `prewalk` (read-only exploration must not receive the prewalk plan/implement nudges)
 

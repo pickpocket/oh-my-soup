@@ -28,6 +28,8 @@ const POLICY = {
 	effectiveAgent: AGENT,
 	schema: { schema: undefined, source: "none", mode: "permissive", outputSchemaOverridesAgent: false },
 	planMode: false,
+	toolNames: [],
+	mountedToolNames: [],
 	isIsolated: false,
 	mergeMode: "patch",
 	applyChanges: true,

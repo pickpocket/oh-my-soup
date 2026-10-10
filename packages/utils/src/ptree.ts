@@ -151,6 +151,8 @@ export class TimeoutError extends AbortError {
 export interface WaitOptions {
 	allowNonZero?: boolean;
 	allowAbort?: boolean;
+	/** `consumed` joins process teardown without taking stdout from an existing streaming reader. */
+	stdout?: "capture" | "consumed";
 	/** `full` requires upfront capture; `exec` enables it, while direct `spawn` callers pass `stderr: "full"`. */
 	stderr?: "full" | "buffer";
 }
@@ -516,13 +518,18 @@ export class ChildProcess<In extends InMask = InMask> {
 	// ── Wait ─────────────────────────────────────────────────────────────
 
 	async wait(opts?: WaitOptions): Promise<ExecResult> {
-		const { allowNonZero = false, allowAbort = false, stderr: stderrMode = "buffer" } = opts ?? {};
+		const {
+			allowNonZero = false,
+			allowAbort = false,
+			stdout: stdoutMode = "capture",
+			stderr: stderrMode = "buffer",
+		} = opts ?? {};
 		const stderrChunks = this.#stderrChunks;
 		if (stderrMode === "full" && !stderrChunks) {
 			throw new Error('Full stderr capture must be requested when spawning the process (pass stderr: "full")');
 		}
 
-		const stdoutP = this.#readStream(this.proc.stdout);
+		const stdoutP = stdoutMode === "consumed" ? Promise.resolve("") : this.#readStream(this.proc.stdout);
 		const stderrP =
 			stderrMode === "full" && stderrChunks
 				? this.#stderrDone.then(() => new TextDecoder().decode(Buffer.concat(stderrChunks)))
@@ -658,7 +665,7 @@ export function spawn<In extends InMask = InMask>(cmd: string[], opts?: ChildSpa
 }
 
 /** Options for exec. */
-export interface ExecOptions extends Omit<ChildSpawnOptions, "stderr" | "stdin">, WaitOptions {
+export interface ExecOptions extends Omit<ChildSpawnOptions, "stderr" | "stdin">, Omit<WaitOptions, "stdout"> {
 	input?: string | Buffer | Uint8Array;
 }
 

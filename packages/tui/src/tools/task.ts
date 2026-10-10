@@ -2218,6 +2218,8 @@ export interface TaskItem {
 	schemaMode?: "permissive" | "strict";
 	/** Eval-defined tool names exposed to this child. */
 	tools?: string[];
+	/** Host capability names granted to this child; omitted snapshots the parent's enabled grants. */
+	toolNames?: string[];
 	/** Run this spawn in an isolated worktree (batch form; flat form carries it top-level). */
 	isolated?: boolean;
 }
@@ -2247,6 +2249,8 @@ export interface TaskParams {
 	schemaMode?: "permissive" | "strict";
 	/** Eval-defined tool names exposed to the flat-form child. */
 	tools?: string[];
+	/** Host capability names for the flat-form child; [] grants only completion/transport. */
+	toolNames?: string[];
 	/** Batch form (`task.batch`): one subagent per item. */
 	tasks?: TaskItem[];
 	/** Batch form: shared background prepended to every assignment; required by the batch schema. */
@@ -2463,6 +2467,8 @@ export interface SingleResult {
 	usage?: Usage;
 	/** Output path for the task result */
 	outputPath?: string;
+	/** Read-only saved session notes, independent of the child's output schema. */
+	notesUri?: string;
 	/**
 	 * Ran inside an isolation worktree. Such agents are parked without a
 	 * reviver once the worktree is torn down, so they are never resumable or

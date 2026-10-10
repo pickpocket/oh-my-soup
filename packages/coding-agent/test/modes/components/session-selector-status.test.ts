@@ -62,6 +62,12 @@ describe("SessionSelectorComponent status labels", () => {
 		expect(rendered).toContain(`${theme.status.pending} pending`);
 	});
 
+	it("marks a service-owned session as in progress rather than done or interrupted", () => {
+		const rendered = renderPlain([createSession("live", "running")]);
+		expect(rendered).toContain(`${theme.status.pending} in progress`);
+		expect(rendered).not.toContain(`${theme.status.success} done`);
+	});
+
 	it("draws the glyph from the active symbol preset (nerdfont / unicode / ascii)", async () => {
 		const sessions = [createSession("complete", "complete")];
 		const glyphs = new Set<string>();

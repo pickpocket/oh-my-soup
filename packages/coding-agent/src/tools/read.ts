@@ -762,7 +762,7 @@ function formatLocatedFileNotice(url: string, backingPath: string, size: number,
  * scheme declares {@link SchemeSpec.imageQuestion}; every other URL owns its query string.
  */
 export function splitImageQuestionTarget(readPath: string): { path: string; question?: string } {
-	if (readPath.includes("://")) {
+	if (readPath.includes("://") || extractUriScheme(readPath) === "ssh") {
 		const scheme = extractUriScheme(readPath);
 		if (!scheme || !InternalUrlRouter.instance().spec(scheme)?.imageQuestion) return { path: readPath };
 	}

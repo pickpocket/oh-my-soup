@@ -179,8 +179,8 @@ async fn placement_preserves_target_and_result_contracts() {
 		.await;
 	}
 
-	// RL1 (P1 claim): a leading comment on the anchored header row must not erase
-	// the block's region.
+	// RL1 (P1 claim): a leading comment on the anchored header row must not
+	// erase the block's region.
 	{
 		let js = "function f() {\n  /* lead */ if (ready) {\n    notify(x1);\n  }\n}\nfunction g() \
 		          {\n    notify(x);\n}\n";
@@ -206,8 +206,8 @@ async fn placement_preserves_target_and_result_contracts() {
 		)
 		.await;
 	}
-	// RL2 (claim): an anchored chain statement with its own recovery error is not a
-	// certain region.
+	// RL2 (claim): an anchored chain statement with its own recovery error is
+	// not a certain region.
 	{
 		let chain = "db.save(user).then(() => {\n  notify(x);\n})\n.catch(() => {\n  broken = = \
 		             1;\n});\nfunction g() {\n  notify(x);\n}\n";
@@ -369,8 +369,8 @@ async fn placement_preserves_target_and_result_contracts() {
 			.await;
 		}
 	}
-	// MX2 (P1 claim): a reordering replacement must not move another hunk's context
-	// away from its insertion.
+	// MX2 (P1 claim): a reordering replacement must not move another hunk's
+	// context away from its insertion.
 	both(
 		"MX2_MOVED_EDGE_CONTEXT",
 		"t.txt",
@@ -665,8 +665,8 @@ async fn placement_preserves_target_and_result_contracts() {
 		f,
 	)
 	.await;
-	// IX1 (P1 claim): fieldless Swift branch identity when the body starts at the
-	// gap.
+	// IX1 (P1 claim): fieldless Swift branch identity when the body starts at
+	// the gap.
 	p(
 		"IX1_SWIFT_FIRST_BODY_BRANCH",
 		EditMode::Patch,
@@ -780,8 +780,8 @@ async fn placement_preserves_target_and_result_contracts() {
 	.await;
 
 	// ---- R11TokenGuardReview
-	// TX0 (P1 claim): a trivial rewrite must still keep the original successor in
-	// its owner.
+	// TX0 (P1 claim): a trivial rewrite must still keep the original successor
+	// in its owner.
 	p(
 		"TX0_TRIVIAL_PREFIX_SWALLOWS_SUCCESSOR",
 		EditMode::Patch,

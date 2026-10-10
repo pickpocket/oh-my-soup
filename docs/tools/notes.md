@@ -9,6 +9,7 @@ Save exact, session-scoped reference information independently of conversation s
 - Request restoration and reminder: `packages/coding-agent/src/session/important-notes-context.ts`, wired by `sdk.ts`
 - Proactive session guidance: `packages/coding-agent/src/prompts/system/important-notes-guidance.md`, rendered by `system-prompt.ts`
 - Handoff transfer: `packages/coding-agent/src/session/session-handoff.ts`
+- Child recovery: `packages/coding-agent/src/internal-urls/agent-protocol.ts`, with read-only journal loading in `session/session-loader.ts`
 
 ## Operations
 
@@ -37,7 +38,7 @@ The tool is essential by default and remains available directly in Code Mode. Ex
 
 | Scope | Stored in | Visible to | Use for |
 | --- | --- | --- | --- |
-| `session` (default) | session journal | this session, and forks of it | this machine's or session's working state |
+| `session` (default) | session journal | this session and its forks; recoverable by peers through `agent://<id>?view=notes` | this machine's or session's working state |
 | `project` | `.beads/`, no issue | every session in the workspace, and every machine after `sync` | shared durable facts: commands, conventions, gotchas |
 | `issue` | `.beads/`, attached to one issue | every session in the workspace; follows the issue | working state of one piece of work |
 
@@ -62,6 +63,14 @@ Reads wait for atomic publication, so they never expose a snapshot that is later
 Notes survive in-place compaction, session resume, and handoff-based compaction. Handoff copies the exact snapshot into the replacement session instead of relying on the generated document. Forks inherit the selected branch's notes, then evolve independently. Fresh sessions and fresh child sessions start empty. Clearing conversation context does not clear notes; use `clear` to remove them explicitly.
 
 Handoff captures the latest committed notes at the session transition and publishes them before fallible post-transition hooks. If a later memory-context reset fails, the replacement journal still contains the exact carried notes and handoff document.
+
+## Recovering subagent notes
+
+Read `agent://<id>?view=notes` to recover a child's saved session notes without asking it to repeat its work. Dotted IDs address nested children, for example `agent://Planner.Worker?view=notes`. The view returns a JSON array of `{ key, text, updatedAt? }` from the live active branch or, after disposal or parent resume, the retained journal's persisted branch. Updates, deletions, and clears are folded exactly as in the child's `notes list`; sibling branches are excluded. The caller's `notes.timestamps` setting controls timestamp visibility.
+
+Task completion envelopes include a notes link when the child's session or journal is recoverable; result metadata exposes it as `notesUri`. Notes remain separate from the final output and any output schema: `agent://Worker/notes` still extracts an output field named `notes`. Read line/raw selectors work on the notebook view, such as `agent://Worker?view=notes:raw`.
+
+The view is read-only and never merges notes into the parent or rewrites the child's journal. An empty notebook returns `[]`; a missing live session and journal produces an error. Memory-only children are recoverable only while their session is retained. Project and issue notes remain shared Beads state, not part of this child notebook.
 
 ## Model context and reminder
 

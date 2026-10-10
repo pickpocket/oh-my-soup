@@ -5,6 +5,8 @@
 ### Added
 
 - Added a transcript renderer for the `ssh` session device.
+- Added an in-progress status for live sessions in resume pickers.
+- Added saved-notes recovery links to task result metadata.
 
 ## [18.4.5] - 2026-10-06
 

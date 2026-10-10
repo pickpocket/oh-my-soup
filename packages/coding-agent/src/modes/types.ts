@@ -283,8 +283,8 @@ export interface InteractiveModeContext {
 	init(options?: InteractiveModeInitOptions): Promise<void>;
 	playWelcomeIntro(): void;
 	shutdown(): Promise<void>;
-	/** Tear down like {@link shutdown}, then relaunch the CLI with the original launch flags, resuming this session. */
-	restart(): Promise<void>;
+	/** Relaunch this session, or redirect the terminal to a selected live service session. */
+	restart(resumeSessionPath?: string): Promise<void>;
 	/** Request graceful shutdown at the next fully settled boundary, including background turns. */
 	requestShutdown(): void;
 	checkShutdownRequested(): Promise<void>;
@@ -508,6 +508,8 @@ export interface InteractiveModeContext {
 	showSessionSelector(source?: ForeignSessionSource): void;
 	/** Settle side requests before replacing the session or deleting its artifacts. */
 	prepareSessionSwitch(): Promise<void>;
+	/** Refresh the persistent service's live-session identity after a file or cwd change. */
+	reportLiveSession?(): Promise<void>;
 	handleResumeSession(sessionPath: string): Promise<void>;
 	handleSessionDeleteCommand(): Promise<void>;
 	showOAuthSelector(mode: "login" | "logout", providerId?: string): Promise<void>;

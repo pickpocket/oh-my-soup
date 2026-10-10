@@ -191,7 +191,8 @@ async fn round9_placement_contracts() {
 	.await;
 
 	// ---- R9InsertionReview
-	// IY0 (P1 claim): owner normalization must keep real block and branch identity.
+	// IY0 (P1 claim): owner normalization must keep real block and branch
+	// identity.
 	p(
 		"IY0a_GO_BRANCH_OWNER",
 		EditMode::Patch,
@@ -214,8 +215,8 @@ async fn round9_placement_contracts() {
 		f,
 	)
 	.await;
-	// IY1 (P1 claim): a displaced item's pre-existing attributes are checked even
-	// when the anchor row opens none.
+	// IY1 (P1 claim): a displaced item's pre-existing attributes are checked
+	// even when the anchor row opens none.
 	p(
 		"IY1a_RUST_ATTR_ABOVE_COMMENT_ANCHOR",
 		EditMode::Patch,
@@ -283,7 +284,8 @@ async fn round9_placement_contracts() {
 	.await;
 
 	// ---- R9MultiHunkReview
-	// HY0 (P1 claim): a consumed best from a repaired variant stops later variants.
+	// HY0 (P1 claim): a consumed best from a repaired variant stops later
+	// variants.
 	{
 		let v = "start = compute_start_amount(config, options, account);";
 		let w = "finish = compute_final_amount(config, options, account);";
@@ -350,8 +352,8 @@ async fn round9_placement_contracts() {
 		f,
 	)
 	.await;
-	// HY3 (P1 claim): consumed evidence carries across same-file ApplyPatch Update
-	// sections.
+	// HY3 (P1 claim): consumed evidence carries across same-file ApplyPatch
+	// Update sections.
 	{
 		let original = "[a]\nval = 1\n[a]\nval = 1   \n";
 		let s1 = "*** Update File: t.txt\n@@ [a]\n [a]\n-val = 1\n+val = 2";
@@ -379,8 +381,8 @@ async fn round9_placement_contracts() {
 		)
 		.await;
 	}
-	// HY4 (P1 claim): same-gap pure insertions must not take their order from hunk
-	// order.
+	// HY4 (P1 claim): same-gap pure insertions must not take their order from
+	// hunk order.
 	both(
 		"HY4a_EOF_ANCHOR_ORDER",
 		"t.txt",
@@ -473,8 +475,8 @@ async fn round9_placement_contracts() {
 		.await;
 	}
 	{
-		// Controls: same-path edits/sections that are legitimately sequential keep
-		// applying.
+		// Controls: same-path edits/sections that are legitimately sequential
+		// keep applying.
 		let distinct = "[a]\nval = 1\n[b]\nval = 1\n";
 		let d1 = json!({ "op": "update", "diff": "@@ [a]\n [a]\n-val = 1\n+val = 2" });
 		let d2 = json!({ "op": "update", "diff": "@@ [b]\n [b]\n-val = 1\n+val = 3" });

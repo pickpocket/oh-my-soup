@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- Added TRAMP-style SSH paths to the embedded shell filesystem, preserving literal filenames and remote-home-relative paths.
+
 ## [18.4.5] - 2026-10-06
 
 ### Fixed

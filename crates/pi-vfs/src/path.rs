@@ -13,9 +13,56 @@ use std::{
 	path::{Component, Path, PathBuf},
 };
 
+/// Remote authority delimiter for TRAMP paths. Validation belongs to the
+/// routed provider: malformed targets and unsupported methods must not fall
+/// through to a host filesystem operation.
+fn tramp_root_len(path: &Path) -> Option<usize> {
+	let bytes = path.as_os_str().as_encoded_bytes();
+	if bytes.first() != Some(&b'/') {
+		return None;
+	}
+	let colon = bytes.iter().position(|&byte| byte == b':')?;
+	let method = &bytes[1..colon];
+	if method.is_empty()
+		|| !(method[0].is_ascii_alphabetic() || method == b"-")
+		|| !method
+			.iter()
+			.all(|&byte| byte.is_ascii_alphanumeric() || matches!(byte, b'+' | b'-' | b'.'))
+	{
+		return None;
+	}
+	let start = colon + 1;
+	if start == bytes.len() {
+		return Some(start);
+	}
+	let mut bracket = false;
+	let mut bracket_colon = false;
+	for (index, &byte) in bytes.iter().enumerate().skip(start) {
+		match byte {
+			b'/' => return (bracket && bracket_colon).then_some(start),
+			b'[' => bracket = true,
+			b']' => bracket = false,
+			b':' if !bracket => {
+				let root = index + 1;
+				return Some(if bytes.get(root) == Some(&b'/') {
+					root + 1
+				} else {
+					root
+				});
+			},
+			b':' => bracket_colon = true,
+			_ => {},
+		}
+	}
+	(bracket && bracket_colon).then_some(start)
+}
+
 /// Length in bytes of the `scheme://` root of `path`, if it is a URL.
 pub(crate) fn url_root_len(path: &Path) -> Option<usize> {
 	let bytes = path.as_os_str().as_encoded_bytes();
+	if bytes.first() == Some(&b'/') {
+		return tramp_root_len(path);
+	}
 	let colon = bytes.iter().position(|&b| b == b':')?;
 	if colon < 2 || !bytes[0].is_ascii_alphabetic() {
 		return None;
@@ -33,10 +80,16 @@ pub(crate) fn url_root_len(path: &Path) -> Option<usize> {
 /// paths.
 pub fn url_scheme(path: &Path) -> Option<&str> {
 	let root = url_root_len(path)?;
-	std::str::from_utf8(&path.as_os_str().as_encoded_bytes()[..root - 3]).ok()
+	let bytes = path.as_os_str().as_encoded_bytes();
+	if bytes.first() == Some(&b'/') {
+		let colon = bytes.iter().position(|&byte| byte == b':')?;
+		std::str::from_utf8(&bytes[1..colon]).ok()
+	} else {
+		std::str::from_utf8(&bytes[..root - 3]).ok()
+	}
 }
 
-/// Whether `path` is spelled as a `scheme://` URL.
+/// Whether `path` is a `scheme://` URL or recognized TRAMP remote filename.
 pub fn is_virtual_path(path: &Path) -> bool {
 	url_root_len(path).is_some()
 }
@@ -217,7 +270,8 @@ fn push_url(base: &Path, spelled: &OsStr) -> PathBuf {
 	if spelled.is_empty() {
 		return out.into();
 	}
-	if !base.as_os_str().as_encoded_bytes().ends_with(b"/") {
+	let bytes = base.as_os_str().as_encoded_bytes();
+	if !(bytes.ends_with(b"/") || bytes.first() == Some(&b'/') && bytes.ends_with(b":")) {
 		out.push("/");
 	}
 	out.push(spelled);
@@ -248,6 +302,10 @@ pub fn join_path(base: &Path, rel: &Path) -> PathBuf {
 		return rel.to_path_buf();
 	}
 	if rel.as_os_str().is_empty() {
+		let bytes = base.as_os_str().as_encoded_bytes();
+		if bytes.first() == Some(&b'/') && bytes.ends_with(b":") {
+			return base.to_path_buf(); // A slash would change remote HOME into remote '/'.
+		}
 		// `Path::join("")` appends a separator; keep that directory spelling.
 		let mut out = OsString::from(base.as_os_str());
 		if !base.as_os_str().as_encoded_bytes().ends_with(b"/") {
@@ -255,12 +313,14 @@ pub fn join_path(base: &Path, rel: &Path) -> PathBuf {
 		}
 		return out.into();
 	}
+	let literal = base.as_os_str().as_encoded_bytes().first() == Some(&b'/');
 	let mut spelled = OsString::with_capacity(rel.as_os_str().len());
 	for component in rel.components() {
 		if !spelled.is_empty() {
 			spelled.push("/");
 		}
 		match component {
+			Component::Normal(name) if literal => spelled.push(name),
 			Component::Normal(name) => spelled.push(encode_segment(name)),
 			other => spelled.push(other.as_os_str()),
 		}
@@ -276,7 +336,11 @@ pub fn join_path(base: &Path, rel: &Path) -> PathBuf {
 /// percent-encoded segment. [`crate::DirEntry::file_name`] keeps the raw name.
 pub fn child_path(dir: &Path, name: &OsStr) -> PathBuf {
 	if is_virtual_path(dir) {
-		push_url(dir, &encode_segment(name))
+		if dir.as_os_str().as_encoded_bytes().first() == Some(&b'/') {
+			push_url(dir, name)
+		} else {
+			push_url(dir, &encode_segment(name))
+		}
 	} else {
 		dir.join(name)
 	}
@@ -317,6 +381,9 @@ pub fn file_name(path: &Path) -> Option<Cow<'_, OsStr>> {
 		return path.file_name().map(Cow::Borrowed);
 	};
 	match url_segments(path, root).last() {
+		Some(name) if name != ".." && path.as_os_str().as_encoded_bytes().first() == Some(&b'/') => {
+			Some(Cow::Borrowed(name))
+		},
 		Some(name) if name != ".." => Some(decode_segment(name)),
 		_ => None,
 	}
@@ -329,7 +396,12 @@ pub fn with_file_name(path: &Path, name: impl AsRef<OsStr>) -> PathBuf {
 	if url_root_len(path).is_none() {
 		return path.with_file_name(name);
 	}
-	push_url(parent_path(path).unwrap_or(path), &encode_segment(name))
+	let parent = parent_path(path).unwrap_or(path);
+	if path.as_os_str().as_encoded_bytes().first() == Some(&b'/') {
+		push_url(parent, name)
+	} else {
+		push_url(parent, &encode_segment(name))
+	}
 }
 
 /// Lexical spelling of `path` relative to the directory `base`, or `None`
@@ -407,6 +479,11 @@ pub fn relative_path(path: &Path, base: &Path) -> Option<PathBuf> {
 /// relative path are kept. An empty result is `.`.
 pub fn normalize_lexically(path: &Path) -> PathBuf {
 	if let Some(root) = url_root_len(path) {
+		let bytes = path.as_os_str().as_encoded_bytes();
+		if bytes.first() == Some(&b'/') && bytes.get(root - 1) == Some(&b':') {
+			// Only the provider knows HOME; leading '..' may climb above it.
+			return path.to_path_buf();
+		}
 		let mut segments: Vec<&OsStr> = Vec::new();
 		for seg in url_segments(path, root) {
 			match seg.as_encoded_bytes() {
@@ -467,8 +544,14 @@ pub(crate) enum Part {
 pub(crate) fn parts(path: &Path) -> Vec<Part> {
 	let mut out = Vec::new();
 	if let Some(root) = url_root_len(path) {
+		let bytes = path.as_os_str().as_encoded_bytes();
+		let home_relative = bytes.first() == Some(&b'/') && bytes.get(root - 1) == Some(&b':');
 		out.push(Part::Root(subpath(path, root).to_path_buf()));
 		for seg in url_segments(path, root) {
+			if home_relative {
+				out.push(Part::Normal(seg.to_os_string()));
+				continue;
+			}
 			out.push(match seg.as_encoded_bytes() {
 				b"." => Part::Cur,
 				b".." => Part::Parent,

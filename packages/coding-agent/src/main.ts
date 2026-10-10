@@ -101,6 +101,9 @@ import {
 	loadSessionExtensions,
 	resolvePrewalkTarget,
 } from "./sdk";
+import { tryAttachService } from "./service/client";
+import { listServiceSessions, type LiveServiceSession } from "./service/control";
+import { liveSessionForIdentifier, liveSessionForPath, markLiveSessions } from "./service/resume";
 import type { AgentSession } from "./session/agent-session";
 import { createAuthStorageSettingsSync, describeAuthBrokerStartupError } from "./session/auth-broker-config";
 import type { AuthStorage } from "./session/auth-storage";
@@ -211,10 +214,14 @@ async function loadSessionPicker(): Promise<SessionPicker> {
 				return query => history.matchingSessionIds(query);
 			},
 			deleteSession: async session => {
+				if (liveSessionForPath(session.path, await listServiceSessions())) {
+					throw new Error("Cannot delete a session while it is running in the OMS service");
+				}
 				await storage.deleteSessionWithArtifacts(session.path);
 				return true;
 			},
-			loadAllSessions: () => SessionManager.listAllForPicker(storage),
+			loadAllSessions: async () =>
+				markLiveSessions(await SessionManager.listAllForPicker(storage), await listServiceSessions()),
 		});
 	};
 }
@@ -1180,14 +1187,25 @@ export function normalizeContinueSessionArgs(parsed: Args, rawArgs?: readonly st
 const SESSION_NOT_FOUND_HINT =
 	"Run `oms --resume` without an argument to pick from recent sessions, or `oms` to start a new one.";
 
-function validateSessionPersistenceArgs(parsed: Pick<Args, "continue" | "noSession" | "resume">): void {
+function validateSessionPersistenceArgs(parsed: Pick<Args, "continue" | "noSession">): void {
 	if (!parsed.noSession) return;
-	if (parsed.resume !== undefined) {
-		throw new SessionResolutionError("--resume requires session persistence");
-	}
 	if (parsed.continue) {
 		throw new SessionResolutionError("--continue requires session persistence");
 	}
+}
+
+async function resolveInMemoryResumePath(sessionArg: string, cwd: string, sessionDir?: string): Promise<string> {
+	if (sessionArg.includes("/") || sessionArg.includes("\\") || sessionArg.endsWith(".jsonl")) {
+		return sessionArg;
+	}
+	const match = await resolveResumableSession(sessionArg, cwd, sessionDir);
+	if (!match) {
+		throw new SessionResolutionError(
+			`Session "${sessionArg}" not found.`,
+			"Run `oms --resume` without an argument to pick from recent sessions, or `oms` to start a new one.",
+		);
+	}
+	return match.session.path;
 }
 /**
  * Resolves CLI session flags into an existing, forked, in-memory, or cancelled session manager.
@@ -1232,11 +1250,16 @@ export async function createSessionManager(
 	}
 
 	if (parsed.noSession) {
-		normalizeContinueSessionArgs(parsed);
 		if (options.nativeFlagOwnership !== "preliminary") {
 			validateSessionPersistenceArgs(parsed);
+			if (typeof parsed.resume === "string") {
+				const sessionPath = await resolveInMemoryResumePath(parsed.resume, cwd, parsed.sessionDir);
+				const manager = await SessionManager.openInMemory(sessionPath, cwd);
+				manager.setCwdWithoutRelocation(cwd);
+				return manager;
+			}
 		}
-		return SessionManager.inMemory();
+		return SessionManager.inMemory(cwd);
 	}
 	normalizeContinueSessionArgs(parsed);
 
@@ -2020,11 +2043,12 @@ export async function runRootCommand(
 		// Resolve an explicit `--continue <id>` before extension flags are loaded.
 		// Reading the token immediately after `--continue` distinguishes the session
 		// id from UUID-shaped values owned by later extension flags.
-		normalizeContinueSessionArgs(parsedArgs, rawArgs);
+		if (!parsedArgs.noSession) normalizeContinueSessionArgs(parsedArgs, rawArgs);
 
 		// Resolve native resume/fork flags or import one foreign transcript into a
 		// fresh persisted OMS session before constructing the AgentSession.
 		let sessionManager: SessionManager | undefined;
+		let liveStartupSession: LiveServiceSession | undefined;
 		let foreignSource: ForeignSessionSource | undefined;
 		try {
 			foreignSource = resolveForeignSessionSource(parsedArgs);
@@ -2086,15 +2110,30 @@ export async function runRootCommand(
 					throw new SessionResolutionError(`Failed to import ${sourceName} session: ${message}`);
 				}
 			} else {
-				sessionManager = await logger.time(
-					"createSessionManager",
-					createSessionManager,
-					parsedArgs,
-					cwd,
-					settingsInstance,
-					promptMoveSession,
-					{ nativeFlagOwnership: "preliminary" },
-				);
+				if (
+					isInteractive &&
+					!parsedArgs.noSession &&
+					!parsedArgs.fork &&
+					typeof parsedArgs.resume === "string" &&
+					process.env.OMS_SERVICE_CHILD !== "1" &&
+					process.stdin.isTTY === true &&
+					process.stdout.isTTY === true
+				) {
+					liveStartupSession = liveSessionForIdentifier(parsedArgs.resume, await listServiceSessions());
+				}
+				// Never open a service-owned transcript as a second writer, even before it exists.
+				// Keep startup inert until extension flag ownership and CLI validation settle below.
+				sessionManager = liveStartupSession
+					? SessionManager.inMemory(liveStartupSession.cwd)
+					: await logger.time(
+							"createSessionManager",
+							createSessionManager,
+							parsedArgs,
+							cwd,
+							settingsInstance,
+							promptMoveSession,
+							{ nativeFlagOwnership: "preliminary" },
+						);
 			}
 		} catch (error: unknown) {
 			if (error instanceof SessionResolutionError) {
@@ -2133,16 +2172,30 @@ export async function runRootCommand(
 			process.exit(0);
 		}
 
-		// Handle --resume (no value): show session picker. Skipped under
-		// --no-session — createSessionManager already returned an ephemeral manager,
-		// and the deferred persistence check below (after extension flag ownership is
-		// resolved) rejects a native --resume, so the picker must not run first.
-		if (parsedArgs.resume === true && !parsedArgs.fork && !parsedArgs.noSession) {
-			const folderSessions = await logger.time(
-				"SessionManager.listForPicker",
-				SessionManager.listForPicker,
-				cwd,
-				parsedArgs.sessionDir,
+		const attachLiveStartupSession = async (sessionPath: string, wasLive = false): Promise<void> => {
+			if (!isInteractive || parsedArgs.noSession || process.env.OMS_SERVICE_CHILD === "1") return;
+			if (process.stdin.isTTY !== true || process.stdout.isTTY !== true) return;
+			const active = liveSessionForPath(sessionPath, await listServiceSessions());
+			if (!active) {
+				if (wasLive) {
+					throw new SessionResolutionError("Live session ended before attachment; choose the session again");
+				}
+				return;
+			}
+			if (!(await tryAttachService(cwd, active.sessionPath))) {
+				throw new SessionResolutionError("The OMS service stopped before the live session could be attached");
+			}
+			stopStartupWatchdog();
+			process.exit(0);
+		};
+
+		const selectStartupResumeSession = async (): Promise<SessionInfo> => {
+			const liveSessions = await listServiceSessions();
+			const folderDir = parsedArgs.sessionDir ?? SessionManager.getDefaultSessionDir(cwd);
+			const folderSessions = markLiveSessions(
+				await logger.time("SessionManager.listForPicker", SessionManager.listForPicker, cwd, parsedArgs.sessionDir),
+				liveSessions,
+				folderDir,
 			);
 			let preloadedAllSessions: SessionInfo[] | undefined;
 			if (folderSessions.length === 0) {
@@ -2151,9 +2204,9 @@ export async function runRootCommand(
 				// silently surfaced other projects' history when the cwd was empty
 				// (issue #3099). The preloaded list also makes the user's Tab switch
 				// instant on the way in.
-				preloadedAllSessions = await logger.time(
-					"SessionManager.listAllForPicker",
-					SessionManager.listAllForPicker,
+				preloadedAllSessions = markLiveSessions(
+					await logger.time("SessionManager.listAllForPicker", SessionManager.listAllForPicker),
+					liveSessions,
 				);
 				if (preloadedAllSessions.length === 0) {
 					writeStartupNotice(parsedArgs, `${chalk.dim("No sessions found")}\n`);
@@ -2179,6 +2232,13 @@ export async function runRootCommand(
 				stopStartupWatchdog();
 				process.exit(0);
 			}
+			if (!parsedArgs.noSession) await attachLiveStartupSession(selected.path, selected.status === "running");
+			return selected;
+		};
+
+		// Nonpersisting resume waits until extension flag ownership is resolved below.
+		if (parsedArgs.resume === true && !parsedArgs.fork && !parsedArgs.noSession) {
+			const selected = await selectStartupResumeSession();
 			try {
 				sessionManager = (await SessionManager.isFromRemovedWorktree(selected, cwd, parsedArgs.sessionDir))
 					? await openRelocatedSession(selected, cwd, parsedArgs.sessionDir)
@@ -2354,7 +2414,7 @@ export async function runRootCommand(
 				},
 			};
 			const initialArgs = applyExtensionFlags(extensionFlagSink, rawArgs) ?? parsedArgs;
-			normalizeContinueSessionArgs(initialArgs, rawArgs);
+			if (!initialArgs.noSession) normalizeContinueSessionArgs(initialArgs, rawArgs);
 			try {
 				validateSessionPersistenceArgs(initialArgs);
 			} catch (error: unknown) {
@@ -2387,6 +2447,29 @@ export async function runRootCommand(
 			const unknownFlags = reportUnrecognizedFlags(initialArgs);
 			if (invalidValues || unknownFlags) {
 				process.exit(2);
+			}
+			const resumeFile = liveStartupSession?.sessionPath ?? sessionManager?.getSessionFile();
+			if (typeof initialArgs.resume === "string" && !initialArgs.noSession && resumeFile) {
+				await attachLiveStartupSession(resumeFile, liveStartupSession !== undefined);
+			}
+			if (liveStartupSession && initialArgs.resume === undefined) {
+				// An extension owns --resume: discard the inert attach candidate and start normally.
+				sessionManager = undefined;
+				sessionOptions.sessionManager = undefined;
+			}
+			if (initialArgs.noSession && initialArgs.resume !== undefined && sessionManager) {
+				try {
+					const sessionPath =
+						typeof initialArgs.resume === "string"
+							? await resolveInMemoryResumePath(initialArgs.resume, cwd, initialArgs.sessionDir)
+							: (await selectStartupResumeSession()).path;
+					await sessionManager.setSessionFile(sessionPath);
+					// A snapshot keeps the launch project's cwd and extension ownership.
+					sessionManager.setCwdWithoutRelocation(cwd);
+				} catch (error: unknown) {
+					if (error instanceof SessionResolutionError) exitForSessionResolutionError(error);
+					throw error;
+				}
 			}
 			rejectNoUiWithoutRpc(parsedArgs);
 			if (initialArgs.goal !== undefined) {

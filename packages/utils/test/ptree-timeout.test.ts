@@ -3,7 +3,14 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { Process, ProcessStatus } from "@oh-my-soup/pi-natives";
-import { createLinuxSubreaperScript, exec, NonZeroExitError, spawn, TimeoutError } from "@oh-my-soup/pi-utils/ptree";
+import {
+	AbortError,
+	createLinuxSubreaperScript,
+	exec,
+	NonZeroExitError,
+	spawn,
+	TimeoutError,
+} from "@oh-my-soup/pi-utils/ptree";
 
 async function supportsLinuxMountNamespaces(): Promise<boolean> {
 	if (process.platform !== "linux") return false;
@@ -58,6 +65,26 @@ describe("ptree timeout", () => {
 		} finally {
 			process.off("unhandledRejection", onUnhandled);
 		}
+	});
+
+	it("joins termination after a caller has consumed and cancelled the stdout stream", async () => {
+		using child = spawn([
+			process.execPath,
+			"-e",
+			"await Bun.write(Bun.stdout, 'ready'); Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0)",
+		]);
+		const reader = child.stdout.getReader();
+		try {
+			const first = await reader.read();
+			expect(new TextDecoder().decode(first.value)).toBe("ready");
+			await reader.cancel();
+		} finally {
+			reader.releaseLock();
+		}
+		child.kill(new AbortError("streaming caller cancelled", ""), -1);
+		const result = await child.wait({ stdout: "consumed", allowAbort: true });
+		expect(result.exitError?.aborted).toBe(true);
+		expect(child.proc.exitCode).not.toBeNull();
 	});
 
 	it.skipIf(process.platform !== "linux")(

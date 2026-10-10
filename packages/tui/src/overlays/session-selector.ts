@@ -32,7 +32,14 @@ import { theme } from "../theme/theme";
 import { contentRowWidth } from "../chrome/selector-helpers";
 import { matchesAppInterrupt, matchesSelectDown, matchesSelectUp } from "../keybinding-matchers";
 /** Session lifecycle status presented by the picker. */
-export type SessionSelectorStatus = "complete" | "interrupted" | "aborted" | "error" | "pending" | "unknown";
+export type SessionSelectorStatus =
+	| "running"
+	| "complete"
+	| "interrupted"
+	| "aborted"
+	| "error"
+	| "pending"
+	| "unknown";
 
 /** Session listing fields consumed by the picker. */
 export interface SessionSelectorEntry {
@@ -64,6 +71,8 @@ import { boundKeys, interruptKey } from "../chrome/keybinding-hints";
  */
 function formatSessionStatus(status: SessionSelectorStatus | undefined): string | undefined {
 	switch (status) {
+		case "running":
+			return theme.fg("accent", `${theme.status.pending} in progress`);
 		case "complete":
 			return theme.fg("success", `${theme.status.success} done`);
 		case "interrupted":
@@ -82,6 +91,8 @@ function formatSessionStatus(status: SessionSelectorStatus | undefined): string 
 /** Lifecycle status as one theme-colored span (native picker), mirroring {@link formatSessionStatus}. */
 function sessionStatusSpan(status: SessionSelectorStatus | undefined): TspSpan | undefined {
 	switch (status) {
+		case "running":
+			return span("in progress", "accent");
 		case "complete":
 			return span("done", "success");
 		case "interrupted":
@@ -100,6 +111,8 @@ function sessionStatusSpan(status: SessionSelectorStatus | undefined): TspSpan |
 /** Status dot tone of a session row in the native picker; none when the status is unknown. */
 function sessionStatusTone(status: SessionSelectorStatus | undefined): TspTone | undefined {
 	switch (status) {
+		case "running":
+			return "pending";
 		case "complete":
 			return "success";
 		case "interrupted":

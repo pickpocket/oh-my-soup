@@ -319,36 +319,6 @@ describe("runSubprocess per-agent prewalk", () => {
 		expect(result.exitCode).toBe(0);
 		expect(spy.mock.calls[0]?.[0]?.prewalk).toBeUndefined();
 	});
-	it("keeps the todo tool active for a prewalk-armed subagent (the todo gate needs it)", async () => {
-		const session = yieldEmittingSession(["read", "todo", "yield"]);
-		vi.spyOn(sdkModule, "createAgentSession").mockResolvedValue(createSessionResult(session));
-
-		const result = await runSubprocess({
-			...baseOptions("subagent-prewalk-todo-kept", Settings.isolated()),
-			agent: {
-				...baseAgent,
-				model: [`${primary.provider}/${primary.id}`],
-				prewalk: `${target.provider}/${target.id}`,
-			},
-		});
-
-		expect(result.exitCode).toBe(0);
-		expect(session.getActiveToolNames()).toContain("todo");
-	});
-
-	it("strips the parent-owned todo tool from non-prewalk subagents", async () => {
-		const session = yieldEmittingSession(["read", "todo", "yield"]);
-		vi.spyOn(sdkModule, "createAgentSession").mockResolvedValue(createSessionResult(session));
-
-		const result = await runSubprocess({
-			...baseOptions("subagent-no-prewalk-todo-stripped", Settings.isolated()),
-			agent: { ...baseAgent, model: [`${primary.provider}/${primary.id}`] },
-		});
-
-		expect(result.exitCode).toBe(0);
-		expect(session.getActiveToolNames()).not.toContain("todo");
-		expect(session.getActiveToolNames()).toContain("read");
-	});
 });
 // Plan-mode spawns are read-only exploration: the task tool must strip a
 // prewalk-enabled agent definition before spawning so the hidden

@@ -22,6 +22,7 @@ import type { Settings } from "../config/settings";
 import { applyDirenvPreflight, type BashResult, executeBash } from "../exec/bash-executor";
 import { InternalUrlRouter } from "../internal-urls";
 import { sessionResolveContext } from "../internal-urls/context";
+import { extractUriScheme } from "../internal-urls/parse";
 import { InternalUrlFilesystem, UrlFsError } from "../internal-urls/url-filesystem";
 import bashDescription from "../prompts/tools/bash.md" with { type: "text" };
 import type {
@@ -31,6 +32,8 @@ import type {
 } from "../session/client-bridge";
 import { DEFAULT_MAX_BYTES, enforceInlineByteCap, TailBuffer } from "@oh-my-soup/pi-tui/tools/streaming-output";
 import { resolveCliEntryCmd } from "../subprocess/worker-client";
+import { sameSshTarget } from "../ssh/connection-manager";
+import { resolveSshLocation } from "../ssh/remote-path";
 import { executeSSH } from "../ssh/ssh-executor";
 import { formatSshAddress, resolveSessionTarget } from "../ssh/sessions";
 import { TerminalGraphicsDecoder } from "../utils/terminal-graphics";
@@ -593,10 +596,13 @@ export class BashTool implements AgentTool<BashToolSchema, BashToolDetails> {
 		return "exec";
 	};
 	readonly formatApprovalDetails = (args: unknown): string[] => {
-		const { command: rawCommand, target } = args as Partial<BashToolInput>;
+		const { command: rawCommand, target, cwd } = args as Partial<BashToolInput>;
 		const command = typeof rawCommand === "string" ? rawCommand : "(missing)";
 		const lines = [`Command: ${truncateForPrompt(command)}`];
 		if (typeof target === "string" && target.trim()) lines.unshift(`SSH target: ${truncateForPrompt(target)}`);
+		if (typeof cwd === "string" && extractUriScheme(cwd) === "ssh") {
+			lines.unshift(`Remote cwd: ${truncateForPrompt(cwd)}`);
+		}
 		return lines;
 	};
 	readonly label = "Bash";
@@ -694,14 +700,9 @@ export class BashTool implements AgentTool<BashToolSchema, BashToolDetails> {
 		}
 	}
 
-	/**
-	 * `target=`: run the command on an SSH session or configured host. The
-	 * result goes through the same completion shaping as a local command; the
-	 * target name is echoed in the notices so the transcript records where
-	 * the command ran.
-	 */
+	/** Remote paths select a host lazily; an explicit target may only confirm that selection. */
 	async #executeRemote(
-		targetName: string,
+		targetName: string | undefined,
 		command: string,
 		cwd: string | undefined,
 		rawTimeout: number | undefined,
@@ -709,15 +710,23 @@ export class BashTool implements AgentTool<BashToolSchema, BashToolDetails> {
 		signal: AbortSignal | undefined,
 		onUpdate: AgentToolUpdateCallback<BashToolDetails> | undefined,
 	): Promise<AgentToolResult<BashToolDetails>> {
-		if (cwd === "~" || cwd?.startsWith("~/") || cwd?.startsWith("~\\")) {
-			throw new ToolError(
-				"Remote cwd must be an absolute path on the target; omit cwd to run in the login directory.",
-			);
-		}
-		const target = await resolveSessionTarget(targetName, this.session.cwd);
-		if (!target) {
+		const location =
+			cwd && extractUriScheme(cwd) === "ssh" ? await resolveSshLocation(cwd, this.session.cwd) : undefined;
+		const namedTarget = targetName ? await resolveSessionTarget(targetName, this.session.cwd) : undefined;
+		if (targetName && !namedTarget) {
 			throw new ToolError(
 				`Unknown SSH target "${targetName}". Open a session first (write xd://ssh {"op":"connect","host":"user@host",...}) or add the host to ssh.json; read xd://ssh lists both.`,
+			);
+		}
+		if (location && namedTarget && !sameSshTarget(location.target, namedTarget)) {
+			throw new ToolError("Remote cwd and target select different SSH destinations or credentials.");
+		}
+		const target = namedTarget ?? location?.target;
+		if (!target) throw new ToolError("A remote cwd or SSH target is required.");
+		const remoteCwd = location?.remotePath ?? cwd;
+		if (remoteCwd === "~" || remoteCwd?.startsWith("~/") || remoteCwd?.startsWith("~\\")) {
+			throw new ToolError(
+				"Use a TRAMP cwd (/ssh:host:~/path) for a remote-home path, or omit cwd to retain the shell directory.",
 			);
 		}
 		const requestedTimeoutSec = rawTimeout ?? 300;
@@ -733,7 +742,8 @@ export class BashTool implements AgentTool<BashToolSchema, BashToolDetails> {
 		const result = await executeSSH(target, command, {
 			timeout: timeoutSec === undefined ? undefined : timeoutSec * 1000,
 			signal,
-			cwd,
+			cwd: remoteCwd,
+			ownerId: this.session.getEvalKernelOwnerId?.() ?? this.session.getSessionId?.() ?? this.session.cwd,
 			artifactPath,
 			artifactId,
 			onChunk: chunk => {
@@ -750,7 +760,7 @@ export class BashTool implements AgentTool<BashToolSchema, BashToolDetails> {
 		}
 		return this.#buildCompletedResult(result, timeoutSec, {
 			requestedTimeoutSec,
-			notices: [`[ran on ${targetName}: ${formatSshAddress(target)}]`, ...pendingNotices],
+			notices: [`[ran on ${target.name}: ${formatSshAddress(target)}]`, ...pendingNotices],
 			wallTimeMs,
 		});
 	}
@@ -1060,12 +1070,11 @@ export class BashTool implements AgentTool<BashToolSchema, BashToolDetails> {
 			throw new ToolError("Async bash execution is disabled. Enable async.enabled to use async mode.");
 		}
 
-		// A remote target has no service manager, job manager, or terminal of
-		// ours: it is a plain foreground command on the other host.
+		// Remote paths and named targets use a retained foreground SSH shell.
 		const target = blankToUndefined(rawTarget);
-		if (target !== undefined) {
-			if (name !== undefined) throw new ToolError("Services run locally; drop target or name.");
-			if (asyncRequested) throw new ToolError("Async bash is local-only; drop target or async.");
+		if (target !== undefined || (cwd && extractUriScheme(cwd) === "ssh")) {
+			if (name !== undefined) throw new ToolError("Services run locally; drop the remote cwd/target or name.");
+			if (asyncRequested) throw new ToolError("Async bash is local-only; drop the remote cwd/target or async.");
 			if (pty) pendingNotices.push("pty is local-only; ran the remote command without a terminal.");
 			return this.#executeRemote(target, command, cwd, rawTimeout, pendingNotices, signal, onUpdate);
 		}

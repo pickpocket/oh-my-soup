@@ -406,8 +406,7 @@ impl Session {
 						tag = Some(self.store.record(&key, &recorded, None));
 						if track_provenance {
 							let carried = carried_seen_lines(&file.before, &recorded, prior.as_ref());
-							let kept =
-								drifted.then(|| carried_seen_lines(&file.after, &recorded, None));
+							let kept = drifted.then(|| carried_seen_lines(&file.after, &recorded, None));
 							provenance = Some((key, carried, kept));
 						}
 					}
@@ -431,8 +430,9 @@ impl Session {
 				.map_or_else(|| format!("[{header_path}]"), |tag| format!("[{header_path}#{tag}]"));
 			let text = format_file_text(&file, &header);
 			if let (Some((key, mut seen_lines, kept)), Some(tag)) = (provenance, &response_tag) {
-				// Response rows are numbered against `after`. A drifted write recorded
-				// other text under the tag, so only rows it left in place stay anchorable.
+				// Response rows are numbered against `after`. A drifted write
+				// recorded other text under the tag, so only rows it
+				// left in place stay anchorable.
 				let shown = seen_lines_from_body(&text);
 				match kept {
 					None => seen_lines.extend(shown),

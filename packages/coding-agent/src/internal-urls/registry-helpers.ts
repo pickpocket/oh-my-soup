@@ -7,7 +7,9 @@ import type { Dirent } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { isEnoent } from "@oh-my-soup/pi-utils";
-import { AgentRegistry } from "../registry/agent-registry";
+import { AgentRegistry, type AgentRef } from "../registry/agent-registry";
+import { ensurePersistedRoster } from "../registry/persisted-agents";
+import type { ResolveContext } from "./types";
 
 const extraArtifactsDirs = new Set<string>();
 /** Deepest nesting `sessionFilesFromDisk` descends below an artifacts dir. */
@@ -22,6 +24,30 @@ export function registerArtifactsDir(dir: string): () => void {
 
 export function resetRegisteredArtifactDirsForTests(): void {
 	extraArtifactsDirs.clear();
+}
+
+interface AgentLookup {
+	ref?: AgentRef;
+	visible: AgentRef[];
+	preferredArtifactDir?: string;
+}
+
+/** Exact, then case-insensitive lookup, refreshing parked refs against the caller's root. */
+export async function lookupAgent(agentId: string, context?: ResolveContext): Promise<AgentLookup> {
+	const registry = AgentRegistry.global();
+	const rootSessionFile = context?.sessionFile
+		? await ensurePersistedRoster(registry, context.sessionFile)
+		: undefined;
+	const preferredArtifactDir = rootSessionFile?.slice(0, -".jsonl".length);
+	// Advisors are observability-only, never agent-facing peers.
+	const visible = registry.list().filter(ref => ref.kind !== "advisor");
+	let ref = registry.get(agentId);
+	if (ref?.kind === "advisor") ref = undefined;
+	if (!ref) {
+		const lower = agentId.toLowerCase();
+		ref = visible.find(candidate => candidate.id.toLowerCase() === lower);
+	}
+	return { ref, visible, preferredArtifactDir };
 }
 
 /**
@@ -130,6 +156,23 @@ async function readDirEntries(dir: string): Promise<Dirent[] | null> {
 		if (isEnoent(err) || (err as NodeJS.ErrnoException).code === "ENOTDIR") return null;
 		throw err;
 	}
+}
+
+/** On-disk transcript: exact id wins, else the last case-insensitive match. */
+export async function findAgentSessionFile(
+	agentId: string,
+	preferredArtifactDir?: string,
+): Promise<{ id: string; file: string } | undefined> {
+	const files = await sessionFilesFromDisk(preferredArtifactDir);
+	const lower = agentId.toLowerCase();
+	let match: { id: string; file: string } | undefined;
+	for (const [id, file] of files) {
+		if (id === agentId || id.toLowerCase() === lower) {
+			match = { id, file };
+			if (id === agentId) break;
+		}
+	}
+	return match;
 }
 
 /**

@@ -239,8 +239,18 @@ export interface SessionInitEntry extends SessionEntryBase {
 	systemPrompt: string[] | string;
 	/** Initial task/user message */
 	task: string;
-	/** Tools available to the agent */
+	/** Enabled capability names, including tools mounted only as xd:// devices. */
 	tools: string[];
+	/** Immutable authorized capability ceiling, separate from presentation lockdown. */
+	toolAllowlist?: string[];
+	/** Initial prompt-visible subset of the enabled capabilities. */
+	mountedTools?: string[];
+	/** Whether write is device-only; this transport setting grants no filesystem authority. */
+	deviceOnlyWrite?: boolean;
+	/** Inherited navigation-only LSP ceiling retained across revival. */
+	lspReadOnly?: boolean;
+	/** Source fingerprint recorded for each capability. */
+	toolSources?: Record<string, string>;
 	/** Agent definition name (for example `scout` or `reviewer`). */
 	agent?: string;
 	/** Semantic model role declared by the agent, retained even after concrete model resolution. */

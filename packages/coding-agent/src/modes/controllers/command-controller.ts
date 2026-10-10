@@ -1557,6 +1557,9 @@ export class CommandController {
 			return false;
 		}
 
+		// /move, /wt, and a persistent shell cd keep the session ID; publish
+		// the committed file/cwd even though session-change callbacks did not fire.
+		await this.ctx.reportLiveSession?.();
 		this.ctx.updateEditorBorderColor();
 		await this.ctx.reloadTodos();
 		this.ctx.ui.requestRender();

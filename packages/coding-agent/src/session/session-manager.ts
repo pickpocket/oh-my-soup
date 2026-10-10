@@ -43,7 +43,12 @@ import {
 } from "./messages";
 import type { WorkPoolYieldItem } from "../task/workpool-yield";
 import type { RetryFallbackRole } from "./retry-fallback-chains";
-import { type BuildSessionContextOptions, buildSessionContext, type SessionContext } from "./session-context";
+import {
+	type BuildSessionContextOptions,
+	buildSessionContext,
+	type SessionContext,
+	walkSessionBranch,
+} from "./session-context";
 import {
 	type BranchSummaryEntry,
 	type CompactionEntry,
@@ -103,7 +108,6 @@ import { forgetExternalizedImages, prepareEntryForPersistence } from "./session-
 import { loadPinnedSessionIds, sortPinnedFirst } from "./session-pins";
 import {
 	FileSessionStorage,
-	MemorySessionStorage,
 	type SessionStorage,
 	type SessionStorageWriter,
 	SessionWriteConflictError,
@@ -611,37 +615,17 @@ class SessionEntryIndex {
 	}
 
 	pathTo(id: string | null | undefined = this.#leaf): SessionEntry[] {
-		// The memoized default-leaf branch stays private — callers may
-		// sort/reverse/splice the result (the return type is SessionEntry[]),
-		// so hand out a copy. Explicit fromId walks (rare) bypass the cache.
+		// Mutable callers get a snapshot; the live cached view stays private.
 		if (id === undefined || id === this.#leaf) return this.branchView().slice();
-		return this.#walk(id);
+		return walkSessionBranch(id ? this.#entriesById.get(id) : undefined, this.#entriesById);
 	}
 
 	/** The memoized active-leaf branch, without copying. Callers MUST NOT mutate it. */
 	branchView(): readonly SessionEntry[] {
 		const cache = this.#branchCache;
 		if (cache !== undefined && cache.generation === this.#generation) return cache.branch;
-		const branch = this.#walk(this.#leaf);
+		const branch = walkSessionBranch(this.#leaf ? this.#entriesById.get(this.#leaf) : undefined, this.#entriesById);
 		this.#branchCache = { leaf: this.#leaf, generation: this.#generation, branch };
-		return branch;
-	}
-
-	#walk(leaf: string | null): SessionEntry[] {
-		const branch: SessionEntry[] = [];
-		// Per-path visited set: a corrupt cyclic parentId chain must stop at
-		// the FIRST repeated id (a bare depth cap of `size` still duplicates
-		// entries when unrelated entries inflate the index — e.g. a self-cycle
-		// plus one unrelated entry yields [entry, entry]).
-		const seen = new Set<string>();
-		let cursor = leaf ? this.#entriesById.get(leaf) : undefined;
-
-		while (cursor && !seen.has(cursor.id)) {
-			seen.add(cursor.id);
-			branch.push(cursor);
-			cursor = cursor.parentId ? this.#entriesById.get(cursor.parentId) : undefined;
-		}
-		branch.reverse();
 		return branch;
 	}
 
@@ -695,6 +679,7 @@ export type ReadonlySessionManager = Pick<
 	| "getEntry"
 	| "getLabel"
 	| "getBranch"
+	| "snapshotForFork"
 	| "getHeader"
 	| "getEntries"
 	| "getTree"
@@ -702,6 +687,24 @@ export type ReadonlySessionManager = Pick<
 	| "putBlob"
 	| "putBlobSync"
 >;
+
+/** Detached, root-to-active-leaf context captured before the parent can advance. */
+export interface SessionForkSnapshot {
+	header: SessionHeader;
+	entries: SessionEntry[];
+	/** Artifact-copy source, when the parent has an allocated session file. */
+	sourceSessionFile?: string;
+}
+
+export interface SessionForkOptions {
+	copyArtifacts?: boolean;
+	suppressBreadcrumb?: boolean;
+	sessionFile?: string;
+	resetInheritedCost?: boolean;
+	repairInterruptedTail?: boolean;
+	/** Keep the child entirely in memory, including when the parent is persisted. */
+	inMemory?: boolean;
+}
 
 interface SessionManagerStateSnapshot {
 	cwd: string;
@@ -985,6 +988,7 @@ export class SessionManager {
 	}
 
 	#rememberBreadcrumb(cwd: string, sessionFile: string, fresh = false): void {
+		if (!this.#persist || this.#suppressBreadcrumb) return;
 		this.#breadcrumbFresh = fresh;
 		if (this.#suppressBreadcrumb) return;
 		writeTerminalBreadcrumb(cwd, sessionFile, fresh, {
@@ -2257,7 +2261,7 @@ export class SessionManager {
 			await this.#rewriteAtomically();
 		}
 	}
-	/** Switch to a different session file (resume / branch). */
+	/** Load a saved session; nonpersistent managers adopt only its in-memory snapshot. */
 	async setSessionFile(sessionFile: string): Promise<void> {
 		await this.#withAtomicPersistenceLock(async () => {
 			await this.#setSessionFile(sessionFile);
@@ -2279,7 +2283,8 @@ export class SessionManager {
 		this.#sessionClaim = undefined;
 
 		const resolvedSessionFile = path.resolve(sessionFile);
-		const loaded = loadedSession ?? (await loadSessionFile(resolvedSessionFile, this.#storage));
+		const throwIfMissing = options?.throwIfMissing ?? !this.#persist;
+		const loaded = loadedSession ?? (await loadSessionFile(resolvedSessionFile, this.#storage, { throwIfMissing }));
 		const sourceSize =
 			loaded.sourceSize !== undefined
 				? loaded.sourceSize
@@ -2292,12 +2297,12 @@ export class SessionManager {
 			);
 		}
 
-		this.#sessionFile = resolvedSessionFile;
-		this.#rememberBreadcrumb(this.#cwd, resolvedSessionFile);
+		this.#sessionFile = this.#persist ? resolvedSessionFile : undefined;
+		if (this.#sessionFile) this.#rememberBreadcrumb(this.#cwd, this.#sessionFile);
 
 		const { entries: fileEntries, titleSlot } = loaded;
 		if (fileEntries.length === 0) {
-			if (options?.throwIfMissing) {
+			if (throwIfMissing) {
 				throw new Error(
 					`Cannot resume session "${resolvedSessionFile}": the session file holds no entries. The file was not modified.`,
 				);
@@ -2328,7 +2333,7 @@ export class SessionManager {
 		const headerCwd = header.cwd ? path.resolve(header.cwd) : undefined;
 		if (headerCwd && headerCwd !== path.resolve(this.#cwd) && (await directoryIsEnterable(headerCwd))) {
 			this.#cwd = headerCwd;
-			this.#sessionDir = path.dirname(resolvedSessionFile);
+			if (this.#persist) this.#sessionDir = path.dirname(resolvedSessionFile);
 			this.#fallbackRuntimeOnly = false;
 			this.#rememberBreadcrumb(this.#cwd, resolvedSessionFile);
 		} else if (headerCwd && headerCwd !== path.resolve(this.#cwd)) {
@@ -2341,17 +2346,17 @@ export class SessionManager {
 		}
 
 		this.#applyEntries(header, fileEntries.slice(1) as SessionEntry[]);
-		this.#expectedDiskSize = sourceSize;
+		this.#expectedDiskSize = this.#persist ? sourceSize : null;
 		this.#additionalDirectories = header.additionalDirectories ?? [];
 		this.#titleUpdatedAt = titleSlot?.updatedAt ?? header.timestamp;
 		this.#hasTitleSlot = titleSlot !== undefined;
-		this.#fileIsCurrent = true;
-		this.#rewriteRequired = migrated || loaded.malformedRecords > 0;
-		this.#forceFileCreation = true;
+		this.#fileIsCurrent = this.#persist;
+		this.#rewriteRequired = this.#persist && (migrated || loaded.malformedRecords > 0);
+		this.#forceFileCreation = this.#persist;
 		this.#artifactManager = null;
 		this.#artifactManagerSessionFile = null;
 
-		if (this.sanitizeLoadedOpenAIResponsesReplayMetadata()) this.#rewriteRequired = true;
+		if (this.sanitizeLoadedOpenAIResponsesReplayMetadata() && this.#persist) this.#rewriteRequired = true;
 	}
 
 	/**
@@ -2989,7 +2994,7 @@ export class SessionManager {
 	 */
 	#reconcileSessionDirForFallback(): void {
 		if (this.#fallbackRuntimeOnly) {
-			this.#sessionDir = computeDefaultSessionDir(this.#cwd, this.#storage);
+			if (this.#persist) this.#sessionDir = computeDefaultSessionDir(this.#cwd, this.#storage);
 			this.#fallbackRuntimeOnly = false;
 		}
 	}
@@ -3120,6 +3125,11 @@ export class SessionManager {
 
 	getSessionFile(): string | undefined {
 		return this.#sessionFile;
+	}
+
+	/** Whether this manager can write its session journal to durable storage. */
+	isPersistent(): boolean {
+		return this.#persist;
 	}
 
 	/**
@@ -3471,6 +3481,11 @@ export class SessionManager {
 		systemPrompt: string[];
 		task: string;
 		tools: string[];
+		toolAllowlist?: string[];
+		mountedTools?: string[];
+		deviceOnlyWrite?: boolean;
+		lspReadOnly?: boolean;
+		toolSources?: Record<string, string>;
 		agent?: string;
 		modelRole?: string;
 		resolvedModel?: string;
@@ -3704,6 +3719,19 @@ export class SessionManager {
 	 */
 	getBranchView(): readonly SessionEntry[] {
 		return this.#index.branchView();
+	}
+
+	/**
+	 * Capture the selected branch synchronously, including compaction anchors
+	 * and custom state. Neither later parent edits nor child initialization can
+	 * mutate this detached context.
+	 */
+	snapshotForFork(): SessionForkSnapshot {
+		return structuredClone({
+			header: this.#header,
+			entries: this.getBranch(),
+			sourceSessionFile: this.#sessionFile,
+		});
 	}
 
 	/**
@@ -3959,18 +3987,8 @@ export class SessionManager {
 		cwd: string,
 		sessionDir?: string,
 		storage: SessionStorage = new FileSessionStorage(),
-		options?: {
-			copyArtifacts?: boolean;
-			suppressBreadcrumb?: boolean;
-			sessionFile?: string;
-			resetInheritedCost?: boolean;
-			repairInterruptedTail?: boolean;
-		},
+		options?: SessionForkOptions,
 	): Promise<SessionManager> {
-		const dir = sessionDir ?? SessionManager.getDefaultSessionDir(cwd, undefined, storage);
-		const manager = new SessionManager(cwd, dir, true, storage);
-		manager.#suppressBreadcrumb = options?.suppressBreadcrumb === true;
-
 		// A missing source must fail instead of forking an empty parentless session:
 		// the loader swallows ENOENT by default for fresh-session opens, so fork opts out.
 		let sourceEntries: FileEntry[];
@@ -3981,11 +3999,42 @@ export class SessionManager {
 			throw err;
 		}
 		migrateToCurrentVersion(sourceEntries);
-		await resolveBlobRefsInEntries(sourceEntries, manager.#blobs);
 
 		const sourceHeader = sourceEntries.find(entry => entry.type === "session") as SessionHeader | undefined;
 		const history = sourceEntries.filter(entry => entry.type !== "session") as SessionEntry[];
 		normalizeLoadedUsage(history);
+		return SessionManager.#forkFromEntries(sourceHeader, history, sourcePath, cwd, sessionDir, storage, options);
+	}
+
+	/**
+	 * Create an independent child from a captured branch without rereading the
+	 * parent journal. The snapshot remains reusable across multiple children.
+	 */
+	static async forkFromSnapshot(
+		snapshot: SessionForkSnapshot,
+		cwd: string,
+		sessionDir?: string,
+		storage: SessionStorage = new FileSessionStorage(),
+		options?: SessionForkOptions,
+	): Promise<SessionManager> {
+		const { header, entries, sourceSessionFile } = structuredClone(snapshot);
+		return SessionManager.#forkFromEntries(header, entries, sourceSessionFile, cwd, sessionDir, storage, options);
+	}
+
+	static async #forkFromEntries(
+		sourceHeader: SessionHeader | undefined,
+		history: SessionEntry[],
+		sourcePath: string | undefined,
+		cwd: string,
+		sessionDir: string | undefined,
+		storage: SessionStorage,
+		options: SessionForkOptions | undefined,
+	): Promise<SessionManager> {
+		const persist = options?.inMemory !== true;
+		const dir = persist ? (sessionDir ?? SessionManager.getDefaultSessionDir(cwd, undefined, storage)) : "";
+		const manager = new SessionManager(cwd, dir, persist, storage);
+		manager.#suppressBreadcrumb = options?.suppressBreadcrumb === true;
+		await resolveBlobRefsInEntries(history, manager.#blobs);
 		if (options?.resetInheritedCost) SessionManager.#resetInheritedUsageCost(history);
 		manager.#resetToNewSession(
 			{
@@ -4010,9 +4059,9 @@ export class SessionManager {
 			SessionManager.#repairForkedInterruptedTail(history, manager.#index.pathTo());
 			manager.#index.rebuild(history);
 		}
-		manager.#forceFileCreation = true;
+		manager.#forceFileCreation = persist;
 		await manager.#rewriteAtomically();
-		if (options?.copyArtifacts !== false) {
+		if (persist && sourcePath && options?.copyArtifacts !== false) {
 			await copySessionArtifacts(sourcePath, manager.#sessionFile!);
 		}
 		return manager;
@@ -4328,13 +4377,21 @@ export class SessionManager {
 		return manager;
 	}
 
-	/** Create an in-memory session (no file persistence). */
-	static inMemory(
-		cwd: string = getProjectDir(),
-		storage: SessionStorage = new MemorySessionStorage(),
-	): SessionManager {
+	/** Create a nonpersisting session that can read saved snapshots via setSessionFile(). */
+	static inMemory(cwd: string = getProjectDir(), storage: SessionStorage = new FileSessionStorage()): SessionManager {
 		const manager = new SessionManager(cwd, "", false, storage);
 		manager.#resetToNewSession();
+		return manager;
+	}
+
+	/** Read a saved session without adopting a writable file, artifacts, or terminal breadcrumb. */
+	static async openInMemory(
+		filePath: string,
+		cwd: string = getProjectDir(),
+		storage: SessionStorage = new FileSessionStorage(),
+	): Promise<SessionManager> {
+		const manager = SessionManager.inMemory(cwd, storage);
+		await manager.setSessionFile(filePath);
 		return manager;
 	}
 
@@ -4394,6 +4451,11 @@ export interface PersistedSessionInit {
 	systemPrompt: string[];
 	task: string;
 	tools: string[];
+	toolAllowlist?: string[];
+	mountedTools?: string[];
+	deviceOnlyWrite?: boolean;
+	lspReadOnly?: boolean;
+	toolSources?: Record<string, string>;
 	agent?: string;
 	modelRole?: string;
 	resolvedModel?: string;
@@ -4422,6 +4484,11 @@ export function extractSessionInit(entries: readonly FileEntry[]): PersistedSess
 			systemPrompt: typeof entry.systemPrompt === "string" ? [entry.systemPrompt] : entry.systemPrompt,
 			task: entry.task,
 			tools: entry.tools,
+			...(entry.toolAllowlist !== undefined ? { toolAllowlist: entry.toolAllowlist } : undefined),
+			...(entry.mountedTools !== undefined ? { mountedTools: entry.mountedTools } : undefined),
+			...(entry.deviceOnlyWrite !== undefined ? { deviceOnlyWrite: entry.deviceOnlyWrite } : undefined),
+			...(entry.lspReadOnly !== undefined ? { lspReadOnly: entry.lspReadOnly } : undefined),
+			...(entry.toolSources !== undefined ? { toolSources: entry.toolSources } : undefined),
 			agent: entry.agent,
 			modelRole: entry.modelRole,
 			resolvedModel: entry.resolvedModel,

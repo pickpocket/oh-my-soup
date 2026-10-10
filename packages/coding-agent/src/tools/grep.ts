@@ -159,6 +159,10 @@ async function parsePathSpecs(rawEntries: readonly string[], cwd: string): Promi
 			specs.push({ original: entry, clean: internalSplit.path, ranges });
 			continue;
 		}
+		if (router.canHandle(internalSplit.path)) {
+			specs.push({ original: entry, clean: internalSplit.path });
+			continue;
+		}
 		// Prefer a literal filesystem match when one exists — a real file named
 		// `test:1-2` outranks the `:1-2` selector interpretation (issue #4618).
 		const strictSplit = splitPathAndSel(entry);

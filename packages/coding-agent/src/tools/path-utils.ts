@@ -1,4 +1,5 @@
 import { extractUriScheme } from "../internal-urls/parse";
+import { parseTrampSshPath } from "../ssh/tramp-path";
 import { type LineRange } from "@oh-my-soup/pi-tui/tools/line-ranges";
 import { splitPathAndSel, isReadableUrlPath } from "@oh-my-soup/pi-tui/tools/read";
 import * as fs from "node:fs";
@@ -123,9 +124,9 @@ export function expandPath(filePath: string): string {
 	// lookahead admits POSIX (`/`, `~`, `./`, `../`) and Windows (`\`, `.\`,
 	// `..\`, drive-letter `C:`) path shapes.
 	const deColoned = /^:(?=[/\\~]|\.\.?[/\\]|[A-Za-z]:)/.test(filePath) ? filePath.slice(1) : filePath;
-	const normalized = stripWindowsExtendedLengthPathPrefix(
-		stripFileUrl(normalizeUnicodeSpaces(normalizeAtPrefix(deColoned))),
-	);
+	const withoutAt = normalizeAtPrefix(deColoned);
+	if (parseTrampSshPath(withoutAt)) return withoutAt;
+	const normalized = stripWindowsExtendedLengthPathPrefix(stripFileUrl(normalizeUnicodeSpaces(withoutAt)));
 	return expandTilde(normalized);
 }
 
@@ -262,6 +263,7 @@ export async function splitPathAndSelPreferringLiteral(
 	rawPath: string,
 	cwd: string,
 ): Promise<{ path: string; sel?: string }> {
+	if (parseTrampSshPath(rawPath)) return { path: rawPath };
 	const strict = splitPathAndSel(rawPath);
 	if (strict.sel === undefined) return strict;
 	const probe = await probeLiteralPathExists(rawPath, cwd);
@@ -291,6 +293,7 @@ export function probeLiteralPathExistsSync(filePath: string, cwd: string): "exis
  * the same platform-specific handling for inconclusive literal-path probes.
  */
 export function splitPathAndSelPreferringLiteralSync(rawPath: string, cwd: string): { path: string; sel?: string } {
+	if (parseTrampSshPath(rawPath)) return { path: rawPath };
 	const strict = splitPathAndSel(rawPath);
 	if (strict.sel === undefined) return strict;
 	const probe = probeLiteralPathExistsSync(rawPath, cwd);
@@ -563,6 +566,7 @@ function normalizePathSeparators(input: string): string {
 }
 
 export function normalizePathLikeInput(input: string): string {
+	if (parseTrampSshPath(input)) return input;
 	return stripOuterDoubleQuotes(input.trim());
 }
 
@@ -839,6 +843,7 @@ function decodeUrlGlobSegment(rawSegment: string, input: string): string {
  * anything but a registered URL.
  */
 function parseUrlSearchPath(input: string): ParsedSearchPath | undefined {
+	if (parseTrampSshPath(input)) return { basePath: input };
 	const router = InternalUrlRouter.instance();
 	const url = router.normalize(input);
 	if (!router.canHandle(url)) return undefined;

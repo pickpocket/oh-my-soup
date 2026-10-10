@@ -22,8 +22,8 @@ use serde::{Deserialize, Serialize};
 use tree_sitter::{InputEdit, Node, Parser, Point, Tree, TreeCursor};
 
 use crate::{
-language::SupportLang,
-parse_cache::{MAX_ENTRY_SOURCE_BYTES, parse_cached},
+	language::SupportLang,
+	parse_cache::{MAX_ENTRY_SOURCE_BYTES, parse_cached},
 	summary::{node_content_end_line, node_start_line, resolve_language},
 };
 
@@ -3358,7 +3358,8 @@ impl<'a> BlockIndex<'a> {
 				return SeparatorProof::Rejected;
 			};
 			// Encoded source-unit bytes are not native separators. The complete
-			// retained-unit proof above has already preserved their correspondence.
+			// retained-unit proof above has already preserved their
+			// correspondence.
 			if old_roles.unit_at(byte).is_some() {
 				continue;
 			}
@@ -3791,15 +3792,16 @@ impl<'a> BlockIndex<'a> {
 					&& (is_body(node)
 						|| node.parent().is_some_and(|parent| {
 							body_of(parent).is_some_and(|body| body.id() == node.id())
-						}) || matches!(
-						(
-							node.child(0).map(|node| node.kind()),
-							node
-								.child(node.child_count().saturating_sub(1))
-								.map(|node| node.kind())
-						),
-						(Some("("), Some(")")) | (Some("["), Some("]")) | (Some("{"), Some("}"))
-					));
+						})
+						|| matches!(
+							(
+								node.child(0).map(|node| node.kind()),
+								node
+									.child(node.child_count().saturating_sub(1))
+									.map(|node| node.kind())
+							),
+							(Some("("), Some(")")) | (Some("["), Some("]")) | (Some("{"), Some("}"))
+						));
 				if node.kind() == "assignment_expression"
 					&& node
 						.child_by_field_name("left")
@@ -5974,11 +5976,13 @@ impl<'a> BlockIndex<'a> {
 				&& matches!(
 					attribute_owner(node, self.code, self.language, &self.metadata_owners),
 					AttributeOwner::NextItem | AttributeOwner::Unknown
-				)) || is_attribute_like(node)
-				&& matches!(
-					attribute_owner(node, self.code, self.language, &self.metadata_owners),
-					AttributeOwner::NextItem | AttributeOwner::Unknown
-				) || (self.language == SupportLang::Julia && string_statement(node, self.code))
+				))
+				|| is_attribute_like(node)
+					&& matches!(
+						attribute_owner(node, self.code, self.language, &self.metadata_owners),
+						AttributeOwner::NextItem | AttributeOwner::Unknown
+					)
+				|| (self.language == SupportLang::Julia && string_statement(node, self.code))
 		})
 		.into_iter()
 		.rev()
@@ -5991,7 +5995,8 @@ impl<'a> BlockIndex<'a> {
 				&& matches!(
 					attribute_owner(node, self.code, self.language, &self.metadata_owners),
 					AttributeOwner::NextItem | AttributeOwner::Unknown
-				)) || (self.language == SupportLang::Julia && string_statement(node, self.code)))
+				))
+				|| (self.language == SupportLang::Julia && string_statement(node, self.code)))
 				&& self
 					.row_text(node.start_position().row)
 					.is_some_and(|text| content_column(text) == Some(node.start_position().column))
@@ -6337,15 +6342,16 @@ impl Edited<'_> {
 						|| !self.wholly_inserted(
 							child.start_byte()
 								..child.start_byte() + self.source[child.byte_range()].trim_end().len(),
-						) || statement_container(child)
-						&& matches!(
-							parent.kind(),
-							"if_statement"
-								| "if_expression"
-								| "conditional_statement"
-								| "try_statement"
-								| "try_expression"
-						) {
+						)
+						|| statement_container(child)
+							&& matches!(
+								parent.kind(),
+								"if_statement"
+									| "if_expression"
+									| "conditional_statement"
+									| "try_statement"
+									| "try_expression"
+							) {
 						*count += 1;
 					}
 				}
@@ -6510,8 +6516,10 @@ impl Edited<'_> {
 							matches!(
 								parent.kind(),
 								"if_statement"
-									| "if_expression" | "conditional_statement"
-									| "try_statement" | "try_expression"
+									| "if_expression"
+									| "conditional_statement"
+									| "try_statement"
+									| "try_expression"
 							)
 						}))) {
 				return false;
@@ -7048,7 +7056,8 @@ fn first_named_after<'t>(
 			&& (!statement_container(node)
 				|| attachments.is_some_and(|(_, language, _)| {
 					language == SupportLang::Hcl && node.kind() == "block"
-				})) && !declaration_container(node)
+				}))
+			&& !declaration_container(node)
 			&& node.start_byte() >= at
 			&& !skip
 		{
@@ -7557,10 +7566,12 @@ fn metadata_payload_proof(
 					&& matches!(
 						attribute_category(node, code, language),
 						AttributeOwner::DeclaredItem | AttributeOwner::Unknown
-					) || matches!(
-					evaluated_attachment_target(node, code, language),
-					AttachmentTarget::Declaration
-				) || matches!(node.kind(), "call" | "identifier" | "binary_operator")
+					)
+					|| matches!(
+						evaluated_attachment_target(node, code, language),
+						AttachmentTarget::Declaration
+					)
+					|| matches!(node.kind(), "call" | "identifier" | "binary_operator")
 				{
 					return MetadataCertainty::Unknown;
 				}
@@ -7669,7 +7680,8 @@ fn attributed_item<'t>(
 				let module = matches!(
 					owner.kind(),
 					"mod_item"
-						| "module" | "module_definition"
+						| "module"
+						| "module_definition"
 						| "module_declaration"
 						| "internal_module"
 						| "namespace_definition"
@@ -7951,7 +7963,8 @@ fn code_continuations<'a>(
 			.rev()
 			.take_while(|byte| *byte == b'\\')
 			.count()
-			% 2 == 1
+			% 2
+			== 1
 		{
 			return None;
 		}
@@ -8150,7 +8163,8 @@ fn literal_owner(node: Node<'_>, language: SupportLang) -> bool {
 				&& matches!(
 					kind,
 					"plain_scalar" | "block_scalar" | "double_quote_scalar" | "single_quote_scalar"
-				) || language == SupportLang::Dockerfile && kind == "path"
+				)
+			|| language == SupportLang::Dockerfile && kind == "path"
 			|| matches!(kind, "character" | "regex"))
 }
 
@@ -8572,7 +8586,8 @@ fn make_assignment_comments(
 					.bytes()
 					.rev()
 					.take_while(|byte| *byte == b'\\')
-					.count() % 2
+					.count()
+					% 2
 					== 1;
 				if !continued || end == node.end_byte() {
 					break;
@@ -8758,7 +8773,8 @@ fn raw_lexical_roles(root: Node<'_>, source: &str, language: SupportLang) -> Opt
 			&& matches!(
 				kind,
 				"word" | "concatenation" | "string" | "raw_string" | "expansion" | "simple_expansion"
-			) && parent.is_none_or(|parent| parent.kind() != "concatenation")
+			)
+			&& parent.is_none_or(|parent| parent.kind() != "concatenation")
 		{
 			words.push(LogicalUnit {
 				range: node.byte_range(),
@@ -8782,8 +8798,9 @@ fn raw_lexical_roles(root: Node<'_>, source: &str, language: SupportLang) -> Opt
 						&& parent
 							.child_by_field_name("value")
 							.is_some_and(|value| value.id() == node.id())
-				}) || kind == "shell_command"
-				&& parent.is_some_and(|parent| parent.kind() == "shell_assignment"))
+				})
+				|| kind == "shell_command"
+					&& parent.is_some_and(|parent| parent.kind() == "shell_assignment"))
 		{
 			make_assignment_comments(node, source, &mut mark);
 		}
@@ -9073,7 +9090,8 @@ fn retained_roles(
 						at,
 						LexicalView { roles: new, source: result },
 						mapped,
-					) && (literal || !source[at..end].chars().all(char::is_whitespace))
+					)
+					&& (literal || !source[at..end].chars().all(char::is_whitespace))
 			{
 				return false;
 			}
@@ -9191,13 +9209,16 @@ fn attachment_target(node: Node<'_>, code: &str, language: SupportLang) -> Attac
 					"object"
 						| "object_expression"
 						| "object_literal"
-						| "array" | "array_expression"
+						| "array"
+						| "array_expression"
 						| "array_literal"
 						| "dictionary"
 						| "dictionary_literal"
 						| "table_constructor"
-						| "table" | "vector_lit"
-						| "vec_lit" | "map_lit"
+						| "table"
+						| "vector_lit"
+						| "vec_lit"
+						| "map_lit"
 						| "set_lit"
 				) {
 				return true;
@@ -9326,8 +9347,10 @@ fn evaluated_attachment_target(
 			if matches!(
 				symbol,
 				"ns"
-					| "def" | "defn"
-					| "defn-" | "defp"
+					| "def"
+					| "defn"
+					| "defn-"
+					| "defp"
 					| "defmacro"
 					| "defmacrop"
 					| "defmulti"
@@ -9354,10 +9377,15 @@ fn evaluated_attachment_target(
 				&& matches!(
 					symbol,
 					"println"
-						| "print" | "prn"
-						| "str" | "inc"
-						| "dec" | "+"
-						| "-" | "*" | "/"
+						| "print"
+						| "prn"
+						| "str"
+						| "inc"
+						| "dec"
+						| "+"
+						| "-"
+						| "*"
+						| "/"
 						| "identity"
 				) {
 				return AttachmentTarget::Executable;
@@ -9386,7 +9414,8 @@ fn evaluated_attachment_target(
 				| "macro_definition"
 				| "namespace_definition"
 				| "namespace_declaration"
-				| "bind" | "newtype"
+				| "bind"
+				| "newtype"
 				| "instance"
 				| "fun_decl"
 				| "declaration_command"
@@ -9558,7 +9587,8 @@ fn native_case_host(mut node: Node<'_>, language: SupportLang) -> Option<Node<'_
 				"switch_body"
 					| "switch_block"
 					| "compound_statement"
-					| "block" | "statement_list"
+					| "block"
+					| "statement_list"
 					| "statements"
 			)) {
 			return None;
@@ -10894,7 +10924,8 @@ mod tests {
 		// Cargo leaves the manifest root available at runtime. Bazel bakes an
 		// ephemeral execroot into CARGO_MANIFEST_DIR, so use the workspace
 		// runfiles root where the target's hermetic corpus is declared as data.
-		// Runfiles leaves are symlinks, so `Path::is_file` below must follow them.
+		// Runfiles leaves are symlinks, so `Path::is_file` below must follow
+		// them.
 		let root = if manifest_root.join("Cargo.toml").is_file() {
 			manifest_root
 		} else {

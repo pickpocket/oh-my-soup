@@ -96,6 +96,7 @@ import { disposeVmContextsByOwner } from "./eval/js/context-manager";
 import { getEnabledEvalPreludes, type EvalPreludeDefinition } from "./eval/preludes";
 import { disposeAllKernelSessions, disposeKernelSessionsByOwner } from "./eval/py/executor";
 import { defaultEvalSessionId } from "./eval/session-id";
+import { closeSSHSessionsByOwner } from "./ssh/ssh-executor";
 import type { EditMode } from "@oh-my-soup/pi-tui/tools/edit";
 import {
 	type CustomCommandsLoadResult,
@@ -241,6 +242,7 @@ import { AgentOutputManager } from "./task/output-manager";
 import { wrapStreamFnWithProviderConcurrency } from "./task/provider-concurrency";
 import { sessionDelegationBias } from "./task/prompt-policy";
 import { isScoutSpawnable } from "./task/spawn-policy";
+import { captureSubagentToolSources, readSubagentToolState } from "./task/tool-contract";
 import type { StructuredSubagentSchemaMode } from "@oh-my-soup/pi-tui/tools/task";
 import {
 	AUTO_THINKING,
@@ -793,6 +795,14 @@ export interface CreateAgentSessionOptions {
 	toolNames?: string[];
 	/** Limit the session to explicitly supplied tool names, without discovered extras. */
 	restrictToolNames?: boolean;
+	/** Exact capability ceiling for selected children; unlike lockdown, permits named MCP/extension tools. */
+	toolAllowlist?: string[];
+	/** Selected capabilities already presented as xd:// devices in the parent/restored slate. */
+	mountedToolNames?: string[];
+	/** Expected source identities for selected tools; unavailable or replaced capabilities fail startup. */
+	toolSources?: Record<string, string>;
+	/** Restore the latest persisted child slate; fresh forks must leave this false. */
+	restoreToolState?: boolean;
 	/**
 	 * Permit only caller-supplied SDK custom tools inside a restricted session.
 	 * They must still be named in {@link toolNames}; discovered extensions, MCP,
@@ -1880,6 +1890,26 @@ async function createAgentSessionScoped(options: CreateAgentSessionOptions): Pro
 		logger.time("sessionManager", () =>
 			SessionManager.create(cwd, SessionManager.getDefaultSessionDir(cwd, agentDir)),
 		);
+	const restoredToolState = options.restoreToolState ? readSubagentToolState(sessionManager.getEntries()) : undefined;
+	if (options.restoreToolState && !restoredToolState) {
+		throw new Error("Cannot restore subagent tools: the persisted capability contract is missing.");
+	}
+	if (restoredToolState) {
+		const currentAuthority = options.toolAllowlist ? new Set(normalizeToolNames(options.toolAllowlist)) : undefined;
+		options = {
+			...options,
+			toolNames: restoredToolState.tools,
+			toolAllowlist: currentAuthority
+				? restoredToolState.toolAllowlist.filter(name => currentAuthority.has(name))
+				: restoredToolState.toolAllowlist,
+		};
+	}
+	const toolAllowlist = options.toolAllowlist ? normalizeToolNames(options.toolAllowlist) : undefined;
+	if (toolAllowlist && options.requireYieldTool && !toolAllowlist.includes("yield")) toolAllowlist.push("yield");
+	const toolAllowlistSet = toolAllowlist ? new Set(toolAllowlist) : undefined;
+	const mountedToolNames = new Set(restoredToolState?.mountedTools ?? options.mountedToolNames ?? []);
+	const isCapabilityAllowed = (name: string): boolean =>
+		!toolAllowlistSet || toolAllowlistSet.has(name) || (options.requireYieldTool === true && name === "yield");
 	const configuredDirs = options.additionalDirectories
 		? options.additionalDirectories
 		: cfgWorkspaceAdditionalDirectories.get(settings);
@@ -2319,6 +2349,7 @@ async function createAgentSessionScoped(options: CreateAgentSessionOptions): Pro
 				);
 			},
 			restrictToolNames,
+			toolAllowlist,
 			get hasEditTool() {
 				const requestedToolNames = options.toolNames ? normalizeToolNames(options.toolNames) : undefined;
 				return restrictToolNames
@@ -2361,6 +2392,15 @@ async function createAgentSessionScoped(options: CreateAgentSessionOptions): Pro
 			getToolByName: name => session?.getToolByName(name),
 			getToolForEvalBridge: name => session?.getToolForEvalBridge(name),
 			getEvalBridgeToolNames: () => session?.getEvalBridgeToolNames() ?? [],
+			getEnabledToolNames: () => {
+				const enabled = session?.getEnabledToolNames() ?? [
+					...activeToolNames,
+					...(toolSession.xdev?.mountedNames ?? []),
+				];
+				return enabled.filter(name => name !== "write" || toolSession.deviceOnlyWrite !== true);
+			},
+			getCustomTools: () => sdkCustomTools,
+			getToolSources: () => (session ? captureSubagentToolSources(session) : {}),
 			getCodeModeDirectToolNames: () => session?.getCodeModeDirectToolNames(),
 			agentRegistry,
 			// The global lifecycle releases through AgentRegistry.global(); wiring it
@@ -3383,7 +3423,9 @@ async function createAgentSessionScoped(options: CreateAgentSessionOptions): Pro
 		// stay unwrapped. The extension runner exposes it to re-registered tools via createContext.
 		const nativeToolsByName = new Map<string, Tool>(toolSession.xdev?.tools ?? undefined);
 
-		const registeredTools = restrictToolNames ? [] : extensionRunner.getAllRegisteredTools();
+		const registeredTools = restrictToolNames
+			? []
+			: extensionRunner.getAllRegisteredTools().filter(tool => isCapabilityAllowed(tool.definition.name));
 		const initialRegisteredTools = new WeakSet(registeredTools);
 		// Manager-owned proxies register like SDK custom tools but are classified
 		// as manager tools via their origins. An explicitly supplied custom tool
@@ -3392,11 +3434,15 @@ async function createAgentSessionScoped(options: CreateAgentSessionOptions): Pro
 		const explicitCustomTools =
 			restrictToolNames && options.allowRestrictedCustomTools !== true
 				? []
-				: (options.customTools?.filter(tool => !isLegacyBuiltinToolDefinition(tool)) ?? []);
+				: (options.customTools?.filter(
+						tool => !isLegacyBuiltinToolDefinition(tool) && isCapabilityAllowed(tool.name),
+					) ?? []);
 		const explicitCustomToolNames = new Set(explicitCustomTools.map(tool => tool.name));
 		const sdkMcpTools = restrictToolNames
 			? []
-			: (options.mcpTools ?? []).filter(tool => !explicitCustomToolNames.has(tool.name));
+			: (options.mcpTools ?? []).filter(
+					tool => !explicitCustomToolNames.has(tool.name) && isCapabilityAllowed(tool.name),
+				);
 		initialMcpManagerTools.push(...sdkMcpTools);
 		const sdkCustomTools = [...sdkMcpTools, ...explicitCustomTools];
 		const sdkCustomToolNames = new Set(sdkCustomTools.map(tool => tool.name));
@@ -3433,7 +3479,12 @@ async function createAgentSessionScoped(options: CreateAgentSessionOptions): Pro
 		for (const [name, tool] of toolRegistry) {
 			nativeToolsByName.set(name, tool);
 		}
-		if (!restrictToolNames && !toolRegistry.has("goal") && cfgGoalEnabled.get(settings)) {
+		if (
+			isCapabilityAllowed("goal") &&
+			!restrictToolNames &&
+			!toolRegistry.has("goal") &&
+			cfgGoalEnabled.get(settings)
+		) {
 			const goalTool = await logger.time("createTools:goal:session", HIDDEN_TOOLS.goal, toolSession);
 			if (goalTool) {
 				const wrapped = wrapToolWithMetaNotice(goalTool);
@@ -3481,11 +3532,14 @@ async function createAgentSessionScoped(options: CreateAgentSessionOptions): Pro
 			// Image generation also honors an explicit tool whitelist: custom tools are
 			// force-activated, so `--no-tools` or a list without `generate_image` must
 			// keep it out (issue #5305).
-			const imageGenRequested = !options.toolNames || options.toolNames.includes("generate_image");
+			const imageGenRequested =
+				isCapabilityAllowed("generate_image") &&
+				(!options.toolNames || options.toolNames.includes("generate_image"));
 			if (cfgGenerateImageEnabled.get(settings) && imageGenRequested) {
 				wanted.push(imageGenTool as unknown as CustomTool);
 			}
-			if (cfgSpeechgenEnabled.get(settings)) wanted.push(ttsTool as unknown as CustomTool);
+			if (isCapabilityAllowed("tts") && cfgSpeechgenEnabled.get(settings))
+				wanted.push(ttsTool as unknown as CustomTool);
 			const wantedNames = new Set(wanted.map(tool => tool.name));
 			for (const [name, entry] of settingsGatedCustomEntries) {
 				if (wantedNames.has(name)) continue;
@@ -3542,6 +3596,7 @@ async function createAgentSessionScoped(options: CreateAgentSessionOptions): Pro
 		const ensureWriteRegistered = (): Promise<boolean> => {
 			if (toolRegistry.has("write")) return Promise.resolve(builtInRegistryToolNames.has("write"));
 			writeRegistration ??= (async () => {
+				if (toolAllowlistSet && !toolAllowlistSet.has("write")) toolSession.deviceOnlyWrite = true;
 				const writeTool = await logger.time("createTools:write:session", BUILTIN_TOOLS.write, toolSession);
 				if (!writeTool || toolRegistry.has("write")) return builtInRegistryToolNames.has("write");
 				const nativeWrite = wrapToolWithMetaNotice(writeTool);
@@ -3564,6 +3619,7 @@ async function createAgentSessionScoped(options: CreateAgentSessionOptions): Pro
 		// lazily on demand, mirroring `ensureWriteRegistered`.
 		let goalRegistration: Promise<boolean> | undefined;
 		const ensureGoalRegistered = (): Promise<boolean> => {
+			if (!isCapabilityAllowed("goal")) return Promise.resolve(false);
 			if (toolRegistry.has("goal")) return Promise.resolve(true);
 			if (restrictToolNames || !cfgGoalEnabled.get(settings)) return Promise.resolve(false);
 			goalRegistration ??= (async () => {
@@ -4042,7 +4098,7 @@ async function createAgentSessionScoped(options: CreateAgentSessionOptions): Pro
 		// Session-managed builtins may be force-included by createTools. Keep the
 		// active set consistent with that registry decision, using built-in
 		// provenance so same-named extension tools are never force-activated.
-		if (!restrictToolNames && explicitlyRequestedToolNames) {
+		if (!restrictToolNames && !toolAllowlist && explicitlyRequestedToolNames) {
 			for (const name of SESSION_MANAGED_BUILTIN_TOOL_NAMES) {
 				if (builtInToolNames.includes(name) && !explicitlyRequestedToolNames.includes(name)) {
 					explicitlyRequestedToolNames.push(name);
@@ -4055,7 +4111,7 @@ async function createAgentSessionScoped(options: CreateAgentSessionOptions): Pro
 		// unable to rewind (or vice versa). Mirror the pairing here. Unlike the
 		// manage_skill/learn mirror above, this is a safety pairing — it applies
 		// to restricted sessions too.
-		if (explicitlyRequestedToolNames) {
+		if (!toolAllowlist && explicitlyRequestedToolNames) {
 			if (builtInToolNames.includes("checkpoint") && !explicitlyRequestedToolNames.includes("rewind")) {
 				explicitlyRequestedToolNames.push("rewind");
 			} else if (builtInToolNames.includes("rewind") && !explicitlyRequestedToolNames.includes("checkpoint")) {
@@ -4064,15 +4120,26 @@ async function createAgentSessionScoped(options: CreateAgentSessionOptions): Pro
 		}
 		const requestedToolNames = explicitlyRequestedToolNames ?? toolNamesFromRegistry;
 		const normalizedRequested = requestedToolNames.filter(name => toolRegistry.has(name));
+		if (toolAllowlist) {
+			const unavailable = requestedToolNames.filter(name => !toolRegistry.has(name));
+			if (unavailable.length > 0) {
+				throw new Error(
+					`Unavailable authorized tool capabilities: ${unavailable.join(", ")}. ` +
+						"Retained eval-kernel tools require their original live parent kernel; they cannot be restored after process exit.",
+				);
+			}
+		}
 		const defaultInactiveToolNames = new Set(
 			toolNamesFromRegistry.filter(name => {
 				const tool = toolRegistry.get(name);
 				return tool?.defaultInactive === true || tool?.hidden === true;
 			}),
 		);
-		const requestedActiveToolNames = normalizedRequested.filter(name => name !== "goal");
+		const requestedActiveToolNames = normalizedRequested.filter(
+			name => name !== "goal" || toolAllowlistSet?.has("goal"),
+		);
 		const explicitlyRequestedToolNameSet = explicitlyRequestedToolNames
-			? new Set(explicitlyRequestedToolNames)
+			? new Set(explicitlyRequestedToolNames.filter(name => !mountedToolNames.has(name)))
 			: undefined;
 		const xdevReadAvailable =
 			builtInRegistryToolNames.has("read") &&
@@ -4089,13 +4156,14 @@ async function createAgentSessionScoped(options: CreateAgentSessionOptions): Pro
 
 		// Custom tools and extension-registered tools are always included
 		// unless the effective registry winner is hidden / defaultInactive. Restricted callers own the list.
-		const alwaysInclude: string[] = restrictToolNames
-			? []
-			: [
-					...sdkCustomTools.map(t => t.name),
-					...registeredTools.map(t => t.definition.name),
-					...settingsGatedCustomEntries.keys(),
-				].filter(name => !defaultInactiveToolNames.has(name));
+		const alwaysInclude: string[] =
+			restrictToolNames || toolAllowlist
+				? []
+				: [
+						...sdkCustomTools.map(t => t.name),
+						...registeredTools.map(t => t.definition.name),
+						...settingsGatedCustomEntries.keys(),
+					].filter(name => !defaultInactiveToolNames.has(name));
 		for (const name of alwaysInclude) {
 			if (toolRegistry.has(name) && !initialToolNames.includes(name)) {
 				initialToolNames.push(name);
@@ -4799,6 +4867,8 @@ async function createAgentSessionScoped(options: CreateAgentSessionOptions): Pro
 			getXdevToolEntries: () => (toolSession.xdev ? xdevEntries(toolSession.xdev) : []),
 			xdev: toolSession.xdev,
 			presentationPinnedToolNames: explicitlyRequestedToolNameSet,
+			toolAllowlist: toolAllowlistSet,
+			persistToolState: isSubagentSession,
 			setActiveToolNames: setSessionActiveToolNames,
 			ensureWriteRegistered,
 			isDeviceOnlyWrite: () => toolSession.deviceOnlyWrite === true,
@@ -4940,6 +5010,7 @@ async function createAgentSessionScoped(options: CreateAgentSessionOptions): Pro
 			const [wrapped] = wrapRegisteredTools([registered], extensionRunner);
 			if (!wrapped) return Promise.resolve();
 			const name = registered.definition.name;
+			if (!isCapabilityAllowed(name)) return Promise.resolve();
 			const liveTool = new ExtensionToolWrapper(wrapToolWithMetaNotice(wrapped), extensionRunner);
 			// Capture ordinary extension precedence while the listener observes this exact registration.
 			// A later same-name registration may replace the extension map before serialized activation runs.
@@ -5541,6 +5612,15 @@ async function createAgentSessionScoped(options: CreateAgentSessionOptions): Pro
 		} catch (error) {
 			logger.warn("Code Mode initialization at session startup failed", { error: String(error) });
 		}
+		if (options.toolSources) {
+			const actualSources = captureSubagentToolSources(session);
+			const replaced = session
+				.getEnabledToolNames()
+				.filter(
+					name => options.toolSources?.[name] !== undefined && options.toolSources[name] !== actualSources[name],
+				);
+			if (replaced.length > 0) throw new Error(`Authorized tool sources changed: ${replaced.join(", ")}.`);
+		}
 
 		startupCleanup.move();
 		return {
@@ -5568,6 +5648,7 @@ async function createAgentSessionScoped(options: CreateAgentSessionOptions): Pro
 					await asyncJobManager.dispose({ timeoutMs: 3_000 });
 				}
 				await releaseComputerSessionsForOwner(evalKernelOwnerId);
+				await closeSSHSessionsByOwner(evalKernelOwnerId);
 				await disposeKernelSessionsByOwner(evalKernelOwnerId);
 				await disposeVmContextsByOwner(evalKernelOwnerId);
 				if (ownsAuthStorage) authStorage.close();

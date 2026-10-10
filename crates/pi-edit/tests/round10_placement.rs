@@ -136,8 +136,8 @@ async fn round10_review_regressions() {
 	let f = &mut fails;
 
 	// ---- R10MultiHunkReview (early)
-	// H0: identical old lines, different new lines, no distinguishing context (B7
-	// in-order assignment).
+	// H0: identical old lines, different new lines, no distinguishing context
+	// (B7 in-order assignment).
 	both(
 		"H0_IDENTICAL_OLD_DIFFERENT_NEW",
 		"t.txt",
@@ -220,7 +220,8 @@ async fn round10_review_regressions() {
 	)
 	.await;
 
-	// H3 (P2 claims): later same-path edits that target text an earlier edit wrote.
+	// H3 (P2 claims): later same-path edits that target text an earlier edit
+	// wrote.
 	{
 		let e1 = json!({ "op": "update", "diff": "@@\n a\n-result = calculate_value(argument, 100);\n+result = calculate_value(argument, 101);" });
 		let e2 = json!({ "op": "update", "diff": "@@\n a\n-result = calculate_value(argument, 101);\n+result = calculate_value(argument, 102);" });
@@ -311,8 +312,8 @@ async fn round10_review_regressions() {
 	}
 
 	// ---- R10RegionReview (early)
-	// RZ0 (P1 claim): a labelled loop's statement-list descent picks the label, not
-	// the loop.
+	// RZ0 (P1 claim): a labelled loop's statement-list descent picks the label,
+	// not the loop.
 	p("RZ0a_SWIFT_LABELED_LOOP", EditMode::Patch, "label.swift",
 		"func f() {\n  outer: while ready {\n    notify(x1)\n  };\n}\nfunc g() {\n  while done {\n    notify(x)\n  }\n}\n",
 		patch("label.swift", "@@ outer: while ready {\n-    notify(x)\n+    notify(y)"),
@@ -332,8 +333,8 @@ async fn round10_review_regressions() {
 		f,
 	)
 	.await;
-	// RZ0 controls (P2 claims): the same files with the target inside the labelled
-	// loop edit f only.
+	// RZ0 controls (P2 claims): the same files with the target inside the
+	// labelled loop edit f only.
 	p("RZ0c_SWIFT_LABELED_LOOP_CONTROL", EditMode::Patch, "label.swift",
 		"func f() {\n  outer: while ready {\n    notify(x)\n  };\n}\nfunc g() {\n  while done {\n    notify(x)\n  }\n}\n",
 		patch("label.swift", "@@ outer: while ready {\n-    notify(x)\n+    notify(y)"),
@@ -354,7 +355,8 @@ async fn round10_review_regressions() {
 	)
 	.await;
 
-	// H5 (P1 claim): an EOF append lands after a trailing blank row, not before it.
+	// H5 (P1 claim): an EOF append lands after a trailing blank row, not before
+	// it.
 	p(
 		"H5a_EOF_AFTER_TRAILING_BLANK",
 		EditMode::Patch,
@@ -387,8 +389,8 @@ async fn round10_review_regressions() {
 	)
 	.await;
 
-	// H6 (P1 claim): an insertion between two consecutive context rows of another
-	// hunk breaks that hunk's adjacency.
+	// H6 (P1 claim): an insertion between two consecutive context rows of
+	// another hunk breaks that hunk's adjacency.
 	both(
 		"H6a_INSERT_BETWEEN_INTERIOR_CONTEXT_ROWS",
 		"t.txt",
@@ -608,8 +610,8 @@ async fn round10_review_regressions() {
 			.await;
 		}
 	}
-	// H9 (P2 claim): a later same-path edit whose original tie partner was consumed
-	// applies to the equally exact survivor.
+	// H9 (P2 claim): a later same-path edit whose original tie partner was
+	// consumed applies to the equally exact survivor.
 	{
 		let e1 = json!({ "op": "update", "diff": "@@\n a\n-value\n+VALUE\n b" });
 		let e2 = json!({ "op": "update", "diff": "@@\n-value\n+changed" });
@@ -625,8 +627,8 @@ async fn round10_review_regressions() {
 		.await;
 	}
 
-	// H10 (P1 claim): rows inserted by an earlier same-path edit get no consumption
-	// record, so a later stale edit inherits a looser twin.
+	// H10 (P1 claim): rows inserted by an earlier same-path edit get no
+	// consumption record, so a later stale edit inherits a looser twin.
 	{
 		let u1 = json!({ "op": "update", "diff": "@@ [a]\n [a]\n-val = 1\n+val = 2" });
 		let u2 = json!({ "op": "update", "diff": "@@ [a]\n [a]\n-val = 1\n+val = 3" });
@@ -665,7 +667,8 @@ async fn round10_review_regressions() {
 		.await;
 	}
 
-	// RZ4: Rust inner attributes retain their token-tree region, not the next item.
+	// RZ4: Rust inner attributes retain their token-tree region, not the next
+	// item.
 	{
 		let original =
 			"#![doc = stringify!({\n    marker()\n})]\nfn marker() {}\nfn main() {\n    marker()\n}\n";
@@ -700,7 +703,8 @@ async fn round10_review_regressions() {
 	}
 
 	// ---- R10InsertionReview
-	// IZ0 (P1 claim): Rust outer doc comments are attributes of the following item.
+	// IZ0 (P1 claim): Rust outer doc comments are attributes of the following
+	// item.
 	p(
 		"IZ0_RUST_DOC_ATTRIBUTE",
 		EditMode::Patch,
@@ -723,7 +727,8 @@ async fn round10_review_regressions() {
 		f,
 	)
 	.await;
-	// IZ2 (P1 claim): an insertion that splits a multi-line leaf changes its owner.
+	// IZ2 (P1 claim): an insertion that splits a multi-line leaf changes its
+	// owner.
 	p(
 		"IZ2a_YAML_SPLIT_SCALAR_OWNER",
 		EditMode::Patch,
@@ -821,7 +826,8 @@ async fn round10_review_regressions() {
 		f,
 	)
 	.await;
-	// TZ4 (P1 claim): C# verbatim strings escape quotes by doubling, not backslash.
+	// TZ4 (P1 claim): C# verbatim strings escape quotes by doubling, not
+	// backslash.
 	{
 		let diff = [
 			"@@",
@@ -1007,7 +1013,8 @@ async fn round10_review_regressions() {
 		f,
 	)
 	.await;
-	// TZ8: implicit string concatenation must not absorb a dropped list separator.
+	// TZ8: implicit string concatenation must not absorb a dropped list
+	// separator.
 	p(
 		"TZ8a_PY_IMPLICIT_CONCAT_TRIVIAL",
 		EditMode::Patch,

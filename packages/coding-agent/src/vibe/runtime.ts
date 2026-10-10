@@ -1275,6 +1275,7 @@ export class VibeSessionRegistry {
 		signal: AbortSignal,
 		onProgress: (progress: AgentProgress) => void,
 	): Promise<ExecutorOptions> {
+		const toolNames = session.getEnabledToolNames?.();
 		const sessionFile = session.getSessionFile();
 		const sessionArtifactsDir = sessionFile ? sessionFile.slice(0, -6) : null;
 		const artifactsDir = sessionArtifactsDir ?? path.join(os.tmpdir(), `oms-vibe-${Snowflake.next()}`);
@@ -1309,6 +1310,7 @@ export class VibeSessionRegistry {
 			authStorage: session.authStorage,
 			modelRegistry: session.modelRegistry,
 			settings: session.settings,
+			toolNames,
 			inheritedSessionAgents: session.getSessionAgents?.(),
 			mcpManager: session.mcpManager ?? MCPManager.instance(),
 			contextFiles: session.contextFiles?.filter(file => path.basename(file.path).toLowerCase() !== "agents.md"),

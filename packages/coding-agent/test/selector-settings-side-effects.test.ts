@@ -411,7 +411,6 @@ describe("selector setting side effects", () => {
 		if (!projectModel || !globalModel) throw new Error("Expected bundled OpenAI models for selector test");
 
 		const projectSelector = `${projectModel.provider}/${projectModel.id}`;
-		const globalSelector = `${globalModel.provider}/${globalModel.id}`;
 		const settings = Settings.isolated({ modelRoleStorage: "project" });
 		settings.setProjectModelRole("default", projectSelector);
 		// Simulate a CLI --model override: runtime override distinct from the project value.

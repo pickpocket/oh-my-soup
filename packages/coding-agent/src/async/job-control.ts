@@ -126,7 +126,7 @@ export function agentStaleNote(agent: AgentActivitySnapshot): string {
 }
 
 /** Model-facing lines for the running-agents section shared by `jobs` and empty-wait results. */
-function describeAgents(agents: AgentActivitySnapshot[]): string[] {
+export function describeAgents(agents: AgentActivitySnapshot[]): string[] {
 	const lines = [`## Running Agents (${agents.length}) — not job-backed\n`];
 	for (const agent of agents) {
 		const parent = agent.parentId ? ` (spawned by \`${agent.parentId}\`)` : "";

@@ -16,9 +16,10 @@ function createContext(
 	chains: RetryFallbackResolutionContext["chains"],
 	roles: Record<string, string> = {},
 ): RetryFallbackResolutionContext {
+	const google = getBundledModel("google", "gemini-2.5-flash")!;
 	const models = [
-		getBundledModel("google", "gemini-2.5-flash"),
-		getBundledModel("google-vertex", "gemini-2.5-flash"),
+		google,
+		{ ...google, provider: "google-vertex" },
 		getBundledModel("openrouter", "google/gemini-2.5-flash"),
 		getBundledModel("openai", "gpt-4o-mini"),
 		getBundledModel("xai-oauth", "grok-4.7"),

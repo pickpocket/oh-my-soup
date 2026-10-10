@@ -11,7 +11,13 @@ import waitDescription from "../prompts/tools/wait.md" with { type: "text" };
 import waitNoMessageTemplate from "../prompts/tools/wait-no-message.md" with { type: "text" };
 import type { ToolSession } from ".";
 import type { AsyncJob, AsyncJobManager } from "../async/job-manager";
-import { buildJobResult, snapshotJobs, undeliveredJobs } from "../async/job-control";
+import {
+	buildJobResult,
+	describeAgents,
+	runningAgentsOutsideJobs,
+	snapshotJobs,
+	undeliveredJobs,
+} from "../async/job-control";
 import { hasLiveOwnedService, listServicesTolerant, waitForOwnedServiceCompletion } from "../launch/services";
 import { drainPendingInbox, messageResult } from "../irc/messaging";
 import type { AgentRegistry } from "../registry/agent-registry";
@@ -62,6 +68,7 @@ function holdBlockedWait(manager: AsyncJobManager, jobIds: string[]): () => void
 }
 
 function noMessageResult(
+	session: ToolSession,
 	messaging: WaitMessaging | undefined,
 	manager: AsyncJobManager | undefined,
 	window: MessageWindow,
@@ -77,19 +84,21 @@ function noMessageResult(
 		messaging && manager && blocked
 			? manager.getRunningJobs().find(job => job.agentId === messaging.senderId && blocked.has(job.id))?.ownerId
 			: undefined;
+	const agents = runningAgentsOutsideJobs(session);
+	const text = prompt.render(waitNoMessageTemplate, {
+		elapsed: formatDuration(Date.now() - window.openedAt),
+		peers: running.slice(0, MESSAGE_WAIT_PEER_PREVIEW),
+		more: Math.max(0, running.length - MESSAGE_WAIT_PEER_PREVIEW),
+		awaitedBy,
+	});
 	return {
 		content: [
 			{
 				type: "text",
-				text: prompt.render(waitNoMessageTemplate, {
-					elapsed: formatDuration(Date.now() - window.openedAt),
-					peers: running.slice(0, MESSAGE_WAIT_PEER_PREVIEW),
-					more: Math.max(0, running.length - MESSAGE_WAIT_PEER_PREVIEW),
-					awaitedBy,
-				}),
+				text: agents.length > 0 ? `${describeAgents(agents).join("\n")}\n\n${text}` : text,
 			},
 		],
-		details: { op: "wait", jobs: [] },
+		details: { op: "wait", jobs: [], ...(agents.length > 0 ? { agents } : {}) },
 		useless: true,
 	};
 }
@@ -146,6 +155,17 @@ export class WaitTool implements AgentTool<typeof waitSchema, CoordinationDetail
 					messaging?.registry.listVisibleTo(messaging.senderId).some(ref => messaging.registry.isRunning(ref)) ??
 					false;
 				if (jobs.length === 0 && !runningPeer && !serviceRunning) {
+					const staleAcceptedOwnedPeer =
+						messaging?.registry
+							.staleAcceptedRuns()
+							.some(ref => ref.kind === "sub" && ref.parentId === messaging.senderId) ?? false;
+					if (staleAcceptedOwnedPeer) {
+						const agents = runningAgentsOutsideJobs(this.session);
+						return {
+							content: [{ type: "text", text: describeAgents(agents).join("\n") }],
+							details: { op: "wait", jobs: [], agents },
+						};
+					}
 					throw new ToolError("Nothing to wait for: no owned background work or running peer remains.");
 				}
 				const window =
@@ -288,7 +308,8 @@ export class WaitTool implements AgentTool<typeof waitSchema, CoordinationDetail
 				throwIfAborted(signal);
 			}
 			if (manager && jobs.length > 0) return buildJobResult(this.session, manager, "wait", jobs, []);
-			if (wake === "timeout" && messageWindow) return noMessageResult(messaging, manager, messageWindow);
+			if (wake === "timeout" && messageWindow)
+				return noMessageResult(this.session, messaging, manager, messageWindow);
 			return {
 				content: [
 					{

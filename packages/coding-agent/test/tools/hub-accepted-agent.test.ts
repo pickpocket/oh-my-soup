@@ -51,4 +51,30 @@ describe("wait accepted-agent watchdog", () => {
 		expect(result.details?.agents?.map(agent => agent.id)).toEqual(["PolicyCommand"]);
 		expect(result.details?.agents?.[0]?.acceptedAt).toBeNumber();
 	});
+
+	it("does not treat another parent's accepted child as owned work", async () => {
+		let streaming = true;
+		const ref = registry.register({
+			id: "OtherChild",
+			displayName: "OtherChild",
+			kind: "sub",
+			parentId: "Other",
+			session: {
+				get isStreaming(): boolean {
+					return streaming;
+				},
+			} as never,
+			status: "running",
+		});
+		registry.markResultAccepted(ref.id, ref, ref.createdAt);
+		streaming = false;
+
+		const tool = new WaitTool({
+			cwd: process.cwd(),
+			settings: Settings.isolated(),
+			agentRegistry: registry,
+			getAgentId: () => SELF_ID,
+		} as unknown as ToolSession);
+		await expect(tool.execute("call", {})).rejects.toThrow("Nothing to wait for");
+	});
 });

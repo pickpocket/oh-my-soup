@@ -11,7 +11,8 @@ import {
 const localTiny = getBundledModel("local", "lfm2.5-230m")!;
 const primary = getBundledModel("google", "gemini-2.5-flash")!;
 const secondary = getBundledModel("openai", "gpt-4o-mini")!;
-const fallback = getBundledModel("google-vertex", "gemini-2.5-flash")!;
+// Keep the cross-provider selector fixture independent of Vertex retirements.
+const fallback = { ...primary, provider: "google-vertex" };
 const models = [primary, secondary, fallback];
 const primarySelector = `${primary.provider}/${primary.id}`;
 const localTinySelector = `${localTiny.provider}/${localTiny.id}`;

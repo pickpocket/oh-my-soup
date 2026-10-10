@@ -5,7 +5,8 @@ import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
 
 const fast = getBundledModel("google", "gemini-2.5-flash")!;
 const mini = getBundledModel("openai", "gpt-4o-mini")!;
-const vertex = getBundledModel("google-vertex", "gemini-2.5-flash")!;
+// Selector resolution does not depend on Vertex's current published roster.
+const vertex = { ...fast, provider: "google-vertex" };
 const models = [fast, mini, vertex];
 const registry = { getAll: () => models, getAvailable: () => models };
 const key = (model: typeof fast) => `${model.provider}/${model.id}`;

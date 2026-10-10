@@ -28,7 +28,7 @@ describe("wait agent activity", () => {
 			displayName: "Auth-flow security reviewer",
 			kind: "sub",
 			parentId: SELF_ID,
-			session: { isStreaming: false } as never,
+			session: { isStreaming: true } as never,
 			status: "running",
 		});
 		registry.register({
@@ -36,7 +36,7 @@ describe("wait agent activity", () => {
 			displayName: "task",
 			kind: "sub",
 			parentId: SELF_ID,
-			session: { isStreaming: false } as never,
+			session: { isStreaming: true } as never,
 			status: "running",
 		});
 		registry.setActivity("AuthScout", "auditing the token refresh path");

@@ -8,6 +8,7 @@
 - Fixed switching models retaining the previous model's inline tool-description policy.
 - Fixed an empty native HUD row remaining visible when only the separate todo activity line was populated.
 - Fixed identical streamed replacements incorrectly aborting the assistant turn as a missing-match error.
+- Fixed `wait` omitting peer activity and failing to report accepted child runs that still need cleanup.
 
 ## [18.8.8] - 2026-10-10
 

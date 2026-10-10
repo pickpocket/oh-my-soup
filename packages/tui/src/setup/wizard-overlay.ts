@@ -2,12 +2,12 @@ import { type Component, type OverlayFocusOwner } from "../tui";
 import { formatKeyHint } from "../app-keybindings";
 import { editorKey, editorKeys } from "../chrome/keybinding-hints";
 import { matchesKey } from "../keys";
-import { centerLine, padding } from "../utils";
+import { centerLine, padding, wrapTextWithAnsi } from "../utils";
 import { padToWidth } from "../render/utils";
 import { routeSgrMouseInput, type SgrMouseEvent } from "../mouse";
 import { APP_NAME } from "@oh-my-soup/pi-utils";
-import { gradientLogo, logoNode, OMS_LOGO } from "../prompt/welcome";
-import { theme } from "../theme/theme";
+import { SOUP_LOGO_ROWS, SOUP_LOGO_WIDTH, soupLogo, soupLogoNode } from "../prompt/pixel-logo";
+import { getThemeEpoch, theme } from "../theme/theme";
 import { col, node, span, text } from "../native/describe";
 import type { NativeNode, NativeUiEvent } from "../native/node";
 import { Memo } from "../native/memo";
@@ -249,29 +249,32 @@ export class SetupWizardComponent implements Component, OverlayFocusOwner {
 		const title = active?.title ?? scene?.title ?? "Setup";
 		const subtitle = active?.subtitle;
 		const footer = sceneFooterHint();
-		return this.#nativeScene.get([this.#sceneIndex, this.scenes.length, active, title, subtitle, footer], () => {
-			const heading: NativeNode[] = [text([span(title, "strong")])];
-			if (subtitle) heading.push(text([span(subtitle, "muted")]));
-			return col(
-				[
-					col(
-						[
-							logoNode(OMS_LOGO, false),
-							text([span(APP_NAME, "accent strong")], { wrap: "none" }),
-							text([span(`Setup step ${this.#sceneIndex + 1} of ${this.scenes.length}`, "muted")], {
-								wrap: "none",
-							}),
-						],
-						{ align: "center" },
-					),
-					col(heading),
-					// Keyed by scene so a new scene's nodes never reuse the previous one's ids.
-					node("col", { grow: 1 }, active ? [active] : [], `body:${scene?.id ?? this.#sceneIndex}`),
-					col([text([span(footer, "dim")])], { align: "center" }),
-				],
-				{ gap: "md", grow: 1, role: "omp.setup.scene" },
-			);
-		});
+		return this.#nativeScene.get(
+			[this.#sceneIndex, this.scenes.length, active, title, subtitle, footer, getThemeEpoch()],
+			() => {
+				const heading: NativeNode[] = [text([span(title, "strong")])];
+				if (subtitle) heading.push(text([span(subtitle, "muted")]));
+				return col(
+					[
+						col(
+							[
+								soupLogoNode(96),
+								text([span(APP_NAME, "accent strong")], { wrap: "none" }),
+								text([span(`Setup step ${this.#sceneIndex + 1} of ${this.scenes.length}`, "muted")], {
+									wrap: "none",
+								}),
+							],
+							{ align: "center" },
+						),
+						col(heading),
+						// Keyed by scene so a new scene's nodes never reuse the previous one's ids.
+						node("col", { grow: 1 }, active ? [active] : [], `body:${scene?.id ?? this.#sceneIndex}`),
+						col([text([span(footer, "dim")])], { align: "center" }),
+					],
+					{ gap: "md", grow: 1, role: "omp.setup.scene" },
+				);
+			},
+		);
 	}
 
 	#renderScene(width: number, height: number): string[] {
@@ -279,19 +282,33 @@ export class SetupWizardComponent implements Component, OverlayFocusOwner {
 		const title = this.#activeScene?.title ?? scene?.title ?? "Setup";
 		const subtitle = this.#activeScene?.subtitle;
 		const contentWidth = Math.max(MIN_CONTENT_WIDTH, width - SCENE_MARGIN_X * 2);
-		const logo = gradientLogo(OMS_LOGO, 0);
-		const header = [
-			"",
-			...logo.map(line => centerLine(line, width)),
-			centerLine(theme.bold(theme.fg("accent", APP_NAME)), width),
-			centerLine(theme.fg("muted", `Setup step ${this.#sceneIndex + 1} of ${this.scenes.length}`), width),
-			"",
-			indentLine(theme.bold(title), width, SCENE_MARGIN_X),
-		];
-		if (subtitle) {
-			header.push(indentLine(theme.fg("muted", subtitle), width, SCENE_MARGIN_X));
+		const brand = theme.bold(theme.fg("accent", APP_NAME));
+		const step = theme.fg("muted", `Setup step ${this.#sceneIndex + 1} of ${this.scenes.length}`);
+		const heading = [theme.bold(title), ...(subtitle ? [theme.fg("muted", subtitle)] : [])];
+		let header: string[];
+		if (contentWidth >= SOUP_LOGO_WIDTH + SCENE_MARGIN_X + MIN_CONTENT_WIDTH && height >= SOUP_LOGO_ROWS + 10) {
+			// Put metadata beside the taller bowl so 24-row terminals retain room for choices.
+			const besideWidth = contentWidth - SOUP_LOGO_WIDTH - SCENE_MARGIN_X;
+			const beside = [brand, step, "", ...heading].flatMap(line => wrapTextWithAnsi(line, besideWidth));
+			const logo = soupLogo();
+			const rows = Math.max(logo.length, beside.length);
+			const offset = Math.max(0, Math.floor((rows - beside.length) / 2));
+			header = [""];
+			for (let index = 0; index < rows; index++) {
+				const line = `${logo[index] ?? padding(SOUP_LOGO_WIDTH)}${padding(SCENE_MARGIN_X)}${beside[index - offset] ?? ""}`;
+				header.push(indentLine(line, width, SCENE_MARGIN_X));
+			}
+			header.push("");
+		} else {
+			header = [
+				"",
+				centerLine(brand, width),
+				centerLine(step, width),
+				"",
+				...heading.map(line => indentLine(line, width, SCENE_MARGIN_X)),
+				"",
+			];
 		}
-		header.push("");
 		this.#bodyRowStart = header.length;
 
 		const footer = ["", centerLine(theme.fg("dim", sceneFooterHint()), width)];

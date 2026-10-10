@@ -3,16 +3,16 @@ import type { TspSpan } from "@oh-my-soup/pi-wire";
 import { formatDoubleTap, formatKeyHint, formatKeyHints, type KeyName } from "../app-keybindings";
 import { editorKey } from "../chrome/keybinding-hints";
 import { getKeybindings, type Keybinding } from "../keybindings";
-import { registerNativeBlob } from "../native/blobs";
 import { card, col, keyed, node, row, span, text } from "../native/describe";
 import type { DescribeContext, NativeChild, NativeNode } from "../native/node";
 import { compactText, plainText } from "../native/spans";
 import { isNativeRendering } from "../native/state";
 import { isHyperlinkEnabled, urlHyperlink, urlLinkSpan } from "../render/hyperlink";
 import { TERMINAL } from "../terminal-capabilities";
-import { theme } from "../theme/theme";
+import { getThemeEpoch, theme } from "../theme/theme";
 import type { Component } from "../tui";
 import { padding, replaceTabs, visibleWidth, wrapTextWithAnsi } from "../utils";
+import { SOUP_LOGO_WIDTH, soupLogo, soupLogoNode, type ShineConfig } from "./pixel-logo";
 import tipsText from "./tips.txt" with { type: "text" };
 
 /** Leading marker for a tip that pitches Tern: shown only while no TSP surface
@@ -211,8 +211,9 @@ export class WelcomeComponent implements Component {
 	// returning a stable array reference keeps the whole frame prefix stable.
 	// Bypassed while the intro animation runs (every frame differs).
 	#cachedWidth = -1;
+	#cachedEpoch = -1;
 	#cachedLines: string[] | undefined;
-	#native: { tip: string | undefined; node: NativeNode } | undefined;
+	#native: { tip: string | undefined; epoch: number; node: NativeNode } | undefined;
 
 	constructor(private version: string) {}
 	get tip(): string | undefined {
@@ -230,33 +231,18 @@ export class WelcomeComponent implements Component {
 		this.#native = undefined;
 	}
 
-	/**
-	 * A `card` (`omp.welcome`) mirroring the terminal banner: the lockup
-	 * (`omp.welcome.lockup`: the terminal's builtin `omp` mark, which it animates,
-	 * beside the wordmark with the version under it) and the tip of the session.
-	 * Roles carry the look (gradient logo, type scale); a "[NEW]" tip
-	 * carries a terminal-clocked shimmering tag.
-	 */
+	/** Native soup-bowl lockup with the wordmark, version, and session tip. */
 	describe(_cx: DescribeContext): NativeNode {
 		const tip = this.tip;
-		if (this.#native && this.#native.tip === tip) return this.#native.node;
+		const epoch = getThemeEpoch();
+		if (this.#native && this.#native.tip === tip && this.#native.epoch === epoch) return this.#native.node;
 		// Brand lines are short and fixed; never wrap or truncate them.
 		const art = (spans: readonly TspSpan[], role: string): NativeNode =>
 			keyed(text(spans, { wrap: "none", role }), role);
 		const lockupRow = keyed(
 			row(
 				[
-					node(
-						"image",
-						{
-							blob: welcomeLogoBlob(),
-							alt: APP_NAME,
-							w: 128,
-							role: "omp.welcome.logo",
-						},
-						undefined,
-						"logo",
-					),
+					soupLogoNode(128, "omp.welcome.logo"),
 
 					keyed(
 						col(
@@ -286,7 +272,7 @@ export class WelcomeComponent implements Component {
 		}
 		// No head row or chevron: the card is the hero; the version sits under the wordmark.
 		const described = card({ role: "omp.welcome" }, body);
-		this.#native = { tip, node: described };
+		this.#native = { tip, epoch, node: described };
 		return described;
 	}
 
@@ -358,7 +344,8 @@ export class WelcomeComponent implements Component {
 
 	render(termWidth: number): readonly string[] {
 		const animating = this.#animStart != null;
-		if (!animating && this.#cachedLines && this.#cachedWidth === termWidth) {
+		const epoch = getThemeEpoch();
+		if (!animating && this.#cachedLines && this.#cachedWidth === termWidth && this.#cachedEpoch === epoch) {
 			return this.#cachedLines;
 		}
 		const lines = this.#renderLines(termWidth);
@@ -368,6 +355,7 @@ export class WelcomeComponent implements Component {
 		} else {
 			this.#cachedLines = lines;
 			this.#cachedWidth = termWidth;
+			this.#cachedEpoch = epoch;
 		}
 		return lines;
 	}
@@ -378,8 +366,8 @@ export class WelcomeComponent implements Component {
 		if (room < 4) return [];
 		const logo = this.#currentLogoFrame();
 		const version = theme.fg("dim", `v${this.version}`);
-		const lockupWidth = LOGO_WIDTH + LOCKUP_GAP + Math.max(WORDMARK_WIDTH, visibleWidth(version));
-		const art = room >= lockupWidth ? lockup(logo, version) : room >= LOGO_WIDTH ? logo : [];
+		const lockupWidth = SOUP_LOGO_WIDTH + LOCKUP_GAP + Math.max(WORDMARK_WIDTH, visibleWidth(version));
+		const art = room >= lockupWidth ? lockup(logo, version) : room >= SOUP_LOGO_WIDTH ? logo : [];
 		const lines = centerBlock(art, termWidth);
 		const tip = termWidth >= TIP_MIN_COLUMNS ? this.#renderTip(room) : [];
 		if (tip.length > 0) lines.push("", ...tip.flatMap(line => centerBlock([line], termWidth)));
@@ -403,48 +391,14 @@ export class WelcomeComponent implements Component {
 
 	/** Pick the logo frame for the current intro phase, or the resting frame. */
 	#currentLogoFrame(): readonly string[] {
-		if (this.#animStart == null) return REST_FRAME;
+		if (this.#animStart == null) return soupLogo();
 		const elapsed = performance.now() - this.#animStart;
-		if (elapsed >= INTRO_MS) return REST_FRAME;
+		if (elapsed >= INTRO_MS) return soupLogo();
 		return introLogoFrame(elapsed / INTRO_MS);
 	}
 }
 
-/** Block-grid brand mark shared by the welcome and setup surfaces. */
-export const OMS_LOGO = [
-	"█████ █   █ █████",
-	"█   █ ██ ██ █    ",
-	"█   █ █ █ █ █████",
-	"█   █ █   █     █",
-	"█████ █   █ █████",
-];
-
-/** Shared geometry keeps the native mark aligned with the ANSI welcome. */
-const OMS_LOGO_PATH = OMS_LOGO.flatMap((line, y) =>
-	[...line.matchAll(/█+/g)].map(match => {
-		const width = match[0].length * 3;
-		return `M${match.index * 3} ${y * 6}h${width}v6h-${width}z`;
-	}),
-).join("");
-
-const WELCOME_LOGO_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="-2 -2 55 34">
-<defs><linearGradient id="g" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="51" y2="30">
-<stop class="s0" offset="0" stop-color="#ed4abf"/><stop class="s1" offset=".5" stop-color="#9b4dff"/><stop class="s2" offset="1" stop-color="#5ad8e6"/>
-</linearGradient></defs>
-<path class="mark" fill="url(#g)" d="${OMS_LOGO_PATH}"/>
-<path class="trace" fill="none" stroke="url(#g)" stroke-width="1" stroke-linejoin="round" pathLength="1" d="${OMS_LOGO_PATH}"/>
-</svg>`;
-
-let welcomeLogoId: string | undefined;
-
-function welcomeLogoBlob(): string {
-	welcomeLogoId ??= registerNativeBlob(new TextEncoder().encode(WELCOME_LOGO_SVG), "image/svg+xml");
-	return welcomeLogoId;
-}
-
-/** Columns of {@link OMS_LOGO}. */
-const LOGO_WIDTH = Math.max(...OMS_LOGO.map(row => row.length));
-/** The `oms` wordmark beside the mark, with the version on the fifth row. */
+/** The `oms` wordmark beside the bowl, with the version below it. */
 const WORDMARK = ["▄▀▀▄ █▀▄▀▄ ▄▀▀", "▀▄▄▀ █ █ █ ▄▄▀", ""];
 
 /** Columns of {@link WORDMARK}. */
@@ -461,8 +415,9 @@ const TIP_MIN_COLUMNS = 50;
 
 /** Logo frame `logo` with the wordmark beside it and `version` (styled) under the wordmark. */
 function lockup(logo: readonly string[], version: string): string[] {
-	const beside = ["", ...WORDMARK.map(row => theme.bold(theme.fg("text", row))), version];
-	return logo.map((row, index) => `${row}${padding(LOCKUP_GAP)}${beside[index] ?? ""}`);
+	const beside = [...WORDMARK.map(row => theme.bold(theme.fg("text", row))), version];
+	const offset = Math.floor((logo.length - beside.length) / 2);
+	return logo.map((row, index) => `${row}${padding(LOCKUP_GAP)}${beside[index - offset] ?? ""}`);
 }
 
 /**
@@ -473,17 +428,6 @@ function centerBlock(lines: readonly string[], width: number): string[] {
 	const widest = lines.reduce((max, line) => Math.max(max, visibleWidth(line)), 0);
 	const indent = padding(Math.max(0, Math.floor((width - widest) / 2)));
 	return lines.map(line => indent + line);
-}
-/** The block-grid brand mark as accent lines; `shimmer` declares the terminal-clocked shine sweep. */
-export function logoNode(lines: readonly string[], shimmer: boolean): NativeNode {
-	return col(
-		lines.map(line =>
-			text([span(line, "accent", shimmer ? { fx: "shimmer" } : undefined)], {
-				wrap: "none",
-			}),
-		),
-		{ align: "center", role: "omp.setup.logo" },
-	);
 }
 
 /** Multi-stop palette for the diagonal gradient. */
@@ -499,18 +443,10 @@ const GRADIENT_RAMP_256 = [206, 170, 134, 99, 69, 74, 44];
 /** Half-width of the shine highlight band, expressed in gradient-t units. */
 const SHINE_HALF_WIDTH = 0.18;
 
-export interface ShineConfig {
-	/** Overall opacity of the shine overlay, in [0, 1]. */
-	strength: number;
-	/** Center of the shine band along the diagonal, in [0, 1]. */
-	pos: number;
-}
-
 /**
  * Resolve the gradient SGR foreground escape for a normalized position `t`
  * (0..1) along the diagonal, compositing the optional sliding shine highlight.
- * Shared by {@link gradientLogo} and the setup splash so both stay
- * color-identical (truecolor when available, 256-color ramp otherwise).
+ * Used by the setup splash water (truecolor when available, 256-color ramp otherwise).
  */
 export function gradientEscape(t: number, shine?: ShineConfig): string {
 	const shineStrength = shine && shine.strength > 0 ? shine.strength : 0;
@@ -549,63 +485,16 @@ export function gradientEscape(t: number, shine?: ShineConfig): string {
 	return `\x1b[38;5;${ramp[idx]}m`;
 }
 
-/**
- * Apply a multi-stop diagonal gradient (top-left → bottom-right) plus an
- * optional sliding shine band across multi-line art. `phase` (0..1) shifts the
- * gradient along the diagonal, wrapping at 1. When `shine` is provided, a soft
- * white highlight is composited on top, centered at `shine.pos`.
- */
-export function gradientLogo(lines: readonly string[], phase = 0, shine?: ShineConfig): string[] {
-	const reset = "\x1b[0m";
-	const rows = lines.length;
-	const cols = Math.max(...lines.map(l => l.length));
-	const xSpan = Math.max(1, cols - 1);
-	const ySpan = Math.max(1, rows - 1);
-	const normalizedPhase = ((phase % 1) + 1) % 1;
-	return lines.map((line, y) => {
-		let result = "";
-		for (let x = 0; x < line.length; x++) {
-			const char = line[x];
-			if (char === " ") {
-				result += char;
-				continue;
-			}
-			// SVG's (0,0) → (1,1) gradient projects both normalized axes
-			// equally: top-right and bottom-left land on the purple midpoint.
-			const base = (x / xSpan + y / ySpan) / 2;
-			const t = normalizedPhase === 0 ? base : (base + normalizedPhase) % 1;
-			result += gradientEscape(t, shine) + char + reset;
-		}
-		return result;
-	});
-}
-
 /** Total length of the intro animation. */
 const INTRO_MS = 3000;
 /** Render cadence during the intro (~30fps). */
 const INTRO_TICK_MS = 33;
-/** Number of full gradient rotations the sweep performs before settling. */
-const INTRO_SWEEPS = 2.5;
 /** Number of times the shine highlight crosses the diagonal across the intro. */
 const INTRO_SHINE_TRAVERSALS = 3;
 
-/**
- * Logo frame for a normalized intro progress in [0, 1).
- *
- * Ease-out cubic so the spin decelerates into the resting state. The gradient
- * sweeps backward through INTRO_SWEEPS full rotations (`eased == 1` → phase =
- * 0 = resting frame) while the shine traverses the diagonal at a steady pace,
- * decoupled from the gradient phase so the two layers parallax; its strength
- * fades with the same ease-out curve so the highlight is gone by the resting
- * frame.
- */
-function introLogoFrame(progress: number): string[] {
+/** Ease the original palette's shine sweep into the resting soup bowl. */
+function introLogoFrame(progress: number): readonly string[] {
 	const eased = 1 - (1 - progress) ** 3;
-	const phase = ((((1 - eased) * INTRO_SWEEPS) % 1) + 1) % 1;
 	const shinePos = (((progress * INTRO_SHINE_TRAVERSALS) % 1) + 1) % 1;
-	const shineStrength = (1 - eased) ** 1.5;
-	return gradientLogo(OMS_LOGO, phase, { strength: shineStrength, pos: shinePos });
+	return soupLogo({ shine: { strength: (1 - eased) ** 1.5, pos: shinePos } });
 }
-
-/** Resting gradient frame, cached for re-renders outside of the intro. */
-const REST_FRAME = gradientLogo(OMS_LOGO, 0);

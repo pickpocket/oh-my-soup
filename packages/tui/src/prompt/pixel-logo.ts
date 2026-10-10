@@ -1,7 +1,19 @@
-import { TERMINAL } from "@oh-my-soup/pi-tui";
-import { hexToRgb } from "@oh-my-soup/pi-utils";
-import type { RgbTriple, ShineConfig, SoupLogoOptions } from "../../types/logo";
-import { getThemeEpoch, theme, type ThemeColor } from "@oh-my-soup/pi-tui/theme";
+import { hexToRgb, type RGB } from "@oh-my-soup/pi-utils";
+import { nativeImageNode } from "../native/blobs";
+import type { NativeNode } from "../native/node";
+import { TERMINAL } from "../terminal-capabilities";
+import { getThemeEpoch, theme, type ThemeColor } from "../theme/theme";
+
+/** Sliding highlight composited onto the soup pixel art. */
+export interface ShineConfig {
+	strength: number;
+	pos: number;
+}
+
+export interface SoupLogoOptions {
+	scale?: 1 | 2;
+	shine?: ShineConfig;
+}
 
 /**
  * Palette-indexed pixel rows of the soup-bowl brand logo. Each character is a
@@ -45,10 +57,10 @@ const PALETTE_KEYS = {
 	O: "welcomeLogoOh",
 	M: "welcomeLogoMy",
 	Y: "welcomeLogoMyAlt",
-} as const;
+} as const satisfies Record<string, ThemeColor>;
 
 type PaletteSymbol = keyof typeof PALETTE_KEYS;
-type Palette = Readonly<Record<PaletteSymbol, RgbTriple>>;
+type Palette = Readonly<Record<PaletteSymbol, RGB>>;
 
 /** Half-width of the shine band along the diagonal, in normalized t units. */
 const SHINE_HALF_WIDTH = 0.18;
@@ -63,13 +75,13 @@ const resolvePalette = (): Palette => {
 	const epoch = getThemeEpoch();
 	if (cachedPalette !== undefined && cachedPalette.epoch === epoch) return cachedPalette.palette;
 	const palette = Object.fromEntries(
-		Object.entries(PALETTE_KEYS).map(([symbol, key]) => [symbol, hexToRgb(theme.getColorHex(key as ThemeColor))]),
-	) as Record<PaletteSymbol, RgbTriple>;
+		Object.entries(PALETTE_KEYS).map(([symbol, key]) => [symbol, hexToRgb(theme.getColorHex(key))]),
+	) as Record<PaletteSymbol, RGB>;
 	cachedPalette = { epoch, palette };
 	return palette;
 };
 
-const lerpTowardWhite = (color: RgbTriple, intensity: number): RgbTriple => ({
+const lerpTowardWhite = (color: RGB, intensity: number): RGB => ({
 	r: Math.round(color.r + (255 - color.r) * intensity),
 	g: Math.round(color.g + (255 - color.g) * intensity),
 	b: Math.round(color.b + (255 - color.b) * intensity),
@@ -81,13 +93,13 @@ const shineIntensity = (t: number, shine: ShineConfig | undefined): number => {
 	return Math.max(0, 1 - dist / SHINE_HALF_WIDTH) * shine.strength;
 };
 
-const foregroundEscape = (color: RgbTriple): string => {
+const foregroundEscape = (color: RGB): string => {
 	if (TERMINAL.trueColor) return `\x1b[38;2;${color.r};${color.g};${color.b}m`;
 	const sgr = Bun.color(color, "ansi-256");
 	return sgr === null ? "" : sgr;
 };
 
-const backgroundEscape = (color: RgbTriple): string => {
+const backgroundEscape = (color: RGB): string => {
 	if (TERMINAL.trueColor) return `\x1b[48;2;${color.r};${color.g};${color.b}m`;
 	const sgr = Bun.color(color, "ansi-256");
 	return sgr === null ? "" : sgr.replace("[38;5;", "[48;5;");
@@ -100,12 +112,12 @@ const pixelAt = (x: number, y: number, scale: number): PaletteSymbol | undefined
 	return symbol === undefined || symbol === "." ? undefined : (symbol as PaletteSymbol);
 };
 
-const renderCell = (top: RgbTriple | undefined, bottom: RgbTriple | undefined): string | undefined => {
+const renderCell = (top: RGB | undefined, bottom: RGB | undefined): string | undefined => {
 	if (top === undefined && bottom === undefined) return undefined;
 	if (top !== undefined && bottom !== undefined)
 		return `${foregroundEscape(top)}${backgroundEscape(bottom)}\u2580\x1b[0m`;
 	if (top !== undefined) return `${foregroundEscape(top)}\u2580\x1b[0m`;
-	return `${foregroundEscape(bottom as RgbTriple)}\u2584\x1b[0m`;
+	return `${foregroundEscape(bottom as RGB)}\u2584\x1b[0m`;
 };
 
 /**
@@ -124,7 +136,7 @@ export const soupLogoCells = (options?: SoupLogoOptions): ReadonlyArray<Readonly
 	const width = SOUP_LOGO_WIDTH * scale;
 	const pixelRows = GRID.length * scale;
 	const span = width + pixelRows - 1;
-	const colorAt = (x: number, y: number): RgbTriple | undefined => {
+	const colorAt = (x: number, y: number): RGB | undefined => {
 		const symbol = pixelAt(x, y, scale);
 		if (symbol === undefined) return undefined;
 		const intensity = shineIntensity((x + (pixelRows - 1 - y)) / span, shine);
@@ -138,9 +150,6 @@ export const soupLogoCells = (options?: SoupLogoOptions): ReadonlyArray<Readonly
 	}
 	return rows;
 };
-
-const renderFrame = (scale: 1 | 2, shine: ShineConfig | undefined): readonly string[] =>
-	soupLogoCells({ scale, shine }).map(row => row.map(cell => cell ?? " ").join(""));
 
 /**
  * Render the soup pixel logo as ANSI-colored half-block rows.
@@ -156,11 +165,42 @@ const renderFrame = (scale: 1 | 2, shine: ShineConfig | undefined): readonly str
 export const soupLogo = (options?: SoupLogoOptions): readonly string[] => {
 	const scale = options?.scale ?? 1;
 	const shine = options?.shine;
-	if (shine !== undefined && shine.strength > 0) return renderFrame(scale, shine);
+	const animated = shine !== undefined && shine.strength > 0;
 	const epoch = getThemeEpoch();
 	const cached = restingFrames[scale];
-	if (cached !== undefined && cached.epoch === epoch) return cached.lines;
-	const lines = renderFrame(scale, undefined);
-	restingFrames[scale] = { epoch, lines };
+	if (!animated && cached !== undefined && cached.epoch === epoch) return cached.lines;
+	const lines = soupLogoCells({ scale, shine }).map(row => row.map(cell => cell ?? " ").join(""));
+	if (!animated) restingFrames[scale] = { epoch, lines };
 	return lines;
 };
+
+/** The same pixel runs as the half-block renderer, grouped by palette color. */
+const PIXEL_PATHS: Record<PaletteSymbol, string> = { B: "", D: "", R: "", O: "", M: "", Y: "" };
+for (const [y, line] of GRID.entries()) {
+	for (let x = 0; x < line.length;) {
+		const symbol = line[x];
+		if (symbol === ".") {
+			x++;
+			continue;
+		}
+		const start = x++;
+		while (line[x] === symbol) x++;
+		const width = x - start;
+		PIXEL_PATHS[symbol as PaletteSymbol] += `M${start} ${y}h${width}v1h-${width}z`;
+	}
+}
+
+let nativeLogo: { epoch: number; bytes: Uint8Array } | undefined;
+
+/** Theme-aware, owned SVG image for native welcome and setup surfaces. */
+export function soupLogoNode(width: number, role = "omp.setup.logo"): NativeNode {
+	const epoch = getThemeEpoch();
+	if (nativeLogo === undefined || nativeLogo.epoch !== epoch) {
+		const paths = Object.entries(PALETTE_KEYS)
+			.map(([symbol, key]) => `<path fill="${theme.getColorHex(key)}" d="${PIXEL_PATHS[symbol as PaletteSymbol]}"/>`)
+			.join("");
+		const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${SOUP_LOGO_WIDTH} ${GRID.length}" shape-rendering="crispEdges">${paths}</svg>`;
+		nativeLogo = { epoch, bytes: new TextEncoder().encode(svg) };
+	}
+	return nativeImageNode(nativeLogo.bytes, "image/svg+xml", { alt: "Oh My Soup", w: width, role }, "logo");
+}

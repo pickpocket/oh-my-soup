@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- Restored the original soup pixel art on welcome and setup screens in classic and native terminals.
+
 ### Fixed
 
 - Fixed native terminal controls using inconsistent role names, restoring Tern styling and pointer interactions.

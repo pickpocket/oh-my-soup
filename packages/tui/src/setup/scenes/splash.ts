@@ -1,7 +1,15 @@
 import { centerLine, visibleWidth } from "../../utils";
 import { padToWidth } from "../../render/utils";
-import { gradientEscape, gradientLogo, logoNode, OMS_LOGO, type ShineConfig } from "../../prompt/welcome";
-import { theme } from "../../theme/theme";
+import { gradientEscape } from "../../prompt/welcome";
+import {
+	SOUP_LOGO_ROWS,
+	SOUP_LOGO_WIDTH,
+	soupLogo,
+	soupLogoCells,
+	soupLogoNode,
+	type ShineConfig,
+} from "../../prompt/pixel-logo";
+import { getThemeEpoch, theme } from "../../theme/theme";
 import { formatKeyHint } from "../../app-keybindings";
 import { col, node, span, text } from "../../native/describe";
 import type { NativeNode } from "../../native/node";
@@ -10,16 +18,6 @@ import { Memo } from "../../native/memo";
 export const SETUP_SPLASH_MS = 2600;
 export const SETUP_TICK_MS = 33;
 
-/** Brand mark at 2x: every glyph doubled horizontally, every row doubled vertically. */
-const LARGE_LOGO = OMS_LOGO.flatMap(line => {
-	let wide = "";
-	for (const char of line) {
-		wide += char === " " ? "  " : `${char}${char}`;
-	}
-	return [wide, wide];
-});
-const LOGO_WIDTH = Math.max(...LARGE_LOGO.map(line => visibleWidth(line)));
-const LOGO_HEIGHT = LARGE_LOGO.length;
 const RESET = "\x1b[0m";
 
 /** Full scene needs comfortable room; below this we drop to a centered mark. */
@@ -157,13 +155,7 @@ function resetCells(width: number, height: number): string[][] {
 /** Per-frame gradient escapes, one per screen diagonal (the gradient only varies along it). */
 let diagonalEscapes: (string | undefined)[] = [];
 
-/**
- * Animated setup splash, in the spirit of the oms landing page: the brand OMS
- * mark rendered with the live diagonal gradient + shine sweep, rising out of a
- * rippling, gradient-lit water surface, under a faint twinkling starfield. The
- * mark and water share one continuous gradient so the sweep reads across the
- * whole scene; the water surface drifts each frame.
- */
+/** Soup pixel bowl over rippling, gradient-lit water and a twinkling starfield. */
 export function renderSetupSplash(width: number, height: number, elapsedMs: number): string[] {
 	const w = Math.max(1, width);
 	const h = Math.max(1, height);
@@ -171,7 +163,8 @@ export function renderSetupSplash(width: number, height: number, elapsedMs: numb
 	const phase = progress * 1.8;
 	const shine: ShineConfig = { pos: (progress * 2.5) % 1, strength: Math.max(0, 1 - progress * 0.35) };
 
-	if (w < MIN_SCENE_WIDTH || h < MIN_SCENE_HEIGHT) return renderCompactSplash(w, h, phase, shine);
+	if (w < MIN_SCENE_WIDTH || h < MIN_SCENE_HEIGHT) return renderCompactSplash(w, h, shine);
+	const scale = h >= SOUP_LOGO_ROWS * 2 + 8 ? 2 : 1;
 
 	const frame = Math.floor(elapsedMs / SETUP_TICK_MS);
 	const cx = Math.floor(w / 2);
@@ -197,11 +190,11 @@ export function renderSetupSplash(width: number, height: number, elapsedMs: numb
 		return escape;
 	};
 
-	const hx = Math.floor((w - LOGO_WIDTH) / 2);
+	const hx = Math.floor((w - SOUP_LOGO_WIDTH * scale) / 2);
 	const hy = Math.max(2, Math.floor(h * 0.16));
-	const waterTop = hy + LOGO_HEIGHT;
+	const waterTop = hy + SOUP_LOGO_ROWS * scale;
 
-	// 1. rippling water surface (shares the screen-wide gradient with the mark)
+	// 1. rippling water surface with the screen-wide gradient
 	const field = getWaterField(w, h, cx, waterTop);
 	const tDiagonal = surfaceTime * 0.7;
 	const tCross = surfaceTime * 1.4;
@@ -226,15 +219,11 @@ export function renderSetupSplash(width: number, height: number, elapsedMs: numb
 			if (star) put(x, y, star);
 		}
 	}
-	// 3. hero — the brand mark with the live gradient + shine sweep
-	LARGE_LOGO.forEach((line, row) => {
-		let col = 0;
-		for (const ch of line) {
-			const x = hx + col;
-			const y = hy + row;
-			if (ch !== " " && y >= 0 && y < h && x >= 0 && x < w) cells[y][x] = gradient(x, y) + ch + RESET;
-			col++;
-		}
+	// 3. hero — preserve the original palette while compositing its shine sweep
+	soupLogoCells({ scale, shine }).forEach((line, row) => {
+		line.forEach((cell, col) => {
+			if (cell !== undefined) put(hx + col, hy + row, cell);
+		});
 	});
 	// 4. skip hint on a cleared strip at the bottom so it stays legible over the water
 	const hint = skipHint();
@@ -251,18 +240,18 @@ export function renderSetupSplash(width: number, height: number, elapsedMs: numb
 const splashMemo = new Memo();
 
 /**
- * Native splash: the 2x brand mark with a terminal-clocked shimmer, the
+ * Native splash: the large soup pixel bowl, the
  * wordmark, and the skip hint pinned to the bottom. The water and starfield
  * are cell paintings with no semantic counterpart. A click on the splash
  * sends the `skip` action.
  */
 export function describeSetupSplash(): NativeNode {
 	const hint = skipHint();
-	return splashMemo.get([hint], () =>
+	return splashMemo.get([hint, getThemeEpoch()], () =>
 		col(
 			[
 				node("spacer", { grow: 1 }),
-				logoNode(LARGE_LOGO, true),
+				soupLogoNode(256),
 				text([span("O h   M y   S o u p", "strong")], { wrap: "none" }),
 				node("spacer", { grow: 1 }),
 				text([span(hint, "dim")], { wrap: "none" }),
@@ -273,10 +262,11 @@ export function describeSetupSplash(): NativeNode {
 }
 
 /** Centered fallback for windows too small to hold the full scene. */
-function renderCompactSplash(width: number, height: number, phase: number, shine: ShineConfig): string[] {
-	const art = height >= 14 ? LARGE_LOGO : OMS_LOGO;
-	const content = [...gradientLogo(art, phase, shine), "", theme.bold("O h   M y   S o u p")];
-	const start = Math.max(0, Math.floor((height - content.length) / 2));
+function renderCompactSplash(width: number, height: number, shine: ShineConfig): string[] {
+	const scale = width >= SOUP_LOGO_WIDTH * 2 && height >= SOUP_LOGO_ROWS * 2 + 4 ? 2 : 1;
+	const logo = width >= SOUP_LOGO_WIDTH && height >= SOUP_LOGO_ROWS + 4 ? soupLogo({ scale, shine }) : [];
+	const content = [...logo, "", theme.bold("O h   M y   S o u p")];
+	const start = Math.max(0, Math.floor((height - 3 - content.length) / 2));
 	const lines: string[] = [];
 	for (let y = 0; y < height; y++) {
 		const item = content[y - start];

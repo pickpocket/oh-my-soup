@@ -543,7 +543,9 @@ jobs:
               # on older macOS.
               grep -aqF OmsAppleFm "$addon" ||
                  { echo "::error::Darwin arm64 addon was built without the Apple Foundation Models bridge"; exit 1; }
-              dylibs="$(llvm-objdump --macho --dylibs-used "$addon")"
+              execroot="$(bazelisk --bazelrc="${{ steps.cache.outputs.rc }}" info execution_root)"
+              objdump="$(bazelisk --bazelrc="${{ steps.cache.outputs.rc }}" cquery @llvm_darwin_tools//:bin/llvm-objdump --output=files)"
+              dylibs="$("$execroot/$objdump" --macho --dylibs-used "$addon")"
               if grep -E 'libswift|FoundationModels' <<< "$dylibs"; then
                  echo "::error::Darwin arm64 addon links the Swift runtime or FoundationModels directly"; exit 1
               fi

@@ -169,6 +169,7 @@ llvm_darwin_tools_repository = _llvm_tools_repository(
         "llvm-libtool-darwin",
         "llvm-nm",
         "llvm-objcopy",
+        "llvm-objdump",
         "llvm-ranlib",
         "llvm-strip",
     ],

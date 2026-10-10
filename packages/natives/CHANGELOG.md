@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixed cross-platform release builds failing to verify Apple Foundation Models support.
+
 ## [18.8.8] - 2026-10-10
 
 ### Added

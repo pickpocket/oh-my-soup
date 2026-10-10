@@ -2,15 +2,16 @@
 
 ## [Unreleased]
 
+## [18.8.8] - 2026-10-10
+
+### Changed
+
+- Changed outbound User-Agent consumers to share the versioned `USER_AGENT` constant (`oms/<version>`).
+- Changed stale process-log retention from the newest five files globally to one newest file per completed process and day within the current and previous four local calendar days. This preserves bounded daily diagnostic coverage while continuing to remove one-use audit files.
+
 ### Fixed
 
 - Fixed process teardown trying to read stdout again after a streaming consumer had already consumed or cancelled it.
-
-## [18.4.5] - 2026-10-06
-
-### Added
-
-- Added `getBrowserProfilesDir()` (`~/.oms/browser-profiles`; XDG: `$XDG_STATE_HOME/omp/browser-profiles`) for profiles of Chromium browsers spawned by the browser tool.
 
 ## [18.8.7] - 2026-10-09
 
@@ -117,6 +118,12 @@
 ### Changed
 
 - Improved logging efficiency and configurability by batching routine file writes, flushing urgent records promptly, adding on-demand `logger.flush()` support, and allowing file log levels to be limited with `OMS_LOG_LEVEL`. Log files are created only when needed, and obsolete log and audit files are cleaned up automatically.
+
+## [18.4.5] - 2026-10-06
+
+### Added
+
+- Added `getBrowserProfilesDir()` (`~/.oms/browser-profiles`; XDG: `$XDG_STATE_HOME/omp/browser-profiles`) for profiles of Chromium browsers spawned by the browser tool.
 
 ## [18.4.4] - 2026-09-29
 
@@ -481,9 +488,6 @@
 
 - Changed stale process-log retention from the newest five files globally to one newest file per completed process and day within the current and previous four local calendar days. This preserves bounded daily diagnostic coverage while continuing to remove one-use audit files.
 - Changed outbound User-Agent consumers to share the versioned `USER_AGENT` constant (`omp/<version>`).
-- Changed outbound User-Agent consumers to share the versioned `USER_AGENT` constant (`oms/<version>`).
-- Changed stale process-log retention from the newest five files globally to one newest file per completed process and day within the current and previous four local calendar days. This preserves bounded daily diagnostic coverage while continuing to remove one-use audit files.
-- Changed outbound User-Agent consumers to share the versioned `USER_AGENT` constant (`oms/<version>`).
 
 ### Fixed
 

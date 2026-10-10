@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [18.8.8] - 2026-10-10
+
+### Added
+
+- Added the `oms stream` wire contract (`@oh-my-soup/pi-wire/stream`) for pane screen updates, viewer snapshots and chat, channel metadata, and `live.omp.sh` stream routes.
+
 ## [18.8.0] - 2026-10-07
 
 ### Changed
@@ -50,7 +56,6 @@
 ### Added
 
 - Added the `omp stream` wire contract (`@oh-my-soup/pi-wire/stream`) for pane screen updates, viewer snapshots and chat, channel metadata, and `live.omp.sh` stream routes.
-- Added the `oms stream` wire contract (`@oh-my-soup/pi-wire/stream`) for pane screen updates, viewer snapshots and chat, channel metadata, and `live.omp.sh` stream routes.
 - Added authentication support for stencil.so streams, including user identity in welcome messages, channel ownership metadata, and explicit unauthorized and forbidden close codes.
 
 ### Changed

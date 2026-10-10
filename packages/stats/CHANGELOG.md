@@ -2,16 +2,6 @@
 
 ## [Unreleased]
 
-## [18.4.5] - 2026-10-06
-
-### Changed
-
-- The session-sync worker re-enters the host CLI entry (`workerHostEntry()` + `__omp_stats_sync_worker` argv selector) when running inside omp — source, npm bundle, or compiled binary — and keeps loading its own `sync-worker.ts` module directly for standalone `oms-stats`, bun test, and SDK hosts
-
-### Fixed
-
-- Fixed the `oms stats` dashboard title and guidance showing the upstream `omp` name.
-
 ## [18.8.0] - 2026-10-07
 
 ### Changed
@@ -39,6 +29,16 @@
 - Fixed stats dashboard request rows for Judge and other role-model calls so they open correctly and display usage details.
 - Fixed stats and summary error-rate formatting so small nonzero percentages are displayed accurately instead of as 0.0%.
 - Fixed a visual fringe on the edges of the stats dashboard’s “Classify with judge” button.
+
+## [18.4.5] - 2026-10-06
+
+### Changed
+
+- The session-sync worker re-enters the host CLI entry (`workerHostEntry()` + `__omp_stats_sync_worker` argv selector) when running inside omp — source, npm bundle, or compiled binary — and keeps loading its own `sync-worker.ts` module directly for standalone `oms-stats`, bun test, and SDK hosts
+
+### Fixed
+
+- Fixed the `oms stats` dashboard title and guidance showing the upstream `omp` name.
 
 ## [18.4.4] - 2026-09-29
 

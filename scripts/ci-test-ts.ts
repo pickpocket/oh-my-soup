@@ -202,6 +202,15 @@ function shellQuote(value: string): string {
 
 function workspaceTestCommand(pkg: string, parallel: number, options: { extraArgs?: string[] } = {}): TestCommand {
 	const { extraArgs = [] } = options;
+	// Bun 1.4.3's worker pool can hang after the AI suite finishes under GC
+	// pressure. Keep per-file isolation without worker processes; no tests skip.
+	if (pkg === "packages/ai") {
+		return {
+			label: pkg,
+			cwd: pkg,
+			command: ["bun", "test", "--isolate", `--timeout=${testTimeoutMs()}`, ...extraArgs],
+		};
+	}
 	return {
 		label: pkg,
 		cwd: pkg,
@@ -594,9 +603,8 @@ function testTimeoutMs(): number {
 
 // Materialize each chunk's argv against the pool width it will actually run at,
 // rewriting `parallel` from the requested width to the granted one so later
-// reporting reads the truth. A `parallel` request marks the command as a `bun
-// test` invocation, so that is also where the shared per-test timeout is
-// applied; the Rust task, which has neither, passes through untouched.
+// reporting reads the truth. A `parallel` request also opts into the shared
+// per-test timeout; commands without one already have their final arguments.
 function applyChunkBudget(commands: TestCommand[], poolWidth: number): TestCommand[] {
 	const timeout = testTimeoutMs();
 	return commands.map(testCommand => {

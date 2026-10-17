@@ -167,16 +167,41 @@ Set `collab.webUrl` when the browser UI is hosted separately from the websocket 
 
 ## Self-hosting the relay
 
-The production relay is not currently distributed for self-hosting: its Go source and standalone binaries are not published. The endpoint list below documents the hosted service's network contract, not an installable release.
+The repository includes a content-blind Rust relay and HTTP server. `NativeCollabServer` runs it inside the Bun entry point; the standalone `oms-collab-server` executable uses the same core without loading N-API. Neither implementation decrypts session frames or uploaded shares.
 
-For local protocol development, this repository includes a source-available, WebSocket-only stand-in at [`packages/collab-web/scripts/local-relay.ts`](../packages/collab-web/scripts/local-relay.ts). Run `bun run relay` from `packages/collab-web` to listen on `ws://localhost:7466`. It implements `/r/<roomId>` but does not serve the browser client, `/share` blobs, or `/healthz`, so it is not a replacement for the production service.
+From the repository root:
 
-The relay is a small content-blind Go service. It keeps no state beyond live connections and exposes:
+```sh
+bun run build:native
+bun --cwd=packages/collab-web run build
+bun --cwd=packages/collab-web run relay --port 7466
+```
 
-- `GET /` — the static collab-web guest client (target of the `/collab` deep link),
-- `GET /r/<roomId>?role=host|guest` — WebSocket upgrade,
-- `POST /s` / `GET /s/<id>` / `GET /s/<id>/raw` — `/share` blob upload, viewer page, and blob fetch,
+This serves the real browser app at `http://127.0.0.1:7466/`. In oms, use `/collab ws://127.0.0.1:7466` and open the printed browser URL. Set `share.serverUrl` to `http://127.0.0.1:7466/s` to use the same server for `/share`.
+
+To run the Rust executable without Bun at runtime, build the assets once as above, then run:
+
+```sh
+cargo run --manifest-path crates/pi-natives/Cargo.toml --bin oms-collab-server -- --port 7466 --static-dir packages/collab-web/dist --share-dir ./collab-shares
+```
+
+Both entry points accept `--host`, `--port`, `--static-dir`, `--share-dir`, `--share-ttl-ms`, `--share-max-blobs`, `--max-rooms`, and `--max-guests-per-room`. `bun run relay --help` and `oms-collab-server --help` show usage. The Bun entry point defaults to loopback port `7466` and this package's built assets; the Rust executable defaults to loopback port `8787` and permits API-only operation when `--static-dir` is omitted. Port `0` selects a free port.
+
+The server exposes:
+
+- `GET /` and static assets — the built collab-web guest client, with extensionless SPA fallback routes; missing asset files do not turn into successful HTML responses.
+- `GET /r/<roomId>?role=host|guest` — WebSocket upgrade using the existing 4-byte big-endian peer-routing envelope. Host peer `0` broadcasts, nonzero peers target one guest, and guest prefixes are rewritten to the assigned peer.
+- `POST /s` — upload opaque `[12-byte IV][AES-GCM(gzip(session JSON))]` bytes, returning `201 {"id":"…"}`.
+- `GET /s/<id>` — the real HTML-export viewer; the browser obtains the key from `#<key>`, fetches ciphertext from `/s/<id>/raw`, and decrypts locally. The same viewer also supports existing GitHub gist shares.
+- `GET /s/<id>/raw` — fetch the opaque share blob; missing, expired, or deleted shares return `404`.
+- `DELETE /s/<id>` — remove a share using its capability ID (`204`, or `404` when absent).
 - `GET /healthz` — liveness.
+
+The browser build emits both `dist/index.html` and the self-contained `dist/share.html` from the existing export template, themes, Markdown, and tool renderers. The Bun CLI refuses to start with incomplete assets and prints the build command. API-only native servers return `503` for browser/viewer pages rather than serving a fake UI.
+
+Shares are bounded and ephemeral by default. `--share-dir` persists only opaque ciphertext and original creation timestamps; restart does not extend retention. Defaults are seven days (`--share-ttl-ms 604800000`), 2048 retained blobs, 1024 rooms, and 16 guests per room. Treat share IDs as deletion capabilities and keep the store private; room keys and share keys are never stored by the server.
+
+For remote access, put HTTPS/WSS termination in front of the server, proxy WebSocket upgrades, and bind with `--host` as appropriate. WebCrypto needs HTTPS except on localhost/loopback; do not advertise a plain remote HTTP/WS URL. Ctrl+C/SIGTERM shuts down the Bun entry point; the Rust executable handles Ctrl+C and Unix SIGTERM.
 
 ## Implementation files
 
@@ -186,7 +211,7 @@ The relay is a small content-blind Go service. It keeps no state beyond live con
 - [`src/collab/protocol.ts`](../packages/coding-agent/src/collab/protocol.ts), [`crypto.ts`](../packages/coding-agent/src/collab/crypto.ts), [`relay-client.ts`](../packages/coding-agent/src/collab/relay-client.ts) — frames, links, encryption, and transport
 - [`src/collab/registry.ts`](../packages/coding-agent/src/collab/registry.ts) — private local host discovery
 - [`src/collab/settings.ts`](../packages/coding-agent/src/collab/settings.ts) — `collab.*` defaults
-- [`packages/collab-web`](../packages/collab-web/) — browser guest and local development relay
+- [`packages/collab-web`](../packages/collab-web/) — browser guest, portable browser/share build, and native-server CLI
 
 ## Architecture notes
 

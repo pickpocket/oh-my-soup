@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### Added
+
+- Added a self-hostable Rust-owned relay, HTTP/static SPA server, encrypted share upload/viewer integration, configurable persistent share storage, retention and room/guest limits through `bun run relay`.
+
+### Changed
+
+- Replaced the Bun WebSocket relay stand-in with `NativeCollabServer` in the relay entry point, development host, and integration clients.
+- Made the browser build cross-platform and emit the real encrypted share viewer alongside the SPA; missing assets now produce an actionable startup error.
+
 ## [18.8.0] - 2026-10-07
 
 ### Changed

@@ -250,7 +250,7 @@ export class CollabSocket {
 	}
 
 	/**
-	 * A reconnect lands in a room the relay recreated: `local-relay.ts` deletes the
+	 * A reconnect lands in a room the relay recreated: the native relay deletes the
 	 * room when the host socket closes, closes every guest with 4001, and hands
 	 * out peer ids from 1 again. No `peer-left` announces any of it, so every id
 	 * this socket knew is meaningless and may already have been reissued.

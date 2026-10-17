@@ -35,6 +35,7 @@ export const IpcConnection = nativeBindings.IpcConnection;
 export const IpcServer = nativeBindings.IpcServer;
 export const LiveWebRtcPeer = nativeBindings.LiveWebRtcPeer;
 export const MacAppearanceObserver = nativeBindings.MacAppearanceObserver;
+export const NativeCollabServer = nativeBindings.NativeCollabServer;
 export const NativeOAuthCallback = nativeBindings.NativeOAuthCallback;
 export const PowerAssertion = nativeBindings.PowerAssertion;
 export const Process = nativeBindings.Process;

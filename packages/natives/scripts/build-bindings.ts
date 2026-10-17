@@ -240,6 +240,9 @@ if (extraFeatures) {
 	napiArgs.push("--features", extraFeatures);
 }
 
+// The standalone collab executable is a separate target, not part of the addon.
+napiArgs.push("--", "--lib");
+
 // napi-rs / cargo route much failure detail to stdout (e.g. `cargo metadata`
 // errors), so a stderr-only error collapses real failures to a bare message.
 const BUILD_LOG_TAIL_LINES = 40;

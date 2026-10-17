@@ -9,6 +9,7 @@
  * of the fixture JSONL — exactly the frames a real `oms /collab` host emits.
  */
 
+import { NativeCollabServer } from "@oh-my-soup/pi-natives";
 import type { AgentSnapshot, HostFrame, SessionEntry, SessionState, WireFrame } from "@oh-my-soup/pi-wire";
 import { generateRoomKey, importRoomKey, open, seal } from "../src/lib/codec";
 import { COLLAB_PROTO, formatCollabLink, generateRoomId, packEnvelope, unpackEnvelope } from "../src/lib/link";
@@ -23,7 +24,6 @@ import {
 	type ScriptedStep,
 	subagentTranscriptJsonl,
 } from "./fixture";
-import { startLocalRelay } from "./local-relay";
 
 const DEFAULT_PORT = 7466;
 const STEP_INTERVAL_MS = 40;
@@ -47,7 +47,7 @@ function parsePort(argv: string[]): number {
 }
 
 const port = parsePort(Bun.argv.slice(2));
-const relay = startLocalRelay(port);
+const relay = new NativeCollabServer({ port });
 const roomId = generateRoomId();
 const rawKey = generateRoomKey();
 const key = await importRoomKey(rawKey);
@@ -350,7 +350,7 @@ function shutdown(code: number): void {
 		} catch {
 			// already closing
 		}
-		relay.stop();
+		relay.close();
 		process.exit(code);
 	});
 }

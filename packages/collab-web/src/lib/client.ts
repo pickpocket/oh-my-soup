@@ -85,9 +85,13 @@ const FRAME_FALLBACK_MS = 16;
 
 /** Runs `callback` on the next animation frame; returns its cancel function. */
 function scheduleFrame(callback: () => void): () => void {
-	if (typeof requestAnimationFrame === "function") {
-		const id = requestAnimationFrame(callback);
-		return () => cancelAnimationFrame(id);
+	const frames = globalThis as typeof globalThis & {
+		requestAnimationFrame?: (callback: () => void) => number;
+		cancelAnimationFrame: (id: number) => void;
+	};
+	if (typeof frames.requestAnimationFrame === "function") {
+		const id = frames.requestAnimationFrame(callback);
+		return () => frames.cancelAnimationFrame(id);
 	}
 	const timer = setTimeout(callback, FRAME_FALLBACK_MS);
 	return () => clearTimeout(timer);

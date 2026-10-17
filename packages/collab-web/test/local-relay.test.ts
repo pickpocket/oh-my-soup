@@ -1,11 +1,11 @@
 import { afterEach, describe, expect, it } from "bun:test";
-import { type LocalRelay, startLocalRelay } from "../scripts/local-relay";
+import { NativeCollabServer } from "@oh-my-soup/pi-natives";
 import { packEnvelope, unpackEnvelope } from "../src/lib/link";
 
 const ROOM = "RelayRoom_12345";
 const REQUEST_TIMEOUT_MS = 1_000;
 
-let relay: LocalRelay | null = null;
+let relay: NativeCollabServer | null = null;
 const sockets: WebSocket[] = [];
 
 function relayHttpUrl(): string {
@@ -104,16 +104,16 @@ function closeSocket(ws: WebSocket): void {
 afterEach(() => {
 	for (const ws of sockets.splice(0)) closeSocket(ws);
 	inboxes.clear();
-	relay?.stop();
+	relay?.close();
 	relay = null;
 });
 
-describe("local collab relay", () => {
-	it("rejects non-relay requests and guests before a host creates the room", async () => {
-		relay = startLocalRelay();
+describe("native collab relay client contract", () => {
+	it("reports unconfigured browser assets and rejects guests before a host creates the room", async () => {
+		relay = new NativeCollabServer({ port: 0 });
 
-		const notFound = await fetch(`${relayHttpUrl()}/nope`);
-		expect(notFound.status).toBe(404);
+		const missingAssets = await fetch(`${relayHttpUrl()}/`);
+		expect(missingAssets.status).toBe(503);
 
 		const upgradeRequired = await fetch(`${relayHttpUrl()}/r/${ROOM}?role=host`);
 		expect(upgradeRequired.status).toBe(426);
@@ -125,7 +125,7 @@ describe("local collab relay", () => {
 	});
 
 	it("routes opaque envelopes without decrypting them", async () => {
-		relay = startLocalRelay();
+		relay = new NativeCollabServer({ port: 0 });
 		const host = socket(`/r/${ROOM}?role=host`);
 		await waitOpen(host);
 
@@ -157,8 +157,35 @@ describe("local collab relay", () => {
 		expect(unpackEnvelope(await guest1Next)?.payload).toEqual(new Uint8Array([5]));
 	});
 
+	it("exposes configured room and guest capacity through the client close contract", async () => {
+		relay = new NativeCollabServer({ port: 0, maxRooms: 1, maxGuestsPerRoom: 1 });
+		const host = socket(`/r/${ROOM}?role=host`);
+		await waitOpen(host);
+		const guest = socket(`/r/${ROOM}?role=guest`);
+		await waitOpen(guest);
+		expect(JSON.parse(await waitText(host, "admitted peer"))).toEqual({ t: "peer-joined", peer: 1 });
+
+		const fullGuest = socket(`/r/${ROOM}?role=guest`);
+		const fullClose = await waitEvent<CloseEvent>(fullGuest, "close", "full-room close");
+		expect(fullClose.code).toBe(4029);
+		expect(fullClose.reason).toBe("room is full");
+		const excessHost = socket("/r/AnotherRoom_123?role=host");
+		const hostClose = await waitEvent<CloseEvent>(excessHost, "close", "server room-capacity close");
+		expect(hostClose.code).toBe(4029);
+		expect(relay.roomCount).toBe(1);
+
+		const departure = waitText(host, "guest departure");
+		guest.close(1000);
+		expect(JSON.parse(await departure)).toEqual({ t: "peer-left", peer: 1 });
+		const replacement = socket(`/r/${ROOM}?role=guest`);
+		await waitOpen(replacement);
+		const joined: { t: string; peer: number } = JSON.parse(await waitText(host, "replacement peer"));
+		expect(joined.t).toBe("peer-joined");
+		expect(joined.peer).toBeGreaterThan(1);
+	});
+
 	it("enforces one host and closes guests when the room host leaves", async () => {
-		relay = startLocalRelay();
+		relay = new NativeCollabServer({ port: 0 });
 		const host = socket(`/r/${ROOM}?role=host`);
 		await waitOpen(host);
 

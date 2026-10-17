@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- Added `NativeCollabServer` and the standalone `oms-collab-server` executable for peer-routed collaboration, encrypted share storage, and serving the browser app and share viewer.
+
 ## [18.11.1] - 2026-10-15
 
 ### Added

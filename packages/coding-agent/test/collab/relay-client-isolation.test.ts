@@ -1,15 +1,15 @@
 import { afterEach, describe, expect, it } from "bun:test";
-import { type LocalRelay, startLocalRelay } from "../../../collab-web/scripts/local-relay";
+import { NativeCollabServer } from "@oh-my-soup/pi-natives";
 import { generateRoomKey, importRoomKey, seal } from "../../src/collab/crypto";
 import { type CollabFrame, packEnvelope } from "../../src/collab/protocol";
 import { CollabSocket } from "../../src/collab/relay-client";
 
-let relay: LocalRelay | undefined;
+let relay: NativeCollabServer | undefined;
 const sockets: Array<CollabSocket | WebSocket> = [];
 
 afterEach(() => {
 	for (const socket of sockets.splice(0)) socket.close();
-	relay?.stop();
+	relay?.close();
 	relay = undefined;
 });
 
@@ -26,7 +26,7 @@ async function connect(role: "host" | "guest", key: CryptoKey): Promise<CollabSo
 describe("collab peer isolation", () => {
 	for (const corruption of ["truncated", "wrong-key"] as const) {
 		it(`keeps the room usable after a guest sends a ${corruption} frame`, async () => {
-			relay = startLocalRelay();
+			relay = new NativeCollabServer({ port: 0 });
 			const key = await importRoomKey(generateRoomKey());
 			const host = await connect("host", key);
 			const guest = await connect("guest", key);
@@ -66,7 +66,7 @@ describe("collab peer isolation", () => {
 	}
 
 	it("closes a guest with the wrong room key without retrying", async () => {
-		relay = startLocalRelay();
+		relay = new NativeCollabServer({ port: 0 });
 		const host = await connect("host", await importRoomKey(generateRoomKey()));
 		const guest = await connect("guest", await importRoomKey(generateRoomKey()));
 		const closed = Promise.withResolvers<{ reason: string; retry: boolean }>();

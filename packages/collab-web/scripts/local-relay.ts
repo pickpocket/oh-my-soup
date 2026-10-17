@@ -1,169 +1,133 @@
-/**
- * Offline stand-in for the public collab relay (`wss://my.omp.sh`).
- *
- * Speaks the exact relay contract the real clients expect:
- * - `GET /r/<roomId>?role=host|guest` upgrades to a WebSocket.
- * - The host creates the room; a second host is rejected with close 4009 and
- *   a guest joining a missing room with close 4004.
- * - Host binary frames: envelope peerId 0 broadcasts to every guest, peerId N
- *   targets that guest only — forwarded unchanged either way.
- * - Guest binary frames: the first 4 envelope bytes are rewritten to the
- *   sender's peerId, then forwarded to the host.
- * - TEXT control to the host: `{"t":"peer-joined","peer":N}` / `{"t":"peer-left","peer":N}`.
- * - Host disconnect: TEXT `{"t":"room-closed"}` to every guest, then close 4001
- *   and the room is garbage-collected.
- *
- * The relay never sees plaintext: payloads stay sealed end to end.
- */
-import { rewriteEnvelopePeer, unpackEnvelope } from "../src/lib/link";
-
-const ROOM_PATH_RE = /^\/r\/([A-Za-z0-9_-]{10,64})$/;
+#!/usr/bin/env bun
+/** CLI for the Rust-owned relay, HTTP API, browser app and encrypted shares. */
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { parseArgs } from "node:util";
+import { NativeCollabServer, type NativeCollabServerOptions } from "@oh-my-soup/pi-natives";
 
 const DEFAULT_PORT = 7466;
+const DEFAULT_STATIC_DIR = path.resolve(import.meta.dir, "../dist");
+const MAX_U32 = 4_294_967_295;
 
-interface SocketData {
-	roomId: string;
-	role: "host" | "guest";
-	/** Assigned on open for guests; the host stays 0. */
-	peerId: number;
+const HELP = `Usage: bun run relay [options]
+
+Starts the Rust-owned collaboration relay and serves the built browser app.
+Run bun run build first to generate the browser and encrypted share viewer.
+
+Options:
+  --port <number>                 Listen port (default: 7466; 0 chooses a free port)
+  --host <hostname>               Bind address (default: 127.0.0.1)
+  --static-dir <directory>        Browser assets containing index.html and share.html
+  --share-dir <directory>         Persist opaque shares (default: in-memory only)
+  --share-ttl-ms <milliseconds>   Share retention lifetime
+  --share-max-blobs <count>       Maximum retained shares
+  --max-rooms <count>             Maximum simultaneous host rooms
+  --max-guests-per-room <count>   Maximum guests in each room
+  --help                         Show this help
+
+Browser keys require HTTPS except on localhost. For remote access, put a TLS
+reverse proxy in front of this server and proxy WebSocket upgrades as well.
+`;
+
+export interface RelayArguments {
+	help: boolean;
+	options: NativeCollabServerOptions;
 }
 
-type RelaySocket = Bun.ServerWebSocket<SocketData>;
-
-interface Room {
-	host: RelaySocket;
-	guests: Map<number, RelaySocket>;
-	nextPeerId: number;
+function integerOption(name: string, value: string | undefined, min: number, max: number): number | undefined {
+	if (value === undefined) return undefined;
+	const parsed = Number(value);
+	if (!/^\d+$/.test(value) || !Number.isSafeInteger(parsed) || parsed < min || parsed > max) {
+		throw new Error(`--${name} must be an integer between ${min} and ${max}; received ${JSON.stringify(value)}`);
+	}
+	return parsed;
 }
 
-export interface LocalRelay {
-	/** ws://localhost:<port> — append `/r/<roomId>?role=…` to connect. */
-	url: string;
-	/** Closes every room and stops the server. Idempotent. */
-	stop(): void;
-}
-
-export function startLocalRelay(port = 0): LocalRelay {
-	const rooms = new Map<string, Room>();
-
-	const server = Bun.serve({
-		port,
-		fetch(req, srv): Response | undefined {
-			const url = new URL(req.url);
-			const match = ROOM_PATH_RE.exec(url.pathname);
-			const role = url.searchParams.get("role");
-			if (!match || (role !== "host" && role !== "guest")) {
-				return new Response("not found", { status: 404 });
-			}
-			const data: SocketData = { roomId: match[1]!, role, peerId: 0 };
-			if (srv.upgrade(req, { data })) return undefined;
-			return new Response("websocket upgrade required", { status: 426 });
-		},
-		websocket: {
-			open(ws: RelaySocket): void {
-				const { roomId, role } = ws.data;
-				if (role === "host") {
-					if (rooms.has(roomId)) {
-						ws.close(4009, "a host is already connected for this room");
-						return;
-					}
-					rooms.set(roomId, { host: ws, guests: new Map(), nextPeerId: 1 });
-					return;
-				}
-				const room = rooms.get(roomId);
-				if (!room) {
-					ws.close(4004, "no such room");
-					return;
-				}
-				const peerId = room.nextPeerId++;
-				ws.data.peerId = peerId;
-				room.guests.set(peerId, ws);
-				room.host.send(JSON.stringify({ t: "peer-joined", peer: peerId }));
-			},
-			message(ws: RelaySocket, message: string | Buffer): void {
-				if (typeof message === "string") return; // clients never send TEXT
-				const room = rooms.get(ws.data.roomId);
-				if (!room) return;
-				if (ws.data.role === "host") {
-					const envelope = unpackEnvelope(message);
-					if (!envelope) return;
-					if (envelope.peerId === 0) {
-						for (const guest of room.guests.values()) guest.send(message);
-					} else {
-						room.guests.get(envelope.peerId)?.send(message);
-					}
-					return;
-				}
-				if (message.byteLength < 4) return;
-				rewriteEnvelopePeer(message, ws.data.peerId);
-				room.host.send(message);
-			},
-			close(ws: RelaySocket): void {
-				const { roomId, role, peerId } = ws.data;
-				const room = rooms.get(roomId);
-				if (!room) return;
-				if (role === "host") {
-					// Rejected second host: the live room is not ours to tear down.
-					if (room.host !== ws) return;
-					rooms.delete(roomId);
-					const closure = JSON.stringify({ t: "room-closed" });
-					for (const guest of room.guests.values()) {
-						guest.send(closure);
-						guest.close(4001, "room closed");
-					}
-					room.guests.clear();
-					return;
-				}
-				if (room.guests.delete(peerId)) {
-					room.host.send(JSON.stringify({ t: "peer-left", peer: peerId }));
-				}
-			},
+export function parseRelayArguments(argv: readonly string[]): RelayArguments {
+	const { values } = parseArgs({
+		args: [...argv],
+		strict: true,
+		allowPositionals: false,
+		options: {
+			port: { type: "string" },
+			host: { type: "string" },
+			"static-dir": { type: "string" },
+			"share-dir": { type: "string" },
+			"share-ttl-ms": { type: "string" },
+			"share-max-blobs": { type: "string" },
+			"max-rooms": { type: "string" },
+			"max-guests-per-room": { type: "string" },
+			help: { type: "boolean" },
 		},
 	});
-
+	for (const name of ["host", "static-dir", "share-dir"] as const) {
+		if (values[name] !== undefined && !values[name].trim()) throw new Error(`--${name} must not be empty`);
+	}
 	return {
-		url: `ws://localhost:${server.port}`,
-		stop(): void {
-			for (const room of rooms.values()) {
-				const closure = JSON.stringify({ t: "room-closed" });
-				for (const guest of room.guests.values()) {
-					guest.send(closure);
-					guest.close(4001, "room closed");
-				}
-				room.host.close(1001, "relay shutting down");
-			}
-			rooms.clear();
-			server.stop(true);
+		help: values.help ?? false,
+		options: {
+			port: integerOption("port", values.port, 0, 65_535) ?? DEFAULT_PORT,
+			hostname: values.host ?? "127.0.0.1",
+			staticDir: values["static-dir"] === undefined ? DEFAULT_STATIC_DIR : path.resolve(values["static-dir"]),
+			shareDir: values["share-dir"] === undefined ? undefined : path.resolve(values["share-dir"]),
+			shareTtlMs: integerOption("share-ttl-ms", values["share-ttl-ms"], 1, Number.MAX_SAFE_INTEGER),
+			shareMaxBlobs: integerOption("share-max-blobs", values["share-max-blobs"], 1, MAX_U32),
+			maxRooms: integerOption("max-rooms", values["max-rooms"], 1, MAX_U32),
+			maxGuestsPerRoom: integerOption("max-guests-per-room", values["max-guests-per-room"], 1, MAX_U32),
 		},
 	};
 }
-function parsePort(argv: readonly string[]): number {
-	let raw: string | undefined;
-	for (let i = 0; i < argv.length; i++) {
-		const arg = argv[i]!;
-		if (arg === "--port") raw = argv[i + 1];
-		else if (arg.startsWith("--port=")) raw = arg.slice("--port=".length);
+
+function requireBrowserAssets(staticDir: string): void {
+	for (const name of ["index.html", "share.html"]) {
+		const file = path.join(staticDir, name);
+		try {
+			if (fs.statSync(file).isFile()) continue;
+		} catch {
+			// Report the missing build and how to fix it, not an opaque fs error.
+		}
+		throw new Error(
+			`Browser asset ${file} is missing or unreadable. Run bun --cwd=packages/collab-web run build from the repository root, or pass --static-dir pointing to a complete collab-web dist directory.`,
+		);
 	}
-	if (raw === undefined) return DEFAULT_PORT;
-	const port = Number(raw);
-	if (!Number.isInteger(port) || port < 0 || port > 65_535) {
-		console.error(`local-relay: invalid --port ${raw}`);
-		process.exit(1);
+}
+
+function runRelay(argv: readonly string[]): void {
+	const { help, options } = parseRelayArguments(argv);
+	if (help) {
+		console.log(HELP);
+		return;
 	}
-	return port;
+	requireBrowserAssets(options.staticDir ?? DEFAULT_STATIC_DIR);
+	const server = new NativeCollabServer(options);
+	const httpUrl = new URL(server.url);
+	httpUrl.protocol = httpUrl.protocol === "wss:" ? "https:" : "http:";
+	// Native worker threads do not own the JS event loop. Keep this entry point
+	// alive until a signal closes the server, including when stdin is closed.
+	const keepAlive = setInterval(() => {}, 2_147_483_647);
+	let stopped = false;
+	const shutdown = (): void => {
+		if (stopped) return;
+		stopped = true;
+		server.close();
+		clearInterval(keepAlive);
+		process.off("SIGINT", shutdown);
+		process.off("SIGTERM", shutdown);
+	};
+	process.once("SIGINT", shutdown);
+	process.once("SIGTERM", shutdown);
+	process.once("exit", shutdown);
+	console.log(`collab relay listening on ${server.url}`);
+	console.log(`browser app: ${httpUrl.origin}/`);
+	console.log(`health: ${httpUrl.origin}/healthz; share.serverUrl: ${httpUrl.origin}/s`);
+	console.log("connect with /collab " + server.url + "; Ctrl+C stops the server");
 }
 
 if (import.meta.main) {
-	const relay = startLocalRelay(parsePort(Bun.argv.slice(2)));
-	let stopping = false;
-	const shutdown = (): void => {
-		if (stopping) return;
-		stopping = true;
-		relay.stop();
-		process.exit(0);
-	};
-	console.log(`local collab relay listening on ${relay.url}`);
-	console.log("connect with /r/<roomId>?role=host|guest; Ctrl+C stops the relay");
-	process.on("SIGINT", shutdown);
-	process.on("SIGTERM", shutdown);
+	try {
+		runRelay(Bun.argv.slice(2));
+	} catch (error) {
+		console.error(`collab relay: ${error instanceof Error ? error.message : String(error)}`);
+		process.exitCode = 1;
+	}
 }

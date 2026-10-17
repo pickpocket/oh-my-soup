@@ -180,6 +180,14 @@ rust_test(
     edition = "2024",
 )
 
+rust_binary(
+    name = "oms_collab_server",
+    srcs = glob(["src/collab/**/*.rs"]),
+    crate_root = "src/collab/main.rs",
+    edition = "2024",
+    deps = all_crate_deps(normal = True),
+)
+
 rust_test(
     name = "pi_natives_test",
     crate = ":pi_natives",

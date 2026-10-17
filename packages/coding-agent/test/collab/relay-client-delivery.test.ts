@@ -1,11 +1,11 @@
 import { expect, it } from "bun:test";
-import { startLocalRelay } from "../../../collab-web/scripts/local-relay";
+import { NativeCollabServer } from "@oh-my-soup/pi-natives";
 import { generateRoomKey, importRoomKey } from "../../src/collab/crypto";
 import { COLLAB_PROTO } from "../../src/collab/protocol";
 import { CollabSocket } from "../../src/collab/relay-client";
 
 it("serves a joining guest, stops serving it on departure, and serves the next one", async () => {
-	const relay = startLocalRelay();
+	const relay = new NativeCollabServer({ port: 0 });
 	const key = await importRoomKey(generateRoomKey());
 	const wsUrl = `${relay.url}/r/servinglifecycle`;
 	const host = new CollabSocket({ wsUrl, role: "host", key });
@@ -66,6 +66,6 @@ it("serves a joining guest, stops serving it on departure, and serves the next o
 		second?.close();
 		first?.close();
 		host.close();
-		relay.stop();
+		relay.close();
 	}
 }, 10000);

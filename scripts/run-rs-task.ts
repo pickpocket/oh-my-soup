@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 // Scope tests with --package/-p (repeatable) and --filterset/-E.
-// Packages select both nextest and doctests; filtersets apply only to nextest.
+// Packages and --cargo-profile select both nextest and doctests; filtersets apply only to nextest.
 
 import * as path from "node:path";
 import { parseArgs } from "node:util";
@@ -95,13 +95,15 @@ const { values } = parseArgs({
 	options: {
 		package: { type: "string", short: "p", multiple: true },
 		filterset: { type: "string", short: "E" },
+		"cargo-profile": { type: "string" },
 	},
 });
 const packages = values.package ?? [];
 const filterset = values.filterset;
-const scoped = packages.length > 0 || filterset !== undefined;
+const cargoProfile = values["cargo-profile"];
+const scoped = packages.length > 0 || filterset !== undefined || cargoProfile !== undefined;
 if (scoped && taskName !== "test:rs") {
-	console.error("--package and --filterset are only supported by test:rs.");
+	console.error("--package, --filterset and --cargo-profile are only supported by test:rs.");
 	process.exit(1);
 }
 
@@ -124,6 +126,9 @@ for (const original of commands) {
 		}
 		if (filterset !== undefined && original[1] === "nextest") {
 			command = [...command, "--filterset", filterset];
+		}
+		if (cargoProfile !== undefined) {
+			command = [...command, original[1] === "nextest" ? "--cargo-profile" : "--profile", cargoProfile];
 		}
 	}
 	const exitCode = await runCommand(command);

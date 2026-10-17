@@ -6,6 +6,7 @@
 
 - Added `lsp.requestTimeout` setting to configure wait durations for language server diagnostics and requests
 - Added `oms auth-gateway serve --clients=<file>`: per-client bearer tokens, each limited to listed models and broker OAuth accounts with no fallback to other accounts or API keys, re-read while serving ([#5098](https://github.com/can1357/oh-my-pi/issues/5098), [#15900](https://github.com/can1357/oh-my-pi/pull/15900) by [@alphastorm](https://github.com/alphastorm))
+- Added a self-hostable Rust collaboration server for encrypted host/guest sessions, browser viewing, and persistent encrypted shares.
 
 ### Changed
 
@@ -16,7 +17,6 @@
 - The Shared Language Servers setting now says what it does: each connection gets its own server, and a released one is reused while another oms instance keeps the project's mux running ([#14633](https://github.com/can1357/oh-my-pi/pull/14633) by [@jorgoose](https://github.com/jorgoose))
 - Memories saved explicitly through the extension `memory.save` API are now stored as `stated` rather than `unknown`, so they rank as deliberate memories in Mnemopi recall ([#13824](https://github.com/can1357/oh-my-pi/pull/13824) by [@sjawhar](https://github.com/sjawhar))
 - Updated `/usage`, `oms usage`, and the status line to display authoritative OpenCode Go quota usage directly from the official endpoint, replacing estimated costs with actual usage across three time windows (5h, 7d, and monthly).
-- Documented the source-available local protocol relay and clarified that production collaboration relay binaries are not currently published.
 - Enabled bounded Anthropic prompt-cache refreshes for the main agent loop while isolating advisor and side-channel requests from the shared refresh timer.
 
 ### Fixed

@@ -1,7 +1,7 @@
 /**
  * In-memory collab transport shared by the collab test suites.
  *
- * `FakeWebSocket` + `InMemoryRelay` replace the real Bun.serve relay and
+ * `FakeWebSocket` + `InMemoryRelay` replace the native relay and
  * loopback WebSocket. They mirror the production relay's forwarding contract
  * exactly (4-byte peerId envelope routing, peer-joined/peer-left control
  * frames) but deliver every frame on a microtask with zero network or timer
@@ -141,8 +141,8 @@ export class InMemoryRelay {
 		if (ws.role === "host") {
 			if (this.#host !== ws) return;
 			this.#host = null;
-			// Mirrors local-relay.ts: losing the host destroys the room. Every guest
-			// is closed with the fatal 4001, and a reconnecting host gets a fresh
+			// Mirrors the native relay: losing the host destroys the room. Every guest
+			// is closed with 4001, and a reconnecting host gets a fresh
 			// room that issues peer ids from 1 again.
 			for (const guest of this.#guests.values()) guest.closeFatal();
 			this.#guests.clear();

@@ -7,7 +7,7 @@
  * (gist or relay store), decrypts it with the `#<key>` fragment in-browser, and
  * hands the JSON to template.js via `window.__OMP_SESSION_DATA__`.
  *
- * The relay repo's build script runs this and embeds the output via go:embed.
+ * The collab-web build emits this alongside the guest client for the native relay.
  */
 import * as path from "node:path";
 import { generateThemeStyles, getTemplate } from "../src/export/html";
@@ -18,7 +18,7 @@ if (!outPath) {
 	process.exit(2);
 }
 
-const loaderJs = await Bun.file(new URL("../src/export/html/share-loader.js", import.meta.url).pathname).text();
+const loaderJs = await Bun.file(new URL("../src/export/html/share-loader.js", import.meta.url)).text();
 // Public artifacts use the bundled oms web themes rather than TUI themes.
 const themeStyles = await generateThemeStyles("web");
 

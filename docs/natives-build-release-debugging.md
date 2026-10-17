@@ -104,6 +104,12 @@ Language-aware Rust fixtures must run without network downloads. Keep their nati
 
 Run `bun run test:rs` for the Cargo unit, integration, and doctest suite. Bazel's `//crates/...` test targets do not include every Cargo integration-test binary; after changing shared edit fixtures, exercise those integration tests as well. Regenerate `Cargo.lock` and `MODULE.bazel.lock` when their development dependencies change.
 
+For focused iteration, `--package` and `--filterset` scope nextest. `--cargo-profile local` reuses the optimized local build cache instead of compiling another debug dependency graph; the same Cargo profile applies to the subsequent doctest pass:
+
+```bash
+bun run test:rs -- --package pi-natives --cargo-profile local --filterset 'test(collab::tests::) | binary(oms-collab-server)'
+```
+
 ### Building addons
 
 ```bash

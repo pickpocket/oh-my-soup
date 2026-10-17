@@ -356,6 +356,15 @@ export declare class MacAppearanceObserver {
   stop(): void
 }
 
+export declare class NativeCollabServer {
+  constructor(options?: NativeCollabServerOptions | undefined | null)
+  get port(): number
+  get url(): string
+  get roomCount(): number
+  get shareCount(): number
+  close(): void
+}
+
 /** A transactional, process-owned native OAuth callback receiver. */
 export declare class NativeOAuthCallback {
   /** Create a receiver without touching the filesystem or OS registration. */
@@ -2694,6 +2703,17 @@ export interface MinimizerResult {
  * unless a text mixes U+FFFD words with lone-surrogate words.
  */
 export declare function mmrRerankIndices(contents: Array<string>, scores: Float64Array, lambdaParam: number, topK: number): Uint32Array
+
+export interface NativeCollabServerOptions {
+  port?: number
+  hostname?: string
+  staticDir?: string
+  shareDir?: string
+  shareTtlMs?: number
+  shareMaxBlobs?: number
+  maxRooms?: number
+  maxGuestsPerRoom?: number
+}
 
 /** Construction options for [`NativeOAuthCallback`]. */
 export interface NativeOAuthCallbackOptions {

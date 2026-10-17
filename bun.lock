@@ -122,6 +122,7 @@
       "name": "@oh-my-soup/collab-web",
       "version": "16.3.6",
       "dependencies": {
+        "@oh-my-soup/pi-natives": "catalog:",
         "@oh-my-soup/pi-utils": "catalog:",
         "@oh-my-soup/pi-wire": "catalog:",
         "katex": "catalog:",

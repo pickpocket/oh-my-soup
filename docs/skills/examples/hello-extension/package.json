@@ -1,9 +1,0 @@
-{
-  "name": "hello-extension",
-  "version": "1.0.0",
-  "description": "Minimal oh-my-soup extension example",
-  "homepage": "https://github.com/pickpocket/oh-my-soup",
-  "oms": {
-    "extensions": ["./index.ts"]
-  }
-}

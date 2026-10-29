@@ -1,3 +1,0 @@
-Query: {{{queryJson}}}
-
-Notes: {{{notesJson}}}

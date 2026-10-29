@@ -1,1 +1,0 @@
-`agent://<id>`: latest completed output, or status + progress while unpublished; nested IDs dotted, `/key/index` JSON path; `?view=notes` reads saved child session notes (live or retained journal). Write bare ID = message, `agent://all` broadcast only.

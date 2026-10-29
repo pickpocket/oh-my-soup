@@ -1,5 +1,0 @@
-class "baidu" {
-	bounded "ernie"
-
-	family "ernie" glob="*ernie*"
-}

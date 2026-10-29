@@ -1,3 +1,0 @@
-Complete assignment thoroughly:
-
-{{assignment}}

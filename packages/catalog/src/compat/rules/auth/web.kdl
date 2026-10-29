@@ -1,4 +1,0 @@
-auth "web" {
-	name "Web search engines"
-	allows-missing-api-key #true
-}

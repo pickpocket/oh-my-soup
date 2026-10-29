@@ -1,3 +1,0 @@
-auth "azure" {
-	name "Azure OpenAI"
-}

@@ -1,4 +1,0 @@
-auth "local" {
-	name "Local models"
-	allows-missing-api-key #true
-}

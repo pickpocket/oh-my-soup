@@ -1,2 +1,0 @@
-# Module override patches (see MODULE.bazel single_version_override entries).
-exports_files(glob(["*.patch"]))

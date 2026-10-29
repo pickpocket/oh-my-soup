@@ -1,3 +1,0 @@
-// Conservative fallback: membership is assigned only when no declared class matches.
-class "unknown" {
-}

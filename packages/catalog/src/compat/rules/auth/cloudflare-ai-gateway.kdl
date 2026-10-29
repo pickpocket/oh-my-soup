@@ -1,4 +1,0 @@
-auth "cloudflare-ai-gateway" {
-	name "Cloudflare AI Gateway"
-	login "custom" hook="cloudflare-ai-gateway"
-}

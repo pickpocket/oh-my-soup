@@ -1,6 +1,0 @@
-class "cohere" {
-	bounded "command"
-	namespace "cohere"
-
-	family "command" glob="*command*"
-}

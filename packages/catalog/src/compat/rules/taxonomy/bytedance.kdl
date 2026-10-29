@@ -1,5 +1,0 @@
-class "bytedance" {
-	bounded "doubao"
-
-	family "doubao" glob="*doubao*"
-}

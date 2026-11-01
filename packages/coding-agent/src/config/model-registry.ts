@@ -2997,6 +2997,15 @@ export class ModelRegistry {
 	}
 
 	/**
+	 * The composed catalog as currently held, without materializing a full
+	 * snapshot. Every catalog change replaces the array (it is never mutated in
+	 * place), so its identity is a cheap change signal for derived caches.
+	 */
+	get catalogSnapshot(): readonly Model<Api>[] {
+		return this.#models;
+	}
+
+	/**
 	 * Get all models (built-in + custom) of one catalog kind.
 	 * If custom config had errors, returns only built-in models. The default
 	 * excludes role-specific runners so existing session callers remain chat-only.

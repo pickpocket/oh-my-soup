@@ -80,6 +80,7 @@ export const BUILTIN_SLASH_COMMAND_DEFS: ReadonlyArray<BuiltinSlashCommand> = BU
 		subcommandOptional: command.subcommandOptional,
 		inlineHint: command.inlineHint,
 		getTuiAutocompleteDescription: command.getTuiAutocompleteDescription,
+		isVisible: command.isVisible,
 	}),
 );
 
@@ -132,8 +133,14 @@ export const BUILTIN_SLASH_COMMANDS: ReadonlyArray<TuiBuiltinSlashCommand> = BUI
 	materializeTuiBuiltinSlashCommand(cmd),
 );
 
+/**
+ * Runtime-scoped builtin autocomplete list. Commands whose `isVisible(runtime)`
+ * is false are omitted; dispatch still resolves them through the lookup.
+ */
 export function buildTuiBuiltinSlashCommands(runtime: TuiSlashCommandRuntime): ReadonlyArray<TuiBuiltinSlashCommand> {
-	return BUILTIN_SLASH_COMMAND_DEFS.map(cmd => materializeTuiBuiltinSlashCommand(cmd, runtime));
+	return BUILTIN_SLASH_COMMAND_DEFS.filter(cmd => cmd.isVisible?.(runtime) !== false).map(cmd =>
+		materializeTuiBuiltinSlashCommand(cmd, runtime),
+	);
 }
 
 /**

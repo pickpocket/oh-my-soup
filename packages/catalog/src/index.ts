@@ -1,3 +1,4 @@
+export * from "./access-programs";
 export * from "./compat/collapse";
 export * from "./compat/openai";
 export * from "./discovery";

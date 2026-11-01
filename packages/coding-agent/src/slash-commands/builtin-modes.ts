@@ -140,6 +140,33 @@ function runSlowCommand(arg: string, session: AgentSession): string | undefined 
 		: "Slow mode on: when your Claude subscription hits its session limit and Anthropic offers low priority, requests switch to it after any wrap-up allowance.";
 }
 
+const DAYBREAK_USAGE = "Usage: /daybreak [on|off|status]";
+
+/**
+ * `/daybreak [on|off|status]`: the Daybreak (OpenAI Trusted Access for Cyber)
+ * toggle, persisted as the default for new sessions. Bare invocation toggles.
+ * Enabling requires catalog-proven account eligibility. Returns the
+ * user-facing reply, or `undefined` for an unknown argument.
+ */
+export async function runDaybreakCommand(arg: string, session: AgentSession): Promise<string | undefined> {
+	if (arg !== "" && arg !== "toggle" && arg !== "on" && arg !== "off" && arg !== "status") return undefined;
+	const availability = session.daybreakAvailability();
+	if (arg === "status") {
+		return `Daybreak: ${session.isDaybreakEnabled() ? "on" : "off"} · account: ${availability} · current model: ${session.daybreakProgramForModel() ?? "unsupported"}`;
+	}
+	const enable = arg === "on" || (arg !== "off" && !session.isDaybreakEnabled());
+	if (enable && availability === "unavailable") {
+		return "Daybreak is not available for this account. Apply at https://openai.com/form/enterprise-trusted-access-for-cyber/ (individuals: https://chatgpt.com/cyber).";
+	}
+	if (enable && availability === "unknown") {
+		return "Daybreak availability could not be determined from the Codex model catalog (sign in to OpenAI Codex and refresh models).";
+	}
+	if (!(await session.setDaybreak(enable))) return "Daybreak off. Applies to new turns.";
+	return session.daybreakProgramForModel() === undefined
+		? "Daybreak on. Applies to new turns. The current model does not offer Daybreak; pick a Codex model that does."
+		: "Daybreak on. Applies to new turns.";
+}
+
 /** `/extended-context status` label for the premium long-context window setting. */
 function formatExtendedContextStatus(settings: Settings): string {
 	return cfgExtendedContext.get(settings) ? "on" : "off";
@@ -529,6 +556,45 @@ export const BUILTIN_MODE_SLASH_COMMANDS: ReadonlyArray<SlashCommandSpec> = [
 			const message = runFastCommand(command.args.trim().toLowerCase(), runtime.ctx.session);
 			refreshStatusLine(runtime.ctx);
 			runtime.ctx.showStatus(message ?? FAST_USAGE);
+			clearSubmittedText(runtime);
+		},
+	},
+	{
+		name: "daybreak",
+		icon: "shield",
+		description: "Toggle Daybreak (OpenAI Trusted Access for Cyber) reduced refusals for approved Codex accounts",
+		acpDescription: "Toggle Daybreak (Trusted Access for Cyber)",
+		acpInputHint: "[on|off|status]",
+		subcommands: [
+			{ name: "on", description: "Request Daybreak on Codex models that offer it" },
+			{ name: "off", description: "Request standard cyber safeguards" },
+			{ name: "status", description: "Show Daybreak toggle, account eligibility, and current model program" },
+		],
+		allowArgs: true,
+		// Hidden from autocomplete until the Codex catalog proves eligibility, unless already on.
+		// Hosts (tests, SDK embedders) may hand the picker a partial session; only a session
+		// that reports eligibility can show the command.
+		isVisible: ({ ctx: { session } }) =>
+			typeof session?.daybreakAvailability === "function" &&
+			(session.daybreakAvailability() === "available" || session.isDaybreakEnabled()),
+		getTuiAutocompleteDescription: runtime => {
+			const session = runtime.ctx.session;
+			if (!session.isDaybreakEnabled()) return "Daybreak: off";
+			const program = session.daybreakProgramForModel();
+			if (program === "daybreak_blue") return "Daybreak: on (blue)";
+			if (program === "daybreak_red") return "Daybreak: on (red)";
+			return "Daybreak: on (model unsupported)";
+		},
+		handle: async (command, runtime) => {
+			const message = await runDaybreakCommand(command.args.trim().toLowerCase(), runtime.session);
+			if (message === undefined) return usage(DAYBREAK_USAGE, runtime);
+			await runtime.output(message);
+			return commandConsumed();
+		},
+		handleTui: async (command, runtime) => {
+			const message = await runDaybreakCommand(command.args.trim().toLowerCase(), runtime.ctx.session);
+			refreshStatusLine(runtime.ctx);
+			runtime.ctx.showStatus(message ?? DAYBREAK_USAGE);
 			clearSubmittedText(runtime);
 		},
 	},

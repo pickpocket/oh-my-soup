@@ -938,6 +938,12 @@ export interface ModelBrowserOptions {
 	emptyText?: () => string | undefined;
 }
 
+/** A host-supplied row badge (e.g. `daybreak`), drawn after the model id: success-colored when active, dim when not. */
+export interface ModelRowBadge {
+	readonly text: string;
+	readonly active: boolean;
+}
+
 /** Rendered rows before the list window: search row + blank. */
 const LIST_ROW_START = 2;
 /** Rendered rows after the list window: blank + two detail rows. */
@@ -1025,6 +1031,8 @@ export class ModelBrowser implements Component {
 	#focused = true;
 	/** `provider/id` of the session's active model; marked in rows and detail. */
 	#currentSelector: string | undefined;
+	/** Host-supplied per-model badge; see {@link setRowBadge}. */
+	#rowBadge: ((model: Model) => ModelRowBadge | undefined) | undefined;
 	/**
 	 * Bumped whenever a per-row or detail input (provider prefix, current mark,
 	 * over-context flagging, perf) changes; described nodes rebuild on a new epoch.
@@ -1095,6 +1103,15 @@ export class ModelBrowser implements Component {
 	setCurrentSelector(selector: string | undefined): void {
 		if (selector !== this.#currentSelector) this.#bumpNativeEpoch();
 		this.#currentSelector = selector;
+	}
+
+	/**
+	 * Install (or clear) a host row badge. Rows are rebuilt from it, so hosts
+	 * call this again whenever the badge's inputs change (e.g. a toggle flips).
+	 */
+	setRowBadge(badge: ((model: Model) => ModelRowBadge | undefined) | undefined): void {
+		this.#rowBadge = badge;
+		this.#bumpPickerEpoch();
 	}
 
 	/** Replace the scope's base items; the live query re-applies and selection is pinned by selector. */
@@ -1555,10 +1572,12 @@ export class ModelBrowser implements Component {
 				: displayId;
 		const currentMark =
 			item.selector === this.#currentSelector ? ` ${theme.fg("success", theme.status.enabled)}` : "";
+		const rowBadge = this.#rowBadge?.(item.model);
+		const badgeMark = rowBadge ? ` ${theme.fg(rowBadge.active ? "success" : "dim", plainLine(rowBadge.text))}` : "";
 		const overLimit = overContext
 			? ` ${theme.status.disabled} context>${formatNumber(item.model.contextWindow ?? 0).toLowerCase()}`
 			: "";
-		let left = `${prefix}${providerPrefix}${name}${currentMark}${overLimit}`;
+		let left = `${prefix}${providerPrefix}${name}${currentMark}${badgeMark}${overLimit}`;
 
 		// Metric columns collapse when empty or when the row needs room for its name.
 		const cols: string[] = [];
@@ -1826,6 +1845,8 @@ export class ModelBrowser implements Component {
 		if (this.#showProvider) label.push(span(`${plainLine(item.provider)}/`, "dim"));
 		label.push(span(plainLine(item.id), item.labelColor));
 		if (item.selector === this.#currentSelector) label.push(span(` ${theme.status.enabled}`, "success"));
+		const rowBadge = this.#rowBadge?.(item.model);
+		if (rowBadge) label.push(span(` ${plainLine(rowBadge.text)}`, rowBadge.active ? "success" : "dim"));
 		const metrics = [
 			formatIntelligence(item.model),
 			this.#perfCell(item, "full"),
@@ -2001,7 +2022,7 @@ export class ModelBrowser implements Component {
 		if (speed) facts.speed = speed;
 		if (model.contextWindow) facts.ctx = model.contextWindow;
 		facts.price = pickerPrice(model);
-		const badges: { text: string; tone?: "accent" | "warning" | "success"; title?: string }[] = [];
+		const badges: { text: string; tone?: "accent" | "warning" | "success" | "muted"; title?: string }[] = [];
 		if (this.isOverContext(item)) {
 			badges.push({
 				text: `ctx>${formatNumber(model.contextWindow ?? 0).toLowerCase()}`,
@@ -2012,6 +2033,8 @@ export class ModelBrowser implements Component {
 		if (model.isNew) badges.push({ text: "new", tone: "accent" });
 		if (model.isBeta) badges.push({ text: "beta", tone: "warning" });
 		if (isFreeModel(model)) badges.push({ text: "free", tone: "success" });
+		const rowBadge = this.#rowBadge?.(model);
+		if (rowBadge) badges.push({ text: plainLine(rowBadge.text), tone: rowBadge.active ? "success" : "muted" });
 		const chips = heldRoles.map(({ role, assignment }) => {
 			const info = this.#settings.getRoleInfo(role);
 			const dot = thinkingDotToken(assignment.thinkingLevel);
@@ -2221,6 +2244,10 @@ export class ModelBrowser implements Component {
 		if (model.isRecommended) badges.push(node("badge", { text: "recommended", tone: "success" }));
 		if (model.reasoning) badges.push(node("badge", { text: "reasoning" }));
 		if (model.input.includes("image")) badges.push(node("badge", { text: "vision" }));
+		const rowBadge = this.#rowBadge?.(model);
+		if (rowBadge) {
+			badges.push(node("badge", { text: plainLine(rowBadge.text), tone: rowBadge.active ? "success" : "muted" }));
+		}
 		if (badges.length > 0) children.push(row(badges, { gap: "xs", wrap: true }));
 
 		const speed: string[] = [];

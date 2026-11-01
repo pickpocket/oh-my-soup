@@ -223,6 +223,8 @@ export interface AgentOptions {
 	presencePenalty?: number;
 	repetitionPenalty?: number;
 	serviceTier?: ServiceTier;
+	/** Daybreak (OpenAI Trusted Access for Cyber) toggle; off by default. */
+	daybreak?: boolean;
 	/**
 	 * Per-call effective service-tier resolver. When set, it authoritatively
 	 * supplies the request's tier (replacing the static `serviceTier` and its
@@ -465,6 +467,7 @@ export class Agent {
 	#repetitionPenalty?: number;
 	#serviceTier?: ServiceTier;
 	#serviceTierResolver?: (model: Model) => ServiceTier | undefined;
+	#daybreak = false;
 	#hideThinkingSummary?: boolean;
 	#maxRetryDelayMs?: number;
 	#getToolContext?: (toolCall?: ToolCallContext) => AgentToolContext | undefined;
@@ -578,6 +581,7 @@ export class Agent {
 		this.#repetitionPenalty = opts.repetitionPenalty;
 		this.#serviceTier = opts.serviceTier;
 		this.#serviceTierResolver = opts.serviceTierResolver;
+		this.#daybreak = opts.daybreak ?? false;
 		this.#hideThinkingSummary = opts.hideThinkingSummary;
 		this.#maxRetryDelayMs = opts.maxRetryDelayMs;
 		this.getApiKey = opts.getApiKey;
@@ -792,6 +796,15 @@ export class Agent {
 
 	set serviceTier(value: ServiceTier | undefined) {
 		this.#serviceTier = value;
+	}
+
+	/** Daybreak (OpenAI Trusted Access for Cyber) toggle; off by default. */
+	get daybreak(): boolean {
+		return this.#daybreak;
+	}
+
+	set daybreak(value: boolean) {
+		this.#daybreak = value;
 	}
 
 	get serviceTierResolver(): ((model: Model) => ServiceTier | undefined) | undefined {
@@ -1898,6 +1911,7 @@ export class Agent {
 			presencePenalty: this.#presencePenalty,
 			repetitionPenalty: this.#repetitionPenalty,
 			serviceTier: this.#serviceTier,
+			daybreak: this.#daybreak,
 			hideThinkingSummary: this.#hideThinkingSummary,
 			interruptMode: this.#interruptMode,
 			sessionId: this.#sessionId,

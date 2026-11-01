@@ -617,6 +617,19 @@ export const cfgTierOpenai = register({
 	},
 });
 
+export const cfgDaybreak = register({
+	id: "daybreak",
+	type: "boolean",
+	default: false,
+	ui: {
+		tab: "model",
+		group: "Sampling",
+		label: "Daybreak (Trusted Access for Cyber)",
+		description:
+			"Request reduced cyber refusals on OpenAI Codex models your account is approved for (Daybreak Blue/Red). Off by default; toggle per session with /daybreak or alt+d in /model",
+	},
+});
+
 export const cfgTierAnthropic = register({
 	id: "tier.anthropic",
 	type: "enum",

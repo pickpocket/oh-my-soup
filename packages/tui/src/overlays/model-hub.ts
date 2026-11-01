@@ -23,8 +23,10 @@ import type {
 import type { KeysApi, Model } from "@oh-my-soup/pi-ai";
 import { getOAuthProviders } from "@oh-my-soup/pi-ai/oauth";
 import { getSupportedEfforts } from "@oh-my-soup/pi-catalog/model-thinking";
+import type { DaybreakAvailability, DaybreakProgram } from "@oh-my-soup/pi-catalog/access-programs";
 import { providerEntry } from "@oh-my-soup/pi-catalog/compat/providers";
 import { MODEL_KINDS, modelKind, type ModelKind } from "@oh-my-soup/pi-catalog/types";
+import { logger } from "@oh-my-soup/pi-utils";
 import type { Component, TUI } from "../tui";
 import { extractPrintableText, matchesKey } from "../keys";
 import { FuzzyCorpus } from "../fuzzy";
@@ -115,6 +117,20 @@ export interface ModelHubSource extends ModelBrowserSource {
 	 * matches, if any. Absent hosts have no presets to switch between.
 	 */
 	getModelPresets?(): { names: readonly string[]; active: string | undefined };
+	/**
+	 * OpenAI Trusted Access for Cyber (Daybreak) session toggle. Absent hosts
+	 * (and accounts whose availability is not `"available"`) show no Daybreak UI.
+	 */
+	daybreak?: {
+		/** Account eligibility; the hub shows the Daybreak control only when "available". */
+		readonly availability: DaybreakAvailability;
+		/** Current toggle state (persisted `daybreak` setting). */
+		readonly enabled: boolean;
+		/** Program the toggle would request for `model`; undefined = this model offers no Daybreak program. */
+		programFor(model: Model): DaybreakProgram | undefined;
+		/** Flip the toggle (persists it); resolves with the new state. */
+		toggle(): Promise<boolean>;
+	};
 }
 
 /** Catalog capabilities required by the model hub. */
@@ -451,6 +467,10 @@ export class ModelHubComponent implements Component {
 	#presetCursor: { name: string; revision: number } | undefined;
 	#presetsMemo: { revision: number; names: readonly string[]; active: string | undefined } | undefined;
 	#disposed = false;
+	/** A Daybreak toggle is in flight; further toggles are ignored until it settles. */
+	#daybreakPending = false;
+	/** Toggle state the browser's row badges were last built for; undefined = no badges installed. */
+	#daybreakBadgeState: "on" | "off" | undefined;
 	/** Per-provider fuzzy match counts while a query is active; null when not searching. */
 	#searchCounts: Map<string, number> | null = null;
 
@@ -653,7 +673,82 @@ export class ModelHubComponent implements Component {
 
 		this.#buildSidebar(allModels, availableModels);
 		this.#restoreSidebarAnchor(anchor);
+		this.#syncDaybreakBadge();
 		this.#applyScope();
+	}
+
+	/** The host's Daybreak toggle, only when the account can use it. */
+	#daybreak(): NonNullable<ModelHubSource["daybreak"]> | undefined {
+		const daybreak = this.#settings.daybreak;
+		return daybreak?.availability === "available" ? daybreak : undefined;
+	}
+
+	/** Daybreak is controllable from this view: a browse scope or the Roles view, outside assign mode. */
+	#daybreakView(entry: SidebarEntry): NonNullable<ModelHubSource["daybreak"]> | undefined {
+		if (this.#assigning !== null || (entry.kind !== "roles" && !this.#isBrowserView(entry))) return undefined;
+		return this.#daybreak();
+	}
+
+	/** Rebuild the browser's `daybreak` row badges when availability or the toggle state moved. */
+	#syncDaybreakBadge(): void {
+		const daybreak = this.#daybreak();
+		const state = daybreak ? (daybreak.enabled ? "on" : "off") : undefined;
+		if (state === this.#daybreakBadgeState) return;
+		this.#daybreakBadgeState = state;
+		if (!daybreak) {
+			this.#browser.setRowBadge(undefined);
+			return;
+		}
+		const active = state === "on";
+		this.#browser.setRowBadge(model =>
+			daybreak.programFor(model) !== undefined ? { text: "daybreak", active } : undefined,
+		);
+	}
+
+	/** Flip the session's Daybreak toggle; ignored while a flip is still persisting. */
+	#toggleDaybreak(): void {
+		const daybreak = this.#daybreak();
+		if (!daybreak || this.#daybreakPending) return;
+		this.#daybreakPending = true;
+		daybreak
+			.toggle()
+			.catch((error: unknown) => {
+				logger.warn("Model hub: Daybreak toggle failed", { error: String(error) });
+			})
+			.finally(() => {
+				this.#daybreakPending = false;
+				if (this.#disposed) return;
+				this.#syncDaybreakBadge();
+				this.#requestRender();
+			});
+	}
+
+	/** `· Daybreak: on|off` for the status row; empty where Daybreak is not controllable. */
+	#daybreakStatusAnsi(entry: SidebarEntry): string {
+		const daybreak = this.#daybreakView(entry);
+		if (!daybreak) return "";
+		const enabled = daybreak.enabled;
+		return `${theme.fg("muted", " · Daybreak: ")}${theme.fg(enabled ? "success" : "dim", enabled ? "on" : "off")}`;
+	}
+
+	/** Native `Daybreak: on|off` spans (callers add the separator); empty where Daybreak is not controllable. */
+	#daybreakStatusSpans(entry: SidebarEntry): TspSpan[] {
+		const daybreak = this.#daybreakView(entry);
+		if (!daybreak) return [];
+		const enabled = daybreak.enabled;
+		return [span("Daybreak: ", "muted"), span(enabled ? "on" : "off", enabled ? "success" : "dim")];
+	}
+
+	/** The toggle's footer hint label (`daybreak on|off`), or undefined where Daybreak is not controllable. */
+	#daybreakHintLabel(entry: SidebarEntry): string | undefined {
+		const daybreak = this.#daybreakView(entry);
+		return daybreak ? `daybreak ${daybreak.enabled ? "on" : "off"}` : undefined;
+	}
+
+	/** ANSI footer segment for the toggle (` · alt+d daybreak on`), empty where not controllable. */
+	#daybreakHint(entry: SidebarEntry): string {
+		const label = this.#daybreakHintLabel(entry);
+		return label ? ` · ${formatKeyHint("alt+d")} ${label}` : "";
 	}
 
 	#buildSidebar(allModels: ReadonlyArray<Model>, availableModels: ReadonlyArray<Model>): void {
@@ -1985,6 +2080,12 @@ export class ModelHubComponent implements Component {
 			this.#focus = this.#focus === "scope" ? "list" : "scope";
 			return;
 		}
+		// Daybreak is a session toggle, not a per-row command: alt+d, because
+		// printable keys type into the search in every browse view.
+		if (matchesKey(data, "alt+d") && this.#daybreakView(entry)) {
+			this.#toggleDaybreak();
+			return;
+		}
 		if (matchesKey(data, "f5")) {
 			if (entry.kind === "provider" && !entry.locked) {
 				this.#scheduleProviderRefresh(entry.providerId ?? "", { force: true });
@@ -2561,7 +2662,7 @@ export class ModelHubComponent implements Component {
 			text = this.#configError;
 			return truncateToWidth(theme.fg("error", ` ${text}`), width);
 		}
-		return truncateToWidth(theme.fg("muted", ` ${text}`), width);
+		return truncateToWidth(`${theme.fg("muted", ` ${text}`)}${this.#daybreakStatusAnsi(entry)}`, width);
 	}
 
 	/** Clamp a roles row to `width`; the bg band is reserved for mouse hover. */
@@ -2797,15 +2898,16 @@ export class ModelHubComponent implements Component {
 			}
 		}
 		const entry = this.#activeEntry();
+		const daybreak = this.#daybreakHint(entry);
 		if (entry.kind === "roles") {
 			if (this.#focus !== "list") {
 				const presets =
 					this.#presets().names.length > 0 ? ` · ${formatKeyHints(["ctrl+left", "ctrl+right"])} preset` : "";
-				return `${upDown} providers · ${enterRight} roles · ${altLeftRight} tabs${presets} · ${cancel} close`;
+				return `${upDown} providers · ${enterRight} roles · ${altLeftRight} tabs${presets}${daybreak} · ${cancel} close`;
 			}
 			// A live query takes printable keys and backspace, so the letter commands rest.
 			if (this.#browser.query.length > 0) {
-				return `${upDown} rows · ${enter} pick · type to search · ${left} providers · ${cancel} close`;
+				return `${upDown} rows · ${enter} pick · type to search · ${left} providers${daybreak} · ${cancel} close`;
 			}
 			const row = this.#rolesRows[this.#roleIndex];
 			const compaction =
@@ -2818,13 +2920,13 @@ export class ModelHubComponent implements Component {
 				// action would be inert there.
 				const editable = this.#resolveFallbackEntry(row.role, row.chainIndex) !== undefined;
 				const thinking = editable ? ` · ${formatKeyHint("t")} thinking` : "";
-				return `${upDown} rows · ${enter} replace · ${formatKeyHint("f")} add another · ${formatKeyHint("x")} remove${thinking}${compaction} · [/] reorder · ${left} providers`;
+				return `${upDown} rows · ${enter} replace · ${formatKeyHint("f")} add another · ${formatKeyHint("x")} remove${thinking}${compaction} · [/] reorder · ${left} providers${daybreak}`;
 			}
 			if (row?.kind === "chainKey") {
-				return `${upDown} rows · ${formatKeyHints(["enter", "f"])} add fallback · ${formatKeyHint("x")} clear chain · ${left} providers`;
+				return `${upDown} rows · ${formatKeyHints(["enter", "f"])} add fallback · ${formatKeyHint("x")} clear chain · ${left} providers${daybreak}`;
 			}
 			if (row?.kind === "newFallback") {
-				return `${upDown} rows · ${enter} new model/provider fallback chain · ${left} providers`;
+				return `${upDown} rows · ${enter} new model/provider fallback chain · ${left} providers${daybreak}`;
 			}
 			// Same rule as fallback rows: advertise `t` only where a strip would
 			// open — an assigned role whose model has thinking levels to offer.
@@ -2832,7 +2934,7 @@ export class ModelHubComponent implements Component {
 			const thinking = editable ? ` · ${formatKeyHint("t")} thinking` : "";
 			const savePreset = this.#callbacks.onSavePreset ? ` · ${formatKeyHint("s")} save preset` : "";
 			const switchPreset = this.#presets().names.length > 0 ? ` · ${formatKeyHints(["p", "shift+p"])} preset` : "";
-			return `${upDown} rows · ${enter} pick · ${formatKeyHint("f")} fallback · ${formatKeyHint("x")} clear${thinking}${compaction} · ${formatKeyHint("c")} cycle · [/] reorder · ${formatKeyHint("n")} new${savePreset}${switchPreset}`;
+			return `${upDown} rows · ${enter} pick · ${formatKeyHint("f")} fallback · ${formatKeyHint("x")} clear${thinking}${compaction} · ${formatKeyHint("c")} cycle · [/] reorder · ${formatKeyHint("n")} new${savePreset}${switchPreset}${daybreak}`;
 		}
 		if (entry.kind === "provider" && entry.locked) {
 			return entry.oauth
@@ -2841,9 +2943,9 @@ export class ModelHubComponent implements Component {
 		}
 		const refresh = entry.kind === "provider" ? ` · ${formatKeyHint("f5")} refresh` : "";
 		if (this.#focus === "scope") {
-			return `${enterRight} models · ${upDown} providers · type to search · ${altLeftRight} kind${refresh} · ${cancel} close`;
+			return `${enterRight} models · ${upDown} providers · type to search · ${altLeftRight} kind${refresh}${daybreak} · ${cancel} close`;
 		}
-		return `${enter} assign roles · ${upDown} models · ${left} providers · type to search · ${altLeftRight} kind${refresh} · ${cancel} close`;
+		return `${enter} assign roles · ${upDown} models · ${left} providers · type to search · ${altLeftRight} kind${refresh}${daybreak} · ${cancel} close`;
 	}
 
 	#renderFooter(width: number): string {
@@ -3106,6 +3208,8 @@ export class ModelHubComponent implements Component {
 				spans = [span(`All available models${scopedSuffix}`, "muted")];
 				break;
 		}
+		const daybreak = this.#daybreakStatusSpans(entry);
+		if (daybreak.length > 0) spans = [...spans, span(" · ", "muted"), ...daybreak];
 		return node("text", { spans, truncate: "end" }, undefined, "status");
 	}
 
@@ -3407,6 +3511,8 @@ export class ModelHubComponent implements Component {
 		if (entry.kind === "provider" && entry.providerId && this.#refreshingProviders.has(entry.providerId)) {
 			return `${entry.label} · refreshing model list…`;
 		}
+		const daybreak = this.#daybreakStatusSpans(entry);
+		const separated = daybreak.length > 0 ? [span(" · ", "muted"), ...daybreak] : [];
 		const presets = rolesView ? this.#presets() : undefined;
 		if (presets && presets.names.length > 0) {
 			return [
@@ -3416,11 +3522,17 @@ export class ModelHubComponent implements Component {
 					this.#scopedModels.length > 0 ? " · --models scope" : " · Cleared roles fall back to auto-selection",
 					"muted",
 				),
+				...separated,
 			];
 		}
-		if (this.#scopedModels.length > 0) return "--models scope";
-		if (rolesView) return "Cleared roles fall back to auto-selection";
-		return undefined;
+		const base =
+			this.#scopedModels.length > 0
+				? "--models scope"
+				: rolesView
+					? "Cleared roles fall back to auto-selection"
+					: undefined;
+		if (daybreak.length === 0) return base;
+		return base === undefined ? daybreak : [span(base), ...separated];
 	}
 
 	/** The sidebar as picker scopes: Roles, All models, then signed-in and signed-out providers. */
@@ -3553,6 +3665,11 @@ export class ModelHubComponent implements Component {
 		}
 		const refresh =
 			entry.kind === "provider" && !entry.locked ? pickerAction("refresh", "Refresh provider", "f5") : undefined;
+		const daybreakState = this.#daybreakView(entry)?.enabled;
+		const daybreak =
+			daybreakState === undefined
+				? undefined
+				: pickerAction("daybreak", `Daybreak: ${daybreakState ? "on" : "off"}`, "alt+d");
 		if (this.#assigning !== null) {
 			const label =
 				this.#assigning.kind === "fallback"
@@ -3617,7 +3734,7 @@ export class ModelHubComponent implements Component {
 					actions.push(roleAction("pick", "New role", "enter", true));
 					break;
 			}
-			return compact([...actions, CLOSE_ACTION]);
+			return compact([...actions, daybreak, CLOSE_ACTION]);
 		}
 		if (lockedView) {
 			return entry.oauth
@@ -3632,6 +3749,7 @@ export class ModelHubComponent implements Component {
 				this.#browser.pickerSelected ? { primary: true } : { primary: true, disabled: "No model selected" },
 			),
 			refresh,
+			daybreak,
 			this.#browser.query.length > 0 ? cancel("Clear search") : CLOSE_ACTION,
 		]);
 	}
@@ -4000,6 +4118,9 @@ export class ModelHubComponent implements Component {
 					this.#scheduleProviderRefresh(entry.providerId ?? "", { force: true });
 				}
 				return;
+			case "daybreak":
+				if (!this.#strip && this.#daybreakView(entry)) this.#toggleDaybreak();
+				return;
 			case "login":
 				if (entry.kind === "provider" && entry.locked && this.#assigning === null) this.#requestLogin(entry);
 				return;
@@ -4130,6 +4251,8 @@ export class ModelHubComponent implements Component {
 		}
 		const presetHint = this.#presets().names.length > 0 ? keys("preset", "ctrl+left", "ctrl+right") : undefined;
 		const entry = this.#activeEntry();
+		const daybreakLabel = this.#daybreakHintLabel(entry);
+		const daybreak = daybreakLabel ? keys(daybreakLabel, "alt+d") : undefined;
 		if (entry.kind === "roles") {
 			if (this.#focus !== "list") {
 				return [
@@ -4137,6 +4260,7 @@ export class ModelHubComponent implements Component {
 					keys("roles", "enter", "right"),
 					keys("tabs", "alt+left", "alt+right"),
 					presetHint,
+					daybreak,
 					cancel("close"),
 				];
 			}
@@ -4148,6 +4272,7 @@ export class ModelHubComponent implements Component {
 					search,
 					keys("providers", "left"),
 					presetHint,
+					daybreak,
 					cancel("close"),
 				];
 			}
@@ -4166,6 +4291,7 @@ export class ModelHubComponent implements Component {
 					compaction,
 					reorder,
 					keys("providers", "left"),
+					daybreak,
 				];
 			}
 			if (row?.kind === "chainKey") {
@@ -4174,10 +4300,16 @@ export class ModelHubComponent implements Component {
 					keys("add fallback", "enter", "f"),
 					keys("clear chain", "x"),
 					keys("providers", "left"),
+					daybreak,
 				];
 			}
 			if (row?.kind === "newFallback") {
-				return [upDown("rows"), keys("new model/provider fallback chain", "enter"), keys("providers", "left")];
+				return [
+					upDown("rows"),
+					keys("new model/provider fallback chain", "enter"),
+					keys("providers", "left"),
+					daybreak,
+				];
 			}
 			const editable = row?.kind === "role" && this.#roleThinkingTarget(row.role) !== undefined;
 			return [
@@ -4192,6 +4324,7 @@ export class ModelHubComponent implements Component {
 				keys("new", "n"),
 				this.#callbacks.onSavePreset ? keys("save preset", "s") : undefined,
 				this.#presets().names.length > 0 ? keys("preset", "ctrl+left", "ctrl+right", "p", "shift+p") : undefined,
+				daybreak,
 			];
 		}
 		if (entry.kind === "provider" && entry.locked) {
@@ -4201,7 +4334,15 @@ export class ModelHubComponent implements Component {
 		}
 		const refresh = entry.kind === "provider" ? keys("refresh", "f5") : undefined;
 		if (this.#focus === "scope") {
-			return [keys("models", "enter", "right"), upDown("providers"), search, kind, refresh, cancel("close")];
+			return [
+				keys("models", "enter", "right"),
+				upDown("providers"),
+				search,
+				kind,
+				refresh,
+				daybreak,
+				cancel("close"),
+			];
 		}
 		return [
 			keys("assign roles", "enter"),
@@ -4210,6 +4351,7 @@ export class ModelHubComponent implements Component {
 			search,
 			kind,
 			refresh,
+			daybreak,
 			cancel("close"),
 		];
 	}

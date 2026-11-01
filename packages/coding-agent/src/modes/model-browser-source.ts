@@ -27,10 +27,13 @@ import {
  * @param sessionServiceTier - The live session's effective tier for a model
  *   (`/fast`, `/fast ultra`, `/slow`, resumed tiers). Omit only where no session
  *   exists; the configured `tier.*` settings stand in then.
+ * @param daybreak - The live session's Daybreak toggle for the hub's control.
+ *   Omit where no session exists; the hub then shows no Daybreak control.
  */
 export function createModelBrowserSource(
 	settings: Settings,
 	sessionServiceTier?: (model: Model) => ServiceTier | undefined,
+	daybreak?: ModelHubSource["daybreak"],
 ): ModelHubSource {
 	return {
 		get revision() {
@@ -87,5 +90,6 @@ export function createModelBrowserSource(
 		resolveRoleValue: (value, models, roleLookup) => resolveModelRoleValue(value, models, { settings, roleLookup }),
 		getModelPresets: () => ({ names: getModelPresetNames(settings), active: findActiveModelPreset(settings) }),
 		compactionPointFor: model => describeModelCompactionPoint(settings, model),
+		daybreak,
 	};
 }

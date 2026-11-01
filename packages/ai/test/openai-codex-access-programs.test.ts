@@ -86,6 +86,7 @@ describe("openai-codex cyber access programs", () => {
 			streamOpenAICodexResponses(model, context, {
 				apiKey: createCodexTestToken(accountId),
 				fetch: createFetchMock(statuses, sent),
+				daybreak: true,
 			}).result();
 
 		expect((await run("acct-standard", [200])).stopReason).toBe("stop");
@@ -118,6 +119,7 @@ describe("openai-codex cyber access programs", () => {
 				sent,
 				JSON.stringify({ error: { type: "invalid_request_error", message } }),
 			),
+			daybreak: true,
 		};
 
 		const result = await streamOpenAICodexResponses(genericModel, context, options).result();
@@ -166,6 +168,7 @@ describe("openai-codex cyber access programs", () => {
 							JSON.stringify({ error: { type: "invalid_request_error", code: "cyber_policy", message } }),
 						)
 					: fetch,
+			daybreak: true,
 		};
 
 		const failed = await streamOpenAICodexResponses(policyModel, context, options).result();
@@ -175,5 +178,35 @@ describe("openai-codex cyber access programs", () => {
 
 		expect((await streamOpenAICodexResponses(policyModel, context, options).result()).stopReason).toBe("stop");
 		expect(sent).toEqual([{ cyber: "daybreak_blue" }, { cyber: "daybreak_blue" }]);
+	});
+
+	it("sends the toggle's program: standard when off, the advertised Daybreak program when on", async () => {
+		const toggleModel = createCodexModel("gpt-6-sol-toggle", {
+			preferWebsockets: false,
+			accountAccess: {
+				"acct-blue": { cyberPrograms: ["standard", "daybreak_blue"] },
+				"acct-red": { cyberPrograms: ["daybreak_red"] },
+			},
+		});
+		const sent: unknown[] = [];
+		const run = (accountId: string, daybreak: boolean | undefined) =>
+			streamOpenAICodexResponses(toggleModel, context, {
+				apiKey: createCodexTestToken(accountId),
+				fetch: createFetchMock([200], sent),
+				daybreak,
+			}).result();
+
+		await run("acct-blue", undefined);
+		await run("acct-blue", false);
+		await run("acct-blue", true);
+		await run("acct-red", false);
+		await run("acct-red", true);
+		expect(sent).toEqual([
+			{ cyber: "standard" },
+			{ cyber: "standard" },
+			{ cyber: "daybreak_blue" },
+			undefined,
+			{ cyber: "daybreak_red" },
+		]);
 	});
 });

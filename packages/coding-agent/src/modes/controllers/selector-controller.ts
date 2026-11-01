@@ -29,7 +29,11 @@ import type {
 	LogoutAccount,
 	LogoutAccountSelectorComponent as LogoutAccountSelectorComponentType,
 } from "@oh-my-soup/pi-tui/overlays/logout-account-selector";
-import { ModelHubComponent, type ModelRoleSelectionScope } from "@oh-my-soup/pi-tui/overlays/model-hub";
+import {
+	ModelHubComponent,
+	type ModelHubSource,
+	type ModelRoleSelectionScope,
+} from "@oh-my-soup/pi-tui/overlays/model-hub";
 import { ModelPickerComponent } from "@oh-my-soup/pi-tui/overlays/model-picker";
 import { formatModelSelectorValue } from "@oh-my-soup/pi-tui/overlays/model-selector";
 import type { OAuthSelectorComponent as OAuthSelectorComponentType } from "@oh-my-soup/pi-tui/overlays/oauth-selector";
@@ -282,6 +286,29 @@ export class SelectorController {
 	 */
 	async #acquireDefaultRoleMutation(): Promise<() => void> {
 		return acquireModelRoleMutation();
+	}
+
+	/**
+	 * The session's Daybreak toggle, read live, for the model hub/picker control.
+	 * Partial sessions (tests, SDK embedders) that cannot report eligibility get no control.
+	 */
+	#daybreakSource(): ModelHubSource["daybreak"] {
+		const session = this.ctx.session;
+		if (typeof session.daybreakAvailability !== "function") return undefined;
+		return {
+			get availability() {
+				return session.daybreakAvailability();
+			},
+			get enabled() {
+				return session.isDaybreakEnabled();
+			},
+			programFor: model => session.daybreakProgramForModel(model),
+			toggle: async () => {
+				const next = await session.setDaybreak(!session.isDaybreakEnabled());
+				this.ctx.statusLine.invalidate();
+				return next;
+			},
+		};
 	}
 
 	async #refreshOAuthProviderAuthState(): Promise<void> {
@@ -870,7 +897,11 @@ export class SelectorController {
 		const isCurrent = () => this.#openMenus.get(menuKind) === menu;
 		const picker = new ModelPickerComponent(
 			this.ctx.ui,
-			createModelBrowserSource(this.ctx.settings, model => viewed.effectiveServiceTier(model)),
+			createModelBrowserSource(
+				this.ctx.settings,
+				model => viewed.effectiveServiceTier(model),
+				this.#daybreakSource(),
+			),
 			this.ctx.session.modelRegistry,
 			this.ctx.session.scopedModels,
 			{
@@ -969,7 +1000,11 @@ export class SelectorController {
 		};
 		const hub = new ModelHubComponent(
 			this.ctx.ui,
-			createModelBrowserSource(this.ctx.settings, model => this.ctx.session.effectiveServiceTier(model)),
+			createModelBrowserSource(
+				this.ctx.settings,
+				model => this.ctx.session.effectiveServiceTier(model),
+				this.#daybreakSource(),
+			),
 			this.ctx.session.modelRegistry,
 			this.ctx.session.scopedModels,
 			{

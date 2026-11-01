@@ -835,6 +835,11 @@ export interface SimpleStreamOptions extends Omit<StreamOptions, "apiKey"> {
 	toolChoice?: ToolChoice;
 	/** OpenAI service tier for processing priority/cost control. Ignored by non-OpenAI providers. */
 	serviceTier?: ServiceTier;
+	/**
+	 * Daybreak (OpenAI Trusted Access for Cyber) toggle; off by default. Codex only: on requests the model's
+	 * advertised Daybreak program, off sends `standard` when advertised. Ignored by other providers.
+	 */
+	daybreak?: boolean;
 	/** Explicit Kimi Code API format override; omitted uses live per-model protocol metadata. */
 	kimiApiFormat?: "openai" | "anthropic";
 	/** API format for Synthetic provider: "openai" or "anthropic" (default: "openai") */

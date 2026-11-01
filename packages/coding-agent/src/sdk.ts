@@ -5749,6 +5749,7 @@ async function createAgentSessionScoped(options: CreateAgentSessionOptions): Pro
 					repetitionPenalty: agent.repetitionPenalty,
 					serviceTierResolver: agent.serviceTierResolver,
 					hideThinkingSummary: agent.hideThinkingSummary,
+					daybreak: agent.daybreak,
 					maxRetryDelayMs: agent.maxRetryDelayMs,
 					getToolContext: toolCall => toolContextStore.getContext(toolCall),
 					streamFn: primaryStreamFn,

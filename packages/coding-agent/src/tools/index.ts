@@ -50,6 +50,7 @@ import { AstEditTool } from "./ast-edit";
 import { AstGrepTool } from "./ast-grep";
 import { BashTool } from "./bash";
 import { BeadsTool } from "./beads";
+import { BoardTool } from "./board";
 import { type BuiltinToolName, type HiddenToolName, normalizeToolNames } from "./builtin-names";
 import { type CheckpointState, CheckpointTool, type CompletedRewindState, RewindTool } from "./checkpoint";
 import { ContextNotesTool, NewContextTool } from "./context-notes";
@@ -607,6 +608,7 @@ export const BUILTIN_TOOLS: Record<BuiltinToolName, ToolFactory> = {
 	ast_grep: s => new AstGrepTool(s),
 	ast_edit: s => new AstEditTool(s),
 	beads: BeadsTool.createIf,
+	board: BoardTool.createIf,
 	ask: AskTool.createIf,
 	debug: DebugTool.createIf,
 	disasm: DisasmTool.createIf,

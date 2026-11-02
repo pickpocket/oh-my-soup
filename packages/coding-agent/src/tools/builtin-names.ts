@@ -6,6 +6,7 @@ export const BUILTIN_TOOL_NAMES = [
 	"ast_edit",
 	"ask",
 	"beads",
+	"board",
 	"debug",
 	"disasm",
 	"objdump",

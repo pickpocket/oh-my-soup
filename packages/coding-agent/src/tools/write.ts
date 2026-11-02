@@ -29,6 +29,7 @@ import {
 	readArchiveEntries,
 	writeArchive,
 } from "@oh-my-soup/pi-utils/ar";
+import { assertBoardWriteAllowed } from "../board/write-guard";
 import { detectLineEnding, normalizeToLF, restoreLineEndings } from "../edit/normalize";
 
 import {
@@ -1028,6 +1029,7 @@ export class WriteTool implements AgentTool<typeof writeSchema, WriteToolDetails
 					op: resolvedArchivePath.exists ? "update" : "create",
 					signal,
 				});
+				await assertBoardWriteAllowed(this.session, resolvedArchivePath.absolutePath);
 
 				emitWriteProgress(
 					onUpdate,
@@ -1059,6 +1061,7 @@ export class WriteTool implements AgentTool<typeof writeSchema, WriteToolDetails
 			const resolvedSqlitePath = await this.#resolveSqliteWritePath(path, signal);
 			if (resolvedSqlitePath) {
 				await enforcePlanModeWrite(this.session, resolvedSqlitePath.sqlitePath, { op: "update", signal });
+				await assertBoardWriteAllowed(this.session, resolvedSqlitePath.absolutePath);
 
 				emitWriteProgress(onUpdate, cleanBytes, path, resolvedSqlitePath.absolutePath);
 				const sqliteResult = await this.#writeSqliteRow(path, cleanContent, resolvedSqlitePath);
@@ -1115,6 +1118,7 @@ export class WriteTool implements AgentTool<typeof writeSchema, WriteToolDetails
 					: undefined;
 			// `untilAborted` has already rejected the call if it was cancelled during the scan; don't write.
 			signal?.throwIfAborted();
+			await assertBoardWriteAllowed(this.session, absolutePath);
 			const { text: writeContent, applied } = applyTextFileConvention(cleanContent, convention);
 			const writeBytes = writeContent === cleanContent ? cleanBytes : Buffer.byteLength(writeContent, "utf8");
 

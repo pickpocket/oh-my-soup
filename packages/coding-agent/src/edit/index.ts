@@ -25,6 +25,7 @@ import {
 	type EditWriteResponse,
 } from "@oh-my-soup/pi-natives";
 import { isEnoent, logger, prompt } from "@oh-my-soup/pi-utils";
+import { assertBoardWriteAllowed } from "../board/write-guard";
 import { extractUriScheme, InternalUrlRouter, type ResolveContext, sessionResolveContext } from "../internal-urls";
 import { createLspWritethrough, flushLspWritethroughBatch, type WritethroughCallback, writethroughNoop } from "../lsp";
 import { type FileDiagnosticsResult } from "@oh-my-soup/pi-tui/tools/lsp";
@@ -705,6 +706,9 @@ export class EditTool implements AgentTool<TInput> {
 	}
 
 	async #write(request: EditWriteRequest, signal?: AbortSignal): Promise<EditWriteResponse> {
+		await assertBoardWriteAllowed(this.session, request.path);
+		if (request.moveTo) await assertBoardWriteAllowed(this.session, request.moveTo);
+
 		if (request.op === "delete") {
 			await deleteFileWithFallback(request.path, Bun.file(request.path));
 			if (this.session.enableLsp ?? true) {

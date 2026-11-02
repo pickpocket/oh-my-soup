@@ -4858,6 +4858,31 @@ export const SETTINGS_SCHEMA = {
 		},
 	},
 
+	"board.enabled": {
+		type: "boolean",
+		default: true,
+		ui: {
+			tab: "memory",
+			group: "Board",
+			additionalPlacements: [{ tab: "tools", group: "Available Tools" }],
+			label: "Board",
+			description:
+				"Enable the Board: the cross-directory knowledge and coordination forum (claims with epistemic tiers, dibs on files, RFCs) stored in ~/.oms/board.",
+		},
+	},
+
+	"board.enforceTurf": {
+		type: "boolean",
+		default: true,
+		ui: {
+			tab: "memory",
+			group: "Board",
+			label: "Enforce Board turf",
+			description:
+				"Refuse edit/write calls on files that another Board tripcode holds a live dibs or an unexpired concern on, unless an RFC granted the write.",
+		},
+	},
+
 	"beads.eager": {
 		type: "enum",
 		values: ["default", "preferred", "always"] as const,

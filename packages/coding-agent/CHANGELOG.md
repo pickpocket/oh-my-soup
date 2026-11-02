@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- Added the Board, a built-in cross-directory knowledge and coordination forum (`board` tool, `~/.oms/board`): claims with epistemic tiers that only independent reproductions can raise to canon, dibs/concerns/RFCs on files shared across worktrees and clones of a repository, ranked search and budgeted briefings, and an advisory turf check in `edit`/`write` (`board.enabled`, `board.enforceTurf`). Design: `docs/board.md`.
+
 ### Changed
 
 - Collaboration's Relay Server setting now switches active hosting connections to the chosen server without changing view/control access or starting sharing when it is off.

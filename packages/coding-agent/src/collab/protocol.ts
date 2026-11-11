@@ -13,6 +13,7 @@ import type {
 	CollabUiRequest,
 	GuestFrame,
 	HistoryPage,
+	HostFrame,
 	ParsedCollabLink,
 	Participant,
 	AgentSnapshot as WireAgentSnapshot,
@@ -77,11 +78,11 @@ export type CollabFrame =
 	  }
 	/**
 	 * Targeted snapshot fragment delivered after `welcome`. Splits a large
-	 * transcript across many small frames so the guest's per-chunk progress
-	 * timeout resets each time the relay delivers another batch; without
-	 * chunking, a multi-MB session has to fit one giant frame inside the
-	 * 30 s first-welcome budget. The last chunk carries `final: true` so the
-	 * guest can finalize the replica session.
+	 * transcript across many small frames, paced by the guest's `snapshot-ack`s
+	 * so a relay's per-guest queue never overflows while a slow guest syncs; the
+	 * guest's per-chunk progress timeout resets with each one. Other frames keep
+	 * flowing meanwhile, and the guest holds them until the snapshot is in place.
+	 * The last chunk carries `final: true` so the guest can finalize the replica.
 	 */
 	| { t: "snapshot-chunk"; entries: SessionEntry[]; final: boolean }
 	| { t: "entry"; entry: SessionEntry }
@@ -96,8 +97,15 @@ export type CollabFrame =
 	| { t: "agents"; agents: AgentSnapshot[] }
 	| { t: "ui-request"; request: CollabUiRequest }
 	| { t: "ui-request-end"; reqId: number }
-	/** Targeted reply to fetch-transcript; `error` marks a terminal read failure that guests must surface without hot retrying. */
+	/**
+	 * Targeted reply to fetch-transcript: whole JSONL lines from the first line
+	 * start at or after `fromByte`, bounded like a `transcript-page`; `newSize` is
+	 * the next offset. `error` marks a terminal read failure that guests must
+	 * surface without hot retrying.
+	 */
 	| { t: "transcript"; reqId: number; text: string; newSize: number; error?: string }
+	/** Paged transcript reads and guest-run commands carry no rich session types: taken verbatim from the wire grammar. */
+	| Extract<HostFrame, { t: "transcript-page" | "commands" | "command-output" | "command-end" | "completions" }>
 	| { t: "bye"; reason: string }
 	| { t: "error"; message: string };
 

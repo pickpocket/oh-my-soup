@@ -2,15 +2,15 @@
  * Hard-cap helper for host→guest collab frames.
  *
  * The host wraps every {@link CollabFrame} in an AES-GCM envelope and ships it
- * through the relay's WebSocket. WebSocket servers enforce a per-frame
- * `maxPayloadLength` (Bun's default is 16 MB; many proxies cap lower). A
- * single oversized payload — typically a `read`/`bash`/`search` tool result
- * captured as one multi-megabyte string, or a tool result whose `content`
- * array holds thousands of small blocks — would otherwise ship as its own
- * oversized frame and trip that limit, killing the host's WebSocket with
- * `1006 Received too big message`. `CollabSocket` treats 1006 as transient
- * and reconnects, the next guest hello triggers the same oversized send, and
- * the loop never breaks (issue #3739).
+ * through the relay's WebSocket. A relay accepts messages of at most
+ * `COLLAB_RELAY_MAX_MESSAGE_BYTES` (2 MiB, envelope included); the reference
+ * relay closes a sender that exceeds it with 1009, and closing the host ends
+ * the room for every guest. A single oversized payload — typically a
+ * `read`/`bash`/`search` tool result captured as one multi-megabyte string, or
+ * a tool result whose `content` array holds thousands of small blocks — would
+ * otherwise ship as its own oversized frame, the host would reconnect, the
+ * next guest hello would trigger the same oversized send, and the loop would
+ * never break (issue #3739).
  *
  * That ceiling has to be *enforced*, not approached (issue #11433). Three
  * input shapes escaped the previous best-effort version, each reproduced
@@ -47,10 +47,11 @@ import type { AgentSessionEvent } from "../session/agent-session";
 import type { SessionEntry } from "../session/session-entries";
 
 /**
- * Per-payload ceiling for host→guest frames. Bun's default WebSocket
- * `maxPayloadLength` is 16 MB; we leave a generous margin so the AES-GCM
- * envelope (+ IV + tag), the 4-byte peer header, and the outer wire wrapper
- * fit comfortably under that on every reasonable relay.
+ * Per-payload ceiling for host→guest frames: half the relay's message limit
+ * (`COLLAB_RELAY_MAX_MESSAGE_BYTES`, 2 MiB), so the frame wrapper around one
+ * bounded payload, the AES-GCM IV and tag, and the 4-byte peer header always
+ * fit, and a JSON line carried as a string (escaping at most doubles it) does
+ * too.
  */
 export const MAX_REPLICATED_PAYLOAD_BYTES = 1 * 1024 * 1024;
 

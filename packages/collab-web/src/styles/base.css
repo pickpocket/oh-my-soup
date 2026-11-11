@@ -22,17 +22,13 @@ body,
 }
 
 body {
-	overscroll-behavior-y: none;
-}
-
-body {
-	font: 400 13.5px / 1.5 var(--font-ui);
+	font: 400 14px / 1.4 var(--font-ui);
 	background: var(--bg);
 	color: var(--fg);
 	-webkit-font-smoothing: antialiased;
 	-moz-osx-font-smoothing: grayscale;
 	text-rendering: optimizeLegibility;
-	font-feature-settings: "cv11", "ss01";
+	overscroll-behavior-y: none;
 	overflow: hidden;
 }
 
@@ -51,8 +47,12 @@ button {
 	cursor: pointer;
 }
 
+button:disabled {
+	cursor: default;
+}
+
 a {
-	color: var(--accent);
+	color: var(--accent-text);
 }
 
 code,
@@ -64,7 +64,6 @@ kbd {
 :focus-visible {
 	outline: 2px solid var(--ring);
 	outline-offset: 2px;
-	border-radius: 4px;
 }
 
 input,
@@ -104,46 +103,45 @@ textarea {
 	background: transparent;
 }
 
+/* Quiet ring spinner, sized by its font-size. */
+.spinner {
+	flex: none;
+	display: inline-block;
+	width: 1em;
+	height: 1em;
+	border: 1.5px solid var(--border-strong);
+	border-top-color: currentColor;
+	border-radius: 50%;
+	animation: spin 0.8s linear infinite;
+}
+
 /* shared animations */
+@keyframes spin {
+	to {
+		transform: rotate(360deg);
+	}
+}
+
 @keyframes pulse {
 	0%,
 	100% {
 		opacity: 1;
 	}
 	50% {
-		opacity: 0.35;
+		opacity: 0.4;
 	}
 }
 
-@keyframes shimmer {
-	0% {
-		background-position: -200% 0;
-	}
-	100% {
-		background-position: 200% 0;
-	}
-}
-
-@keyframes rise {
+@keyframes fade-in {
 	from {
 		opacity: 0;
-		transform: translateY(6px);
-	}
-	to {
-		opacity: 1;
-		transform: none;
 	}
 }
 
-@keyframes ping {
-	0% {
-		transform: scale(1);
-		opacity: 0.7;
-	}
-	80%,
-	100% {
-		transform: scale(2.6);
+@keyframes pop-in {
+	from {
 		opacity: 0;
+		transform: translateY(4px);
 	}
 }
 
@@ -154,5 +152,10 @@ textarea {
 		animation-duration: 1ms !important;
 		animation-delay: 0ms !important;
 		transition-duration: 1ms !important;
+	}
+
+	/* A spinner frozen mid-turn reads as broken; breathe instead. */
+	.spinner {
+		animation: pulse 1.4s ease-in-out infinite !important;
 	}
 }

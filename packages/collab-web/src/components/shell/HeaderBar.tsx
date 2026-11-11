@@ -1,11 +1,9 @@
 import type { SessionHeader, SessionState } from "@oh-my-soup/pi-wire";
-import { LogOut, PanelRight } from "lucide-react";
+import { PanelLeft } from "lucide-react";
 import type { ReactNode } from "react";
 import { memo } from "react";
 import type { ConnectionPhase } from "../../lib/client";
-import { fmtPercent, shortenPath } from "../../lib/format";
-import { OmsMark } from "./OmsMark";
-import { ThemeToggle } from "./ThemeToggle";
+import { fmtPercent, fmtTokens, shortenPath } from "../../lib/format";
 
 const PHASE_LABEL: Record<ConnectionPhase, string> = {
 	connecting: "Connecting",
@@ -19,11 +17,9 @@ export interface HeaderBarProps {
 	header: SessionHeader | null;
 	state: SessionState | null;
 	phase: ConnectionPhase;
-	readOnly: boolean;
 	subCount: number;
-	railOpen: boolean;
-	onToggleRail(): void;
-	onLeave(): void;
+	sidebarOpen: boolean;
+	onToggleSidebar(): void;
 }
 
 /** Memoized on its snapshot fields, so streaming frames that leave them untouched skip it. */
@@ -31,11 +27,9 @@ export const HeaderBar = memo(function HeaderBar({
 	header,
 	state,
 	phase,
-	readOnly,
 	subCount,
-	railOpen,
-	onToggleRail,
-	onLeave,
+	sidebarOpen,
+	onToggleSidebar,
 }: HeaderBarProps): ReactNode {
 	const title = header?.title ?? state?.sessionName ?? "session";
 	const usage = state?.contextUsage;
@@ -47,14 +41,17 @@ export const HeaderBar = memo(function HeaderBar({
 				? (usage.tokens / usage.contextWindow) * 100
 				: null);
 	}
+	let usageTitle = `context · ${fmtPercent(pct)}`;
+	if (usage?.tokens != null) {
+		usageTitle += ` · ${fmtTokens(usage.tokens)}`;
+		if (usage.contextWindow !== null && usage.contextWindow > 0)
+			usageTitle += ` of ${fmtTokens(usage.contextWindow)}`;
+		usageTitle += " tokens";
+	}
 
 	return (
 		<header className="sh-header">
 			<div className="sh-header-left">
-				<span className="sh-brand" aria-label="oms collab">
-					<OmsMark />
-					<span className="sh-brand-slash">/</span>
-				</span>
 				<span className="sh-title" title={title}>
 					{title}
 				</span>
@@ -65,53 +62,36 @@ export const HeaderBar = memo(function HeaderBar({
 				)}
 			</div>
 			<div className="sh-header-right">
-				<span className={`sh-status sh-status-${phase}`} title={`connection: ${phase}`}>
+				<span className="sh-status" title={`connection: ${phase}`}>
 					<span className={`sh-dot sh-dot-${phase}`} />
-					{PHASE_LABEL[phase]}
+					<span className="sh-status-label">{PHASE_LABEL[phase]}</span>
 				</span>
-				{readOnly && (
-					<span className="sh-chip" title="you joined with a read-only link — watching only">
-						read-only
-					</span>
-				)}
-				{state?.model && <span className="sh-chip sh-chip-meta">{state.model.name}</span>}
-				{state?.thinkingLevel && <span className="sh-chip sh-chip-meta">{state.thinkingLevel}</span>}
 				{pct != null && (
-					<span
-						className={pct > 80 ? "sh-gauge sh-gauge-warn" : "sh-gauge"}
-						title={`context · ${fmtPercent(pct)}`}
-					>
-						<span className="sh-gauge-track">
-							<span className="sh-gauge-fill" style={{ width: `${Math.min(100, Math.max(0, pct))}%` }} />
-						</span>
-						<span className="sh-gauge-pct">{fmtPercent(pct)}</span>
+					<span className={pct > 80 ? "sh-ctx sh-ctx-warn" : "sh-ctx"} title={usageTitle}>
+						<svg className="sh-ctx-ring" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+							<circle className="sh-ctx-track" cx="8" cy="8" r="6" />
+							<circle
+								className="sh-ctx-value"
+								cx="8"
+								cy="8"
+								r="6"
+								pathLength="100"
+								strokeDasharray={`${Math.min(100, Math.max(0, pct))} 100`}
+							/>
+						</svg>
+						{fmtPercent(pct)}
 					</span>
 				)}
-				{state && state.participants.length > 0 && (
-					<span className="sh-avatars">
-						{state.participants.map((p, i) => (
-							<span
-								key={`${p.name}:${i}`}
-								className={p.role === "host" ? "sh-avatar sh-avatar-host" : "sh-avatar"}
-								title={`${p.name} · ${p.role}${p.readOnly ? " · view-only" : ""}`}
-							>
-								{(p.name[0] ?? "?").toUpperCase()}
-							</span>
-						))}
-					</span>
-				)}
-				<ThemeToggle />
 				<button
 					type="button"
-					className={railOpen ? "sh-btn sh-btn-icon sh-btn-on" : "sh-btn sh-btn-icon"}
-					onClick={onToggleRail}
-					title={railOpen ? "hide agents" : "show agents"}
+					className="sh-icon-btn"
+					onClick={onToggleSidebar}
+					aria-expanded={sidebarOpen}
+					aria-label={sidebarOpen ? "Hide sidebar" : "Show sidebar"}
+					title={sidebarOpen ? "Hide sidebar" : "Show sidebar"}
 				>
-					<PanelRight size={14} />
-					{subCount > 0 && <span className="sh-badge">{subCount}</span>}
-				</button>
-				<button type="button" className="sh-btn sh-btn-icon" onClick={onLeave} title="leave session">
-					<LogOut size={14} />
+					<PanelLeft size={16} />
+					{!sidebarOpen && subCount > 0 && <span className="sh-badge">{subCount}</span>}
 				</button>
 			</div>
 		</header>

@@ -4,7 +4,9 @@
  * One realistic host session (header + ~14 entries covering every renderer
  * branch), an agent registry (main + a running sub with ticking progress + a
  * parked sub with a transcript), a subagent transcript JSONL blob, and a
- * scripted streaming turn the mock host replays on every guest prompt.
+ * scripted streaming turn the mock host replays on every guest prompt. The
+ * `makeLong*` generators build a long session and a large subagent transcript
+ * for exercising transcript paging by hand (`mock-host --long`).
  */
 import type {
 	AgentEvent,
@@ -546,10 +548,295 @@ const subagentTranscriptLines: unknown[] = [
 	},
 ];
 
-/** DocSweep's session file, served by the mock host's fetch-transcript handler. */
+/** DocSweep's session file, served by the mock host's fetch-transcript-page handler. */
 export const subagentTranscriptJsonl: string = `${subagentTranscriptLines
 	.map(line => JSON.stringify(line))
 	.join("\n")}\n`;
+
+/** One row the running sub appends to its session file; `tick` keeps IDs unique. */
+export function makeProbeTranscriptLine(tick: number): string {
+	const ts = Date.now();
+	const entry: SessionEntry = {
+		id: `probe-live-${tick}`,
+		parentId: null,
+		timestamp: iso(ts),
+		type: "message",
+		message: {
+			role: "assistant",
+			content: [{ type: "text", text: `Replay ${tick}: 3 sockets reconnected, 0 duplicate entries after resync.` }],
+			model: fixtureModel.id,
+			usage: mkUsage(1_200 + tick, 24, 900, 0.0011),
+			stopReason: "stop",
+			timestamp: ts,
+		},
+	};
+	return `${JSON.stringify(entry)}\n`;
+}
+
+// ─── long session and transcript (mock-host --long) ──────────────────────────
+
+const LONG_TURNS = 360;
+const LONG_TURN_MS = 45_000;
+const LONG_TOOLS = ["bash", "read", "grep"] as const;
+const LONG_TOPICS = [
+	"backoff jitter",
+	"close-code table",
+	"resync handshake",
+	"send buffer cap",
+	"ping cadence",
+	"room recreation",
+] as const;
+
+/** Deterministic prose of `sentences` sentences, so generated rows differ in height. */
+function proseFor(seed: number, sentences: number): string {
+	const parts: string[] = [];
+	for (let i = 0; i < sentences; i++) {
+		const topic = LONG_TOPICS[(seed + i) % LONG_TOPICS.length]!;
+		parts.push(`Pass ${seed + 1}.${i + 1} re-checked the ${topic} against the relay and the guest replica.`);
+	}
+	return parts.join(" ");
+}
+
+function longToolArgs(tool: (typeof LONG_TOOLS)[number], turn: number, topic: string): Record<string, unknown> {
+	switch (tool) {
+		case "bash":
+			return { command: `bun test packages/coding-agent/test/collab --filter "${topic}"` };
+		case "read":
+			return { path: "packages/coding-agent/src/collab/relay-client.ts", offset: 20 + turn, limit: 40 };
+		case "grep":
+			return { pattern: topic.replaceAll(" ", "|"), paths: ["packages/coding-agent/src/collab"] };
+	}
+}
+
+/**
+ * About 1,500 entries of mixed kinds that end in {@link fixtureEntries}: user
+ * and guest prompts, assistant turns with tool calls and results, and the
+ * occasional model change, thinking-level change, compaction and branch summary.
+ */
+export function makeLongSessionEntries(): SessionEntry[] {
+	const generated: SessionEntry[] = [];
+	const start = NOW - 33 * MIN - LONG_TURNS * LONG_TURN_MS;
+	const at = (id: string, ts: number): { id: string; parentId: null; timestamp: string } => ({
+		id,
+		parentId: null,
+		timestamp: iso(ts),
+	});
+	for (let turn = 0; turn < LONG_TURNS; turn++) {
+		const ts = start + turn * LONG_TURN_MS;
+		const tag = `h${String(turn + 1).padStart(4, "0")}`;
+		const topic = LONG_TOPICS[turn % LONG_TOPICS.length]!;
+		const tool = LONG_TOOLS[turn % LONG_TOOLS.length]!;
+		const callId = `${tag}-call`;
+		if (turn % 25 === 24) {
+			generated.push({ ...at(`${tag}-model`, ts), type: "model_change", model: fixtureModel.id });
+		}
+		if (turn % 33 === 32) {
+			generated.push({
+				...at(`${tag}-thinking`, ts),
+				type: "thinking_level_change",
+				thinkingLevel: turn % 2 === 0 ? "medium" : "high",
+			});
+		}
+		if (turn % 7 === 6) {
+			generated.push({
+				...at(`${tag}-guest`, ts + 1_000),
+				type: "custom_message",
+				customType: "collab-prompt",
+				content: `can you also re-check the ${topic} while you are there?`,
+				details: { from: "ada" },
+				display: true,
+			});
+		} else {
+			generated.push({
+				...at(`${tag}-user`, ts + 1_000),
+				type: "message",
+				message: {
+					role: "user",
+					content: `audit pass ${turn + 1}: look at the ${topic}`,
+					timestamp: ts + 1_000,
+				},
+			});
+		}
+		generated.push({
+			...at(`${tag}-plan`, ts + 5_000),
+			type: "message",
+			message: {
+				role: "assistant",
+				content: [
+					{ type: "thinking", thinking: `The ${topic} moved in pass ${turn}; verify before claiming anything.` },
+					{ type: "text", text: `Checking the ${topic}.` },
+					{
+						type: "toolCall",
+						id: callId,
+						name: tool,
+						arguments: longToolArgs(tool, turn, topic),
+						intent: `Inspecting the ${topic}`,
+					},
+				],
+				model: fixtureModel.id,
+				usage: mkUsage(2_000 + turn * 3, 120, 18_000, 0.011),
+				stopReason: "toolUse",
+				timestamp: ts + 5_000,
+			},
+		});
+		generated.push({
+			...at(`${tag}-result`, ts + 9_000),
+			type: "message",
+			message: {
+				role: "toolResult",
+				toolCallId: callId,
+				toolName: tool,
+				content: [
+					{
+						type: "text",
+						text: Array.from(
+							{ length: 3 + (turn % 12) },
+							(_, line) => `${line + 1}: ${topic} check ${turn + 1}.${line + 1} ok`,
+						).join("\n"),
+					},
+				],
+				isError: turn % 9 === 8,
+				timestamp: ts + 9_000,
+			},
+		});
+		generated.push({
+			...at(`${tag}-answer`, ts + 20_000),
+			type: "message",
+			message: {
+				role: "assistant",
+				content: [
+					{
+						type: "text",
+						text:
+							turn % 5 === 0
+								? `### Pass ${turn + 1}\n\n- ${topic}: verified\n- regressions: none\n\n\`\`\`ts\nconst pass = ${turn + 1};\n\`\`\``
+								: proseFor(turn, 1 + (turn % 4)),
+					},
+				],
+				model: fixtureModel.id,
+				usage: mkUsage(2_400 + turn * 3, 90, 19_000, 0.012),
+				stopReason: "stop",
+				timestamp: ts + 20_000,
+			},
+		});
+		if (turn % 40 === 39) {
+			generated.push({
+				...at(`${tag}-compaction`, ts + 30_000),
+				type: "compaction",
+				summary: `Passes up to ${turn + 1} verified the reconnect path; nothing regressed.`,
+				shortSummary: `passes 1–${turn + 1}`,
+				firstKeptEntryId: `${tag}-answer`,
+				tokensBefore: 40_000 + turn * 25,
+			});
+		}
+		if (turn % 50 === 49) {
+			generated.push({
+				...at(`${tag}-branch`, ts + 31_000),
+				type: "branch_summary",
+				fromId: `${tag}-answer`,
+				summary: `Explored an alternative for the ${topic} and returned.`,
+			});
+		}
+	}
+	const entries: SessionEntry[] = generated.map((entry, index) => ({
+		...entry,
+		parentId: generated[index - 1]?.id ?? null,
+	}));
+	for (const entry of fixtureEntries) {
+		entries.push(entry.parentId === null ? { ...entry, parentId: entries.at(-1)?.id ?? null } : entry);
+	}
+	return entries;
+}
+
+/**
+ * A subagent session file of about `targetBytes`: a header, tool calls with
+ * multi-kilobyte results (multi-byte text included), short assistant notes and
+ * the occasional line of an unknown entry type.
+ */
+export function makeLongTranscriptJsonl(targetBytes = 2 * 1024 * 1024): string {
+	const lines: string[] = [];
+	let bytes = 0;
+	const add = (line: unknown): void => {
+		const json = JSON.stringify(line);
+		lines.push(json);
+		bytes += Buffer.byteLength(json) + 1;
+	};
+	add({ type: "session", id: "mock-long-sub", timestamp: iso(SUB_T0), cwd: fixtureHeader.cwd });
+	for (let step = 0; bytes < targetBytes; step++) {
+		const ts = SUB_T0 + step * 7_000;
+		const tag = `t${String(step + 1).padStart(4, "0")}`;
+		const callId = `${tag}-call`;
+		// Unknown entry type — guests skip the row and still account for its bytes.
+		if (step % 40 === 0) {
+			add({ type: "session_init", id: `${tag}-init`, parentId: null, timestamp: iso(ts), version: 3 });
+		}
+		const call: SessionEntry = {
+			id: `${tag}-plan`,
+			parentId: null,
+			timestamp: iso(ts),
+			type: "message",
+			message: {
+				role: "assistant",
+				content: [
+					{
+						type: "toolCall",
+						id: callId,
+						name: "bash",
+						arguments: { command: `bun test packages/coding-agent/test/collab --filter replay-${step + 1}` },
+						intent: `Replaying drop scenario ${step + 1}`,
+					},
+				],
+				model: fixtureModel.id,
+				usage: mkUsage(1_400 + step, 40, 900, 0.0023),
+				stopReason: "toolUse",
+				timestamp: ts,
+			},
+		};
+		const result: SessionEntry = {
+			id: `${tag}-result`,
+			parentId: call.id,
+			timestamp: iso(ts + 3_000),
+			type: "message",
+			message: {
+				role: "toolResult",
+				toolCallId: callId,
+				toolName: "bash",
+				content: [
+					{
+						type: "text",
+						text: Array.from(
+							{ length: 12 + ((step * 7) % 60) },
+							(_, line) =>
+								`${line + 1}: ✓ replay ${step + 1}.${line + 1} — 3 sockets reconnected in 1.${line % 10}s, 재동기화 후 중복 0`,
+						).join("\n"),
+					},
+				],
+				isError: false,
+				timestamp: ts + 3_000,
+			},
+		};
+		add(call);
+		add(result);
+		if (step % 3 === 2) {
+			const note: SessionEntry = {
+				id: `${tag}-note`,
+				parentId: result.id,
+				timestamp: iso(ts + 5_000),
+				type: "message",
+				message: {
+					role: "assistant",
+					content: [{ type: "text", text: `Scenario ${step + 1} holds: no duplicate entries after resync.` }],
+					model: fixtureModel.id,
+					usage: mkUsage(1_500 + step, 30, 1_000, 0.0024),
+					stopReason: "stop",
+					timestamp: ts + 5_000,
+				},
+			};
+			add(note);
+		}
+	}
+	return `${lines.join("\n")}\n`;
+}
 
 // ─── scripted streaming turn ─────────────────────────────────────────────────
 

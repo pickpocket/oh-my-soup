@@ -72,9 +72,9 @@ function snapshotChunk(entries: SessionEntry[], final = true): HostFrame {
 	return { t: "snapshot-chunk", entries, final };
 }
 
-function liveClient(entries: SessionEntry[] = []): GuestClient {
+function liveClient(entries: SessionEntry[] = [], history?: HistoryPage): GuestClient {
 	const client = new GuestClient(LINK, "tester");
-	client.applyFrameForTest(welcomeFrame(entries.length));
+	client.applyFrameForTest(welcomeFrame(entries.length, undefined, history));
 	if (entries.length > 0) client.applyFrameForTest(snapshotChunk(entries));
 	return client;
 }
@@ -94,6 +94,47 @@ function historyFrame(
 	afterId: string | null,
 ): HostFrame {
 	return { t: "history", reqId, entries, page: { beforeId, afterId, total } };
+}
+
+const WINDOW_ENTRIES = 2 * COLLAB_HISTORY_ENTRIES;
+const WINDOW_BYTES = 2 * COLLAB_HISTORY_BYTES;
+
+function entryIds(entries: readonly SessionEntry[]): string[] {
+	return entries.map(entry => entry.id);
+}
+
+/**
+ * Stands in for the host: answers every fetch-history from `canonical()` with
+ * a page of at most COLLAB_HISTORY_ENTRIES entries and exclusive cursors.
+ */
+function serveHistory(client: GuestClient, canonical: () => readonly SessionEntry[], sent: GuestFrame[] = []) {
+	return vi.spyOn(CollabSocket.prototype, "send").mockImplementation(frame => {
+		sent.push(frame);
+		if (frame.t !== "fetch-history") return true;
+		const all = canonical();
+		const cursor = frame.cursor;
+		const index = cursor.kind === "latest" ? all.length : all.findIndex(entry => entry.id === cursor.id);
+		const start = cursor.kind === "after" ? index + 1 : Math.max(0, index - COLLAB_HISTORY_ENTRIES);
+		const end = cursor.kind === "after" ? Math.min(all.length, start + COLLAB_HISTORY_ENTRIES) : index;
+		const page = all.slice(start, end);
+		client.applyFrameForTest(
+			historyFrame(
+				frame.reqId,
+				page,
+				all.length,
+				page.length > 0 && start > 0 ? page[0]!.id : null,
+				page.length > 0 && end < all.length ? page.at(-1)!.id : null,
+			),
+		);
+		return true;
+	});
+}
+
+/** The history request the client sent last. */
+function lastHistoryRequest(sent: readonly GuestFrame[]): Extract<GuestFrame, { t: "fetch-history" }> {
+	const frame = sent.at(-1);
+	if (frame?.t !== "fetch-history") throw new Error("expected a fetch-history frame");
+	return frame;
 }
 
 describe("GuestClient frame apply", () => {
@@ -469,6 +510,7 @@ describe("GuestClient frame apply", () => {
 		const sent: GuestFrame[] = [];
 		const sendSpy = vi.spyOn(CollabSocket.prototype, "send").mockImplementation((frame: GuestFrame) => {
 			sent.push(frame);
+			return true;
 		});
 		try {
 			const client = liveClient();
@@ -548,8 +590,8 @@ describe("GuestClient frame apply", () => {
 	});
 });
 
-describe("GuestClient bounded history", () => {
-	it("joins 9000 canonical entries from a bounded initial page", () => {
+describe("GuestClient history window", () => {
+	it("joins a 9000-entry session from a bounded initial page", () => {
 		const client = new GuestClient(LINK, "tester");
 		const entries = userEntries(8900, 9000);
 		client.applyFrameForTest(welcomeFrame(100, false, { beforeId: "e8900", afterId: null, total: 9000 }));
@@ -560,149 +602,266 @@ describe("GuestClient bounded history", () => {
 		expect(client.getSnapshot()).toMatchObject({
 			phase: "live",
 			entries,
-			history: { beforeId: "e8900", afterId: null, total: 9000, atLatest: true, loading: false },
+			history: { hasOlder: true, atLatest: true, total: 9000, unseen: 0, loading: null, error: null },
 		});
 	});
 
-	it("bounds old fixture snapshots without metadata and preserves an exclusive older cursor", () => {
+	it("bounds a snapshot from a host that sends every entry and still offers the older ones", () => {
 		const entries = userEntries(0, 9000);
 		const client = liveClient(entries);
-		expect(client.getSnapshot().entries).toEqual(entries.slice(-COLLAB_HISTORY_ENTRIES));
-		expect(client.getSnapshot().history).toMatchObject({ beforeId: "e8900", total: 9000 });
+		expect(client.getSnapshot().entries).toEqual(entries.slice(-WINDOW_ENTRIES));
+		expect(client.getSnapshot().history).toMatchObject({ hasOlder: true, atLatest: true, total: 9000 });
 	});
 
-	it("bounds UTF-8 bytes as well as entry count and always retains the newest oversize entry", () => {
-		const client = liveClient(userEntries(0, 20, "한🙂".repeat(4000)));
+	it("bounds UTF-8 bytes as well as entry count and retains one oversized entry alone", () => {
+		const client = liveClient(userEntries(0, 40, "한🙂".repeat(4000)));
 		const first = client.getSnapshot();
-		expect(first.entries.length).toBeLessThan(20);
-		expect(new TextEncoder().encode(JSON.stringify(first.entries)).byteLength).toBeLessThanOrEqual(
-			COLLAB_HISTORY_BYTES,
-		);
-		expect(first.history.beforeId).toBe(first.entries[0]!.id);
+		expect(first.entries.length).toBeLessThan(40);
+		expect(first.entries.at(-1)?.id).toBe("e39");
+		expect(new TextEncoder().encode(JSON.stringify(first.entries)).byteLength).toBeLessThanOrEqual(WINDOW_BYTES);
+		expect(first.history.hasOlder).toBe(true);
 
-		const huge = messageEntry("huge", { role: "user", content: "🙂".repeat(COLLAB_HISTORY_BYTES), timestamp: 20 });
+		const huge = messageEntry("huge", { role: "user", content: "🙂".repeat(WINDOW_BYTES), timestamp: 40 });
 		client.applyFrameForTest({ t: "entry", entry: huge });
 		expect(client.getSnapshot().entries).toEqual([huge]);
-		expect(client.getSnapshot().history.beforeId).toBe("huge");
-		client.applyFrameForTest({ t: "entry", entry: userEntries(21, 22)[0]! });
-		expect(client.getSnapshot().entries.map(entry => entry.id)).toEqual(["e21"]);
-		expect(client.getSnapshot().history.beforeId).toBe("e21");
+		client.applyFrameForTest({ t: "entry", entry: userEntries(41, 42)[0]! });
+		expect(entryIds(client.getSnapshot().entries)).toEqual(["e41"]);
+		expect(client.getSnapshot().history).toMatchObject({ hasOlder: true, atLatest: true });
 	});
 
-	it("bounds live retention and exposes every evicted row through replacement pages", () => {
-		const canonical = userEntries(0, 1250);
-		const client = liveClient(canonical.slice(0, 50));
-		for (const entry of canonical.slice(50)) client.applyFrameForTest({ t: "entry", entry });
-		expect(client.getSnapshot().entries).toEqual(canonical.slice(-100));
-		expect(client.getSnapshot().history).toMatchObject({ beforeId: "e1150", total: 1250 });
+	it("walks to the start of a 1,250-entry session and back to live as one contiguous bounded window", () => {
+		// ~1.6 KiB per entry: a full count-bounded window would overrun the byte bound.
+		const canonical = userEntries(0, 1250, "x".repeat(1500));
+		const client = liveClient(canonical.slice(-100), { beforeId: "e1150", afterId: null, total: 1250 });
+		const version = client.getSnapshot().history.version;
 		const sent: GuestFrame[] = [];
-		const sendSpy = vi.spyOn(CollabSocket.prototype, "send").mockImplementation(frame => {
-			sent.push(frame);
-			if (frame.t !== "fetch-history") return;
-			const cursor = frame.cursor;
-			const index =
-				cursor.kind === "latest" ? canonical.length : canonical.findIndex(entry => entry.id === cursor.id);
-			const start = cursor.kind === "after" ? index + 1 : Math.max(0, index - 100);
-			const end = cursor.kind === "before" ? index : Math.min(canonical.length, start + 100);
-			client.applyFrameForTest(
-				historyFrame(
-					frame.reqId,
-					canonical.slice(start, end),
-					canonical.length,
-					start > 0 ? canonical[start]!.id : null,
-					end < canonical.length ? canonical[end - 1]!.id : null,
-				),
-			);
-		});
+		const sendSpy = serveHistory(client, () => canonical, sent);
+		const expectBoundedRun = (): void => {
+			const { entries } = client.getSnapshot();
+			const first = canonical.findIndex(entry => entry.id === entries[0]?.id);
+			expect(entryIds(entries)).toEqual(entryIds(canonical.slice(first, first + entries.length)));
+			expect(entries.length).toBeLessThanOrEqual(WINDOW_ENTRIES);
+			expect(new TextEncoder().encode(JSON.stringify(entries)).byteLength).toBeLessThanOrEqual(WINDOW_BYTES);
+		};
 		try {
-			const visited = new Set(client.getSnapshot().entries.map(entry => entry.id));
-			while (client.getSnapshot().history.beforeId !== null) {
-				client.fetchHistory({ kind: "before", id: client.getSnapshot().history.beforeId! });
-				const snap = client.getSnapshot();
-				expect(snap.entries.length).toBeLessThanOrEqual(COLLAB_HISTORY_ENTRIES);
-				for (const entry of snap.entries) visited.add(entry.id);
+			const visited = new Set(entryIds(client.getSnapshot().entries));
+			for (let round = 0; client.getSnapshot().history.hasOlder; round++) {
+				expect(round).toBeLessThan(50);
+				client.loadOlder();
+				expectBoundedRun();
+				for (const entry of client.getSnapshot().entries) visited.add(entry.id);
 			}
+			expect(sent[0]).toMatchObject({ t: "fetch-history", cursor: { kind: "before", id: "e1150" } });
 			expect(visited.size).toBe(canonical.length);
 			expect(client.getSnapshot().entries[0]?.id).toBe("e0");
-			while (client.getSnapshot().history.afterId !== null) {
-				client.fetchHistory({ kind: "after", id: client.getSnapshot().history.afterId! });
-				expect(client.getSnapshot().entries.length).toBeLessThanOrEqual(COLLAB_HISTORY_ENTRIES);
+			// Prepending evicted the newest entries: the window no longer reaches the tail.
+			expect(client.getSnapshot().history).toMatchObject({ atLatest: false, unseen: 0, total: 1250 });
+
+			for (let round = 0; !client.getSnapshot().history.atLatest; round++) {
+				expect(round).toBeLessThan(50);
+				client.loadNewer();
+				expectBoundedRun();
 			}
-			expect(client.getSnapshot().history.atLatest).toBe(true);
 			expect(client.getSnapshot().entries.at(-1)?.id).toBe("e1249");
-			expect(sent[0]).toMatchObject({ t: "fetch-history", cursor: { kind: "before", id: "e1150" } });
+			expect(client.getSnapshot().history).toMatchObject({
+				hasOlder: true,
+				atLatest: true,
+				unseen: 0,
+				total: 1250,
+				loading: null,
+				error: null,
+			});
+			// Sliding never replaces the window wholesale.
+			expect(client.getSnapshot().history.version).toBe(version);
 		} finally {
 			sendSpy.mockRestore();
 			client.close();
 		}
 	});
 
-	it("keeps live work independent of history and merges a latest reply without duplicate or lost rows", () => {
-		const client = liveClient(userEntries(0, 250));
-		client.fetchHistory({ kind: "before", id: "e150" });
-		client.applyFrameForTest(historyFrame(1, userEntries(50, 150), 250, "e50", "e149"));
-		const historical = client.getSnapshot().entries;
-		const baseline = assistantMessage("reading");
-		const updated = assistantMessage("reading while live continues");
-		client.applyFrameForTest({ t: "stream", id: 7, revision: 0, message: baseline });
-		client.applyFrameForTest({ t: "entry", entry: userEntries(250, 251)[0]! });
-		client.applyFrameForTest({
-			t: "stream-delta",
-			id: 7,
-			previousRevision: 0,
-			revision: 1,
-			patch: diffCollabStream(baseline, updated),
-		});
-		expect(client.getSnapshot().entries).toBe(historical);
-		expect(client.getSnapshot().history).toMatchObject({ atLatest: false, total: 251 });
-		expect(client.getSnapshot().stream).toEqual(updated);
+	it("re-attaches without a gap or a duplicate when live entries arrive while the last newer page is in flight", () => {
+		for (const replyIncludesRaced of [false, true]) {
+			const sent: GuestFrame[] = [];
+			const sendSpy = vi.spyOn(CollabSocket.prototype, "send").mockImplementation(frame => {
+				sent.push(frame);
+				return true;
+			});
+			const client = liveClient(userEntries(300, 400), { beforeId: "e300", afterId: null, total: 400 });
+			try {
+				client.loadOlder();
+				client.applyFrameForTest(
+					historyFrame(lastHistoryRequest(sent).reqId, userEntries(200, 300), 400, "e200", "e299"),
+				);
+				expect(client.getSnapshot().history.atLatest).toBe(true);
+				client.loadOlder();
+				client.applyFrameForTest(
+					historyFrame(lastHistoryRequest(sent).reqId, userEntries(100, 200), 400, "e100", "e199"),
+				);
+				expect(entryIds(client.getSnapshot().entries)).toEqual(entryIds(userEntries(100, 300)));
+				expect(client.getSnapshot().history).toMatchObject({ atLatest: false, hasOlder: true, unseen: 0 });
 
-		client.fetchHistory({ kind: "latest" });
-		for (const entry of userEntries(251, 253)) client.applyFrameForTest({ t: "entry", entry });
-		// Reply already contains e251, while e252 arrived after that snapshot.
-		client.applyFrameForTest(historyFrame(2, userEntries(152, 252), 252, "e152", null));
-		expect(client.getSnapshot().entries).toEqual(userEntries(153, 253));
-		expect(client.getSnapshot().history).toMatchObject({ atLatest: true, beforeId: "e153", total: 253 });
-		expect(client.getSnapshot().stream).toEqual(updated);
-		client.close();
+				client.loadNewer();
+				expect(lastHistoryRequest(sent).cursor).toEqual({ kind: "after", id: "e299" });
+				const detached = client.getSnapshot().entries;
+				for (const entry of userEntries(400, 402)) client.applyFrameForTest({ t: "entry", entry });
+				expect(client.getSnapshot().entries).toBe(detached);
+				expect(client.getSnapshot().history).toMatchObject({ atLatest: false, unseen: 2, total: 402 });
+				client.applyFrameForTest(
+					historyFrame(lastHistoryRequest(sent).reqId, userEntries(300, 400), 402, "e300", "e399"),
+				);
+				expect(entryIds(client.getSnapshot().entries)).toEqual(entryIds(userEntries(200, 400)));
+				expect(client.getSnapshot().history).toMatchObject({ atLatest: false, unseen: 2 });
+
+				client.loadNewer();
+				expect(lastHistoryRequest(sent).cursor).toEqual({ kind: "after", id: "e399" });
+				client.applyFrameForTest({ t: "entry", entry: userEntries(402, 403)[0]! });
+				client.applyFrameForTest(
+					replyIncludesRaced
+						? historyFrame(lastHistoryRequest(sent).reqId, userEntries(400, 403), 403, "e400", null)
+						: historyFrame(lastHistoryRequest(sent).reqId, userEntries(400, 402), 402, "e400", null),
+				);
+				expect(entryIds(client.getSnapshot().entries)).toEqual(entryIds(userEntries(203, 403)));
+				expect(client.getSnapshot().history).toMatchObject({
+					atLatest: true,
+					hasOlder: true,
+					unseen: 0,
+					total: 403,
+				});
+
+				// Attached again: the next live entry flows straight into the window.
+				client.applyFrameForTest({ t: "entry", entry: userEntries(403, 404)[0]! });
+				expect(entryIds(client.getSnapshot().entries)).toEqual(entryIds(userEntries(204, 404)));
+			} finally {
+				sendSpy.mockRestore();
+				client.close();
+			}
+		}
 	});
 
-	it("does not reappend raced entries that were already evicted from the reply's byte-bounded page", () => {
+	it("evicts the oldest entries on overflow while the reader follows the tail", () => {
+		const canonical = userEntries(0, 1250);
+		const client = liveClient(canonical.slice(0, 50));
+		for (const entry of canonical.slice(50)) client.applyFrameForTest({ t: "entry", entry });
+		expect(client.getSnapshot().entries).toEqual(canonical.slice(-WINDOW_ENTRIES));
+		expect(client.getSnapshot().history).toMatchObject({ hasOlder: true, atLatest: true, total: 1250, unseen: 0 });
+	});
+
+	it("detaches instead of evicting when the window is full and the reader is not following the tail", () => {
+		const canonical = userEntries(0, 205);
+		const client = liveClient(canonical.slice(0, 150));
+		client.setFollowingTail(false);
+		for (const entry of canonical.slice(150, 200)) client.applyFrameForTest({ t: "entry", entry });
+		const full = client.getSnapshot().entries;
+		expect(full).toEqual(canonical.slice(0, 200));
+		expect(client.getSnapshot().history).toMatchObject({ hasOlder: false, atLatest: true, unseen: 0 });
+
+		for (const entry of canonical.slice(200)) client.applyFrameForTest({ t: "entry", entry });
+		expect(client.getSnapshot().entries).toBe(full);
+		expect(client.getSnapshot().history).toMatchObject({ hasOlder: false, atLatest: false, unseen: 5, total: 205 });
+
+		// Reading on toward the tail fetches what was held back and re-attaches.
+		const sendSpy = serveHistory(client, () => canonical);
+		try {
+			client.loadNewer();
+			expect(client.getSnapshot().entries).toEqual(canonical.slice(5));
+			expect(client.getSnapshot().history).toMatchObject({ hasOlder: true, atLatest: true, unseen: 0, total: 205 });
+		} finally {
+			sendSpy.mockRestore();
+			client.close();
+		}
+	});
+
+	it("keeps a detached window still while live work continues, then jumps to latest without duplicate or lost rows", () => {
+		const sent: GuestFrame[] = [];
+		const sendSpy = vi.spyOn(CollabSocket.prototype, "send").mockImplementation(frame => {
+			sent.push(frame);
+			return true;
+		});
+		const client = liveClient(userEntries(50, 250), { beforeId: "e50", afterId: null, total: 250 });
+		try {
+			client.loadOlder();
+			client.applyFrameForTest(historyFrame(lastHistoryRequest(sent).reqId, userEntries(0, 50), 250, null, "e49"));
+			const historical = client.getSnapshot().entries;
+			expect(historical).toEqual(userEntries(0, 200));
+			const version = client.getSnapshot().history.version;
+
+			const baseline = assistantMessage("reading");
+			const updated = assistantMessage("reading while live continues");
+			client.applyFrameForTest({ t: "stream", id: 7, revision: 0, message: baseline });
+			client.applyFrameForTest({ t: "entry", entry: userEntries(250, 251)[0]! });
+			client.applyFrameForTest({
+				t: "stream-delta",
+				id: 7,
+				previousRevision: 0,
+				revision: 1,
+				patch: diffCollabStream(baseline, updated),
+			});
+			expect(client.getSnapshot().entries).toBe(historical);
+			expect(client.getSnapshot().history).toMatchObject({ atLatest: false, total: 251, unseen: 1 });
+			expect(client.getSnapshot().stream).toEqual(updated);
+
+			client.jumpToLatest();
+			expect(lastHistoryRequest(sent).cursor).toEqual({ kind: "latest" });
+			expect(client.getSnapshot().history.loading).toBe("latest");
+			for (const entry of userEntries(251, 253)) client.applyFrameForTest({ t: "entry", entry });
+			// The reply already contains e251, while e252 arrived after the host built it.
+			client.applyFrameForTest(
+				historyFrame(lastHistoryRequest(sent).reqId, userEntries(152, 252), 252, "e152", null),
+			);
+			expect(client.getSnapshot().entries).toEqual(userEntries(152, 253));
+			expect(client.getSnapshot().history).toMatchObject({
+				atLatest: true,
+				hasOlder: true,
+				total: 253,
+				unseen: 0,
+				loading: null,
+			});
+			expect(client.getSnapshot().history.version).toBe(version + 1);
+			expect(client.getSnapshot().stream).toEqual(updated);
+		} finally {
+			sendSpy.mockRestore();
+			client.close();
+		}
+	});
+
+	it("does not reappend raced entries that the latest reply's byte-bounded page already left behind", () => {
 		const client = liveClient(userEntries(0, 3));
-		client.fetchHistory({ kind: "latest" });
+		client.jumpToLatest();
 		const older = userEntries(3, 4)[0]!;
-		const latest = messageEntry("e4", { role: "user", content: "x".repeat(COLLAB_HISTORY_BYTES), timestamp: 4 });
+		const latest = messageEntry("e4", { role: "user", content: "x".repeat(WINDOW_BYTES), timestamp: 4 });
 		client.applyFrameForTest({ t: "entry", entry: older });
 		client.applyFrameForTest({ t: "entry", entry: latest });
 		client.applyFrameForTest(historyFrame(1, [latest], 5, "e4", null));
 		expect(client.getSnapshot().entries).toEqual([latest]);
-		expect(client.getSnapshot().history.total).toBe(5);
+		expect(client.getSnapshot().history).toMatchObject({ total: 5, hasOlder: true, atLatest: true });
 		client.close();
 	});
 
-	it("keeps both pending snapshot and latest-request live races bounded through a long burst", () => {
+	it("keeps snapshot and latest-request races bounded and contiguous through a long live burst", () => {
 		const client = new GuestClient(LINK, "tester");
 		client.applyFrameForTest(welcomeFrame(100, false, { beforeId: "e0", afterId: null, total: 100 }));
 		client.applyFrameForTest(snapshotChunk(userEntries(0, 40), false));
 		for (const entry of userEntries(100, 2100)) client.applyFrameForTest({ t: "entry", entry });
 		client.applyFrameForTest(snapshotChunk(userEntries(40, 100)));
-		expect(client.getSnapshot().entries).toEqual(userEntries(2000, 2100));
-		expect(client.getSnapshot().history).toMatchObject({ beforeId: "e2000", total: 2100 });
-		client.fetchHistory({ kind: "latest" });
+		// More raced past the snapshot than one window holds: only the newest run is contiguous.
+		expect(client.getSnapshot().entries).toEqual(userEntries(2100 - WINDOW_ENTRIES, 2100));
+		expect(client.getSnapshot().history).toMatchObject({ hasOlder: true, atLatest: true, total: 2100 });
+
+		client.jumpToLatest();
 		for (const entry of userEntries(2100, 4100)) client.applyFrameForTest({ t: "entry", entry });
 		client.applyFrameForTest(historyFrame(1, userEntries(2000, 2100), 2100, "e2000", null));
-		expect(client.getSnapshot().entries).toEqual(userEntries(4000, 4100));
-		expect(client.getSnapshot().history).toMatchObject({ beforeId: "e4000", total: 4100 });
+		expect(client.getSnapshot().entries).toEqual(userEntries(4100 - WINDOW_ENTRIES, 4100));
+		expect(client.getSnapshot().history).toMatchObject({ hasOlder: true, atLatest: true, total: 4100 });
 		client.close();
 	});
 
-	it("preserves older access when an empty latest reply races more than one live window", () => {
+	it("keeps older entries reachable when an empty latest reply races more than one window of live entries", () => {
 		const client = liveClient();
-		client.fetchHistory({ kind: "latest" });
+		client.jumpToLatest();
 		for (const entry of userEntries(0, 250)) client.applyFrameForTest({ t: "entry", entry });
 		client.applyFrameForTest(historyFrame(1, [], 0, null, null));
-		expect(client.getSnapshot().entries).toEqual(userEntries(150, 250));
-		expect(client.getSnapshot().history).toMatchObject({ beforeId: "e150", total: 250, atLatest: true });
+		expect(client.getSnapshot().entries).toEqual(userEntries(250 - WINDOW_ENTRIES, 250));
+		expect(client.getSnapshot().history).toMatchObject({ hasOlder: true, total: 250, atLatest: true });
 		client.close();
 	});
 
@@ -715,60 +874,133 @@ describe("GuestClient bounded history", () => {
 		expect(client.getSnapshot().history.total).toBe(2);
 	});
 
-	it("ignores overlapping navigation and stale replies after a welcome or timeout", () => {
+	it("sends one history request at a time and ignores replies to any other request", () => {
+		const sent: GuestFrame[] = [];
+		const sendSpy = vi.spyOn(CollabSocket.prototype, "send").mockImplementation(frame => {
+			sent.push(frame);
+			return true;
+		});
+		const client = liveClient(userEntries(50, 150), { beforeId: "e50", afterId: null, total: 150 });
+		try {
+			const before = client.getSnapshot().entries;
+			client.loadOlder();
+			client.jumpToLatest();
+			client.loadOlder();
+			expect(sent.filter(frame => frame.t === "fetch-history")).toHaveLength(1);
+			expect(client.getSnapshot().history.loading).toBe("older");
+
+			const { reqId } = lastHistoryRequest(sent);
+			client.applyFrameForTest(historyFrame(reqId + 1, userEntries(0, 50), 150, null, "e49"));
+			expect(client.getSnapshot().history.loading).toBe("older");
+			expect(client.getSnapshot().entries).toBe(before);
+
+			client.applyFrameForTest(historyFrame(reqId, userEntries(0, 50), 150, null, "e49"));
+			expect(client.getSnapshot().entries).toEqual(userEntries(0, 150));
+			expect(client.getSnapshot().history).toMatchObject({ loading: null, error: null, hasOlder: false });
+		} finally {
+			sendSpy.mockRestore();
+			client.close();
+		}
+	});
+
+	it("surfaces a timeout and a host error without changing the window", () => {
 		vi.useFakeTimers();
 		const sent: GuestFrame[] = [];
 		const sendSpy = vi.spyOn(CollabSocket.prototype, "send").mockImplementation(frame => {
 			sent.push(frame);
+			return true;
 		});
+		const client = liveClient(userEntries(50, 150), { beforeId: "e50", afterId: null, total: 150 });
 		try {
-			const client = liveClient(userEntries(0, 150));
-			client.fetchHistory({ kind: "before", id: "e50" });
-			client.fetchHistory({ kind: "latest" });
-			expect(sent).toHaveLength(1);
-			expect(client.getSnapshot().history.loading).toBe(true);
-			client.applyFrameForTest(welcomeFrame(1, false, { beforeId: "e149", afterId: null, total: 150 }));
-			client.applyFrameForTest(historyFrame(1, userEntries(0, 50), 150, null, "e49"));
-			client.applyFrameForTest(snapshotChunk(userEntries(149, 150)));
-			expect(client.getSnapshot().entries).toEqual(userEntries(149, 150));
-			expect(client.getSnapshot().history.loading).toBe(false);
-
-			client.fetchHistory({ kind: "before", id: "e149" });
 			const before = client.getSnapshot().entries;
+			client.loadOlder();
+			const timedOut = lastHistoryRequest(sent).reqId;
 			vi.advanceTimersByTime(10_000);
-			expect(client.getSnapshot().history.error).toContain("timed out");
+			expect(client.getSnapshot().history.loading).toBeNull();
+			expect(client.getSnapshot().history.error).not.toBeNull();
 			expect(client.getSnapshot().entries).toBe(before);
-			client.fetchHistory({ kind: "before", id: "e149" });
-			client.applyFrameForTest(historyFrame(2, userEntries(49, 149), 150, "e49", "e148"));
-			expect(client.getSnapshot().history.loading).toBe(true);
+			// The late reply to the timed-out request is not applied.
+			client.applyFrameForTest(historyFrame(timedOut, userEntries(0, 50), 150, null, "e49"));
 			expect(client.getSnapshot().entries).toBe(before);
-			client.applyFrameForTest(historyFrame(3, userEntries(49, 149), 150, "e49", "e148"));
-			expect(client.getSnapshot().history).toMatchObject({ loading: false, error: null, atLatest: false });
-			client.close();
+
+			client.loadOlder();
+			expect(client.getSnapshot().history).toMatchObject({ loading: "older", error: null });
+			client.applyFrameForTest({
+				t: "history",
+				reqId: lastHistoryRequest(sent).reqId,
+				entries: [],
+				page: { beforeId: null, afterId: null, total: 150 },
+				error: "history cursor no longer exists",
+			});
+			expect(client.getSnapshot().entries).toBe(before);
+			expect(client.getSnapshot().history).toMatchObject({
+				loading: null,
+				error: "history cursor no longer exists",
+				hasOlder: true,
+				atLatest: true,
+			});
 		} finally {
 			sendSpy.mockRestore();
 			vi.useRealTimers();
+			client.close();
 		}
 	});
 
-	it("surfaces history failures without clearing the page and discards a reply after close", () => {
-		const client = liveClient(userEntries(0, 150));
-		const before = client.getSnapshot().entries;
-		client.fetchHistory({ kind: "before", id: "gone" });
-		client.applyFrameForTest({
-			t: "history",
-			reqId: 1,
-			entries: [],
-			page: { beforeId: null, afterId: null, total: 150 },
-			error: "history cursor no longer exists",
+	it("replaces the window with a fresh welcome's snapshot and clears the error and the pending request", () => {
+		const sent: GuestFrame[] = [];
+		const sendSpy = vi.spyOn(CollabSocket.prototype, "send").mockImplementation(frame => {
+			sent.push(frame);
+			return true;
 		});
-		expect(client.getSnapshot().entries).toBe(before);
-		expect(client.getSnapshot().history).toMatchObject({ loading: false, error: "history cursor no longer exists" });
-		client.fetchHistory({ kind: "before", id: "e50" });
+		const client = liveClient(userEntries(50, 150), { beforeId: "e50", afterId: null, total: 150 });
+		try {
+			const version = client.getSnapshot().history.version;
+			client.loadOlder();
+			client.applyFrameForTest({
+				t: "history",
+				reqId: lastHistoryRequest(sent).reqId,
+				entries: [],
+				page: { beforeId: null, afterId: null, total: 150 },
+				error: "history cursor no longer exists",
+			});
+			expect(client.getSnapshot().history.error).not.toBeNull();
+			client.applyFrameForTest(welcomeFrame(2, false, { beforeId: "e298", afterId: null, total: 300 }));
+			expect(client.getSnapshot().history.error).toBeNull();
+			client.applyFrameForTest(snapshotChunk(userEntries(298, 300)));
+			expect(client.getSnapshot().entries).toEqual(userEntries(298, 300));
+			expect(client.getSnapshot().history).toMatchObject({ hasOlder: true, atLatest: true, total: 300, unseen: 0 });
+			expect(client.getSnapshot().history.version).toBe(version + 1);
+
+			client.loadOlder();
+			const stale = lastHistoryRequest(sent).reqId;
+			expect(client.getSnapshot().history.loading).toBe("older");
+			client.applyFrameForTest(welcomeFrame(1, false, { beforeId: "e399", afterId: null, total: 400 }));
+			expect(client.getSnapshot().history.loading).toBeNull();
+			// The reply to the request the welcome superseded must not reach the new window.
+			client.applyFrameForTest(historyFrame(stale, userEntries(198, 298), 300, "e198", "e297"));
+			client.applyFrameForTest(snapshotChunk(userEntries(399, 400)));
+			expect(client.getSnapshot().entries).toEqual(userEntries(399, 400));
+			expect(client.getSnapshot().history).toMatchObject({
+				hasOlder: true,
+				atLatest: true,
+				total: 400,
+				loading: null,
+			});
+			expect(client.getSnapshot().history.version).toBe(version + 2);
+		} finally {
+			sendSpy.mockRestore();
+			client.close();
+		}
+	});
+
+	it("discards a history reply that arrives after the session closed", () => {
+		const client = liveClient(userEntries(50, 150), { beforeId: "e50", afterId: null, total: 150 });
+		const before = client.getSnapshot().entries;
+		client.loadOlder();
 		client.close();
-		client.applyFrameForTest(historyFrame(2, userEntries(0, 50), 150, null, "e49"));
+		client.applyFrameForTest(historyFrame(1, userEntries(0, 50), 150, null, "e49"));
 		expect(client.getSnapshot().phase).toBe("ended");
-		expect(client.getSnapshot().history.loading).toBe(false);
+		expect(client.getSnapshot().history.loading).toBeNull();
 		expect(client.getSnapshot().entries).toBe(before);
 	});
 });
@@ -892,6 +1124,89 @@ describe("GuestClient lossless stream patches", () => {
 			});
 			expect(client.getSnapshot().phase).toBe("ended");
 			expect(client.getSnapshot().endedReason).toContain("synchronization");
+		}
+	});
+});
+
+describe("GuestClient snapshot flow control", () => {
+	it("acknowledges every snapshot chunk with a count that restarts after each welcome", () => {
+		const sent: GuestFrame[] = [];
+		const sendSpy = vi.spyOn(CollabSocket.prototype, "send").mockImplementation(frame => {
+			sent.push(frame);
+			return true;
+		});
+		try {
+			const client = new GuestClient(LINK, "tester");
+			client.applyFrameForTest(snapshotChunk(userEntries(0, 1), false));
+			expect(sent).toEqual([]);
+
+			client.applyFrameForTest(welcomeFrame(3));
+			client.applyFrameForTest(snapshotChunk(userEntries(0, 1), false));
+			client.applyFrameForTest(snapshotChunk(userEntries(1, 2), false));
+			client.applyFrameForTest(snapshotChunk(userEntries(2, 3), true));
+			expect(client.getSnapshot().phase).toBe("live");
+
+			client.applyFrameForTest(welcomeFrame(2));
+			client.applyFrameForTest(snapshotChunk(userEntries(0, 2), true));
+			expect(sent).toEqual([
+				{ t: "snapshot-ack", chunks: 1 },
+				{ t: "snapshot-ack", chunks: 2 },
+				{ t: "snapshot-ack", chunks: 3 },
+				{ t: "snapshot-ack", chunks: 1 },
+			]);
+		} finally {
+			sendSpy.mockRestore();
+		}
+	});
+
+	it("lands the snapshot under live frames that overtook its remaining chunks", () => {
+		const sendSpy = vi.spyOn(CollabSocket.prototype, "send").mockImplementation(() => true);
+		try {
+			const client = new GuestClient(LINK, "tester");
+			const first = assistantMessage("partial");
+			const next = assistantMessage("partial answer");
+			const request = { reqId: 4, kind: "editor" as const, title: "Name?", prefill: "" };
+			const commands = [{ name: "model", description: "Switch model", source: "builtin" as const }];
+			const state: SessionState = { ...STATE, isStreaming: true, queuedMessageCount: 2 };
+			const live = messageEntry("live-1", { role: "user", content: "while syncing", timestamp: 99 });
+
+			client.applyFrameForTest(welcomeFrame(3));
+			client.applyFrameForTest(snapshotChunk(userEntries(0, 1), false));
+			client.applyFrameForTest({ t: "stream", id: 1, revision: 0, message: first });
+			client.applyFrameForTest({ t: "commands", commands });
+			client.applyFrameForTest({ t: "ui-request", request });
+			client.applyFrameForTest({ t: "event", event: { type: "agent_start" } });
+			client.applyFrameForTest({
+				t: "event",
+				event: { type: "tool_execution_start", toolCallId: "tc1", toolName: "bash", args: { command: "ls" } },
+			});
+			client.applyFrameForTest({ t: "state", state });
+			client.applyFrameForTest({
+				t: "stream-delta",
+				id: 1,
+				previousRevision: 0,
+				revision: 1,
+				patch: diffCollabStream(first, next),
+			});
+			client.applyFrameForTest({ t: "entry", entry: live });
+			expect(client.getSnapshot()).toMatchObject({ phase: "connecting", loading: { received: 1, total: 3 } });
+
+			client.applyFrameForTest(snapshotChunk(userEntries(1, 2), false));
+			client.applyFrameForTest(snapshotChunk(userEntries(2, 3), true));
+
+			const snapshot = client.getSnapshot();
+			expect(snapshot.phase).toBe("live");
+			expect(snapshot.loading).toBeNull();
+			expect(entryIds(snapshot.entries)).toEqual(["e0", "e1", "e2", "live-1"]);
+			expect(snapshot.history).toMatchObject({ total: 4, atLatest: true, unseen: 0 });
+			expect(snapshot.stream).toEqual(next);
+			expect(snapshot.commands).toEqual(commands);
+			expect(snapshot.uiRequest).toEqual(request);
+			expect(snapshot.state).toEqual(state);
+			expect(snapshot.working).toBe(true);
+			expect([...snapshot.activeTools.keys()]).toEqual(["tc1"]);
+		} finally {
+			sendSpy.mockRestore();
 		}
 	});
 });

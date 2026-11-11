@@ -16,3 +16,18 @@ export function OmsMark({ size = 22 }: { size?: number }): ReactNode {
 		</svg>
 	);
 }
+
+/** Brand lockup: mark, wordmark and the product tag. */
+export function Brand(): ReactNode {
+	return (
+		<span className="sh-brand" role="img" aria-label="oms collab">
+			<OmsMark />
+			<span className="sh-brand-name" aria-hidden="true">
+				oms
+			</span>
+			<span className="sh-brand-tag" aria-hidden="true">
+				collab
+			</span>
+		</span>
+	);
+}

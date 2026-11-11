@@ -2,17 +2,28 @@
 
 ## [Unreleased]
 
+### Added
+
+- Slash commands in the composer: type `/` to complete and run the browser's own commands (`/help`, `/theme`, `/copy`, `/agents`, `/leave`) and, on a full-control link, the commands the host allows, with arguments such as the model list completed from the host.
+- `/btw` side questions stream their answer into a panel above the composer and can be cancelled.
+- Works with the standalone `oms-relay` server, and the local development relay (`bun run relay`) now enforces its message limit, room limits and slow-guest eviction, plus `/healthz`.
+
 ### Changed
 
+- Redesigned the interface: a sidebar for the session, its subagents and participants; a centred transcript with prompts on the right and plain agent text; and a composer card holding the access level, model and send controls. Light and dark themes follow the system or your choice.
 - Browser link parsing accepts explicit VPN `ws://`/`http://` relay URLs without upgrading them to WSS, including scheme-less display links; HTTPS mixed-content restrictions still apply.
-- Browser joins fetch bounded recent history pages; Older/Newer/Latest navigation and bounded live tails keep long sessions from retaining or rendering the entire transcript.
+- Browser joins fetch a bounded recent history page and load more as you scroll: no paging controls, and a sliding window keeps long sessions from retaining or rendering the entire transcript.
+- Subagent transcripts open at their newest rows and load older ones as you scroll instead of downloading the whole transcript.
 - Collab protocol v4 uses coalesced assistant-stream content patches, with full baselines for mid-turn joins and explicit rejoin errors on synchronization loss.
+- Requires collab protocol v5: update the host and this app together; older versions are refused at join.
 
 ### Fixed
 
 - Preserved relay path prefixes when formatting and opening invitations, including relay URLs embedded in separately hosted browser UI links.
 - Browser sessions and encrypted share pages work on trusted VPN HTTP origins without WebCrypto, using compatible authenticated AES-GCM and secure randomness.
 - Preserved tool output across history-page boundaries by rendering unpaired results independently and identifying calls whose result is outside the current page.
+- A prompt or command too large for the relay is refused with an error and kept in the composer instead of disconnecting the browser and being lost.
+- The browser rejoins after the relay restarts even when it reconnects before the host has recreated the room.
 
 ## [18.8.0] - 2026-10-07
 

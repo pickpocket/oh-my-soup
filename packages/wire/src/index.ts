@@ -339,6 +339,49 @@ export interface HistoryPage {
 	total: number;
 }
 
+/**
+ * Subagent transcript pages are bounded by UTF-8 bytes. A JSONL line longer
+ * than a page travels alone; one too large to send at all is replaced by a
+ * short placeholder entry.
+ */
+export const COLLAB_TRANSCRIPT_PAGE_BYTES = 256 * 1024;
+
+/**
+ * Byte position in a subagent's append-only JSONL transcript. `tail` reads the
+ * newest complete lines; `before` the lines ending at `byte`; `after` the
+ * lines starting at `byte`. Every page starts and ends on a line boundary.
+ */
+export type TranscriptCursor = { kind: "tail" } | { kind: "before" | "after"; byte: number };
+
+/** Where a host command a guest may run comes from. */
+export type CollabCommandSource = "builtin" | "skill" | "custom" | "mcp_prompt" | "file" | "template";
+
+/** One host slash command a full-control guest may run; `name` has no leading slash. */
+export interface CollabCommand {
+	name: string;
+	aliases?: string[];
+	description?: string;
+	/** Argument hint shown after the name, e.g. `[model]`. */
+	hint?: string;
+	subcommands?: { name: string; description?: string; usage?: string }[];
+	source: CollabCommandSource;
+}
+
+/** One argument completion for the command being typed. */
+export interface CollabCompletion {
+	/** Replaces everything after the command name and its separating space. */
+	value: string;
+	label: string;
+	description?: string;
+}
+
+/**
+ * How a guest-run command ended: `done` ran to completion on the host,
+ * `prompt` was handed to the agent as a prompt (it shows in the transcript),
+ * `cancelled` was stopped by `command-cancel`, `error` was refused or failed.
+ */
+export type CollabCommandStatus = "done" | "prompt" | "cancelled" | "error";
+
 export type GuestFrame =
 	| {
 			t: "hello";
@@ -357,8 +400,23 @@ export type GuestFrame =
 	| { t: "ui-response"; reqId: number; value?: CollabUiResponseValue }
 	| { t: "abort" }
 	| { t: "agent-cmd"; cmd: "chat" | "kill" | "revive"; agentId: string; text?: string }
+	/** Native guests only (Agent Hub). Answered by `transcript`. */
 	| { t: "fetch-transcript"; reqId: number; agentId: string; fromByte: number }
-	| { t: "fetch-history"; reqId: number; cursor: HistoryCursor };
+	| { t: "fetch-transcript-page"; reqId: number; agentId: string; cursor: TranscriptCursor }
+	| { t: "fetch-history"; reqId: number; cursor: HistoryCursor }
+	/**
+	 * Flow control for the welcome snapshot: `chunks` is how many `snapshot-chunk`
+	 * frames this guest has received since its last `welcome`, counted
+	 * cumulatively. Guests send it after every chunk; the host sends the next
+	 * chunks only while the unacknowledged ones stay within its window.
+	 */
+	| { t: "snapshot-ack"; chunks: number }
+	/** Run a slash command on the host; `text` starts with `/`. Full-control links only. */
+	| { t: "command"; reqId: number; text: string }
+	/** Stop a command that is still producing output (a streaming `/btw` answer). */
+	| { t: "command-cancel"; reqId: number }
+	/** Ask for argument completions for the draft `text` (`/name argument-prefix`). */
+	| { t: "complete"; reqId: number; text: string };
 
 /** EventBus channels mirrored to guests (task subagent traffic only). */
 export type BusChannel = "task:subagent:progress" | "task:subagent:lifecycle";
@@ -383,8 +441,11 @@ export type HostFrame =
 	  }
 	/**
 	 * Targeted snapshot fragment delivered after `welcome`. Hosts split the
-	 * transcript into chunks bounded by byte size so a multi-MB session is not
-	 * forced through one giant frame the relay may stall on. The last chunk
+	 * transcript into chunks bounded by byte size and pace them by the guest's
+	 * `snapshot-ack`s, so a relay's per-guest queue never overflows while a slow
+	 * guest syncs. Other frames to that guest keep flowing meanwhile: a guest
+	 * holds frames that arrive between `welcome` and the final chunk and applies
+	 * them, in arrival order, once the snapshot is in place. The last chunk
 	 * carries `final: true`; guests finalize the replica on that frame.
 	 */
 	| { t: "snapshot-chunk"; entries: SessionEntry[]; final: boolean }
@@ -401,8 +462,37 @@ export type HostFrame =
 	| { t: "agents"; agents: AgentSnapshot[] }
 	| { t: "ui-request"; request: CollabUiRequest }
 	| { t: "ui-request-end"; reqId: number }
-	/** Targeted reply to fetch-transcript; `text` is decoded JSONL from `fromByte`, `newSize` the next offset base. */
+	/**
+	 * Targeted reply to fetch-transcript; `text` is whole JSONL lines from the
+	 * first line start at or after `fromByte`, bounded like a `transcript-page`
+	 * (a line too large to send becomes a placeholder entry), and `newSize` is the
+	 * next offset base. A `fromByte` at or past the end returns no text and the
+	 * file size.
+	 */
 	| { t: "transcript"; reqId: number; text: string; newSize: number; error?: string }
+	/**
+	 * Targeted reply to fetch-transcript-page. `text` is the complete JSONL lines
+	 * in `[startByte, endByte)`, except that a line too large to send is replaced
+	 * by a placeholder entry while the range still spans it. `size` is the file
+	 * size when it was read, so `startByte > 0` means older lines exist and
+	 * `endByte < size` newer ones.
+	 */
+	| {
+			t: "transcript-page";
+			reqId: number;
+			text: string;
+			startByte: number;
+			endByte: number;
+			size: number;
+			error?: string;
+	  }
+	/** Host commands this peer may run; sent after `welcome` and whenever the list changes. */
+	| { t: "commands"; commands: CollabCommand[] }
+	/** Output of a guest-run command, Markdown. `delta` appends to the previous output without a break. */
+	| { t: "command-output"; reqId: number; text: string; delta?: boolean }
+	/** Terminal reply to `command`; `message` explains an `error`. */
+	| { t: "command-end"; reqId: number; status: CollabCommandStatus; message?: string }
+	| { t: "completions"; reqId: number; items: CollabCompletion[] }
 	| { t: "bye"; reason: string }
 	| { t: "error"; message: string };
 
@@ -421,8 +511,13 @@ export type WireFrame = GuestFrame | HostFrame;
  *   grammar would silently drop `ui-request` (asks hang forever on the
  *   host), so they must be rejected at hello.
  * - `4`: bounded browser history pages and lossless coalesced assistant-stream patches.
+ * - `5`: guest-run host commands (`command`/`complete`), cursor-paged subagent
+ *   transcripts (`fetch-transcript-page`), and snapshot flow control
+ *   (`snapshot-ack`) for relays that bound each guest's queue. An older peer
+ *   would drop these frames and leave the other side waiting, so the versions
+ *   must match.
  */
-export const COLLAB_PROTO = 4;
+export const COLLAB_PROTO = 5;
 
 /** Parameter key used for intent tracing (e.g. prompt explanation/reasoning) */
 export const INTENT_FIELD = "i";
@@ -433,6 +528,21 @@ export const INTENT_FIELD = "i";
 
 /** Plaintext envelope prefix: `[4B uint32 BE peerId][sealed payload]`. */
 export const ENVELOPE_HEADER_LENGTH = 4;
+
+/**
+ * Largest WebSocket message, envelope included, every collab relay must
+ * accept. The reference relay (`oms-relay`) closes a connection that sends a
+ * larger one with code 1009, and closing the host's connection ends the room
+ * for every guest, so clients never send more.
+ */
+export const COLLAB_RELAY_MAX_MESSAGE_BYTES = 2 * 1024 * 1024;
+
+/** AES-256-GCM IV (12 bytes) and authentication tag (16 bytes) around each sealed frame. */
+export const COLLAB_SEAL_OVERHEAD_BYTES = 12 + 16;
+
+/** Largest frame, as UTF-8 JSON, whose sealed envelope still fits {@link COLLAB_RELAY_MAX_MESSAGE_BYTES}. */
+export const COLLAB_MAX_FRAME_BYTES =
+	COLLAB_RELAY_MAX_MESSAGE_BYTES - ENVELOPE_HEADER_LENGTH - COLLAB_SEAL_OVERHEAD_BYTES;
 
 export const ROOM_ID_BYTES = 16;
 
@@ -470,6 +580,19 @@ export type RelayControlToHost = { t: "peer-joined" | "peer-left"; peer: number 
 /** Relay → guest control message. */
 export type RelayControlToGuest = { t: "room-closed" };
 export type RelayControlMessage = RelayControlToHost | RelayControlToGuest;
+
+/**
+ * Close codes a relay uses to refuse or end a room. A relay's own close reason
+ * is more specific when present (`oms-relay` sends 4029 both for a full room
+ * and for a relay at its room limit); these name the code when it is not.
+ * Other codes are transient: the connection was lost and may be retried.
+ */
+export const COLLAB_RELAY_CLOSE_REASONS: Record<number, string> = {
+	4001: "room closed",
+	4004: "no such room",
+	4009: "a host is already connected for this room",
+	4029: "room is full",
+};
 
 export * from "./stream";
 export * from "./tsp";

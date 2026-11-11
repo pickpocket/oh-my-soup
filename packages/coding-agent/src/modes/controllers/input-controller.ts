@@ -1153,8 +1153,11 @@ export class InputController {
 				const images = inputImages && inputImages.length > 0 ? [...inputImages] : undefined;
 				this.ctx.editor.clearDraft(text);
 				// No local render: the prompt comes back from the host as a
-				// collab-prompt event/entry and renders with the author badge.
-				this.ctx.collabGuest.sendPrompt(text, images);
+				// collab-prompt event/entry and renders with the author badge. A
+				// prompt refused locally (too large for the relay) is given back.
+				if (!this.ctx.collabGuest.sendPrompt(text, images)) {
+					restoreDetachedDraft(this.ctx.editor, text, images, inputImageLinks);
+				}
 				return;
 			}
 

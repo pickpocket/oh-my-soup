@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "bun:test";
-import { generateRoomKey, importRoomKey, open, seal } from "../../src/collab/crypto";
+import { COLLAB_MAX_FRAME_BYTES } from "@oh-my-soup/pi-wire";
+import { generateRoomKey, importRoomKey, seal } from "../../src/collab/crypto";
 import { type CollabFrame, packEnvelope, unpackEnvelope } from "../../src/collab/protocol";
 import { CollabSocket } from "../../src/collab/relay-client";
 
@@ -114,51 +115,29 @@ describe("CollabSocket send backpressure", () => {
 		}
 	});
 
-	it("discards a stale targeted batch across a transient reconnect", async () => {
+	it("discards stale targeted sends across a transient reconnect", async () => {
 		BackpressuredWebSocket.instances = [];
 		BackpressuredWebSocket.initialBufferedAmount = 0;
 		globalThis.WebSocket = BackpressuredWebSocket as unknown as typeof WebSocket;
 		// Real sealing: the enveloped size has to cross the high-water mark for the
-		// batch to still be queued when the transport drops.
+		// frames to still be queued when the transport drops.
 		const key = await importRoomKey(generateRoomKey());
 		const socket = new CollabSocket({ wsUrl: "ws://localhost:8788/r/rejoin", role: "host", key });
-		let generated = 0;
-		function* chunks(): Generator<CollabFrame> {
-			for (let i = 0; i < 60; i++) {
-				generated++;
-				yield {
-					t: "snapshot-chunk",
-					entries: [
-						{
-							type: "message",
-							id: `e${i}`,
-							parentId: null,
-							timestamp: "2026-09-08T00:00:00Z",
-							message: { role: "user", content: "x".repeat(32 * 1024), timestamp: 0 },
-						},
-					],
-					final: i === 59,
-				};
-			}
-		}
 		try {
 			socket.connect();
 			const first = BackpressuredWebSocket.instances[0]!;
-			first.open();
-			socket.sendBatch(chunks(), 7);
-			// Wait for the condition the test needs — the drain blocked above the
-			// high-water mark, so the batch is still queued when the transport drops.
-			// A sleep only guesses at how long real AES-GCM takes, and the first frame
-			// alone is ~32 KiB, half of what it takes to block.
+			first.openAccepted();
+			for (let i = 0; i < 60; i++) {
+				socket.send({ t: "error", message: `old room frame ${i} ${"x".repeat(32 * 1024)}` }, 7);
+			}
 			await waitUntil(
 				() => first.bufferedAmount >= HIGH_WATER_MARK,
-				"the transport never blocked with the batch still queued",
+				"the transport never blocked with targeted frames still queued",
 			);
-			expect(generated).toBeLessThan(60);
+			expect(first.sent.length).toBeLessThan(60);
 
 			// Transient drop: code 1000 is not fatal, so the socket retries and the
 			// relay it comes back to is a new room with reissued peer ids.
-			const generatedAtDrop = generated;
 			first.close();
 			const appeared = Date.now() + 3_000;
 			while (BackpressuredWebSocket.instances.length < 2 && Date.now() < appeared) await Bun.sleep(20);
@@ -174,9 +153,8 @@ describe("CollabSocket send backpressure", () => {
 			}
 			const targets = second.sent.map(bytes => unpackEnvelope(bytes)?.peerId);
 			expect(targets).toContain(9);
-			// The stale batch must not resume: it would sit ahead of peer 9 forever.
+			// The stale frames must not resume: they would reach whoever holds id 7 now.
 			expect(targets).not.toContain(7);
-			expect(generated).toBe(generatedAtDrop);
 		} finally {
 			socket.close();
 		}
@@ -477,9 +455,9 @@ describe("CollabSocket send backpressure", () => {
 		try {
 			socket.connect();
 			BackpressuredWebSocket.instances[0]!.open();
-			const text = "x".repeat(9 * 1024 * 1024);
-			socket.send({ t: "prompt", text });
-			socket.send({ t: "prompt", text });
+			// Each fits a relay message; together they pass the backlog's byte bound.
+			const text = "x".repeat(COLLAB_MAX_FRAME_BYTES - 1024);
+			for (let i = 0; i < 9 && reason === undefined; i++) expect(socket.send({ t: "prompt", text })).toBe(true);
 			expect(reason).toContain("backlog exceeded");
 			expect(socket.isOpen).toBe(false);
 		} finally {
@@ -487,56 +465,32 @@ describe("CollabSocket send backpressure", () => {
 		}
 	});
 
-	it("delivers more than 256 lazy snapshot chunks in order before live traffic through a slow transport", async () => {
+	it("refuses a frame too large for a relay message without sending or closing", async () => {
+		vi.spyOn(crypto.subtle, "encrypt").mockResolvedValue(new Uint8Array([1, 2, 3, 4]).buffer);
 		BackpressuredWebSocket.instances = [];
-		BackpressuredWebSocket.initialBufferedAmount = HIGH_WATER_MARK;
+		BackpressuredWebSocket.initialBufferedAmount = 0;
 		globalThis.WebSocket = BackpressuredWebSocket as unknown as typeof WebSocket;
-		const key = await importRoomKey(generateRoomKey());
-		const socket = new CollabSocket({ wsUrl: "ws://localhost:8788/r/batch", role: "host", key });
-		let generated = 0;
-		function* chunks(): Generator<CollabFrame> {
-			for (let i = 0; i < 300; i++) {
-				generated++;
-				yield {
-					t: "snapshot-chunk",
-					entries: [
-						{
-							type: "message",
-							id: `e${i}`,
-							parentId: null,
-							timestamp: "2026-09-07T00:00:00Z",
-							message: { role: "user", content: "x".repeat(1024), timestamp: 0 },
-						},
-					],
-					final: i === 299,
-				};
-			}
-		}
+		const socket = new CollabSocket({
+			wsUrl: "ws://localhost:8788/r/oversized",
+			role: "guest",
+			key: {} as CryptoKey,
+		});
+		const closes: string[] = [];
+		socket.onClose = reason => closes.push(reason);
 		try {
 			socket.connect();
 			const ws = BackpressuredWebSocket.instances[0]!;
 			ws.open();
-			socket.sendBatch(chunks(), 7);
-			socket.send({ t: "bye", reason: "after snapshot" }, 7);
-			await Bun.sleep(30);
-			expect(generated).toBe(0);
-			const deadline = Date.now() + 3000;
-			while (ws.sent.length < 301 && Date.now() < deadline) {
-				ws.bufferedAmount = 0;
-				await Bun.sleep(30);
-			}
-			const received: CollabFrame[] = [];
-			for (const bytes of ws.sent) {
-				const envelope = unpackEnvelope(bytes)!;
-				expect(envelope.peerId).toBe(7);
-				received.push(await open(key, envelope.payload));
-			}
-			const snapshot = received.filter(frame => frame.t === "snapshot-chunk");
-			expect(snapshot.flatMap(frame => frame.entries.map(entry => entry.id))).toEqual(
-				Array.from({ length: 300 }, (_, i) => `e${i}`),
-			);
-			expect(snapshot.filter(frame => frame.final)).toEqual([snapshot[299]!]);
-			expect(received.at(-1)).toEqual({ t: "bye", reason: "after snapshot" });
+			const oversized = { t: "prompt", text: "x".repeat(COLLAB_MAX_FRAME_BYTES) } as const;
+			expect(socket.send(oversized)).toBe(false);
+			// The largest frame that fits still goes.
+			const largest = { t: "prompt", text: "" } as const;
+			const room = COLLAB_MAX_FRAME_BYTES - Buffer.byteLength(JSON.stringify(largest));
+			expect(socket.send({ ...largest, text: "x".repeat(room) })).toBe(true);
+			await socket.flush();
+			await waitUntil(() => ws.sent.length === 1, "the fitting frame was never written");
+			expect(closes).toEqual([]);
+			expect(socket.isOpen).toBe(true);
 		} finally {
 			socket.close();
 		}
@@ -594,7 +548,7 @@ describe("CollabSocket send backpressure", () => {
 			socket.connect();
 			const ws = BackpressuredWebSocket.instances[0];
 			if (!ws) throw new Error("CollabSocket did not construct a WebSocket");
-			ws.open();
+			ws.openAccepted();
 			socket.send({ t: "bye", reason: "slow relay" });
 			for (let flush = 0; flush < 5; flush++) await Promise.resolve();
 			expect(ws.sent).toHaveLength(0);
@@ -661,7 +615,7 @@ describe("CollabSocket send backpressure", () => {
 			for (let flush = 0; flush < 5; flush++) await Promise.resolve();
 			expect(ws.sent).toHaveLength(0);
 
-			ws.open();
+			ws.openAccepted();
 			expect(ws.sent).toHaveLength(0);
 			vi.advanceTimersByTime(DRAIN_RETRY_MS);
 			for (let flush = 0; flush < 5; flush++) await Promise.resolve();

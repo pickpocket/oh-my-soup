@@ -1,11 +1,5 @@
 import { type LucideIcon, Monitor, Moon, Sun } from "lucide-react";
-import { type ThemePreference, useThemePreference } from "../../lib/theme";
-
-const NEXT_PREFERENCE: Record<ThemePreference, ThemePreference> = {
-	system: "light",
-	light: "dark",
-	dark: "system",
-};
+import { NEXT_THEME_PREFERENCE, type ThemePreference, useThemePreference } from "../../lib/theme";
 
 const PREFERENCE_ICON: Record<ThemePreference, LucideIcon> = {
 	system: Monitor,
@@ -26,8 +20,8 @@ export function ThemeToggle() {
 	return (
 		<button
 			type="button"
-			className="sh-theme-toggle"
-			onClick={() => setPreference(NEXT_PREFERENCE[preference])}
+			className="sh-icon-btn"
+			onClick={() => setPreference(NEXT_THEME_PREFERENCE[preference])}
 			aria-label={`${PREFERENCE_LABEL[preference]} (click to switch)`}
 			title={`${PREFERENCE_LABEL[preference]} — click to switch`}
 		>

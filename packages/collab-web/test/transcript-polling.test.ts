@@ -1,54 +1,70 @@
 /**
- * Regression: the host replies to fetch-transcript with a terminal `error`
- * frame (unchanged cursor) for oversized JSONL rows and missing files. The
- * client must surface that error distinctly from a transient failure (null),
- * and the drawer's polling decision must stop on it instead of hot-retrying
- * from the same cursor forever.
+ * The host answers fetch-transcript-page either with a page of whole lines or
+ * with a terminal `error` (oversized line, missing transcript, a cursor beyond
+ * the file). The client must keep that error distinct from a transient
+ * failure (`null`: timeout, session end), which callers may simply repeat.
  */
 import { describe, expect, it, vi } from "bun:test";
-import type { HostFrame, SessionEntry } from "@oh-my-soup/pi-wire";
+import type { GuestFrame, HostFrame } from "@oh-my-soup/pi-wire";
 import { GuestClient } from "../src/lib/client";
 import { encodeBase64Url } from "../src/lib/link";
-import { decideTranscriptPoll } from "../src/lib/transcript-poll";
+import { CollabSocket } from "../src/lib/socket";
 
 const LINK = `roomroomroom1234#${encodeBase64Url(new Uint8Array(32))}`;
 
-function transcriptFrame(reqId: number, text: string, newSize: number, error?: string): HostFrame {
-	return { t: "transcript", reqId, text, newSize, error };
+function pageFrame(
+	reqId: number,
+	text: string,
+	startByte: number,
+	endByte: number,
+	size: number,
+	error?: string,
+): HostFrame {
+	return { t: "transcript-page", reqId, text, startByte, endByte, size, error };
 }
 
-function messageEntry(id: string, content: string, timestamp: number): SessionEntry {
-	return {
-		type: "message",
-		id,
-		parentId: null,
-		timestamp: "2026-06-12T00:00:01Z",
-		message: { role: "user", content, timestamp },
-	};
-}
-
-describe("GuestClient.fetchTranscript", () => {
-	it("surfaces a frame-level error as a typed terminal result, not null", async () => {
-		const client = new GuestClient(LINK, "tester");
-		const promise = client.fetchTranscript("agent-1", 128);
-		client.applyFrameForTest(transcriptFrame(1, "", 128, "transcript entry exceeds transcript fetch cap"));
-		const result = await promise;
-		expect(result).toEqual({ kind: "error", message: "transcript entry exceeds transcript fetch cap" });
+describe("GuestClient.fetchTranscriptPage", () => {
+	it("sends the cursor to the host and resolves the page it answers with", async () => {
+		const sent: GuestFrame[] = [];
+		const sendSpy = vi.spyOn(CollabSocket.prototype, "send").mockImplementation(frame => {
+			sent.push(frame);
+			return true;
+		});
+		try {
+			const client = new GuestClient(LINK, "tester");
+			const promise = client.fetchTranscriptPage("agent-1", { kind: "before", byte: 64 });
+			expect(sent).toEqual([
+				{ t: "fetch-transcript-page", reqId: 1, agentId: "agent-1", cursor: { kind: "before", byte: 64 } },
+			]);
+			client.applyFrameForTest(pageFrame(1, '{"type":"message"}\n', 45, 64, 128));
+			expect(await promise).toEqual({
+				kind: "page",
+				text: '{"type":"message"}\n',
+				startByte: 45,
+				endByte: 64,
+				size: 128,
+			});
+		} finally {
+			sendSpy.mockRestore();
+		}
 	});
 
-	it("resolves rows for a successful reply", async () => {
+	it("surfaces a frame-level error as a typed terminal result, not null", async () => {
 		const client = new GuestClient(LINK, "tester");
-		const promise = client.fetchTranscript("agent-1", 0);
-		client.applyFrameForTest(transcriptFrame(1, '{"type":"message"}\n', 19));
-		const result = await promise;
-		expect(result).toEqual({ kind: "rows", text: '{"type":"message"}\n', newSize: 19 });
+		const promise = client.fetchTranscriptPage("agent-1", { kind: "after", byte: 128 });
+		client.applyFrameForTest(pageFrame(1, "", 128, 128, 4096, "transcript entry exceeds transcript fetch cap"));
+		expect(await promise).toEqual({
+			kind: "error",
+			message: "transcript entry exceeds transcript fetch cap",
+			size: 4096,
+		});
 	});
 
 	it("resolves null (transient) on timeout — distinct from a terminal error", async () => {
 		vi.useFakeTimers();
 		try {
 			const client = new GuestClient(LINK, "tester");
-			const promise = client.fetchTranscript("agent-1", 0);
+			const promise = client.fetchTranscriptPage("agent-1", { kind: "tail" });
 			vi.advanceTimersByTime(10_000);
 			expect(await promise).toBeNull();
 		} finally {
@@ -58,71 +74,25 @@ describe("GuestClient.fetchTranscript", () => {
 
 	it("resolves null (transient) when the session ends mid-fetch", async () => {
 		const client = new GuestClient(LINK, "tester");
-		const promise = client.fetchTranscript("agent-1", 0);
+		const promise = client.fetchTranscriptPage("agent-1", { kind: "tail" });
 		client.applyFrameForTest({ t: "bye", reason: "host left" });
 		expect(await promise).toBeNull();
 	});
 
-	it("keeps late replies from resolving a timed-out request with stale data", async () => {
+	it("keeps a late reply from resolving a later request with stale data", async () => {
 		vi.useFakeTimers();
 		try {
 			const client = new GuestClient(LINK, "tester");
-			const first = client.fetchTranscript("agent-1", 0);
+			const first = client.fetchTranscriptPage("agent-1", { kind: "tail" });
 			vi.advanceTimersByTime(10_000);
 			expect(await first).toBeNull();
-			// Late frame for the expired reqId must not throw or leak.
-			client.applyFrameForTest(transcriptFrame(1, "late", 4));
-			const second = client.fetchTranscript("agent-1", 0);
-			client.applyFrameForTest(transcriptFrame(2, "", 0, "no transcript available"));
-			expect(await second).toEqual({ kind: "error", message: "no transcript available" });
+			// The late frame for the expired reqId must not throw or leak into the next request.
+			client.applyFrameForTest(pageFrame(1, "late\n", 0, 5, 5));
+			const second = client.fetchTranscriptPage("agent-1", { kind: "tail" });
+			client.applyFrameForTest(pageFrame(2, "", 0, 0, 0, "no transcript available"));
+			expect(await second).toEqual({ kind: "error", message: "no transcript available", size: 0 });
 		} finally {
 			vi.useRealTimers();
 		}
-	});
-});
-
-describe("decideTranscriptPoll", () => {
-	it("retries on transient failure (null) without touching the cursor", () => {
-		expect(decideTranscriptPoll(null, "")).toEqual({ action: "retry" });
-	});
-
-	it("stops on a terminal frame error and carries the message to render", () => {
-		const decision = decideTranscriptPoll(
-			{ kind: "error", message: "transcript entry exceeds transcript fetch cap (4194304 bytes)" },
-			"partial-line",
-		);
-		expect(decision).toEqual({
-			action: "stop",
-			message: "transcript entry exceeds transcript fetch cap (4194304 bytes)",
-		});
-	});
-
-	it("advances the cursor and parses complete rows, filtering the session header", () => {
-		const entry = messageEntry("m1", "hi", 1);
-		const rows = `{"type":"session","id":"s1"}\n${JSON.stringify(entry)}\n`;
-		const text = `${rows}{"type":"mes`;
-		const decision = decideTranscriptPoll({ kind: "rows", text, newSize: text.length }, "");
-		expect(decision).toEqual({
-			action: "advance",
-			newSize: text.length,
-			carry: '{"type":"mes',
-			fresh: [entry],
-		});
-	});
-
-	it("completes a carried partial line on the next advance", () => {
-		const entry = messageEntry("m2", "again", 2);
-		const line = `${JSON.stringify(entry)}\n`;
-		const splitAt = 12;
-		const decision = decideTranscriptPoll(
-			{ kind: "rows", text: line.slice(splitAt), newSize: 100 },
-			line.slice(0, splitAt),
-		);
-		expect(decision).toEqual({
-			action: "advance",
-			newSize: 100,
-			carry: "",
-			fresh: [entry],
-		});
 	});
 });

@@ -3,6 +3,13 @@ import { useSyncExternalStore } from "react";
 export type SystemTheme = "light" | "dark";
 export type ThemePreference = "system" | "light" | "dark";
 
+/** Cycle order of the header toggle and of a bare `/theme`. */
+export const NEXT_THEME_PREFERENCE: Record<ThemePreference, ThemePreference> = {
+	system: "light",
+	light: "dark",
+	dark: "system",
+};
+
 const STORAGE_KEY = "oms-collab-theme";
 const DARK_SCHEME_QUERY = "(prefers-color-scheme: dark)";
 

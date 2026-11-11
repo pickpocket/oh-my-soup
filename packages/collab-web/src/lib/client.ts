@@ -16,8 +16,11 @@
 import type {
 	AgentSnapshot,
 	AssistantMessage,
+	CollabCommand,
+	CollabCompletion,
 	CollabUiRequest,
 	CollabUiResponseValue,
+	GuestFrame,
 	HistoryCursor,
 	HistoryPage,
 	HostFrame,
@@ -26,12 +29,16 @@ import type {
 	SessionState,
 	SubagentLifecyclePayload,
 	SubagentProgressPayload,
+	TranscriptCursor,
 } from "@oh-my-soup/pi-wire";
-import { COLLAB_HISTORY_BYTES, COLLAB_HISTORY_ENTRIES } from "@oh-my-soup/pi-wire";
+import { COLLAB_HISTORY_BYTES, COLLAB_HISTORY_ENTRIES, COLLAB_MAX_FRAME_BYTES } from "@oh-my-soup/pi-wire";
 import { applyCollabStream } from "@oh-my-soup/pi-wire/collab-stream";
 import { importRoomKey } from "./codec";
+import { type CommandRun, CommandSession } from "./command-session";
 import { COLLAB_PROTO, encodeBase64Url, parseCollabLink } from "./link";
 import { CollabSocket } from "./socket";
+
+export type { CommandRun } from "./command-session";
 
 export type ConnectionPhase = "connecting" | "waiting" | "live" | "reconnecting" | "ended";
 
@@ -51,11 +58,22 @@ export interface Notice {
 	at: number;
 }
 
-export interface HistoryView extends HistoryPage {
+/** Reader-facing state of the one contiguous run of session entries the client retains. */
+export interface HistoryView {
+	/** Entries exist on the host before the first retained one. */
+	hasOlder: boolean;
+	/** The window ends at the session's newest entry and live entries flow into it. */
 	atLatest: boolean;
-	loading: boolean;
+	/** Entries in the session. */
+	total: number;
+	/** Entries appended on the host while the window was detached. */
+	unseen: number;
+	loading: "older" | "newer" | "latest" | null;
 	error: string | null;
-	/** Changes only when navigation or a fresh snapshot replaces the view. */
+	/**
+	 * Bumps only when the window is replaced wholesale (snapshot after welcome,
+	 * jumpToLatest), never on prepend/append.
+	 */
 	version: number;
 }
 
@@ -85,6 +103,10 @@ export interface GuestSnapshot {
 	notices: readonly Notice[];
 	/** Snapshot download progress between `welcome` and its final chunk, else null. */
 	loading: { received: number; total: number } | null;
+	/** Host commands this guest may run; empty until a `commands` frame arrives and for view-only guests. */
+	commands: readonly CollabCommand[];
+	/** Recent slash-command runs, oldest first, capped at 20. */
+	commandRuns: readonly CommandRun[];
 }
 
 const MAX_NOTICES = 50;
@@ -107,49 +129,133 @@ function scheduleFrame(callback: () => void): () => void {
 	return () => clearTimeout(timer);
 }
 
+const KIB = 1024;
+const MIB = 1024 * KIB;
+
+function formatSize(bytes: number): string {
+	return bytes >= MIB ? `${(bytes / MIB).toFixed(1)} MiB` : `${Math.ceil(bytes / KIB)} KiB`;
+}
+
+/** What the user tried to send, for a refused frame's notice; null for background requests. */
+function refusedFrameLabel(frame: GuestFrame): string | null {
+	switch (frame.t) {
+		case "prompt":
+			return "Message";
+		case "agent-cmd":
+			return "Message to the agent";
+		case "command":
+			return "Command";
+		case "ui-response":
+			return "Answer";
+		default:
+			return null;
+	}
+}
+
 /** High-rate frames whose publish is deferred to the next animation frame. */
 function isCoalescable(frame: HostFrame): boolean {
 	if (frame.t === "stream" || frame.t === "stream-delta") return true;
 	if (frame.t === "event") return frame.event.type === "tool_execution_update";
+	if (frame.t === "command-output") return frame.delta === true;
 	return frame.t === "bus" && frame.channel === "task:subagent:progress";
 }
 
 /**
- * One fetch-transcript round trip.
- * - `rows`: decoded JSONL from `fromByte`; `newSize` is the next offset base.
- * - `error`: terminal read failure reported by the host (unchanged cursor);
- *   callers must surface it and stop polling instead of hot retrying.
+ * One fetch-transcript-page round trip.
+ * - `page`: the whole JSONL lines in `[startByte, endByte)`; `size` is the
+ *   file size when the host read it.
+ * - `error`: terminal read failure for that cursor; callers must surface it
+ *   and stop instead of hot retrying.
  * Transient failures (timeout, session end) resolve `null` and are retryable.
  */
-export type TranscriptResult = { kind: "rows"; text: string; newSize: number } | { kind: "error"; message: string };
+export type TranscriptPageResult =
+	| { kind: "page"; text: string; startByte: number; endByte: number; size: number }
+	| { kind: "error"; message: string; size: number };
 
 interface PendingTranscript {
-	resolve: (result: TranscriptResult | null) => void;
+	resolve: (result: TranscriptPageResult | null) => void;
 	timer: Timer;
 }
 
-/** Each retained collection is a suffix bounded by count AND serialized UTF-8 bytes. */
+const WINDOW_ENTRIES = 2 * COLLAB_HISTORY_ENTRIES;
+const WINDOW_BYTES = 2 * COLLAB_HISTORY_BYTES;
+
+/**
+ * Contiguous run of session entries bounded by count AND serialized UTF-8
+ * bytes. Callers add at one end and then trim the other; a single oversized
+ * entry may exceed the byte bound alone.
+ */
 class EntryWindow {
 	readonly entries: SessionEntry[] = [];
 	readonly #sizes: number[] = [];
+	readonly #ids = new Set<string>();
 	#bytes = 2; // JSON array brackets, plus one comma between entries.
-	evicted = false;
+	/** Set once {@link trimOldest} dropped anything: older entries exist before the head. */
+	evictedOldest = false;
 
-	append(entry: SessionEntry): boolean {
-		if (this.entries.some(existing => existing.id === entry.id)) return false;
+	has(id: string): boolean {
+		return this.#ids.has(id);
+	}
+
+	/** Whether `entry` can join without evicting anything. */
+	fits(entry: SessionEntry): boolean {
+		const count = this.entries.length;
+		return count === 0 || (count < WINDOW_ENTRIES && this.#bytes + entryBytes(entry) + 1 <= WINDOW_BYTES);
+	}
+
+	/** Adds at the tail; false for an ID already retained. */
+	push(entry: SessionEntry): boolean {
+		if (this.#ids.has(entry.id)) return false;
 		const bytes = entryBytes(entry);
 		this.#bytes += bytes + (this.entries.length > 0 ? 1 : 0);
 		this.entries.push(entry);
 		this.#sizes.push(bytes);
-		while (
-			this.entries.length > 1 &&
-			(this.entries.length > COLLAB_HISTORY_ENTRIES || this.#bytes > COLLAB_HISTORY_BYTES)
-		) {
-			this.#bytes -= this.#sizes.shift()! + 1;
-			this.entries.shift();
-			this.evicted = true;
-		}
+		this.#ids.add(entry.id);
 		return true;
+	}
+
+	/** Adds at the head; false for an ID already retained. */
+	unshift(entry: SessionEntry): boolean {
+		if (this.#ids.has(entry.id)) return false;
+		const bytes = entryBytes(entry);
+		this.#bytes += bytes + (this.entries.length > 0 ? 1 : 0);
+		this.entries.unshift(entry);
+		this.#sizes.unshift(bytes);
+		this.#ids.add(entry.id);
+		return true;
+	}
+
+	/** Drops the oldest entries until the run is within bounds; returns how many went. */
+	trimOldest(): number {
+		const count = this.entries.length;
+		let bytes = this.#bytes;
+		let drop = 0;
+		while (count - drop > 1 && (count - drop > WINDOW_ENTRIES || bytes > WINDOW_BYTES)) {
+			bytes -= this.#sizes[drop]! + 1;
+			drop++;
+		}
+		if (drop === 0) return 0;
+		for (const entry of this.entries.splice(0, drop)) this.#ids.delete(entry.id);
+		this.#sizes.splice(0, drop);
+		this.#bytes = bytes;
+		this.evictedOldest = true;
+		return drop;
+	}
+
+	/** Drops the newest entries until the run is within bounds; returns how many went. */
+	trimNewest(): number {
+		const count = this.entries.length;
+		let bytes = this.#bytes;
+		let drop = 0;
+		while (count - drop > 1 && (count - drop > WINDOW_ENTRIES || bytes > WINDOW_BYTES)) {
+			bytes -= this.#sizes[count - 1 - drop]! + 1;
+			drop++;
+		}
+		if (drop === 0) return 0;
+		for (const entry of this.entries.splice(count - drop, drop)) this.#ids.delete(entry.id);
+		this.#sizes.length = count - drop;
+		this.#bytes = bytes;
+		return drop;
 	}
 }
 
@@ -167,8 +273,21 @@ function entryBytes(entry: SessionEntry): number {
 
 interface PendingHistory {
 	reqId: number;
-	live: EntryWindow;
+	kind: "older" | "newer" | "latest";
+	/** First retained entry when an `older` request left; its reply is adjacent to that entry only. */
+	anchorId: string | null;
+	/** Live entries that arrived while the request was in flight (bounded). */
+	raced: EntryWindow;
 	timer: Timer;
+}
+
+/** Snapshot chunks and the live entries racing them both accumulate bounded. */
+interface PendingSnapshot {
+	entries: EntryWindow;
+	raced: EntryWindow;
+	received: number;
+	total: number;
+	page: HistoryPage;
 }
 
 export class GuestClient {
@@ -182,21 +301,26 @@ export class GuestClient {
 	#noticeSeq = 0;
 	#everConnected = false;
 	#welcomed = false;
+	/** `snapshot-chunk` frames received since the last `welcome`; acknowledged cumulatively. */
+	#snapshotChunks = 0;
 	#welcomeTimer: Timer | null = null;
 	#snapshotProgressTimer: Timer | null = null;
 
 	#phase: ConnectionPhase = "connecting";
 	#endedReason: string | null = null;
 	#header: SessionHeader | null = null;
-	#live = new EntryWindow();
-	#livePage: HistoryPage = { beforeId: null, afterId: null, total: 0 };
-	#historyPage: HistoryPage = this.#livePage;
+	/** The one contiguous, duplicate-free run of session entries on screen. */
+	#window = new EntryWindow();
+	#hasOlder = false;
 	#atLatest = true;
+	#total = 0;
+	#unseen = 0;
+	/** The reader is pinned to the transcript's bottom, so overflow may evict the oldest rows. */
+	#followingTail = true;
 	#historyError: string | null = null;
 	#historyVersion = 0;
 	#pendingHistory: PendingHistory | null = null;
-	/** Both chunk accumulation and concurrent live entries stay bounded. */
-	#pendingSnapshot: { entries: EntryWindow; received: number; total: number; page: HistoryPage } | null = null;
+	#pendingSnapshot: PendingSnapshot | null = null;
 	#state: SessionState | null = null;
 	#agents: readonly AgentSnapshot[] = [];
 	#progress: ReadonlyMap<string, SubagentProgressPayload> = new Map();
@@ -219,12 +343,16 @@ export class GuestClient {
 	#snapshot: GuestSnapshot;
 	/**
 	 * Published entries array, cached across commits: rebuilt only when
-	 * the displayed page changes. Streaming and historical browsing reuse
+	 * the retained window changes. Streaming and detached reading reuse
 	 * the same reference, so entry-identity consumers skip scans per token.
 	 */
 	#publishedEntries: readonly SessionEntry[] = [];
 	/** Cancels the scheduled deferred commit; null when none is pending. */
 	#cancelFrameCommit: (() => void) | null = null;
+	readonly #commandSession = new CommandSession(
+		frame => this.#socket.send(frame),
+		() => this.#commit(),
+	);
 
 	/** @throws Error when the link does not parse. */
 	constructor(link: string, displayName: string) {
@@ -236,6 +364,7 @@ export class GuestClient {
 		this.#socket.onOpen = () => this.#handleOpen();
 		this.#socket.onFrame = frame => this.#applyFrameSafe(frame);
 		this.#socket.onClose = (reason, willReconnect) => this.#handleClose(reason, willReconnect);
+		this.#socket.onRefused = (frame, bytes) => this.#handleRefused(frame, bytes);
 		this.#snapshot = this.#buildSnapshot();
 	}
 
@@ -270,45 +399,111 @@ export class GuestClient {
 		return this.#snapshot;
 	}
 
-	sendPrompt(text: string): void {
-		this.#socket.send({ t: "prompt", text });
+	/** Returns false, sending nothing, when the prompt is too large for the relay (a notice says so). */
+	sendPrompt(text: string): boolean {
+		return this.#socket.send({ t: "prompt", text });
 	}
 
-	sendUiResponse(reqId: number, value?: CollabUiResponseValue): void {
-		this.#socket.send({ t: "ui-response", reqId, value });
+	/** The request stays pending when the answer is too large to send. */
+	sendUiResponse(reqId: number, value?: CollabUiResponseValue): boolean {
+		if (!this.#socket.send({ t: "ui-response", reqId, value })) return false;
 		if (this.#uiRequest?.reqId === reqId) {
 			this.#showNextUiRequest();
 			this.#commit();
 		}
+		return true;
 	}
 
-	sendAbort(): void {
-		this.#socket.send({ t: "abort" });
+	sendAbort(): boolean {
+		return this.#socket.send({ t: "abort" });
 	}
 
-	sendAgentCmd(cmd: "chat" | "kill" | "revive", agentId: string, text?: string): void {
-		this.#socket.send({ t: "agent-cmd", cmd, agentId, text });
+	/** Returns false, sending nothing, when the frame is too large for the relay (a notice says so). */
+	sendAgentCmd(cmd: "chat" | "kill" | "revive", agentId: string, text?: string): boolean {
+		return this.#socket.send({ t: "agent-cmd", cmd, agentId, text });
 	}
 
 	/**
-	 * Incremental subagent-transcript read. Resolves a {@link TranscriptResult}
-	 * (`rows` or terminal `error`), or `null` on transient failure (10s timeout,
-	 * session end) where re-polling from the same cursor is correct.
+	 * Runs a slash command on the host; `text` starts with `/`. Its progress
+	 * shows in `commandRuns`. Returns false, recording no run, when the command
+	 * is too large for the relay (a notice says so).
 	 */
-	fetchTranscript(agentId: string, fromByte: number): Promise<TranscriptResult | null> {
+	runCommand(text: string): boolean {
+		return this.#commandSession.run(text);
+	}
+
+	/** Asks the host to stop a running host command. */
+	cancelCommand(id: number): void {
+		this.#commandSession.cancel(id);
+	}
+
+	/** Removes a finished run from `commandRuns`. */
+	dismissCommand(id: number): void {
+		this.#commandSession.dismiss(id);
+	}
+
+	/** Records the output of a command that ran in the browser. */
+	addLocalCommandRun(text: string, output: string): void {
+		this.#commandSession.addLocal(text, output);
+	}
+
+	/**
+	 * Argument completions for the draft `text` (`/name argument-prefix`).
+	 * Resolves `[]` when superseded by a newer request, after 5s without a
+	 * reply, or when the connection drops.
+	 */
+	completeCommand(text: string): Promise<readonly CollabCompletion[]> {
+		return this.#commandSession.complete(text);
+	}
+
+	/**
+	 * Reads one page of whole lines from a subagent transcript. Resolves a
+	 * {@link TranscriptPageResult} (`page` or terminal `error`), or `null` on
+	 * transient failure (10s timeout, session end) where asking again with the
+	 * same cursor is correct.
+	 */
+	fetchTranscriptPage(agentId: string, cursor: TranscriptCursor): Promise<TranscriptPageResult | null> {
 		const reqId = ++this.#reqSeq;
-		const { promise, resolve } = Promise.withResolvers<TranscriptResult | null>();
+		const { promise, resolve } = Promise.withResolvers<TranscriptPageResult | null>();
 		const timer = setTimeout(() => {
 			this.#pendingTranscripts.delete(reqId);
 			resolve(null);
 		}, TRANSCRIPT_TIMEOUT_MS);
 		this.#pendingTranscripts.set(reqId, { resolve, timer });
-		this.#socket.send({ t: "fetch-transcript", reqId, agentId, fromByte });
+		this.#socket.send({ t: "fetch-transcript-page", reqId, agentId, cursor });
 		return promise;
 	}
 
-	/** Navigation replaces the page. Only one request may be in flight. */
-	fetchHistory(cursor: HistoryCursor): void {
+	/** Extends the window toward the session's start; overflow evicts the newest entries and detaches. */
+	loadOlder(): void {
+		const first = this.#window.entries[0];
+		if (!this.#hasOlder || first === undefined) return;
+		this.#requestHistory("older", { kind: "before", id: first.id }, first.id);
+	}
+
+	/** Extends a detached window toward the tail; overflow evicts the oldest entries. */
+	loadNewer(): void {
+		const last = this.#window.entries.at(-1);
+		if (this.#atLatest || last === undefined) return;
+		this.#requestHistory("newer", { kind: "after", id: last.id }, null);
+	}
+
+	/** Replaces the window with the session's newest page. */
+	jumpToLatest(): void {
+		this.#requestHistory("latest", { kind: "latest" }, null);
+	}
+
+	/**
+	 * Tells the client whether the reader is pinned to the transcript's bottom.
+	 * A full attached window evicts its oldest entries only while this holds;
+	 * otherwise it detaches rather than pull rows from under the reader.
+	 */
+	setFollowingTail(following: boolean): void {
+		this.#followingTail = following;
+	}
+
+	/** Only one history request may be in flight; calls while one is pending are ignored. */
+	#requestHistory(kind: PendingHistory["kind"], cursor: HistoryCursor, anchorId: string | null): void {
 		if (this.#phase !== "live" || this.#pendingSnapshot !== null || this.#pendingHistory !== null) return;
 		const reqId = ++this.#reqSeq;
 		const timer = setTimeout(() => {
@@ -317,7 +512,7 @@ export class GuestClient {
 			this.#historyError = "History request timed out. Try again.";
 			this.#commit();
 		}, HISTORY_TIMEOUT_MS);
-		this.#pendingHistory = { reqId, timer, live: new EntryWindow() };
+		this.#pendingHistory = { reqId, kind, anchorId, timer, raced: new EntryWindow() };
 		this.#historyError = null;
 		this.#socket.send({ t: "fetch-history", reqId, cursor });
 		this.#commit();
@@ -346,6 +541,21 @@ export class GuestClient {
 		this.#commit();
 	}
 
+	/** A user-initiated frame was too large for the relay: say so; the caller keeps the draft. */
+	#handleRefused(frame: GuestFrame, bytes: number): void {
+		const label = refusedFrameLabel(frame);
+		if (label === null) return;
+		let size = formatSize(bytes);
+		let limit = formatSize(COLLAB_MAX_FRAME_BYTES);
+		if (size === limit) {
+			// Just over the limit: rounded sizes would read as equal.
+			size = `${bytes} bytes`;
+			limit = `${COLLAB_MAX_FRAME_BYTES}-byte`;
+		}
+		this.#pushNotice("error", `${label} not sent: it is ${size}, over the relay's ${limit} limit.`);
+		this.#commit();
+	}
+
 	#handleClose(reason: string, willReconnect: boolean): void {
 		this.#clearSnapshotProgressTimer();
 		if (this.#phase === "ended") return;
@@ -353,6 +563,7 @@ export class GuestClient {
 		this.#clearHistoryRequest();
 		this.#resetStream();
 		if (willReconnect) {
+			this.#commandSession.connectionLost();
 			this.#phase = "reconnecting";
 			// The next welcome restarts the snapshot; drop the partial one.
 			this.#pendingSnapshot = null;
@@ -378,6 +589,7 @@ export class GuestClient {
 		}
 		this.#pendingTranscripts.clear();
 		this.#clearUiRequests();
+		this.#commandSession.connectionLost();
 		this.#commit();
 		this.#socket.close();
 	}
@@ -416,32 +628,72 @@ export class GuestClient {
 		this.#streamDone = false;
 	}
 
-	#publishLive(): void {
-		this.#publishedEntries = [...this.#live.entries];
-		this.#livePage = {
-			...this.#livePage,
-			beforeId: this.#live.evicted || this.#livePage.beforeId !== null ? (this.#live.entries[0]?.id ?? null) : null,
-			afterId: null,
-		};
-		this.#historyPage = this.#livePage;
+	#publishWindow(): void {
+		this.#publishedEntries = [...this.#window.entries];
 	}
 
-	/** A reply can race live entries; merge only the suffix newer than that page. */
-	#acceptLatest(entries: EntryWindow, page: HistoryPage, concurrent: EntryWindow): void {
-		const lastId = entries.entries.at(-1)?.id;
-		const anchor = lastId === undefined ? -1 : concurrent.entries.findIndex(entry => entry.id === lastId);
-		const newerCount = Math.max(0, this.#livePage.total - page.total);
-		const start = anchor >= 0 ? anchor + 1 : Math.max(0, concurrent.entries.length - newerCount);
-		for (let i = start; i < concurrent.entries.length; i++) entries.append(concurrent.entries[i]!);
-		if (concurrent.evicted && start === 0) entries.evicted = true;
-		this.#live = entries;
-		this.#livePage = {
-			...page,
-			total:
-				anchor >= 0 ? page.total + concurrent.entries.length - start : Math.max(page.total, this.#livePage.total),
-		};
+	/**
+	 * A tail-reaching reply can race live entries. Appends to `target` (a run
+	 * ending at the reply's newest entry) the raced entries newer than it and
+	 * settles the session total. Returns false, leaving `target` untouched, when
+	 * `raced` overflowed past that entry: the two runs are no longer adjacent.
+	 */
+	#mergeRaced(target: EntryWindow, page: HistoryPage, raced: EntryWindow): boolean {
+		const lastId = target.entries.at(-1)?.id;
+		const anchor = lastId === undefined ? -1 : raced.entries.findIndex(entry => entry.id === lastId);
+		const newerCount = Math.max(0, this.#total - page.total);
+		const start = anchor >= 0 ? anchor + 1 : Math.max(0, raced.entries.length - newerCount);
+		this.#total = anchor >= 0 ? page.total + raced.entries.length - start : Math.max(page.total, this.#total);
+		if (anchor < 0 && raced.evictedOldest && newerCount > raced.entries.length) return false;
+		for (let i = start; i < raced.entries.length; i++) target.push(raced.entries[i]!);
+		return true;
+	}
+
+	/** Replaces the window with a latest page plus the live entries that raced it. */
+	#acceptLatest(entries: EntryWindow, page: HistoryPage, raced: EntryWindow): void {
+		const adjacent = this.#mergeRaced(entries, page, raced);
+		const next = adjacent ? entries : raced;
+		next.trimOldest();
+		this.#window = next;
+		this.#hasOlder = !adjacent || page.beforeId !== null || next.evictedOldest;
 		this.#atLatest = true;
-		this.#publishLive();
+		this.#unseen = 0;
+		this.#historyVersion++;
+		this.#publishWindow();
+	}
+
+	/** Prepends the page before the first retained entry; overflow evicts the newest entries. */
+	#acceptOlder(entries: readonly SessionEntry[], page: HistoryPage, anchorId: string | null): void {
+		// Tail-following eviction may have moved the head while the request was
+		// in flight; the reply is then no longer adjacent and is dropped.
+		if (this.#window.entries[0]?.id !== anchorId) return;
+		for (let i = entries.length - 1; i >= 0; i--) this.#window.unshift(entries[i]!);
+		this.#hasOlder = page.beforeId !== null;
+		this.#total = Math.max(this.#total, page.total);
+		if (this.#window.trimNewest() > 0 && this.#atLatest) {
+			this.#atLatest = false;
+			this.#unseen = 0;
+		}
+		this.#publishWindow();
+	}
+
+	/** Appends the page after the last retained entry; overflow evicts the oldest entries. */
+	#acceptNewer(entries: readonly SessionEntry[], page: HistoryPage, raced: EntryWindow): void {
+		for (const entry of entries) this.#window.push(entry);
+		if (page.afterId === null) {
+			// The page reached the session's tail: re-attach.
+			if (!this.#mergeRaced(this.#window, page, raced)) {
+				this.#window = raced;
+				this.#historyVersion++;
+			}
+			this.#atLatest = true;
+			this.#unseen = 0;
+		} else {
+			this.#total = Math.max(this.#total, page.total);
+		}
+		this.#window.trimOldest();
+		if (this.#window.evictedOldest) this.#hasOlder = true;
+		this.#publishWindow();
 	}
 
 	/** Surfaces apply failures instead of letting the socket's recv chain swallow them. */
@@ -466,25 +718,24 @@ export class GuestClient {
 	#applyFrame(frame: HostFrame): void {
 		if (this.#phase === "ended") return;
 		switch (frame.t) {
-			case "welcome":
+			case "welcome": {
 				// A fresh welcome (first join or reconnect) restarts the snapshot.
 				// Entries already on screen stay until the new snapshot replaces
 				// them once complete, so a resync never blanks the transcript.
 				this.#header = frame.header;
 				this.#clearHistoryRequest();
-				this.#live = new EntryWindow();
-				this.#livePage = frame.history ?? { beforeId: null, afterId: null, total: frame.entryCount };
-				this.#atLatest = true;
-				this.#historyVersion++;
+				const page = frame.history ?? { beforeId: null, afterId: null, total: frame.entryCount };
+				this.#total = page.total;
 				if (frame.entryCount === 0) {
-					this.#publishLive();
 					this.#pendingSnapshot = null;
+					this.#acceptLatest(new EntryWindow(), page, new EntryWindow());
 				} else {
 					this.#pendingSnapshot = {
 						entries: new EntryWindow(),
+						raced: new EntryWindow(),
 						received: 0,
 						total: frame.entryCount,
-						page: this.#livePage,
+						page,
 					};
 					this.#phase = this.#phase === "live" || this.#phase === "reconnecting" ? "reconnecting" : "connecting";
 				}
@@ -498,7 +749,9 @@ export class GuestClient {
 				this.#working = frame.state.isStreaming;
 				this.#readOnly = frame.readOnly === true;
 				this.#clearUiRequests();
+				this.#commandSession.sessionRestarted();
 				this.#welcomed = true;
+				this.#snapshotChunks = 0;
 				this.#clearWelcomeTimer();
 				if (frame.entryCount === 0) {
 					this.#clearSnapshotProgressTimer();
@@ -508,19 +761,24 @@ export class GuestClient {
 				}
 				this.#endedReason = null;
 				break;
+			}
 			case "snapshot-chunk": {
+				if (!this.#welcomed) return;
+				// The host paces the rest of the snapshot by these acknowledgements.
+				this.#socket.send({ t: "snapshot-ack", chunks: ++this.#snapshotChunks });
 				// Publish once at completion; progress counts received entries,
 				// not the bounded retained suffix.
 				const pending = this.#pendingSnapshot;
 				if (pending === null) return;
-				for (const entry of frame.entries) pending.entries.append(entry);
+				for (const entry of frame.entries) pending.entries.push(entry);
+				pending.entries.trimOldest();
 				pending.received += frame.entries.length;
 				// A lost empty final chunk must not strand a complete page.
 				if (!frame.final && pending.received < pending.total) {
 					this.#armSnapshotProgressTimer();
 					break;
 				}
-				this.#acceptLatest(pending.entries, pending.page, this.#live);
+				this.#acceptLatest(pending.entries, pending.page, pending.raced);
 				this.#pendingSnapshot = null;
 				this.#clearSnapshotProgressTimer();
 				this.#phase = "live";
@@ -534,16 +792,7 @@ export class GuestClient {
 					this.#streamDone = false;
 				}
 				if (!this.#welcomed) return;
-				if (
-					this.#pendingSnapshot?.entries.entries.some(entry => entry.id === frame.entry.id) ||
-					!this.#live.append(frame.entry)
-				)
-					break;
-				this.#livePage = { ...this.#livePage, total: this.#livePage.total + 1 };
-				this.#pendingHistory?.live.append(frame.entry);
-				if (this.#pendingSnapshot !== null) break;
-				if (this.#atLatest) this.#publishLive();
-				else this.#historyPage = { ...this.#historyPage, total: this.#livePage.total };
+				this.#applyLiveEntry(frame.entry);
 				break;
 			case "history": {
 				const pending = this.#pendingHistory;
@@ -553,21 +802,15 @@ export class GuestClient {
 					this.#historyError = frame.error;
 					break;
 				}
-				const entries = new EntryWindow();
-				for (const entry of frame.entries) entries.append(entry);
-				if (frame.page.afterId === null) {
-					this.#acceptLatest(entries, frame.page, pending.live);
+				if (pending.kind === "older") {
+					this.#acceptOlder(frame.entries, frame.page, pending.anchorId);
+				} else if (pending.kind === "newer") {
+					this.#acceptNewer(frame.entries, frame.page, pending.raced);
 				} else {
-					this.#atLatest = false;
-					this.#livePage = { ...this.#livePage, total: Math.max(this.#livePage.total, frame.page.total) };
-					this.#historyPage = {
-						...frame.page,
-						beforeId: entries.evicted ? (entries.entries[0]?.id ?? null) : frame.page.beforeId,
-						total: this.#livePage.total,
-					};
-					this.#publishedEntries = entries.entries;
+					const entries = new EntryWindow();
+					for (const entry of frame.entries) entries.push(entry);
+					this.#acceptLatest(entries, frame.page, pending.raced);
 				}
-				this.#historyVersion++;
 				break;
 			}
 			case "stream":
@@ -639,19 +882,32 @@ export class GuestClient {
 				if (this.#uiRequest?.reqId === frame.reqId) this.#showNextUiRequest();
 				else this.#uiRequestQueue = this.#uiRequestQueue.filter(request => request.reqId !== frame.reqId);
 				break;
-			case "transcript": {
+			case "transcript-page": {
 				const pending = this.#pendingTranscripts.get(frame.reqId);
 				if (pending) {
 					this.#pendingTranscripts.delete(frame.reqId);
 					clearTimeout(pending.timer);
 					pending.resolve(
 						frame.error !== undefined
-							? { kind: "error", message: frame.error }
-							: { kind: "rows", text: frame.text, newSize: frame.newSize },
+							? { kind: "error", message: frame.error, size: frame.size }
+							: {
+									kind: "page",
+									text: frame.text,
+									startByte: frame.startByte,
+									endByte: frame.endByte,
+									size: frame.size,
+								},
 					);
 				}
 				break;
 			}
+			case "commands":
+			case "command-output":
+			case "command-end":
+			case "completions":
+				// Publish only when the catalog or a run changed.
+				if (!this.#commandSession.handleFrame(frame)) return;
+				break;
 			case "bye":
 				this.#end(frame.reason);
 				return; // #end already committed
@@ -672,6 +928,40 @@ export class GuestClient {
 		}
 		if (isCoalescable(frame)) this.#scheduleCommit();
 		else this.#commit();
+	}
+
+	/**
+	 * Routes one live entry: buffered behind an in-flight snapshot, appended to
+	 * an attached window, or merely counted while the window is detached.
+	 */
+	#applyLiveEntry(entry: SessionEntry): void {
+		const snapshot = this.#pendingSnapshot;
+		if (snapshot !== null) {
+			if (snapshot.entries.has(entry.id) || !snapshot.raced.push(entry)) return;
+			snapshot.raced.trimOldest();
+			this.#total++;
+			return;
+		}
+		if (this.#window.has(entry.id)) return;
+		const raced = this.#pendingHistory?.raced;
+		if (raced !== undefined) {
+			if (!raced.push(entry)) return;
+			raced.trimOldest();
+		}
+		this.#total++;
+		if (!this.#atLatest) {
+			this.#unseen++;
+			return;
+		}
+		if (!this.#followingTail && !this.#window.fits(entry)) {
+			// Evicting would pull rows from under the reader: detach instead.
+			this.#atLatest = false;
+			this.#unseen = 1;
+			return;
+		}
+		this.#window.push(entry);
+		if (this.#window.trimOldest() > 0) this.#hasOlder = true;
+		this.#publishWindow();
 	}
 
 	/**
@@ -823,9 +1113,11 @@ export class GuestClient {
 			// consumers per token.
 			entries: this.#publishedEntries,
 			history: {
-				...this.#historyPage,
+				hasOlder: this.#hasOlder,
 				atLatest: this.#atLatest,
-				loading: this.#pendingHistory !== null,
+				total: this.#total,
+				unseen: this.#unseen,
+				loading: this.#pendingHistory?.kind ?? null,
 				error: this.#historyError,
 				version: this.#historyVersion,
 			},
@@ -840,6 +1132,8 @@ export class GuestClient {
 			readOnly: this.#readOnly,
 			uiRequest: this.#uiRequest,
 			notices: this.#notices,
+			commands: this.#commandSession.commands,
+			commandRuns: this.#commandSession.runs,
 			loading: this.#pendingSnapshot && {
 				received: this.#pendingSnapshot.received,
 				total: this.#pendingSnapshot.total,

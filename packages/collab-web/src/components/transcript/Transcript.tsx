@@ -1,5 +1,5 @@
 import type { AssistantMessage, ImageContent, SessionEntry, TextContent, ToolResultMessage } from "@oh-my-soup/pi-wire";
-import { ChevronRight } from "lucide-react";
+import { ArrowDown, ChevronRight } from "lucide-react";
 import type { ReactNode } from "react";
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { ActiveTool, ConnectionPhase } from "../../lib/client";
@@ -20,59 +20,103 @@ export interface TranscriptProps {
 	host?: ToolRenderHost;
 	/** Main connection phase; absent for the agent drawer's compact transcript. */
 	phase?: ConnectionPhase;
-	/** Historical host pages never tail-follow or display current work. */
-	atLatest?: boolean;
+	/** Rows exist before the first of `entries`; coming near the top asks for them. */
+	hasOlder?: boolean;
+	/** `entries` stops short of the newest row: no tail-follow and no current work is shown. */
+	hasNewer?: boolean;
+	/** The load in flight, shown as a slim row at the end it extends. */
+	loading?: "older" | "newer" | "latest" | null;
+	/** A failed load, shown inline with a retry action; loading does not resume by scrolling. */
+	error?: string | null;
+	/** Rows that arrived beyond `entries` while `hasNewer`. */
+	unseen?: number;
+	/** The reader came near the first row while `hasOlder`. Called once per load. */
+	onReachStart?(): void;
+	/** The reader came near the last row while `hasNewer`. Called once per load. */
+	onReachEnd?(): void;
+	/** The reader asked for the newest rows while `hasNewer`. */
+	onJumpToLatest?(): void;
+	/** Reports whether the reader is pinned to the bottom, on mount and on every change. */
+	onFollowChange?(following: boolean): void;
 }
 
-interface ScrollGeometry {
-	scrollTop: number;
+export interface ScrollGeometry {
+	readonly scrollTop: number;
 	readonly scrollHeight: number;
 	readonly clientHeight: number;
 }
 
-interface TailLock {
-	current: boolean;
+/** Distance from the bottom within which the reader counts as following the tail. */
+const TAIL_LOCK_PX = 40;
+/** Distance from either end of the mounted rows at which more of them load. */
+const EDGE_TRIGGER_PX = 600;
+
+export function isAtTranscriptTail(geometry: ScrollGeometry): boolean {
+	return geometry.scrollHeight - geometry.scrollTop - geometry.clientHeight <= TAIL_LOCK_PX;
 }
 
-/** Scroll to the tail while locked; `force` re-arms the lock for a `live` transition. */
-export function followTranscriptTail(element: ScrollGeometry, lock: TailLock, force = false): void {
-	if (force) lock.current = true;
-	if (lock.current) element.scrollTop = element.scrollHeight;
+/**
+ * The end of the mounted rows the reader is close enough to that more should
+ * load there: `start` needs `hasOlder`, `end` needs `hasNewer`. Content shorter
+ * than the viewport is near both ends. When both qualify only the direction of
+ * the reader's own scroll decides; without one (a layout change) neither
+ * loads, so two loads that each evict the other's rows can never chase each
+ * other.
+ */
+export function transcriptEdge(
+	geometry: ScrollGeometry,
+	hasOlder: boolean,
+	hasNewer: boolean,
+	direction: "up" | "down" | null,
+): "start" | "end" | null {
+	const nearStart = hasOlder && geometry.scrollTop <= EDGE_TRIGGER_PX;
+	const nearEnd = hasNewer && geometry.scrollHeight - geometry.scrollTop - geometry.clientHeight <= EDGE_TRIGGER_PX;
+	if (nearStart && nearEnd) return direction === "up" ? "start" : direction === "down" ? "end" : null;
+	if (nearStart) return "start";
+	return nearEnd ? "end" : null;
 }
 
-/** Re-derive the lock from current scroll geometry (locked within 40px of the bottom). */
-export function updateTranscriptTailLock(element: ScrollGeometry, lock: TailLock): void {
-	lock.current = element.scrollHeight - element.scrollTop - element.clientHeight <= 40;
-}
-
-function Row({
-	kind,
-	gutter,
-	title,
-	children,
+/** A prompt from a person: sender caption above a right-aligned bubble. */
+function UserRow({
+	from,
+	timestamp,
+	content,
 }: {
-	kind: "user" | "assistant" | "custom" | "marker";
-	gutter: ReactNode;
-	title?: string;
-	children: ReactNode;
+	from: string;
+	timestamp: string;
+	content: string | readonly (TextContent | ImageContent)[];
 }): ReactNode {
 	return (
-		<div className={`tr-row tr-row--${kind}`}>
-			<div className="tr-gutter" title={title}>
-				{gutter}
+		<div className="tr-row tr-row--user">
+			<span className="tr-from" title={timestamp}>
+				{from}
+			</span>
+			<div className="tr-bubble">
+				<MsgContent content={content} />
 			</div>
-			<div className="tr-body">{children}</div>
 		</div>
 	);
 }
 
-function ThinkingBlock({ text, redacted }: { text: string; redacted?: boolean }): ReactNode {
+/** A session event (compaction, model or effort change): centred caption between hairlines. */
+function Marker({ title, children }: { title?: string; children: ReactNode }): ReactNode {
+	return (
+		<div className="tr-divider" title={title}>
+			<span>{children}</span>
+		</div>
+	);
+}
+
+function ThinkingBlock({ text, redacted, live }: { text: string; redacted?: boolean; live?: boolean }): ReactNode {
 	const [open, setOpen] = useState(false);
 	return (
 		<div className="tr-think">
-			<button type="button" className="tr-think-head" onClick={() => setOpen(v => !v)}>
-				<ChevronRight size={11} className={`tr-chev${open ? " tr-chev--open" : ""}`} />
-				thinking{redacted ? " · redacted" : ""}
+			<button type="button" className="tr-think-head" aria-expanded={open} onClick={() => setOpen(v => !v)}>
+				<span className={live ? "tr-think-live" : undefined}>
+					{live ? "Thinking" : "Thought"}
+					{redacted ? " · redacted" : ""}
+				</span>
+				<ChevronRight size={13} className={`tr-chev${open ? " tr-chev--open" : ""}`} aria-hidden />
 			</button>
 			{open && <div className="tr-think-body">{redacted ? "(redacted by provider)" : text}</div>}
 		</div>
@@ -119,14 +163,19 @@ function AssistantBody({
 	pending: boolean;
 	host?: ToolRenderHost;
 }): ReactNode {
+	const last = message.content.length - 1;
 	const blocks = message.content.map((block, i) => {
 		switch (block.type) {
 			case "thinking":
-				return <ThinkingBlock key={i} text={block.thinking} />;
+				return <ThinkingBlock key={i} text={block.thinking} live={pending && i === last} />;
 			case "redactedThinking":
 				return <ThinkingBlock key={i} text="" redacted />;
 			case "text":
-				return pending ? <StreamingMarkdown key={i} text={block.text} /> : <Markdown key={i} text={block.text} />;
+				return pending ? (
+					<StreamingMarkdown key={i} text={block.text} caret={i === last} />
+				) : (
+					<Markdown key={i} text={block.text} />
+				);
 			case "toolCall": {
 				const act = active.get(block.id);
 				const result = results.get(block.id);
@@ -144,7 +193,7 @@ function AssistantBody({
 							partialResult={act?.partialResult}
 						/>
 						{!result && act === undefined && !pending && (
-							<div className="tr-marker">Result not on this page.</div>
+							<div className="tr-note">Result is outside the loaded part of the transcript.</div>
 						)}
 					</div>
 				);
@@ -160,7 +209,7 @@ function AssistantBody({
 			{blocks}
 			{failed && (
 				<div className="tr-stop">
-					<span className={`tr-chip ${stop === "error" ? "tr-chip--err" : "tr-chip--warn"}`}>{stop}</span>
+					<span className={`tr-tag ${stop === "error" ? "tr-tag--err" : "tr-tag--warn"}`}>{stop}</span>
 					{message.errorMessage !== undefined && message.errorMessage.length > 0 && (
 						<span className="tr-stop-msg">{message.errorMessage}</span>
 					)}
@@ -200,21 +249,17 @@ const EntryRow = memo(function EntryRow({ entry, results, active, pairedToolIds,
 			const msg = entry.message;
 			switch (msg.role) {
 				case "user":
-					return (
-						<Row kind="user" gutter="host" title={entry.timestamp}>
-							<MsgContent content={msg.content} />
-						</Row>
-					);
+					return <UserRow from="host" timestamp={entry.timestamp} content={msg.content} />;
 				case "assistant":
 					return (
-						<Row kind="assistant" gutter="agent" title={entry.timestamp}>
+						<div className="tr-row tr-row--assistant">
 							<AssistantBody message={msg} results={results} active={active} pending={false} host={host} />
-						</Row>
+						</div>
 					);
 				case "toolResult":
 					if (pairedToolIds.has(msg.toolCallId)) return null;
 					return (
-						<Row kind="assistant" gutter="tool" title={entry.timestamp}>
+						<div className="tr-row tr-row--assistant">
 							<ToolCard
 								toolCallId={msg.toolCallId}
 								name={msg.toolName}
@@ -222,7 +267,7 @@ const EntryRow = memo(function EntryRow({ entry, results, active, pairedToolIds,
 								result={msg}
 								host={host}
 							/>
-						</Row>
+						</div>
 					);
 				default:
 					// Developer & unknown roles are not transcript rows.
@@ -238,199 +283,211 @@ const EntryRow = memo(function EntryRow({ entry, results, active, pairedToolIds,
 					typeof (details as Record<string, unknown>).from === "string"
 						? ((details as Record<string, unknown>).from as string)
 						: "guest";
-				return (
-					<Row kind="user" gutter={<span className="tr-badge">{from}</span>} title={entry.timestamp}>
-						<MsgContent content={entry.content} />
-					</Row>
-				);
+				return <UserRow from={from} timestamp={entry.timestamp} content={entry.content} />;
 			}
 			if (!entry.display) return null;
 			return (
-				<Row kind="custom" gutter="" title={entry.timestamp}>
-					<div className="tr-custom">
-						<span className="tr-chip">{entry.customType}</span>
-						<MsgContent content={entry.content} />
-					</div>
-				</Row>
+				<div className="tr-row tr-row--custom">
+					<span className="tr-tag tr-tag--context" title={entry.timestamp}>
+						{entry.customType}
+					</span>
+					<MsgContent content={entry.content} />
+				</div>
 			);
 		}
 		case "compaction":
 			return (
-				<div className="tr-divider" title={entry.shortSummary ?? entry.summary}>
-					<span>context compacted · {fmtTokens(entry.tokensBefore)} tokens</span>
-				</div>
+				<Marker title={entry.shortSummary ?? entry.summary}>
+					Context compacted · {fmtTokens(entry.tokensBefore)} tokens
+				</Marker>
 			);
 		case "branch_summary":
-			return (
-				<div className="tr-divider" title={entry.summary}>
-					<span>branch summary</span>
-				</div>
-			);
+			return <Marker title={entry.summary}>Branch summary</Marker>;
 		case "model_change":
-			return (
-				<Row kind="marker" gutter="" title={entry.timestamp}>
-					<span className="tr-marker">model → {entry.model}</span>
-				</Row>
-			);
+			return <Marker title={entry.timestamp}>Model → {entry.model}</Marker>;
 		case "thinking_level_change":
-			return (
-				<Row kind="marker" gutter="" title={entry.timestamp}>
-					<span className="tr-marker">thinking → {entry.thinkingLevel ?? "off"}</span>
-				</Row>
-			);
+			return <Marker title={entry.timestamp}>Thinking → {entry.thinkingLevel ?? "off"}</Marker>;
 		default:
 			// unknown entry types from newer hosts — skip tolerantly
 			return null;
 	}
 }, entryRowEqual);
 
-/** Overlapping windows keep a practical scroll anchor without growing mounted rows. */
-const WINDOW = 100;
-const WINDOW_STEP = WINDOW / 2;
-const EARLIER_TRIGGER_PX = 200;
 const NO_ACTIVE_TOOLS: ReadonlyMap<string, ActiveTool> = new Map();
-
-export function transcriptWindow(
-	entries: readonly SessionEntry[],
-	pinnedId: string | null,
-): {
-	start: number;
-	end: number;
-	earlierId: string | null;
-	newerId: string | null;
-} {
-	const tailStart = Math.max(0, entries.length - WINDOW);
-	const pinnedIndex =
-		pinnedId === null
-			? tailStart
-			: Math.max(
-					0,
-					entries.findIndex(entry => entry.id === pinnedId),
-				);
-	const start = Math.min(pinnedIndex, tailStart);
-	const end = Math.min(entries.length, start + WINDOW);
-	return {
-		start,
-		end,
-		earlierId: start > 0 ? entries[Math.max(0, start - WINDOW_STEP)]!.id : null,
-		newerId: end < entries.length ? entries[Math.min(tailStart, start + WINDOW_STEP)]!.id : null,
-	};
-}
 
 interface ScrollAnchor {
 	id: string;
 	offset: number;
 }
 
+/**
+ * The first row reaching into the viewport and its offset from the viewport
+ * top. Rows are in document order, so a binary search finds it.
+ */
+function captureAnchor(el: HTMLElement): ScrollAnchor | null {
+	const rows = el.querySelectorAll<HTMLElement>(":scope > [data-entry-id]");
+	const top = el.getBoundingClientRect().top;
+	let low = 0;
+	let high = rows.length;
+	while (low < high) {
+		const mid = (low + high) >> 1;
+		if (rows[mid]!.getBoundingClientRect().bottom > top) high = mid;
+		else low = mid + 1;
+	}
+	const row = rows[low];
+	const id = row?.dataset.entryId;
+	if (row === undefined || id === undefined) return null;
+	return { id, offset: row.getBoundingClientRect().top - top };
+}
+
+function EdgeError({ message, onRetry }: { message: string; onRetry(): void }): ReactNode {
+	return (
+		<>
+			<span className="tr-edge-error" role="alert">
+				{message}
+			</span>
+			<button type="button" className="tr-edge-retry" onClick={onRetry}>
+				Retry
+			</button>
+		</>
+	);
+}
+
+/**
+ * Renders every retained row; the owner keeps `entries` bounded and slides it
+ * as the reader nears either end. Rows added or evicted at either end leave
+ * the first visible row where it was, unless the reader is following the tail.
+ */
 export function Transcript(props: TranscriptProps): ReactNode {
-	const { entries, stream, streamDone, activeTools, working, compact, host, phase, atLatest = true } = props;
-	// IDs, not indices, keep the reader pinned when the live page evicts its head.
-	const [pinnedId, setPinnedId] = useState<string | null>(null);
-	const { start, end, earlierId, newerId } = useMemo(() => transcriptWindow(entries, pinnedId), [entries, pinnedId]);
-	const visible = useMemo(() => entries.slice(start, end), [entries, start, end]);
-	const atTail = end === entries.length;
-	const showLive = atLatest && atTail;
+	const {
+		entries,
+		stream,
+		streamDone,
+		activeTools,
+		working,
+		compact,
+		host,
+		phase,
+		hasOlder = false,
+		hasNewer = false,
+		loading = null,
+		error = null,
+		unseen = 0,
+		onReachStart,
+		onReachEnd,
+		onJumpToLatest,
+		onFollowChange,
+	} = props;
+	const showLive = !hasNewer;
 	const active = showLive ? activeTools : NO_ACTIVE_TOOLS;
 
-	// A tool result always follows its call, so visible rows only pair with visible results.
+	// A tool result always follows its call, so retained rows only pair with retained results.
 	const results = useMemo(() => {
 		const map = new Map<string, ToolResultMessage>();
-		for (const entry of visible) {
+		for (const entry of entries) {
 			if (entry.type === "message" && entry.message.role === "toolResult") {
 				map.set(entry.message.toolCallId, entry.message);
 			}
 		}
 		return map;
-	}, [visible]);
+	}, [entries]);
 
 	const rootRef = useRef<HTMLDivElement | null>(null);
-	const lockRef = useRef(atLatest);
+	const followRef = useRef(!hasNewer);
+	const [following, setFollowing] = useState(!hasNewer);
 	const lastScrollTopRef = useRef(0);
 	const anchorRef = useRef<ScrollAnchor | null>(null);
-	const navigationRef = useRef<{ anchor: ScrollAnchor | null; edge: "start" | "end" } | null>(null);
+	/** False from an edge request until its effect (loading, new rows, an error) shows up. */
+	const armedRef = useRef(true);
+	/** What the last load was asked for: its failure is shown, and retried, at that end. */
+	const [requested, setRequested] = useState<"start" | "end" | "latest">("latest");
+	/** The reader asked for the latest rows while another load was in flight; honoured when it settles. */
+	const jumpQueuedRef = useRef(false);
 
-	const captureAnchor = (keep?: ReadonlySet<string>): ScrollAnchor | null => {
-		const el = rootRef.current;
-		if (el === null) return null;
-		const top = el.getBoundingClientRect().top;
-		for (const row of el.querySelectorAll<HTMLElement>("[data-entry-id]")) {
-			const id = row.dataset.entryId;
-			if (id === undefined || (keep !== undefined && !keep.has(id))) continue;
-			const rect = row.getBoundingClientRect();
-			if (rect.bottom > top) return { id, offset: rect.top - top };
-		}
-		return null;
+	const setFollow = (next: boolean): void => {
+		if (followRef.current === next) return;
+		followRef.current = next;
+		setFollowing(next);
 	};
 
-	useEffect(() => {
-		const el = rootRef.current;
-		if (el !== null && atLatest && atTail) {
-			followTranscriptTail(el, lockRef);
-			lastScrollTopRef.current = el.scrollTop;
-		}
-	}, [entries, stream, activeTools, working, atLatest, atTail, start]);
+	const request = (target: "start" | "end" | "latest"): void => {
+		armedRef.current = false;
+		setRequested(target);
+		if (target === "start") onReachStart?.();
+		else if (target === "end") onReachEnd?.();
+		else onJumpToLatest?.();
+	};
 
-	// Reconnects return to live, but a historical page with phase=live does not.
-	useEffect(() => {
-		const el = rootRef.current;
-		if (phase !== "live" || !atLatest || el === null) return;
-		setPinnedId(null);
-		followTranscriptTail(el, lockRef, true);
-		lastScrollTopRef.current = el.scrollTop;
-	}, [phase, atLatest]);
+	const checkEdges = (el: HTMLElement, direction: "up" | "down" | null): void => {
+		if (!armedRef.current || loading !== null) return;
+		const edge = transcriptEdge(el, hasOlder, hasNewer, direction);
+		if (edge === null) return;
+		// A failed load is retried by the reader, never by lingering at the end it failed at.
+		if (error !== null && (edge === "start") === (requested === "start")) return;
+		request(edge);
+	};
 
+	useLayoutEffect(() => {
+		armedRef.current = true;
+	}, [entries, loading, error, hasOlder, hasNewer]);
+
+	// After every commit: stay glued to the bottom while following; otherwise
+	// put the first visible row back at the viewport offset it had, whatever
+	// was added, evicted or resized above it.
 	useLayoutEffect(() => {
 		const el = rootRef.current;
 		if (el === null) return;
-		const navigation = navigationRef.current;
-		navigationRef.current = null;
-		const before = navigation === null ? anchorRef.current : navigation.anchor;
-		if (!lockRef.current) {
-			const anchor =
-				before &&
-				Array.from(el.querySelectorAll<HTMLElement>("[data-entry-id]")).find(
-					row => row.dataset.entryId === before.id,
-				);
-			if (anchor && before) {
-				el.scrollTop += anchor.getBoundingClientRect().top - el.getBoundingClientRect().top - before.offset;
-			} else if (navigation !== null) {
-				el.scrollTop = navigation.edge === "end" ? el.scrollHeight : 0;
-			} else if (before !== null) {
-				// The anchor aged out of a bounded live page. Stay at its oldest
-				// retained row; Older still reaches every evicted entry.
-				el.scrollTop = 0;
+		if (hasNewer) setFollow(false);
+		if (followRef.current) {
+			el.scrollTop = el.scrollHeight;
+		} else {
+			const saved = anchorRef.current;
+			const row =
+				saved === null ? null : el.querySelector<HTMLElement>(`:scope > [data-entry-id="${CSS.escape(saved.id)}"]`);
+			if (saved !== null && row !== null) {
+				const delta = row.getBoundingClientRect().top - el.getBoundingClientRect().top - saved.offset;
+				if (Math.abs(delta) >= 1) el.scrollTop += delta;
 			}
+			if (!hasNewer && isAtTranscriptTail(el)) setFollow(true);
 		}
 		lastScrollTopRef.current = el.scrollTop;
-		anchorRef.current = captureAnchor();
-	}, [entries, start, end]);
+		anchorRef.current = captureAnchor(el);
+		if (jumpQueuedRef.current && loading === null) {
+			jumpQueuedRef.current = false;
+			if (hasNewer) request("latest");
+		} else {
+			checkEdges(el, null);
+		}
+	});
 
-	const moveWindow = (id: string | null, edge: "start" | "end"): void => {
-		if (id === null) return;
-		const next = transcriptWindow(entries, id);
-		const keep = new Set(entries.slice(next.start, next.end).map(entry => entry.id));
-		navigationRef.current = { anchor: captureAnchor(keep), edge };
-		lockRef.current = false;
-		setPinnedId(id);
+	useEffect(() => {
+		onFollowChange?.(following);
+	}, [following, onFollowChange]);
+
+	const jump = (): void => {
+		if (hasNewer) {
+			if (loading === null) request("latest");
+			else jumpQueuedRef.current = true;
+			return;
+		}
+		const el = rootRef.current;
+		if (el === null) return;
+		el.scrollTop = el.scrollHeight;
+		lastScrollTopRef.current = el.scrollTop;
+		anchorRef.current = captureAnchor(el);
+		setFollow(true);
 	};
 
-	const showLatest = (): void => {
-		lockRef.current = atLatest;
-		navigationRef.current = { anchor: null, edge: "end" };
-		setPinnedId(null);
-	};
-
-	// Scan only the mounted window; hidden history must not suppress a live tool.
 	const committedToolIds = useMemo(() => {
 		const ids = new Set<string>();
-		for (const entry of visible) {
+		for (const entry of entries) {
 			if (entry.type !== "message" || entry.message.role !== "assistant") continue;
 			for (const block of entry.message.content) {
 				if (block.type === "toolCall") ids.add(block.id);
 			}
 		}
 		return ids;
-	}, [visible]);
+	}, [entries]);
 
 	const pairedToolIds = useMemo(() => {
 		if (!showLive || stream === null) return committedToolIds;
@@ -455,6 +512,9 @@ export function Transcript(props: TranscriptProps): ReactNode {
 
 	// While the snapshot downloads the banner reports progress; an empty transcript isn't "no activity".
 	const settled = phase === undefined || phase === "live";
+	const hasRows = entries.length > 0;
+	const startError = requested === "start" && hasRows ? error : null;
+	const endError = startError === null ? error : null;
 
 	return (
 		<div
@@ -463,44 +523,51 @@ export function Transcript(props: TranscriptProps): ReactNode {
 			onScroll={() => {
 				const el = rootRef.current;
 				if (el === null) return;
-				const movingUp = el.scrollTop < lastScrollTopRef.current;
+				const last = lastScrollTopRef.current;
+				const direction = el.scrollTop < last ? "up" : el.scrollTop > last ? "down" : null;
 				lastScrollTopRef.current = el.scrollTop;
-				if (atLatest && atTail) updateTranscriptTailLock(el, lockRef);
-				else lockRef.current = false;
-				anchorRef.current = captureAnchor();
-				if (lockRef.current) {
-					if (pinnedId !== null) setPinnedId(null);
-				} else if (pinnedId === null) {
-					setPinnedId(entries[start]?.id ?? null);
-				}
-				if (movingUp && el.scrollTop <= EARLIER_TRIGGER_PX) moveWindow(earlierId, "end");
+				setFollow(!hasNewer && isAtTranscriptTail(el));
+				anchorRef.current = captureAnchor(el);
+				checkEdges(el, direction);
 			}}
 		>
-			{settled && entries.length === 0 && stream === null && !working && (
-				<div className="tr-empty">no activity yet</div>
+			{settled && !hasRows && stream === null && !working && loading === null && error === null && (
+				<div className="tr-empty">No activity yet</div>
 			)}
-			{start > 0 && (
-				<button type="button" className="tr-earlier" onClick={() => moveWindow(earlierId, "end")}>
-					show {start.toLocaleString("en-US")} earlier
-				</button>
+			{hasRows && (
+				<div className="tr-edge">
+					{loading === "older" ? (
+						<span className="tr-edge-loading">
+							<span className="spinner" aria-hidden="true" />
+							Loading earlier messages
+						</span>
+					) : startError !== null ? (
+						<EdgeError message={startError} onRetry={() => request(requested)} />
+					) : hasOlder ? null : (
+						<span className="tr-edge-origin">Start of session</span>
+					)}
+				</div>
 			)}
-			{visible.map(entry => (
+			{entries.map(entry => (
 				<div key={entry.id} data-entry-id={entry.id}>
 					<EntryRow entry={entry} results={results} active={active} pairedToolIds={pairedToolIds} host={host} />
 				</div>
 			))}
-			{newerId !== null && (
-				<div className="tr-window-controls">
-					<button type="button" className="tr-earlier" onClick={() => moveWindow(newerId, "start")}>
-						show {Math.max(0, entries.length - end).toLocaleString("en-US")} newer
-					</button>
-					<button type="button" className="tr-earlier" onClick={showLatest}>
-						latest
-					</button>
+			{(loading === "newer" || loading === "latest") && (
+				<div className="tr-edge">
+					<span className="tr-edge-loading">
+						<span className="spinner" aria-hidden="true" />
+						Loading
+					</span>
+				</div>
+			)}
+			{endError !== null && loading === null && (
+				<div className="tr-edge">
+					<EdgeError message={endError} onRetry={() => request(requested)} />
 				</div>
 			)}
 			{showLive && stream !== null && (
-				<Row kind="assistant" gutter="agent">
+				<div className="tr-row tr-row--assistant">
 					<AssistantBody
 						message={stream}
 						results={results}
@@ -508,10 +575,10 @@ export function Transcript(props: TranscriptProps): ReactNode {
 						pending={!streamDone}
 						host={host}
 					/>
-				</Row>
+				</div>
 			)}
 			{tailTools.length > 0 && (
-				<Row kind="assistant" gutter={stream === null ? "agent" : ""}>
+				<div className="tr-row tr-row--assistant">
 					{tailTools.map(tool => (
 						<ToolCard
 							key={tool.toolCallId}
@@ -524,12 +591,27 @@ export function Transcript(props: TranscriptProps): ReactNode {
 							host={host}
 						/>
 					))}
-				</Row>
+				</div>
 			)}
 			{showLive && working && stream === null && activeTools.size === 0 && (
-				<Row kind="assistant" gutter="agent">
+				<div className="tr-row tr-row--assistant">
 					<div className="tr-shimmer">thinking…</div>
-				</Row>
+				</div>
+			)}
+			{hasRows && (hasNewer || !following) && (
+				<div className="tr-jump">
+					<button
+						type="button"
+						className="tr-jump-pill"
+						disabled={loading === "latest"}
+						onClick={jump}
+						title="Jump to latest"
+						aria-label={unseen > 0 ? `Jump to latest, ${unseen.toLocaleString("en-US")} new` : "Jump to latest"}
+					>
+						<ArrowDown size={16} aria-hidden />
+						{unseen > 0 && <span className="tr-jump-count">{unseen.toLocaleString("en-US")} new</span>}
+					</button>
+				</div>
 			)}
 		</div>
 	);

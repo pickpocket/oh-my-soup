@@ -1,24 +1,32 @@
 /**
  * In-memory collab transport shared by the collab test suites.
  *
- * `FakeWebSocket` + `InMemoryRelay` replace the real Bun.serve relay and
- * loopback WebSocket. They mirror the production relay's forwarding contract
- * exactly (4-byte peerId envelope routing, peer-joined/peer-left control
- * frames) but deliver every frame on a microtask with zero network or timer
- * latency. Real `CollabSocket` / `CollabHost` / `CollabGuestLink` run
- * unchanged on top, so sealing, enveloping, the hello→welcome handshake, and
- * permission enforcement are all exercised.
+ * `FakeWebSocket` + `InMemoryRelay` replace the real relay and loopback
+ * WebSocket. They mirror the production relay's forwarding contract exactly
+ * (4-byte peerId envelope routing, peer-joined/peer-left control frames, the
+ * message size limit, refusals after the upgrade) but deliver every frame on a
+ * microtask with zero network or timer latency. Real `CollabSocket` /
+ * `CollabHost` / `CollabGuestLink` run unchanged on top, so sealing,
+ * enveloping, the hello→welcome handshake, and permission enforcement are all
+ * exercised.
  *
  * Usage: `installInMemoryRelay()` in `beforeAll`/`beforeEach`,
  * `uninstallInMemoryRelay()` in the matching `afterAll`/`afterEach`.
  */
 import { rewriteEnvelopePeer, unpackEnvelope } from "@oh-my-soup/pi-coding-agent/collab/protocol";
+import { COLLAB_RELAY_MAX_MESSAGE_BYTES } from "@oh-my-soup/pi-wire";
 
 /** Active relay the fake transport routes through; set between install/uninstall. */
 let activeRelay: InMemoryRelay | null = null;
 
 /** Pristine constructor captured before any test swaps it. */
 const RealWebSocket = globalThis.WebSocket;
+
+/** A close the relay sends right after accepting the upgrade. */
+export interface RelayRefusal {
+	code: number;
+	reason: string;
+}
 
 export class FakeWebSocket {
 	static readonly CONNECTING = 0;
@@ -46,14 +54,33 @@ export class FakeWebSocket {
 		this.role = new URL(url).searchParams.get("role") === "host" ? "host" : "guest";
 		queueMicrotask(() => {
 			if (this.readyState !== FakeWebSocket.CONNECTING) return;
+			if (!relay.reachable(this)) {
+				// No upgrade at all, as when the relay is not listening.
+				this.readyState = FakeWebSocket.CLOSED;
+				this.onclose?.({ code: 1006, reason: "" });
+				return;
+			}
 			this.readyState = FakeWebSocket.OPEN;
-			relay.connect(this);
+			const refusal = relay.connect(this);
 			this.onopen?.();
+			// The relay completes the upgrade, then closes a peer it will not admit.
+			if (refusal) this.#closeFromRelay(refusal.code, refusal.reason);
 		});
+	}
+
+	/** The connection is lost without a close frame (a relay crash). */
+	drop(): void {
+		this.#closeFromRelay(1006, "");
 	}
 
 	send(data: Uint8Array): void {
 		if (this.readyState !== FakeWebSocket.OPEN) return;
+		// The relay closes a sender whose message exceeds its limit and forwards nothing.
+		if (data.byteLength > COLLAB_RELAY_MAX_MESSAGE_BYTES) {
+			this.#relay.disconnect(this);
+			this.#closeFromRelay(1009, "message is too large");
+			return;
+		}
 		// Snapshot: the relay rewrites the peerId in place, and the sender may
 		// reuse the buffer once send() returns. Routing happens now, against the
 		// room as it is at send time, so a frame written just before close() still
@@ -66,10 +93,11 @@ export class FakeWebSocket {
 		if (type === "pong") this.#pongListeners.push(listener);
 	}
 
-	/** The relay answers every ping, as a live one does. */
+	/** The relay answers every ping on an open connection, as a live one does. */
 	ping(): void {
 		if (this.readyState !== FakeWebSocket.OPEN) return;
 		queueMicrotask(() => {
+			if (this.readyState !== FakeWebSocket.OPEN) return;
 			for (const listener of this.#pongListeners) listener();
 		});
 	}
@@ -87,9 +115,14 @@ export class FakeWebSocket {
 
 	/** Relay-initiated close with a fatal code, as when the room disappears. */
 	closeFatal(): void {
+		this.#closeFromRelay(4001, "room closed");
+	}
+
+	/** The relay closes this connection; it has already forgotten it. */
+	#closeFromRelay(code: number, reason: string): void {
 		if (this.readyState === FakeWebSocket.CLOSED) return;
 		this.readyState = FakeWebSocket.CLOSED;
-		queueMicrotask(() => this.onclose?.({ code: 4001, reason: "room closed" }));
+		queueMicrotask(() => this.onclose?.({ code, reason }));
 	}
 
 	/** Relay → this socket: a binary frame, delivered as ArrayBuffer (binaryType "arraybuffer"). */
@@ -111,15 +144,61 @@ export class InMemoryRelay {
 	#host: FakeWebSocket | null = null;
 	readonly #guests = new Map<number, FakeWebSocket>();
 	#nextPeerId = 1;
+	readonly #hostRefusals: RelayRefusal[] = [];
+	/** After a crash, until the host returns: the room does not exist, so guests get 4004. */
+	#roomMissing = false;
+	/** Host connections fail before the upgrade, as if the host had not got its network back yet. */
+	#holdHosts = false;
+	/** Guest connections refused with 4004 because the room was missing. */
+	missingRoomRefusals = 0;
 
-	connect(ws: FakeWebSocket): void {
+	/** Refuse the next host connection after its upgrade, as a relay at capacity or with a host already does. */
+	refuseNextHost(refusal: RelayRefusal): void {
+		this.#hostRefusals.push(refusal);
+	}
+
+	/**
+	 * The relay process dies and comes back: every connection drops without a
+	 * close frame and the room is gone until its host recreates it. With
+	 * `holdHosts`, host connections keep failing until {@link releaseHosts}.
+	 */
+	crash(options: { holdHosts?: boolean } = {}): void {
+		const dropped = [...this.#guests.values()];
+		if (this.#host) dropped.push(this.#host);
+		this.#host = null;
+		this.#guests.clear();
+		this.#nextPeerId = 1;
+		this.#roomMissing = true;
+		this.#holdHosts = options.holdHosts === true;
+		for (const ws of dropped) ws.drop();
+	}
+
+	releaseHosts(): void {
+		this.#holdHosts = false;
+	}
+
+	/** Whether `ws` gets an upgrade at all. */
+	reachable(ws: FakeWebSocket): boolean {
+		return !(ws.role === "host" && this.#holdHosts);
+	}
+
+	/** Admit `ws`, or return the refusal it gets instead. */
+	connect(ws: FakeWebSocket): RelayRefusal | undefined {
 		if (ws.role === "host") {
+			const refusal = this.#hostRefusals.shift();
+			if (refusal) return refusal;
 			this.#host = ws;
-			return;
+			this.#roomMissing = false;
+			return undefined;
+		}
+		if (this.#roomMissing) {
+			this.missingRoomRefusals++;
+			return { code: 4004, reason: "no such room" };
 		}
 		ws.peerId = this.#nextPeerId++;
 		this.#guests.set(ws.peerId, ws);
 		this.#host?.deliverControl(JSON.stringify({ t: "peer-joined", peer: ws.peerId }));
+		return undefined;
 	}
 
 	forward(from: FakeWebSocket, bytes: Uint8Array): void {

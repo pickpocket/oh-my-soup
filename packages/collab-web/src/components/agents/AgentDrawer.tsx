@@ -1,22 +1,24 @@
-import type {
-	AgentSnapshot,
-	SessionEntry,
-	SubagentLifecyclePayload,
-	SubagentProgressPayload,
-} from "@oh-my-soup/pi-wire";
-import { OctagonX, RotateCcw, SendHorizontal, X } from "lucide-react";
+import type { AgentSnapshot, SubagentLifecyclePayload, SubagentProgressPayload } from "@oh-my-soup/pi-wire";
+import { ArrowUp, OctagonX, RotateCcw, X } from "lucide-react";
 import type { ReactNode } from "react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { GuestClient } from "../../lib/client";
-import { fmtCost, fmtDuration, fmtTokens } from "../../lib/format";
-import { decideTranscriptPoll } from "../../lib/transcript-poll";
+import { fmtCost, fmtDuration, fmtPercent, fmtTokens } from "../../lib/format";
+import { TranscriptPager, type TranscriptPagerView } from "../../lib/transcript-pager";
 import type { TranscriptProps } from "../transcript/Transcript";
 import { Transcript } from "../transcript/Transcript";
+import "./agents.css";
 
 const EMPTY_TOOLS: TranscriptProps["activeTools"] = new Map();
-const POLL_MS = 1200;
-/** Consecutive unchanged polls of a non-running agent before the loop stops. */
-const IDLE_POLLS_BEFORE_STOP = 4;
+/** Shown until the pager of the selected agent publishes its first view. */
+const OPENING_VIEW: TranscriptPagerView = {
+	entries: [],
+	hasOlder: false,
+	atLatest: true,
+	loading: "latest",
+	error: null,
+	version: 0,
+};
 
 export function AgentDrawer(props: {
 	agent: AgentSnapshot;
@@ -30,13 +32,12 @@ export function AgentDrawer(props: {
 	onClose(): void;
 }): ReactNode {
 	const { agent, progress, lifecycle, client, readOnly, host, onClose } = props;
-	const [entries, setEntries] = useState<readonly SessionEntry[]>([]);
-	const [fetchError, setFetchError] = useState<string | null>(null);
+	const [view, setView] = useState(OPENING_VIEW);
 	const [draft, setDraft] = useState("");
-	/** Resumes a stopped poll loop; null while no loop is mounted. */
-	const resumePollingRef = useRef<(() => void) | null>(null);
-	const quiescentRef = useRef(false);
-	quiescentRef.current = agent.status !== "running";
+	/** The selected agent's pager; null while no transcript is mounted. */
+	const pagerRef = useRef<TranscriptPager | null>(null);
+	const runningRef = useRef(false);
+	runningRef.current = agent.status === "running";
 
 	useEffect(() => {
 		const onKey = (e: KeyboardEvent) => {
@@ -46,93 +47,41 @@ export function AgentDrawer(props: {
 		return () => window.removeEventListener("keydown", onKey);
 	}, [onClose]);
 
-	// Live transcript: poll the host-side session file while the drawer is
-	// open, appending parsed JSONL entries. State resets when the agent
-	// changes; the interval and any in-flight reply are dropped on cleanup.
-	// Once the agent is not running, no partial JSONL line is pending, and
-	// IDLE_POLLS_BEFORE_STOP consecutive polls find the file unchanged, the
-	// loop stops; host activity for the agent resumes it (effect below).
-	// A frame-level host error is terminal: stop polling and show it (the
-	// host replies with an unchanged cursor, so retrying would loop hot).
+	// Live transcript: a pager opens the host-side session file at its tail,
+	// polls for appended rows while the drawer is open and pages backward as
+	// the reader scrolls up. It is replaced when the agent changes and
+	// disposed (timer and in-flight reply dropped) on cleanup.
 	useEffect(() => {
-		setEntries([]);
-		setFetchError(null);
+		setView(OPENING_VIEW);
 		if (!agent.hasSessionFile) return;
-		let disposed = false;
-		let failed = false;
-		let inFlight = false;
-		let cursor = 0;
-		let carry = "";
-		let acc: readonly SessionEntry[] = [];
-		let idlePolls = 0;
-		let timer: Timer | null = null;
-		const stopPolling = () => {
-			if (timer !== null) {
-				clearInterval(timer);
-				timer = null;
-			}
-		};
-		const poll = async (): Promise<void> => {
-			if (disposed || failed || inFlight) return;
-			inFlight = true;
-			try {
-				const reply = await client.fetchTranscript(agent.id, cursor);
-				if (disposed) return;
-				const decision = decideTranscriptPoll(reply, carry);
-				switch (decision.action) {
-					case "retry":
-						return; // timeout/transient → keep polling from the same cursor
-					case "stop":
-						failed = true;
-						stopPolling();
-						setFetchError(decision.message);
-						return;
-					case "advance": {
-						const grew = decision.newSize !== cursor;
-						cursor = decision.newSize;
-						carry = decision.carry;
-						if (decision.fresh.length > 0) {
-							acc = [...acc, ...decision.fresh];
-							setEntries(acc);
-						}
-						idlePolls = grew || !quiescentRef.current ? 0 : idlePolls + 1;
-						if (carry === "" && idlePolls >= IDLE_POLLS_BEFORE_STOP) stopPolling();
-						return;
-					}
-				}
-			} finally {
-				inFlight = false;
-			}
-		};
-		const startPolling = () => {
-			idlePolls = 0;
-			void poll();
-			timer = setInterval(() => {
-				void poll();
-			}, POLL_MS);
-		};
-		resumePollingRef.current = () => {
-			if (!disposed && !failed && timer === null) startPolling();
-		};
-		startPolling();
+		const pager = new TranscriptPager({
+			fetch: cursor => client.fetchTranscriptPage(agent.id, cursor),
+			onChange: () => setView(pager.view),
+			isRunning: () => runningRef.current,
+		});
+		pagerRef.current = pager;
 		return () => {
-			disposed = true;
-			resumePollingRef.current = null;
-			stopPolling();
+			pagerRef.current = null;
+			pager.dispose();
 		};
 	}, [agent.id, agent.hasSessionFile, client]);
 
 	// Progress/lifecycle bus frames and status/activity changes for this agent
-	// restart a stopped loop; a running loop ignores them.
+	// restart polling that stopped for idleness; a running loop ignores them.
 	useEffect(() => {
-		resumePollingRef.current?.();
+		pagerRef.current?.poll();
 	}, [progress, lifecycle, agent.status, agent.lastActivity]);
+
+	const loadOlder = useCallback(() => pagerRef.current?.loadOlder(), []);
+	const loadNewer = useCallback(() => pagerRef.current?.loadNewer(), []);
+	const jumpToLatest = useCallback(() => pagerRef.current?.jumpToLatest(), []);
+	const setFollowingTail = useCallback((following: boolean) => pagerRef.current?.setFollowingTail(following), []);
 
 	const sendChat = () => {
 		const text = draft.trim();
 		if (!text) return;
-		client.sendAgentCmd("chat", agent.id, text);
-		setDraft("");
+		// A refused send (too large for the relay) keeps the draft; the client posts a notice.
+		if (client.sendAgentCmd("chat", agent.id, text)) setDraft("");
 	};
 
 	const p = progress?.progress;
@@ -143,18 +92,22 @@ export function AgentDrawer(props: {
 			: null;
 
 	return (
-		<aside className="ag-drawer" role="dialog" aria-label={agent.displayName}>
-			<header className="ag-drawer-head">
-				<div className="ag-drawer-title">
-					<span className="ag-drawer-name">{agent.displayName}</span>
-					<span className={`ag-chip ag-chip--${agent.status}`}>{agent.status}</span>
-					{model ? <span className="ag-chip ag-chip--model">{model}</span> : null}
+		<aside className="ag-panel" role="dialog" aria-label={agent.displayName}>
+			<header className="ag-head">
+				<div className="ag-title">
+					<span className="ag-name">{agent.displayName}</span>
+					<span className={`ag-tag ag-tag--${agent.status}`}>{agent.status}</span>
+					{model ? (
+						<span className="ag-model" title={model}>
+							{model}
+						</span>
+					) : null}
 				</div>
-				<div className="ag-drawer-actions">
+				<div className="ag-actions">
 					{agent.status === "running" && !readOnly ? (
 						<button
 							type="button"
-							className="ag-btn ag-btn--danger"
+							className="sh-btn sh-btn-sm sh-btn-danger"
 							onClick={() => client.sendAgentCmd("kill", agent.id)}
 						>
 							<OctagonX size={13} aria-hidden />
@@ -162,66 +115,58 @@ export function AgentDrawer(props: {
 						</button>
 					) : null}
 					{(agent.status === "parked" || agent.status === "aborted") && !readOnly ? (
-						<button type="button" className="ag-btn" onClick={() => client.sendAgentCmd("revive", agent.id)}>
+						<button
+							type="button"
+							className="sh-btn sh-btn-sm"
+							onClick={() => client.sendAgentCmd("revive", agent.id)}
+						>
 							<RotateCcw size={13} aria-hidden />
 							revive
 						</button>
 					) : null}
-					<button type="button" className="ag-iconbtn" aria-label="close" onClick={onClose}>
-						<X size={15} aria-hidden />
+					<button type="button" className="sh-icon-btn" aria-label="close" onClick={onClose}>
+						<X size={16} aria-hidden />
 					</button>
 				</div>
 			</header>
 			{p ? (
 				<div className="ag-stats">
-					<span className="ag-stat">
-						<span className="ag-stat-label">tok</span>
-						<span className="ag-stat-value">{fmtTokens(p.tokens)}</span>
-					</span>
+					<span>{fmtTokens(p.tokens)} tokens</span>
 					{ctxPct !== null ? (
-						<span className="ag-stat" title={`context ${fmtTokens(p.contextTokens ?? 0)}`}>
-							<span className="ag-stat-label">ctx</span>
-							<span className="ag-gauge">
-								<span
-									className={ctxPct > 80 ? "ag-gauge-fill ag-gauge-fill--warn" : "ag-gauge-fill"}
-									style={{ width: `${ctxPct}%` }}
-								/>
-							</span>
+						<span
+							className={ctxPct > 80 ? "ag-stat-warn" : undefined}
+							title={`context ${fmtTokens(p.contextTokens ?? 0)}`}
+						>
+							{fmtPercent(ctxPct)} context
 						</span>
 					) : null}
-					<span className="ag-stat">
-						<span className="ag-stat-label">cost</span>
-						<span className="ag-stat-value">{fmtCost(p.cost)}</span>
-					</span>
-					<span className="ag-stat">
-						<span className="ag-stat-label">tools</span>
-						<span className="ag-stat-value">{p.toolCount}</span>
-					</span>
-					<span className="ag-stat">
-						<span className="ag-stat-value">{fmtDuration(p.durationMs)}</span>
-					</span>
+					<span>{fmtCost(p.cost)}</span>
+					<span>{p.toolCount} tools</span>
+					<span>{fmtDuration(p.durationMs)}</span>
 				</div>
 			) : null}
-			<div className="ag-drawer-body">
+			<div className="ag-body">
 				{agent.hasSessionFile ? (
-					<>
-						<Transcript
-							compact
-							entries={entries}
-							stream={null}
-							streamDone={false}
-							activeTools={EMPTY_TOOLS}
-							working={agent.status === "running" && fetchError === null}
-							host={host}
-						/>
-						{fetchError !== null ? (
-							<div className="ag-fetch-error" role="alert">
-								transcript unavailable: {fetchError}
-							</div>
-						) : null}
-					</>
+					<Transcript
+						key={`${agent.id}:${view.version}`}
+						compact
+						entries={view.entries}
+						stream={null}
+						streamDone={false}
+						activeTools={EMPTY_TOOLS}
+						working={agent.status === "running" && view.error === null && view.loading === null}
+						hasOlder={view.hasOlder}
+						hasNewer={!view.atLatest}
+						loading={view.loading}
+						error={view.error}
+						onReachStart={loadOlder}
+						onReachEnd={loadNewer}
+						onJumpToLatest={jumpToLatest}
+						onFollowChange={setFollowingTail}
+						host={host}
+					/>
 				) : (
-					<div className="ag-empty">no transcript available</div>
+					<div className="ag-empty">No transcript available</div>
 				)}
 			</div>
 			{!readOnly && (
@@ -235,11 +180,17 @@ export function AgentDrawer(props: {
 					<input
 						className="ag-chat-input"
 						value={draft}
-						placeholder={`message ${agent.displayName}…`}
+						placeholder={`Message ${agent.displayName}`}
+						aria-label={`Message ${agent.displayName}`}
 						onChange={e => setDraft(e.target.value)}
 					/>
-					<button type="submit" className="ag-iconbtn" aria-label="send" disabled={draft.trim().length === 0}>
-						<SendHorizontal size={15} aria-hidden />
+					<button
+						type="submit"
+						className="sh-send sh-send-sm"
+						aria-label="send"
+						disabled={draft.trim().length === 0}
+					>
+						<ArrowUp size={16} aria-hidden />
 					</button>
 				</form>
 			)}

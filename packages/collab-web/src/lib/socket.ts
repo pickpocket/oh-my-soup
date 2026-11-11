@@ -4,18 +4,17 @@
  *
  * Connects to a relay room, seals/opens AES-GCM frames, and reconnects with
  * exponential backoff. Guests survive host-drop teardown while the host recreates the room.
+ * Frames too large for the relay are refused before sealing, never sent.
  */
 
 import type { GuestFrame, HostFrame, RelayControlMessage } from "@oh-my-soup/pi-wire";
-import { open, type RoomKey, seal } from "./codec";
+import { COLLAB_MAX_FRAME_BYTES, COLLAB_RELAY_CLOSE_REASONS } from "@oh-my-soup/pi-wire";
+import { open, type RoomKey, sealPlaintext } from "./codec";
 import { packEnvelope, unpackEnvelope } from "./link";
 
-const RELAY_CLOSE_REASONS: Record<number, string> = {
-	4001: "room closed",
-	4004: "no such room",
-	4009: "a host is already connected for this room",
-	4029: "room is full",
-};
+/** The relay closed this connection for sending a message over its limit: a client bug. */
+const CLOSE_MESSAGE_TOO_LARGE = 1009;
+const TEXT_ENCODER = new TextEncoder();
 
 const BACKOFF_BASE_MS = 1_000;
 const BACKOFF_MAX_MS = 30_000;
@@ -37,6 +36,11 @@ export class CollabSocket {
 	onControl?: (msg: RelayControlMessage) => void;
 	/** Fires on each close; `willReconnect` distinguishes retries from terminal shutdown. */
 	onClose?: (reason: string, willReconnect: boolean) => void;
+	/**
+	 * Fires synchronously inside {@link send} when a frame is refused because
+	 * its JSON is `bytes` long, over {@link COLLAB_MAX_FRAME_BYTES}.
+	 */
+	onRefused?: (frame: GuestFrame, bytes: number) => void;
 
 	readonly #opts: CollabSocketOptions;
 	#ws: WebSocket | null = null;
@@ -46,6 +50,11 @@ export class CollabSocket {
 	#closed = false;
 	/** Allows a previously joined guest to outlive room recreation races. */
 	#retryMissingRoom = false;
+	/**
+	 * A `welcome` arrived on some connection since connect(): the room existed,
+	 * so a later "no such room" means the host has not recreated it yet.
+	 */
+	#welcomedInRoom = false;
 	/** Serializes seal() so frames hit the wire in send() order. */
 	#sendChain: Promise<void> = Promise.resolve();
 	/** Serializes open() so frames are delivered in arrival order. */
@@ -65,27 +74,48 @@ export class CollabSocket {
 		if (this.#ws || this.#retryTimer) return;
 		this.#closed = false;
 		this.#retryMissingRoom = false;
+		this.#welcomedInRoom = false;
 		this.#attempt = 0;
 		this.#openSocket();
 	}
 
-	send(frame: GuestFrame, targetPeer = 0): void {
+	/**
+	 * Seals and sends `frame`, or queues it until the next connection when none
+	 * is open. A frame sent on an open connection belongs to it and is lost with
+	 * it, never replayed on the next one (a stale `hello` would make the host
+	 * serve a second snapshot). Returns false, sending nothing, when its JSON
+	 * exceeds {@link COLLAB_MAX_FRAME_BYTES}: the relay would close this
+	 * connection for it.
+	 */
+	send(frame: GuestFrame, targetPeer = 0): boolean {
+		const plaintext = TEXT_ENCODER.encode(JSON.stringify(frame));
+		if (plaintext.byteLength > COLLAB_MAX_FRAME_BYTES) {
+			console.warn(
+				`collab: not sending a ${frame.t} frame of ${plaintext.byteLength} bytes; the relay accepts at most ${COLLAB_MAX_FRAME_BYTES}`,
+			);
+			this.onRefused?.(frame, plaintext.byteLength);
+			return false;
+		}
+		const current = this.#ws;
+		const boundTo = current !== null && current.readyState === WebSocket.OPEN ? current : null;
 		this.#sendChain = this.#sendChain
 			.then(async () => {
 				if (this.#closed) return;
-				const sealed = await seal(await this.#opts.key, frame);
+				const sealed = await sealPlaintext(await this.#opts.key, plaintext);
 				const envelope = packEnvelope(targetPeer, sealed);
 				const ws = this.#ws;
+				if (boundTo !== null && ws !== boundTo) return;
 				if (ws && ws.readyState === WebSocket.OPEN) {
 					ws.send(envelope);
 					return;
 				}
-				if (this.#pendingSends.length >= MAX_PENDING_SENDS) return;
+				if (boundTo !== null || this.#pendingSends.length >= MAX_PENDING_SENDS) return;
 				this.#pendingSends.push(envelope);
 			})
 			.catch(() => {
 				// dropped frame; the socket-level close path reports actionable failures
 			});
+		return true;
 	}
 
 	/** Intentional close: clears any retry timer, suppresses reconnect. A later connect() starts fresh. */
@@ -95,6 +125,7 @@ export class CollabSocket {
 		const wasClosed = this.#closed;
 		this.#closed = true;
 		this.#retryMissingRoom = false;
+		this.#welcomedInRoom = false;
 		this.#pendingSends.length = 0;
 		const ws = this.#ws;
 		this.#ws = null;
@@ -165,6 +196,7 @@ export class CollabSocket {
 				if (this.#ws !== ws) return;
 				this.#retryMissingRoom = false;
 				this.#attempt = 0;
+				if (frame.t === "welcome") this.#welcomedInRoom = true;
 				this.onFrame?.(frame, envelope.peerId);
 			})
 			.catch(() => {
@@ -174,19 +206,24 @@ export class CollabSocket {
 
 	#handleClose(code: number, reason: string): void {
 		if (this.#closed) return;
-		const fatalReason = RELAY_CLOSE_REASONS[code];
-		const closeReason = fatalReason ?? (reason || `connection lost (code ${code})`);
-		const retryRoom = this.#opts.role === "guest" && (code === 4001 || (code === 4004 && this.#retryMissingRoom));
+		const knownReason = COLLAB_RELAY_CLOSE_REASONS[code];
+		const closeReason = reason || knownReason || `connection lost (code ${code})`;
+		if (code === CLOSE_MESSAGE_TOO_LARGE) {
+			console.error(`collab: the relay closed the connection over a message above its limit (${closeReason})`);
+		}
+		// A room this guest joined before is only missing until its host recreates it.
+		const missingRoomIsTransient = this.#retryMissingRoom || this.#welcomedInRoom;
+		const retryRoom = this.#opts.role === "guest" && (code === 4001 || (code === 4004 && missingRoomIsTransient));
 		if (retryRoom) {
 			this.#retryMissingRoom = true;
 			this.onClose?.(closeReason, true);
 			this.#scheduleRetry();
 			return;
 		}
-		if (fatalReason !== undefined) {
+		if (knownReason !== undefined) {
 			this.#closed = true;
 			this.#pendingSends.length = 0;
-			this.onClose?.(fatalReason, false);
+			this.onClose?.(closeReason, false);
 			return;
 		}
 		this.onClose?.(closeReason, true);

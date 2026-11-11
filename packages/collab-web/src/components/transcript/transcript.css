@@ -1,14 +1,24 @@
-/* Transcript — calm gutter-labeled rows; user turns sit on a raised card. tr-* namespace. */
+/* Transcript (tr-*): one centred column. Prompts are right-aligned bubbles,
+ * assistant prose is plain, tools are tagged one-line rows. Token vars only. */
 
 .tr-root {
 	height: 100%;
 	overflow-y: auto;
 	overflow-x: hidden;
-	padding: 24px 24px 16px;
-	font-family: var(--font-ui);
-	font-size: 14px;
-	line-height: 1.6;
+	/* Transcript.tsx keeps the first visible row in place itself. */
+	overflow-anchor: none;
+	/* A gutter on both sides keeps the column centred over the composer. */
+	scrollbar-gutter: stable both-edges;
+	padding: 24px 20px;
+	font-size: 14.5px;
+	line-height: 25px;
 	color: var(--fg);
+}
+
+.tr-root > * {
+	width: 100%;
+	max-width: var(--column-w);
+	margin-inline: auto;
 }
 
 .tr-empty {
@@ -21,161 +31,147 @@
 /* ---- rows ---- */
 
 .tr-row {
-	display: grid;
-	grid-template-columns: 64px minmax(0, 1fr);
-	gap: 0 16px;
-	padding: 7px 0;
-	animation: rise 320ms var(--ease-out) backwards;
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 8px;
+	min-width: 0;
+	padding: 4px 0;
 }
 
-.tr-gutter {
-	padding-top: 3px;
-	text-align: right;
-	font-family: var(--font-mono);
-	font-size: 11.5px;
-	font-weight: 500;
-	color: var(--fg-faint);
+.tr-row > .tr-md,
+.tr-row > .tr-tool,
+.tr-row > .tr-think {
+	align-self: stretch;
+	min-width: 0;
+}
+
+/* A person's prompt: caption, then a bubble hugging the right edge. */
+.tr-row--user {
+	align-items: flex-end;
+	gap: 4px;
+	padding: 20px 0 12px;
+}
+
+.tr-from {
+	max-width: 100%;
+	padding: 0 10px;
 	overflow: hidden;
+	color: var(--fg-muted);
+	font-size: 12px;
+	line-height: 16px;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 	user-select: none;
 }
 
-.tr-row--user .tr-gutter {
-	padding-top: 12px;
-	color: var(--fg-muted);
-}
-
-/* User turns: a raised card so prompts stand apart from agent prose. */
-.tr-row--user .tr-body {
-	justify-self: start;
-	max-width: 100%;
-	padding: 9px 14px;
-	background: var(--bg-raised);
-	border: 1px solid var(--border);
-	border-radius: var(--radius-lg);
-	box-shadow: var(--shadow-card);
-}
-
-.tr-body {
+.tr-bubble {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
 	min-width: 0;
-	display: flex;
-	flex-direction: column;
-	align-items: flex-start;
+	max-width: min(100%, 600px);
+	padding: 10px 16px;
+	line-height: 22px;
+	background: var(--bg-raised);
+	border-radius: var(--radius-bubble);
+}
+
+.tr-row--custom {
 	gap: 4px;
-}
-
-.tr-row--assistant .tr-body {
-	gap: 8px;
-}
-
-.tr-body > .tr-md {
-	align-self: stretch;
-}
-
-
-.tr-row--custom .tr-body {
 	color: var(--fg-muted);
-}
-
-.tr-custom {
-	display: flex;
-	flex-direction: column;
-	align-items: flex-start;
-	gap: 4px;
 }
 
 .tr-msg-img {
 	max-height: 240px;
 	max-width: 100%;
-	border: 1px solid var(--border);
-	border-radius: var(--radius-sm);
+	border-radius: var(--radius);
 }
 
-/* ---- chips & badges ---- */
+/* ---- tags ---- */
 
-.tr-badge {
-	display: inline-block;
-	padding: 0 7px;
-	border-radius: 999px;
-	background: var(--accent-muted);
-	color: var(--accent);
-	font-family: var(--font-mono);
-	font-size: 11px;
-	line-height: 18px;
-	text-transform: none;
-	letter-spacing: 0;
-}
-
-.tr-chip {
+.tr-tag {
 	display: inline-flex;
 	align-items: center;
 	height: 20px;
-	padding: 0 8px;
-	border: 1px solid var(--border);
-	border-radius: 999px;
-	background: var(--bg-raised);
-	color: var(--fg-muted);
-	font-family: var(--font-mono);
-	font-size: 11px;
+	padding: 0 7px;
+	border-radius: var(--radius-sm);
+	font: 600 10.5px / 1 var(--font-mono);
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
 	white-space: nowrap;
 }
 
-.tr-chip--err {
-	border-color: color-mix(in oklch, var(--err) 50%, var(--border));
-	color: var(--err);
-	background: color-mix(in oklch, var(--err) 10%, transparent);
+.tr-tag--context {
+	color: var(--tag-context);
+	background: color-mix(in srgb, var(--tag-context) 16%, transparent);
 }
 
-.tr-chip--warn {
-	border-color: color-mix(in oklch, var(--warn) 50%, var(--border));
+.tr-tag--err {
+	color: var(--err);
+	background: color-mix(in srgb, var(--err) 16%, transparent);
+}
+
+.tr-tag--warn {
 	color: var(--warn);
-	background: color-mix(in oklch, var(--warn) 10%, transparent);
+	background: color-mix(in srgb, var(--warn) 16%, transparent);
 }
 
 .tr-stop {
 	display: flex;
 	align-items: baseline;
 	gap: 8px;
-	margin-top: 2px;
 }
 
 .tr-stop-msg {
 	color: var(--err);
 	font-family: var(--font-mono);
-	font-size: 11.5px;
+	font-size: 12px;
+	line-height: 18px;
 	white-space: pre-wrap;
 	word-break: break-word;
 }
 
-/* ---- thinking ---- */
+/* ---- thinking: a collapsed summary row on a hairline ---- */
+
+.tr-think {
+	padding-bottom: 8px;
+	box-shadow: inset 0 calc(-1 * var(--hairline)) 0 var(--border);
+}
+
+/* A message that opens with a thought starts a new beat. */
+.tr-row > .tr-think:first-child {
+	margin-top: 8px;
+}
 
 .tr-think-head {
 	display: inline-flex;
 	align-items: center;
 	gap: 4px;
+	height: 24px;
 	padding: 0;
-	border: none;
+	border: 0;
 	background: none;
-	cursor: pointer;
-	color: var(--fg-faint);
-	font-family: var(--font-ui);
-	font-size: 12px;
-	font-style: italic;
+	color: var(--fg-muted);
+	font-size: 13px;
+	transition: color 120ms ease-out;
 }
 
 .tr-think-head:hover {
-	color: var(--fg-muted);
+	color: var(--fg);
+}
+
+.tr-think-live {
+	animation: pulse 1.4s ease-in-out infinite;
 }
 
 .tr-think-body {
-	align-self: stretch;
-	margin: 2px 0;
-	padding: 2px 0 2px 10px;
-	border-left: 2px solid var(--border);
+	margin-top: 4px;
+	padding-left: 12px;
+	border-left: 2px solid var(--border-strong);
 	color: var(--fg-muted);
-	font-style: italic;
-	font-size: 12px;
+	font-size: 13px;
+	line-height: 20px;
 	white-space: pre-wrap;
 	word-break: break-word;
 }
@@ -183,22 +179,23 @@
 .tr-chev {
 	flex: none;
 	color: var(--fg-faint);
-	transition: transform 150ms ease-out;
+	transition: transform 140ms ease-out;
 }
 
 .tr-chev--open {
 	transform: rotate(90deg);
 }
 
-/* ---- dividers & markers ---- */
+/* ---- markers: centred captions between hairlines ---- */
 
 .tr-divider {
 	display: flex;
 	align-items: center;
-	gap: 10px;
-	margin: 16px 0;
-	color: var(--fg-faint);
+	gap: 12px;
+	padding: 12px 0;
+	color: var(--fg-muted);
 	font-size: 12px;
+	line-height: 16px;
 	user-select: none;
 }
 
@@ -206,59 +203,232 @@
 .tr-divider::after {
 	content: "";
 	flex: 1;
-	height: 1px;
+	height: var(--hairline);
 	background: var(--border);
 }
 
-.tr-marker {
+.tr-note {
+	padding: 2px 0 0 2px;
 	color: var(--fg-faint);
-	font-family: var(--font-mono);
-	font-size: 11px;
+	font-size: 12px;
+	line-height: 16px;
 }
 
-.tr-earlier {
-	display: block;
-	margin: 4px auto 16px;
-	height: 28px;
-	padding: 0 14px;
-	border: 1px solid var(--border-strong);
-	border-radius: 999px;
-	background: var(--bg-raised);
+/* ---- window edges: quiet status where earlier or later rows load ---- */
+
+.tr-edge {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+	min-height: 28px;
 	color: var(--fg-muted);
 	font-size: 12px;
-	cursor: pointer;
+	line-height: 16px;
+	user-select: none;
 }
 
-.tr-earlier:hover {
-	color: var(--fg-muted);
-	border-color: var(--border-strong);
-}
-
-.tr-window-controls {
-	display: flex;
-	justify-content: center;
+.tr-edge-loading {
+	display: inline-flex;
+	align-items: center;
 	gap: 8px;
 }
 
-.tr-window-controls .tr-earlier {
-	margin: 12px 0;
+.tr-edge-error {
+	color: var(--err);
+	overflow-wrap: anywhere;
+	user-select: text;
+}
+
+.tr-edge-retry {
+	flex: none;
+	height: 24px;
+	padding: 0 10px;
+	border: 0;
+	border-radius: 999px;
+	background: var(--hover);
+	color: var(--fg-soft);
+	font-size: 12px;
+	transition:
+		background 120ms ease-out,
+		color 120ms ease-out;
+}
+
+.tr-edge-retry:hover {
+	background: var(--selected);
+	color: var(--fg);
+}
+
+/* Zero-height sticky rail: the button floats over the rows without taking space. */
+.tr-jump {
+	position: sticky;
+	bottom: 16px;
+	z-index: 2;
+	height: 0;
+	pointer-events: none;
+}
+
+/* A 36px circle; the unseen count stretches it into a pill. */
+.tr-jump-pill {
+	position: absolute;
+	bottom: 0;
+	left: 50%;
+	transform: translateX(-50%);
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 6px;
+	min-width: 36px;
+	height: 36px;
+	padding: 0 10px;
+	border: 0;
+	border-radius: 999px;
+	background: var(--bg-raised);
+	color: var(--fg-soft);
+	box-shadow:
+		0 0 0 var(--hairline) var(--border-strong),
+		var(--shadow-overlay);
+	font-size: 13px;
+	line-height: 1;
+	white-space: nowrap;
+	pointer-events: auto;
+	animation: fade-in 140ms ease-out;
+	transition:
+		background 120ms ease-out,
+		color 120ms ease-out;
+}
+
+.tr-jump-pill:hover:not(:disabled) {
+	background: var(--bg-control);
+	color: var(--fg);
+}
+
+.tr-jump-pill:disabled {
+	opacity: 0.6;
+}
+
+.tr-jump-count {
+	padding-right: 4px;
+	color: var(--accent-text);
+	font-weight: 500;
 }
 
 .tr-shimmer {
 	color: var(--fg-muted);
-	font-size: 12.5px;
-	animation: tr-pulse 1.4s ease-in-out infinite;
+	font-size: 13px;
+	animation: pulse 1.4s ease-in-out infinite;
 }
 
-/* ---- tool cards ----
- * Cards themselves are rendered by src/tool-render (tv-* namespace);
- * only host-level layout lives here. */
+/* ---- tool calls ----
+ * The cards are rendered by src/tool-render (tv-* namespace), which is shared
+ * with HTML session exports. Here they are restyled from outside: a collapsed
+ * card is one row (tool tag, summary, chevron) and its body opens as a detail
+ * card below. */
 
-.tr-body > .tv-card,
-.tr-tool > .tv-card {
-	align-self: stretch;
-	background: var(--bg-raised);
+.tr-root .tv-card {
+	--tv-inset: var(--bg);
+	border: 0;
+	border-radius: 0;
+	overflow: visible;
+	font-size: 12.5px;
+}
+
+.tr-root .tv-head {
+	gap: 8px;
+	min-height: 28px;
+	margin-left: -4px;
+	padding: 4px 8px 4px 4px;
 	border-radius: var(--radius);
+	transition: background 120ms ease-out;
+}
+
+.tr-root .tv-head:hover {
+	background: var(--hover);
+}
+
+.tr-root .tv-head:focus-visible {
+	outline-offset: 0;
+}
+
+.tr-root .tv-name {
+	padding: 0 7px;
+	border-radius: var(--radius-sm);
+	font-size: 10.5px;
+	line-height: 20px;
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+	color: var(--tag-tool);
+	background: color-mix(in srgb, var(--tag-tool) 16%, transparent);
+}
+
+.tr-root .tv-card--error .tv-name {
+	color: var(--err);
+	background: color-mix(in srgb, var(--err) 16%, transparent);
+}
+
+/* The tag carries the state: a finished call shows none, a failed one turns
+ * the tag red, and a running or unresolved one draws its indicator inside the
+ * tag's left padding. */
+.tr-root .tv-status--ok,
+.tr-root .tv-status--err {
+	display: none;
+}
+
+.tr-root .tv-spin,
+.tr-root .tv-status--pending {
+	position: relative;
+	z-index: 1;
+	width: 9px;
+	height: 9px;
+	margin-left: 7px;
+}
+
+.tr-root .tv-spin {
+	border-color: color-mix(in srgb, var(--tag-tool) 30%, transparent);
+	border-top-color: var(--tag-tool);
+}
+
+.tr-root .tv-status--pending {
+	border: 1.5px solid var(--tag-tool);
+	background: none;
+	opacity: 0.6;
+}
+
+.tr-root .tv-spin + .tv-name,
+.tr-root .tv-status--pending + .tv-name {
+	margin-left: -24px;
+	padding-left: 22px;
+}
+
+.tr-root .tv-sum {
+	font-size: 12.5px;
+}
+
+/* Agent chips in task cards open that agent's panel. */
+.tr-root .tv-agent-link {
+	color: var(--tag-agent);
+	background: color-mix(in srgb, var(--tag-agent) 16%, transparent);
+}
+
+.tr-root .tv-agent-link:hover {
+	background: color-mix(in srgb, var(--tag-agent) 26%, transparent);
+}
+
+.tr-root .tv-body,
+.tr-root .tv-partial {
+	margin: 4px 0;
+	border-top: 0;
+	border-radius: 10px;
+	background: var(--bg-inset);
+	box-shadow: 0 0 0 var(--hairline) var(--border-strong);
+}
+
+.tr-root .tv-body {
+	padding: 12px 14px;
+}
+
+.tr-root .tv-partial {
+	padding: 8px 14px;
 }
 
 /* ---- markdown ---- */
@@ -267,7 +437,6 @@
  * possible, but still emergency-break long URLs or identifiers before they
  * overflow the transcript. */
 .tr-md {
-	line-height: 1.55;
 	overflow-wrap: break-word;
 	word-break: keep-all;
 }
@@ -281,12 +450,16 @@
 }
 
 .tr-md p {
-	margin: 6px 0;
+	margin: 10px 0;
 }
 
 .tr-md p,
 .tr-md li {
 	white-space: pre-wrap;
+}
+
+.tr-md strong {
+	font-weight: 600;
 }
 
 .tr-md h1,
@@ -295,106 +468,114 @@
 .tr-md h4,
 .tr-md h5,
 .tr-md h6 {
-	margin: 14px 0 6px;
+	margin: 20px 0 8px;
 	font-weight: 600;
-	line-height: 1.3;
+	line-height: 1.35;
 }
 
 .tr-md h1 {
-	font-size: 17px;
+	font-size: 19px;
 }
 
 .tr-md h2 {
-	font-size: 15px;
+	font-size: 17px;
 }
 
 .tr-md h3 {
-	font-size: 14px;
+	font-size: 15.5px;
 }
 
 .tr-md h4,
 .tr-md h5,
 .tr-md h6 {
-	font-size: 13px;
+	font-size: 14.5px;
 }
 
 .tr-md ul,
 .tr-md ol {
-	margin: 6px 0;
+	margin: 10px 0;
 	padding-left: 22px;
 }
 
 .tr-md li {
-	margin: 2px 0;
+	margin: 4px 0;
+}
+
+.tr-md li::marker {
+	color: var(--fg-muted);
 }
 
 .tr-md li > ul,
 .tr-md li > ol {
+	margin: 4px 0;
 	white-space: normal;
 }
 
 .tr-md li > p {
-	margin: 2px 0;
+	margin: 4px 0;
 }
 
 .tr-md code {
-	padding: 1px 5px;
-	border: 1px solid var(--border);
-	border-radius: 5px;
-	background: var(--bg-raised);
+	padding: 2px 5px;
+	border-radius: var(--radius-sm);
+	background: var(--hover);
 	font-family: var(--font-mono);
-	font-size: 0.86em;
+	font-size: 0.88em;
 }
 
 .tr-md pre {
-	margin: 10px 0;
+	margin: 12px 0;
 	padding: 12px 14px;
 	overflow-x: auto;
-	border: 1px solid var(--border);
-	border-radius: var(--radius);
+	border-radius: 10px;
 	background: var(--bg-inset);
+	box-shadow: inset 0 0 0 var(--hairline) var(--border-strong);
 }
 
 .tr-md pre code {
 	padding: 0;
-	border: 0;
 	border-radius: 0;
 	background: none;
-	font-size: 12px;
-	line-height: 1.5;
+	font-size: 12.5px;
+	line-height: 20px;
 }
 
 .tr-md blockquote {
-	margin: 8px 0;
-	padding: 2px 12px;
-	border-left: 2px solid var(--accent);
+	margin: 10px 0;
+	padding: 0 14px;
+	border-left: 2px solid var(--border-strong);
 	color: var(--fg-muted);
 }
 
 .tr-md table {
-	margin: 8px 0;
+	margin: 12px 0;
 	border-collapse: collapse;
-	font-size: 12.5px;
+	font-size: 13px;
+	line-height: 20px;
 }
 
 /* Table cells need `anywhere` so long URLs/identifiers contribute a shrinkable
  * intrinsic width instead of expanding under the transcript's clipped overflow. */
 .tr-md th,
 .tr-md td {
-	padding: 3px 8px;
-	border: 1px solid var(--border);
+	padding: 6px 10px;
+	border-bottom: var(--hairline) solid var(--border-strong);
 	overflow-wrap: anywhere;
 	text-align: left;
 	word-break: keep-all;
 }
 
 .tr-md th {
-	background: var(--bg-raised);
-	font-weight: 550;
+	color: var(--fg-muted);
+	font-weight: 500;
+}
+
+.tr-md tr:last-child > td {
+	border-bottom: 0;
 }
 
 .tr-md a {
-	color: var(--accent);
+	color: var(--accent-text);
 	text-decoration: none;
 }
 
@@ -403,16 +584,16 @@
 }
 
 .tr-md hr {
-	margin: 12px 0;
+	margin: 16px 0;
 	border: none;
-	height: 1px;
-	background: var(--border);
+	height: var(--hairline);
+	background: var(--border-strong);
 }
 
 .tr-md img {
 	max-width: 100%;
 	max-height: 320px;
-	border-radius: var(--radius-sm);
+	border-radius: var(--radius);
 }
 
 /* Math is native MathML (see transcript/math.ts): it must opt out of the
@@ -430,21 +611,36 @@
 	overflow-x: auto;
 }
 
-/* ---- compact variant (agent drawer) ---- */
+/* The block still receiving text ends with a soft caret. */
+.tr-md--live > :is(p, h1, h2, h3, h4, h5, h6):last-child::after,
+.tr-md--live > :is(ul, ol):last-child > li:last-child::after {
+	content: "";
+	display: inline-block;
+	width: 6px;
+	height: 1em;
+	margin-left: 3px;
+	vertical-align: -0.15em;
+	border-radius: 2px;
+	background: var(--fg-faint);
+	animation: pulse 1.2s ease-in-out infinite;
+}
+
+/* ---- compact variant (agent panel) ---- */
 
 .tr-root--compact {
-	padding: 12px 14px 16px;
-	font-size: 13px;
+	padding: 12px 16px 16px;
+	font-size: 13.5px;
+	line-height: 22px;
 }
 
-.tr-root--compact .tr-row {
-	grid-template-columns: 52px 1fr;
-	gap: 0 8px;
-	padding: 3px 0;
+.tr-root--compact .tr-row--user {
+	padding: 12px 0 8px;
 }
 
-.tr-root--compact .tr-gutter {
-	font-size: 10.5px;
+.tr-root--compact .tr-bubble {
+	padding: 8px 14px;
+	line-height: 20px;
+	border-radius: 18px;
 }
 
 .tr-root--compact .tv-pre {
@@ -452,37 +648,9 @@
 	overflow-y: auto;
 }
 
-/* ---- animation ---- */
-
-@keyframes tr-pulse {
-	0%,
-	100% {
-		opacity: 0.45;
-	}
-	50% {
-		opacity: 1;
-	}
-}
-
-/* ---- responsive mobile styles ---- */
+/* ---- narrow screens ---- */
 @media (max-width: 640px) {
-	.tr-row {
-		display: flex;
-		flex-direction: column;
-		gap: 4px;
-		padding: 8px 0;
-	}
 	.tr-root {
-		padding: 16px 14px 12px;
-	}
-	.tr-gutter,
-	.tr-row--user .tr-gutter {
-		text-align: left;
-		padding-top: 0;
-		font-size: 11px;
-		margin-bottom: 2px;
-	}
-	.tr-gutter:empty {
-		display: none;
+		padding: 16px 14px;
 	}
 }

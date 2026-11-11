@@ -2,11 +2,15 @@
  * Offline mock collab host: starts the local relay, opens a room as host, and
  * serves the canned fixture session to any collab-web guest that joins.
  *
- *   bun scripts/mock-host.ts [--port 7466]
+ *   bun scripts/mock-host.ts [--port 7466] [--long]
  *
  * Replays a scripted streaming turn on every guest prompt, ticks subagent
- * progress on the bus every 2s, and answers fetch-transcript with byte slices
- * of the fixture JSONL — exactly the frames a real `oms /collab` host emits.
+ * progress on the bus every 2s, and answers fetch-transcript-page with
+ * whole-line pages of the fixture JSONL — exactly the frames a real
+ * `oms /collab` host emits. The running subagent's transcript grows by one
+ * row per tick. `--long` serves a session of about 1,500 entries and
+ * subagent transcripts of about 2 MiB, for exercising paging by hand.
+ * Slash commands (catalog, runs, completions) are served by `mock-commands.ts`.
  */
 
 import type {
@@ -18,11 +22,13 @@ import type {
 	HostFrame,
 	SessionEntry,
 	SessionState,
+	TranscriptCursor,
 	WireFrame,
+	WireModel,
 } from "@oh-my-soup/pi-wire";
-import { COLLAB_HISTORY_BYTES, COLLAB_HISTORY_ENTRIES } from "@oh-my-soup/pi-wire";
+import { COLLAB_HISTORY_BYTES, COLLAB_HISTORY_ENTRIES, COLLAB_MAX_FRAME_BYTES } from "@oh-my-soup/pi-wire";
 import { diffCollabStream } from "@oh-my-soup/pi-wire/collab-stream";
-import { generateRoomKey, importRoomKey, open, seal } from "../src/lib/codec";
+import { generateRoomKey, importRoomKey, open, sealPlaintext } from "../src/lib/codec";
 import { COLLAB_PROTO, formatCollabLink, generateRoomId, packEnvelope, unpackEnvelope } from "../src/lib/link";
 import {
 	fixtureAgents,
@@ -30,12 +36,17 @@ import {
 	fixtureHeader,
 	fixtureModel,
 	HOST_DISPLAY_NAME,
+	makeLongSessionEntries,
+	makeLongTranscriptJsonl,
 	makeProbeProgress,
+	makeProbeTranscriptLine,
 	makeScriptedTurn,
 	type ScriptedStep,
 	subagentTranscriptJsonl,
 } from "./fixture";
 import { startLocalRelay } from "./local-relay";
+import { MockCommands } from "./mock-commands";
+import { readTranscriptPage } from "./mock-transcript";
 
 const DEFAULT_PORT = 7466;
 const STEP_INTERVAL_MS = 40;
@@ -59,7 +70,8 @@ function parsePort(argv: string[]): number {
 }
 
 const port = parsePort(Bun.argv.slice(2));
-const relay = startLocalRelay(port);
+const long = Bun.argv.slice(2).includes("--long");
+const relay = startLocalRelay({ port });
 const roomId = generateRoomId();
 const rawKey = generateRoomKey();
 const key = await importRoomKey(rawKey);
@@ -67,11 +79,12 @@ const link = formatCollabLink(relay.url, roomId, rawKey);
 
 // ── mutable session state ────────────────────────────────────────────────────
 
-const entries: SessionEntry[] = [...fixtureEntries];
+const entries: SessionEntry[] = long ? makeLongSessionEntries() : [...fixtureEntries];
 const agents: AgentSnapshot[] = fixtureAgents.map(agent => ({ ...agent }));
 const peers = new Map<number, string>();
-const transcriptBytes = new TextEncoder().encode(subagentTranscriptJsonl);
-const transcriptDecoder = new TextDecoder();
+/** Every agent's session file; a running sub appends to its own on each tick. */
+const baseTranscript = Buffer.from(long ? makeLongTranscriptJsonl() : subagentTranscriptJsonl);
+const transcripts = new Map(agents.map((agent): [string, Buffer] => [agent.id, baseTranscript]));
 
 let lastEntryId: string | null = entries[entries.length - 1]?.id ?? null;
 let streaming = false;
@@ -85,6 +98,8 @@ let shuttingDown = false;
 let streamMessage: AssistantMessage | null = null;
 let streamId = 0;
 let streamRevision = 0;
+let model: WireModel = fixtureModel;
+let thinkingLevel = "medium";
 
 // ── sealed transport (order-preserving, mirrors relay-client) ────────────────
 
@@ -94,12 +109,25 @@ ws.binaryType = "arraybuffer";
 let sendChain: Promise<void> = Promise.resolve();
 let recvChain: Promise<void> = Promise.resolve();
 
-/** Seal and send a frame; peerId 0 broadcasts, N targets that guest. */
+const textEncoder = new TextEncoder();
+
+/**
+ * Seal and send a frame; peerId 0 broadcasts, N targets that guest. A frame
+ * over the relay's message limit is dropped with an error: the relay would
+ * close the host for it and end the room.
+ */
 function sendFrame(frame: HostFrame, targetPeer = 0): void {
+	const plaintext = textEncoder.encode(JSON.stringify(frame));
+	if (plaintext.byteLength > COLLAB_MAX_FRAME_BYTES) {
+		console.error(
+			`mock-host: not sending a ${frame.t} frame of ${plaintext.byteLength} bytes; the relay accepts at most ${COLLAB_MAX_FRAME_BYTES}`,
+		);
+		return;
+	}
 	sendChain = sendChain
 		.then(async () => {
 			if (ws.readyState !== WebSocket.OPEN) return;
-			const sealed = await seal(key, frame);
+			const sealed = await sealPlaintext(key, plaintext);
 			ws.send(packEnvelope(targetPeer, sealed));
 		})
 		.catch((err: unknown) => {
@@ -116,15 +144,12 @@ function buildState(): SessionState {
 		queuedMessageCount: queuedPrompts,
 		sessionName: fixtureHeader.title,
 		cwd: fixtureHeader.cwd,
-		model: fixtureModel,
-		thinkingLevel: "medium",
+		model,
+		thinkingLevel,
 		contextUsage: {
 			tokens,
-			contextWindow: fixtureModel.contextWindow,
-			percent:
-				fixtureModel.contextWindow !== null && fixtureModel.contextWindow > 0
-					? (tokens / fixtureModel.contextWindow) * 100
-					: null,
+			contextWindow: model.contextWindow,
+			percent: model.contextWindow !== null && model.contextWindow > 0 ? (tokens / model.contextWindow) * 100 : null,
 		},
 		participants,
 	};
@@ -281,6 +306,7 @@ function handleHello(name: string, proto: number, fromPeer: number, history?: "p
 	if (streamMessage !== null) {
 		sendFrame({ t: "stream", id: streamId, revision: streamRevision, message: streamMessage }, fromPeer);
 	}
+	sendFrame(mockCommands.catalogFrame(), fromPeer);
 	console.log(`mock-host: ${cleanName} joined (peer ${fromPeer})`);
 	broadcastState();
 }
@@ -319,13 +345,28 @@ function handleAgentCmd(cmd: string, agentId: string, fromPeer: number): void {
 	notice("info", `${peerName(fromPeer)} sent agent-cmd ${cmd} → ${agentId}`);
 }
 
-function handleFetchTranscript(reqId: number, fromByte: number, fromPeer: number): void {
-	const total = transcriptBytes.byteLength;
-	const start = Math.max(0, Math.min(fromByte, total));
-	const text = start >= total ? "" : transcriptDecoder.decode(transcriptBytes.subarray(start));
-	// We always serve to EOF, so the next offset base is the full size.
-	sendFrame({ t: "transcript", reqId, text, newSize: total }, fromPeer);
+function handleFetchTranscriptPage(reqId: number, agentId: string, cursor: TranscriptCursor, fromPeer: number): void {
+	const file = transcripts.get(agentId);
+	const page =
+		file === undefined
+			? { text: "", startByte: 0, endByte: 0, size: 0, error: "No transcript is available for this agent." }
+			: readTranscriptPage(file, cursor);
+	sendFrame({ t: "transcript-page", reqId, ...page }, fromPeer);
 }
+
+const mockCommands = new MockCommands({
+	send: sendFrame,
+	state: buildState,
+	setModel(next) {
+		model = next;
+		broadcastState();
+	},
+	setThinkingLevel(level) {
+		thinkingLevel = level;
+		broadcastState();
+	},
+	prompt: handlePrompt,
+});
 
 function handleFrame(frame: WireFrame, fromPeer: number): void {
 	switch (frame.t) {
@@ -341,8 +382,8 @@ function handleFrame(frame: WireFrame, fromPeer: number): void {
 		case "agent-cmd":
 			handleAgentCmd(frame.cmd, frame.agentId, fromPeer);
 			break;
-		case "fetch-transcript":
-			handleFetchTranscript(frame.reqId, frame.fromByte, fromPeer);
+		case "fetch-transcript-page":
+			handleFetchTranscriptPage(frame.reqId, frame.agentId, frame.cursor, fromPeer);
 			break;
 		case "fetch-history": {
 			const selected = historyPage(frame.cursor);
@@ -358,6 +399,18 @@ function handleFrame(frame: WireFrame, fromPeer: number): void {
 			);
 			break;
 		}
+		case "command":
+			mockCommands.handleCommand(frame.reqId, frame.text, fromPeer);
+			break;
+		case "command-cancel":
+			mockCommands.handleCancel(frame.reqId, fromPeer);
+			break;
+		case "complete":
+			mockCommands.handleComplete(frame.reqId, frame.text, fromPeer);
+			break;
+		case "snapshot-ack":
+			// The whole snapshot goes out as one chunk, so there is nothing to pace.
+			break;
 		default:
 			// Host-frame echoes or unknown types: ignore.
 			break;
@@ -376,6 +429,7 @@ function handleControl(text: string): void {
 	if (control.t === "peer-left" && typeof control.peer === "number") {
 		const name = peers.get(control.peer);
 		peers.delete(control.peer);
+		mockCommands.dropPeer(control.peer);
 		if (name) console.log(`mock-host: ${name} left (peer ${control.peer})`);
 		broadcastState();
 	}
@@ -419,7 +473,12 @@ const tickInterval: Timer = setInterval(() => {
 	sendFrame({ t: "bus", channel: "task:subagent:progress", data: makeProbeProgress(tick) });
 	const now = Date.now();
 	for (const agent of agents) {
-		if (agent.status === "running") agent.lastActivity = now;
+		if (agent.status !== "running") continue;
+		agent.lastActivity = now;
+		const file = transcripts.get(agent.id);
+		if (agent.kind === "sub" && file !== undefined) {
+			transcripts.set(agent.id, Buffer.concat([file, Buffer.from(makeProbeTranscriptLine(tick))]));
+		}
 	}
 	if (tick % AGENTS_SNAPSHOT_EVERY === 0) {
 		sendFrame({ t: "agents", agents: agents.map(agent => ({ ...agent })) });
@@ -432,6 +491,7 @@ function shutdown(code: number): void {
 	if (shuttingDown) return;
 	shuttingDown = true;
 	cancelReplay();
+	mockCommands.stop();
 	clearInterval(tickInterval);
 	sendFrame({ t: "bye", reason: "mock host shutting down" });
 	// Let the bye flush through the send chain before tearing the room down.

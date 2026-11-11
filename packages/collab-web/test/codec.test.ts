@@ -62,7 +62,11 @@ describe.serial("collab codec", () => {
 			"decrypt",
 		]);
 		const nativeCiphertext = new Uint8Array(
-			await crypto.subtle.encrypt({ name: "AES-GCM", iv: nonce }, nativeKey, new TextEncoder().encode(JSON.stringify(frame))),
+			await crypto.subtle.encrypt(
+				{ name: "AES-GCM", iv: nonce },
+				nativeKey,
+				new TextEncoder().encode(JSON.stringify(frame)),
+			),
 		);
 		const nativeSealed = new Uint8Array(12 + nativeCiphertext.byteLength);
 		nativeSealed.set(nonce);

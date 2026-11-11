@@ -229,9 +229,12 @@ describe("collab chunked welcome (#3144)", () => {
 
 		const frames: CollabFrame[] = [];
 		const trainDone = Promise.withResolvers<void>();
+		let acked = 0;
 		socket.onFrame = frame => {
 			frames.push(frame);
-			if (frame.t === "snapshot-chunk" && frame.final) trainDone.resolve();
+			if (frame.t !== "snapshot-chunk") return;
+			socket.send({ t: "snapshot-ack", chunks: ++acked });
+			if (frame.final) trainDone.resolve();
 		};
 		socket.onOpen = () => socket.send({ t: "hello", proto: COLLAB_PROTO, name: "test", writeToken });
 		socket.connect();
@@ -252,15 +255,13 @@ describe("collab chunked welcome (#3144)", () => {
 		const snapshotBytes = JSON.stringify(snapshot).length;
 		expect(welcomeBytes).toBeLessThan(snapshotBytes / 10);
 
-		// The chunk train starts immediately after the welcome and the host
-		// queues every chunk synchronously, so no other directed frame may
-		// interleave between them.
+		// The chunk train follows the welcome. Other frames for this guest (its
+		// command list) may overtake the paced chunks; the chunks keep their order.
 		const chunks: { entries: SessionEntry[]; final: boolean }[] = [];
 		for (let i = welcomeIdx + 1; i < frames.length; i++) {
 			const f = frames[i];
-			if (f?.t !== "snapshot-chunk") {
-				throw new Error(`unexpected ${f?.t ?? "missing"} between welcome and final chunk`);
-			}
+			if (f?.t === "welcome") throw new Error("second welcome during the chunk train");
+			if (f?.t !== "snapshot-chunk") continue;
 			chunks.push({ entries: f.entries, final: f.final });
 			if (f.final) break;
 		}
@@ -387,9 +388,7 @@ describe("collab chunked welcome (#3144)", () => {
 		const sent: { frame: CollabFrame; peer: number }[] = [];
 		const send = spyOn(transport, "send").mockImplementation((frame, peer = 0) => {
 			sent.push({ frame: typeof frame === "string" ? (JSON.parse(frame) as CollabFrame) : frame, peer });
-		});
-		const batch = spyOn(transport, "sendBatch").mockImplementation((frames, peer) => {
-			for (const frame of frames) transport!.send(frame, peer);
+			return true;
 		});
 		try {
 			transport.onFrame!({ t: "hello", proto: COLLAB_PROTO, name: "paged", history: "paged" }, 7);
@@ -470,7 +469,6 @@ describe("collab chunked welcome (#3144)", () => {
 			}
 		} finally {
 			send.mockRestore();
-			batch.mockRestore();
 			await localHost.stop("test done");
 		}
 	});

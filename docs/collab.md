@@ -166,19 +166,36 @@ Guests with a full link can:
 - interrupt the agent (Esc),
 - use [Agent Hub](./agent-hub.md) against the host's subagents: live table and progress, chat (steers the host's subagent), kill, revive, and transcript viewing (fetched from the host on demand).
 - answer host interactive `select` and `editor` requests. The host broadcasts each pending request only to writable guests; the first submitted or cancelled response settles it and dismisses the other presentations.
+- run a fixed set of the host's slash commands from the browser client (see [Host commands for guests](#host-commands-for-guests)).
 
 Guests with a view-only link can read everything live — back-transcript, streaming text, tool cards, subagent transcripts — but the host rejects prompting, interrupting, and agent control from them.
 
 Advisor records are not guest-visible subagents: they are excluded from roster snapshots and transcript fetches, and advisor chat/kill/revive commands are rejected.
 
 
-Other session/machine commands remain host-only: `/model`, `/compact`, `/resume`, `/branch`, bash (`!`), python (`$`), skills, etc. Guests keep a small local allowlist (`/dump`, `/export`, `/copy`, `/open`, `/help`, `/hotkeys`, `/theme`, `/settings`, `/leave`, `/collab`, `/exit`, `/quit`).
+### Host commands for guests
+
+A full-link guest in the browser client can type `/` and run these on the host. The host checks every request; the browser's command list is only a convenience.
+
+| Kind | Commands |
+| --- | --- |
+| Session builtins | `/model`, `/switch`, `/effort`, `/fast`, `/slow`, `/skillful`, `/extended-context`, `/advisor`, `/ratchet`, `/prewalk`, `/todo`, `/jobs`, `/tools`, `/context`, `/compact`, `/shake`, `/retry`, `/rename`, `/dirs`, `/force`, `/heartbeat`, `/heartbeats` |
+| Side question | `/btw <question>`: answered beside the transcript for the guest who asked, and saved to the session's BTW history |
+| Prompt commands | skills (`/skill:<name>`), prompt templates, file slash commands, custom commands and MCP prompts; they expand on the host and run as a prompt |
+
+Everything else stays host-only: machine, credential and plugin commands (`/mcp`, `/ssh`, `/login`, `/logout`, `/plugins`, `/marketplace`, `/add-dir`, `/move`), commands that replace the session (`/new`, `/resume`, `/branch`, `/handoff`, `/fresh`, `/session`), process control (`/exit`, `/restart`), extension-registered commands, bash (`!`) and python (`$`). A name a builtin or an extension command would capture is never offered for anything else. Builtins run through their text handlers, so they never open a dialog on the host's screen; `/model` and `/switch` take the model as an argument, and the browser completes it from the host's model list. Custom TypeScript commands are the host's own code and run as they would for the host. The host shows a notice naming the guest and the command, without its arguments.
+
+View-only guests can run no host command. The native TUI guest does not forward host commands; it keeps its local allowlist (`/dump`, `/export`, `/copy`, `/open`, `/help`, `/hotkeys`, `/theme`, `/settings`, `/leave`, `/collab`, `/exit`, `/quit`).
 
 When a guest joins during an assistant turn, that in-flight turn appears on the first subsequent `message_update`: the guest synthesizes the missing `message_start` from the update's full accumulating message before forwarding the delta. If the host emits no further update for that turn after the guest joins, there is no update from which to synthesize the live component. The durable entry still reaches the replica's message state, but entry frames are intentionally not rendered, so that edge case can remain absent from the live TUI.
 
 ## Web client
 
 `packages/collab-web` is a standalone browser client for the same links — no oms install needed on the guest side. Serve it at the configured `collab.webUrl`; the invitation's fragment identifies the separate relay and room. It renders the live transcript, subagents and composer. `bun run build` produces the static browser app and self-contained encrypted share viewer. WebCrypto is preferred where available; trusted VPN HTTP pages use a bundled AES-256-GCM backend with identical authenticated wire bytes. Secure randomness remains required, and authentication failures never cause backend fallback.
+
+The composer completes slash commands: the browser's own (`/help`, `/theme`, `/copy`, `/agents`, `/leave`) and, for full-link guests, the [host commands](#host-commands-for-guests) the host advertises. Command output appears in a panel above the composer. Text starting with `/` that matches no command is sent as an ordinary prompt.
+
+Long sessions load as you scroll. The browser keeps a bounded window of the transcript, fetches earlier entries when you scroll up and later ones when you scroll back down, and shows a "Jump to latest" control while you are away from the live end. Subagent transcripts in the agent drawer open at their newest rows and page the same way.
 
 Set `collab.webUrl` to the browser UI's actual HTTP(S) base URL, including its path prefix. For custom relays, an empty value produces native invitations only, rather than guessing a browser page at the relay root; only `wss://my.omp.sh` has an automatically known UI. Explicit web UI URLs cannot contain a query string or fragment. The generated browser URL carries the full relay-specific invitation, including any relay path prefix, in its fragment.
 
@@ -198,22 +215,40 @@ For a trusted VPN deployment, use `collab.relayUrl = ws://10.66.66.8` and `colla
 
 ## Self-hosting the relay
 
-The [`feat/collab-server` branch](https://github.com/pickpocket/oh-my-soup/tree/feat/collab-server) now contains a standalone Rust relay (`oms-relay`), separate from this client monorepo. Keep it in a separate checkout. Build it locally using its pinned Rust toolchain and locked dependencies, then transfer the release executable to the deployment host; do not compile on a small production VPS.
+The [`feat/collab-server` branch](https://github.com/pickpocket/oh-my-soup/tree/feat/collab-server) contains the standalone Rust relay (`oms-relay`), separate from this client monorepo. Keep it in a separate checkout. Build it locally using its pinned Rust toolchain and locked dependencies, then transfer the release executable to the deployment host; do not compile on a small production VPS.
+
+```sh
+cargo build --release --locked
+./target/release/oms-relay --host 127.0.0.1 --port 8787
+oms config set collab.relayUrl wss://relay.example.com   # behind a TLS proxy
+oms config set collab.relayUrl ws://10.66.66.8:8787      # trusted VPN, no TLS
+```
 
 The standalone relay exposes only:
 
 - `GET /r/<roomId>?role=host|guest` — opaque WebSocket room routing.
 - `GET /healthz` — liveness and active-room count.
 
-It does not serve `/`, static browser assets, or `/s` encrypted-share storage. Configure the actual browser UI with `collab.webUrl`, and retain a separate content/share service if those features are required. A reverse proxy can route `/r/` and `/healthz` to the new relay while routing browser assets and `/s` to that content service. Bind backends to loopback; for VPN-only deployments, expose the proxy only on the VPN address. Restarting the relay destroys its ephemeral rooms, so clients must reconnect and resynchronize.
+It does not serve `/`, static browser assets, or `/s` encrypted-share storage. Configure the actual browser UI with `collab.webUrl`, and retain a separate content/share service if those features are required. A reverse proxy can route `/r/` and `/healthz` to the new relay while routing browser assets and `/s` to that content service; it must forward the paths unchanged at the relay's root, so strip any URL prefix there. Bind backends to loopback; for VPN-only deployments, expose the proxy only on the VPN address.
 
-For local protocol development, this client repository also retains the WebSocket-only stand-in at [`packages/collab-web/scripts/local-relay.ts`](../packages/collab-web/scripts/local-relay.ts). It is not the production standalone server.
+### What the clients rely on
+
+The relay keeps each connection's memory bounded, and the host and guests are built to stay within those bounds:
+
+- **2 MiB per message.** The relay closes a connection that sends a larger WebSocket message. Clients never send one: replicated entries are capped at 1 MiB, transcript pages and replies at 256 KiB of whole lines (a larger line is replaced by a placeholder), command output is clipped, and a guest prompt that would not fit (for example with large pasted images) is refused with an error instead of being sent.
+- **A bounded queue per guest.** The relay holds at most 64 messages and 4 MiB for each connection and drops a guest that stays behind. The host therefore paces the snapshot it sends a joining guest by that guest's acknowledgements, about 1 MiB in flight at a time, so a guest on a slow link joins a large session instead of being dropped and starting over. Live traffic keeps flowing to everyone meanwhile; the joining guest applies what arrived during its sync once the snapshot is in place.
+- **Liveness.** The relay pings every 15 seconds and drops a connection that stays silent for 45 seconds; clients ping as well and reconnect a connection that stops answering.
+- **Rooms are ephemeral.** A room exists while its host is connected. Restarting the relay destroys every room: the host reconnects and recreates its room, and guests that were in it keep retrying until it exists again, then resynchronize.
+- **Refusals.** A second host for a room, a full room and a relay at its room limit are reported with the relay's own reason; `/collab` fails instead of printing a link nobody can use.
+
+For local protocol development, this client repository also retains a TypeScript stand-in at [`packages/collab-web/scripts/local-relay.ts`](../packages/collab-web/scripts/local-relay.ts) (`bun run collab:relay`, port 7466). It enforces the same message limit, room limits and slow-guest eviction, so problems show up without the Rust build, but it is not the production server.
 
 ## Implementation files
 
 - [`src/slash-commands/builtin-collaboration.ts`](../packages/coding-agent/src/slash-commands/builtin-collaboration.ts) — TUI commands and join-link presentation
 - [`src/collab/controller.ts`](../packages/coding-agent/src/collab/controller.ts) — auto-start and room rotation
 - [`src/collab/host.ts`](../packages/coding-agent/src/collab/host.ts), [`guest.ts`](../packages/coding-agent/src/collab/guest.ts) — authoritative host and local replica
+- [`src/collab/guest-commands.ts`](../packages/coding-agent/src/collab/guest-commands.ts) — which host commands a guest may run, and the catalog sent to guests
 - [`src/collab/protocol.ts`](../packages/coding-agent/src/collab/protocol.ts), [`crypto.ts`](../packages/coding-agent/src/collab/crypto.ts), [`relay-client.ts`](../packages/coding-agent/src/collab/relay-client.ts) — frames, links, encryption, and transport
 - [`src/collab/registry.ts`](../packages/coding-agent/src/collab/registry.ts) — private local host discovery
 - [`src/collab/settings.ts`](../packages/coding-agent/src/collab/settings.ts) — `collab.*` defaults
@@ -223,17 +258,19 @@ For local protocol development, this client repository also retains the WebSocke
 
 Hub topology — the host is authoritative, guests never peer:
 
-1. `welcome` + `snapshot-chunk` frames — initial state and transcript, normally in chunks of at most 64 KiB. Browser `hello` requests `history: "paged"`: only the latest page is serialized and transferred, bounded by 100 entries and 128 KiB. The existing oversized-entry shrinking policy permits one capped entry to exceed these soft byte limits. Native guests omit this option and receive the complete replica.
+1. `welcome` + `snapshot-chunk` frames — initial state and transcript, normally in chunks of at most 64 KiB, paced by the guest's `snapshot-ack` frames so no more than about 1 MiB is unacknowledged. Browser `hello` requests `history: "paged"`: only the latest page is serialized and transferred, bounded by 100 entries and 128 KiB. The existing oversized-entry shrinking policy permits one capped entry to exceed these soft byte limits. Native guests omit this option and receive the complete replica. Frames that arrive while the snapshot is still streaming are held and applied after it.
 2. `entry` frames — durable session entries, broadcast pre-blob-externalization so images stay inline (guests cannot resolve host blob refs). Guests append them with ids preserved to a replica session file under `~/.oms/collab/<roomId>.jsonl` and into the agent's message array, which is why `/dump` and context estimates work.
 3. `event` frames — live agent events, fed into the guest's normal event controller. Assistant `message_update` traffic instead uses `stream` baselines and ordered `stream-delta` content patches, coalesced for 50 ms before serialization. Text/thinking appends do not repeat accumulated prefixes or duplicate the provider partial. Canonical start/end events remain ordered; a joining peer receives the current baseline before future deltas.
 4. `state` frames — debounced footer snapshots: streaming flag, the host's full model object and thinking level (applied to the guest's replica agent state, so model display and context-window math are native), host context numbers, and participants.
 5. `bus` frames — mirrored task-subagent lifecycle/progress EventBus traffic, republished on the guest's local bus so the subagent HUD and status-line count work natively.
 6. `agents` frames — agent-registry snapshots feeding a guest-local registry, so the Agent Hub table renders host subagents.
 7. `ui-request` / `ui-request-end` frames — host select/editor prompts presented to full-control guests and dismissed everywhere once settled. Guests answer with `ui-response`.
-8. `history` frames — targeted browser pages answering `fetch-history` with exclusive before/after entry-ID cursors, total count and further-navigation cursors. Older/Newer/Latest replace the browser page; displayed and live-tail windows stay byte/count bounded. Historical pages do not display the unrelated current streaming ghost.
+8. `history` frames — targeted browser pages answering `fetch-history` with exclusive before/after entry-ID cursors, total count and further-navigation cursors. The browser stitches pages into one sliding window of at most 200 entries and 256 KiB, evicting from the end the reader is moving away from; while that window is detached from the live end it does not display the current streaming ghost.
+9. `transcript-page` frames — targeted subagent-transcript pages answering `fetch-transcript-page` with a `tail`, `before` or `after` byte cursor. Pages hold whole JSONL lines, at most 256 KiB unless a single line is larger, and report their byte range and the file size so the browser knows whether older or newer lines exist. A line over 512 KiB is never sent: a short placeholder entry takes its place while the byte range still spans it, so every page fits a relay's frame limit and the reader can page past it.
+10. `commands`, `command-output`, `command-end`, `completions` frames — the host-command catalog for a full-link guest, the Markdown output and terminal status of a command that guest ran, and argument completions for the command it is typing. All but the catalog are targeted replies.
 
-Guest→host: `hello`, `prompt`, `abort`, `agent-cmd` (hub chat/kill/revive), `fetch-history` (main browser transcript pages), `fetch-transcript` (incremental subagent-transcript reads answered by targeted `transcript` frames), and `ui-response`. The native replica loads through the regular `/resume` machinery, so theming, ctrl+o, and transcript behavior are native by construction; the guest process never chdirs to host paths.
+Guest→host: `hello`, `prompt`, `abort`, `agent-cmd` (hub chat/kill/revive), `snapshot-ack` (snapshot flow control), `fetch-history` (main browser transcript pages), `fetch-transcript` (incremental subagent-transcript reads by the native guest, answered by targeted `transcript` frames), `fetch-transcript-page` (browser subagent-transcript pages), `command` / `command-cancel` / `complete` (host commands), and `ui-response`. The native replica loads through the regular `/resume` machinery, so theming, ctrl+o, and transcript behavior are native by construction; the guest process never chdirs to host paths.
 
-Transcript fetches are capped at 4 MiB per reply and end on complete JSONL lines. Guests continue from `newSize`; a single entry exceeding the cap produces a terminal transcript error instead of an endless empty-read retry.
+Native transcript replies hold whole JSONL lines from the first line start at or after the requested offset, at most 256 KiB, with the same placeholder for a line too large to send. Guests continue from `newSize`.
 
-Protocol v4 rejects older hosts/guests rather than applying incompatible updates. After updating, run `/restart` in an existing host, then `/collab` and reopen the newly generated invitation. Stream patch revisions and append offsets are checked; synchronization loss is reported explicitly and requires rejoining.
+Protocol v5 rejects older hosts/guests rather than applying incompatible updates. After updating, run `/restart` in an existing host, then `/collab` and reopen the newly generated invitation; a separately hosted browser UI must be rebuilt and redeployed from the same version. Stream patch revisions and append offsets are checked; synchronization loss is reported explicitly and requires rejoining.

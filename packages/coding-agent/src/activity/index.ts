@@ -406,7 +406,8 @@ export class AgentActivityIndex {
 			if (!result || result.error) return;
 		}
 		if (result.newSize === state.offset && !result.text) return;
-		this.#consume(agentId, state, result.text, state.offset > 0 && state.rows.length === 0);
+		// The host starts at the first whole line at or after the offset, so there is no partial line to drop.
+		this.#consume(agentId, state, result.text, false);
 		state.offset = result.newSize;
 	}
 

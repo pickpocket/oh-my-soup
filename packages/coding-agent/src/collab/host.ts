@@ -10,31 +10,48 @@
  */
 
 import { randomBytes, timingSafeEqual } from "node:crypto";
-import * as fs from "node:fs/promises";
 import type { AssistantMessage, ImageContent, TextContent } from "@oh-my-soup/pi-ai";
-import { logger } from "@oh-my-soup/pi-utils";
+import { logger, toError } from "@oh-my-soup/pi-utils";
+import { truncateHeadBytes } from "@oh-my-soup/pi-tui/tools/streaming-output";
 import {
 	type BusChannel,
 	COLLAB_HISTORY_BYTES,
 	COLLAB_HISTORY_ENTRIES,
+	type CollabCommand,
+	type CollabCommandStatus,
+	type CollabCompletion,
+	COLLAB_MAX_FRAME_BYTES,
 	type CollabUiRequest,
 	type CollabUiRequestDraft,
 	type CollabUiResponseValue,
 	type HistoryCursor,
 	type HistoryPage,
+	type TranscriptCursor,
 	type AgentEvent as WireAgentEvent,
 	type SessionEntry as WireSessionEntry,
 } from "@oh-my-soup/pi-wire";
 import { diffCollabStream } from "@oh-my-soup/pi-wire/collab-stream";
 import type { InteractiveModeContext } from "../modes/types";
+import { RpcBtwController } from "../modes/rpc/rpc-btw";
+import type { RpcBtwHistoryRecord } from "../modes/rpc/rpc-types";
+import { buildSkillCommandPrompt } from "../modes/skill-command";
 import { AgentLifecycleManager } from "../registry/agent-lifecycle";
 import { type AgentRef, AgentRegistry } from "../registry/agent-registry";
 import type { AgentSessionEvent } from "../session/agent-session";
+import { getBtwLatestTurn } from "../session/btw-history";
 import { stripImagesFromMessage, USER_INTERRUPT_LABEL } from "../session/messages";
 import type { SessionEntry as StoredSessionEntry } from "../session/session-entries";
+import type { ParsedSlashCommand, SlashCommandRuntime, SlashCommandSpec } from "../slash-commands/types";
 import { TASK_SUBAGENT_LIFECYCLE_CHANNEL, TASK_SUBAGENT_PROGRESS_CHANNEL } from "../task/types";
 import { generateRoomKey, generateWriteToken, importRoomKey } from "./crypto";
 import { collabDisplayName } from "./display-name";
+import {
+	buildCollabCommands,
+	classifyGuestCommand,
+	createGuestCommandCompleter,
+	executeGuestBuiltin,
+	type GuestCommandRoute,
+} from "./guest-commands";
 import {
 	type AgentSnapshot,
 	COLLAB_PROMPT_MESSAGE_TYPE,
@@ -72,6 +89,13 @@ import {
 	serializeReplicatedEntry,
 	serializeReplicatedEvent,
 } from "./replication-shrink";
+import {
+	isTranscriptCursor,
+	readTranscriptFrom,
+	readTranscriptPage,
+	type TranscriptPage,
+	transcriptCursorByte,
+} from "./transcript-page";
 
 /** Events that change the footer state guests render. */
 const STATE_TRIGGER_EVENTS: Record<string, true> = {
@@ -130,12 +154,30 @@ function isWireSessionEntry(entry: StoredSessionEntry): entry is StoredSessionEn
 	return entry.type in WIRE_SESSION_ENTRY_TYPES;
 }
 const CONNECT_TIMEOUT_MS = 15_000;
-/** Max bytes served per fetch-transcript reply (guest re-requests from `newSize`). */
-export const TRANSCRIPT_READ_CAP = 4 * 1024 * 1024;
-const TRANSCRIPT_ENTRY_TOO_LARGE_ERROR = `transcript entry exceeds transcript fetch cap (${TRANSCRIPT_READ_CAP} bytes)`;
 /** Soft UTF-8 byte cap; an existing capped oversized entry travels alone. */
 const SNAPSHOT_CHUNK_BYTES = 64 * 1024;
+/**
+ * Unacknowledged snapshot-chunk bytes the host lets one guest have in flight.
+ * The reference relay queues at most 64 messages and 4 MiB per guest and
+ * evicts a guest whose queue stays full, so a guest slower than the host must
+ * set the pace: one window plus the chunk that crosses it (at most one bounded
+ * entry) stays well inside that queue alongside live traffic.
+ */
+const SNAPSHOT_WINDOW_BYTES = 1024 * 1024;
+/**
+ * UTF-8 bytes of guest-run command output per `command-output` frame, and per
+ * request for a `/btw` answer streamed as deltas. Well under the relay's
+ * message limit; past it the output ends with {@link COMMAND_OUTPUT_TRUNCATED}.
+ */
+const COMMAND_OUTPUT_MAX_BYTES = 256 * 1024;
+const COMMAND_OUTPUT_TRUNCATED = `\n\n…[output truncated: collab sends at most ${COMMAND_OUTPUT_MAX_BYTES / 1024} KiB]`;
 const MAX_PENDING_UI_REQUESTS = 64;
+/**
+ * Guest-run builtins that rewrite the transcript. The host's own `/compact`
+ * and `/shake` rebuild its chat afterwards; a guest's run must leave the
+ * host's screen showing the same transcript.
+ */
+const TRANSCRIPT_REWRITING_COMMANDS: Record<string, true> = { compact: true, shake: true };
 /**
  * Outcome of {@link CollabHost.requestGuestUi}. `answered` carries the guest's
  * response (an `undefined` value is a genuine guest cancel); `unavailable`
@@ -170,6 +212,52 @@ interface ActiveCollabStream {
 	omitted: EncodedFrame | null;
 }
 
+interface GuestPeer {
+	name: string;
+	canWrite: boolean;
+}
+
+/** One guest `command` request, from the moment it is accepted to its single `command-end`. */
+interface GuestCommandRun {
+	readonly reqId: number;
+	readonly peerId: number;
+	/** The guest that asked. A peer id is reissued after a room recreation; this object is not. */
+	readonly peer: GuestPeer;
+	/** Owned by this request: `command-cancel`, the guest leaving and the room ending all abort it. */
+	readonly abort: AbortController;
+	/** `command-cancel` arrived, so a command that then stops ends `cancelled` rather than `error`. */
+	cancelled: boolean;
+	/** `command-end` was sent, or the guest is gone; nothing more may be sent for this request. */
+	ended: boolean;
+	/** `/btw` only: answer text already reached the guest, so the finished answer is not sent again. */
+	streamed: boolean;
+	/** `/btw` only: UTF-8 bytes of answer deltas sent; past {@link COMMAND_OUTPUT_MAX_BYTES} the rest is dropped. */
+	deltaBytes: number;
+}
+
+/** One `snapshot-chunk` frame and its UTF-8 size. */
+interface SnapshotChunk {
+	readonly frame: EncodedFrame;
+	readonly bytes: number;
+}
+
+/**
+ * One guest's welcome snapshot, released chunk by chunk as the guest
+ * acknowledges them. It lives outside the transport's shared FIFO so a slow
+ * guest's train never holds up frames to anyone else.
+ */
+interface SnapshotLane {
+	/** Lazy chunk frames; each batch's entry strings are released as its frame is built. */
+	readonly chunks: Generator<SnapshotChunk>;
+	/** Chunk frames sent so far. */
+	sent: number;
+	/** Chunk frames the guest has acknowledged (cumulative since its welcome). */
+	acked: number;
+	/** Byte size of each sent, unacknowledged chunk, oldest first. */
+	readonly inFlight: number[];
+	inFlightBytes: number;
+}
+
 /**
  * Identity a host publishes to the local registry. The controller that owns
  * hosting supplies a process-lifetime `instanceId` and bumps `generation` for
@@ -181,8 +269,8 @@ export interface CollabHostOptions {
 	generation?: number;
 	access?: CollabAccess;
 	/**
-	 * Whether guests may drive the session yet: prompts, interrupts, and agent
-	 * commands are refused with an error frame while this returns false. Joins,
+	 * Whether guests may drive the session yet: prompts, interrupts, agent
+	 * commands and host slash commands are refused while this returns false. Joins,
 	 * transcript fetches, and dialog answers are always accepted, so a writer
 	 * can still answer a question raised while the session is starting up.
 	 * Defaults to always ready.
@@ -252,7 +340,9 @@ export class CollabHost {
 	 * yet, and after a shed, when the peer leaves the participant list but is
 	 * still owed a resync error.
 	 */
-	#peers = new Map<number, { name: string; canWrite: boolean }>();
+	#peers = new Map<number, GuestPeer>();
+	/** Welcome snapshots still being paced out, keyed by relay peer id. */
+	#snapshotLanes = new Map<number, SnapshotLane>();
 	/**
 	 * Never reset, including across a room recreation: ids must not be reissued, or
 	 * a late `ui-response` carrying an old id would settle an unrelated new request.
@@ -274,6 +364,16 @@ export class CollabHost {
 	#messageSeq = 0;
 	#activeStream: ActiveCollabStream | null = null;
 	#streamTimer: Timer | null = null;
+	/** Follows command-list changes once a full-control guest has been sent the list. */
+	#commandsUnsubscribe?: () => void;
+	/** Guest commands that have not ended yet. */
+	#commandRuns = new Set<GuestCommandRun>();
+	/** Headless `/btw` runner shared by guests: one side question at a time. */
+	#btw: RpcBtwController | undefined;
+	/** The run that holds the `/btw` runner's single question slot. */
+	#btwRun: GuestCommandRun | undefined;
+	/** Argument completers for guests; rebuilt after the command list changes. */
+	#completeCommand: ((text: string) => Promise<CollabCompletion[]>) | undefined;
 
 	constructor(ctx: InteractiveModeContext, options: CollabHostOptions = {}) {
 		this.#ctx = ctx;
@@ -374,7 +474,9 @@ export class CollabHost {
 	 * Refused, and the room ended, once the active session is no longer the
 	 * one this room mirrors: `/resume` runs the new session's `session_switch`
 	 * hooks before the session-change callbacks fire, so a dialog raised there
-	 * must stay local rather than reach the previous session's guests.
+	 * must stay local rather than reach the previous session's guests. A
+	 * question too large for one relay message (a huge editor prefill or option
+	 * list) also stays local: the host answers it on its own screen.
 	 */
 	requestGuestUi(
 		request: CollabUiRequestDraft,
@@ -383,8 +485,14 @@ export class CollabHost {
 	): Promise<CollabGuestUiResult> | null {
 		if (!this.#guestTrafficAllowed() || signal?.aborted || this.#pendingUi.size >= MAX_PENDING_UI_REQUESTS)
 			return null;
-		const reqId = ++this.#uiReqSeq;
+		const reqId = this.#uiReqSeq + 1;
 		const fullRequest: CollabUiRequest = { ...request, reqId };
+		const bytes = Buffer.byteLength(JSON.stringify({ t: "ui-request", request: fullRequest }));
+		if (bytes > COLLAB_MAX_FRAME_BYTES) {
+			logger.warn("collab: question too large to mirror to guests", { kind: request.kind, bytes });
+			return null;
+		}
+		this.#uiReqSeq = reqId;
 		const { promise, resolve } = Promise.withResolvers<CollabGuestUiResult>();
 		let settled = false;
 		const settle = (result: CollabGuestUiResult): void => {
@@ -583,6 +691,7 @@ export class CollabHost {
 	async #runStop(reason: string): Promise<void> {
 		this.#stopping = true;
 		this.#clearStream();
+		this.#detachCommands();
 		// Leave the public slot at once: `/collab` must not re-print, and `/join`
 		// must not see as hosting, a room that already refuses frames.
 		if (this.#ctx.collabHost === this) this.#ctx.collabHost = undefined;
@@ -608,6 +717,7 @@ export class CollabHost {
 		if (this.#stopped) return;
 		this.#stopped = true;
 		this.#clearStream();
+		this.#detachCommands();
 		// A room that ended on its own (fatal relay close) reaches here without
 		// `#runStop`: leave the public slot before the first await as well.
 		if (this.#ctx.collabHost === this) this.#ctx.collabHost = undefined;
@@ -628,6 +738,8 @@ export class CollabHost {
 		this.#busUnsubscribers = [];
 		this.#registryUnsubscribe?.();
 		this.#registryUnsubscribe = undefined;
+		this.#commandsUnsubscribe?.();
+		this.#commandsUnsubscribe = undefined;
 		clearTimeout(this.#stateDebounce ?? undefined);
 		this.#stateDebounce = null;
 		clearTimeout(this.#agentsDebounce ?? undefined);
@@ -637,6 +749,7 @@ export class CollabHost {
 		for (const pending of this.#pendingUi.values()) pending.settle({ kind: "unavailable" });
 		this.#pendingUi.clear();
 		this.#peers.clear();
+		this.#dropSnapshotLanes();
 		this.#socket?.close();
 		this.#socket = null;
 		this.#ctx.statusLine.setCollabStatus(null);
@@ -650,6 +763,10 @@ export class CollabHost {
 		if (late) {
 			await late.close().catch(err => logger.warn("Collab host registry withdrawal failed", { error: String(err) }));
 		}
+		const btw = this.#btw;
+		this.#btw = undefined;
+		// Lands the cancelled question's final checkpoint in the session's BTW history.
+		await btw?.close().catch(err => logger.warn("Collab /btw history could not be saved", { error: String(err) }));
 	}
 
 	/**
@@ -888,11 +1005,34 @@ export class CollabHost {
 			this.#handleUiResponse(frame.reqId, frame.value, fromPeer);
 			return;
 		}
+		if (frame.t === "snapshot-ack") {
+			// Pacing only: it sends nothing the guest was not entitled to at its
+			// welcome, and a dropped ack would stall that guest's snapshot for good,
+			// so it is honoured through a provisional session switch too.
+			if (!this.ending) this.#handleSnapshotAck(frame.chunks, fromPeer);
+			return;
+		}
 		if (frame.t === "fetch-history") {
 			// Unlike mutations, a read can fail explicitly during a provisional
 			// session switch without reading that session or stranding navigation
 			// if the switch rolls back.
 			if (!this.ending) this.#handleFetchHistory(frame.reqId, frame.cursor, fromPeer);
+			return;
+		}
+		if (
+			frame.t === "command" ||
+			frame.t === "command-cancel" ||
+			frame.t === "complete" ||
+			frame.t === "fetch-transcript-page"
+		) {
+			// A request always gets its one reply, a refusal included, even while a
+			// provisional session switch suspends the room: each handler checks
+			// that state itself before it reads anything.
+			if (this.ending) return;
+			if (frame.t === "command") this.#handleCommand(frame.reqId, frame.text, fromPeer);
+			else if (frame.t === "command-cancel") this.#handleCommandCancel(frame.reqId, fromPeer);
+			else if (frame.t === "complete") void this.#handleComplete(frame.reqId, frame.text, fromPeer);
+			else void this.#handleFetchTranscriptPage(frame.reqId, frame.agentId, frame.cursor, fromPeer);
 			return;
 		}
 		// Inbound frames act on the mirrored session (join snapshots, prompts,
@@ -969,8 +1109,9 @@ export class CollabHost {
 			return;
 		}
 		// Flush against the old roster before admitting a new peer. A queued
-		// pre-welcome delta is ignored there; its targeted baseline follows the
-		// entire snapshot train before any later broadcast can depend on it.
+		// pre-welcome delta is ignored there; the new peer's targeted baseline
+		// follows its welcome, and the guest holds it, like every later frame,
+		// until its snapshot is in place.
 		this.#flushStream();
 		if (!this.#guestTrafficAllowed()) return;
 		const cleanName = name.trim().slice(0, 64) || `guest-${fromPeer}`;
@@ -978,13 +1119,11 @@ export class CollabHost {
 		const firstPeer = this.#peers.size === 0;
 		this.#peers.set(fromPeer, { name: cleanName, canWrite });
 
-		const socket = this.#socket;
-		if (!socket) return;
-		// Serialize the snapshot synchronously: live traffic queued after this
-		// cannot overtake it, and host rewrites of an entry in place cannot leak
-		// into it later, so the live entries are read without a defensive deep
-		// copy. Chunk frames are assembled from these strings only as the
-		// transport drains.
+		if (!this.#socket) return;
+		// Serialize the snapshot synchronously: host rewrites of an entry in place
+		// cannot leak into it later, so the live entries are read without a
+		// defensive deep copy. Chunk frames are assembled from these strings only
+		// as the guest acknowledges earlier ones.
 		const snapshot = this.#ctx.sessionManager.snapshotForReplication();
 		const page = history === "paged" ? this.#serializeHistoryPage(snapshot.entries, { kind: "latest" }) : null;
 		const snapshotEntries = page ?? this.#serializeSnapshotEntries(snapshot.entries.filter(isWireSessionEntry));
@@ -1006,13 +1145,14 @@ export class CollabHost {
 			},
 			fromPeer,
 		);
-		socket.sendBatch(this.#snapshotChunks(snapshotEntries.json, snapshotEntries.bytes), fromPeer);
+		this.#startSnapshotLane(fromPeer, this.#snapshotChunks(snapshotEntries.json, snapshotEntries.bytes));
 		this.#emitStream(fromPeer, true);
 		if (canWrite) {
 			for (const pending of this.#pendingUi.values()) {
 				if (pending.responsePending) continue;
 				this.#send({ t: "ui-request", request: pending.request }, fromPeer);
 			}
+			this.#sendCommands(fromPeer);
 		}
 		this.#ctx.session.emitNotice(
 			"info",
@@ -1169,15 +1309,17 @@ export class CollabHost {
 	}
 
 	/**
-	 * Slice pre-serialized entries into byte-bounded `snapshot-chunk` frames.
-	 * Every batch carries at least one entry, and the last batch is tagged
-	 * `final: true` so the guest can finalize the replica. An empty snapshot
-	 * still emits one `final` chunk so the guest never blocks on a missing
-	 * terminator. Each batch's strings are released once its frame is built.
+	 * Slice pre-serialized entries into byte-bounded `snapshot-chunk` frames,
+	 * each with its UTF-8 size. Every batch carries at least one entry, and the
+	 * last batch is tagged `final: true` so the guest can finalize the replica.
+	 * An empty snapshot still emits one `final` chunk so the guest never blocks
+	 * on a missing terminator. Each batch's strings are released once its frame
+	 * is built.
 	 */
-	*#snapshotChunks(entries: string[], bytes: number[]): Generator<EncodedFrame> {
+	*#snapshotChunks(entries: string[], bytes: number[]): Generator<SnapshotChunk> {
 		if (entries.length === 0) {
-			yield encodeSnapshotChunk([], true);
+			const frame = encodeSnapshotChunk([], true);
+			yield { frame, bytes: Buffer.byteLength(frame, "utf8") };
 			return;
 		}
 		const overhead = Buffer.byteLength(encodeSnapshotChunk([], false), "utf8");
@@ -1193,8 +1335,59 @@ export class CollabHost {
 			}
 			const batch = entries.slice(start, i);
 			entries.fill("", start, i);
-			yield encodeSnapshotChunk(batch, i >= entries.length);
+			yield { frame: encodeSnapshotChunk(batch, i >= entries.length), bytes: batchBytes };
 		}
+	}
+
+	/** Start a guest's paced snapshot, replacing any it was still receiving, and send its first window. */
+	#startSnapshotLane(peerId: number, chunks: Generator<SnapshotChunk>): void {
+		this.#dropSnapshotLane(peerId);
+		const lane: SnapshotLane = { chunks, sent: 0, acked: 0, inFlight: [], inFlightBytes: 0 };
+		this.#snapshotLanes.set(peerId, lane);
+		this.#pumpSnapshotLane(peerId, lane);
+	}
+
+	/**
+	 * Send chunks while the unacknowledged ones stay under
+	 * {@link SNAPSHOT_WINDOW_BYTES}; the chunk that crosses it still goes, so a
+	 * chunk of any size makes progress. A lane whose train is exhausted is
+	 * forgotten, and later acks for it are ignored.
+	 */
+	#pumpSnapshotLane(peerId: number, lane: SnapshotLane): void {
+		const socket = this.#socket;
+		if (!socket) return;
+		while (lane.inFlightBytes < SNAPSHOT_WINDOW_BYTES) {
+			const next = lane.chunks.next();
+			if (next.done) {
+				if (this.#snapshotLanes.get(peerId) === lane) this.#snapshotLanes.delete(peerId);
+				return;
+			}
+			lane.sent++;
+			lane.inFlight.push(next.value.bytes);
+			lane.inFlightBytes += next.value.bytes;
+			// A chunk holds bounded entries, so it always fits a relay message.
+			socket.send(next.value.frame, peerId);
+		}
+	}
+
+	/** A guest's cumulative chunk count since its welcome; stale, inflated and malformed counts are ignored. */
+	#handleSnapshotAck(chunks: number, fromPeer: number): void {
+		const lane = this.#snapshotLanes.get(fromPeer);
+		if (!lane || !Number.isSafeInteger(chunks) || chunks <= lane.acked || chunks > lane.sent) return;
+		for (; lane.acked < chunks; lane.acked++) lane.inFlightBytes -= lane.inFlight.shift() ?? 0;
+		this.#pumpSnapshotLane(fromPeer, lane);
+	}
+
+	#dropSnapshotLane(peerId: number): void {
+		const lane = this.#snapshotLanes.get(peerId);
+		if (!lane) return;
+		this.#snapshotLanes.delete(peerId);
+		lane.chunks.return(undefined);
+	}
+
+	#dropSnapshotLanes(): void {
+		for (const lane of this.#snapshotLanes.values()) lane.chunks.return(undefined);
+		this.#snapshotLanes.clear();
 	}
 
 	#handleUiResponse(reqId: number, value: CollabUiResponseValue, fromPeer: number): void {
@@ -1332,10 +1525,12 @@ export class CollabHost {
 	#handleRoomRecreated(): void {
 		if (this.#stopped) return;
 		this.#resetStreamBaseline();
+		this.#dropSnapshotLanes();
 		if (this.#peers.size === 0 && this.#pendingUi.size === 0) return;
 		// Identities first: settle() fans `ui-request-end` out over #peers, and those
 		// ids belong to the room that just went away.
 		this.#peers.clear();
+		this.#detachCommands();
 		// A mirrored local dialog remains open through a transport reconnect. Keep
 		// its request for replay after a new hello verifies the writer again. Bare
 		// guest-only callers still settle rather than wait without a recipient.
@@ -1351,6 +1546,8 @@ export class CollabHost {
 	#handlePeerLeft(peer: number): void {
 		const name = this.#peers.get(peer)?.name;
 		this.#peers.delete(peer);
+		this.#dropSnapshotLane(peer);
+		this.#detachCommands(peer);
 		if (this.#peers.size === 0) this.#resetStreamBaseline();
 		// Relay controls arrive outside the normal frame handler.
 		if (!this.#guestTrafficAllowed()) return;
@@ -1475,47 +1672,438 @@ export class CollabHost {
 		}
 	}
 
-	/** Incremental transcript read mirroring the hub's readFileIncremental contract. */
+	/**
+	 * Offset read for the native Agent Hub: whole JSONL lines from the first
+	 * line start at or after `fromByte`, bounded like a `transcript-page`, with
+	 * `newSize` the offset to read from next.
+	 */
 	async #handleFetchTranscript(reqId: number, agentId: string, fromByte: number, fromPeer: number): Promise<void> {
 		const reply = (text: string, newSize: number, error?: string) =>
 			this.#send({ t: "transcript", reqId, text, newSize, error }, fromPeer);
+		if (!Number.isSafeInteger(fromByte) || fromByte < 0) {
+			reply("", 0, "invalid transcript offset");
+			return;
+		}
 		const ref = AgentRegistry.global().get(agentId);
 		if (!ref?.sessionFile || ref.kind === "advisor") {
 			reply("", fromByte, "no transcript available");
 			return;
 		}
-		const file = ref.sessionFile;
+		let page: TranscriptPage;
 		try {
-			const stat = await fs.stat(file);
-			if (stat.size <= fromByte) {
-				reply("", stat.size);
-				return;
-			}
-			const want = Math.min(stat.size - fromByte, TRANSCRIPT_READ_CAP);
-			const handle = await fs.open(file, "r");
-			let bytesRead: number;
-			const buf = Buffer.allocUnsafe(want);
-			try {
-				({ bytesRead } = await handle.read(buf, 0, want, fromByte));
-			} finally {
-				await handle.close();
-			}
-			let slice = buf.subarray(0, bytesRead);
-			const reachedEof = fromByte + bytesRead >= stat.size;
-			if (!reachedEof) {
-				// Trim to the last complete JSONL line so no line or UTF-8 char is split.
-				const lastNewline = slice.lastIndexOf(0x0a);
-				if (lastNewline < 0) {
-					reply("", fromByte, TRANSCRIPT_ENTRY_TOO_LARGE_ERROR);
-					return;
-				}
-				slice = slice.subarray(0, lastNewline + 1);
-			}
-			reply(slice.toString("utf-8"), reachedEof ? stat.size : fromByte + slice.byteLength);
+			page = await readTranscriptFrom(ref.sessionFile, fromByte);
 		} catch (err) {
 			logger.debug("collab transcript read failed", { agentId, error: String(err) });
 			reply("", fromByte, String(err));
+			return;
 		}
+		reply(page.text, page.endByte, page.error);
+	}
+
+	/**
+	 * Targeted terminal reply to a guest request (`command-end`, `completions`,
+	 * `transcript-page`). Unlike {@link #send} it is not gated on the mirrored
+	 * session still being current: a refusal or an empty answer carries no
+	 * session data, and withholding it during a provisional session switch
+	 * would leave the guest waiting on a request that never ends. Callers put
+	 * session data in it only after checking {@link #guestTrafficAllowed}.
+	 */
+	#reply(frame: Extract<CollabFrame, { t: "command-end" | "completions" | "transcript-page" }>, toPeer: number): void {
+		if (this.ending) return;
+		this.#socket?.send(frame, toPeer);
+	}
+
+	/** Cursor-paged transcript read for the browser's agent panel; view-only guests may read. */
+	async #handleFetchTranscriptPage(
+		reqId: number,
+		agentId: string,
+		cursor: TranscriptCursor,
+		fromPeer: number,
+	): Promise<void> {
+		const at = transcriptCursorByte(cursor);
+		const fail = (error: string): void =>
+			this.#reply({ t: "transcript-page", reqId, text: "", startByte: at, endByte: at, size: 0, error }, fromPeer);
+		const peer = this.#peers.get(fromPeer);
+		if (!peer) return fail("Join before fetching transcripts");
+		if (!this.#guestTrafficAllowed() || this.#ctx.session.isSessionTransitioning) {
+			return fail("Session transition in progress");
+		}
+		if (!isTranscriptCursor(cursor)) return fail("Invalid transcript cursor");
+		const ref = AgentRegistry.global().get(agentId);
+		if (!ref?.sessionFile || ref.kind === "advisor") return fail("no transcript available");
+		let page: TranscriptPage;
+		try {
+			page = await readTranscriptPage(ref.sessionFile, cursor);
+		} catch (err) {
+			logger.debug("collab transcript page read failed", { agentId, error: String(err) });
+			page = { text: "", startByte: at, endByte: at, size: 0, error: String(err) };
+		}
+		// The read yielded: the peer id may belong to another guest by now, or the room may be suspended.
+		if (this.#peers.get(fromPeer) !== peer) return;
+		if (!this.#guestTrafficAllowed()) return fail("Session transition in progress");
+		this.#reply({ t: "transcript-page", reqId, ...page }, fromPeer);
+	}
+
+	/**
+	 * Send the host commands a full-control guest may run: to one peer after its
+	 * welcome, or to every full-control peer when the list changes. Following
+	 * list changes starts with the first full-control guest, so a room nobody
+	 * can run commands in rebuilds nothing.
+	 */
+	#sendCommands(toPeer?: number): void {
+		if (toPeer === undefined) {
+			let anyWriter = false;
+			for (const peer of this.#peers.values()) anyWriter ||= peer.canWrite;
+			if (!anyWriter) return;
+		}
+		let commands: CollabCommand[];
+		try {
+			this.#commandsUnsubscribe ??= this.#ctx.session.subscribeCommandMetadataChanged(() => {
+				// Completers are materialized against the previous command list.
+				this.#completeCommand = undefined;
+				this.#sendCommands();
+			});
+			commands = buildCollabCommands(this.#ctx.session);
+		} catch (err) {
+			// A command source that throws costs the guest its command list, never its join.
+			logger.warn("Collab command list unavailable", { error: String(err) });
+			return;
+		}
+		if (toPeer === undefined) this.#sendWritablePeers({ t: "commands", commands });
+		else this.#send({ t: "commands", commands }, toPeer);
+	}
+
+	/** Run a guest's slash command on the host; every request ends with exactly one `command-end`. */
+	#handleCommand(reqId: number, text: string, fromPeer: number): void {
+		const refuse = (message: string): void =>
+			this.#reply({ t: "command-end", reqId, status: "error", message }, fromPeer);
+		const peer = this.#peers.get(fromPeer);
+		if (!peer) return refuse("Join before running commands");
+		if (!peer.canWrite) return refuse("Commands are disabled on a read-only link");
+		const session = this.#ctx.session;
+		if (!this.#sessionStillCurrent() || session.isSessionTransitioning) {
+			return refuse("Commands are unavailable until the session transition completes");
+		}
+		if (!this.#guestActionsReady()) return refuse("Commands are unavailable until the host finishes starting up");
+		const command = typeof text === "string" ? text.trim() : "";
+		if (!command.startsWith("/")) return refuse("Commands start with /");
+		let route: GuestCommandRoute;
+		try {
+			route = classifyGuestCommand(this.#ctx, command);
+		} catch (err) {
+			logger.warn("collab guest command could not be resolved", { error: String(err) });
+			return refuse(toError(err).message);
+		}
+		if (route.kind === "host-only") return refuse(`/${route.name} is host-only`);
+		if (route.kind === "unknown") return refuse(`Unknown command: /${route.name}`);
+		if (route.kind === "btw" && !route.question) return refuse("Usage: /btw <question>");
+
+		const run: GuestCommandRun = {
+			reqId,
+			peerId: fromPeer,
+			peer,
+			abort: new AbortController(),
+			cancelled: false,
+			ended: false,
+			streamed: false,
+			deltaBytes: 0,
+		};
+		this.#commandRuns.add(run);
+		session.emitNotice("info", `${peer.name} ran /${route.name}`, "collab");
+		switch (route.kind) {
+			case "btw":
+				void this.#runBtw(run, route.question);
+				break;
+			case "builtin":
+				void this.#runBuiltin(run, route.spec, route.parsed);
+				break;
+			case "skill":
+				void this.#runSkill(run, command);
+				break;
+			case "prompt":
+				// `runCommands: false` for a file command or template: only expansion is wanted, so
+				// the session cannot route the line to an extension command registered meanwhile.
+				this.#submitCommandPrompt(
+					run,
+					onPromptAdmitted =>
+						session.prompt(command, {
+							streamingBehavior: "steer",
+							onPromptAdmitted,
+							...(route.runCommands ? {} : { runCommands: false }),
+						}),
+					// Unadmitted `false`: a custom command handled the line itself; `true`: dropped before the agent.
+					forwarded => (forwarded ? "error" : "done"),
+				);
+				break;
+		}
+	}
+
+	/** The request's single `command-end`; later calls for the same run do nothing. */
+	#endCommand(run: GuestCommandRun, status: CollabCommandStatus, message?: string): void {
+		if (run.ended) return;
+		run.ended = true;
+		this.#commandRuns.delete(run);
+		if (this.#peers.get(run.peerId) !== run.peer) return;
+		this.#reply({ t: "command-end", reqId: run.reqId, status, message }, run.peerId);
+	}
+
+	/**
+	 * Markdown output of a running command, for the guest that asked only. A
+	 * frame carries at most {@link COMMAND_OUTPUT_MAX_BYTES} of it; a `/btw`
+	 * answer streamed as deltas gets that much in total, the delta that reaches
+	 * the bound ends with the truncation note, and later deltas are dropped.
+	 */
+	#commandOutput(run: GuestCommandRun, text: string, delta = false): void {
+		if (run.ended || !text || this.#peers.get(run.peerId) !== run.peer) return;
+		if (!delta) {
+			const bounded =
+				Buffer.byteLength(text) > COMMAND_OUTPUT_MAX_BYTES
+					? `${truncateHeadBytes(text, COMMAND_OUTPUT_MAX_BYTES).text}${COMMAND_OUTPUT_TRUNCATED}`
+					: text;
+			this.#send({ t: "command-output", reqId: run.reqId, text: bounded }, run.peerId);
+			return;
+		}
+		if (run.deltaBytes >= COMMAND_OUTPUT_MAX_BYTES) return;
+		const room = COMMAND_OUTPUT_MAX_BYTES - run.deltaBytes;
+		const bytes = Buffer.byteLength(text);
+		if (bytes < room) {
+			run.deltaBytes += bytes;
+			this.#send({ t: "command-output", reqId: run.reqId, text, delta: true }, run.peerId);
+			return;
+		}
+		run.deltaBytes = COMMAND_OUTPUT_MAX_BYTES;
+		const head = truncateHeadBytes(text, room).text;
+		this.#send(
+			{ t: "command-output", reqId: run.reqId, text: `${head}${COMMAND_OUTPUT_TRUNCATED}`, delta: true },
+			run.peerId,
+		);
+	}
+
+	/** An allowlisted builtin, through its text handler. */
+	async #runBuiltin(run: GuestCommandRun, spec: SlashCommandSpec, parsed: ParsedSlashCommand): Promise<void> {
+		const ctx = this.#ctx;
+		// No `ctx` in the runtime: a guest-run command must never open a dialog or a selector on
+		// the host's screen, so handlers take their text-mode branches.
+		const runtime: SlashCommandRuntime = {
+			session: ctx.session,
+			sessionManager: ctx.sessionManager,
+			settings: ctx.settings,
+			cwd: ctx.sessionManager.getCwd(),
+			signal: run.abort.signal,
+			output: text => this.#commandOutput(run, text),
+			refreshCommands: () => ctx.refreshSlashCommandState(),
+			// Plugin commands are host-only; no builtin a guest may run reloads plugins.
+			reloadPlugins: () => Promise.reject(new Error("Reloading plugins is host-only")),
+		};
+		let failed = true;
+		try {
+			const result = await executeGuestBuiltin(spec, parsed, runtime);
+			if (result === false) {
+				this.#endCommand(run, "error", `/${spec.name} needs the host's terminal`);
+			} else if ("prompt" in result) {
+				failed = false;
+				// The command kept part of the line as the guest's prompt (`/force <tool> <prompt>`).
+				if (run.cancelled) this.#endCommand(run, "cancelled");
+				else if (!run.ended && this.#guestTrafficAllowed()) {
+					this.#handlePrompt(result.prompt, undefined, run.peerId);
+					this.#endCommand(run, "prompt");
+				} else this.#endCommand(run, "error", "The prompt was not submitted; the session changed");
+			} else {
+				failed = result.failed === true;
+				// A failed handler already explained itself through its output.
+				this.#endCommand(run, failed ? "error" : "done");
+			}
+		} catch (err) {
+			if (run.cancelled) this.#endCommand(run, "cancelled");
+			else {
+				logger.warn("collab guest command failed", { command: spec.name, error: String(err) });
+				this.#endCommand(run, "error", toError(err).message);
+			}
+		}
+		this.#refreshHostAfterCommand(spec.name, failed);
+	}
+
+	/**
+	 * Repaint what a guest-run builtin may have changed on the host's own
+	 * screen, as the TUI's handlers do after theirs: the status line and the
+	 * editor border (model, effort, service tier, advisor), the todo HUD, and
+	 * the whole chat after a command that rewrote the transcript. Guests get
+	 * the new footer state through the usual state broadcast.
+	 */
+	#refreshHostAfterCommand(command: string, failed: boolean): void {
+		const ctx = this.#ctx;
+		ctx.statusLine.invalidate();
+		ctx.updateEditorBorderColor();
+		if (!failed && TRANSCRIPT_REWRITING_COMMANDS[command]) {
+			ctx.rebuildChatFromMessages(command === "compact" ? { reuseSettledComponents: true } : undefined);
+			// The rebuild re-emits every block; without the clear the previous copy stays in scrollback.
+			ctx.ui.requestRender(true, { clearScrollback: true });
+		} else {
+			ctx.ui.requestRender();
+		}
+		if (command === "todo") {
+			void ctx.reloadTodos().catch(err => logger.warn("collab todo refresh failed", { error: String(err) }));
+		}
+		this.#scheduleStateBroadcast();
+	}
+
+	/**
+	 * A registered `/skill:<name>` command, built the way the host TUI builds
+	 * it (`buildSkillCommandPrompt`), so the host's transcript shows the same
+	 * user-attributed skill message as when the host types the command.
+	 */
+	async #runSkill(run: GuestCommandRun, command: string): Promise<void> {
+		try {
+			const built = await buildSkillCommandPrompt(this.#ctx, command, "steer");
+			if (run.ended) return;
+			if (run.cancelled) return this.#endCommand(run, "cancelled");
+			if (!built) return this.#endCommand(run, "error", "The skill is no longer available");
+			if (!this.#guestTrafficAllowed()) {
+				return this.#endCommand(run, "error", "The skill was not submitted; the session changed");
+			}
+			this.#submitCommandPrompt(
+				run,
+				onPromptAdmitted =>
+					this.#ctx.session.promptCustomMessage(built.message, { ...built.options, onPromptAdmitted }),
+				// Unadmitted `false`: dispatch bailed before the agent took the message.
+				forwarded => (forwarded ? "prompt" : "error"),
+			);
+		} catch (err) {
+			this.#endCommand(run, "error", `Failed to load skill: ${toError(err).message}`);
+		}
+	}
+
+	/**
+	 * Hand a guest command to the agent as a prompt. It ends `prompt` the moment
+	 * the session admits it — a turn of its own when idle, the steer queue while
+	 * streaming — rather than when the turn finishes. `unadmitted` names the
+	 * outcome of a dispatch that resolved without ever being admitted.
+	 */
+	#submitCommandPrompt(
+		run: GuestCommandRun,
+		dispatch: (onPromptAdmitted: () => void) => Promise<boolean>,
+		unadmitted: (forwarded: boolean) => CollabCommandStatus,
+	): void {
+		let admitted = false;
+		const onPromptAdmitted = (): void => {
+			admitted = true;
+			if (this.#ctx.session.isStreaming) {
+				this.#ctx.updatePendingMessagesDisplay();
+				this.#ctx.ui.requestRender();
+			}
+			this.#scheduleStateBroadcast();
+			this.#endCommand(run, "prompt");
+		};
+		dispatch(onPromptAdmitted).then(
+			forwarded => {
+				if (admitted) return;
+				const status = unadmitted(forwarded);
+				this.#endCommand(
+					run,
+					status,
+					status === "error" ? "The command was not submitted; send it again when the host is ready" : undefined,
+				);
+			},
+			err => {
+				logger.warn("collab guest command prompt failed", { error: String(err) });
+				if (!admitted) return this.#endCommand(run, "error", toError(err).message);
+				// Already reported as a prompt: the failure reaches the guest as a typed prompt's would.
+				if (this.#peers.get(run.peerId) === run.peer) {
+					this.#send({ t: "error", message: `prompt failed: ${String(err)}` }, run.peerId);
+				}
+			},
+		);
+	}
+
+	/** `/btw <question>`: the answer streams to the asking guest and is saved to the session's BTW history. */
+	async #runBtw(run: GuestCommandRun, question: string): Promise<void> {
+		const btw = (this.#btw ??= new RpcBtwController(this.#ctx.session, frame => {
+			if (frame.type === "btw_delta") this.#onBtwDelta(frame.delta);
+			else if (frame.type === "btw_record") this.#onBtwRecord(frame.record);
+			// A history checkpoint that could not be saved is the host's to know about.
+			else this.#ctx.session.emitNotice(frame.level, frame.message, frame.source);
+		}));
+		// The runner answers one question at a time; while another run holds the slot, `ask` refuses.
+		this.#btwRun ??= run;
+		try {
+			await btw.ask(question);
+		} catch (err) {
+			if (this.#btwRun === run) this.#btwRun = undefined;
+			// A cancel that lands while the question is still starting surfaces as a rejection.
+			if (run.cancelled) this.#endCommand(run, "cancelled");
+			else this.#endCommand(run, "error", toError(err).message);
+		}
+	}
+
+	#onBtwDelta(delta: string): void {
+		const run = this.#btwRun;
+		if (!run || !delta) return;
+		this.#commandOutput(run, delta, true);
+		run.streamed = true;
+	}
+
+	/** Every lifecycle change of the running question; a terminal status ends its command. */
+	#onBtwRecord(record: RpcBtwHistoryRecord): void {
+		const run = this.#btwRun;
+		if (!run) return;
+		const turn = getBtwLatestTurn(record);
+		if (turn.status === "running") return;
+		this.#btwRun = undefined;
+		if (turn.status === "complete") {
+			if (!run.streamed) this.#commandOutput(run, turn.answer);
+			this.#endCommand(run, "done");
+		} else if (turn.status === "cancelled") {
+			this.#endCommand(run, "cancelled");
+		} else {
+			this.#endCommand(run, "error", turn.error ?? "The /btw question was interrupted");
+		}
+	}
+
+	/** `command-cancel`: unknown and finished requests are ignored. */
+	#handleCommandCancel(reqId: number, fromPeer: number): void {
+		for (const run of this.#commandRuns) {
+			if (run.reqId !== reqId || run.peerId !== fromPeer || this.#peers.get(fromPeer) !== run.peer) continue;
+			run.cancelled = true;
+			run.abort.abort();
+			if (this.#btwRun === run) this.#btw?.cancel();
+		}
+	}
+
+	/**
+	 * Stop commands whose guest can no longer be answered: one peer's when it
+	 * leaves, every peer's when the room is recreated or ends. Nothing more is
+	 * sent for them — the peer id may already belong to someone else.
+	 */
+	#detachCommands(peerId?: number): void {
+		for (const run of this.#commandRuns) {
+			if (peerId !== undefined && run.peerId !== peerId) continue;
+			run.ended = true;
+			this.#commandRuns.delete(run);
+			run.abort.abort();
+			if (this.#btwRun === run) this.#btw?.cancel();
+		}
+	}
+
+	/** Argument completions for the command a guest is typing; always answered, empty when there is nothing to offer. */
+	async #handleComplete(reqId: number, text: string, fromPeer: number): Promise<void> {
+		const peer = this.#peers.get(fromPeer);
+		let items: CollabCompletion[] = [];
+		if (
+			peer?.canWrite &&
+			typeof text === "string" &&
+			this.#guestTrafficAllowed() &&
+			!this.#ctx.session.isSessionTransitioning
+		) {
+			try {
+				this.#completeCommand ??= createGuestCommandCompleter(this.#ctx);
+				items = await this.#completeCommand(text);
+			} catch (err) {
+				logger.debug("collab command completion failed", { error: String(err) });
+			}
+			// Completions name models and session state: none for a room suspended meanwhile.
+			if (!this.#guestTrafficAllowed()) items = [];
+		}
+		if (this.#peers.get(fromPeer) === peer) this.#reply({ t: "completions", reqId, items }, fromPeer);
 	}
 
 	#scheduleStateBroadcast(): void {

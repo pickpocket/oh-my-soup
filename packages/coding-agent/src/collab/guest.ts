@@ -22,7 +22,8 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import type { ThinkingLevel } from "@oh-my-soup/pi-agent-core";
 import type { AssistantMessage, AssistantMessageEvent, ImageContent } from "@oh-my-soup/pi-ai";
-import { getConfigRootDir, logger } from "@oh-my-soup/pi-utils";
+import { formatBytes, getConfigRootDir, logger } from "@oh-my-soup/pi-utils";
+import { COLLAB_RELAY_MAX_MESSAGE_BYTES } from "@oh-my-soup/pi-wire";
 import { applyCollabStream } from "@oh-my-soup/pi-wire/collab-stream";
 import type { AgentHubRemote, AgentHubRemoteTranscript } from "@oh-my-soup/pi-tui/overlays/agent-hub";
 import type { InteractiveModeContext } from "../modes/types";
@@ -244,6 +245,15 @@ export class CollabGuestLink {
 	 * chunk lands (or the snapshot-progress timer fires).
 	 */
 	#pendingSnapshot: PendingSnapshot | null = null;
+	/** `snapshot-chunk` frames received since the last welcome, acknowledged after each. */
+	#snapshotChunks = 0;
+	/**
+	 * Frames that arrived between a welcome and its final chunk. The host paces
+	 * the snapshot by this guest's acks while live traffic keeps flowing, and all
+	 * of that traffic postdates the snapshot, so it applies, in arrival order,
+	 * once the snapshot is in place. Discarded with the partial snapshot.
+	 */
+	#heldFrames: CollabFrame[] = [];
 	/**
 	 * Fires `firstWelcome.reject` from a stalled welcome/snapshot during the
 	 * initial join. Set in {@link join}, cleared on resolve/reject; arming a
@@ -277,7 +287,7 @@ export class CollabGuestLink {
 	readonly #hubRemote: AgentHubRemote = {
 		chat: (id, text) => {
 			if (this.#rejectReadOnly()) return;
-			this.#socket?.send({ t: "agent-cmd", cmd: "chat", agentId: id, text });
+			this.#sendUserFrame({ t: "agent-cmd", cmd: "chat", agentId: id, text }, "Message", "Shorten it.");
 		},
 		kill: id => {
 			if (this.#rejectReadOnly()) return;
@@ -324,6 +334,21 @@ export class CollabGuestLink {
 		return true;
 	}
 
+	/**
+	 * Send a frame the user asked for. The transport refuses one too large for
+	 * a relay message (the relay would drop this connection and the frame with
+	 * it); say so, naming the size, with `hint` on how to make it fit.
+	 * @returns whether the frame was accepted.
+	 */
+	#sendUserFrame(frame: CollabFrame, what: string, hint: string): boolean {
+		if (this.#socket?.send(frame) !== false) return true;
+		const bytes = Buffer.byteLength(JSON.stringify(frame));
+		this.#ctx.showError(
+			`${what} not sent: ${formatBytes(bytes)} is over the collab relay's ${formatBytes(COLLAB_RELAY_MAX_MESSAGE_BYTES)} message limit. ${hint}`,
+		);
+		return false;
+	}
+
 	constructor(ctx: InteractiveModeContext) {
 		this.#ctx = ctx;
 	}
@@ -367,6 +392,7 @@ export class CollabGuestLink {
 			// chunk train.
 			this.#welcomed = false;
 			this.#pendingSnapshot = null;
+			this.#heldFrames = [];
 			this.#resetStream();
 			this.#clearSnapshotProgressTimer();
 			this.#armWelcomeTimer();
@@ -387,6 +413,7 @@ export class CollabGuestLink {
 						if (frame.entryCount === 0) {
 							await this.#finalizeSnapshot();
 							finishJoin();
+							this.#applyHeldFrames();
 						}
 						return;
 					}
@@ -395,7 +422,12 @@ export class CollabGuestLink {
 						if (ready) {
 							await this.#finalizeSnapshot();
 							finishJoin();
+							this.#applyHeldFrames();
 						}
+						return;
+					}
+					if (this.#pendingSnapshot) {
+						this.#heldFrames.push(frame);
 						return;
 					}
 					if (frame.t === "error" && !this.#welcomed && !this.#left) {
@@ -464,9 +496,19 @@ export class CollabGuestLink {
 		await this.#restoreLocalSession();
 	}
 
-	sendPrompt(text: string, images?: ImageContent[]): void {
-		if (this.#rejectReadOnly()) return;
-		this.#socket?.send({ t: "prompt", text, images: images && images.length > 0 ? images : undefined });
+	/**
+	 * Send a prompt to the host. Returns `false` when it was refused locally — a
+	 * read-only link, or a prompt too large for the relay (an error says so) —
+	 * so the caller can give the draft back.
+	 */
+	sendPrompt(text: string, images?: ImageContent[]): boolean {
+		if (this.#rejectReadOnly()) return false;
+		const attached = images && images.length > 0 ? images : undefined;
+		return this.#sendUserFrame(
+			{ t: "prompt", text, images: attached },
+			"Prompt",
+			attached ? "Attach fewer or smaller images." : "Shorten it.",
+		);
 	}
 
 	sendAbort(): void {
@@ -484,6 +526,9 @@ export class CollabGuestLink {
 		if (this.#left) return;
 		this.#welcomed = false;
 		this.#resetStream();
+		// Anything held from an earlier welcome predates this snapshot.
+		this.#heldFrames = [];
+		this.#snapshotChunks = 0;
 		this.#pendingSnapshot = {
 			header: frame.header,
 			state: frame.state,
@@ -497,7 +542,8 @@ export class CollabGuestLink {
 	}
 
 	/**
-	 * Append a chunk to the pending snapshot. Returns `true` when the
+	 * Append a chunk to the pending snapshot and acknowledge it: the host sends
+	 * further chunks only as earlier ones are acknowledged. Returns `true` when the
 	 * accumulator has gathered every entry the welcome promised, or the host
 	 * tagged this chunk as `final`. The caller is responsible for invoking
 	 * {@link #finalizeSnapshot} on the same applyChain microtask.
@@ -509,6 +555,8 @@ export class CollabGuestLink {
 			return false;
 		}
 		pending.entries.push(...frame.entries);
+		this.#snapshotChunks++;
+		this.#socket?.send({ t: "snapshot-ack", chunks: this.#snapshotChunks });
 		const complete = frame.final || pending.entries.length >= pending.entryCount;
 		if (complete) {
 			this.#clearSnapshotProgressTimer();
@@ -611,6 +659,16 @@ export class CollabGuestLink {
 		this.#ctx.showStatus(
 			pending.isResync ? `Reconnected to collab session${suffix}` : `Joined collab session${suffix}`,
 		);
+	}
+
+	/** Apply, in arrival order, the frames held while the snapshot streamed in. */
+	#applyHeldFrames(): void {
+		const held = this.#heldFrames;
+		this.#heldFrames = [];
+		for (const frame of held) {
+			if (!this.#welcomed || this.#left) return;
+			this.#applyFrame(frame);
+		}
 	}
 
 	#armWelcomeTimer(): void {
@@ -717,6 +775,9 @@ export class CollabGuestLink {
 				break;
 			case "history":
 				// Native guests keep the full replica and never request history pages.
+				break;
+			case "commands":
+				// The host's command list is for browser guests; here host commands stay host-only.
 				break;
 			default:
 				logger.debug("collab guest ignoring unexpected frame", { type: frame.t });
@@ -956,7 +1017,7 @@ export class CollabGuestLink {
 				// microtask runs, so a dismissed dialog stays silent.
 				if (this.#pendingUiRequests.get(request.reqId) !== abort) return;
 				this.#pendingUiRequests.delete(request.reqId);
-				this.#socket?.send({ t: "ui-response", reqId: request.reqId, value });
+				this.#sendUserFrame({ t: "ui-response", reqId: request.reqId, value }, "Answer", "Shorten it.");
 			})
 			.catch(err => {
 				if (this.#pendingUiRequests.get(request.reqId) === abort) {
@@ -1019,6 +1080,7 @@ export class CollabGuestLink {
 		this.#clearWelcomeTimer();
 		this.#clearSnapshotProgressTimer();
 		this.#pendingSnapshot = null;
+		this.#heldFrames = [];
 		this.#resetStream();
 		this.#socket?.close();
 		this.#socket = null;

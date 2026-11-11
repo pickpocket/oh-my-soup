@@ -1,4 +1,4 @@
-import { X } from "lucide-react";
+import { CircleAlert, Info, type LucideIcon, TriangleAlert, X } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import type { Notice } from "../../lib/client";
@@ -6,6 +6,12 @@ import type { Notice } from "../../lib/client";
 const INFO_TTL_MS = 4000;
 const WARNING_TTL_MS = 8000;
 const MAX_VISIBLE = 4;
+
+const LEVEL_ICON: Record<Notice["level"], LucideIcon> = {
+	info: Info,
+	warning: TriangleAlert,
+	error: CircleAlert,
+};
 
 export function Toasts({ notices }: { notices: readonly Notice[] }): ReactNode {
 	// Dynamic membership keyed by notice id — runtime collection.
@@ -49,16 +55,26 @@ export function Toasts({ notices }: { notices: readonly Notice[] }): ReactNode {
 
 	return (
 		<div className="sh-toasts">
-			{visible.map(n => (
-				<div key={n.id} className={`sh-toast sh-toast-${n.level}`} role="status">
-					<span className="sh-toast-msg">{n.message}</span>
-					{n.level === "error" && (
-						<button type="button" className="sh-toast-close" onClick={() => close(n.id)} title="dismiss">
-							<X size={12} />
-						</button>
-					)}
-				</div>
-			))}
+			{visible.map(n => {
+				const Icon = LEVEL_ICON[n.level];
+				return (
+					<div key={n.id} className={`sh-toast sh-toast-${n.level}`} role="status">
+						<Icon size={15} className="sh-toast-icon" aria-hidden />
+						<span className="sh-toast-msg">{n.message}</span>
+						{n.level === "error" && (
+							<button
+								type="button"
+								className="sh-icon-btn sh-icon-btn-sm"
+								onClick={() => close(n.id)}
+								title="dismiss"
+								aria-label="dismiss"
+							>
+								<X size={14} aria-hidden />
+							</button>
+						)}
+					</div>
+				);
+			})}
 		</div>
 	);
 }

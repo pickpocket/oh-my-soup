@@ -1,7 +1,7 @@
-import { ArrowRight, Lock } from "lucide-react";
+import { ArrowRight, CircleAlert, Lock } from "lucide-react";
 import type { FormEvent, ReactNode } from "react";
 import { useState } from "react";
-import { OmsMark } from "./OmsMark";
+import { Brand } from "./OmsMark";
 import { ThemeToggle } from "./ThemeToggle";
 
 export interface ConnectScreenProps {
@@ -30,22 +30,15 @@ export function ConnectScreen({ defaultName, error, onConnect }: ConnectScreenPr
 
 	return (
 		<div className="sh-connect">
-			<div className="sh-ambient" />
+			<div className="sh-haze" aria-hidden="true" />
 			<div className="sh-connect-top">
-				<div className="sh-brand">
-					<OmsMark />
-					<span>oms</span>
-					<span className="sh-brand-slash">/</span>
-					<span className="sh-brand-app">collab</span>
-				</div>
+				<Brand />
 				<ThemeToggle />
 			</div>
 			<form className="sh-connect-card" onSubmit={submit}>
 				<div className="sh-connect-head">
 					<h1 className="sh-connect-title">Join a live session</h1>
-					<p className="sh-connect-sub">
-						Watch an oms agent work in real time — transcript, tool calls and subagents — and prompt it from here.
-					</p>
+					<p className="sh-connect-sub">Watch an oms agent work in real time and prompt it from here.</p>
 				</div>
 				<label className="sh-field">
 					<span className="sh-field-label">Join link</span>
@@ -76,12 +69,17 @@ export function ConnectScreen({ defaultName, error, onConnect }: ConnectScreenPr
 						maxLength={32}
 					/>
 				</label>
-				{shown && <div className="sh-connect-error">{shown}</div>}
+				{shown && (
+					<div className="sh-connect-error" role="alert">
+						<CircleAlert size={15} className="sh-connect-error-icon" aria-hidden />
+						{shown}
+					</div>
+				)}
 				<button className="sh-btn sh-btn-primary sh-connect-submit" type="submit">
-					Connect <ArrowRight size={14} />
+					Connect <ArrowRight size={15} aria-hidden />
 				</button>
 				<div className="sh-connect-foot">
-					<Lock size={12} />
+					<Lock size={13} aria-hidden />
 					End-to-end encrypted. The room key stays in the link and never reaches the relay.
 				</div>
 			</form>

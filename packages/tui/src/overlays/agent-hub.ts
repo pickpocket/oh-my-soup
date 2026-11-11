@@ -268,7 +268,9 @@ function activityClock(timestamp: number): string {
 }
 /** Result of one host-backed transcript read for the Agent Hub viewer. */
 export interface AgentHubRemoteTranscript {
+	/** Whole JSONL lines; a line too large to send arrives as one placeholder entry line. */
 	text: string;
+	/** Offset to read from next: the end of the lines read, which is not `fromByte` plus the text length. */
 	newSize: number;
 	/** Terminal read failure reported by the host; guests should surface it instead of retrying hot. */
 	error?: string;
@@ -279,7 +281,13 @@ export interface AgentHubRemote {
 	chat(id: string, text: string): void;
 	kill(id: string): void;
 	revive(id: string): void;
-	/** Mirrors readFileIncremental: text from fromByte (complete JSONL lines), newSize = next fromByte base; null = temporarily unavailable. */
+	/**
+	 * Bounded read of whole JSONL lines from the first line start at or after
+	 * `fromByte` (a mid-line offset skips to the next line); `newSize` is the next
+	 * `fromByte`, and is below `fromByte` when the transcript was truncated. An
+	 * offset at or past the end returns no text and the file size; null =
+	 * temporarily unavailable.
+	 */
 	readTranscript(id: string, fromByte: number): Promise<AgentHubRemoteTranscript | null>;
 }
 

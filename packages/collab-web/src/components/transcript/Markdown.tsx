@@ -191,14 +191,21 @@ export function renderStreamingMarkdown(
  * {@link Markdown} for a block that is still streaming: settled leading
  * blocks are rendered once and reused, so each token re-parses only the open
  * tail instead of the whole growing block. Output is identical to
- * {@link Markdown} for the same text.
+ * {@link Markdown} for the same text. `caret` marks the block new text is
+ * arriving in, which the stylesheet ends with a soft caret.
  */
-export const StreamingMarkdown = memo(function StreamingMarkdown({ text }: { text: string }): ReactNode {
+export const StreamingMarkdown = memo(function StreamingMarkdown({
+	text,
+	caret,
+}: {
+	text: string;
+	caret?: boolean;
+}): ReactNode {
 	const prefixRef = useRef(NO_PREFIX);
 	const html = useMemo(() => {
 		const rendered = renderStreamingMarkdown(text, prefixRef.current);
 		prefixRef.current = rendered.prefix;
 		return rendered.html;
 	}, [text]);
-	return <div className="tr-md" dangerouslySetInnerHTML={{ __html: html }} />;
+	return <div className={caret ? "tr-md tr-md--live" : "tr-md"} dangerouslySetInnerHTML={{ __html: html }} />;
 });

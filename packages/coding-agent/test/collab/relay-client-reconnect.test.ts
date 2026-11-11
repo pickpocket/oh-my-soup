@@ -1,4 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "bun:test";
+import { seal } from "../../src/collab/crypto";
+import { packEnvelope } from "../../src/collab/protocol";
 import {
 	CollabSocket,
 	HOST_RECLAIM_BACKOFF_MAX_MS,
@@ -37,7 +39,7 @@ class ScriptedWebSocket {
 		this.sent.push(data);
 	}
 
-	deliver(data: string): void {
+	deliver(data: string | ArrayBuffer): void {
 		this.onmessage?.(new MessageEvent("message", { data }));
 	}
 
@@ -167,6 +169,151 @@ describe("CollabSocket guest room recovery", () => {
 		vi.advanceTimersByTime(30_000);
 		expect(ScriptedWebSocket.instances).toHaveLength(1);
 	});
+
+	it("keeps retrying a missing room after a plain drop once it has been in the room", async () => {
+		vi.useFakeTimers();
+		vi.spyOn(Math, "random").mockReturnValue(0.5);
+		installScriptedWebSocket();
+		const key = await crypto.subtle.generateKey({ name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
+		const closes: Array<{ reason: string; willReconnect: boolean }> = [];
+		const socket = guestSocket(key);
+		socket.onClose = (reason, willReconnect) => closes.push({ reason, willReconnect });
+		const received = Promise.withResolvers<void>();
+		socket.onFrame = () => received.resolve();
+
+		try {
+			socket.connect();
+			instance(0).open();
+			const sealed = await seal(key, { t: "error", message: "proof of membership" });
+			instance(0).deliver(packEnvelope(0, sealed).buffer as ArrayBuffer);
+			await received.promise;
+
+			// The relay crashes: no close frame. It comes back before the host has
+			// recreated the room, so every reconnect is refused as a missing room.
+			instance(0).relayClose(1006, "");
+			expect(closes).toEqual([{ reason: "connection lost (code 1006)", willReconnect: true }]);
+			for (const [index, delay] of [
+				[1, 1_000],
+				[2, 2_000],
+				[3, 4_000],
+			] as const) {
+				vi.advanceTimersByTime(delay);
+				instance(index).open();
+				instance(index).relayClose(4004, "no such room");
+				expect(closes.at(-1)).toEqual({ reason: "no such room", willReconnect: true });
+			}
+			// The host is back.
+			vi.advanceTimersByTime(8_000);
+			instance(4).open();
+			expect(socket.isOpen).toBe(true);
+		} finally {
+			socket.close();
+		}
+	});
+
+	it("takes a missing room as final after a drop when it never reached the room", async () => {
+		vi.useFakeTimers();
+		vi.spyOn(Math, "random").mockReturnValue(0.5);
+		installScriptedWebSocket();
+		const key = await crypto.subtle.generateKey({ name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
+		const closes: Array<{ reason: string; willReconnect: boolean }> = [];
+		const socket = guestSocket(key);
+		socket.onClose = (reason, willReconnect) => closes.push({ reason, willReconnect });
+
+		socket.connect();
+		instance(0).open();
+		instance(0).relayClose(1006, "");
+		vi.advanceTimersByTime(1_000);
+		instance(1).open();
+		instance(1).relayClose(4004, "no such room");
+		expect(closes.at(-1)).toEqual({ reason: "no such room", willReconnect: false });
+		vi.advanceTimersByTime(60_000);
+		expect(ScriptedWebSocket.instances).toHaveLength(2);
+	});
+});
+
+describe("CollabSocket close reasons", () => {
+	it("reports the relay's own reason for a refusal, falling back to the code's name", async () => {
+		installScriptedWebSocket();
+		const key = await crypto.subtle.generateKey({ name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
+		const closes: Array<{ reason: string; willReconnect: boolean }> = [];
+		for (const reason of ["server room capacity reached", ""]) {
+			const socket = guestSocket(key);
+			socket.onClose = (closeReason, willReconnect) => closes.push({ reason: closeReason, willReconnect });
+			socket.connect();
+			const ws = ScriptedWebSocket.instances.at(-1)!;
+			ws.open();
+			ws.relayClose(4029, reason);
+		}
+		expect(closes).toEqual([
+			{ reason: "server room capacity reached", willReconnect: false },
+			{ reason: "room is full", willReconnect: false },
+		]);
+	});
+
+	it("reconnects after the relay closes it for an oversized message or a full queue", async () => {
+		vi.useFakeTimers();
+		vi.spyOn(Math, "random").mockReturnValue(0.5);
+		installScriptedWebSocket();
+		const key = await crypto.subtle.generateKey({ name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
+		const closes: Array<{ reason: string; willReconnect: boolean }> = [];
+		const socket = guestSocket(key);
+		socket.onClose = (reason, willReconnect) => closes.push({ reason, willReconnect });
+		try {
+			socket.connect();
+			instance(0).open();
+			instance(0).relayClose(1013, "outgoing queue is full");
+			vi.advanceTimersByTime(1_000);
+			instance(1).open();
+			instance(1).relayClose(1009, "message is too large");
+			vi.advanceTimersByTime(2_000);
+			instance(2).open();
+			expect(closes).toEqual([
+				{ reason: "outgoing queue is full", willReconnect: true },
+				{ reason: "message is too large", willReconnect: true },
+			]);
+			expect(socket.isOpen).toBe(true);
+		} finally {
+			socket.close();
+		}
+	});
+});
+
+describe("CollabSocket host open confirmation", () => {
+	it("reports a host open only once the relay answers its ping", async () => {
+		installScriptedWebSocket();
+		const key = await crypto.subtle.generateKey({ name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
+		const socket = hostSocket(key);
+		let opens = 0;
+		socket.onOpen = () => opens++;
+		try {
+			socket.connect();
+			instance(0).open();
+			expect(instance(0).pings).toBe(1);
+			expect({ opens, isOpen: socket.isOpen }).toEqual({ opens: 0, isOpen: false });
+			instance(0).pong();
+			expect({ opens, isOpen: socket.isOpen }).toEqual({ opens: 1, isOpen: true });
+		} finally {
+			socket.close();
+		}
+	});
+
+	it("never reports open for a host the relay refuses right after the upgrade", async () => {
+		vi.useFakeTimers();
+		installScriptedWebSocket();
+		const key = await crypto.subtle.generateKey({ name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
+		const socket = hostSocket(key);
+		let opens = 0;
+		const closes: Array<{ reason: string; willReconnect: boolean }> = [];
+		socket.onOpen = () => opens++;
+		socket.onClose = (reason, willReconnect) => closes.push({ reason, willReconnect });
+		socket.connect();
+		instance(0).open();
+		instance(0).relayClose(4029, "server room capacity reached");
+		vi.advanceTimersByTime(HOST_RECLAIM_CONFIRM_MS);
+		expect(opens).toBe(0);
+		expect(closes).toEqual([{ reason: "server room capacity reached", willReconnect: false }]);
+	});
 });
 
 describe("CollabSocket host room recovery", () => {
@@ -227,6 +374,7 @@ describe("CollabSocket host room recovery", () => {
 		try {
 			socket.connect();
 			instance(0).open();
+			instance(0).pong();
 			instance(0).relayClose(1006, "Connection ended");
 			// Broadcast backlog queued while the host is offline.
 			socket.send({ t: "error", message: "backlog" });
@@ -265,6 +413,7 @@ describe("CollabSocket host room recovery", () => {
 		try {
 			socket.connect();
 			instance(0).open();
+			instance(0).pong();
 			instance(0).relayClose(1006, "Connection ended");
 			vi.advanceTimersByTime(1_000);
 			instance(1).open();
@@ -333,12 +482,15 @@ describe("CollabSocket silent connection", () => {
 		try {
 			socket.connect();
 			instance(0).open();
+			// The ping on open; its pong confirms the host.
+			expect(instance(0).pings).toBe(1);
+			instance(0).pong();
 			// Ten idle minutes: nothing is sent either way except pings and their pongs.
 			for (let elapsed = 0; elapsed < 600_000; elapsed += RELAY_PING_INTERVAL_MS) {
 				vi.advanceTimersByTime(RELAY_PING_INTERVAL_MS);
 				instance(0).pong();
 			}
-			expect(instance(0).pings).toBe(600_000 / RELAY_PING_INTERVAL_MS);
+			expect(instance(0).pings).toBe(1 + 600_000 / RELAY_PING_INTERVAL_MS);
 			expect(closes).toEqual([]);
 			expect(socket.isOpen).toBe(true);
 			expect(ScriptedWebSocket.instances).toHaveLength(1);

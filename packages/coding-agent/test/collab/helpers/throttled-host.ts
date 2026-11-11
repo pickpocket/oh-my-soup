@@ -20,7 +20,7 @@ export interface Snapshot {
 	entries: SessionEntry[];
 }
 
-/** 96 × 16 KB ≈ 1.5 MB, so the host's 64 KiB chunk cap yields many chunks. */
+/** 96 × 16 KB ≈ 1.5 MB: many 64 KiB chunks, more than one 1 MiB pacing window. */
 export function makeSnapshot(): Snapshot {
 	const body = "x".repeat(16 * 1024);
 	const entries: SessionEntry[] = [];
@@ -102,15 +102,16 @@ export function instrumentRelay(relay: InMemoryRelay, opts: { throttle: boolean 
 	let hostWs: FakeWebSocket | undefined;
 	const connect = relay.connect.bind(relay);
 	relay.connect = ws => {
-		connect(ws);
-		if (ws.role !== "host") return;
+		const refusal = connect(ws);
+		if (refusal || ws.role !== "host") return refusal;
 		hostWs = ws;
-		if (!opts.throttle) return;
+		if (!opts.throttle) return undefined;
 		const send = ws.send.bind(ws);
 		ws.send = data => {
 			ws.bufferedAmount += data.byteLength;
 			send(data);
 		};
+		return undefined;
 	};
 	const targets: number[] = [];
 	const forward = relay.forward.bind(relay);

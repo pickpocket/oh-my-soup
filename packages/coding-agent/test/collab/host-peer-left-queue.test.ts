@@ -1,10 +1,10 @@
 /**
  * Contract: a guest that leaves must stop costing the room anything.
  *
- * Two ways that breaks. The queue is shared and strictly FIFO, so a stale
- * targeted batch parked at its head makes every later frame — the next guest's
- * welcome included — wait for a retransmission at a peer id the relay already
- * retired. And because the relay's `peer-left` control is dispatched
+ * Two ways that breaks. The transport queue is shared and strictly FIFO, so
+ * frames still queued for a departed guest make every later frame — the next
+ * guest's welcome included — wait for retransmissions at a peer id the relay
+ * already retired. And because the relay's `peer-left` control is dispatched
  * synchronously while binary frames are still decrypting, a `hello` that
  * arrived *before* the departure can land *after* it and resurrect the peer.
  *
@@ -75,9 +75,12 @@ it("discards a departed guest's queued snapshot instead of stalling the next gue
 	cleanups.push(() => rejoiner.close());
 	const rejoinerFrames: CollabFrame[] = [];
 	const rejoinerDone = Promise.withResolvers<void>();
+	let acked = 0;
 	rejoiner.onFrame = frame => {
 		rejoinerFrames.push(frame);
-		if (frame.t === "snapshot-chunk" && frame.final) rejoinerDone.resolve();
+		if (frame.t !== "snapshot-chunk") return;
+		rejoiner.send({ t: "snapshot-ack", chunks: ++acked });
+		if (frame.final) rejoinerDone.resolve();
 	};
 	rejoiner.onOpen = () => rejoiner.send({ t: "hello", proto: COLLAB_PROTO, name: "rejoiner" });
 	rejoiner.connect();

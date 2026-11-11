@@ -1,3 +1,4 @@
+import { CircleAlert } from "lucide-react";
 import type { ReactNode } from "react";
 import type { ConnectionPhase, GuestSnapshot } from "../../lib/client";
 
@@ -14,7 +15,7 @@ export function Banners({ phase, endedReason, loading, onRejoin, onNewLink }: Ba
 	if (phase === "connecting" || phase === "waiting") {
 		return (
 			<div className="sh-banner" role="status">
-				<span className="sh-banner-dot" />
+				<span className="spinner" aria-hidden="true" />
 				{phase === "connecting" ? "Connecting to relay…" : `Joining session…${progress}`}
 			</div>
 		);
@@ -22,7 +23,7 @@ export function Banners({ phase, endedReason, loading, onRejoin, onNewLink }: Ba
 	if (phase === "reconnecting") {
 		return (
 			<div className="sh-banner" role="status">
-				<span className="sh-banner-dot" />
+				<span className="spinner" aria-hidden="true" />
 				{`Reconnecting…${progress}`}
 			</div>
 		);
@@ -31,7 +32,10 @@ export function Banners({ phase, endedReason, loading, onRejoin, onNewLink }: Ba
 		return (
 			<div className="sh-ended" role="alertdialog" aria-label="session ended">
 				<div className="sh-ended-card">
-					<div className="sh-ended-title">Session ended</div>
+					<div className="sh-ended-title">
+						<CircleAlert size={16} className="sh-ended-icon" aria-hidden />
+						Session ended
+					</div>
 					{endedReason && <div className="sh-ended-reason">{endedReason}</div>}
 					<div className="sh-ended-actions">
 						<button type="button" className="sh-btn sh-btn-primary" onClick={onRejoin}>

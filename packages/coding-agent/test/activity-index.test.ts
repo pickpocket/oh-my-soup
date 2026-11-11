@@ -126,18 +126,24 @@ describe("AgentActivityIndex", () => {
 	});
 
 	it("tails remote transcripts from a bounded offset and refetches after rotation", async () => {
-		let transcript = `${"x".repeat(300_000)}\n${messageEntry("recent", 2_000, {
+		let transcript = `${"x".repeat(300_000)}\n${messageEntry("older", 1_500, {
+			role: "assistant",
+			content: "Older remote result",
+		})}\n${messageEntry("recent", 2_000, {
 			role: "assistant",
 			content: "Recent remote result",
 		})}\n`;
 		const offsets: number[] = [];
 		const activity = new AgentActivityIndex({
 			remote: {
+				// The host's contract: whole lines from the first line start at or after the offset.
 				readTranscript: async (_agentId, fromByte) => {
 					offsets.push(fromByte);
 					const bytes = Buffer.from(transcript);
 					if (fromByte >= bytes.byteLength) return { text: "", newSize: bytes.byteLength };
-					return { text: bytes.subarray(fromByte).toString("utf-8"), newSize: bytes.byteLength };
+					const start =
+						fromByte === 0 || bytes[fromByte - 1] === 0x0a ? fromByte : bytes.indexOf(0x0a, fromByte) + 1;
+					return { text: bytes.subarray(start).toString("utf-8"), newSize: bytes.byteLength };
 				},
 			},
 		});
@@ -145,7 +151,13 @@ describe("AgentActivityIndex", () => {
 		await activity.sync("Guest");
 		expect(offsets[0]).toBe(Number.MAX_SAFE_INTEGER);
 		expect(offsets[1]).toBe(Buffer.byteLength(transcript) - 256 * 1024);
-		expect(activity.query().map(row => row.summary)).toEqual(["Recent remote result"]);
+		// The tail offset lands mid-line; the first whole line the host returns is kept.
+		expect(
+			activity
+				.query()
+				.map(row => row.summary)
+				.sort(),
+		).toEqual(["Older remote result", "Recent remote result"]);
 
 		transcript = `${messageEntry("rotated", 3_000, { role: "assistant", content: "After rotation" })}\n`;
 		await activity.sync("Guest");

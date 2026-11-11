@@ -33,9 +33,13 @@ export function importRoomKey(raw: Uint8Array): Promise<RoomKey> {
 }
 
 export async function seal(key: RoomKey, frame: WireFrame): Promise<Uint8Array> {
+	return sealPlaintext(key, TEXT_ENCODER.encode(JSON.stringify(frame)));
+}
+
+/** {@link seal} for a frame already serialized to UTF-8 JSON. */
+export async function sealPlaintext(key: RoomKey, plaintext: Uint8Array<ArrayBuffer>): Promise<Uint8Array> {
 	const iv = new Uint8Array(IV_LENGTH);
 	crypto.getRandomValues(iv);
-	const plaintext = TEXT_ENCODER.encode(JSON.stringify(frame));
 	const ciphertext =
 		key instanceof Uint8Array
 			? gcm(key, iv).encrypt(plaintext)

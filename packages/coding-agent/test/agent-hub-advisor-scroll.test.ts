@@ -12,6 +12,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { resetSettingsForTest, Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { readTranscriptFrom } from "@oh-my-soup/pi-coding-agent/collab/transcript-page";
 import type { AgentHubRemote } from "@oh-my-soup/pi-tui/overlays/agent-hub";
 import { AgentTranscriptViewer } from "@oh-my-soup/pi-tui/overlays/agent-transcript-viewer";
 import { initTheme } from "@oh-my-soup/pi-tui/theme";
@@ -710,6 +711,58 @@ describe("AgentTranscriptViewer", () => {
 			expect(body()).not.toContain("BEFORE_ROTATE");
 		} finally {
 			viewer.dispose();
+		}
+	});
+
+	it("advances by the host's offset past an oversized-line placeholder without duplicating rows", async () => {
+		const dir = fs.mkdtempSync(path.join(os.tmpdir(), "adv-view-"));
+		const file = path.join(dir, "remote.jsonl");
+		const header = JSON.stringify({
+			type: "session",
+			version: CURRENT_SESSION_VERSION,
+			id: "adv",
+			timestamp: TS,
+			cwd: "/tmp",
+		});
+		// Longer than a transcript page and the host's line cap: the host sends a placeholder entry instead.
+		const giant = messageLine("giant", "G".repeat(600 * 1024));
+		const lines = [header, messageLine("a0", "BEFORE_GIANT"), giant, messageLine("a1", "AFTER_GIANT")];
+		fs.writeFileSync(file, `${lines.join("\n")}\n`);
+		const reads: Promise<unknown>[] = [];
+		const remote: AgentHubRemote = {
+			chat: () => {},
+			kill: () => {},
+			revive: () => {},
+			// The collab host's own reader.
+			readTranscript: (_id: string, fromByte: number) => {
+				const read = readTranscriptFrom(file, fromByte).then(page => ({
+					text: page.text,
+					newSize: page.endByte,
+					error: page.error,
+				}));
+				reads.push(read);
+				return read;
+			},
+		};
+		const viewer = makeViewer("", remote);
+		try {
+			for (let poll = 0; poll < 6; poll++) {
+				await reads.at(-1);
+				await settleRemoteRefresh();
+				vi.advanceTimersByTime(250);
+			}
+			await reads.at(-1);
+			await settleRemoteRefresh();
+			const body = viewer
+				.render(80)
+				.map(l => Bun.stripANSI(l))
+				.join("\n");
+			expect(body).toContain("BEFORE_GIANT");
+			expect(body.split("AFTER_GIANT").length - 1).toBe(1);
+			expect(body).not.toContain("GGGG");
+		} finally {
+			viewer.dispose();
+			fs.rmSync(dir, { recursive: true, force: true });
 		}
 	});
 

@@ -5,6 +5,11 @@
 ### Changed
 
 - Bumped collab to protocol v4: optional paged browser history, exclusive entry-ID cursors, bounded history replies, and ordered assistant-stream baselines/content patches. Older hosts and guests are rejected explicitly; native guests retain full replica snapshots.
+- Bumped collab to protocol v5: guest-run host commands (`command`, `command-cancel`, `complete` with `commands`, `command-output`, `command-end`, `completions` replies), cursor-paged subagent transcripts (`fetch-transcript-page` / `transcript-page`), and snapshot flow control (`snapshot-ack`).
+
+### Added
+
+- Added the relay limits clients must respect (`COLLAB_RELAY_MAX_MESSAGE_BYTES`, `COLLAB_MAX_FRAME_BYTES`) and the shared relay close-code reasons (`COLLAB_RELAY_CLOSE_REASONS`).
 
 ## [18.12.3] - 2026-10-19
 

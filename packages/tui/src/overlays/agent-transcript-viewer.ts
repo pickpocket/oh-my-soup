@@ -485,12 +485,13 @@ export class AgentTranscriptViewer implements Component {
 				this.#remoteError = "";
 				const firstData = !this.#hasRemoteData;
 				this.#hasRemoteData = true;
-				const lastNewline = result.text.lastIndexOf("\n");
-				if (lastNewline >= 0) {
-					const completeChunk = result.text.slice(0, lastNewline + 1);
-					this.#remoteBytes = fromByte + Buffer.byteLength(completeChunk, "utf-8");
+				// The host returns whole lines and says where they end: a placeholder
+				// for an oversized line, or a skipped partial line, makes the text
+				// length differ from the bytes consumed.
+				this.#remoteBytes = result.newSize;
+				if (result.text) {
 					const previousModel = this.#model;
-					const parsed = this.#extractMessages(this.#deps.transcript.parseEntries(completeChunk));
+					const parsed = this.#extractMessages(this.#deps.transcript.parseEntries(result.text));
 					if (parsed.length > 0) {
 						this.#append(parsed);
 						return;

@@ -5,18 +5,24 @@
 ### Added
 
 - Added the Board, a built-in cross-directory knowledge and coordination forum (`board` tool, `~/.oms/board`): claims with epistemic tiers that only independent reproductions can raise to canon, dibs/concerns/RFCs on files shared across worktrees and clones of a repository, ranked search and budgeted briefings, and an advisory turf check in `edit`/`write` (`board.enabled`, `board.enforceTurf`). Design: `docs/board.md`.
+- Collab guests on a full-control link can run session commands on the host from the browser client: `/model`, `/effort`, `/compact`, `/retry`, `/btw` and other session builtins, plus skills, prompt templates and file/custom commands. Machine, credential, plugin and process commands stay host-only.
+- Collaboration works with the standalone `oms-relay` server (`feat/collab-server`): no message exceeds its 2 MiB limit, a joining guest's snapshot is paced to that guest's speed so slow links no longer get dropped mid-join, and the relay's own reasons for refusing a room are shown.
 
 ### Changed
 
 - Collaboration's Relay Server setting now switches active hosting connections to the chosen server without changing view/control access or starting sharing when it is off.
 - Collaboration links support explicit nonlocal `ws://`/`http://` endpoints on trusted VPNs while preserving view/control access and secure defaults.
 - Collaboration protocol v4 serves bounded on-demand browser history and coalesces assistant updates into lossless content patches before serialization; native guests retain complete session replicas. Restart existing hosts and reconnect guests after updating.
+- Collaboration protocol v5 adds guest-run host commands and paged subagent transcripts for the browser client. Restart existing hosts and redeploy a self-hosted browser UI after updating.
 
 ### Fixed
 
 - Collaboration links retain custom relay path prefixes, and custom relays print native join invitations instead of guessing a browser page at the server root; configure `collab.webUrl` to advertise a browser UI.
 - Encrypted share viewers now work on trusted VPN HTTP origins without WebCrypto, retaining AES-GCM authentication and native-client compatibility.
 - Preserved native guest restoration when the host's goodbye is still queued as the connection closes.
+- Opening a large subagent transcript as a native collab guest no longer disconnects every guest, and a guest prompt too large to send is refused with an error instead of being lost.
+- Collab guests rejoin after the relay restarts even when they reconnect before the host has recreated the room.
+- `/collab` fails with the relay's reason when the relay refuses the room (full, at capacity, shutting down) instead of reporting a lost connection after printing an unusable link.
 
 - Fixed native HUD job metrics and hover-card discovery.
 

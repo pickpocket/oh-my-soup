@@ -20,34 +20,26 @@ function useNow(intervalMs: number): number {
 }
 
 /**
- * Best-effort start timestamp for the in-flight tool. The host serializes the
- * full AgentProgress (which carries `currentToolStartMs`); the wire mirror
- * omits it, so read it tolerantly and fall back to the last tool's end time.
+ * Best-effort start timestamp for the in-flight tool; falls back to the last
+ * tool's end time for hosts that do not send `currentToolStartMs`.
  */
 function toolStartMs(p: AgentProgress): number | null {
-	const start = (p as { currentToolStartMs?: unknown }).currentToolStartMs;
-	if (typeof start === "number") return start;
+	if (typeof p.currentToolStartMs === "number") return p.currentToolStartMs;
 	const lastEnd = p.recentTools[0]?.endMs;
 	return typeof lastEnd === "number" ? lastEnd : null;
 }
 
-function activityLine(
-	agent: AgentSnapshot,
-	p: AgentProgress | undefined,
-	lc: SubagentLifecyclePayload | undefined,
-	now: number,
-): string {
+/** What a running agent is doing right now, or null when nothing is known. */
+function activityLine(p: AgentProgress | undefined, now: number): string | null {
 	if (p?.currentTool) {
 		const start = toolStartMs(p);
 		if (start !== null) return `${p.currentTool} · ${fmtDuration(Math.max(0, now - start))}`;
 		return p.currentTool;
 	}
-	if (p?.lastIntent) return p.lastIntent;
-	if (lc) return lc.status;
-	return agent.status;
+	return p?.lastIntent ?? null;
 }
 
-const AgentRow = memo(function AgentRow(props: {
+const SubagentRow = memo(function SubagentRow(props: {
 	agent: AgentSnapshot;
 	payload: SubagentProgressPayload | undefined;
 	lifecycle: SubagentLifecyclePayload | undefined;
@@ -57,36 +49,42 @@ const AgentRow = memo(function AgentRow(props: {
 }): ReactNode {
 	const { agent, payload, lifecycle, selected, now, onSelect } = props;
 	const p = payload?.progress;
+	const activity = agent.status === "running" ? activityLine(p, now) : null;
+	const details = [`last active ${relTime(agent.lastActivity)}`];
+	if (p) details.unshift(`${fmtTokens(p.tokens)} tokens`, fmtCost(p.cost));
+	if (lifecycle && lifecycle.status !== "started") details.unshift(lifecycle.status);
 	return (
 		<button
 			type="button"
-			className={selected ? "ag-row ag-row--selected" : "ag-row"}
+			className={selected ? "sb-row sb-row-selected" : "sb-row"}
+			aria-pressed={selected}
+			title={details.join(" · ")}
 			onClick={() => onSelect(selected ? null : agent.id)}
 		>
-			<span className="ag-row-head">
-				<span className={`ag-dot ag-dot--${agent.status}`} />
-				<span className="ag-row-name">{agent.displayName}</span>
-				<span className="ag-chip">{agent.kind}</span>
-			</span>
-			<span className="ag-row-activity">{activityLine(agent, p, lifecycle, now)}</span>
-			<span className="ag-row-meta">
-				{p ? <span>{fmtTokens(p.tokens)} tok</span> : null}
-				{p ? <span>{fmtCost(p.cost)}</span> : null}
-				<span className="ag-row-meta-when">{relTime(agent.lastActivity)}</span>
-			</span>
+			<span className={`ag-dot ag-dot--${agent.status}`} />
+			<span className="sb-row-name">{agent.displayName}</span>
+			<span className="sb-row-note">{agent.status}</span>
+			{activity !== null && <span className="sb-row-sub">{activity}</span>}
 		</button>
 	);
 });
 
-/** Memoized: the client replaces `progress`/`lifecycle` only when they change. */
+/**
+ * The sidebar's "Session" and "Subagents" sections. The main agent is the
+ * session the reader is in, so its row is the selected one until a subagent's
+ * panel opens. Memoized: the client replaces `progress`/`lifecycle` only when
+ * they change.
+ */
 export const AgentsPanel = memo(function AgentsPanel(props: {
 	agents: readonly AgentSnapshot[];
 	progress: ReadonlyMap<string, SubagentProgressPayload>;
 	lifecycle: ReadonlyMap<string, SubagentLifecyclePayload>;
+	/** Session title shown on the main agent's row. */
+	title: string;
 	selectedId: string | null;
 	onSelect(id: string | null): void;
 }): ReactNode {
-	const { agents, progress, lifecycle, selectedId, onSelect } = props;
+	const { agents, progress, lifecycle, title, selectedId, onSelect } = props;
 	const now = useNow(1000);
 
 	const sorted = useMemo(() => {
@@ -101,27 +99,31 @@ export const AgentsPanel = memo(function AgentsPanel(props: {
 		});
 		return { mains, subs };
 	}, [agents]);
+	const subSelected = sorted.subs.some(agent => agent.id === selectedId);
 
 	return (
-		<div className="ag-panel">
-			<div className="ag-heading">Session</div>
+		<>
+			<div className="sb-heading">Session</div>
 			{sorted.mains.map(agent => (
-				<AgentRow
+				<button
 					key={agent.id}
-					agent={agent}
-					payload={progress.get(agent.id)}
-					lifecycle={lifecycle.get(agent.id)}
-					selected={selectedId === agent.id}
-					now={now}
-					onSelect={onSelect}
-				/>
+					type="button"
+					className={subSelected ? "sb-row" : "sb-row sb-row-selected"}
+					aria-pressed={!subSelected}
+					title={`${agent.displayName} · ${agent.status}`}
+					onClick={() => onSelect(null)}
+				>
+					<span className={`ag-dot ag-dot--${agent.status}`} />
+					<span className="sb-row-name">{title}</span>
+					<span className="sb-row-note">{agent.status}</span>
+				</button>
 			))}
-			<div className="ag-heading">
+			<div className="sb-heading">
 				Subagents
-				{sorted.subs.length > 0 && <span className="ag-heading-count">{sorted.subs.length}</span>}
+				{sorted.subs.length > 0 && <span className="sb-heading-count">{sorted.subs.length}</span>}
 			</div>
 			{sorted.subs.map(agent => (
-				<AgentRow
+				<SubagentRow
 					key={agent.id}
 					agent={agent}
 					payload={progress.get(agent.id)}
@@ -131,7 +133,7 @@ export const AgentsPanel = memo(function AgentsPanel(props: {
 					onSelect={onSelect}
 				/>
 			))}
-			{sorted.subs.length === 0 ? <div className="ag-empty">No subagents yet</div> : null}
-		</div>
+			{sorted.subs.length === 0 ? <div className="sb-empty">No subagents yet</div> : null}
+		</>
 	);
 });

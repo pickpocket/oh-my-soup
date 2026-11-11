@@ -126,14 +126,9 @@ async function tracedHost(joined = true) {
 	const sent: { frame: CollabFrame; peer: number }[] = [];
 	const send = spyOn(transport, "send").mockImplementation((frame, peer = 0) => {
 		sent.push({ frame: typeof frame === "string" ? (JSON.parse(frame) as CollabFrame) : frame, peer });
+		return true;
 	});
-	const batch = spyOn(transport, "sendBatch").mockImplementation((frames, peer) => {
-		for (const frame of frames) transport!.send(frame, peer);
-	});
-	cleanups.push(() => {
-		send.mockRestore();
-		batch.mockRestore();
-	});
+	cleanups.push(() => send.mockRestore());
 	vi.useFakeTimers();
 	const join = (peer: number) =>
 		transport!.onFrame!({ t: "hello", proto: COLLAB_PROTO, name: `guest-${peer}`, history: "paged" }, peer);

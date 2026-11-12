@@ -143,6 +143,8 @@ const PROGRESS_FORWARD_COALESCE_MS = 150;
 interface ProgressForwardCoalescer {
 	/** Request a flush: immediate when outside the window, else one trailing flush. */
 	schedule: () => void;
+	/** Flush immediately and clear any pending trailing flush. */
+	flush: () => void;
 	/** Drop any pending trailing flush (terminal reports emit their own details). */
 	cancel: () => void;
 }
@@ -152,15 +154,22 @@ interface ProgressForwardCoalescer {
  * rebuilds details for every spawn in the task call.
  */
 function coalesceProgressForwards(flush: () => void): ProgressForwardCoalescer {
-	let lastFlushMs = 0;
+	let lastFlushMs = -Infinity;
 	let timer: NodeJS.Timeout | null = null;
+	const flushNow = () => {
+		if (timer) {
+			clearTimeout(timer);
+			timer = null;
+		}
+		lastFlushMs = Date.now();
+		flush();
+	};
 	return {
 		schedule: () => {
 			if (timer) return;
 			const elapsed = Date.now() - lastFlushMs;
 			if (elapsed >= PROGRESS_FORWARD_COALESCE_MS) {
-				lastFlushMs = Date.now();
-				flush();
+				flushNow();
 				return;
 			}
 			timer = setTimeout(() => {
@@ -169,6 +178,7 @@ function coalesceProgressForwards(flush: () => void): ProgressForwardCoalescer {
 				flush();
 			}, PROGRESS_FORWARD_COALESCE_MS - elapsed);
 		},
+		flush: flushNow,
 		cancel: () => {
 			if (timer) {
 				clearTimeout(timer);
@@ -1255,6 +1265,24 @@ export class TaskTool implements AgentTool<TaskToolSchemaInstance, TaskToolDetai
 			},
 		});
 
+		let latestProgressText = "";
+		const progressCoalescer = coalesceProgressForwards(() => {
+			onUpdate?.({
+				content: [{ type: "text", text: latestProgressText }],
+				details: buildAsyncDetails(),
+			});
+		});
+		const forwardJobProgress = onUpdate
+			? (text: string): void => {
+					latestProgressText = text;
+					if (settledCount >= asyncSpawns.length) {
+						progressCoalescer.flush();
+						return;
+					}
+					progressCoalescer.schedule();
+				}
+			: undefined;
+
 		const started: Array<{ agentId: string; jobId: string }> = [];
 		const failedSchedules: string[] = [];
 		for (const spawn of asyncSpawns) {
@@ -1267,8 +1295,7 @@ export class TaskTool implements AgentTool<TaskToolSchemaInstance, TaskToolDetai
 					run: spawn.run,
 					progress: spawn.progress,
 					ircEnabled,
-					buildDetails: buildAsyncDetails,
-					onUpdate,
+					onProgress: forwardJobProgress,
 					onSettled: failed => {
 						settledCount += 1;
 						if (failed) failedCount += 1;
@@ -1379,10 +1406,8 @@ export class TaskTool implements AgentTool<TaskToolSchemaInstance, TaskToolDetai
 				? (index, progress) => {
 						const spawn = spawns.find(candidate => candidate.index === index);
 						if (spawn) spawn.progress = { ...progress, index };
-						onUpdate({
-							content: [{ type: "text", text: `Running ${syncLabel} inline...` }],
-							details: buildAsyncDetails(),
-						});
+						latestProgressText = `Running ${syncLabel} inline...`;
+						progressCoalescer.schedule();
 					}
 				: undefined,
 		});
@@ -1410,6 +1435,9 @@ export class TaskTool implements AgentTool<TaskToolSchemaInstance, TaskToolDetai
 				spawn.progress.status = payloads[position] ? "failed" : "aborted";
 			}
 		}
+		if (settledCount >= asyncSpawns.length) {
+			progressCoalescer.cancel();
+		}
 
 		const spawnedSummary = started.length > 0 ? renderSpawnFeedback(true) : scheduleFailureSummary.trim();
 		const text = [merged.contentParts.join("\n\n"), spawnedSummary]
@@ -1424,9 +1452,9 @@ export class TaskTool implements AgentTool<TaskToolSchemaInstance, TaskToolDetai
 
 	/**
 	 * Register one background job that runs a single spawn to completion and
-	 * delivers its yield text. The job body mirrors the sync path; `buildDetails`
-	 * supplies the (possibly batch-shared) progress snapshot and `onSettled`
-	 * feeds the caller's aggregate counters.
+	 * delivers its yield text. The job body mirrors the sync path; `onProgress`
+	 * feeds the caller's progress coalescer and `onSettled` updates its
+	 * aggregate counters.
 	 */
 	#registerSpawnJob(options: {
 		manager: AsyncJobManager;
@@ -1437,22 +1465,11 @@ export class TaskTool implements AgentTool<TaskToolSchemaInstance, TaskToolDetai
 		run?: SpawnRun;
 		progress: AgentProgress;
 		ircEnabled: boolean;
-		buildDetails: () => TaskToolDetails;
-		onUpdate?: AgentToolUpdateCallback<TaskToolDetails>;
+		onProgress?: (text: string) => void;
 		onSettled?: (failed: boolean) => void;
 	}): string {
-		const {
-			manager,
-			toolCallId,
-			spawnParams,
-			agentId,
-			run,
-			progress,
-			ircEnabled,
-			buildDetails,
-			onUpdate,
-			onSettled,
-		} = options;
+		const { manager, toolCallId, spawnParams, agentId, run, progress, ircEnabled, onProgress, onSettled } = options;
+		const snapshotJobDetails = (): Record<string, unknown> => ({ progress: [{ ...progress }] });
 		// A queued job launches (or adopts) its run when it starts; until then
 		// its widget has no tool tap to read.
 		let spawnRun: SpawnRun | undefined = run;
@@ -1517,7 +1534,7 @@ export class TaskTool implements AgentTool<TaskToolSchemaInstance, TaskToolDetai
 					}
 					const updateText =
 						update.content.find(part => part.type === "text")?.text ?? `Running background task ${agentId}...`;
-					await reportProgress(updateText, buildDetails() as unknown as Record<string, unknown>);
+					await reportProgress(updateText, snapshotJobDetails());
 				};
 				const activeRun = (spawnRun ??= this.#launch({
 					toolCallId,
@@ -1558,10 +1575,7 @@ export class TaskTool implements AgentTool<TaskToolSchemaInstance, TaskToolDetai
 				try {
 					markRunning();
 					progress.status = "running";
-					await reportProgress(
-						`Running background task ${agentId}...`,
-						buildDetails() as unknown as Record<string, unknown>,
-					);
+					await reportProgress(`Running background task ${agentId}...`, snapshotJobDetails());
 					const result = await activeRun.result;
 					const finalText = result.content.find(part => part.type === "text")?.text ?? "(no output)";
 					const singleResult = result.details?.results[0];
@@ -1606,7 +1620,7 @@ export class TaskTool implements AgentTool<TaskToolSchemaInstance, TaskToolDetai
 					const statusText = resultFailed
 						? `Background task ${agentId} failed.`
 						: `Background task ${agentId} complete.`;
-					await reportProgress(statusText, buildDetails() as unknown as Record<string, unknown>);
+					await reportProgress(statusText, snapshotJobDetails());
 					const deliveryText = `${finalText}${await buildFollowUpHint(singleResult?.aborted === true)}`;
 					const structured = singleResult?.structuredOutput;
 					if (resultFailed) {
@@ -1622,7 +1636,7 @@ export class TaskTool implements AgentTool<TaskToolSchemaInstance, TaskToolDetai
 					progress.durationMs = Math.max(0, Date.now() - startedAt);
 					onSettled?.(true);
 					const statusText = `Background task ${agentId} failed.`;
-					await reportProgress(statusText, buildDetails() as unknown as Record<string, unknown>);
+					await reportProgress(statusText, snapshotJobDetails());
 					const message = error instanceof Error ? error.message : String(error);
 					const hint = AgentRegistry.global().get(agentId) ? await buildFollowUpHint(false) : "";
 					throw new TaskJobError(`${message}${hint}`);
@@ -1640,9 +1654,7 @@ export class TaskTool implements AgentTool<TaskToolSchemaInstance, TaskToolDetai
 					progress,
 					intent: this.session.getToolCallIntent?.(toolCallId),
 				}),
-				onProgress: text => {
-					onUpdate?.({ content: [{ type: "text", text }], details: buildDetails() });
-				},
+				onProgress,
 			},
 		);
 	}

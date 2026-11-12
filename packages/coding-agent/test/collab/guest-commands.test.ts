@@ -8,11 +8,18 @@
  * Runs a real host and real sockets over the in-memory relay; the TUI context
  * and the session are stubbed.
  */
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "bun:test";
+import { afterAll, afterEach, beforeAll, describe, expect, it, spyOn } from "bun:test";
+import { TempDir } from "@oh-my-soup/pi-utils";
 import { CollabHost } from "@oh-my-soup/pi-coding-agent/collab/host";
 import type { CollabFrame } from "@oh-my-soup/pi-coding-agent/collab/protocol";
 import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { RpcBtwController } from "@oh-my-soup/pi-coding-agent/modes/rpc/rpc-btw";
 import type { InteractiveModeContext } from "@oh-my-soup/pi-coding-agent/modes/types";
+import { AgentLifecycleManager } from "@oh-my-soup/pi-coding-agent/registry/agent-lifecycle";
+import { AgentRegistry } from "@oh-my-soup/pi-coding-agent/registry/agent-registry";
+import type { AgentSession } from "@oh-my-soup/pi-coding-agent/session/agent-session";
+import type { EphemeralTurnResult } from "@oh-my-soup/pi-coding-agent/session/agent-session-types";
+import { BtwHistoryStore } from "@oh-my-soup/pi-coding-agent/session/btw-history";
 import { SKILL_PROMPT_MESSAGE_TYPE } from "@oh-my-soup/pi-coding-agent/session/messages";
 import { installInMemoryRelay, uninstallInMemoryRelay } from "./helpers/in-memory-relay";
 import { connectRawGuest, type RawGuest } from "./helpers/raw-guest";
@@ -183,6 +190,8 @@ afterEach(() => {
 	harness.fileCommands = [];
 	harness.promptFailure = undefined;
 	harness.ephemeralTurn = async () => ({ replyText: "", assistantMessage: {} });
+	AgentLifecycleManager.resetGlobalForTests();
+	AgentRegistry.resetGlobalForTests();
 });
 
 afterAll(async () => {
@@ -209,9 +218,9 @@ async function joinViewer(name: string): Promise<RawGuest> {
 	return guest;
 }
 
-function runCommand(guest: RawGuest, text: string): number {
+function runCommand(guest: RawGuest, text: string, agentId?: string): number {
 	const id = ++reqId;
-	guest.socket.send({ t: "command", reqId: id, text });
+	guest.socket.send({ t: "command", reqId: id, text, ...(agentId === undefined ? {} : { agentId }) });
 	return id;
 }
 
@@ -448,15 +457,259 @@ describe("collab guest commands", () => {
 		const id = runCommand(guest, "/btw a long question");
 		expect(await guest.expectFrame("command-output")).toMatchObject({ reqId: id, text: "thinking" });
 
-		// One question at a time: a second one is refused while the first still runs.
+		// Each request owns its own controller: a second question streams concurrently, and cancelling
+		// the first leaves the second running.
 		const second = runCommand(guest, "/btw another question");
-		expect(await guest.expectFrame("command-end")).toMatchObject({ reqId: second, status: "error" });
+		expect(await guest.expectFrame("command-output")).toMatchObject({ reqId: second, text: "thinking" });
 
 		guest.socket.send({ t: "command-cancel", reqId: id + 1000 });
 		await expectNothingPending(guest);
 
 		guest.socket.send({ t: "command-cancel", reqId: id });
 		expect(await guest.expectFrame("command-end")).toEqual({ t: "command-end", reqId: id, status: "cancelled" });
+		await expectNothingPending(guest);
+
+		guest.socket.send({ t: "command-cancel", reqId: second });
+		expect(await guest.expectFrame("command-end")).toEqual({ t: "command-end", reqId: second, status: "cancelled" });
+	});
+
+	it("runs concurrent /btw questions from two writable peers and delivers each peer its own answer", async () => {
+		const turns: {
+			args: EphemeralTurnArgs & { promptText?: string };
+			settle: (replyText: string) => void;
+		}[] = [];
+		const bothStarted = Promise.withResolvers<void>();
+		const turnSpy = spyOn(harness.ctx.session, "runEphemeralTurn").mockImplementation(rawArgs => {
+			const args = rawArgs as unknown as EphemeralTurnArgs & { promptText?: string };
+			const { promise, resolve, reject } = Promise.withResolvers<{ replyText: string; assistantMessage: object }>();
+			args.signal.addEventListener("abort", () => reject(new Error("aborted")), { once: true });
+			turns.push({
+				args,
+				settle: replyText => resolve({ replyText, assistantMessage: {} }),
+			});
+			if (turns.length === 2) bothStarted.resolve();
+			return promise as unknown as Promise<EphemeralTurnResult>;
+		});
+		try {
+			const { guest: alice } = await joinWriter("btw-alice");
+			const { guest: bob } = await joinWriter("btw-bob");
+
+			const aliceId = runCommand(alice, "/btw what is alice seeing?");
+			const bobId = runCommand(bob, "/btw what is bob seeing?");
+			await bothStarted.promise;
+			expect(turns).toHaveLength(2);
+
+			const [aliceTurn, bobTurn] = turns;
+			if (!aliceTurn || !bobTurn) throw new Error("expected two concurrent /btw turns");
+
+			// Finish Bob's turn first while Alice's is still running.
+			bobTurn.args.onTextDelta("Bob's ");
+			bobTurn.args.onTextDelta("answer");
+			bobTurn.settle("Bob's answer");
+			expect(await bob.expectFrame("command-output")).toEqual({
+				t: "command-output",
+				reqId: bobId,
+				text: "Bob's ",
+				delta: true,
+			});
+			expect(await bob.expectFrame("command-output")).toEqual({
+				t: "command-output",
+				reqId: bobId,
+				text: "answer",
+				delta: true,
+			});
+			expect(await bob.expectFrame("command-end")).toEqual({ t: "command-end", reqId: bobId, status: "done" });
+			await expectNothingPending(alice);
+
+			aliceTurn.args.onTextDelta("Alice's answer");
+			aliceTurn.settle("Alice's answer");
+			expect(await alice.expectFrame("command-output")).toEqual({
+				t: "command-output",
+				reqId: aliceId,
+				text: "Alice's answer",
+				delta: true,
+			});
+			expect(await alice.expectFrame("command-end")).toEqual({ t: "command-end", reqId: aliceId, status: "done" });
+			await expectNothingPending(bob);
+		} finally {
+			turnSpy.mockRestore();
+		}
+	});
+
+	it("cancels only the departing peer's /btw when a peer leaves", async () => {
+		const turns: {
+			args: EphemeralTurnArgs;
+			aborted: Promise<void>;
+			settle: (replyText: string) => void;
+		}[] = [];
+		const bothStarted = Promise.withResolvers<void>();
+		const turnSpy = spyOn(harness.ctx.session, "runEphemeralTurn").mockImplementation(rawArgs => {
+			const args = rawArgs as unknown as EphemeralTurnArgs;
+			const { promise, resolve, reject } = Promise.withResolvers<{ replyText: string; assistantMessage: object }>();
+			const aborted = Promise.withResolvers<void>();
+			args.signal.addEventListener(
+				"abort",
+				() => {
+					aborted.resolve();
+					reject(new Error("aborted"));
+				},
+				{ once: true },
+			);
+			args.onTextDelta(`start-${turns.length + 1}`);
+			turns.push({
+				args,
+				aborted: aborted.promise,
+				settle: replyText => resolve({ replyText, assistantMessage: {} }),
+			});
+			if (turns.length === 2) bothStarted.resolve();
+			return promise as unknown as Promise<EphemeralTurnResult>;
+		});
+		try {
+			const { guest: leaver } = await joinWriter("btw-leaver");
+			const { guest: stayer } = await joinWriter("btw-stayer");
+
+			const leaverId = runCommand(leaver, "/btw leaver question");
+			expect(await leaver.expectFrame("command-output")).toMatchObject({ reqId: leaverId, text: "start-1" });
+			const stayerId = runCommand(stayer, "/btw stayer question");
+			expect(await stayer.expectFrame("command-output")).toMatchObject({ reqId: stayerId, text: "start-2" });
+			await bothStarted.promise;
+
+			const [leaverTurn, stayerTurn] = turns;
+			if (!leaverTurn || !stayerTurn) throw new Error("expected two concurrent /btw turns");
+
+			leaver.socket.close();
+			await leaverTurn.aborted;
+			expect(stayerTurn.args.signal.aborted).toBe(false);
+
+			stayerTurn.args.onTextDelta(" done");
+			stayerTurn.settle("start-2 done");
+			expect(await stayer.expectFrame("command-output")).toEqual({
+				t: "command-output",
+				reqId: stayerId,
+				text: " done",
+				delta: true,
+			});
+			expect(await stayer.expectFrame("command-end")).toEqual({ t: "command-end", reqId: stayerId, status: "done" });
+		} finally {
+			turnSpy.mockRestore();
+		}
+	});
+
+	it("runs /btw with agentId against that subagent's session and refuses non-btw or advisor agentId commands", async () => {
+		using temp = TempDir.createSync("@collab-subagent-btw-");
+		const artifactsSpy = spyOn(harness.ctx.sessionManager, "getArtifactsDir").mockReturnValue(temp.path());
+		const mainTurnSpy = spyOn(harness.ctx.session, "runEphemeralTurn");
+		const subSession = {
+			model: { provider: "openai", id: "gpt-5.2", api: "openai-responses" },
+			sessionManager: {
+				getSessionId: () => "sub-sess-worker-1",
+				getArtifactsDir: () => temp.path(),
+				ensureOnDisk: async () => {},
+				getLeafId: () => "leaf-sub-1",
+			},
+			runEphemeralTurn: async (args: EphemeralTurnArgs) => {
+				args.onTextDelta("From ");
+				args.onTextDelta("Worker1");
+				return { replyText: "From Worker1", assistantMessage: {} };
+			},
+		} as unknown as AgentSession;
+		const subTurnSpy = spyOn(subSession, "runEphemeralTurn");
+		AgentRegistry.global().register({
+			id: "Worker1",
+			displayName: "Worker 1",
+			kind: "sub",
+			parentId: "main",
+			status: "running",
+			session: subSession,
+			sessionFile: null,
+			createdAt: 1,
+			lastActivity: 1,
+		});
+		AgentRegistry.global().register({
+			id: "Advisor1",
+			displayName: "Advisor 1",
+			kind: "advisor",
+			parentId: "main",
+			status: "idle",
+			session: subSession,
+			sessionFile: null,
+			createdAt: 1,
+			lastActivity: 1,
+		});
+		const ensureLiveSpy = spyOn(AgentLifecycleManager.global(), "ensureLive");
+		const closeDone = Promise.withResolvers<void>();
+		const origClose = RpcBtwController.prototype.close;
+		const closeSpy = spyOn(RpcBtwController.prototype, "close").mockImplementation(
+			async function (this: RpcBtwController) {
+				try {
+					await origClose.call(this);
+				} finally {
+					closeDone.resolve();
+				}
+			},
+		);
+		try {
+			const { guest } = await joinWriter("panel-writer");
+
+			const nonBtw = runCommand(guest, "/switch", "Worker1");
+			const nonBtwEnd = await guest.expectFrame("command-end");
+			expect(nonBtwEnd).toMatchObject({ reqId: nonBtw, status: "error" });
+			expect(nonBtwEnd.message).toContain("/btw");
+			expect(ensureLiveSpy).not.toHaveBeenCalled();
+
+			const advisorBtw = runCommand(guest, "/btw can I ask you?", "Advisor1");
+			const advisorEnd = await guest.expectFrame("command-end");
+			expect(advisorEnd).toMatchObject({ reqId: advisorBtw, status: "error" });
+			expect(advisorEnd.message).toContain("advisor");
+
+			const subBtw = runCommand(guest, "/btw what are you working on?", "Worker1");
+			expect(await guest.expectFrame("command-output")).toEqual({
+				t: "command-output",
+				reqId: subBtw,
+				text: "From ",
+				delta: true,
+			});
+			expect(await guest.expectFrame("command-output")).toEqual({
+				t: "command-output",
+				reqId: subBtw,
+				text: "Worker1",
+				delta: true,
+			});
+			expect(await guest.expectFrame("command-end")).toEqual({ t: "command-end", reqId: subBtw, status: "done" });
+			expect(ensureLiveSpy).toHaveBeenCalledWith("Worker1");
+			expect(subTurnSpy).toHaveBeenCalledTimes(1);
+			expect(mainTurnSpy).not.toHaveBeenCalled();
+
+			await closeDone.promise;
+			const scopedRecords = (await BtwHistoryStore.open(temp.path(), "sub-sess-worker-1")).getRecords();
+			expect(scopedRecords).toHaveLength(1);
+			expect(scopedRecords[0]).toMatchObject({
+				question: "what are you working on?",
+				answer: "From Worker1",
+				status: "complete",
+			});
+			expect((await BtwHistoryStore.open(temp.path())).getRecords()).toHaveLength(0);
+		} finally {
+			closeSpy.mockRestore();
+			ensureLiveSpy.mockRestore();
+			subTurnSpy.mockRestore();
+			mainTurnSpy.mockRestore();
+			artifactsSpy.mockRestore();
+		}
+	});
+
+	it("delivers commands before the first snapshot-chunk on a writable hello", async () => {
+		const guest = await connectRawGuest(host.link, "ordered-writer", {
+			drop: { state: true, agents: true, entry: true, event: true, bus: true },
+		});
+		guestCleanups.push(() => guest.socket.close());
+
+		const first = await guest.nextFrame();
+		const second = await guest.nextFrame();
+		const third = await guest.nextFrame();
+		expect(first.t).toBe("welcome");
+		expect(second.t).toBe("commands");
+		expect(third.t).toBe("snapshot-chunk");
 	});
 
 	it("answers a command from a peer that never joined with an error", async () => {

@@ -136,6 +136,29 @@ describe("GuestClient command runs", () => {
 		});
 	});
 
+	it("sends agentId on agent-scoped commands and retains it on the run across updates", () => {
+		const sent = captureSends();
+		const client = liveClient();
+
+		expect(client.runCommand("/btw what are you doing?", "agent-probe")).toBe(true);
+		const frame = sent.at(-1);
+		if (frame?.t !== "command") throw new Error("runCommand did not send a command frame");
+		const id = frame.reqId;
+
+		expect(sent).toEqual([{ t: "command", reqId: id, text: "/btw what are you doing?", agentId: "agent-probe" }]);
+		expect(runs(client)).toMatchObject([
+			{ id, text: "/btw what are you doing?", agentId: "agent-probe", output: "", status: "running", local: false },
+		]);
+
+		client.applyFrameForTest({ t: "command-output", reqId: id, text: "Inspecting ", delta: true });
+		client.applyFrameForTest({ t: "command-output", reqId: id, text: "the trace.", delta: true });
+		client.applyFrameForTest({ t: "command-end", reqId: id, status: "done" });
+
+		expect(runs(client)).toMatchObject([
+			{ id, agentId: "agent-probe", output: "Inspecting the trace.", status: "done" },
+		]);
+	});
+
 	it("gives concurrent runs distinct request ids", () => {
 		const sent = captureSends();
 		const client = liveClient();

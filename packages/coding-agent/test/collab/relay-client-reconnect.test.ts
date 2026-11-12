@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "bun:test";
+import { afterEach, describe, expect, it, setSystemTime, vi } from "bun:test";
 import { seal } from "../../src/collab/crypto";
 import { packEnvelope } from "../../src/collab/protocol";
 import {
@@ -8,6 +8,7 @@ import {
 	HOST_RECLAIM_WINDOW_MS,
 	RELAY_PING_INTERVAL_MS,
 	RELAY_SILENCE_LIMIT_MS,
+	RELAY_SILENCE_PROBE_MS,
 } from "../../src/collab/relay-client";
 
 const NativeWebSocket = globalThis.WebSocket;
@@ -53,12 +54,14 @@ class ScriptedWebSocket {
 		this.onclose?.(new CloseEvent("close", { code, reason }));
 	}
 
-	/** Pong listeners; a scripted relay answers pings only when a test pongs. */
+	/** Ping/pong listeners; a scripted relay sends or answers pings only when driven by a test. */
 	pongListeners: Array<() => void> = [];
+	pingListeners: Array<() => void> = [];
 	pings = 0;
 
 	addEventListener(type: string, listener: () => void): void {
 		if (type === "pong") this.pongListeners.push(listener);
+		if (type === "ping") this.pingListeners.push(listener);
 	}
 
 	ping(): void {
@@ -67,6 +70,10 @@ class ScriptedWebSocket {
 
 	pong(): void {
 		for (const listener of this.pongListeners) listener();
+	}
+
+	relayPing(): void {
+		for (const listener of this.pingListeners) listener();
 	}
 
 	terminate(): void {
@@ -120,6 +127,7 @@ afterEach(() => {
 	restoreNativeWebSocket();
 	vi.restoreAllMocks();
 	vi.useRealTimers();
+	setSystemTime();
 });
 
 describe("CollabSocket guest room recovery", () => {
@@ -292,6 +300,23 @@ describe("CollabSocket host open confirmation", () => {
 			expect(instance(0).pings).toBe(1);
 			expect({ opens, isOpen: socket.isOpen }).toEqual({ opens: 0, isOpen: false });
 			instance(0).pong();
+			expect({ opens, isOpen: socket.isOpen }).toEqual({ opens: 1, isOpen: true });
+		} finally {
+			socket.close();
+		}
+	});
+
+	it("confirms a provisional host open when the relay sends a ping", async () => {
+		installScriptedWebSocket();
+		const key = await crypto.subtle.generateKey({ name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
+		const socket = hostSocket(key);
+		let opens = 0;
+		socket.onOpen = () => opens++;
+		try {
+			socket.connect();
+			instance(0).open();
+			expect({ opens, isOpen: socket.isOpen }).toEqual({ opens: 0, isOpen: false });
+			instance(0).relayPing();
 			expect({ opens, isOpen: socket.isOpen }).toEqual({ opens: 1, isOpen: true });
 		} finally {
 			socket.close();
@@ -499,6 +524,98 @@ describe("CollabSocket silent connection", () => {
 		}
 	});
 
+	it("keeps a connection alive on relay pings alone when outbound pings never receive pongs", async () => {
+		vi.useFakeTimers();
+		installScriptedWebSocket();
+		const key = await crypto.subtle.generateKey({ name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
+		const closes: string[] = [];
+		const socket = hostSocket(key);
+		socket.onClose = reason => closes.push(reason);
+
+		try {
+			socket.connect();
+			instance(0).open();
+			instance(0).relayPing();
+			expect(socket.isOpen).toBe(true);
+			// Ten minutes with zero messages and zero pongs: only inbound relay pings arrive.
+			for (let elapsed = 0; elapsed < 600_000; elapsed += RELAY_PING_INTERVAL_MS) {
+				vi.advanceTimersByTime(RELAY_PING_INTERVAL_MS);
+				instance(0).relayPing();
+			}
+			expect(closes).toEqual([]);
+			expect(socket.isOpen).toBe(true);
+			expect(ScriptedWebSocket.instances).toHaveLength(1);
+		} finally {
+			socket.close();
+		}
+	});
+
+	it("does not terminate after a stall when a message, pong, or ping arrives before the probe expires", async () => {
+		const firstSilentTickMs =
+			(Math.floor(RELAY_SILENCE_LIMIT_MS / RELAY_PING_INTERVAL_MS) + 1) * RELAY_PING_INTERVAL_MS;
+
+		for (const inbound of ["message", "pong", "ping"] as const) {
+			vi.useFakeTimers();
+			installScriptedWebSocket();
+			const key = await crypto.subtle.generateKey({ name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
+			const closes: Array<{ reason: string; willReconnect: boolean }> = [];
+			const socket = hostSocket(key);
+			socket.onClose = (reason, willReconnect) => closes.push({ reason, willReconnect });
+			const deliverInbound = (ws: ScriptedWebSocket): void => {
+				if (inbound === "message") {
+					ws.deliver(JSON.stringify({ t: "peer-joined", peer: 1 }));
+				} else if (inbound === "pong") {
+					ws.pong();
+				} else {
+					ws.relayPing();
+				}
+			};
+
+			try {
+				socket.connect();
+				const ws = instance(0);
+				ws.open();
+				ws.pong();
+				const pingsAtOpen = ws.pings;
+
+				// 1. Synchronous main-thread stall (e.g. blocked terminal write): wall clock
+				// jumps past RELAY_SILENCE_LIMIT_MS before the next interval callback runs, and
+				// already-queued inbound I/O drains on the very same millisecond (0 ms after probe).
+				setSystemTime(Date.now() + RELAY_SILENCE_LIMIT_MS - RELAY_PING_INTERVAL_MS + 1_000);
+				vi.advanceTimersByTime(RELAY_PING_INTERVAL_MS);
+				expect(closes).toEqual([]);
+				expect(ws.readyState).toBe(ScriptedWebSocket.OPEN);
+				expect(ws.pings).toBe(pingsAtOpen + 1);
+				deliverInbound(ws);
+				vi.advanceTimersByTime(RELAY_SILENCE_PROBE_MS);
+				expect(closes).toEqual([]);
+
+				// 2. Second stall where inbound traffic arrives at the end of the probe grace
+				// window (RELAY_SILENCE_PROBE_MS - 1 ms after the probe ping). RELAY_SILENCE_PROBE_MS
+				// of the current ping interval already elapsed above.
+				vi.advanceTimersByTime(firstSilentTickMs - RELAY_SILENCE_PROBE_MS);
+				expect(closes).toEqual([]);
+				vi.advanceTimersByTime(RELAY_SILENCE_PROBE_MS - 1);
+				expect(closes).toEqual([]);
+				deliverInbound(ws);
+				vi.advanceTimersByTime(1 + RELAY_PING_INTERVAL_MS);
+				expect(closes).toEqual([]);
+				expect(socket.isOpen).toBe(true);
+				expect(ScriptedWebSocket.instances).toHaveLength(1);
+
+				// 3. A subsequent genuine silence still terminates once the new probe expires.
+				vi.advanceTimersByTime(firstSilentTickMs);
+				expect(closes).toEqual([{ reason: "relay stopped responding", willReconnect: true }]);
+				expect(ws.readyState).toBe(ScriptedWebSocket.CLOSED);
+			} finally {
+				socket.close();
+				restoreNativeWebSocket();
+				vi.useRealTimers();
+				setSystemTime();
+			}
+		}
+	});
+
 	it("drops and reopens a connection that went silent without closing", async () => {
 		vi.useFakeTimers();
 		vi.spyOn(Math, "random").mockReturnValue(0.5);
@@ -513,10 +630,15 @@ describe("CollabSocket silent connection", () => {
 		try {
 			socket.connect();
 			instance(0).open();
+			const firstSilentTickMs =
+				(Math.floor(RELAY_SILENCE_LIMIT_MS / RELAY_PING_INTERVAL_MS) + 1) * RELAY_PING_INTERVAL_MS;
 			// The network drops: no pong, no close event, the socket still reads as open.
-			vi.advanceTimersByTime(RELAY_SILENCE_LIMIT_MS);
+			// At the first tick past RELAY_SILENCE_LIMIT_MS a probe ping is sent; only once
+			// RELAY_SILENCE_PROBE_MS elapses unanswered is the socket terminated.
+			vi.advanceTimersByTime(firstSilentTickMs + RELAY_SILENCE_PROBE_MS - 1);
 			expect(closes).toEqual([]);
-			vi.advanceTimersByTime(RELAY_PING_INTERVAL_MS);
+			expect(instance(0).readyState).toBe(ScriptedWebSocket.OPEN);
+			vi.advanceTimersByTime(1);
 			expect(closes).toEqual([{ reason: "relay stopped responding", willReconnect: true }]);
 			expect(instance(0).readyState).toBe(ScriptedWebSocket.CLOSED);
 
@@ -529,6 +651,53 @@ describe("CollabSocket silent connection", () => {
 			expect(recreated).toBe(1);
 		} finally {
 			socket.close();
+		}
+	});
+
+	it("clears an in-flight silence probe when the socket closes before the probe fires", async () => {
+		const firstSilentTickMs =
+			(Math.floor(RELAY_SILENCE_LIMIT_MS / RELAY_PING_INTERVAL_MS) + 1) * RELAY_PING_INTERVAL_MS;
+
+		for (const how of ["local-close", "remote-close"] as const) {
+			vi.useFakeTimers();
+			vi.spyOn(Math, "random").mockReturnValue(0.5);
+			installScriptedWebSocket();
+			const key = await crypto.subtle.generateKey({ name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
+			const closes: Array<{ reason: string; willReconnect: boolean }> = [];
+			const socket = hostSocket(key);
+			socket.onClose = (reason, willReconnect) => closes.push({ reason, willReconnect });
+
+			try {
+				socket.connect();
+				instance(0).open();
+				instance(0).pong();
+				// Arm the silence probe.
+				vi.advanceTimersByTime(firstSilentTickMs);
+				expect(closes).toEqual([]);
+
+				if (how === "local-close") {
+					socket.close();
+					expect(closes).toEqual([{ reason: "closed", willReconnect: false }]);
+					vi.advanceTimersByTime(RELAY_SILENCE_PROBE_MS + RELAY_PING_INTERVAL_MS);
+					expect(closes).toEqual([{ reason: "closed", willReconnect: false }]);
+					expect(ScriptedWebSocket.instances).toHaveLength(1);
+				} else {
+					instance(0).relayClose(1006, "reset by peer");
+					expect(closes).toEqual([{ reason: "reset by peer", willReconnect: true }]);
+					vi.advanceTimersByTime(1_000);
+					instance(1).open();
+					instance(1).pong();
+					// Old socket's probe deadline passes without disturbing the replacement socket.
+					vi.advanceTimersByTime(RELAY_SILENCE_PROBE_MS);
+					expect(closes).toEqual([{ reason: "reset by peer", willReconnect: true }]);
+					expect(socket.isOpen).toBe(true);
+				}
+			} finally {
+				socket.close();
+				restoreNativeWebSocket();
+				vi.restoreAllMocks();
+				vi.useRealTimers();
+			}
 		}
 	});
 });

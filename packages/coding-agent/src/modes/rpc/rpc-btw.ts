@@ -37,11 +37,20 @@ function toRpcRecord({ title: _title, ...record }: BtwHistoryRecord): RpcBtwHist
 	return record;
 }
 
+export interface RpcBtwControllerOptions {
+	/** Scope passed to {@link BtwHistoryStore.open} when sessions share an artifacts directory. */
+	historyScope?: string;
+	/** Fallback artifacts directory when the target session has none of its own. */
+	artifactsDir?: string | null;
+}
+
 export class RpcBtwController {
 	readonly #session: Pick<AgentSession, "model" | "runEphemeralTurn" | "sessionManager">;
 	readonly #output: (frame: RpcBtwOutputFrame) => void;
+	readonly #historyScope: string | undefined;
+	readonly #artifactsDir: string | null | undefined;
 	#store: BtwHistoryStore | undefined;
-	/** `sessionId \0 artifactsDir` the store was opened for. */
+	/** `sessionId \0 artifactsDir \0 historyScope` the store was opened for. */
 	#storeKey: string | undefined;
 	#running: RunningBtw | undefined;
 	/** Topic of the `btw` command between validation and its first checkpoint (`null`: a new topic). */
@@ -56,9 +65,12 @@ export class RpcBtwController {
 	constructor(
 		session: Pick<AgentSession, "model" | "runEphemeralTurn" | "sessionManager">,
 		output: (frame: RpcBtwOutputFrame) => void,
+		options?: RpcBtwControllerOptions,
 	) {
 		this.#session = session;
 		this.#output = output;
+		this.#historyScope = options?.historyScope;
+		this.#artifactsDir = options?.artifactsDir;
 	}
 
 	/**
@@ -182,8 +194,8 @@ export class RpcBtwController {
 	 */
 	async #openStore(fresh: boolean): Promise<BtwHistoryStore> {
 		const manager = this.#session.sessionManager;
-		const artifactsDir = manager.getArtifactsDir() ?? undefined;
-		const key = `${manager.getSessionId()}\0${artifactsDir ?? ""}`;
+		const artifactsDir = manager.getArtifactsDir() ?? this.#artifactsDir ?? undefined;
+		const key = `${manager.getSessionId()}\0${artifactsDir ?? ""}\0${this.#historyScope ?? ""}`;
 		const cached = this.#storeKey === key ? this.#store : undefined;
 		if (cached) {
 			try {
@@ -199,7 +211,7 @@ export class RpcBtwController {
 			// session's question must not keep streaming into this one's view.
 			this.cancel();
 		}
-		const store = await BtwHistoryStore.open(artifactsDir);
+		const store = await BtwHistoryStore.open(artifactsDir, this.#historyScope);
 		// A concurrent open for the same session already replaced the cache: keep one store.
 		if (this.#storeKey === key && this.#store !== cached) return this.#store!;
 		this.#store = store;

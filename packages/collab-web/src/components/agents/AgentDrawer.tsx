@@ -1,15 +1,24 @@
-import type { AgentSnapshot, SubagentLifecyclePayload, SubagentProgressPayload } from "@oh-my-soup/pi-wire";
+import type {
+	AgentSnapshot,
+	CollabCommand,
+	SubagentLifecyclePayload,
+	SubagentProgressPayload,
+} from "@oh-my-soup/pi-wire";
 import { ArrowUp, OctagonX, RotateCcw, X } from "lucide-react";
 import type { ReactNode } from "react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { GuestClient } from "../../lib/client";
 import { fmtCost, fmtDuration, fmtPercent, fmtTokens } from "../../lib/format";
+import { resolveSlashDraft } from "../../lib/slash";
 import { TranscriptPager, type TranscriptPagerView } from "../../lib/transcript-pager";
+import { useGuestSnapshot } from "../../lib/use-guest";
+import { CommandRunPanel } from "../shell/CommandRunPanel";
 import type { TranscriptProps } from "../transcript/Transcript";
 import { Transcript } from "../transcript/Transcript";
 import "./agents.css";
 
 const EMPTY_TOOLS: TranscriptProps["activeTools"] = new Map();
+const NO_HOST_COMMANDS: readonly CollabCommand[] = [];
 /** Shown until the pager of the selected agent publishes its first view. */
 const OPENING_VIEW: TranscriptPagerView = {
 	entries: [],
@@ -19,6 +28,26 @@ const OPENING_VIEW: TranscriptPagerView = {
 	error: null,
 	version: 0,
 };
+
+/**
+ * Sends a drawer draft: `/btw` (when present in the host's command catalog)
+ * runs as an agent-scoped command; every other non-empty draft steers the
+ * agent via `agent-cmd chat`. Returns whether the frame was accepted.
+ */
+export function sendAgentDrawerDraft(
+	client: GuestClient,
+	agentId: string,
+	rawDraft: string,
+	commands: readonly CollabCommand[],
+): boolean {
+	const text = rawDraft.trim();
+	if (text === "") return false;
+	const invocation = resolveSlashDraft(text, commands);
+	if (invocation !== null && !invocation.local && invocation.command.name === "btw") {
+		return client.runCommand(text, agentId);
+	}
+	return client.sendAgentCmd("chat", agentId, text);
+}
 
 export function AgentDrawer(props: {
 	agent: AgentSnapshot;
@@ -33,6 +62,14 @@ export function AgentDrawer(props: {
 }): ReactNode {
 	const { agent, progress, lifecycle, client, readOnly, host, onClose } = props;
 	const [view, setView] = useState(OPENING_VIEW);
+	const snap = useGuestSnapshot(client);
+	const hostCommands = readOnly ? NO_HOST_COMMANDS : snap.commands;
+	const agentRuns = useMemo(
+		() => snap.commandRuns.filter(run => run.agentId === agent.id),
+		[snap.commandRuns, agent.id],
+	);
+	const cancelRun = useCallback((id: number): void => client.cancelCommand(id), [client]);
+	const dismissRun = useCallback((id: number): void => client.dismissCommand(id), [client]);
 	const [draft, setDraft] = useState("");
 	/** The selected agent's pager; null while no transcript is mounted. */
 	const pagerRef = useRef<TranscriptPager | null>(null);
@@ -78,10 +115,8 @@ export function AgentDrawer(props: {
 	const setFollowingTail = useCallback((following: boolean) => pagerRef.current?.setFollowingTail(following), []);
 
 	const sendChat = () => {
-		const text = draft.trim();
-		if (!text) return;
 		// A refused send (too large for the relay) keeps the draft; the client posts a notice.
-		if (client.sendAgentCmd("chat", agent.id, text)) setDraft("");
+		if (sendAgentDrawerDraft(client, agent.id, draft, hostCommands)) setDraft("");
 	};
 
 	const p = progress?.progress;
@@ -169,6 +204,11 @@ export function AgentDrawer(props: {
 					<div className="ag-empty">No transcript available</div>
 				)}
 			</div>
+			{agentRuns.length > 0 && (
+				<div style={{ flex: "none", padding: "0 16px" }}>
+					<CommandRunPanel runs={agentRuns} onCancel={cancelRun} onDismiss={dismissRun} />
+				</div>
+			)}
 			{!readOnly && (
 				<form
 					className="ag-chat"

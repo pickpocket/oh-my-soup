@@ -15,6 +15,8 @@ export interface CommandRun {
 	id: number;
 	/** As typed, e.g. `/model sonnet`. */
 	text: string;
+	/** Target subagent id when started from an agent drawer; absent for main-session runs. */
+	agentId?: string;
 	/** Accumulated Markdown. */
 	output: string;
 	status: "running" | CollabCommandStatus;
@@ -71,10 +73,20 @@ export class CommandSession {
 	}
 
 	/** Sends `command` and records a running run; false, recording nothing, when it could not be sent. */
-	run(text: string): boolean {
+	run(text: string, agentId?: string): boolean {
 		const id = ++this.#seq;
-		if (!this.#send({ t: "command", reqId: id, text })) return false;
-		this.#append({ id, text, output: "", status: "running", local: false, startedAt: Date.now() });
+		const frame: CommandGuestFrame =
+			agentId === undefined ? { t: "command", reqId: id, text } : { t: "command", reqId: id, text, agentId };
+		if (!this.#send(frame)) return false;
+		this.#append({
+			id,
+			text,
+			...(agentId === undefined ? {} : { agentId }),
+			output: "",
+			status: "running",
+			local: false,
+			startedAt: Date.now(),
+		});
 		this.#onChange();
 		return true;
 	}

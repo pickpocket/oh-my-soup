@@ -329,6 +329,7 @@ export const Composer = memo(function Composer({
 
 	const cancelRun = useCallback((id: number): void => client.cancelCommand(id), [client]);
 	const dismissRun = useCallback((id: number): void => client.dismissCommand(id), [client]);
+	const mainRuns = useMemo(() => commandRuns.filter(run => run.agentId === undefined), [commandRuns]);
 
 	const accept = (item: PaletteItem): void => {
 		if (context === null) return;
@@ -519,7 +520,7 @@ export const Composer = memo(function Composer({
 	);
 	return (
 		<div className="sh-composer">
-			<CommandRunPanel runs={commandRuns} onCancel={cancelRun} onDismiss={dismissRun} />
+			<CommandRunPanel runs={mainRuns} onCancel={cancelRun} onDismiss={dismissRun} />
 			<div className="cmd-anchor">
 				{paletteOpen && (
 					<SlashPalette

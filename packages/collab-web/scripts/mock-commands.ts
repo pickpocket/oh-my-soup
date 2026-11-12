@@ -71,7 +71,7 @@ export const MOCK_COMMANDS: readonly MockCommand[] = [
 	},
 	{ name: "compact", description: "Manually compact the session context", source: "builtin" },
 	{ name: "context", description: "Show estimated context usage breakdown", source: "builtin" },
-	{ name: "btw", description: "Ask a side question", hint: "[question]", source: "builtin" },
+	{ name: "btw", description: "Ask a side question", hint: "<question>", source: "builtin" },
 	{ name: "skill:review", description: "Review the current changes", hint: "[focus]", source: "skill" },
 	{ name: "standup", description: "Summarize what changed since yesterday", source: "template" },
 ];

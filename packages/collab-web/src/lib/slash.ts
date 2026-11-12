@@ -233,13 +233,19 @@ export function narrowCompletions(completions: readonly CollabCompletion[], args
 
 /**
  * Whether Enter accepts the highlighted suggestion (`value`) instead of
- * running the draft: a draft that already names that command, or already
- * carries that argument, runs.
+ * running the draft: a draft that already names that command runs unless the
+ * command requires an argument (`hint` starts with `<`) and none is typed yet;
+ * in argument context, a draft that already carries that argument runs.
  */
 export function enterAcceptsSuggestion(context: SlashContext, value: string, host: readonly CollabCommand[]): boolean {
 	if (context.kind === "args") return context.parsed.args.trimEnd() !== value.trimEnd();
 	const resolved = resolveSlashToken(context.parsed.token, host);
-	return resolved === null || resolved.command.name !== value;
+	if (resolved === null || resolved.command.name !== value) return true;
+	return (
+		resolved.command.hint?.startsWith("<") === true &&
+		resolved.args.trim() === "" &&
+		context.parsed.args.trim() === ""
+	);
 }
 
 export interface DraftEdit {

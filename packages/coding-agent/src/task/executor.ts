@@ -2138,7 +2138,6 @@ function createSubagentRunMonitor(args: RunMonitorArgs): SubagentRunMonitor {
 					const details = partial && typeof partial === "object" ? partial.details : undefined;
 					if (details && typeof details === "object" && "results" in (details as TaskToolDetails)) {
 						progress.inflightTaskDetails = details as TaskToolDetails;
-						flushProgress = true;
 					}
 				}
 				break;

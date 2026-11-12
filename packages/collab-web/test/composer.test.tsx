@@ -1,14 +1,20 @@
-import { describe, expect, it } from "bun:test";
-import type { CollabCommand } from "@oh-my-soup/pi-wire";
+import { afterEach, describe, expect, it, vi } from "bun:test";
+import type { AgentSnapshot, CollabCommand, GuestFrame, HostFrame } from "@oh-my-soup/pi-wire";
 import type { KeyboardEvent } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { GuestClient } from "../src/lib/client";
+import "./transcript-dom-shim";
+import { AgentDrawer, sendAgentDrawerDraft } from "../src/components/agents/AgentDrawer";
 import type { ComposerProps } from "../src/components/shell/Composer";
 import { Composer, shouldSubmitOnEnter } from "../src/components/shell/Composer";
-import { encodeBase64Url } from "../src/lib/link";
-
+import { GuestClient } from "../src/lib/client";
+import { COLLAB_PROTO, encodeBase64Url } from "../src/lib/link";
+import { CollabSocket } from "../src/lib/socket";
 const LINK = `roomroomroom1234#${encodeBase64Url(new Uint8Array(32))}`;
 const client = new GuestClient(LINK, "tester");
+
+afterEach(() => {
+	vi.restoreAllMocks();
+});
 
 function props(uiRequest: ComposerProps["uiRequest"]): ComposerProps {
 	return {
@@ -223,6 +229,25 @@ describe("Composer slash commands", () => {
 		expect(html).toContain("<strong>Usage</strong>");
 		expect(html).toContain("No model matches nope");
 	});
+
+	it("shows only main-session command runs in the composer panel, excluding agent-scoped runs", () => {
+		const html = renderDraft("", {
+			commandRuns: [
+				{ id: 1, text: "/btw main question", output: "Main answer", status: "done", local: false, startedAt: 0 },
+				{
+					id: 2,
+					text: "/btw drawer question",
+					agentId: "agent-probe",
+					output: "Drawer answer",
+					status: "done",
+					local: false,
+					startedAt: 0,
+				},
+			],
+		});
+		expect(html).toContain("Main answer");
+		expect(html).not.toContain("Drawer answer");
+	});
 });
 
 describe("Composer toolbar", () => {
@@ -260,5 +285,95 @@ describe("Composer toolbar", () => {
 	it("shows the queued count only while prompts wait behind a running turn", () => {
 		expect(control(renderDraft("", { working: true, queuedMessageCount: 2 }), ".sh-queued").found).toBe(true);
 		expect(control(renderDraft("", { working: true, queuedMessageCount: 0 }), ".sh-queued").found).toBe(false);
+	});
+});
+
+describe("AgentDrawer /btw commands and run panel", () => {
+	const SUB_AGENT: AgentSnapshot = {
+		id: "agent-probe",
+		displayName: "RelayProbe",
+		kind: "sub",
+		status: "running",
+		hasSessionFile: false,
+		createdAt: 0,
+		lastActivity: 0,
+	};
+	const CATALOG: CollabCommand[] = [
+		...HOST_COMMANDS,
+		{ name: "btw", description: "Ask a side question", hint: "<question>", source: "builtin" },
+	];
+	const WELCOME: HostFrame = {
+		t: "welcome",
+		proto: COLLAB_PROTO,
+		header: { type: "session", id: "s1", timestamp: "2026-06-12T00:00:00Z", cwd: "/work" },
+		state: {
+			isStreaming: false,
+			queuedMessageCount: 0,
+			cwd: "/work",
+			participants: [{ name: "host", role: "host" }],
+		},
+		agents: [SUB_AGENT],
+		entryCount: 0,
+	};
+
+	function liveDrawerClient(): { drawerClient: GuestClient; sent: GuestFrame[] } {
+		const sent: GuestFrame[] = [];
+		vi.spyOn(CollabSocket.prototype, "send").mockImplementation(frame => {
+			sent.push(frame);
+			return true;
+		});
+		const drawerClient = new GuestClient(LINK, "tester");
+		drawerClient.applyFrameForTest(WELCOME);
+		drawerClient.applyFrameForTest({ t: "commands", commands: CATALOG });
+		return { drawerClient, sent };
+	}
+
+	it("routes /btw drafts as agent-scoped commands and keeps other drafts as agent chat", () => {
+		const { drawerClient, sent } = liveDrawerClient();
+
+		expect(sendAgentDrawerDraft(drawerClient, SUB_AGENT.id, "/btw what failed?", CATALOG)).toBe(true);
+		expect(sent.at(-1)).toEqual({
+			t: "command",
+			reqId: 1,
+			text: "/btw what failed?",
+			agentId: "agent-probe",
+		});
+
+		expect(sendAgentDrawerDraft(drawerClient, SUB_AGENT.id, "/model sonnet", CATALOG)).toBe(true);
+		expect(sent.at(-1)).toEqual({ t: "agent-cmd", cmd: "chat", agentId: "agent-probe", text: "/model sonnet" });
+
+		expect(sendAgentDrawerDraft(drawerClient, SUB_AGENT.id, "/help", CATALOG)).toBe(true);
+		expect(sent.at(-1)).toEqual({ t: "agent-cmd", cmd: "chat", agentId: "agent-probe", text: "/help" });
+
+		expect(sendAgentDrawerDraft(drawerClient, SUB_AGENT.id, "inspect the socket queue", CATALOG)).toBe(true);
+		expect(sent.at(-1)).toEqual({
+			t: "agent-cmd",
+			cmd: "chat",
+			agentId: "agent-probe",
+			text: "inspect the socket queue",
+		});
+
+		expect(sendAgentDrawerDraft(drawerClient, SUB_AGENT.id, "   ", CATALOG)).toBe(false);
+	});
+
+	it("renders only the selected agent's command runs with streaming output and cancel", () => {
+		const { drawerClient } = liveDrawerClient();
+		drawerClient.runCommand("/btw main run");
+		drawerClient.runCommand("/btw other sub run", "agent-other");
+		drawerClient.runCommand("/btw probe run", SUB_AGENT.id);
+
+		const [mainRun, otherRun, probeRun] = drawerClient.getSnapshot().commandRuns;
+		drawerClient.applyFrameForTest({ t: "command-output", reqId: mainRun!.id, text: "Main stream", delta: true });
+		drawerClient.applyFrameForTest({ t: "command-output", reqId: otherRun!.id, text: "Other stream", delta: true });
+		drawerClient.applyFrameForTest({ t: "command-output", reqId: probeRun!.id, text: "Probe stream", delta: true });
+
+		const html = renderToStaticMarkup(
+			<AgentDrawer agent={SUB_AGENT} client={drawerClient} readOnly={false} onClose={() => {}} />,
+		);
+		expect(html).toContain("/btw probe run");
+		expect(html).toContain("Probe stream");
+		expect(html).toContain("Cancel");
+		expect(html).not.toContain("Main stream");
+		expect(html).not.toContain("Other stream");
 	});
 });

@@ -14,7 +14,14 @@ import type {
 	AgentSessionEvent,
 	AgentSessionEventListener,
 } from "@oh-my-soup/pi-coding-agent/session/agent-session-events";
+import {
+	type SubagentProgressPayload,
+	TASK_SUBAGENT_LIFECYCLE_CHANNEL,
+	TASK_SUBAGENT_PROGRESS_CHANNEL,
+} from "@oh-my-soup/pi-coding-agent/task/types";
+import { EventBus } from "@oh-my-soup/pi-coding-agent/utils/event-bus";
 import { applyCollabStream } from "@oh-my-soup/pi-wire/collab-stream";
+import type { InteractiveModeContext } from "@oh-my-soup/pi-coding-agent/modes/types";
 import { installInMemoryRelay, uninstallInMemoryRelay } from "./helpers/in-memory-relay";
 import {
 	type HostObservations,
@@ -92,7 +99,7 @@ function streamTrace(frames: CollabFrame[]): (number | string)[] {
 	return trace;
 }
 
-async function tracedHost(joined = true) {
+async function tracedHost(joined = true, seed?: (ctx: InteractiveModeContext) => void) {
 	installInMemoryRelay();
 	const snapshot: Snapshot = {
 		header: { type: "session", id: "stream-trace", timestamp: "2026-10-24T00:00:00Z", cwd: "/tmp" },
@@ -100,6 +107,9 @@ async function tracedHost(joined = true) {
 	};
 	const seen: HostObservations = { notices: [], participantCounts: [] };
 	const ctx = makeHostContext(snapshot, seen);
+	const eventBus = new EventBus();
+	ctx.eventBus = eventBus;
+	seed?.(ctx);
 	const listeners: AgentSessionEventListener[] = [];
 	const subscribe = ctx.session.subscribe.bind(ctx.session);
 	ctx.session.subscribe = listener => {
@@ -134,7 +144,7 @@ async function tracedHost(joined = true) {
 		transport!.onFrame!({ t: "hello", proto: COLLAB_PROTO, name: `guest-${peer}`, history: "paged" }, peer);
 	if (joined) join(1);
 	sent.length = 0;
-	return { host, ctx, transport, sent, snapshot, emit, join };
+	return { host, ctx, eventBus, transport, sent, snapshot, emit, join };
 }
 
 it("coalesces a burst before a throttled uplink without ending the room or crossing message boundaries", async () => {
@@ -433,4 +443,268 @@ it("surfaces an unshrinkable partial to late joins and resumes from the last val
 	for (const frame of frames) {
 		expect(Buffer.byteLength(JSON.stringify(frame), "utf8")).toBeLessThan(MAX_REPLICATED_PAYLOAD_BYTES);
 	}
+});
+
+function progressPayload(id: string, tokens: number): SubagentProgressPayload {
+	return {
+		index: 1,
+		agent: "task",
+		agentSource: "bundled",
+		task: `Work for ${id}`,
+		progress: {
+			index: 1,
+			id,
+			agent: "task",
+			agentSource: "bundled",
+			status: "running",
+			task: `Work for ${id}`,
+			recentTools: [],
+			recentOutput: [],
+			toolCount: 1,
+			requests: 1,
+			tokens,
+			cost: 0,
+			durationMs: tokens * 10,
+		},
+	};
+}
+
+it("coalesces bus progress per agent over 250ms and flushes pending progress before lifecycle frames", async () => {
+	const { eventBus, sent } = await tracedHost();
+
+	eventBus.emit(TASK_SUBAGENT_PROGRESS_CHANNEL, progressPayload("ScoutA", 10));
+	eventBus.emit(TASK_SUBAGENT_PROGRESS_CHANNEL, progressPayload("ScoutB", 5));
+	eventBus.emit(TASK_SUBAGENT_PROGRESS_CHANNEL, progressPayload("ScoutA", 20));
+	eventBus.emit(TASK_SUBAGENT_PROGRESS_CHANNEL, progressPayload("ScoutA", 30));
+	eventBus.emit(TASK_SUBAGENT_PROGRESS_CHANNEL, progressPayload("ScoutB", 15));
+
+	vi.advanceTimersByTime(249);
+	expect(sent.filter(({ frame }) => frame.t === "bus")).toEqual([]);
+
+	vi.advanceTimersByTime(1);
+	const flushed = sent.filter(({ frame }) => frame.t === "bus").map(({ frame }) => frame);
+	expect(flushed).toHaveLength(2);
+	expect(flushed[0]).toMatchObject({
+		t: "bus",
+		channel: TASK_SUBAGENT_PROGRESS_CHANNEL,
+		data: { progress: { id: "ScoutA", tokens: 30 } },
+	});
+	expect(flushed[1]).toMatchObject({
+		t: "bus",
+		channel: TASK_SUBAGENT_PROGRESS_CHANNEL,
+		data: { progress: { id: "ScoutB", tokens: 15 } },
+	});
+
+	sent.length = 0;
+	eventBus.emit(TASK_SUBAGENT_PROGRESS_CHANNEL, progressPayload("ScoutA", 40));
+	eventBus.emit(TASK_SUBAGENT_PROGRESS_CHANNEL, progressPayload("ScoutA", 50));
+	eventBus.emit(TASK_SUBAGENT_LIFECYCLE_CHANNEL, {
+		id: "ScoutA",
+		agent: "task",
+		agentSource: "bundled",
+		status: "completed",
+		index: 1,
+	});
+
+	const ordered = sent.filter(({ frame }) => frame.t === "bus").map(({ frame }) => frame);
+	expect(ordered).toHaveLength(2);
+	expect(ordered[0]).toMatchObject({
+		t: "bus",
+		channel: TASK_SUBAGENT_PROGRESS_CHANNEL,
+		data: { progress: { id: "ScoutA", tokens: 50 } },
+	});
+	expect(ordered[1]).toMatchObject({
+		t: "bus",
+		channel: TASK_SUBAGENT_LIFECYCLE_CHANNEL,
+		data: { id: "ScoutA", status: "completed" },
+	});
+
+	vi.advanceTimersByTime(500);
+	expect(sent.filter(({ frame }) => frame.t === "bus")).toHaveLength(2);
+});
+
+it("coalesces tool_execution_update over 250ms without forcing stream flushes and drops pending updates on tool_execution_end", async () => {
+	const { emit, sent } = await tracedHost();
+
+	emit({ type: "message_start", message: assistant("") });
+	emit(streamedUpdate("streaming text", "streaming text"));
+	sent.length = 0;
+
+	emit({ type: "tool_execution_update", toolCallId: "t1", toolName: "task", args: {}, partialResult: { step: 1 } });
+	emit({ type: "tool_execution_update", toolCallId: "t1", toolName: "task", args: {}, partialResult: { step: 2 } });
+	emit({ type: "tool_execution_update", toolCallId: "t1", toolName: "task", args: {}, partialResult: { step: 3 } });
+
+	// Enqueuing tool_execution_update must not force #flushStream().
+	expect(sent.filter(({ frame }) => frame.t === "stream" || frame.t === "stream-delta")).toEqual([]);
+	expect(sent.filter(({ frame }) => frame.t === "event")).toEqual([]);
+
+	vi.advanceTimersByTime(50);
+	expect(sent.filter(({ frame }) => frame.t === "stream")).toHaveLength(1);
+	expect(sent.filter(({ frame }) => frame.t === "event")).toEqual([]);
+
+	vi.advanceTimersByTime(200);
+	const updates = sent
+		.map(({ frame }) => frame)
+		.filter(frame => frame.t === "event" && frame.event.type === "tool_execution_update");
+	expect(updates).toEqual([
+		{
+			t: "event",
+			event: {
+				type: "tool_execution_update",
+				toolCallId: "t1",
+				toolName: "task",
+				args: {},
+				partialResult: { step: 3 },
+			},
+		},
+	]);
+
+	sent.length = 0;
+	emit({ type: "tool_execution_update", toolCallId: "t1", toolName: "task", args: {}, partialResult: { step: 4 } });
+	emit({ type: "tool_execution_update", toolCallId: "t2", toolName: "bash", args: {}, partialResult: { out: "ok" } });
+	emit({ type: "tool_execution_end", toolCallId: "t1", toolName: "task", result: { done: true }, isError: false });
+
+	const eventFrames = sent.map(({ frame }) => frame).filter(frame => frame.t === "event");
+	expect(eventFrames).toEqual([
+		{
+			t: "event",
+			event: {
+				type: "tool_execution_update",
+				toolCallId: "t2",
+				toolName: "bash",
+				args: {},
+				partialResult: { out: "ok" },
+			},
+		},
+		{
+			t: "event",
+			event: {
+				type: "tool_execution_end",
+				toolCallId: "t1",
+				toolName: "task",
+				result: { done: true },
+				isError: false,
+			},
+		},
+	]);
+
+	vi.advanceTimersByTime(500);
+	expect(sent.map(({ frame }) => frame).filter(frame => frame.t === "event")).toHaveLength(2);
+});
+
+it("replays in-flight tools (start and latest update) on hello without resurrecting ended tools", async () => {
+	const seededUpdate: AgentSessionEvent = {
+		type: "tool_execution_update",
+		toolCallId: "seeded-call",
+		toolName: "bash",
+		args: { command: "bun test" },
+		partialResult: { output: "seeded partial" },
+	};
+	const { emit, sent, join } = await tracedHost(false, ctx => {
+		Object.assign(ctx.session, {
+			agent: {
+				state: {
+					pendingToolCalls: new Set(["seeded-call"]),
+					messages: [
+						{
+							role: "assistant",
+							content: [
+								{
+									type: "toolCall",
+									id: "seeded-call",
+									name: "bash",
+									arguments: { command: "bun test" },
+									intent: "Running suite",
+								},
+							],
+						},
+					],
+				},
+			},
+			activeToolExecutionUpdates: () => [seededUpdate],
+		});
+	});
+
+	// Tracked even while no guest is joined.
+	emit({
+		type: "tool_execution_start",
+		toolCallId: "live-wait",
+		toolName: "wait",
+		args: {},
+		intent: "Waiting for subagents",
+	});
+	emit({
+		type: "tool_execution_update",
+		toolCallId: "live-wait",
+		toolName: "wait",
+		args: {},
+		partialResult: { elapsed: 1 },
+	});
+	emit({
+		type: "tool_execution_update",
+		toolCallId: "live-wait",
+		toolName: "wait",
+		args: {},
+		partialResult: { elapsed: 2 },
+	});
+
+	// An already-ended async `task` call followed by a detached update must not be resurrected.
+	emit({ type: "tool_execution_start", toolCallId: "ended-task", toolName: "task", args: {} });
+	emit({ type: "tool_execution_end", toolCallId: "ended-task", toolName: "task", result: { jobs: ["bg_1"] } });
+	emit({
+		type: "tool_execution_update",
+		toolCallId: "ended-task",
+		toolName: "task",
+		args: {},
+		partialResult: { bg: "running" },
+	});
+
+	join(1);
+	const peerFrames = sent.filter(({ peer }) => peer === 1).map(({ frame }) => frame);
+	const welcomeIndex = peerFrames.findIndex(frame => frame.t === "welcome");
+	const snapshotIndex = peerFrames.findIndex(frame => frame.t === "snapshot-chunk" && frame.final);
+	const firstToolIndex = peerFrames.findIndex(frame => frame.t === "event");
+	expect(welcomeIndex).toBe(0);
+	expect(snapshotIndex).toBeGreaterThan(welcomeIndex);
+	expect(firstToolIndex).toBeGreaterThan(snapshotIndex);
+
+	const replayedEvents = peerFrames.filter(frame => frame.t === "event").map(frame => frame.event);
+	expect(replayedEvents).toEqual([
+		{
+			type: "tool_execution_start",
+			toolCallId: "seeded-call",
+			toolName: "bash",
+			args: { command: "bun test" },
+			intent: "Running suite",
+		},
+		seededUpdate,
+		{
+			type: "tool_execution_start",
+			toolCallId: "live-wait",
+			toolName: "wait",
+			args: {},
+			intent: "Waiting for subagents",
+		},
+		{
+			type: "tool_execution_update",
+			toolCallId: "live-wait",
+			toolName: "wait",
+			args: {},
+			partialResult: { elapsed: 2 },
+		},
+	]);
+
+	// Clearing on tool_execution_end and agent_end stops replaying finished tools.
+	emit({ type: "tool_execution_end", toolCallId: "seeded-call", toolName: "bash", result: { ok: true } });
+	sent.length = 0;
+	join(2);
+	const peer2ToolIds = sent
+		.filter(({ peer, frame }) => peer === 2 && frame.t === "event")
+		.map(({ frame }) => (frame.t === "event" && "toolCallId" in frame.event ? frame.event.toolCallId : ""));
+	expect(peer2ToolIds).toEqual(["live-wait", "live-wait"]);
+
+	emit({ type: "agent_end", messages: [] });
+	sent.length = 0;
+	join(3);
+	expect(sent.filter(({ peer, frame }) => peer === 3 && frame.t === "event")).toEqual([]);
 });

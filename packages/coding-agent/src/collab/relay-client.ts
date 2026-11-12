@@ -39,8 +39,8 @@ export const HOST_RECLAIM_BACKOFF_MAX_MS = 5_000;
  * How long a host's open stays provisional when the relay sends nothing. A relay
  * refuses a host (a second host for the room, no room capacity, shutting down)
  * with a close frame right after the upgrade, so the socket is not reported open
- * until the relay proves it accepted it: its first message, or the pong to the
- * ping sent on open. A relay that never pongs is accepted once this passes.
+ * until the relay proves it accepted it: its first message, a relay ping, or the
+ * pong to the ping sent on open. A relay that never pongs is accepted once this passes.
  * Until then the room reset, `onOpen` and the send queue stay untouched, so a
  * refusal cannot drop the guest roster, drain the backlog into a doomed socket,
  * or let `CollabHost.start()` report a room the relay never created.
@@ -53,8 +53,18 @@ export const HOST_RECLAIM_CONFIRM_MS = 1_000;
  * unreachable, its room long since retired by the relay, until someone typed.
  */
 export const RELAY_PING_INTERVAL_MS = 15_000;
-/** A socket that has heard nothing, not even a pong, for this long is dropped and retried. */
+/**
+ * How long a socket may go without hearing anything — message, ping, or pong —
+ * before a heartbeat tick sends a probe ping instead of assuming the link is live.
+ */
 export const RELAY_SILENCE_LIMIT_MS = 40_000;
+/**
+ * Grace window given to that probe ping before the socket is terminated. Waiting
+ * for one short timer turn avoids false disconnects after an event-loop stall,
+ * where the interval callback runs ahead of inbound frames, pings, or pongs that
+ * arrived while the loop was blocked.
+ */
+export const RELAY_SILENCE_PROBE_MS = 5_000;
 const MAX_PENDING_SENDS = 256;
 const MAX_PENDING_SEND_BYTES = 16 * 1024 * 1024;
 /**
@@ -134,7 +144,9 @@ export class CollabSocket {
 	#provisional: WebSocket | undefined;
 	#confirmTimer: NodeJS.Timeout | undefined;
 	#heartbeatTimer: NodeJS.Timeout | undefined;
-	/** When the current socket last received anything, pongs included. */
+	/** Pending silence probe; anything heard from the relay clears it. */
+	#probeTimer: NodeJS.Timeout | undefined;
+	/** When the current socket last received anything, relay pings and pongs included. */
 	#lastHeard = 0;
 	#sending = false;
 	#sendGeneration = 0;
@@ -481,6 +493,7 @@ export class CollabSocket {
 
 	#openSocket(): void {
 		this.#clearBackpressureDrain();
+		this.#stopHeartbeat();
 		const url = `${this.#opts.wsUrl}?role=${this.#opts.role}`;
 		const options = {
 			proxy: getProxyForUrl("collab", new URL(url)),
@@ -494,7 +507,7 @@ export class CollabSocket {
 			if (this.#opts.role === "host") {
 				// A relay refuses a host after the upgrade (a second host, no room
 				// capacity, shutting down). Commit only once it has proven it kept this
-				// one: its first message, or the pong to this ping.
+				// one: its first message, a relay ping, or the pong to this ping.
 				this.#provisional = ws;
 				this.#confirmTimer = setTimeout(() => this.#commitOpen(ws), HOST_RECLAIM_CONFIRM_MS);
 				try {
@@ -508,17 +521,15 @@ export class CollabSocket {
 		};
 		ws.onmessage = (event: MessageEvent) => {
 			if (this.#ws !== ws) return;
-			this.#lastHeard = Date.now();
-			// The relay only talks to a host it accepted; commit before dispatching so
-			// the room reset still precedes every frame.
-			if (this.#provisional === ws) this.#commitOpen(ws);
+			this.#noteHeard(ws);
 			this.#handleMessage(ws, event.data);
 		};
-		ws.addEventListener("pong", () => {
+		const onHeartbeatFrame = (): void => {
 			if (this.#ws !== ws) return;
-			this.#lastHeard = Date.now();
-			if (this.#provisional === ws) this.#commitOpen(ws);
-		});
+			this.#noteHeard(ws);
+		};
+		ws.addEventListener("pong", onHeartbeatFrame);
+		ws.addEventListener("ping", onHeartbeatFrame);
 		ws.onerror = () => {
 			// The paired close event carries the actionable state; nothing to do here.
 		};
@@ -533,10 +544,12 @@ export class CollabSocket {
 	}
 
 	/**
-	 * Pings `ws` every {@link RELAY_PING_INTERVAL_MS} and treats it as a transient
-	 * drop once it has heard nothing for {@link RELAY_SILENCE_LIMIT_MS}. No close
-	 * handshake can finish over a dead network, so the socket is terminated and the
-	 * drop handled here rather than waiting for a close event that may never come.
+	 * Pings `ws` every {@link RELAY_PING_INTERVAL_MS}. Once nothing — message, ping,
+	 * or pong — has been heard for {@link RELAY_SILENCE_LIMIT_MS}, sends a probe ping
+	 * and waits {@link RELAY_SILENCE_PROBE_MS} so inbound socket events queued behind
+	 * an event-loop stall can still clear the silence; if nothing is heard since the
+	 * probe was sent, terminates `ws` and handles the drop here rather than waiting
+	 * for a close handshake that cannot finish over a dead network.
 	 */
 	#startHeartbeat(ws: WebSocket): void {
 		this.#stopHeartbeat();
@@ -554,17 +567,27 @@ export class CollabSocket {
 				}
 				return;
 			}
-			logger.debug("collab: relay connection went silent; reconnecting", { role: this.#opts.role });
-			this.#clearBackpressureDrain();
-			this.#clearProvisional();
-			this.#stopHeartbeat();
-			this.#ws = null;
+			if (this.#probeTimer !== undefined) return;
+			this.#probeTimer = setTimeout(() => {
+				this.#probeTimer = undefined;
+				if (this.#ws !== ws) return;
+				logger.debug("collab: relay connection went silent; reconnecting", { role: this.#opts.role });
+				this.#clearBackpressureDrain();
+				this.#clearProvisional();
+				this.#stopHeartbeat();
+				this.#ws = null;
+				try {
+					ws.terminate();
+				} catch {
+					// already gone
+				}
+				this.#handleClose(1006, "relay stopped responding");
+			}, RELAY_SILENCE_PROBE_MS);
 			try {
-				ws.terminate();
+				ws.ping();
 			} catch {
-				// already gone
+				// A failed write surfaces as the socket's own close event.
 			}
-			this.#handleClose(1006, "relay stopped responding");
 		}, RELAY_PING_INTERVAL_MS);
 	}
 
@@ -573,6 +596,22 @@ export class CollabSocket {
 			clearInterval(this.#heartbeatTimer);
 			this.#heartbeatTimer = undefined;
 		}
+		this.#clearProbe();
+	}
+
+	#clearProbe(): void {
+		if (this.#probeTimer !== undefined) {
+			clearTimeout(this.#probeTimer);
+			this.#probeTimer = undefined;
+		}
+	}
+
+	#noteHeard(ws: WebSocket): void {
+		this.#lastHeard = Date.now();
+		this.#clearProbe();
+		// The relay only talks to a host it accepted; commit before dispatching so
+		// the room reset still precedes every frame.
+		if (this.#provisional === ws) this.#commitOpen(ws);
 	}
 
 	#commitOpen(ws: WebSocket): void {

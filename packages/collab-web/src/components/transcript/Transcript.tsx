@@ -149,11 +149,42 @@ function MsgContent({ content }: { content: string | readonly (TextContent | Ima
 	);
 }
 
+type ToolCardState = "running" | "outside" | "idle";
+
+interface ToolCardStateInput {
+	hasResult: boolean;
+	hasActive: boolean;
+	pending: boolean;
+	hasNewer: boolean;
+	working: boolean;
+	isTailAssistant: boolean;
+}
+
+/**
+ * Visual state of a `toolCall` block:
+ * - `"running"`: live spinner (`pending`, tracked in `activeTools`, or an
+ *   unpaired call on the window's last assistant message while `working`).
+ * - `"outside"`: window stops short of the live tail (`hasNewer`), so the
+ *   missing `toolResult` may sit in an unloaded newer page.
+ * - `"idle"`: paired with its `toolResult`, or settled without one (aborted,
+ *   orphaned, or from an older assistant message at the live tail).
+ */
+function resolveToolCardState(input: ToolCardStateInput): ToolCardState {
+	if (input.hasResult) return "idle";
+	if (input.pending || input.hasActive) return "running";
+	if (input.hasNewer) return "outside";
+	if (input.working && input.isTailAssistant) return "running";
+	return "idle";
+}
+
 function AssistantBody({
 	message,
 	results,
 	active,
 	pending,
+	hasNewer,
+	working,
+	isTailAssistant,
 	host,
 }: {
 	message: AssistantMessage;
@@ -161,6 +192,9 @@ function AssistantBody({
 	active: ReadonlyMap<string, ActiveTool>;
 	/** Still streaming — suppress stop-reason chips on the partial message. */
 	pending: boolean;
+	hasNewer: boolean;
+	working: boolean;
+	isTailAssistant: boolean;
 	host?: ToolRenderHost;
 }): ReactNode {
 	const last = message.content.length - 1;
@@ -180,6 +214,14 @@ function AssistantBody({
 				const act = active.get(block.id);
 				const result = results.get(block.id);
 				const args = act?.args ?? block.arguments;
+				const state = resolveToolCardState({
+					hasResult: result !== undefined,
+					hasActive: act !== undefined,
+					pending,
+					hasNewer,
+					working,
+					isTailAssistant,
+				});
 				return (
 					<div key={block.id} className="tr-tool">
 						<ToolCard
@@ -189,10 +231,10 @@ function AssistantBody({
 							args={args}
 							result={result}
 							host={host}
-							running={!result && (act !== undefined || pending)}
+							running={state === "running"}
 							partialResult={act?.partialResult}
 						/>
-						{!result && act === undefined && !pending && (
+						{state === "outside" && (
 							<div className="tr-note">Result is outside the loaded part of the transcript.</div>
 						)}
 					</div>
@@ -223,6 +265,9 @@ interface EntryRowProps {
 	entry: SessionEntry;
 	results: ReadonlyMap<string, ToolResultMessage>;
 	active: ReadonlyMap<string, ActiveTool>;
+	hasNewer: boolean;
+	working: boolean;
+	tailAssistantId: string | null;
 	host?: ToolRenderHost;
 	pairedToolIds: ReadonlySet<string>;
 }
@@ -235,15 +280,47 @@ function entryRowEqual(prev: EntryRowProps, next: EntryRowProps): boolean {
 		return prev.pairedToolIds.has(e.message.toolCallId) === next.pairedToolIds.has(e.message.toolCallId);
 	}
 	if (e.type !== "message" || e.message.role !== "assistant") return true;
+	const prevIsTail = prev.entry.id === prev.tailAssistantId;
+	const nextIsTail = next.entry.id === next.tailAssistantId;
 	for (const block of e.message.content) {
 		if (block.type !== "toolCall") continue;
-		if (prev.results.get(block.id) !== next.results.get(block.id)) return false;
-		if (prev.active.get(block.id) !== next.active.get(block.id)) return false;
+		const prevRes = prev.results.get(block.id);
+		const nextRes = next.results.get(block.id);
+		if (prevRes !== nextRes) return false;
+		const prevAct = prev.active.get(block.id);
+		const nextAct = next.active.get(block.id);
+		if (prevAct !== nextAct) return false;
+		const prevState = resolveToolCardState({
+			hasResult: prevRes !== undefined,
+			hasActive: prevAct !== undefined,
+			pending: false,
+			hasNewer: prev.hasNewer,
+			working: prev.working,
+			isTailAssistant: prevIsTail,
+		});
+		const nextState = resolveToolCardState({
+			hasResult: nextRes !== undefined,
+			hasActive: nextAct !== undefined,
+			pending: false,
+			hasNewer: next.hasNewer,
+			working: next.working,
+			isTailAssistant: nextIsTail,
+		});
+		if (prevState !== nextState) return false;
 	}
 	return true;
 }
 
-const EntryRow = memo(function EntryRow({ entry, results, active, pairedToolIds, host }: EntryRowProps): ReactNode {
+const EntryRow = memo(function EntryRow({
+	entry,
+	results,
+	active,
+	hasNewer,
+	working,
+	tailAssistantId,
+	pairedToolIds,
+	host,
+}: EntryRowProps): ReactNode {
 	switch (entry.type) {
 		case "message": {
 			const msg = entry.message;
@@ -253,7 +330,16 @@ const EntryRow = memo(function EntryRow({ entry, results, active, pairedToolIds,
 				case "assistant":
 					return (
 						<div className="tr-row tr-row--assistant">
-							<AssistantBody message={msg} results={results} active={active} pending={false} host={host} />
+							<AssistantBody
+								message={msg}
+								results={results}
+								active={active}
+								pending={false}
+								hasNewer={hasNewer}
+								working={working}
+								isTailAssistant={entry.id === tailAssistantId}
+								host={host}
+							/>
 						</div>
 					);
 				case "toolResult":
@@ -391,6 +477,26 @@ export function Transcript(props: TranscriptProps): ReactNode {
 		}
 		return map;
 	}, [entries]);
+
+	const tailAssistantId = useMemo(() => {
+		if (showLive && stream !== null) return null;
+		for (let i = entries.length - 1; i >= 0; i--) {
+			const entry = entries[i]!;
+			if (entry.type === "message" && entry.message.role === "assistant") return entry.id;
+		}
+		return null;
+	}, [entries, showLive, stream]);
+
+	const tailHasRunningTool = useMemo(() => {
+		if (!showLive || !working || tailAssistantId === null) return false;
+		for (let i = entries.length - 1; i >= 0; i--) {
+			const entry = entries[i]!;
+			if (entry.id !== tailAssistantId) continue;
+			if (entry.type !== "message" || entry.message.role !== "assistant") return false;
+			return entry.message.content.some(block => block.type === "toolCall" && !results.has(block.id));
+		}
+		return false;
+	}, [entries, results, showLive, tailAssistantId, working]);
 
 	const rootRef = useRef<HTMLDivElement | null>(null);
 	const followRef = useRef(!hasNewer);
@@ -550,7 +656,16 @@ export function Transcript(props: TranscriptProps): ReactNode {
 			)}
 			{entries.map(entry => (
 				<div key={entry.id} data-entry-id={entry.id}>
-					<EntryRow entry={entry} results={results} active={active} pairedToolIds={pairedToolIds} host={host} />
+					<EntryRow
+						entry={entry}
+						results={results}
+						active={active}
+						hasNewer={hasNewer}
+						working={working}
+						tailAssistantId={tailAssistantId}
+						pairedToolIds={pairedToolIds}
+						host={host}
+					/>
 				</div>
 			))}
 			{(loading === "newer" || loading === "latest") && (
@@ -573,6 +688,9 @@ export function Transcript(props: TranscriptProps): ReactNode {
 						results={results}
 						active={activeTools}
 						pending={!streamDone}
+						hasNewer={false}
+						working={working}
+						isTailAssistant
 						host={host}
 					/>
 				</div>
@@ -593,7 +711,7 @@ export function Transcript(props: TranscriptProps): ReactNode {
 					))}
 				</div>
 			)}
-			{showLive && working && stream === null && activeTools.size === 0 && (
+			{showLive && working && stream === null && activeTools.size === 0 && !tailHasRunningTool && (
 				<div className="tr-row tr-row--assistant">
 					<div className="tr-shimmer">thinking…</div>
 				</div>

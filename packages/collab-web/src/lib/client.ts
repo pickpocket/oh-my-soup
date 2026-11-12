@@ -424,12 +424,13 @@ export class GuestClient {
 	}
 
 	/**
-	 * Runs a slash command on the host; `text` starts with `/`. Its progress
-	 * shows in `commandRuns`. Returns false, recording no run, when the command
-	 * is too large for the relay (a notice says so).
+	 * Runs a slash command on the host; `text` starts with `/`. `agentId`
+	 * targets a subagent session (supported for `/btw`). Its progress shows in
+	 * `commandRuns`. Returns false, recording no run, when the command is too
+	 * large for the relay (a notice says so).
 	 */
-	runCommand(text: string): boolean {
-		return this.#commandSession.run(text);
+	runCommand(text: string, agentId?: string): boolean {
+		return this.#commandSession.run(text, agentId);
 	}
 
 	/** Asks the host to stop a running host command. */

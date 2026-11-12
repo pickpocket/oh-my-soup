@@ -348,4 +348,52 @@ describe("Transcript tool results across the retained window's ends", () => {
 		expect(countElements(html, '[aria-label="running"]')).toBe(0);
 		expect(countElements(html, ".tr-tool .tr-note")).toBe(1);
 	});
+
+	it("shows an unpaired call on the last assistant message at the live tail as running while working", () => {
+		const html = renderTranscript({
+			entries: [committedAssistantToolCall()],
+			working: true,
+			hasNewer: false,
+		});
+		expect(countElements(html, ".tv-card")).toBe(1);
+		expect(countElements(html, '[aria-label="running"]')).toBe(1);
+		expect(countElements(html, ".tr-tool .tr-note")).toBe(0);
+		expect(html).not.toContain("thinking…");
+	});
+
+	it("renders an unpaired call at the live tail with neither marker nor spinner when not working", () => {
+		const html = renderTranscript({
+			entries: [committedAssistantToolCall()],
+			working: false,
+			hasNewer: false,
+		});
+		expect(countElements(html, ".tv-card")).toBe(1);
+		expect(countElements(html, '[aria-label="running"]')).toBe(0);
+		expect(countElements(html, ".tr-tool .tr-note")).toBe(0);
+	});
+
+	it("does not spin an orphaned call on an older assistant message at the live tail", () => {
+		const newerAssistant: SessionEntry = {
+			type: "message",
+			id: "assistant-entry-2",
+			parentId: "assistant-entry-1",
+			timestamp: "2026-07-09T00:00:02Z",
+			message: {
+				role: "assistant",
+				content: [{ type: "text", text: "Moved on to the next turn." }],
+				model: "test/model",
+				usage: assistantUsage(),
+				stopReason: "stop",
+				timestamp: 3,
+			},
+		};
+		const html = renderTranscript({
+			entries: [committedAssistantToolCall(), newerAssistant],
+			working: true,
+			hasNewer: false,
+		});
+		expect(countElements(html, ".tv-card")).toBe(1);
+		expect(countElements(html, '[aria-label="running"]')).toBe(0);
+		expect(countElements(html, ".tr-tool .tr-note")).toBe(0);
+	});
 });

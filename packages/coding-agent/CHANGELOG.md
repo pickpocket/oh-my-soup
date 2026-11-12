@@ -23,6 +23,10 @@
 - Opening a large subagent transcript as a native collab guest no longer disconnects every guest, and a guest prompt too large to send is refused with an error instead of being lost.
 - Collab guests rejoin after the relay restarts even when they reconnect before the host has recreated the room.
 - `/collab` fails with the relay's reason when the relay refuses the room (full, at capacity, shutting down) instead of reporting a lost connection after printing an unusable link.
+- Collab sessions running many subagents no longer flood guests: subagent progress and running-tool updates are batched, ending the reconnects and slow-guest disconnects they caused.
+- The collab host no longer restarts the room as "relay went silent" while the relay is still pinging it or right after the terminal stalls.
+- Guests can ask `/btw` at the same time instead of failing with "A /btw question is still running", and a guest can ask a subagent with `/btw` from its panel.
+- Guests that join or reconnect see tools that are still running, and get the command list before the transcript, so a `/btw` typed right after joining runs as a command.
 
 - Fixed native HUD job metrics and hover-card discovery.
 

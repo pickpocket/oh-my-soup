@@ -411,8 +411,11 @@ export type GuestFrame =
 	 * chunks only while the unacknowledged ones stay within its window.
 	 */
 	| { t: "snapshot-ack"; chunks: number }
-	/** Run a slash command on the host; `text` starts with `/`. Full-control links only. */
-	| { t: "command"; reqId: number; text: string }
+	/**
+	 * Run a slash command on the host; `text` starts with `/`. Full-control links only.
+	 * `agentId` asks a subagent instead of the main session; only `/btw` accepts it.
+	 */
+	| { t: "command"; reqId: number; text: string; agentId?: string }
 	/** Stop a command that is still producing output (a streaming `/btw` answer). */
 	| { t: "command-cancel"; reqId: number }
 	/** Ask for argument completions for the draft `text` (`/name argument-prefix`). */

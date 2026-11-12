@@ -6,6 +6,7 @@
 
 - Slash commands in the composer: type `/` to complete and run the browser's own commands (`/help`, `/theme`, `/copy`, `/agents`, `/leave`) and, on a full-control link, the commands the host allows, with arguments such as the model list completed from the host.
 - `/btw` side questions stream their answer into a panel above the composer and can be cancelled.
+- `/btw` typed in a subagent's panel asks that subagent and shows the answer in the panel.
 - Works with the standalone `oms-relay` server, and the local development relay (`bun run relay`) now enforces its message limit, room limits and slow-guest eviction, plus `/healthz`.
 
 ### Changed
@@ -24,6 +25,8 @@
 - Preserved tool output across history-page boundaries by rendering unpaired results independently and identifying calls whose result is outside the current page.
 - A prompt or command too large for the relay is refused with an error and kept in the composer instead of disconnecting the browser and being lost.
 - The browser rejoins after the relay restarts even when it reconnects before the host has recreated the room.
+- "Result is outside the loaded part of the transcript." only appears when newer history really is not loaded; tools still running in the session or a subagent panel show as running.
+- Pressing Enter on `/btw` completes it to `/btw ` instead of sending it without a question.
 
 ## [18.8.0] - 2026-10-07
 

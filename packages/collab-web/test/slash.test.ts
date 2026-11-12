@@ -29,6 +29,7 @@ const HOST: CollabCommand[] = [
 		],
 		source: "builtin",
 	},
+	{ name: "btw", description: "Ask a side question", hint: "<question>", source: "builtin" },
 	{ name: "skill:review", description: "Review changes", source: "skill" },
 ];
 
@@ -107,7 +108,7 @@ describe("slash draft resolution", () => {
 describe("slash command listing and ranking", () => {
 	it("lists local commands first and drops host commands a local name shadows", () => {
 		const listed = names(listSlashCommands([...HOST, { name: "copy", source: "custom" }]));
-		expect(listed).toEqual([...names(LOCAL_COMMANDS), "model", "effort", "skill:review"]);
+		expect(listed).toEqual([...names(LOCAL_COMMANDS), "model", "effort", "btw", "skill:review"]);
 	});
 
 	it("ranks exact match, then name prefix, then alias prefix, then substring", () => {
@@ -219,6 +220,19 @@ describe("slash suggestion acceptance", () => {
 		expect(enterAcceptsSuggestion(complete, "model", HOST)).toBe(false);
 		// The reader moved the highlight off the command the draft names.
 		expect(enterAcceptsSuggestion(complete, "models-extra", HOST)).toBe(true);
+	});
+
+	it("accepts the suggestion on Enter when an exact command still needs a required <argument>", () => {
+		const bareBtw = slashContext("/btw", 4, HOST)!;
+		expect(enterAcceptsSuggestion(bareBtw, "btw", HOST)).toBe(true);
+		expect(completeSlashName("/btw", bareBtw.parsed, "btw")).toEqual({ draft: "/btw ", caret: 5 });
+
+		// Once an argument is present, Enter submits instead of rewriting the draft.
+		const withQuestion = slashContext("/btw why?", 9, HOST)!;
+		expect(withQuestion.kind).toBe("args");
+		expect(argumentSuggestions(HOST[2]!, withQuestion.parsed.args, [])).toEqual([]);
+		expect(enterAcceptsSuggestion(slashContext("/btw why?", 4, HOST)!, "btw", HOST)).toBe(false);
+		expect(enterAcceptsSuggestion(slashContext("/btw:why?", 9, HOST)!, "btw", HOST)).toBe(false);
 	});
 
 	it("lets Enter run a draft that already carries the highlighted argument", () => {

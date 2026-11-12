@@ -14,7 +14,6 @@ import type { AssistantMessage, ImageContent, TextContent } from "@oh-my-soup/pi
 import { logger, toError } from "@oh-my-soup/pi-utils";
 import { truncateHeadBytes } from "@oh-my-soup/pi-tui/tools/streaming-output";
 import {
-	type BusChannel,
 	COLLAB_HISTORY_BYTES,
 	COLLAB_HISTORY_ENTRIES,
 	type CollabCommand,
@@ -37,12 +36,16 @@ import type { RpcBtwHistoryRecord } from "../modes/rpc/rpc-types";
 import { buildSkillCommandPrompt } from "../modes/skill-command";
 import { AgentLifecycleManager } from "../registry/agent-lifecycle";
 import { type AgentRef, AgentRegistry } from "../registry/agent-registry";
-import type { AgentSessionEvent } from "../session/agent-session";
+import type { AgentSession, AgentSessionEvent } from "../session/agent-session";
 import { getBtwLatestTurn } from "../session/btw-history";
 import { stripImagesFromMessage, USER_INTERRUPT_LABEL } from "../session/messages";
 import type { SessionEntry as StoredSessionEntry } from "../session/session-entries";
 import type { ParsedSlashCommand, SlashCommandRuntime, SlashCommandSpec } from "../slash-commands/types";
-import { TASK_SUBAGENT_LIFECYCLE_CHANNEL, TASK_SUBAGENT_PROGRESS_CHANNEL } from "../task/types";
+import {
+	type SubagentProgressPayload,
+	TASK_SUBAGENT_LIFECYCLE_CHANNEL,
+	TASK_SUBAGENT_PROGRESS_CHANNEL,
+} from "../task/types";
 import { generateRoomKey, generateWriteToken, importRoomKey } from "./crypto";
 import { collabDisplayName } from "./display-name";
 import {
@@ -113,6 +116,7 @@ const STATE_DEBOUNCE_MS = 100;
 const AGENTS_DEBOUNCE_MS = 100;
 const STREAMING_STATE_INTERVAL_MS = 2000;
 const STREAM_COALESCE_MS = 50;
+const GUEST_PROGRESS_COALESCE_MS = 250;
 const WELCOME_IMAGE_STRIP_THRESHOLD = 24 * 1024 * 1024;
 const WIRE_AGENT_EVENT_TYPES: Record<WireAgentEvent["type"], true> = {
 	agent_start: true,
@@ -141,10 +145,6 @@ const WIRE_SESSION_ENTRY_TYPES: Record<WireSessionEntry["type"], true> = {
 	model_change: true,
 	thinking_level_change: true,
 };
-const COLLAB_BUS_CHANNELS = [
-	TASK_SUBAGENT_LIFECYCLE_CHANNEL,
-	TASK_SUBAGENT_PROGRESS_CHANNEL,
-] as const satisfies readonly BusChannel[];
 
 function isWireAgentEvent(event: AgentSessionEvent): event is AgentSessionEvent & WireAgentEvent {
 	return event.type in WIRE_AGENT_EVENT_TYPES;
@@ -212,6 +212,11 @@ interface ActiveCollabStream {
 	omitted: EncodedFrame | null;
 }
 
+interface TrackedToolExecution {
+	start: Extract<AgentSessionEvent, { type: "tool_execution_start" }>;
+	latestUpdate?: Extract<AgentSessionEvent, { type: "tool_execution_update" }>;
+}
+
 interface GuestPeer {
 	name: string;
 	canWrite: boolean;
@@ -233,6 +238,8 @@ interface GuestCommandRun {
 	streamed: boolean;
 	/** `/btw` only: UTF-8 bytes of answer deltas sent; past {@link COMMAND_OUTPUT_MAX_BYTES} the rest is dropped. */
 	deltaBytes: number;
+	/** `/btw` only: per-request controller owned by this run. */
+	btw?: RpcBtwController;
 }
 
 /** One `snapshot-chunk` frame and its UTF-8 size. */
@@ -364,14 +371,17 @@ export class CollabHost {
 	#messageSeq = 0;
 	#activeStream: ActiveCollabStream | null = null;
 	#streamTimer: Timer | null = null;
+	#pendingBusProgress = new Map<string, SubagentProgressPayload>();
+	#pendingToolUpdates = new Map<string, Extract<AgentSessionEvent, { type: "tool_execution_update" }>>();
+	#progressTimer: Timer | null = null;
+	#activeTools = new Map<string, TrackedToolExecution>();
 	/** Follows command-list changes once a full-control guest has been sent the list. */
 	#commandsUnsubscribe?: () => void;
 	/** Guest commands that have not ended yet. */
 	#commandRuns = new Set<GuestCommandRun>();
-	/** Headless `/btw` runner shared by guests: one side question at a time. */
-	#btw: RpcBtwController | undefined;
-	/** The run that holds the `/btw` runner's single question slot. */
-	#btwRun: GuestCommandRun | undefined;
+	/** Live `/btw` controllers (one per guest `/btw` run), retained until their checkpoint writes settle. */
+	#btwControllers = new Set<RpcBtwController>();
+	#btwClosers = new Map<RpcBtwController, Promise<void>>();
 	/** Argument completers for guests; rebuilt after the command list changes. */
 	#completeCommand: ((text: string) => Promise<CollabCompletion[]>) | undefined;
 
@@ -562,6 +572,7 @@ export class CollabHost {
 		socket.onClose = (reason, willReconnect) => {
 			this.#relayConnected = false;
 			this.#resetStreamBaseline();
+			this.#clearPendingProgress();
 			if (this.#stopping || this.#stopped) return;
 			if (!opened) {
 				// A close the socket would retry (unreachable relay, dropped handshake)
@@ -604,7 +615,9 @@ export class CollabHost {
 		// Frames are mirrored only while #broadcastAllowed() holds (at least one
 		// peer); a joining guest's welcome snapshot covers everything before that.
 		// The local registry work below is independent of this.
+		this.#seedActiveTools();
 		this.#unsubscribe = this.#ctx.session.subscribe(event => {
+			this.#trackToolExecution(event);
 			if (isWireAgentEvent(event)) this.#broadcastEvent(event);
 			this.#onEventForState(event);
 		});
@@ -614,17 +627,21 @@ export class CollabHost {
 		// wire a session bus — fall back to it so depth-1 frames keep flowing.
 		const observabilityBus = this.#ctx.subagentEventBus ?? this.#ctx.eventBus;
 		if (observabilityBus) {
-			for (const channel of COLLAB_BUS_CHANNELS) {
-				this.#busUnsubscribers.push(
-					observabilityBus.on(channel, data => {
-						if (this.#broadcastAllowed()) this.#send({ t: "bus", channel, data });
-					}),
-				);
-			}
+			this.#busUnsubscribers.push(
+				observabilityBus.on(TASK_SUBAGENT_PROGRESS_CHANNEL, data => {
+					this.#enqueueBusProgress(data as SubagentProgressPayload);
+				}),
+				observabilityBus.on(TASK_SUBAGENT_LIFECYCLE_CHANNEL, data => {
+					if (!this.#broadcastAllowed()) return;
+					this.#flushProgress();
+					this.#send({ t: "bus", channel: TASK_SUBAGENT_LIFECYCLE_CHANNEL, data });
+				}),
+			);
 		}
 		this.#registryUnsubscribe = AgentRegistry.global().onChange(() => this.#scheduleAgentsBroadcast());
 		this.#ctx.sessionManager.onEntryAppended = entry => {
 			if (isWireSessionEntry(entry) && this.#broadcastAllowed()) {
+				this.#flushProgress();
 				this.#flushStream();
 				const bounded = serializeReplicatedEntry(entry);
 				const shrunk = bounded.value;
@@ -691,6 +708,8 @@ export class CollabHost {
 	async #runStop(reason: string): Promise<void> {
 		this.#stopping = true;
 		this.#clearStream();
+		this.#clearPendingProgress();
+		this.#activeTools.clear();
 		this.#detachCommands();
 		// Leave the public slot at once: `/collab` must not re-print, and `/join`
 		// must not see as hosting, a room that already refuses frames.
@@ -717,6 +736,8 @@ export class CollabHost {
 		if (this.#stopped) return;
 		this.#stopped = true;
 		this.#clearStream();
+		this.#clearPendingProgress();
+		this.#activeTools.clear();
 		this.#detachCommands();
 		// A room that ended on its own (fatal relay close) reaches here without
 		// `#runStop`: leave the public slot before the first await as well.
@@ -763,10 +784,10 @@ export class CollabHost {
 		if (late) {
 			await late.close().catch(err => logger.warn("Collab host registry withdrawal failed", { error: String(err) }));
 		}
-		const btw = this.#btw;
-		this.#btw = undefined;
-		// Lands the cancelled question's final checkpoint in the session's BTW history.
-		await btw?.close().catch(err => logger.warn("Collab /btw history could not be saved", { error: String(err) }));
+		// Lands every running or finishing question's final checkpoint in BTW history.
+		if (this.#btwControllers.size > 0) {
+			await Promise.all([...this.#btwControllers].map(btw => this.#closeBtw(btw)));
+		}
 	}
 
 	/**
@@ -858,11 +879,13 @@ export class CollabHost {
 	#broadcastEvent(event: AgentSessionEvent): void {
 		if (!this.#guestTrafficAllowed()) {
 			this.#clearStream();
+			this.#clearPendingProgress();
 			return;
 		}
 		if (event.type === "message_update" && event.message.role === "assistant") {
 			if (this.#ctx.session.isSessionTransitioning) {
 				this.#clearStream();
+				this.#clearPendingProgress();
 				return;
 			}
 			const stream = this.#activeStream ?? this.#startStream(event.message);
@@ -873,6 +896,20 @@ export class CollabHost {
 			}
 			return;
 		}
+		if (event.type === "tool_execution_update") {
+			if (this.#ctx.session.isSessionTransitioning) {
+				this.#clearPendingProgress();
+				return;
+			}
+			if (!this.#broadcastAllowed() || !this.#relayConnected) return;
+			this.#pendingToolUpdates.set(event.toolCallId, event);
+			this.#scheduleProgressFlush();
+			return;
+		}
+		if (event.type === "tool_execution_end") {
+			this.#pendingToolUpdates.delete(event.toolCallId);
+		}
+		this.#flushProgress();
 		this.#flushStream();
 		if (event.type === "message_start" && event.message.role === "assistant") {
 			this.#startStream(event.message);
@@ -923,6 +960,141 @@ export class CollabHost {
 			return;
 		}
 		if (this.#activeStream?.pending && this.#broadcastAllowed() && this.#relayConnected) this.#emitStream();
+	}
+
+	#enqueueBusProgress(payload: SubagentProgressPayload): void {
+		if (!this.#guestTrafficAllowed() || this.#ctx.session.isSessionTransitioning) {
+			this.#clearPendingProgress();
+			return;
+		}
+		if (!this.#broadcastAllowed() || !this.#relayConnected) return;
+		const id = payload?.progress?.id;
+		if (typeof id !== "string" || id.length === 0) {
+			this.#send({ t: "bus", channel: TASK_SUBAGENT_PROGRESS_CHANNEL, data: payload });
+			return;
+		}
+		this.#pendingBusProgress.set(id, payload);
+		this.#scheduleProgressFlush();
+	}
+
+	#scheduleProgressFlush(): void {
+		if (this.#progressTimer || !this.#broadcastAllowed() || !this.#relayConnected) return;
+		this.#progressTimer = setTimeout(() => this.#flushProgress(), GUEST_PROGRESS_COALESCE_MS);
+	}
+
+	#clearPendingProgress(): void {
+		clearTimeout(this.#progressTimer ?? undefined);
+		this.#progressTimer = null;
+		this.#pendingBusProgress.clear();
+		this.#pendingToolUpdates.clear();
+	}
+
+	#flushProgress(): void {
+		clearTimeout(this.#progressTimer ?? undefined);
+		this.#progressTimer = null;
+		if (
+			!this.#guestTrafficAllowed() ||
+			this.#ctx.session.isSessionTransitioning ||
+			!this.#broadcastAllowed() ||
+			!this.#relayConnected
+		) {
+			this.#clearPendingProgress();
+			return;
+		}
+		if (this.#pendingBusProgress.size > 0) {
+			const pendingBus = [...this.#pendingBusProgress.values()];
+			this.#pendingBusProgress.clear();
+			for (const data of pendingBus) {
+				this.#send({ t: "bus", channel: TASK_SUBAGENT_PROGRESS_CHANNEL, data });
+			}
+		}
+		if (this.#pendingToolUpdates.size > 0) {
+			const pendingTools = [...this.#pendingToolUpdates.values()];
+			this.#pendingToolUpdates.clear();
+			const socket = this.#socket;
+			if (socket) {
+				for (const event of pendingTools) {
+					socket.send(encodeEventFrame(serializeReplicatedEvent(event).json));
+				}
+			}
+		}
+	}
+
+	#seedActiveTools(): void {
+		const session = this.#ctx.session;
+		const state = session.agent?.state;
+		const pendingIds = state?.pendingToolCalls;
+		if (!state || !pendingIds || pendingIds.size === 0) return;
+		const blocks = new Map<string, { name: string; args: unknown; intent?: string }>();
+		const messages = state.messages;
+		for (let i = messages.length - 1; i >= 0 && blocks.size < pendingIds.size; i--) {
+			const message = messages[i];
+			if (!message || message.role !== "assistant") continue;
+			for (const block of message.content) {
+				if (block.type === "toolCall" && pendingIds.has(block.id) && !blocks.has(block.id)) {
+					blocks.set(block.id, { name: block.name, args: block.arguments, intent: block.intent });
+				}
+			}
+		}
+		const updatesByCallId = new Map<string, Extract<AgentSessionEvent, { type: "tool_execution_update" }>>();
+		if (typeof session.activeToolExecutionUpdates === "function") {
+			for (const update of session.activeToolExecutionUpdates()) {
+				if (pendingIds.has(update.toolCallId)) updatesByCallId.set(update.toolCallId, update);
+			}
+		}
+		for (const toolCallId of pendingIds) {
+			const block = blocks.get(toolCallId);
+			const latestUpdate = updatesByCallId.get(toolCallId);
+			const toolName = block?.name ?? latestUpdate?.toolName;
+			if (!toolName) continue;
+			const start: Extract<AgentSessionEvent, { type: "tool_execution_start" }> = {
+				type: "tool_execution_start",
+				toolCallId,
+				toolName,
+				args: block ? block.args : latestUpdate?.args,
+				...(block?.intent !== undefined ? { intent: block.intent } : {}),
+			};
+			this.#activeTools.set(toolCallId, { start, latestUpdate });
+		}
+	}
+
+	#trackToolExecution(event: AgentSessionEvent): void {
+		if (!this.#sessionStillCurrent() || this.#ctx.session.isSessionTransitioning) {
+			this.#activeTools.clear();
+			return;
+		}
+		switch (event.type) {
+			case "tool_execution_start":
+				this.#activeTools.set(event.toolCallId, { start: event });
+				break;
+			case "tool_execution_update": {
+				const tracked = this.#activeTools.get(event.toolCallId);
+				if (tracked) tracked.latestUpdate = event;
+				break;
+			}
+			case "tool_execution_end":
+				this.#activeTools.delete(event.toolCallId);
+				break;
+			case "agent_end":
+				this.#activeTools.clear();
+				break;
+		}
+	}
+
+	/** Replays the main session's running tools to a joining peer, which reset its own view on `welcome`. */
+	#emitActiveTools(toPeer: number): void {
+		const socket = this.#socket;
+		if (!socket || this.#activeTools.size === 0) return;
+		if (!this.#sessionStillCurrent()) {
+			this.#activeTools.clear();
+			return;
+		}
+		for (const tracked of this.#activeTools.values()) {
+			socket.send(encodeEventFrame(serializeReplicatedEvent(tracked.start).json), toPeer);
+			if (tracked.latestUpdate) {
+				socket.send(encodeEventFrame(serializeReplicatedEvent(tracked.latestUpdate).json), toPeer);
+			}
+		}
 	}
 
 	#emitStream(toPeer = 0, forceBaseline = false): void {
@@ -1029,7 +1201,7 @@ export class CollabHost {
 			// provisional session switch suspends the room: each handler checks
 			// that state itself before it reads anything.
 			if (this.ending) return;
-			if (frame.t === "command") this.#handleCommand(frame.reqId, frame.text, fromPeer);
+			if (frame.t === "command") this.#handleCommand(frame.reqId, frame.text, frame.agentId, fromPeer);
 			else if (frame.t === "command-cancel") this.#handleCommandCancel(frame.reqId, fromPeer);
 			else if (frame.t === "complete") void this.#handleComplete(frame.reqId, frame.text, fromPeer);
 			else void this.#handleFetchTranscriptPage(frame.reqId, frame.agentId, frame.cursor, fromPeer);
@@ -1112,6 +1284,7 @@ export class CollabHost {
 		// pre-welcome delta is ignored there; the new peer's targeted baseline
 		// follows its welcome, and the guest holds it, like every later frame,
 		// until its snapshot is in place.
+		this.#flushProgress();
 		this.#flushStream();
 		if (!this.#guestTrafficAllowed()) return;
 		const cleanName = name.trim().slice(0, 64) || `guest-${fromPeer}`;
@@ -1145,14 +1318,15 @@ export class CollabHost {
 			},
 			fromPeer,
 		);
+		if (canWrite) this.#sendCommands(fromPeer);
 		this.#startSnapshotLane(fromPeer, this.#snapshotChunks(snapshotEntries.json, snapshotEntries.bytes));
 		this.#emitStream(fromPeer, true);
+		this.#emitActiveTools(fromPeer);
 		if (canWrite) {
 			for (const pending of this.#pendingUi.values()) {
 				if (pending.responsePending) continue;
 				this.#send({ t: "ui-request", request: pending.request }, fromPeer);
 			}
-			this.#sendCommands(fromPeer);
 		}
 		this.#ctx.session.emitNotice(
 			"info",
@@ -1525,6 +1699,7 @@ export class CollabHost {
 	#handleRoomRecreated(): void {
 		if (this.#stopped) return;
 		this.#resetStreamBaseline();
+		this.#clearPendingProgress();
 		this.#dropSnapshotLanes();
 		if (this.#peers.size === 0 && this.#pendingUi.size === 0) return;
 		// Identities first: settle() fans `ui-request-end` out over #peers, and those
@@ -1548,7 +1723,10 @@ export class CollabHost {
 		this.#peers.delete(peer);
 		this.#dropSnapshotLane(peer);
 		this.#detachCommands(peer);
-		if (this.#peers.size === 0) this.#resetStreamBaseline();
+		if (this.#peers.size === 0) {
+			this.#resetStreamBaseline();
+			this.#clearPendingProgress();
+		}
 		// Relay controls arrive outside the normal frame handler.
 		if (!this.#guestTrafficAllowed()) return;
 		if (name) this.#ctx.session.emitNotice("info", `${name} left the collab session`, "collab");
@@ -1774,7 +1952,7 @@ export class CollabHost {
 	}
 
 	/** Run a guest's slash command on the host; every request ends with exactly one `command-end`. */
-	#handleCommand(reqId: number, text: string, fromPeer: number): void {
+	#handleCommand(reqId: number, text: string, agentId: string | undefined, fromPeer: number): void {
 		const refuse = (message: string): void =>
 			this.#reply({ t: "command-end", reqId, status: "error", message }, fromPeer);
 		const peer = this.#peers.get(fromPeer);
@@ -1794,6 +1972,13 @@ export class CollabHost {
 			logger.warn("collab guest command could not be resolved", { error: String(err) });
 			return refuse(toError(err).message);
 		}
+		if (agentId !== undefined) {
+			if (typeof agentId !== "string" || !agentId.trim()) return refuse("Invalid agent id");
+			if (route.kind !== "btw") return refuse("Only /btw can run in an agent panel");
+			if (AgentRegistry.global().get(agentId)?.kind === "advisor") {
+				return refuse(`agent ${agentId}: advisor transcripts are read-only`);
+			}
+		}
 		if (route.kind === "host-only") return refuse(`/${route.name} is host-only`);
 		if (route.kind === "unknown") return refuse(`Unknown command: /${route.name}`);
 		if (route.kind === "btw" && !route.question) return refuse("Usage: /btw <question>");
@@ -1812,7 +1997,7 @@ export class CollabHost {
 		session.emitNotice("info", `${peer.name} ran /${route.name}`, "collab");
 		switch (route.kind) {
 			case "btw":
-				void this.#runBtw(run, route.question);
+				void this.#runBtw(run, route.question, agentId);
 				break;
 			case "builtin":
 				void this.#runBuiltin(run, route.spec, route.parsed);
@@ -2016,47 +2201,105 @@ export class CollabHost {
 	}
 
 	/** `/btw <question>`: the answer streams to the asking guest and is saved to the session's BTW history. */
-	async #runBtw(run: GuestCommandRun, question: string): Promise<void> {
-		const btw = (this.#btw ??= new RpcBtwController(this.#ctx.session, frame => {
-			if (frame.type === "btw_delta") this.#onBtwDelta(frame.delta);
-			else if (frame.type === "btw_record") this.#onBtwRecord(frame.record);
-			// A history checkpoint that could not be saved is the host's to know about.
-			else this.#ctx.session.emitNotice(frame.level, frame.message, frame.source);
-		}));
-		// The runner answers one question at a time; while another run holds the slot, `ask` refuses.
-		this.#btwRun ??= run;
+	async #runBtw(run: GuestCommandRun, question: string, agentId: string | undefined): Promise<void> {
+		let targetSession: Pick<AgentSession, "model" | "runEphemeralTurn" | "sessionManager"> = this.#ctx.session;
+		let historyScope: string | undefined;
+		if (agentId !== undefined) {
+			const abortWait = Promise.withResolvers<never>();
+			abortWait.promise.catch(() => {});
+			const onAbort = (): void => abortWait.reject(new Error("cancelled"));
+			run.abort.signal.addEventListener("abort", onAbort, { once: true });
+			try {
+				const resolved = await Promise.race([
+					AgentLifecycleManager.global().ensureLive(agentId),
+					abortWait.promise,
+				]);
+				if (run.ended) return;
+				if (run.cancelled) {
+					this.#endCommand(run, "cancelled");
+					return;
+				}
+				if (
+					!this.#guestTrafficAllowed() ||
+					!this.#guestActionsReady() ||
+					this.#ctx.session.isSessionTransitioning
+				) {
+					this.#endCommand(run, "error", "Commands are unavailable until the session transition completes");
+					return;
+				}
+				targetSession = resolved;
+				if (resolved !== this.#ctx.session) {
+					historyScope = resolved.sessionManager.getSessionId();
+				}
+			} catch (err) {
+				if (run.ended) return;
+				if (run.cancelled) this.#endCommand(run, "cancelled");
+				else this.#endCommand(run, "error", `agent ${agentId}: ${toError(err).message}`);
+				return;
+			} finally {
+				run.abort.signal.removeEventListener("abort", onAbort);
+			}
+		}
+		const btw = new RpcBtwController(
+			targetSession,
+			frame => {
+				if (frame.type === "btw_delta") {
+					if (!run.ended && frame.delta) {
+						this.#commandOutput(run, frame.delta, true);
+						run.streamed = true;
+					}
+				} else if (frame.type === "btw_record") this.#onBtwRecord(run, btw, frame.record);
+				// A history checkpoint that could not be saved is the host's to know about.
+				else this.#ctx.session.emitNotice(frame.level, frame.message, frame.source);
+			},
+			historyScope === undefined
+				? undefined
+				: { historyScope, artifactsDir: this.#ctx.sessionManager.getArtifactsDir() },
+		);
+		run.btw = btw;
+		this.#btwControllers.add(btw);
 		try {
 			await btw.ask(question);
 		} catch (err) {
-			if (this.#btwRun === run) this.#btwRun = undefined;
+			void this.#closeBtw(btw);
 			// A cancel that lands while the question is still starting surfaces as a rejection.
 			if (run.cancelled) this.#endCommand(run, "cancelled");
 			else this.#endCommand(run, "error", toError(err).message);
 		}
 	}
 
-	#onBtwDelta(delta: string): void {
-		const run = this.#btwRun;
-		if (!run || !delta) return;
-		this.#commandOutput(run, delta, true);
-		run.streamed = true;
-	}
-
-	/** Every lifecycle change of the running question; a terminal status ends its command. */
-	#onBtwRecord(record: RpcBtwHistoryRecord): void {
-		const run = this.#btwRun;
-		if (!run) return;
+	/** Every lifecycle change of a running question; a terminal status ends its command and closes its controller. */
+	#onBtwRecord(run: GuestCommandRun, btw: RpcBtwController, record: RpcBtwHistoryRecord): void {
 		const turn = getBtwLatestTurn(record);
 		if (turn.status === "running") return;
-		this.#btwRun = undefined;
-		if (turn.status === "complete") {
-			if (!run.streamed) this.#commandOutput(run, turn.answer);
-			this.#endCommand(run, "done");
-		} else if (turn.status === "cancelled") {
-			this.#endCommand(run, "cancelled");
-		} else {
-			this.#endCommand(run, "error", turn.error ?? "The /btw question was interrupted");
+		if (!run.ended) {
+			if (turn.status === "complete") {
+				if (!run.streamed) this.#commandOutput(run, turn.answer);
+				this.#endCommand(run, "done");
+			} else if (turn.status === "cancelled") {
+				this.#endCommand(run, "cancelled");
+			} else {
+				this.#endCommand(run, "error", turn.error ?? "The /btw question was interrupted");
+			}
 		}
+		void this.#closeBtw(btw);
+	}
+
+	#closeBtw(btw: RpcBtwController): Promise<void> {
+		const existing = this.#btwClosers.get(btw);
+		if (existing) return existing;
+		const deferred = Promise.withResolvers<void>();
+		this.#btwClosers.set(btw, deferred.promise);
+		btw.cancel();
+		void Promise.resolve()
+			.then(() => btw.close())
+			.catch(err => logger.warn("Collab /btw history could not be saved", { error: String(err) }))
+			.finally(() => {
+				this.#btwControllers.delete(btw);
+				this.#btwClosers.delete(btw);
+				deferred.resolve();
+			});
+		return deferred.promise;
 	}
 
 	/** `command-cancel`: unknown and finished requests are ignored. */
@@ -2065,7 +2308,7 @@ export class CollabHost {
 			if (run.reqId !== reqId || run.peerId !== fromPeer || this.#peers.get(fromPeer) !== run.peer) continue;
 			run.cancelled = true;
 			run.abort.abort();
-			if (this.#btwRun === run) this.#btw?.cancel();
+			run.btw?.cancel();
 		}
 	}
 
@@ -2080,7 +2323,7 @@ export class CollabHost {
 			run.ended = true;
 			this.#commandRuns.delete(run);
 			run.abort.abort();
-			if (this.#btwRun === run) this.#btw?.cancel();
+			if (run.btw) void this.#closeBtw(run.btw);
 		}
 	}
 

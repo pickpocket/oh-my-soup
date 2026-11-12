@@ -302,11 +302,11 @@ function handleHello(name: string, proto: number, fromPeer: number, history?: "p
 		},
 		fromPeer,
 	);
+	sendFrame(mockCommands.catalogFrame(), fromPeer);
 	sendFrame({ t: "snapshot-chunk", entries: selected?.entries ?? [...entries], final: true }, fromPeer);
 	if (streamMessage !== null) {
 		sendFrame({ t: "stream", id: streamId, revision: streamRevision, message: streamMessage }, fromPeer);
 	}
-	sendFrame(mockCommands.catalogFrame(), fromPeer);
 	console.log(`mock-host: ${cleanName} joined (peer ${fromPeer})`);
 	broadcastState();
 }
@@ -343,6 +343,26 @@ function handleAbort(fromPeer: number): void {
 
 function handleAgentCmd(cmd: string, agentId: string, fromPeer: number): void {
 	notice("info", `${peerName(fromPeer)} sent agent-cmd ${cmd} → ${agentId}`);
+}
+
+function handleCommand(reqId: number, text: string, fromPeer: number, agentId?: string): void {
+	if (agentId !== undefined) {
+		const agent = agents.find(candidate => candidate.id === agentId);
+		if (!agent) {
+			sendFrame({ t: "command-end", reqId, status: "error", message: `Unknown agent: ${agentId}` }, fromPeer);
+			return;
+		}
+		const trimmed = text.trim();
+		if (!/^\/btw(?:$|\s|:)/.test(trimmed)) {
+			sendFrame({ t: "command-end", reqId, status: "error", message: "Only /btw can target a subagent" }, fromPeer);
+			return;
+		}
+		const question = trimmed.replace(/^\/btw(?::|\s+)?/, "").trim();
+		if (question !== "") {
+			sendFrame({ t: "command-output", reqId, text: `*Agent \`${agent.displayName}\`:* `, delta: true }, fromPeer);
+		}
+	}
+	mockCommands.handleCommand(reqId, text, fromPeer);
 }
 
 function handleFetchTranscriptPage(reqId: number, agentId: string, cursor: TranscriptCursor, fromPeer: number): void {
@@ -400,7 +420,7 @@ function handleFrame(frame: WireFrame, fromPeer: number): void {
 			break;
 		}
 		case "command":
-			mockCommands.handleCommand(frame.reqId, frame.text, fromPeer);
+			handleCommand(frame.reqId, frame.text, fromPeer, frame.agentId);
 			break;
 		case "command-cancel":
 			mockCommands.handleCancel(frame.reqId, fromPeer);

@@ -3,7 +3,12 @@
 use std::{
 	io,
 	net::{IpAddr, SocketAddr, TcpListener as StdTcpListener},
-	sync::Arc,
+	pin::Pin,
+	sync::{
+		Arc,
+		atomic::{AtomicU64, Ordering},
+	},
+	task::{Context, Poll},
 	thread,
 	time::Duration,
 };
@@ -33,16 +38,17 @@ use hyper_util::{
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use tokio::{
+	io::{AsyncRead, AsyncWrite, ReadBuf},
 	net::{TcpListener, TcpStream},
-	sync::{OwnedSemaphorePermit, Semaphore, mpsc, watch},
+	sync::{OwnedSemaphorePermit, Semaphore, watch},
 	task::JoinSet,
-	time::{Instant, MissedTickBehavior, interval, timeout},
+	time::{Instant, MissedTickBehavior, interval_at, timeout, timeout_at},
 };
 use tokio_util::task::TaskTracker;
 
 use crate::relay::{
-	self, MAX_MESSAGE_BYTES, Membership, Outbound, OutboundBudget, Peer, RelayRoomStore,
-	SessionClose,
+	self, DEFAULT_OUTBOUND_BYTES, MAX_MESSAGE_BYTES, MIN_OUTBOUND_BYTES, Membership, Outgoing,
+	RelayRoomStore, SessionClose,
 };
 
 pub const DEFAULT_PORT: u16 = 8787;
@@ -51,15 +57,20 @@ const MAX_HTTP_HEADER_BYTES: usize = 32 * 1024;
 const HTTP_HEADER_TIMEOUT: Duration = Duration::from_secs(10);
 const HTTP_REQUEST_TIMEOUT: Duration = Duration::from_secs(15);
 const HTTP_CONNECTION_TIMEOUT: Duration = Duration::from_secs(30);
-const WRITE_TIMEOUT: Duration = Duration::from_secs(5);
+const CLOSE_WRITE_TIMEOUT: Duration = Duration::from_secs(5);
 const CLOSE_HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(1);
 const SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(3);
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(15);
 const SILENCE_LIMIT: Duration = Duration::from_secs(45);
+// Longer than a busy browser tab, a Wi-Fi roam or TCP's retransmission backoff
+// keeps a live receiver from taking anything; shorter than the clients' 40-second
+// silence rule and the idle rule above, so a wedged receiver is retired, and a
+// host's room freed for its reconnect, before either of those would act.
+const DEFAULT_STALL_TIMEOUT: Duration = Duration::from_secs(20);
 const PENDING_CONNECTIONS: usize = 64;
 const WRITE_BUFFER_BYTES: usize = 64 * 1024;
-const WRITE_BATCH_MESSAGES: usize = 32;
-const WRITE_BATCH_BYTES: usize = 256 * 1024;
+// One socket write's worth. A heartbeat waits behind at most one such batch.
+const WRITE_BATCH_BYTES: usize = WRITE_BUFFER_BYTES;
 const READ_YIELD_MESSAGES: usize = 16;
 const READ_YIELD_BYTES: usize = 64 * 1024;
 
@@ -69,6 +80,12 @@ pub struct RelayConfig {
 	pub hostname: String,
 	pub max_rooms: usize,
 	pub max_guests_per_room: usize,
+	/// Bound on one peer's queued and unflushed outbound bytes. A peer that falls
+	/// further behind is closed with 1013.
+	pub max_outbound_bytes: usize,
+	/// How long a peer's socket may accept no bytes while output is pending
+	/// before the peer is closed with 1013.
+	pub stall_timeout: Duration,
 }
 
 impl Default for RelayConfig {
@@ -78,6 +95,8 @@ impl Default for RelayConfig {
 			hostname: "127.0.0.1".to_owned(),
 			max_rooms: 1024,
 			max_guests_per_room: 16,
+			max_outbound_bytes: DEFAULT_OUTBOUND_BYTES,
+			stall_timeout: DEFAULT_STALL_TIMEOUT,
 		}
 	}
 }
@@ -96,6 +115,14 @@ impl RelayConfig {
 			if count == 0 || count > u32::MAX as usize {
 				return Err(invalid(&format!("{name} must be a positive uint32")));
 			}
+		}
+		if self.max_outbound_bytes < MIN_OUTBOUND_BYTES {
+			return Err(invalid(&format!(
+				"max_outbound_bytes must be at least {MIN_OUTBOUND_BYTES}, two maximum-size messages"
+			)));
+		}
+		if self.stall_timeout.is_zero() {
+			return Err(invalid("stall_timeout must be positive"));
 		}
 		self.connection_limit()?;
 		Ok(())
@@ -160,10 +187,93 @@ struct ServerState {
 	relay: RelayRoomStore,
 	sessions: TaskTracker,
 	shutdown: watch::Receiver<bool>,
+	stall_timeout: Duration,
 }
 
 struct ConnectionLease {
 	_permit: OwnedSemaphorePermit,
+	written: WriteProgress,
+}
+
+/// When a connection's socket last accepted outbound bytes. Only the socket can
+/// tell a slow receiver from a stalled one: a WebSocket flush is all-or-nothing.
+struct WriteProgress {
+	epoch: Instant,
+	micros: AtomicU64,
+}
+
+impl WriteProgress {
+	fn new() -> Self {
+		Self {
+			epoch: Instant::now(),
+			micros: AtomicU64::new(0),
+		}
+	}
+
+	fn record(&self) {
+		self.micros
+			.store(self.epoch.elapsed().as_micros() as u64, Ordering::Relaxed);
+	}
+
+	fn last(&self) -> Instant {
+		self.epoch + Duration::from_micros(self.micros.load(Ordering::Relaxed))
+	}
+}
+
+struct LeasedStream {
+	stream: TcpStream,
+	lease: Arc<ConnectionLease>,
+}
+
+impl LeasedStream {
+	fn wrote(&self, result: Poll<io::Result<usize>>) -> Poll<io::Result<usize>> {
+		if matches!(result, Poll::Ready(Ok(1..))) {
+			self.lease.written.record();
+		}
+		result
+	}
+}
+
+impl AsyncRead for LeasedStream {
+	fn poll_read(
+		mut self: Pin<&mut Self>,
+		context: &mut Context<'_>,
+		buffer: &mut ReadBuf<'_>,
+	) -> Poll<io::Result<()>> {
+		Pin::new(&mut self.stream).poll_read(context, buffer)
+	}
+}
+
+impl AsyncWrite for LeasedStream {
+	fn poll_write(
+		mut self: Pin<&mut Self>,
+		context: &mut Context<'_>,
+		buffer: &[u8],
+	) -> Poll<io::Result<usize>> {
+		let result = Pin::new(&mut self.stream).poll_write(context, buffer);
+		self.wrote(result)
+	}
+
+	fn poll_write_vectored(
+		mut self: Pin<&mut Self>,
+		context: &mut Context<'_>,
+		buffers: &[io::IoSlice<'_>],
+	) -> Poll<io::Result<usize>> {
+		let result = Pin::new(&mut self.stream).poll_write_vectored(context, buffers);
+		self.wrote(result)
+	}
+
+	fn is_write_vectored(&self) -> bool {
+		self.stream.is_write_vectored()
+	}
+
+	fn poll_flush(mut self: Pin<&mut Self>, context: &mut Context<'_>) -> Poll<io::Result<()>> {
+		Pin::new(&mut self.stream).poll_flush(context)
+	}
+
+	fn poll_shutdown(mut self: Pin<&mut Self>, context: &mut Context<'_>) -> Poll<io::Result<()>> {
+		Pin::new(&mut self.stream).poll_shutdown(context)
+	}
 }
 
 pub struct RelayServer {
@@ -185,9 +295,14 @@ impl RelayServer {
 		let addr = listener.local_addr()?;
 		let (shutdown, shutdown_rx) = watch::channel(false);
 		let state = Arc::new(ServerState {
-			relay: RelayRoomStore::new(config.max_rooms, config.max_guests_per_room),
+			relay: RelayRoomStore::new(
+				config.max_rooms,
+				config.max_guests_per_room,
+				config.max_outbound_bytes,
+			),
 			sessions: TaskTracker::new(),
 			shutdown: shutdown_rx.clone(),
+			stall_timeout: config.stall_timeout,
 		});
 		let thread_state = Arc::clone(&state);
 		let (ready, started) = std::sync::mpsc::sync_channel(1);
@@ -263,6 +378,12 @@ impl RelayServer {
 		self.state.relay.room_count()
 	}
 
+	/// Bytes held for delivery across every connection: queued frames plus
+	/// frames a socket has not accepted yet.
+	pub fn queued_bytes(&self) -> usize {
+		self.state.relay.queued_bytes()
+	}
+
 	pub fn close(&self) {
 		let mut thread = self.thread.lock();
 		if let Some(handle) = thread.take() {
@@ -300,8 +421,9 @@ async fn run_server(
 					Ok((stream, _)) => {
 						let Ok(permit) = Arc::clone(&slots).try_acquire_owned() else { drop(stream); continue; };
 						let _ = stream.set_nodelay(true);
-						let service = router.clone().layer(Extension(Arc::new(ConnectionLease { _permit: permit })));
-						connections.spawn(serve_connection(stream, service, shutdown.clone()));
+						let lease = Arc::new(ConnectionLease { _permit: permit, written: WriteProgress::new() });
+						let service = router.clone().layer(Extension(Arc::clone(&lease)));
+						connections.spawn(serve_connection(LeasedStream { stream, lease }, service, shutdown.clone()));
 					},
 					Err(error) => {
 						eprintln!("relay accept failed: {error}");
@@ -324,7 +446,11 @@ async fn run_server(
 	}
 }
 
-async fn serve_connection(stream: TcpStream, router: Router, mut shutdown: watch::Receiver<bool>) {
+async fn serve_connection(
+	stream: LeasedStream,
+	router: Router,
+	mut shutdown: watch::Receiver<bool>,
+) {
 	if *shutdown.borrow() {
 		return;
 	}
@@ -462,7 +588,12 @@ async fn room_socket(
 		return text(StatusCode::BAD_REQUEST, "invalid Sec-WebSocket-Key");
 	}
 	let (mut parts, _) = request.into_parts();
-	let lease = parts.extensions.get::<Arc<ConnectionLease>>().cloned();
+	let Some(lease) = parts.extensions.get::<Arc<ConnectionLease>>().cloned() else {
+		return text(
+			StatusCode::INTERNAL_SERVER_ERROR,
+			"connection is not tracked",
+		);
+	};
 	let websocket = match WebSocketUpgrade::from_request_parts(&mut parts, &state).await {
 		Ok(websocket) => websocket,
 		Err(rejection) => return rejection.into_response(),
@@ -475,8 +606,7 @@ async fn room_socket(
 		.max_write_buffer_size(MAX_MESSAGE_BYTES + WRITE_BUFFER_BYTES + 1024)
 		.on_upgrade(move |socket| async move {
 			let _token = session_token;
-			let _lease = lease;
-			websocket_session(socket, state, room, is_host).await;
+			websocket_session(socket, state, room, is_host, lease).await;
 		})
 }
 
@@ -517,8 +647,9 @@ async fn websocket_session(
 	state: Arc<ServerState>,
 	room: String,
 	is_host: bool,
+	lease: Arc<ConnectionLease>,
 ) {
-	let (peer, mut outgoing, mut close) = Peer::channel();
+	let (peer, mut outgoing, mut close) = state.relay.peer();
 	let member = match state.relay.register(&room, is_host, Arc::clone(&peer)) {
 		Ok(member) => member,
 		Err(error) => {
@@ -531,13 +662,15 @@ async fn websocket_session(
 		member,
 	};
 	let mut shutdown = state.shutdown.clone();
-	// Keep the charged budget outside the cancellable writer future and drop
-	// it after the socket even on task cancellation, not merely after dequeue.
-	let mut in_flight = None;
 	let (mut sink, mut stream) = socket.split();
 	let end = {
-		let reader = read_session(&mut stream, &registration.member, &peer);
-		let writer = write_session(&mut sink, &mut outgoing, &mut in_flight);
+		let reader = read_session(&mut stream, &registration.member);
+		let writer = write_session(
+			&mut sink,
+			&mut outgoing,
+			&lease.written,
+			state.stall_timeout,
+		);
 		tokio::pin!(reader, writer);
 		let end = loop {
 			if let Some(reason) = *close.borrow() {
@@ -568,41 +701,34 @@ async fn websocket_session(
 		});
 		end
 	};
-	// No further routing can enqueue into this session. Queued frames are
-	// discarded; sink-buffered frames stay charged through the close flush.
-	drop(outgoing);
+	// Closing discarded the queue, and no further routing can enqueue into this
+	// session. Frames the sink still holds stay charged until the socket is gone.
 	drop(registration);
 	let mut socket = sink.reunite(stream).expect("matching WebSocket halves");
 	match end {
 		SessionEnd::Close(reason) => close_socket(&mut socket, reason).await,
 		SessionEnd::PeerClosed => {
-			let _ = timeout(WRITE_TIMEOUT, socket.flush()).await;
+			let _ = timeout(CLOSE_WRITE_TIMEOUT, socket.flush()).await;
 		}
 		SessionEnd::Disconnected => {}
 	}
 	drop(socket);
-	drop(in_flight);
+	drop(outgoing);
 }
 
-async fn read_session(
-	stream: &mut SplitStream<WebSocket>,
-	member: &Membership,
-	peer: &Peer,
-) -> SessionEnd {
-	let mut heartbeat = interval(HEARTBEAT_INTERVAL);
-	heartbeat.set_missed_tick_behavior(MissedTickBehavior::Skip);
-	heartbeat.tick().await;
+async fn read_session(stream: &mut SplitStream<WebSocket>, member: &Membership) -> SessionEnd {
+	// The first check is one interval away: waiting out an immediate first tick
+	// would hold the first read for a timer's granularity.
+	let mut idle = interval_at(Instant::now() + HEARTBEAT_INTERVAL, HEARTBEAT_INTERVAL);
+	idle.set_missed_tick_behavior(MissedTickBehavior::Skip);
 	let mut last_heard = Instant::now();
 	let mut messages = 0;
 	let mut bytes = 0;
 	loop {
 		tokio::select! {
-			_ = heartbeat.tick() => {
+			_ = idle.tick() => {
 				if last_heard.elapsed() >= SILENCE_LIMIT {
 					return SessionEnd::Close(SessionClose::Rejected(1001, "idle timeout"));
-				}
-				if !peer.enqueue(Message::Ping(Bytes::new())).await {
-					return SessionEnd::Disconnected;
 				}
 			},
 			message = stream.next() => {
@@ -615,7 +741,10 @@ async fn read_session(
 				messages += 1;
 				bytes += relay::message_length(&message);
 				match message {
-					Message::Binary(payload) => member.route(payload).await,
+					// Routing never waits for a receiver, so this loop always returns
+					// to the socket: the sender's pings are answered whatever its
+					// receivers are doing.
+					Message::Binary(payload) => member.route(payload),
 					Message::Close(_) => return SessionEnd::PeerClosed,
 					// The next read/flush sends Tungstenite's automatic pong.
 					// A queued manual pong could duplicate it with split I/O.
@@ -624,8 +753,7 @@ async fn read_session(
 				if messages >= READ_YIELD_MESSAGES || bytes >= READ_YIELD_BYTES {
 					messages = 0;
 					bytes = 0;
-					// Socket cooperative budgets can exceed the entire outgoing queue.
-					// Yield explicitly even while every read and route is ready.
+					// A sender that is always readable must still let writers run.
 					tokio::task::yield_now().await;
 				}
 			},
@@ -635,53 +763,71 @@ async fn read_session(
 
 async fn write_session(
 	sink: &mut SplitSink<WebSocket, Message>,
-	outgoing: &mut mpsc::Receiver<Outbound>,
-	in_flight: &mut Option<OutboundBudget>,
+	outgoing: &mut Outgoing,
+	written: &WriteProgress,
+	stall_timeout: Duration,
 ) -> SessionEnd {
-	while let Some(first) = outgoing.recv().await {
-		let batch = async {
-			let mut outbound = first;
-			let mut messages = 0;
-			let mut bytes = 0;
-			loop {
-				let (message, budget) = outbound.into_parts();
-				messages += 1;
-				bytes += budget.byte_count();
-				match in_flight {
-					Some(held) => held.merge(budget),
-					None => *in_flight = Some(budget),
-				}
-				sink.feed(message).await?;
-				if messages >= WRITE_BATCH_MESSAGES || bytes >= WRITE_BATCH_BYTES {
-					break;
-				}
-				match outgoing.try_recv() {
-					Ok(next) => outbound = next,
-					Err(_) => break,
-				}
-			}
-			// Drain only already-ready frames: there is no batching timer or
-			// minimum fill, so an isolated message is flushed immediately.
-			sink.flush().await?;
-			drop(in_flight.take());
-			Ok::<_, axum::Error>(messages >= WRITE_BATCH_MESSAGES || bytes >= WRITE_BATCH_BYTES)
+	let mut heartbeat = interval_at(Instant::now() + HEARTBEAT_INTERVAL, HEARTBEAT_INTERVAL);
+	heartbeat.set_missed_tick_behavior(MissedTickBehavior::Skip);
+	let mut batch = Vec::new();
+	loop {
+		// The heartbeat never enters the data queue: it is written ahead of every
+		// queued frame, and no backlog can refuse it or count it against the peer.
+		let ping = tokio::select! {
+			biased;
+			_ = heartbeat.tick() => true,
+			() = outgoing.ready() => false,
 		};
-		match timeout(WRITE_TIMEOUT, batch).await {
-			Ok(Ok(full_batch)) => {
-				if full_batch {
-					tokio::task::yield_now().await;
-				}
+		// Take only what is already queued: there is no batching timer or
+		// minimum fill, so an isolated message is flushed immediately.
+		let full = outgoing.take(&mut batch, WRITE_BATCH_BYTES);
+		let write = async {
+			if ping {
+				sink.feed(Message::Ping(Bytes::new())).await?;
 			}
-			Ok(Err(_)) => return SessionEnd::Disconnected,
-			Err(_) => return SessionEnd::Close(SessionClose::SlowConsumer),
+			for message in batch.drain(..) {
+				sink.feed(message).await?;
+			}
+			sink.flush().await
+		};
+		match until_stalled(written, stall_timeout, write).await {
+			Some(Ok(())) => outgoing.flushed(),
+			Some(Err(_)) => return SessionEnd::Disconnected,
+			None => return SessionEnd::Close(SessionClose::Stalled),
+		}
+		if full {
+			tokio::task::yield_now().await;
 		}
 	}
-	SessionEnd::Disconnected
+}
+
+/// Drives a socket write until it finishes or the socket has accepted no bytes
+/// for `limit`. A slow receiver keeps moving the deadline; only a stalled one,
+/// however little is pending, reaches it.
+async fn until_stalled<F: Future>(
+	written: &WriteProgress,
+	limit: Duration,
+	write: F,
+) -> Option<F::Output> {
+	tokio::pin!(write);
+	let mut deadline = Instant::now() + limit;
+	loop {
+		match timeout_at(deadline, &mut write).await {
+			Ok(output) => return Some(output),
+			Err(_) => {
+				let progressed = written.last() + limit;
+				if progressed <= deadline {
+					return None;
+				}
+				deadline = progressed;
+			}
+		}
+	}
 }
 
 async fn send_message(socket: &mut WebSocket, message: Message) -> bool {
 	matches!(
-		timeout(WRITE_TIMEOUT, socket.send(message)).await,
+		timeout(CLOSE_WRITE_TIMEOUT, socket.send(message)).await,
 		Ok(Ok(()))
 	)
 }
@@ -808,6 +954,65 @@ mod tests {
 			.validate()
 			.is_err()
 		);
+		assert!(
+			RelayConfig {
+				max_outbound_bytes: MIN_OUTBOUND_BYTES - 1,
+				..Default::default()
+			}
+			.validate()
+			.is_err()
+		);
+		assert!(
+			RelayConfig {
+				max_outbound_bytes: MIN_OUTBOUND_BYTES,
+				..Default::default()
+			}
+			.validate()
+			.is_ok()
+		);
+		assert!(
+			RelayConfig {
+				stall_timeout: Duration::ZERO,
+				..Default::default()
+			}
+			.validate()
+			.is_err()
+		);
+	}
+
+	#[tokio::test(start_paused = true)]
+	async fn a_write_is_abandoned_only_after_a_full_limit_without_socket_progress() {
+		let limit = Duration::from_secs(20);
+		let written = WriteProgress::new();
+		let started = Instant::now();
+		// A receiver taking bytes every 15 seconds never goes a full limit without progress.
+		let slow = async {
+			for _ in 0..4 {
+				tokio::time::sleep(Duration::from_secs(15)).await;
+				written.record();
+			}
+		};
+		assert_eq!(until_stalled(&written, limit, slow).await, Some(()));
+		assert_eq!(started.elapsed(), Duration::from_secs(60));
+
+		let stalled_at = Instant::now();
+		let stalled = until_stalled(&written, limit, std::future::pending::<()>()).await;
+		assert_eq!(stalled, None);
+		assert_eq!(
+			stalled_at.elapsed(),
+			limit,
+			"progress before this write does not extend it"
+		);
+
+		// One accepted byte restarts the clock; the write ends a full limit after it.
+		let resumed_at = Instant::now();
+		let one_write = async {
+			tokio::time::sleep(Duration::from_secs(12)).await;
+			written.record();
+			std::future::pending::<()>().await;
+		};
+		assert_eq!(until_stalled(&written, limit, one_write).await, None);
+		assert_eq!(resumed_at.elapsed(), Duration::from_secs(32));
 	}
 
 	#[test]

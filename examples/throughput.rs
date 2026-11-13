@@ -1,9 +1,13 @@
 //! External-server benchmark: cargo run --release --example throughput -- --help
 //! `--bytes` includes the 4-byte peer envelope and 8-byte sequence number.
 //! Rates count verified guest deliveries, not host submissions or WebSocket/TCP overhead.
+//!
+//! The relay never paces a sender: a guest more than its queue bound behind is closed.
+//! The host therefore keeps a window of unacknowledged frames, as OMS hosts do for
+//! snapshots. `--window-kib 0` floods instead, to show the bound.
 
 use std::{
-	collections::HashSet,
+	collections::{HashMap, HashSet},
 	process::ExitCode,
 	sync::{
 		Arc, Mutex,
@@ -19,7 +23,7 @@ use futures::{
 	stream::{SplitSink, SplitStream},
 };
 use serde_json::{Value, json};
-use tokio::{net::TcpStream, task::JoinSet, time::timeout};
+use tokio::{net::TcpStream, sync::watch, task::JoinSet, time::timeout};
 use tokio_tungstenite::{
 	MaybeTlsStream, WebSocketStream, connect_async,
 	tungstenite::{Message, http::Uri},
@@ -46,12 +50,25 @@ struct Args {
 	/// Number of concurrently draining guests.
 	#[arg(long, default_value_t = 1)]
 	guests: usize,
-	/// Host frames fed before flushing; no receiver acknowledgements pace these batches.
+	/// Host frames fed before flushing.
 	#[arg(long, default_value_t = 256)]
 	batch: u64,
+	/// Bytes the host keeps unacknowledged by the slowest guest; 0 sends without pacing.
+	#[arg(long, default_value_t = 1024)]
+	window_kib: usize,
 	/// Whole-run deadline including connection setup, excluding best-effort final close.
 	#[arg(long, default_value_t = 30)]
 	timeout_secs: u64,
+}
+
+impl Args {
+	/// Frames in flight per guest; 0 without pacing. One frame always fits.
+	fn window_frames(&self) -> u64 {
+		match self.window_kib {
+			0 => 0,
+			kib => (kib * 1024 / self.bytes).max(1) as u64,
+		}
+	}
 }
 
 struct GuestProgress {
@@ -249,10 +266,24 @@ async fn send_frames(
 	mut writer: HostWriter,
 	frames: u64,
 	batch: u64,
+	window: u64,
+	mut acknowledged: watch::Receiver<u64>,
 	payload: Arc<[u8]>,
 	progress: Arc<SendProgress>,
 ) -> Result<HostWriter, String> {
 	for sequence in 0..frames {
+		if window > 0 && sequence >= *acknowledged.borrow() + window {
+			// Guests acknowledge what reached them: flush before waiting on them.
+			writer
+				.flush()
+				.await
+				.map_err(|error| format!("flush before frame {sequence}: {error}"))?;
+			progress.flushed.store(sequence, Ordering::Relaxed);
+			acknowledged
+				.wait_for(|acknowledged| sequence < acknowledged + window)
+				.await
+				.map_err(|_| "host reader ended before the window reopened")?;
+		}
 		writer
 			.feed(envelope(sequence, &payload))
 			.await
@@ -282,6 +313,7 @@ async fn send_frames(
 async fn receive_guest(
 	mut socket: Socket,
 	frames: u64,
+	acknowledge_every: u64,
 	payload: Arc<[u8]>,
 	progress: Arc<GuestProgress>,
 ) -> Result<Socket, String> {
@@ -301,6 +333,16 @@ async fn receive_guest(
 					}
 					sequence += 1;
 					progress.delivered.store(sequence, Ordering::Relaxed);
+					// The final count is the completion acknowledgement below.
+					if acknowledge_every > 0
+						&& sequence < frames
+						&& sequence % acknowledge_every == 0
+					{
+						socket
+							.send(envelope(sequence, &[]))
+							.await
+							.map_err(|error| format!("window acknowledgement: {error}"))?;
+					}
 				}
 				Message::Ping(payload) => socket
 					.send(Message::Pong(payload))
@@ -336,10 +378,13 @@ async fn receive_guest(
 
 async fn monitor_host(
 	mut reader: HostReader,
-	mut remaining: HashSet<u32>,
+	peers: HashSet<u32>,
 	frames: u64,
+	acknowledged: watch::Sender<u64>,
 ) -> Result<HostReader, String> {
-	while !remaining.is_empty() {
+	let mut delivered: HashMap<u32, u64> = peers.into_iter().map(|peer| (peer, 0)).collect();
+	let mut remaining = delivered.len();
+	while remaining > 0 {
 		match reader
 			.next()
 			.await
@@ -347,19 +392,34 @@ async fn monitor_host(
 			.map_err(|error| format!("host read: {error}"))?
 		{
 			Message::Binary(bytes) => {
-				if bytes.len() != 12 || bytes[4..] != frames.to_be_bytes() {
-					return Err("invalid guest completion acknowledgement".into());
+				if bytes.len() != 12 {
+					return Err("invalid guest acknowledgement".into());
 				}
 				let peer = u32::from_be_bytes(
 					bytes[..4]
 						.try_into()
 						.expect("checked acknowledgement length"),
 				);
-				if !remaining.remove(&peer) {
+				let count = u64::from_be_bytes(
+					bytes[4..]
+						.try_into()
+						.expect("checked acknowledgement length"),
+				);
+				let Some(progress) = delivered.get_mut(&peer) else {
+					return Err(format!("acknowledgement from unknown peer {peer}"));
+				};
+				if count <= *progress || count > frames {
 					return Err(format!(
-						"duplicate or unknown acknowledgement from peer {peer}"
+						"duplicate or invalid acknowledgement {count} from peer {peer}"
 					));
 				}
+				*progress = count;
+				if count == frames {
+					remaining -= 1;
+				}
+				// The window follows the slowest guest.
+				let slowest = delivered.values().copied().min().unwrap_or(frames);
+				acknowledged.send_replace(slowest);
 			}
 			// Tungstenite queues automatic pongs; the next read flushes them, even after the writer finishes.
 			Message::Ping(_) | Message::Pong(_) => {}
@@ -426,12 +486,16 @@ async fn run(
 		.collect::<Vec<_>>()
 		.into();
 	let (writer, reader) = host.split();
+	let window = args.window_frames();
+	let (acknowledged, window_opened) = watch::channel(0);
 	let started = Instant::now();
 	progress.started = Some(started);
 	for (socket, guest_progress) in guests {
 		tasks.spawn(receive_guest(
 			socket,
 			args.frames,
+			// Four acknowledgements per window keep it open without flooding the host.
+			window.div_ceil(4),
 			Arc::clone(&payload),
 			guest_progress,
 		));
@@ -441,10 +505,12 @@ async fn run(
 			writer,
 			args.frames,
 			args.batch,
+			window,
+			window_opened,
 			payload,
 			Arc::clone(&progress.sender)
 		),
-		monitor_host(reader, peers, args.frames),
+		monitor_host(reader, peers, args.frames, acknowledged),
 		collect_guests(tasks),
 	);
 	progress.elapsed = Some(started.elapsed());
@@ -515,6 +581,7 @@ fn summary(args: &Args, progress: &Progress, error: Option<&str>, wall_elapsed: 
 		"bytes": args.bytes,
 		"guest_count": args.guests,
 		"batch": args.batch,
+		"window_frames": args.window_frames(),
 		"timeout_seconds": args.timeout_secs,
 		"submitted_frames": progress.sender.submitted.load(Ordering::Relaxed),
 		"flushed_frames": progress.sender.flushed.load(Ordering::Relaxed),

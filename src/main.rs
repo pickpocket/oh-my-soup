@@ -28,6 +28,7 @@ async fn main() -> io::Result<()> {
 		hostname: args.hostname,
 		max_rooms: args.max_rooms,
 		max_guests_per_room: args.max_guests_per_room,
+		..RelayConfig::default()
 	})?;
 	println!("relay listening on {}", server.url());
 	wait_for_shutdown().await?;

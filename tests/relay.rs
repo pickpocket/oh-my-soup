@@ -1,12 +1,15 @@
-use std::{future::Future, time::Duration};
+use std::{
+	future::Future,
+	time::{Duration, Instant},
+};
 
 use futures::{SinkExt, StreamExt, future::join_all};
 use oms_relay::{RelayConfig, RelayServer};
 use serde_json::{Value, json};
 use tokio::{
 	io::{AsyncReadExt, AsyncWriteExt},
-	net::TcpStream,
-	time::timeout,
+	net::{TcpListener, TcpSocket, TcpStream},
+	time::{sleep, timeout},
 };
 use tokio_tungstenite::{
 	MaybeTlsStream, WebSocketStream, connect_async,
@@ -19,6 +22,7 @@ use tokio_tungstenite::{
 type Socket = WebSocketStream<MaybeTlsStream<TcpStream>>;
 const IO_TIMEOUT: Duration = Duration::from_secs(5);
 const MAX_MESSAGE_BYTES: usize = 2 * 1024 * 1024;
+const MIB: usize = 1024 * 1024;
 
 async fn bounded<F: Future>(future: F) -> F::Output {
 	timeout(IO_TIMEOUT, future)
@@ -27,22 +31,33 @@ async fn bounded<F: Future>(future: F) -> F::Output {
 }
 
 fn start(max_rooms: usize, max_guests_per_room: usize) -> RelayServer {
+	start_with(RelayConfig {
+		max_rooms,
+		max_guests_per_room,
+		..RelayConfig::default()
+	})
+}
+
+fn start_with(config: RelayConfig) -> RelayServer {
 	RelayServer::start(RelayConfig {
 		port: 0,
 		hostname: "127.0.0.1".to_owned(),
-		max_rooms,
-		max_guests_per_room,
+		..config
 	})
 	.expect("start isolated relay")
 }
 
-async fn connect(server: &RelayServer, room: &str, role: &str) -> Socket {
-	let url = format!("ws://127.0.0.1:{}/r/{room}?role={role}", server.port());
+async fn connect_port(port: u16, room: &str, role: &str) -> Socket {
+	let url = format!("ws://127.0.0.1:{port}/r/{room}?role={role}");
 	let (socket, response) = bounded(connect_async(url))
 		.await
 		.expect("WebSocket upgrade");
 	assert_eq!(response.status().as_u16(), 101);
 	socket
+}
+
+async fn connect(server: &RelayServer, room: &str, role: &str) -> Socket {
+	connect_port(server.port(), room, role).await
 }
 
 async fn next(socket: &mut Socket) -> Message {
@@ -102,8 +117,8 @@ async fn control(socket: &mut Socket) -> Value {
 	}
 }
 
-async fn guest(server: &RelayServer, room: &str, host: &mut Socket) -> (Socket, u32) {
-	let socket = connect(server, room, "guest").await;
+async fn guest_port(port: u16, room: &str, host: &mut Socket) -> (Socket, u32) {
+	let socket = connect_port(port, room, "guest").await;
 	let joined = control(host).await;
 	let peer = u32::try_from(joined["peer"].as_u64().expect("numeric peer ID")).unwrap();
 	assert_ne!(peer, 0);
@@ -111,16 +126,24 @@ async fn guest(server: &RelayServer, room: &str, host: &mut Socket) -> (Socket, 
 	(socket, peer)
 }
 
+async fn guest(server: &RelayServer, room: &str, host: &mut Socket) -> (Socket, u32) {
+	guest_port(server.port(), room, host).await
+}
+
+// Reading a close queues its reply; flush it so server teardown need not time out.
+async fn reply_to_close(socket: &mut Socket) {
+	match bounded(socket.flush()).await {
+		Ok(()) | Err(Error::ConnectionClosed | Error::AlreadyClosed) => {}
+		Err(error) => panic!("close reply: {error}"),
+	}
+}
+
 async fn expect_close(socket: &mut Socket, code: u16) {
 	match next(socket).await {
 		Message::Close(Some(frame)) => assert_eq!(u16::from(frame.code), code, "{frame:?}"),
 		other => panic!("expected close {code}, got {other:?}"),
 	}
-	// Reading a close queues its reply; flush it so server teardown need not time out.
-	match bounded(socket.flush()).await {
-		Ok(()) | Err(Error::ConnectionClosed | Error::AlreadyClosed) => {}
-		Err(error) => panic!("close reply: {error}"),
-	}
+	reply_to_close(socket).await;
 }
 
 async fn close_client(socket: &mut Socket) {
@@ -509,6 +532,316 @@ async fn sustained_bursts_preserve_order_and_keep_all_healthy_guests_connected()
 	.await
 	.expect("sustained burst timed out");
 	assert_eq!(server.room_count(), 1);
+}
+
+/// Waits until the relay holds at least `bytes` for delivery.
+async fn backlog_at_least(server: &RelayServer, bytes: usize) {
+	bounded(async {
+		while server.queued_bytes() < bytes {
+			sleep(Duration::from_millis(5)).await;
+		}
+	})
+	.await;
+}
+
+/// Waits until the relay holds nothing: closed sessions release asynchronously.
+async fn backlog_released(server: &RelayServer) {
+	bounded(async {
+		while server.queued_bytes() != 0 {
+			sleep(Duration::from_millis(5)).await;
+		}
+	})
+	.await;
+}
+
+/// Reads what the relay had sent an evicted guest: an unbroken prefix of the broadcast
+/// stream, then the close. Returns how many envelopes preceded it.
+async fn ordered_prefix_then_close(guest: &mut Socket, bytes: usize) -> (u64, CloseFrame) {
+	let mut sequence = 0;
+	loop {
+		match next(guest).await {
+			Message::Close(Some(frame)) => {
+				reply_to_close(guest).await;
+				return (sequence, frame);
+			}
+			message => {
+				assert_envelope(message, 0, sequence, bytes);
+				sequence += 1;
+			}
+		}
+	}
+}
+
+/// A TCP link to the relay that carries at most `bytes_per_sec` towards the client.
+/// Budgets follow elapsed time, so coarse OS timers do not change the average rate.
+async fn throttled_link(relay_port: u16, bytes_per_sec: usize) -> u16 {
+	let listener = TcpListener::bind(("127.0.0.1", 0)).await.unwrap();
+	let port = listener.local_addr().unwrap().port();
+	tokio::spawn(async move {
+		let (client, _) = listener.accept().await.unwrap();
+		let relay = TcpSocket::new_v4().unwrap();
+		// Leave the backlog in the relay, not in this link's receive buffer.
+		relay.set_recv_buffer_size(16 * 1024).unwrap();
+		let relay = relay
+			.connect(([127, 0, 0, 1], relay_port).into())
+			.await
+			.unwrap();
+		let (mut relay_read, mut relay_write) = relay.into_split();
+		let (mut client_read, mut client_write) = client.into_split();
+		tokio::spawn(async move {
+			let _ = tokio::io::copy(&mut client_read, &mut relay_write).await;
+		});
+		let rate = bytes_per_sec as f64;
+		let mut budget = 0.0;
+		let mut refilled = Instant::now();
+		let mut buffer = vec![0; 16 * 1024];
+		'link: loop {
+			sleep(Duration::from_millis(10)).await;
+			let now = Instant::now();
+			budget = (budget + (now - refilled).as_secs_f64() * rate).min(rate / 10.0);
+			refilled = now;
+			// Spend whole ticks; topping up between reads would trickle single bytes.
+			while budget >= 1.0 {
+				let limit = (budget as usize).min(buffer.len());
+				match relay_read.read(&mut buffer[..limit]).await {
+					Ok(0) | Err(_) => break 'link,
+					Ok(read) => {
+						if client_write.write_all(&buffer[..read]).await.is_err() {
+							break 'link;
+						}
+						budget -= read as f64;
+					}
+				}
+			}
+		}
+	});
+	port
+}
+
+#[tokio::test]
+async fn a_stalled_guest_delays_neither_the_host_pong_nor_a_healthy_guest() {
+	const FRAMES: u64 = 256;
+	const BYTES: usize = 64 * 1024;
+	// Far above anything the relay itself adds; far below every relay timeout.
+	const PROMPT: Duration = Duration::from_secs(1);
+	let server = start_with(RelayConfig {
+		max_rooms: 1,
+		max_guests_per_room: 2,
+		max_outbound_bytes: 32 * MIB,
+		stall_timeout: Duration::from_secs(60),
+		..RelayConfig::default()
+	});
+	let room = "stalled_room_1";
+	let mut host = host(&server, room).await;
+	let (mut healthy, _) = guest(&server, room, &mut host).await;
+	let (mut stalled, stalled_id) = guest(&server, room, &mut host).await;
+	for sequence in 0..FRAMES {
+		let sent = Instant::now();
+		send(&mut host, envelope(0, sequence, BYTES)).await;
+		assert_envelope(next(&mut healthy).await, 0, sequence, BYTES);
+		assert!(
+			sent.elapsed() < PROMPT,
+			"healthy delivery waited {:?} behind a stalled guest",
+			sent.elapsed()
+		);
+		if sequence % 16 == 15 {
+			let pinged = Instant::now();
+			// `ping` accepts nothing but the pong: a `peer-left` here would mean the
+			// stalled guest was dropped for a backlog well inside its bound.
+			ping(&mut host, b"while-a-guest-is-stalled").await;
+			assert!(
+				pinged.elapsed() < PROMPT,
+				"the host's pong waited {:?} behind a stalled guest",
+				pinged.elapsed()
+			);
+		}
+	}
+	assert!(
+		server.queued_bytes() > MIB,
+		"the relay, not only the socket buffers, holds the stalled guest's backlog"
+	);
+	// A guest that resumes inside its bound has missed nothing.
+	for sequence in 0..FRAMES {
+		assert_envelope(next(&mut stalled).await, 0, sequence, BYTES);
+	}
+	send(&mut stalled, envelope(0, FRAMES, 32)).await;
+	assert_envelope(next(&mut host).await, stalled_id, FRAMES, 32);
+	backlog_released(&server).await;
+}
+
+#[tokio::test]
+async fn a_burst_of_thousands_of_small_frames_does_not_evict_a_guest_that_reads_in_bursts() {
+	const FRAMES: u64 = 6000;
+	const BYTES: usize = 1024;
+	let server = start(1, 1);
+	let room = "small_frames_1";
+	let mut host = host(&server, room).await;
+	let (mut guest, peer) = guest(&server, room, &mut host).await;
+	timeout(Duration::from_secs(20), async {
+		let sender = async {
+			for sequence in 0..FRAMES {
+				host.feed(envelope(0, sequence, BYTES))
+					.await
+					.expect("burst feed");
+			}
+			host.flush().await.expect("burst flush");
+			// The relay took the whole burst; no guest paces the host.
+			ping(&mut host, b"after-the-burst").await;
+		};
+		let receiver = async {
+			for sequence in 0..FRAMES {
+				// Longer pauses than a frame-count queue with a short grace survives.
+				if sequence % 1500 == 0 {
+					sleep(Duration::from_millis(300)).await;
+				}
+				assert_envelope(next(&mut guest).await, 0, sequence, BYTES);
+			}
+		};
+		tokio::join!(sender, receiver);
+	})
+	.await
+	.expect("burst timed out");
+	// A real uplink after the final downlink proves the peer remains admitted.
+	send(&mut guest, envelope(0, FRAMES, 32)).await;
+	assert_envelope(next(&mut host).await, peer, FRAMES, 32);
+	backlog_released(&server).await;
+}
+
+#[tokio::test]
+async fn a_guest_that_stops_reading_is_evicted_after_the_stall_timeout_and_releases_its_memory() {
+	const FRAMES: u64 = 384;
+	const BYTES: usize = 64 * 1024;
+	const STALL: Duration = Duration::from_secs(2);
+	let server = start_with(RelayConfig {
+		max_rooms: 1,
+		max_guests_per_room: 1,
+		max_outbound_bytes: 64 * MIB,
+		stall_timeout: STALL,
+		..RelayConfig::default()
+	});
+	let room = "stopped_room_1";
+	let mut host = host(&server, room).await;
+	let (mut stopped, peer) = guest(&server, room, &mut host).await;
+	let started = Instant::now();
+	for sequence in 0..FRAMES {
+		send(&mut host, envelope(0, sequence, BYTES)).await;
+	}
+	// 24 MiB sent against a 64-MiB bound: only the lack of progress can evict.
+	backlog_at_least(&server, 4 * MIB).await;
+	assert_eq!(
+		control(&mut host).await,
+		json!({"t": "peer-left", "peer": peer})
+	);
+	let evicted = started.elapsed();
+	assert!(
+		evicted >= STALL && evicted < STALL + Duration::from_secs(3),
+		"evicted after {evicted:?}"
+	);
+	assert!(
+		server.queued_bytes() < MIB,
+		"eviction releases the queue; only the unflushed batch waits for the socket"
+	);
+	let (delivered, close) = ordered_prefix_then_close(&mut stopped, BYTES).await;
+	assert!(delivered < FRAMES);
+	assert_eq!(u16::from(close.code), 1013);
+	assert_eq!(close.reason.as_str(), "receiver stopped reading");
+	backlog_released(&server).await;
+
+	let (mut replacement, replacement_id) = guest(&server, room, &mut host).await;
+	send(&mut host, envelope(replacement_id, 1, 32)).await;
+	assert_envelope(next(&mut replacement).await, replacement_id, 1, 32);
+}
+
+#[tokio::test]
+async fn a_guest_a_full_queue_behind_is_evicted_at_the_byte_bound() {
+	const FRAMES: u64 = 512;
+	const BYTES: usize = 64 * 1024;
+	let server = start_with(RelayConfig {
+		max_rooms: 1,
+		max_guests_per_room: 1,
+		stall_timeout: Duration::from_secs(60),
+		..RelayConfig::default()
+	});
+	let room = "overflow_room_1";
+	let mut host = host(&server, room).await;
+	let (mut behind, peer) = guest(&server, room, &mut host).await;
+	// 32 MiB: the default 8-MiB bound plus more than socket buffers absorb.
+	for sequence in 0..FRAMES {
+		send(&mut host, envelope(0, sequence, BYTES)).await;
+	}
+	assert_eq!(
+		control(&mut host).await,
+		json!({"t": "peer-left", "peer": peer})
+	);
+	let (delivered, close) = ordered_prefix_then_close(&mut behind, BYTES).await;
+	assert!(delivered < FRAMES);
+	assert_eq!(u16::from(close.code), 1013);
+	assert_eq!(close.reason.as_str(), "outgoing queue is full");
+	backlog_released(&server).await;
+	ping(&mut host, b"room-outlives-the-eviction").await;
+}
+
+#[tokio::test]
+async fn a_slow_link_gets_everything_in_order_and_pongs_overtake_its_backlog() {
+	const FRAMES: u64 = 128;
+	const BYTES: usize = 64 * 1024;
+	const LINK_BYTES_PER_SEC: usize = 4 * MIB;
+	// Half the transfer time: a deadline on the whole write, rather than on socket
+	// progress, would evict this guest.
+	const STALL: Duration = Duration::from_secs(1);
+	let server = start_with(RelayConfig {
+		max_rooms: 1,
+		max_guests_per_room: 1,
+		max_outbound_bytes: 16 * MIB,
+		stall_timeout: STALL,
+		..RelayConfig::default()
+	});
+	let room = "slow_link_room";
+	let mut host = host(&server, room).await;
+	let link = throttled_link(server.port(), LINK_BYTES_PER_SEC).await;
+	let (mut slow, peer) = guest_port(link, room, &mut host).await;
+	let started = Instant::now();
+	for sequence in 0..FRAMES {
+		send(&mut host, envelope(0, sequence, BYTES)).await;
+	}
+	// The host is done long before the link is, and is still answered at once.
+	ping(&mut host, b"host-is-not-paced").await;
+	assert!(
+		server.queued_bytes() > MIB,
+		"the relay queues what the link has not taken yet"
+	);
+	send(&mut slow, Message::Ping(b"overtake".as_slice().into())).await;
+	let mut sequence = 0;
+	let mut ponged_at = None;
+	while sequence < FRAMES {
+		let message = bounded(slow.next())
+			.await
+			.expect("unexpected EOF")
+			.expect("WebSocket read");
+		match message {
+			Message::Pong(payload) => {
+				assert_eq!(payload.as_ref(), b"overtake");
+				ponged_at = Some(sequence);
+			}
+			Message::Ping(_) => {}
+			message => {
+				assert_envelope(message, 0, sequence, BYTES);
+				sequence += 1;
+			}
+		}
+	}
+	assert!(
+		started.elapsed() > STALL,
+		"the transfer outlasted the stall timeout"
+	);
+	let ponged_at = ponged_at.expect("pong before the backlog ended");
+	assert!(
+		ponged_at + 8 <= FRAMES,
+		"the pong arrived after {ponged_at} of {FRAMES} envelopes: behind the queue"
+	);
+	send(&mut slow, envelope(0, FRAMES, 32)).await;
+	assert_envelope(next(&mut host).await, peer, FRAMES, 32);
+	backlog_released(&server).await;
 }
 
 #[tokio::test]

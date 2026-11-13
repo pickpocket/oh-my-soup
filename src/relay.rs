@@ -1,22 +1,37 @@
 //! Opaque peer-ID envelope routing. No keys, plaintext, or cached snapshots.
 
-use std::{collections::HashMap, sync::Arc, time::Duration};
+use std::{
+	collections::{HashMap, VecDeque},
+	sync::{
+		Arc,
+		atomic::{AtomicUsize, Ordering},
+	},
+};
 
 use axum::extract::ws::Message;
 use bytes::{Bytes, BytesMut};
 use parking_lot::Mutex;
-use tokio::sync::{OwnedSemaphorePermit, Semaphore, mpsc, watch};
+use tokio::sync::{Notify, watch};
 
 pub const MAX_MESSAGE_BYTES: usize = 2 * 1024 * 1024;
-pub const MAX_OUTBOUND_MESSAGES: usize = 64;
-pub const MAX_OUTBOUND_BYTES: usize = 4 * 1024 * 1024;
-const PRESSURE_TIMEOUT: Duration = Duration::from_millis(250);
+/// Default bound on one peer's queued plus unflushed outbound frames.
+pub const DEFAULT_OUTBOUND_BYTES: usize = 8 * 1024 * 1024;
+/// The smallest usable bound: a maximum-size message behind one being written.
+pub const MIN_OUTBOUND_BYTES: usize = 2 * (MAX_MESSAGE_BYTES + FRAME_OVERHEAD_BYTES);
+/// Charged per frame on top of its payload, for the queue slot and buffer handle.
+/// Bounding bytes this way also bounds the frame count, without a count limit
+/// that bursts of small frames would hit first.
+const FRAME_OVERHEAD_BYTES: usize = 64;
+/// Membership controls may exceed the data bound by this much, so data pressure
+/// alone never refuses one, while a join/leave flood still cannot grow the queue.
+const CONTROL_RESERVE_BYTES: usize = 64 * 1024;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SessionClose {
 	RoomClosed,
 	Shutdown,
 	SlowConsumer,
+	Stalled,
 	Rejected(u16, &'static str),
 }
 
@@ -26,155 +41,168 @@ impl SessionClose {
 			Self::RoomClosed => (4001, "room closed"),
 			Self::Shutdown => (1001, "relay shutting down"),
 			Self::SlowConsumer => (1013, "outgoing queue is full"),
+			Self::Stalled => (1013, "receiver stopped reading"),
 			Self::Rejected(code, reason) => (code, reason),
 		}
 	}
 }
 
-pub struct OutboundBudget {
-	bytes: OwnedSemaphorePermit,
-	messages: OwnedSemaphorePermit,
+struct Queue {
+	frames: VecDeque<Message>,
+	/// Cost of `frames`.
+	queued: usize,
+	/// Cost of frames the writer took and has not flushed to the socket yet.
+	in_flight: usize,
+	closed: bool,
 }
 
-impl OutboundBudget {
-	pub fn byte_count(&self) -> usize {
-		self.bytes.num_permits()
-	}
-
-	pub fn merge(&mut self, other: Self) {
-		self.bytes.merge(other.bytes);
-		self.messages.merge(other.messages);
-	}
-}
-
-pub struct Outbound {
-	pub message: Message,
-	// Both bounds include the sink's in-flight batch, not just queued frames.
-	budget: OutboundBudget,
-}
-
-impl Outbound {
-	pub fn into_parts(self) -> (Message, OutboundBudget) {
-		(self.message, self.budget)
-	}
-}
-
+/// One connection's outbound side. Enqueueing never waits: a peer either has
+/// room, or is closed for falling too far behind. No frame is ever skipped.
 pub struct Peer {
-	tx: mpsc::Sender<Outbound>,
-	budget: Arc<Semaphore>,
-	message_slots: Arc<Semaphore>,
+	queue: Mutex<Queue>,
+	wake: Notify,
 	close: watch::Sender<Option<SessionClose>>,
+	limit: usize,
+	/// Bytes charged across every peer of the store.
+	charged: Arc<AtomicUsize>,
 }
 
 impl Peer {
-	pub fn channel() -> (
-		Arc<Self>,
-		mpsc::Receiver<Outbound>,
-		watch::Receiver<Option<SessionClose>>,
-	) {
-		let (tx, rx) = mpsc::channel(MAX_OUTBOUND_MESSAGES);
+	pub fn channel(
+		limit: usize,
+		charged: Arc<AtomicUsize>,
+	) -> (Arc<Self>, Outgoing, watch::Receiver<Option<SessionClose>>) {
 		let (close, close_rx) = watch::channel(None);
-		(
-			Arc::new(Self {
-				tx,
-				budget: Arc::new(Semaphore::new(MAX_OUTBOUND_BYTES)),
-				message_slots: Arc::new(Semaphore::new(MAX_OUTBOUND_MESSAGES)),
-				close,
+		let peer = Arc::new(Self {
+			queue: Mutex::new(Queue {
+				frames: VecDeque::new(),
+				queued: 0,
+				in_flight: 0,
+				closed: false,
 			}),
-			rx,
-			close_rx,
-		)
+			wake: Notify::new(),
+			close,
+			limit,
+			charged,
+		});
+		(Arc::clone(&peer), Outgoing { peer }, close_rx)
 	}
 
-	fn try_enqueue(&self, message: Message) -> Result<(), Message> {
-		if self.is_closing() {
-			return Err(message);
-		}
-		let length = message_length(&message).max(1);
-		let Ok(messages) = Arc::clone(&self.message_slots).try_acquire_owned() else {
-			return Err(message);
-		};
-		let Ok(bytes) = Arc::clone(&self.budget).try_acquire_many_owned(length as u32) else {
-			return Err(message);
-		};
-		// Message permits cover queued AND in-flight frames, so a reserved frame
-		// always fits the channel unless its receiver has already gone away.
-		match self.tx.try_send(Outbound {
-			message,
-			budget: OutboundBudget { bytes, messages },
-		}) {
-			Ok(()) => Ok(()),
-			Err(error) => {
-				self.close(SessionClose::SlowConsumer);
-				Err(error.into_inner().message)
-			}
-		}
-	}
-
-	pub async fn enqueue(&self, message: Message) -> bool {
-		let message = match self.try_enqueue(message) {
-			Ok(()) => return true,
-			Err(message) => message,
-		};
-		if self.is_closing() {
+	fn push(&self, message: Message, reserve: usize) -> bool {
+		let cost = message_length(&message) + FRAME_OVERHEAD_BYTES;
+		let mut queue = self.queue.lock();
+		if queue.closed {
 			return false;
 		}
-		let length = message_length(&message).max(1);
-		// A full queue is not proof of a slow reader: its writer may not have
-		// been scheduled yet. Bound the grace period, rather than the scheduler.
-		let reservation = tokio::time::timeout(PRESSURE_TIMEOUT, async {
-			let messages = Arc::clone(&self.message_slots).acquire_owned().await?;
-			let bytes = Arc::clone(&self.budget)
-				.acquire_many_owned(length as u32)
-				.await?;
-			Ok::<_, tokio::sync::AcquireError>(OutboundBudget { bytes, messages })
-		})
-		.await;
-		match reservation {
-			Ok(Ok(budget)) if !self.is_closing() => {
-				if self.tx.try_send(Outbound { message, budget }).is_ok() {
-					true
-				} else {
-					self.close(SessionClose::SlowConsumer);
-					false
-				}
-			}
-			Err(_) => {
-				self.close(SessionClose::SlowConsumer);
-				false
-			}
-			_ => false,
+		if queue.queued + queue.in_flight + cost > self.limit + reserve {
+			drop(queue);
+			self.close(SessionClose::SlowConsumer);
+			return false;
 		}
+		// The writer only sleeps on an empty queue, so only that transition wakes it.
+		let idle = queue.frames.is_empty();
+		queue.frames.push_back(message);
+		queue.queued += cost;
+		self.charged.fetch_add(cost, Ordering::Relaxed);
+		drop(queue);
+		if idle {
+			self.wake.notify_one();
+		}
+		true
 	}
 
+	/// Queues a data frame, or closes this peer when it is a full queue behind.
+	pub fn enqueue(&self, message: Message) -> bool {
+		self.push(message, 0)
+	}
+
+	// Membership controls stay in the data order: clients rely on a guest's
+	// frames all preceding its `peer-left`.
 	fn control(&self, message: Message) -> bool {
-		// Membership changes are synchronous, atomic transactions. Their small
-		// control frames use the same bounds; they never grow an unbounded side queue.
-		if self.try_enqueue(message).is_ok() {
-			true
-		} else {
-			self.close(SessionClose::SlowConsumer);
-			false
-		}
+		self.push(message, CONTROL_RESERVE_BYTES)
 	}
 
 	pub fn close(&self, reason: SessionClose) {
-		if self.close.send_if_modified(|current| {
+		if !self.close.send_if_modified(|current| {
 			if current.is_some() {
 				return false;
 			}
 			*current = Some(reason);
 			true
 		}) {
-			// Wake capacity waiters as well as the socket task. Closing never has
-			// to wait for room in the data queue or a blocked socket flush.
-			self.message_slots.close();
-			self.budget.close();
+			return;
 		}
+		// Closing never waits for the socket: queued frames are released now.
+		// Frames already handed to the writer stay charged until it lets go.
+		let frames = {
+			let mut queue = self.queue.lock();
+			queue.closed = true;
+			self.charged.fetch_sub(queue.queued, Ordering::Relaxed);
+			queue.queued = 0;
+			std::mem::take(&mut queue.frames)
+		};
+		drop(frames);
 	}
 
 	fn is_closing(&self) -> bool {
-		self.close.borrow().is_some()
+		self.queue.lock().closed
+	}
+}
+
+/// The writer's end of a peer's queue.
+pub struct Outgoing {
+	peer: Arc<Peer>,
+}
+
+impl Outgoing {
+	/// Resolves once a frame is queued.
+	pub async fn ready(&self) {
+		loop {
+			if !self.peer.queue.lock().frames.is_empty() {
+				return;
+			}
+			self.peer.wake.notified().await;
+		}
+	}
+
+	/// Moves queued frames to `batch`, in order, until it holds `max_bytes` of
+	/// payload; a single larger frame still moves. Returns whether that filled
+	/// the batch. The frames stay charged to the peer until [`Self::flushed`].
+	pub fn take(&mut self, batch: &mut Vec<Message>, max_bytes: usize) -> bool {
+		let mut bytes = 0;
+		let mut queue = self.peer.queue.lock();
+		while bytes < max_bytes {
+			let Some(message) = queue.frames.pop_front() else {
+				// A burst must not pin its peak capacity on an idle peer.
+				if queue.frames.capacity() > 1024 {
+					queue.frames = VecDeque::new();
+				}
+				return false;
+			};
+			let length = message_length(&message);
+			bytes += length;
+			queue.queued -= length + FRAME_OVERHEAD_BYTES;
+			queue.in_flight += length + FRAME_OVERHEAD_BYTES;
+			batch.push(message);
+		}
+		true
+	}
+
+	/// Releases every taken frame: the socket has accepted them.
+	pub fn flushed(&mut self) {
+		let mut queue = self.peer.queue.lock();
+		self.peer
+			.charged
+			.fetch_sub(queue.in_flight, Ordering::Relaxed);
+		queue.in_flight = 0;
+	}
+}
+
+impl Drop for Outgoing {
+	fn drop(&mut self) {
+		self.peer
+			.close(SessionClose::Rejected(1000, "connection closed"));
+		self.flushed();
 	}
 }
 
@@ -193,7 +221,9 @@ pub struct Membership {
 }
 
 impl Membership {
-	pub async fn route(&self, payload: Bytes) {
+	/// Routes one envelope without waiting for any receiver. A receiver that
+	/// cannot take the frame is closed; the sender and other receivers go on.
+	pub fn route(&self, payload: Bytes) {
 		if !(4..=MAX_MESSAGE_BYTES).contains(&payload.len()) || self.peer.is_closing() {
 			return;
 		}
@@ -209,26 +239,11 @@ impl Membership {
 				Arc::clone(&room.guests)
 			};
 			if target == 0 {
-				let mut pressured = Vec::new();
 				for guest in guests.values() {
-					if let Err(message) = guest.try_enqueue(Message::Binary(payload.clone()))
-						&& !guest.is_closing()
-					{
-						pressured.push((guest, message));
-					}
-				}
-				// Healthy guests are offered the frame first. Only pressure allocates
-				// waiters, and all grace periods run together, never one per guest.
-				if !pressured.is_empty() {
-					futures::future::join_all(
-						pressured
-							.into_iter()
-							.map(|(guest, message)| guest.enqueue(message)),
-					)
-					.await;
+					guest.enqueue(Message::Binary(payload.clone()));
 				}
 			} else if let Some(guest) = guests.get(&target) {
-				guest.enqueue(Message::Binary(payload)).await;
+				guest.enqueue(Message::Binary(payload));
 			}
 		} else {
 			{
@@ -247,10 +262,7 @@ impl Membership {
 				.try_into_mut()
 				.unwrap_or_else(|bytes| BytesMut::from(bytes.as_ref()));
 			rewritten[..4].copy_from_slice(&self.peer_id.to_be_bytes());
-			self.room
-				.host
-				.enqueue(Message::Binary(rewritten.freeze()))
-				.await;
+			self.room.host.enqueue(Message::Binary(rewritten.freeze()));
 		}
 	}
 }
@@ -278,6 +290,8 @@ pub struct RelayRoomStore {
 	inner: Mutex<Rooms>,
 	max_rooms: usize,
 	max_guests: usize,
+	outbound_bytes: usize,
+	charged: Arc<AtomicUsize>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -311,16 +325,28 @@ pub fn is_valid_room_id(id: &str) -> bool {
 }
 
 impl RelayRoomStore {
-	pub fn new(max_rooms: usize, max_guests: usize) -> Self {
+	pub fn new(max_rooms: usize, max_guests: usize, outbound_bytes: usize) -> Self {
 		Self {
 			inner: Mutex::new(Rooms::default()),
 			max_rooms,
 			max_guests,
+			outbound_bytes,
+			charged: Arc::default(),
 		}
 	}
 
 	pub fn room_count(&self) -> usize {
 		self.inner.lock().rooms.len()
+	}
+
+	/// A peer bounded by this store's per-peer limit and counted in its total.
+	pub fn peer(&self) -> (Arc<Peer>, Outgoing, watch::Receiver<Option<SessionClose>>) {
+		Peer::channel(self.outbound_bytes, Arc::clone(&self.charged))
+	}
+
+	/// Bytes charged to every peer's queued and unflushed outbound frames.
+	pub fn queued_bytes(&self) -> usize {
+		self.charged.load(Ordering::Relaxed)
 	}
 
 	// Registration and capacity checks are one transaction, after the upgrade.
@@ -433,96 +459,102 @@ impl RelayRoomStore {
 mod tests {
 	use super::*;
 
+	const LIMIT: usize = MIN_OUTBOUND_BYTES;
+	const ROOM: &str = "room_abc123";
+
 	fn register(
 		store: &RelayRoomStore,
 		host: bool,
-	) -> (
-		Membership,
-		mpsc::Receiver<Outbound>,
-		watch::Receiver<Option<SessionClose>>,
-	) {
-		let (peer, rx, close) = Peer::channel();
-		(
-			store.register("room_abc123", host, peer).unwrap(),
-			rx,
-			close,
-		)
+	) -> (Membership, Outgoing, watch::Receiver<Option<SessionClose>>) {
+		let (peer, outgoing, close) = store.peer();
+		(store.register(ROOM, host, peer).unwrap(), outgoing, close)
 	}
 
-	fn binary(rx: &mut mpsc::Receiver<Outbound>) -> Bytes {
-		match rx.try_recv().unwrap().message {
-			Message::Binary(bytes) => bytes,
+	fn next(outgoing: &mut Outgoing) -> Option<Message> {
+		let mut batch = Vec::new();
+		outgoing.take(&mut batch, 1);
+		outgoing.flushed();
+		batch.pop()
+	}
+
+	fn binary(outgoing: &mut Outgoing) -> Bytes {
+		match next(outgoing) {
+			Some(Message::Binary(bytes)) => bytes,
 			other => panic!("expected binary: {other:?}"),
 		}
 	}
 
-	fn text(rx: &mut mpsc::Receiver<Outbound>) -> String {
-		match rx.try_recv().unwrap().message {
-			Message::Text(text) => text.to_string(),
+	fn text(outgoing: &mut Outgoing) -> String {
+		match next(outgoing) {
+			Some(Message::Text(text)) => text.to_string(),
 			other => panic!("expected text: {other:?}"),
 		}
 	}
 
-	#[tokio::test]
-	async fn envelope_targets_are_isolated_and_guests_cannot_spoof_identity() {
-		let store = RelayRoomStore::new(1, 2);
+	fn largest() -> Bytes {
+		Bytes::from(vec![3; MAX_MESSAGE_BYTES])
+	}
+
+	#[test]
+	fn envelope_targets_are_isolated_and_guests_cannot_spoof_identity() {
+		let store = RelayRoomStore::new(1, 2, LIMIT);
 		let (host, mut host_rx, _) = register(&store, true);
 		let (one, mut one_rx, _) = register(&store, false);
 		let (two, mut two_rx, _) = register(&store, false);
 		assert_eq!(text(&mut host_rx), r#"{"t":"peer-joined","peer":1}"#);
 		assert_eq!(text(&mut host_rx), r#"{"t":"peer-joined","peer":2}"#);
 		assert!(
-			one_rx.try_recv().is_err(),
+			next(&mut one_rx).is_none(),
 			"no cached ciphertext or unsolicited controls"
 		);
 		let targeted = Bytes::from_static(&[0, 0, 0, 2, 91, 92, 93]);
-		host.route(targeted.clone()).await;
+		host.route(targeted.clone());
 		assert_eq!(binary(&mut two_rx), targeted);
-		assert!(one_rx.try_recv().is_err());
+		assert!(next(&mut one_rx).is_none());
 		let broadcast = Bytes::from_static(&[0, 0, 0, 0, 11, 12, 13]);
-		host.route(broadcast.clone()).await;
+		host.route(broadcast.clone());
 		assert_eq!(binary(&mut one_rx), broadcast);
 		assert_eq!(binary(&mut two_rx), broadcast);
-		one.route(Bytes::from_static(&[255, 255, 255, 255, 42, 43]))
-			.await;
+		one.route(Bytes::from_static(&[255, 255, 255, 255, 42, 43]));
 		assert_eq!(binary(&mut host_rx).as_ref(), &[0, 0, 0, 1, 42, 43]);
-		two.route(Bytes::from_static(&[0, 0, 0])).await;
-		host.route(Bytes::from_static(&[0, 0, 0, 99, 55])).await;
-		assert!(host_rx.try_recv().is_err());
-		assert!(one_rx.try_recv().is_err());
-		assert!(two_rx.try_recv().is_err());
+		two.route(Bytes::from_static(&[0, 0, 0]));
+		host.route(Bytes::from_static(&[0, 0, 0, 99, 55]));
+		assert!(next(&mut host_rx).is_none());
+		assert!(next(&mut one_rx).is_none());
+		assert!(next(&mut two_rx).is_none());
+		assert_eq!(store.queued_bytes(), 0);
 	}
 
-	#[tokio::test]
-	async fn duplicate_host_and_stale_disconnect_cannot_replace_or_destroy_live_room() {
-		let store = RelayRoomStore::new(1, 2);
+	#[test]
+	fn duplicate_host_and_stale_disconnect_cannot_replace_or_destroy_live_room() {
+		let store = RelayRoomStore::new(1, 2, LIMIT);
 		let (host, mut host_rx, _) = register(&store, true);
-		let (duplicate, ..) = Peer::channel();
+		let (duplicate, _duplicate_rx, _) = store.peer();
 		assert_eq!(
-			store.register("room_abc123", true, duplicate).err(),
+			store.register(ROOM, true, duplicate).err(),
 			Some(JoinError::DuplicateHost)
 		);
-		let (old_guest, _, old_close) = register(&store, false);
-		host_rx.try_recv().unwrap();
+		let (old_guest, _old_guest_rx, old_close) = register(&store, false);
+		next(&mut host_rx).unwrap();
 		store.unregister(&host);
 		assert_eq!(*old_close.borrow(), Some(SessionClose::RoomClosed));
 		let (replacement, mut replacement_rx, _) = register(&store, true);
-		let (new_guest, ..) = register(&store, false);
+		let (new_guest, _new_guest_rx, _) = register(&store, false);
 		assert_eq!(new_guest.peer_id, old_guest.peer_id);
-		replacement_rx.try_recv().unwrap();
+		next(&mut replacement_rx).unwrap();
 		store.unregister(&host);
 		store.unregister(&old_guest);
 		assert_eq!(store.room_count(), 1);
-		host.route(Bytes::from_static(&[0, 0, 0, 0, 99])).await;
-		old_guest.route(Bytes::from_static(&[0, 0, 0, 0, 99])).await;
-		assert!(replacement_rx.try_recv().is_err());
-		new_guest.route(Bytes::from_static(&[0, 0, 0, 0, 88])).await;
+		host.route(Bytes::from_static(&[0, 0, 0, 0, 99]));
+		old_guest.route(Bytes::from_static(&[0, 0, 0, 0, 99]));
+		assert!(next(&mut replacement_rx).is_none());
+		new_guest.route(Bytes::from_static(&[0, 0, 0, 0, 88]));
 		assert_eq!(binary(&mut replacement_rx).as_ref(), &[0, 0, 0, 1, 88]);
 		store.unregister(&new_guest);
 		assert_eq!(text(&mut replacement_rx), r#"{"t":"peer-left","peer":1}"#);
 		store.unregister(&new_guest);
 		assert!(
-			replacement_rx.try_recv().is_err(),
+			next(&mut replacement_rx).is_none(),
 			"departure is announced once"
 		);
 		store.unregister(&replacement);
@@ -530,22 +562,22 @@ mod tests {
 
 	#[test]
 	fn capacities_peer_exhaustion_and_shutdown_are_atomic() {
-		let store = RelayRoomStore::new(1, 1);
-		let (missing, ..) = Peer::channel();
+		let store = RelayRoomStore::new(1, 1, LIMIT);
+		let (missing, _missing_rx, _) = store.peer();
 		assert_eq!(
-			store.register("room_abc123", false, missing).err(),
+			store.register(ROOM, false, missing).err(),
 			Some(JoinError::RoomNotFound)
 		);
 		let (_, _host_rx, host_close) = register(&store, true);
-		let (other_host, ..) = Peer::channel();
+		let (other_host, _other_host_rx, _) = store.peer();
 		assert_eq!(
 			store.register("another_room", true, other_host).err(),
 			Some(JoinError::RoomCapacity)
 		);
-		let (guest, _, guest_close) = register(&store, false);
-		let (overflow, ..) = Peer::channel();
+		let (guest, _guest_rx, guest_close) = register(&store, false);
+		let (overflow, _overflow_rx, _) = store.peer();
 		assert_eq!(
-			store.register("room_abc123", false, overflow).err(),
+			store.register(ROOM, false, overflow).err(),
 			Some(JoinError::RoomFull)
 		);
 		store.unregister(&guest);
@@ -553,14 +585,14 @@ mod tests {
 			.inner
 			.lock()
 			.rooms
-			.get("room_abc123")
+			.get(ROOM)
 			.unwrap()
 			.inner
 			.lock()
 			.next_peer_id = u64::from(u32::MAX) + 1;
-		let (exhausted, ..) = Peer::channel();
+		let (exhausted, _exhausted_rx, _) = store.peer();
 		assert_eq!(
-			store.register("room_abc123", false, exhausted).err(),
+			store.register(ROOM, false, exhausted).err(),
 			Some(JoinError::RoomFull)
 		);
 		store.shutdown();
@@ -571,168 +603,180 @@ mod tests {
 			None,
 			"already detached guest is not part of shutdown"
 		);
-		let (late, ..) = Peer::channel();
+		let (late, _late_rx, _) = store.peer();
 		assert_eq!(
-			store.register("room_abc123", true, late).err(),
+			store.register(ROOM, true, late).err(),
 			Some(JoinError::ShuttingDown)
 		);
 	}
 
-	#[tokio::test]
-	async fn slow_consumers_have_frame_and_byte_bounds_with_independent_close() {
-		let (peer, mut rx, close) = Peer::channel();
-		for _ in 0..MAX_OUTBOUND_MESSAGES {
-			assert!(
-				peer.try_enqueue(Message::Binary(Bytes::from_static(&[1])))
-					.is_ok()
-			);
-		}
-		let held = rx.try_recv().unwrap();
-		assert_eq!(
-			peer.message_slots.available_permits(),
-			0,
-			"dequeue does not refund in-flight frames"
-		);
+	#[test]
+	fn the_byte_bound_counts_unflushed_frames_and_closes_the_peer_instead_of_skipping() {
+		let (peer, mut outgoing, close) = Peer::channel(LIMIT, Arc::default());
+		assert!(peer.enqueue(Message::Binary(largest())));
+		assert!(peer.enqueue(Message::Binary(largest())));
+		let mut batch = Vec::new();
+		assert!(outgoing.take(&mut batch, 1));
+		assert_eq!(batch.len(), 1);
+		outgoing.flushed();
 		assert!(
-			!peer
-				.enqueue(Message::Binary(Bytes::from_static(&[2])))
-				.await
+			peer.enqueue(Message::Binary(largest())),
+			"a flushed frame makes room"
+		);
+		assert!(outgoing.take(&mut batch, 1));
+		assert_eq!(*close.borrow(), None);
+		assert!(
+			!peer.enqueue(Message::Text("overflow".into())),
+			"an unflushed write remains charged"
 		);
 		assert_eq!(*close.borrow(), Some(SessionClose::SlowConsumer));
-		drop(held);
-		drop(rx);
-		assert_eq!(peer.budget.available_permits(), MAX_OUTBOUND_BYTES);
-		assert_eq!(
-			peer.message_slots.available_permits(),
-			MAX_OUTBOUND_MESSAGES
-		);
-
-		let (peer, mut rx, close) = Peer::channel();
-		let large = Bytes::from(vec![3; MAX_MESSAGE_BYTES]);
-		assert!(peer.enqueue(Message::Binary(large.clone())).await);
-		assert!(peer.enqueue(Message::Binary(large)).await);
-		let held = rx.try_recv().unwrap();
-		assert_eq!(
-			peer.budget.available_permits(),
-			0,
-			"in-flight write remains charged"
-		);
-		assert!(!peer.enqueue(Message::Text("overflow".into())).await);
-		assert_eq!(*close.borrow(), Some(SessionClose::SlowConsumer));
-		drop(held);
-		drop(rx);
-		assert_eq!(peer.budget.available_permits(), MAX_OUTBOUND_BYTES);
-	}
-
-	#[tokio::test]
-	async fn pressure_waits_for_a_healthy_writer_instead_of_rejecting_a_scheduling_burst() {
-		let (peer, mut rx, close) = Peer::channel();
-		for _ in 0..MAX_OUTBOUND_MESSAGES {
-			assert!(
-				peer.try_enqueue(Message::Binary(Bytes::from_static(&[1])))
-					.is_ok()
-			);
-		}
-		let waiting = peer.enqueue(Message::Binary(Bytes::from_static(&[2])));
-		tokio::pin!(waiting);
-		assert!(futures::poll!(waiting.as_mut()).is_pending());
-		assert_eq!(*close.borrow(), None);
-		let held = rx.try_recv().unwrap();
-		assert!(
-			futures::poll!(waiting.as_mut()).is_pending(),
-			"dequeue alone is not a completed write"
-		);
-		drop(held);
-		assert!(waiting.await);
-		assert_eq!(*close.borrow(), None);
-		for _ in 1..MAX_OUTBOUND_MESSAGES {
-			assert_eq!(binary(&mut rx).as_ref(), &[1]);
-		}
-		assert_eq!(binary(&mut rx).as_ref(), &[2]);
-	}
-
-	#[tokio::test]
-	async fn saturated_guest_expires_without_closing_or_starving_healthy_fanout() {
-		let store = RelayRoomStore::new(1, 2);
-		let (host, mut host_rx, _) = register(&store, true);
-		let (slow, _slow_rx, slow_close) = register(&store, false);
-		let (_, mut healthy_rx, healthy_close) = register(&store, false);
-		host_rx.try_recv().unwrap();
-		host_rx.try_recv().unwrap();
-		for _ in 0..MAX_OUTBOUND_MESSAGES {
-			assert!(
-				slow.peer
-					.try_enqueue(Message::Binary(Bytes::from_static(&[1])))
-					.is_ok()
-			);
-		}
-		let broadcast = Bytes::from_static(&[0, 0, 0, 0, 42]);
-		let routing = host.route(broadcast.clone());
-		tokio::pin!(routing);
-		assert!(futures::poll!(routing.as_mut()).is_pending());
-		assert_eq!(
-			binary(&mut healthy_rx),
-			broadcast,
-			"healthy fanout precedes the slow-peer wait"
-		);
-		assert_eq!(
-			*slow_close.borrow(),
-			None,
-			"queue pressure gets a grace period"
-		);
-		tokio::time::timeout(Duration::from_secs(2), routing)
-			.await
-			.unwrap();
-		assert_eq!(*slow_close.borrow(), Some(SessionClose::SlowConsumer));
-		assert_eq!(*healthy_close.borrow(), None);
-		let probe = Bytes::from_static(&[0, 0, 0, 0, 43]);
-		host.route(probe.clone()).await;
-		assert_eq!(binary(&mut healthy_rx), probe);
-		assert_eq!(*healthy_close.borrow(), None);
-	}
-
-	#[tokio::test]
-	async fn closing_a_peer_wakes_capacity_waiters_without_draining_data() {
-		let (peer, _rx, close) = Peer::channel();
-		for _ in 0..MAX_OUTBOUND_MESSAGES {
-			assert!(
-				peer.try_enqueue(Message::Binary(Bytes::from_static(&[1])))
-					.is_ok()
-			);
-		}
-		let waiting = peer.enqueue(Message::Binary(Bytes::from_static(&[2])));
-		tokio::pin!(waiting);
-		assert!(futures::poll!(waiting.as_mut()).is_pending());
-		peer.close(SessionClose::RoomClosed);
-		assert!(!waiting.await);
-		assert_eq!(*close.borrow(), Some(SessionClose::RoomClosed));
+		batch.clear();
+		assert!(!outgoing.take(&mut batch, usize::MAX));
+		assert!(batch.is_empty(), "a closed peer's queue is discarded whole");
+		assert!(!peer.enqueue(Message::Text("after close".into())));
 	}
 
 	#[test]
-	fn batch_budgets_keep_both_limits_charged_until_the_entire_batch_is_released() {
-		let (peer, mut rx, _) = Peer::channel();
+	fn bursts_of_small_frames_are_bounded_by_bytes_not_by_a_frame_count() {
+		let (peer, mut outgoing, close) = Peer::channel(LIMIT, Arc::default());
+		let frames = (LIMIT / (4 + FRAME_OVERHEAD_BYTES)) as u32;
+		assert!(frames > 60_000);
+		for sequence in 0..frames {
+			assert!(peer.enqueue(Message::Binary(Bytes::copy_from_slice(
+				&sequence.to_be_bytes()
+			))));
+		}
+		assert_eq!(*close.borrow(), None);
+		let mut batch = Vec::new();
+		assert!(!outgoing.take(&mut batch, usize::MAX));
+		assert_eq!(batch.len(), frames as usize);
+		for (sequence, message) in batch.iter().enumerate() {
+			let Message::Binary(bytes) = message else {
+				panic!("expected binary: {message:?}");
+			};
+			assert_eq!(bytes.as_ref(), (sequence as u32).to_be_bytes());
+		}
 		assert!(
-			peer.try_enqueue(Message::Binary(Bytes::from_static(&[1, 2])))
-				.is_ok()
+			!peer.enqueue(Message::Binary(Bytes::from_static(&[0; 128]))),
+			"per-frame overhead is charged, so tiny frames cannot outgrow the bound"
 		);
-		assert!(
-			peer.try_enqueue(Message::Binary(Bytes::from_static(&[3, 4, 5])))
-				.is_ok()
-		);
-		let (_, mut batch) = rx.try_recv().unwrap().into_parts();
-		let (_, second) = rx.try_recv().unwrap().into_parts();
-		batch.merge(second);
-		assert_eq!(peer.budget.available_permits(), MAX_OUTBOUND_BYTES - 5);
+		assert_eq!(*close.borrow(), Some(SessionClose::SlowConsumer));
+	}
+
+	#[test]
+	fn batches_keep_order_stop_at_the_byte_threshold_and_stay_charged_until_flushed() {
+		let charged = Arc::new(AtomicUsize::new(0));
+		let (peer, mut outgoing, _close) = Peer::channel(LIMIT, Arc::clone(&charged));
+		for byte in 0..5 {
+			assert!(peer.enqueue(Message::Binary(Bytes::from(vec![byte; 100]))));
+		}
+		let total = 5 * (100 + FRAME_OVERHEAD_BYTES);
+		assert_eq!(charged.load(Ordering::Relaxed), total);
+		let mut batch = Vec::new();
+		assert!(outgoing.take(&mut batch, 250));
 		assert_eq!(
-			peer.message_slots.available_permits(),
-			MAX_OUTBOUND_MESSAGES - 2
+			batch.len(),
+			3,
+			"the frame crossing the threshold is included"
+		);
+		assert!(!outgoing.take(&mut batch, 250));
+		assert_eq!(batch.len(), 5);
+		for (byte, message) in batch.iter().enumerate() {
+			assert_eq!(
+				message,
+				&Message::Binary(Bytes::from(vec![byte as u8; 100]))
+			);
+		}
+		assert_eq!(charged.load(Ordering::Relaxed), total);
+		outgoing.flushed();
+		assert_eq!(charged.load(Ordering::Relaxed), 0);
+	}
+
+	#[test]
+	fn a_saturated_guest_is_closed_without_delaying_the_sender_or_healthy_guests() {
+		let store = RelayRoomStore::new(1, 2, LIMIT);
+		let (host, mut host_rx, host_close) = register(&store, true);
+		let (slow, _slow_rx, slow_close) = register(&store, false);
+		let (_, mut healthy_rx, healthy_close) = register(&store, false);
+		next(&mut host_rx).unwrap();
+		next(&mut host_rx).unwrap();
+		assert!(slow.peer.enqueue(Message::Binary(largest())));
+		assert!(slow.peer.enqueue(Message::Binary(largest())));
+		let broadcast = Bytes::from_static(&[0, 0, 0, 0, 42]);
+		// `route` is not a future: no receiver can hold the sender's read loop.
+		host.route(broadcast.clone());
+		assert_eq!(binary(&mut healthy_rx), broadcast);
+		assert_eq!(*slow_close.borrow(), Some(SessionClose::SlowConsumer));
+		assert_eq!(*healthy_close.borrow(), None);
+		assert_eq!(*host_close.borrow(), None);
+		let probe = Bytes::from_static(&[0, 0, 0, 0, 43]);
+		host.route(probe.clone());
+		assert_eq!(binary(&mut healthy_rx), probe);
+		assert_eq!(store.queued_bytes(), 0, "the closed guest holds no frames");
+	}
+
+	#[test]
+	fn closing_a_peer_releases_its_queue_at_once_and_unflushed_frames_with_the_writer() {
+		let store = RelayRoomStore::new(1, 1, LIMIT);
+		let (peer, mut outgoing, close) = store.peer();
+		let payload = Bytes::from(vec![7; 1024]);
+		for _ in 0..3 {
+			assert!(peer.enqueue(Message::Binary(payload.clone())));
+		}
+		let cost = 1024 + FRAME_OVERHEAD_BYTES;
+		assert_eq!(store.queued_bytes(), 3 * cost);
+		let mut batch = Vec::new();
+		assert!(outgoing.take(&mut batch, 1));
+		assert_eq!(store.queued_bytes(), 3 * cost);
+		peer.close(SessionClose::RoomClosed);
+		peer.close(SessionClose::Shutdown);
+		assert_eq!(*close.borrow(), Some(SessionClose::RoomClosed));
+		assert_eq!(
+			store.queued_bytes(),
+			cost,
+			"only the writer's frame remains"
 		);
 		drop(batch);
-		assert_eq!(peer.budget.available_permits(), MAX_OUTBOUND_BYTES);
-		assert_eq!(
-			peer.message_slots.available_permits(),
-			MAX_OUTBOUND_MESSAGES
+		assert!(
+			payload.is_unique(),
+			"queued frames are dropped without waiting for the socket"
 		);
+		assert!(!peer.enqueue(Message::Binary(payload)));
+		drop(outgoing);
+		assert_eq!(store.queued_bytes(), 0);
+	}
+
+	#[test]
+	fn membership_controls_fit_beside_a_full_data_queue_and_keep_their_place() {
+		let store = RelayRoomStore::new(1, 2, LIMIT);
+		let (_, mut host_rx, host_close) = register(&store, true);
+		let (one, _one_rx, _) = register(&store, false);
+		assert_eq!(text(&mut host_rx), r#"{"t":"peer-joined","peer":1}"#);
+		one.route(largest());
+		one.route(largest());
+		let (two, _two_rx, _) = register(&store, false);
+		store.unregister(&one);
+		assert_eq!(*host_close.borrow(), None);
+		// A guest's frames all precede its `peer-left`, even past the data bound.
+		assert_eq!(binary(&mut host_rx).len(), MAX_MESSAGE_BYTES);
+		assert_eq!(binary(&mut host_rx).len(), MAX_MESSAGE_BYTES);
+		assert_eq!(text(&mut host_rx), r#"{"t":"peer-joined","peer":2}"#);
+		assert_eq!(text(&mut host_rx), r#"{"t":"peer-left","peer":1}"#);
+		two.route(largest());
+		two.route(largest());
+		assert_eq!(*host_close.borrow(), None);
+		two.route(Bytes::from_static(&[0, 0, 0, 0, 1]));
+		assert_eq!(*host_close.borrow(), Some(SessionClose::SlowConsumer));
+	}
+
+	#[tokio::test]
+	async fn the_writer_wakes_for_the_first_queued_frame() {
+		let (peer, outgoing, _close) = Peer::channel(LIMIT, Arc::default());
+		let ready = outgoing.ready();
+		tokio::pin!(ready);
+		assert!(futures::poll!(ready.as_mut()).is_pending());
+		assert!(peer.enqueue(Message::Text("wake".into())));
+		ready.await;
 	}
 
 	#[test]

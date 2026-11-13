@@ -22,6 +22,8 @@ export interface SidebarProps {
 	/** Agent whose panel is open, if any. */
 	selectedId: string | null;
 	onSelect(id: string | null): void;
+	/** Initially collapsed parent subagent ids (primarily for deterministic SSR/tests). */
+	initialCollapsedIds?: ReadonlySet<string> | readonly string[];
 	participants: readonly Participant[] | undefined;
 	/** This guest's display name. */
 	name: string;
@@ -38,6 +40,7 @@ export const Sidebar = memo(function Sidebar({
 	lifecycle,
 	selectedId,
 	onSelect,
+	initialCollapsedIds,
 	participants = NO_PARTICIPANTS,
 	name,
 	readOnly,
@@ -66,9 +69,10 @@ export const Sidebar = memo(function Sidebar({
 					title={title}
 					selectedId={selectedId}
 					onSelect={onSelect}
+					initialCollapsedIds={initialCollapsedIds}
 				/>
 				<div className="sb-heading">
-					People
+					<span>People</span>
 					{participants.length > 0 && <span className="sb-heading-count">{participants.length}</span>}
 				</div>
 				{participants.map((p, i) => (
@@ -76,7 +80,9 @@ export const Sidebar = memo(function Sidebar({
 						<span className="sb-avatar" aria-hidden="true">
 							{(p.name[0] ?? "?").toUpperCase()}
 						</span>
-						<span className="sb-row-name">{p.name}</span>
+						<span className="sb-row-name" title={p.name}>
+							{p.name}
+						</span>
 						<span className="sb-row-note">{p.role === "host" ? "host" : p.readOnly ? "view only" : "guest"}</span>
 					</div>
 				))}

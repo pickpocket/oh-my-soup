@@ -18,7 +18,12 @@ import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
 import type { InteractiveModeContext } from "@oh-my-soup/pi-coding-agent/modes/types";
 import { AgentRegistry } from "@oh-my-soup/pi-coding-agent/registry/agent-registry";
 import { TempDir } from "@oh-my-soup/pi-utils";
-import { COLLAB_MAX_FRAME_BYTES, COLLAB_TRANSCRIPT_PAGE_BYTES, type TranscriptCursor } from "@oh-my-soup/pi-wire";
+import {
+	COLLAB_MAX_FRAME_BYTES,
+	COLLAB_TRANSCRIPT_CHANGED_ERROR,
+	COLLAB_TRANSCRIPT_PAGE_BYTES,
+	type TranscriptCursor,
+} from "@oh-my-soup/pi-wire";
 import { installInMemoryRelay, uninstallInMemoryRelay } from "./helpers/in-memory-relay";
 import { connectRawGuest, type RawGuest } from "./helpers/raw-guest";
 
@@ -362,15 +367,34 @@ describe("collab transcript pages", () => {
 
 		for (const kind of ["before", "after"] as const) {
 			const page = await fetchPage(guest, id, { kind, byte: beyond });
-			expect(page.error).toBeString();
+			expect(page.error).toBe(COLLAB_TRANSCRIPT_CHANGED_ERROR);
 			expect(page).toMatchObject({ text: "", startByte: beyond, endByte: beyond, size: content.length });
 		}
 		// Mid-line offsets would split a line (and possibly a character): refused the same way.
 		for (const kind of ["before", "after"] as const) {
 			const page = await fetchPage(guest, id, { kind, byte: 5 });
-			expect(page.error).toBeString();
+			expect(page.error).toBe(COLLAB_TRANSCRIPT_CHANGED_ERROR);
 			expect(page.text).toBe("");
 		}
+	});
+
+	it("keeps a transcript's generation across appends and changes it when the file is replaced", async () => {
+		const { id, file } = await registerTranscript(jsonl(3, 16));
+		const guest = await joinViewer("generation-reader");
+		const opened = await fetchPage(guest, id, { kind: "tail" });
+		expect(opened.generation).toBeString();
+
+		await fs.appendFile(file, jsonl(1, 16));
+		const appended = await fetchPage(guest, id, { kind: "after", byte: opened.endByte });
+		expect(appended.text).not.toBe("");
+		expect(appended.generation).toBe(opened.generation);
+
+		// Session rewrites (pruning old tool output, for example) publish a new file by rename.
+		await Bun.write(`${file}.tmp`, jsonl(5, 8));
+		await fs.rename(`${file}.tmp`, file);
+		const rewritten = await fetchPage(guest, id, { kind: "tail" });
+		expect(rewritten.generation).toBeString();
+		expect(rewritten.generation).not.toBe(opened.generation);
 	});
 
 	it("refuses unknown agents, advisor transcripts and malformed cursors", async () => {

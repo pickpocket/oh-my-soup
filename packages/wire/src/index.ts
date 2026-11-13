@@ -347,11 +347,18 @@ export interface HistoryPage {
 export const COLLAB_TRANSCRIPT_PAGE_BYTES = 256 * 1024;
 
 /**
- * Byte position in a subagent's append-only JSONL transcript. `tail` reads the
- * newest complete lines; `before` the lines ending at `byte`; `after` the
- * lines starting at `byte`. Every page starts and ends on a line boundary.
+ * Byte position in a subagent's JSONL transcript. `tail` reads the newest
+ * complete lines; `before` the lines ending at `byte`; `after` the lines
+ * starting at `byte`. Every page starts and ends on a line boundary.
+ *
+ * The host appends to a transcript but also rewrites it whole (pruning old
+ * tool output, for example), which moves every later line: a cursor is only
+ * valid for the `generation` of the page it came from.
  */
 export type TranscriptCursor = { kind: "tail" } | { kind: "before" | "after"; byte: number };
+
+/** `transcript-page` error for a cursor that no longer matches the file: reload from `tail`. */
+export const COLLAB_TRANSCRIPT_CHANGED_ERROR = "transcript changed on the host; reload it from the latest page";
 
 /** Where a host command a guest may run comes from. */
 export type CollabCommandSource = "builtin" | "skill" | "custom" | "mcp_prompt" | "file" | "template";
@@ -487,6 +494,12 @@ export type HostFrame =
 			startByte: number;
 			endByte: number;
 			size: number;
+			/**
+			 * Identity of the file this page was read from. It changes when the
+			 * host replaces the file, which voids every cursor from an earlier
+			 * generation. Absent from older hosts.
+			 */
+			generation?: string;
 			error?: string;
 	  }
 	/** Host commands this peer may run; sent after `welcome` and whenever the list changes. */

@@ -5,7 +5,7 @@
  * mock host's page reader, which follows the wire's page semantics.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
-import type { SessionEntry, TranscriptCursor } from "@oh-my-soup/pi-wire";
+import { COLLAB_TRANSCRIPT_CHANGED_ERROR, type SessionEntry, type TranscriptCursor } from "@oh-my-soup/pi-wire";
 import { readTranscriptPage } from "../scripts/mock-transcript";
 import type { TranscriptPageResult } from "../src/lib/client";
 import {
@@ -41,6 +41,8 @@ const HEADER = `${JSON.stringify({ type: "session", id: "s1", timestamp: "2026-0
 /** A transcript file on a host that answers with whole-line pages. */
 class FakeHost {
 	file: Uint8Array;
+	/** Identity of {@link file}; {@link rewrite} replaces the file, as the host's whole-file rewrites do. */
+	generation = 1;
 	running = false;
 	/** Holds replies back until {@link release} when true. */
 	hold = false;
@@ -51,6 +53,12 @@ class FakeHost {
 
 	constructor(text: string) {
 		this.file = encoder.encode(text);
+	}
+
+	/** Publishes a new file in place of the old one, moving every line (pruned tool output, for example). */
+	rewrite(text: string): void {
+		this.file = encoder.encode(text);
+		this.generation++;
 	}
 
 	append(text: string): void {
@@ -73,10 +81,18 @@ class FakeHost {
 			this.nextReply = undefined;
 		} else {
 			const page = readTranscriptPage(this.file, cursor);
+			const generation = String(this.generation);
 			reply =
 				page.error !== undefined
-					? { kind: "error", message: page.error, size: page.size }
-					: { kind: "page", text: page.text, startByte: page.startByte, endByte: page.endByte, size: page.size };
+					? { kind: "error", message: page.error, size: page.size, generation }
+					: {
+							kind: "page",
+							text: page.text,
+							startByte: page.startByte,
+							endByte: page.endByte,
+							size: page.size,
+							generation,
+						};
 		}
 		if (!this.hold) return Promise.resolve(reply);
 		const { promise, resolve } = Promise.withResolvers<TranscriptPageResult | null>();
@@ -332,27 +348,19 @@ describe("TranscriptPager", () => {
 		expect(pager.view.entries.at(-1)?.id).toBe("slow");
 	});
 
-	it("shows a terminal error, stops polling, and reloads from the tail once the host reports the transcript changed", async () => {
+	it("moves a reader following the live tail to the newest page after the host rewrites the transcript", async () => {
 		const host = new FakeHost(HEADER + plainRows(0, 300));
 		host.running = true;
 		const pager = open(host);
 		await flush();
 		const version = pager.view.version;
-		const before = pager.view.entries;
 
-		// The file was replaced by a shorter one: the window's end is beyond it.
-		host.file = encoder.encode(HEADER + rowLine("fresh-0", "rewritten") + rowLine("fresh-1", "rewritten"));
+		// Pruning rewrote the file shorter: the window's end is beyond it.
+		host.rewrite(HEADER + rowLine("fresh-0", "rewritten") + rowLine("fresh-1", "rewritten"));
 		await advance(1);
-		expect(pager.view.error).not.toBeNull();
-		expect(pager.view.entries).toBe(before);
-		const requests = host.cursors.length;
-		await advance(5);
-		expect(host.cursors.length).toBe(requests);
-
-		// Every retained cursor is void, so the next load of any kind restarts at the tail.
-		pager.loadOlder();
+		expect(pager.view.error).toBeNull();
+		await advance(1);
 		expect(host.cursors.at(-1)).toEqual({ kind: "tail" });
-		await flush();
 		expect(ids(pager.view.entries)).toEqual(["fresh-0", "fresh-1"]);
 		expect(pager.view).toMatchObject({ error: null, hasOlder: false, atLatest: true, loading: null });
 		expect(pager.view.version).toBe(version + 1);
@@ -360,6 +368,61 @@ describe("TranscriptPager", () => {
 		host.append(rowLine("fresh-2", "polling resumed"));
 		await advance(1);
 		expect(pager.view.entries.at(-1)?.id).toBe("fresh-2");
+	});
+
+	it("detects a rewrite whose old end still falls on a line boundary by the file generation", async () => {
+		const host = new FakeHost(HEADER + plainRows(0, 3));
+		host.running = true;
+		const pager = open(host);
+		await flush();
+
+		// Lines of the same length: the old end byte is a line start in the new file, so its rows would splice on.
+		let rewritten = HEADER;
+		for (let i = 0; i < 6; i++) rewritten += rowLine(`p${i}`, "x".repeat(900));
+		host.rewrite(rewritten);
+		await advance(2);
+		expect(ids(pager.view.entries)).toEqual(["p0", "p1", "p2", "p3", "p4", "p5"]);
+		expect(pager.view.error).toBeNull();
+	});
+
+	it("tells a reader who is not following the tail about a rewrite and restarts their next load at the tail", async () => {
+		const host = new FakeHost(HEADER + plainRows(0, 300));
+		host.running = true;
+		const pager = open(host);
+		await flush();
+		pager.setFollowingTail(false);
+		const before = pager.view.entries;
+
+		host.rewrite(HEADER + rowLine("fresh-0", "rewritten") + rowLine("fresh-1", "rewritten"));
+		await advance(1);
+		expect(pager.view.error).toBe(COLLAB_TRANSCRIPT_CHANGED_ERROR);
+		expect(pager.view.entries).toBe(before);
+		// No void cursors are sent and the reader's rows are not replaced under them.
+		const requests = host.cursors.length;
+		await advance(3);
+		expect(host.cursors.length).toBe(requests);
+
+		pager.loadOlder();
+		expect(host.cursors.at(-1)).toEqual({ kind: "tail" });
+		await flush();
+		expect(ids(pager.view.entries)).toEqual(["fresh-0", "fresh-1"]);
+		expect(pager.view).toMatchObject({ error: null, atLatest: true });
+	});
+
+	it("reloads a rewritten transcript once a reader scrolls back to the live tail", async () => {
+		const host = new FakeHost(HEADER + plainRows(0, 300));
+		host.running = true;
+		const pager = open(host);
+		await flush();
+		pager.setFollowingTail(false);
+		host.rewrite(HEADER + rowLine("fresh-0", "rewritten"));
+		await advance(1);
+		expect(pager.view.error).toBe(COLLAB_TRANSCRIPT_CHANGED_ERROR);
+
+		pager.setFollowingTail(true);
+		await advance(1);
+		expect(ids(pager.view.entries)).toEqual(["fresh-0"]);
+		expect(pager.view.error).toBeNull();
 	});
 
 	it("stops polling on a terminal read error and recovers through jumpToLatest", async () => {

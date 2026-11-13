@@ -27,6 +27,7 @@
 - The collab host no longer restarts the room as "relay went silent" while the relay is still pinging it or right after the terminal stalls.
 - Guests can ask `/btw` at the same time instead of failing with "A /btw question is still running", and a guest can ask a subagent with `/btw` from its panel.
 - Guests that join or reconnect see tools that are still running, and get the command list before the transcript, so a `/btw` typed right after joining runs as a command.
+- Subagent transcript pages name the file's generation, so the browser keeps following a subagent after the host prunes or otherwise rewrites its transcript.
 
 - Fixed native HUD job metrics and hover-card discovery.
 

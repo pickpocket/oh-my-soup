@@ -13,7 +13,11 @@
  * reader pages past it in either direction with exact cursors.
  */
 import * as fs from "node:fs/promises";
-import { COLLAB_TRANSCRIPT_PAGE_BYTES, type TranscriptCursor } from "@oh-my-soup/pi-wire";
+import {
+	COLLAB_TRANSCRIPT_CHANGED_ERROR,
+	COLLAB_TRANSCRIPT_PAGE_BYTES,
+	type TranscriptCursor,
+} from "@oh-my-soup/pi-wire";
 import { COLLAB_ENTRY_OMITTED_CUSTOM_TYPE, MAX_REPLICATED_PAYLOAD_BYTES } from "./replication-shrink";
 
 const NEWLINE = 0x0a;
@@ -27,6 +31,8 @@ export interface TranscriptPage {
 	endByte: number;
 	/** File size when the page was read. */
 	size: number;
+	/** Identity of the file read (its file id and creation time); a host rewrite replaces the file and changes it. */
+	generation?: string;
 	error?: string;
 }
 
@@ -45,13 +51,6 @@ export const TRANSCRIPT_PAGE_LIMITS: TranscriptPageLimits = {
 	lineBytes: MAX_REPLICATED_PAYLOAD_BYTES / 2,
 	scanBytes: 64 * 1024 * 1024,
 };
-
-/**
- * The cursor no longer matches the file: it lies beyond the end or off a line
- * boundary, which an append-only transcript never does to an offset it handed
- * out. The guest recovers by reloading from `tail`.
- */
-export const TRANSCRIPT_CHANGED_ERROR = "transcript changed on the host; reload it from the latest page";
 
 /** Structural check of a cursor received off the wire. */
 export function isTranscriptCursor(cursor: unknown): cursor is TranscriptCursor {
@@ -166,7 +165,7 @@ async function pageEndingAt(read: TranscriptRead, end: number, loaded?: ReadWind
 			? loaded.buf.subarray(lo - loaded.start, end - loaded.start)
 			: await readRange(read, lo, end);
 	const last = buf.length - 1;
-	if (buf[last] !== NEWLINE) return emptyPage(end, size, TRANSCRIPT_CHANGED_ERROR);
+	if (buf[last] !== NEWLINE) return emptyPage(end, size, COLLAB_TRANSCRIPT_CHANGED_ERROR);
 	let start = 0;
 	if (end > COLLAB_TRANSCRIPT_PAGE_BYTES) {
 		// The final byte terminates the page's last line; any earlier newline starts a line within the bound.
@@ -207,12 +206,12 @@ async function readTail(read: TranscriptRead): Promise<TranscriptPage> {
 /** The whole lines starting at `byte`: as many as fit the page bound, but at least one when one exists. */
 async function readAfter(read: TranscriptRead, byte: number): Promise<TranscriptPage> {
 	const { size } = read;
-	if (byte > size) return emptyPage(byte, size, TRANSCRIPT_CHANGED_ERROR);
+	if (byte > size) return emptyPage(byte, size, COLLAB_TRANSCRIPT_CHANGED_ERROR);
 	// One byte before the cursor proves it sits on a line boundary.
 	const lo = Math.max(0, byte - 1);
 	const hi = Math.min(size, byte + COLLAB_TRANSCRIPT_PAGE_BYTES);
 	const buf = await readRange(read, lo, hi);
-	if (byte > 0 && buf[0] !== NEWLINE) return emptyPage(byte, size, TRANSCRIPT_CHANGED_ERROR);
+	if (byte > 0 && buf[0] !== NEWLINE) return emptyPage(byte, size, COLLAB_TRANSCRIPT_CHANGED_ERROR);
 	const body = buf.subarray(byte - lo);
 	const newline = body.lastIndexOf(NEWLINE);
 	if (newline !== -1) {
@@ -227,7 +226,12 @@ async function readAfter(read: TranscriptRead, byte: number): Promise<Transcript
 	return ceiling === size ? emptyPage(byte, size) : emptyPage(byte, size, scanBoundError(read.limits));
 }
 
-/** Open `file` for one bounded read; a transcript that shrinks mid-read reports {@link TRANSCRIPT_CHANGED_ERROR}. */
+/**
+ * Open `file` for one bounded read and stamp the page with the file's
+ * generation. A cursor beyond the end or off a line boundary, which an
+ * append-only file never does to an offset it handed out, and a file that
+ * shrinks mid-read report {@link COLLAB_TRANSCRIPT_CHANGED_ERROR}.
+ */
 async function withTranscript(
 	file: string,
 	limits: TranscriptPageLimits,
@@ -236,15 +240,18 @@ async function withTranscript(
 ): Promise<TranscriptPage> {
 	const handle = await fs.open(file, "r");
 	try {
-		const stat = await handle.stat();
+		const stat = await handle.stat({ bigint: true });
+		// Session rewrites publish a new file by rename, so the file id and creation time change with them.
+		const generation = `${stat.ino}:${stat.birthtimeNs}`;
 		// Not every filesystem records a creation time.
-		const createdAt = new Date(Number.isFinite(stat.birthtimeMs) ? stat.birthtimeMs : 0);
-		const read: TranscriptRead = { handle, size: stat.size, createdAt, limits };
+		const birthtimeMs = Number(stat.birthtimeMs);
+		const createdAt = new Date(Number.isFinite(birthtimeMs) ? birthtimeMs : 0);
+		const read: TranscriptRead = { handle, size: Number(stat.size), createdAt, limits };
 		try {
-			return await run(read);
+			return { ...(await run(read)), generation };
 		} catch (err) {
 			if (!(err instanceof TranscriptChangedError)) throw err;
-			return emptyPage(at, read.size, TRANSCRIPT_CHANGED_ERROR);
+			return { ...emptyPage(at, read.size, COLLAB_TRANSCRIPT_CHANGED_ERROR), generation };
 		}
 	} finally {
 		await handle.close();
@@ -267,7 +274,7 @@ export function readTranscriptPage(
 			case "before":
 				if (cursor.byte <= 0) return Promise.resolve(emptyPage(0, read.size));
 				if (cursor.byte > read.size) {
-					return Promise.resolve(emptyPage(cursor.byte, read.size, TRANSCRIPT_CHANGED_ERROR));
+					return Promise.resolve(emptyPage(cursor.byte, read.size, COLLAB_TRANSCRIPT_CHANGED_ERROR));
 				}
 				return pageEndingAt(read, cursor.byte);
 			case "after":

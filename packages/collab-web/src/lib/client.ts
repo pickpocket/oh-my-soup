@@ -166,11 +166,13 @@ function isCoalescable(frame: HostFrame): boolean {
  *   file size when the host read it.
  * - `error`: terminal read failure for that cursor; callers must surface it
  *   and stop instead of hot retrying.
+ * `generation` identifies the file read (absent from older hosts): a new one
+ * means the host replaced the file and earlier cursors are void.
  * Transient failures (timeout, session end) resolve `null` and are retryable.
  */
 export type TranscriptPageResult =
-	| { kind: "page"; text: string; startByte: number; endByte: number; size: number }
-	| { kind: "error"; message: string; size: number };
+	| { kind: "page"; text: string; startByte: number; endByte: number; size: number; generation?: string }
+	| { kind: "error"; message: string; size: number; generation?: string };
 
 interface PendingTranscript {
 	resolve: (result: TranscriptPageResult | null) => void;
@@ -890,13 +892,14 @@ export class GuestClient {
 					clearTimeout(pending.timer);
 					pending.resolve(
 						frame.error !== undefined
-							? { kind: "error", message: frame.error, size: frame.size }
+							? { kind: "error", message: frame.error, size: frame.size, generation: frame.generation }
 							: {
 									kind: "page",
 									text: frame.text,
 									startByte: frame.startByte,
 									endByte: frame.endByte,
 									size: frame.size,
+									generation: frame.generation,
 								},
 					);
 				}

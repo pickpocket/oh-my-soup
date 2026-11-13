@@ -1,5 +1,5 @@
 /**
- * Sliding window over one subagent's append-only JSONL transcript.
+ * Sliding window over one subagent's JSONL transcript.
  *
  * Mirrors the main transcript's reader-facing shape: one contiguous run of
  * rows that opens at the tail, extends backward and forward a page at a time,
@@ -9,11 +9,15 @@
  *
  * While attached the pager polls for appended lines; a non-running agent whose
  * transcript stopped changing is no longer polled until {@link TranscriptPager.poll}
- * resumes it. Pure state machine: no React, no socket.
+ * resumes it. The host also rewrites transcripts whole (pruning old tool
+ * output, for example), which moves every line: a reply from another file
+ * generation, or the host's "transcript changed" error, voids the window, and
+ * a reader following the live tail is moved to the newest page on the next
+ * poll. Pure state machine: no React, no socket.
  */
 
 import type { SessionEntry, TranscriptCursor } from "@oh-my-soup/pi-wire";
-import { COLLAB_TRANSCRIPT_PAGE_BYTES } from "@oh-my-soup/pi-wire";
+import { COLLAB_TRANSCRIPT_CHANGED_ERROR, COLLAB_TRANSCRIPT_PAGE_BYTES } from "@oh-my-soup/pi-wire";
 import type { TranscriptPageResult } from "./client";
 import { parseJsonlLines } from "./jsonl";
 
@@ -143,8 +147,14 @@ export class TranscriptPager {
 	#opened = false;
 	#attached = true;
 	#following = true;
-	/** The host no longer agrees with the retained byte range: every load restarts from the tail. */
+	/**
+	 * The host rewrote the transcript, so the retained byte range no longer
+	 * matches it: a reader following the tail reloads it on the next poll, and
+	 * every other load restarts from the tail.
+	 */
 	#stale = false;
+	/** File generation of the retained rows; `undefined` from hosts that do not report one. */
+	#generation: string | undefined;
 	/** A tail-side read failed terminally: polling stays off until a load succeeds. */
 	#failed = false;
 	#loading: TranscriptPagerView["loading"] = "latest";
@@ -203,6 +213,8 @@ export class TranscriptPager {
 	 */
 	setFollowingTail(following: boolean): void {
 		this.#following = following;
+		// Back at the live end of a rewritten transcript: let the next poll reload it.
+		if (following && this.#stale && this.#attached) this.#startPolling(false);
 	}
 
 	/** Agent activity: restarts polling that stopped for idleness. A running loop ignores it. */
@@ -246,9 +258,12 @@ export class TranscriptPager {
 			return;
 		}
 		if (kind !== "poll") this.#loading = null;
+		if (this.#isRewritten(cursor, reply)) {
+			this.#markRewritten();
+			return;
+		}
 		if (reply.kind === "error") {
-			const changed = cursor.kind !== "tail" && cursor.byte > reply.size;
-			this.#fail(reply.message, changed, changed || kind !== "older");
+			this.#fail(reply.message, false, kind !== "older");
 			return;
 		}
 		const blocks = decodeBlocks(reply);
@@ -278,6 +293,38 @@ export class TranscriptPager {
 		}
 	}
 
+	/**
+	 * Whether the host replaced or rewrote the file since the window was read.
+	 * A tail read starts a new window, so only the host's own error voids it.
+	 */
+	#isRewritten(cursor: TranscriptCursor, reply: TranscriptPageResult): boolean {
+		if (reply.kind === "error") {
+			return (
+				reply.message === COLLAB_TRANSCRIPT_CHANGED_ERROR || (cursor.kind !== "tail" && cursor.byte > reply.size)
+			);
+		}
+		return (
+			cursor.kind !== "tail" &&
+			reply.generation !== undefined &&
+			this.#generation !== undefined &&
+			reply.generation !== this.#generation
+		);
+	}
+
+	/**
+	 * Voids the window after a host rewrite. Its rows stay on screen; a reader
+	 * following the live tail gets the newest page on the next poll, and anyone
+	 * else is told why their next load starts over at the tail.
+	 */
+	#markRewritten(): void {
+		this.#stale = true;
+		this.#failed = false;
+		const following = this.#attached && this.#following;
+		this.#error = following ? null : COLLAB_TRANSCRIPT_CHANGED_ERROR;
+		if (following) this.#startPolling(false);
+		this.#publish(false);
+	}
+
 	/** Terminal for that cursor: shown, never retried automatically. `halt` also ends polling. */
 	#fail(message: string, stale: boolean, halt: boolean): void {
 		this.#error = message;
@@ -294,11 +341,12 @@ export class TranscriptPager {
 		this.#rows = countRows(blocks);
 		this.#startByte = page.startByte;
 		this.#endByte = page.endByte;
-		this.#evictOldest();
+		this.#generation = page.generation;
 		this.#opened = true;
 		this.#attached = true;
 		this.#stale = false;
 		this.#failed = false;
+		this.#error = null;
 		this.#version++;
 		this.#startPolling(false);
 		this.#publish(true);
@@ -414,8 +462,8 @@ export class TranscriptPager {
 
 	#tick(): void {
 		if (this.#disposed || this.#inFlight !== null) return;
-		if (!this.#opened) this.#send("latest", { kind: "tail" });
-		else if (this.#attached) this.#send("poll", { kind: "after", byte: this.#endByte });
+		if (!this.#opened || (this.#stale && this.#attached && this.#following)) this.#send("latest", { kind: "tail" });
+		else if (this.#attached && !this.#stale) this.#send("poll", { kind: "after", byte: this.#endByte });
 	}
 
 	#buildView(entries: readonly SessionEntry[]): TranscriptPagerView {

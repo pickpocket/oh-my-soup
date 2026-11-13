@@ -34,15 +34,17 @@ import {
 	fixtureAgents,
 	fixtureEntries,
 	fixtureHeader,
+	fixtureLifecycle,
 	fixtureModel,
+	fixtureSettledProgress,
 	HOST_DISPLAY_NAME,
+	makeAgentTranscriptLine,
 	makeLongSessionEntries,
 	makeLongTranscriptJsonl,
-	makeProbeProgress,
-	makeProbeTranscriptLine,
+	makeRunningProgressPayloads,
 	makeScriptedTurn,
+	makeSubagentTranscriptJsonl,
 	type ScriptedStep,
-	subagentTranscriptJsonl,
 } from "./fixture";
 import { startLocalRelay } from "./local-relay";
 import { MockCommands } from "./mock-commands";
@@ -83,8 +85,13 @@ const entries: SessionEntry[] = long ? makeLongSessionEntries() : [...fixtureEnt
 const agents: AgentSnapshot[] = fixtureAgents.map(agent => ({ ...agent }));
 const peers = new Map<number, string>();
 /** Every agent's session file; a running sub appends to its own on each tick. */
-const baseTranscript = Buffer.from(long ? makeLongTranscriptJsonl() : subagentTranscriptJsonl);
-const transcripts = new Map(agents.map((agent): [string, Buffer] => [agent.id, baseTranscript]));
+const longTranscript = long ? Buffer.from(makeLongTranscriptJsonl()) : null;
+const transcripts = new Map(
+	agents.map((agent): [string, Buffer] => [
+		agent.id,
+		longTranscript ?? Buffer.from(makeSubagentTranscriptJsonl(agent)),
+	]),
+);
 
 let lastEntryId: string | null = entries[entries.length - 1]?.id ?? null;
 let streaming = false;
@@ -304,6 +311,15 @@ function handleHello(name: string, proto: number, fromPeer: number, history?: "p
 	);
 	sendFrame(mockCommands.catalogFrame(), fromPeer);
 	sendFrame({ t: "snapshot-chunk", entries: selected?.entries ?? [...entries], final: true }, fromPeer);
+	for (const item of fixtureLifecycle) {
+		sendFrame({ t: "bus", channel: "task:subagent:lifecycle", data: item }, fromPeer);
+	}
+	for (const item of fixtureSettledProgress) {
+		sendFrame({ t: "bus", channel: "task:subagent:progress", data: item }, fromPeer);
+	}
+	for (const item of makeRunningProgressPayloads(tick)) {
+		sendFrame({ t: "bus", channel: "task:subagent:progress", data: item }, fromPeer);
+	}
 	if (streamMessage !== null) {
 		sendFrame({ t: "stream", id: streamId, revision: streamRevision, message: streamMessage }, fromPeer);
 	}
@@ -490,14 +506,16 @@ ws.onclose = event => {
 
 const tickInterval: Timer = setInterval(() => {
 	tick++;
-	sendFrame({ t: "bus", channel: "task:subagent:progress", data: makeProbeProgress(tick) });
+	for (const payload of makeRunningProgressPayloads(tick)) {
+		sendFrame({ t: "bus", channel: "task:subagent:progress", data: payload });
+	}
 	const now = Date.now();
 	for (const agent of agents) {
 		if (agent.status !== "running") continue;
 		agent.lastActivity = now;
 		const file = transcripts.get(agent.id);
 		if (agent.kind === "sub" && file !== undefined) {
-			transcripts.set(agent.id, Buffer.concat([file, Buffer.from(makeProbeTranscriptLine(tick))]));
+			transcripts.set(agent.id, Buffer.concat([file, Buffer.from(makeAgentTranscriptLine(agent.id, tick))]));
 		}
 	}
 	if (tick % AGENTS_SNAPSHOT_EVERY === 0) {

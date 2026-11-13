@@ -14,6 +14,7 @@ import type {
 	AssistantMessage,
 	SessionEntry,
 	SessionHeader,
+	SubagentLifecyclePayload,
 	SubagentProgressPayload,
 	ToolCallContent,
 	ToolResultMessage,
@@ -356,19 +357,30 @@ export const fixtureAgents: AgentSnapshot[] = [
 		createdAt: NOW - 32 * MIN,
 		lastActivity: NOW - 5_000,
 	},
+	// Top-level coordinator subagent with 8 children + 1 grandchild
 	{
 		id: "RelayProbe",
-		displayName: "RelayProbe",
+		displayName: "task",
 		kind: "sub",
 		parentId: "main",
 		status: "running",
 		hasSessionFile: true,
-		createdAt: NOW - 6 * MIN,
+		createdAt: NOW - 8 * MIN,
 		lastActivity: NOW - 2_000,
 	},
 	{
+		id: "ProtocolVerify",
+		displayName: "task",
+		kind: "sub",
+		parentId: "main",
+		status: "idle",
+		hasSessionFile: true,
+		createdAt: NOW - 12 * MIN,
+		lastActivity: NOW - 90_000,
+	},
+	{
 		id: "DocSweep",
-		displayName: "DocSweep",
+		displayName: "scout",
 		kind: "sub",
 		parentId: "main",
 		status: "parked",
@@ -376,53 +388,421 @@ export const fixtureAgents: AgentSnapshot[] = [
 		createdAt: NOW - 25 * MIN,
 		lastActivity: NOW - 11 * MIN,
 	},
+	{
+		id: "LegacyFrameFuzzer",
+		displayName: "task",
+		kind: "sub",
+		parentId: "main",
+		status: "aborted",
+		hasSessionFile: true,
+		createdAt: NOW - 22 * MIN,
+		lastActivity: NOW - 18 * MIN,
+	},
+	{
+		id: "ColdArchiveAudit",
+		displayName: "task",
+		kind: "sub",
+		parentId: "main",
+		status: "parked",
+		hasSessionFile: true,
+		createdAt: NOW - 30 * MIN,
+		lastActivity: NOW - 27 * MIN,
+	},
+	// 8 children spawned by RelayProbe
+	{
+		id: "RelayProbe.KevlarLookups",
+		displayName: "task",
+		kind: "sub",
+		parentId: "RelayProbe",
+		status: "running",
+		hasSessionFile: true,
+		createdAt: NOW - 7 * MIN,
+		lastActivity: NOW - 1_500,
+	},
+	{
+		id: "RelayProbe.CrtExact",
+		displayName: "task",
+		kind: "sub",
+		parentId: "RelayProbe",
+		status: "running",
+		hasSessionFile: true,
+		createdAt: NOW - 7 * MIN + 2_000,
+		lastActivity: NOW - 1_800,
+	},
+	{
+		id: "RelayProbe.FrameBoundaryChecksumVerification",
+		displayName: "task",
+		kind: "sub",
+		parentId: "RelayProbe",
+		status: "running",
+		hasSessionFile: true,
+		createdAt: NOW - 7 * MIN + 4_000,
+		lastActivity: NOW - 1_200,
+	},
+	{
+		id: "RelayProbe.TimeOrigin",
+		displayName: "task",
+		kind: "sub",
+		parentId: "RelayProbe",
+		status: "idle",
+		hasSessionFile: true,
+		createdAt: NOW - 7 * MIN + 6_000,
+		lastActivity: NOW - 45_000,
+	},
+	{
+		id: "RelayProbe.NatHalfOpenSweep",
+		displayName: "task",
+		kind: "sub",
+		parentId: "RelayProbe",
+		status: "parked",
+		hasSessionFile: true,
+		createdAt: NOW - 7 * MIN + 8_000,
+		lastActivity: NOW - 3 * MIN,
+	},
+	{
+		id: "RelayProbe.SendBufferCap",
+		displayName: "task",
+		kind: "sub",
+		parentId: "RelayProbe",
+		status: "parked",
+		hasSessionFile: true,
+		createdAt: NOW - 7 * MIN + 10_000,
+		lastActivity: NOW - 4 * MIN,
+	},
+	{
+		id: "RelayProbe.DecryptKeyHeal",
+		displayName: "task",
+		kind: "sub",
+		parentId: "RelayProbe",
+		status: "parked",
+		hasSessionFile: true,
+		createdAt: NOW - 7 * MIN + 12_000,
+		lastActivity: NOW - 5 * MIN,
+	},
+	{
+		id: "RelayProbe.CloseCodeTable",
+		displayName: "task",
+		kind: "sub",
+		parentId: "RelayProbe",
+		status: "aborted",
+		hasSessionFile: true,
+		createdAt: NOW - 7 * MIN + 14_000,
+		lastActivity: NOW - 5 * MIN + 15_000,
+	},
+	// Grandchild (depth 2) spawned by KevlarLookups
+	{
+		id: "RelayProbe.KevlarLookups.WindowDriftCheck",
+		displayName: "task",
+		kind: "sub",
+		parentId: "RelayProbe.KevlarLookups",
+		status: "running",
+		hasSessionFile: true,
+		createdAt: NOW - 4 * MIN,
+		lastActivity: NOW - 900,
+	},
 ];
 
-const PROBE_TOOLS = ["bash", "read", "grep", "edit"] as const;
-const PROBE_TOOL_ARGS: Record<(typeof PROBE_TOOLS)[number], string> = {
-	bash: "bun test packages/coding-agent/test/collab --filter reconnect",
-	read: "packages/coding-agent/src/collab/relay-client.ts:168-197",
-	grep: "scheduleRetry|failFatal",
-	edit: "packages/coding-agent/test/collab/reconnect.test.ts",
-};
+export const fixtureLifecycle: readonly SubagentLifecyclePayload[] = [
+	{
+		id: "RelayProbe",
+		agent: "task",
+		description: "relay reconnect coordinator",
+		status: "started",
+		sessionFile: "/tmp/oms/agents/RelayProbe.jsonl",
+		index: 0,
+	},
+	{
+		id: "DocSweep",
+		agent: "scout",
+		description: "sweep close-code docs",
+		status: "completed",
+		sessionFile: "/tmp/oms/agents/DocSweep.jsonl",
+		index: 1,
+	},
+	{
+		id: "LegacyFrameFuzzer",
+		agent: "task",
+		description: "fuzz legacy sealed frames",
+		status: "aborted",
+		sessionFile: "/tmp/oms/agents/LegacyFrameFuzzer.jsonl",
+		index: 2,
+	},
+	{
+		id: "RelayProbe.KevlarLookups",
+		agent: "task",
+		description: "lookup table stress test",
+		status: "started",
+		sessionFile: "/tmp/oms/agents/RelayProbe.KevlarLookups.jsonl",
+		index: 0,
+	},
+	{
+		id: "RelayProbe.CrtExact",
+		agent: "scout",
+		description: "verify exact retry backoff bounds",
+		status: "started",
+		sessionFile: "/tmp/oms/agents/RelayProbe.CrtExact.jsonl",
+		index: 1,
+	},
+	{
+		id: "RelayProbe.FrameBoundaryChecksumVerification",
+		agent: "task",
+		description: "verify multi-chunk frame boundary checksums",
+		status: "started",
+		sessionFile: "/tmp/oms/agents/RelayProbe.FrameBoundaryChecksumVerification.jsonl",
+		index: 2,
+	},
+	{
+		id: "RelayProbe.NatHalfOpenSweep",
+		agent: "scout",
+		description: "NAT half-open idle timeout audit",
+		status: "completed",
+		sessionFile: "/tmp/oms/agents/RelayProbe.NatHalfOpenSweep.jsonl",
+		index: 4,
+	},
+	{
+		id: "RelayProbe.SendBufferCap",
+		agent: "scout",
+		description: "256-frame outbound ring cap check",
+		status: "completed",
+		sessionFile: "/tmp/oms/agents/RelayProbe.SendBufferCap.jsonl",
+		index: 5,
+	},
+	{
+		id: "RelayProbe.DecryptKeyHeal",
+		agent: "task",
+		description: "simulate corrupt room-key rotation",
+		status: "failed",
+		sessionFile: "/tmp/oms/agents/RelayProbe.DecryptKeyHeal.jsonl",
+		index: 6,
+	},
+	{
+		id: "RelayProbe.CloseCodeTable",
+		agent: "sonic",
+		description: "enumerate fatal websocket codes",
+		status: "aborted",
+		sessionFile: "/tmp/oms/agents/RelayProbe.CloseCodeTable.jsonl",
+		index: 7,
+	},
+	{
+		id: "RelayProbe.KevlarLookups.WindowDriftCheck",
+		agent: "scout",
+		description: "entry window byte-bound drift check",
+		status: "started",
+		sessionFile: "/tmp/oms/agents/RelayProbe.KevlarLookups.WindowDriftCheck.jsonl",
+		index: 0,
+	},
+];
 
-/** Progress payload for the running sub; `tick` advances the counters. */
-export function makeProbeProgress(tick: number): SubagentProgressPayload {
-	const tool = PROBE_TOOLS[tick % PROBE_TOOLS.length]!;
-	const recentTools = [1, 2, 3].map(back => {
-		const prior = PROBE_TOOLS[(tick + PROBE_TOOLS.length * back - back) % PROBE_TOOLS.length]!;
-		return { tool: prior, args: PROBE_TOOL_ARGS[prior], endMs: Date.now() - back * 2_000 };
-	});
-	return {
+interface RunningSpec {
+	id: string;
+	index: number;
+	agent: string;
+	task: string;
+	description: string;
+	assignment: string;
+	intents: readonly string[];
+	tools: readonly { name: string; args: string }[];
+	baseTokens: number;
+	baseCost: number;
+	baseDurationMs: number;
+}
+
+const RUNNING_SPECS: readonly RunningSpec[] = [
+	{
+		id: "RelayProbe",
 		index: 0,
 		agent: "task",
-		task: "probe relay reconnect under packet loss",
-		parentToolCallId: "call-task-01",
-		assignment: "Kill the relay mid-stream and assert the guest resyncs from welcome without duplicate entries.",
-		sessionFile: "/tmp/oms/agents/RelayProbe.jsonl",
+		task: "coordinate relay reconnect stress matrix",
+		description: "relay reconnect probe",
+		assignment: "Coordinate 8 reconnect verification subagents and synthesize findings.",
+		intents: ["Coordinating child probes", "Reviewing resync invariants", "Checking child outputs"],
+		tools: [
+			{ name: "wait", args: "" },
+			{ name: "read", args: "packages/coding-agent/src/collab/relay-client.ts:168-197" },
+			{ name: "grep", args: "scheduleRetry|failFatal" },
+			{ name: "bash", args: "bun test packages/coding-agent/test/collab --filter reconnect" },
+		],
+		baseTokens: 28_400,
+		baseCost: 0.064,
+		baseDurationMs: 142_000,
+	},
+	{
+		id: "RelayProbe.KevlarLookups",
+		index: 0,
+		agent: "task",
+		task: "verify fast peer-id and room-key lookup tables",
+		description: "lookup table stress test",
+		assignment: "Audit lookup hot paths and delegate entry-window drift checks.",
+		intents: ["Benchmarking envelope dispatch", "Inspecting peer map churn", "Tracing window bounds"],
+		tools: [
+			{ name: "bash", args: "bun test packages/collab-web/test/codec.test.ts" },
+			{ name: "read", args: "packages/collab-web/src/lib/codec.ts:1-90" },
+			{ name: "grep", args: "unpackEnvelope|sealPlaintext" },
+		],
+		baseTokens: 16_200,
+		baseCost: 0.038,
+		baseDurationMs: 96_000,
+	},
+	{
+		id: "RelayProbe.CrtExact",
+		index: 1,
+		agent: "scout",
+		task: "confirm exact exponential backoff curve and jitter bounds",
+		description: "exact backoff curve check",
+		assignment: "Verify retry schedule clamps cleanly at 30s with zero timer leaks.",
+		intents: ["Tracing backoff clamps", "Reading socket retry timer", "Checking abort cleanup"],
+		tools: [
+			{ name: "read", args: "packages/collab-web/src/lib/socket.ts:80-165" },
+			{ name: "grep", args: "BACKOFF|clearTimeout" },
+		],
+		baseTokens: 11_900,
+		baseCost: 0.024,
+		baseDurationMs: 74_000,
+	},
+	{
+		id: "RelayProbe.FrameBoundaryChecksumVerification",
+		index: 2,
+		agent: "task",
+		task: "verify multi-chunk frame boundary checksums across reconnects",
+		description: "frame boundary checksums",
+		assignment: "Ensure snapshot chunks and sealed frame boundaries never split UTF-8 lines.",
+		intents: ["Verifying UTF-8 chunk boundaries", "Editing boundary test cases", "Running pager suite"],
+		tools: [
+			{ name: "edit", args: "packages/collab-web/test/transcript-pager.test.ts" },
+			{ name: "bash", args: "bun test packages/collab-web/test/transcript-pager.test.ts" },
+			{ name: "read", args: "packages/collab-web/scripts/mock-transcript.ts:1-85" },
+		],
+		baseTokens: 21_500,
+		baseCost: 0.049,
+		baseDurationMs: 88_000,
+	},
+	{
+		id: "RelayProbe.KevlarLookups.WindowDriftCheck",
+		index: 0,
+		agent: "scout",
+		task: "check EntryWindow trimOldest/trimNewest byte accounting",
+		description: "entry window drift check",
+		assignment: "Confirm EntryWindow byte counter stays exact across unshift/push/trim cycles.",
+		intents: ["Auditing EntryWindow.#bytes", "Checking trimOldest invariants"],
+		tools: [
+			{ name: "read", args: "packages/collab-web/src/lib/client.ts:190-265" },
+			{ name: "grep", args: "trimOldest|trimNewest" },
+		],
+		baseTokens: 8_700,
+		baseCost: 0.019,
+		baseDurationMs: 41_000,
+	},
+];
+
+function buildSpecProgress(spec: RunningSpec, tick: number): SubagentProgressPayload {
+	// Hold each tool steady across several ticks so live UI resembles real tool runs.
+	const step = Math.floor((tick + spec.index * 2) / 3);
+	const current = spec.tools[step % spec.tools.length]!;
+	const intent = spec.intents[step % spec.intents.length]!;
+	const now = Date.now();
+	const stepOffsetMs = ((tick + spec.index * 2) % 3) * 1_000 + 800;
+	const recentTools = [1, 2].map(back => {
+		const prior = spec.tools[(step + spec.tools.length * back - back) % spec.tools.length]!;
+		return { tool: prior.name, args: prior.args, endMs: now - back * 4_000 };
+	});
+	return {
+		index: spec.index,
+		agent: spec.agent,
+		task: spec.task,
+		parentToolCallId: `call-task-${spec.id}`,
+		assignment: spec.assignment,
+		sessionFile: `/tmp/oms/agents/${spec.id}.jsonl`,
 		progress: {
-			index: 0,
-			id: "RelayProbe",
-			agent: "task",
+			index: spec.index,
+			id: spec.id,
+			agent: spec.agent,
 			status: "running",
-			task: "probe relay reconnect under packet loss",
-			description: "relay reconnect probe",
-			lastIntent: "Replaying drop scenario",
-			currentTool: tool,
-			currentToolArgs: PROBE_TOOL_ARGS[tool],
+			task: spec.task,
+			description: spec.description,
+			lastIntent: intent,
+			currentTool: current.name,
+			currentToolArgs: current.args,
+			currentToolIntent: intent,
+			currentToolStartMs: now - stepOffsetMs,
 			recentTools,
 			recentOutput: ["3 sockets reconnected in 1.2s", "0 duplicate entries after resync"],
-			toolCount: 9 + tick,
-			requests: 4 + Math.floor(tick / 3),
-			tokens: 18_400 + tick * 450,
-			contextTokens: 22_300 + tick * 510,
+			toolCount: 7 + step,
+			requests: 3 + Math.floor(step / 2),
+			tokens: spec.baseTokens + tick * 180,
+			contextTokens: spec.baseTokens + 3_900 + tick * 210,
 			contextWindow: fixtureModel.contextWindow ?? undefined,
-			cost: 0.041 + tick * 0.0012,
-			durationMs: 95_000 + tick * 2_000,
+			cost: spec.baseCost + tick * 0.0004,
+			durationMs: spec.baseDurationMs + tick * 1_000,
 			resolvedModel: fixtureModel.id,
 		},
 	};
 }
+
+/** Progress payload for the primary running coordinator; `tick` advances counters. */
+export function makeProbeProgress(tick: number): SubagentProgressPayload {
+	return buildSpecProgress(RUNNING_SPECS[0]!, tick);
+}
+
+/** Progress payloads for all running subagents in the nested fixture. */
+export function makeRunningProgressPayloads(tick: number): SubagentProgressPayload[] {
+	return RUNNING_SPECS.map(spec => buildSpecProgress(spec, tick));
+}
+
+/** Final progress snapshots for settled subagents so their drawers show usage metrics. */
+export const fixtureSettledProgress: readonly SubagentProgressPayload[] = [
+	{
+		index: 1,
+		agent: "scout",
+		task: "sweep docs/collab.md for stale close-code references",
+		sessionFile: "/tmp/oms/agents/DocSweep.jsonl",
+		progress: {
+			index: 1,
+			id: "DocSweep",
+			agent: "scout",
+			status: "completed",
+			task: "sweep docs/collab.md for stale close-code references",
+			description: "sweep close-code docs",
+			lastIntent: "Summarizing close-code verification",
+			recentTools: [
+				{ tool: "read", args: "packages/coding-agent/src/collab/relay-client.ts", endMs: NOW - 11 * MIN },
+			],
+			recentOutput: [],
+			toolCount: 4,
+			requests: 3,
+			tokens: 9_420,
+			contextTokens: 11_200,
+			contextWindow: fixtureModel.contextWindow ?? undefined,
+			cost: 0.019,
+			durationMs: 28_400,
+			resolvedModel: fixtureModel.id,
+		},
+	},
+	{
+		index: 6,
+		agent: "task",
+		task: "simulate corrupt room-key rotation",
+		sessionFile: "/tmp/oms/agents/RelayProbe.DecryptKeyHeal.jsonl",
+		progress: {
+			index: 6,
+			id: "RelayProbe.DecryptKeyHeal",
+			agent: "task",
+			status: "failed",
+			task: "simulate corrupt room-key rotation",
+			description: "simulate corrupt room-key rotation",
+			lastIntent: "Testing GCM tag rejection path",
+			recentTools: [{ tool: "bash", args: "bun test packages/collab-web/test/codec.test.ts", endMs: NOW - 5 * MIN }],
+			recentOutput: ["OperationError: AES-GCM tag mismatch"],
+			toolCount: 5,
+			requests: 3,
+			tokens: 12_310,
+			contextTokens: 14_800,
+			contextWindow: fixtureModel.contextWindow ?? undefined,
+			cost: 0.027,
+			durationMs: 34_100,
+			resolvedModel: fixtureModel.id,
+		},
+	},
+];
 
 // ─── subagent transcript ─────────────────────────────────────────────────────
 
@@ -552,6 +932,106 @@ const subagentTranscriptLines: unknown[] = [
 export const subagentTranscriptJsonl: string = `${subagentTranscriptLines
 	.map(line => JSON.stringify(line))
 	.join("\n")}\n`;
+
+/** Builds a realistic per-agent JSONL transcript so every row's drawer opens cleanly. */
+export function makeSubagentTranscriptJsonl(agent: AgentSnapshot): string {
+	if (agent.id === "DocSweep") return subagentTranscriptJsonl;
+	const startTs = agent.createdAt;
+	const lines: unknown[] = [
+		{ type: "session", id: `mock-${agent.id}`, timestamp: iso(startTs), cwd: fixtureHeader.cwd },
+		{
+			id: `${agent.id}-u1`,
+			parentId: null,
+			timestamp: iso(startTs + 1_000),
+			type: "message",
+			message: {
+				role: "user",
+				content: `Investigate slice for ${agent.id}${agent.parentId ? ` under ${agent.parentId}` : ""}.`,
+				timestamp: startTs + 1_000,
+			},
+		},
+		{
+			id: `${agent.id}-a1`,
+			parentId: `${agent.id}-u1`,
+			timestamp: iso(startTs + 4_000),
+			type: "message",
+			message: {
+				role: "assistant",
+				content: [
+					{ type: "thinking", thinking: `Checking target invariants for ${agent.id}.` },
+					{
+						type: "toolCall",
+						id: `${agent.id}-call-1`,
+						name: "read",
+						arguments: { path: "packages/collab-web/src/lib/client.ts", offset: 1, limit: 60 },
+						intent: `Inspecting client state for ${agent.id}`,
+					},
+				],
+				model: fixtureModel.id,
+				usage: mkUsage(1_320, 74, 840, 0.0022),
+				stopReason: "toolUse",
+				timestamp: startTs + 4_000,
+			},
+		},
+		{
+			id: `${agent.id}-r1`,
+			parentId: `${agent.id}-a1`,
+			timestamp: iso(startTs + 6_000),
+			type: "message",
+			message: {
+				role: "toolResult",
+				toolCallId: `${agent.id}-call-1`,
+				toolName: "read",
+				content: [{ type: "text", text: "GuestClient snapshot invariants verified across reconnect frames." }],
+				isError: false,
+				timestamp: startTs + 6_000,
+			},
+		},
+		{
+			id: `${agent.id}-a2`,
+			parentId: `${agent.id}-r1`,
+			timestamp: iso(startTs + 10_000),
+			type: "message",
+			message: {
+				role: "assistant",
+				content: [
+					{
+						type: "text",
+						text:
+							agent.status === "running"
+								? `Active probe \`${agent.id}\` is verifying live reconnect invariants.`
+								: `Completed check for \`${agent.id}\` (final status: \`${agent.status}\`).`,
+					},
+				],
+				model: fixtureModel.id,
+				usage: mkUsage(1_680, 62, 1_100, 0.0028),
+				stopReason: "stop",
+				timestamp: startTs + 10_000,
+			},
+		},
+	];
+	return `${lines.map(line => JSON.stringify(line)).join("\n")}\n`;
+}
+
+/** Appends one live transcript line scoped to `agentId`. */
+export function makeAgentTranscriptLine(agentId: string, tick: number): string {
+	const ts = Date.now();
+	const entry: SessionEntry = {
+		id: `${agentId}-live-${tick}`,
+		parentId: null,
+		timestamp: iso(ts),
+		type: "message",
+		message: {
+			role: "assistant",
+			content: [{ type: "text", text: `[${agentId}] pass ${tick}: reconnect invariants holding.` }],
+			model: fixtureModel.id,
+			usage: mkUsage(1_200 + tick, 24, 900, 0.0011),
+			stopReason: "stop",
+			timestamp: ts,
+		},
+	};
+	return `${JSON.stringify(entry)}\n`;
+}
 
 /** One row the running sub appends to its session file; `tick` keeps IDs unique. */
 export function makeProbeTranscriptLine(tick: number): string {

@@ -8,6 +8,7 @@ import { ArrowUp, OctagonX, RotateCcw, X } from "lucide-react";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { GuestClient } from "../../lib/client";
+import { resolveAgentName } from "../../lib/agent-tree";
 import { fmtCost, fmtDuration, fmtPercent, fmtTokens } from "../../lib/format";
 import { resolveSlashDraft } from "../../lib/slash";
 import { TranscriptPager, type TranscriptPagerView } from "../../lib/transcript-pager";
@@ -61,6 +62,7 @@ export function AgentDrawer(props: {
 	onClose(): void;
 }): ReactNode {
 	const { agent, progress, lifecycle, client, readOnly, host, onClose } = props;
+	const { name: label, fullName } = resolveAgentName(agent, agent.parentId ?? null);
 	const [view, setView] = useState(OPENING_VIEW);
 	const snap = useGuestSnapshot(client);
 	const hostCommands = readOnly ? NO_HOST_COMMANDS : snap.commands;
@@ -127,10 +129,12 @@ export function AgentDrawer(props: {
 			: null;
 
 	return (
-		<aside className="ag-panel" role="dialog" aria-label={agent.displayName}>
+		<aside className="ag-panel" role="dialog" aria-label={label}>
 			<header className="ag-head">
 				<div className="ag-title">
-					<span className="ag-name">{agent.displayName}</span>
+					<span className="ag-name" title={fullName}>
+						{label}
+					</span>
 					<span className={`ag-tag ag-tag--${agent.status}`}>{agent.status}</span>
 					{model ? (
 						<span className="ag-model" title={model}>
@@ -220,8 +224,8 @@ export function AgentDrawer(props: {
 					<input
 						className="ag-chat-input"
 						value={draft}
-						placeholder={`Message ${agent.displayName}`}
-						aria-label={`Message ${agent.displayName}`}
+						placeholder={`Message ${label}`}
+						aria-label={`Message ${label}`}
 						onChange={e => setDraft(e.target.value)}
 					/>
 					<button

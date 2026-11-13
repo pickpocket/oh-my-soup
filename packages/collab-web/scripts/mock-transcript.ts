@@ -7,7 +7,7 @@
  * Serves the mock host and stands in for the host in the pager tests.
  */
 import type { TranscriptCursor } from "@oh-my-soup/pi-wire";
-import { COLLAB_TRANSCRIPT_PAGE_BYTES } from "@oh-my-soup/pi-wire";
+import { COLLAB_TRANSCRIPT_CHANGED_ERROR, COLLAB_TRANSCRIPT_PAGE_BYTES } from "@oh-my-soup/pi-wire";
 
 /** Largest single read; a line that cannot fit is a terminal error for its cursor. */
 export const TRANSCRIPT_READ_CAP_BYTES = 4 * 1024 * 1024;
@@ -32,9 +32,7 @@ export function readTranscriptPage(file: Uint8Array, cursor: TranscriptCursor): 
 		size,
 		error,
 	});
-	if (cursor.kind !== "tail" && cursor.byte > size) {
-		return empty(cursor.byte, "The transcript changed on the host. Reload it from the tail.");
-	}
+	if (cursor.kind !== "tail" && cursor.byte > size) return empty(cursor.byte, COLLAB_TRANSCRIPT_CHANGED_ERROR);
 	// Just past the last newline: anything beyond is a line still being written.
 	const complete = file.lastIndexOf(NEWLINE) + 1;
 	let startByte: number;

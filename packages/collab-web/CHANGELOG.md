@@ -12,6 +12,7 @@
 ### Changed
 
 - Redesigned the interface: a sidebar for the session, its subagents and participants; a centred transcript with prompts on the right and plain agent text; and a composer card holding the access level, model and send controls. Light and dark themes follow the system or your choice.
+- The sidebar shows subagents as a collapsible tree under the agent that spawned them, names each by its task name instead of its agent type (`task`, `scout`), and keeps names readable with compact status icons; a collapsed branch shows how many of its agents are running.
 - Browser link parsing accepts explicit VPN `ws://`/`http://` relay URLs without upgrading them to WSS, including scheme-less display links; HTTPS mixed-content restrictions still apply.
 - Browser joins fetch a bounded recent history page and load more as you scroll: no paging controls, and a sliding window keeps long sessions from retaining or rendering the entire transcript.
 - Subagent transcripts open at their newest rows and load older ones as you scroll instead of downloading the whole transcript.
@@ -27,6 +28,7 @@
 - The browser rejoins after the relay restarts even when it reconnects before the host has recreated the room.
 - "Result is outside the loaded part of the transcript." only appears when newer history really is not loaded; tools still running in the session or a subagent panel show as running.
 - Pressing Enter on `/btw` completes it to `/btw ` instead of sending it without a question.
+- A subagent panel keeps showing live messages after the host prunes or otherwise rewrites the subagent's transcript, instead of stopping with "transcript changed on the host".
 
 ## [18.8.0] - 2026-10-07
 

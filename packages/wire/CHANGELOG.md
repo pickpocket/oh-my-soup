@@ -11,6 +11,7 @@
 
 - Added the relay limits clients must respect (`COLLAB_RELAY_MAX_MESSAGE_BYTES`, `COLLAB_MAX_FRAME_BYTES`) and the shared relay close-code reasons (`COLLAB_RELAY_CLOSE_REASONS`).
 - `command` frames accept an optional `agentId` so a guest can ask a subagent with `/btw`.
+- `transcript-page` replies carry an optional `generation` identifying the file read, and `COLLAB_TRANSCRIPT_CHANGED_ERROR` names the reply for a cursor that no longer matches the file.
 
 ## [18.12.3] - 2026-10-19
 

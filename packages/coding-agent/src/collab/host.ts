@@ -158,10 +158,11 @@ const CONNECT_TIMEOUT_MS = 15_000;
 const SNAPSHOT_CHUNK_BYTES = 64 * 1024;
 /**
  * Unacknowledged snapshot-chunk bytes the host lets one guest have in flight.
- * The reference relay queues at most 64 messages and 4 MiB per guest and
- * evicts a guest whose queue stays full, so a guest slower than the host must
- * set the pace: one window plus the chunk that crosses it (at most one bounded
- * entry) stays well inside that queue alongside live traffic.
+ * The reference relay never paces a sender: it queues at most 8 MiB per guest
+ * and closes a guest that falls further behind, so a guest slower than the
+ * host must set the pace of a bulk transfer. One window plus the chunk that
+ * crosses it (at most one bounded entry) stays well inside that queue
+ * alongside live traffic.
  */
 const SNAPSHOT_WINDOW_BYTES = 1024 * 1024;
 /**

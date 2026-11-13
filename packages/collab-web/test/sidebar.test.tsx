@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import type { AgentSnapshot, Participant } from "@oh-my-soup/pi-wire";
+import type { AgentSnapshot, Participant, SubagentLifecyclePayload } from "@oh-my-soup/pi-wire";
 import { renderToStaticMarkup } from "react-dom/server";
 import { Sidebar, type SidebarProps } from "../src/components/shell/Sidebar";
 
@@ -89,5 +89,93 @@ describe("Sidebar", () => {
 		const html = renderSidebar({ participants: undefined });
 		expect(count(html, ".sb-row-static")).toBe(0);
 		expect(count(html, "button.sb-row")).toBe(3);
+	});
+
+	it("renders nested subagents as an indented tree and summarizes collapsed branches", () => {
+		const nestedAgents: AgentSnapshot[] = [
+			agent("main", "main", "running"),
+			{
+				id: "RelayProbe",
+				displayName: "RelayProbe",
+				kind: "sub",
+				parentId: "main",
+				status: "running",
+				hasSessionFile: true,
+				createdAt: 100,
+				lastActivity: 500,
+			},
+			{
+				id: "RelayProbe.KevlarLookups",
+				displayName: "KevlarLookups",
+				kind: "sub",
+				parentId: "RelayProbe",
+				status: "running",
+				hasSessionFile: true,
+				createdAt: 200,
+				lastActivity: 400,
+			},
+			{
+				id: "RelayProbe.DocChild",
+				displayName: "DocChild",
+				kind: "sub",
+				parentId: "RelayProbe",
+				status: "parked",
+				hasSessionFile: true,
+				createdAt: 250,
+				lastActivity: 300,
+			},
+			{
+				id: "RelayProbe.KevlarLookups.WindowDrift",
+				displayName: "WindowDrift",
+				kind: "sub",
+				parentId: "RelayProbe.KevlarLookups",
+				status: "running",
+				hasSessionFile: true,
+				createdAt: 300,
+				lastActivity: 450,
+			},
+			{
+				id: "TopSweep",
+				displayName: "TopSweep",
+				kind: "sub",
+				parentId: "main",
+				status: "parked",
+				hasSessionFile: true,
+				createdAt: 50,
+				lastActivity: 100,
+			},
+		];
+		const lifecycle = new Map<string, SubagentLifecyclePayload>([
+			["RelayProbe.DocChild", { id: "RelayProbe.DocChild", agent: "scout", status: "completed", index: 1 }],
+		]);
+
+		const expanded = renderSidebar({ agents: nestedAgents, lifecycle });
+		expect(texts(expanded, "button.sb-row .sb-row-name")).toEqual([
+			"session-title",
+			"RelayProbe",
+			"KevlarLookups",
+			"WindowDrift",
+			"DocChild",
+			"TopSweep",
+		]);
+		expect(texts(expanded, '.ag-tree-item[data-depth="0"] .sb-row-name')).toEqual(["RelayProbe", "TopSweep"]);
+		expect(texts(expanded, '.ag-tree-item[data-depth="1"] .sb-row-name')).toEqual(["KevlarLookups", "DocChild"]);
+		expect(texts(expanded, '.ag-tree-item[data-depth="2"] .sb-row-name')).toEqual(["WindowDrift"]);
+		expect(count(expanded, 'button.ag-twisty[aria-expanded="true"]')).toBe(2);
+		expect(texts(expanded, ".ag-status-label--done")).toEqual(["done"]);
+
+		// Collapsing RelayProbe hides all 3 descendants, flips aria-expanded, and shows running/total summary.
+		const collapsed = renderSidebar({
+			agents: nestedAgents,
+			lifecycle,
+			initialCollapsedIds: ["RelayProbe"],
+			selectedId: "RelayProbe.KevlarLookups.WindowDrift",
+		});
+		expect(texts(collapsed, "button.sb-row .sb-row-name")).toEqual(["session-title", "RelayProbe", "TopSweep"]);
+		expect(count(collapsed, 'button.ag-twisty[aria-expanded="false"]')).toBe(1);
+		expect(texts(collapsed, ".ag-branch-badge")).toEqual(["2/3"]);
+		// Session row remains unselected while a hidden grandchild's drawer is open.
+		expect(texts(collapsed, 'button.sb-row[aria-pressed="true"] .sb-row-name')).toEqual([]);
+		expect(texts(collapsed, ".ag-row-btn--contains-selected .sb-row-name")).toEqual(["RelayProbe"]);
 	});
 });

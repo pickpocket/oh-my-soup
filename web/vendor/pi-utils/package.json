@@ -1,0 +1,19 @@
+{
+	"name": "@oh-my-soup/pi-utils",
+	"private": true,
+	"type": "module",
+	"exports": {
+		"./marked": {
+			"types": "./src/marked.ts",
+			"default": "./src/marked.ts"
+		},
+		"./marked-list": {
+			"types": "./src/marked-list.ts",
+			"default": "./src/marked-list.ts"
+		},
+		"./math-delimiters": {
+			"types": "./src/math-delimiters.ts",
+			"default": "./src/math-delimiters.ts"
+		}
+	}
+}

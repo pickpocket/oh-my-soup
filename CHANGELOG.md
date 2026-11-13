@@ -4,7 +4,7 @@
 
 ### Breaking Changes
 
-- This branch now builds only the standalone `oms-relay` Rust server; the coding agent, browser UI, encrypted-share endpoints, native addon, and unrelated monorepo packages are removed.
+- This branch now builds only the standalone `oms-relay` Rust server and the static browser client in `web/`; the coding agent, encrypted-share endpoints, native addon, and unrelated monorepo packages are removed.
 - The relay no longer slows a sender down for its receivers. A receiver more than 8 MiB behind is closed with 1013; a sender that needs every receiver to keep up with a bulk transfer must pace it by acknowledgements, as OMS hosts do for snapshots.
 
 ### Added
@@ -13,6 +13,7 @@
 - Added the `pressure` example, which measures host ping latency, host silences, delivery lag and evictions while stalled and slow guests share a room with a busy host.
 - Added `--window-kib` to the throughput probe: the host keeps a window of unacknowledged bytes instead of relying on the relay to pace it.
 - Added `RelayConfig::max_outbound_bytes` and `RelayConfig::stall_timeout`, and `RelayServer::queued_bytes`.
+- Added the collab browser guest client in `web/` (`@oh-my-soup/collab-web`) with vendored wire and Markdown packages for standalone builds, tests, and static deployment.
 
 ### Changed
 

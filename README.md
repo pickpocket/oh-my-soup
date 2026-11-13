@@ -2,7 +2,7 @@
 
 Standalone Rust WebSocket relay for encrypted OMS collaboration sessions. It forwards opaque binary envelopes between one host and its guests; it never receives room keys, decrypts session content, or caches transcripts.
 
-This branch contains only the relay, its build files, tests, and throughput probe. The coding agent, browser application, encrypted-share storage, native addon, and monorepo build system are not part of this project. Existing clients can use the same relay wire protocol.
+This branch contains the relay (its build files, tests, and throughput probes) and the static browser guest client in `web/`. The coding agent, encrypted-share storage, native addon, and monorepo build system are not part of this project. Existing clients can use the same relay wire protocol.
 
 ## Build and run
 
@@ -23,9 +23,25 @@ Point an existing OMS host at the local server:
 /collab ws://127.0.0.1:8787
 ```
 
-A browser client must be hosted separately; configure its URL in the coding agent's `collab.webUrl` setting. This server does not serve a browser UI or `/share` uploads. `/`, static assets, and `/s` endpoints return 404.
+A browser client must be hosted separately (see [Browser client](#browser-client)); configure its URL in the coding agent's `collab.webUrl` setting. This server does not serve a browser UI or `/share` uploads. `/`, static assets, and `/s` endpoints return 404.
 
 `GET /healthz` returns `{"ok":true,"rooms":N}`. Ctrl+C stops the server; Unix deployments also support SIGTERM. Shutdown closes the listener and notifies connected peers.
+
+## Browser client
+
+`web/` contains `@oh-my-soup/collab-web`, the standalone static browser guest client for live OMS collaboration sessions (streaming transcript, tool-call cards, subagent drawer, and prompt/slash-command composer). `oms-relay` does not serve static files; build `web/dist/` and host it on any static file server or reverse proxy, then point `collab.webUrl` at that origin.
+
+```sh
+cd web
+bun install
+bun run dev          # local HMR dev server (http://localhost:3000)
+bun run mock-host    # offline local relay + scripted mock host
+bun test             # unit and integration tests
+bun run check:types  # TypeScript type check
+bun run build        # static production bundle in web/dist/
+```
+
+See [`web/README.md`](web/README.md) for architecture details and deploying `share.html` alongside `web/dist/`.
 
 ## Deployment
 

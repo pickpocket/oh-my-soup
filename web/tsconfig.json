@@ -1,0 +1,23 @@
+{
+	"include": ["src", "scripts", "test", "bench", "vendor"],
+	"exclude": ["dist", "node_modules"],
+	"compilerOptions": {
+		"target": "ES2024",
+		"module": "ESNext",
+		"lib": ["ES2024", "DOM", "DOM.Iterable", "DOM.AsyncIterable"],
+		"jsx": "react-jsx",
+		"moduleResolution": "Bundler",
+		"moduleDetection": "force",
+		"strict": true,
+		"noImplicitOverride": true,
+		"noFallthroughCasesInSwitch": true,
+		"skipLibCheck": true,
+		"allowArbitraryExtensions": true,
+		"verbatimModuleSyntax": true,
+		"noEmit": true,
+		"resolveJsonModule": true,
+		"esModuleInterop": true,
+		"forceConsistentCasingInFileNames": true,
+		"types": ["bun", "react", "react-dom"]
+	}
+}

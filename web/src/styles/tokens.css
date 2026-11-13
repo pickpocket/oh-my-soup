@@ -1,0 +1,200 @@
+/* Design tokens: near-black neutral main surface, cool slate sidebar, alpha
+ * hairlines and one blue accent. Dark is the default; `[data-theme="light"]`
+ * and the prefers-color-scheme fallback flip to light.
+ * The ONLY file allowed to contain raw color values. */
+:root {
+	color-scheme: dark;
+
+	/* surfaces: main, sidebar, raised (bubble, composer), inset (code, detail cards), popovers, round controls */
+	--bg: #151517;
+	--sidebar: #343a43;
+	--sidebar-sheen: linear-gradient(
+		rgba(122, 155, 240, 0.08),
+		rgba(122, 155, 240, 0) 35%,
+		rgba(143, 137, 184, 0) 68%,
+		rgba(143, 137, 184, 0.07)
+	);
+	--bg-raised: #2c2c2e;
+	--bg-inset: #1c1c1e;
+	--bg-overlay: #2c2c2e;
+	--bg-control: #353638;
+	--hover: rgba(255, 255, 255, 0.06);
+	--selected: rgba(255, 255, 255, 0.08);
+
+	/* text: primary, secondary, muted, faint (captions and placeholders) */
+	--fg: #f9fafb;
+	--fg-soft: #cfd3d6;
+	--fg-muted: #adb2b8;
+	--fg-faint: #81858c;
+
+	/* the single accent; `--accent-text` is the same hue at body-text contrast */
+	--accent: #7aaaff;
+	--accent-fg: #10131a;
+	--accent-text: #7aaaff;
+	--accent-muted: rgba(122, 170, 255, 0.16);
+
+	/* primary button: inverse of the main surface */
+	--primary: #ffffff;
+	--primary-fg: #151517;
+
+	/* oms mark gradient stops (magenta, iris, cyan); brand only, never UI chrome */
+	--mark-a: oklch(0.7 0.24 340);
+	--mark-b: oklch(0.62 0.21 295);
+	--mark-c: oklch(0.81 0.14 200);
+
+	/* status; green `--live` is reserved for real-time presence */
+	--ok: #3ecf8e;
+	--live: #3ecf8e;
+	--warn: #f5a524;
+	--err: #ff6166;
+
+	/* tags: text colour; fills mix the same hue at 16% */
+	--tag-tool: #f2a25c;
+	--tag-user: #7aaaff;
+	--tag-agent: #b9a0ff;
+	--tag-context: #5fd19a;
+
+	/* hairlines: alpha so one value reads on every surface */
+	--border: rgba(255, 255, 255, 0.1);
+	--border-strong: rgba(255, 255, 255, 0.12);
+	--hairline: 1px;
+	--ring: #7aaaff;
+
+	/* type: system stacks only */
+	--font-ui:
+		-apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
+		"Helvetica Neue", Helvetica, Arial, sans-serif;
+	--font-mono: ui-monospace, "SF Mono", "JetBrains Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+
+	/* radii by role: chip, row and control, button and popover, card, bubble and composer */
+	--radius-sm: 6px;
+	--radius: 8px;
+	--radius-lg: 12px;
+	--radius-xl: 16px;
+	--radius-bubble: 22px;
+
+	--topbar-h: 48px;
+	--sidebar-w: 260px;
+	--column-w: 728px;
+
+	--shadow-card: 0 4px 16px rgba(0, 0, 0, 0.06);
+	--shadow-overlay: 0 12px 40px rgba(0, 0, 0, 0.45);
+	--backdrop: rgba(0, 0, 0, 0.5);
+	--haze-a: rgba(77, 107, 254, 0.22);
+	--haze-b: rgba(122, 155, 240, 0.1);
+}
+
+/* Half-pixel hairlines where the display can draw them. */
+@media (min-resolution: 2dppx) {
+	:root {
+		--hairline: 0.5px;
+	}
+}
+
+/* Light theme: explicit override (the toggle writes data-theme="light"). */
+[data-theme="light"] {
+	color-scheme: light;
+
+	--bg: #ffffff;
+	--sidebar: #f3f5f8;
+	--sidebar-sheen: linear-gradient(
+		rgba(77, 107, 254, 0.06),
+		rgba(77, 107, 254, 0) 35%,
+		rgba(143, 137, 184, 0) 68%,
+		rgba(143, 137, 184, 0.05)
+	);
+	--bg-raised: #f2f3f5;
+	--bg-inset: #f7f8fa;
+	--bg-overlay: #ffffff;
+	--bg-control: #e8eaed;
+	--hover: rgba(15, 17, 21, 0.05);
+	--selected: rgba(15, 17, 21, 0.08);
+
+	--fg: #0f1115;
+	--fg-soft: #4b5058;
+	--fg-muted: #686d75;
+	--fg-faint: #858b94;
+
+	--accent: #4d6bfe;
+	--accent-fg: #ffffff;
+	--accent-text: #3f5df0;
+	--accent-muted: rgba(77, 107, 254, 0.12);
+
+	--primary: #151517;
+	--primary-fg: #ffffff;
+
+	--ok: #0b8457;
+	--live: #12a36b;
+	--warn: #b45309;
+	--err: #cf2f36;
+
+	--tag-tool: #9c4505;
+	--tag-user: #2f4fe0;
+	--tag-agent: #6a3fd0;
+	--tag-context: #0a7048;
+
+	--border: rgba(15, 17, 21, 0.08);
+	--border-strong: rgba(15, 17, 21, 0.1);
+	--ring: #4d6bfe;
+
+	--shadow-card: 0 4px 16px rgba(15, 17, 21, 0.05);
+	--shadow-overlay: 0 12px 40px rgba(15, 17, 21, 0.14);
+	--backdrop: rgba(15, 17, 21, 0.3);
+	--haze-a: rgba(77, 107, 254, 0.14);
+	--haze-b: rgba(122, 155, 240, 0.1);
+}
+
+/* Light theme: system fallback when no explicit preference is stored. */
+@media (prefers-color-scheme: light) {
+	:root:not([data-theme]) {
+		color-scheme: light;
+
+		--bg: #ffffff;
+		--sidebar: #f3f5f8;
+		--sidebar-sheen: linear-gradient(
+			rgba(77, 107, 254, 0.06),
+			rgba(77, 107, 254, 0) 35%,
+			rgba(143, 137, 184, 0) 68%,
+			rgba(143, 137, 184, 0.05)
+		);
+		--bg-raised: #f2f3f5;
+		--bg-inset: #f7f8fa;
+		--bg-overlay: #ffffff;
+		--bg-control: #e8eaed;
+		--hover: rgba(15, 17, 21, 0.05);
+		--selected: rgba(15, 17, 21, 0.08);
+
+		--fg: #0f1115;
+		--fg-soft: #4b5058;
+		--fg-muted: #686d75;
+		--fg-faint: #858b94;
+
+		--accent: #4d6bfe;
+		--accent-fg: #ffffff;
+		--accent-text: #3f5df0;
+		--accent-muted: rgba(77, 107, 254, 0.12);
+
+		--primary: #151517;
+		--primary-fg: #ffffff;
+
+		--ok: #0b8457;
+		--live: #12a36b;
+		--warn: #b45309;
+		--err: #cf2f36;
+
+		--tag-tool: #9c4505;
+		--tag-user: #2f4fe0;
+		--tag-agent: #6a3fd0;
+		--tag-context: #0a7048;
+
+		--border: rgba(15, 17, 21, 0.08);
+		--border-strong: rgba(15, 17, 21, 0.1);
+		--ring: #4d6bfe;
+
+		--shadow-card: 0 4px 16px rgba(15, 17, 21, 0.05);
+		--shadow-overlay: 0 12px 40px rgba(15, 17, 21, 0.14);
+		--backdrop: rgba(15, 17, 21, 0.3);
+		--haze-a: rgba(77, 107, 254, 0.14);
+		--haze-b: rgba(122, 155, 240, 0.1);
+	}
+}

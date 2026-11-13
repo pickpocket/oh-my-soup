@@ -1,0 +1,161 @@
+/* Base reset + globals. Token vars only. */
+*,
+*::before,
+*::after {
+	box-sizing: border-box;
+}
+
+* {
+	margin: 0;
+}
+
+html {
+	height: 100%;
+	-webkit-text-size-adjust: 100%;
+	text-size-adjust: 100%;
+	overscroll-behavior-y: none;
+}
+
+body,
+#root {
+	height: 100%;
+}
+
+body {
+	font: 400 14px / 1.4 var(--font-ui);
+	background: var(--bg);
+	color: var(--fg);
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+	text-rendering: optimizeLegibility;
+	overscroll-behavior-y: none;
+	overflow: hidden;
+}
+
+button,
+input,
+textarea,
+select,
+a {
+	font: inherit;
+	color: inherit;
+	-webkit-tap-highlight-color: transparent;
+	touch-action: manipulation;
+}
+
+button {
+	cursor: pointer;
+}
+
+button:disabled {
+	cursor: default;
+}
+
+a {
+	color: var(--accent-text);
+}
+
+code,
+pre,
+kbd {
+	font-family: var(--font-mono);
+}
+
+:focus-visible {
+	outline: 2px solid var(--ring);
+	outline-offset: 2px;
+}
+
+input,
+textarea {
+	caret-color: var(--accent);
+}
+
+::selection {
+	background: var(--accent-muted);
+}
+
+/* subtle scrollbars */
+* {
+	scrollbar-width: thin;
+	scrollbar-color: var(--border-strong) transparent;
+}
+
+*::-webkit-scrollbar {
+	width: 10px;
+	height: 10px;
+}
+
+*::-webkit-scrollbar-thumb {
+	background: var(--border-strong);
+	border: 2px solid transparent;
+	background-clip: padding-box;
+	border-radius: 999px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+	background: var(--fg-faint);
+	border: 2px solid transparent;
+	background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+/* Quiet ring spinner, sized by its font-size. */
+.spinner {
+	flex: none;
+	display: inline-block;
+	width: 1em;
+	height: 1em;
+	border: 1.5px solid var(--border-strong);
+	border-top-color: currentColor;
+	border-radius: 50%;
+	animation: spin 0.8s linear infinite;
+}
+
+/* shared animations */
+@keyframes spin {
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+@keyframes pulse {
+	0%,
+	100% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0.4;
+	}
+}
+
+@keyframes fade-in {
+	from {
+		opacity: 0;
+	}
+}
+
+@keyframes pop-in {
+	from {
+		opacity: 0;
+		transform: translateY(4px);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		animation-duration: 1ms !important;
+		animation-delay: 0ms !important;
+		transition-duration: 1ms !important;
+	}
+
+	/* A spinner frozen mid-turn reads as broken; breathe instead. */
+	.spinner {
+		animation: pulse 1.4s ease-in-out infinite !important;
+	}
+}

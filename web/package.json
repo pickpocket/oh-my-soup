@@ -1,0 +1,64 @@
+{
+  "type": "module",
+  "name": "@oh-my-soup/collab-web",
+  "version": "16.3.6",
+  "private": true,
+  "description": "Browser guest client and local relay tools for oms collab live sessions",
+  "homepage": "https://github.com/pickpocket/oh-my-soup",
+  "author": "Can Boluk",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pickpocket/oh-my-soup.git",
+    "directory": "web"
+  },
+  "bugs": {
+    "url": "https://github.com/pickpocket/oh-my-soup/issues"
+  },
+  "keywords": [
+    "collab",
+    "relay",
+    "websocket",
+    "react",
+    "agent"
+  ],
+  "workspaces": [
+    "vendor/*"
+  ],
+  "scripts": {
+    "dev": "bun ./index.html",
+    "build": "bun scripts/build.ts",
+    "relay": "bun scripts/local-relay.ts",
+    "mock-host": "bun scripts/mock-host.ts",
+    "test": "bun test",
+    "check:types": "tsgo -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@noble/ciphers": "2.4.0",
+    "@oh-my-soup/pi-utils": "workspace:*",
+    "@oh-my-soup/pi-wire": "workspace:*",
+    "lucide-react": "^1.24.0",
+    "katex": "^0.18.4",
+    "react": "19.2.7",
+    "react-dom": "19.2.7"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.14",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@typescript/native-preview": "7.0.0-dev.20260707.2"
+  },
+  "engines": {
+    "bun": ">=1.3.14"
+  },
+  "files": [
+    "dist",
+    "src",
+    "vendor",
+    "scripts",
+    "public",
+    "index.html",
+    "README.md",
+    "CHANGELOG.md"
+  ]
+}

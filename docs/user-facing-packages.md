@@ -85,18 +85,6 @@ Sources: [`packages/browser-relay/README.md`](../packages/browser-relay/README.m
 - Security/limits: it binds loopback; use `--token` when local processes are untrusted. Chrome
   internal pages, DevTools, Web Store, extension pages, and tabs with DevTools open cannot attach.
 
-### `packages/collab-web` — browser client for collaborative sessions
-
-Sources: [`packages/collab-web/README.md`](../packages/collab-web/README.md), [`packages/collab-web/package.json`](../packages/collab-web/package.json), [`docs/collab.md`](./collab.md).
-
-- Package: private `@oh-my-soup/collab-web`; production client: <https://my.omp.sh/>.
-- Feature: browser guest UI for `/collab` sessions, including streaming transcript, tool cards,
-  subagent views, prompts, and host interruption.
-- Local paths: `bun run dev` serves the UI on port 3000; `bun run mock-host` runs an offline relay
-  and scripted host; `bun run build` emits a static SPA under `dist/`.
-- Constraints: non-local deployments require HTTPS and a reachable secure WebSocket relay. The room
-  key stays in the URL fragment and is not sent to the relay.
-
 ### `packages/snapcompact` — bitmap context-compression API
 
 Sources: [`packages/snapcompact/README.md`](../packages/snapcompact/README.md), [`packages/snapcompact/package.json`](../packages/snapcompact/package.json), [`packages/snapcompact/src/index.ts`](../packages/snapcompact/src/index.ts).

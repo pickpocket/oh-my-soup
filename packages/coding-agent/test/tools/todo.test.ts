@@ -859,7 +859,7 @@ describe("todoToolRenderer.renderCall malformed-args regression (#2005)", () => 
 	});
 
 	it("does not throw on the legacy streaming-truncated `ops` string", () => {
-		// Old transcripts/collab-web still carry `{ ops: "[{" }` mid-stream;
+		// Old transcripts still carry `{ ops: "[{" }` mid-stream;
 		// `normalizeTodoArg` must keep tolerating the legacy batch shape.
 		const args = { ops: '[{"op":"init"' } as unknown as Parameters<typeof todoToolRenderer.renderCall>[0];
 		expect(() => todoToolRenderer.renderCall(args, renderOptions, theme)).not.toThrow();

@@ -133,10 +133,9 @@ core_rc=0
 cp "$natives_pkg_backup" "$ROOT_DIR/packages/natives/package.json"
 [ "$core_rc" -eq 0 ] || exit "$core_rc"
 
-# 3. Pack the remaining workspace packages (natives core and coding-agent
-#    handled separately). `collab-web` is private but still packed here so its
-#    prepack build and tarball file list stay release-safe.
-for pkg in utils wire omstype catalog ai mnemopi snapcompact agent tui stats collab-web; do
+# 3. Pack the remaining public workspace packages (natives core and coding-agent
+#    handled separately).
+for pkg in utils wire omstype catalog ai mnemopi snapcompact agent tui stats; do
    (
       cd "$ROOT_DIR/packages/$pkg"
       bun pm pack --destination "$TARBALL_DIR" --quiet >/dev/null
@@ -172,7 +171,6 @@ agent_tgz="$(find_tarball "$TARBALL_DIR"/oh-my-soup-pi-agent-core-*.tgz)"
 tui_tgz="$(find_tarball "$TARBALL_DIR"/oh-my-soup-pi-tui-*.tgz)"
 stats_tgz="$(find_tarball "$TARBALL_DIR"/oh-my-soup-oms-stats-*.tgz)"
 coding_agent_tgz="$(find_tarball "$TARBALL_DIR"/oh-my-soup-pi-coding-agent-*.tgz)"
-collab_web_tgz="$(find_tarball "$TARBALL_DIR"/oh-my-soup-collab-web-*.tgz)"
 
 TARBALL_APP_DIR="$WORK_DIR/tarball-install"
 mkdir -p "$TARBALL_APP_DIR"
@@ -197,13 +195,12 @@ mkdir -p "$TARBALL_APP_DIR"
 			'@oh-my-soup/pi-agent-core': '$agent_tgz',
 			'@oh-my-soup/pi-tui': '$tui_tgz',
 			'@oh-my-soup/oms-stats': '$stats_tgz',
-			'@oh-my-soup/pi-coding-agent': '$coding_agent_tgz',
-			'@oh-my-soup/collab-web': '$collab_web_tgz'
+			'@oh-my-soup/pi-coding-agent': '$coding_agent_tgz'
 		};
 		require('fs').writeFileSync('package.json', JSON.stringify(pkg, null, 2));
 	"
 
-   bun add "$utils_tgz" "$wire_tgz" "$omstype_tgz" "$natives_tgz" "$catalog_tgz" "$ai_tgz" "$mnemopi_tgz" "$snapcompact_tgz" "$agent_tgz" "$tui_tgz" "$stats_tgz" "$coding_agent_tgz" "$collab_web_tgz"
+   bun add "$utils_tgz" "$wire_tgz" "$omstype_tgz" "$natives_tgz" "$catalog_tgz" "$ai_tgz" "$mnemopi_tgz" "$snapcompact_tgz" "$agent_tgz" "$tui_tgz" "$stats_tgz" "$coding_agent_tgz"
    # The platform leaf must arrive through the core's optionalDependencies +
    # override, not as a direct dependency — assert it landed before smoking so a
    # resolution regression is distinguishable from a runtime loader bug.
@@ -226,10 +223,6 @@ mkdir -p "$TARBALL_APP_DIR"
    ')"
    [ "$omstype_probe" = "oms:false:tb" ] || {
       echo "Unexpected @oh-my-soup/omstype probe result: $omstype_probe"
-      exit 1
-   }
-   [ -f "node_modules/@oh-my-soup/collab-web/dist/index.html" ] || {
-      echo "Collab web tarball did not install built dist/index.html"
       exit 1
    }
    smoke_cli ./node_modules/.bin/oms

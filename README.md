@@ -515,7 +515,7 @@ Add-MpPreference -ExclusionProcess 'bun.exe'
 | [@oh-my-soup/pi-mnemopi](packages/mnemopi) | Local SQLite memory engine |
 | [@oh-my-soup/snapcompact](packages/snapcompact) | Bitmap-frame context compression |
 | [@oh-my-soup/browser-relay](packages/browser-relay) | Chrome extension for driving your own tabs |
-| [@oh-my-soup/collab-web](packages/collab-web) | Browser guest client and relay for `/collab` |
+| [@oh-my-soup/tool-views](packages/tool-views) | Shared React tool-call renderers for HTML session exports |
 | [@oh-my-soup/pi-wire](packages/wire) | Collab protocol types and relay constants |
 | [@oh-my-soup/pi-metaharness](packages/metaharness) | Benchmark runners and dashboard |
 | [@oh-my-soup/typescript-edit-benchmark](packages/typescript-edit-benchmark) | Edit benchmark suite |

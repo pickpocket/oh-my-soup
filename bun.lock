@@ -119,24 +119,6 @@
         "sherpa-onnx-node": "1.13.2",
       },
     },
-    "packages/collab-web": {
-      "name": "@oh-my-soup/collab-web",
-      "version": "16.3.6",
-      "dependencies": {
-        "@noble/ciphers": "catalog:",
-        "@oh-my-soup/pi-utils": "catalog:",
-        "@oh-my-soup/pi-wire": "catalog:",
-        "katex": "catalog:",
-        "lucide-react": "catalog:",
-        "react": "catalog:",
-        "react-dom": "catalog:",
-      },
-      "devDependencies": {
-        "@types/bun": "catalog:",
-        "@types/react": "catalog:",
-        "@types/react-dom": "catalog:",
-      },
-    },
     "packages/metaharness": {
       "name": "@oh-my-soup/pi-metaharness",
       "version": "0.0.1",
@@ -249,6 +231,22 @@
         "@oh-my-soup/pi-catalog": "catalog:",
         "@oh-my-soup/pi-utils": "catalog:",
         "lucide-react": "catalog:",
+        "react": "catalog:",
+        "react-dom": "catalog:",
+      },
+      "devDependencies": {
+        "@types/bun": "catalog:",
+        "@types/react": "catalog:",
+        "@types/react-dom": "catalog:",
+      },
+    },
+    "packages/tool-views": {
+      "name": "@oh-my-soup/tool-views",
+      "version": "0.0.1",
+      "dependencies": {
+        "@oh-my-soup/pi-utils": "catalog:",
+        "@oh-my-soup/pi-wire": "catalog:",
+        "katex": "catalog:",
         "react": "catalog:",
         "react-dom": "catalog:",
       },
@@ -712,8 +710,6 @@
 
     "@oh-my-soup/browser-relay": ["@oh-my-soup/browser-relay@workspace:packages/browser-relay"],
 
-    "@oh-my-soup/collab-web": ["@oh-my-soup/collab-web@workspace:packages/collab-web"],
-
     "@oh-my-soup/oms-stats": ["@oh-my-soup/oms-stats@workspace:packages/stats"],
 
     "@oh-my-soup/omstype": ["@oh-my-soup/omstype@workspace:packages/omstype"],
@@ -739,6 +735,8 @@
     "@oh-my-soup/pi-wire": ["@oh-my-soup/pi-wire@workspace:packages/wire"],
 
     "@oh-my-soup/snapcompact": ["@oh-my-soup/snapcompact@workspace:packages/snapcompact"],
+
+    "@oh-my-soup/tool-views": ["@oh-my-soup/tool-views@workspace:packages/tool-views"],
 
     "@oh-my-soup/typescript-edit-benchmark": ["@oh-my-soup/typescript-edit-benchmark@workspace:packages/typescript-edit-benchmark"],
 
@@ -1100,7 +1098,7 @@
 
     "colorette": ["colorette@2.0.20", "", {}, "sha512-IfEDxwoWIjkeXL1eXcDiow4UbKjhLdq6/EuSVR9GMN7KVH3r9gQ83e73hsz1Nd1T3ijd5xv1wcWRYO+D6kCI2w=="],
 
-    "commander": ["commander@15.0.0", "", {}, "sha512-z67u4ZhzCL/Tydu1lJARtEZYWbWaN7oYLHbsuzocr6y4N6WZAagG3RQ4FW61V1/0+jImpj293XfrcYnd1qxtPg=="],
+    "commander": ["commander@14.0.3", "", {}, "sha512-H+y0Jo/T1RZ9qPP4Eh1pkcQcLRglraJaSLoyOtHxu6AapkjWVCy2Sit1QQ4x3Dng8qDlSsZEet7g5Pq06MvTgw=="],
 
     "content-type": ["content-type@3.1.1", "", {}, "sha512-GW4qUsfFo59d0HbUibDlWv5wPz+vAAcaTWbKIuKCf0JkC7wWkSyf8f13IpXn5JkeMlB2P8iTSSIjwXljorg2vA=="],
 
@@ -1624,8 +1622,6 @@
 
     "bun-types/@types/node": ["@types/node@26.6.2", "", { "dependencies": { "undici-types": "~8.9.0" } }, "sha512-X1P21scMv4zGKLYqjdGjaKa7COa0RKVYYZZN/NfvLQ1JegxFhdhpZG/Lyn8AXx6CDUavKAd11v6BvfpkDByK8g=="],
 
-    "camoufox-js/commander": ["commander@14.0.3", "", {}, "sha512-H+y0Jo/T1RZ9qPP4Eh1pkcQcLRglraJaSLoyOtHxu6AapkjWVCy2Sit1QQ4x3Dng8qDlSsZEet7g5Pq06MvTgw=="],
-
     "chalk/ansi-styles": ["ansi-styles@4.3.0", "", { "dependencies": { "color-convert": "^2.0.1" } }, "sha512-zbB9rCJAT1rbjiVDb2hqKFHNYLxgtk8NURxZ3IZwD3F6NtxbXZQCnnSi1Lkx+IDohdPlFp222wVALIheZJQSEg=="],
 
     "cli-progress/string-width": ["string-width@4.2.3", "", { "dependencies": { "emoji-regex": "^8.0.0", "is-fullwidth-code-point": "^3.0.0", "strip-ansi": "^6.0.1" } }, "sha512-wKyQRQpjJ0sIp62ErSZdGsjMJWsap5oRNihHhu6G7JVO/9jIB6UyevL+tXuOqrng8j/cxKTWyWUwvSTriiZz/g=="],
@@ -1635,6 +1631,8 @@
     "cliui/wrap-ansi": ["wrap-ansi@9.0.2", "", { "dependencies": { "ansi-styles": "^6.2.1", "string-width": "^7.0.0", "strip-ansi": "^7.1.0" } }, "sha512-42AtmgqjV+X1VpdOfyTGOYRi0/zsoLqtXQckTmqTeybT+BDIbM/Guxo7x3pE2vtpr1ok6xRqM9OpBe+Jyoqyww=="],
 
     "fastembed/onnxruntime-node": ["onnxruntime-node@1.21.0", "", { "dependencies": { "global-agent": "^3.0.0", "onnxruntime-common": "1.21.0", "tar": "^7.0.1" }, "os": [ "linux", "win32", "darwin", ] }, "sha512-NeaCX6WW2L8cRCSqy3bInlo5ojjQqu2fD3D+9W5qb5irwxhEyWKXeH2vZ8W9r6VxaMPUan+4/7NDwZMtouZxEw=="],
+
+    "katex/commander": ["commander@15.0.0", "", {}, "sha512-z67u4ZhzCL/Tydu1lJARtEZYWbWaN7oYLHbsuzocr6y4N6WZAagG3RQ4FW61V1/0+jImpj293XfrcYnd1qxtPg=="],
 
     "onnxruntime-node/adm-zip": ["adm-zip@0.5.18", "", {}, "sha512-ufJnssQGbxzLNS1Ho9bCtX4rQKCCvoVuDLHoJyc3F9dOGDB4BkWs2Ci0kv53lqocAEQ/Cbi+I2XCsNYGqVYqng=="],
 

@@ -23,7 +23,7 @@ Run from `packages/coding-agent/` (or add `--cwd=packages/coding-agent`):
 | Build the `dist/oms` binary | `bun run build` |
 
 Never invoke `tsc`/`npx tsc` directly — `bun run check` is the typecheck gate. After
-changing the React tool renderers under `collab-web/src/tool-render/`, rebuild them
+changing the React tool renderers under `packages/tool-views/src/tool-render/`, rebuild them
 with `bun run gen:tool-views`.
 
 Scope fake timers to the deadline a test exercises, then restore real timers

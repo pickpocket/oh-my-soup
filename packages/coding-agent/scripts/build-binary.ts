@@ -84,7 +84,7 @@ async function main(): Promise<void> {
 		// `export/html` subpath, whose source imports `tool-views.generated.js`.
 		// Rebuild it before compilation so clean checkouts that skipped install
 		// hooks still contain that generated bundle.
-		await runCommand(["bun", "--cwd=../collab-web", "run", "gen:tool-views"]);
+		await runCommand(["bun", "--cwd=../tool-views", "run", "gen:tool-views"]);
 		await compileCodingAgent({
 			repoRoot,
 			entrypoint: path.join(packageDir, "src", "cli.ts"),

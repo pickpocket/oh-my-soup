@@ -530,7 +530,7 @@
 		"fix": "oxlint --fix --fix-suggestions . && bun run fmt",
 		"fmt": "oxfmt --no-error-on-unmatched-pattern 'src/**/*.{ts,tsx}' '{test,bench,examples,scripts}/**/*.ts' '*.ts' && bun run format-prompts",
 		"format-prompts": "bun scripts/format-prompts.ts",
-		"gen:tool-views": "bun --cwd=../collab-web run gen:tool-views",
+		"gen:tool-views": "bun --cwd=../tool-views run gen:tool-views",
 		"gen:bundle": "bun scripts/bundle-dist.ts",
 		"gen:rpc": "bun scripts/gen-rpc/index.ts",
 		"prepack": "bun run gen:tool-views && bun run gen:bundle",

@@ -14,6 +14,7 @@
 - Collaboration links support explicit nonlocal `ws://`/`http://` endpoints on trusted VPNs while preserving view/control access and secure defaults.
 - Collaboration protocol v4 serves bounded on-demand browser history and coalesces assistant updates into lossless content patches before serialization; native guests retain complete session replicas. Restart existing hosts and reconnect guests after updating.
 - Collaboration protocol v5 adds guest-run host commands and paged subagent transcripts for the browser client. Restart existing hosts and redeploy a self-hosted browser UI after updating.
+- Moved the collab browser client to `web/` on the `feat/collab-server` branch; HTML export tool cards are now built from `packages/tool-views`.
 
 ### Fixed
 

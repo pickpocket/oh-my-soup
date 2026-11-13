@@ -601,6 +601,10 @@
     url = "https://registry.npmjs.org/@napi-rs/wasm-tools/-/wasm-tools-1.1.0.tgz";
     hash = "sha512-VjHyKEqXAwYZK+HY7iJctYvRm3TFEbaQxeZwvAG1QRkoo1a39phMY8J6x9tUEqJI03W6MysB8F2jacI6wvcx+w==";
   };
+  "@noble/ciphers@2.4.0" = fetchurl {
+    url = "https://registry.npmjs.org/@noble/ciphers/-/ciphers-2.4.0.tgz";
+    hash = "sha512-AnjFn0Jv92laAkvMrghlFZq4qQCIN/4DxFV/eooqtC2YTjB7kBeLMS2T9KJX4Dn+ZVXLOwK0lSgqDtx9gvxtiw==";
+  };
   "@octokit/auth-token@6.0.0" = fetchurl {
     url = "https://registry.npmjs.org/@octokit/auth-token/-/auth-token-6.0.0.tgz";
     hash = "sha512-P4YJBPdPSpWTQ1NU4XYdvHvXJJDxM6YwpS0FZHRgP7YFkdVxsWcpWGy/NVqlAA7PcPCnMacXlRm1y2PFZRWL/w==";
@@ -658,7 +662,6 @@
     hash = "sha512-l6bAF43PNxkJp6g+W4PjoUSSkxHomXw2nOum5CTftJz1NlV3vu93NImgOYtLf6CbBUb5j+fiuzW0PPQ5JTSvZA==";
   };
   "@oh-my-soup/browser-relay" = copyPathToStore ../packages/browser-relay;
-  "@oh-my-soup/collab-web" = copyPathToStore ../packages/collab-web;
   "@oh-my-soup/oms-stats" = copyPathToStore ../packages/stats;
   "@oh-my-soup/omstype" = copyPathToStore ../packages/omstype;
   "@oh-my-soup/pi-agent-core" = copyPathToStore ../packages/agent;
@@ -672,6 +675,7 @@
   "@oh-my-soup/pi-utils" = copyPathToStore ../packages/utils;
   "@oh-my-soup/pi-wire" = copyPathToStore ../packages/wire;
   "@oh-my-soup/snapcompact" = copyPathToStore ../packages/snapcompact;
+  "@oh-my-soup/tool-views" = copyPathToStore ../packages/tool-views;
   "@oh-my-soup/typescript-edit-benchmark" = copyPathToStore ../packages/typescript-edit-benchmark;
   "@opentelemetry/api-logs@0.220.0" = fetchurl {
     url = "https://registry.npmjs.org/@opentelemetry/api-logs/-/api-logs-0.220.0.tgz";

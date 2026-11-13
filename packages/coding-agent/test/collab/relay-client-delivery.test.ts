@@ -1,5 +1,5 @@
 import { expect, it } from "bun:test";
-import { startLocalRelay } from "../../../collab-web/scripts/local-relay";
+import { startLocalRelay } from "./helpers/local-relay";
 import { generateRoomKey, importRoomKey } from "../../src/collab/crypto";
 import { COLLAB_PROTO } from "../../src/collab/protocol";
 import { CollabSocket } from "../../src/collab/relay-client";

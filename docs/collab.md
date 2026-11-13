@@ -56,7 +56,7 @@ oms config set collab.relayUrl ws://10.66.66.8     # native clients on a trusted
 oms config set collab.relayUrl wss://my.omp.sh      # hosted default
 ```
 
-Start the repository's local relay with `bun run collab:relay` from the repo root; see [Self-hosting the relay](#self-hosting-the-relay) for its limitations.
+Start the repository's local stand-in relay with `bun packages/coding-agent/test/collab/helpers/local-relay.ts` from the repo root; see [Self-hosting the relay](#self-hosting-the-relay) for its limitations.
 
 Changing the setting while hosting closes the old room and reconnects the current session to the chosen server, preserving its view/control access. Old links stop working and guests must rejoin with the new link from `/collab` or `oms collab link`. Changing the server while not hosting does not start sharing. `collab.autoStart` is unchanged.
 
@@ -191,7 +191,7 @@ When a guest joins during an assistant turn, that in-flight turn appears on the 
 
 ## Web client
 
-`packages/collab-web` is a standalone browser client for the same links — no oms install needed on the guest side. Serve it at the configured `collab.webUrl`; the invitation's fragment identifies the separate relay and room. It renders the live transcript, subagents and composer. `bun run build` produces the static browser app and self-contained encrypted share viewer. WebCrypto is preferred where available; trusted VPN HTTP pages use a bundled AES-256-GCM backend with identical authenticated wire bytes. Secure randomness remains required, and authentication failures never cause backend fallback.
+The standalone browser client lives on the [`feat/collab-server` branch under `web/`](https://github.com/pickpocket/oh-my-soup/tree/feat/collab-server/web) — no oms install needed on the guest side. Serve its built static app at the configured `collab.webUrl`; the invitation's fragment identifies the separate relay and room. It renders the live transcript, subagents and composer. The self-contained encrypted share viewer (`share.html`) is generated from this repository with `bun packages/coding-agent/scripts/generate-share-viewer.ts <out>`. WebCrypto is preferred where available; trusted VPN HTTP pages use a bundled AES-256-GCM backend with identical authenticated wire bytes. Secure randomness remains required, and authentication failures never cause backend fallback.
 
 The composer completes slash commands: the browser's own (`/help`, `/theme`, `/copy`, `/agents`, `/leave`) and, for full-link guests, the [host commands](#host-commands-for-guests) the host advertises. Command output appears in a panel above the composer. Text starting with `/` that matches no command is sent as an ordinary prompt.
 
@@ -215,7 +215,7 @@ For a trusted VPN deployment, use `collab.relayUrl = ws://10.66.66.8` and `colla
 
 ## Self-hosting the relay
 
-The [`feat/collab-server` branch](https://github.com/pickpocket/oh-my-soup/tree/feat/collab-server) contains the standalone Rust relay (`oms-relay`), separate from this client monorepo. Keep it in a separate checkout. Build it locally using its pinned Rust toolchain and locked dependencies, then transfer the release executable to the deployment host; do not compile on a small production VPS.
+The [`feat/collab-server` branch](https://github.com/pickpocket/oh-my-soup/tree/feat/collab-server) contains the standalone Rust relay (`oms-relay`) and browser client (`web/`), separate from this client monorepo. Keep it in a separate checkout. Build the relay locally using its pinned Rust toolchain and locked dependencies, then transfer the release executable to the deployment host; do not compile on a small production VPS.
 
 ```sh
 cargo build --release --locked
@@ -241,7 +241,7 @@ The relay keeps each connection's memory bounded, and the host and guests are bu
 - **Rooms are ephemeral.** A room exists while its host is connected. Restarting the relay destroys every room: the host reconnects and recreates its room, and guests that were in it keep retrying until it exists again, then resynchronize.
 - **Refusals.** A second host for a room, a full room and a relay at its room limit are reported with the relay's own reason; `/collab` fails instead of printing a link nobody can use.
 
-For local protocol development, this client repository also retains a TypeScript stand-in at [`packages/collab-web/scripts/local-relay.ts`](../packages/collab-web/scripts/local-relay.ts) (`bun run collab:relay`, port 7466). It enforces the same message limit and room limits, so those problems show up without the Rust build. It drops slow guests sooner than `oms-relay` (4 MiB unsent for 250 ms) and is not the production server.
+For local protocol development and tests, this client repository retains a TypeScript stand-in at [`packages/coding-agent/test/collab/helpers/local-relay.ts`](../packages/coding-agent/test/collab/helpers/local-relay.ts) (`bun packages/coding-agent/test/collab/helpers/local-relay.ts`, port 7466). It enforces the same message limit and room limits, so those problems show up without the Rust build. It drops slow guests sooner than `oms-relay` (4 MiB unsent for 250 ms) and is not the production server.
 
 ## Implementation files
 
@@ -252,7 +252,9 @@ For local protocol development, this client repository also retains a TypeScript
 - [`src/collab/protocol.ts`](../packages/coding-agent/src/collab/protocol.ts), [`crypto.ts`](../packages/coding-agent/src/collab/crypto.ts), [`relay-client.ts`](../packages/coding-agent/src/collab/relay-client.ts) — frames, links, encryption, and transport
 - [`src/collab/registry.ts`](../packages/coding-agent/src/collab/registry.ts) — private local host discovery
 - [`src/collab/settings.ts`](../packages/coding-agent/src/collab/settings.ts) — `collab.*` defaults
-- [`packages/collab-web`](../packages/collab-web/) — browser guest and local development relay
+- [`feat/collab-server:web/`](https://github.com/pickpocket/oh-my-soup/tree/feat/collab-server/web) — browser guest client (on the `feat/collab-server` branch)
+- [`test/collab/helpers/local-relay.ts`](../packages/coding-agent/test/collab/helpers/local-relay.ts) — local TypeScript stand-in relay for tests and protocol development
+- [`scripts/generate-share-viewer.ts`](../packages/coding-agent/scripts/generate-share-viewer.ts), [`packages/tool-views`](../packages/tool-views/) — encrypted `share.html` viewer generator and shared HTML export tool-card renderers
 
 ## Architecture notes
 

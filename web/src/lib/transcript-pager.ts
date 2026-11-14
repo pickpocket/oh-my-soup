@@ -157,6 +157,13 @@ export class TranscriptPager {
 	#generation: string | undefined;
 	/** A tail-side read failed terminally: polling stays off until a load succeeds. */
 	#failed = false;
+	/** The older load in flight is an automatic fill of a window at the live end. */
+	#olderFill = false;
+	/**
+	 * An automatic fill at the live end found the window's budget spent: further
+	 * automatic older loads wait until the reader asks or the window is replaced.
+	 */
+	#olderFillSpent = false;
 	#loading: TranscriptPagerView["loading"] = "latest";
 	#error: string | null = null;
 	#version = 0;
@@ -182,13 +189,22 @@ export class TranscriptPager {
 		return this.#view;
 	}
 
-	/** Extends the window toward the transcript's start; overflow evicts the newest rows and detaches. */
-	loadOlder(): void {
+	/**
+	 * Extends the window toward the transcript's start. A load the reader asked
+	 * for (`byReader`) may evict the newest rows and detach from the live end. An
+	 * automatic one, made because the rows do not fill the viewport, never does
+	 * while the window is at the live end: its overflow drops the oldest rows, and
+	 * once nothing older fits it stops until the reader asks.
+	 */
+	loadOlder(byReader: boolean): void {
 		if (this.#stale) {
 			this.jumpToLatest();
 			return;
 		}
 		if (!this.#opened || this.#startByte === 0) return;
+		const fill = !byReader && this.#attached;
+		if ((fill && this.#olderFillSpent) || this.#disposed || this.#inFlight === "load") return;
+		this.#olderFill = fill;
 		this.#load("older", { kind: "before", byte: this.#startByte });
 	}
 
@@ -346,6 +362,7 @@ export class TranscriptPager {
 		this.#attached = true;
 		this.#stale = false;
 		this.#failed = false;
+		this.#olderFillSpent = false;
 		this.#error = null;
 		this.#version++;
 		this.#startPolling(false);
@@ -353,11 +370,15 @@ export class TranscriptPager {
 	}
 
 	#acceptOlder(blocks: Block[]): void {
+		const previousStart = this.#startByte;
 		const kept = clampPage(blocks, "newest");
 		this.#blocks = [...kept, ...this.#blocks];
 		this.#rows += countRows(kept);
 		this.#startByte -= countBytes(kept);
-		if (this.#evictNewest() && this.#attached) {
+		if (this.#olderFill && this.#attached) {
+			// An automatic fill at the live end keeps the newest rows: overflow drops the oldest instead.
+			if (this.#evictOldest() && this.#startByte >= previousStart) this.#olderFillSpent = true;
+		} else if (this.#evictNewest() && this.#attached) {
 			this.#attached = false;
 			this.#stopPolling();
 		}
@@ -372,6 +393,7 @@ export class TranscriptPager {
 		// Reaching the file's end, or finding no complete line beyond the window, re-attaches.
 		if (kept.length === blocks.length && (blocks.length === 0 || page.endByte >= page.size)) {
 			this.#attached = true;
+			this.#olderFillSpent = false;
 			this.#startPolling(false);
 		}
 		this.#publish(blocks.length > 0);

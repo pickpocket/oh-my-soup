@@ -29,6 +29,7 @@
 - "Result is outside the loaded part of the transcript." only appears when newer history really is not loaded; tools still running in the session or a subagent panel show as running.
 - Pressing Enter on `/btw` completes it to `/btw ` instead of sending it without a question.
 - A subagent panel keeps showing live messages after the host prunes or otherwise rewrites the subagent's transcript, instead of stopping with "transcript changed on the host".
+- The transcript and subagent panels stay at the newest messages when a session's messages are large: filling a short screen with older history no longer pushes the latest messages out and detaches the view. Wheeling or scrolling up still loads older history.
 
 ## [18.8.0] - 2026-10-07
 

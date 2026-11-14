@@ -278,6 +278,11 @@ interface PendingHistory {
 	kind: "older" | "newer" | "latest";
 	/** First retained entry when an `older` request left; its reply is adjacent to that entry only. */
 	anchorId: string | null;
+	/**
+	 * `older` only: an automatic fill of a window at the live end (the rows do not
+	 * fill the viewport). Its overflow drops the oldest entries instead of the newest.
+	 */
+	fill: boolean;
 	/** Live entries that arrived while the request was in flight (bounded). */
 	raced: EntryWindow;
 	timer: Timer;
@@ -319,6 +324,11 @@ export class GuestClient {
 	#unseen = 0;
 	/** The reader is pinned to the transcript's bottom, so overflow may evict the oldest rows. */
 	#followingTail = true;
+	/**
+	 * An automatic fill at the live end found the window's budget spent: further
+	 * automatic older loads wait until the reader asks or the window is replaced.
+	 */
+	#olderFillSpent = false;
 	#historyError: string | null = null;
 	#historyVersion = 0;
 	#pendingHistory: PendingHistory | null = null;
@@ -477,11 +487,19 @@ export class GuestClient {
 		return promise;
 	}
 
-	/** Extends the window toward the session's start; overflow evicts the newest entries and detaches. */
-	loadOlder(): void {
+	/**
+	 * Extends the window toward the session's start. A load the reader asked for
+	 * (`byReader`) may evict the newest entries and detach from the live end. An
+	 * automatic one, made because the rows do not fill the viewport, never does
+	 * while the window is at the live end: its overflow drops the oldest entries,
+	 * and once nothing older fits it stops until the reader asks.
+	 */
+	loadOlder(byReader: boolean): void {
 		const first = this.#window.entries[0];
 		if (!this.#hasOlder || first === undefined) return;
-		this.#requestHistory("older", { kind: "before", id: first.id }, first.id);
+		const fill = !byReader && this.#atLatest;
+		if (fill && this.#olderFillSpent) return;
+		this.#requestHistory("older", { kind: "before", id: first.id }, first.id, fill);
 	}
 
 	/** Extends a detached window toward the tail; overflow evicts the oldest entries. */
@@ -506,7 +524,7 @@ export class GuestClient {
 	}
 
 	/** Only one history request may be in flight; calls while one is pending are ignored. */
-	#requestHistory(kind: PendingHistory["kind"], cursor: HistoryCursor, anchorId: string | null): void {
+	#requestHistory(kind: PendingHistory["kind"], cursor: HistoryCursor, anchorId: string | null, fill = false): void {
 		if (this.#phase !== "live" || this.#pendingSnapshot !== null || this.#pendingHistory !== null) return;
 		const reqId = ++this.#reqSeq;
 		const timer = setTimeout(() => {
@@ -515,7 +533,7 @@ export class GuestClient {
 			this.#historyError = "History request timed out. Try again.";
 			this.#commit();
 		}, HISTORY_TIMEOUT_MS);
-		this.#pendingHistory = { reqId, kind, anchorId, timer, raced: new EntryWindow() };
+		this.#pendingHistory = { reqId, kind, anchorId, fill, timer, raced: new EntryWindow() };
 		this.#historyError = null;
 		this.#socket.send({ t: "fetch-history", reqId, cursor });
 		this.#commit();
@@ -661,19 +679,30 @@ export class GuestClient {
 		this.#hasOlder = !adjacent || page.beforeId !== null || next.evictedOldest;
 		this.#atLatest = true;
 		this.#unseen = 0;
+		this.#olderFillSpent = false;
 		this.#historyVersion++;
 		this.#publishWindow();
 	}
 
-	/** Prepends the page before the first retained entry; overflow evicts the newest entries. */
-	#acceptOlder(entries: readonly SessionEntry[], page: HistoryPage, anchorId: string | null): void {
+	/**
+	 * Prepends the page before the first retained entry. Overflow evicts the
+	 * newest entries and detaches, except for an automatic fill of a window still
+	 * at the live end, which drops the oldest entries instead.
+	 */
+	#acceptOlder(entries: readonly SessionEntry[], page: HistoryPage, anchorId: string | null, fill: boolean): void {
 		// Tail-following eviction may have moved the head while the request was
 		// in flight; the reply is then no longer adjacent and is dropped.
 		if (this.#window.entries[0]?.id !== anchorId) return;
 		for (let i = entries.length - 1; i >= 0; i--) this.#window.unshift(entries[i]!);
 		this.#hasOlder = page.beforeId !== null;
 		this.#total = Math.max(this.#total, page.total);
-		if (this.#window.trimNewest() > 0 && this.#atLatest) {
+		if (fill && this.#atLatest) {
+			if (this.#window.trimOldest() > 0) {
+				this.#hasOlder = true;
+				// Nothing older stayed: the budget is spent until the reader asks for more.
+				if (this.#window.entries[0]?.id === anchorId) this.#olderFillSpent = true;
+			}
+		} else if (this.#window.trimNewest() > 0 && this.#atLatest) {
 			this.#atLatest = false;
 			this.#unseen = 0;
 		}
@@ -691,6 +720,7 @@ export class GuestClient {
 			}
 			this.#atLatest = true;
 			this.#unseen = 0;
+			this.#olderFillSpent = false;
 		} else {
 			this.#total = Math.max(this.#total, page.total);
 		}
@@ -806,7 +836,7 @@ export class GuestClient {
 					break;
 				}
 				if (pending.kind === "older") {
-					this.#acceptOlder(frame.entries, frame.page, pending.anchorId);
+					this.#acceptOlder(frame.entries, frame.page, pending.anchorId, pending.fill);
 				} else if (pending.kind === "newer") {
 					this.#acceptNewer(frame.entries, frame.page, pending.raced);
 				} else {

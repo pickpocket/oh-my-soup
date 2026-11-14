@@ -30,8 +30,13 @@ export interface TranscriptProps {
 	error?: string | null;
 	/** Rows that arrived beyond `entries` while `hasNewer`. */
 	unseen?: number;
-	/** The reader came near the first row while `hasOlder`. Called once per load. */
-	onReachStart?(): void;
+	/**
+	 * More rows are wanted before the first one while `hasOlder`. Called once per
+	 * load. `byReader` is true when the reader scrolled or wheeled toward the
+	 * start, false when the rows simply do not fill the viewport; an automatic
+	 * load like that must not pull the reader away from the newest rows.
+	 */
+	onReachStart?(byReader: boolean): void;
 	/** The reader came near the last row while `hasNewer`. Called once per load. */
 	onReachEnd?(): void;
 	/** The reader asked for the newest rows while `hasNewer`. */
@@ -503,7 +508,12 @@ export function Transcript(props: TranscriptProps): ReactNode {
 	const [following, setFollowing] = useState(!hasNewer);
 	const lastScrollTopRef = useRef(0);
 	const anchorRef = useRef<ScrollAnchor | null>(null);
-	/** False from an edge request until its effect (loading, new rows, an error) shows up. */
+	/**
+	 * False from a reader's edge request until its effect (loading, new rows, an
+	 * error) shows up. Automatic requests leave it armed: the parent may decline
+	 * them without any change that would re-arm it, which would swallow the
+	 * reader's next scroll.
+	 */
 	const armedRef = useRef(true);
 	/** What the last load was asked for: its failure is shown, and retried, at that end. */
 	const [requested, setRequested] = useState<"start" | "end" | "latest">("latest");
@@ -516,21 +526,22 @@ export function Transcript(props: TranscriptProps): ReactNode {
 		setFollowing(next);
 	};
 
-	const request = (target: "start" | "end" | "latest"): void => {
-		armedRef.current = false;
+	const request = (target: "start" | "end" | "latest", byReader = true): void => {
+		if (byReader) armedRef.current = false;
 		setRequested(target);
-		if (target === "start") onReachStart?.();
+		if (target === "start") onReachStart?.(byReader);
 		else if (target === "end") onReachEnd?.();
 		else onJumpToLatest?.();
 	};
 
+	/** `direction` is the reader's own scroll or wheel; null after a layout change. */
 	const checkEdges = (el: HTMLElement, direction: "up" | "down" | null): void => {
 		if (!armedRef.current || loading !== null) return;
 		const edge = transcriptEdge(el, hasOlder, hasNewer, direction);
 		if (edge === null) return;
 		// A failed load is retried by the reader, never by lingering at the end it failed at.
 		if (error !== null && (edge === "start") === (requested === "start")) return;
-		request(edge);
+		request(edge, direction !== null);
 	};
 
 	useLayoutEffect(() => {
@@ -635,6 +646,13 @@ export function Transcript(props: TranscriptProps): ReactNode {
 				setFollow(!hasNewer && isAtTranscriptTail(el));
 				anchorRef.current = captureAnchor(el);
 				checkEdges(el, direction);
+			}}
+			onWheel={event => {
+				// At an end the wheel scrolls nothing, so no scroll event says the reader wants more there.
+				const el = rootRef.current;
+				if (el === null) return;
+				if (event.deltaY < 0 && el.scrollTop <= 0) checkEdges(el, "up");
+				else if (event.deltaY > 0 && el.scrollHeight - el.scrollTop - el.clientHeight <= 1) checkEdges(el, "down");
 			}}
 		>
 			{settled && !hasRows && stream === null && !working && loading === null && error === null && (

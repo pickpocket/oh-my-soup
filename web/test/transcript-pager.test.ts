@@ -216,7 +216,7 @@ describe("TranscriptPager", () => {
 				expect(round).toBeLessThan(200);
 				const first = spans.get(pager.view.entries[0]!.id)!;
 				const previousEnd = spans.get(rowIds[rowIds.indexOf(pager.view.entries[0]!.id) - 1]!)?.end ?? 0;
-				pager.loadOlder();
+				pager.loadOlder(true);
 				const cursor = host.cursors.at(-1)!;
 				expect(cursor.kind).toBe("before");
 				if (cursor.kind !== "before") break;
@@ -402,7 +402,7 @@ describe("TranscriptPager", () => {
 		await advance(3);
 		expect(host.cursors.length).toBe(requests);
 
-		pager.loadOlder();
+		pager.loadOlder(true);
 		expect(host.cursors.at(-1)).toEqual({ kind: "tail" });
 		await flush();
 		expect(ids(pager.view.entries)).toEqual(["fresh-0", "fresh-1"]);
@@ -454,7 +454,7 @@ describe("TranscriptPager", () => {
 		const pager = open(host);
 		await flush();
 		host.nextReply = { kind: "error", message: "a transcript line exceeds the read cap", size: host.file.byteLength };
-		pager.loadOlder();
+		pager.loadOlder(true);
 		await flush();
 		expect(pager.view).toMatchObject({
 			error: "a transcript line exceeds the read cap",
@@ -467,7 +467,7 @@ describe("TranscriptPager", () => {
 		expect(pager.view.entries.at(-1)?.id).toBe("live");
 		// The failure stays visible until the reader retries.
 		expect(pager.view.error).not.toBeNull();
-		pager.loadOlder();
+		pager.loadOlder(true);
 		await flush();
 		expect(pager.view.error).toBeNull();
 	});
@@ -490,13 +490,13 @@ describe("TranscriptPager", () => {
 		expect(pager.view).toBe(opened);
 
 		host.nextReply = null;
-		pager.loadOlder();
+		pager.loadOlder(true);
 		await flush();
 		expect(pager.view.error).not.toBeNull();
 		expect(pager.view.loading).toBeNull();
 		expect(pager.view.entries).toBe(opened.entries);
 		const firstId = opened.entries[0]!.id;
-		pager.loadOlder();
+		pager.loadOlder(true);
 		await flush();
 		expect(pager.view.error).toBeNull();
 		expect(pager.view.entries.length).toBeGreaterThan(opened.entries.length);
@@ -510,8 +510,8 @@ describe("TranscriptPager", () => {
 		await flush();
 		host.hold = true;
 		const requests = host.cursors.length;
-		pager.loadOlder();
-		pager.loadOlder();
+		pager.loadOlder(true);
+		pager.loadOlder(true);
 		pager.jumpToLatest();
 		expect(host.cursors.length).toBe(requests + 1);
 		expect(pager.view.loading).toBe("older");
@@ -519,7 +519,7 @@ describe("TranscriptPager", () => {
 		await flush();
 		expect(pager.view.loading).toBeNull();
 
-		pager.loadOlder();
+		pager.loadOlder(true);
 		const pending = pager.view;
 		const notified = changes;
 		pager.dispose();
@@ -529,5 +529,44 @@ describe("TranscriptPager", () => {
 		expect(pager.view).toBe(pending);
 		expect(changes).toBe(notified);
 		expect(host.cursors.length).toBe(requests + 2);
+	});
+
+	it("keeps following the live end when an automatic fill overflows, and stops filling once nothing older fits", async () => {
+		// About 100 KB per line: a page holds two of them and the window five.
+		let text = HEADER;
+		for (let i = 0; i < 12; i++) text += rowLine(`big-${i}`, "x".repeat(100_000));
+		const host = new FakeHost(text);
+		host.running = true;
+		const pager = open(host);
+		await flush();
+		const olderReads = (): number => host.cursors.filter(cursor => cursor.kind === "before").length;
+
+		pager.loadOlder(false);
+		await flush();
+		pager.loadOlder(false);
+		await flush();
+		const filled = ids(pager.view.entries);
+		expect(filled.at(-1)).toBe("big-11");
+		expect(pager.view.atLatest).toBe(true);
+
+		// Full: the next fill keeps nothing older and spends the budget.
+		pager.loadOlder(false);
+		await flush();
+		expect(ids(pager.view.entries)).toEqual(filled);
+		const reads = olderReads();
+		pager.loadOlder(false);
+		await flush();
+		expect(olderReads()).toBe(reads);
+
+		// Still polling: appended lines arrive.
+		host.append(rowLine("live", "appended"));
+		await advance(1);
+		expect(pager.view.entries.at(-1)?.id).toBe("live");
+
+		// The reader's own scroll still pages back, leaving the live end.
+		pager.loadOlder(true);
+		await flush();
+		expect(olderReads()).toBe(reads + 1);
+		expect(pager.view.atLatest).toBe(false);
 	});
 });

@@ -647,7 +647,7 @@ describe("GuestClient history window", () => {
 			const visited = new Set(entryIds(client.getSnapshot().entries));
 			for (let round = 0; client.getSnapshot().history.hasOlder; round++) {
 				expect(round).toBeLessThan(50);
-				client.loadOlder();
+				client.loadOlder(true);
 				expectBoundedRun();
 				for (const entry of client.getSnapshot().entries) visited.add(entry.id);
 			}
@@ -688,12 +688,12 @@ describe("GuestClient history window", () => {
 			});
 			const client = liveClient(userEntries(300, 400), { beforeId: "e300", afterId: null, total: 400 });
 			try {
-				client.loadOlder();
+				client.loadOlder(true);
 				client.applyFrameForTest(
 					historyFrame(lastHistoryRequest(sent).reqId, userEntries(200, 300), 400, "e200", "e299"),
 				);
 				expect(client.getSnapshot().history.atLatest).toBe(true);
-				client.loadOlder();
+				client.loadOlder(true);
 				client.applyFrameForTest(
 					historyFrame(lastHistoryRequest(sent).reqId, userEntries(100, 200), 400, "e100", "e199"),
 				);
@@ -779,7 +779,7 @@ describe("GuestClient history window", () => {
 		});
 		const client = liveClient(userEntries(50, 250), { beforeId: "e50", afterId: null, total: 250 });
 		try {
-			client.loadOlder();
+			client.loadOlder(true);
 			client.applyFrameForTest(historyFrame(lastHistoryRequest(sent).reqId, userEntries(0, 50), 250, null, "e49"));
 			const historical = client.getSnapshot().entries;
 			expect(historical).toEqual(userEntries(0, 200));
@@ -883,9 +883,9 @@ describe("GuestClient history window", () => {
 		const client = liveClient(userEntries(50, 150), { beforeId: "e50", afterId: null, total: 150 });
 		try {
 			const before = client.getSnapshot().entries;
-			client.loadOlder();
+			client.loadOlder(true);
 			client.jumpToLatest();
-			client.loadOlder();
+			client.loadOlder(true);
 			expect(sent.filter(frame => frame.t === "fetch-history")).toHaveLength(1);
 			expect(client.getSnapshot().history.loading).toBe("older");
 
@@ -913,7 +913,7 @@ describe("GuestClient history window", () => {
 		const client = liveClient(userEntries(50, 150), { beforeId: "e50", afterId: null, total: 150 });
 		try {
 			const before = client.getSnapshot().entries;
-			client.loadOlder();
+			client.loadOlder(true);
 			const timedOut = lastHistoryRequest(sent).reqId;
 			vi.advanceTimersByTime(10_000);
 			expect(client.getSnapshot().history.loading).toBeNull();
@@ -923,7 +923,7 @@ describe("GuestClient history window", () => {
 			client.applyFrameForTest(historyFrame(timedOut, userEntries(0, 50), 150, null, "e49"));
 			expect(client.getSnapshot().entries).toBe(before);
 
-			client.loadOlder();
+			client.loadOlder(true);
 			expect(client.getSnapshot().history).toMatchObject({ loading: "older", error: null });
 			client.applyFrameForTest({
 				t: "history",
@@ -955,7 +955,7 @@ describe("GuestClient history window", () => {
 		const client = liveClient(userEntries(50, 150), { beforeId: "e50", afterId: null, total: 150 });
 		try {
 			const version = client.getSnapshot().history.version;
-			client.loadOlder();
+			client.loadOlder(true);
 			client.applyFrameForTest({
 				t: "history",
 				reqId: lastHistoryRequest(sent).reqId,
@@ -971,7 +971,7 @@ describe("GuestClient history window", () => {
 			expect(client.getSnapshot().history).toMatchObject({ hasOlder: true, atLatest: true, total: 300, unseen: 0 });
 			expect(client.getSnapshot().history.version).toBe(version + 1);
 
-			client.loadOlder();
+			client.loadOlder(true);
 			const stale = lastHistoryRequest(sent).reqId;
 			expect(client.getSnapshot().history.loading).toBe("older");
 			client.applyFrameForTest(welcomeFrame(1, false, { beforeId: "e399", afterId: null, total: 400 }));
@@ -996,12 +996,50 @@ describe("GuestClient history window", () => {
 	it("discards a history reply that arrives after the session closed", () => {
 		const client = liveClient(userEntries(50, 150), { beforeId: "e50", afterId: null, total: 150 });
 		const before = client.getSnapshot().entries;
-		client.loadOlder();
+		client.loadOlder(true);
 		client.close();
 		client.applyFrameForTest(historyFrame(1, userEntries(0, 50), 150, null, "e49"));
 		expect(client.getSnapshot().phase).toBe("ended");
 		expect(client.getSnapshot().history.loading).toBeNull();
 		expect(client.getSnapshot().entries).toBe(before);
+	});
+
+	it("keeps the newest entries when an automatic fill overflows at the live end, and stops once nothing older fits", () => {
+		// About 60 KB each: the 256 KiB window holds only four, so any older page overflows it.
+		const canonical = userEntries(0, 30, "x".repeat(60_000));
+		const client = liveClient(canonical.slice(-3), { beforeId: "e27", afterId: null, total: 30 });
+		const sent: GuestFrame[] = [];
+		const sendSpy = serveHistory(client, () => canonical, sent);
+		const historyRequests = (): number => sent.filter(frame => frame.t === "fetch-history").length;
+		try {
+			client.loadOlder(false);
+			const filled = client.getSnapshot();
+			expect(filled.entries.at(-1)?.id).toBe("e29");
+			expect(filled.entries.length).toBeGreaterThan(3);
+			expect(filled.history).toMatchObject({ atLatest: true, hasOlder: true });
+
+			// The window is full: the next fill keeps nothing older and spends the budget.
+			client.loadOlder(false);
+			expect(entryIds(client.getSnapshot().entries)).toEqual(entryIds(filled.entries));
+			expect(historyRequests()).toBe(2);
+			client.loadOlder(false);
+			expect(historyRequests()).toBe(2);
+
+			// Live entries keep arriving at the bottom.
+			const live = messageEntry("e30", { role: "user", content: "live", timestamp: 30 });
+			client.applyFrameForTest({ t: "entry", entry: live });
+			expect(client.getSnapshot().entries.at(-1)?.id).toBe("e30");
+			expect(client.getSnapshot().history).toMatchObject({ atLatest: true, unseen: 0 });
+
+			// The reader's own scroll still pages back, leaving the live end.
+			client.loadOlder(true);
+			expect(historyRequests()).toBe(3);
+			expect(client.getSnapshot().history.atLatest).toBe(false);
+			expect(client.getSnapshot().entries[0]!.id < filled.entries[0]!.id).toBe(true);
+		} finally {
+			sendSpy.mockRestore();
+			client.close();
+		}
 	});
 });
 

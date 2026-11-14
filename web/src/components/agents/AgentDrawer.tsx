@@ -111,7 +111,7 @@ export function AgentDrawer(props: {
 		pagerRef.current?.poll();
 	}, [progress, lifecycle, agent.status, agent.lastActivity]);
 
-	const loadOlder = useCallback(() => pagerRef.current?.loadOlder(), []);
+	const loadOlder = useCallback((byReader: boolean) => pagerRef.current?.loadOlder(byReader), []);
 	const loadNewer = useCallback(() => pagerRef.current?.loadNewer(), []);
 	const jumpToLatest = useCallback(() => pagerRef.current?.jumpToLatest(), []);
 	const setFollowingTail = useCallback((following: boolean) => pagerRef.current?.setFollowingTail(following), []);

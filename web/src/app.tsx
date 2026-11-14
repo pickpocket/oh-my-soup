@@ -194,7 +194,7 @@ function Session({ client, name, onLeave, onRejoin }: SessionProps): ReactNode {
 
 	const history = snap.history;
 	const showLive = history.atLatest && snap.phase === "live" && snap.loading === null;
-	const loadOlder = useCallback(() => client.loadOlder(), [client]);
+	const loadOlder = useCallback((byReader: boolean) => client.loadOlder(byReader), [client]);
 	const loadNewer = useCallback(() => client.loadNewer(), [client]);
 	const jumpToLatest = useCallback(() => client.jumpToLatest(), [client]);
 	const setFollowingTail = useCallback((following: boolean) => client.setFollowingTail(following), [client]);

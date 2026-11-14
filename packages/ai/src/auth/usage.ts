@@ -3,6 +3,8 @@ import { $pickenv, logger } from "@oh-my-soup/pi-utils";
 import { getEnvApiKey } from "../env-api-key";
 import * as AIError from "../error";
 import type { OAuthCredentials } from "../registry/oauth/types";
+import { getProviderDefinition } from "../registry";
+import type { FetchImpl } from "../types";
 import type { Provider } from "../types";
 import { resolveUsedFraction } from "../usage";
 import type {
@@ -100,7 +102,7 @@ export interface UsageServiceDeps {
 	affinity: SessionAffinity;
 	strategies: RankingStrategyResolver;
 	usageProviders: (provider: Provider) => UsageProvider | undefined;
-	fetch: typeof fetch;
+	fetch?: typeof fetch;
 	requestTimeoutMs: number;
 	logger: UsageLogger;
 }
@@ -125,9 +127,14 @@ export class UsageService implements UsageApi {
 
 	constructor(deps: UsageServiceDeps) {
 		this.#deps = deps;
-		this.fetch = deps.fetch;
+		this.fetch = deps.fetch ?? fetch;
 		this.logger = deps.logger;
 		this.requestTimeoutMs = deps.requestTimeoutMs;
+	}
+
+	/** Keep explicit host transports while selecting the registered provider default. */
+	fetchFor(provider: Provider): FetchImpl {
+		return this.#deps.fetch ?? getProviderDefinition(provider)?.fetch ?? this.fetch;
 	}
 
 	/** Whether OAuth usage can be fetched via a provider or the store hook. */
@@ -275,7 +282,7 @@ export class UsageService implements UsageApi {
 				this.#deps.cache.reportKey(request),
 			)?.value;
 			const report = await providerImpl.fetchUsage(params, {
-				fetch: this.fetch,
+				fetch: this.fetchFor(params.provider),
 				logger: this.logger,
 				...(previousReport ? { previousReport } : {}),
 			});

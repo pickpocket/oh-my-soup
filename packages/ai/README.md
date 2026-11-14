@@ -1198,6 +1198,63 @@ usage polling do not imply that reason.
 
 **Google Gemini CLI / Antigravity**: These use Google Cloud OAuth. The `apiKey` returned by `getOAuthApiKey()` is a JSON string containing both the token and project ID, which the library handles automatically.
 
+#### Antigravity transport and verification
+
+In Soup, use `/login google-antigravity`, or `/login` and select **Google
+Antigravity**. This starts browser OAuth with PKCE and a local HTTP callback
+(preferred address `http://127.0.0.1:51121/oauth-callback`). Complete consent in a
+browser on the machine running Soup; token exchange and project discovery then
+use the provider transport and save the resulting credential to Soup's store.
+The normal flow does not ask for a pasted authorization code or import the
+official CLI's credential store. SDK callers can still explicitly supply a
+manual-code callback when they need one.
+
+Default Antigravity chat, image, OAuth, and usage requests use a lazily started
+Go helper. Source checkouts build it with
+`bun run --cwd packages/ai build:agy-transport`; installed SDK packages use
+`bun run --cwd node_modules/@oh-my-soup/pi-ai build:agy-transport`.
+Go must be installed; the module selects its required toolchain. `bun run setup`
+also builds the helper. Compiled CLI builds embed their target's helper.
+
+`PI_AI_AGY_TRANSPORT` selects an explicit executable. Advanced callers can use
+`createAgyFetch()` from `@oh-my-soup/pi-ai/providers/agy-fetch`, pass the returned
+`fetch` to supported request options, and call `close()` after consuming response
+bodies. Explicit fetch overrides take precedence over provider defaults.
+`closeDefaultAgyFetch()` releases the shared helper for hosts requiring explicit
+shutdown. The helper owns no stored OAuth credentials.
+
+HTTPS certificate verification remains enabled. `NODE_EXTRA_CA_CERTS` or the
+handle's `ca` option adds a trusted PEM bundle. HTTP/HTTPS CONNECT proxies are
+supported; SOCKS and arbitrary `fetch` transport options are not. Redirects are
+returned rather than followed. The optional `quotaProject` is a billing-project
+override: it is **not** inferred from the OAuth credential's shared CCPA project.
+
+Streaming continuation is bounded to 32 additional legs. Recovery from a
+transport interruption requires a checkpoint covering all emitted output and
+is bounded separately; output after the last checkpoint prevents unsafe replay.
+HTTP denials during continuation surface as errors, not retries. Usage snapshots
+are accumulated across legs without counting the initial prompt again.
+Image streams also surface in-band provider errors.
+
+The observational harness lives in `scripts/agy-wire/`. From this package:
+
+```sh
+bun scripts/agy-wire/compare.ts --reference reference.json --candidate candidate.json \
+  --reference-pcap reference.pcap --candidate-pcap candidate.pcap --out report.json
+```
+
+Exit codes are `0` for the explicitly evaluated normalized scopes matching, `1`
+for a mismatch, and `2` for missing or malformed evidence. Omitting PCAP is not an
+L4 pass; `--scope application-tls` explicitly requests a narrower comparison.
+Raw differences and declared exclusions remain in every report. Captures may
+contain credentials and must be protected and kept out of version control.
+
+`scripts/agy-wire/analysis-1.5.9.json` records the pinned binary's provenance,
+static findings, and historical fixture results. Earlier authenticated CLI and
+transport generation runs succeeded, but neither that acceptance nor JA3/JA4
+agreement proves attestation or complete protocol identity. All-layer equivalence
+has **not** been established; the recorded TCP comparison differed.
+
 ## License
 
 MIT

@@ -2,6 +2,23 @@
 
 ## [Unreleased]
 
+### Breaking Changes
+
+- Default Antigravity requests require the Go transport helper; source/package installs must run `build:agy-transport`, while compiled CLI builds embed it. Explicit fetch overrides remain supported.
+
+### Added
+
+- Added an observational AGY capture/comparison harness that retains raw byte differences, requires transport evidence for all-layer reports, and does not claim attestation.
+
+### Fixed
+
+- Antigravity OAuth project discovery now honors the login controller's explicit fetch implementation.
+- Antigravity image streams now surface in-band provider errors instead of returning successful empty results.
+- Antigravity tool results use the serving model's conversation role, and request attempts no longer invent extra logical steps.
+- Antigravity continuations preserve cumulative usage, reject unsafe checkpoint replay, and surface next-leg HTTP failures without retrying permission denials.
+- Transport helpers no longer keep idle hosts alive, and HEAD/204/205/304 responses no longer fail during gzip or Response handling.
+- Antigravity login now completes through the browser callback without opening an unnecessary paste-code prompt.
+
 ## [18.13.1] - 2026-10-27
 
 ### Added

@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- Antigravity tool loops now retain one execution identity until the host run finishes and count logical messages before wire grouping.
+
 ## [18.13.0] - 2026-10-26
 
 ### Added

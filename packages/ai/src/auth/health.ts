@@ -275,15 +275,15 @@ export class CredentialHealth implements HealthApi {
 		const timeoutMs = options?.timeoutMs ?? this.#deps.usage.requestTimeoutMs;
 		const completionProbe = options?.completionProbe;
 		const completionTimeoutMs = options?.completionTimeoutMs ?? timeoutMs;
-		const ctx: UsageFetchContext = {
-			fetch: this.#deps.usage.fetch,
-			logger: this.#deps.usage.logger,
-		};
 
 		const results: CredentialHealthResult[] = [];
 		for (const row of stored) {
 			options?.signal?.throwIfAborted();
 			if (options?.excludeProviders?.has(row.provider)) continue;
+			const ctx: UsageFetchContext = {
+				fetch: this.#deps.usage.fetchFor(row.provider as Provider),
+				logger: this.#deps.usage.logger,
+			};
 			const base: CredentialHealthResult = {
 				id: row.id,
 				provider: row.provider,

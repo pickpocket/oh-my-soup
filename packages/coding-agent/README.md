@@ -13,6 +13,20 @@ Package-specific references:
 - [MCP server/tool authoring](../../docs/mcp-server-tool-authoring.md)
 - [DEVELOPMENT](./DEVELOPMENT.md)
 
+## Antigravity source setup
+
+Source installs require the Antigravity Go transport helper. `bun run setup` at
+the repository root builds it; rebuild only the helper with
+`bun run --cwd packages/ai build:agy-transport`. Compiled builds embed the
+target-specific executable. See the [AI package transport notes](../ai/README.md#antigravity-transport-and-verification)
+for executable overrides, trusted CAs, lifecycle, and verification limits.
+
+Use `/login google-antigravity` inside the updated session (`/login` also lists
+the provider). Login opens browser consent and completes through the local
+callback; no authorization-code paste is required. Repository edits do not
+replace a running installed executable: launch this checkout with `bun run dev`
+from the repository root, or rebuild/install the CLI and start a new session.
+
 ## Memory backends
 
 The agent supports three mutually-exclusive memory backends, selected via the `memory.backend` setting (Settings → Memory tab, or `~/.oms/config.yml`):

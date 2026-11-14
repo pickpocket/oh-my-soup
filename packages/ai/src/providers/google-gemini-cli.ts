@@ -3,17 +3,12 @@
  * Shared implementation for both google-gemini-cli and google-antigravity providers.
  * Uses the Cloud Code Assist API endpoint to access Gemini and Claude models.
  */
-import { randomBytes, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { scheduler } from "node:timers/promises";
 import { type } from "@oh-my-soup/omstype";
 import { calculateCost } from "@oh-my-soup/pi-catalog/models";
 import { isReviewedTierVariantWireId } from "@oh-my-soup/pi-catalog/compat/collapse";
-import {
-	ensureAntigravityVersion,
-	getAntigravityHeaders,
-	getAntigravityModelWireProfile,
-	getGeminiCliHeaders,
-} from "@oh-my-soup/pi-catalog/wire/gemini-headers";
+import { getAntigravityModelWireProfile, getGeminiCliHeaders } from "@oh-my-soup/pi-catalog/wire/gemini-headers";
 import { extractHttpStatusFromError, fetchWithRetry, readSseJson } from "@oh-my-soup/pi-utils";
 import * as AIError from "../error";
 import { oauthAccountKey } from "../auth/types";
@@ -39,6 +34,7 @@ import { armPreResponseTimeout, getStreamFirstEventTimeoutMs, iterateWithIdleTim
 // the stream provider trusts the access token threaded through `options.apiKey`.
 import { normalizeSchemaForCCA } from "../utils/schema";
 import { StreamMarkupHealing, type StreamMarkupHealingEvent } from "../utils/stream-markup-healing";
+import { agyFetch, getAgyHeaders } from "./agy-fetch";
 import { prepareAnthropicImageContext } from "./anthropic-images";
 import forcedToolDirective from "./google-antigravity-forced-tool.md" with { type: "text" };
 import type { Content, FunctionCallingConfigMode, ThinkingConfig } from "./google-shared";
@@ -57,6 +53,7 @@ import {
 	pushBlockEndEvent,
 	pushToolCallEvents,
 	retainThoughtSignature,
+	SKIP_THOUGHT_SIGNATURE,
 	startTextOrThinkingBlock,
 } from "./google-shared";
 
@@ -289,9 +286,9 @@ export interface AntigravityProviderSessionState extends ProviderSessionState {
 	 * Antigravity client. `sessionId` is the signed-decimal session id;
 	 * `agentId`/`trajectoryId` are UUIDs (`agentId` doubles as
 	 * `labels.cascade_id`/`root_cascade_id`); `stepIndex` is the last
-	 * requestId step (monotonic); `requestCount` counts envelopes already built for the trajectory
-	 * (`labels.request_id` suffix); `lastExecutionId` is the prior response id
-	 * echoed as `labels.last_execution_id`.
+	 * requestId step; `requestCount` counts envelopes already built for the trajectory
+	 * (`labels.request_id` suffix); `lastExecutionId` is the completed host
+	 * execution's UUID, never a backend response id.
 	 */
 	agentId?: string;
 	trajectoryId?: string;
@@ -313,6 +310,9 @@ export function getAntigravityProviderSessionState(
 	if (!existing) {
 		existing = {
 			close: () => {},
+			finishExecution() {
+				this.lastExecutionId = randomUUID();
+			},
 		};
 		providerSessionState.set(ANTIGRAVITY_PROVIDER_SESSION_STATE_KEY, existing);
 	}
@@ -330,7 +330,6 @@ const BASE_DELAY_MS = 1000;
 const DEFAULT_FIRST_EVENT_TIMEOUT_MS = 300_000;
 const FIRST_EVENT_TIMEOUT_ERROR = "Cloud Code Assist stream timed out while waiting for the first event";
 const RATE_LIMIT_BUDGET_MS = 5 * 60 * 1000;
-const CLAUDE_THINKING_BETA_HEADER = "interleaved-thinking-2025-05-14";
 const GOOGLE_GEMINI_REFRESH_SKEW_MS = 60_000;
 const ANTIGRAVITY_REFRESH_SKEW_MS = 60_000;
 
@@ -523,6 +522,7 @@ export const streamGoogleGeminiCli: StreamFunction<"google-gemini-cli"> = (
 			}
 
 			const isAntigravity = model.provider === "google-antigravity";
+			const fetchImpl = options?.fetch ?? (isAntigravity ? agyFetch : fetch);
 			const parsedCredentials = parseGeminiCliCredentials(apiKeyRaw);
 			const { accessToken, projectId } = parsedCredentials;
 			// AuthStorage already refreshed credentials before threading them
@@ -603,20 +603,10 @@ export const streamGoogleGeminiCli: StreamFunction<"google-gemini-cli"> = (
 			if (replacementPayload !== undefined) {
 				requestBody = replacementPayload as typeof requestBody;
 			}
-			// The backend gates newer models on the client version; a process that
-			// skipped discovery (fresh model cache) must still send the current one.
-			if (isAntigravity) await ensureAntigravityVersion(options?.fetch ?? fetch, options?.signal);
-			// Antigravity mirrors the native Go client: no `Accept`, gzip only, and
-			// no Claude-thinking beta on Claude 5.x (the compat flag scopes it).
 			const requestHeaders = {
 				Authorization: `Bearer ${accessToken}`,
 				"Content-Type": "application/json",
-				...(isAntigravity
-					? getAntigravityHeaders()
-					: { Accept: "text/event-stream", ...getGeminiCliHeaders(model.id) }),
-				...(model.compat.claudeThinkingBetaHeader && model.identity.class === "anthropic" && model.reasoning
-					? { "anthropic-beta": CLAUDE_THINKING_BETA_HEADER }
-					: {}),
+				...(isAntigravity ? getAgyHeaders() : { Accept: "text/event-stream", ...getGeminiCliHeaders(model.id) }),
 				...options?.headers,
 			};
 			const requestBodyJson = JSON.stringify(requestBody);
@@ -647,7 +637,6 @@ export const streamGoogleGeminiCli: StreamFunction<"google-gemini-cli"> = (
 			// Once any stream event starts, the endpoint is committed downstream.
 			// Failover remains safe only while `started` is false.
 			let sawFinishReason = false;
-			let lastResponseId: string | undefined;
 			const ensureStarted = () => {
 				if (!started) {
 					if (!firstTokenTime) firstTokenTime = performance.now();
@@ -681,10 +670,6 @@ export const streamGoogleGeminiCli: StreamFunction<"google-gemini-cli"> = (
 						kind: "empty-body",
 					});
 				}
-
-				// Scoped per attempt so a failed/empty retry cannot leak its
-				// response id into the next request's last_execution_id.
-				lastResponseId = undefined;
 
 				let currentBlock: TextContent | ThinkingContent | null = null;
 				const blocks = output.content;
@@ -811,7 +796,6 @@ export const streamGoogleGeminiCli: StreamFunction<"google-gemini-cli"> = (
 					}
 					const responseData = chunk.response;
 					if (!responseData) continue;
-					if (responseData.responseId) lastResponseId = responseData.responseId;
 					if (!responseData.candidates?.length && responseData.promptFeedback?.blockReason) {
 						const detail = responseData.promptFeedback.blockReasonMessage;
 						throw new AIError.ProviderResponseError(
@@ -878,7 +862,11 @@ export const streamGoogleGeminiCli: StreamFunction<"google-gemini-cli"> = (
 								const providedId = part.functionCall.id;
 								const needsNewId =
 									!providedId || output.content.some(b => b.type === "toolCall" && b.id === providedId);
-								const toolCallId = needsNewId ? nextToolCallId(part.functionCall.name || "tool") : providedId;
+								const toolCallId = needsNewId
+									? isAntigravity
+										? randomUUID()
+										: nextToolCallId(part.functionCall.name || "tool")
+									: providedId;
 
 								const toolCall: ToolCall = {
 									type: "toolCall",
@@ -965,7 +953,7 @@ export const streamGoogleGeminiCli: StreamFunction<"google-gemini-cli"> = (
 							maxAttempts: isLastEndpoint ? MAX_RETRIES + 1 : 1,
 							defaultDelayMs: attempt => BASE_DELAY_MS * 2 ** attempt,
 							maxDelayMs: options?.maxRetryDelayMs ?? RATE_LIMIT_BUDGET_MS,
-							fetch: options?.fetch,
+							fetch: fetchImpl,
 							timeout: false,
 						});
 					} finally {
@@ -1014,7 +1002,7 @@ export const streamGoogleGeminiCli: StreamFunction<"google-gemini-cli"> = (
 								throw new AIError.ConfigurationError("Missing request URL");
 							}
 
-							currentResponse = await (options?.fetch ?? fetch)(requestUrl, {
+							currentResponse = await fetchImpl(requestUrl, {
 								method: "POST",
 								headers: requestHeaders,
 								body: requestBodyJson,
@@ -1095,12 +1083,6 @@ export const streamGoogleGeminiCli: StreamFunction<"google-gemini-cli"> = (
 					) {
 						providerState.lastGoodEndpoint = endpoint;
 					}
-					// Commit after a fully successful attempt (content + finish reason);
-					// used as the next request's last_execution_id. Overwrite even when
-					// undefined so a response without an id can't leave a stale value.
-					if (providerState) {
-						providerState.lastExecutionId = lastResponseId;
-					}
 					break;
 				} catch (error) {
 					const status = extractHttpStatusFromError(error);
@@ -1145,69 +1127,10 @@ export const streamGoogleGeminiCli: StreamFunction<"google-gemini-cli"> = (
 	return stream;
 };
 
-const INT63_MASK = (1n << 63n) - 1n;
-const ANTIGRAVITY_RANDOM_BOUND = 9_000_000_000_000_000_000n;
-
-function formatSignedDecimalSessionId(value: bigint): string {
-	return `-${value.toString()}`;
-}
-
-function deriveSignedDecimalFromHash(text: string): string {
-	const digest = Bun.SHA256.hash(text);
-	let value = 0n;
-	for (let index = 0; index < 8; index += 1) {
-		value = (value << 8n) | BigInt(digest[index] ?? 0);
-	}
-	return formatSignedDecimalSessionId(value & INT63_MASK);
-}
-
-function randomBoundedInt63(maxExclusive: bigint): bigint {
-	while (true) {
-		const bytes = randomBytes(8);
-		let value = 0n;
-		for (const byte of bytes) {
-			value = (value << 8n) | BigInt(byte);
-		}
-		value &= INT63_MASK;
-		if (value < maxExclusive) {
-			return value;
-		}
-	}
-}
-
-function randomSignedDecimalSessionId(): string {
-	return formatSignedDecimalSessionId(randomBoundedInt63(ANTIGRAVITY_RANDOM_BOUND));
-}
-
-function getFirstUserTextForAntigravitySession(context: Context): string | undefined {
-	for (const message of context.messages) {
-		if (message.role !== "user") {
-			continue;
-		}
-
-		if (typeof message.content === "string") {
-			return message.content;
-		}
-
-		if (Array.isArray(message.content)) {
-			const firstTextPart = message.content.find((item): item is TextContent => item.type === "text");
-			return firstTextPart?.text;
-		}
-
-		return undefined;
-	}
-
-	return undefined;
-}
-
-function deriveAntigravitySessionId(context: Context): string {
-	const text = getFirstUserTextForAntigravitySession(context);
-	if (text && text.trim().length > 0) {
-		return deriveSignedDecimalFromHash(text);
-	}
-
-	return randomSignedDecimalSessionId();
-}
+// getSessionID (AGY 1.5.9 RVA 0x95e3960) is signed FNV-1a 64.
+// The CLI GetChatMessage path explicitly supplies an empty hash input.
+const AGY_CLI_SESSION_ID = BigInt.asIntN(64, 0xcbf29ce484222325n).toString();
+const AGY_SKIP_THOUGHT_SIGNATURE = Buffer.from(SKIP_THOUGHT_SIGNATURE, "utf8").toString("base64");
 
 function normalizeAntigravityTools(
 	tools: CloudCodeAssistRequest["request"]["tools"],
@@ -1242,30 +1165,30 @@ interface AntigravityRequestEnvelope {
  * turn and tool result is one step: 1 on the first request, 3 after one tool
  * round trip), `labels.last_step_index` trails it by one, `labels.cascade_id`
  * and `labels.root_cascade_id` repeat the agentId, and `labels.request_id` is
- * `<trajectoryId>-<n>` for the n-th (0-based) request of the trajectory. Labels
- * are inserted in alphabetical key order like the real client. The step never
- * moves backwards, so a compacted or resent context still advances it. Without
- * session state (direct callers/tests) it falls back to ephemeral ids.
+ * `<trajectoryId>-<n>` for the n-th (0-based) request of the trajectory.
+ * Steps count logical messages before wire grouping; resending a context does
+ * not invent additional steps. Without session state, ids are ephemeral.
  */
 function buildAntigravityRequestEnvelope(
 	model: Model<"google-gemini-cli">,
 	context: Context,
 	profile: AntigravityModelWireProfile | undefined,
 	state: AntigravityProviderSessionState | undefined,
+	trajectoryStepCount: number | undefined,
 ): AntigravityRequestEnvelope {
-	const contextSteps = Math.max(1, context.messages.length);
+	const contextSteps = Math.max(1, trajectoryStepCount ?? context.messages.length);
 	let requestIndex = 0;
 	if (state) {
 		state.agentId ??= randomUUID();
 		state.trajectoryId ??= randomUUID();
-		state.sessionId ??= randomSignedDecimalSessionId();
-		state.stepIndex = Math.max(contextSteps, (state.stepIndex ?? 0) + 1);
+		state.sessionId = AGY_CLI_SESSION_ID;
+		state.stepIndex = contextSteps;
 		requestIndex = state.requestCount ?? 0;
 		state.requestCount = requestIndex + 1;
 	}
 	const agentId = state?.agentId ?? randomUUID();
 	const trajectoryId = state?.trajectoryId ?? randomUUID();
-	const sessionId = state?.sessionId ?? deriveAntigravitySessionId(context);
+	const sessionId = AGY_CLI_SESSION_ID;
 	const step = state?.stepIndex ?? contextSteps;
 	const requestId = `agent/${agentId}/${Date.now()}/${trajectoryId}/${step}`;
 	const isClaude = model.identity.class === "anthropic";
@@ -1295,6 +1218,19 @@ export function buildRequest(
 ): CloudCodeAssistRequest {
 	const systemPrompts = normalizeSystemPrompts(context.systemPrompt);
 	const contents = convertMessages(model, context);
+	if (isAntigravity) {
+		for (const content of contents) {
+			if (
+				(model.identity.class === "gemini" || model.identity.class === "gpt-oss") &&
+				content.parts?.some(part => part.functionResponse)
+			) {
+				content.role = "model";
+			}
+			for (const part of content.parts ?? []) {
+				if (part.thoughtSignature === SKIP_THOUGHT_SIGNATURE) part.thoughtSignature = AGY_SKIP_THOUGHT_SIGNATURE;
+			}
+		}
+	}
 	const generationConfig: CloudCodeAssistRequest["request"]["generationConfig"] = {};
 	if (options.temperature !== undefined) {
 		generationConfig.temperature = options.temperature;
@@ -1382,22 +1318,6 @@ export function buildRequest(
 				contents.push({ role: "user", parts: [{ text: forcedToolDirective }] });
 			}
 		}
-		// Antigravity's default tool mode is VALIDATED (verified for Gemini and
-		// Claude); an explicit non-auto tool choice above wins.
-		if (isAntigravity && !request.toolConfig) {
-			request.toolConfig = {
-				functionCallingConfig: { mode: "VALIDATED" as FunctionCallingConfigMode },
-			};
-		}
-	}
-
-	// Claude on Antigravity always forces VALIDATED, even with no tools declared.
-	if (isAntigravity && model.identity.class === "anthropic" && model.compat.antigravityClaudeToolMode) {
-		request.toolConfig = {
-			functionCallingConfig: {
-				mode: "VALIDATED" as FunctionCallingConfigMode,
-			},
-		};
 	}
 
 	const wireModelId = options.requestModelId ?? model.requestModelId ?? model.id;
@@ -1438,7 +1358,7 @@ export function buildRequest(
 			}
 		}
 		const state = getAntigravityProviderSessionState(options.providerSessionState);
-		const envelope = buildAntigravityRequestEnvelope(model, context, profile, state);
+		const envelope = buildAntigravityRequestEnvelope(model, context, profile, state, options.trajectoryStepCount);
 		request.labels = envelope.labels;
 		if (Object.keys(generationConfig).length > 0) {
 			request.generationConfig = generationConfig;
@@ -1450,6 +1370,7 @@ export function buildRequest(
 			request,
 			model: wireModelId,
 			userAgent: "antigravity",
+			requestType: "agent",
 		};
 	}
 

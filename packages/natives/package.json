@@ -72,6 +72,10 @@
       "import": "./native/index.js",
       "default": "./native/index.js"
     },
+    "./loader-state": {
+      "types": "./native/loader-state.d.ts",
+      "import": "./native/loader-state.js"
+    },
     "./path": {
       "types": "./native/path.d.ts",
       "import": "./native/path.js",

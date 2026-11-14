@@ -1,5 +1,7 @@
 auth "google-antigravity" {
 	name "Google Antigravity (Gemini, Claude, GPT-OSS)"
+	// Consumer login completes through the browser's loopback callback.
+	paste-code #false
 	login "oauth-code" {
 		// Antigravity uses different Google OAuth credentials for its additional models.
 		client-id "MTA3MTAwNjA2MDU5MS10bWhzc2luMmgyMWxjcmUyMzV2dG9sb2poNGc0MDNlcC5hcHBzLmdvb2dsZXVzZXJjb250ZW50LmNvbQ==" encoding="base64"

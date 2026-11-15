@@ -167,7 +167,7 @@ describe("Composer slash commands", () => {
 	});
 
 	it("narrows the palette to commands matching the typed token", () => {
-		expect(paletteLabels(renderDraft("/mo"))).toEqual(["/model"]);
+		expect(paletteLabels(renderDraft("/mo"))).toEqual(["/motion", "/model"]);
 	});
 
 	it("offers a view-only guest local commands only", () => {
@@ -175,7 +175,7 @@ describe("Composer slash commands", () => {
 		expect(labels).toContain("/help");
 		expect(labels).not.toContain("/model");
 		expect(labels).not.toContain("/skill:review");
-		expect(paletteLabels(renderDraft("/mo", { readOnly: true }))).toEqual([]);
+		expect(paletteLabels(renderDraft("/mo", { readOnly: true }))).toEqual(["/motion"]);
 	});
 
 	it("opens no palette for plain text or a token that matches nothing", () => {

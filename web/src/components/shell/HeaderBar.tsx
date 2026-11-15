@@ -1,5 +1,5 @@
 import type { SessionHeader, SessionState } from "@oh-my-soup/pi-wire";
-import { PanelLeft } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { ReactNode } from "react";
 import { memo } from "react";
 import type { ConnectionPhase } from "../../lib/client";
@@ -49,9 +49,31 @@ export const HeaderBar = memo(function HeaderBar({
 		usageTitle += " tokens";
 	}
 
+	const foldedLabel =
+		subCount > 0
+			? `Show sidebar (${subCount} ${subCount === 1 ? "subagent" : "subagents"})`
+			: "Show sidebar";
 	return (
 		<header className="sh-header">
 			<div className="sh-header-left">
+				<button
+					type="button"
+					className="sh-icon-btn sh-toggle"
+					onClick={onToggleSidebar}
+					aria-expanded={sidebarOpen}
+					aria-label={sidebarOpen ? "Hide sidebar" : foldedLabel}
+					title={sidebarOpen ? "Hide sidebar" : foldedLabel}
+				>
+					<span className="sh-toggle-flip" aria-hidden="true">
+						<ChevronLeft size={16} className="sh-toggle-face sh-toggle-face--front" />
+						<ChevronRight size={16} className="sh-toggle-face sh-toggle-face--back" />
+					</span>
+					{!sidebarOpen && subCount > 0 && (
+						<span className="sh-badge" aria-hidden="true">
+							{subCount}
+						</span>
+					)}
+				</button>
 				<span className="sh-title" title={title}>
 					{title}
 				</span>
@@ -82,17 +104,6 @@ export const HeaderBar = memo(function HeaderBar({
 						{fmtPercent(pct)}
 					</span>
 				)}
-				<button
-					type="button"
-					className="sh-icon-btn"
-					onClick={onToggleSidebar}
-					aria-expanded={sidebarOpen}
-					aria-label={sidebarOpen ? "Hide sidebar" : "Show sidebar"}
-					title={sidebarOpen ? "Hide sidebar" : "Show sidebar"}
-				>
-					<PanelLeft size={16} />
-					{!sidebarOpen && subCount > 0 && <span className="sh-badge">{subCount}</span>}
-				</button>
 			</div>
 		</header>
 	);

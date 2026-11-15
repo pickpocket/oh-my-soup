@@ -133,7 +133,6 @@ const SubagentRow = memo(function SubagentRow(props: SubagentRowProps): ReactNod
 
 	const p = payload?.progress;
 	const activity = isRunning ? formatRunningActivity(p, now) : null;
-
 	const tooltipParts = [fullName];
 	if (role) tooltipParts.push(role);
 	tooltipParts.push(STATUS_SHORT_LABEL[effectiveStatus]);
@@ -223,7 +222,7 @@ const SubagentRow = memo(function SubagentRow(props: SubagentRowProps): ReactNod
 								descendantCount
 							)}
 						</span>
-					) : !isRunning ? (
+					) : effectiveStatus === "failed" || effectiveStatus === "aborted" ? (
 						<span className={`ag-status-label ag-status-label--${effectiveStatus}`}>
 							{STATUS_SHORT_LABEL[effectiveStatus]}
 						</span>
@@ -294,11 +293,16 @@ export const AgentsPanel = memo(function AgentsPanel(props: AgentsPanelProps): R
 		[agents, selectedId],
 	);
 
-	return (
-		<>
-			<div className="sb-heading">
-				<span>Session</span>
-			</div>
+		return (
+			<>
+				<div className="sb-heading sb-heading--session">
+					<span>Session</span>
+					{tree.mains.map(agent => (
+						<span key={agent.id} className="sb-heading-meta">
+							<span className={`sb-session-state sb-session-state--${agent.status}`}>{agent.status}</span>
+						</span>
+					))}
+				</div>
 			{tree.mains.map(agent => {
 				const mainStatus: EffectiveAgentStatus =
 					agent.status === "running"
@@ -320,22 +324,24 @@ export const AgentsPanel = memo(function AgentsPanel(props: AgentsPanelProps): R
 						<StatusGlyph status={mainStatus} />
 						<span className="sb-session-body">
 							<span className="sb-row-name">{title}</span>
-							<span className="sb-session-meta">{agent.status}</span>
 						</span>
 					</button>
 				);
 			})}
-			<div className="sb-heading">
-				<span>Subagents</span>
-				{tree.totalSubagents > 0 && (
-					<span className="sb-heading-meta">
-						{tree.runningSubagents > 0 && (
-							<span className="sb-heading-live">{`${tree.runningSubagents} running`}</span>
-						)}
-						<span className="sb-heading-count">{tree.totalSubagents}</span>
-					</span>
-				)}
-			</div>
+				<div className="sb-heading">
+					<span>Subagents</span>
+					{tree.totalSubagents > 0 && (
+						<span className="sb-heading-meta">
+							{tree.runningSubagents > 0 ? (
+								<span className="sb-heading-live">
+									{tree.runningSubagents} of {tree.totalSubagents} running
+								</span>
+							) : (
+								<span className="sb-heading-count">{tree.totalSubagents}</span>
+							)}
+						</span>
+					)}
+				</div>
 			{visibleRows.length > 0 ? (
 				<div className="ag-tree">
 					{visibleRows.map(row => (

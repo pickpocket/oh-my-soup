@@ -31,7 +31,6 @@ function renderSidebar(overrides: Partial<SidebarProps> = {}): string {
 			participants={PEOPLE}
 			name="me-name"
 			readOnly={false}
-			onClose={() => {}}
 			onLeave={() => {}}
 			{...overrides}
 		/>,
@@ -162,8 +161,10 @@ describe("Sidebar", () => {
 		expect(texts(expanded, '.ag-tree-item[data-depth="1"] .sb-row-name')).toEqual(["KevlarLookups", "DocChild"]);
 		expect(texts(expanded, '.ag-tree-item[data-depth="2"] .sb-row-name')).toEqual(["WindowDrift"]);
 		expect(count(expanded, 'button.ag-twisty[aria-expanded="true"]')).toBe(2);
-		expect(texts(expanded, ".ag-status-label--done")).toEqual(["done"]);
-
+		// Settled rows stay quiet: only failures keep a text label. DocChild's
+		// completed status still shows in its green check glyph and tooltip.
+		expect(count(expanded, ".ag-status-label")).toBe(0);
+		expect(expanded).toContain("DocChild");
 		// Collapsing RelayProbe hides all 3 descendants, flips aria-expanded, and shows running/total summary.
 		const collapsed = renderSidebar({
 			agents: nestedAgents,

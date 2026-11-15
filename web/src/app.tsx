@@ -198,27 +198,27 @@ function Session({ client, name, onLeave, onRejoin }: SessionProps): ReactNode {
 	const loadNewer = useCallback(() => client.loadNewer(), [client]);
 	const jumpToLatest = useCallback(() => client.jumpToLatest(), [client]);
 	const setFollowingTail = useCallback((following: boolean) => client.setFollowingTail(following), [client]);
-
 	return (
 		<div className="sh-app">
-			{sidebarOpen && (
-				<>
-					<div className="sb-backdrop" onClick={closeOverlay} />
-					<Sidebar
-						title={title}
-						agents={snap.agents}
-						progress={snap.progress}
-						lifecycle={snap.lifecycle}
-						selectedId={selectedId}
-						onSelect={selectAgent}
-						participants={snap.state?.participants}
-						name={name}
-						readOnly={snap.readOnly}
-						onClose={toggleSidebar}
-						onLeave={onLeave}
-					/>
-				</>
-			)}
+			<div
+				className={sidebarOpen ? "sb-wrap" : "sb-wrap sb-wrap--hidden"}
+				aria-hidden={!sidebarOpen}
+				inert={!sidebarOpen}
+			>
+				<div className="sb-backdrop" onClick={closeOverlay} />
+				<Sidebar
+					title={title}
+					agents={snap.agents}
+					progress={snap.progress}
+					lifecycle={snap.lifecycle}
+					selectedId={selectedId}
+					onSelect={selectAgent}
+					participants={snap.state?.participants}
+					name={name}
+					readOnly={snap.readOnly}
+					onLeave={onLeave}
+				/>
+			</div>
 			<main className="sh-main">
 				<HeaderBar
 					header={snap.header}

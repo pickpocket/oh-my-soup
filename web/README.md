@@ -36,7 +36,9 @@ Native and browser clients can use `ws://10.66.66.8` over a trusted VPN; session
 
 ## Slash commands
 
-Typing `/` in the composer lists commands; Tab completes, Enter runs. The browser's own commands work on any link: `/help`, `/theme [light|dark|system]`, `/copy` (last assistant message), `/agents` (show or hide the sidebar) and `/leave`.
+Typing `/` in the composer lists commands; Tab completes, Enter runs. The browser's own commands work on any link: `/help`, `/theme [light|dark|system]`, `/motion [full|reduced|system]`, `/copy` (last assistant message), `/agents` (show or hide the sidebar) and `/leave`.
+
+`/motion` follows the system's reduced-motion setting by default and overrides it in either direction, which matters when the OS asks for less motion but you want the sidebar and panels to slide: `/motion full` animates, `/motion reduced` keeps colours fading but stops all movement, and `/motion system` (or a bare `/motion` to cycle) follows the system again. The choice persists in `localStorage` and is applied before the first paint.
 
 On a full-control link the host also advertises the commands a guest may run there: session builtins such as `/model`, `/effort`, `/compact`, `/context` and `/retry`, side questions with `/btw`, and skills, prompt templates and file/custom commands. Arguments complete from the host, so `/model ` lists the host's models. Output shows in a panel above the composer; a `/btw` answer streams there and can be cancelled. The host decides what is allowed; the full list and the commands that stay host-only are in [docs/collab.md](https://github.com/pickpocket/oh-my-soup/blob/main/docs/collab.md#host-commands-for-guests). Text starting with `/` that matches no command is sent as an ordinary prompt.
 
@@ -51,6 +53,19 @@ Subagent transcripts in the agent drawer page the same way by byte position: the
 Assistant updates are coalesced for 50 ms before serialization. Text/thinking appends travel as ordered content patches rather than repeated complete partial messages; full baselines support mid-turn joins and corrections. Missing or out-of-order patches produce a visible rejoin error rather than silently losing text.
 
 This requires collab protocol v5 on both ends. Restart an already-running host with `/restart`, run `/collab` again, and reopen its new invitation after updating; rebuild and redeploy a separately hosted copy of this app from the same version. Native TUI guests still receive the complete replica, not browser history pages.
+
+## Interface rules
+
+Decisions this client holds to, so a change can be judged against them rather than against taste. `src/styles/tokens.css` is the only file with raw colours and the place the palette lives.
+
+- **One accent, and colour means state.** The accent marks the primary action and the current selection; red, amber and green carry failure, waiting and liveness. Chips are neutral: row type is visible from the row, so a separate hue per category told the reader nothing. Two elements get different colours only when a reader would act differently.
+- **Type has two jobs and six sizes.** The UI font writes every label, in sentence case: no all-caps eyebrows, no letter-spaced captions. `--text-2xs` counts and chips, `--text-xs` metadata, `--text-sm` rows and controls, `--text-md` titles inside content, `--text-lg` body and page title, `--text-xl` the connect screen. The monospace font is only for values a person copies or compares — paths, ids, commands, tool names, counts in columns (`font-variant-numeric: tabular-nums`); a tool row's *name* is mono and its *summary* is not.
+- **Prose is legible, not loud.** Body copy sits at `--fg-soft` with `strong` at `--fg`; full white is reserved for what the reader asked for (prompts, titles). No rule above and below every marker: a run of session events is one dim line each, not six hairlines.
+- **True state holds still; only motion in progress animates.** `live` and settled agents never animate. A state that is actively changing — a running subagent, a socket retrying, text still streaming — uses `breathe`: slow, shallow opacity, no scale, no glow. Nothing on screen blinks.
+- **Reduced motion stops motion, not legibility.** `<html data-motion>` is resolved once (`src/lib/motion.ts`): the system setting, or `/motion full|reduced`. Reduced kills sliding, scaling and rotation and makes loops play once, but keeps 180ms colour and opacity fades and lets `breathe` run, because without it a running agent and a finished one look identical. The failure mode to avoid is clamping durations without ending the loop — that is a strobe, not a still — and the second is honouring the setting so hard that the app feels dead with no way back, which is why `/motion` exists.
+- **One frame.** The brand row and the header are the same 48px top bar: same inset, same hairline. Panes meet on hairlines, not on shadows or gradients.
+- **The brand is type.** The π mark is drawn in `currentColor` beside `oms collab`; the brand gradient only exists at icon size (favicon, share image), where it has room to read.
+- **Labels say what the user needs.** Sections are named by their noun, counts say what they count (`5 of 14 running`), and failures keep a word as well as a colour.
 
 ## Architecture
 

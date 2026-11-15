@@ -9,10 +9,10 @@
 	overflow-anchor: none;
 	/* A gutter on both sides keeps the column centred over the composer. */
 	scrollbar-gutter: stable both-edges;
-	padding: 24px 20px;
-	font-size: 14.5px;
-	line-height: 25px;
-	color: var(--fg);
+	padding: 28px 20px;
+	font-size: var(--text-lg);
+	line-height: 24px;
+	color: var(--fg-soft);
 }
 
 .tr-root > * {
@@ -25,7 +25,7 @@
 	padding: 48px 0;
 	text-align: center;
 	color: var(--fg-faint);
-	font-size: 13px;
+	font-size: var(--text-sm);
 }
 
 /* ---- rows ---- */
@@ -34,9 +34,9 @@
 	display: flex;
 	flex-direction: column;
 	align-items: flex-start;
-	gap: 8px;
+	gap: 6px;
 	min-width: 0;
-	padding: 4px 0;
+	padding: 2px 0;
 }
 
 .tr-row > .tr-md,
@@ -49,8 +49,8 @@
 /* A person's prompt: caption, then a bubble hugging the right edge. */
 .tr-row--user {
 	align-items: flex-end;
-	gap: 4px;
-	padding: 20px 0 12px;
+	gap: 6px;
+	padding: 28px 0 14px;
 }
 
 .tr-from {
@@ -58,7 +58,7 @@
 	padding: 0 10px;
 	overflow: hidden;
 	color: var(--fg-muted);
-	font-size: 12px;
+	font-size: var(--text-xs);
 	line-height: 16px;
 	text-overflow: ellipsis;
 	white-space: nowrap;
@@ -73,8 +73,10 @@
 	max-width: min(100%, 600px);
 	padding: 10px 16px;
 	line-height: 22px;
+	color: var(--fg);
 	background: var(--bg-raised);
 	border-radius: var(--radius-bubble);
+	box-shadow: inset 0 0 0 var(--hairline) var(--border);
 }
 
 .tr-row--custom {
@@ -96,15 +98,10 @@
 	height: 20px;
 	padding: 0 7px;
 	border-radius: var(--radius-sm);
-	font: 600 10.5px / 1 var(--font-mono);
-	letter-spacing: 0.04em;
-	text-transform: uppercase;
+	font: 500 var(--text-2xs) / 1 var(--font-mono);
+	color: var(--fg-soft);
+	background: var(--hover);
 	white-space: nowrap;
-}
-
-.tr-tag--context {
-	color: var(--tag-context);
-	background: color-mix(in srgb, var(--tag-context) 16%, transparent);
 }
 
 .tr-tag--err {
@@ -126,17 +123,16 @@
 .tr-stop-msg {
 	color: var(--err);
 	font-family: var(--font-mono);
-	font-size: 12px;
+	font-size: var(--text-xs);
 	line-height: 18px;
 	white-space: pre-wrap;
 	word-break: break-word;
 }
 
-/* ---- thinking: a collapsed summary row on a hairline ---- */
+/* ---- thinking: a collapsed summary row ---- */
 
 .tr-think {
-	padding-bottom: 8px;
-	box-shadow: inset 0 calc(-1 * var(--hairline)) 0 var(--border);
+	padding-bottom: 2px;
 }
 
 /* A message that opens with a thought starts a new beat. */
@@ -153,7 +149,7 @@
 	border: 0;
 	background: none;
 	color: var(--fg-muted);
-	font-size: 13px;
+	font-size: var(--text-sm);
 	transition: color 120ms ease-out;
 }
 
@@ -162,15 +158,14 @@
 }
 
 .tr-think-live {
-	animation: pulse 1.4s ease-in-out infinite;
+	animation: breathe 2.4s ease-in-out infinite;
 }
 
 .tr-think-body {
 	margin-top: 4px;
-	padding-left: 12px;
-	border-left: 2px solid var(--border-strong);
+	padding-left: 10px;
 	color: var(--fg-muted);
-	font-size: 13px;
+	font-size: var(--text-sm);
 	line-height: 20px;
 	white-space: pre-wrap;
 	word-break: break-word;
@@ -186,31 +181,27 @@
 	transform: rotate(90deg);
 }
 
-/* ---- markers: centred captions between hairlines ---- */
+/* ---- markers: a quiet caption in the flow, no rules ----
+ * Session events (model change, compaction, thinking level) punctuate the
+ * transcript. They get one dim line; rules above and below each one turned a
+ * run of three events into six horizontal bars. */
 
 .tr-divider {
 	display: flex;
 	align-items: center;
-	gap: 12px;
-	padding: 12px 0;
-	color: var(--fg-muted);
-	font-size: 12px;
+	justify-content: center;
+	gap: 8px;
+	margin: 20px 0 4px;
+	color: var(--fg-faint);
+	font-size: var(--text-xs);
 	line-height: 16px;
 	user-select: none;
-}
-
-.tr-divider::before,
-.tr-divider::after {
-	content: "";
-	flex: 1;
-	height: var(--hairline);
-	background: var(--border);
 }
 
 .tr-note {
 	padding: 2px 0 0 2px;
 	color: var(--fg-faint);
-	font-size: 12px;
+	font-size: var(--text-xs);
 	line-height: 16px;
 }
 
@@ -223,7 +214,7 @@
 	gap: 8px;
 	min-height: 28px;
 	color: var(--fg-muted);
-	font-size: 12px;
+	font-size: var(--text-xs);
 	line-height: 16px;
 	user-select: none;
 }
@@ -248,7 +239,7 @@
 	border-radius: 999px;
 	background: var(--hover);
 	color: var(--fg-soft);
-	font-size: 12px;
+	font-size: var(--text-xs);
 	transition:
 		background 120ms ease-out,
 		color 120ms ease-out;
@@ -288,7 +279,7 @@
 	box-shadow:
 		0 0 0 var(--hairline) var(--border-strong),
 		var(--shadow-overlay);
-	font-size: 13px;
+	font-size: var(--text-sm);
 	line-height: 1;
 	white-space: nowrap;
 	pointer-events: auto;
@@ -315,29 +306,31 @@
 
 .tr-shimmer {
 	color: var(--fg-muted);
-	font-size: 13px;
-	animation: pulse 1.4s ease-in-out infinite;
+	font-size: var(--text-sm);
+	animation: breathe 2.4s ease-in-out infinite;
 }
 
 /* ---- tool calls ----
  * The cards are rendered by src/tool-render (tv-* namespace), which is shared
  * with HTML session exports. Here they are restyled from outside: a collapsed
- * card is one row (tool tag, summary, chevron) and its body opens as a detail
- * card below. */
+ * card is one row (tool name, summary, chevron) and its body opens as a detail
+ * card below. The row reads as prose: the tool name stays monospace because it
+ * is an identifier, the summary does not because it is a sentence. */
 
 .tr-root .tv-card {
 	--tv-inset: var(--bg);
 	border: 0;
 	border-radius: 0;
 	overflow: visible;
-	font-size: 12.5px;
+	font-family: var(--font-ui);
+	font-size: var(--text-sm);
 }
 
 .tr-root .tv-head {
 	gap: 8px;
 	min-height: 28px;
-	margin-left: -4px;
-	padding: 4px 8px 4px 4px;
+	margin-left: -6px;
+	padding: 3px 8px 3px 6px;
 	border-radius: var(--radius);
 	transition: background 120ms ease-out;
 }
@@ -351,14 +344,14 @@
 }
 
 .tr-root .tv-name {
-	padding: 0 7px;
+	padding: 0 6px;
 	border-radius: var(--radius-sm);
-	font-size: 10.5px;
-	line-height: 20px;
-	letter-spacing: 0.04em;
-	text-transform: uppercase;
-	color: var(--tag-tool);
-	background: color-mix(in srgb, var(--tag-tool) 16%, transparent);
+	font-family: var(--font-mono);
+	font-size: var(--text-2xs);
+	line-height: 19px;
+	font-weight: 500;
+	color: var(--fg-soft);
+	background: var(--hover);
 }
 
 .tr-root .tv-card--error .tv-name {
@@ -384,12 +377,12 @@
 }
 
 .tr-root .tv-spin {
-	border-color: color-mix(in srgb, var(--tag-tool) 30%, transparent);
-	border-top-color: var(--tag-tool);
+	border-color: var(--border-strong);
+	border-top-color: var(--fg-soft);
 }
 
 .tr-root .tv-status--pending {
-	border: 1.5px solid var(--tag-tool);
+	border: 1.5px solid var(--fg-muted);
 	background: none;
 	opacity: 0.6;
 }
@@ -401,17 +394,20 @@
 }
 
 .tr-root .tv-sum {
-	font-size: 12.5px;
+	font-size: var(--text-sm);
+	color: var(--fg-muted);
 }
 
-/* Agent chips in task cards open that agent's panel. */
+/* Agent chips in task cards open that agent's panel: a link, so it takes the
+ * accent on hover and stays neutral at rest like every other chip. */
 .tr-root .tv-agent-link {
-	color: var(--tag-agent);
-	background: color-mix(in srgb, var(--tag-agent) 16%, transparent);
+	color: var(--fg-soft);
+	background: var(--hover);
 }
 
 .tr-root .tv-agent-link:hover {
-	background: color-mix(in srgb, var(--tag-agent) 26%, transparent);
+	color: var(--accent-text);
+	background: var(--accent-muted);
 }
 
 .tr-root .tv-body,
@@ -419,7 +415,7 @@
 	margin: 4px 0;
 	border-top: 0;
 	border-radius: 10px;
-	background: var(--bg-inset);
+	background: var(--bg-raised);
 	box-shadow: 0 0 0 var(--hairline) var(--border-strong);
 }
 
@@ -459,6 +455,7 @@
 }
 
 .tr-md strong {
+	color: var(--fg);
 	font-weight: 600;
 }
 
@@ -473,6 +470,8 @@
 	line-height: 1.35;
 }
 
+/* Content headings are a document scale of their own: agent prose is a
+ * document, so its h1/h2 step above the UI scale rather than into it. */
 .tr-md h1 {
 	font-size: 19px;
 }
@@ -482,13 +481,13 @@
 }
 
 .tr-md h3 {
-	font-size: 15.5px;
+	font-size: var(--text-lg);
 }
 
 .tr-md h4,
 .tr-md h5,
 .tr-md h6 {
-	font-size: 14.5px;
+	font-size: var(--text-md);
 }
 
 .tr-md ul,
@@ -516,11 +515,12 @@
 }
 
 .tr-md code {
-	padding: 2px 5px;
-	border-radius: var(--radius-sm);
-	background: var(--hover);
+	padding: 0.1em 0.3em;
+	border-radius: 4px;
+	background: var(--bg-raised);
 	font-family: var(--font-mono);
-	font-size: 0.88em;
+	font-size: 0.86em;
+	color: var(--fg-soft);
 }
 
 .tr-md pre {
@@ -528,7 +528,7 @@
 	padding: 12px 14px;
 	overflow-x: auto;
 	border-radius: 10px;
-	background: var(--bg-inset);
+	background: var(--bg-raised);
 	box-shadow: inset 0 0 0 var(--hairline) var(--border-strong);
 }
 
@@ -536,7 +536,7 @@
 	padding: 0;
 	border-radius: 0;
 	background: none;
-	font-size: 12.5px;
+	font-size: var(--text-sm);
 	line-height: 20px;
 }
 
@@ -550,7 +550,7 @@
 .tr-md table {
 	margin: 12px 0;
 	border-collapse: collapse;
-	font-size: 13px;
+	font-size: var(--text-sm);
 	line-height: 20px;
 }
 
@@ -629,7 +629,7 @@
 
 .tr-root--compact {
 	padding: 12px 16px 16px;
-	font-size: 13.5px;
+	font-size: var(--text-sm);
 	line-height: 22px;
 }
 

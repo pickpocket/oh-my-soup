@@ -17,7 +17,7 @@
 - Antigravity tool results use the serving model's conversation role, and request attempts no longer invent extra logical steps.
 - Antigravity continuations preserve cumulative usage, reject unsafe checkpoint replay, and surface next-leg HTTP failures without retrying permission denials.
 - Transport helpers no longer keep idle hosts alive, and HEAD/204/205/304 responses no longer fail during gzip or Response handling.
-- Antigravity login now completes through the browser callback without opening an unnecessary paste-code prompt.
+- Antigravity login retains a focused redirect-URL/code input when the browser cannot reach the local callback, while automatic browser completion still works.
 
 ## [18.13.1] - 2026-10-27
 

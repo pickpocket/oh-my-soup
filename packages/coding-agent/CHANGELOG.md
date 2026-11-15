@@ -19,7 +19,7 @@
 
 ### Fixed
 
-- `/login google-antigravity` now waits for the local browser callback instead of opening an unnecessary authorization-code input.
+- `/login google-antigravity` accepts typing and pasted redirect URLs while waiting for the browser callback.
 
 - Collaboration links retain custom relay path prefixes, and custom relays print native join invitations instead of guessing a browser page at the server root; configure `collab.webUrl` to advertise a browser UI.
 - Encrypted share viewers now work on trusted VPN HTTP origins without WebCrypto, retaining AES-GCM authentication and native-client compatibility.

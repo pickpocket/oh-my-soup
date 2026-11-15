@@ -1,7 +1,7 @@
 auth "google-antigravity" {
 	name "Google Antigravity (Gemini, Claude, GPT-OSS)"
-	// Consumer login completes through the browser's loopback callback.
-	paste-code #false
+	// Keep manual entry available when a browser cannot reach this host's callback.
+	paste-code #true
 	login "oauth-code" {
 		// Antigravity uses different Google OAuth credentials for its additional models.
 		client-id "MTA3MTAwNjA2MDU5MS10bWhzc2luMmgyMWxjcmUyMzV2dG9sb2poNGc0MDNlcC5hcHBzLmdvb2dsZXVzZXJjb250ZW50LmNvbQ==" encoding="base64"
@@ -12,7 +12,7 @@ auth "google-antigravity" {
 			"https://www.googleapis.com/auth/experimentsandconfigs" "https://www.googleapis.com/auth/aicode"
 		pkce #true
 		authorize-params { access_type "offline"; prompt "consent" }
-		instructions "Complete the sign-in in your browser."
+		instructions "Complete sign-in in your browser. If the localhost redirect cannot connect, copy its entire address from the browser and paste it here, then press Enter."
 		callback port=51121 path="/oauth-callback" hostname="127.0.0.1"
 		token url="https://oauth2.googleapis.com/token" body="form"
 		credential {

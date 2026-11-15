@@ -22,10 +22,11 @@ target-specific executable. See the [AI package transport notes](../ai/README.md
 for executable overrides, trusted CAs, lifecycle, and verification limits.
 
 Use `/login google-antigravity` inside the updated session (`/login` also lists
-the provider). Login opens browser consent and completes through the local
-callback; no authorization-code paste is required. Repository edits do not
-replace a running installed executable: launch this checkout with `bun run dev`
-from the repository root, or rebuild/install the CLI and start a new session.
+the provider). Login supports both automatic browser callbacks and manual entry.
+If the localhost redirect page cannot connect, paste its entire browser address
+into the focused login input and press Enter. Esc cancels the dialog.
+Repository edits do not replace a running executable: restart the session after
+installing the updated CLI.
 
 ## Memory backends
 

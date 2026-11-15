@@ -17,7 +17,7 @@
 
 ### Fixed
 
-- Antigravity browser-callback login no longer opens an unnecessary paste-code prompt.
+- Antigravity browser-callback login keeps manual redirect-URL/code entry available for remote browsers.
 
 ## [18.13.1] - 2026-10-27
 

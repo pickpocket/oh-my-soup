@@ -1202,12 +1202,12 @@ usage polling do not imply that reason.
 
 In Soup, use `/login google-antigravity`, or `/login` and select **Google
 Antigravity**. This starts browser OAuth with PKCE and a local HTTP callback
-(preferred address `http://127.0.0.1:51121/oauth-callback`). Complete consent in a
-browser on the machine running Soup; token exchange and project discovery then
-use the provider transport and save the resulting credential to Soup's store.
-The normal flow does not ask for a pasted authorization code or import the
-official CLI's credential store. SDK callers can still explicitly supply a
-manual-code callback when they need one.
+(preferred address `http://127.0.0.1:51121/oauth-callback`). Browser completion is
+automatic when that callback reaches Soup. The login dialog also keeps a focused
+input available: if the localhost page cannot connect, copy its **entire address**
+from the browser, paste it into Soup, and press Enter. A separate displayed code
+is not required; the address contains it. A raw authorization code is also
+accepted. PKCE and validation of supplied OAuth state remain enabled.
 
 Default Antigravity chat, image, OAuth, and usage requests use a lazily started
 Go helper. Source checkouts build it with

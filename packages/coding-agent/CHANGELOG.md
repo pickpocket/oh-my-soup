@@ -15,7 +15,8 @@
 - Collaboration protocol v4 serves bounded on-demand browser history and coalesces assistant updates into lossless content patches before serialization; native guests retain complete session replicas. Restart existing hosts and reconnect guests after updating.
 - Collaboration protocol v5 adds guest-run host commands and paged subagent transcripts for the browser client. Restart existing hosts and redeploy a self-hosted browser UI after updating.
 - Moved the collab browser client to `web/` on the `feat/collab-server` branch; HTML export tool cards are now built from `packages/tool-views`.
-- Antigravity model discovery uses the provider transport by default while preserving explicit fetch overrides; compiled builds embed its Go helper and source setup builds it.
+- Antigravity model discovery uses the provider transport by default while preserving explicit fetch overrides; compiled builds embed its Rust/wreq helper and source setup builds it.
+- Compiled CLI smoke tests start and close the extracted Antigravity helper, catching broken embedded resources before release without contacting Google.
 
 ### Fixed
 

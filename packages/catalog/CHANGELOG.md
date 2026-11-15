@@ -17,7 +17,7 @@
 
 ### Fixed
 
-- Antigravity browser-callback login keeps manual redirect-URL/code entry available for remote browsers.
+- Antigravity login uses the observed CLI authorization endpoint, hosted callback, and scopes, including `openid`.
 
 ## [18.13.1] - 2026-10-27
 

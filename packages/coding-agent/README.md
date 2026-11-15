@@ -22,9 +22,9 @@ target-specific executable. See the [AI package transport notes](../ai/README.md
 for executable overrides, trusted CAs, lifecycle, and verification limits.
 
 Use `/login google-antigravity` inside the updated session (`/login` also lists
-the provider). Login supports both automatic browser callbacks and manual entry.
-If the localhost redirect page cannot connect, paste its entire browser address
-into the focused login input and press Enter. Esc cancels the dialog.
+the provider). Complete Google sign-in, copy the code displayed on Antigravity's
+hosted callback page, paste it into the focused input, and press Enter. There is
+no localhost listener in this flow. Esc cancels the dialog.
 Repository edits do not replace a running executable: restart the session after
 installing the updated CLI.
 

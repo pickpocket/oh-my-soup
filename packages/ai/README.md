@@ -1200,14 +1200,18 @@ usage polling do not imply that reason.
 
 #### Antigravity transport and verification
 
-In Soup, use `/login google-antigravity`, or `/login` and select **Google
-Antigravity**. This starts browser OAuth with PKCE and a local HTTP callback
-(preferred address `http://127.0.0.1:51121/oauth-callback`). Browser completion is
-automatic when that callback reaches Soup. The login dialog also keeps a focused
-input available: if the localhost page cannot connect, copy its **entire address**
-from the browser, paste it into Soup, and press Enter. A separate displayed code
-is not required; the address contains it. A raw authorization code is also
-accepted. PKCE and validation of supplied OAuth state remain enabled.
+Use `/login google-antigravity`, or `/login` and select **Google Antigravity**.
+The browser uses the official CLI's hosted code page at
+`https://antigravity.google/oauth-callback`. After signing in, copy the displayed
+authorization code, paste it into Soup's focused login input, and press Enter.
+This flow does not open a localhost callback listener or require copying a failed
+localhost URL. PKCE remains S256; supplied OAuth state is still validated.
+
+The authorization endpoint, hosted redirect, and seven scopes (including
+`openid`) were observed from an isolated official Windows AGY 1.5.9 `acp --login`
+run. See Google's [CLI walkthrough](https://codelabs.developers.google.com/antigravity-cli-hands-on)
+for the copy-code interaction. Matching these parameters does not establish
+anything about Google's client-detection rules.
 
 Default Antigravity chat, image, OAuth, and usage requests use a lazily started
 Go helper. Source checkouts build it with

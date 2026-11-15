@@ -19,7 +19,7 @@
 
 ### Fixed
 
-- `/login google-antigravity` accepts typing and pasted redirect URLs while waiting for the browser callback.
+- `/login google-antigravity` accepts the code displayed by the official hosted callback; remote broker login no longer requests an invalid port-zero tunnel.
 
 - Collaboration links retain custom relay path prefixes, and custom relays print native join invitations instead of guessing a browser page at the server root; configure `collab.webUrl` to advertise a browser UI.
 - Encrypted share viewers now work on trusted VPN HTTP origins without WebCrypto, retaining AES-GCM authentication and native-client compatibility.

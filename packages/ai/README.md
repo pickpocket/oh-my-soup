@@ -1224,12 +1224,16 @@ also builds the helper. Compiled CLI builds embed their target's helper.
 `createAgyFetch()` from `@oh-my-soup/pi-ai/providers/agy-fetch`, pass the returned
 `fetch` to supported request options, and call `close()` after consuming response
 bodies. Explicit fetch overrides take precedence over provider defaults.
+The `stream` and `streamSimple` entrypoints select that provider default before
+applying the shared request wrapper; an implicit generic fetch must not mask it.
 `closeDefaultAgyFetch()` releases the shared helper for hosts requiring explicit
 shutdown. The helper owns no stored OAuth credentials.
 
 HTTPS certificate verification remains enabled. `NODE_EXTRA_CA_CERTS` or the
-handle's `ca` option adds a trusted PEM bundle. HTTP/HTTPS CONNECT proxies are
-supported; SOCKS and arbitrary `fetch` transport options are not. Redirects are
+handle's `ca` option adds a trusted PEM bundle. Environment HTTP/HTTPS CONNECT
+proxies are supported. Per-request/per-provider proxy overrides are rejected
+rather than silently bypassed; use an explicit fetch override for those settings.
+SOCKS and arbitrary `fetch` transport options are not supported. Redirects are
 returned rather than followed. The optional `quotaProject` is a billing-project
 override: it is **not** inferred from the OAuth credential's shared CCPA project.
 

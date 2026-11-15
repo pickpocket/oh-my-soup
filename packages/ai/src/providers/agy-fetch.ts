@@ -195,6 +195,11 @@ export async function createAgyFetch(options: AgyFetchOptions = {}): Promise<Agy
 			await exited;
 			throw new Error(`AGY transport exited${exitDetail}`);
 		}
+		if (init && "proxy" in init && init.proxy !== undefined) {
+			throw new Error(
+				"AGY transport does not support per-request proxies; use HTTPS_PROXY/NO_PROXY or an explicit fetch override",
+			);
+		}
 		const request = input instanceof Request ? new Request(input, init) : new Request(input.toString(), init);
 		const target = new URL(request.url);
 		if (target.protocol !== "https:") throw new Error("AGY transport requires an HTTPS target");

@@ -913,11 +913,7 @@ function streamDispatch<TApi extends Api>(
 	const requestModel = providerDefinition?.prepareModel?.(model) ?? model;
 	const prepared = providerDefinition?.prepareRequest?.(requestModel, requestOptions as StreamOptions);
 	const providerModel = prepared?.model ?? requestModel;
-	const shapedOptions = prepared?.options ?? (requestOptions as StreamOptions);
-	const preparedOptions =
-		shapedOptions.fetch || !providerDefinition?.fetch
-			? shapedOptions
-			: { ...shapedOptions, fetch: providerDefinition.fetch };
+	const preparedOptions = prepared?.options ?? (requestOptions as StreamOptions);
 	const apiKey = preparedOptions.apiKey || getEnvApiKey(providerModel.provider);
 	if (!apiKey) {
 		throw new AIError.MissingApiKeyError(providerModel.provider);

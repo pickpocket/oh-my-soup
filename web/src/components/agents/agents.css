@@ -1,13 +1,18 @@
 /* Agents (ag-*): status dots shared with the sidebar rows, and the agent panel
- * on the right. Token vars only. */
+ * on the right. Token vars only.
+ *
+ * NOTE: this file was truncated by a bad bulk edit and rebuilt from the
+ * production bundle in dist/. Rules and values are intact, but the original
+ * section comments were lost and declaration order inside each rule follows
+ * the minifier. Re-comment as you touch it. */
 
 /* ---- status indicators & sidebar agent tree ---- */
 
 .ag-status {
-	flex: none;
 	display: inline-flex;
-	align-items: center;
+	flex: none;
 	justify-content: center;
+	align-items: center;
 	width: 13px;
 	height: 13px;
 }
@@ -16,29 +21,29 @@
 	color: var(--ok);
 }
 
-.ag-status--failed,
-.ag-status--aborted {
+.ag-status--failed, .ag-status--aborted {
 	color: var(--err);
 }
 
 .ag-dot {
+	background: var(--fg-faint);
+	border-radius: 50%;
 	flex: none;
 	width: 8px;
 	height: 8px;
-	border-radius: 50%;
-	background: var(--fg-faint);
 }
 
 .ag-dot--running {
 	background: var(--live);
-	animation: ag-pulse 1.6s ease-out infinite;
+	animation: 3s ease-in-out infinite breathe;
 }
 
 .ag-dot--parked {
+	box-shadow: inset 0 0 0 1.5px var(--fg-faint);
+	opacity: 0.8;
+	background: none;
 	width: 6.5px;
 	height: 6.5px;
-	background: var(--fg-faint);
-	opacity: 0.75;
 }
 
 .ag-dot--aborted {
@@ -46,20 +51,11 @@
 }
 
 .ag-ring-idle {
+	border: 1.6px solid var(--accent-text);
+	opacity: 0.85;
+	border-radius: 50%;
 	width: 8px;
 	height: 8px;
-	border-radius: 50%;
-	border: 1.6px solid var(--accent-text);
-}
-
-@keyframes ag-pulse {
-	0% {
-		box-shadow: 0 0 0 0 color-mix(in srgb, var(--live) 45%, transparent);
-	}
-	70%,
-	100% {
-		box-shadow: 0 0 0 6px transparent;
-	}
 }
 
 .ag-tree {
@@ -79,8 +75,8 @@
 }
 
 .ag-guides {
-	flex: none;
 	display: inline-flex;
+	flex: none;
 	align-items: stretch;
 }
 
@@ -94,25 +90,24 @@
 	width: 32px;
 }
 
-.ag-guide--line::before,
-.ag-guide--branch::before {
+.ag-guide--line::before, .ag-guide--branch::before {
 	content: "";
 	position: absolute;
-	left: 7.5px;
+	background: var(--border);
+	width: 1px;
 	top: 0;
 	bottom: 0;
-	width: 1px;
-	background: var(--border-strong);
+	left: 7.5px;
 }
 
 .ag-guide--branch::after {
 	content: "";
 	position: absolute;
-	left: 7.5px;
-	top: 15px;
+	background: var(--border);
 	width: 7.5px;
 	height: 1px;
-	background: var(--border-strong);
+	top: 15px;
+	left: 7.5px;
 }
 
 .ag-guide--branch.ag-guide--leaf::after {
@@ -122,13 +117,13 @@
 .ag-guide--last::before {
 	content: "";
 	position: absolute;
-	left: 7.5px;
-	top: 0;
+	border-left: var(--hairline) solid var(--border);
+	border-bottom: var(--hairline) solid var(--border);
+	border-bottom-left-radius: 5px;
 	width: 7.5px;
 	height: 15.5px;
-	border-left: 1px solid var(--border-strong);
-	border-bottom: 1px solid var(--border-strong);
-	border-bottom-left-radius: 5px;
+	top: 0;
+	left: 7.5px;
 }
 
 .ag-guide--last.ag-guide--leaf::before {
@@ -136,22 +131,20 @@
 }
 
 .ag-twisty {
-	flex: none;
-	align-self: flex-start;
 	display: inline-flex;
-	align-items: center;
+	color: var(--fg-faint);
+	background: none;
+	border: 0;
+	border-radius: 4px;
+	flex: none;
 	justify-content: center;
+	align-self: flex-start;
+	align-items: center;
 	width: 16px;
 	height: 24px;
 	margin-top: 3px;
 	padding: 0;
-	border: 0;
-	border-radius: 4px;
-	background: none;
-	color: var(--fg-faint);
-	transition:
-		color 120ms ease-out,
-		background 120ms ease-out;
+	transition: color 0.12s ease-out,background 0.12s ease-out;
 }
 
 .ag-twisty:hover {
@@ -160,7 +153,7 @@
 }
 
 .ag-twisty svg {
-	transition: transform 140ms ease-out;
+	transition: transform 0.14s ease-out;
 }
 
 .ag-twisty--open svg {
@@ -168,15 +161,15 @@
 }
 
 button.sb-row.ag-row-btn {
-	flex: 1;
-	min-width: 0;
 	display: flex;
+	border-radius: 7px;
 	flex-direction: column;
+	flex: 1;
 	align-items: stretch;
 	gap: 1px;
+	min-width: 0;
 	min-height: 30px;
 	padding: 5px 7px;
-	border-radius: 7px;
 }
 
 .ag-row-top {
@@ -188,10 +181,10 @@ button.sb-row.ag-row-btn {
 }
 
 .ag-row-btn .sb-row-name {
+	color: var(--fg-soft);
 	flex: 1;
 	min-width: 0;
-	color: var(--fg-soft);
-	font-size: 13px;
+	font-size: var(--text-sm);
 	font-weight: 500;
 	line-height: 20px;
 }
@@ -214,38 +207,37 @@ button.sb-row.ag-row-btn {
 }
 
 .ag-status-label {
-	flex: none;
 	color: var(--fg-faint);
-	font-size: 11px;
-	line-height: 16px;
 	white-space: nowrap;
+	flex: none;
+	font-size: var(--text-2xs);
+	line-height: 16px;
 }
 
 .ag-status-label--idle {
 	color: var(--fg-muted);
 }
 
-.ag-status-label--failed,
-.ag-status-label--aborted {
+.ag-status-label--failed, .ag-status-label--aborted {
 	color: var(--err);
 }
 
 .ag-branch-badge {
-	flex: none;
 	display: inline-flex;
+	background: var(--hover);
+	box-shadow: inset 0 0 0 var(--hairline)var(--border-strong);
+	color: var(--fg-muted);
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+	border-radius: 999px;
+	flex: none;
 	align-items: center;
 	gap: 3px;
 	height: 18px;
 	padding: 0 6px;
-	border-radius: 999px;
-	background: var(--hover);
-	box-shadow: inset 0 0 0 var(--hairline) var(--border-strong);
-	color: var(--fg-muted);
-	font-size: 11px;
+	font-size: var(--text-2xs);
 	font-weight: 500;
 	line-height: 18px;
-	font-variant-numeric: tabular-nums;
-	white-space: nowrap;
 }
 
 .ag-branch-badge--live {
@@ -254,11 +246,11 @@ button.sb-row.ag-row-btn {
 }
 
 .ag-branch-live-dot {
+	background: var(--live);
+	border-radius: 50%;
 	flex: none;
 	width: 5.5px;
 	height: 5.5px;
-	border-radius: 50%;
-	background: var(--live);
 }
 
 .ag-branch-live-count {
@@ -272,37 +264,38 @@ button.sb-row.ag-row-btn {
 
 .ag-row-sub {
 	display: flex;
+	color: var(--fg-muted);
 	align-items: center;
 	gap: 6px;
 	min-width: 0;
 	height: 16px;
-	padding-left: 20px;
-	color: var(--fg-muted);
-	font-size: 11.5px;
+	padding-left: 19px;
+	font-size: var(--text-xs);
 	line-height: 16px;
 }
 
 .ag-row-activity {
-	flex: 1;
-	min-width: 0;
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
+	flex: 1;
+	min-width: 0;
 }
 
 .ag-row-tool {
 	font-family: var(--font-mono);
-	font-size: 11px;
 	color: var(--fg-soft);
+	font-size: var(--text-2xs);
 }
 
 .ag-row-elapsed {
-	flex: none;
 	color: var(--fg-faint);
-	font-size: 11px;
 	font-variant-numeric: tabular-nums;
 	white-space: nowrap;
+	flex: none;
+	font-size: var(--text-2xs);
 }
+
 /* ---- panel ----
  * Docked beside the transcript when there is room; an overlay with a backdrop
  * on narrower windows, and full width on phones. */
@@ -313,24 +306,24 @@ button.sb-row.ag-row-btn {
 
 .ag-panel {
 	position: relative;
-	flex: none;
 	display: flex;
+	padding-top: env(safe-area-inset-top,0px);
+	background: var(--bg);
+	box-shadow: inset var(--hairline)0 0 var(--border);
 	flex-direction: column;
+	flex: none;
 	width: 480px;
 	min-height: 0;
-	padding-top: env(safe-area-inset-top, 0px);
-	background: var(--bg);
-	box-shadow: inset var(--hairline) 0 0 var(--border);
 }
 
 .ag-head {
-	flex: none;
 	display: flex;
+	height: var(--topbar-h);
+	box-shadow: inset 0 calc(-1*var(--hairline))0 var(--border);
+	flex: none;
 	align-items: center;
 	gap: 8px;
-	height: var(--topbar-h);
 	padding: 0 12px 0 20px;
-	box-shadow: inset 0 calc(-1 * var(--hairline)) 0 var(--border);
 }
 
 .ag-title {
@@ -344,26 +337,24 @@ button.sb-row.ag-row-btn {
 .ag-name {
 	overflow: hidden;
 	color: var(--fg-soft);
-	font-size: 14px;
-	font-weight: 500;
 	text-overflow: ellipsis;
 	white-space: nowrap;
+	font-size: var(--text-md);
+	font-weight: 500;
 }
 
 .ag-tag {
-	flex: none;
-	padding: 0 7px;
 	border-radius: var(--radius-sm);
-	font: 600 10.5px / 20px var(--font-mono);
-	letter-spacing: 0.04em;
-	text-transform: uppercase;
+	font: 500 var(--text-2xs) / 20px var(--font-ui);
 	color: var(--fg-muted);
 	background: var(--hover);
+	flex: none;
+	padding: 0 7px;
 }
 
 .ag-tag--running {
-	color: var(--tag-context);
-	background: color-mix(in srgb, var(--tag-context) 16%, transparent);
+	color: var(--live);
+	background: color-mix(in srgb, var(--live) 15%, transparent);
 }
 
 .ag-tag--parked {
@@ -377,12 +368,12 @@ button.sb-row.ag-row-btn {
 }
 
 .ag-model {
-	min-width: 0;
 	overflow: hidden;
 	color: var(--fg-muted);
-	font-size: 12.5px;
 	text-overflow: ellipsis;
 	white-space: nowrap;
+	min-width: 0;
+	font-size: var(--text-xs);
 }
 
 .ag-actions {
@@ -393,21 +384,21 @@ button.sb-row.ag-row-btn {
 }
 
 .ag-stats {
-	flex: none;
 	display: flex;
+	box-shadow: inset 0 calc(-1*var(--hairline))0 var(--border);
+	color: var(--fg-muted);
 	flex-wrap: wrap;
+	flex: none;
 	gap: 0 8px;
 	padding: 8px 20px;
-	box-shadow: inset 0 calc(-1 * var(--hairline)) 0 var(--border);
-	color: var(--fg-muted);
-	font-size: 12.5px;
+	font-size: var(--text-xs);
 	line-height: 18px;
 }
 
-.ag-stats > span + span::before {
+.ag-stats>span+span::before {
 	content: "·";
-	margin-right: 8px;
 	color: var(--fg-faint);
+	margin-right: 8px;
 }
 
 .ag-stat-warn {
@@ -416,48 +407,45 @@ button.sb-row.ag-row-btn {
 
 .ag-body {
 	display: flex;
-	flex: 1;
 	flex-direction: column;
+	flex: 1;
 	min-height: 0;
 }
 
-.ag-body > * {
+.ag-body>* {
 	flex: 1;
 	min-height: 0;
 }
 
 .ag-empty {
-	padding: 48px 20px;
 	color: var(--fg-faint);
-	font-size: 13px;
 	text-align: center;
+	padding: 48px 20px;
+	font-size: var(--text-sm);
 }
 
-/* A one-line composer card. */
 .ag-chat {
-	flex: none;
 	display: flex;
-	align-items: center;
-	gap: 8px;
 	margin: 0 16px 16px;
-	margin-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
-	padding: 6px 6px 6px 16px;
+	margin-bottom: calc(16px + env(safe-area-inset-bottom,0px));
 	background: var(--bg-raised);
 	border-radius: var(--radius-bubble);
-	box-shadow:
-		0 0 0 var(--hairline) var(--border-strong),
-		var(--shadow-card);
+	box-shadow: 0 0 0 var(--hairline)var(--border-strong),var(--shadow-card);
+	flex: none;
+	align-items: center;
+	gap: 8px;
+	padding: 6px 6px 6px 16px;
 }
 
 .ag-chat-input {
+	color: var(--fg);
+	background: none;
+	border: 0;
 	flex: 1;
 	min-width: 0;
 	height: 30px;
 	padding: 0;
-	border: 0;
-	background: none;
-	color: var(--fg);
-	font-size: 14px;
+	font-size: var(--text-md);
 }
 
 .ag-chat-input::placeholder {
@@ -469,48 +457,41 @@ button.sb-row.ag-row-btn {
 }
 
 .ag-chat:has(.ag-chat-input:focus-visible) {
-	box-shadow:
-		0 0 0 1px color-mix(in srgb, var(--ring) 55%, transparent),
-		var(--shadow-card);
+	box-shadow: 0 0 0 1px color-mix(in srgb, var(--ring) 55%, transparent),var(--shadow-card);
 }
 
-@media (max-width: 1199.98px) {
+@media (max-width:1199.98px) {
 	.ag-backdrop {
 		display: block;
 		position: absolute;
-		inset: 0;
 		z-index: 45;
 		background: var(--backdrop);
-		animation: fade-in 140ms ease-out;
+		animation: 0.14s ease-out fade-in;
+		inset: 0;
 	}
 
 	.ag-panel {
 		position: absolute;
-		inset: 0 0 0 auto;
 		z-index: 50;
-		width: min(480px, 100%);
-		box-shadow:
-			inset var(--hairline) 0 0 var(--border),
-			var(--shadow-overlay);
-		animation: ag-panel-in 160ms ease-out;
+		box-shadow: inset var(--hairline)0 0 var(--border),var(--shadow-overlay);
+		animation: 0.16s ease-out ag-panel-in;
+		width: min(480px,100%);
+		inset: 0 0 0 auto;
 	}
 }
 
-@media (max-width: 899.98px) {
+@media (max-width:899.98px) {
 	.ag-panel {
 		width: 100%;
 	}
 }
 
 @keyframes ag-panel-in {
-	from {
-		transform: translateX(16px);
-		opacity: 0;
-	}
+	0% { transform: translate(16px); opacity: 0; }
 }
 
-@media (any-pointer: coarse) {
+@media (any-pointer:coarse) {
 	.ag-chat-input {
-		font-size: 16px;
+		font-size: var(--text-lg);
 	}
 }

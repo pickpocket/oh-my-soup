@@ -30,7 +30,6 @@ export function ConnectScreen({ defaultName, error, onConnect }: ConnectScreenPr
 
 	return (
 		<div className="sh-connect">
-			<div className="sh-haze" aria-hidden="true" />
 			<div className="sh-connect-top">
 				<Brand />
 				<ThemeToggle />

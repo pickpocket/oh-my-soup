@@ -379,7 +379,7 @@ const EntryRow = memo(function EntryRow({
 			if (!entry.display) return null;
 			return (
 				<div className="tr-row tr-row--custom">
-					<span className="tr-tag tr-tag--context" title={entry.timestamp}>
+					<span className="tr-tag" title={entry.timestamp}>
 						{entry.customType}
 					</span>
 					<MsgContent content={entry.content} />

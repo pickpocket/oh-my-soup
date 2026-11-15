@@ -36,7 +36,7 @@ export interface SlashCommand {
 	source: SlashCommandSource;
 }
 
-export type LocalCommandName = "help" | "theme" | "copy" | "agents" | "leave";
+export type LocalCommandName = "help" | "theme" | "motion" | "copy" | "agents" | "leave";
 
 export interface LocalSlashCommand extends SlashCommand {
 	name: LocalCommandName;
@@ -54,6 +54,17 @@ export const LOCAL_COMMANDS: readonly LocalSlashCommand[] = [
 			{ name: "light", description: "Light theme" },
 			{ name: "dark", description: "Dark theme" },
 			{ name: "system", description: "Follow the system theme" },
+		],
+		source: "local",
+	},
+	{
+		name: "motion",
+		description: "Set animation; no argument cycles",
+		hint: "[full|reduced|system]",
+		subcommands: [
+			{ name: "full", description: "Animate, even if the system asks for less" },
+			{ name: "reduced", description: "No sliding or scaling; fades only" },
+			{ name: "system", description: "Follow the system setting" },
 		],
 		source: "local",
 	},

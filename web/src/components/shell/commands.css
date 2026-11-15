@@ -31,7 +31,7 @@
 	gap: 10px;
 	height: 36px;
 	padding: 0 10px;
-	font-size: 13px;
+	font-size: var(--text-sm);
 	border-radius: var(--radius);
 	cursor: pointer;
 }
@@ -44,7 +44,7 @@
 	flex: none;
 	max-width: 60%;
 	overflow: hidden;
-	font-size: 13.5px;
+	font-size: var(--text-sm);
 	font-weight: 500;
 	color: var(--fg);
 	text-overflow: ellipsis;
@@ -53,7 +53,7 @@
 
 .cmd-palette-hint {
 	flex: none;
-	font: 400 12px / 1 var(--font-mono);
+	font: 400 var(--text-xs) / 1 var(--font-mono);
 	color: var(--fg-faint);
 	white-space: nowrap;
 }
@@ -70,7 +70,7 @@
 .cmd-palette-tag {
 	flex: none;
 	margin-left: auto;
-	font-size: 12px;
+	font-size: var(--text-xs);
 	color: var(--fg-faint);
 }
 
@@ -92,7 +92,7 @@
 	position: relative;
 	flex: none;
 	padding: 8px 8px 10px 16px;
-	font-size: 13.5px;
+	font-size: var(--text-sm);
 	line-height: 22px;
 	background: var(--bg-raised);
 	border-radius: 14px;
@@ -123,7 +123,7 @@
 	flex: 1;
 	min-width: 0;
 	overflow: hidden;
-	font: 500 12.5px / 18px var(--font-mono);
+	font: 500 var(--text-xs) / 18px var(--font-mono);
 	color: var(--fg);
 	text-overflow: ellipsis;
 	white-space: nowrap;
@@ -137,16 +137,15 @@
 	height: 20px;
 	padding: 0 7px;
 	border-radius: var(--radius-sm);
-	font: 600 10.5px / 1 var(--font-mono);
-	letter-spacing: 0.04em;
-	text-transform: uppercase;
+	font: 500 var(--text-2xs) / 1 var(--font-mono);
 	color: var(--fg-muted);
 	background: var(--hover);
 }
 
+/* A running command is a state, and the neutral chip already says "in the
+ * list": only failure earns colour. */
 .cmd-run-status-running {
-	color: var(--tag-user);
-	background: color-mix(in srgb, var(--tag-user) 16%, transparent);
+	color: var(--fg-soft);
 }
 
 .cmd-run-status-error {

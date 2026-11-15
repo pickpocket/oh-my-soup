@@ -4,6 +4,7 @@
 
 ### Added
 
+- `/motion [full|reduced|system]`: the browser follows the system's reduced-motion setting, and this overrides it in either direction without touching the OS. The choice persists and is applied before first paint.
 - Slash commands in the composer: type `/` to complete and run the browser's own commands (`/help`, `/theme`, `/copy`, `/agents`, `/leave`) and, on a full-control link, the commands the host allows, with arguments such as the model list completed from the host.
 - `/btw` side questions stream their answer into a panel above the composer and can be cancelled.
 - `/btw` typed in a subagent's panel asks that subagent and shows the answer in the panel.
@@ -11,7 +12,25 @@
 
 ### Changed
 
+- Retyped the interface on one scale of six sizes (`--text-2xs`…`--text-xl`) instead of the eight near-identical steps it had; tool rows, chips, sidebar rows, composer labels and metadata all move onto it.
+- Made chips neutral everywhere (tool names, custom-event tags, command status, agent tags) and deleted the four `--tag-*` category colours: the row already says what kind of row it is, so the hue was decoration. Colour now only marks failure, waiting and presence.
+- Turned tool rows into prose: the tool name stays monospace in a quiet chip, the summary renders in the UI font, and the running spinner follows the text colour instead of an orange category hue.
+- Dropped the hairlines around transcript markers — three session events in a row drew six horizontal rules — and left one dim centred line each.
+- Eased the reading surface: body copy at `--fg-soft` with `strong` at `--fg`, prompts and titles at full ink, a hairline on the prompt bubble, quieter inline code, and code blocks and tool bodies on the raised surface instead of one that matched the page.
+- Gave prompts real separation (28px above, 14px below) so a turn starts where the eye expects it.
+- Rebuilt the composer toolbar around one filled control: the `/` key is a small keycap, access level and model drop to metadata size, and Send keeps the accent to itself.
+- Fixed the light theme's missing `--bg-control`, which made control surfaces fall back to the dark value.
+- Reduced motion no longer zeroes every transition to 1ms: it stops sliding, scaling and rotation and keeps 180ms colour and opacity fades, so buttons and hover states still respond when the setting is on.
 - Redesigned the interface: a sidebar for the session, its subagents and participants; a centred transcript with prompts on the right and plain agent text; and a composer card holding the access level, model and send controls. Light and dark themes follow the system or your choice.
+- Consolidated the sidebar toggle into one chevron at the left of the header that flips as the sidebar opens and closes; the subagent count badge only appears on it while the sidebar is hidden.
+- Replaced the cool grey sidebar and gradient hazes with flat warm surfaces, and set sidebar headings in sentence case instead of all-caps eyebrows.
+- Quieted the sidebar: settled subagent rows show no status text (failures still do), the session status sits beside its heading, parked agents get a hollow dot, and the selected row's accent bar floats inside the row.
+- Gave the sidebar real motion: the toggle coin-flips around the vertical axis, the panel slides open and shut while the transcript reflows, and the running dot breathes instead of flashing.
+- Rebuilt the top bar as one 48px row: the brand sits in the sidebar half at the same inset and hairline as the header beside it, so the two panes read as a single frame.
+- Set the brand as the π mark in the text colour plus `oms collab` in the UI font, replacing the monospaced all-caps badge; the brand gradient now appears only at icon size, in the favicon and share image, and the header's session title is the row's strongest text.
+- Status no longer blinks: running dots and retrying sockets breathe slowly at low amplitude with no scale or glow, streaming labels keep full opacity, and the live dot is static because nothing about it is changing.
+- Dropped uppercase letter-spacing from tags and captions — tool names, stop reasons, command run status and output titles now read in their own casing.
+- The subagent count beside a closed sidebar is a muted number next to the chevron instead of an accent badge over it, and the Subagents heading reports `5 of 14 running` instead of two numbers in a row.
 - The sidebar shows subagents as a collapsible tree under the agent that spawned them, names each by its task name instead of its agent type (`task`, `scout`), and keeps names readable with compact status icons; a collapsed branch shows how many of its agents are running.
 - Browser link parsing accepts explicit VPN `ws://`/`http://` relay URLs without upgrading them to WSS, including scheme-less display links; HTTPS mixed-content restrictions still apply.
 - Browser joins fetch a bounded recent history page and load more as you scroll: no paging controls, and a sliding window keeps long sessions from retaining or rendering the entire transcript.
@@ -21,6 +40,9 @@
 
 ### Fixed
 
+- Status dots no longer strobe when the system asks for reduced motion: that mode clamped animation durations to 1 ms but left `animation-iteration-count: infinite`, turning every looping animation into a 1 ms flash. Loops now play once and settle, while opacity-only breathing on status dots, streaming labels and spinner fallbacks is kept at a slow 3 s period; anything that moves, scales or rotates still stops.
+- A subagent row's activity line sits on its name's column instead of a pixel to the right, and the hidden-sidebar subagent count no longer covers the toggle's chevron.
+- The sidebar toggle now points the other way when the sidebar is closed: both faces rendered the same left chevron, so the coin-flip animated to an identical glyph.
 - Preserved relay path prefixes when formatting and opening invitations, including relay URLs embedded in separately hosted browser UI links.
 - Browser sessions and encrypted share pages work on trusted VPN HTTP origins without WebCrypto, using compatible authenticated AES-GCM and secure randomness.
 - Preserved tool output across history-page boundaries by rendering unpaired results independently and identifying calls whose result is outside the current page.

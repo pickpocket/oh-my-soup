@@ -1,33 +1,26 @@
-import { type ReactNode, useId } from "react";
+import type { ReactNode } from "react";
 
-/** The oms π mark (same glyph as the OAuth page), filled with the brand gradient. */
+/**
+ * The oms π mark (same glyph as the OAuth page), drawn in the colour of the
+ * text it sits beside. The brand gradient only survives at icon sizes - at the
+ * 18px chrome size a three-stop gradient reads as a smear - so it lives in
+ * `public/favicon.svg` and the share image, and the chrome keeps ink.
+ */
 export function OmsMark({ size = 22 }: { size?: number }): ReactNode {
-	const gradient = `oms-mark-${useId().replace(/:/g, "")}`;
 	return (
 		<svg className="sh-mark" viewBox="0 0 64 64" width={size} height={size} aria-hidden="true">
-			<defs>
-				<linearGradient id={gradient} x1="0" y1="0" x2="1" y2="1">
-					<stop offset="0" style={{ stopColor: "var(--mark-a)" }} />
-					<stop offset=".5" style={{ stopColor: "var(--mark-b)" }} />
-					<stop offset="1" style={{ stopColor: "var(--mark-c)" }} />
-				</linearGradient>
-			</defs>
-			<path fill={`url(#${gradient})`} d="M10 14h44v9H43v33h-9V23h-9v22h-9V23H10z" />
+			<path fill="currentColor" d="M10 14h44v9H43v33h-9V23h-9v22h-9V23H10z" />
 		</svg>
 	);
 }
 
-/** Brand lockup: mark, wordmark and the product tag. */
+/** Brand lockup: mark, wordmark and the product name in plain sentence case. */
 export function Brand(): ReactNode {
 	return (
-		<span className="sh-brand" role="img" aria-label="oms collab">
-			<OmsMark />
-			<span className="sh-brand-name" aria-hidden="true">
-				oms
-			</span>
-			<span className="sh-brand-tag" aria-hidden="true">
-				collab
-			</span>
+		<span className="sh-brand">
+			<OmsMark size={18} />
+			<span className="sh-brand-name">oms</span>
+			<span className="sh-brand-sub">collab</span>
 		</span>
 	);
 }

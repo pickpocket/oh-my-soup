@@ -77,6 +77,7 @@
 	<body>
 		<div id="root"></div>
 		<script>(function(){try{var s=localStorage.getItem("oms-collab-theme");var sys=matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";var t=(s==="light"||s==="dark")?s:sys;document.documentElement.dataset.theme=t;document.documentElement.style.colorScheme=t;}catch(e){}})();</script>
+		<script>(function(){try{var m=localStorage.getItem("oms-collab-motion");var reduced=m==="reduced"||(m!=="full"&&matchMedia("(prefers-reduced-motion: reduce)").matches);document.documentElement.dataset.motion=reduced?"reduced":"full";}catch(e){}})();</script>
 		<script type="module" src="./src/main.tsx"></script>
 	</body>
 </html>

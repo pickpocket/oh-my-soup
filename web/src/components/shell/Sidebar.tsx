@@ -4,7 +4,7 @@ import type {
 	SubagentLifecyclePayload,
 	SubagentProgressPayload,
 } from "@oh-my-soup/pi-wire";
-import { LogOut, PanelLeft } from "lucide-react";
+import { LogOut } from "lucide-react";
 import type { ReactNode } from "react";
 import { memo } from "react";
 import { AgentsPanel } from "../agents/AgentsPanel";
@@ -28,7 +28,6 @@ export interface SidebarProps {
 	/** This guest's display name. */
 	name: string;
 	readOnly: boolean;
-	onClose(): void;
 	onLeave(): void;
 }
 
@@ -44,22 +43,12 @@ export const Sidebar = memo(function Sidebar({
 	participants = NO_PARTICIPANTS,
 	name,
 	readOnly,
-	onClose,
 	onLeave,
 }: SidebarProps): ReactNode {
 	return (
 		<aside className="sb" aria-label="Session sidebar">
 			<div className="sb-top">
 				<Brand />
-				<button
-					type="button"
-					className="sh-icon-btn"
-					onClick={onClose}
-					aria-label="Hide sidebar"
-					title="Hide sidebar"
-				>
-					<PanelLeft size={16} />
-				</button>
 			</div>
 			<div className="sb-scroll">
 				<AgentsPanel

@@ -132,6 +132,19 @@ textarea {
 	}
 }
 
+/* Slow, shallow opacity swing for a state that is actively changing right now
+ * (a subagent mid-run, a socket retrying). Small amplitude and no transform:
+ * a status dot must read as alive, not blink. */
+@keyframes breathe {
+	0%,
+	100% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0.78;
+	}
+}
+
 @keyframes fade-in {
 	from {
 		opacity: 0;
@@ -145,17 +158,36 @@ textarea {
 	}
 }
 
-@media (prefers-reduced-motion: reduce) {
-	*,
-	*::before,
-	*::after {
-		animation-duration: 1ms !important;
-		animation-delay: 0ms !important;
-		transition-duration: 1ms !important;
-	}
+/* Motion policy. `<html data-motion>` is resolved in src/lib/motion.ts: the OS
+ * preference by default, `/motion full|reduced` to override it either way. One
+ * rule set keyed on that attribute, so the stylesheet never has to combine a
+ * media query with an override.
+ *
+ * Reduced motion stops movement — no sliding, no scaling, no rotation — and
+ * loops play once instead of strobing. Colour and opacity fades survive, so
+ * controls still respond to a press. */
+html[data-motion="reduced"] *,
+html[data-motion="reduced"] *::before,
+html[data-motion="reduced"] *::after {
+	animation-duration: 1ms !important;
+	animation-delay: 0ms !important;
+	animation-iteration-count: 1 !important;
+	transition-property:
+		background-color, border-color, box-shadow, color, fill, opacity,
+		stroke !important;
+	transition-duration: 180ms !important;
+	transition-timing-function: ease-out !important;
+}
 
-	/* A spinner frozen mid-turn reads as broken; breathe instead. */
-	.spinner {
-		animation: pulse 1.4s ease-in-out infinite !important;
-	}
+/* Breathing is an opacity fade, not motion, and it is how work in progress
+ * stays legible once spinners are frozen: keep it slow and shallow. Anything
+ * that moves, scales or rotates still stops. */
+html[data-motion="reduced"] .spinner,
+html[data-motion="reduced"] .ag-dot--running,
+html[data-motion="reduced"] .sh-dot-reconnecting,
+html[data-motion="reduced"] .sh-dot-connecting,
+html[data-motion="reduced"] .sh-dot-waiting,
+html[data-motion="reduced"] .tr-think-live,
+html[data-motion="reduced"] .tr-shimmer {
+	animation: breathe 3s ease-in-out infinite !important;
 }

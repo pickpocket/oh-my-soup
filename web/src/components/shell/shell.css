@@ -43,7 +43,7 @@
 	gap: 6px;
 	height: 32px;
 	padding: 0 12px;
-	font-size: 13px;
+	font-size: var(--text-sm);
 	font-weight: 500;
 	white-space: nowrap;
 	color: var(--fg-soft);
@@ -67,7 +67,7 @@
 .sh-btn-sm {
 	height: 28px;
 	padding: 0 10px;
-	font-size: 12.5px;
+	font-size: var(--text-xs);
 	border-radius: var(--radius);
 }
 
@@ -110,30 +110,70 @@
 		color 120ms ease-out;
 }
 
-.sh-icon-btn:hover:not(:disabled) {
-	color: var(--fg);
-	background: var(--hover);
+/* The one sidebar toggle: a coin-flip around the vertical axis. Two faces sit
+ * back to back: open shows the front ‹ ("hide it"), closed shows the back ›
+ * ("show it"). The back face carries its own rotateY(180deg) so the container's
+ * half-turn lands it home; without that the two turns cancel and the arrow
+ * never changes direction. Both are edge-on mid-flip, so it thins and comes
+ * back pointing the other way. */
+.sh-toggle {
+	perspective: 120px;
 }
 
-.sh-icon-btn-sm {
-	width: 28px;
-	height: 28px;
+/* With a count beside it the toggle is a chevron and a number, not an icon
+ * with a badge pasted over the glyph (the pill is wider than the caret). */
+.sh-toggle:has(.sh-badge) {
+	width: auto;
+	gap: 4px;
+	padding: 0 6px;
 }
 
-/* Round control inside the composer card. */
+.sh-toggle-flip {
+	position: relative;
+	display: block;
+	width: 16px;
+	height: 16px;
+	transform-style: preserve-3d;
+	transition: transform 320ms cubic-bezier(0.3, 1.4, 0.5, 1);
+}
+
+.sh-toggle[aria-expanded="true"] .sh-toggle-flip {
+	transform: rotateY(0deg);
+}
+
+.sh-toggle[aria-expanded="false"] .sh-toggle-flip {
+	transform: rotateY(180deg);
+}
+
+.sh-toggle-face {
+	position: absolute;
+	inset: 0;
+	backface-visibility: hidden;
+}
+
+.sh-toggle-face--back {
+	transform: rotateY(180deg);
+}
+
+.sh-toggle:active:not(:disabled) .sh-toggle-flip {
+	scale: 0.86;
+}
+
+/* Quiet control inside the composer card: the slash reads as a key to press,
+ * not as a second filled button beside Send. */
 .sh-round {
 	flex: none;
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	width: 28px;
-	height: 28px;
+	width: 26px;
+	height: 26px;
 	padding: 0;
-	color: var(--fg-soft);
-	font: 500 15px / 1 var(--font-mono);
-	background: var(--bg-control);
+	color: var(--fg-muted);
+	font: 500 var(--text-sm) / 1 var(--font-mono);
+	background: var(--hover);
 	border: 0;
-	border-radius: 50%;
+	border-radius: var(--radius-sm);
 	transition:
 		background 120ms ease-out,
 		color 120ms ease-out,
@@ -142,7 +182,7 @@
 
 .sh-round:hover:not(:disabled) {
 	color: var(--fg);
-	background: color-mix(in srgb, var(--bg-control) 90%, var(--fg));
+	background: var(--selected);
 }
 
 .sh-round:disabled {
@@ -183,51 +223,94 @@
 	height: 30px;
 }
 
+/* Count of subagents waiting behind a closed sidebar. Muted like every other
+ * count in the frame: it reports a number, it does not ask for attention. */
 .sh-badge {
-	position: absolute;
-	top: 1px;
-	right: 0;
+	flex: none;
 	min-width: 15px;
 	height: 15px;
 	padding: 0 4px;
-	font: 600 10px / 15px var(--font-ui);
+	font: 500 var(--text-2xs) / 15px var(--font-ui);
 	text-align: center;
-	color: var(--accent-fg);
-	background: var(--accent);
+	color: var(--fg-muted);
+	background: var(--hover);
 	border-radius: 999px;
+	font-variant-numeric: tabular-nums;
 }
 
 /* ---- brand ---- */
 .sh-brand {
 	display: inline-flex;
 	align-items: center;
-	gap: 8px;
+	gap: 7px;
 	flex: none;
 }
 
 .sh-mark {
 	flex: none;
 	display: block;
-}
-
-.sh-brand-name {
-	font-size: 16px;
-	font-weight: 600;
-	letter-spacing: -0.01em;
 	color: var(--fg);
 }
 
-.sh-brand-tag {
-	padding: 0 4px;
-	font: 600 9.5px / 14px var(--font-mono);
-	letter-spacing: 0.08em;
-	text-transform: uppercase;
-	color: var(--fg-soft);
-	border-radius: 3px;
-	box-shadow: inset 0 0 0 1px var(--fg-faint);
+.sh-brand-name {
+	color: var(--fg);
+	font-size: var(--text-lg);
+	font-weight: 600;
+	letter-spacing: -0.011em;
+}
+
+/* Product name beside the wordmark: same size, lighter, no badge. */
+.sh-brand-sub {
+	color: var(--fg-muted);
+	font-size: var(--text-lg);
+	font-weight: 400;
+	letter-spacing: -0.011em;
 }
 
 /* ---- sidebar ---- */
+/* The wrapper stays mounted so open/close is a slide, not a snap. Width
+ * animates so the transcript reflows smoothly instead of jumping. */
+.sb-wrap {
+	display: contents;
+}
+
+@media (min-width: 900px) {
+	.sb-wrap {
+		display: flex;
+		flex: none;
+		width: 312px;
+		visibility: visible;
+		transition:
+			width 300ms cubic-bezier(0.3, 1, 0.4, 1),
+			visibility 0ms;
+	}
+
+	.sb-wrap--hidden {
+		width: 0;
+		visibility: hidden;
+		transition:
+			width 260ms cubic-bezier(0.5, 0, 0.6, 0.4),
+			visibility 0ms 260ms;
+	}
+
+	.sb-wrap .sb {
+		width: 312px;
+		transform: translateX(0);
+		opacity: 1;
+		transition:
+			transform 300ms cubic-bezier(0.3, 1, 0.4, 1),
+			opacity 220ms ease-out;
+	}
+
+	.sb-wrap--hidden .sb {
+		transform: translateX(-32px);
+		opacity: 0;
+		transition:
+			transform 260ms cubic-bezier(0.5, 0, 0.6, 0.4),
+			opacity 160ms ease-in;
+	}
+}
+
 .sb {
 	position: relative;
 	/* Above the agent panel's backdrop: another agent stays one click away. */
@@ -235,25 +318,24 @@
 	flex: none;
 	display: flex;
 	flex-direction: column;
-	width: 304px;
+	width: 312px;
 	min-height: 0;
 	padding-top: env(safe-area-inset-top, 0px);
 	color: var(--fg-soft);
-	background: var(--sidebar-sheen), var(--sidebar);
+	background: var(--sidebar);
 	box-shadow: inset calc(-1 * var(--hairline)) 0 0 var(--border);
+	overflow: hidden;
 }
 
-.sb-backdrop {
-	display: none;
-}
-
+/* The brand row is the sidebar half of the top bar: same height and hairline
+ * as the header beside it, so the two panes read as one frame. */
 .sb-top {
 	flex: none;
 	display: flex;
 	align-items: center;
-	justify-content: space-between;
 	height: var(--topbar-h);
-	padding: 0 8px 0 20px;
+	padding: 0 18px;
+	box-shadow: inset 0 calc(-1 * var(--hairline)) 0 var(--border);
 }
 
 .sb-scroll {
@@ -272,15 +354,36 @@
 	margin-top: 14px;
 	margin-bottom: 2px;
 	padding: 0 8px;
-	color: var(--fg-faint);
-	font-size: 11px;
+	color: var(--fg-muted);
+	font-size: var(--text-sm);
 	font-weight: 600;
-	letter-spacing: 0.055em;
-	text-transform: uppercase;
+	letter-spacing: 0;
+	text-transform: none;
 }
 
 .sb-heading:first-child {
 	margin-top: 4px;
+}
+
+.sb-heading--session {
+	margin-bottom: 4px;
+}
+
+.sb-session-state {
+	font-size: var(--text-xs);
+	font-weight: 600;
+	color: var(--fg-muted);
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+}
+
+.sb-session-state--running {
+	color: var(--live);
+}
+
+.sb-session-state--aborted,
+.sb-session-state--failed {
+	color: var(--err);
 }
 
 .sb-heading-meta {
@@ -294,7 +397,7 @@
 
 .sb-heading-live {
 	color: var(--live);
-	font-size: 11px;
+	font-size: var(--text-2xs);
 	font-weight: 600;
 	font-variant-numeric: tabular-nums;
 }
@@ -306,7 +409,7 @@
 	border-radius: 999px;
 	background: var(--hover);
 	color: var(--fg-muted);
-	font-size: 11px;
+	font-size: var(--text-2xs);
 	font-weight: 600;
 	font-variant-numeric: tabular-nums;
 	letter-spacing: 0;
@@ -322,7 +425,7 @@
 	min-height: 34px;
 	padding: 6px 8px;
 	color: inherit;
-	font-size: 13.5px;
+	font-size: var(--text-sm);
 	line-height: 19px;
 	text-align: left;
 	background: none;
@@ -340,19 +443,32 @@ button.sb-row:hover {
 
 .sb-row-selected,
 button.sb-row-selected:hover {
+	position: relative;
 	color: var(--fg);
 	background: var(--selected);
-	box-shadow: inset 2px 0 0 var(--accent);
+	box-shadow: none;
+}
+
+.sb-row-selected::before,
+button.sb-row-selected:hover::before {
+	content: "";
+	position: absolute;
+	left: 0;
+	top: 6px;
+	bottom: 6px;
+	width: 2px;
+	border-radius: 2px;
+	background: var(--accent);
 }
 
 .sb-session-row {
 	grid-template-columns: auto minmax(0, 1fr);
-	align-items: flex-start;
-	padding: 7px 9px;
+	align-items: center;
+	padding: 9px;
 }
 
 .sb-session-row > .ag-status {
-	margin-top: 3px;
+	margin-top: 0;
 }
 
 .sb-session-body {
@@ -364,20 +480,14 @@ button.sb-row-selected:hover {
 
 .sb-session-row .sb-row-name {
 	color: var(--fg);
-	font-size: 13.5px;
+	font-size: var(--text-md);
 	font-weight: 600;
-	line-height: 18px;
+	line-height: 19px;
 	white-space: normal;
 	display: -webkit-box;
 	-webkit-box-orient: vertical;
 	-webkit-line-clamp: 2;
 	overflow-wrap: anywhere;
-}
-
-.sb-session-meta {
-	color: var(--fg-muted);
-	font-size: 11.5px;
-	line-height: 15px;
 }
 
 .sb-row-static {
@@ -398,14 +508,14 @@ button.sb-row:focus-visible .sb-row-name {
 
 .sb-row-note {
 	color: var(--fg-muted);
-	font-size: 11.5px;
+	font-size: var(--text-xs);
 	white-space: nowrap;
 }
 
 .sb-empty {
 	padding: 8px;
 	color: var(--fg-muted);
-	font-size: 13px;
+	font-size: var(--text-sm);
 }
 
 .sb-avatar {
@@ -416,7 +526,7 @@ button.sb-row:focus-visible .sb-row-name {
 	width: 24px;
 	height: 24px;
 	color: var(--fg-soft);
-	font-size: 11px;
+	font-size: var(--text-2xs);
 	font-weight: 600;
 	background: var(--selected);
 	border-radius: 50%;
@@ -426,8 +536,8 @@ button.sb-row:focus-visible .sb-row-name {
 	flex: none;
 	display: flex;
 	align-items: center;
-	gap: 8px;
-	padding: 10px 8px 10px 20px;
+	gap: 10px;
+	padding: 10px 12px 10px 20px;
 	padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
 	box-shadow: inset 0 var(--hairline) 0 var(--border);
 }
@@ -435,7 +545,7 @@ button.sb-row:focus-visible .sb-row-name {
 .sb-foot .sb-avatar {
 	width: 28px;
 	height: 28px;
-	font-size: 12px;
+	font-size: var(--text-xs);
 }
 
 .sb-me {
@@ -443,21 +553,23 @@ button.sb-row:focus-visible .sb-row-name {
 	min-width: 0;
 	display: flex;
 	flex-direction: column;
+	gap: 1px;
 }
 
 .sb-me-name {
 	overflow: hidden;
 	color: var(--fg);
-	font-size: 13.5px;
-	line-height: 18px;
+	font-size: var(--text-sm);
+	line-height: 17px;
+	font-weight: 500;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
 
 .sb-me-access {
-	color: var(--fg-muted);
-	font-size: 12px;
-	line-height: 16px;
+	color: var(--fg-faint);
+	font-size: var(--text-xs);
+	line-height: 15px;
 }
 
 /* ---- header ---- */
@@ -474,9 +586,13 @@ button.sb-row:focus-visible .sb-row-name {
 
 .sh-header-left {
 	display: flex;
-	align-items: baseline;
-	gap: 12px;
+	align-items: center;
+	gap: 4px;
 	min-width: 0;
+}
+
+.sh-header-left .sh-toggle {
+	margin-left: -6px;
 }
 
 .sh-header-right {
@@ -490,9 +606,10 @@ button.sb-row:focus-visible .sb-row-name {
 	flex: none;
 	max-width: 100%;
 	overflow: hidden;
-	color: var(--fg-soft);
-	font-size: 14px;
-	font-weight: 500;
+	color: var(--fg);
+	font-size: var(--text-md);
+	font-weight: 600;
+	letter-spacing: -0.006em;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
@@ -501,7 +618,7 @@ button.sb-row:focus-visible .sb-row-name {
 	min-width: 0;
 	overflow: hidden;
 	color: var(--fg-faint);
-	font: 400 12px / 1.4 var(--font-mono);
+	font: 400 var(--text-xs) / 1.4 var(--font-mono);
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
@@ -512,7 +629,7 @@ button.sb-row:focus-visible .sb-row-name {
 	align-items: center;
 	gap: 7px;
 	color: var(--fg-muted);
-	font-size: 13px;
+	font-size: var(--text-sm);
 	white-space: nowrap;
 }
 
@@ -524,6 +641,8 @@ button.sb-row:focus-visible .sb-row-name {
 	background: var(--fg-faint);
 }
 
+/* Live is a steady state: no animation. The transitional phases are actively
+ * retrying, so their dot breathes slowly instead of blinking. */
 .sh-dot-live {
 	background: var(--live);
 }
@@ -532,7 +651,7 @@ button.sb-row:focus-visible .sb-row-name {
 .sh-dot-connecting,
 .sh-dot-waiting {
 	background: var(--warn);
-	animation: pulse 1.2s ease-in-out infinite;
+	animation: breathe 2.4s ease-in-out infinite;
 }
 
 .sh-dot-ended {
@@ -545,7 +664,7 @@ button.sb-row:focus-visible .sb-row-name {
 	align-items: center;
 	gap: 6px;
 	color: var(--fg-muted);
-	font-size: 13px;
+	font-size: var(--text-sm);
 	font-variant-numeric: tabular-nums;
 }
 
@@ -592,10 +711,10 @@ button.sb-row:focus-visible .sb-row-name {
 .sh-card {
 	display: flex;
 	flex-direction: column;
-	gap: 4px;
-	padding: 8px;
+	gap: 6px;
+	padding: 10px 10px 8px;
 	background: var(--bg-raised);
-	border-radius: var(--radius-bubble);
+	border-radius: var(--radius-xl);
 	box-shadow:
 		0 0 0 var(--hairline) var(--border-strong),
 		var(--shadow-card);
@@ -612,7 +731,7 @@ button.sb-row:focus-visible .sb-row-name {
 	display: block;
 	width: 100%;
 	padding: 4px 6px;
-	font-size: 14.5px;
+	font-size: var(--text-lg);
 	line-height: 22px;
 	color: var(--fg);
 	background: none;
@@ -657,8 +776,8 @@ button.sb-row:focus-visible .sb-row-name {
 	gap: 6px;
 	height: 28px;
 	padding: 0 6px;
-	color: var(--fg-muted);
-	font-size: 13px;
+	color: var(--fg-faint);
+	font-size: var(--text-xs);
 	white-space: nowrap;
 }
 
@@ -670,7 +789,7 @@ button.sb-row:focus-visible .sb-row-name {
 	height: 28px;
 	padding: 0 8px;
 	color: var(--fg-soft);
-	font-size: 13px;
+	font-size: var(--text-xs);
 	white-space: nowrap;
 	background: none;
 	border: 0;
@@ -711,7 +830,7 @@ button.sb-row:focus-visible .sb-row-name {
 	height: 22px;
 	padding: 0 8px;
 	color: var(--accent-text);
-	font-size: 12px;
+	font-size: var(--text-xs);
 	font-variant-numeric: tabular-nums;
 	white-space: pre;
 	background: var(--accent-muted);
@@ -727,7 +846,7 @@ button.sb-row:focus-visible .sb-row-name {
 .sh-ask-title {
 	padding: 0 8px;
 	color: var(--fg);
-	font-size: 14.5px;
+	font-size: var(--text-lg);
 	font-weight: 600;
 	line-height: 22px;
 	white-space: pre-wrap;
@@ -783,13 +902,13 @@ button.sb-row:focus-visible .sb-row-name {
 }
 
 .sh-ask-option-label {
-	font-size: 14px;
+	font-size: var(--text-md);
 	line-height: 20px;
 }
 
 .sh-ask-option-description {
 	color: var(--fg-muted);
-	font-size: 12.5px;
+	font-size: var(--text-xs);
 	line-height: 18px;
 }
 
@@ -806,7 +925,7 @@ button.sb-row:focus-visible .sb-row-name {
 	height: 32px;
 	padding: 0 14px 0 12px;
 	color: var(--fg-soft);
-	font-size: 13px;
+	font-size: var(--text-sm);
 	white-space: nowrap;
 	background: var(--bg-raised);
 	border-radius: 999px;
@@ -817,7 +936,7 @@ button.sb-row:focus-visible .sb-row-name {
 }
 
 .sh-banner .spinner {
-	font-size: 12px;
+	font-size: var(--text-xs);
 	color: var(--warn);
 }
 
@@ -850,7 +969,7 @@ button.sb-row:focus-visible .sb-row-name {
 	display: flex;
 	align-items: center;
 	gap: 8px;
-	font-size: 15px;
+	font-size: var(--text-lg);
 	font-weight: 600;
 }
 
@@ -861,7 +980,7 @@ button.sb-row:focus-visible .sb-row-name {
 
 .sh-ended-reason {
 	color: var(--fg-muted);
-	font-size: 13px;
+	font-size: var(--text-sm);
 	overflow-wrap: anywhere;
 }
 
@@ -893,7 +1012,7 @@ button.sb-row:focus-visible .sb-row-name {
 	max-width: 100%;
 	padding: 8px 12px;
 	color: var(--fg-soft);
-	font-size: 13px;
+	font-size: var(--text-sm);
 	line-height: 18px;
 	background: var(--bg-raised);
 	border-radius: var(--radius-xl);
@@ -953,16 +1072,6 @@ button.sb-row:focus-visible .sb-row-name {
 	overflow-y: auto;
 }
 
-/* Soft blue haze behind the card. */
-.sh-haze {
-	position: absolute;
-	inset: 0;
-	pointer-events: none;
-	background:
-		radial-gradient(64rem 30rem at 50% -8%, var(--haze-a), transparent 70%),
-		radial-gradient(40rem 26rem at 88% 108%, var(--haze-b), transparent 70%);
-}
-
 .sh-connect-top {
 	position: relative;
 	display: flex;
@@ -999,7 +1108,7 @@ button.sb-row:focus-visible .sb-row-name {
 }
 
 .sh-connect-title {
-	font-size: 22px;
+	font-size: var(--text-xl);
 	font-weight: 600;
 	letter-spacing: -0.02em;
 	line-height: 1.25;
@@ -1007,7 +1116,7 @@ button.sb-row:focus-visible .sb-row-name {
 
 .sh-connect-sub {
 	color: var(--fg-muted);
-	font-size: 14px;
+	font-size: var(--text-md);
 	line-height: 20px;
 }
 
@@ -1019,18 +1128,18 @@ button.sb-row:focus-visible .sb-row-name {
 
 .sh-field-label {
 	color: var(--fg-soft);
-	font-size: 13px;
+	font-size: var(--text-sm);
 	font-weight: 500;
 }
 
 .sh-field-hint {
 	color: var(--fg-muted);
-	font-size: 12px;
+	font-size: var(--text-xs);
 }
 
 .sh-field-hint code {
 	padding: 1px 4px;
-	font-size: 11.5px;
+	font-size: var(--text-xs);
 	color: var(--fg-soft);
 	background: var(--hover);
 	border-radius: 4px;
@@ -1040,7 +1149,7 @@ button.sb-row:focus-visible .sb-row-name {
 	height: 40px;
 	padding: 0 12px;
 	color: var(--fg);
-	font-size: 14px;
+	font-size: var(--text-md);
 	background: var(--hover);
 	border: 0;
 	border-radius: 10px;
@@ -1059,7 +1168,7 @@ button.sb-row:focus-visible .sb-row-name {
 
 .sh-input-mono {
 	font-family: var(--font-mono);
-	font-size: 13px;
+	font-size: var(--text-sm);
 }
 
 .sh-connect-error {
@@ -1069,7 +1178,7 @@ button.sb-row:focus-visible .sb-row-name {
 	gap: 8px;
 	padding: 8px 12px;
 	color: var(--fg-soft);
-	font-size: 13px;
+	font-size: var(--text-sm);
 	line-height: 18px;
 	overflow-wrap: anywhere;
 	background: var(--hover);
@@ -1096,7 +1205,7 @@ button.sb-row:focus-visible .sb-row-name {
 .sh-connect-submit {
 	height: 40px;
 	margin-top: 4px;
-	font-size: 14px;
+	font-size: var(--text-md);
 }
 
 .sh-connect-foot {
@@ -1104,7 +1213,7 @@ button.sb-row:focus-visible .sb-row-name {
 	align-items: flex-start;
 	gap: 8px;
 	color: var(--fg-muted);
-	font-size: 12px;
+	font-size: var(--text-xs);
 	line-height: 18px;
 }
 
@@ -1115,7 +1224,22 @@ button.sb-row:focus-visible .sb-row-name {
 
 /* ---- narrow windows: the sidebar becomes an overlay (kept in sync with app.tsx) ---- */
 @media (max-width: 899.98px) {
-	.sb {
+	.sb-backdrop {
+		display: block;
+		position: absolute;
+		inset: 0;
+		z-index: 35;
+		background: var(--backdrop);
+		opacity: 1;
+		transition: opacity 220ms ease-out;
+	}
+
+	.sb-wrap--hidden .sb-backdrop {
+		opacity: 0;
+		pointer-events: none;
+	}
+
+	.sb-wrap .sb {
 		position: absolute;
 		inset: 0 auto 0 0;
 		z-index: 40;
@@ -1123,23 +1247,20 @@ button.sb-row:focus-visible .sb-row-name {
 		box-shadow:
 			inset calc(-1 * var(--hairline)) 0 0 var(--border),
 			var(--shadow-overlay);
-		animation: sb-in 160ms ease-out;
+		transform: translateX(0);
+		opacity: 1;
+		transition:
+			transform 280ms cubic-bezier(0.3, 1, 0.4, 1),
+			opacity 200ms ease-out;
 	}
 
-	.sb-backdrop {
-		display: block;
-		position: absolute;
-		inset: 0;
-		z-index: 35;
-		background: var(--backdrop);
-		animation: fade-in 140ms ease-out;
-	}
-}
-
-@keyframes sb-in {
-	from {
-		transform: translateX(-16px);
+	.sb-wrap--hidden .sb {
+		transform: translateX(-24px);
 		opacity: 0;
+		pointer-events: none;
+		transition:
+			transform 220ms cubic-bezier(0.5, 0, 0.6, 0.4),
+			opacity 160ms ease-in;
 	}
 }
 
@@ -1186,6 +1307,6 @@ button.sb-row:focus-visible .sb-row-name {
 	.sh-composer-input,
 	.sh-input,
 	.sh-input-mono {
-		font-size: 16px;
+		font-size: var(--text-lg);
 	}
 }

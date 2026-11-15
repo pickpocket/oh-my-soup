@@ -29,6 +29,7 @@ import {
 	type SlashCommandSource,
 	slashContext,
 } from "../../lib/slash";
+import { NEXT_MOTION_PREFERENCE, parseMotionArgument, useMotionPreference } from "../../lib/motion";
 import { NEXT_THEME_PREFERENCE, useThemePreference } from "../../lib/theme";
 import { CommandRunPanel } from "./CommandRunPanel";
 import { type PaletteItem, SlashPalette } from "./SlashPalette";
@@ -253,6 +254,7 @@ export const Composer = memo(function Composer({
 	const pendingCaretRef = useRef<number | null>(null);
 	const { composingRef, onCompositionStart, onCompositionEnd } = useCompositionGuard();
 	const { preference, setPreference } = useThemePreference();
+	const { preference: motionPreference, resolved: motion, setPreference: setMotion } = useMotionPreference();
 
 	const live = phase === "live";
 	const canPrompt = live && !readOnly;
@@ -372,6 +374,17 @@ export const Composer = memo(function Composer({
 				const next = choice === "cycle" ? NEXT_THEME_PREFERENCE[preference] : choice;
 				setPreference(next);
 				client.addLocalCommandRun(draft, `Theme: **${next}**`);
+				break;
+			}
+			case "motion": {
+				const choice = parseMotionArgument(args);
+				if (choice === null) {
+					client.addLocalCommandRun(draft, "Usage: `/motion [full|reduced|system]`");
+					break;
+				}
+				const next = choice === "cycle" ? NEXT_MOTION_PREFERENCE[motionPreference] : choice;
+				setMotion(next);
+				client.addLocalCommandRun(draft, `Motion: **${next}**${next === "system" ? ` (${motion})` : ""}`);
 				break;
 			}
 			case "copy":

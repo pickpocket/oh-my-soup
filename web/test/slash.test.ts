@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import type { CollabCommand, SessionEntry, WireMessage } from "@oh-my-soup/pi-wire";
+import { type MotionPreference, NEXT_MOTION_PREFERENCE, parseMotionArgument } from "../src/lib/motion";
 import {
 	argumentSuggestions,
 	completeSlashArgument,
@@ -248,6 +249,20 @@ describe("local command helpers", () => {
 		expect(parseThemeArgument(" Dark ")).toBe("dark");
 		expect(parseThemeArgument("system")).toBe("system");
 		expect(parseThemeArgument("sepia")).toBeNull();
+	});
+
+	it("reads a motion argument, cycling when there is none", () => {
+		expect(parseMotionArgument("")).toBe("cycle");
+		expect(parseMotionArgument(" Full ")).toBe("full");
+		expect(parseMotionArgument("reduced")).toBe("reduced");
+		expect(parseMotionArgument("system")).toBe("system");
+		expect(parseMotionArgument("fast")).toBeNull();
+	});
+
+	it("cycles the motion preference through every state", () => {
+		let pref: MotionPreference = "system";
+		for (let i = 0; i < 3; i++) pref = NEXT_MOTION_PREFERENCE[pref];
+		expect(pref).toBe("system");
 	});
 
 	it("lists every available command with its description in the help text", () => {

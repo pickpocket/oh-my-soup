@@ -19,6 +19,7 @@
 
 ### Fixed
 
+- Reworded the shared instruction-strength preamble and on-demand device documentation hint after a Google Antigravity Carbon Low request rejected the previous wording; tool names and schemas are unchanged.
 - `/login google-antigravity` accepts the code displayed by the official hosted callback; remote broker login no longer requests an invalid port-zero tunnel.
 
 - Collaboration links retain custom relay path prefixes, and custom relays print native join invitations instead of guessing a browser page at the server root; configure `collab.webUrl` to advertise a browser UI.

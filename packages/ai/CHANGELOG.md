@@ -19,6 +19,7 @@
 - Antigravity continuations preserve cumulative usage, reject unsafe checkpoint replay, and surface next-leg HTTP failures without retrying permission denials.
 - Transport helpers no longer keep idle hosts alive, and HEAD/204/205/304 responses no longer fail during gzip or Response handling.
 - The Rust transport now writes HTTP/1.1 request headers with Go-compatible casing/order and lowercase chunk lengths; local TLS fixtures confirmed identical request bytes after removing the ephemeral server port.
+- Source builds keep Cargo/CMake targets per checkout, avoiding stale generator and absolute-source caches when developing in multiple worktrees or installing the SDK.
 - Antigravity login uses the official CLI's hosted copy-code page, preserving S256 PKCE and a focused input instead of redirecting to localhost.
 - Standard Antigravity requests now select the registered transport before generic fetch wrapping, so the CLI no longer bypasses its helper.
 - Antigravity tool schemas now encode protobuf type enums correctly without mutating caller schemas or property names.

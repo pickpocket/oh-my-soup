@@ -34,6 +34,9 @@ export async function buildAgyTransport(options: AgyTransportBuildOptions = {}):
 	const filename = `agy-transport${targetOs === "windows" ? ".exe" : ""}`;
 	const executable = path.resolve(options.out ?? path.join(import.meta.dir, "../dist", filename));
 	const manifest = path.resolve(import.meta.dir, "../src/providers/agy-transport-rs/Cargo.toml");
+	// CMake caches absolute source paths and generators. Sharing one Cargo target
+	// dir across worktrees or installed SDK copies can reuse an incompatible cache.
+	const cacheKey = `oms-agy-transport-${Bun.SHA256.hash(manifest, "hex").slice(0, 16)}`;
 	await fs.mkdir(path.dirname(executable), { recursive: true });
 	const prebuilt = process.env.OMS_AGY_TRANSPORT_BINARY;
 	if (prebuilt) {
@@ -54,7 +57,7 @@ export async function buildAgyTransport(options: AgyTransportBuildOptions = {}):
 			'manifest="$(wslpath -u "$1")"',
 			'output="$(wslpath -u "$2")"',
 			// oxlint-disable-next-line eslint/no-template-curly-in-string -- Bash expands this, not Bun.
-			'export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$HOME/.cache/oms-agy-transport-target}"',
+			'export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$HOME/.cache/' + cacheKey + '}"',
 			"export CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER=x86_64-w64-mingw32-gcc",
 			"export CC_x86_64_pc_windows_gnu=x86_64-w64-mingw32-gcc",
 			"export CXX_x86_64_pc_windows_gnu=x86_64-w64-mingw32-g++",
@@ -65,7 +68,7 @@ export async function buildAgyTransport(options: AgyTransportBuildOptions = {}):
 		const proc = Bun.spawn(command, { stdout: "inherit", stderr: "inherit" });
 		if ((await proc.exited) !== 0) throw new Error(`Antigravity transport build failed: ${command[0]}`);
 	} else {
-		const targetDir = process.env.CARGO_TARGET_DIR ?? path.join(os.homedir(), ".cache", "oms-agy-transport-target");
+		const targetDir = process.env.CARGO_TARGET_DIR ?? path.join(os.homedir(), ".cache", cacheKey);
 		const command = ["cargo", "build", "--locked", "--release", "--target", triple, "--manifest-path", manifest];
 		const proc = Bun.spawn(command, {
 			env: { ...process.env, CARGO_TARGET_DIR: targetDir },

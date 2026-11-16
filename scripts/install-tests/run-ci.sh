@@ -209,9 +209,11 @@ mkdir -p "$TARBALL_APP_DIR"
       echo "Platform leaf package not installed: $leaf_dir"
       exit 1
    }
+   # The installed wire tarball must carry this checkout's protocol revision.
+   expected_proto="$(bun -e 'import { COLLAB_PROTO } from "'"$ROOT_DIR"'/packages/wire/src/index.ts"; process.stdout.write(String(COLLAB_PROTO));')"
    wire_proto="$(bun -e 'import { COLLAB_PROTO } from "@oh-my-soup/pi-wire"; process.stdout.write(String(COLLAB_PROTO));')"
-   [ "$wire_proto" = "3" ] || {
-      echo "Unexpected @oh-my-soup/pi-wire COLLAB_PROTO: $wire_proto"
+   [ -n "$wire_proto" ] && [ "$wire_proto" = "$expected_proto" ] || {
+      echo "Unexpected @oh-my-soup/pi-wire COLLAB_PROTO: $wire_proto (expected $expected_proto)"
       exit 1
    }
    omstype_probe="$(bun -e '

@@ -258,6 +258,7 @@ async fn call<R: DeserializeOwned>(socket: &Path, dir: &Path, op: Op<'_>) -> Opt
 
 /// Without Unix sockets there is no daemon to ask.
 #[cfg(not(unix))]
+#[allow(clippy::unused_async, reason = "async on Unix; one shared call shape")]
 async fn call<R: DeserializeOwned>(_socket: &Path, _dir: &Path, _op: Op<'_>) -> Option<R> {
 	None
 }

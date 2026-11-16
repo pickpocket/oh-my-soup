@@ -432,6 +432,7 @@ enum Candidate {
 	/// The file that runs.
 	Runs(PathBuf),
 	/// A file that cannot be executed.
+	#[cfg_attr(not(unix), allow(dead_code, reason = "only Unix has a non-executable file mode"))]
 	Denied,
 }
 

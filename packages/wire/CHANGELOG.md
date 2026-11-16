@@ -2,16 +2,65 @@
 
 ## [Unreleased]
 
-### Changed
-
-- Bumped collab to protocol v4: optional paged browser history, exclusive entry-ID cursors, bounded history replies, and ordered assistant-stream baselines/content patches. Older hosts and guests are rejected explicitly; native guests retain full replica snapshots.
-- Bumped collab to protocol v5: guest-run host commands (`command`, `command-cancel`, `complete` with `commands`, `command-output`, `command-end`, `completions` replies), cursor-paged subagent transcripts (`fetch-transcript-page` / `transcript-page`), and snapshot flow control (`snapshot-ack`).
-
 ### Added
 
 - Added the relay limits clients must respect (`COLLAB_RELAY_MAX_MESSAGE_BYTES`, `COLLAB_MAX_FRAME_BYTES`) and the shared relay close-code reasons (`COLLAB_RELAY_CLOSE_REASONS`).
 - `command` frames accept an optional `agentId` so a guest can ask a subagent with `/btw`.
 - `transcript-page` replies carry an optional `generation` identifying the file read, and `COLLAB_TRANSCRIPT_CHANGED_ERROR` names the reply for a cursor that no longer matches the file.
+
+### Changed
+
+- Bumped collab to protocol v4: optional paged browser history, exclusive entry-ID cursors, bounded history replies, and ordered assistant-stream baselines/content patches. Older hosts and guests are rejected explicitly; native guests retain full replica snapshots.
+- Bumped collab to protocol v5: guest-run host commands (`command`, `command-cancel`, `complete` with `commands`, `command-output`, `command-end`, `completions` replies), cursor-paged subagent transcripts (`fetch-transcript-page` / `transcript-page`), and snapshot flow control (`snapshot-ack`).
+
+## [18.18.6] - 2026-11-09
+
+### Added
+
+- `actions.hold` (`TspMenuEntry[]`): what a long press on a touch screen offers, beside `actions.menu`; and `toast`'s `action` / `label` props for a button on the toast
+
+## [18.18.0] - 2026-11-07
+
+### Changed
+
+- `ShellTrace` fields that carry values from the run (argv, assignments, redirect targets, unlocated unit sources, diagnostics) are `ShellTraceBytes`: a string when the bytes are UTF-8, otherwise the raw byte values. `isShellTrace` accepts both forms
+
+## [18.17.0] - 2026-11-06
+
+### Added
+
+- Added shell trace visualization: `ShellTrace` model and TSP `shell` kind for shell runs, node state, and layout.
+- Code views gain score-based line shading, labeled collapsible folds with notes, tones, and hover cards, and an overview strip.
+
+## [18.16.0] - 2026-11-02
+
+### Added
+
+- Added the collab envelope helpers `packEnvelope`, `unpackEnvelope` and `rewriteEnvelopePeer`
+
+## [18.14.2] - 2026-10-31
+
+### Added
+
+- Added `nums` to `code` props (`TspCodeProps`): each line's number, so one block can show non-contiguous lines with `…` gap rows where the numbers jump.
+- Added the TSP `button` kind (`TspButtonProps`: label, icon, keycaps, `default`/`primary`/`quiet`/`danger` variants, `sm`/`md` sizes, pressed, disabled with a reason, busy) and `tabs` `variant: "segmented"`.
+
+## [18.14.0] - 2026-10-29
+
+### Added
+
+- Added the TSP `json` kind for displaying raw JSON values as interactive, expandable trees in the terminal.
+- Added `TspEditorProps.typeahead` support so programs that cannot yet read input can preserve typed text, display it at the caret, and submit it when input becomes available.
+
+## [18.13.3] - 2026-10-28
+
+### Changed
+
+- Updated Bun engine requirement to ≥1.4.4
+
+### Removed
+
+- Removed `TspPalette` definition and `t` verb from the protocol specification
 
 ## [18.12.3] - 2026-10-19
 
@@ -29,13 +78,13 @@
 
 ### Added
 
-- Added the `oms stream` wire contract (`@oh-my-soup/pi-wire/stream`) for pane screen updates, viewer snapshots and chat, channel metadata, and `live.omp.sh` stream routes.
+- Added `TspToolProps.command` (the command line Copy command copies), `TspToolProps.preview: "children"` (the collapsed body stays whole while its children clamp) and `TspCodeProps.preview`
 
 ## [18.8.8] - 2026-10-10
 
 ### Added
 
-- Added `TspToolProps.command` (the command line Copy command copies), `TspToolProps.preview: "children"` (the collapsed body stays whole while its children clamp) and `TspCodeProps.preview`
+- Added the `oms stream` wire contract (`@oh-my-soup/pi-wire/stream`) for pane screen updates, viewer snapshots and chat, channel metadata, and `live.omp.sh` stream routes.
 
 ## [18.8.0] - 2026-10-07
 
@@ -84,7 +133,7 @@
 
 ### Added
 
-- Added the `omp stream` wire contract (`@oh-my-soup/pi-wire/stream`) for pane screen updates, viewer snapshots and chat, channel metadata, and `live.omp.sh` stream routes.
+- Added the `oms stream` wire contract (`@oh-my-soup/pi-wire/stream`) for pane screen updates, viewer snapshots and chat, channel metadata, and `live.omp.sh` stream routes.
 - Added authentication support for stencil.so streams, including user identity in welcome messages, channel ownership metadata, and explicit unauthorized and forbidden close codes.
 
 ### Changed

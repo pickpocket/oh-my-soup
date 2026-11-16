@@ -610,5 +610,7 @@ export const COLLAB_RELAY_CLOSE_REASONS: Record<number, string> = {
 	4029: "room is full",
 };
 
+export * from "./shell-trace";
+export * from "./shell-viz";
 export * from "./stream";
 export * from "./tsp";

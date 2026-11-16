@@ -1,8 +1,9 @@
 import { centerLine } from "../../utils";
 import { padToWidth } from "../../render/utils";
+import { APP_NAME } from "@oh-my-soup/pi-utils";
 import { SOUP_LOGO_ROWS, SOUP_LOGO_WIDTH, soupLogo, soupLogoNode } from "../../prompt/pixel-logo";
 import { getThemeEpoch, theme } from "../../theme/theme";
-import { col, node, span, text } from "../../native/describe";
+import { col, compact, keyed, node, span, text } from "../../native/describe";
 import type { NativeNode } from "../../native/node";
 import { Memo } from "../../native/memo";
 import { renderStarfield, SETUP_TICK_MS } from "./splash";
@@ -12,23 +13,35 @@ export const SETUP_OUTRO_MS = 1200;
 const outroMemo = new Memo();
 
 /**
- * Native outro: the soup pixel bowl, the saved confirmation, and an
- * indeterminate progress bar standing in for the timed sweep. A click sends
- * the `continue` action.
+ * Native outro, centered: the soup pixel bowl, "You're all set", the
+ * default model now in effect (`model`, its display name, when there is
+ * one), and an indeterminate progress bar standing in for the timed sweep.
+ * A click sends the `continue` action.
  */
-export function describeSetupOutro(): NativeNode {
-	const saved = `${theme.status.success} Setup saved`;
-	return outroMemo.get([saved, getThemeEpoch()], () =>
+export function describeSetupOutro(model: string | undefined): NativeNode {
+	return outroMemo.get([model, getThemeEpoch()], () =>
 		col(
-			[
-				node("spacer", { grow: 1 }),
-				soupLogoNode(128),
-				text([span(saved, "success strong")], { wrap: "none" }),
-				text([span("Handing off to the normal CLI…", "muted")], { wrap: "none" }),
-				node("progress", { value: null, max: { w: "48ch" } }),
-				node("spacer", { grow: 1 }),
-			],
-			{ align: "center", gap: "sm", grow: 1, role: "omp.setup.outro", actions: { click: "continue" } },
+			compact([
+				node("spacer", { grow: 1 }, undefined, "top"),
+				soupLogoNode(72, "oms.setup.outro.mark"),
+				keyed(text([span("You're all set", "strong")], { wrap: "none", role: "oms.setup.outro.title" }), "title"),
+				model !== undefined &&
+					keyed(
+						text([span("Default model", "muted"), span(" · ", "dim"), span(model, "muted")], {
+							wrap: "none",
+							truncate: "end",
+							role: "oms.setup.outro.model",
+						}),
+						"model",
+					),
+				keyed(
+					text([span(`Starting ${APP_NAME}…`, "muted")], { wrap: "none", role: "oms.setup.outro.status" }),
+					"status",
+				),
+				node("progress", { value: null, role: "oms.setup.outro.progress" }, undefined, "progress"),
+				node("spacer", { grow: 1 }, undefined, "bottom"),
+			]),
+			{ align: "center", grow: 1, role: "oms.setup.outro", actions: { click: "continue" } },
 		),
 	);
 }

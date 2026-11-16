@@ -15,6 +15,7 @@ import { type Component, TUI } from "../tui";
 import type { AppKeybinding } from "../app-keybindings";
 import { formatTooltipKey } from "../key-hint-format";
 import { MAIN_AGENT_ID } from "../overlays/agent-hub-types";
+import { getNativeBlob, type NativeBlob, nativeBlob, withBlob } from "../native/blobs";
 import { compact, keyed, node, row, span } from "../native/describe";
 import type { DescribeContext, NativeNode, NativeUiEvent } from "../native/node";
 import type { ComposerFacts, ComposerFactsSource } from "../status-line/types";
@@ -42,6 +43,7 @@ import { type MacOSSpellingFeatures, MacOSSpellingProvider } from "./macos-spell
 import { TypingWordTracker } from "./typing-word";
 import { hasMagicKeyword, highlightMagicKeywords, magicKeywordRanges } from "./magic-keywords";
 import type { TspEditorDecoration, TspText } from "@oh-my-soup/pi-wire";
+import { motionEffectsEnabled } from "../motion-effects";
 import { isNativeRendering } from "../native/state";
 import { isQueuedMessageList, parseQueueShorthand, QUEUE_LIST_MARKER_RE } from "./queue-input";
 import { type WordCompletionMethod, WordCompletionProvider } from "./word-completion";
@@ -457,6 +459,13 @@ export type ComposerChipDescriptor =
 	| { kind: "image" | "video"; n: number; image: ImageContent; link: string | undefined }
 	| { kind: "paste"; n: number; text: TextAttachment };
 
+/** A draft image's blob id, riding on the image itself so its bytes are hashed once. */
+const kImageBlobId = Symbol("oms.imageBlobId");
+
+interface ImageContentWithBlobId extends ImageContent {
+	[kImageBlobId]?: string;
+}
+
 /**
  * Custom editor that handles configurable app-level shortcuts for coding-agent.
  */
@@ -620,7 +629,7 @@ export class CustomEditor extends Editor {
 					name => this.skillFilePath(name) !== undefined,
 					register,
 				),
-				selector => this.#mentionLabelFor(selector),
+				selector => this.#mentionChipFor(selector),
 				register,
 			),
 		);
@@ -635,18 +644,20 @@ export class CustomEditor extends Editor {
 	 */
 	skillFilePath: (name: string) => string | undefined = () => undefined;
 
-	/** Host-owned model probe: maps a mentionable selector to its display chip label. */
-	modelMentionLabel: (selector: string) => string | undefined = () => undefined;
+	/**
+	 * Host-owned model probe: a mentionable `provider/id[:level]` selector's chip label and
+	 * canonical selector, so equivalent spellings (`:hi`/`:high`, bare/`:auto`) share a chip.
+	 */
+	resolveModelMention: (selector: string) => { label: string; selector: string } | undefined = () => undefined;
 
 	/** Host-owned session probe: maps a persisted model pseudonym back to its selector. */
 	modelMentionSelector: (agent: string) => string | undefined = () => undefined;
 
-	#mentionLabelFor(selector: string): string | undefined {
-		const label = this.modelMentionLabel(selector);
-		if (label === undefined) return undefined;
-		const expansion = modelMentionToken(selector);
-		const registered = this.atoms.get(label);
-		return registered !== undefined && registered !== expansion ? undefined : label;
+	#mentionChipFor(selector: string): { label: string; selector: string } | undefined {
+		const chip = this.resolveModelMention(selector);
+		if (chip === undefined) return undefined;
+		const registered = this.atoms.get(chip.label);
+		return registered === undefined || registered === modelMentionToken(chip.selector) ? chip : undefined;
 	}
 
 	/**
@@ -700,9 +711,9 @@ export class CustomEditor extends Editor {
 					const start = match.index + match[1].length;
 					const end = match.index + match[0].length;
 					if (end === line.length && i === lines.length - 1) break;
-					const label = this.#mentionLabelFor(selector);
-					if (label === undefined) continue;
-					this.collapseToAtom(i, start, end, label, modelMentionToken(selector));
+					const chip = this.#mentionChipFor(selector);
+					if (chip === undefined) continue;
+					this.collapseToAtom(i, start, end, chip.label, modelMentionToken(chip.selector));
 					collapsed = true;
 					anyCollapsed = true;
 					break;
@@ -871,7 +882,8 @@ export class CustomEditor extends Editor {
 		const caret = this.getCursor();
 		this.#typing.update(this.textRevision, this.#decorationLines, caret.line, caret.col, this.focused);
 		const typing = this.#typing.word;
-		const animated = this.focused && this.#shimmerEnabled() && hasMagicKeyword(editorText);
+		// With decorative motion off the keyword keeps its static highlight; the pending frame chain ends here.
+		const animated = this.focused && this.#shimmerEnabled() && motionEffectsEnabled() && hasMagicKeyword(editorText);
 		const phase = animated ? (Date.now() % CustomEditor.SHIMMER_PERIOD_MS) / CustomEditor.SHIMMER_PERIOD_MS : 0;
 		if (animated) this.#scheduleShimmerFrame();
 		let sourceSearchOffset = 0;
@@ -954,8 +966,9 @@ export class CustomEditor extends Editor {
 	 * TSP decorations: magic keywords shimmer (terminal-clocked) in the accent
 	 * color, chips and markers take their token colors, misspellings are marked,
 	 * and queue-composer markers are dimmed/accented, all as ranges over the raw
-	 * buffer instead of painted text. A shell-mode draft is code: only its sigil
-	 * is decorated, hidden behind the mode chip.
+	 * buffer instead of painted text. An image's token or marker names the image's
+	 * blob, so copying it in the terminal copies the image. A shell-mode draft is
+	 * code: only its sigil is decorated, hidden behind the mode chip.
 	 */
 	override describeDecorations = (lines: readonly string[]): readonly TspEditorDecoration[] => {
 		const text = lines.join("\n");
@@ -966,8 +979,9 @@ export class CustomEditor extends Editor {
 		this.#syncComposerTokenPattern();
 		const decor: TspEditorDecoration[] = [];
 		let offset = 0;
-		const mark = (length: number, s: string): string => {
-			decor.push({ from: offset, to: offset + length, s });
+		const mark = (length: number, s: string, blob?: NativeBlob): string => {
+			const range = { from: offset, to: offset + length, s };
+			decor.push(blob ? withBlob(range, blob) : range);
 			offset += length;
 			return "";
 		};
@@ -980,7 +994,10 @@ export class CustomEditor extends Editor {
 				},
 				renderSkill: label => mark(label.length, "customMessageLabel strong"),
 				renderMention: label => mark(label.length, "statusLineModel strong"),
-				renderReference: value => mark(value.length, "accent strong"),
+				renderReference: (value, kind, index) => {
+					const image = kind === "image" ? this.pendingImages[index - 1] : undefined;
+					return mark(value.length, "accent strong", image && this.#imageBlob(image));
+				},
 			},
 			this.atomicTokenPattern,
 		);
@@ -1012,6 +1029,20 @@ export class CustomEditor extends Editor {
 		}
 		return decor.sort((a, b) => a.from - b.from);
 	};
+
+	/**
+	 * The blob of pending image `image`'s bytes: the chips band's while its card shows it, else
+	 * made anew. Its `decor` range owns it, so a deleted token's bytes are released.
+	 */
+	#imageBlob(image: ImageContent): NativeBlob {
+		const tagged = image as ImageContentWithBlobId;
+		const known = tagged[kImageBlobId];
+		const alive = known === undefined ? undefined : getNativeBlob(known);
+		if (alive) return alive;
+		const blob = nativeBlob(Buffer.from(image.data, "base64"), image.mimeType);
+		tagged[kImageBlobId] = blob.id;
+		return blob;
+	}
 
 	/** Optional test override for the magic-keyword shimmer gate. */
 	magicKeywordsEnabledOverride: boolean | undefined;
@@ -1063,7 +1094,12 @@ export class CustomEditor extends Editor {
 	/** Editing is available during bootstrap; atomic sends wait until submission is wired and enabled
 	 *  and no dictation is still writing into the draft. */
 	protected override get nativeSendable(): boolean {
-		return this.onSubmit !== undefined && !this.disableSubmit && !dictationHoldsDraft(this.composerState().dictation);
+		return (
+			!this.nativeKeyPassthrough &&
+			this.onSubmit !== undefined &&
+			!this.disableSubmit &&
+			!dictationHoldsDraft(this.composerState().dictation)
+		);
 	}
 	/** The quoted-title placeholder, kept while the title stands so the editor node stays reused. */
 	#titlePlaceholder: { title: string; text: TspText } | undefined;
@@ -1100,14 +1136,15 @@ export class CustomEditor extends Editor {
 		| undefined;
 
 	/**
-	 * The TSP composer: role `omp.editor[.bash|.python]` (tone `pending` while
+	 * The TSP composer: role `oms.editor[.bash|.python]` (tone `pending` while
 	 * a turn runs) over the context hairline, the viewing header while a
 	 * subagent is focused, the attachment chips, a `line` row of the
 	 * shell-mode chip and the input, and the `bar`: model chip, effort chip
 	 * (or the effort glyph as the model chip's icon), the generation rate,
 	 * the other status facts, usage, dictation, then send (Stop while a turn runs).
 	 * Clicks come back as `status.model`, `thinking.cycle`, `dictation.toggle`,
-	 * `submit`, `interrupt` and `focus:<id>` actions.
+	 * `submit`, `interrupt` and `focus:<id>` actions; `thinking.set` (the level
+	 * as `value`) picks a thinking level directly (a phone's effort menu).
 	 */
 	override describeLayout = (input: NativeNode, cx: DescribeContext): NativeEditorLayout => {
 		const effortGlyph = cx.supports("effort");
@@ -1159,7 +1196,7 @@ export class CustomEditor extends Editor {
 								rate !== undefined &&
 									node(
 										"rate",
-										{ value: rate, unit: "tok/s", role: "omp.composer.rate", title: "Generation rate" },
+										{ value: rate, unit: "tok/s", role: "oms.composer.rate", title: "Generation rate" },
 										undefined,
 										"rate",
 									),
@@ -1169,16 +1206,16 @@ export class CustomEditor extends Editor {
 								controls.dictation,
 								controls.submit,
 							]),
-							{ role: "omp.composer.bar", gap: "sm", align: "center" },
+							{ role: "oms.composer.bar", gap: "sm", align: "center" },
 						),
 						"bar",
 					);
 		const line = keyed(
-			row(compact([controls.mode, input]), { role: "omp.composer.line", align: "start", gap: "sm" }),
+			row(compact([controls.mode, input]), { role: "oms.composer.line", align: "start", gap: "sm" }),
 			"line",
 		);
 		const layout: NativeEditorLayout = {
-			role: shell ? `omp.editor.${shell.kind}` : "omp.editor",
+			role: shell ? `oms.editor.${shell.kind}` : "oms.editor",
 			tone: state.running ? "pending" : undefined,
 			children: compact([facts?.context, controls.focus, chips, line, bar]),
 			caret: "line/input",
@@ -1188,10 +1225,10 @@ export class CustomEditor extends Editor {
 	};
 
 	/**
-	 * The viewing header (`omp.composer.focus`) while a subagent is focused:
-	 * an eye, the agent's ancestors as `omp.composer.crumb` links, the agent
-	 * itself (`omp.composer.agent`), then the way back to the main session
-	 * (`omp.composer.exit`, the interrupt key's keycap: Esc on an empty draft).
+	 * The viewing header (`oms.composer.focus`) while a subagent is focused:
+	 * an eye, the agent's ancestors as `oms.composer.crumb` links, the agent
+	 * itself (`oms.composer.agent`), then the way back to the main session
+	 * (`oms.composer.exit`, the interrupt key's keycap: Esc on an empty draft).
 	 */
 	#describeViewing(viewing: readonly string[], interruptKey: KeyId): NativeNode | undefined {
 		const agent = viewing.at(-1);
@@ -1201,7 +1238,7 @@ export class CustomEditor extends Editor {
 			node(
 				"text",
 				{
-					role: "omp.composer.crumb",
+					role: "oms.composer.crumb",
 					text: id,
 					wrap: "none",
 					title: `View ${id}`,
@@ -1217,11 +1254,11 @@ export class CustomEditor extends Editor {
 					node("icon", { name: "eye" }, undefined, "icon"),
 					node("text", { text: "Viewing", wrap: "none" }, undefined, "label"),
 					...crumbs,
-					node("text", { role: "omp.composer.agent", text: agent, wrap: "none" }, undefined, "agent"),
+					node("text", { role: "oms.composer.agent", text: agent, wrap: "none" }, undefined, "agent"),
 					node(
 						"row",
 						{
-							role: "omp.composer.exit",
+							role: "oms.composer.exit",
 							gap: "xs",
 							align: "center",
 							title: `Back to the main session  ${back}`,
@@ -1235,7 +1272,7 @@ export class CustomEditor extends Editor {
 					),
 				],
 				{
-					role: "omp.composer.focus",
+					role: "oms.composer.focus",
 					gap: "xs",
 					align: "center",
 					title: `Viewing subagent ${agent}: what you send goes to it`,
@@ -1265,7 +1302,7 @@ export class CustomEditor extends Editor {
 						"effort",
 						{
 							level: thinking,
-							role: "omp.composer.model.effort",
+							role: "oms.composer.model.effort",
 							title: `Thinking effort: ${thinking}${thinkingHint}`,
 							actions: { click: "thinking.cycle" },
 						},
@@ -1278,7 +1315,7 @@ export class CustomEditor extends Editor {
 			node(
 				"row",
 				{
-					role: "omp.composer.model",
+					role: "oms.composer.model",
 					gap: "xs",
 					align: "center",
 					tone: facts.model.tone,
@@ -1298,7 +1335,7 @@ export class CustomEditor extends Editor {
 				? node(
 						"row",
 						{
-							role: "omp.composer.effort",
+							role: "oms.composer.effort",
 							gap: "xs",
 							align: "center",
 							title: `Thinking effort${thinkingHint}`,
@@ -1327,7 +1364,7 @@ export class CustomEditor extends Editor {
 				: node(
 						"row",
 						{
-							role: "omp.composer.dictation",
+							role: "oms.composer.dictation",
 							gap: "xs",
 							align: "center",
 							tone: recording ? "error" : starting || transcribing ? "pending" : undefined,
@@ -1354,7 +1391,7 @@ export class CustomEditor extends Editor {
 			? node(
 					"text",
 					{
-						role: "omp.composer.stop",
+						role: "oms.composer.stop",
 						text: "Stop",
 						tone: "error",
 						title: `Stop  ${formatTooltipKey(interruptKey)}`,
@@ -1366,7 +1403,7 @@ export class CustomEditor extends Editor {
 			: node(
 					"kbd",
 					{
-						role: "omp.composer.send",
+						role: "oms.composer.send",
 						keys: ["enter"],
 						title: dictating ? "Finish dictation before sending" : `Send  ${formatTooltipKey("enter")}`,
 						tone: dictating ? "muted" : undefined,
@@ -1390,7 +1427,7 @@ export class CustomEditor extends Editor {
 					),
 				]),
 				{
-					role: "omp.composer.mode",
+					role: "oms.composer.mode",
 					gap: "xs",
 					align: "center",
 					title: shell.excluded ? `${runs} · not sent to the model` : runs,
@@ -1430,6 +1467,9 @@ export class CustomEditor extends Editor {
 			case "thinking.cycle":
 				this.onCycleThinkingLevel?.();
 				return;
+			case "thinking.set":
+				if (event.value) this.onSetThinkingLevel?.(event.value);
+				return;
 			case "dictation.toggle": {
 				const { dictation } = this.composerState();
 				if (dictation !== undefined && dictation !== "transcribing") this.onToggleDictation?.();
@@ -1452,6 +1492,8 @@ export class CustomEditor extends Editor {
 	onExit?: () => void;
 	onDisplayReset?: () => void;
 	onCycleThinkingLevel?: () => void;
+	/** A thinking level (`off`, `auto`, `minimal`…`max`) was picked by pointer. */
+	onSetThinkingLevel?: (level: string) => void;
 	onCycleModelForward?: () => void;
 	onCycleModelBackward?: () => void;
 	onSelectModel?: () => void;

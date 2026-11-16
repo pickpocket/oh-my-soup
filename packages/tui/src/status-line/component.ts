@@ -14,7 +14,10 @@ import {
 	type ComposerStyle,
 	claudeComposerStyle,
 	padding,
-	SPINNER_ADVANCE_MS,
+	motionEffectsEnabled,
+	spinnerAnimated,
+	spinnerInterval,
+	spinnerTickDelay,
 	truncateToWidth,
 	visibleWidth,
 	isSshSession,
@@ -24,6 +27,7 @@ import type {
 	ActiveRepoContext,
 	StatusAccountIdentity as OAuthAccountIdentity,
 	StatusLineHost,
+	PromptCacheStatus,
 	StatusLineSession,
 } from "./host";
 import type { Editor } from "../components/editor";
@@ -40,9 +44,10 @@ import { canReuseCachedPr, createPrCacheContext, isSamePrCacheContext, type PrCa
 import { summarizeUsageResetCredits } from "../overlays/usage-display";
 import { getPreset } from "./presets";
 import { describeSegment, renderSegment, type SegmentContext } from "./segments";
+import { promptCacheBrief } from "./prompt-cache";
 import type { TspMeterMark, TspProps } from "@oh-my-soup/pi-wire";
 import type { NativeNode, NativeUiEvent } from "../native/node";
-import { col, node, span } from "../native/describe";
+import { col, node, propNode, span, text } from "../native/describe";
 import { getContextMeterThresholds } from "../chrome/context-thresholds";
 import { isNativeRendering, onNativeRenderingChange } from "../native/state";
 import { getSeparator } from "./separators";
@@ -65,9 +70,15 @@ import type {
 const JOBS_SEGMENT_SPARK_CELLS = 8;
 
 /** What a click on a native status segment asks oms to open. */
-export type StatusLineNativeAction = "status.model" | "status.context" | "status.git" | "status.cost" | "status.path";
+export type StatusLineNativeAction =
+	| "status.model"
+	| "status.context"
+	| "status.git"
+	| "status.cost"
+	| "status.path"
+	| "status.cache";
 
-/** Click action per native segment: quick model picker, `/context`, `/git`, `/usage`, the project directory. */
+/** Click action per native segment: quick model picker, `/context`, `/git`, `/usage`, the project directory, `/session`. */
 const NATIVE_SEGMENT_ACTIONS: Partial<Record<string, StatusLineNativeAction>> = {
 	model: "status.model",
 	context_pct: "status.context",
@@ -75,6 +86,7 @@ const NATIVE_SEGMENT_ACTIONS: Partial<Record<string, StatusLineNativeAction>> = 
 	git: "status.git",
 	cost: "status.cost",
 	path: "status.path",
+	cache: "status.cache",
 };
 
 /** Segments that outlast every other one as the native bar narrows (model, context, git branch). */
@@ -146,6 +158,26 @@ function describeSeg(key: string, props: TspProps<"seg">, view: SegmentView, dim
 }
 
 /**
+ * The `cache` fact's own props: it sits at the facts' right end, beside the
+ * usage, names its glyph by the card's first line, and its hover card says
+ * until when the next message reads the cache (or why not) and what it sends,
+ * in absolute times, since the terminal shows the card later without repainting.
+ */
+function promptCacheFactProps(status: PromptCacheStatus, nowMs: number): TspProps<"seg"> {
+	const [head, next] = promptCacheBrief(status, nowMs);
+	const card = col([text(status.state === "cold" ? [span(head, "warning")] : head), text([span(next, "muted")])], {
+		role: "oms.composer.cache.card",
+	});
+	return {
+		role: "oms.composer.cache",
+		side: "right",
+		aria: head,
+		title: `${head}\n${next}`,
+		hovercard: propNode(card),
+	};
+}
+
+/**
  * Freshness window for the git segment's working-tree counts. A whole-worktree
  * `git status` costs ~1 CPU-second on large repos and every open session polls
  * it, so edits surface within this window; HEAD moves refetch immediately via
@@ -159,10 +191,13 @@ const WATCHER_FAILURE_POLL_TTL_MS = 5000;
 const BRAND_FADE_MS = 450;
 /** Repaint cadence while the brand fade is in flight (rust oms's `FADE_FRAME`). */
 const BRAND_FADE_FRAME_MS = 40;
-/** Repaint cadence while a turn's active-processing window is open: keeps the
+/** Shortest repaint cadence while a turn's active-processing window is open: keeps the
  * status bar's clock-driven readouts (pi spinner, turn timer) animating when
- * no other component is requesting renders. */
+ * no other component is requesting renders. The armed period is this rounded up to a
+ * whole number of spinner frames, so the ticker lands on the working row's own ticks. */
 const ACTIVE_WINDOW_REPAINT_MS = 250;
+/** Turn-window repaint cadence under a static spinner: only the one-second timers still move. */
+const STATIC_SPINNER_REPAINT_MS = 1_000;
 
 /**
  * Providers whose subscription quota is a single monthly bucket, so their
@@ -719,11 +754,15 @@ export class StatusLineComponent<TSession extends StatusLineSession = StatusLine
 	#pricingTimer: NodeJS.Timeout | undefined;
 	#pricingTimerCost: ModelCost | undefined;
 	#pricingTransition: number | undefined;
+	/** One wall-clock wakeup when the warm prompt-cache entry expires, so the marker turns without ticking. */
+	#promptCacheTimer: NodeJS.Timeout | undefined;
+	#promptCacheWakeAt: number | undefined;
 	#hookStatuses: Map<string, string> = new Map();
 	#sortedHookStatuses: readonly string[] = [];
 	#subagentCount: number = 0;
 	#runningSubagentIds = new Set<string>();
 	#subagentTreeCost = 0;
+	#pinnedSessionIds = new Set<string>();
 	/**
 	 * Active-processing accounting for the `time_spent` segment, keyed per
 	 * {@link StatusLineSession} so the focus-controller mid-turn attach path
@@ -821,8 +860,6 @@ export class StatusLineComponent<TSession extends StatusLineSession = StatusLine
 	#codexResetSnapshots = new Map<string, CodexResetUsageSnapshot>();
 	#onCodexResetFireworks: ((event: CodexResetFireworksEvent) => void) | undefined;
 	#onResetExpiryNotice: ((notice: string) => void) | undefined;
-	/** Conversations already warned about expiring saved resets: later refreshes stay quiet. */
-	#resetExpiryNoticedSessions = new Set<string>();
 	// Context-usage memo. The status line redraws on every agent event, so the
 	// hot path must not recompute context tokens unless an input changed.
 	// `getContextUsage()` anchors on the last assistant's real prompt-token
@@ -991,24 +1028,26 @@ export class StatusLineComponent<TSession extends StatusLineSession = StatusLine
 		this.#invalidateStatusLineRenderCache();
 	}
 
-	setRunningSubagents(agentIds: readonly string[]): void {
+	setRunningSubagents(agentIds: readonly string[]): boolean {
 		if (
 			agentIds.length === this.#runningSubagentIds.size &&
 			agentIds.every(agentId => this.#runningSubagentIds.has(agentId))
 		) {
-			return;
+			return false;
 		}
 		this.#subagentCount = agentIds.length;
 		this.#runningSubagentIds = new Set(agentIds);
 		this.#invalidateStatusLineRenderCache();
+		return true;
 	}
 
 	/** Host-computed spend of the main session's whole subagent tree (Agent Hub projection). */
-	setSubagentTreeCost(cost: number): void {
+	setSubagentTreeCost(cost: number): boolean {
 		const next = Number.isFinite(cost) && cost > 0 ? cost : 0;
-		if (next === this.#subagentTreeCost) return;
+		if (next === this.#subagentTreeCost) return false;
 		this.#subagentTreeCost = next;
 		this.#invalidateStatusLineRenderCache();
+		return true;
 	}
 
 	/**
@@ -1231,12 +1270,30 @@ export class StatusLineComponent<TSession extends StatusLineSession = StatusLine
 		this.#invalidateStatusLineRenderCache();
 	}
 
+	/** Mark one session pinned or unpinned; `session_name` shows the pin for the viewed session. */
+	setSessionPinned(sessionId: string, pinned: boolean): void {
+		if (this.#pinnedSessionIds.has(sessionId) === pinned) return;
+		if (pinned) this.#pinnedSessionIds.add(sessionId);
+		else this.#pinnedSessionIds.delete(sessionId);
+		this.#invalidateStatusLineRenderCache();
+	}
+
+	/** Replace the whole pinned-session set (a fresh read of the pins file). */
+	setPinnedSessionIds(sessionIds: ReadonlySet<string>): void {
+		this.#pinnedSessionIds = new Set(sessionIds);
+		this.#invalidateStatusLineRenderCache();
+	}
+
+	isSessionPinned(sessionId: string | undefined): boolean {
+		return sessionId !== undefined && this.#pinnedSessionIds.has(sessionId);
+	}
+
 	/** Set the callback that presents detected Codex reset celebrations, or clear it with `undefined`. */
 	setCodexResetFireworksHandler(handler: ((event: CodexResetFireworksEvent) => void) | undefined): void {
 		this.#onCodexResetFireworks = handler;
 	}
 
-	/** Set the callback that presents the first pool-wide saved-reset expiry warning, or clear it with `undefined`. */
+	/** Set the callback that presents pool-wide saved-reset expiry warnings, or clear it with `undefined`. */
 	setResetExpiryNoticeHandler(handler: ((notice: string) => void) | undefined): void {
 		this.#onResetExpiryNotice = handler;
 	}
@@ -1309,6 +1366,7 @@ export class StatusLineComponent<TSession extends StatusLineSession = StatusLine
 		this.#stopBrandFadeTimer();
 		this.#stopActiveWindowRepaint();
 		this.#stopPricingTimer();
+		this.#stopPromptCacheTimer();
 		this.#clearUsageStartTimer();
 		this.#unwatchNativeRendering?.();
 		this.#unwatchNativeRendering = undefined;
@@ -1325,8 +1383,9 @@ export class StatusLineComponent<TSession extends StatusLineSession = StatusLine
 	 * the first render after speculation leaves the running state.
 	 */
 	#syncSpeculationBlink(state: "idle" | "running" | "armed"): void {
-		// A TSP terminal pulses the icon itself (`fx: "pulse"`).
-		if (state === "running" && !this.#disposed && !isNativeRendering()) {
+		// A TSP terminal pulses the icon itself (`fx: "pulse"`, dropped by `quietMotion` when effects are
+		// off); here `tui.motion` switches the JS blink off.
+		if (state === "running" && !this.#disposed && !isNativeRendering() && motionEffectsEnabled()) {
 			this.#speculationBlinkTimer ??= setInterval(() => {
 				this.#speculationBlinkOn = !this.#speculationBlinkOn;
 				this.invalidate();
@@ -1360,14 +1419,19 @@ export class StatusLineComponent<TSession extends StatusLineSession = StatusLine
 		const now = Date.now();
 		if (working !== this.#brandWorking) {
 			const previousTargetHex = this.#brandWorking ? workingHex : idleHex;
-			this.#brandFade = {
-				fromHex: this.#sampleBrandHex(previousTargetHex, now),
-				toHex: working ? workingHex : idleHex,
-				startedAt: now,
-			};
 			this.#brandWorking = working;
-			// Only a visible `pi` segment needs fade frames; other bars stay quiet.
-			if (brandVisible) this.#startBrandFadeTimer();
+			// With decorative motion off the brand snaps to its settled color; otherwise it eases over.
+			if (motionEffectsEnabled()) {
+				this.#brandFade = {
+					fromHex: this.#sampleBrandHex(previousTargetHex, now),
+					toHex: working ? workingHex : idleHex,
+					startedAt: now,
+				};
+				// Only a visible `pi` segment needs fade frames; other bars stay quiet.
+				if (brandVisible) this.#startBrandFadeTimer();
+			} else {
+				this.#brandFade = null;
+			}
 		}
 		const hex = this.#sampleBrandHex(working ? workingHex : idleHex, now);
 		return getSessionAccentAnsi(hex) ?? theme.getFgAnsi(working ? "accent" : "dim");
@@ -1419,7 +1483,7 @@ export class StatusLineComponent<TSession extends StatusLineSession = StatusLine
 	 * Keep the status bar repainting while a turn's active-processing window
 	 * is open. The `pi` segment's spinner and turn timer are painted from the
 	 * wall clock at render time, so they only animate when frames flow; during
-	 * a quiet turn the working-row loader's 80 ms tick is normally the sole
+	 * a quiet turn the working-row loader's tick is normally the sole
 	 * repaint source, and paths that stop or bypass that loader mid-turn (an
 	 * error banner, a stale retry/compaction loader reference) froze the
 	 * spinner until the next keystroke. The status line owns the active
@@ -1431,21 +1495,33 @@ export class StatusLineComponent<TSession extends StatusLineSession = StatusLine
 			this.#stopActiveWindowRepaint();
 			return;
 		}
-		if (this.#activeWindowRepaintTimer) return;
-		const timer = setInterval(() => {
-			if (this.#disposed || isNativeRendering() || this.getTurnElapsedMs() === null) {
-				this.#stopActiveWindowRepaint();
-				return;
-			}
+		if (!this.#activeWindowRepaintTimer) this.#armActiveWindowRepaint();
+	}
+
+	/**
+	 * One tick on the shared clock's next boundary (see {@link spinnerTickDelay}); re-arms itself,
+	 * re-reading the period. The period is a whole number of spinner frames no shorter than the
+	 * 250 ms safety net, so every tick coincides with one of the working row's own and the two cost
+	 * one frame; with static spinners it is the turn timer's 1 s.
+	 */
+	#armActiveWindowRepaint(): void {
+		const frameMs = spinnerInterval();
+		const periodMs = spinnerAnimated()
+			? Math.ceil(ACTIVE_WINDOW_REPAINT_MS / frameMs - 1e-6) * frameMs
+			: STATIC_SPINNER_REPAINT_MS;
+		const timer = setTimeout(() => {
+			this.#activeWindowRepaintTimer = undefined;
+			if (this.#disposed || isNativeRendering() || this.getTurnElapsedMs() === null) return;
 			this.#onBranchChange?.();
-		}, ACTIVE_WINDOW_REPAINT_MS);
+			this.#armActiveWindowRepaint();
+		}, spinnerTickDelay(periodMs));
 		timer.unref?.();
 		this.#activeWindowRepaintTimer = timer;
 	}
 
 	#stopActiveWindowRepaint(): void {
 		if (!this.#activeWindowRepaintTimer) return;
-		clearInterval(this.#activeWindowRepaintTimer);
+		clearTimeout(this.#activeWindowRepaintTimer);
 		this.#activeWindowRepaintTimer = undefined;
 	}
 
@@ -1486,6 +1562,36 @@ export class StatusLineComponent<TSession extends StatusLineSession = StatusLine
 			this.#onBranchChange?.();
 		}, transition - now);
 		this.#pricingTimer = timer;
+		timer.unref();
+	}
+
+	#stopPromptCacheTimer(): void {
+		clearTimeout(this.#promptCacheTimer);
+		this.#promptCacheTimer = undefined;
+		this.#promptCacheWakeAt = undefined;
+	}
+
+	/**
+	 * One wakeup when the warm prompt cache lapses, so the marker turns without
+	 * ticking; a warm refresh moves the expiry and re-arms it on the next build.
+	 */
+	#syncPromptCacheTimer(status: PromptCacheStatus | undefined, now: number): void {
+		const wakeAt =
+			status?.state === "warm" && status.ttlMs !== undefined ? status.touchedAt + status.ttlMs : undefined;
+		if (this.#disposed || !this.#onBranchChange || wakeAt === undefined || wakeAt <= now) {
+			this.#stopPromptCacheTimer();
+			return;
+		}
+		if (this.#promptCacheWakeAt === wakeAt) return;
+		this.#stopPromptCacheTimer();
+		this.#promptCacheWakeAt = wakeAt;
+		const timer = setTimeout(() => {
+			if (this.#disposed || this.#promptCacheTimer !== timer) return;
+			this.#stopPromptCacheTimer();
+			this.invalidate();
+			this.#onBranchChange?.();
+		}, wakeAt - now);
+		this.#promptCacheTimer = timer;
 		timer.unref();
 	}
 
@@ -2119,7 +2225,7 @@ export class StatusLineComponent<TSession extends StatusLineSession = StatusLine
 	}
 
 	#noticeResetExpiry(session: TSession, reports: unknown): void {
-		// A focused subagent's view is not a conversation the user started; warn in their own.
+		// A focused subagent's view is not a conversation the user started; leave the warning for their own.
 		if (
 			this.#focusedAgentId !== undefined ||
 			!this.#onResetExpiryNotice ||
@@ -2128,8 +2234,6 @@ export class StatusLineComponent<TSession extends StatusLineSession = StatusLine
 		) {
 			return;
 		}
-		const sessionId = session.sessionManager.getSessionId();
-		if (this.#resetExpiryNoticedSessions.has(sessionId)) return;
 		// fetchUsageReports supplies normalized rows; keep only entries shaped like reports.
 		const usageReports = reports.filter(
 			(report): report is UsageReport =>
@@ -2139,10 +2243,8 @@ export class StatusLineComponent<TSession extends StatusLineSession = StatusLine
 				"limits" in report &&
 				Array.isArray(report.limits),
 		);
-		const notice = this.host.resetExpiryNotice(usageReports, Date.now());
-		if (!notice) return;
-		this.#resetExpiryNoticedSessions.add(sessionId);
-		this.#onResetExpiryNotice(notice);
+		const notice = this.host.resetExpiryNotice(session, usageReports, Date.now());
+		if (notice) this.#onResetExpiryNotice(notice);
 	}
 
 	#observeLateUsageRefresh(session: TSession, reportsPromise: Promise<unknown>, sequence: number): void {
@@ -2596,11 +2698,17 @@ export class StatusLineComponent<TSession extends StatusLineSession = StatusLine
 		const sessionAccentEnabled = settings.sessionAccent !== false;
 		const brandVisible = settings.leftSegments.includes("pi") || settings.rightSegments.includes("pi");
 		const turnElapsedMs = this.getTurnElapsedMs();
+		const promptCache =
+			settings.leftSegments.includes("cache") || settings.rightSegments.includes("cache")
+				? this.session.getPromptCacheStatus?.(nowMs, breakdown.usedTokens)
+				: undefined;
+		this.#syncPromptCacheTimer(promptCache, nowMs);
 		return {
 			session: this.session,
 			focusedAgentId: this.#focusedAgentId,
 			sessionAccent: sessionAccentEnabled,
 			previewTitle,
+			isPinned: this.isSessionPinned(this.session.sessionManager?.getSessionId?.()),
 			activeRepo: activeRepoCache.activeRepo,
 			width,
 			options: segmentOptions ?? {},
@@ -2641,6 +2749,7 @@ export class StatusLineComponent<TSession extends StatusLineSession = StatusLine
 			},
 			worktree: activeRepoCache.worktree,
 			usage: this.#cachedUsage,
+			promptCache,
 		};
 	}
 
@@ -2887,7 +2996,10 @@ export class StatusLineComponent<TSession extends StatusLineSession = StatusLine
 			!isSshSession() &&
 			(leftSegments.includes("pi") || rightSegments.includes("pi"))
 		) {
-			return Math.floor(nowMs / SPINNER_ADVANCE_MS);
+			// The brand spinner follows the shared clock. With a static spinner the brand's elapsed
+			// timer still advances once a second, and a brand fade repaints on its own frame cadence.
+			if (spinnerAnimated()) return Math.floor(nowMs / spinnerInterval());
+			return this.#brandFade !== null ? Math.floor(nowMs / BRAND_FADE_FRAME_MS) : Math.floor(nowMs / 1_000);
 		}
 		const includesTime = leftSegments.includes("time") || rightSegments.includes("time");
 		if (
@@ -3679,13 +3791,14 @@ export class StatusLineComponent<TSession extends StatusLineSession = StatusLine
 				const view = describeSegment(id, ctx);
 				if (!view) return;
 				const props: TspProps<"seg"> = {
-					role: "omp.composer.fact",
+					role: "oms.composer.fact",
 					priority:
 						(PINNED_NATIVE_SEGMENTS[id] === true ? PINNED_NATIVE_PRIORITY : 0) +
 						statusSegmentPriority(side, index, ids.length),
 				};
 				const action = NATIVE_SEGMENT_ACTIONS[id];
 				if (action) props.actions = { click: action };
+				if (id === "cache" && ctx.promptCache) Object.assign(props, promptCacheFactProps(ctx.promptCache, nowMs));
 				facts.push(describeSeg(id, props, view, dim));
 			});
 		};
@@ -3696,7 +3809,7 @@ export class StatusLineComponent<TSession extends StatusLineSession = StatusLine
 			this.#sortedHookStatuses.forEach((status, index) => {
 				const text = sanitizeStatusText(status);
 				if (!text) return;
-				const props: TspProps<"seg"> = { role: "omp.composer.fact", priority: 0 };
+				const props: TspProps<"seg"> = { role: "oms.composer.fact", priority: 0 };
 				facts.push(describeSeg(`hook-${index}`, props, { spans: [span(text)] }, dim));
 			});
 		}
@@ -3738,7 +3851,7 @@ export class StatusLineComponent<TSession extends StatusLineSession = StatusLine
 		const context = node(
 			"meter",
 			{
-				role: "omp.composer.context",
+				role: "oms.composer.context",
 				value: used,
 				style: "bar",
 				thresholds: getContextMeterThresholds(window),
@@ -3763,7 +3876,7 @@ export class StatusLineComponent<TSession extends StatusLineSession = StatusLine
 		const usage = node(
 			"text",
 			{
-				role: "omp.composer.usage",
+				role: "oms.composer.usage",
 				text: cost,
 				wrap: "none",
 				...(cost ? { title: `Session cost ${cost}` } : {}),
@@ -3781,7 +3894,7 @@ export class StatusLineComponent<TSession extends StatusLineSession = StatusLine
 		return {
 			context,
 			model: describeSegment("model", modelCtx) ?? { spans: [] },
-			extras: node("status", { role: "omp.composer.extras", transparent: true, grow: 1 }, facts, "extras"),
+			extras: node("status", { role: "oms.composer.extras", transparent: true, grow: 1 }, facts, "extras"),
 			usage,
 		};
 	}
@@ -3822,7 +3935,7 @@ export class StatusLineComponent<TSession extends StatusLineSession = StatusLine
 		const push = (key: string, side: "left" | "right", priority: number, view: SegmentView): void => {
 			const pinned = PINNED_NATIVE_SEGMENTS[key] === true;
 			const props: TspProps<"seg"> = {
-				role: `omp.status.${key}`,
+				role: `oms.status.${key}`,
 				side,
 				priority: pinned ? PINNED_NATIVE_PRIORITY + priority : priority,
 			};
@@ -3860,7 +3973,7 @@ export class StatusLineComponent<TSession extends StatusLineSession = StatusLine
 		});
 		const bar = node(
 			"status",
-			{ role: "omp.status", transparent: effectiveSettings.transparent === true },
+			{ role: "oms.status", transparent: effectiveSettings.transparent === true },
 			segs,
 			"bar",
 		);
@@ -3872,13 +3985,13 @@ export class StatusLineComponent<TSession extends StatusLineSession = StatusLine
 				...this.#sortedHookStatuses.map((status, index) =>
 					node(
 						"text",
-						{ text: sanitizeStatusText(status), wrap: "none", role: "omp.status.hook" },
+						{ text: sanitizeStatusText(status), wrap: "none", role: "oms.status.hook" },
 						undefined,
 						`hook-${index}`,
 					),
 				),
 			],
-			{ role: "omp.status.panel" },
+			{ role: "oms.status.panel" },
 		);
 	}
 

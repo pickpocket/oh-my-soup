@@ -23,9 +23,17 @@ export interface TabSnapshot {
 
 /** RPCs the relay may ask the extension to perform. */
 export type RelayRpcRequest =
-	| { op: "attach"; tabId: number }
+	/** `clearForeignFrames`: the tab is one oms drives, so another extension's frames may be emptied past a refusal. */
+	| { op: "attach"; tabId: number; clearForeignFrames?: boolean }
 	| { op: "detach"; tabId: number }
-	| { op: "send"; tabId: number; sessionId?: string; method: string; params?: Record<string, unknown> }
+	| {
+			op: "send";
+			tabId: number;
+			sessionId?: string;
+			method: string;
+			params?: Record<string, unknown>;
+			clearForeignFrames?: boolean;
+	  }
 	/** `active: false` opens the tab without selecting it; absent keeps Chrome's default (selected). */
 	| { op: "createTab"; url: string; active?: boolean }
 	| { op: "removeTab"; tabId: number }
@@ -33,7 +41,15 @@ export type RelayRpcRequest =
 	/** Add tabs to the per-window oms group (created/reused by title), remembering prior membership. */
 	| { op: "group"; tabIds: number[]; title: string; color: string }
 	/** Return tabs to their pre-oms group (or ungroup); no-op for tabs the relay never grouped. */
-	| { op: "ungroup"; tabIds: number[] };
+	| { op: "ungroup"; tabIds: number[] }
+	/**
+	 * Where Chrome saved the download a driven page reported as `guid` (`Page.downloadWillBegin`), as a
+	 * {@link FoundDownload}.
+	 */
+	| { op: "findDownload"; guid: string };
+
+/** The extension's answer to `findDownload`: null when it paired no Chrome download with that report. */
+export type FoundDownload = { filename: string; state: "in_progress" | "interrupted" | "complete" } | null;
 
 /**
  * Messages sent relay → extension. `reload` asks the extension to run `chrome.runtime.reload()`, which
@@ -47,12 +63,17 @@ export const DISCARDED_TABS_PROTOCOL_VERSION = 1;
 /** Hello capability of an extension that reloads itself on a relay `reload` message. */
 export const EXTENSION_RELOAD_PROTOCOL_VERSION = 1;
 
+/** Chrome's refusal of a debugger request while another extension's frame (a password manager's menu) is in the tab. */
+export const FOREIGN_FRAME_REFUSAL = /chrome-extension:\/\/ URL of different extension/i;
+
+/** Hello capability of an extension that answers `findDownload` (it holds Chrome's `downloads` permission). */
+export const DOWNLOADS_PROTOCOL_VERSION = 1;
 /**
  * Whether a relay or extension reported a well-formed oms release version.
  * Stricter than `Bun.semver.order`, which ranks strings with trailing text;
  * peers supply these and results quote them.
  */
-export function isOmpVersion(version: string): boolean {
+export function isOmsVersion(version: string): boolean {
 	return /^(?=.{5,64}$)\d+\.\d+\.\d+(?:-[0-9A-Za-z]+(?:\.[0-9A-Za-z]+)*)?$/.test(version);
 }
 
@@ -61,9 +82,9 @@ export function isOmpVersion(version: string): boolean {
  * is older than anything reported; otherwise both must be oms versions, since
  * anything else has no known age.
  */
-export function isOlderOmpVersion(version: string, than: string): boolean {
+export function isOlderOmsVersion(version: string, than: string): boolean {
 	if (version === "") return than !== "";
-	return isOmpVersion(version) && isOmpVersion(than) && Bun.semver.order(version, than) < 0;
+	return isOmsVersion(version) && isOmsVersion(than) && Bun.semver.order(version, than) < 0;
 }
 
 /**
@@ -109,6 +130,8 @@ export type ExtToRelayMessage =
 			ompVersion?: string;
 			/** {@link EXTENSION_RELOAD_PROTOCOL_VERSION} when the extension reloads itself on `reload`. Absent in older extensions. */
 			reloadProtocol?: number;
+			/** {@link DOWNLOADS_PROTOCOL_VERSION} when the extension answers `findDownload`. Absent in older extensions. */
+			downloadsProtocol?: number;
 	  }
 	| { t: "cdpEvent"; tabId: number; sessionId?: string; method: string; params?: Record<string, unknown> }
 	| { t: "detached"; tabId: number; reason: string; relayInitiated?: boolean }

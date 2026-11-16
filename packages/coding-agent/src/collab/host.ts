@@ -37,6 +37,7 @@ import { buildSkillCommandPrompt } from "../modes/skill-command";
 import { AgentLifecycleManager } from "../registry/agent-lifecycle";
 import { type AgentRef, AgentRegistry } from "../registry/agent-registry";
 import type { AgentSession, AgentSessionEvent } from "../session/agent-session";
+import { type AgentViewSession, isAgentViewSession, isLocalAgentSession } from "../session/agent-session-handle";
 import { getBtwLatestTurn } from "../session/btw-history";
 import { stripImagesFromMessage, USER_INTERRUPT_LABEL } from "../session/messages";
 import type { SessionEntry as StoredSessionEntry } from "../session/session-entries";
@@ -2203,7 +2204,7 @@ export class CollabHost {
 
 	/** `/btw <question>`: the answer streams to the asking guest and is saved to the session's BTW history. */
 	async #runBtw(run: GuestCommandRun, question: string, agentId: string | undefined): Promise<void> {
-		let targetSession: Pick<AgentSession, "model" | "runEphemeralTurn" | "sessionManager"> = this.#ctx.session;
+		let targetSession: Pick<AgentViewSession, "model" | "runEphemeralTurn" | "sessionManager"> = this.#ctx.session;
 		let historyScope: string | undefined;
 		if (agentId !== undefined) {
 			const abortWait = Promise.withResolvers<never>();
@@ -2227,6 +2228,9 @@ export class CollabHost {
 				) {
 					this.#endCommand(run, "error", "Commands are unavailable until the session transition completes");
 					return;
+				}
+				if (!isLocalAgentSession(resolved) && !isAgentViewSession(resolved)) {
+					throw new Error("The agent session does not expose the host view required for /btw");
 				}
 				targetSession = resolved;
 				if (resolved !== this.#ctx.session) {

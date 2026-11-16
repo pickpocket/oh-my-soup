@@ -62,12 +62,16 @@ export class SkillMessageComponent extends Container {
 		this.#disclosure?.setExpanded(expanded);
 	}
 
+	isExpanded(): boolean {
+		return this.#expanded;
+	}
+
 	handleNativeEvent(event: NativeUiEvent): void {
 		if (event.type === "toggle" && event.key === "prompt") this.setExpanded(!event.collapsed);
 	}
 
 	/**
-	 * A user-toned card (role `omp.skill`): the skill chip and prompt size in
+	 * A user-toned card (role `oms.skill`): the skill chip and prompt size in
 	 * the head, the user's draft always visible, and only the loaded skill
 	 * prompt behind a disclosure.
 	 */
@@ -99,7 +103,7 @@ export class SkillMessageComponent extends Container {
 					"section",
 					{
 						head: [span("prompt", "muted")],
-						role: "omp.skill.prompt",
+						role: "oms.skill.prompt",
 						collapsible: true,
 						collapsed: !this.#expanded,
 					},
@@ -107,7 +111,7 @@ export class SkillMessageComponent extends Container {
 					"prompt",
 				),
 			);
-			return card({ role: "omp.skill", tone: "user", head }, children);
+			return card({ role: "oms.skill", tone: "user", head }, children);
 		});
 	}
 

@@ -82,9 +82,9 @@ function identityField(label: string, value: TspSpan[], key: string, copy?: stri
 	const shown = text(value, { truncate: "middle", grow: 1, shrink: 1 });
 	return node(
 		"row",
-		{ gap: "md", align: "center", role: "omp.info.field" },
+		{ gap: "md", align: "center", role: "oms.info.field" },
 		[
-			text([span(label)], { role: "omp.info.label", wrap: "none", shrink: 0 }),
+			text([span(label)], { role: "oms.info.label", wrap: "none", shrink: 0 }),
 			copy
 				? node(
 						"row",
@@ -93,11 +93,11 @@ function identityField(label: string, value: TspSpan[], key: string, copy?: stri
 							align: "center",
 							grow: 1,
 							shrink: 1,
-							role: "omp.info.copy",
+							role: "oms.info.copy",
 							actions: { click: "copy" },
 							title: copy,
 						},
-						[shown, node("icon", { name: "copy", role: "omp.info.copy.ic", aria: copy })],
+						[shown, node("icon", { name: "copy", role: "oms.info.copy.ic", aria: copy })],
 						"value",
 					)
 				: shown,
@@ -117,7 +117,7 @@ export interface SessionInfoOverlayHost {
 export class SessionInfoOverlay implements Component {
 	/** The terminal draws the sheet: a centred `md` glass sheet titled Session info. */
 	readonly nativeOverlay = {
-		role: "omp.overlay.sessionInfo",
+		role: "oms.overlay.sessionInfo",
 		size: "md",
 		anchor: "center",
 		head: "Session info",
@@ -223,7 +223,7 @@ export class SessionInfoOverlay implements Component {
 				const identity: NativeChild[] = [];
 				const rest: NativeChild[] = [];
 				for (const entry of entries) {
-					if (!("k" in entry)) rest.push(text(entry.line, { wrap: "word", role: "omp.info.note" }));
+					if (!("k" in entry)) rest.push(text(entry.line, { wrap: "word", role: "oms.info.note" }));
 					else if (entry.k === "ID")
 						identity.unshift(identityField("ID", [span(joined(entry.v), "mono")], "id", "Copy session ID"));
 					else if (entry.k === "File") {
@@ -233,9 +233,9 @@ export class SessionInfoOverlay implements Component {
 								? identityField("File", [span(path, "path")], "file", `Copy ${path}`)
 								: identityField("File", [span(path, "muted")], "file"),
 						);
-					} else rest.push(node("kv", { items: [{ k: entry.k, v: entry.v }], role: "omp.info.kv" }));
+					} else rest.push(node("kv", { items: [{ k: entry.k, v: entry.v }], role: "oms.info.kv" }));
 				}
-				if (identity.length > 0) body.push(node("col", { role: "omp.info.identity" }, identity, "identity"));
+				if (identity.length > 0) body.push(node("col", { role: "oms.info.identity" }, identity, "identity"));
 				body.push(...rest);
 				const context = this.#context;
 				if (context && context.contextWindow > 0) body.push(this.#describeContext(context, meter));
@@ -262,7 +262,7 @@ export class SessionInfoOverlay implements Component {
 			body.push(
 				node(
 					"section",
-					{ head: sentenceCase(head), role: "omp.info.group" },
+					{ head: sentenceCase(head), role: "oms.info.group" },
 					this.#describeEntries(entries, head === "Provider"),
 					`s${index}`,
 				),
@@ -278,20 +278,20 @@ export class SessionInfoOverlay implements Component {
 	/**
 	 * Key/value rows, free lines as notes between them. The provider's values are
 	 * machine strings (`mono`); elsewhere (LSP, MCP servers) the keys are names
-	 * (role `omp.info.names`, keys in mono).
+	 * (role `oms.info.names`, keys in mono).
 	 */
 	#describeEntries(entries: readonly KvReportEntry[], mono: boolean): NativeChild[] {
 		const children: NativeChild[] = [];
 		let items: { k: string; v: TspSpan[] }[] = [];
 		const flush = (): void => {
 			if (items.length === 0) return;
-			children.push(node("kv", { items, layout: "grid", role: mono ? "omp.info.kv" : "omp.info.names" }));
+			children.push(node("kv", { items, layout: "grid", role: mono ? "oms.info.kv" : "oms.info.names" }));
 			items = [];
 		};
 		for (const entry of entries) {
 			if (!("k" in entry)) {
 				flush();
-				children.push(text(entry.line, { wrap: "word", role: "omp.info.note" }));
+				children.push(text(entry.line, { wrap: "word", role: "oms.info.note" }));
 				continue;
 			}
 			const v = mono ? entry.v.map(part => ({ ...part, s: part.s ? `${part.s} mono` : "mono" })) : entry.v;
@@ -314,19 +314,19 @@ export class SessionInfoOverlay implements Component {
 		for (const g of groups) {
 			const total = g.items.length > 1 ? g.items.find(item => item.k === "Total") : undefined;
 			const items = total ? g.items.filter(item => item !== total) : g.items;
-			const children: NativeChild[] = [node("kv", { items, layout: "grid", role: "omp.info.nums" })];
-			if (total) children.push(node("kv", { items: [total], layout: "grid", role: "omp.info.total" }));
+			const children: NativeChild[] = [node("kv", { items, layout: "grid", role: "oms.info.nums" })];
+			if (total) children.push(node("kv", { items: [total], layout: "grid", role: "oms.info.total" }));
 			// Ties go right, so the stacked order (left, then right) stays the report's.
 			const column = columns[0].lines === 0 || columns[0].lines < columns[1].lines ? columns[0] : columns[1];
 			column.lines += g.items.length + 2;
-			column.children.push(node("section", { head: sentenceCase(g.head), role: "omp.info.group" }, children, g.key));
+			column.children.push(node("section", { head: sentenceCase(g.head), role: "oms.info.group" }, children, g.key));
 		}
 		return node(
 			"row",
-			{ align: "start", wrap: true, role: "omp.info.stats" },
+			{ align: "start", wrap: true, role: "oms.info.stats" },
 			columns
 				.filter(column => column.children.length > 0)
-				.map((column, i) => node("col", { role: "omp.info.column" }, column.children, `c${i}`)),
+				.map((column, i) => node("col", { role: "oms.info.column" }, column.children, `c${i}`)),
 			"stats",
 		);
 	}
@@ -337,11 +337,11 @@ export class SessionInfoOverlay implements Component {
 		const title = `${context.tokens.toLocaleString("en-US")} of ${context.contextWindow.toLocaleString("en-US")} tokens`;
 		return node(
 			"col",
-			{ role: "omp.info.context", title },
+			{ role: "oms.info.context", title },
 			[
 				node(
 					"row",
-					{ align: "baseline", role: "omp.info.contextHead" },
+					{ align: "baseline", role: "oms.info.contextHead" },
 					[
 						text([span("Context window")], { grow: 1, shrink: 1, truncate: "end" }),
 						text(

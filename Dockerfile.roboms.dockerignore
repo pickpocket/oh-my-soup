@@ -1,4 +1,4 @@
-# Build context for `Dockerfile.robomp` (robomp:dev). Shadows .dockerignore
+# Build context for `Dockerfile.roboms` (roboms:dev). Shadows .dockerignore
 # for this file only — the pi-root build uses Dockerfile.dockerignore instead.
 #
 # Note: this duplicates most of the entries in Dockerfile.dockerignore. That's
@@ -29,7 +29,7 @@ packages/snapcompact/research/results/
 .wt/
 .opencode/
 .pi_config/
-.omp/plugins/
+.oms/plugins/
 
 # VCS, editors, IDEs.
 .git/
@@ -66,11 +66,11 @@ packages/natives/native/.build/
 packages/natives/native/pi_natives.darwin-*.node
 packages/natives/native/pi_natives.dev.node
 packages/ai/test/.temp-images/
-sdk/python/omp-rpc/src/omp_rpc.egg-info/
-python/robomp/data/
-python/robomp/.cache/
-python/robomp/src/robomp/static/
-python/robomp/web/dist/
+sdk/python/oms-rpc/src/oms_rpc.egg-info/
+python/roboms/data/
+python/roboms/.cache/
+python/roboms/src/roboms/static/
+python/roboms/web/dist/
 
 # Scratch files the repo creates ad-hoc.
 syntax.jsonl
@@ -82,14 +82,14 @@ pi-*.html
 **/.venv/
 
 # Secrets. Should never be in the image regardless. Depth-agnostic: a bare
-# `.env` misses `python/robomp/.env`, which sits next to the copied src tree.
+# `.env` misses `python/roboms/.env`, which sits next to the copied src tree.
 **/.env
 
-# Robomp-only excludes. Natives + wheel + python + bun + rustup all come
+# Roboms-only excludes. Natives + wheel + python + bun + rustup all come
 # from PI_BASE; the web-builder stage only needs root manifests + the
-# python/robomp/web tree; the runtime stage only COPYs python/robomp/
+# python/roboms/web tree; the runtime stage only COPYs python/roboms/
 # pyproject + src + entrypoint. Everything below is dead weight in the
-# robomp build context.
+# roboms build context.
 crates/
 sdk/
 docs/

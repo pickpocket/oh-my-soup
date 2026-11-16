@@ -1,7 +1,12 @@
 import type { FetchImpl } from "@oh-my-soup/pi-ai";
 import { untilAborted } from "@oh-my-soup/pi-utils";
 import type { Browser, Page } from "puppeteer-core";
-import { adoptInitialPage, launchCamoufoxBrowser, loadPuppeteer } from "../../../tools/browser/launch";
+import {
+	adoptInitialPage,
+	closeLaunchedBrowser,
+	launchCamoufoxBrowser,
+	loadPuppeteer,
+} from "../../../tools/browser/launch";
 import { runInSearchBrowserSession } from "../../../tools/browser/search-session";
 import { buildBrowserNavigationHeaders } from "./browser-headers";
 import { SEARCH_HARD_TIMEOUT_MS } from "./utils";
@@ -44,9 +49,8 @@ export interface BrowserFetchOptions {
 }
 
 /**
- * Upper bound on `page.close()` during teardown. A dead CDP session leaves
- * puppeteer's close pending forever; `.catch()` only covers rejection, not a
- * hang, so cleanup needs its own deadline (issue #8865).
+ * Upper bound on a search page's teardown. Camoufox owns its initial page;
+ * the browser close below also reaps the process if the protocol is wedged.
  */
 const PAGE_CLOSE_TIMEOUT_MS = 5_000;
 
@@ -126,9 +130,7 @@ async function browseHtmlPage(
 		void launch.then(
 			async lateBrowser => {
 				if (!claimed && signal.aborted) {
-					await untilAborted(AbortSignal.timeout(PAGE_CLOSE_TIMEOUT_MS), () => lateBrowser.close()).catch(
-						() => undefined,
-					);
+					await closeLaunchedBrowser(lateBrowser).catch(() => undefined);
 				}
 			},
 			() => undefined,
@@ -138,11 +140,14 @@ async function browseHtmlPage(
 		page = await untilAborted(signal, () => adoptInitialPage(browser!));
 		return await navigateBrowserPage(page, true, url, options, signal, timeoutMs);
 	} finally {
+		// Teardown must complete even when the caller's signal already fired.
+		// This browser is owned, not a shared CDP daemon: close its initial page,
+		// then close the process with a bounded wait and a process-tree kill.
 		if (page) {
 			await untilAborted(AbortSignal.timeout(PAGE_CLOSE_TIMEOUT_MS), () => page!.close()).catch(() => undefined);
 		}
 		if (browser) {
-			await untilAborted(AbortSignal.timeout(PAGE_CLOSE_TIMEOUT_MS), () => browser!.close()).catch(() => undefined);
+			await closeLaunchedBrowser(browser).catch(() => undefined);
 		}
 	}
 }

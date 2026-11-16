@@ -14,7 +14,7 @@ use std::{
 	collections::HashMap,
 	ffi::OsString,
 	path::{Component, Path, PathBuf, Prefix},
-	time::{Duration, Instant},
+	time::Duration,
 };
 
 use regex::Regex;
@@ -178,30 +178,40 @@ impl PathPolicy {
 			return None;
 		}
 		let escaped = escape_glob_metachars(normalized);
-		let glob = pi_walker::CompiledWalkGlob::new([format!("**/{escaped}")]).ok()?;
-		let started = Instant::now();
-		let request = pi_walker::WalkRequest::new(&self.cwd)
-			.hidden(true)
-			.gitignore(true)
-			.skip_git(true)
-			.skip_node_modules(false)
-			.emit_root(false)
-			.cache(false)
-			.limit(2)
-			.filter(pi_walker::WalkFilter::all().glob(glob));
-		let result = request
-			.collect_with_heartbeat(|| {
-				if started.elapsed() >= Duration::from_secs(5) {
-					Err("workspace suffix search timed out")
-				} else {
-					Ok(())
-				}
-			})
-			.ok()?;
-		if result.entries.len() != 1 {
+		let opts = pi_walker::glob::GlobOptions {
+			pattern: format!("**/{escaped}"),
+			max_results: Some(2),
+			include_node_modules: Some(true),
+			walk: pi_walker::walk::Options { hidden: true, gitignore: true, ..Default::default() },
+			..Default::default()
+		};
+		// The walker is async; this sync fallback runs it on a private
+		// current-thread runtime so callers already inside a runtime cannot
+		// trip tokio's nested-`block_on` panic.
+		let matches = std::thread::scope(|scope| {
+			scope
+				.spawn(|| {
+					let runtime = tokio::runtime::Builder::new_current_thread()
+						.enable_all()
+						.build()
+						.ok()?;
+					runtime.block_on(async {
+						let fs = pi_walker::Fs::native();
+						let search = pi_walker::glob::glob(&fs, &self.cwd, &opts);
+						tokio::time::timeout(Duration::from_secs(5), search)
+							.await
+							.ok()?
+							.ok()
+					})
+				})
+				.join()
+				.ok()
+				.flatten()
+		})?;
+		if matches.len() != 1 {
 			return None;
 		}
-		let display = result.entries.into_iter().next()?.path;
+		let display = matches.into_iter().next()?.path;
 		Some(Resolved { absolute: self.cwd.join(&display), display })
 	}
 

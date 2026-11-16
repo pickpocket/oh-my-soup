@@ -28,7 +28,7 @@ Sources: [`packages/stats/README.md`](../packages/stats/README.md), [`packages/s
 
 - Package: `@oh-my-soup/oms-stats`; bin: `oms-stats`; main user path: `oms stats`.
 - Feature: local observability dashboard for AI usage statistics from session JSONL logs.
-- CLI modes: `oms stats` starts or reuses the dashboard at `http://127.0.0.1:3847`, opens it in the browser, and keeps running. `--port <port>` changes the port; `--host <host>` changes the bind address (loopback by default). `--summary` prints a console summary; `--json` prints JSON and exits. The standalone `oms-stats` uses `--sync` for its summary mode and does not automatically open a browser.
+- CLI modes: `oms stats` starts or reuses the dashboard at `http://127.0.0.1:3847` (a free port when another program holds that one), opens it in the browser, and keeps running. In a Tern pane it shows the dashboard in a browser block in place of that pane instead, with a Close button (Esc, or Ctrl+C with nothing selected) in its top bar, and exits when the block is closed; `/stats` inside oms opens it in a browser block beside oms's pane. `--port <port>` changes the port; `--host <host>` changes the bind address (loopback by default). `--summary` prints a console summary; `--json` prints JSON and exits. The standalone `oms-stats` uses `--sync` for its summary mode and does not automatically open a browser.
 - Programmatic API: exports helpers such as `syncAllSessions()` and `getDashboardStats()` for embedding.
 - Inputs/storage: scans the active profile's session directory recursively, including nested subagent transcripts; stores aggregates in that profile's stats database. Default paths are `~/.oms/agent/sessions/` and `~/.oms/stats.db`; initialized XDG data roots and named profiles change them through the shared directory resolver.
 - Outputs: request/token/cost, provider, model, folder, tool, gain, and frustration dashboards. API endpoints include `/api/stats`, `/api/stats/models`, `/api/stats/folders`, `/api/stats/timeseries`, `/api/stats/tools`, `/api/stats/gain`, `/api/status`, `/api/events` (SSE), and `/api/sync` (POST).
@@ -38,7 +38,7 @@ Sources: [`packages/stats/README.md`](../packages/stats/README.md), [`packages/s
 
 Sources: [`packages/omstype/README.md`](../packages/omstype/README.md), [`packages/omstype/package.json`](../packages/omstype/package.json), and the repository [omstype authoring guide](./omstype-guide.md).
 
-- Package: public `@oh-my-soup/omstype`; install with `bun add @oh-my-soup/omstype`. Its manifest declares Node 20 or newer and Bun 1.3.14 or newer.
+- Package: public `@oh-my-soup/omstype`; install with `bun add @oh-my-soup/omstype`. Its manifest declares Node 20 or newer and Bun 1.4.4 or newer.
 - Feature: callable ArkType-compatible schemas with cheap interpreted startup, lazy hot-path compilation, validation errors, defaults and morphs, and JSON Schema emission.
 - Public surfaces: `@oh-my-soup/omstype` for native authoring, `/typebox` and `/zod` for compatibility builders, and `/ark` for the alias-free ArkType compatibility facade.
 - Runtime behavior: schema calls return the validated value or `type.errors`; `.assert()` returns the value or throws; `.allows()` performs a boolean check.
@@ -75,11 +75,11 @@ Sources: [`packages/browser-relay/README.md`](../packages/browser-relay/README.m
 
 - Package: private `@oh-my-soup/browser-relay`; user command: `oms browser-relay`.
 - Setup: run `oms browser-relay install`, load the unpacked extension from
-  `~/.oms/browser-relay/extension`, then opt in per call with `app.relay: true` — or set
+  `~/.oms/browser-relay/extension`, then opt in per call with `app: "relay"` — or set
   `browser.relay`, which makes the relay the profile-wide default across projects (scope
   details in the package README).
 - Behavior: the relay auto-starts through the profile-independent global daemon broker; consumers
-  across projects hold leases, and the relay stops after the last lease is released. `app.target`
+  across projects hold leases, and the relay stops after the last lease is released. `target`
   borrows a tab by exact CDP target id or URL/title substring; otherwise oms opens its own background tab, which a URL
   navigates and close removes. `oms browser-relay --no-group` disables automatic tab grouping.
 - Security/limits: it binds loopback; use `--token` when local processes are untrusted. Chrome
@@ -90,7 +90,7 @@ Sources: [`packages/browser-relay/README.md`](../packages/browser-relay/README.m
 Sources: [`packages/snapcompact/README.md`](../packages/snapcompact/README.md), [`packages/snapcompact/package.json`](../packages/snapcompact/package.json), [`packages/snapcompact/src/index.ts`](../packages/snapcompact/src/index.ts).
 
 - Package: public `@oh-my-soup/snapcompact`; install with `bun add @oh-my-soup/snapcompact`; requires
-  Bun 1.3.14 or newer.
+  Bun 1.4.4 or newer.
 - Feature: deterministic local serialization and PNG rendering of discarded conversation history
   for vision-model context compaction; no model call or API key is required.
 - Public entrypoint includes `compact`, `render`, `renderMany`, `frames`, shape selection, text
@@ -101,7 +101,7 @@ Sources: [`packages/snapcompact/README.md`](../packages/snapcompact/README.md), 
 
 Sources: [`packages/mnemopi/README.md`](../packages/mnemopi/README.md), [`packages/mnemopi/package.json`](../packages/mnemopi/package.json), [`packages/mnemopi/src/cli.ts`](../packages/mnemopi/src/cli.ts), and the coding-agent [Mnemopi memory backend guide](./mnemosyne-memory-backend.md).
 
-- Package: public `@oh-my-soup/pi-mnemopi`; bin: `mnemopi`; requires Bun 1.3.14 or newer. Install globally with `bun add --global @oh-my-soup/pi-mnemopi`, then run `mnemopi <command>`. From a source checkout, `bun packages/mnemopi/src/cli.ts <command>` runs the same entrypoint.
+- Package: public `@oh-my-soup/pi-mnemopi`; bin: `mnemopi`; requires Bun 1.4.4 or newer. Install globally with `bun add --global @oh-my-soup/pi-mnemopi`, then run `mnemopi <command>`. From a source checkout, `bun packages/mnemopi/src/cli.ts <command>` runs the same entrypoint.
 - Store and search: `store`/`remember`, `recall`/`search`, `update`/`edit`, and `delete`/`forget`.
 - Inspect and maintain: `stats`, `sleep`/`consolidate`, `diagnose`/`doctor`, JSON `export` and `import`, `scratchpad`/`sp` with `read`, `write`, or `clear`, and `bank` with `list`, `create`, or `delete`.
 - Storage: standalone commands use `~/.hermes/mnemopi/data/mnemopi.db` by default; `MNEMOPI_DATA_DIR` selects a different data directory. This default is separate from OMS's session-managed memory location.

@@ -5,6 +5,7 @@ import * as path from "node:path";
 import { getManagedBunEnv } from "./env";
 import { withFileLock } from "./file-lock";
 import { isEexist, isEnoent } from "./fs-error";
+import { isRecord } from "./type-guards";
 
 /**
  * On-demand runtime dependency support for native-heavy optional packages
@@ -32,10 +33,6 @@ const RUNTIME_CONDITIONS: Record<string, true> = { node: true, require: true, de
 
 /** Extension probes appended to a `main`/`exports` target that lacks one. */
 const RUNTIME_EXTENSIONS: readonly string[] = [".js", ".cjs", ".mjs", ".json", ".node"];
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
-}
 
 /**
  * Walk a conditional `exports` target (string, array of fallbacks, or a

@@ -8,7 +8,7 @@ import type { TspSpan, TspText, TspTone } from "@oh-my-soup/pi-wire";
 import { ansi, code, compact, keyed, node, row, span, text } from "../native/describe";
 import type { NativeChild, NativeNode } from "../native/node";
 import { tryFileUri } from "../render/hyperlink";
-import { type ParsedDiagnostic, parseDiagnosticMessage, shortenPath } from "../render/render-utils";
+import { type ParsedDiagnostic, parseDiagnosticMessage, pathNameStart, shortenPath } from "../render/render-utils";
 import { plainText } from "../native/spans";
 import type { FileDiagnosticsResult } from "./lsp";
 import { formatArtifactErrorNotice, formatTruncationMetaNotice, type OutputMeta } from "./output-meta";
@@ -23,9 +23,16 @@ export function displayPath(filePath: string): string {
 	return shortenPath(filePath);
 }
 
-/** `file://` link for a head's path target, when the path is absolute. */
+/** Configured file link for a head's path target, when the path is absolute. */
 export function fileHref(filePath: string | undefined): string | undefined {
 	return filePath && path.isAbsolute(filePath) ? tryFileUri(filePath) : undefined;
+}
+
+/** Link for a head target that is a web URL (`www.` gains `https://`), else undefined. */
+export function urlHref(target: string | undefined): string | undefined {
+	if (!target) return undefined;
+	const candidate = /^www\./i.test(target) ? `https://${target}` : target;
+	return /^https?:\/\/\S+$/i.test(candidate) ? candidate : undefined;
 }
 
 /** Diff stats as one head `meta` string, `+8 −1` (U+2212 minus), or undefined when nothing changed. */
@@ -53,11 +60,15 @@ export function fileDiffSection(
 }
 
 /**
- * One 22px file row (role `omp.tool.file`) for read groups, grep files, glob
+ * One 22px file row (role `oms.tool.file`) for read groups, grep files, glob
  * lists and find hits: a leading glyph (the file icon unless `lead` replaces
  * it), the path with a dim directory and a strong name (cut in the middle),
  * a quiet `range` suffix (`:13-36`), then an optional count `chip` and a
  * muted `detail`.
+ *
+ * A URL is one target, not a directory and a name: its last `/` does not
+ * separate a dim parent from a strong basename, and the whole visible text
+ * carries the link so a click anywhere on the URL opens it.
  */
 export function fileRow(
 	filePath: string,
@@ -74,11 +85,12 @@ export function fileRow(
 	} = {},
 ): NativeNode {
 	const isDir = filePath.endsWith("/");
-	const bare = isDir ? filePath.slice(0, -1) : filePath;
-	const cut = bare.lastIndexOf("/") + 1;
+	const url = urlHref(filePath);
+	const cut = url === undefined ? pathNameStart(filePath) : 0;
+	const href = p.href ?? url;
 	const spans: TspSpan[] = [];
-	if (cut > 0) spans.push(span(bare.slice(0, cut), "dim"));
-	spans.push(span(`${bare.slice(cut) || "…"}${isDir ? "/" : ""}`, "strong", p.href ? { href: p.href } : undefined));
+	if (cut > 0) spans.push(span(filePath.slice(0, cut), "dim"));
+	spans.push(span(filePath.slice(cut) || "…", "strong", href ? { href } : undefined));
 	if (p.range) spans.push(span(p.range, "muted"));
 	const children: NativeChild[] = [
 		p.lead ?? node("icon", { name: p.icon ?? (isDir ? "folder" : "file"), tone: p.tone }),
@@ -89,7 +101,7 @@ export function fileRow(
 		const detail = typeof p.detail === "string" ? [span(plainText(p.detail), "muted")] : p.detail;
 		children.push(text(detail, { lines: 1, truncate: "end", shrink: 1 }));
 	}
-	return keyed(row(children, { role: "omp.tool.file", tone: p.tone }), p.key ?? filePath);
+	return keyed(row(children, { role: "oms.tool.file", tone: p.tone }), p.key ?? filePath);
 }
 
 /** Longest error excerpt an inline head carries before the body takes the full message. */
@@ -140,8 +152,8 @@ export function toolHead(title: string, ...details: readonly (TspSpan | string |
 export function errorText(message: string): NativeNode {
 	const body = plainText(message).trim();
 	return body.includes("\n") && /^[{[]/.test(body)
-		? code(body, { lang: "json", tone: "error", role: "omp.tool.error" })
-		: text([span(body, "error")], { wrap: "word", role: "omp.tool.error" });
+		? code(body, { lang: "json", tone: "error", role: "oms.tool.error" })
+		: text([span(body, "error")], { wrap: "word", role: "oms.tool.error" });
 }
 
 /** Error card view: error tone, the tool head and the error body (`<title> failed` when empty). */
@@ -161,7 +173,7 @@ export function noteText(message: string, token = "muted", lines?: number): Nati
 /** Muted `a · b · c` metadata line, or undefined when there are no parts. */
 export function statsText(parts: readonly string[]): NativeNode | undefined {
 	if (parts.length === 0) return undefined;
-	return text([span(parts.join(" · "), "muted")], { wrap: "word", role: "omp.tool.stats" });
+	return text([span(parts.join(" · "), "muted")], { wrap: "word", role: "oms.tool.stats" });
 }
 
 /** Warning line for truncation / artifact capture failures, or undefined. */
@@ -170,7 +182,7 @@ export function truncationNotice(meta: OutputMeta | undefined): NativeNode | und
 	const parts: string[] = [];
 	if (meta.truncation) parts.push(formatTruncationMetaNotice(meta.truncation, meta.source));
 	if (meta.artifactError) parts.push(formatArtifactErrorNotice(meta.artifactError));
-	return text([span(parts.join(". "), "warning")], { wrap: "word", role: "omp.tool.notice" });
+	return text([span(parts.join(". "), "warning")], { wrap: "word", role: "oms.tool.notice" });
 }
 
 /**
@@ -184,7 +196,7 @@ export function footnoteText(parts: readonly string[], meta?: OutputMeta): Nativ
 	if (all.length === 0) return undefined;
 	const notice = meta?.truncation !== undefined || meta?.artifactError !== undefined;
 	return {
-		...text([span(all.join(" · "), "muted")], { wrap: "word", role: notice ? "omp.tool.notice" : "omp.tool.stats" }),
+		...text([span(all.join(" · "), "muted")], { wrap: "word", role: notice ? "oms.tool.notice" : "oms.tool.stats" }),
 		key: "foot",
 	};
 }
@@ -222,7 +234,7 @@ export interface RunFootInput {
 }
 
 /**
- * The foot line of a run box (`omp.run.foot`): the state word in its tone,
+ * The foot line of a run box (`oms.run.foot`): the state word in its tone,
  * the run time (a live clock while running, frozen once settled) and the
  * quiet facts. Glyphs are the terminal's styling, never text.
  */
@@ -248,18 +260,18 @@ export function runFoot(input: RunFootInput): NativeNode {
 			: node(
 					"elapsed",
 					input.state === "running" || input.state === "background"
-						? { role: "omp.run.time", age: ms, format: "short" }
-						: { role: "omp.run.time", age: ms, stopped: ms, format: "short" },
+						? { role: "oms.run.time", age: ms, format: "short" }
+						: { role: "oms.run.time", age: ms, stopped: ms, format: "short" },
 					undefined,
 					"time",
 				);
 	return node(
 		"row",
-		{ role: "omp.run.foot", gap: "sm", align: "center" },
+		{ role: "oms.run.foot", gap: "sm", align: "center" },
 		compact<NativeNode>([
-			keyed(text([span(state.word)], { role: "omp.run.state", tone: state.tone }), "state"),
+			keyed(text([span(state.word)], { role: "oms.run.state", tone: state.tone }), "state"),
 			time,
-			factSpans.length > 0 && keyed(text(factSpans, { role: "omp.run.facts", wrap: "word" }), "facts"),
+			factSpans.length > 0 && keyed(text(factSpans, { role: "oms.run.facts", wrap: "word" }), "facts"),
 		]),
 		"foot",
 	);
@@ -279,7 +291,7 @@ export function runOutput(output: string, p: { role: string; previewLines: numbe
 }
 
 /**
- * One run as one box (`omp.run`): input, output, status lines and foot in
+ * One run as one box (`oms.run`): input, output, status lines and foot in
  * order. `tone` tints the box: `error` for a failed run, `warning` for a
  * timed-out one.
  */
@@ -287,7 +299,7 @@ export function runBox(
 	children: readonly (NativeChild | undefined | false)[],
 	p: { key: string; tone?: TspTone },
 ): NativeNode {
-	return node("col", { role: "omp.run", gap: "none", tone: p.tone }, compact(children), p.key);
+	return node("col", { role: "oms.run", gap: "none", tone: p.tone }, compact(children), p.key);
 }
 
 /** Diagnostic rows shown before `+N more`. */
@@ -328,7 +340,7 @@ function diagnosticRow(diagnostic: ParsedDiagnostic, withPath: boolean, key: str
 			text([span(where, "muted")], { wrap: "none" }),
 			text(message, { wrap: "word" }),
 		],
-		{ role: "omp.tool.diagnostic", key },
+		{ role: "oms.tool.diagnostic", key },
 	);
 }
 
@@ -357,20 +369,20 @@ export function diagnosticsSection(
 	const rows: NativeNode[] = [
 		...parsed.map((d, i) => diagnosticRow(d, withPath, `d${i}`)),
 		...unparsed.map((message, i) =>
-			text([span(message)], { wrap: "word", role: "omp.tool.diagnostic", key: `u${i}` }),
+			text([span(message)], { wrap: "word", role: "oms.tool.diagnostic", key: `u${i}` }),
 		),
 	];
 	const shown = rows.slice(0, DIAGNOSTIC_ROWS);
 	const hidden = rows.length - shown.length;
 	if (hidden > 0) {
-		shown.push(text([span(`+${hidden} more`, "muted")], { role: "omp.tool.stats", key: "more" }));
+		shown.push(text([span(`+${hidden} more`, "muted")], { role: "oms.tool.stats", key: "more" }));
 	}
 	return node(
 		"section",
 		{
 			head: [span("Diagnostics")],
 			tone: diagnostics.errored ? "error" : "warning",
-			role: "omp.tool.diagnostics",
+			role: "oms.tool.diagnostics",
 		},
 		shown,
 		"diagnostics",

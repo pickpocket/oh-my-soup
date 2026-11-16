@@ -9,7 +9,7 @@ import {
 	unregisterOAuthProviders,
 } from "@oh-my-soup/pi-ai/registry/oauth";
 import type { OAuthCredentials, OAuthProvider } from "@oh-my-soup/pi-ai/registry/oauth/types";
-import { getEnvApiKey, getEnvApiKeyName } from "@oh-my-soup/pi-ai/env-api-key";
+import { getEnvApiKey } from "@oh-my-soup/pi-ai/env-api-key";
 
 const FIXTURE_SOURCE = "provider-registry-test";
 const ENV_KEYS = [
@@ -58,26 +58,6 @@ describe("provider registry auth surface", () => {
 		expect(getEnvApiKey("coreweave")).toBe("wandb-env");
 		Bun.env.COREWEAVE_API_KEY = "coreweave-env";
 		expect(getEnvApiKey("coreweave")).toBe("coreweave-env");
-	});
-
-	test("Prism routes the full Cookie header through its env-backed API key", () => {
-		const originalCookie = Bun.env.PRISM_COOKIE;
-		const originalSessionToken = Bun.env.PRISM_SESSION_TOKEN;
-		try {
-			Bun.env.PRISM_COOKIE = "prism_session_token=session-fixture; cf_clearance=clearance-fixture";
-			Bun.env.PRISM_SESSION_TOKEN = "obsolete-session-fixture";
-			expect(getEnvApiKey("openai-prism")).toBe(
-				"prism_session_token=session-fixture; cf_clearance=clearance-fixture",
-			);
-			// Auth-broker env migration must discover the whole cookie, not the old
-			// single-token variable that drops required companion cookies.
-			expect(getEnvApiKeyName("openai-prism")).toBe("PRISM_COOKIE");
-		} finally {
-			if (originalCookie === undefined) delete Bun.env.PRISM_COOKIE;
-			else Bun.env.PRISM_COOKIE = originalCookie;
-			if (originalSessionToken === undefined) delete Bun.env.PRISM_SESSION_TOKEN;
-			else Bun.env.PRISM_SESSION_TOKEN = originalSessionToken;
-		}
 	});
 
 	test("login list contains loginable providers and excludes env-only model providers", () => {

@@ -32,7 +32,8 @@ import {
 	matchesSelectPageUp,
 	matchesSelectUp,
 } from "../keybinding-matchers";
-import { col, item, node } from "../native/describe";
+import type { TspSpan } from "@oh-my-soup/pi-wire";
+import { col, item, node, span } from "../native/describe";
 import { leafKey, type NativeNode, type NativeUiEvent } from "../native/node";
 import { actionBar, actionButton } from "../native/overlay";
 import { PREVIEW_LIMITS, sanitizeDisplayLines } from "../render/render-utils";
@@ -105,6 +106,61 @@ function promptDetails(lines: string[]): string[] {
 	return details;
 }
 
+const ALLOWED_SEGMENT_RE = /^(\s*)✓(\s+)(.+)(\s+\((?:allowed: .*|\d+ allowed segments?)\))$/u;
+const PROMPTED_SEGMENT_RE = /^(\s*)\?(\s+)(.+)(\s+\((?:requires approval|prompt: .*|critical pattern)\))$/u;
+
+/**
+ * Indexes `[start, end)` of compound bash segment rows: the indented rows right after the first
+ * `Command:` row, when that row is bare. Lines elsewhere (a multi-line command, code, file
+ * content) are never styled as covered or prompted, however they read.
+ */
+function segmentRowRange(details: readonly string[]): readonly [number, number] {
+	const label = details.findIndex(line => line.startsWith("Command:"));
+	if (label < 0 || details[label] !== "Command:") return [0, 0];
+	let end = label + 1;
+	while (end < details.length && details[end]!.startsWith("  ")) end++;
+	return [label + 1, end];
+}
+
+/** Styles each detail row: segment rows by their covered/prompted marker, the rest in accent. */
+function styleApprovalDetails(details: readonly string[]): { ansi: string; spans?: TspSpan[] }[] {
+	const [start, end] = segmentRowRange(details);
+	return details.map((line, index) =>
+		index >= start && index < end ? styleSegmentLine(line) : { ansi: theme.fg("accent", line) },
+	);
+}
+
+function styleSegmentLine(line: string): { ansi: string; spans?: TspSpan[] } {
+	const allowed = ALLOWED_SEGMENT_RE.exec(line);
+	if (allowed) {
+		const [, indent = "", space = " ", command = "", suffix = ""] = allowed;
+		return {
+			ansi: `${indent}${theme.fg("success", "✓")}${space}${theme.fg("dim", `${command}${suffix}`)}`,
+			spans: [
+				...(indent ? [span(indent)] : []),
+				span("✓", "success"),
+				span(space),
+				span(`${command}${suffix}`, "dim"),
+			],
+		};
+	}
+	const prompted = PROMPTED_SEGMENT_RE.exec(line);
+	if (prompted) {
+		const [, indent = "", space = " ", command = "", suffix = ""] = prompted;
+		return {
+			ansi: `${indent}${theme.fg("warning", "?")}${space}${theme.bold(theme.fg("accent", command))}${theme.fg("warning", suffix)}`,
+			spans: [
+				...(indent ? [span(indent)] : []),
+				span("?", "warning"),
+				span(space),
+				span(command, "accent strong"),
+				span(suffix, "warning"),
+			],
+		};
+	}
+	return { ansi: theme.fg("accent", line) };
+}
+
 export class ApprovalDialogComponent implements Component {
 	readonly #title: string;
 	readonly #summary: readonly string[];
@@ -140,9 +196,16 @@ export class ApprovalDialogComponent implements Component {
 		this.#summary = promptDetails(lines);
 		this.#full =
 			options.fullPrompt === undefined ? undefined : promptDetails(sanitizeDisplayLines(options.fullPrompt));
+		const [segmentStart, segmentEnd] = segmentRowRange(this.#summary);
+		const firstPrompted = this.#summary
+			.slice(segmentStart, segmentEnd)
+			.findIndex(line => PROMPTED_SEGMENT_RE.test(line));
+		if (firstPrompted >= 0 && segmentStart + firstPrompted >= MAX_DETAIL_ROWS) {
+			this.#scrollOffset = segmentStart + firstPrompted - MAX_DETAIL_ROWS + 1;
+		}
 		this.#choices = this.#buildChoices();
 		this.#choice = this.#choices.findIndex(choice => choice.answer === "once");
-		this.#panel = new OverlayPanel(title, "omp.overlay.approval");
+		this.#panel = new OverlayPanel(title, "oms.overlay.approval");
 		this.#footer.setHeight(1);
 		this.#panel.addChild(this.#body);
 		this.#panel.addChild(this.#choiceRows);
@@ -322,7 +385,7 @@ export class ApprovalDialogComponent implements Component {
 
 	/**
 	 * In the dock, in the composer's place and framed as the composer is (an
-	 * `omp.editor.*` root role), like the ask dialog, rather than a card over
+	 * `oms.editor.*` root role), like the ask dialog, rather than a card over
 	 * the transcript: the title, the details, the choices with the keyboard's
 	 * highlight (a click takes one), then Details (with a full prompt), Deny,
 	 * and the primary Approve, whose keys show in their tooltips.
@@ -352,31 +415,34 @@ export class ApprovalDialogComponent implements Component {
 				]
 			: [];
 		const children: NativeNode[] = [
-			node("text", { text: this.#title, role: "omp.approval.title", tone: "accent" }, undefined, "title"),
+			node("text", { text: this.#title, role: "oms.approval.title", tone: "accent" }, undefined, "title"),
 		];
 		if (this.#details.length > 0) {
 			// One clipped row per detail like the text view; expanded details wrap.
-			const rows = this.#details.map((line, index) =>
-				node("text", this.#expanded ? { text: line } : { text: line, truncate: "end" }, undefined, String(index)),
-			);
-			children.push(node("col", { role: "omp.approval.details" }, rows, "details"));
+			const styledRows = styleApprovalDetails(this.#details);
+			const rows = this.#details.map((line, index) => {
+				const styled = styledRows[index]!;
+				const content = styled.spans ? { spans: styled.spans } : { text: line };
+				return node("text", this.#expanded ? content : { ...content, truncate: "end" }, undefined, String(index));
+			});
+			children.push(node("col", { role: "oms.approval.details" }, rows, "details"));
 		}
 		const choices = this.#choices.map(choice =>
 			item(choice.answer, {
 				label: choice.label,
-				role: "omp.approval.choice",
+				role: "oms.approval.choice",
 				tone: choice.answer === "deny" ? "error" : "accent",
 			}),
 		);
 		const selected = drafting ? "deny" : this.#choices[this.#choice]!.answer;
-		children.push(node("list", { selected, role: "omp.approval.choices" }, choices, "choices"));
+		children.push(node("list", { selected, role: "oms.approval.choices" }, choices, "choices"));
 		// The countdown, when one runs, leads the bar like the ask dialog's.
 		children.push(
 			actionBar([...(this.#countdown ? [this.#countdown.describe()] : []), null, ...expand, deny, approve]),
 		);
-		// Under the `omp.editor.ask` prefix: Tern's console layout sizes an ask's rows to the
-		// composer column by that prefix, where a bare `omp.editor.*` role spans the whole dock.
-		this.#native = col(children, { role: "omp.editor.ask.approval", gap: "md" });
+		// Under the `oms.editor.ask` prefix: Tern's console layout sizes an ask's rows to the
+		// composer column by that prefix, where a bare `oms.editor.*` role spans the whole dock.
+		this.#native = col(children, { role: "oms.editor.ask.approval", gap: "md" });
 		this.#nativeDrafting = drafting;
 		return this.#native;
 	}
@@ -398,9 +464,14 @@ export class ApprovalDialogComponent implements Component {
 	/** Detail rows at `width`: one clipped row per detail, or wrapped rows once expanded. */
 	#detailLines(width: number): string[] {
 		if (!this.#expanded) {
-			return this.#details.map(line => truncateToWidth(theme.fg("accent", line), width, Ellipsis.Unicode));
+			return styleApprovalDetails(this.#details).map(styled =>
+				truncateToWidth(styled.ansi, width, Ellipsis.Unicode),
+			);
 		}
-		return this.#details.flatMap(line => (line === "" ? [""] : wrapTextWithAnsi(theme.fg("accent", line), width)));
+		const styledRows = styleApprovalDetails(this.#details);
+		return this.#details.flatMap((line, index) =>
+			line === "" ? [""] : wrapTextWithAnsi(styledRows[index]!.ansi, width),
+		);
 	}
 
 	#footerHint(overflows: boolean, drafting: boolean): string {

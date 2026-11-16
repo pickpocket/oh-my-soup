@@ -8,7 +8,7 @@
  * RPC hosts read and continue the same topics.
  */
 import { logger, toError } from "@oh-my-soup/pi-utils";
-import type { AgentSession } from "../../session/agent-session";
+import type { AgentViewSession } from "../../session/agent-session-handle";
 import {
 	type BtwHistoryRecord,
 	type BtwHistoryTurn,
@@ -45,7 +45,7 @@ export interface RpcBtwControllerOptions {
 }
 
 export class RpcBtwController {
-	readonly #session: Pick<AgentSession, "model" | "runEphemeralTurn" | "sessionManager">;
+	readonly #session: Pick<AgentViewSession, "model" | "runEphemeralTurn" | "sessionManager">;
 	readonly #output: (frame: RpcBtwOutputFrame) => void;
 	readonly #historyScope: string | undefined;
 	readonly #artifactsDir: string | null | undefined;
@@ -63,7 +63,7 @@ export class RpcBtwController {
 	readonly #unsaved = new Map<string, RunningBtw>();
 
 	constructor(
-		session: Pick<AgentSession, "model" | "runEphemeralTurn" | "sessionManager">,
+		session: Pick<AgentViewSession, "model" | "runEphemeralTurn" | "sessionManager">,
 		output: (frame: RpcBtwOutputFrame) => void,
 		options?: RpcBtwControllerOptions,
 	) {

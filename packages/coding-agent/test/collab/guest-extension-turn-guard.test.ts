@@ -98,10 +98,14 @@ describe("collab guest extension turn guard", () => {
 		const ctx = {
 			session: agentSession,
 			sessionManager,
+			setCollabGuest(guest: InteractiveModeContext["collabGuest"]) {
+				Object.assign(this, { collabGuest: guest });
+			},
 			collabGuest: {} as CollabGuestLink,
 			showStatus: (message: string) => statuses.push(message),
 			showError: (message: string) => errors.push(message),
 			syncComposerShape: () => {},
+			syncExtensionLinks: () => {},
 		} as unknown as InteractiveModeContext;
 		new ExtensionUiController(ctx).initializeHookRunner({} as ExtensionUIContext, false);
 
@@ -135,7 +139,7 @@ describe("collab guest extension turn guard", () => {
 		for (const status of statuses) expect(status).toContain("host-only during a collab session");
 
 		// Left the session: the same reaction now owns a real local turn.
-		ctx.collabGuest = undefined;
+		Object.assign(ctx, { collabGuest: undefined });
 		handled = Promise.withResolvers<void>();
 		onAgentEnd = pi => {
 			pi.sendMessage({ customType: "plan-execute", content: "EXECUTE_PLAN", display: true }, { triggerTurn: true });

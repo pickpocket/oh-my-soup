@@ -1,9 +1,15 @@
-import { expect, it } from "bun:test";
+import { afterEach, expect, it } from "bun:test";
 import { discoverAuthStorage } from "@oh-my-soup/pi-coding-agent/sdk";
 import { parseArgs } from "@oh-my-soup/pi-coding-agent/cli/args";
 import { resetSettingsForTest } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { clearOmsExtensionCliRoots } from "@oh-my-soup/pi-coding-agent/discovery/oms-extension-roots";
 import { runRootCommand } from "@oh-my-soup/pi-coding-agent/main";
 import { getDbBusyTimeoutMs, setInteractiveHost, TempDir } from "@oh-my-soup/pi-utils";
+
+// `runRootCommand` registers the CLI's extension roots (`--no-extensions` → explicit-only) process-wide.
+afterEach(() => {
+	clearOmsExtensionCliRoots();
+});
 
 it("classifies an interactive host before opening auth storage", async () => {
 	const previous = setInteractiveHost(false);

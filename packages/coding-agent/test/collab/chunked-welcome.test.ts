@@ -123,6 +123,9 @@ function makeFailingGuestContext(failure: Error): InteractiveModeContext {
 		showStatus: () => {},
 		updateEditorTopBorder: () => {},
 		updateEditorBorderColor: () => {},
+		setCollabGuest(guest: InteractiveModeContext["collabGuest"]) {
+			Object.assign(this, { collabGuest: guest });
+		},
 		collabGuest: undefined,
 	} as unknown as InteractiveModeContext;
 	return ctx;
@@ -177,6 +180,9 @@ function makeCancelledSwitchGuestContext(
 		showStatus: (status: string) => events.push(`status:${status}`),
 		updateEditorTopBorder: () => {},
 		updateEditorBorderColor: () => {},
+		setCollabGuest(guest: InteractiveModeContext["collabGuest"]) {
+			Object.assign(this, { collabGuest: guest });
+		},
 		collabGuest: undefined,
 	} as unknown as InteractiveModeContext;
 }

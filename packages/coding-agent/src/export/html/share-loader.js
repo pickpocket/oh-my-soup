@@ -9,7 +9,7 @@ import { gcm } from '@noble/ciphers/aes.js';
       //
       // Served by the oms relay at /s/<id>; the AES-256-GCM key rides in the
       // URL fragment and never leaves the browser. Resolves the session JSON
-      // and hands it to template.js via `window.__OMP_SESSION_DATA__`:
+      // and hands it to template.js via `window.__OMS_SESSION_DATA__`:
       //   1. hex ids -> secret GitHub gist holding base64(sealed blob)
       //   2. anything else -> relay blob store at /s/<id>/raw
       // Sealed layout: [12B IV][AES-256-GCM(gzip(session JSON))].
@@ -106,5 +106,5 @@ import { gcm } from '@noble/ciphers/aes.js';
       // template.js surfaces the failure in-page; swallow the duplicate here
       // so the console does not report an unhandled rejection.
       pending.catch(function() {});
-      window.__OMP_SESSION_DATA__ = pending;
+      window.__OMS_SESSION_DATA__ = pending;
     })();

@@ -47,6 +47,9 @@ function makeAgents(ids: string[]): AgentSnapshot[] {
 function makeGuestContext(): InteractiveModeContext {
 	let statusLineCount = 0;
 	const ctx = {
+		setCollabGuest(guest: InteractiveModeContext["collabGuest"]) {
+			Object.assign(this, { collabGuest: guest });
+		},
 		collabGuest: undefined as CollabGuestLink | undefined,
 		settings: Settings.isolated(),
 		sessionManager: {

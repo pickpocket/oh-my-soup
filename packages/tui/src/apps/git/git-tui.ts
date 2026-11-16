@@ -37,7 +37,7 @@ import { routeSgrMouseInput } from "../../mouse";
 import { col, compact, keyed, node, row, span, stableKey, text } from "../../native/describe";
 import { Memo } from "../../native/memo";
 import type { DescribeContext, NativeNode, NativeUiEvent } from "../../native/node";
-import { actionButton } from "../../native/overlay";
+import { actionButton, iconButton, segmentedTabs } from "../../native/overlay";
 import { type Component, type OverlayHandle, TUI } from "../../tui";
 import { truncateToWidth, visibleWidth } from "../../utils";
 import { theme, warmHighlighter } from "../../theme/theme";
@@ -119,7 +119,7 @@ type StatusTone = "success" | "warning" | "error" | "accent" | "dim";
 /** Columns below which the native layout stacks the changes under the diff. */
 const NARROW_COLS = 100;
 
-/** The views of the native segmented control, in omp's `1`–`4` order. */
+/** The views of the native segmented control, in oms's `1`–`4` order. */
 const VIEW_TABS: readonly { id: ViewMode; label: string }[] = [
 	{ id: "file", label: "File" },
 	{ id: "split", label: "Split" },
@@ -960,15 +960,15 @@ class GitTuiComponent implements Component {
 						keyed(
 							text([span(this.#status, this.#statusTone === "dim" ? "muted" : this.#statusTone)], {
 								truncate: "end",
-								role: "omp.app.status",
+								role: "oms.app.status",
 							}),
 							"status",
 						),
 					body,
 				]),
-				{ role: "omp.app.git.main" },
+				{ role: "oms.app.git.main" },
 			);
-			return node(narrow ? "col" : "row", { role: narrow ? "omp.app.git-narrow" : "omp.app.git" }, [
+			return node(narrow ? "col" : "row", { role: narrow ? "oms.app.git-narrow" : "oms.app.git" }, [
 				keyed(main, "main"),
 				keyed(side, "side"),
 			]);
@@ -1018,14 +1018,14 @@ class GitTuiComponent implements Component {
 			left.push(
 				text([span(file.path.slice(0, slash + 1), "dim"), span(file.path.slice(slash + 1), "strong")], {
 					truncate: "start",
-					role: "omp.app.git.path",
+					role: "oms.app.git.path",
 					title: file.origPath ? `${file.origPath} → ${file.path}` : file.path,
 				}),
 			);
 			if (doc) {
 				left.push(
 					text([span(`+${doc.additions}`, "ins num"), span(" "), span(`−${doc.deletions}`, "del num")], {
-						role: "omp.app.git.stat",
+						role: "oms.app.git.stat",
 					}),
 				);
 			}
@@ -1037,37 +1037,30 @@ class GitTuiComponent implements Component {
 						: { text: this.#model.headCommit?.shortSha ?? "commit", tone: "accent" as const };
 			left.push(node("badge", { text: scope.text, tone: scope.tone }));
 		} else {
-			left.push(text([span(this.#model.branch ?? "detached", "muted")], { role: "omp.app.git.path" }));
+			left.push(text([span(this.#model.branch ?? "detached", "muted")], { role: "oms.app.git.path" }));
 		}
-		const iconButton = (name: string, act: string, title: string, on?: boolean): NativeNode =>
-			node(
-				"icon",
-				{ name, title, aria: title, role: on ? "omp.app.ibtn.set" : "omp.app.ibtn", actions: { click: act } },
-				undefined,
-				act,
-			);
+		const tool = (name: string, act: string, title: string, on?: boolean): NativeNode =>
+			iconButton(name, act, title, { key: act, on });
 		const right: NativeNode[] = [
 			row(
 				[
-					iconButton("chev-up", "prev-hunk", `Previous change (${formatTooltipKey("alt+up")})`),
-					iconButton("chev", "next-hunk", `Next change (${formatTooltipKey("alt+down")})`),
+					tool("chev-up", "prev-hunk", `Previous change (${formatTooltipKey("alt+up")})`),
+					tool("chev", "next-hunk", `Next change (${formatTooltipKey("alt+down")})`),
 				],
 				{ gap: "none", align: "center" },
 			),
-			node(
-				"tabs",
+			segmentedTabs(
 				{
 					items: VIEW_TABS.map(tab => ({ id: tab.id, label: tab.label })),
 					active: this.#pane.mode,
-					role: "omp.app.seg",
+					role: "oms.app.seg",
 				},
-				undefined,
 				"views",
 			),
 		];
 		if (!narrow) {
 			right.push(
-				iconButton(
+				tool(
 					"type",
 					"whitespace",
 					this.#whitespace === "off"
@@ -1077,7 +1070,7 @@ class GitTuiComponent implements Component {
 							: `Ignoring formatting and imports; show all (${formatTooltipKey("b")})`,
 					this.#whitespace !== "off",
 				),
-				iconButton("corner-down-right", "wrap", `Wrap lines (${formatTooltipKey("w")})`, this.#pane.wrap),
+				tool("corner-down-right", "wrap", `Wrap lines (${formatTooltipKey("w")})`, this.#pane.wrap),
 			);
 		}
 		if (file?.area === "unstaged" || file?.area === "staged") {
@@ -1089,16 +1082,16 @@ class GitTuiComponent implements Component {
 			);
 		}
 		right.push(
-			iconButton("keyboard", "help", `Keyboard shortcuts (${formatTooltipKey("?")})`),
-			iconButton("x", "close", `Close (${formatTooltipKey("q")})`),
+			tool("keyboard", "help", `Keyboard shortcuts (${formatTooltipKey("?")})`),
+			tool("x", "close", `Close (${formatTooltipKey("q")})`),
 		);
 		return keyed(
 			row(
 				[
-					row(left, { gap: "sm", align: "center", role: "omp.app.git.where" }),
-					row(right, { gap: "sm", align: "center", role: "omp.app.git.tools" }),
+					row(left, { gap: "sm", align: "center", role: "oms.app.git.where" }),
+					row(right, { gap: "sm", align: "center", role: "oms.app.git.tools" }),
 				],
-				{ justify: "between", align: "center", role: "omp.app.git.bar" },
+				{ justify: "between", align: "center", role: "oms.app.git.bar" },
 			),
 			"bar",
 		);
@@ -1115,7 +1108,7 @@ class GitTuiComponent implements Component {
 					text: unifiedDiff(doc, this.#pane.mode === "file"),
 					path: doc.filePath,
 					mode: this.#pane.mode === "split" ? "split" : "unified",
-					role: "omp.app.git.diff",
+					role: "oms.app.git.diff",
 				},
 				undefined,
 				"diff",
@@ -1130,7 +1123,7 @@ class GitTuiComponent implements Component {
 							mediaColumn("before", contents.old, contents.oldRef),
 							mediaColumn("after", contents.new, contents.newRef),
 						],
-						{ gap: "sm", align: "stretch", grow: 1, role: "omp.app.git.compare" },
+						{ gap: "sm", align: "stretch", grow: 1, role: "oms.app.git.compare" },
 					),
 					"compare",
 				);
@@ -1147,7 +1140,7 @@ class GitTuiComponent implements Component {
 							layout: "grid",
 						}),
 					],
-					{ gap: "sm", role: "omp.app.git.state" },
+					{ gap: "sm", role: "oms.app.git.state" },
 				),
 				"asset",
 			);
@@ -1157,7 +1150,7 @@ class GitTuiComponent implements Component {
 				row([node("spinner", { style: "dots" }), text([span(`Loading ${file?.path ?? "diff"}…`, "muted")])], {
 					gap: "sm",
 					align: "center",
-					role: "omp.app.git.state",
+					role: "oms.app.git.state",
 				}),
 				"loading",
 			);
@@ -1173,7 +1166,7 @@ class GitTuiComponent implements Component {
 						),
 					]),
 				],
-				{ gap: "xs", role: "omp.app.git.empty" },
+				{ gap: "xs", role: "oms.app.git.empty" },
 			),
 			"empty",
 		);
@@ -1233,14 +1226,14 @@ function mediaColumn(side: "before" | "after", asset: FileAssetSide, ref: MediaR
 	const head = keyed(
 		text([span(assetTitle(side === "before" ? "Before" : "After", asset), "strong")], {
 			truncate: "end",
-			role: "omp.app.git.media-head",
+			role: "oms.app.git.media-head",
 		}),
 		"head",
 	);
 	const body = ref
 		? node(
 				"media",
-				{ ...ref, link: MEDIA_COMPARE_LINK, grow: 1, role: "omp.app.git.media" },
+				{ ...ref, link: MEDIA_COMPARE_LINK, grow: 1, role: "oms.app.git.media" },
 				undefined,
 				`media-${stableKey(ref.path)}`,
 			)
@@ -1249,11 +1242,11 @@ function mediaColumn(side: "before" | "after", asset: FileAssetSide, ref: MediaR
 					asset.kind === "empty"
 						? [span(side === "before" ? "Did not exist" : "Deleted", "muted")]
 						: assetText(asset).map(fact => span(fact.t, "muted")),
-					{ role: "omp.app.git.media-none" },
+					{ role: "oms.app.git.media-none" },
 				),
 				"none",
 			);
-	return keyed(col([head, body], { gap: "xs", grow: 1, basis: 0, role: "omp.app.git.media-side" }), side);
+	return keyed(col([head, body], { gap: "xs", grow: 1, basis: 0, role: "oms.app.git.media-side" }), side);
 }
 
 /** One side of a media/binary change as a short fact line. */

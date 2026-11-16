@@ -29,7 +29,7 @@ Import from the root barrel or per-module subpaths (`@oh-my-soup/pi-utils/<modul
 bun add @oh-my-soup/pi-utils
 ```
 
-Ships TypeScript source directly (no build step); requires Bun ≥ 1.3.14.
+Ships TypeScript source directly (no build step); requires Bun ≥ 1.4.4.
 
 ## References
 

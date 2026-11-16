@@ -23,7 +23,7 @@ import { compactionThresholdSettings, createSubagentSettings } from "@oh-my-soup
 import { cfgTaskAgentCompactionThresholdOverrides } from "@oh-my-soup/pi-coding-agent/task/settings";
 
 async function withConfigDirs(run: (dirs: { root: string; agentDir: string; cwd: string }) => Promise<void>) {
-	const root = await fs.mkdtemp(path.join(os.tmpdir(), "omp-compaction-threshold-"));
+	const root = await fs.mkdtemp(path.join(os.tmpdir(), "oms-compaction-threshold-"));
 	const agentDir = path.join(root, "agent");
 	const cwd = path.join(root, "project");
 	await fs.mkdir(agentDir, { recursive: true });

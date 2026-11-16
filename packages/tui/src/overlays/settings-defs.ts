@@ -98,6 +98,7 @@ export const TAB_GROUPS: Record<SettingTab, readonly string[]> = {
 		"Available Tools",
 		"Todos",
 		"Grep & Browser",
+		"Find",
 		"Disassembler",
 		"Frida",
 		"Computer",

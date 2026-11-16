@@ -43,8 +43,16 @@ describe("workflow keyword detection", () => {
 });
 describe("workflow notice", () => {
 	it("defaults to workpools and hides eval-defined tools when disabled", () => {
-		const enabled = renderWorkflowNotice({ taskBatch: true, scoutAvailable: true, evalTools: true });
-		const disabled = renderWorkflowNotice({ taskBatch: true, scoutAvailable: true, evalTools: false });
+		const context = {
+			taskBatch: true,
+			scoutAvailable: true,
+			py: true,
+			js: false,
+			freshAgents: false,
+			perCallModel: false,
+		};
+		const enabled = renderWorkflowNotice({ ...context, evalTools: true });
+		const disabled = renderWorkflowNotice({ ...context, evalTools: false });
 		expect(enabled).toContain("Default to `workpool()`");
 		expect(enabled).toContain("`@tool`");
 		expect(disabled).toContain("Default to `workpool()`");

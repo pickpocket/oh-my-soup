@@ -14,7 +14,7 @@
  * shown, and (TUI only) where manual code input comes from.
  */
 import * as path from "node:path";
-import { getMCPConfigPath, getProjectDir } from "@oh-my-soup/pi-utils";
+import { getMCPConfigPath, getProjectDir, toError } from "@oh-my-soup/pi-utils";
 import type { OAuthController } from "@oh-my-soup/pi-ai/oauth/types";
 import { expandEnvVarsDeep } from "../discovery/helpers";
 import { connectToServer, disconnectServer } from "./client";
@@ -52,6 +52,7 @@ export function withTimeout<T>(
 /**
  * Reject as soon as `signal` aborts, even when `promise` cannot observe it
  * (e.g. an in-flight `fetch` before the flow's own callback wait starts).
+ * `promise` stays observed, so its later rejection is never unhandled.
  */
 export function raceAbortSignal<T>(
 	promise: Promise<T>,
@@ -59,7 +60,10 @@ export function raceAbortSignal<T>(
 	createError: () => Error,
 ): Promise<T> {
 	if (!signal) return promise;
-	if (signal.aborted) return Promise.reject(createError());
+	if (signal.aborted) {
+		void promise.catch(() => {});
+		return Promise.reject(createError());
+	}
 
 	const aborted = Promise.withResolvers<never>();
 	const onAbort = (): void => aborted.reject(createError());
@@ -376,7 +380,7 @@ export async function resolveMcpOAuthEndpointsFromServer(
 		cwd?: string;
 	},
 ): Promise<OAuthEndpoints> {
-	// Stdio servers manage credentials inside the child process; OMP's OAuth
+	// Stdio servers manage credentials inside the child process; OMS's OAuth
 	// flow only applies to http/sse transports. Without this guard the
 	// unauthenticated preflight below spawns the child, which happily reuses
 	// its own cached tokens (e.g. mcp-remote's machine-wide ~/.mcp-auth) and
@@ -387,8 +391,8 @@ export async function resolveMcpOAuthEndpointsFromServer(
 		const usesMcpRemote = [config.command, ...(config.args ?? [])].some(part => part?.includes("mcp-remote"));
 		throw new McpReauthRefusalError(
 			usesMcpRemote
-				? `this server proxies OAuth through mcp-remote, which caches tokens machine-wide in ~/.mcp-auth (shared across every OMP profile). Clear ~/.mcp-auth to force a fresh login, or replace the proxy with ${httpHint} so OMP manages OAuth per profile.`
-				: `stdio servers manage their own credentials, so OMP has no OAuth to reauthorize. If the service supports OAuth over HTTP, configure it as ${httpHint} instead.`,
+				? `this server proxies OAuth through mcp-remote, which caches tokens machine-wide in ~/.mcp-auth (shared across every OMS profile). Clear ~/.mcp-auth to force a fresh login, or replace the proxy with ${httpHint} so OMS manages OAuth per profile.`
+				: `stdio servers manage their own credentials, so OMS has no OAuth to reauthorize. If the service supports OAuth over HTTP, configure it as ${httpHint} instead.`,
 		);
 	}
 	let connectionSucceeded = false;
@@ -402,7 +406,7 @@ export async function resolveMcpOAuthEndpointsFromServer(
 		});
 		connectionSucceeded = true;
 	} catch (error) {
-		connectionError = error instanceof Error ? error : new Error(String(error));
+		connectionError = toError(error);
 	}
 
 	if (connectionSucceeded && !opts.authChallenge) {

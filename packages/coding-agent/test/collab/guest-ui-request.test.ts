@@ -191,6 +191,9 @@ async function makeHarness(opts?: { readOnly?: boolean }): Promise<GuestUiHarnes
 	await hostOpen.promise;
 
 	const ctx = {
+		setCollabGuest(guest: InteractiveModeContext["collabGuest"]) {
+			Object.assign(this, { collabGuest: guest });
+		},
 		collabGuest: undefined as CollabGuestLink | undefined,
 		settings: Settings.isolated(),
 		sessionManager: {
@@ -600,6 +603,9 @@ describe("collab proto handshake (#4049)", () => {
 			settings: Settings.isolated(),
 			sessionManager: { getSessionFile: () => null },
 			syncRunningSubagentBadge: () => {},
+			setCollabGuest(guest: InteractiveModeContext["collabGuest"]) {
+				Object.assign(this, { collabGuest: guest });
+			},
 		} as unknown as InteractiveModeContext;
 		const guest = new CollabGuestLink(ctx);
 		try {
@@ -828,6 +834,7 @@ function makeAskHostContext(): InteractiveModeContext {
 		...base,
 		editorContainer: { clear: () => {}, addChild: () => {} },
 		editor: { getText: () => "", setText: () => {} },
+		closeLinkBrowser: () => {},
 		ui: {
 			requestRender: () => {},
 			setFocus: () => {},

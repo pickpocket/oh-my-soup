@@ -11,6 +11,7 @@
 import { authPolicyFor } from "@oh-my-soup/pi-catalog/compat/auth";
 import { providerEntry } from "@oh-my-soup/pi-catalog/compat/providers";
 import { isXiaomiTokenPlanKey } from "@oh-my-soup/pi-catalog/wire/xiaomi-token-plan";
+import { toError } from "@oh-my-soup/pi-utils";
 import * as AIError from "../../error";
 import type { FetchImpl } from "../../types";
 import type { OAuthController } from "./types";
@@ -19,6 +20,36 @@ const PROVIDER_ID = "xiaomi";
 const PROVIDER_NAME = "Xiaomi MiMo";
 const STANDARD_AUTH_URL = "https://platform.xiaomimimo.com/#/console/api-keys";
 const STANDARD_API_BASE_URL = "https://api.xiaomimimo.com/v1";
+/**
+ * Request-time base URL for a Xiaomi `tp-`/`ttp-` key. Bundled and cached generic
+ * Xiaomi rows pin the standard host, which rejects Token Plan keys. Only that
+ * standard host (or a missing URL) is redirected. Explicit regional providers
+ * select their region; generic Xiaomi login stores no region and defaults to SGP.
+ * Every deliberate custom or regional endpoint and every ordinary key is kept.
+ */
+export function resolveXiaomiRequestBaseUrl(
+	model: { provider?: string; baseUrl?: string },
+	apiKey: string | undefined,
+): string | undefined {
+	const provider = model.provider ?? "";
+	const region = /^xiaomi-token-plan-(sgp|ams|cn)$/.exec(provider)?.[1];
+	if (provider !== PROVIDER_ID && region === undefined) return model.baseUrl;
+	if (apiKey === undefined || !isXiaomiTokenPlanKey(apiKey)) return model.baseUrl;
+	if (model.baseUrl !== undefined) {
+		let hostname: string;
+		try {
+			hostname = new URL(model.baseUrl).hostname;
+		} catch {
+			return model.baseUrl;
+		}
+		if (hostname !== "api.xiaomimimo.com") return model.baseUrl;
+	}
+	// Each regional Token Plan host lives once, in its auth policy; reuse it instead of a second table.
+	const login = authPolicyFor(`xiaomi-token-plan-${region ?? "sgp"}`)?.login;
+	if (login?.kind !== "api-key" || login.validate?.kind !== "chat-completions") return model.baseUrl;
+	return login.validate.baseUrl;
+}
+
 const VALIDATION_TIMEOUT_MS = 15_000;
 
 async function validateXiaomiApiKey(apiKey: string, signal?: AbortSignal, fetchOverride?: FetchImpl): Promise<void> {
@@ -64,7 +95,7 @@ async function validateXiaomiApiKey(apiKey: string, signal?: AbortSignal, fetchO
 			if (e instanceof DOMException && e.name === "AbortError" && signal?.aborted) {
 				throw e;
 			}
-			lastError = e instanceof Error ? e : new Error(String(e));
+			lastError = toError(e);
 			continue;
 		}
 

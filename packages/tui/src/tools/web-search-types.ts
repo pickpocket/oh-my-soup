@@ -21,6 +21,8 @@ export const SEARCH_PROVIDER_LABELS = {
 	zai: "Z.AI",
 	exa: "Exa",
 	tinyfish: "TinyFish",
+	keenable: "Keenable",
+	sofya: "Sofya",
 	jina: "Jina",
 	kagi: "Kagi",
 	tavily: "Tavily",
@@ -39,6 +41,7 @@ export const SEARCH_PROVIDER_LABELS = {
 	yandex: "Yandex",
 	mojeek: "Mojeek",
 	public: "Public Web",
+	hackernews: "Hacker News",
 } as const;
 
 /** Id of a search implementation; see {@link SEARCH_PROVIDER_LABELS}. */

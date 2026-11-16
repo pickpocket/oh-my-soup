@@ -113,6 +113,9 @@ function makeGuestHarness(model: Model, modelRegistry: ModelRegistry): GuestHarn
 			resetTranscriptAnchors: () => {},
 		},
 		eventBus: undefined,
+		setCollabGuest(guest: InteractiveModeContext["collabGuest"]) {
+			Object.assign(this, { collabGuest: guest });
+		},
 		collabGuest: undefined,
 		handleResumeSession: () => Promise.resolve(),
 	} as unknown as InteractiveModeContext;

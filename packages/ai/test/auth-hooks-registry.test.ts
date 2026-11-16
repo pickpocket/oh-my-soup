@@ -54,18 +54,11 @@ describe("auth rules ↔ hook registry", () => {
 	});
 
 	test("registry derives one definition per compiled policy in login-order", () => {
-		expect(PROVIDER_REGISTRY.map(p => p.id)).toEqual([
-			...authProviders().map(p => p.id),
-			// Custom interactive auth not yet representable in KDL appends after
-			// the compiled policies (ADDITIONAL_PROVIDER_DEFINITIONS): the fork's
-			// OpenAI Prism cookie+project login.
-			"openai-prism",
-		]);
+		expect(PROVIDER_REGISTRY.map(p => p.id)).toEqual(authProviders().map(p => p.id));
 		for (const definition of PROVIDER_REGISTRY) {
 			const policy = authProviders().find(p => p.id === definition.id);
-			if (!policy) continue; // additional definition: no compiled policy to mirror
-			expect(Boolean(definition.login)).toBe(Boolean(policy.login));
-			expect(definition.callbackPort).toBe(policy.callbackPort);
+			expect(Boolean(definition.login)).toBe(Boolean(policy?.login));
+			expect(definition.callbackPort).toBe(policy?.callbackPort);
 		}
 	});
 });

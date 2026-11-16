@@ -64,7 +64,9 @@ function urlPlace(url: string): string {
 export class LoginDialogComponent extends OverlayPanel {
 	#contentContainer: Container;
 	#input: TextFormField;
-	#tui: TUI;
+	#tui: Pick<TUI, "requestRender">;
+	#focused = false;
+	#useTerminalCursor = false;
 	#onComplete: (success: boolean, message?: string) => void;
 	#openUrl: (url: string) => void;
 	#abortController = new AbortController();
@@ -78,14 +80,14 @@ export class LoginDialogComponent extends OverlayPanel {
 	#nativeRoot: NativeNode | undefined;
 
 	constructor(
-		tui: TUI,
+		tui: Pick<TUI, "requestRender">,
 		providerId: string,
 		onComplete: (success: boolean, message?: string) => void,
 		openUrl: (url: string) => void,
 	) {
 		const providerInfo = getOAuthProviders().find(p => p.id === providerId);
 		const providerName = providerInfo?.name || providerId;
-		super(`Login to ${providerName}`, "omp.overlay.login");
+		super(`Login to ${providerName}`, "oms.overlay.login");
 		this.#providerName = providerName;
 		this.#tui = tui;
 		this.#onComplete = onComplete;
@@ -98,8 +100,29 @@ export class LoginDialogComponent extends OverlayPanel {
 		this.#input = this.#createInput();
 	}
 
+	/** Focus reaches the live field: it draws the caret (the hardware cursor when the terminal's is on). */
+	get focused(): boolean {
+		return this.#focused;
+	}
+
+	set focused(value: boolean) {
+		this.#focused = value;
+		this.#input.focused = value;
+	}
+
+	setUseTerminalCursor(useTerminalCursor: boolean): void {
+		this.#useTerminalCursor = useTerminalCursor;
+		this.#input.input.setUseTerminalCursor(useTerminalCursor);
+	}
+
+	/** A fresh field for the next answer; the previous one stops drawing a caret. */
+	#replaceInput(secret = false): void {
+		this.#input.focused = false;
+		this.#input = this.#createInput(secret);
+	}
+
 	#createInput(secret = false): TextFormField {
-		return new TextFormField({
+		const field = new TextFormField({
 			theme: formTheme,
 			secret,
 			empty: "submit",
@@ -116,6 +139,9 @@ export class LoginDialogComponent extends OverlayPanel {
 			},
 			requestRender: () => this.#tui.requestRender(),
 		});
+		field.focused = this.#focused;
+		field.input.setUseTerminalCursor(this.#useTerminalCursor);
+		return field;
 	}
 
 	get signal(): AbortSignal {
@@ -194,7 +220,7 @@ export class LoginDialogComponent extends OverlayPanel {
 		// Keep retry chrome in place, but discard prior prompt undo/kill history.
 		const mounted = this.#contentContainer.children.indexOf(this.#input);
 		const previousInput = this.#input;
-		this.#input = this.#createInput();
+		this.#replaceInput();
 		const nativeMounted = this.#nativeSteps.find(step => step.kind === "input" && step.field === previousInput);
 		if (mounted !== -1) {
 			// The flow asks again only when the last paste carried no usable code.
@@ -247,7 +273,7 @@ export class LoginDialogComponent extends OverlayPanel {
 			if (answered?.kind === "input") answered.answer = value;
 		}
 		// A new prompt must not recover a previous secret through undo or yank.
-		this.#input = this.#createInput(prompt.secret === true);
+		this.#replaceInput(prompt.secret === true);
 		if (prompt.placeholder) this.#input.input.placeholder = plainText(prompt.placeholder);
 		this.#contentContainer.addChild(new Spacer(1));
 		this.#contentContainer.addChild(new Text(theme.fg("text", prompt.message), 0, 0));
@@ -324,14 +350,14 @@ export class LoginDialogComponent extends OverlayPanel {
 		const field = this.#activeField();
 		const body: NativeChild[] = [];
 		if (auth) {
-			body.push(keyed(text(this.#lead(auth), { role: "omp.login.lead", wrap: "word" }), "lead"));
+			body.push(keyed(text(this.#lead(auth), { role: "oms.login.lead", wrap: "word" }), "lead"));
 			if (auth.device) body.push(this.#describeCode(auth.device.code));
 			body.push(this.#describeLink(auth.url));
 			if (auth.launchUrl) {
 				body.push(
 					keyed(
 						text([span("On this machine  ", "dim"), span(auth.launchUrl, "mono", { href: auth.launchUrl })], {
-							role: "omp.login.shortcut",
+							role: "oms.login.shortcut",
 							truncate: "middle",
 							lines: 1,
 							title: auth.launchUrl,
@@ -358,7 +384,7 @@ export class LoginDialogComponent extends OverlayPanel {
 				body.push(
 					node(
 						"row",
-						{ role: "omp.login.answer", gap: "sm", align: "baseline" },
+						{ role: "oms.login.answer", gap: "sm", align: "baseline" },
 						[
 							keyed(text(label, { truncate: "end", lines: 1 }), "label"),
 							keyed(text(step.answer || "—", { truncate: "end", lines: 1 }), "value"),
@@ -370,8 +396,8 @@ export class LoginDialogComponent extends OverlayPanel {
 				body.push(
 					node(
 						"col",
-						{ role: "omp.login.prompt", gap: "sm" },
-						[keyed(text(label, { role: "omp.login.label", wrap: "word" }), "label"), step.field],
+						{ role: "oms.login.prompt", gap: "sm" },
+						[keyed(text(label, { role: "oms.login.label", wrap: "word" }), "label"), step.field],
 						`i${index}`,
 					),
 				);
@@ -379,7 +405,7 @@ export class LoginDialogComponent extends OverlayPanel {
 		}
 		// The provider reports nothing while the browser half runs (GitHub's device poll): say so.
 		if (auth && live === -1 && !field) status.push(this.#describeLive(BROWSER_WAIT, "browser"));
-		if (status.length > 0) body.push(node("col", { role: "omp.login.status", gap: "xs" }, status, "status"));
+		if (status.length > 0) body.push(node("col", { role: "oms.login.status", gap: "xs" }, status, "status"));
 
 		const cancelKey = getKeybindings().getKeys("tui.select.cancel")[0];
 		const cancel = actionButton("Cancel", "cancel", cancelKey ? { keys: cancelKey } : {});
@@ -404,7 +430,7 @@ export class LoginDialogComponent extends OverlayPanel {
 				size: "md",
 				modal: true,
 			},
-			[col([node("col", { role: "omp.login.body", gap: "md" }, body, "body"), actionBar(buttons)], { gap: "lg" })],
+			[col([node("col", { role: "oms.login.body", gap: "md" }, body, "body"), actionBar(buttons)], { gap: "lg" })],
 			"sheet",
 		);
 		this.#nativeRoot = col([sheet]);
@@ -422,7 +448,7 @@ export class LoginDialogComponent extends OverlayPanel {
 	#describeCode(code: string): NativeNode {
 		return node(
 			"row",
-			{ role: "omp.login.code", align: "center", actions: { click: "copy" }, href: code, title: "Copy code" },
+			{ role: "oms.login.code", align: "center", actions: { click: "copy" }, href: code, title: "Copy code" },
 			[keyed(text([span(code, "mono")]), "value"), node("icon", { name: "copy" }, undefined, "icon")],
 			"code",
 		);
@@ -431,29 +457,18 @@ export class LoginDialogComponent extends OverlayPanel {
 	/** The sign-in link as a read-only field: the full URL (middle-truncated; a click opens it) and Copy. */
 	#describeLink(url: string): NativeNode {
 		const shown = text([span(url, "mono", { href: url })], {
-			role: "omp.login.url",
+			role: "oms.login.url",
 			truncate: "middle",
 			lines: 1,
 			title: url,
 		});
 		return node(
 			"row",
-			{ role: "omp.login.link", gap: "sm", align: "center" },
+			{ role: "oms.login.link", gap: "sm", align: "center" },
 			[
 				node("icon", { name: "link" }, undefined, "icon"),
 				keyed(shown, "url"),
-				node(
-					"row",
-					{
-						role: "omp.btn",
-						align: "center",
-						actions: { click: "copy" },
-						href: url,
-						title: "Copy the sign-in link",
-					},
-					[text("Copy")],
-					"copyLink",
-				),
+				actionButton("Copy", "copy", { key: "copyLink", href: url, title: "Copy the sign-in link" }),
 			],
 			"link",
 		);
@@ -461,27 +476,20 @@ export class LoginDialogComponent extends OverlayPanel {
 
 	/** Open sign-in page (Tern opens the link itself): the primary action while nothing waits for an answer. */
 	#describeOpen(url: string, primary: boolean): NativeNode {
-		return node(
-			"row",
-			{
-				role: "omp.btn",
-				gap: "xs",
-				align: "center",
-				actions: { click: "open" },
-				href: url,
-				title: `Open ${urlPlace(url)} in your browser`,
-				...(primary ? { tone: "accent" as const } : {}),
-			},
-			[text("Open sign-in page"), node("icon", { name: "open" }, undefined, "icon")],
-			"openLink",
-		);
+		return actionButton("Open sign-in page", "open", {
+			key: "openLink",
+			href: url,
+			title: `Open ${urlPlace(url)} in your browser`,
+			icon: "open",
+			tone: primary ? "accent" : undefined,
+		});
 	}
 
 	/** The stage running now: a spinner and what it waits for. */
 	#describeLive(message: string, key: string): NativeNode {
 		return node(
 			"row",
-			{ role: "omp.login.waiting", gap: "sm", align: "center" },
+			{ role: "oms.login.waiting", gap: "sm", align: "center" },
 			[node("spinner", { style: "orbit", label: sheetText(message), tone: "muted" })],
 			key,
 		);
@@ -492,7 +500,7 @@ export class LoginDialogComponent extends OverlayPanel {
 		const problem = PROGRESS_PROBLEM.test(message);
 		return node(
 			"row",
-			{ role: "omp.login.done", gap: "sm", align: "baseline", ...(problem ? { tone: "warning" as const } : {}) },
+			{ role: "oms.login.done", gap: "sm", align: "baseline", ...(problem ? { tone: "warning" as const } : {}) },
 			[
 				node("icon", { name: problem ? "warn" : "check" }, undefined, "icon"),
 				keyed(text(sheetText(message).replace(/…$/, ""), { wrap: "word" }), "text"),

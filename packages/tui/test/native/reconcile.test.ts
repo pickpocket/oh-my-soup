@@ -78,7 +78,7 @@ describe("Reconciler", () => {
 			const kind = depth === 1 && random() < 0.08 ? "overlay" : pick(kinds);
 			const props: Record<string, unknown> = {};
 			if (random() < 0.5) props.tone = pick(["info", "error", "success"]);
-			if (random() < 0.3) props.role = pick(["omp.a", "omp.b"]);
+			if (random() < 0.3) props.role = pick(["oms.a", "oms.b"]);
 			if (kind === "list" && random() < 0.5) props.selected = pick(["a", "b", "c"]);
 			if (kind === "text" || kind === "md" || kind === "code")
 				props.text = pick(["x", "hello", "hello world", "é🙂"]);

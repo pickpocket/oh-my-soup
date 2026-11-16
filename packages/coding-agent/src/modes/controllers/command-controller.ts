@@ -5,6 +5,7 @@ import { CompactionCancelledError, type CompactionOutcome } from "@oh-my-soup/pi
 import {
 	getEnvApiKey,
 	getProviderDetails,
+	type Model,
 	type ProviderDetails,
 	resolveUsedFraction,
 	type UsageLimit,
@@ -16,6 +17,7 @@ import {
 	Loader,
 	Markdown,
 	padding,
+	parseSgrMouse,
 	Spacer,
 	Text,
 	visibleWidth,
@@ -40,8 +42,7 @@ import {
 } from "@oh-my-soup/pi-tui/overlays/usage-display";
 import { buildToolsMarkdown } from "@oh-my-soup/pi-tui/prompt/tools-markdown";
 import { formatRemainingOnlyTotal, isUsedOnlyAbsoluteAmount } from "@oh-my-soup/pi-tui/prompt/usage-amounts";
-import { replaceTabs, truncateToWidth } from "@oh-my-soup/pi-tui/render/render-utils";
-import { ContextUsageView, contextUsageHead } from "@oh-my-soup/pi-tui/status-line/context-usage";
+import { replaceTabs, shortenEmbeddedPaths, truncateToWidth } from "@oh-my-soup/pi-tui/render/render-utils";
 import { classifyTerminalMultiplexer } from "@oh-my-soup/pi-tui/terminal-multiplexer";
 import { getMarkdownTheme, getSymbolTheme, type Theme, theme } from "@oh-my-soup/pi-tui/theme";
 import { formatDuration, logger, Snowflake, sanitizeText } from "@oh-my-soup/pi-utils";
@@ -57,7 +58,7 @@ import { shareSession } from "../../export/share";
 import type { CompactOptions } from "../../extensibility/extensions/types";
 import {
 	diffMentalModelContent,
-	type HindsightApi,
+	type HindsightClientApi,
 	type HindsightSessionState,
 	loadHindsightConfig,
 	reloadMentalModelsForSession,
@@ -66,8 +67,13 @@ import {
 	summarizeMentalModel,
 } from "../../hindsight";
 import { memoryStatsUnavailableMessage, resolveMemoryBackend } from "../../memory-backend";
+import { promptCacheDetails } from "@oh-my-soup/pi-tui/status-line/prompt-cache";
+import { messageBlock, PresentedBlock } from "@oh-my-soup/pi-tui/chat/transcript-presentation";
 import type { InteractiveModeContext } from "../../modes/types";
 import { isServiceChildProcess, spawnServiceSession } from "../../service/control";
+import { continuesConversation } from "../utils/conversation-position";
+import { ContextViewer } from "@oh-my-soup/pi-tui/overlays/context-viewer";
+import { buildSessionContextView } from "../../session/context-view";
 import type { AsyncJobSnapshotItem } from "../../session/agent-session";
 import type { AuthStorage, OAuthAccountIdentity } from "../../session/auth-storage";
 import type { CompactMode } from "../../session/compact-modes";
@@ -192,9 +198,11 @@ function hasForkApiKeyOverride(argv: string[]): boolean {
 }
 
 export class CommandController {
-	/** The open native report sheet. */
-	#reportSheet: OverlayHandle | undefined;
+	/** The open native report sheet and the component it shows. */
+	#reportSheet: { handle: OverlayHandle; component: Component } | undefined;
 	#forkTerminalDependencies: ForkTerminalDependencies;
+	/** The watcher serving the queued `/compact`, while one runs. */
+	#yieldCompactionWatcher: Promise<void> | undefined;
 
 	constructor(
 		private readonly ctx: InteractiveModeContext,
@@ -239,9 +247,24 @@ export class CommandController {
 		const sheet = this.#reportSheet;
 		if (!sheet) return;
 		this.#reportSheet = undefined;
-		sheet.hide();
+		sheet.handle.hide();
+		// Like the docked report, a closed sheet is never shown again.
+		sheet.component.dispose?.();
 		this.ctx.ui.setFocus(this.ctx.editorContainer.children[0] ?? this.ctx.editor);
 		this.ctx.ui.requestRender();
+	}
+
+	/** Open `component` as a focused full-screen page; callers close any previous sheet first. */
+	#showFullscreenSheet(component: Component): void {
+		const handle = this.ctx.ui.showOverlay(component, {
+			anchor: "bottom-center",
+			width: "100%",
+			maxHeight: "100%",
+			margin: 0,
+			fullscreen: true,
+		});
+		this.#reportSheet = { handle, component };
+		this.ctx.ui.setFocus(component);
 	}
 
 	/**
@@ -268,23 +291,15 @@ export class CommandController {
 		});
 		if (isNativeRendering()) {
 			report.holdFocus();
-			this.#reportSheet = this.ctx.ui.showOverlay(report, {
-				anchor: "center",
-				width: "90%",
-				maxHeight: "90%",
-			});
+			this.#reportSheet = {
+				handle: this.ctx.ui.showOverlay(report, { anchor: "center", width: "90%", maxHeight: "90%" }),
+				component: report,
+			};
 			this.ctx.ui.setFocus(report);
 		} else if (report.heightAt(terminal.columns) > inline) {
 			fullScreen = true;
 			report.holdFocus();
-			this.#reportSheet = this.ctx.ui.showOverlay(report, {
-				anchor: "bottom-center",
-				width: "100%",
-				maxHeight: "100%",
-				margin: 0,
-				fullscreen: true,
-			});
-			this.ctx.ui.setFocus(report);
+			this.#showFullscreenSheet(report);
 		} else {
 			this.ctx.reportContainer.addChild(report);
 		}
@@ -321,7 +336,7 @@ export class CommandController {
 				this.ctx.showError(
 					`Failed to roll back move: ${rollbackError instanceof Error ? rollbackError.message : String(rollbackError)} (failed to re-align workspace to ${actual})`,
 				);
-				await this.ctx.shutdown();
+				await this.ctx.shutdown({ cancellable: false });
 				return;
 			}
 			this.ctx.showError(
@@ -343,7 +358,7 @@ export class CommandController {
 		} catch {}
 		if (!realigned) {
 			this.ctx.showError(`Failed to restore source workspace after rollback: workspace remains at ${actual}`);
-			await this.ctx.shutdown();
+			await this.ctx.shutdown({ cancellable: false });
 			return;
 		}
 		this.ctx.showError(`Failed to restore source workspace after rollback: workspace remains at ${actual}`);
@@ -660,6 +675,15 @@ export class CommandController {
 		}
 		info += `${theme.fg("dim", "Total:")} ${stats.tokens.total.toLocaleString()}\n`;
 
+		const cacheStatus = this.ctx.session.getPromptCacheStatus();
+		if (cacheStatus) {
+			info += `\n${theme.bold("Prompt Cache")}\n`;
+			for (const row of promptCacheDetails(cacheStatus, Date.now())) {
+				const value = row.tone === "warning" ? theme.fg("warning", row.value) : row.value;
+				info += `${theme.fg("dim", `${row.label}:`)} ${value}\n`;
+			}
+		}
+
 		if (stats.cost > 0 || normalizedPremiumRequests > 0 || stats.credits !== undefined) {
 			info += `\n${theme.bold("Cost")}\n`;
 			if (stats.cost > 0) {
@@ -858,6 +882,7 @@ export class CommandController {
 	 */
 	async handleJobsCommand(options?: { full?: boolean }): Promise<void> {
 		const full = options?.full === true;
+		if (full) this.ctx.viewSession.requestJobCaptions();
 		const tree = this.ctx.viewSession.getAsyncJobTree();
 		if (!tree) {
 			this.ctx.showWarning("Async background jobs are unavailable in this session.");
@@ -894,7 +919,8 @@ export class CommandController {
 			// A spawned subagent's task job takes the agent's id as its id and label: name it once.
 			const agent = row.agent && row.agent.id !== job.id ? ` ${theme.bold(row.agent.id)}` : "";
 			info += `${guide}${renderJobLine(job, now)}${agent}\n`;
-			const text = full ? (job.command ?? job.label) : job.label;
+			// What the job is for leads; full mode follows it with what the command does and the whole command.
+			const text = full ? (job.command ?? job.label) : (job.intent ?? job.label);
 			if (text === job.id) continue;
 			const indent = jobTreeIndent(row, theme);
 			const prefix = theme.fg("dim", indent);
@@ -904,7 +930,7 @@ export class CommandController {
 				continue;
 			}
 			for (const line of wrapTextWithAnsi(
-				replaceTabs(sanitizeText(text)),
+				shortenEmbeddedPaths(replaceTabs(sanitizeText([job.intent, job.caption, text].filter(Boolean).join("\n")))),
 				Math.max(1, columns - 4 - visibleWidth(indent)),
 			)) {
 				info += `${prefix}${theme.fg("dim", line)}\n`;
@@ -996,19 +1022,27 @@ export class CommandController {
 	}
 
 	handleContextCommand(): void {
-		const breakdown = computeSessionContextBreakdown(this.ctx.session, {
-			snapcompactSavings: true,
-		});
-		if (breakdown.contextWindow <= 0) {
+		const session = this.ctx.session;
+		if (!session.model) {
 			this.ctx.showWarning("Context usage is unavailable: no model is selected for this session.");
 			return;
 		}
-		// Natively the body is `/context`'s own card (meters, legend, compaction mark).
-		this.showCommandReport({
-			title: "Context Usage",
-			head: contextUsageHead(breakdown),
-			body: new ContextUsageView(breakdown, theme),
+		// Validate capacity before tokenizing the whole history into a snapshot.
+		const breakdown = computeSessionContextBreakdown(session, { snapcompactSavings: true });
+		if (!(breakdown.contextWindow > 0) || !Number.isFinite(breakdown.contextWindow)) {
+			this.ctx.showWarning("Context usage is unavailable: the model's context window is unknown or invalid.");
+			return;
+		}
+		const data = buildSessionContextView(session, breakdown);
+		this.#clearReport();
+		this.#closeReportSheet();
+		const viewer = new ContextViewer(data, {
+			onClose: () => this.#closeReportSheet(),
+			requestRender: () => this.ctx.ui.requestRender(),
+			getRows: () => this.ctx.ui.terminal.rows,
 		});
+		this.#showFullscreenSheet(viewer);
+		this.ctx.ui.requestRender();
 	}
 
 	async handleMemoryCommand(text: string): Promise<void> {
@@ -1152,7 +1186,7 @@ export class CommandController {
 	}
 
 	async #mmList(state: HindsightSessionState): Promise<void> {
-		const client: HindsightApi = state.client;
+		const client: HindsightClientApi = state.client;
 		try {
 			const response = await client.listMentalModels(state.bankId, {
 				detail: "metadata",
@@ -1471,10 +1505,7 @@ export class CommandController {
 
 		// An in-place fork moves this process onto the new file; a running turn
 		// would finish there and leave the original transcript cut mid-turn.
-		if (this.ctx.session.isStreaming) {
-			this.ctx.showWarning("Wait for the current response to finish or abort it before forking.");
-			return;
-		}
+		if (this.ctx.session.isStreaming) await this.ctx.session.abort();
 		if (this.ctx.loadingAnimation) {
 			this.ctx.loadingAnimation.stop();
 			this.ctx.loadingAnimation = undefined;
@@ -1929,13 +1960,31 @@ export class CommandController {
 		isDeferred: boolean,
 		shouldPersistCwd: boolean,
 	): Promise<boolean> {
-		this.ctx.bashComponent = new BashExecutionComponent(command, this.ctx.ui, excludeFromContext);
+		const component = new BashExecutionComponent(command, this.ctx.ui, excludeFromContext);
+		this.ctx.bashComponent = component;
+		// Provisional until the session records the run.
+		const block = new PresentedBlock(
+			component,
+			messageBlock({
+				role: "bashExecution",
+				command,
+				output: "",
+				exitCode: undefined,
+				cancelled: false,
+				truncated: false,
+				timestamp: Date.now(),
+				excludeFromContext,
+			}),
+		);
+		block.setExpanded(this.ctx.toolOutputExpanded);
+		let detachInput: (() => void) | undefined;
+		let finished = false;
 
 		if (isDeferred) {
-			this.ctx.pendingMessagesContainer.addChild(this.ctx.bashComponent);
-			this.ctx.pendingBashComponents.push(this.ctx.bashComponent);
+			this.ctx.pendingShellContainer.addChild(block);
+			this.ctx.pendingBashComponents.push(block);
 		} else {
-			this.ctx.present(this.ctx.bashComponent);
+			this.ctx.present(block);
 		}
 		this.ctx.ui.requestRender();
 
@@ -1949,12 +1998,22 @@ export class CommandController {
 				},
 				{
 					excludeFromContext,
+					onRecorded: message => block.setBlock(messageBlock(message)),
 					useUserShell: true,
 					// User-shell zsh/fish `!` commands run on a headless PTY; raw
 					// bytes render through the component's vterm replay (color-safe).
 					pty: {
 						...bashPtyViewport(this.ctx.ui),
 						onChunk: chunk => this.ctx.bashComponent?.appendPtyChunk(chunk),
+						onStdin: write => {
+							if (finished) return;
+							// A TSP field without a mode handles printable keys itself and sends
+							// `edit` packets instead of raw input. Label it while the PTY owns
+							// the keyboard so Tern delivers those keys to the input listener.
+							detachInput = this.#forwardKeysToPty(component, write);
+							this.ctx.editor.nativeKeyPassthrough = true;
+							this.ctx.ui.requestRender();
+						},
 					},
 				},
 			);
@@ -1964,6 +2023,7 @@ export class CommandController {
 					output: result.output,
 					truncation: meta?.truncation,
 					artifactError: meta?.artifactError,
+					minimized: result.minimized,
 					images: result.images,
 					showImages: cfgTerminalShowImages.get(this.ctx.settings),
 				});
@@ -1983,10 +2043,32 @@ export class CommandController {
 			}
 			this.ctx.showError(`Bash command failed: ${error instanceof Error ? error.message : "Unknown error"}`);
 		} finally {
+			finished = true;
+			detachInput?.();
+			if (detachInput) this.ctx.editor.nativeKeyPassthrough = false;
 			this.ctx.bashComponent = undefined;
 			this.ctx.ui.requestRender();
 		}
 		return false;
+	}
+
+	/**
+	 * Routes composer keystrokes to a running `!` command's PTY so it can answer
+	 * its own prompts (`read`, shell-startup questions), like a foreground job.
+	 * The interrupt key still cancels; focused dialogs and mouse reports keep
+	 * their input. Returns the detach function.
+	 */
+	#forwardKeysToPty(component: BashExecutionComponent, write: (data: string) => void): () => void {
+		return this.ctx.ui.addInputListener(
+			data => {
+				if (this.ctx.ui.getFocused() !== this.ctx.editor) return undefined;
+				if (this.ctx.keybindings.matches(data, "app.interrupt") || parseSgrMouse(data)) return undefined;
+				const bytes = component.encodePtyInput(data);
+				if (bytes) write(bytes);
+				return { consume: true };
+			},
+			{ prepend: true },
+		);
 	}
 
 	async #applyBashResultCwd(result: BashResult): Promise<boolean> {
@@ -2010,12 +2092,27 @@ export class CommandController {
 	async handlePythonCommand(code: string, excludeFromContext = false): Promise<void> {
 		const isDeferred = this.ctx.session.isStreaming;
 		this.ctx.pythonComponent = new EvalExecutionComponent(code, this.ctx.ui, excludeFromContext);
+		// Provisional until the session records the cell.
+		const block = new PresentedBlock(
+			this.ctx.pythonComponent,
+			messageBlock({
+				role: "pythonExecution",
+				code,
+				output: "",
+				exitCode: undefined,
+				cancelled: false,
+				truncated: false,
+				timestamp: Date.now(),
+				excludeFromContext,
+			}),
+		);
+		block.setExpanded(this.ctx.toolOutputExpanded);
 
 		if (isDeferred) {
-			this.ctx.pendingMessagesContainer.addChild(this.ctx.pythonComponent);
-			this.ctx.pendingPythonComponents.push(this.ctx.pythonComponent);
+			this.ctx.pendingShellContainer.addChild(block);
+			this.ctx.pendingPythonComponents.push(block);
 		} else {
-			this.ctx.present(this.ctx.pythonComponent);
+			this.ctx.present(block);
 		}
 		this.ctx.ui.requestRender();
 
@@ -2027,7 +2124,7 @@ export class CommandController {
 						this.ctx.pythonComponent.appendOutput(chunk);
 					}
 				},
-				{ excludeFromContext },
+				{ excludeFromContext, onRecorded: message => block.setBlock(messageBlock(message)) },
 			);
 
 			if (this.ctx.pythonComponent) {
@@ -2053,7 +2150,7 @@ export class CommandController {
 		customInstructions?: string,
 		mode?: CompactMode,
 		beforeFlush?: (outcome: CompactionOutcome) => void | Promise<void>,
-		internalGuidance?: string,
+		options?: Pick<CompactOptions, "internalGuidance" | "readerModel">,
 	): Promise<CompactionOutcome> {
 		const entries = this.ctx.sessionManager.getEntries();
 		const messageCount = entries.filter(e => e.type === "message").length;
@@ -2071,25 +2168,99 @@ export class CommandController {
 		// through as a CompactOptions field instead. That caller also dispatches
 		// the execution turn itself, so the compaction must not resume the
 		// plan-approval turn it aborted.
-		if (internalGuidance) {
+		if (options?.internalGuidance) {
 			return this.executeCompaction(
-				{
-					internalGuidance,
-					suppressContinuation: true,
-					...(mode ? { mode } : {}),
-				},
+				{ internalGuidance: options.internalGuidance, suppressContinuation: true, ...(mode ? { mode } : {}) },
 				false,
 				beforeFlush,
 				mode,
+				options.readerModel,
 			);
 		}
-		return this.executeCompaction(customInstructions, false, beforeFlush, mode);
+		return this.executeCompaction(customInstructions, false, beforeFlush, mode, options?.readerModel);
+	}
+
+	/**
+	 * Run the `/compact` queued for the next yield once the session goes quiet. One watcher serves the
+	 * request from the moment it is queued, so no single event (an `agent_end` that a stale-settle guard
+	 * skips, a setup that bails without one) can strand it; later calls join the running watcher.
+	 * Follow-ups queued behind the request wait in `compactionQueuedMessages` and flush once it ends.
+	 */
+	runYieldCompaction(): Promise<void> {
+		this.#yieldCompactionWatcher ??= this.#watchYieldCompaction().finally(() => {
+			this.#yieldCompactionWatcher = undefined;
+		});
+		return this.#yieldCompactionWatcher;
+	}
+
+	async #watchYieldCompaction(): Promise<void> {
+		let request = this.ctx.yieldCompaction;
+		if (!request) return;
+		const session = this.ctx.session;
+		while (true) {
+			await session.waitForIdle();
+			// Input sent before the request reaches the session first, also while it is still dispatching.
+			await this.ctx.waitForSubmissionDispatches();
+			await session.waitForAdmittedSubmissions();
+			// Let a session switch commit or roll back before judging which conversation is live.
+			if (session.isSessionTransitioning) await session.waitForSessionTransition();
+			if (session.hasPendingAsyncWork()) await session.settleAsyncWork();
+			if (this.ctx.session !== session) return;
+			if (this.ctx.yieldCompaction !== request) {
+				// Dequeued (and maybe queued again): serve whatever request is pending now.
+				if (!this.ctx.yieldCompaction) return;
+				request = this.ctx.yieldCompaction;
+				continue;
+			}
+			// The run yielded only once nothing can continue it: no turn, retry, queued input, pending
+			// submission, background job, or transition. Otherwise something is mid-flight; look again.
+			if (
+				!session.isStreaming &&
+				!session.isRetrying &&
+				!session.isSessionTransitioning &&
+				!session.hasAdmittedSubmission &&
+				!session.hasPendingAsyncWork() &&
+				session.queuedMessageCount === 0 &&
+				!this.ctx.hasPendingSubmission()
+			) {
+				break;
+			}
+			await Bun.sleep(10);
+		}
+		if (!continuesConversation(this.ctx.sessionManager, request)) {
+			// Switched sessions or navigated the tree (both may reuse this `AgentSession`): nothing queued
+			// for the old position may compact or run here.
+			this.ctx.restoreCompactionQueueToEditor();
+			return;
+		}
+		this.ctx.yieldCompaction = undefined;
+		// The request leaves; its position stays with the follow-ups it held until they flush.
+		this.ctx.compactionQueueOrigin = { sessionId: request.sessionId, leafId: request.leafId };
+		this.ctx.updatePendingMessagesDisplay();
+		if (session.isCompacting) {
+			// Another pass (auto, or an extension's `ctx.compact()`) already compacts.
+			this.ctx.showStatus("Skipped queued compaction: context is already compacting");
+			while (session.isCompacting) {
+				await Bun.sleep(10);
+			}
+			await this.ctx.flushCompactionQueue({ willRetry: false });
+			return;
+		}
+		// `executeCompaction` calls the hook right before it flushes the queue; "Nothing to compact"
+		// returns before both, so the held follow-ups are released here instead.
+		let compactionFlushes = false;
+		await this.handleCompactCommand(request.instructions, request.mode, () => {
+			compactionFlushes = true;
+		});
+		if (!compactionFlushes) await this.ctx.flushCompactionQueue({ willRetry: false });
 	}
 
 	/**
 	 * TUI handler for `/shake`. `elide` drops heavy structural content,
-	 * `images` strips image blocks, and `thinking` drops all thinking blocks.
-	 * Rebuilds the chat and reports counts.
+	 * `images` strips image blocks, and `thinking` drops the thinking blocks the
+	 * request rebuilds from them, keeping the turns it replays natively (they
+	 * are reported as kept and the transcript is left alone). Rebuilds the chat
+	 * and reports counts.
 	 */
 	async handleShakeCommand(mode: ShakeMode): Promise<void> {
 		let result: ShakeResult;
@@ -2106,7 +2277,8 @@ export class CommandController {
 			(result.imagesDropped ?? 0) +
 			(result.thinkingBlocksDropped ?? 0);
 		if (dropped === 0) {
-			this.ctx.showStatus("Nothing to shake.");
+			// Replayed thinking was left in place: nothing to rebuild, but say so.
+			this.ctx.showStatus((result.thinkingBlocksKept ?? 0) > 0 ? formatShakeSummary(result) : "Nothing to shake.");
 			return;
 		}
 		this.ctx.rebuildChatFromMessages();
@@ -2120,6 +2292,7 @@ export class CommandController {
 		isAuto = false,
 		beforeFlush?: (outcome: CompactionOutcome) => void | Promise<void>,
 		mode?: CompactMode,
+		readerModel?: Model,
 	): Promise<CompactionOutcome> {
 		if (this.ctx.loadingAnimation) {
 			this.ctx.loadingAnimation.stop();
@@ -2160,10 +2333,11 @@ export class CommandController {
 			// it inside the options object. Either source wins over no mode.
 			const effectiveMode = mode ?? baseOptions?.mode;
 			const options =
-				baseOptions || effectiveMode
+				baseOptions || effectiveMode || readerModel
 					? {
 							...baseOptions,
 							...(effectiveMode ? { mode: effectiveMode } : {}),
+							...(readerModel ? { readerModel } : {}),
 						}
 					: undefined;
 			await this.ctx.session.compact(instructions, options);

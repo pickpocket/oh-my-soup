@@ -1,11 +1,21 @@
-import { describe, expect, it, vi } from "bun:test";
+/**
+ * Nonpersisting resume loads a saved snapshot only after extension flag ownership
+ * is resolved, retaining the launch cwd without writing subsequent turns.
+ */
+import { afterEach, describe, expect, it, vi } from "bun:test";
 import * as fsp from "node:fs/promises";
 import * as path from "node:path";
 import { parseArgs } from "@oh-my-soup/pi-coding-agent/cli/args";
 import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { clearOmsExtensionCliRoots } from "@oh-my-soup/pi-coding-agent/discovery/oms-extension-roots";
 import { runRootCommand } from "@oh-my-soup/pi-coding-agent/main";
 import { getProjectDir, setProjectDir, TempDir } from "@oh-my-soup/pi-utils";
 import { createAssistantMessage, createInMemoryAuthStorage } from "./helpers/agent-session-setup";
+
+// `runRootCommand` registers the CLI's extension roots (`--no-extensions` → explicit-only) process-wide.
+afterEach(() => {
+	clearOmsExtensionCliRoots();
+});
 
 describe("runRootCommand — --no-session --resume", () => {
 	for (const selection of ["id", "path", "picker"] as const) {

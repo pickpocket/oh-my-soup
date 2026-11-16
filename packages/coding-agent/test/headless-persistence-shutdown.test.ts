@@ -13,6 +13,7 @@ import { afterEach, describe, expect, it, spyOn } from "bun:test";
 import * as fs from "node:fs";
 import { parseArgs, type Args } from "@oh-my-soup/pi-coding-agent/cli/args";
 import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { clearOmsExtensionCliRoots } from "@oh-my-soup/pi-coding-agent/discovery/oms-extension-roots";
 import { runRootCommand } from "@oh-my-soup/pi-coding-agent/main";
 import type { CreateAgentSessionResult } from "@oh-my-soup/pi-coding-agent/sdk";
 import { AuthStorage } from "@oh-my-soup/pi-coding-agent/session/auth-storage";
@@ -32,6 +33,9 @@ const RAW_FATAL_DUMP_RE = /(?:^|\n)\s+at [^\n]*:\d+:\d+/;
 const tempDirs: TempDir[] = [];
 
 afterEach(async () => {
+	// `runRootCommand` registers the CLI's extension roots (`--no-extensions` → explicit-only) process-wide.
+	clearOmsExtensionCliRoots();
+
 	await Promise.all(tempDirs.splice(0).map(dir => dir.remove()));
 });
 
@@ -124,6 +128,7 @@ async function createHarness(): Promise<ShutdownHarness> {
 		sessionManager: manager,
 		subscribe: () => {},
 		addDisposer: () => {},
+		setScopedModelsRefresher: () => {},
 		getAllToolNames: () => [],
 		validateRetryFallbackChains: () => {},
 		getLastAssistantMessage: () => undefined,

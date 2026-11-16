@@ -161,7 +161,7 @@ func TestUnknownFallbackFieldKeepsEnclosingFrame(t *testing.T) {
 
 func TestScalarOrArrayAcceptsBareScalar(t *testing.T) {
 	for line, want := range map[string][]string{
-		`{"sessionId":"s","systemPrompt":"You are omp."}`: {"You are omp."},
+		`{"sessionId":"s","systemPrompt":"You are oms."}`: {"You are oms."},
 		`{"sessionId":"s","systemPrompt":["a","b"]}`:      {"a", "b"},
 		`{"sessionId":"s"}`:                               {},
 	} {

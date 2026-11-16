@@ -1,7 +1,7 @@
 import type { AgentSession } from "../session/agent-session";
 import type { FileEntry } from "../session/session-entries";
 import { extractSessionInit, type PersistedSessionInit } from "../session/session-manager";
-import { getEvalToolSource } from "./eval-tools";
+import { getEvalToolSource } from "./eval-tool-provenance";
 
 /** Latest enabled slate; the immutable authority ceiling remains in session_init. */
 export const SUBAGENT_TOOL_STATE_TYPE = "subagent_tool_state";
@@ -39,7 +39,8 @@ export function readSubagentToolState(
 ): RestoredSubagentToolState | undefined {
 	if (!init) return undefined;
 	const ceiling = new Set(init.toolAllowlist ?? init.tools);
-	ceiling.add("yield");
+	const structured = init.tools.includes("yield");
+	if (structured) ceiling.add("yield");
 	const fullWriteAuthorized = ceiling.has("write") && init.readOnly !== true && init.deviceOnlyWrite !== true;
 	if (!fullWriteAuthorized) ceiling.delete("write");
 	let state: SubagentToolState = {
@@ -67,7 +68,7 @@ export function readSubagentToolState(
 	const tools = state.tools.filter(
 		name => ceiling.has(name) && (name !== "write" || (fullWriteAuthorized && !state.deviceOnlyWrite)),
 	);
-	if (!tools.includes("yield")) tools.push("yield");
+	if (structured && !tools.includes("yield")) tools.push("yield");
 	return {
 		tools,
 		toolAllowlist: [...ceiling],

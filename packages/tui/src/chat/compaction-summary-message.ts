@@ -10,6 +10,7 @@ import type { TspSpan } from "@oh-my-soup/pi-wire";
 import { md, node, span, text } from "../native/describe";
 import { type NativeChild, type NativeNode, type NativeUiEvent, rootToggleExpanded } from "../native/node";
 import { Memo } from "../native/memo";
+import { noticeRow } from "../chrome/transcript-notice";
 
 /** Divider labels per compaction method; unknown/legacy methods fall back to "compacted". */
 const COMPACTION_METHOD_LABELS: Record<string, string> = {
@@ -209,7 +210,7 @@ export class CompactionSummaryMessageComponent extends SummaryMessageComponent {
 			nativeLabel: () => compactionNativeLabel(message),
 			nativeDetail: () => compactionNativeDetail(message),
 			detailMarkdown: () => compactionDetailMarkdown(message),
-			role: "omp.compaction",
+			role: "oms.compaction",
 		});
 	}
 }
@@ -236,8 +237,8 @@ function compactionNativeDetail(message: CompactionSummaryMessage): NativeChild[
 		frames > 0
 			? `Summary · ${frames} snapcompact frame${frames === 1 ? "" : "s"} attached`
 			: "Summary of the earlier conversation";
-	const detail: NativeChild[] = [text([span(caption, "dim")], { role: "omp.compaction.caption", key: "caption" })];
-	if (message.warning) detail.push(text([span(message.warning, "warning")], { wrap: "word", key: "warning" }));
+	const detail: NativeChild[] = [text([span(caption, "dim")], { role: "oms.compaction.caption", key: "caption" })];
+	if (message.warning) detail.push(noticeRow("warning", message.warning, { key: "warning" }));
 	detail.push(md(message.summary, { key: "summary" }));
 	return detail;
 }
@@ -277,7 +278,7 @@ export class HandoffSummaryMessageComponent extends SummaryMessageComponent {
 		super({
 			label: () => `${theme.icon.context} handed-off`,
 			nativeLabel: () => [span("Handed off", "muted")],
-			role: "omp.handoff",
+			role: "oms.handoff",
 			detailMarkdown: () => {
 				const document = extractHandoffDocument(getCustomMessageText(message));
 				return `**Handoff context**\n\n${document || "_No handoff content._"}`;
@@ -306,7 +307,7 @@ export class BranchSummaryMessageComponent extends SummaryMessageComponent {
 		super({
 			label: () => `${theme.icon.branch} branch`,
 			nativeLabel: () => [span("Branch summarized", "muted")],
-			role: "omp.branch",
+			role: "oms.branch",
 			detailMarkdown: () => `**Branch summary**\n\n${message.summary}`,
 		});
 	}

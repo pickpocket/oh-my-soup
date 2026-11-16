@@ -7,12 +7,11 @@
 /// <reference types="./bun-imports.d.ts" />
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { EditStore, hashlineCountOps, hashlineFormatHeader } from "@oh-my-soup/pi-natives";
+import { diffLines, EditStore, hashlineCountOps, hashlineFormatHeader } from "@oh-my-soup/pi-natives";
 import type { AgentMessage, ResolvedThinkingLevel, ThinkingLevel } from "@oh-my-soup/pi-agent-core";
 import type { Model, ToolExample } from "@oh-my-soup/pi-ai";
 import { formatSessionDumpText, RpcClient } from "@oh-my-soup/pi-coding-agent";
 import { prompt } from "@oh-my-soup/pi-utils";
-import { diffLines } from "diff";
 import { formatDirectory } from "@oh-my-soup/typescript-edit-benchmark/formatter";
 import {
 	discoverSharedInfra,

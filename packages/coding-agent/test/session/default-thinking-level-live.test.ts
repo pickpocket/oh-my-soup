@@ -20,7 +20,7 @@ import { removeSyncWithRetries, Snowflake } from "@oh-my-soup/pi-utils";
 import { createInteractiveModeContext } from "../helpers/interactive-mode-context";
 
 // `defaultThinkingLevel` seeds new sessions. A later write that is not the user's
-// in-process choice (config reload, another omp process, a parent session) must not
+// in-process choice (config reload, another oms process, a parent session) must not
 // re-steer a running session's explicit selection.
 describe("defaultThinkingLevel on running sessions", () => {
 	const tempDirs: string[] = [];

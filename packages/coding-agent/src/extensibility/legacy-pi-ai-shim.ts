@@ -28,7 +28,7 @@ import {
 	type SimpleStreamOptions,
 	streamSimple,
 } from "@oh-my-soup/pi-ai";
-import { streamAnthropic } from "@oh-my-soup/pi-ai/providers/anthropic";
+import { streamAnthropic } from "@oh-my-soup/pi-ai/providers/register-builtins";
 import type { Effort } from "@oh-my-soup/pi-catalog/effort";
 import { clampThinkingLevelForModel, getSupportedEfforts } from "@oh-my-soup/pi-catalog/model-thinking";
 import {
@@ -108,9 +108,9 @@ export function getSupportedThinkingLevels<TApi extends Api>(model: Model<TApi>)
  * (`@earendil-works/pi-ai` `utils/retry.ts`). Legacy extensions call
  * {@link isRetryableAssistantError} to decide whether to restart a failed
  * assistant turn, so the wording tables must match the upstream semantics they
- * were authored against rather than OMP's own `Error`-based classifiers.
+ * were authored against rather than OMS's own `Error`-based classifiers.
  *
- * The transport wording also covers OMP's own network-failure sentences from
+ * The transport wording also covers OMS's own network-failure sentences from
  * `networkFailureMessage` (offline, unreachable, refused, TLS); legacy
  * extensions must keep restarting those turns exactly as they did for the
  * bare `Connection error.` text they replaced.
@@ -150,6 +150,7 @@ export const getModel = getBundledModel;
 export const getModels = getBundledModels;
 
 const ANTHROPIC_MESSAGES_API = {
+	// Loads the Anthropic transport on first invocation, not extension setup.
 	stream: streamAnthropic,
 	streamSimple: (model: Model<"anthropic-messages">, context: Context, options?: SimpleStreamOptions) =>
 		streamSimple(model, context, options),

@@ -13,7 +13,7 @@ import { judgeQuestions } from "@oh-my-soup/pi-ai";
 import * as AIError from "@oh-my-soup/pi-ai/error";
 import type { VcsHunkSelection } from "@oh-my-soup/pi-natives";
 import * as vcs from "@oh-my-soup/pi-natives/vcs";
-import { isEnoent, logger } from "@oh-my-soup/pi-utils";
+import { isEnoent, logger, toError } from "@oh-my-soup/pi-utils";
 import { parseFileDiffs, parseFileHunks } from "../../commit/git/diff";
 import { openStandaloneJudge } from "../../judgment/standalone";
 import questionFile from "../../prompts/judge/git-stage.json" with { type: "json" };
@@ -268,7 +268,7 @@ function verdicts(results: readonly (PromiseSettledResult<number> | undefined)[]
 		return 0;
 	});
 	if (results.length > 0 && failures === results.length) {
-		throw firstError instanceof Error ? firstError : new Error(String(firstError));
+		throw toError(firstError);
 	}
 	return out;
 }

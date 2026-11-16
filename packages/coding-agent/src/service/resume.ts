@@ -1,6 +1,6 @@
 import * as path from "node:path";
 import { normalizePathForComparison } from "@oh-my-soup/pi-utils/dirs";
-import type { SessionInfo } from "../session/session-listing";
+import type { PickerListing, SessionInfo } from "../session/session-listing";
 import type { LiveServiceSession } from "./control";
 
 function sessionPathKey(file: string): string {
@@ -33,20 +33,43 @@ export function liveSessionForIdentifier(
 	return match;
 }
 
-/** Overlay live host state on saved-session metadata, hiding sessions with no messages sent. */
+/**
+ * Overlay live host state on saved-session metadata. Picker listings already
+ * filter empty sessions and retain pinned rows; preserve both listing passes.
+ * Raw arrays keep the legacy empty-session filter for non-picker callers.
+ */
+export function markLiveSessions(
+	sessions: PickerListing,
+	liveSessions: readonly LiveServiceSession[],
+	sessionDir?: string,
+): PickerListing;
 export function markLiveSessions(
 	sessions: SessionInfo[],
 	liveSessions: readonly LiveServiceSession[],
+	sessionDir?: string,
+): SessionInfo[];
+export function markLiveSessions(
+	sessions: PickerListing | SessionInfo[],
+	liveSessions: readonly LiveServiceSession[],
 	_sessionDir?: string,
-): SessionInfo[] {
-	const nonEmpty = sessions.filter(
-		session => session.messageCount > 0 || (session.firstMessage !== "" && session.firstMessage !== "(no messages)"),
-	);
-	if (liveSessions.length === 0) return nonEmpty;
-	const byPath = new Map(liveSessions.map(session => [sessionPathKey(session.sessionPath), session]));
-	return nonEmpty.map(session => {
-		const key = sessionPathKey(session.path);
-		if (!byPath.has(key)) return session;
-		return { ...session, status: "running" as const };
-	});
+): PickerListing | SessionInfo[] {
+	if (Array.isArray(sessions)) {
+		sessions = sessions.filter(
+			session =>
+				session.messageCount > 0 || (session.firstMessage !== "" && session.firstMessage !== "(no messages)"),
+		);
+	}
+	if (liveSessions.length === 0) return sessions;
+	const livePaths = new Set(liveSessions.map(session => sessionPathKey(session.sessionPath)));
+	const markRows = (rows: SessionInfo[]): SessionInfo[] => {
+		return rows.map(session =>
+			livePaths.has(sessionPathKey(session.path)) ? { ...session, status: "running" as const } : session,
+		);
+	};
+	if (Array.isArray(sessions)) return markRows(sessions);
+	return {
+		...sessions,
+		sessions: markRows(sessions.sessions),
+		complete: sessions.complete.then(markRows),
+	};
 }

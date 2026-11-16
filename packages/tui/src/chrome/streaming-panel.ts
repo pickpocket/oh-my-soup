@@ -31,7 +31,7 @@ class StreamingPanelFooter implements Component {
 	describe(): NativeNode {
 		const line = plainText(typeof this.#line === "function" ? this.#line() : this.#line);
 		if (this.#native?.line !== line) {
-			this.#native = { line, node: text([span(line, "muted")], { wrap: "word", role: "omp.panel.footer" }) };
+			this.#native = { line, node: text([span(line, "muted")], { wrap: "word", role: "oms.panel.footer" }) };
 		}
 		return this.#native.node;
 	}

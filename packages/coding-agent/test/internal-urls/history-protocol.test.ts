@@ -698,7 +698,7 @@ describe("history:// protocol", () => {
 	});
 
 	it("serves a seance only the consulted source's transcript tree, read in place", async () => {
-		using tempDir = TempDir.createSync("@omp-history-seance-");
+		using tempDir = TempDir.createSync("@oms-history-seance-");
 		const dir = tempDir.path();
 		const cwd = path.join(dir, "project");
 		const sourceArtifacts = path.join(dir, "source", "source");
@@ -752,7 +752,7 @@ describe("history:// protocol", () => {
 	});
 
 	it("keeps a seance fork's foreign source children out of the parent's history", async () => {
-		using tempDir = TempDir.createSync("@omp-history-seance-parent-");
+		using tempDir = TempDir.createSync("@oms-history-seance-parent-");
 		const dir = tempDir.path();
 		const cwd = path.join(dir, "project");
 		const foreignSource = path.join(dir, "foreign", "source.jsonl");

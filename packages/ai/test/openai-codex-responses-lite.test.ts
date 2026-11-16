@@ -3,11 +3,11 @@ import { type InputItem, transformRequestBody } from "@oh-my-soup/pi-ai/provider
 import {
 	buildTransformedCodexRequestBody,
 	convertCodexResponsesMessages,
-	resetOpenAICodexHistoryAfterCompaction,
 	streamOpenAICodexResponses,
 } from "@oh-my-soup/pi-ai/providers/openai-codex-responses";
-import { isOpenAIResponsesProgressEvent } from "@oh-my-soup/pi-ai/providers/openai-shared";
+import { resetOpenAICodexHistoryAfterCompaction } from "@oh-my-soup/pi-ai/providers/openai-codex-state";
 import { configureCredentialRedaction } from "@oh-my-soup/pi-ai/providers/transform-messages";
+import { isOpenAIResponsesProgressEvent } from "@oh-my-soup/pi-ai/utils/websocket";
 import type {
 	CodexCompactionRequestContext,
 	Context,

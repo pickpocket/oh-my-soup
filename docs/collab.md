@@ -30,19 +30,18 @@ The guest's previous session is restored on `/leave` (or when the host stops).
 
 ### Commands
 
-| Command           | Effect                                                                              |
-| ----------------- | ----------------------------------------------------------------------------------- |
-| `/collab`         | Start full-control sharing; reuse a control room or replace a view-only room        |
-| `/collab <relay>` | Start sharing through a specific relay (`relay.example.com`, `ws://10.66.66.8`) |
-| `/collab view [relay]` | Start read-only sharing, or print the existing room's read-only link/QR        |
-| `/collab status`  | Show link + participants                                                            |
-| `/collab stop`    | Stop sharing                                                                        |
-| `/collab list`    | List every active local Collab host (no links)                                      |
-| `/join <link>`    | Join a shared session as a guest                                                    |
-| `/leave`          | Leave (guest) or stop sharing (host)                                                |
+| Command                | Effect                                                                              |
+| ---------------------- | ----------------------------------------------------------------------------------- |
+| `/collab`              | Start full-control sharing; reuse a control room or replace a view-only room        |
+| `/collab <relay>`      | Start sharing through a specific relay (`relay.example.com`, `ws://localhost:7466`, `ws://10.66.66.8`) |
+| `/collab view [relay]` | Start read-only sharing, or print the existing room's read-only link/QR             |
+| `/collab status`       | Show link + participants                                                            |
+| `/collab stop`         | Stop sharing                                                                        |
+| `/collab list`         | List every active local Collab host (no links)                                      |
+| `/join <link>`         | Join a shared session as a guest                                                    |
+| `/leave`               | Leave (guest) or stop sharing (host)                                                |
 
 `/collab start [relay]` is also accepted. Passing a relay while a reusable room is active does not move that room to another relay; stop it first to change the relay.
-
 
 ### Choosing the relay server
 
@@ -208,9 +207,9 @@ For a trusted VPN deployment, use `collab.relayUrl = ws://10.66.66.8` and `colla
 | `collab.relayUrl`     | `wss://my.omp.sh`     | Relay base URL, including an optional prefix; TLS by default, explicit `ws://`/`http://` for trusted VPNs |
 | `collab.webUrl`       | empty                 | HTTP(S) UI base URL, including its own prefix; required for browser invitations with custom relays |
 | `collab.displayName`  | OS username           | Name shown to other participants                                                                               |
-| `collab.autoStart`    | `off`                 | `view` / `control`: host every interactive session as it starts and publish it to the local registry            |
+| `collab.autoStart`    | `off`                 | `view` / `control`: host every interactive session as it starts and publish it to the local registry           |
 | `share.serverUrl`     | `https://my.omp.sh/s` | Share viewer/upload base used by `/share` (links are `<base>/<id>#<key>`)                                      |
-| `share.store`         | `blob`                | `/share` uploads to the blob server; `gist` uses an authenticated secret gist with blob fallback             |
+| `share.store`         | `blob`                | `/share` uploads to the blob server; `gist` uses an authenticated secret gist with blob fallback               |
 | `share.redactSecrets` | `true`                | Run the secret obfuscator over `/share` snapshots before upload                                                |
 
 ## Self-hosting the relay
@@ -254,7 +253,7 @@ For local protocol development and tests, this client repository retains a TypeS
 - [`src/collab/settings.ts`](../packages/coding-agent/src/collab/settings.ts) — `collab.*` defaults
 - [`feat/collab-server:web/`](https://github.com/pickpocket/oh-my-soup/tree/feat/collab-server/web) — browser guest client (on the `feat/collab-server` branch)
 - [`test/collab/helpers/local-relay.ts`](../packages/coding-agent/test/collab/helpers/local-relay.ts) — local TypeScript stand-in relay for tests and protocol development
-- [`scripts/generate-share-viewer.ts`](../packages/coding-agent/scripts/generate-share-viewer.ts), [`packages/tool-views`](../packages/tool-views/) — encrypted `share.html` viewer generator and shared HTML export tool-card renderers
+- [`scripts/generate-share-viewer.ts`](../packages/coding-agent/scripts/generate-share-viewer.ts), [`packages/tool-views`](../packages/tool-views/) — self-contained encrypted `share.html` viewer generator and shared HTML export tool-card/trace renderers. Run `bun gen:export-viewer` before generating a share page; the page embeds its viewer libraries and only fetches the encrypted session blob.
 
 ## Architecture notes
 

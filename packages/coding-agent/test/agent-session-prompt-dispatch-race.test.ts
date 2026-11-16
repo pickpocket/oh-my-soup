@@ -22,13 +22,16 @@ import {
 	ExtensionRuntime,
 	loadExtensionFromFactory,
 } from "@oh-my-soup/pi-coding-agent/extensibility/extensions/loader";
+import type { ExtensionAPI } from "@oh-my-soup/pi-coding-agent/extensibility/extensions/types";
 import { ExtensionRunner } from "@oh-my-soup/pi-coding-agent/extensibility/extensions/runner";
+import { initializeExtensions } from "@oh-my-soup/pi-coding-agent/modes/runtime-init";
 import { RpcPromptResults, reportPromptResult } from "@oh-my-soup/pi-coding-agent/modes/rpc/rpc-prompt-results";
 import type { RpcPromptResultFrame } from "@oh-my-soup/pi-coding-agent/modes/rpc/rpc-types";
 import { AgentSession, PromptDroppedError } from "@oh-my-soup/pi-coding-agent/session/agent-session";
 import { AuthStorage } from "@oh-my-soup/pi-coding-agent/session/auth-storage";
 import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
 import { EventBus } from "@oh-my-soup/pi-coding-agent/utils/event-bus";
+import * as imageLoading from "@oh-my-soup/pi-coding-agent/utils/image-loading";
 import { assistantMsg } from "./utilities";
 
 interface BtwBranchResult {
@@ -282,6 +285,70 @@ describe("AgentSession concurrent prompt dispatch", () => {
 
 		expect(await outcome).toBeInstanceOf(PromptDroppedError);
 		expect(session.messages.some(message => message.role === "assistant")).toBe(false);
+	});
+
+	it("returns a rejection to an extension whose idle user message is aborted during setup", async () => {
+		const manager = SessionManager.inMemory();
+		const runtime = new ExtensionRuntime();
+		let send: ExtensionAPI["sendUserMessage"] | undefined;
+		const extension = await loadExtensionFromFactory(
+			api => {
+				send = api.sendUserMessage.bind(api);
+			},
+			manager.getCwd(),
+			new EventBus(),
+			runtime,
+			"send-user-message",
+		);
+		createSession(manager, new ExtensionRunner([extension], runtime, manager.getCwd(), manager, modelRegistry));
+		await initializeExtensions(session, { reportSendError: () => {}, reportRuntimeError: () => {} });
+		if (!send) throw new Error("Extension did not load");
+
+		const reached = Promise.withResolvers<void>();
+		const release = Promise.withResolvers<void>();
+		const getApiKey = modelRegistry.getApiKey.bind(modelRegistry);
+		vi.spyOn(modelRegistry, "getApiKey").mockImplementation(async (...args) => {
+			reached.resolve();
+			await release.promise;
+			return getApiKey(...args);
+		});
+		const outcome = send("dropped extension message").then(
+			() => undefined,
+			(error: unknown) => error,
+		);
+		try {
+			await reached.promise;
+			await session.abort();
+		} finally {
+			release.resolve();
+		}
+		expect(await outcome).toBeInstanceOf(PromptDroppedError);
+		expect(manager.getEntries().some(entry => entry.type === "message" && entry.message.role === "user")).toBe(false);
+	});
+
+	it("rejects an idle user message when abort wins image normalization", async () => {
+		const manager = SessionManager.inMemory();
+		createSession(manager);
+		const reached = Promise.withResolvers<void>();
+		const release = Promise.withResolvers<void>();
+		vi.spyOn(imageLoading, "normalizeModelContextImages").mockImplementation(async images => {
+			reached.resolve();
+			await release.promise;
+			return images;
+		});
+		const outcome = session.sendUserMessage("aborted before dispatch").then(
+			() => undefined,
+			(error: unknown) => error,
+		);
+		try {
+			await reached.promise;
+			await session.abort();
+		} finally {
+			release.resolve();
+		}
+
+		expect(await outcome).toBeInstanceOf(PromptDroppedError);
+		expect(manager.getEntries().filter(entry => entry.type === "message")).toEqual([]);
 	});
 
 	it("sends a slash-prefixed prompt to the agent without running its command when commands are disabled", async () => {

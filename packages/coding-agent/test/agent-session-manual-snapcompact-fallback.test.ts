@@ -11,6 +11,7 @@ import { AuthStorage } from "@oh-my-soup/pi-coding-agent/session/auth-storage";
 import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
 import { TempDir } from "@oh-my-soup/pi-utils";
 import * as snapcompact from "@oh-my-soup/snapcompact";
+import { rejectionOf } from "./helpers/rejection";
 
 /**
  * Regression for issue #5064.
@@ -38,9 +39,9 @@ describe.each([
 	},
 	{
 		label: "wire-stripped",
-		provider: "venice",
-		id: "deepseek-v4-1-flash",
-		reason: "deepseek-v4-1-flash's provider strips image input",
+		provider: "fireworks",
+		id: "deepseek-v4-flash",
+		reason: "deepseek-v4-flash's provider strips image input",
 	},
 ] as const)("AgentSession manual snapcompact $label fallback", ({ provider, id, reason }) => {
 	let session: AgentSession | undefined;
@@ -148,13 +149,14 @@ describe.each([
 
 		const compactSpy = vi.spyOn(compactionModule, "compact");
 
-		await expect(harness.session.compact(undefined, { mode: "snapcompact" })).rejects.toThrow(
-			`snapcompact cannot run locally: ${reason}.`,
-		);
+		const error = String(await rejectionOf(harness.session.compact(undefined, { mode: "snapcompact" })));
 
+		// One message carries the reason and what to run instead; no separate notice repeats it.
+		expect(error).toContain(`snapcompact needs a vision-capable model (${reason})`);
+		expect(error).toContain("Run /compact soft instead");
 		// Explicit no-LLM request must never reach the provider-backed summarizer.
 		expect(compactSpy).not.toHaveBeenCalled();
-		expect(harness.notices).toContain(`snapcompact needs a vision-capable model (${reason})`);
+		expect(harness.notices.filter(notice => notice.includes("vision-capable"))).toEqual([]);
 		expect(harness.sessionManager.getBranch().find(entry => entry.type === "compaction")).toBeUndefined();
 	});
 });

@@ -11,6 +11,7 @@ import { RETAINED_BACKEND_FILE } from "@oh-my-soup/pi-coding-agent/task/isolatio
 import {
 	applyEligibleNestedPatches,
 	mergeIsolatedChanges,
+	nativeWorkspace,
 	persistNestedPatches,
 	retainIsolationWorkspace,
 	runIsolatedSubprocess,
@@ -170,7 +171,7 @@ describe("runIsolatedSubprocess", () => {
 				id: "PreserveBranchFailure",
 			},
 			context: { repoRoot },
-			preferredBackend: undefined,
+			openWorkspace: nativeWorkspace(undefined),
 			agentId: "PreserveBranchFailure",
 			mergeMode: "branch",
 			artifactsDir,
@@ -248,7 +249,7 @@ describe("runIsolatedSubprocess", () => {
 				id: "RescueBranchCommits",
 			},
 			context: { repoRoot },
-			preferredBackend: undefined,
+			openWorkspace: nativeWorkspace(undefined),
 			agentId: "RescueBranchCommits",
 			mergeMode: "branch",
 			artifactsDir,
@@ -292,7 +293,7 @@ describe("runIsolatedSubprocess", () => {
 				id: "DeferredCleanup",
 			},
 			context: { repoRoot: "/repo" },
-			preferredBackend: undefined,
+			openWorkspace: nativeWorkspace(undefined),
 			agentId: "DeferredCleanup",
 			mergeMode: "patch",
 			artifactsDir: "/artifacts",
@@ -351,7 +352,7 @@ describe("runIsolatedSubprocess", () => {
 				id: "DeferredSuccess",
 			},
 			context: { repoRoot: "/repo" },
-			preferredBackend: undefined,
+			openWorkspace: nativeWorkspace(undefined),
 			agentId: "DeferredSuccess",
 			mergeMode: "patch",
 			artifactsDir,
@@ -445,7 +446,7 @@ describe("runIsolatedSubprocess", () => {
 				id: "RetainedIsolation",
 			},
 			context: { repoRoot: "/repo" },
-			preferredBackend: undefined,
+			openWorkspace: nativeWorkspace(undefined),
 			agentId: "RetainedIsolation",
 			mergeMode: "patch",
 			artifactsDir,
@@ -462,7 +463,10 @@ describe("runIsolatedSubprocess", () => {
 
 		expect(captureSpy).toHaveBeenCalledTimes(2);
 		expect(await Bun.file(patchPath).text()).toBe(finalPatch);
-		expect(commitSpy).toHaveBeenCalledWith(isolationDir, baseline, "RetainedIsolation", undefined, undefined);
+		expect(commitSpy).toHaveBeenCalledWith(isolationDir, baseline, "RetainedIsolation", undefined, undefined, {
+			rootPatch: finalPatch,
+			nestedPatches: [],
+		});
 		expect(cleanupSpy).toHaveBeenCalledTimes(1);
 	});
 
@@ -527,7 +531,7 @@ describe("runIsolatedSubprocess", () => {
 				keepAlive: false,
 			},
 			context: { repoRoot: "/repo" },
-			preferredBackend: undefined,
+			openWorkspace: nativeWorkspace(undefined),
 			agentId: "OneShotIsolation",
 			mergeMode: "patch",
 			artifactsDir,
@@ -586,7 +590,7 @@ describe("runIsolatedSubprocess", () => {
 					id: "UsageAccounting",
 				},
 				context: { repoRoot: "/repo" },
-				preferredBackend: undefined,
+				openWorkspace: nativeWorkspace(undefined),
 				agentId: "UsageAccounting",
 				mergeMode: "patch",
 				artifactsDir: "/artifacts",
@@ -662,7 +666,7 @@ describe("runIsolatedSubprocess", () => {
 				id: "NestedPersist",
 			},
 			context: { repoRoot: "/repo" },
-			preferredBackend: undefined,
+			openWorkspace: nativeWorkspace(undefined),
 			agentId: "NestedPersist",
 			mergeMode: "patch",
 			artifactsDir,
@@ -707,7 +711,7 @@ describe("runIsolatedSubprocess", () => {
 				id: "RetainOnWriteFailure",
 			},
 			context: { repoRoot: "/repo" },
-			preferredBackend: undefined,
+			openWorkspace: nativeWorkspace(undefined),
 			agentId: "RetainOnWriteFailure",
 			mergeMode: "patch",
 			artifactsDir,

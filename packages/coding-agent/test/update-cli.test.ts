@@ -17,7 +17,6 @@ import {
 	downloadVerifiedBinary,
 	type InstalledVersionVerification,
 	isMuslLinuxForTest,
-	managedInstallName,
 	type ManagerUpdateSteps,
 	migrateRenamedInstall,
 	parseReportedVersion,
@@ -39,6 +38,8 @@ import {
 	updateViaBinaryAt,
 	updateViaManager,
 	updateViaShimTakeover,
+	type UpdateProgress,
+	verifyInstalledVersion,
 } from "@oh-my-soup/pi-coding-agent/cli/update-cli";
 import Update from "@oh-my-soup/pi-coding-agent/commands/update";
 import { $which, removeWithRetries } from "@oh-my-soup/pi-utils";
@@ -122,7 +123,7 @@ const TEST_CONFIG: CliConfig = {
 describe("update command plugin dispatch", () => {
 	it("routes -l to plugin upgrade instead of the app updater", async () => {
 		const pluginSpy = spyOn(pluginCli, "runPluginCommand").mockResolvedValue(undefined);
-		const updateSpy = spyOn(updateCli, "runUpdateCommand").mockResolvedValue(undefined);
+		const updateSpy = spyOn(updateCli, "runUpdateCommand").mockResolvedValue({ kind: "current" });
 
 		const command = new Update(["-l"], TEST_CONFIG);
 		await command.run();
@@ -133,7 +134,7 @@ describe("update command plugin dispatch", () => {
 
 	it("keeps normal update flags on the app updater path", async () => {
 		const pluginSpy = spyOn(pluginCli, "runPluginCommand").mockResolvedValue(undefined);
-		const updateSpy = spyOn(updateCli, "runUpdateCommand").mockResolvedValue(undefined);
+		const updateSpy = spyOn(updateCli, "runUpdateCommand").mockResolvedValue({ kind: "current" });
 
 		const command = new Update(["--check", "--force"], TEST_CONFIG);
 		await command.run();
@@ -930,7 +931,9 @@ describe("migrateRenamedInstall transaction", () => {
 			const { steps, calls } = scriptedSteps({ install: [0, 0], verify: [false, false] });
 
 			await withPlatformAsync("linux", async () => {
-				await expect(migrateRenamedInstall(release, steps)).rejects.toThrow("curl -fsSL https://omp.sh/install");
+				await expect(migrateRenamedInstall(release, steps)).rejects.toThrow(
+					"curl -fsSL https://raw.githubusercontent.com/pickpocket/oh-my-soup/main/scripts/install.sh",
+				);
 			});
 			expect(calls).toEqual(["install", "removeOld", "verify", "install", "verify"]);
 		},
@@ -944,7 +947,9 @@ describe("migrateRenamedInstall transaction", () => {
 		try {
 			const { steps } = scriptedSteps({ install: [0, 0], verify: [false, false] });
 			const promise = migrateRenamedInstall(release, steps);
-			await expect(promise).rejects.toThrow("irm https://omp.sh/install.ps1");
+			await expect(promise).rejects.toThrow(
+				"irm https://raw.githubusercontent.com/pickpocket/oh-my-soup/main/scripts/install.ps1",
+			);
 			await expect(promise).rejects.not.toThrow("| sh");
 		} finally {
 			Object.defineProperty(process, "platform", platformDescriptor);
@@ -1274,7 +1279,7 @@ describe("update-cli release binary integrity", () => {
 				expectedDigest: digest,
 				fetchImpl: async () => new Response(body),
 			}),
-		).rejects.toThrow("Timed out downloading release binary after 15 minutes");
+		).rejects.toThrow(`Timed out downloading ${url} after 15 minutes`);
 		expect(await Bun.file(targetPath).exists()).toBe(false);
 	});
 
@@ -1412,11 +1417,13 @@ describe("update-cli release binary integrity", () => {
 			throw new Error(`Unexpected request: ${requestUrl}`);
 		};
 		const verified: string[] = [];
+		const progress: UpdateProgress[] = [];
 
-		await updateViaBinaryAt(targetPath, "999.9.9", {
+		const installed = await updateViaBinaryAt(targetPath, "999.9.9", {
 			binaryName,
 			fetchImpl,
 			githubToken: "test-token",
+			onProgress: value => progress.push(value),
 			verifyInstalledVersion: async version => {
 				verified.push(version);
 				return { ok: true, path: targetPath };
@@ -1424,6 +1431,14 @@ describe("update-cli release binary integrity", () => {
 		});
 
 		expect(verified).toEqual(["999.9.8"]);
+		expect(installed).toBe("999.9.8");
+		expect(progress).toContainEqual({
+			phase: "downloading",
+			version: "999.9.8",
+			received: Buffer.byteLength(published),
+			total: Buffer.byteLength(published),
+		});
+		expect(progress.at(-1)).toEqual({ phase: "installing", version: "999.9.8" });
 		expect(await Bun.file(targetPath).text()).toBe(published);
 	});
 
@@ -2157,46 +2172,28 @@ describe("update-cli concurrent binary updates", () => {
 	});
 });
 
-describe("managedInstallName", () => {
-	async function managedRoot(): Promise<string> {
-		const root = await makeTempDir();
-		await fs.mkdir(path.join(root, "versions"));
-		await fs.mkdir(path.join(root, "bin"));
-		await Bun.write(path.join(root, "versions", "1.0.0"), "oms");
-		await Bun.write(path.join(root, "manager.json"), JSON.stringify({ manager: "tern", name: "Tern" }));
-		return root;
-	}
-
-	it.skipIf(process.platform === "win32")(
-		"names the manager through the launcher symlink and a link outside the root",
-		async () => {
-			const root = await managedRoot();
-			const launcher = path.join(root, "bin", "oms");
-			await fs.symlink(path.join("..", "versions", "1.0.0"), launcher);
-			const outside = path.join(await makeTempDir(), "oms");
-			await fs.symlink(launcher, outside);
-
-			expect(await managedInstallName(launcher)).toBe("Tern");
-			expect(await managedInstallName(outside)).toBe("Tern");
-		},
-	);
-
-	it("names the manager of a copied launcher (Windows layout)", async () => {
-		const root = await managedRoot();
-		const copy = path.join(root, "bin", "oms.exe");
-		await Bun.write(copy, "oms");
-
-		expect(await managedInstallName(copy)).toBe("Tern");
-	});
-
-	it("treats a binary without a readable manifest as unmanaged", async () => {
-		const plain = path.join(await makeTempDir(), "bin", "oms");
-		await Bun.write(plain, "oms");
-		expect(await managedInstallName(plain)).toBeUndefined();
-
-		const root = await managedRoot();
-		await Bun.write(path.join(root, "manager.json"), "{not json");
-		expect(await managedInstallName(path.join(root, "versions", "1.0.0"))).toBeUndefined();
+describe("verifyInstalledVersion", () => {
+	// A Windows shim takeover retires the launcher PATH first resolved (`oms.cmd`)
+	// for one later on PATH (`oms.exe`); the check must follow it, not a cached path.
+	it.skipIf(process.platform === "win32")("re-resolves PATH after an install moves the launcher", async () => {
+		const [first, second] = [await makeTempDir(), await makeTempDir()];
+		await Bun.write(path.join(first, "oms"), "#!/bin/sh\necho oms/1.0.0\n");
+		await Bun.write(path.join(second, "oms"), "#!/bin/sh\necho oms/2.0.0\n");
+		await fs.chmod(path.join(first, "oms"), 0o755);
+		await fs.chmod(path.join(second, "oms"), 0o755);
+		const originalPath = process.env.PATH;
+		process.env.PATH = [first, second, originalPath].join(path.delimiter);
+		try {
+			expect((await verifyInstalledVersion("2.0.0")).actual).toBe("1.0.0");
+			await fs.rm(path.join(first, "oms"));
+			expect(await verifyInstalledVersion("2.0.0")).toEqual({
+				ok: true,
+				actual: "2.0.0",
+				path: path.join(second, "oms"),
+			});
+		} finally {
+			process.env.PATH = originalPath;
+		}
 	});
 });
 
@@ -2212,7 +2209,7 @@ describe("update-cli manager update recovery", () => {
 	function scriptedSteps(script: {
 		install: InstalledVersionVerification | Error | undefined;
 		verify?: InstalledVersionVerification;
-		repair?: Error;
+		repair?: Error | string;
 	}): { steps: ManagerUpdateSteps; calls: string[] } {
 		const calls: string[] = [];
 		return {
@@ -2230,7 +2227,8 @@ describe("update-cli manager update recovery", () => {
 				},
 				async repair(target) {
 					calls.push(`repair:${target}`);
-					if (script.repair) throw script.repair;
+					if (script.repair instanceof Error) throw script.repair;
+					return script.repair ?? release.version;
 				},
 			},
 		};
@@ -2265,6 +2263,17 @@ describe("update-cli manager update recovery", () => {
 
 		await updateViaManager(release, launcherPath, steps);
 
+		expect(calls).toEqual(["install", `repair:${launcherPath}`]);
+	});
+
+	it("reports the published GitHub fallback version installed during a launcher repair", async () => {
+		vi.spyOn(console, "log").mockImplementation(() => {});
+		const { steps, calls } = scriptedSteps({
+			install: { ok: false, path: launcherPath, actual: "17.4.2" },
+			repair: "18.0.0",
+		});
+
+		expect(await updateViaManager(release, launcherPath, steps)).toBe("18.0.0");
 		expect(calls).toEqual(["install", `repair:${launcherPath}`]);
 	});
 

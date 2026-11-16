@@ -1,3 +1,3 @@
-module github.com/can1357/oh-my-pi/sdk/go/omp-rpc
+module github.com/pickpocket/oh-my-soup/sdk/go/oms-rpc
 
 go 1.23

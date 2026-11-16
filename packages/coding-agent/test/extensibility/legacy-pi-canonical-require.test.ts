@@ -45,7 +45,7 @@ describe("legacy-pi specifier shim", () => {
 		tempDir = undefined;
 	});
 
-	it("resolves a canonical @oh-my-pi subpath that remaps to itself", async () => {
+	it("resolves a canonical @oh-my-soup subpath that remaps to itself", async () => {
 		// Regression: the resolve hook matches `@oh-my-soup/pi-*` as well as the
 		// legacy scopes, so resolving the remapped specifier called
 		// `Bun.resolveSync` with a specifier this same hook matches. Bun

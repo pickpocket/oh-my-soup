@@ -1,4 +1,5 @@
-import { describe, expect, it } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
+import * as compatAuth from "@oh-my-soup/pi-catalog/compat/auth";
 import { Effort, type FetchImpl } from "@oh-my-soup/pi-ai";
 import { streamSimple } from "@oh-my-soup/pi-ai/stream";
 import type { Context, Model } from "@oh-my-soup/pi-ai/types";
@@ -45,6 +46,10 @@ function extractThinking(bodyText: string | undefined): GeminiCliThinkingConfig 
 }
 
 describe("google-gemini-cli Gemini 3.x thinking mapping", () => {
+	// Antigravity is paused in its auth rules; its transport stays for when it is turned back on.
+	beforeEach(() => vi.spyOn(compatAuth, "providerDisabledReason").mockReturnValue(undefined));
+	afterEach(() => vi.restoreAllMocks());
+
 	const createFetchMock =
 		(capture: (body: string | undefined) => void): FetchImpl =>
 		(_input, init) => {

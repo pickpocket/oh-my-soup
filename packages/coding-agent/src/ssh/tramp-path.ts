@@ -33,7 +33,13 @@ export function trampPathMethod(input: string): string | undefined {
 
 /** Encode a literal POSIX filename while preserving every slash and dot segment. */
 export function encodeSshPath(remotePath: string): string {
-	return remotePath.split("/").map(encodeURIComponent).join("/");
+	// Literal filename segments must not opt into ssh:// /~/ HOME syntax.
+	return remotePath
+		.split("/")
+		.map(segment =>
+			segment.startsWith("~") ? `%7E${encodeURIComponent(segment.slice(1))}` : encodeURIComponent(segment),
+		)
+		.join("/");
 }
 
 /** SSH URL for an already resolved absolute remote path, without changing the target authority. */

@@ -23,7 +23,7 @@ describe("InteractiveMode restart", () => {
 	beforeAll(() => initTheme());
 	beforeEach(async () => {
 		resetSettingsForTest();
-		tempDir = TempDir.createSync("@omp-restart-");
+		tempDir = TempDir.createSync("@oms-restart-");
 		await Settings.init({ inMemory: true, cwd: tempDir.path() });
 		authStorage = await AuthStorage.create(path.join(tempDir.path(), "auth.db"));
 		originalArgv = process.argv;
@@ -123,7 +123,7 @@ describe("InteractiveMode restart", () => {
 	});
 
 	it("resumes a journal created in a flag-looking relative directory", async () => {
-		using relativeDir = TempDir.createSync("-omp-restart-");
+		using relativeDir = TempDir.createSync("-oms-restart-");
 		await sessionManager.close();
 		sessionManager = SessionManager.create(tempDir.path(), relativeDir.path());
 		sessionManager.appendMessage({ role: "user", content: "saved request", timestamp: 1 });

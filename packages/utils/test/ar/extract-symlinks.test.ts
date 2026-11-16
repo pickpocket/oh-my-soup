@@ -113,7 +113,7 @@ describe("extractArchive symlink handling", () => {
 	test("refuses to overwrite an occupied symlink-copy destination", async () => {
 		if (!platformDescriptor) throw new Error("process.platform descriptor is unavailable");
 		Object.defineProperty(process, "platform", { ...platformDescriptor, value: "win32" });
-		const dest = await fsPromises.mkdtemp(path.join(os.tmpdir(), "omp-ar-copy-collision-"));
+		const dest = await fsPromises.mkdtemp(path.join(os.tmpdir(), "oms-ar-copy-collision-"));
 		const occupied = path.join(dest, "current");
 		try {
 			await Bun.write(occupied, "existing user content");
@@ -131,7 +131,7 @@ describe("extractArchive symlink handling", () => {
 	});
 
 	test.skipIf(process.platform === "win32")("refuses to follow an occupied symlink-copy destination", async () => {
-		const root = await fsPromises.mkdtemp(path.join(os.tmpdir(), "omp-ar-copy-link-collision-"));
+		const root = await fsPromises.mkdtemp(path.join(os.tmpdir(), "oms-ar-copy-link-collision-"));
 		const dest = path.join(root, "extract");
 		const target = path.join(root, "outside.txt");
 		const occupied = path.join(dest, "current");

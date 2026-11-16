@@ -1,6 +1,6 @@
 /**
  * Regression for #15974: a `ControlPath` from the user's ssh_config must win
- * over omp's own socket, so `ssh://` reuses a master the user already
+ * over oms's own socket, so `ssh://` reuses a master the user already
  * authenticated (MFA / keyboard-interactive hosts that `BatchMode=yes` can
  * never reach) instead of trying to start a fresh one.
  */
@@ -56,7 +56,7 @@ async function callsFor(destination: string): Promise<string[]> {
 }
 
 beforeAll(async () => {
-	binDir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-ssh-control-path-"));
+	binDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-ssh-control-path-"));
 	fakeSsh = path.join(binDir, "ssh");
 	logPath = path.join(binDir, "calls.log");
 	userMaster = path.join(binDir, "user-master");
@@ -83,7 +83,7 @@ afterEach(() => {
 
 describe.skipIf(process.platform === "win32")("ssh_config ControlPath (#15974)", () => {
 	it("reuses the master at the configured ControlPath and leaves it running on close", async () => {
-		const host = { name: "omp-test-15974-cfg-host", host: "cfg-host" };
+		const host = { name: "oms-test-15974-cfg-host", host: "cfg-host" };
 		await ensureConnection(host);
 		const args = await buildRemoteCommand(host, "true");
 		await closeConnection(host.name);
@@ -98,10 +98,10 @@ describe.skipIf(process.platform === "win32")("ssh_config ControlPath (#15974)",
 	});
 
 	it("leaves a new user-owned master running after the configured socket had no master", async () => {
-		const host = { name: "omp-test-15974-idle-host", host: "idle-host" };
+		const host = { name: "oms-test-15974-idle-host", host: "idle-host" };
 		await ensureConnection(host);
 		// The configured socket was empty at check time. Its owner later
-		// authenticates and starts a master before omp closes the host.
+		// authenticates and starts a master before oms closes the host.
 		await Bun.write(userMaster, "");
 		await closeConnection(host.name);
 
@@ -111,7 +111,7 @@ describe.skipIf(process.platform === "win32")("ssh_config ControlPath (#15974)",
 		expect(calls.some(call => call.includes("-O exit"))).toBe(false);
 	});
 
-	it("keeps omp's socket when ssh_config sets no ControlPath or `none`", async () => {
+	it("keeps oms's socket when ssh_config sets no ControlPath or `none`", async () => {
 		for (const name of ["plain-host", "none-host"]) {
 			const args = await buildRemoteCommand({ name, host: name }, "true", { platform: "linux" });
 			expect(args).toContain(`ControlPath=${getControlPathTemplate()}`);

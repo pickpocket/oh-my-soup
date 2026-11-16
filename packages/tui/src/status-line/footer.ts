@@ -183,7 +183,7 @@ export class FooterComponent implements Component {
 			this.session.sessionManager.getUsageStatistics();
 		const segs: NativeNode[] = [];
 		const seg = (key: string, props: TspProps<"seg">): void => {
-			segs.push(node("seg", { role: `omp.footer.${key}`, ...props }, undefined, key));
+			segs.push(node("seg", { role: `oms.footer.${key}`, ...props }, undefined, key));
 		};
 		const pathSpans: TspSpan[] = [span(shortenPath(getProjectDir()), "path dim")];
 		const branch = this.#getCurrentBranch();
@@ -198,7 +198,7 @@ export class FooterComponent implements Component {
 		for (const [key, glyph, amount] of counters) {
 			if (amount) seg(key, { side: "left", priority: 1, spans: [span(`${glyph}${formatNumber(amount)}`, "dim")] });
 		}
-		const usingSubscription = state.model ? this.session.modelRegistry.isUsingOAuth(state.model) : false;
+		const usingSubscription = state.model ? this.session.modelRegistry.isUsingSubscription(state.model) : false;
 		const billing = formatBillingSummary({ cost, usingSubscription, premiumRequests, fractionDigits: 3 }, theme);
 		if (billing) seg("cost", { side: "left", priority: 3, spans: [span(billing, "dim")] });
 		const contextUsage = this.session.getContextUsage();
@@ -225,16 +225,16 @@ export class FooterComponent implements Component {
 			model += ` • ${level}`;
 		}
 		seg("model", { side: "right", priority: 5, icon: "model", spans: [span(model, "dim")] });
-		const bar = node("status", { role: "omp.footer" }, segs, "bar");
+		const bar = node("status", { role: "oms.footer" }, segs, "bar");
 		const children: NativeNode[] = [bar];
 		if (this.#extensionStatuses.size > 0) {
 			const statuses = Array.from(this.#extensionStatuses.entries())
 				.sort(([a], [b]) => a.localeCompare(b))
 				.map(([, value]) => sanitizeStatusText(value))
 				.join(" ");
-			children.push(node("text", { text: statuses, wrap: "none", role: "omp.footer.extensions" }, undefined, "ext"));
+			children.push(node("text", { text: statuses, wrap: "none", role: "oms.footer.extensions" }, undefined, "ext"));
 		}
-		const built = children.length === 1 ? bar : col(children, { role: "omp.footer.panel" });
+		const built = children.length === 1 ? bar : col(children, { role: "oms.footer.panel" });
 		const fingerprint = JSON.stringify(built);
 		if (this.#nativeMemo?.fingerprint === fingerprint) return this.#nativeMemo.node;
 		this.#nativeMemo = { node: built, fingerprint };
@@ -302,7 +302,7 @@ export class FooterComponent implements Component {
 		}
 
 		// Show billing summary with subscription and premium-request indicators
-		const usingSubscription = state.model ? this.session.modelRegistry.isUsingOAuth(state.model) : false;
+		const usingSubscription = state.model ? this.session.modelRegistry.isUsingSubscription(state.model) : false;
 		const { auto: autoIcon } = theme.icon;
 		const billing = formatBillingSummary(
 			{ cost: totalCost, usingSubscription, premiumRequests: totalPremiumRequests, fractionDigits: 3 },

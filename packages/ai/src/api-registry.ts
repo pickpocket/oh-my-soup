@@ -21,7 +21,6 @@ const BUILTIN_API_IDS = [
 	"openai-responses",
 	"openrouter",
 	"openai-codex-responses",
-	"openai-prism",
 	"azure-openai-responses",
 	"anthropic-messages",
 	"bedrock-converse-stream",
@@ -33,6 +32,7 @@ const BUILTIN_API_IDS = [
 	"factory-droid-agent",
 	"gitlab-duo-agent",
 	"devin-agent",
+	"antigravity-acp",
 	"apple-foundation-models",
 ] as const satisfies readonly KnownApi[];
 

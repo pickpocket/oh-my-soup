@@ -1,5 +1,6 @@
 import type { ModelIdentity } from "./compat/types";
 import type { Effort } from "./effort";
+import type { DatedCostCard } from "./pricing";
 
 // Re-exported from @oh-my-soup/pi-utils so the whole workspace shares one
 // `fetch`-compatible signature (tls-fetch's wrappers produce/accept it).
@@ -11,7 +12,6 @@ export type KnownApi =
 	| "openai-responses"
 	| "openrouter"
 	| "openai-codex-responses"
-	| "openai-prism"
 	| "azure-openai-responses"
 	| "anthropic-messages"
 	| "bedrock-converse-stream"
@@ -23,6 +23,7 @@ export type KnownApi =
 	| "factory-droid-agent"
 	| "gitlab-duo-agent"
 	| "devin-agent"
+	| "antigravity-acp"
 	| "apple-foundation-models";
 export type Api = KnownApi | (string & {});
 
@@ -53,7 +54,10 @@ export const RUNNER_APIS = [
 	"typesafe",
 	"openrouter-decisions",
 	"openai-decisions",
+	"google-decisions",
 	"workers-ai-systemone",
+	"liquid-systemone",
+	"nace-systemone",
 	"openai-images",
 	"openrouter-images",
 	"xai-tts",
@@ -69,7 +73,10 @@ export const RUNNER_API_KINDS: Record<Exclude<(typeof RUNNER_APIS)[number], "loc
 	typesafe: "judge",
 	"openrouter-decisions": "judge",
 	"openai-decisions": "judge",
+	"google-decisions": "judge",
 	"workers-ai-systemone": "judge",
+	"liquid-systemone": "judge",
+	"nace-systemone": "judge",
 	"openai-images": "image",
 	"openrouter-images": "image",
 	"xai-tts": "tts",
@@ -469,7 +476,7 @@ export interface OpenAICompat {
 	/** Extra fields to include in request body (e.g. gateway routing hints for OpenClaw-style proxies). */
 	extraBody?: Record<string, unknown>;
 	/** Request-session header that should mirror the normalized prompt-cache key. Default: unset. */
-	promptCacheSessionHeader?: "x-grok-conv-id";
+	promptCacheSessionHeader?: "x-grok-conv-id" | "x-session-id";
 	/** Request header carrying the conversation session id, independent of prompt caching. Default: unset. */
 	sessionHeader?: "x-litellm-session-id";
 	/** Whether chat-completions payloads should include provider-specific prompt-cache markers. */
@@ -599,8 +606,6 @@ export interface OpenAICompat {
 	clampOutputToModelMax?: boolean;
 	/** Strip image inputs before encoding (text-only serving of a multimodal id). */
 	stripImageInput?: boolean;
-	/** Thinking-loop watchdog guard family applied to streamed reasoning. */
-	thinkingLoopGuard?: "gemini" | "deepseek" | "xai";
 }
 
 /**
@@ -617,6 +622,14 @@ export interface AnthropicCompat {
 	 * Sonnet 4.6+, Fable/Mythos 5+ on supported hosts. Default: false.
 	 */
 	supportsServerCompaction?: boolean;
+	/**
+	 * Whether the model supports message threads (`message-threads-2026-08-12`):
+	 * later turns continue a server-held conversation and send only new
+	 * messages. Enabled on Claude 4.5+ for the first-party provider; the
+	 * transport still requires the official endpoint unless the caller opts in.
+	 * Default: false.
+	 */
+	supportsMessageThreads?: boolean;
 	/**
 	 * Whether the model is served by the first-party Anthropic provider (its
 	 * default route is the official API). Rule-owned on the provider; the
@@ -799,8 +812,6 @@ export interface AnthropicCompat {
 	 * contract override it. Default: 10485760.
 	 */
 	maxImagePayloadBytes?: number;
-	/** Thinking-loop watchdog guard family applied to streamed reasoning. */
-	thinkingLoopGuard?: "gemini" | "deepseek" | "xai";
 	/**
 	 * Drop the enabled `thinking` config and replayed thinking blocks when the
 	 * conversation is not thinking-led (a proxy contract for non-interleaved
@@ -1016,8 +1027,6 @@ export interface ResolvedOpenAISharedCompat {
 	toolSchemaFlavor?: OpenAICompat["toolSchemaFlavor"];
 	/** Strip image inputs before encoding (text-only serving of a multimodal id). */
 	stripImageInput: boolean;
-	/** Thinking-loop watchdog guard family applied to streamed reasoning. */
-	thinkingLoopGuard?: OpenAICompat["thinkingLoopGuard"];
 	/** Flatten/reject leftover root `anyOf`/`oneOf` unions in strict tool schemas (xAI's function-calling validator 400s on them). */
 	rejectRootObjectUnion: boolean;
 	/** Retry without strict tools when the host rejects a strict grammar as too large (OpenRouter-Anthropic compiled-grammar overflow). */
@@ -1100,7 +1109,6 @@ export type ResolvedOpenAICompat = ResolvedOpenAISharedCompat &
 			| "supportsConfigurationUpdate"
 			| "supportsSteering"
 			| "stripImageInput"
-			| "thinkingLoopGuard"
 			| "whenThinking"
 		>
 	> & {
@@ -1165,6 +1173,14 @@ export interface ResolvedOpenAIResponsesCompat extends ResolvedOpenAISharedCompa
 	 */
 	storeResponses: boolean;
 	/**
+	 * Prefix the `openai-responses` handler puts on every function-tool name it
+	 * declares or replays, and strips from returned calls through the request's
+	 * wire-name table. Rule-owned: hosts that reject requests declaring certain
+	 * exact tool names (Muse Code). Unset sends names unchanged. Other
+	 * Responses-family handlers do not read it.
+	 */
+	toolNamePrefix?: string;
+	/**
 	 * Whether the host binds native history items (`encrypted_content`, item
 	 * ids) to the connection that issued them, so a new process must rebuild
 	 * prior turns from message content until its first successful response.
@@ -1202,7 +1218,6 @@ export type ResolvedAnthropicCompat = Required<
 	Omit<
 		AnthropicCompat,
 		| "streamIdleTimeoutMs"
-		| "thinkingLoopGuard"
 		| "bedrockMessagesApi"
 		| "effortBeta"
 		| "extendedCacheTtlBeta"
@@ -1237,8 +1252,6 @@ export type ResolvedAnthropicCompat = Required<
 	 * request builder.
 	 */
 	maxImagePayloadBytes?: number;
-	/** Thinking-loop watchdog guard family applied to streamed reasoning. */
-	thinkingLoopGuard?: AnthropicCompat["thinkingLoopGuard"];
 	/**
 	 * Bedrock's Anthropic Messages API (see {@link AnthropicCompat.bedrockMessagesApi}).
 	 * `true` when detected or configured; otherwise unset, so rows baked before
@@ -1291,11 +1304,19 @@ export interface DevinCompat {
 	supportsParallelToolCalls?: boolean;
 	/** See {@link BedrockCompat.supportsSamplingParams}. */
 	supportsSamplingParams?: boolean;
+	/**
+	 * Smallest explicit `temperature` this wire accepts. Cascade rejects
+	 * `temperature: 0` with an opaque `invalid_argument` while any positive
+	 * value works, so callers that pin 0 for deterministic decoding (session
+	 * titles, memory extraction) would fail and silently fall back to another
+	 * model. Unset sends the caller's value through unchanged.
+	 */
+	temperatureFloor?: number;
 }
 
 /** Fully-resolved devin-agent compat view. */
-export type ResolvedDevinCompat = Required<Omit<DevinCompat, "supportsSamplingParams">> &
-	Pick<DevinCompat, "supportsSamplingParams">;
+export type ResolvedDevinCompat = Required<Omit<DevinCompat, "supportsSamplingParams" | "temperatureFloor">> &
+	Pick<DevinCompat, "supportsSamplingParams" | "temperatureFloor">;
 /**
  * Compatibility settings for the Google API family (google-generative-ai,
  * google-vertex, google-gemini-cli). Class-driven defaults come from the
@@ -1308,6 +1329,11 @@ export interface GoogleCompat {
 	requiresSkipThoughtSignature?: boolean;
 	/** Add the bypass sentinel when a Gemini turn's first function call is unsigned. */
 	requiresSkipThoughtSignatureOnFirstFunctionCall?: boolean;
+	/**
+	 * Send the bypass sentinel base64-encoded. For gateways that decode
+	 * `thoughtSignature` as bytes and reject the raw literal.
+	 */
+	base64SkipThoughtSignature?: boolean;
 	/** Drop unsigned thinking blocks from replayed history (Antigravity Claude). */
 	dropUnsignedThinking?: boolean;
 	/** Cloud Code Assist legacy `parameters` schema field instead of `parametersJsonSchema`. */
@@ -1340,8 +1366,6 @@ export interface GoogleCompat {
 	 * {@link AnthropicCompat.maxImagePayloadBytes}).
 	 */
 	maxImagePayloadBytes?: number;
-	/** Thinking-loop watchdog guard family applied to streamed reasoning. */
-	thinkingLoopGuard?: "gemini" | "deepseek" | "xai";
 	/** See {@link BedrockCompat.supportsSamplingParams}. */
 	supportsSamplingParams?: boolean;
 }
@@ -1352,18 +1376,18 @@ export type ResolvedGoogleCompat = Required<
 		GoogleCompat,
 		| "streamFirstEventTimeoutMs"
 		| "streamIdleTimeoutMs"
-		| "thinkingLoopGuard"
 		| "antigravityUsageLabel"
 		| "supportsSamplingParams"
+		| "base64SkipThoughtSignature"
 		| "maxImageDimension"
 		| "maxImagePayloadBytes"
 	>
 > & {
 	streamFirstEventTimeoutMs?: number;
 	streamIdleTimeoutMs?: number;
-	thinkingLoopGuard?: GoogleCompat["thinkingLoopGuard"];
 	antigravityUsageLabel?: string;
 	supportsSamplingParams?: boolean;
+	base64SkipThoughtSignature?: boolean;
 	maxImageDimension?: number;
 	maxImagePayloadBytes?: number;
 };
@@ -1492,8 +1516,8 @@ export interface ModelCost extends TokenCost {
 /**
  * Exact local content tokenizer family for a model.
  *
- * Absent means no first-party local tokenizer is known and consumers retain
- * their estimate/default-tokenizer policy. The values name tokenizer
+ * Absent means no first-party local tokenizer is known and consumers count
+ * in o200k_base. The values name tokenizer
  * generations rather than providers: DeepSeek V3 through V4 share
  * `"deepseek-v3"`; Kimi K2 through K3 share `"kimi-k2"`.
  */
@@ -1506,6 +1530,7 @@ export type ModelTokenizer =
 	| "deepseek-v3"
 	| "kimi-k2"
 	| "glm5"
+	| "cl100k"
 	| "o200k";
 
 /** One account's discovered entitlements on a model; see {@link Model.accountAccess}. */
@@ -1548,7 +1573,7 @@ export interface AntigravityModelWireProfile {
 	/** Fixed `generationConfig.maxOutputTokens` the client always sends. */
 	maxOutputTokens?: number;
 	/** SKU thinking level; the native client sends it in preference to a budget. */
-	thinkingLevel?: "LOW" | "MEDIUM" | "HIGH";
+	thinkingLevel?: "LOW" | "MEDIUM" | "HIGH" | "xhigh";
 	/** SKU thinking budget (`-1` is dynamic), sent when no level is advertised. */
 	thinkingBudget?: number;
 }
@@ -1701,8 +1726,12 @@ export interface Model<TApi extends Api = Api> {
 	factoryDroidApiProviders?: string[];
 	/** Factory Droid: `configured_order` when live routing chose the rotation; absent means registry order. */
 	factoryDroidRoutingSource?: "configured_order";
+	/** Factory Droid: server-side refusal fallbacks the account can run; absent when none are named. */
+	factoryDroidRefusalFallbacks?: string[];
 	/** Factory Droid Standard Credits base rate (relative per-token weight, not dollars). */
 	factoryDroidCredits?: number;
+	/** Factory Droid dated `credit-rates` cards, ascending; `getFactoryDroidCreditRate` picks the one due now. */
+	factoryDroidCreditCards?: readonly DatedCostCard[];
 	/** Canonical organization resolved during Factory discovery. */
 	factoryDroidOrgId?: string;
 	cost: ModelCost;
@@ -1769,14 +1798,15 @@ export interface Model<TApi extends Api = Api> {
 	 * dispatch is redirected.
 	 */
 	transport?: "pi-native";
-	/** Hint that websocket transport should be preferred when supported by the provider implementation. */
+	/** Standard Responses is opt-in and catalog-gated; either model/request false vetoes true. Codex keeps its independent policy. */
 	preferWebsockets?: boolean;
 	/** Codex Responses Lite transport: send the lite marker and carry instructions/tools as input items (mirrors codex-rs `use_responses_lite`). */
 	useResponsesLite?: boolean;
 	/**
 	 * Service-tier ids the provider advertises for this model (Codex discovery
-	 * `service_tiers[].id`, e.g. `priority`, `ultrafast`). Absent when the
-	 * provider publishes no per-model tier list.
+	 * `service_tiers[].id`, or an OpenAI-compatible `/v1/models` row's
+	 * `service_tiers`, e.g. `priority`, `ultrafast`). Absent when the provider
+	 * publishes no per-model tier list.
 	 */
 	serviceTiers?: readonly string[];
 	/** Preferred model to switch to when context promotion is triggered (model id or provider/id). */

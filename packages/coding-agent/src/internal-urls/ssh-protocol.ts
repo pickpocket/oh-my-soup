@@ -9,8 +9,8 @@
  * A remote path resolves to a UTF-8 text file (≤ 1 MiB) or, when it is a
  * directory, a one-level listing. Binary/non-UTF-8 or oversized files are
  * rejected with an explicit error. This handler exposes no `sourcePath`;
- * directory listings carry `isDirectory` so `search` refuses to grep the
- * listing text instead of the directory's real contents.
+ * structured directory entries let the URL filesystem traverse remote
+ * contents without ever searching the rendered listing text.
  *
  * `loadCapability` is imported from `../capability` (not the `../discovery`
  * barrel) on purpose — pulling the barrel here would route
@@ -19,6 +19,7 @@
  * SSH provider via `import "./discovery"` (sdk.ts) / `initializeWithSettings`
  * (main.ts) before any tool resolves.
  */
+import { type ShellFsDirEntry, ShellFsFileType } from "@oh-my-soup/pi-natives";
 import { $which } from "@oh-my-soup/pi-utils";
 import * as capability from "../capability";
 import { type SSHHost, sshCapability } from "../capability/ssh";
@@ -33,6 +34,8 @@ import {
 import { resolveSshLocation } from "../ssh/remote-path";
 import { openSessions, type SSHSessionInfo } from "../ssh/sessions";
 import sshDoc from "../prompts/internal-urls/ssh.md" with { type: "text" };
+import sshReferenceDoc from "../prompts/internal-urls/ssh-reference.md" with { type: "text" };
+import { decodeUtf8Text } from "../tools/read-format";
 import { contentTypeForPath, formatDirectoryListing } from "./filesystem-resource";
 import type {
 	InternalResource,
@@ -47,17 +50,7 @@ import type {
 /** Largest remote text file `ssh://` will materialize (mirrors the local:// cap). */
 const SSH_TEXT_MAX_BYTES = 1024 * 1024;
 
-/** Decode the whole buffer as UTF-8 text, or null if it holds a NUL or invalid byte. */
-function decodeUtf8Text(bytes: Uint8Array): string | null {
-	if (bytes.indexOf(0) !== -1) return null;
-	try {
-		return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
-	} catch {
-		return null;
-	}
-}
-
-/** Load the configured SSH hosts from the `ssh` capability (managed/project `ssh.json`). */
+/** Load the configured SSH hosts from the `ssh` capability (`ssh.json` files and `~/.ssh/config` aliases). */
 async function loadConfiguredHosts(cwd?: string): Promise<SSHHost[]> {
 	const { items } = await capability.loadCapability<SSHHost>(sshCapability.id, cwd ? { cwd } : {});
 	return items;
@@ -71,7 +64,7 @@ function hostAddress(host: SSHHost): string {
 /** Render the host index for a bare `ssh://` read: open sessions first, then configured hosts (markdown with per-host links). */
 function formatHostIndex(hosts: readonly SSHHost[], sessions: readonly SSHSessionInfo[]): string {
 	if (hosts.length === 0 && sessions.length === 0) {
-		return "# SSH hosts\n\nNo SSH sessions are open and no hosts are configured. Open a session with the ssh device (`write xd://ssh`), add hosts to an `ssh.json` capability file, or read `ssh://<host>/<path>` with any destination OpenSSH can resolve (e.g. a `~/.ssh/config` alias).\n";
+		return "# SSH hosts\n\nNo SSH sessions are open and no hosts are configured. Open a session with the ssh device (`write xd://ssh`), add hosts to an `ssh.json` capability file or as `Host` entries in `~/.ssh/config`, or read `ssh://<host>/<path>` with any destination OpenSSH can resolve.\n";
 	}
 	const sessionLines = sessions.map(
 		session =>
@@ -109,6 +102,10 @@ export class SshProtocolHandler implements ProtocolHandler {
 		return $which("ssh") ? sshDoc.trim() : undefined;
 	}
 
+	promptReference(): string | undefined {
+		return $which("ssh") ? sshReferenceDoc.trim() : undefined;
+	}
+
 	async resolve(url: InternalUrl, context?: ResolveContext): Promise<InternalResource> {
 		// Bare `ssh://` (or `ssh:///`) with no host lists the configured hosts. A
 		// host-less URL that still carries a path (`ssh:///etc/hosts`) is malformed —
@@ -122,7 +119,7 @@ export class SshProtocolHandler implements ProtocolHandler {
 			}
 			return this.#resolveHostIndex(url, context?.cwd);
 		}
-		const { target, remotePath } = await resolveSshLocation(url.rawHref ?? url.href, context?.cwd);
+		const { target, remotePath } = await resolveSshLocation(url.rawHref ?? url.href, context?.cwd, context?.signal);
 		// Classify before reading. A FIFO with no writer would block `head` until the
 		// timeout, and a device (e.g. /dev/zero) would stream the whole probe, so a
 		// special file must fail fast. Only a regular file is read; a directory lists.
@@ -167,7 +164,7 @@ export class SshProtocolHandler implements ProtocolHandler {
 		};
 	}
 
-	/** Resolve a remote directory to a one-level listing (no `sourcePath`; `isDirectory` so search refuses it; immutable). */
+	/** Resolve a remote directory to a rendered one-level listing for read. */
 	async #resolveDirectory(
 		target: SSHConnectionTarget,
 		remotePath: string,
@@ -175,9 +172,16 @@ export class SshProtocolHandler implements ProtocolHandler {
 		signal?: AbortSignal,
 		skipListing?: boolean,
 	): Promise<InternalResource> {
-		// `search`/`find` reject an ssh:// directory outright, so they pass `skipListing`
-		// to avoid draining a full remote `ls` we would only discard.
-		const content = skipListing ? "" : formatDirectoryListing(await listRemoteDir(target, remotePath, { signal }));
+		// Metadata consumers need only the directory shape, not its rendered text.
+		const entries = skipListing ? undefined : await listRemoteDir(target, remotePath, { signal });
+		const content = entries
+			? formatDirectoryListing(
+					entries.map(entry => ({
+						name: entry.name,
+						isDirectory: entry.fileType === ShellFsFileType.Dir,
+					})),
+				)
+			: "";
 		return {
 			url: url.rawHref ?? url.href,
 			content,
@@ -186,6 +190,12 @@ export class SshProtocolHandler implements ProtocolHandler {
 			immutable: true,
 			isDirectory: true,
 		};
+	}
+
+	/** Immediate remote entries for native traversal; paths and results remain ssh:// URLs. */
+	async readDirectory(url: InternalUrl, context?: ResolveContext): Promise<ShellFsDirEntry[]> {
+		const { target, remotePath } = await resolveSshLocation(url.rawHref ?? url.href, context?.cwd, context?.signal);
+		return listRemoteDir(target, remotePath, { signal: context?.signal });
 	}
 
 	/** Resolve a bare `ssh://` to a listing of open sessions and configured hosts (immutable; plain virtual text, so `search` can still grep host names). */
@@ -218,7 +228,7 @@ export class SshProtocolHandler implements ProtocolHandler {
 	}
 
 	async write(url: InternalUrl, content: string, context?: WriteContext): Promise<void> {
-		const { target, remotePath } = await resolveSshLocation(url.rawHref ?? url.href, context?.cwd);
+		const { target, remotePath } = await resolveSshLocation(url.rawHref ?? url.href, context?.cwd, context?.signal);
 		await writeRemoteFile(target, remotePath, new TextEncoder().encode(content), { signal: context?.signal });
 	}
 }

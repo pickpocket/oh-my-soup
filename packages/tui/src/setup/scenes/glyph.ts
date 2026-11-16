@@ -20,7 +20,7 @@ const GLYPH_LABELS: Readonly<Record<SymbolPreset, string>> = {
 const GLYPH_SAMPLES: Readonly<Record<SymbolPreset, string>> = {
 	nerd: "      󰉋  ",
 	unicode: "✔  ✖  📁  ⬢  ╭─╮  ├─  •  ⠋  →",
-	ascii: "[ok]  [x]  >  +  [D]  +-+  |--  *  ->",
+	ascii: "[+]  [-]  >  +  [D]  +-+  |-  *  ->",
 };
 
 /** One picker row per preset; the description column shows live sample glyphs instead of prose. */
@@ -102,7 +102,7 @@ class GlyphSceneController implements SetupSceneController {
 		return this.#native.get([this.#selectList], () =>
 			col(
 				[text([span("If a row shows boxes, tofu, or misaligned icons, pick another.", "muted")]), this.#selectList],
-				{ gap: "sm", role: "omp.setup.glyph" },
+				{ gap: "sm", role: "oms.setup.glyph" },
 			),
 		);
 	}
@@ -136,7 +136,9 @@ class GlyphSceneController implements SetupSceneController {
 export const glyphSetupScene: SetupScene = {
 	id: "glyph-mode",
 	title: "Choose glyph mode",
+	step: "Symbols",
 	minVersion: 1,
+	ansiOnly: true,
 	shouldRun: () => !TERMINAL.glyphProtocol,
 	mount: host => new GlyphSceneController(host),
 };

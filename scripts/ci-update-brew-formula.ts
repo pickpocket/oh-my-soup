@@ -54,7 +54,7 @@ function sha256For(assets: readonly ReleaseAsset[], name: string): string {
 
 // `${...}` is JS interpolation; the literal `#{version}` / `#{bin}` below are
 // Ruby interpolations Homebrew resolves when it evaluates the formula.
-export function renderFormula(version: string, sums: Record<string, string>): string {
+function renderFormula(version: string, sums: Record<string, string>): string {
 	// Each `url` carries `using: :nounzip` because the release assets are bare
 	// Mach-O/ELF executables, not archives. Without it Homebrew's default
 	// CurlDownloadStrategy routes through UnpackStrategy::Uncompressed#extract_nestedly,

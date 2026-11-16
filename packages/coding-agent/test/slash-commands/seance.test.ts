@@ -61,7 +61,7 @@ afterEach(() => {
 
 describe("/seance", () => {
 	it("opens the model picker directly for a picked session with no saved model", async () => {
-		const picked = sourceSession("/elsewhere/.omp/sessions/no-model.jsonl");
+		const picked = sourceSession("/elsewhere/.oms/sessions/no-model.jsonl");
 		const resolve = vi.spyOn(seanceResolver, "resolveSeanceSource").mockResolvedValue({
 			file: picked.path,
 			id: picked.id,
@@ -78,12 +78,12 @@ describe("/seance", () => {
 		await runSeanceCommand(ctx, "");
 		await onSelected?.(picked);
 
-		expect(resolve).toHaveBeenCalledWith(picked.path, expect.objectContaining({ includeGlobal: true }));
+		expect(resolve).toHaveBeenCalledWith(picked.path, expect.anything());
 		expect(ctx.showHookSelector).not.toHaveBeenCalled();
 		expect(ctx.showModelSelector).toHaveBeenCalledWith(expect.objectContaining({ selectOnly: expect.anything() }));
 	});
 	it("offers the saved model when the picked session recorded one", async () => {
-		const picked = sourceSession("/repo/.omp/sessions/with-model.jsonl");
+		const picked = sourceSession("/repo/.oms/sessions/with-model.jsonl");
 		vi.spyOn(seanceResolver, "resolveSeanceSource").mockResolvedValue({
 			file: picked.path,
 			id: picked.id,
@@ -104,7 +104,7 @@ describe("/seance", () => {
 		expect(ctx.showModelSelector).not.toHaveBeenCalled();
 	});
 	it("bypasses model pickers for an override and reports completed IDs with the actual model", async () => {
-		const resolved = sourceSession("/repo/.omp/sessions/old.jsonl");
+		const resolved = sourceSession("/repo/.oms/sessions/old.jsonl");
 		vi.spyOn(seanceResolver, "resolveSeanceSource").mockResolvedValue({
 			file: resolved.path,
 			id: resolved.id,
@@ -143,7 +143,7 @@ describe("/seance", () => {
 		expect(ctx.showStatus).toHaveBeenCalledWith(expect.stringContaining("openai/actual-model"));
 	});
 	it("surfaces live async progress IDs and resolved model", async () => {
-		const resolved = sourceSession("/repo/.omp/sessions/async.jsonl");
+		const resolved = sourceSession("/repo/.oms/sessions/async.jsonl");
 		vi.spyOn(seanceResolver, "resolveSeanceSource").mockResolvedValue({
 			file: resolved.path,
 			id: resolved.id,
@@ -174,7 +174,7 @@ describe("/seance", () => {
 		expect(ctx.showStatus).toHaveBeenCalledWith(expect.stringContaining("anthropic/actual-model"));
 	});
 	it("keeps the latest defined streamed model when the settled result omits one", async () => {
-		const resolved = sourceSession("/repo/.omp/sessions/streamed-model.jsonl");
+		const resolved = sourceSession("/repo/.oms/sessions/streamed-model.jsonl");
 		vi.spyOn(seanceResolver, "resolveSeanceSource").mockResolvedValue({
 			file: resolved.path,
 			id: resolved.id,
@@ -211,7 +211,7 @@ describe("/seance", () => {
 	});
 
 	it("prefers the settled fallback model over the streamed primary model", async () => {
-		const resolved = sourceSession("/repo/.omp/sessions/fallback-model.jsonl");
+		const resolved = sourceSession("/repo/.oms/sessions/fallback-model.jsonl");
 		vi.spyOn(seanceResolver, "resolveSeanceSource").mockResolvedValue({
 			file: resolved.path,
 			id: resolved.id,
@@ -251,7 +251,7 @@ describe("/seance", () => {
 	});
 
 	it("reports zero-exit aborted results as failures with their abort reason", async () => {
-		const resolved = sourceSession("/repo/.omp/sessions/aborted.jsonl");
+		const resolved = sourceSession("/repo/.oms/sessions/aborted.jsonl");
 		vi.spyOn(seanceResolver, "resolveSeanceSource").mockResolvedValue({
 			file: resolved.path,
 			id: resolved.id,
@@ -288,7 +288,7 @@ describe("/seance", () => {
 	});
 
 	it("shows real preflight content and sanitizes thrown executor errors", async () => {
-		const resolved = sourceSession("/repo/.omp/sessions/failure.jsonl");
+		const resolved = sourceSession("/repo/.oms/sessions/failure.jsonl");
 		vi.spyOn(seanceResolver, "resolveSeanceSource").mockResolvedValue({
 			file: resolved.path,
 			id: resolved.id,

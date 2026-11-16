@@ -123,6 +123,9 @@ async function makeHarness(
 	await hostOpen.promise;
 
 	const ctx = {
+		setCollabGuest(guest: InteractiveModeContext["collabGuest"]) {
+			Object.assign(this, { collabGuest: guest });
+		},
 		collabGuest: undefined as CollabGuestLink | undefined,
 		settings: Settings.isolated(),
 		sessionManager: {

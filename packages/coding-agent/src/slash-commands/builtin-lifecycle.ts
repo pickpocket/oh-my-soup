@@ -1,5 +1,5 @@
 import { SEANCE_SLASH_COMMAND } from "./seance";
-import { clearSubmittedText, refuseImages, runWithDetachedDraft } from "./helpers/draft";
+import { clearSubmittedText, refuseImages, restoreDetachedDraft, runWithDetachedDraft } from "./helpers/draft";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { CompactionCancelledError } from "@oh-my-soup/pi-agent-core/compaction";
@@ -9,11 +9,12 @@ import { rebindMemoryBackendForCwd } from "../hindsight/backend";
 import { memoryStatsUnavailableMessage, resolveMemoryBackend } from "../memory-backend";
 import { listServiceSessions } from "../service/control";
 import { liveSessionForIdentifier } from "../service/resume";
+import { continuesConversation } from "../modes/utils/conversation-position";
 import type { FreshSessionResult, HandoffResult } from "../session/agent-session";
 import { COMPACT_MODES, parseCompactArgs } from "../session/compact-modes";
 import { USER_INTERRUPT_LABEL } from "../session/messages";
-import { resolveResumableSession } from "../session/session-listing";
-import { toggleSessionPin } from "../session/session-pins";
+import { resolveResumableSession, resolveResumeTarget } from "../session/session-listing";
+import { toggleSessionPin, unpinSession } from "../session/session-pins";
 import {
 	cleanSourceCheckoutIfConfigured,
 	createSessionWorktree,
@@ -132,6 +133,22 @@ async function relocateHeadlessSession(
 	await runtime.notifyConfigChanged?.();
 	await runtime.notifyTitleChanged?.();
 	return undefined;
+}
+
+/** Session id `/pin` and `/unpin` act on (the argument's match, else the active session), or the usage result. */
+async function resolvePinTarget(
+	command: ParsedSlashCommand,
+	runtime: SlashCommandRuntime,
+	verb: "pin" | "unpin",
+): Promise<string | SlashCommandResult> {
+	const sessionArg = command.args.trim();
+	if (sessionArg) {
+		const match = await resolveResumableSession(sessionArg, runtime.cwd, runtime.sessionManager.getSessionDir(), {
+			allowGlobalFallback: true,
+		});
+		return match ? match.session.id : usage(`Session "${sessionArg}" not found.`, runtime);
+	}
+	return runtime.sessionManager.getSessionId() || usage(`No active session to ${verb}.`, runtime);
 }
 
 export const BUILTIN_LIFECYCLE_SLASH_COMMANDS: ReadonlyArray<SlashCommandSpec> = [
@@ -277,7 +294,30 @@ export const BUILTIN_LIFECYCLE_SLASH_COMMANDS: ReadonlyArray<SlashCommandSpec> =
 				runtime.ctx.showWarning(parsed.error);
 				return;
 			}
-			await runtime.ctx.handleCompactCommand(parsed.instructions, parsed.mode);
+			const { ctx } = runtime;
+			const origin = runtime.followUp;
+			// A switch still applying (or rolling back) decides which conversation is live; judge after it.
+			if (origin && ctx.session.isSessionTransitioning) await ctx.session.waitForSessionTransition();
+			if (origin && !continuesConversation(ctx.sessionManager, origin)) {
+				// Input hooks ran while the conversation changed: never compact one it was not sent in.
+				restoreDetachedDraft(ctx.editor, command.text, runtime.input?.images, runtime.input?.imageLinks);
+				ctx.showWarning("Conversation changed before /compact ran; returned it to the editor");
+				return;
+			}
+			if (origin && ctx.session.isStreaming) {
+				ctx.yieldCompaction = {
+					...origin,
+					text: command.text,
+					instructions: parsed.instructions,
+					mode: parsed.mode,
+				};
+				ctx.updatePendingMessagesDisplay();
+				ctx.showStatus("Queued compaction for when the agent yields");
+				// A prompt still in setup may bail without an agent run, and so without the settle that runs this.
+				ctx.runYieldCompaction();
+				return;
+			}
+			await ctx.handleCompactCommand(parsed.instructions, parsed.mode);
 		},
 	},
 	{
@@ -401,13 +441,13 @@ export const BUILTIN_LIFECYCLE_SLASH_COMMANDS: ReadonlyArray<SlashCommandSpec> =
 				runtime.ctx.showSessionSelector();
 				return;
 			}
-			const match = await resolveResumableSession(
+			const target = await resolveResumeTarget(
 				sessionArg,
 				runtime.ctx.sessionManager.getCwd(),
 				runtime.ctx.sessionManager.getSessionDir() || undefined,
 				{ allowGlobalFallback: true },
 			);
-			if (!match) {
+			if (!target) {
 				const live = liveSessionForIdentifier(sessionArg, await listServiceSessions());
 				if (!live) {
 					runtime.ctx.showError(`Session "${sessionArg}" not found`);
@@ -417,7 +457,7 @@ export const BUILTIN_LIFECYCLE_SLASH_COMMANDS: ReadonlyArray<SlashCommandSpec> =
 				return;
 			}
 			try {
-				await runtime.ctx.handleResumeSession(match.session.path);
+				await runtime.ctx.handleResumeSession(target.session.path, { continuation: target.continuation });
 			} catch (error) {
 				// The picker reports a failed switch itself; `/resume <id>` has no picker.
 				runtime.ctx.showError(error instanceof Error ? error.message : String(error));
@@ -431,27 +471,26 @@ export const BUILTIN_LIFECYCLE_SLASH_COMMANDS: ReadonlyArray<SlashCommandSpec> =
 		inlineHint: "[session id]",
 		allowArgs: true,
 		handle: async (command, runtime) => {
-			const sessionArg = command.args.trim();
-			let sessionId: string | undefined;
-			if (sessionArg) {
-				const match = await resolveResumableSession(
-					sessionArg,
-					runtime.cwd,
-					runtime.sessionManager.getSessionDir(),
-					{ allowGlobalFallback: true },
-				);
-				if (!match) {
-					return usage(`Session "${sessionArg}" not found.`, runtime);
-				}
-				sessionId = match.session.id;
-			} else {
-				sessionId = runtime.sessionManager.getSessionId();
-				if (!sessionId) {
-					return usage("No active session to pin.", runtime);
-				}
-			}
+			const sessionId = await resolvePinTarget(command, runtime, "pin");
+			if (typeof sessionId !== "string") return sessionId;
 			const pinned = await toggleSessionPin(sessionId);
+			await runtime.notifySessionPinChanged?.(sessionId, pinned);
 			await runtime.output(pinned ? "Session pinned to the top of the resume list." : "Session unpinned.");
+			return commandConsumed();
+		},
+	},
+	{
+		name: "unpin",
+		icon: "pin",
+		description: "Unpin a session from the top of the resume list",
+		inlineHint: "[session id]",
+		allowArgs: true,
+		handle: async (command, runtime) => {
+			const sessionId = await resolvePinTarget(command, runtime, "unpin");
+			if (typeof sessionId !== "string") return sessionId;
+			const wasPinned = await unpinSession(sessionId);
+			await runtime.notifySessionPinChanged?.(sessionId, false);
+			await runtime.output(wasPinned ? "Session unpinned." : "Session is not pinned.");
 			return commandConsumed();
 		},
 	},
@@ -865,7 +904,7 @@ export const BUILTIN_LIFECYCLE_SLASH_COMMANDS: ReadonlyArray<SlashCommandSpec> =
 	{
 		name: "restart",
 		icon: "restart",
-		description: "Restart oms with the same launch flags, resuming this session",
+		description: "Restart oms with the same launch flags, resuming this session and its running subagents",
 		handleTui: async (_command, runtime) => {
 			clearSubmittedText(runtime);
 			await runtime.ctx.restart();

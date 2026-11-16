@@ -555,6 +555,13 @@ function Install-Oms {
 
     Set-OmsShellConfig
 
+    # An oms earlier on PATH (a previous bun install, Scoop, ...) can still
+    # shadow the binary when InstallDir was already present later on PATH.
+    $Active = Get-Command oms -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($Active -and $Active.Source -ne [System.IO.Path]::GetFullPath($TargetPath)) {
+        Write-OmsStep -Message "[WARN] 'oms' still resolves to $($Active.Source); remove that install or move $InstallDir ahead of it on PATH." -Color Yellow
+    }
+
     $Stopwatch.Stop()
     Write-OmsStep -Message ("Done in {0:N1}s. Run 'oms' to get started!" -f $Stopwatch.Elapsed.TotalSeconds)
 }

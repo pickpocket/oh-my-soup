@@ -36,7 +36,6 @@ import { editorKey, editorKeys } from "../chrome/keybinding-hints";
 import { HookEditorComponent } from "./hook-editor";
 import {
 	buildBrowserItems,
-	MODEL_PICKER_COLUMNS,
 	ModelBrowser,
 	type ModelBrowserItem,
 	type ModelBrowserSource,
@@ -64,10 +63,11 @@ import { getThinkingLevelMetadata, parseThinkingLevel } from "../thinking";
 
 export const ADVISOR_REVIEW_MODES = ["turn", "agent-end"] as const;
 export const ADVISOR_SYNC_BACKLOG_MODES = ["off", "1", "3", "5", "strict"] as const;
+export const ADVISOR_SESSION_SCOPES = ["main", "subagent", "all"] as const;
 
 export type AdvisorReviewMode = (typeof ADVISOR_REVIEW_MODES)[number];
 export type AdvisorSyncBacklog = (typeof ADVISOR_SYNC_BACKLOG_MODES)[number];
-
+export type AdvisorSessionScope = (typeof ADVISOR_SESSION_SCOPES)[number];
 /** One advisor declared in `WATCHDOG.yml`; its instructions specialize the shared baseline. */
 export interface AdvisorConfig {
 	name: string;
@@ -83,6 +83,10 @@ export interface AdvisorConfig {
 	reviewMode?: AdvisorReviewMode;
 	reviewInterval?: number;
 	syncBacklog?: AdvisorSyncBacklog;
+	/** Which session kinds this advisor attaches to (`main`, `subagent`, or `all`; defaults to `all`). */
+	scope?: AdvisorSessionScope;
+	/** Whether primary assistant thinking blocks are included in updates sent to this advisor (defaults to `true`). */
+	includeReasoning?: boolean;
 }
 
 /** Which level a `WATCHDOG.yml` lives at: the project root or the user agent dir. */
@@ -474,7 +478,7 @@ export class AdvisorConfigOverlayComponent implements Component {
 	 * The native settings page (`prefs`) when the terminal draws it: a page per
 	 * advisor plus the shared instructions, the advisor's fields as typed rows,
 	 * the file actions, and the model/tools/instructions editors over the page.
-	 * Otherwise the root card `omp.overlay.advisor`: on the roster screen a
+	 * Otherwise the root card `oms.overlay.advisor`: on the roster screen a
 	 * sidebar (the active `SelectList`) beside the highlighted entry's preview;
 	 * every other screen shows its editor component alone. Key hints close the
 	 * card.
@@ -721,7 +725,7 @@ export class AdvisorConfigOverlayComponent implements Component {
 		}
 		if (memo && sameDeps(memo.deps, [active])) return memo.node;
 		const content = this.#screen === "review-interval" ? this.#intervalCard(active) : active;
-		const card = col([content], { role: "omp.prefs.editor" });
+		const card = col([content], { role: "oms.prefs.editor" });
 		this.#nativeEditor = { deps: [active], node: card };
 		return card;
 	}
@@ -744,16 +748,8 @@ export class AdvisorConfigOverlayComponent implements Component {
 				size: "md",
 				layout: "rows",
 				preview: "below",
-				query: browser.query,
-				cursor: browser.cursor,
 				placeholder: "Search models…",
-				columns: MODEL_PICKER_COLUMNS,
-				...catalogue,
-				order: order.order,
-				...(order.hits ? { hits: order.hits } : {}),
-				selected: browser.pickerSelected,
-				...(this.#modelCurrent ? { current: [this.#modelCurrent] } : {}),
-				total: browser.baseCount,
+				...browser.pickerRows(catalogue, order, this.#modelCurrent),
 				empty: "No models available",
 				actions: [
 					pickerAction("use", "Use for advisor", "enter", { primary: true }),
@@ -767,7 +763,7 @@ export class AdvisorConfigOverlayComponent implements Component {
 	/** The review-interval field as a titled card: what the number means, the field, Cancel and Save. */
 	#intervalCard(input: Component): NativeNode {
 		const name = this.#doc.advisors[this.#detailIndex]?.name || "this advisor";
-		return overlayCard("omp.overlay.advisor.interval", `Review interval · ${name}`, [
+		return overlayCard("oms.overlay.advisor.interval", `Review interval · ${name}`, [
 			text([span("Review every Nth eligible update; skipped updates join the next review.", "muted")], {
 				wrap: "word",
 			}),
@@ -921,7 +917,7 @@ export class AdvisorConfigOverlayComponent implements Component {
 			: node("col", { grow: 1 }, [this.#active], "body");
 		const children: NativeChild[] = [body];
 		if (hints) children.push(node("rule", undefined, undefined, "divider"), hints);
-		const card = overlayCard("omp.overlay.advisor", head, children);
+		const card = overlayCard("oms.overlay.advisor", head, children);
 		this.#nativeRoot = { screen: this.#screen, active: this.#active, title, preview, hints, node: card };
 		return card;
 	}
@@ -1202,7 +1198,9 @@ export class AdvisorConfigOverlayComponent implements Component {
 			advisor.syncBacklog === undefined &&
 			!advisor.instructions?.trim() &&
 			advisor.enabled !== false &&
-			advisor.maxNotesPerUpdate === undefined
+			advisor.maxNotesPerUpdate === undefined &&
+			advisor.scope === undefined &&
+			advisor.includeReasoning === undefined
 		);
 	}
 

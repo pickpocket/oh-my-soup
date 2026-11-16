@@ -45,7 +45,7 @@ describe("legacy session directory migration", () => {
 	test.each([false, true])(
 		"recovers hashed home-scoped sessions when the temp root is inside home (collision: %s)",
 		withCollision => {
-			const root = makeTempDir("omp-shadowed-home-");
+			const root = makeTempDir("oms-shadowed-home-");
 			const home = path.join(root, "home");
 			const tempRoot = path.join(home, "tmp");
 			const cwd = path.join(tempRoot, "project");
@@ -86,7 +86,7 @@ describe("legacy session directory migration", () => {
 	);
 
 	test("keeps normal home and temp session directory names", () => {
-		const root = makeTempDir("omp-session-scopes-");
+		const root = makeTempDir("oms-session-scopes-");
 		const home = path.join(root, "home");
 		const tempRoot = path.join(root, "tmp");
 		const sessionsRoot = path.join(root, "sessions");

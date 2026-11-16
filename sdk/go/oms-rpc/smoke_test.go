@@ -19,7 +19,7 @@ import (
 
 // The smoke tests drive real servers from the repository checkout:
 //
-//	OMP_RPC_SMOKE=1 go test -run TestSmoke -v ./...
+//	OMS_RPC_SMOKE=1 go test -run TestSmoke -v ./...
 //
 // PI_CODING_AGENT_DIR points at a fresh directory so no user configuration
 // applies. TestSmoke has no model and never prompts; TestSmokeModel prompts a
@@ -27,8 +27,8 @@ import (
 
 func repoRoot(t *testing.T) string {
 	t.Helper()
-	if os.Getenv("OMP_RPC_SMOKE") != "1" {
-		t.Skip("set OMP_RPC_SMOKE=1 to run against a real server (needs bun)")
+	if os.Getenv("OMS_RPC_SMOKE") != "1" {
+		t.Skip("set OMS_RPC_SMOKE=1 to run against a real server (needs bun)")
 	}
 	root, err := filepath.Abs("../../..")
 	if err != nil {
@@ -62,7 +62,7 @@ func (l *frameLog) waitFor(t *testing.T, frameType string, n int) {
 	}
 }
 
-// startServer runs omp in rpc mode and logs its frames; the returned function
+// startServer runs oms in rpc mode and logs its frames; the returned function
 // closes it and checks that every frame decoded.
 func startServer(t *testing.T, root, agentDir string, args []string, options ...Option) (*Client, *frameLog, func()) {
 	t.Helper()
@@ -158,12 +158,12 @@ func TestSmoke(t *testing.T) {
 
 	phases, err := client.SetTodos(ctx, SetTodosCommand{Phases: []TodoPhase{{
 		Name:  "Smoke",
-		Tasks: []TodoItem{{Content: "Wait for review", Status: TodoStatusBlocked, Blocker: Ptr("needs approval")}},
+		Tasks: []TodoItem{{Content: "Wait for review", Status: TodoStatusInProgress}},
 	}}})
-	if err != nil || len(phases) != 1 || phases[0].Tasks[0].Status != TodoStatusBlocked {
+	if err != nil || len(phases) != 1 || phases[0].Tasks[0].Status != TodoStatusInProgress {
 		t.Fatalf("set_todos: %#v %v", phases, err)
 	}
-	t.Logf("set_todos: %s/%s status=%s blocker=%q", phases[0].Name, phases[0].Tasks[0].Content, phases[0].Tasks[0].Status, deref(phases[0].Tasks[0].Blocker))
+	t.Logf("set_todos: %s/%s status=%s", phases[0].Name, phases[0].Tasks[0].Content, phases[0].Tasks[0].Status)
 
 	events, err := client.SetEventFilter(ctx, SetEventFilterCommand{Events: nil})
 	if err != nil || events != nil {

@@ -15,7 +15,7 @@ const original: Skill = {
 
 describe("system prompt skill descriptions", () => {
 	it("renders an immediate bounded preview, deduplicates in-flight work, and holds a session snapshot", async () => {
-		using temp = TempDir.createSync("omp-skill-description-");
+		using temp = TempDir.createSync("oms-skill-description-");
 		using store = SkillDescriptionStore.open(temp.join("skills.db"));
 		const { promise, resolve } = Promise.withResolvers<string>();
 		const started = Promise.withResolvers<void>();
@@ -67,7 +67,7 @@ describe("system prompt skill descriptions", () => {
 	});
 
 	it("misses on a changed full description rather than serving stale cached text", async () => {
-		using temp = TempDir.createSync("omp-skill-description-change-");
+		using temp = TempDir.createSync("oms-skill-description-change-");
 		using store = SkillDescriptionStore.open(temp.join("skills.db"));
 		let calls = 0;
 		const first = new SkillDescriptionCatalog({
@@ -99,7 +99,7 @@ describe("system prompt skill descriptions", () => {
 	});
 
 	it("does not cache malformed output and retries in a later session", async () => {
-		using temp = TempDir.createSync("omp-skill-description-invalid-");
+		using temp = TempDir.createSync("oms-skill-description-invalid-");
 		using store = SkillDescriptionStore.open(temp.join("skills.db"));
 		const failed = new SkillDescriptionCatalog({
 			store,

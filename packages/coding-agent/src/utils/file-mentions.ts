@@ -9,7 +9,7 @@ import * as fs from "node:fs/promises";
 import path from "node:path";
 import type { EditStore } from "@oh-my-soup/pi-natives";
 import type { ImageContent } from "@oh-my-soup/pi-ai";
-import { formatAge, formatBytes, isProbablyBinary, readImageMetadata } from "@oh-my-soup/pi-utils";
+import { countNewlines, formatAge, formatBytes, isProbablyBinary, readImageMetadata } from "@oh-my-soup/pi-utils";
 import {
 	formatHashlineHeader,
 	formatNumberedLines,
@@ -26,6 +26,7 @@ import {
 import { resolveReadPath } from "../tools/path-utils";
 import { formatDimensionNote, resizeImage } from "./image-resize";
 import { VideoError, buildVideoContactSheetPng, formatVideoDetails, probeVideo, videoMimeForPath } from "./video";
+import { CONVERTIBLE_EXTENSIONS, convertFileWithMarkit } from "./markit";
 import { createVideoPreviewImage, isVideoPath } from "@oh-my-soup/pi-tui/prompt/video";
 
 /** Regex to match @filepath patterns in text */
@@ -61,8 +62,10 @@ async function resolveMentionPath(
 	// mention that does not resolve to an existing file or directory is prose, not a file
 	// reference. Fuzzy/prefix guessing here previously dragged in unrelated same-named
 	// files; that disambiguation belongs to the selector's display, not post-send.
-	const absolutePath = resolveReadPath(filePath, cwd);
+	// Resolution itself can throw (an internal-scheme URL such as `@local://x` is not a
+	// filesystem path), so it stays inside the try: an unresolvable mention is prose too.
 	try {
+		const absolutePath = resolveReadPath(filePath, cwd);
 		await Bun.file(absolutePath).stat();
 		return { resolvedPath: filePath, absolutePath };
 	} catch {
@@ -71,14 +74,15 @@ async function resolveMentionPath(
 }
 
 interface TextOutput {
-	/** File text kept within the auto-read limits: whole leading lines, or a first-line snippet. */
-	content: string;
-	/** Limit notice following `content`; never file text, so never numbered. */
+	/** Source text shown: the head of the file, or a byte prefix of line 1 when `firstLineCut`. */
+	body: string;
+	/** Truncation notice appended after `body`; never source text, so never numbered. */
 	notice: string;
-	/** Leading file lines `content` shows in full. */
-	shownLines: number;
-	/** Total file lines. */
 	lineCount: number;
+	/** Line 1 alone exceeds the byte cap: `body` is a partial line with no whole row to anchor. */
+	firstLineCut: boolean;
+	/** Whole lines in `body` (1..N) when the file was head-truncated; undefined when every line is shown. */
+	shownLines?: number;
 }
 
 function buildTextOutput(textContent: string): TextOutput {
@@ -90,19 +94,23 @@ function buildTextOutput(textContent: string): TextOutput {
 		const firstLine = allLines[0] ?? "";
 		const firstLineBytes = Buffer.byteLength(firstLine, "utf-8");
 		const snippet = truncateHeadBytes(firstLine, DEFAULT_MAX_BYTES);
-		const limit = `[Line 1 is ${formatBytes(firstLineBytes)}, exceeds ${formatBytes(DEFAULT_MAX_BYTES)} limit.`;
 		const notice =
 			snippet.text.length > 0
-				? `\n\n${limit} Showing first ${formatBytes(snippet.bytes)} of the line.]`
-				: `${limit} Unable to display a valid UTF-8 snippet.]`;
-		return { content: snippet.text, notice, shownLines: 0, lineCount: totalFileLines };
+				? `\n\n[Line 1 is ${formatBytes(firstLineBytes)}, exceeds ${formatBytes(
+						DEFAULT_MAX_BYTES,
+					)} limit. Showing first ${formatBytes(snippet.bytes)} of the line.]`
+				: `[Line 1 is ${formatBytes(firstLineBytes)}, exceeds ${formatBytes(
+						DEFAULT_MAX_BYTES,
+					)} limit. Unable to display a valid UTF-8 snippet.]`;
+		return { body: snippet.text, notice, lineCount: totalFileLines, firstLineCut: true };
 	}
 
 	return {
-		content: truncation.content,
+		body: truncation.content,
 		notice: formatHeadTruncationNotice(truncation, { startLine: 1, totalFileLines }),
-		shownLines: truncation.outputLines ?? truncation.totalLines,
 		lineCount: totalFileLines,
+		firstLineCut: false,
+		shownLines: truncation.truncated ? countNewlines(truncation.content) + 1 : undefined,
 	};
 }
 
@@ -191,10 +199,17 @@ export function extractFileMentions(text: string): string[] {
  * Generate a FileMentionMessage containing the contents of mentioned files.
  * Returns empty array if no files could be read.
  */
+export interface FileMentionOptions {
+	autoResizeImages?: boolean;
+	useHashLines?: boolean;
+	snapshotStore?: EditStore;
+	signal?: AbortSignal;
+}
+
 export async function generateFileMentionMessages(
 	filePaths: string[],
 	cwd: string,
-	options?: { autoResizeImages?: boolean; useHashLines?: boolean; snapshotStore?: EditStore },
+	options?: FileMentionOptions,
 ): Promise<FileMentionMessage[]> {
 	if (filePaths.length === 0) return [];
 
@@ -203,6 +218,7 @@ export async function generateFileMentionMessages(
 	const files: FileMentionMessage["files"] = [];
 
 	for (const filePath of filePaths) {
+		if (options?.signal?.aborted) return [];
 		const resolved = await resolveMentionPath(filePath, cwd);
 		if (!resolved) {
 			continue;
@@ -297,6 +313,26 @@ export async function generateFileMentionMessages(
 				});
 				continue;
 			}
+			const ext = path.extname(absolutePath).toLowerCase();
+			if (CONVERTIBLE_EXTENSIONS.has(ext)) {
+				const result = await convertFileWithMarkit(absolutePath, options?.signal);
+				if (options?.signal?.aborted) {
+					return [];
+				}
+				if (result.ok && result.content.trim().length > 0) {
+					const { body, notice, lineCount } = buildTextOutput(result.content);
+					files.push({ path: resolvedPath, content: body + notice, lineCount });
+				} else {
+					const reason = result.error || `cannot read ${ext} file`;
+					files.push({
+						path: resolvedPath,
+						content: `(skipped auto-read: ${reason})`,
+						byteSize: stat.size,
+						skippedReason: "binary",
+					});
+				}
+				continue;
+			}
 			if (await isProbablyBinary(absolutePath)) {
 				files.push({
 					path: resolvedPath,
@@ -311,21 +347,24 @@ export async function generateFileMentionMessages(
 			const snapshotStore = options?.useHashLines ? options.snapshotStore : undefined;
 			const normalized = snapshotStore ? normalizeToLF(content) : content;
 			const displayText = snapshotStore ? splitAddressableFileLines(normalized).join("\n") : normalized;
-			const { content: shown, notice, shownLines, lineCount } = buildTextOutput(displayText);
-			let output = `${shown}${notice}`;
-			if (snapshotStore) {
-				// The mention displays these rows under the minted tag, exactly like a read.
-				const seenLines = Array.from({ length: shownLines }, (_, index) => index + 1);
+			const { body, notice, lineCount, firstLineCut, shownLines } = buildTextOutput(displayText);
+			let output = body + notice;
+			// A cut line 1 has no whole row to anchor, so it gets no tag (as `read` emits no
+			// editable row for it). A head-truncated view records only the rows it shows, so
+			// the hashline guard refuses anchors past them.
+			if (snapshotStore && !firstLineCut) {
+				const seenLines = Array.from({ length: shownLines ?? lineCount }, (_, index) => index + 1);
 				const tag = snapshotStore.recordSnapshot(absolutePath, normalized, seenLines);
-				output = `${formatHashlineHeader(resolvedPath, tag)}\n${formatNumberedLines(shown)}${notice}`;
+				output = `${formatHashlineHeader(resolvedPath, tag)}\n${formatNumberedLines(body)}${notice}`;
 			}
 			files.push({ path: resolvedPath, content: output, lineCount });
 		} catch {
+			if (options?.signal?.aborted) return [];
 			// File doesn't exist or isn't readable - skip silently
 		}
 	}
 
-	if (files.length === 0) return [];
+	if (options?.signal?.aborted || files.length === 0) return [];
 
 	const message: FileMentionMessage = {
 		role: "fileMention",

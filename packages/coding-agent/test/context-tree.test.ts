@@ -34,16 +34,17 @@ function fakeSession(args: {
 	return {
 		getAgentId: () => args.agentId,
 		messages,
-		getContextUsage: () =>
-			args.contextWindow
+		getSessionStats: () => ({
+			sessionFile: undefined,
+			contextUsage: args.contextWindow
 				? {
 						tokens: args.contextTokens ?? 0,
 						contextWindow: args.contextWindow,
 						percent: ((args.contextTokens ?? 0) / args.contextWindow) * 100,
 					}
 				: undefined,
+		}),
 		model: args.model,
-		getSessionStats: () => ({ sessionFile: null }),
 	} as unknown as AgentSession;
 }
 

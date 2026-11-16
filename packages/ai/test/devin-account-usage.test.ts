@@ -188,8 +188,8 @@ describe("Devin account usage", () => {
 		expect(capture.metadata?.ideName).toBe("devin-cli");
 		expect(capture.metadata?.ideType).toBe("chisel");
 		expect(capture.metadata?.extensionName).toBe("chisel");
-		expect(capture.metadata?.ideVersion).toBe("3000.11.205");
-		expect(capture.metadata?.extensionVersion).toBe("3000.11.205");
+		expect(capture.metadata?.ideVersion).toBe("3000.12.57");
+		expect(capture.metadata?.extensionVersion).toBe("3000.12.57");
 		expect(capture.metadata?.locale).toBe("en");
 		expect(capture.metadata?.os).toBe(EXPECTED_OS);
 
@@ -251,7 +251,7 @@ describe("Devin account usage", () => {
 	});
 
 	test("encodes the credential by its shape, whichever way it is stored", async () => {
-		// OMP's Devin login stores the bare session token as an API key; legacy
+		// OMS's Devin login stores the bare session token as an API key; legacy
 		// Windsurf keys can be stored as either kind and are rejected when prefixed.
 		const payload = userStatusPayload({ planName: "Devin Pro" }, { userId: "user-1" });
 		const sent = async (token: string, type: "oauth" | "api_key") => {

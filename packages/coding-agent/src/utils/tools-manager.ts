@@ -4,6 +4,7 @@ import * as path from "node:path";
 import {
 	$env,
 	$which,
+	fetchWithRetry,
 	getManagedDependencyDir,
 	getManagedPythonEnv,
 	getProjectDir,
@@ -533,15 +534,16 @@ export interface DownloadFileOptions {
 	integrity?: DownloadIntegrity;
 }
 
-/** Download a tool asset without handing the streaming Response to Bun.write. */
+/**
+ * Download a tool asset without handing the streaming Response to Bun.write.
+ * Transient failures (5xx, 408, 429, network errors) are retried within `timeoutMs`.
+ */
 export async function downloadFile(url: string, dest: string, options: DownloadFileOptions = {}): Promise<void> {
 	const { signal, timeoutMs = TOOL_DOWNLOAD_TIMEOUT_MS, onProgress, integrity } = options;
 	const downloadSignal = ptree.combineSignals(signal, timeoutMs);
 	let response: Response;
 	try {
-		response = await fetch(url, {
-			signal: downloadSignal,
-		});
+		response = await fetchWithRetry(url, { signal: downloadSignal, maxAttempts: 4, maxDelayMs: 8_000 });
 		if (!response.ok) {
 			throw new Error(`Failed to download: ${response.status}`);
 		} else if (!response.body) {
@@ -562,7 +564,7 @@ export async function downloadFile(url: string, dest: string, options: DownloadF
 				}),
 		);
 	} catch (err) {
-		if (isAbortLikeError(err)) {
+		if (isAbortLikeError(err) || downloadSignal?.aborted) {
 			throw new Error(`Download timed out: ${url}`);
 		}
 		throw err;

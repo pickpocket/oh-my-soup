@@ -167,7 +167,7 @@ export class Box implements Component {
 			const chrome = backgroundChrome(bg);
 			described = card(
 				{
-					role: chrome.role ?? "omp.panel",
+					role: chrome.role ?? "oms.panel",
 					tone: borderColor !== undefined ? (colorTone(borderColor) ?? "neutral") : (chrome.tone ?? "neutral"),
 					selected: chrome.selected,
 					// Fill without a ring: a flat inset panel.

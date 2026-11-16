@@ -1,4 +1,4 @@
-// Package omprpc is a Go client for the omp RPC protocol (`omp --mode rpc`):
+// Package omprpc is a Go client for the oms RPC protocol (`oms --mode rpc`):
 // JSON lines over the server's stdin and stdout.
 //
 // wire.go is generated from the protocol's wire schema by `bun run gen:rpc`;
@@ -100,7 +100,7 @@ type pendingCall struct {
 	reply   chan RpcResponse
 }
 
-// Client is a connection to an omp RPC server. The embedded Commands provides
+// Client is a connection to an oms RPC server. The embedded Commands provides
 // the typed command methods; Client.GetMessages replaces the monolithic
 // command with paging under protocol v2 (Commands.GetMessages remains).
 type Client struct {
@@ -149,7 +149,7 @@ type Client struct {
 	closeErr  error
 }
 
-// Start starts cmd (for example `exec.Command("omp", "--mode", "rpc")`; set
+// Start starts cmd (for example `exec.Command("oms", "--mode", "rpc")`; set
 // its Dir, Env, and Stderr as needed, and leave Stdin and Stdout nil) and
 // connects to it with NewClient. On Unix the server runs in its own process
 // group, so Close also stops the commands its tools started; cmd.WaitDelay

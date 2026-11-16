@@ -4,7 +4,7 @@ import { type } from "@oh-my-soup/omstype";
 import { Agent, type AgentMessage, type AgentTool } from "@oh-my-soup/pi-agent-core";
 import * as compactionModule from "@oh-my-soup/pi-agent-core/compaction";
 import type { Model, TextContent } from "@oh-my-soup/pi-ai";
-import * as codexResponses from "@oh-my-soup/pi-ai/providers/openai-codex-responses";
+import * as codexResponses from "@oh-my-soup/pi-ai/providers/openai-codex-state";
 import { AssistantMessageEventStream } from "@oh-my-soup/pi-ai/utils/event-stream";
 import { getBundledModel } from "@oh-my-soup/pi-catalog/models";
 import { ModelRegistry } from "@oh-my-soup/pi-coding-agent/config/model-registry";

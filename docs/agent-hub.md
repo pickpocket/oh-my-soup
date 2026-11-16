@@ -49,8 +49,8 @@ Metrics depend on the progress or persisted usage data available for that agent.
 | `Enter` or click            | Open the selected agent.                                                     |
 | `t`                         | Toggle flat and parent/child views.                                          |
 | `c`                         | Open IRC messages involving the selected agent, or all messages when the roster is empty. |
-| `/`                         | Filter agents by id or display name.                                        |
-| `1` / `2`                   | Switch between Agents and Activity sections.                               |
+| `/`                         | Filter agents by id or display name.                                         |
+| `1` / `2`                   | Switch between Agents and Activity sections.                                 |
 | `Tab`                       | Toggle the inspector on narrow terminals.                                    |
 | `PageUp` / `PageDown`       | Scroll an open inspector.                                                    |
 | `r`                         | Revive the selected parked or killed agent.                                  |
@@ -101,7 +101,7 @@ Set `display.subagentLivePreview: true` to add a second line under each row show
 
 Enable `tui.mouse` to click live subagent cards and jump-list rows directly in the main session, without opening the Hub first. A click focuses that card's most recent agent (a jump-list row focuses its exact agent); focusing a parked agent revives it. Hovering a live target lights it up first, so you can see what a click will open.
 
-Only rows currently in the live viewport are clickable — retired transcript rows live in terminal scrollback, where clicks cannot map back to content. Enabling capture changes terminal gestures while on: text selection becomes Shift+drag and wheel scroll becomes Shift+wheel. Off by default.
+Only rows currently in the live viewport are clickable — retired transcript rows live in terminal scrollback, where clicks cannot map back to content. Enabling capture changes terminal gestures while on: text selection becomes Shift+drag, and the terminal reports wheel ticks to oms instead of scrolling, so plain wheel scrolling stops; scroll with the terminal's keyboard scrollback keys or turn capture off. Off by default.
 
 ## Persisted agents and advisors
 
@@ -126,7 +126,7 @@ Agent Hub is the human-facing live session view. Adjacent commands and internal 
 - `history://<id>` gives the coding agent a concise transcript for a live/parked subagent or a retained on-disk transcript.
 - `agent://<id>` resolves a subagent's saved final output artifact; it is not the live transcript. Before that artifact exists, a registered agent resolves to its status, the `yield` payloads it has submitted so far, and its latest assistant text.
 - `agent://<id>?view=notes` reads the child's saved session notes from its live branch or retained journal, including after parent resume. It does not merge them into the caller's notes.
-- `write agent://<id>` steers or follows up with a normal subagent; `agent://all` broadcasts to visible live peers. Messaging a parked or killed subagent revives it. `read history://` lists registered agents and retained on-disk transcripts, refreshing the caller root's persisted roster first, the same as `history://<id>` lookups.
+- `write agent://<id>` steers or follows up with a normal subagent; `agent://all` broadcasts to visible live peers (main agent only; a subagent's broadcast is refused). Messaging a parked or killed subagent revives it. `read history://` lists registered agents and retained on-disk transcripts, refreshing the caller root's persisted roster first, the same as `history://<id>` lookups.
 - `read proc://` lists background jobs and project services; `read proc://<id>` inspects status/output without consuming delivery.
 
 Advisor rows are intentionally excluded from the agent-facing peer roster, `history://` index, and `agent://` messaging workflows.

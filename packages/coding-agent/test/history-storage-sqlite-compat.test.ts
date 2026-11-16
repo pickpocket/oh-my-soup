@@ -108,7 +108,7 @@ it("collapses duplicate prompts and keeps the latest project metadata", async ()
 	}
 });
 it("adds use_count to a rebuilt store in place, without another rebuild", async () => {
-	tempDir = TempDir.createSync("@omp-history-storage-use-count-");
+	tempDir = TempDir.createSync("@oms-history-storage-use-count-");
 	const dbPath = tempDir.join("history.db");
 	const v1Db = new Database(dbPath);
 	v1Db.exec(`

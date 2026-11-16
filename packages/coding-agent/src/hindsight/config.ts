@@ -16,6 +16,7 @@ import {
 	cfgHindsightBankIdPrefix,
 	cfgHindsightBankMission,
 	cfgHindsightDebug,
+	cfgHindsightGlobalScope,
 	cfgHindsightMentalModelAutoSeed,
 	cfgHindsightMentalModelMaxRenderChars,
 	cfgHindsightMentalModelsEnabled,
@@ -45,6 +46,8 @@ export interface HindsightConfig {
 	bankId: string | null;
 	bankIdPrefix: string;
 	scoping: HindsightScoping;
+	/** Whether `retain`/`learn` may store `scope: "global"` items untagged; opt-in through `hindsight.globalScope`. */
+	globalScope: boolean;
 	bankMission: string;
 	retainMission: string | null;
 
@@ -95,6 +98,7 @@ export function loadHindsightConfig(settings: Settings): HindsightConfig {
 		bankId: cfgHindsightBankId.get(settings) ?? null,
 		bankIdPrefix: cfgHindsightBankIdPrefix.get(settings) ?? "",
 		scoping: cfgHindsightScoping.get(settings),
+		globalScope: cfgHindsightGlobalScope.get(settings),
 		bankMission: cfgHindsightBankMission.get(settings) ?? "",
 		retainMission: cfgHindsightRetainMission.get(settings) ?? null,
 

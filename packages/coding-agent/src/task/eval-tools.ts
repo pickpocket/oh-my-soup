@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { isRecord } from "@oh-my-soup/pi-utils";
 import type { AgentToolResult } from "@oh-my-soup/pi-agent-core";
 import { INTENT_FIELD } from "@oh-my-soup/pi-wire";
 import { EvalKernelNotRunningError } from "../eval/executor-base";
@@ -11,24 +12,15 @@ import type { CustomTool } from "../extensibility/custom-tools/types";
 import type { ToolSession } from "../tools";
 import { ToolError } from "@oh-my-soup/pi-tui/tools/tool-errors";
 import { schemaDeclaresIntentField } from "../utils/tool-schema";
+import { registerEvalToolSource } from "./eval-tool-provenance";
 
 import { cfgEvalToolsEnabled } from "../eval/settings";
 
 const evalToolProcessId = randomUUID();
-const evalToolSources = new WeakMap<object, string>();
-
-/** A process-local retained-kernel identity, never a replaceable same-name host capability. */
-export function getEvalToolSource(tool: object): string | undefined {
-	return evalToolSources.get(tool);
-}
 
 interface EvalToolQueryResult {
 	tools: EvalToolDescriptor[];
 	missing: string[];
-}
-
-function isUnknownRecord(value: unknown): value is Record<string, unknown> {
-	return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
 async function queryPythonTools(
@@ -153,58 +145,77 @@ function errorResult(
 	};
 }
 
-/** Materialize kernel-defined descriptors as custom tools for a child session. */
+/**
+ * Materialize kernel-defined descriptors as custom tools for a child session.
+ *
+ * A child keeps these tools in its revive capture for as long as it can be revived,
+ * so they hold `session`, whose kernel they call, only weakly: holding it strongly
+ * kept the whole spawning session in memory after it parked. Its kernel is gone by
+ * then anyway; a call after that reports the tool unavailable.
+ */
 export function createEvalCustomTools(session: ToolSession, descriptors: EvalToolDescriptor[]): CustomTool[] {
 	if (descriptors.length > 0 && !evalToolsEnabled(session)) {
 		throw new ToolError("Eval-defined tools are disabled; set eval.tools.enabled=true to expose them to subagents.");
 	}
+	const owner = new WeakRef(session);
 	return descriptors.map(descriptor => {
 		const identity =
 			descriptor.language === "python" ? resolvePythonKernelIdentity(session) : resolveJsKernelIdentity(session);
-		const tool: CustomTool = {
-			name: descriptor.name,
-			label: descriptor.name,
-			description: descriptor.description,
-			parameters: descriptor.parameters,
-			loadMode: "essential",
-			async execute(_toolCallId, rawParams, _onUpdate, _ctx, signal) {
-				const params = isUnknownRecord(rawParams) ? rawParams : {};
-				const args = stripHarnessIntent(params, descriptor.parameters);
-				let result: EvalToolInvokeResult;
-				try {
-					if (descriptor.language === "python") {
-						result = await callPythonTool(descriptor.name, args, {
-							...resolvePythonKernelIdentity(session),
-							toolSession: session,
-							signal,
-						});
-					} else {
-						const jsResult = await invokeJsTool(
-							{ op: "call", name: descriptor.name, args },
-							{ ...resolveJsKernelIdentity(session), session, signal },
-						);
-						result =
-							"tools" in jsResult
-								? { ok: false, error: "JavaScript tool call returned a descriptor" }
-								: jsResult;
-					}
-				} catch (error) {
-					if (error instanceof EvalKernelNotRunningError) {
-						return errorResult(descriptor.name, descriptor.language, error.message);
-					}
-					throw error;
-				}
-				if (!result.ok) return errorResult(descriptor.name, descriptor.language, result.error);
-				return {
-					content: [{ type: "text", text: resultText(result.value) }],
-					details: { evalTool: descriptor.name, language: descriptor.language },
-				};
-			},
-		};
-		evalToolSources.set(
+		const tool = evalCustomTool(owner, descriptor);
+		registerEvalToolSource(
 			tool,
 			`eval-kernel\0${evalToolProcessId}\0${descriptor.language}\0${JSON.stringify(identity)}`,
 		);
 		return tool;
 	});
+}
+
+/** One kernel-defined tool. Module-level so its closure holds nothing but `owner` and `descriptor`. */
+function evalCustomTool(owner: WeakRef<ToolSession>, descriptor: EvalToolDescriptor): CustomTool {
+	return {
+		name: descriptor.name,
+		label: descriptor.name,
+		description: descriptor.description,
+		parameters: descriptor.parameters,
+		loadMode: "essential",
+		async execute(_toolCallId, rawParams, _onUpdate, _ctx, signal) {
+			const session = owner.deref();
+			if (!session) {
+				return errorResult(
+					descriptor.name,
+					descriptor.language,
+					`The session whose ${descriptor.language} kernel defined "${descriptor.name}" has ended.`,
+				);
+			}
+			const params = isRecord(rawParams) ? rawParams : {};
+			const args = stripHarnessIntent(params, descriptor.parameters);
+			let result: EvalToolInvokeResult;
+			try {
+				if (descriptor.language === "python") {
+					result = await callPythonTool(descriptor.name, args, {
+						...resolvePythonKernelIdentity(session),
+						toolSession: session,
+						signal,
+					});
+				} else {
+					const jsResult = await invokeJsTool(
+						{ op: "call", name: descriptor.name, args },
+						{ ...resolveJsKernelIdentity(session), session, signal },
+					);
+					result =
+						"tools" in jsResult ? { ok: false, error: "JavaScript tool call returned a descriptor" } : jsResult;
+				}
+			} catch (error) {
+				if (error instanceof EvalKernelNotRunningError) {
+					return errorResult(descriptor.name, descriptor.language, error.message);
+				}
+				throw error;
+			}
+			if (!result.ok) return errorResult(descriptor.name, descriptor.language, result.error);
+			return {
+				content: [{ type: "text", text: resultText(result.value) }],
+				details: { evalTool: descriptor.name, language: descriptor.language },
+			};
+		},
+	};
 }

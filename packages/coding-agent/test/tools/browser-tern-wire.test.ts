@@ -92,7 +92,7 @@ describe("TernSocketClient", () => {
 	});
 
 	it("fails to connect to a missing socket with an unavailable error", async () => {
-		client = new TernSocketClient({ socketPath: "/tmp/omp-tern-missing-daemon.sock" });
+		client = new TernSocketClient({ socketPath: "/tmp/oms-tern-missing-daemon.sock" });
 		const failure = await client.connect().catch((error: unknown) => error);
 		expect(isTernUnavailable(failure)).toBe(true);
 		expect((failure as TernError).kind).toBe("connect");

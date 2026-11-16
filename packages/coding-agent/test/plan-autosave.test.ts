@@ -180,6 +180,7 @@ describe("plan-yolo approval autosave", () => {
 			},
 			setActiveToolsByName: async () => {},
 			restoreNonMCPToolPresentation: async () => {},
+			getAllToolNames: () => [],
 			getActiveToolNames: () => [],
 			getEnabledToolNames: () => [],
 			getMountedXdevToolNames: () => [],

@@ -116,7 +116,7 @@ describe("resolveSkillVersion", () => {
 describe("skills manifest and lock", () => {
 	let dir: string;
 	beforeEach(async () => {
-		dir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-skillshare-manifest-"));
+		dir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-skillshare-manifest-"));
 	});
 	afterEach(async () => {
 		vi.restoreAllMocks();
@@ -177,7 +177,7 @@ describe("installer", () => {
 
 	beforeEach(async () => {
 		originalAgentDir = getAgentDir();
-		tempHome = await fs.mkdtemp(path.join(os.tmpdir(), "omp-skillshare-install-"));
+		tempHome = await fs.mkdtemp(path.join(os.tmpdir(), "oms-skillshare-install-"));
 		project = path.join(tempHome, "work", "proj");
 		await fs.mkdir(path.join(project, ".git"), { recursive: true });
 		vi.spyOn(os, "homedir").mockReturnValue(tempHome);

@@ -174,7 +174,7 @@ describe("SessionManager.forkFrom", () => {
 	});
 
 	it("forks a seance in place: source untouched, history kept, startup contracts inert, artifacts not copied", async () => {
-		using tempDir = TempDir.createSync("@omp-session-seance-fork-");
+		using tempDir = TempDir.createSync("@oms-session-seance-fork-");
 		const { cwd, sourceFile, sourceArtifactsDir } = await createSessionWithArtifacts(tempDir.path());
 		const timestamp = new Date().toISOString();
 		const sourceHeader: SessionHeader = {

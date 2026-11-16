@@ -6,6 +6,7 @@
  * the event loop alive until the threshold expires; the fix clears it, so the
  * process must exit promptly. The parent test measures wall-clock exit time.
  */
+import * as os from "node:os";
 import { AsyncJobManager } from "@oh-my-soup/pi-coding-agent/async";
 import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
 import type { ToolSession } from "@oh-my-soup/pi-coding-agent/tools";
@@ -18,7 +19,7 @@ const THRESHOLD_MS = 30_000;
 const manager = new AsyncJobManager({ retentionMs: 0 });
 
 const session = {
-	cwd: "/tmp",
+	cwd: os.tmpdir(),
 	hasUI: false,
 	skills: [],
 	getSessionFile: () => null,

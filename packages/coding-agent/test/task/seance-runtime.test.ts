@@ -22,6 +22,7 @@ import type { PreparedSeanceSession } from "@oh-my-soup/pi-coding-agent/task/sea
 import { seanceIsolationOptions } from "@oh-my-soup/pi-coding-agent/task/seance-policy";
 import { EventBus } from "@oh-my-soup/pi-coding-agent/utils/event-bus";
 import { getAgentDir, prompt, setAgentDir, TempDir } from "@oh-my-soup/pi-utils";
+import { localSession } from "../helpers/local-session";
 
 function preparedSourceSession(sourceFile: string, sourceSessionId: string): PreparedSeanceSession {
 	return {
@@ -128,7 +129,7 @@ afterEach(() => {
 
 describe("seance startup contracts", () => {
 	it("builds a fresh SDK session with only historical tools and no extensions or outbound IRC", async () => {
-		using tempDir = TempDir.createSync("@omp-seance-sdk-fresh-");
+		using tempDir = TempDir.createSync("@oms-seance-sdk-fresh-");
 		const cwd = path.join(tempDir.path(), "project");
 		await fs.mkdir(cwd, { recursive: true });
 		const sourceRoot = path.join(tempDir.path(), "source-additional");
@@ -206,7 +207,7 @@ describe("seance startup contracts", () => {
 	});
 
 	it("drops a failed pre-ready source fork without loading parent extensions or changing the source", async () => {
-		using tempDir = TempDir.createSync("@omp-seance-fresh-");
+		using tempDir = TempDir.createSync("@oms-seance-fresh-");
 		const cwd = path.join(tempDir.path(), "project");
 		await fs.mkdir(cwd, { recursive: true });
 		const sourceFile = path.join(tempDir.path(), "source.jsonl");
@@ -285,7 +286,7 @@ describe("seance startup contracts", () => {
 	});
 
 	it("cold-revives the full persisted runtime prompt and retains restricted tools", async () => {
-		using tempDir = TempDir.createSync("@omp-seance-cold-");
+		using tempDir = TempDir.createSync("@oms-seance-cold-");
 		const cwd = path.join(tempDir.path(), "project");
 		await fs.mkdir(cwd, { recursive: true });
 		const sourceRoot = path.join(tempDir.path(), "source-additional");
@@ -410,7 +411,7 @@ describe("seance startup contracts", () => {
 			});
 			const revive = await createReviver(ref);
 			if (!revive) throw new Error("Expected a cold seance reviver");
-			revived = await revive(ref);
+			revived = localSession(await revive(ref));
 			expect(revived.sessionManager.getAdditionalDirectories()).toEqual([]);
 
 			expect(revived.systemPrompt).toEqual(warmPrompt);
@@ -435,7 +436,7 @@ describe("seance startup contracts", () => {
 	});
 
 	it("does not offer a cold reviver when startup failed after forking but before its restricted init", async () => {
-		using tempDir = TempDir.createSync("@omp-seance-failed-start-");
+		using tempDir = TempDir.createSync("@oms-seance-failed-start-");
 		const cwd = path.join(tempDir.path(), "project");
 		await fs.mkdir(cwd, { recursive: true });
 		const sourceFile = path.join(tempDir.path(), "source.jsonl");
@@ -462,6 +463,7 @@ describe("seance startup contracts", () => {
 			status: "parked",
 			session: null,
 			sessionFile,
+			generation: 0,
 			createdAt: 0,
 			lastActivity: 0,
 		});

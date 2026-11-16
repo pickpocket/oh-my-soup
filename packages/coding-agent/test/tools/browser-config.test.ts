@@ -22,7 +22,7 @@ describe("browser backend precedence", () => {
 			kind: "connected",
 			cdpUrl: "http://127.0.0.1:9222",
 		});
-		expect(resolveBrowserKind({ action: "open", app: { cdp_url: "http://127.0.0.1:9333/" } }, session, env)).toEqual({
+		expect(resolveBrowserKind({ action: "open", app: "http://127.0.0.1:9333/" }, session, env)).toEqual({
 			kind: "connected",
 			cdpUrl: "http://127.0.0.1:9333",
 		});

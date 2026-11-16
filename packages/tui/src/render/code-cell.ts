@@ -74,7 +74,7 @@ function formatHeader(options: CodeCellOptions, theme: Theme): { title: string; 
 	if (status) {
 		const icon = formatStatusIcon(
 			status === "complete"
-				? "done"
+				? "success"
 				: status === "error"
 					? "error"
 					: status === "warning"
@@ -274,7 +274,7 @@ export function describeCodeCell(options: Omit<CodeCellOptions, "width">, theme:
 		head,
 		meta,
 		state: getState(options.status),
-		role: "omp.cell.code",
+		role: "oms.cell.code",
 		sections,
 		collapsible: true,
 		collapsed: !expanded,
@@ -294,7 +294,7 @@ export function describeMarkdownCell(options: Omit<MarkdownCellOptions, "width">
 		head,
 		meta,
 		state: getState(options.status),
-		role: "omp.cell.markdown",
+		role: "oms.cell.markdown",
 		sections,
 		collapsible: true,
 		collapsed: !expanded,

@@ -25,7 +25,7 @@ import * as path from "node:path";
 import type { AgentMessage } from "@oh-my-soup/pi-agent-core";
 import { fuzzyFilter } from "@oh-my-soup/pi-tui/fuzzy";
 import { formatDuration, isEnoent, prompt } from "@oh-my-soup/pi-utils";
-import { type AgentRef, AgentRegistry } from "../registry/agent-registry";
+import { type AgentRef, AgentRegistry, type AgentRegistryApi } from "../registry/agent-registry";
 import { ensurePersistedRoster } from "../registry/persisted-agents";
 import { executeSend, isIrcEnabled } from "../irc/messaging";
 import agentPromptDoc from "../prompts/internal-urls/agent.md" with { type: "text" };
@@ -41,6 +41,7 @@ import type {
 	InternalUrl,
 	ProtocolHandler,
 	ResolveContext,
+	SchemeHost,
 	SchemeSpec,
 	UrlCompletion,
 	WriteContext,
@@ -138,7 +139,7 @@ function lastAssistantText(messages: readonly AgentMessage[]): string | undefine
 }
 
 /** Whether `<id>`'s published output predates a turn the agent is streaming now. */
-function isSuperseded(registry: AgentRegistry, outputId: string): boolean {
+function isSuperseded(registry: AgentRegistryApi, outputId: string): boolean {
 	const ref = registry.get(outputId);
 	return ref !== undefined && ref.kind !== "advisor" && registry.isRunning(ref);
 }
@@ -159,8 +160,8 @@ export class AgentProtocolHandler implements ProtocolHandler {
 		write: { via: "handler", payload: "verbatim", scope: "coordination", tier: () => "read" },
 	};
 
-	promptDoc(): string {
-		return agentPromptDoc.trim();
+	promptDoc(host: SchemeHost): string {
+		return prompt.render(agentPromptDoc, { subagent: host.subagent }).trim();
 	}
 
 	/**
@@ -197,10 +198,12 @@ export class AgentProtocolHandler implements ProtocolHandler {
 		if (hasPathExtraction(url)) {
 			throw new Error("agent:// message target cannot have a JSON-path suffix.");
 		}
+		const progress = url.searchParams.has("progress");
+		if (progress && to === "all") throw new Error("agent://all broadcasts cannot be ?progress updates.");
 		if (!content.trim()) throw new Error("agent:// messages require non-empty content.");
 		const result = await executeSend(
 			{ registry, senderId, sessionFileHint: session.getSessionFile?.() },
-			{ to, message: content },
+			{ to, message: content, progress },
 		);
 		return {
 			content: [
@@ -268,6 +271,8 @@ export class AgentProtocolHandler implements ProtocolHandler {
 		let contentType: InternalResource["contentType"] = "text/markdown";
 
 		let extractedFrom = scan.foundPath;
+		const shape: InternalResource["shape"] = extraction ? "value" : "document";
+		let absent: true | undefined;
 		if (extraction) {
 			let jsonValue: unknown;
 			let parsed = false;
@@ -290,6 +295,7 @@ export class AgentProtocolHandler implements ProtocolHandler {
 			}
 
 			const extracted = extractJsonPath(jsonValue, decodedSegments);
+			if (extracted === undefined) absent = true;
 			if (typeof extracted === "string") {
 				// A string field (e.g. a scout's markdown `report`) reads as prose,
 				// not as a JSON-escaped single line.
@@ -304,6 +310,7 @@ export class AgentProtocolHandler implements ProtocolHandler {
 			}
 			notes.push(`Extracted: /${decodedSegments.join("/")}`);
 			if (parsed) notes.push(`Source: ${path.basename(extractedFrom!)}`);
+			if (absent) notes.push("JSON path not found");
 		}
 
 		return {
@@ -313,7 +320,8 @@ export class AgentProtocolHandler implements ProtocolHandler {
 			size: Buffer.byteLength(content, "utf-8"),
 			sourcePath: extractedFrom,
 			notes,
-			shape: extraction ? "value" : "document",
+			shape,
+			...(absent ? { absent } : {}),
 		};
 	}
 
@@ -323,7 +331,7 @@ export class AgentProtocolHandler implements ProtocolHandler {
 		let sourcePath = ref?.sessionFile ?? undefined;
 		let notes: readonly ImportantNote[];
 		if (manager) {
-			notes = await manager.readEntriesAtomically(() => getImportantNotesFromEntries(manager.getBranch()));
+			notes = getImportantNotesFromEntries(await manager.getBranchAtomically());
 		} else {
 			sourcePath ??= (await findAgentSessionFile(ref?.id ?? agentId, preferredArtifactDir))?.file;
 			if (!sourcePath) {

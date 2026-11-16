@@ -15,6 +15,7 @@ import { type Args, parseArgs } from "@oh-my-soup/pi-coding-agent/cli/args";
 import * as modelResolverModule from "@oh-my-soup/pi-coding-agent/config/model-resolver";
 import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
 import * as pluginHelpers from "@oh-my-soup/pi-coding-agent/discovery/helpers";
+import { clearOmsExtensionCliRoots } from "@oh-my-soup/pi-coding-agent/discovery/oms-extension-roots";
 import { createSessionManager, runRootCommand } from "@oh-my-soup/pi-coding-agent/main";
 import { AuthStorage } from "@oh-my-soup/pi-coding-agent/session/auth-storage";
 import type { SessionHeader } from "@oh-my-soup/pi-coding-agent/session/session-entries";
@@ -49,6 +50,8 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
+	// `runRootCommand` registers the CLI's extension roots (`--no-extensions` → explicit-only) process-wide.
+	clearOmsExtensionCliRoots();
 	restoreEnv("PI_CODING_AGENT_DIR", originalAgentDir);
 	restoreEnv("PI_PROFILE", originalPiProfile);
 	restoreEnv("OMS_PROFILE", originalOmsProfile);

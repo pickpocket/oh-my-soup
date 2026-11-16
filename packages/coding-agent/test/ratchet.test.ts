@@ -30,7 +30,7 @@ interface Harness {
 let root: string;
 
 beforeEach(async () => {
-	root = await fs.mkdtemp(path.join(os.tmpdir(), "omp-ratchet-"));
+	root = await fs.mkdtemp(path.join(os.tmpdir(), "oms-ratchet-"));
 	await Bun.write(path.join(root, "eval/cases.jsonl"), CASES.map(id => JSON.stringify({ id })).join("\n"));
 	await Bun.write(path.join(root, "eval/run.ts"), "// runner\n");
 	await Bun.write(path.join(root, "src/prompt.md"), "route emails\n");

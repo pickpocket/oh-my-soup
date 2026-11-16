@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light dark">
+  <meta name="referrer" content="no-referrer">
+  <title>Session Export</title>
+  <style>#viewer-status{font:14px/1.5 system-ui,sans-serif;margin:32px;max-width:640px}</style>
+  <theme-vars/>
+  <script>try{const t=localStorage.getItem("oms-export-theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t}catch{}</script>
+</head>
+<body>
+  <p id="viewer-status" role="status">Loading session viewer…</p>
+  <noscript>JavaScript is required to view this session.</noscript>
+  <script id="session-data" type="application/json">{{SESSION_DATA}}</script>
+  <viewer-script/>
+</body>
+</html>

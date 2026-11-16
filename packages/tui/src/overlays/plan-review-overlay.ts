@@ -256,6 +256,8 @@ export interface PlanReviewOverlayOptions {
 	slider?: HookSelectorSlider;
 	/** Display label for the external-editor key, surfaced in the footer help. */
 	externalEditorLabel?: string;
+	/** The external editor's name ("Notepad", "nvim") for the native Edit button; `$EDITOR` when unset. */
+	externalEditorName?: string;
 	/** Serializable annotations restored into this overlay instance. */
 	annotationState?: PlanReviewAnnotationState;
 }
@@ -286,6 +288,7 @@ export class PlanReviewOverlay implements Component {
 	#disabled: Set<number>;
 	#helpSuffix: string | undefined;
 	#externalEditorLabel: string | undefined;
+	#externalEditorName: string | undefined;
 	#promptTitle: string | undefined;
 	#selectedIndex: number;
 	#slider: HookSelectorSlider | undefined;
@@ -354,6 +357,7 @@ export class PlanReviewOverlay implements Component {
 		);
 		this.#helpSuffix = options.helpText;
 		this.#externalEditorLabel = options.externalEditorLabel;
+		this.#externalEditorName = options.externalEditorName;
 		this.#promptTitle = options.promptTitle;
 		this.#selectedIndex = this.#coerceIndex(options.initialIndex ?? 0);
 		if (options.slider && options.slider.segments.length > 0) {
@@ -1524,7 +1528,7 @@ export class PlanReviewOverlay implements Component {
 		if (this.#nativeOverlay?.title !== title) {
 			this.#nativeOverlay = {
 				title,
-				props: { role: "omp.overlay.planReview", size: "lg", anchor: "center", head: title },
+				props: { role: "oms.overlay.planReview", size: "lg", anchor: "center", head: title },
 			};
 		}
 		return this.#nativeOverlay.props;
@@ -1566,7 +1570,7 @@ export class PlanReviewOverlay implements Component {
 			: content.body;
 		const bodyCol = node(
 			"col",
-			{ role: "omp.plan.body", grow: 1, gap: "md", tone: this.#focus === "body" ? "accent" : undefined },
+			{ role: "oms.plan.body", grow: 1, gap: "md", tone: this.#focus === "body" ? "accent" : undefined },
 			body,
 			"body",
 		);
@@ -1574,7 +1578,7 @@ export class PlanReviewOverlay implements Component {
 			const tocSection = this.#toc[this.#tocCursor];
 			const toc = selectList("toc", content.toc, {
 				selected: tocSection === undefined ? null : `h${tocSection}`,
-				role: "omp.plan.toc",
+				role: "oms.plan.toc",
 				tone: this.#focus === "toc" ? "accent" : undefined,
 			});
 			const sidebar = node("col", { max: { w: "32ch" }, shrink: 0 }, [toc], "sidebar");
@@ -1583,7 +1587,7 @@ export class PlanReviewOverlay implements Component {
 			children.push(bodyCol);
 		}
 		if (this.#promptTitle) {
-			children.push(keyed(text([span(this.#promptTitle, "muted")], { role: "omp.plan.prompt" }), "prompt"));
+			children.push(keyed(text([span(this.#promptTitle, "muted")], { role: "oms.plan.prompt" }), "prompt"));
 		}
 		if (this.#committed) {
 			const label = this.#committedLabel ? `${this.#committedLabel} — submitting…` : "Submitting…";
@@ -1609,7 +1613,7 @@ export class PlanReviewOverlay implements Component {
 			children.push(
 				selectList("options", optionItems, {
 					selected: this.#selectedIndex >= 0 ? `o${this.#selectedIndex}` : null,
-					role: "omp.plan.options",
+					role: "oms.plan.options",
 					tone: this.#focus === "actions" ? "accent" : undefined,
 				}),
 			);
@@ -1632,7 +1636,13 @@ export class PlanReviewOverlay implements Component {
 		// Unbound: the button still mirrors the callback, without a keycap.
 		const editorKeyId = getKeybindings().getKeys("app.editor.external")[0];
 		if (this.callbacks.onExternalEditor) {
-			buttons.push(actionButton("Edit in $EDITOR", "externalEditor", editorKeyId ? { keys: editorKeyId } : {}));
+			buttons.push(
+				actionButton(
+					`Edit in ${this.#externalEditorName ?? "$EDITOR"}`,
+					"externalEditor",
+					editorKeyId ? { keys: editorKeyId } : {},
+				),
+			);
 		}
 		// Cancel the review the way the cancel key does; while annotating that key
 		// only leaves the draft/chooser, so the button is hidden there.
@@ -1641,7 +1651,7 @@ export class PlanReviewOverlay implements Component {
 			buttons.push(actionButton("Cancel", "cancel", cancelKeyId ? { keys: cancelKeyId } : {}));
 		}
 		if (buttons.length === 0) return undefined;
-		return node("row", { role: "omp.plan.tools", gap: "sm", align: "center", justify: "end" }, buttons, "tools");
+		return node("row", { role: "oms.plan.tools", gap: "sm", align: "center", justify: "end" }, buttons, "tools");
 	}
 
 	handleNativeEvent(event: NativeUiEvent): void {
@@ -1722,7 +1732,7 @@ export class PlanReviewOverlay implements Component {
 					note.push(text([span(annotation.target.context, "muted")], { truncate: "end", lines: 1 }));
 				}
 				note.push(text(sanitizeText(annotation.note), { wrap: "word" }));
-				children.push(node("col", { role: "omp.plan.note", gap: "xs" }, note, `n${n}`));
+				children.push(node("col", { role: "oms.plan.note", gap: "xs" }, note, `n${n}`));
 			}
 			body.push(keyed(col(children, { gap: "sm" }), key));
 		}
@@ -1732,7 +1742,7 @@ export class PlanReviewOverlay implements Component {
 			return item(`h${sectionIndex}`, {
 				label: section.title || "(untitled)",
 				value: count > 0 ? [span(`✎${count}`, "warning")] : undefined,
-				role: `omp.plan.toc.depth${section.level - this.#tocBaseLevel}`,
+				role: `oms.plan.toc.depth${section.level - this.#tocBaseLevel}`,
 			});
 		});
 		this.#nativeContent = { sections: this.#sections, rev: this.#annotationRev, body, toc };
@@ -1748,13 +1758,14 @@ export class PlanReviewOverlay implements Component {
 				items: slider.segments.map((segment, i) => ({ id: `t${i}`, label: segment.label })),
 				active: `t${this.#sliderIndex}`,
 				actions: { click: "select" },
-				role: "omp.plan.strategy",
+				role: "oms.plan.strategy",
 			},
 			undefined,
 			"tabs",
 		);
 		const track: NativeChild[] = slider.caption ? [text([span(slider.caption, "dim")]), tabs] : [tabs];
-		const out = [keyed(rowNode(track, { gap: "sm", align: "center" }), "slider")];
+		// A role of its own: Tern's sheet lets only the role-less split row (Contents + body) shrink and scroll.
+		const out = [keyed(rowNode(track, { role: "oms.plan.slider", gap: "sm", align: "center" }), "slider")];
 		const detail = slider.segments[this.#sliderIndex]?.detail;
 		if (detail) out.push(keyed(text([span("↳ ", "dim"), span(detail, "muted")], { wrap: "word" }), "sliderDetail"));
 		return out;
@@ -1800,7 +1811,7 @@ export class PlanReviewOverlay implements Component {
 			return [
 				node(
 					"col",
-					{ role: "omp.plan.feedback", gap: "xs" },
+					{ role: "oms.plan.feedback", gap: "xs" },
 					[
 						keyed(
 							text([span("Note on ", "muted"), span(location, "accent")], { truncate: "end" }),

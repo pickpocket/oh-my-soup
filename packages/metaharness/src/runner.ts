@@ -1150,7 +1150,7 @@ export function prepareSourceDeps(cfg: Config): SourceMount {
 			fs.copyFileSync(path.join(REPO_ROOT, rel), dst);
 		}
 		// --ignore-scripts: the skeleton has manifests only, so lifecycle scripts
-		// (root `prepare` → gen:tool-views) would fail; patchedDependencies still apply.
+		// (root `prepare` → gen:export-viewer) would fail; patchedDependencies still apply.
 		const script =
 			'mkdir -p /deps/bin && cp "$(command -v bun)" /deps/bin/bun && cd /deps && bun install --production --omit=optional --ignore-scripts';
 		const image = `oven/bun:${bunVersion}`;
@@ -1451,21 +1451,20 @@ export function buildHarborEnv(
 	source: SourceMount | null = null,
 ): Record<string, string> {
 	const env: Record<string, string> = { ...(process.env as Record<string, string>) };
-	// Drop stale fork/upstream forward-env values before the agent-type early return.
-	// Neither should leak into an unrelated Harbor agent or the dry-run dump.
+	// Drop a stale forward-env value before the agent-type early return so it
+	// never leaks into an unrelated Harbor agent or the dry-run dump.
 	delete env.OMS_BENCH_FORWARD_ENV;
-	delete env.OMP_BENCH_FORWARD_ENV;
 	if (!MANAGED_AGENTS[cfg.agent]) return env;
 	const prepend = (k: string, v: string): void => {
 		env[k] = env[k] ? `${v}:${env[k]}` : v;
 	};
 	prepend("PYTHONPATH", AGENT_DIR);
 	if (cfg.agent === "pi") {
-		env.OMP_BENCH_PI_VERSION = cfg.version ?? PI_UPSTREAM_VERSION;
-		env.OMP_BENCH_PI_MODELS = JSON.stringify(upstreamModelSpecs(cfg));
-		env.OMP_BENCH_PI_SYSTEM_PROMPT = PI_UPSTREAM_SYSTEM_PROMPT;
+		env.OMS_BENCH_PI_VERSION = cfg.version ?? PI_UPSTREAM_VERSION;
+		env.OMS_BENCH_PI_MODELS = JSON.stringify(upstreamModelSpecs(cfg));
+		env.OMS_BENCH_PI_SYSTEM_PROMPT = PI_UPSTREAM_SYSTEM_PROMPT;
 	}
-	const benchPrefix = cfg.agent === "pi" ? "OMP_BENCH_" : "OMS_BENCH_";
+	const benchPrefix = "OMS_BENCH_";
 	env[`${benchPrefix}INSTALL`] = cfg.install;
 	env[`${benchPrefix}VERSION`] = cfg.version ?? version;
 	if (tarball) env[`${benchPrefix}TARBALL`] = tarball;

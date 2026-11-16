@@ -22,7 +22,7 @@ describe("ast-grep control-byte filenames", () => {
 		"links the original file without exposing its terminal controls in the label",
 		async () => {
 			applyHyperlinkSetting("always");
-			const dir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-ast-grep-link-"));
+			const dir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-ast-grep-link-"));
 			const filename = `fixture${PRIVATE_MODE}.ts`;
 			const absolutePath = path.join(dir, filename);
 			try {

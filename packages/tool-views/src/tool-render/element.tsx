@@ -4,7 +4,7 @@
  *
  * Payload sources, in priority order:
  * 1. `el.data = {...}` property assignment.
- * 2. `data-key` attribute → lookup in `globalThis.__OMP_TOOL_VIEW_DATA`
+ * 2. `data-key` attribute → lookup in `globalThis.__OMS_TOOL_VIEW_DATA`
  *    (a Map populated by the host before inserting markup via innerHTML;
  *    survives `cloneNode` since only the key attribute is copied).
  * 3. `payload` attribute → inline JSON.
@@ -16,6 +16,10 @@ import { createRoot } from "react-dom/client";
 import { ToolView, type ToolViewProps } from "./ToolView";
 
 type PayloadStore = { get(key: string): ToolViewProps | undefined };
+
+declare global {
+	var __OMS_TOOL_VIEW_DATA: PayloadStore | undefined;
+}
 
 export class OmsToolViewElement extends HTMLElement {
 	#root: Root | null = null;
@@ -41,7 +45,7 @@ export class OmsToolViewElement extends HTMLElement {
 		if (this.#data) return this.#data;
 		const key = this.getAttribute("data-key");
 		if (key) {
-			const store = (globalThis as { __OMP_TOOL_VIEW_DATA?: PayloadStore }).__OMP_TOOL_VIEW_DATA;
+			const store = globalThis.__OMS_TOOL_VIEW_DATA;
 			const props = store?.get(key);
 			if (props) return props;
 		}

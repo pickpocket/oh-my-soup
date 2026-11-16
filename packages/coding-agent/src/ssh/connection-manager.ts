@@ -283,10 +283,10 @@ function authHint(host: SSHConnectionTarget, stderr: string): string {
 }
 
 /**
- * Who owns the ControlPath socket for a host: omp's private control directory,
+ * Who owns the ControlPath socket for a host: oms's private control directory,
  * or the user's ssh_config (see {@link resolveControlPathOwner}).
  */
-type ControlPathOwner = "omp" | "config";
+type ControlPathOwner = "oms" | "config";
 
 function buildCommonArgs(host: SSHConnectionTarget, owner: ControlPathOwner, options?: SSHArgsOptions): string[] {
 	const args = options?.allowStdin ? [] : ["-n"];
@@ -296,7 +296,7 @@ function buildCommonArgs(host: SSHConnectionTarget, owner: ControlPathOwner, opt
 	} else if (supportsSshControlMaster(options?.platform)) {
 		args.push("-o", "ControlMaster=auto");
 		// A config-owned socket keeps the user's ControlPath and ControlPersist.
-		if (owner === "omp") args.push("-o", `ControlPath=${CONTROL_PATH}`, "-o", "ControlPersist=3600");
+		if (owner === "oms") args.push("-o", `ControlPath=${CONTROL_PATH}`, "-o", "ControlPersist=3600");
 	}
 
 	args.push("-o", "LogLevel=ERROR", "-o", "StrictHostKeyChecking=accept-new", ...authArgs(host));
@@ -470,15 +470,15 @@ const controlPathOwners = new Map<string, Promise<ControlPathOwner>>();
  * Decide whose ControlPath socket `host` uses.
  *
  * When the user's ssh_config resolves a `ControlPath` (`ssh -G` reports one
- * other than `none`), omp defers to it instead of injecting its own, so a
+ * other than `none`), oms defers to it instead of injecting its own, so a
  * master the user already authenticated — e.g. interactively on an MFA host
- * that `BatchMode=yes` can never reach — serves omp too (#15974). Cached per
- * destination for the process lifetime; a failed lookup keeps omp's socket.
+ * that `BatchMode=yes` can never reach — serves oms too (#15974). Cached per
+ * destination for the process lifetime; a failed lookup keeps oms's socket.
  *
  * Throws when the username or host would be parsed as an ssh option.
  */
 function resolveControlPathOwner(host: SSHConnectionTarget, platform?: SshPlatform): Promise<ControlPathOwner> {
-	if (!supportsSshControlMaster(platform)) return Promise.resolve("omp");
+	if (!supportsSshControlMaster(platform)) return Promise.resolve("oms");
 	const target = buildSshTarget(host.username, host.host);
 	const key = `${target}:${host.port ?? ""}`;
 	let owner = controlPathOwners.get(key);
@@ -494,18 +494,18 @@ async function lookupControlPathOwner(target: string, port?: number): Promise<Co
 	try {
 		const { exitCode, stdout, stderr } = await runSshCaptureSync({}, args);
 		if (exitCode !== 0) {
-			logger.debug("ssh -G failed; using omp ControlPath", { target, error: stderr });
-			return "omp";
+			logger.debug("ssh -G failed; using oms ControlPath", { target, error: stderr });
+			return "oms";
 		}
 		for (const line of stdout.split("\n")) {
 			if (!line.startsWith("controlpath ")) continue;
 			const value = line.slice("controlpath ".length).trim();
-			return value && value !== "none" ? "config" : "omp";
+			return value && value !== "none" ? "config" : "oms";
 		}
-		return "omp";
+		return "oms";
 	} catch (err) {
-		logger.debug("ssh -G failed; using omp ControlPath", { target, error: String(err) });
-		return "omp";
+		logger.debug("ssh -G failed; using oms ControlPath", { target, error: String(err) });
+		return "oms";
 	}
 }
 
@@ -1002,7 +1002,7 @@ export async function ensureConnection(host: SSHConnectionTarget): Promise<void>
 		const commonArgs = buildCommonArgs(host, owner);
 		const check = await runSshSync(host, ["-O", "check", ...commonArgs, target]);
 		if (check.exitCode === 0 || owner === "config") {
-			// Only omp-owned sockets need an explicit master. Configured sockets
+			// Only oms-owned sockets need an explicit master. Configured sockets
 			// use ssh_config's normal connection and ControlPersist policy.
 			await assertCurrent();
 			activeHosts.set(key, { ...host });
@@ -1128,7 +1128,7 @@ export async function startPortForward(host: SSHConnectionTarget, forward: SSHPo
 		"ServerAliveInterval=30",
 		forward.flag,
 		forward.spec,
-		...buildCommonArgs(host, "omp", { multiplex: false }),
+		...buildCommonArgs(host, "oms", { multiplex: false }),
 		target,
 	];
 	const child = spawnSsh(host, args, { stdin: "ignore", detached: true, stderr: "full" });
@@ -1215,7 +1215,7 @@ async function closeConnectionInternal(host: SSHConnectionTarget): Promise<void>
 	const target = buildSshTarget(host.username, host.host);
 	const owner = await resolveControlPathOwner(host);
 	// Configured sockets may have been replaced by a user's master since the
-	// last check. Never exit a socket that omp doesn't own.
+	// last check. Never exit a socket that oms doesn't own.
 	if (owner === "config") return;
 	await runSshSync(host, ["-O", "exit", ...buildCommonArgs(host, owner), target]);
 }

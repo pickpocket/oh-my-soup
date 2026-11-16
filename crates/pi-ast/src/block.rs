@@ -10919,29 +10919,51 @@ mod tests {
 		(comparisons, none_verdicts)
 	}
 
-	/// Repository `.ts` / `.py` / `.rs` sources, sorted for determinism. With a
-	/// budget, files are taken on a stride so the sample spans the whole tree
-	/// instead of one directory, skipping anything over 64 KiB.
-	fn repo_files(byte_budget: Option<usize>) -> Vec<PathBuf> {
+	fn repo_root() -> PathBuf {
 		let manifest_root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
 		// Cargo leaves the manifest root available at runtime. Bazel bakes an
 		// ephemeral execroot into CARGO_MANIFEST_DIR, so use the workspace
 		// runfiles root where the target's hermetic corpus is declared as data.
-		// Runfiles leaves are symlinks, so `Path::is_file` below must follow
-		// them.
-		let root = if manifest_root.join("Cargo.toml").is_file() {
+		if manifest_root.join("Cargo.toml").is_file() {
 			manifest_root
 		} else {
 			PathBuf::from(".")
+		}
+	}
+
+	/// Repository `.ts` / `.py` / `.rs` sources, sorted for determinism. With a
+	/// budget, files are taken on a stride so the sample spans the whole tree
+	/// instead of one directory, skipping anything over 64 KiB.
+	async fn repo_files(byte_budget: Option<usize>) -> Vec<PathBuf> {
+		let root = repo_root();
+		// Bazel's declared corpus consists of runfiles symlinks.
+		let opts = pi_walker::walk::Options {
+			gitignore: true,
+			skip_git: true,
+			follow_links: true,
+			..Default::default()
 		};
-		let mut files: Vec<PathBuf> = ignore::WalkBuilder::new(&root)
-			.build()
-			.filter_map(Result::ok)
-			.filter(|entry| entry.path().is_file())
-			.map(ignore::DirEntry::into_path)
-			.filter(|path| {
-				matches!(path.extension().and_then(std::ffi::OsStr::to_str), Some("ts" | "py" | "rs"))
+		let walked =
+			pi_walker::walk::collect(&pi_walker::Fs::native(), &root, &opts, false, |_, entry| {
+				let wanted = entry.file_type == pi_walker::FileType::File
+					&& matches!(
+						entry
+							.rel_path()
+							.extension()
+							.and_then(std::ffi::OsStr::to_str),
+						Some("ts" | "py" | "rs")
+					);
+				if wanted {
+					pi_walker::walk::Action::Continue
+				} else {
+					pi_walker::walk::Action::Skip
+				}
 			})
+			.await
+			.expect("repository should walk");
+		let mut files: Vec<PathBuf> = walked
+			.iter()
+			.map(|entry| root.join(entry.rel_path()))
 			.collect();
 		files.sort();
 		let Some(budget) = byte_budget else {
@@ -10981,19 +11003,17 @@ mod tests {
 		(comparisons, none_verdicts)
 	}
 
-	#[test]
-	fn pruned_walk_matches_unpruned_on_repo_corpus_sample() {
-		// Sandboxed runners (bazel test) stage only this crate's declared inputs,
-		// so the repository corpus this sweep samples is absent (or a symlink
-		// farm the walker cannot see through). Both surface as an empty scan —
-		// skip then. Whenever the scan finds anything, the evidence assert below
-		// still guards against a broken/undersized sample.
-		let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+	#[tokio::test(flavor = "multi_thread")]
+	async fn pruned_walk_matches_unpruned_on_repo_corpus_sample() {
+		// Sandboxed runners stage only their declared inputs. Skip when the
+		// repository corpus is absent; a present but undersized corpus still
+		// fails the evidence assertion below.
+		let root = repo_root();
 		if !root.join("packages").is_dir() {
 			eprintln!("skipping: repository corpus unavailable at {}", root.display());
 			return;
 		}
-		let files = repo_files(Some(768 * 1024));
+		let files = repo_files(Some(768 * 1024)).await;
 		if files.is_empty() {
 			eprintln!("skipping: repository corpus scan found no sources at {}", root.display());
 			return;
@@ -11003,11 +11023,11 @@ mod tests {
 		assert!(comparisons > 300, "expected a broad sweep, got {comparisons} comparisons");
 	}
 
-	#[test]
+	#[tokio::test(flavor = "multi_thread")]
 	#[ignore = "full repository sweep; run with `cargo nextest run --release -p pi-ast \
 	            --run-ignored ignored-only`"]
-	fn pruned_walk_matches_unpruned_on_full_repo_corpus() {
-		let files = repo_files(None);
+	async fn pruned_walk_matches_unpruned_on_full_repo_corpus() {
+		let files = repo_files(None).await;
 		assert!(files.len() > 3000, "expected the whole corpus, got {}", files.len());
 		let (comparisons, _) = sweep_corpus(&files);
 		println!("full corpus: {} files, {comparisons} comparisons", files.len());

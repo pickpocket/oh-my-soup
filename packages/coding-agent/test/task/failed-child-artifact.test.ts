@@ -115,7 +115,7 @@ afterEach(() => {
 
 describe("failed child evidence", () => {
 	it("hands the parent the finished child's exit status and readable artifact when the merge throws", async () => {
-		using tempDir = TempDir.createSync("@omp-failed-child-");
+		using tempDir = TempDir.createSync("@oms-failed-child-");
 		vi.spyOn(discoveryModule, "discoverAgents").mockResolvedValue({ agents: [AGENT], projectAgentsDir: null });
 		await initRepo(tempDir.path());
 		let artifactPath = "";
@@ -157,7 +157,9 @@ describe("failed child evidence", () => {
 		expect(result.isError).toBe(true);
 		expect(salvaged?.exitCode).toBe(0);
 		expect(salvaged?.outputPath).toBe(artifactPath);
-		expect(text?.type === "text" ? text.text : "").toContain(`exit 0. Its output is at \`agent://${salvaged?.id}\``);
+		const failure = text?.type === "text" ? text.text : "";
+		expect(failure).toContain("exit 0.");
+		expect(failure).toContain(`Its output is at \`agent://${salvaged?.id}\``);
 		// The artifact the failure points at survives the run's cleanup.
 		const resolved = await new AgentProtocolHandler().resolve(parseInternalUrl(`agent://${salvaged?.id}`));
 		expect(resolved.content).toBe("Findings: 42 rows.");

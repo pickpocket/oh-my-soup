@@ -112,6 +112,9 @@ function makeGuestContext(trace: GuestTrace): InteractiveModeContext {
 		showError: (error: string) => trace.errors.push(error),
 		updateEditorTopBorder: () => {},
 		updateEditorBorderColor: () => {},
+		setCollabGuest(guest: InteractiveModeContext["collabGuest"]) {
+			Object.assign(this, { collabGuest: guest });
+		},
 		collabGuest: undefined,
 	} as unknown as InteractiveModeContext;
 }

@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "bun:test";
 import * as ai from "@oh-my-soup/pi-ai";
 import { getBundledModel } from "@oh-my-soup/pi-catalog/models";
+import { CollabGuestLink } from "@oh-my-soup/pi-coding-agent/collab/guest";
 import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
 import { SecretObfuscator } from "@oh-my-soup/pi-coding-agent/secrets";
 import * as externalEditor from "@oh-my-soup/pi-coding-agent/utils/external-editor";
@@ -30,11 +31,18 @@ function createHarness(
 ) {
 	const requestNotesReference = vi.fn();
 	const outputs: string[] = [];
+	let collabGuest: CollabGuestLink | undefined;
 	const ctx = {
 		session: { requestNotesReference },
 		sessionManager: manager,
 		ui: { stop: vi.fn(async () => {}), start: vi.fn(), requestRender: vi.fn() },
 		settings,
+		get collabGuest() {
+			return collabGuest;
+		},
+		setCollabGuest(guest: CollabGuestLink | undefined) {
+			collabGuest = guest;
+		},
 		editor: { setText: () => {} },
 		showStatus: (text: string) => {
 			outputs.push(text);
@@ -248,7 +256,7 @@ describe("/notes slash command", () => {
 		const manager = SessionManager.inMemory();
 		seed(manager);
 		const { ctx, outputs, requestNotesReference } = createHarness(manager);
-		ctx.collabGuest = {} as InteractiveModeContext["collabGuest"];
+		ctx.setCollabGuest(new CollabGuestLink(ctx));
 		await executeBuiltinSlashCommand("/notes show", { ctx });
 		expect(outputs.at(-1)).toContain("server");
 		await executeBuiltinSlashCommand("/notes search onnx", { ctx });

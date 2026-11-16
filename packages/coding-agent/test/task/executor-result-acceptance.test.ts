@@ -139,6 +139,7 @@ function createHarness(options?: { hangPrompt?: boolean; asyncJobManager?: Async
 		sessionManager: { appendSessionInit: () => {} },
 		getActiveToolNames: () => ["read", "yield"],
 		getEnabledToolNames: () => ["read", "yield"],
+		getMountedXdevToolNames: () => [],
 		getToolByName: () => undefined,
 		setActiveToolsByName: async () => {},
 		setWorkPoolYieldItems: () => {},
@@ -175,6 +176,7 @@ function createHarness(options?: { hangPrompt?: boolean; asyncJobManager?: Async
 			wakeObserver = observer;
 		},
 		trackIrcReply: () => {},
+		hasIrcInterrupts: () => false,
 		holdIrcWakes: () => () => {},
 		subscribeRunState: () => () => {},
 		isParentIrcSteer: () => false,
@@ -490,7 +492,7 @@ describe("runSubprocess result acceptance", () => {
 	});
 
 	it("delivers a user-resumed message result when all execution slots are occupied", async () => {
-		const tempDir = TempDir.createSync("@omp-user-resumed-result-");
+		const tempDir = TempDir.createSync("@oms-user-resumed-result-");
 		const artifactsDir = tempDir.path();
 		const manager = new AsyncJobManager({ maxRunningJobs: 1 });
 		const blocker = Promise.withResolvers<string>();

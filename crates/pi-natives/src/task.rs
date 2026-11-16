@@ -28,15 +28,19 @@
 //! ```
 
 use std::{
-	future::Future,
+	future::{self, Future},
 	panic::{AssertUnwindSafe, catch_unwind},
+	pin::pin,
+	sync::LazyLock,
 };
 
+use futures::FutureExt;
 use napi::{Env, Error, Result, Status, Task, bindgen_prelude::*};
 use pi_shell::cancel as core_cancel;
 pub use pi_shell::cancel::{AbortReason, AbortToken};
-use pi_vfs::BlockingFs;
-use tokio_util::sync::CancellationToken;
+use pi_vfs::{BlockingFs, Fs};
+use tokio::task::JoinHandle;
+use tokio_util::{sync::CancellationToken, task::AbortOnDropHandle};
 
 use crate::{
 	memory::{Settled, native_work},
@@ -107,6 +111,21 @@ impl CancelToken {
 		self.core.wait().await
 	}
 
+	/// A token cancelled once this one aborts or times out (for sync
+	/// `walk::tree` callers); the waiter ends with the returned guard.
+	pub fn cancellation(&self) -> Cancellation {
+		let token = CancellationToken::new();
+		let waiter = {
+			let this = self.clone();
+			let token = token.clone();
+			napi::bindgen_prelude::spawn(async move {
+				this.wait().await;
+				token.cancel();
+			})
+		};
+		Cancellation { token, waiter }
+	}
+
 	/// Get an abort token for external cancellation.
 	pub fn abort_token(&self) -> AbortToken {
 		self.core.abort_token()
@@ -134,6 +153,33 @@ impl CancelToken {
 	}
 }
 
+/// The N-API error for a pi-walker walk whose root could not be read.
+pub fn walk_failure(err: pi_walker::walk::WalkError) -> Error {
+	let pi_walker::walk::WalkError::Root { path, error } = err;
+	Error::from_reason(format!("Native directory scan failed for {}: {error}", path.display()))
+}
+
+/// A [`CancellationToken`] fired by a [`CancelToken`]; aborts its waiter task
+/// on drop.
+pub struct Cancellation {
+	token:  CancellationToken,
+	waiter: JoinHandle<()>,
+}
+
+impl Cancellation {
+	/// The token cancelled when the originating [`CancelToken`] aborts or times
+	/// out.
+	pub const fn token(&self) -> &CancellationToken {
+		&self.token
+	}
+}
+
+impl Drop for Cancellation {
+	fn drop(&mut self) {
+		self.waiter.abort();
+	}
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Blocking Task - libuv thread pool integration
 // ─────────────────────────────────────────────────────────────────────────────
@@ -158,12 +204,15 @@ where
 fn catch_worker_panic<T>(tag: &'static str, work: impl FnOnce() -> T) -> Result<T> {
 	match catch_unwind(AssertUnwindSafe(|| crate::crash_handler::blocking_task_panic_scope(work))) {
 		Ok(result) => Ok(result),
-		Err(payload) => {
-			let message = crate::crash_handler::panic_payload(&*payload);
-			dispose_panic_payload(payload);
-			Err(Error::new(Status::GenericFailure, format!("native task `{tag}` panicked: {message}")))
-		},
+		Err(payload) => Err(panic_error(tag, payload)),
 	}
+}
+
+/// Convert a caught worker panic payload into the task's rejection error.
+fn panic_error(tag: &'static str, payload: Box<dyn std::any::Any + Send>) -> Error {
+	let message = crate::crash_handler::panic_payload(&*payload);
+	dispose_panic_payload(payload);
+	Error::new(Status::GenericFailure, format!("native task `{tag}` panicked: {message}"))
 }
 
 impl<T> Task for Blocking<T>
@@ -401,6 +450,118 @@ where
 	Ok(PromiseRaw::new(env.raw(), promise.raw()))
 }
 
+/// Async twin of [`filesystem`]: runs `work(fs)` on Tokio.
+///
+/// The provider fs carries a cancellation that fires with `cancel_token`; on
+/// abort/timeout the work future is dropped (cancelling walker tasks) and the
+/// Promise rejects exactly as `filesystem` does.
+pub fn filesystem_future<'env, T, F, Fut>(
+	env: &'env Env,
+	tag: &'static str,
+	cancel_token: CancelToken,
+	fs: Fs,
+	work: F,
+) -> Result<PromiseRaw<'env, T>>
+where
+	F: FnOnce(Fs) -> Fut + Send + 'static,
+	Fut: Future<Output = Result<T>> + Send + 'static,
+	T: ToNapiValue + Send + 'static,
+{
+	let settlement_token = cancel_token.clone();
+	let promise = env.spawn_future_with_callback(
+		async move { Ok(run_filesystem_future(tag, cancel_token, fs, work).await) },
+		move |env, result| {
+			if let Some(reason) = settlement_token.abort_reason() {
+				return Err(match reason {
+					AbortReason::Timeout => Error::from_reason("Aborted: Timeout"),
+					_ => abort_error(*env, reason),
+				});
+			}
+			result.unwrap_or_else(|| Err(Error::from_reason("Aborted: Timeout")))
+		},
+	)?;
+	Ok(PromiseRaw::new(env.raw(), promise.raw()))
+}
+
+/// The runtime every filesystem walk runs on.
+///
+/// Separate from the addon's scheduler pool on purpose, and the separation has
+/// to be a *runtime* rather than a thread: the walkers spawn their own tasks
+/// for directory work (`pi_walker`'s root scan and per-directory workers,
+/// grep's executor and feeder), and a spawned task runs on the runtime it was
+/// spawned from. Driving the parent elsewhere — on a blocking thread, say —
+/// moves nothing, because `Handle::current()` inside it is still the host
+/// runtime and every child lands back on the host's workers. Spawning the
+/// parent here makes the whole descendant tree inherit this runtime.
+///
+/// Never dropped: dropping a runtime from inside another one panics, and this
+/// lives as long as the addon.
+static FS_RUNTIME: LazyLock<tokio::runtime::Runtime> = LazyLock::new(|| {
+	tokio::runtime::Builder::new_multi_thread()
+		// A distinct name so these threads are tellable apart from the
+		// scheduler's in `/proc/<pid>/task/*/comm` when a stall is diagnosed.
+		.thread_name("pi-fs-worker")
+		.enable_all()
+		.build()
+		.expect("filesystem runtime")
+});
+
+/// Drive the work future until it settles or its caller cancels.
+///
+/// The work and everything it spawns run on [`FS_RUNTIME`], not on the
+/// addon's scheduler pool. The filesystem callers that reach here (`glob`,
+/// `grep`, `fuzzy_find`, `ast_grep`, `ast_edit`) end in synchronous syscalls —
+/// `getdents64` for a directory listing, `statx` for an entry — and an
+/// uncached inode parks the calling thread in uninterruptible IO for as long
+/// as the device takes. The scheduler pool has one worker per CPU and is
+/// shared with `shell.run`, so enough simultaneous walks there leave no worker
+/// to poll anything else and every native call in the process stops.
+async fn run_filesystem_future<T, F, Fut>(
+	tag: &'static str,
+	cancel_token: CancelToken,
+	fs: Fs,
+	work: F,
+) -> Option<Result<Settled<T>>>
+where
+	F: FnOnce(Fs) -> Fut + Send + 'static,
+	Fut: Future<Output = Result<T>> + Send + 'static,
+	T: Send + 'static,
+{
+	let cancellation = CancellationToken::new();
+	let _cancel_on_exit = cancellation.clone().drop_guard();
+	let fs = fs.with_cancellation(cancellation.clone());
+	let spawned = FS_RUNTIME.spawn(async move {
+		let _guard = profile_region(tag);
+		let _work = native_work();
+		let mut work = pin!(work(fs));
+		let scoped = future::poll_fn(|cx| {
+			crate::crash_handler::blocking_task_panic_scope(|| work.as_mut().poll(cx))
+		});
+		AssertUnwindSafe(scoped).catch_unwind().await
+	});
+	// Dropping this future must stop the walk, which is what base did when the
+	// work was polled inline. A bare `JoinHandle` *detaches* on drop, so the
+	// walk ran on after its caller was gone — a host-side drop (the napi
+	// promise going away, env teardown) stopped nothing.
+	let mut worker = AbortOnDropHandle::new(spawned);
+	tokio::select! {
+		biased;
+		joined = &mut worker => Some(match joined {
+			Ok(Ok(result)) => result.map(Settled::new),
+			Ok(Err(payload)) => Err(panic_error(tag, payload)),
+			Err(err) => Err(Error::from_reason(format!("native task `{tag}` failed: {err}"))),
+		}),
+		_ = cancel_token.wait() => {
+			// Stop the walk two ways: the provider's cancellation ends the work
+			// in flight, and aborting the task drops the future at its next
+			// yield so nothing runs on unobserved.
+			cancellation.cancel();
+			worker.abort();
+			None
+		},
+	}
+}
+
 /// Stop waiting for a queued or running worker when its caller cancels.
 async fn run_filesystem_worker<T, F>(
 	tag: &'static str,
@@ -514,6 +675,119 @@ mod tests {
 		assert_eq!(err.status, Status::GenericFailure);
 		assert!(err.reason.contains("t_panic_str"), "reason = {}", err.reason);
 		assert!(err.reason.contains("kaboom"), "reason = {}", err.reason);
+	}
+
+	/// The walk and everything it spawns stay off the host scheduler pool:
+	/// the walkers spawn their directory work, so the syscalls that park a
+	/// thread run in children, not in the future this module drives.
+	#[test]
+	fn filesystem_work_and_its_children_stay_off_the_host_scheduler() {
+		use std::{
+			sync::{Arc, Mutex},
+			thread::ThreadId,
+			time::Duration,
+		};
+
+		let host = tokio::runtime::Builder::new_multi_thread()
+			.worker_threads(1)
+			.enable_all()
+			.build()
+			.unwrap();
+		// The host's only scheduler worker: whatever an ordinary task runs on.
+		let host_worker = host
+			.block_on(host.spawn(async { std::thread::current().id() }))
+			.unwrap();
+
+		let parent: Arc<Mutex<Option<ThreadId>>> = Arc::new(Mutex::new(None));
+		let child: Arc<Mutex<Option<ThreadId>>> = Arc::new(Mutex::new(None));
+		let parent_probe = Arc::clone(&parent);
+		let child_probe = Arc::clone(&child);
+		let walk = host.spawn(run_filesystem_future(
+			"placement",
+			CancelToken::new(None, None),
+			Fs::native(),
+			move |_fs| async move {
+				*parent_probe.lock().unwrap() = Some(std::thread::current().id());
+				// Exactly what the walkers do: spawn the directory work rather
+				// than run it inline.
+				let spawned = tokio::spawn(async {
+					// Stands in for the syscall that parks the thread.
+					std::thread::sleep(Duration::from_millis(50));
+					std::thread::current().id()
+				});
+				*child_probe.lock().unwrap() = Some(spawned.await.unwrap());
+				Ok(1_u32)
+			},
+		));
+		assert!(matches!(host.block_on(walk).unwrap(), Some(Ok(_))));
+
+		let parent_thread = parent.lock().unwrap().expect("the walk never ran");
+		let child_thread = child.lock().unwrap().expect("the walk spawned no child");
+		assert_ne!(
+			parent_thread, host_worker,
+			"filesystem work ran on the host scheduler worker, where it can starve every other \
+			 native call"
+		);
+		assert_ne!(
+			child_thread, host_worker,
+			"filesystem work spawned a child onto the host scheduler worker, which is where the \
+			 syscalls that park a thread actually run"
+		);
+	}
+
+	/// Dropping the caller's future stops the walk: the work runs on another
+	/// runtime, and a bare `JoinHandle` would detach on drop. Covers a walk
+	/// that yields between directories; one parked in a stalled syscall is
+	/// bounded by the device.
+	#[test]
+	fn dropping_the_caller_stops_the_walk() {
+		use std::{
+			sync::{
+				Arc,
+				atomic::{AtomicBool, Ordering},
+			},
+			time::Duration,
+		};
+
+		let host = tokio::runtime::Builder::new_multi_thread()
+			.worker_threads(1)
+			.enable_all()
+			.build()
+			.unwrap();
+		let started = Arc::new(AtomicBool::new(false));
+		let ran_on = Arc::new(AtomicBool::new(false));
+		let started_probe = Arc::clone(&started);
+		let ran_on_probe = Arc::clone(&ran_on);
+
+		host.block_on(async move {
+			let walk = Box::pin(run_filesystem_future(
+				"dropped",
+				CancelToken::new(None, None),
+				Fs::native(),
+				move |_fs| async move {
+					started_probe.store(true, Ordering::SeqCst);
+					// The yield point a walker has between directories.
+					tokio::time::sleep(Duration::from_millis(200)).await;
+					ran_on_probe.store(true, Ordering::SeqCst);
+					Ok(1_u32)
+				},
+			));
+			let mut walk = Some(walk);
+			// Start it, then let go while the work is still in flight.
+			tokio::select! {
+				_ = walk.as_mut().unwrap() => panic!("the walk finished before it was dropped"),
+				() = tokio::time::sleep(Duration::from_millis(60)) => {},
+			}
+			assert!(started.load(Ordering::SeqCst), "the walk never started");
+			drop(walk.take());
+
+			tokio::time::sleep(Duration::from_millis(400)).await;
+			assert!(
+				!ran_on.load(Ordering::SeqCst),
+				"the walk ran on after its caller was dropped, so a torn-down host leaves filesystem \
+				 work running"
+			);
+		});
 	}
 
 	#[test]

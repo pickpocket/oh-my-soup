@@ -106,7 +106,7 @@ describe("path-pasted image source path (#12244)", () => {
 	beforeEach(async () => {
 		settingsState = beginSettingsTest();
 		await Settings.init({ inMemory: true });
-		tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-image-paste-"));
+		tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-image-paste-"));
 		// Keep blob materialization for clipboard payloads inside the temp dir.
 		setAgentDir(tmpDir);
 		authStorage = await AuthStorage.create(":memory:");

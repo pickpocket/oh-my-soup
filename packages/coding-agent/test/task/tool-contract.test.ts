@@ -18,7 +18,8 @@ import { initializeExtensions } from "../../src/modes/runtime-init";
 import { AgentLifecycleManager } from "../../src/registry/agent-lifecycle";
 import { AgentRegistry } from "../../src/registry/agent-registry";
 import { createAgentSession, type CustomTool, type ExtensionFactory } from "../../src/sdk";
-import type { AgentSession } from "../../src/session/agent-session";
+import { AgentSession } from "../../src/session/agent-session";
+import type { AgentSessionHandle } from "../../src/session/agent-session-handle";
 import { extractSessionInit, SessionManager } from "../../src/session/session-manager";
 import { createEvalCustomTools, describeEvalTools } from "../../src/task/eval-tools";
 import { createPersistedSubagentReviverFactory } from "../../src/task/persisted-revive";
@@ -79,6 +80,8 @@ async function fixture(
 		"compaction.keepRecentTokens": 1,
 		"retry.enabled": false,
 		"task.isolation.enabled": false,
+		// This fixture exercises the in-process tool inventory and mutates the local transcript.
+		"task.workerThreads": 0,
 		"task.agentIdleTtlMs": 0,
 		"todo.reminders": false,
 	});
@@ -261,7 +264,7 @@ async function fixture(
 			expect(JSON.parse(child.result.output)).toEqual({ ready: true });
 			const live = AgentRegistry.global().get(child.result.id)?.session;
 			if (!live) throw new Error(`Expected a retained live child: ${child.result.error ?? child.result.stderr}`);
-			return { id: child.result.id, session: live };
+			return { id: child.result.id, session: localSession(live) };
 		},
 		async cold(id: string) {
 			await AgentLifecycleManager.global().park(id);
@@ -279,7 +282,7 @@ async function fixture(
 				}),
 				() => 0,
 			);
-			return lifecycle.ensureLive(id);
+			return localSession(await lifecycle.ensureLive(id));
 		},
 		async dispose() {
 			for (const id of childIds) await AgentLifecycleManager.global().release(id);
@@ -290,6 +293,11 @@ async function fixture(
 			root.removeSync();
 		},
 	};
+}
+
+function localSession(session: AgentSessionHandle | null | undefined): AgentSession {
+	if (!(session instanceof AgentSession)) throw new Error("Expected an in-process tool-contract session");
+	return session;
 }
 
 function text(result: { content: unknown[] }): string {
@@ -442,10 +450,10 @@ test("native, SDK custom, extension devices, and selected MCP retain their restr
 		expect(compacted.summary).toBe("tool-contract-compacted");
 		await exercise(child.session);
 		await AgentLifecycleManager.global().park(child.id);
-		await exercise(await AgentLifecycleManager.global().ensureLive(child.id));
+		await exercise(localSession(await AgentLifecycleManager.global().ensureLive(child.id)));
 		await exercise(await f.cold(child.id));
 
-		const cold = AgentRegistry.global().get(child.id)!.session!;
+		const cold = localSession(AgentRegistry.global().get(child.id)?.session);
 		await cold.setActiveToolsByName([]);
 		expect(cold.getToolForEvalBridge("yield")).toBeDefined();
 		const narrowed = await f.cold(child.id);
@@ -510,7 +518,7 @@ test("retained eval callbacks remain separate from host selection, survive warm 
 		};
 		await calculate(child.session);
 		await AgentLifecycleManager.global().park(child.id);
-		await calculate(await AgentLifecycleManager.global().ensureLive(child.id));
+		await calculate(localSession(await AgentLifecycleManager.global().ensureLive(child.id)));
 		await expect(f.cold(child.id)).rejects.toThrow("require the original live parent kernel");
 		expect(AgentRegistry.global().get(child.id)?.session).toBeNull();
 	} finally {

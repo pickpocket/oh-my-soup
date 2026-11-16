@@ -9,6 +9,10 @@
 </p>
 
 <p align="center">
+  Language: <strong>English</strong> | <a href="README.zh-CN.md">简体中文</a>
+</p>
+
+<p align="center">
   <a href="https://github.com/pickpocket/oh-my-soup/releases/latest"><img src="https://img.shields.io/github/v/release/pickpocket/oh-my-soup?style=flat&colorA=222222&colorB=CB3837" alt="Latest release"></a>
   <a href="https://github.com/pickpocket/oh-my-soup/actions"><img src="https://img.shields.io/github/actions/workflow/status/pickpocket/oh-my-soup/ci.yml?style=flat&colorA=222222&colorB=3FB950" alt="CI"></a>
   <a href="https://github.com/pickpocket/oh-my-soup/blob/main/LICENSE"><img src="https://img.shields.io/github/license/pickpocket/oh-my-soup?style=flat&colorA=222222&colorB=58A6FF" alt="License"></a>
@@ -25,69 +29,6 @@
 
 The most capable agent surface that ships. Continuously tuned by real-world use — complete out of the box, open all the way down.
 
-**60+** providers · **31** built-in tools · **14** lsp ops · **28** dap ops · **~80k** lines of Rust core.
-
-> [!NOTE]
-> Pull requests are **temporarily open to everyone** as a trial. We previously
-> required a vouch before accepting PRs; that requirement is lifted for now
-> while we evaluate how open contributions go. Depending on the results, the
-> vouch system may return.
-
-## Install
-
-**macOS · Linux**
-
-```sh
-curl -fsSL https://omp.sh/install | sh
-```
-
-Without a usable bun (or with `--binary`), the install scripts fetch the prebuilt binary from `build.stencil.so` and check its SHA-256 before installing it. Pin a release with `curl -fsSL https://omp.sh/install | sh -s -- --binary --ref v<version>` (PowerShell: `-Binary -Ref v<version>`).
-
-> **Alpine / musl:** the prebuilt musl binary links `libstdc++`/`libgcc` dynamically, which stock Alpine does not ship. Install them first: `apk add libstdc++ libgcc`.
-
-**Homebrew**
-
-```sh
-brew install can1357/tap/oms
-```
-
-**Bun (recommended)**
-
-```sh
-bun install -g @oh-my-soup/pi-coding-agent
-```
-
-**Nix**
-
-```sh
-# Run without installing
-nix run github:pickpocket/oh-my-soup
-
-# Or install into the active profile (Nix < 2.30: `nix profile install`)
-nix profile add github:pickpocket/oh-my-soup
-```
-
-Flake consumers can use `packages.<system>.oms`, `overlays.default`, `nixosModules.default`, or `homeManagerModules.default`. A Home Manager configuration can install OMS and own its settings declaratively:
-
-```nix
-{
-  inputs.oms.url = "github:pickpocket/oh-my-soup";
-
-  # In your Home Manager module:
-  imports = [ inputs.oms.homeManagerModules.default ];
-  programs.oms = {
-    enable = true;
-    settings.startup.quiet = true;
-  };
-}
-```
-
-**Windows (PowerShell)**
-
-```powershell
-irm https://omp.sh/install.ps1 | iex
-```
-
 `oms` is a terminal coding agent. It reads, edits, searches, runs shells, talks to language servers, and drives a real debugger, all from one self-contained binary. Search, shell, syntax highlighting, and file walking run in-process through a Rust core instead of shelling out, so the same binary behaves the same on macOS, Linux, and Windows. No WSL, no runtime to install.
 
 It exists because most agent harnesses stop at "model + bash". The model here gets the tools your IDE has: rename through the language server and every callsite moves; attach `lldb` to a segfaulting binary and step to the bad pointer; open a PR as if it were a directory. You drive it from the terminal, embed it in Node, or wire it into an editor over ACP.
@@ -97,7 +38,7 @@ It exists because most agent harnesses stop at "model + bash". The model here ge
 
 ## What this fork adds
 
-Six extra built-in tools, a persistent terminal service, scheduled prompts, durable issue tracking and notes, one more provider, and a binaries-only release pipeline. Each item names the command, tool, or setting it ships as, so you can check it against `/help`, `read xd://`, or `oms --help`.
+Six extra built-in tools, a persistent terminal service, scheduled prompts, durable issue tracking and notes, and a binaries-only release pipeline. Each item names the command, tool, or setting it ships as, so you can check it against `/help`, `read xd://`, or `oms --help`.
 
 ### Reverse engineering and binaries
 
@@ -137,8 +78,6 @@ Reference: [disasm](docs/tools/disasm.md), [Binary Ninja backend](docs/tools/dis
 **`agent.fork()`.** `await agent.fork(prompt, options)` in JavaScript or `agent.fork(prompt, **options)` in Python starts a subagent from a snapshot of the parent's active conversation branch, captured at the call, with its own history, billing, and kernels. The child inherits the context without later parent turns or sibling branches. Reference: [eval](docs/tools/eval.md).
 
 ### Models and prompts
-
-**OpenAI Prism as a provider.** `/login openai-prism` stores your signed-in Prism cookie and a project id (`PRISM_COOKIE` / `PRISM_PROJECT_ID` also work) and exposes `openai-prism/gpt-6-astra`, `openai-prism/gpt-5.6-sol`, and `openai-prism/gpt-5.6-terra` with 272k context. Local tool calls travel in-band; the harness tells the model to leave Prism's own project tools alone for local work.
 
 **Per-model prompt files.** `/sprompt set <file>` binds an external prompt file to the active provider/model and substitutes it for that model's system prompt; `/sprompt toggle` suspends the binding, `/sprompt clear` removes it, bare `/sprompt` lists bindings (`systemPromptFiles` in config). `systemPromptPlacement` (`auto` | `system` | `first-turn`) decides whether the prompt travels on the native instruction channel or as a synthetic first user turn; `auto` relocates it for models the catalog marks as having no system channel.
 
@@ -207,8 +146,8 @@ mise use -g github:pickpocket/oh-my-soup
 # Run without installing
 nix run github:pickpocket/oh-my-soup
 
-# Or install into the active profile
-nix profile install github:pickpocket/oh-my-soup
+# Or install into the active profile (Nix < 2.30: `nix profile install`)
+nix profile add github:pickpocket/oh-my-soup
 ```
 
 Flake consumers can use `packages.<system>.oms`, `overlays.default`, `nixosModules.default`, or `homeManagerModules.default` on `x86_64-linux`, `aarch64-linux`, `x86_64-darwin`, and `aarch64-darwin`. The Nix package builds the Rust addon and the CLI from source. A Home Manager configuration can install OMS and own its settings declaratively:
@@ -227,6 +166,8 @@ Flake consumers can use `packages.<system>.oms`, `overlays.default`, `nixosModul
 ```
 
 The installers, Homebrew, and mise download the same self-contained binary from the [GitHub release](https://github.com/pickpocket/oh-my-soup/releases/latest) for macOS, Linux (glibc and musl), and Windows, x64 and arm64. On Windows x64 the installer tries the AVX2 build first and falls back to the baseline build when the CPU cannot run it. There is no npm package for this fork; `bun install -g` / `npm install -g` are not install paths here.
+
+The installers check SHA-256 before installation. Pin a release with `--ref v<version>` (PowerShell: `-Ref v<version>`).
 
 The shell and PowerShell installers also provision LLVM `llvm-objdump`, `llvm-objcopy`, and their runtime libraries in OMS's local tools directory for the `objdump` tool; source setup and trusted package postinstall do the same. Homebrew, mise, Nix, and direct-binary installs need `oms setup objdump` afterward. Managed bundles cover Linux GNU/musl x64/arm64, macOS 14+ x64/arm64, and native Windows x64/arm64. See [objdump installation](docs/tools/objdump.md#availability-and-invocation) for status checks and Bun lifecycle trust.
 
@@ -263,7 +204,7 @@ oms completions fish > ~/.config/fish/completions/oms.fish
 
 Shared with upstream; listed so the fork README stands on its own.
 
-- **In-process tools.** ripgrep, glob, find, and a bash engine with 68 command-line utilities (coreutils, findutils, sed, jq, ripgrep-backed grep, fd, diff, moreutils, process control) are linked into the binary. No fork/exec per call, no missing binaries on Windows.
+- **In-process tools.** ripgrep, glob, find, and the bash 5.3 engine with in-process command-line utilities (coreutils, findutils, sed, jq, ripgrep-backed grep, fd, diff, moreutils, process control) are linked into the binary. No fork/exec per call, no missing binaries on Windows.
 - **Hashline edits.** The model anchors edits to content hashes instead of retyping lines. Stale anchors reject the patch before it corrupts anything. On the [edit benchmark](https://blog.can.ac/2026/02/12/the-harness-problem/), this format took Grok Code Fast 1 from 6.7% to 68.3% pass rate.
 - **LSP on every write.** Renames go through `workspace/willRenameFiles`, so re-exports and barrel files update before the file moves. Diagnostics, references, and code actions are first-class tool calls.
 - **A real debugger.** `debug` speaks DAP to lldb, gdb, delve, debugpy, and rdbg: breakpoints, stepping, stack, variables, memory.
@@ -276,9 +217,10 @@ Shared with upstream; listed so the fork README stands on its own.
 - **Preview, then accept.** `ast_edit` stages structural rewrites as a _(proposed)_ card; a one-line reason written to `xd://resolve` applies them atomically.
 - **Your existing config works.** Rules, skills, and MCP servers are read in place from `.claude`, `.cursor`, `.windsurf`, `.gemini`, `.codex`, `.cline`, `.github/copilot`, and `.vscode`. No migration.
 - **Time-traveling stream rules.** A regex match on the output aborts the stream mid-token, injects the matching rule, and retries from the same point. Course correction without paying context tax every turn.
-- **Code review with a verdict.** `/review` spawns reviewer subagents over a branch, commit, or the working tree and ranks findings P0–P3 with confidence; `/annotate` lets you pin notes to diff lines first.
+- **Code review with a verdict.** [/review](docs/slash-command-internals.md#15-bundled-command-note-review) spawns reviewer subagents over a branch, commit, or the working tree and ranks findings P0–P3 with confidence; `/annotate` lets you pin notes to diff lines first.
 - **`oms commit`.** Splits unrelated changes into dependency-ordered atomic commits with validated messages; lock files are excluded from analysis.
 - **Prompt controls.** `ultrathink`, `orchestrate`, and `workflowz` as standalone words in prose opt a turn into deeper reasoning, parallel delegation, or a deterministic multi-subagent workflow. See [Magic keywords](docs/magic-keywords.md).
+- `chillax` — request brief reasoning; on models with per-message effort, drop thinking to the lowest effort, even mid-turn.
 - **Session controls.** `/vibe` enters [Vibe mode](docs/vibe-mode.md); `/fresh` resets provider stream state without touching the transcript ([session operations](docs/session-operations-export-share-fork-resume.md#fresh)).
 
 ## Tools
@@ -300,7 +242,7 @@ Shared with upstream; listed so the fork README stands on its own.
 
 Setting-gated, off by default: `github`, `security_scan`, `generate_image`, `tts`, `checkpoint`, `rewind`, and the memory tools (`retain`/`recall`/`reflect`/`memory_edit`, per `memory.backend`). `ssh` and `objdump` appear when their executables resolve.
 
-`web_search` chains 27 providers (Perplexity, Gemini, Kagi, Brave, SearXNG, DuckDuckGo, Yandex, and more) through the `web` model role and hands result URLs to `read`, which converts GitHub, package registries, arXiv, Stack Overflow, and docs sites into structured markdown with anchors intact. Reference: [web_search](docs/tools/web_search.md).
+`web_search` chains dozens of providers (Perplexity, Gemini, Kagi, Brave, SearXNG, DuckDuckGo, Yandex, Keenable, Sofya, and more) through the `web` model role and hands result URLs to `read`, which converts GitHub, package registries, arXiv, Stack Overflow, and docs sites into structured markdown with anchors intact. Reference: [web_search](docs/tools/web_search.md).
 
 Full reference: [tool guides](docs/tools).
 
@@ -308,20 +250,18 @@ Full reference: [tool guides](docs/tools).
 
 Sixty-plus providers, one `/model` picker. Ten chat roles route work by intent: `default` for normal turns, `smol` for cheap fan-out, `slow` for deep reasoning, `plan`, `commit`, `vision`, `task`, `advisor`, `tiny`, and `memory`; the kind roles `image`, `web`, `speech`, `dictation`, and `judge` pick non-chat models. Override at launch with `--smol`, `--slow`, or `--plan`; cycle the configured models for the active role with `Ctrl+P`.
 
-Direct APIs and gateways include Anthropic `oauth` · OpenAI · OpenAI Codex `oauth` · Google Gemini · Google Vertex · Google Antigravity `oauth` · xAI · SuperGrok `oauth` · DeepSeek · Mistral · Groq · Cerebras · SambaNova · Fireworks · Together · Baseten · DeepInfra · Hugging Face · NVIDIA · Meta · Inception · Amazon Bedrock · Azure OpenAI · SiliconFlow · GMI Cloud · CoreWeave · Sakana AI · Command Hyper · StepFun · Helmcode · OpenRouter · Synthetic · Vercel AI Gateway · Cloudflare AI Gateway · Wafer Serverless.
+Direct APIs and gateways include Anthropic `oauth` · OpenAI · OpenAI Codex `oauth` · Google Gemini · Google Vertex · Google Antigravity `oauth` · xAI · SuperGrok `oauth` · DeepSeek · Mistral · Groq · Cerebras · SambaNova · Fireworks · Together · Modular · Baseten · Chutes · DeepInfra · Hugging Face · NVIDIA · Meta · Inception · Amazon Bedrock · Azure OpenAI · SiliconFlow · GMI Cloud · CoreWeave · Sakana AI · Command Code · Charm Hyper · StepFun · Helmcode · OpenRouter · Synthetic · Vercel AI Gateway · Cloudflare AI Gateway · Wafer Serverless · Scaleway · Otari.
 
 Auth tags: `oauth` signs in with your provider account, `plan` routes through a coding-plan subscription, `local` runs against a local server with the key optional, `cookie` reuses a browser session.
 
 <details>
 <summary><strong>Provider list</strong></summary>
 
-**Direct APIs and gateways:** Anthropic `oauth` · OpenAI · OpenAI Codex `oauth` · OpenAI Prism `cookie` ★ · Google Gemini · Google Vertex · Google Antigravity `oauth` · xAI · SuperGrok `oauth` · DeepSeek · Mistral · Groq · Cerebras · Fireworks · Together · Baseten · DeepInfra · Hugging Face · NVIDIA · Meta · Amazon Bedrock · Azure OpenAI · SiliconFlow · GMI Cloud · CoreWeave · Sakana AI · Command Code · Charm Hyper · StepFun · Helmcode · OpenRouter · Synthetic · Vercel AI Gateway · Cloudflare AI Gateway · Wafer Serverless
+**Direct APIs and gateways:** Anthropic `oauth` · OpenAI · OpenAI Codex `oauth` · Google Gemini · Google Vertex · Google Antigravity `oauth` · xAI · SuperGrok `oauth` · DeepSeek · Mistral · Groq · Cerebras · SambaNova · Fireworks · Together · Modular · Baseten · Chutes · DeepInfra · Hugging Face · NVIDIA · Meta · Inception · Amazon Bedrock · Azure OpenAI · SiliconFlow · GMI Cloud · CoreWeave · Sakana AI · Command Code · Charm Hyper · StepFun · Helmcode · OpenRouter · Synthetic · Vercel AI Gateway · Cloudflare AI Gateway · Wafer Serverless · Scaleway · Otari
 
 **Coding plans (`/login` attaches the session):** Cursor `oauth` · GitHub Copilot `oauth` · GitLab Duo · Devin `oauth` · Kimi Code `plan` · Moonshot · MiniMax Coding Plan `plan` · MiniMax Coding Plan CN `plan` · Alibaba Coding Plan `plan` · Qwen Portal `oauth` · Z.AI / GLM Coding Plan `plan` · Zhipu Coding Plan `plan` · Xiaomi MiMo · Qianfan · Umans `plan` · NanoGPT · Novita · Venice · Kilo · ZenMux · OpenCode Go · OpenCode Zen
 
 **Self-hosted (key optional):** Ollama `local` · Ollama Cloud · LM Studio `local` · llama.cpp `local` · vLLM `local` · LiteLLM
-
-★ fork-only.
 
 </details>
 
@@ -329,15 +269,15 @@ Custom OpenAI-compatible providers go in `~/.oms/agent/models.yml`:
 
 ```yaml
 providers:
-  spark:
-    baseUrl: http://192.168.10.223:8000/v1
-    api: openai-completions
-    apiKey: dummy
-    models:
-      - id: minimax-m3
-        name: MiniMax M3
-        contextWindow: 100000
-        maxTokens: 32000
+   spark:
+      baseUrl: http://192.168.10.223:8000/v1
+      api: openai-completions
+      apiKey: dummy
+      models:
+         - id: minimax-m3
+           name: MiniMax M3
+           contextWindow: 100000
+           maxTokens: 32000
 ```
 
 `oms models spark` verifies discovery. Then run `oms setup` and choose the model in the default-model step, use `/model` in a session to assign it to the `default` role, or preconfigure `modelRoles.default: spark/minimax-m3` in `~/.oms/agent/config.yml`. Declared APIs can be any of `openai-completions`, `openai-responses`, `openai-codex-responses`, `azure-openai-responses`, `anthropic-messages`, `bedrock-converse-stream`, `google-generative-ai`, `google-gemini-cli`, `google-vertex`, `typesafe`, or `openrouter-decisions`.
@@ -346,7 +286,7 @@ To preconfigure the default without the picker, add the selector to `~/.oms/agen
 
 ```yaml
 modelRoles:
-  default: spark/minimax-m3
+   default: spark/minimax-m3
 ```
 
 ### Four knobs that make routing useful
@@ -358,13 +298,13 @@ modelRoles:
 
 Full provider & routing reference at [omp.sh/docs/providers](https://omp.sh/docs/providers).
 
-## Twenty-three backends. _One tool the agent already knows_.
+## Search backends. _One tool the agent already knows_.
 
-`web_search` is built in, not bolted on. `auto` walks a twenty-three-provider chain; pin one by name if you already pay for it. Behind every hit, site-aware extraction turns GitHub, registries, arXiv, Stack Overflow, and docs into structured markdown — anchors and link targets survive.
+`web_search` is built in, not bolted on. `auto` walks the available provider chain; pin one by name if you already pay for it. Behind every hit, site-aware extraction turns GitHub, registries, arXiv, Stack Overflow, and docs into structured markdown — anchors and link targets survive.
 
 ### Search providers
 
-Twenty-three backends. Pin one, or let `auto` walk the chain in order.
+Representative backends are listed below. Pin one, or let `auto` walk the chain in order; see the [full reference](docs/tools/web_search.md) for all engines and grounded providers.
 
 | provider     | auth                                      |
 | ------------ | ----------------------------------------- |
@@ -377,6 +317,8 @@ Twenty-three backends. Pin one, or let `auto` walk the chain in order.
 | `zai`        | `ZAI_API_KEY`                             |
 | `exa`        | `EXA_API_KEY` (or mcp)                    |
 | `tinyfish`   | `TINYFISH_API_KEY`                        |
+| `keenable`   | `KEENABLE_API_KEY` (keyless fallback)     |
+| `sofya`      | `SOFYA_API_KEY`                           |
 | `jina`       | `JINA_API_KEY`                            |
 | `kagi`       | `KAGI_API_KEY`                            |
 | `tavily`     | `TAVILY_API_KEY`                          |
@@ -389,9 +331,10 @@ Twenty-three backends. Pin one, or let `auto` walk the chain in order.
 | `duckduckgo` | no key                                    |
 | `startpage`  | no key                                    |
 | `google`     | no key (browser)                          |
+| `yandex`     | no key (browser)                          |
 | `ecosia`     | no key (browser)                          |
 | `mojeek`     | no key (browser)                          |
-| `public`     | no key (all of the above, consolidated)   |
+| `public`     | no key (browser-backed engines, consolidated) |
 
 Exa also accepts a stored API key through `/login exa`; explicit keyless selection uses the public MCP fallback.
 
@@ -413,33 +356,29 @@ Routing extras: per-role fallback chains under `retry.fallbackChains` for 429s a
 
 Same engine, four wrappers.
 
-- **Interactive.** `oms` runs the TUI. Tool calls render as cards, edits preview before they land, and ambiguity routes through the `ask` tool, a structured option picker the agent can call mid-turn. With `oms service` running, the TUI attaches to a persistent session instead of owning the process.
+- **Interactive.** `oms` runs the TUI. Tool calls render as cards, edits preview before they land, and ambiguity routes through the `ask` tool: HTML form follow-ups with radios, checkboxes, selects, and text, with the agent's recommendation preselected. With `oms service` running, the TUI attaches to a persistent session instead of owning the process.
 - **One-shot.** `oms -p "<prompt>"` answers and exits; `--mode json` streams structured output.
 - **RPC.** `oms --mode rpc` accepts newline-delimited JSON commands over stdio and emits protocol responses and events; agent-invoking prompts complete with a `prompt_result` frame. `--mode rpc-ui` also routes tool cards, selectors, and dialogs as `extension_ui_request` frames; `--no-ui` runs extensions headless so dialogs fall back to defaults. Clients for Go, Python, and Rust live under [`sdk/`](sdk). See the [RPC protocol](docs/rpc.md).
 - **ACP.** `oms acp` speaks the Agent Client Protocol to editors such as Zed: reads and writes route through the editor (`fs/read_text_file`, `fs/write_text_file`), shells open in the editor's terminal, and destructive tools wait on `session/request_permission`.
+  The same forms surface over ACP as elicitations, so editors get them without writing a dialog.
 - **SDK.** `@oh-my-soup/pi-coding-agent` embeds the session in a Node or Bun process (from a source checkout or a linked workspace; it is not on npm). See [docs/sdk.md](docs/sdk.md).
 
 ```ts
-import {
-  ModelRegistry,
-  SessionManager,
-  createAgentSession,
-  discoverAuthStorage,
-} from "@oh-my-soup/pi-coding-agent";
+import { ModelRegistry, SessionManager, createAgentSession, discoverAuthStorage } from "@oh-my-soup/pi-coding-agent";
 
 const auth = await discoverAuthStorage();
 const models = new ModelRegistry(auth);
 await models.refresh();
 
 const { session } = await createAgentSession({
-  sessionManager: SessionManager.inMemory(),
-  authStorage: auth,
-  modelRegistry: models,
+	sessionManager: SessionManager.inMemory(),
+	authStorage: auth,
+	modelRegistry: models,
 });
 await session.prompt("list .ts files");
 ```
 
-![TUI showing a multi-select question from the ask tool.](assets/ask.webp)
+![oms TUI showing a multi-select field of an ask form.](assets/ask.webp)
 
 ## Slow first launch on Windows
 
@@ -459,12 +398,14 @@ Opening a repository loads its project inputs by design: settings, extensions, h
 
 ```yaml
 mcp:
-  enableProjectConfig: false
+   enableProjectConfig: false
 ```
 
 Use `--no-extensions` to skip ambient extension discovery; or use `--trusted-extension /absolute/path/to/file.ts` for an exact extension allowlist. `--no-tools` disables built-in tools, but project tool modules remain a separate discovery surface. These flags narrow inputs without changing the repository-trust model.
 
 ## Development
+
+Source development requires Bun ≥ 1.4.4.
 
 Fresh clones need workspace deps and the local Rust addon:
 
@@ -488,6 +429,12 @@ Nix users get the pinned toolchains and native build dependencies with `nix deve
 
 Edit fuzzing requires `cargo-fuzz`, the repo-pinned nightly from `rust-toolchain.toml` with `rust-src` (`rustup component add rust-src --toolchain <channel>`), and a C++ compiler. On Windows, use Git Bash and add Visual Studio's C++ AddressSanitizer runtime directory to `PATH`. Always invoke the script through `bash`; `bash crates/pi-edit/fuzz/run.sh help` lists every command: `fuzz hashline_semantic 600` (or `hashline_stream`) runs a bounded campaign, `sample semantic --trials 3 --cases 300 --seed 1` reports the staging-success rate, `reduce semantic <artifact>` shrinks a failure into a runnable `.fixture.json`, and `keep semantic <artifact>.min` retains it for replay and promotion into `tests/fixtures/hashline/`.
 
+Build and smoke-test the distributable Nix package with `nix build .#oms`. Wayland screencast support is off by default (linking libpipewire adds ~750 MB of runtime closure); enable it with `oms.override { withWaylandScreencast = true; }`. Release builds link `pi-natives` with fat LTO; `oms.override { withFatLto = false; }` uses thin LTO for much faster local rebuilds. Rust dependencies and the native addon build in separate derivations, so Rust edits reuse compiled dependencies and TypeScript edits reuse the addon. `nix/bun.nix` is generated only when `bun.lock` changes; releases regenerate it automatically. For dependency changes, run:
+
+```sh
+bun run gen:nix
+```
+
 `PI_TIMING=x oms` prints a startup timing tree and exits; `PI_DEBUG_STARTUP=1` streams phase markers to stderr, which names the stuck phase if startup ever hangs. `/debug` opens tools for debugging, reporting, and profiling. Architecture notes live in [packages/coding-agent/DEVELOPMENT.md](packages/coding-agent/DEVELOPMENT.md).
 
 The first `bun dev` after a reboot can take several times longer than the usual ~2.5s: Bun and ~1400 source files get read cold from disk, and Windows Defender inspects each on its first touch of the boot session. If that bothers you during development, exclude the Bun process from real-time scanning (weigh it yourself; it trusts everything Bun runs):
@@ -495,6 +442,15 @@ The first `bun dev` after a reboot can take several times longer than the usual 
 ```powershell
 Add-MpPreference -ExclusionProcess 'bun.exe'
 ```
+
+### Apple Silicon Nix builds
+
+On Apple Silicon, `nix build .#oms` compiles the Apple Foundation Models bridge
+with nixpkgs' Swift compiler and `apple-sdk_27`; host Xcode or Command Line Tools
+are never used, and the build fails rather than shipping without the bridge.
+Both are build-only dependencies. Using the models still requires macOS 27+, an
+eligible device, and Apple Intelligence enabled. To build without the bridge, use
+`oms.override { withAppleFm = false; }`.
 
 ## Monorepo
 
@@ -530,10 +486,10 @@ Outside `packages/`: [`sdk/`](sdk) holds the Go, Python, and Rust RPC clients, a
 | Crate | Description |
 | --- | --- |
 | [pi-natives](crates/pi-natives) | The N-API `cdylib`; aggregates the crates below |
-| [pi-shell](crates/pi-shell) | Embedded bash engine and persistent sessions |
-| [pi-builtins](crates/pi-builtins) | 68 in-process command-line utilities and process-control builtins |
+| [pi-shell](crates/pi-shell) | Embedded bash 5.3 engine (parser, VM, process spawning, sessions), PTY, and process management |
+| [pi-builtins](crates/pi-builtins) | In-process command-line utilities plus process builtins (ps, top, pgrep, pkill, …) |
 | [pi-vfs](crates/pi-vfs) | Virtual filesystem facade for the embedded shell and coreutils |
-| [pi-walker](crates/pi-walker) | Parallel ignore-aware filesystem walker |
+| [pi-walker](crates/pi-walker) | Parallel ignore-aware walker, directory-listing cache, glob, and content search for natives and shell |
 | [pi-ast](crates/pi-ast) | tree-sitter summaries and ast-grep rewrites, 50+ grammars |
 | [pi-edit](crates/pi-edit) | Edit engine behind the `edit` tool: hashline/patch modes, streaming previews, atomic apply, fuzz harness |
 | [pi-diff](crates/pi-diff) | jsdiff-compatible Myers diff and structured-patch primitives |
@@ -541,13 +497,14 @@ Outside `packages/`: [`sdk/`](sdk) holds the Go, Python, and Rust RPC clients, a
 | [pi-iso](crates/pi-iso) | Worktree isolation: APFS clones, reflinks, overlayfs, projfs |
 | [pi-predict](crates/pi-predict) | Prompt-composer word prediction (n-gram, optional SmolLM2, macOS spell checker) |
 | [pi-voice](crates/pi-voice) | Audio capture, Opus, WebRTC |
-| [vendor/](crates/vendor) | Vendored forks: [brush](https://github.com/reubeno/brush) core and parser, `cfg_aliases`, `napi`, `tree-sitter-go` |
+| [vendor/](crates/vendor) | Vendored forks including `cfg_aliases`, `napi`, and `tree-sitter-go` |
 
 </details>
 
 Platforms for the native addon: `linux-x64`, `linux-arm64`, `darwin-x64`, `darwin-arm64`, `win32-x64`, `win32-arm64`.
 
 ---
+
 
 ## Contributing
 
@@ -557,10 +514,11 @@ Issues and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md). Ch
 
 Oh My Soup is licensed under the [MIT License](LICENSE).
 
-Third-party and vendored code, including `crates/vendor/brush-core` and the
-third-party portions identified in `crates/pi-builtins/LICENSE`, remains under
-its respective upstream license. See `THIRD-PARTY-NOTICES.txt` and
-component-local notices for attribution and additional terms.
+Third-party and vendored code, including the third-party portions identified
+in `crates/pi-builtins/LICENSE`, remains under its respective upstream license.
+Each shipped component carries its own `THIRD-PARTY-NOTICES.txt`: the CLI
+(`packages/coding-agent`), the native addon (`packages/natives`), and roboms
+(`python/roboms`). `oms --license` prints the CLI's and the addon's.
 
 © 2025 Mario Zechner<br>
 © 2025-2026 Can Bölük<br>

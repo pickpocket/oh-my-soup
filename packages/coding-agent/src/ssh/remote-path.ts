@@ -4,7 +4,7 @@ import { type SSHHost, sshCapability } from "../capability/ssh";
 import { parseInternalUrl } from "../internal-urls/parse";
 import type { InternalUrl } from "../internal-urls/types";
 import type { SSHConnectionTarget } from "./connection-manager";
-import { readRemoteHome } from "./file-transfer";
+import { readRemoteHome, remoteHomeDirectory } from "./file-transfer";
 import { configuredTarget, getSession } from "./sessions";
 import { parseTrampSshPath } from "./tramp-path";
 import { buildSshTarget } from "./utils";
@@ -15,7 +15,7 @@ export interface SshLocation {
 	remotePath: string;
 }
 
-function remotePathFromUrl(url: InternalUrl): string {
+async function remotePathFromUrl(url: InternalUrl, target: SSHConnectionTarget, signal?: AbortSignal): Promise<string> {
 	if (url.search) {
 		throw new Error(
 			`ssh:// does not support URL query strings; percent-encode a literal '?' as %3F in the path: ${url.href}`,
@@ -26,9 +26,13 @@ function remotePathFromUrl(url: InternalUrl): string {
 			`ssh:// does not support URL fragments; percent-encode a literal '#' as %23 in the path: ${url.href}`,
 		);
 	}
+	const raw = url.rawPathname ?? url.pathname;
+	// Only a literal URI /~ or /~/ opts into HOME resolution. Decoding first
+	// would accidentally expand an absolute literal /%7E/ path too.
+	const homeRelative = raw === "/~" || raw.startsWith("/~/");
 	let decoded: string;
 	try {
-		decoded = decodeURIComponent(url.rawPathname ?? url.pathname);
+		decoded = decodeURIComponent(raw);
 	} catch {
 		throw new Error(`Invalid URL encoding in ssh:// path: ${url.href}`);
 	}
@@ -38,6 +42,15 @@ function remotePathFromUrl(url: InternalUrl): string {
 		);
 	}
 	if (decoded.includes("\0")) throw new Error("Invalid SSH path: filenames cannot contain NUL");
+	if (homeRelative) {
+		const home = await remoteHomeDirectory(target, { signal });
+		// Concatenate rather than normalize: remote .. and symlink semantics
+		// belong to the remote filesystem, not the local path library.
+		return `${home.replace(/\/+$/, "")}${decoded.slice(2)}` || "/";
+	}
+	if (raw.startsWith("/~") && !decoded.startsWith("/~/")) {
+		throw new Error("ssh://: named-user /~user paths are unsupported; use /~/ for the connected account's HOME");
+	}
 	return decoded;
 }
 
@@ -92,7 +105,21 @@ async function resolveTarget(url: InternalUrl, cwd?: string): Promise<SSHConnect
 	if (openSession && !username && port === undefined) return openSession;
 	const { items } = await capability.loadCapability<SSHHost>(sshCapability.id, cwd ? { cwd } : {});
 	if (username || port !== undefined) {
-		if (items.some(entry => entry.name === bareHost || entry.name === decodedHost)) {
+		// An unpinned OpenSSH alias accepts overrides just like `ssh -p 2222 user@alias`.
+		// Pinned destinations and named sessions must retain their configured credentials.
+		const pinned = items.some(
+			entry =>
+				(entry.name === bareHost || entry.name === decodedHost) &&
+				!(
+					entry.host === entry.name &&
+					entry.username === undefined &&
+					entry.port === undefined &&
+					entry.keyPath === undefined &&
+					entry.password === undefined &&
+					entry.compat === undefined
+				),
+		);
+		if (pinned) {
 			throw new Error(
 				`ssh://: user/port overrides are not allowed for the configured host "${decodedHost}"; use ssh://${bareHost}/<path> or an unconfigured hostname`,
 			);
@@ -116,14 +143,15 @@ async function resolveTarget(url: InternalUrl, cwd?: string): Promise<SSHConnect
 
 /**
  * Resolve ssh:// or single-hop TRAMP names. Absolute locations are lazy;
- * only TRAMP home-relative names need a verified POSIX remote-home query.
+ * only URI /~/ and TRAMP home-relative names need a verified POSIX remote-home query.
  */
-export async function resolveSshLocation(input: string, cwd?: string): Promise<SshLocation> {
+export async function resolveSshLocation(input: string, cwd?: string, signal?: AbortSignal): Promise<SshLocation> {
+	signal?.throwIfAborted();
 	const tramp = parseTrampSshPath(input);
 	if (!tramp && !/^ssh:\/\//i.test(input)) throw new Error(`Not an SSH location: ${input}`);
 	const url = parseInternalUrl(tramp?.url ?? input);
 	const target = await resolveTarget(url, cwd);
-	if (!tramp) return { target, remotePath: remotePathFromUrl(url) };
+	if (!tramp) return { target, remotePath: await remotePathFromUrl(url, target, signal) };
 	if (tramp.remotePath.startsWith("/")) return { target, remotePath: tramp.remotePath };
 	let relative = tramp.remotePath;
 	if (relative === "~") relative = "";
@@ -133,6 +161,6 @@ export async function resolveSshLocation(input: string, cwd?: string): Promise<S
 			"TRAMP named-user home paths are unsupported; use '~/' for the connected user's home or an absolute path",
 		);
 	}
-	const home = await readRemoteHome(target);
+	const home = await readRemoteHome(target, { signal });
 	return { target, remotePath: relative ? `${home.replace(/\/+$/, "")}/${relative}` : home };
 }

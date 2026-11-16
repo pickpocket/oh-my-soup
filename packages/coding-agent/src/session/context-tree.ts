@@ -9,7 +9,7 @@
  * tokens summed over the whole tree never double-count. `totalTokens` is the
  * bottom-up aggregate: own plus every descendant shown in the tree.
  *
- * Live nodes read the in-process session; disk nodes reuse the transcript
+ * Live nodes read session handles (local or worker-backed); disk nodes reuse the transcript
  * metrics `registerPersistedSubagents` reconstructs (which likewise only sum
  * assistant usage). The walk is read-only and bounded by depth and node caps;
  * unreadable child transcripts simply surface as zero-usage disk nodes.
@@ -17,14 +17,21 @@
 
 import type { AgentMessage } from "@oh-my-soup/pi-agent-core";
 import { isRecord } from "@oh-my-soup/pi-utils";
-import { type AgentRef, AgentRegistry, type AgentStatus, MAIN_AGENT_ID } from "../registry/agent-registry";
+import {
+	type AgentRef,
+	AgentRegistry,
+	type AgentRegistryApi,
+	type AgentStatus,
+	MAIN_AGENT_ID,
+} from "../registry/agent-registry";
 import { registerPersistedSubagents } from "../registry/persisted-agents";
 import type { AgentSession } from "./agent-session";
+import type { AgentSessionHandle } from "./agent-session-handle";
 
 export interface ContextTreeNode {
 	id: string;
 	label: string;
-	/** live: backed by an in-process session; disk: reconstructed from its persisted transcript. */
+	/** live: backed by a local or worker session; disk: reconstructed from its persisted transcript. */
 	state: "live" | "disk";
 	status: AgentStatus;
 	/** `provider/model` selector, when known. */
@@ -45,7 +52,7 @@ export interface ContextTreeNode {
 }
 
 export interface ContextTreeOptions {
-	registry?: AgentRegistry;
+	registry?: AgentRegistryApi;
 	/** Maximum tree depth below the root. Children beyond it count as truncated. */
 	maxDepth?: number;
 	/** Maximum total nodes in the tree, root included. */
@@ -109,10 +116,10 @@ interface NodeStats {
 	model?: string;
 }
 
-function liveNodeStats(session: AgentSession): NodeStats {
+function liveNodeStats(session: AgentSessionHandle): NodeStats {
 	try {
 		const { ownTokens } = computeOwnAndAttributedTokens(session.messages);
-		const contextUsage = session.getContextUsage();
+		const contextUsage = session.getSessionStats().contextUsage;
 		const model = session.model;
 		return {
 			ownTokens,

@@ -36,10 +36,10 @@ Does not cover extension authoring UX or command UI.
 
 - Message shapes are defined in `types.ts` (`JsonRpcRequest`, `JsonRpcNotification`, `JsonRpcResponse`, `JsonRpcMessage`).
 - MCP client logic (`client.ts`) decides method order and session handshake:
-  1. `initialize` request
-  2. record the server's negotiated protocol version, then send `notifications/initialized` before any further session traffic
-  3. for Streamable HTTP transports, start the optional background SSE listener once the initialize response has established any session id
-  4. method calls like `tools/list`, `tools/call`
+   1. `initialize` request
+   2. record the server's negotiated protocol version, then send `notifications/initialized` before any further session traffic
+   3. for Streamable HTTP transports, start the optional background SSE listener once the initialize response has established any session id
+   4. method calls like `tools/list`, `tools/call`
 
 ### Transport layer (`MCPTransport`)
 
@@ -120,7 +120,7 @@ When a tool update sink exists, `MCPTool` and `DeferredMCPTool` expose the lates
 
 Progress never resets or extends the absolute request deadline. An awaited MCP tool call also continues counting against an Eval cell's watchdog while it reports progress.
 
-An MCP request id correlates a JSON-RPC response, its progress token correlates progress notifications, and an OMP background job id identifies a locally managed job. These are different handles even though OMP uses the request id's value as the progress token. OMP adds no MCP background jobs and provides no confirmed remote cancellation: local timeout or abort does not prove that server-side work stopped.
+An MCP request id correlates a JSON-RPC response, its progress token correlates progress notifications, and an OMS background job id identifies a locally managed job. These are different handles even though OMS uses the request id's value as the progress token. OMS adds no MCP background jobs and provides no confirmed remote cancellation: local timeout or abort does not prove that server-side work stopped.
 
 ## Stdio transport internals
 
@@ -128,16 +128,16 @@ An MCP request id correlates a JSON-RPC response, its progress token correlates 
 
 - Initial: `connected=false`, `process=null`, pending map empty
 - `connect()`:
-  - spawn subprocess with configured command/args/env/cwd (cwd defaults to `getProjectDir()`, env overlays `Bun.env`)
-  - derive platform spawn behavior: Linux/other non-macOS POSIX detach into a new session, macOS remains attached for TCC prompts, Windows remains attached and resolves npm shims/batch commands with platform-specific escaping
-  - mark connected
-  - start stdout read loop (`readJsonl`)
-  - start stderr loop (read/discard; currently silent)
+   - spawn subprocess with configured command/args/env/cwd (cwd defaults to `getProjectDir()`, env overlays `Bun.env`)
+   - derive platform spawn behavior: Linux/other non-macOS POSIX detach into a new session, macOS remains attached for TCC prompts, Windows remains attached and resolves npm shims/batch commands with platform-specific escaping
+   - mark connected
+   - start stdout read loop (`readJsonl`)
+   - start stderr loop (read/discard; currently silent)
 - `close()`:
-  - `#handleClose()`: mark disconnected, reject all pending requests (`Transport closed`), emit `onClose`
-  - close stdin, send SIGTERM, wait a bounded grace period, then escalate to SIGKILL if needed
-  - detached POSIX subprocesses are signaled as a process group; a final group SIGKILL sweep also runs after a cooperative leader exit to catch surviving descendants
-  - detach read loop without awaiting (it can hang indefinitely)
+   - `#handleClose()`: mark disconnected, reject all pending requests (`Transport closed`), emit `onClose`
+   - close stdin, send SIGTERM, wait a bounded grace period, then escalate to SIGKILL if needed
+   - detached POSIX subprocesses are signaled as a process group; a final group SIGKILL sweep also runs after a cooperative leader exit to catch surviving descendants
+   - detach read loop without awaiting (it can hang indefinitely)
 
 If the read loop exits unexpectedly, `finally` triggers `#handleClose()` with the decode/receive error or an EOF error describing stdout closure/process exit. Explicit `close()` still cleans up subprocess resources even when this callback already marked the transport disconnected.
 
@@ -299,7 +299,7 @@ For previously connected HTTP/SSE servers that remain unavailable after that lad
 
 `MCPTool` and `DeferredMCPTool` also attempt one reconnect + retry for retriable connection errors during a tool call. This is tool availability recovery, not transport-level retry.
 
-Connection loss is non-retryable once the request may have reached the server: after writing a stdio frame to stdin, after a Streamable HTTP or legacy SSE POST connection is reset or closed once established (before or after its response starts), after receiving a Streamable HTTP 2xx response (JSON or SSE), or after a legacy SSE POST is accepted. These calls are never replayed automatically; check the operation's effect before retrying manually. Failures that prove the request never left OMP, such as `Transport not connected` or a refused connection, retain reconnect + retry.
+Connection loss is non-retryable once the request may have reached the server: after writing a stdio frame to stdin, after a Streamable HTTP or legacy SSE POST connection is reset or closed once established (before or after its response starts), after receiving a Streamable HTTP 2xx response (JSON or SSE), or after a legacy SSE POST is accepted. These calls are never replayed automatically; check the operation's effect before retrying manually. Failures that prove the request never left OMS, such as `Transport not connected` or a refused connection, retain reconnect + retry.
 
 ## Failure scenarios summary
 

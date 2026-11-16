@@ -13,6 +13,18 @@ export interface BashInterceptorRule {
 	allowSubcommands?: string[];
 }
 
+export type BashPatternApproval = "allow" | "deny" | "prompt";
+
+/** One bash approval pattern rule (`bash.patterns`). */
+export interface BashApprovalPatternRule {
+	match: string;
+	approval: BashPatternApproval;
+	/** Leading env assignment names this `allow` rule strips before matching. */
+	env?: string[];
+}
+
+const EMPTY_BASH_PATTERNS: BashApprovalPatternRule[] = [];
+
 const EMPTY_STRING_ARRAY: string[] = [];
 export const DEFAULT_BASH_INTERCEPTOR_RULES: BashInterceptorRule[] = [
 	{
@@ -99,7 +111,7 @@ export const DEFAULT_BASH_INTERCEPTOR_RULES: BashInterceptorRule[] = [
 
 export const cfgShellPath = register({ id: "shellPath", type: "string", default: undefined });
 
-/** Pi shell command prefix forwarded to legacy extensions; OMP's native shell does not apply it. */
+/** Pi shell command prefix forwarded to legacy extensions; OMS's native shell does not apply it. */
 export const cfgLegacyShellCommandPrefix = register({ id: "shellCommandPrefix", type: "string", default: undefined });
 
 export const cfgBashEnabled = register({
@@ -149,20 +161,35 @@ export const cfgBashGitGuard = register({
 		group: "Bash",
 		label: "Git Guard",
 		description:
-			"Refuse git commands that discard or move shared work in the bash tool: stash, reset --hard or to another commit, and checkout/switch/restore outside a merge or rebase conflict",
+			"Refuse git commands that discard or move shared work in a repository's main checkout: stash, reset --hard or to another commit, and checkout/switch/restore outside a merge or rebase conflict. In a linked worktree they run, saving uncommitted changes they discard first",
 	},
 });
 
 export const cfgBashPatterns = register({
 	id: "bash.patterns",
 	type: "array",
-	default: [],
+	default: EMPTY_BASH_PATTERNS,
+	pathScoped: { valuesKey: "patterns", itemType: "object" },
+	merge: "prepend",
 	ui: {
 		tab: "shell",
 		group: "Bash",
 		label: "Bash Approval Patterns",
 		description:
 			"Ordered bash command approval rules. Each item has match and approval fields; only '*' wildcards are supported.",
+	},
+});
+
+export const cfgBashAllowedEnvVars = register({
+	id: "bash.allowedEnvVars",
+	type: "array",
+	default: EMPTY_STRING_ARRAY,
+	ui: {
+		tab: "shell",
+		group: "Bash",
+		label: "Bash Allowed Environment Variables",
+		description:
+			"Exact environment variable names allowed as leading KEY=VALUE prefixes when matching bash.patterns allow rules (no wildcards). Any value is accepted, so list only benign build/test variables; execution-altering variables (PATH, LD_PRELOAD, BASH_ENV, *_RUNNER, *_WRAPPER) allow arbitrary command execution.",
 	},
 });
 
@@ -183,6 +210,8 @@ export const cfgBashInterceptorPatterns = register({
 	id: "bashInterceptor.patterns",
 	type: "array",
 	default: DEFAULT_BASH_INTERCEPTOR_RULES,
+	pathScoped: { valuesKey: "patterns", itemType: "object" },
+	merge: "prepend",
 });
 
 export const cfgBashDirenv = register({

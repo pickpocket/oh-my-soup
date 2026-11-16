@@ -1,13 +1,20 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
+import { getKeybindings, setKeybindings } from "@oh-my-soup/pi-tui";
+import { KeybindingsManager } from "@oh-my-soup/pi-tui/app-keybindings";
 import { SessionSelectorComponent } from "@oh-my-soup/pi-tui/overlays/session-selector";
 import { initTheme, theme } from "@oh-my-soup/pi-tui/theme";
 import type { SessionInfo } from "@oh-my-soup/pi-coding-agent/session/session-listing";
 
+const previousKeybindings = getKeybindings();
+
 beforeAll(async () => {
 	await initTheme();
+	// The app installs its keymap before any picker opens; `getKeybindings()` alone knows only `tui.*` actions.
+	setKeybindings(KeybindingsManager.inMemory());
 });
 
 afterAll(async () => {
+	setKeybindings(previousKeybindings);
 	await initTheme();
 });
 
@@ -174,7 +181,7 @@ describe("SessionSelectorComponent current session marker", () => {
 			{
 				getTerminalRows: () => 100,
 				currentSessionPath: () => currentPath,
-				allSessions: [alpha, live, other],
+				allSessions: { sessions: [alpha, live, other] },
 				onDelete: async () => {
 					currentPath = "/work/fresh.jsonl";
 					return true;

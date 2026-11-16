@@ -2,7 +2,7 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { IpcConnection } from "@oh-my-soup/pi-natives";
-import { getGlobalDaemonRuntimeDir, isEexist, isEnoent, logger, postmortem } from "@oh-my-soup/pi-utils";
+import { getGlobalDaemonRuntimeDir, isEexist, isEnoent, logger, postmortem, toError } from "@oh-my-soup/pi-utils";
 import { hostHasInheritableConsole } from "../eval/py/spawn-options";
 import { resolveWorkerSpawnCmd, workerEnvFromParent } from "../subprocess/worker-client";
 import { resolveDaemonSpawnOptions } from "./spawn-options";
@@ -72,7 +72,7 @@ async function readOrCreateToken(runtimeDir: string): Promise<string> {
 		try {
 			// node:fs, not Bun.file().text(): on Windows (Bun 1.4.2) a Bun.file
 			// read that rejects with ENOENT holds no event-loop ref, so the loop
-			// drains mid-await — `omp --smoke-test` exited 1 via the unsettled-entry
+			// drains mid-await — `oms --smoke-test` exited 1 via the unsettled-entry
 			// guard, and a bare script silently stops at that await.
 			const token = (await fs.readFile(tokenPath, "utf8")).trim();
 			if (token.length > 0) return token;
@@ -291,7 +291,7 @@ class SocketDaemonClient implements DaemonBrokerClient {
 				this.#bindSocket(await IpcConnection.connect(this.#endpoint, { framing: "lines", timeoutMs: 250 }));
 				return;
 			} catch (error) {
-				lastError = error instanceof Error ? error : new Error(String(error));
+				lastError = toError(error);
 				await Bun.sleep(CONNECT_RETRY_MS);
 			}
 		}
@@ -338,14 +338,14 @@ class SocketDaemonClient implements DaemonBrokerClient {
 		try {
 			decoded = JSON.parse(line);
 		} catch (error) {
-			this.#rejectPending(error instanceof Error ? error : new Error(String(error)));
+			this.#rejectPending(toError(error));
 			return;
 		}
 		let message: DaemonWireMessage;
 		try {
 			message = parseDaemonWireMessage(decoded);
 		} catch (error) {
-			const parseError = error instanceof Error ? error : new Error(String(error));
+			const parseError = toError(error);
 			if (
 				typeof decoded === "object" &&
 				decoded !== null &&
@@ -375,7 +375,7 @@ class SocketDaemonClient implements DaemonBrokerClient {
 		try {
 			pending.resolve(parseDaemonRpcResult(pending.operation, response.result));
 		} catch (error) {
-			pending.reject(error instanceof Error ? error : new Error(String(error)));
+			pending.reject(toError(error));
 		}
 	}
 

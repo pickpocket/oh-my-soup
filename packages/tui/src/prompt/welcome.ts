@@ -7,12 +7,13 @@ import { card, col, keyed, node, row, span, text } from "../native/describe";
 import type { DescribeContext, NativeChild, NativeNode } from "../native/node";
 import { compactText, plainText } from "../native/spans";
 import { isNativeRendering } from "../native/state";
+import { renderProgressBar } from "../components/progress-bar";
 import { isHyperlinkEnabled, urlHyperlink, urlLinkSpan } from "../render/hyperlink";
 import { TERMINAL } from "../terminal-capabilities";
 import { getThemeEpoch, theme } from "../theme/theme";
 import type { Component } from "../tui";
 import { padding, replaceTabs, visibleWidth, wrapTextWithAnsi } from "../utils";
-import { SOUP_LOGO_WIDTH, soupLogo, soupLogoNode, type ShineConfig } from "./pixel-logo";
+import { SOUP_LOGO_ROWS, SOUP_LOGO_WIDTH, soupLogo, soupLogoNode, type ShineConfig } from "./pixel-logo";
 import tipsText from "./tips.txt" with { type: "text" };
 
 /** Leading marker for a tip that pitches Tern: shown only while no TSP surface
@@ -190,13 +191,25 @@ export function renderWelcomeTip(tip: string, width: number, phase = 0): string[
 }
 
 /**
+ * Background self-update activity shown after the welcome banner's version
+ * label: `updating` while a newer `version` downloads (`fraction` once bytes
+ * are counted) or installs, `ready` once the next launch starts it, `failed`
+ * when the attempt stopped.
+ */
+export type VersionUpdate =
+	| { phase: "updating"; version: string; fraction?: number }
+	| { phase: "ready"; version: string }
+	| { phase: "failed"; version: string };
+
+/**
  * The session's welcome banner. In a terminal: the gradient logo beside the
  * `oms` wordmark with the version under it (the logo alone when the lockup does
- * not fit) and the tip of the session (dropped below {@link TIP_MIN_COLUMNS}
- * columns). Natively: a card with the same logo, wordmark, version and tip
- * ({@link WelcomeComponent.describe}).
+ * not fit), any {@link VersionUpdate} after the version, and the tip of the
+ * session (dropped below {@link TIP_MIN_COLUMNS} columns). Natively: a card
+ * with the same logo, wordmark, version and tip ({@link WelcomeComponent.describe}).
  */
 export class WelcomeComponent implements Component {
+	#versionUpdate: VersionUpdate | null = null;
 	#animStart: number | null = null;
 	#animTimer: Timer | null = null;
 	#requestRender: (() => void) | null = null;
@@ -236,42 +249,19 @@ export class WelcomeComponent implements Component {
 		const tip = this.tip;
 		const epoch = getThemeEpoch();
 		if (this.#native && this.#native.tip === tip && this.#native.epoch === epoch) return this.#native.node;
-		// Brand lines are short and fixed; never wrap or truncate them.
-		const art = (spans: readonly TspSpan[], role: string): NativeNode =>
-			keyed(text(spans, { wrap: "none", role }), role);
-		const lockupRow = keyed(
-			row(
-				[
-					soupLogoNode(128, "omp.welcome.logo"),
-
-					keyed(
-						col(
-							[
-								art([span(APP_NAME, "strong")], "omp.welcome.wordmark"),
-								art([span(`v${this.version}`, "dim mono")], "omp.welcome.version"),
-							],
-							{ role: "omp.welcome.mark" },
-						),
-						"mark",
-					),
-				],
-				{ align: "center", gap: "md", role: "omp.welcome.lockup" },
-			),
-			"lockup",
-		);
-		const body: NativeChild[] = [lockupRow];
+		const body: NativeChild[] = [lockupNode(this.version, this.#versionUpdate)];
 		if (tip) {
 			const isNew = NEW_TIP_MARKER.test(tip);
 			const tipText = compactText(tipSpans(expandTipKeys(isNew ? tip.replace(NEW_TIP_MARKER, "") : tip)));
 			const tipRow: NativeChild[] = [
-				node("icon", { name: "lightbulb", role: "omp.welcome.tip-icon" }),
-				text(tipText, { wrap: "word", role: "omp.welcome.tip-text" }),
+				node("icon", { name: "lightbulb", role: "oms.welcome.tip-icon" }),
+				text(tipText, { wrap: "word", role: "oms.welcome.tip-text" }),
 			];
-			if (isNew) tipRow.push(node("shimmer", { text: "New", role: "omp.welcome.new" }));
-			body.push(node("row", { gap: "sm", align: "start", role: "omp.welcome.tip" }, tipRow, "tip"));
+			if (isNew) tipRow.push(node("shimmer", { text: "New", role: "oms.welcome.new" }));
+			body.push(node("row", { gap: "sm", align: "start", role: "oms.welcome.tip" }, tipRow, "tip"));
 		}
 		// No head row or chevron: the card is the hero; the version sits under the wordmark.
-		const described = card({ role: "omp.welcome" }, body);
+		const described = card({ role: "oms.welcome" }, body);
 		this.#native = { tip, epoch, node: described };
 		return described;
 	}
@@ -342,6 +332,12 @@ export class WelcomeComponent implements Component {
 		this.invalidate();
 	}
 
+	/** Show (or with `null`, clear) background self-update activity after the version label. */
+	setVersionUpdate(update: VersionUpdate | null): void {
+		this.#versionUpdate = update;
+		this.invalidate();
+	}
+
 	render(termWidth: number): readonly string[] {
 		const animating = this.#animStart != null;
 		const epoch = getThemeEpoch();
@@ -367,8 +363,12 @@ export class WelcomeComponent implements Component {
 		const logo = this.#currentLogoFrame();
 		const version = theme.fg("dim", `v${this.version}`);
 		const lockupWidth = SOUP_LOGO_WIDTH + LOCKUP_GAP + Math.max(WORDMARK_WIDTH, visibleWidth(version));
-		const art = room >= lockupWidth ? lockup(logo, version) : room >= SOUP_LOGO_WIDTH ? logo : [];
+		const hasLockup = room >= lockupWidth;
+		const art = hasLockup ? lockup(logo, version) : room >= SOUP_LOGO_WIDTH ? logo : [];
+		// Centered without the update indicator, which then trails the version: the
+		// lockup stays put as the indicator appears, grows, and changes form.
 		const lines = centerBlock(art, termWidth);
+		if (hasLockup && this.#versionUpdate) appendVersionUpdate(lines, this.#versionUpdate, termWidth);
 		const tip = termWidth >= TIP_MIN_COLUMNS ? this.#renderTip(room) : [];
 		if (tip.length > 0) lines.push("", ...tip.flatMap(line => centerBlock([line], termWidth)));
 		return lines;
@@ -398,6 +398,39 @@ export class WelcomeComponent implements Component {
 	}
 }
 
+/**
+ * oms's native lockup (`oms.welcome.lockup`, keyed `lockup`): the theme-aware
+ * soup bowl beside the `oms` wordmark with `v<version>` under it.
+ * The welcome card and the setup splash show it.
+ */
+export function lockupNode(version: string, update: VersionUpdate | null = null): NativeNode {
+	// Brand lines are short and fixed; never wrap or truncate them.
+	const art = (spans: readonly TspSpan[], role: string): NativeNode =>
+		keyed(text(spans, { wrap: "none", role }), role);
+	return keyed(
+		row(
+			[
+				soupLogoNode(128, "oms.welcome.logo"),
+				keyed(
+					col(
+						[
+							art([span(APP_NAME, "strong")], "oms.welcome.wordmark"),
+							art(
+								[span(`v${version}`, "dim mono"), ...(update ? versionUpdateSpans(update) : [])],
+								"oms.welcome.version",
+							),
+						],
+						{ role: "oms.welcome.mark" },
+					),
+					"mark",
+				),
+			],
+			{ align: "center", gap: "md", role: "oms.welcome.lockup" },
+		),
+		"lockup",
+	);
+}
+
 /** The `oms` wordmark beside the bowl, with the version below it. */
 const WORDMARK = ["▄▀▀▄ █▀▄▀▄ ▄▀▀", "▀▄▄▀ █ █ █ ▄▄▀", ""];
 
@@ -407,11 +440,84 @@ const WORDMARK_WIDTH = Math.max(...WORDMARK.map(row => row.length));
 /** Columns between the logo and the wordmark. */
 const LOCKUP_GAP = 4;
 
+/** Version row in the wordmark block centered vertically beside the soup bowl. */
+const VERSION_ROW = Math.floor((SOUP_LOGO_ROWS - WORDMARK.length - 1) / 2) + WORDMARK.length;
+
+/** Cells of the download bar in a {@link VersionUpdate} indicator. */
+const UPDATE_BAR_WIDTH = 10;
+
 /** Widest a welcome tip wraps, so a long one stays a centered paragraph. */
 const TIP_MEASURE = 72;
 
 /** Narrowest terminal that still shows the tip; below it the banner is the logo alone. */
 const TIP_MIN_COLUMNS = 50;
+
+/** Download percent, floored so 100% means every byte arrived. */
+function updatePercent(fraction: number): string {
+	return `${Math.floor(Math.min(1, Math.max(0, fraction)) * 100)}%`;
+}
+
+/** Theme tone of a {@link VersionUpdate}: accent while running, success when ready, warning when failed. */
+function updateTone(update: VersionUpdate): "accent" | "success" | "warning" {
+	return update.phase === "ready" ? "success" : update.phase === "failed" ? "warning" : "accent";
+}
+
+/**
+ * Terminal forms of a {@link VersionUpdate} indicator, widest first: `→ v<new>`
+ * with a progress bar and percent while downloading (`updating…` before bytes
+ * are counted), `✔ next launch` once ready, `⚠ update failed` when stopped;
+ * then the arrow and version with the bare percent.
+ */
+function versionUpdateLabels(update: VersionUpdate): string[] {
+	const head = theme.fg(updateTone(update), `→ v${update.version}`);
+	let detail: string;
+	let compact = head;
+	if (update.phase === "updating") {
+		if (update.fraction === undefined) {
+			detail = theme.fg("muted", "updating…");
+		} else {
+			const percent = theme.fg("accent", updatePercent(update.fraction));
+			const bar = renderProgressBar(update.fraction, UPDATE_BAR_WIDTH, {
+				style: {
+					filled: theme.progress.filled,
+					empty: theme.progress.empty,
+					styleFilled: cells => theme.fg("accent", cells),
+					styleEmpty: cells => theme.fg("dim", cells),
+				},
+			});
+			detail = `${bar} ${percent}`;
+			compact = `${head} ${percent}`;
+		}
+	} else if (update.phase === "ready") {
+		detail = theme.fg("success", `${theme.status.success} next launch`);
+	} else {
+		detail = theme.fg("warning", `${theme.status.warning} update failed`);
+	}
+	return [`${head} ${detail}`, compact];
+}
+
+/**
+ * Append the widest {@link versionUpdateLabels} form that fits after the
+ * lockup's version label in `lines`, keeping the right margin column clear;
+ * nothing when none fits.
+ */
+function appendVersionUpdate(lines: string[], update: VersionUpdate, termWidth: number): void {
+	const base = lines[VERSION_ROW];
+	if (base === undefined) return;
+	const room = termWidth - 2 - visibleWidth(base);
+	const label = versionUpdateLabels(update).find(form => visibleWidth(form) <= room);
+	if (label) lines[VERSION_ROW] = `${base} ${label}`;
+}
+
+/** Native spans of a {@link VersionUpdate} indicator, following the version label. */
+function versionUpdateSpans(update: VersionUpdate): TspSpan[] {
+	const tone = updateTone(update);
+	const head = span(` → v${update.version}`, `${tone} mono`);
+	if (update.phase === "ready") return [head, span(" next launch", tone)];
+	if (update.phase === "failed") return [head, span(" update failed", tone)];
+	if (update.fraction === undefined) return [head, span(" updating…", "muted")];
+	return [head, span(` ${updatePercent(update.fraction)}`, `${tone} mono`)];
+}
 
 /** Logo frame `logo` with the wordmark beside it and `version` (styled) under the wordmark. */
 function lockup(logo: readonly string[], version: string): string[] {

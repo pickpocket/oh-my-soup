@@ -1,17 +1,20 @@
 /**
- * Hand a session to another machine.
+ * Hand a session to another machine, or check who owns it.
  *
  * `oms session pack <session> <out.tar>` writes a self-contained archive,
  * `oms session unpack <archive.tar> --cwd <dir>` lands it in `<dir>`'s session
- * directory (printing the session file path as the only stdout line), and
+ * directory (printing the session file path as the only stdout line),
  * `oms session moved <session> --to <label>` marks the copy left behind stale
- * so resuming it forks instead of continuing it.
+ * so resuming it forks instead of continuing it, and
+ * `oms session lease --json -- <id>...` reports which sessions a running oms owns
+ * without taking their ownership leases.
  */
 import chalk from "@oh-my-soup/pi-utils/chalk";
 import { Args, CliUsageError, Command, Flags } from "@oh-my-soup/pi-utils/cli";
 import { sessionHelp as commandHelp } from "../cli/command-help";
 import { resolveSessionFileArg } from "../cli/session-arg";
 import { SessionMoveRefusedError } from "../session/session-manager";
+import { probeSessionLeases } from "../session/session-storage";
 import {
 	markSessionMoved,
 	packSession,
@@ -20,13 +23,14 @@ import {
 	type UnpackMode,
 } from "../session/session-transfer";
 
-const ACTIONS = ["pack", "unpack", "moved"] as const;
+const ACTIONS = ["pack", "unpack", "moved", "lease"] as const;
 type SessionAction = (typeof ACTIONS)[number];
 
 const USAGE: Record<SessionAction, string> = {
 	pack: "oms session pack <session> <out.tar>",
 	unpack: "oms session unpack <archive.tar> --cwd <dir>",
 	moved: "oms session moved <session> --to <label>",
+	lease: "oms session lease [--json] -- <session-id>...",
 };
 
 const UNPACK_NOTE: Record<UnpackMode, string> = {
@@ -39,17 +43,32 @@ function isSessionAction(value: string): value is SessionAction {
 	return ACTIONS.some(action => action === value);
 }
 
+/**
+ * Probe each id's ownership lease without taking it. JSON consumers (oms-web)
+ * get `{held, unknown}`; ids in neither list are free, including ids that name
+ * no session.
+ */
+function printSessionLeases(sessionIds: string[], json: boolean): void {
+	const report = probeSessionLeases(sessionIds);
+	if (json) {
+		process.stdout.write(`${JSON.stringify(report)}\n`);
+		return;
+	}
+	for (const id of report.held) process.stdout.write(`held\t${id}\n`);
+	for (const id of report.unknown) process.stdout.write(`unknown\t${id}\n`);
+}
+
 export default class Session extends Command {
 	static description = commandHelp.description;
 
 	static args = {
 		action: Args.string({
-			description: "pack, unpack, or moved",
+			description: "pack, unpack, moved, or lease",
 			required: true,
 			options: ACTIONS,
 		}),
 		source: Args.string({
-			description: "Session .jsonl path or id (pack, moved); archive path (unpack)",
+			description: "Session .jsonl path or id (pack, moved); archive path (unpack); session ids (lease)",
 			required: false,
 		}),
 		output: Args.string({
@@ -61,12 +80,14 @@ export default class Session extends Command {
 	static flags = {
 		cwd: Flags.string({ description: "Directory the session continues in on this machine (unpack)" }),
 		to: Flags.string({ description: "Where the session went, e.g. a machine name (moved)" }),
+		json: Flags.boolean({ description: "Print {held, unknown} session id lists as JSON (lease)" }),
 	};
 
 	static examples = [
 		"# Pack a session with its artifacts and image blobs\n  oms session pack ~/.oms/agent/sessions/<project>/<file>.jsonl /tmp/session.tar",
 		"# Unpack it on another machine; prints the session file path\n  oms session unpack /tmp/session.tar --cwd ~/src/project",
 		"# Mark the local copy stale; resuming it later forks it\n  oms session moved <file>.jsonl --to cloud",
+		"# List which of these sessions a running oms owns, without taking ownership (`--` keeps ids starting with `-` from parsing as options)\n  oms session lease --json -- <id> <id>",
 	];
 
 	async run(): Promise<void> {
@@ -74,6 +95,16 @@ export default class Session extends Command {
 		const action = args.action ?? "";
 		if (!isSessionAction(action)) throw new CliUsageError(`Unknown action: ${action}`);
 		const usage = USAGE[action];
+		if (action === "lease") {
+			if (flags.cwd !== undefined || flags.to !== undefined) {
+				throw new CliUsageError(`--cwd and --to do not apply to lease. Usage: ${usage}`);
+			}
+			const sessionIds = argv.slice(1);
+			if (sessionIds.length === 0) throw new CliUsageError(`Missing session id. Usage: ${usage}`);
+			printSessionLeases(sessionIds, flags.json === true);
+			return;
+		}
+		if (flags.json) throw new CliUsageError(`--json only applies to lease. Usage: ${usage}`);
 		if (argv.length > (action === "pack" ? 3 : 2)) {
 			throw new CliUsageError(`Unexpected argument "${argv.at(-1)}". Usage: ${usage}`);
 		}

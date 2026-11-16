@@ -8,7 +8,7 @@ import type { TUI } from "../src/index";
 import { CopySelectorComponent } from "../src/overlays/copy-selector";
 import { type BranchVariantPath, RewindSelectorComponent } from "../src/overlays/rewind-selector";
 import { TreeSelectorComponent, type TreeSelectorNode } from "../src/overlays/tree-selector";
-import { initTheme } from "../src/theme";
+import { initTheme, setTheme } from "../src/theme";
 
 const pickerCx: DescribeContext = {
 	cols: 120,
@@ -81,12 +81,20 @@ const typeText = (component: { handleInput(data: string): void }, text: string) 
 };
 
 describe("rewind page", () => {
-	function rewind(deps: { selected?: string[]; cancelled?: { count: number }; siblings?: BranchVariantPath[] } = {}) {
+	function rewind(
+		deps: {
+			selected?: string[];
+			cancelled?: { count: number };
+			siblings?: BranchVariantPath[];
+			startAt?: string;
+		} = {},
+	) {
 		return new RewindSelectorComponent(transcript(), {
 			ui,
 			cwd: "/tmp",
 			requestRender: () => {},
 			siblingPaths: id => (id === "u2" ? (deps.siblings ?? []) : []),
+			startAt: deps.startAt,
 			onSelect: id => deps.selected?.push(id),
 			onCancel: () => {
 				if (deps.cancelled) deps.cancelled.count++;
@@ -103,7 +111,7 @@ describe("rewind page", () => {
 		for (const child of children) {
 			const entry =
 				"k" in child
-					? child.p?.role === "omp.rewind.here"
+					? child.p?.role === "oms.rewind.here"
 						? (child.key ?? "here")
 						: (child.p?.role ?? child.k)
 					: (child.describe?.(pickerCx)?.p?.mark ?? "-");
@@ -113,17 +121,48 @@ describe("rewind page", () => {
 	}
 
 	function captionText(children: readonly NativeChild[]): string {
-		const caption = children.find(child => "k" in child && child.p?.role === "omp.rewind.here");
+		const caption = children.find(child => "k" in child && child.p?.role === "oms.rewind.here");
 		return JSON.stringify(caption);
 	}
 
 	test("opens on the newest turn: the transcript as blocks, the turn picked under its caption", () => {
 		const page = rewind().describeScreen(pickerCx);
-		expect(page.role).toBe("omp.rewind");
+		expect(page.role).toBe("oms.rewind");
 		expect(marks(page.main)).toEqual(["-", "here:main:u2", "pick"]);
 		expect(captionText(page.main)).toContain("nothing below to drop");
 		expect(page.dock).toHaveLength(1);
 		expect(JSON.stringify((page.dock[0] as RewindSelectorComponent).describe(pickerCx))).toContain("4/4");
+	});
+
+	test("an interrupted turn that shows nothing is never picked: the page opens on the turn above it", () => {
+		// Interrupted before the first token: no text, no usage row.
+		const interrupted = {
+			...assistant([]),
+			stopReason: "aborted",
+			errorMessage: "Interrupted by user",
+			usage: {
+				input: 0,
+				output: 0,
+				cacheRead: 0,
+				cacheWrite: 0,
+				totalTokens: 0,
+				cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+			},
+		} as unknown as AgentMessage;
+		const selector = new RewindSelectorComponent([...transcript(), entry("a3", "u2", interrupted)], {
+			ui,
+			cwd: "/tmp",
+			requestRender: () => {},
+			onSelect: () => {},
+			onCancel: () => {},
+		});
+		const { main } = selector.describeScreen(pickerCx);
+		expect(marks(main)).toEqual(["-", "here:main:u2", "pick", "drop"]);
+		expect(captionText(main)).toContain("1 turn below dropped");
+		expect(JSON.stringify(selector.describe(pickerCx))).toContain("4/5");
+		// Down has nothing that shows to step onto.
+		selector.handleInput("\x1b[B");
+		expect(marks(selector.describeScreen(pickerCx).main)).toEqual(["-", "here:main:u2", "pick", "drop"]);
 	});
 
 	test("stepping up moves the pick and drops everything below it", () => {
@@ -131,7 +170,7 @@ describe("rewind page", () => {
 		for (let i = 0; i < 3; i++) selector.handleInput(UP);
 		const { main } = selector.describeScreen(pickerCx);
 		expect(marks(main)).toEqual(["here:main:u1", "pick", "drop"]);
-		const caption = main.find(child => "k" in child && child.p?.role === "omp.rewind.here");
+		const caption = main.find(child => "k" in child && child.p?.role === "oms.rewind.here");
 		expect(caption && "k" in caption ? caption.reveal : undefined).toBe("start");
 		// A user turn rewinds past itself: its prompt returns to the editor.
 		expect(captionText(main)).toContain("the prompt returns to the editor");
@@ -154,6 +193,26 @@ describe("rewind page", () => {
 		expect(cancelled.count).toBe(1);
 	});
 
+	test("a click or tap on a turn picks it, and Rewind here rewinds there", () => {
+		const selected: string[] = [];
+		const selector = rewind({ selected });
+		const first = selector.describeScreen(pickerCx).main[0]!;
+		if ("k" in first) throw new Error("expected the first prompt's block");
+		expect(first.describe?.(pickerCx)?.p?.actions?.click).toBe("rewind-pick");
+		first.handleNativeEvent?.({ type: "action", key: "", act: "rewind-pick", mods: [] });
+		expect(marks(selector.describeScreen(pickerCx).main)).toEqual(["here:main:u1", "pick", "drop"]);
+		selector.handleNativeEvent({ type: "action", key: "rewind", act: "rewind", mods: [] });
+		expect(selected).toEqual(["u1"]);
+	});
+
+	test("opens on the turn a hold menu's Rewind to here… names", () => {
+		const selected: string[] = [];
+		const selector = rewind({ selected, startAt: "a2" });
+		expect(marks(selector.describeScreen(pickerCx).main)).toEqual(["-", "here:main:a2", "pick", "drop"]);
+		selector.handleInput("\r");
+		expect(selected).toEqual(["a2"]);
+	});
+
 	test("filtering shows only matching turns; Cancel leaves the filter before closing", () => {
 		const cancelled = { count: 0 };
 		const selector = rewind({ cancelled });
@@ -164,7 +223,7 @@ describe("rewind page", () => {
 			typeText(selector, "thanks");
 			expect(marks(selector.describeScreen(pickerCx).main)).toEqual(["here:main:u2", "pick"]);
 			typeText(selector, "zzz");
-			expect(marks(selector.describeScreen(pickerCx).main)).toEqual(["omp.rewind.empty"]);
+			expect(marks(selector.describeScreen(pickerCx).main)).toEqual(["oms.rewind.empty"]);
 		} finally {
 			setNativeRendering(false);
 		}
@@ -189,18 +248,18 @@ describe("rewind page", () => {
 		const selector = rewind({ selected, siblings });
 		let { main } = selector.describeScreen(pickerCx);
 		const strip = main.at(-1);
-		if (!strip || !("k" in strip) || strip.p?.role !== "omp.rewind.strip")
+		if (!strip || !("k" in strip) || strip.p?.role !== "oms.rewind.strip")
 			throw new Error("expected the branch strip last");
 		const [current, other] = (strip.c ?? []) as NativeNode[];
 		expect([current?.p?.tone, other?.p?.tone]).toEqual(["accent", undefined]);
-		expect(marks(current?.c ?? [])).toEqual(["omp.rewind.branch.head", "here:main:u2", "pick"]);
-		expect(marks(other?.c ?? [])).toEqual(["omp.rewind.branch.head", "-"]);
+		expect(marks(current?.c ?? [])).toEqual(["oms.rewind.branch.head", "here:main:u2", "pick"]);
+		expect(marks(other?.c ?? [])).toEqual(["oms.rewind.branch.head", "-"]);
 
 		selector.handleInput(RIGHT);
 		main = selector.describeScreen(pickerCx).main;
 		const [, next] = ((main.at(-1) as NativeNode).c ?? []) as NativeNode[];
 		expect(next?.p?.tone).toBe("accent");
-		expect(marks(next?.c ?? [])).toEqual(["omp.rewind.branch.head", "here:u3:u3", "pick", "drop"]);
+		expect(marks(next?.c ?? [])).toEqual(["oms.rewind.branch.head", "here:u3:u3", "pick", "drop"]);
 		selector.handleInput("\r");
 		expect(selected).toEqual(["u3"]);
 	});
@@ -226,15 +285,15 @@ describe("copy picker", () => {
 		expect(
 			sections().map(section => [section.key, (section.p as TspProps<"section">).head, section.p?.role]),
 		).toEqual([
-			["whole", "Whole message", "omp.picker.block"],
-			["b0", expect.stringContaining("rust"), "omp.picker.block"],
+			["whole", "Whole message", "oms.picker.block"],
+			["b0", expect.stringContaining("rust"), "oms.picker.block"],
 		]);
 		expect(sections()[1]?.p?.actions?.click).toBe("copy");
 
 		selector.handleNativeEvent({ type: "action", key: "", act: "blocks", mods: [] });
 		root = selector.describe(pickerCx);
 		expect(props(root).focus).toBe("preview");
-		expect(sections()[1]?.p?.role).toBe("omp.picker.block.focused");
+		expect(sections()[1]?.p?.role).toBe("oms.picker.block.focused");
 		expect(props(root).actions?.find(action => action.id === "close")?.label).toBe("Back");
 	});
 
@@ -302,6 +361,97 @@ describe("session tree picker", () => {
 		expect(byId.get("u3")?.badges).toEqual([{ text: "idea", tone: "warning" }]);
 		expect((byId.get("u2")?.depth ?? 0) > (byId.get("a1")?.depth ?? 0)).toBe(true);
 		expect(p.selected).toBe("a3");
+	});
+
+	test("an open tree keeps user and assistant labels apart as the theme switches", async () => {
+		const selector = treeSelector();
+		const labelStyles = () => {
+			const items = treeProps(selector).items ?? [];
+			return ["u1", "a1"].map(id => {
+				const label = items.find(item => item.id === id)?.label;
+				return typeof label === "string" ? undefined : label?.[0]?.s;
+			});
+		};
+		try {
+			await setTheme("dark-github");
+			expect(labelStyles()).toEqual(["accent strong", "success"]);
+			// `dark-terminal` paints `accent` and `success` the same green.
+			await setTheme("dark-terminal");
+			expect(labelStyles()).toEqual(["accent strong", "statusLinePath"]);
+			await setTheme("dark-github");
+			expect(labelStyles()).toEqual(["accent strong", "success"]);
+		} finally {
+			await initTheme(false);
+		}
+	});
+
+	test("message labels fold \\r and Unicode line separators without flattening the selected preview", () => {
+		const content = "Front End \r\u2028\u2029Act as a UI lead";
+		const entries = [
+			entry("user", null, user(content)),
+			entry("assistant", "user", assistant([{ type: "text", text: content }])),
+		];
+		const selector = new TreeSelectorComponent(
+			[{ entry: entries[0]!, children: [{ entry: entries[1]!, children: [] }] }],
+			"assistant",
+			40,
+			() => {},
+			() => {},
+		);
+		for (const item of treeProps(selector).items ?? []) {
+			const label = typeof item.label === "string" ? item.label : item.label.map(part => part.t).join("");
+			expect(label).toBe(`${item.id}: Front End    Act as a UI lead`);
+		}
+		for (const row of selector.render(100)) expect(row).not.toMatch(/[\r\n\u2028\u2029]/);
+		const preview = selector.describe(pickerCx).c?.[0] as NativeNode;
+		expect(preview.c?.at(-1)).toMatchObject({ k: "md", p: { text: content } });
+	});
+
+	test("line separators cannot escape through tool summaries, session markers or label badges", () => {
+		const value = "before\u2028\u2029after";
+		const nodes: TreeSelectorNode[] = [
+			{
+				entry: entry(
+					"calls",
+					null,
+					assistant([{ type: "toolCall", id: "c0", name: "bash", arguments: { command: value } }]),
+				),
+				children: [],
+			},
+			{
+				entry: entry("tool0", null, { ...toolResult("c0", ""), toolName: "bash" } as AgentMessage),
+				children: [],
+			},
+			{
+				entry: {
+					type: "model_change",
+					model: value,
+					provider: "demo",
+					id: "marker0",
+					parentId: null,
+					timestamp: "2026-10-29T00:00:00Z",
+				},
+				children: [],
+				label: value,
+			} as TreeSelectorNode,
+		];
+		const selector = new TreeSelectorComponent(
+			nodes,
+			null,
+			40,
+			() => {},
+			() => {},
+			undefined,
+			"all",
+		);
+		const p = treeProps(selector);
+		for (const id of ["tool0", "marker0"]) {
+			const item = p.items?.find(item => item.id === id);
+			const label = typeof item!.label === "string" ? item!.label : item!.label.map(part => part.t).join("");
+			expect(label).toContain("before  after");
+			for (const badge of item!.badges ?? []) expect(badge.text).toBe("before  after");
+		}
+		for (const row of selector.render(100)) expect(row).not.toMatch(/[\r\n\u2028\u2029]/);
 	});
 
 	test("typing and filter tabs change the order, never the catalogue", () => {

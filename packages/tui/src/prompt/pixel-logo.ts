@@ -193,7 +193,7 @@ for (const [y, line] of GRID.entries()) {
 let nativeLogo: { epoch: number; bytes: Uint8Array } | undefined;
 
 /** Theme-aware, owned SVG image for native welcome and setup surfaces. */
-export function soupLogoNode(width: number, role = "omp.setup.logo"): NativeNode {
+export function soupLogoNode(width: number, role = "oms.setup.logo"): NativeNode {
 	const epoch = getThemeEpoch();
 	if (nativeLogo === undefined || nativeLogo.epoch !== epoch) {
 		const paths = Object.entries(PALETTE_KEYS)

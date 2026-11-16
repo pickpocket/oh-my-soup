@@ -64,8 +64,8 @@ Add this line at the top of the file for editor autocomplete and validation:
 
 ```json
 {
-  "$schema": "https://raw.githubusercontent.com/pickpocket/oh-my-soup/main/packages/coding-agent/src/config/mcp-schema.json",
-  "mcpServers": {}
+	"$schema": "https://raw.githubusercontent.com/pickpocket/oh-my-soup/main/packages/coding-agent/src/config/mcp-schema.json",
+	"mcpServers": {}
 }
 ```
 
@@ -77,15 +77,15 @@ OMS supports this top-level structure:
 
 ```json
 {
-  "$schema": "https://raw.githubusercontent.com/pickpocket/oh-my-soup/main/packages/coding-agent/src/config/mcp-schema.json",
-  "mcpServers": {
-    "server-name": {
-      "type": "stdio",
-      "command": "npx",
-      "args": ["-y", "some-mcp-server"]
-    }
-  },
-  "disabledServers": ["server-name"]
+	"$schema": "https://raw.githubusercontent.com/pickpocket/oh-my-soup/main/packages/coding-agent/src/config/mcp-schema.json",
+	"mcpServers": {
+		"server-name": {
+			"type": "stdio",
+			"command": "npx",
+			"args": ["-y", "some-mcp-server"]
+		}
+	},
+	"disabledServers": ["server-name"]
 }
 ```
 
@@ -142,18 +142,13 @@ Example:
 
 ```json
 {
-  "$schema": "https://raw.githubusercontent.com/pickpocket/oh-my-soup/main/packages/coding-agent/src/config/mcp-schema.json",
-  "mcpServers": {
-    "filesystem": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "@modelcontextprotocol/server-filesystem",
-        "/Users/alice/projects",
-        "/Users/alice/Documents"
-      ]
-    }
-  }
+	"$schema": "https://raw.githubusercontent.com/pickpocket/oh-my-soup/main/packages/coding-agent/src/config/mcp-schema.json",
+	"mcpServers": {
+		"filesystem": {
+			"command": "npx",
+			"args": ["-y", "@modelcontextprotocol/server-filesystem", "/Users/alice/projects", "/Users/alice/Documents"]
+		}
+	}
 }
 ```
 
@@ -174,13 +169,13 @@ Example:
 
 ```json
 {
-  "$schema": "https://raw.githubusercontent.com/pickpocket/oh-my-soup/main/packages/coding-agent/src/config/mcp-schema.json",
-  "mcpServers": {
-    "github": {
-      "type": "http",
-      "url": "https://api.githubcopilot.com/mcp/"
-    }
-  }
+	"$schema": "https://raw.githubusercontent.com/pickpocket/oh-my-soup/main/packages/coding-agent/src/config/mcp-schema.json",
+	"mcpServers": {
+		"github": {
+			"type": "http",
+			"url": "https://api.githubcopilot.com/mcp/"
+		}
+	}
 }
 ```
 
@@ -201,13 +196,13 @@ Example:
 
 ```json
 {
-  "$schema": "https://raw.githubusercontent.com/pickpocket/oh-my-soup/main/packages/coding-agent/src/config/mcp-schema.json",
-  "mcpServers": {
-    "legacy-remote": {
-      "type": "sse",
-      "url": "https://example.com/mcp/sse"
-    }
-  }
+	"$schema": "https://raw.githubusercontent.com/pickpocket/oh-my-soup/main/packages/coding-agent/src/config/mcp-schema.json",
+	"mcpServers": {
+		"legacy-remote": {
+			"type": "sse",
+			"url": "https://example.com/mcp/sse"
+		}
+	}
 }
 ```
 
@@ -221,12 +216,12 @@ OMS understands two auth-related objects.
 
 ```json
 {
-  "type": "oauth",
-  "credentialId": "optional-stored-credential-id",
-  "tokenUrl": "optional-token-endpoint",
-  "clientId": "optional-client-id",
-  "clientSecret": "optional-client-secret",
-  "resource": "optional-mcp-resource-uri"
+	"type": "oauth",
+	"credentialId": "optional-stored-credential-id",
+	"tokenUrl": "optional-token-endpoint",
+	"clientId": "optional-client-id",
+	"clientSecret": "optional-client-secret",
+	"resource": "optional-mcp-resource-uri"
 }
 ```
 
@@ -260,19 +255,19 @@ profile for untrusted checkouts.
 
 ```json
 {
-  "clientId": "...",
-  "clientSecret": "...",
-  "scope": "optional space-separated scopes",
-  "redirectUri": "...",
-  "callbackPort": 3334,
-  "callbackPath": "/oauth/callback",
-  "prompt": "consent"
+	"clientId": "...",
+	"clientSecret": "...",
+	"scope": "optional space-separated scopes",
+	"redirectUri": "...",
+	"callbackPort": 3334,
+	"callbackPath": "/oauth/callback",
+	"prompt": "consent"
 }
 ```
 
 Use `oauth` when the MCP server requires explicit OAuth client, scope, or callback settings. The callback listener defaults to port `3000` and path `/callback`; an HTTP loopback `redirectUri` supplies its own port/path unless explicitly overridden. An HTTPS loopback redirect requires a distinct `callbackPort` for the local HTTP listener behind your TLS terminator.
 
-During `/mcp reauth`, scopes advertised by the protected resource or its authentication challenge take precedence; `oauth.scope` supplies the fallback. Authorization-server `scopes_supported` is a catalogue of available scopes, not a request to grant all of them. OMP does not copy that catalogue into the login request. If the resource advertises no scopes, set `oauth.scope` to the scopes allowed for your registered client (for example, `"openid"` for an OpenID Connect login), or leave it unset to use the authorization server's defaults.
+During `/mcp reauth`, scopes advertised by the protected resource or its authentication challenge take precedence; `oauth.scope` supplies the fallback. Authorization-server `scopes_supported` is a catalogue of available scopes, not a request to grant all of them. OMS does not copy that catalogue into the login request. If the resource advertises no scopes, set `oauth.scope` to the scopes allowed for your registered client (for example, `"openid"` for an OpenID Connect login), or leave it unset to use the authorization server's defaults.
 
 Scopes from resource-server-hosted `/oauth/metadata` and `/.mcp/auth` documents are also preserved, including nested `oauth`, `authorization`, and `auth` blocks. Their `scopes_supported` arrays are not treated as resource requirements when those paths are probed on an explicitly identified authorization server.
 
@@ -282,23 +277,23 @@ Example:
 
 ```json
 {
-  "$schema": "https://raw.githubusercontent.com/pickpocket/oh-my-soup/main/packages/coding-agent/src/config/mcp-schema.json",
-  "mcpServers": {
-    "slack": {
-      "type": "http",
-      "url": "https://mcp.slack.com/mcp",
-      "oauth": {
-        "clientId": "YOUR_SLACK_CLIENT_ID",
-        "clientSecret": "YOUR_SLACK_CLIENT_SECRET"
-      },
-      "auth": {
-        "type": "oauth",
-        "tokenUrl": "https://slack.com/api/oauth.v2.user.access",
-        "clientId": "YOUR_SLACK_CLIENT_ID",
-        "clientSecret": "YOUR_SLACK_CLIENT_SECRET"
-      }
-    }
-  }
+	"$schema": "https://raw.githubusercontent.com/pickpocket/oh-my-soup/main/packages/coding-agent/src/config/mcp-schema.json",
+	"mcpServers": {
+		"slack": {
+			"type": "http",
+			"url": "https://mcp.slack.com/mcp",
+			"oauth": {
+				"clientId": "YOUR_SLACK_CLIENT_ID",
+				"clientSecret": "YOUR_SLACK_CLIENT_SECRET"
+			},
+			"auth": {
+				"type": "oauth",
+				"tokenUrl": "https://slack.com/api/oauth.v2.user.access",
+				"clientId": "YOUR_SLACK_CLIENT_ID",
+				"clientSecret": "YOUR_SLACK_CLIENT_SECRET"
+			}
+		}
+	}
 }
 ```
 
@@ -314,18 +309,13 @@ Relevant Slack endpoints from Slack's docs:
 
 ```json
 {
-  "$schema": "https://raw.githubusercontent.com/pickpocket/oh-my-soup/main/packages/coding-agent/src/config/mcp-schema.json",
-  "mcpServers": {
-    "filesystem": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "@modelcontextprotocol/server-filesystem",
-        "/absolute/path/one",
-        "/absolute/path/two"
-      ]
-    }
-  }
+	"$schema": "https://raw.githubusercontent.com/pickpocket/oh-my-soup/main/packages/coding-agent/src/config/mcp-schema.json",
+	"mcpServers": {
+		"filesystem": {
+			"command": "npx",
+			"args": ["-y", "@modelcontextprotocol/server-filesystem", "/absolute/path/one", "/absolute/path/two"]
+		}
+	}
 }
 ```
 
@@ -333,13 +323,13 @@ Relevant Slack endpoints from Slack's docs:
 
 ```json
 {
-  "$schema": "https://raw.githubusercontent.com/pickpocket/oh-my-soup/main/packages/coding-agent/src/config/mcp-schema.json",
-  "mcpServers": {
-    "github": {
-      "type": "http",
-      "url": "https://api.githubcopilot.com/mcp/"
-    }
-  }
+	"$schema": "https://raw.githubusercontent.com/pickpocket/oh-my-soup/main/packages/coding-agent/src/config/mcp-schema.json",
+	"mcpServers": {
+		"github": {
+			"type": "http",
+			"url": "https://api.githubcopilot.com/mcp/"
+		}
+	}
 }
 ```
 
@@ -347,23 +337,16 @@ Relevant Slack endpoints from Slack's docs:
 
 ```json
 {
-  "$schema": "https://raw.githubusercontent.com/pickpocket/oh-my-soup/main/packages/coding-agent/src/config/mcp-schema.json",
-  "mcpServers": {
-    "github": {
-      "command": "docker",
-      "args": [
-        "run",
-        "-i",
-        "--rm",
-        "-e",
-        "GITHUB_PERSONAL_ACCESS_TOKEN",
-        "ghcr.io/github/github-mcp-server"
-      ],
-      "env": {
-        "GITHUB_PERSONAL_ACCESS_TOKEN": "GITHUB_PERSONAL_ACCESS_TOKEN"
-      }
-    }
-  }
+	"$schema": "https://raw.githubusercontent.com/pickpocket/oh-my-soup/main/packages/coding-agent/src/config/mcp-schema.json",
+	"mcpServers": {
+		"github": {
+			"command": "docker",
+			"args": ["run", "-i", "--rm", "-e", "GITHUB_PERSONAL_ACCESS_TOKEN", "ghcr.io/github/github-mcp-server"],
+			"env": {
+				"GITHUB_PERSONAL_ACCESS_TOKEN": "GITHUB_PERSONAL_ACCESS_TOKEN"
+			}
+		}
+	}
 }
 ```
 
@@ -373,23 +356,23 @@ This matches GitHub's official local Docker image `ghcr.io/github/github-mcp-ser
 
 ```json
 {
-  "$schema": "https://raw.githubusercontent.com/pickpocket/oh-my-soup/main/packages/coding-agent/src/config/mcp-schema.json",
-  "mcpServers": {
-    "slack": {
-      "type": "http",
-      "url": "https://mcp.slack.com/mcp",
-      "oauth": {
-        "clientId": "YOUR_SLACK_CLIENT_ID",
-        "clientSecret": "YOUR_SLACK_CLIENT_SECRET"
-      },
-      "auth": {
-        "type": "oauth",
-        "tokenUrl": "https://slack.com/api/oauth.v2.user.access",
-        "clientId": "YOUR_SLACK_CLIENT_ID",
-        "clientSecret": "YOUR_SLACK_CLIENT_SECRET"
-      }
-    }
-  }
+	"$schema": "https://raw.githubusercontent.com/pickpocket/oh-my-soup/main/packages/coding-agent/src/config/mcp-schema.json",
+	"mcpServers": {
+		"slack": {
+			"type": "http",
+			"url": "https://mcp.slack.com/mcp",
+			"oauth": {
+				"clientId": "YOUR_SLACK_CLIENT_ID",
+				"clientSecret": "YOUR_SLACK_CLIENT_SECRET"
+			},
+			"auth": {
+				"type": "oauth",
+				"tokenUrl": "https://slack.com/api/oauth.v2.user.access",
+				"clientId": "YOUR_SLACK_CLIENT_ID",
+				"clientSecret": "YOUR_SLACK_CLIENT_SECRET"
+			}
+		}
+	}
 }
 ```
 
@@ -405,15 +388,15 @@ Example:
 
 ```json
 {
-  "mcpServers": {
-    "github": {
-      "type": "http",
-      "url": "https://api.githubcopilot.com/mcp/",
-      "headers": {
-        "Authorization": "Bearer ${GITHUB_TOKEN}"
-      }
-    }
-  }
+	"mcpServers": {
+		"github": {
+			"type": "http",
+			"url": "https://api.githubcopilot.com/mcp/",
+			"headers": {
+				"Authorization": "Bearer ${GITHUB_TOKEN}"
+			}
+		}
+	}
 }
 ```
 
@@ -423,7 +406,7 @@ Portable Agent Plugins use different secret semantics: only `${PLUGIN_ROOT}` and
 
 Before OMS launches a stdio server or makes an HTTP/SSE request, it resolves stdio `env` values and HTTP/SSE `headers` values like this:
 
-1. If a value starts with `!`, OMS runs the rest as a shell command in the project directory with a 10s timeout and uses trimmed stdout. Successful results are process-cached until invalidated; concurrent resolutions share the same command execution.
+1. If a value starts with `!`, OMS runs the rest as a shell command in the project directory with a 10s timeout and uses trimmed stdout. Successful results are process-cached; concurrent resolutions share the same command execution. A server's commands run again when it reconnects (`/mcp reconnect`, an automatic reconnect, `/mcp reload`) and, for HTTP/SSE `headers`, when the server answers 401/403 — the request is then retried once with the new values. This keeps commands that mint short-lived tokens working past expiry.
 2. If the command fails, times out, or prints only whitespace, that `env`/`headers` entry is omitted. Failed commands are retried on a later resolution after a 30s backoff.
 3. Otherwise OMS checks whether the whole value names an environment variable.
 4. If that environment variable is set to a non-empty value, OMS uses the environment value; otherwise it uses the string literally.
@@ -432,12 +415,12 @@ Examples:
 
 ```json
 {
-  "env": {
-    "GITHUB_PERSONAL_ACCESS_TOKEN": "GITHUB_PERSONAL_ACCESS_TOKEN"
-  },
-  "headers": {
-    "X-MCP-Insiders": "true"
-  }
+	"env": {
+		"GITHUB_PERSONAL_ACCESS_TOKEN": "GITHUB_PERSONAL_ACCESS_TOKEN"
+	},
+	"headers": {
+		"X-MCP-Insiders": "true"
+	}
 }
 ```
 
@@ -456,9 +439,9 @@ The active profile's user file supplies two cross-source overrides:
 
 ```json
 {
-  "$schema": "https://raw.githubusercontent.com/pickpocket/oh-my-soup/main/packages/coding-agent/src/config/mcp-schema.json",
-  "disabledServers": ["github"],
-  "enabledServers": ["tool-owned-server"]
+	"$schema": "https://raw.githubusercontent.com/pickpocket/oh-my-soup/main/packages/coding-agent/src/config/mcp-schema.json",
+	"disabledServers": ["github"],
+	"enabledServers": ["tool-owned-server"]
 }
 ```
 
@@ -509,7 +492,7 @@ OMS loads providers in descending priority. The MCP-capable order is:
 7. OpenCode
 8. Cursor and Windsurf
 9. VS Code
-10. root `mcp.json` / `.mcp.json` fallback files
+10.   root `mcp.json` / `.mcp.json` fallback files
 
 Across providers, the first definition wins. Duplicate names are not merged; OpenCode's internal config layers are the exception described above. A differently named definition is also shadowed when its transport, endpoint/command inputs, auth, and request-id mode are equivalent to a higher-priority definition.
 

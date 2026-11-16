@@ -1,19 +1,25 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { CONFIG_DIR_NAME, getConfigAgentDirName, getProjectDir, LEGACY_CONFIG_DIR_NAME } from "@oh-my-soup/pi-utils";
+import { CONFIG_DIR_NAME, getAgentDir, getProjectDir, LEGACY_CONFIG_DIR_NAME } from "@oh-my-soup/pi-utils";
 import { isUserSourceEnabled } from "./capability";
 import { resolveClaudePaths } from "./config/claude-paths";
 import { expandTilde } from "./tools/path-utils";
 
 export * from "./config/config-file";
 
-const priorityList = [
-	{ dir: CONFIG_DIR_NAME, globalAgentDir: getConfigAgentDirName },
+/**
+ * Config sources, highest priority first. `userBase` overrides the default
+ * `~/<dir>` user-level location: oms's own user dir follows `getAgentDir()`
+ * (profile, `PI_CONFIG_DIR`, and `PI_CODING_AGENT_DIR` aware), Claude's follows
+ * its active config directory.
+ */
+const priorityList: Array<{ dir: string; userBase?: () => string }> = [
+	{ dir: CONFIG_DIR_NAME, userBase: getAgentDir },
 	// Pre-rebrand tier: `.omp` trees still load below `.oms` so migrated
 	// configuration wins when both locations exist.
-	{ dir: LEGACY_CONFIG_DIR_NAME, globalAgentDir: () => `${LEGACY_CONFIG_DIR_NAME}/agent` },
-	{ dir: ".claude" },
+	{ dir: LEGACY_CONFIG_DIR_NAME, userBase: () => path.join(os.homedir(), LEGACY_CONFIG_DIR_NAME, "agent") },
+	{ dir: ".claude", userBase: () => resolveClaudePaths().configDir },
 	{ dir: ".codex" },
 	{ dir: ".gemini" },
 ];
@@ -81,13 +87,12 @@ export function getChangelogPath(): string | undefined {
 // =============================================================================
 
 /**
- * User-level: ~/.oms/agent, ~/.omp/agent (legacy), Claude's active config directory,
+ * User-level: the oms agent dir (~/.oms/agent), ~/.omp/agent (legacy), Claude's active config directory,
  * ~/.codex, ~/.gemini
  * Project-level: .oms, .omp (legacy), .claude, .codex, .gemini
  */
-const USER_CONFIG_BASES = priorityList.map(({ dir, globalAgentDir }) => ({
-	base: () =>
-		dir === ".claude" ? resolveClaudePaths().configDir : path.join(os.homedir(), globalAgentDir?.() ?? dir),
+const USER_CONFIG_BASES = priorityList.map(({ dir, userBase }) => ({
+	base: userBase ?? (() => path.join(os.homedir(), dir)),
 	name: dir,
 }));
 

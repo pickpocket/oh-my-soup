@@ -68,9 +68,9 @@ import type { KeyName } from "../key-hint-format";
 /** The native page id of the plugins tab. */
 const PLUGINS_PAGE = "plugins";
 /** Role of the status-line preview child: the page places it after the status-line section. */
-const PREFS_STATUS_ROLE = "omp.prefs.preview.status";
+const PREFS_STATUS_ROLE = "oms.prefs.preview.status";
 /** Role of a sub-editor child without a native control: the page shows it in a card over itself. */
-const PREFS_EDITOR_ROLE = "omp.prefs.editor";
+const PREFS_EDITOR_ROLE = "oms.prefs.editor";
 /** Most choices a native popup menu lists; larger submenus open as a picker over the page. */
 const PREFS_MENU_MAX = 12;
 /** Text settings whose values are paths, ids or commands (drawn in mono). */
@@ -180,6 +180,11 @@ function createSettingsTextField(
 		onCancel,
 		requestRender,
 	});
+}
+
+/** An enum setting's values as choices, each labelled by its value. */
+function enumOptions(def: SettingDef & { type: "enum" }): SelectItem[] {
+	return def.values.map(value => ({ value, label: value }));
 }
 
 /**
@@ -925,7 +930,7 @@ export class SettingsSelectorComponent implements Component {
 			case "boolean":
 				return { k: "switch", on: value === true };
 			case "enum":
-				return { k: "choice", value: shown, options: def.values.map(v => ({ value: v, label: v })) };
+				return { k: "choice", value: shown, options: enumOptions(def) };
 			case "submenu": {
 				const labels = numberSteps(def);
 				if (labels) {
@@ -1071,7 +1076,10 @@ export class SettingsSelectorComponent implements Component {
 				if (typeof value === "boolean") list.applyValue(id, String(value));
 				return;
 			case "enum":
-				if (typeof value === "string") list.applyValue(id, value);
+				if (typeof value !== "string") return;
+				// A pick from the row's open menu closes it.
+				if (list.openSubmenu?.id === id) list.handleInput(ESCAPE);
+				list.applyValue(id, value);
 				return;
 			case "submenu": {
 				const choice =
@@ -1152,7 +1160,7 @@ export class SettingsSelectorComponent implements Component {
 					count,
 					node: node(
 						"row",
-						{ gap: "xs", align: "center", role: "omp.settings.search" },
+						{ gap: "xs", align: "center", role: "oms.settings.search" },
 						[
 							text([span(theme.symbol("icon.search"), "accent")]),
 							col([this.#searchInput], { grow: 1 }),
@@ -1201,7 +1209,7 @@ export class SettingsSelectorComponent implements Component {
 		children.push(memo.hints[mode]);
 
 		if (memo.root && sameItems(memo.root.children, children)) return memo.root.node;
-		const root = overlayCard("omp.overlay.settings", "Settings", children);
+		const root = overlayCard("oms.overlay.settings", "Settings", children);
 		memo.root = { children, node: root };
 		return root;
 	}
@@ -1487,7 +1495,13 @@ export class SettingsSelectorComponent implements Component {
 				return { ...item, currentValue: currentValue ? "true" : "false", values: ["true", "false"] };
 
 			case "enum":
-				return { ...item, currentValue: String(currentValue ?? ""), values: [...def.values] };
+				return {
+					...item,
+					currentValue: String(currentValue ?? ""),
+					values: [...def.values],
+					menu: (cv, done) =>
+						createSettingsSelectField(def.label, def.description, enumOptions(def), cv, done, () => done()),
+				};
 
 			case "submenu":
 				return {

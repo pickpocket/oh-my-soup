@@ -13,10 +13,11 @@ import { sanitizeText } from "@oh-my-soup/pi-utils";
 import type { Terminal as XtermTerminalType } from "@oh-my-soup/pi-utils/vterm";
 import { theme } from "../theme/theme";
 import type { OutputArtifactError } from "../tools/streaming-output";
-import type { TruncationMeta } from "../tools/output-meta";
+import type { MinimizedMeta, TruncationMeta } from "../tools/output-meta";
 import { resolveImageOptions } from "../render/render-utils";
 import { OutputPane } from "../render/output-pane";
 import { loadXtermTerminal, readTerminalRows, styleTerminalRow } from "../tools/terminal-output";
+import { normalizeInputForPty } from "../tools/bash-interactive";
 import { getSixelLineMask, isSixelPassthroughEnabled, sanitizeWithOptionalSixelPassthrough } from "../render/sixel";
 import {
 	buildExecutionFrame,
@@ -26,6 +27,7 @@ import {
 	describeExecutionTool,
 	type ExecutionColorKey,
 	type ExecutionStatus,
+	executionStatusLabel,
 	PREVIEW_LINES,
 	resolveExecutionStatus,
 } from "./execution-shared";
@@ -34,6 +36,7 @@ import { type DescribeContext, type NativeNode, type NativeUiEvent, rootToggleEx
 import { NativeImageCache } from "../native/blobs";
 import { imageLinksEnabled, linkedImageSpan, linkedImageText } from "../prompt/image-references";
 import { Memo } from "../native/memo";
+import type { DynamicBorder } from "../chrome/dynamic-border";
 
 const STREAMING_LINE_CAP = PREVIEW_LINES * 5;
 // Minimum interval between processing incoming chunks for display (ms).
@@ -59,8 +62,10 @@ export class BashExecutionComponent extends Container {
 	#status: ExecutionStatus = "running";
 	#exitCode: number | undefined = undefined;
 	#loader: Loader;
+	readonly #bottomBorder: DynamicBorder;
 	#truncation?: TruncationMeta;
 	#artifactError?: OutputArtifactError;
+	#minimized?: MinimizedMeta;
 	#expanded = false;
 	// Post-finalize mutation counter (FinalizableBlock.getTranscriptBlockVersion):
 	// a completed command's block still mutates on expansion toggles, and the
@@ -103,9 +108,10 @@ export class BashExecutionComponent extends Container {
 		// Use dim border for excluded-from-context commands (!! prefix)
 		const colorKey = excludeFromContext ? "dim" : "bashMode";
 		this.#colorKey = colorKey;
-		const { contentContainer, loader } = buildExecutionFrame(this, ui, colorKey);
+		const { contentContainer, loader, bottomBorder } = buildExecutionFrame(this, ui, colorKey);
 		this.#contentContainer = contentContainer;
 		this.#loader = loader;
+		this.#bottomBorder = bottomBorder;
 		this.#outputPane = new OutputPane(theme, {
 			expanded: false,
 			collapsedMaxLines: PREVIEW_LINES,
@@ -121,7 +127,6 @@ export class BashExecutionComponent extends Container {
 		// Command header
 		this.#headerText = new Text(theme.fg(colorKey, theme.bold(`$ ${command}`)), 1, 0);
 		this.#contentContainer.addChild(this.#headerText);
-		this.#contentContainer.addChild(this.#loader);
 	}
 
 	/**
@@ -159,7 +164,7 @@ export class BashExecutionComponent extends Container {
 	}
 
 	/**
-	 * The agent's bash `tool` frame (role `omp.bash`) with a `you` badge: the
+	 * The agent's bash `tool` frame (role `oms.bash`) with a `you` badge: the
 	 * command in the head, the output as an `ansi` mini terminal following its
 	 * tail. Terminals without the `tool` kind get a `card` headed by the
 	 * command.
@@ -191,7 +196,7 @@ export class BashExecutionComponent extends Container {
 						]),
 			);
 			const common = {
-				role: "omp.bash",
+				role: "oms.bash",
 				status: this.#status,
 				startedAt: this.#startedAt,
 				expanded: this.#expanded,
@@ -200,6 +205,7 @@ export class BashExecutionComponent extends Container {
 				exitCode: this.#exitCode,
 				truncation: this.#truncation,
 				artifactError: this.#artifactError,
+				minimized: this.#minimized,
 			};
 			return dataFirst
 				? describeExecutionTool({
@@ -287,6 +293,11 @@ export class BashExecutionComponent extends Container {
 		this.#drainPtyQueue();
 	}
 
+	/** Bytes a terminal would send for a key event, honoring the command's cursor-key mode; "" for key releases. */
+	encodePtyInput(data: string): string {
+		return normalizeInputForPty(data, this.#ptyTerminal?.modes.applicationCursorKeysMode ?? false);
+	}
+
 	#drainPtyQueue(): void {
 		const terminal = this.#ptyTerminal;
 		if (!terminal || this.#ptyWriting) return;
@@ -353,6 +364,7 @@ export class BashExecutionComponent extends Container {
 			output?: string;
 			truncation?: TruncationMeta;
 			artifactError?: OutputArtifactError;
+			minimized?: MinimizedMeta;
 			images?: readonly ImageContent[];
 			showImages?: boolean;
 		},
@@ -362,6 +374,7 @@ export class BashExecutionComponent extends Container {
 		this.#endedAt ??= performance.now();
 		this.#truncation = options?.truncation;
 		this.#artifactError = options?.artifactError;
+		this.#minimized = options?.minimized;
 		this.#images = options?.images ?? [];
 		this.#showImages = options?.showImages ?? true;
 		if (options?.output !== undefined && !this.#ptyMode) {
@@ -376,6 +389,12 @@ export class BashExecutionComponent extends Container {
 		}
 
 		this.#updateDisplay();
+	}
+
+	/** The loader animates the bottom border from outside the child tree, so teardown stops it here. */
+	override dispose(): void {
+		this.#loader.dispose();
+		super.dispose();
 	}
 
 	override render(width: number): readonly string[] {
@@ -435,15 +454,13 @@ export class BashExecutionComponent extends Container {
 			}
 		}
 
-		// Loader or status
-		if (this.#status === "running") {
-			this.#contentContainer.addChild(this.#loader);
-		} else {
+		// The bottom border keeps the live loader until the run settles, then its exit/cancel marker.
+		if (this.#status !== "running") {
+			this.#bottomBorder.setLabel(executionStatusLabel(this.#status, this.#exitCode));
 			const footer = buildStatusFooter({
-				status: this.#status,
-				exitCode: this.#exitCode,
 				truncation: this.#truncation,
 				artifactError: this.#artifactError,
+				minimized: this.#minimized,
 				hiddenLineCount,
 				suppressHiddenCount: hasSixelOutput,
 			});

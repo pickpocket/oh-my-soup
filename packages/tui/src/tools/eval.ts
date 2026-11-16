@@ -31,7 +31,7 @@ import {
 	JSON_TREE_MAX_LINES_EXPANDED,
 	JSON_TREE_SCALAR_LEN_COLLAPSED,
 	JSON_TREE_SCALAR_LEN_EXPANDED,
-	describeJsonTree,
+	describeJsonValue,
 	renderJsonTreeLines,
 } from "./json-tree";
 import { formatStyledTruncationWarning, stripOutputNotice } from "./output-meta";
@@ -117,9 +117,15 @@ export interface EvalCellResult {
 export interface EvalToolDetails {
 	cells?: EvalCellResult[];
 	images?: ImageContent[];
+	/**
+	 * Call-level status events, written by older builds beside or instead of `cells`; current results
+	 * keep them on each cell only.
+	 */
 	statusEvents?: EvalStatusEvent[];
 	/** Evictable events dropped from the front of `statusEvents` (see {@link recordStatusEvent}). */
 	statusEventsElided?: number;
+	/** Text the cell's tool calls sent to `out://`, oldest first; transcripts draw each as a reply after the call. */
+	replies?: string[];
 	isError?: boolean;
 	meta?: OutputMeta;
 	/** First backend that produced cells. Kept for transcript compatibility. */
@@ -725,16 +731,16 @@ function describeStatusEvent(event: EvalStatusEvent, expanded: boolean): NativeN
 		}
 	}
 	if (mcpProgress) spans.push(span(` ${formatMCPProgress(mcpProgress, STATUS_VALUE_WIDTH)}`));
-	const line = text(spans, { truncate: "end", role: "omp.tool.eval.status" });
+	const line = text(spans, { truncate: "end", role: "oms.tool.eval.status" });
 	const preview = expanded ? eventString(event.preview)?.trimEnd() : undefined;
 	if (!preview) return line;
 	const head = cappedHeadLines(sanitizeDisplayLines(preview), PREVIEW_LIMITS.OUTPUT_EXPANDED).lines;
 	const path = eventString(event.path);
-	return node("col", { role: "omp.tool.eval.status.event", gap: "none" }, [
+	return node("col", { role: "oms.tool.eval.status.event", gap: "none" }, [
 		keyed(line, "line"),
 		keyed(
 			code(head.join("\n"), {
-				role: "omp.tool.eval.status.preview",
+				role: "oms.tool.eval.status.preview",
 				path: path ? splitPathAndSel(path).path : undefined,
 				wrap: false,
 				preview: { lines: PREVIEW_LIMITS.COLLAPSED_LINES },
@@ -810,7 +816,7 @@ function evalTableNode(view: Extract<EvalView, { kind: "table" }>, key: string):
 				id: `r${r}`,
 				cells: Object.fromEntries(cells.map((cell, c) => [`c${c}`, cell])),
 			})),
-			role: "omp.tool.eval.table",
+			role: "oms.tool.eval.table",
 		},
 		undefined,
 		key,
@@ -820,24 +826,29 @@ function evalTableNode(view: Extract<EvalView, { kind: "table" }>, key: string):
 /**
  * One cell's outputs in order: printed text (following its tail, clamped to
  * the last `previewLines` while folded) with each view in place of its text.
+ * A json view is the host's own JSON viewer (`json`), top-level entries
+ * listed and containers folded, when it draws the kind; else a JSON tree.
  */
 function evalOutputNodes(
 	output: string,
 	views: readonly EvalViewEntry[] | undefined,
 	previewLines: number,
+	json: boolean,
 ): NativeNode[] {
 	if (output.trim().length === 0) return [];
 	return splitEvalOutput(output, views).map((part, i) => {
 		if (part.kind === "text") {
 			return runOutput(part.text, {
-				role: "omp.tool.eval.output",
+				role: "oms.tool.eval.output",
 				previewLines,
 				key: i === 0 ? "output" : `output-${i}`,
 			});
 		}
 		const view = part.view;
 		if (view.kind === "table") return evalTableNode(view, `table-${i}`);
-		if (view.kind === "json") return keyed(describeJsonTree(view.value, { hiddenRootKeys: [] }), `json-${i}`);
+		if (view.kind === "json") {
+			return keyed(describeJsonValue(view.value, { native: json, hiddenRootKeys: [] }), `json-${i}`);
+		}
 		return keyed(md(view.text), `markdown-${i}`);
 	});
 }
@@ -846,7 +857,7 @@ function evalOutputNodes(
 const RUN_STATUS_TAIL = 8;
 
 /**
- * A status log's events (`omp.run.status`): all kept ones when expanded, else
+ * A status log's events (`oms.run.status`): all kept ones when expanded, else
  * the newest {@link RUN_STATUS_TAIL}, after a muted `N earlier` line that also
  * counts events already dropped from the log's front.
  */
@@ -861,7 +872,7 @@ function evalStatusSection(log: StatusEventLog, expanded: boolean): NativeNode |
 		.map((event, i) => keyed(describeStatusEvent(event, expanded), `s${hidden + i}`));
 	return node(
 		"col",
-		{ role: "omp.run.status", gap: "none" },
+		{ role: "oms.run.status", gap: "none" },
 		compact<NativeNode>([hidden > 0 && keyed(text([span(`${hidden} earlier`, "muted")]), "earlier"), ...lines]),
 		"status",
 	);
@@ -902,14 +913,14 @@ function evalCellBox(cell: EvalCellRun, index: number, total: number): NativeNod
 		const spans: TspSpan[] = [span(`${index + 1}/${total}`, "muted")];
 		const title = plainText(cell.title ?? "").trim();
 		if (title) spans.push(span(` ${title}`, "toolTitle"));
-		caption = keyed(text(spans, { role: "omp.run.caption" }), "caption");
+		caption = keyed(text(spans, { role: "oms.run.caption" }), "caption");
 	}
 	return runBox(
 		[
 			caption,
 			cell.code.trim().length > 0 &&
 				runInput(cell.code, {
-					role: "omp.tool.eval.input",
+					role: "oms.tool.eval.input",
 					lang: languageForHighlighter(cell.language),
 					wrap: false,
 				}),
@@ -989,6 +1000,10 @@ export const evalToolRenderer = {
 				bodies = undefined;
 				cached = undefined;
 			},
+			releaseRenderCaches: () => {
+				bodies = undefined;
+				cached = undefined;
+			},
 		});
 	},
 
@@ -999,12 +1014,6 @@ export const evalToolRenderer = {
 		_args?: EvalRenderArgs,
 	): Component {
 		const details = result.details;
-
-		const rawOutput =
-			options.renderContext?.output ?? (result.content?.find(c => c.type === "text")?.text ?? "").trimEnd();
-		// Strip the LLM-facing notice (appended by wrappedExecute) before display;
-		// the styled `warningLine` below carries the same text in ⟨…⟩ form.
-		const output = stripOutputNotice(rawOutput, details?.meta).trimEnd();
 
 		const timeoutSeconds = options.renderContext?.timeout;
 		const timeoutLine =
@@ -1148,8 +1157,21 @@ export const evalToolRenderer = {
 					bodies = undefined;
 					cached = undefined;
 				},
+				releaseRenderCaches: () => {
+					bodies = undefined;
+					cached = undefined;
+				},
 			});
 		}
+
+		// Strip the LLM-facing notice (appended by wrappedExecute) before display;
+		// the styled `warningLine` below carries the same text in ⟨…⟩ form.
+		const readOutput = (): string => {
+			const rawOutput =
+				options.renderContext?.output ?? (result.content?.find(c => c.type === "text")?.text ?? "").trimEnd();
+			return stripOutputNotice(rawOutput, details?.meta).trimEnd();
+		};
+		const output = readOutput();
 
 		const statusEvents = details?.statusEvents ?? [];
 		const statusLines = renderStatusEvents(
@@ -1192,16 +1214,14 @@ export const evalToolRenderer = {
 			return new Text(lines.join("\n"), 0, 0);
 		}
 
-		const styledOutput = output
-			.split("\n")
-			.map(line => uiTheme.fg("toolOutput", line))
-			.join("\n");
-		const textContent = `\n${styledOutput}`;
-
 		let cachedWidth: number | undefined;
-		let cachedLines: readonly string[] | undefined;
-		let cachedSkipped: number | undefined;
 		let cachedPreviewLines: number | undefined;
+		let cachedRows: readonly string[] | undefined;
+		const dropCache = () => {
+			cachedWidth = undefined;
+			cachedPreviewLines = undefined;
+			cachedRows = undefined;
+		};
 
 		return {
 			render: (width: number): readonly string[] => {
@@ -1209,23 +1229,26 @@ export const evalToolRenderer = {
 					options.renderContext?.previewLines ?? EVAL_DEFAULT_PREVIEW_LINES,
 					previewWindowRows(),
 				);
-				if (cachedLines === undefined || cachedWidth !== width || cachedPreviewLines !== previewLines) {
-					const result = truncateToVisualLines(textContent, previewLines, width);
-					cachedLines = result.visualLines;
-					cachedSkipped = result.skippedCount;
-					cachedWidth = width;
-					cachedPreviewLines = previewLines;
+				if (cachedRows !== undefined && cachedWidth === width && cachedPreviewLines === previewLines) {
+					return cachedRows;
 				}
+				// Styled from the result on each miss, never captured, so a retired
+				// card's released caches hold no copy of the output.
+				const styledOutput = readOutput()
+					.split("\n")
+					.map(line => uiTheme.fg("toolOutput", line))
+					.join("\n");
+				const result = truncateToVisualLines(`\n${styledOutput}`, previewLines, width);
 				const outputLines: string[] = [];
-				if (cachedSkipped && cachedSkipped > 0) {
+				if (result.skippedCount > 0) {
 					outputLines.push("");
 					const skippedLine = uiTheme.fg(
 						"dim",
-						`… (${cachedSkipped} earlier lines, showing ${cachedLines.length} of ${cachedSkipped + cachedLines.length}) (${expandKeyHint()} to expand)`,
+						`… (${result.skippedCount} earlier lines, showing ${result.visualLines.length} of ${result.skippedCount + result.visualLines.length}) (${expandKeyHint()} to expand)`,
 					);
 					outputLines.push(truncateToWidth(skippedLine, width));
 				}
-				outputLines.push(...cachedLines);
+				outputLines.push(...result.visualLines);
 				if (statusLines.length > 0) {
 					outputLines.push(truncateToWidth(uiTheme.fg("dim", "Status"), width));
 					for (const statusLine of statusLines) {
@@ -1244,14 +1267,13 @@ export const evalToolRenderer = {
 				if (warningLine) {
 					outputLines.push(truncateToWidth(warningLine, width));
 				}
+				cachedWidth = width;
+				cachedPreviewLines = previewLines;
+				cachedRows = outputLines;
 				return outputLines;
 			},
-			invalidate: () => {
-				cachedWidth = undefined;
-				cachedLines = undefined;
-				cachedSkipped = undefined;
-				cachedPreviewLines = undefined;
-			},
+			invalidate: dropCache,
+			releaseRenderCaches: dropCache,
 		};
 	},
 
@@ -1307,7 +1329,7 @@ export const evalToolRenderer = {
 						language,
 						code: formatEvalCodeForDisplay(cell.code, language),
 						title: cell.title,
-						outputs: [...evalOutputNodes(cell.output, cell.views, previewLines)],
+						outputs: [...evalOutputNodes(cell.output, cell.views, previewLines, options.json === true)],
 						status: evalStatusSection(cell, expanded),
 						foot: state && {
 							state,
@@ -1332,7 +1354,12 @@ export const evalToolRenderer = {
 		const rawOutput = options.renderContext?.output ?? resultText(result).trimEnd();
 		const state: RunState = cancelled ? "cancelled" : isPartial ? "running" : result.isError ? "failed" : "done";
 		const last: Omit<EvalCellRun, "language" | "code" | "title"> = {
-			outputs: evalOutputNodes(stripOutputNotice(rawOutput, details?.meta).trimEnd(), undefined, previewLines),
+			outputs: evalOutputNodes(
+				stripOutputNotice(rawOutput, details?.meta).trimEnd(),
+				undefined,
+				previewLines,
+				options.json === true,
+			),
 			status: evalStatusSection(details ?? {}, expanded),
 			foot: { state, elapsedMs: options.elapsedMs, ...callFacts },
 		};

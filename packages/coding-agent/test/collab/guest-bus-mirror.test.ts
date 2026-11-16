@@ -27,6 +27,9 @@ function makeState(): Extract<CollabFrame, { t: "welcome" }>["state"] {
 
 function makeGuestContext(eventBus: EventBus): InteractiveModeContext {
 	const ctx = {
+		setCollabGuest(guest: InteractiveModeContext["collabGuest"]) {
+			Object.assign(this, { collabGuest: guest });
+		},
 		collabGuest: undefined as CollabGuestLink | undefined,
 		settings: Settings.isolated(),
 		sessionManager: {

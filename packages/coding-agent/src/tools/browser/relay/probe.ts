@@ -17,7 +17,7 @@ import { VERSION } from "@oh-my-soup/pi-utils/dirs";
 import { throwIfAborted } from "../../tool-errors";
 import { probeCdpResponse } from "../attach";
 import type { RelayUnavailableInfo } from "./server";
-import { DISCARDED_TABS_PROTOCOL_VERSION, isOlderOmpVersion } from "./protocol";
+import { DISCARDED_TABS_PROTOCOL_VERSION, isOlderOmsVersion } from "./protocol";
 
 /**
  * One extension keepalive alarm period (30s, `background.js`) plus the dial
@@ -102,7 +102,7 @@ function readyOutcome(body: string): RelayWaitOutcome {
 			if (relayVersionOf(parsed) !== VERSION) return "outdated-relay";
 			return "outdated-extension";
 		}
-		if (isOlderOmpVersion(relayVersionOf(parsed), VERSION) && relayCdpClientsOf(parsed) === 0)
+		if (isOlderOmsVersion(relayVersionOf(parsed), VERSION) && relayCdpClientsOf(parsed) === 0)
 			return "idle-older-relay";
 		return "ready";
 	} catch {
@@ -166,7 +166,7 @@ export async function relayExtensionNotice(cdpUrl: string, signal?: AbortSignal)
 	} catch {
 		return null;
 	}
-	if (typeof installedBy !== "string" || !isOlderOmpVersion(installedBy, VERSION)) return null;
+	if (typeof installedBy !== "string" || !isOlderOmsVersion(installedBy, VERSION)) return null;
 	const origin = installedBy === "" ? "an older oms" : `oms ${installedBy}; this is oms ${VERSION}`;
-	return `The OMP Browser Relay extension is out of date (installed by ${origin}). ${UPDATE_RELAY_EXTENSION}`;
+	return `The OMS Browser Relay extension is out of date (installed by ${origin}). ${UPDATE_RELAY_EXTENSION}`;
 }

@@ -615,7 +615,7 @@ async function refreshSsoToken(
 }
 
 /**
- * Persist a refreshed token so the AWS CLI, other SDKs, and the next OMP process
+ * Persist a refreshed token so the AWS CLI, other SDKs, and the next OMS process
  * all start from a live token. Written via temp file + rename so a concurrent
  * reader never observes a half-written cache entry; a failure here is logged and
  * ignored, since the in-memory token is still usable for this run.

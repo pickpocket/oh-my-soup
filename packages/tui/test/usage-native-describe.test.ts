@@ -4,8 +4,6 @@ import type { NativeChild, NativeNode } from "@oh-my-soup/pi-tui/native/node";
 import { SessionInfoOverlay } from "@oh-my-soup/pi-tui/overlays/session-info-overlay";
 import { UsageDashboardComponent } from "@oh-my-soup/pi-tui/overlays/usage-dashboard";
 import { createUsageRowBlock } from "@oh-my-soup/pi-tui/overlays/usage-row";
-import { computeContextBreakdown, ContextUsageView } from "@oh-my-soup/pi-tui/status-line/context-usage";
-import { DEFAULT_COMPACTION_SETTINGS } from "@oh-my-soup/pi-agent-core/compaction";
 import { initTheme, theme } from "@oh-my-soup/pi-tui/theme";
 
 const cx = { cols: 100, reduceMotion: false, dark: true, supports: () => true, feature: () => true };
@@ -141,7 +139,7 @@ describe("UsageDashboardComponent.describe", () => {
 			],
 		);
 		const root = component.describe(cx);
-		const tiles = findAll(root, n => n.p?.role === "omp.usage.stat").map(tile =>
+		const tiles = findAll(root, n => n.p?.role === "oms.usage.stat").map(tile =>
 			findAll(tile, n => n.k === "text").map(plain),
 		);
 		expect(tiles).toEqual([
@@ -152,7 +150,7 @@ describe("UsageDashboardComponent.describe", () => {
 		]);
 		const spark = findAll(root, n => n.k === "chart" && n.p?.kind === "spark")[0];
 		expect(spark?.k === "chart" ? spark.p?.series?.length : 0).toBe(30);
-		const foot = findAll(root, n => n.p?.role === "omp.usage.activity.foot")[0];
+		const foot = findAll(root, n => n.p?.role === "oms.usage.activity.foot")[0];
 		expect(foot ? findAll(foot, n => n.k === "text").map(plain)[0] : "").toBe(
 			"4 active days · longest streak 3 days",
 		);
@@ -160,14 +158,14 @@ describe("UsageDashboardComponent.describe", () => {
 
 	it("shows one empty state when nothing is used anywhere", () => {
 		const root = dashboard([report("zai", "z@test", [limit("zai", "5h", "Usage", 0, "ok")])]).describe(cx);
-		const empty = findAll(root, n => n.p?.role === "omp.usage.empty")[0];
+		const empty = findAll(root, n => n.p?.role === "oms.usage.empty")[0];
 		expect(empty ? findAll(empty, n => n.k === "text").map(plain) : []).toEqual([
 			"No usage yet",
 			expect.stringContaining("Quotas show here"),
 			"Untouched",
 			"Zai",
 		]);
-		expect(findAll(root, n => n.p?.role === "omp.usage.stats" || n.k === "chart")).toEqual([]);
+		expect(findAll(root, n => n.p?.role === "oms.usage.stats" || n.k === "chart")).toEqual([]);
 	});
 
 	it("re-fetches reports from the Refresh button like the r key", async () => {
@@ -187,7 +185,7 @@ describe("UsageDashboardComponent.describe", () => {
 		component.handleNativeEvent({ type: "action", key: "head/refresh", act: "refresh", mods: [] });
 		expect(calls).toBe(1);
 		const providers = (): (string | undefined)[] =>
-			findAll(component.describe(cx), n => n.p?.role === "omp.usage.provider").map(n => n.key);
+			findAll(component.describe(cx), n => n.p?.role === "oms.usage.provider").map(n => n.key);
 		const refreshed = Promise.withResolvers<void>();
 		onRender = () => {
 			if (providers()[0] === "openai") refreshed.resolve();
@@ -235,7 +233,7 @@ describe("SessionInfoOverlay.describe", () => {
 	it("leads with the session id, then the file, each copying its own value", () => {
 		const overlay = new SessionInfoOverlay({ terminal: { rows: 20 } }, fullReport(), () => {});
 		const root = overlay.describe(cx);
-		const copies = findAll(root, n => n.p?.role === "omp.info.copy");
+		const copies = findAll(root, n => n.p?.role === "oms.info.copy");
 		expect(copies.map(n => n.p?.title)).toEqual(["Copy session ID", "Copy /tmp/s.jsonl"]);
 		expect(JSON.stringify(copies[0])).toContain("abc-123");
 		expect(JSON.stringify(copies[1])).toContain("/tmp/s.jsonl");
@@ -245,7 +243,7 @@ describe("SessionInfoOverlay.describe", () => {
 	it("does not offer to copy an in-memory session's file", () => {
 		const overlay = new SessionInfoOverlay({ terminal: { rows: 20 } }, `${dim("File")} In-memory\n`, () => {});
 		const root = overlay.describe(cx);
-		expect(findAll(root, n => n.p?.role === "omp.info.copy")).toEqual([]);
+		expect(findAll(root, n => n.p?.role === "oms.info.copy")).toEqual([]);
 		expect(JSON.stringify(root)).toContain("In-memory");
 	});
 
@@ -259,8 +257,8 @@ describe("SessionInfoOverlay.describe", () => {
 			"Cost",
 			"MCP servers",
 		]);
-		expect(findAll(root, n => n.p?.role === "omp.info.stats")).toHaveLength(1);
-		expect(kvItems(root, "omp.info.nums")).toEqual([
+		expect(findAll(root, n => n.p?.role === "oms.info.stats")).toHaveLength(1);
+		expect(kvItems(root, "oms.info.nums")).toEqual([
 			[
 				{ k: "User", v: [{ t: "6", s: "mono" }] },
 				{ k: "Tool calls", v: [{ t: "23", s: "mono" }] },
@@ -268,12 +266,12 @@ describe("SessionInfoOverlay.describe", () => {
 			[{ k: "Input", v: [{ t: "182,440", s: "mono" }] }],
 			[{ k: "Total", v: [{ t: "$0.4127", s: "mono" }] }],
 		]);
-		expect(kvItems(root, "omp.info.total")).toEqual([
+		expect(kvItems(root, "oms.info.total")).toEqual([
 			[{ k: "Total", v: [{ t: "29", s: "mono" }] }],
 			[{ k: "Total", v: [{ t: "182,440", s: "mono" }] }],
 		]);
 		// The append-only mode is a provider setting: it leaves the message counts.
-		expect(kvItems(root, "omp.info.kv")).toEqual([
+		expect(kvItems(root, "oms.info.kv")).toEqual([
 			[
 				{ k: "Model", v: [{ t: "claude-sonnet-4-5", s: "mono" }] },
 				{
@@ -285,7 +283,7 @@ describe("SessionInfoOverlay.describe", () => {
 				},
 			],
 		]);
-		expect(kvItems(root, "omp.info.names")).toEqual([
+		expect(kvItems(root, "oms.info.names")).toEqual([
 			[{ k: "github", v: [{ t: "connected", s: "success" }, { t: " " }, { t: "(4 tools)", s: "dim" }] }],
 		]);
 	});
@@ -298,7 +296,7 @@ describe("SessionInfoOverlay.describe", () => {
 		expect(meter?.p).toEqual(
 			expect.objectContaining({ value: expect.closeTo(0.206, 6), title: "41,200 of 200,000 tokens" }),
 		);
-		expect(JSON.stringify(findAll(root, n => n.p?.role === "omp.info.contextHead"))).toContain("41K / 200K");
+		expect(JSON.stringify(findAll(root, n => n.p?.role === "oms.info.contextHead"))).toContain("41K / 200K");
 		const plain = new SessionInfoOverlay({ terminal: { rows: 20 } }, fullReport(), () => {}, context).describe(
 			plainCx,
 		);
@@ -311,104 +309,6 @@ describe("SessionInfoOverlay.describe", () => {
 		const overlay = new SessionInfoOverlay({ terminal: { rows: 20 } }, "", () => closed++);
 		overlay.handleNativeEvent({ type: "action", key: "actions/close", act: "close", mods: [] });
 		expect(closed).toBe(1);
-	});
-});
-
-describe("ContextUsageView.describe", () => {
-	const breakdown = computeContextBreakdown(
-		{
-			model: { id: "demo", name: "Demo Model", contextWindow: 200_000 } as never,
-			agent: { tokenizer: {} as never },
-			getContextBreakdown: () => ({
-				messagesTokens: 12_000,
-				skillsTokens: 0,
-				systemToolsTokens: 3_900,
-				systemContextTokens: 112,
-				systemPromptTokens: 2_600,
-				usedTokens: 18_612,
-			}),
-		} as never,
-		{ compaction: { ...DEFAULT_COMPACTION_SETTINGS, thresholdPercent: 85 } },
-	);
-
-	it("stacks categories, then free space as the empty track, then the hatched buffer, marked at the threshold", () => {
-		const view = new ContextUsageView(breakdown, theme);
-		const bar = findAll(view.describe(cx), n => n.k === "meter" && n.p?.style === "bar")[0];
-		if (bar?.k !== "meter") throw new Error("no bar meter");
-		const parts = bar.p?.parts ?? [];
-		expect(parts.map(part => part.token)).toEqual([
-			"accent",
-			"warning",
-			"customMessageLabel",
-			"userMessageText",
-			"track",
-			"warning",
-		]);
-		expect(parts.at(-1)?.hatch).toBe(true);
-		expect(parts.reduce((sum, part) => sum + part.value, 0)).toBeCloseTo(1);
-		const threshold = bar.p?.marks?.[0]?.at ?? 0;
-		expect(threshold).toBeCloseTo(1 - (parts.at(-1)?.value ?? 0));
-	});
-
-	/** The text of every `text` node with `role` under `root`, spans joined. */
-	const texts = (root: NativeNode, role: string): string[] =>
-		findAll(root, n => n.k === "text" && n.p?.role === role).map(n =>
-			n.k === "text" ? (n.p?.text ?? (n.p?.spans ?? []).map(s => s.t).join("")) : "",
-		);
-
-	it("leads with the tokens used and the room before auto-compaction, then one bar and the breakdown in its order", () => {
-		const described = new ContextUsageView(breakdown, theme).describe(cx);
-		expect(texts(described, "omp.context.used")[0]).toMatch(/^19K of 200K tokens · 9%$/);
-		expect(texts(described, "omp.context.room")[0]).toMatch(/left before auto-compaction at 85%$/);
-		expect(findAll(described, n => n.k === "meter")).toHaveLength(1);
-		const rows = findAll(described, n => n.k === "row" && (n.p?.role ?? "").startsWith("omp.context.cat"));
-		expect(rows.map(row => row.p?.role)).toEqual([
-			...breakdown.categories.map(() => "omp.context.cat"),
-			"omp.context.cat.free",
-			"omp.context.cat.buffer",
-		]);
-		expect(texts(described, "omp.context.label").slice(0, 7)).toEqual([
-			"System prompt",
-			"System tools",
-			"System context",
-			"Skills",
-			"Messages",
-			"Free space",
-			"Autocompact buffer",
-		]);
-		expect(rows[4]?.p?.title).toBe("Messages · 12,000 tokens");
-		expect(findAll(described, n => n.p?.role === "omp.context.snap")).toEqual([]);
-	});
-
-	it("titles snapcompact's savings, or says why it is inactive", () => {
-		const withSnap = (snapcompact: NonNullable<typeof breakdown.snapcompact>) =>
-			new ContextUsageView({ ...breakdown, snapcompact }, theme).describe(cx);
-		const applied = withSnap({
-			visionCapable: true,
-			systemPrompt: {
-				applied: true,
-				scope: "agents-md",
-				textTokens: 7_284,
-				frames: 2,
-				imageTokens: 3_120,
-				savedTokens: 4_164,
-			},
-			toolResults: { total: 41, swapped: 0, textTokens: 0, frames: 0, imageTokens: 0, savedTokens: 0 },
-			savedTokens: 4_164,
-		});
-		const labels = texts(applied, "omp.context.label");
-		expect(labels.slice(-3)).toEqual(["System prompt · AGENTS.md", "Tool results", "Next request"]);
-		expect(texts(applied, "omp.context.detail")).toContain("None imaged · 41 in history");
-		expect(texts(applied, "omp.context.tokens").slice(-2)).toEqual(["−4.2K", "~14K"]);
-
-		const inactive = withSnap({ visionCapable: false, savedTokens: 0 });
-		expect(texts(inactive, "omp.context.snap.note")).toEqual(["Inactive: the model has no image input."]);
-	});
-
-	it("keeps the glyph grid on terminals without `meter`", () => {
-		const described = new ContextUsageView(breakdown, theme).describe(plainCx);
-		expect(findAll(described, n => n.k === "meter")).toEqual([]);
-		expect(findAll(described, n => n.p?.role === "omp.context.usage")).toHaveLength(1);
 	});
 });
 

@@ -14,6 +14,7 @@ import {
 	ProjectsRoute,
 	ProvidersRoute,
 	RequestsRoute,
+	SpotlightRoute,
 	ToolsRoute,
 	TracesRoute,
 } from "./routes";
@@ -65,6 +66,8 @@ function Dashboard() {
 				return <ProjectsRoute active={active} range={range} />;
 			case "gain":
 				return <GainRoute active={active} range={range} />;
+			case "spotlight":
+				return <SpotlightRoute active={active} range={range} />;
 		}
 	};
 

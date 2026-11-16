@@ -4,11 +4,11 @@ import type { AgentSession } from "@oh-my-soup/pi-coding-agent/session/agent-ses
 export function createSessionDefaults() {
 	return {
 		setActiveToolsByName: async (_toolNames: string[]) => {},
+		getMountedXdevToolNames: () => [],
 		waitForIdle: async () => {},
 		prepareForHeadlessAdvisorDrain: () => {},
 		waitForAdvisorCatchup: async () => true,
 		getToolByName: () => undefined,
-		getMountedXdevToolNames: () => [],
 		getAllToolInfos: () => [],
 		getCustomTools: () => [],
 		isDeviceOnlyWrite: () => false,

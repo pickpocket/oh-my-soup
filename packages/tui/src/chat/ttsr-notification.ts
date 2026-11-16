@@ -37,13 +37,18 @@ export class TtsrNotificationComponent extends Container {
 		this.#notice = new MessageNoticeComponent({
 			presentation: context => this.#presentation(context.expanded),
 			nativePresentation: () => this.#nativePresentation(),
-			role: "omp.notice.ttsr",
+			role: "oms.notice.ttsr",
 		});
 		this.addChild(this.#notice);
 	}
 
 	setToolActivityVisible(visible: boolean): void {
 		this.#notice.setToolActivityVisible(visible);
+	}
+
+	/** A snapshot: {@link addRules} grows the block's own list in place. */
+	get rules(): readonly NotificationRule[] {
+		return [...this.#rules];
 	}
 
 	/** Merge additional rules into this block (deduped by rule name). */

@@ -43,9 +43,10 @@ This is not context-overflow or payload-rejection handling and does not establis
 - message is **not** context overflow
 - not a usage-preflight block, the specially handled full-replay Responses body-read timeout, or an Anthropic HTTP 400 rejecting mutation of latest-assistant thinking
 - one of:
-  - the stop is a classifier refusal (`stopDetails.type` is `"refusal"` or `"sensitive"`)
-  - the error is an account-scoped policy denial eligible for credential rotation
-  - the normalized `AIError` classification is retryable (including stale Responses replay, transient transport/provider failures, and usage limits)
+   - the stop is a classifier refusal (`stopDetails.type` is `"refusal"` or `"sensitive"`)
+   - the error is an account-scoped policy denial eligible for credential rotation
+   - the stop is a cyber refusal eligible for bounded same-model continuation
+   - the normalized `AIError` classification is retryable (including stale Responses replay, transient transport/provider failures, and usage limits)
 
 Retry classification runs through `AIError.classifyMessage(...)`, using the persisted `errorId`/status when present and augmenting it from provider-aware message classification. It is not solely a regex policy, although legacy/string-only provider failures still use text classification.
 
@@ -72,6 +73,8 @@ Non-retryable hard errors may consult a configured fallback chain when switching
 
 Malformed-function failures that cannot replay their committed text preserve the turn and append a corrective developer reminder, capped at three continuations per prompt. These terminal-stop continuations are separate from the standard retry lifecycle.
 
+Cyber refusals with replay-unsafe output use a separate bounded terminal-stop continuation: reset Responses provider-session state, drop the refused turn and synthetic unexecuted tool results, or retain executed tool calls/results while stripping the refusal reason. Replay-safe account-policy denials instead use the credential/model-switch policy below; matching cyber-refusal wording does not grant them same-account retries.
+
 Retry state is owned by `TurnRecovery`:
 
 - retry attempt counter (`0` means idle)
@@ -85,11 +88,11 @@ Flow (`#handleRetryableError`):
 3. Calculate whether the current model's retry budget is exhausted.
 4. Classify the error, parse retry timing, and compute capped jittered backoff: `min(retry.baseDelayMs * 2^(attempt-1), 8000ms) * (75–100% jitter)`. Stale OpenAI Responses replay errors reset the provider session and use delay `0`.
 5. For usage limits, apply a successful credential switch or banked Claude/Codex reset immediately when the corresponding reset policy permits it; otherwise wait for the earlier of the provider hint and the next temporarily blocked sibling credential.
-6. When allowed, consult configured model fallback chains. `retry.fallbackOn` decides whether this error class may (`any`, `usage-limit`, `except-usage-limit`). A switch uses delay `0`; classifier refusals and account-policy denials only continue when a credential or model switch succeeds. Thinking-loop redirects stay on the same model; a temporarily blocked sibling credential within the wait cap is preferred over model fallback.
+6. Account-policy denials try sibling credentials first, bounded to one account-pool traversal per model per retry saga. Without a credential switch, consult configured model fallback chains immediately when allowed by `retry.fallbackOn` (`any`, `usage-limit`, `except-usage-limit`); signed thinking does not defer this walk. A switch uses delay `0`. A replay-safe account-policy denial only continues when a credential or model switch succeeds, even when its text also matches a cyber refusal (`cyber_policy`, Trusted Access for Cyber). Other cyber refusals retain bounded same-model continuation; classifier refusals consult the chain first. Thinking-loop redirects stay on the same model; a temporarily blocked usage-limit sibling credential within the wait cap is preferred over model fallback.
 7. If the current model's retry budget is exhausted, stop unless a model switch or confirmed credential reset permits continuation. A fallback model receives a fresh retry budget; credential recovery keeps the cumulative count. Known thinking-only stream-close routes have a one-retry cap rather than the full configured budget.
 8. If the final delay exceeds `retry.maxDelayMs` and no credential/model switch happened, emit final failure without sleeping, except an authoritative usage-reset wait explicitly allowed by `retry.waitForUsageReset`.
 9. Record the recoverable error, emit `auto_retry_start`, and remove the failed assistant from active context unless preserving a resolved interrupted tool turn or proven-unexecuted tool-call/result pairs.
-10. Sleep with abort support, then schedule `agent.continue()` through the post-prompt task scheduler for the same prompt generation.
+10.   Sleep with abort support, then schedule `agent.continue()` through the post-prompt task scheduler for the same prompt generation.
 
 ### What resets retry counters
 
@@ -133,6 +136,8 @@ The actual local sleep is 75–100% of the nominal value, matching Anthropic-sty
 Delay override inputs can come from parsed retry headers (`retry-after-ms`, `retry-after`, `x-ratelimit-reset-ms`, `x-ratelimit-reset`) or usage-limit backoff. Without provider timing, recognized concurrency/rate-limit reasons can impose their own wait windows. Credential/model fallback switches set delay to `0`; otherwise parsed hints can extend the capped local delay.
 
 If the delay exceeds `retry.maxDelayMs` and no switch succeeds, retry normally fails immediately. `retry.waitForUsageReset: true` permits a longer usage-limit wait only when timing is authoritative (parsed provider reset timing or a complete usage-report future reset), not a guessed exhaustion backoff. Long waits remain abortable and are chunked to avoid timer overflow; they also hold unattended/subagent runs.
+
+Usage-limit waits run to a wall-clock deadline, so time the machine spends asleep counts toward the reset; ordinary backoff stays monotonic.
 
 ## Abort mechanics
 
@@ -195,6 +200,7 @@ Defined in `packages/coding-agent/src/session/settings.ts`:
 - `retry.waitForUsageReset` (default `false`)
 - `retry.modelFallback` (default `true`; gates configured retry model-fallback switching)
 - `retry.fallbackOn` (default `"any"`; `"usage-limit"` or `"except-usage-limit"` restrict which errors walk the chains)
+- `retry.rateLimitWalksChain` (default `false`; `true` walks the chain as soon as a rate limit fails the turn, including after signed thinking, instead of keeping the failing model for its whole retry budget)
 - `retry.fallbackChains`
 - `retry.fallbackRevertPolicy` (`"cooldown-expiry"` by default; `"never"` disables automatic restoration)
 - `retry.usageAwareFallback` (default `false`; runs a preflight for supported coding-plan usage reports)
@@ -276,5 +282,6 @@ A new retry chain can still start later on a future retryable error after counte
 - Retry strips the failing assistant error from **runtime context** before re-continue, but session history still keeps that error entry. When the retry chain eventually succeeds, each persisted error entry from the chain is marked with a `retryRecovery` marker (`status: "recovered"`, plus kind/attempt/note and the superseding message; entries whose error was rendered moot carry `status: "superseded"` instead). Marked entries render as a dim, non-error one-line note instead of a red failure (live UI included, via the success event's `retryErrors`), and they are excluded when the LLM context is rebuilt — the display transcript still keeps them visible.
 - `RpcSessionState` currently exposes `autoCompactionEnabled` but not an `autoRetryEnabled` field; RPC callers must track their own toggle state or query settings through other APIs.
 - Model fallback changes append temporary `model_change` entries and may later restore the primary model when its cooldown expires, depending on `retry.fallbackRevertPolicy`.
-- A same-provider Anthropic fallback candidate is skipped while the latest assistant turn carries signed or redacted thinking from a different model, except after a classifier refusal, which may move to that candidate; Anthropic drops the earlier thinking blocks the new model cannot read. While that refusal's fallback credit can still be redeemed, only the credit's target models are exempt.
+- A same-provider Anthropic fallback candidate is skipped while the latest assistant turn carries signed or redacted thinking from a different model and another attempt on the signing model follows; a classifier refusal, account-policy denial, non-retryable error, wait past `retry.maxDelayMs`, spent retry budget, or (only when `retry.rateLimitWalksChain` is `true`) a rate limit on the signing model moves to that candidate, and Anthropic drops the earlier thinking blocks the new model cannot read. The exception is a usage-limit wait past `retry.maxDelayMs` that the authoritative usage-reset opt-in (`retry.waitForUsageReset`) waits out: the signing model is retried after the reset, so the candidate stays skipped. While a classifier refusal's fallback credit can still be redeemed, only the credit's target models pass.
 - Usage-aware preflight runs before a provider request when `retry.usageAwareFallback` is enabled. It prefers healthy same-provider coding-plan accounts before configured model fallback; ordinary configured API keys are excluded. Unknown/unmapped usage fails open. `retry.modelFallback` gates model switching, not the preflight's account selection or `"fail-closed"` policy. At the reserve threshold, `"confirm"` asks interactive sessions and keeps the current model when declined; sessions without a confirmation UI automatically apply an eligible fallback. `"auto"` applies an eligible fallback without asking. `"fail-closed"` rejects reserve or depleted usage instead of spending it or selecting a fallback. Depleted usage under the other policies applies an eligible fallback without a reserve confirmation.
+- A prompt whose active model has no usable credential walks `retry.fallbackChains` (gated by `retry.modelFallback`) before failing with `No API key found`. The switch is not pinned, so `cooldown-expiry` restores the primary once its credential returns.

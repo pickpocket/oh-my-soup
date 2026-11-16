@@ -34,6 +34,7 @@ import {
 	historyBackInPage,
 	historyForwardInPage,
 	locationHrefInPage,
+	parseUrlPattern,
 	pushStateInPage,
 	reloadInPage,
 } from "../navigation";
@@ -47,6 +48,7 @@ import type {
 	NetworkRouteDescription,
 	NetworkRouteOptions,
 } from "../network";
+import { urlMatcher } from "../network";
 import { extractReadableFromHtml, type ReadableExtractOptions, type ReadableFormat } from "../readable";
 import { assertTabPressArgs } from "../tab-arguments";
 import { readFilePayloads } from "../upload-files";
@@ -865,7 +867,9 @@ export class CmuxTab implements InProcessRunTab {
 		return new CmuxElementHandle(this, selector);
 	}
 
-	async click(selector: string): Promise<void> {
+	async click(selector: string, options?: { button?: string; count?: number }): Promise<void> {
+		const quoted = JSON.stringify(selector);
+		refuseUnpressableClick(`tab.click(${quoted}, `, `tab.dblclick(${quoted})`, options);
 		await this.#selectorAction(selector, "click");
 	}
 
@@ -933,8 +937,8 @@ export class CmuxTab implements InProcessRunTab {
 		await this.#evalScript(this.#mouseTransitionScript("mouseup", opts?.button));
 	}
 
-	async clickAt(x: number, y: number, opts?: { button?: string; clickCount?: number }): Promise<void> {
-		const args = { x, y, button: opts?.button ?? "left", clickCount: opts?.clickCount ?? 1 };
+	async clickAt(x: number, y: number, opts?: { button?: string; count?: number }): Promise<void> {
+		const args = { x, y, button: opts?.button ?? "left", clickCount: opts?.count ?? 1 };
 		await this.#evalScript(`(() => {
 			const args = ${JSON.stringify(args)};
 			const target = document.elementFromPoint(args.x, args.y) || document.body;
@@ -1131,8 +1135,6 @@ export class CmuxTab implements InProcessRunTab {
 		if (!opts.silent) {
 			const lines = formatScreenshot({
 				saveFullRes,
-				savedMimeType,
-				savedByteLength: savedBuffer.length,
 				dest,
 				resized,
 				capture: { area: "viewport", scale: cssWidth && resized.originalWidth / cssWidth },
@@ -1189,10 +1191,11 @@ export class CmuxTab implements InProcessRunTab {
 	}
 
 	async waitForUrl(pattern: string | RegExp, opts?: { timeout?: number }): Promise<string> {
+		const resolved = parseUrlPattern(pattern);
 		const timeoutMs = opts?.timeout ?? this.#runContext?.timeoutMs ?? 30_000;
 		const signal = this.#runContext?.signal;
-		if (typeof pattern === "string") {
-			await this.#request("browser.wait", { url_contains: pattern, timeout_ms: timeoutMs }, timeoutMs, signal);
+		if (typeof resolved === "string") {
+			await this.#request("browser.wait", { url_contains: resolved, timeout_ms: timeoutMs }, timeoutMs, signal);
 			const result = (await this.#request("browser.url.get", {}, timeoutMs, signal)) as CmuxUrlGetResult;
 			if (typeof result.url === "string" && result.url.length > 0) {
 				this.#lastUrl = result.url;
@@ -1209,11 +1212,12 @@ export class CmuxTab implements InProcessRunTab {
 			)) as CmuxUrlGetResult;
 			if (typeof result.url === "string" && result.url.length > 0) {
 				this.#lastUrl = result.url;
-				if (pattern.test(result.url)) return result.url;
+				resolved.lastIndex = 0;
+				if (resolved.test(result.url)) return result.url;
 			}
 			await untilAborted(signal, () => Bun.sleep(200));
 		}
-		throw new ToolError(`tab.waitForUrl() timed out after ${timeoutMs}ms`);
+		throw new ToolError(`tab.waitForUrl() timed out after ${timeoutMs}ms: the URL is ${this.#lastUrl}`);
 	}
 
 	/** Init scripts require CDP document-start registration. */
@@ -1622,16 +1626,18 @@ export class CmuxTab implements InProcessRunTab {
 		const signal = this.#runContext?.signal;
 		await this.#installResponseObserver();
 		const startId = await this.#responseCursor();
+		let test: (response: CmuxResponse) => boolean | Promise<boolean>;
+		if (typeof pattern === "function") test = pattern;
+		else {
+			const matches = urlMatcher(pattern);
+			test = response => matches(response.url());
+		}
 		const deadline = Date.now() + timeoutMs;
 		while (Date.now() <= deadline) {
 			const records = await this.#responseRecordsAfter(startId);
 			for (const record of records) {
 				const response = new CmuxResponse(record);
-				if (typeof pattern === "function") {
-					if (await pattern(response)) return response;
-				} else if (pattern instanceof RegExp ? pattern.test(record.url) : record.url.includes(pattern)) {
-					return response;
-				}
+				if (await test(response)) return response;
 			}
 			await untilAborted(signal, () => Bun.sleep(100));
 		}
@@ -1692,8 +1698,14 @@ export class CmuxTab implements InProcessRunTab {
 		signal: AbortSignal | undefined = this.#runContext?.signal,
 	): Promise<Record<string, unknown>> {
 		throwIfAborted(signal);
-		const result = await untilAborted(signal, () =>
-			this.#client.request(method, { surface_id: this.#surfaceId, ...params }, { timeoutMs }),
+		if (this.#runContext) {
+			const remainingMs = Math.max(1, this.#runContext.deadline - Date.now());
+			timeoutMs = Math.min(timeoutMs ?? remainingMs, remainingMs);
+		}
+		const result = await this.#client.request(
+			method,
+			{ surface_id: this.#surfaceId, ...params },
+			{ timeoutMs, signal },
 		);
 		throwIfAborted(signal);
 		return result;
@@ -1922,7 +1934,7 @@ export class CmuxTab implements InProcessRunTab {
 					const rect = element.getBoundingClientRect();
 					const overlay = document.createElement("div");
 					overlay.id = String(args.id);
-					overlay.dataset.ompHighlightOverlay = "";
+					overlay.dataset.omsHighlightOverlay = "";
 					overlay.setAttribute("aria-hidden", "true");
 					overlay.setAttribute("role", "presentation");
 					overlay.inert = true;
@@ -1961,7 +1973,8 @@ export class CmuxTab implements InProcessRunTab {
 					else if (element.multiple) for (const option of options) option.selected = wanted.includes(option);
 					else element.selectedIndex = wanted[0].index;
 					inputEvent(element);
-					return options.filter(option => option.selected).map(option => option.value);
+					// The handlers may have reset the choice or replaced the options.
+					return Array.from(element.options).filter(option => option.selected).map(option => option.value);
 				}
 				case "uploadFile": {
 					const transfer = new DataTransfer();
@@ -2205,6 +2218,28 @@ class CmuxResponse {
 	}
 }
 
+/**
+ * Every cmux element-click path presses the left button once; refuse another button or count rather than
+ * mis-deliver it. `call` is the call as written up to its options (`tab.click("#x", `), `dblclick` the call
+ * that double-clicks the same target.
+ */
+function refuseUnpressableClick(
+	call: string,
+	dblclick: string,
+	options: { button?: string; count?: number } | undefined,
+): void {
+	if (options?.button !== undefined && options.button !== "left") {
+		throw new ToolError(
+			`${call}{ button: ${JSON.stringify(options.button)} }) is not supported in a cmux browser, which only left-clicks elements`,
+		);
+	}
+	if (options?.count !== undefined && options.count !== 1) {
+		throw new ToolError(
+			`${call}{ count: ${options.count} }) is not supported in a cmux browser; use ${dblclick} for a double click`,
+		);
+	}
+}
+
 class CmuxElementHandle {
 	readonly #tab: CmuxTab;
 	readonly #selector: string;
@@ -2215,17 +2250,7 @@ class CmuxElementHandle {
 	}
 
 	async click(options?: { button?: string; count?: number }): Promise<void> {
-		// Every cmux element-click path presses the left button once; refuse rather than mis-deliver.
-		if (options?.button !== undefined && options.button !== "left") {
-			throw new ToolError(
-				`handle.click({ button: ${JSON.stringify(options.button)} }) is not supported in a cmux browser, which only left-clicks elements`,
-			);
-		}
-		if (options?.count !== undefined && options.count !== 1) {
-			throw new ToolError(
-				`handle.click({ count: ${options.count} }) is not supported in a cmux browser; use handle.dblclick() for a double click`,
-			);
-		}
+		refuseUnpressableClick("handle.click(", "handle.dblclick()", options);
 		await this.#tab.click(this.#selector);
 	}
 

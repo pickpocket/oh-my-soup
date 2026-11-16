@@ -1,19 +1,13 @@
 import { centerLine, visibleWidth } from "../../utils";
 import { padToWidth } from "../../render/utils";
-import { gradientEscape } from "../../prompt/welcome";
-import {
-	SOUP_LOGO_ROWS,
-	SOUP_LOGO_WIDTH,
-	soupLogo,
-	soupLogoCells,
-	soupLogoNode,
-	type ShineConfig,
-} from "../../prompt/pixel-logo";
+import { APP_NAME, VERSION } from "@oh-my-soup/pi-utils";
+import { gradientEscape, lockupNode } from "../../prompt/welcome";
+import { SOUP_LOGO_ROWS, SOUP_LOGO_WIDTH, soupLogo, soupLogoCells, type ShineConfig } from "../../prompt/pixel-logo";
 import { getThemeEpoch, theme } from "../../theme/theme";
-import { formatKeyHint } from "../../app-keybindings";
-import { col, node, span, text } from "../../native/describe";
-import type { NativeNode } from "../../native/node";
 import { Memo } from "../../native/memo";
+import { formatKeyHint } from "../../app-keybindings";
+import { col, kbd, keyed, node, row, span, text } from "../../native/describe";
+import type { NativeNode } from "../../native/node";
 
 export const SETUP_SPLASH_MS = 2600;
 export const SETUP_TICK_MS = 33;
@@ -240,23 +234,28 @@ export function renderSetupSplash(width: number, height: number, elapsedMs: numb
 const splashMemo = new Memo();
 
 /**
- * Native splash: the large soup pixel bowl, the
- * wordmark, and the skip hint pinned to the bottom. The water and starfield
- * are cell paintings with no semantic counterpart. A click on the splash
- * sends the `skip` action.
+ * Native splash: oms's lockup as the welcome draws it (the soup bowl
+ * beside the wordmark and version), centered, and a quiet Enter
+ * hint pinned to the bottom. The water and starfield are cell paintings with
+ * no semantic counterpart. A click anywhere sends `skip`.
  */
 export function describeSetupSplash(): NativeNode {
-	const hint = skipHint();
-	return splashMemo.get([hint, getThemeEpoch()], () =>
+	return splashMemo.get([getThemeEpoch()], () =>
 		col(
 			[
-				node("spacer", { grow: 1 }),
-				soupLogoNode(256),
-				text([span("O h   M y   S o u p", "strong")], { wrap: "none" }),
-				node("spacer", { grow: 1 }),
-				text([span(hint, "dim")], { wrap: "none" }),
+				node("spacer", { grow: 1 }, undefined, "top"),
+				lockupNode(VERSION),
+				node("spacer", { grow: 1 }, undefined, "bottom"),
+				keyed(
+					row([text([span("Press", "muted")]), kbd("enter"), text([span("to begin", "muted")])], {
+						align: "center",
+						gap: "xs",
+						role: "oms.setup.hint",
+					}),
+					"hint",
+				),
 			],
-			{ align: "center", gap: "md", grow: 1, role: "omp.setup.splash", actions: { click: "skip" } },
+			{ align: "center", grow: 1, role: "oms.setup.splash", actions: { click: "skip" } },
 		),
 	);
 }
@@ -265,7 +264,7 @@ export function describeSetupSplash(): NativeNode {
 function renderCompactSplash(width: number, height: number, shine: ShineConfig): string[] {
 	const scale = width >= SOUP_LOGO_WIDTH * 2 && height >= SOUP_LOGO_ROWS * 2 + 4 ? 2 : 1;
 	const logo = width >= SOUP_LOGO_WIDTH && height >= SOUP_LOGO_ROWS + 4 ? soupLogo({ scale, shine }) : [];
-	const content = [...logo, "", theme.bold("O h   M y   S o u p")];
+	const content = [...logo, "", theme.bold(APP_NAME)];
 	const start = Math.max(0, Math.floor((height - 3 - content.length) / 2));
 	const lines: string[] = [];
 	for (let y = 0; y < height; y++) {

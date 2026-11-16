@@ -1,13 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
-import { AgentRegistry } from "@oh-my-soup/pi-coding-agent/registry/agent-registry";
+import { AgentRegistry, type AgentRegistryApi } from "@oh-my-soup/pi-coding-agent/registry/agent-registry";
 import type { ToolSession } from "@oh-my-soup/pi-coding-agent/tools";
 import { WaitTool } from "@oh-my-soup/pi-coding-agent/tools/wait";
 
 const SELF_ID = "Main";
 
 describe("wait accepted-agent watchdog", () => {
-	let registry: AgentRegistry;
+	let registry: AgentRegistryApi;
 
 	beforeEach(() => {
 		AgentRegistry.resetGlobalForTests();

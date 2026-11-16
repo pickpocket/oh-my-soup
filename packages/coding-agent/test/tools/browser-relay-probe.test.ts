@@ -8,7 +8,7 @@ import {
 } from "@oh-my-soup/pi-coding-agent/tools/browser/relay/probe";
 import {
 	DISCARDED_TABS_PROTOCOL_VERSION,
-	isOlderOmpVersion,
+	isOlderOmsVersion,
 } from "@oh-my-soup/pi-coding-agent/tools/browser/relay/protocol";
 import {
 	type RelayServer,
@@ -402,13 +402,13 @@ describe("relayExtensionNotice", () => {
 	});
 });
 
-describe("isOlderOmpVersion", () => {
+describe("isOlderOmsVersion", () => {
 	it("never calls a reported version older than an oms version it cannot rank, so restarts leave that relay alone", () => {
-		expect(isOlderOmpVersion("999.0.0", "18.8.7+build")).toBeFalse();
-		expect(isOlderOmpVersion("999.0.0", "18.8.7-canary-foo")).toBeFalse();
+		expect(isOlderOmsVersion("999.0.0", "18.8.7+build")).toBeFalse();
+		expect(isOlderOmsVersion("999.0.0", "18.8.7-canary-foo")).toBeFalse();
 	});
 
 	it("still counts an unreported version as older than one it cannot rank", () => {
-		expect(isOlderOmpVersion("", "18.8.7+build")).toBeTrue();
+		expect(isOlderOmsVersion("", "18.8.7+build")).toBeTrue();
 	});
 });

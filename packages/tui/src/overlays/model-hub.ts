@@ -161,6 +161,10 @@ export interface ModelHubCallbacks {
 	onFallbackChainChange?: (role: string, chain: string[]) => void;
 	/** Locked provider activation: forward to the /login flow. */
 	onLoginRequest?: (providerId: string) => void;
+	/** Returns the rebuilt `--models` scope for the hub to list; `undefined` keeps the current one. */
+	onCatalogRefreshed?: (
+		providerId?: string,
+	) => ReadonlyArray<ScopedModelItem> | undefined | Promise<ReadonlyArray<ScopedModelItem> | undefined>;
 	/** Save the current role assignments and default thinking level as a named model preset. */
 	onSavePreset?: (name: string) => void;
 	/**
@@ -550,7 +554,7 @@ export class ModelHubComponent implements Component {
 			this.#catalogRefreshing = true;
 			this.#registry
 				.refresh("online")
-				.then(() => this.#syncFromRegistryState())
+				.then(() => this.#afterRegistryRefresh())
 				.catch(error => {
 					this.#configError = error instanceof Error ? error.message : String(error);
 				})
@@ -1139,6 +1143,12 @@ export class ModelHubComponent implements Component {
 		this.#scheduledProviderRefreshes.set(providerId, timer);
 	}
 
+	async #afterRegistryRefresh(providerId?: string): Promise<void> {
+		const scope = await this.#callbacks.onCatalogRefreshed?.(providerId);
+		if (scope) this.#scopedModels = scope;
+		this.#syncFromRegistryState();
+	}
+
 	async #refreshProviderInBackground(providerId: string, refreshCommandCredentials = false): Promise<void> {
 		try {
 			if (refreshCommandCredentials) {
@@ -1148,7 +1158,7 @@ export class ModelHubComponent implements Component {
 			}
 			// The provider refresh already updated the registry snapshot;
 			// re-reading it here stays purely in-memory.
-			this.#syncFromRegistryState();
+			await this.#afterRegistryRefresh(providerId);
 		} catch (error) {
 			this.#configError = error instanceof Error ? error.message : String(error);
 		} finally {
@@ -2939,7 +2949,7 @@ export class ModelHubComponent implements Component {
 		if (strip) footer.push(strip);
 		footer.push(hintsRow(this.#footerHints()));
 		const described = describeHubFrame(
-			"omp.overlay.model-hub",
+			"oms.overlay.model-hub",
 			"Models",
 			describeHubSidebar(this.#entries, this.#activeEntryId, this.#nativeSidebarStyle, "scopes"),
 			this.#describeBody(),
@@ -3370,13 +3380,7 @@ export class ModelHubComponent implements Component {
 				...props,
 				tabs: this.#pickerKindTabs(),
 				tab: this.#modelKindTab,
-				columns: MODEL_PICKER_COLUMNS,
-				...catalogue,
-				order: view.order,
-				...(view.hits ? { hits: view.hits } : {}),
-				selected: this.#browser.pickerSelected,
-				...(current ? { current } : {}),
-				total: this.#browser.baseCount,
+				...this.#browser.pickerRows(catalogue, view, this.#currentSelector),
 				state,
 				...(state === "error" && this.#configError ? { message: this.#configError } : {}),
 				empty:
@@ -3841,7 +3845,7 @@ export class ModelHubComponent implements Component {
 					);
 				} else {
 					children.push(
-						text(plainLine(info.name), { role: "omp.picker.title" }),
+						text(plainLine(info.name), { role: "oms.picker.title" }),
 						text([span("Not assigned; no available model fits this role.", "muted")], { wrap: "word" }),
 					);
 				}
@@ -3852,26 +3856,26 @@ export class ModelHubComponent implements Component {
 			case "fallback": {
 				const resolved = this.#resolveFallbackEntry(row.role, row.chainIndex);
 				if (resolved) children.push(...this.#browser.modelPreview(resolved.item, "full", this.#currentSelector));
-				else children.push(text([span(plainLine(row.selector), "mono")], { role: "omp.picker.title" }));
+				else children.push(text([span(plainLine(row.selector), "mono")], { role: "oms.picker.title" }));
 				const chain = chainList(row.role);
 				if (chain) children.push(chain);
 				break;
 			}
 			case "chainKey": {
-				children.push(text([span(plainLine(row.role), "mono")], { role: "omp.picker.title" }));
+				children.push(text([span(plainLine(row.role), "mono")], { role: "oms.picker.title" }));
 				const chain = chainList(row.role);
 				if (chain) children.push(chain);
 				break;
 			}
 			case "newRole":
 				children.push(
-					text("New role", { role: "omp.picker.title" }),
+					text("New role", { role: "oms.picker.title" }),
 					text([span("Name a custom role, then pick the model it runs on.", "muted")], { wrap: "word" }),
 				);
 				break;
 			case "newFallback":
 				children.push(
-					text("New fallback chain", { role: "omp.picker.title" }),
+					text("New fallback chain", { role: "oms.picker.title" }),
 					text([span("Pick the model (or provider) a new retry fallback chain protects.", "muted")], {
 						wrap: "word",
 					}),
@@ -3894,7 +3898,7 @@ export class ModelHubComponent implements Component {
 	/** A signed-out provider's preview: how to sign in and what its catalog holds. */
 	#lockedPreview(entry: SidebarEntry): readonly NativeChild[] {
 		const children: NativeChild[] = [
-			text(entry.label, { role: "omp.picker.title" }),
+			text(entry.label, { role: "oms.picker.title" }),
 			text([span(this.#lockedMessage(entry), "muted")], { wrap: "word" }),
 		];
 		const catalogCount = entry.catalogCount ?? 0;

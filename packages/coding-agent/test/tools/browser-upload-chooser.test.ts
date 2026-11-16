@@ -50,6 +50,8 @@ function makeSession(): ToolSession {
 		getSessionFile: () => null,
 		getSessionSpawns: () => "*",
 		settings: Settings.isolated({
+			// Managed Chromium, whether or not oms's WebKit engine is installed on this machine.
+			"browser.webkit": false,
 			"browser.enabled": true,
 			"browser.headless": true,
 			"browser.cmux": false,
@@ -98,7 +100,7 @@ return { error, log: await tab.evaluate(() => window.log) };`,
 }
 
 beforeAll(async () => {
-	tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-browser-upload-"));
+	tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "oms-browser-upload-"));
 	await Bun.write(path.join(tempDir, "alpha.txt"), "alpha");
 	await Bun.write(path.join(tempDir, "beta.txt"), "beta");
 	// Readable enough to open for an upload (a stat), not to copy or read: delivery fails after the chooser is caught.

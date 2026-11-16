@@ -1,6 +1,6 @@
 /**
  * Shared parsing for local `$ref` URI fragments (RFC 6901 JSON Pointers).
- * omptype's JSON Schema importer and pi-ai's schema resolvers decode refs
+ * omstype's JSON Schema importer and pi-ai's schema resolvers decode refs
  * through these helpers so percent-encoded, pointer-escaped, and empty tokens
  * resolve identically everywhere.
  */

@@ -217,9 +217,13 @@ export function resolveEquivalentPath(inputPath: string, options?: EquivalentPat
 	}
 }
 
-export function normalizePathForComparison(inputPath: string): string {
-	const resolvedPath = resolveEquivalentPath(inputPath);
+function comparablePath(inputPath: string, options?: EquivalentPathOptions): string {
+	const resolvedPath = resolveEquivalentPath(inputPath, options);
 	return process.platform === "win32" ? resolvedPath.toLowerCase() : resolvedPath;
+}
+
+export function normalizePathForComparison(inputPath: string): string {
+	return comparablePath(inputPath);
 }
 
 /**
@@ -237,9 +241,10 @@ export function relativePathWithinNormalizedRoot(normalizedRoot: string, normali
 	return relative;
 }
 
-export function pathIsWithin(root: string, candidate: string): boolean {
+/** `options` apply to `candidate` only. */
+export function pathIsWithin(root: string, candidate: string, options?: EquivalentPathOptions): boolean {
 	const normalizedRoot = normalizePathForComparison(root);
-	const normalizedCandidate = normalizePathForComparison(candidate);
+	const normalizedCandidate = comparablePath(candidate, options);
 	return relativePathWithinNormalizedRoot(normalizedRoot, normalizedCandidate) !== null;
 }
 
@@ -290,25 +295,23 @@ export function __resetProjectDirCacheForTests(): void {
 	projectDir = undefined;
 }
 
-/** Whether a path is absent or not a directory. Other stat failures return false. */
-export async function directoryIsMissing(dir: string): Promise<boolean> {
+/** Whether a path is absent or not a directory; `strict` propagates non-missing stat failures. */
+export async function directoryIsMissing(dir: string, options?: { strict?: boolean }): Promise<boolean> {
 	try {
 		return !(await fs.promises.stat(dir)).isDirectory();
 	} catch (error) {
-		return isEnoent(error) || isEnotdir(error);
+		if (isEnoent(error) || isEnotdir(error)) return true;
+		if (options?.strict) throw error;
+		return false;
 	}
 }
 
-/**
- * Whether `dir` resolves to an existing directory. Any stat failure — a deleted
- * path (ENOENT), permission error, or a non-directory — returns `false`, so
- * callers can decide whether a directory is safe to `chdir` into or adopt as a
- * working directory before {@link setProjectDir} throws on it.
- */
-export async function directoryExists(dir: string): Promise<boolean> {
+/** Whether a path is an existing directory; `strict` propagates non-missing stat failures. */
+export async function directoryExists(dir: string, options?: { strict?: boolean }): Promise<boolean> {
 	try {
 		return (await fs.promises.stat(dir)).isDirectory();
-	} catch {
+	} catch (error) {
+		if (options?.strict && !isEnoent(error) && !isEnotdir(error)) throw error;
 		return false;
 	}
 }
@@ -382,26 +385,6 @@ function resolveConfigDirName(home: string): string {
 /** Get the config directory name relative to `home` (e.g. ".oms" or PI_CONFIG_DIR override). */
 export function getConfigDirName(home: string = os.homedir()): string {
 	return process.env.PI_CONFIG_DIR || resolveConfigDirName(home);
-}
-
-/** Get the config agent directory name relative to home (e.g. ".oms/agent" or PI_CONFIG_DIR + "/agent"). */
-export function getConfigAgentDirName(home?: string): string {
-	const profile = getActiveProfile();
-	const dir = getConfigDirName(home);
-	return profile ? path.join(dir, "profiles", profile, "agent") : `${dir}/agent`;
-}
-
-/**
- * Config directory names to probe inside a project, canonical first.
- *
- * Project roots are per-checkout, so unlike {@link getConfigDirName} they are
- * never pinned by what the user's home happens to contain: `.oms` is always the
- * write target and `.omp` is only an additional read anchor for checkouts laid
- * out before the rename. A `PI_CONFIG_DIR` override replaces both.
- */
-export function getProjectConfigDirNames(): readonly string[] {
-	const override = process.env.PI_CONFIG_DIR;
-	return override ? [override] : [CONFIG_DIR_NAME, LEGACY_CONFIG_DIR_NAME];
 }
 
 // =============================================================================
@@ -726,6 +709,24 @@ export function getReportsDir(): string {
 }
 
 /**
+ * Get the self-update state directory (~/.oms/update): the background
+ * auto-update's status file and worker log, and the lock that keeps two
+ * installs (`oms update`, auto-update) from running at once.
+ */
+export function getUpdateStateDir(): string {
+	return dirs.rootSubdir("update", "state");
+}
+
+/**
+ * Return a per-user directory (`<tmpdir>/<prefix>-<uid>`) under the OS temp dir
+ * so `bun test` state never collides across accounts sharing `/tmp`.
+ */
+export function getTestTempDir(prefix: string): string {
+	const uid = typeof process.getuid === "function" ? process.getuid() : os.userInfo().username;
+	return path.join(os.tmpdir(), `${prefix}-${uid}`);
+}
+
+/**
  * Get the logs directory (~/.oms/logs). `bun test` processes get
  * `<tmpdir>/oms-test-logs-<uid>` instead, so suites never write into the
  * developer's real logs; the uid suffix (as for the test session-owners dir)
@@ -733,8 +734,7 @@ export function getReportsDir(): string {
  */
 export function getLogsDir(): string {
 	if (isBunTestRuntime()) {
-		const uid = typeof process.getuid === "function" ? process.getuid() : os.userInfo().username;
-		return path.join(os.tmpdir(), `oms-test-logs-${uid}`);
+		return getTestTempDir("oms-test-logs");
 	}
 	return dirs.rootSubdir("logs", "state");
 }
@@ -872,6 +872,11 @@ export function getPythonGatewayDir(): string {
 	return dirs.agentSubdir(undefined, "python-gateway", "state");
 }
 
+/** Get the managed Antigravity CLI directory (~/.oms/antigravity-cli): the `agy` binary and its isolated state. */
+export function getAntigravityCliDir(): string {
+	return dirs.rootSubdir("antigravity-cli", "data");
+}
+
 /** Get the puppeteer sandbox directory (~/.oms/puppeteer). */
 export function getPuppeteerDir(): string {
 	return dirs.rootSubdir("puppeteer", "cache");
@@ -880,6 +885,14 @@ export function getPuppeteerDir(): string {
 /** Get the Camoufox engine directory (~/.oms/camoufox). Used as CAMOUFOX_INSTALL_DIR. */
 export function getCamoufoxDir(): string {
 	return dirs.rootSubdir("camoufox", "cache");
+}
+/**
+ * Get where the WebKit browser engine's host executable is installed: `ABHost` (`ABHost.exe` on Windows)
+ * in the ABKit engine directory `~/.o2/lib/abkit`. The location is shared with Tern, so it is outside oms's
+ * own directories.
+ */
+export function getWebKitHostPath(platform: NodeJS.Platform = process.platform): string {
+	return path.join(os.homedir(), ".o2", "lib", "abkit", platform === "win32" ? "ABHost.exe" : "ABHost");
 }
 /** Get the browser relay extension install directory (~/.oms/browser-relay). */
 export function getBrowserRelayDir(): string {

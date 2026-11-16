@@ -239,7 +239,7 @@ export class HookSelectorComponent extends OverlayPanel {
 		onCancel: () => void,
 		opts?: HookSelectorOptions,
 	) {
-		super(title.split(/\r?\n/, 1)[0] ?? "", "omp.overlay.hook-select");
+		super(title.split(/\r?\n/, 1)[0] ?? "", "oms.overlay.hook-select");
 
 		this.#options = options.map(normalizeHookSelectorOption);
 		this.#disabledIndices = new Set(
@@ -647,9 +647,9 @@ export class HookSelectorComponent extends OverlayPanel {
 			return;
 		}
 
-		if (matchesSelectUp(keyData) || (!this.#isSearchEnabled() && matchesKey(keyData, "k"))) {
+		if (matchesSelectUp(keyData)) {
 			this.#moveSelection(-1);
-		} else if (matchesSelectDown(keyData) || (!this.#isSearchEnabled() && matchesKey(keyData, "j"))) {
+		} else if (matchesSelectDown(keyData)) {
 			this.#moveSelection(1);
 		} else if (matchesKey(keyData, "enter") || matchesKey(keyData, "return") || keyData === "\n") {
 			const selected = this.#menu.selectedItem;

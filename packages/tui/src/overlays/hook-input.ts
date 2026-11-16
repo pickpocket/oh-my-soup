@@ -14,13 +14,14 @@ import type { DescribeContext, NativeChild, NativeNode, NativeUiEvent } from "..
 import { actionBar, actionButton } from "../native/overlay";
 import { plainText } from "../native/spans";
 
-/** Role prefix of the sheet's parts (`omp.hook-input.head`, `.title`, `.timer`, `.detail`, `.field`). */
-const PART = "omp.hook-input";
+/** Role prefix of the sheet's parts (`oms.hook-input.head`, `.title`, `.timer`, `.detail`, `.field`). */
+const PART = "oms.hook-input";
 
 export interface HookInputOptions {
 	tui?: TUI;
 	timeout?: number;
 	onTimeout?: () => void;
+	secret?: boolean;
 }
 
 /** Terminal-only key legend under the field; a native terminal puts the keys in the buttons' tooltips. */
@@ -64,7 +65,7 @@ export class HookInputComponent extends OverlayPanel {
 		onCancel: () => void,
 		opts?: HookInputOptions,
 	) {
-		super(title, "omp.overlay.hook-input");
+		super(title, "oms.overlay.hook-input");
 
 		this.#onSubmitCallback = onSubmit;
 		this.#onCancelCallback = onCancel;
@@ -84,6 +85,7 @@ export class HookInputComponent extends OverlayPanel {
 
 		this.#field = new TextFormField({
 			theme: formTheme,
+			secret: opts?.secret ?? false,
 			empty: "submit",
 			onSubmit: value => this.#onSubmitCallback(value),
 			onCancel: () => this.#onCancelCallback(),

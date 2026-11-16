@@ -23,6 +23,7 @@ import type { PreparedSeanceSession } from "@oh-my-soup/pi-coding-agent/task/sea
 import type { ToolSession } from "@oh-my-soup/pi-coding-agent/tools";
 import { EventBus } from "@oh-my-soup/pi-coding-agent/utils/event-bus";
 import { getAgentDir, setAgentDir, TempDir } from "@oh-my-soup/pi-utils";
+import { localSession } from "../helpers/local-session";
 
 const MOCK_API_SOURCE = "seance-artifact-lifecycle-test";
 const AGENT_ID = "SeanceArtifactLifecycle";
@@ -109,7 +110,7 @@ afterEach(() => {
 
 describe("seance artifact lifecycle", () => {
 	it("publishes the latest warm and cold yield beside sibling results", async () => {
-		using tempDir = TempDir.createSync("@omp-seance-artifact-lifecycle-");
+		using tempDir = TempDir.createSync("@oms-seance-artifact-lifecycle-");
 		const cwd = path.join(tempDir.path(), "project");
 		const sourceFile = path.join(tempDir.path(), "sessions", "host.jsonl");
 		const artifactsDir = sourceFile.slice(0, -".jsonl".length);
@@ -201,8 +202,7 @@ describe("seance artifact lifecycle", () => {
 			expect(AgentRegistry.global().get(AGENT_ID)?.history?.outputPath).toBe(publishedPath);
 			expect(await Bun.file(publishedPath).text()).toContain("initial answer");
 
-			const liveSession = AgentRegistry.global().get(AGENT_ID)?.session;
-			if (!liveSession) throw new Error("Expected the initial seance session to stay alive");
+			const liveSession = localSession(AgentRegistry.global().get(AGENT_ID)?.session);
 			await waitForWake(liveSession, eventBus, AGENT_ID, "warm-follow-up");
 			expect(await Bun.file(publishedPath).text()).toContain("warm answer");
 
@@ -219,7 +219,7 @@ describe("seance artifact lifecycle", () => {
 			});
 			lifecycle = AgentLifecycleManager.global();
 			lifecycle.setPersistedSubagentReviverFactory(reviveFactory, () => 0);
-			const coldSession = await lifecycle.ensureLive(AGENT_ID);
+			const coldSession = localSession(await lifecycle.ensureLive(AGENT_ID));
 			await waitForWake(coldSession, eventBus, AGENT_ID, "cold-follow-up");
 
 			expect(await Bun.file(publishedPath).text()).toContain("cold answer");
@@ -234,7 +234,7 @@ describe("seance artifact lifecycle", () => {
 	});
 
 	it("preserves an unstructured seance result contract through fresh, warm, and cold turns", async () => {
-		using tempDir = TempDir.createSync("@omp-seance-unstructured-lifecycle-");
+		using tempDir = TempDir.createSync("@oms-seance-unstructured-lifecycle-");
 		const cwd = path.join(tempDir.path(), "project");
 		const sourceFile = path.join(tempDir.path(), "sessions", "host.jsonl");
 		const artifactsDir = sourceFile.slice(0, -".jsonl".length);
@@ -325,8 +325,7 @@ describe("seance artifact lifecycle", () => {
 			expect(persisted?.init?.tools).not.toContain("yield");
 			expect(await Bun.file(publishedPath).text()).toContain("Initial unstructured answer");
 
-			const liveSession = AgentRegistry.global().get(UNSTRUCTURED_AGENT_ID)?.session;
-			if (!liveSession) throw new Error("Expected the initial seance session to stay alive");
+			const liveSession = localSession(AgentRegistry.global().get(UNSTRUCTURED_AGENT_ID)?.session);
 			expect(liveSession.getActiveToolNames()).not.toContain("yield");
 			mock.push({ content: ["Warm unstructured answer"] });
 			await waitForWake(liveSession, eventBus, UNSTRUCTURED_AGENT_ID, "warm-unstructured-follow-up");
@@ -345,7 +344,7 @@ describe("seance artifact lifecycle", () => {
 			});
 			lifecycle = AgentLifecycleManager.global();
 			lifecycle.setPersistedSubagentReviverFactory(reviveFactory, () => 0);
-			const coldSession = await lifecycle.ensureLive(UNSTRUCTURED_AGENT_ID);
+			const coldSession = localSession(await lifecycle.ensureLive(UNSTRUCTURED_AGENT_ID));
 			expect(coldSession.getActiveToolNames()).not.toContain("yield");
 			mock.push({ content: ["Cold unstructured answer"] });
 			await waitForWake(coldSession, eventBus, UNSTRUCTURED_AGENT_ID, "cold-unstructured-follow-up");
@@ -362,7 +361,7 @@ describe("seance artifact lifecycle", () => {
 	});
 
 	it("allocates past the source's artifact ids and resolves inherited ids to the source, never another session", async () => {
-		using tempDir = TempDir.createSync("@omp-seance-artifact-ids-");
+		using tempDir = TempDir.createSync("@oms-seance-artifact-ids-");
 		const cwd = path.join(tempDir.path(), "project");
 		await fs.mkdir(cwd, { recursive: true });
 		const sourceFile = path.join(tempDir.path(), "sessions", "host.jsonl");
@@ -418,7 +417,7 @@ describe("seance artifact lifecycle", () => {
 	});
 
 	it("leaves only each seance's transcript and result in a repeatedly consulted host's artifacts", async () => {
-		using tempDir = TempDir.createSync("@omp-seance-repeat-");
+		using tempDir = TempDir.createSync("@oms-seance-repeat-");
 		const cwd = path.join(tempDir.path(), "project");
 		await fs.mkdir(cwd, { recursive: true });
 		const sourceFile = path.join(tempDir.path(), "sessions", "host.jsonl");

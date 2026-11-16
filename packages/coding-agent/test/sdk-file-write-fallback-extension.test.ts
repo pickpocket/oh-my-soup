@@ -50,7 +50,7 @@ function initializeRunnerForTest(runner: ExtensionRunner | undefined): void {
 	if (!runner) return;
 	const actions: ExtensionActions = {
 		sendMessage: () => {},
-		sendUserMessage: () => {},
+		sendUserMessage: async () => {},
 		appendEntry: () => {},
 		setLabel: () => {},
 		getActiveTools: () => [],

@@ -31,7 +31,7 @@ preload=$scripts_dir/oms.ts
 timing_preload=$scripts_dir/../../utils/src/module-timer.ts
 
 launch_dir=${OMS_DEV_LAUNCH_DIR:-${HOME}/.oms/.dev-cwd}
-mkdir -p "$launch_dir"
+[ -d "$launch_dir" ] || mkdir -p "$launch_dir"
 
 OMS_LAUNCH_CWD=$PWD
 export OMS_LAUNCH_CWD

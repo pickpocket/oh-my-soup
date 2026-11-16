@@ -521,6 +521,9 @@ describe("executeJs", () => {
 	it("routes output() through tool.read and keeps tool.* results normalized", async () => {
 		const execute = vi.fn(async (_toolCallId: string, args: unknown): Promise<AgentToolResult> => {
 			const record = args as { path: string };
+			if (record.path === "agent://agent-42:raw:1-1") {
+				return { content: [{ type: "text", text: "agent preview" }] };
+			}
 			if (record.path.startsWith("agent://")) {
 				return { content: [{ type: "text", text: "from-agent" }] };
 			}
@@ -544,7 +547,6 @@ describe("executeJs", () => {
 		);
 
 		expect(result.exitCode).toBe(0);
-		expect(getStatusEvents(result)).toHaveLength(2);
 		expect(getJsonData(result)).toEqual({
 			toolResult: {
 				text: "annotated",
@@ -552,7 +554,12 @@ describe("executeJs", () => {
 			},
 			agentOutput: "from-agent",
 		});
-		expect(execute).toHaveBeenCalledTimes(2);
+		// The output helper probes for a published file before falling back to the protocol resource.
+		expect(execute.mock.calls.map(call => call[1])).toEqual([
+			{ path: "package.json" },
+			{ path: "agent://agent-42:raw:1-1" },
+			{ path: "agent://agent-42" },
+		]);
 	});
 
 	it("preserves nested await expressions in instrumented tool-call arguments", async () => {

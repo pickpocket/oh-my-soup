@@ -14,16 +14,17 @@ import { PluginManager } from "@oh-my-soup/pi-coding-agent/extensibility/plugins
 import { MarketplaceManager } from "@oh-my-soup/pi-coding-agent/extensibility/plugins/marketplace";
 import type { AgentSession, AsyncJobTree } from "@oh-my-soup/pi-coding-agent/session/agent-session";
 import type { SessionDumpArchive } from "@oh-my-soup/pi-coding-agent/session/session-dump-format";
-import type { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
+import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
 import { executeAcpBuiltinSlashCommand } from "@oh-my-soup/pi-coding-agent/slash-commands/acp-builtins";
 import { addSSHHost, readSSHConfigFile } from "@oh-my-soup/pi-coding-agent/ssh/config-writer";
-import { getProjectDir, getSSHConfigPath, removeWithRetries, setProjectDir } from "@oh-my-soup/pi-utils";
+import { getProjectDir, getSSHConfigPath, removeWithRetries, setProjectDir, TempDir } from "@oh-my-soup/pi-utils";
 import { initTheme } from "@oh-my-soup/pi-tui/theme";
 
 import { cfgBrowserEnabled, cfgBrowserHeadless } from "@oh-my-soup/pi-coding-agent/tools/browser/settings";
 import { cfgExtendedContext } from "@oh-my-soup/pi-coding-agent/session/context-settings";
 import { cfgMemoryBackend } from "@oh-my-soup/pi-coding-agent/memory-backend/settings";
 import { cfgWorktreeCleanSource } from "@oh-my-soup/pi-coding-agent/task/settings";
+import { makeAssistantMessage } from "./session-manager/helpers";
 
 interface FakeAcpBuiltinSession {
 	fastMode: boolean;
@@ -45,6 +46,7 @@ interface FakeAcpBuiltinSession {
 	fetchUsageReports?: () => Promise<unknown>;
 	getAsyncJobSnapshot: (opts?: { recentLimit?: number }) => { running: unknown[]; recent: unknown[] } | null;
 	getAsyncJobTree: () => AsyncJobTree | null;
+	requestJobCaptions: () => void;
 	cancelAsyncJob: (id: string) => boolean;
 	formatSessionAsText: () => string;
 	dumpLlmRequestToTmpDir: () => Promise<string | undefined>;
@@ -66,7 +68,7 @@ interface FakeAcpBuiltinSession {
 	setSlashCommands(commands: unknown[]): void;
 	refreshSkillsAndCommands(): Promise<void>;
 	getTodoPhases(): Array<{ name: string; tasks: Array<{ content: string; status: string }> }>;
-	setTodoPhases(phases: Array<{ name: string; tasks: Array<{ content: string; status: string }> }>): void;
+	commitTodoPhases(phases: Array<{ name: string; tasks: Array<{ content: string; status: string }> }>): void;
 	refreshBaseSystemPrompt(): Promise<void>;
 	getHindsightSessionState(): undefined;
 	applyMemoryBackend(): Promise<void>;
@@ -161,8 +163,9 @@ function createRuntime() {
 		getTodoPhases() {
 			return this._todoPhases;
 		},
-		setTodoPhases(phases) {
+		commitTodoPhases(phases) {
 			this._todoPhases = phases;
+			fakeSessionManager.appendCustomEntry("user_todo_edit", { phases });
 		},
 		async refreshBaseSystemPrompt() {},
 		// Headless `/move` and `/wt` rebind memory for the destination project.
@@ -170,6 +173,7 @@ function createRuntime() {
 		async applyMemoryBackend() {},
 		getAsyncJobSnapshot: () => null,
 		getAsyncJobTree: () => null,
+		requestJobCaptions: () => {},
 		cancelAsyncJob: () => false,
 		formatSessionAsText: () => "",
 		dumpLlmRequestToTmpDir: async () => undefined,
@@ -881,6 +885,51 @@ describe("session lifecycle commands", () => {
 		const result = await executeAcpBuiltinSlashCommand("/session delete", runtime);
 		expect(result).toEqual({ consumed: true, failed: true });
 		expect(output[0]).toContain("streaming");
+	});
+
+	it("/session delete moves the live session and keeps the next turn resumable", async () => {
+		using tempDir = TempDir.createSync("@pi-acp-session-delete-");
+		const manager = SessionManager.create(tempDir.path(), tempDir.path());
+		try {
+			manager.appendMessage({ role: "user", content: "first turn", timestamp: 1 });
+			manager.appendMessage(makeAssistantMessage());
+			await manager.flush();
+			const deletedFile = manager.getSessionFile();
+			const deletedId = manager.getSessionId();
+			if (!deletedFile) throw new Error("Expected a persisted session");
+
+			const { output, session, runtime } = createRuntime();
+			runtime.sessionManager = manager;
+			session.newSession = async options => {
+				await manager.newSession(options);
+				session.sessionId = manager.getSessionId();
+				session.sessionFile = manager.getSessionFile();
+				return true;
+			};
+			expect(await executeAcpBuiltinSlashCommand("/session delete", runtime)).toEqual({ consumed: true });
+			expect(await Bun.file(deletedFile).exists()).toBe(false);
+			expect(manager.getSessionId()).not.toBe(deletedId);
+			expect(output[0]).toContain(manager.getSessionId());
+			const nextFile = manager.getSessionFile();
+			if (!nextFile) throw new Error("Expected a new session path");
+			expect(output[0]).toContain(nextFile);
+			// The successor stays lazy: deleting must not leave an empty listed session behind.
+			expect(await Bun.file(nextFile).exists()).toBe(false);
+			expect(await SessionManager.list(tempDir.path(), tempDir.path())).toEqual([]);
+
+			manager.appendMessage({ role: "user", content: "second turn", timestamp: 2 });
+			manager.appendMessage(makeAssistantMessage());
+			await manager.flush();
+			const resumed = await SessionManager.open(nextFile);
+			try {
+				expect(resumed.buildSessionContext().messages.map(message => message.role)).toEqual(["user", "assistant"]);
+				expect(resumed.buildSessionContext().messages[0]).toMatchObject({ content: "second turn" });
+			} finally {
+				await resumed.close();
+			}
+		} finally {
+			await manager.close();
+		}
 	});
 
 	it("/rename: renames and calls notifyTitleChanged on success", async () => {

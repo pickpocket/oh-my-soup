@@ -5,7 +5,6 @@ import { isPermissionDeniedError, writeFileWithFallback } from "../tools/file-wr
 import {
 	beginPendingDiskWrite,
 	endPendingDiskWrite,
-	FileChangeType,
 	getActiveOrPendingClient,
 	getOrCreateClient,
 	notifyWorkspaceWatchedFiles,
@@ -23,10 +22,11 @@ import {
 	INLINE_DIAGNOSTICS_WAIT_TIMEOUT_MS,
 	limitDiagnosticMessages,
 	type ServerVersionMap,
+	unreportedSummary,
 } from "./diagnostics";
 import { type FileDiagnosticsResult, FileFormatResult } from "@oh-my-soup/pi-tui/tools/lsp";
 import { notifyFileSaved, splitServers, syncFileContent } from "./servers";
-import type { LspClient, ServerConfig } from "./types";
+import { FileChangeType, type LspClient, type ServerConfig } from "./types";
 import { summarizeDiagnosticMessages } from "./utils";
 
 const TSSERVER_REQUEST_COMMAND = "typescript.tsserverRequest";
@@ -120,6 +120,14 @@ export interface WritethroughResult {
 	finalContent: string;
 }
 
+/**
+ * Runs at most once per writethrough call: after the call's final bytes reach disk, before
+ * `didSave` reaches language servers and before diagnostics are collected for those bytes,
+ * deferred fetches included. `write` sets a shebang's execute bits here, since linters read
+ * them (Ruff's EXE001). Receives the final bytes.
+ */
+export type WritethroughCommitHook = (finalContent: string) => Promise<void>;
+
 /** Callback type for the LSP writethrough */
 export type WritethroughCallback = (
 	dst: string,
@@ -128,6 +136,7 @@ export type WritethroughCallback = (
 	file?: BunFile,
 	batch?: LspWritethroughBatchRequest,
 	getDeferred?: (dst: string) => WritethroughDeferredHandle | undefined,
+	onCommitted?: WritethroughCommitHook,
 ) => Promise<WritethroughResult>;
 
 /** No-op writethrough callback */
@@ -138,8 +147,10 @@ export async function writethroughNoop(
 	file?: BunFile,
 	_batch?: LspWritethroughBatchRequest,
 	_getDeferred?: (dst: string) => WritethroughDeferredHandle | undefined,
+	onCommitted?: WritethroughCommitHook,
 ): Promise<WritethroughResult> {
 	await writeFileWithFallback(dst, content, file);
+	await onCommitted?.(content);
 	return { finalContent: content };
 }
 
@@ -157,6 +168,7 @@ interface PendingWritethrough {
 
 interface RunLspWritethroughOptions {
 	contentAlreadyWritten?: boolean;
+	onCommitted?: WritethroughCommitHook;
 }
 
 interface LspWritethroughBatchRequest {
@@ -213,6 +225,7 @@ function mergeDiagnostics(
 	let formatted = false;
 	let hasFailed = false;
 	let hasUnsupported = false;
+	const unreported = new Set<string>();
 
 	for (const result of results) {
 		if (!result) continue;
@@ -228,6 +241,7 @@ function mergeDiagnostics(
 		if (result.messages.length > 0) {
 			messages.push(...result.messages);
 		}
+		for (const server of result.unreported ?? []) unreported.add(server);
 		if (result.formatter !== undefined) {
 			hasFormatter = true;
 			if (result.formatter === FileFormatResult.FORMATTED) {
@@ -253,6 +267,9 @@ function mergeDiagnostics(
 		errored = summaryInfo.errored;
 		limitedMessages = limitDiagnosticMessages(messages);
 	}
+	if (unreported.size > 0) {
+		summary = unreportedSummary(Array.from(unreported), messages.length > 0 ? summary : undefined);
+	}
 	// Priority: FAILED > FORMATTED > UNCHANGED > UNSUPPORTED
 	const formatter = hasFormatter
 		? hasFailed
@@ -269,8 +286,14 @@ function mergeDiagnostics(
 		messages: limitedMessages,
 		summary,
 		errored,
+		unreported: unreported.size > 0 ? Array.from(unreported) : undefined,
 		formatter,
 	};
+}
+
+/** A late result that adds nothing: no diagnostics, and some server still unanswered. */
+function isUnverifiedOnly(diagnostics: FileDiagnosticsResult): boolean {
+	return diagnostics.messages.length === 0 && diagnostics.unreported !== undefined;
 }
 
 async function scheduleDeferredDiagnosticsFetch(args: {
@@ -292,7 +315,7 @@ async function scheduleDeferredDiagnosticsFetch(args: {
 			expectedDocumentVersions: args.expectedDocumentVersions,
 			timeoutMs: args.waitMs,
 		});
-		if (args.signal.aborted || diagnostics === undefined) return;
+		if (args.signal.aborted || diagnostics === undefined || isUnverifiedOnly(diagnostics)) return;
 		args.callback(diagnostics);
 	} catch {
 		// Cancelled or LSP gave up; silently discard.
@@ -368,7 +391,9 @@ async function fetchDiagnosticsWithDeferral(args: {
 	// deferred sink (edit tool) applies its own dedup, so pass the raw result.
 	void fetchPromise
 		.then(diagnostics => {
-			if (diagnostics && !deferred.signal.aborted) deferred.onDeferredDiagnostics(diagnostics);
+			if (diagnostics && !isUnverifiedOnly(diagnostics) && !deferred.signal.aborted) {
+				deferred.onDeferredDiagnostics(diagnostics);
+			}
 		})
 		.catch(() => {});
 	return undefined;
@@ -403,6 +428,16 @@ async function runLspWritethrough(
 	const commitWrite = async () => {
 		if (diskContent !== finalContent) await writeContent(finalContent);
 	};
+	let committed: Promise<void> | undefined;
+	/**
+	 * Commit the final bytes, then run the caller's `onCommitted` hook on them, once. A budget
+	 * timeout that interrupts the hook leaves the catch path awaiting this same run.
+	 */
+	const commitFinalWrite = async () => {
+		await commitWrite();
+		const onCommitted = runOptions?.onCommitted;
+		if (onCommitted) await (committed ??= onCommitted(finalContent));
+	};
 	let writeNotified = false;
 	const notifyWriteCommitted = async (notifySignal: AbortSignal | undefined = signal) => {
 		if (writeNotified) return;
@@ -421,7 +456,7 @@ async function runLspWritethrough(
 		}
 	};
 	if (!enableFormat && !enableDiagnostics) {
-		await commitWrite();
+		await commitFinalWrite();
 		await notifyWriteCommitted();
 		return { finalContent, diagnostics: undefined };
 	}
@@ -430,7 +465,7 @@ async function runLspWritethrough(
 	const servers = getServersForFile(config, dst);
 
 	if (servers.length === 0) {
-		await commitWrite();
+		await commitFinalWrite();
 		await notifyWriteCommitted();
 		return { finalContent, diagnostics: undefined };
 	}
@@ -491,7 +526,7 @@ async function runLspWritethrough(
 				} else {
 					formatter = finalContent !== content ? FileFormatResult.FORMATTED : FileFormatResult.UNCHANGED;
 				}
-				await commitWrite();
+				await commitFinalWrite();
 				await notifyWriteCommitted(operationSignal);
 				if (changeType === FileChangeType.Created) {
 					await reloadTypeScriptProjectsAfterCreate(cwd, lspServers, operationSignal, {
@@ -532,8 +567,8 @@ async function runLspWritethrough(
 				}
 
 				// 4. Write to disk. A formatter-altered body is the only thing left to
-				// commit when the create already landed above.
-				await commitWrite();
+				// commit when the create already landed above; the hook runs either way.
+				await commitFinalWrite();
 				await notifyWriteCommitted(operationSignal);
 			}
 
@@ -546,6 +581,9 @@ async function runLspWritethrough(
 		});
 		synced = true;
 	} catch {
+		// The commit (and its hook) precedes the late fetch below, so that fetch
+		// cannot lint the file before the bytes and their metadata are final.
+		await commitFinalWrite();
 		if (timedOut) {
 			formatter = undefined;
 			diagnostics = undefined;
@@ -563,7 +601,6 @@ async function runLspWritethrough(
 				});
 			}
 		}
-		await commitWrite();
 		// The write above committed even though the operation budget elapsed:
 		// announce it on the caller's signal — the dead `operationSignal` would
 		// abort the notify before it ever reaches the server.
@@ -587,11 +624,15 @@ async function runLspWritethrough(
 	}
 
 	if (formatter !== undefined) {
+		// Carries the formatter result. With diagnostics requested, none arrived in time
+		// (or they come later through the deferred channel): do not vouch for the file.
+		const unreported = enableDiagnostics ? servers.map(([name]) => name) : undefined;
 		diagnostics ??= {
 			server: servers.map(([name]) => name).join(", "),
 			messages: [],
-			summary: "OK",
+			summary: unreported ? unreportedSummary(unreported) : "OK",
 			errored: false,
+			unreported,
 		};
 		diagnostics.formatter = formatter;
 	}
@@ -606,6 +647,7 @@ async function flushWritethroughBatch(
 	options: ResolvedWritethroughOptions,
 	signal?: AbortSignal,
 	getDeferred?: (dst: string) => WritethroughDeferredHandle | undefined,
+	onCommitted?: WritethroughCommitHook,
 ): Promise<WritethroughResult> {
 	if (batch.length === 0) {
 		return { finalContent: "" };
@@ -642,7 +684,8 @@ async function flushWritethroughBatch(
 			signal,
 			entry.file,
 			deferredInner,
-			{ contentAlreadyWritten: true },
+			// Earlier entries ran their own calls' hooks when those calls wrote them.
+			{ contentAlreadyWritten: true, onCommitted: entry.dst === requestedDst ? onCommitted : undefined },
 		);
 		finalContents.set(entry.dst, diag.finalContent);
 		bundle?.finalize(diag.diagnostics);
@@ -672,6 +715,7 @@ export function createLspWritethrough(cwd: string, options?: WritethroughOptions
 		file?: BunFile,
 		batch?: LspWritethroughBatchRequest,
 		getDeferred?: (dst: string) => WritethroughDeferredHandle | undefined,
+		onCommitted?: WritethroughCommitHook,
 	) => {
 		const changeType = (await Bun.file(dst).exists()) ? FileChangeType.Changed : FileChangeType.Created;
 		if (!batch) {
@@ -691,6 +735,7 @@ export function createLspWritethrough(cwd: string, options?: WritethroughOptions
 				signal,
 				file,
 				deferredInner,
+				{ onCommitted },
 			);
 			bundle?.finalize(diagnostics.diagnostics);
 			return diagnostics;
@@ -727,7 +772,12 @@ export function createLspWritethrough(cwd: string, options?: WritethroughOptions
 
 		const state = getOrCreateWritethroughBatch(batch.id, resolvedOptions);
 		state.entries.set(dst, { dst, file, changeType, content });
-		if (!batch.flush) return { finalContent: content };
+		if (!batch.flush) {
+			// The flush formats and diagnoses this entry after this call returns, so
+			// these bytes are the call's result: run its hook on them now.
+			await onCommitted?.(content);
+			return { finalContent: content };
+		}
 		writethroughBatches.delete(batch.id);
 		const result = await flushWritethroughBatch(
 			Array.from(state.entries.values()),
@@ -736,6 +786,7 @@ export function createLspWritethrough(cwd: string, options?: WritethroughOptions
 			state.options,
 			signal,
 			getDeferred,
+			onCommitted,
 		);
 		return result;
 	};

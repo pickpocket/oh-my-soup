@@ -278,7 +278,7 @@ export class PauseScreenComponent implements Component, OverlayFocusOwner {
 	}
 
 	/** A glass sheet titled "Paused" (not the whole pane: the transcript stays visible, frozen). */
-	readonly nativeOverlay = { role: "omp.overlay.pause", size: "md", anchor: "center", head: "Paused" } as const;
+	readonly nativeOverlay = { role: "oms.overlay.pause", size: "md", anchor: "center", head: "Paused" } as const;
 
 	/**
 	 * The sheet: a hero (the pause glyph beside the live hold clock and the
@@ -299,7 +299,7 @@ export class PauseScreenComponent implements Component, OverlayFocusOwner {
 								outstanding ? "warning" : "success",
 							),
 						],
-						{ role: "omp.pause.settlement" },
+						{ role: "oms.pause.settlement" },
 					),
 					"settlement",
 				),
@@ -307,25 +307,25 @@ export class PauseScreenComponent implements Component, OverlayFocusOwner {
 					? [
 							keyed(
 								text([span(`Unsettled turns: ${snapshot.unsettledTurns}`, "muted")], {
-									role: "omp.pause.unsettled-turn-count",
+									role: "oms.pause.unsettled-turn-count",
 								}),
 								"unsettled-turns",
 							),
 							keyed(
 								text([span(`Unfinished jobs: ${snapshot.unfinishedJobs}`, "muted")], {
-									role: "omp.pause.unfinished-job-count",
+									role: "oms.pause.unfinished-job-count",
 								}),
 								"unfinished-jobs",
 							),
 						]
 					: []),
 			],
-			{ role: "omp.pause.settlement-status", gap: "sm" },
+			{ role: "oms.pause.settlement-status", gap: "sm" },
 		);
 		const resumeKey = boundKeys("app.interrupt", ["escape"])[0] ?? "escape";
 		const hero = row(
 			[
-				node("icon", { name: "pause", role: "omp.pause.glyph" }, undefined, "glyph"),
+				node("icon", { name: "pause", role: "oms.pause.glyph" }, undefined, "glyph"),
 				col(
 					[
 						node(
@@ -333,7 +333,7 @@ export class PauseScreenComponent implements Component, OverlayFocusOwner {
 							{
 								age: Date.now() - this.#startedAt,
 								format: "clock",
-								role: "omp.pause.clock",
+								role: "oms.pause.clock",
 								title: "Paused for",
 							},
 							undefined,
@@ -341,7 +341,7 @@ export class PauseScreenComponent implements Component, OverlayFocusOwner {
 						),
 						keyed(
 							text([span(this.host.sessionName ?? "Every agent in this session", "muted")], {
-								role: "omp.pause.session",
+								role: "oms.pause.session",
 								wrap: "none",
 								truncate: "end",
 							}),
@@ -351,7 +351,7 @@ export class PauseScreenComponent implements Component, OverlayFocusOwner {
 					{ gap: "none", grow: 1, shrink: 1 },
 				),
 			],
-			{ role: "omp.pause.hero", gap: "md", align: "center" },
+			{ role: "oms.pause.hero", gap: "md", align: "center" },
 		);
 		const facts = col(
 			HOLD_FACTS.map(([icon, what, detail], index) =>
@@ -365,12 +365,12 @@ export class PauseScreenComponent implements Component, OverlayFocusOwner {
 								shrink: 1,
 							}),
 						],
-						{ role: "omp.pause.fact", gap: "md", align: "start" },
+						{ role: "oms.pause.fact", gap: "md", align: "start" },
 					),
 					`fact-${index}`,
 				),
 			),
-			{ role: "omp.pause.facts", gap: "md" },
+			{ role: "oms.pause.facts", gap: "md" },
 		);
 		this.#native = col(
 			[

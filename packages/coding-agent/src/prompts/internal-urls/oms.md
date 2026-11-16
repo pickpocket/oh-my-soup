@@ -1,1 +1,1 @@
-`oms://`: harness docs, AVOID unless asked.
+oms://: harness docs, AVOID unless asked.

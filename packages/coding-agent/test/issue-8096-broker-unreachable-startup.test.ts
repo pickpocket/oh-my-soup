@@ -9,10 +9,11 @@
  * so an unreachable broker stays fatal — the fix is the recovery guidance, not
  * a silent fallback to local credentials.
  */
-import { describe, expect, it, vi } from "bun:test";
+import { afterEach, describe, expect, it, vi } from "bun:test";
 import { AuthBrokerError } from "@oh-my-soup/pi-ai/auth-broker";
 import { MissingApiKeyError } from "@oh-my-soup/pi-ai/error";
 import { parseArgs } from "@oh-my-soup/pi-coding-agent/cli/args";
+import { clearOmsExtensionCliRoots } from "@oh-my-soup/pi-coding-agent/discovery/oms-extension-roots";
 import { runRootCommand } from "@oh-my-soup/pi-coding-agent/main";
 import { describeAuthBrokerStartupError } from "@oh-my-soup/pi-coding-agent/session/auth-broker-config";
 import { setInteractiveHost } from "@oh-my-soup/pi-utils";
@@ -23,6 +24,11 @@ class ProcessExitSignal extends Error {
 		this.name = "ProcessExitSignal";
 	}
 }
+
+// `runRootCommand` registers the CLI's extension roots (`--no-extensions` → explicit-only) process-wide.
+afterEach(() => {
+	clearOmsExtensionCliRoots();
+});
 
 describe("describeAuthBrokerStartupError", () => {
 	it("turns a broker connection failure into recovery guidance", async () => {

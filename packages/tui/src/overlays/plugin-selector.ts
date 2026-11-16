@@ -34,7 +34,7 @@ export class PluginSelectorComponent extends OverlayPanel {
 		installedIds: Set<string>,
 		callbacks: PluginSelectorCallbacks,
 	) {
-		super("Plugins", "omp.overlay.plugins");
+		super("Plugins", "oms.overlay.plugins");
 
 		// The sheet draws version, install state and scope as badges instead of bracketed label text.
 		const badgesByValue = new Map<string, NonNullable<TspPickerItem["badges"]>>();

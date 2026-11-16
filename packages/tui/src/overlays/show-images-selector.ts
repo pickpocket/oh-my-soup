@@ -13,7 +13,7 @@ export class ShowImagesSelectorComponent extends OverlayPanel {
 	#sheet: SelectListSheet;
 
 	constructor(currentValue: boolean, onSelect: (show: boolean) => void, onCancel: () => void) {
-		super("Show Images", "omp.overlay.show-images");
+		super("Show Images", "oms.overlay.show-images");
 
 		const items: SelectItem[] = [
 			{ value: "yes", label: "Yes", description: "Show images inline in terminal" },

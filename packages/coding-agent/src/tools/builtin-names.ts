@@ -1,3 +1,5 @@
+import type { AgentTool } from "@oh-my-soup/pi-agent-core";
+
 export const BUILTIN_TOOL_NAMES = [
 	"read",
 	"bash",
@@ -40,6 +42,77 @@ export const BUILTIN_TOOL_NAMES = [
 
 export type BuiltinToolName = (typeof BUILTIN_TOOL_NAMES)[number];
 
+/**
+ * CLI help entry for a built-in: its summary and whether default settings activate it. A
+ * `detected` tool needs no setting change but appears only when `detectedWhen` holds.
+ */
+export type BuiltinToolHelp =
+	| { summary: string; defaultState: "on" | "off" }
+	| { summary: string; defaultState: "detected"; detectedWhen: string };
+
+/**
+ * Keyed by name so a new tool cannot ship without help; `test/tools/builtin-defaults.test.ts` checks
+ * `defaultState`. Entry order is CLI help order: most-used tools first, specialized ones last.
+ */
+export const BUILTIN_TOOL_HELP: Record<BuiltinToolName, BuiltinToolHelp> = {
+	read: { summary: "Read files, directories, URLs, archives, and databases", defaultState: "on" },
+	edit: { summary: "Edit files in place", defaultState: "on" },
+	write: { summary: "Create or overwrite files", defaultState: "on" },
+	bash: { summary: "Execute shell commands", defaultState: "on" },
+	grep: { summary: "Search file contents by regex", defaultState: "on" },
+	glob: { summary: "Find files by glob pattern", defaultState: "on" },
+	find: {
+		summary: "Find code by describing what it does",
+		defaultState: "detected",
+		detectedWhen: "a native judge model is available",
+	},
+	eval: { summary: "Run Python/JS cells; hosts the browser and computer-use helpers", defaultState: "on" },
+	task: { summary: "Launch subagents for parallel work", defaultState: "on" },
+	wait: { summary: "Wait for background jobs", defaultState: "on" },
+	todo: { summary: "Track a todo list", defaultState: "on" },
+	notes: { summary: "Save session reference notes across compaction and resume", defaultState: "on" },
+	beads: { summary: "Track durable work in the native dependency-aware Beads graph", defaultState: "on" },
+	board: { summary: "Share findings, questions, and file ownership across directory boards", defaultState: "on" },
+	ask: { summary: "Ask the user questions (interactive mode only)", defaultState: "on" },
+	web_search: { summary: "Search the web", defaultState: "on" },
+	lsp: { summary: "Language server queries (code intelligence)", defaultState: "on" },
+	ast_edit: { summary: "Rewrite code with AST patterns", defaultState: "on" },
+	debug: { summary: "Debug a running process over DAP", defaultState: "on" },
+	ida: {
+		summary: "Open, edit, and script IDA Pro databases",
+		defaultState: "detected",
+		detectedWhen: "IDA Pro is installed",
+	},
+	disasm: {
+		summary: "Open binaries and query IDA, Ghidra, or Binary Ninja",
+		defaultState: "on",
+	},
+	objdump: {
+		summary: "Inspect binary headers, sections, symbols, instructions, and bytes with LLVM objdump",
+		defaultState: "detected",
+		detectedWhen: "LLVM objdump is available",
+	},
+	frida: { summary: "Instrument live processes with Frida", defaultState: "on" },
+	ssh: {
+		summary: "Manage SSH sessions for remote commands and files",
+		defaultState: "detected",
+		detectedWhen: "the ssh client is available",
+	},
+	ast_grep: { summary: "Search code with AST patterns", defaultState: "off" },
+	github: { summary: "Query and act on GitHub repositories, issues, and PRs", defaultState: "off" },
+	checkpoint: { summary: "Save a git-based checkpoint of session state", defaultState: "off" },
+	rewind: { summary: "Rewind to a saved checkpoint", defaultState: "off" },
+	context_notes: { summary: "Read or replace the session's persistent context notes", defaultState: "off" },
+	new_context: { summary: "Request a fresh context window after the current turn", defaultState: "off" },
+	retain: { summary: "Store facts in long-term memory", defaultState: "off" },
+	recall: { summary: "Search long-term memory", defaultState: "off" },
+	reflect: { summary: "Synthesize an answer from long-term memory", defaultState: "off" },
+	memory_edit: { summary: "Edit or forget long-term memories", defaultState: "off" },
+	learn: { summary: "Capture reusable lessons in long-term memory", defaultState: "off" },
+	manage_skill: { summary: "Create, update, or delete managed skills", defaultState: "off" },
+	security_scan: { summary: "Run security scans", defaultState: "off" },
+};
+
 export const HIDDEN_TOOL_NAMES = ["yield", "goal", "think"] as const;
 
 export type HiddenToolName = (typeof HIDDEN_TOOL_NAMES)[number];
@@ -67,6 +140,12 @@ export function normalizeToolNames(names: Iterable<string>): string[] {
 		out.push(normalized);
 	}
 	return out;
+}
+
+/** The name the model calls tool `name` by (its custom wire name when it declares one), for prompts that reference it. */
+export function toolWireName(registry: ReadonlyMap<string, AgentTool>, name: string): string {
+	const tool = registry.get(name);
+	return typeof tool?.customWireName === "string" ? tool.customWireName : name;
 }
 
 /** MCP tool names carry the `mcp__<server>_<tool>` prefix minted by `createMCPToolName`. */

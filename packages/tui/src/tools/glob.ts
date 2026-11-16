@@ -22,6 +22,7 @@ import {
 	formatCount,
 	formatEmptyMessage,
 	formatErrorMessage,
+	formatStyledPath,
 	PREVIEW_LIMITS,
 } from "../render/render-utils";
 import { formatFullOutputReference } from "./output-meta";
@@ -105,7 +106,7 @@ function describeGlobFiles(
 	if (files.length <= NATIVE_LIST_MAX) {
 		return col(
 			files.map((file, i) => fileRow(file, { href: links[i] })),
-			{ role: "omp.tool.files", gap: "none" },
+			{ role: "oms.tool.files", gap: "none" },
 		);
 	}
 	return row(
@@ -119,12 +120,12 @@ function describeGlobFiles(
 						node("icon", { name: isDir ? "folder" : "file" }),
 						text([span(name, "strong", link ? { href: link } : undefined)], { wrap: "none" }),
 					],
-					{ role: "omp.tool.chip", gap: "xs", align: "center", title: file },
+					{ role: "oms.tool.chip", gap: "xs", align: "center", title: file },
 				),
 				file,
 			);
 		}),
-		{ role: "omp.tool.files", gap: "xs", wrap: true },
+		{ role: "oms.tool.files", gap: "xs", wrap: true },
 	);
 }
 
@@ -202,7 +203,7 @@ export const globToolRenderer = {
 							expanded: options.expanded,
 							maxCollapsed: PREVIEW_LIMITS.COLLAPSED_ITEMS,
 							itemType: "file",
-							renderItem: line => uiTheme.fg("accent", line),
+							renderItem: line => formatStyledPath(line, uiTheme),
 						},
 						uiTheme,
 					);

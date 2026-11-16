@@ -522,7 +522,12 @@ describe("collab host registry lifecycle (#6099)", () => {
 
 		// Links come only from an explicit, generation-bound request.
 		const control = await registry.resolveCollabHostLink("host-under-test", "control", { dir: tmp });
-		expect(control).toEqual({ instanceId: "host-under-test", generation: 3, access: "control", url: host.webLink ?? host.link });
+		expect(control).toEqual({
+			instanceId: "host-under-test",
+			generation: 3,
+			access: "control",
+			url: host.webLink ?? host.link,
+		});
 		const view = await registry.resolveCollabHostLink("host-under-test", "view", { dir: tmp });
 		expect(view.url).toBe(host.webViewLink ?? host.viewLink);
 	});

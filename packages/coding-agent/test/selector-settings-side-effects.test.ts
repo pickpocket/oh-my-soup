@@ -80,7 +80,9 @@ describe("selector setting side effects", () => {
 					getProviderDiscoveryState: () => undefined,
 					authStorage: { hasAuth: () => false },
 				},
-				scopedModels: [{ model: nextModel }],
+				// Qualified selectors resolve exactly: the old role must remain in
+				// scope for its explicit high thinking level to be carried forward.
+				scopedModels: [{ model: previousModel }, { model: nextModel }],
 				getContextUsage: () => undefined,
 				setModel,
 				setThinkingLevel,
@@ -101,10 +103,15 @@ describe("selector setting side effects", () => {
 			hub.handleInput("\x1b[A"); // All models → Roles.
 			hub.handleInput("\n"); // Enter the role rows.
 			hub.handleInput("\n"); // Assign DEFAULT.
-			hub.handleInput("\n"); // Enter the model rows.
-			hub.handleInput("\n"); // Pick the scoped replacement model.
+			for (const ch of nextModel.id) hub.handleInput(ch);
+			hub.handleInput("\n"); // Pick the replacement, preserving high thinking.
 			await assignmentApplied.promise;
 			await Promise.resolve();
+			expect(setModel).toHaveBeenLastCalledWith(
+				nextModel,
+				"default",
+				expect.objectContaining({ thinkingLevel: ThinkingLevel.High, persist: true }),
+			);
 
 			const levels = [ThinkingLevel.Inherit, ThinkingLevel.Off, AUTO_THINKING, ...getSupportedEfforts(nextModel)];
 			const highIndex = levels.indexOf(ThinkingLevel.High);

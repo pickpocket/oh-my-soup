@@ -31,7 +31,7 @@ function canonicalDocPath(url: InternalUrl): string {
 		return sourceDocRel(url);
 	} catch (error) {
 		if (error instanceof Error) {
-			throw new Error(error.message.replaceAll("omp://", "oms://"));
+			throw new Error(error.message.replaceAll("oms://", "oms://"));
 		}
 		throw error;
 	}
@@ -68,7 +68,7 @@ export class OmsProtocolHandler implements ProtocolHandler {
 
 	/** Always advertised: harness docs are embedded in every build. */
 	promptDoc(): string {
-		return omsDoc.trim().replaceAll("omp://", "oms://");
+		return omsDoc.trim().replaceAll("oms://", "oms://");
 	}
 
 	async resolve(url: InternalUrl): Promise<InternalResource> {
@@ -92,7 +92,7 @@ export class OmsProtocolHandler implements ProtocolHandler {
 			if (entries.length === 0) {
 				throw new Error("No documentation files found");
 			}
-			return entries.map(entry => ({ url: entry.url.replace("omp://", "oms://"), content: entry.content }));
+			return entries.map(entry => ({ url: entry.url.replace("oms://", "oms://"), content: entry.content }));
 		}
 		const resource = await this.#readDoc(docPath, docsFilename(url), url);
 		return [{ url: `oms://${docPath}`, content: resource.content }];

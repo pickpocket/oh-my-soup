@@ -8,8 +8,9 @@ import { beforeAll, describe, expect, it } from "bun:test";
 import { initTheme, theme } from "@oh-my-soup/pi-tui/theme";
 import { prompt } from "@oh-my-soup/pi-utils";
 import taskSummaryTemplate from "../../coding-agent/src/prompts/tools/task-summary.md" with { type: "text" };
-import { createIrcMessageCard, type CoordinationDetails, waitToolRenderer } from "@oh-my-soup/pi-tui/tools/wait";
+import { type CoordinationDetails, createIrcMessageCard, waitToolRenderer } from "@oh-my-soup/pi-tui/tools/wait";
 import type { NativeChild, NativeNode } from "@oh-my-soup/pi-tui/native/node";
+import { renderAgentWrite } from "@oh-my-soup/pi-tui/tools/proc-render";
 import { decodeBench } from "./fixtures/job-widget-views";
 
 /** Every described node under `children`, depth first. */
@@ -52,29 +53,12 @@ describe("wait and IRC renderers", () => {
 		await initTheme();
 	});
 
-	it("renders the consumed peer message as a sender card", () => {
-		const component = waitToolRenderer.renderResult(
-			{
-				content: [{ type: "text", text: "[42] Worker: file unlocked" }],
-				details: {
-					op: "wait",
-					waited: { id: "42", from: "Worker", to: "Main", body: "file unlocked", ts: Date.now() },
-				},
-			},
-			{ expanded: true, isPartial: false },
-			theme,
-		);
-		const output = Bun.stripANSI(component.render(120).join("\n"));
-		expect(output).toContain("Worker");
-		expect(output).toContain("file unlocked");
-	});
-
-	describe("waited peer messages", () => {
+	describe("wait timeouts", () => {
 		it("keeps a timed-out wait as a no-message result", () => {
 			const component = waitToolRenderer.renderResult(
 				{
 					content: [{ type: "text", text: "No message from AuthLoader within 2m." }],
-					details: { op: "wait", from: "Main", waited: null },
+					details: { op: "wait", jobs: [] },
 				},
 				{ expanded: false, isPartial: false },
 				theme,
@@ -83,33 +67,6 @@ describe("wait and IRC renderers", () => {
 			expect(output).toContain("No message from AuthLoader within 2m.");
 			expect(output).not.toContain("IRC");
 			expect(output).not.toContain("file unlocked");
-		});
-
-		it("collapses long received messages until the wait result is expanded", () => {
-			const result = {
-				content: [{ type: "text" as const, text: "" }],
-				details: {
-					op: "wait" as const,
-					waited: {
-						id: "7181122334455667789",
-						from: "Worker",
-						to: "Main",
-						body: ["line 1", "line 2", "line 3", "line 4", "line 5", "line 6"].join("\n"),
-						ts: Date.now(),
-					},
-				},
-			};
-			const collapsed = waitToolRenderer.renderResult(result, { expanded: false, isPartial: false }, theme);
-			const collapsedText = Bun.stripANSI(collapsed.render(120).join("\n"));
-			expect(collapsedText).toContain("line 1");
-			expect(collapsedText).toContain("line 2");
-			expect(collapsedText).not.toContain("line 3");
-			expect(collapsedText).toContain("+4 more lines");
-
-			const expanded = waitToolRenderer.renderResult(result, { expanded: true, isPartial: false }, theme);
-			const expandedText = Bun.stripANSI(expanded.render(120).join("\n"));
-			expect(expandedText).toContain("line 6");
-			expect(expandedText).not.toContain("more lines");
 		});
 	});
 
@@ -234,11 +191,6 @@ describe("wait and IRC renderers", () => {
 		const output = Bun.stripANSI(renderLines(summary));
 		expect(output).toContain('{ "echo": "alpha", "ok": true }');
 		expect(output.split("\n").some(line => line.trim() === "{")).toBe(false);
-	});
-
-	it("passes non-envelope result text through unchanged", () => {
-		const output = renderLines("42 pass, 0 fail (18.4s)");
-		expect(output).toContain("42 pass, 0 fail (18.4s)");
 	});
 
 	it("drops the id column when the label repeats it", () => {
@@ -404,12 +356,12 @@ describe("wait and IRC renderers", () => {
 			};
 			const view = waitToolRenderer.describeResult!(result, { expanded: true, isPartial });
 			const [strip, agent] = view!.body!;
-			expect(strip).toMatchObject({ k: "row", p: { role: "omp.job.tiles" } });
+			expect(strip).toMatchObject({ k: "row", p: { role: "oms.job.tiles" } });
 			const [running] = (strip as NativeNode).c ?? [];
-			expect(byRole(running, "omp.job.tile.dot")?.p).toMatchObject({
+			expect(byRole(running, "oms.job.tile.dot")?.p).toMatchObject({
 				spans: [isPartial ? { t: "●", fx: "pulse" } : { t: "●" }],
 			});
-			expect(flatten(byRole(running, "omp.job.tile.head")?.c).find(node => node.k === "elapsed")).toMatchObject({
+			expect(flatten(byRole(running, "oms.job.tile.head")?.c).find(node => node.k === "elapsed")).toMatchObject({
 				p: isPartial ? { age: 1200 } : { age: 1200, stopped: 1200 },
 			});
 			expect(agent).toMatchObject({
@@ -447,9 +399,9 @@ describe("wait and IRC renderers", () => {
 				},
 			};
 			const view = waitToolRenderer.describeResult!(result, { expanded: true, isPartial: false });
-			const tile = byRole(view!.body![0], "omp.job.tile");
+			const tile = byRole(view!.body![0], "oms.job.tile");
 			expect(tile).toMatchObject({ k: "col", p: { tone: "error" } });
-			expect(byRole(tile, "omp.job.tile.lead")?.p).toMatchObject({ spans: [{ t: "exit 1", s: "error" }] });
+			expect(byRole(tile, "oms.job.tile.lead")?.p).toMatchObject({ spans: [{ t: "exit 1", s: "error" }] });
 			const json = JSON.stringify(view);
 			expect(json).toContain("hyperfine --runs 30 bench");
 			expect(json).not.toContain("Benchmark 1");
@@ -583,12 +535,12 @@ describe("wait and IRC renderers", () => {
 			});
 			const [strip] = view!.body! as NativeNode[];
 			const tiles = (strip!.c ?? []) as NativeNode[];
-			expect(tiles.map(tile => byRole(tile, "omp.job.tile.title")?.p)).toMatchObject([
+			expect(tiles.map(tile => byRole(tile, "oms.job.tile.title")?.p)).toMatchObject([
 				{ spans: [{ t: "Bencher" }] },
-				{ spans: [{ t: "verb-bench · decode throughput" }] },
+				{ spans: [{ t: "loadtest · decode throughput" }] },
 			]);
 			const bench = tiles[1]!;
-			expect(byRole(bench, "omp.job.tile.chart")).toBeDefined();
+			expect(byRole(bench, "oms.job.tile.chart")).toBeDefined();
 			expect(JSON.stringify(tiles[0])).toContain("profiling the decode loop");
 		});
 
@@ -612,11 +564,81 @@ describe("wait and IRC renderers", () => {
 				const lines = (component.render(100) as readonly string[]).map(line => Bun.stripANSI(line));
 				const row = lines.findIndex(line => line.includes("bg_3"));
 				expect(row).toBeGreaterThan(0);
-				expect(lines[row]).toContain("verb-bench · decode throughput bg_3");
+				expect(lines[row]).toContain("loadtest · decode throughput bg_3");
 				expect(lines[row]).toMatch(/decode 186 tok\/s ▲ 15% {2}42\.0s$/);
 				expect(lines[row + 1]).toMatch(/[▁▂▃▄▅▆▇█]+ {2}186 tok\/s {2}┄ target 200 tok\/s/);
 				for (const line of lines) expect(Bun.stringWidth(line)).toBeLessThanOrEqual(100);
 			}
 		});
+	});
+});
+
+describe("IRC body wrapping", () => {
+	beforeAll(async () => {
+		await initTheme();
+	});
+
+	it("soft-wraps a long body line to the card width when expanded", () => {
+		const longLine = "word ".repeat(40).trim();
+		const component = createIrcMessageCard({ kind: "incoming", from: "Peer", body: longLine }, () => true, theme);
+		const lines = component.render(120) as readonly string[];
+		const stripped = lines.map(line => Bun.stripANSI(line));
+		const bodyLines = stripped.filter(line => line.includes("word"));
+		// A 200-char line wraps to multiple lines at the card width
+		expect(bodyLines.length).toBeGreaterThanOrEqual(2);
+		// Full content preserved across the wrap
+		const words = bodyLines
+			.join(" ")
+			.split(/\s+/)
+			.filter(w => w === "word");
+		expect(words).toHaveLength(40);
+	});
+
+	it("shows every line of an incoming message when expanded", () => {
+		const body = Array.from({ length: 30 }, (_, index) => `line ${index}`).join("\n");
+		const component = createIrcMessageCard({ kind: "incoming", from: "Peer", body }, () => true, theme);
+		const output = Bun.stripANSI((component.render(120) as readonly string[]).join("\n"));
+		for (let index = 0; index < 30; index++) expect(output).toContain(`line ${index}`);
+		expect(output).not.toContain("more line");
+	});
+
+	it("shows an expand hint on a collapsed card with hidden lines", () => {
+		const body = ["line one", "line two", "line three", "line four"].join("\n");
+		const component = createIrcMessageCard({ kind: "incoming", from: "Peer", body }, () => false, theme);
+		const output = Bun.stripANSI((component.render(120) as readonly string[]).join("\n"));
+		// The card shows three lines collapsed, so one of four is hidden.
+		expect(output).toContain("+1 more line");
+		expect(output).toContain("Expand");
+	});
+
+	it("preserves ANSI escape codes across a wrap boundary", () => {
+		const longLine = `\x1b[31m${"red ".repeat(40)}\x1b[0m`;
+		const component = createIrcMessageCard({ kind: "incoming", from: "Peer", body: longLine }, () => true, theme);
+		const lines = component.render(120) as readonly string[];
+		const rawJoined = lines.join("\n");
+		// ANSI codes preserved in raw output
+		expect(rawJoined).toContain("\x1b[31m");
+		expect(rawJoined).toContain("\x1b[0m");
+		// Full visible content preserved after stripping
+		const stripped = Bun.stripANSI(rawJoined);
+		const words = stripped.split(/\s+/).filter(w => w === "red");
+		expect(words).toHaveLength(40);
+	});
+
+	it("wraps an expanded outgoing agent write in full at render(120)", () => {
+		// Twenty long lines: expanded shows every one, each soft-wrapped to the
+		// card width instead of clipped at the fixed cap, with no elision row.
+		const body = Array.from({ length: 20 }, (_, index) => `${"word ".repeat(30)}END-${index}`).join("\n");
+		const component = renderAgentWrite(
+			"peer",
+			body,
+			undefined,
+			undefined,
+			{ expanded: true, isPartial: false },
+			theme,
+		);
+		const output = Bun.stripANSI((component.render(120) as readonly string[]).join("\n"));
+		for (let index = 0; index < 20; index++) expect(output).toContain(`END-${index}`);
+		expect(output).not.toContain("more lines");
 	});
 });

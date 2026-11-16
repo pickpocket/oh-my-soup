@@ -768,7 +768,7 @@ export class AgentTranscriptViewer implements Component {
 			]),
 		);
 		const head = [span("Agent Hub", "accent"), span(` ${theme.sep.dot} `, "dim"), span(id, "accent")];
-		const described = overlayCard("omp.hub.transcript", head, children);
+		const described = overlayCard("oms.hub.transcript", head, children);
 		this.#nativeCache = { signature, node: described };
 		return described;
 	}

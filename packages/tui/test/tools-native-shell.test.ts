@@ -1,6 +1,8 @@
 import { beforeAll, describe, expect, it } from "bun:test";
+import * as os from "node:os";
+import * as path from "node:path";
 import type { AssistantMessage, ImageContent } from "@oh-my-soup/pi-ai";
-import type { TspKind, TspSpan } from "@oh-my-soup/pi-wire";
+import type { ShellTrace, ShellVizPresentation, TspKind, TspSpan } from "@oh-my-soup/pi-wire";
 import { AssistantMessageComponent } from "../src/chat/assistant-message";
 import { BashExecutionComponent } from "../src/chat/bash-execution";
 import { ReadToolGroupComponent } from "../src/chat/read-tool-group";
@@ -52,12 +54,12 @@ function sections(box: NativeNode | undefined): string[] {
 
 /** The foot a consumer reads: state word and tone, time (age / stopped), facts text. */
 function foot(box: NativeNode | undefined) {
-	const row = nodes(box?.c).find(child => role(child) === "omp.run.foot");
+	const row = nodes(box?.c).find(child => role(child) === "oms.run.foot");
 	if (!row) return undefined;
 	const parts = nodes(row.c);
-	const state = parts.find(part => role(part) === "omp.run.state");
-	const time = parts.find(part => role(part) === "omp.run.time");
-	const facts = parts.find(part => role(part) === "omp.run.facts");
+	const state = parts.find(part => role(part) === "oms.run.state");
+	const time = parts.find(part => role(part) === "oms.run.time");
+	const facts = parts.find(part => role(part) === "oms.run.facts");
 	return {
 		state: spansText(state),
 		tone: props(state).tone,
@@ -82,17 +84,176 @@ describe("bash native run box", () => {
 		);
 		expect(view.tool).toMatchObject({ target: "Building the project", targetKind: "text", command: 'CI="1" make' });
 		expect(view.preview).toBe("children");
+		// The head sits outside; the segmented run box is the only frame.
+		expect(view.inline).toBe(true);
 		const [box, ...rest] = nodes(view.body);
 		expect(rest).toEqual([]);
-		expect(role(box)).toBe("omp.run");
+		expect(role(box)).toBe("oms.run");
 		expect(box?.key).toBe("run");
 		expect(props(box).tone).toBeUndefined();
-		expect(sections(box)).toEqual(["code:omp.tool.bash.command", "ansi:omp.tool.bash.output", "row:omp.run.foot"]);
+		expect(sections(box)).toEqual(["code:oms.tool.bash.command", "ansi:oms.tool.bash.output", "row:oms.run.foot"]);
 		const [input, output] = nodes(box?.c);
 		expect(props(input)).toMatchObject({ text: 'CI="1" make', wrap: true, preview: { lines: 6 } });
 		expect(props(output)).toMatchObject({ text: "built", follow: true, preview: { lines: 10 } });
 		// The measured wall time wins over the component's clock once settled.
 		expect(foot(box)).toMatchObject({ state: "Done", tone: "success", time: { age: 1500, stopped: 1500 } });
+	});
+
+	it("draws a visualized command as the box's command pane over the ordinary output segment", () => {
+		const trace: ShellTrace = { v: 1, seq: 3, status: 0, t_ns: 2_000_000, script: "echo built", units: [] };
+		const presentation = (cursor?: number): ShellVizPresentation => ({
+			preferences: {
+				view: "pseudo",
+				layers: { color: true, inline: true, idioms: true, effects: true, unwrap: false },
+				split: false,
+				cursor,
+				playing: false,
+				speed: 1,
+				expandedNodes: [],
+			},
+			rows: [{ id: "r0", depth: 0, segments: [{ text: 'print("built")' }], effects: [] }],
+			original: [],
+			output: cursor === undefined ? "built\n" : "bu",
+			executing: false,
+			watches: [],
+			timeline: { length: 4, cursor: cursor ?? 4, elapsedNs: 2_000_000, durationNs: 2_000_000 },
+		});
+		const describe = (cursor?: number) =>
+			nodes(
+				bashToolRenderer.describeResult(
+					{ content: [{ type: "text", text: "built" }], details: { trace } },
+					{ ...done, shell: true, shellTrace: trace, shellPresentation: presentation(cursor) },
+					{ command: "echo built" },
+				).body,
+			)[0];
+		const live = describe();
+		expect(sections(live)).toEqual(["shell:oms.tool.bash.command", "ansi:oms.tool.bash.output", "row:oms.run.foot"]);
+		const [pane, output] = nodes(live?.c);
+		expect(props(pane).inspector).toBeUndefined();
+		// The same folded command preview as the plain command's code.
+		expect(props(pane).preview).toEqual({ lines: 6 });
+		expect(props(output).text).toBe("built");
+		// A held replay cursor shows the output retained up to it, once, in the same segment.
+		const replay = describe(2);
+		expect(collect(replay?.c, "ansi").map(n => props(n).text)).toEqual(["bu"]);
+		// Nothing printed yet: command pane and foot only.
+		const quiet = nodes(
+			bashToolRenderer.describeResult(
+				{ content: [{ type: "text", text: "" }], details: { trace } },
+				{ ...done, shell: true, shellTrace: trace, shellPresentation: presentation() },
+				{ command: "echo built" },
+			).body,
+		)[0];
+		expect(sections(quiet)).toEqual(["shell:oms.tool.bash.command", "row:oms.run.foot"]);
+	});
+
+	it("prefixes a traced script with the directory the executor hoisted out of a leading cd", async () => {
+		const theme = (await getThemeByName("dark"))!;
+		// The executor ran only `echo built` after hoisting `cd <dir>;`; the raw args still carry the cd.
+		const trace: ShellTrace = { v: 1, seq: 1, status: 0, t_ns: 1, script: "echo built", units: [] };
+		const presentation: ShellVizPresentation = {
+			preferences: {
+				view: "pseudo",
+				layers: { color: true, inline: true, idioms: true, effects: true, unwrap: false },
+				split: false,
+				playing: false,
+				speed: 1,
+				expandedNodes: [],
+			},
+			rows: [{ id: "r0", depth: 0, segments: [{ text: "echo built" }], effects: [] }],
+			original: [],
+			output: "built\n",
+			executing: false,
+			watches: [],
+			timeline: { length: 1, cursor: 1, elapsedNs: 1, durationNs: 1 },
+		};
+		const ranIn = path.join(os.tmpdir(), "hoisted-target");
+		const result = {
+			content: [{ type: "text", text: "built" }],
+			details: { trace, cwd: ranIn, cdSeparator: ";" as const },
+		};
+		const options = { ...done, shell: true, shellTrace: trace, shellPresentation: presentation };
+		const args = { command: `cd ${ranIn}; echo built` };
+		const card = (details: typeof result.details | { trace: ShellTrace; cwd: string }, command: string) =>
+			Bun.stripANSI(
+				bashToolRenderer
+					.renderResult({ ...result, details }, options, theme, { command })
+					.render(120)
+					.join("\n"),
+			);
+
+		const pane = nodes(nodes(bashToolRenderer.describeResult(result, options, args).body)[0]?.c)[0];
+		expect(props(pane).cwd).toContain("hoisted-target");
+
+		// The prefix keeps the separator the model wrote.
+		const semicolon = card(result.details, args.command);
+		expect(semicolon).toMatch(/\$ cd \S*hoisted-target;/);
+		expect(semicolon).not.toContain("hoisted-target &&");
+		expect(card({ trace, cwd: ranIn }, `cd ${ranIn} && echo built`)).toMatch(/\$ cd \S*hoisted-target &&/);
+	});
+
+	it("draws a background result that landed before the first trace as a shell pane without the hoisted cd", () => {
+		// An `async` call returns its background-start result before the trace poll ran once; its
+		// presentation parsed the raw command, so the hoisted directory must not be repeated as `cwd`.
+		const ranIn = path.join(os.tmpdir(), "hoisted-target");
+		const presentation: ShellVizPresentation = {
+			preferences: {
+				view: "pseudo",
+				layers: { color: true, inline: true, idioms: true, effects: true, unwrap: false },
+				split: false,
+				playing: false,
+				speed: 1,
+				expandedNodes: [],
+			},
+			rows: [{ id: "r0", depth: 0, segments: [{ text: `cwd ${ranIn}` }], effects: [] }],
+			original: [],
+			output: "",
+			executing: false,
+			watches: [],
+			timeline: { length: 0, cursor: 0, elapsedNs: 0, durationNs: 0 },
+		};
+		const box = nodes(
+			bashToolRenderer.describeResult(
+				{
+					content: [{ type: "text", text: "" }],
+					details: { async: { state: "running", jobId: "bg_1", type: "bash" }, cwd: ranIn },
+				},
+				{ ...done, shell: true, shellPresentation: presentation },
+				{ command: `cd ${ranIn} && echo built` },
+			).body,
+		)[0];
+		expect(sections(box)).toEqual(["shell:oms.tool.bash.command", "row:oms.run.foot"]);
+		expect(props(nodes(box?.c)[0]).cwd).toBeUndefined();
+	});
+
+	it("keeps an untraced result's output when a replay cursor was set on its presentation", () => {
+		// Reset/step in the inspector sets a cursor even with no history; the untraced engine has no
+		// replayed output, so the result text must still draw.
+		const presentation: ShellVizPresentation = {
+			preferences: {
+				view: "pseudo",
+				layers: { color: true, inline: true, idioms: true, effects: true, unwrap: false },
+				split: false,
+				cursor: 0,
+				playing: false,
+				speed: 1,
+				expandedNodes: [],
+			},
+			rows: [{ id: "r0", depth: 0, segments: [{ text: 'print("built")' }], effects: [] }],
+			original: [],
+			output: "",
+			executing: false,
+			watches: [],
+			timeline: { length: 0, cursor: 0, elapsedNs: 0, durationNs: 0 },
+		};
+		const box = nodes(
+			bashToolRenderer.describeResult(
+				{ content: [{ type: "text", text: "built" }], details: { exitCode: 0 } },
+				{ ...done, shell: true, shellPresentation: presentation },
+				{ command: "echo built" },
+			).body,
+		)[0];
+		expect(collect(box?.c, "ansi").map(n => props(n).text)).toEqual(["built"]);
 	});
 
 	it("has no target without an intent and no foot before the command starts", () => {
@@ -103,7 +264,7 @@ describe("bash native run box", () => {
 		expect(view.tool?.target).toBeUndefined();
 		expect(view.tool?.command).toBe('CI="1" make test');
 		const box = nodes(view.body)[0];
-		expect(sections(box)).toEqual(["code:omp.tool.bash.command"]);
+		expect(sections(box)).toEqual(["code:oms.tool.bash.command"]);
 		expect(String(props(nodes(box?.c)[0]).text)).toBe('CI="1" make test');
 
 		const started = bashToolRenderer.describeCall(
@@ -228,7 +389,7 @@ describe("bash native run box", () => {
 			const described = tool.describe(cx(["tool", "ansi", "code", "image"]));
 			expect(props(described).preview).toBe("children");
 			expect(props(described).command).toBe("plot");
-			expect(nodes(described.c).map(child => role(child) ?? child.k)).toEqual(["omp.run", "image"]);
+			expect(nodes(described.c).map(child => role(child) ?? child.k)).toEqual(["oms.run", "image"]);
 		} finally {
 			tool.dispose();
 		}
@@ -425,7 +586,7 @@ describe("eval native run boxes", () => {
 		expect(rest).toEqual([]);
 		expect(box?.key).toBe("cell-0");
 		// A single cell has no caption; its source keeps no trailing blank line.
-		expect(sections(box)).toEqual(["code:omp.tool.eval.input", "ansi:omp.tool.eval.output", "row:omp.run.foot"]);
+		expect(sections(box)).toEqual(["code:oms.tool.eval.input", "ansi:oms.tool.eval.output", "row:oms.run.foot"]);
 		expect(props(nodes(box?.c)[0])).toMatchObject({ text: "x = 1\nprint(x)", wrap: false, preview: { lines: 6 } });
 		expect(props(nodes(box?.c)[1])).toMatchObject({ follow: true, preview: { lines: 10 } });
 		expect(foot(box)).toMatchObject({ state: "Done", tone: "success", time: { age: 120, stopped: 120 } });
@@ -472,7 +633,7 @@ describe("eval native run boxes", () => {
 		expect(foot(folded[3])).toBeUndefined();
 		expect(foot(folded[2])?.facts?.map(s => s.s)).toEqual(["warning"]);
 
-		const status = nodes(folded[2]?.c).find(child => role(child) === "omp.run.status");
+		const status = nodes(folded[2]?.c).find(child => role(child) === "oms.run.status");
 		const lines = nodes(status?.c);
 		expect(lines).toHaveLength(9);
 		expect(spansText(lines[0])).toBe("3 earlier");
@@ -480,7 +641,7 @@ describe("eval native run boxes", () => {
 		expect(spansText(lines.at(-1))).toContain("n=10");
 
 		const expanded = describeCells({ expanded: true, isPartial: true, executionStarted: true, elapsedMs: 4000 });
-		const allLines = nodes(nodes(expanded[2]?.c).find(child => role(child) === "omp.run.status")?.c);
+		const allLines = nodes(nodes(expanded[2]?.c).find(child => role(child) === "oms.run.status")?.c);
 		expect(allLines).toHaveLength(11);
 		expect(spansText(allLines[0])).toContain("n=0");
 	});
@@ -503,7 +664,7 @@ describe("eval native run boxes", () => {
 					{ expanded, isPartial: false },
 				).body,
 			);
-			return nodes(nodes(box?.c).find(child => role(child) === "omp.run.status")?.c).map(spansText);
+			return nodes(nodes(box?.c).find(child => role(child) === "oms.run.status")?.c).map(spansText);
 		};
 
 		const folded = statusLines(false);
@@ -524,12 +685,12 @@ describe("eval native run boxes", () => {
 			{ cells: [{ code: "x = 1" }, { code: "raise" }] },
 		);
 		const [first, last] = nodes(view.body);
-		expect(sections(first)).toEqual(["text:omp.run.caption", "code:omp.tool.eval.input"]);
+		expect(sections(first)).toEqual(["text:oms.run.caption", "code:oms.tool.eval.input"]);
 		expect(sections(last)).toEqual([
-			"text:omp.run.caption",
-			"code:omp.tool.eval.input",
-			"ansi:omp.tool.eval.output",
-			"row:omp.run.foot",
+			"text:oms.run.caption",
+			"code:oms.tool.eval.input",
+			"ansi:oms.tool.eval.output",
+			"row:oms.run.foot",
 		]);
 		expect(props(last).tone).toBe("error");
 		expect(foot(last)).toMatchObject({ state: "Failed", time: { stopped: 800 } });
@@ -558,7 +719,7 @@ describe("eval native run boxes", () => {
 					{ expanded, isPartial: false },
 				).body,
 			);
-			return nodes(nodes(box?.c).find(child => role(child) === "omp.run.status")?.c);
+			return nodes(nodes(box?.c).find(child => role(child) === "oms.run.status")?.c);
 		};
 
 		const folded = statusEntries(false);
@@ -569,12 +730,12 @@ describe("eval native run boxes", () => {
 
 		const [read, log] = statusEntries(true);
 		expect(read?.k).toBe("col");
-		expect(role(read)).toBe("omp.tool.eval.status.event");
+		expect(role(read)).toBe("oms.tool.eval.status.event");
 		const [line, preview] = nodes(read?.c);
 		expect(spansText(line)).toBe("read path=src/rollup.ts:1:raw chars=2082");
 		expect(preview?.k).toBe("code");
 		expect(props(preview)).toMatchObject({
-			role: "omp.tool.eval.status.preview",
+			role: "oms.tool.eval.status.preview",
 			path: "src/rollup.ts",
 			wrap: false,
 			preview: { lines: 3 },
@@ -633,25 +794,33 @@ describe("eval native run boxes", () => {
 		]);
 	});
 
-	it("shows a json view as a tree in place of its printed text", () => {
-		const printed = "{'alpha': 1, 'beta': [1, 2, 3]}";
-		const view = evalToolRenderer.describeResult(
-			{
-				content: [{ type: "text", text: "" }],
-				details: {
-					cells: [
-						cell({
-							output: `${printed}\n`,
-							views: [{ text: printed, view: { kind: "json", value: { alpha: 1, beta: [1, 2, 3] } } }],
-						}),
-					],
+	it("shows a json view in place of its printed text: the host's json viewer when it has one, else a tree", () => {
+		const printed = "{'alpha': 1, 'beta': [1, 2, 3], 'i': 'kept'}";
+		const value = { alpha: 1, beta: [1, 2, 3], i: "kept" };
+		const describeBox = (options: RenderResultOptions) => {
+			const view = evalToolRenderer.describeResult(
+				{
+					content: [{ type: "text", text: "" }],
+					details: {
+						cells: [cell({ output: `${printed}\n`, views: [{ text: printed, view: { kind: "json", value } }] })],
+					},
 				},
-			},
-			done,
-		);
-		const [box] = nodes(view.body);
-		expect(collect(box?.c, "ansi")).toHaveLength(0);
-		expect(collect(box?.c, "tree")).toHaveLength(1);
+				options,
+			);
+			return nodes(view.body)[0];
+		};
+
+		const native = describeBox({ ...done, json: true });
+		expect(collect(native?.c, "ansi")).toHaveLength(0);
+		expect(collect(native?.c, "tree")).toHaveLength(0);
+		const [viewer] = collect(native?.c, "json");
+		// The value itself, `i` included (a cell's data, not call metadata); top-level entries listed, containers folded.
+		expect(props(viewer)).toEqual({ value });
+
+		const fallback = describeBox(done);
+		expect(collect(fallback?.c, "ansi")).toHaveLength(0);
+		expect(collect(fallback?.c, "json")).toHaveLength(0);
+		expect(collect(fallback?.c, "tree")).toHaveLength(1);
 	});
 });
 
@@ -675,13 +844,46 @@ describe("user shell runs", () => {
 		expect(p.collapsed).toBe(true);
 		expect((p.badges as { text: string }[]).map(badge => badge.text)).toEqual(["you", "not sent"]);
 		const [box, image] = nodes(described.c);
-		expect(role(box)).toBe("omp.run");
+		expect(role(box)).toBe("oms.run");
 		expect(props(box).tone).toBe("error");
-		expect(sections(box)).toEqual(["code:omp.tool.bash.command", "ansi:omp.tool.bash.output", "row:omp.run.foot"]);
+		expect(sections(box)).toEqual(["code:oms.tool.bash.command", "ansi:oms.tool.bash.output", "row:oms.run.foot"]);
 		expect(props(nodes(box?.c)[1])).toMatchObject({ follow: true, preview: { lines: 10 } });
 		expect(foot(box)).toMatchObject({ state: "exit 1", tone: "error" });
 		expect(foot(box)?.time?.stopped).toBeNumber();
 		expect(image?.k).toBe("text");
 		expect(run.describe(cx(["card", "ansi"])).k).toBe("card");
+	});
+
+	it("show the minimizer's filter and byte counts in both footers", () => {
+		const run = new BashExecutionComponent("git diff", ui, false);
+		run.appendOutput("diff --git a/x b/x");
+		run.setComplete(0, false, {
+			minimized: { filter: "git", inputBytes: 28_213, outputBytes: 9_720, artifactId: "2" },
+		});
+		expect(JSON.stringify(run.describe(cx(["tool", "ansi", "code"])))).toContain("Minimized git 27.6KB → 9.5KB");
+		expect(JSON.stringify(run.describe(cx(["card", "ansi"])))).toContain("Minimized: git 27.6KB → 9.5KB");
+		expect(Bun.stripANSI(run.render(120).join("\n"))).toContain("Minimized: git 27.6KB → 9.5KB");
+	});
+});
+
+describe("bash call still streaming", () => {
+	beforeAll(async () => {
+		setThemeInstance((await getThemeByName("dark"))!);
+	});
+
+	it("draws an unfinished command as it will continue only while its arguments stream", () => {
+		const ui = { requestRender: () => {}, requestComponentRender: () => {}, resetDisplay: () => {} };
+		const tool = new ToolExecutionComponent("bash", { command: 'cd /tmp && rg -n "va' }, {}, undefined, ui);
+		try {
+			const drawn = () => Bun.stripANSI(tool.render(100).join("\n"));
+			// Streaming: the open quote is closed, so the commands keep their rows.
+			expect(drawn()).toContain("and rg -n");
+			expect(drawn()).not.toContain('cd /tmp && rg -n "va');
+			// Complete: the unterminated quote is the command's own, drawn literally.
+			tool.setArgsComplete();
+			expect(drawn()).toContain('cd /tmp && rg -n "va');
+		} finally {
+			tool.dispose();
+		}
 	});
 });

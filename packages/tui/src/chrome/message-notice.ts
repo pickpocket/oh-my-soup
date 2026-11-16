@@ -45,7 +45,7 @@ export interface MessageNoticeOptions {
 	readonly presentation: (context: MessageNoticeContext) => MessageNoticePresentation;
 	/** Card content for native terminals; the full content, since collapse is the terminal's. */
 	readonly nativePresentation: () => MessageNoticeNativePresentation;
-	/** Semantic role of the native card (`omp.notice.<name>`). */
+	/** Semantic role of the native card (`oms.notice.<name>`). */
 	readonly role: string;
 	readonly severity?: ThemeColor;
 	readonly background?: (text: string) => string;

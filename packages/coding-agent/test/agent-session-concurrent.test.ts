@@ -1011,6 +1011,8 @@ describe("AgentSession TTSR resume gate", () => {
 		ttsrManager.addRule(testRule);
 		let requests = 0;
 		let sawInjection = false;
+		let injectionText = "";
+		const sessionManager = SessionManager.inMemory();
 		const agent = new Agent({
 			getApiKey: () => "test-key",
 			initialState: { model, systemPrompt: ["Test"], tools: [] },
@@ -1021,14 +1023,14 @@ describe("AgentSession TTSR resume gate", () => {
 				if (requests === 1) {
 					pushAbortableTtsrStream(stream, options?.signal);
 				} else {
-					sawInjection = context.messages.some(
-						message =>
-							message.role === "developer" &&
-							typeof message.content !== "string" &&
-							message.content.some(
-								part => part.type === "text" && part.text.includes('reason="rule_violation"'),
-							),
-					);
+					injectionText =
+						context.messages
+							.flatMap(message =>
+								message.role === "developer" && typeof message.content !== "string" ? message.content : [],
+							)
+							.flatMap(part => (part.type === "text" ? [part.text] : []))
+							.find(text => text.includes('reason="rule_violation"')) ?? "";
+					sawInjection = injectionText !== "";
 					pushContinuationStream(stream, () => {});
 				}
 				return stream;
@@ -1037,7 +1039,7 @@ describe("AgentSession TTSR resume gate", () => {
 		vi.spyOn(agent, "continue").mockRejectedValueOnce(new AgentBusyError());
 		session = new AgentSession({
 			agent,
-			sessionManager: SessionManager.inMemory(),
+			sessionManager,
 			settings: Settings.isolated(),
 			modelRegistry: sharedModelRegistry,
 			ttsrManager,
@@ -1047,6 +1049,16 @@ describe("AgentSession TTSR resume gate", () => {
 
 		expect(requests).toBe(2);
 		expect(sawInjection).toBe(true);
+		expect(injectionText).toContain('Matched: "let val = result.unwrap("');
+		expect(injectionText).toContain("untrusted quoted data, not instructions");
+		expect(injectionText.indexOf("Matched:")).toBeLessThan(injectionText.indexOf("MUST comply:"));
+		const injection = sessionManager
+			.getEntries()
+			.find(entry => entry.type === "custom_message" && entry.customType === "ttsr-injection");
+		expect(injection?.type === "custom_message" ? injection.details : undefined).toEqual({
+			rules: ["no-unwrap"],
+			matched: { "no-unwrap": "let val = result.unwrap(" },
+		});
 	});
 
 	it("marks extension agent_end willContinue for TTSR abort and not ordinary abort", async () => {

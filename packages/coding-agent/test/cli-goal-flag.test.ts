@@ -1,9 +1,10 @@
-import { describe, expect, it, vi } from "bun:test";
+import { afterEach, describe, expect, it, vi } from "bun:test";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { parseArgs, validateGoalLaunch, validateGoalStartup } from "@oh-my-soup/pi-coding-agent/cli/args";
 import { CliUsageError } from "@oh-my-soup/pi-coding-agent/cli/usage-error";
 import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { clearOmsExtensionCliRoots } from "@oh-my-soup/pi-coding-agent/discovery/oms-extension-roots";
 import { createSessionManager, runRootCommand } from "@oh-my-soup/pi-coding-agent/main";
 import { AuthStorage } from "@oh-my-soup/pi-coding-agent/session/auth-storage";
 import { SessionManager } from "@oh-my-soup/pi-coding-agent/session/session-manager";
@@ -87,6 +88,11 @@ async function launchInteractive(rawArgs: string[]): Promise<{ thrown: unknown; 
 		authStorage.close();
 	}
 }
+
+// `runRootCommand` registers the CLI's extension roots (`--no-extensions` → explicit-only) process-wide.
+afterEach(() => {
+	clearOmsExtensionCliRoots();
+});
 
 describe("--goal launch option", () => {
 	it("parses a quoted objective as one value, not a positional prompt", () => {

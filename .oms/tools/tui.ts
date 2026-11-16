@@ -29,6 +29,7 @@ import {
 	type PtyDimensions,
 	PtySession,
 } from "@oh-my-soup/pi-natives";
+import { $which, isCompiledBinary } from "@oh-my-soup/pi-utils";
 import type * as KittyVt from "kitty-vt-wasm";
 import type { Color, KittyEvent, KittyTerminal } from "kitty-vt-wasm";
 import { tmpdir } from "node:os";
@@ -1072,6 +1073,21 @@ function ptyDimensions(cols: number, rows: number): PtyDimensions {
 		: { cols, rows };
 }
 
+/**
+ * Runtime for `file` entries. In the compiled binary `process.execPath` is oms,
+ * which would take the entry path as its first prompt, so run the `bun` on PATH
+ * (the one `bun install --cwd .oms/tools` needs). Not `BUN_BE_BUN=1`: the child
+ * would pass it to every command it runs, turning an `oms` there into Bun.
+ */
+function bunRuntime(): string {
+	if (!isCompiledBinary()) return process.execPath;
+	const bun = $which("bun");
+	if (!bun) {
+		throw new Error("`file` needs `bun` on PATH under the compiled oms; pass `bin` instead");
+	}
+	return bun;
+}
+
 const factory = (oms: ToolHost) => {
 	const startSession = async (params: TuiParams): Promise<string> => {
 		const name = params.name ?? "main";
@@ -1085,7 +1101,7 @@ const factory = (oms: ToolHost) => {
 		const file = params.bin ? undefined : (params.file ?? "packages/coding-agent/src/cli.ts");
 		const target = file ?? params.bin ?? "";
 		const command = file
-			? [process.execPath, resolve(oms.cwd, file), ...(params.args ?? [])]
+			? [bunRuntime(), resolve(oms.cwd, file), ...(params.args ?? [])]
 			: [target, ...(params.args ?? [])];
 
 		const { cols, rows } = ptyDimensions(params.cols ?? 100, params.rows ?? 30);

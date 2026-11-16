@@ -25,7 +25,12 @@ const NATIVE_SHEET_INSET_COLS = 8;
 // Action id of the native Force kill button (mirrors Esc).
 const KILL_ACTION = "kill";
 
-function normalizeInputForPty(data: string, applicationCursorKeysMode: boolean): string {
+/**
+ * Translates a TUI key event into the bytes a terminal would send to a PTY
+ * child; key releases encode to "". Shared by the agent `pty` console and
+ * `!` commands (`BashExecutionComponent.encodePtyInput`).
+ */
+export function normalizeInputForPty(data: string, applicationCursorKeysMode: boolean): string {
 	const kitty = parseKittySequence(data);
 	if (kitty?.eventType === 3) {
 		return "";
@@ -88,7 +93,7 @@ function normalizeInputForPty(data: string, applicationCursorKeysMode: boolean):
 /** Interactive terminal overlay driven by an external PTY controller. */
 export class BashInteractiveOverlayComponent implements Component {
 	/** Native sheet: a full-pane glass overlay titled Console. */
-	readonly nativeOverlay = { role: "omp.overlay.console", size: "full", head: "Console" } as const;
+	readonly nativeOverlay = { role: "oms.overlay.console", size: "full", head: "Console" } as const;
 	#terminal: XtermTerminalType;
 	#state: "running" | "complete" | "timed_out" | "killed" = "running";
 	#exitCode: number | undefined;

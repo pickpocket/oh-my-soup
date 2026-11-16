@@ -8,7 +8,7 @@
    Compiling serde v1.0.204
    Compiling thiserror-impl v1.0.63
    Compiling thiserror v1.0.63
-   Compiling pi-shell v0.1.0 (/home/alpha/odin/omp/crates/pi-shell)
+   Compiling pi-shell v0.1.0 (/home/alpha/odin/oms/crates/pi-shell)
 warning: unused variable: `ctx`
   --> crates/pi-shell/src/minimizer/filters/mod.rs:134:30
    |

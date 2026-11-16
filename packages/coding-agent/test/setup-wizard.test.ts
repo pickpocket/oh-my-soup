@@ -1,6 +1,7 @@
-import { afterEach, describe, expect, it, mock, vi } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it, mock, vi } from "bun:test";
 import type { Model } from "@oh-my-soup/pi-ai";
 import { buildModel } from "@oh-my-soup/pi-catalog/build";
+import * as updateCli from "@oh-my-soup/pi-coding-agent/cli/update-cli";
 import { runOnboardingSetup } from "@oh-my-soup/pi-coding-agent/commands/setup";
 import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
 import {
@@ -41,6 +42,7 @@ function testScene(id: string, minVersion: number, shouldRun?: () => boolean): S
 	return {
 		id,
 		title: id,
+		step: id,
 		minVersion,
 		shouldRun,
 		mount: () => ({
@@ -56,6 +58,15 @@ afterEach(async () => {
 });
 
 describe("setup wizard scene selection", () => {
+	// Tests run from a source checkout, which never updates itself; pin a self-updating install.
+	beforeEach(() => {
+		vi.spyOn(updateCli, "canSelfUpdate").mockResolvedValue(true);
+	});
+
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
 	it("runs all v1 scenes for a new user", async () => {
 		const scenes = await selectSetupScenes(0, ALL_SCENES, fakeContextWithConfiguredModel(), { isTTY: true });
 		expect(scenes.map(scene => scene.id)).toEqual(ALL_SCENES.map(scene => scene.id));
@@ -104,7 +115,15 @@ describe("setup wizard scene selection", () => {
 		expect(await selectSetupScenes(0, ALL_SCENES, ctx, { isTTY: false, force: true })).toEqual([]);
 	});
 
-	it("drops the glyph scene once the terminal renders omp's bundled icons in-band", async () => {
+	it("skips the auto-update question where oms cannot update itself (Tern, Nix, a source checkout)", async () => {
+		vi.spyOn(updateCli, "canSelfUpdate").mockResolvedValue(false);
+		const scenes = await selectSetupScenes(0, ALL_SCENES, fakeContextWithConfiguredModel(), { isTTY: true });
+		expect(scenes.map(scene => scene.id)).toEqual(
+			ALL_SCENES.map(scene => scene.id).filter(id => id !== "auto-update"),
+		);
+	});
+
+	it("drops the glyph scene once the terminal renders oms's bundled icons in-band", async () => {
 		setTerminalGlyphProtocol(true);
 		try {
 			const scenes = await selectSetupScenes(0, ALL_SCENES, fakeContextWithConfiguredModel(), { isTTY: true });
@@ -228,6 +247,7 @@ describe("setup wizard persistence", () => {
 		const scene: SetupScene = {
 			id: "providers",
 			title: "providers",
+			step: "providers",
 			minVersion: 1,
 			mount: host => ({
 				title: "providers",
@@ -267,6 +287,7 @@ describe("setup wizard mouse routing", () => {
 		const scene: SetupScene = {
 			id: "scrollable",
 			title: "scrollable",
+			step: "scrollable",
 			minVersion: 1,
 			mount: () => ({
 				title: "scrollable",
@@ -305,6 +326,7 @@ describe("setup wizard mouse routing", () => {
 		const scene: SetupScene = {
 			id: "mouse",
 			title: "mouse",
+			step: "mouse",
 			minVersion: 1,
 			mount: () => ({
 				title: "mouse",

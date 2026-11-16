@@ -33,14 +33,13 @@ describe("native todo", () => {
 						{ content: "write parser", status: "completed" },
 						{ content: "lex", status: "in_progress" },
 						{ content: "old idea", status: "abandoned" },
-						{ content: "deploy", status: "blocked", blocker: "no creds" },
 						{ content: "ship it", status: "pending" },
 					],
 				},
 			],
 		};
 		const view = todoToolRenderer.describeResult({ content: [], details }, opts);
-		expect(view?.tool).toMatchObject({ title: "Todo", target: "3/6", targetKind: "text" });
+		expect(view?.tool).toMatchObject({ title: "Todo", target: "3/5", targetKind: "text" });
 		expect(view?.body).toHaveLength(1);
 		const checklist = view?.body?.[0] as NativeNode;
 		expect(checklist.k).toBe("checklist");
@@ -54,7 +53,6 @@ describe("native todo", () => {
 			["write parser", "done", undefined],
 			["lex", "active", undefined],
 			["old idea", "dropped", undefined],
-			["deploy", "blocked", "no creds"],
 			["ship it", "pending", undefined],
 		]);
 	});
@@ -107,7 +105,7 @@ describe("native task", () => {
 		expect(view?.tool).toMatchObject({ title: "Task", target: "2 agents" });
 		const all = nodes(view?.body);
 		expect(all.some(n => n.k === "card")).toBe(false);
-		expect(view?.body?.[0]).toMatchObject({ k: "text", p: { role: "omp.tool.context" } });
+		expect(view?.body?.[0]).toMatchObject({ k: "text", p: { role: "oms.tool.context" } });
 		const agents = all.filter(n => n.k === "agent");
 		expect(agents.map(n => n.key)).toEqual(["Alpha", "Beta"]);
 		const alpha = agents[0]!.p as TspAgentProps;

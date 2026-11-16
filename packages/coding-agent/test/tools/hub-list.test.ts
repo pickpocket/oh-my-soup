@@ -4,7 +4,11 @@ import * as path from "node:path";
 import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
 import { IrcBus } from "@oh-my-soup/pi-coding-agent/irc/bus";
 import { AgentLifecycleManager } from "@oh-my-soup/pi-coding-agent/registry/agent-lifecycle";
-import { AgentRegistry, MAIN_AGENT_ID } from "@oh-my-soup/pi-coding-agent/registry/agent-registry";
+import {
+	AgentRegistry,
+	type AgentRegistryApi,
+	MAIN_AGENT_ID,
+} from "@oh-my-soup/pi-coding-agent/registry/agent-registry";
 import { ensurePersistedRoster } from "@oh-my-soup/pi-coding-agent/registry/persisted-agents";
 import type { AgentSession } from "@oh-my-soup/pi-coding-agent/session/agent-session";
 import { CURRENT_SESSION_VERSION } from "@oh-my-soup/pi-coding-agent/session/session-entries";
@@ -37,7 +41,7 @@ const subagentSystemPromptTemplatePath = path.resolve(
  */
 async function renderIrcPeerRoster(
 	selfId: string,
-	registry: AgentRegistry = AgentRegistry.global(),
+	registry: AgentRegistryApi = AgentRegistry.global(),
 	sessionFileHint?: string | null,
 ): Promise<string> {
 	const hint = sessionFileHint ?? registry.get(selfId)?.sessionFile ?? registry.get(MAIN_AGENT_ID)?.sessionFile;

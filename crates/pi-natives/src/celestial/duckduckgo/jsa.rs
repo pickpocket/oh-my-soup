@@ -326,7 +326,8 @@ impl Parser {
 				self.expect(')')?;
 				e
 			},
-			// no bare blocks in this grammar, so `{` in expression position is always an object
+			// no bare blocks in this grammar, so `{` in expression position is
+			// always an object
 			Tok::P('[') => Expr::Arr(self.list(']', Self::expr)?),
 			Tok::P('{') => Expr::Obj(self.list('}', Self::prop)?),
 			Tok::P('-') => Expr::Bin('-', Expr::Num(0.0).into(), self.postfix()?.into()),

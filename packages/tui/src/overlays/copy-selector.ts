@@ -16,7 +16,15 @@
  */
 import type { AgentTool } from "@oh-my-soup/pi-agent-core";
 import type { TspPickerColumn, TspPickerItem, TspPickerProps, TspText } from "@oh-my-soup/pi-wire";
-import { type Component, matchesKey, routeSgrMouseInput, type TUI, truncateToWidth, visibleWidth } from "../index";
+import {
+	type Component,
+	matchesKey,
+	type OverlayOptions,
+	routeSgrMouseInput,
+	type TUI,
+	truncateToWidth,
+	visibleWidth,
+} from "../index";
 import type { MessageRenderer } from "../chat/extension-types";
 import {
 	recentTranscriptEntries,
@@ -70,7 +78,7 @@ function turnSummary(entry: TranscriptEntry): { label: string; role: string } {
 	const message = transcriptEntryMessage(entry);
 	switch (message?.role) {
 		case "user":
-			return { label: userMessageLabel(message.content), role: "omp.user" };
+			return { label: userMessageLabel(message.content), role: "oms.user" };
 		case "assistant": {
 			let prose = "";
 			const tools: string[] = [];
@@ -79,26 +87,26 @@ function turnSummary(entry: TranscriptEntry): { label: string; role: string } {
 				else if (content.type === "toolCall") tools.push(content.name);
 			}
 			const label = firstLine(prose) || tools.join(", ") || "thinking";
-			return { label, role: "omp.assistant" };
+			return { label, role: "oms.assistant" };
 		}
 		case "toolResult":
-			return { label: `${message.toolName} result`, role: `omp.tool.${message.toolName}` };
+			return { label: `${message.toolName} result`, role: `oms.tool.${message.toolName}` };
 		case "bashExecution":
-			return { label: `$ ${firstLine(message.command)}`, role: "omp.tool.bash" };
+			return { label: `$ ${firstLine(message.command)}`, role: "oms.tool.bash" };
 		case "pythonExecution":
-			return { label: firstLine(message.code), role: "omp.tool.eval" };
+			return { label: firstLine(message.code), role: "oms.tool.eval" };
 		case "compactionSummary":
-			return { label: "Compaction summary", role: "omp.summary" };
+			return { label: "Compaction summary", role: "oms.summary" };
 		case "branchSummary":
-			return { label: "Branch summary", role: "omp.summary" };
+			return { label: "Branch summary", role: "oms.summary" };
 		case "custom":
 		case "hookMessage": {
 			const draft = userTurnDraft(entry);
-			if (draft !== undefined) return { label: firstLine(draft), role: "omp.user" };
-			return { label: firstLine(textContent(message.content, " ")) || message.customType, role: "omp.custom" };
+			if (draft !== undefined) return { label: firstLine(draft), role: "oms.user" };
+			return { label: firstLine(textContent(message.content, " ")) || message.customType, role: "oms.custom" };
 		}
 		default:
-			return { label: entry.id, role: "omp.message" };
+			return { label: entry.id, role: "oms.message" };
 	}
 }
 
@@ -133,23 +141,22 @@ function turnItem(target: OutlineTarget, detail?: TspText): NativeNode {
 
 /** Preview of a turn's text: prose as markdown, command/tool output as a plain code block. */
 export function turnPreview(target: OutlineTarget, content: string): NativeNode {
-	const safeContent = plainText(content);
-	if (!safeContent.trim()) return text([span("(no text)", "muted")]);
+	if (!content.trim()) return text([span("(no text)", "muted")]);
 	const message = transcriptEntryMessage(target.entries[0]!);
 	switch (message?.role) {
 		case "assistant":
 			// A pure tool turn previews its joined commands/results, not prose.
 			return message.content.some(part => part.type === "text" && part.text.trim())
-				? md(safeContent)
-				: code(safeContent, { wrap: true });
+				? md(content)
+				: code(content, { wrap: true });
 		case "user":
 		case "custom":
 		case "hookMessage":
 		case "compactionSummary":
 		case "branchSummary":
-			return md(safeContent);
+			return md(content);
 		default:
-			return code(safeContent, { wrap: true });
+			return code(content, { wrap: true });
 	}
 }
 
@@ -192,7 +199,7 @@ function timelineItem(target: OutlineTarget): TspPickerItem {
 				id,
 				label: calls.map(call => toolCallLabel(call.name, call.arguments)).join(" · "),
 				node: "tool",
-				role: `omp.tool.${calls[0]!.name}`,
+				role: `oms.tool.${calls[0]!.name}`,
 			};
 		}
 		case "toolResult":
@@ -214,7 +221,7 @@ class TimelineItems {
 	}
 }
 
-/** Lines of a copy block shown in the native preview; longer blocks copy through omp. */
+/** Lines of a copy block shown in the native preview; longer blocks copy through oms. */
 const PREVIEW_BLOCK_LINES = 400;
 
 /** A block's preview caption: `rust · 12 lines`, `quote`, `link · docs`. */
@@ -240,9 +247,9 @@ function blockBody(block: CopyBlock): NativeNode {
 
 /**
  * One borderless preview section of the copy picker. A click copies it in the
- * terminal (`copy`) when the preview holds the whole text, else asks omp to
+ * terminal (`copy`) when the preview holds the whole text, else asks oms to
  * (`pick`); link sections also offer `open`. The focused block's section takes
- * the `omp.picker.block.focused` role and the accent tone.
+ * the `oms.picker.block.focused` role and the accent tone.
  */
 function previewSection(
 	key: string,
@@ -257,7 +264,7 @@ function previewSection(
 		"section",
 		{
 			head: plainLine(caption),
-			role: focused ? "omp.picker.block.focused" : "omp.picker.block",
+			role: focused ? "oms.picker.block.focused" : "oms.picker.block",
 			...(focused ? { tone: "accent" as const } : {}),
 			...(href ? { href } : {}),
 			actions: { click: whole ? "copy" : "pick", ...(href ? { menu: ["copy", "open"] } : {}) },
@@ -334,6 +341,15 @@ interface BlockPreview {
 	rows: string[];
 	lineCount: number;
 }
+
+/** Mount options for the picker: a fullscreen sheet on the alternate screen (classic) or native layer (Tern). */
+export const COPY_SELECTOR_OVERLAY_OPTIONS: Readonly<OverlayOptions> = {
+	anchor: "bottom-center",
+	width: "100%",
+	maxHeight: "100%",
+	margin: 0,
+	fullscreen: true,
+};
 
 export class CopySelectorComponent implements Component {
 	#builder: ChatTranscriptBuilder;
@@ -606,7 +622,7 @@ export class CopySelectorComponent implements Component {
 			return;
 		}
 		if (event.type === "action" && event.act === "pick") {
-			// A preview section too long to copy in the terminal: omp copies the full text.
+			// A preview section too long to copy in the terminal: oms copies the full text.
 			this.#pickSection(event.key);
 			return;
 		}
@@ -694,7 +710,7 @@ export class CopySelectorComponent implements Component {
 	 * The `timeline` picker: the turns as rows, the selected turn's blocks as
 	 * preview sections (the whole message first), each copied by a click. In
 	 * the block view the focused block's section takes the
-	 * `omp.picker.block.focused` role and the preview owns the focus.
+	 * `oms.picker.block.focused` role and the preview owns the focus.
 	 */
 	#describePicker(): NativeNode {
 		const memo = `${this.#selected}|${this.#blockSelected}|${this.#truncated}`;
@@ -830,7 +846,7 @@ export class CopySelectorComponent implements Component {
 			span("Copy", "strong"),
 			span(`${theme.sep.dot}pick what to put on the clipboard`, "dim"),
 		];
-		const root = overlayCard("omp.overlay.copy", head, children);
+		const root = overlayCard("oms.overlay.copy", head, children);
 		this.#native = { memo, targets: this.#targets, blocks: this.#blocks, node: root };
 		return root;
 	}

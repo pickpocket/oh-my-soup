@@ -189,12 +189,12 @@ impl ReplacementTemplate {
 				ReplacementPart::Literal(s) => result.push_str(s),
 
 				ReplacementPart::WholeMatch => {
-					result.push_str(caps.get(0)?.map(|m| m.as_str()).unwrap_or_default());
+					result.push_str(caps.get(0)?.map_or_default(|m| m.as_str()));
 				},
 
 				ReplacementPart::Group(n) => {
 					let i: usize = (*n).try_into().unwrap();
-					result.push_str(caps.get(i)?.map(|m| m.as_str()).unwrap_or_default());
+					result.push_str(caps.get(i)?.map_or_default(|m| m.as_str()));
 				},
 			}
 		}
@@ -578,7 +578,7 @@ use std::{cell::RefCell, mem, path::PathBuf, rc::Rc};
 
 use crate::sed::error_handling::{SedError, SedResult};
 
-use brush_core::openfiles::OpenFile;
+use crate::openfile::OpenFile;
 use crate::host::ShellPaths;
 use crate::sed::{
 	command::{
@@ -7283,7 +7283,7 @@ use pi_vfs::Permissions;
 use pi_vfs::{BlockingFs, File, TempOptions};
 use uucore::display::Quotable;
 
-use brush_core::openfiles::OpenFile;
+use crate::openfile::OpenFile;
 use crate::sed::{
 	command::ProcessingContext,
 	error_handling::{IoContext, SedError, SedResult},
@@ -7656,7 +7656,7 @@ use std::{
 	rc::Rc,
 };
 
-use brush_core::openfiles::{DescriptorPath, OpenFiles};
+use crate::openfile::{DescriptorPath, STDERR_FD, STDOUT_FD};
 use pi_vfs::{File, OpenOptions};
 use crate::host::{Host, ShellPaths};
 use crate::sed::fast_io::OutputBuffer;
@@ -7705,8 +7705,8 @@ impl NamedWriter {
 		location: ScriptLocation,
 	) -> SedResult<Rc<RefCell<Self>>> {
 		let target = match DescriptorPath::parse(&path) {
-			Some(DescriptorPath::Fd(OpenFiles::STDOUT_FD)) => Target::Stdout,
-			Some(DescriptorPath::Fd(OpenFiles::STDERR_FD)) => Target::Stderr,
+			Some(DescriptorPath::Fd(STDOUT_FD)) => Target::Stdout,
+			Some(DescriptorPath::Fd(STDERR_FD)) => Target::Stderr,
 			_ => {
 				let file = paths
 					.fs()
@@ -8086,14 +8086,17 @@ fn substitute(
 						Ok(caps) => caps,
 						Err(e) => break 'captures Err(e),
 					};
-					count += 1;
-
 					let m = caps.get(0)?.unwrap();
 
 					// Always write the unmatched text before this match.
 					if text.is_none() {
 						text = Some(pattern.as_str()?);
 					}
+					// Byte regexes also match empty text inside a character; skip it.
+					if !text.unwrap().is_char_boundary(m.start()) {
+						continue;
+					}
+					count += 1;
 					result.push_str(&text.unwrap()[last_end..m.start()]);
 
 					if sub.occurrence == 0 || count == sub.occurrence {
@@ -8140,7 +8143,7 @@ fn substitute(
 				)
 				.unwrap_err()
 			})?;
-			let mut shell_out = String::from_utf8_lossy(&output_bytes.stdout).into_owned();
+			let mut shell_out = String::from_utf8_lossy_owned(output_bytes.stdout);
 			if shell_out.ends_with("\r\n") {
 				// On windows, both return carriage and newline characters are used
 				shell_out.truncate(shell_out.len() - 2);
@@ -8789,7 +8792,7 @@ use std::{
 
 use uucore::display::Quotable;
 
-use brush_core::openfiles::OpenFile;
+use crate::openfile::OpenFile;
 use crate::{host::ShellPaths, sed::error_handling::{IoContext, SedResult}};
 
 #[derive(Debug, PartialEq)]
@@ -8935,8 +8938,7 @@ impl fmt::Debug for State {
 				.field("index", index)
 				.field("input_name", input_name)
 				.field("line_number", line_number)
-				.field("reader", &"<BufRead>")
-				.finish(),
+				.finish_non_exhaustive(),
 		}
 	}
 }
@@ -9092,11 +9094,9 @@ mod tests {
 
 use std::{collections::HashMap, ffi::OsString, io::Write, path::PathBuf};
 
-use brush_core::{ShellExtensions, builtins::Registration};
-
 use clap::{Arg, ArgMatches, Command, arg};
 
-use crate::host::{Host, ShellPaths, Utility, format_usage, matches_parser, util};
+use crate::host::{Host, ShellPaths, Utility, format_usage, matches_parser};
 use crate::sed::error_handling::{SedError, SedResult};
 
 use crate::sed::{
@@ -9382,11 +9382,6 @@ impl Utility for Sed {
 			}
 		}
 	}
-}
-
-/// Creates the `sed` builtin registration.
-pub(crate) fn sed_builtin<SE: ShellExtensions>() -> Registration<SE> {
-	util::<Sed, SE>()
 }
 
 #[cfg(test)]
@@ -9710,5 +9705,15 @@ mod tests {
 			crate::host::run_util::<Sed>(&["-n", "-f", "script.sed"], "saved\n", dir.path());
 		assert_eq!(code, 0, "{}", capture.err());
 		assert_eq!(std::fs::read(dir.path().join("output.txt")).unwrap(), b"saved\n");
+	}
+
+	#[test]
+	fn builtin_substitutes_empty_matches_around_multibyte_characters() {
+		let (code, capture) = crate::host::run_util::<Sed>(&["s/ */_/g"], "café au lait\n", "/");
+		assert_eq!(code, 0, "{}", capture.err());
+		assert_eq!(capture.out(), "_c_a_f_é_a_u_l_a_i_t_\n");
+		let (code, capture) = crate::host::run_util::<Sed>(&["s/x*/-/2"], "éa\n", "/");
+		assert_eq!(code, 0, "{}", capture.err());
+		assert_eq!(capture.out(), "é-a\n");
 	}
 }

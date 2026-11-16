@@ -11,7 +11,6 @@ import type { Component, TUI } from "../tui";
 import { type ThemeColor, theme } from "../theme/theme";
 import {
 	buildSessionModelScope,
-	MODEL_PICKER_COLUMNS,
 	ModelBrowser,
 	type ModelBrowserItem,
 	type ModelPickerCatalogue,
@@ -424,17 +423,9 @@ export class ModelPickerComponent implements Component {
 				size: "md",
 				layout: "rows",
 				preview: "below",
-				query,
-				cursor,
 				placeholder:
 					mode === "task" || mode === "selection" ? "Search models…" : "Search models, @ for quick roles…",
-				columns: MODEL_PICKER_COLUMNS,
-				...catalogue,
-				order: view.order,
-				...(view.hits ? { hits: view.hits } : {}),
-				selected,
-				...(current ? { current: [current] } : {}),
-				total: this.#browser.baseCount,
+				...this.#browser.pickerRows(catalogue, view, current),
 				empty: mode === "role" ? `No quick roles in the ${cycleKey} cycle` : "No models available",
 				actions: compact([
 					pickerAction(
@@ -502,7 +493,7 @@ export class ModelPickerComponent implements Component {
 		// `card` directly: the task-mode tone is a common prop `overlayCard` doesn't take.
 		const node = card(
 			{
-				role: "omp.overlay.model-picker",
+				role: "oms.overlay.model-picker",
 				head: mode === "task" ? "Switch Task Model" : mode === "selection" ? "Select Model" : "Switch Model",
 				tone: this.#taskMode ? "error" : undefined,
 			},

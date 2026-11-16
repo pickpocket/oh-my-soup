@@ -72,9 +72,9 @@ export class ReportPanel extends OverlayPanel {
 	#native: { scroll: NativeScroll | undefined; node: NativeNode } | undefined;
 
 	constructor(options: ReportPanelOptions) {
-		super(options.title, "omp.overlay.report");
+		super(options.title, "oms.overlay.report");
 		this.nativeOverlay = {
-			role: "omp.overlay.report",
+			role: "oms.overlay.report",
 			size: "lg",
 			anchor: "center",
 			head: options.head ?? options.title,
@@ -131,13 +131,13 @@ export class ReportPanel extends OverlayPanel {
 
 	/**
 	 * The sheet body (the overlay is the frame, and its body the scroller): the
-	 * report as `omp.report.body`, which the terminal sets on the reading
+	 * report as `oms.report.body`, which the terminal sets on the reading
 	 * measure, then Close (Esc) as the sheet's footer.
 	 */
 	override describe(): NativeNode {
 		const scroll = this.#scroll;
 		if (this.#native && this.#native.scroll === scroll) return this.#native.node;
-		const body: NativeNode = { ...col([this.#body], { role: "omp.report.body" }), key: "body", scroll };
+		const body: NativeNode = { ...col([this.#body], { role: "oms.report.body" }), key: "body", scroll };
 		const node = col([body, actionBar([null, actionButton("Close", "close", { keys: "escape" })])], { gap: "md" });
 		this.#native = { scroll, node };
 		return node;

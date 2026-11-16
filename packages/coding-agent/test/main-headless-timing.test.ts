@@ -7,6 +7,7 @@
 import { afterEach, describe, expect, it, spyOn } from "bun:test";
 import { parseArgs, type Args } from "@oh-my-soup/pi-coding-agent/cli/args";
 import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
+import { clearOmsExtensionCliRoots } from "@oh-my-soup/pi-coding-agent/discovery/oms-extension-roots";
 import { runRootCommand } from "@oh-my-soup/pi-coding-agent/main";
 import type { CreateAgentSessionResult } from "@oh-my-soup/pi-coding-agent/sdk";
 import type { AgentSession } from "@oh-my-soup/pi-coding-agent/session/agent-session";
@@ -17,6 +18,9 @@ import { logger, postmortem, TempDir } from "@oh-my-soup/pi-utils";
 const tempDirs: TempDir[] = [];
 
 afterEach(async () => {
+	// `runRootCommand` registers the CLI's extension roots (`--no-extensions` → explicit-only) process-wide.
+	clearOmsExtensionCliRoots();
+
 	await Promise.all(tempDirs.splice(0).map(dir => dir.remove()));
 });
 
@@ -50,6 +54,7 @@ describe("startup timing after a headless runner starts", () => {
 			sessionManager: manager,
 			subscribe: () => {},
 			addDisposer: () => {},
+			setScopedModelsRefresher: () => {},
 			getAllToolNames: () => [],
 			validateRetryFallbackChains: () => {},
 			getLastAssistantMessage: () => undefined,

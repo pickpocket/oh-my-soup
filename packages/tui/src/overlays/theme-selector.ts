@@ -38,7 +38,7 @@ export class ThemeSelectorComponent extends OverlayPanel {
 		onCancel: () => void,
 		onPreview: (themeName: string) => void,
 	) {
-		super("Theme", "omp.overlay.theme");
+		super("Theme", "oms.overlay.theme");
 		this.#onPreview = onPreview;
 
 		// Create select items from provided themes

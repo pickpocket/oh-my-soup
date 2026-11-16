@@ -135,7 +135,12 @@ function hotkeyGroups(bindings: HotkeysMarkdownBindings): HotkeyGroup[] {
 				{ keys: [act("app.history.search")], action: "Search prompt history" },
 				{ keys: [act("app.tools.expand")], action: "Toggle tool output expansion" },
 				{ keys: [act("app.tools.toggleVisibility")], action: "Toggle tool activity visibility" },
+				{
+					keys: [act("app.links.hint")],
+					action: "Pick an extension link on screen by its tag; press again to browse the whole transcript",
+				},
 				{ keys: [act("app.ask.hide")], action: "Hide/show a pending ask question" },
+				{ keys: [act("app.ask.note")], action: "Add or edit a note on an ask option" },
 				{ keys: [act("app.approval.approve")], action: "Approve a pending tool call" },
 				{ keys: [act("app.thinking.toggle")], action: "Toggle thinking block visibility" },
 				{ keys: [act("app.editor.external")], action: "Edit message in external editor" },
@@ -229,7 +234,7 @@ function actionSpans(action: string): TspSpan[] {
  * without the native surface get the transcript markdown panel instead.
  */
 export class HotkeysSheetComponent implements Component {
-	readonly nativeOverlay = { role: "omp.overlay.hotkeys", size: "lg", head: "Keyboard shortcuts" } as const;
+	readonly nativeOverlay = { role: "oms.overlay.hotkeys", size: "lg", head: "Keyboard shortcuts" } as const;
 	readonly #bindings: HotkeysMarkdownBindings;
 	readonly #onClose: () => void;
 	#native: NativeNode | undefined;
@@ -245,10 +250,10 @@ export class HotkeysSheetComponent implements Component {
 		const sections = hotkeyGroups(this.#bindings).map((group, index) =>
 			node(
 				"section",
-				{ head: group.title, role: "omp.hotkeys.group" },
+				{ head: group.title, role: "oms.hotkeys.group" },
 				[
 					node("table", {
-						role: "omp.hotkeys.table",
+						role: "oms.hotkeys.table",
 						cols: [
 							{ id: "keys", head: "Key" },
 							{ id: "action", head: "Action", grow: 1 },

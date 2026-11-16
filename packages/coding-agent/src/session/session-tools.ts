@@ -71,7 +71,7 @@ import {
 } from "./acp-permission-gate";
 import type { ClientBridge, ClientBridgePermissionOutcome } from "./client-bridge";
 import { type BuildSystemPromptResult, toolReadsSkillUris } from "../system-prompt";
-import { supportsExternalThinking } from "../tools/think";
+import { supportsExternalThinking, supportsThinkingTool } from "../tools/think";
 import { matchModelPattern } from "../utils/model-patterns";
 import { resolveToolWireName } from "../utils/tool-wire-name";
 
@@ -885,6 +885,7 @@ export class SessionTools {
 	}
 
 	#capabilityAllowed(name: string): boolean {
+		if (name === "think" && !supportsThinkingTool(this.#host.model())) return false;
 		return (
 			!this.#toolAllowlist ||
 			this.#toolAllowlist.has(name) ||
@@ -2499,8 +2500,8 @@ export class SessionTools {
 	/**
 	 * Session-scoped enable/disable for the optional `think` scratchpad tool.
 	 *
-	 * This explicit setting is independent of native reasoning support; the UI
-	 * toggle can enable or disable the scratchpad directly.
+	 * Independent of native reasoning support, but never available to models
+	 * whose classifier rejects scratchpad reasoning in tool inputs.
 	 */
 	setThinkToolEnabled(enabled: boolean): Promise<boolean> {
 		return this.#setThinkToolActive(enabled);

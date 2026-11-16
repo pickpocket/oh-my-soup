@@ -275,7 +275,7 @@ import {
 	writeDeviceDispatch,
 } from "../tools/resolve";
 import { PROPOSE_DEVICE_NAME } from "@oh-my-soup/pi-tui/tools/resolve";
-import { supportsExternalThinking } from "../tools/think";
+import { supportsExternalThinking, supportsThinkingTool } from "../tools/think";
 import { USER_TODO_EDIT_CUSTOM_TYPE } from "../tools/todo";
 import type { TodoPhase } from "@oh-my-soup/pi-tui/tools/todo";
 import { ToolError } from "@oh-my-soup/pi-tui/tools/tool-errors";
@@ -13599,6 +13599,13 @@ export class AgentSession implements SettingsScope, AgentViewSession {
 			await this.#maintenance.renderArchiveForModel();
 		} catch (error) {
 			logger.warn("snapcompact archive view after model change failed", { error: String(error) });
+		}
+
+		// Rebuild the actual tool roster as well as its prompt when crossing the
+		// scratchpad policy boundary. The shared plan preserves explicit tool lists.
+		if (supportsThinkingTool(previousModel) !== supportsThinkingTool(model)) {
+			await this.#tools.reconcileBuiltinTools();
+			return;
 		}
 
 		// The think-guidance flavor (optional vs forced) follows the model's

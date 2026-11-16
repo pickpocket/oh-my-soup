@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- Claude models no longer receive the external scratchpad tool or its prompt instructions, including after model switches; native thinking remains enabled when external thinking is requested.
+
 ## [18.20.4] - 2026-11-16
 
 ### Changed

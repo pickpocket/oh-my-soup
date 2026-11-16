@@ -98,6 +98,17 @@ describe("createTools", () => {
 		expect(tools.find(tool => tool.name === "think")?.loadMode).toBe("essential");
 	});
 
+	it.each([undefined, ["think", "read"]])("withholds scratchpads from Claude even when requested: %j", async names => {
+		const model = getBundledModel("anthropic", "claude-fable-5-2");
+		if (!model) throw new Error("Expected bundled Fable model");
+		const session = createTestSession({
+			settings: createSettingsWithOverrides({ externalThinking: true, "tools.xdev": false }),
+			getActiveModel: () => model,
+		});
+		expect((await createTools(session, names ? [...names] : undefined)).map(tool => tool.name)).not.toContain("think");
+		expect(supportsExternalThinking(model)).toBe(false);
+	});
+
 	it("normalizes legacy explicit tool names", async () => {
 		const session = createTestSession({
 			settings: createSettingsWithOverrides({ "astGrep.enabled": false }),

@@ -81,7 +81,7 @@ import { wrapToolWithMetaNotice } from "./output-meta";
 import { ReadTool } from "./read";
 import type { PlanProposalHandler } from "./resolve";
 import { SecurityScanTool } from "./security-scan";
-import { supportsExternalThinking, ThinkTool } from "./think";
+import { supportsExternalThinking, supportsThinkingTool, ThinkTool } from "./think";
 import { type TodoPhase } from "@oh-my-soup/pi-tui/tools/todo";
 import { TodoTool } from "./todo";
 import { WriteTool } from "./write";
@@ -878,7 +878,7 @@ export async function resolveBuiltinToolPlan(session: ToolSession, toolNames?: s
 		if (name === "web_search") return cfgWebSearchEnabled.get(session.settings);
 		if (name === "notes") return cfgNotesEnabled.get(session.settings);
 		if (name === "security_scan") return cfgSecurityEnabled.get(session.settings);
-		if (name === "think") return thinkToolEnabled || externalThinkingActive;
+		if (name === "think") return supportsThinkingTool(activeModel) && (thinkToolEnabled || externalThinkingActive);
 		if (name === "ask") return cfgAskEnabled.get(session.settings);
 		if (name === "context_notes" || name === "new_context")
 			return cfgCompactionExperimentalContextManagement.get(session.settings);
@@ -923,7 +923,7 @@ export async function resolveBuiltinToolPlan(session: ToolSession, toolNames?: s
 		name => (name in BUILTIN_TOOLS || name in HIDDEN_TOOLS) && isToolAllowed(name),
 	) ?? [
 		...Object.keys(BUILTIN_TOOLS).filter(isToolAllowed),
-		...(thinkToolEnabled || externalThinkingActive ? ["think"] : []),
+		...(isToolAllowed("think") ? ["think"] : []),
 		...(includeYield ? ["yield"] : []),
 		...(goalModeActive ? ["goal"] : []),
 	];

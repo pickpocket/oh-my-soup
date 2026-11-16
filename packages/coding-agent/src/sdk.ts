@@ -4207,7 +4207,7 @@ async function createAgentSessionScoped(options: CreateAgentSessionOptions): Pro
 			const explicitToolNames = options.toolNames ? new Set(normalizeToolNames(options.toolNames)) : undefined;
 			const added: { name: string; builtIn: boolean; activate: boolean }[] = [];
 			const removed: string[] = [];
-			for (const name of SETTINGS_GATED_BUILTIN_TOOL_NAMES) {
+			for (const name of [...SETTINGS_GATED_BUILTIN_TOOL_NAMES, "think"] as const) {
 				const registered = toolRegistry.has(name);
 				if (!plan.isAllowed(name)) {
 					nativeToolsByName.delete(name);
@@ -4218,7 +4218,8 @@ async function createAgentSessionScoped(options: CreateAgentSessionOptions): Pro
 					continue;
 				}
 				if (!planned.has(name) || (registered && (isBuiltIn(name) || nativeToolsByName.has(name)))) continue;
-				const tool = await logger.time(`createTools:${name}:settings`, BUILTIN_TOOLS[name], toolSession);
+				const factory = name === "think" ? HIDDEN_TOOLS.think : BUILTIN_TOOLS[name];
+				const tool = await logger.time(`createTools:${name}:settings`, factory, toolSession);
 				if (!tool) continue;
 				const native = wrapToolWithMetaNotice(tool);
 				nativeToolsByName.set(name, native);

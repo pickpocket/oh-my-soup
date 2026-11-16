@@ -393,7 +393,7 @@ describe("createAgentSession defaultInactive tool activation", () => {
 		}
 	});
 
-	it("keeps the optional think tool available when external replacement is unsupported", async () => {
+	it("withholds scratchpads on Claude model switches without disabling them for other models", async () => {
 		const tempDir = makeTempDir();
 		const settings = Settings.isolated({ externalThinking: true });
 		const unsupported = requireBundledModel("xai", "grok-4");
@@ -422,8 +422,12 @@ describe("createAgentSession defaultInactive tool activation", () => {
 			expect(mock.calls[0]?.options?.toolChoice).toBeUndefined();
 
 			await session.setModel(fable);
-			expect(session.getToolByName("think")).toBeDefined();
-			expect(session.getActiveToolNames()).toContain("think");
+			expect(session.getToolByName("think")).toBeUndefined();
+			expect(session.getActiveToolNames()).not.toContain("think");
+			expect(session.systemPrompt.join("\n")).not.toContain("<scratchpad>");
+			expect(await session.setThinkToolEnabled(true)).toBe(false);
+			await session.setActiveToolsByName([...session.getActiveToolNames(), "think"]);
+			expect(session.getActiveToolNames()).not.toContain("think");
 			await session.setModel(responses);
 			expect(session.getActiveToolNames()).toContain("think");
 			await session.setModel(gemini);
@@ -435,6 +439,84 @@ describe("createAgentSession defaultInactive tool activation", () => {
 			expect(session.getActiveToolNames()).toContain("think");
 		} finally {
 			await session.dispose();
+		}
+	});
+
+	it("keeps Claude native thinking on and scratchpads off despite external-thinking settings", async () => {
+		const tempDir = makeTempDir();
+		const model = requireBundledModel("anthropic", "claude-fable-5-2");
+		let payload: unknown;
+		const server = Bun.serve({
+			port: 0,
+			fetch: async request => {
+				payload = await request.json();
+				const events = [
+					{
+						type: "message_start",
+						message: {
+							id: "msg_native",
+							type: "message",
+							role: "assistant",
+							model: model.id,
+							content: [],
+							stop_reason: null,
+							usage: { input_tokens: 1, output_tokens: 0 },
+						},
+					},
+					{ type: "content_block_start", index: 0, content_block: { type: "text", text: "" } },
+					{ type: "content_block_delta", index: 0, delta: { type: "text_delta", text: "Done." } },
+					{ type: "content_block_stop", index: 0 },
+					{ type: "message_delta", delta: { stop_reason: "end_turn" }, usage: { output_tokens: 1 } },
+					{ type: "message_stop" },
+				];
+				return new Response(events.map(event => `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`).join(""), {
+					headers: { "content-type": "text/event-stream" },
+				});
+			},
+		});
+		registryAuthStorage.keys.setRuntime("anthropic", "test-key");
+		const { session } = await createAgentSession({
+			...baseOptions(tempDir),
+			settings: Settings.isolated({ externalThinking: true }),
+			model: { ...model, baseUrl: `${server.url}v1` },
+			getApiKey: () => "test-key",
+		});
+		try {
+			expect(session.getToolByName("think")).toBeUndefined();
+			expect(session.systemPrompt.join("\n")).not.toContain("<scratchpad>");
+			expect(await session.setThinkToolEnabled(true)).toBe(false);
+			await session.prompt("Report the result.");
+			expect(payload).toMatchObject({ thinking: { type: "adaptive" } });
+			if (typeof payload !== "object" || payload === null || !("tools" in payload)) {
+				throw new Error("Expected an Anthropic tools payload");
+			}
+			expect(payload.tools).not.toEqual(expect.arrayContaining([expect.objectContaining({ name: "think" })]));
+			expect(session.messages.at(-1)).toMatchObject({
+				role: "assistant",
+				content: [{ type: "text", text: "Done." }],
+			});
+		} finally {
+			await session.dispose();
+			server.stop(true);
+			registryAuthStorage.keys.removeRuntime("anthropic");
+		}
+	});
+
+	it("does not widen an explicit tool list when leaving Claude", async () => {
+		const tempDir = makeTempDir();
+		const { session } = await createAgentSession({
+			...baseOptions(tempDir),
+			model: requireBundledModel("anthropic", "claude-fable-5-2"),
+			toolNames: ["read"],
+		});
+		registryAuthStorage.keys.setRuntime("openai", "test-key");
+		try {
+			await session.setModel(requireBundledModel("openai", "gpt-4o-mini"));
+			expect(session.getActiveToolNames()).toContain("read");
+			expect(session.getActiveToolNames()).not.toContain("think");
+		} finally {
+			await session.dispose();
+			registryAuthStorage.keys.removeRuntime("openai");
 		}
 	});
 

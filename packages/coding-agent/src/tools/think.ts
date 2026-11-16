@@ -1,13 +1,19 @@
 import { type } from "@oh-my-soup/omstype";
 import type { AgentTool, AgentToolResult } from "@oh-my-soup/pi-agent-core";
 import type { Model } from "@oh-my-soup/pi-ai";
+import { resolveCatalogPolicy } from "@oh-my-soup/pi-catalog/compat/catalog-policy";
 import { type Component, Markdown } from "@oh-my-soup/pi-tui";
 import type { RenderResultOptions } from "../extensibility/custom-tools/types";
 import { getMarkdownTheme, type Theme } from "@oh-my-soup/pi-tui/theme";
 
+/** Whether the model accepts reasoning in scratchpad tool inputs rather than native thinking blocks. */
+export function supportsThinkingTool(model: Model | null | undefined): boolean {
+	return !model || resolveCatalogPolicy(model).classifierCotExtraction !== true;
+}
+
 /** Whether a model transport can replace native reasoning with the external scratchpad. */
 export function supportsExternalThinking(model: Model | null | undefined): boolean {
-	if (!model) return false;
+	if (!model || !supportsThinkingTool(model)) return false;
 	const requiresThinking =
 		model.api === "anthropic-messages" &&
 		model.compat !== undefined &&

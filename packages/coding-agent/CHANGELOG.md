@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- Antigravity now always goes through `google-antigravity` and its AGY transport: upstream's `antigravity-cli` provider (official agy CLI over ACP) is paused, so it no longer appears before Google Antigravity in `/login` and `/model`. Run `/login google-antigravity`; list `antigravity-cli` in `auth.unpausedProviders` to keep the agy CLI route
+
 ## [18.20.3] - 2026-11-16
 
 ### Breaking Changes

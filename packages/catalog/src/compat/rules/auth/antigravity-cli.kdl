@@ -4,6 +4,9 @@
 // separate --gemini-dir; it never swaps the user's global agy/keychain account.
 auth "antigravity-cli" {
 	name "Antigravity CLI (Gemini, Claude, GPT-OSS)"
+	// Oh My Soup serves Antigravity through google-antigravity's AGY Rust/wreq
+	// transport; this upstream ACP route would shadow it in /login and /model.
+	disabled "Oh My Soup serves Antigravity through google-antigravity and its AGY transport. Run /login google-antigravity instead, or list antigravity-cli in auth.unpausedProviders to use the official agy CLI."
 	login-warning "Google explicitly supports ACP-compatible editors, but its guidance on third-party coding agents is inconsistent. This provider uses the official agy CLI over ACP with your Antigravity login."
 	login "custom" hook="antigravity-cli"
 	refresh hook="antigravity-cli"

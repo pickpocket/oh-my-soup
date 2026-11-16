@@ -24,6 +24,9 @@
 - Moved the collab browser client to `web/` on the `feat/collab-server` branch; HTML export tool cards are now built from `packages/tool-views`.
 - HTML session exports stay self-contained: the export viewer, Markdown and syntax highlighting are embedded in the file instead of loaded from a CDN
 - Synced with upstream oh-my-pi 18.20.2 while keeping Oh My Soup's own edit engine and collab protocol: upstream's strict `apply_patch` matching, move-only patch sections, Markdown syntax-check warnings and collab relay/queueing changes from 18.14–18.20 are not included, so collab stays compatible with the custom relay server
+- Antigravity model discovery uses the provider transport by default while preserving explicit fetch overrides; compiled builds embed its Rust/wreq helper and source setup builds it.
+- Compiled CLI smoke tests start and close the extracted Antigravity helper, catching broken embedded resources before release without contacting Google.
+- Google Antigravity (`/login google-antigravity`) is available again through the AGY transport helper; new logins still require accepting the account-risk warning
 
 ### Fixed
 
@@ -60,6 +63,8 @@
 - Fixed `emulate({ viewport })` on a docked Tern block failing with Tern's bare `the block is docked` error; it now gives the block's current size and suggests `app: "own"` with a viewport, or floating the block again
 - Fixed `page.on()` and other event-listener methods inside `tab.run` on Tern and WebKit tabs throwing `page.on is not a function`; they now name the backend and the helpers to use instead (`tab.requests()`, `tab.waitForResponse()`, `tab.console()`)
 - Fixed `read` line selectors on `xd://` docs (`xd://eval/browser:1-200`) failing with `Unknown topic`; `write` now rejects a selector on an `xd://` device URL instead of treating it as part of the device name
+- Reworded the on-demand device documentation hint after a Google Antigravity Carbon Low request rejected the previous wording; tool names and schemas are unchanged.
+- `/login google-antigravity` accepts the code displayed by the official hosted callback; remote broker login no longer requests an invalid port-zero tunnel.
 - Collaboration links retain custom relay path prefixes, and custom relays print native join invitations instead of guessing a browser page at the server root; configure `collab.webUrl` to advertise a browser UI.
 - Encrypted share viewers now work on trusted VPN HTTP origins without WebCrypto, retaining AES-GCM authentication and native-client compatibility.
 - Preserved native guest restoration when the host's goodbye is still queued as the connection closes.

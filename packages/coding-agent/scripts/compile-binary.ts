@@ -1,6 +1,7 @@
 // Deep import: the pi-utils barrel loads the host native addon, which is
 // absent on cross-compiling release runners.
 import { USER_AGENT } from "@oh-my-soup/pi-utils/dirs";
+import { embeddedAgyTransportFiles } from "../../ai/scripts/embed-agy-transport";
 import { embeddedAddonFiles, type NativeEmbedTarget } from "../../natives/scripts/embed-native";
 import { buildDocsIndexPayload } from "./generate-docs-index";
 import { createJsonParsePlugin } from "./json-parse-plugin";
@@ -46,11 +47,17 @@ export async function compileCodingAgent(options: CodingAgentCompileOptions): Pr
 		Bun.env.BUN_NO_CODESIGN_MACHO_BINARY = "1";
 	}
 	try {
+		const [nativeFiles, agyFiles] = options.native
+			? await Promise.all([
+					embeddedAddonFiles(options.native),
+					embeddedAgyTransportFiles(options.native, options.target),
+				])
+			: [{}, {}];
 		const output = await Bun.build({
 			entrypoints: [options.entrypoint],
 			root: options.repoRoot,
 			external: [...COMPILED_EXTERNAL_DEPENDENCIES],
-			files: options.native ? await embeddedAddonFiles(options.native) : {},
+			files: { ...nativeFiles, ...agyFiles },
 			define: {
 				"process.env.PI_COMPILED": JSON.stringify("true"),
 				"process.env.PI_DOCS_EMBED": JSON.stringify((await buildDocsIndexPayload()).payload),

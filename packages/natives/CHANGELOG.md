@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- Exported the native loader-state subpath for shared verified extraction of embedded executables.
+
 ### Fixed
 
 - Committing or writing a tree now fails when the index still has unresolved conflicts, instead of publishing a commit that drops those files ([#19309](https://github.com/can1357/oh-my-pi/pull/19309) by [@eggpeat](https://github.com/eggpeat))

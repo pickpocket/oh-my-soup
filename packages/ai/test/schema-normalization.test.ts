@@ -1042,7 +1042,7 @@ describe("normalizeSchemaForCCA", () => {
 		expect(normalized.description).toBe('ID\n\n{pattern: "^\\\\d+$", minLength: 1, maxLength: 8}');
 	});
 
-	it("uses the same merged object output in shared and gemini-cli Antigravity paths", () => {
+	it("merges object unions the same way in shared and gemini-cli Antigravity paths", () => {
 		const parameters = {
 			anyOf: [
 				{
@@ -1088,8 +1088,16 @@ describe("normalizeSchemaForCCA", () => {
 			required: ["shared"],
 		};
 		expect(sharedDeclaration.parameters).toEqual(expected);
-		expect(antigravityDeclaration.parameters).toEqual(expected);
-		expect(antigravityDeclaration.parameters).toEqual(sharedDeclaration.parameters);
+		// Antigravity sends protobuf-encoded schemas: same merged shape, upper-case type enums.
+		expect(antigravityDeclaration.parameters).toEqual({
+			type: "OBJECT",
+			properties: {
+				shared: { type: "STRING" },
+				a: { type: "STRING" },
+				b: { type: "NUMBER" },
+			},
+			required: ["shared"],
+		});
 		expect(antigravityDeclaration.parametersJsonSchema).toBeUndefined();
 	});
 

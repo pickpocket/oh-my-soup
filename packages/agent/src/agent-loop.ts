@@ -10,6 +10,7 @@ import {
 	type ComputerSafetyCheck,
 	type Context,
 	EventStream,
+	finishProviderExecution,
 	isApiKeyResolver,
 	type Model,
 	resolveApiKeyOnce,
@@ -1125,7 +1126,15 @@ async function runLoop(
 ): Promise<void> {
 	const telemetry = resolveTelemetry(config.telemetry, config.sessionId);
 	const invokeAgentSpan = startInvokeAgentSpan(telemetry, config.model);
-	const stepCounter = { count: 0 };
+	let providerExecutionFinished = false;
+	const stepCounter: StepCounter = {
+		count: 0,
+		finishExecution() {
+			if (providerExecutionFinished) return;
+			providerExecutionFinished = true;
+			finishProviderExecution(config.providerSessionState);
+		},
+	};
 	let caughtError: unknown;
 	try {
 		await runInActiveSpan(invokeAgentSpan, () =>
@@ -1146,6 +1155,7 @@ async function runLoop(
 		caughtError = err;
 		throw err;
 	} finally {
+		stepCounter.finishExecution();
 		finishInvokeAgentSpan(telemetry, invokeAgentSpan, {
 			stepCount: stepCounter.count,
 			errorObject: caughtError,
@@ -1155,6 +1165,7 @@ async function runLoop(
 
 interface StepCounter {
 	count: number;
+	finishExecution(): void;
 }
 
 /** Largest setTimeout delay before 32-bit overflow (Node/Bun fire in ~1 ms past this). */
@@ -1168,9 +1179,10 @@ function endAgentStream(
 	stream: EventStream<AgentEvent, AgentMessage[]>,
 	newMessages: AgentMessage[],
 	telemetry: AgentTelemetry | undefined,
-	stepCount: number,
+	stepCounter: StepCounter,
 ): void {
-	stream.push(buildAgentEndEvent(newMessages, telemetry, stepCount));
+	stepCounter.finishExecution();
+	stream.push(buildAgentEndEvent(newMessages, telemetry, stepCounter.count));
 	stream.end(newMessages);
 }
 function emitInputMessages(stream: EventStream<AgentEvent, AgentMessage[]>, messages: readonly AgentMessage[]): void {
@@ -1284,14 +1296,14 @@ async function runLoopBody(
 		const aborted = emitAbortedAssistantMessage(null, false, new Set(), currentContext, config, stream, signal);
 		newMessages.push(aborted);
 		await emitTurnEnd(stream, currentContext, aborted, [], config, signal, { willContinue: false });
-		endAgentStream(stream, newMessages, telemetry, stepCounter.count);
+		endAgentStream(stream, newMessages, telemetry, stepCounter);
 		return true;
 	};
 	try {
 		let messagesToEmit = [...initialMessages];
 		if (isDeadlineExceeded(config.deadline)) {
 			emitInputMessages(stream, messagesToEmit);
-			endAgentStream(stream, newMessages, telemetry, stepCounter.count);
+			endAgentStream(stream, newMessages, telemetry, stepCounter);
 			return;
 		}
 		// Check for steering messages at start (user may have typed while waiting).
@@ -1361,7 +1373,7 @@ async function runLoopBody(
 			// A tool hook may mark its completed result as terminal (e.g. subagent
 			// yield) — same stop-before-next-model-call rule as the main loop.
 			if (signal?.reason === TERMINAL_TOOL_RESULT_ABORT_REASON) {
-				endAgentStream(stream, newMessages, telemetry, stepCounter.count);
+				endAgentStream(stream, newMessages, telemetry, stepCounter);
 				return;
 			}
 		}
@@ -1374,7 +1386,7 @@ async function runLoopBody(
 			while (hasMoreToolCalls || pendingMessages.length > 0) {
 				if (isDeadlineExceeded(config.deadline)) {
 					emitInputMessages(stream, messagesToEmit);
-					endAgentStream(stream, newMessages, telemetry, stepCounter.count);
+					endAgentStream(stream, newMessages, telemetry, stepCounter);
 					return;
 				}
 				// Park at the turn boundary while the process-wide pause gate is
@@ -1490,7 +1502,7 @@ async function runLoopBody(
 						turnOpen = false;
 					}
 					preserveSoftRequirementState = !signal?.aborted;
-					endAgentStream(stream, newMessages, telemetry, stepCounter.count);
+					endAgentStream(stream, newMessages, telemetry, stepCounter);
 					return;
 				}
 
@@ -1655,8 +1667,7 @@ async function runLoopBody(
 					await emitTurnEnd(stream, currentContext, message, toolResults, config, signal, { willContinue: false });
 					turnOpen = false;
 
-					stream.push(buildAgentEndEvent(newMessages, telemetry, stepCounter.count));
-					stream.end(newMessages);
+					endAgentStream(stream, newMessages, telemetry, stepCounter);
 					return;
 				}
 
@@ -1837,7 +1848,7 @@ async function runLoopBody(
 				turnOpen = false;
 
 				if (isDeadlineExceeded(config.deadline)) {
-					endAgentStream(stream, newMessages, telemetry, stepCounter.count);
+					endAgentStream(stream, newMessages, telemetry, stepCounter);
 					return;
 				}
 				// On external abort (user interrupt), leave the steering queue intact: the
@@ -1880,7 +1891,7 @@ async function runLoopBody(
 			}
 
 			if (isDeadlineExceeded(config.deadline)) {
-				endAgentStream(stream, newMessages, telemetry, stepCounter.count);
+				endAgentStream(stream, newMessages, telemetry, stepCounter);
 				return;
 			}
 
@@ -1888,7 +1899,7 @@ async function runLoopBody(
 			await config.onBeforeYield?.();
 
 			if (isDeadlineExceeded(config.deadline)) {
-				endAgentStream(stream, newMessages, telemetry, stepCounter.count);
+				endAgentStream(stream, newMessages, telemetry, stepCounter);
 				return;
 			}
 			// Skip queue drains when externally aborted (same stranding hazard as above).
@@ -1908,7 +1919,7 @@ async function runLoopBody(
 			break;
 		}
 
-		endAgentStream(stream, newMessages, telemetry, stepCounter.count);
+		endAgentStream(stream, newMessages, telemetry, stepCounter);
 	} finally {
 		discardAsides(pendingMessages, new Error("Aside message was not committed before the agent loop ended"));
 		if (!preserveSoftRequirementState) {
@@ -2235,6 +2246,7 @@ async function streamAssistantResponse(
 			onProviderStart?.();
 			let response = await streamFunction(model, llmContext, {
 				...config,
+				trajectoryStepCount: config.trajectoryStepCount ?? context.messages.length,
 				apiKey,
 				metadata: resolvedMetadata,
 				toolChoice: effectiveToolChoice,

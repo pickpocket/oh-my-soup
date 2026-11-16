@@ -15,6 +15,21 @@ Package-specific references:
 - [MCP server/tool authoring](../../docs/mcp-server-tool-authoring.md)
 - [DEVELOPMENT](./DEVELOPMENT.md)
 
+## Antigravity source setup
+
+Source installs require the Antigravity Rust/wreq transport helper. `bun run setup` at
+the repository root builds it; rebuild only the helper with
+`bun run --cwd packages/ai build:agy-transport`. Compiled builds embed the
+target-specific executable. See the [AI package transport notes](../ai/README.md#antigravity-transport-and-verification)
+for executable overrides, trusted CAs, lifecycle, and verification limits.
+
+Use `/login google-antigravity` inside the updated session (`/login` also lists
+the provider). Accept the account-risk warning, complete Google sign-in, copy the
+code displayed on Antigravity's hosted callback page, paste it into the focused
+input, and press Enter. There is no localhost listener in this flow. Esc cancels
+the dialog. Repository edits do not replace a running executable: restart the
+session after installing the updated CLI.
+
 ## Bash visualization
 
 Embedded-shell calls default to Python-like **Pseudo**; switch to **Raw** for the original command. Syntax appears incrementally as the shell compiles it. Active commands retain their colors while inactive code fades; only failures get `×`. Values appear beside each variable's latest observed setter.

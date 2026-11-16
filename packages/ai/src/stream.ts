@@ -1857,6 +1857,7 @@ function mapOptionsForApi<TApi extends Api>(
 		loopGuard: options?.loopGuard,
 		taskBudget: options?.taskBudget,
 		sessionId: options?.sessionId,
+		trajectoryStepCount: options?.trajectoryStepCount,
 		promptCacheKey: options?.promptCacheKey,
 		streamFirstEventTimeoutMs: options?.streamFirstEventTimeoutMs,
 		streamIdleTimeoutMs: options?.streamIdleTimeoutMs,

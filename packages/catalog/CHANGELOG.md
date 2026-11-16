@@ -9,6 +9,19 @@
 ### Changed
 
 - Default web search tries dedicated search engines before falling back to a hosted chat model.
+- Antigravity discovery accepts an explicit client User-Agent without looking up an unrelated IDE version.
+
+### Added
+
+- Added `gen:models --snapshot-compat` to regenerate wire policy offline while preserving the bundled inventory.
+
+### Removed
+
+- Removed the obsolete Antigravity Claude tool-mode and thinking-beta compatibility flags.
+
+### Fixed
+
+- Antigravity login uses the observed CLI authorization endpoint, hosted callback, and scopes, including `openid`.
 
 ### Fixed
 

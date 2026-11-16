@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### Breaking Changes
+
+- Default Antigravity requests require the Rust/wreq transport helper; source/package installs must run `build:agy-transport` with Rust and native C++ build tools, while compiled CLI builds embed it. Explicit fetch overrides remain supported.
+
+### Added
+
+- Added an observational AGY capture/comparison harness that retains raw byte differences, requires transport evidence for all-layer reports, and does not claim attestation.
+- Replaced the Go transport implementation with a pinned Rust/wreq build and vendored BoringSSL patches for the measured TLS ClientHello, ML-DSA certificate verification, and hybrid ML-KEM key exchange. The helper preserves the bridge's protobuf JSON and streaming continuation behavior.
+
 ### Changed
 
 - Codex Daybreak (Trusted Access for Cyber) is now a per-request toggle, off by default: `SimpleStreamOptions.daybreak` / `OpenAICodexResponsesOptions.daybreak` request the model's advertised `daybreak_blue` (or `daybreak_red`), while off sends `standard` explicitly when advertised instead of auto-requesting `daybreak_blue`; `unsupported_access_program` rejections now also drop the program and replay ([#13](https://github.com/pickpocket/oh-my-soup/pull/13) by [@0neShot101](https://github.com/0neShot101))
@@ -10,6 +19,16 @@
 
 - Fixed Mistral (and other OpenAI-compatible) 429s reporting a zero `x-ratelimit-limit-*` allowance being retried for minutes; they now fail on the first request with an error naming the header and suggesting a model or plan switch ([#19300](https://github.com/can1357/oh-my-pi/issues/19300))
 - Fixed pooled Claude accounts presenting one device: an Anthropic OAuth request now reports the device and account id of the credential serving it, including after a rotation inside one call, when caller metadata named the previous account ([#19277](https://github.com/can1357/oh-my-pi/pull/19277) by [@Xytronix](https://github.com/Xytronix))
+- Antigravity OAuth project discovery now honors the login controller's explicit fetch implementation.
+- Antigravity image streams now surface in-band provider errors instead of returning successful empty results.
+- Antigravity tool results use the serving model's conversation role, and request attempts no longer invent extra logical steps.
+- Antigravity continuations preserve cumulative usage, reject unsafe checkpoint replay, and surface next-leg HTTP failures without retrying permission denials.
+- Transport helpers no longer keep idle hosts alive, and HEAD/204/205/304 responses no longer fail during gzip or Response handling.
+- The Rust transport now writes HTTP/1.1 request headers with Go-compatible casing/order and lowercase chunk lengths; local TLS fixtures confirmed identical request bytes after removing the ephemeral server port.
+- Source builds keep Cargo/CMake targets per checkout, avoiding stale generator and absolute-source caches when developing in multiple worktrees or installing the SDK.
+- Antigravity login uses the official CLI's hosted copy-code page, preserving S256 PKCE and a focused input instead of redirecting to localhost.
+- Standard Antigravity requests now select the registered transport before generic fetch wrapping, so the CLI no longer bypasses its helper.
+- Antigravity tool schemas now encode protobuf type enums correctly without mutating caller schemas or property names.
 
 ### Removed
 

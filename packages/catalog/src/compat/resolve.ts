@@ -1013,8 +1013,6 @@ function resolveGooglePolicy(
 		ccaLegacyParametersSchema: false,
 		multimodalFunctionResponse: false,
 		flashStreamLeakWorkaround: false,
-		claudeThinkingBetaHeader: false,
-		antigravityClaudeToolMode: false,
 		stripImageInput: false,
 		// Unset means "no image contract": images go out as sent. Keys exist so
 		// a KDL rule or a user `compat` block can declare one.

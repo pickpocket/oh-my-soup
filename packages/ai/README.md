@@ -1198,6 +1198,82 @@ usage polling do not imply that reason.
 
 **Google Gemini CLI / Antigravity**: These use Google Cloud OAuth. The `apiKey` returned by `getOAuthApiKey()` is a JSON string containing both the token and project ID, which the library handles automatically.
 
+#### Antigravity transport and verification
+
+Use `/login google-antigravity`, or `/login` and select **Google Antigravity**.
+The browser uses the official CLI's hosted code page at
+`https://antigravity.google/oauth-callback`. After signing in, copy the displayed
+authorization code, paste it into Soup's focused login input, and press Enter.
+This flow does not open a localhost callback listener or require copying a failed
+localhost URL. PKCE remains S256; supplied OAuth state is still validated.
+
+The authorization endpoint, hosted redirect, and seven scopes (including
+`openid`) were observed from an isolated official Windows AGY 1.5.9 `acp --login`
+run. See Google's [CLI walkthrough](https://codelabs.developers.google.com/antigravity-cli-hands-on)
+for the copy-code interaction. Matching these parameters does not establish
+anything about Google's client-detection rules.
+
+Default Antigravity chat, image, OAuth, and usage requests use a lazily started
+Rust/wreq helper. Source checkouts build it with
+`bun run --cwd packages/ai build:agy-transport`; installed SDK packages use
+`bun run --cwd node_modules/@oh-my-soup/pi-ai build:agy-transport`.
+Install Rust (the checkout's pinned toolchain, or stable for SDK packages),
+a C++ compiler, CMake, Clang/libclang, and NASM first.
+On Windows x64, the build uses WSL with stable Rust, MinGW-w64 C/C++,
+CMake, Clang/libclang, and NASM, then copies back a standalone `.exe`.
+`bun run setup` also builds the helper. Compiled CLI builds embed their
+target's helper; cross-target builds require that target's Rust and C++ tools.
+The pinned BoringSSL patches and descriptor assets ship with the SDK; do not
+substitute upstream wreq/btls without rechecking the TLS ClientHello and
+authenticated handshakes. The Rust protobuf JSON parser rejects nesting beyond
+100 levels to avoid unbounded recursion.
+
+`PI_AI_AGY_TRANSPORT` selects an explicit executable. Advanced callers can use
+`createAgyFetch()` from `@oh-my-soup/pi-ai/providers/agy-fetch`, pass the returned
+`fetch` to supported request options, and call `close()` after consuming response
+bodies. Explicit fetch overrides take precedence over provider defaults.
+The `stream` and `streamSimple` entrypoints select that provider default before
+applying the shared request wrapper; an implicit generic fetch must not mask it.
+`closeDefaultAgyFetch()` releases the shared helper for hosts requiring explicit
+shutdown. The helper owns no stored OAuth credentials.
+The returned fetch function declares `handlesGoogleContinuations: true` so the
+provider does not resume or accumulate the helper's responses a second time.
+Custom wrappers around that fetch must preserve this capability property.
+
+HTTPS certificate verification remains enabled. `NODE_EXTRA_CA_CERTS` or the
+handle's `ca` option adds a trusted PEM bundle. Environment HTTP/HTTPS CONNECT
+proxies are supported. Per-request/per-provider proxy overrides are rejected
+rather than silently bypassed; use an explicit fetch override for those settings.
+SOCKS and arbitrary `fetch` transport options are not supported. Redirects are
+returned rather than followed. The optional `quotaProject` is a billing-project
+override: it is **not** inferred from the OAuth credential's shared CCPA project.
+
+Streaming continuation is bounded to 32 additional legs. Recovery from a
+transport interruption requires a checkpoint covering all emitted output and
+is bounded separately; output after the last checkpoint prevents unsafe replay.
+HTTP denials during continuation surface as errors, not retries. Usage snapshots
+are accumulated across legs without counting the initial prompt again.
+Image streams also surface in-band provider errors.
+
+The observational harness lives in `scripts/agy-wire/`. From this package:
+
+```sh
+bun scripts/agy-wire/compare.ts --reference reference.json --candidate candidate.json \
+  --reference-pcap reference.pcap --candidate-pcap candidate.pcap --out report.json
+```
+
+Exit codes are `0` for the explicitly evaluated normalized scopes matching, `1`
+for a mismatch, and `2` for missing or malformed evidence. Omitting PCAP is not an
+L4 pass; `--scope application-tls` explicitly requests a narrower comparison.
+Raw differences and declared exclusions remain in every report. Captures may
+contain credentials and must be protected and kept out of version control.
+
+`scripts/agy-wire/analysis-1.5.9.json` records the pinned binary's provenance,
+static findings, and historical fixture results. Earlier authenticated CLI and
+transport generation runs succeeded, but neither that acceptance nor JA3/JA4
+agreement proves attestation or complete protocol identity. All-layer equivalence
+has **not** been established; the recorded TCP comparison differed.
+
 ## License
 
 MIT

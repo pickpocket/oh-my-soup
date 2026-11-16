@@ -6,6 +6,10 @@
 
 - Added `Agent.daybreak` (and `AgentOptions.daybreak`) to forward the Codex Daybreak (Trusted Access for Cyber) toggle to every request; off by default ([#13](https://github.com/pickpocket/oh-my-soup/pull/13) by [@0neShot101](https://github.com/0neShot101))
 
+### Fixed
+
+- Antigravity tool loops now retain one execution identity until the host run finishes and count logical messages before wire grouping.
+
 ## [18.20.1] - 2026-11-14
 
 ### Fixed

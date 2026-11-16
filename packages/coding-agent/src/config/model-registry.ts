@@ -4,6 +4,7 @@ import { type AuthApiKeyOptions, type AuthPeekOptions, oauthAccountKey } from "@
 import { registerCustomApi, unregisterCustomApis } from "@oh-my-soup/pi-ai/api-registry";
 import { registerOAuthProvider, unregisterOAuthProvider, unregisterOAuthProviders } from "@oh-my-soup/pi-ai/oauth";
 import type { OAuthCredentials, OAuthLoginCallbacks } from "@oh-my-soup/pi-ai/oauth/types";
+import { agyFetch, getAgyUserAgent } from "@oh-my-soup/pi-ai/providers/agy-fetch";
 import { setCodexAttestationProvider } from "@oh-my-soup/pi-ai/providers/openai-codex-attestation";
 import { getProviderDefinition } from "@oh-my-soup/pi-ai/registry";
 import { getEnvApiKey } from "@oh-my-soup/pi-ai/env-api-key";
@@ -436,6 +437,7 @@ export class ModelRegistry {
 	#runtimeModelManagers: Map<string, { options: ModelManagerOptions<Api>; sourceId: string }> = new Map();
 	#ignoreLocalModelConfig: boolean;
 	#fetch: FetchImpl;
+	#useDefaultProviderFetch: boolean;
 	#settings: Settings | undefined;
 	/** Registry this one mirrors (on another thread); see the constructor option. */
 	#owner: ModelRegistryOwner | undefined;
@@ -655,6 +657,7 @@ export class ModelRegistry {
 			(isBunTestRuntime()
 				? () => Promise.reject(new Error("network disabled in model-registry runtime test"))
 				: wrapFetchForExtraCa(fetch));
+		this.#useDefaultProviderFetch = options?.fetch === undefined && !isBunTestRuntime();
 		this.#modelsConfigFile = ModelsConfigFile.relocate(modelsPath ?? path.join(getAgentDir(), "models.yml"));
 		this.#cacheDbPath =
 			options?.cacheDbPath ?? (modelsPath ? path.join(path.dirname(modelsPath), "models.db") : undefined);
@@ -2839,7 +2842,8 @@ export class ModelRegistry {
 							);
 						},
 						endpoint: this.#descriptorBaseUrl("google-antigravity"),
-						fetch: this.#fetch,
+						fetch: this.#useDefaultProviderFetch ? agyFetch : this.#fetch,
+						userAgent: getAgyUserAgent(),
 					}),
 			},
 			{

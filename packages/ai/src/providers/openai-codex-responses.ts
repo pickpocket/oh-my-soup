@@ -183,6 +183,8 @@ export interface OpenAICodexResponsesOptions extends StreamOptions {
 	toolChoice?: ToolChoice;
 	preferWebsockets?: boolean;
 	serviceTier?: ServiceTier;
+	/** Daybreak toggle; off by default, and suppressed when `codexAccessPrograms` is false. */
+	daybreak?: boolean;
 	/**
 	 * Responses Lite transport opt-in. Normal inference defaults to full
 	 * Responses; provider-native compaction explicitly follows the model's
@@ -1259,7 +1261,7 @@ function createCodexRequestContext(
 	}
 
 	const accountId = getCodexAccountId(apiKey);
-	applyCodexAccessPrograms(transformedBody, model, accountId, options?.codexAccessPrograms);
+	applyCodexAccessPrograms(transformedBody, model, accountId, options?.codexAccessPrograms, options?.daybreak);
 	const baseUrl = model.baseUrl || CODEX_BASE_URL;
 	const url = resolveCodexResponsesUrl(baseUrl);
 

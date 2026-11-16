@@ -19,6 +19,7 @@ import type { Settings } from "../config/settings";
 import { type AnthropicSlowModeLanes, anthropicSlowModeLanes } from "./anthropic-slow-mode";
 
 import {
+	cfgDaybreak,
 	cfgModelLoopGuardCheckAssistantContent,
 	cfgModelLoopGuardEnabled,
 	cfgOmitThinking,
@@ -151,6 +152,8 @@ export function createSettingsAwareStreamFn(
 		const codexAccessPrograms =
 			streamOptions?.codexAccessPrograms ??
 			(model.api === "openai-codex-responses" ? cfgProvidersOpenaiCodexDaybreak.get(settings) : undefined);
+		const daybreak =
+			streamOptions?.daybreak ?? (model.api === "openai-codex-responses" ? cfgDaybreak.get(settings) : undefined);
 		const maxInFlightRequests = validateProviderMaxInFlightRequests(
 			streamOptions?.maxInFlightRequests ?? cfgProvidersMaxInFlightRequests.get(settings),
 		);
@@ -196,6 +199,7 @@ export function createSettingsAwareStreamFn(
 				? { fallbacks: undefined, disableServerSideFallback: true }
 				: {}),
 			...(codexAccessPrograms !== undefined ? { codexAccessPrograms } : {}),
+			...(daybreak !== undefined ? { daybreak } : {}),
 			...(slowModeHooks !== undefined ? { anthropicSlowMode: slowModeHooks } : {}),
 		};
 		return base(model, context, merged);

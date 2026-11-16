@@ -359,7 +359,8 @@ describe("codex saved-reset trigger integration", () => {
 				return { ok: true, code: "reset", accountId: ACCOUNT_ID, creditId: `credit-${spends}` };
 			});
 		}
-		mockSchedulerWaitWithClock();
+		// Contending native locks need real event-loop turns for the holder's
+		// marker writes; the instant scheduler mock can exhaust every retry first.
 
 		await Promise.all([
 			first.session.prompt("trigger first blocked turn"),

@@ -166,6 +166,7 @@ export class SessionHandoff {
 					preferWebsockets: false,
 					serviceTier: this.#host.effectiveServiceTier(model),
 					hideThinkingSummary: this.#host.agent.hideThinkingSummary,
+					daybreak: this.#host.agent.daybreak,
 					initiatorOverride: "agent",
 					signal: handoffSignal,
 				},

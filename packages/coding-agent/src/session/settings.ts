@@ -726,6 +726,19 @@ export const cfgTierOpenai = register({
 	},
 });
 
+export const cfgDaybreak = register({
+	id: "daybreak",
+	type: "boolean",
+	default: false,
+	ui: {
+		tab: "model",
+		group: "Sampling",
+		label: "Daybreak (Trusted Access for Cyber)",
+		description:
+			"Request reduced cyber refusals on OpenAI Codex models your account is approved for (Daybreak Blue/Red). Off by default; /daybreak and alt+d in /model persist the choice for new sessions. Requires Codex Access Programs.",
+	},
+});
+
 export const cfgTierAnthropic = register({
 	id: "tier.anthropic",
 	type: "enum",
@@ -1288,9 +1301,9 @@ export const cfgProvidersOpenaiCodexDaybreak = register({
 	ui: {
 		tab: "providers",
 		group: "Protocol",
-		label: "Codex Daybreak Blue",
+		label: "Codex Access Programs",
 		description:
-			"Automatically request the Daybreak Blue cyber access program on ChatGPT accounts eligible for it. OpenAI may use content from Daybreak Blue sessions to improve its models. Does not cover dedicated Daybreak Blue models (gpt-daybreak-blue-*), which may still run as Daybreak sessions.",
+			"Allow explicit cyber access-program requests on eligible ChatGPT accounts: the Daybreak toggle requests Blue/Red when on, or standard safeguards when off. Disabling omits access_programs and leaves selection to the server. OpenAI may use Daybreak Blue content to improve its models; dedicated Daybreak Blue models may still run as Daybreak sessions.",
 	},
 });
 // Sessions pass their own value per request; this process-wide default covers

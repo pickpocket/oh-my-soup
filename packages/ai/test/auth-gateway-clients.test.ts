@@ -300,6 +300,8 @@ describe("auth-gateway scoped clients", () => {
 			userProfileId: "caller-profile",
 			initiatorOverride: "agent",
 			serviceTier: "priority",
+			codexAccessPrograms: false,
+			daybreak: true,
 			temperature: 0.5,
 		} satisfies SimpleStreamOptions;
 		for (const token of [CI_TOKEN, GATEWAY_TOKEN]) {
@@ -319,10 +321,19 @@ describe("auth-gateway scoped clients", () => {
 			userProfileId: options?.userProfileId,
 			initiatorOverride: options?.initiatorOverride,
 			serviceTier: options?.serviceTier,
+			codexAccessPrograms: options?.codexAccessPrograms,
+			daybreak: options?.daybreak,
 			temperature: options?.temperature,
 		}));
 		expect(received).toEqual([
-			{ userProfileId: undefined, initiatorOverride: undefined, serviceTier: undefined, temperature: 0.5 },
+			{
+				userProfileId: undefined,
+				initiatorOverride: undefined,
+				serviceTier: undefined,
+				codexAccessPrograms: undefined,
+				daybreak: undefined,
+				temperature: 0.5,
+			},
 			callerOptions,
 		]);
 	});

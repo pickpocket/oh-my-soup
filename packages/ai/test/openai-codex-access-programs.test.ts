@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import { configureCodexAccessPrograms } from "@oh-my-soup/pi-ai/providers/openai-codex/access-programs";
 import { streamOpenAICodexResponses } from "@oh-my-soup/pi-ai/providers/openai-codex-responses";
+import { streamSimple } from "@oh-my-soup/pi-ai/stream";
 import type { Context, FetchImpl } from "@oh-my-soup/pi-ai/types";
 import * as piUtils from "@oh-my-soup/pi-utils";
 import { createCodexModel } from "./helpers";
@@ -10,6 +11,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+	configureCodexAccessPrograms(true);
 	vi.restoreAllMocks();
 });
 
@@ -87,6 +89,7 @@ describe("openai-codex cyber access programs", () => {
 			streamOpenAICodexResponses(model, context, {
 				apiKey: createCodexTestToken(accountId),
 				fetch: createFetchMock(statuses, sent),
+				daybreak: true,
 			}).result();
 
 		expect((await run("acct-standard", [200])).stopReason).toBe("stop");
@@ -102,27 +105,90 @@ describe("openai-codex cyber access programs", () => {
 		expect(sent).toEqual([undefined]);
 	});
 
-	it("omits Daybreak Blue for eligible accounts while the host switch is off", async () => {
-		const accountId = "acct-daybreak-switch";
-		const switchModel = createCodexModel("gpt-6-sol-switch", {
+	it.each([undefined, false, true])(
+		"keeps the request gate and configurable process default independent of Daybreak=%s",
+		async daybreak => {
+			const accountId = `acct-daybreak-switch-${daybreak}`;
+			const switchModel = createCodexModel(`gpt-6-sol-switch-${daybreak}`, {
+				preferWebsockets: false,
+				accountAccess: { [accountId]: { cyberPrograms: ["standard", "daybreak_blue"] } },
+			});
+			const sent: unknown[] = [];
+			const run = (codexAccessPrograms?: boolean) =>
+				streamOpenAICodexResponses(switchModel, context, {
+					apiKey: createCodexTestToken(accountId),
+					fetch: createFetchMock([200], sent),
+					codexAccessPrograms,
+					daybreak,
+				}).result();
+
+			configureCodexAccessPrograms(false);
+			expect((await run()).stopReason).toBe("stop");
+			expect((await run(false)).stopReason).toBe("stop");
+			expect((await run(true)).stopReason).toBe("stop");
+			configureCodexAccessPrograms(true);
+			expect((await run()).stopReason).toBe("stop");
+			expect((await run(false)).stopReason).toBe("stop");
+			expect((await run(true)).stopReason).toBe("stop");
+			const program = { cyber: daybreak ? "daybreak_blue" : "standard" };
+			expect(sent).toEqual([undefined, undefined, program, program, undefined, program]);
+		},
+	);
+
+	it.each([undefined, false, true])("forwards both SimpleStreamOptions flags with Daybreak=%s", async daybreak => {
+		const accountId = `acct-daybreak-mapped-${daybreak}`;
+		const mappedModel = createCodexModel(`gpt-6-sol-mapped-${daybreak}`, {
 			preferWebsockets: false,
 			accountAccess: { [accountId]: { cyberPrograms: ["standard", "daybreak_blue"] } },
 		});
 		const sent: unknown[] = [];
-		const run = () =>
-			streamOpenAICodexResponses(switchModel, context, {
+		for (const codexAccessPrograms of [true, false]) {
+			const result = await streamSimple(mappedModel, context, {
+				apiKey: createCodexTestToken(accountId),
+				fetch: createFetchMock([200], sent),
+				codexAccessPrograms,
+				daybreak,
+			}).result();
+			expect(result.stopReason).toBe("stop");
+		}
+		expect(sent).toEqual([{ cyber: daybreak ? "daybreak_blue" : "standard" }, undefined]);
+	});
+
+	it.each([false, true])("isolates unsupported-program drops with Daybreak=%s", async daybreak => {
+		const accountId = `acct-unsupported-${daybreak}`;
+		const siblingId = `acct-unsupported-sibling-${daybreak}`;
+		const rejectedModel = createCodexModel(`gpt-6-sol-unsupported-${daybreak}`, {
+			preferWebsockets: false,
+			accountAccess: {
+				[accountId]: { cyberPrograms: ["standard", "daybreak_red"] },
+				[siblingId]: { cyberPrograms: ["standard", "daybreak_red"] },
+			},
+		});
+		const sent: unknown[] = [];
+		const options = {
+			apiKey: createCodexTestToken(accountId),
+			daybreak,
+			fetch: createFetchMock(
+				[400, 200],
+				sent,
+				JSON.stringify({ error: { code: "unsupported_access_program", message: "Unsupported program." } }),
+			),
+		};
+		expect((await streamOpenAICodexResponses(rejectedModel, context, options).result()).stopReason).toBe("stop");
+		const program = { cyber: daybreak ? "daybreak_red" : "standard" };
+		expect(sent).toEqual([program, undefined]);
+
+		sent.length = 0;
+		const run = (accountId: string, model = rejectedModel) =>
+			streamOpenAICodexResponses(model, context, {
+				...options,
 				apiKey: createCodexTestToken(accountId),
 				fetch: createFetchMock([200], sent),
 			}).result();
-
-		configureCodexAccessPrograms(false);
-		try {
-			expect((await run()).stopReason).toBe("stop");
-		} finally {
-			configureCodexAccessPrograms(true);
-		}
-		expect((await run()).stopReason).toBe("stop");
-		expect(sent).toEqual([undefined, { cyber: "daybreak_blue" }]);
+		expect((await run(accountId)).stopReason).toBe("stop");
+		expect((await run(siblingId)).stopReason).toBe("stop");
+		expect((await run(accountId, { ...rejectedModel, id: `${rejectedModel.id}-other` })).stopReason).toBe("stop");
+		expect(sent).toEqual([undefined, program, program]);
 	});
 
 	it.each([
@@ -142,6 +208,7 @@ describe("openai-codex cyber access programs", () => {
 				sent,
 				JSON.stringify({ error: { type: "invalid_request_error", message } }),
 			),
+			daybreak: true,
 		};
 
 		const result = await streamOpenAICodexResponses(genericModel, context, options).result();
@@ -190,6 +257,7 @@ describe("openai-codex cyber access programs", () => {
 							JSON.stringify({ error: { type: "invalid_request_error", code: "cyber_policy", message } }),
 						)
 					: fetch,
+			daybreak: true,
 		};
 
 		const failed = await streamOpenAICodexResponses(policyModel, context, options).result();
@@ -199,5 +267,48 @@ describe("openai-codex cyber access programs", () => {
 
 		expect((await streamOpenAICodexResponses(policyModel, context, options).result()).stopReason).toBe("stop");
 		expect(sent).toEqual([{ cyber: "daybreak_blue" }, { cyber: "daybreak_blue" }]);
+	});
+
+	it("sends the toggle's program: standard when off, the advertised Daybreak program when on", async () => {
+		const toggleModel = createCodexModel("gpt-6-sol-toggle", {
+			preferWebsockets: false,
+			accountAccess: {
+				"acct-blue": { cyberPrograms: ["standard", "daybreak_red", "daybreak_blue"] },
+				"acct-red": { cyberPrograms: ["daybreak_red"] },
+				"acct-standard": { cyberPrograms: ["standard"] },
+				"acct-empty": { cyberPrograms: [] },
+				"acct-unreported": {},
+			},
+		});
+		const sent: unknown[] = [];
+		const run = (accountId: string, daybreak: boolean | undefined) =>
+			streamOpenAICodexResponses(toggleModel, context, {
+				apiKey: createCodexTestToken(accountId),
+				fetch: createFetchMock([200], sent),
+				daybreak,
+			}).result();
+
+		await run("acct-blue", undefined);
+		await run("acct-blue", false);
+		await run("acct-blue", true);
+		await run("acct-red", false);
+		await run("acct-red", true);
+		await run("acct-standard", false);
+		await run("acct-standard", true);
+		await run("acct-empty", true);
+		await run("acct-unreported", true);
+		await run("acct-missing", true);
+		expect(sent).toEqual([
+			{ cyber: "standard" },
+			{ cyber: "standard" },
+			{ cyber: "daybreak_blue" },
+			undefined,
+			{ cyber: "daybreak_red" },
+			{ cyber: "standard" },
+			undefined,
+			undefined,
+			undefined,
+			undefined,
+		]);
 	});
 });

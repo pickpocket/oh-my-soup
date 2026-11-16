@@ -3497,6 +3497,15 @@ export class ModelRegistry {
 	}
 
 	/**
+	 * Stable snapshot backing a provider lookup. It may include other providers
+	 * once the full catalog is materialized; lazy lookups only compose this
+	 * provider. Refresh, discovery and policy changes replace its identity.
+	 */
+	getCatalogSnapshot(provider: string): readonly Model<Api>[] {
+		return this.#modelsForProviderLookup(provider);
+	}
+
+	/**
 	 * Get all models (built-in + custom) of one catalog kind.
 	 * If custom config had errors, returns only built-in models. The default
 	 * excludes role-specific runners so existing session callers remain chat-only.

@@ -1690,6 +1690,7 @@ describe("Responses Lite remote compaction", () => {
 		client_metadata?: unknown;
 		reasoning?: Record<string, unknown>;
 		include?: string[];
+		access_programs?: unknown;
 	}
 
 	interface CapturedLiteExchange {
@@ -1882,6 +1883,40 @@ describe("Responses Lite remote compaction", () => {
 			expect(captured?.body.reasoning?.effort).toBe("none");
 		},
 	);
+
+	test.each([undefined, false, true])("V2 compaction forwards both flags with Daybreak=%s", async daybreak => {
+		const model = makeCodexLiteModel({
+			id: `gpt-5.6-terra-daybreak-${daybreak}`,
+			accountAccess: {
+				"acct-test": { cyberPrograms: ["standard", "daybreak_red", "daybreak_blue"] },
+			},
+		});
+		const preparation: CompactionPreparation = {
+			firstKeptEntryId: "kept-1",
+			messagesToSummarize: [{ role: "user", content: "history", timestamp: 1 }],
+			turnPrefixMessages: [],
+			recentMessages: [{ role: "user", content: "recent", timestamp: 2 }],
+			isSplitTurn: false,
+			tokensBefore: 100_000,
+			fileOps: snapcompact.createFileOps(),
+			settings: { ...DEFAULT_COMPACTION_SETTINGS, remoteStreamingV2Enabled: true },
+		};
+		const sent: unknown[] = [];
+		const fetchMock: FetchImpl = async (_input, init) => {
+			sent.push(captureStreamLite(init).body.access_programs);
+			return sseResponse(compactionV2Events("enc-daybreak"));
+		};
+
+		for (const codexAccessPrograms of [undefined, false, true]) {
+			await compact(preparation, model, CODEX_RESIDENCY_TOKEN, undefined, undefined, {
+				fetch: fetchMock,
+				codexAccessPrograms,
+				daybreak,
+			});
+		}
+		const program = { cyber: daybreak ? "daybreak_blue" : "standard" };
+		expect(sent).toEqual([program, undefined, program]);
+	});
 
 	test("V2 compaction isolates its Lite WebSocket from the full Responses session", async () => {
 		const providerSessionState = new Map<string, ProviderSessionState>();
@@ -2127,8 +2162,14 @@ describe("Responses Lite remote compaction", () => {
 		}
 	});
 
-	test("compact fan-out keeps local Codex summaries on one classified turn", async () => {
-		const model = makeCodexLiteModel();
+	test.each([
+		{ daybreak: false, codexAccessPrograms: true, cyber: "standard" },
+		{ daybreak: true, codexAccessPrograms: true, cyber: "daybreak_blue" },
+		{ daybreak: true, codexAccessPrograms: false, cyber: undefined },
+	])("local Codex fan-out keeps access programs on one classified turn: %j", async options => {
+		const model = makeCodexLiteModel({
+			accountAccess: { "acct-test": { cyberPrograms: ["standard", "daybreak_blue"] } },
+		});
 		const captured: CapturedLiteExchange[] = [];
 		const fetchMock: FetchImpl = async (_input, init) => {
 			captured.push(captureStreamLite(init));
@@ -2173,9 +2214,9 @@ describe("Responses Lite remote compaction", () => {
 		const preparation: CompactionPreparation = {
 			firstKeptEntryId: "kept-1",
 			messagesToSummarize: [{ role: "user", content: "long history", timestamp: 1 }],
-			turnPrefixMessages: [],
+			turnPrefixMessages: [{ role: "user", content: "turn prefix", timestamp: 2 }],
 			recentMessages: [{ role: "user", content: "recent", timestamp: 2 }],
-			isSplitTurn: false,
+			isSplitTurn: true,
 			tokensBefore: 100_000,
 			fileOps: snapcompact.createFileOps(),
 			settings: {
@@ -2185,17 +2226,20 @@ describe("Responses Lite remote compaction", () => {
 			},
 		};
 
-		const result = await compact(preparation, model, "test-key", undefined, undefined, {
+		const result = await compact(preparation, model, CODEX_RESIDENCY_TOKEN, undefined, undefined, {
 			fetch: fetchMock,
 			sessionId: "codex-compaction-session",
 			providerSessionState: new Map<string, ProviderSessionState>(),
 			codexCompaction: TEST_CODEX_COMPACTION,
+			daybreak: options.daybreak,
+			codexAccessPrograms: options.codexAccessPrograms,
 		});
 
 		expect(result.summary).toContain("local summary");
-		expect(captured).toHaveLength(2);
+		expect(captured).toHaveLength(3);
 		const turnIds: string[] = [];
 		for (const exchange of captured) {
+			expect(exchange.body.access_programs).toEqual(options.cyber ? { cyber: options.cyber } : undefined);
 			if (!isRecord(exchange.body.client_metadata)) throw new Error("expected local client_metadata");
 			const clientMetadata = exchange.body.client_metadata;
 			const turnMetadata = parseCodexTurnMetadata(clientMetadata["x-codex-turn-metadata"]);

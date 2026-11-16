@@ -3946,6 +3946,7 @@ export class SessionMaintenance {
 						providerSessionState: this.#host.providerSessionState,
 						preferWebsockets: this.#host.preferWebsockets(candidate),
 						codexAccessPrograms: cfgProvidersOpenaiCodexDaybreak.get(this.#host.settings),
+						daybreak: this.#host.agent.daybreak,
 						// Route every summarization HTTP request through the
 						// session's side-stream transport so the provider
 						// concurrency cap (e.g. providers.ollama-cloud.maxConcurrency)
@@ -6096,6 +6097,7 @@ export class SessionMaintenance {
 									providerSessionState: this.#host.providerSessionState,
 									preferWebsockets: this.#host.preferWebsockets(candidate),
 									codexAccessPrograms: cfgProvidersOpenaiCodexDaybreak.get(this.#host.settings),
+									daybreak: this.#host.agent.daybreak,
 									codexCompaction,
 									// This loop already retries the whole compaction attempt on
 									// transient errors, so the summarization oneshots must not

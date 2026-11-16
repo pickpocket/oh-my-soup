@@ -91,6 +91,12 @@ import { resetOpenAICodexHistoryAfterCompaction } from "@oh-my-soup/pi-ai/provid
 import { withCredentialRedaction } from "@oh-my-soup/pi-ai/providers/transform-messages";
 import { markPerCallContextMessage } from "@oh-my-soup/pi-ai/utils/block-symbols";
 import { toolWireSchema } from "@oh-my-soup/pi-ai/utils/schema";
+import {
+	type DaybreakAvailability,
+	type DaybreakProgram,
+	daybreakAvailability,
+	modelDaybreakProgram,
+} from "@oh-my-soup/pi-catalog/access-programs";
 import { resolveCatalogPolicy } from "@oh-my-soup/pi-catalog/compat/catalog-policy";
 import { supportsOutputTokenLimit } from "@oh-my-soup/pi-catalog/compat/output-limits";
 import { requiresNativeTools, requiresToolFreeHistoryForToolOptOut } from "@oh-my-soup/pi-catalog/compat/tools";
@@ -537,6 +543,8 @@ const DEFERRED_TITLE_MIN_WORDS = 40;
 const TITLE_FORK_TIMEOUT_MS = 15_000;
 /** Cap on the judgment that decides whether a `title.refreshAfterPrompts` check regenerates the title. */
 const TITLE_DRIFT_JUDGE_TIMEOUT_MS = 15_000;
+/** Providers whose discovery advertises Daybreak (`accountAccess` cyber programs); `getAvailableForProviders` takes a set. */
+const DAYBREAK_CATALOG_PROVIDERS: ReadonlySet<string> = new Set(["openai-codex"]);
 
 import { BeadsTracker, type BeadsTrackerHost } from "./beads-tracker";
 
@@ -550,6 +558,7 @@ import { cfgBrowserEnabled, cfgBrowserFreezeOnTurnEnd, cfgBrowserIdleCloseSec } 
 import {
 	cfgClaudeResets,
 	cfgCodexResets,
+	cfgDaybreak,
 	cfgDefaultThinkingLevel,
 	cfgExternalThinking,
 	cfgPowerSleepPrevention,
@@ -1138,6 +1147,17 @@ export class AgentSession implements SettingsScope, AgentViewSession {
 	/** The last `agent_end` that {@link #settleAgentEnd} published; a failed maintenance pass settles any other. */
 	#settledAgentEnd: AgentEndEvent | undefined;
 	#commandMetadataChangedListeners: CommandMetadataChangedListener[] = [];
+	/** Last `availability:enabled` Daybreak state command listeners saw; drives `/daybreak` picker visibility. */
+	#daybreakCommandState: string | undefined;
+	/** {@link daybreakAvailability} memo, keyed on the provider snapshot, credentials and settings. */
+	#daybreakAvailabilityMemo:
+		| {
+				catalog: readonly Model[];
+				credentialGeneration: number;
+				settingsRevision: number;
+				value: DaybreakAvailability;
+		  }
+		| undefined;
 	#sessionChangeCallbacks = new Set<() => void>();
 	#observedSessionId: string | undefined;
 
@@ -3235,6 +3255,7 @@ export class AgentSession implements SettingsScope, AgentViewSession {
 		void this.#revalidateFallbackChainsAfterModelDiscovery();
 		if (config.rebindModelAfterDiscovery) void this.#rebindActiveModelAfterModelDiscovery();
 		void this.#surfaceModelRegistryWarningsAfterDiscovery();
+		void this.#refreshDaybreakAvailabilityAfterModelDiscovery();
 		this.#watchWorkspaceAndPowerSettings();
 		this.#watchSessionSettings();
 		this.#watchModelAvailabilitySettings();
@@ -3390,6 +3411,11 @@ export class AgentSession implements SettingsScope, AgentViewSession {
 		});
 		this.#skillfulApplied = cfgSkillful.get(this.settings);
 		cfgSkillful.listen(this, skillful => this.#applySkillful(skillful));
+		this.agent.daybreak = cfgDaybreak.get(this.settings);
+		cfgDaybreak.listen(this, daybreak => {
+			this.agent.daybreak = daybreak;
+			this.refreshDaybreakAvailability();
+		});
 	}
 
 	/** Keeps workspace roots, the auto-QA prompt note, and the held power assertion in step with live settings. */
@@ -13067,6 +13093,70 @@ export class AgentSession implements SettingsScope, AgentViewSession {
 		return true;
 	}
 
+	/** Whether the Daybreak (OpenAI Trusted Access for Cyber) toggle is on. */
+	isDaybreakEnabled(): boolean {
+		return cfgDaybreak.get(this.settings);
+	}
+
+	/**
+	 * Sets the Daybreak toggle and persists it as the default for new sessions
+	 * (Codex CLI semantics). Applies to new turns. Returns the new state.
+	 */
+	async setDaybreak(enabled: boolean): Promise<boolean> {
+		cfgDaybreak.set(this.settings, enabled);
+		this.agent.daybreak = enabled;
+		return enabled;
+	}
+
+	/**
+	 * Account-level Daybreak eligibility from the Codex-discovered model catalog.
+	 * UI reads this per repaint, so the result is memoized on the provider's
+	 * catalog identity (including lazy discovery), credential generation
+	 * (login/logout) and settings revision (provider availability).
+	 */
+	daybreakAvailability(): DaybreakAvailability {
+		const catalog = this.#modelRegistry.getCatalogSnapshot("openai-codex");
+		const credentialGeneration = this.#modelRegistry.authStorage.credentials.generation;
+		const settingsRevision = this.settings.revision;
+		const memo = this.#daybreakAvailabilityMemo;
+		if (
+			memo?.catalog === catalog &&
+			memo.credentialGeneration === credentialGeneration &&
+			memo.settingsRevision === settingsRevision
+		)
+			return memo.value;
+		const value = daybreakAvailability(this.#modelRegistry.getAvailableForProviders(DAYBREAK_CATALOG_PROVIDERS));
+		this.#daybreakAvailabilityMemo = { catalog, credentialGeneration, settingsRevision, value };
+		return value;
+	}
+
+	/** Daybreak program the toggle would request for `model` (default: the session model). */
+	daybreakProgramForModel(model: Model | undefined = this.model): DaybreakProgram | undefined {
+		return model ? modelDaybreakProgram(model) : undefined;
+	}
+
+	/**
+	 * Re-derive catalog Daybreak eligibility after a model registry refresh (or a
+	 * toggle) and notify command-metadata listeners when it or the toggle changed,
+	 * so the TUI rebuilds its slash-command picker (`/daybreak` visibility).
+	 */
+	refreshDaybreakAvailability(): void {
+		// Startup discovery and login can add account programs without changing
+		// the model's context window. Keep the bound request metadata in sync,
+		// preserving this session's other model overrides.
+		const current = this.model;
+		if (current?.api === "openai-codex-responses") {
+			const refreshed = this.#modelRegistry.find(current.provider, current.id);
+			if (refreshed && refreshed.accountAccess !== current.accountAccess) {
+				this.agent.setModel({ ...current, accountAccess: refreshed.accountAccess });
+			}
+		}
+		const state = `${this.daybreakAvailability()}:${this.isDaybreakEnabled()}`;
+		if (state === this.#daybreakCommandState) return;
+		this.#daybreakCommandState = state;
+		this.#notifyCommandMetadataChanged();
+	}
+
 	/** Flips the `skillful` setting for this session only. See {@link setSkillful}. */
 	async toggleSkillful(): Promise<boolean> {
 		return this.setSkillful(!cfgSkillful.get(this.settings));
@@ -14052,6 +14142,7 @@ export class AgentSession implements SettingsScope, AgentViewSession {
 				// default thinking budget. A side turn's cap is a hard resource boundary.
 				disableReasoning: shouldDisableReasoning(this.thinkingLevel) || cappedBudgetThinking,
 				hideThinkingSummary: this.agent.hideThinkingSummary,
+				daybreak: this.agent.daybreak,
 				serviceTier: this.#models.effectiveServiceTier(model),
 				maxTokens: args.maxTokens,
 				signal: args.signal ? AbortSignal.any([args.signal, streamAbort.signal]) : streamAbort.signal,
@@ -16447,6 +16538,19 @@ export class AgentSession implements SettingsScope, AgentViewSession {
 		if (warnings.length === 0) return;
 		this.configWarnings.push(...warnings);
 		this.#emit({ type: "config_warnings_changed" });
+	}
+
+	/**
+	 * Codex discovery populates `accountAccess` cyber programs after the session
+	 * is built; once the initial background refresh settles, re-derive Daybreak
+	 * eligibility so the `/daybreak` command appears for eligible accounts.
+	 */
+	async #refreshDaybreakAvailabilityAfterModelDiscovery(): Promise<void> {
+		if (this.#isDisposed || this.#agentKind !== "main") return;
+		if (typeof this.#modelRegistry.awaitInitialBackgroundRefresh !== "function") return;
+		await this.#modelRegistry.awaitInitialBackgroundRefresh(this.#modelDiscoveryAbortController.signal);
+		if (this.#isDisposed) return;
+		this.refreshDaybreakAvailability();
 	}
 
 	/**

@@ -2883,6 +2883,8 @@ export async function runRootCommand(
 			};
 			session.setScopedModelsRefresher(async () => {
 				await rebuildScopedModels(session, parsedArgs, modelRegistry, settingsInstance);
+				// A Codex login can make the account Daybreak-eligible (`/daybreak` picker visibility).
+				session.refreshDaybreakAvailability();
 			});
 			watchScopedModelSettings(session, parsedArgs, modelRegistry, settingsInstance);
 

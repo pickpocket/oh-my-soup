@@ -28,6 +28,7 @@ import { createInMemoryAuthStorage } from "./helpers/agent-session-setup";
 import { endpoint as responsesEndpoint } from "../../ai/test/fixtures/openai-responses-server";
 
 import {
+	cfgDaybreak,
 	cfgProvidersOpenaiResponsesWebsockets,
 	cfgProvidersOpenaiWebsockets,
 } from "@oh-my-soup/pi-coding-agent/session/settings";
@@ -275,8 +276,16 @@ describe("AgentSession advisor provider-options parity", () => {
 		expect(capturedModels[0]?.api).toBe("openai-codex-responses");
 		expect(capturedStreamOptions[0]?.codexSseMaxAttempts).toBe(1);
 		expect(capturedStreamOptions[0]?.preferWebsockets).toBe(true);
+		expect(capturedStreamOptions[0]?.daybreak).toBe(false);
 		expect(requestCount).toBe(1);
 		expect(advisor.state.error).toContain("socket connection was closed unexpectedly");
+
+		cfgDaybreak.set(session.settings, true);
+		await advisor.prompt("daybreak on").catch(() => {});
+		expect(capturedStreamOptions.at(-1)?.daybreak).toBe(true);
+		cfgDaybreak.set(session.settings, false);
+		await advisor.prompt("daybreak off").catch(() => {});
+		expect(capturedStreamOptions.at(-1)?.daybreak).toBe(false);
 	});
 
 	it("reuses the main agent's providerPromptCacheKey unchanged so tan/shared sessions stay on the parent shard", () => {

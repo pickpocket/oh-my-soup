@@ -12,6 +12,7 @@
 - Collab guests on a full-control link can run session commands on the host from the browser client: `/model`, `/effort`, `/compact`, `/retry`, `/btw` and other session builtins, plus skills, prompt templates and file/custom commands. Machine, credential, plugin and process commands stay host-only.
 - Collaboration works with the standalone `oms-relay` server (`feat/collab-server`): no message exceeds its 2 MiB limit, a joining guest's snapshot is paced to that guest's speed so slow links no longer get dropped mid-join, and the relay's own reasons for refusing a room are shown.
 - Added `task.perCallModelStrict`: opts into exact-selector, operator-approved per-call task models; per-call `model` overrides (ids, roles, fallback lists) stay enabled by default
+- Added Daybreak (OpenAI Trusted Access for Cyber) as an off-by-default toggle: `/daybreak [on|off|status]` (offered once the Codex catalog shows your account is eligible), the persisted `daybreak` setting, and a Daybreak control (`alt+d`) in the `/model` hub; when on, Codex requests ask for the program each model advertises (`daybreak_blue`, else `daybreak_red`) ([#13](https://github.com/pickpocket/oh-my-soup/pull/13) by [@0neShot101](https://github.com/0neShot101))
 
 ### Changed
 

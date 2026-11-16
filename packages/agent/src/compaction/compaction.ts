@@ -754,8 +754,10 @@ export interface SummaryOptions {
 	providerSessionState?: Map<string, ProviderSessionState>;
 	/** Whether Codex remote compaction should prefer the provider WebSocket transport. */
 	preferWebsockets?: boolean;
-	/** Daybreak Blue request on Codex remote compaction; see `StreamOptions.codexAccessPrograms`. */
+	/** Allow Codex cyber access programs; see `StreamOptions.codexAccessPrograms`. */
 	codexAccessPrograms?: boolean;
+	/** Per-request Daybreak selection on Codex compaction; off by default. */
+	daybreak?: boolean;
 	/** Classification shared by every provider request in this logical compaction. */
 	codexCompaction?: CodexCompactionContext;
 	/** Provider-visible tools for remote compaction transports that replay native tool history. */
@@ -1068,6 +1070,8 @@ async function summarizeConversationWindow(
 			sessionId: options?.sessionId,
 			promptCacheKey: options?.promptCacheKey,
 			providerSessionState: options?.providerSessionState,
+			codexAccessPrograms: options?.codexAccessPrograms,
+			daybreak: options?.daybreak,
 			codexCompaction: localCodexCompaction(options),
 		},
 		{
@@ -1303,6 +1307,8 @@ async function generateShortSummary(
 					sessionId: options?.sessionId,
 					promptCacheKey: options?.promptCacheKey,
 					providerSessionState: options?.providerSessionState,
+					codexAccessPrograms: options?.codexAccessPrograms,
+					daybreak: options?.daybreak,
 					codexCompaction: localCodexCompaction(options),
 				},
 				{
@@ -1815,6 +1821,7 @@ export async function compact(
 		providerSessionState: options?.providerSessionState,
 		preferWebsockets: options?.preferWebsockets,
 		codexAccessPrograms: options?.codexAccessPrograms,
+		daybreak: options?.daybreak,
 		codexCompaction: options?.codexCompaction,
 		tools: options?.tools,
 		fetch: options?.fetch,
@@ -2060,6 +2067,7 @@ export async function compact(
 						providerSessionState: summaryOptions.providerSessionState,
 						preferWebsockets: summaryOptions.preferWebsockets,
 						codexAccessPrograms: summaryOptions.codexAccessPrograms,
+						daybreak: summaryOptions.daybreak,
 						codexCompaction: summaryOptions.codexCompaction,
 					}),
 				{ signal },
@@ -2476,6 +2484,8 @@ async function generateTurnPrefixSummary(
 			sessionId: options?.sessionId,
 			promptCacheKey: options?.promptCacheKey,
 			providerSessionState: options?.providerSessionState,
+			codexAccessPrograms: options?.codexAccessPrograms,
+			daybreak: options?.daybreak,
 			codexCompaction: localCodexCompaction(options),
 		},
 		{

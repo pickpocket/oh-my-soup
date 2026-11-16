@@ -275,6 +275,7 @@ export async function requestCompactionV2Streaming(
 		codexCompaction?: CodexCompactionContext;
 		preferWebsockets?: boolean;
 		codexAccessPrograms?: boolean;
+		daybreak?: boolean;
 	},
 ): Promise<CompactionV2Response> {
 	let fetchImpl: FetchImpl = options?.fetch ?? globalThis.fetch;
@@ -318,6 +319,7 @@ export async function requestCompactionV2Streaming(
 				codexCompaction: options?.codexCompaction,
 				preferWebsockets: options?.preferWebsockets,
 				codexAccessPrograms: options?.codexAccessPrograms,
+				daybreak: options?.daybreak,
 			});
 		} catch (err) {
 			const error = toError(err);
@@ -355,6 +357,7 @@ async function attemptCompactionV2Streaming(
 		codexCompaction?: CodexCompactionContext;
 		preferWebsockets?: boolean;
 		codexAccessPrograms?: boolean;
+		daybreak?: boolean;
 	},
 ): Promise<CompactionV2Response> {
 	// Faithful to Codex: append the compaction trigger as the final input item
@@ -381,6 +384,7 @@ async function attemptCompactionV2Streaming(
 			providerSessionState: options.providerSessionState,
 			preferWebsockets: options.preferWebsockets,
 			codexAccessPrograms: options.codexAccessPrograms,
+			daybreak: options.daybreak,
 			responsesLite: model.useResponsesLite,
 			codexCompaction: createOpenAICodexCompactionRequestContext({
 				context: options.codexCompaction,

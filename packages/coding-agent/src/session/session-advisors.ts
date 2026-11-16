@@ -1486,6 +1486,7 @@ export class SessionAdvisors {
 				if (requestModel.api === "openai-codex-responses") {
 					return baseAdvisorStreamFn(requestModel, context, {
 						...options,
+						daybreak: this.#host.agent.daybreak,
 						codexSseMaxAttempts: ADVISOR_CODEX_SSE_MAX_ATTEMPTS,
 					});
 				}
@@ -2668,6 +2669,7 @@ export class SessionAdvisors {
 						providerSessionState: this.#host.providerSessionState,
 						preferWebsockets: this.#host.preferWebsockets(candidate),
 						codexAccessPrograms: cfgProvidersOpenaiCodexDaybreak.get(this.#host.settings),
+						daybreak: this.#host.agent.daybreak,
 						codexCompaction,
 					},
 				);

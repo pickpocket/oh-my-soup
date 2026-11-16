@@ -613,10 +613,10 @@ export interface StreamOptions {
 	 */
 	storeResponses?: boolean;
 	/**
-	 * Request the Daybreak Blue cyber access program on Codex when the account
-	 * is eligible (see `openai-codex/access-programs.ts`). `false` omits
-	 * `access_programs`. Unset falls back to the host's
-	 * `configureCodexAccessPrograms` default, else on. Ignored elsewhere.
+	 * Allow account-advertised Codex cyber access programs selected by `daybreak`.
+	 * `false` omits `access_programs`, including `standard` when Daybreak is off.
+	 * Unset falls back to the host's `configureCodexAccessPrograms` default,
+	 * else on. This gate does not enable Daybreak itself. Ignored elsewhere.
 	 */
 	codexAccessPrograms?: boolean;
 	/**
@@ -858,6 +858,12 @@ export interface SimpleStreamOptions extends Omit<StreamOptions, "apiKey"> {
 	toolChoice?: ToolChoice;
 	/** OpenAI service tier for processing priority/cost control. Ignored by non-OpenAI providers. */
 	serviceTier?: ServiceTier;
+	/**
+	 * Daybreak (OpenAI Trusted Access for Cyber) toggle; off by default. Codex only: on requests the account's
+	 * advertised Daybreak program (blue before red), off sends `standard` when advertised.
+	 * Suppressed by `codexAccessPrograms: false`. Ignored by other providers.
+	 */
+	daybreak?: boolean;
 	/** Explicit Kimi Code API format override; omitted uses live per-model protocol metadata. */
 	kimiApiFormat?: "openai" | "anthropic";
 	/** API format for Synthetic provider: "openai" or "anthropic" (default: "openai") */

@@ -2138,6 +2138,7 @@ function mapOptionsForApi<TApi extends Api>(
 				reasoning: resolveOpenAiReasoningEffort(model, options),
 				toolChoice: mapOpenAiToolChoice(options?.toolChoice),
 				serviceTier: options?.serviceTier,
+				daybreak: options?.daybreak,
 				preferWebsockets: options?.preferWebsockets,
 				codexCompaction: options?.codexCompaction,
 				codexAccessPrograms: options?.codexAccessPrograms,

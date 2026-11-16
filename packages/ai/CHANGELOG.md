@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- Codex Daybreak (Trusted Access for Cyber) is now a per-request toggle, off by default: `SimpleStreamOptions.daybreak` / `OpenAICodexResponsesOptions.daybreak` request the model's advertised `daybreak_blue` (or `daybreak_red`), while off sends `standard` explicitly when advertised instead of auto-requesting `daybreak_blue`; `unsupported_access_program` rejections now also drop the program and replay ([#13](https://github.com/pickpocket/oh-my-soup/pull/13) by [@0neShot101](https://github.com/0neShot101))
+
 ### Fixed
 
 - Fixed Mistral (and other OpenAI-compatible) 429s reporting a zero `x-ratelimit-limit-*` allowance being retried for minutes; they now fail on the first request with an error naming the header and suggesting a model or plan switch ([#19300](https://github.com/can1357/oh-my-pi/issues/19300))

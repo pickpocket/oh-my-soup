@@ -51,6 +51,7 @@ const OPTION_TIERS = {
 	serviceTier: "gateway",
 	openrouterVariant: "gateway",
 	codexAccessPrograms: "gateway",
+	daybreak: "gateway",
 	cacheRetention: "gateway",
 	storeResponses: "gateway",
 	cachedContent: "gateway",

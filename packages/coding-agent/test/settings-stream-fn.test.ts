@@ -16,7 +16,7 @@ import { getBundledModel } from "@oh-my-soup/pi-catalog/models";
 import { AssistantMessageEventStream } from "@oh-my-soup/pi-ai/utils/event-stream";
 import { bindEffects } from "@oh-my-soup/pi-coding-agent/config/registry";
 import { Settings } from "@oh-my-soup/pi-coding-agent/config/settings";
-import { cfgProvidersMuseCodeStoreResponses } from "@oh-my-soup/pi-coding-agent/session/settings";
+import { cfgDaybreak, cfgProvidersMuseCodeStoreResponses } from "@oh-my-soup/pi-coding-agent/session/settings";
 import {
 	createSettingsAwareStreamFn,
 	resolveWebsocketPreference,
@@ -582,7 +582,7 @@ describe("createSettingsAwareStreamFn", () => {
 		})}\n\n`;
 
 		/** Run one turn through `settings`' stream fn; return the wire `access_programs`. */
-		async function wireAccessPrograms(settings: Settings): Promise<unknown> {
+		async function wireAccessPrograms(settings: Settings, daybreak?: boolean): Promise<unknown> {
 			const sent: unknown[] = [];
 			const fetch = (async (_url: unknown, init?: RequestInit) => {
 				const body = init?.body;
@@ -594,15 +594,15 @@ describe("createSettingsAwareStreamFn", () => {
 			const stream = await createSettingsAwareStreamFn(settings)(
 				codexModel,
 				{ messages: [{ role: "user", content: "hi", timestamp: 0 }] },
-				{ apiKey: `aaa.${payload}.bbb`, fetch },
+				{ apiKey: `aaa.${payload}.bbb`, fetch, daybreak },
 			);
 			await stream.result();
 			return sent[0];
 		}
 
 		it("keeps a session's opt-out when another session drives the process default", async () => {
-			const optedOut = Settings.isolated({ "providers.openai-codex.daybreak": false });
-			const other = Settings.isolated();
+			const optedOut = Settings.isolated({ "providers.openai-codex.daybreak": false, daybreak: true });
+			const other = Settings.isolated({ daybreak: true });
 			// The newest session binds effects, so the process-wide default is on.
 			const release = bindEffects(other);
 			try {
@@ -611,6 +611,16 @@ describe("createSettingsAwareStreamFn", () => {
 			} finally {
 				release();
 			}
+		});
+
+		it("defaults to standard and applies the live session toggle without overriding explicit request choices", async () => {
+			const settings = Settings.isolated();
+			expect(await wireAccessPrograms(settings)).toEqual({ cyber: "standard" });
+			cfgDaybreak.set(settings, true);
+			expect(await wireAccessPrograms(settings)).toEqual({ cyber: "daybreak_blue" });
+			expect(await wireAccessPrograms(settings, false)).toEqual({ cyber: "standard" });
+			cfgDaybreak.set(settings, false);
+			expect(await wireAccessPrograms(settings)).toEqual({ cyber: "standard" });
 		});
 	});
 });

@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [18.20.3] - 2026-11-16
+
 ### Added
 
 - Added the relay limits clients must respect (`COLLAB_RELAY_MAX_MESSAGE_BYTES`, `COLLAB_MAX_FRAME_BYTES`) and the shared relay close-code reasons (`COLLAB_RELAY_CLOSE_REASONS`).

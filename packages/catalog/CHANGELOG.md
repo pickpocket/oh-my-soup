@@ -2,34 +2,28 @@
 
 ## [Unreleased]
 
+## [18.20.3] - 2026-11-16
+
 ### Added
 
 - Added `@oh-my-soup/pi-catalog/access-programs` with `daybreakProgramFor`, `modelDaybreakProgram`, and `daybreakAvailability` to resolve Codex Daybreak (Trusted Access for Cyber) programs and account eligibility ([#13](https://github.com/pickpocket/oh-my-soup/pull/13) by [@0neShot101](https://github.com/0neShot101))
+- Added `gen:models --snapshot-compat` to regenerate wire policy offline while preserving the bundled inventory.
+- Added the `request-encodings`, `request-encoding-rejection`, and `endpoint-hosts` rule axes, `resolveRequestCompression(model, url)`, and `isCatalogEndpointUrl(model, url)`, declaring which providers' own endpoints decode compressed request bodies: official Anthropic API (gzip), Codex backend (zstd), and GitHub Copilot's API hosts (zstd, then gzip); Moonshot's China host counts as its own endpoint ([#16086](https://github.com/can1357/oh-my-pi/pull/16086) by [@H4vC](https://github.com/H4vC))
 
 ### Changed
 
 - Default web search tries dedicated search engines before falling back to a hosted chat model.
 - Antigravity discovery accepts an explicit client User-Agent without looking up an unrelated IDE version.
 
-### Added
-
-- Added `gen:models --snapshot-compat` to regenerate wire policy offline while preserving the bundled inventory.
-
-### Removed
-
-- Removed the obsolete Antigravity Claude tool-mode and thinking-beta compatibility flags.
-
 ### Fixed
 
 - Antigravity login uses the observed CLI authorization endpoint, hosted callback, and scopes, including `openid`.
-
-### Fixed
-
 - Fixed `deepseek/deepseek-v4-flash` dropping attached images: DeepSeek serves the retired id with the multimodal V4.1 Flash, so it now keeps image input like `deepseek-flash` ([#19288](https://github.com/can1357/oh-my-pi/issues/19288))
 - Mistral GLM 5.3, GLM 5.3 Flash and Mistral Large 4 now offer only the reasoning efforts Mistral documents ([#19265](https://github.com/can1357/oh-my-pi/issues/19265)) ([#19287](https://github.com/can1357/oh-my-pi/pull/19287) by [@Alex-Wengg](https://github.com/Alex-Wengg)).
 
 ### Removed
 
+- Removed the obsolete Antigravity Claude tool-mode and thinking-beta compatibility flags.
 - Removed the `openai-prism` catalog provider and its static model roster
 
 ## [18.20.2] - 2026-11-14
@@ -475,12 +469,6 @@
 ### Fixed
 
 - Fixed OpenCode Zen Gemini 4 Argon failing with an unsupported protocol; it now uses the native Gemini endpoint ([#15977](https://github.com/can1357/oh-my-pi/issues/15977)).
-
-## [18.11.1] - 2026-10-16
-
-### Added
-
-- Added the `request-encodings`, `request-encoding-rejection`, and `endpoint-hosts` rule axes, `resolveRequestCompression(model, url)`, and `isCatalogEndpointUrl(model, url)`, declaring which providers' own endpoints decode compressed request bodies: official Anthropic API (gzip), Codex backend (zstd), and GitHub Copilot's API hosts (zstd, then gzip); Moonshot's China host counts as its own endpoint ([#16086](https://github.com/can1357/oh-my-pi/pull/16086) by [@H4vC](https://github.com/H4vC))
 
 ## [18.11.1] - 2026-10-15
 

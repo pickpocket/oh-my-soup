@@ -2,9 +2,15 @@
 
 ## [Unreleased]
 
+## [18.20.3] - 2026-11-16
+
 ### Added
 
 - The `/model` hub shows a Daybreak (Trusted Access for Cyber) toggle when the account is eligible: `alt+d` flips it, the status line shows `Daybreak: on|off`, and models that offer a Daybreak program carry a `daybreak` badge ([#13](https://github.com/pickpocket/oh-my-soup/pull/13) by [@0neShot101](https://github.com/0neShot101))
+
+### Changed
+
+- Restored the original soup pixel art on welcome and setup screens in classic and native terminals.
 
 ### Fixed
 
@@ -570,10 +576,6 @@
 - Fixed Tern drawing tool cards' file contents (write, read, edit, grep, find, ast-grep, ast-edit) plain or in the wrong language when oms did not know the file's extension (`.ptx`) or mapped it to a neighbor (`.cu` as C++); oms now sends the file's path and Tern picks the grammar
 
 ## [18.12.0] - 2026-10-17
-
-### Changed
-
-- Restored the original soup pixel art on welcome and setup screens in classic and native terminals.
 
 ### Fixed
 

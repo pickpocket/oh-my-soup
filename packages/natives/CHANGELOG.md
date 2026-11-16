@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [18.20.3] - 2026-11-16
+
 ### Added
 
 - Exported the native loader-state subpath for shared verified extraction of embedded executables.

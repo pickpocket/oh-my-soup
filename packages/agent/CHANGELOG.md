@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [18.20.3] - 2026-11-16
+
 ### Added
 
 - Added `Agent.daybreak` (and `AgentOptions.daybreak`) to forward the Codex Daybreak (Trusted Access for Cyber) toggle to every request; off by default ([#13](https://github.com/pickpocket/oh-my-soup/pull/13) by [@0neShot101](https://github.com/0neShot101))

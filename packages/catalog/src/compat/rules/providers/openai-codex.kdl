@@ -241,6 +241,19 @@ provider "openai-codex" {
 		}
 		max-context-window 922000
 	}
+	// GPT-6.2 Sol lists at $2/$10 with $0.10 cached input (OpenAI API docs,
+	// developers.openai.com/api/docs/models/gpt-6.2-sol). Codex reports an 872K
+	// maximum while OpenAI documents 922K max input (1.05M total); the curated
+	// maximum applies only with extended context on.
+	models "gpt-6.2-sol" "gpt-6.2-sol-wm" {
+		cost-patch {
+			input 2.0
+			output 10.0
+			cache-read 0.1
+			cache-write 0
+		}
+		max-context-window 922000
+	}
 	models "gpt-6-luna-wm" {
 		cost-patch {
 			input 0.1

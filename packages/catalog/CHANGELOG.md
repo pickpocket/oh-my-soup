@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [18.20.7] - 2026-11-18
+
+### Fixed
+
+- Codex accounts now list GPT-6.2 Astra and GPT-6.2 Sol: discovery identifies as Codex 0.170.0, and Codex-discovered `gpt-6.2-sol`/`-wm` get API-equivalent pricing ($2/$10, $0.10 cached) and the 922K extended-context maximum.
+
 ## [18.20.6] - 2026-11-18
 
 ### Added

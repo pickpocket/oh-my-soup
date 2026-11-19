@@ -12,6 +12,7 @@ import { resolveProviderModels } from "@oh-my-soup/pi-catalog/model-manager";
 import { getSupportedEfforts } from "@oh-my-soup/pi-catalog/model-thinking";
 import { openaiCodexModelManagerOptions } from "@oh-my-soup/pi-catalog/provider-models/special";
 import { modelKind, type ModelSpec } from "@oh-my-soup/pi-catalog/types";
+import { CODEX_CLIENT_VERSION } from "@oh-my-soup/pi-catalog/wire/codex";
 import { resolveProviderModelReference } from "@oh-my-soup/pi-coding-agent/config/model-resolver";
 
 describe("Codex model discovery", () => {
@@ -330,8 +331,8 @@ describe("Codex model discovery", () => {
 		);
 		const result = await fetchCodexModels({ accessToken: "test-token", fetchFn });
 
-		expect(capturedUrl?.searchParams.get("client_version")).toBe("0.159.0");
-		expect(capturedHeaders?.get("version")).toBe("0.159.0");
+		expect(capturedUrl?.searchParams.get("client_version")).toBe(CODEX_CLIENT_VERSION);
+		expect(capturedHeaders?.get("version")).toBe(CODEX_CLIENT_VERSION);
 		expect(result?.models.map(model => model.id)).toEqual(["gpt-6-sol", "gpt-6-luna"]);
 
 		for (const id of ["gpt-6-sol", "gpt-6-luna"] as const) {

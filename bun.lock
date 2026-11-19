@@ -16,7 +16,7 @@
     },
     "packages/agent": {
       "name": "@oh-my-soup/pi-agent-core",
-      "version": "18.20.6",
+      "version": "18.20.7",
       "dependencies": {
         "@oh-my-soup/pi-ai": "catalog:",
         "@oh-my-soup/pi-catalog": "catalog:",
@@ -35,7 +35,7 @@
     },
     "packages/ai": {
       "name": "@oh-my-soup/pi-ai",
-      "version": "18.20.6",
+      "version": "18.20.7",
       "dependencies": {
         "@oh-my-soup/omstype": "catalog:",
         "@oh-my-soup/pi-catalog": "catalog:",
@@ -57,7 +57,7 @@
     },
     "packages/catalog": {
       "name": "@oh-my-soup/pi-catalog",
-      "version": "18.20.6",
+      "version": "18.20.7",
       "dependencies": {
         "@oh-my-soup/omstype": "catalog:",
         "@oh-my-soup/pi-utils": "catalog:",
@@ -70,7 +70,7 @@
     },
     "packages/coding-agent": {
       "name": "@oh-my-soup/pi-coding-agent",
-      "version": "18.20.6",
+      "version": "18.20.7",
       "bin": {
         "oms": "src/cli.ts",
       },
@@ -134,7 +134,7 @@
     },
     "packages/mnemopi": {
       "name": "@oh-my-soup/pi-mnemopi",
-      "version": "18.20.6",
+      "version": "18.20.7",
       "bin": {
         "mnemopi": "src/cli.ts",
       },
@@ -160,7 +160,7 @@
     },
     "packages/natives": {
       "name": "@oh-my-soup/pi-natives",
-      "version": "18.20.6",
+      "version": "18.20.7",
       "devDependencies": {
         "@napi-rs/cli": "catalog:",
         "@types/bun": "catalog:",
@@ -174,7 +174,7 @@
     },
     "packages/omstype": {
       "name": "@oh-my-soup/omstype",
-      "version": "18.20.6",
+      "version": "18.20.7",
       "devDependencies": {
         "@sinclair/typebox": "^0.34.0",
         "@types/bun": "catalog:",
@@ -184,7 +184,7 @@
     },
     "packages/snapcompact": {
       "name": "@oh-my-soup/snapcompact",
-      "version": "18.20.6",
+      "version": "18.20.7",
       "dependencies": {
         "@oh-my-soup/omstype": "catalog:",
         "@oh-my-soup/pi-ai": "catalog:",
@@ -199,7 +199,7 @@
     },
     "packages/stats": {
       "name": "@oh-my-soup/oms-stats",
-      "version": "18.20.6",
+      "version": "18.20.7",
       "bin": {
         "oms-stats": "./src/index.ts",
       },
@@ -236,7 +236,7 @@
     },
     "packages/tui": {
       "name": "@oh-my-soup/pi-tui",
-      "version": "18.20.6",
+      "version": "18.20.7",
       "dependencies": {
         "@oh-my-soup/omstype": "catalog:",
         "@oh-my-soup/pi-agent-core": "catalog:",
@@ -276,7 +276,7 @@
     },
     "packages/utils": {
       "name": "@oh-my-soup/pi-utils",
-      "version": "18.20.6",
+      "version": "18.20.7",
       "dependencies": {
         "@oh-my-soup/omstype": "catalog:",
         "@oh-my-soup/pi-natives": "catalog:",
@@ -287,7 +287,7 @@
     },
     "packages/wire": {
       "name": "@oh-my-soup/pi-wire",
-      "version": "18.20.6",
+      "version": "18.20.7",
       "devDependencies": {
         "@types/bun": "catalog:",
       },
@@ -322,18 +322,18 @@
     "@babel/types": "^7.29.7",
     "@napi-rs/cli": "3.7.2",
     "@noble/ciphers": "2.4.0",
-    "@oh-my-soup/oms-stats": "18.20.6",
-    "@oh-my-soup/omstype": "18.20.6",
-    "@oh-my-soup/pi-agent-core": "18.20.6",
-    "@oh-my-soup/pi-ai": "18.20.6",
-    "@oh-my-soup/pi-catalog": "18.20.6",
-    "@oh-my-soup/pi-coding-agent": "18.20.6",
-    "@oh-my-soup/pi-mnemopi": "18.20.6",
-    "@oh-my-soup/pi-natives": "18.20.6",
-    "@oh-my-soup/pi-tui": "18.20.6",
-    "@oh-my-soup/pi-utils": "18.20.6",
-    "@oh-my-soup/pi-wire": "18.20.6",
-    "@oh-my-soup/snapcompact": "18.20.6",
+    "@oh-my-soup/oms-stats": "18.20.7",
+    "@oh-my-soup/omstype": "18.20.7",
+    "@oh-my-soup/pi-agent-core": "18.20.7",
+    "@oh-my-soup/pi-ai": "18.20.7",
+    "@oh-my-soup/pi-catalog": "18.20.7",
+    "@oh-my-soup/pi-coding-agent": "18.20.7",
+    "@oh-my-soup/pi-mnemopi": "18.20.7",
+    "@oh-my-soup/pi-natives": "18.20.7",
+    "@oh-my-soup/pi-tui": "18.20.7",
+    "@oh-my-soup/pi-utils": "18.20.7",
+    "@oh-my-soup/pi-wire": "18.20.7",
+    "@oh-my-soup/snapcompact": "18.20.7",
     "@opentelemetry/api": "^1.9.1",
     "@opentelemetry/api-logs": "^0.220.0",
     "@opentelemetry/context-async-hooks": "2.9.0",

@@ -15,10 +15,10 @@ import { applyGeneratedModelPolicies } from "../scripts/generated-policies";
 
 const DAYBREAK_EFFORTS = [Effort.Low, Effort.Medium, Effort.High, Effort.XHigh, Effort.Max];
 // The openai seed also carries transcription and embedding runners and the
-// GPT-6 Sol/Luna rows; only the remaining Responses rows are Daybreak/GPT-5.6
-// chat models.
+// GPT-6 line (Sol, Luna, 6.2 Astra); only the remaining Responses rows are
+// Daybreak/GPT-5.6 chat models.
 const DAYBREAK_MODELS = seedModels("openai").filter(
-	model => model.api === "openai-responses" && !model.id.startsWith("gpt-6-"),
+	model => model.api === "openai-responses" && !model.id.startsWith("gpt-6"),
 );
 
 describe("OpenAI Daybreak and GPT-5.6 models", () => {

@@ -228,6 +228,19 @@ provider "openai-codex" {
 		}
 		max-context-window 922000
 	}
+	// GPT-6.2 Astra lists at $8/$40 with $0.40 cached input (OpenAI API docs,
+	// developers.openai.com/api/docs/models/gpt-6.2-astra). OpenAI documents
+	// 922K max input (1.05M total); the curated maximum applies only with
+	// extended context on, and a higher live maximum still wins.
+	models "gpt-6.2-astra" "gpt-6.2-astra-wm" {
+		cost-patch {
+			input 8.0
+			output 40.0
+			cache-read 0.4
+			cache-write 0
+		}
+		max-context-window 922000
+	}
 	models "gpt-6-luna-wm" {
 		cost-patch {
 			input 0.1

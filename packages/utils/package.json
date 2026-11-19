@@ -1,6 +1,6 @@
 {
 	"name": "@oh-my-soup/pi-utils",
-	"version": "18.20.5",
+	"version": "18.20.6",
 	"description": "Shared utilities for Oh My Soup packages",
 	"keywords": [
 		"cli",

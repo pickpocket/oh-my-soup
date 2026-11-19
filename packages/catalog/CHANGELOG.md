@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [18.20.6] - 2026-11-18
+
 ### Added
 
 - Added GPT-6.2 Astra: `openai/gpt-6.2-astra` ships bundled ($8/$40, $0.40 cached, >272K long-context tier, 1.05M window, Ultrafast at the 3x launch rate), and Codex-discovered `gpt-6.2-astra`/`-wm` get API-equivalent pricing and the 922K extended-context maximum.
